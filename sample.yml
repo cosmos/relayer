@@ -1,0 +1,17 @@
+global:
+  timeout: "20s"
+chains:
+  - chain-id: testchain1
+    rpc-addr: https://localhost:26657
+    account-prefix: cosmos
+    key: testkey
+    counterparties:
+      - testchain2
+    default-denom: stake
+  - chain-id: testchain2
+    rpc-addr: https://localhost:26557
+    account-prefix: cosmos
+    key: testkey
+    counterparties:
+      - testchain1
+    default-denom: stake
