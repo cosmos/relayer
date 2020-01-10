@@ -54,6 +54,7 @@ var rootCmd = &cobra.Command{
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	rootCmd.PersistentPreRunE = func(_ *cobra.Command, _ []string) error {
+		// reads `homeDir/config/config.yaml` into `var config *Config` before each command
 		return initConfig(rootCmd)
 	}
 

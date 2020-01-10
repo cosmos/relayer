@@ -39,14 +39,12 @@ var keysCmd = &cobra.Command{
 	Short: "helps users manage keys for multiple chains",
 }
 
+// keysAddCmd respresents the `keys add` command
 var keysAddCmd = &cobra.Command{
 	Use:   "add [chain-id] [name]",
 	Short: "adds a key to the keychain associated with a particular chain",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println(config)
-		fmt.Println(config.Chains)
-		fmt.Println(config.c)
 		chainID := args[0]
 		keyName := args[1]
 
@@ -79,6 +77,7 @@ var keysAddCmd = &cobra.Command{
 	},
 }
 
+// keysDeleteCmd respresents the `keys delete` command
 var keysDeleteCmd = &cobra.Command{
 	Use:   "delete [chain-id] [name]",
 	Short: "deletes a key from the keychain associated with a particular chain",
@@ -110,6 +109,7 @@ var keysDeleteCmd = &cobra.Command{
 	},
 }
 
+// keysListCmd respresents the `keys list` command
 var keysListCmd = &cobra.Command{
 	Use:   "list [chain-id]",
 	Short: "lists keys from the keychain associated with a particular chain",
@@ -136,6 +136,7 @@ var keysListCmd = &cobra.Command{
 	},
 }
 
+// keysShowCmd respresents the `keys show` command
 var keysShowCmd = &cobra.Command{
 	Use:   "show [chain-id] [name]",
 	Short: "shows a key from the keychain associated with a particular chain",
@@ -167,6 +168,7 @@ var keysShowCmd = &cobra.Command{
 	},
 }
 
+// keysExportCmd respresents the `keys export` command
 var keysExportCmd = &cobra.Command{
 	Use:   "export [chain-id] [name]",
 	Short: "exports a privkey from the keychain associated with a particular chain",
@@ -198,6 +200,7 @@ var keysExportCmd = &cobra.Command{
 	},
 }
 
+// returns true if there is a specified key in the keybase
 func keyExists(kb keys.Keybase, name string) bool {
 	keyInfos, _ := kb.List()
 	for _, k := range keyInfos {
@@ -208,6 +211,7 @@ func keyExists(kb keys.Keybase, name string) bool {
 	return false
 }
 
+// Returns a new mnemonic
 func createMnemonic() (string, error) {
 	entropySeed, err := bip39.NewEntropy(256)
 	if err != nil {

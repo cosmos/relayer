@@ -24,6 +24,7 @@ func Strategy(name string) RelayStrategy {
 type RelayStrategy func(src, dst *Chain) RelayMsgs
 
 // RelayMsgs contains the msgs that need to be sent to both a src and dst chain
+// after a given relay round
 type RelayMsgs struct {
 	Src []sdk.Msg
 	Dst []sdk.Msg

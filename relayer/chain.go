@@ -5,11 +5,13 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
 	"github.com/tendermint/tendermint/libs/log"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	auth "github.com/cosmos/cosmos-sdk/x/auth"
+	ibc "github.com/cosmos/cosmos-sdk/x/ibc"
 	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
@@ -40,6 +42,8 @@ func GetChain(chainID string, c []*Chain) (*Chain, error) {
 }
 
 // NewChain returns a new instance of Chain
+// NOTE: It does not by default create the verifier. This needs a working connection
+// and blocks running the app if NewChain does this by default.
 func NewChain(key, chainID, rpcAddr, accPrefix string,
 	counterparties []string, gas uint64, gasAdj float64,
 	gasPrices sdk.DecCoins, defaultDenom, memo, homePath string,
@@ -56,8 +60,11 @@ func NewChain(key, chainID, rpcAddr, accPrefix string,
 		return &Chain{}, err
 	}
 
+	cdc := codec.New()
+	ibc.AppModuleBasic{}.RegisterCodec(cdc)
+
 	return &Chain{
-		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Counterparties: counterparties, Gas: gas, GasAdjustment: gasAdj, GasPrices: gasPrices, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase, Client: client}, nil
+		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Counterparties: counterparties, Gas: gas, GasAdjustment: gasAdj, GasPrices: gasPrices, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase, Client: client, Cdc: cdc}, nil
 }
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
@@ -75,6 +82,7 @@ type Chain struct {
 
 	Keybase keys.Keybase
 	Client  *rpcclient.HTTP
+	Cdc     *codec.Codec
 }
 
 // Verifier returns the lite client verifier for the Chain
@@ -99,12 +107,73 @@ func keysDir(home, chainID string) string {
 	return path.Join(home, "keys", chainID)
 }
 
+// QueryWithData allows for running ABCI queries in a similar manner to CLIContext
+func (c *Chain) QueryWithData(path string, data []byte) ([]byte, int64, error) {
+	resp, err := c.Client.ABCIQuery(path, data)
+	if err != nil {
+		return []byte{}, 0, err
+	}
+
+	return resp.Response.GetValue(), resp.Response.GetHeight(), nil
+}
+
 // SendMsgs sends the standard transactions to the individual chain
 func (c *Chain) SendMsgs(datagram []sdk.Msg) error {
-	// TODO: reuse CLI code and the data from Chain to send the signed transactions to the individual chains
-	// TODO: figure out key management for the relayer
+	// Fetch key address
+	info, err := c.Keybase.Get(c.Key)
+	if err != nil {
+		return err
+	}
+
+	// Fetch account and sequence numbers for the account
+	acc, err := auth.NewAccountRetriever(c).GetAccount(info.GetAddress())
+	if err != nil {
+		return err
+	}
+
+	// Calculate fess from the gas and gas prices
+	// TODO: Incorporate c.GasAdjustment here?
+	fees := make(sdk.Coins, len(c.GasPrices))
+	for i, gp := range c.GasPrices {
+		fee := gp.Amount.Mul(sdk.NewDec(int64(c.Gas)))
+		fees[i] = sdk.NewCoin(gp.Denom, fee.Ceil().RoundInt())
+	}
+
+	// Build the StdSignMsg
+	sign := auth.StdSignMsg{
+		ChainID:       c.ChainID,
+		AccountNumber: acc.GetSequence(),
+		Sequence:      acc.GetSequence(),
+		Memo:          c.Memo,
+		Msgs:          datagram,
+		Fee:           auth.NewStdFee(c.Gas, fees),
+	}
+
+	// Create signature for transaction
+	stdSignature, err := auth.MakeSignature(c.Keybase, c.Key, "", sign)
+
+	// Create the StdTx for broadcast
+	stdTx := auth.NewStdTx(datagram, sign.Fee, []auth.StdSignature{stdSignature}, c.Memo)
+
+	// Marshal amino
+	out, err := c.Cdc.MarshalBinaryLengthPrefixed(stdTx)
+	if err != nil {
+		return err
+	}
+
+	// Broadcast transaction
+	res, err := c.Client.BroadcastTxCommit(out)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Figure out what to do with the response
+	fmt.Println(res)
 	return nil
 }
+
+// HELP WANTED!!!
+// NOTE: Below this line everything is stubbed out
 
 // LatestHeight uses the CLI utilities to pull the latest height from a given chain
 func (c *Chain) LatestHeight() uint64 {

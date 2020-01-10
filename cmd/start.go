@@ -23,15 +23,18 @@ import (
 )
 
 // startCmd represents the start command
+// NOTE: This is basically psuedocode
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "starts the relayer using the configured chains and strategy",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		d, err := time.ParseDuration(config.Global.Timeout)
+		if err != nil {
+			return err
+		}
+
+		// The relayer will
 		for {
-			d, err := time.ParseDuration(config.Global.Timeout)
-			if err != nil {
-				return err
-			}
 
 			err = relayer.Relay(config.Global.Strategy, config.c)
 			time.Sleep(d)

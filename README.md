@@ -7,16 +7,16 @@ The `relayer` package contains some basic relayer implemenations that are meant 
 ```bash
 ~/.relayer
 ├── config
-│   └── config.yaml
-└── keys
+├── keys
+│   ├── testchain1
+│   │   └── keyring-test
+│   └── testchain2
+│       └── keyring-test
+└── lite
     ├── testchain1
-    │   └── keyring-test
-    │       ├── bar.info
-    │       ├── cosmos16lyl8rq52h649a3rhekrulhu0wqp8g4nhkdwhw.address
-    └── testchain2
-        └── keyring-test
-            ├── bar.info
-            ├── cosmos14ckqc578tqkt5zjmut4ny469hmhrhun262w4a0.address
+    │   └── trust-base.db
+    └── testchain1
+        └── trust-base.db
 ```
 
 ### Configuring the Relayer
@@ -25,73 +25,63 @@ There are two major parts of `relayer` configuration:
 
 ```go
 type Config struct {
-    Global Global `yaml:"global"`
-    Chains []Chain `yaml:"chains"`
+	Global GlobalConfig  `yaml:"global"`
+	Chains []ChainConfig `yaml:"chains"`
+
+    // NOTE: Chain is type from the relayer package where functionality
+    // is implemented. The ChainConfig type is just for parsing the config
+    // The ChainConfig(s) are then passed to the relayer.NewChain constructor
+    // and stored in the c property
+	c []*relayer.Chain
 }
 ```
 
 #### Global Configuration
 
 - Amount of time to sleep between relayer loops
-- Which strategy to use for your relayer (`naieve` is the only one implemented)
-- Home directory for the relayer (`~/.relayer`), to be passed in via flag
+- Which strategy to use for your relayer (`naieve` is the only planned for implemenation)
+- Number of block headers to cache for the lite client
 
 ```go
+// NOTE: are there any other items that could be useful here?
 type Global struct {
-    RelayTimeout string `yaml:"relay-timeout"`
-    Strategy     string `yaml:"strategy"`
+	Strategy      string `yaml:"strategy"`
+	Timeout       string `yaml:"timeout"`
+	LiteCacheSize int    `yaml:"lite-cache-size"`
 }
 ```
 
 #### Chains config
 
-The `Chain` abstraction contains all the necessary data to connect to a given chain, query it's state, and send transactions to it. The config will contain an array of these chains (`[]Chain`). Using the `naieve` strategy it will attempt to connect all the chains to all their counterparties. The following data and tools will be needed by each `Chain`:
+The `ConfigChain` abstraction contains all the necessary data to connect to a given chain, query it's state, and send transactions to it. The config will contain an array of these chains (`[]ChainConfig`). These `ChainConfig` instances will then be converted into the `relayer.Chain` abstration to perform all the necessary tasks. The following data will be needed by each `relayer.Chain` and is passed in via `ChainConfig`s:
 
 ```go
-type Chain struct {
-    // Key is a reference to either the sdk.AccAddress or key name
-    // which must exist in the keybase associated with this chain.
-    Key   string `yaml:"key"`
-
-    // The chainID for the chain
-    ChainID       string `yaml:"chain-id"`
-
-    // The sdk.AccAddress prefix for this specific chain
-    AccountPrefix string `yaml:"account-prefix"`
-
-    // HomeDir for this chainID will contain:
-    // - Chain specific keybase
-    // - Lite Client Verifier
-    Verifier      tmlite.Verifier 
-    Keybase       cryptokeys.Keybase 
-
-    // NOTE: is there any weirdness around the codec? Should just the IBC codec suffice?
-    Codec         *codec.Codec
-
-    // A URL to connect to a node on this chain
-    NodeRPC       string `yaml:"node-rpc"`
-
-    // The list of counterparty chains that this chain should be connected to
-    // NOTE: Relayer will connect and fwd packets for any chains listed here 
-    // which also have an entry in the `[]Chain` 
-    Counterparties []string `yaml:"counterparties"`
-
-    // Gas/Fee settings, are persistent for each transaction on the chain 
-    Gas                uint64       `yaml:"gas"`
-    GasAdjustment      float64      `yaml:"gas-adjustment"`
-    GasPrices          sdk.DecCoins `yaml:"gas-prices"`
-    Fees               sdk.Coins    `yaml:"fees"`
-
-    // Optional memo to add to each transaction
-    Memo               string `yaml:"memo"`
+type ChainConfig struct {
+	Key            string       `yaml:"key"`
+	ChainID        string       `yaml:"chain-id"`
+	RPCAddr        string       `yaml:"rpc-addr"`
+	AccountPrefix  string       `yaml:"account-prefix"`
+	Counterparties []string     `yaml:"counterparties"`
+	Gas            uint64       `yaml:"gas,omitempty"`
+	GasAdjustment  float64      `yaml:"gas-adjustment,omitempty"`
+	GasPrices      sdk.DecCoins `yaml:"gas-prices,omitempty"`
+	DefaultDenom   string       `yaml:"default-denom,omitempty"`
+	Memo           string       `yaml:"memo,omitempty"`
 }
 ```
 
 ### Notes:
-- Relayer needs ability to do CRUD on each of the keybases it manages (e.g. `relayer keys add <chain-id> <key-name>`)
-- Relayer should have ability to do CRUD on each of the lite clients it manages (e.g. `relayer lite update <chain-id>`)
+- Relayer can manage keys with the test keybase backend currently. It should be easy to switch this out for another keybase in the future. Have a meeting with @alessio to talk about details here.
+    * When running (`relayer start`) Relayer needs to be able to use the keys each `Chain` configured in the `~/.relayer/config/config.yaml`
+    * Relayers can be kept off the open internet as there is no need to send them messages, this should help improve the scurity of the relayer even though it must keep "hot" keys.
+- Relayer should have ability to do CRUD on each of the lite clients it manages (e.g. `relayer lite update <chain-id>`). The groundwork is laid for this, just needs to be hooked up a bit more. 
+    * Q: Should we have commands to manage the lite clients independent of the `relay start` command?
 - Relayer should have ability to list the chains/connection it is managing (`relayer chains list`)
-- When running (`relayer start`) Relayer needs to be able to use the keys each `Chain` configured in the `~/.relayer/config/config.yaml`
-- Relayers can be kept off the open internet as there is no need to send them messages, this should help improve the scurity of the relayer even though it must keep "hot" keys.
+    * TODO
 - Relayers should gracefully handle `ErrInsufficentFunds` when/if accounts run out of funds
     * _Stretch_: Relayer should notify a configurable endpoint when it hits `ErrInsufficentFunds`
+- Many of the messages in the `relayer/strategies.go` file are not implemented. This work needs to be completed accoriding to the relayer spec.
+- The packet transfer section of the `naive` algo is currently worse than a stub and will need to wait on the completion of ADR 15.
+
+### Open Questions
+- Do we want to force users to name their `ibc.Client`s, `ibc.Connection`s, `ibc.Channel`s and `ibc.Port`s? Can we use randomly generated identifiers instead?

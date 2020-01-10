@@ -18,12 +18,13 @@ func Relay(strategy string, c []*Chain) error {
 					msgs = Strategy(strategy)(src, dst)
 				}
 
-				// Submit the transactions to each chain
+				// Submit the transactions to src chain
 				err = src.SendMsgs(msgs.Src)
 				if err != nil {
 					return err
 				}
 
+				// Submit the transactions to dst chain
 				err = dst.SendMsgs(msgs.Dst)
 				if err != nil {
 					return err
