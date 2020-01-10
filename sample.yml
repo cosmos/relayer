@@ -1,5 +1,7 @@
 global:
   timeout: "20s"
+  lite-cache-size: 20
+  strategy: "naive"
 chains:
   - chain-id: testchain1
     rpc-addr: https://localhost:26657

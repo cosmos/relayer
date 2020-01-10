@@ -6,8 +6,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/cosmos/cosmos-sdk/crypto/keys"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
@@ -17,31 +17,15 @@ import (
 type Config struct {
 	Global GlobalConfig  `yaml:"global"`
 	Chains []ChainConfig `yaml:"chains"`
-}
 
-// Chain returns the configuration for a given chain
-func (c Config) Chain(chainID string) (ChainConfig, error) {
-	for _, chain := range c.Chains {
-		if chainID == chain.ChainID {
-			return chain, nil
-		}
-	}
-	return ChainConfig{}, NewChainDoesNotExistError(chainID)
-}
-
-// Exists Returns true if the chain is configured
-func (c Config) Exists(chainID string) bool {
-	for _, chain := range c.Chains {
-		if chainID == chain.ChainID {
-			return true
-		}
-	}
-	return false
+	c []*relayer.Chain
 }
 
 // GlobalConfig describes any global relayer settings
 type GlobalConfig struct {
-	Timeout string `yaml:"timeout"`
+	Strategy      string `yaml:"strategy"`
+	Timeout       string `yaml:"timeout"`
+	LiteCacheSize int    `yaml:"lite-cache-size"`
 }
 
 // ChainConfig describes the config necessary for an individual chain
@@ -58,13 +42,18 @@ type ChainConfig struct {
 	Memo           string       `yaml:"memo,omitempty"`
 }
 
-// Keyring returns the test keyring associated with this Chain
-func (c ChainConfig) Keyring() (keys.Keybase, error) {
-	out, err := keys.NewTestKeyring(c.ChainID, path.Join(homePath, keyDir, c.ChainID))
-	if err != nil {
-		return nil, err
+func (c Config) setChains() error {
+	var out []*relayer.Chain
+	for _, i := range c.Chains {
+		chain, err := relayer.NewChain(i.Key, i.ChainID, i.RPCAddr, i.AccountPrefix, i.Counterparties, i.Gas, i.GasAdjustment, i.GasPrices, i.DefaultDenom, i.Memo, homePath, c.Global.LiteCacheSize)
+		if err != nil {
+			fmt.Println("ERROR", err)
+			return nil
+		}
+		out = append(out, chain)
 	}
-	return out, nil
+	c.c = out
+	return nil
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -92,6 +81,13 @@ func initConfig(cmd *cobra.Command) error {
 				fmt.Println("Error unmarshalling config:", err)
 				os.Exit(1)
 			}
+
+			err = config.setChains()
+			if err != nil {
+				fmt.Println("Error parsing chain config:", err)
+				os.Exit(1)
+			}
+			fmt.Println("HERE", config.c)
 		}
 	}
 	return nil

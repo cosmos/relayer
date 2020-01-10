@@ -6,19 +6,17 @@ The `relayer` package contains some basic relayer implemenations that are meant 
 
 ```bash
 ~/.relayer
-├── chains
-│   ├── chain-id-1
-│   │   ├── keys
-│   │   │   └── keys.db
-│   │   └── verifiers
-│   │       └── chain-id-2.db
-│   └── chain-id-2
-│       ├── keys
-│       │   └── keys.db
-│       └── verifiers
-│           └── chain-id-1.db
-└── config
-    └── config.yaml
+├── config
+│   └── config.yaml
+└── keys
+    ├── testchain1
+    │   └── keyring-test
+    │       ├── bar.info
+    │       ├── cosmos16lyl8rq52h649a3rhekrulhu0wqp8g4nhkdwhw.address
+    └── testchain2
+        └── keyring-test
+            ├── bar.info
+            ├── cosmos14ckqc578tqkt5zjmut4ny469hmhrhun262w4a0.address
 ```
 
 ### Configuring the Relayer

@@ -26,6 +26,7 @@ const (
 	homeFlag = "home"
 	cfgDir   = "config"
 	keyDir   = "keys"
+	liteDir  = "lite"
 	cfgFile  = "config.yaml"
 	homeDisc = "set home directory"
 	cfgDisc  = "set config file"

@@ -20,6 +20,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
 	"github.com/cosmos/go-bip39"
+	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -43,19 +44,17 @@ var keysAddCmd = &cobra.Command{
 	Short: "adds a key to the keychain associated with a particular chain",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		fmt.Println(config)
+		fmt.Println(config.Chains)
+		fmt.Println(config.c)
 		chainID := args[0]
 		keyName := args[1]
 
-		if !config.Exists(chainID) {
-			return NewChainDoesNotExistError(chainID)
+		if !relayer.Exists(chainID, config.c) {
+			return fmt.Errorf("chain with ID %s is not configured", chainID)
 		}
 
-		chain, err := config.Chain(chainID)
-		if err != nil {
-			return err
-		}
-
-		ring, err := chain.Keyring()
+		chain, err := relayer.GetChain(chainID, config.c)
 		if err != nil {
 			return err
 		}
@@ -65,11 +64,11 @@ var keysAddCmd = &cobra.Command{
 			return err
 		}
 
-		if keyExists(ring, keyName) {
+		if keyExists(chain.Keybase, keyName) {
 			return fmt.Errorf("a key with name %s already exists", keyName)
 		}
 
-		info, err := ring.CreateAccount(keyName, mnemonic, "", "", 0, 0)
+		info, err := chain.Keybase.CreateAccount(keyName, mnemonic, "", "", 0, 0)
 		if err != nil {
 			return err
 		}
@@ -88,25 +87,20 @@ var keysDeleteCmd = &cobra.Command{
 		chainID := args[0]
 		keyName := args[1]
 
-		if !config.Exists(chainID) {
-			return NewChainDoesNotExistError(chainID)
+		if !relayer.Exists(chainID, config.c) {
+			return fmt.Errorf("chain with ID %s is not configured", chainID)
 		}
 
-		chain, err := config.Chain(chainID)
+		chain, err := relayer.GetChain(chainID, config.c)
 		if err != nil {
 			return err
 		}
 
-		ring, err := chain.Keyring()
-		if err != nil {
-			return err
-		}
-
-		if !keyExists(ring, keyName) {
+		if !keyExists(chain.Keybase, keyName) {
 			return fmt.Errorf("a key with name %s doesn't exist", keyName)
 		}
 
-		err = ring.Delete(keyName, "", true)
+		err = chain.Keybase.Delete(keyName, "", true)
 		if err != nil {
 			panic(err)
 		}
@@ -123,21 +117,16 @@ var keysListCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		chainID := args[0]
 
-		if !config.Exists(chainID) {
-			return NewChainDoesNotExistError(chainID)
+		if !relayer.Exists(chainID, config.c) {
+			return fmt.Errorf("chain with ID %s is not configured", chainID)
 		}
 
-		chain, err := config.Chain(chainID)
+		chain, err := relayer.GetChain(chainID, config.c)
 		if err != nil {
 			return err
 		}
 
-		ring, err := chain.Keyring()
-		if err != nil {
-			return err
-		}
-
-		info, err := ring.List()
+		info, err := chain.Keybase.List()
 		if err != nil {
 			return err
 		}
@@ -155,25 +144,20 @@ var keysShowCmd = &cobra.Command{
 		chainID := args[0]
 		keyName := args[1]
 
-		if !config.Exists(chainID) {
-			return NewChainDoesNotExistError(chainID)
+		if !relayer.Exists(chainID, config.c) {
+			return fmt.Errorf("chain with ID %s is not configured", chainID)
 		}
 
-		chain, err := config.Chain(chainID)
+		chain, err := relayer.GetChain(chainID, config.c)
 		if err != nil {
 			return err
 		}
 
-		ring, err := chain.Keyring()
-		if err != nil {
-			return err
-		}
-
-		if !keyExists(ring, keyName) {
+		if !keyExists(chain.Keybase, keyName) {
 			return fmt.Errorf("a key with name %s doesn't exist", keyName)
 		}
 
-		info, err := ring.Get(keyName)
+		info, err := chain.Keybase.Get(keyName)
 		if err != nil {
 			return err
 		}
@@ -191,25 +175,20 @@ var keysExportCmd = &cobra.Command{
 		chainID := args[0]
 		keyName := args[1]
 
-		if !config.Exists(chainID) {
-			return NewChainDoesNotExistError(chainID)
+		if !relayer.Exists(chainID, config.c) {
+			return fmt.Errorf("chain with ID %s is not configured", chainID)
 		}
 
-		chain, err := config.Chain(chainID)
+		chain, err := relayer.GetChain(chainID, config.c)
 		if err != nil {
 			return err
 		}
 
-		ring, err := chain.Keyring()
-		if err != nil {
-			return err
-		}
-
-		if !keyExists(ring, keyName) {
+		if !keyExists(chain.Keybase, keyName) {
 			return fmt.Errorf("a key with name %s doesn't exist", keyName)
 		}
 
-		info, err := ring.ExportPrivateKeyObject(keyName, "")
+		info, err := chain.Keybase.ExportPrivateKeyObject(keyName, "")
 		if err != nil {
 			return err
 		}
