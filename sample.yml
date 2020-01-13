@@ -1,5 +1,5 @@
 global:
-  timeout: "20s"
+  timeout: "10s"
   lite-cache-size: 20
   strategy: "naive"
 chains:
@@ -7,13 +7,21 @@ chains:
     rpc-addr: https://localhost:26657
     account-prefix: cosmos
     key: testkey
+    port-id: bank
     counterparties:
-      - testchain2
+      - chain-id: testchain2
+        client-id: testchaintwo
+        connection-id: testchaintwo
+        channel-id: testchaintwo
     default-denom: stake
   - chain-id: testchain2
     rpc-addr: https://localhost:26557
     account-prefix: cosmos
     key: testkey
-    counterparties:
-      - testchain1
     default-denom: stake
+    counterparties:
+      - chain-id: testchain1
+        client-id: testchainone
+        connection-id: testchainone
+        channel-id: testchainone
+        port-id: bank

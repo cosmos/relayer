@@ -53,15 +53,23 @@ func NaiveRelayStrategy(src, dst *Chain) RelayMsgs {
 	// Determine if light client needs to be updated on dst
 	// TODO: Do we need to randomly generate client IDs here?
 	if dst.QueryConsensusState().ProofHeight < src.LatestHeight() {
+		cp, err := src.GetCounterparty(dst.ChainID)
+		if err != nil {
+			return RelayMsgs{}
+		}
 		dstMsgs = append(dstMsgs,
-			clientTypes.NewMsgUpdateClient("remote-client-id", dst.LatestHeader(), dstAddr.GetAddress()))
+			clientTypes.NewMsgUpdateClient(cp.ClientID, dst.LatestHeader(), dstAddr.GetAddress()))
 	}
 
 	// Determine if light client needs to be updated on src
 	// TODO: Do we need to randomly generate client IDs here?
 	if src.QueryConsensusState().ProofHeight < dst.LatestHeight() {
+		cp, err := dst.GetCounterparty(src.ChainID)
+		if err != nil {
+			return RelayMsgs{}
+		}
 		srcMsgs = append(srcMsgs,
-			clientTypes.NewMsgUpdateClient("local-client-id", dst.LatestHeader(), srcAddr.GetAddress()))
+			clientTypes.NewMsgUpdateClient(cp.ClientID, dst.LatestHeader(), srcAddr.GetAddress()))
 	}
 
 	// ICS3 : Connections

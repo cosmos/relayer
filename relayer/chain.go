@@ -45,7 +45,7 @@ func GetChain(chainID string, c []*Chain) (*Chain, error) {
 // NOTE: It does not by default create the verifier. This needs a working connection
 // and blocks running the app if NewChain does this by default.
 func NewChain(key, chainID, rpcAddr, accPrefix string,
-	counterparties []string, gas uint64, gasAdj float64,
+	counterparties []Counterparty, gas uint64, gasAdj float64,
 	gasPrices sdk.DecCoins, defaultDenom, memo, homePath string,
 	liteCacheSize int,
 ) (*Chain, error) {
@@ -69,20 +69,45 @@ func NewChain(key, chainID, rpcAddr, accPrefix string,
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
 type Chain struct {
-	Key            string       `yaml:"key"`
-	ChainID        string       `yaml:"chain-id"`
-	RPCAddr        string       `yaml:"rpc-addr"`
-	AccountPrefix  string       `yaml:"account-prefix"`
-	Counterparties []string     `yaml:"counterparties"`
-	Gas            uint64       `yaml:"gas,omitempty"`
-	GasAdjustment  float64      `yaml:"gas-adjustment,omitempty"`
-	GasPrices      sdk.DecCoins `yaml:"gas-prices,omitempty"`
-	DefaultDenom   string       `yaml:"default-denom,omitempty"`
-	Memo           string       `yaml:"memo,omitempty"`
+	Key            string         `yaml:"key"`
+	ChainID        string         `yaml:"chain-id"`
+	RPCAddr        string         `yaml:"rpc-addr"`
+	AccountPrefix  string         `yaml:"account-prefix"`
+	Counterparties []Counterparty `yaml:"counterparties"`
+	Gas            uint64         `yaml:"gas,omitempty"`
+	GasAdjustment  float64        `yaml:"gas-adjustment,omitempty"`
+	GasPrices      sdk.DecCoins   `yaml:"gas-prices,omitempty"`
+	DefaultDenom   string         `yaml:"default-denom,omitempty"`
+	Memo           string         `yaml:"memo,omitempty"`
 
 	Keybase keys.Keybase
 	Client  *rpcclient.HTTP
 	Cdc     *codec.Codec
+}
+
+// NewCounterparty returns a new instance of Counterparty
+func NewCounterparty(chainID, clientID, connectionID, channelID, portID string) Counterparty {
+	return Counterparty{chainID, clientID, connectionID, channelID, portID}
+}
+
+// Counterparty represents the counterparty to relay against for
+type Counterparty struct {
+	// CounterpartyConfig represents a chain's counterparty
+	ChainID      string `yaml:"chain-id"`
+	ClientID     string `yaml:"client-id"`
+	ConnectionID string `yaml:"connection-id"`
+	ChannelID    string `yaml:"channel-id"`
+	PortID       string `yaml:"port-id"`
+}
+
+// GetCounterparty returns the specified counterparty from a given chain
+func (c *Chain) GetCounterparty(chainID string) (Counterparty, error) {
+	for _, cp := range c.Counterparties {
+		if cp.ChainID == chainID {
+			return cp, nil
+		}
+	}
+	return Counterparty{}, fmt.Errorf("chain %s has no counterparty with id %s", c.ChainID, chainID)
 }
 
 // Verifier returns the lite client verifier for the Chain

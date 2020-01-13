@@ -3,9 +3,9 @@ package relayer
 // Relay implements the algorithm described in ICS18 (https://github.com/cosmos/ics/tree/master/spec/ics-018-relayer-algorithms)
 func Relay(strategy string, c []*Chain) error {
 	for _, src := range c {
-		for _, dstID := range src.Counterparties {
-			if dstID != src.ChainID {
-				dst, err := GetChain(dstID, c)
+		for _, cp := range src.Counterparties {
+			if cp.ChainID != src.ChainID {
+				dst, err := GetChain(cp.ChainID, c)
 				if err != nil {
 					return err
 				}

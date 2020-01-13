@@ -46,16 +46,25 @@ type GlobalConfig struct {
 // ChainConfig describes the config necessary for an individual chain
 // TODO: Are there additional parameters needed here
 type ChainConfig struct {
-	Key            string       `yaml:"key"`
-	ChainID        string       `yaml:"chain-id"`
-	RPCAddr        string       `yaml:"rpc-addr"`
-	AccountPrefix  string       `yaml:"account-prefix"`
-	Counterparties []string     `yaml:"counterparties"`
-	Gas            uint64       `yaml:"gas,omitempty"`
-	GasAdjustment  float64      `yaml:"gas-adjustment,omitempty"`
-	GasPrices      sdk.DecCoins `yaml:"gas-prices,omitempty"`
-	DefaultDenom   string       `yaml:"default-denom,omitempty"`
-	Memo           string       `yaml:"memo,omitempty"`
+	Key            string               `yaml:"key"`
+	ChainID        string               `yaml:"chain-id"`
+	RPCAddr        string               `yaml:"rpc-addr"`
+	AccountPrefix  string               `yaml:"account-prefix"`
+	Counterparties []CounterpartyConfig `yaml:"counterparties"`
+	Gas            uint64               `yaml:"gas,omitempty"`
+	GasAdjustment  float64              `yaml:"gas-adjustment,omitempty"`
+	GasPrices      sdk.DecCoins         `yaml:"gas-prices,omitempty"`
+	DefaultDenom   string               `yaml:"default-denom,omitempty"`
+	Memo           string               `yaml:"memo,omitempty"`
+}
+
+// CounterpartyConfig represents a chain's counterparty
+type CounterpartyConfig struct {
+	ChainID      string `yaml:"chain-id"`
+	ClientID     string `yaml:"client-id"`
+	ConnectionID string `yaml:"connection-id"`
+	ChannelID    string `yaml:"channel-id"`
+	PortID       string `yaml:"port-id"`
 }
 
 // Called to set the relayer.Chain types on Config
@@ -63,7 +72,11 @@ func setChains(c *Config) error {
 	var out []*relayer.Chain
 	var new = &Config{Global: c.Global, Chains: c.Chains}
 	for _, i := range c.Chains {
-		chain, err := relayer.NewChain(i.Key, i.ChainID, i.RPCAddr, i.AccountPrefix, i.Counterparties, i.Gas, i.GasAdjustment, i.GasPrices, i.DefaultDenom, i.Memo, homePath, c.Global.LiteCacheSize)
+		var cps []relayer.Counterparty
+		for _, cp := range i.Counterparties {
+			cps = append(cps, relayer.NewCounterparty(cp.ChainID, cp.ClientID, cp.ConnectionID, cp.ChannelID, cp.PortID))
+		}
+		chain, err := relayer.NewChain(i.Key, i.ChainID, i.RPCAddr, i.AccountPrefix, cps, i.Gas, i.GasAdjustment, i.GasPrices, i.DefaultDenom, i.Memo, homePath, c.Global.LiteCacheSize)
 		if err != nil {
 			return nil
 		}
