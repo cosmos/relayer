@@ -66,13 +66,13 @@ var keysAddCmd = &cobra.Command{
 			return fmt.Errorf("a key with name %s already exists", keyName)
 		}
 
-		info, err := chain.Keybase.CreateAccount(keyName, mnemonic, "", "", 0, 0)
+		info, err := chain.Keybase.CreateAccount(keyName, mnemonic, "", "", keys.CreateHDPath(0, 0).String(), keys.Secp256k1)
 		if err != nil {
 			return err
 		}
 
 		fmt.Println("seed", mnemonic)
-		fmt.Println("address", info.GetAddress())
+		fmt.Println("address", info.GetAddress().String())
 		return nil
 	},
 }
@@ -163,7 +163,7 @@ var keysShowCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Println(info)
+		fmt.Println(info.GetAddress().String())
 		return nil
 	},
 }
@@ -202,7 +202,11 @@ var keysExportCmd = &cobra.Command{
 
 // returns true if there is a specified key in the keybase
 func keyExists(kb keys.Keybase, name string) bool {
-	keyInfos, _ := kb.List()
+	keyInfos, err := kb.List()
+	if err != nil {
+		return false
+	}
+
 	for _, k := range keyInfos {
 		if k.GetName() == name {
 			return true

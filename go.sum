@@ -43,6 +43,12 @@ github.com/cosmos/cosmos-sdk v0.34.4-0.20200106154959-682c8adff09b h1:qdB7WI5t9D
 github.com/cosmos/cosmos-sdk v0.34.4-0.20200106154959-682c8adff09b/go.mod h1:hasIdlU9b3FEFCWpoStvNQQPg1ZpAKnpmlFklAk1W1o=
 github.com/cosmos/cosmos-sdk v0.34.4-0.20200108184110-67c2acd75aaa h1:tCFC/Q06/TbHi0Igjm200YnUZiDRaaRg+Jw51iZOwx4=
 github.com/cosmos/cosmos-sdk v0.34.4-0.20200108184110-67c2acd75aaa/go.mod h1:hasIdlU9b3FEFCWpoStvNQQPg1ZpAKnpmlFklAk1W1o=
+github.com/cosmos/cosmos-sdk v0.34.4-0.20200114160912-cf135c2c4511 h1:58E9iWP2NLLSNRzAI60IuSFBbcTcs2T9SdDqPMB94cE=
+github.com/cosmos/cosmos-sdk v0.34.4-0.20200114160912-cf135c2c4511/go.mod h1:n6pU54PWh00myA3NNeFGGAq80A+fxxvrlct7jsMXwzM=
+github.com/cosmos/cosmos-sdk v0.34.4-0.20200115191510-a593e7a33e4d h1:rRXQdRCK3bPCnOdfIeCkMzvWbx94OxqBn3e1+I7Mkdg=
+github.com/cosmos/cosmos-sdk v0.34.4-0.20200115191510-a593e7a33e4d/go.mod h1:CTRdaQAISfUCQVqIv+4AQkWhIQceWt+4cMkCXZ3ZD+4=
+github.com/cosmos/cosmos-sdk v0.34.4-0.20200115191924-15fde5b8cc8f h1:kPCg3XzH1FDdubLekkRJrM7kv6FMmXBn2Ht9jQ0JfHk=
+github.com/cosmos/cosmos-sdk v0.34.4-0.20200115191924-15fde5b8cc8f/go.mod h1:CTRdaQAISfUCQVqIv+4AQkWhIQceWt+4cMkCXZ3ZD+4=
 github.com/cosmos/cosmos-sdk v0.37.5 h1:s03HFQ5N2CkiS/nENtACdfCwUUXSn7E5AvkWBk7wNGM=
 github.com/cosmos/cosmos-sdk v0.37.5/go.mod h1:d0WLPdlZyfbfHvFPa+GfWXFxHAiVCpOKp3bDm2YxFN8=
 github.com/cosmos/go-bip39 v0.0.0-20180618194314-52158e4697b8 h1:Iwin12wRQtyZhH6FV3ykFcdGNlYEzoeR0jN8Vn+JWsI=
@@ -181,6 +187,10 @@ github.com/pelletier/go-toml v1.6.0/go.mod h1:5N711Q9dKgbdkxHL+MEfF31hpT7l0S0s/t
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+github.com/pkg/errors v0.9.0 h1:J8lpUdobwIeCI7OiSxHqEwJUKvJwicL5+3v1oe2Yb4k=
+github.com/pkg/errors v0.9.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
+github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/prometheus/client_golang v0.9.1/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
@@ -267,6 +277,8 @@ github.com/tendermint/iavl v0.12.4/go.mod h1:8LHakzt8/0G3/I8FUU0ReNx98S/EP6eyPJk
 github.com/tendermint/tendermint v0.32.1/go.mod h1:jmPDAKuNkev9793/ivn/fTBnfpA9mGBww8MPRNPNxnU=
 github.com/tendermint/tendermint v0.32.8 h1:eOaLJGRi5x/Rb23fiVsxq9c5fZ/6O5QplExlGjNPDVI=
 github.com/tendermint/tendermint v0.32.8/go.mod h1:5/B1XZjNYtVBso8o1l/Eg4A0Mhu42lDcmftoQl95j/E=
+github.com/tendermint/tendermint v0.32.9 h1:++dR46xpBq/yfQx2c5KyrZmb15p2jw9Q5iEtTB82d8s=
+github.com/tendermint/tendermint v0.32.9/go.mod h1:5/B1XZjNYtVBso8o1l/Eg4A0Mhu42lDcmftoQl95j/E=
 github.com/tendermint/tm-db v0.1.1/go.mod h1:0cPKWu2Mou3IlxecH+MEUSYc1Ch537alLe6CpFrKzgw=
 github.com/tendermint/tm-db v0.2.0 h1:rJxgdqn6fIiVJZy4zLpY1qVlyD0TU6vhkT4kEf71TQQ=
 github.com/tendermint/tm-db v0.2.0/go.mod h1:0cPKWu2Mou3IlxecH+MEUSYc1Ch537alLe6CpFrKzgw=

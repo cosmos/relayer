@@ -60,11 +60,8 @@ type ChainConfig struct {
 
 // CounterpartyConfig represents a chain's counterparty
 type CounterpartyConfig struct {
-	ChainID      string `yaml:"chain-id"`
-	ClientID     string `yaml:"client-id"`
-	ConnectionID string `yaml:"connection-id"`
-	ChannelID    string `yaml:"channel-id"`
-	PortID       string `yaml:"port-id"`
+	ChainID  string `yaml:"chain-id"`
+	ClientID string `yaml:"client-id"`
 }
 
 // Called to set the relayer.Chain types on Config
@@ -74,7 +71,7 @@ func setChains(c *Config) error {
 	for _, i := range c.Chains {
 		var cps []relayer.Counterparty
 		for _, cp := range i.Counterparties {
-			cps = append(cps, relayer.NewCounterparty(cp.ChainID, cp.ClientID, cp.ConnectionID, cp.ChannelID, cp.PortID))
+			cps = append(cps, relayer.NewCounterparty(cp.ChainID, cp.ClientID))
 		}
 		chain, err := relayer.NewChain(i.Key, i.ChainID, i.RPCAddr, i.AccountPrefix, cps, i.Gas, i.GasAdjustment, i.GasPrices, i.DefaultDenom, i.Memo, homePath, c.Global.LiteCacheSize)
 		if err != nil {
