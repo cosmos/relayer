@@ -27,6 +27,7 @@ import (
 func init() {
 	rootCmd.AddCommand(keysCmd)
 	keysCmd.AddCommand(keysAddCmd)
+	keysCmd.AddCommand(keysRestoreCmd)
 	keysCmd.AddCommand(keysDeleteCmd)
 	keysCmd.AddCommand(keysListCmd)
 	keysCmd.AddCommand(keysShowCmd)
@@ -71,8 +72,41 @@ var keysAddCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Println("seed", mnemonic)
-		fmt.Println("address", info.GetAddress().String())
+		fmt.Println("seed:   ", mnemonic)
+		fmt.Println("address:", info.GetAddress().String())
+		return nil
+	},
+}
+
+// keysRestoreCmd respresents the `keys add` command
+var keysRestoreCmd = &cobra.Command{
+	Use:   "restore [chain-id] [name] [mnemonic]",
+	Short: "restores a mnemonic to the keychain associated with a particular chain",
+	Args:  cobra.ExactArgs(3),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		chainID := args[0]
+		keyName := args[1]
+		mnemonic := args[2]
+
+		if !relayer.Exists(chainID, config.c) {
+			return fmt.Errorf("chain with ID %s is not configured", chainID)
+		}
+
+		chain, err := relayer.GetChain(chainID, config.c)
+		if err != nil {
+			return err
+		}
+
+		if keyExists(chain.Keybase, keyName) {
+			return fmt.Errorf("a key with name %s already exists", keyName)
+		}
+
+		info, err := chain.Keybase.CreateAccount(keyName, mnemonic, "", "", keys.CreateHDPath(0, 0).String(), keys.Secp256k1)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(info.GetAddress().String())
 		return nil
 	},
 }
@@ -131,7 +165,10 @@ var keysListCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Println(info)
+		for _, k := range info {
+			fmt.Println(k.GetName(), "->", k.GetAddress().String())
+		}
+
 		return nil
 	},
 }
@@ -190,7 +227,7 @@ var keysExportCmd = &cobra.Command{
 			return fmt.Errorf("a key with name %s doesn't exist", keyName)
 		}
 
-		info, err := chain.Keybase.ExportPrivateKeyObject(keyName, "")
+		info, err := chain.Keybase.ExportPrivKey(keyName, "", "")
 		if err != nil {
 			return err
 		}

@@ -1,0 +1,22 @@
+global:
+  timeout: "10s"
+  lite-cache-size: 20
+  strategy: "naive"
+chains:
+  - chain-id: ibc0
+    rpc-addr: https://localhost:26657
+    account-prefix: cosmos
+    key: testkey
+    port-id: bank
+    counterparties:
+      - chain-id: ibc1
+        client-id: ibconeclient
+    default-denom: stake
+  - chain-id: ibc1
+    rpc-addr: https://localhost:26557
+    account-prefix: cosmos
+    key: testkey
+    default-denom: stake
+    counterparties:
+      - chain-id: ibc0
+        client-id: ibczeroclient

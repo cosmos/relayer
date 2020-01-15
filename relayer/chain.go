@@ -16,8 +16,8 @@ import (
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
-	tmlite "github.com/tendermint/tendermint/lite"
-	tmliteproxy "github.com/tendermint/tendermint/lite/proxy"
+	tmlite "github.com/tendermint/tendermint/lite2"
+	provider "github.com/tendermint/tendermint/lite2/provider/http"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 )
 
@@ -54,8 +54,7 @@ func NewChain(key, chainID, rpcAddr, accPrefix string,
 		return &Chain{}, err
 	}
 
-	client := rpcclient.NewHTTP(rpcAddr, "/websocket")
-
+	client, err := rpcclient.NewHTTP(rpcAddr, "/websocket")
 	if err != nil {
 		return &Chain{}, err
 	}
@@ -106,17 +105,16 @@ func (c *Chain) GetCounterparty(chainID string) (Counterparty, error) {
 	return Counterparty{}, fmt.Errorf("chain %s has no counterparty with id %s", c.ChainID, chainID)
 }
 
-// Verifier returns the lite client verifier for the Chain
-func (c *Chain) Verifier(homePath string, liteCacheSize int) (tmlite.Verifier, error) {
-	verifier, err := tmliteproxy.NewVerifier(
-		c.ChainID, liteDir(homePath, c.ChainID),
-		c.Client, log.NewNopLogger(), liteCacheSize,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return verifier, nil
-}
+// // Verifier returns the lite client verifier for the Chain
+// func (c *Chain) Verifier(homePath string, liteCacheSize int) (tmlite.Verifier, error) {
+// 	verifier, err := provider.New(c.ChainID, liteDir(homePath, c.ChainID),
+// 		c.Client, log.NewNopLogger(), liteCacheSize,
+// 	)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return verifier, nil
+// }
 
 // LiteDir returns the proper directory for the lite client for a given chain
 func liteDir(home, chainID string) string {

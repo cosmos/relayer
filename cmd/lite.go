@@ -16,6 +16,9 @@ limitations under the License.
 package cmd
 
 import (
+	"fmt"
+
+	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -27,8 +30,27 @@ var liteCmd = &cobra.Command{
 
 // liteCmd represents the lite command
 var liteCreateCmd = &cobra.Command{
-	Use:   "create",
+	Use:   "start [chain-id]",
 	Short: "Commands to manage lite clients created by this relayer",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		chainID := args[0]
+
+		if !relayer.Exists(chainID, config.c) {
+			return fmt.Errorf("chain with ID %s is not configured", chainID)
+		}
+
+		chain, err := relayer.GetChain(chainID, config.c)
+		if err != nil {
+			return err
+		}
+
+		lite, err := chain.Verifier(homePath, config.Global.LiteCacheSize)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	},
 }
 
 // liteCmd represents the lite command
