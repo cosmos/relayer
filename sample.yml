@@ -11,8 +11,6 @@ chains:
     counterparties:
       - chain-id: testchain2
         client-id: testchaintwo
-        connection-id: testchaintwo
-        channel-id: testchaintwo
     default-denom: stake
   - chain-id: testchain2
     rpc-addr: https://localhost:26557
@@ -22,6 +20,3 @@ chains:
     counterparties:
       - chain-id: testchain1
         client-id: testchainone
-        connection-id: testchainone
-        channel-id: testchainone
-        port-id: bank

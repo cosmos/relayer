@@ -86,18 +86,14 @@ type Chain struct {
 }
 
 // NewCounterparty returns a new instance of Counterparty
-func NewCounterparty(chainID, clientID, connectionID, channelID, portID string) Counterparty {
-	return Counterparty{chainID, clientID, connectionID, channelID, portID}
+func NewCounterparty(chainID, clientID string) Counterparty {
+	return Counterparty{chainID, clientID}
 }
 
 // Counterparty represents the counterparty to relay against for
 type Counterparty struct {
-	// CounterpartyConfig represents a chain's counterparty
-	ChainID      string `yaml:"chain-id"`
-	ClientID     string `yaml:"client-id"`
-	ConnectionID string `yaml:"connection-id"`
-	ChannelID    string `yaml:"channel-id"`
-	PortID       string `yaml:"port-id"`
+	ChainID  string `yaml:"chain-id"`
+	ClientID string `yaml:"client-id"`
 }
 
 // GetCounterparty returns the specified counterparty from a given chain

@@ -21,7 +21,7 @@ func Strategy(name string) RelayStrategy {
 }
 
 // RelayStrategy describes the function signature for a relay strategy
-type RelayStrategy func(src, dst *Chain) RelayMsgs
+type RelayStrategy func(src, dst *Chain) (RelayMsgs, error)
 
 // RelayMsgs contains the msgs that need to be sent to both a src and dst chain
 // after a given relay round
@@ -33,20 +33,20 @@ type RelayMsgs struct {
 // NaiveRelayStrategy returns the RelayMsgs that need to be run to relay between
 // src and dst chains for all pending messages. Will also create or repair
 // connections and channels
-func NaiveRelayStrategy(src, dst *Chain) RelayMsgs {
+func NaiveRelayStrategy(src, dst *Chain) (RelayMsgs, error) {
 	srcMsgs := make([]sdk.Msg, 0)
 	dstMsgs := make([]sdk.Msg, 0)
 
 	// Signing key for src chain
 	srcAddr, err := src.Keybase.Get(src.Key)
 	if err != nil {
-		return RelayMsgs{}
+		return RelayMsgs{}, err
 	}
 
 	// Signing key for dst chain
 	dstAddr, err := dst.Keybase.Get(dst.Key)
 	if err != nil {
-		return RelayMsgs{}
+		return RelayMsgs{}, err
 	}
 
 	// ICS2 : Clients
@@ -55,8 +55,9 @@ func NaiveRelayStrategy(src, dst *Chain) RelayMsgs {
 	if dst.QueryConsensusState().ProofHeight < src.LatestHeight() {
 		cp, err := src.GetCounterparty(dst.ChainID)
 		if err != nil {
-			return RelayMsgs{}
+			return RelayMsgs{}, err
 		}
+
 		dstMsgs = append(dstMsgs,
 			clientTypes.NewMsgUpdateClient(cp.ClientID, dst.LatestHeader(), dstAddr.GetAddress()))
 	}
@@ -66,8 +67,9 @@ func NaiveRelayStrategy(src, dst *Chain) RelayMsgs {
 	if src.QueryConsensusState().ProofHeight < dst.LatestHeight() {
 		cp, err := dst.GetCounterparty(src.ChainID)
 		if err != nil {
-			return RelayMsgs{}
+			return RelayMsgs{}, err
 		}
+
 		srcMsgs = append(srcMsgs,
 			clientTypes.NewMsgUpdateClient(cp.ClientID, dst.LatestHeader(), srcAddr.GetAddress()))
 	}
@@ -148,5 +150,5 @@ func NaiveRelayStrategy(src, dst *Chain) RelayMsgs {
 	}
 
 	//   Return for pending datagrams
-	return RelayMsgs{srcMsgs, dstMsgs}
+	return RelayMsgs{srcMsgs, dstMsgs}, nil
 }
