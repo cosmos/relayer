@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
-	"github.com/tendermint/tendermint/libs/log"
+	lite "github.com/tendermint/tendermint/lite2"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	auth "github.com/cosmos/cosmos-sdk/x/auth"
@@ -16,8 +17,6 @@ import (
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
-	tmlite "github.com/tendermint/tendermint/lite2"
-	provider "github.com/tendermint/tendermint/lite2/provider/http"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 )
 
@@ -47,7 +46,7 @@ func GetChain(chainID string, c []*Chain) (*Chain, error) {
 func NewChain(key, chainID, rpcAddr, accPrefix string,
 	counterparties []Counterparty, gas uint64, gasAdj float64,
 	gasPrices sdk.DecCoins, defaultDenom, memo, homePath string,
-	liteCacheSize int,
+	liteCacheSize int, trustOptions TrustOptions,
 ) (*Chain, error) {
 	keybase, err := keys.NewTestKeyring(chainID, keysDir(homePath, chainID))
 	if err != nil {
@@ -63,7 +62,7 @@ func NewChain(key, chainID, rpcAddr, accPrefix string,
 	ibc.AppModuleBasic{}.RegisterCodec(cdc)
 
 	return &Chain{
-		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Counterparties: counterparties, Gas: gas, GasAdjustment: gasAdj, GasPrices: gasPrices, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase, Client: client, Cdc: cdc}, nil
+		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Counterparties: counterparties, Gas: gas, GasAdjustment: gasAdj, GasPrices: gasPrices, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase, Client: client, Cdc: cdc, TrustOptions: trustOptions}, nil
 }
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
@@ -78,10 +77,31 @@ type Chain struct {
 	GasPrices      sdk.DecCoins   `yaml:"gas-prices,omitempty"`
 	DefaultDenom   string         `yaml:"default-denom,omitempty"`
 	Memo           string         `yaml:"memo,omitempty"`
+	TrustOptions   TrustOptions   `yaml:"trust-options"`
 
 	Keybase keys.Keybase
 	Client  *rpcclient.HTTP
 	Cdc     *codec.Codec
+}
+
+// TrustOptions defines the options for lite client trust
+type TrustOptions struct {
+	Period string `yaml:"period"`
+	Height int64  `yaml:"height,omitempty"`
+	Hash   []byte `yaml:"hash,omitempty"`
+}
+
+// Get gets the lite.TrustOptions struct from this one
+func (to TrustOptions) Get() lite.TrustOptions {
+	dur, err := time.ParseDuration(to.Period)
+	if err != nil {
+		panic(err)
+	}
+	return lite.TrustOptions{
+		Period: dur,
+		Height: to.Height,
+		Hash:   to.Hash,
+	}
 }
 
 // NewCounterparty returns a new instance of Counterparty
@@ -104,17 +124,6 @@ func (c *Chain) GetCounterparty(chainID string) (Counterparty, error) {
 	}
 	return Counterparty{}, fmt.Errorf("chain %s has no counterparty with id %s", c.ChainID, chainID)
 }
-
-// // Verifier returns the lite client verifier for the Chain
-// func (c *Chain) Verifier(homePath string, liteCacheSize int) (tmlite.Verifier, error) {
-// 	verifier, err := provider.New(c.ChainID, liteDir(homePath, c.ChainID),
-// 		c.Client, log.NewNopLogger(), liteCacheSize,
-// 	)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return verifier, nil
-// }
 
 // LiteDir returns the proper directory for the lite client for a given chain
 func liteDir(home, chainID string) string {

@@ -19,7 +19,9 @@ import (
 	"fmt"
 
 	"github.com/cosmos/relayer/relayer"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	lite "github.com/tendermint/tendermint/lite2"
 )
 
 // liteCmd represents the lite command
@@ -32,6 +34,7 @@ var liteCmd = &cobra.Command{
 var liteCreateCmd = &cobra.Command{
 	Use:   "start [chain-id]",
 	Short: "Commands to manage lite clients created by this relayer",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		chainID := args[0]
 
@@ -44,9 +47,26 @@ var liteCreateCmd = &cobra.Command{
 			return err
 		}
 
-		lite, err := chain.Verifier(homePath, config.Global.LiteCacheSize)
+		autoLite, err := chain.NewAutoLiteClient(fmt.Sprintf("%s/%s", liteDir, chainID), homePath, config.Global.LiteCacheSize)
 		if err != nil {
 			return err
+		}
+
+		defer autoLite.Stop()
+
+		select {
+		case h := <-autoLite.TrustedHeaders():
+			fmt.Println("got header", h.Height)
+			// Output: got header 3
+		case err := <-autoLite.Errs():
+			switch errors.Cause(err).(type) {
+			case lite.ErrOldHeaderExpired:
+				// reobtain trust height and hash
+				return err
+			default:
+				// try with another full node
+				return err
+			}
 		}
 
 		return nil

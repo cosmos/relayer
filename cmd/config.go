@@ -56,6 +56,7 @@ type ChainConfig struct {
 	GasPrices      sdk.DecCoins         `yaml:"gas-prices,omitempty"`
 	DefaultDenom   string               `yaml:"default-denom,omitempty"`
 	Memo           string               `yaml:"memo,omitempty"`
+	TrustOptions   relayer.TrustOptions `yaml:"trust-options"`
 }
 
 // CounterpartyConfig represents a chain's counterparty
@@ -73,7 +74,7 @@ func setChains(c *Config) error {
 		for _, cp := range i.Counterparties {
 			cps = append(cps, relayer.NewCounterparty(cp.ChainID, cp.ClientID))
 		}
-		chain, err := relayer.NewChain(i.Key, i.ChainID, i.RPCAddr, i.AccountPrefix, cps, i.Gas, i.GasAdjustment, i.GasPrices, i.DefaultDenom, i.Memo, homePath, c.Global.LiteCacheSize)
+		chain, err := relayer.NewChain(i.Key, i.ChainID, i.RPCAddr, i.AccountPrefix, cps, i.Gas, i.GasAdjustment, i.GasPrices, i.DefaultDenom, i.Memo, homePath, c.Global.LiteCacheSize, i.TrustOptions)
 		if err != nil {
 			return nil
 		}

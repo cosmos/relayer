@@ -4,19 +4,25 @@ global:
   strategy: "naive"
 chains:
   - chain-id: ibc0
-    rpc-addr: https://localhost:26657
+    rpc-addr: http://localhost:26657
     account-prefix: cosmos
     key: testkey
     port-id: bank
+    default-denom: stake
     counterparties:
       - chain-id: ibc1
         client-id: ibconeclient
-    default-denom: stake
+    trust-options:
+      period: 336h 
+      height: 0
   - chain-id: ibc1
-    rpc-addr: https://localhost:26557
+    rpc-addr: http://localhost:26557
     account-prefix: cosmos
     key: testkey
     default-denom: stake
     counterparties:
       - chain-id: ibc0
         client-id: ibczeroclient
+    trust-options:
+      period: 336h 
+      height: 0
