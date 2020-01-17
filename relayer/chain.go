@@ -79,9 +79,11 @@ type Chain struct {
 	Memo           string         `yaml:"memo,omitempty"`
 	TrustOptions   TrustOptions   `yaml:"trust-options"`
 
-	Keybase keys.Keybase
-	Client  *rpcclient.HTTP
-	Cdc     *codec.Codec
+	Keybase        keys.Keybase
+	Client         *rpcclient.HTTP
+	Cdc            *codec.Codec
+	LiteClient     *lite.Client
+	AutoLiteClient *lite.AutoClient
 }
 
 // TrustOptions defines the options for lite client trust

@@ -1,12 +1,47 @@
 package relayer
 
 import (
+	"fmt"
+
+	"github.com/pkg/errors"
 	lite "github.com/tendermint/tendermint/lite2"
 	dbs "github.com/tendermint/tendermint/lite2/store/db"
 	dbm "github.com/tendermint/tm-db"
 
 	"github.com/tendermint/tendermint/lite2/provider/http"
 )
+
+// StartAutoLiteClient creates and starts an auto lite client
+func (c *Chain) StartAutoLiteClient(homePath, homeDir string, cache int) error {
+	autoLite, err := c.NewAutoLiteClient(homePath, homeDir, cache)
+	if err != nil {
+		return err
+	}
+
+	c.AutoLiteClient = autoLite
+
+	go func() {
+		defer autoLite.Stop()
+
+		select {
+		case h := <-autoLite.TrustedHeaders():
+			fmt.Println("got header", h.Height)
+			// Output: got header 3
+		case err := <-autoLite.Errs():
+			switch errors.Cause(err).(type) {
+			case lite.ErrOldHeaderExpired:
+				// reobtain trust height and hash
+				fmt.Println("STOPPING LITE CLIENT FOR CHAIN", c.ChainID)
+				autoLite.Stop()
+			default:
+				fmt.Println("STOPPING LITE CLIENT FOR CHAIN", c.ChainID)
+				autoLite.Stop()
+			}
+		}
+	}()
+
+	return nil
+}
 
 // NewAutoLiteClient returns a new instance of the auto lite client
 func (c *Chain) NewAutoLiteClient(homePath, homeDir string, cache int) (*lite.AutoClient, error) {
