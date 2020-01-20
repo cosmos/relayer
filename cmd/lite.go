@@ -30,10 +30,10 @@ var liteCmd = &cobra.Command{
 	Short: "Commands to manage lite clients created by this relayer",
 }
 
-// liteCmd represents the lite command
-var liteCreateCmd = &cobra.Command{
+// This command just primarily for testing but may be useful otherwise. Ideally this is implemented with the
+var liteStartCmd = &cobra.Command{
 	Use:   "start [chain-id]",
-	Short: "Commands to manage lite clients created by this relayer",
+	Short: "This command starts the auto updating relayer and logs when new headers are recieved",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		chainID := args[0]
@@ -73,28 +73,39 @@ var liteCreateCmd = &cobra.Command{
 	},
 }
 
-// liteCmd represents the lite command
-var liteShowCmd = &cobra.Command{
-	Use:   "show",
-	Short: "Commands to manage lite clients created by this relayer",
+// TODO: Figure out arguements for initializing a lite client with a root of trust
+var liteInitCmd = &cobra.Command{
+	Use:   "init [chain-id] [hash] [height] [trust-period]",
+	Short: "Create a new lite client for a configured chain, requires passing in a root of trust",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return nil
+	},
 }
 
-// liteCmd represents the lite command
-var liteDeleteCmd = &cobra.Command{
-	Use:   "delete",
-	Short: "Commands to manage lite clients created by this relayer",
-}
-
-// liteCmd represents the lite command
+// TODO: Figure out arguements for initializing a lite client with a root of trust
 var liteUpdateCmd = &cobra.Command{
-	Use:   "update",
-	Short: "Commands to manage lite clients created by this relayer",
+	Use:   "update [chain-id] [hash] [height] [trust-period]",
+	Short: "Update an existing lite client for a configured chain, requres passing in a root of trust",
+	Args:  cobra.ExactArgs(3),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return nil
+	},
+}
+
+var liteDeleteCmd = &cobra.Command{
+	Use:   "delete [chain-id]",
+	Short: "Delete an existing lite client for a configured chain, this will force new initialization during the next usage of the lite clien.",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return nil
+	},
 }
 
 func init() {
 	rootCmd.AddCommand(liteCmd)
-	liteCmd.AddCommand(liteCreateCmd)
-	liteCmd.AddCommand(liteShowCmd)
+	liteCmd.AddCommand(liteStartCmd)
+	liteCmd.AddCommand(liteInitCmd)
 	liteCmd.AddCommand(liteDeleteCmd)
 	liteCmd.AddCommand(liteUpdateCmd)
 }
