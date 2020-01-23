@@ -83,7 +83,6 @@ type Chain struct {
 	Client         *rpcclient.HTTP
 	Cdc            *codec.Codec
 	LiteClient     *lite.Client
-	AutoLiteClient *lite.AutoClient
 }
 
 // TrustOptions defines the options for lite client trust

@@ -16,12 +16,25 @@ limitations under the License.
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"path/filepath"
+	"time"
 
 	"github.com/cosmos/relayer/relayer"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	lite "github.com/tendermint/tendermint/lite2"
+)
+
+var (
+	lc *lite.Client
+
+	trustedHash    []byte
+	trustedHeight  int64
+	trustingPeriod time.Duration
+	updatePeriod   time.Duration
+	url            string
 )
 
 // liteCmd represents the lite command
@@ -47,57 +60,51 @@ var liteStartCmd = &cobra.Command{
 			return err
 		}
 
-		autoLite, err := chain.NewAutoLiteClient(fmt.Sprintf("%s/%s", liteDir, chainID), homePath, config.Global.LiteCacheSize)
+		if len(trustedHash) > 0 && trustedHeight > 0 {
+			chain.TrustOptions = relayer.TrustOptions{
+				Period: chain.TrustOptions.Period,
+				Height: trustedHeight,
+				Hash:   trustedHash,
+			}
+		}
+
+		if trustingPeriod > 0 {
+			chain.TrustOptions.Period = trustingPeriod.String()
+		}
+
+		// If no trusted hash was given, fetch it using the given url
+		res, err := http.Get(url)
+		if err != nil {
+			return nil, err
+		}
+		var opts relayer.TrustOptions
+		err = json.Unmarshal(res.Body, &opts)
+		res.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+		tp := chain.TrustOptions.Period
+		chain.TrustOptions = opts
+		chain.TrustOptions.Period = tp
+
+		lc, err = chain.NewLiteClient(filepath.Join(liteDir, chainID))
 		if err != nil {
 			return err
 		}
 
-		defer autoLite.Stop()
-
-		select {
-		case h := <-autoLite.TrustedHeaders():
-			fmt.Println("got header", h.Height)
-			// Output: got header 3
-		case err := <-autoLite.Errs():
-			switch errors.Cause(err).(type) {
-			case lite.ErrOldHeaderExpired:
-				// reobtain trust height and hash
-				return err
-			default:
-				// try with another full node
-				return err
-			}
-		}
-
-		return nil
-	},
-}
-
-// TODO: Figure out arguements for initializing a lite client with a root of trust
-var liteInitCmd = &cobra.Command{
-	Use:   "init [chain-id] [hash] [height] [trust-period]",
-	Short: "Create a new lite client for a configured chain, requires passing in a root of trust",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-}
-
-// TODO: Figure out arguements for initializing a lite client with a root of trust
-var liteUpdateCmd = &cobra.Command{
-	Use:   "update [chain-id] [hash] [height] [trust-period]",
-	Short: "Update an existing lite client for a configured chain, requres passing in a root of trust",
-	Args:  cobra.ExactArgs(3),
-	RunE: func(cmd *cobra.Command, args []string) error {
 		return nil
 	},
 }
 
 var liteDeleteCmd = &cobra.Command{
 	Use:   "delete [chain-id]",
-	Short: "Delete an existing lite client for a configured chain, this will force new initialization during the next usage of the lite clien.",
+	Short: "Delete an existing lite client for a configured chain, this will force new initialization during the next usage of the lite client.",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if lc.IsRunning() {
+			lc.Stop()
+		}
+		lc.Cleanup()
 		return nil
 	},
 }
@@ -105,7 +112,11 @@ var liteDeleteCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(liteCmd)
 	liteCmd.AddCommand(liteStartCmd)
-	liteCmd.AddCommand(liteInitCmd)
 	liteCmd.AddCommand(liteDeleteCmd)
-	liteCmd.AddCommand(liteUpdateCmd)
+
+	liteStartCmd.Flags().DurationVar(&trustingPeriod, "trusting-period", 168*time.Hour, "Trusting period. Should be significantly less than the unbonding period")
+	liteStartCmd.Flags().Int64Var(&trustedHeight, "trusted-height", 1, "Trusted header's height")
+	liteStartCmd.Flags().BytesHexVar(&trustedHash, "trusted-hash", []byte{}, "Trusted header's hash")
+	liteStartCmd.Flags().DurationVar(&updatePeriod, "update-period", 5*time.Second, "Period for checking for new blocks")
+	liteStartCmd.Flags().StringVar(&url, "url", "", "Optional URL to fetch trusted-hash and trusted-height")
 }
