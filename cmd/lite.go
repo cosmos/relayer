@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/cosmos/relayer/relayer"
@@ -44,7 +45,6 @@ var liteCmd = &cobra.Command{
 	Short: "Commands to manage lite clients created by this relayer",
 }
 
-// This command just primarily for testing but may be useful otherwise. Ideally this is implemented with the
 var liteStartCmd = &cobra.Command{
 	Use:   "start [chain-id]",
 	Short: "This command starts the auto updating relayer and logs when new headers are recieved",
@@ -56,7 +56,8 @@ var liteStartCmd = &cobra.Command{
 			return fmt.Errorf("chain with ID %s is not configured", chainID)
 		}
 
-		if lc, ok := lcMap[chainID]; ok {
+		if _, ok := lcMap[chainID]; ok {
+			return fmt.Errorf("lite client for chain %s is already running", chainID)
 			// TODO: check if client is running. If so, return an error.
 		}
 
@@ -110,10 +111,80 @@ var liteDeleteCmd = &cobra.Command{
 	Short: "Delete an existing lite client for a configured chain, this will force new initialization during the next usage of the lite client.",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// if lc.IsRunning() {
-		// 	return errors.New("client is running")
-		// }
-		lc.Cleanup()
+		chainID := args[0]
+		if lc, ok := lcMap[chainID]; ok {
+			err := lc.Cleanup()
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	},
+}
+
+// Only checks headers in the trusted store - doesn't validate headers from the trusted node that don't yet exist in the lite client itself
+var liteGetHeaderCmd = &cobra.Command{
+	Use: "header [chain-id] [height]",
+	Short: "Get header from lite client. height at -1 returns first trusted header, 0 returns last trusted header and " +
+		"all others return the header at that height if stored in the lite client",
+	Args: cobra.RangeArgs(1, 2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		chainID := args[0]
+		// check that chain is configured
+		if !relayer.Exists(chainID, config.c) {
+			return fmt.Errorf("chain with ID %s is not configured", chainID)
+		}
+		// check that a lite client is running on chain
+		if _, ok := lcMap[chainID]; !ok {
+			return fmt.Errorf("no lite client running on chaing %s", chainID)
+		}
+		if len(args) == 1 {
+			header, err := lcMap[chainID].TrustedHeader(0, time.Now())
+			if err != nil {
+				return err
+			}
+			fmt.Print(header) // output
+		} else {
+			height, err := strconv.ParseInt(args[1], 10, 64) //convert to int64
+			if err != nil {
+				return err
+			}
+			if height == -1 {
+				height, err = lcMap[chainID].FirstTrustedHeight()
+				if err != nil {
+					return err
+				}
+			}
+			header, err := lcMap[chainID].TrustedHeader(height, time.Now())
+			fmt.Print(header) //output
+		}
+		return nil
+	},
+}
+
+var liteGetValidatorsCmd = &cobra.Command{
+	Use:   "validators [chain-id] [height]",
+	Short: "Delete an existing lite client for a configured chain, this will force new initialization during the next usage of the lite client.",
+	Args:  cobra.RangeArgs(1, 2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		chainID := args[0]
+		// check that chain is configured
+		if !relayer.Exists(chainID, config.c) {
+			return fmt.Errorf("chain with ID %s is not configured", chainID)
+		}
+		// check that a lite client is running on chain
+		if _, ok := lcMap[chainID]; !ok {
+			return fmt.Errorf("no lite client running on chaing %s", chainID)
+		}
+		// TODO: need to add functionality to pull validator sets from the lite client's trust store at a given height
+		//lc := lcMap[chainID]
+		//if len(args) == 1 { // return latest validator set
+		//	lastTrustedHeight, err := lc.LastTrustedHeight()
+		//	if err != nil { return err }
+		//	vals, err := lc.trustedStore.ValidatorSet(lastTrustedHeight)
+		//	if err != nil { return err}
+		//}
+		//height := args[1]
 		return nil
 	},
 }
@@ -122,6 +193,8 @@ func init() {
 	rootCmd.AddCommand(liteCmd)
 	liteCmd.AddCommand(liteStartCmd)
 	liteCmd.AddCommand(liteDeleteCmd)
+	liteCmd.AddCommand(liteGetHeaderCmd)
+	liteCmd.AddCommand(liteGetValidatorsCmd)
 
 	liteStartCmd.Flags().DurationVar(&trustingPeriod, "trusting-period", 168*time.Hour, "Trusting period. Should be significantly less than the unbonding period")
 	liteStartCmd.Flags().Int64Var(&trustedHeight, "trusted-height", 1, "Trusted header's height")
