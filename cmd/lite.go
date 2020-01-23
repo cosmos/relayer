@@ -18,6 +18,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -60,6 +61,10 @@ var liteStartCmd = &cobra.Command{
 			return err
 		}
 
+		if trustingPeriod > 0 {
+			chain.TrustOptions.Period = trustingPeriod.String()
+		}
+
 		if len(trustedHash) > 0 && trustedHeight > 0 {
 			chain.TrustOptions = relayer.TrustOptions{
 				Period: chain.TrustOptions.Period,
@@ -68,20 +73,20 @@ var liteStartCmd = &cobra.Command{
 			}
 		}
 
-		if trustingPeriod > 0 {
-			chain.TrustOptions.Period = trustingPeriod.String()
-		}
-
 		// If no trusted hash was given, fetch it using the given url
 		res, err := http.Get(url)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		var opts relayer.TrustOptions
-		err = json.Unmarshal(res.Body, &opts)
+		bz, err := ioutil.ReadAll(res.Body)
 		res.Body.Close()
 		if err != nil {
-			return nil, err
+			return err
+		}
+		err = json.Unmarshal(bz, &opts)
+		if err != nil {
+			return err
 		}
 		tp := chain.TrustOptions.Period
 		chain.TrustOptions = opts
@@ -101,9 +106,9 @@ var liteDeleteCmd = &cobra.Command{
 	Short: "Delete an existing lite client for a configured chain, this will force new initialization during the next usage of the lite client.",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if lc.IsRunning() {
-			lc.Stop()
-		}
+		// if lc.IsRunning() {
+		// 	return errors.New("client is running")
+		// }
 		lc.Cleanup()
 		return nil
 	},

@@ -48,7 +48,7 @@ func NewChain(key, chainID, rpcAddr, accPrefix string,
 	gasPrices sdk.DecCoins, defaultDenom, memo, homePath string,
 	liteCacheSize int, trustOptions TrustOptions,
 ) (*Chain, error) {
-	keybase, err := keys.NewTestKeyring(chainID, keysDir(homePath, chainID))
+	keybase, err := keys.NewKeyring(chainID, "test", keysDir(homePath, chainID), nil)
 	if err != nil {
 		return &Chain{}, err
 	}
@@ -79,10 +79,10 @@ type Chain struct {
 	Memo           string         `yaml:"memo,omitempty"`
 	TrustOptions   TrustOptions   `yaml:"trust-options"`
 
-	Keybase        keys.Keybase
-	Client         *rpcclient.HTTP
-	Cdc            *codec.Codec
-	LiteClient     *lite.Client
+	Keybase    keys.Keybase
+	Client     *rpcclient.HTTP
+	Cdc        *codec.Codec
+	LiteClient *lite.Client
 }
 
 // TrustOptions defines the options for lite client trust
