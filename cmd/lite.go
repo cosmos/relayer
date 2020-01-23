@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	lc *lite.Client
+	lcMap map[string]*lite.Client // chainID => client
 
 	trustedHash    []byte
 	trustedHeight  int64
@@ -54,6 +54,10 @@ var liteStartCmd = &cobra.Command{
 
 		if !relayer.Exists(chainID, config.c) {
 			return fmt.Errorf("chain with ID %s is not configured", chainID)
+		}
+
+		if lc, ok := lcMap[chainID]; ok {
+			// TODO: check if client is running. If so, return an error.
 		}
 
 		chain, err := relayer.GetChain(chainID, config.c)
@@ -92,7 +96,7 @@ var liteStartCmd = &cobra.Command{
 		chain.TrustOptions = opts
 		chain.TrustOptions.Period = tp
 
-		lc, err = chain.NewLiteClient(filepath.Join(liteDir, chainID))
+		lcMap[chainID], err = chain.NewLiteClient(filepath.Join(liteDir, chainID))
 		if err != nil {
 			return err
 		}
