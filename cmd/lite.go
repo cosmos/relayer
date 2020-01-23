@@ -113,11 +113,14 @@ var liteDeleteCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		chainID := args[0]
 		if lc, ok := lcMap[chainID]; ok {
+			lc.Stop()
 			err := lc.Cleanup()
 			if err != nil {
 				return err
 			}
 		}
+		delete(lcMap, chainID)
+		fmt.Printf("successfully deleted lite client on chain %s", chainID)
 		return nil
 	},
 }
@@ -156,6 +159,9 @@ var liteGetHeaderCmd = &cobra.Command{
 				}
 			}
 			header, err := lcMap[chainID].TrustedHeader(height, time.Now())
+			if err != nil {
+				return err
+			}
 			fmt.Print(header) //output
 		}
 		return nil
@@ -163,9 +169,10 @@ var liteGetHeaderCmd = &cobra.Command{
 }
 
 var liteGetValidatorsCmd = &cobra.Command{
-	Use:   "validators [chain-id] [height]",
-	Short: "Delete an existing lite client for a configured chain, this will force new initialization during the next usage of the lite client.",
-	Args:  cobra.RangeArgs(1, 2),
+	Use: "validators [chain-id] [height]",
+	Short: "Get the validator set from the lite client of the specified height. No height specified takes the last " +
+		"trusted validator set. -1 as height takes the first and 0 also takes the last",
+	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		chainID := args[0]
 		// check that chain is configured
@@ -177,14 +184,35 @@ var liteGetValidatorsCmd = &cobra.Command{
 			return fmt.Errorf("no lite client running on chaing %s", chainID)
 		}
 		// TODO: need to add functionality to pull validator sets from the lite client's trust store at a given height
-		//lc := lcMap[chainID]
-		//if len(args) == 1 { // return latest validator set
-		//	lastTrustedHeight, err := lc.LastTrustedHeight()
-		//	if err != nil { return err }
-		//	vals, err := lc.trustedStore.ValidatorSet(lastTrustedHeight)
-		//	if err != nil { return err}
-		//}
-		//height := args[1]
+		lc := lcMap[chainID]
+		if len(args) == 1 { // return latest validator set
+			lastTrustedHeight, err := lc.LastTrustedHeight()
+			if err != nil {
+				return err
+			}
+			vals, err := lc.TrustedValidatorSet(lastTrustedHeight, time.Now())
+			if err != nil {
+				return err
+			}
+			fmt.Print(vals)
+		} else {
+			height, err := strconv.ParseInt(args[1], 10, 64) //convert to int64
+			if err != nil {
+				return err
+			}
+			if height == -1 {
+				height, err = lc.FirstTrustedHeight()
+				if err != nil {
+					return err
+				}
+			}
+			vals, err := lc.TrustedValidatorSet(height, time.Now())
+			if err != nil {
+				return err
+			}
+			fmt.Print(vals) //output
+		}
+
 		return nil
 	},
 }
