@@ -2,6 +2,8 @@ package relayer
 
 import (
 	"fmt"
+	"github.com/tendermint/tendermint/types"
+	"time"
 
 	lite "github.com/tendermint/tendermint/lite2"
 	litehttp "github.com/tendermint/tendermint/lite2/provider/http"
@@ -9,21 +11,38 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-// NewLiteClient returns a new instance of the lite client.
-func (c *Chain) NewLiteClient(dbDir string) (*lite.Client, error) {
+// Spins up an instance of the lite client as part of the chain.
+func (c *Chain) StartLiteClient(dbDir string, updatePeriod time.Duration) error {
+	if c.LiteClient != nil {
+		return fmt.Errorf("instance of lite client already running for this chain")
+	}
+
 	httpProvider, err := litehttp.New(c.ChainID, c.RPCAddr)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	db, err := dbm.NewGoLevelDB(fmt.Sprintf("lite-client-%s", c.ChainID), dbDir)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return lite.NewClient(c.ChainID,
+	c.LiteClient, err = lite.NewClient(c.ChainID,
 		c.TrustOptions.Get(),
 		httpProvider,
 		dbs.New(db, c.ChainID),
-		lite.UpdatePeriod(c.TrustOptions.Get().Period))
+		lite.UpdatePeriod(updatePeriod))
+	return err
+}
+
+func (c *Chain) StopLiteClient() error {
+	if c.LiteClient != nil {
+		c.LiteClient.Stop()
+		err := c.LiteClient.Cleanup()
+		if err != nil {
+			return err
+		}
+		c.LiteClient = nil
+	}
+	return nil
 }
