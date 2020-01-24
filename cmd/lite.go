@@ -16,27 +16,24 @@ limitations under the License.
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
-	lite "github.com/tendermint/tendermint/lite2"
 )
 
 var (
-	lcMap map[string]*lite.Client // chainID => client
+	//	lcMap map[string]*lite.Client // chainID => client
+	//
+	//	trustedHash    []byte
+	//	trustedHeight  int64
+	//	trustingPeriod time.Duration
+	updatePeriod time.Duration
 
-	trustedHash    []byte
-	trustedHeight  int64
-	trustingPeriod time.Duration
-	updatePeriod   time.Duration
-	url            string
+//	url            string
 )
 
 // liteCmd represents the lite command
@@ -51,58 +48,13 @@ var liteStartCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		chainID := args[0]
-
-		if !relayer.Exists(chainID, config.c) {
-			return fmt.Errorf("chain with ID %s is not configured", chainID)
-		}
-
-		if _, ok := lcMap[chainID]; ok {
-			return fmt.Errorf("lite client for chain %s is already running", chainID)
-			// TODO: check if client is running. If so, return an error.
-		}
-
+		updatePeriod, _ = cmd.Flags().GetDuration("update-period")
 		chain, err := relayer.GetChain(chainID, config.c)
 		if err != nil {
 			return err
 		}
 
-		if trustingPeriod > 0 {
-			chain.TrustOptions.Period = trustingPeriod.String()
-		}
-
-		if len(trustedHash) > 0 && trustedHeight > 0 {
-			chain.TrustOptions = relayer.TrustOptions{
-				Period: chain.TrustOptions.Period,
-				Height: trustedHeight,
-				Hash:   trustedHash,
-			}
-		}
-
-		// If no trusted hash was given, fetch it using the given url
-		res, err := http.Get(url)
-		if err != nil {
-			return err
-		}
-		var opts relayer.TrustOptions
-		bz, err := ioutil.ReadAll(res.Body)
-		res.Body.Close()
-		if err != nil {
-			return err
-		}
-		err = json.Unmarshal(bz, &opts)
-		if err != nil {
-			return err
-		}
-		tp := chain.TrustOptions.Period
-		chain.TrustOptions = opts
-		chain.TrustOptions.Period = tp
-
-		lcMap[chainID], err = chain.NewLiteClient(filepath.Join(liteDir, chainID))
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return chain.StartLiteClient(filepath.Join(liteDir, chainID), updatePeriod)
 	},
 }
 
@@ -112,16 +64,12 @@ var liteDeleteCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		chainID := args[0]
-		if lc, ok := lcMap[chainID]; ok {
-			lc.Stop()
-			err := lc.Cleanup()
-			if err != nil {
-				return err
-			}
+		chain, err := relayer.GetChain(chainID, config.c)
+		if err != nil {
+			return err
 		}
-		delete(lcMap, chainID)
-		fmt.Printf("successfully deleted lite client on chain %s", chainID)
-		return nil
+
+		return chain.StopLiteClient()
 	},
 }
 
@@ -133,16 +81,15 @@ var liteGetHeaderCmd = &cobra.Command{
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		chainID := args[0]
-		// check that chain is configured
-		if !relayer.Exists(chainID, config.c) {
-			return fmt.Errorf("chain with ID %s is not configured", chainID)
+		chain, err := relayer.GetChain(chainID, config.c)
+		if err != nil {
+			return err
 		}
-		// check that a lite client is running on chain
-		if _, ok := lcMap[chainID]; !ok {
-			return fmt.Errorf("no lite client running on chaing %s", chainID)
+		if chain.LiteClient != nil {
+			return fmt.Errorf("lite client is not running on this chain")
 		}
 		if len(args) == 1 {
-			header, err := lcMap[chainID].TrustedHeader(0, time.Now())
+			header, err := chain.LiteClient.TrustedHeader(0, time.Now())
 			if err != nil {
 				return err
 			}
@@ -153,16 +100,16 @@ var liteGetHeaderCmd = &cobra.Command{
 				return err
 			}
 			if height == -1 {
-				height, err = lcMap[chainID].FirstTrustedHeight()
+				height, err = chain.LiteClient.FirstTrustedHeight()
 				if err != nil {
 					return err
 				}
 			}
-			header, err := lcMap[chainID].TrustedHeader(height, time.Now())
+			header, err := chain.LiteClient.TrustedHeader(height, time.Now())
 			if err != nil {
 				return err
 			}
-			fmt.Print(header) //output
+			fmt.Print(header) // output
 		}
 		return nil
 	},
@@ -175,16 +122,14 @@ var liteGetValidatorsCmd = &cobra.Command{
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		chainID := args[0]
-		// check that chain is configured
-		if !relayer.Exists(chainID, config.c) {
-			return fmt.Errorf("chain with ID %s is not configured", chainID)
+		chain, err := relayer.GetChain(chainID, config.c)
+		if err != nil {
+			return err
 		}
-		// check that a lite client is running on chain
-		if _, ok := lcMap[chainID]; !ok {
-			return fmt.Errorf("no lite client running on chaing %s", chainID)
+		if chain.LiteClient != nil {
+			return fmt.Errorf("lite client is not running on this chain")
 		}
-		// TODO: need to add functionality to pull validator sets from the lite client's trust store at a given height
-		lc := lcMap[chainID]
+		lc := chain.LiteClient
 		if len(args) == 1 { // return latest validator set
 			lastTrustedHeight, err := lc.LastTrustedHeight()
 			if err != nil {
@@ -212,7 +157,6 @@ var liteGetValidatorsCmd = &cobra.Command{
 			}
 			fmt.Print(vals) //output
 		}
-
 		return nil
 	},
 }
@@ -224,9 +168,9 @@ func init() {
 	liteCmd.AddCommand(liteGetHeaderCmd)
 	liteCmd.AddCommand(liteGetValidatorsCmd)
 
-	liteStartCmd.Flags().DurationVar(&trustingPeriod, "trusting-period", 168*time.Hour, "Trusting period. Should be significantly less than the unbonding period")
-	liteStartCmd.Flags().Int64Var(&trustedHeight, "trusted-height", 1, "Trusted header's height")
-	liteStartCmd.Flags().BytesHexVar(&trustedHash, "trusted-hash", []byte{}, "Trusted header's hash")
+	//liteStartCmd.Flags().DurationVar(&trustingPeriod, "trusting-period", 168*time.Hour, "Trusting period. Should be significantly less than the unbonding period")
+	//liteStartCmd.Flags().Int64Var(&trustedHeight, "trusted-height", 1, "Trusted header's height")
+	//liteStartCmd.Flags().BytesHexVar(&trustedHash, "trusted-hash", []byte{}, "Trusted header's hash")
 	liteStartCmd.Flags().DurationVar(&updatePeriod, "update-period", 5*time.Second, "Period for checking for new blocks")
-	liteStartCmd.Flags().StringVar(&url, "url", "", "Optional URL to fetch trusted-hash and trusted-height")
+	//liteStartCmd.Flags().StringVar(&url, "url", "", "Optional URL to fetch trusted-hash and trusted-height")
 }
