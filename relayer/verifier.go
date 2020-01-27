@@ -2,9 +2,6 @@ package relayer
 
 import (
 	"fmt"
-	"github.com/tendermint/tendermint/types"
-	"time"
-
 	lite "github.com/tendermint/tendermint/lite2"
 	litehttp "github.com/tendermint/tendermint/lite2/provider/http"
 	dbs "github.com/tendermint/tendermint/lite2/store/db"
@@ -12,7 +9,7 @@ import (
 )
 
 // Spins up an instance of the lite client as part of the chain.
-func (c *Chain) StartLiteClient(dbDir string, updatePeriod time.Duration) error {
+func (c *Chain) StartLiteClient(dbDir string) error {
 	if c.LiteClient != nil {
 		return fmt.Errorf("instance of lite client already running for this chain")
 	}
@@ -31,7 +28,7 @@ func (c *Chain) StartLiteClient(dbDir string, updatePeriod time.Duration) error 
 		c.TrustOptions.Get(),
 		httpProvider,
 		dbs.New(db, c.ChainID),
-		lite.UpdatePeriod(updatePeriod))
+		lite.UpdatePeriod(c.UpdatePeriod))
 	return err
 }
 

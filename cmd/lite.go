@@ -17,23 +17,11 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
-)
-
-var (
-	//	lcMap map[string]*lite.Client // chainID => client
-	//
-	//	trustedHash    []byte
-	//	trustedHeight  int64
-	//	trustingPeriod time.Duration
-	updatePeriod time.Duration
-
-//	url            string
 )
 
 // liteCmd represents the lite command
@@ -42,19 +30,12 @@ var liteCmd = &cobra.Command{
 	Short: "Commands to manage lite clients created by this relayer",
 }
 
-var liteStartCmd = &cobra.Command{
-	Use:   "start [chain-id]",
-	Short: "This command starts the auto updating relayer and logs when new headers are recieved",
+var liteResetCmd = &cobra.Command{
+	Use:   "reset [chain-id]",
+	Short: "This command resets the auto updating client. Use a trusted has and header or a trusted url",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		chainID := args[0]
-		updatePeriod, _ = cmd.Flags().GetDuration("update-period")
-		chain, err := relayer.GetChain(chainID, config.c)
-		if err != nil {
-			return err
-		}
-
-		return chain.StartLiteClient(filepath.Join(liteDir, chainID), updatePeriod)
+		return nil
 	},
 }
 
@@ -63,13 +44,7 @@ var liteDeleteCmd = &cobra.Command{
 	Short: "Delete an existing lite client for a configured chain, this will force new initialization during the next usage of the lite client.",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		chainID := args[0]
-		chain, err := relayer.GetChain(chainID, config.c)
-		if err != nil {
-			return err
-		}
-
-		return chain.StopLiteClient()
+		return nil
 	},
 }
 
@@ -88,7 +63,7 @@ var liteGetHeaderCmd = &cobra.Command{
 		if chain.LiteClient != nil {
 			return fmt.Errorf("lite client is not running on this chain")
 		}
-		if len(args) == 1 {
+		if len(args) == 1 { //get the latest trusted header
 			header, err := chain.LiteClient.TrustedHeader(0, time.Now())
 			if err != nil {
 				return err
@@ -99,7 +74,7 @@ var liteGetHeaderCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
-			if height == -1 {
+			if height == -1 { // get the first trusted header
 				height, err = chain.LiteClient.FirstTrustedHeight()
 				if err != nil {
 					return err
@@ -163,14 +138,8 @@ var liteGetValidatorsCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(liteCmd)
-	liteCmd.AddCommand(liteStartCmd)
+	liteCmd.AddCommand(liteResetCmd)
 	liteCmd.AddCommand(liteDeleteCmd)
 	liteCmd.AddCommand(liteGetHeaderCmd)
 	liteCmd.AddCommand(liteGetValidatorsCmd)
-
-	//liteStartCmd.Flags().DurationVar(&trustingPeriod, "trusting-period", 168*time.Hour, "Trusting period. Should be significantly less than the unbonding period")
-	//liteStartCmd.Flags().Int64Var(&trustedHeight, "trusted-height", 1, "Trusted header's height")
-	//liteStartCmd.Flags().BytesHexVar(&trustedHash, "trusted-hash", []byte{}, "Trusted header's hash")
-	liteStartCmd.Flags().DurationVar(&updatePeriod, "update-period", 5*time.Second, "Period for checking for new blocks")
-	//liteStartCmd.Flags().StringVar(&url, "url", "", "Optional URL to fetch trusted-hash and trusted-height")
 }

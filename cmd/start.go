@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"path/filepath"
 	"time"
 
 	"github.com/cosmos/relayer/relayer"
@@ -33,9 +34,16 @@ var startCmd = &cobra.Command{
 			return err
 		}
 
-		// The relayer will
-		for {
+		// initiate a lite client for each chain declared in the config file
+		for _, chain := range config.c {
+			err := chain.StartLiteClient(filepath.Join(liteDir, chain.ChainID))
+			if err != nil {
+				return err
+			}
+		}
 
+		// The relayer will continuously run the strategy declared in the config file
+		for {
 			err = relayer.Relay(config.Global.Strategy, config.c)
 			time.Sleep(d)
 			if err != nil {

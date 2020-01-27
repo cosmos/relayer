@@ -66,6 +66,7 @@ type ChainConfig struct {
 	DefaultDenom   string               `yaml:"default-denom,omitempty"`
 	Memo           string               `yaml:"memo,omitempty"`
 	TrustOptions   relayer.TrustOptions `yaml:"trust-options"`
+        UpdatePeriod   string               `yaml:"update-period"`
 }
 ```
 

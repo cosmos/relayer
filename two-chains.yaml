@@ -15,6 +15,7 @@ chains:
     trust-options:
       period: 336h 
       height: 0
+    update-period: 5s
   - chain-id: ibc1
     rpc-addr: http://localhost:26557
     account-prefix: cosmos
@@ -26,3 +27,4 @@ chains:
     trust-options:
       period: 336h 
       height: 0
+    update-period: 5s
