@@ -14,7 +14,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/cosmos-sdk/x/ibc"
-	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
@@ -47,7 +46,7 @@ func GetChain(chainID string, c []*Chain) (*Chain, error) {
 func NewChain(key, chainID, rpcAddr, accPrefix string,
 	counterparties []Counterparty, gas uint64, gasAdj float64,
 	gasPrices sdk.DecCoins, defaultDenom, memo, homePath string,
-	liteCacheSize int, trustOptions TrustOptions, updatePeriod time.Duration,
+	liteCacheSize int, trustOptions TrustOptions, updatePeriod time.Duration, dir string,
 ) (*Chain, error) {
 	keybase, err := keys.NewKeyring(chainID, "test", keysDir(homePath, chainID), nil)
 	if err != nil {
@@ -65,7 +64,7 @@ func NewChain(key, chainID, rpcAddr, accPrefix string,
 	return &Chain{
 		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Counterparties: counterparties, Gas: gas,
 		GasAdjustment: gasAdj, GasPrices: gasPrices, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase,
-		Client: client, Cdc: cdc, TrustOptions: trustOptions, UpdatePeriod: updatePeriod}, nil
+		Client: client, Cdc: cdc, TrustOptions: trustOptions, UpdatePeriod: updatePeriod, dir: dir}, nil
 }
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
@@ -85,9 +84,10 @@ type Chain struct {
 	Keybase      keys.Keybase
 	Client       *rpcclient.HTTP
 	Cdc          *codec.Codec
-	LiteClient   *lite.Client
 	UpdatePeriod time.Duration
-	logger       log.Logger
+
+	dir    string
+	logger log.Logger
 }
 
 // TrustOptions defines the options for lite client trust
@@ -208,21 +208,6 @@ func (c *Chain) SendMsgs(datagram []sdk.Msg) error {
 
 // HELP WANTED!!!
 // NOTE: Below this line everything is stubbed out
-
-// LatestHeight uses the CLI utilities to pull the latest height from a given chain
-func (c *Chain) LatestHeight() uint64 {
-	height, err := c.LiteClient.LastTrustedHeight()
-	if err != nil {
-		c.logger.Error("lite client does not have a last trusted height", err)
-		height = 0
-	}
-	return uint64(height)
-}
-
-// LatestHeader returns the header to be used for client creation
-func (c *Chain) LatestHeader() clientExported.Header {
-	return nil
-}
 
 // QueryConsensusState returns a consensus state for a given chain to be used as a
 // client in another chain

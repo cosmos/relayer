@@ -3,7 +3,9 @@ package relayer
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
+	connState "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/exported"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
+	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc/20-transfer/types"
 )
@@ -81,19 +83,19 @@ func NaiveRelayStrategy(src, dst *Chain) (RelayMsgs, error) {
 		dstEnd := dst.GetConnection(srcEnd.Counterparty.ConnectionID)
 
 		// Handshake has started locally (1 step done), relay `connOpenTry` to the remote end
-		if srcEnd.State == connTypes.INIT && dstEnd.State == connTypes.UNINITIALIZED {
+		if srcEnd.State == connState.INIT && dstEnd.State == connState.UNINITIALIZED {
 			// TODO: move to NewMsgOpenTry and apply correct args
 			dstMsgs = append(dstMsgs, connTypes.MsgConnectionOpenTry{})
 		}
 
 		// Handshake has started on the other end (2 steps done), relay `connOpenAck` to the local end
-		if srcEnd.State == connTypes.INIT && dstEnd.State == connTypes.TRYOPEN {
+		if srcEnd.State == connState.INIT && dstEnd.State == connState.TRYOPEN {
 			// TODO: move to NewMsgOpenAck and apply correct args
 			srcMsgs = append(srcMsgs, connTypes.MsgConnectionOpenAck{})
 		}
 
 		// Handshake has confirmed locally (3 steps done), relay `connOpenConfirm` to the remote end
-		if srcEnd.State == connTypes.OPEN && dstEnd.State == connTypes.TRYOPEN {
+		if srcEnd.State == connState.OPEN && dstEnd.State == connState.TRYOPEN {
 			// TODO: move to NewMsgOpenConfirm and apply correct args
 			dstMsgs = append(dstMsgs, connTypes.MsgConnectionOpenConfirm{})
 		}
@@ -108,19 +110,19 @@ func NaiveRelayStrategy(src, dst *Chain) (RelayMsgs, error) {
 		// Deal with handshakes in progress
 
 		// Handshake has started locally (1 step done), relay `chanOpenTry` to the remote end
-		if srcEnd.State == chanTypes.INIT && dstEnd.State == chanTypes.UNINITIALIZED {
+		if srcEnd.State == chanState.INIT && dstEnd.State == chanState.UNINITIALIZED {
 			// TODO: move to NewMsgOpenTry and apply correct args
 			dstMsgs = append(dstMsgs, chanTypes.MsgChannelOpenTry{})
 		}
 
 		// Handshake has started on the other end (2 steps done), relay `chanOpenAck` to the local end
-		if srcEnd.State == chanTypes.INIT && dstEnd.State == chanTypes.TRYOPEN {
+		if srcEnd.State == chanState.INIT && dstEnd.State == chanState.TRYOPEN {
 			// TODO: move to NewMsgOpenAck and apply correct args
 			srcMsgs = append(srcMsgs, chanTypes.MsgChannelOpenAck{})
 		}
 
 		// Handshake has confirmed locally (3 steps done), relay `chanOpenConfirm` to the remote end
-		if srcEnd.State == chanTypes.OPEN && dstEnd.State == chanTypes.TRYOPEN {
+		if srcEnd.State == chanState.OPEN && dstEnd.State == chanState.TRYOPEN {
 			// TODO: move to NewMsgOpenConfirm and apply correct args
 			dstMsgs = append(dstMsgs, chanTypes.MsgChannelOpenConfirm{})
 		}
