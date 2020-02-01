@@ -3,7 +3,9 @@ package relayer
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
+	connState "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/exported"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
+	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc/20-transfer/types"
 )
@@ -49,29 +51,48 @@ func NaiveRelayStrategy(src, dst *Chain) (RelayMsgs, error) {
 		return RelayMsgs{}, err
 	}
 
+	srcHeight, err := src.LatestHeight()
+	if err != nil {
+		return RelayMsgs{}, err
+	}
+
+	dstHeight, err := dst.LatestHeight()
+	if err != nil {
+		return RelayMsgs{}, err
+	}
 	// ICS2 : Clients
 	// Determine if light client needs to be updated on dst
 	// TODO: Do we need to randomly generate client IDs here?
-	if dst.QueryConsensusState().ProofHeight < src.LatestHeight() {
+	if dst.GetConsensusState().ProofHeight < uint64(srcHeight) {
 		cp, err := src.GetCounterparty(dst.ChainID)
 		if err != nil {
 			return RelayMsgs{}, err
 		}
 
+		srcHeader, err := src.SignedHeaderAtHeight(srcHeight)
+		if err != nil {
+			return RelayMsgs{}, err
+		}
+
 		dstMsgs = append(dstMsgs,
-			clientTypes.NewMsgUpdateClient(cp.ClientID, dst.LatestHeader(), dstAddr.GetAddress()))
+			clientTypes.NewMsgUpdateClient(cp.ClientID, srcHeader, dstAddr.GetAddress()))
 	}
 
 	// Determine if light client needs to be updated on src
 	// TODO: Do we need to randomly generate client IDs here?
-	if src.QueryConsensusState().ProofHeight < dst.LatestHeight() {
+	if src.GetConsensusState().ProofHeight < uint64(dstHeight) {
 		cp, err := dst.GetCounterparty(src.ChainID)
 		if err != nil {
 			return RelayMsgs{}, err
 		}
 
+		dstHeader, err := dst.SignedHeaderAtHeight(srcHeight)
+		if err != nil {
+			return RelayMsgs{}, err
+		}
+
 		srcMsgs = append(srcMsgs,
-			clientTypes.NewMsgUpdateClient(cp.ClientID, dst.LatestHeader(), srcAddr.GetAddress()))
+			clientTypes.NewMsgUpdateClient(cp.ClientID, dstHeader, srcAddr.GetAddress()))
 	}
 
 	// ICS3 : Connections
@@ -81,19 +102,19 @@ func NaiveRelayStrategy(src, dst *Chain) (RelayMsgs, error) {
 		dstEnd := dst.GetConnection(srcEnd.Counterparty.ConnectionID)
 
 		// Handshake has started locally (1 step done), relay `connOpenTry` to the remote end
-		if srcEnd.State == connTypes.INIT && dstEnd.State == connTypes.UNINITIALIZED {
+		if srcEnd.State == connState.INIT && dstEnd.State == connState.UNINITIALIZED {
 			// TODO: move to NewMsgOpenTry and apply correct args
 			dstMsgs = append(dstMsgs, connTypes.MsgConnectionOpenTry{})
 		}
 
 		// Handshake has started on the other end (2 steps done), relay `connOpenAck` to the local end
-		if srcEnd.State == connTypes.INIT && dstEnd.State == connTypes.TRYOPEN {
+		if srcEnd.State == connState.INIT && dstEnd.State == connState.TRYOPEN {
 			// TODO: move to NewMsgOpenAck and apply correct args
 			srcMsgs = append(srcMsgs, connTypes.MsgConnectionOpenAck{})
 		}
 
 		// Handshake has confirmed locally (3 steps done), relay `connOpenConfirm` to the remote end
-		if srcEnd.State == connTypes.OPEN && dstEnd.State == connTypes.TRYOPEN {
+		if srcEnd.State == connState.OPEN && dstEnd.State == connState.TRYOPEN {
 			// TODO: move to NewMsgOpenConfirm and apply correct args
 			dstMsgs = append(dstMsgs, connTypes.MsgConnectionOpenConfirm{})
 		}
@@ -108,19 +129,19 @@ func NaiveRelayStrategy(src, dst *Chain) (RelayMsgs, error) {
 		// Deal with handshakes in progress
 
 		// Handshake has started locally (1 step done), relay `chanOpenTry` to the remote end
-		if srcEnd.State == chanTypes.INIT && dstEnd.State == chanTypes.UNINITIALIZED {
+		if srcEnd.State == chanState.INIT && dstEnd.State == chanState.UNINITIALIZED {
 			// TODO: move to NewMsgOpenTry and apply correct args
 			dstMsgs = append(dstMsgs, chanTypes.MsgChannelOpenTry{})
 		}
 
 		// Handshake has started on the other end (2 steps done), relay `chanOpenAck` to the local end
-		if srcEnd.State == chanTypes.INIT && dstEnd.State == chanTypes.TRYOPEN {
+		if srcEnd.State == chanState.INIT && dstEnd.State == chanState.TRYOPEN {
 			// TODO: move to NewMsgOpenAck and apply correct args
 			srcMsgs = append(srcMsgs, chanTypes.MsgChannelOpenAck{})
 		}
 
 		// Handshake has confirmed locally (3 steps done), relay `chanOpenConfirm` to the remote end
-		if srcEnd.State == chanTypes.OPEN && dstEnd.State == chanTypes.TRYOPEN {
+		if srcEnd.State == chanState.OPEN && dstEnd.State == chanState.TRYOPEN {
 			// TODO: move to NewMsgOpenConfirm and apply correct args
 			dstMsgs = append(dstMsgs, chanTypes.MsgChannelOpenConfirm{})
 		}
@@ -130,7 +151,7 @@ func NaiveRelayStrategy(src, dst *Chain) (RelayMsgs, error) {
 
 		// First, scan logs for sent packets and relay all of them
 		// TODO: This is currently incorrect and will change
-		for _, tx := range src.QueryTxs(src.LatestHeight(), "type:transfer") {
+		for _, tx := range src.QueryTxs(uint64(srcHeight), "type:transfer") {
 			for _, msg := range tx.Msgs {
 				if msg.Type() == "transfer" {
 					dstMsgs = append(dstMsgs, xferTypes.MsgRecvPacket{})
@@ -140,7 +161,7 @@ func NaiveRelayStrategy(src, dst *Chain) (RelayMsgs, error) {
 
 		// Then, scan logs for received packets and relay acknowledgements
 		// TODO: This is currently incorrect and will change
-		for _, tx := range src.QueryTxs(src.LatestHeight(), "type:recv_packet") {
+		for _, tx := range src.QueryTxs(uint64(srcHeight), "type:recv_packet") {
 			for _, msg := range tx.Msgs {
 				if msg.Type() == "recv_packet" {
 					dstMsgs = append(dstMsgs, xferTypes.MsgRecvPacket{})

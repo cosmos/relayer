@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/relayer"
@@ -57,6 +58,7 @@ type ChainConfig struct {
 	DefaultDenom   string               `yaml:"default-denom,omitempty"`
 	Memo           string               `yaml:"memo,omitempty"`
 	TrustOptions   relayer.TrustOptions `yaml:"trust-options"`
+	UpdatePeriod   string               `yaml:"update-period"`
 }
 
 // CounterpartyConfig represents a chain's counterparty
@@ -66,7 +68,7 @@ type CounterpartyConfig struct {
 }
 
 // Called to set the relayer.Chain types on Config
-func setChains(c *Config) error {
+func setChains(c *Config, home string) error {
 	var out []*relayer.Chain
 	var new = &Config{Global: c.Global, Chains: c.Chains}
 	for _, i := range c.Chains {
@@ -74,7 +76,14 @@ func setChains(c *Config) error {
 		for _, cp := range i.Counterparties {
 			cps = append(cps, relayer.NewCounterparty(cp.ChainID, cp.ClientID))
 		}
-		chain, err := relayer.NewChain(i.Key, i.ChainID, i.RPCAddr, i.AccountPrefix, cps, i.Gas, i.GasAdjustment, i.GasPrices, i.DefaultDenom, i.Memo, homePath, c.Global.LiteCacheSize, i.TrustOptions)
+		homeDir := path.Join(home, liteDir)
+		updatePeriod, err := time.ParseDuration(i.UpdatePeriod)
+		if err != nil {
+			return nil
+		}
+		chain, err := relayer.NewChain(i.Key, i.ChainID, i.RPCAddr, i.AccountPrefix, cps, i.Gas, i.GasAdjustment,
+			i.GasPrices, i.DefaultDenom, i.Memo, homePath, c.Global.LiteCacheSize, i.TrustOptions, updatePeriod,
+			homeDir)
 		if err != nil {
 			return nil
 		}
@@ -112,7 +121,7 @@ func initConfig(cmd *cobra.Command) error {
 			}
 
 			// ensure config has []*relayer.Chain used for all chain operations
-			err = setChains(config)
+			err = setChains(config, home)
 			if err != nil {
 				fmt.Println("Error parsing chain config:", err)
 				os.Exit(1)

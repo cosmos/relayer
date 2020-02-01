@@ -17,95 +17,97 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
 	"github.com/cosmos/relayer/relayer"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	lite "github.com/tendermint/tendermint/lite2"
 )
 
-// liteCmd represents the lite command
+// chainCmd represents the keys command
 var liteCmd = &cobra.Command{
 	Use:   "lite",
-	Short: "Commands to manage lite clients created by this relayer",
+	Short: "basic functionality for managing the lite clients",
 }
 
-// This command just primarily for testing but may be useful otherwise. Ideally this is implemented with the
-var liteStartCmd = &cobra.Command{
-	Use:   "start [chain-id]",
-	Short: "This command starts the auto updating relayer and logs when new headers are recieved",
-	Args:  cobra.ExactArgs(1),
+func init() {
+	liteCmd.AddCommand(headerCmd)
+	liteCmd.AddCommand(latestHeaderCmd)
+	liteCmd.AddCommand(latestHeightCmd)
+}
+
+var headerCmd = &cobra.Command{
+	Use: "header [chain-id] [height]",
+	Short: "Get header from the database. 0 returns last trusted header and " +
+		"all others return the header at that height if stored",
+	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		chainID := args[0]
-
-		if !relayer.Exists(chainID, config.c) {
-			return fmt.Errorf("chain with ID %s is not configured", chainID)
+		chain, err := relayer.GetChain(chainID, config.c)
+		if err != nil {
+			return err
 		}
+		var header *tmclient.Header
+		if len(args) == 1 {
+			header, err = chain.LatestHeader()
+			if err != nil {
+				return err
+			}
+			fmt.Println(header)
+		}
+		height, err := strconv.ParseInt(args[1], 10, 64) //convert to int64
+		if err != nil {
+			return err
+		}
+		header, err = chain.SignedHeaderAtHeight(height)
+		if err != nil {
+			return err
+		}
+		fmt.Println(header)
+		return nil
+	},
+}
 
+var latestHeightCmd = &cobra.Command{
+	Use: "latest-height [chain-id]",
+	Short: "Get header from relayer database. 0 returns last trusted header and " +
+		"all others return the header at that height if stored",
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		chainID := args[0]
 		chain, err := relayer.GetChain(chainID, config.c)
 		if err != nil {
 			return err
 		}
 
-		autoLite, err := chain.NewAutoLiteClient(fmt.Sprintf("%s/%s", liteDir, chainID), homePath, config.Global.LiteCacheSize)
+		// Get stored height
+		height, err := chain.LatestHeight()
 		if err != nil {
 			return err
 		}
 
-		defer autoLite.Stop()
+		fmt.Println(height)
+		return nil
+	},
+}
 
-		select {
-		case h := <-autoLite.TrustedHeaders():
-			fmt.Println("got header", h.Height)
-			// Output: got header 3
-		case err := <-autoLite.Errs():
-			switch errors.Cause(err).(type) {
-			case lite.ErrOldHeaderExpired:
-				// reobtain trust height and hash
-				return err
-			default:
-				// try with another full node
-				return err
-			}
+var latestHeaderCmd = &cobra.Command{
+	Use:   "latest-header [chain-id]",
+	Short: "Use configured RPC client to fetch the latest header from a configured chain",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		chainID := args[0]
+		chain, err := relayer.GetChain(chainID, config.c)
+		if err != nil {
+			return err
 		}
 
+		h, err := chain.GetLatestHeader()
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(h)
 		return nil
 	},
-}
-
-// TODO: Figure out arguements for initializing a lite client with a root of trust
-var liteInitCmd = &cobra.Command{
-	Use:   "init [chain-id] [hash] [height] [trust-period]",
-	Short: "Create a new lite client for a configured chain, requires passing in a root of trust",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-}
-
-// TODO: Figure out arguements for initializing a lite client with a root of trust
-var liteUpdateCmd = &cobra.Command{
-	Use:   "update [chain-id] [hash] [height] [trust-period]",
-	Short: "Update an existing lite client for a configured chain, requres passing in a root of trust",
-	Args:  cobra.ExactArgs(3),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-}
-
-var liteDeleteCmd = &cobra.Command{
-	Use:   "delete [chain-id]",
-	Short: "Delete an existing lite client for a configured chain, this will force new initialization during the next usage of the lite clien.",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(liteCmd)
-	liteCmd.AddCommand(liteStartCmd)
-	liteCmd.AddCommand(liteInitCmd)
-	liteCmd.AddCommand(liteDeleteCmd)
-	liteCmd.AddCommand(liteUpdateCmd)
 }

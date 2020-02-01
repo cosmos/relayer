@@ -1,90 +1,90 @@
 package relayer
 
 import (
-	"fmt"
+	"time"
 
-	"github.com/pkg/errors"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
 	lite "github.com/tendermint/tendermint/lite2"
+	litehttp "github.com/tendermint/tendermint/lite2/provider/http"
 	dbs "github.com/tendermint/tendermint/lite2/store/db"
+	"github.com/tendermint/tendermint/types"
 	dbm "github.com/tendermint/tm-db"
-
-	"github.com/tendermint/tendermint/lite2/provider/http"
 )
 
-// StartAutoLiteClient creates and starts an auto lite client
-func (c *Chain) StartAutoLiteClient(homePath, homeDir string, cache int) error {
-	autoLite, err := c.NewAutoLiteClient(homePath, homeDir, cache)
+func (c *Chain) initLiteClient(db *dbm.GoLevelDB) (*lite.Client, error) {
+	httpProvider, err := litehttp.New(c.ChainID, c.RPCAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	return lite.NewClient(c.ChainID,
+		c.TrustOptions.Get(),
+		httpProvider,
+		dbs.New(db, c.ChainID))
+}
+
+// Update spins up an instance of the lite client as part of the chain.
+func (c *Chain) Update() error {
+	db, err := c.NewLiteDB()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	lc, err := c.initLiteClient(db)
 	if err != nil {
 		return err
 	}
 
-	c.AutoLiteClient = autoLite
-
-	go func() {
-		defer autoLite.Stop()
-
-		select {
-		case h := <-autoLite.TrustedHeaders():
-			fmt.Println("got header", h.Height)
-			// Output: got header 3
-		case err := <-autoLite.Errs():
-			switch errors.Cause(err).(type) {
-			case lite.ErrOldHeaderExpired:
-				// reobtain trust height and hash
-				fmt.Println("STOPPING LITE CLIENT FOR CHAIN", c.ChainID)
-				autoLite.Stop()
-			default:
-				fmt.Println("STOPPING LITE CLIENT FOR CHAIN", c.ChainID)
-				autoLite.Stop()
-			}
-		}
-	}()
+	err = lc.Update(time.Now())
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
-// NewAutoLiteClient returns a new instance of the auto lite client
-func (c *Chain) NewAutoLiteClient(homePath, homeDir string, cache int) (*lite.AutoClient, error) {
-	cl, err := c.NewLiteClient(homePath, homeDir, cache)
+// LatestHeight uses the CLI utilities to pull the latest height from a given chain
+func (c *Chain) LatestHeight() (int64, error) {
+	db, err := c.NewLiteDB()
 	if err != nil {
-		return &lite.AutoClient{}, err
+		return -1, err
 	}
+	defer db.Close()
 
-	return lite.NewAutoClient(cl, c.TrustOptions.Get().Period), nil
+	store := dbs.New(db, c.ChainID)
+
+	return store.LastSignedHeaderHeight()
+
 }
 
-// NewLiteClient returns a new instance of the lite client
-func (c *Chain) NewLiteClient(path, homeDir string, cache int) (*lite.Client, error) {
-	var out = &lite.Client{}
-
-	// Create lite.HTTP provider
-	p, err := http.New(c.ChainID, c.RPCAddr)
+// LatestHeader returns the header to be used for client creation
+func (c *Chain) LatestHeader() (*tmclient.Header, error) {
+	height, err := c.LatestHeight()
 	if err != nil {
-		return out, err
+		return nil, err
 	}
+	return c.SignedHeaderAtHeight(height)
+}
 
-	// Create DB backend
-	db, err := dbm.NewGoLevelDB(path, homeDir)
+// SignedHeaderAtHeight returns a signed header at a particular height
+func (c *Chain) SignedHeaderAtHeight(height int64) (*tmclient.Header, error) {
+	db, err := c.NewLiteDB()
 	if err != nil {
-		return out, err
+		return nil, err
 	}
+	defer db.Close()
 
-	// If there is no hash input, grab a hash to intialize the client
-	if len(c.TrustOptions.Hash) == 0 && c.TrustOptions.Height == 0 {
-		var h = c.TrustOptions.Height + 1
-		bl, err := c.Client.Block(&h)
-		if err != nil {
-			return out, err
-		}
-		c.TrustOptions.Height = 1
-		c.TrustOptions.Hash = bl.Block.Header.Hash().Bytes()
-	}
+	store := dbs.New(db, c.ChainID)
 
-	// Initialize the lite.Client
-	cl, err := lite.NewClient(c.ChainID, c.TrustOptions.Get(), p, dbs.New(db, c.ChainID))
+	sh, err := store.SignedHeader(height)
 	if err != nil {
-		return out, err
+		return nil, err
 	}
 
-	return cl, nil
+	return headerFromSignedHeader(sh), nil
+}
+
+func headerFromSignedHeader(sh *types.SignedHeader) *tmclient.Header {
+	return &tmclient.Header{SignedHeader: *sh}
 }

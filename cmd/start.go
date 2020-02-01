@@ -33,9 +33,8 @@ var startCmd = &cobra.Command{
 			return err
 		}
 
-		// The relayer will
+		// The relayer will continuously run the strategy declared in the config file
 		for {
-
 			err = relayer.Relay(config.Global.Strategy, config.c)
 			time.Sleep(d)
 			if err != nil {
@@ -43,8 +42,4 @@ var startCmd = &cobra.Command{
 			}
 		}
 	},
-}
-
-func init() {
-	rootCmd.AddCommand(startCmd)
 }

@@ -8,16 +8,21 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
+	"github.com/tendermint/tendermint/libs/log"
 	lite "github.com/tendermint/tendermint/lite2"
+	dbm "github.com/tendermint/tm-db"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	auth "github.com/cosmos/cosmos-sdk/x/auth"
-	ibc "github.com/cosmos/cosmos-sdk/x/ibc"
-	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
+	"github.com/cosmos/cosmos-sdk/x/auth"
+	"github.com/cosmos/cosmos-sdk/x/ibc"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	tendermint "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
+	commitment "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
+	tmtypes "github.com/tendermint/tendermint/types"
 )
 
 // Exists Returns true if the chain is configured
@@ -46,9 +51,9 @@ func GetChain(chainID string, c []*Chain) (*Chain, error) {
 func NewChain(key, chainID, rpcAddr, accPrefix string,
 	counterparties []Counterparty, gas uint64, gasAdj float64,
 	gasPrices sdk.DecCoins, defaultDenom, memo, homePath string,
-	liteCacheSize int, trustOptions TrustOptions,
+	liteCacheSize int, trustOptions TrustOptions, updatePeriod time.Duration, dir string,
 ) (*Chain, error) {
-	keybase, err := keys.NewTestKeyring(chainID, keysDir(homePath, chainID))
+	keybase, err := keys.NewKeyring(chainID, "test", keysDir(homePath, chainID), nil)
 	if err != nil {
 		return &Chain{}, err
 	}
@@ -62,7 +67,9 @@ func NewChain(key, chainID, rpcAddr, accPrefix string,
 	ibc.AppModuleBasic{}.RegisterCodec(cdc)
 
 	return &Chain{
-		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Counterparties: counterparties, Gas: gas, GasAdjustment: gasAdj, GasPrices: gasPrices, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase, Client: client, Cdc: cdc, TrustOptions: trustOptions}, nil
+		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Counterparties: counterparties, Gas: gas,
+		GasAdjustment: gasAdj, GasPrices: gasPrices, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase,
+		Client: client, Cdc: cdc, TrustOptions: trustOptions, UpdatePeriod: updatePeriod, dir: dir}, nil
 }
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
@@ -79,11 +86,13 @@ type Chain struct {
 	Memo           string         `yaml:"memo,omitempty"`
 	TrustOptions   TrustOptions   `yaml:"trust-options"`
 
-	Keybase        keys.Keybase
-	Client         *rpcclient.HTTP
-	Cdc            *codec.Codec
-	LiteClient     *lite.Client
-	AutoLiteClient *lite.AutoClient
+	Keybase      keys.Keybase
+	Client       *rpcclient.HTTP
+	Cdc          *codec.Codec
+	UpdatePeriod time.Duration
+
+	dir    string
+	logger log.Logger
 }
 
 // TrustOptions defines the options for lite client trust
@@ -202,22 +211,95 @@ func (c *Chain) SendMsgs(datagram []sdk.Msg) error {
 	return nil
 }
 
+// NewLiteDB returns a new instance of the liteclient database connection
+// CONTRACT: must close the database connection when done with it (defer db.Close())
+func (c *Chain) NewLiteDB() (*dbm.GoLevelDB, error) {
+	return dbm.NewGoLevelDB(c.ChainID, path.Join(c.dir, "db"))
+}
+
 // HELP WANTED!!!
 // NOTE: Below this line everything is stubbed out
 
-// LatestHeight uses the CLI utilities to pull the latest height from a given chain
-func (c *Chain) LatestHeight() uint64 {
-	return 0
+// GetLatestHeight queries the chain for the latest height and returns it
+func (c *Chain) GetLatestHeight() (int64, error) {
+	res, err := c.Client.Status()
+	if err != nil {
+		return -1, err
+	}
+
+	if res.SyncInfo.CatchingUp {
+		return -1, fmt.Errorf("node %s running chain %s not caught up", c.RPCAddr, c.ChainID)
+	}
+
+	return res.SyncInfo.LatestBlockHeight, nil
 }
 
-// LatestHeader returns the header to be used for client creation
-func (c *Chain) LatestHeader() clientExported.Header {
-	return nil
+// GetHeaderAtHeight returns the header at a given height
+func (c *Chain) GetHeaderAtHeight(height int64) (*tmclient.Header, error) {
+	if height <= 0 {
+		return nil, fmt.Errorf("must pass in valid height, %d not valid", height)
+	}
+
+	res, err := c.Client.Commit(&height)
+	if err != nil {
+		return nil, err
+	}
+
+	header := &tmclient.Header{
+		// NOTE: This is not a SignedHeader
+		// We are missing a lite.Commit type here
+		SignedHeader: res.SignedHeader,
+		ValidatorSet: &tmtypes.ValidatorSet{},
+	}
+
+	return header, nil
+}
+
+// GetLatestHeader returns the latest header from the chain
+func (c *Chain) GetLatestHeader() (*tmclient.Header, error) {
+	h, err := c.GetLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+
+	out, err := c.GetHeaderAtHeight(h)
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
 }
 
 // QueryConsensusState returns a consensus state for a given chain to be used as a
-// client in another chain
-func (c *Chain) QueryConsensusState() clientTypes.ConsensusStateResponse {
+// client in another chain, fetches latest height when passed 0 as arg
+func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, error) {
+	if height == 0 {
+		h, err := c.GetLatestHeight()
+		if err != nil {
+			return nil, err
+		}
+		height = h
+	}
+
+	commit, err := c.Client.Commit(&height)
+	if err != nil {
+		return nil, err
+	}
+
+	validators, err := c.Client.Validators(&height, 0, 10000)
+	if err != nil {
+		return nil, err
+	}
+
+	state := &tendermint.ConsensusState{
+		Root:             commitment.NewRoot(commit.AppHash),
+		ValidatorSetHash: tmtypes.NewValidatorSet(validators.Validators).Hash(),
+	}
+
+	return state, nil
+}
+
+func (c *Chain) GetConsensusState() clientTypes.ConsensusStateResponse {
 	return clientTypes.ConsensusStateResponse{}
 }
 
