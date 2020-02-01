@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +27,7 @@ const (
 	homeFlag = "home"
 	cfgDir   = "config"
 	keyDir   = "keys"
-	dbDir    = "db"
+	liteDir  = "lite"
 	cfgFile  = "config.yaml"
 	homeDisc = "set home directory"
 	cfgDisc  = "set config file"
@@ -42,6 +43,13 @@ var (
 func init() {
 	rootCmd.PersistentFlags().StringVar(&homePath, homeFlag, defaultHome, homeDisc)
 	rootCmd.PersistentFlags().StringVar(&cfgPath, cfgDir, cfgFile, cfgDisc)
+	rootCmd.AddCommand(
+		liteCmd,
+		keysCmd,
+		chainCmd,
+		flags.LineBreak,
+		startCmd,
+	)
 }
 
 // rootCmd represents the base command when called without any subcommands

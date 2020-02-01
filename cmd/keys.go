@@ -25,7 +25,6 @@ import (
 )
 
 func init() {
-	rootCmd.AddCommand(keysCmd)
 	keysCmd.AddCommand(keysAddCmd)
 	keysCmd.AddCommand(keysRestoreCmd)
 	keysCmd.AddCommand(keysDeleteCmd)

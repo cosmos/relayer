@@ -17,15 +17,28 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
+
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
-	"github.com/tendermint/tendermint/types"
-	"strconv"
 )
+
+// chainCmd represents the keys command
+var liteCmd = &cobra.Command{
+	Use:   "lite",
+	Short: "basic functionality for managing the lite clients",
+}
+
+func init() {
+	liteCmd.AddCommand(headerCmd)
+	liteCmd.AddCommand(latestHeaderCmd)
+	liteCmd.AddCommand(latestHeightCmd)
+}
 
 var headerCmd = &cobra.Command{
 	Use: "header [chain-id] [height]",
-	Short: "Get header from relayer. 0 returns last trusted header and " +
+	Short: "Get header from the database. 0 returns last trusted header and " +
 		"all others return the header at that height if stored",
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -34,7 +47,7 @@ var headerCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		var header *types.SignedHeader
+		var header *tmclient.Header
 		if len(args) == 1 {
 			header, err = chain.LatestHeader()
 			if err != nil {
@@ -56,8 +69,8 @@ var headerCmd = &cobra.Command{
 }
 
 var latestHeightCmd = &cobra.Command{
-	Use: "latestHeight [chain-id]",
-	Short: "Get header from relayer. 0 returns last trusted header and " +
+	Use: "latest-height [chain-id]",
+	Short: "Get header from relayer database. 0 returns last trusted header and " +
 		"all others return the header at that height if stored",
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -66,16 +79,35 @@ var latestHeightCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+
+		// Get stored height
 		height, err := chain.LatestHeight()
 		if err != nil {
 			return err
 		}
+
 		fmt.Println(height)
 		return nil
 	},
 }
 
-func init() {
-	rootCmd.AddCommand(headerCmd)
-	rootCmd.AddCommand(latestHeightCmd)
+var latestHeaderCmd = &cobra.Command{
+	Use:   "latest-header [chain-id]",
+	Short: "Use configured RPC client to fetch the latest header from a configured chain",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		chainID := args[0]
+		chain, err := relayer.GetChain(chainID, config.c)
+		if err != nil {
+			return err
+		}
+
+		h, err := chain.GetLatestHeader()
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(h)
+		return nil
+	},
 }

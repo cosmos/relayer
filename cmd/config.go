@@ -17,15 +17,16 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+	"time"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
-	"os"
-	"path"
-	"time"
 )
 
 // Config represents the config file for the relayer
@@ -75,7 +76,7 @@ func setChains(c *Config, home string) error {
 		for _, cp := range i.Counterparties {
 			cps = append(cps, relayer.NewCounterparty(cp.ChainID, cp.ClientID))
 		}
-		homeDir := path.Join(home, i.ChainID)
+		homeDir := path.Join(home, liteDir)
 		updatePeriod, err := time.ParseDuration(i.UpdatePeriod)
 		if err != nil {
 			return nil
