@@ -11,46 +11,67 @@ import (
 	"time"
 )
 
-func (c *Chain) initLiteClient(db *dbm.GoLevelDB) (*lite.Client, error) {
+func (c *Chain) initLiteClientWithoutTrust(db *dbm.GoLevelDB) (*lite.Client, error) {
+	return c.InitLiteClient(db, c.GetEmptyTrustOptions())
+}
+
+func (c *Chain) InitLiteClient(db *dbm.GoLevelDB, trustOption lite.TrustOptions) (*lite.Client, error) {
 	httpProvider, err := litehttp.New(c.ChainID, c.RPCAddr)
 	if err != nil {
 		return nil, err
 	}
 
 	return lite.NewClient(c.ChainID,
-		c.TrustOptions.Get(),
+		trustOption,
 		httpProvider,
 		dbs.New(db, c.ChainID))
 }
 
 // Spins up an instance of the lite client as part of the chain.
 func (c *Chain) Update() error {
-	db, err := dbm.NewGoLevelDB(fmt.Sprintf("lite-%s", c.ChainID), path.Join(c.dir, "db"))
+	// Open connection to the database temporarily
+	db, err := dbm.NewGoLevelDB(fmt.Sprintf("lite-%s", c.ChainID), path.Join(c.ChainDir, "db"))
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
 
-	lc, err := c.initLiteClient(db)
+	// initialise Lite Client
+	lc, err := c.initLiteClientWithoutTrust(db)
 	if err != nil {
 		return err
 	}
 
-	err = lc.Update(time.Now())
+	now := time.Now()
+	// sync lite client to the most recent header of the primary provider
+	err = lc.Update(now)
 	if err != nil {
 		return err
 	}
+
+	// also remove expired headers
+	lc.RemoveNoLongerTrustedHeaders(now)
 
 	return nil
 }
 
 // LatestHeight uses the CLI utilities to pull the latest height from a given chain
 func (c *Chain) LatestHeight() (int64, error) {
-	db, err := dbm.NewGoLevelDB(fmt.Sprintf("lite-db-%s", c.ChainID), path.Join(c.dir, "db"))
+	db, err := dbm.NewGoLevelDB(fmt.Sprintf("lite-db-%s", c.ChainID), path.Join(c.ChainDir, "db"))
 	if err != nil {
 		return -1, err
 	}
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	store := dbs.New(db, c.ChainID)
 
@@ -68,11 +89,16 @@ func (c *Chain) LatestHeader() (*types.SignedHeader, error) {
 }
 
 func (c *Chain) SignedHeaderAtHeight(height int64) (*types.SignedHeader, error) {
-	db, err := dbm.NewGoLevelDB(fmt.Sprintf("lite-%s", c.ChainID), path.Join(c.dir, "db"))
+	db, err := dbm.NewGoLevelDB(fmt.Sprintf("lite-%s", c.ChainID), path.Join(c.ChainDir, "db"))
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	store := dbs.New(db, c.ChainID)
 

@@ -46,7 +46,7 @@ func GetChain(chainID string, c []*Chain) (*Chain, error) {
 func NewChain(key, chainID, rpcAddr, accPrefix string,
 	counterparties []Counterparty, gas uint64, gasAdj float64,
 	gasPrices sdk.DecCoins, defaultDenom, memo, homePath string,
-	liteCacheSize int, trustOptions TrustOptions, updatePeriod time.Duration, dir string,
+	liteCacheSize int, trustingPeriod string, dir string,
 ) (*Chain, error) {
 	keybase, err := keys.NewKeyring(chainID, "test", keysDir(homePath, chainID), nil)
 	if err != nil {
@@ -64,7 +64,7 @@ func NewChain(key, chainID, rpcAddr, accPrefix string,
 	return &Chain{
 		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Counterparties: counterparties, Gas: gas,
 		GasAdjustment: gasAdj, GasPrices: gasPrices, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase,
-		Client: client, Cdc: cdc, TrustOptions: trustOptions, UpdatePeriod: updatePeriod, dir: dir}, nil
+		Client: client, Cdc: cdc, TrustingPeriod: trustingPeriod, ChainDir: dir}, nil
 }
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
@@ -79,34 +79,29 @@ type Chain struct {
 	GasPrices      sdk.DecCoins   `yaml:"gas-prices,omitempty"`
 	DefaultDenom   string         `yaml:"default-denom,omitempty"`
 	Memo           string         `yaml:"memo,omitempty"`
-	TrustOptions   TrustOptions   `yaml:"trust-options"`
+	TrustingPeriod string         `yaml:"trusting-period"`
 
-	Keybase      keys.Keybase
-	Client       *rpcclient.HTTP
-	Cdc          *codec.Codec
-	UpdatePeriod time.Duration
-
-	dir    string
-	logger log.Logger
-}
-
-// TrustOptions defines the options for lite client trust
-type TrustOptions struct {
-	Period string `yaml:"period"`
-	Height int64  `yaml:"height,omitempty"`
-	Hash   []byte `yaml:"hash,omitempty"`
+	Keybase  keys.Keybase
+	Client   *rpcclient.HTTP
+	Cdc      *codec.Codec
+	ChainDir string
+	logger   log.Logger
 }
 
 // Get gets the lite.TrustOptions struct from this one
-func (to TrustOptions) Get() lite.TrustOptions {
-	dur, err := time.ParseDuration(to.Period)
+func (c *Chain) GetEmptyTrustOptions() lite.TrustOptions {
+	return c.GetTrustOptions(-1, nil)
+}
+
+func (c *Chain) GetTrustOptions(height int64, hash []byte) lite.TrustOptions {
+	dur, err := time.ParseDuration(c.TrustingPeriod)
 	if err != nil {
 		panic(err)
 	}
 	return lite.TrustOptions{
 		Period: dur,
-		Height: to.Height,
-		Hash:   to.Hash,
+		Height: height,
+		Hash:   hash,
 	}
 }
 
