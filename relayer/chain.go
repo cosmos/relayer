@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
 	"github.com/tendermint/tendermint/libs/log"
 	lite "github.com/tendermint/tendermint/lite2"
+	dbm "github.com/tendermint/tm-db"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
@@ -17,7 +18,11 @@ import (
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	tendermint "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
+	commitment "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
+	tmtypes "github.com/tendermint/tendermint/types"
 )
 
 // Exists Returns true if the chain is configured
@@ -201,12 +206,95 @@ func (c *Chain) SendMsgs(datagram []sdk.Msg) error {
 	return nil
 }
 
+// NewLiteDB returns a new instance of the liteclient database connection
+// CONTRACT: must close the database connection when done with it (defer db.Close())
+func (c *Chain) NewLiteDB() (*dbm.GoLevelDB, error) {
+	return dbm.NewGoLevelDB(c.ChainID, path.Join(c.dir, "db"))
+}
+
 // HELP WANTED!!!
 // NOTE: Below this line everything is stubbed out
 
+// GetLatestHeight queries the chain for the latest height and returns it
+func (c *Chain) GetLatestHeight() (int64, error) {
+	res, err := c.Client.Status()
+	if err != nil {
+		return -1, err
+	}
+
+	if res.SyncInfo.CatchingUp {
+		return -1, fmt.Errorf("node %s running chain %s not caught up", c.RPCAddr, c.ChainID)
+	}
+
+	return res.SyncInfo.LatestBlockHeight, nil
+}
+
+// GetHeaderAtHeight returns the header at a given height
+func (c *Chain) GetHeaderAtHeight(height int64) (*tmclient.Header, error) {
+	if height <= 0 {
+		return nil, fmt.Errorf("must pass in valid height, %d not valid", height)
+	}
+
+	res, err := c.Client.Commit(&height)
+	if err != nil {
+		return nil, err
+	}
+
+	header := &tmclient.Header{
+		// NOTE: This is not a SignedHeader
+		// We are missing a lite.Commit type here
+		SignedHeader: res.SignedHeader,
+		ValidatorSet: &tmtypes.ValidatorSet{},
+	}
+
+	return header, nil
+}
+
+// GetLatestHeader returns the latest header from the chain
+func (c *Chain) GetLatestHeader() (*tmclient.Header, error) {
+	h, err := c.GetLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+
+	out, err := c.GetHeaderAtHeight(h)
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
 // QueryConsensusState returns a consensus state for a given chain to be used as a
-// client in another chain
-func (c *Chain) QueryConsensusState() clientTypes.ConsensusStateResponse {
+// client in another chain, fetches latest height when passed 0 as arg
+func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, error) {
+	if height == 0 {
+		h, err := c.GetLatestHeight()
+		if err != nil {
+			return nil, err
+		}
+		height = h
+	}
+
+	commit, err := c.Client.Commit(&height)
+	if err != nil {
+		return nil, err
+	}
+
+	validators, err := c.Client.Validators(&height, 0, 10000)
+	if err != nil {
+		return nil, err
+	}
+
+	state := &tendermint.ConsensusState{
+		Root:             commitment.NewRoot(commit.AppHash),
+		ValidatorSetHash: tmtypes.NewValidatorSet(validators.Validators).Hash(),
+	}
+
+	return state, nil
+}
+
+func (c *Chain) GetConsensusState() clientTypes.ConsensusStateResponse {
 	return clientTypes.ConsensusStateResponse{}
 }
 

@@ -1,14 +1,14 @@
 package relayer
 
 import (
-	"fmt"
+	"time"
+
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
 	lite "github.com/tendermint/tendermint/lite2"
 	litehttp "github.com/tendermint/tendermint/lite2/provider/http"
 	dbs "github.com/tendermint/tendermint/lite2/store/db"
 	"github.com/tendermint/tendermint/types"
 	dbm "github.com/tendermint/tm-db"
-	"path"
-	"time"
 )
 
 func (c *Chain) initLiteClientWithoutTrust(db *dbm.GoLevelDB) (*lite.Client, error) {
@@ -27,10 +27,9 @@ func (c *Chain) InitLiteClient(db *dbm.GoLevelDB, trustOption lite.TrustOptions)
 		dbs.New(db, c.ChainID))
 }
 
-// Spins up an instance of the lite client as part of the chain.
+// Update spins up an instance of the lite client as part of the chain.
 func (c *Chain) Update() error {
-	// Open connection to the database temporarily
-	db, err := dbm.NewGoLevelDB(fmt.Sprintf("lite-%s", c.ChainID), path.Join(c.ChainDir, "db"))
+	db, err := c.NewLiteDB()
 	if err != nil {
 		return err
 	}
@@ -62,7 +61,7 @@ func (c *Chain) Update() error {
 
 // LatestHeight uses the CLI utilities to pull the latest height from a given chain
 func (c *Chain) LatestHeight() (int64, error) {
-	db, err := dbm.NewGoLevelDB(fmt.Sprintf("lite-db-%s", c.ChainID), path.Join(c.ChainDir, "db"))
+	db, err := c.NewLiteDB()
 	if err != nil {
 		return -1, err
 	}
@@ -80,7 +79,7 @@ func (c *Chain) LatestHeight() (int64, error) {
 }
 
 // LatestHeader returns the header to be used for client creation
-func (c *Chain) LatestHeader() (*types.SignedHeader, error) {
+func (c *Chain) LatestHeader() (*tmclient.Header, error) {
 	height, err := c.LatestHeight()
 	if err != nil {
 		return nil, err
@@ -88,8 +87,9 @@ func (c *Chain) LatestHeader() (*types.SignedHeader, error) {
 	return c.SignedHeaderAtHeight(height)
 }
 
-func (c *Chain) SignedHeaderAtHeight(height int64) (*types.SignedHeader, error) {
-	db, err := dbm.NewGoLevelDB(fmt.Sprintf("lite-%s", c.ChainID), path.Join(c.ChainDir, "db"))
+// SignedHeaderAtHeight returns a signed header at a particular height
+func (c *Chain) SignedHeaderAtHeight(height int64) (*tmclient.Header, error) {
+	db, err := c.NewLiteDB()
 	if err != nil {
 		return nil, err
 	}
@@ -102,5 +102,14 @@ func (c *Chain) SignedHeaderAtHeight(height int64) (*types.SignedHeader, error) 
 
 	store := dbs.New(db, c.ChainID)
 
-	return store.SignedHeader(height)
+	sh, err := store.SignedHeader(height)
+	if err != nil {
+		return nil, err
+	}
+
+	return headerFromSignedHeader(sh), nil
+}
+
+func headerFromSignedHeader(sh *types.SignedHeader) *tmclient.Header {
+	return &tmclient.Header{SignedHeader: *sh}
 }

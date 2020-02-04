@@ -51,29 +51,48 @@ func NaiveRelayStrategy(src, dst *Chain) (RelayMsgs, error) {
 		return RelayMsgs{}, err
 	}
 
+	srcHeight, err := src.LatestHeight()
+	if err != nil {
+		return RelayMsgs{}, err
+	}
+
+	dstHeight, err := dst.LatestHeight()
+	if err != nil {
+		return RelayMsgs{}, err
+	}
 	// ICS2 : Clients
 	// Determine if light client needs to be updated on dst
 	// TODO: Do we need to randomly generate client IDs here?
-	if dst.QueryConsensusState().ProofHeight < src.LatestHeight() {
+	if dst.GetConsensusState().ProofHeight < uint64(srcHeight) {
 		cp, err := src.GetCounterparty(dst.ChainID)
 		if err != nil {
 			return RelayMsgs{}, err
 		}
 
+		srcHeader, err := src.SignedHeaderAtHeight(srcHeight)
+		if err != nil {
+			return RelayMsgs{}, err
+		}
+
 		dstMsgs = append(dstMsgs,
-			clientTypes.NewMsgUpdateClient(cp.ClientID, dst.LatestHeader(), dstAddr.GetAddress()))
+			clientTypes.NewMsgUpdateClient(cp.ClientID, srcHeader, dstAddr.GetAddress()))
 	}
 
 	// Determine if light client needs to be updated on src
 	// TODO: Do we need to randomly generate client IDs here?
-	if src.QueryConsensusState().ProofHeight < dst.LatestHeight() {
+	if src.GetConsensusState().ProofHeight < uint64(dstHeight) {
 		cp, err := dst.GetCounterparty(src.ChainID)
 		if err != nil {
 			return RelayMsgs{}, err
 		}
 
+		dstHeader, err := dst.SignedHeaderAtHeight(srcHeight)
+		if err != nil {
+			return RelayMsgs{}, err
+		}
+
 		srcMsgs = append(srcMsgs,
-			clientTypes.NewMsgUpdateClient(cp.ClientID, dst.LatestHeader(), srcAddr.GetAddress()))
+			clientTypes.NewMsgUpdateClient(cp.ClientID, dstHeader, srcAddr.GetAddress()))
 	}
 
 	// ICS3 : Connections
@@ -132,7 +151,7 @@ func NaiveRelayStrategy(src, dst *Chain) (RelayMsgs, error) {
 
 		// First, scan logs for sent packets and relay all of them
 		// TODO: This is currently incorrect and will change
-		for _, tx := range src.QueryTxs(src.LatestHeight(), "type:transfer") {
+		for _, tx := range src.QueryTxs(uint64(srcHeight), "type:transfer") {
 			for _, msg := range tx.Msgs {
 				if msg.Type() == "transfer" {
 					dstMsgs = append(dstMsgs, xferTypes.MsgRecvPacket{})
@@ -142,7 +161,7 @@ func NaiveRelayStrategy(src, dst *Chain) (RelayMsgs, error) {
 
 		// Then, scan logs for received packets and relay acknowledgements
 		// TODO: This is currently incorrect and will change
-		for _, tx := range src.QueryTxs(src.LatestHeight(), "type:recv_packet") {
+		for _, tx := range src.QueryTxs(uint64(srcHeight), "type:recv_packet") {
 			for _, msg := range tx.Msgs {
 				if msg.Type() == "recv_packet" {
 					dstMsgs = append(dstMsgs, xferTypes.MsgRecvPacket{})

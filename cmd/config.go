@@ -17,14 +17,16 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+	"time"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
-	"os"
-	"path"
 )
 
 // Config represents the config file for the relayer

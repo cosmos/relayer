@@ -18,17 +18,30 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"io/ioutil"
+	"net/http"
+	"path"
+
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	lite "github.com/tendermint/tendermint/lite2"
-	"github.com/tendermint/tendermint/types"
 	dbm "github.com/tendermint/tm-db"
-	"io/ioutil"
-	"net/http"
-	"path"
-	"strconv"
 )
+
+// chainCmd represents the keys command
+var liteCmd = &cobra.Command{
+	Use:   "lite",
+	Short: "basic functionality for managing the lite clients",
+}
+
+func init() {
+	liteCmd.AddCommand(headerCmd)
+	liteCmd.AddCommand(latestHeaderCmd)
+	liteCmd.AddCommand(latestHeightCmd)
+}
 
 var initLiteCmd = &cobra.Command{
 	Use:   "lite [chain-id]",
@@ -92,7 +105,7 @@ var initLiteCmd = &cobra.Command{
 
 var headerCmd = &cobra.Command{
 	Use: "header [chain-id] [height]",
-	Short: "Get header from relayer. 0 returns last trusted header and " +
+	Short: "Get header from the database. 0 returns last trusted header and " +
 		"all others return the header at that height if stored",
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -101,7 +114,7 @@ var headerCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		var header *types.SignedHeader
+		var header *tmclient.Header
 		if len(args) == 1 {
 			header, err = chain.LatestHeader()
 			if err != nil {
@@ -123,8 +136,8 @@ var headerCmd = &cobra.Command{
 }
 
 var latestHeightCmd = &cobra.Command{
-	Use: "latestHeight [chain-id]",
-	Short: "Get header from relayer. 0 returns last trusted header and " +
+	Use: "latest-height [chain-id]",
+	Short: "Get header from relayer database. 0 returns last trusted header and " +
 		"all others return the header at that height if stored",
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -133,10 +146,13 @@ var latestHeightCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+
+		// Get stored height
 		height, err := chain.LatestHeight()
 		if err != nil {
 			return err
 		}
+
 		fmt.Println(height)
 		return nil
 	},
