@@ -209,7 +209,7 @@ func (c *Chain) SendMsgs(datagram []sdk.Msg) error {
 // NewLiteDB returns a new instance of the liteclient database connection
 // CONTRACT: must close the database connection when done with it (defer db.Close())
 func (c *Chain) NewLiteDB() (*dbm.GoLevelDB, error) {
-	return dbm.NewGoLevelDB(c.ChainID, path.Join(c.dir, "db"))
+	return dbm.NewGoLevelDB(c.ChainID, path.Join(c.ChainDir, "db"))
 }
 
 // HELP WANTED!!!

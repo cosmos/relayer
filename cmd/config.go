@@ -20,7 +20,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/relayer"
