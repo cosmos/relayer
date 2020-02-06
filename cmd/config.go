@@ -33,7 +33,7 @@ type Config struct {
 	Global GlobalConfig  `yaml:"global"`
 	Chains []ChainConfig `yaml:"chains"`
 
-	c []*relayer.Chain
+	c relayer.Chains
 }
 
 // GlobalConfig describes any global relayer settings

@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cosmos/relayer/relayer"
@@ -33,13 +34,25 @@ var startCmd = &cobra.Command{
 			return err
 		}
 
+		for _, chain := range config.c {
+			// NOTE: this is now hardcoded to a once every 5 seconds update,
+			// this should be made configurable
+			go chain.StartUpdatingLiteClient(time.Duration(5 * time.Second))
+
+			// TODO: Figure out how/when to stop
+		}
+
 		// The relayer will continuously run the strategy declared in the config file
-		for {
+		ticker := time.NewTicker(d)
+		for ; true; <-ticker.C {
 			err = relayer.Relay(config.Global.Strategy, config.c)
-			time.Sleep(d)
 			if err != nil {
-				return err
+				// TODO: This should have a better error handling strategy
+				// Ideally some errors are just logged while others halt the process
+				fmt.Println(err)
 			}
 		}
+
+		return nil
 	},
 }
