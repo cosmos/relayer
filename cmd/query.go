@@ -156,12 +156,7 @@ var queryClientCmd = &cobra.Command{
 			return err
 		}
 
-		height, err := chain.QueryLatestHeight()
-		if err != nil {
-			return err
-		}
-
-		res, err := chain.QueryClientConsensusState(args[1], uint64(height))
+		res, err := chain.QueryClientState(args[1])
 		if err != nil {
 			return err
 		}
@@ -180,7 +175,7 @@ func queryClientsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "clients [chain-id]",
 		Short: "Query the client for a counterparty chain",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainID := args[0]
 			chain, err := config.c.GetChain(chainID)
@@ -189,7 +184,13 @@ func queryClientsCmd() *cobra.Command {
 			}
 
 			page := viper.GetInt(flags.FlagPage)
+			if page == 0 {
+				page = 1
+			}
 			limit := viper.GetInt(flags.FlagLimit)
+			if limit == 0 {
+				limit = 100
+			}
 
 			res, err := chain.QueryClients(page, limit)
 			if err != nil {

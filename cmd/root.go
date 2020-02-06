@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -50,6 +51,7 @@ func init() {
 		flags.LineBreak,
 		startCmd,
 		transactionCmd,
+		chainsCmd,
 	)
 }
 
@@ -57,6 +59,19 @@ func init() {
 var rootCmd = &cobra.Command{
 	Use:   "relayer",
 	Short: "This application relays data between configured IBC enabled chains",
+}
+
+var chainsCmd = &cobra.Command{
+	Use:   "chains",
+	Short: "Returns data about configured chains",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		out, err := json.Marshal(config.Chains)
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(out))
+		return nil
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

@@ -30,39 +30,39 @@ import (
 
 // Config represents the config file for the relayer
 type Config struct {
-	Global GlobalConfig  `yaml:"global"`
-	Chains []ChainConfig `yaml:"chains"`
+	Global GlobalConfig  `yaml:"global" json:"global"`
+	Chains []ChainConfig `yaml:"chains" json:"chains"`
 
 	c relayer.Chains
 }
 
 // GlobalConfig describes any global relayer settings
 type GlobalConfig struct {
-	Strategy      string `yaml:"strategy"`
-	Timeout       string `yaml:"timeout"`
-	LiteCacheSize int    `yaml:"lite-cache-size"`
+	Strategy      string `yaml:"strategy" json:"strategy"`
+	Timeout       string `yaml:"timeout" json:"timeout"`
+	LiteCacheSize int    `yaml:"lite-cache-size" json:"lite-cache-size"`
 }
 
 // ChainConfig describes the config necessary for an individual chain
 // TODO: Are there additional parameters needed here
 type ChainConfig struct {
-	Key            string               `yaml:"key"`
-	ChainID        string               `yaml:"chain-id"`
-	RPCAddr        string               `yaml:"rpc-addr"`
-	AccountPrefix  string               `yaml:"account-prefix"`
-	Counterparties []CounterpartyConfig `yaml:"counterparties"`
-	Gas            uint64               `yaml:"gas,omitempty"`
-	GasAdjustment  float64              `yaml:"gas-adjustment,omitempty"`
-	GasPrices      sdk.DecCoins         `yaml:"gas-prices,omitempty"`
-	DefaultDenom   string               `yaml:"default-denom,omitempty"`
-	Memo           string               `yaml:"memo,omitempty"`
-	TrustingPeriod string               `yaml:"trusting-period"`
+	Key            string               `yaml:"key" json:"key"`
+	ChainID        string               `yaml:"chain-id" json:"chain-id"`
+	RPCAddr        string               `yaml:"rpc-addr" json:"rpc-addr"`
+	AccountPrefix  string               `yaml:"account-prefix" json:"account-prefix"`
+	Counterparties []CounterpartyConfig `yaml:"counterparties" json:"counterparties"`
+	Gas            uint64               `yaml:"gas,omitempty" json:"gas,omitempty"`
+	GasAdjustment  float64              `yaml:"gas-adjustment,omitempty" json:"gas-adjustment,omitempty"`
+	GasPrices      sdk.DecCoins         `yaml:"gas-prices,omitempty" json:"gas-prices,omitempty"`
+	DefaultDenom   string               `yaml:"default-denom,omitempty" json:"default-denom,omitempty"`
+	Memo           string               `yaml:"memo,omitempty" json:"memo,omitempty"`
+	TrustingPeriod string               `yaml:"trusting-period" json:"trusting-period"`
 }
 
 // CounterpartyConfig represents a chain's counterparty
 type CounterpartyConfig struct {
-	ChainID  string `yaml:"chain-id"`
-	ClientID string `yaml:"client-id"`
+	ChainID  string `yaml:"chain-id" json:"chain-id"`
+	ClientID string `yaml:"client-id" json:"client-id"`
 }
 
 // Called to set the relayer.Chain types on Config

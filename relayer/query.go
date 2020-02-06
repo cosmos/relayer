@@ -11,8 +11,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
-	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
+	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	"github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
@@ -66,12 +66,13 @@ func (c *Chain) QueryClientConsensusState(clientID string, height uint64) (clien
 	var conStateRes clientTypes.ConsensusStateResponse
 
 	req := abci.RequestQuery{
-		Path:  "store/ibc/key",
-		Data:  ibctypes.KeyConsensusState(clientID, height),
-		Prove: true,
+		Path:   "store/ibc/key",
+		Height: int64(height),
+		Data:   ibctypes.KeyConsensusState(clientID, height),
+		Prove:  true,
 	}
 
-	res, err := c.QueryABCI(req, int64(height))
+	res, err := c.QueryABCI(req)
 	if err != nil {
 		return conStateRes, err
 	}
@@ -84,6 +85,29 @@ func (c *Chain) QueryClientConsensusState(clientID string, height uint64) (clien
 	return clientTypes.NewConsensusStateResponse(clientID, cs, res.Proof, res.Height), nil
 }
 
+// QueryClientState retrevies the latest consensus state for a client in state at a given height
+func (c *Chain) QueryClientState(clientID string) (clientTypes.StateResponse, error) {
+	var conStateRes clientTypes.StateResponse
+
+	req := abci.RequestQuery{
+		Path:  "store/ibc/key",
+		Data:  ibctypes.KeyClientState(clientID),
+		Prove: true,
+	}
+
+	res, err := c.QueryABCI(req)
+	if err != nil {
+		return conStateRes, err
+	}
+
+	var cs exported.ClientState
+	if err := c.Cdc.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
+		return conStateRes, err
+	}
+
+	return clientTypes.NewClientStateResponse(clientID, cs, res.Proof, res.Height), nil
+}
+
 // QueryClients queries all the clients!
 func (c *Chain) QueryClients(page, limit int) ([]clientExported.ClientState, error) {
 	params := clientTypes.NewQueryAllClientsParams(page, limit)
@@ -92,7 +116,7 @@ func (c *Chain) QueryClients(page, limit int) ([]clientExported.ClientState, err
 		return nil, fmt.Errorf("failed to marshal query params: %w", err)
 	}
 
-	route := fmt.Sprintf("custom/%s/%s", clientTypes.QuerierRoute, clientTypes.QueryAllClients)
+	route := fmt.Sprintf("custom/%s/%s/%s", ibctypes.QuerierRoute, clientTypes.QuerierRoute, clientTypes.QueryAllClients)
 	res, _, err := c.QueryWithData(route, bz)
 	if err != nil {
 		return nil, err
@@ -109,12 +133,13 @@ func (c *Chain) QueryClients(page, limit int) ([]clientExported.ClientState, err
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
 func (c *Chain) QueryConnectionsUsingClient(clientID string, height int64) (connTypes.ClientConnectionsResponse, error) {
 	req := abci.RequestQuery{
-		Path:  "store/ibc/key",
-		Data:  ibctypes.KeyClientConnections(clientID),
-		Prove: true,
+		Path:   "store/ibc/key",
+		Height: height,
+		Data:   ibctypes.KeyClientConnections(clientID),
+		Prove:  true,
 	}
 
-	res, err := c.QueryABCI(req, height)
+	res, err := c.QueryABCI(req)
 	if err != nil {
 		return connTypes.ClientConnectionsResponse{}, err
 	}
@@ -130,12 +155,13 @@ func (c *Chain) QueryConnectionsUsingClient(clientID string, height int64) (conn
 // QueryConnection returns the remote end of a given connection
 func (c *Chain) QueryConnection(connectionID string, height int64) (connTypes.ConnectionResponse, error) {
 	req := abci.RequestQuery{
-		Path:  "store/ibc/key",
-		Data:  ibctypes.KeyConnection(connectionID),
-		Prove: true,
+		Path:   "store/ibc/key",
+		Data:   ibctypes.KeyConnection(connectionID),
+		Height: height,
+		Prove:  true,
 	}
 
-	res, err := c.QueryABCI(req, height)
+	res, err := c.QueryABCI(req)
 	if err != nil {
 		return connTypes.ConnectionResponse{}, err
 	}
@@ -156,12 +182,13 @@ func (c *Chain) QueryChannelsUsingConnections(connections []string) ([]chanTypes
 // QueryChannel returns the channel associated with a channelID
 func (c *Chain) QueryChannel(channelID, portID string, height int64) (chanTypes.ChannelResponse, error) {
 	req := abci.RequestQuery{
-		Path:  "store/ibc/key",
-		Data:  ibctypes.KeyChannel(portID, channelID),
-		Prove: true,
+		Path:   "store/ibc/key",
+		Data:   ibctypes.KeyChannel(portID, channelID),
+		Height: height,
+		Prove:  true,
 	}
 
-	res, err := c.QueryABCI(req, height)
+	res, err := c.QueryABCI(req)
 	if res.Value == nil || err != nil {
 		return types.ChannelResponse{}, err
 	}
@@ -209,9 +236,9 @@ func (c *Chain) QueryTxs(height uint64, events []string) (*sdk.SearchTxsResult, 
 
 // QueryABCI is an affordance for querying the ABCI server associated with a chain
 // Similar to cliCtx.QueryABCI
-func (c *Chain) QueryABCI(req abci.RequestQuery, height int64) (abci.ResponseQuery, error) {
+func (c *Chain) QueryABCI(req abci.RequestQuery) (abci.ResponseQuery, error) {
 	opts := rpcclient.ABCIQueryOptions{
-		Height: height,
+		Height: req.GetHeight(),
 		Prove:  req.Prove,
 	}
 
