@@ -12,6 +12,7 @@ import (
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
+	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	"github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
@@ -81,6 +82,28 @@ func (c *Chain) QueryClientConsensusState(clientID string, height uint64) (clien
 	}
 
 	return clientTypes.NewConsensusStateResponse(clientID, cs, res.Proof, res.Height), nil
+}
+
+// QueryClients queries all the clients!
+func (c *Chain) QueryClients(page, limit int) ([]clientExported.ClientState, error) {
+	params := clientTypes.NewQueryAllClientsParams(page, limit)
+	bz, err := c.Cdc.MarshalJSON(params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal query params: %w", err)
+	}
+
+	route := fmt.Sprintf("custom/%s/%s", clientTypes.QuerierRoute, clientTypes.QueryAllClients)
+	res, _, err := c.QueryWithData(route, bz)
+	if err != nil {
+		return nil, err
+	}
+
+	var clients []clientExported.ClientState
+	err = c.Cdc.UnmarshalJSON(res, &clients)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal light clients: %w", err)
+	}
+	return clients, nil
 }
 
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty

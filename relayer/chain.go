@@ -6,10 +6,10 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
+	gaia "github.com/cosmos/gaia/app"
 	"github.com/tendermint/tendermint/libs/log"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/ibc"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 )
 
@@ -31,8 +31,7 @@ func NewChain(key, chainID, rpcAddr, accPrefix string,
 		return &Chain{}, err
 	}
 
-	cdc := codec.New()
-	ibc.AppModuleBasic{}.RegisterCodec(cdc)
+	cdc := gaia.MakeCodec()
 
 	return &Chain{
 		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Counterparties: counterparties, Gas: gas,

@@ -24,16 +24,18 @@ func Relay(strategy string, c Chains) error {
 				}
 
 				// Submit the transactions to src chain
-				err = src.SendMsgs(msgs.Src)
+				srcRes, err := src.SendMsgs(msgs.Src)
 				if err != nil {
 					return err
 				}
+				fmt.Println(srcRes)
 
 				// Submit the transactions to dst chain
-				err = dst.SendMsgs(msgs.Dst)
+				dstRes, err := dst.SendMsgs(msgs.Dst)
 				if err != nil {
 					return err
 				}
+				fmt.Println(dstRes)
 			}
 		}
 	}

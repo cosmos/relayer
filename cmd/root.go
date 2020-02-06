@@ -46,9 +46,10 @@ func init() {
 	rootCmd.AddCommand(
 		liteCmd,
 		keysCmd,
-		chainCmd,
+		queryCmd,
 		flags.LineBreak,
 		startCmd,
+		transactionCmd,
 	)
 }
 

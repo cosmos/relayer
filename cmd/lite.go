@@ -44,7 +44,7 @@ var liteCmd = &cobra.Command{
 
 func init() {
 	initLiteCmd.Flags().Int64P(flagHeight, "h", -1, "Trusted header's height")
-	initLiteCmd.Flags().BytesHexP(flagHash, "ha", []byte{}, "Trusted header's hash")
+	initLiteCmd.Flags().BytesHexP(flagHash, "x", []byte{}, "Trusted header's hash")
 	initLiteCmd.Flags().StringP(flagURL, "u", "", "Optional URL to fetch trusted-hash and trusted-height")
 	initLiteCmd.Flags().BoolP(flagForce, "f", false, "Option to force pulling root of trust from configured url")
 	liteCmd.AddCommand(headerCmd)

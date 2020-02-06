@@ -4,23 +4,28 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func init() {
-	chainCmd.AddCommand(chainLatestHeaderCmd)
-	chainCmd.AddCommand(chainLatestHeightCmd)
-	chainCmd.AddCommand(chainHeaderCmd)
-	chainCmd.AddCommand(chainNodeStateCmd)
+	queryCmd.AddCommand(queryLatestHeaderCmd)
+	queryCmd.AddCommand(queryLatestHeightCmd)
+	queryCmd.AddCommand(queryHeaderCmd)
+	queryCmd.AddCommand(queryNodeStateCmd)
+	queryCmd.AddCommand(queryClientCmd)
+	queryCmd.AddCommand(queryClientsCmd())
 }
 
-// chainCmd represents the chain command
-var chainCmd = &cobra.Command{
-	Use:   "chain",
-	Short: "query functionality for configured chains",
+// queryCmd represents the chain command
+var queryCmd = &cobra.Command{
+	Use:     "query",
+	Aliases: []string{"q"},
+	Short:   "query functionality for configured chains",
 }
 
-var chainLatestHeaderCmd = &cobra.Command{
+var queryLatestHeaderCmd = &cobra.Command{
 	Use:   "latest-header [chain-id]",
 	Short: "Use configured RPC client to fetch the latest header from a configured chain",
 	Args:  cobra.ExactArgs(1),
@@ -36,12 +41,17 @@ var chainLatestHeaderCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Println(h)
+		out, err := chain.Cdc.MarshalJSON(h)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(out)
 		return nil
 	},
 }
 
-var chainLatestHeightCmd = &cobra.Command{
+var queryLatestHeightCmd = &cobra.Command{
 	Use:   "latest-height [chain-id]",
 	Short: "Use configured RPC client to fetch the latest height from a configured chain",
 	Args:  cobra.ExactArgs(1),
@@ -62,7 +72,7 @@ var chainLatestHeightCmd = &cobra.Command{
 	},
 }
 
-var chainHeaderCmd = &cobra.Command{
+var queryHeaderCmd = &cobra.Command{
 	Use:   "header [chain-id] [height]",
 	Short: "Use configured RPC client to fetch a header at a given height from a configured chain",
 	Args:  cobra.ExactArgs(2),
@@ -90,7 +100,7 @@ var chainHeaderCmd = &cobra.Command{
 
 // GetCmdQueryConsensusState defines the command to query the consensus state of
 // the chain as defined in https://github.com/cosmos/ics/tree/master/spec/ics-002-client-semantics#query
-var chainNodeStateCmd = &cobra.Command{
+var queryNodeStateCmd = &cobra.Command{
 	Use:   "node-state [chain-id] [height]",
 	Short: "Query the consensus state of a client at a given height, or at latest height if height is not passed",
 	Args:  cobra.RangeArgs(1, 2),
@@ -123,4 +133,70 @@ var chainNodeStateCmd = &cobra.Command{
 		fmt.Println(string(out))
 		return nil
 	},
+}
+
+var queryClientCmd = &cobra.Command{
+	Use:   "client [chain-id] [client-id]",
+	Short: "Query the client for a counterparty chain",
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		chainID := args[0]
+		chain, err := config.c.GetChain(chainID)
+		if err != nil {
+			return err
+		}
+
+		height, err := chain.QueryLatestHeight()
+		if err != nil {
+			return err
+		}
+
+		res, err := chain.QueryClientConsensusState(args[1], uint64(height))
+		if err != nil {
+			return err
+		}
+
+		out, err := chain.Cdc.MarshalJSON(res)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(string(out))
+		return nil
+	},
+}
+
+func queryClientsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "clients [chain-id]",
+		Short: "Query the client for a counterparty chain",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainID := args[0]
+			chain, err := config.c.GetChain(chainID)
+			if err != nil {
+				return err
+			}
+
+			page := viper.GetInt(flags.FlagPage)
+			limit := viper.GetInt(flags.FlagLimit)
+
+			res, err := chain.QueryClients(page, limit)
+			if err != nil {
+				return err
+			}
+
+			out, err := chain.Cdc.MarshalJSON(res)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(out))
+			return nil
+		},
+	}
+
+	cmd.Flags().Int(flags.FlagPage, 1, "pagination page of light clients to to query for")
+	cmd.Flags().Int(flags.FlagLimit, 100, "pagination limit of light clients to query for")
+	return cmd
 }
