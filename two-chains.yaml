@@ -12,10 +12,7 @@ chains:
     counterparties:
       - chain-id: ibc1
         client-id: ibconeclient
-    trust-options:
-      period: 336h 
-      height: 0
-    update-period: 5s
+    trusting-period: 336h
   - chain-id: ibc1
     rpc-addr: http://localhost:26557
     account-prefix: cosmos
@@ -24,7 +21,4 @@ chains:
     counterparties:
       - chain-id: ibc0
         client-id: ibczeroclient
-    trust-options:
-      period: 336h 
-      height: 0
-    update-period: 5s
+    trusting-period: 336h
