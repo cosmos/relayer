@@ -20,7 +20,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
 	"github.com/cosmos/go-bip39"
-	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -48,11 +47,11 @@ var keysAddCmd = &cobra.Command{
 		chainID := args[0]
 		keyName := args[1]
 
-		if !relayer.Exists(chainID, config.c) {
+		if !config.c.Exists(chainID) {
 			return fmt.Errorf("chain with ID %s is not configured", chainID)
 		}
 
-		chain, err := relayer.GetChain(chainID, config.c)
+		chain, err := config.c.GetChain(chainID)
 		if err != nil {
 			return err
 		}
@@ -87,11 +86,11 @@ var keysRestoreCmd = &cobra.Command{
 		keyName := args[1]
 		mnemonic := args[2]
 
-		if !relayer.Exists(chainID, config.c) {
+		if !config.c.Exists(chainID) {
 			return fmt.Errorf("chain with ID %s is not configured", chainID)
 		}
 
-		chain, err := relayer.GetChain(chainID, config.c)
+		chain, err := config.c.GetChain(chainID)
 		if err != nil {
 			return err
 		}
@@ -119,11 +118,11 @@ var keysDeleteCmd = &cobra.Command{
 		chainID := args[0]
 		keyName := args[1]
 
-		if !relayer.Exists(chainID, config.c) {
+		if !config.c.Exists(chainID) {
 			return fmt.Errorf("chain with ID %s is not configured", chainID)
 		}
 
-		chain, err := relayer.GetChain(chainID, config.c)
+		chain, err := config.c.GetChain(chainID)
 		if err != nil {
 			return err
 		}
@@ -150,11 +149,11 @@ var keysListCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		chainID := args[0]
 
-		if !relayer.Exists(chainID, config.c) {
+		if !config.c.Exists(chainID) {
 			return fmt.Errorf("chain with ID %s is not configured", chainID)
 		}
 
-		chain, err := relayer.GetChain(chainID, config.c)
+		chain, err := config.c.GetChain(chainID)
 		if err != nil {
 			return err
 		}
@@ -181,11 +180,11 @@ var keysShowCmd = &cobra.Command{
 		chainID := args[0]
 		keyName := args[1]
 
-		if !relayer.Exists(chainID, config.c) {
+		if !config.c.Exists(chainID) {
 			return fmt.Errorf("chain with ID %s is not configured", chainID)
 		}
 
-		chain, err := relayer.GetChain(chainID, config.c)
+		chain, err := config.c.GetChain(chainID)
 		if err != nil {
 			return err
 		}
@@ -213,11 +212,11 @@ var keysExportCmd = &cobra.Command{
 		chainID := args[0]
 		keyName := args[1]
 
-		if !relayer.Exists(chainID, config.c) {
+		if !config.c.Exists(chainID) {
 			return fmt.Errorf("chain with ID %s is not configured", chainID)
 		}
 
-		chain, err := relayer.GetChain(chainID, config.c)
+		chain, err := config.c.GetChain(chainID)
 		if err != nil {
 			return err
 		}

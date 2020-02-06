@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -27,12 +26,12 @@ var chainLatestHeaderCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		chainID := args[0]
-		chain, err := relayer.GetChain(chainID, config.c)
+		chain, err := config.c.GetChain(chainID)
 		if err != nil {
 			return err
 		}
 
-		h, err := chain.GetLatestHeader()
+		h, err := chain.QueryLatestHeader()
 		if err != nil {
 			return err
 		}
@@ -48,12 +47,12 @@ var chainLatestHeightCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		chainID := args[0]
-		chain, err := relayer.GetChain(chainID, config.c)
+		chain, err := config.c.GetChain(chainID)
 		if err != nil {
 			return err
 		}
 
-		h, err := chain.GetLatestHeight()
+		h, err := chain.QueryLatestHeight()
 		if err != nil {
 			return err
 		}
@@ -69,7 +68,7 @@ var chainHeaderCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		chainID := args[0]
-		chain, err := relayer.GetChain(chainID, config.c)
+		chain, err := config.c.GetChain(chainID)
 		if err != nil {
 			return err
 		}
@@ -79,7 +78,7 @@ var chainHeaderCmd = &cobra.Command{
 			return err
 		}
 
-		h, err := chain.GetHeaderAtHeight(height)
+		h, err := chain.QueryHeaderAtHeight(height)
 		if err != nil {
 			return err
 		}
@@ -97,7 +96,7 @@ var chainNodeStateCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		chainID := args[0]
-		chain, err := relayer.GetChain(chainID, config.c)
+		chain, err := config.c.GetChain(chainID)
 		if err != nil {
 			return err
 		}

@@ -3,11 +3,11 @@ package relayer
 import "fmt"
 
 // Relay implements the algorithm described in ICS18 (https://github.com/cosmos/ics/tree/master/spec/ics-018-relayer-algorithms)
-func Relay(strategy string, c []*Chain) error {
+func Relay(strategy string, c Chains) error {
 	for _, src := range c {
 		for _, cp := range src.Counterparties {
 			if cp.ChainID != src.ChainID {
-				dst, err := GetChain(cp.ChainID, c)
+				dst, err := c.GetChain(cp.ChainID)
 				if err != nil {
 					return err
 				}
