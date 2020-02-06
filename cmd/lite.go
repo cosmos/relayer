@@ -23,9 +23,7 @@ import (
 	"strconv"
 
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	lite "github.com/tendermint/tendermint/lite2"
 )
 
@@ -43,18 +41,15 @@ var liteCmd = &cobra.Command{
 }
 
 func init() {
-	initLiteCmd.Flags().Int64P(flagHeight, "h", -1, "Trusted header's height")
-	initLiteCmd.Flags().BytesHexP(flagHash, "x", []byte{}, "Trusted header's hash")
-	initLiteCmd.Flags().StringP(flagURL, "u", "", "Optional URL to fetch trusted-hash and trusted-height")
-	initLiteCmd.Flags().BoolP(flagForce, "f", false, "Option to force pulling root of trust from configured url")
 	liteCmd.AddCommand(headerCmd)
 	liteCmd.AddCommand(latestHeightCmd)
 	liteCmd.AddCommand(initLiteCmd)
+	liteCmd.AddCommand(initLiteForceCmd)
 }
 
-var initLiteCmd = &cobra.Command{
-	Use:   "init [chain-id]",
-	Short: "Initiate the lite client by passing it a root of trust as a hash and height flag or as a url",
+var initLiteForceCmd = &cobra.Command{
+	Use:   "init-force [chain-id]",
+	Short: "Initalize the lite client by querying root of trust from configured node",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		chain, err := config.c.GetChain(args[0])
@@ -62,52 +57,38 @@ var initLiteCmd = &cobra.Command{
 			return err
 		}
 
-		// if we are forcing trust from the configured node, init the client
-		if viper.GetBool(flagForce) {
-			// establish db connection
-			db, df, err := chain.NewLiteDB()
-			if err != nil {
-				return err
-			}
-			defer df()
+		db, df, err := chain.NewLiteDB()
+		if err != nil {
+			return err
+		}
+		defer df()
 
-			// initialize the lite client database by querying the configured node
-			_, err = chain.TrustNodeInitClient(db)
-			if err != nil {
-				return err
-			}
-
-			return nil
+		// initialize the lite client database by querying the configured node
+		_, err = chain.TrustNodeInitClient(db)
+		if err != nil {
+			return err
 		}
 
-		trustedHeight, _ := cmd.Flags().GetInt64("height")
-		trustedHash, _ := cmd.Flags().GetBytesHex("hash")
-		url, _ := cmd.Flags().GetString("url")
+		return nil
+	},
+}
 
-		var trustOptions lite.TrustOptions
-		if len(trustedHash) > 0 && trustedHeight > 0 {
-			trustOptions = chain.TrustOptions(trustedHeight, trustedHash)
-		} else if url != "" {
-			res, err := http.Get(url)
-			if err != nil {
-				return err
-			}
-			bz, err := ioutil.ReadAll(res.Body)
-			if err != nil {
-				return err
-			}
-			err = res.Body.Close()
-			if err != nil {
-				return err
-			}
-
-			err = json.Unmarshal(bz, &trustOptions)
-			if err != nil {
-				return err
-			}
-		} else {
-			return errors.New("must provide either a height (--height) and a hash (--hash) or a url (--url)")
+var initLiteCmd = &cobra.Command{
+	Use:   "init [chain-id] [hash] [height]",
+	Short: "Initiate the lite client by passing it a root of trust as a hash and height",
+	Args:  cobra.ExactArgs(3),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		chain, err := config.c.GetChain(args[0])
+		if err != nil {
+			return err
 		}
+
+		height, err := strconv.ParseInt(args[2], 10, 64)
+		if err != nil {
+			return err
+		}
+
+		var trustOptions = chain.TrustOptions(height, []byte(args[1]))
 
 		db, df, err := chain.NewLiteDB()
 		if err != nil {

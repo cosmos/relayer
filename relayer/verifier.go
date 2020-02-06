@@ -63,10 +63,17 @@ func (c *Chain) InitLiteClient(db *dbm.GoLevelDB, trustOption lite.TrustOptions)
 		return nil, err
 	}
 
-	return lite.NewClient(c.ChainID,
-		trustOption,
-		httpProvider,
-		dbs.New(db, c.ChainID))
+	lc, err := lite.NewClient(c.ChainID, trustOption, httpProvider, dbs.New(db, c.ChainID))
+	if err != nil {
+		return nil, err
+	}
+
+	err = lc.Update(time.Now())
+	if err != nil {
+		return nil, err
+	}
+
+	return lc, nil
 }
 
 // TrustNodeInitClient trusts the configured node and initializes the lite client
@@ -112,12 +119,8 @@ func (c *Chain) EmptyTrustOptions() lite.TrustOptions {
 
 // TrustOptions returns lite.TrustOptions given a height and hash
 func (c *Chain) TrustOptions(height int64, hash []byte) lite.TrustOptions {
-	dur, err := time.ParseDuration(c.TrustingPeriod)
-	if err != nil {
-		panic(err)
-	}
 	return lite.TrustOptions{
-		Period: dur,
+		Period: c.TrustingPeriod,
 		Height: height,
 		Hash:   hash,
 	}

@@ -56,7 +56,7 @@ type ChainConfig struct {
 	GasPrices      sdk.DecCoins         `yaml:"gas-prices,omitempty"`
 	DefaultDenom   string               `yaml:"default-denom,omitempty"`
 	Memo           string               `yaml:"memo,omitempty"`
-	TrustingPeriod string               `yaml:"trust-options"`
+	TrustingPeriod string               `yaml:"trusting-period"`
 }
 
 // CounterpartyConfig represents a chain's counterparty
@@ -79,7 +79,7 @@ func setChains(c *Config, home string) error {
 			i.GasPrices, i.DefaultDenom, i.Memo, homePath, c.Global.LiteCacheSize, i.TrustingPeriod,
 			homeDir)
 		if err != nil {
-			return nil
+			return err
 		}
 		out = append(out, chain)
 	}

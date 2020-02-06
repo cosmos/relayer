@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/context"
@@ -137,6 +138,7 @@ func (src *Chain) CreateClient(dst *Chain, dstHeight int64, srcAddr sdk.AccAddre
 	if err != nil {
 		return clientTypes.MsgCreateClient{}, err
 	}
+	fmt.Println("header")
 
 	consState := tmClient.ConsensusState{
 		Root:             commitment.NewRoot(dstHeader.AppHash),

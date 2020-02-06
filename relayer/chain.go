@@ -3,10 +3,12 @@ package relayer
 import (
 	"fmt"
 	"path"
+	"time"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
-	gaia "github.com/cosmos/gaia/app"
+	authvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting"
+	"github.com/cosmos/cosmos-sdk/x/ibc"
 	"github.com/tendermint/tendermint/libs/log"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -31,12 +33,23 @@ func NewChain(key, chainID, rpcAddr, accPrefix string,
 		return &Chain{}, err
 	}
 
-	cdc := gaia.MakeCodec()
+	tp, err := time.ParseDuration(trustingPeriod)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse duration (%s) for chain %s", trustingPeriod, chainID)
+	}
+
+	cdc := codec.New()
+	sdk.RegisterCodec(cdc)
+	codec.RegisterCrypto(cdc)
+	codec.RegisterEvidences(cdc)
+	authvesting.RegisterCodec(cdc)
+	ibc.AppModuleBasic{}.RegisterCodec(cdc)
+	cdc.Seal()
 
 	return &Chain{
 		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Counterparties: counterparties, Gas: gas,
 		GasAdjustment: gasAdj, GasPrices: gasPrices, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase,
-		Client: client, Cdc: cdc, TrustingPeriod: trustingPeriod, ChainDir: dir}, nil
+		Client: client, Cdc: cdc, TrustingPeriod: tp, ChainDir: dir}, nil
 }
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
@@ -51,7 +64,7 @@ type Chain struct {
 	GasPrices      sdk.DecCoins   `yaml:"gas-prices,omitempty"`
 	DefaultDenom   string         `yaml:"default-denom,omitempty"`
 	Memo           string         `yaml:"memo,omitempty"`
-	TrustingPeriod string         `yaml:"trusting-period"`
+	TrustingPeriod time.Duration  `yaml:"trusting-period"`
 
 	Keybase  keys.Keybase
 	Client   *rpcclient.HTTP

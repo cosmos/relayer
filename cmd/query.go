@@ -46,7 +46,7 @@ var queryLatestHeaderCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Println(out)
+		fmt.Println(string(out))
 		return nil
 	},
 }
@@ -93,7 +93,12 @@ var queryHeaderCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Println(h)
+		out, err := chain.Cdc.MarshalJSON(h)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(string(out))
 		return nil
 	},
 }
@@ -117,6 +122,11 @@ var queryNodeStateCmd = &cobra.Command{
 			if err != nil {
 				fmt.Println("invalid height, defaulting to latest:", args[1])
 				height = 0
+			}
+		} else if len(args) == 1 {
+			height, err = chain.QueryLatestHeight()
+			if err != nil {
+				return err
 			}
 		}
 
