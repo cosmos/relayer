@@ -153,6 +153,18 @@ func (c *Chain) ValidateTxResult(resTx *ctypes.ResultTx) (err error) {
 	return
 }
 
+// GetLatestLiteHeight uses the CLI utilities to pull the latest height from a given chain
+func (c *Chain) GetLatestLiteHeight() (int64, error) {
+	db, df, err := c.NewLiteDB()
+	if err != nil {
+		return -1, err
+	}
+	defer df()
+
+	store := dbs.New(db, "")
+	return store.LastSignedHeaderHeight()
+}
+
 // GetLiteSignedHeaderAtHeight returns a signed header at a particular height
 func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, error) {
 	// create database connection

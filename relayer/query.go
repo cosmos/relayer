@@ -35,27 +35,22 @@ import (
 // QueryConsensusState returns a consensus state for a given chain to be used as a
 // client in another chain, fetches latest height when passed 0 as arg
 func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, error) {
+	var (
+		commit *ctypes.ResultCommit
+		err error
+	)
 	if height == 0 {
-		h, err := c.QueryLatestHeight()
-		if err != nil {
-			return nil, err
-		}
-		height = h
+		commit, err = c.Client.Commit()
+	} else {
+		commit, err = c.Client.Commit(&height)
 	}
-
-	commit, err := c.Client.Commit(&height)
-	if err != nil {
-		return nil, err
-	}
-
-	validators, err := c.Client.Validators(&height, 0, 10000)
 	if err != nil {
 		return nil, err
 	}
 
 	state := &tendermint.ConsensusState{
 		Root:             commitment.NewRoot(commit.AppHash),
-		ValidatorSetHash: tmtypes.NewValidatorSet(validators.Validators).Hash(),
+		ValidatorSetHash: commit.ValidatorsHash,
 	}
 
 	return state, nil

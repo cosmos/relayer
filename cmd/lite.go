@@ -169,12 +169,7 @@ func queryTrustOptions(url string) (out lite.TrustOptions, err error) {
 
 	// read in the res body
 	bz, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return
-	}
-
-	// close the response body
-	err = res.Body.Close()
+	_ = res.Body.Close()
 	if err != nil {
 		return
 	}
