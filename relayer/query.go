@@ -37,10 +37,10 @@ import (
 func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, error) {
 	var (
 		commit *ctypes.ResultCommit
-		err error
+		err    error
 	)
 	if height == 0 {
-		commit, err = c.Client.Commit()
+		commit, err = c.Client.Commit(nil)
 	} else {
 		commit, err = c.Client.Commit(&height)
 	}

@@ -53,6 +53,10 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 	// ICS2 : Clients - DstClient
 	// Fetch current client state
 	dstClientState, err := dst.QueryClientConsensusState(src.ChainID, uint64(dstHeight))
+	if err != nil {
+		return nil, err
+	}
+
 	switch {
 	// If there is no client found matching, create the client
 	// TODO: ensure that this is the right condition
@@ -70,15 +74,15 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 			return nil, err
 		}
 		dstMsgs = append(dstMsgs, uc)
-
-	// If there is an unexpected error, return it
-	default:
-		return nil, err
 	}
 
 	// ICS2 : Clients - SrcClient
 	// Determine if light client needs to be updated on src
 	srcClientState, err := src.QueryClientConsensusState(dst.ChainID, uint64(srcHeight))
+	if err != nil {
+		return nil, err
+	}
+
 	switch {
 	// If there is no matching client found, create it
 	// TODO: ensure that this is the right condition
@@ -96,10 +100,6 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 			return nil, err
 		}
 		srcMsgs = append(srcMsgs, uc)
-
-	// If there is an unexpected error, return it
-	default:
-		return nil, err
 	}
 
 	// ICS3 : Connections
@@ -313,10 +313,6 @@ func addrsHeights(src, dst *Chain) (srcAddr, dstAddr sdk.AccAddress, srcHeight, 
 
 	// Latest height on dst chain
 	dstHeight, err = dst.QueryLatestHeight()
-	if err != nil {
-		return
-	}
 
-	// Return the data
 	return
 }
