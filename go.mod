@@ -18,6 +18,7 @@ require (
 	github.com/spf13/viper v1.6.2
 	github.com/tendermint/tendermint v0.33.0
 	github.com/tendermint/tm-db v0.4.0
+	github.com/tendermint/tmlibs v0.9.0
 	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80 // indirect
 	golang.org/x/text v0.3.2 // indirect
 	gopkg.in/yaml.v2 v2.2.8

@@ -295,6 +295,8 @@ github.com/tendermint/tendermint v0.33.0-dev1 h1:xwC8flajCp8TXxlahVAZ3/+yYoQ8PgC
 github.com/tendermint/tendermint v0.33.0-dev1/go.mod h1:I3RtnG0Ruhm9WAd72cHlN/JGQhA8GaU4+LeEJ64JTL0=
 github.com/tendermint/tm-db v0.4.0 h1:iPbCcLbf4nwDFhS39Zo1lpdS1X/cT9CkTlUx17FHQgA=
 github.com/tendermint/tm-db v0.4.0/go.mod h1:+Cwhgowrf7NBGXmsqFMbwEtbo80XmyrlY5Jsk95JubQ=
+github.com/tendermint/tmlibs v0.9.0 h1:3aU/D2v3aecqpODOuBXCfi950bHTefD5Pps5X3XuJDc=
+github.com/tendermint/tmlibs v0.9.0/go.mod h1:4L0tAKpLTioy14VnmbXYTLIJN0pCMiehxDMdN6zZfM8=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
