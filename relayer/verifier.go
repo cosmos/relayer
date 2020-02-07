@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -20,7 +21,7 @@ func (c *Chain) StartUpdatingLiteClient(period time.Duration) {
 	for ; true; <-ticker.C {
 		err := c.UpdateLiteDBToLatestHeader()
 		if err != nil {
-			c.logger.Error(err.Error())
+			fmt.Println(err.Error())
 		}
 	}
 }
@@ -51,7 +52,23 @@ func (c *Chain) UpdateLiteDBToLatestHeader() error {
 
 // InitLiteClientWithoutTrust reads the trusted period off of the chain
 func (c *Chain) InitLiteClientWithoutTrust(db *dbm.GoLevelDB) (*lite.Client, error) {
-	return c.InitLiteClient(db, c.EmptyTrustOptions())
+	httpProvider, err := litehttp.New(c.ChainID, c.RPCAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	lc, err := lite.NewClientFromTrustedStore(c.ChainID, c.TrustingPeriod, httpProvider, dbs.New(db, ""),
+		lite.Logger(log.NewTMLogger(log.NewSyncWriter(os.Stdout))))
+	if err != nil {
+		return nil, err
+	}
+
+	err = lc.Update(time.Now())
+	if err != nil {
+		return nil, err
+	}
+
+	return lc, nil
 }
 
 // InitLiteClient initializes the lite client for a given chain
@@ -111,11 +128,6 @@ func (c *Chain) NewLiteDB() (db *dbm.GoLevelDB, df func(), err error) {
 	return
 }
 
-// EmptyTrustOptions gets the lite.TrustOptions with c.TrustPeriod set
-func (c *Chain) EmptyTrustOptions() lite.TrustOptions {
-	return c.TrustOptions(-1, nil)
-}
-
 // TrustOptions returns lite.TrustOptions given a height and hash
 func (c *Chain) TrustOptions(height int64, hash []byte) lite.TrustOptions {
 	return lite.TrustOptions{
@@ -127,7 +139,11 @@ func (c *Chain) TrustOptions(height int64, hash []byte) lite.TrustOptions {
 
 // GetLatestLiteHeader returns the header to be used for client creation
 func (c *Chain) GetLatestLiteHeader() (*tmclient.Header, error) {
-	return c.GetLiteSignedHeaderAtHeight(0)
+	height, err := c.GetLatestLiteHeight()
+	if err != nil {
+		return nil, err
+	}
+	return c.GetLiteSignedHeaderAtHeight(height)
 }
 
 // VerifyProof performs response proof verification.
