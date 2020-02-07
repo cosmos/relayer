@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -147,6 +148,9 @@ func (c *Chain) GetLatestLiteHeader() (*tmclient.Header, error) {
 	height, err := c.GetLatestLiteHeight()
 	if err != nil {
 		return nil, err
+	}
+	if height == -1 {
+		return nil, errors.New("no headers exist yet")
 	}
 	return c.GetLiteSignedHeaderAtHeight(height)
 }
