@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -127,6 +128,15 @@ var headerCmd = &cobra.Command{
 		height, err := strconv.ParseInt(args[1], 10, 64) //convert to int64
 		if err != nil {
 			return err
+		}
+		if height == 0 {
+			height, err = chain.GetLatestLiteHeight()
+			if err != nil {
+				return err
+			}
+			if height == -1 {
+				return errors.New("no headers yet")
+			}
 		}
 		header, err = chain.GetLiteSignedHeaderAtHeight(height)
 		if err != nil {

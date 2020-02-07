@@ -202,14 +202,14 @@ func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, err
 	// QUESTION: Why do we need this store abstration here and not in other lite functions?
 	store := dbs.New(db, "")
 
-	// Fetch the validator set from the store
-	vs, err := store.ValidatorSet(height)
+	// Fetch the signed header from the store
+	sh, err := store.SignedHeader(height)
 	if err != nil {
 		return nil, err
 	}
 
-	// Fetch the signed header from the store
-	sh, err := store.SignedHeader(height)
+	// Fetch the validator set from the store
+	vs, err := store.ValidatorSet(height + 1)
 	if err != nil {
 		return nil, err
 	}
