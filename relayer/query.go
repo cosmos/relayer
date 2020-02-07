@@ -202,7 +202,7 @@ func (c *Chain) QueryTxs(height uint64, events []string) (*sdk.SearchTxsResult, 
 		return nil, errors.New("must declare at least one event to search")
 	}
 
-	resTxs, err := c.Client.TxSearch(strings.Join(events, " AND "), true, 0, 10000)
+	resTxs, err := c.Client.TxSearch(strings.Join(events, " AND "), true, 0, 10000, "asc")
 	if err != nil {
 		return nil, err
 	}

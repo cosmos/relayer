@@ -9,6 +9,7 @@ import (
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
 	lite "github.com/tendermint/tendermint/lite2"
+	litep "github.com/tendermint/tendermint/lite2/provider"
 	litehttp "github.com/tendermint/tendermint/lite2/provider/http"
 	dbs "github.com/tendermint/tendermint/lite2/store/db"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
@@ -57,7 +58,9 @@ func (c *Chain) InitLiteClientWithoutTrust(db *dbm.GoLevelDB) (*lite.Client, err
 		return nil, err
 	}
 
-	lc, err := lite.NewClientFromTrustedStore(c.ChainID, c.TrustingPeriod, httpProvider, dbs.New(db, ""),
+	// TODO: provide actual witnesses!
+	lc, err := lite.NewClientFromTrustedStore(c.ChainID, c.TrustingPeriod, httpProvider,
+		[]litep.Provider{httpProvider}, dbs.New(db, ""),
 		lite.Logger(log.NewTMLogger(log.NewSyncWriter(os.Stdout))))
 	if err != nil {
 		return nil, err
@@ -78,7 +81,9 @@ func (c *Chain) InitLiteClient(db *dbm.GoLevelDB, trustOpts lite.TrustOptions) (
 		return nil, err
 	}
 
-	lc, err := lite.NewClient(c.ChainID, trustOpts, httpProvider, dbs.New(db, ""),
+	// TODO: provide actual witnesses!
+	lc, err := lite.NewClient(c.ChainID, trustOpts, httpProvider,
+		[]litep.Provider{httpProvider}, dbs.New(db, ""),
 		lite.Logger(log.NewTMLogger(log.NewSyncWriter(os.Stdout))))
 	if err != nil {
 		return nil, err
