@@ -17,12 +17,11 @@ interested in building their own relayer can come for working examples.
   * [x] `show [chain-id] [name]` - Show details for a key from a given chain
 - [ ] `lite` - @melekes working on ensuring commands work as intended
   * [ ] `init [chain-id] [header-hash] [height]` - Initialize from a header hash and a height
-  * [ ] `init-force [chain-id]` - Initialize from provider configured for `chain-id`
-  * [ ] `init-url [chain-id] [url]` - pass in a URL which resolves to `[]TrustOptions` and initialize from latest header
-  * [ ] `header [chain-id] [height]` - Returns a header at height from the database
-  * [ ] `latest-header [chain-id]` - Returns the latest header from the database
-  * [ ] `latest-height [chain-id]` - Returns the latest height from the database
-  * [ ] `update [chain-id]` - Updates to latest header from configured provider
+  * [x] `init-force [chain-id]` - Initialize from provider configured for `chain-id`
+  * [x] `header [chain-id] [height]` - Returns a header at height from the database
+  * [x] `latest-height [chain-id]` - Returns the latest height from the database
+  * [ ] `update [chain-id] [header-hash] [height]` - Updates lite client to given header
+  * [x] `update-force [chain-id]` - Updates to latest header from configured provider
   * [ ] `reset [chain-id]` - Deletes on disk lite client forcing re-initialization
 - [ ] `query` - Some implementations working/complete others just stubbs. All queries from the `relayer` return proofs!
   * [x] `client [chain-id] [client-id]` - Query details for an individual client

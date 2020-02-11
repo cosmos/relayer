@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -42,173 +43,222 @@ var liteCmd = &cobra.Command{
 }
 
 func init() {
-	liteCmd.AddCommand(headerCmd)
-	liteCmd.AddCommand(latestHeightCmd)
-	liteCmd.AddCommand(initLiteCmd)
-	liteCmd.AddCommand(initLiteForceCmd)
-	liteCmd.AddCommand(updateLiteForceCmd)
+	liteCmd.AddCommand(initLiteCmd())
+	liteCmd.AddCommand(initLiteForceCmd())
+	liteCmd.AddCommand(updateLiteCmd())
+	liteCmd.AddCommand(updateLiteForceCmd())
+	liteCmd.AddCommand(headerCmd())
+	liteCmd.AddCommand(latestHeightCmd())
 }
 
-var initLiteForceCmd = &cobra.Command{
-	Use:   "init-force [chain-id]",
-	Short: "Initalize the lite client by querying root of trust from configured node",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		chain, err := config.c.GetChain(args[0])
-		if err != nil {
-			return err
-		}
-
-		db, df, err := chain.NewLiteDB()
-		if err != nil {
-			return err
-		}
-		defer df()
-
-		// initialize the lite client database by querying the configured node
-		_, err = chain.TrustNodeInitClient(db)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	},
-}
-
-var updateLiteForceCmd = &cobra.Command{
-	Use:   "update-force [chain-id]",
-	Short: "Update the lite client by querying root of trust from configured node",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		chain, err := config.c.GetChain(args[0])
-		if err != nil {
-			return err
-		}
-
-		db, df, err := chain.NewLiteDB()
-		if err != nil {
-			return err
-		}
-		defer df()
-
-		// initialize the lite client database by querying the configured node
-		_, err = chain.TrustNodeInitClient(db)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	},
-}
-
-var initLiteCmd = &cobra.Command{
-	Use:   "init [chain-id] [hash] [height]",
-	Short: "Initiate the lite client by passing it a root of trust as a hash and height",
-	Args:  cobra.ExactArgs(3),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		chain, err := config.c.GetChain(args[0])
-		if err != nil {
-			return err
-		}
-
-		height, err := strconv.ParseInt(args[2], 10, 64)
-		if err != nil {
-			return err
-		}
-
-		var trustOptions = chain.TrustOptions(height, []byte(args[1]))
-
-		db, df, err := chain.NewLiteDB()
-		if err != nil {
-			return err
-		}
-		defer df()
-
-		_, err = chain.InitLiteClient(db, trustOptions)
-		if err != nil {
-			return err
-		}
-		return nil
-
-	},
-}
-
-var headerCmd = &cobra.Command{
-	Use: "header [chain-id] [height]",
-	Short: "Get header from the database. 0 returns last trusted header and " +
-		"all others return the header at that height if stored",
-	Args: cobra.RangeArgs(1, 2),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		chainID := args[0]
-		chain, err := config.c.GetChain(chainID)
-		if err != nil {
-			return err
-		}
-
-		var header *tmclient.Header
-
-		switch len(args) {
-		case 1:
-			header, err = chain.GetLatestLiteHeader()
-			if err != nil {
-				return err
-			}
-		case 2:
-			var height int64
-			height, err = strconv.ParseInt(args[1], 10, 64) //convert to int64
+func initLiteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "init [chain-id] [hash] [height]",
+		Short: "Initiate the lite client by passing it a root of trust as a hash and height",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
 			if err != nil {
 				return err
 			}
 
-			if height == 0 {
-				height, err = chain.GetLatestLiteHeight()
+			height, err := strconv.ParseInt(args[2], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			hsh, err := hex.DecodeString(args[1])
+			if err != nil {
+				return err
+			}
+
+			db, df, err := chain.NewLiteDB()
+			if err != nil {
+				return err
+			}
+			defer df()
+
+			_, err = chain.InitLiteClient(db, chain.TrustOptions(height, hsh))
+			if err != nil {
+				return err
+			}
+			return nil
+
+		},
+	}
+	return cmd
+}
+
+func initLiteForceCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "init-force [chain-id]",
+		Short: "Initalize the lite client by querying root of trust from configured node",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			db, df, err := chain.NewLiteDB()
+			if err != nil {
+				return err
+			}
+			defer df()
+
+			// initialize the lite client database by querying the configured node
+			_, err = chain.TrustNodeInitClient(db)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+	return cmd
+}
+
+func updateLiteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update [chain-id] [header] [height]",
+		Short: "update the lite client by providing a new root of trust",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			height, err := strconv.ParseInt(args[2], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			hsh, err := hex.DecodeString(args[1])
+			if err != nil {
+				return err
+			}
+
+			db, df, err := chain.NewLiteDB()
+			if err != nil {
+				return err
+			}
+			defer df()
+
+			_, err = chain.InitLiteClient(db, chain.TrustOptions(height, hsh))
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	return cmd
+}
+
+func updateLiteForceCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-force [chain-id]",
+		Short: "Update the lite client by querying root of trust from configured node",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			err = chain.UpdateLiteDBToLatestHeader()
+			if err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+	return cmd
+}
+
+func headerCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use: "header [chain-id] [height]",
+		Short: "Get header from the database. 0 returns last trusted header and " +
+			"all others return the header at that height if stored",
+		Args: cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainID := args[0]
+			chain, err := config.c.GetChain(chainID)
+			if err != nil {
+				return err
+			}
+
+			var header *tmclient.Header
+
+			switch len(args) {
+			case 1:
+				header, err = chain.GetLatestLiteHeader()
+				if err != nil {
+					return err
+				}
+			case 2:
+				var height int64
+				height, err = strconv.ParseInt(args[1], 10, 64) //convert to int64
 				if err != nil {
 					return err
 				}
 
-				if height == -1 {
-					return relayer.ErrLiteNotInitialized
+				if height == 0 {
+					height, err = chain.GetLatestLiteHeight()
+					if err != nil {
+						return err
+					}
+
+					if height == -1 {
+						return relayer.ErrLiteNotInitialized
+					}
 				}
+
+				header, err = chain.GetLiteSignedHeaderAtHeight(height)
+				if err != nil {
+					return err
+				}
+
 			}
 
-			header, err = chain.GetLiteSignedHeaderAtHeight(height)
+			out, err := chain.Cdc.MarshalJSON(header)
 			if err != nil {
 				return err
 			}
 
-		}
-
-		out, err := chain.Cdc.MarshalJSON(header)
-		if err != nil {
-			return err
-		}
-
-		fmt.Println(string(out))
-		return nil
-	},
+			fmt.Println(string(out))
+			return nil
+		},
+	}
+	return cmd
 }
 
-var latestHeightCmd = &cobra.Command{
-	Use: "latest-height [chain-id]",
-	Short: "Get header from relayer database. 0 returns last trusted header and " +
-		"all others return the header at that height if stored",
-	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		chainID := args[0]
-		chain, err := config.c.GetChain(chainID)
-		if err != nil {
-			return err
-		}
+func latestHeightCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use: "latest-height [chain-id]",
+		Short: "Get header from relayer database. 0 returns last trusted header and " +
+			"all others return the header at that height if stored",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainID := args[0]
+			chain, err := config.c.GetChain(chainID)
+			if err != nil {
+				return err
+			}
 
-		// Get stored height
-		height, err := chain.GetLatestLiteHeader()
-		if err != nil {
-			return err
-		}
+			// Get stored height
+			height, err := chain.GetLatestLiteHeader()
+			if err != nil {
+				return err
+			}
 
-		fmt.Println(height.Height)
-		return nil
-	},
+			fmt.Println(height.Height)
+			return nil
+		},
+	}
+	return cmd
 }
 
 func queryTrustOptions(url string) (out lite.TrustOptions, err error) {

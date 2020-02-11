@@ -260,12 +260,18 @@ func (c *Chain) QueryABCI(req abci.RequestQuery) (abci.ResponseQuery, error) {
 
 // QueryWithData satisfies auth.NodeQuerier interface and used for fetching account details
 func (c *Chain) QueryWithData(path string, data []byte) ([]byte, int64, error) {
-	resp, err := c.Client.ABCIQuery(path, data)
+	req := abci.RequestQuery{
+		Path:   path,
+		Height: 0,
+		Data:   data,
+	}
+
+	resp, err := c.QueryABCI(req)
 	if err != nil {
 		return []byte{}, 0, err
 	}
 
-	return resp.Response.GetValue(), resp.Response.GetHeight(), nil
+	return resp.Value, resp.Height, nil
 }
 
 // QueryLatestHeight queries the chain for the latest height and returns it

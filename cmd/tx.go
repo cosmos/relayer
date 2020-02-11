@@ -51,6 +51,16 @@ var createClientCmd = &cobra.Command{
 			return err
 		}
 
+		err = srcChain.UpdateLiteDBToLatestHeader()
+		if err != nil {
+			return err
+		}
+
+		err = dstChain.UpdateLiteDBToLatestHeader()
+		if err != nil {
+			return err
+		}
+
 		dstHeight, err := dstChain.QueryLatestHeight()
 		if err != nil {
 			return err

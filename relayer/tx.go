@@ -138,7 +138,6 @@ func (src *Chain) CreateClient(dst *Chain, dstHeight int64, srcAddr sdk.AccAddre
 	if err != nil {
 		return clientTypes.MsgCreateClient{}, err
 	}
-	fmt.Println("header")
 
 	consState := tmClient.ConsensusState{
 		Root:             commitment.NewRoot(dstHeader.AppHash),
@@ -159,6 +158,11 @@ func (c *Chain) SendMsgs(datagram []sdk.Msg) (*sdk.TxResponse, error) {
 	info, err := c.Keybase.Get(c.Key)
 	if err != nil {
 		return nil, err
+	}
+
+	switch i := info.(type) {
+	default:
+		fmt.Println("KEYBASE TYPE", i.GetType())
 	}
 
 	// Fetch account and sequence numbers for the account
@@ -191,14 +195,18 @@ func (c *Chain) SendMsgs(datagram []sdk.Msg) (*sdk.TxResponse, error) {
 		return nil, err
 	}
 
+	fmt.Println(5555)
 	// Create the StdTx for broadcast
 	stdTx := auth.NewStdTx(datagram, sign.Fee, []auth.StdSignature{stdSignature}, c.Memo)
 
+	fmt.Println(6666)
 	// Marshal amino
 	out, err := c.Cdc.MarshalBinaryLengthPrefixed(stdTx)
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println(7777)
 
 	// Broadcast transaction
 	res, err := c.Client.BroadcastTxCommit(out)
@@ -206,6 +214,7 @@ func (c *Chain) SendMsgs(datagram []sdk.Msg) (*sdk.TxResponse, error) {
 		return nil, err
 	}
 
+	fmt.Println(8888)
 	if err != nil {
 		if errRes := context.CheckTendermintError(err, out); errRes != nil {
 			return errRes, nil

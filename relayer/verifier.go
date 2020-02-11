@@ -3,6 +3,7 @@ package relayer
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"time"
 
@@ -62,7 +63,7 @@ func (c *Chain) InitLiteClientWithoutTrust(db *dbm.GoLevelDB) (*lite.Client, err
 	// TODO: provide actual witnesses!
 	lc, err := lite.NewClientFromTrustedStore(c.ChainID, c.TrustingPeriod, httpProvider,
 		[]litep.Provider{httpProvider}, dbs.New(db, ""),
-		lite.Logger(log.NewTMLogger(log.NewSyncWriter(os.Stdout))))
+		lite.Logger(log.NewTMLogger(log.NewSyncWriter(ioutil.Discard))))
 	if err != nil {
 		return nil, err
 	}
