@@ -150,7 +150,7 @@ func (c *Chain) GetLatestLiteHeader() (*tmclient.Header, error) {
 		return nil, err
 	}
 	if height == -1 {
-		return nil, errors.New("no headers exist yet")
+		return nil, ErrLiteNotInitialized
 	}
 	return c.GetLiteSignedHeaderAtHeight(height)
 }
@@ -216,3 +216,5 @@ func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, err
 
 	return &tmclient.Header{SignedHeader: *sh, ValidatorSet: vs}, nil
 }
+
+var ErrLiteNotInitialized = errors.New("lite client is not initialized")

@@ -23,7 +23,6 @@ cd $RELAYER_DIR
 go build -o $GOBIN/relayer main.go
 
 echo "Generating gaia configurations..."
-
 cd $GAIA_CONF && mkdir ibc-testnets && cd ibc-testnets
 echo -e "\n" | gaiad testnet -o ibc0 --v 1 --chain-id ibc0 --node-dir-prefix n &> /dev/null
 echo -e "\n" | gaiad testnet -o ibc1 --v 1 --chain-id ibc1 --node-dir-prefix n &> /dev/null
@@ -76,5 +75,5 @@ echo "  ibc0 address: $(relayer --home $RLY_CONF keys restore ibc0 testkey "$SEE
 echo "  ibc1 address: $(relayer --home $RLY_CONF keys restore ibc1 testkey "$SEED1")"
 echo 
 echo "Example commands:"
-echo "  balance ibc0: gaiacli --home \$GAIA/ibc0/no/gaiacli q account \$(relayer --home \$RLY keys show ibc0 testkey)"
-echo "  balance ibc1: gaiacli --home \$GAIA/ibc1/no/gaiacli q account \$(relayer --home \$RLY keys show ibc1 testkey)"
+echo "  balance ibc0: gaiacli --home \$GAIA/ibc-testnets/ibc0/n0/gaiacli q account \$(relayer --home \$RLY keys show ibc0 testkey)"
+echo "  balance ibc1: gaiacli --home \$GAIA/ibc-testnets/ibc1/n0/gaiacli q account \$(relayer --home \$RLY keys show ibc1 testkey)"

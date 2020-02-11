@@ -17,13 +17,13 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
+	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	lite "github.com/tendermint/tendermint/lite2"
 )
@@ -46,11 +46,38 @@ func init() {
 	liteCmd.AddCommand(latestHeightCmd)
 	liteCmd.AddCommand(initLiteCmd)
 	liteCmd.AddCommand(initLiteForceCmd)
+	liteCmd.AddCommand(updateLiteForceCmd)
 }
 
 var initLiteForceCmd = &cobra.Command{
 	Use:   "init-force [chain-id]",
 	Short: "Initalize the lite client by querying root of trust from configured node",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		chain, err := config.c.GetChain(args[0])
+		if err != nil {
+			return err
+		}
+
+		db, df, err := chain.NewLiteDB()
+		if err != nil {
+			return err
+		}
+		defer df()
+
+		// initialize the lite client database by querying the configured node
+		_, err = chain.TrustNodeInitClient(db)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	},
+}
+
+var updateLiteForceCmd = &cobra.Command{
+	Use:   "update-force [chain-id]",
+	Short: "Update the lite client by querying root of trust from configured node",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		chain, err := config.c.GetChain(args[0])
@@ -117,32 +144,46 @@ var headerCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+
 		var header *tmclient.Header
-		if len(args) == 1 {
+
+		switch len(args) {
+		case 1:
 			header, err = chain.GetLatestLiteHeader()
 			if err != nil {
 				return err
 			}
-			fmt.Println(header)
-		}
-		height, err := strconv.ParseInt(args[1], 10, 64) //convert to int64
-		if err != nil {
-			return err
-		}
-		if height == 0 {
-			height, err = chain.GetLatestLiteHeight()
+		case 2:
+			var height int64
+			height, err = strconv.ParseInt(args[1], 10, 64) //convert to int64
 			if err != nil {
 				return err
 			}
-			if height == -1 {
-				return errors.New("no headers yet")
+
+			if height == 0 {
+				height, err = chain.GetLatestLiteHeight()
+				if err != nil {
+					return err
+				}
+
+				if height == -1 {
+					return relayer.ErrLiteNotInitialized
+				}
 			}
+
+			header, err = chain.GetLiteSignedHeaderAtHeight(height)
+			if err != nil {
+				return err
+			}
+
 		}
-		header, err = chain.GetLiteSignedHeaderAtHeight(height)
+
+		out, err := chain.Cdc.MarshalJSON(header)
 		if err != nil {
 			return err
 		}
-		fmt.Println(header)
+
+		fmt.Println(string(out))
 		return nil
 	},
 }
@@ -165,7 +206,7 @@ var latestHeightCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Println(height)
+		fmt.Println(height.Height)
 		return nil
 	},
 }
@@ -179,7 +220,12 @@ func queryTrustOptions(url string) (out lite.TrustOptions, err error) {
 
 	// read in the res body
 	bz, err := ioutil.ReadAll(res.Body)
-	_ = res.Body.Close()
+	if err != nil {
+		return
+	}
+
+	// close the response body
+	err = res.Body.Close()
 	if err != nil {
 		return
 	}
