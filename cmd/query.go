@@ -44,18 +44,15 @@ func queryAccountCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Println(addr.String())
-
 			acc, err := auth.NewAccountRetriever(chain).GetAccount(addr)
 			if err != nil {
 				return err
 			}
 
-			fmt.Println(acc.String())
-			return nil
+			return PrintOutput(acc, cmd)
 		},
 	}
-	return cmd
+	return outputFlags(cmd)
 }
 
 func queryHeaderCmd() *cobra.Command {
@@ -64,8 +61,7 @@ func queryHeaderCmd() *cobra.Command {
 		Short: "Use configured RPC client to fetch a header at a given height from a configured chain",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chainID := args[0]
-			chain, err := config.c.GetChain(chainID)
+			chain, err := config.c.GetChain(args[0])
 			if err != nil {
 				return err
 			}
@@ -103,17 +99,19 @@ func queryHeaderCmd() *cobra.Command {
 
 			}
 
-			out, err := chain.Cdc.MarshalJSON(header)
-			if err != nil {
-				return err
+			if viper.GetBool(flagFlags) {
+				fmt.Printf("-x %x --height %d", header.SignedHeader.Hash(), header.Header.Height)
+				return nil
 			}
 
-			fmt.Println(string(out))
-			return nil
+			return PrintOutput(header, cmd)
 		},
 	}
 
-	return cmd
+	cmd.Flags().BoolP(flagFlags, "f", false, "pass flag to output the flags for lite init/update")
+	viper.BindPFlag(flagFlags, cmd.Flags().Lookup(flagFlags))
+
+	return outputFlags(cmd)
 }
 
 // GetCmdQueryConsensusState defines the command to query the consensus state of
@@ -124,26 +122,24 @@ func queryNodeStateCmd() *cobra.Command {
 		Short: "Query the consensus state of a client at a given height, or at latest height if height is not passed",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chainID := args[0]
-			chain, err := config.c.GetChain(chainID)
+			chain, err := config.c.GetChain(args[0])
 			if err != nil {
 				return err
 			}
 
 			var height int64
 			switch len(args) {
+			case 1:
+				height, err = chain.QueryLatestHeight()
+				if err != nil {
+					return err
+				}
 			case 2:
 				height, err = strconv.ParseInt(args[1], 10, 64)
 				if err != nil {
 					fmt.Println("invalid height, defaulting to latest:", args[1])
 					height = 0
 				}
-			case 1:
-				height, err = chain.QueryLatestHeight()
-				if err != nil {
-					return err
-				}
-
 			}
 
 			csRes, err := chain.QueryConsensusState(height)
@@ -151,17 +147,11 @@ func queryNodeStateCmd() *cobra.Command {
 				return err
 			}
 
-			out, err := chain.Cdc.MarshalJSON(csRes)
-			if err != nil {
-				return err
-			}
-
-			fmt.Println(string(out))
-			return nil
+			return PrintOutput(csRes, cmd)
 		},
 	}
 
-	return cmd
+	return outputFlags(cmd)
 }
 
 func queryClientCmd() *cobra.Command {
@@ -170,8 +160,7 @@ func queryClientCmd() *cobra.Command {
 		Short: "Query the client for a counterparty chain",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chainID := args[0]
-			chain, err := config.c.GetChain(chainID)
+			chain, err := config.c.GetChain(args[0])
 			if err != nil {
 				return err
 			}
@@ -181,17 +170,11 @@ func queryClientCmd() *cobra.Command {
 				return err
 			}
 
-			out, err := chain.Cdc.MarshalJSON(res)
-			if err != nil {
-				return err
-			}
-
-			fmt.Println(string(out))
-			return nil
+			return PrintOutput(res, cmd)
 		},
 	}
 
-	return cmd
+	return outputFlags(cmd)
 }
 
 func queryClientsCmd() *cobra.Command {
@@ -200,43 +183,19 @@ func queryClientsCmd() *cobra.Command {
 		Short: "Query the client for a counterparty chain",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chainID := args[0]
-			chain, err := config.c.GetChain(chainID)
+			chain, err := config.c.GetChain(args[0])
 			if err != nil {
 				return err
 			}
 
-			page := viper.GetInt(flags.FlagPage)
-			if page == 0 {
-				page = 1
-			}
-			limit := viper.GetInt(flags.FlagLimit)
-			if limit == 0 {
-				limit = 100
-			}
-
-			res, err := chain.QueryClients(page, limit)
+			res, err := chain.QueryClients(viper.GetInt(flags.FlagPage), viper.GetInt(flags.FlagLimit))
 			if err != nil {
 				return err
 			}
 
-			out, err := chain.Cdc.MarshalJSON(res)
-			if err != nil {
-				return err
-			}
-
-			fmt.Println(string(out))
-			return nil
+			return PrintOutput(res, cmd)
 		},
 	}
 
-	return paginationFlags(cmd)
-}
-
-func paginationFlags(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().Int(flags.FlagPage, 1, "pagination page of light clients to to query for")
-	cmd.Flags().Int(flags.FlagLimit, 100, "pagination limit of light clients to query for")
-	viper.BindPFlag(flags.FlagPage, cmd.Flags().Lookup(flags.FlagPage))
-	viper.BindPFlag(flags.FlagLimit, cmd.Flags().Lookup(flags.FlagLimit))
-	return cmd
+	return outputFlags(paginationFlags(cmd))
 }

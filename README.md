@@ -21,18 +21,16 @@ interested in building their own relayer can come for working examples.
   * [x] `update [chain-id] [header-hash] [height]` - Updates lite client to given header
   * [x] `delete [chain-id]` - Deletes on disk lite client forcing re-initialization
 - [ ] `query` - Some implementations working/complete others just stubbs. All queries from the `relayer` return proofs!
+  * [x] `header [chain-id] [height]` - Query the header at a given height
+  * [x] `node-state [chain-id] [height]` - Query the node state at a given height or latest if height not passed
   * [x] `client [chain-id] [client-id]` - Query details for an individual client
-  * [x] `clients [chain-id]` - Query the list of clients on a given chain
+  * [ ] `clients [chain-id]` - Query the list of clients on a given chain
   * [ ] `connection [chain-id] [client-id] [connection-id]` - Query details for an individual connection
   * [ ] `connections [chain-id] [client-id]`- Query the list of connections associated with a client
   * [ ] `channel [chain-id] [connection-id] [channel-id]` - Query details for an individual channel
   * [ ] `channels [chain-id] [connection-id]` - Query the list of channels associated with a client
   * [ ] `seq-send [chain-id] [channel-id]` - Query the `seq-send` for the configured key on a given chain and channel
   * [ ] `seq-recv [chain-id] [channel-id]` - Query the `seq-recv` for the configured key on a given chain and channel
-  * [x] `header [chain-id] [height]` - Query the header at a given height
-  * [x] `latest-header [chain-id]` - Query the latest height then return that header
-  * [x] `latest-height [chain-id]` - Query the latest height
-  * [x] `node-state [chain-id] [height]` - Query the node state at a given height or latest if height not passed
 - [ ] `start` - run the configured strategy on an ongoing basis. This is currently in the design phase
 - [ ] `transactions` - Run IBC transactions, testing currently blocked on working lite client commands
   * [ ] `client [src-chain-id] [dst-chain-id] [client-id]` - Create a client for dst on src

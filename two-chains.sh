@@ -71,8 +71,8 @@ echo "export RLY=$RLY_CONF"
 echo "export GAIA=$GAIA_CONF"
 echo 
 echo "NOTE: Below are account addresses for each chain. They are also validator addresses:"
-echo "  ibc0 address: $(relayer --home $RLY_CONF keys restore ibc0 testkey "$SEED0")"
-echo "  ibc1 address: $(relayer --home $RLY_CONF keys restore ibc1 testkey "$SEED1")"
+echo "  ibc0 address: $(relayer --home $RLY_CONF keys restore ibc0 testkey "$SEED0" -a)"
+echo "  ibc1 address: $(relayer --home $RLY_CONF keys restore ibc1 testkey "$SEED1" -a)"
 echo 
 echo "Example commands:"
 echo "  balance ibc0: gaiacli --home \$GAIA/ibc-testnets/ibc0/n0/gaiacli q account \$(relayer --home \$RLY keys show ibc0 testkey)"

@@ -21,6 +21,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
@@ -74,7 +75,7 @@ func setChains(c *Config, home string) error {
 		for _, cp := range i.Counterparties {
 			cps = append(cps, relayer.NewCounterparty(cp.ChainID, cp.ClientID))
 		}
-		homeDir := path.Join(home, liteDir)
+		homeDir := path.Join(home, "lite")
 		chain, err := relayer.NewChain(i.Key, i.ChainID, i.RPCAddr,
 			i.AccountPrefix, cps, i.Gas, i.GasAdjustment, i.GasPrices,
 			i.DefaultDenom, i.Memo, homePath, c.Global.LiteCacheSize,
@@ -91,13 +92,13 @@ func setChains(c *Config, home string) error {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig(cmd *cobra.Command) error {
-	home, err := cmd.PersistentFlags().GetString(homeFlag)
+	home, err := cmd.PersistentFlags().GetString(flags.FlagHome)
 	if err != nil {
 		return err
 	}
 
 	config = &Config{}
-	cfgPath := path.Join(home, cfgDir, cfgFile)
+	cfgPath := path.Join(home, "config", "config.yaml")
 	if _, err := os.Stat(cfgPath); err == nil {
 		viper.SetConfigFile(cfgPath)
 		if err := viper.ReadInConfig(); err == nil {

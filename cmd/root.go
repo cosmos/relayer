@@ -21,16 +21,13 @@ import (
 	"os"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/crypto/keys"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	authvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting"
+	"github.com/cosmos/cosmos-sdk/x/ibc"
 	"github.com/spf13/cobra"
-)
-
-const (
-	homeFlag = "home"
-	cfgDir   = "config"
-	liteDir  = "lite"
-	cfgFile  = "config.yaml"
-	homeDisc = "set home directory"
-	cfgDisc  = "set config file"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -38,20 +35,36 @@ var (
 	homePath    string
 	config      *Config
 	defaultHome = os.ExpandEnv("$HOME/.relayer")
+	cdc         *codec.Codec
 )
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&homePath, homeFlag, defaultHome, homeDisc)
-	rootCmd.PersistentFlags().StringVar(&cfgPath, cfgDir, cfgFile, cfgDisc)
+	// Register top level flags --home and --config
+	rootCmd.PersistentFlags().StringVar(&homePath, flags.FlagHome, defaultHome, "set home directory")
+	rootCmd.PersistentFlags().StringVar(&cfgPath, flagConfig, "config.yaml", "set config file")
+	viper.BindPFlag(flags.FlagHome, rootCmd.Flags().Lookup(flags.FlagHome))
+	viper.BindPFlag(flagConfig, rootCmd.Flags().Lookup(flagConfig))
+
+	// Register subcommands
 	rootCmd.AddCommand(
 		liteCmd,
 		keysCmd,
 		queryCmd,
-		flags.LineBreak,
 		startCmd,
 		transactionCmd,
-		chainsCmd,
+		chainsCmd(),
 	)
+
+	// This is a bit of a cheat :shushing_face:
+	cdc = codec.New()
+	sdk.RegisterCodec(cdc)
+	codec.RegisterCrypto(cdc)
+	codec.RegisterEvidences(cdc)
+	authvesting.RegisterCodec(cdc)
+	keys.RegisterCodec(cdc)
+	ibc.AppModuleBasic{}.RegisterCodec(cdc)
+	cdc.Seal()
+
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -60,17 +73,21 @@ var rootCmd = &cobra.Command{
 	Short: "This application relays data between configured IBC enabled chains",
 }
 
-var chainsCmd = &cobra.Command{
-	Use:   "chains",
-	Short: "Returns data about configured chains",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		out, err := json.Marshal(config.Chains)
-		if err != nil {
-			return err
-		}
-		fmt.Println(string(out))
-		return nil
-	},
+func chainsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "chains",
+		Short: "Returns chain configuration data",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			out, err := json.Marshal(config.Chains)
+			if err != nil {
+				return err
+			}
+
+			return PrintOutput(out, cmd)
+		},
+	}
+
+	return outputFlags(cmd)
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

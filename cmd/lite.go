@@ -17,29 +17,18 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	neturl "net/url"
 	"strconv"
 
+	"github.com/cosmos/cosmos-sdk/client/flags"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	lite "github.com/tendermint/tendermint/lite2"
-)
-
-var (
-	flagHeight = "height"
-	flagHash   = "hash"
-	flagURL    = "url"
-
-	flagForce    = "force"
-	forceDesc    = "Option to skip confirmation prompt for trusting hash & height from configured url"
-	forceShort   = "f"
-	forceDefault = false
 )
 
 // chainCmd represents the keys command
@@ -76,19 +65,13 @@ func initLiteCmd() *cobra.Command {
 			}
 			defer df()
 
-			height, err := cmd.Flags().GetInt64(flagHeight)
+			url := viper.GetString(flagURL)
+			force := viper.GetBool(flagForce)
+			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
 			if err != nil {
 				return err
 			}
 			hash, err := cmd.Flags().GetBytesHex(flagHash)
-			if err != nil {
-				return err
-			}
-			url, err := cmd.Flags().GetString(flagURL)
-			if err != nil {
-				return err
-			}
-			force, err := cmd.Flags().GetBool(flagForce)
 			if err != nil {
 				return err
 			}
@@ -127,7 +110,7 @@ func initLiteCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolP(flagForce, "f", false, "Option to skip confirmation prompt for trusting hash & height from configured url")
+	cmd.Flags().BoolP(flagForce, "f", false, "option to force initialization of lite client from configured chain")
 	viper.BindPFlag(flagForce, cmd.Flags().Lookup(flagForce))
 
 	return liteFlags(cmd)
@@ -148,9 +131,15 @@ func updateLiteCmd() *cobra.Command {
 				return err
 			}
 
-			height, _ := cmd.Flags().GetInt64(flagHeight)
-			hash, _ := cmd.Flags().GetBytesHex(flagHash)
-			url, _ := cmd.Flags().GetString(flagURL)
+			url := viper.GetString(flagURL)
+			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
+			if err != nil {
+				return err
+			}
+			hash, err := cmd.Flags().GetBytesHex(flagHash)
+			if err != nil {
+				return err
+			}
 
 			switch {
 			case height > 0 && len(hash) > 0: // height and hash are given
@@ -315,31 +304,3 @@ func queryTrustOptions(url string) (out lite.TrustOptions, err error) {
 
 	return
 }
-
-func liteFlags(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().Int64(flagHeight, -1, "Trusted header's height")
-	cmd.Flags().BytesHexP(flagHash, "x", []byte{}, "Trusted header's hash")
-	cmd.Flags().StringP(flagURL, "u", "", "Optional URL to fetch trusted-hash and trusted-height")
-	viper.BindPFlag(flagHeight, cmd.Flags().Lookup(flagHeight))
-	viper.BindPFlag(flagHash, cmd.Flags().Lookup(flagHash))
-	viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL))
-	return cmd
-}
-
-func wrapQueryTrustOptsErr(err error) error {
-	return fmt.Errorf("trust options query failed: %w", err)
-}
-
-func wrapInitFailed(err error) error {
-	return fmt.Errorf("init failed: %w", err)
-}
-
-func wrapIncorrectURL(err error) error {
-	return fmt.Errorf("incorrect URL: %w", err)
-}
-
-func wrapIncorrectHeader(err error) error {
-	return fmt.Errorf("update to latest header failed: %w", err)
-}
-
-var errInitWrongFlags = errors.New("expected either (--hash/-x & --height) OR --url/-u OR --force/-f, none given")
