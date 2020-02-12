@@ -24,12 +24,12 @@ import (
 )
 
 func init() {
-	keysCmd.AddCommand(keysAddCmd)
-	keysCmd.AddCommand(keysRestoreCmd)
-	keysCmd.AddCommand(keysDeleteCmd)
-	keysCmd.AddCommand(keysListCmd)
-	keysCmd.AddCommand(keysShowCmd)
-	keysCmd.AddCommand(keysExportCmd)
+	keysCmd.AddCommand(keysAddCmd())
+	keysCmd.AddCommand(keysRestoreCmd())
+	keysCmd.AddCommand(keysDeleteCmd())
+	keysCmd.AddCommand(keysListCmd())
+	keysCmd.AddCommand(keysShowCmd())
+	keysCmd.AddCommand(keysExportCmd())
 }
 
 // keysCmd represents the keys command
@@ -39,200 +39,223 @@ var keysCmd = &cobra.Command{
 }
 
 // keysAddCmd respresents the `keys add` command
-var keysAddCmd = &cobra.Command{
-	Use:   "add [chain-id] [name]",
-	Short: "adds a key to the keychain associated with a particular chain",
-	Args:  cobra.ExactArgs(2),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		chainID := args[0]
-		keyName := args[1]
+func keysAddCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "add [chain-id] [name]",
+		Short: "adds a key to the keychain associated with a particular chain",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainID := args[0]
+			keyName := args[1]
 
-		if !config.c.Exists(chainID) {
-			return fmt.Errorf("chain with ID %s is not configured", chainID)
-		}
+			if !config.c.Exists(chainID) {
+				return fmt.Errorf("chain with ID %s is not configured", chainID)
+			}
 
-		chain, err := config.c.GetChain(chainID)
-		if err != nil {
-			return err
-		}
+			chain, err := config.c.GetChain(chainID)
+			if err != nil {
+				return err
+			}
 
-		mnemonic, err := createMnemonic()
-		if err != nil {
-			return err
-		}
+			mnemonic, err := createMnemonic()
+			if err != nil {
+				return err
+			}
 
-		if keyExists(chain.Keybase, keyName) {
-			return fmt.Errorf("a key with name %s already exists", keyName)
-		}
+			if keyExists(chain.Keybase, keyName) {
+				return fmt.Errorf("a key with name %s already exists", keyName)
+			}
 
-		info, err := chain.Keybase.CreateAccount(keyName, mnemonic, "", "", keys.CreateHDPath(0, 0).String(), keys.Secp256k1)
-		if err != nil {
-			return err
-		}
+			info, err := chain.Keybase.CreateAccount(keyName, mnemonic, "", "", keys.CreateHDPath(0, 0).String(), keys.Secp256k1)
+			if err != nil {
+				return err
+			}
 
-		fmt.Println("seed:   ", mnemonic)
-		fmt.Println("address:", info.GetAddress().String())
-		return nil
-	},
+			fmt.Println("seed:   ", mnemonic)
+			fmt.Println("address:", info.GetAddress().String())
+			return nil
+		},
+	}
+	return cmd
 }
 
 // keysRestoreCmd respresents the `keys add` command
-var keysRestoreCmd = &cobra.Command{
-	Use:   "restore [chain-id] [name] [mnemonic]",
-	Short: "restores a mnemonic to the keychain associated with a particular chain",
-	Args:  cobra.ExactArgs(3),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		chainID := args[0]
-		keyName := args[1]
-		mnemonic := args[2]
+func keysRestoreCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "restore [chain-id] [name] [mnemonic]",
+		Short: "restores a mnemonic to the keychain associated with a particular chain",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainID := args[0]
+			keyName := args[1]
+			mnemonic := args[2]
 
-		if !config.c.Exists(chainID) {
-			return fmt.Errorf("chain with ID %s is not configured", chainID)
-		}
+			if !config.c.Exists(chainID) {
+				return fmt.Errorf("chain with ID %s is not configured", chainID)
+			}
 
-		chain, err := config.c.GetChain(chainID)
-		if err != nil {
-			return err
-		}
+			chain, err := config.c.GetChain(chainID)
+			if err != nil {
+				return err
+			}
 
-		if keyExists(chain.Keybase, keyName) {
-			return fmt.Errorf("a key with name %s already exists", keyName)
-		}
+			if keyExists(chain.Keybase, keyName) {
+				return fmt.Errorf("a key with name %s already exists", keyName)
+			}
 
-		info, err := chain.Keybase.CreateAccount(keyName, mnemonic, "", "", keys.CreateHDPath(0, 0).String(), keys.Secp256k1)
-		if err != nil {
-			return err
-		}
+			info, err := chain.Keybase.CreateAccount(keyName, mnemonic, "", "", keys.CreateHDPath(0, 0).String(), keys.Secp256k1)
+			if err != nil {
+				return err
+			}
 
-		fmt.Println(info.GetAddress().String())
-		return nil
-	},
+			fmt.Println(info.GetAddress().String())
+			return nil
+		},
+	}
+
+	return cmd
 }
 
 // keysDeleteCmd respresents the `keys delete` command
-var keysDeleteCmd = &cobra.Command{
-	Use:   "delete [chain-id] [name]",
-	Short: "deletes a key from the keychain associated with a particular chain",
-	Args:  cobra.ExactArgs(2),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		chainID := args[0]
-		keyName := args[1]
+func keysDeleteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete [chain-id] [name]",
+		Short: "deletes a key from the keychain associated with a particular chain",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainID := args[0]
+			keyName := args[1]
 
-		if !config.c.Exists(chainID) {
-			return fmt.Errorf("chain with ID %s is not configured", chainID)
-		}
+			if !config.c.Exists(chainID) {
+				return fmt.Errorf("chain with ID %s is not configured", chainID)
+			}
 
-		chain, err := config.c.GetChain(chainID)
-		if err != nil {
-			return err
-		}
+			chain, err := config.c.GetChain(chainID)
+			if err != nil {
+				return err
+			}
 
-		if !keyExists(chain.Keybase, keyName) {
-			return fmt.Errorf("a key with name %s doesn't exist", keyName)
-		}
+			if !keyExists(chain.Keybase, keyName) {
+				return fmt.Errorf("a key with name %s doesn't exist", keyName)
+			}
 
-		err = chain.Keybase.Delete(keyName, "", true)
-		if err != nil {
-			panic(err)
-		}
+			err = chain.Keybase.Delete(keyName, "", true)
+			if err != nil {
+				panic(err)
+			}
 
-		fmt.Printf("key %s deleted\n", keyName)
-		return nil
-	},
+			fmt.Printf("key %s deleted\n", keyName)
+			return nil
+		},
+	}
+
+	return cmd
 }
 
 // keysListCmd respresents the `keys list` command
-var keysListCmd = &cobra.Command{
-	Use:   "list [chain-id]",
-	Short: "lists keys from the keychain associated with a particular chain",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		chainID := args[0]
+func keysListCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list [chain-id]",
+		Short: "lists keys from the keychain associated with a particular chain",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainID := args[0]
 
-		if !config.c.Exists(chainID) {
-			return fmt.Errorf("chain with ID %s is not configured", chainID)
-		}
+			if !config.c.Exists(chainID) {
+				return fmt.Errorf("chain with ID %s is not configured", chainID)
+			}
 
-		chain, err := config.c.GetChain(chainID)
-		if err != nil {
-			return err
-		}
+			chain, err := config.c.GetChain(chainID)
+			if err != nil {
+				return err
+			}
 
-		info, err := chain.Keybase.List()
-		if err != nil {
-			return err
-		}
+			info, err := chain.Keybase.List()
+			if err != nil {
+				return err
+			}
 
-		for _, k := range info {
-			fmt.Println(k.GetName(), "->", k.GetAddress().String())
-		}
+			for _, k := range info {
+				fmt.Println(k.GetName(), "->", k.GetAddress().String())
+			}
 
-		return nil
-	},
+			return nil
+		},
+	}
+
+	return cmd
 }
 
 // keysShowCmd respresents the `keys show` command
-var keysShowCmd = &cobra.Command{
-	Use:   "show [chain-id] [name]",
-	Short: "shows a key from the keychain associated with a particular chain",
-	Args:  cobra.ExactArgs(2),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		chainID := args[0]
-		keyName := args[1]
+func keysShowCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "show [chain-id] [name]",
+		Short: "shows a key from the keychain associated with a particular chain",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainID := args[0]
+			keyName := args[1]
 
-		if !config.c.Exists(chainID) {
-			return fmt.Errorf("chain with ID %s is not configured", chainID)
-		}
+			if !config.c.Exists(chainID) {
+				return fmt.Errorf("chain with ID %s is not configured", chainID)
+			}
 
-		chain, err := config.c.GetChain(chainID)
-		if err != nil {
-			return err
-		}
+			chain, err := config.c.GetChain(chainID)
+			if err != nil {
+				return err
+			}
 
-		if !keyExists(chain.Keybase, keyName) {
-			return fmt.Errorf("a key with name %s doesn't exist", keyName)
-		}
+			if !keyExists(chain.Keybase, keyName) {
+				return fmt.Errorf("a key with name %s doesn't exist", keyName)
+			}
 
-		info, err := chain.Keybase.Get(keyName)
-		if err != nil {
-			return err
-		}
+			info, err := chain.Keybase.Get(keyName)
+			if err != nil {
+				return err
+			}
 
-		fmt.Println(info.GetAddress().String())
-		return nil
-	},
+			fmt.Println(info.GetAddress().String())
+			return nil
+		},
+	}
+
+	return cmd
 }
 
 // keysExportCmd respresents the `keys export` command
-var keysExportCmd = &cobra.Command{
-	Use:   "export [chain-id] [name]",
-	Short: "exports a privkey from the keychain associated with a particular chain",
-	Args:  cobra.ExactArgs(2),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		chainID := args[0]
-		keyName := args[1]
+func keysExportCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "export [chain-id] [name]",
+		Short: "exports a privkey from the keychain associated with a particular chain",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainID := args[0]
+			keyName := args[1]
 
-		if !config.c.Exists(chainID) {
-			return fmt.Errorf("chain with ID %s is not configured", chainID)
-		}
+			if !config.c.Exists(chainID) {
+				return fmt.Errorf("chain with ID %s is not configured", chainID)
+			}
 
-		chain, err := config.c.GetChain(chainID)
-		if err != nil {
-			return err
-		}
+			chain, err := config.c.GetChain(chainID)
+			if err != nil {
+				return err
+			}
 
-		if !keyExists(chain.Keybase, keyName) {
-			return fmt.Errorf("a key with name %s doesn't exist", keyName)
-		}
+			if !keyExists(chain.Keybase, keyName) {
+				return fmt.Errorf("a key with name %s doesn't exist", keyName)
+			}
 
-		info, err := chain.Keybase.ExportPrivKey(keyName, "", "")
-		if err != nil {
-			return err
-		}
+			info, err := chain.Keybase.ExportPrivKey(keyName, "", "")
+			if err != nil {
+				return err
+			}
 
-		fmt.Println(info)
-		return nil
-	},
+			fmt.Println(info)
+			return nil
+		},
+	}
+
+	return cmd
 }
 
 // returns true if there is a specified key in the keybase

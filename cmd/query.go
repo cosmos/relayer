@@ -6,17 +6,17 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/x/auth"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
 )
 
 func init() {
-	queryCmd.AddCommand(queryLatestHeightCmd)
-	queryCmd.AddCommand(queryHeaderCmd)
-	queryCmd.AddCommand(queryNodeStateCmd)
-	queryCmd.AddCommand(queryClientCmd)
+	queryCmd.AddCommand(queryHeaderCmd())
+	queryCmd.AddCommand(queryNodeStateCmd())
+	queryCmd.AddCommand(queryClientCmd())
 	queryCmd.AddCommand(queryClientsCmd())
 	queryCmd.AddCommand(queryAccountCmd())
 }
@@ -52,154 +52,146 @@ func queryAccountCmd() *cobra.Command {
 			}
 
 			fmt.Println(acc.String())
-
 			return nil
 		},
 	}
 	return cmd
 }
 
-var queryLatestHeightCmd = &cobra.Command{
-	Use:   "latest-height [chain-id]",
-	Short: "Use configured RPC client to fetch the latest height from a configured chain",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		chainID := args[0]
-		chain, err := config.c.GetChain(chainID)
-		if err != nil {
-			return err
-		}
+func queryHeaderCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "header [chain-id] [height]",
+		Short: "Use configured RPC client to fetch a header at a given height from a configured chain",
+		Args:  cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainID := args[0]
+			chain, err := config.c.GetChain(chainID)
+			if err != nil {
+				return err
+			}
 
-		h, err := chain.QueryLatestHeight()
-		if err != nil {
-			return err
-		}
+			var header *tmclient.Header
 
-		fmt.Println(h)
-		return nil
-	},
+			switch len(args) {
+			case 1:
+				header, err = chain.QueryLatestHeader()
+				if err != nil {
+					return err
+				}
+			case 2:
+				var height int64
+				height, err = strconv.ParseInt(args[1], 10, 64) //convert to int64
+				if err != nil {
+					return err
+				}
+
+				if height == 0 {
+					height, err = chain.QueryLatestHeight()
+					if err != nil {
+						return err
+					}
+
+					if height == -1 {
+						return relayer.ErrLiteNotInitialized
+					}
+				}
+
+				header, err = chain.QueryHeaderAtHeight(height)
+				if err != nil {
+					return err
+				}
+
+			}
+
+			out, err := chain.Cdc.MarshalJSON(header)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(out))
+			return nil
+		},
+	}
+
+	return cmd
 }
 
-var queryHeaderCmd = &cobra.Command{
-	Use:   "header [chain-id] [height]",
-	Short: "Use configured RPC client to fetch a header at a given height from a configured chain",
-	Args:  cobra.RangeArgs(1, 2),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		chainID := args[0]
-		chain, err := config.c.GetChain(chainID)
-		if err != nil {
-			return err
-		}
-
-		var header *tmclient.Header
-
-		switch len(args) {
-		case 1:
-			header, err = chain.QueryLatestHeader()
+// GetCmdQueryConsensusState defines the command to query the consensus state of
+// the chain as defined in https://github.com/cosmos/ics/tree/master/spec/ics-002-client-semantics#query
+func queryNodeStateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "node-state [chain-id] [height]",
+		Short: "Query the consensus state of a client at a given height, or at latest height if height is not passed",
+		Args:  cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainID := args[0]
+			chain, err := config.c.GetChain(chainID)
 			if err != nil {
 				return err
 			}
-		case 2:
+
 			var height int64
-			height, err = strconv.ParseInt(args[1], 10, 64) //convert to int64
-			if err != nil {
-				return err
-			}
-
-			if height == 0 {
+			switch len(args) {
+			case 2:
+				height, err = strconv.ParseInt(args[1], 10, 64)
+				if err != nil {
+					fmt.Println("invalid height, defaulting to latest:", args[1])
+					height = 0
+				}
+			case 1:
 				height, err = chain.QueryLatestHeight()
 				if err != nil {
 					return err
 				}
 
-				if height == -1 {
-					return relayer.ErrLiteNotInitialized
-				}
 			}
 
-			header, err = chain.QueryHeaderAtHeight(height)
+			csRes, err := chain.QueryConsensusState(height)
 			if err != nil {
 				return err
 			}
 
-		}
-
-		out, err := chain.Cdc.MarshalJSON(header)
-		if err != nil {
-			return err
-		}
-
-		fmt.Println(string(out))
-		return nil
-	},
-}
-
-// GetCmdQueryConsensusState defines the command to query the consensus state of
-// the chain as defined in https://github.com/cosmos/ics/tree/master/spec/ics-002-client-semantics#query
-var queryNodeStateCmd = &cobra.Command{
-	Use:   "node-state [chain-id] [height]",
-	Short: "Query the consensus state of a client at a given height, or at latest height if height is not passed",
-	Args:  cobra.RangeArgs(1, 2),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		chainID := args[0]
-		chain, err := config.c.GetChain(chainID)
-		if err != nil {
-			return err
-		}
-
-		var height int64
-		if len(args) == 2 {
-			height, err = strconv.ParseInt(args[1], 10, 64)
-			if err != nil {
-				fmt.Println("invalid height, defaulting to latest:", args[1])
-				height = 0
-			}
-		} else if len(args) == 1 {
-			height, err = chain.QueryLatestHeight()
+			out, err := chain.Cdc.MarshalJSON(csRes)
 			if err != nil {
 				return err
 			}
-		}
 
-		csRes, err := chain.QueryConsensusState(height)
-		if err != nil {
-			return err
-		}
+			fmt.Println(string(out))
+			return nil
+		},
+	}
 
-		out, err := chain.Cdc.MarshalJSON(csRes)
-		if err != nil {
-			return err
-		}
-
-		fmt.Println(string(out))
-		return nil
-	},
+	return cmd
 }
 
-var queryClientCmd = &cobra.Command{
-	Use:   "client [chain-id] [client-id]",
-	Short: "Query the client for a counterparty chain",
-	Args:  cobra.ExactArgs(2),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		chainID := args[0]
-		chain, err := config.c.GetChain(chainID)
-		if err != nil {
-			return err
-		}
+func queryClientCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "client [chain-id] [client-id]",
+		Short: "Query the client for a counterparty chain",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainID := args[0]
+			chain, err := config.c.GetChain(chainID)
+			if err != nil {
+				return err
+			}
 
-		res, err := chain.QueryClientState(args[1])
-		if err != nil {
-			return err
-		}
+			res, err := chain.QueryClientState(args[1])
+			if err != nil {
+				return err
+			}
 
-		out, err := chain.Cdc.MarshalJSON(res)
-		if err != nil {
-			return err
-		}
+			out, err := chain.Cdc.MarshalJSON(res)
+			if err != nil {
+				return err
+			}
 
-		fmt.Println(string(out))
-		return nil
-	},
+			fmt.Println(string(out))
+			return nil
+		},
+	}
+
+	return cmd
 }
 
 func queryClientsCmd() *cobra.Command {
@@ -238,7 +230,13 @@ func queryClientsCmd() *cobra.Command {
 		},
 	}
 
+	return paginationFlags(cmd)
+}
+
+func paginationFlags(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Int(flags.FlagPage, 1, "pagination page of light clients to to query for")
 	cmd.Flags().Int(flags.FlagLimit, 100, "pagination limit of light clients to query for")
+	viper.BindPFlag(flags.FlagPage, cmd.Flags().Lookup(flags.FlagPage))
+	viper.BindPFlag(flags.FlagLimit, cmd.Flags().Lookup(flags.FlagLimit))
 	return cmd
 }

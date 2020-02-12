@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"time"
 
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
@@ -125,14 +126,22 @@ func (c *Chain) TrustNodeInitClient(db *dbm.GoLevelDB) (*lite.Client, error) {
 // NewLiteDB returns a new instance of the liteclient database connection
 // CONTRACT: must close the database connection when done with it (defer df())
 func (c *Chain) NewLiteDB() (db *dbm.GoLevelDB, df func(), err error) {
-	db, err = dbm.NewGoLevelDB(c.ChainID, c.ChainDir)
+	db, err = dbm.NewGoLevelDB(c.ChainID, liteDir(c.HomePath))
 	df = func() {
 		err := db.Close()
 		if err != nil {
 			panic(err)
 		}
 	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("can't open lite client database: %w", err)
+	}
 	return
+}
+
+// DeleteLiteDB removes the lite client database on disk, forcing re-initialization
+func (c *Chain) DeleteLiteDB() error {
+	return os.RemoveAll(filepath.Join(liteDir(c.HomePath), fmt.Sprintf("%s.db", c.ChainID)))
 }
 
 // TrustOptions returns lite.TrustOptions given a height and hash

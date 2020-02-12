@@ -16,16 +16,18 @@ limitations under the License.
 package cmd
 
 import (
-	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	neturl "net/url"
 	"strconv"
 
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	lite "github.com/tendermint/tendermint/lite2"
 )
 
@@ -33,7 +35,11 @@ var (
 	flagHeight = "height"
 	flagHash   = "hash"
 	flagURL    = "url"
-	flagForce  = "force"
+
+	flagForce    = "force"
+	forceDesc    = "Option to skip confirmation prompt for trusting hash & height from configured url"
+	forceShort   = "f"
+	forceDefault = false
 )
 
 // chainCmd represents the keys command
@@ -43,57 +49,21 @@ var liteCmd = &cobra.Command{
 }
 
 func init() {
+	liteCmd.AddCommand(liteHeaderCmd())
 	liteCmd.AddCommand(initLiteCmd())
-	liteCmd.AddCommand(initLiteForceCmd())
 	liteCmd.AddCommand(updateLiteCmd())
-	liteCmd.AddCommand(updateLiteForceCmd())
-	liteCmd.AddCommand(headerCmd())
-	liteCmd.AddCommand(latestHeightCmd())
+	liteCmd.AddCommand(deleteLiteCmd())
 }
 
 func initLiteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "init [chain-id] [hash] [height]",
-		Short: "Initiate the lite client by passing it a root of trust as a hash and height",
-		Args:  cobra.ExactArgs(3),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.c.GetChain(args[0])
-			if err != nil {
-				return err
-			}
-
-			height, err := strconv.ParseInt(args[2], 10, 64)
-			if err != nil {
-				return err
-			}
-
-			hsh, err := hex.DecodeString(args[1])
-			if err != nil {
-				return err
-			}
-
-			db, df, err := chain.NewLiteDB()
-			if err != nil {
-				return err
-			}
-			defer df()
-
-			_, err = chain.InitLiteClient(db, chain.TrustOptions(height, hsh))
-			if err != nil {
-				return err
-			}
-			return nil
-
-		},
-	}
-	return cmd
-}
-
-func initLiteForceCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "init-force [chain-id]",
-		Short: "Initalize the lite client by querying root of trust from configured node",
-		Args:  cobra.ExactArgs(1),
+		Use:   "init [chain-id]",
+		Short: "Initiate the light client",
+		Long: `Initiate the light client by:
+	1. passing it a root of trust as a --hash/-x and --height
+	2. via --url/-u where trust options can be found
+	3. Use --force/-f to initalize from the configured node`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.c.GetChain(args[0])
 			if err != nil {
@@ -106,78 +76,138 @@ func initLiteForceCmd() *cobra.Command {
 			}
 			defer df()
 
-			// initialize the lite client database by querying the configured node
-			_, err = chain.TrustNodeInitClient(db)
+			height, err := cmd.Flags().GetInt64(flagHeight)
 			if err != nil {
 				return err
+			}
+			hash, err := cmd.Flags().GetBytesHex(flagHash)
+			if err != nil {
+				return err
+			}
+			url, err := cmd.Flags().GetString(flagURL)
+			if err != nil {
+				return err
+			}
+			force, err := cmd.Flags().GetBool(flagForce)
+			if err != nil {
+				return err
+			}
+
+			switch {
+			case force: // force initialization from trusted node
+				_, err = chain.TrustNodeInitClient(db)
+				if err != nil {
+					return err
+				}
+			case height > 0 && len(hash) > 0: // height and hash are given
+				_, err = chain.InitLiteClient(db, chain.TrustOptions(height, hash))
+				if err != nil {
+					return wrapInitFailed(err)
+				}
+			case len(url) > 0: // URL is given, query trust options
+				_, err := neturl.Parse(url)
+				if err != nil {
+					return wrapIncorrectURL(err)
+				}
+
+				to, err := queryTrustOptions(url)
+				if err != nil {
+					return err
+				}
+
+				_, err = chain.InitLiteClient(db, to)
+				if err != nil {
+					return wrapInitFailed(err)
+				}
+			default: // return error
+				return errInitWrongFlags
 			}
 
 			return nil
 		},
 	}
-	return cmd
+
+	cmd.Flags().BoolP(flagForce, "f", false, "Option to skip confirmation prompt for trusting hash & height from configured url")
+	viper.BindPFlag(flagForce, cmd.Flags().Lookup(flagForce))
+
+	return liteFlags(cmd)
 }
 
 func updateLiteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update [chain-id] [header] [height]",
-		Short: "update the lite client by providing a new root of trust",
-		Args:  cobra.ExactArgs(3),
+		Use:   "update [chain-id]",
+		Short: "Update the light client by providing a new root of trust",
+		Long: `Update the light client by
+	1. providing a new root of trust as a --hash/-x and --height
+	2. via --url/-u where trust options can be found
+	3. updating from the configured node by passing no flags`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.c.GetChain(args[0])
 			if err != nil {
 				return err
 			}
 
-			height, err := strconv.ParseInt(args[2], 10, 64)
-			if err != nil {
-				return err
+			height, _ := cmd.Flags().GetInt64(flagHeight)
+			hash, _ := cmd.Flags().GetBytesHex(flagHash)
+			url, _ := cmd.Flags().GetString(flagURL)
+
+			switch {
+			case height > 0 && len(hash) > 0: // height and hash are given
+				db, df, err := chain.NewLiteDB()
+				if err != nil {
+					return err
+				}
+				defer df()
+
+				_, err = chain.InitLiteClient(db, chain.TrustOptions(height, hash))
+				if err != nil {
+					return wrapInitFailed(err)
+				}
+			case len(url) > 0: // URL is given
+				_, err := neturl.Parse(url)
+				if err != nil {
+					return wrapIncorrectURL(err)
+				}
+
+				to, err := queryTrustOptions(url)
+				if err != nil {
+					return err
+				}
+
+				db, df, err := chain.NewLiteDB()
+				if err != nil {
+					return err
+				}
+				defer df()
+
+				_, err = chain.InitLiteClient(db, to)
+				if err != nil {
+					return wrapInitFailed(err)
+				}
+			default: // nothing is given => update existing client
+				// NOTE: "Update the light client by providing a new root of trust"
+				// does not mention this at all. I mean that we can update existing
+				// client by calling "update [chain-id]".
+				//
+				// Since first two conditions essentially repeat initLiteCmd above, I
+				// think we should remove first two conditions here and just make
+				// updateLiteCmd only about updating the light client to latest header
+				// (i.e. not mix responsibilities).
+				err = chain.UpdateLiteDBToLatestHeader()
+				if err != nil {
+					return wrapIncorrectHeader(err)
+				}
 			}
 
-			hsh, err := hex.DecodeString(args[1])
-			if err != nil {
-				return err
-			}
-
-			db, df, err := chain.NewLiteDB()
-			if err != nil {
-				return err
-			}
-			defer df()
-
-			_, err = chain.InitLiteClient(db, chain.TrustOptions(height, hsh))
-			if err != nil {
-				return err
-			}
 			return nil
 		},
 	}
-	return cmd
+
+	return liteFlags(cmd)
 }
 
-func updateLiteForceCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "update-force [chain-id]",
-		Short: "Update the lite client by querying root of trust from configured node",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.c.GetChain(args[0])
-			if err != nil {
-				return err
-			}
-
-			err = chain.UpdateLiteDBToLatestHeader()
-			if err != nil {
-				return err
-			}
-
-			return nil
-		},
-	}
-	return cmd
-}
-
-func headerCmd() *cobra.Command {
+func liteHeaderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "header [chain-id] [height]",
 		Short: "Get header from the database. 0 returns last trusted header and " +
@@ -235,12 +265,11 @@ func headerCmd() *cobra.Command {
 	return cmd
 }
 
-func latestHeightCmd() *cobra.Command {
+func deleteLiteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "latest-height [chain-id]",
-		Short: "Get header from relayer database. 0 returns last trusted header and " +
-			"all others return the header at that height if stored",
-		Args: cobra.ExactArgs(1),
+		Use:   "delete [chain-id]",
+		Short: "wipe the lite client database, forcing re-initialzation on the next run",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainID := args[0]
 			chain, err := config.c.GetChain(chainID)
@@ -248,13 +277,11 @@ func latestHeightCmd() *cobra.Command {
 				return err
 			}
 
-			// Get stored height
-			height, err := chain.GetLatestLiteHeader()
+			err = chain.DeleteLiteDB()
 			if err != nil {
 				return err
 			}
 
-			fmt.Println(height.Height)
 			return nil
 		},
 	}
@@ -288,3 +315,31 @@ func queryTrustOptions(url string) (out lite.TrustOptions, err error) {
 
 	return
 }
+
+func liteFlags(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Int64(flagHeight, -1, "Trusted header's height")
+	cmd.Flags().BytesHexP(flagHash, "x", []byte{}, "Trusted header's hash")
+	cmd.Flags().StringP(flagURL, "u", "", "Optional URL to fetch trusted-hash and trusted-height")
+	viper.BindPFlag(flagHeight, cmd.Flags().Lookup(flagHeight))
+	viper.BindPFlag(flagHash, cmd.Flags().Lookup(flagHash))
+	viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL))
+	return cmd
+}
+
+func wrapQueryTrustOptsErr(err error) error {
+	return fmt.Errorf("trust options query failed: %w", err)
+}
+
+func wrapInitFailed(err error) error {
+	return fmt.Errorf("init failed: %w", err)
+}
+
+func wrapIncorrectURL(err error) error {
+	return fmt.Errorf("incorrect URL: %w", err)
+}
+
+func wrapIncorrectHeader(err error) error {
+	return fmt.Errorf("update to latest header failed: %w", err)
+}
+
+var errInitWrongFlags = errors.New("expected either (--hash/-x & --height) OR --url/-u OR --force/-f, none given")

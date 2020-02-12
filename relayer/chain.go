@@ -23,7 +23,7 @@ func NewChain(key, chainID, rpcAddr, accPrefix string,
 	gasPrices sdk.DecCoins, defaultDenom, memo, homePath string,
 	liteCacheSize int, trustingPeriod string, dir string,
 ) (*Chain, error) {
-	keybase, err := keys.NewKeyring(chainID, "test", keysDir(homePath, chainID), nil)
+	keybase, err := keys.NewKeyring(chainID, "test", keysDir(homePath), nil)
 	if err != nil {
 		return &Chain{}, err
 	}
@@ -49,7 +49,7 @@ func NewChain(key, chainID, rpcAddr, accPrefix string,
 	return &Chain{
 		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Counterparties: counterparties, Gas: gas,
 		GasAdjustment: gasAdj, GasPrices: gasPrices, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase,
-		Client: client, Cdc: cdc, TrustingPeriod: tp, ChainDir: dir}, nil
+		Client: client, Cdc: cdc, TrustingPeriod: tp, HomePath: homePath}, nil
 }
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
@@ -65,12 +65,12 @@ type Chain struct {
 	DefaultDenom   string         `yaml:"default-denom,omitempty"`
 	Memo           string         `yaml:"memo,omitempty"`
 	TrustingPeriod time.Duration  `yaml:"trusting-period"`
+	HomePath       string
 
-	Keybase  keys.Keybase
-	Client   *rpcclient.HTTP
-	Cdc      *codec.Codec
-	ChainDir string
-	logger   log.Logger
+	Keybase keys.Keybase
+	Client  *rpcclient.HTTP
+	Cdc     *codec.Codec
+	logger  log.Logger
 }
 
 // Chains is a collection of Chain
@@ -97,8 +97,12 @@ func (c Chains) GetChain(chainID string) (*Chain, error) {
 }
 
 // KeysDir returns the path to the keys for this chain
-func keysDir(home, chainID string) string {
-	return path.Join(home, "keys", chainID)
+func keysDir(home string) string {
+	return path.Join(home, "keys")
+}
+
+func liteDir(home string) string {
+	return path.Join(home, "lite")
 }
 
 // GetAddress returns the sdk.AccAddress associated with the configred key
