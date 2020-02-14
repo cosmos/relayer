@@ -22,7 +22,6 @@ import (
 	"path"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -54,7 +53,7 @@ type ChainConfig struct {
 	Counterparties []CounterpartyConfig `yaml:"counterparties" json:"counterparties"`
 	Gas            uint64               `yaml:"gas,omitempty" json:"gas,omitempty"`
 	GasAdjustment  float64              `yaml:"gas-adjustment,omitempty" json:"gas-adjustment,omitempty"`
-	GasPrices      sdk.DecCoins         `yaml:"gas-prices,omitempty" json:"gas-prices,omitempty"`
+	GasPrices      string               `yaml:"gas-prices,omitempty" json:"gas-prices,omitempty"`
 	DefaultDenom   string               `yaml:"default-denom,omitempty" json:"default-denom,omitempty"`
 	Memo           string               `yaml:"memo,omitempty" json:"memo,omitempty"`
 	TrustingPeriod string               `yaml:"trusting-period" json:"trusting-period"`
@@ -79,7 +78,7 @@ func setChains(c *Config, home string) error {
 		chain, err := relayer.NewChain(i.Key, i.ChainID, i.RPCAddr,
 			i.AccountPrefix, cps, i.Gas, i.GasAdjustment, i.GasPrices,
 			i.DefaultDenom, i.Memo, homePath, c.Global.LiteCacheSize,
-			i.TrustingPeriod, homeDir)
+			i.TrustingPeriod, homeDir, cdc)
 		if err != nil {
 			return err
 		}

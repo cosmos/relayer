@@ -5,10 +5,10 @@ import (
 	"path"
 	"time"
 
+	"github.com/cosmos/cosmos-sdk/client/context"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
-	authvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting"
-	"github.com/cosmos/cosmos-sdk/x/ibc"
+	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/tendermint/tendermint/libs/log"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -20,8 +20,8 @@ import (
 // and blocks running the app if NewChain does this by default.
 func NewChain(key, chainID, rpcAddr, accPrefix string,
 	counterparties []Counterparty, gas uint64, gasAdj float64,
-	gasPrices sdk.DecCoins, defaultDenom, memo, homePath string,
-	liteCacheSize int, trustingPeriod string, dir string,
+	gasPrices string, defaultDenom, memo, homePath string,
+	liteCacheSize int, trustingPeriod string, dir string, cdc *codec.Codec,
 ) (*Chain, error) {
 	keybase, err := keys.NewKeyring(chainID, "test", keysDir(homePath), nil)
 	if err != nil {
@@ -33,22 +33,19 @@ func NewChain(key, chainID, rpcAddr, accPrefix string,
 		return &Chain{}, err
 	}
 
+	gp, err := sdk.ParseDecCoins(gasPrices)
+	if err != nil {
+		return &Chain{}, err
+	}
+
 	tp, err := time.ParseDuration(trustingPeriod)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse duration (%s) for chain %s", trustingPeriod, chainID)
 	}
 
-	cdc := codec.New()
-	sdk.RegisterCodec(cdc)
-	codec.RegisterCrypto(cdc)
-	codec.RegisterEvidences(cdc)
-	authvesting.RegisterCodec(cdc)
-	ibc.AppModuleBasic{}.RegisterCodec(cdc)
-	cdc.Seal()
-
 	return &Chain{
 		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Counterparties: counterparties, Gas: gas,
-		GasAdjustment: gasAdj, GasPrices: gasPrices, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase,
+		GasAdjustment: gasAdj, GasPrices: gp, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase,
 		Client: client, Cdc: cdc, TrustingPeriod: tp, HomePath: homePath}, nil
 }
 
@@ -94,6 +91,14 @@ func (c Chains) GetChain(chainID string) (*Chain, error) {
 		}
 	}
 	return &Chain{}, fmt.Errorf("chain with ID %s is not configured", chainID)
+}
+
+func (c *Chain) NewTxBldr(accNumber, seq, gas uint64, gasAdj float64, fees sdk.Coins, gasPrices sdk.DecCoins) auth.TxBuilder {
+	return auth.NewTxBuilder(auth.DefaultTxEncoder(c.Cdc), accNumber, seq, gas, gasAdj, false, c.ChainID, c.Memo, fees, gasPrices).WithKeybase(c.Keybase)
+}
+
+func (c *Chain) NewCliContext() context.CLIContext {
+	return context.CLIContext{Client: c.Client}
 }
 
 // KeysDir returns the path to the keys for this chain

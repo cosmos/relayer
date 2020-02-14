@@ -18,6 +18,7 @@ package cmd
 import (
 	"fmt"
 
+	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
 	"github.com/cosmos/go-bip39"
 	"github.com/spf13/cobra"
@@ -61,7 +62,7 @@ func keysAddCmd() *cobra.Command {
 				return errKeyExists(keyName)
 			}
 
-			info, err := chain.Keybase.CreateAccount(keyName, mnemonic, "", "", keys.CreateHDPath(0, 0).String(), keys.Secp256k1)
+			info, err := chain.Keybase.CreateAccount(keyName, mnemonic, "", ckeys.DefaultKeyPass, keys.CreateHDPath(0, 0).String(), keys.Secp256k1)
 			if err != nil {
 				return err
 			}
@@ -90,7 +91,7 @@ func keysRestoreCmd() *cobra.Command {
 				return errKeyExists(keyName)
 			}
 
-			info, err := chain.Keybase.CreateAccount(keyName, args[2], "", "", keys.CreateHDPath(0, 0).String(), keys.Secp256k1)
+			info, err := chain.Keybase.CreateAccount(keyName, args[2], "", ckeys.DefaultKeyPass, keys.CreateHDPath(0, 0).String(), keys.Secp256k1)
 			if err != nil {
 				return err
 			}
@@ -125,7 +126,7 @@ func keysDeleteCmd() *cobra.Command {
 				return errKeyDoesntExist(keyName)
 			}
 
-			err = chain.Keybase.Delete(keyName, "", true)
+			err = chain.Keybase.Delete(keyName, ckeys.DefaultKeyPass, true)
 			if err != nil {
 				panic(err)
 			}
@@ -213,7 +214,7 @@ func keysExportCmd() *cobra.Command {
 				return errKeyDoesntExist(keyName)
 			}
 
-			info, err := chain.Keybase.ExportPrivKey(keyName, "", "")
+			info, err := chain.Keybase.ExportPrivKey(keyName, ckeys.DefaultKeyPass, ckeys.DefaultKeyPass)
 			if err != nil {
 				return err
 			}

@@ -1,10 +1,9 @@
 package relayer
 
 import (
-	"fmt"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/client/context"
+	"github.com/cosmos/cosmos-sdk/client/keys"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
@@ -160,11 +159,6 @@ func (c *Chain) SendMsgs(datagram []sdk.Msg) (*sdk.TxResponse, error) {
 		return nil, err
 	}
 
-	switch i := info.(type) {
-	default:
-		fmt.Println("KEYBASE TYPE", i.GetType())
-	}
-
 	// Fetch account and sequence numbers for the account
 	acc, err := auth.NewAccountRetriever(c).GetAccount(info.GetAddress())
 	if err != nil {
@@ -173,66 +167,21 @@ func (c *Chain) SendMsgs(datagram []sdk.Msg) (*sdk.TxResponse, error) {
 
 	// Calculate fess from the gas and gas prices
 	// TODO: Incorporate c.GasAdjustment here?
-	fees := make(sdk.Coins, len(c.GasPrices))
-	for i, gp := range c.GasPrices {
-		fee := gp.Amount.Mul(sdk.NewDec(int64(c.Gas)))
-		fees[i] = sdk.NewCoin(gp.Denom, fee.Ceil().RoundInt())
-	}
+	// fees := make(sdk.Coins, len(c.GasPrices))
+	// for i, gp := range c.GasPrices {
+	// 	fee := gp.Amount.Mul(sdk.NewDec(int64(c.Gas)))
+	// 	fees[i] = sdk.NewCoin(gp.Denom, fee.Ceil().RoundInt())
+	// }
 
-	// Build the StdSignMsg
-	sign := auth.StdSignMsg{
-		ChainID:       c.ChainID,
-		AccountNumber: acc.GetSequence(),
-		Sequence:      acc.GetSequence(),
-		Memo:          c.Memo,
-		Msgs:          datagram,
-		Fee:           auth.NewStdFee(c.Gas, fees),
-	}
-
-	// Create signature for transaction
-	stdSignature, err := auth.MakeSignature(c.Keybase, c.Key, "", sign)
+	txbytes, err := c.NewTxBldr(
+		acc.GetAccountNumber(), acc.GetSequence(),
+		c.Gas, c.GasAdjustment, sdk.NewCoins(), c.GasPrices).
+		BuildAndSign(c.Key, keys.DefaultKeyPass, datagram)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println(5555)
-	// Create the StdTx for broadcast
-	stdTx := auth.NewStdTx(datagram, sign.Fee, []auth.StdSignature{stdSignature}, c.Memo)
+	res, err := c.NewCliContext().BroadcastTxCommit(txbytes)
 
-	fmt.Println(6666)
-	// Marshal amino
-	out, err := c.Cdc.MarshalBinaryLengthPrefixed(stdTx)
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Println(7777)
-
-	// Broadcast transaction
-	res, err := c.Client.BroadcastTxCommit(out)
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Println(8888)
-	if err != nil {
-		if errRes := context.CheckTendermintError(err, out); errRes != nil {
-			return errRes, nil
-		}
-		r := sdk.NewResponseFormatBroadcastTxCommit(res)
-		return &r, err
-	}
-
-	if !res.CheckTx.IsOK() {
-		r := sdk.NewResponseFormatBroadcastTxCommit(res)
-		return &r, nil
-	}
-
-	if !res.DeliverTx.IsOK() {
-		r := sdk.NewResponseFormatBroadcastTxCommit(res)
-		return &r, nil
-	}
-
-	r := sdk.NewResponseFormatBroadcastTxCommit(res)
-	return &r, nil
+	return &res, err
 }

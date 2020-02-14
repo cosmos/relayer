@@ -24,6 +24,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/auth"
 	authvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting"
 	"github.com/cosmos/cosmos-sdk/x/ibc"
 	"github.com/spf13/cobra"
@@ -61,6 +62,7 @@ func init() {
 	codec.RegisterCrypto(cdc)
 	codec.RegisterEvidences(cdc)
 	authvesting.RegisterCodec(cdc)
+	auth.RegisterCodec(cdc)
 	keys.RegisterCodec(cdc)
 	ibc.AppModuleBasic{}.RegisterCodec(cdc)
 	cdc.Seal()

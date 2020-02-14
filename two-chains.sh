@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 
 GAIA_DIR="$GOPATH/src/github.com/cosmos/gaia"
 RELAYER_DIR="$GOPATH/src/github.com/cosmos/relayer"
@@ -55,8 +55,8 @@ gaiacli config --home ibc0/n0/gaiacli/ node http://localhost:26657 &> /dev/null
 gaiacli config --home ibc1/n0/gaiacli/ node http://localhost:26557 &> /dev/null
 
 echo "Starting Gaiad instances..."
-nohup gaiad --home ibc0/n0/gaiad --log_level="*:debug" start > ibc0.log &
-nohup gaiad --home ibc1/n0/gaiad --log_level="*:debug" start > ibc1.log &
+nohup gaiad --home ibc0/n0/gaiad start > ibc0.log &
+nohup gaiad --home ibc1/n0/gaiad start > ibc1.log &
 
 echo 
 echo "Key Seeds for importing into gaiacli if necessary:"
