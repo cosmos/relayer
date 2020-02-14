@@ -5,16 +5,13 @@ The following is the folder structure for the relayer `--home` directory
 ```bash
 ~/.relayer
 ├── config
+│   └── config.yaml
 ├── keys
-│   ├── testchain1
-│   │   └── keyring-test
-│   └── testchain2
-│       └── keyring-test
+│   ├── keyring-test-ibc0
+│   └── keyring-test-ibc1
 └── lite
-    ├── testchain1
-    │   └── trust-base.db
-    └── testchain1
-        └── trust-base.db
+    ├── ibc0.db
+    └── ibc1.db
 ```
 
 ### Configuring the Relayer
@@ -66,7 +63,6 @@ type ChainConfig struct {
 	DefaultDenom   string               `yaml:"default-denom,omitempty"`
 	Memo           string               `yaml:"memo,omitempty"`
 	TrustOptions   relayer.TrustOptions `yaml:"trust-options"`
-        UpdatePeriod   string               `yaml:"update-period"`
 }
 ```
 

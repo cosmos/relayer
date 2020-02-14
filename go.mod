@@ -16,6 +16,4 @@ replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.
 
 replace github.com/tendermint/tendermint => github.com/tendermint/tendermint v0.33.1-dev0
 
-// replace github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.34.4-0.20200211210730-55d1aeaaa428
-
-replace github.com/cosmos/cosmos-sdk => /home/jackzampolin/go/src/github.com/cosmos/cosmos-sdk
+replace github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.34.4-0.20200211210730-55d1aeaaa428

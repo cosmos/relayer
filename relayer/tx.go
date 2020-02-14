@@ -165,14 +165,6 @@ func (c *Chain) SendMsgs(datagram []sdk.Msg) (*sdk.TxResponse, error) {
 		return nil, err
 	}
 
-	// Calculate fess from the gas and gas prices
-	// TODO: Incorporate c.GasAdjustment here?
-	// fees := make(sdk.Coins, len(c.GasPrices))
-	// for i, gp := range c.GasPrices {
-	// 	fee := gp.Amount.Mul(sdk.NewDec(int64(c.Gas)))
-	// 	fees[i] = sdk.NewCoin(gp.Denom, fee.Ceil().RoundInt())
-	// }
-
 	txbytes, err := c.NewTxBldr(
 		acc.GetAccountNumber(), acc.GetSequence(),
 		c.Gas, c.GasAdjustment, sdk.NewCoins(), c.GasPrices).
