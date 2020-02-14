@@ -19,6 +19,9 @@ func init() {
 	queryCmd.AddCommand(queryClientCmd())
 	queryCmd.AddCommand(queryClientsCmd())
 	queryCmd.AddCommand(queryAccountCmd())
+	queryCmd.AddCommand(queryConnection())
+	queryCmd.AddCommand(queryConnectionsUsingClient())
+
 }
 
 // queryCmd represents the chain command
@@ -189,6 +192,90 @@ func queryClientsCmd() *cobra.Command {
 			}
 
 			res, err := chain.QueryClients(viper.GetInt(flags.FlagPage), viper.GetInt(flags.FlagLimit))
+			if err != nil {
+				return err
+			}
+
+			return PrintOutput(res, cmd)
+		},
+	}
+
+	return outputFlags(paginationFlags(cmd))
+}
+
+func queryConnectionsUsingClient() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "connections [chain-id] [client-id]",
+		Short: "Query the client for a counterparty chain",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			height, err := chain.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryConnectionsUsingClient(args[1], height)
+			if err != nil {
+				return err
+			}
+
+			return PrintOutput(res, cmd)
+		},
+	}
+
+	return outputFlags(paginationFlags(cmd))
+}
+
+func queryConnection() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "connection [chain-id] [connection-id]",
+		Short: "Query the client for a counterparty chain",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			height, err := chain.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryConnection(args[1], height)
+			if err != nil {
+				return err
+			}
+
+			return PrintOutput(res, cmd)
+		},
+	}
+
+	return outputFlags(paginationFlags(cmd))
+}
+
+func queryChannel() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "channel [chain-id] [channel-id] [port-id]",
+		Short: "Query the client for a counterparty chain",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			height, err := chain.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryChannel(args[1], args[2], height)
 			if err != nil {
 				return err
 			}

@@ -44,51 +44,34 @@ func updateClientCmd() *cobra.Command {
 		Short: "update client for dst-chain on src-chain",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			srcChain, err := config.c.GetChain(args[0])
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
 				return err
 			}
 
-			dstChain, err := config.c.GetChain(args[1])
+			errs := relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
+			if len(errs) != 0 {
+				for _, err := range errs {
+					fmt.Println(err)
+				}
+				return nil
+			}
+
+			dstHeader, err := chains[dst].GetLatestLiteHeader()
 			if err != nil {
 				return err
 			}
 
-			err = srcChain.UpdateLiteDBToLatestHeader()
+			res, err := chains[src].SendMsg(chains[src].UpdateClient(chains[dst], chains[src].MustGetAddress(), args[2], dstHeader))
 			if err != nil {
 				return err
 			}
 
-			err = dstChain.UpdateLiteDBToLatestHeader()
-			if err != nil {
-				return err
-			}
-
-			dstHeight, err := dstChain.QueryLatestHeight()
-			if err != nil {
-				return err
-			}
-
-			srcAddr, err := srcChain.GetAddress()
-			if err != nil {
-				return err
-			}
-
-			update, err := srcChain.UpdateClient(dstChain, dstHeight, srcAddr, args[2])
-			if err != nil {
-				return err
-			}
-
-			res, err := srcChain.SendMsg(update)
-			if err != nil {
-				return err
-			}
-
-			fmt.Println(res)
-			return nil
+			return PrintOutput(res, cmd)
 		},
 	}
-	return cmd
+	return outputFlags(cmd)
 }
 
 func createClientCmd() *cobra.Command {
@@ -97,17 +80,13 @@ func createClientCmd() *cobra.Command {
 		Short: "create a client for dst-chain on src-chain",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			srcChain, err := config.c.GetChain(args[0])
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
 				return err
 			}
 
-			dstChain, err := config.c.GetChain(args[1])
-			if err != nil {
-				return err
-			}
-
-			errs := relayer.UpdateLiteDBsToLatestHeaders(srcChain, dstChain)
+			errs := relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
 			if len(errs) != 0 {
 				for _, err := range errs {
 					fmt.Println(err)
@@ -115,32 +94,21 @@ func createClientCmd() *cobra.Command {
 				return nil
 			}
 
-			dstHeight, err := dstChain.QueryLatestHeight()
+			dstHeader, err := chains[dst].GetLatestLiteHeader()
 			if err != nil {
 				return err
 			}
 
-			srcAddr, err := srcChain.GetAddress()
+			res, err := chains[src].SendMsg(chains[src].CreateClient(chains[dst], chains[src].MustGetAddress(), args[2], dstHeader))
 			if err != nil {
 				return err
 			}
 
-			msgCreateClient, err := srcChain.CreateClient(dstChain, dstHeight, srcAddr, args[2])
-			if err != nil {
-				return err
-			}
-
-			res, err := srcChain.SendMsg(msgCreateClient)
-			if err != nil {
-				return err
-			}
-
-			fmt.Println(res)
-			return nil
+			return PrintOutput(res, cmd)
 		},
 	}
 
-	return cmd
+	return outputFlags(cmd)
 }
 
 func createClientsCmd() *cobra.Command {
@@ -149,8 +117,7 @@ func createClientsCmd() *cobra.Command {
 		Short: "create a clients for dst-chain on src-chain and src-chain on dst-chain",
 		Args:  cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			src := args[0]
-			dst := args[1]
+			src, dst := args[0], args[1]
 			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
 				return err
@@ -164,7 +131,7 @@ func createClientsCmd() *cobra.Command {
 				}
 			}
 
-			heights, errs := relayer.GetLatestHeights(chains[src], chains[dst])
+			headers, errs := relayer.GetLatestHeaders(chains[src], chains[dst])
 			if len(errs) != 0 {
 				for _, err := range errs {
 					fmt.Println(err)
@@ -172,42 +139,30 @@ func createClientsCmd() *cobra.Command {
 				}
 			}
 
-			srcAddr, err := chains[src].GetAddress()
+			res, err := chains[src].SendMsg(chains[src].CreateClient(chains[dst], chains[src].MustGetAddress(), args[2], headers.Map[dst]))
 			if err != nil {
 				return err
 			}
 
-			dstAddr, err := chains[dst].GetAddress()
+			err = PrintOutput(res, cmd)
 			if err != nil {
 				return err
 			}
 
-			srcCreateClient, err := chains[src].CreateClient(chains[dst], heights.Map[dst], srcAddr, args[2])
+			res, err = chains[dst].SendMsg(chains[dst].CreateClient(chains[src], chains[dst].MustGetAddress(), args[3], headers.Map[src]))
 			if err != nil {
 				return err
 			}
 
-			res, err := chains[src].SendMsg(srcCreateClient)
-			if err != nil {
-				return err
-			}
-			fmt.Println(res)
-
-			dstCreateClient, err := chains[dst].CreateClient(chains[src], heights.Map[src], dstAddr, args[3])
+			err = PrintOutput(res, cmd)
 			if err != nil {
 				return err
 			}
 
-			res, err = chains[dst].SendMsg(dstCreateClient)
-			if err != nil {
-				return err
-			}
-
-			fmt.Println(res)
 			return nil
 		},
 	}
-	return cmd
+	return outputFlags(cmd)
 }
 
 func createConnectionCmd() *cobra.Command {
@@ -217,20 +172,15 @@ func createConnectionCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			timeout := 5 * time.Second
-
-			srcChain, err := config.c.GetChain(args[0])
-			if err != nil {
-				return err
-			}
-
-			dstChain, err := config.c.GetChain(args[1])
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
 				return err
 			}
 
 			// TODO: validate identifiers ICS24
 
-			err = srcChain.CreateConnection(dstChain, args[2], args[3], args[4], args[5], timeout)
+			err = chains[src].CreateConnection(chains[dst], args[2], args[3], args[4], args[5], timeout)
 			if err != nil {
 				return err
 			}
@@ -249,20 +199,15 @@ func createChannelCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(8),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			timeout := 5 * time.Second
-
-			srcChain, err := config.c.GetChain(args[0])
-			if err != nil {
-				return err
-			}
-
-			dstChain, err := config.c.GetChain(args[1])
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
 				return err
 			}
 
 			// TODO: validate identifiers ICS24
 
-			err = srcChain.CreateChannel(dstChain, args[2], args[3], args[4], args[5], args[6], args[7], timeout)
+			err = chains[src].CreateChannel(chains[dst], args[2], args[3], args[4], args[5], args[6], args[7], timeout)
 			if err != nil {
 				return err
 			}

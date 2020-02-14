@@ -73,9 +73,9 @@ $ relayer --home $RLY q channel ibc1 ibczerochan bank
   * [x] `node-state [chain-id] [height]` - Query the node state at a given height or latest if height not passed
   * [x] `client [chain-id] [client-id]` - Query details for an individual client
   * [x] `clients [chain-id]` - Query the list of clients on a given chain
-  * [ ] `connection [chain-id] [client-id] [connection-id]` - Query details for an individual connection
-  * [ ] `connections [chain-id] [client-id]`- Query the list of connections associated with a client
-  * [ ] `channel [chain-id] [connection-id] [channel-id]` - Query details for an individual channel
+  * [x] `connection [chain-id] [connection-id]` - Query details for an individual connection
+  * [x] `connections [chain-id] [client-id]`- Query the list of connections associated with a client
+  * [x] `channel [chain-id] [connection-id] [channel-id]` - Query details for an individual channel
   * [ ] `channels [chain-id] [connection-id]` - Query the list of channels associated with a client
   * [ ] `seq-send [chain-id] [channel-id]` - Query the `seq-send` for the configured key on a given chain and channel
   * [ ] `seq-recv [chain-id] [channel-id]` - Query the `seq-recv` for the configured key on a given chain and channel

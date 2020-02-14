@@ -200,6 +200,32 @@ func (c *Chain) GetLatestLiteHeader() (*tmclient.Header, error) {
 	return c.GetLiteSignedHeaderAtHeight(height)
 }
 
+// Headers is the return type for multiple signed headers coming back from the database
+type Headers struct {
+	sync.Mutex
+	Map map[string]*tmclient.Header
+}
+
+// GetLatestHeaders returns
+func GetLatestHeaders(chains ...*Chain) (Headers, []error) {
+	headers := Headers{Map: make(map[string]*tmclient.Header)}
+	errs := []error{}
+	var wg sync.WaitGroup
+	for _, chain := range chains {
+		wg.Add(1)
+		go func(headers *Headers, wg *sync.WaitGroup, chain *Chain) {
+			header, err := chain.GetLatestLiteHeader()
+			headers.Map[chain.ChainID] = header
+			if err != nil {
+				errs = append(errs, err)
+			}
+			wg.Done()
+		}(&headers, &wg, chain)
+	}
+	wg.Wait()
+	return headers, errs
+}
+
 // VerifyProof performs response proof verification.
 func (c *Chain) VerifyProof(queryPath string, resp abci.ResponseQuery) error {
 	// TODO: write this verify function

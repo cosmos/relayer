@@ -150,3 +150,12 @@ func (c *Chain) GetAddress() (sdk.AccAddress, error) {
 	}
 	return srcAddr.GetAddress(), nil
 }
+
+// MustGetAddress used for brevity
+func (c *Chain) MustGetAddress() sdk.AccAddress {
+	srcAddr, err := c.Keybase.Get(c.Key)
+	if err != nil {
+		panic(err)
+	}
+	return srcAddr.GetAddress()
+}

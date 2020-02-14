@@ -6,6 +6,7 @@ import (
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
 	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc/20-transfer/types"
 )
 
@@ -45,14 +46,14 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 	dstMsgs := make([]sdk.Msg, 0)
 
 	// Addresses and heights for both the src and dst chains
-	srcAddr, dstAddr, srcHeight, dstHeight, err := addrsHeights(src, dst)
+	srcAddr, dstAddr, srcHeader, dstHeader, err := addrsHeaders(src, dst)
 	if err != nil {
 		return nil, err
 	}
 
 	// ICS2 : Clients - DstClient
 	// Fetch current client state
-	dstClientState, err := dst.QueryClientConsensusState(src.ChainID, uint64(dstHeight))
+	dstClientState, err := dst.QueryClientConsensusState(src.ChainID, uint64(dstHeader.Height))
 	if err != nil {
 		return nil, err
 	}
@@ -61,24 +62,16 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 	// If there is no client found matching, create the client
 	// TODO: ensure that this is the right condition
 	case dstClientState.ConsensusState.GetRoot().GetHash() == nil:
-		cc, err := dst.CreateClient(src, srcHeight, dstAddr, "finddstclientid")
-		if err != nil {
-			return nil, err
-		}
-		dstMsgs = append(dstMsgs, cc)
+		dstMsgs = append(dstMsgs, dst.CreateClient(src, dstAddr, "finddstclientid", srcHeader))
 
 	// If there client is found update it with latest header
-	case dstClientState.ProofHeight < uint64(srcHeight):
-		uc, err := dst.UpdateClient(src, srcHeight, dstAddr, "finddstclientid")
-		if err != nil {
-			return nil, err
-		}
-		dstMsgs = append(dstMsgs, uc)
+	case dstClientState.ProofHeight < uint64(srcHeader.Height):
+		dstMsgs = append(dstMsgs, dst.UpdateClient(src, dstAddr, "finddstclientid", srcHeader))
 	}
 
 	// ICS2 : Clients - SrcClient
 	// Determine if light client needs to be updated on src
-	srcClientState, err := src.QueryClientConsensusState(dst.ChainID, uint64(srcHeight))
+	srcClientState, err := src.QueryClientConsensusState(dst.ChainID, uint64(srcHeader.Height))
 	if err != nil {
 		return nil, err
 	}
@@ -87,19 +80,11 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 	// If there is no matching client found, create it
 	// TODO: ensure that this is the right condition
 	case srcClientState.ConsensusState.GetRoot().GetHash() == nil:
-		cc, err := src.CreateClient(dst, dstHeight, srcAddr, "findsrcclientid")
-		if err != nil {
-			return nil, err
-		}
-		srcMsgs = append(srcMsgs, cc)
+		srcMsgs = append(srcMsgs, src.CreateClient(dst, srcAddr, "findsrcclientid", dstHeader))
 
 	// If there client is found update it with latest header
-	case srcClientState.ProofHeight < uint64(dstHeight):
-		uc, err := src.UpdateClient(dst, dstHeight, srcAddr, "findsrcclientid")
-		if err != nil {
-			return nil, err
-		}
-		srcMsgs = append(srcMsgs, uc)
+	case srcClientState.ProofHeight < uint64(dstHeader.Height):
+		srcMsgs = append(srcMsgs, src.UpdateClient(dst, srcAddr, "findsrcclientid", dstHeader))
 	}
 
 	// ICS3 : Connections
@@ -110,7 +95,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 	}
 
 	// Fetch connections associated with clients on the source chain
-	connections, err := src.QueryConnectionsUsingClient(cp.ClientID, srcHeight)
+	connections, err := src.QueryConnectionsUsingClient(cp.ClientID, srcHeader.Height)
 	if err != nil {
 		return nil, err
 	}
@@ -118,13 +103,13 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 	// Loop across the connection paths
 	for _, srcConnID := range connections.ConnectionPaths {
 		// Fetch the dstEnd
-		dstEnd, err := dst.QueryConnection(srcConnID, dstHeight)
+		dstEnd, err := dst.QueryConnection(srcConnID, dstHeader.Height)
 		if err != nil {
 			return nil, err
 		}
 
 		// Fetch the srcEnd
-		srcEnd, err := src.QueryConnection(dstEnd.Connection.GetCounterparty().GetConnectionID(), srcHeight)
+		srcEnd, err := src.QueryConnection(dstEnd.Connection.GetCounterparty().GetConnectionID(), srcHeader.Height)
 		if err != nil {
 			return nil, err
 		}
@@ -155,7 +140,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 				srcEnd.Proof,
 				srcEnd.Proof,
 				srcEnd.ProofHeight,
-				uint64(dstHeight),
+				uint64(dstHeader.Height),
 				dstAddr,
 			))
 
@@ -167,7 +152,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 				dstEnd.Proof,
 				dstEnd.Proof,
 				dstEnd.ProofHeight,
-				uint64(srcHeight),
+				uint64(srcHeader.Height),
 				ibcversion,
 				srcAddr,
 			))
@@ -195,12 +180,12 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 	for _, srcChan := range channels {
 		// TODO: need to figure out how to handle channel and port identifiers
 
-		dstEnd, err := dst.QueryChannel(srcChan.Channel.Counterparty.ChannelID, portID, dstHeight)
+		dstEnd, err := dst.QueryChannel(srcChan.Channel.Counterparty.ChannelID, portID, dstHeader.Height)
 		if err != nil {
 			return nil, err
 		}
 
-		srcEnd, err := src.QueryChannel(dstEnd.Channel.Counterparty.ChannelID, portID, srcHeight)
+		srcEnd, err := src.QueryChannel(dstEnd.Channel.Counterparty.ChannelID, portID, srcHeader.Height)
 		if err != nil {
 			return nil, err
 		}
@@ -266,7 +251,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 
 		// First, scan logs for sent packets and relay all of them
 		// TODO: This is currently incorrect and will change
-		srcRes, err := src.QueryTxs(uint64(srcHeight), []string{"type:transfer"})
+		srcRes, err := src.QueryTxs(uint64(srcHeader.Height), []string{"type:transfer"})
 		for _, tx := range srcRes.Txs {
 			for _, msg := range tx.Tx.GetMsgs() {
 				if msg.Type() == "transfer" {
@@ -277,7 +262,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 
 		// Then, scan logs for received packets and relay acknowledgements
 		// TODO: This is currently incorrect and will change
-		dstRes, err := dst.QueryTxs(uint64(dstHeight), []string{"type:recv_packet"})
+		dstRes, err := dst.QueryTxs(uint64(dstHeader.Height), []string{"type:recv_packet"})
 		for _, tx := range dstRes.Txs {
 			for _, msg := range tx.Tx.GetMsgs() {
 				if msg.Type() == "recv_packet" {
@@ -292,7 +277,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 }
 
 // Group the keybase and height queries here
-func addrsHeights(src, dst *Chain) (srcAddr, dstAddr sdk.AccAddress, srcHeight, dstHeight int64, err error) {
+func addrsHeaders(src, dst *Chain) (srcAddr, dstAddr sdk.AccAddress, srcHeader, dstHeader *tmclient.Header, err error) {
 	// Signing key for src chain
 	srcAddr, err = src.GetAddress()
 	if err != nil {
@@ -306,13 +291,12 @@ func addrsHeights(src, dst *Chain) (srcAddr, dstAddr sdk.AccAddress, srcHeight, 
 	}
 
 	// Latest height on src chain
-	srcHeight, err = src.QueryLatestHeight()
+	srcHeader, err = src.QueryLatestHeader()
 	if err != nil {
 		return
 	}
 
 	// Latest height on dst chain
-	dstHeight, err = dst.QueryLatestHeight()
-
+	dstHeader, err = dst.QueryLatestHeader()
 	return
 }

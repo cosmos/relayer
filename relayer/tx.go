@@ -9,18 +9,19 @@ import (
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connState "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/exported"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
 )
 
 // CreateConnection creates a connection between two chains given src and dst client IDs
 func (src *Chain) CreateConnection(dst *Chain, srcClientID, dstClientID, srcConnectionID, dstConnectionID string, timeout time.Duration) error {
-	srcAddr, dstAddr, srcHeight, dstHeight, err := addrsHeights(src, dst)
+	srcAddr, dstAddr, srcHeader, dstHeader, err := addrsHeaders(src, dst)
 	if err != nil {
 		return err
 	}
 
 	ticker := time.NewTicker(timeout)
 	for ; true; <-ticker.C {
-		msgs, err := src.CreateConnectionStep(dst, srcHeight, dstHeight, srcAddr, dstAddr, srcClientID, dstClientID, srcConnectionID, dstConnectionID)
+		msgs, err := src.CreateConnectionStep(dst, srcHeader, dstHeader, srcAddr, dstAddr, srcClientID, dstClientID, srcConnectionID, dstConnectionID)
 		if err != nil {
 			return err
 		}
@@ -49,17 +50,17 @@ func (src *Chain) CreateConnection(dst *Chain, srcClientID, dstClientID, srcConn
 
 // CreateConnectionStep returns the next set of messags for relaying between a src and dst chain
 func (src *Chain) CreateConnectionStep(dst *Chain,
-	srcHeight, dstHeight int64,
+	srcHeader, dstHeader *tmclient.Header,
 	srcAddr, dstAddr sdk.AccAddress,
 	srcClientID, dstClientID,
 	srcConnectionID, dstConnectionID string) (*RelayMsgs, error) {
 	out := &RelayMsgs{}
-	srcEnd, err := src.QueryConnection(srcConnectionID, srcHeight)
+	srcEnd, err := src.QueryConnection(srcConnectionID, srcHeader.Height)
 	if err != nil {
 		return nil, err
 	}
 
-	dstEnd, err := dst.QueryConnection(dstConnectionID, dstHeight)
+	dstEnd, err := dst.QueryConnection(dstConnectionID, srcHeader.Height)
 	if err != nil {
 		return nil, err
 	}
@@ -79,55 +80,43 @@ func (src *Chain) CreateConnectionStep(dst *Chain,
 
 	// Handshake has started locally (1 step done), relay `connOpenTry` to the remote end
 	case srcEnd.Connection.State == connState.INIT && dstEnd.Connection.State == connState.UNINITIALIZED:
-		uc, err := dst.UpdateClient(src, srcHeight, dstAddr, dstClientID)
-		if err != nil {
-			return nil, err
-		}
-
-		out.Dst = append(out.Dst, uc, connTypes.NewMsgConnectionOpenTry(
-			dstConnectionID,
-			dstClientID,
-			srcConnectionID,
-			srcClientID,
-			srcEnd.Connection.Counterparty.GetPrefix(),
-			[]string{ibcversion},
-			srcEnd.Proof,
-			srcEnd.Proof,
-			srcEnd.ProofHeight,
-			uint64(dstHeight),
-			dstAddr,
-		))
+		out.Dst = append(out.Dst, dst.UpdateClient(src, dstAddr, dstClientID, srcHeader),
+			connTypes.NewMsgConnectionOpenTry(
+				dstConnectionID,
+				dstClientID,
+				srcConnectionID,
+				srcClientID,
+				srcEnd.Connection.Counterparty.GetPrefix(),
+				[]string{ibcversion},
+				srcEnd.Proof,
+				srcEnd.Proof,
+				srcEnd.ProofHeight,
+				uint64(dstHeader.Height),
+				dstAddr,
+			))
 
 	// Handshake has started on the other end (2 steps done), relay `connOpenAck` to the local end
 	case srcEnd.Connection.State == connState.INIT && dstEnd.Connection.State == connState.TRYOPEN:
-		uc, err := src.UpdateClient(dst, dstHeight, srcAddr, srcClientID)
-		if err != nil {
-			return nil, err
-		}
-
-		out.Src = append(out.Src, uc, connTypes.NewMsgConnectionOpenAck(
-			srcConnectionID,
-			dstEnd.Proof,
-			dstEnd.Proof,
-			dstEnd.ProofHeight,
-			uint64(srcHeight),
-			ibcversion,
-			srcAddr,
-		))
+		out.Src = append(out.Src, src.UpdateClient(dst, srcAddr, srcClientID, dstHeader),
+			connTypes.NewMsgConnectionOpenAck(
+				srcConnectionID,
+				dstEnd.Proof,
+				dstEnd.Proof,
+				dstEnd.ProofHeight,
+				uint64(srcHeader.Height),
+				ibcversion,
+				srcAddr,
+			))
 
 	// Handshake has confirmed locally (3 steps done), relay `connOpenConfirm` to the remote end
 	case srcEnd.Connection.State == connState.OPEN && dstEnd.Connection.State == connState.TRYOPEN:
-		uc, err := dst.UpdateClient(src, srcHeight, dstAddr, dstClientID)
-		if err != nil {
-			return nil, err
-		}
-
-		out.Dst = append(out.Dst, uc, connTypes.NewMsgConnectionOpenConfirm(
-			dstConnectionID,
-			srcEnd.Proof,
-			srcEnd.ProofHeight,
-			dstAddr,
-		))
+		out.Dst = append(out.Dst, dst.UpdateClient(src, dstAddr, dstClientID, srcHeader),
+			connTypes.NewMsgConnectionOpenConfirm(
+				dstConnectionID,
+				srcEnd.Proof,
+				srcEnd.ProofHeight,
+				dstAddr,
+			))
 	default:
 		fmt.Printf("srcEnd.Connection %#v\n", srcEnd.Connection)
 		fmt.Printf("dstEnd.Connection %#v\n", dstEnd.Connection)
@@ -141,14 +130,14 @@ func (src *Chain) CreateChannel(dst *Chain,
 	srcChannelID, dstChannelID,
 	srcPortID, dstPortID string,
 	timeout time.Duration) error {
-	srcAddr, dstAddr, srcHeight, dstHeight, err := addrsHeights(src, dst)
+	srcAddr, dstAddr, srcHeader, dstHeader, err := addrsHeaders(src, dst)
 	if err != nil {
 		return err
 	}
 
 	ticker := time.NewTicker(timeout)
 	for ; true; <-ticker.C {
-		msgs, err := src.CreateChannelStep(dst, srcHeight, dstHeight, srcAddr, dstAddr, srcConnectionID, dstConnectionID, srcChannelID, dstChannelID, srcPortID, dstPortID)
+		msgs, err := src.CreateChannelStep(dst, srcHeader, dstHeader, srcAddr, dstAddr, srcConnectionID, dstConnectionID, srcChannelID, dstChannelID, srcPortID, dstPortID)
 		if err != nil {
 			return err
 		}
@@ -177,7 +166,7 @@ func (src *Chain) CreateChannel(dst *Chain,
 
 // CreateChannelStep returns the next set of messages for relaying between a src and dst chain
 func (src *Chain) CreateChannelStep(dst *Chain,
-	srcHeight, dstHeight int64,
+	srcHeader, dstHeader *tmclient.Header,
 	srcAddr, dstAddr sdk.Address,
 	srcConnectionID, dstConnectionID,
 	srcChannelID, dstChannelID,
@@ -186,25 +175,13 @@ func (src *Chain) CreateChannelStep(dst *Chain,
 }
 
 // UpdateClient creates an sdk.Msg to update the client on c with data pulled from cp
-func (src *Chain) UpdateClient(dst *Chain, dstHeight int64, srcAddr sdk.AccAddress, srcClientID string) (clientTypes.MsgUpdateClient, error) {
-	// Pull header for the dst chain from the liteDB
-	dstHeader, err := dst.GetLiteSignedHeaderAtHeight(dstHeight)
-	if err != nil {
-		return clientTypes.MsgUpdateClient{}, err
-	}
-
-	return clientTypes.NewMsgUpdateClient(srcClientID, dstHeader, srcAddr), nil
+func (src *Chain) UpdateClient(dst *Chain, srcAddr sdk.AccAddress, srcClientID string, dstHeader *tmclient.Header) clientTypes.MsgUpdateClient {
+	return clientTypes.NewMsgUpdateClient(srcClientID, dstHeader, srcAddr)
 }
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (src *Chain) CreateClient(dst *Chain, dstHeight int64, srcAddr sdk.AccAddress, srcClientID string) (clientTypes.MsgCreateClient, error) {
-	// Pull header for the dst chain from the liteDB
-	dstHeader, err := dst.GetLiteSignedHeaderAtHeight(dstHeight)
-	if err != nil {
-		return clientTypes.MsgCreateClient{}, err
-	}
-
-	return clientTypes.NewMsgCreateClient(srcClientID, clientExported.ClientTypeTendermint, dstHeader.ConsensusState(), srcAddr), nil
+func (src *Chain) CreateClient(dst *Chain, srcAddr sdk.AccAddress, srcClientID string, dstHeader *tmclient.Header) clientTypes.MsgCreateClient {
+	return clientTypes.NewMsgCreateClient(srcClientID, clientExported.ClientTypeTendermint, dstHeader.ConsensusState(), srcAddr)
 }
 
 // SendMsg wraps the msg in a stdtx, signs and sends it
