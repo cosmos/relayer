@@ -61,7 +61,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 	// If there is no client found matching, create the client
 	// TODO: ensure that this is the right condition
 	case dstClientState.ConsensusState.GetRoot().GetHash() == nil:
-		cc, err := dst.CreateClient(src, srcHeight, dstAddr)
+		cc, err := dst.CreateClient(src, srcHeight, dstAddr, "finddstclientid")
 		if err != nil {
 			return nil, err
 		}
@@ -69,7 +69,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 
 	// If there client is found update it with latest header
 	case dstClientState.ProofHeight < uint64(srcHeight):
-		uc, err := dst.UpdateClient(src, srcHeight, dstAddr)
+		uc, err := dst.UpdateClient(src, srcHeight, dstAddr, "finddstclientid")
 		if err != nil {
 			return nil, err
 		}
@@ -87,7 +87,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 	// If there is no matching client found, create it
 	// TODO: ensure that this is the right condition
 	case srcClientState.ConsensusState.GetRoot().GetHash() == nil:
-		cc, err := src.CreateClient(dst, dstHeight, srcAddr)
+		cc, err := src.CreateClient(dst, dstHeight, srcAddr, "findsrcclientid")
 		if err != nil {
 			return nil, err
 		}
@@ -95,7 +95,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 
 	// If there client is found update it with latest header
 	case srcClientState.ProofHeight < uint64(dstHeight):
-		uc, err := src.UpdateClient(dst, dstHeight, srcAddr)
+		uc, err := src.UpdateClient(dst, dstHeight, srcAddr, "findsrcclientid")
 		if err != nil {
 			return nil, err
 		}

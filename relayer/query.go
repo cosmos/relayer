@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -286,6 +287,25 @@ func (c *Chain) QueryLatestHeight() (int64, error) {
 	}
 
 	return res.SyncInfo.LatestBlockHeight, nil
+}
+
+func QueryLatestHeights(chains ...*Chain) (map[string]int64, []error) {
+	heights := make(map[string]int64)
+	errs := []error{}
+	var wg sync.WaitGroup
+	for _, chain := range chains {
+		wg.Add(1)
+		go func(heights map[string]int64, wg *sync.WaitGroup, chain *Chain) {
+			height, err := chain.QueryLatestHeight()
+			heights[chain.ChainID] = height
+			if err != nil {
+				errs = append(errs, err)
+			}
+			wg.Done()
+		}(heights, &wg, chain)
+	}
+	wg.Wait()
+	return heights, errs
 }
 
 // QueryLatestHeader returns the latest header from the chain

@@ -50,6 +50,7 @@ $ relayer --home $RLY q channel ibc0 ibconechan bank
 $ relayer --home $RLY q channels ibc1
 $ relayer --home $RLY q channel ibc1 ibczerochan bank
 
+# TODO: figure out the commands to flush and send packets from chain to chain
 ```
 
 ### Command Structure:

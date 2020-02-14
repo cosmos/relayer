@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -27,6 +28,7 @@ func init() {
 	transactionCmd.AddCommand(createClientsCmd())
 	transactionCmd.AddCommand(createConnectionCmd())
 	transactionCmd.AddCommand(createChannelCmd())
+	transactionCmd.AddCommand(updateClientCmd())
 }
 
 // transactionCmd represents the tx command
@@ -36,10 +38,10 @@ var transactionCmd = &cobra.Command{
 	Short:   "IBC Transaction Commands, UNDER CONSTRUCTION",
 }
 
-func createClientCmd() *cobra.Command {
+func updateClientCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "client [src-chain-id] [dst-chain-id] [client-id]",
-		Short: "create a client for dst-chain on src-chain",
+		Use:   "update-client [src-chain-id] [dst-chain-id] [client-id]",
+		Short: "update client for dst-chain on src-chain",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			srcChain, err := config.c.GetChain(args[0])
@@ -72,7 +74,58 @@ func createClientCmd() *cobra.Command {
 				return err
 			}
 
-			msgCreateClient, err := srcChain.CreateClient(dstChain, dstHeight, srcAddr)
+			update, err := srcChain.UpdateClient(dstChain, dstHeight, srcAddr, args[2])
+			if err != nil {
+				return err
+			}
+
+			res, err := srcChain.SendMsg(update)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(res)
+			return nil
+		},
+	}
+	return cmd
+}
+
+func createClientCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "client [src-chain-id] [dst-chain-id] [client-id]",
+		Short: "create a client for dst-chain on src-chain",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			srcChain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			dstChain, err := config.c.GetChain(args[1])
+			if err != nil {
+				return err
+			}
+
+			errs := relayer.UpdateLiteDBsToLatestHeaders(srcChain, dstChain)
+			if len(errs) != 0 {
+				for _, err := range errs {
+					fmt.Println(err)
+				}
+				return nil
+			}
+
+			dstHeight, err := dstChain.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			srcAddr, err := srcChain.GetAddress()
+			if err != nil {
+				return err
+			}
+
+			msgCreateClient, err := srcChain.CreateClient(dstChain, dstHeight, srcAddr, args[2])
 			if err != nil {
 				return err
 			}
@@ -96,63 +149,56 @@ func createClientsCmd() *cobra.Command {
 		Short: "create a clients for dst-chain on src-chain and src-chain on dst-chain",
 		Args:  cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			srcChain, err := config.c.GetChain(args[0])
+			src := args[0]
+			dst := args[1]
+			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
 				return err
 			}
 
-			dstChain, err := config.c.GetChain(args[1])
+			errs := relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
+			if len(errs) != 0 {
+				for _, err := range errs {
+					fmt.Println(err)
+					return nil
+				}
+			}
+
+			heights, errs := relayer.GetLatestHeights(chains[src], chains[dst])
+			if len(errs) != 0 {
+				for _, err := range errs {
+					fmt.Println(err)
+					return nil
+				}
+			}
+
+			srcAddr, err := chains[src].GetAddress()
 			if err != nil {
 				return err
 			}
 
-			err = srcChain.UpdateLiteDBToLatestHeader()
+			dstAddr, err := chains[dst].GetAddress()
 			if err != nil {
 				return err
 			}
 
-			err = dstChain.UpdateLiteDBToLatestHeader()
+			srcCreateClient, err := chains[src].CreateClient(chains[dst], heights.Map[dst], srcAddr, args[2])
 			if err != nil {
 				return err
 			}
 
-			dstHeight, err := dstChain.QueryLatestHeight()
-			if err != nil {
-				return err
-			}
-
-			srcHeight, err := srcChain.QueryLatestHeight()
-			if err != nil {
-				return err
-			}
-
-			srcAddr, err := srcChain.GetAddress()
-			if err != nil {
-				return err
-			}
-
-			dstAddr, err := dstChain.GetAddress()
-			if err != nil {
-				return err
-			}
-
-			srcCreateClient, err := srcChain.CreateClient(dstChain, dstHeight, srcAddr)
-			if err != nil {
-				return err
-			}
-
-			res, err := srcChain.SendMsg(srcCreateClient)
+			res, err := chains[src].SendMsg(srcCreateClient)
 			if err != nil {
 				return err
 			}
 			fmt.Println(res)
 
-			dstCreateClient, err := dstChain.CreateClient(srcChain, srcHeight, dstAddr)
+			dstCreateClient, err := chains[dst].CreateClient(chains[src], heights.Map[src], dstAddr, args[3])
 			if err != nil {
 				return err
 			}
 
-			res, err = dstChain.SendMsg(dstCreateClient)
+			res, err = chains[dst].SendMsg(dstCreateClient)
 			if err != nil {
 				return err
 			}

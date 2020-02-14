@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
@@ -52,6 +53,40 @@ func (c *Chain) UpdateLiteDBToLatestHeader() error {
 
 	// sync lite client to the most recent header of the primary provider
 	return lc.Update(now)
+
+}
+
+type safeChainErrors struct {
+	sync.Mutex
+	Map map[*Chain]error
+}
+
+func UpdateLiteDBsToLatestHeaders(chains ...*Chain) []error {
+	errs := safeChainErrors{Map: make(map[*Chain]error)}
+	var wg sync.WaitGroup
+	for _, chain := range chains {
+		wg.Add(1)
+		go func(errs *safeChainErrors, wg *sync.WaitGroup, chain *Chain) {
+			defer wg.Done()
+			err := chain.UpdateLiteDBToLatestHeader()
+			if err != nil {
+				errs.Lock()
+				errs.Map[chain] = err
+				errs.Unlock()
+			}
+			errs.Lock()
+			errs.Map[chain] = nil
+			errs.Unlock()
+		}(&errs, &wg, chain)
+	}
+	wg.Wait()
+	out := []error{}
+	for c, err := range errs.Map {
+		if err != nil {
+			out = append(out, fmt.Errorf("%w on %s", err, c.ChainID))
+		}
+	}
+	return out
 }
 
 // InitLiteClientWithoutTrust reads the trusted period off of the chain
@@ -198,6 +233,30 @@ func (c *Chain) GetLatestLiteHeight() (int64, error) {
 
 	store := dbs.New(db, "")
 	return store.LastSignedHeaderHeight()
+}
+
+type Heights struct {
+	sync.Mutex
+	Map map[string]int64
+}
+
+func GetLatestHeights(chains ...*Chain) (Heights, []error) {
+	heights := Heights{Map: make(map[string]int64)}
+	errs := []error{}
+	var wg sync.WaitGroup
+	for _, chain := range chains {
+		wg.Add(1)
+		go func(heights *Heights, wg *sync.WaitGroup, chain *Chain) {
+			height, err := chain.GetLatestLiteHeight()
+			heights.Map[chain.ChainID] = height
+			if err != nil {
+				errs = append(errs, err)
+			}
+			wg.Done()
+		}(&heights, &wg, chain)
+	}
+	wg.Wait()
+	return heights, errs
 }
 
 // GetLiteSignedHeaderAtHeight returns a signed header at a particular height

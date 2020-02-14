@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/context"
+	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
 	"github.com/cosmos/cosmos-sdk/x/auth"
@@ -93,12 +94,42 @@ func (c Chains) GetChain(chainID string) (*Chain, error) {
 	return &Chain{}, fmt.Errorf("chain with ID %s is not configured", chainID)
 }
 
-func (c *Chain) NewTxBldr(accNumber, seq, gas uint64, gasAdj float64, fees sdk.Coins, gasPrices sdk.DecCoins) auth.TxBuilder {
-	return auth.NewTxBuilder(auth.DefaultTxEncoder(c.Cdc), accNumber, seq, gas, gasAdj, false, c.ChainID, c.Memo, fees, gasPrices).WithKeybase(c.Keybase)
+// GetChains returns a map chainIDs to their chains
+func (c Chains) GetChains(chainIDs ...string) (map[string]*Chain, error) {
+	out := make(map[string]*Chain)
+	for _, cid := range chainIDs {
+		chain, err := c.GetChain(cid)
+		if err != nil {
+			return out, err
+		}
+		out[cid] = chain
+	}
+	return out, nil
 }
 
-func (c *Chain) NewCliContext() context.CLIContext {
-	return context.CLIContext{Client: c.Client}
+func (c *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
+	info, err := c.Keybase.Get(c.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch account and sequence numbers for the account
+	acc, err := auth.NewAccountRetriever(c).GetAccount(info.GetAddress())
+	if err != nil {
+		return nil, err
+	}
+
+	txBldr := auth.NewTxBuilder(
+		auth.DefaultTxEncoder(c.Cdc), acc.GetAccountNumber(),
+		acc.GetSequence(), c.Gas, c.GasAdjustment, false, c.ChainID,
+		c.Memo, sdk.NewCoins(), c.GasPrices).WithKeybase(c.Keybase)
+
+	return txBldr.BuildAndSign(c.Key, ckeys.DefaultKeyPass, datagram)
+}
+
+// BroadcastTxCommit takes the marshaled transaction bytes and broadcasts them
+func (c *Chain) BroadcastTxCommit(txBytes []byte) (sdk.TxResponse, error) {
+	return context.CLIContext{Client: c.Client}.BroadcastTxCommit(txBytes)
 }
 
 // KeysDir returns the path to the keys for this chain

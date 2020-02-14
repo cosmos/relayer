@@ -1,15 +1,14 @@
 package relayer
 
 import (
+	"fmt"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/client/keys"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/auth"
 	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
-	tmClient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
-	commitment "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
+	connState "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/exported"
+	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 )
 
 // CreateConnection creates a connection between two chains given src and dst client IDs
@@ -51,9 +50,88 @@ func (src *Chain) CreateConnection(dst *Chain, srcClientID, dstClientID, srcConn
 // CreateConnectionStep returns the next set of messags for relaying between a src and dst chain
 func (src *Chain) CreateConnectionStep(dst *Chain,
 	srcHeight, dstHeight int64,
-	srcAddr, dstAddr sdk.Address,
+	srcAddr, dstAddr sdk.AccAddress,
 	srcClientID, dstClientID,
 	srcConnectionID, dstConnectionID string) (*RelayMsgs, error) {
+	out := &RelayMsgs{}
+	srcEnd, err := src.QueryConnection(srcConnectionID, srcHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	dstEnd, err := dst.QueryConnection(dstConnectionID, dstHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	switch {
+	// Handshake hasn't been started locally, relay `connOpenInit` locally
+	case srcEnd.Connection.State == connState.UNINITIALIZED && dstEnd.Connection.State == connState.UNINITIALIZED:
+		// TODO: need to add a msgUpdateClient here?
+		out.Src = append(out.Src, connTypes.NewMsgConnectionOpenInit(
+			srcConnectionID,
+			srcClientID,
+			dstConnectionID,
+			dstClientID,
+			srcEnd.Connection.Counterparty.GetPrefix(),
+			srcAddr,
+		))
+
+	// Handshake has started locally (1 step done), relay `connOpenTry` to the remote end
+	case srcEnd.Connection.State == connState.INIT && dstEnd.Connection.State == connState.UNINITIALIZED:
+		uc, err := dst.UpdateClient(src, srcHeight, dstAddr, dstClientID)
+		if err != nil {
+			return nil, err
+		}
+
+		out.Dst = append(out.Dst, uc, connTypes.NewMsgConnectionOpenTry(
+			dstConnectionID,
+			dstClientID,
+			srcConnectionID,
+			srcClientID,
+			srcEnd.Connection.Counterparty.GetPrefix(),
+			[]string{ibcversion},
+			srcEnd.Proof,
+			srcEnd.Proof,
+			srcEnd.ProofHeight,
+			uint64(dstHeight),
+			dstAddr,
+		))
+
+	// Handshake has started on the other end (2 steps done), relay `connOpenAck` to the local end
+	case srcEnd.Connection.State == connState.INIT && dstEnd.Connection.State == connState.TRYOPEN:
+		uc, err := src.UpdateClient(dst, dstHeight, srcAddr, srcClientID)
+		if err != nil {
+			return nil, err
+		}
+
+		out.Src = append(out.Src, uc, connTypes.NewMsgConnectionOpenAck(
+			srcConnectionID,
+			dstEnd.Proof,
+			dstEnd.Proof,
+			dstEnd.ProofHeight,
+			uint64(srcHeight),
+			ibcversion,
+			srcAddr,
+		))
+
+	// Handshake has confirmed locally (3 steps done), relay `connOpenConfirm` to the remote end
+	case srcEnd.Connection.State == connState.OPEN && dstEnd.Connection.State == connState.TRYOPEN:
+		uc, err := dst.UpdateClient(src, srcHeight, dstAddr, dstClientID)
+		if err != nil {
+			return nil, err
+		}
+
+		out.Dst = append(out.Dst, uc, connTypes.NewMsgConnectionOpenConfirm(
+			dstConnectionID,
+			srcEnd.Proof,
+			srcEnd.ProofHeight,
+			dstAddr,
+		))
+	default:
+		fmt.Printf("srcEnd.Connection %#v\n", srcEnd.Connection)
+		fmt.Printf("dstEnd.Connection %#v\n", dstEnd.Connection)
+	}
 	return &RelayMsgs{}, nil
 }
 
@@ -108,72 +186,39 @@ func (src *Chain) CreateChannelStep(dst *Chain,
 }
 
 // UpdateClient creates an sdk.Msg to update the client on c with data pulled from cp
-func (src *Chain) UpdateClient(dst *Chain, dstHeight int64, srcAddr sdk.AccAddress) (clientTypes.MsgUpdateClient, error) {
-	// Fetch counterparty clientIDs
-	counterIDs, err := src.GetCounterparty(dst.ChainID)
-	if err != nil {
-		return clientTypes.MsgUpdateClient{}, err
-	}
-
+func (src *Chain) UpdateClient(dst *Chain, dstHeight int64, srcAddr sdk.AccAddress, srcClientID string) (clientTypes.MsgUpdateClient, error) {
 	// Pull header for the dst chain from the liteDB
 	dstHeader, err := dst.GetLiteSignedHeaderAtHeight(dstHeight)
 	if err != nil {
 		return clientTypes.MsgUpdateClient{}, err
 	}
 
-	return clientTypes.NewMsgUpdateClient(counterIDs.ClientID, dstHeader, srcAddr), nil
+	return clientTypes.NewMsgUpdateClient(srcClientID, dstHeader, srcAddr), nil
 }
 
-// CreateClient creates an sdk.Msg to update the client on c with data pulled from cp
-func (src *Chain) CreateClient(dst *Chain, dstHeight int64, srcAddr sdk.AccAddress) (clientTypes.MsgCreateClient, error) {
-	// Fetch counterparty clientIDs
-	counterIDs, err := src.GetCounterparty(dst.ChainID)
-	if err != nil {
-		return clientTypes.MsgCreateClient{}, err
-	}
-
+// CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
+func (src *Chain) CreateClient(dst *Chain, dstHeight int64, srcAddr sdk.AccAddress, srcClientID string) (clientTypes.MsgCreateClient, error) {
 	// Pull header for the dst chain from the liteDB
 	dstHeader, err := dst.GetLiteSignedHeaderAtHeight(dstHeight)
 	if err != nil {
 		return clientTypes.MsgCreateClient{}, err
 	}
 
-	consState := tmClient.ConsensusState{
-		Root:             commitment.NewRoot(dstHeader.AppHash),
-		ValidatorSetHash: dstHeader.ValidatorSet.Hash(),
-	}
-
-	return clientTypes.NewMsgCreateClient(counterIDs.ClientID, clientExported.ClientTypeTendermint, consState, srcAddr), nil
+	return clientTypes.NewMsgCreateClient(srcClientID, clientExported.ClientTypeTendermint, dstHeader.ConsensusState(), srcAddr), nil
 }
 
 // SendMsg wraps the msg in a stdtx, signs and sends it
-func (c *Chain) SendMsg(datagram sdk.Msg) (*sdk.TxResponse, error) {
+func (c *Chain) SendMsg(datagram sdk.Msg) (sdk.TxResponse, error) {
 	return c.SendMsgs([]sdk.Msg{datagram})
 }
 
 // SendMsgs wraps the msgs in a stdtx, signs and sends it
-func (c *Chain) SendMsgs(datagram []sdk.Msg) (*sdk.TxResponse, error) {
-	// Fetch key address
-	info, err := c.Keybase.Get(c.Key)
+func (c *Chain) SendMsgs(datagram []sdk.Msg) (sdk.TxResponse, error) {
+
+	txBytes, err := c.BuildAndSignTx(datagram)
 	if err != nil {
-		return nil, err
+		return sdk.TxResponse{}, err
 	}
 
-	// Fetch account and sequence numbers for the account
-	acc, err := auth.NewAccountRetriever(c).GetAccount(info.GetAddress())
-	if err != nil {
-		return nil, err
-	}
-
-	txbytes, err := c.NewTxBldr(
-		acc.GetAccountNumber(), acc.GetSequence(),
-		c.Gas, c.GasAdjustment, sdk.NewCoins(), c.GasPrices).
-		BuildAndSign(c.Key, keys.DefaultKeyPass, datagram)
-	if err != nil {
-		return nil, err
-	}
-
-	res, err := c.NewCliContext().BroadcastTxCommit(txbytes)
-
-	return &res, err
+	return c.BroadcastTxCommit(txBytes)
 }
