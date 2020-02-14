@@ -21,7 +21,7 @@ func init() {
 	queryCmd.AddCommand(queryAccountCmd())
 	queryCmd.AddCommand(queryConnection())
 	queryCmd.AddCommand(queryConnectionsUsingClient())
-
+	queryCmd.AddCommand(queryChannel())
 }
 
 // queryCmd represents the chain command
@@ -207,7 +207,7 @@ func queryConnectionsUsingClient() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connections [chain-id] [client-id]",
 		Short: "Query the client for a counterparty chain",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.c.GetChain(args[0])
 			if err != nil {
@@ -235,7 +235,7 @@ func queryConnection() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connection [chain-id] [connection-id]",
 		Short: "Query the client for a counterparty chain",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.c.GetChain(args[0])
 			if err != nil {
