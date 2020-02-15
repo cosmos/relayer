@@ -88,6 +88,18 @@ $ relayer --home $RLY q channel ibc1 ibczerochan bank
   * [ ] `channel [src-chain-id] [dst-chain-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id]`- Repair or create a channel with the given identifiers between src and dst. Runs channel-step in a loop till completion
   * [ ] `channel-step [src-chain-id] [dst-chain-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id]`- Send the next transaction set to repair or create a channel between src and dst.
   * [ ] `flush-chan [src-chain-id] [dst-chain-id] [src-channel-id] [src-port-id]` relay packets on channel in src chain to dst chain 
+  * [ ] `raw` - raw connection and channel step commands
+    - [ ] `conn-init` 
+    - [ ] `conn-try` 
+    - [ ] `conn-ack`
+    - [ ] `conn-confirm` 
+    - [ ] `chan-init` 
+    - [ ] `chan-try` 
+    - [ ] `chan-ack`
+    - [ ] `chan-confirm`
+    - [ ] `chan-close-init`
+    - [ ] `chan-close-confirm`
+
 
 ### Notes:
 
@@ -101,3 +113,5 @@ $ relayer --home $RLY q channel ibc1 ibczerochan bank
 - Do we want to force users to name their `ibc.Client`s, `ibc.Connection`s,
  `ibc.Channel`s and `ibc.Port`s? Can we use randomly generated identifiers
  instead?
+
+ 

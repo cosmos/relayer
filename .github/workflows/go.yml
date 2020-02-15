@@ -1,36 +1,97 @@
-name: Go
+name: Build then run CI Chains
+
 on: [push]
+
 jobs:
 
   build:
-    name: Build
+    name: build
     runs-on: ubuntu-latest
     steps:
-
+    # Install and setup go
     - name: Set up Go 1.13
       uses: actions/setup-go@v1
       with:
         go-version: 1.13
       id: go
 
-    - name: Check out code into the Go module directory
+    # build gaiad/gaiacli
+    - name: checkout gaia
       uses: actions/checkout@v2
-
-    - name: Get dependencies
-      run: |
-        go get -v -t -d ./...
-        if [ -f Gopkg.toml ]; then
-            curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-            dep ensure
-        fi
-
-    - name: Build
+      with:
+        repository: cosmos/gaia
+        ref: refs/heads/ibc-alpha
+    - name: build binary
       run: make build
 
-    - name: Cache
-      uses: actions/cache@v1.1.2
+    # upload gaiacli binary
+    - name: upload gaiacli binary
+      uses: actions/upload-artifact@v1
       with:
-        # A directory to store and save the cache
-        path: ./build  
-        # An explicit key for restoring and saving the cache
-        key: $(git rev-parse HEAD)
+        name: gaiacli
+        path: ./build/gaiacli
+
+    # upload gaiad binary
+    - name: upload gaiad binary
+      uses: actions/upload-artifact@v1
+      with:
+        name: gaiad
+        path: ./build/gaiad
+
+    # build relayer
+    - name: checkout relayer
+      uses: actions/checkout@v2
+    - name: build binary and move to upload location
+      run: make build
+
+    # upload resulting binaries
+    - name: upload binaries
+      uses: actions/upload-artifact@v1
+      with:
+        name: relayer
+        path: ./build/relayer
+
+  test:
+    name: test-liveness
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+
+    # Checkout the relayer repo
+    - name: Checkout relayer
+      uses: actions/checkout@v2
+
+    # Make binary directory
+    - name: create directory
+      run: mkdir -p /tmp/build
+
+    # Download gaiad binary
+    - name: download gaiad
+      uses: actions/download-artifact@v1
+      with:
+        name: gaiad
+        path: /tmp/build
+
+    # Download gaiacli binary
+    - name: download gaiacli
+      uses: actions/download-artifact@v1
+      with:
+        name: gaiacli
+        path: /tmp/build
+
+    # Download binaries
+    - name: download relayer
+      uses: actions/download-artifact@v1
+      with:
+        name: relayer  
+        path: /tmp/build
+
+    # Make binaries executable
+    - name: chmod
+      run: chmod +x /tmp/build/*
+
+    # Run the ci-chains.sh test 
+    - name: Run ci-chains check
+      run: |
+        ./ci-chains.sh
+
