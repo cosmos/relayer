@@ -52,54 +52,11 @@ $ relayer --home $RLY q channel ibc1 ibczerochan bank
 
 # TODO: figure out the commands to flush and send packets from chain to chain
 ```
+### Current Work:
 
-### Command Structure:
-
-- [x] `chains` - return a json representation of the configured chains
-- [x] `keys` - needs testing
-  * [x] `add [chain-id] [name]` - Add a new key with name generating and returning mnemonic
-  * [x] `delete [chain-id] [name]` - Delete a key with name
-  * [x] `export [chain-id] [name]` - Export the mnemonic from a given key
-  * [x] `list [chain-id]` - list the keys associated with a given chain
-  * [x] `restore [chain-id] [name] [mnemonic]` - Restore a key to a chain's keychain with a name and mnemonic
-  * [x] `show [chain-id] [name]` - Show details for a key from a given chain
-- [x] `lite` - @melekes working on ensuring commands work as intended
-  * [x] `init [chain-id] (flags)` - Initialize from a header hash and a height
-  * [x] `header [chain-id] [height]` - Returns a header at height from the database
-  * [x] `update [chain-id] [header-hash] [height]` - Updates lite client to given header
-  * [x] `delete [chain-id]` - Deletes on disk lite client forcing re-initialization
-- [ ] `query` - Some implementations working/complete others just stubbs. All queries from the `relayer` return proofs!
-  * [x] `header [chain-id] [height]` - Query the header at a given height
-  * [x] `node-state [chain-id] [height]` - Query the node state at a given height or latest if height not passed
-  * [x] `client [chain-id] [client-id]` - Query details for an individual client
-  * [x] `clients [chain-id]` - Query the list of clients on a given chain
-  * [x] `connection [chain-id] [connection-id]` - Query details for an individual connection
-  * [x] `connections [chain-id] [client-id]`- Query the list of connections associated with a client
-  * [x] `channel [chain-id] [connection-id] [channel-id]` - Query details for an individual channel
-  * [ ] `channels [chain-id] [connection-id]` - Query the list of channels associated with a client
-  * [ ] `seq-send [chain-id] [channel-id]` - Query the `seq-send` for the configured key on a given chain and channel
-  * [ ] `seq-recv [chain-id] [channel-id]` - Query the `seq-recv` for the configured key on a given chain and channel
-- [ ] `start` - run the configured strategy on an ongoing basis. This is currently in the design phase
-- [ ] `transactions` - Run IBC transactions, testing currently blocked on working lite client commands
-  * [x] `client [src-chain-id] [dst-chain-id] [client-id]` - Create a client for dst on src
-  * [x] `clients [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id]` - Create clients for src and dst on opposite chains, sends one transaction to each chain
-  * [ ] `connection [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id]` - Repair or create a connection with the given identifiers between src and dst. Runs connection-step in a loop till completion
-  * [ ] `connection-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id]` - Send the next transaction set to repair or create a connection between src and dst.
-  * [ ] `channel [src-chain-id] [dst-chain-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id]`- Repair or create a channel with the given identifiers between src and dst. Runs channel-step in a loop till completion
-  * [ ] `channel-step [src-chain-id] [dst-chain-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id]`- Send the next transaction set to repair or create a channel between src and dst.
-  * [ ] `flush-chan [src-chain-id] [dst-chain-id] [src-channel-id] [src-port-id]` relay packets on channel in src chain to dst chain 
-  * [ ] `raw` - raw connection and channel step commands
-    - [ ] `conn-init` 
-    - [ ] `conn-try` 
-    - [ ] `conn-ack`
-    - [ ] `conn-confirm` 
-    - [ ] `chan-init` 
-    - [ ] `chan-try` 
-    - [ ] `chan-ack`
-    - [ ] `chan-confirm`
-    - [ ] `chan-close-init`
-    - [ ] `chan-close-confirm`
-
+- [ ] `query` - https://github.com/cosmos/relayer/issues/19
+- [ ] `start` - https://github.com/cosmos/relayer/issues/21
+- [ ] `transactions`- https://github.com/cosmos/relayer/issues/10
 
 ### Notes:
 
