@@ -14,8 +14,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
+	connState "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/exported"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
-	"github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tendermint "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
@@ -160,6 +161,8 @@ func (c *Chain) QueryConnection(connectionID string, height int64) (connTypes.Co
 	res, err := c.QueryABCI(req)
 	if err != nil {
 		return connTypes.ConnectionResponse{}, err
+	} else if res.Value == nil {
+		return connTypes.ConnectionResponse{Connection: connTypes.ConnectionEnd{State: connState.UNINITIALIZED}}, nil
 	}
 
 	var connection connTypes.ConnectionEnd
@@ -185,16 +188,18 @@ func (c *Chain) QueryChannel(channelID, portID string, height int64) (chanTypes.
 	}
 
 	res, err := c.QueryABCI(req)
-	if res.Value == nil || err != nil {
-		return types.ChannelResponse{}, err
+	if err != nil {
+		return chanTypes.ChannelResponse{}, err
+	} else if res.Value == nil {
+		return chanTypes.ChannelResponse{Channel: chanTypes.Channel{State: chanState.UNINITIALIZED}}, nil
 	}
 
-	var channel types.Channel
+	var channel chanTypes.Channel
 	if err := c.Cdc.UnmarshalBinaryLengthPrefixed(res.Value, &channel); err != nil {
-		return types.ChannelResponse{}, err
+		return chanTypes.ChannelResponse{}, err
 	}
 
-	return types.NewChannelResponse(portID, channelID, channel, res.Proof, res.Height), nil
+	return chanTypes.NewChannelResponse(portID, channelID, channel, res.Proof, res.Height), nil
 }
 
 // QueryTxs returns an array of transactions given a tag
@@ -289,23 +294,45 @@ func (c *Chain) QueryLatestHeight() (int64, error) {
 	return res.SyncInfo.LatestBlockHeight, nil
 }
 
-func QueryLatestHeights(chains ...*Chain) (map[string]int64, []error) {
-	heights := make(map[string]int64)
-	errs := []error{}
+type heights struct {
+	sync.Mutex
+	Map  map[string]int64
+	Errs []error
+}
+
+func (h *heights) err() error {
+	var out error
+	for _, err := range h.Errs {
+		out = fmt.Errorf("err: %w\n", err)
+	}
+	return out
+}
+
+func (h *heights) out() map[string]int64 {
+	return h.Map
+}
+
+func QueryLatestHeights(chains ...*Chain) (map[string]int64, error) {
+	hs := &heights{Map: make(map[string]int64), Errs: []error{}}
 	var wg sync.WaitGroup
 	for _, chain := range chains {
 		wg.Add(1)
-		go func(heights map[string]int64, wg *sync.WaitGroup, chain *Chain) {
+		go func(hs *heights, wg *sync.WaitGroup, chain *Chain) {
 			height, err := chain.QueryLatestHeight()
-			heights[chain.ChainID] = height
+
 			if err != nil {
-				errs = append(errs, err)
+				hs.Lock()
+				hs.Errs = append(hs.Errs, err)
+				hs.Unlock()
 			}
+			hs.Lock()
+			hs.Map[chain.ChainID] = height
+			hs.Unlock()
 			wg.Done()
-		}(heights, &wg, chain)
+		}(hs, &wg, chain)
 	}
 	wg.Wait()
-	return heights, errs
+	return hs.out(), hs.err()
 }
 
 // QueryLatestHeader returns the latest header from the chain
