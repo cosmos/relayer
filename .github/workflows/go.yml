@@ -14,13 +14,19 @@ jobs:
       with:
         go-version: 1.13
       id: go
-
     # build gaiad/gaiacli
     - name: checkout gaia
       uses: actions/checkout@v2
       with:
         repository: cosmos/gaia
         ref: refs/heads/ibc-alpha
+    # Setup Cache
+    - uses: actions/cache@v1
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
     - name: build binary
       run: make build
 
@@ -41,6 +47,13 @@ jobs:
     # build relayer
     - name: checkout relayer
       uses: actions/checkout@v2
+    # Setup Cache
+    - uses: actions/cache@v1
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
     - name: build binary and move to upload location
       run: make build
 
