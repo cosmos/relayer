@@ -31,6 +31,24 @@ func (c *Chain) StartUpdatingLiteClient(period time.Duration) {
 	}
 }
 
+// UpdateLiteWithHeader calls UpdateLiteDbToLatestHeader and then GetLatestLiteHeader
+func (c *Chain) UpdateLiteWithHeader() (*tmclient.Header, error) {
+	err := c.UpdateLiteDBToLatestHeader()
+	if err != nil {
+		return nil, err
+	}
+	return c.GetLatestLiteHeader()
+}
+
+// Updates with headers calls UpdateLiteDBsToLatestHeaders then GetLatestHeaders
+func UpdatesWithHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
+	err := UpdateLiteDBsToLatestHeaders(chains...)
+	if err != nil {
+		return nil, err
+	}
+	return GetLatestHeaders(chains...)
+}
+
 // UpdateLiteDBToLatestHeader spins up an instance of the lite client as part of the chain.
 func (c *Chain) UpdateLiteDBToLatestHeader() error {
 	// create database connection

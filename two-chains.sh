@@ -55,8 +55,13 @@ gaiacli config --home ibc0/n0/gaiacli/ node http://localhost:26657 &> /dev/null
 gaiacli config --home ibc1/n0/gaiacli/ node http://localhost:26557 &> /dev/null
 
 echo "Starting Gaiad instances..."
-nohup gaiad --home ibc0/n0/gaiad start > ibc0.log &
-nohup gaiad --home ibc1/n0/gaiad start > ibc1.log &
+gaiad --home ibc0/n0/gaiad start > ibc0.log 2>&1 &
+gaiad --home ibc1/n0/gaiad start > ibc1.log 2>&1 & 
+
+echo "Initializing lite clients..."
+sleep 8
+relayer --home $RLY_CONF lite init ibc0 -f
+relayer --home $RLY_CONF lite init ibc1 -f
 
 echo 
 echo "Key Seeds for importing into gaiacli if necessary:"

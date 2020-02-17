@@ -69,6 +69,8 @@ $ relayer --home $RLY q channel ibc1 ibczerochan bank
 
 - Do we want to force users to name their `ibc.Client`s, `ibc.Connection`s,
  `ibc.Channel`s and `ibc.Port`s? Can we use randomly generated identifiers
- instead?
-
- 
+ instead? The current build of the relayer only works this way, and it will end up requiring
+ quite a bit of user input. The relayer should query to ensure primatives for a counterparty
+ chain exist and default to using those first before deciding to create its own.
+ It should also create as many of the primatives as possible to random or generated 
+ identifiers (hash of chain-ids or chainid-$(rand)).

@@ -63,12 +63,7 @@ func updateClientCmd() *cobra.Command {
 				return err
 			}
 
-			err = relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
-			if err != nil {
-				return err
-			}
-
-			dstHeader, err := chains[dst].GetLatestLiteHeader()
+			dstHeader, err := chains[dst].UpdateLiteWithHeader()
 			if err != nil {
 				return err
 			}
@@ -96,12 +91,7 @@ func createClientCmd() *cobra.Command {
 				return err
 			}
 
-			err = relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
-			if err != nil {
-				return err
-			}
-
-			dstHeader, err := chains[dst].GetLatestLiteHeader()
+			dstHeader, err := chains[dst].UpdateLiteWithHeader()
 			if err != nil {
 				return err
 			}
@@ -130,12 +120,7 @@ func createClientsCmd() *cobra.Command {
 				return err
 			}
 
-			err = relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
-			if err != nil {
-				return err
-			}
-
-			headers, err := relayer.GetLatestHeaders(chains[src], chains[dst])
+			headers, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
 			if err != nil {
 				return err
 			}
@@ -155,12 +140,7 @@ func createClientsCmd() *cobra.Command {
 				return err
 			}
 
-			err = PrintOutput(res, cmd)
-			if err != nil {
-				return err
-			}
-
-			return nil
+			return PrintOutput(res, cmd)
 		},
 	}
 	return outputFlags(cmd)
@@ -170,6 +150,7 @@ func createConnectionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connection [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id]",
 		Short: "create a connection between chains, passing in identifiers",
+		Long:  "FYI: DRAGONS HERE, not tested",
 		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			timeout := 5 * time.Second
@@ -197,6 +178,7 @@ func createConnectionStepCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connection-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id]",
 		Short: "create a connection between chains, passing in identifiers",
+		Long:  "FYI: DRAGONS HERE, not tested",
 		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
@@ -236,6 +218,7 @@ func createChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "channel [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id] [ordering]",
 		Short: "",
+		Long:  "FYI: DRAGONS HERE, not tested",
 		Args:  cobra.ExactArgs(11),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			timeout := 5 * time.Second
@@ -268,6 +251,7 @@ func createChannelStepCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "channel-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id] [ordering]",
 		Short: "create a connection between chains, passing in identifiers",
+		Long:  "FYI: DRAGONS HERE, not tested",
 		Args:  cobra.ExactArgs(11),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
@@ -358,12 +342,7 @@ func connTry() *cobra.Command {
 				return err
 			}
 
-			err = relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
-			if err != nil {
-				return err
-			}
-
-			headers, err := relayer.GetLatestHeaders(chains[src], chains[dst])
+			headers, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
 			if err != nil {
 				return err
 			}
@@ -401,12 +380,7 @@ func connAck() *cobra.Command {
 				return err
 			}
 
-			err = relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
-			if err != nil {
-				return err
-			}
-
-			headers, err := relayer.GetLatestHeaders(chains[src], chains[dst])
+			headers, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
 			if err != nil {
 				return err
 			}
@@ -444,12 +418,7 @@ func connConfirm() *cobra.Command {
 				return err
 			}
 
-			err = relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
-			if err != nil {
-				return err
-			}
-
-			headers, err := relayer.GetLatestHeaders(chains[src], chains[dst])
+			headers, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
 			if err != nil {
 				return err
 			}
@@ -514,12 +483,7 @@ func chanTry() *cobra.Command {
 				return err
 			}
 
-			err = chains[dst].UpdateLiteDBToLatestHeader()
-			if err != nil {
-				return err
-			}
-
-			dstHeader, err := chains[dst].GetLatestLiteHeader()
+			dstHeader, err := chains[dst].UpdateLiteWithHeader()
 			if err != nil {
 				return err
 			}
@@ -556,17 +520,15 @@ func chanAck() *cobra.Command {
 				return err
 			}
 
-			err = chains[dst].UpdateLiteDBToLatestHeader()
-			if err != nil {
-				return err
-			}
-
-			dstHeader, err := chains[dst].GetLatestLiteHeader()
+			dstHeader, err := chains[dst].UpdateLiteWithHeader()
 			if err != nil {
 				return err
 			}
 
 			dstChanState, err := chains[dst].QueryChannel(dstChanID, dstPortID, dstHeader.Height)
+			if err != nil {
+				return err
+			}
 
 			chains[src].SendMsgs([]sdk.Msg{
 				chains[src].UpdateClient(srcClientID, dstHeader),
@@ -595,12 +557,7 @@ func chanConfirm() *cobra.Command {
 				return err
 			}
 
-			err = chains[dst].UpdateLiteDBToLatestHeader()
-			if err != nil {
-				return err
-			}
-
-			dstHeader, err := chains[dst].GetLatestLiteHeader()
+			dstHeader, err := chains[dst].UpdateLiteWithHeader()
 			if err != nil {
 				return err
 			}
@@ -660,12 +617,7 @@ func chanCloseConfirm() *cobra.Command {
 				return err
 			}
 
-			err = chains[dst].UpdateLiteDBToLatestHeader()
-			if err != nil {
-				return err
-			}
-
-			dstHeader, err := chains[dst].GetLatestLiteHeader()
+			dstHeader, err := chains[dst].UpdateLiteWithHeader()
 			if err != nil {
 				return err
 			}
