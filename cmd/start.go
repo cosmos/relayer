@@ -45,7 +45,7 @@ var startCmd = &cobra.Command{
 		// The relayer will continuously run the strategy declared in the config file
 		ticker := time.NewTicker(d)
 		for ; true; <-ticker.C {
-			err = relayer.Relay(config.Global.Strategy, config.c)
+			err = relayer.Relay(config.Global.Strategy, config.c, config.Paths)
 			if err != nil {
 				// TODO: This should have a better error handling strategy
 				// Ideally some errors are just logged while others halt the process

@@ -58,7 +58,13 @@ func updateClientCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
+
 			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			err = chains[src].SetNewPathClient(args[2])
 			if err != nil {
 				return err
 			}
@@ -68,7 +74,7 @@ func updateClientCmd() *cobra.Command {
 				return err
 			}
 
-			res, err := chains[src].SendMsg(chains[src].UpdateClient(args[2], dstHeader))
+			res, err := chains[src].SendMsg(chains[src].UpdateClient(dstHeader))
 			if err != nil {
 				return err
 			}
@@ -96,7 +102,12 @@ func createClientCmd() *cobra.Command {
 				return err
 			}
 
-			res, err := chains[src].SendMsg(chains[src].CreateClient(args[2], dstHeader))
+			err = chains[src].SetNewPathClient(args[2])
+			if err != nil {
+				return err
+			}
+
+			res, err := chains[src].SendMsg(chains[src].CreateClient(dstHeader))
 			if err != nil {
 				return err
 			}
@@ -125,7 +136,17 @@ func createClientsCmd() *cobra.Command {
 				return err
 			}
 
-			res, err := chains[src].SendMsg(chains[src].CreateClient(args[2], headers[dst]))
+			err = chains[src].SetNewPathClient(args[2])
+			if err != nil {
+				return err
+			}
+
+			err = chains[dst].SetNewPathClient(args[3])
+			if err != nil {
+				return err
+			}
+
+			res, err := chains[src].SendMsg(chains[src].CreateClient(headers[dst]))
 			if err != nil {
 				return err
 			}
@@ -135,7 +156,7 @@ func createClientsCmd() *cobra.Command {
 				return err
 			}
 
-			res, err = chains[dst].SendMsg(chains[dst].CreateClient(args[3], headers[src]))
+			res, err = chains[dst].SendMsg(chains[dst].CreateClient(headers[src]))
 			if err != nil {
 				return err
 			}
@@ -187,9 +208,15 @@ func createConnectionStepCmd() *cobra.Command {
 				return err
 			}
 
-			// TODO: validate identifiers ICS24
+			if err = chains[src].SetNewPathConnection(args[2], args[4]); err != nil {
+				return err
+			}
 
-			msgs, err := chains[src].CreateConnectionStep(chains[dst], args[2], args[3], args[4], args[5])
+			if err = chains[dst].SetNewPathConnection(args[3], args[5]); err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].CreateConnectionStep(chains[dst])
 			if err != nil {
 				return err
 			}
@@ -255,19 +282,21 @@ func createChannelStepCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(11),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			srcClientID, dstClientID := args[2], args[3]
-			srcConnID, dstConnID := args[4], args[5]
-			srcChanID, dstChanID := args[6], args[7]
-			srcPortID, dstPortID := args[8], args[9]
 			ordering := chanState.OrderFromString(args[10])
 			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
 				return err
 			}
 
-			// TODO: validate identifiers ICS24
+			if err = chains[src].SetNewFullPath(args[2], args[4], args[6], args[8]); err != nil {
+				return err
+			}
 
-			msgs, err := chains[src].CreateChannelStep(chains[dst], srcClientID, dstClientID, srcConnID, dstConnID, srcChanID, dstChanID, srcPortID, dstPortID, ordering)
+			if err = chains[src].SetNewFullPath(args[3], args[5], args[7], args[9]); err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].CreateChannelStep(chains[dst], ordering)
 			if err != nil {
 				return err
 			}
@@ -303,21 +332,25 @@ var rawTransactionCmd = &cobra.Command{
 
 func connInit() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "conn-init [src-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id]",
+		Use:   "conn-init [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id]",
 		Short: "conn-init",
-		Args:  cobra.ExactArgs(5),
+		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chainID := args[0]
-			srcClient, dstClient := args[1], args[2]
-			srcConn, dstConn := args[3], args[4]
-			src, err := config.c.GetChain(chainID)
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
 				return err
 			}
 
-			res, err := src.SendMsg(
-				src.ConnInit(srcConn, srcClient, dstConn, dstClient))
+			if err = chains[src].SetNewPathConnection(args[2], args[4]); err != nil {
+				return err
+			}
 
+			if err = chains[dst].SetNewPathConnection(args[3], args[5]); err != nil {
+				return err
+			}
+
+			res, err := chains[src].SendMsg(chains[src].ConnInit(chains[dst]))
 			if err != nil {
 				return nil
 			}
@@ -335,10 +368,16 @@ func connTry() *cobra.Command {
 		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			srcClient, dstClient := args[2], args[3]
-			srcConn, dstConn := args[4], args[5]
 			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
+				return err
+			}
+
+			if err = chains[src].SetNewPathConnection(args[2], args[4]); err != nil {
+				return err
+			}
+
+			if err = chains[dst].SetNewPathConnection(args[3], args[5]); err != nil {
 				return err
 			}
 
@@ -347,14 +386,14 @@ func connTry() *cobra.Command {
 				return err
 			}
 
-			dstState, err := chains[dst].QueryConnection(dstConn, headers[dst].Height)
+			dstState, err := chains[dst].QueryConnection(headers[dst].Height)
 			if err != nil {
 				return err
 			}
 
 			res, err := chains[src].SendMsgs([]sdk.Msg{
-				chains[src].ConnTry(srcClient, dstClient, srcConn, dstConn, dstState, headers[src].Height),
-				chains[src].UpdateClient(srcClient, headers[dst])})
+				chains[src].ConnTry(chains[dst], dstState, headers[src].Height),
+				chains[src].UpdateClient(headers[dst])})
 
 			if err != nil {
 				return err
@@ -368,15 +407,21 @@ func connTry() *cobra.Command {
 
 func connAck() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "conn-ack [src-chain-id] [dst-chain-id] [src-conn-id] [dst-conn-id] [src-client-id]",
+		Use:   "conn-ack [src-chain-id] [dst-chain-id] [dst-client-id] [src-client-id] [src-conn-id] [dst-conn-id]",
 		Short: "conn-ack",
-		Args:  cobra.ExactArgs(5),
+		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			srcConn, dstConn := args[2], args[3]
-			srcClient := args[4]
 			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
+				return err
+			}
+
+			if err = chains[src].SetNewPathConnection(args[2], args[4]); err != nil {
+				return err
+			}
+
+			if err = chains[dst].SetNewPathConnection(args[3], args[5]); err != nil {
 				return err
 			}
 
@@ -385,14 +430,14 @@ func connAck() *cobra.Command {
 				return err
 			}
 
-			dstState, err := chains[dst].QueryConnection(dstConn, headers[dst].Height)
+			dstState, err := chains[dst].QueryConnection(headers[dst].Height)
 			if err != nil {
 				return err
 			}
 
 			res, err := chains[src].SendMsgs([]sdk.Msg{
-				chains[src].ConnAck(srcConn, dstState, headers[src].Height),
-				chains[src].UpdateClient(srcClient, headers[dst])})
+				chains[src].ConnAck(dstState, headers[src].Height),
+				chains[src].UpdateClient(headers[dst])})
 
 			if err != nil {
 				return nil
@@ -406,15 +451,21 @@ func connAck() *cobra.Command {
 
 func connConfirm() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "conn-confirm [src-chain-id] [dst-chain-id] [src-conn-id] [dst-conn-id] [src-client-id]",
+		Use:   "conn-confirm [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id]",
 		Short: "conn-confirm",
-		Args:  cobra.ExactArgs(5),
+		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			srcConn, dstConn := args[2], args[3]
-			srcClient := args[4]
 			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
+				return err
+			}
+
+			if err = chains[src].SetNewPathConnection(args[2], args[4]); err != nil {
+				return err
+			}
+
+			if err = chains[dst].SetNewPathConnection(args[3], args[5]); err != nil {
 				return err
 			}
 
@@ -423,14 +474,14 @@ func connConfirm() *cobra.Command {
 				return err
 			}
 
-			dstState, err := chains[dst].QueryConnection(dstConn, headers[dst].Height)
+			dstState, err := chains[dst].QueryConnection(headers[dst].Height)
 			if err != nil {
 				return err
 			}
 
 			res, err := chains[src].SendMsgs([]sdk.Msg{
-				chains[src].ConnConfirm(srcConn, dstState, headers[src].Height),
-				chains[src].UpdateClient(srcClient, headers[dst])})
+				chains[src].ConnConfirm(dstState, headers[src].Height),
+				chains[src].UpdateClient(headers[dst])})
 
 			if err != nil {
 				return nil
@@ -444,20 +495,25 @@ func connConfirm() *cobra.Command {
 
 func chanInit() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "chan-init [src-chain-id] [src-conn-id] [src-chan-id] [src-port-id] [dst-chan-id] [dst-port-id] [ordering]",
+		Use:   "chan-init [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id] [ordering]",
 		Short: "chan-init",
-		Args:  cobra.ExactArgs(7),
+		Args:  cobra.ExactArgs(11),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			srcConnID := args[1]
-			srcChanID, dstChanID := args[2], args[4]
-			srcPortID, dstPortID := args[3], args[5]
-			ordering := args[6]
-			src, err := config.c.GetChain(args[0])
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(args[0], args[1])
 			if err != nil {
 				return err
 			}
 
-			res, err := src.SendMsg(src.ChanInit(srcConnID, srcChanID, dstChanID, srcPortID, dstPortID, chanState.OrderFromString(ordering)))
+			if err = chains[src].SetNewFullPath(args[2], args[4], args[6], args[8]); err != nil {
+				return err
+			}
+
+			if err = chains[src].SetNewFullPath(args[3], args[5], args[7], args[9]); err != nil {
+				return err
+			}
+
+			res, err := chains[src].SendMsg(chains[src].ChanInit(chains[dst], chanState.OrderFromString(args[6])))
 			if err != nil {
 				return err
 			}
@@ -470,16 +526,21 @@ func chanInit() *cobra.Command {
 
 func chanTry() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "chan-try [src-chain-id] [dst-chain-id] [src-client-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]",
+		Use:   "chan-try [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]",
 		Short: "chan-try",
-		Args:  cobra.ExactArgs(7),
+		Args:  cobra.ExactArgs(10),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			srcClientID := args[2]
-			srcChanID, dstChanID := args[3], args[4]
-			srcPortID, dstPortID := args[5], args[6]
 			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
+				return err
+			}
+
+			if err = chains[src].SetNewFullPath(args[2], args[4], args[6], args[8]); err != nil {
+				return err
+			}
+
+			if err = chains[src].SetNewFullPath(args[3], args[5], args[7], args[9]); err != nil {
 				return err
 			}
 
@@ -488,14 +549,14 @@ func chanTry() *cobra.Command {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstChanID, dstPortID, dstHeader.Height)
+			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height)
 			if err != nil {
 				return err
 			}
 
 			res, err := chains[src].SendMsgs([]sdk.Msg{
-				chains[src].UpdateClient(srcClientID, dstHeader),
-				chains[src].ChanTry(srcChanID, dstChanID, srcPortID, dstPortID, dstChanState)})
+				chains[src].UpdateClient(dstHeader),
+				chains[src].ChanTry(chains[dst], dstChanState)})
 			if err != nil {
 				return err
 			}
@@ -508,15 +569,21 @@ func chanTry() *cobra.Command {
 
 func chanAck() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "chan-ack [src-chain-id] [dst-chain-id] [src-client-id] [src-chan-id] [src-port-id] [dst-chan-id] [dst-port-id]",
+		Use:   "chan-ack [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]",
 		Short: "chan-ack",
-		Args:  cobra.ExactArgs(7),
+		Args:  cobra.ExactArgs(10),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			srcClientID, srcChanID, srcPortID := args[2], args[3], args[4]
-			dstChanID, dstPortID := args[5], args[6]
 			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
+				return err
+			}
+
+			if err = chains[src].SetNewFullPath(args[2], args[4], args[6], args[8]); err != nil {
+				return err
+			}
+
+			if err = chains[src].SetNewFullPath(args[3], args[5], args[7], args[9]); err != nil {
 				return err
 			}
 
@@ -525,14 +592,14 @@ func chanAck() *cobra.Command {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstChanID, dstPortID, dstHeader.Height)
+			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height)
 			if err != nil {
 				return err
 			}
 
 			chains[src].SendMsgs([]sdk.Msg{
-				chains[src].UpdateClient(srcClientID, dstHeader),
-				chains[src].ChanAck(srcChanID, srcPortID, dstChanState)})
+				chains[src].UpdateClient(dstHeader),
+				chains[src].ChanAck(dstChanState)})
 			if err != nil {
 				return err
 			}
@@ -545,15 +612,21 @@ func chanAck() *cobra.Command {
 
 func chanConfirm() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "chan-confirm [src-chain-id] [dst-chain-id] [src-client-id] [src-chan-id] [src-port-id] [dst-chan-id] [dst-port-id]",
+		Use:   "chan-confirm [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]",
 		Short: "chan-confirm",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(10),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			srcClientID, srcChanID, srcPortID := args[2], args[3], args[4]
-			dstChanID, dstPortID := args[5], args[6]
 			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
+				return err
+			}
+
+			if err = chains[src].SetNewFullPath(args[2], args[4], args[6], args[8]); err != nil {
+				return err
+			}
+
+			if err = chains[src].SetNewFullPath(args[3], args[5], args[7], args[9]); err != nil {
 				return err
 			}
 
@@ -562,14 +635,12 @@ func chanConfirm() *cobra.Command {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstChanID, dstPortID, dstHeader.Height)
+			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height)
 			if err != nil {
 				return err
 			}
 
-			res, err := chains[src].SendMsgs([]sdk.Msg{
-				chains[src].UpdateClient(srcClientID, dstHeader),
-				chains[src].ChanConfirm(srcChanID, srcPortID, dstChanState)})
+			res, err := chains[src].SendMsgs([]sdk.Msg{chains[src].UpdateClient(dstHeader), chains[src].ChanConfirm(dstChanState)})
 			if err != nil {
 				return err
 			}
@@ -586,13 +657,14 @@ func chanCloseInit() *cobra.Command {
 		Short: "chan-close-init",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chainID, chanID, portID := args[0], args[1], args[2]
-			src, err := config.c.GetChain(chainID)
+			src, err := config.c.GetChain(args[0])
 			if err != nil {
 				return err
 			}
 
-			res, err := src.SendMsg(src.ChanCloseInit(chanID, portID))
+			src.SetNewFullPath("", "", args[1], args[2])
+
+			res, err := src.SendMsg(src.ChanCloseInit())
 			if err != nil {
 				return err
 			}
@@ -605,15 +677,21 @@ func chanCloseInit() *cobra.Command {
 
 func chanCloseConfirm() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "chan-close-confirm [src-chain-id] [dst-chain-id] [src-client-id] [src-chan-id] [src-port-id] [dst-chan-id] [dst-port-id]",
+		Use:   "chan-close-confirm [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]",
 		Short: "chan-close-confirm",
 		Args:  cobra.ExactArgs(7),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			srcClientID, srcChanID, srcPortID := args[2], args[3], args[4]
-			dstChanID, dstPortID := args[5], args[6]
 			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
+				return err
+			}
+
+			if err = chains[src].SetNewFullPath(args[2], args[4], args[6], args[8]); err != nil {
+				return err
+			}
+
+			if err = chains[src].SetNewFullPath(args[3], args[5], args[7], args[9]); err != nil {
 				return err
 			}
 
@@ -622,14 +700,14 @@ func chanCloseConfirm() *cobra.Command {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstChanID, dstPortID, dstHeader.Height)
+			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height)
 			if err != nil {
 				return err
 			}
 
 			res, err := chains[src].SendMsgs([]sdk.Msg{
-				chains[src].UpdateClient(srcClientID, dstHeader),
-				chains[src].ChanCloseConfirm(srcChanID, srcPortID, dstChanState)})
+				chains[src].UpdateClient(dstHeader),
+				chains[src].ChanCloseConfirm(dstChanState)})
 			if err != nil {
 				return err
 			}

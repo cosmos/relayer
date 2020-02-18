@@ -3,7 +3,6 @@ package relayer
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
-	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
 	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc/20-transfer/types"
 )
@@ -36,43 +35,28 @@ type RelayMsgs struct {
 	Dst []sdk.Msg
 }
 
+// Ready returns true if there are messages to relay
+func (r *RelayMsgs) Ready() bool {
+	if len(r.Src) == 0 && len(r.Dst) == 0 {
+		return true
+	}
+	return false
+}
+
 // NaiveRelayStrategy returns the RelayMsgs that need to be run to relay between
 // src and dst chains for all pending messages. Will also create or repair
 // connections and channels
 func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 	out := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
-	err := UpdateLiteDBsToLatestHeaders(src, dst)
-	if err != nil {
-		return nil, err
-	}
-
-	hs, err := GetLatestHeaders(src, dst)
+	hs, err := UpdatesWithHeaders(src, dst)
 	if err != nil {
 		return nil, err
 	}
 
 	// ICS2 : Clients - DstClient
 	// Fetch current client state
-	dstClientState, err := dst.QueryClientConsensusState(src.ChainID, uint64(hs[dst.ChainID].Height))
-	if err != nil {
-		return nil, err
-	}
-
-	switch {
-	// If there is no client found matching, create the client
-	// TODO: ensure that this is the right condition
-	case dstClientState.ConsensusState.GetRoot().GetHash() == nil:
-		out.Dst = append(out.Dst, dst.CreateClient("finddstclientid", hs[src.ChainID]))
-
-	// If there client is found update it with latest header
-	case dstClientState.ProofHeight < uint64(hs[src.ChainID].Height):
-		out.Dst = append(out.Dst, dst.UpdateClient("finddstclientid", hs[src.ChainID]))
-	}
-
-	// ICS2 : Clients - SrcClient
-	// Determine if light client needs to be updated on src
-	srcClientState, err := src.QueryClientConsensusState(dst.ChainID, uint64(hs[src.ChainID].Height))
+	srcClientState, err := src.QueryClientConsensusState(uint64(hs[src.ChainID].Height))
 	if err != nil {
 		return nil, err
 	}
@@ -81,129 +65,107 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 	// If there is no matching client found, create it
 	// TODO: ensure that this is the right condition
 	case srcClientState.ConsensusState.GetRoot().GetHash() == nil:
-		out.Src = append(out.Src, src.CreateClient("findsrcclientid", hs[dst.ChainID]))
+		out.Src = append(out.Src, src.CreateClient(hs[dst.ChainID]))
 
 	// If there client is found update it with latest header
 	case srcClientState.ProofHeight < uint64(hs[dst.ChainID].Height):
-		out.Src = append(out.Src, src.UpdateClient("findsrcclientid", hs[dst.ChainID]))
+		out.Src = append(out.Src, src.UpdateClient(hs[dst.ChainID]))
 	}
 
-	// ICS3 : Connections
-	// - Determine if any connection handshakes are in progress
-	cp, err := src.GetCounterparty(dst.ChainID)
+	dstClientState, err := dst.QueryClientConsensusState(uint64(hs[dst.ChainID].Height))
 	if err != nil {
 		return nil, err
 	}
 
+	switch {
+	// If there is no client found matching, create the client
+	// TODO: ensure that this is the right condition
+	case dstClientState.ConsensusState.GetRoot().GetHash() == nil:
+		out.Dst = append(out.Dst, dst.CreateClient(hs[src.ChainID]))
+
+	// If there client is found update it with latest header
+	case dstClientState.ProofHeight < uint64(hs[src.ChainID].Height):
+		out.Dst = append(out.Dst, dst.UpdateClient(hs[src.ChainID]))
+	}
+
+	// Return here and move on to the next iteration
+	if out.Ready() {
+		return out, nil
+	}
+
+	// ICS3 : Connections
+	// - Determine if any connection handshakes are in progress
 	// Fetch connections associated with clients on the source chain
-	connections, err := src.QueryConnectionsUsingClient(cp.ClientID, hs[src.ChainID].Height)
+	connections, err := src.QueryConnectionsUsingClient(hs[src.ChainID].Height)
 	if err != nil {
 		return nil, err
 	}
 
 	// Loop across the connection paths
 	for _, srcConnID := range connections.ConnectionPaths {
-		return src.CreateConnectionStep(dst, "findsrcclientid", "finddstclientid", srcConnID, "finddstconnid")
+		if srcConnID == src.PathEnd.ConnectionID {
+			return src.CreateConnectionStep(dst)
+		}
 	}
 
-	// ICS4 : Channels & Packets
+	// Return here and move on to the next iteration
+	if out.Ready() {
+		return out, nil
+	}
+
+	// ICS4 : Channels
 	// - Determine if any channel handshakes are in progress
-	// - Determine if any packets, acknowledgements, or timeouts need to be relayed
+
 	channels, err := src.QueryChannelsUsingConnections(connections.ConnectionPaths)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, srcChan := range channels {
-		// TODO: need to figure out how to handle channel and port identifiers
-
-		dstEnd, err := dst.QueryChannel(srcChan.Channel.Counterparty.ChannelID, portID, hs[dst.ChainID].Height)
-		if err != nil {
-			return nil, err
+		if srcChan.Channel.GetCounterparty().GetChannelID() == dst.PathEnd.ChannelID {
+			return src.CreateChannelStep(dst, chanState.ORDERED)
 		}
+	}
 
-		srcEnd, err := src.QueryChannel(dstEnd.Channel.Counterparty.ChannelID, portID, hs[src.ChainID].Height)
-		if err != nil {
-			return nil, err
-		}
+	// Return here and move on to the next iteration
+	if out.Ready() {
+		return out, nil
+	}
 
-		// Deal with handshakes in progress
-		switch {
-		// Handshake hasn't been started locally, relay `chanOpenInit` locally
-		case srcEnd.Channel.State == chanState.UNINITIALIZED:
-			// TODO: need to add a msgUpdateClient here?
-			out.Src = append(out.Src, chanTypes.NewMsgChannelOpenInit(
-				portID,
-				dstEnd.Channel.GetCounterparty().GetChannelID(),
-				ibcversion,
-				srcEnd.Channel.GetOrdering(),
-				srcEnd.Channel.ConnectionHops,
-				portID,
-				srcEnd.Channel.Counterparty.GetChannelID(),
-				src.MustGetAddress(),
-			))
+	// ICS?: Packet Messages
+	// - Determine if any packets, acknowledgements, or timeouts need to be relayed
+	for _, srcChan := range channels {
+		if srcChan.Channel.GetCounterparty().GetChannelID() == dst.PathEnd.ChannelID {
+			// Deal with packets
+			// TODO: Once ADR15 is merged this section needs to be completed cc @mossid @fedekunze @cwgoes
 
-		// Handshake has started locally (1 step done), relay `chanOpenTry` to the remote end
-		case srcEnd.Channel.State == chanState.INIT && dstEnd.Channel.State == chanState.UNINITIALIZED:
-			// TODO: need to add a msgUpdateClient here?
-			out.Dst = append(out.Dst, chanTypes.NewMsgChannelOpenTry(
-				portID,
-				srcEnd.Channel.GetCounterparty().GetChannelID(),
-				ibcversion,
-				dstEnd.Channel.GetOrdering(),
-				dstEnd.Channel.GetConnectionHops(),
-				portID,
-				dstEnd.Channel.Counterparty.GetChannelID(),
-				ibcversion,
-				srcEnd.Proof,
-				srcEnd.ProofHeight,
-				dst.MustGetAddress(),
-			))
-		// Handshake has started on the other end (2 steps done), relay `chanOpenAck` to the local end
-		case srcEnd.Channel.State == chanState.INIT && dstEnd.Channel.State == chanState.TRYOPEN:
-			// TODO: need to add a msgUpdateClient here?
-			out.Src = append(out.Src, chanTypes.NewMsgChannelOpenAck(
-				portID,
-				dstEnd.Channel.GetCounterparty().GetChannelID(),
-				ibcversion,
-				dstEnd.Proof,
-				dstEnd.ProofHeight,
-				src.MustGetAddress(),
-			))
-		// Handshake has confirmed locally (3 steps done), relay `chanOpenConfirm` to the remote end
-		case srcEnd.Channel.State == chanState.OPEN && dstEnd.Channel.State == chanState.TRYOPEN:
-			// TODO: need to add a msgUpdateClient here?
-			out.Dst = append(out.Dst, chanTypes.NewMsgChannelOpenConfirm(
-				portID,
-				srcEnd.Channel.GetCounterparty().GetChannelID(),
-				srcEnd.Proof,
-				srcEnd.ProofHeight,
-				dst.MustGetAddress(),
-			))
+			// First, scan logs for sent packets and relay all of them
+			// TODO: This is currently incorrect and will change
+			srcRes, err := src.QueryTxs(uint64(hs[src.ChainID].Height), []string{"type:transfer"})
+			if err != nil {
+				return nil, err
+			}
 
-		}
-
-		// Deal with packets
-		// TODO: Once ADR15 is merged this section needs to be completed cc @mossid @fedekunze @cwgoes
-
-		// First, scan logs for sent packets and relay all of them
-		// TODO: This is currently incorrect and will change
-		srcRes, err := src.QueryTxs(uint64(hs[src.ChainID].Height), []string{"type:transfer"})
-		for _, tx := range srcRes.Txs {
-			for _, msg := range tx.Tx.GetMsgs() {
-				if msg.Type() == "transfer" {
-					out.Dst = append(out.Dst, xferTypes.MsgRecvPacket{})
+			for _, tx := range srcRes.Txs {
+				for _, msg := range tx.Tx.GetMsgs() {
+					if msg.Type() == "transfer" {
+						out.Dst = append(out.Dst, xferTypes.MsgRecvPacket{})
+					}
 				}
 			}
-		}
 
-		// Then, scan logs for received packets and relay acknowledgements
-		// TODO: This is currently incorrect and will change
-		dstRes, err := dst.QueryTxs(uint64(hs[dst.ChainID].Height), []string{"type:recv_packet"})
-		for _, tx := range dstRes.Txs {
-			for _, msg := range tx.Tx.GetMsgs() {
-				if msg.Type() == "recv_packet" {
-					out.Dst = append(out.Dst, xferTypes.MsgRecvPacket{})
+			// Then, scan logs for received packets and relay acknowledgements
+			// TODO: This is currently incorrect and will change
+			dstRes, err := dst.QueryTxs(uint64(hs[dst.ChainID].Height), []string{"type:recv_packet"})
+			if err != nil {
+				return nil, err
+			}
+
+			for _, tx := range dstRes.Txs {
+				for _, msg := range tx.Tx.GetMsgs() {
+					if msg.Type() == "recv_packet" {
+						out.Dst = append(out.Dst, xferTypes.MsgRecvPacket{})
+					}
 				}
 			}
 		}

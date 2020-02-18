@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"errors"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -24,7 +25,16 @@ var (
 func (src *Chain) CreateConnection(dst *Chain, srcClientID, dstClientID, srcConnectionID, dstConnectionID string, timeout time.Duration) error {
 	ticker := time.NewTicker(timeout)
 	for ; true; <-ticker.C {
-		msgs, err := src.CreateConnectionStep(dst, srcClientID, dstClientID, srcConnectionID, dstConnectionID)
+
+		if err := src.SetNewPathConnection(srcClientID, srcConnectionID); err != nil {
+			return err
+		}
+
+		if err := dst.SetNewPathConnection(dstClientID, dstConnectionID); err != nil {
+			return err
+		}
+
+		msgs, err := src.CreateConnectionStep(dst)
 		if err != nil {
 			return err
 		}
@@ -54,65 +64,61 @@ func (src *Chain) CreateConnection(dst *Chain, srcClientID, dstClientID, srcConn
 // CreateConnectionStep returns the next set of messags for creating a channel
 // with the given identifier between chains src and dst. If handshake hasn't started,
 // CreateConnetionStep will start the handshake on src
-func (src *Chain) CreateConnectionStep(dst *Chain,
-	srcClientID, dstClientID,
-	srcConnectionID, dstConnectionID string) (*RelayMsgs, error) {
+func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	out := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
-	err := UpdateLiteDBsToLatestHeaders(src, dst)
+	if !PathsSet(src, dst) {
+		return nil, ErrPathNotSet
+	}
+
+	hs, err := UpdatesWithHeaders(src, dst)
 	if err != nil {
 		return nil, err
 	}
 
-	hs, err := GetLatestHeaders(src, dst)
-	if err != nil {
+	var srcEnd, dstEnd connTypes.ConnectionResponse
+	if srcEnd, err = src.QueryConnection(hs[src.ChainID].Height); err != nil {
 		return nil, err
 	}
 
-	srcEnd, err := src.QueryConnection(srcConnectionID, hs[src.ChainID].Height)
-	if err != nil {
-		return nil, err
-	}
-
-	dstEnd, err := dst.QueryConnection(dstConnectionID, hs[src.ChainID].Height)
-	if err != nil {
+	if dstEnd, err = dst.QueryConnection(hs[src.ChainID].Height); err != nil {
 		return nil, err
 	}
 
 	switch {
 	// Handshake hasn't been started on src or dst, relay `connOpenInit` to src
 	case srcEnd.Connection.State == connState.UNINITIALIZED && dstEnd.Connection.State == connState.UNINITIALIZED:
-		out.Src = append(out.Src, src.ConnInit(srcConnectionID, srcClientID, dstConnectionID, dstClientID))
+		out.Src = append(out.Src, src.ConnInit(dst))
 
 	// Handshake has started on dst (1 stepdone), relay `connOpenTry` and `updateClient` on src
 	case srcEnd.Connection.State == connState.UNINITIALIZED && dstEnd.Connection.State == connState.INIT:
-		out.Src = append(out.Src, src.UpdateClient(srcClientID, hs[dst.ChainID]),
-			src.ConnTry(srcClientID, dstClientID, srcConnectionID, dstConnectionID, dstEnd, hs[dst.ChainID].Height))
+		out.Src = append(out.Src, src.UpdateClient(hs[dst.ChainID]),
+			src.ConnTry(dst, dstEnd, hs[dst.ChainID].Height))
 
 	// Handshake has started on src (1 step done), relay `connOpenTry` and `updateClient` on dst
 	case srcEnd.Connection.State == connState.INIT && dstEnd.Connection.State == connState.UNINITIALIZED:
-		out.Dst = append(out.Dst, dst.UpdateClient(dstClientID, hs[src.ChainID]),
-			dst.ConnTry(dstClientID, srcClientID, dstConnectionID, srcConnectionID, srcEnd, hs[src.ChainID].Height))
+		out.Dst = append(out.Dst, dst.UpdateClient(hs[src.ChainID]),
+			dst.ConnTry(dst, srcEnd, hs[src.ChainID].Height))
 
 	// Handshake has started on src end (2 steps done), relay `connOpenAck` and `updateClient` to dst end
 	case srcEnd.Connection.State == connState.TRYOPEN && dstEnd.Connection.State == connState.INIT:
-		out.Dst = append(out.Dst, dst.UpdateClient(dstClientID, hs[src.ChainID]),
-			dst.ConnAck(dstConnectionID, srcEnd, hs[dst.ChainID].Height))
+		out.Dst = append(out.Dst, dst.UpdateClient(hs[src.ChainID]),
+			dst.ConnAck(dstEnd, hs[dst.ChainID].Height))
 
 	// Handshake has started on dst end (2 steps done), relay `connOpenAck` and `updateClient` to src end
 	case srcEnd.Connection.State == connState.INIT && dstEnd.Connection.State == connState.TRYOPEN:
-		out.Src = append(out.Src, src.UpdateClient(srcClientID, hs[dst.ChainID]),
-			src.ConnAck(srcConnectionID, dstEnd, hs[src.ChainID].Height))
+		out.Src = append(out.Src, src.UpdateClient(hs[dst.ChainID]),
+			src.ConnAck(dstEnd, hs[src.ChainID].Height))
 
 	// Handshake has confirmed on dst (3 steps done), relay `connOpenConfirm` and `updateClient` to src end
 	case srcEnd.Connection.State == connState.TRYOPEN && dstEnd.Connection.State == connState.OPEN:
-		out.Src = append(out.Src, src.UpdateClient(srcClientID, hs[dst.ChainID]),
-			src.ConnConfirm(srcConnectionID, dstEnd, hs[src.ChainID].Height))
+		out.Src = append(out.Src, src.UpdateClient(hs[dst.ChainID]),
+			src.ConnConfirm(dstEnd, hs[src.ChainID].Height))
 
 	// Handshake has confirmed on src (3 steps done), relay `connOpenConfirm` and `updateClient` to dst end
 	case srcEnd.Connection.State == connState.OPEN && dstEnd.Connection.State == connState.TRYOPEN:
-		out.Dst = append(out.Dst, dst.UpdateClient(dstClientID, hs[src.ChainID]),
-			dst.ConnConfirm(dstConnectionID, srcEnd, hs[dst.ChainID].Height))
+		out.Dst = append(out.Dst, dst.UpdateClient(hs[src.ChainID]),
+			dst.ConnConfirm(srcEnd, hs[dst.ChainID].Height))
 	}
 
 	return out, nil
@@ -123,8 +129,15 @@ func (src *Chain) CreateChannel(dst *Chain, srcClientID, dstClientID, srcConnect
 	srcChannelID, dstChannelID, srcPortID, dstPortID string, timeout time.Duration, ordering chanState.Order) error {
 	ticker := time.NewTicker(timeout)
 	for ; true; <-ticker.C {
-		msgs, err := src.CreateChannelStep(dst, srcClientID, dstClientID, srcConnectionID, dstConnectionID,
-			srcChannelID, dstChannelID, srcPortID, dstPortID, ordering)
+		if err := src.SetNewFullPath(srcClientID, srcConnectionID, srcChannelID, srcPortID); err != nil {
+			return err
+		}
+
+		if err := dst.SetNewFullPath(dstClientID, dstConnectionID, dstChannelID, dstPortID); err != nil {
+			return err
+		}
+
+		msgs, err := src.CreateChannelStep(dst, ordering)
 		if err != nil {
 			return err
 		}
@@ -151,134 +164,130 @@ func (src *Chain) CreateChannel(dst *Chain, srcClientID, dstClientID, srcConnect
 	return nil
 }
 
+var ErrPathNotSet = errors.New("Paths on chains not set")
+
 // CreateChannelStep returns the next set of messages for creating a channel with given
 // identifiers between chains src and dst. If the handshake hasn't started, then CreateChannelStep
 // will begin the handshake on the src chain
-func (src *Chain) CreateChannelStep(dst *Chain,
-	srcClientID, dstClientID,
-	srcConnectionID, dstConnectionID,
-	srcChannelID, dstChannelID,
-	srcPortID, dstPortID string, ordering chanState.Order) (*RelayMsgs, error) {
+func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*RelayMsgs, error) {
 	out := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
-	err := UpdateLiteDBsToLatestHeaders(src, dst)
+	if !PathsSet(src, dst) {
+		return nil, ErrPathNotSet
+	}
+
+	hs, err := UpdatesWithHeaders(src, dst)
 	if err != nil {
 		return nil, err
 	}
 
-	hs, err := GetLatestHeaders(src, dst)
-	if err != nil {
+	var srcEnd, dstEnd chanTypes.ChannelResponse
+	if dstEnd, err = dst.QueryChannel(hs[dst.ChainID].Height); err != nil {
 		return nil, err
 	}
 
-	dstEnd, err := dst.QueryChannel(dstConnectionID, dstPortID, hs[dst.ChainID].Height)
-	if err != nil {
-		return nil, err
-	}
-
-	srcEnd, err := src.QueryChannel(srcConnectionID, srcPortID, hs[src.ChainID].Height)
-	if err != nil {
+	if srcEnd, err = src.QueryChannel(hs[src.ChainID].Height); err != nil {
 		return nil, err
 	}
 
 	switch {
 	// Handshake hasn't been started on src or dst, relay `chanOpenInit` to src
 	case srcEnd.Channel.State == chanState.UNINITIALIZED && dstEnd.Channel.State == chanState.UNINITIALIZED:
-		out.Src = append(out.Src, src.ChanInit(srcConnectionID, srcChannelID, dstChannelID, srcPortID, dstPortID, ordering))
+		out.Src = append(out.Src, src.ChanInit(dst, ordering))
 
 	// Handshake has started on dst (1 step done), relay `chanOpenTry` and `updateClient` to src
 	case srcEnd.Channel.State == chanState.UNINITIALIZED && dstEnd.Channel.State == chanState.INIT:
-		out.Src = append(out.Src, src.UpdateClient(srcClientID, hs[dst.ChainID]),
-			src.ChanTry(srcChannelID, dstChannelID, srcPortID, dstPortID, dstEnd))
+		out.Src = append(out.Src, src.UpdateClient(hs[dst.ChainID]),
+			src.ChanTry(dst, dstEnd))
 
 	// Handshake has started on src (1 step done), relay `chanOpenTry` and `updateClient` to dst
 	case srcEnd.Channel.State == chanState.INIT && dstEnd.Channel.State == chanState.UNINITIALIZED:
-		out.Dst = append(out.Dst, dst.UpdateClient(dstClientID, hs[src.ChainID]),
-			dst.ChanTry(dstChannelID, srcChannelID, dstPortID, dstPortID, dstEnd))
+		out.Dst = append(out.Dst, dst.UpdateClient(hs[src.ChainID]),
+			dst.ChanTry(dst, dstEnd))
 
 	// Handshake has started on src (2 steps done), relay `chanOpenAck` and `updateClient` to dst
 	case srcEnd.Channel.State == chanState.TRYOPEN && dstEnd.Channel.State == chanState.INIT:
-		out.Dst = append(out.Dst, dst.UpdateClient(dstClientID, hs[src.ChainID]),
-			dst.ChanAck(dstChannelID, dstPortID, srcEnd))
+		out.Dst = append(out.Dst, dst.UpdateClient(hs[src.ChainID]),
+			dst.ChanAck(srcEnd))
 
 	// Handshake has started on dst (2 steps done), relay `chanOpenAck` and `updateClient` to src
 	case srcEnd.Channel.State == chanState.INIT && dstEnd.Channel.State == chanState.TRYOPEN:
-		out.Src = append(out.Src, src.UpdateClient(srcClientID, hs[dst.ChainID]),
-			src.ChanAck(srcChannelID, srcPortID, dstEnd))
+		out.Src = append(out.Src, src.UpdateClient(hs[dst.ChainID]),
+			src.ChanAck(dstEnd))
 
 	// Handshake has confirmed on dst (3 steps done), relay `chanOpenConfirm` and `updateClient` to src
 	case srcEnd.Channel.State == chanState.TRYOPEN && dstEnd.Channel.State == chanState.OPEN:
-		out.Src = append(out.Src, src.UpdateClient(srcClientID, hs[dst.ChainID]),
-			src.ChanConfirm(srcChannelID, srcPortID, dstEnd))
+		out.Src = append(out.Src, src.UpdateClient(hs[dst.ChainID]),
+			src.ChanConfirm(dstEnd))
 
 	// Handshake has confirmed on src (3 steps done), relay `chanOpenConfirm` and `updateClient` to dst
 	case srcEnd.Channel.State == chanState.OPEN && dstEnd.Channel.State == chanState.TRYOPEN:
-		out.Dst = append(out.Dst, dst.UpdateClient(dstClientID, hs[src.ChainID]),
-			dst.ChanConfirm(dstChannelID, dstPortID, srcEnd))
+		out.Dst = append(out.Dst, dst.UpdateClient(hs[src.ChainID]),
+			dst.ChanConfirm(srcEnd))
 	}
 
 	return out, nil
 }
 
 // UpdateClient creates an sdk.Msg to update the client on c with data pulled from cp
-func (c *Chain) UpdateClient(srcClientID string, dstHeader *tmclient.Header) clientTypes.MsgUpdateClient {
-	return clientTypes.NewMsgUpdateClient(srcClientID, dstHeader, c.MustGetAddress())
+func (c *Chain) UpdateClient(dstHeader *tmclient.Header) clientTypes.MsgUpdateClient {
+	return clientTypes.NewMsgUpdateClient(c.PathEnd.ClientID, dstHeader, c.MustGetAddress())
 }
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (c *Chain) CreateClient(srcClientID string, dstHeader *tmclient.Header) clientTypes.MsgCreateClient {
-	return clientTypes.NewMsgCreateClient(srcClientID, clientExported.ClientTypeTendermint, dstHeader.ConsensusState(), c.MustGetAddress())
+func (c *Chain) CreateClient(dstHeader *tmclient.Header) clientTypes.MsgCreateClient {
+	return clientTypes.NewMsgCreateClient(c.PathEnd.ClientID, clientExported.ClientTypeTendermint, dstHeader.ConsensusState(), c.MustGetAddress())
 }
 
 // ConnInit creates a MsgConnectionOpenInit
-func (c *Chain) ConnInit(srcConnID, srcClientID, dstConnId, dstClientID string) sdk.Msg {
-	return connTypes.NewMsgConnectionOpenInit(srcConnID, srcClientID, dstConnId, dstClientID, defaultChainPrefix, c.MustGetAddress())
+func (c *Chain) ConnInit(dst *Chain) sdk.Msg {
+	return connTypes.NewMsgConnectionOpenInit(c.PathEnd.ConnectionID, c.PathEnd.ClientID, dst.PathEnd.ConnectionID, dst.PathEnd.ClientID, defaultChainPrefix, c.MustGetAddress())
 }
 
 // ConnTry creates a MsgConnectionOpenTry
-func (c *Chain) ConnTry(srcClientID, dstClientID, srcConnID, dstConnID string, dstConnState connTypes.ConnectionResponse, srcHeight int64) sdk.Msg {
-	return connTypes.NewMsgConnectionOpenTry(srcConnID, srcClientID, dstConnID, dstClientID, defaultChainPrefix, defaultIBCVersions, dstConnState.Proof, dstConnState.Proof, dstConnState.ProofHeight, uint64(srcHeight), c.MustGetAddress())
+func (c *Chain) ConnTry(dst *Chain, dstConnState connTypes.ConnectionResponse, srcHeight int64) sdk.Msg {
+	return connTypes.NewMsgConnectionOpenTry(c.PathEnd.ConnectionID, c.PathEnd.ClientID, dst.PathEnd.ConnectionID, dst.PathEnd.ClientID, defaultChainPrefix, defaultIBCVersions, dstConnState.Proof, dstConnState.Proof, dstConnState.ProofHeight, uint64(srcHeight), c.MustGetAddress())
 }
 
 // ConnAck creates a MsgConnectionOpenAck
-func (c *Chain) ConnAck(srcConnID string, dstConnState connTypes.ConnectionResponse, srcHeight int64) sdk.Msg {
-	return connTypes.NewMsgConnectionOpenAck(srcConnID, dstConnState.Proof, dstConnState.Proof, dstConnState.ProofHeight, uint64(srcHeight), defaultIBCVersion, c.MustGetAddress())
+func (c *Chain) ConnAck(dstConnState connTypes.ConnectionResponse, srcHeight int64) sdk.Msg {
+	return connTypes.NewMsgConnectionOpenAck(c.PathEnd.ConnectionID, dstConnState.Proof, dstConnState.Proof, dstConnState.ProofHeight, uint64(srcHeight), defaultIBCVersion, c.MustGetAddress())
 }
 
 // ConnConfirm creates a MsgConnectionOpenAck
-func (c *Chain) ConnConfirm(srcConnID string, dstConnState connTypes.ConnectionResponse, srcHeight int64) sdk.Msg {
-	return connTypes.NewMsgConnectionOpenAck(srcConnID, dstConnState.Proof, dstConnState.Proof, dstConnState.ProofHeight, uint64(srcHeight), defaultIBCVersion, c.MustGetAddress())
+func (c *Chain) ConnConfirm(dstConnState connTypes.ConnectionResponse, srcHeight int64) sdk.Msg {
+	return connTypes.NewMsgConnectionOpenAck(c.PathEnd.ConnectionID, dstConnState.Proof, dstConnState.Proof, dstConnState.ProofHeight, uint64(srcHeight), defaultIBCVersion, c.MustGetAddress())
 }
 
 // ChanInit creates a MsgChannelOpenInit
-func (c *Chain) ChanInit(srcConnID, srcChanID, dstChanID, srcPortID, dstPortID string, ordering chanState.Order) sdk.Msg {
-	return chanTypes.NewMsgChannelOpenInit(srcPortID, srcChanID, defaultIBCVersion, ordering, []string{srcConnID}, dstPortID, dstChanID, c.MustGetAddress())
+func (c *Chain) ChanInit(dst *Chain, ordering chanState.Order) sdk.Msg {
+	return chanTypes.NewMsgChannelOpenInit(c.PathEnd.PortID, c.PathEnd.ChannelID, defaultIBCVersion, ordering, []string{c.PathEnd.ConnectionID}, dst.PathEnd.PortID, dst.PathEnd.ChannelID, c.MustGetAddress())
 }
 
 // ChanTry creates a MsgChannelOpenTry
-func (c *Chain) ChanTry(srcChanID, dstChanID, srcPortID, dstPortID string, dstChanState chanTypes.ChannelResponse) sdk.Msg {
-	return chanTypes.NewMsgChannelOpenTry(srcPortID, srcChanID, defaultIBCVersion, dstChanState.Channel.Ordering, dstChanState.Channel.ConnectionHops,
-		dstPortID, dstChanID, defaultIBCVersion, dstChanState.Proof, dstChanState.ProofHeight, c.MustGetAddress())
+func (c *Chain) ChanTry(dst *Chain, dstChanState chanTypes.ChannelResponse) sdk.Msg {
+	return chanTypes.NewMsgChannelOpenTry(c.PathEnd.PortID, c.PathEnd.ChannelID, defaultIBCVersion, dstChanState.Channel.Ordering, dstChanState.Channel.ConnectionHops,
+		dst.PathEnd.PortID, dst.PathEnd.ChannelID, defaultIBCVersion, dstChanState.Proof, dstChanState.ProofHeight, c.MustGetAddress())
 }
 
 // ChanAck creates a MsgChannelOpenAck
-func (c *Chain) ChanAck(srcChanID, srcPortID string, dstChanState chanTypes.ChannelResponse) sdk.Msg {
-	return chanTypes.NewMsgChannelOpenAck(srcPortID, srcChanID, dstChanState.Channel.GetVersion(), dstChanState.Proof, dstChanState.ProofHeight, c.MustGetAddress())
+func (c *Chain) ChanAck(dstChanState chanTypes.ChannelResponse) sdk.Msg {
+	return chanTypes.NewMsgChannelOpenAck(c.PathEnd.PortID, c.PathEnd.ChannelID, dstChanState.Channel.GetVersion(), dstChanState.Proof, dstChanState.ProofHeight, c.MustGetAddress())
 }
 
 // ChanConfirm creates a MsgChannelOpenConfirm
-func (c *Chain) ChanConfirm(srcChanID, srcPortID string, dstChanState chanTypes.ChannelResponse) sdk.Msg {
-	return chanTypes.NewMsgChannelOpenConfirm(srcPortID, srcChanID, dstChanState.Proof, dstChanState.ProofHeight, c.MustGetAddress())
+func (c *Chain) ChanConfirm(dstChanState chanTypes.ChannelResponse) sdk.Msg {
+	return chanTypes.NewMsgChannelOpenConfirm(c.PathEnd.PortID, c.PathEnd.ChannelID, dstChanState.Proof, dstChanState.ProofHeight, c.MustGetAddress())
 }
 
 // ChanCloseInit creates a MsgChannelCloseInit
-func (c *Chain) ChanCloseInit(srcChanID, srcPortID string) sdk.Msg {
-	return chanTypes.NewMsgChannelCloseInit(srcPortID, srcChanID, c.MustGetAddress())
+func (c *Chain) ChanCloseInit() sdk.Msg {
+	return chanTypes.NewMsgChannelCloseInit(c.PathEnd.PortID, c.PathEnd.ChannelID, c.MustGetAddress())
 }
 
 // ChanCloseConfirm creates a MsgChannelCloseConfirm
-func (c *Chain) ChanCloseConfirm(srcChanID, srcPortID string, dstChanState chanTypes.ChannelResponse) sdk.Msg {
-	return chanTypes.NewMsgChannelCloseConfirm(srcPortID, srcChanID, dstChanState.Proof, dstChanState.ProofHeight, c.MustGetAddress())
+func (c *Chain) ChanCloseConfirm(dstChanState chanTypes.ChannelResponse) sdk.Msg {
+	return chanTypes.NewMsgChannelCloseConfirm(c.PathEnd.PortID, c.PathEnd.ChannelID, dstChanState.Proof, dstChanState.ProofHeight, c.MustGetAddress())
 }
 
 // SendMsg wraps the msg in a stdtx, signs and sends it

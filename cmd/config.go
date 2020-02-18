@@ -30,8 +30,9 @@ import (
 
 // Config represents the config file for the relayer
 type Config struct {
-	Global GlobalConfig  `yaml:"global" json:"global"`
-	Chains []ChainConfig `yaml:"chains" json:"chains"`
+	Global GlobalConfig   `yaml:"global" json:"global"`
+	Chains []ChainConfig  `yaml:"chains" json:"chains"`
+	Paths  []relayer.Path `yaml:"paths" json:"paths"`
 
 	c relayer.Chains
 }
@@ -46,37 +47,26 @@ type GlobalConfig struct {
 // ChainConfig describes the config necessary for an individual chain
 // TODO: Are there additional parameters needed here
 type ChainConfig struct {
-	Key            string               `yaml:"key" json:"key"`
-	ChainID        string               `yaml:"chain-id" json:"chain-id"`
-	RPCAddr        string               `yaml:"rpc-addr" json:"rpc-addr"`
-	AccountPrefix  string               `yaml:"account-prefix" json:"account-prefix"`
-	Counterparties []CounterpartyConfig `yaml:"counterparties" json:"counterparties"`
-	Gas            uint64               `yaml:"gas,omitempty" json:"gas,omitempty"`
-	GasAdjustment  float64              `yaml:"gas-adjustment,omitempty" json:"gas-adjustment,omitempty"`
-	GasPrices      string               `yaml:"gas-prices,omitempty" json:"gas-prices,omitempty"`
-	DefaultDenom   string               `yaml:"default-denom,omitempty" json:"default-denom,omitempty"`
-	Memo           string               `yaml:"memo,omitempty" json:"memo,omitempty"`
-	TrustingPeriod string               `yaml:"trusting-period" json:"trusting-period"`
-}
-
-// CounterpartyConfig represents a chain's counterparty
-type CounterpartyConfig struct {
-	ChainID  string `yaml:"chain-id" json:"chain-id"`
-	ClientID string `yaml:"client-id" json:"client-id"`
+	Key            string  `yaml:"key" json:"key"`
+	ChainID        string  `yaml:"chain-id" json:"chain-id"`
+	RPCAddr        string  `yaml:"rpc-addr" json:"rpc-addr"`
+	AccountPrefix  string  `yaml:"account-prefix" json:"account-prefix"`
+	Gas            uint64  `yaml:"gas,omitempty" json:"gas,omitempty"`
+	GasAdjustment  float64 `yaml:"gas-adjustment,omitempty" json:"gas-adjustment,omitempty"`
+	GasPrices      string  `yaml:"gas-prices,omitempty" json:"gas-prices,omitempty"`
+	DefaultDenom   string  `yaml:"default-denom,omitempty" json:"default-denom,omitempty"`
+	Memo           string  `yaml:"memo,omitempty" json:"memo,omitempty"`
+	TrustingPeriod string  `yaml:"trusting-period" json:"trusting-period"`
 }
 
 // Called to set the relayer.Chain types on Config
 func setChains(c *Config, home string) error {
 	var out []*relayer.Chain
-	var new = &Config{Global: c.Global, Chains: c.Chains}
+	var new = &Config{Global: c.Global, Chains: c.Chains, Paths: c.Paths}
 	for _, i := range c.Chains {
-		var cps []relayer.Counterparty
-		for _, cp := range i.Counterparties {
-			cps = append(cps, relayer.NewCounterparty(cp.ChainID, cp.ClientID))
-		}
 		homeDir := path.Join(home, "lite")
 		chain, err := relayer.NewChain(i.Key, i.ChainID, i.RPCAddr,
-			i.AccountPrefix, cps, i.Gas, i.GasAdjustment, i.GasPrices,
+			i.AccountPrefix, i.Gas, i.GasAdjustment, i.GasPrices,
 			i.DefaultDenom, i.Memo, homePath, c.Global.LiteCacheSize,
 			i.TrustingPeriod, homeDir, cdc)
 		if err != nil {

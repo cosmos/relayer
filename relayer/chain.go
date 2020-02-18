@@ -19,11 +19,9 @@ import (
 // NewChain returns a new instance of Chain
 // NOTE: It does not by default create the verifier. This needs a working connection
 // and blocks running the app if NewChain does this by default.
-func NewChain(key, chainID, rpcAddr, accPrefix string,
-	counterparties []Counterparty, gas uint64, gasAdj float64,
-	gasPrices string, defaultDenom, memo, homePath string,
-	liteCacheSize int, trustingPeriod string, dir string, cdc *codec.Codec,
-) (*Chain, error) {
+func NewChain(key, chainID, rpcAddr, accPrefix string, gas uint64, gasAdj float64,
+	gasPrices, defaultDenom, memo, homePath string, liteCacheSize int, trustingPeriod,
+	dir string, cdc *codec.Codec) (*Chain, error) {
 	keybase, err := keys.NewKeyring(chainID, "test", keysDir(homePath), nil)
 	if err != nil {
 		return &Chain{}, err
@@ -45,25 +43,25 @@ func NewChain(key, chainID, rpcAddr, accPrefix string,
 	}
 
 	return &Chain{
-		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Counterparties: counterparties, Gas: gas,
+		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Gas: gas,
 		GasAdjustment: gasAdj, GasPrices: gp, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase,
 		Client: client, Cdc: cdc, TrustingPeriod: tp, HomePath: homePath}, nil
 }
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
 type Chain struct {
-	Key            string         `yaml:"key"`
-	ChainID        string         `yaml:"chain-id"`
-	RPCAddr        string         `yaml:"rpc-addr"`
-	AccountPrefix  string         `yaml:"account-prefix"`
-	Counterparties []Counterparty `yaml:"counterparties"`
-	Gas            uint64         `yaml:"gas,omitempty"`
-	GasAdjustment  float64        `yaml:"gas-adjustment,omitempty"`
-	GasPrices      sdk.DecCoins   `yaml:"gas-prices,omitempty"`
-	DefaultDenom   string         `yaml:"default-denom,omitempty"`
-	Memo           string         `yaml:"memo,omitempty"`
-	TrustingPeriod time.Duration  `yaml:"trusting-period"`
+	Key            string        `yaml:"key"`
+	ChainID        string        `yaml:"chain-id"`
+	RPCAddr        string        `yaml:"rpc-addr"`
+	AccountPrefix  string        `yaml:"account-prefix"`
+	Gas            uint64        `yaml:"gas,omitempty"`
+	GasAdjustment  float64       `yaml:"gas-adjustment,omitempty"`
+	GasPrices      sdk.DecCoins  `yaml:"gas-prices,omitempty"`
+	DefaultDenom   string        `yaml:"default-denom,omitempty"`
+	Memo           string        `yaml:"memo,omitempty"`
+	TrustingPeriod time.Duration `yaml:"trusting-period"`
 	HomePath       string
+	PathEnd        *PathEnd
 
 	Keybase keys.Keybase
 	Client  *rpcclient.HTTP
@@ -85,8 +83,6 @@ func (c Chains) Exists(chainID string) bool {
 	}
 	return false
 }
-
-type ErrAddressNotSet error
 
 // GetChain returns the configuration for a given chain
 func (c Chains) GetChain(chainID string) (*Chain, error) {
@@ -114,23 +110,17 @@ func (c Chains) GetChains(chainIDs ...string) (map[string]*Chain, error) {
 }
 
 func (c *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
-	info, err := c.Keybase.Get(c.Key)
-	if err != nil {
-		return nil, err
-	}
-
 	// Fetch account and sequence numbers for the account
-	acc, err := auth.NewAccountRetriever(c).GetAccount(info.GetAddress())
+	acc, err := auth.NewAccountRetriever(c).GetAccount(c.MustGetAddress())
 	if err != nil {
 		return nil, err
 	}
 
-	txBldr := auth.NewTxBuilder(
+	return auth.NewTxBuilder(
 		auth.DefaultTxEncoder(c.Cdc), acc.GetAccountNumber(),
 		acc.GetSequence(), c.Gas, c.GasAdjustment, false, c.ChainID,
-		c.Memo, sdk.NewCoins(), c.GasPrices).WithKeybase(c.Keybase)
-
-	return txBldr.BuildAndSign(c.Key, ckeys.DefaultKeyPass, datagram)
+		c.Memo, sdk.NewCoins(), c.GasPrices).WithKeybase(c.Keybase).
+		BuildAndSign(c.Key, ckeys.DefaultKeyPass, datagram)
 }
 
 // BroadcastTxCommit takes the marshaled transaction bytes and broadcasts them
@@ -168,4 +158,95 @@ func (c *Chain) MustGetAddress() sdk.AccAddress {
 		panic(err)
 	}
 	return srcAddr.GetAddress()
+}
+
+type Paths []Path
+
+// Path represents a pair of chains and the identifiers needed to
+// relay over them
+type Path struct {
+	Src PathEnd `yaml:"src" json:"src"`
+	Dst PathEnd `yaml:"dst" json:"dst"`
+}
+
+func (p Path) String() string {
+	return fmt.Sprintf("%s -> %s", p.Src.String(), p.Dst.String())
+}
+
+// PathEnd represents the local connection identifers for a relay path
+// The path is set on the chain before performing operations
+type PathEnd struct {
+	ChainID      string `yaml:"chain-id,omitempty" json:"chain-id,omitempty"`
+	ClientID     string `yaml:"client-id,omitempty" json:"client-id,omitempty"`
+	ConnectionID string `yaml:"connection-id,omitempty" json:"connection-id,omitempty"`
+	ChannelID    string `yaml:"channel-id,omitempty" json:"channel-id,omitempty"`
+	PortID       string `yaml:"port-id,omitempty" json:"port-id,omitempty"`
+}
+
+func (p PathEnd) String() string {
+	return fmt.Sprintf("client{%s}-conn{%s}-chan{%s}@chain{%s}:port{%s}", p.ClientID, p.ConnectionID, p.ChannelID, p.ChainID, p.PortID)
+}
+
+func (p *PathEnd) Validate() error {
+	// TODO: use this validate function to perform all
+	// ICS24 identifier validation, something like ->
+	// if err := ics24.ValidateIdentifier(p.ClientID); p.ClientID != nil && err != nil {
+	// 	return err
+	// }
+	return nil
+}
+
+// SetNewPathClient used to set the path for client creation commands
+func (c *Chain) SetNewPathClient(clientID string) error {
+	return c.setPath(&PathEnd{
+		ChainID:  c.ChainID,
+		ClientID: clientID,
+	})
+}
+
+// SetNewPathConnection used to set the path for the connection creation commands
+func (c *Chain) SetNewPathConnection(clientID, connectionID string) error {
+	return c.setPath(&PathEnd{
+		ChainID:      c.ChainID,
+		ClientID:     clientID,
+		ConnectionID: connectionID,
+	})
+}
+
+// SetFullPath sets all of the properties on the path
+func (c *Chain) SetNewFullPath(clientID, connectionID, channelID, portID string) error {
+	return c.setPath(&PathEnd{
+		ChainID:      c.ChainID,
+		ClientID:     clientID,
+		ConnectionID: connectionID,
+		ChannelID:    channelID,
+		PortID:       portID,
+	})
+}
+
+// PathSet check if the chain has a path set
+func (c *Chain) PathSet() bool {
+	if c.PathEnd == nil {
+		return false
+	}
+	return true
+}
+
+// PathsSet checks if the chains have their paths set
+func PathsSet(chains ...*Chain) bool {
+	for _, c := range chains {
+		if !c.PathSet() {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *Chain) setPath(p *PathEnd) error {
+	err := p.Validate()
+	if err != nil {
+		return err
+	}
+	c.PathEnd = p
+	return nil
 }

@@ -58,27 +58,26 @@ echo "Starting Gaiad instances..."
 gaiad --home ibc0/n0/gaiad start > ibc0.log 2>&1 &
 gaiad --home ibc1/n0/gaiad start > ibc1.log 2>&1 & 
 
-echo "Initializing lite clients..."
-sleep 8
-relayer --home $RLY_CONF lite init ibc0 -f
-relayer --home $RLY_CONF lite init ibc1 -f
-
+echo "Set the following env to make working with the running chains easier:"
 echo 
+echo "export RLY=$RLY_CONF"
+echo "export GAIA=$GAIA_CONF"
+echo
 echo "Key Seeds for importing into gaiacli if necessary:"
 SEED0=$(jq -r '.secret' ibc0/n0/gaiacli/key_seed.json)
 SEED1=$(jq -r '.secret' ibc1/n0/gaiacli/key_seed.json)
 echo "  ibc0 -> $SEED0"
 echo "  ibc1 -> $SEED1"
 echo
-echo "Set the following env to make working with the running chains easier:"
-echo 
-echo "export RLY=$RLY_CONF"
-echo "export GAIA=$GAIA_CONF"
-echo 
 echo "NOTE: Below are account addresses for each chain. They are also validator addresses:"
 echo "  ibc0 address: $(relayer --home $RLY_CONF keys restore ibc0 testkey "$SEED0" -a)"
 echo "  ibc1 address: $(relayer --home $RLY_CONF keys restore ibc1 testkey "$SEED1" -a)"
-echo 
-echo "Example commands:"
+echo
+echo "Initializing lite clients..."
+sleep 8
+relayer --home $RLY_CONF lite init ibc0 -f
+relayer --home $RLY_CONF lite init ibc1 -f
+echo
+echo "Example gaiacli commands:"
 echo "  balance ibc0: gaiacli --home \$GAIA/ibc-testnets/ibc0/n0/gaiacli q account \$(relayer --home \$RLY keys show ibc0 testkey)"
 echo "  balance ibc1: gaiacli --home \$GAIA/ibc-testnets/ibc1/n0/gaiacli q account \$(relayer --home \$RLY keys show ibc1 testkey)"

@@ -168,7 +168,11 @@ func queryClientCmd() *cobra.Command {
 				return err
 			}
 
-			res, err := chain.QueryClientState(args[1])
+			if err = chain.SetNewPathClient(args[1]); err != nil {
+				return err
+			}
+
+			res, err := chain.QueryClientState()
 			if err != nil {
 				return err
 			}
@@ -214,12 +218,16 @@ func queryConnectionsUsingClient() *cobra.Command {
 				return err
 			}
 
+			if err := chain.SetNewPathConnection("dummy", args[1]); err != nil {
+				return err
+			}
+
 			height, err := chain.QueryLatestHeight()
 			if err != nil {
 				return err
 			}
 
-			res, err := chain.QueryConnectionsUsingClient(args[1], height)
+			res, err := chain.QueryConnectionsUsingClient(height)
 			if err != nil {
 				return err
 			}
@@ -242,12 +250,16 @@ func queryConnection() *cobra.Command {
 				return err
 			}
 
+			if err := chain.SetNewPathConnection("dummy", args[1]); err != nil {
+				return err
+			}
+
 			height, err := chain.QueryLatestHeight()
 			if err != nil {
 				return err
 			}
 
-			res, err := chain.QueryConnection(args[1], height)
+			res, err := chain.QueryConnection(height)
 			if err != nil {
 				return err
 			}
@@ -270,12 +282,16 @@ func queryChannel() *cobra.Command {
 				return err
 			}
 
+			if err = chain.SetNewFullPath("", "", args[1], args[2]); err != nil {
+				return err
+			}
+
 			height, err := chain.QueryLatestHeight()
 			if err != nil {
 				return err
 			}
 
-			res, err := chain.QueryChannel(args[1], args[2], height)
+			res, err := chain.QueryChannel(height)
 			if err != nil {
 				return err
 			}

@@ -59,13 +59,17 @@ func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, err
 }
 
 // QueryClientConsensusState retrevies the latest consensus state for a client in state at a given height
-func (c *Chain) QueryClientConsensusState(clientID string, height uint64) (clientTypes.ConsensusStateResponse, error) {
+func (c *Chain) QueryClientConsensusState(height uint64) (clientTypes.ConsensusStateResponse, error) {
 	var conStateRes clientTypes.ConsensusStateResponse
+
+	if !c.PathSet() {
+		return conStateRes, ErrPathNotSet
+	}
 
 	req := abci.RequestQuery{
 		Path:   "store/ibc/key",
 		Height: int64(height),
-		Data:   ibctypes.KeyConsensusState(clientID, height),
+		Data:   ibctypes.KeyConsensusState(c.PathEnd.ClientID, height),
 		Prove:  true,
 	}
 
@@ -79,16 +83,20 @@ func (c *Chain) QueryClientConsensusState(clientID string, height uint64) (clien
 		return conStateRes, err
 	}
 
-	return clientTypes.NewConsensusStateResponse(clientID, cs, res.Proof, res.Height), nil
+	return clientTypes.NewConsensusStateResponse(c.PathEnd.ClientID, cs, res.Proof, res.Height), nil
 }
 
 // QueryClientState retrevies the latest consensus state for a client in state at a given height
-func (c *Chain) QueryClientState(clientID string) (clientTypes.StateResponse, error) {
+func (c *Chain) QueryClientState() (clientTypes.StateResponse, error) {
 	var conStateRes clientTypes.StateResponse
+
+	if !c.PathSet() {
+		return conStateRes, ErrPathNotSet
+	}
 
 	req := abci.RequestQuery{
 		Path:  "store/ibc/key",
-		Data:  ibctypes.KeyClientState(clientID),
+		Data:  ibctypes.KeyClientState(c.PathEnd.ClientID),
 		Prove: true,
 	}
 
@@ -102,7 +110,7 @@ func (c *Chain) QueryClientState(clientID string) (clientTypes.StateResponse, er
 		return conStateRes, err
 	}
 
-	return clientTypes.NewClientStateResponse(clientID, cs, res.Proof, res.Height), nil
+	return clientTypes.NewClientStateResponse(c.PathEnd.ClientID, cs, res.Proof, res.Height), nil
 }
 
 // QueryClients queries all the clients!
@@ -128,32 +136,40 @@ func (c *Chain) QueryClients(page, limit int) ([]clientExported.ClientState, err
 }
 
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
-func (c *Chain) QueryConnectionsUsingClient(clientID string, height int64) (connTypes.ClientConnectionsResponse, error) {
+func (c *Chain) QueryConnectionsUsingClient(height int64) (clientConns connTypes.ClientConnectionsResponse, err error) {
+	if !c.PathSet() {
+		return clientConns, ErrPathNotSet
+	}
+
 	req := abci.RequestQuery{
 		Path:   "store/ibc/key",
 		Height: height,
-		Data:   ibctypes.KeyClientConnections(clientID),
+		Data:   ibctypes.KeyClientConnections(c.PathEnd.ClientID),
 		Prove:  true,
 	}
 
 	res, err := c.QueryABCI(req)
 	if err != nil {
-		return connTypes.ClientConnectionsResponse{}, err
+		return clientConns, err
 	}
 
 	var paths []string
 	if err := c.Cdc.UnmarshalBinaryLengthPrefixed(res.Value, &paths); err != nil {
-		return connTypes.ClientConnectionsResponse{}, err
+		return clientConns, err
 	}
 
-	return connTypes.NewClientConnectionsResponse(clientID, paths, res.Proof, res.Height), nil
+	return connTypes.NewClientConnectionsResponse(c.PathEnd.ClientID, paths, res.Proof, res.Height), nil
 }
 
 // QueryConnection returns the remote end of a given connection
-func (c *Chain) QueryConnection(connectionID string, height int64) (connTypes.ConnectionResponse, error) {
+func (c *Chain) QueryConnection(height int64) (connTypes.ConnectionResponse, error) {
+	if !c.PathSet() {
+		return connTypes.ConnectionResponse{}, ErrPathNotSet
+	}
+
 	req := abci.RequestQuery{
 		Path:   "store/ibc/key",
-		Data:   ibctypes.KeyConnection(connectionID),
+		Data:   ibctypes.KeyConnection(c.PathEnd.ConnectionID),
 		Height: height,
 		Prove:  true,
 	}
@@ -170,7 +186,7 @@ func (c *Chain) QueryConnection(connectionID string, height int64) (connTypes.Co
 		return connTypes.ConnectionResponse{}, err
 	}
 
-	return connTypes.NewConnectionResponse(connectionID, connection, res.Proof, res.Height), nil
+	return connTypes.NewConnectionResponse(c.PathEnd.ConnectionID, connection, res.Proof, res.Height), nil
 }
 
 // QueryChannelsUsingConnections returns all channels associated with a given set of connections
@@ -179,10 +195,14 @@ func (c *Chain) QueryChannelsUsingConnections(connections []string) ([]chanTypes
 }
 
 // QueryChannel returns the channel associated with a channelID
-func (c *Chain) QueryChannel(channelID, portID string, height int64) (chanTypes.ChannelResponse, error) {
+func (c *Chain) QueryChannel(height int64) (chanTypes.ChannelResponse, error) {
+	if !c.PathSet() {
+		return chanTypes.ChannelResponse{}, ErrPathNotSet
+	}
+
 	req := abci.RequestQuery{
 		Path:   "store/ibc/key",
-		Data:   ibctypes.KeyChannel(portID, channelID),
+		Data:   ibctypes.KeyChannel(c.PathEnd.PortID, c.PathEnd.ChannelID),
 		Height: height,
 		Prove:  true,
 	}
@@ -199,7 +219,7 @@ func (c *Chain) QueryChannel(channelID, portID string, height int64) (chanTypes.
 		return chanTypes.ChannelResponse{}, err
 	}
 
-	return chanTypes.NewChannelResponse(portID, channelID, channel, res.Proof, res.Height), nil
+	return chanTypes.NewChannelResponse(c.PathEnd.PortID, c.PathEnd.ChannelID, channel, res.Proof, res.Height), nil
 }
 
 // QueryTxs returns an array of transactions given a tag
