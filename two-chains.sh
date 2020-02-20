@@ -24,8 +24,8 @@ go build -o $GOBIN/relayer main.go
 
 echo "Generating gaia configurations..."
 cd $GAIA_CONF && mkdir ibc-testnets && cd ibc-testnets
-echo -e "\n" | gaiad testnet -o ibc0 --v 1 --chain-id ibc0 --node-dir-prefix n &> /dev/null
-echo -e "\n" | gaiad testnet -o ibc1 --v 1 --chain-id ibc1 --node-dir-prefix n &> /dev/null
+echo -e "\n" | gaiad testnet -o ibc0 --v 1 --chain-id ibc0 --node-dir-prefix n --keyring-backend test &> /dev/null
+echo -e "\n" | gaiad testnet -o ibc1 --v 1 --chain-id ibc1 --node-dir-prefix n --keyring-backend test &> /dev/null
 
 echo "Generating relayer configurations..."
 mkdir $RLY_CONF/config

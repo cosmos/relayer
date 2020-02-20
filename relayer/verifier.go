@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
 	lite "github.com/tendermint/tendermint/lite2"

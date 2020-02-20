@@ -21,8 +21,8 @@ cp $(pwd)/two-chains.yaml $RLY_CONF/config/config.yaml
 
 echo "Generating gaia configurations..."
 cd $GAIA_CONF && mkdir ibc-testnets && cd ibc-testnets
-echo -e "\n" | $GAIAD testnet -o ibc0 --v 1 --chain-id ibc0 --node-dir-prefix n
-echo -e "\n" | $GAIAD testnet -o ibc1 --v 1 --chain-id ibc1 --node-dir-prefix n
+echo -e "\n" | $GAIAD testnet -o ibc0 --v 1 --chain-id ibc0 --node-dir-prefix n --keyring-backend test
+echo -e "\n" | $GAIAD testnet -o ibc1 --v 1 --chain-id ibc1 --node-dir-prefix n --keyring-backend test
 
 sed -i 's/"leveldb"/"goleveldb"/g' ibc0/n0/gaiad/config/config.toml
 sed -i 's/"leveldb"/"goleveldb"/g' ibc1/n0/gaiad/config/config.toml

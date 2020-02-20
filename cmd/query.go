@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 )
 
 func init() {
@@ -47,7 +47,7 @@ func queryAccountCmd() *cobra.Command {
 				return err
 			}
 
-			acc, err := auth.NewAccountRetriever(chain).GetAccount(addr)
+			acc, err := auth.NewAccountRetriever(chain.Cdc, chain).GetAccount(addr)
 			if err != nil {
 				return err
 			}
@@ -168,8 +168,8 @@ func queryClientCmd() *cobra.Command {
 				return err
 			}
 
-			if err = chain.SetNewPathClient(args[1]); err != nil {
-				return err
+			if err = chain.PathClient(args[1]); err != nil {
+				return chain.ErrCantSetPath(relayer.CLNTPATH, err)
 			}
 
 			res, err := chain.QueryClientState()
@@ -218,8 +218,8 @@ func queryConnectionsUsingClient() *cobra.Command {
 				return err
 			}
 
-			if err := chain.SetNewPathConnection("dummy", args[1]); err != nil {
-				return err
+			if err := chain.PathConnection("passesvalidation", args[1]); err != nil {
+				return chain.ErrCantSetPath(relayer.CONNPATH, err)
 			}
 
 			height, err := chain.QueryLatestHeight()
@@ -250,8 +250,8 @@ func queryConnection() *cobra.Command {
 				return err
 			}
 
-			if err := chain.SetNewPathConnection("dummy", args[1]); err != nil {
-				return err
+			if err := chain.PathConnection("passesvalidation", args[1]); err != nil {
+				return chain.ErrCantSetPath(relayer.CONNPATH, err)
 			}
 
 			height, err := chain.QueryLatestHeight()
@@ -282,8 +282,8 @@ func queryChannel() *cobra.Command {
 				return err
 			}
 
-			if err = chain.SetNewFullPath("", "", args[1], args[2]); err != nil {
-				return err
+			if err = chain.PathChannel(args[1], args[2]); err != nil {
+				return chain.ErrCantSetPath(relayer.CHANPATH, err)
 			}
 
 			height, err := chain.QueryLatestHeight()

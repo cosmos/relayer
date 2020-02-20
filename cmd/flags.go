@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/spf13/cobra"
@@ -16,6 +17,7 @@ var (
 	flagURL     = "url"
 	flagForce   = "force"
 	flagFlags   = "flags"
+	flagTimeout = "timeout"
 	flagConfig  = "config"
 )
 
@@ -49,6 +51,23 @@ func addressFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagAddress, "a", false, "returns just the address of the flag, useful for scripting")
 	viper.BindPFlag(flagAddress, cmd.Flags().Lookup(flagAddress))
 	return cmd
+}
+
+func timeoutFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagTimeout, "t", "8s", "timeout between relayer runs")
+	viper.BindPFlag(flagTimeout, cmd.Flags().Lookup(flagTimeout))
+	return cmd
+}
+
+func getTimeout(cmd *cobra.Command) (out time.Duration, err error) {
+	var to string
+	if to, err = cmd.Flags().GetString(flagTimeout); err != nil {
+		return
+	}
+	if out, err = time.ParseDuration(to); err != nil {
+		return
+	}
+	return
 }
 
 // PrintOutput fmt.Printlns the json or yaml representation of whatever is passed in

@@ -3,7 +3,7 @@ package relayer
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc/20-transfer/types"
 )
 

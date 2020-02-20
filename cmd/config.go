@@ -68,7 +68,7 @@ func setChains(c *Config, home string) error {
 		chain, err := relayer.NewChain(i.Key, i.ChainID, i.RPCAddr,
 			i.AccountPrefix, i.Gas, i.GasAdjustment, i.GasPrices,
 			i.DefaultDenom, i.Memo, homePath, c.Global.LiteCacheSize,
-			i.TrustingPeriod, homeDir, cdc)
+			i.TrustingPeriod, homeDir, appCodec, cdc)
 		if err != nil {
 			return err
 		}

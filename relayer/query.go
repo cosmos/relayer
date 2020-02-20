@@ -18,8 +18,7 @@ import (
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
-	tendermint "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	commitment "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
 	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 	abci "github.com/tendermint/tendermint/abci/types"
@@ -38,21 +37,25 @@ import (
 // client in another chain, fetches latest height when passed 0 as arg
 func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, error) {
 	var (
-		commit *ctypes.ResultCommit
-		err    error
+		commit     *ctypes.ResultCommit
+		validators *ctypes.ResultValidators
+		err        error
 	)
 	if height == 0 {
 		commit, err = c.Client.Commit(nil)
+		validators, err = c.Client.Validators(nil, 1, 10000)
 	} else {
 		commit, err = c.Client.Commit(&height)
+		validators, err = c.Client.Validators(nil, 1, 10000)
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	state := &tendermint.ConsensusState{
-		Root:             commitment.NewRoot(commit.AppHash),
-		ValidatorSetHash: commit.ValidatorsHash,
+	state := &tmclient.ConsensusState{
+		Timestamp:    commit.Time,
+		Root:         commitment.NewRoot(commit.AppHash),
+		ValidatorSet: tmtypes.NewValidatorSet(validators.Validators),
 	}
 
 	return state, nil
@@ -61,9 +64,8 @@ func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, err
 // QueryClientConsensusState retrevies the latest consensus state for a client in state at a given height
 func (c *Chain) QueryClientConsensusState(height uint64) (clientTypes.ConsensusStateResponse, error) {
 	var conStateRes clientTypes.ConsensusStateResponse
-
-	if !c.PathSet() {
-		return conStateRes, ErrPathNotSet
+	if err := c.PathEnd.Validate(CLNTPATH); !c.PathSet() && err != nil {
+		return conStateRes, c.ErrPathNotSet(CLNTPATH, err)
 	}
 
 	req := abci.RequestQuery{
@@ -79,7 +81,7 @@ func (c *Chain) QueryClientConsensusState(height uint64) (clientTypes.ConsensusS
 	}
 
 	var cs exported.ConsensusState
-	if err := c.Cdc.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
+	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
 		return conStateRes, err
 	}
 
@@ -89,9 +91,8 @@ func (c *Chain) QueryClientConsensusState(height uint64) (clientTypes.ConsensusS
 // QueryClientState retrevies the latest consensus state for a client in state at a given height
 func (c *Chain) QueryClientState() (clientTypes.StateResponse, error) {
 	var conStateRes clientTypes.StateResponse
-
-	if !c.PathSet() {
-		return conStateRes, ErrPathNotSet
+	if err := c.PathEnd.Validate(CLNTPATH); !c.PathSet() && err != nil {
+		return conStateRes, c.ErrPathNotSet(CLNTPATH, err)
 	}
 
 	req := abci.RequestQuery{
@@ -106,7 +107,7 @@ func (c *Chain) QueryClientState() (clientTypes.StateResponse, error) {
 	}
 
 	var cs exported.ClientState
-	if err := c.Cdc.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
+	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
 		return conStateRes, err
 	}
 
@@ -137,8 +138,8 @@ func (c *Chain) QueryClients(page, limit int) ([]clientExported.ClientState, err
 
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
 func (c *Chain) QueryConnectionsUsingClient(height int64) (clientConns connTypes.ClientConnectionsResponse, err error) {
-	if !c.PathSet() {
-		return clientConns, ErrPathNotSet
+	if err := c.PathEnd.Validate(CLNTPATH); !c.PathSet() && err != nil {
+		return clientConns, c.ErrPathNotSet(CLNTPATH, err)
 	}
 
 	req := abci.RequestQuery{
@@ -154,7 +155,7 @@ func (c *Chain) QueryConnectionsUsingClient(height int64) (clientConns connTypes
 	}
 
 	var paths []string
-	if err := c.Cdc.UnmarshalBinaryLengthPrefixed(res.Value, &paths); err != nil {
+	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &paths); err != nil {
 		return clientConns, err
 	}
 
@@ -163,8 +164,8 @@ func (c *Chain) QueryConnectionsUsingClient(height int64) (clientConns connTypes
 
 // QueryConnection returns the remote end of a given connection
 func (c *Chain) QueryConnection(height int64) (connTypes.ConnectionResponse, error) {
-	if !c.PathSet() {
-		return connTypes.ConnectionResponse{}, ErrPathNotSet
+	if err := c.PathEnd.Validate(CONNPATH); !c.PathSet() && err != nil {
+		return connTypes.ConnectionResponse{}, c.ErrPathNotSet(CONNPATH, err)
 	}
 
 	req := abci.RequestQuery{
@@ -182,7 +183,7 @@ func (c *Chain) QueryConnection(height int64) (connTypes.ConnectionResponse, err
 	}
 
 	var connection connTypes.ConnectionEnd
-	if err := c.Cdc.UnmarshalBinaryLengthPrefixed(res.Value, &connection); err != nil {
+	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &connection); err != nil {
 		return connTypes.ConnectionResponse{}, err
 	}
 
@@ -196,8 +197,8 @@ func (c *Chain) QueryChannelsUsingConnections(connections []string) ([]chanTypes
 
 // QueryChannel returns the channel associated with a channelID
 func (c *Chain) QueryChannel(height int64) (chanTypes.ChannelResponse, error) {
-	if !c.PathSet() {
-		return chanTypes.ChannelResponse{}, ErrPathNotSet
+	if err := c.PathEnd.Validate(CHANPATH); !c.PathSet() && err != nil {
+		return chanTypes.ChannelResponse{}, c.ErrPathNotSet(CHANPATH, err)
 	}
 
 	req := abci.RequestQuery{
@@ -215,7 +216,7 @@ func (c *Chain) QueryChannel(height int64) (chanTypes.ChannelResponse, error) {
 	}
 
 	var channel chanTypes.Channel
-	if err := c.Cdc.UnmarshalBinaryLengthPrefixed(res.Value, &channel); err != nil {
+	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &channel); err != nil {
 		return chanTypes.ChannelResponse{}, err
 	}
 
@@ -448,7 +449,7 @@ func (c *Chain) formatTxResults(resTxs []*ctypes.ResultTx, resBlocks map[int64]*
 
 // formatTxResult parses a tx into a TxResponse object
 func (c *Chain) formatTxResult(resTx *ctypes.ResultTx, resBlock *ctypes.ResultBlock) (sdk.TxResponse, error) {
-	tx, err := parseTx(c.Cdc, resTx.Tx)
+	tx, err := parseTx(c.Amino, resTx.Tx)
 	if err != nil {
 		return sdk.TxResponse{}, err
 	}

@@ -1,45 +1,34 @@
 package relayer
 
 import (
-	"errors"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
-	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connState "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/exported"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	commitment "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
 )
 
 var (
-	defaultChainPrefix = commitment.NewPrefix([]byte("ibc"))
-	defaultIBCVersion  = "1.0.0"
-	defaultIBCVersions = []string{defaultIBCVersion}
+	defaultChainPrefix   = commitment.NewPrefix([]byte("ibc"))
+	defaultIBCVersion    = "1.0.0"
+	defaultIBCVersions   = []string{defaultIBCVersion}
+	defaultUnbondingTime = time.Hour * 504 // 3 weeks in hours
 )
 
 // CreateConnection creates a connection between two chains given src and dst client IDs
-func (src *Chain) CreateConnection(dst *Chain, srcClientID, dstClientID, srcConnectionID, dstConnectionID string, timeout time.Duration) error {
+func (src *Chain) CreateConnection(dst *Chain, timeout time.Duration) error {
 	ticker := time.NewTicker(timeout)
 	for ; true; <-ticker.C {
-
-		if err := src.SetNewPathConnection(srcClientID, srcConnectionID); err != nil {
-			return err
-		}
-
-		if err := dst.SetNewPathConnection(dstClientID, dstConnectionID); err != nil {
-			return err
-		}
-
 		msgs, err := src.CreateConnectionStep(dst)
 		if err != nil {
 			return err
 		}
 
-		if len(msgs.Dst) == 0 && len(msgs.Src) == 0 {
+		if !msgs.Ready() {
 			break
 		}
 
@@ -67,8 +56,12 @@ func (src *Chain) CreateConnection(dst *Chain, srcClientID, dstClientID, srcConn
 func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	out := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
-	if !PathsSet(src, dst) {
-		return nil, ErrPathNotSet
+	if err := src.PathEnd.Validate(CONNPATH); err != nil {
+		return nil, src.ErrPathNotSet(CONNPATH, err)
+	}
+
+	if err := dst.PathEnd.Validate(CONNPATH); err != nil {
+		return nil, dst.ErrPathNotSet(CONNPATH, err)
 	}
 
 	hs, err := UpdatesWithHeaders(src, dst)
@@ -125,24 +118,15 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 }
 
 // CreateChannel creates a connection between two chains given src and dst client IDs
-func (src *Chain) CreateChannel(dst *Chain, srcClientID, dstClientID, srcConnectionID, dstConnectionID,
-	srcChannelID, dstChannelID, srcPortID, dstPortID string, timeout time.Duration, ordering chanState.Order) error {
+func (src *Chain) CreateChannel(dst *Chain, timeout time.Duration, ordering chanState.Order) error {
 	ticker := time.NewTicker(timeout)
 	for ; true; <-ticker.C {
-		if err := src.SetNewFullPath(srcClientID, srcConnectionID, srcChannelID, srcPortID); err != nil {
-			return err
-		}
-
-		if err := dst.SetNewFullPath(dstClientID, dstConnectionID, dstChannelID, dstPortID); err != nil {
-			return err
-		}
-
 		msgs, err := src.CreateChannelStep(dst, ordering)
 		if err != nil {
 			return err
 		}
 
-		if len(msgs.Dst) == 0 && len(msgs.Src) == 0 {
+		if !msgs.Ready() {
 			break
 		}
 
@@ -164,16 +148,18 @@ func (src *Chain) CreateChannel(dst *Chain, srcClientID, dstClientID, srcConnect
 	return nil
 }
 
-var ErrPathNotSet = errors.New("Paths on chains not set")
-
 // CreateChannelStep returns the next set of messages for creating a channel with given
 // identifiers between chains src and dst. If the handshake hasn't started, then CreateChannelStep
 // will begin the handshake on the src chain
 func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*RelayMsgs, error) {
 	out := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
-	if !PathsSet(src, dst) {
-		return nil, ErrPathNotSet
+	if err := src.PathEnd.Validate(FULLPATH); err != nil {
+		return nil, src.ErrPathNotSet(FULLPATH, err)
+	}
+
+	if err := dst.PathEnd.Validate(FULLPATH); err != nil {
+		return nil, dst.ErrPathNotSet(FULLPATH, err)
 	}
 
 	hs, err := UpdatesWithHeaders(src, dst)
@@ -230,13 +216,14 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 }
 
 // UpdateClient creates an sdk.Msg to update the client on c with data pulled from cp
-func (c *Chain) UpdateClient(dstHeader *tmclient.Header) clientTypes.MsgUpdateClient {
-	return clientTypes.NewMsgUpdateClient(c.PathEnd.ClientID, dstHeader, c.MustGetAddress())
+func (c *Chain) UpdateClient(dstHeader *tmclient.Header) sdk.Msg {
+	return tmclient.NewMsgUpdateClient(c.PathEnd.ClientID, *dstHeader, c.MustGetAddress())
 }
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (c *Chain) CreateClient(dstHeader *tmclient.Header) clientTypes.MsgCreateClient {
-	return clientTypes.NewMsgCreateClient(c.PathEnd.ClientID, clientExported.ClientTypeTendermint, dstHeader.ConsensusState(), c.MustGetAddress())
+func (c *Chain) CreateClient(dstHeader *tmclient.Header) sdk.Msg {
+	// TODO: figure out how to dynmaically set unbonding time
+	return tmclient.NewMsgCreateClient(c.PathEnd.ClientID, c.PathEnd.ChainID, dstHeader.ConsensusState(), c.TrustingPeriod, defaultUnbondingTime, c.MustGetAddress())
 }
 
 // ConnInit creates a MsgConnectionOpenInit
@@ -261,7 +248,7 @@ func (c *Chain) ConnConfirm(dstConnState connTypes.ConnectionResponse, srcHeight
 
 // ChanInit creates a MsgChannelOpenInit
 func (c *Chain) ChanInit(dst *Chain, ordering chanState.Order) sdk.Msg {
-	return chanTypes.NewMsgChannelOpenInit(c.PathEnd.PortID, c.PathEnd.ChannelID, defaultIBCVersion, ordering, []string{c.PathEnd.ConnectionID}, dst.PathEnd.PortID, dst.PathEnd.ChannelID, c.MustGetAddress())
+	return chanTypes.NewMsgChannelOpenInit(c.PathEnd.PortID, c.PathEnd.ChannelID, defaultIBCVersion, ordering, []string{c.PathEnd.ConnectionID, dst.PathEnd.ConnectionID}, dst.PathEnd.PortID, dst.PathEnd.ChannelID, c.MustGetAddress())
 }
 
 // ChanTry creates a MsgChannelOpenTry
