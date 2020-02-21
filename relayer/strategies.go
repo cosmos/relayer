@@ -3,8 +3,8 @@ package relayer
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
+	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
-	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc/20-transfer/types"
 )
 
 // TODO: Figure out a better way to deal with these
@@ -149,7 +149,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 			for _, tx := range srcRes.Txs {
 				for _, msg := range tx.Tx.GetMsgs() {
 					if msg.Type() == "transfer" {
-						out.Dst = append(out.Dst, xferTypes.MsgRecvPacket{})
+						out.Dst = append(out.Dst, chanTypes.MsgPacket{})
 					}
 				}
 			}
@@ -164,7 +164,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 			for _, tx := range dstRes.Txs {
 				for _, msg := range tx.Tx.GetMsgs() {
 					if msg.Type() == "recv_packet" {
-						out.Dst = append(out.Dst, xferTypes.MsgRecvPacket{})
+						out.Dst = append(out.Dst, chanTypes.MsgPacket{})
 					}
 				}
 			}

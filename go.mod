@@ -3,7 +3,7 @@ module github.com/cosmos/relayer
 go 1.13
 
 require (
-	github.com/cosmos/cosmos-sdk v0.34.4-0.20200219193425-54b64d053aff
+	github.com/cosmos/cosmos-sdk v0.34.4-0.20200221172550-c3bb6967d9f1
 	github.com/cosmos/go-bip39 v0.0.0-20180819234021-555e2067c45d
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/viper v1.6.2
