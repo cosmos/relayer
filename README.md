@@ -74,3 +74,12 @@ $ relayer --home $RLY q channel ibc1 ibczerochan bank
  chain exist and default to using those first before deciding to create its own.
  It should also create as many of the primatives as possible to random or generated 
  identifiers (hash of chain-ids or chainid-$(rand)).
+
+ ## Setting up Developer Environment
+
+ Working with the relayer can frequently involve working with local developement branches of `gaia`, `cosmos-sdk` and the `relayer`. To setup your environment to point at the local versions of the code and reduce the amount of time in your read-eval-print loops try the following:
+
+ 1. Set `replace github.com/cosmos/cosmos-sdk => /path/to/local/github.com/comsos/cosmos-sdk` at the end of the `go.mod` files for the `relayer` and `gaia`. This will force building from the local versions when running the `./two-chains.sh` script.
+ 2. After `./two-chains.sh` has run, use `go run main.go --home $RLY` for any relayer commands you are working on. This allows you make changes and immediately test them as long as there are no server side changes. 
+ 3. If you make changes in `cosmos-sdk` that need to be reflected server-side, be sure to re-run `./two-chains.sh`.
+ 4. If you need to work off of a `gaia` branch other than `ibc-alpha`, change the branch name at the top of the `./two-chains.sh` script. 
