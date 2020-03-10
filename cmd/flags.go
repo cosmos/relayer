@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
@@ -19,6 +21,7 @@ var (
 	flagFlags   = "flags"
 	flagTimeout = "timeout"
 	flagConfig  = "config"
+	flagPrintTx = "print-tx"
 )
 
 func liteFlags(cmd *cobra.Command) *cobra.Command {
@@ -39,6 +42,12 @@ func paginationFlags(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
+func transactionFlags(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP(flagPrintTx, "p", false, "pass flag to print transactions before sending")
+	viper.BindPFlag(flagPrintTx, cmd.Flags().Lookup(flagPrintTx))
+	return outputFlags(cmd)
+}
+
 func outputFlags(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagText, "t", false, "pass flag to force text output")
 	cmd.Flags().BoolP(flags.FlagIndentResponse, "i", false, "indent json output")
@@ -54,7 +63,7 @@ func addressFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func timeoutFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagTimeout, "t", "8s", "timeout between relayer runs")
+	cmd.Flags().StringP(flagTimeout, "o", "8s", "timeout between relayer runs")
 	viper.BindPFlag(flagTimeout, cmd.Flags().Lookup(flagTimeout))
 	return cmd
 }
@@ -79,11 +88,11 @@ func PrintOutput(toPrint interface{}, cmd *cobra.Command) error {
 		text, indent bool
 	)
 
-	text, err = cmd.Flags().GetBool("text")
+	text, err = cmd.Flags().GetBool(flagText)
 	if err != nil {
 		return err
 	}
-	indent, err = cmd.Flags().GetBool("indent")
+	indent, err = cmd.Flags().GetBool(flags.FlagIndentResponse)
 	if err != nil {
 		return err
 	}
@@ -103,4 +112,35 @@ func PrintOutput(toPrint interface{}, cmd *cobra.Command) error {
 
 	fmt.Println(string(out))
 	return nil
+}
+
+// PrintTxs prints transactions prior to sending if the flag has been passed in
+func PrintTxs(toPrint interface{}, cmd *cobra.Command) error {
+	print, err := cmd.Flags().GetBool(flagPrintTx)
+	if err != nil {
+		return err
+	}
+
+	if print {
+		err = PrintOutput(toPrint, cmd)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// SendAndPrint sends the transaction with printing options from the CLI
+func SendAndPrint(txs []sdk.Msg, chain *relayer.Chain, cmd *cobra.Command) (err error) {
+	if err = PrintTxs(txs, cmd); err != nil {
+		return err
+	}
+
+	res, err := chain.SendMsgs(txs)
+	if err != nil {
+		return err
+	}
+
+	return PrintOutput(res, cmd)
 }

@@ -38,9 +38,9 @@ type RelayMsgs struct {
 // Ready returns true if there are messages to relay
 func (r *RelayMsgs) Ready() bool {
 	if len(r.Src) == 0 && len(r.Dst) == 0 {
-		return true
+		return false
 	}
-	return false
+	return true
 }
 
 // NaiveRelayStrategy returns the RelayMsgs that need to be run to relay between
@@ -56,7 +56,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 
 	// ICS2 : Clients - DstClient
 	// Fetch current client state
-	srcClientState, err := src.QueryClientConsensusState(uint64(hs[src.ChainID].Height))
+	srcClientState, err := src.QueryClientConsensusState(hs[src.ChainID].Height, hs[dst.ChainID].Height)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 		out.Src = append(out.Src, src.UpdateClient(hs[dst.ChainID]))
 	}
 
-	dstClientState, err := dst.QueryClientConsensusState(uint64(hs[dst.ChainID].Height))
+	dstClientState, err := dst.QueryClientConsensusState(hs[dst.ChainID].Height, hs[src.ChainID].Height)
 	if err != nil {
 		return nil, err
 	}

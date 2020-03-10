@@ -19,7 +19,7 @@ import (
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
-	commitment "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
+	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
 	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 	abci "github.com/tendermint/tendermint/abci/types"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
@@ -54,7 +54,7 @@ func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, err
 
 	state := &tmclient.ConsensusState{
 		Timestamp:    commit.Time,
-		Root:         commitment.NewRoot(commit.AppHash),
+		Root:         commitmenttypes.NewMerkleRoot(commit.AppHash),
 		ValidatorSet: tmtypes.NewValidatorSet(validators.Validators),
 	}
 
@@ -62,7 +62,8 @@ func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, err
 }
 
 // QueryClientConsensusState retrevies the latest consensus state for a client in state at a given height
-func (c *Chain) QueryClientConsensusState(height uint64) (clientTypes.ConsensusStateResponse, error) {
+// NOTE: dstHeight is the height from dst that is stored on src, it is needed to construct the appropriate store query
+func (c *Chain) QueryClientConsensusState(srcHeight, dstHeight int64) (clientTypes.ConsensusStateResponse, error) {
 	var conStateRes clientTypes.ConsensusStateResponse
 	if err := c.PathEnd.Validate(CLNTPATH); !c.PathSet() && err != nil {
 		return conStateRes, c.ErrPathNotSet(CLNTPATH, err)
@@ -70,8 +71,8 @@ func (c *Chain) QueryClientConsensusState(height uint64) (clientTypes.ConsensusS
 
 	req := abci.RequestQuery{
 		Path:   "store/ibc/key",
-		Height: int64(height),
-		Data:   ibctypes.KeyConsensusState(c.PathEnd.ClientID, height),
+		Height: int64(srcHeight),
+		Data:   ibctypes.KeyConsensusState(c.PathEnd.ClientID, uint64(dstHeight)),
 		Prove:  true,
 	}
 
@@ -324,7 +325,7 @@ type heights struct {
 func (h *heights) err() error {
 	var out error
 	for _, err := range h.Errs {
-		out = fmt.Errorf("err: %w\n", err)
+		out = fmt.Errorf("err: %w ", err)
 	}
 	return out
 }
@@ -333,6 +334,7 @@ func (h *heights) out() map[string]int64 {
 	return h.Map
 }
 
+// QueryLatestHeights returns the heights of multiple chains at once
 func QueryLatestHeights(chains ...*Chain) (map[string]int64, error) {
 	hs := &heights{Map: make(map[string]int64), Errs: []error{}}
 	var wg sync.WaitGroup

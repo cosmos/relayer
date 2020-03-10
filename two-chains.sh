@@ -55,8 +55,8 @@ gaiacli config --home ibc0/n0/gaiacli/ node http://localhost:26657 &> /dev/null
 gaiacli config --home ibc1/n0/gaiacli/ node http://localhost:26557 &> /dev/null
 
 echo "Starting Gaiad instances..."
-gaiad --home ibc0/n0/gaiad start > ibc0.log 2>&1 &
-gaiad --home ibc1/n0/gaiad start > ibc1.log 2>&1 & 
+gaiad --home ibc0/n0/gaiad start --pruning=nothing > ibc0.log 2>&1 &
+gaiad --home ibc1/n0/gaiad start --pruning=nothing > ibc1.log 2>&1 & 
 
 echo "Set the following env to make working with the running chains easier:"
 echo 
@@ -77,7 +77,22 @@ echo "Initializing lite clients..."
 sleep 8
 relayer --home $RLY_CONF lite init ibc0 -f
 relayer --home $RLY_CONF lite init ibc1 -f
+echo "Creating client ibconeclient for ibc1 on ibc0 and ibconzeroclient for ibc0 on ibc1..."
+sleep 5
+relayer --home $RLY_CONF tx client ibc0 ibc1 ibconeclient
+relayer --home $RLY_CONF tx client ibc1 ibc0 ibczeroclient
 echo
-echo "Example gaiacli commands:"
-echo "  balance ibc0: gaiacli --home \$GAIA/ibc-testnets/ibc0/n0/gaiacli q account \$(relayer --home \$RLY keys show ibc0 testkey)"
-echo "  balance ibc1: gaiacli --home \$GAIA/ibc-testnets/ibc1/n0/gaiacli q account \$(relayer --home \$RLY keys show ibc1 testkey)"
+echo "Updating clients ibconeclient and ibczeroclient..."
+sleep 5
+relayer --home $RLY_CONF tx update-client ibc0 ibc1 ibconeclient
+relayer --home $RLY_CONF tx update-client ibc1 ibc0 ibczeroclient
+echo
+echo "Create connection raw"
+sleep 5
+relayer --home $RLY_CONF tx raw conn-init ibc0 ibc1 ibconeclient ibczeroclient connectionidtest connectionidtest
+sleep 5
+relayer --home $RLY_CONF tx raw conn-try ibc1 ibc0 ibczeroclient ibconeclient connectionidtest connectionidtest
+sleep 5
+relayer --home $RLY_CONF tx raw conn-ack ibc0 ibc1 ibconeclient ibczeroclient connectionidtest connectionidtest
+sleep 5
+relayer --home $RLY_CONF tx raw conn-confirm ibc1 ibc0 ibczeroclient ibconeclient connectionidtest connectionidtest

@@ -6,6 +6,7 @@ import (
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
 )
 
+// Paths represent connection paths between chains
 type Paths []Path
 
 // Path represents a pair of chains and the identifiers needed to
@@ -29,19 +30,19 @@ type PathEnd struct {
 	PortID       string `yaml:"port-id,omitempty" json:"port-id,omitempty"`
 }
 
-func (p *PathEnd) validateClient() error {
+func (p *PathEnd) vclient() error {
 	return host.DefaultClientIdentifierValidator(p.ClientID)
 }
 
-func (p *PathEnd) validateConnection() error {
+func (p *PathEnd) vconn() error {
 	return host.DefaultConnectionIdentifierValidator(p.ConnectionID)
 }
 
-func (p *PathEnd) validateChannel() error {
+func (p *PathEnd) vchan() error {
 	return host.DefaultChannelIdentifierValidator(p.ChannelID)
 }
 
-func (p *PathEnd) validatePort() error {
+func (p *PathEnd) vport() error {
 	return host.DefaultPortIdentifierValidator(p.PortID)
 }
 
@@ -53,10 +54,19 @@ func (p PathEnd) String() string {
 type pathType byte
 
 const (
+	// CLNTPATH sets chainID + clientID
 	CLNTPATH pathType = iota
+
+	// CONNPATH sets CLNTPATH + connectionID
 	CONNPATH
+
+	// CHANPATH sets channelID + portID
 	CHANPATH
+
+	// CLNTCHANPATH sets CLNTPATH + CHANPATH
 	CLNTCHANPATH
+
+	// FULLPATH sets all fields
 	FULLPATH
 )
 
@@ -97,6 +107,7 @@ func (c *Chain) PathConnection(clientID, connectionID string) error {
 // PathChannel used to set the path for the channel creation commands
 func (c *Chain) PathChannel(channelID, portID string) error {
 	return c.setPath(&PathEnd{
+		ChainID:   c.ChainID,
 		ChannelID: channelID,
 		PortID:    portID,
 	}, CHANPATH)
@@ -105,13 +116,14 @@ func (c *Chain) PathChannel(channelID, portID string) error {
 // PathChannelClient used to set the path for channel and client commands
 func (c *Chain) PathChannelClient(clientID, channelID, portID string) error {
 	return c.setPath(&PathEnd{
+		ChainID:   c.ChainID,
 		ClientID:  clientID,
 		ChannelID: channelID,
 		PortID:    portID,
 	}, CLNTCHANPATH)
 }
 
-// SetFULLPATh sets all of the properties on the path
+// FullPath sets all of the properties on the path
 func (c *Chain) FullPath(clientID, connectionID, channelID, portID string) error {
 	return c.setPath(&PathEnd{
 		ChainID:      c.ChainID,
@@ -140,6 +152,7 @@ func PathsSet(chains ...*Chain) bool {
 	return true
 }
 
+// setPath sets the path and validates the identifiers
 func (c *Chain) setPath(p *PathEnd, t pathType) error {
 	err := p.Validate(t)
 	if err != nil {
@@ -149,52 +162,54 @@ func (c *Chain) setPath(p *PathEnd, t pathType) error {
 	return nil
 }
 
+// Validate returns errors about invalid identifiers as well as
+// unset path variables for the appropriate type
 func (p *PathEnd) Validate(t pathType) error {
 	// TODO: validate chain ID here too?
 	switch t {
 	case CLNTPATH:
-		if err := p.validateClient(); err != nil {
+		if err := p.vclient(); err != nil {
 			return err
 		}
 		return nil
 	case CONNPATH:
-		if err := p.validateClient(); err != nil {
+		if err := p.vclient(); err != nil {
 			return err
 		}
-		if err := p.validateConnection(); err != nil {
+		if err := p.vconn(); err != nil {
 			return err
 		}
 		return nil
 	case CHANPATH:
-		if err := p.validateChannel(); err != nil {
+		if err := p.vchan(); err != nil {
 			return err
 		}
-		if err := p.validatePort(); err != nil {
+		if err := p.vport(); err != nil {
 			return err
 		}
 		return nil
 	case CLNTCHANPATH:
-		if err := p.validateClient(); err != nil {
+		if err := p.vclient(); err != nil {
 			return err
 		}
-		if err := p.validateChannel(); err != nil {
+		if err := p.vchan(); err != nil {
 			return err
 		}
-		if err := p.validatePort(); err != nil {
+		if err := p.vport(); err != nil {
 			return err
 		}
 		return nil
 	case FULLPATH:
-		if err := p.validateClient(); err != nil {
+		if err := p.vclient(); err != nil {
 			return err
 		}
-		if err := p.validateConnection(); err != nil {
+		if err := p.vconn(); err != nil {
 			return err
 		}
-		if err := p.validateChannel(); err != nil {
+		if err := p.vchan(); err != nil {
 			return err
 		}
-		if err := p.validatePort(); err != nil {
+		if err := p.vport(); err != nil {
 			return err
 		}
 		return nil
@@ -203,11 +218,12 @@ func (p *PathEnd) Validate(t pathType) error {
 	}
 }
 
-// ErrorPathNotSet returns information what identifiers are needed to relay
+// ErrPathNotSet returns information what identifiers are needed to relay
 func (c *Chain) ErrPathNotSet(t pathType, err error) error {
 	return fmt.Errorf("Path of type %s on chain %s not set: %w", t.String(), c.ChainID, err)
 }
 
+// ErrCantSetPath returns an error if the path doesn't set properly
 func (c *Chain) ErrCantSetPath(t pathType, err error) error {
 	return fmt.Errorf("Path of type %s on chain %s failed to set: %w", t.String(), c.ChainID, err)
 }

@@ -2,14 +2,15 @@ package relayer
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/context"
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	aminocodec "github.com/cosmos/cosmos-sdk/codec"
+	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
-	"github.com/cosmos/cosmos-sdk/simapp/codec"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/tendermint/tendermint/libs/log"
 
@@ -22,7 +23,7 @@ import (
 // and blocks running the app if NewChain does this by default.
 func NewChain(key, chainID, rpcAddr, accPrefix string, gas uint64, gasAdj float64,
 	gasPrices, defaultDenom, memo, homePath string, liteCacheSize int, trustingPeriod,
-	dir string, cdc *codec.Codec, amino *aminocodec.Codec) (*Chain, error) {
+	dir string, cdc *codecstd.Codec, amino *aminocodec.Codec) (*Chain, error) {
 	keybase, err := keys.NewKeyring(chainID, "test", keysDir(homePath), nil)
 	if err != nil {
 		return &Chain{}, err
@@ -38,10 +39,6 @@ func NewChain(key, chainID, rpcAddr, accPrefix string, gas uint64, gasAdj float6
 		return &Chain{}, err
 	}
 
-	// cdc := codec.MakeCodec(simapp.ModuleBasics)
-
-	// appCodec := codec.NewAppCodec(cdc)
-
 	tp, err := time.ParseDuration(trustingPeriod)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse duration (%s) for chain %s", trustingPeriod, chainID)
@@ -50,7 +47,7 @@ func NewChain(key, chainID, rpcAddr, accPrefix string, gas uint64, gasAdj float6
 	return &Chain{
 		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Gas: gas,
 		GasAdjustment: gasAdj, GasPrices: gp, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase,
-		Client: client, Cdc: cdc, Amino: amino, TrustingPeriod: tp, HomePath: homePath}, nil
+		Client: client, Cdc: cdc, Amino: amino, TrustingPeriod: tp, HomePath: homePath, logger: log.NewTMLogger(os.Stdout)}, nil
 }
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
@@ -70,7 +67,7 @@ type Chain struct {
 
 	Keybase keys.Keybase
 	Client  *rpcclient.HTTP
-	Cdc     *codec.Codec
+	Cdc     *codecstd.Codec
 	Amino   *aminocodec.Codec
 
 	address sdk.AccAddress
@@ -155,4 +152,8 @@ func (c *Chain) MustGetAddress() sdk.AccAddress {
 		panic(err)
 	}
 	return srcAddr.GetAddress()
+}
+
+func (c *Chain) String() string {
+	return c.ChainID
 }

@@ -22,9 +22,9 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/codec"
+	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
 	"github.com/cosmos/cosmos-sdk/simapp"
-	simappcodec "github.com/cosmos/cosmos-sdk/simapp/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	authvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting"
@@ -40,7 +40,7 @@ var (
 	config      *Config
 	defaultHome = os.ExpandEnv("$HOME/.relayer")
 	cdc         *codec.Codec
-	appCodec    *simappcodec.Codec
+	appCodec    *codecstd.Codec
 )
 
 func init() {
@@ -64,9 +64,9 @@ func init() {
 
 	// This is a bit of a cheat :shushing_face:
 	// TODO: Remove cdc in favor of appCodec once all modules are migrated.
-	cdc = simappcodec.MakeCodec(simapp.ModuleBasics)
+	cdc = codecstd.MakeCodec(simapp.ModuleBasics)
 
-	appCodec = simappcodec.NewAppCodec(cdc)
+	appCodec = codecstd.NewAppCodec(cdc)
 
 	cdc = codec.New()
 	sdk.RegisterCodec(cdc)

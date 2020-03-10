@@ -218,7 +218,7 @@ func queryConnectionsUsingClient() *cobra.Command {
 				return err
 			}
 
-			if err := chain.PathConnection("passesvalidation", args[1]); err != nil {
+			if err := chain.PathConnection(args[1], "passesvalidation"); err != nil {
 				return chain.ErrCantSetPath(relayer.CONNPATH, err)
 			}
 
@@ -232,7 +232,7 @@ func queryConnectionsUsingClient() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(res, cmd)
+			return PrintOutput(res.ConnectionPaths, cmd)
 		},
 	}
 
