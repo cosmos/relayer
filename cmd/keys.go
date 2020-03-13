@@ -156,11 +156,15 @@ func keysListCmd() *cobra.Command {
 				return err
 			}
 
-			return chain.PrintOutput(info, cmd)
+			for d, i := range info {
+				fmt.Printf("key(%d): %s -> %s\n", d, i.GetName(), i.GetAddress().String())
+			}
+
+			return nil
 		},
 	}
 
-	return outputFlags(cmd)
+	return cmd
 }
 
 // keysShowCmd respresents the `keys show` command
