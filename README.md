@@ -12,74 +12,51 @@ The current implementation status is below. To test the functionality that does 
 > NOTE: The relayer relies on `cosmos/cosmos-sdk@ibc-alpha` and `tendermint/tendermint@v0.33.0-dev2`. If you run into problems building it likely related to those dependancies. Also the `two-chains.sh` script requires that the `cosmos/gaia` and `cosmos/relayer` repos be present locally and buildable. Read the script and change the paths as needed.
 
 ```bash
+# two-chains.sh creates two gaia-based chains with data directories in this 
 $ ./two-chains.sh
-# NOTE: Follow the ouput instructions and set $RLY and $GAIA
 
-# First, initialize the lite clients locally for each chain
-$ relayer --home $RLY lite init ibc0 -f
-$ relayer --home $RLY lite init ibc1 -f
+# First initialize your configuration for the relayer
+$ relayer config init
 
-# If you would like to see the folder structure of the relayer
-# try running `tree $RLY`
+# NOTE: you may want to look at the config between these steps to see
+# what is added in each step. The config is located at ~/.relayer/config/config.yaml
+$ cat ~/.relayer/config/config.yaml
 
-# Now you can create the clients for each chain on their counterparties
-$ relayer --home $RLY tx clients ibc0 ibc1 ibconeclient ibczeroclient
+# Then add the chains and paths that you will need to work with the 
+# gaia chains spun up by the two-chains script
+$ relayer chains add -f demo/ibc0.json
+$ relayer chains add -f demo/ibc1.json
 
-# Then query them for more info:
-$ relayer --home $RLY q clients ibc0
-$ relayer --home $RLY q client ibc0 ibconeclient
-$ relayer --home $RLY q clients ibc1
-$ relayer --home $RLY q client ibc1 ibczeroclient
+$ cat ~/.relayer/config/config.yaml
 
-# NOTE: The following are unimplemented commands
-# Next create a connection
-$ relayer --home $RLY tx connection ibc0 ibc1 ibconeclient ibczeroclient ibconeconn ibczeroconn
+# To finalize your config, add a path between the two chains
+$ relayer paths add -f demo/path.json
 
-# Now you can query for the connection
-$ relayer --home $RLY q connections ibc0
-$ relayer --home $RLY q connection ibc0 ibconeconn
-$ relayer --home $RLY q connections ibc1
-$ relayer --home $RLY q connection ibc1 ibczeroconn
+# Now, add the key seeds from each chain to the relayer to give it funds to work with
+$ relayer keys restore ibc0 testkey "$(jq -r '.secret' data/ibc0/n0/gaiacli/key_seed.json)" -a
+$ relayer keys restore ibc1 testkey "$(jq -r '.secret' data/ibc1/n0/gaiacli/key_seed.json)" -a
 
-# Next  create a channel
-$ relayer --home $RLY tx channel ibc0 ibc1 ibconeconn ibczeroconn ibconchan ibczerochan bank bank
+# Then its time to initialize the relayer's lite clients for each chain
+# All data moving forward is validated by these lite clients.
+$ relayer lite init ibc0 -f
+$ relayer lite init ibc1 -f
 
-# Now you can to query for the channel
-$ relayer --home $RLY q channels ibc0
-$ relayer --home $RLY q channel ibc0 ibconechan bank
-$ relayer --home $RLY q channels ibc1
-$ relayer --home $RLY q channel ibc1 ibczerochan bank
+# At this point the relayer --home directory is ready for normal operations between 
+# ibc0 and ibc1. Looking at the folder structure of the relayer at this point is helpful
+$ tree ~/.relayer
 
-# TODO: figure out the commands to flush and send packets from chain to chain
+# Now you can connect the two chains with one command:
+$ relayer tx full-path ibc0 ibc1
+
+# Then you can test sending a packet from ibc0 to ibc1
+$ relayer tx raw xfer ibc0 ibc1
 ```
-### Current Work:
 
-- [ ] `query` - https://github.com/cosmos/relayer/issues/19
-- [ ] `start` - https://github.com/cosmos/relayer/issues/21
-- [ ] `transactions`- https://github.com/cosmos/relayer/issues/10
+## Setting up Developer Environment
 
-### Notes:
+Working with the relayer can frequently involve working with local developement branches of `gaia`, `cosmos-sdk` and the `relayer`. To setup your environment to point at the local versions of the code and reduce the amount of time in your read-eval-print loops try the following:
 
-- Relayers should gracefully handle `ErrInsufficentFunds` when/if accounts run
-  out of funds
-    * _Stretch_: Relayer should notify a configurable endpoint when it hits
-      `ErrInsufficentFunds`
-
-### Open Questions
-
-- Do we want to force users to name their `ibc.Client`s, `ibc.Connection`s,
- `ibc.Channel`s and `ibc.Port`s? Can we use randomly generated identifiers
- instead? The current build of the relayer only works this way, and it will end up requiring
- quite a bit of user input. The relayer should query to ensure primatives for a counterparty
- chain exist and default to using those first before deciding to create its own.
- It should also create as many of the primatives as possible to random or generated 
- identifiers (hash of chain-ids or chainid-$(rand)).
-
- ## Setting up Developer Environment
-
- Working with the relayer can frequently involve working with local developement branches of `gaia`, `cosmos-sdk` and the `relayer`. To setup your environment to point at the local versions of the code and reduce the amount of time in your read-eval-print loops try the following:
-
- 1. Set `replace github.com/cosmos/cosmos-sdk => /path/to/local/github.com/comsos/cosmos-sdk` at the end of the `go.mod` files for the `relayer` and `gaia`. This will force building from the local versions when running the `./two-chains.sh` script.
- 2. After `./two-chains.sh` has run, use `go run main.go --home $RLY` for any relayer commands you are working on. This allows you make changes and immediately test them as long as there are no server side changes. 
- 3. If you make changes in `cosmos-sdk` that need to be reflected server-side, be sure to re-run `./two-chains.sh`.
- 4. If you need to work off of a `gaia` branch other than `ibc-alpha`, change the branch name at the top of the `./two-chains.sh` script. 
+1. Set `replace github.com/cosmos/cosmos-sdk => /path/to/local/github.com/comsos/cosmos-sdk` at the end of the `go.mod` files for the `relayer` and `gaia`. This will force building from the local versions when running the `./two-chains.sh` script.
+2. After `./two-chains.sh` has run, use `go run main.go --home $RLY` for any relayer commands you are working on. This allows you make changes and immediately test them as long as there are no server side changes. 
+3. If you make changes in `cosmos-sdk` that need to be reflected server-side, be sure to re-run `./two-chains.sh`.
+4. If you need to work off of a `gaia` branch other than `ibc-alpha`, change the branch name at the top of the `./two-chains.sh` script. 

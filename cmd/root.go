@@ -16,22 +16,17 @@ limitations under the License.
 package cmd
 
 import (
-	"encoding/json"
+	"bufio"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
-	"github.com/cosmos/cosmos-sdk/crypto/keys"
 	"github.com/cosmos/cosmos-sdk/simapp"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/auth"
-	authvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting"
-	"github.com/cosmos/cosmos-sdk/x/ibc"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -56,83 +51,21 @@ func init() {
 		keysCmd,
 		queryCmd,
 		startCmd,
-		transactionCmd,
+		transactionCmd(),
 		chainsCmd(),
-		pathsCommand(),
+		pathsCmd(),
 		configCmd(),
 	)
 
 	// This is a bit of a cheat :shushing_face:
-	// TODO: Remove cdc in favor of appCodec once all modules are migrated.
 	cdc = codecstd.MakeCodec(simapp.ModuleBasics)
-
 	appCodec = codecstd.NewAppCodec(cdc)
-
-	cdc = codec.New()
-	sdk.RegisterCodec(cdc)
-	codec.RegisterCrypto(cdc)
-	codec.RegisterEvidences(cdc)
-	authvesting.RegisterCodec(cdc)
-	auth.RegisterCodec(cdc)
-	keys.RegisterCodec(cdc)
-	ibc.AppModuleBasic{}.RegisterCodec(cdc)
-	cdc.Seal()
-
 }
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "relayer",
 	Short: "This application relays data between configured IBC enabled chains",
-}
-
-func configCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "config",
-		Short: "Returns configuration data",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			out, err := yaml.Marshal(config)
-			if err != nil {
-				return err
-			}
-
-			fmt.Println(string(out))
-			return nil
-		},
-	}
-
-	return cmd
-}
-
-func chainsCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "chains",
-		Short: "Returns chain configuration data",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			out, err := json.Marshal(config.Chains)
-			if err != nil {
-				return err
-			}
-
-			return PrintOutput(out, cmd)
-		},
-	}
-
-	return outputFlags(cmd)
-}
-
-func pathsCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "paths",
-		Short: "print out configured paths with direction",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			for _, p := range config.Paths {
-				fmt.Println(p.String())
-			}
-			return nil
-		},
-	}
-	return cmd
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -147,4 +80,10 @@ func Execute() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+// readLineFromBuf reads one line from stdin.
+func readStdin() (string, error) {
+	str, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	return strings.TrimSpace(str), err
 }

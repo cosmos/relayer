@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -9,7 +8,7 @@ import (
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"gopkg.in/yaml.v2"
+	rpcclient "github.com/tendermint/tendermint/rpc/client"
 )
 
 var (
@@ -22,6 +21,8 @@ var (
 	flagTimeout = "timeout"
 	flagConfig  = "config"
 	flagPrintTx = "print-tx"
+	flagJSON    = "json"
+	flagFile    = "file"
 )
 
 func liteFlags(cmd *cobra.Command) *cobra.Command {
@@ -62,8 +63,20 @@ func addressFlag(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
+func jsonFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Bool(flagJSON, false, "returns the response in json format")
+	viper.BindPFlag(flagJSON, cmd.Flags().Lookup(flagJSON))
+	return cmd
+}
+
+func fileFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagFile, "f", "", "fetch json data from specified file")
+	viper.BindPFlag(flagFile, cmd.Flags().Lookup(flagFile))
+	return cmd
+}
+
 func timeoutFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagTimeout, "o", "8s", "timeout between relayer runs")
+	cmd.Flags().StringP(flagTimeout, "o", "10s", "timeout between relayer runs")
 	viper.BindPFlag(flagTimeout, cmd.Flags().Lookup(flagTimeout))
 	return cmd
 }
@@ -79,50 +92,33 @@ func getTimeout(cmd *cobra.Command) (out time.Duration, err error) {
 	return
 }
 
-// PrintOutput fmt.Printlns the json or yaml representation of whatever is passed in
-// CONTRACT: The cmd calling this function needs to have the "json" and "indent" flags set
-func PrintOutput(toPrint interface{}, cmd *cobra.Command) error {
-	var (
-		out          []byte
-		err          error
-		text, indent bool
-	)
+func urlFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagURL, "u", "", "url to fecth data from")
+	viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL))
+	return cmd
+}
 
-	text, err = cmd.Flags().GetBool(flagText)
-	if err != nil {
-		return err
+func getURL(cmd *cobra.Command) (out string, err error) {
+	if out, err = cmd.Flags().GetString(flagURL); err != nil {
+		return
 	}
-	indent, err = cmd.Flags().GetBool(flags.FlagIndentResponse)
-	if err != nil {
-		return err
+	if len(out) > 0 {
+		if _, err = rpcclient.NewHTTP(out, "/websocket"); err != nil {
+			return
+		}
 	}
-
-	switch {
-	case indent:
-		out, err = cdc.MarshalJSONIndent(toPrint, "", "  ")
-	case text:
-		out, err = yaml.Marshal(&toPrint)
-	default:
-		out, err = cdc.MarshalJSON(toPrint)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(string(out))
-	return nil
+	return
 }
 
 // PrintTxs prints transactions prior to sending if the flag has been passed in
-func PrintTxs(toPrint interface{}, cmd *cobra.Command) error {
+func PrintTxs(toPrint interface{}, chain *relayer.Chain, cmd *cobra.Command) error {
 	print, err := cmd.Flags().GetBool(flagPrintTx)
 	if err != nil {
 		return err
 	}
 
 	if print {
-		err = PrintOutput(toPrint, cmd)
+		err = chain.PrintOutput(toPrint, cmd)
 		if err != nil {
 			return err
 		}
@@ -133,7 +129,7 @@ func PrintTxs(toPrint interface{}, cmd *cobra.Command) error {
 
 // SendAndPrint sends the transaction with printing options from the CLI
 func SendAndPrint(txs []sdk.Msg, chain *relayer.Chain, cmd *cobra.Command) (err error) {
-	if err = PrintTxs(txs, cmd); err != nil {
+	if err = PrintTxs(txs, chain, cmd); err != nil {
 		return err
 	}
 
@@ -142,5 +138,5 @@ func SendAndPrint(txs []sdk.Msg, chain *relayer.Chain, cmd *cobra.Command) (err 
 		return err
 	}
 
-	return PrintOutput(res, cmd)
+	return chain.PrintOutput(res, cmd)
 }

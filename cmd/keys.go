@@ -67,7 +67,7 @@ func keysAddCmd() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(info, cmd)
+			return chain.PrintOutput(info, cmd)
 		},
 	}
 
@@ -102,7 +102,7 @@ func keysRestoreCmd() *cobra.Command {
 				return nil
 			}
 
-			return PrintOutput(info, cmd)
+			return chain.PrintOutput(info, cmd)
 		},
 	}
 
@@ -156,7 +156,7 @@ func keysListCmd() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(info, cmd)
+			return chain.PrintOutput(info, cmd)
 		},
 	}
 
@@ -190,7 +190,7 @@ func keysShowCmd() *cobra.Command {
 				return nil
 			}
 
-			return PrintOutput(info, cmd)
+			return chain.PrintOutput(info, cmd)
 		},
 	}
 
@@ -219,7 +219,7 @@ func keysExportCmd() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(info, cmd)
+			return chain.PrintOutput(info, cmd)
 		},
 	}
 

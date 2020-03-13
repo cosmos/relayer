@@ -52,12 +52,6 @@ sleep 12
 # VARIABLES FOR CHAINS
 c0=ibc0
 c1=ibc1
-c0cl=ibconeclient
-c1cl=ibczeroclient
-c0conn=connectionidtest
-c1conn=connectionidtest
-c0conn2=connectionidtwo
-c1conn2=connectionidtwo
 
 echo "Check account balances"
 $RELAYER --home $RLY_CONF q account $c0
@@ -68,8 +62,7 @@ $RELAYER --home $RLY_CONF lite init $c0 -f
 $RELAYER --home $RLY_CONF lite init $c1 -f
 
 echo "Create clients"
-$RELAYER --home $RLY_CONF tx client $c0 $c1 $c0cl
-$RELAYER --home $RLY_CONF tx client $c1 $c0 $c1cl
+$RELAYER --home $RLY_CONF tx clients $c0 $c1
 
 echo "Query headers"
 $RELAYER --home $RLY_CONF q header $c0   
@@ -79,37 +72,12 @@ echo "Query node-state"
 $RELAYER --home $RLY_CONF q node-state $c0   
 $RELAYER --home $RLY_CONF q node-state $c0   
 
-echo "Querying client states"
-$RELAYER --home $RLY_CONF q client $c0 $c0cl 
-$RELAYER --home $RLY_CONF q client $c1 $c1cl
-
 echo "Querying clients"
 $RELAYER --home $RLY_CONF q clients $c0
 $RELAYER --home $RLY_CONF q clients $c1
 
-echo "Creating connection in steps"
-sleep 5
-$RELAYER --home $RLY_CONF tx connection-step $c0 $c1 $c0cl $c1cl $c0conn $c1conn
-sleep 5
-$RELAYER --home $RLY_CONF tx connection-step $c0 $c1 $c0cl $c1cl $c0conn $c1conn
-sleep 5
-$RELAYER --home $RLY_CONF tx connection-step $c0 $c1 $c0cl $c1cl $c0conn $c1conn
-sleep 5
-$RELAYER --home $RLY_CONF tx connection-step $c0 $c1 $c0cl $c1cl $c0conn $c1conn
+echo "Creating connection..."
+$RELAYER --home $RLY_CONF tx connection $c0 $c1
 
-echo "Creating raw connection"
-$RELAYER --home $RLY_CONF tx raw conn-init $c0 $c1 $c0cl $c1cl $c0conn2 $c1conn2
-sleep 5
-$RELAYER --home $RLY_CONF tx raw conn-try $c1 $c0 $c1cl $c0cl $c1conn2 $c0conn2
-sleep 5
-$RELAYER --home $RLY_CONF tx raw conn-ack $c0 $c1 $c0cl $c1cl $c0conn2 $c1conn2
-sleep 5
-$RELAYER --home $RLY_CONF tx raw conn-confirm $c1 $c0 $c1cl $c0cl $c1conn2 $c0conn2
-
-echo "Querying connections"
-$RELAYER --home $RLY_CONF q connection $c0 $c0conn
-$RELAYER --home $RLY_CONF q connection $c0 $c0conn2
-$RELAYER --home $RLY_CONF q connection $c1 $c0conn
-$RELAYER --home $RLY_CONF q connection $c1 $c0conn2
-$RELAYER --home $RLY_CONF q connections $c0 $c0cl
-$RELAYER --home $RLY_CONF q connections $c1 $c1cl
+echo "Creating channel..."
+$RELAYER --home $RLY_CONF tx channel $c0 $c1

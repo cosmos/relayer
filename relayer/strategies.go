@@ -1,16 +1,18 @@
 package relayer
 
 import (
+	"fmt"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	"github.com/spf13/cobra"
 )
 
 // TODO: Figure out a better way to deal with these
 const (
 	ibcversion = "1.0.0"
-	portID     = "bankbankbank"
 )
 
 // Strategy determines which relayer strategy to use
@@ -41,6 +43,55 @@ func (r *RelayMsgs) Ready() bool {
 		return false
 	}
 	return true
+}
+
+// Send sends the messages with appropriate output
+func (r *RelayMsgs) Send(src, dst *Chain, cmd *cobra.Command) error {
+	// SendRelayMsgs sends the msgs to their chains
+	if len(r.Src) > 0 {
+		// Submit the transactions to src chain
+		res, err := src.SendMsgs(r.Src)
+		if err != nil || res.Code != 0 {
+			src.LogFailedTx(res, r.Src)
+		} else {
+			// NOTE: Add more data to this such as identifiers
+			src.LogSuccessTx(res, r.Src)
+		}
+	}
+
+	if len(r.Dst) > 0 {
+		// Submit the transactions to dst chain
+		res, err := dst.SendMsgs(r.Dst)
+		if err != nil || res.Code != 0 {
+			dst.LogFailedTx(res, r.Dst)
+		} else {
+			// NOTE: Add more data to this such as identifiers
+			dst.LogSuccessTx(res, r.Dst)
+		}
+	}
+
+	return nil
+}
+
+// LogFailedTx takes the transaction and the messages to create it and logs the appropriate data
+func (c *Chain) LogFailedTx(res sdk.TxResponse, msgs []sdk.Msg) {
+	c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%s: %s)", c.ChainID, res.Height, getMsgAction(msgs), res.Codespace, codespaces[res.Codespace][int(res.Code)]))
+}
+
+// LogSuccessTx take the transaction and the messages to create it and logs the appropriate data
+func (c *Chain) LogSuccessTx(res sdk.TxResponse, msgs []sdk.Msg) {
+	c.logger.Info(fmt.Sprintf("✔ [%s]@{%d} - msg(%s)", c.ChainID, res.Height, getMsgAction(msgs)))
+}
+
+func getMsgAction(msgs []sdk.Msg) string {
+	switch len(msgs) {
+	case 1:
+		return msgs[0].Type()
+	case 2:
+		return msgs[1].Type()
+	default:
+		return ""
+	}
 }
 
 // NaiveRelayStrategy returns the RelayMsgs that need to be run to relay between
@@ -116,13 +167,13 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 	// ICS4 : Channels
 	// - Determine if any channel handshakes are in progress
 
-	channels, err := src.QueryChannelsUsingConnections(connections.ConnectionPaths)
+	channels, err := src.QueryChannels(0, 10000)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, srcChan := range channels {
-		if srcChan.Channel.GetCounterparty().GetChannelID() == dst.PathEnd.ChannelID {
+		if srcChan.GetCounterparty().GetChannelID() == dst.PathEnd.ChannelID {
 			return src.CreateChannelStep(dst, chanState.ORDERED)
 		}
 	}
@@ -135,7 +186,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 	// ICS?: Packet Messages
 	// - Determine if any packets, acknowledgements, or timeouts need to be relayed
 	for _, srcChan := range channels {
-		if srcChan.Channel.GetCounterparty().GetChannelID() == dst.PathEnd.ChannelID {
+		if srcChan.GetCounterparty().GetChannelID() == dst.PathEnd.ChannelID {
 			// Deal with packets
 			// TODO: Once ADR15 is merged this section needs to be completed cc @mossid @fedekunze @cwgoes
 
@@ -199,3 +250,8 @@ func addrsHeaders(src, dst *Chain) (srcAddr, dstAddr sdk.AccAddress, srcHeader, 
 	dstHeader, err = dst.QueryLatestHeader()
 	return
 }
+
+// func processRes(res sdk.TxResponse) string {
+// 	codespace := res.Codespace
+// 	code := res.Code
+// }

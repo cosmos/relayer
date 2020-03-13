@@ -314,7 +314,7 @@ func GetLatestHeights(chains ...*Chain) (map[string]int64, error) {
 		}(hs, &wg, chain)
 	}
 	wg.Wait()
-	return hs.out(), hs.err()
+	return hs.Map, hs.err()
 }
 
 // GetLiteSignedHeaderAtHeight returns a signed header at a particular height.

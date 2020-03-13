@@ -14,14 +14,19 @@ import (
 )
 
 func init() {
+	queryCmd.AddCommand(queryAccountCmd())
 	queryCmd.AddCommand(queryHeaderCmd())
 	queryCmd.AddCommand(queryNodeStateCmd())
 	queryCmd.AddCommand(queryClientCmd())
 	queryCmd.AddCommand(queryClientsCmd())
-	queryCmd.AddCommand(queryAccountCmd())
 	queryCmd.AddCommand(queryConnection())
+	queryCmd.AddCommand(queryConnections())
 	queryCmd.AddCommand(queryConnectionsUsingClient())
 	queryCmd.AddCommand(queryChannel())
+	queryCmd.AddCommand(queryChannels())
+	queryCmd.AddCommand(queryNextSeqRecv())
+	queryCmd.AddCommand(queryPacketCommitment())
+	queryCmd.AddCommand(queryPacketAck())
 }
 
 // queryCmd represents the chain command
@@ -52,7 +57,7 @@ func queryAccountCmd() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(acc, cmd)
+			return chain.PrintOutput(acc, cmd)
 		},
 	}
 	return outputFlags(cmd)
@@ -107,7 +112,7 @@ func queryHeaderCmd() *cobra.Command {
 				return nil
 			}
 
-			return PrintOutput(header, cmd)
+			return chain.PrintOutput(header, cmd)
 		},
 	}
 
@@ -150,7 +155,7 @@ func queryNodeStateCmd() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(csRes, cmd)
+			return chain.PrintOutput(csRes, cmd)
 		},
 	}
 
@@ -177,7 +182,7 @@ func queryClientCmd() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(res, cmd)
+			return chain.PrintOutput(res, cmd)
 		},
 	}
 
@@ -200,7 +205,30 @@ func queryClientsCmd() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(res, cmd)
+			return chain.PrintOutput(res, cmd)
+		},
+	}
+
+	return outputFlags(paginationFlags(cmd))
+}
+
+func queryConnections() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "connections [chain-id]",
+		Short: "Query for all connections on a given chain",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryConnections(viper.GetInt(flags.FlagPage), viper.GetInt(flags.FlagLimit))
+			if err != nil {
+				return err
+			}
+
+			return chain.PrintOutput(res, cmd)
 		},
 	}
 
@@ -209,7 +237,7 @@ func queryClientsCmd() *cobra.Command {
 
 func queryConnectionsUsingClient() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "connections [chain-id] [client-id]",
+		Use:   "client-connections [chain-id] [client-id]",
 		Short: "Query the client for a counterparty chain",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -232,7 +260,7 @@ func queryConnectionsUsingClient() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(res.ConnectionPaths, cmd)
+			return chain.PrintOutput(res.ConnectionPaths, cmd)
 		},
 	}
 
@@ -264,7 +292,7 @@ func queryConnection() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(res, cmd)
+			return chain.PrintOutput(res, cmd)
 		},
 	}
 
@@ -296,7 +324,136 @@ func queryChannel() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(res, cmd)
+			return chain.PrintOutput(res, cmd)
+		},
+	}
+
+	return outputFlags(paginationFlags(cmd))
+}
+
+func queryChannels() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "channels [chain-id]",
+		Short: "Query for all channels on a given chain",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryChannels(viper.GetInt(flags.FlagPage), viper.GetInt(flags.FlagLimit))
+			if err != nil {
+				return err
+			}
+
+			return chain.PrintOutput(res, cmd)
+		},
+	}
+
+	return outputFlags(paginationFlags(cmd))
+}
+
+func queryNextSeqRecv() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "seq-send [chain-id] [channel-id] [port-id]",
+		Short: "Query the next sequence send for a given channel",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			if err = chain.PathChannel(args[1], args[2]); err != nil {
+				return chain.ErrCantSetPath(relayer.CHANPATH, err)
+			}
+
+			height, err := chain.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryNextSeqRecv(height)
+			if err != nil {
+				return err
+			}
+
+			return chain.PrintOutput(res, cmd)
+		},
+	}
+
+	return outputFlags(paginationFlags(cmd))
+}
+
+func queryPacketCommitment() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "packet-commit [chain-id] [channel-id] [port-id] [seq]",
+		Short: "Query the commitment for a given packet",
+		Args:  cobra.ExactArgs(4),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			if err = chain.PathChannel(args[1], args[2]); err != nil {
+				return chain.ErrCantSetPath(relayer.CHANPATH, err)
+			}
+
+			height, err := chain.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			seq, err := strconv.ParseInt(args[3], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryPacketCommitment(height, seq)
+			if err != nil {
+				return err
+			}
+
+			return chain.PrintOutput(res, cmd)
+		},
+	}
+
+	return outputFlags(paginationFlags(cmd))
+}
+
+func queryPacketAck() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "packet-ack [chain-id] [channel-id] [port-id] [seq]",
+		Short: "Query the commitment for a given packet",
+		Args:  cobra.ExactArgs(4),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			if err = chain.PathChannel(args[1], args[2]); err != nil {
+				return chain.ErrCantSetPath(relayer.CHANPATH, err)
+			}
+
+			height, err := chain.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			seq, err := strconv.ParseInt(args[3], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryPacketAck(height, seq)
+			if err != nil {
+				return err
+			}
+
+			return chain.PrintOutput(res, cmd)
 		},
 	}
 

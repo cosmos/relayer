@@ -1,21 +1,24 @@
 package relayer
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/client/context"
+	sdkCtx "github.com/cosmos/cosmos-sdk/client/context"
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	aminocodec "github.com/cosmos/cosmos-sdk/codec"
 	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
-	"github.com/cosmos/cosmos-sdk/x/auth"
-	"github.com/tendermint/tendermint/libs/log"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/auth"
+	"github.com/spf13/cobra"
+	"github.com/tendermint/tendermint/libs/log"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	"gopkg.in/yaml.v2"
 )
 
 // NewChain returns a new instance of Chain
@@ -47,7 +50,7 @@ func NewChain(key, chainID, rpcAddr, accPrefix string, gas uint64, gasAdj float6
 	return &Chain{
 		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Gas: gas,
 		GasAdjustment: gasAdj, GasPrices: gp, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase,
-		Client: client, Cdc: cdc, Amino: amino, TrustingPeriod: tp, HomePath: homePath, logger: log.NewTMLogger(os.Stdout)}, nil
+		Client: client, Cdc: cdc, Amino: amino, TrustingPeriod: tp, HomePath: homePath, logger: log.NewTMLogger(log.NewSyncWriter(os.Stdout))}, nil
 }
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
@@ -119,7 +122,16 @@ func (c *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
 
 // BroadcastTxCommit takes the marshaled transaction bytes and broadcasts them
 func (c *Chain) BroadcastTxCommit(txBytes []byte) (sdk.TxResponse, error) {
-	return context.CLIContext{Client: c.Client}.BroadcastTxCommit(txBytes)
+	res, err := sdkCtx.CLIContext{Client: c.Client}.BroadcastTxCommit(txBytes)
+	// NOTE: The raw is a recreation of the log and unused in this context. It is also
+	// quite noisy so we remove it to simplify the output
+	res.RawLog = ""
+	return res, err
+}
+
+// Subscribe returns channel of events given a query
+func (c *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, error) {
+	return c.Client.Subscribe(context.Background(), c.ChainID, query)
 }
 
 // KeysDir returns the path to the keys for this chain
@@ -156,4 +168,40 @@ func (c *Chain) MustGetAddress() sdk.AccAddress {
 
 func (c *Chain) String() string {
 	return c.ChainID
+}
+
+// PrintOutput fmt.Printlns the json or yaml representation of whatever is passed in
+// CONTRACT: The cmd calling this function needs to have the "json" and "indent" flags set
+func (c *Chain) PrintOutput(toPrint interface{}, cmd *cobra.Command) error {
+	var (
+		out          []byte
+		err          error
+		text, indent bool
+	)
+
+	text, err = cmd.Flags().GetBool("text")
+	if err != nil {
+		return err
+	}
+
+	indent, err = cmd.Flags().GetBool("indent")
+	if err != nil {
+		return err
+	}
+
+	switch {
+	case indent:
+		out, err = c.Amino.MarshalJSONIndent(toPrint, "", "  ")
+	case text:
+		out, err = yaml.Marshal(&toPrint)
+	default:
+		out, err = c.Amino.MarshalJSON(toPrint)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(string(out))
+	return nil
 }
