@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
@@ -43,13 +44,18 @@ func chainsShowCmd() *cobra.Command {
 				return err
 			}
 
+			chain, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
+
 			if jsn {
-				out, err = json.Marshal(config.Chains.Get(args[0]))
+				out, err = json.Marshal(chain)
 				if err != nil {
 					return err
 				}
 			} else {
-				out, err = yaml.Marshal(config.Chains.Get(args[0]))
+				out, err = yaml.Marshal(chain)
 				if err != nil {
 					return err
 				}
@@ -69,7 +75,11 @@ func chainsEditCmd() *cobra.Command {
 		Short: "Returns chain configuration data",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := config.Chains.Get(args[0]).Update(args[1], args[2])
+			chain, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
+			c, err := chain.Update(args[1], args[2])
 			if err != nil {
 				return err
 			}
@@ -112,28 +122,8 @@ func chainsListCmd() *cobra.Command {
 func chainsAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
-		Short: "Reads in a series of user input and generates a new chain in the config",
+		Short: "add chains to the configuration file either via user input, or by passing the -f {chain/file.json}",
 		RunE: func(cmd *cobra.Command, args []string) error {
-
-			// TODO: figure out how to parse gaia style configs to pull out necessary data
-			// for chain configuration
-			//
-			// url, err := getURL(cmd)
-			// if err != nil {
-			// 	return err
-			// }
-
-			// if len(url) > 0 {
-			// 	cl, err := rpcclient.NewHTTP(url, "/websocket")
-			// 	if err != nil {
-			// 		return err
-			// 	}
-			// 	gen, err := cl.Genesis()
-			// 	if err != nil {
-			// 		return err
-			// 	}
-			// }
-
 			var out *Config
 			file, err := cmd.Flags().GetString(flagFile)
 			if err != nil {
@@ -150,7 +140,7 @@ func chainsAddCmd() *cobra.Command {
 				}
 			}
 
-			if err = setChains(out, file); err != nil {
+			if err = validateConfig(out, file); err != nil {
 				return err
 			}
 
@@ -163,7 +153,7 @@ func chainsAddCmd() *cobra.Command {
 
 func fileInputAdd(file string) (cfg *Config, err error) {
 	// If the user passes in a file, attempt to read the chain config from that file
-	c := ChainConfig{}
+	c := &relayer.Chain{}
 	if _, err := os.Stat(file); err != nil {
 		return nil, err
 	}
@@ -173,7 +163,7 @@ func fileInputAdd(file string) (cfg *Config, err error) {
 		return nil, err
 	}
 
-	if err = json.Unmarshal(byt, &c); err != nil {
+	if err = json.Unmarshal(byt, c); err != nil {
 		return nil, err
 	}
 
@@ -186,7 +176,7 @@ func fileInputAdd(file string) (cfg *Config, err error) {
 }
 
 func userInputAdd(cmd *cobra.Command) (cfg *Config, err error) {
-	c := ChainConfig{}
+	c := &relayer.Chain{}
 
 	var value string
 	fmt.Println("ChainID (i.e. cosmoshub2):")

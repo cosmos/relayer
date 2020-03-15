@@ -1,1 +1,1 @@
-{"src":{"chain-id":"ibc0","client-id":"ibconeclient","connection-id":"ibconeconn","channel-id":"ibconechan","port-id":"bank"},"dst":{"chain-id":"ibc1","client-id":"ibczeroclient","connection-id":"ibczeroconn","channel-id":"ibczerochan","port-id":"bank"}}
+{"src":{"chain-id":"ibc0","client-id":"testclientid","connection-id":"testconnectionid","channel-id":"testchannelid","port-id":"bank"},"dst":{"chain-id":"ibc1","client-id":"testclientid","connection-id":"testconnectionid","channel-id":"testchannelid","port-id":"bank"},"strategy":{"type":"naieve"}}

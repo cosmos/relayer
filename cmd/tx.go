@@ -17,7 +17,6 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
@@ -44,17 +43,22 @@ func transactionCmd() *cobra.Command {
 
 func createClientsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "clients [src-chain-id] [dst-chain-id] [index]",
+		Use:   "clients [src-chain-id] [dst-chain-id] [[path-name]]",
 		Short: "create a clients between two configured chains with a configured path",
 		Args:  cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
 
-			if err = setPathsFromArgs(chains[src], chains[dst], args); err != nil {
+			name := ""
+			if len(args) > 2 {
+				name = args[2]
+			}
+
+			if _, err = setPathsFromArgs(chains[src], chains[dst], name); err != nil {
 				return err
 			}
 
@@ -66,13 +70,13 @@ func createClientsCmd() *cobra.Command {
 
 func createConnectionCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "connection [src-chain-id] [dst-chain-id] [index]",
+		Use:   "connection [src-chain-id] [dst-chain-id] [[path-name]]",
 		Short: "create a connection between two configured chains with a configured path",
 		Long:  "This command is meant to be used to repair or create a connection between two chains with a configured path in the config file",
 		Args:  cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -82,7 +86,12 @@ func createConnectionCmd() *cobra.Command {
 				return err
 			}
 
-			if err = setPathsFromArgs(chains[src], chains[dst], args); err != nil {
+			name := ""
+			if len(args) > 2 {
+				name = args[2]
+			}
+
+			if _, err = setPathsFromArgs(chains[src], chains[dst], name); err != nil {
 				return err
 			}
 
@@ -95,13 +104,13 @@ func createConnectionCmd() *cobra.Command {
 
 func createChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "channel [src-chain-id] [dst-chain-id] [index]",
+		Use:   "channel [src-chain-id] [dst-chain-id] [[path-name]]",
 		Short: "create a channel between two configured chains with a configured path",
 		Long:  "This command is meant to be used to repair or create a channel between two chains with a configured path in the config file",
 		Args:  cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -111,7 +120,12 @@ func createChannelCmd() *cobra.Command {
 				return err
 			}
 
-			if err = setPathsFromArgs(chains[src], chains[dst], args); err != nil {
+			name := ""
+			if len(args) > 2 {
+				name = args[2]
+			}
+
+			if _, err = setPathsFromArgs(chains[src], chains[dst], name); err != nil {
 				return err
 			}
 
@@ -124,12 +138,12 @@ func createChannelCmd() *cobra.Command {
 
 func fullPathCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "full-path [src-chain-id] [dst-chain-id] [index]",
+		Use:   "full-path [src-chain-id] [dst-chain-id] [[path-name]]",
 		Short: "create clients, connection, and channel between two configured chains with a configured path",
 		Args:  cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -139,7 +153,12 @@ func fullPathCmd() *cobra.Command {
 				return err
 			}
 
-			if err = setPathsFromArgs(chains[src], chains[dst], args); err != nil {
+			name := ""
+			if len(args) > 2 {
+				name = args[2]
+			}
+
+			if _, err = setPathsFromArgs(chains[src], chains[dst], name); err != nil {
 				return err
 			}
 
@@ -162,40 +181,40 @@ func fullPathCmd() *cobra.Command {
 	return timeoutFlag(transactionFlags(cmd))
 }
 
-func setPathsFromArgs(src, dst *relayer.Chain, args []string) error {
+func setPathsFromArgs(src, dst *relayer.Chain, name string) (*relayer.Path, error) {
 	// Find any configured paths between the chains
 	paths, err := config.Paths.PathsFromChains(src.ChainID, dst.ChainID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Given the number of args and the number of paths,
 	// work on the appropriate path
-	var path relayer.Path
+	var path *relayer.Path
 	switch {
-	case len(args) == 3 && len(paths) > 1:
-		i, err := strconv.ParseInt(args[2], 10, 64)
-		if err != nil {
-			return err
+	case name != "" && len(paths) > 1:
+		if path, err = paths.Get(name); err != nil {
+			return path, err
 		}
-		path = paths[i]
-	case len(args) == 3 && len(paths) == 1:
-		fmt.Println(paths.MustYAML())
-		return fmt.Errorf("passed in an index where only one path exists between chains %s and %s", src, dst)
-	case len(args) == 2 && len(paths) > 1:
-		fmt.Println(paths.MustYAML())
-		return fmt.Errorf("more than one path between %s and %s exists, please specify index", src, dst)
-	case len(args) == 2 && len(paths) == 1:
-		path = paths[0]
+	case name != "" && len(paths) == 1:
+		if path, err = paths.Get(name); err != nil {
+			return path, err
+		}
+	case name == "" && len(paths) > 1:
+		return nil, fmt.Errorf("more than one path between %s and %s exists, pass in path name", src, dst)
+	case name == "" && len(paths) == 1:
+		for _, v := range paths {
+			path = v
+		}
 	}
 
-	if err = src.SetPath(path.End(src.ChainID), relayer.FULLPATH); err != nil {
-		return src.ErrCantSetPath(relayer.FULLPATH, err)
+	if err = src.SetPath(path.End(src.ChainID)); err != nil {
+		return nil, err
 	}
 
-	if err = dst.SetPath(path.End(dst.ChainID), relayer.FULLPATH); err != nil {
-		return dst.ErrCantSetPath(relayer.FULLPATH, err)
+	if err = dst.SetPath(path.End(dst.ChainID)); err != nil {
+		return nil, err
 	}
 
-	return nil
+	return path, nil
 }

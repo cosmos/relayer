@@ -118,7 +118,7 @@ func PrintTxs(toPrint interface{}, chain *relayer.Chain, cmd *cobra.Command) err
 	}
 
 	if print {
-		err = chain.PrintOutput(toPrint, cmd)
+		err = queryOutput(toPrint, chain, cmd)
 		if err != nil {
 			return err
 		}
@@ -138,5 +138,5 @@ func SendAndPrint(txs []sdk.Msg, chain *relayer.Chain, cmd *cobra.Command) (err 
 		return err
 	}
 
-	return chain.PrintOutput(res, cmd)
+	return queryOutput(res, chain, cmd)
 }

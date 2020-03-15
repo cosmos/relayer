@@ -87,12 +87,12 @@ func (src *Chain) CreateConnection(dst *Chain, to time.Duration, cmd *cobra.Comm
 func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	out := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
-	if err := src.PathEnd.Validate(CONNPATH); err != nil {
-		return nil, src.ErrPathNotSet(CONNPATH, err)
+	if err := src.PathEnd.Validate(); err != nil {
+		return nil, src.ErrCantSetPath(err)
 	}
 
-	if err := dst.PathEnd.Validate(CONNPATH); err != nil {
-		return nil, dst.ErrPathNotSet(CONNPATH, err)
+	if err := dst.PathEnd.Validate(); err != nil {
+		return nil, dst.ErrCantSetPath(err)
 	}
 
 	hs, err := UpdatesWithHeaders(src, dst)
@@ -218,12 +218,12 @@ func (src *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration, cmd 
 func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*RelayMsgs, error) {
 	out := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
-	if err := src.PathEnd.Validate(FULLPATH); err != nil {
-		return nil, src.ErrPathNotSet(FULLPATH, err)
+	if err := src.PathEnd.Validate(); err != nil {
+		return nil, src.ErrCantSetPath(err)
 	}
 
-	if err := dst.PathEnd.Validate(FULLPATH); err != nil {
-		return nil, dst.ErrPathNotSet(FULLPATH, err)
+	if err := dst.PathEnd.Validate(); err != nil {
+		return nil, dst.ErrCantSetPath(err)
 	}
 
 	hs, err := UpdatesWithHeaders(src, dst)
@@ -311,7 +311,7 @@ func (src *Chain) CreateClient(dstHeader *tmclient.Header) sdk.Msg {
 	return tmclient.NewMsgCreateClient(
 		src.PathEnd.ClientID,
 		*dstHeader,
-		src.TrustingPeriod,
+		src.getTrustingPeriod(),
 		defaultUnbondingTime,
 		src.MustGetAddress(),
 	)

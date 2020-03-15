@@ -13,18 +13,18 @@ import (
 
 func xfer() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "xfer [src-chain-id] [dst-chain-id] [index]",
+		Use:   "xfer [src-chain-id] [dst-chain-id] [[path-name]]",
 		Short: "xfer",
 		Long:  "This sends tokens from a relayers configured wallet on chain src to a dst addr on dst",
 		Args:  cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
 
-			if err = setPathsFromArgs(chains[src], chains[dst], args); err != nil {
+			if _, err = setPathsFromArgs(chains[src], chains[dst], args[2]); err != nil {
 				return err
 			}
 
@@ -134,17 +134,17 @@ func xfersend() *cobra.Command {
 		Args:  cobra.ExactArgs(8),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
 
-			if err = chains[src].PathChannel(args[2], args[4]); err != nil {
-				return chains[src].ErrCantSetPath(relayer.CLNTCHANPATH, err)
+			if err = chains[src].AddPath(dcli, dcon, args[2], args[4]); err != nil {
+				return err
 			}
 
-			if err = chains[dst].PathChannel(args[3], args[5]); err != nil {
-				return chains[dst].ErrCantSetPath(relayer.CHANPATH, err)
+			if err = chains[dst].AddPath(dcli, dcon, args[3], args[5]); err != nil {
+				return err
 			}
 
 			amount, err := sdk.ParseCoin(args[6])
@@ -192,17 +192,17 @@ func xferrecv() *cobra.Command {
 		Args:  cobra.ExactArgs(8),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
 
-			if err = chains[src].PathChannel(args[2], args[4]); err != nil {
-				return chains[src].ErrCantSetPath(relayer.CLNTCHANPATH, err)
+			if err = chains[src].AddPath(dcli, dcon, args[2], args[4]); err != nil {
+				return err
 			}
 
-			if err = chains[dst].PathChannel(args[3], args[5]); err != nil {
-				return chains[dst].ErrCantSetPath(relayer.CHANPATH, err)
+			if err = chains[dst].AddPath(dcli, dcon, args[3], args[5]); err != nil {
+				return err
 			}
 
 			hs, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])

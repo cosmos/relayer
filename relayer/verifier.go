@@ -119,7 +119,7 @@ func (c *Chain) InitLiteClientWithoutTrust(db *dbm.GoLevelDB) (*lite.Client, err
 	}
 
 	// TODO: provide actual witnesses!
-	lc, err := lite.NewClientFromTrustedStore(c.ChainID, c.TrustingPeriod, httpProvider,
+	lc, err := lite.NewClientFromTrustedStore(c.ChainID, c.getTrustingPeriod(), httpProvider,
 		[]litep.Provider{httpProvider}, dbs.New(db, ""),
 		lite.Logger(log.NewTMLogger(log.NewSyncWriter(ioutil.Discard))))
 	if err != nil {
@@ -204,7 +204,7 @@ func (c *Chain) DeleteLiteDB() error {
 // TrustOptions returns lite.TrustOptions given a height and hash
 func (c *Chain) TrustOptions(height int64, hash []byte) lite.TrustOptions {
 	return lite.TrustOptions{
-		Period: c.TrustingPeriod,
+		Period: c.getTrustingPeriod(),
 		Height: height,
 		Hash:   hash,
 	}

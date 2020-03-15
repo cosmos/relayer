@@ -20,15 +20,12 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"strconv"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	"gopkg.in/yaml.v2"
 )
 
@@ -134,11 +131,9 @@ func configInitCmd() *cobra.Command {
 
 // Config represents the config file for the relayer
 type Config struct {
-	Global GlobalConfig  `yaml:"global" json:"global"`
-	Chains ChainConfigs  `yaml:"chains" json:"chains"`
-	Paths  relayer.Paths `yaml:"paths" json:"paths"`
-
-	c relayer.Chains
+	Global GlobalConfig   `yaml:"global" json:"global"`
+	Chains relayer.Chains `yaml:"chains" json:"chains"`
+	Paths  relayer.Paths  `yaml:"paths" json:"paths"`
 }
 
 // MustYAML returns the yaml string representation of the Paths
@@ -153,14 +148,13 @@ func (c Config) MustYAML() []byte {
 func defaultConfig() []byte {
 	return Config{
 		Global: newDefaultGlobalConfig(),
-		Chains: ChainConfigs{},
+		Chains: relayer.Chains{},
 		Paths:  relayer.Paths{},
 	}.MustYAML()
 }
 
 // GlobalConfig describes any global relayer settings
 type GlobalConfig struct {
-	Strategy      string `yaml:"strategy" json:"strategy"`
 	Timeout       string `yaml:"timeout" json:"timeout"`
 	LiteCacheSize int    `yaml:"lite-cache-size" json:"lite-cache-size"`
 }
@@ -168,30 +162,15 @@ type GlobalConfig struct {
 // newDefaultGlobalConfig returns a global config with defaults set
 func newDefaultGlobalConfig() GlobalConfig {
 	return GlobalConfig{
-		Strategy:      "naieve",
-		Timeout:       "10s",
+		Timeout:       "5s",
 		LiteCacheSize: 20,
 	}
 }
 
-// ChainConfigs is a collection of ChainConfig
-type ChainConfigs []ChainConfig
-
-// Get returns a chain config with a given ID
-// TODO: Add error handling here
-func (c ChainConfigs) Get(cid string) *ChainConfig {
-	for _, chain := range c {
-		if chain.ChainID == cid {
-			return &chain
-		}
-	}
-	return nil
-}
-
 // AddChain adds an additional chain to the config
-func (c *Config) AddChain(chain ChainConfig) (*Config, error) {
-	if c.Chains.Get(chain.ChainID) != nil {
-		return nil, fmt.Errorf("chain with ID %s already exists in config", chain.ChainID)
+func (c *Config) AddChain(chain *relayer.Chain) (cfg *Config, err error) {
+	if _, err = c.Chains.Get(chain.ChainID); err == nil {
+		return cfg, fmt.Errorf("chain with ID %s already exists in config", chain.ChainID)
 	}
 	c.Chains = append(c.Chains, chain)
 	return c, nil
@@ -199,7 +178,7 @@ func (c *Config) AddChain(chain ChainConfig) (*Config, error) {
 
 // DeleteChain removes a chain from the config
 func (c *Config) DeleteChain(chain string) *Config {
-	var set ChainConfigs
+	var set relayer.Chains
 	for _, ch := range c.Chains {
 		if ch.ChainID != chain {
 			set = append(set, ch)
@@ -209,94 +188,22 @@ func (c *Config) DeleteChain(chain string) *Config {
 	return c
 }
 
-// AddPath adds a path to the config file
-func (c *Config) AddPath(path relayer.Path) (*Config, error) {
-	if c.Paths.Duplicate(path) {
-		return nil, fmt.Errorf("an equivelent path exists in the config")
-	}
-	c.Paths = append(c.Paths, path)
-	return c, nil
-}
-
-// DeletePath removes a path at index i
-func (c *Config) DeletePath(i int) *Config {
-	c.Paths = append(c.Paths[:i], c.Paths[i+1:]...)
-	return c
-}
-
-// ChainConfig describes the config necessary for an individual chain
-type ChainConfig struct {
-	Key            string  `yaml:"key" json:"key"`
-	ChainID        string  `yaml:"chain-id" json:"chain-id"`
-	RPCAddr        string  `yaml:"rpc-addr" json:"rpc-addr"`
-	AccountPrefix  string  `yaml:"account-prefix" json:"account-prefix"`
-	Gas            uint64  `yaml:"gas,omitempty" json:"gas,omitempty"`
-	GasAdjustment  float64 `yaml:"gas-adjustment,omitempty" json:"gas-adjustment,omitempty"`
-	GasPrices      string  `yaml:"gas-prices,omitempty" json:"gas-prices,omitempty"`
-	DefaultDenom   string  `yaml:"default-denom,omitempty" json:"default-denom,omitempty"`
-	Memo           string  `yaml:"memo,omitempty" json:"memo,omitempty"`
-	TrustingPeriod string  `yaml:"trusting-period" json:"trusting-period"`
-}
-
-// Update returns
-func (c ChainConfig) Update(key, value string) (out ChainConfig, err error) {
-	out = c
-	switch key {
-	case "key":
-		out.Key = value
-	case "chain-id":
-		out.ChainID = value
-	case "rpc-addr":
-		if _, err = rpcclient.NewHTTP(value, "/websocket"); err != nil {
-			return
-		}
-		out.RPCAddr = value
-	case "account-prefix":
-		out.AccountPrefix = value
-	case "gas":
-		var gas uint64
-		gas, err = strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			return
-		}
-		out.Gas = gas
-	case "gas-prices":
-		if _, err = sdk.ParseDecCoins(value); err != nil {
-			return
-		}
-		out.GasPrices = value
-	case "default-denom":
-		out.DefaultDenom = value
-	case "memo":
-		out.Memo = value
-	case "trusting-period":
-		if _, err = time.ParseDuration(value); err != nil {
-			return
-		}
-		out.TrustingPeriod = value
-	default:
-		return out, fmt.Errorf("key %s not found", key)
+// Called to initialize the relayer.Chain types on Config
+func validateConfig(c *Config, home string) error {
+	var new = &Config{Global: c.Global, Chains: relayer.Chains{}, Paths: c.Paths}
+	to, err := time.ParseDuration(new.Global.Timeout)
+	if err != nil {
+		return err
 	}
 
-	return
-}
-
-// Called to set the relayer.Chain types on Config
-func setChains(c *Config, home string) error {
-	var out []*relayer.Chain
-	var new = &Config{Global: c.Global, Chains: c.Chains, Paths: c.Paths}
 	for _, i := range c.Chains {
-		homeDir := path.Join(home, "lite")
-		chain, err := relayer.NewChain(i.Key, i.ChainID, i.RPCAddr,
-			i.AccountPrefix, i.Gas, i.GasAdjustment, i.GasPrices,
-			i.DefaultDenom, i.Memo, homePath, c.Global.LiteCacheSize,
-			i.TrustingPeriod, homeDir, appCodec, cdc)
+		chain, err := i.Init(home, appCodec, cdc, to)
 		if err != nil {
 			return err
 		}
-		out = append(out, chain)
+		new.Chains = append(new.Chains, chain)
 	}
-	new.c = out
+	// Reset the config var
 	config = new
 	return nil
 }
@@ -328,7 +235,7 @@ func initConfig(cmd *cobra.Command) error {
 			}
 
 			// ensure config has []*relayer.Chain used for all chain operations
-			err = setChains(config, home)
+			err = validateConfig(config, home)
 			if err != nil {
 				fmt.Println("Error parsing chain config:", err)
 				os.Exit(1)
@@ -348,8 +255,8 @@ func overWriteConfig(cmd *cobra.Command, cfg *Config) error {
 	if _, err = os.Stat(cfgPath); err == nil {
 		viper.SetConfigFile(cfgPath)
 		if err = viper.ReadInConfig(); err == nil {
-			// ensure setChains runs properly
-			err = setChains(config, home)
+			// ensure validateConfig runs properly
+			err = validateConfig(config, home)
 			if err != nil {
 				return err
 			}

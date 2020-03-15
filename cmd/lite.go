@@ -54,7 +54,7 @@ func initLiteCmd() *cobra.Command {
 	3. Use --force/-f to initalize from the configured node`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.c.GetChain(args[0])
+			chain, err := config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -126,7 +126,7 @@ func updateLiteCmd() *cobra.Command {
 	3. updating from the configured node by passing no flags`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.c.GetChain(args[0])
+			chain, err := config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -204,7 +204,7 @@ func liteHeaderCmd() *cobra.Command {
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainID := args[0]
-			chain, err := config.c.GetChain(chainID)
+			chain, err := config.Chains.Get(chainID)
 			if err != nil {
 				return err
 			}
@@ -261,7 +261,7 @@ func deleteLiteCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainID := args[0]
-			chain, err := config.c.GetChain(chainID)
+			chain, err := config.Chains.Get(chainID)
 			if err != nil {
 				return err
 			}

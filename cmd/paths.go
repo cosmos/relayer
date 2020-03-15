@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -34,17 +33,18 @@ func pathsCmd() *cobra.Command {
 
 func pathsGenCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "gen [src-chain-id] [dst-chain-id]",
+		Use:   "gen [src-chain-id] [dst-chain-id] [name]",
 		Short: "generate identifiers for a new path between src and dst",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			_, err := config.c.GetChains(src, dst)
+			_, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
 			}
 
-			path := relayer.Path{
+			path := &relayer.Path{
+				Strategy: relayer.NewNaieveStrategy(),
 				Src: &relayer.PathEnd{
 					ChainID:      src,
 					ClientID:     randString(16),
@@ -61,10 +61,13 @@ func pathsGenCmd() *cobra.Command {
 				},
 			}
 
-			c, err := config.AddPath(path)
+			pths, err := config.Paths.Add(args[2], path)
 			if err != nil {
 				return err
 			}
+
+			c := config
+			c.Paths = pths
 
 			return overWriteConfig(cmd, c)
 		},
@@ -78,25 +81,15 @@ func pathsDeleteCmd() *cobra.Command {
 		Short: "delete a path with a given index",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			index, err := strconv.ParseInt(args[0], 10, 64)
-			if err != nil {
+			if _, err := config.Paths.Get(args[0]); err != nil {
 				return err
 			}
-
-			if int(index) >= len(config.Paths) {
-				return fmt.Errorf("only %d paths in array, index(%d) passed", len(config.Paths), index)
-			}
-
 			cfg := config
-			cfg.Paths = removePath(config.Paths, int(index))
+			delete(cfg.Paths, args[0])
 			return overWriteConfig(cmd, cfg)
 		},
 	}
 	return cmd
-}
-
-func removePath(paths []relayer.Path, index int) []relayer.Path {
-	return append(paths[:index], paths[index+1:]...)
 }
 
 func pathsListCmd() *cobra.Command {
@@ -104,14 +97,30 @@ func pathsListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "print out configured paths with direction",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			for _, p := range config.Paths.SetIndices() {
-				fmt.Println(p.Index)
-				out, err := yaml.Marshal(p)
+			var (
+				out []byte
+			)
+
+			jsn, err := cmd.Flags().GetBool(flagJSON)
+			if err != nil {
+				return err
+			}
+
+			if jsn {
+				out, err = json.Marshal(config.Paths)
 				if err != nil {
 					return err
 				}
-				fmt.Println(string(out))
+			} else {
+				out, err = yaml.Marshal(config.Paths)
+				if err != nil {
+					return err
+				}
+
 			}
+
+			fmt.Println(string(out))
+
 			return nil
 		},
 	}
@@ -120,16 +129,13 @@ func pathsListCmd() *cobra.Command {
 
 func pathsShowCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "show [index]",
-		Short: "show a path at a given index",
+		Use:   "show [path-name]",
+		Short: "show a path given its name",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			index, err := strconv.ParseInt(args[0], 10, 64)
+			path, err := config.Paths.Get(args[0])
 			if err != nil {
 				return err
-			}
-			if len(config.Paths) > int(index+1) {
-				return fmt.Errorf("index %d out of range, %d paths configured", index, len(config.Paths))
 			}
 
 			var (
@@ -142,12 +148,12 @@ func pathsShowCmd() *cobra.Command {
 			}
 
 			if jsn {
-				out, err = json.Marshal(config.Paths[index])
+				out, err = json.Marshal(path)
 				if err != nil {
 					return err
 				}
 			} else {
-				out, err = yaml.Marshal(config.Paths[index])
+				out, err = yaml.Marshal(path)
 				if err != nil {
 					return err
 				}
@@ -163,23 +169,14 @@ func pathsShowCmd() *cobra.Command {
 
 func pathsAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add [src-chain-id] [dst-chain-id]",
+		Use:   "add [src-chain-id] [dst-chain-id] [path-name]",
 		Short: "add a path to the list of paths",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			_, err := config.c.GetChains(src, dst)
+			_, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
-			}
-
-			path := relayer.Path{
-				Src: &relayer.PathEnd{
-					ChainID: src,
-				},
-				Dst: &relayer.PathEnd{
-					ChainID: dst,
-				},
 			}
 
 			var out *Config
@@ -189,11 +186,11 @@ func pathsAddCmd() *cobra.Command {
 			}
 
 			if file != "" {
-				if out, err = fileInputPathAdd(file); err != nil {
+				if out, err = fileInputPathAdd(file, args[2]); err != nil {
 					return err
 				}
 			} else {
-				if out, err = userInputPathAdd(path, src, dst); err != nil {
+				if out, err = userInputPathAdd(src, dst, args[2]); err != nil {
 					return err
 				}
 			}
@@ -204,9 +201,9 @@ func pathsAddCmd() *cobra.Command {
 	return fileFlag(cmd)
 }
 
-func fileInputPathAdd(file string) (cfg *Config, err error) {
+func fileInputPathAdd(file, name string) (cfg *Config, err error) {
 	// If the user passes in a file, attempt to read the chain config from that file
-	p := relayer.Path{}
+	p := &relayer.Path{}
 	if _, err := os.Stat(file); err != nil {
 		return nil, err
 	}
@@ -220,19 +217,32 @@ func fileInputPathAdd(file string) (cfg *Config, err error) {
 		return nil, err
 	}
 
-	cfg, err = config.AddPath(p)
+	paths, err := config.Paths.Add(name, p)
 	if err != nil {
 		return nil, err
 	}
 
+	cfg = config
+	cfg.Paths = paths
+
 	return cfg, nil
 }
 
-func userInputPathAdd(path relayer.Path, src, dst string) (*Config, error) {
+func userInputPathAdd(src, dst, name string) (*Config, error) {
 	var (
 		value string
 		err   error
+		path  = &relayer.Path{
+			Strategy: relayer.NewNaieveStrategy(),
+			Src: &relayer.PathEnd{
+				ChainID: src,
+			},
+			Dst: &relayer.PathEnd{
+				ChainID: dst,
+			},
+		}
 	)
+
 	fmt.Printf("enter src(%s) client-id...\n", src)
 	if value, err = readStdin(); err != nil {
 		return nil, err
@@ -321,10 +331,13 @@ func userInputPathAdd(path relayer.Path, src, dst string) (*Config, error) {
 		return nil, err
 	}
 
-	out, err := config.AddPath(path)
+	paths, err := config.Paths.Add(name, path)
 	if err != nil {
 		return nil, err
 	}
+
+	out := config
+	out.Paths = paths
 
 	return out, nil
 }

@@ -36,6 +36,12 @@ var (
 	defaultHome = os.ExpandEnv("$HOME/.relayer")
 	cdc         *codec.Codec
 	appCodec    *codecstd.Codec
+
+	// Default identifiers for dummy usage
+	dcli = "defaultclientid"
+	dcon = "defaultconnectionid"
+	dcha = "defaultchannelid"
+	dpor = "defaultportid"
 )
 
 func init() {
