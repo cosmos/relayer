@@ -172,7 +172,7 @@ func (src *Chain) Error(err error) {
 
 // Subscribe returns channel of events given a query
 func (src *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, context.CancelFunc, error) {
-	if err := src.Client.OnStart(); err != nil {
+	if err := src.Client.Start(); err != nil {
 		return nil, nil, err
 	}
 
