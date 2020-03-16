@@ -66,10 +66,10 @@ func updateClientCmd() *cobra.Command {
 				return err
 			}
 
-			return SendAndPrint([]sdk.Msg{chains[src].UpdateClient(dstHeader)}, chains[src], cmd)
+			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress())}, chains[src], cmd)
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
 }
 
 func createClientCmd() *cobra.Command {
@@ -93,11 +93,11 @@ func createClientCmd() *cobra.Command {
 				return err
 			}
 
-			return SendAndPrint([]sdk.Msg{chains[src].CreateClient(dstHeader)}, chains[src], cmd)
+			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.CreateClient(dstHeader, chains[src].GetTrustingPeriod(), chains[src].MustGetAddress())}, chains[src], cmd)
 		},
 	}
 
-	return transactionFlags(cmd)
+	return cmd
 }
 
 func connInit() *cobra.Command {
@@ -120,10 +120,10 @@ func connInit() *cobra.Command {
 				return err
 			}
 
-			return SendAndPrint([]sdk.Msg{chains[src].ConnInit(chains[dst])}, chains[src], cmd)
+			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.ConnInit(chains[dst].PathEnd, chains[src].MustGetAddress())}, chains[src], cmd)
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
 }
 
 func connTry() *cobra.Command {
@@ -172,14 +172,14 @@ func connTry() *cobra.Command {
 			}
 
 			txs := []sdk.Msg{
-				chains[src].UpdateClient(hs[dst]),
-				chains[src].ConnTry(chains[dst], dstConnState, dstConsState, dstCsHeight),
+				chains[src].PathEnd.UpdateClient(hs[dst], chains[src].MustGetAddress()),
+				chains[src].PathEnd.ConnTry(chains[dst].PathEnd, dstConnState, dstConsState, dstCsHeight, chains[src].MustGetAddress()),
 			}
 
-			return SendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
 }
 
 func connAck() *cobra.Command {
@@ -228,14 +228,14 @@ func connAck() *cobra.Command {
 			}
 
 			txs := []sdk.Msg{
-				chains[src].ConnAck(dstState, dstConsState, dstCsHeight),
-				chains[src].UpdateClient(hs[dst]),
+				chains[src].PathEnd.ConnAck(dstState, dstConsState, dstCsHeight, chains[src].MustGetAddress()),
+				chains[src].PathEnd.UpdateClient(hs[dst], chains[src].MustGetAddress()),
 			}
 
-			return SendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
 }
 
 func connConfirm() *cobra.Command {
@@ -271,14 +271,14 @@ func connConfirm() *cobra.Command {
 			}
 
 			txs := []sdk.Msg{
-				chains[src].ConnConfirm(dstState),
-				chains[src].UpdateClient(hs[dst]),
+				chains[src].PathEnd.ConnConfirm(dstState, chains[src].MustGetAddress()),
+				chains[src].PathEnd.UpdateClient(hs[dst], chains[src].MustGetAddress()),
 			}
 
-			return SendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
 }
 
 func createConnectionStepCmd() *cobra.Command {
@@ -308,11 +308,11 @@ func createConnectionStepCmd() *cobra.Command {
 			}
 
 			if len(msgs.Src) > 0 {
-				if err = SendAndPrint(msgs.Src, chains[src], cmd); err != nil {
+				if err = sendAndPrint(msgs.Src, chains[src], cmd); err != nil {
 					return err
 				}
 			} else if len(msgs.Dst) > 0 {
-				if err = SendAndPrint(msgs.Dst, chains[dst], cmd); err != nil {
+				if err = sendAndPrint(msgs.Dst, chains[dst], cmd); err != nil {
 					return err
 				}
 			}
@@ -321,7 +321,7 @@ func createConnectionStepCmd() *cobra.Command {
 		},
 	}
 
-	return transactionFlags(cmd)
+	return cmd
 }
 
 func chanInit() *cobra.Command {
@@ -349,10 +349,10 @@ func chanInit() *cobra.Command {
 				return fmt.Errorf("invalid order '%s' passed in, expected 'UNORDERED' or 'ORDERED'", args[6])
 			}
 
-			return SendAndPrint([]sdk.Msg{chains[src].ChanInit(chains[dst], order)}, chains[src], cmd)
+			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.ChanInit(chains[dst].PathEnd, order, chains[src].MustGetAddress())}, chains[src], cmd)
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
 }
 
 func chanTry() *cobra.Command {
@@ -386,14 +386,14 @@ func chanTry() *cobra.Command {
 			}
 
 			txs := []sdk.Msg{
-				chains[src].UpdateClient(dstHeader),
-				chains[src].ChanTry(chains[dst], dstChanState),
+				chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress()),
+				chains[src].PathEnd.ChanTry(chains[dst].PathEnd, dstChanState, chains[src].MustGetAddress()),
 			}
 
-			return SendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
 }
 
 func chanAck() *cobra.Command {
@@ -427,14 +427,14 @@ func chanAck() *cobra.Command {
 			}
 
 			txs := []sdk.Msg{
-				chains[src].UpdateClient(dstHeader),
-				chains[src].ChanAck(dstChanState),
+				chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress()),
+				chains[src].PathEnd.ChanAck(dstChanState, chains[src].MustGetAddress()),
 			}
 
-			return SendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
 }
 
 func chanConfirm() *cobra.Command {
@@ -468,14 +468,14 @@ func chanConfirm() *cobra.Command {
 			}
 
 			txs := []sdk.Msg{
-				chains[src].UpdateClient(dstHeader),
-				chains[src].ChanConfirm(dstChanState),
+				chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress()),
+				chains[src].PathEnd.ChanConfirm(dstChanState, chains[src].MustGetAddress()),
 			}
 
-			return SendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
 }
 
 func createChannelStepCmd() *cobra.Command {
@@ -505,11 +505,11 @@ func createChannelStepCmd() *cobra.Command {
 			}
 
 			if len(msgs.Src) > 0 {
-				if err = SendAndPrint(msgs.Src, chains[src], cmd); err != nil {
+				if err = sendAndPrint(msgs.Src, chains[src], cmd); err != nil {
 					return err
 				}
 			} else if len(msgs.Dst) > 0 {
-				if err = SendAndPrint(msgs.Dst, chains[dst], cmd); err != nil {
+				if err = sendAndPrint(msgs.Dst, chains[dst], cmd); err != nil {
 					return err
 				}
 			}
@@ -518,7 +518,7 @@ func createChannelStepCmd() *cobra.Command {
 		},
 	}
 
-	return transactionFlags(cmd)
+	return cmd
 }
 
 func chanCloseInit() *cobra.Command {
@@ -536,10 +536,10 @@ func chanCloseInit() *cobra.Command {
 				return err
 			}
 
-			return SendAndPrint([]sdk.Msg{src.ChanCloseInit()}, src, cmd)
+			return sendAndPrint([]sdk.Msg{src.PathEnd.ChanCloseInit(src.MustGetAddress())}, src, cmd)
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
 }
 
 func chanCloseConfirm() *cobra.Command {
@@ -573,12 +573,17 @@ func chanCloseConfirm() *cobra.Command {
 			}
 
 			txs := []sdk.Msg{
-				chains[src].UpdateClient(dstHeader),
-				chains[src].ChanCloseConfirm(dstChanState),
+				chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress()),
+				chains[src].PathEnd.ChanCloseConfirm(dstChanState, chains[src].MustGetAddress()),
 			}
 
-			return SendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
+}
+
+func sendAndPrint(txs []sdk.Msg, c *relayer.Chain, cmd *cobra.Command) error {
+	text, indent := getPrintingFlags(cmd)
+	return c.SendAndPrint(txs, text, indent)
 }

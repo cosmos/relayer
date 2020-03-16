@@ -19,7 +19,6 @@ import (
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	libclient "github.com/tendermint/tendermint/rpc/lib/client"
-	"gopkg.in/yaml.v2"
 )
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
@@ -46,42 +45,43 @@ type Chain struct {
 	address sdk.AccAddress
 	logger  log.Logger
 	timeout time.Duration
+	debug   bool
 }
 
 // Init initializes the pieces of a chain that aren't set when it parses a config
 // NOTE: All validation of the chain should happen here.
-func (c *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.Codec, timeout time.Duration) (*Chain, error) {
-	keybase, err := keys.NewKeyring(c.ChainID, "test", keysDir(homePath), nil)
+func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.Codec, timeout time.Duration, debug bool) (*Chain, error) {
+	keybase, err := keys.NewKeyring(src.ChainID, "test", keysDir(homePath), nil)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := newRPCClient(c.RPCAddr, timeout)
+	client, err := newRPCClient(src.RPCAddr, timeout)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = sdk.ParseDecCoins(c.GasPrices)
+	_, err = sdk.ParseDecCoins(src.GasPrices)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = time.ParseDuration(c.TrustingPeriod)
+	_, err = time.ParseDuration(src.TrustingPeriod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse trusting period (%s) for chain %s", c.TrustingPeriod, c.ChainID)
+		return nil, fmt.Errorf("failed to parse trusting period (%s) for chain %s", src.TrustingPeriod, src.ChainID)
 	}
 
 	return &Chain{
-		Key:            c.Key,
-		ChainID:        c.ChainID,
-		RPCAddr:        c.RPCAddr,
-		AccountPrefix:  c.AccountPrefix,
-		Gas:            c.Gas,
-		GasAdjustment:  c.GasAdjustment,
-		GasPrices:      c.GasPrices,
-		DefaultDenom:   c.DefaultDenom,
-		Memo:           c.Memo,
-		TrustingPeriod: c.TrustingPeriod,
+		Key:            src.Key,
+		ChainID:        src.ChainID,
+		RPCAddr:        src.RPCAddr,
+		AccountPrefix:  src.AccountPrefix,
+		Gas:            src.Gas,
+		GasAdjustment:  src.GasAdjustment,
+		GasPrices:      src.GasPrices,
+		DefaultDenom:   src.DefaultDenom,
+		Memo:           src.Memo,
+		TrustingPeriod: src.TrustingPeriod,
 		Keybase:        keybase,
 		Client:         client,
 		Cdc:            cdc,
@@ -89,16 +89,18 @@ func (c *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.Cod
 		HomePath:       homePath,
 		logger:         log.NewTMLogger(log.NewSyncWriter(os.Stdout)),
 		timeout:        timeout,
+		debug:          debug,
 	}, nil
 }
 
-func (c *Chain) getGasPrices() sdk.DecCoins {
-	gp, _ := sdk.ParseDecCoins(c.GasPrices)
+func (src *Chain) getGasPrices() sdk.DecCoins {
+	gp, _ := sdk.ParseDecCoins(src.GasPrices)
 	return gp
 }
 
-func (c *Chain) getTrustingPeriod() time.Duration {
-	tp, _ := time.ParseDuration(c.TrustingPeriod)
+// GetTrustingPeriod returns the trusting period for the chain
+func (src *Chain) GetTrustingPeriod() time.Duration {
+	tp, _ := time.ParseDuration(src.TrustingPeriod)
 	return tp
 }
 
@@ -116,51 +118,66 @@ func newRPCClient(addr string, timeout time.Duration) (*rpcclient.HTTP, error) {
 	}
 
 	return rpcClient, nil
+}
 
+// SendMsg wraps the msg in a stdtx, signs and sends it
+func (src *Chain) SendMsg(datagram sdk.Msg) (sdk.TxResponse, error) {
+	return src.SendMsgs([]sdk.Msg{datagram})
+}
+
+// SendMsgs wraps the msgs in a stdtx, signs and sends it
+func (src *Chain) SendMsgs(datagrams []sdk.Msg) (res sdk.TxResponse, err error) {
+	var out []byte
+	if out, err = src.BuildAndSignTx(datagrams); err != nil {
+		return res, err
+	}
+	return src.BroadcastTxCommit(out)
 }
 
 // BuildAndSignTx takes messages and builds, signs and marshals a sdk.Tx to prepare it for broadcast
-func (c *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
+func (src *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
 	// Fetch account and sequence numbers for the account
-	acc, err := auth.NewAccountRetriever(c.Cdc, c).GetAccount(c.MustGetAddress())
+	acc, err := auth.NewAccountRetriever(src.Cdc, src).GetAccount(src.MustGetAddress())
 	if err != nil {
 		return nil, err
 	}
 
 	return auth.NewTxBuilder(
-		auth.DefaultTxEncoder(c.Amino), acc.GetAccountNumber(),
-		acc.GetSequence(), c.Gas, c.GasAdjustment, false, c.ChainID,
-		c.Memo, sdk.NewCoins(), c.getGasPrices()).WithKeybase(c.Keybase).
-		BuildAndSign(c.Key, ckeys.DefaultKeyPass, datagram)
+		auth.DefaultTxEncoder(src.Amino), acc.GetAccountNumber(),
+		acc.GetSequence(), src.Gas, src.GasAdjustment, false, src.ChainID,
+		src.Memo, sdk.NewCoins(), src.getGasPrices()).WithKeybase(src.Keybase).
+		BuildAndSign(src.Key, ckeys.DefaultKeyPass, datagram)
 }
 
 // BroadcastTxCommit takes the marshaled transaction bytes and broadcasts them
-func (c *Chain) BroadcastTxCommit(txBytes []byte) (sdk.TxResponse, error) {
-	res, err := sdkCtx.CLIContext{Client: c.Client}.BroadcastTxCommit(txBytes)
-	// NOTE: The raw is a recreation of the log and unused in this context. It is also
-	// quite noisy so we remove it to simplify the output
-	res.RawLog = ""
+func (src *Chain) BroadcastTxCommit(txBytes []byte) (sdk.TxResponse, error) {
+	res, err := sdkCtx.CLIContext{Client: src.Client}.BroadcastTxCommit(txBytes)
+
+	if !src.debug {
+		res.RawLog = ""
+	}
+
 	return res, err
 }
 
 // Log takes a string and logs the data
-func (c *Chain) Log(s string) {
-	c.logger.Info(s)
+func (src *Chain) Log(s string) {
+	src.logger.Info(s)
 }
 
 // Error takes an error, wraps it in the chainID and logs the error
-func (c *Chain) Error(err error) {
-	c.logger.Error(fmt.Sprintf("%s: err(%s)", c.ChainID, err.Error()))
+func (src *Chain) Error(err error) {
+	src.logger.Error(fmt.Sprintf("%s: err(%s)", src.ChainID, err.Error()))
 }
 
 // Subscribe returns channel of events given a query
-func (c *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, context.CancelFunc, error) {
-	if err := c.Client.OnStart(); err != nil {
+func (src *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, context.CancelFunc, error) {
+	if err := src.Client.OnStart(); err != nil {
 		return nil, nil, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	eventChan, err := c.Client.Subscribe(ctx, fmt.Sprintf("%s-subscriber", c.ChainID), query)
+	eventChan, err := src.Client.Subscribe(ctx, fmt.Sprintf("%s-subscriber", src.ChainID), query)
 	return eventChan, cancel, err
 }
 
@@ -174,35 +191,35 @@ func liteDir(home string) string {
 }
 
 // GetAddress returns the sdk.AccAddress associated with the configred key
-func (c *Chain) GetAddress() (sdk.AccAddress, error) {
-	if c.address != nil {
-		return c.address, nil
+func (src *Chain) GetAddress() (sdk.AccAddress, error) {
+	if src.address != nil {
+		return src.address, nil
 	}
 	// Signing key for src chain
-	srcAddr, err := c.Keybase.Get(c.Key)
+	srcAddr, err := src.Keybase.Get(src.Key)
 	if err != nil {
 		return nil, err
 	}
-	c.address = srcAddr.GetAddress()
+	src.address = srcAddr.GetAddress()
 	return srcAddr.GetAddress(), nil
 }
 
 // MustGetAddress used for brevity
-func (c *Chain) MustGetAddress() sdk.AccAddress {
-	srcAddr, err := c.Keybase.Get(c.Key)
+func (src *Chain) MustGetAddress() sdk.AccAddress {
+	srcAddr, err := src.GetAddress()
 	if err != nil {
 		panic(err)
 	}
-	return srcAddr.GetAddress()
+	return srcAddr
 }
 
-func (c *Chain) String() string {
-	return c.ChainID
+func (src *Chain) String() string {
+	return src.ChainID
 }
 
 // Update returns a new chain with updated values
-func (c *Chain) Update(key, value string) (out *Chain, err error) {
-	out = c
+func (src *Chain) Update(key, value string) (out *Chain, err error) {
+	out = src
 	switch key {
 	case "key":
 		out.Key = value
@@ -246,7 +263,7 @@ func (c *Chain) Update(key, value string) (out *Chain, err error) {
 // Print fmt.Printlns the json or yaml representation of whatever is passed in
 // CONTRACT: The cmd calling this function needs to have the "json" and "indent" flags set
 // TODO: better "text" printing here would be a nice to have
-func (c *Chain) Print(toPrint interface{}, text, indent bool) error {
+func (src *Chain) Print(toPrint interface{}, text, indent bool) error {
 	var (
 		out []byte
 		err error
@@ -254,11 +271,11 @@ func (c *Chain) Print(toPrint interface{}, text, indent bool) error {
 
 	switch {
 	case indent:
-		out, err = c.Amino.MarshalJSONIndent(toPrint, "", "  ")
+		out, err = src.Amino.MarshalJSONIndent(toPrint, "", "  ")
 	case text:
-		out, err = yaml.Marshal(&toPrint)
+		out = []byte(fmt.Sprintf("%v", toPrint))
 	default:
-		out, err = c.Amino.MarshalJSON(toPrint)
+		out, err = src.Amino.MarshalJSON(toPrint)
 	}
 
 	if err != nil {
@@ -267,6 +284,23 @@ func (c *Chain) Print(toPrint interface{}, text, indent bool) error {
 
 	fmt.Println(string(out))
 	return nil
+}
+
+// SendAndPrint sends a transaction and prints according to the passed args
+func (src *Chain) SendAndPrint(txs []sdk.Msg, text, indent bool) (err error) {
+	if src.debug {
+		if err = src.Print(txs, text, indent); err != nil {
+			return err
+		}
+	}
+	// SendAndPrint sends the transaction with printing options from the CLI
+	res, err := src.SendMsgs(txs)
+	if err != nil {
+		return err
+	}
+
+	return src.Print(res, text, indent)
+
 }
 
 // Chains is a collection of Chain

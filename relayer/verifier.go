@@ -119,7 +119,7 @@ func (c *Chain) InitLiteClientWithoutTrust(db *dbm.GoLevelDB) (*lite.Client, err
 	}
 
 	// TODO: provide actual witnesses!
-	lc, err := lite.NewClientFromTrustedStore(c.ChainID, c.getTrustingPeriod(), httpProvider,
+	lc, err := lite.NewClientFromTrustedStore(c.ChainID, c.GetTrustingPeriod(), httpProvider,
 		[]litep.Provider{httpProvider}, dbs.New(db, ""),
 		lite.Logger(log.NewTMLogger(log.NewSyncWriter(ioutil.Discard))))
 	if err != nil {
@@ -204,7 +204,7 @@ func (c *Chain) DeleteLiteDB() error {
 // TrustOptions returns lite.TrustOptions given a height and hash
 func (c *Chain) TrustOptions(height int64, hash []byte) lite.TrustOptions {
 	return lite.TrustOptions{
-		Period: c.getTrustingPeriod(),
+		Period: c.GetTrustingPeriod(),
 		Height: height,
 		Hash:   hash,
 	}
@@ -314,7 +314,7 @@ func GetLatestHeights(chains ...*Chain) (map[string]int64, error) {
 		}(hs, &wg, chain)
 	}
 	wg.Wait()
-	return hs.Map, hs.err()
+	return hs.Map, hs.Errs.err()
 }
 
 // GetLiteSignedHeaderAtHeight returns a signed header at a particular height.

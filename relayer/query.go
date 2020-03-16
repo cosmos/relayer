@@ -12,6 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
@@ -33,6 +34,35 @@ import (
 // These functions by convention are named Query*
 
 // TODO: Validate all info coming back from these queries using the verifier
+
+// QueryBalance returns the amount of coins in the relayer account
+func (c *Chain) QueryBalance() (sdk.Coins, error) {
+	var (
+		bz    []byte
+		err   error
+		coins sdk.Coins
+		route = fmt.Sprintf("custom/%s/%s", bankTypes.QuerierRoute, bankTypes.QueryAllBalances)
+		addr  = c.MustGetAddress()
+	)
+
+	if bz, err = c.Cdc.MarshalJSON(bankTypes.NewQueryAllBalancesParams(addr)); err != nil {
+		return nil, qBalErr(addr, err)
+	}
+
+	if bz, _, err = c.QueryWithData(route, bz); err != nil {
+		return nil, qBalErr(addr, err)
+	}
+
+	if err = c.Cdc.UnmarshalJSON(bz, &coins); err != nil {
+		return nil, qBalErr(addr, err)
+	}
+
+	return coins, nil
+}
+
+func qBalErr(acc sdk.AccAddress, err error) error {
+	return fmt.Errorf("query balance for acct %s failed: %w", acc.String(), err)
+}
 
 //////////////////////////////
 //    ICS 02 -> CLIENTS     //
@@ -70,7 +100,7 @@ func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, err
 
 // QueryClientConsensusState retrevies the latest consensus state for a client in state at a given height
 // NOTE: dstHeight is the height from dst that is stored on src, it is needed to construct the appropriate store query
-func (c *Chain) QueryClientConsensusState(srcHeight, dstHeight int64) (clientTypes.ConsensusStateResponse, error) {
+func (c *Chain) QueryClientConsensusState(srcHeight, srcClientConsHeight int64) (clientTypes.ConsensusStateResponse, error) {
 	var conStateRes clientTypes.ConsensusStateResponse
 	if !c.PathSet() {
 		return conStateRes, c.ErrPathNotSet()
@@ -79,7 +109,7 @@ func (c *Chain) QueryClientConsensusState(srcHeight, dstHeight int64) (clientTyp
 	req := abci.RequestQuery{
 		Path:   "store/ibc/key",
 		Height: int64(srcHeight),
-		Data:   ibctypes.KeyConsensusState(c.PathEnd.ClientID, uint64(dstHeight)),
+		Data:   ibctypes.KeyConsensusState(c.PathEnd.ClientID, uint64(srcClientConsHeight)),
 		Prove:  true,
 	}
 
@@ -97,6 +127,51 @@ func (c *Chain) QueryClientConsensusState(srcHeight, dstHeight int64) (clientTyp
 	}
 
 	return clientTypes.NewConsensusStateResponse(c.PathEnd.ClientID, cs, res.Proof, res.Height), nil
+}
+
+type csstates struct {
+	sync.Mutex
+	Map  map[string]clientTypes.ConsensusStateResponse
+	Errs errs
+}
+
+type chh struct {
+	c   *Chain
+	h   int64
+	csh int64
+}
+
+// QueryClientConsensusStatePair allows for the querying of multiple client states at the same time
+func QueryClientConsensusStatePair(src, dst *Chain, srcH, dstH, srcClientConsH, dstClientConsH int64) (map[string]clientTypes.ConsensusStateResponse, error) {
+	hs := &csstates{
+		Map:  make(map[string]clientTypes.ConsensusStateResponse),
+		Errs: []error{},
+	}
+
+	var wg sync.WaitGroup
+
+	chps := []chh{
+		chh{src, srcH, srcClientConsH},
+		chh{dst, dstH, dstClientConsH},
+	}
+
+	for _, chain := range chps {
+		wg.Add(1)
+		go func(hs *csstates, wg *sync.WaitGroup, chp chh) {
+			conn, err := chp.c.QueryClientConsensusState(chp.h, chp.csh)
+			if err != nil {
+				hs.Lock()
+				hs.Errs = append(hs.Errs, err)
+				hs.Unlock()
+			}
+			hs.Lock()
+			hs.Map[chp.c.ChainID] = conn
+			hs.Unlock()
+			wg.Done()
+		}(hs, &wg, chain)
+	}
+	wg.Wait()
+	return hs.Map, hs.Errs.err()
 }
 
 func qClntConsStateErr(err error) error { return fmt.Errorf("query client cons state failed: %w", err) }
@@ -128,6 +203,42 @@ func (c *Chain) QueryClientState() (clientTypes.StateResponse, error) {
 	}
 
 	return clientTypes.NewClientStateResponse(c.PathEnd.ClientID, cs, res.Proof, res.Height), nil
+}
+
+type cstates struct {
+	sync.Mutex
+	Map  map[string]clientTypes.StateResponse
+	Errs errs
+}
+
+// QueryClientStatePair returns a pair of connection responses
+func QueryClientStatePair(src, dst *Chain) (map[string]clientTypes.StateResponse, error) {
+	hs := &cstates{
+		Map:  make(map[string]clientTypes.StateResponse),
+		Errs: []error{},
+	}
+
+	var wg sync.WaitGroup
+
+	chps := []*Chain{src, dst}
+
+	for _, chain := range chps {
+		wg.Add(1)
+		go func(hs *cstates, wg *sync.WaitGroup, c *Chain) {
+			conn, err := c.QueryClientState()
+			if err != nil {
+				hs.Lock()
+				hs.Errs = append(hs.Errs, err)
+				hs.Unlock()
+			}
+			hs.Lock()
+			hs.Map[c.ChainID] = conn
+			hs.Unlock()
+			wg.Done()
+		}(hs, &wg, chain)
+	}
+	wg.Wait()
+	return hs.Map, hs.Errs.err()
 }
 
 func qClntStateErr(err error) error { return fmt.Errorf("query client state failed: %w", err) }
@@ -240,6 +351,55 @@ func (c *Chain) QueryConnection(height int64) (connTypes.ConnectionResponse, err
 	return connTypes.NewConnectionResponse(c.PathEnd.ConnectionID, connection, res.Proof, res.Height), nil
 }
 
+type conns struct {
+	sync.Mutex
+	Map  map[string]connTypes.ConnectionResponse
+	Errs errs
+}
+
+type chpair struct {
+	c *Chain
+	h int64
+}
+
+// QueryConnectionPair returns a pair of connection responses
+func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (map[string]connTypes.ConnectionResponse, error) {
+	hs := &conns{
+		Map:  make(map[string]connTypes.ConnectionResponse),
+		Errs: []error{},
+	}
+
+	var wg sync.WaitGroup
+
+	chps := []chpair{
+		chpair{src, srcH},
+		chpair{dst, dstH},
+	}
+
+	for _, chain := range chps {
+		wg.Add(1)
+		go func(hs *conns, wg *sync.WaitGroup, chp chpair) {
+			conn, err := chp.c.QueryConnection(chp.h)
+			if err != nil {
+				hs.Lock()
+				hs.Errs = append(hs.Errs, err)
+				hs.Unlock()
+			}
+			hs.Lock()
+			hs.Map[chp.c.ChainID] = conn
+			hs.Unlock()
+			wg.Done()
+		}(hs, &wg, chain)
+	}
+	wg.Wait()
+	return hs.Map, hs.Errs.err()
+}
+
+// // QueryLatestHeights returns the heights of multiple chains at once
+// func QueryLatestHeights(chains ...*Chain) (map[string]int64, error) {
+
+// }
+
 func qConnErr(err error) error { return fmt.Errorf("query connection failed: %w", err) }
 
 var emptyConnRes = connTypes.ConnectionResponse{Connection: connTypes.ConnectionEnd{State: connState.UNINITIALIZED}}
@@ -275,6 +435,45 @@ func (c *Chain) QueryChannel(height int64) (chanRes chanTypes.ChannelResponse, e
 	}
 
 	return chanTypes.NewChannelResponse(c.PathEnd.PortID, c.PathEnd.ChannelID, channel, res.Proof, res.Height), nil
+}
+
+type chans struct {
+	sync.Mutex
+	Map  map[string]chanTypes.ChannelResponse
+	Errs errs
+}
+
+// QueryChannelPair returns a pair of connection responses
+func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (map[string]chanTypes.ChannelResponse, error) {
+	hs := &chans{
+		Map:  make(map[string]chanTypes.ChannelResponse),
+		Errs: []error{},
+	}
+
+	var wg sync.WaitGroup
+
+	chps := []chpair{
+		chpair{src, srcH},
+		chpair{dst, dstH},
+	}
+
+	for _, chain := range chps {
+		wg.Add(1)
+		go func(hs *chans, wg *sync.WaitGroup, chp chpair) {
+			conn, err := chp.c.QueryChannel(chp.h)
+			if err != nil {
+				hs.Lock()
+				hs.Errs = append(hs.Errs, err)
+				hs.Unlock()
+			}
+			hs.Lock()
+			hs.Map[chp.c.ChainID] = conn
+			hs.Unlock()
+			wg.Done()
+		}(hs, &wg, chain)
+	}
+	wg.Wait()
+	return hs.Map, hs.Errs.err()
 }
 
 func qChanErr(err error) error { return fmt.Errorf("query channel failed: %w", err) }
@@ -538,12 +737,14 @@ func (c *Chain) QueryLatestHeight() (int64, error) {
 type heights struct {
 	sync.Mutex
 	Map  map[string]int64
-	Errs []error
+	Errs errs
 }
 
-func (h *heights) err() error {
+type errs []error
+
+func (e errs) err() error {
 	var out error
-	for _, err := range h.Errs {
+	for _, err := range e {
 		out = fmt.Errorf("err: %w ", err)
 	}
 	return out
@@ -570,7 +771,7 @@ func QueryLatestHeights(chains ...*Chain) (map[string]int64, error) {
 		}(hs, &wg, chain)
 	}
 	wg.Wait()
-	return hs.Map, hs.err()
+	return hs.Map, hs.Errs.err()
 }
 
 // QueryLatestHeader returns the latest header from the chain

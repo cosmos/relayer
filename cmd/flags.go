@@ -4,8 +4,6 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
@@ -41,12 +39,6 @@ func paginationFlags(cmd *cobra.Command) *cobra.Command {
 	viper.BindPFlag(flags.FlagPage, cmd.Flags().Lookup(flags.FlagPage))
 	viper.BindPFlag(flags.FlagLimit, cmd.Flags().Lookup(flags.FlagLimit))
 	return cmd
-}
-
-func transactionFlags(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP(flagPrintTx, "p", false, "pass flag to print transactions before sending")
-	viper.BindPFlag(flagPrintTx, cmd.Flags().Lookup(flagPrintTx))
-	return outputFlags(cmd)
 }
 
 func outputFlags(cmd *cobra.Command) *cobra.Command {
@@ -108,35 +100,4 @@ func getURL(cmd *cobra.Command) (out string, err error) {
 		}
 	}
 	return
-}
-
-// PrintTxs prints transactions prior to sending if the flag has been passed in
-func PrintTxs(toPrint interface{}, chain *relayer.Chain, cmd *cobra.Command) error {
-	print, err := cmd.Flags().GetBool(flagPrintTx)
-	if err != nil {
-		return err
-	}
-
-	if print {
-		err = queryOutput(toPrint, chain, cmd)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// SendAndPrint sends the transaction with printing options from the CLI
-func SendAndPrint(txs []sdk.Msg, chain *relayer.Chain, cmd *cobra.Command) (err error) {
-	if err = PrintTxs(txs, chain, cmd); err != nil {
-		return err
-	}
-
-	res, err := chain.SendMsgs(txs)
-	if err != nil {
-		return err
-	}
-
-	return queryOutput(res, chain, cmd)
 }

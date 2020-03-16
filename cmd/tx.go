@@ -62,10 +62,10 @@ func createClientsCmd() *cobra.Command {
 				return err
 			}
 
-			return chains[src].CreateClients(chains[dst], cmd)
+			return chains[src].CreateClients(chains[dst])
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
 }
 
 func createConnectionCmd() *cobra.Command {
@@ -95,11 +95,11 @@ func createConnectionCmd() *cobra.Command {
 				return err
 			}
 
-			return chains[src].CreateConnection(chains[dst], to, cmd)
+			return chains[src].CreateConnection(chains[dst], to)
 		},
 	}
 
-	return timeoutFlag(transactionFlags(cmd))
+	return timeoutFlag(cmd)
 }
 
 func createChannelCmd() *cobra.Command {
@@ -129,11 +129,11 @@ func createChannelCmd() *cobra.Command {
 				return err
 			}
 
-			return chains[src].CreateChannel(chains[dst], true, to, cmd)
+			return chains[src].CreateChannel(chains[dst], true, to)
 		},
 	}
 
-	return timeoutFlag(transactionFlags(cmd))
+	return timeoutFlag(cmd)
 }
 
 func fullPathCmd() *cobra.Command {
@@ -163,22 +163,22 @@ func fullPathCmd() *cobra.Command {
 			}
 
 			// Check if clients have been created, if not create them
-			if err = chains[src].CreateClients(chains[dst], cmd); err != nil {
+			if err = chains[src].CreateClients(chains[dst]); err != nil {
 				return err
 			}
 
 			// Check if connection has been created, if not create it
-			if err = chains[src].CreateConnection(chains[dst], to, cmd); err != nil {
+			if err = chains[src].CreateConnection(chains[dst], to); err != nil {
 				return err
 			}
 
 			// NOTE: this is hardcoded to create ordered channels right now. Add a flag here to toggle
 			// Check if channel has been created, if not create it
-			return chains[src].CreateChannel(chains[dst], true, to, cmd)
+			return chains[src].CreateChannel(chains[dst], true, to)
 		},
 	}
 
-	return timeoutFlag(transactionFlags(cmd))
+	return timeoutFlag(cmd)
 }
 
 func setPathsFromArgs(src, dst *relayer.Chain, name string) (*relayer.Path, error) {

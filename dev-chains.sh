@@ -17,5 +17,5 @@ cd $RELAYER_DIR
 rm -rf $RELAYER_CONF &> /dev/null
 bash two-chains.sh "local" "skip"
 bash config-relayer.sh "skip"
-sleep 5
-relayer tx full-path ibc0 ibc1
+sleep 2
+relayer tx full-path ibc0 ibc1 -d -o 3s

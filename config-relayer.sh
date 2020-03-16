@@ -40,6 +40,6 @@ echo "Key $(relayer keys restore ibc1 testkey "$SEED1" -a) imported from ibc1 to
 echo
 echo "Creating lite clients..."
 echo
-sleep 8
+sleep 3
 relayer lite init ibc0 -f
 relayer lite init ibc1 -f

@@ -162,7 +162,7 @@ type GlobalConfig struct {
 // newDefaultGlobalConfig returns a global config with defaults set
 func newDefaultGlobalConfig() GlobalConfig {
 	return GlobalConfig{
-		Timeout:       "5s",
+		Timeout:       "10s",
 		LiteCacheSize: 20,
 	}
 }
@@ -189,7 +189,7 @@ func (c *Config) DeleteChain(chain string) *Config {
 }
 
 // Called to initialize the relayer.Chain types on Config
-func validateConfig(c *Config, home string) error {
+func validateConfig(c *Config) error {
 	var new = &Config{Global: c.Global, Chains: relayer.Chains{}, Paths: c.Paths}
 	to, err := time.ParseDuration(new.Global.Timeout)
 	if err != nil {
@@ -197,7 +197,7 @@ func validateConfig(c *Config, home string) error {
 	}
 
 	for _, i := range c.Chains {
-		chain, err := i.Init(home, appCodec, cdc, to)
+		chain, err := i.Init(homePath, appCodec, cdc, to, debug)
 		if err != nil {
 			return err
 		}
@@ -235,7 +235,7 @@ func initConfig(cmd *cobra.Command) error {
 			}
 
 			// ensure config has []*relayer.Chain used for all chain operations
-			err = validateConfig(config, home)
+			err = validateConfig(config)
 			if err != nil {
 				fmt.Println("Error parsing chain config:", err)
 				os.Exit(1)
@@ -256,7 +256,7 @@ func overWriteConfig(cmd *cobra.Command, cfg *Config) error {
 		viper.SetConfigFile(cfgPath)
 		if err = viper.ReadInConfig(); err == nil {
 			// ensure validateConfig runs properly
-			err = validateConfig(config, home)
+			err = validateConfig(config)
 			if err != nil {
 				return err
 			}

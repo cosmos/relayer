@@ -86,14 +86,6 @@ func (p *Path) Validate() (err error) {
 	return nil
 }
 
-// Equal returns true if the path ends are equivelent, false otherwise
-func (p *Path) Equal(path *Path) bool {
-	if (p.Src.Equal(path.Src) || p.Src.Equal(path.Dst)) && (p.Dst.Equal(path.Src) || p.Dst.Equal(path.Dst)) {
-		return true
-	}
-	return false
-}
-
 // End returns the proper end given a chainID
 func (p *Path) End(chainID string) *PathEnd {
 	if p.Dst.ChainID == chainID {
@@ -107,25 +99,4 @@ func (p *Path) End(chainID string) *PathEnd {
 
 func (p *Path) String() string {
 	return fmt.Sprintf("[%d] %s ->\n %s", p.Index, p.Src.String(), p.Dst.String())
-}
-
-// TODO: add Order chanTypes.Order as a property and wire it up in validation
-// as well as in the transaction commands
-
-// PathEnd represents the local connection identifers for a relay path
-// The path is set on the chain before performing operations
-type PathEnd struct {
-	ChainID      string `yaml:"chain-id,omitempty" json:"chain-id,omitempty"`
-	ClientID     string `yaml:"client-id,omitempty" json:"client-id,omitempty"`
-	ConnectionID string `yaml:"connection-id,omitempty" json:"connection-id,omitempty"`
-	ChannelID    string `yaml:"channel-id,omitempty" json:"channel-id,omitempty"`
-	PortID       string `yaml:"port-id,omitempty" json:"port-id,omitempty"`
-}
-
-// Equal returns true if both path ends are equivelent, false otherwise
-func (p *PathEnd) Equal(path *PathEnd) bool {
-	if p.ChainID == path.ChainID && p.ClientID == path.ClientID && p.ConnectionID == path.ConnectionID && p.PortID == path.PortID && p.ChannelID == path.ChannelID {
-		return true
-	}
-	return false
 }

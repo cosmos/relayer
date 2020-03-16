@@ -16,6 +16,7 @@ import (
 
 func init() {
 	queryCmd.AddCommand(queryAccountCmd())
+	queryCmd.AddCommand(queryBalanceCmd())
 	queryCmd.AddCommand(queryHeaderCmd())
 	queryCmd.AddCommand(queryNodeStateCmd())
 	queryCmd.AddCommand(queryClientCmd())
@@ -105,7 +106,7 @@ func parseEvents(e string) ([]string, error) {
 func queryAccountCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "account [chain-id]",
-		Short: "Use configured RPC client to fetch the account balance of the relayer account",
+		Short: "Use configured RPC client to fetch the account data of the relayer account",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -124,6 +125,28 @@ func queryAccountCmd() *cobra.Command {
 			}
 
 			return queryOutput(acc, chain, cmd)
+		},
+	}
+	return outputFlags(cmd)
+}
+
+func queryBalanceCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "balance [chain-id]",
+		Short: "Use configured RPC client to fetch the account balance of the relayer account",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
+
+			coins, err := chain.QueryBalance()
+			if err != nil {
+				return err
+			}
+
+			return queryOutput(coins, chain, cmd)
 		},
 	}
 	return outputFlags(cmd)
@@ -537,4 +560,18 @@ func queryOutput(res interface{}, chain *relayer.Chain, cmd *cobra.Command) erro
 		panic(err)
 	}
 	return chain.Print(res, text, indent)
+}
+
+func getPrintingFlags(cmd *cobra.Command) (text, indent bool) {
+	var err error
+	text, err = cmd.Flags().GetBool("text")
+	if err != nil {
+		panic(err)
+	}
+
+	indent, err = cmd.Flags().GetBool("indent")
+	if err != nil {
+		panic(err)
+	}
+	return
 }

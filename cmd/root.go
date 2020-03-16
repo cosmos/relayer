@@ -32,6 +32,7 @@ import (
 var (
 	cfgPath     string
 	homePath    string
+	debug       bool
 	config      *Config
 	defaultHome = os.ExpandEnv("$HOME/.relayer")
 	cdc         *codec.Codec
@@ -47,9 +48,11 @@ var (
 func init() {
 	// Register top level flags --home and --config
 	rootCmd.PersistentFlags().StringVar(&homePath, flags.FlagHome, defaultHome, "set home directory")
+	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug output")
 	rootCmd.PersistentFlags().StringVar(&cfgPath, flagConfig, "config.yaml", "set config file")
 	viper.BindPFlag(flags.FlagHome, rootCmd.Flags().Lookup(flags.FlagHome))
 	viper.BindPFlag(flagConfig, rootCmd.Flags().Lookup(flagConfig))
+	viper.BindPFlag("debug", rootCmd.Flags().Lookup("debug"))
 
 	// Register subcommands
 	rootCmd.AddCommand(

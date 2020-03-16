@@ -14,10 +14,11 @@ killall gaiad
 
 set -e
 
-echo "Generating relayer configurations..."
-mkdir -p $RLY_CONF/config
-echo "cp $(pwd)/two-chains.yaml $RLY_CONF/config/config.yaml"
-cp $(pwd)/two-chains.yaml $RLY_CONF/config/config.yaml
+echo "Generating relayer configuration..."
+$RELAYER --home $RLY_CONF config init
+$RELAYER --home $RLY_CONF chains add -f demo/ibc0.json
+$RELAYER --home $RLY_CONF chains add -f demo/ibc1.json
+$RELAYER --home $RLY_CONF paths add ibc0 ibc1 demopath -f demo/path.json
 
 echo "Generating gaia configurations..."
 cd $GAIA_CONF && mkdir ibc-testnets && cd ibc-testnets
@@ -62,7 +63,7 @@ $RELAYER --home $RLY_CONF lite init $c0 -f
 $RELAYER --home $RLY_CONF lite init $c1 -f
 
 echo "Create clients"
-$RELAYER --home $RLY_CONF tx clients $c0 $c1
+$RELAYER --home $RLY_CONF tx clients -d $c0 $c1
 
 echo "Query headers"
 $RELAYER --home $RLY_CONF q header $c0   
@@ -77,7 +78,7 @@ $RELAYER --home $RLY_CONF q clients $c0
 $RELAYER --home $RLY_CONF q clients $c1
 
 echo "Creating connection..."
-$RELAYER --home $RLY_CONF tx connection $c0 $c1
+$RELAYER --home $RLY_CONF tx connection -d $c0 $c1
 
 echo "Creating channel..."
-$RELAYER --home $RLY_CONF tx channel $c0 $c1
+$RELAYER --home $RLY_CONF tx channel -d $c0 $c1

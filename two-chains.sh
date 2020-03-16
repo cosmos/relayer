@@ -75,23 +75,39 @@ echo -e "\n" | gaiad testnet -o $chainid1 --v 1 --chain-id $chainid1 --node-dir-
 
 cfgpth="n0/gaiad/config/config.toml"
 if [ "$(uname)" = "Linux" ]; then
-  # TODO: Just index some specified tags
+  # TODO: Just index *some* specified tags, not all
   # sed -i 's/index_keys = ""/index_keys = "tx.height,tx.hash"'
+  
+  # Set proper defaults and change ports
   sed -i 's/"leveldb"/"goleveldb"/g' $chainid0/$cfgpth
   sed -i 's/"leveldb"/"goleveldb"/g' $chainid1/$cfgpth
   sed -i 's#"tcp://0.0.0.0:26656"#"tcp://0.0.0.0:26556"#g' $chainid1/$cfgpth
   sed -i 's#"tcp://0.0.0.0:26657"#"tcp://0.0.0.0:26557"#g' $chainid1/$cfgpth
   sed -i 's#"localhost:6060"#"localhost:6061"#g' $chainid1/$cfgpth
   sed -i 's#"tcp://127.0.0.1:26658"#"tcp://127.0.0.1:26558"#g' $chainid1/$cfgpth
+  
+  # Make blocks run faster than normal
+  sed -i 's/timeout_commit = "5s"/timeout_commit = "1s"/g' $chainid0/$cfgpth
+  sed -i 's/timeout_commit = "5s"/timeout_commit = "1s"/g' $chainid1/$cfgpth
+  sed -i 's/timeout_propose = "3s"/timeout_propose = "1s"/g' $chainid0/$cfgpth
+  sed -i 's/timeout_propose = "3s"/timeout_propose = "1s"/g' $chainid1/$cfgpth
 else
-  # TODO: Just index some specified tags
+  # TODO: Just index *some* specified tags, not all
   # sed -i 's/index_keys = ""/index_keys = "tx.height,tx.hash"'
+
+  # Set proper defaults and change ports
   sed -i '' 's/"leveldb"/"goleveldb"/g' $chainid0/$cfgpth
   sed -i '' 's/"leveldb"/"goleveldb"/g' $chainid1/$cfgpth
   sed -i '' 's#"tcp://0.0.0.0:26656"#"tcp://0.0.0.0:26556"#g' $chainid1/$cfgpth
   sed -i '' 's#"tcp://0.0.0.0:26657"#"tcp://0.0.0.0:26557"#g' $chainid1/$cfgpth
   sed -i '' 's#"localhost:6060"#"localhost:6061"#g' $chainid1/$cfgpth
   sed -i '' 's#"tcp://127.0.0.1:26658"#"tcp://127.0.0.1:26558"#g' $chainid1/$cfgpth
+
+  # Make blocks run faster than normal
+  sed -i '' 's/timeout_commit = "5s"/timeout_commit = "1s"/g' $chainid0/$cfgpth
+  sed -i '' 's/timeout_commit = "5s"/timeout_commit = "1s"/g' $chainid1/$cfgpth
+  sed -i '' 's/timeout_propose = "3s"/timeout_propose = "1s"/g' $chainid0/$cfgpth
+  sed -i '' 's/timeout_propose = "3s"/timeout_propose = "1s"/g' $chainid1/$cfgpth
 fi
 
 gclpth="n0/gaiacli/"

@@ -1,5 +1,19 @@
 package relayer
 
+import "fmt"
+
+// GetCodespace returns the configuration for a given path
+func GetCodespace(codespace string, code int) (msg string, err error) {
+	if cs, ok := codespaces[codespace]; ok {
+		if val, ok := cs[code]; ok {
+			msg = val
+		}
+	} else {
+		err = fmt.Errorf("codespace for %s(%d) not found in map", codespace, code)
+	}
+	return
+}
+
 var codespaces = map[string]map[int]string{
 	"client": map[int]string{
 		1:  "light client already exists",
