@@ -17,7 +17,11 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -36,6 +40,7 @@ func transactionCmd() *cobra.Command {
 		createChannelCmd(),
 		fullPathCmd(),
 		rawTransactionCmd(),
+		transferCmd(),
 	)
 
 	return cmd
@@ -43,7 +48,7 @@ func transactionCmd() *cobra.Command {
 
 func createClientsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "clients [src-chain-id] [dst-chain-id] [[path-name]]",
+		Use:   "clients [src-chain-id] [dst-chain-id]",
 		Short: "create a clients between two configured chains with a configured path",
 		Args:  cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -53,19 +58,19 @@ func createClientsCmd() *cobra.Command {
 				return err
 			}
 
-			name := ""
-			if len(args) > 2 {
-				name = args[2]
+			pth, err := cmd.Flags().GetString(flagPath)
+			if err != nil {
+				return err
 			}
 
-			if _, err = setPathsFromArgs(chains[src], chains[dst], name); err != nil {
+			if _, err = setPathsFromArgs(chains[src], chains[dst], pth); err != nil {
 				return err
 			}
 
 			return chains[src].CreateClients(chains[dst])
 		},
 	}
-	return cmd
+	return pathFlag(cmd)
 }
 
 func createConnectionCmd() *cobra.Command {
@@ -86,12 +91,12 @@ func createConnectionCmd() *cobra.Command {
 				return err
 			}
 
-			name := ""
-			if len(args) > 2 {
-				name = args[2]
+			pth, err := cmd.Flags().GetString(flagPath)
+			if err != nil {
+				return err
 			}
 
-			if _, err = setPathsFromArgs(chains[src], chains[dst], name); err != nil {
+			if _, err = setPathsFromArgs(chains[src], chains[dst], pth); err != nil {
 				return err
 			}
 
@@ -99,12 +104,12 @@ func createConnectionCmd() *cobra.Command {
 		},
 	}
 
-	return timeoutFlag(cmd)
+	return pathFlag(timeoutFlag(cmd))
 }
 
 func createChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "channel [src-chain-id] [dst-chain-id] [[path-name]]",
+		Use:   "channel [src-chain-id] [dst-chain-id]",
 		Short: "create a channel between two configured chains with a configured path",
 		Long:  "This command is meant to be used to repair or create a channel between two chains with a configured path in the config file",
 		Args:  cobra.RangeArgs(2, 3),
@@ -120,12 +125,12 @@ func createChannelCmd() *cobra.Command {
 				return err
 			}
 
-			name := ""
-			if len(args) > 2 {
-				name = args[2]
+			pth, err := cmd.Flags().GetString(flagPath)
+			if err != nil {
+				return err
 			}
 
-			if _, err = setPathsFromArgs(chains[src], chains[dst], name); err != nil {
+			if _, err = setPathsFromArgs(chains[src], chains[dst], pth); err != nil {
 				return err
 			}
 
@@ -133,12 +138,12 @@ func createChannelCmd() *cobra.Command {
 		},
 	}
 
-	return timeoutFlag(cmd)
+	return pathFlag(timeoutFlag(cmd))
 }
 
 func fullPathCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "full-path [src-chain-id] [dst-chain-id] [[path-name]]",
+		Use:   "full-path [src-chain-id] [dst-chain-id]",
 		Short: "create clients, connection, and channel between two configured chains with a configured path",
 		Args:  cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -153,12 +158,12 @@ func fullPathCmd() *cobra.Command {
 				return err
 			}
 
-			name := ""
-			if len(args) > 2 {
-				name = args[2]
+			pth, err := cmd.Flags().GetString(flagPath)
+			if err != nil {
+				return err
 			}
 
-			if _, err = setPathsFromArgs(chains[src], chains[dst], name); err != nil {
+			if _, err = setPathsFromArgs(chains[src], chains[dst], pth); err != nil {
 				return err
 			}
 
@@ -178,7 +183,152 @@ func fullPathCmd() *cobra.Command {
 		},
 	}
 
-	return timeoutFlag(cmd)
+	return pathFlag(timeoutFlag(cmd))
+}
+
+func transferCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "transfer [src-chain-id] [dst-chain-id] [amount] [is-source] [dst-chain-addr]",
+		Short: "transfer",
+		Long:  "This sends tokens from a relayers configured wallet on chain src to a dst addr on dst",
+		Args:  cobra.ExactArgs(5),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.Chains.Gets(src, dst)
+			if err != nil {
+				return err
+			}
+
+			pth, err := cmd.Flags().GetString(flagPath)
+			if err != nil {
+				return err
+			}
+
+			if _, err = setPathsFromArgs(chains[src], chains[dst], pth); err != nil {
+				return err
+			}
+
+			amount, err := sdk.ParseCoin(args[2])
+			if err != nil {
+				return err
+			}
+
+			// If there is a path seperator in the denom of the coins being sent,
+			// then src is not the source, otherwise it is
+			// NOTE: this will not work in the case where tokens are sent from A -> B -> C
+			// Need a function in the SDK to determine from a denom if the tokens are from this chain
+			// TODO: Refactor this in the SDK.
+			source, err := strconv.ParseBool(args[3])
+			if err != nil {
+				return err
+			}
+
+			if source {
+				amount.Denom = fmt.Sprintf("%s/%s/%s", chains[dst].PathEnd.PortID, chains[dst].PathEnd.ChannelID, amount.Denom)
+			} else {
+				amount.Denom = fmt.Sprintf("%s/%s/%s", chains[src].PathEnd.PortID, chains[src].PathEnd.ChannelID, amount.Denom)
+			}
+
+			dstAddr, err := sdk.AccAddressFromBech32(args[4])
+			if err != nil {
+				return err
+			}
+
+			dstHeader, err := chains[dst].UpdateLiteWithHeader()
+			if err != nil {
+				return err
+			}
+
+			// MsgTransfer will call SendPacket on src chain
+			txs := relayer.RelayMsgs{
+				Src: []sdk.Msg{chains[src].PathEnd.MsgTransfer(chains[dst].PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source, chains[src].MustGetAddress())},
+				Dst: []sdk.Msg{},
+			}
+
+			if txs.Send(chains[src], chains[dst]); !txs.Success() {
+				return fmt.Errorf("failed to send first transaction")
+			}
+
+			// Working on SRC chain :point_up:
+			// Working on DST chain :point_down:
+
+			var (
+				hs           map[string]*tmclient.Header
+				seqRecv      chanTypes.RecvResponse
+				seqSend      uint64
+				srcCommitRes relayer.CommitmentResponse
+			)
+
+			for {
+				hs, err = relayer.UpdatesWithHeaders(chains[src], chains[dst])
+				if err != nil {
+					return err
+				}
+
+				seqRecv, err = chains[dst].QueryNextSeqRecv(hs[dst].Height)
+				if err != nil {
+					return err
+				}
+
+				seqSend, err = chains[src].QueryNextSeqSend(hs[src].Height)
+				if err != nil {
+					return err
+				}
+
+				srcCommitRes, err = chains[src].QueryPacketCommitment(hs[src].Height-1, int64(seqSend-1))
+				if err != nil {
+					return err
+				}
+
+				if srcCommitRes.Proof.Proof == nil {
+					continue
+				} else {
+					break
+				}
+			}
+
+			// reconstructing packet data here instead of retrieving from an indexed node
+			xferPacket := chains[src].PathEnd.XferPacket(
+				sdk.NewCoins(amount),
+				chains[src].MustGetAddress(),
+				dstAddr,
+				source,
+				dstHeader.GetHeight()+1000,
+			)
+
+			// Debugging by simply passing in the packet information that we know was sent earlier in the SendPacket
+			// part of the command. In a real relayer, this would be a separate command that retrieved the packet
+			// information from an indexing node
+			txs = relayer.RelayMsgs{
+				Dst: []sdk.Msg{
+					chains[dst].PathEnd.UpdateClient(hs[src], chains[dst].MustGetAddress()),
+					chains[src].PathEnd.MsgRecvPacket(
+						chains[dst].PathEnd,
+						seqRecv.NextSequenceRecv,
+						xferPacket,
+						chanTypes.NewPacketResponse(
+							chains[src].PathEnd.PortID,
+							chains[src].PathEnd.ChannelID,
+							seqSend-1,
+							chains[src].PathEnd.NewPacket(
+								chains[src].PathEnd,
+								seqSend-1,
+								xferPacket,
+							),
+							srcCommitRes.Proof.Proof,
+							int64(srcCommitRes.ProofHeight),
+						),
+						chains[dst].MustGetAddress(),
+					),
+				},
+				Src: []sdk.Msg{},
+			}
+
+			txs.Send(chains[src], chains[dst])
+			return nil
+		},
+	}
+	return pathFlag(cmd)
 }
 
 func setPathsFromArgs(src, dst *relayer.Chain, name string) (*relayer.Path, error) {

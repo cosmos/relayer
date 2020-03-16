@@ -94,7 +94,7 @@ func (c *Chain) LogFailedTx(res sdk.TxResponse, err error, msgs []sdk.Msg) {
 
 // LogSuccessTx take the transaction and the messages to create it and logs the appropriate data
 func (c *Chain) LogSuccessTx(res sdk.TxResponse, msgs []sdk.Msg) {
-	c.logger.Info(fmt.Sprintf("✔ [%s]@{%d} - msg(%s)", c.ChainID, res.Height, getMsgAction(msgs)))
+	c.logger.Info(fmt.Sprintf("✔ [%s]@{%d} - msg(%s) hash(%s)", c.ChainID, res.Height, getMsgAction(msgs), res.TxHash))
 }
 
 func getMsgAction(msgs []sdk.Msg) string {

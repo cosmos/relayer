@@ -11,8 +11,8 @@ import (
 // GetStrategy the strategy defined in the relay messages
 func (r *Path) GetStrategy() (Strategy, error) {
 	switch r.Strategy.Type {
-	case NaieveStrategy{}.GetType():
-		return NaieveStrategy{}.Init(r.Strategy)
+	case NaiveStrategy{}.GetType():
+		return NaiveStrategy{}.Init(r.Strategy)
 	default:
 		return nil, fmt.Errorf("invalid strategy: %s", r.Strategy.Type)
 	}
@@ -43,18 +43,18 @@ type Strategy interface {
 	Run(*Chain, *Chain) error
 }
 
-// NewNaieveStrategy Returns a new NaieveStrategy config
-func NewNaieveStrategy() *StrategyCfg {
+// NewNaiveStrategy Returns a new NaiveStrategy config
+func NewNaiveStrategy() *StrategyCfg {
 	return &StrategyCfg{
-		Type: NaieveStrategy{}.GetType(),
+		Type: NaiveStrategy{}.GetType(),
 	}
 }
 
-// NaieveStrategy is a relaying strategy where everything in a Path is relayed
-type NaieveStrategy struct{}
+// NaiveStrategy is a relaying strategy where everything in a Path is relayed
+type NaiveStrategy struct{}
 
 // Init implements Strategy
-func (nrs NaieveStrategy) Init(sc *StrategyCfg) (Strategy, error) {
+func (nrs NaiveStrategy) Init(sc *StrategyCfg) (Strategy, error) {
 	if sc.Type != nrs.GetType() {
 		return nil, fmt.Errorf("wrong type")
 	}
@@ -65,7 +65,7 @@ func (nrs NaieveStrategy) Init(sc *StrategyCfg) (Strategy, error) {
 }
 
 // Cfg implements Strategy
-func (nrs NaieveStrategy) Cfg() *StrategyCfg {
+func (nrs NaiveStrategy) Cfg() *StrategyCfg {
 	return &StrategyCfg{
 		Type:        nrs.GetType(),
 		Constraints: nrs.GetConstraints(),
@@ -73,17 +73,17 @@ func (nrs NaieveStrategy) Cfg() *StrategyCfg {
 }
 
 // GetType implements Strategy
-func (nrs NaieveStrategy) GetType() string {
-	return "naieve"
+func (nrs NaiveStrategy) GetType() string {
+	return "naive"
 }
 
 // GetConstraints implements Strategy
-func (nrs NaieveStrategy) GetConstraints() map[string]string {
+func (nrs NaiveStrategy) GetConstraints() map[string]string {
 	return map[string]string{}
 }
 
 // Run implements Strategy and defines what actions are taken when the relayer runs
-func (nrs NaieveStrategy) Run(src, dst *Chain) error {
+func (nrs NaiveStrategy) Run(src, dst *Chain) error {
 	events := "tm.event = 'Tx'"
 
 	srcEvents, srcCancel, err := src.Subscribe(events)

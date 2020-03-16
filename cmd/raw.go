@@ -36,7 +36,6 @@ func rawTransactionCmd() *cobra.Command {
 		chanCloseConfirm(),
 		xfersend(),
 		xferrecv(),
-		xfer(),
 	)
 
 	return cmd

@@ -21,6 +21,7 @@ var (
 	flagPrintTx = "print-tx"
 	flagJSON    = "json"
 	flagFile    = "file"
+	flagPath    = "path"
 )
 
 func liteFlags(cmd *cobra.Command) *cobra.Command {
@@ -52,6 +53,12 @@ func outputFlags(cmd *cobra.Command) *cobra.Command {
 func addressFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagAddress, "a", false, "returns just the address of the flag, useful for scripting")
 	viper.BindPFlag(flagAddress, cmd.Flags().Lookup(flagAddress))
+	return cmd
+}
+
+func pathFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagPath, "p", "", "specify the path to relay over")
+	viper.BindPFlag(flagPath, cmd.Flags().Lookup(flagPath))
 	return cmd
 }
 

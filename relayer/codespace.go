@@ -44,7 +44,7 @@ var codespaces = map[string]map[int]string{
 		6: "invalid counterparty connection",
 		7: "invalid connection",
 	},
-	"channel": map[int]string{
+	"channels": map[int]string{
 		1:  "channel already exists",
 		2:  "channel not found",
 		3:  "invalid channel",

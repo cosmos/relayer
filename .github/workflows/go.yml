@@ -24,9 +24,9 @@ jobs:
     - uses: actions/cache@v1
       with:
         path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        key: ${{ runner.os }}-gaia-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
-          ${{ runner.os }}-go-
+          ${{ runner.os }}-gaia-go-
     - name: build binary
       run: make build
 
@@ -44,16 +44,19 @@ jobs:
         name: gaiad
         path: ./build/gaiad
 
-    # build relayer
+    # checkout relayer
     - name: checkout relayer
       uses: actions/checkout@v2
+    
     # Setup Cache
     - uses: actions/cache@v1
       with:
         path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        key: ${{ runner.os }}-relayer-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
-          ${{ runner.os }}-go-
+          ${{ runner.os }}-relayer-go-
+    
+    # build binary
     - name: build binary and move to upload location
       run: make build
 
@@ -77,6 +80,10 @@ jobs:
     # Make binary directory
     - name: create directory
       run: mkdir -p /tmp/build
+    
+    # Install jq
+    - name: Install jq
+      run: sudo apt install jq -y
 
     # Download gaiad binary
     - name: download gaiad

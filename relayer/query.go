@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -643,6 +644,33 @@ func qPacketAckErr(err error) error {
 	return fmt.Errorf("query packet acknowledgement failed: %w", err)
 }
 
+// QueryTx takes a transaction hash and returns the transaction
+func (c *Chain) QueryTx(hashHex string) (sdk.TxResponse, error) {
+	hash, err := hex.DecodeString(hashHex)
+	if err != nil {
+		return sdk.TxResponse{}, err
+	}
+
+	resTx, err := c.Client.Tx(hash, true)
+	if err != nil {
+		return sdk.TxResponse{}, err
+	}
+
+	// TODO: validate data coming back with local lite client
+
+	resBlocks, err := c.queryBlocksForTxResults([]*ctypes.ResultTx{resTx})
+	if err != nil {
+		return sdk.TxResponse{}, err
+	}
+
+	out, err := c.formatTxResult(resTx, resBlocks[resTx.Height])
+	if err != nil {
+		return out, err
+	}
+
+	return out, nil
+}
+
 // QueryTxs returns an array of transactions given a tag
 func (c *Chain) QueryTxs(height uint64, page, limit int, events []string) (*sdk.SearchTxsResult, error) {
 	if len(events) == 0 {
@@ -864,7 +892,11 @@ func (c *Chain) formatTxResult(resTx *ctypes.ResultTx, resBlock *ctypes.ResultBl
 	if err != nil {
 		return sdk.TxResponse{}, err
 	}
-	return sdk.NewResponseResultTx(resTx, tx, resBlock.Block.Time.Format(time.RFC3339)), nil
+	res := sdk.NewResponseResultTx(resTx, tx, resBlock.Block.Time.Format(time.RFC3339))
+	if !c.debug {
+		res.RawLog = ""
+	}
+	return res, nil
 }
 
 // Takes some bytes and a codec and returns an sdk.Tx

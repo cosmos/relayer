@@ -5,15 +5,13 @@ meant to be used by users wishing to relay packets between IBC enabled chains.
 It is also well documented and intended as a place where users who are
 interested in building their own relayer can come for working examples.
 
-### Building and testing the relayer
+### Demoing the Relayer
 
-The current implementation status is below. To test the functionality that does work you can do the following:
-
-> NOTE: The relayer relies on `cosmos/cosmos-sdk@ibc-alpha` and `tendermint/tendermint@v0.33.0-dev2`. If you run into problems building it likely related to those dependancies. Also the `two-chains.sh` script requires that the `cosmos/gaia` and `cosmos/relayer` repos be present locally and buildable. Read the script and change the paths as needed.
+While the relayer is under active development, it is meant primarily as a learning tool to better understand the Inter-Blockchain Communication (IBC) protocol. In that vein, the following demo demonstrates the core functionality which will remain even after the changes:
 
 ```bash
-# two-chains.sh creates two gaia-based chains with data directories in this 
-$ ./two-chains.sh
+# two-chainz creates two gaia-based chains with data directories in this 
+$ ./two-chainz
 
 # First initialize your configuration for the relayer
 $ relayer config init
@@ -48,15 +46,42 @@ $ tree ~/.relayer
 # Now you can connect the two chains with one command:
 $ relayer tx full-path ibc0 ibc1
 
-# Then you can test sending a packet from ibc0 to ibc1
-$ relayer tx raw xfer ibc0 ibc1
+# Check the token balances on both chains
+$ relayer q balance ibc0
+$ relayer q balance ibc1
+
+# Then send some tokens between the chains
+$ relayer tx transfer ibc0 ibc1 10000n0token true $(relayer keys show ibc1 testkey -a)
+
+# See that the transfer has completed
+$ relayer q balance ibc0
+$ relayer q balance ibc1
+
+# Send the tokens back to the account on ibc0
+$ relayer tx transfer ibc1 ibc0 10000n0token false $(relayer keys show ibc0 testkey -a)
+
+# See that the return trip has completed
+$ relayer q balance ibc0
+$ relayer q balance ibc1
+
+# NOTE: you will see the stake balances decreasing on each chain. This is to pay for fees
+# You can change the amount of fees you are paying on each chain in the configuration.
 ```
+
+> NOTE: The relayer relies on `cosmos/cosmos-sdk@ibc-alpha` and `tendermint/tendermint@v0.33.0-dev2`. If you run into problems building it likely related to those dependancies. Also the `two-chainz` script requires that the `cosmos/gaia` and `cosmos/relayer` repos be present locally and buildable. Read the script and change the paths as needed.
+
+## Next items
+
+- [ ] Setup Versioning
+- [ ] Split the xfer command into xfer-send and xfer-recv
+- [ ] Wire up packet ack and timeout
+- [ ] get naive relay strategy working properly
 
 ## Setting up Developer Environment
 
 Working with the relayer can frequently involve working with local developement branches of `gaia`, `cosmos-sdk` and the `relayer`. To setup your environment to point at the local versions of the code and reduce the amount of time in your read-eval-print loops try the following:
 
-1. Set `replace github.com/cosmos/cosmos-sdk => /path/to/local/github.com/comsos/cosmos-sdk` at the end of the `go.mod` files for the `relayer` and `gaia`. This will force building from the local versions when running the `./two-chains.sh` script.
-2. After `./two-chains.sh` has run, use `go run main.go --home $RLY` for any relayer commands you are working on. This allows you make changes and immediately test them as long as there are no server side changes. 
-3. If you make changes in `cosmos-sdk` that need to be reflected server-side, be sure to re-run `./two-chains.sh`.
-4. If you need to work off of a `gaia` branch other than `ibc-alpha`, change the branch name at the top of the `./two-chains.sh` script. 
+1. Set `replace github.com/cosmos/cosmos-sdk => /path/to/local/github.com/comsos/cosmos-sdk` at the end of the `go.mod` files for the `relayer` and `gaia`. This will force building from the local versions when running the `./two-chainz` script.
+2. After `./two-chainz` has run, use `go run main.go --home $RLY` for any relayer commands you are working on. This allows you make changes and immediately test them as long as there are no server side changes. 
+3. If you make changes in `cosmos-sdk` that need to be reflected server-side, be sure to re-run `./two-chainz`.
+4. If you need to work off of a `gaia` branch other than `ibc-alpha`, change the branch name at the top of the `./two-chainz` script. 

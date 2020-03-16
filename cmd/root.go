@@ -47,6 +47,7 @@ var (
 
 func init() {
 	// Register top level flags --home and --config
+	// TODO: just rely on homePath and remove the config path arg?
 	rootCmd.PersistentFlags().StringVar(&homePath, flags.FlagHome, defaultHome, "set home directory")
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug output")
 	rootCmd.PersistentFlags().StringVar(&cfgPath, flagConfig, "config.yaml", "set config file")
@@ -59,7 +60,7 @@ func init() {
 		liteCmd,
 		keysCmd,
 		queryCmd,
-		startCmd,
+		startCmd(),
 		transactionCmd(),
 		chainsCmd(),
 		pathsCmd(),

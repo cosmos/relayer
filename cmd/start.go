@@ -26,29 +26,37 @@ import (
 
 // startCmd represents the start command
 // NOTE: This is basically psuedocode
-var startCmd = &cobra.Command{
-	Use:   "start [src-chain-id] [dst-chain-id] [[path-name]]",
-	Short: "TODO: This cmd is wip right now",
-	Args:  cobra.RangeArgs(2, 3),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		src, dst := args[0], args[1]
-		chains, err := config.Chains.Gets(src, dst)
-		if err != nil {
-			return err
-		}
+func startCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "start [src-chain-id] [dst-chain-id] ",
+		Short: "TODO: This cmd is wip right now",
+		Args:  cobra.RangeArgs(2, 3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.Chains.Gets(src, dst)
+			if err != nil {
+				return err
+			}
 
-		path, err := setPathsFromArgs(chains[src], chains[dst], args[2])
-		if err != nil {
-			return err
-		}
+			pth, err := cmd.Flags().GetString(flagPath)
+			if err != nil {
+				return err
+			}
 
-		strategy, err := path.GetStrategy()
-		if err != nil {
-			return nil
-		}
+			path, err := setPathsFromArgs(chains[src], chains[dst], pth)
+			if err != nil {
+				return err
+			}
 
-		return strategy.Run(chains[src], chains[dst])
-	},
+			strategy, err := path.GetStrategy()
+			if err != nil {
+				return nil
+			}
+
+			return strategy.Run(chains[src], chains[dst])
+		},
+	}
+	return pathFlag(cmd)
 }
 
 func trapSignal() chan bool {
