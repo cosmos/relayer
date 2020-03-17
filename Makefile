@@ -21,6 +21,14 @@ else
 	@go build -mod=readonly $(BUILD_FLAGS) -o build/relayer main.go
 endif
 
+build-zip: go.sum
+	@echo "building relayer binaries for windows, mac and linux"
+	@GOOS=linux GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/linux-amd64-relayer main.go
+	@GOOS=darwin GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/darwin-amd64-relayer main.go
+	@GOOS=windows GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/windows-amd64-relayer.exe main.go
+	@tar -czvf release.tar.gz ./build
+
+
 install: go.sum
 	@echo "installing relayer binary..."
 	@go build -mod=readonly $(BUILD_FLAGS) -o ${GOBIN}/relayer main.go
