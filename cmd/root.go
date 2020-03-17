@@ -51,9 +51,15 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&homePath, flags.FlagHome, defaultHome, "set home directory")
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug output")
 	rootCmd.PersistentFlags().StringVar(&cfgPath, flagConfig, "config.yaml", "set config file")
-	viper.BindPFlag(flags.FlagHome, rootCmd.Flags().Lookup(flags.FlagHome))
-	viper.BindPFlag(flagConfig, rootCmd.Flags().Lookup(flagConfig))
-	viper.BindPFlag("debug", rootCmd.Flags().Lookup("debug"))
+	if err := viper.BindPFlag(flags.FlagHome, rootCmd.Flags().Lookup(flags.FlagHome)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flagConfig, rootCmd.Flags().Lookup(flagConfig)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag("debug", rootCmd.Flags().Lookup("debug")); err != nil {
+		panic(err)
+	}
 
 	// Register subcommands
 	rootCmd.AddCommand(
@@ -65,6 +71,7 @@ func init() {
 		chainsCmd(),
 		pathsCmd(),
 		configCmd(),
+		getVersionCmd(),
 	)
 
 	// This is a bit of a cheat :shushing_face:

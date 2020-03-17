@@ -80,14 +80,20 @@ func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, err
 
 	if height == 0 {
 		commit, err = c.Client.Commit(nil)
+		if err != nil {
+			return nil, qConsStateErr(err)
+		}
 		validators, err = c.Client.Validators(nil, 1, 10000)
 	} else {
 		commit, err = c.Client.Commit(&height)
+		if err != nil {
+			return nil, qConsStateErr(err)
+		}
 		validators, err = c.Client.Validators(nil, 1, 10000)
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("query cons state failed: %w", err)
+		return nil, qConsStateErr(err)
 	}
 
 	state := &tmclient.ConsensusState{
@@ -98,6 +104,8 @@ func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, err
 
 	return state, nil
 }
+
+func qConsStateErr(err error) error { return fmt.Errorf("query cons state failed: %w", err) }
 
 // QueryClientConsensusState retrevies the latest consensus state for a client in state at a given height
 // NOTE: dstHeight is the height from dst that is stored on src, it is needed to construct the appropriate store query

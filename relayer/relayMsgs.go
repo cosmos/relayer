@@ -65,7 +65,6 @@ func (r *RelayMsgs) Send(src, dst *Chain) {
 		return
 	}
 	r.success = true
-	return
 }
 
 // LogFailedTx takes the transaction and the messages to create it and logs the appropriate data
@@ -76,7 +75,7 @@ func (c *Chain) LogFailedTx(res sdk.TxResponse, err error, msgs []sdk.Msg) {
 	}
 
 	if err != nil {
-		c.logger.Error(fmt.Sprintf("- [%s] -> err(%w)", c.ChainID, err))
+		c.logger.Error(fmt.Errorf("- [%s] -> err(%w)", c.ChainID, err).Error())
 	}
 
 	if res.Codespace != "" && res.Code != 0 {

@@ -246,10 +246,7 @@ func queryHeaderCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolP(flagFlags, "f", false, "pass flag to output the flags for lite init/update")
-	viper.BindPFlag(flagFlags, cmd.Flags().Lookup(flagFlags))
-
-	return outputFlags(cmd)
+	return flagsFlag(outputFlags(cmd))
 }
 
 // GetCmdQueryConsensusState defines the command to query the consensus state of

@@ -16,11 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
-
 	"github.com/spf13/cobra"
 )
 
@@ -57,20 +52,4 @@ func startCmd() *cobra.Command {
 		},
 	}
 	return pathFlag(cmd)
-}
-
-func trapSignal() chan bool {
-	sigCh := make(chan os.Signal, 1)
-	done := make(chan bool, 1)
-
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		sig := <-sigCh
-		fmt.Println("Signal Recieved:", sig.String())
-		close(sigCh)
-		done <- true
-	}()
-
-	return done
 }

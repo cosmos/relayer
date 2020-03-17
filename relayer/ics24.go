@@ -32,10 +32,7 @@ func (p PathEnd) String() string {
 
 // PathSet check if the chain has a path set
 func (c *Chain) PathSet() bool {
-	if c.PathEnd == nil {
-		return false
-	}
-	return true
+	return c.PathEnd != nil
 }
 
 // PathsSet checks if the chains have their paths set
@@ -83,7 +80,7 @@ func (p *PathEnd) Validate() error {
 
 // ErrPathNotSet returns information what identifiers are needed to relay
 func (c *Chain) ErrPathNotSet() error {
-	return fmt.Errorf("Path on chain %s not set: %w", c.ChainID)
+	return fmt.Errorf("Path on chain %s not set", c.ChainID)
 }
 
 // ErrCantSetPath returns an error if the path doesn't set properly

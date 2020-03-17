@@ -110,10 +110,7 @@ func initLiteCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolP(flagForce, "f", false, "option to force initialization of lite client from configured chain")
-	viper.BindPFlag(flagForce, cmd.Flags().Lookup(flagForce))
-
-	return liteFlags(cmd)
+	return forceFlag(liteFlags(cmd))
 }
 
 func updateLiteCmd() *cobra.Command {

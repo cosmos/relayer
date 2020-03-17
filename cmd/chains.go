@@ -83,9 +83,12 @@ func chainsEditCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			config.DeleteChain(args[0])
-			config.AddChain(c)
-			return overWriteConfig(cmd, config)
+
+			cfg, err := config.DeleteChain(args[0]).AddChain(c)
+			if err != nil {
+				return err
+			}
+			return overWriteConfig(cmd, cfg)
 		},
 	}
 	return cmd

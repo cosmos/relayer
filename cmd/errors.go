@@ -5,10 +5,6 @@ import (
 	"fmt"
 )
 
-func wrapQueryTrustOptsErr(err error) error {
-	return fmt.Errorf("trust options query failed: %w", err)
-}
-
 func wrapInitFailed(err error) error {
 	return fmt.Errorf("init failed: %w", err)
 }

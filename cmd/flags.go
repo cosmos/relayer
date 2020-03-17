@@ -6,7 +6,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	rpcclient "github.com/tendermint/tendermint/rpc/client"
 )
 
 var (
@@ -18,7 +17,6 @@ var (
 	flagFlags   = "flags"
 	flagTimeout = "timeout"
 	flagConfig  = "config"
-	flagPrintTx = "print-tx"
 	flagJSON    = "json"
 	flagFile    = "file"
 	flagPath    = "path"
@@ -28,55 +26,95 @@ func liteFlags(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Int64(flags.FlagHeight, -1, "Trusted header's height")
 	cmd.Flags().BytesHexP(flagHash, "x", []byte{}, "Trusted header's hash")
 	cmd.Flags().StringP(flagURL, "u", "", "Optional URL to fetch trusted-hash and trusted-height")
-	viper.BindPFlag(flags.FlagHeight, cmd.Flags().Lookup(flags.FlagHeight))
-	viper.BindPFlag(flagHash, cmd.Flags().Lookup(flagHash))
-	viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL))
+	if err := viper.BindPFlag(flags.FlagHeight, cmd.Flags().Lookup(flags.FlagHeight)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flagHash, cmd.Flags().Lookup(flagHash)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL)); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 
 func paginationFlags(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().IntP(flags.FlagPage, "p", 1, "pagination page of light clients to to query for")
 	cmd.Flags().IntP(flags.FlagLimit, "l", 100, "pagination limit of light clients to query for")
-	viper.BindPFlag(flags.FlagPage, cmd.Flags().Lookup(flags.FlagPage))
-	viper.BindPFlag(flags.FlagLimit, cmd.Flags().Lookup(flags.FlagLimit))
+	if err := viper.BindPFlag(flags.FlagPage, cmd.Flags().Lookup(flags.FlagPage)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flags.FlagLimit, cmd.Flags().Lookup(flags.FlagLimit)); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 
 func outputFlags(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagText, "t", false, "pass flag to force text output")
 	cmd.Flags().BoolP(flags.FlagIndentResponse, "i", false, "indent json output")
-	viper.BindPFlag(flagText, cmd.Flags().Lookup(flagText))
-	viper.BindPFlag(flags.FlagIndentResponse, cmd.Flags().Lookup(flags.FlagIndentResponse))
+	if err := viper.BindPFlag(flagText, cmd.Flags().Lookup(flagText)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flags.FlagIndentResponse, cmd.Flags().Lookup(flags.FlagIndentResponse)); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 
 func addressFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagAddress, "a", false, "returns just the address of the flag, useful for scripting")
-	viper.BindPFlag(flagAddress, cmd.Flags().Lookup(flagAddress))
+	if err := viper.BindPFlag(flagAddress, cmd.Flags().Lookup(flagAddress)); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 
 func pathFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagPath, "p", "", "specify the path to relay over")
-	viper.BindPFlag(flagPath, cmd.Flags().Lookup(flagPath))
+	if err := viper.BindPFlag(flagPath, cmd.Flags().Lookup(flagPath)); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 
 func jsonFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Bool(flagJSON, false, "returns the response in json format")
-	viper.BindPFlag(flagJSON, cmd.Flags().Lookup(flagJSON))
+	if err := viper.BindPFlag(flagJSON, cmd.Flags().Lookup(flagJSON)); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 
 func fileFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagFile, "f", "", "fetch json data from specified file")
-	viper.BindPFlag(flagFile, cmd.Flags().Lookup(flagFile))
+	if err := viper.BindPFlag(flagFile, cmd.Flags().Lookup(flagFile)); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 
 func timeoutFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagTimeout, "o", "10s", "timeout between relayer runs")
-	viper.BindPFlag(flagTimeout, cmd.Flags().Lookup(flagTimeout))
+	if err := viper.BindPFlag(flagTimeout, cmd.Flags().Lookup(flagTimeout)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func forceFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP(flagForce, "f", false, "option to force initialization of lite client from configured chain")
+	if err := viper.BindPFlag(flagForce, cmd.Flags().Lookup(flagForce)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func flagsFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP(flagFlags, "f", false, "pass flag to output the flags for lite init/update")
+	if err := viper.BindPFlag(flagFlags, cmd.Flags().Lookup(flagFlags)); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 
@@ -87,24 +125,6 @@ func getTimeout(cmd *cobra.Command) (out time.Duration, err error) {
 	}
 	if out, err = time.ParseDuration(to); err != nil {
 		return
-	}
-	return
-}
-
-func urlFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagURL, "u", "", "url to fecth data from")
-	viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL))
-	return cmd
-}
-
-func getURL(cmd *cobra.Command) (out string, err error) {
-	if out, err = cmd.Flags().GetString(flagURL); err != nil {
-		return
-	}
-	if len(out) > 0 {
-		if _, err = rpcclient.NewHTTP(out, "/websocket"); err != nil {
-			return
-		}
 	}
 	return
 }
