@@ -62,6 +62,12 @@ func outputFlags(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
+func chainsAddFlags(cmd *cobra.Command) *cobra.Command {
+	fileFlag(cmd)
+	urlFlag(cmd)
+	return cmd
+}
+
 func addressFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagAddress, "a", false, "returns just the address of the flag, useful for scripting")
 	if err := viper.BindPFlag(flagAddress, cmd.Flags().Lookup(flagAddress)); err != nil {
@@ -118,13 +124,34 @@ func flagsFlag(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
-func getTimeout(cmd *cobra.Command) (out time.Duration, err error) {
-	var to string
-	if to, err = cmd.Flags().GetString(flagTimeout); err != nil {
+func getTimeout(cmd *cobra.Command) (time.Duration, error) {
+	to, err := cmd.Flags().GetString(flagTimeout)
+	if err != nil {
+		return 0, err
+	}
+	return time.ParseDuration(to)
+}
+
+func urlFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagURL, "u", "", "url to fetch data from")
+	viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL))
+	return cmd
+}
+
+func getAddInputs(cmd *cobra.Command) (file string, url string, err error) {
+	file, err = cmd.Flags().GetString(flagFile)
+	if err != nil {
 		return
 	}
-	if out, err = time.ParseDuration(to); err != nil {
+
+	url, err = cmd.Flags().GetString(flagURL)
+	if err != nil {
 		return
 	}
+
+	if file != "" && url != "" {
+		return "", "", errMultipleAddFlags
+	}
+
 	return
 }

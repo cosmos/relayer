@@ -25,4 +25,7 @@ func errKeyDoesntExist(name string) error {
 	return fmt.Errorf("a key with name %s doesn't exist", name)
 }
 
-var errInitWrongFlags = errors.New("expected either (--hash/-x & --height) OR --url/-u OR --force/-f, none given")
+var (
+	errInitWrongFlags   = errors.New("expected either (--hash/-x & --height) OR --url/-u OR --force/-f, none given")
+	errMultipleAddFlags = errors.New("expected either --file/-f OR --url/u, found multiple")
+)

@@ -2,8 +2,11 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/cosmos/relayer/relayer"
@@ -125,19 +128,25 @@ func chainsListCmd() *cobra.Command {
 func chainsAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
-		Short: "add chains to the configuration file either via user input, or by passing the -f {chain/file.json}",
+		Short: "Add a new chain to the configuration file by passing a file (-f) or url (-u), or user input",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var out *Config
-			file, err := cmd.Flags().GetString(flagFile)
+
+			file, url, err := getAddInputs(cmd)
 			if err != nil {
 				return err
 			}
 
-			if file != "" {
+			switch {
+			case file != "":
 				if out, err = fileInputAdd(file); err != nil {
 					return err
 				}
-			} else {
+			case url != "":
+				if out, err = urlInputAdd(url); err != nil {
+					return err
+				}
+			default:
 				if out, err = userInputAdd(cmd); err != nil {
 					return err
 				}
@@ -151,7 +160,7 @@ func chainsAddCmd() *cobra.Command {
 		},
 	}
 
-	return fileFlag(cmd)
+	return chainsAddFlags(cmd)
 }
 
 func fileInputAdd(file string) (cfg *Config, err error) {
@@ -260,4 +269,28 @@ func userInputAdd(cmd *cobra.Command) (cfg *Config, err error) {
 	}
 
 	return out, nil
+}
+
+// urlInputAdd validates a chain config URL and fetches its contents
+func urlInputAdd(rawurl string) (cfg *Config, err error) {
+	u, err := url.Parse(rawurl)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return cfg, errors.New("Invalid URL")
+	}
+
+	resp, err := http.Get(u.String())
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	var c relayer.Chain
+	d := json.NewDecoder(resp.Body)
+	d.DisallowUnknownFields()
+	err = d.Decode(&c)
+	if err != nil {
+		return cfg, err
+	}
+
+	return config.AddChain(&c)
 }
