@@ -378,6 +378,38 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 	return out, nil
 }
 
+// CloseChannel runs the channel closing messages on timeout until they pass
+// TODO: add max retries or something to this function
+func (src *Chain) CloseChannel(dst *Chain, to time.Duration) error {
+
+	ticker := time.NewTicker(to)
+	for ; true; <-ticker.C {
+		closeSteps, err := src.CloseChannelStep(dst)
+		if err != nil {
+			return err
+		}
+
+		if !closeSteps.Ready() {
+			break
+		}
+
+		if closeSteps.Send(src, dst); closeSteps.success && closeSteps.last {
+			chans, err := QueryChannelPair(src, dst, 0, 0)
+			if err != nil {
+				return err
+			}
+			if src.debug {
+				logChannelStates(src, dst, chans)
+			}
+			src.Log(fmt.Sprintf("★ Closed channel between [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
+				src.ChainID, src.PathEnd.ChannelID, src.PathEnd.PortID,
+				dst.ChainID, dst.PathEnd.ChannelID, dst.PathEnd.PortID))
+			break
+		}
+	}
+	return nil
+}
+
 // CloseChannelStep returns the next set of messages for closing a channel with given
 // identifiers between chains src and dst. If the closing handshake hasn't started, then CloseChannelStep
 // will begin the handshake on the src chain
@@ -414,6 +446,7 @@ func (src *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
 				dst.PathEnd.ChanCloseConfirm(chans[scid], dst.MustGetAddress()),
 			)
+			out.last = true
 		}
 
 	// Closing handshake has started on dst, relay `chanCloseConfirm` nd `updateClient` to src
@@ -426,8 +459,8 @@ func (src *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
 				src.PathEnd.ChanCloseConfirm(chans[dcid], src.MustGetAddress()),
 			)
+			out.last = true
 		}
-
 	}
 	return out, nil
 }

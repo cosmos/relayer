@@ -452,7 +452,7 @@ type chans struct {
 	Errs errs
 }
 
-// QueryChannelPair returns a pair of connection responses
+// QueryChannelPair returns a pair of channel responses
 func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (map[string]chanTypes.ChannelResponse, error) {
 	hs := &chans{
 		Map:  make(map[string]chanTypes.ChannelResponse),

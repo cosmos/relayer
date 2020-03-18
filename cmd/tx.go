@@ -38,6 +38,7 @@ func transactionCmd() *cobra.Command {
 		createClientsCmd(),
 		createConnectionCmd(),
 		createChannelCmd(),
+		closeChannelCmd(),
 		fullPathCmd(),
 		rawTransactionCmd(),
 		transferCmd(),
@@ -141,6 +142,40 @@ func createChannelCmd() *cobra.Command {
 	return pathFlag(timeoutFlag(cmd))
 }
 
+func closeChannelCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "channel-close [src-chain-id] [dst-chain-id]",
+		Short: "close a channel between two configured chains with a configured path",
+		Long:  "This command is meant to close a channel",
+		Args:  cobra.RangeArgs(2, 3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.Chains.Gets(src, dst)
+			if err != nil {
+				return err
+			}
+
+			to, err := getTimeout(cmd)
+			if err != nil {
+				return err
+			}
+
+			pth, err := cmd.Flags().GetString(flagPath)
+			if err != nil {
+				return err
+			}
+
+			if _, err = setPathsFromArgs(chains[src], chains[dst], pth); err != nil {
+				return err
+			}
+
+			return chains[src].CloseChannel(chains[dst], to)
+		},
+	}
+
+	return pathFlag(timeoutFlag(cmd))
+}
+
 func fullPathCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "full-path [src-chain-id] [dst-chain-id]",
@@ -178,6 +213,9 @@ func fullPathCmd() *cobra.Command {
 			}
 
 			// NOTE: this is hardcoded to create ordered channels right now. Add a flag here to toggle
+			// Check if channel has been created, if not create it
+			return chains[src].CreateChannel(chains[dst], true, to)
+
 			// Check if channel has been created, if not create it
 			return chains[src].CreateChannel(chains[dst], true, to)
 		},
