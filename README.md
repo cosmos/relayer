@@ -73,7 +73,7 @@ $ relayer q balance ibc1
 # You can change the amount of fees you are paying on each chain in the configuration.
 ```
 
-> NOTE: The relayer relies on `cosmos/cosmos-sdk@ibc-alpha` and `tendermint/tendermint@v0.33.0-dev2`. If you run into problems building it likely related to those dependancies. Also the `two-chainz` script requires that the `cosmos/gaia` and `cosmos/relayer` repos be present locally and buildable. Read the script and change the paths as needed.
+> NOTE: The relayer relies on `cosmos/cosmos-sdk@ibc-alpha` and `tendermint/tendermint@v0.33.0-dev2`. If you run into problems building it likely related to those dependancies. Also the `two-chainz` script requires that the `cosmos/gaia` and `iqlusion/relayer` repos be present locally and buildable. Read the script and change the paths as needed.
 
 ## Next items
 
