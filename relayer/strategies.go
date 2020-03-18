@@ -1,11 +1,13 @@
 package relayer
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+
+	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 )
 
 // GetStrategy the strategy defined in the relay messages
@@ -91,12 +93,14 @@ func (nrs NaiveStrategy) Run(src, dst *Chain) error {
 		return err
 	}
 	defer srcCancel()
+	src.Log(fmt.Sprintf("listening to events from %s...", src.ChainID))
 
 	dstEvents, dstCancel, err := dst.Subscribe(events)
 	if err != nil {
 		return err
 	}
 	defer dstCancel()
+	dst.Log(fmt.Sprintf("listening to events from %s...", dst.ChainID))
 
 	done := trapSignal()
 	defer close(done)
@@ -104,17 +108,15 @@ func (nrs NaiveStrategy) Run(src, dst *Chain) error {
 	for {
 		select {
 		case srcMsg := <-srcEvents:
-			byt, err := json.Marshal(srcMsg.Events)
-			if err != nil {
-				src.Error(err)
+			byt := src.parsePacketData(srcMsg.Events)
+			if byt != nil {
+				src.Log(string(byt.GetBytes()))
 			}
-			src.Log(string(byt))
 		case dstMsg := <-dstEvents:
-			byt, err := json.Marshal(dstMsg.Events)
-			if err != nil {
-				dst.Error(err)
+			byt := src.parsePacketData(dstMsg.Events)
+			if byt != nil {
+				src.Log(string(byt.GetBytes()))
 			}
-			dst.Log(string(byt))
 		default:
 			// NOTE: This causes the for loop to run continuously and not to
 			//  wait for messages before advancing. This allows for quick exit
@@ -145,4 +147,31 @@ func trapSignal() chan bool {
 	}()
 
 	return done
+}
+
+func (c *Chain) parsePacketData(events map[string][]string) (out chanState.PacketDataI) {
+	if val, ok := events["send_packet.packet_data"]; ok {
+		err := c.Cdc.UnmarshalJSON([]byte(val[0]), &out)
+		if err != nil {
+			c.Error(err)
+		}
+		return
+	}
+
+	c.Log(fmt.Sprintf("[%s]@{%s} - actions(%s) hash(%s)",
+		c.ChainID,
+		events["tx.height"][0],
+		actions(events["message.action"]),
+		events["tx.hash"][0]),
+	)
+
+	return
+}
+
+func actions(act []string) string {
+	out := ""
+	for i, a := range act {
+		out += fmt.Sprintf("%d:%s,", i, a)
+	}
+	return strings.TrimSuffix(out, ",")
 }
