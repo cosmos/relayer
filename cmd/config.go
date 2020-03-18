@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/relayer/relayer"
@@ -28,53 +29,181 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+func configCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "config",
+		Short: "commands to manage the config file",
+	}
+
+	cmd.AddCommand(
+		configShowCmd(),
+		configInitCmd(),
+	)
+
+	return cmd
+}
+
+// Command for printing current configuration
+func configShowCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "show",
+		Short: "Prints current configuration",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			home, err := cmd.Flags().GetString(flags.FlagHome)
+			if err != nil {
+				return err
+			}
+
+			cfgPath := path.Join(home, "config", "config.yaml")
+			if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+				if _, err := os.Stat(home); os.IsNotExist(err) {
+					return fmt.Errorf("Home path does not exist: %s", home)
+				}
+				return fmt.Errorf("Config does not exist: %s", cfgPath)
+			}
+
+			out, err := yaml.Marshal(config)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(out))
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+// Command for inititalizing an empty config at the --home location
+func configInitCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "init",
+		Short: "Creates a default home directory at path defined by --home",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			home, err := cmd.Flags().GetString(flags.FlagHome)
+			if err != nil {
+				return err
+			}
+
+			cfgDir := path.Join(home, "config")
+			cfgPath := path.Join(cfgDir, "config.yaml")
+
+			// If the config doesn't exist...
+			if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+				// And the config folder doesn't exist...
+				if _, err := os.Stat(cfgDir); os.IsNotExist(err) {
+					// And the home folder doesn't exist
+					if _, err := os.Stat(home); os.IsNotExist(err) {
+						// Create the home folder
+						if err = os.Mkdir(home, os.ModePerm); err != nil {
+							return err
+						}
+					}
+					// Create the home config folder
+					if err = os.Mkdir(cfgDir, os.ModePerm); err != nil {
+						return err
+					}
+				}
+
+				// Then create the file...
+				f, err := os.Create(cfgPath)
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+
+				// And write the default config to that location...
+				if _, err = f.Write(defaultConfig()); err != nil {
+					return err
+				}
+
+				// And return no error...
+				return nil
+			}
+
+			// Otherwise, the config file exists, and an error is returned...
+			return fmt.Errorf("Config already exists: %s", cfgPath)
+		},
+	}
+	return cmd
+}
+
 // Config represents the config file for the relayer
 type Config struct {
 	Global GlobalConfig   `yaml:"global" json:"global"`
-	Chains []ChainConfig  `yaml:"chains" json:"chains"`
-	Paths  []relayer.Path `yaml:"paths" json:"paths"`
+	Chains relayer.Chains `yaml:"chains" json:"chains"`
+	Paths  relayer.Paths  `yaml:"paths" json:"paths"`
+}
 
-	c relayer.Chains
+// MustYAML returns the yaml string representation of the Paths
+func (c Config) MustYAML() []byte {
+	out, err := yaml.Marshal(c)
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
+
+func defaultConfig() []byte {
+	return Config{
+		Global: newDefaultGlobalConfig(),
+		Chains: relayer.Chains{},
+		Paths:  relayer.Paths{},
+	}.MustYAML()
 }
 
 // GlobalConfig describes any global relayer settings
 type GlobalConfig struct {
-	Strategy      string `yaml:"strategy" json:"strategy"`
 	Timeout       string `yaml:"timeout" json:"timeout"`
 	LiteCacheSize int    `yaml:"lite-cache-size" json:"lite-cache-size"`
 }
 
-// ChainConfig describes the config necessary for an individual chain
-// TODO: Are there additional parameters needed here
-type ChainConfig struct {
-	Key            string  `yaml:"key" json:"key"`
-	ChainID        string  `yaml:"chain-id" json:"chain-id"`
-	RPCAddr        string  `yaml:"rpc-addr" json:"rpc-addr"`
-	AccountPrefix  string  `yaml:"account-prefix" json:"account-prefix"`
-	Gas            uint64  `yaml:"gas,omitempty" json:"gas,omitempty"`
-	GasAdjustment  float64 `yaml:"gas-adjustment,omitempty" json:"gas-adjustment,omitempty"`
-	GasPrices      string  `yaml:"gas-prices,omitempty" json:"gas-prices,omitempty"`
-	DefaultDenom   string  `yaml:"default-denom,omitempty" json:"default-denom,omitempty"`
-	Memo           string  `yaml:"memo,omitempty" json:"memo,omitempty"`
-	TrustingPeriod string  `yaml:"trusting-period" json:"trusting-period"`
+// newDefaultGlobalConfig returns a global config with defaults set
+func newDefaultGlobalConfig() GlobalConfig {
+	return GlobalConfig{
+		Timeout:       "10s",
+		LiteCacheSize: 20,
+	}
 }
 
-// Called to set the relayer.Chain types on Config
-func setChains(c *Config, home string) error {
-	var out []*relayer.Chain
-	var new = &Config{Global: c.Global, Chains: c.Chains, Paths: c.Paths}
+// AddChain adds an additional chain to the config
+func (c *Config) AddChain(chain *relayer.Chain) (cfg *Config, err error) {
+	if _, err = c.Chains.Get(chain.ChainID); err == nil {
+		return cfg, fmt.Errorf("chain with ID %s already exists in config", chain.ChainID)
+	}
+	c.Chains = append(c.Chains, chain)
+	return c, nil
+}
+
+// DeleteChain removes a chain from the config
+func (c *Config) DeleteChain(chain string) *Config {
+	var set relayer.Chains
+	for _, ch := range c.Chains {
+		if ch.ChainID != chain {
+			set = append(set, ch)
+		}
+	}
+	c.Chains = set
+	return c
+}
+
+// Called to initialize the relayer.Chain types on Config
+func validateConfig(c *Config) error {
+	var new = &Config{Global: c.Global, Chains: relayer.Chains{}, Paths: c.Paths}
+	to, err := time.ParseDuration(new.Global.Timeout)
+	if err != nil {
+		return err
+	}
+
 	for _, i := range c.Chains {
-		homeDir := path.Join(home, "lite")
-		chain, err := relayer.NewChain(i.Key, i.ChainID, i.RPCAddr,
-			i.AccountPrefix, i.Gas, i.GasAdjustment, i.GasPrices,
-			i.DefaultDenom, i.Memo, homePath, c.Global.LiteCacheSize,
-			i.TrustingPeriod, homeDir, appCodec, cdc)
+		chain, err := i.Init(homePath, appCodec, cdc, to, debug)
 		if err != nil {
 			return err
 		}
-		out = append(out, chain)
+		new.Chains = append(new.Chains, chain)
 	}
-	new.c = out
+	// Reset the config var
 	config = new
 	return nil
 }
@@ -106,7 +235,7 @@ func initConfig(cmd *cobra.Command) error {
 			}
 
 			// ensure config has []*relayer.Chain used for all chain operations
-			err = setChains(config, home)
+			err = validateConfig(config)
 			if err != nil {
 				fmt.Println("Error parsing chain config:", err)
 				os.Exit(1)
@@ -114,4 +243,39 @@ func initConfig(cmd *cobra.Command) error {
 		}
 	}
 	return nil
+}
+
+func overWriteConfig(cmd *cobra.Command, cfg *Config) error {
+	home, err := cmd.Flags().GetString(flags.FlagHome)
+	if err != nil {
+		return err
+	}
+
+	cfgPath := path.Join(home, "config", "config.yaml")
+	if _, err = os.Stat(cfgPath); err == nil {
+		viper.SetConfigFile(cfgPath)
+		if err = viper.ReadInConfig(); err == nil {
+			// ensure validateConfig runs properly
+			err = validateConfig(config)
+			if err != nil {
+				return err
+			}
+
+			// marshal the new config
+			out, err := yaml.Marshal(cfg)
+			if err != nil {
+				return err
+			}
+
+			// overwrite the config file
+			err = ioutil.WriteFile(viper.ConfigFileUsed(), out, 0666)
+			if err != nil {
+				return err
+			}
+
+			// set the global variable
+			config = cfg
+		}
+	}
+	return err
 }

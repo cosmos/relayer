@@ -1,13 +1,11 @@
 package cmd
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -19,88 +17,141 @@ var (
 	flagFlags   = "flags"
 	flagTimeout = "timeout"
 	flagConfig  = "config"
+	flagJSON    = "json"
+	flagFile    = "file"
+	flagPath    = "path"
 )
 
 func liteFlags(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Int64(flags.FlagHeight, -1, "Trusted header's height")
 	cmd.Flags().BytesHexP(flagHash, "x", []byte{}, "Trusted header's hash")
 	cmd.Flags().StringP(flagURL, "u", "", "Optional URL to fetch trusted-hash and trusted-height")
-	viper.BindPFlag(flags.FlagHeight, cmd.Flags().Lookup(flags.FlagHeight))
-	viper.BindPFlag(flagHash, cmd.Flags().Lookup(flagHash))
-	viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL))
+	if err := viper.BindPFlag(flags.FlagHeight, cmd.Flags().Lookup(flags.FlagHeight)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flagHash, cmd.Flags().Lookup(flagHash)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL)); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 
 func paginationFlags(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().IntP(flags.FlagPage, "p", 1, "pagination page of light clients to to query for")
 	cmd.Flags().IntP(flags.FlagLimit, "l", 100, "pagination limit of light clients to query for")
-	viper.BindPFlag(flags.FlagPage, cmd.Flags().Lookup(flags.FlagPage))
-	viper.BindPFlag(flags.FlagLimit, cmd.Flags().Lookup(flags.FlagLimit))
+	if err := viper.BindPFlag(flags.FlagPage, cmd.Flags().Lookup(flags.FlagPage)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flags.FlagLimit, cmd.Flags().Lookup(flags.FlagLimit)); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 
 func outputFlags(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagText, "t", false, "pass flag to force text output")
 	cmd.Flags().BoolP(flags.FlagIndentResponse, "i", false, "indent json output")
-	viper.BindPFlag(flagText, cmd.Flags().Lookup(flagText))
-	viper.BindPFlag(flags.FlagIndentResponse, cmd.Flags().Lookup(flags.FlagIndentResponse))
+	if err := viper.BindPFlag(flagText, cmd.Flags().Lookup(flagText)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flags.FlagIndentResponse, cmd.Flags().Lookup(flags.FlagIndentResponse)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func chainsAddFlags(cmd *cobra.Command) *cobra.Command {
+	fileFlag(cmd)
+	urlFlag(cmd)
 	return cmd
 }
 
 func addressFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagAddress, "a", false, "returns just the address of the flag, useful for scripting")
-	viper.BindPFlag(flagAddress, cmd.Flags().Lookup(flagAddress))
+	if err := viper.BindPFlag(flagAddress, cmd.Flags().Lookup(flagAddress)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func pathFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagPath, "p", "", "specify the path to relay over")
+	if err := viper.BindPFlag(flagPath, cmd.Flags().Lookup(flagPath)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func jsonFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Bool(flagJSON, false, "returns the response in json format")
+	if err := viper.BindPFlag(flagJSON, cmd.Flags().Lookup(flagJSON)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func fileFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagFile, "f", "", "fetch json data from specified file")
+	if err := viper.BindPFlag(flagFile, cmd.Flags().Lookup(flagFile)); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 
 func timeoutFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagTimeout, "t", "8s", "timeout between relayer runs")
-	viper.BindPFlag(flagTimeout, cmd.Flags().Lookup(flagTimeout))
+	cmd.Flags().StringP(flagTimeout, "o", "10s", "timeout between relayer runs")
+	if err := viper.BindPFlag(flagTimeout, cmd.Flags().Lookup(flagTimeout)); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 
-func getTimeout(cmd *cobra.Command) (out time.Duration, err error) {
-	var to string
-	if to, err = cmd.Flags().GetString(flagTimeout); err != nil {
-		return
+func forceFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP(flagForce, "f", false, "option to force initialization of lite client from configured chain")
+	if err := viper.BindPFlag(flagForce, cmd.Flags().Lookup(flagForce)); err != nil {
+		panic(err)
 	}
-	if out, err = time.ParseDuration(to); err != nil {
-		return
-	}
-	return
+	return cmd
 }
 
-// PrintOutput fmt.Printlns the json or yaml representation of whatever is passed in
-// CONTRACT: The cmd calling this function needs to have the "json" and "indent" flags set
-func PrintOutput(toPrint interface{}, cmd *cobra.Command) error {
-	var (
-		out          []byte
-		err          error
-		text, indent bool
-	)
+func flagsFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP(flagFlags, "f", false, "pass flag to output the flags for lite init/update")
+	if err := viper.BindPFlag(flagFlags, cmd.Flags().Lookup(flagFlags)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
 
-	text, err = cmd.Flags().GetBool("text")
+func getTimeout(cmd *cobra.Command) (time.Duration, error) {
+	to, err := cmd.Flags().GetString(flagTimeout)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	indent, err = cmd.Flags().GetBool("indent")
+	return time.ParseDuration(to)
+}
+
+func urlFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagURL, "u", "", "url to fetch data from")
+	viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL))
+	return cmd
+}
+
+func getAddInputs(cmd *cobra.Command) (file string, url string, err error) {
+	file, err = cmd.Flags().GetString(flagFile)
 	if err != nil {
-		return err
+		return
 	}
 
-	switch {
-	case indent:
-		out, err = cdc.MarshalJSONIndent(toPrint, "", "  ")
-	case text:
-		out, err = yaml.Marshal(&toPrint)
-	default:
-		out, err = cdc.MarshalJSON(toPrint)
-	}
-
+	url, err = cmd.Flags().GetString(flagURL)
 	if err != nil {
-		return err
+		return
 	}
 
-	fmt.Println(string(out))
-	return nil
+	if file != "" && url != "" {
+		return "", "", errMultipleAddFlags
+	}
+
+	return
 }

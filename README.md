@@ -5,72 +5,92 @@ meant to be used by users wishing to relay packets between IBC enabled chains.
 It is also well documented and intended as a place where users who are
 interested in building their own relayer can come for working examples.
 
-### Building and testing the relayer
+### Demoing the Relayer
 
-The current implementation status is below. To test the functionality that does work you can do the following:
-
-> NOTE: The relayer relies on `cosmos/cosmos-sdk@ibc-alpha` and `tendermint/tendermint@v0.33.0-dev2`. If you run into problems building it likely related to those dependancies. Also the `two-chains.sh` script requires that the `cosmos/gaia` and `cosmos/relayer` repos be present locally and buildable. Read the script and change the paths as needed.
+While the relayer is under active development, it is meant primarily as a learning tool to better understand the Inter-Blockchain Communication (IBC) protocol. In that vein, the following demo demonstrates the core functionality which will remain even after the changes:
 
 ```bash
-$ ./two-chains.sh
-# NOTE: Follow the ouput instructions and set $RLY and $GAIA
 
-# First, initialize the lite clients locally for each chain
-$ relayer --home $RLY lite init ibc0 -f
-$ relayer --home $RLY lite init ibc1 -f
+# ensure go is installed and GOPATH, GOBIN are set appropriately and GOBIN is in your PATH
+$ export GOPATH=<gopath>
+$ export GOBIN=$GOPATH/bin
+$ export PATH=$PATH:$GOBIN
 
-# If you would like to see the folder structure of the relayer
-# try running `tree $RLY`
+# make in this directory to build the relayer executable
+$ make
 
-# Now you can create the clients for each chain on their counterparties
-$ relayer --home $RLY tx clients ibc0 ibc1 ibconeclient ibczeroclient
+# two-chainz creates two gaia-based chains with data directories in this 
+$ ./two-chainz
 
-# Then query them for more info:
-$ relayer --home $RLY q clients ibc0
-$ relayer --home $RLY q client ibc0 ibconeclient
-$ relayer --home $RLY q clients ibc1
-$ relayer --home $RLY q client ibc1 ibczeroclient
+# First initialize your configuration for the relayer
+$ relayer config init
 
-# NOTE: The following are unimplemented commands
-# Next create a connection
-$ relayer --home $RLY tx connection ibc0 ibc1 ibconeclient ibczeroclient ibconeconn ibczeroconn
+# NOTE: you may want to look at the config between these steps to see
+# what is added in each step. The config is located at ~/.relayer/config/config.yaml
+$ cat ~/.relayer/config/config.yaml
 
-# Now you can query for the connection
-$ relayer --home $RLY q connections ibc0
-$ relayer --home $RLY q connection ibc0 ibconeconn
-$ relayer --home $RLY q connections ibc1
-$ relayer --home $RLY q connection ibc1 ibczeroconn
+# Then add the chains and paths that you will need to work with the 
+# gaia chains spun up by the two-chains script
+$ relayer chains add -f demo/ibc0.json
+$ relayer chains add -f demo/ibc1.json
 
-# Next  create a channel
-$ relayer --home $RLY tx channel ibc0 ibc1 ibconeconn ibczeroconn ibconchan ibczerochan bank bank
+$ cat ~/.relayer/config/config.yaml
 
-# Now you can to query for the channel
-$ relayer --home $RLY q channels ibc0
-$ relayer --home $RLY q channel ibc0 ibconechan bank
-$ relayer --home $RLY q channels ibc1
-$ relayer --home $RLY q channel ibc1 ibczerochan bank
+# To finalize your config, add a path between the two chains
+$ relayer paths add -f demo/path.json
 
-# TODO: figure out the commands to flush and send packets from chain to chain
+# Now, add the key seeds from each chain to the relayer to give it funds to work with
+$ relayer keys restore ibc0 testkey "$(jq -r '.secret' data/ibc0/n0/gaiacli/key_seed.json)" -a
+$ relayer keys restore ibc1 testkey "$(jq -r '.secret' data/ibc1/n0/gaiacli/key_seed.json)" -a
+
+# Then its time to initialize the relayer's lite clients for each chain
+# All data moving forward is validated by these lite clients.
+$ relayer lite init ibc0 -f
+$ relayer lite init ibc1 -f
+
+# At this point the relayer --home directory is ready for normal operations between 
+# ibc0 and ibc1. Looking at the folder structure of the relayer at this point is helpful
+$ tree ~/.relayer
+
+# Now you can connect the two chains with one command:
+$ relayer tx full-path ibc0 ibc1
+
+# Check the token balances on both chains
+$ relayer q balance ibc0
+$ relayer q balance ibc1
+
+# Then send some tokens between the chains
+$ relayer tx transfer ibc0 ibc1 10000n0token true $(relayer keys show ibc1 testkey -a)
+
+# See that the transfer has completed
+$ relayer q balance ibc0
+$ relayer q balance ibc1
+
+# Send the tokens back to the account on ibc0
+$ relayer tx transfer ibc1 ibc0 10000n0token false $(relayer keys show ibc0 testkey -a)
+
+# See that the return trip has completed
+$ relayer q balance ibc0
+$ relayer q balance ibc1
+
+# NOTE: you will see the stake balances decreasing on each chain. This is to pay for fees
+# You can change the amount of fees you are paying on each chain in the configuration.
 ```
-### Current Work:
 
-- [ ] `query` - https://github.com/cosmos/relayer/issues/19
-- [ ] `start` - https://github.com/cosmos/relayer/issues/21
-- [ ] `transactions`- https://github.com/cosmos/relayer/issues/10
+> NOTE: The relayer relies on `cosmos/cosmos-sdk@ibc-alpha` and `tendermint/tendermint@v0.33.0-dev2`. If you run into problems building it likely related to those dependancies. Also the `two-chainz` script requires that the `cosmos/gaia` and `cosmos/relayer` repos be present locally and buildable. Read the script and change the paths as needed.
 
-### Notes:
+## Next items
 
-- Relayers should gracefully handle `ErrInsufficentFunds` when/if accounts run
-  out of funds
-    * _Stretch_: Relayer should notify a configurable endpoint when it hits
-      `ErrInsufficentFunds`
+- [ ] Setup Versioning
+- [ ] Split the xfer command into xfer-send and xfer-recv
+- [ ] Wire up packet ack and timeout
+- [ ] get naive relay strategy working properly
 
-### Open Questions
+## Setting up Developer Environment
 
-- Do we want to force users to name their `ibc.Client`s, `ibc.Connection`s,
- `ibc.Channel`s and `ibc.Port`s? Can we use randomly generated identifiers
- instead? The current build of the relayer only works this way, and it will end up requiring
- quite a bit of user input. The relayer should query to ensure primatives for a counterparty
- chain exist and default to using those first before deciding to create its own.
- It should also create as many of the primatives as possible to random or generated 
- identifiers (hash of chain-ids or chainid-$(rand)).
+Working with the relayer can frequently involve working with local developement branches of `gaia`, `cosmos-sdk` and the `relayer`. To setup your environment to point at the local versions of the code and reduce the amount of time in your read-eval-print loops try the following:
+
+1. Set `replace github.com/cosmos/cosmos-sdk => /path/to/local/github.com/comsos/cosmos-sdk` at the end of the `go.mod` files for the `relayer` and `gaia`. This will force building from the local version of the `cosmos-sdk` when running the `./dev-env` script.
+2. After `./dev-env` has run, you can use `go run main.go` for any relayer commands you are working on. This allows you make changes and immediately test them as long as there are no server side changes. 
+3. If you make changes in `cosmos-sdk` that need to be reflected server-side, be sure to re-run `./two-chainz`.
+4. If you need to work off of a `gaia` branch other than `ibc-alpha`, change the branch name at the top of the `./two-chainz` script. 

@@ -16,43 +16,40 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
-	"time"
-
-	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
 // startCmd represents the start command
 // NOTE: This is basically psuedocode
-var startCmd = &cobra.Command{
-	Use:   "start",
-	Short: "starts the relayer using the configured chains and strategy",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		d, err := time.ParseDuration(config.Global.Timeout)
-		if err != nil {
-			return err
-		}
-
-		for _, chain := range config.c {
-			// NOTE: this is now hardcoded to a once every 5 seconds update,
-			// this should be made configurable
-			go chain.StartUpdatingLiteClient(time.Duration(5 * time.Second))
-
-			// TODO: Figure out how/when to stop
-		}
-
-		// The relayer will continuously run the strategy declared in the config file
-		ticker := time.NewTicker(d)
-		for ; true; <-ticker.C {
-			err = relayer.Relay(config.Global.Strategy, config.c, config.Paths)
+func startCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "start [src-chain-id] [dst-chain-id] ",
+		Short: "TODO: This cmd is wip right now",
+		Args:  cobra.RangeArgs(2, 3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
-				// TODO: This should have a better error handling strategy
-				// Ideally some errors are just logged while others halt the process
-				fmt.Println(err)
+				return err
 			}
-		}
 
-		return nil
-	},
+			pth, err := cmd.Flags().GetString(flagPath)
+			if err != nil {
+				return err
+			}
+
+			path, err := setPathsFromArgs(chains[src], chains[dst], pth)
+			if err != nil {
+				return err
+			}
+
+			strategy, err := path.GetStrategy()
+			if err != nil {
+				return nil
+			}
+
+			return strategy.Run(chains[src], chains[dst])
+		},
+	}
+	return pathFlag(cmd)
 }

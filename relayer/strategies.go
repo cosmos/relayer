@@ -1,201 +1,148 @@
 package relayer
 
 import (
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
-	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
-// TODO: Figure out a better way to deal with these
-const (
-	ibcversion = "1.0.0"
-	portID     = "bankbankbank"
-)
-
-// Strategy determines which relayer strategy to use
-// NOTE: To make a strategy available via config you need to add it to
-// this switch statement
-func Strategy(name string) RelayStrategy {
-	switch name {
-	case "naive":
-		return NaiveRelayStrategy
+// GetStrategy the strategy defined in the relay messages
+func (r *Path) GetStrategy() (Strategy, error) {
+	switch r.Strategy.Type {
+	case NaiveStrategy{}.GetType():
+		return NaiveStrategy{}.Init(r.Strategy)
 	default:
-		return nil
+		return nil, fmt.Errorf("invalid strategy: %s", r.Strategy.Type)
 	}
 }
 
-// RelayStrategy describes the function signature for a relay strategy
-type RelayStrategy func(src, dst *Chain) (*RelayMsgs, error)
-
-// RelayMsgs contains the msgs that need to be sent to both a src and dst chain
-// after a given relay round
-type RelayMsgs struct {
-	Src []sdk.Msg
-	Dst []sdk.Msg
+// StrategyCfg defines which relaying strategy to take for a given path
+type StrategyCfg struct {
+	Type        string            `json:"type" yaml:"type"`
+	Constraints map[string]string `json:"constraints,omitempty" yaml:"constraints,omitempty"`
 }
 
-// Ready returns true if there are messages to relay
-func (r *RelayMsgs) Ready() bool {
-	if len(r.Src) == 0 && len(r.Dst) == 0 {
-		return true
-	}
-	return false
+// Strategy defines the interface that strategies must
+type Strategy interface {
+	// Used to initialize the strategy implemenation
+	// and validate the data from the configuration
+	Init(*StrategyCfg) (Strategy, error)
+
+	// Used to return the configuration
+	Cfg() *StrategyCfg
+
+	// Used in constructing StrategyCfg
+	GetType() string
+
+	// Used in constructing StrategyCfg
+	GetConstraints() map[string]string
+
+	// Run starts the relayer
+	Run(*Chain, *Chain) error
 }
 
-// NaiveRelayStrategy returns the RelayMsgs that need to be run to relay between
-// src and dst chains for all pending messages. Will also create or repair
-// connections and channels
-func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
-	out := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
+// NewNaiveStrategy Returns a new NaiveStrategy config
+func NewNaiveStrategy() *StrategyCfg {
+	return &StrategyCfg{
+		Type: NaiveStrategy{}.GetType(),
+	}
+}
 
-	hs, err := UpdatesWithHeaders(src, dst)
+// NaiveStrategy is a relaying strategy where everything in a Path is relayed
+type NaiveStrategy struct{}
+
+// Init implements Strategy
+func (nrs NaiveStrategy) Init(sc *StrategyCfg) (Strategy, error) {
+	if sc.Type != nrs.GetType() {
+		return nil, fmt.Errorf("wrong type")
+	}
+	if len(sc.Constraints) != len(nrs.GetConstraints()) {
+		return nil, fmt.Errorf("invalid constraint")
+	}
+	return nrs, nil
+}
+
+// Cfg implements Strategy
+func (nrs NaiveStrategy) Cfg() *StrategyCfg {
+	return &StrategyCfg{
+		Type:        nrs.GetType(),
+		Constraints: nrs.GetConstraints(),
+	}
+}
+
+// GetType implements Strategy
+func (nrs NaiveStrategy) GetType() string {
+	return "naive"
+}
+
+// GetConstraints implements Strategy
+func (nrs NaiveStrategy) GetConstraints() map[string]string {
+	return map[string]string{}
+}
+
+// Run implements Strategy and defines what actions are taken when the relayer runs
+func (nrs NaiveStrategy) Run(src, dst *Chain) error {
+	events := "tm.event = 'Tx'"
+
+	srcEvents, srcCancel, err := src.Subscribe(events)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	defer srcCancel()
 
-	// ICS2 : Clients - DstClient
-	// Fetch current client state
-	srcClientState, err := src.QueryClientConsensusState(uint64(hs[src.ChainID].Height))
+	dstEvents, dstCancel, err := dst.Subscribe(events)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	defer dstCancel()
 
-	switch {
-	// If there is no matching client found, create it
-	// TODO: ensure that this is the right condition
-	case srcClientState.ConsensusState.GetRoot().GetHash() == nil:
-		out.Src = append(out.Src, src.CreateClient(hs[dst.ChainID]))
+	done := trapSignal()
+	defer close(done)
 
-	// If there client is found update it with latest header
-	case srcClientState.ProofHeight < uint64(hs[dst.ChainID].Height):
-		out.Src = append(out.Src, src.UpdateClient(hs[dst.ChainID]))
-	}
-
-	dstClientState, err := dst.QueryClientConsensusState(uint64(hs[dst.ChainID].Height))
-	if err != nil {
-		return nil, err
-	}
-
-	switch {
-	// If there is no client found matching, create the client
-	// TODO: ensure that this is the right condition
-	case dstClientState.ConsensusState.GetRoot().GetHash() == nil:
-		out.Dst = append(out.Dst, dst.CreateClient(hs[src.ChainID]))
-
-	// If there client is found update it with latest header
-	case dstClientState.ProofHeight < uint64(hs[src.ChainID].Height):
-		out.Dst = append(out.Dst, dst.UpdateClient(hs[src.ChainID]))
-	}
-
-	// Return here and move on to the next iteration
-	if out.Ready() {
-		return out, nil
-	}
-
-	// ICS3 : Connections
-	// - Determine if any connection handshakes are in progress
-	// Fetch connections associated with clients on the source chain
-	connections, err := src.QueryConnectionsUsingClient(hs[src.ChainID].Height)
-	if err != nil {
-		return nil, err
-	}
-
-	// Loop across the connection paths
-	for _, srcConnID := range connections.ConnectionPaths {
-		if srcConnID == src.PathEnd.ConnectionID {
-			return src.CreateConnectionStep(dst)
-		}
-	}
-
-	// Return here and move on to the next iteration
-	if out.Ready() {
-		return out, nil
-	}
-
-	// ICS4 : Channels
-	// - Determine if any channel handshakes are in progress
-
-	channels, err := src.QueryChannelsUsingConnections(connections.ConnectionPaths)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, srcChan := range channels {
-		if srcChan.Channel.GetCounterparty().GetChannelID() == dst.PathEnd.ChannelID {
-			return src.CreateChannelStep(dst, chanState.ORDERED)
-		}
-	}
-
-	// Return here and move on to the next iteration
-	if out.Ready() {
-		return out, nil
-	}
-
-	// ICS?: Packet Messages
-	// - Determine if any packets, acknowledgements, or timeouts need to be relayed
-	for _, srcChan := range channels {
-		if srcChan.Channel.GetCounterparty().GetChannelID() == dst.PathEnd.ChannelID {
-			// Deal with packets
-			// TODO: Once ADR15 is merged this section needs to be completed cc @mossid @fedekunze @cwgoes
-
-			// First, scan logs for sent packets and relay all of them
-			// TODO: This is currently incorrect and will change
-			srcRes, err := src.QueryTxs(uint64(hs[src.ChainID].Height), []string{"type:transfer"})
+	for {
+		select {
+		case srcMsg := <-srcEvents:
+			byt, err := json.Marshal(srcMsg.Events)
 			if err != nil {
-				return nil, err
+				src.Error(err)
 			}
-
-			for _, tx := range srcRes.Txs {
-				for _, msg := range tx.Tx.GetMsgs() {
-					if msg.Type() == "transfer" {
-						out.Dst = append(out.Dst, chanTypes.MsgPacket{})
-					}
-				}
-			}
-
-			// Then, scan logs for received packets and relay acknowledgements
-			// TODO: This is currently incorrect and will change
-			dstRes, err := dst.QueryTxs(uint64(hs[dst.ChainID].Height), []string{"type:recv_packet"})
+			src.Log(string(byt))
+		case dstMsg := <-dstEvents:
+			byt, err := json.Marshal(dstMsg.Events)
 			if err != nil {
-				return nil, err
+				dst.Error(err)
 			}
+			dst.Log(string(byt))
+		default:
+			// NOTE: This causes the for loop to run continuously and not to
+			//  wait for messages before advancing. This allows for quick exit
+		}
 
-			for _, tx := range dstRes.Txs {
-				for _, msg := range tx.Tx.GetMsgs() {
-					if msg.Type() == "recv_packet" {
-						out.Dst = append(out.Dst, chanTypes.MsgPacket{})
-					}
-				}
-			}
+		// If there are msgs in the done channel, quit
+		if len(done) > 0 {
+			<-done
+			fmt.Println("shutdown activated")
+			break
 		}
 	}
 
-	//   Return pending datagrams
-	return out, nil
+	return nil
 }
 
-// Group the keybase and height queries here
-func addrsHeaders(src, dst *Chain) (srcAddr, dstAddr sdk.AccAddress, srcHeader, dstHeader *tmclient.Header, err error) {
-	// Signing key for src chain
-	srcAddr, err = src.GetAddress()
-	if err != nil {
-		return
-	}
+func trapSignal() chan bool {
+	sigCh := make(chan os.Signal, 1)
+	done := make(chan bool, 1)
 
-	// Signing key for dst chain
-	dstAddr, err = dst.GetAddress()
-	if err != nil {
-		return
-	}
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	// Latest height on src chain
-	srcHeader, err = src.QueryLatestHeader()
-	if err != nil {
-		return
-	}
+	go func() {
+		sig := <-sigCh
+		fmt.Println("Signal Recieved:", sig.String())
+		close(sigCh)
+		done <- true
+	}()
 
-	// Latest height on dst chain
-	dstHeader, err = dst.QueryLatestHeader()
-	return
+	return done
 }

@@ -48,7 +48,7 @@ func keysAddCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
-			chain, err := config.c.GetChain(args[0])
+			chain, err := config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -67,7 +67,7 @@ func keysAddCmd() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(info, cmd)
+			return queryOutput(info, chain, cmd)
 		},
 	}
 
@@ -82,7 +82,7 @@ func keysRestoreCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
-			chain, err := config.c.GetChain(args[0])
+			chain, err := config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -102,7 +102,7 @@ func keysRestoreCmd() *cobra.Command {
 				return nil
 			}
 
-			return PrintOutput(info, cmd)
+			return queryOutput(info, chain, cmd)
 		},
 	}
 
@@ -117,7 +117,7 @@ func keysDeleteCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
-			chain, err := config.c.GetChain(args[0])
+			chain, err := config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -146,7 +146,7 @@ func keysListCmd() *cobra.Command {
 		Short: "lists keys from the keychain associated with a particular chain",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.c.GetChain(args[0])
+			chain, err := config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -156,11 +156,15 @@ func keysListCmd() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(info, cmd)
+			for d, i := range info {
+				fmt.Printf("key(%d): %s -> %s\n", d, i.GetName(), i.GetAddress().String())
+			}
+
+			return nil
 		},
 	}
 
-	return outputFlags(cmd)
+	return cmd
 }
 
 // keysShowCmd respresents the `keys show` command
@@ -171,7 +175,7 @@ func keysShowCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
-			chain, err := config.c.GetChain(args[0])
+			chain, err := config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -190,7 +194,7 @@ func keysShowCmd() *cobra.Command {
 				return nil
 			}
 
-			return PrintOutput(info, cmd)
+			return queryOutput(info, chain, cmd)
 		},
 	}
 
@@ -205,7 +209,7 @@ func keysExportCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
-			chain, err := config.c.GetChain(args[0])
+			chain, err := config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -219,7 +223,7 @@ func keysExportCmd() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(info, cmd)
+			return queryOutput(info, chain, cmd)
 		},
 	}
 
