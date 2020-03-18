@@ -259,17 +259,17 @@ func transferCmd() *cobra.Command {
 				srcCommitRes relayer.CommitmentResponse
 			)
 
-			hs, err = relayer.UpdatesWithHeaders(chains[src], chains[dst])
-			if err != nil {
-				return err
-			}
-
-			seqRecv, err = chains[dst].QueryNextSeqRecv(hs[dst].Height)
-			if err != nil {
-				return err
-			}
-
 			for {
+				hs, err = relayer.UpdatesWithHeaders(chains[src], chains[dst])
+				if err != nil {
+					return err
+				}
+
+				seqRecv, err = chains[dst].QueryNextSeqRecv(hs[dst].Height)
+				if err != nil {
+					return err
+				}
+
 				seqSend, err = chains[src].QueryNextSeqSend(hs[src].Height)
 				if err != nil {
 					return err
@@ -281,14 +281,6 @@ func transferCmd() *cobra.Command {
 				}
 
 				if srcCommitRes.Proof.Proof == nil {
-					_, err := chains[src].ListenForNextBlock()
-					if err != nil {
-						return err
-					}
-					hs, err = relayer.UpdatesWithHeaders(chains[src], chains[dst])
-					if err != nil {
-						return err
-					}
 					continue
 				} else {
 					break

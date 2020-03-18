@@ -113,22 +113,17 @@ func (nrs NaiveStrategy) Run(src, dst *Chain) error {
 	for {
 		select {
 		case srcMsg := <-srcEvents:
-			byt := src.parsePacketData(srcMsg.Events)
-			if byt != nil {
-				src.sendPacket(dst, byt)
-			}
+			go src.handlePacket(dst, srcMsg.Events)
 		case dstMsg := <-dstEvents:
-			byt := src.parsePacketData(dstMsg.Events)
-			if byt != nil {
-				dst.sendPacket(src, byt)
-			}
+			go dst.handlePacket(src, dstMsg.Events)
 		default:
-			time.Sleep(1 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 			// NOTE: This causes the for loop to run continuously and not to
 			//  wait for messages before advancing. This allows for quick exit
 		}
 
-		// If there are msgs in the done channel, quit
+		// TODO: This seems to leak goroutines when there are blocking cases, if
+		// there is a more "go" way to do this, lets move to that
 		if len(done) > 0 {
 			<-done
 			fmt.Println("shutdown activated")
@@ -139,69 +134,65 @@ func (nrs NaiveStrategy) Run(src, dst *Chain) error {
 	return nil
 }
 
-func (src *Chain) sendPacket(dst *Chain, xferPacket chanState.PacketDataI) {
+func (src *Chain) handlePacket(dst *Chain, events map[string][]string) {
+	byt, seq, err := src.parsePacketData(events)
+	if byt != nil && seq != 0 && err == nil {
+		src.sendPacket(dst, byt, seq)
+	} else if err != nil {
+		src.Error(err)
+	}
+}
+
+func (src *Chain) sendPacket(dst *Chain, xferPacket chanState.PacketDataI, seq int64) {
 	var (
 		err          error
-		hs           map[string]*tmclient.Header
-		seqRecv      chanTypes.RecvResponse
-		seqSend      uint64
-		srcCommitRes CommitmentResponse
+		dstH         *tmclient.Header
+		dstCommitRes CommitmentResponse
 	)
 
-	hs, err = UpdatesWithHeaders(src, dst)
+	err = dst.WaitForNBlocks(2)
+	if err != nil {
+		dst.Error(err)
+	}
+
+	dstH, err = dst.UpdateLiteWithHeader()
+	if err != nil {
+		dst.Error(err)
+
+	}
+	seqSend, err := dst.QueryNextSeqSend(dstH.Height)
+	if err != nil {
+		dst.Error(err)
+	}
+	fmt.Println("seqSend", seqSend, "seq", seq)
+	dstCommitRes, err = dst.QueryPacketCommitment(dstH.Height-1, int64(seqSend))
 	if err != nil {
 		src.Error(err)
 	}
 
-	seqRecv, err = src.QueryNextSeqRecv(hs[src.ChainID].Height)
-	if err != nil {
-		src.Error(err)
+	if dstCommitRes.Proof.Proof == nil {
+		dst.Error(fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)", dst.ChainID, dstH.Height-1, seq))
 	}
-
-	for {
-		seqSend, err = dst.QueryNextSeqSend(hs[dst.ChainID].Height)
-		if err != nil {
-			src.Error(err)
-		}
-
-		srcCommitRes, err = dst.QueryPacketCommitment(hs[dst.ChainID].Height-1, int64(seqSend-1))
-		if err != nil {
-			src.Error(err)
-		}
-
-		if srcCommitRes.Proof.Proof == nil {
-			_, err = dst.ListenForNextBlock()
-			if err != nil {
-				src.Error(err)
-			}
-			hs, err = UpdatesWithHeaders(src, dst)
-			if err != nil {
-				src.Error(err)
-			}
-			continue
-		} else {
-			break
-		}
-	}
+	fmt.Println("About to send msgs")
 
 	txs := &RelayMsgs{
 		Src: []sdk.Msg{
-			src.PathEnd.UpdateClient(hs[dst.ChainID], src.MustGetAddress()),
+			src.PathEnd.UpdateClient(dstH, src.MustGetAddress()),
 			src.PathEnd.MsgRecvPacket(
 				dst.PathEnd,
-				seqRecv.NextSequenceRecv,
+				uint64(seq),
 				xferPacket,
 				chanTypes.NewPacketResponse(
 					dst.PathEnd.PortID,
 					dst.PathEnd.ChannelID,
-					seqSend-1,
+					uint64(seq),
 					dst.PathEnd.NewPacket(
 						src.PathEnd,
-						seqSend-1,
+						uint64(seq),
 						xferPacket,
 					),
-					srcCommitRes.Proof.Proof,
-					int64(srcCommitRes.ProofHeight),
+					dstCommitRes.Proof.Proof,
+					int64(dstCommitRes.ProofHeight),
 				),
 				src.MustGetAddress(),
 			),
@@ -227,23 +218,35 @@ func trapSignal() chan bool {
 	return done
 }
 
-func (src *Chain) parsePacketData(events map[string][]string) (out chanState.PacketDataI) {
-	if val, ok := events["send_packet.packet_data"]; ok {
-		err := src.Cdc.UnmarshalJSON([]byte(val[0]), &out)
+func (src *Chain) parsePacketData(events map[string][]string) (packetData chanState.PacketDataI, seq int64, err error) {
+	// first, we log the actions and msg hash
+	src.logTx(events)
+
+	// then, get packet data and parse
+	if pdval, ok := events["send_packet.packet_data"]; ok {
+		err = src.Cdc.UnmarshalJSON([]byte(pdval[0]), &packetData)
 		if err != nil {
-			src.Error(err)
+			return nil, 0, err
 		}
-		return
 	}
 
+	// finally, get and parse the sequence
+	if sval, ok := events["send_packet.packet_sequence"]; ok {
+		seq, err = strconv.ParseInt(sval[0], 10, 64)
+		if err != nil {
+			return nil, 0, err
+		}
+	}
+	return
+}
+
+func (src *Chain) logTx(events map[string][]string) {
 	src.Log(fmt.Sprintf("[%s]@{%d} - actions(%s) hash(%s)",
 		src.ChainID,
 		getEventHeight(events),
 		actions(events["message.action"]),
 		events["tx.hash"][0]),
 	)
-
-	return
 }
 
 func getEventHeight(events map[string][]string) int64 {
