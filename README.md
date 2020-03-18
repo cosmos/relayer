@@ -1,5 +1,7 @@
 # Relayer
 
+![CI Script](https://github.com/iqlusioninc/relayer/workflows/Build%20then%20run%20CI%20Chains/badge.svg)
+
 The `relayer` package contains some basic relayer implementations that are
 meant to be used by users wishing to relay packets between IBC enabled chains.
 It is also well documented and intended as a place where users who are
@@ -10,14 +12,8 @@ interested in building their own relayer can come for working examples.
 While the relayer is under active development, it is meant primarily as a learning tool to better understand the Inter-Blockchain Communication (IBC) protocol. In that vein, the following demo demonstrates the core functionality which will remain even after the changes:
 
 ```bash
-
 # ensure go is installed and GOPATH, GOBIN are set appropriately and GOBIN is in your PATH
-$ export GOPATH=<gopath>
-$ export GOBIN=$GOPATH/bin
-$ export PATH=$PATH:$GOBIN
-
-# make in this directory to build the relayer executable
-$ make
+# Documentation: https://golang.org/doc/install
 
 # two-chainz creates two gaia-based chains with data directories in this 
 $ ./two-chainz
