@@ -7,8 +7,8 @@ all: ci-lint ci-test install
 # Build / Install
 ###############################################################################
 
-LD_FLAGS = -X github.com/cosmos/relayer/cmd.Version=$(VERSION) \
-	-X github.com/cosmos/relayer/cmd.Commit=$(COMMIT)
+LD_FLAGS = -X github.com/iqlusioninc/relayer/cmd.Version=$(VERSION) \
+	-X github.com/iqlusioninc/relayer/cmd.Commit=$(COMMIT)
 
 BUILD_FLAGS := -ldflags '$(LD_FLAGS)'
 

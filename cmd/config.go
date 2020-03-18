@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/relayer/relayer"
+	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
