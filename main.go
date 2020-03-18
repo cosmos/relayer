@@ -15,7 +15,7 @@ limitations under the License.
 */
 package main
 
-import "github.com/cosmos/relayer/cmd"
+import "github.com/iqlusioninc/relayer/cmd"
 
 func main() {
 	cmd.Execute()

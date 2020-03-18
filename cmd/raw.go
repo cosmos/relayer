@@ -5,7 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
-	"github.com/cosmos/relayer/relayer"
+	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
