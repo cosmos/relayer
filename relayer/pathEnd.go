@@ -181,8 +181,8 @@ func (src *PathEnd) ChanCloseConfirm(dstChanState chanTypes.ChannelResponse, sig
 // MsgRecvPacket creates a MsgPacket
 func (src *PathEnd) MsgRecvPacket(dst *PathEnd, sequence uint64, packetData chanState.PacketDataI, proof chanTypes.PacketResponse, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgPacket(
-		src.NewPacket(
-			dst,
+		dst.NewPacket(
+			src,
 			sequence,
 			packetData,
 		),

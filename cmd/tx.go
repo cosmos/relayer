@@ -310,8 +310,8 @@ func transferCmd() *cobra.Command {
 			txs = relayer.RelayMsgs{
 				Dst: []sdk.Msg{
 					chains[dst].PathEnd.UpdateClient(hs[src], chains[dst].MustGetAddress()),
-					chains[src].PathEnd.MsgRecvPacket(
-						chains[dst].PathEnd,
+					chains[dst].PathEnd.MsgRecvPacket(
+						chains[src].PathEnd,
 						seqRecv.NextSequenceRecv,
 						xferPacket,
 						chanTypes.NewPacketResponse(
