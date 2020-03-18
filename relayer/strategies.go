@@ -7,7 +7,10 @@ import (
 	"strings"
 	"syscall"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
+	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 )
 
 // GetStrategy the strategy defined in the relay messages
@@ -110,12 +113,12 @@ func (nrs NaiveStrategy) Run(src, dst *Chain) error {
 		case srcMsg := <-srcEvents:
 			byt := src.parsePacketData(srcMsg.Events)
 			if byt != nil {
-				src.Log(string(byt.GetBytes()))
+				src.sendPacket(dst, byt)
 			}
 		case dstMsg := <-dstEvents:
 			byt := src.parsePacketData(dstMsg.Events)
 			if byt != nil {
-				src.Log(string(byt.GetBytes()))
+				dst.sendPacket(src, byt)
 			}
 		default:
 			// NOTE: This causes the for loop to run continuously and not to
@@ -131,6 +134,67 @@ func (nrs NaiveStrategy) Run(src, dst *Chain) error {
 	}
 
 	return nil
+}
+
+func (src *Chain) sendPacket(dst *Chain, data chanState.PacketDataI) {
+	var (
+		hs           map[string]*tmclient.Header
+		seqRecv      chanTypes.RecvResponse
+		seqSend      uint64
+		srcCommitRes CommitmentResponse
+	)
+
+	for {
+		hs, err := UpdatesWithHeaders(src, dst)
+		if err != nil {
+			src.Error(err)
+		}
+
+		seqRecv, err = dst.QueryNextSeqRecv(hs[dst.ChainID].Height)
+		if err != nil {
+			dst.Error(err)
+		}
+
+		seqSend, err = src.QueryNextSeqSend(hs[src.ChainID].Height)
+		if err != nil {
+			src.Error(err)
+		}
+
+		srcCommitRes, err = src.QueryPacketCommitment(hs[src.ChainID].Height-1, int64(seqSend-1))
+		if err != nil {
+			src.Error(err)
+		}
+
+		if srcCommitRes.Proof.Proof == nil {
+			continue
+		} else {
+			break
+		}
+	}
+
+	msgs := RelayMsgs{Src: []sdk.Msg{
+		dst.PathEnd.UpdateClient(hs[src.ChainID], dst.MustGetAddress()),
+		src.PathEnd.MsgRecvPacket(
+			dst.PathEnd,
+			seqRecv.NextSequenceRecv,
+			data,
+			chanTypes.NewPacketResponse(
+				src.PathEnd.PortID,
+				src.PathEnd.ChannelID,
+				seqSend-1,
+				src.PathEnd.NewPacket(
+					src.PathEnd,
+					seqSend-1,
+					data,
+				),
+				srcCommitRes.Proof.Proof,
+				int64(srcCommitRes.ProofHeight),
+			),
+			dst.MustGetAddress(),
+		),
+	}}
+
+	msgs.Send(src, dst)
 }
 
 func trapSignal() chan bool {
