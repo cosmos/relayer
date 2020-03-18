@@ -180,7 +180,7 @@ func updateLiteCmd() *cobra.Command {
 				// think we should remove first two conditions here and just make
 				// updateLiteCmd only about updating the light client to latest header
 				// (i.e. not mix responsibilities).
-				err = chain.UpdateLiteDBToLatestHeader()
+				_, err = chain.UpdateLiteWithHeader()
 				if err != nil {
 					return wrapIncorrectHeader(err)
 				}

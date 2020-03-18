@@ -2,13 +2,14 @@ package relayer
 
 import (
 	"time"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
-	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
-	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
-	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
-	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
-	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc/20-transfer/types"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
+	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
+	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
+	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc/20-transfer/types"
 )
 
 // TODO: add Order chanTypes.Order as a property and wire it up in validation
@@ -23,7 +24,6 @@ type PathEnd struct {
 	ChannelID    string `yaml:"channel-id,omitempty" json:"channel-id,omitempty"`
 	PortID       string `yaml:"port-id,omitempty" json:"port-id,omitempty"`
 }
-
 
 // UpdateClient creates an sdk.Msg to update the client on c with data pulled from cp
 func (src *PathEnd) UpdateClient(dstHeader *tmclient.Header, signer sdk.AccAddress) sdk.Msg {

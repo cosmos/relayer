@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
@@ -121,6 +123,7 @@ func (nrs NaiveStrategy) Run(src, dst *Chain) error {
 				dst.sendPacket(src, byt)
 			}
 		default:
+			time.Sleep(1 * time.Millisecond)
 			// NOTE: This causes the for loop to run continuously and not to
 			//  wait for messages before advancing. This allows for quick exit
 		}
@@ -136,65 +139,82 @@ func (nrs NaiveStrategy) Run(src, dst *Chain) error {
 	return nil
 }
 
-func (src *Chain) sendPacket(dst *Chain, data chanState.PacketDataI) {
+func (src *Chain) sendPacket(dst *Chain, xferPacket chanState.PacketDataI) {
 	var (
+		err          error
 		hs           map[string]*tmclient.Header
 		seqRecv      chanTypes.RecvResponse
 		seqSend      uint64
 		srcCommitRes CommitmentResponse
 	)
 
+	hs, err = UpdatesWithHeaders(src, dst)
+	if err != nil {
+		src.Error(err)
+	}
+
+	seqRecv, err = src.QueryNextSeqRecv(hs[src.ChainID].Height)
+	if err != nil {
+		src.Error(err)
+	}
+
 	for {
-		hs, err := UpdatesWithHeaders(src, dst)
+		seqSend, err = dst.QueryNextSeqSend(hs[dst.ChainID].Height)
 		if err != nil {
 			src.Error(err)
 		}
 
-		seqRecv, err = dst.QueryNextSeqRecv(hs[dst.ChainID].Height)
-		if err != nil {
-			dst.Error(err)
-		}
-
-		seqSend, err = src.QueryNextSeqSend(hs[src.ChainID].Height)
-		if err != nil {
-			src.Error(err)
-		}
-
-		srcCommitRes, err = src.QueryPacketCommitment(hs[src.ChainID].Height-1, int64(seqSend-1))
+		srcCommitRes, err = dst.QueryPacketCommitment(hs[dst.ChainID].Height-1, int64(seqSend-1))
 		if err != nil {
 			src.Error(err)
 		}
 
 		if srcCommitRes.Proof.Proof == nil {
+			_, err = dst.ListenForNextBlock()
+			if err != nil {
+				src.Error(err)
+			}
+			hs, err = UpdatesWithHeaders(src, dst)
+			if err != nil {
+				src.Error(err)
+			}
 			continue
 		} else {
 			break
 		}
 	}
 
-	msgs := RelayMsgs{Src: []sdk.Msg{
-		dst.PathEnd.UpdateClient(hs[src.ChainID], dst.MustGetAddress()),
-		src.PathEnd.MsgRecvPacket(
-			dst.PathEnd,
-			seqRecv.NextSequenceRecv,
-			data,
-			chanTypes.NewPacketResponse(
-				src.PathEnd.PortID,
-				src.PathEnd.ChannelID,
-				seqSend-1,
-				src.PathEnd.NewPacket(
-					src.PathEnd,
+	//
+	// Debugging by simply passing in the packet information that we know was sent earlier in the SendPacket
+	// part of the command. In a real relayer, this would be a separate command that retrieved the packet
+	// information from an indexing node
+	txs := RelayMsgs{
+		Src: []sdk.Msg{
+			src.PathEnd.UpdateClient(hs[dst.ChainID], src.MustGetAddress()),
+			dst.PathEnd.MsgRecvPacket(
+				src.PathEnd,
+				seqRecv.NextSequenceRecv,
+				xferPacket,
+				chanTypes.NewPacketResponse(
+					dst.PathEnd.PortID,
+					dst.PathEnd.ChannelID,
 					seqSend-1,
-					data,
+					dst.PathEnd.NewPacket(
+						dst.PathEnd,
+						seqSend-1,
+						xferPacket,
+					),
+					srcCommitRes.Proof.Proof,
+					int64(srcCommitRes.ProofHeight),
 				),
-				srcCommitRes.Proof.Proof,
-				int64(srcCommitRes.ProofHeight),
+				src.MustGetAddress(),
 			),
-			dst.MustGetAddress(),
-		),
-	}}
+		},
+		Dst: []sdk.Msg{},
+	}
 
-	msgs.Send(src, dst)
+	txs.Send(src, dst)
+
 }
 
 func trapSignal() chan bool {
@@ -213,23 +233,31 @@ func trapSignal() chan bool {
 	return done
 }
 
-func (c *Chain) parsePacketData(events map[string][]string) (out chanState.PacketDataI) {
+func (src *Chain) parsePacketData(events map[string][]string) (out chanState.PacketDataI) {
 	if val, ok := events["send_packet.packet_data"]; ok {
-		err := c.Cdc.UnmarshalJSON([]byte(val[0]), &out)
+		err := src.Cdc.UnmarshalJSON([]byte(val[0]), &out)
 		if err != nil {
-			c.Error(err)
+			src.Error(err)
 		}
 		return
 	}
 
-	c.Log(fmt.Sprintf("[%s]@{%s} - actions(%s) hash(%s)",
-		c.ChainID,
-		events["tx.height"][0],
+	src.Log(fmt.Sprintf("[%s]@{%d} - actions(%s) hash(%s)",
+		src.ChainID,
+		getEventHeight(events),
 		actions(events["message.action"]),
 		events["tx.hash"][0]),
 	)
 
 	return
+}
+
+func getEventHeight(events map[string][]string) int64 {
+	if val, ok := events["tx.height"]; ok {
+		out, _ := strconv.ParseInt(val[0], 10, 64)
+		return out
+	}
+	return -1
 }
 
 func actions(act []string) string {
