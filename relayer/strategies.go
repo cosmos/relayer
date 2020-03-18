@@ -184,15 +184,11 @@ func (src *Chain) sendPacket(dst *Chain, xferPacket chanState.PacketDataI) {
 		}
 	}
 
-	//
-	// Debugging by simply passing in the packet information that we know was sent earlier in the SendPacket
-	// part of the command. In a real relayer, this would be a separate command that retrieved the packet
-	// information from an indexing node
-	txs := RelayMsgs{
+	txs := &RelayMsgs{
 		Src: []sdk.Msg{
 			src.PathEnd.UpdateClient(hs[dst.ChainID], src.MustGetAddress()),
-			dst.PathEnd.MsgRecvPacket(
-				src.PathEnd,
+			src.PathEnd.MsgRecvPacket(
+				dst.PathEnd,
 				seqRecv.NextSequenceRecv,
 				xferPacket,
 				chanTypes.NewPacketResponse(
@@ -200,7 +196,7 @@ func (src *Chain) sendPacket(dst *Chain, xferPacket chanState.PacketDataI) {
 					dst.PathEnd.ChannelID,
 					seqSend-1,
 					dst.PathEnd.NewPacket(
-						dst.PathEnd,
+						src.PathEnd,
 						seqSend-1,
 						xferPacket,
 					),
@@ -212,9 +208,7 @@ func (src *Chain) sendPacket(dst *Chain, xferPacket chanState.PacketDataI) {
 		},
 		Dst: []sdk.Msg{},
 	}
-
 	txs.Send(src, dst)
-
 }
 
 func trapSignal() chan bool {

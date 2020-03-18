@@ -184,10 +184,10 @@ func (src *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, context.Ca
 // ListenForNextBlock blocks until the next block is returned
 func (src *Chain) ListenForNextBlock() (int64, error) {
 	out, cancel, err := src.Subscribe("tm.event = 'NewBlock'")
-	defer cancel()
 	if err != nil {
 		return 0, err
 	}
+	defer cancel()
 	select {
 	case block := <-out:
 		return getEventHeight(block.Events), nil

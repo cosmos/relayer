@@ -319,7 +319,7 @@ func transferCmd() *cobra.Command {
 							chains[src].PathEnd.ChannelID,
 							seqSend-1,
 							chains[src].PathEnd.NewPacket(
-								chains[src].PathEnd,
+								chains[dst].PathEnd,
 								seqSend-1,
 								xferPacket,
 							),
