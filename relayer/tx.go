@@ -378,6 +378,60 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 	return out, nil
 }
 
+// CloseChannelStep returns the next set of messages for closing a channel with given
+// identifiers between chains src and dst. If the closing handshake hasn't started, then CloseChannelStep
+// will begin the handshake on the src chain
+func (src *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
+	var (
+		out        = &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}, last: false}
+		scid, dcid = src.ChainID, dst.ChainID
+	)
+
+	if err := src.PathEnd.Validate(); err != nil {
+		return nil, src.ErrCantSetPath(err)
+	}
+
+	if err := dst.PathEnd.Validate(); err != nil {
+		return nil, dst.ErrCantSetPath(err)
+	}
+
+	hs, err := UpdatesWithHeaders(src, dst)
+	if err != nil {
+		return nil, err
+	}
+
+	chans, err := QueryChannelPair(src, dst, hs[scid].Height-1, hs[dcid].Height-1)
+	logChannelStates(src, dst, chans)
+
+	switch {
+	// Closing handshake has started on src, relay `chanCloseConfirm` and `updateClient` to dest
+	case chans[scid].Channel.State == chanState.CLOSED && chans[dcid].Channel.State != chanState.CLOSED:
+		if chans[dcid].Channel.State != chanState.UNINITIALIZED {
+			if dst.debug {
+				logChannelStates(dst, src, chans)
+			}
+			out.Dst = append(out.Dst,
+				dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
+				dst.PathEnd.ChanCloseConfirm(chans[scid], dst.MustGetAddress()),
+			)
+		}
+
+	// Closing handshake has started on dst, relay `chanCloseConfirm` nd `updateClient` to src
+	case chans[dcid].Channel.State == chanState.CLOSED && chans[scid].Channel.State != chanState.CLOSED:
+		if chans[scid].Channel.State != chanState.UNINITIALIZED {
+			if src.debug {
+				logChannelStates(src, dst, chans)
+			}
+			out.Src = append(out.Src,
+				src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
+				src.PathEnd.ChanCloseConfirm(chans[dcid], src.MustGetAddress()),
+			)
+		}
+
+	}
+	return out, nil
+}
+
 func logChannelStates(src, dst *Chain, conn map[string]chanTypes.ChannelResponse) {
 	// TODO: replace channelID with portID?
 	src.Log(fmt.Sprintf("- [%s]@{%d}chan(%s)-{%s} : [%s]@{%d}chan(%s)-{%s}",
