@@ -113,9 +113,9 @@ func (nrs NaiveStrategy) Run(src, dst *Chain) error {
 	for {
 		select {
 		case srcMsg := <-srcEvents:
-			go src.handlePacket(dst, srcMsg.Events)
+			go dst.handlePacket(src, srcMsg.Events)
 		case dstMsg := <-dstEvents:
-			go dst.handlePacket(src, dstMsg.Events)
+			go src.handlePacket(dst, dstMsg.Events)
 		default:
 			time.Sleep(10 * time.Millisecond)
 			// NOTE: This causes the for loop to run continuously and not to
@@ -160,12 +160,7 @@ func (src *Chain) sendPacket(dst *Chain, xferPacket chanState.PacketDataI, seq i
 		dst.Error(err)
 
 	}
-	seqSend, err := dst.QueryNextSeqSend(dstH.Height)
-	if err != nil {
-		dst.Error(err)
-	}
-	fmt.Println("seqSend", seqSend, "seq", seq)
-	dstCommitRes, err = dst.QueryPacketCommitment(dstH.Height-1, int64(seqSend))
+	dstCommitRes, err = dst.QueryPacketCommitment(dstH.Height-1, int64(seq))
 	if err != nil {
 		src.Error(err)
 	}
@@ -173,7 +168,6 @@ func (src *Chain) sendPacket(dst *Chain, xferPacket chanState.PacketDataI, seq i
 	if dstCommitRes.Proof.Proof == nil {
 		dst.Error(fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)", dst.ChainID, dstH.Height-1, seq))
 	}
-	fmt.Println("About to send msgs")
 
 	txs := &RelayMsgs{
 		Src: []sdk.Msg{
