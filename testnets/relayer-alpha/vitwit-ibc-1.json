@@ -1,0 +1,2 @@
+{"key":"validator-key","chain-id":"vitwit-ibc-1","rpc-addr":"http://167.99.229.124:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025stake","default-denom":"stake","trusting-period":"336h"}
+
