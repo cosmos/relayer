@@ -9,17 +9,18 @@ import (
 )
 
 var (
-	flagText    = "text"
-	flagAddress = "address"
-	flagHash    = "hash"
-	flagURL     = "url"
-	flagForce   = "force"
-	flagFlags   = "flags"
-	flagTimeout = "timeout"
-	flagConfig  = "config"
-	flagJSON    = "json"
-	flagFile    = "file"
-	flagPath    = "path"
+	flagText       = "text"
+	flagAddress    = "address"
+	flagHash       = "hash"
+	flagURL        = "url"
+	flagForce      = "force"
+	flagFlags      = "flags"
+	flagTimeout    = "timeout"
+	flagConfig     = "config"
+	flagJSON       = "json"
+	flagFile       = "file"
+	flagPath       = "path"
+	flagListenAddr = "listen"
 )
 
 func liteFlags(cmd *cobra.Command) *cobra.Command {
@@ -76,6 +77,14 @@ func addressFlag(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
+func listenFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagListenAddr, "l", "0.0.0.0:8000", "sets the faucet listener addresss")
+	if err := viper.BindPFlag(flagListenAddr, cmd.Flags().Lookup(flagListenAddr)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
 func pathFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagPath, "p", "", "specify the path to relay over")
 	if err := viper.BindPFlag(flagPath, cmd.Flags().Lookup(flagPath)); err != nil {
@@ -101,7 +110,7 @@ func fileFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func timeoutFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagTimeout, "o", "10s", "timeout between relayer runs")
+	cmd.Flags().StringP(flagTimeout, "o", "3s", "timeout between relayer runs")
 	if err := viper.BindPFlag(flagTimeout, cmd.Flags().Lookup(flagTimeout)); err != nil {
 		panic(err)
 	}
