@@ -37,14 +37,23 @@ import (
 // TODO: Validate all info coming back from these queries using the verifier
 
 // QueryBalance returns the amount of coins in the relayer account
-func (c *Chain) QueryBalance() (sdk.Coins, error) {
+func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
 	var (
 		bz    []byte
 		err   error
 		coins sdk.Coins
+		addr  sdk.AccAddress
 		route = fmt.Sprintf("custom/%s/%s", bankTypes.QuerierRoute, bankTypes.QueryAllBalances)
-		addr  = c.MustGetAddress()
 	)
+	if keyName == "" {
+		addr = c.MustGetAddress()
+	} else {
+		info, err := c.Keybase.Get(keyName)
+		if err != nil {
+			return nil, err
+		}
+		addr = info.GetAddress()
+	}
 
 	if bz, err = c.Cdc.MarshalJSON(bankTypes.NewQueryAllBalancesParams(addr)); err != nil {
 		return nil, qBalErr(addr, err)

@@ -72,6 +72,7 @@ func init() {
 		pathsCmd(),
 		configCmd(),
 		getVersionCmd(),
+		faucetCmd(),
 	)
 
 	// This is a bit of a cheat :shushing_face:

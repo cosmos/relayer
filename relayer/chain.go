@@ -48,6 +48,9 @@ type Chain struct {
 	logger  log.Logger
 	timeout time.Duration
 	debug   bool
+
+	// stores facuet addresses that have been used reciently
+	faucetAddrs map[string]time.Time
 }
 
 // Init initializes the pieces of a chain that aren't set when it parses a config
@@ -92,6 +95,7 @@ func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.C
 		logger:         log.NewTMLogger(log.NewSyncWriter(os.Stdout)),
 		timeout:        timeout,
 		debug:          debug,
+		faucetAddrs:    make(map[string]time.Time),
 	}, nil
 }
 
