@@ -162,7 +162,7 @@ func (src *Chain) sendPacket(dst *Chain, xferPacket chanState.PacketDataI, seq i
 	}
 	dstCommitRes, err = dst.QueryPacketCommitment(dstH.Height-1, int64(seq))
 	if err != nil {
-		src.Error(err)
+		dst.Error(err)
 	}
 
 	if dstCommitRes.Proof.Proof == nil {
