@@ -156,9 +156,9 @@ func queryAccountCmd() *cobra.Command {
 
 func queryBalanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "balance [chain-id]",
-		Short: "Use configured RPC client to fetch the account balance of the relayer account",
-		Args:  cobra.ExactArgs(1),
+		Use:   "balance [chain-id] [[key-name]]",
+		Short: "Use configured RPC client to fetch the account balance of the relayer account, or pass in an optional second arg to fetch balance from a configured key",
+		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -170,7 +170,12 @@ func queryBalanceCmd() *cobra.Command {
 				return err
 			}
 
-			coins, err := chain.QueryBalance()
+			var keyName string
+			if len(args) == 2 {
+				keyName = args[1]
+			}
+
+			coins, err := chain.QueryBalance(keyName)
 			if err != nil {
 				return err
 			}
