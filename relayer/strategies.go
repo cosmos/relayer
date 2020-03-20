@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
@@ -116,22 +115,11 @@ func (nrs NaiveStrategy) Run(src, dst *Chain) error {
 			go dst.handlePacket(src, srcMsg.Events)
 		case dstMsg := <-dstEvents:
 			go src.handlePacket(dst, dstMsg.Events)
-		default:
-			time.Sleep(10 * time.Millisecond)
-			// NOTE: This causes the for loop to run continuously and not to
-			//  wait for messages before advancing. This allows for quick exit
-		}
-
-		// TODO: This seems to leak goroutines when there are blocking cases, if
-		// there is a more "go" way to do this, lets move to that
-		if len(done) > 0 {
-			<-done
+		case <-done:
 			fmt.Println("shutdown activated")
-			break
+			return nil
 		}
 	}
-
-	return nil
 }
 
 func (src *Chain) handlePacket(dst *Chain, events map[string][]string) {
