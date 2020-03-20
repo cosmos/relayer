@@ -51,14 +51,14 @@ func pathsGenCmd() *cobra.Command {
 					ClientID:     randString(16),
 					ConnectionID: randString(16),
 					ChannelID:    randString(16),
-					PortID:       randString(16),
+					PortID:       "transfer",
 				},
 				Dst: &relayer.PathEnd{
 					ChainID:      dst,
 					ClientID:     randString(16),
 					ConnectionID: randString(16),
 					ChannelID:    randString(16),
-					PortID:       randString(16),
+					PortID:       "transfer",
 				},
 			}
 
