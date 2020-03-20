@@ -215,9 +215,6 @@ func fullPathCmd() *cobra.Command {
 			// NOTE: this is hardcoded to create ordered channels right now. Add a flag here to toggle
 			// Check if channel has been created, if not create it
 			return chains[src].CreateChannel(chains[dst], true, to)
-
-			// Check if channel has been created, if not create it
-			return chains[src].CreateChannel(chains[dst], true, to)
 		},
 	}
 
