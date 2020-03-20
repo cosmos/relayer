@@ -104,7 +104,10 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	w.Write(response)
+	_, err := w.Write(response)
+	if err != nil {
+		fmt.Printf("error writing to the underlying response")
+	}
 }
 
 // FaucetRequest represents a request to the facuet

@@ -143,7 +143,9 @@ func getTimeout(cmd *cobra.Command) (time.Duration, error) {
 
 func urlFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagURL, "u", "", "url to fetch data from")
-	viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL))
+	if err := viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL)); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 

@@ -52,7 +52,6 @@ LimitNOFILE=4096
 [Install]
 WantedBy=multi-user.target
 `, args[0], args[1], args[1])
-			return
 		},
 	}
 	return cmd
