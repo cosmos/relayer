@@ -33,9 +33,10 @@ func testnetsCmd() *cobra.Command {
 
 func gaiaServiceCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "gaia-service [user] [home]",
-		Short: "gaia-service returns a sample gaiad service file",
-		Args:  cobra.ExactArgs(2),
+		Use:     "gaia-service [user] [home]",
+		Aliases: []string{"gaia-svc"},
+		Short:   "gaia-service returns a sample gaiad service file",
+		Args:    cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf(`[Unit]
 Description=gaiad
@@ -59,9 +60,10 @@ WantedBy=multi-user.target
 
 func faucetService() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "faucet-service [user] [home] [chain-id] [key-name] [amount]",
-		Short: "faucet-service returns a sample faucet service file",
-		Args:  cobra.ExactArgs(5),
+		Use:     "faucet-service [user] [home] [chain-id] [key-name] [amount]",
+		Aliases: []string{"faucet-svc"},
+		Short:   "faucet-service returns a sample faucet service file",
+		Args:    cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[2])
 			if err != nil {
@@ -97,9 +99,10 @@ WantedBy=multi-user.target
 
 func faucetRequestCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "request [chain-id] [key-name]",
-		Short: "request tokens from a relayer faucet",
-		Args:  cobra.ExactArgs(2),
+		Use:     "request [chain-id] [key-name]",
+		Aliases: []string{"req"},
+		Short:   "request tokens from a relayer faucet",
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {

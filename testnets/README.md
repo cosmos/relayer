@@ -94,7 +94,7 @@ rly cfg init
 rly ch add -f {{chain_id}}.json
 
 # create a local rly key for the chain
-rly keys add {{chain_id}} testkey -a
+rly keys add {{chain_id}} testkey
 
 # confiure the chain to use that key by default
 rly ch edit {{chain_id}} key testkey
