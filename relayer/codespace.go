@@ -15,7 +15,7 @@ func GetCodespace(codespace string, code int) (msg string, err error) {
 }
 
 var codespaces = map[string]map[int]string{
-	"client": map[int]string{
+	"client": {
 		1:  "light client already exists",
 		2:  "light client not found",
 		3:  "light client is frozen due to misbehaviour",
@@ -35,7 +35,7 @@ var codespaces = map[string]map[int]string{
 		19: "next sequence receive verification failed",
 		20: "self consensus state not found",
 	},
-	"connection": map[int]string{
+	"connection": {
 		1: "connection already exists",
 		2: "connection not found",
 		3: "light client connection paths not found",
@@ -44,7 +44,7 @@ var codespaces = map[string]map[int]string{
 		6: "invalid counterparty connection",
 		7: "invalid connection",
 	},
-	"channels": map[int]string{
+	"channels": {
 		1:  "channel already exists",
 		2:  "channel not found",
 		3:  "invalid channel",
@@ -59,23 +59,23 @@ var codespaces = map[string]map[int]string{
 		12: "too many connection hops",
 		13: "acknowledgement too long",
 	},
-	"tendermint": map[int]string{
+	"tendermint": {
 		1: "invalid trusting period",
 		2: "invalid unbonding period",
 		3: "invalid header",
 	},
-	"transfer": map[int]string{
+	"transfer": {
 		1: "invalid packet timeout",
 	},
-	"commitment": map[int]string{
+	"commitment": {
 		1: "invalid proof",
 		2: "invalid prefix",
 	},
-	"ibc": map[int]string{
+	"ibc": {
 		1: "invalid height",
 		2: "invalid version",
 	},
-	"sdk": map[int]string{
+	"sdk": {
 		2:  "tx parse error",
 		3:  "invalid sequence",
 		4:  "unauthorized",
