@@ -57,6 +57,7 @@ gaiad init --chain-id $CHAINID $CHAINID
 # NOTE: ensure that the gaia rpc is open to all connections
 sed -i 's#tcp://127.0.0.1:26657#tcp://0.0.0.0:26657#g' ~/.gaiad/config/config.toml
 sed -i "s/stake/$DENOM/g" ~/.gaiad/config/genesis.json
+sed -i 's/pruning = "syncable"/pruning = "nothing"/g' ~/.gaiad/config/app.toml
 gaiacli keys add validator
 
 # Now its time to construct the genesis file
