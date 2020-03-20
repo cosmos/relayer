@@ -16,8 +16,9 @@ import (
 
 func pathsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "paths",
-		Short: "commands to manage path configurations",
+		Use:     "paths",
+		Aliases: []string{"pth"},
+		Short:   "commands to manage path configurations",
 	}
 
 	cmd.AddCommand(

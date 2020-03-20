@@ -9,17 +9,18 @@ import (
 )
 
 var (
-	flagText    = "text"
-	flagAddress = "address"
-	flagHash    = "hash"
-	flagURL     = "url"
-	flagForce   = "force"
-	flagFlags   = "flags"
-	flagTimeout = "timeout"
-	flagConfig  = "config"
-	flagJSON    = "json"
-	flagFile    = "file"
-	flagPath    = "path"
+	flagText       = "text"
+	flagAddress    = "address"
+	flagHash       = "hash"
+	flagURL        = "url"
+	flagForce      = "force"
+	flagFlags      = "flags"
+	flagTimeout    = "timeout"
+	flagConfig     = "config"
+	flagJSON       = "json"
+	flagFile       = "file"
+	flagPath       = "path"
+	flagListenAddr = "listen"
 )
 
 func liteFlags(cmd *cobra.Command) *cobra.Command {
@@ -71,6 +72,14 @@ func chainsAddFlags(cmd *cobra.Command) *cobra.Command {
 func addressFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagAddress, "a", false, "returns just the address of the flag, useful for scripting")
 	if err := viper.BindPFlag(flagAddress, cmd.Flags().Lookup(flagAddress)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func listenFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagListenAddr, "l", "0.0.0.0:8000", "sets the faucet listener addresss")
+	if err := viper.BindPFlag(flagListenAddr, cmd.Flags().Lookup(flagListenAddr)); err != nil {
 		panic(err)
 	}
 	return cmd

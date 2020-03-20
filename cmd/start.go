@@ -24,7 +24,7 @@ import (
 func startCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start [src-chain-id] [dst-chain-id] ",
-		Short: "TODO: This cmd is wip right now",
+		Short: "Start runs the relayer strategy associated with a path between the two chains",
 		Args:  cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]

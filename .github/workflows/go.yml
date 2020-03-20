@@ -64,8 +64,8 @@ jobs:
     - name: upload binaries
       uses: actions/upload-artifact@v1
       with:
-        name: relayer
-        path: ./build/relayer
+        name: rly
+        path: ./build/rly
 
   test:
     name: test-liveness
@@ -103,7 +103,7 @@ jobs:
     - name: download relayer
       uses: actions/download-artifact@v1
       with:
-        name: relayer  
+        name: rly  
         path: /tmp/build
 
     # Make binaries executable

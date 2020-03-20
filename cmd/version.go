@@ -27,8 +27,9 @@ type versionInfo struct {
 
 func getVersionCmd() *cobra.Command {
 	versionCmd := &cobra.Command{
-		Use:   "version",
-		Short: "Print relayer version info",
+		Use:     "version",
+		Aliases: []string{"v"},
+		Short:   "Print relayer version info",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			modBz, err := ioutil.ReadFile("go.mod")
 			if err != nil {

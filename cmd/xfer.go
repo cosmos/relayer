@@ -1,7 +1,8 @@
 package cmd
 
 import (
-	"strings"
+	"fmt"
+	"strconv"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
@@ -13,10 +14,10 @@ import (
 
 func xfersend() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "xfer-send [src-chain-id] [dst-chain-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id] [amount] [dst-addr]",
+		Use:   "xfer-send [src-chain-id] [dst-chain-id] [amount] [source] [dst-addr]",
 		Short: "xfer-send",
 		Long:  "This sends tokens from a relayers configured wallet on chain src to a dst addr on dst",
-		Args:  cobra.ExactArgs(8),
+		Args:  cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -24,15 +25,16 @@ func xfersend() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].AddPath(dcli, dcon, args[2], args[4]); err != nil {
+			pth, err := cmd.Flags().GetString(flagPath)
+			if err != nil {
 				return err
 			}
 
-			if err = chains[dst].AddPath(dcli, dcon, args[3], args[5]); err != nil {
+			if _, err = setPathsFromArgs(chains[src], chains[dst], pth); err != nil {
 				return err
 			}
 
-			amount, err := sdk.ParseCoin(args[6])
+			amount, err := sdk.ParseCoin(args[2])
 			if err != nil {
 				return err
 			}
@@ -41,14 +43,19 @@ func xfersend() *cobra.Command {
 			// then src is not the source, otherwise it is
 			// NOTE: this will not work in the case where tokens are sent from A -> B -> C
 			// Need a function in the SDK to determine from a denom if the tokens are from this chain
-			var source bool
-			if strings.Contains(amount.GetDenom(), "/") {
-				source = false
-			} else {
-				source = true
+			// TODO: Refactor this in the SDK.
+			source, err := strconv.ParseBool(args[3])
+			if err != nil {
+				return err
 			}
 
-			dstAddr, err := sdk.AccAddressFromBech32(args[7])
+			if source {
+				amount.Denom = fmt.Sprintf("%s/%s/%s", chains[dst].PathEnd.PortID, chains[dst].PathEnd.ChannelID, amount.Denom)
+			} else {
+				amount.Denom = fmt.Sprintf("%s/%s/%s", chains[src].PathEnd.PortID, chains[src].PathEnd.ChannelID, amount.Denom)
+			}
+
+			dstAddr, err := sdk.AccAddressFromBech32(args[4])
 			if err != nil {
 				return err
 			}
@@ -58,14 +65,20 @@ func xfersend() *cobra.Command {
 				return err
 			}
 
-			txs := []sdk.Msg{
-				chains[src].PathEnd.MsgTransfer(chains[dst].PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source, chains[src].MustGetAddress()),
+			// MsgTransfer will call SendPacket on src chain
+			txs := relayer.RelayMsgs{
+				Src: []sdk.Msg{chains[src].PathEnd.MsgTransfer(chains[dst].PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source, chains[src].MustGetAddress())},
+				Dst: []sdk.Msg{},
 			}
 
-			return sendAndPrint(txs, chains[src], cmd)
+			if txs.Send(chains[src], chains[dst]); !txs.Success() {
+				return fmt.Errorf("failed to send first transaction")
+			}
+
+			return nil
 		},
 	}
-	return cmd
+	return pathFlag(cmd)
 }
 
 // UNTESTED: Currently filled with incorrect logic to make code compile

@@ -16,8 +16,9 @@ import (
 
 func chainsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "chains",
-		Short: "commands to configure chains",
+		Use:     "chains",
+		Aliases: []string{"ch"},
+		Short:   "commands to configure chains",
 	}
 
 	cmd.AddCommand(

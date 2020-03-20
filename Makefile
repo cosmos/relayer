@@ -14,24 +14,24 @@ BUILD_FLAGS := -ldflags '$(LD_FLAGS)'
 
 build: go.sum
 ifeq ($(OS),Windows_NT)
-	@echo "building relayer binary..."
-	@go build -mod=readonly $(BUILD_FLAGS) -o build/relayer.exe main.go
+	@echo "building rly binary..."
+	@go build -mod=readonly $(BUILD_FLAGS) -o build/rly.exe main.go
 else
-	@echo "building relayer binary..."
-	@go build -mod=readonly $(BUILD_FLAGS) -o build/relayer main.go
+	@echo "building rly binary..."
+	@go build -mod=readonly $(BUILD_FLAGS) -o build/rly main.go
 endif
 
 build-zip: go.sum
-	@echo "building relayer binaries for windows, mac and linux"
-	@GOOS=linux GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/linux-amd64-relayer main.go
-	@GOOS=darwin GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/darwin-amd64-relayer main.go
-	@GOOS=windows GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/windows-amd64-relayer.exe main.go
+	@echo "building rly binaries for windows, mac and linux"
+	@GOOS=linux GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/linux-amd64-rly main.go
+	@GOOS=darwin GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/darwin-amd64-rly main.go
+	@GOOS=windows GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/windows-amd64-rly.exe main.go
 	@tar -czvf release.tar.gz ./build
 
 
 install: go.sum
-	@echo "installing relayer binary..."
-	@go build -mod=readonly $(BUILD_FLAGS) -o ${GOBIN}/relayer main.go
+	@echo "installing rly binary..."
+	@go build -mod=readonly $(BUILD_FLAGS) -o ${GOBIN}/rly main.go
 
 ###############################################################################
 # Tests / CI

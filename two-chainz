@@ -9,9 +9,8 @@ if [[ ! -d $GOPATH ]] || [[ ! -d $GOBIN ]] || [[ ! -x "$(which go)" ]]; then
 fi
 
 GAIA_REPO="$GOPATH/src/github.com/cosmos/gaia"
-RELAYER_DIR="$(pwd)"
 GAIA_BRANCH=ibc-alpha
-GAIA_DATA="$RELAYER_DIR/data"
+GAIA_DATA="$(pwd)/data"
 
 # ARGS: 
 # $1 -> local || remote, defaults to remote
