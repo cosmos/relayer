@@ -21,6 +21,28 @@ import (
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 )
 
+type ChainHeaders struct {
+	sync.Mutex
+	Map map[string]*tmclient.Header
+}
+
+func (ch *ChainHeaders) Run(chains ...*Chain) error {
+	var (
+		err       error
+		headerMap map[string]*tmclient.Header
+	)
+	for {
+		headerMap, err = UpdatesWithHeaders(chains...)
+		if err != nil {
+			return err
+		}
+		ch.Lock()
+		ch.Map = headerMap
+		ch.Unlock()
+	}
+
+}
+
 type header struct {
 	sync.Mutex
 	Map  map[string]*tmclient.Header
