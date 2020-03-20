@@ -37,7 +37,7 @@ $ relayer chains add -f demo/ibc1.json
 $ cat ~/.relayer/config/config.yaml
 
 # To finalize your config, add a path between the two chains
-$ relayer paths add -f demo/path.json
+$ relayer paths add ibc0 ibc1 demo-path -f demo/path.json
 
 # Now, add the key seeds from each chain to the relayer to give it funds to work with
 $ relayer keys restore ibc0 testkey "$(jq -r '.secret' data/ibc0/n0/gaiacli/key_seed.json)" -a
