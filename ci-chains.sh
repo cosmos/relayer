@@ -2,7 +2,7 @@
 
 GAIAD="/tmp/build/gaiad"
 GAIACLI="/tmp/build/gaiacli"
-RELAYER="/tmp/build/relayer"
+RELAYER="/tmp/build/rly"
 
 GAIA_CONF=$(mktemp -d)
 RLY_CONF=$(mktemp -d)

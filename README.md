@@ -19,7 +19,7 @@ While the relayer is under active development, it is meant primarily as a learni
 $ ./two-chainz
 
 # First initialize your configuration for the relayer
-$ relayer config init
+$ rly config init
 
 # NOTE: you may want to look at the config between these steps to see
 # what is added in each step. The config is located at ~/.relayer/config/config.yaml
@@ -27,47 +27,47 @@ $ cat ~/.relayer/config/config.yaml
 
 # Then add the chains and paths that you will need to work with the 
 # gaia chains spun up by the two-chains script
-$ relayer chains add -f demo/ibc0.json
-$ relayer chains add -f demo/ibc1.json
+$ rly chains add -f demo/ibc0.json
+$ rly chains add -f demo/ibc1.json
 
 $ cat ~/.relayer/config/config.yaml
 
 # To finalize your config, add a path between the two chains
-$ relayer paths add -f demo/path.json
+$ rly paths add -f demo/path.json
 
 # Now, add the key seeds from each chain to the relayer to give it funds to work with
-$ relayer keys restore ibc0 testkey "$(jq -r '.secret' data/ibc0/n0/gaiacli/key_seed.json)" -a
-$ relayer keys restore ibc1 testkey "$(jq -r '.secret' data/ibc1/n0/gaiacli/key_seed.json)" -a
+$ rly keys restore ibc0 testkey "$(jq -r '.secret' data/ibc0/n0/gaiacli/key_seed.json)" -a
+$ rly keys restore ibc1 testkey "$(jq -r '.secret' data/ibc1/n0/gaiacli/key_seed.json)" -a
 
 # Then its time to initialize the relayer's lite clients for each chain
 # All data moving forward is validated by these lite clients.
-$ relayer lite init ibc0 -f
-$ relayer lite init ibc1 -f
+$ rly lite init ibc0 -f
+$ rly lite init ibc1 -f
 
 # At this point the relayer --home directory is ready for normal operations between 
 # ibc0 and ibc1. Looking at the folder structure of the relayer at this point is helpful
 $ tree ~/.relayer
 
 # Now you can connect the two chains with one command:
-$ relayer tx full-path ibc0 ibc1
+$ rly tx full-path ibc0 ibc1
 
 # Check the token balances on both chains
-$ relayer q balance ibc0
-$ relayer q balance ibc1
+$ rly q balance ibc0
+$ rly q balance ibc1
 
 # Then send some tokens between the chains
-$ relayer tx transfer ibc0 ibc1 10000n0token true $(relayer keys show ibc1 testkey -a)
+$ rly tx transfer ibc0 ibc1 10000n0token true $(relayer keys show ibc1 testkey -a)
 
 # See that the transfer has completed
-$ relayer q balance ibc0
-$ relayer q balance ibc1
+$ rly q balance ibc0
+$ rly q balance ibc1
 
 # Send the tokens back to the account on ibc0
-$ relayer tx transfer ibc1 ibc0 10000n0token false $(relayer keys show ibc0 testkey -a)
+$ rly tx transfer ibc1 ibc0 10000n0token false $(relayer keys show ibc0 testkey -a)
 
 # See that the return trip has completed
-$ relayer q balance ibc0
-$ relayer q balance ibc1
+$ rly q balance ibc0
+$ rly q balance ibc1
 
 # NOTE: you will see the stake balances decreasing on each chain. This is to pay for fees
 # You can change the amount of fees you are paying on each chain in the configuration.

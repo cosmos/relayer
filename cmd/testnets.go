@@ -16,15 +16,82 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func faucetCmd() *cobra.Command {
+func testnetsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "faucet",
-		Short: "commands for managing and using relayer faucets",
+		Use:     "testnets",
+		Aliases: []string{"tst"},
+		Short:   "commands for managing and using relayer faucets",
 	}
 	cmd.AddCommand(
 		faucetStartCmd(),
 		faucetRequestCmd(),
+		gaiaServiceCmd(),
+		faucetService(),
 	)
+	return cmd
+}
+
+func gaiaServiceCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "gaia-service [user]",
+		Short: "gaia-service returns a sample gaiad service file",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf(`[Unit]
+Description=gaiad
+After=network.target
+[Service]
+Type=simple
+User=%s
+WorkingDirectory=/home/%s
+ExecStart=/home/%s/go/bin/gaiad start
+Restart=on-failure
+RestartSec=3
+LimitNOFILE=4096
+[Install]
+WantedBy=multi-user.target
+`, args[0], args[0], args[0])
+			return
+		},
+	}
+	return cmd
+}
+
+func faucetService() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "faucet-service [user] [chain-id] [key-name] [amount]",
+		Short: "faucet-service returns a sample faucet service file",
+		Args:  cobra.ExactArgs(4),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.Chains.Get(args[1])
+			if err != nil {
+				return err
+			}
+			_, err = chain.Keybase.Get(args[2])
+			if err != nil {
+				return err
+			}
+			_, err = sdk.ParseCoin(args[3])
+			if err != nil {
+				return err
+			}
+			fmt.Printf(`[Unit]
+Description=faucet
+After=network.target
+[Service]
+Type=simple
+User=%s
+WorkingDirectory=/home/%s
+ExecStart=/home/%s/go/bin/relayer testnets faucet %s %s %s
+Restart=on-failure
+RestartSec=3
+LimitNOFILE=4096
+[Install]
+WantedBy=multi-user.target
+`, args[0], args[0], args[0], args[1], args[2], args[3])
+			return nil
+		},
+	}
 	return cmd
 }
 
@@ -88,7 +155,7 @@ func faucetRequestCmd() *cobra.Command {
 
 func faucetStartCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "start [chain-id] [key-name] [amount]",
+		Use:   "faucet [chain-id] [key-name] [amount]",
 		Short: "listens on a port for requests for tokens",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
