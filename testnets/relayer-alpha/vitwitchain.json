@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"vitwitchain","rpc-addr":"http://ibc.vitwit.in:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025wit","default-denom":"wit","trusting-period":"330h"}
