@@ -63,15 +63,15 @@ func faucetService() *cobra.Command {
 		Short: "faucet-service returns a sample faucet service file",
 		Args:  cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.Chains.Get(args[1])
+			chain, err := config.Chains.Get(args[2])
 			if err != nil {
 				return err
 			}
-			_, err = chain.Keybase.Get(args[2])
+			_, err = chain.Keybase.Get(args[3])
 			if err != nil {
 				return err
 			}
-			_, err = sdk.ParseCoin(args[3])
+			_, err = sdk.ParseCoin(args[4])
 			if err != nil {
 				return err
 			}
