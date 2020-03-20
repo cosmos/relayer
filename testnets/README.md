@@ -67,7 +67,7 @@ gaiad collect-gentxs
 
 # Setup the service definitions
 rly testnets gaia-service $USER > gaiad.service
-rly testnets faucet-service $USER $CHAINID faucet 100000$DENOM > faucet.service
+rly testnets faucet-service $USER $CHAINID $RLYKEY 100000$DENOM > faucet.service
 sudo mv gaiad.service /etc/systemd/system/gaiad.service
 sudo mv faucet.service /etc/systemd/system/faucet.service
 sudo systemctl daemon-reload
