@@ -46,8 +46,9 @@ func init() {
 
 func initLiteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "init [chain-id]",
-		Short: "Initiate the light client",
+		Use:     "init [chain-id]",
+		Aliases: []string{"i"},
+		Short:   "Initiate the light client",
 		Long: `Initiate the light client by:
 	1. passing it a root of trust as a --hash/-x and --height
 	2. via --url/-u where trust options can be found
@@ -115,8 +116,9 @@ func initLiteCmd() *cobra.Command {
 
 func updateLiteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update [chain-id]",
-		Short: "Update the light client by providing a new root of trust",
+		Use:     "update [chain-id]",
+		Aliases: []string{"u"},
+		Short:   "Update the light client by providing a new root of trust",
 		Long: `Update the light client by
 	1. providing a new root of trust as a --hash/-x and --height
 	2. via --url/-u where trust options can be found
@@ -253,9 +255,10 @@ func liteHeaderCmd() *cobra.Command {
 
 func deleteLiteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete [chain-id]",
-		Short: "wipe the lite client database, forcing re-initialzation on the next run",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete [chain-id]",
+		Aliases: []string{"d"},
+		Short:   "wipe the lite client database, forcing re-initialzation on the next run",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainID := args[0]
 			chain, err := config.Chains.Get(chainID)

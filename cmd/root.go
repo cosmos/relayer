@@ -82,7 +82,7 @@ func init() {
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "relayer",
+	Use:   "rly",
 	Short: "This application relays data between configured IBC enabled chains",
 }
 

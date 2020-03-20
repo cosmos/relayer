@@ -47,8 +47,9 @@ func configCmd() *cobra.Command {
 // Command for printing current configuration
 func configShowCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "show",
-		Short: "Prints current configuration",
+		Use:     "show",
+		Aliases: []string{"s"},
+		Short:   "Prints current configuration",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			home, err := cmd.Flags().GetString(flags.FlagHome)
 			if err != nil {
@@ -79,8 +80,9 @@ func configShowCmd() *cobra.Command {
 // Command for inititalizing an empty config at the --home location
 func configInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "init",
-		Short: "Creates a default home directory at path defined by --home",
+		Use:     "init",
+		Aliases: []string{"i"},
+		Short:   "Creates a default home directory at path defined by --home",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			home, err := cmd.Flags().GetString(flags.FlagHome)
 			if err != nil {

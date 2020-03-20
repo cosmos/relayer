@@ -36,16 +36,18 @@ func init() {
 
 // keysCmd represents the keys command
 var keysCmd = &cobra.Command{
-	Use:   "keys",
-	Short: "helps users manage keys for multiple chains",
+	Use:     "keys",
+	Aliases: []string{"k"},
+	Short:   "helps users manage keys for multiple chains",
 }
 
 // keysAddCmd respresents the `keys add` command
 func keysAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add [chain-id] [name]",
-		Short: "adds a key to the keychain associated with a particular chain",
-		Args:  cobra.ExactArgs(2),
+		Use:     "add [chain-id] [name]",
+		Aliases: []string{"a"},
+		Short:   "adds a key to the keychain associated with a particular chain",
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
 			chain, err := config.Chains.Get(args[0])
@@ -67,19 +69,27 @@ func keysAddCmd() *cobra.Command {
 				return err
 			}
 
-			return queryOutput(info, chain, cmd)
+			ko := keyOutput{Mnemonic: mnemonic, Address: info.GetAddress().String()}
+
+			return queryOutput(ko, chain, cmd)
 		},
 	}
 
 	return outputFlags(cmd)
 }
 
+type keyOutput struct {
+	Mnemonic string `json:"mnemonic" yaml:"mnemonic"`
+	Address  string `json:"address" yaml:"address"`
+}
+
 // keysRestoreCmd respresents the `keys add` command
 func keysRestoreCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "restore [chain-id] [name] [mnemonic]",
-		Short: "restores a mnemonic to the keychain associated with a particular chain",
-		Args:  cobra.ExactArgs(3),
+		Use:     "restore [chain-id] [name] [mnemonic]",
+		Aliases: []string{"r"},
+		Short:   "restores a mnemonic to the keychain associated with a particular chain",
+		Args:    cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
 			chain, err := config.Chains.Get(args[0])
@@ -96,13 +106,8 @@ func keysRestoreCmd() *cobra.Command {
 				return err
 			}
 
-			printAddress, _ := cmd.Flags().GetBool(flagAddress)
-			if printAddress {
-				fmt.Println(info.GetAddress().String())
-				return nil
-			}
-
-			return queryOutput(info, chain, cmd)
+			fmt.Println(info.GetAddress().String())
+			return nil
 		},
 	}
 
@@ -112,9 +117,10 @@ func keysRestoreCmd() *cobra.Command {
 // keysDeleteCmd respresents the `keys delete` command
 func keysDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete [chain-id] [name]",
-		Short: "deletes a key from the keychain associated with a particular chain",
-		Args:  cobra.ExactArgs(2),
+		Use:     "delete [chain-id] [name]",
+		Aliases: []string{"d"},
+		Short:   "deletes a key from the keychain associated with a particular chain",
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
 			chain, err := config.Chains.Get(args[0])
@@ -142,9 +148,10 @@ func keysDeleteCmd() *cobra.Command {
 // keysListCmd respresents the `keys list` command
 func keysListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list [chain-id]",
-		Short: "lists keys from the keychain associated with a particular chain",
-		Args:  cobra.ExactArgs(1),
+		Use:     "list [chain-id]",
+		Aliases: []string{"l"},
+		Short:   "lists keys from the keychain associated with a particular chain",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -170,9 +177,10 @@ func keysListCmd() *cobra.Command {
 // keysShowCmd respresents the `keys show` command
 func keysShowCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "show [chain-id] [name]",
-		Short: "shows a key from the keychain associated with a particular chain",
-		Args:  cobra.ExactArgs(2),
+		Use:     "show [chain-id] [name]",
+		Aliases: []string{"s"},
+		Short:   "shows a key from the keychain associated with a particular chain",
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
 			chain, err := config.Chains.Get(args[0])
@@ -204,9 +212,10 @@ func keysShowCmd() *cobra.Command {
 // keysExportCmd respresents the `keys export` command
 func keysExportCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "export [chain-id] [name]",
-		Short: "exports a privkey from the keychain associated with a particular chain",
-		Args:  cobra.ExactArgs(2),
+		Use:     "export [chain-id] [name]",
+		Aliases: []string{"e"},
+		Short:   "exports a privkey from the keychain associated with a particular chain",
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
 			chain, err := config.Chains.Get(args[0])

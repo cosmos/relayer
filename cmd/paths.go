@@ -34,9 +34,10 @@ func pathsCmd() *cobra.Command {
 
 func pathsGenCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "gen [src-chain-id] [dst-chain-id] [name]",
-		Short: "generate identifiers for a new path between src and dst",
-		Args:  cobra.ExactArgs(3),
+		Use:     "generate [src-chain-id] [dst-chain-id] [name]",
+		Aliases: []string{"gen"},
+		Short:   "generate identifiers for a new path between src and dst",
+		Args:    cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			_, err := config.Chains.Gets(src, dst)
@@ -78,9 +79,10 @@ func pathsGenCmd() *cobra.Command {
 
 func pathsDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete [index]",
-		Short: "delete a path with a given index",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete [index]",
+		Aliases: []string{"d"},
+		Short:   "delete a path with a given index",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if _, err := config.Paths.Get(args[0]); err != nil {
 				return err
@@ -95,8 +97,9 @@ func pathsDeleteCmd() *cobra.Command {
 
 func pathsListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "print out configured paths with direction",
+		Use:     "list",
+		Aliases: []string{"l"},
+		Short:   "print out configured paths with direction",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var (
 				out []byte
@@ -130,9 +133,10 @@ func pathsListCmd() *cobra.Command {
 
 func pathsShowCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "show [path-name]",
-		Short: "show a path given its name",
-		Args:  cobra.ExactArgs(1),
+		Use:     "show [path-name]",
+		Aliases: []string{"s"},
+		Short:   "show a path given its name",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, err := config.Paths.Get(args[0])
 			if err != nil {
@@ -170,9 +174,10 @@ func pathsShowCmd() *cobra.Command {
 
 func pathsAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add [src-chain-id] [dst-chain-id] [path-name]",
-		Short: "add a path to the list of paths",
-		Args:  cobra.ExactArgs(3),
+		Use:     "add [src-chain-id] [dst-chain-id] [path-name]",
+		Aliases: []string{"a"},
+		Short:   "add a path to the list of paths",
+		Args:    cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			_, err := config.Chains.Gets(src, dst)

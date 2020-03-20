@@ -34,9 +34,10 @@ func chainsCmd() *cobra.Command {
 
 func chainsShowCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "show [chain-id]",
-		Short: "Returns a chain's configuration data",
-		Args:  cobra.ExactArgs(1),
+		Use:     "show [chain-id]",
+		Aliases: []string{"s"},
+		Short:   "Returns a chain's configuration data",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var (
 				out []byte
@@ -75,9 +76,10 @@ func chainsShowCmd() *cobra.Command {
 
 func chainsEditCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "edit [chain-id] [key] [value]",
-		Short: "Returns chain configuration data",
-		Args:  cobra.ExactArgs(3),
+		Use:     "edit [chain-id] [key] [value]",
+		Aliases: []string{"e"},
+		Short:   "Returns chain configuration data",
+		Args:    cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -100,9 +102,10 @@ func chainsEditCmd() *cobra.Command {
 
 func chainsDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete [chain-id]",
-		Short: "Returns chain configuration data",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete [chain-id]",
+		Aliases: []string{"d"},
+		Short:   "Returns chain configuration data",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return overWriteConfig(cmd, config.DeleteChain(args[0]))
 		},
@@ -112,8 +115,9 @@ func chainsDeleteCmd() *cobra.Command {
 
 func chainsListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Returns chain configuration data",
+		Use:     "list",
+		Aliases: []string{"l"},
+		Short:   "Returns chain configuration data",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out, err := yaml.Marshal(config.Chains)
 			if err != nil {
@@ -128,8 +132,9 @@ func chainsListCmd() *cobra.Command {
 
 func chainsAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add",
-		Short: "Add a new chain to the configuration file by passing a file (-f) or url (-u), or user input",
+		Use:     "add",
+		Aliases: []string{"a"},
+		Short:   "Add a new chain to the configuration file by passing a file (-f) or url (-u), or user input",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var out *Config
 
