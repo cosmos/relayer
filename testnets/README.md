@@ -57,6 +57,7 @@ gaiad init --chain-id $CHAINID $CHAINID
 # NOTE: ensure that the gaia rpc is open to all connections
 sed -i 's#tcp://127.0.0.1:26657#tcp://0.0.0.0:26657#g' ~/.gaiad/config/config.toml
 sed -i "s/stake/$DENOM/g" ~/.gaiad/config/genesis.json
+sed -i 's/pruning = "syncable"/pruning = "nothing"/g' ~/.gaiad/config/app.toml
 gaiacli keys add validator
 
 # Now its time to construct the genesis file
@@ -66,8 +67,8 @@ gaiad gentx --name validator --amount 90000000000$DENOM
 gaiad collect-gentxs
 
 # Setup the service definitions
-rly testnets gaia-service $USER > gaiad.service
-rly testnets faucet-service $USER $CHAINID faucet 100000$DENOM > faucet.service
+rly testnets gaia-service $USER $HOME > gaiad.service
+rly testnets faucet-service $USER $HOME $CHAINID $RLYKEY 100000$DENOM > faucet.service
 sudo mv gaiad.service /etc/systemd/system/gaiad.service
 sudo mv faucet.service /etc/systemd/system/faucet.service
 sudo systemctl daemon-reload
