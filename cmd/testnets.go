@@ -44,7 +44,7 @@ After=network.target
 Type=simple
 User=%s
 WorkingDirectory=/home/%s
-ExecStart=/home/%s/go/bin/gaiad start
+ExecStart=/home/%s/go/bin/gaiad start --pruning=nothing
 Restart=on-failure
 RestartSec=3
 LimitNOFILE=4096
