@@ -22,7 +22,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
 	"github.com/cosmos/go-bip39"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 func init() {
@@ -44,24 +43,30 @@ var keysCmd = &cobra.Command{
 // keysAddCmd respresents the `keys add` command
 func keysAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "add [chain-id] [name]",
+		Use:     "add [chain-id] [[name]]",
 		Aliases: []string{"a"},
 		Short:   "adds a key to the keychain associated with a particular chain",
-		Args:    cobra.ExactArgs(2),
+		Args:    cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			keyName := args[1]
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
 
-			mnemonic, err := createMnemonic()
-			if err != nil {
-				return err
+			var keyName string
+			if len(args) == 2 {
+				keyName = args[1]
+			} else {
+				keyName = chain.Key
 			}
 
 			if keyExists(chain.Keybase, keyName) {
 				return errKeyExists(keyName)
+			}
+
+			mnemonic, err := createMnemonic()
+			if err != nil {
+				return err
 			}
 
 			info, err := chain.Keybase.CreateAccount(keyName, mnemonic, "", ckeys.DefaultKeyPass, keys.CreateHDPath(0, 0).String(), keys.Secp256k1)
@@ -117,20 +122,28 @@ func keysRestoreCmd() *cobra.Command {
 // keysDeleteCmd respresents the `keys delete` command
 func keysDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [chain-id] [name]",
+		Use:     "delete [chain-id] [[name]]",
 		Aliases: []string{"d"},
 		Short:   "deletes a key from the keychain associated with a particular chain",
-		Args:    cobra.ExactArgs(2),
+		Args:    cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			keyName := args[1]
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
 
+			var keyName string
+			if len(args) == 2 {
+				keyName = args[1]
+			} else {
+				keyName = chain.Key
+			}
+
 			if !keyExists(chain.Keybase, keyName) {
 				return errKeyDoesntExist(keyName)
 			}
+
+			// TODO: prompt to delete with flag to ignore
 
 			err = chain.Keybase.Delete(keyName, ckeys.DefaultKeyPass, true)
 			if err != nil {
@@ -177,15 +190,21 @@ func keysListCmd() *cobra.Command {
 // keysShowCmd respresents the `keys show` command
 func keysShowCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "show [chain-id] [name]",
+		Use:     "show [chain-id] [[name]]",
 		Aliases: []string{"s"},
 		Short:   "shows a key from the keychain associated with a particular chain",
-		Args:    cobra.ExactArgs(2),
+		Args:    cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			keyName := args[1]
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
 				return err
+			}
+
+			var keyName string
+			if len(args) == 2 {
+				keyName = args[1]
+			} else {
+				keyName = chain.Key
 			}
 
 			if !keyExists(chain.Keybase, keyName) {
@@ -197,16 +216,12 @@ func keysShowCmd() *cobra.Command {
 				return err
 			}
 
-			if viper.GetBool(flagAddress) {
-				fmt.Println(info.GetAddress().String())
-				return nil
-			}
-
-			return queryOutput(info, chain, cmd)
+			fmt.Println(info.GetAddress().String())
+			return nil
 		},
 	}
 
-	return addressFlag(outputFlags(cmd))
+	return addressFlag(cmd)
 }
 
 // keysExportCmd respresents the `keys export` command

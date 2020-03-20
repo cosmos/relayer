@@ -66,8 +66,14 @@ func initLiteCmd() *cobra.Command {
 			}
 			defer df()
 
-			url := viper.GetString(flagURL)
-			force := viper.GetBool(flagForce)
+			url, err := cmd.Flags().GetString(flagURL)
+			if err != nil {
+				return err
+			}
+			force, err := cmd.Flags().GetBool(flagForce)
+			if err != nil {
+				return err
+			}
 			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
 			if err != nil {
 				return err

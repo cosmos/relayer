@@ -48,7 +48,7 @@ func configCmd() *cobra.Command {
 func configShowCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "show",
-		Aliases: []string{"s"},
+		Aliases: []string{"s", "list", "l"},
 		Short:   "Prints current configuration",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			home, err := cmd.Flags().GetString(flags.FlagHome)
@@ -171,12 +171,13 @@ func newDefaultGlobalConfig() GlobalConfig {
 }
 
 // AddChain adds an additional chain to the config
-func (c *Config) AddChain(chain *relayer.Chain) (cfg *Config, err error) {
-	if _, err = c.Chains.Get(chain.ChainID); err == nil {
-		return cfg, fmt.Errorf("chain with ID %s already exists in config", chain.ChainID)
+func (c *Config) AddChain(chain *relayer.Chain) (err error) {
+	chn, err := c.Chains.Get(chain.ChainID)
+	if chn == nil || err == nil {
+		return fmt.Errorf("chain with ID %s already exists in config", chain.ChainID)
 	}
 	c.Chains = append(c.Chains, chain)
-	return c, nil
+	return nil
 }
 
 // DeleteChain removes a chain from the config
