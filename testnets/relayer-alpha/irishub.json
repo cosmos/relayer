@@ -1,0 +1,1 @@
+{"key":"iris","chain-id":"irishub","rpc-addr":"http://goz.irisnet.org:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025iris","default-denom":"iris","trusting-period":"336h"}
