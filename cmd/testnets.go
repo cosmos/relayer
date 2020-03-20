@@ -33,9 +33,9 @@ func testnetsCmd() *cobra.Command {
 
 func gaiaServiceCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "gaia-service [user]",
+		Use:   "gaia-service [user] [home]",
 		Short: "gaia-service returns a sample gaiad service file",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf(`[Unit]
 Description=gaiad
@@ -43,14 +43,14 @@ After=network.target
 [Service]
 Type=simple
 User=%s
-WorkingDirectory=/home/%s
-ExecStart=/home/%s/go/bin/gaiad start
+WorkingDirectory=%s
+ExecStart=%s/go/bin/gaiad start
 Restart=on-failure
 RestartSec=3
 LimitNOFILE=4096
 [Install]
 WantedBy=multi-user.target
-`, args[0], args[0], args[0])
+`, args[0], args[1], args[1])
 			return
 		},
 	}
@@ -59,9 +59,9 @@ WantedBy=multi-user.target
 
 func faucetService() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "faucet-service [user] [chain-id] [key-name] [amount]",
+		Use:   "faucet-service [user] [home] [chain-id] [key-name] [amount]",
 		Short: "faucet-service returns a sample faucet service file",
-		Args:  cobra.ExactArgs(4),
+		Args:  cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[1])
 			if err != nil {
@@ -81,14 +81,14 @@ After=network.target
 [Service]
 Type=simple
 User=%s
-WorkingDirectory=/home/%s
-ExecStart=/home/%s/go/bin/relayer testnets faucet %s %s %s
+WorkingDirectory=%s
+ExecStart=%s/go/bin/relayer testnets faucet %s %s %s
 Restart=on-failure
 RestartSec=3
 LimitNOFILE=4096
 [Install]
 WantedBy=multi-user.target
-`, args[0], args[0], args[0], args[1], args[2], args[3])
+`, args[0], args[1], args[1], args[2], args[3], args[4])
 			return nil
 		},
 	}
