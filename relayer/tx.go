@@ -436,7 +436,28 @@ func (src *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 	logChannelStates(src, dst, chans)
 
 	switch {
-	// Closing handshake has started on src, relay `chanCloseConfirm` and `updateClient` to dest
+	// Closing handshake has not started, relay `updateClient` and `chanCloseInit` to src or dst according
+	// to the channel state
+	case chans[scid].Channel.State != chanState.CLOSED && chans[dcid].Channel.State != chanState.CLOSED:
+		if chans[scid].Channel.State != chanState.UNINITIALIZED {
+			if src.debug {
+				logChannelStates(src, dst, chans)
+			}
+			out.Src = append(out.Src,
+				src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
+				src.PathEnd.ChanCloseInit(src.MustGetAddress()),
+			)
+		} else if chans[dcid].Channel.State != chanState.UNINITIALIZED {
+			if dst.debug {
+				logChannelStates(dst, src, chans)
+			}
+			out.Dst = append(out.Dst,
+				dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
+				dst.PathEnd.ChanCloseInit(dst.MustGetAddress()),
+			)
+		}
+
+	// Closing handshake has started on src, relay `updateClient` and `chanCloseConfirm` to dst
 	case chans[scid].Channel.State == chanState.CLOSED && chans[dcid].Channel.State != chanState.CLOSED:
 		if chans[dcid].Channel.State != chanState.UNINITIALIZED {
 			if dst.debug {
@@ -449,7 +470,7 @@ func (src *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 			out.last = true
 		}
 
-	// Closing handshake has started on dst, relay `chanCloseConfirm` nd `updateClient` to src
+	// Closing handshake has started on dst, relay `updateClient` and `chanCloseConfirm` to src
 	case chans[dcid].Channel.State == chanState.CLOSED && chans[scid].Channel.State != chanState.CLOSED:
 		if chans[scid].Channel.State != chanState.UNINITIALIZED {
 			if src.debug {
