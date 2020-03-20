@@ -18,8 +18,9 @@ import (
 
 func testnetsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "testnets",
-		Short: "commands for managing and using relayer faucets",
+		Use:     "testnets",
+		Aliases: []string{"tst"},
+		Short:   "commands for managing and using relayer faucets",
 	}
 	cmd.AddCommand(
 		faucetStartCmd(),
@@ -81,7 +82,7 @@ After=network.target
 Type=simple
 User=%s
 WorkingDirectory=/home/%s
-ExecStart=/home/%s/go/bin/relayer testnet faucet %s %s %s
+ExecStart=/home/%s/go/bin/relayer testnets faucet %s %s %s
 Restart=on-failure
 RestartSec=3
 LimitNOFILE=4096

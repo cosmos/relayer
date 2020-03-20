@@ -6,7 +6,7 @@ GAIA_CONF="$RELAYER_DIR/data"
 
 # Ensure user understands what will be deleted
 if ([[ -d $RELAYER_CONF ]] || [[ -d $GAIA_CONF ]]) && [[ ! "$1" == "skip" ]]; then
-  read -p "$0 will delete \$HOME/.relayer and \$(pwd)/data folder. Do you wish to continue? (y/n): " -n 1 -r
+  read -p "$0 will delete \$HOME/.rly and \$(pwd)/data folder. Do you wish to continue? (y/n): " -n 1 -r
   echo
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
       exit 1
@@ -18,21 +18,21 @@ rm -rf $RELAYER_CONF &> /dev/null
 bash two-chainz "local" "skip"
 bash config-relayer "skip"
 sleep 2
-relayer tx full-path ibc0 ibc1 -o 3s
+rly tx full-path ibc0 ibc1 -o 3s
 
 echo
 echo "Initial balances:"
-echo "ibc0 balance: $(relayer q balance ibc0)"
-echo "ibc1 balance: $(relayer q balance ibc1)"
+echo "ibc0 balance: $(rly q balance ibc0)"
+echo "ibc1 balance: $(rly q balance ibc1)"
 echo 
 echo "sending 10n0token from ibc0 to ibc1..."
-relayer tx transfer ibc0 ibc1 10n0token true $(relayer keys show ibc1 testkey -a) -d
+rly tx transfer ibc0 ibc1 10n0token true $(rly keys show ibc1 testkey -a) -d
 echo
-echo "ibc0 balance: $(relayer q balance ibc0)"
-echo "ibc1 balance: $(relayer q balance ibc1)"
+echo "ibc0 balance: $(rly q balance ibc0)"
+echo "ibc1 balance: $(rly q balance ibc1)"
 echo
 echo "sending 10n0token back to ibc0 from ibc1..."
-relayer tx transfer ibc1 ibc0 10n0token false $(relayer keys show ibc0 testkey -a) -d
+rly tx transfer ibc1 ibc0 10n0token false $(rly keys show ibc0 testkey -a) -d
 echo
-echo "ibc0 balance: $(relayer q balance ibc0)"
-echo "ibc1 balance: $(relayer q balance ibc1)"
+echo "ibc0 balance: $(rly q balance ibc0)"
+echo "ibc1 balance: $(rly q balance ibc1)"
