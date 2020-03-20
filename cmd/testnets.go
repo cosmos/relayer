@@ -98,10 +98,10 @@ WantedBy=multi-user.target
 
 func faucetRequestCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "request [chain-id] [key-name]",
+		Use:     "request [chain-id] [[key-name]]",
 		Aliases: []string{"req"},
 		Short:   "request tokens from a relayer faucet",
-		Args:    cobra.ExactArgs(2),
+		Args:    cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -127,7 +127,14 @@ func faucetRequestCmd() *cobra.Command {
 				urlString = fmt.Sprintf("%s://%s:%d", u.Scheme, host, 8000)
 			}
 
-			info, err := chain.Keybase.Get(args[1])
+			var keyName string
+			if len(args) == 2 {
+				keyName = args[1]
+			} else {
+				keyName = chain.Key
+			}
+
+			info, err := chain.Keybase.Get(keyName)
 			if err != nil {
 				return err
 			}

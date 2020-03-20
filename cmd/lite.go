@@ -33,8 +33,9 @@ import (
 
 // chainCmd represents the keys command
 var liteCmd = &cobra.Command{
-	Use:   "lite",
-	Short: "basic functionality for managing the lite clients",
+	Use:     "lite",
+	Aliases: []string{"l"},
+	Short:   "basic functionality for managing the lite clients",
 }
 
 func init() {
@@ -203,7 +204,8 @@ func updateLiteCmd() *cobra.Command {
 
 func liteHeaderCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "header [chain-id] [height]",
+		Use:     "header [chain-id] [height]",
+		Aliases: []string{"hdr"},
 		Short: "Get header from the database. 0 returns last trusted header and " +
 			"all others return the header at that height if stored",
 		Args: cobra.RangeArgs(1, 2),

@@ -62,7 +62,7 @@ gaiacli keys add validator
 
 # Now its time to construct the genesis file
 gaiad add-genesis-account $(gaiacli keys show validator -a) 100000000000$DENOM,10000000samoleans
-gaiad add-genesis-account $(rly keys show $CHAINID $RLYKEY -a) 10000000000000$DENOM,10000000samoleans
+gaiad add-genesis-account $(rly chains addr $CHAINID) 10000000000000$DENOM,10000000samoleans
 gaiad gentx --name validator --amount 90000000000$DENOM
 gaiad collect-gentxs
 
@@ -112,3 +112,37 @@ rly q bal {{chain_id}}
 ### Submit your {{chain_id}}.json to the relayer repo
 
 Finally, open a pull request with the JSON required to configure a connection to your chain to the `testnets/relayer-alpha/{{chain_id}}.json`. You should be able to connect with other members of the relayer alpha testnet!
+
+
+### Creating a connection
+
+Once you have your chain configured on your relayer, follow these steps to send tokens between the chains:
+
+```bash
+# first ensure the chain is configured locally
+# do it either individually...
+rly ch a -f testnets/relayer-alpha/pylonchain.json
+
+# or add all the chain configurations for the testnet at once...
+rly chains add-dir tesetnets/relayer-alpha/
+
+# ensure the lite clients are created locally...
+rly lite init {{src_chain_id}} -f 
+rly l i {{dst_chain_id}} -f
+
+# ensure each chain has its appropriate key...
+rly keys add {{src_chain_id}}
+rly k a {{dst_chain_id}}
+
+# ensure you have funds on both chains...
+rly testnets request {{src_chain_id}}
+rly tst req {{dst_chain_id}}
+
+# either manually add a path by following the prompts...
+rly paths add {{src_chain}} {{dst_chain_id}} {{path_name}}
+
+# or generate one...
+rly pth gen {{src_chain_id}} {{dst_chain_id}} {{path_name}}
+
+# then send some funds!
+```

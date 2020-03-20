@@ -223,7 +223,7 @@ func (src *Chain) parsePacketData(events map[string][]string) (packetData chanSt
 }
 
 func (src *Chain) logTx(events map[string][]string) {
-	src.Log(fmt.Sprintf("[%s]@{%d} - actions(%s) hash(%s)",
+	src.Log(fmt.Sprintf("• [%s]@{%d} - actions(%s) hash(%s)",
 		src.ChainID,
 		getEventHeight(events),
 		actions(events["message.action"]),
