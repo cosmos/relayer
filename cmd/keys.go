@@ -20,7 +20,6 @@ import (
 
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/go-bip39"
 	"github.com/spf13/cobra"
 )
@@ -70,10 +69,6 @@ func keysAddCmd() *cobra.Command {
 				return err
 			}
 
-			// Set sdk config to use custom Bech32 account prefix
-			sdkConf := sdk.GetConfig()
-			sdkConf.SetBech32PrefixForAccount(chain.AccountPrefix, chain.AccountPrefix + "pub")
-
 			info, err := chain.Keybase.CreateAccount(keyName, mnemonic, "", ckeys.DefaultKeyPass, keys.CreateHDPath(0, 0).String(), keys.Secp256k1)
 			if err != nil {
 				return err
@@ -110,10 +105,6 @@ func keysRestoreCmd() *cobra.Command {
 			if keyExists(chain.Keybase, keyName) {
 				return errKeyExists(keyName)
 			}
-
-			// Set sdk config to use custom Bech32 account prefix
-			sdkConf := sdk.GetConfig()
-			sdkConf.SetBech32PrefixForAccount(chain.AccountPrefix, chain.AccountPrefix + "pub")
 
 			info, err := chain.Keybase.CreateAccount(keyName, args[2], "", ckeys.DefaultKeyPass, keys.CreateHDPath(0, 0).String(), keys.Secp256k1)
 			if err != nil {

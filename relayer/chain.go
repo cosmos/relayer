@@ -231,6 +231,11 @@ func (src *Chain) GetAddress() (sdk.AccAddress, error) {
 	if src.address != nil {
 		return src.address, nil
 	}
+
+	// Set sdk config to use custom Bech32 account prefix
+	sdkConf := sdk.GetConfig()
+	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
+
 	// Signing key for src chain
 	srcAddr, err := src.Keybase.Get(src.Key)
 	if err != nil {
