@@ -144,6 +144,9 @@ rly paths add {{src_chain}} {{dst_chain_id}} {{path_name}}
 # or generate one...
 rly pth gen {{src_chain_id}} {{dst_chain_id}} {{path_name}}
 
+# ensure that the path exists
+rly tx link {{src_chain_id}} {{dst_chain_id}}
+
 # then send some funds back and forth!
 rly q bal {{src_chain_id}}
 rly q bal {{dst_chain_id}}
