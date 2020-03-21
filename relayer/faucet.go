@@ -77,7 +77,11 @@ func (src *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amount sdk.Coin) e
 	}
 	res, err := src.SendMsgWithKey(bank.NewMsgSend(fromAddr, toAddr, sdk.NewCoins(amount)), info.GetName())
 	if err != nil || res.Code != 0 {
-		return fmt.Errorf("failed to send transaction: %w\n%s", err, res.RawLog)
+		cs, err := GetCodespace(res.Codespace, int(res.Code))
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("failed to send transaction: %w\ncodespaceErr(%s)\n%s", err, cs, res.String())
 	}
 	return nil
 }
@@ -104,7 +108,10 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	w.Write(response)
+	_, err := w.Write(response)
+	if err != nil {
+		fmt.Printf("error writing to the underlying response")
+	}
 }
 
 // FaucetRequest represents a request to the facuet

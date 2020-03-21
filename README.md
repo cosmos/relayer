@@ -7,6 +7,10 @@ meant to be used by users wishing to relay packets between IBC enabled chains.
 It is also well documented and intended as a place where users who are
 interested in building their own relayer can come for working examples.
 
+### Testnet
+
+If you would like to join the relayer testnet, please [check out the instructions](./testnets/README.md).
+
 ### Demoing the Relayer
 
 While the relayer is under active development, it is meant primarily as a learning tool to better understand the Inter-Blockchain Communication (IBC) protocol. In that vein, the following demo demonstrates the core functionality which will remain even after the changes:

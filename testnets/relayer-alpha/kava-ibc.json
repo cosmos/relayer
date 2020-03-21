@@ -1,0 +1,1 @@
+{"key":"kava","chain-id":"kava-ibc","rpc-addr":"http://ibc-alpha.kava.io:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025ukava","default-denom":"ukava","trusting-period":"330h"}
