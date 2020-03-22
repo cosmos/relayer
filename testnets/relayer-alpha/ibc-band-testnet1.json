@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"ibc-band-testnet1","rpc-addr":"http://ibc-testnet1.bandchain.org:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025uband","default-denom":"uband","trusting-period":"330h"}
