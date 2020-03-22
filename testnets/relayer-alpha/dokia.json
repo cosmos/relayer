@@ -1,0 +1,10 @@
+{
+  "key": "faucet",
+  "chain-id": "dokia",
+  "rpc-addr": "http://ibc01.dokia.cloud:26657",
+  "account-prefix": "cosmos",
+  "gas": 200000,
+  "gas-prices": "0.025dok",
+  "default-denom": "dok",
+  "trusting-period": "330h"
+}
