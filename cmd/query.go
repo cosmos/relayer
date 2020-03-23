@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/x/auth"
@@ -12,7 +11,6 @@ import (
 	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	tmtypes "github.com/tendermint/tendermint/types"
 )
 
 func init() {
@@ -32,9 +30,8 @@ func init() {
 	queryCmd.AddCommand(queryPacketAck())
 	queryCmd.AddCommand(queryTxs())
 	queryCmd.AddCommand(queryTx())
+	queryCmd.AddCommand(queryQueue())
 }
-
-var eventFormat = "{eventType}.{eventAttribute}={value}"
 
 // queryCmd represents the chain command
 var queryCmd = &cobra.Command{
@@ -76,7 +73,7 @@ func queryTxs() *cobra.Command {
 				return err
 			}
 
-			events, err := parseEvents(args[1])
+			events, err := relayer.ParseEvents(args[1])
 			if err != nil {
 				return err
 			}
@@ -95,36 +92,6 @@ func queryTxs() *cobra.Command {
 		},
 	}
 	return outputFlags(paginationFlags(cmd))
-}
-
-func parseEvents(e string) ([]string, error) {
-	eventsStr := strings.Trim(e, "'")
-	var events []string
-	if strings.Contains(eventsStr, "&") {
-		events = strings.Split(eventsStr, "&")
-	} else {
-		events = append(events, eventsStr)
-	}
-
-	var tmEvents []string
-
-	for _, event := range events {
-		if !strings.Contains(event, "=") {
-			return []string{}, fmt.Errorf("invalid event; event %s should be of the format: %s", event, eventFormat)
-		} else if strings.Count(event, "=") > 1 {
-			return []string{}, fmt.Errorf("invalid event; event %s should be of the format: %s", event, eventFormat)
-		}
-
-		tokens := strings.Split(event, "=")
-		if tokens[0] == tmtypes.TxHeightKey {
-			event = fmt.Sprintf("%s=%s", tokens[0], tokens[1])
-		} else {
-			event = fmt.Sprintf("%s='%s'", tokens[0], tokens[1])
-		}
-
-		tmEvents = append(tmEvents, event)
-	}
-	return tmEvents, nil
 }
 
 func queryAccountCmd() *cobra.Command {
@@ -600,6 +567,47 @@ func queryPacketAck() *cobra.Command {
 	}
 
 	return outputFlags(paginationFlags(cmd))
+}
+
+func queryQueue() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "queue [path]",
+		Short: "Queries for the packets that remain to be relayed on a given path",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path, err := config.Paths.Get(args[0])
+			if err != nil {
+				return err
+			}
+			src, dst := path.Src.ChainID, path.Dst.ChainID
+
+			c, err := config.Chains.Gets(src, dst)
+			if err != nil {
+				return err
+			}
+
+			if err = c[src].SetPath(path.Src); err != nil {
+				return err
+			}
+			if err = c[dst].SetPath(path.Dst); err != nil {
+				return err
+			}
+
+			hs, err := relayer.UpdatesWithHeaders(c[src], c[dst])
+			if err != nil {
+				return err
+			}
+
+			sp, err := relayer.UnrelayedSequences(c[src], c[dst], hs[src].Height, hs[dst].Height)
+			if err != nil {
+				return err
+			}
+
+			return c[src].Print(sp, false, false)
+		},
+	}
+
+	return outputFlags(cmd)
 }
 
 func queryOutput(res interface{}, chain *relayer.Chain, cmd *cobra.Command) error {

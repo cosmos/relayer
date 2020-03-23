@@ -20,6 +20,7 @@ import (
 	"strconv"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	"github.com/iqlusioninc/relayer/relayer"
@@ -41,6 +42,7 @@ func transactionCmd() *cobra.Command {
 		fullPathCmd(),
 		rawTransactionCmd(),
 		transferCmd(),
+		drainQueueCmd(),
 	)
 
 	return cmd
@@ -147,7 +149,7 @@ func createChannelCmd() *cobra.Command {
 func fullPathCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "full-path [src-chain-id] [dst-chain-id]",
-		Aliases: []string{"link", "connect", "pth"},
+		Aliases: []string{"link", "connect", "path", "pth"},
 		Short:   "create clients, connection, and channel between two configured chains with a configured path",
 		Args:    cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -188,6 +190,63 @@ func fullPathCmd() *cobra.Command {
 	}
 
 	return pathFlag(timeoutFlag(cmd))
+}
+
+func drainQueueCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "queue [path]",
+		Short: "Queries for the packets that remain to be relayed on a given path and relays them",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path, err := config.Paths.Get(args[0])
+			if err != nil {
+				return err
+			}
+			src, dst := path.Src.ChainID, path.Dst.ChainID
+
+			c, err := config.Chains.Gets(src, dst)
+			if err != nil {
+				return err
+			}
+
+			if err = c[src].SetPath(path.Src); err != nil {
+				return err
+			}
+			if err = c[dst].SetPath(path.Dst); err != nil {
+				return err
+			}
+
+			if err = relayer.ClearQueues(c[src], c[dst]); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	return outputFlags(cmd)
+}
+
+func parsePacketData(src *relayer.Chain, events map[string][]string) (packetData chanState.PacketDataI, seq int64, err error) {
+	// first, we log the actions and msg hash
+	// src.logTx(events)
+
+	// then, get packet data and parse
+	if pdval, ok := events["send_packet.packet_data"]; ok {
+		err = src.Cdc.UnmarshalJSON([]byte(pdval[0]), &packetData)
+		if err != nil {
+			return nil, 0, err
+		}
+	}
+
+	// finally, get and parse the sequence
+	if sval, ok := events["send_packet.packet_sequence"]; ok {
+		seq, err = strconv.ParseInt(sval[0], 10, 64)
+		if err != nil {
+			return nil, 0, err
+		}
+	}
+	return
 }
 
 func transferCmd() *cobra.Command {

@@ -123,7 +123,7 @@ func (nrs NaiveStrategy) Run(src, dst *Chain) error {
 }
 
 func (src *Chain) handlePacket(dst *Chain, events map[string][]string) {
-	byt, seq, err := src.parsePacketData(events)
+	byt, seq, err := src.parsePacketData(dst, events)
 	if byt != nil && seq != 0 && err == nil {
 		src.sendPacket(dst, byt, seq)
 	} else if err != nil {
@@ -200,9 +200,13 @@ func trapSignal() chan bool {
 	return done
 }
 
-func (src *Chain) parsePacketData(events map[string][]string) (packetData chanState.PacketDataI, seq int64, err error) {
+func (src *Chain) parsePacketData(dst *Chain, events map[string][]string) (packetData chanState.PacketDataI, seq int64, err error) {
 	// first, we log the actions and msg hash
 	src.logTx(events)
+
+	// Set sdk config to use custom Bech32 account prefix
+	sdkConf := sdk.GetConfig()
+	sdkConf.SetBech32PrefixForAccount(dst.AccountPrefix, dst.AccountPrefix+"pub")
 
 	// then, get packet data and parse
 	if pdval, ok := events["send_packet.packet_data"]; ok {

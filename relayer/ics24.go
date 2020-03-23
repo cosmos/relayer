@@ -27,7 +27,7 @@ func (p *PathEnd) Vport() error {
 }
 
 func (p PathEnd) String() string {
-	return fmt.Sprintf("client{%s}-conn{%s}-chan{%s}@chain{%s}:port{%s}", p.ClientID, p.ConnectionID, p.ChannelID, p.ChainID, p.PortID)
+	return fmt.Sprintf("%s:cl(%s):co(%s):ch(%s):pt(%s)", p.ChainID, p.ClientID, p.ConnectionID, p.ChannelID, p.PortID)
 }
 
 // PathSet check if the chain has a path set
