@@ -24,6 +24,10 @@ func (src *Chain) SendMsgWithKey(datagram sdk.Msg, keyName string) (res sdk.TxRe
 
 // BuildAndSignTxWithKey allows the user to specify which relayer key will sign the message
 func (src *Chain) BuildAndSignTxWithKey(datagram []sdk.Msg, keyName string) ([]byte, error) {
+	// Set sdk config to use custom Bech32 account prefix
+	sdkConf := sdk.GetConfig()
+	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
+
 	// Fetch account and sequence numbers for the account
 	info, err := src.Keybase.Get(keyName)
 	if err != nil {
@@ -71,13 +75,21 @@ func (src *Chain) FaucetHandler(fromKey sdk.AccAddress, amount sdk.Coin) func(w 
 }
 
 func (src *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amount sdk.Coin) error {
+	// Set sdk config to use custom Bech32 account prefix
+	sdkConf := sdk.GetConfig()
+	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
+
 	info, err := src.Keybase.GetByAddress(fromAddr)
 	if err != nil {
 		return err
 	}
 	res, err := src.SendMsgWithKey(bank.NewMsgSend(fromAddr, toAddr, sdk.NewCoins(amount)), info.GetName())
 	if err != nil || res.Code != 0 {
-		return fmt.Errorf("failed to send transaction: %w\n%s", err, res.RawLog)
+		cs, err := GetCodespace(res.Codespace, int(res.Code))
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("failed to send transaction: %w\ncodespaceErr(%s)\n%s", err, cs, res.String())
 	}
 	return nil
 }
@@ -104,7 +116,10 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	w.Write(response)
+	_, err := w.Write(response)
+	if err != nil {
+		fmt.Printf("error writing to the underlying response")
+	}
 }
 
 // FaucetRequest represents a request to the facuet

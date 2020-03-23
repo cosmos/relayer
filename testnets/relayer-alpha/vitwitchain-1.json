@@ -1,0 +1,1 @@
+{"key":"faucetkey","chain-id":"vitwitchain-1","rpc-addr":"http://ibc1.vitwit.in:26657","account-prefix":"vitwit:","gas":200000,"gas-prices":"0.025vitcoin","default-denom":"vitcoin","trusting-period":"330h"}

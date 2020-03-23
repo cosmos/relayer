@@ -23,9 +23,10 @@ import (
 // NOTE: This is basically psuedocode
 func startCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "start [src-chain-id] [dst-chain-id] ",
-		Short: "Start runs the relayer strategy associated with a path between the two chains",
-		Args:  cobra.RangeArgs(2, 3),
+		Use:     "start [src-chain-id] [dst-chain-id] ",
+		Aliases: []string{"st"},
+		Short:   "Start runs the relayer strategy associated with a path between the two chains",
+		Args:    cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)

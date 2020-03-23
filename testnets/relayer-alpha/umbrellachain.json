@@ -1,0 +1,10 @@
+{
+  "key": "faucet",
+  "chain-id": "umbrellachain",
+  "rpc-addr": "http://ibc.umbrellavalidator.com:26657",
+  "account-prefix": "cosmos",
+  "gas": 200000,
+  "gas-prices": "0.025umbrella",
+  "default-denom": "umbrella",
+  "trusting-period": "330h"
+}

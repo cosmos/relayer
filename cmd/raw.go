@@ -43,9 +43,10 @@ func rawTransactionCmd() *cobra.Command {
 }
 func updateClientCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update-client [src-chain-id] [dst-chain-id] [client-id]",
-		Short: "update client for dst-chain on src-chain",
-		Args:  cobra.ExactArgs(3),
+		Use:     "update-client [src-chain-id] [dst-chain-id] [client-id]",
+		Aliases: []string{"uc"},
+		Short:   "update client for dst-chain on src-chain",
+		Args:    cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 
@@ -74,9 +75,10 @@ func updateClientCmd() *cobra.Command {
 
 func createClientCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "client [src-chain-id] [dst-chain-id] [client-id]",
-		Short: "create a client for dst-chain on src-chain",
-		Args:  cobra.ExactArgs(3),
+		Use:     "client [src-chain-id] [dst-chain-id] [client-id]",
+		Aliases: []string{"clnt"},
+		Short:   "create a client for dst-chain on src-chain",
+		Args:    cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -282,10 +284,11 @@ func connConfirm() *cobra.Command {
 
 func createConnectionStepCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "connection-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id]",
-		Short: "create a connection between chains, passing in identifiers",
-		Long:  "This command creates the next handshake message given a specific set of identifiers. If the command fails, you can safely run it again to repair an unfinished connection",
-		Args:  cobra.ExactArgs(6),
+		Use:     "connection-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id]",
+		Aliases: []string{"conn-step"},
+		Short:   "create a connection between chains, passing in identifiers",
+		Long:    "This command creates the next handshake message given a specifc set of identifiers. If the command fails, you can safely run it again to repair an unfinished connection",
+		Args:    cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -478,9 +481,10 @@ func chanConfirm() *cobra.Command {
 
 func createChannelStepCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "channel-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id] [ordering]",
-		Short: "create the next step in creating a channel between chains with the passed identifiers",
-		Args:  cobra.ExactArgs(11),
+		Use:     "channel-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id] [ordering]",
+		Aliases: []string{"chan-step"},
+		Short:   "create the next step in creating a channel between chains with the passed identifiers",
+		Args:    cobra.ExactArgs(11),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			ordering := chanState.OrderFromString(args[10])

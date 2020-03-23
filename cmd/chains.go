@@ -27,16 +27,43 @@ func chainsCmd() *cobra.Command {
 		chainsAddCmd(),
 		chainsEditCmd(),
 		chainsShowCmd(),
+		chainsAddrCmd(),
+		chainsAddDirCmd(),
 	)
+
+	return cmd
+}
+
+func chainsAddrCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "addr [chain-id]",
+		Short: "Returns a chain's configured key's address",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
+
+			addr, err := chain.GetAddress()
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(addr.String()))
+			return nil
+		},
+	}
 
 	return cmd
 }
 
 func chainsShowCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "show [chain-id]",
-		Short: "Returns a chain's configuration data",
-		Args:  cobra.ExactArgs(1),
+		Use:     "show [chain-id]",
+		Aliases: []string{"s"},
+		Short:   "Returns a chain's configuration data",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var (
 				out []byte
@@ -75,9 +102,10 @@ func chainsShowCmd() *cobra.Command {
 
 func chainsEditCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "edit [chain-id] [key] [value]",
-		Short: "Returns chain configuration data",
-		Args:  cobra.ExactArgs(3),
+		Use:     "edit [chain-id] [key] [value]",
+		Aliases: []string{"e"},
+		Short:   "Returns chain configuration data",
+		Args:    cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -88,11 +116,10 @@ func chainsEditCmd() *cobra.Command {
 				return err
 			}
 
-			cfg, err := config.DeleteChain(args[0]).AddChain(c)
-			if err != nil {
+			if err = config.DeleteChain(args[0]).AddChain(c); err != nil {
 				return err
 			}
-			return overWriteConfig(cmd, cfg)
+			return overWriteConfig(cmd, config)
 		},
 	}
 	return cmd
@@ -100,9 +127,10 @@ func chainsEditCmd() *cobra.Command {
 
 func chainsDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete [chain-id]",
-		Short: "Returns chain configuration data",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete [chain-id]",
+		Aliases: []string{"d"},
+		Short:   "Returns chain configuration data",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return overWriteConfig(cmd, config.DeleteChain(args[0]))
 		},
@@ -112,8 +140,9 @@ func chainsDeleteCmd() *cobra.Command {
 
 func chainsListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Returns chain configuration data",
+		Use:     "list",
+		Aliases: []string{"l"},
+		Short:   "Returns chain configuration data",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out, err := yaml.Marshal(config.Chains)
 			if err != nil {
@@ -128,8 +157,9 @@ func chainsListCmd() *cobra.Command {
 
 func chainsAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add",
-		Short: "Add a new chain to the configuration file by passing a file (-f) or url (-u), or user input",
+		Use:     "add",
+		Aliases: []string{"a"},
+		Short:   "Add a new chain to the configuration file by passing a file (-f) or url (-u), or user input",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var out *Config
 
@@ -164,6 +194,53 @@ func chainsAddCmd() *cobra.Command {
 	return chainsAddFlags(cmd)
 }
 
+func chainsAddDirCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "add-dir [dir]",
+		Aliases: []string{"ad"},
+		Short:   "Add new chains to the configuration file from a directory full of chain configuration, useful for adding testnet configurations",
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			var out *Config
+			if out, err = filesAdd(args[0]); err != nil {
+				return err
+			}
+			return overWriteConfig(cmd, out)
+		},
+	}
+
+	return cmd
+}
+
+func filesAdd(dir string) (cfg *Config, err error) {
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	cfg = config
+	for _, f := range files {
+		c := &relayer.Chain{}
+		pth := fmt.Sprintf("%s%s", dir, f.Name())
+		if f.IsDir() {
+			fmt.Printf("directory at %s, skipping...\n", pth)
+			continue
+		}
+		byt, err := ioutil.ReadFile(pth)
+		if err != nil {
+			fmt.Printf("failed to read file %s, skipping...\n", pth)
+			continue
+		}
+		if err = json.Unmarshal(byt, c); err != nil {
+			fmt.Printf("failed to unmarshal file %s, skipping...\n", pth)
+			continue
+		}
+		if err = cfg.AddChain(c); err != nil {
+			fmt.Printf("%s: %s\n", pth, err.Error())
+			continue
+		}
+	}
+	return cfg, nil
+}
+
 func fileInputAdd(file string) (cfg *Config, err error) {
 	// If the user passes in a file, attempt to read the chain config from that file
 	c := &relayer.Chain{}
@@ -180,12 +257,11 @@ func fileInputAdd(file string) (cfg *Config, err error) {
 		return nil, err
 	}
 
-	cfg, err = config.AddChain(c)
-	if err != nil {
+	if err = config.AddChain(c); err != nil {
 		return nil, err
 	}
 
-	return cfg, nil
+	return config, nil
 }
 
 func userInputAdd(cmd *cobra.Command) (cfg *Config, err error) {
@@ -264,12 +340,11 @@ func userInputAdd(cmd *cobra.Command) (cfg *Config, err error) {
 		return nil, err
 	}
 
-	out, err := config.AddChain(c)
-	if err != nil {
+	if err = config.AddChain(c); err != nil {
 		return nil, err
 	}
 
-	return out, nil
+	return config, nil
 }
 
 // urlInputAdd validates a chain config URL and fetches its contents
@@ -293,5 +368,8 @@ func urlInputAdd(rawurl string) (cfg *Config, err error) {
 		return cfg, err
 	}
 
-	return config.AddChain(&c)
+	if err = config.AddChain(&c); err != nil {
+		return nil, err
+	}
+	return config, err
 }
