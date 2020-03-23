@@ -143,6 +143,9 @@ func (src *Chain) SendMsgs(datagrams []sdk.Msg) (res sdk.TxResponse, err error) 
 // BuildAndSignTx takes messages and builds, signs and marshals a sdk.Tx to prepare it for broadcast
 func (src *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
 	// Fetch account and sequence numbers for the account
+	sdkConf := sdk.GetConfig()
+	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
+
 	acc, err := auth.NewAccountRetriever(src.Cdc, src).GetAccount(src.MustGetAddress())
 	if err != nil {
 		return nil, err
