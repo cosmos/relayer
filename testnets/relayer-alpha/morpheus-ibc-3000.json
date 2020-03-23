@@ -1,0 +1,1 @@
+{"key":"kwunyeung","chain-id":"morpheus-ibc-3000","rpc-addr":"http://ibc-alpha.desmos.network:26657","account-prefix":"desmos","gas":200000,"gas-prices":"0.025udaric","default-denom":"udaric","trusting-period":"330h"}
