@@ -18,21 +18,8 @@ rm -rf $RELAYER_CONF &> /dev/null
 bash two-chainz "local" "skip"
 bash config-relayer "skip"
 sleep 2
-rly tx full-path ibc0 ibc1 -o 3s
-
-echo
-echo "Initial balances:"
-echo "ibc0 balance: $(rly q balance ibc0)"
-echo "ibc1 balance: $(rly q balance ibc1)"
-echo 
-echo "sending 10n0token from ibc0 to ibc1..."
-rly tx transfer ibc0 ibc1 10n0token true $(rly keys show ibc1 testkey -a) -d
-echo
-echo "ibc0 balance: $(rly q balance ibc0)"
-echo "ibc1 balance: $(rly q balance ibc1)"
-echo
-echo "sending 10n0token back to ibc0 from ibc1..."
-rly tx transfer ibc1 ibc0 10n0token false $(rly keys show ibc0 testkey -a) -d
-echo
-echo "ibc0 balance: $(rly q balance ibc0)"
-echo "ibc1 balance: $(rly q balance ibc1)"
+rly tx full-path demo -o 3s
+rly tx raw xfer-send ibc0 ibc1 1000n0token true $(rly ch addr ibc1)
+rly tx raw xfer-send ibc0 ibc1 1000n0token true $(rly ch addr ibc1)
+rly tx raw xfer-send ibc1 ibc0 1000n0token true $(rly ch addr ibc0)
+rly tx raw xfer-send ibc1 ibc0 1000n0token true $(rly ch addr ibc0)

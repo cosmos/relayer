@@ -314,9 +314,12 @@ func (src *Chain) Print(toPrint interface{}, text, indent bool) error {
 	)
 
 	switch {
+	case indent && text:
+		return fmt.Errorf("must pass either indent or text, not both")
 	case indent:
 		out, err = src.Amino.MarshalJSONIndent(toPrint, "", "  ")
 	case text:
+		// TODO: This isn't really a good option,
 		out = []byte(fmt.Sprintf("%v", toPrint))
 	default:
 		out, err = src.Amino.MarshalJSON(toPrint)

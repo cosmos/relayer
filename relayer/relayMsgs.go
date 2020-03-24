@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"fmt"
+	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -97,12 +98,9 @@ func (c *Chain) LogSuccessTx(res sdk.TxResponse, msgs []sdk.Msg) {
 }
 
 func getMsgAction(msgs []sdk.Msg) string {
-	switch len(msgs) {
-	case 1:
-		return msgs[0].Type()
-	case 2:
-		return msgs[1].Type()
-	default:
-		return ""
+	var out string
+	for i, msg := range msgs {
+		out += fmt.Sprintf("%d:%s,", i, msg.Type())
 	}
+	return strings.TrimSuffix(out, ",")
 }

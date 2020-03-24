@@ -9,8 +9,6 @@ import (
 )
 
 var (
-	flagText       = "text"
-	flagAddress    = "address"
 	flagHash       = "hash"
 	flagURL        = "url"
 	flagForce      = "force"
@@ -18,6 +16,7 @@ var (
 	flagTimeout    = "timeout"
 	flagConfig     = "config"
 	flagJSON       = "json"
+	flagYAML       = "yaml"
 	flagFile       = "file"
 	flagPath       = "path"
 	flagListenAddr = "listen"
@@ -51,13 +50,9 @@ func paginationFlags(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
-func outputFlags(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP(flagText, "t", false, "pass flag to force text output")
-	cmd.Flags().BoolP(flags.FlagIndentResponse, "i", false, "indent json output")
-	if err := viper.BindPFlag(flagText, cmd.Flags().Lookup(flagText)); err != nil {
-		panic(err)
-	}
-	if err := viper.BindPFlag(flags.FlagIndentResponse, cmd.Flags().Lookup(flags.FlagIndentResponse)); err != nil {
+func yamlFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP(flagYAML, "y", false, "output using yaml")
+	if err := viper.BindPFlag(flagYAML, cmd.Flags().Lookup(flagYAML)); err != nil {
 		panic(err)
 	}
 	return cmd
@@ -66,14 +61,6 @@ func outputFlags(cmd *cobra.Command) *cobra.Command {
 func chainsAddFlags(cmd *cobra.Command) *cobra.Command {
 	fileFlag(cmd)
 	urlFlag(cmd)
-	return cmd
-}
-
-func addressFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP(flagAddress, "a", false, "returns just the address of the flag, useful for scripting")
-	if err := viper.BindPFlag(flagAddress, cmd.Flags().Lookup(flagAddress)); err != nil {
-		panic(err)
-	}
 	return cmd
 }
 
@@ -94,7 +81,7 @@ func pathFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func jsonFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().Bool(flagJSON, false, "returns the response in json format")
+	cmd.Flags().BoolP(flagJSON, "j", false, "returns the response in json format")
 	if err := viper.BindPFlag(flagJSON, cmd.Flags().Lookup(flagJSON)); err != nil {
 		panic(err)
 	}

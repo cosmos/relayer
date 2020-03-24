@@ -139,6 +139,29 @@ type Config struct {
 	Paths  relayer.Paths  `yaml:"paths" json:"paths"`
 }
 
+// ChainsFromPath takes the path name and returns the properly configured chains
+func (c *Config) ChainsFromPath(path string) (map[string]*relayer.Chain, string, string, error) {
+	pth, err := c.Paths.Get(path)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	src, dst := pth.Src.ChainID, pth.Dst.ChainID
+	chains, err := config.Chains.Gets(src, dst)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	if err = chains[src].SetPath(pth.Src); err != nil {
+		return nil, "", "", err
+	}
+	if err = chains[dst].SetPath(pth.Dst); err != nil {
+		return nil, "", "", err
+	}
+
+	return chains, src, dst, nil
+}
+
 // MustYAML returns the yaml string representation of the Paths
 func (c Config) MustYAML() []byte {
 	out, err := yaml.Marshal(c)

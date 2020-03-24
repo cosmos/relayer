@@ -30,6 +30,8 @@ import (
 	tmtypes "github.com/tendermint/tendermint/types"
 )
 
+var eventFormat = "{eventType}.{eventAttribute}={value}"
+
 // NOTE: This file contains logic for querying the Tendermint RPC port of a configured chain
 // All the operations here hit the network and data coming back may be untrusted.
 // These functions by convention are named Query*
@@ -575,6 +577,99 @@ func (c *Chain) QueryNextSeqRecv(height int64) (recvRes chanTypes.RecvResponse, 
 	), nil
 }
 
+// SeqPairs represents the next recv and send seqs from both sides of a given channel
+type SeqPairs struct {
+	sync.Mutex `json:"-" yaml:"-"`
+	Src        *SeqPair `json:"src" yaml:"src"`
+	Dst        *SeqPair `json:"dst" yaml:"dst"`
+	errs       errs
+}
+
+// SeqPair represents the next recv and send seq from a given channel
+type SeqPair struct {
+	sync.Mutex `json:"-" yaml:"-"`
+	Recv       uint64 `json:"recv" yaml:"recv"`
+	Send       uint64 `json:"send" yaml:"send"`
+}
+
+// RelaySequences represents the unrelayed sequence numbers on src and dst
+type RelaySequences struct {
+	Src []uint64 `json:"src" yaml:"src"`
+	Dst []uint64 `json:"dst" yaml:"dst"`
+}
+
+// ToRelay represents an array of sequence numbers on each chain that need to be relayed
+func (sp *SeqPairs) ToRelay() *RelaySequences {
+	return &RelaySequences{
+		Src: newRlySeq(sp.Dst.Recv, sp.Src.Send),
+		Dst: newRlySeq(sp.Src.Recv, sp.Dst.Send),
+	}
+}
+
+func newRlySeq(start, end uint64) []uint64 {
+	if end < start {
+		return []uint64{}
+	}
+	s := make([]uint64, 0, 1+(end-start))
+	for start < end {
+		s = append(s, start)
+		start++
+	}
+	return s
+}
+
+// UnrelayedSequences returns the unrelayed sequence numbers between two chains
+func UnrelayedSequences(src, dst *Chain, srcH, dstH int64) (*RelaySequences, error) {
+	seqP, err := QueryNextSeqPairs(src, dst, srcH, dstH)
+	if err != nil {
+		return nil, err
+	}
+	return seqP.ToRelay(), err
+}
+
+// QueryNextSeqPairs returns a pair of chain's next sequences for the configured channel
+func QueryNextSeqPairs(src, dst *Chain, srcH, dstH int64) (*SeqPairs, error) {
+	sps := &SeqPairs{Src: &SeqPair{}, Dst: &SeqPair{}, errs: errs{}}
+	var wg sync.WaitGroup
+	wg.Add(4)
+	go src.queryNextSendWG(sps, srcH, &wg, true)
+	go src.queryNextRecvWG(sps, srcH, &wg, true)
+	go dst.queryNextSendWG(sps, dstH, &wg, false)
+	go dst.queryNextRecvWG(sps, dstH, &wg, false)
+	wg.Wait()
+	return sps, sps.errs.err()
+}
+
+func (c *Chain) queryNextSendWG(sps *SeqPairs, h int64, wg *sync.WaitGroup, src bool) {
+	defer wg.Done()
+	seqSend, err := c.QueryNextSeqSend(h)
+	sps.Lock()
+	defer sps.Unlock()
+	if err != nil {
+		sps.errs = append(sps.errs, err)
+	}
+	if src {
+		sps.Src.Send = seqSend
+	} else {
+		sps.Dst.Send = seqSend
+	}
+}
+
+func (c *Chain) queryNextRecvWG(sps *SeqPairs, h int64, wg *sync.WaitGroup, src bool) {
+	defer wg.Done()
+	seqRecv, err := c.QueryNextSeqRecv(h)
+	sps.Lock()
+	defer sps.Unlock()
+	if err != nil {
+		sps.errs = append(sps.errs, err)
+	}
+	if src {
+		sps.Src.Recv = seqRecv.NextSequenceRecv
+	} else {
+		sps.Dst.Recv = seqRecv.NextSequenceRecv
+	}
+}
+
 // QueryNextSeqSend returns the next seqSend for a configured channel
 func (c *Chain) QueryNextSeqSend(height int64) (uint64, error) {
 	if !c.PathSet() {
@@ -760,6 +855,13 @@ func (c *Chain) QueryABCI(req abci.RequestQuery) (res abci.ResponseQuery, err er
 
 	result, err := c.Client.ABCIQueryWithOptions(req.Path, req.Data, opts)
 	if err != nil {
+		// retry queries on EOF
+		if strings.Contains(err.Error(), "EOF") {
+			if c.debug {
+				c.Error(err)
+			}
+			return c.QueryABCI(req)
+		}
 		return res, err
 	}
 
@@ -952,4 +1054,35 @@ func parseTx(cdc *codec.Codec, txBytes []byte) (sdk.Tx, error) {
 
 func ibcQuerierRoute(module, path string) string {
 	return fmt.Sprintf("custom/%s/%s/%s", ibctypes.QuerierRoute, module, path)
+}
+
+// ParseEvents takes events in the query format and reutrns
+func ParseEvents(e string) ([]string, error) {
+	eventsStr := strings.Trim(e, "'")
+	var events []string
+	if strings.Contains(eventsStr, "&") {
+		events = strings.Split(eventsStr, "&")
+	} else {
+		events = append(events, eventsStr)
+	}
+
+	var tmEvents []string
+
+	for _, event := range events {
+		if !strings.Contains(event, "=") {
+			return []string{}, fmt.Errorf("invalid event; event %s should be of the format: %s", event, eventFormat)
+		} else if strings.Count(event, "=") > 1 {
+			return []string{}, fmt.Errorf("invalid event; event %s should be of the format: %s", event, eventFormat)
+		}
+
+		tokens := strings.Split(event, "=")
+		if tokens[0] == tmtypes.TxHeightKey {
+			event = fmt.Sprintf("%s=%s", tokens[0], tokens[1])
+		} else {
+			event = fmt.Sprintf("%s='%s'", tokens[0], tokens[1])
+		}
+
+		tmEvents = append(tmEvents, event)
+	}
+	return tmEvents, nil
 }

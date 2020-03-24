@@ -14,6 +14,11 @@ import (
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 )
 
+var (
+	txEvents = "tm.event = 'Tx'"
+	blEvents = "tm.event = 'NewBlock'"
+)
+
 // GetStrategy the strategy defined in the relay messages
 func (r *Path) GetStrategy() (Strategy, error) {
 	switch r.Strategy.Type {
@@ -90,21 +95,24 @@ func (nrs NaiveStrategy) GetConstraints() map[string]string {
 
 // Run implements Strategy and defines what actions are taken when the relayer runs
 func (nrs NaiveStrategy) Run(src, dst *Chain) error {
-	events := "tm.event = 'Tx'"
+	// first, we want to ensure that there are no packets remaining to be relayed
+	if err := ClearQueues(src, dst); err != nil {
+		return err
+	}
 
-	srcEvents, srcCancel, err := src.Subscribe(events)
+	srcEvents, srcCancel, err := src.Subscribe(txEvents)
 	if err != nil {
 		return err
 	}
 	defer srcCancel()
-	src.Log(fmt.Sprintf("listening to events from %s...", src.ChainID))
+	src.Log(fmt.Sprintf("- listening to events from %s...", src.ChainID))
 
-	dstEvents, dstCancel, err := dst.Subscribe(events)
+	dstEvents, dstCancel, err := dst.Subscribe(txEvents)
 	if err != nil {
 		return err
 	}
 	defer dstCancel()
-	dst.Log(fmt.Sprintf("listening to events from %s...", dst.ChainID))
+	dst.Log(fmt.Sprintf("- listening to events from %s...", dst.ChainID))
 
 	done := trapSignal()
 	defer close(done)
@@ -123,7 +131,7 @@ func (nrs NaiveStrategy) Run(src, dst *Chain) error {
 }
 
 func (src *Chain) handlePacket(dst *Chain, events map[string][]string) {
-	byt, seq, err := src.parsePacketData(events)
+	byt, seq, err := src.parsePacketData(dst, events)
 	if byt != nil && seq != 0 && err == nil {
 		src.sendPacket(dst, byt, seq)
 	} else if err != nil {
@@ -200,9 +208,13 @@ func trapSignal() chan bool {
 	return done
 }
 
-func (src *Chain) parsePacketData(events map[string][]string) (packetData chanState.PacketDataI, seq int64, err error) {
+func (src *Chain) parsePacketData(dst *Chain, events map[string][]string) (packetData chanState.PacketDataI, seq int64, err error) {
 	// first, we log the actions and msg hash
 	src.logTx(events)
+
+	// Set sdk config to use custom Bech32 account prefix
+	sdkConf := sdk.GetConfig()
+	sdkConf.SetBech32PrefixForAccount(dst.AccountPrefix, dst.AccountPrefix+"pub")
 
 	// then, get packet data and parse
 	if pdval, ok := events["send_packet.packet_data"]; ok {

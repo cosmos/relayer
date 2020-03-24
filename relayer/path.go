@@ -28,6 +28,15 @@ func (p Paths) Get(name string) (path *Path, err error) {
 	return
 }
 
+// MustGet panics if path is not found
+func (p Paths) MustGet(name string) *Path {
+	pth, err := p.Get(name)
+	if err != nil {
+		panic(err)
+	}
+	return pth
+}
+
 // Add adds a path by its name
 func (p Paths) Add(name string, path *Path) (Paths, error) {
 	if err := path.Validate(); err != nil {
