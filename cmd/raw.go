@@ -5,7 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
-        "github.com/iqlusioninc/relayer/relayer"
+	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -69,7 +69,7 @@ func updateClientCmd() *cobra.Command {
 			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress())}, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return cmd
 }
 
 func createClientCmd() *cobra.Command {
@@ -97,7 +97,7 @@ func createClientCmd() *cobra.Command {
 			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.CreateClient(dstHeader, chains[src].GetTrustingPeriod(), chains[src].MustGetAddress())}, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return cmd
 }
 
 func connInit() *cobra.Command {
@@ -123,7 +123,7 @@ func connInit() *cobra.Command {
 			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.ConnInit(chains[dst].PathEnd, chains[src].MustGetAddress())}, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return cmd
 }
 
 func connTry() *cobra.Command {
@@ -179,7 +179,7 @@ func connTry() *cobra.Command {
 			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return cmd
 }
 
 func connAck() *cobra.Command {
@@ -235,7 +235,7 @@ func connAck() *cobra.Command {
 			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return cmd
 }
 
 func connConfirm() *cobra.Command {
@@ -278,7 +278,7 @@ func connConfirm() *cobra.Command {
 			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return cmd
 }
 
 func createConnectionStepCmd() *cobra.Command {
@@ -321,7 +321,7 @@ func createConnectionStepCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return outputFlags(cmd)
+	return cmd
 }
 
 func chanInit() *cobra.Command {
@@ -352,7 +352,7 @@ func chanInit() *cobra.Command {
 			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.ChanInit(chains[dst].PathEnd, order, chains[src].MustGetAddress())}, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return cmd
 }
 
 func chanTry() *cobra.Command {
@@ -393,7 +393,7 @@ func chanTry() *cobra.Command {
 			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return cmd
 }
 
 func chanAck() *cobra.Command {
@@ -434,7 +434,7 @@ func chanAck() *cobra.Command {
 			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return cmd
 }
 
 func chanConfirm() *cobra.Command {
@@ -475,7 +475,7 @@ func chanConfirm() *cobra.Command {
 			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return cmd
 }
 
 func createChannelStepCmd() *cobra.Command {
@@ -518,7 +518,7 @@ func createChannelStepCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return outputFlags(cmd)
+	return cmd
 }
 
 func chanCloseInit() *cobra.Command {
@@ -539,7 +539,7 @@ func chanCloseInit() *cobra.Command {
 			return sendAndPrint([]sdk.Msg{src.PathEnd.ChanCloseInit(src.MustGetAddress())}, src, cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return cmd
 }
 
 func chanCloseConfirm() *cobra.Command {
@@ -580,7 +580,7 @@ func chanCloseConfirm() *cobra.Command {
 			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return cmd
 }
 
 func closeChannelStepCmd() *cobra.Command {
@@ -621,10 +621,9 @@ func closeChannelStepCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return outputFlags(cmd)
+	return cmd
 }
 
 func sendAndPrint(txs []sdk.Msg, c *relayer.Chain, cmd *cobra.Command) error {
-	text, indent := getPrintingFlags(cmd)
-	return c.SendAndPrint(txs, text, indent)
+	return c.SendAndPrint(txs, false, false)
 }

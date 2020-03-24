@@ -546,6 +546,9 @@ func ClearQueues(src, dst *Chain) error {
 		return nil
 	}
 
+	// TODO: increase the amount of gas as the number of messages increases
+	// notify the user of that
+
 	if msgs.Send(src, dst); msgs.success {
 		src.Log(fmt.Sprintf("★ Clients updated: [%s]client(%s) and [%s]client(%s)",
 			src.ChainID, src.PathEnd.ClientID, dst.ChainID, dst.PathEnd.ClientID))
