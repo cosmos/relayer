@@ -65,39 +65,50 @@ func chainsShowCmd() *cobra.Command {
 		Short:   "Returns a chain's configuration data",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var (
-				out []byte
-				err error
-			)
-
+			c, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
 			jsn, err := cmd.Flags().GetBool(flagJSON)
 			if err != nil {
 				return err
 			}
-
-			chain, err := config.Chains.Get(args[0])
+			yml, err := cmd.Flags().GetBool(flagYAML)
 			if err != nil {
 				return err
 			}
-
-			if jsn {
-				out, err = json.Marshal(chain)
+			switch {
+			case yml && jsn:
+				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
+			case yml:
+				out, err := yaml.Marshal(c)
 				if err != nil {
 					return err
 				}
-			} else {
-				out, err = yaml.Marshal(chain)
+				fmt.Println(string(out))
+				return nil
+			case jsn:
+				out, err := json.Marshal(c)
 				if err != nil {
 					return err
 				}
-
+				fmt.Println(string(out))
+				return nil
+			default:
+				fmt.Printf(`chain-id:        %s
+rpc-addr:        %s
+trusting-period: %s
+default-denom:   %s
+gas:             %d
+gas-prices:      %s
+key:             %s
+account-prefix:  %s
+`, c.ChainID, c.RPCAddr, c.TrustingPeriod, c.DefaultDenom, c.Gas, c.GasPrices, c.Key, c.AccountPrefix)
+				return nil
 			}
-			fmt.Println(string(out))
-			return nil
 		},
 	}
-
-	return jsonFlag(cmd)
+	return yamlFlag(jsonFlag(cmd))
 }
 
 func chainsEditCmd() *cobra.Command {
@@ -111,6 +122,7 @@ func chainsEditCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
 			c, err := chain.Update(args[1], args[2])
 			if err != nil {
 				return err
@@ -119,6 +131,7 @@ func chainsEditCmd() *cobra.Command {
 			if err = config.DeleteChain(args[0]).AddChain(c); err != nil {
 				return err
 			}
+
 			return overWriteConfig(cmd, config)
 		},
 	}
@@ -149,42 +162,63 @@ func chainsListCmd() *cobra.Command {
 				return err
 			}
 
-			if jsn {
+			yml, err := cmd.Flags().GetBool(flagYAML)
+			if err != nil {
+				return err
+			}
+
+			switch {
+			case yml && jsn:
+				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
+			case yml:
+				out, err := yaml.Marshal(config.Chains)
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(out))
+				return nil
+			case jsn:
 				out, err := json.Marshal(config.Chains)
 				if err != nil {
 					return err
 				}
 				fmt.Println(string(out))
 				return nil
-			}
-
-			for _, c := range config.Chains {
-				var (
-					lite = false
-					addr = false
-					path = false
-				)
-				_, err := c.GetAddress()
-				if err == nil {
-					addr = true
-				}
-
-				_, err = c.GetLatestLiteHeight()
-				if err == nil {
-					lite = true
-				}
-
-				for _, pth := range config.Paths {
-					if pth.Src.ChainID == c.ChainID || pth.Dst.ChainID == c.ChainID {
-						path = true
+			default:
+				for i, c := range config.Chains {
+					var (
+						lite = "✘"
+						key  = "✘"
+						path = "✘"
+						bal  = "✘"
+					)
+					_, err := c.GetAddress()
+					if err == nil {
+						key = "✔"
 					}
+
+					coins, err := c.QueryBalance(c.Key)
+					if err == nil && !coins.Empty() {
+						bal = "✔"
+					}
+
+					_, err = c.GetLatestLiteHeader()
+					if err == nil {
+						lite = "✔"
+					}
+
+					for _, pth := range config.Paths {
+						if pth.Src.ChainID == c.ChainID || pth.Dst.ChainID == c.ChainID {
+							path = "✔"
+						}
+					}
+					fmt.Printf("%2d: %-20s -> key(%s) bal(%s) lite(%s) path(%s)\n", i, c.ChainID, key, bal, lite, path)
 				}
-				fmt.Printf("%s -> addr(%t) lite(%t) path(%t)\n", c.ChainID, addr, lite, path)
+				return nil
 			}
-			return nil
 		},
 	}
-	return jsonFlag(cmd)
+	return yamlFlag(jsonFlag(cmd))
 }
 
 func chainsAddCmd() *cobra.Command {
@@ -269,6 +303,7 @@ func filesAdd(dir string) (cfg *Config, err error) {
 			fmt.Printf("%s: %s\n", pth, err.Error())
 			continue
 		}
+		fmt.Printf("added %s...\n", c.ChainID)
 	}
 	return cfg, nil
 }
@@ -392,15 +427,15 @@ func urlInputAdd(rawurl string) (cfg *Config, err error) {
 	}
 	defer resp.Body.Close()
 
-	var c relayer.Chain
+	var c *relayer.Chain
 	d := json.NewDecoder(resp.Body)
 	d.DisallowUnknownFields()
-	err = d.Decode(&c)
+	err = d.Decode(c)
 	if err != nil {
 		return cfg, err
 	}
 
-	if err = config.AddChain(&c); err != nil {
+	if err = config.AddChain(c); err != nil {
 		return nil, err
 	}
 	return config, err

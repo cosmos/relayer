@@ -59,7 +59,7 @@ func queryTx() *cobra.Command {
 			return queryOutput(txs, chain, cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return cmd
 }
 
 func queryTxs() *cobra.Command {
@@ -91,7 +91,7 @@ func queryTxs() *cobra.Command {
 			return queryOutput(txs, chain, cmd)
 		},
 	}
-	return outputFlags(paginationFlags(cmd))
+	return paginationFlags(cmd)
 }
 
 func queryAccountCmd() *cobra.Command {
@@ -119,7 +119,7 @@ func queryAccountCmd() *cobra.Command {
 			return queryOutput(acc, chain, cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return cmd
 }
 
 func queryBalanceCmd() *cobra.Command {
@@ -221,7 +221,7 @@ func queryHeaderCmd() *cobra.Command {
 		},
 	}
 
-	return flagsFlag(outputFlags(cmd))
+	return flagsFlag(cmd)
 }
 
 // GetCmdQueryConsensusState defines the command to query the consensus state of
@@ -261,7 +261,7 @@ func queryNodeStateCmd() *cobra.Command {
 		},
 	}
 
-	return outputFlags(cmd)
+	return cmd
 }
 
 func queryClientCmd() *cobra.Command {
@@ -289,7 +289,7 @@ func queryClientCmd() *cobra.Command {
 		},
 	}
 
-	return outputFlags(cmd)
+	return cmd
 }
 
 func queryClientsCmd() *cobra.Command {
@@ -313,7 +313,7 @@ func queryClientsCmd() *cobra.Command {
 		},
 	}
 
-	return outputFlags(paginationFlags(cmd))
+	return paginationFlags(cmd)
 }
 
 func queryConnections() *cobra.Command {
@@ -337,7 +337,7 @@ func queryConnections() *cobra.Command {
 		},
 	}
 
-	return outputFlags(paginationFlags(cmd))
+	return paginationFlags(cmd)
 }
 
 func queryConnectionsUsingClient() *cobra.Command {
@@ -370,7 +370,7 @@ func queryConnectionsUsingClient() *cobra.Command {
 		},
 	}
 
-	return outputFlags(paginationFlags(cmd))
+	return paginationFlags(cmd)
 }
 
 func queryConnection() *cobra.Command {
@@ -403,7 +403,7 @@ func queryConnection() *cobra.Command {
 		},
 	}
 
-	return outputFlags(paginationFlags(cmd))
+	return paginationFlags(cmd)
 }
 
 func queryChannel() *cobra.Command {
@@ -436,7 +436,7 @@ func queryChannel() *cobra.Command {
 		},
 	}
 
-	return outputFlags(paginationFlags(cmd))
+	return paginationFlags(cmd)
 }
 
 func queryChannels() *cobra.Command {
@@ -460,7 +460,7 @@ func queryChannels() *cobra.Command {
 		},
 	}
 
-	return outputFlags(paginationFlags(cmd))
+	return paginationFlags(cmd)
 }
 
 func queryNextSeqRecv() *cobra.Command {
@@ -492,7 +492,7 @@ func queryNextSeqRecv() *cobra.Command {
 		},
 	}
 
-	return outputFlags(paginationFlags(cmd))
+	return paginationFlags(cmd)
 }
 
 func queryPacketCommitment() *cobra.Command {
@@ -529,7 +529,7 @@ func queryPacketCommitment() *cobra.Command {
 		},
 	}
 
-	return outputFlags(paginationFlags(cmd))
+	return paginationFlags(cmd)
 }
 
 func queryPacketAck() *cobra.Command {
@@ -566,7 +566,7 @@ func queryPacketAck() *cobra.Command {
 		},
 	}
 
-	return outputFlags(paginationFlags(cmd))
+	return paginationFlags(cmd)
 }
 
 func queryQueue() *cobra.Command {
@@ -607,20 +607,11 @@ func queryQueue() *cobra.Command {
 		},
 	}
 
-	return outputFlags(cmd)
+	return cmd
 }
 
 func queryOutput(res interface{}, chain *relayer.Chain, cmd *cobra.Command) error {
-	text, err := cmd.Flags().GetBool("text")
-	if err != nil {
-		panic(err)
-	}
-
-	indent, err := cmd.Flags().GetBool("indent")
-	if err != nil {
-		panic(err)
-	}
-	return chain.Print(res, text, indent)
+	return chain.Print(res, false, false)
 }
 
 func getPrintingFlags(cmd *cobra.Command) (text, indent bool) {

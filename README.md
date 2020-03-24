@@ -40,8 +40,8 @@ $ cat ~/.relayer/config/config.yaml
 $ rly paths add ibc0 ibc1 demo-path -f demo/path.json
 
 # Now, add the key seeds from each chain to the relayer to give it funds to work with
-$ rly keys restore ibc0 testkey "$(jq -r '.secret' data/ibc0/n0/gaiacli/key_seed.json)" -a
-$ rly keys restore ibc1 testkey "$(jq -r '.secret' data/ibc1/n0/gaiacli/key_seed.json)" -a
+$ rly keys restore ibc0 testkey "$(jq -r '.secret' data/ibc0/n0/gaiacli/key_seed.json)"
+$ rly keys restore ibc1 testkey "$(jq -r '.secret' data/ibc1/n0/gaiacli/key_seed.json)"
 
 # Then its time to initialize the relayer's lite clients for each chain
 # All data moving forward is validated by these lite clients.
@@ -53,21 +53,21 @@ $ rly lite init ibc1 -f
 $ tree ~/.relayer
 
 # Now you can connect the two chains with one command:
-$ rly tx full-path ibc0 ibc1
+$ rly tx full-path demo-path
 
 # Check the token balances on both chains
 $ rly q balance ibc0
 $ rly q balance ibc1
 
 # Then send some tokens between the chains
-$ rly tx transfer ibc0 ibc1 10000n0token true $(relayer keys show ibc1 testkey -a)
+$ rly tx transfer ibc0 ibc1 10000n0token true $(rly keys show ibc1 testkey)
 
 # See that the transfer has completed
 $ rly q balance ibc0
 $ rly q balance ibc1
 
 # Send the tokens back to the account on ibc0
-$ rly tx transfer ibc1 ibc0 10000n0token false $(relayer keys show ibc0 testkey -a)
+$ rly tx transfer ibc1 ibc0 10000n0token false $(rly keys show ibc0 testkey)
 
 # See that the return trip has completed
 $ rly q balance ibc0

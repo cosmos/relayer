@@ -80,7 +80,7 @@ func keysAddCmd() *cobra.Command {
 		},
 	}
 
-	return outputFlags(cmd)
+	return cmd
 }
 
 type keyOutput struct {
@@ -116,7 +116,7 @@ func keysRestoreCmd() *cobra.Command {
 		},
 	}
 
-	return addressFlag(outputFlags(cmd))
+	return cmd
 }
 
 // keysDeleteCmd respresents the `keys delete` command
@@ -221,7 +221,7 @@ func keysShowCmd() *cobra.Command {
 		},
 	}
 
-	return addressFlag(cmd)
+	return cmd
 }
 
 // keysExportCmd respresents the `keys export` command
@@ -251,7 +251,7 @@ func keysExportCmd() *cobra.Command {
 		},
 	}
 
-	return outputFlags(cmd)
+	return cmd
 }
 
 // returns true if there is a specified key in the keybase

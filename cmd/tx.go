@@ -180,7 +180,7 @@ func relayMsgsCmd() *cobra.Command {
 		},
 	}
 
-	return outputFlags(cmd)
+	return cmd
 }
 
 func transferCmd() *cobra.Command {
@@ -326,5 +326,5 @@ func transferCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return pathFlag(cmd)
 }
