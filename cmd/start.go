@@ -23,34 +23,23 @@ import (
 // NOTE: This is basically psuedocode
 func startCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "start [src-chain-id] [dst-chain-id] ",
+		Use:     "start [path-name]",
 		Aliases: []string{"st"},
 		Short:   "Start runs the relayer strategy associated with a path between the two chains",
-		Args:    cobra.RangeArgs(2, 3),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			src, dst := args[0], args[1]
-			chains, err := config.Chains.Gets(src, dst)
+			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
 
-			pth, err := cmd.Flags().GetString(flagPath)
-			if err != nil {
-				return err
-			}
-
-			path, err := setPathsFromArgs(chains[src], chains[dst], pth)
-			if err != nil {
-				return err
-			}
-
-			strategy, err := path.GetStrategy()
+			strategy, err := config.Paths.MustGet(args[0]).GetStrategy()
 			if err != nil {
 				return nil
 			}
 
-			return strategy.Run(chains[src], chains[dst])
+			return strategy.Run(c[src], c[dst])
 		},
 	}
-	return pathFlag(cmd)
+	return cmd
 }

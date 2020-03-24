@@ -18,7 +18,7 @@ rm -rf $RELAYER_CONF &> /dev/null
 bash two-chainz "local" "skip"
 bash config-relayer "skip"
 sleep 2
-rly tx full-path ibc0 ibc1 -o 3s
+rly tx full-path demo -o 3s
 rly tx raw xfer-send ibc0 ibc1 1000n0token true $(rly ch addr ibc1)
 rly tx raw xfer-send ibc0 ibc1 1000n0token true $(rly ch addr ibc1)
 rly tx raw xfer-send ibc1 ibc0 1000n0token true $(rly ch addr ibc0)

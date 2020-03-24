@@ -18,7 +18,7 @@ echo "Generating relayer configuration..."
 $RELAYER --home $RLY_CONF config init
 $RELAYER --home $RLY_CONF chains add -f demo/ibc0.json
 $RELAYER --home $RLY_CONF chains add -f demo/ibc1.json
-$RELAYER --home $RLY_CONF paths add ibc0 ibc1 demopath -f demo/path.json
+$RELAYER --home $RLY_CONF paths add ibc0 ibc1 demo -f demo/path.json
 
 echo "Generating gaia configurations..."
 cd $GAIA_CONF && mkdir ibc-testnets && cd ibc-testnets
@@ -69,7 +69,7 @@ $RELAYER --home $RLY_CONF lite init $c0 -f
 $RELAYER --home $RLY_CONF lite init $c1 -f
 
 echo "Create clients"
-$RELAYER --home $RLY_CONF tx clients -d $c0 $c1
+$RELAYER --home $RLY_CONF tx clients -d demo
 
 echo "Query headers"
 $RELAYER --home $RLY_CONF q header $c0 | jq -r '.type'   
@@ -84,14 +84,14 @@ $RELAYER --home $RLY_CONF q clients $c0 | jq -r '.[].value.id'
 $RELAYER --home $RLY_CONF q clients $c1 | jq -r '.[].value.id'
 
 echo "Creating connection..."
-$RELAYER --home $RLY_CONF tx connection -d -o 3s $c0 $c1
+$RELAYER --home $RLY_CONF tx connection -d -o 3s demo
 
 # echo "Querying connections..."
 # $RELAYER --home $RLY_CONF q connection $c0 $(relayer q connections $c1 | jq -r '.[0].counterparty.connection_id') | jq -r '.connection.state'
 # $RELAYER --home $RLY_CONF q connection $c1 $(relayer q connections $c0 | jq -r '.[0].counterparty.connection_id') | jq -r '.connection.state'
 
 echo "Creating channel..."
-$RELAYER --home $RLY_CONF tx channel -d -o 3s $c0 $c1
+$RELAYER --home $RLY_CONF tx channel -d -o 3s demo
 
 # echo "Querying channel..."
 # $RELAYER --home $RLY_CONF q channel $c0 $($RELAYER --home $RLY_CONF q channels $c1 | jq -r '.[0].counterparty.channel_id') $($RELAYER --home $RLY_CONF q channels $c1 | jq -r '.[0].counterparty.port_id') | jq -r '.channel.state'
