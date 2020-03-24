@@ -16,7 +16,7 @@ import (
 
 var (
 	txEvents = "tm.event = 'Tx'"
-	blEvents = "tm.event = 'NewBlock'"
+	// blEvents = "tm.event = 'NewBlock'"
 )
 
 // GetStrategy the strategy defined in the relay messages

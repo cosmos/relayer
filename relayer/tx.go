@@ -437,6 +437,9 @@ func (src *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 	}
 
 	chans, err := QueryChannelPair(src, dst, hs[scid].Height-1, hs[dcid].Height-1)
+	if err != nil {
+		return nil, err
+	}
 	logChannelStates(src, dst, chans)
 
 	switch {
@@ -583,9 +586,6 @@ func addPacketMsg(src, dst *Chain, srcH, dstH *tmclient.Header, seq uint64, msgs
 	// If we have a transaction to relay that hasn't been, and there are no messages yet,
 	// we need to append an update_client message
 	if source {
-		if len(msgs.Dst) == 0 {
-
-		}
 		msgs.Dst = append(msgs.Dst, msg)
 	} else {
 		msgs.Src = append(msgs.Src, msg)

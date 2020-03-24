@@ -75,6 +75,10 @@ func createConnectionCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
+			if err != nil {
+				return err
+			}
+
 			to, err := getTimeout(cmd)
 			if err != nil {
 				return err

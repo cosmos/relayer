@@ -8,7 +8,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
-        "github.com/iqlusioninc/relayer/relayer"
+	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -377,7 +377,7 @@ func queryConnection() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "connection [chain-id] [connection-id]",
 		Aliases: []string{"conn"},
-		Short: "Query the chain for the connection specified by connection-id",
+		Short:   "Query the chain for the connection specified by connection-id",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -612,18 +612,4 @@ func queryQueue() *cobra.Command {
 
 func queryOutput(res interface{}, chain *relayer.Chain, cmd *cobra.Command) error {
 	return chain.Print(res, false, false)
-}
-
-func getPrintingFlags(cmd *cobra.Command) (text, indent bool) {
-	var err error
-	text, err = cmd.Flags().GetBool("text")
-	if err != nil {
-		panic(err)
-	}
-
-	indent, err = cmd.Flags().GetBool("indent")
-	if err != nil {
-		panic(err)
-	}
-	return
 }
