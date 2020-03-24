@@ -144,15 +144,47 @@ func chainsListCmd() *cobra.Command {
 		Aliases: []string{"l"},
 		Short:   "Returns chain configuration data",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			out, err := yaml.Marshal(config.Chains)
+			jsn, err := cmd.Flags().GetBool(flagJSON)
 			if err != nil {
 				return err
 			}
-			fmt.Println(string(out))
+
+			if jsn {
+				out, err := json.Marshal(config.Chains)
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(out))
+				return nil
+			}
+
+			for _, c := range config.Chains {
+				var (
+					lite = false
+					addr = false
+					path = false
+				)
+				_, err := c.GetAddress()
+				if err == nil {
+					addr = true
+				}
+
+				_, err = c.GetLatestLiteHeight()
+				if err == nil {
+					lite = true
+				}
+
+				for _, pth := range config.Paths {
+					if pth.Src.ChainID == c.ChainID || pth.Dst.ChainID == c.ChainID {
+						path = true
+					}
+				}
+				fmt.Printf("%s -> addr(%t) lite(%t) path(%t)\n", c.ChainID, addr, lite, path)
+			}
 			return nil
 		},
 	}
-	return cmd
+	return jsonFlag(cmd)
 }
 
 func chainsAddCmd() *cobra.Command {
