@@ -19,6 +19,9 @@ func pathsCmd() *cobra.Command {
 		Use:     "paths",
 		Aliases: []string{"pth"},
 		Short:   "commands to manage path configurations",
+		Long: `
+A path represents the full path for communication between two chains, including the client, 
+connection, and channel ids from both the source and destination chains.`,
 	}
 
 	cmd.AddCommand(
