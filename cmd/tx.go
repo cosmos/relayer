@@ -194,9 +194,10 @@ func fullPathCmd() *cobra.Command {
 
 func drainQueueCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "queue [path]",
-		Short: "Queries for the packets that remain to be relayed on a given path and relays them",
-		Args:  cobra.ExactArgs(1),
+		Use:     "relay [path]",
+		Aliases: []string{"rly"},
+		Short:   "Queries for the packets that remain to be relayed on a given path, in both directions, and relays them",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, err := config.Paths.Get(args[0])
 			if err != nil {

@@ -14,6 +14,11 @@ import (
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 )
 
+var (
+	txEvents = "tm.event = 'Tx'"
+	blEvents = "tm.event = 'NewBlock'"
+)
+
 // GetStrategy the strategy defined in the relay messages
 func (r *Path) GetStrategy() (Strategy, error) {
 	switch r.Strategy.Type {
@@ -90,21 +95,24 @@ func (nrs NaiveStrategy) GetConstraints() map[string]string {
 
 // Run implements Strategy and defines what actions are taken when the relayer runs
 func (nrs NaiveStrategy) Run(src, dst *Chain) error {
-	events := "tm.event = 'Tx'"
+	// first, we want to ensure that there are no packets remaining to be relayed
+	if err := ClearQueues(src, dst); err != nil {
+		return err
+	}
 
-	srcEvents, srcCancel, err := src.Subscribe(events)
+	srcEvents, srcCancel, err := src.Subscribe(txEvents)
 	if err != nil {
 		return err
 	}
 	defer srcCancel()
-	src.Log(fmt.Sprintf("listening to events from %s...", src.ChainID))
+	src.Log(fmt.Sprintf("- listening to events from %s...", src.ChainID))
 
-	dstEvents, dstCancel, err := dst.Subscribe(events)
+	dstEvents, dstCancel, err := dst.Subscribe(txEvents)
 	if err != nil {
 		return err
 	}
 	defer dstCancel()
-	dst.Log(fmt.Sprintf("listening to events from %s...", dst.ChainID))
+	dst.Log(fmt.Sprintf("- listening to events from %s...", dst.ChainID))
 
 	done := trapSignal()
 	defer close(done)

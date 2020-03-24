@@ -398,27 +398,35 @@ func logChannelStates(src, dst *Chain, conn map[string]chanTypes.ChannelResponse
 
 // ClearQueues creates transactions to clear both queues
 func ClearQueues(src, dst *Chain) error {
+	// Update lite clients, headers to be used later
 	hs, err := UpdatesWithHeaders(src, dst)
 	if err != nil {
 		return err
 	}
 
+	// find any unrelayed packets
 	sp, err := UnrelayedSequences(src, dst, hs[src.ChainID].Height, hs[dst.ChainID].Height)
 	if err != nil {
 		return err
 	}
 
-	msgs := &RelayMsgs{
-		Src: []sdk.Msg{src.PathEnd.UpdateClient(hs[dst.ChainID], src.MustGetAddress())},
-		Dst: []sdk.Msg{dst.PathEnd.UpdateClient(hs[src.ChainID], dst.MustGetAddress())},
+	// create the appropriate update client messages
+	msgs := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
+	if len(sp.Src) > 0 {
+		msgs.Src = append(msgs.Src, src.PathEnd.UpdateClient(hs[dst.ChainID], src.MustGetAddress()))
+	}
+	if len(sp.Dst) > 0 {
+		msgs.Dst = append(msgs.Dst, dst.PathEnd.UpdateClient(hs[src.ChainID], dst.MustGetAddress()))
 	}
 
+	// add messages for src -> dst
 	for _, seq := range sp.Src {
 		if err = addPacketMsg(src, dst, hs[src.ChainID], hs[dst.ChainID], seq, msgs, true); err != nil {
 			return err
 		}
 	}
 
+	// add messages for dst -> src
 	for _, seq := range sp.Dst {
 		if err = addPacketMsg(dst, src, hs[dst.ChainID], hs[src.ChainID], seq, msgs, false); err != nil {
 			return err
@@ -426,12 +434,26 @@ func ClearQueues(src, dst *Chain) error {
 	}
 
 	if !msgs.Ready() {
-		return fmt.Errorf("no messages to relay between %s and %s", src.ChainID, dst.ChainID)
+		src.Log(fmt.Sprintf("- No packets to relay between [%s]port{%s} and [%s]port{%s}", src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))
+		return nil
 	}
 
-	msgs.Send(src, dst)
+	if msgs.Send(src, dst); msgs.success {
+		src.Log(fmt.Sprintf("★ Clients updated: [%s]client(%s) and [%s]client(%s)",
+			src.ChainID, src.PathEnd.ClientID, dst.ChainID, dst.PathEnd.ClientID))
+		if len(msgs.Dst) > 1 {
+			src.logPacketsRelayed(dst, len(msgs.Dst)-1)
+		}
+		if len(msgs.Src) > 1 {
+			dst.logPacketsRelayed(src, len(msgs.Src)-1)
+		}
+	}
 
 	return nil
+}
+
+func (src *Chain) logPacketsRelayed(dst *Chain, num int) {
+	dst.Log(fmt.Sprintf("★ Relayed %d packets: [%s]port{%s}->[%s]port{%s}", num, dst.ChainID, dst.PathEnd.PortID, src.ChainID, src.PathEnd.PortID))
 }
 
 func addPacketMsg(src, dst *Chain, srcH, dstH *tmclient.Header, seq uint64, msgs *RelayMsgs, source bool) error {
@@ -450,6 +472,9 @@ func addPacketMsg(src, dst *Chain, srcH, dstH *tmclient.Header, seq uint64, msgs
 	// If we have a transaction to relay that hasn't been, and there are no messages yet,
 	// we need to append an update_client message
 	if source {
+		if len(msgs.Dst) == 0 {
+
+		}
 		msgs.Dst = append(msgs.Dst, msg)
 	} else {
 		msgs.Src = append(msgs.Src, msg)
