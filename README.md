@@ -2,8 +2,8 @@
 
 ![CI Script](https://github.com/iqlusioninc/relayer/workflows/Build%20then%20run%20CI%20Chains/badge.svg)
 
-The `relayer` package contains some basic relayer implementations that are
-meant to be used by users wishing to relay packets between IBC enabled chains.
+The Cosmos IBC `relayer` package contains a basic relayer implementation that are
+meant to be used by users wishing to relay packets between sets of IBC enabled chains.
 It is also well documented and intended as a place where users who are
 interested in building their own relayer can come for working examples.
 
