@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
+	"github.com/cosmos/go-bip39"
 	"github.com/tendermint/tendermint/libs/log"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
@@ -97,6 +99,21 @@ func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.C
 		debug:          debug,
 		faucetAddrs:    make(map[string]time.Time),
 	}, nil
+}
+
+// KeyExists returns true if there is a specified key in chain's keybase
+func (src *Chain) KeyExists(name string) bool {
+	keyInfos, err := src.Keybase.List()
+	if err != nil {
+		return false
+	}
+
+	for _, k := range keyInfos {
+		if k.GetName() == name {
+			return true
+		}
+	}
+	return false
 }
 
 func (src *Chain) getGasPrices() sdk.DecCoins {
@@ -365,6 +382,15 @@ func (c Chains) Get(chainID string) (*Chain, error) {
 	return &Chain{}, fmt.Errorf("chain with ID %s is not configured", chainID)
 }
 
+// MustGet returns the chain and panics on any error
+func (c Chains) MustGet(chainID string) *Chain {
+	out, err := c.Get(chainID)
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
+
 // Gets returns a map chainIDs to their chains
 func (c Chains) Gets(chainIDs ...string) (map[string]*Chain, error) {
 	out := make(map[string]*Chain)
@@ -376,4 +402,36 @@ func (c Chains) Gets(chainIDs ...string) (map[string]*Chain, error) {
 		out[cid] = chain
 	}
 	return out, nil
+}
+
+func (src *Chain) getRPCPort() string {
+	u, _ := url.Parse(src.RPCAddr)
+	return u.Port()
+}
+
+func (src *Chain) createTestKey() error {
+	if src.KeyExists(src.Key) {
+		return fmt.Errorf("key %s exists for chain %s", src.ChainID, src.Key)
+	}
+
+	mnemonic, err := CreateMnemonic()
+	if err != nil {
+		return err
+	}
+
+	_, err = src.Keybase.CreateAccount(src.Key, mnemonic, "", ckeys.DefaultKeyPass, keys.CreateHDPath(0, 0).String(), keys.Secp256k1)
+	return err
+}
+
+// CreateMnemonic creates a new mnemonic
+func CreateMnemonic() (string, error) {
+	entropySeed, err := bip39.NewEntropy(256)
+	if err != nil {
+		return "", err
+	}
+	mnemonic, err := bip39.NewMnemonic(entropySeed)
+	if err != nil {
+		return "", err
+	}
+	return mnemonic, nil
 }

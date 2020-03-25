@@ -9,7 +9,7 @@ require (
 	github.com/cosmos/cosmos-sdk v0.34.4-0.20200324184639-0ed9ed648788
 	github.com/cosmos/go-bip39 v0.0.0-20180819234021-555e2067c45d
 	github.com/gorilla/mux v1.7.4
-	github.com/ory/dockertest/v3 v3.5.4 // indirect
+	github.com/ory/dockertest/v3 v3.5.4
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
 	github.com/sirkon/goproxy v1.4.8
 	github.com/sirupsen/logrus v1.5.0 // indirect
