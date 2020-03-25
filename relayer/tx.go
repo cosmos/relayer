@@ -524,10 +524,10 @@ func ClearQueues(src, dst *Chain) error {
 	// create the appropriate update client messages
 	msgs := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 	if len(sp.Src) > 0 {
-		msgs.Src = append(msgs.Src, src.PathEnd.UpdateClient(hs[dst.ChainID], src.MustGetAddress()))
+		msgs.Dst = append(msgs.Dst, dst.PathEnd.UpdateClient(hs[src.ChainID], dst.MustGetAddress()))
 	}
 	if len(sp.Dst) > 0 {
-		msgs.Dst = append(msgs.Dst, dst.PathEnd.UpdateClient(hs[src.ChainID], dst.MustGetAddress()))
+		msgs.Src = append(msgs.Src, src.PathEnd.UpdateClient(hs[dst.ChainID], src.MustGetAddress()))
 	}
 
 	// add messages for src -> dst
@@ -572,9 +572,15 @@ func (src *Chain) logPacketsRelayed(dst *Chain, num int) {
 
 func addPacketMsg(src, dst *Chain, srcH, dstH *tmclient.Header, seq uint64, msgs *RelayMsgs, source bool) error {
 	tx, err := src.QueryTxs(srcH.GetHeight(), 1, 1000, seqEvents(src.PathEnd.ChannelID, seq))
-	if err != nil || tx.Count != 1 {
-		return fmt.Errorf("error or more than one transaction returned: %w", err)
+	switch {
+	case err != nil:
+		return err
+	case tx.Count == 0:
+		return fmt.Errorf("no transactions returned with query")
+	case tx.Count > 1:
+		return fmt.Errorf("more than one transaction returned with query")
 	}
+
 	pd, err := src.txPacketData(src, tx.Txs[0])
 	if err != nil {
 		return err

@@ -1043,8 +1043,7 @@ func (c *Chain) formatTxResult(resTx *ctypes.ResultTx, resBlock *ctypes.ResultBl
 // Takes some bytes and a codec and returns an sdk.Tx
 func parseTx(cdc *codec.Codec, txBytes []byte) (sdk.Tx, error) {
 	var tx authTypes.StdTx
-
-	err := cdc.UnmarshalBinaryLengthPrefixed(txBytes, &tx)
+	err := cdc.UnmarshalBinaryBare(txBytes, &tx)
 	if err != nil {
 		return nil, err
 	}
