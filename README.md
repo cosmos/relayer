@@ -7,6 +7,15 @@ meant to be used by users wishing to relay packets between IBC enabled chains.
 It is also well documented and intended as a place where users who are
 interested in building their own relayer can come for working examples.
 
+The team that brought you Game of Stakes will be bringing you Game of Zones this may for the Cosmos community this may.
+
+Learn more about [Game of Zones]https://goz.cosmosnetwork.dev/).
+
+
+### Code of Conduct
+
+The iqlusion team is dedicated to providing an inclusive and harrassment free experience for contributors. Please visit [Code of Conduct](CODE_OF_CONDUCT.md) for more information.
+
 ### Testnet
 
 If you would like to join the relayer testnet, please [check out the instructions](./testnets/README.md).
