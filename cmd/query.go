@@ -43,7 +43,7 @@ var queryCmd = &cobra.Command{
 func queryTx() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tx [chain-id] [tx-hash]",
-		Short: "query transactions by the events they produce",
+		Short: "Query transaction by transaction hash",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -65,7 +65,7 @@ func queryTx() *cobra.Command {
 func queryTxs() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "txs [chain-id] [events]",
-		Short: "query transactions by the events they produce",
+		Short: "Query transactions by the events they produce",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -98,7 +98,7 @@ func queryAccountCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "account [chain-id]",
 		Aliases: []string{"acc"},
-		Short:   "Use configured RPC client to fetch the account data of the relayer account",
+		Short:   "Query the account data of the relayer account",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -126,7 +126,7 @@ func queryBalanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "balance [chain-id] [[key-name]]",
 		Aliases: []string{"bal"},
-		Short:   "Use configured RPC client to fetch the account balance of the relayer account, or pass in an optional second arg to fetch balance from a configured key",
+		Short:   "Query the account balance of the relayer account, or pass in an optional second arg to fetch balance from a configured key",
 		Args:    cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -171,7 +171,7 @@ func queryHeaderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "header [chain-id] [height]",
 		Aliases: []string{"hdr"},
-		Short:   "Use configured RPC client to fetch a header at a given height from a configured chain",
+		Short:   "Query the header at a given height",
 		Args:    cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -268,7 +268,7 @@ func queryClientCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "client [chain-id] [client-id]",
 		Aliases: []string{"clnt"},
-		Short:   "Query the client for a counterparty chain",
+		Short:   "Query the client state for the given client id",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -296,7 +296,7 @@ func queryClientsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "clients [chain-id]",
 		Aliases: []string{"clnts"},
-		Short:   "Query the client for a counterparty chain",
+		Short:   "Query for all client states",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -320,7 +320,7 @@ func queryConnections() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "connections [chain-id]",
 		Aliases: []string{"conns"},
-		Short:   "Query for all connections on a given chain",
+		Short:   "Query for all connections",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -344,7 +344,7 @@ func queryConnectionsUsingClient() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "client-connections [chain-id] [client-id]",
 		Aliases: []string{"clnt-conns"},
-		Short:   "Query the client for a counterparty chain",
+		Short:   "Query for all connections on a given client",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -377,7 +377,7 @@ func queryConnection() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "connection [chain-id] [connection-id]",
 		Aliases: []string{"conn"},
-		Short:   "Query the chain for the connection specified by connection-id",
+		Short:   "Query the connection state for the given connection id",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -410,7 +410,7 @@ func queryChannel() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "channel [chain-id] [channel-id] [port-id]",
 		Aliases: []string{"chan"},
-		Short:   "Query the client for a counterparty chain",
+		Short:   "Query the channel for the given channel and port ids",
 		Args:    cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -443,7 +443,7 @@ func queryChannels() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "channels [chain-id]",
 		Aliases: []string{"chans"},
-		Short:   "Query for all channels on a given chain",
+		Short:   "Query for all channels",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -572,7 +572,7 @@ func queryPacketAck() *cobra.Command {
 func queryQueue() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "queue [path]",
-		Short: "Queries for the packets that remain to be relayed on a given path",
+		Short: "Query for the packets that remain to be relayed on a given path",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, err := config.Paths.Get(args[0])
