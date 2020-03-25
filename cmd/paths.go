@@ -45,6 +45,11 @@ func pathsGenCmd() *cobra.Command {
 				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
 			}
 
+			port, err := cmd.Flags().GetString(flagPort)
+			if err != nil {
+				return err
+			}
+
 			path := &relayer.Path{
 				Strategy: relayer.NewNaiveStrategy(),
 				Src: &relayer.PathEnd{
@@ -52,14 +57,14 @@ func pathsGenCmd() *cobra.Command {
 					ClientID:     randString(16),
 					ConnectionID: randString(16),
 					ChannelID:    randString(16),
-					PortID:       "transfer",
+					PortID:       port,
 				},
 				Dst: &relayer.PathEnd{
 					ChainID:      dst,
 					ClientID:     randString(16),
 					ConnectionID: randString(16),
 					ChannelID:    randString(16),
-					PortID:       "transfer",
+					PortID:       port,
 				},
 			}
 
@@ -74,7 +79,7 @@ func pathsGenCmd() *cobra.Command {
 			return overWriteConfig(cmd, c)
 		},
 	}
-	return cmd
+	return portFlag(cmd)
 }
 
 func pathsDeleteCmd() *cobra.Command {
