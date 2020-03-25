@@ -22,6 +22,8 @@ While the relayer is under active development, it is meant primarily as a learni
 # two-chainz creates two gaia-based chains with data directories in this 
 $ ./two-chainz
 
+# If you want to stop the two gaia-based chains running in the background use `killall gaiad`
+
 # First initialize your configuration for the relayer
 $ rly config init
 
