@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -67,7 +68,7 @@ func spinUpTestChains(chainIDs ...string) (Chains, chan<- struct{}, <-chan struc
 		chains    []*Chain
 		testsDone = make(chan struct{})
 		contDone  = make(chan struct{})
-		// wg        sync.WaitGroup
+		wg        sync.WaitGroup
 	)
 
 	for _, id := range chainIDs {
@@ -87,66 +88,76 @@ func spinUpTestChains(chainIDs ...string) (Chains, chan<- struct{}, <-chan struc
 	}
 
 	for _, c := range chains {
-		// initialize the chain
-		if err = c.Init(dir, codecstd.NewAppCodec(gaiaCdc), gaiaCdc, defaultTo, true); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to initialize chain: %w", err)
-		}
-
-		// create the test key
-		if err = c.createTestKey(); err != nil {
-			return nil, nil, nil, err
-		}
-
-		dockerOpts := &dockertest.RunOptions{
-			Name:         fmt.Sprintf("%s-%s", c.ChainID, randString(8)),
-			Repository:   dockerImage,
-			Tag:          dockerTag,
-			Cmd:          []string{c.ChainID, c.MustGetAddress().String()},
-			ExposedPorts: []string{defaultPort},
-			PortBindings: map[dc.Port][]dc.PortBinding{
-				dc.Port(defaultPort): []dc.PortBinding{{HostPort: c.getRPCPort()}},
-			},
-		}
-
-		// create the proper docker image with port forwarding setup
-		var resource *dockertest.Resource
-		if resource, err = pool.RunWithOptions(dockerOpts); err != nil {
-			return nil, nil, nil, err
-		}
-
-		// retry polling the container until status doesn't error
-		if err = pool.Retry(c.statusErr); err != nil {
-			return nil, nil, nil, fmt.Errorf("Could not connect to docker: %s", err)
-		}
-
-		// initalize the lite client
-		if err = c.forceInitLite(); err != nil {
-			log.Fatal(err)
-		}
-
-		resources = append(resources, resource)
+		wg.Add(1)
+		spinUpContainer(resources, pool, c, dir, &wg)
 	}
 
+	wg.Wait()
+
 	// spin off the cleanup goroutine
-	go func(testsDone <-chan struct{}, contDone chan<- struct{}, resources []*dockertest.Resource, pool *dockertest.Pool, dir string) {
-		// BLOCK HERE TILL CHANNEL SEND
-		<-testsDone
-
-		// clean up the tmp dir
-		os.RemoveAll(dir)
-
-		// remove all the docker containers
-		for _, r := range resources {
-			if err := pool.Purge(r); err != nil {
-				log.Fatalf("Could not purge resource: %s", err)
-			}
-		}
-
-		// Notify the other side that we have deleted the docker containers
-		contDone <- struct{}{}
-	}(testsDone, contDone, resources, pool, dir)
-
+	go cleanUpTest(testsDone, contDone, resources, pool, dir)
 	return chains, testsDone, contDone, nil
+}
+
+func cleanUpTest(testsDone <-chan struct{}, contDone chan<- struct{}, resources []*dockertest.Resource, pool *dockertest.Pool, dir string) {
+	// BLOCK HERE TILL CHANNEL SEND
+	<-testsDone
+
+	// clean up the tmp dir
+	os.RemoveAll(dir)
+
+	// remove all the docker containers
+	for _, r := range resources {
+		if err := pool.Purge(r); err != nil {
+			log.Fatalf("Could not purge resource: %s", err)
+		}
+	}
+
+	// Notify the other side that we have deleted the docker containers
+	contDone <- struct{}{}
+}
+
+func spinUpContainer(resources []*dockertest.Resource, pool *dockertest.Pool, c *Chain, dir string, wg *sync.WaitGroup) {
+	defer wg.Done()
+	var err error
+	// initialize the chain
+	if err = c.Init(dir, codecstd.NewAppCodec(gaiaCdc), gaiaCdc, defaultTo, true); err != nil {
+		log.Fatal(err)
+	}
+
+	// create the test key
+	if err = c.createTestKey(); err != nil {
+		log.Fatal(err)
+	}
+
+	dockerOpts := &dockertest.RunOptions{
+		Name:         fmt.Sprintf("%s-%s", c.ChainID, randString(8)),
+		Repository:   dockerImage,
+		Tag:          dockerTag,
+		Cmd:          []string{c.ChainID, c.MustGetAddress().String()},
+		ExposedPorts: []string{defaultPort},
+		PortBindings: map[dc.Port][]dc.PortBinding{
+			dc.Port(defaultPort): []dc.PortBinding{{HostPort: c.getRPCPort()}},
+		},
+	}
+
+	// create the proper docker image with port forwarding setup
+	var resource *dockertest.Resource
+	if resource, err = pool.RunWithOptions(dockerOpts); err != nil {
+		log.Fatal(err)
+	}
+
+	// retry polling the container until status doesn't error
+	if err = pool.Retry(c.statusErr); err != nil {
+		log.Fatalf("Could not connect to docker: %s", err)
+	}
+
+	// initalize the lite client
+	if err = c.forceInitLite(); err != nil {
+		log.Fatal(err)
+	}
+
+	resources = append(resources, resource)
 }
 
 func testChain(chainID string) *Chain {
