@@ -36,7 +36,7 @@ $ ./two-chainz
 # NOTE: If you want to stop the two gaia-based chains running in the background use `killall gaiad`
 
 # Make the relayer binary (rly)
-$ Make install
+$ make install
 
 # First initialize your configuration for the relayer
 $ rly config init
