@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"achain","rpc-addr":"http://achain.nodeateam.com:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025acoin","default-denom":"acoin","trusting-period":"330h"}
