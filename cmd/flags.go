@@ -21,7 +21,6 @@ var (
 	flagFile       = "file"
 	flagPath       = "path"
 	flagListenAddr = "listen"
-	flagPort       = "port"
 )
 
 func liteFlags(cmd *cobra.Command) *cobra.Command {
@@ -145,14 +144,6 @@ func getTimeout(cmd *cobra.Command) (time.Duration, error) {
 func urlFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagURL, "u", "", "url to fetch data from")
 	if err := viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL)); err != nil {
-		panic(err)
-	}
-	return cmd
-}
-
-func portFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagPort, "p", "transfer", "specify the port to generate path")
-	if err := viper.BindPFlag(flagPort, cmd.Flags().Lookup(flagPort)); err != nil {
 		panic(err)
 	}
 	return cmd
