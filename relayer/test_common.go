@@ -1,21 +1,76 @@
 package relayer
 
 import (
-	"crypto/rand"
 	"fmt"
 	"io/ioutil"
-	"math/big"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
+	"github.com/tendermint/go-amino"
 )
 
+// testChannelPair tests that the only channel on src and dst is between the two chains
+func testChannelPair(src, dst *Chain) (err error) {
+	if err = testChannel(src, dst); err != nil {
+		return err
+	}
+	if err = testChannel(dst, src); err != nil {
+		return err
+	}
+	return nil
+}
+
+// testChannel tests that the only channel on src is a counterparty of dst
+func testChannel(src, dst *Chain) error {
+	chans, err := src.QueryChannels(1, 1000)
+	switch {
+	case err != nil:
+		return fmt.Errorf("[%s] failed to query channels on chain: %w", src.ChainID, err)
+	case len(chans) != 1:
+		return fmt.Errorf("[%s] too many (act(%d) != exp(1)) channels returned", src.ChainID, len(chans))
+	// TODO: Change this testcase to pull expected order from PathEnd ()
+	case chans[0].GetOrdering().String() != "ORDERED":
+		return fmt.Errorf("[%s] channel order (act(%s) != exp(%s)) wrong for channel", src.ChainID, chans[0].GetOrdering().String(), "ORDERED")
+	case chans[0].GetState().String() != "OPEN":
+		return fmt.Errorf("[%s] channel state (act(%s) != exp(%s)) wrong for channel", src.ChainID, chans[0].GetState().String(), "OPEN")
+	case chans[0].GetCounterparty().GetChannelID() != dst.PathEnd.ChannelID:
+		return fmt.Errorf("[%s] cp channel id (act(%s) != exp(%s)) wrong on channel", src.ChainID, chans[0].GetCounterparty().GetChannelID(), dst.PathEnd.ChannelID)
+	case chans[0].GetCounterparty().GetPortID() != dst.PathEnd.PortID:
+		return fmt.Errorf("[%s] cp port id (act(%s) != exp(%s)) wrong on channel", src.ChainID, chans[0].GetCounterparty().GetPortID(), dst.PathEnd.PortID)
+	default:
+	}
+
+	h, err := src.Client.Status()
+	if err != nil {
+		return fmt.Errorf("[%s] failed to query height: %w", src.ChainID, err)
+	}
+
+	ch, err := src.QueryChannel(h.SyncInfo.LatestBlockHeight)
+	switch {
+	case err != nil:
+		return fmt.Errorf("[%s] failed to query channels on chain: %w", src.ChainID, err)
+	case ch.Channel.GetOrdering().String() != "ORDERED":
+		return fmt.Errorf("[%s] channel order (act(%s) != exp(%s)) wrong for channel", src.ChainID, ch.Channel.GetOrdering().String(), "ORDERED")
+	case ch.Channel.GetState().String() != "OPEN":
+		return fmt.Errorf("[%s] channel state (act(%s) != exp(%s)) wrong for channel", src.ChainID, ch.Channel.GetState().String(), "OPEN")
+	case ch.Channel.GetCounterparty().GetChannelID() != dst.PathEnd.ChannelID:
+		return fmt.Errorf("[%s] cp channel id (act(%s) != exp(%s)) wrong on channel", src.ChainID, ch.Channel.GetCounterparty().GetChannelID(), dst.PathEnd.ChannelID)
+	case ch.Channel.GetCounterparty().GetPortID() != dst.PathEnd.PortID:
+		return fmt.Errorf("[%s] cp port id (act(%s) != exp(%s)) wrong on channel", src.ChainID, ch.Channel.GetCounterparty().GetPortID(), dst.PathEnd.PortID)
+	default:
+		return nil
+	}
+}
+
+// testConnectionPair tests that the only connection on src and dst is between the two chains
 func testConnectionPair(src, dst *Chain) (err error) {
 	if err = testConnection(src, dst); err != nil {
 		return err
@@ -26,6 +81,7 @@ func testConnectionPair(src, dst *Chain) (err error) {
 	return nil
 }
 
+// testConnection tests that the only connection on src has a counterparty that is the connection on dst
 func testConnection(src, dst *Chain) error {
 	conns, err := src.QueryConnections(1, 1000)
 	switch {
@@ -66,6 +122,7 @@ func testConnection(src, dst *Chain) error {
 	}
 }
 
+// testClientPair tests that the client for src on dst and dst on src are the only clients on those chains
 func testClientPair(src, dst *Chain) (err error) {
 	if err = testClient(src, dst); err != nil {
 		return err
@@ -76,6 +133,9 @@ func testClientPair(src, dst *Chain) (err error) {
 	return nil
 }
 
+// testClient queries clients and client for dst on src and returns a variety of errors
+// testClient expects just one client on src, that for dst
+// TODO: we should be able to find the chain id of dst on src, add a case for this in each switch
 func testClient(src, dst *Chain) error {
 	clients, err := src.QueryClients(1, 1000)
 	switch {
@@ -101,19 +161,32 @@ func testClient(src, dst *Chain) error {
 	}
 }
 
-func spinUpTestChains(t *testing.T, chainIDs ...string) (Chains, func()) {
-	// Initialize variables
+// testChain represents the different configuration options for spinning up a test
+// cosmos-sdk based blockchain
+type testChain struct {
+	chainID     string
+	dockerImage string
+	dockerTag   string
+	cdc         *codecstd.Codec
+	amino       *amino.Codec
+	rpcPort     string
+	timeout     time.Duration
+}
+
+// spinUpTestChains is to be passed any number of test chains with given configuration options
+// to be created as individual docker containers at the beginning of a test. It is safe to run
+// in parallel tests as all created resources are independent of eachother
+func spinUpTestChains(t *testing.T, testChains ...testChain) (Chains, func()) {
 	var (
 		resources []*dockertest.Resource
 		chains    []*Chain
+
+		wg    sync.WaitGroup
+		rchan = make(chan *dockertest.Resource, len(testChains))
+
 		testsDone = make(chan struct{})
 		contDone  = make(chan struct{})
-		wg        sync.WaitGroup
 	)
-
-	for _, id := range chainIDs {
-		chains = append(chains, testChain(id))
-	}
 
 	// Create temporary relayer test directory
 	dir, err := ioutil.TempDir("", "relayer-test")
@@ -127,13 +200,12 @@ func spinUpTestChains(t *testing.T, chainIDs ...string) (Chains, func()) {
 		t.Errorf("Could not connect to docker: %w", err)
 	}
 
-	// make chan to catch all the container resources
-	rchan := make(chan *dockertest.Resource, len(chains))
-
-	// make each container
-	for _, c := range chains {
+	// make each container and initalize the chains
+	for _, tc := range testChains {
+		c := newTestChain(tc.chainID)
+		chains = append(chains, c)
 		wg.Add(1)
-		go spinUpContainer(t, rchan, pool, c, dir, &wg)
+		go spinUpTestContainer(t, rchan, pool, c, dir, &wg, tc)
 	}
 
 	// wait for all containers to be created
@@ -149,17 +221,18 @@ func spinUpTestChains(t *testing.T, chainIDs ...string) (Chains, func()) {
 	close(rchan)
 
 	// start the wait for cleanup function
-	go cleanUpTest(t, testsDone, contDone, resources, pool, dir)
-	doneFunc := func() {
+	go cleanUpTest(t, testsDone, contDone, resources, pool, dir, chains)
+
+	// return the chains and the doneFunc
+	return chains, func() {
 		testsDone <- struct{}{}
 		<-contDone
 	}
-
-	return chains, doneFunc
 }
 
-func cleanUpTest(t *testing.T, testsDone <-chan struct{}, contDone chan<- struct{}, resources []*dockertest.Resource, pool *dockertest.Pool, dir string) {
-	// BLOCK HERE TILL CHANNEL SEND
+// cleanUpTest is called as a goroutine to wait until the tests have completed and cleans up the docker containers and relayer config
+func cleanUpTest(t *testing.T, testsDone <-chan struct{}, contDone chan<- struct{}, resources []*dockertest.Resource, pool *dockertest.Pool, dir string, chains []*Chain) {
+	// block here until tests are complete
 	<-testsDone
 
 	// clean up the tmp dir
@@ -168,21 +241,44 @@ func cleanUpTest(t *testing.T, testsDone <-chan struct{}, contDone chan<- struct
 	}
 
 	// remove all the docker containers
-	for _, r := range resources {
+	for i, r := range resources {
 		if err := pool.Purge(r); err != nil {
 			t.Errorf("Could not purge container %s: %w", r.Container.Name, err)
 		}
+		c := getLoggingChain(chains, r)
+		chains[i].Log(fmt.Sprintf("- [%s] SPUN DOWN CONTAINER %s from %s", c.ChainID, r.Container.Name, r.Container.Config.Image))
 	}
 
 	// Notify the other side that we have deleted the docker containers
 	contDone <- struct{}{}
 }
 
-func spinUpContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *dockertest.Pool, c *Chain, dir string, wg *sync.WaitGroup) {
+// for the love of logs https://www.youtube.com/watch?v=DtsKcHmceqY
+func getLoggingChain(chns []*Chain, rsr *dockertest.Resource) *Chain {
+	for _, c := range chns {
+		if strings.Contains(rsr.Container.Name, c.ChainID) {
+			return c
+		}
+	}
+	return nil
+}
+
+// spinUpTestContainer spins up a test container with the given configuration
+func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *dockertest.Pool, c *Chain, dir string, wg *sync.WaitGroup, tc testChain) {
 	defer wg.Done()
 	var err error
 	// initialize the chain
-	if err = c.Init(dir, codecstd.NewAppCodec(gaiaCdc), gaiaCdc, defaultTo, true); err != nil {
+
+	// add extra logging if TEST_DEBUG=true
+	var debug bool
+	if val, ok := os.LookupEnv("TEST_DEBUG"); ok {
+		debug, err = strconv.ParseBool(val)
+		if err != nil {
+			debug = false
+		}
+	}
+
+	if err = c.Init(dir, tc.cdc, tc.amino, tc.timeout, debug); err != nil {
 		t.Error(err)
 	}
 
@@ -193,12 +289,12 @@ func spinUpContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *dock
 
 	dockerOpts := &dockertest.RunOptions{
 		Name:         fmt.Sprintf("%s-%s", c.ChainID, t.Name()),
-		Repository:   dockerImage,
-		Tag:          dockerTag,
+		Repository:   tc.dockerImage,
+		Tag:          tc.dockerTag,
 		Cmd:          []string{c.ChainID, c.MustGetAddress().String()},
-		ExposedPorts: []string{defaultPort},
+		ExposedPorts: []string{tc.rpcPort},
 		PortBindings: map[dc.Port][]dc.PortBinding{
-			dc.Port(defaultPort): []dc.PortBinding{{HostPort: c.getRPCPort()}},
+			dc.Port(tc.rpcPort): []dc.PortBinding{{HostPort: c.getRPCPort()}},
 		},
 	}
 
@@ -213,6 +309,8 @@ func spinUpContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *dock
 		t.Errorf("Could not connect to docker: %s", err)
 	}
 
+	c.Log(fmt.Sprintf("- [%s] SPUN UP IN CONTAINER %s from %s", c.ChainID, resource.Container.Name, resource.Container.Config.Image))
+
 	// initalize the lite client
 	if err = c.forceInitLite(); err != nil {
 		t.Error(err)
@@ -221,7 +319,8 @@ func spinUpContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *dock
 	rchan <- resource
 }
 
-func testChain(chainID string) *Chain {
+// newTestChain generates a new instance of *Chain with a free TCP port configured as the RPC port
+func newTestChain(chainID string) *Chain {
 	_, port, err := server.FreeTCPAddr()
 	if err != nil {
 		return nil
@@ -239,7 +338,7 @@ func testChain(chainID string) *Chain {
 }
 
 func genTestPathAndSet(src, dst *Chain, srcPort, dstPort string) (*Path, error) {
-	path := genTestPath(src, dst, srcPort, dstPort)
+	path := GenPath(src.ChainID, dst.ChainID, srcPort, dstPort)
 	if err := src.SetPath(path.Src); err != nil {
 		return nil, err
 	}
@@ -247,33 +346,4 @@ func genTestPathAndSet(src, dst *Chain, srcPort, dstPort string) (*Path, error) 
 		return nil, err
 	}
 	return path, nil
-}
-
-func genTestPath(src, dst *Chain, srcPort, dstPort string) *Path {
-	return &Path{
-		Src: &PathEnd{
-			ChainID:      src.ChainID,
-			ClientID:     randString(10),
-			ConnectionID: randString(10),
-			ChannelID:    randString(10),
-			PortID:       srcPort,
-		},
-		Dst: &PathEnd{
-			ChainID:      dst.ChainID,
-			ClientID:     randString(10),
-			ConnectionID: randString(10),
-			ChannelID:    randString(10),
-			PortID:       dstPort,
-		},
-	}
-}
-
-func randString(length int) string {
-	chars := []rune("abcdefghijklmnopqrstuvwxyz")
-	var b strings.Builder
-	for i := 0; i < length; i++ {
-		i, _ := rand.Int(rand.Reader, big.NewInt(int64(len(chars))))
-		b.WriteRune(chars[i.Int64()])
-	}
-	return b.String()
 }

@@ -507,8 +507,8 @@ func logChannelStates(src, dst *Chain, conn map[string]chanTypes.ChannelResponse
 	))
 }
 
-// ClearQueues creates transactions to clear both queues
-func ClearQueues(src, dst *Chain) error {
+// RelayUnRelayedPacketsOrderedChan creates transactions to clear both queues
+func RelayUnRelayedPacketsOrderedChan(src, dst *Chain) error {
 	// Update lite clients, headers to be used later
 	hs, err := UpdatesWithHeaders(src, dst)
 	if err != nil {

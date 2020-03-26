@@ -4,10 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
-	"strings"
-	"time"
 
 	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
@@ -48,23 +45,7 @@ func pathsGenCmd() *cobra.Command {
 				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
 			}
 
-			path := &relayer.Path{
-				Strategy: relayer.NewNaiveStrategy(),
-				Src: &relayer.PathEnd{
-					ChainID:      src,
-					ClientID:     randString(16),
-					ConnectionID: randString(16),
-					ChannelID:    randString(16),
-					PortID:       "transfer",
-				},
-				Dst: &relayer.PathEnd{
-					ChainID:      dst,
-					ClientID:     randString(16),
-					ConnectionID: randString(16),
-					ChannelID:    randString(16),
-					PortID:       "transfer",
-				},
-			}
+			path := relayer.GenPath(src, dst, "transfer", "transfer")
 
 			pths, err := config.Paths.Add(args[2], path)
 			if err != nil {
@@ -375,18 +356,4 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 	out.Paths = paths
 
 	return out, nil
-}
-
-// NOTE: This is insecure randomness using math/random. This should be migrated to
-// relayer.GenerateRandomString which is using the system PRNG, but that function
-// needs to be modified to output only lowercase letters to ensure that identifiers
-// pass validation once generated.
-func randString(length int) string {
-	rand.Seed(time.Now().UnixNano())
-	chars := []rune("abcdefghijklmnopqrstuvwxyz")
-	var b strings.Builder
-	for i := 0; i < length; i++ {
-		b.WriteRune(chars[rand.Intn(len(chars))])
-	}
-	return b.String()
 }

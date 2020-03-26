@@ -9,26 +9,27 @@ import (
 )
 
 var (
-	// docker configuration
-	dockerImage = "jackzampolin/gaiatest"
-	dockerTag   = "jack_relayer-testing"
-	defaultPort = "26657"
-	xferPort    = "transfer"
-
-	// GAIA BLOCK TIMEOUTS
-	// timeout_commit = "500ms"
-	// timeout_propose = "500ms"
-	defaultTo = 1 * time.Second
+	xferPort = "transfer"
 
 	// gaia codec for the chainz
-	gaiaCdc = codecstd.MakeCodec(simapp.ModuleBasics)
+	gaiaCdc      = codecstd.MakeCodec(simapp.ModuleBasics)
+	aminoGaiaCdc = codecstd.NewAppCodec(gaiaCdc)
 )
 
 func TestBasicTransfer(t *testing.T) {
-	srcCID, dstCID := "ibc0", "ibc1"
-	chains, doneFunc := spinUpTestChains(t, srcCID, dstCID)
+	tcs := []testChain{
+		// GAIA BLOCK TIMEOUTS on jackzampolin/gaiatest:jack_relayer-testing
+		// timeout_commit = "500ms"
+		// timeout_propose = "500ms"
+		// relayer 1 second timeout
+		{"ibc0", "jackzampolin/gaiatest", "jack_relayer-testing", aminoGaiaCdc, gaiaCdc, "26657", 1 * time.Second},
+		{"ibc1", "jackzampolin/gaiatest", "jack_relayer-testing", aminoGaiaCdc, gaiaCdc, "26657", 1 * time.Second},
+	}
+
+	chains, doneFunc := spinUpTestChains(t, tcs...)
 	t.Cleanup(doneFunc)
-	src, dst := chains.MustGet(srcCID), chains.MustGet(dstCID)
+
+	src, dst := chains.MustGet(tcs[0].chainID), chains.MustGet(tcs[1].chainID)
 
 	if _, err := genTestPathAndSet(src, dst, xferPort, xferPort); err != nil {
 		t.Error(err)
@@ -39,12 +40,13 @@ func TestBasicTransfer(t *testing.T) {
 		t.Error(err)
 	}
 
+	// Test querying clients from src and dst sides
 	if err := testClientPair(src, dst); err != nil {
 		t.Error(err)
 	}
 
 	// Check if connection has been created, if not create it
-	if err := src.CreateConnection(dst, defaultTo); err != nil {
+	if err := src.CreateConnection(dst, src.timeout); err != nil {
 		t.Error(err)
 	}
 
@@ -54,7 +56,12 @@ func TestBasicTransfer(t *testing.T) {
 	}
 
 	// Check if channel has been created, if not create it
-	if err := src.CreateChannel(dst, true, defaultTo); err != nil {
+	if err := src.CreateChannel(dst, true, src.timeout); err != nil {
+		t.Error(err)
+	}
+
+	// Test querying channels from src and dst sides
+	if err := testChannelPair(src, dst); err != nil {
 		t.Error(err)
 	}
 }
