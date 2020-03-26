@@ -142,8 +142,10 @@ func (c *Chain) QueryClientConsensusState(srcHeight, srcClientConsHeight int64) 
 	}
 
 	var cs exported.ConsensusState
-	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
-		return conStateRes, qClntConsStateErr(err)
+	if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
+		if err = c.Amino.UnmarshalBinaryBare(res.Value, &cs); err != nil {
+			return conStateRes, qClntConsStateErr(err)
+		}
 	}
 
 	return clientTypes.NewConsensusStateResponse(c.PathEnd.ClientID, cs, res.Proof, res.Height), nil
@@ -219,6 +221,9 @@ func (c *Chain) QueryClientState() (clientTypes.StateResponse, error) {
 
 	var cs exported.ClientState
 	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
+		if err = c.Amino.UnmarshalBinaryBare(res.Value, &cs); err != nil {
+			return conStateRes, qClntConsStateErr(err)
+		}
 		return conStateRes, qClntStateErr(err)
 	}
 
@@ -331,8 +336,10 @@ func (c *Chain) QueryConnectionsUsingClient(height int64) (clientConns connTypes
 	}
 
 	var paths []string
-	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &paths); err != nil {
-		return clientConns, qConnsUsingClntsErr(err)
+	if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &paths); err != nil {
+		if err = c.Amino.UnmarshalBinaryBare(res.Value, &paths); err != nil {
+			return clientConns, qConnsUsingClntsErr(err)
+		}
 	}
 
 	return connTypes.NewClientConnectionsResponse(c.PathEnd.ClientID, paths, res.Proof, res.Height), nil
@@ -364,8 +371,10 @@ func (c *Chain) QueryConnection(height int64) (connTypes.ConnectionResponse, err
 	}
 
 	var connection connTypes.ConnectionEnd
-	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &connection); err != nil {
-		return connTypes.ConnectionResponse{}, qConnErr(err)
+	if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &connection); err != nil {
+		if err = c.Amino.UnmarshalBinaryBare(res.Value, &connection); err != nil {
+			return connTypes.ConnectionResponse{}, qConnErr(err)
+		}
 	}
 
 	return connTypes.NewConnectionResponse(c.PathEnd.ConnectionID, connection, res.Proof, res.Height), nil
@@ -450,8 +459,10 @@ func (c *Chain) QueryChannel(height int64) (chanRes chanTypes.ChannelResponse, e
 	}
 
 	var channel chanTypes.Channel
-	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &channel); err != nil {
-		return chanRes, qChanErr(err)
+	if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &channel); err != nil {
+		if err = c.Amino.UnmarshalBinaryBare(res.Value, &channel); err != nil {
+			return chanRes, qChanErr(err)
+		}
 	}
 
 	return chanTypes.NewChannelResponse(c.PathEnd.PortID, c.PathEnd.ChannelID, channel, res.Proof, res.Height), nil
