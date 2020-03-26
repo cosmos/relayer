@@ -1,6 +1,5 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
-TEST_DOCKER_REPO=jackzampolin/gaiatest
 all: ci-lint ci-test install
 
 ###############################################################################
@@ -28,7 +27,6 @@ build-zip: go.sum
 	@GOOS=windows GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/windows-amd64-rly.exe main.go
 	@tar -czvf release.tar.gz ./build
 
-
 install: go.sum
 	@echo "installing rly binary..."
 	@go build -mod=readonly $(BUILD_FLAGS) -o ${GOBIN}/rly main.go
@@ -36,8 +34,8 @@ install: go.sum
 ###############################################################################
 # Tests / CI
 ###############################################################################
-# test:
-# 	@docker run -d -p 26657:26657 ${TEST_DOCKER_REPO}/
+test:
+	@go test -v ./relayer/...
 
 coverage:
 	@echo "viewing test coverage..."
