@@ -20,7 +20,7 @@ import (
 
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
-	"github.com/cosmos/go-bip39"
+	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -60,11 +60,11 @@ func keysAddCmd() *cobra.Command {
 				keyName = chain.Key
 			}
 
-			if keyExists(chain.Keybase, keyName) {
+			if chain.KeyExists(keyName) {
 				return errKeyExists(keyName)
 			}
 
-			mnemonic, err := createMnemonic()
+			mnemonic, err := relayer.CreateMnemonic()
 			if err != nil {
 				return err
 			}
@@ -102,7 +102,7 @@ func keysRestoreCmd() *cobra.Command {
 				return err
 			}
 
-			if keyExists(chain.Keybase, keyName) {
+			if chain.KeyExists(keyName) {
 				return errKeyExists(keyName)
 			}
 
@@ -139,7 +139,7 @@ func keysDeleteCmd() *cobra.Command {
 				keyName = chain.Key
 			}
 
-			if !keyExists(chain.Keybase, keyName) {
+			if !chain.KeyExists(keyName) {
 				return errKeyDoesntExist(keyName)
 			}
 
@@ -207,7 +207,7 @@ func keysShowCmd() *cobra.Command {
 				keyName = chain.Key
 			}
 
-			if !keyExists(chain.Keybase, keyName) {
+			if !chain.KeyExists(keyName) {
 				return errKeyDoesntExist(keyName)
 			}
 
@@ -238,7 +238,7 @@ func keysExportCmd() *cobra.Command {
 				return err
 			}
 
-			if !keyExists(chain.Keybase, keyName) {
+			if !chain.KeyExists(keyName) {
 				return errKeyDoesntExist(keyName)
 			}
 
@@ -252,32 +252,4 @@ func keysExportCmd() *cobra.Command {
 	}
 
 	return cmd
-}
-
-// returns true if there is a specified key in the keybase
-func keyExists(kb keys.Keybase, name string) bool {
-	keyInfos, err := kb.List()
-	if err != nil {
-		return false
-	}
-
-	for _, k := range keyInfos {
-		if k.GetName() == name {
-			return true
-		}
-	}
-	return false
-}
-
-// Returns a new mnemonic
-func createMnemonic() (string, error) {
-	entropySeed, err := bip39.NewEntropy(256)
-	if err != nil {
-		return "", err
-	}
-	mnemonic, err := bip39.NewMnemonic(entropySeed)
-	if err != nil {
-		return "", err
-	}
-	return mnemonic, nil
 }

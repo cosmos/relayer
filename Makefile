@@ -1,6 +1,6 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
-
+TEST_DOCKER_REPO=jackzampolin/gaiatest
 all: ci-lint ci-test install
 
 ###############################################################################
@@ -36,6 +36,8 @@ install: go.sum
 ###############################################################################
 # Tests / CI
 ###############################################################################
+# test:
+# 	@docker run -d -p 26657:26657 ${TEST_DOCKER_REPO}/
 
 coverage:
 	@echo "viewing test coverage..."

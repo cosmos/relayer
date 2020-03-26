@@ -1,5 +1,7 @@
 # Relayer
 
+![GOZ](./docs/images/github-repo-banner.png)
+
 ![CI Script](https://github.com/iqlusioninc/relayer/workflows/Build%20then%20run%20CI%20Chains/badge.svg)
 
 The Cosmos IBC `relayer` package contains a basic relayer implementation that are
