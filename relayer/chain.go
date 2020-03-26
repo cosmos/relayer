@@ -57,48 +57,37 @@ type Chain struct {
 
 // Init initializes the pieces of a chain that aren't set when it parses a config
 // NOTE: All validation of the chain should happen here.
-func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.Codec, timeout time.Duration, debug bool) (*Chain, error) {
+func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.Codec, timeout time.Duration, debug bool) error {
 	keybase, err := keys.NewKeyring(src.ChainID, "test", keysDir(homePath), nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	client, err := newRPCClient(src.RPCAddr, timeout)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	_, err = sdk.ParseDecCoins(src.GasPrices)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	_, err = time.ParseDuration(src.TrustingPeriod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse trusting period (%s) for chain %s", src.TrustingPeriod, src.ChainID)
+		return fmt.Errorf("failed to parse trusting period (%s) for chain %s", src.TrustingPeriod, src.ChainID)
 	}
 
-	return &Chain{
-		Key:            src.Key,
-		ChainID:        src.ChainID,
-		RPCAddr:        src.RPCAddr,
-		AccountPrefix:  src.AccountPrefix,
-		Gas:            src.Gas,
-		GasAdjustment:  src.GasAdjustment,
-		GasPrices:      src.GasPrices,
-		DefaultDenom:   src.DefaultDenom,
-		Memo:           src.Memo,
-		TrustingPeriod: src.TrustingPeriod,
-		Keybase:        keybase,
-		Client:         client,
-		Cdc:            cdc,
-		Amino:          amino,
-		HomePath:       homePath,
-		logger:         log.NewTMLogger(log.NewSyncWriter(os.Stdout)),
-		timeout:        timeout,
-		debug:          debug,
-		faucetAddrs:    make(map[string]time.Time),
-	}, nil
+	src.Keybase = keybase
+	src.Client = client
+	src.Cdc = cdc
+	src.Amino = amino
+	src.HomePath = homePath
+	src.logger = log.NewTMLogger(log.NewSyncWriter(os.Stdout))
+	src.timeout = timeout
+	src.debug = debug
+	src.faucetAddrs = make(map[string]time.Time)
+	return nil
 }
 
 // KeyExists returns true if there is a specified key in chain's keybase
@@ -434,4 +423,16 @@ func CreateMnemonic() (string, error) {
 		return "", err
 	}
 	return mnemonic, nil
+}
+
+func (src *Chain) statusErr() error {
+	stat, err := src.Client.Status()
+	switch {
+	case err != nil:
+		return err
+	case stat.SyncInfo.LatestBlockHeight < 3:
+		return fmt.Errorf("haven't produced any blocks yet")
+	default:
+		return nil
+	}
 }

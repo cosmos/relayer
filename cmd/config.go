@@ -217,21 +217,17 @@ func (c *Config) DeleteChain(chain string) *Config {
 
 // Called to initialize the relayer.Chain types on Config
 func validateConfig(c *Config) error {
-	var new = &Config{Global: c.Global, Chains: relayer.Chains{}, Paths: c.Paths}
-	to, err := time.ParseDuration(new.Global.Timeout)
+	to, err := time.ParseDuration(config.Global.Timeout)
 	if err != nil {
 		return err
 	}
 
 	for _, i := range c.Chains {
-		chain, err := i.Init(homePath, appCodec, cdc, to, debug)
-		if err != nil {
+		if err := i.Init(homePath, appCodec, cdc, to, debug); err != nil {
 			return err
 		}
-		new.Chains = append(new.Chains, chain)
 	}
-	// Reset the config var
-	config = new
+
 	return nil
 }
 
