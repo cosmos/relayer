@@ -83,11 +83,15 @@ func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.C
 	src.Cdc = cdc
 	src.Amino = amino
 	src.HomePath = homePath
-	src.logger = log.NewTMLogger(log.NewSyncWriter(os.Stdout))
+	src.logger = defaultChainLogger()
 	src.timeout = timeout
 	src.debug = debug
 	src.faucetAddrs = make(map[string]time.Time)
 	return nil
+}
+
+func defaultChainLogger() log.Logger {
+	return log.NewTMLogger(log.NewSyncWriter(os.Stdout))
 }
 
 // KeyExists returns true if there is a specified key in chain's keybase
