@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"dos-ibc","rpc-addr":"http://goz.dos.network:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025cdos","default-denom":"cdos","trusting-period":"330h"}
