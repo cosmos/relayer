@@ -12,6 +12,7 @@ import (
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	dbm "github.com/tendermint/tm-db"
 
+	retry "github.com/avast/retry-go"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
 	lite "github.com/tendermint/tendermint/lite2"
@@ -171,10 +172,13 @@ func (c *Chain) TrustNodeInitClient(db *dbm.GoLevelDB) (*lite.Client, error) {
 // NewLiteDB returns a new instance of the liteclient database connection
 // CONTRACT: must close the database connection when done with it (defer df())
 func (c *Chain) NewLiteDB() (db *dbm.GoLevelDB, df func(), err error) {
-	db, err = dbm.NewGoLevelDB(c.ChainID, liteDir(c.HomePath))
-	if err != nil {
-		return nil, nil, fmt.Errorf("can't open lite client database: %w", err)
-	}
+	retry.Do(func() error {
+		db, err = dbm.NewGoLevelDB(c.ChainID, liteDir(c.HomePath))
+		if err != nil {
+			return fmt.Errorf("can't open lite client database: %w", err)
+		}
+		return nil
+	})
 
 	df = func() {
 		err := db.Close()

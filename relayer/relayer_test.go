@@ -166,6 +166,11 @@ func TestStreamingRelayer(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 
+	srcMid, _ := src.QueryBalance(src.Key)
+	t.Log(srcMid)
+	dstMid, _ := dst.QueryBalance(dst.Key)
+	t.Log(dstMid)
+
 	strat, err := path.GetStrategy()
 	require.NoError(t, err)
 

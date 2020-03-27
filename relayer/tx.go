@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connState "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/exported"
@@ -600,7 +601,7 @@ func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk
 		srcCommitRes CommitmentResponse
 	)
 
-	for {
+	if err = retry.Do(func() error {
 		hs, err = UpdatesWithHeaders(src, dst)
 		if err != nil {
 			return err
@@ -622,10 +623,12 @@ func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk
 		}
 
 		if srcCommitRes.Proof.Proof == nil {
-			continue
-		} else {
-			break
+			return fmt.Errorf("proof nil, retrying")
 		}
+
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	// reconstructing packet data here instead of retrieving from an indexed node
@@ -733,13 +736,16 @@ func (src *Chain) packetMsg(dst *Chain, dstH *tmclient.Header, xferPacket chanSt
 		dstCommitRes CommitmentResponse
 	)
 
-	dstCommitRes, err = dst.QueryPacketCommitment(dstH.Height-1, int64(seq))
-	if err != nil {
+	if err = retry.Do(func() error {
+		dstCommitRes, err = dst.QueryPacketCommitment(dstH.Height-1, int64(seq))
+		if err != nil {
+			return err
+		} else if dstCommitRes.Proof.Proof == nil {
+			return fmt.Errorf("[%s]@{%d} - Packet Commitment Proof is nil seq(%d)", dst.ChainID, dstH.Height-1, seq)
+		}
+		return nil
+	}); err != nil {
 		return nil, err
-	}
-
-	if dstCommitRes.Proof.Proof == nil {
-		return nil, fmt.Errorf("[%s]@{%d} - Packet Commitment Proof is nil seq(%d)", dst.ChainID, dstH.Height-1, seq)
 	}
 
 	return src.PathEnd.MsgRecvPacket(dst.PathEnd, uint64(seq), xferPacket,

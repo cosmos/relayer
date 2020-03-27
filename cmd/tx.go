@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
@@ -296,7 +297,7 @@ func transferCmd() *cobra.Command {
 				srcCommitRes relayer.CommitmentResponse
 			)
 
-			for {
+			if err = retry.Do(func() error {
 				hs, err = relayer.UpdatesWithHeaders(c[src], c[dst])
 				if err != nil {
 					return err
@@ -318,10 +319,11 @@ func transferCmd() *cobra.Command {
 				}
 
 				if srcCommitRes.Proof.Proof == nil {
-					continue
-				} else {
-					break
+					return fmt.Errorf("nil proof, retrying")
 				}
+				return nil
+			}); err != nil {
+				return err
 			}
 
 			// reconstructing packet data here instead of retrieving from an indexed node

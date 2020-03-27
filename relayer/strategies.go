@@ -8,6 +8,7 @@ import (
 	"strings"
 	"syscall"
 
+	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
@@ -151,18 +152,21 @@ func (src *Chain) sendPacket(dst *Chain, xferPacket chanState.PacketDataI, seq i
 		dst.Error(err)
 	}
 
-	dstH, err = dst.UpdateLiteWithHeader()
-	if err != nil {
+	if err = retry.Do(func() error {
+		dstH, err = dst.UpdateLiteWithHeader()
+		if err != nil {
+			return err
+		}
+		dstCommitRes, err = dst.QueryPacketCommitment(dstH.Height-1, int64(seq))
+		if err != nil {
+			return err
+		} else if dstCommitRes.Proof.Proof == nil {
+			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)", dst.ChainID, dstH.Height-1, seq)
+		}
+		return nil
+	}); err != nil {
 		dst.Error(err)
-
-	}
-	dstCommitRes, err = dst.QueryPacketCommitment(dstH.Height-1, int64(seq))
-	if err != nil {
-		dst.Error(err)
-	}
-
-	if dstCommitRes.Proof.Proof == nil {
-		dst.Error(fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)", dst.ChainID, dstH.Height-1, seq))
+		return
 	}
 
 	txs := &RelayMsgs{

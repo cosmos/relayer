@@ -3,6 +3,7 @@ module github.com/iqlusioninc/relayer
 go 1.13
 
 require (
+	github.com/avast/retry-go v2.6.0+incompatible
 	github.com/btcsuite/btcd v0.0.0-20190807005414-4063feeff79a // indirect
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
 	github.com/containerd/continuity v0.0.0-20200228182428-0f16d7a0959c // indirect
