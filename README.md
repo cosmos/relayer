@@ -11,9 +11,9 @@ interested in building their own relayer can come for working examples.
 
 The team that brought you Game of Stakes will be bringing you Game of Zones this May for the Cosmos community this may.
 
-Learn more about [Game of Zones]<https://goz.cosmosnetwork.dev/).>
+Learn more about [Game of Zones](https://goz.cosmosnetwork.dev/).
 
-The best place for questions is gameofzones@cosmosnetwork.dev regarding Game of Zones and prepratory testnets.
+The best place for questions is [gameofzones@cosmosnetwork.dev](mailto:gameofzones@cosmosnetwork.dev) regarding Game of Zones and prepratory testnets.
 
 ## Code of Conduct
 
@@ -93,14 +93,15 @@ $ rly q balance ibc1
 # You can change the amount of fees you are paying on each chain in the configuration.
 ```
 
-> NOTE: The relayer relies on `cosmos/cosmos-sdk@ibc-alpha` and `tendermint/tendermint@v0.33.0-dev2`. If you run into problems building it likely related to those dependancies. Also the `two-chainz` script requires that the `cosmos/gaia` and `iqlusion/relayer` repos be present locally and buildable. Read the script and change the paths as needed.
+> NOTE: The relayer relies on `cosmos/cosmos-sdk@ibc-alpha`. If you run into problems building it likely related to this dependancy. Also the `two-chainz` script requires that the `cosmos/gaia` and `iqlusion/relayer` repos be present locally and buildable. Read the script and change the paths as needed if you are using another repo.
 
 ## Next items
 
-- [ ] Setup Versioning
-- [ ] Split the xfer command into xfer-send and xfer-recv
-- [ ] Wire up packet ack and timeout
-- [ ] get naive relay strategy working properly
+- [ ] Path negotiation reuse commands
+- [ ] Integration test framework: additional tests
+- [ ] Integration test framework: additional chains
+- [ ] Less lite client database access, concurrent header map
+- [ ] Exponential backoff queries for proofs
 
 ## Setting up Developer Environment
 
