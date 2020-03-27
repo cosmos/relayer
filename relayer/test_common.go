@@ -68,7 +68,7 @@ type (
 // spinUpTestChains is to be passed any number of test chains with given configuration options
 // to be created as individual docker containers at the beginning of a test. It is safe to run
 // in parallel tests as all created resources are independent of eachother
-func spinUpTestChains(t *testing.T, testChains ...testChain) (Chains, func()) {
+func spinUpTestChains(t *testing.T, testChains ...testChain) Chains {
 	var (
 		resources []*dockertest.Resource
 		chains    []*Chain
@@ -115,11 +115,13 @@ func spinUpTestChains(t *testing.T, testChains ...testChain) (Chains, func()) {
 	// start the wait for cleanup function
 	go cleanUpTest(t, testsDone, contDone, resources, pool, dir, chains)
 
-	// return the chains and the doneFunc
-	return chains, func() {
+	// set the test's cleanup function
+	t.Cleanup(func() {
 		testsDone <- struct{}{}
 		<-contDone
-	}
+	})
+	// return the chains and the doneFunc
+	return chains
 }
 
 // spinUpTestContainer spins up a test container with the given configuration

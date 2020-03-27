@@ -17,6 +17,15 @@ var (
 	// blEvents = "tm.event = 'NewBlock'"
 )
 
+// MustGetStrategy returns the strategy and panics on error
+func (r *Path) MustGetStrategy() Strategy {
+	strat, err := r.GetStrategy()
+	if err != nil {
+		panic(err)
+	}
+	return strat
+}
+
 // GetStrategy the strategy defined in the relay messages
 func (r *Path) GetStrategy() (Strategy, error) {
 	switch r.Strategy.Type {
@@ -100,7 +109,8 @@ func (nrs NaiveStrategy) Run(src, dst *Chain) (chan<- struct{}, error) {
 
 	// first, we want to ensure that there are no packets remaining to be relayed
 	if err := RelayUnRelayedPacketsOrderedChan(src, dst); err != nil {
-		// TODO: better error handling here
+		// TODO: some errors may leak here when there are no packets to be relayed
+		// be on the lookout for that
 		return nil, err
 	}
 
@@ -110,6 +120,7 @@ func (nrs NaiveStrategy) Run(src, dst *Chain) (chan<- struct{}, error) {
 }
 
 func nrsLoop(src, dst *Chain, doneChan chan struct{}) {
+	// Subscribe to source chain
 	srcEvents, srcCancel, err := src.Subscribe(txEvents)
 	if err != nil {
 		src.Error(err)
@@ -118,6 +129,7 @@ func nrsLoop(src, dst *Chain, doneChan chan struct{}) {
 	defer srcCancel()
 	src.Log(fmt.Sprintf("- listening to events from %s...", src.ChainID))
 
+	// Subscribe to destination chain
 	dstEvents, dstCancel, err := dst.Subscribe(txEvents)
 	if err != nil {
 		dst.Error(err)
@@ -126,6 +138,7 @@ func nrsLoop(src, dst *Chain, doneChan chan struct{}) {
 	defer dstCancel()
 	dst.Log(fmt.Sprintf("- listening to events from %s...", dst.ChainID))
 
+	// Listen to channels and take appropriate action
 	for {
 		select {
 		case srcMsg := <-srcEvents:
