@@ -100,16 +100,16 @@ func TestStreamingRelayer(t *testing.T) {
 	t.Parallel()
 	chains := spinUpTestChains(t, gaiaChains...)
 
-	src, dst := chains.MustGet(gaiaChains[0].chainID), chains.MustGet(gaiaChains[1].chainID)
-
-	path, err := genTestPathAndSet(src, dst, "transfer", "transfer")
-	require.NoError(t, err)
-
 	var (
+		src         = chains.MustGet(gaiaChains[0].chainID)
+		dst         = chains.MustGet(gaiaChains[1].chainID)
 		testDenom   = "samoleans"
 		testCoin    = sdk.NewCoin(testDenom, sdk.NewInt(1000))
 		twoTestCoin = sdk.NewCoin(testDenom, sdk.NewInt(2000))
 	)
+
+	path, err := genTestPathAndSet(src, dst, "transfer", "transfer")
+	require.NoError(t, err)
 
 	// query initial balances to compare against at the end
 	srcExpected, err := src.QueryBalance(src.Key)
@@ -145,7 +145,7 @@ func TestStreamingRelayer(t *testing.T) {
 	require.NoError(t, dst.WaitForNBlocks(4))
 
 	// kill relayer routine
-	done <- struct{}{}
+	done()
 
 	// check balance on src against expected
 	srcGot, err := src.QueryBalance(src.Key)

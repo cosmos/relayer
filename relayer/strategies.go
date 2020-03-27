@@ -61,7 +61,7 @@ type Strategy interface {
 	// it returns a recieve only channel that is used to wait for
 	// the strategy to be ready to relay, and a done channel
 	// that shuts down the relayer when it is time to exit
-	Run(*Chain, *Chain) (chan<- struct{}, error)
+	Run(*Chain, *Chain) (func(), error)
 }
 
 // NewNaiveStrategy Returns a new NaiveStrategy config
@@ -104,7 +104,7 @@ func (nrs NaiveStrategy) GetConstraints() map[string]string {
 }
 
 // Run implements Strategy and defines what actions are taken when the relayer runs
-func (nrs NaiveStrategy) Run(src, dst *Chain) (chan<- struct{}, error) {
+func (nrs NaiveStrategy) Run(src, dst *Chain) (func(), error) {
 	doneChan := make(chan struct{})
 
 	// first, we want to ensure that there are no packets remaining to be relayed
@@ -116,7 +116,7 @@ func (nrs NaiveStrategy) Run(src, dst *Chain) (chan<- struct{}, error) {
 
 	go nrsLoop(src, dst, doneChan)
 
-	return doneChan, nil
+	return func() { doneChan <- struct{}{} }, nil
 }
 
 func nrsLoop(src, dst *Chain, doneChan chan struct{}) {

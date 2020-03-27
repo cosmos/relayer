@@ -56,7 +56,7 @@ func startCmd() *cobra.Command {
 }
 
 // trap signal waits for a SIGINT or SIGTERM and then sends down the done channel
-func trapSignal(done chan<- struct{}) {
+func trapSignal(done func()) {
 	sigCh := make(chan os.Signal)
 
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -66,6 +66,6 @@ func trapSignal(done chan<- struct{}) {
 	fmt.Println("Signal Recieved:", sig.String())
 	close(sigCh)
 
-	// notify the done channel
-	done <- struct{}{}
+	// call the cleanup func
+	done()
 }
