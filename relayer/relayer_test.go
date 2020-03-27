@@ -1,207 +1,192 @@
 package relayer
 
 import (
-	"crypto/rand"
 	"fmt"
-	"io/ioutil"
-	"log"
-	"math/big"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
-	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
-	"github.com/cosmos/cosmos-sdk/server"
-	"github.com/cosmos/cosmos-sdk/simapp"
-	"github.com/ory/dockertest/v3"
-	dc "github.com/ory/dockertest/v3/docker"
-)
-
-var (
-	// docker configuration
-	dockerImage = "jackzampolin/gaiatest"
-	dockerTag   = "jack_relayer-testing"
-	defaultPort = "26657"
-	xferPort    = "transfer"
-	defaultTo   = 3 * time.Second
-
-	// gaia codec for the chainz
-	gaiaCdc = codecstd.MakeCodec(simapp.ModuleBasics)
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBasicTransfer(t *testing.T) {
-	chains, testsDone, containersDone, err := spinUpTestChains("ibc0", "ibc1")
-	if err != nil {
-		t.Error(err)
+	tcs := []testChain{
+		{"ibc0", gaiaTestConfig},
+		{"ibc1", gaiaTestConfig},
 	}
 
-	src, dst := chains[0], chains[1]
-	if _, err := genTestPathAndSet(src, dst, xferPort, xferPort); err != nil {
-		t.Error(err)
-	}
+	chains, doneFunc := spinUpTestChains(t, tcs...)
+	t.Cleanup(doneFunc)
 
-	// Check if clients have been created, if not create them
-	if err := src.CreateClients(dst); err != nil {
-		t.Error(err)
-	}
+	src, dst := chains.MustGet(tcs[0].chainID), chains.MustGet(tcs[1].chainID)
 
-	// Check if connection has been created, if not create it
-	if err := src.CreateConnection(dst, defaultTo); err != nil {
-		t.Error(err)
-	}
+	_, err := genTestPathAndSet(src, dst, "transfer", "transfer")
+	require.NoError(t, err)
 
-	// Check if channel has been created, if not create it
-	if err := src.CreateChannel(dst, true, defaultTo); err != nil {
-		t.Error(err)
-	}
-
-	testsDone <- struct{}{}
-	<-containersDone
-}
-
-func spinUpTestChains(chainIDs ...string) (Chains, chan<- struct{}, <-chan struct{}, error) {
-	// Initialize variables
 	var (
-		resources []*dockertest.Resource
-		chains    []*Chain
-		testsDone = make(chan struct{})
-		contDone  = make(chan struct{})
-		// wg        sync.WaitGroup
+		testDenom    = "samoleans"
+		dstDenom     = fmt.Sprintf("%s/%s/%s", dst.PathEnd.PortID, dst.PathEnd.ChannelID, testDenom)
+		testCoin     = sdk.NewCoin(testDenom, sdk.NewInt(1000))
+		expectedCoin = sdk.NewCoin(dstDenom, sdk.NewInt(1000))
 	)
 
-	for _, id := range chainIDs {
-		chains = append(chains, testChain(id))
-	}
+	// Check if clients have been created, if not create them
+	err = src.CreateClients(dst)
+	require.NoError(t, err)
 
-	// Create temporary relayer test directory
-	dir, err := ioutil.TempDir("", "relayer-test")
-	if err != nil {
-		return nil, nil, nil, err
-	}
+	// Test querying clients from src and dst sides
+	testClientPair(t, src, dst)
 
-	// uses a sensible default on windows (tcp/http) and linux/osx (socket)
-	pool, err := dockertest.NewPool("")
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("Could not connect to docker: %w", err)
-	}
+	// Check if connection has been created, if not create it
+	err = src.CreateConnection(dst, src.timeout)
+	require.NoError(t, err)
 
-	for _, c := range chains {
-		// initialize the chain
-		if err = c.Init(dir, codecstd.NewAppCodec(gaiaCdc), gaiaCdc, defaultTo, true); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to initialize chain: %w", err)
-		}
+	// Test querying connections from src and dst sides
+	testConnectionPair(t, src, dst)
 
-		// create the test key
-		if err = c.createTestKey(); err != nil {
-			return nil, nil, nil, err
-		}
+	// Check if channel has been created, if not create it
+	err = src.CreateChannel(dst, true, src.timeout)
+	require.NoError(t, err)
 
-		dockerOpts := &dockertest.RunOptions{
-			Name:         fmt.Sprintf("%s-%s", c.ChainID, randString(8)),
-			Repository:   dockerImage,
-			Tag:          dockerTag,
-			Cmd:          []string{c.ChainID, c.MustGetAddress().String()},
-			ExposedPorts: []string{defaultPort},
-			PortBindings: map[dc.Port][]dc.PortBinding{
-				dc.Port(defaultPort): []dc.PortBinding{{HostPort: c.getRPCPort()}},
-			},
-		}
+	// Test querying channels from src and dst sides
+	testChannelPair(t, src, dst)
 
-		// create the proper docker image with port forwarding setup
-		var resource *dockertest.Resource
-		if resource, err = pool.RunWithOptions(dockerOpts); err != nil {
-			return nil, nil, nil, err
-		}
+	err = src.SendTransferBothSides(dst, testCoin, dst.MustGetAddress(), true)
+	require.NoError(t, err)
 
-		// retry polling the container until status doesn't error
-		if err = pool.Retry(c.statusErr); err != nil {
-			return nil, nil, nil, fmt.Errorf("Could not connect to docker: %s", err)
-		}
-
-		// initalize the lite client
-		if err = c.forceInitLite(); err != nil {
-			log.Fatal(err)
-		}
-
-		resources = append(resources, resource)
-	}
-
-	// spin off the cleanup goroutine
-	go func(testsDone <-chan struct{}, contDone chan<- struct{}, resources []*dockertest.Resource, pool *dockertest.Pool, dir string) {
-		// BLOCK HERE TILL CHANNEL SEND
-		<-testsDone
-
-		// clean up the tmp dir
-		os.RemoveAll(dir)
-
-		// remove all the docker containers
-		for _, r := range resources {
-			if err := pool.Purge(r); err != nil {
-				log.Fatalf("Could not purge resource: %s", err)
-			}
-		}
-
-		// Notify the other side that we have deleted the docker containers
-		contDone <- struct{}{}
-	}(testsDone, contDone, resources, pool, dir)
-
-	return chains, testsDone, contDone, nil
+	dstBal, err := dst.QueryBalance(dst.Key)
+	require.NoError(t, err)
+	require.Equal(t, expectedCoin, sdk.NewCoin(dstDenom, dstBal.AmountOf(dstDenom)))
 }
 
-func testChain(chainID string) *Chain {
-	_, port, err := server.FreeTCPAddr()
-	if err != nil {
-		return nil
+func TestRelayUnRelayedPacketsOnOrderedChannel(t *testing.T) {
+	tcs := []testChain{
+		{"ibc0", gaiaTestConfig},
+		{"ibc1", gaiaTestConfig},
 	}
-	return &Chain{
-		Key:            "testkey",
-		ChainID:        chainID,
-		RPCAddr:        fmt.Sprintf("http://localhost:%s", port),
-		AccountPrefix:  "cosmos",
-		Gas:            200000,
-		GasPrices:      "0.025stake",
-		DefaultDenom:   "stake",
-		TrustingPeriod: "330h",
-	}
+
+	chains, doneFunc := spinUpTestChains(t, tcs...)
+	t.Cleanup(doneFunc)
+
+	src, dst := chains.MustGet(tcs[0].chainID), chains.MustGet(tcs[1].chainID)
+
+	_, err := genTestPathAndSet(src, dst, "transfer", "transfer")
+	require.NoError(t, err)
+
+	var (
+		testDenom    = "samoleans"
+		ibc0to1Denom = fmt.Sprintf("%s/%s/%s", dst.PathEnd.PortID, dst.PathEnd.ChannelID, testDenom)
+		ibc1to0Denom = fmt.Sprintf("%s/%s/%s", src.PathEnd.PortID, src.PathEnd.ChannelID, testDenom)
+		testCoin     = sdk.NewCoin(testDenom, sdk.NewInt(1000))
+		dstExpected  = sdk.NewCoin(ibc0to1Denom, sdk.NewInt(2000))
+		srcExpected  = sdk.NewCoin(ibc1to0Denom, sdk.NewInt(2000))
+	)
+
+	err = src.CreateClients(dst)
+	require.NoError(t, err)
+
+	err = src.CreateConnection(dst, src.timeout)
+	require.NoError(t, err)
+
+	err = src.CreateChannel(dst, true, src.timeout)
+	require.NoError(t, err)
+
+	err = src.SendTransferMsg(dst, testCoin, dst.MustGetAddress(), true)
+	require.NoError(t, err)
+
+	err = src.SendTransferMsg(dst, testCoin, dst.MustGetAddress(), true)
+	require.NoError(t, err)
+
+	err = dst.SendTransferMsg(src, testCoin, src.MustGetAddress(), true)
+	require.NoError(t, err)
+
+	err = dst.SendTransferMsg(src, testCoin, src.MustGetAddress(), true)
+	require.NoError(t, err)
+
+	time.Sleep(2 * time.Second)
+
+	err = RelayUnRelayedPacketsOrderedChan(src, dst)
+	require.NoError(t, err)
+
+	srcBal, err := src.QueryBalance(src.Key)
+	require.NoError(t, err)
+	require.Equal(t, srcExpected, sdk.NewCoin(ibc1to0Denom, srcBal.AmountOf(ibc1to0Denom)))
+
+	dstBal, err := dst.QueryBalance(dst.Key)
+	require.NoError(t, err)
+	require.Equal(t, dstExpected, sdk.NewCoin(ibc0to1Denom, dstBal.AmountOf(ibc0to1Denom)))
 }
 
-func genTestPathAndSet(src, dst *Chain, srcPort, dstPort string) (*Path, error) {
-	path := genTestPath(src, dst, srcPort, dstPort)
-	if err := src.SetPath(path.Src); err != nil {
-		return nil, err
+func TestStreamingRelayer(t *testing.T) {
+	t.Skip("TestStreamingRelayer currently failing")
+	tcs := []testChain{
+		{"ibc0", gaiaTestConfig},
+		{"ibc1", gaiaTestConfig},
 	}
-	if err := dst.SetPath(path.Dst); err != nil {
-		return nil, err
-	}
-	return path, nil
-}
 
-func genTestPath(src, dst *Chain, srcPort, dstPort string) *Path {
-	return &Path{
-		Src: &PathEnd{
-			ChainID:      src.ChainID,
-			ClientID:     randString(10),
-			ConnectionID: randString(10),
-			ChannelID:    randString(10),
-			PortID:       srcPort,
-		},
-		Dst: &PathEnd{
-			ChainID:      dst.ChainID,
-			ClientID:     randString(10),
-			ConnectionID: randString(10),
-			ChannelID:    randString(10),
-			PortID:       dstPort,
-		},
-	}
-}
+	chains, doneFunc := spinUpTestChains(t, tcs...)
+	t.Cleanup(doneFunc)
 
-func randString(length int) string {
-	chars := []rune("abcdefghijklmnopqrstuvwxyz")
-	var b strings.Builder
-	for i := 0; i < length; i++ {
-		i, _ := rand.Int(rand.Reader, big.NewInt(int64(len(chars))))
-		b.WriteRune(chars[i.Int64()])
-	}
-	return b.String()
+	src, dst := chains.MustGet(tcs[0].chainID), chains.MustGet(tcs[1].chainID)
+
+	path, err := genTestPathAndSet(src, dst, "transfer", "transfer")
+	require.NoError(t, err)
+
+	var (
+		testDenom   = "samoleans"
+		testCoin    = sdk.NewCoin(testDenom, sdk.NewInt(1000))
+		twoTestCoin = sdk.NewCoin(testDenom, sdk.NewInt(2000))
+	)
+
+	srcExpected, err := src.QueryBalance(src.Key)
+	require.NoError(t, err)
+	dstExpected, err := dst.QueryBalance(dst.Key)
+	require.NoError(t, err)
+
+	err = src.CreateClients(dst)
+	require.NoError(t, err)
+
+	err = src.CreateConnection(dst, src.timeout)
+	require.NoError(t, err)
+
+	err = src.CreateChannel(dst, true, src.timeout)
+	require.NoError(t, err)
+
+	err = src.SendTransferMsg(dst, testCoin, dst.MustGetAddress(), true)
+	require.NoError(t, err)
+
+	err = src.SendTransferMsg(dst, testCoin, dst.MustGetAddress(), true)
+	require.NoError(t, err)
+
+	err = dst.SendTransferMsg(src, testCoin, src.MustGetAddress(), true)
+	require.NoError(t, err)
+
+	err = dst.SendTransferMsg(src, testCoin, src.MustGetAddress(), true)
+	require.NoError(t, err)
+
+	time.Sleep(2 * time.Second)
+
+	strat, err := path.GetStrategy()
+	require.NoError(t, err)
+
+	go func(t *testing.T, src, dst *Chain, strat Strategy) {
+		err = strat.Run(src, dst)
+		require.NoError(t, err)
+	}(t, src, dst, strat)
+
+	err = src.SendTransferMsg(dst, twoTestCoin, dst.MustGetAddress(), false)
+	require.NoError(t, err)
+
+	err = dst.SendTransferMsg(src, twoTestCoin, src.MustGetAddress(), false)
+	require.NoError(t, err)
+
+	time.Sleep(1 * time.Second)
+
+	srcGot, err := src.QueryBalance(src.Key)
+	require.NoError(t, err)
+	require.Equal(t, srcExpected, srcGot)
+
+	dstGot, err := dst.QueryBalance(dst.Key)
+	require.NoError(t, err)
+	require.Equal(t, dstExpected, dstGot)
 }

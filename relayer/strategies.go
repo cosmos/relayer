@@ -96,7 +96,7 @@ func (nrs NaiveStrategy) GetConstraints() map[string]string {
 // Run implements Strategy and defines what actions are taken when the relayer runs
 func (nrs NaiveStrategy) Run(src, dst *Chain) error {
 	// first, we want to ensure that there are no packets remaining to be relayed
-	if err := ClearQueues(src, dst); err != nil {
+	if err := RelayUnRelayedPacketsOrderedChan(src, dst); err != nil {
 		return err
 	}
 

@@ -9,6 +9,7 @@ require (
 	github.com/cosmos/cosmos-sdk v0.34.4-0.20200324184639-0ed9ed648788
 	github.com/cosmos/go-bip39 v0.0.0-20180819234021-555e2067c45d
 	github.com/gorilla/mux v1.7.4
+	github.com/ory/dockertest v3.3.5+incompatible
 	github.com/ory/dockertest/v3 v3.5.4
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
 	github.com/sirkon/goproxy v1.4.8
@@ -16,6 +17,8 @@ require (
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/cobra v0.0.6
 	github.com/spf13/viper v1.6.2
+	github.com/stretchr/testify v1.5.1
+	github.com/tendermint/go-amino v0.15.1
 	github.com/tendermint/tendermint v0.33.2
 	github.com/tendermint/tm-db v0.5.0
 	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect

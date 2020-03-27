@@ -211,7 +211,7 @@ func relayMsgsCmd() *cobra.Command {
 				return err
 			}
 
-			if err = relayer.ClearQueues(c[src], c[dst]); err != nil {
+			if err = relayer.RelayUnRelayedPacketsOrderedChan(c[src], c[dst]); err != nil {
 				return err
 			}
 
