@@ -59,7 +59,7 @@ func TestBasicTransfer(t *testing.T) {
 	require.Equal(t, expectedCoin, sdk.NewCoin(dstDenom, dstBal.AmountOf(dstDenom)))
 }
 
-func TestRelayUnRelayedPacketsOnOrderedChannel(t *testing.T) {
+func TestRelayUnRelayedPacketsOrderedChan(t *testing.T) {
 	tcs := []testChain{
 		{"ibc0", gaiaTestConfig},
 		{"ibc1", gaiaTestConfig},
@@ -118,7 +118,7 @@ func TestRelayUnRelayedPacketsOnOrderedChannel(t *testing.T) {
 }
 
 func TestStreamingRelayer(t *testing.T) {
-	t.Skip("TestStreamingRelayer currently failing")
+	// t.Skip("TestStreamingRelayer currently failing")
 	tcs := []testChain{
 		{"ibc0", gaiaTestConfig},
 		{"ibc1", gaiaTestConfig},
@@ -166,18 +166,16 @@ func TestStreamingRelayer(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 
-	srcMid, _ := src.QueryBalance(src.Key)
-	t.Log(srcMid)
-	dstMid, _ := dst.QueryBalance(dst.Key)
-	t.Log(dstMid)
-
 	strat, err := path.GetStrategy()
 	require.NoError(t, err)
 
-	go func(t *testing.T, src, dst *Chain, strat Strategy) {
-		err = strat.Run(src, dst)
-		require.NoError(t, err)
-	}(t, src, dst, strat)
+	// TODO: this call is blocking and succeeds when it is run outside of the goroutine.
+	// We need to modify strat.Run interface to return a wait till start and stop relaying
+	// channels
+	done, err := strat.Run(src, dst)
+	require.NoError(t, err)
+
+	time.Sleep(1 * time.Second)
 
 	err = src.SendTransferMsg(dst, twoTestCoin, dst.MustGetAddress(), false)
 	require.NoError(t, err)
@@ -185,13 +183,17 @@ func TestStreamingRelayer(t *testing.T) {
 	err = dst.SendTransferMsg(src, twoTestCoin, src.MustGetAddress(), false)
 	require.NoError(t, err)
 
-	time.Sleep(1 * time.Second)
+	// wait for packet processing
+	time.Sleep(5 * time.Second)
+
+	// kill relayer routine
+	done <- struct{}{}
 
 	srcGot, err := src.QueryBalance(src.Key)
 	require.NoError(t, err)
-	require.Equal(t, srcExpected, srcGot)
+	require.Equal(t, srcExpected.AmountOf(testDenom), srcGot.AmountOf(testDenom))
 
 	dstGot, err := dst.QueryBalance(dst.Key)
 	require.NoError(t, err)
-	require.Equal(t, dstExpected, dstGot)
+	require.Equal(t, dstExpected.AmountOf(testDenom), dstGot.AmountOf(testDenom))
 }
