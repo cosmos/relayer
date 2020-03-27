@@ -30,7 +30,7 @@ var (
 		amino:          codecstd.MakeCodec(simapp.ModuleBasics),
 		dockerImage:    "jackzampolin/gaiatest",
 		dockerTag:      "jack_relayer-testing",
-		timeout:        1500 * time.Millisecond,
+		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "cosmos",
 		gas:            200000,
@@ -163,12 +163,14 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *
 		t.Error(err)
 	}
 
+	c.Log(fmt.Sprintf("- [%s] SPUN UP IN CONTAINER %s from %s", c.ChainID, resource.Container.Name, resource.Container.Config.Image))
+
 	// retry polling the container until status doesn't error
 	if err = pool.Retry(c.statusErr); err != nil {
 		t.Errorf("Could not connect to docker: %s", err)
 	}
 
-	c.Log(fmt.Sprintf("- [%s] SPUN UP IN CONTAINER %s from %s", c.ChainID, resource.Container.Name, resource.Container.Config.Image))
+	c.Log(fmt.Sprintf("- [%s] CONTAINER AVAILABLE AT PORT %s", c.ChainID, c.RPCAddr))
 
 	// initalize the lite client
 	if err = c.forceInitLite(); err != nil {
