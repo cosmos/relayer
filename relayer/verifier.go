@@ -97,10 +97,16 @@ func (c *Chain) LiteClientWithoutTrust(db *dbm.GoLevelDB) (*lite.Client, error) 
 		return nil, err
 	}
 
+	// NOTE: currently we are discarding the very noisy lite client logs
+	// it would be nice if we could add a setting the chain or otherwise
+	// that allowed users to enable lite client logging. (maybe as a hidden prop
+	// on the Chain struct that users could pass in the config??)
+	logger := log.NewTMLogger(log.NewSyncWriter(ioutil.Discard))
+
 	// TODO: provide actual witnesses!
 	return lite.NewClientFromTrustedStore(c.ChainID, c.GetTrustingPeriod(), httpProvider,
 		[]litep.Provider{httpProvider}, dbs.New(db, ""),
-		lite.Logger(log.NewTMLogger(log.NewSyncWriter(ioutil.Discard))))
+		lite.Logger(logger))
 }
 
 // LiteClient initializes the lite client for a given chain.
@@ -110,10 +116,16 @@ func (c *Chain) LiteClient(db *dbm.GoLevelDB, trustOpts lite.TrustOptions) (*lit
 		return nil, err
 	}
 
+	// NOTE: currently we are discarding the very noisy lite client logs
+	// it would be nice if we could add a setting the chain or otherwise
+	// that allowed users to enable lite client logging. (maybe as a hidden prop
+	// on the Chain struct that users could pass in the config??)
+	logger := log.NewTMLogger(log.NewSyncWriter(ioutil.Discard))
+
 	// TODO: provide actual witnesses!
 	return lite.NewClient(c.ChainID, trustOpts, httpProvider,
 		[]litep.Provider{httpProvider}, dbs.New(db, ""),
-		lite.Logger(log.NewTMLogger(log.NewSyncWriter(os.Stdout))))
+		lite.Logger(logger))
 }
 
 // InitLiteClient instantantiates the lite client object and calls update
@@ -256,3 +268,16 @@ func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, err
 
 // ErrLiteNotInitialized returns the cannonical error for a an uninitialized lite client
 var ErrLiteNotInitialized = errors.New("lite client is not initialized")
+
+func (c *Chain) forceInitLite() error {
+	db, df, err := c.NewLiteDB()
+	if err != nil {
+		return err
+	}
+	_, err = c.TrustNodeInitClient(db)
+	if err != nil {
+		return err
+	}
+	df()
+	return nil
+}

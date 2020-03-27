@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"melea-11","rpc-addr":"http://gozmelea.mycryptobets.com:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025mele","default-denom":"mele","trusting-period":"330h"}

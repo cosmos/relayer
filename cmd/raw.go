@@ -34,8 +34,8 @@ func rawTransactionCmd() *cobra.Command {
 		createChannelStepCmd(),
 		chanCloseInit(),
 		chanCloseConfirm(),
+		closeChannelStepCmd(),
 		xfersend(),
-		xferrecv(),
 	)
 
 	return cmd
@@ -97,7 +97,6 @@ func createClientCmd() *cobra.Command {
 			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.CreateClient(dstHeader, chains[src].GetTrustingPeriod(), chains[src].MustGetAddress())}, chains[src], cmd)
 		},
 	}
-
 	return cmd
 }
 
@@ -322,7 +321,6 @@ func createConnectionStepCmd() *cobra.Command {
 			return nil
 		},
 	}
-
 	return cmd
 }
 
@@ -520,13 +518,12 @@ func createChannelStepCmd() *cobra.Command {
 			return nil
 		},
 	}
-
 	return cmd
 }
 
 func chanCloseInit() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "chan-close-init [chain-id] [chan-id] [port-id]",
+		Use:   "chan-close-init [chain-id] [channel-id] [port-id]",
 		Short: "chan-close-init",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -586,7 +583,47 @@ func chanCloseConfirm() *cobra.Command {
 	return cmd
 }
 
+func closeChannelStepCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "close-channel-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id]",
+		Short: "create the next step in closing a channel between chains with the passed identifiers",
+		Args:  cobra.ExactArgs(10),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.Chains.Gets(src, dst)
+			if err != nil {
+				return err
+			}
+
+			if err = chains[src].AddPath(args[2], args[4], args[6], args[8]); err != nil {
+				return err
+			}
+
+			if err = chains[dst].AddPath(args[3], args[5], args[7], args[9]); err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].CloseChannelStep(chains[dst])
+			if err != nil {
+				return err
+			}
+
+			if len(msgs.Src) > 0 {
+				if err = sendAndPrint(msgs.Src, chains[src], cmd); err != nil {
+					return err
+				}
+			} else if len(msgs.Dst) > 0 {
+				if err = sendAndPrint(msgs.Dst, chains[dst], cmd); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		},
+	}
+	return cmd
+}
+
 func sendAndPrint(txs []sdk.Msg, c *relayer.Chain, cmd *cobra.Command) error {
-	text, indent := getPrintingFlags(cmd)
-	return c.SendAndPrint(txs, text, indent)
+	return c.SendAndPrint(txs, false, false)
 }

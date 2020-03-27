@@ -28,6 +28,15 @@ func (p Paths) Get(name string) (path *Path, err error) {
 	return
 }
 
+// MustGet panics if path is not found
+func (p Paths) MustGet(name string) *Path {
+	pth, err := p.Get(name)
+	if err != nil {
+		panic(err)
+	}
+	return pth
+}
+
 // Add adds a path by its name
 func (p Paths) Add(name string, path *Path) (Paths, error) {
 	if err := path.Validate(); err != nil {
@@ -99,4 +108,28 @@ func (p *Path) End(chainID string) *PathEnd {
 
 func (p *Path) String() string {
 	return fmt.Sprintf("[%d] %s ->\n %s", p.Index, p.Src.String(), p.Dst.String())
+}
+
+// GenPath generates a path with random client, connection and channel identifiers
+// given chainIDs and portIDs
+func GenPath(srcChainID, dstChainID, srcPortID, dstPortID string) *Path {
+	return &Path{
+		Src: &PathEnd{
+			ChainID:      srcChainID,
+			ClientID:     RandLowerCaseLetterString(10),
+			ConnectionID: RandLowerCaseLetterString(10),
+			ChannelID:    RandLowerCaseLetterString(10),
+			PortID:       srcPortID,
+		},
+		Dst: &PathEnd{
+			ChainID:      dstChainID,
+			ClientID:     RandLowerCaseLetterString(10),
+			ConnectionID: RandLowerCaseLetterString(10),
+			ChannelID:    RandLowerCaseLetterString(10),
+			PortID:       dstPortID,
+		},
+		Strategy: &StrategyCfg{
+			Type: "naive",
+		},
+	}
 }

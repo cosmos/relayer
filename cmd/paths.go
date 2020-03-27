@@ -4,10 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
-	"strings"
-	"time"
 
 	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
@@ -19,6 +16,9 @@ func pathsCmd() *cobra.Command {
 		Use:     "paths",
 		Aliases: []string{"pth"},
 		Short:   "commands to manage path configurations",
+		Long: `
+A path represents the full path for communication between two chains, including the client, 
+connection, and channel ids from both the source and destination chains.`,
 	}
 
 	cmd.AddCommand(
@@ -45,23 +45,7 @@ func pathsGenCmd() *cobra.Command {
 				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
 			}
 
-			path := &relayer.Path{
-				Strategy: relayer.NewNaiveStrategy(),
-				Src: &relayer.PathEnd{
-					ChainID:      src,
-					ClientID:     randString(16),
-					ConnectionID: randString(16),
-					ChannelID:    randString(16),
-					PortID:       srcPort,
-				},
-				Dst: &relayer.PathEnd{
-					ChainID:      dst,
-					ClientID:     randString(16),
-					ConnectionID: randString(16),
-					ChannelID:    randString(16),
-					PortID:       dstPort,
-				},
-			}
+			path := relayer.GenPath(src, dst, srcPort, dstPort)
 
 			pths, err := config.Paths.Add(args[4], path)
 			if err != nil {
@@ -101,34 +85,42 @@ func pathsListCmd() *cobra.Command {
 		Aliases: []string{"l"},
 		Short:   "print out configured paths with direction",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var (
-				out []byte
-			)
-
 			jsn, err := cmd.Flags().GetBool(flagJSON)
 			if err != nil {
 				return err
 			}
-
-			if jsn {
-				out, err = json.Marshal(config.Paths)
-				if err != nil {
-					return err
-				}
-			} else {
-				out, err = yaml.Marshal(config.Paths)
-				if err != nil {
-					return err
-				}
-
+			yml, err := cmd.Flags().GetBool(flagYAML)
+			if err != nil {
+				return err
 			}
-
-			fmt.Println(string(out))
-
-			return nil
+			switch {
+			case yml && jsn:
+				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
+			case yml:
+				out, err := yaml.Marshal(config.Paths)
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(out))
+				return nil
+			case jsn:
+				out, err := json.Marshal(config.Paths)
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(out))
+				return nil
+			default:
+				i := 0
+				for k, pth := range config.Paths {
+					fmt.Printf("%2d: %-20s >> [%s]port{%s} -> [%s]port{%s}\n", i, k, pth.Src.ChainID, pth.Src.PortID, pth.Dst.ChainID, pth.Dst.PortID)
+					i++
+				}
+				return nil
+			}
 		},
 	}
-	return jsonFlag(cmd)
+	return yamlFlag(jsonFlag(cmd))
 }
 
 func pathsShowCmd() *cobra.Command {
@@ -143,33 +135,51 @@ func pathsShowCmd() *cobra.Command {
 				return err
 			}
 
-			var (
-				out []byte
-			)
-
 			jsn, err := cmd.Flags().GetBool(flagJSON)
 			if err != nil {
 				return err
 			}
-
-			if jsn {
-				out, err = json.Marshal(path)
+			yml, err := cmd.Flags().GetBool(flagYAML)
+			if err != nil {
+				return err
+			}
+			switch {
+			case yml && jsn:
+				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
+			case yml:
+				out, err := yaml.Marshal(path)
 				if err != nil {
 					return err
 				}
-			} else {
-				out, err = yaml.Marshal(path)
+				fmt.Println(string(out))
+				return nil
+			case jsn:
+				out, err := json.Marshal(path)
 				if err != nil {
 					return err
 				}
-
+				fmt.Println(string(out))
+				return nil
+			default:
+				fmt.Printf(`Path "%s" strategy(%s):
+  SRC(%s)
+    ClientID:     %s
+    ConnectionID: %s
+    ChannelID:    %s
+    PortID:       %s
+  DST(%s)
+    ClientID:     %s
+    ConnectionID: %s
+    ChannelID:    %s
+    PortID:       %s
+`, args[0], path.Strategy.Type, path.Src.ChainID, path.Src.ClientID, path.Src.ConnectionID, path.Src.ChannelID, path.Src.PortID,
+					path.Dst.ChainID, path.Dst.ClientID, path.Dst.ConnectionID, path.Dst.ChannelID, path.Dst.PortID)
+				return nil
 			}
 
-			fmt.Println(string(out))
-			return nil
 		},
 	}
-	return jsonFlag(cmd)
+	return yamlFlag(jsonFlag(cmd))
 }
 
 func pathsAddCmd() *cobra.Command {
@@ -346,14 +356,4 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 	out.Paths = paths
 
 	return out, nil
-}
-
-func randString(length int) string {
-	rand.Seed(time.Now().UnixNano())
-	chars := []rune("abcdefghijklmnopqrstuvwxyz")
-	var b strings.Builder
-	for i := 0; i < length; i++ {
-		b.WriteRune(chars[rand.Intn(len(chars))])
-	}
-	return b.String()
 }

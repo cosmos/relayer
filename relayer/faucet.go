@@ -24,6 +24,10 @@ func (src *Chain) SendMsgWithKey(datagram sdk.Msg, keyName string) (res sdk.TxRe
 
 // BuildAndSignTxWithKey allows the user to specify which relayer key will sign the message
 func (src *Chain) BuildAndSignTxWithKey(datagram []sdk.Msg, keyName string) ([]byte, error) {
+	// Set sdk config to use custom Bech32 account prefix
+	sdkConf := sdk.GetConfig()
+	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
+
 	// Fetch account and sequence numbers for the account
 	info, err := src.Keybase.Get(keyName)
 	if err != nil {
@@ -71,6 +75,10 @@ func (src *Chain) FaucetHandler(fromKey sdk.AccAddress, amount sdk.Coin) func(w 
 }
 
 func (src *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amount sdk.Coin) error {
+	// Set sdk config to use custom Bech32 account prefix
+	sdkConf := sdk.GetConfig()
+	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
+
 	info, err := src.Keybase.GetByAddress(fromAddr)
 	if err != nil {
 		return err

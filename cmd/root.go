@@ -73,6 +73,7 @@ func init() {
 		configCmd(),
 		getVersionCmd(),
 		testnetsCmd(),
+		servicesCommand(),
 	)
 
 	// This is a bit of a cheat :shushing_face:
