@@ -566,6 +566,134 @@ func RelayUnRelayedPacketsOrderedChan(src, dst *Chain) error {
 	return nil
 }
 
+// SendTransferBothSides sends a ICS20 packet from src to dst
+func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk.AccAddress, source bool) error {
+
+	if source {
+		amount.Denom = fmt.Sprintf("%s/%s/%s", dst.PathEnd.PortID, dst.PathEnd.ChannelID, amount.Denom)
+	} else {
+		amount.Denom = fmt.Sprintf("%s/%s/%s", src.PathEnd.PortID, src.PathEnd.ChannelID, amount.Denom)
+	}
+
+	dstHeader, err := dst.UpdateLiteWithHeader()
+	if err != nil {
+		return err
+	}
+
+	// MsgTransfer will call SendPacket on src chain
+	txs := RelayMsgs{
+		Src: []sdk.Msg{src.PathEnd.MsgTransfer(dst.PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source, src.MustGetAddress())},
+		Dst: []sdk.Msg{},
+	}
+
+	if txs.Send(src, dst); !txs.Success() {
+		return fmt.Errorf("failed to send first transaction")
+	}
+
+	// Working on SRC chain :point_up:
+	// Working on DST chain :point_down:
+
+	var (
+		hs           map[string]*tmclient.Header
+		seqRecv      chanTypes.RecvResponse
+		seqSend      uint64
+		srcCommitRes CommitmentResponse
+	)
+
+	for {
+		hs, err = UpdatesWithHeaders(src, dst)
+		if err != nil {
+			return err
+		}
+
+		seqRecv, err = dst.QueryNextSeqRecv(hs[dst.ChainID].Height)
+		if err != nil {
+			return err
+		}
+
+		seqSend, err = src.QueryNextSeqSend(hs[src.ChainID].Height)
+		if err != nil {
+			return err
+		}
+
+		srcCommitRes, err = src.QueryPacketCommitment(hs[src.ChainID].Height-1, int64(seqSend-1))
+		if err != nil {
+			return err
+		}
+
+		if srcCommitRes.Proof.Proof == nil {
+			continue
+		} else {
+			break
+		}
+	}
+
+	// reconstructing packet data here instead of retrieving from an indexed node
+	xferPacket := src.PathEnd.XferPacket(
+		sdk.NewCoins(amount),
+		src.MustGetAddress(),
+		dstAddr,
+		source,
+		dstHeader.GetHeight()+1000,
+	)
+
+	// Debugging by simply passing in the packet information that we know was sent earlier in the SendPacket
+	// part of the command. In a real relayer, this would be a separate command that retrieved the packet
+	// information from an indexing node
+	txs = RelayMsgs{
+		Dst: []sdk.Msg{
+			dst.PathEnd.UpdateClient(hs[src.ChainID], dst.MustGetAddress()),
+			dst.PathEnd.MsgRecvPacket(
+				src.PathEnd,
+				seqRecv.NextSequenceRecv,
+				xferPacket,
+				chanTypes.NewPacketResponse(
+					src.PathEnd.PortID,
+					src.PathEnd.ChannelID,
+					seqSend-1,
+					src.PathEnd.NewPacket(
+						dst.PathEnd,
+						seqSend-1,
+						xferPacket,
+					),
+					srcCommitRes.Proof.Proof,
+					int64(srcCommitRes.ProofHeight),
+				),
+				dst.MustGetAddress(),
+			),
+		},
+		Src: []sdk.Msg{},
+	}
+
+	txs.Send(src, dst)
+	return nil
+}
+
+// SendTransferMsg initiates an ibs20 transfer from src to dst with the specified args
+func (src *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr sdk.AccAddress, source bool) error {
+	if source {
+		amount.Denom = fmt.Sprintf("%s/%s/%s", dst.PathEnd.PortID, dst.PathEnd.ChannelID, amount.Denom)
+	} else {
+		amount.Denom = fmt.Sprintf("%s/%s/%s", src.PathEnd.PortID, src.PathEnd.ChannelID, amount.Denom)
+	}
+
+	dstHeader, err := dst.UpdateLiteWithHeader()
+	if err != nil {
+		return err
+	}
+
+	// MsgTransfer will call SendPacket on src chain
+	txs := RelayMsgs{
+		Src: []sdk.Msg{src.PathEnd.MsgTransfer(dst.PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source, src.MustGetAddress())},
+		Dst: []sdk.Msg{},
+	}
+
+	if txs.Send(src, dst); !txs.success {
+		return fmt.Errorf("failed to send transfer message")
+	}
+	return nil
+}
+
 func (src *Chain) logPacketsRelayed(dst *Chain, num int) {
 	dst.Log(fmt.Sprintf("★ Relayed %d packets: [%s]port{%s}->[%s]port{%s}", num, dst.ChainID, dst.PathEnd.PortID, src.ChainID, src.PathEnd.PortID))
 }
