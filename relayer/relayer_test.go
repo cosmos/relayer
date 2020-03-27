@@ -19,17 +19,17 @@ func TestBasicTransfer(t *testing.T) {
 	t.Parallel()
 	chains := spinUpTestChains(t, gaiaChains...)
 
-	src, dst := chains.MustGet(gaiaChains[0].chainID), chains.MustGet(gaiaChains[1].chainID)
-
-	_, err := genTestPathAndSet(src, dst, "transfer", "transfer")
-	require.NoError(t, err)
-
 	var (
+		src          = chains.MustGet("ibc0")
+		dst          = chains.MustGet("ibc1")
 		testDenom    = "samoleans"
 		dstDenom     = fmt.Sprintf("%s/%s/%s", dst.PathEnd.PortID, dst.PathEnd.ChannelID, testDenom)
 		testCoin     = sdk.NewCoin(testDenom, sdk.NewInt(1000))
 		expectedCoin = sdk.NewCoin(dstDenom, sdk.NewInt(1000))
 	)
+
+	_, err := genTestPathAndSet(src, dst, "transfer", "transfer")
+	require.NoError(t, err)
 
 	// Check if clients have been created, if not create them
 	// then test querying clients from src and dst sides
@@ -59,12 +59,10 @@ func TestRelayUnRelayedPacketsOrderedChan(t *testing.T) {
 	t.Parallel()
 	chains := spinUpTestChains(t, gaiaChains...)
 
-	src, dst := chains.MustGet(gaiaChains[0].chainID), chains.MustGet(gaiaChains[1].chainID)
-
-	_, err := genTestPathAndSet(src, dst, "transfer", "transfer")
-	require.NoError(t, err)
-
 	var (
+		src = chains.MustGet("ibc0")
+		dst = chains.MustGet("ibc1")
+
 		testDenom    = "samoleans"
 		ibc0to1Denom = fmt.Sprintf("%s/%s/%s", dst.PathEnd.PortID, dst.PathEnd.ChannelID, testDenom)
 		ibc1to0Denom = fmt.Sprintf("%s/%s/%s", src.PathEnd.PortID, src.PathEnd.ChannelID, testDenom)
@@ -73,24 +71,34 @@ func TestRelayUnRelayedPacketsOrderedChan(t *testing.T) {
 		srcExpected  = sdk.NewCoin(ibc1to0Denom, sdk.NewInt(2000))
 	)
 
+	_, err := genTestPathAndSet(src, dst, "transfer", "transfer")
+	require.NoError(t, err)
+
+	// create the path
 	require.NoError(t, src.CreateClients(dst))
 	require.NoError(t, src.CreateConnection(dst, src.timeout))
 	require.NoError(t, src.CreateChannel(dst, true, src.timeout))
 
+	// send some src samoleans to dst
 	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.MustGetAddress(), true))
 	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.MustGetAddress(), true))
 
+	// send some dst samoleans to src
 	require.NoError(t, dst.SendTransferMsg(src, testCoin, src.MustGetAddress(), true))
 	require.NoError(t, dst.SendTransferMsg(src, testCoin, src.MustGetAddress(), true))
 
+	// wait for txs to be included
 	require.NoError(t, dst.WaitForNBlocks(1))
 
+	// relay the packets
 	require.NoError(t, RelayUnRelayedPacketsOrderedChan(src, dst))
 
+	// ...and check src bal
 	srcBal, err := src.QueryBalance(src.Key)
 	require.NoError(t, err)
 	require.Equal(t, srcExpected, sdk.NewCoin(ibc1to0Denom, srcBal.AmountOf(ibc1to0Denom)))
 
+	// ...and check dst bal
 	dstBal, err := dst.QueryBalance(dst.Key)
 	require.NoError(t, err)
 	require.Equal(t, dstExpected, sdk.NewCoin(ibc0to1Denom, dstBal.AmountOf(ibc0to1Denom)))
@@ -101,8 +109,8 @@ func TestStreamingRelayer(t *testing.T) {
 	chains := spinUpTestChains(t, gaiaChains...)
 
 	var (
-		src         = chains.MustGet(gaiaChains[0].chainID)
-		dst         = chains.MustGet(gaiaChains[1].chainID)
+		src         = chains.MustGet("ibc0")
+		dst         = chains.MustGet("ibc1")
 		testDenom   = "samoleans"
 		testCoin    = sdk.NewCoin(testDenom, sdk.NewInt(1000))
 		twoTestCoin = sdk.NewCoin(testDenom, sdk.NewInt(2000))
