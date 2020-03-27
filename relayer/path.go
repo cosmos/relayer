@@ -128,5 +128,8 @@ func GenPath(srcChainID, dstChainID, srcPortID, dstPortID string) *Path {
 			ChannelID:    RandLowerCaseLetterString(10),
 			PortID:       dstPortID,
 		},
+		Strategy: &StrategyCfg{
+			Type: "naive",
+		},
 	}
 }

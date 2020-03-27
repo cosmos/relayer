@@ -516,7 +516,7 @@ func RelayUnRelayedPacketsOrderedChan(src, dst *Chain) error {
 	}
 
 	// find any unrelayed packets
-	sp, err := UnrelayedSequences(src, dst, hs[src.ChainID].Height, hs[dst.ChainID].Height)
+	sp, err := UnrelayedSequences(src, dst, hs[src.ChainID].Height-1, hs[dst.ChainID].Height-1)
 	if err != nil {
 		return err
 	}
