@@ -14,6 +14,9 @@ jobs:
       with:
         go-version: 1.14
       id: go
+    # setup docker
+    - name: setup-docker
+      uses: docker-practice/actions-setup-docker@0.0.1    
     # build gaiad/gaiacli
     - name: checkout gaia
       uses: actions/checkout@v2
@@ -48,14 +51,10 @@ jobs:
     - name: checkout relayer
       uses: actions/checkout@v2
     
-    # Setup Cache
-    - uses: actions/cache@v1
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-relayer-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-relayer-go-
-    
+    # run tests
+    - name: run tests
+      uses: make test
+      
     # build binary
     - name: build binary and move to upload location
       run: make build
