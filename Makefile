@@ -35,10 +35,10 @@ install: go.sum
 # Tests / CI
 ###############################################################################
 test:
-	@go test -mod=readonly -v -coverprofile coverage.out ./relayer/...
+	@go test -mod=readonly -v -coverprofile coverage.out ./test/...
 
 test-gaia:
-	@go test -mod=readonly -v ./relayer/... -run TestGaiaToGaia*
+	@go test -mod=readonly -v -coverprofile coverage.out ./test/... -tags gaia
 
 coverage:
 	@echo "viewing test coverage..."

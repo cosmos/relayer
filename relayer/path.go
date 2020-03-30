@@ -78,7 +78,6 @@ type Path struct {
 	Src      *PathEnd     `yaml:"src" json:"src"`
 	Dst      *PathEnd     `yaml:"dst" json:"dst"`
 	Strategy *StrategyCfg `yaml:"strategy" json:"strategy"`
-	Index    int          `yaml:"index,omitempty" json:"index,omitempty"`
 }
 
 // Validate checks that a path is valid
@@ -107,7 +106,7 @@ func (p *Path) End(chainID string) *PathEnd {
 }
 
 func (p *Path) String() string {
-	return fmt.Sprintf("[%d] %s ->\n %s", p.Index, p.Src.String(), p.Dst.String())
+	return fmt.Sprintf("[ ] %s ->\n %s", p.Src.String(), p.Dst.String())
 }
 
 // GenPath generates a path with random client, connection and channel identifiers

@@ -1,4 +1,4 @@
-package relayer
+package test
 
 import (
 	"fmt"
@@ -6,6 +6,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
+
+	. "github.com/iqlusioninc/relayer/relayer"
 )
 
 var (
@@ -38,12 +40,12 @@ func TestGaiaToGaiaBasicTransfer(t *testing.T) {
 
 	// Check if connection has been created, if not create it
 	// the test querying connections from src and dst sides
-	require.NoError(t, src.CreateConnection(dst, src.timeout))
+	require.NoError(t, src.CreateConnection(dst, src.GetTimeout()))
 	testConnectionPair(t, src, dst)
 
 	// Check if channel has been created, if not create it
 	// then test querying channels from src and dst sides
-	require.NoError(t, src.CreateChannel(dst, true, src.timeout))
+	require.NoError(t, src.CreateChannel(dst, true, src.GetTimeout()))
 	testChannelPair(t, src, dst)
 
 	// Then send the transfer
@@ -53,8 +55,6 @@ func TestGaiaToGaiaBasicTransfer(t *testing.T) {
 	dstBal, err := dst.QueryBalance(dst.Key)
 	require.NoError(t, err)
 	require.Equal(t, expectedCoin.Amount.Int64(), dstBal.AmountOf(dstDenom).Int64())
-
-	// done()
 }
 
 func TestGaiaToGaiaRelayUnRelayedPacketsOrderedChan(t *testing.T) {
@@ -78,8 +78,8 @@ func TestGaiaToGaiaRelayUnRelayedPacketsOrderedChan(t *testing.T) {
 
 	// create the path
 	require.NoError(t, src.CreateClients(dst))
-	require.NoError(t, src.CreateConnection(dst, src.timeout))
-	require.NoError(t, src.CreateChannel(dst, true, src.timeout))
+	require.NoError(t, src.CreateConnection(dst, src.GetTimeout()))
+	require.NoError(t, src.CreateChannel(dst, true, src.GetTimeout()))
 
 	// send some src samoleans to dst
 	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.MustGetAddress(), true))
@@ -129,8 +129,8 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 
 	// create path
 	require.NoError(t, src.CreateClients(dst))
-	require.NoError(t, src.CreateConnection(dst, src.timeout))
-	require.NoError(t, src.CreateChannel(dst, true, src.timeout))
+	require.NoError(t, src.CreateConnection(dst, src.GetTimeout()))
+	require.NoError(t, src.CreateChannel(dst, true, src.GetTimeout()))
 
 	// send a couple of transfers to the queue on src
 	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.MustGetAddress(), true))
