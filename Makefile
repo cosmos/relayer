@@ -35,18 +35,14 @@ install: go.sum
 # Tests / CI
 ###############################################################################
 test:
-	@go test -v ./relayer/...
+	@go test -mod=readonly -v -coverprofile coverage.out ./relayer/...
 
 test-gaia:
-	@go test -v ./relayer/... -run TestGaiaToGaia*
+	@go test -mod=readonly -v ./relayer/... -run TestGaiaToGaia*
 
 coverage:
 	@echo "viewing test coverage..."
 	@go tool cover --html=coverage.out
-
-install-ci-lint:
-	@echo "installing golangci-lint"
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env $(GOPATH))/bin v1.24.0
 
 ci-test:
 	@echo "executing unit tests..."

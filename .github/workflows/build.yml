@@ -19,14 +19,12 @@ jobs:
     # checkout relayer
     - name: checkout relayer
       uses: actions/checkout@v2
-
-    # install tools
-    - name: install linter
-      run: make install-ci-lint
+      with:
+        path: go/src/github.com/iqlusioninc/relayer
 
     # run linter
-    - name: run linter
-      run: make ci-lint
+    - name: golangci-lint
+      uses: actions-contrib/golangci-lint@v1    
 
     # setup cache
     - uses: actions/cache@v1
