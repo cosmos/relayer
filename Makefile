@@ -1,6 +1,6 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
-all: ci-lint ci-test install
+all: ci-lint install
 
 ###############################################################################
 # Build / Install
