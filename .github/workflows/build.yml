@@ -20,6 +20,10 @@ jobs:
     - name: checkout relayer
       uses: actions/checkout@v2
 
+    # run linter
+    - name: Run golangci-lint
+      uses: actions-contrib/golangci-lint@v1
+
     # setup cache
     - uses: actions/cache@v1
       with:
@@ -31,10 +35,6 @@ jobs:
     # build binary
     - name: build binary and move to upload location
       run: make build
-
-    # run linter
-    - name: run linter
-      run: make ci-lint
 
     # upload resulting binaries
     - name: upload binaries
