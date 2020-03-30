@@ -1,6 +1,8 @@
+## Configuration
+
 ### Relayer Home Folder Layout 
 
-The following is the folder structure for the relayer `--home` directory
+The following is the folder structure for the relayer `--home` directory when there are two chains (`ibc0` an `ibc1`) properly configured with keys and lite clients
 
 ```bash
 ~/.relayer
@@ -29,15 +31,13 @@ type Config struct {
 #### Global Configuration
 
 - Amount of time to sleep between relayer loops
-- Which strategy to use for your relayer (`naieve` is the only planned for implemenation)
 - Number of block headers to cache for the lite client
 
-> NOTE: Additional global configuration will be added in this section, also items may be removed
+> NOTE: Additional global configuration will be added/removed in this section as relayer development progresses
 
 ```go
 // NOTE: are there any other items that could be useful here?
 type Global struct {
-	Strategy      string `yaml:"strategy"`
 	Timeout       string `yaml:"timeout"`
 	LiteCacheSize int    `yaml:"lite-cache-size"`
 }
@@ -69,17 +69,21 @@ type ChainConfig struct {
 
 #### Paths
 
-The `Paths` in the configuration define which `Path`s the relayer will move packets between. It contains all the identifers necessary to connect two chains:
-
-> NOTE: the `Index` field is used when displaying a list to users to allow them to specify which path they desire.
+The `Paths` in the configuration define which `Path`s the relayer will move packets between. It also defines the `Strategy` that will be used by the relayer. It contains all the identifers necessary to connect two chains:
 
 ```go
 // Path represents a pair of chains and the identifiers needed to
 // relay over them
 type Path struct {
-	Src   *PathEnd `yaml:"src" json:"src"`
-	Dst   *PathEnd `yaml:"dst" json:"dst"`
-	Index int      `yaml:"index,omitempty" json:"index,omitempty"`
+	Src      *PathEnd     `yaml:"src" json:"src"`
+	Dst      *PathEnd     `yaml:"dst" json:"dst"`
+	Strategy *StrategyCfg `yaml:"strategy" json:"strategy"`
+}
+
+// StrategyCfg defines which relaying strategy to take for a given path
+type StrategyCfg struct {
+	Type        string            `json:"type" yaml:"type"`
+	Constraints map[string]string `json:"constraints,omitempty" yaml:"constraints,omitempty"`
 }
 
 // PathEnd represents the local connection identifers for a relay path
@@ -93,4 +97,4 @@ type PathEnd struct {
 }
 ```
 
-> NOTE: We need to add a `Order` field to this struct: https://github.com/cosmos/relayer/issues/52
+> NOTE: An `Order` field needs to be added to this struct along with support for `UNORDERED` channels: https://github.com/cosmos/relayer/issues/52

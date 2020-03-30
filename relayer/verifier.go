@@ -285,7 +285,8 @@ func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, err
 // ErrLiteNotInitialized returns the cannonical error for a an uninitialized lite client
 var ErrLiteNotInitialized = errors.New("lite client is not initialized")
 
-func (c *Chain) forceInitLite() error {
+// ForceLiteInit forces initialization of the lite client from the configured node
+func (c *Chain) ForceInitLite() error {
 	db, df, err := c.NewLiteDB()
 	if err != nil {
 		return err

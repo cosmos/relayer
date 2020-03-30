@@ -2,7 +2,7 @@
 
 ![GOZ](./docs/images/github-repo-banner.png)
 
-![CI Script](https://github.com/iqlusioninc/relayer/workflows/Build%20then%20run%20CI%20Chains/badge.svg)
+![Relayer Build](https://github.com/iqlusioninc/relayer/workflows/Build%20then%20run%20CI%20Chains/badge.svg)
 
 The Cosmos IBC `relayer` package contains a basic relayer implementation that are
 meant to be used by users wishing to relay packets between sets of IBC enabled chains.
@@ -22,6 +22,12 @@ The iqlusion team is dedicated to providing an inclusive and harrassment free ex
 ## Testnet
 
 If you would like to join the relayer testnet, please [check out the instructions](./testnets/README.md).
+
+### Compatability Table:
+
+| chain | tests | supported ports |
+|-------|--------|----------------|
+| [`gaia`](https://github.com/cosmos/gaia) | ![gaia](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20gaia%20to%20gaia%20integration/badge.svg) | `transfer` |
 
 ## Demoing the Relayer
 

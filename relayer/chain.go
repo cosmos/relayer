@@ -372,12 +372,14 @@ func (c Chains) Gets(chainIDs ...string) (map[string]*Chain, error) {
 	return out, nil
 }
 
-func (src *Chain) getRPCPort() string {
+// GetRPCPort returns the port configured for the chain
+func (src *Chain) GetRPCPort() string {
 	u, _ := url.Parse(src.RPCAddr)
 	return u.Port()
 }
 
-func (src *Chain) createTestKey() error {
+// CreateTestKey creates a key for test chain
+func (src *Chain) CreateTestKey() error {
 	if src.KeyExists(src.Key) {
 		return fmt.Errorf("key %s exists for chain %s", src.ChainID, src.Key)
 	}
@@ -404,7 +406,13 @@ func CreateMnemonic() (string, error) {
 	return mnemonic, nil
 }
 
-func (src *Chain) statusErr() error {
+// GetTimeout returns the chain's configured timeout
+func (src *Chain) GetTimeout() time.Duration {
+	return src.timeout
+}
+
+// StatusErr returns err unless the chain is ready to go
+func (src *Chain) StatusErr() error {
 	stat, err := src.Client.Status()
 	switch {
 	case err != nil:
