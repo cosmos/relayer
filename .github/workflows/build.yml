@@ -31,9 +31,9 @@ jobs:
     - name: checkout relayer
       uses: actions/checkout@v2
 
-    # run linter
-    - name: linter
-      run: make ci-lint
+    # # run linter
+    # - name: linter
+    #   run: make ci-lint
 
     # setup cache
     - uses: actions/cache@v1
