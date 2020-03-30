@@ -15,8 +15,8 @@ var (
 	}
 )
 
-func TestBasicTransfer(t *testing.T) {
-	// t.Parallel()
+func TestGaiaToGaiaBasicTransfer(t *testing.T) {
+	t.Parallel()
 	chains := spinUpTestChains(t, gaiaChains...)
 
 	_, err := genTestPathAndSet(chains.MustGet("ibc0"), chains.MustGet("ibc1"), "transfer", "transfer")
@@ -57,8 +57,8 @@ func TestBasicTransfer(t *testing.T) {
 	// done()
 }
 
-func TestRelayUnRelayedPacketsOrderedChan(t *testing.T) {
-	// t.Parallel()
+func TestGaiaToGaiaRelayUnRelayedPacketsOrderedChan(t *testing.T) {
+	t.Parallel()
 	chains := spinUpTestChains(t, gaiaChains...)
 
 	_, err := genTestPathAndSet(chains.MustGet("ibc0"), chains.MustGet("ibc1"), "transfer", "transfer")
@@ -106,8 +106,8 @@ func TestRelayUnRelayedPacketsOrderedChan(t *testing.T) {
 	require.Equal(t, dstExpected, sdk.NewCoin(ibc0to1Denom, dstBal.AmountOf(ibc0to1Denom)))
 }
 
-func TestStreamingRelayer(t *testing.T) {
-	// t.Parallel()
+func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
+	t.Parallel()
 	chains := spinUpTestChains(t, gaiaChains...)
 
 	var (

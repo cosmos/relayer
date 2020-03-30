@@ -37,6 +37,9 @@ install: go.sum
 test:
 	@go test -v ./relayer/...
 
+test-gaia:
+	@go test -v ./relayer/... -run TestGaiaToGaia*
+
 coverage:
 	@echo "viewing test coverage..."
 	@go tool cover --html=coverage.out
