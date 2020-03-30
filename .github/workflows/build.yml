@@ -23,9 +23,6 @@ jobs:
     # checkout relayer
     - name: checkout relayer
       uses: actions/checkout@v2
-      with:
-        path: go/src/github.com/iqlusioninc/relayer
-
 
     # run linter
     - name: linter
