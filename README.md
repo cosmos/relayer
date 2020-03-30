@@ -98,10 +98,10 @@ $ rly q balance ibc1
 ## Next items
 
 - [ ] Path negotiation reuse commands
-- [ ] Integration test framework: additional tests
+- [x] Integration test framework: additional tests
 - [ ] Integration test framework: additional chains
 - [ ] Less lite client database access, concurrent header map
-- [ ] Exponential backoff queries for proofs
+- [x] Exponential backoff queries for proofs
 
 ## Setting up Developer Environment
 
