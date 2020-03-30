@@ -23,8 +23,8 @@ jobs:
         path: go/src/github.com/iqlusioninc/relayer
 
     # run linter
-    - name: golangci-lint
-      uses: actions-contrib/golangci-lint@v1    
+    - name: lint
+      run: golint -set_exit_status
 
     # setup cache
     - uses: actions/cache@v1
