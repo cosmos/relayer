@@ -44,16 +44,17 @@ coverage:
 	@echo "viewing test coverage..."
 	@go tool cover --html=coverage.out
 
+install-ci-lint:
+	@echo "installing golangci-lint"
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env $(GOPATH))/bin v1.24.0
+
 ci-test:
 	@echo "executing unit tests..."
 	@go test -mod=readonly -v -coverprofile coverage.out ./... 
 
 ci-lint:
-	@echo "running GolangCI-Lint..."
 	@GO111MODULE=on golangci-lint run
-	@echo "formatting..."
 	@find . -name '*.go' -type f -not -path "*.git*" | xargs gofmt -d -s
-	@echo "verifying modules..."
 	@go mod verify
 
 .PHONY: install build ci-test ci-lint coverage clean

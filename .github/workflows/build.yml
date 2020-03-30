@@ -20,9 +20,13 @@ jobs:
     - name: checkout relayer
       uses: actions/checkout@v2
 
+    # install tools
+    - name: install linter
+      run: make install-ci-lint
+
     # run linter
-    - name: Run golangci-lint
-      uses: actions-contrib/golangci-lint@v1
+    - name: run linter
+      run: make ci-lint
 
     # setup cache
     - uses: actions/cache@v1
