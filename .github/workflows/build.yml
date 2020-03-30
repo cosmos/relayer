@@ -25,7 +25,7 @@ jobs:
 
     # install linter
     - name: install linter
-      run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b go/bin v1.24.0
+      run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $GOPATH/bin v1.24.0
       
     # checkout relayer
     - name: checkout relayer
