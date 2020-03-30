@@ -150,13 +150,15 @@ func (c *Chain) TrustNodeInitClient(db *dbm.GoLevelDB) (*lite.Client, error) {
 		err    error
 	)
 
-	retry.Do(func() error {
+	if err := retry.Do(func() error {
 		height, err = c.QueryLatestHeight()
 		if err != nil || height == 0 {
 			return err
 		}
 		return nil
-	})
+	}); err != nil {
+		return nil, err
+	}
 
 	// fetch header from configured node
 	header, err := c.QueryHeaderAtHeight(height)
@@ -180,13 +182,15 @@ func (c *Chain) TrustNodeInitClient(db *dbm.GoLevelDB) (*lite.Client, error) {
 // NewLiteDB returns a new instance of the liteclient database connection
 // CONTRACT: must close the database connection when done with it (defer df())
 func (c *Chain) NewLiteDB() (db *dbm.GoLevelDB, df func(), err error) {
-	retry.Do(func() error {
+	if err := retry.Do(func() error {
 		db, err = dbm.NewGoLevelDB(c.ChainID, liteDir(c.HomePath))
 		if err != nil {
 			return fmt.Errorf("can't open lite client database: %w", err)
 		}
 		return nil
-	})
+	}); err != nil {
+		return nil, nil, err
+	}
 
 	df = func() {
 		err := db.Close()

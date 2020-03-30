@@ -57,7 +57,7 @@ func startCmd() *cobra.Command {
 
 // trap signal waits for a SIGINT or SIGTERM and then sends down the done channel
 func trapSignal(done func()) {
-	sigCh := make(chan os.Signal)
+	sigCh := make(chan os.Signal, 1)
 
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 

@@ -34,7 +34,7 @@ jobs:
 
     # run linter
     - name: run linter
-      run: make lint
+      run: make ci-lint
 
     # upload resulting binaries
     - name: upload binaries
