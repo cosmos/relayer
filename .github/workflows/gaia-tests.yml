@@ -23,9 +23,18 @@ jobs:
         docker-version: 19.03
         docker-channel: stable
 
-      # checkout relayer
+    # checkout relayer
     - name: checkout relayer
       uses: actions/checkout@v2
+
+    # build cache
+    - uses: actions/cache@v1
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
     
     # run tests
     - name: run gaia tests

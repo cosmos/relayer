@@ -1,4 +1,4 @@
-name: Build relayer binary
+name: Build and lint relayer
 
 on: [push]
 
@@ -16,13 +16,25 @@ jobs:
         go-version: 1.14
       id: go
 
-      # checkout relayer
+    # checkout relayer
     - name: checkout relayer
       uses: actions/checkout@v2
+
+    # setup cache
+    - uses: actions/cache@v1
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
     
     # build binary
     - name: build binary and move to upload location
       run: make build
+
+    # run linter
+    - name: run linter
+      run: make lint
 
     # upload resulting binaries
     - name: upload binaries
