@@ -145,10 +145,18 @@ func (c *Chain) InitLiteClient(db *dbm.GoLevelDB, trustOpts lite.TrustOptions) (
 // TrustNodeInitClient trusts the configured node and initializes the lite client
 func (c *Chain) TrustNodeInitClient(db *dbm.GoLevelDB) (*lite.Client, error) {
 	// fetch latest height from configured node
-	height, err := c.QueryLatestHeight()
-	if err != nil {
-		return nil, err
-	}
+	var (
+		height int64
+		err    error
+	)
+
+	retry.Do(func() error {
+		height, err = c.QueryLatestHeight()
+		if err != nil || height == 0 {
+			return err
+		}
+		return nil
+	})
 
 	// fetch header from configured node
 	header, err := c.QueryHeaderAtHeight(height)

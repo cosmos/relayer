@@ -11,6 +11,7 @@ import (
 	"time"
 
 	// TODO: replace this codec with the gaia codec
+
 	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/cosmos-sdk/simapp"
@@ -86,7 +87,9 @@ func spinUpTestChains(t *testing.T, testChains ...testChain) Chains {
 
 	// uses a sensible default on windows (tcp/http) and linux/osx (socket)
 	pool, err := dockertest.NewPool("")
-	require.NoError(t, fmt.Errorf("Could not connect to docker: %w", err))
+	if err != nil {
+		require.NoError(t, fmt.Errorf("Could not connect to docker at %s: %w", pool.Client.Endpoint(), err))
+	}
 
 	// make each container and initalize the chains
 	for _, tc := range testChains {
@@ -111,11 +114,12 @@ func spinUpTestChains(t *testing.T, testChains ...testChain) Chains {
 	// start the wait for cleanup function
 	go cleanUpTest(t, testsDone, contDone, resources, pool, dir, chains)
 
-	// set the test's cleanup function
+	// set the test cleanup function
 	t.Cleanup(func() {
 		testsDone <- struct{}{}
 		<-contDone
 	})
+
 	// return the chains and the doneFunc
 	return chains
 }
@@ -160,7 +164,9 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *
 	c.Log(fmt.Sprintf("- [%s] SPUN UP IN CONTAINER %s from %s", c.ChainID, resource.Container.Name, resource.Container.Config.Image))
 
 	// retry polling the container until status doesn't error
-	require.NoError(t, fmt.Errorf("Could not connect to docker: %s", pool.Retry(c.statusErr)))
+	if err = pool.Retry(c.statusErr); err != nil {
+		require.NoError(t, fmt.Errorf("Could not connect to container at %s: %s", c.RPCAddr, err))
+	}
 
 	c.Log(fmt.Sprintf("- [%s] CONTAINER AVAILABLE AT PORT %s", c.ChainID, c.RPCAddr))
 
@@ -176,11 +182,15 @@ func cleanUpTest(t *testing.T, testsDone <-chan struct{}, contDone chan<- struct
 	<-testsDone
 
 	// clean up the tmp dir
-	require.NoError(t, fmt.Errorf("{cleanUpTest} failed to rm dir(%s), %s ", os.RemoveAll(dir), dir))
+	if err := os.RemoveAll(dir); err != nil {
+		require.NoError(t, fmt.Errorf("{cleanUpTest} failed to rm dir(%w), %s ", err, dir))
+	}
 
 	// remove all the docker containers
 	for i, r := range resources {
-		require.NoError(t, fmt.Errorf("Could not purge container %s: %w", r.Container.Name, pool.Purge(r)))
+		if err := pool.Purge(r); err != nil {
+			require.NoError(t, fmt.Errorf("Could not purge container %s: %w", r.Container.Name, err))
+		}
 		c := getLoggingChain(chains, r)
 		chains[i].Log(fmt.Sprintf("- [%s] SPUN DOWN CONTAINER %s from %s", c.ChainID, r.Container.Name, r.Container.Config.Image))
 	}

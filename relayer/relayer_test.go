@@ -16,8 +16,11 @@ var (
 )
 
 func TestBasicTransfer(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	chains := spinUpTestChains(t, gaiaChains...)
+
+	_, err := genTestPathAndSet(chains.MustGet("ibc0"), chains.MustGet("ibc1"), "transfer", "transfer")
+	require.NoError(t, err)
 
 	var (
 		src          = chains.MustGet("ibc0")
@@ -27,9 +30,6 @@ func TestBasicTransfer(t *testing.T) {
 		testCoin     = sdk.NewCoin(testDenom, sdk.NewInt(1000))
 		expectedCoin = sdk.NewCoin(dstDenom, sdk.NewInt(1000))
 	)
-
-	_, err := genTestPathAndSet(src, dst, "transfer", "transfer")
-	require.NoError(t, err)
 
 	// Check if clients have been created, if not create them
 	// then test querying clients from src and dst sides
@@ -53,11 +53,16 @@ func TestBasicTransfer(t *testing.T) {
 	dstBal, err := dst.QueryBalance(dst.Key)
 	require.NoError(t, err)
 	require.Equal(t, expectedCoin.Amount.Int64(), dstBal.AmountOf(dstDenom).Int64())
+
+	// done()
 }
 
 func TestRelayUnRelayedPacketsOrderedChan(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	chains := spinUpTestChains(t, gaiaChains...)
+
+	_, err := genTestPathAndSet(chains.MustGet("ibc0"), chains.MustGet("ibc1"), "transfer", "transfer")
+	require.NoError(t, err)
 
 	var (
 		src = chains.MustGet("ibc0")
@@ -70,9 +75,6 @@ func TestRelayUnRelayedPacketsOrderedChan(t *testing.T) {
 		dstExpected  = sdk.NewCoin(ibc0to1Denom, sdk.NewInt(2000))
 		srcExpected  = sdk.NewCoin(ibc1to0Denom, sdk.NewInt(2000))
 	)
-
-	_, err := genTestPathAndSet(src, dst, "transfer", "transfer")
-	require.NoError(t, err)
 
 	// create the path
 	require.NoError(t, src.CreateClients(dst))
@@ -105,7 +107,7 @@ func TestRelayUnRelayedPacketsOrderedChan(t *testing.T) {
 }
 
 func TestStreamingRelayer(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	chains := spinUpTestChains(t, gaiaChains...)
 
 	var (
@@ -142,7 +144,7 @@ func TestStreamingRelayer(t *testing.T) {
 	require.NoError(t, dst.WaitForNBlocks(1))
 
 	// start the relayer process in it's own goroutine
-	done, err := path.MustGetStrategy().Run(src, dst)
+	rlyDone, err := path.MustGetStrategy().Run(src, dst)
 	require.NoError(t, err)
 
 	// send those tokens from dst back to dst and src back to src
@@ -153,7 +155,7 @@ func TestStreamingRelayer(t *testing.T) {
 	require.NoError(t, dst.WaitForNBlocks(4))
 
 	// kill relayer routine
-	done()
+	rlyDone()
 
 	// check balance on src against expected
 	srcGot, err := src.QueryBalance(src.Key)
