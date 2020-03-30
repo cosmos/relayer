@@ -44,21 +44,12 @@ coverage:
 	@echo "viewing test coverage..."
 	@go tool cover --html=coverage.out
 
-ci-test:
-	@echo "executing unit tests..."
-	@go test -mod=readonly -v -coverprofile coverage.out ./... 
-
 ci-lint:
 	@GO111MODULE=on golangci-lint run
 	@find . -name '*.go' -type f -not -path "*.git*" | xargs gofmt -d -s
 	@go mod verify
 
-.PHONY: install build ci-test ci-lint coverage clean
+.PHONY: install build ci-lint coverage clean
 
-# TODO: Port reproducable build scripts from gaia
-# TODO: Build should output builds for macos|windows|linux
-# TODO: make test should run ci-chains but all the way to an OPEN connection
-#       and attempt to send a packet from ibc0 -> ibc1
-# TODO: Add linting support
-# TODO: add support for versioning
-# TODO: add ldflags for version of sdk, gaia and relayer, other useful/important info
+# TODO: Port reproducable build scripts from gaia for relayer
+# TODO: Full tested and working releases

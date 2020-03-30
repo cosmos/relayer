@@ -22,9 +22,13 @@ jobs:
       with:
         path: go/src/github.com/iqlusioninc/relayer
 
+    # install linter
+    - name: install linter
+      run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b go/bin v1.24.0
+
     # run linter
-    - name: lint
-      run: golint -set_exit_status
+    - name: linter
+      run: make ci-lint
 
     # setup cache
     - uses: actions/cache@v1
