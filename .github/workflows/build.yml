@@ -1,4 +1,4 @@
-name: Build and lint relayer
+name: BUILD - lint, build and binary upload
 
 on: [push]
 
@@ -38,15 +38,15 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
-        
-    # build binary
-    - name: build binary and move to upload location
-      run: make build
 
     # run linter
     - name: linter
       run: make ci-lint
     
+    # build binary
+    - name: build binary and move to upload location
+      run: make build
+
     # upload resulting binaries
     - name: upload binaries
       uses: actions/upload-artifact@v1

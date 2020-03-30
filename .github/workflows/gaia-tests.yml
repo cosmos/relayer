@@ -1,4 +1,4 @@
-name: Run gaiad tests
+name: TESTING - gaia to gaia integration
 
 on: [push]
 
