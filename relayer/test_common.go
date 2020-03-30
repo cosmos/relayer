@@ -11,6 +11,7 @@ import (
 	"time"
 
 	// TODO: replace this codec with the gaia codec
+
 	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/cosmos-sdk/simapp"
@@ -29,7 +30,7 @@ var (
 		cdc:            codecstd.NewAppCodec(codecstd.MakeCodec(simapp.ModuleBasics)),
 		amino:          codecstd.MakeCodec(simapp.ModuleBasics),
 		dockerImage:    "jackzampolin/gaiatest",
-		dockerTag:      "jack_relayer-testing",
+		dockerTag:      "ibc-alpha",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "cosmos",
@@ -68,7 +69,7 @@ type (
 // spinUpTestChains is to be passed any number of test chains with given configuration options
 // to be created as individual docker containers at the beginning of a test. It is safe to run
 // in parallel tests as all created resources are independent of eachother
-func spinUpTestChains(t *testing.T, testChains ...testChain) (Chains, func()) {
+func spinUpTestChains(t *testing.T, testChains ...testChain) Chains {
 	var (
 		resources []*dockertest.Resource
 		chains    []*Chain
@@ -82,19 +83,17 @@ func spinUpTestChains(t *testing.T, testChains ...testChain) (Chains, func()) {
 
 	// Create temporary relayer test directory
 	dir, err := ioutil.TempDir("", "relayer-test")
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
 	// uses a sensible default on windows (tcp/http) and linux/osx (socket)
 	pool, err := dockertest.NewPool("")
 	if err != nil {
-		t.Errorf("Could not connect to docker: %w", err)
+		require.NoError(t, fmt.Errorf("Could not connect to docker at %s: %w", pool.Client.Endpoint(), err))
 	}
 
 	// make each container and initalize the chains
 	for _, tc := range testChains {
-		c := newTestChain(tc)
+		c := newTestChain(t, tc)
 		chains = append(chains, c)
 		wg.Add(1)
 		go spinUpTestContainer(t, rchan, pool, c, dir, &wg, tc)
@@ -115,18 +114,20 @@ func spinUpTestChains(t *testing.T, testChains ...testChain) (Chains, func()) {
 	// start the wait for cleanup function
 	go cleanUpTest(t, testsDone, contDone, resources, pool, dir, chains)
 
-	// return the chains and the doneFunc
-	return chains, func() {
+	// set the test cleanup function
+	t.Cleanup(func() {
 		testsDone <- struct{}{}
 		<-contDone
-	}
+	})
+
+	// return the chains and the doneFunc
+	return chains
 }
 
 // spinUpTestContainer spins up a test container with the given configuration
 func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *dockertest.Pool, c *Chain, dir string, wg *sync.WaitGroup, tc testChain) {
 	defer wg.Done()
 	var err error
-	// initialize the chain
 
 	// add extra logging if TEST_DEBUG=true
 	var debug bool
@@ -137,15 +138,13 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *
 		}
 	}
 
-	if err = c.Init(dir, tc.t.cdc, tc.t.amino, tc.t.timeout, debug); err != nil {
-		t.Error(err)
-	}
+	// initialize the chain
+	require.NoError(t, c.Init(dir, tc.t.cdc, tc.t.amino, tc.t.timeout, debug))
 
 	// create the test key
-	if err = c.createTestKey(); err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, c.createTestKey())
 
+	// setup docker options
 	dockerOpts := &dockertest.RunOptions{
 		Name:         fmt.Sprintf("%s-%s", c.ChainID, t.Name()),
 		Repository:   tc.t.dockerImage,
@@ -159,23 +158,20 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *
 
 	// create the proper docker image with port forwarding setup
 	var resource *dockertest.Resource
-	if resource, err = pool.RunWithOptions(dockerOpts); err != nil {
-		t.Error(err)
-	}
+	resource, err = pool.RunWithOptions(dockerOpts)
+	require.NoError(t, err)
 
 	c.Log(fmt.Sprintf("- [%s] SPUN UP IN CONTAINER %s from %s", c.ChainID, resource.Container.Name, resource.Container.Config.Image))
 
 	// retry polling the container until status doesn't error
 	if err = pool.Retry(c.statusErr); err != nil {
-		t.Errorf("Could not connect to docker: %s", err)
+		require.NoError(t, fmt.Errorf("Could not connect to container at %s: %s", c.RPCAddr, err))
 	}
 
 	c.Log(fmt.Sprintf("- [%s] CONTAINER AVAILABLE AT PORT %s", c.ChainID, c.RPCAddr))
 
 	// initalize the lite client
-	if err = c.forceInitLite(); err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, c.forceInitLite())
 
 	rchan <- resource
 }
@@ -187,13 +183,13 @@ func cleanUpTest(t *testing.T, testsDone <-chan struct{}, contDone chan<- struct
 
 	// clean up the tmp dir
 	if err := os.RemoveAll(dir); err != nil {
-		t.Errorf("{cleanUpTest} failed to rm dir(%s), %s ", dir, err)
+		require.NoError(t, fmt.Errorf("{cleanUpTest} failed to rm dir(%w), %s ", err, dir))
 	}
 
 	// remove all the docker containers
 	for i, r := range resources {
 		if err := pool.Purge(r); err != nil {
-			t.Errorf("Could not purge container %s: %w", r.Container.Name, err)
+			require.NoError(t, fmt.Errorf("Could not purge container %s: %w", r.Container.Name, err))
 		}
 		c := getLoggingChain(chains, r)
 		chains[i].Log(fmt.Sprintf("- [%s] SPUN DOWN CONTAINER %s from %s", c.ChainID, r.Container.Name, r.Container.Config.Image))
@@ -204,11 +200,9 @@ func cleanUpTest(t *testing.T, testsDone <-chan struct{}, contDone chan<- struct
 }
 
 // newTestChain generates a new instance of *Chain with a free TCP port configured as the RPC port
-func newTestChain(tc testChain) *Chain {
+func newTestChain(t *testing.T, tc testChain) *Chain {
 	_, port, err := server.FreeTCPAddr()
-	if err != nil {
-		return nil
-	}
+	require.NoError(t, err)
 	return &Chain{
 		Key:            "testkey",
 		ChainID:        tc.chainID,

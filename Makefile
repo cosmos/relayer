@@ -1,6 +1,6 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
-all: ci-lint ci-test install
+all: ci-lint install
 
 ###############################################################################
 # Build / Install
@@ -35,30 +35,21 @@ install: go.sum
 # Tests / CI
 ###############################################################################
 test:
-	@go test -v ./relayer/...
+	@go test -mod=readonly -v -coverprofile coverage.out ./relayer/...
+
+test-gaia:
+	@go test -mod=readonly -v ./relayer/... -run TestGaiaToGaia*
 
 coverage:
 	@echo "viewing test coverage..."
 	@go tool cover --html=coverage.out
 
-ci-test:
-	@echo "executing unit tests..."
-	@go test -mod=readonly -v -coverprofile coverage.out ./... 
-
 ci-lint:
-	@echo "running GolangCI-Lint..."
 	@GO111MODULE=on golangci-lint run
-	@echo "formatting..."
 	@find . -name '*.go' -type f -not -path "*.git*" | xargs gofmt -d -s
-	@echo "verifying modules..."
 	@go mod verify
 
-.PHONY: install build ci-test ci-lint coverage clean
+.PHONY: install build ci-lint coverage clean
 
-# TODO: Port reproducable build scripts from gaia
-# TODO: Build should output builds for macos|windows|linux
-# TODO: make test should run ci-chains but all the way to an OPEN connection
-#       and attempt to send a packet from ibc0 -> ibc1
-# TODO: Add linting support
-# TODO: add support for versioning
-# TODO: add ldflags for version of sdk, gaia and relayer, other useful/important info
+# TODO: Port reproducable build scripts from gaia for relayer
+# TODO: Full tested and working releases

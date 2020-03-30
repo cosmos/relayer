@@ -12,6 +12,7 @@ import (
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	dbm "github.com/tendermint/tm-db"
 
+	retry "github.com/avast/retry-go"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
 	lite "github.com/tendermint/tendermint/lite2"
@@ -144,8 +145,18 @@ func (c *Chain) InitLiteClient(db *dbm.GoLevelDB, trustOpts lite.TrustOptions) (
 // TrustNodeInitClient trusts the configured node and initializes the lite client
 func (c *Chain) TrustNodeInitClient(db *dbm.GoLevelDB) (*lite.Client, error) {
 	// fetch latest height from configured node
-	height, err := c.QueryLatestHeight()
-	if err != nil {
+	var (
+		height int64
+		err    error
+	)
+
+	if err := retry.Do(func() error {
+		height, err = c.QueryLatestHeight()
+		if err != nil || height == 0 {
+			return err
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 
@@ -171,9 +182,14 @@ func (c *Chain) TrustNodeInitClient(db *dbm.GoLevelDB) (*lite.Client, error) {
 // NewLiteDB returns a new instance of the liteclient database connection
 // CONTRACT: must close the database connection when done with it (defer df())
 func (c *Chain) NewLiteDB() (db *dbm.GoLevelDB, df func(), err error) {
-	db, err = dbm.NewGoLevelDB(c.ChainID, liteDir(c.HomePath))
-	if err != nil {
-		return nil, nil, fmt.Errorf("can't open lite client database: %w", err)
+	if err := retry.Do(func() error {
+		db, err = dbm.NewGoLevelDB(c.ChainID, liteDir(c.HomePath))
+		if err != nil {
+			return fmt.Errorf("can't open lite client database: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return nil, nil, err
 	}
 
 	df = func() {

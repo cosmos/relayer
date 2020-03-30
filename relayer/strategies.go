@@ -2,12 +2,10 @@ package relayer
 
 import (
 	"fmt"
-	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 
+	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
@@ -18,6 +16,15 @@ var (
 	txEvents = "tm.event = 'Tx'"
 	// blEvents = "tm.event = 'NewBlock'"
 )
+
+// MustGetStrategy returns the strategy and panics on error
+func (r *Path) MustGetStrategy() Strategy {
+	strat, err := r.GetStrategy()
+	if err != nil {
+		panic(err)
+	}
+	return strat
+}
 
 // GetStrategy the strategy defined in the relay messages
 func (r *Path) GetStrategy() (Strategy, error) {
@@ -51,7 +58,10 @@ type Strategy interface {
 	GetConstraints() map[string]string
 
 	// Run starts the relayer
-	Run(*Chain, *Chain) error
+	// it returns a recieve only channel that is used to wait for
+	// the strategy to be ready to relay, and a done channel
+	// that shuts down the relayer when it is time to exit
+	Run(*Chain, *Chain) (func(), error)
 }
 
 // NewNaiveStrategy Returns a new NaiveStrategy config
@@ -94,38 +104,52 @@ func (nrs NaiveStrategy) GetConstraints() map[string]string {
 }
 
 // Run implements Strategy and defines what actions are taken when the relayer runs
-func (nrs NaiveStrategy) Run(src, dst *Chain) error {
+func (nrs NaiveStrategy) Run(src, dst *Chain) (func(), error) {
+	doneChan := make(chan struct{})
+
 	// first, we want to ensure that there are no packets remaining to be relayed
 	if err := RelayUnRelayedPacketsOrderedChan(src, dst); err != nil {
-		return err
+		// TODO: some errors may leak here when there are no packets to be relayed
+		// be on the lookout for that
+		return nil, err
 	}
 
+	go nrsLoop(src, dst, doneChan)
+
+	return func() { doneChan <- struct{}{} }, nil
+}
+
+func nrsLoop(src, dst *Chain, doneChan chan struct{}) {
+	// Subscribe to source chain
 	srcEvents, srcCancel, err := src.Subscribe(txEvents)
 	if err != nil {
-		return err
+		src.Error(err)
+		return
 	}
 	defer srcCancel()
 	src.Log(fmt.Sprintf("- listening to events from %s...", src.ChainID))
 
+	// Subscribe to destination chain
 	dstEvents, dstCancel, err := dst.Subscribe(txEvents)
 	if err != nil {
-		return err
+		dst.Error(err)
+		return
 	}
 	defer dstCancel()
 	dst.Log(fmt.Sprintf("- listening to events from %s...", dst.ChainID))
 
-	done := trapSignal()
-	defer close(done)
-
+	// Listen to channels and take appropriate action
 	for {
 		select {
 		case srcMsg := <-srcEvents:
 			go dst.handlePacket(src, srcMsg.Events)
 		case dstMsg := <-dstEvents:
 			go src.handlePacket(dst, dstMsg.Events)
-		case <-done:
-			fmt.Println("shutdown activated")
-			return nil
+		case <-doneChan:
+			src.Log(fmt.Sprintf("- [%s]:{%s} <-> [%s]:{%s} relayer shutting down",
+				src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))
+			close(doneChan)
+			return
 		}
 	}
 }
@@ -151,18 +175,21 @@ func (src *Chain) sendPacket(dst *Chain, xferPacket chanState.PacketDataI, seq i
 		dst.Error(err)
 	}
 
-	dstH, err = dst.UpdateLiteWithHeader()
-	if err != nil {
+	if err = retry.Do(func() error {
+		dstH, err = dst.UpdateLiteWithHeader()
+		if err != nil {
+			return err
+		}
+		dstCommitRes, err = dst.QueryPacketCommitment(dstH.Height-1, int64(seq))
+		if err != nil {
+			return err
+		} else if dstCommitRes.Proof.Proof == nil {
+			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)", dst.ChainID, dstH.Height-1, seq)
+		}
+		return nil
+	}); err != nil {
 		dst.Error(err)
-
-	}
-	dstCommitRes, err = dst.QueryPacketCommitment(dstH.Height-1, int64(seq))
-	if err != nil {
-		dst.Error(err)
-	}
-
-	if dstCommitRes.Proof.Proof == nil {
-		dst.Error(fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)", dst.ChainID, dstH.Height-1, seq))
+		return
 	}
 
 	txs := &RelayMsgs{
@@ -190,22 +217,6 @@ func (src *Chain) sendPacket(dst *Chain, xferPacket chanState.PacketDataI, seq i
 		Dst: []sdk.Msg{},
 	}
 	txs.Send(src, dst)
-}
-
-func trapSignal() chan bool {
-	sigCh := make(chan os.Signal, 1)
-	done := make(chan bool, 1)
-
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		sig := <-sigCh
-		fmt.Println("Signal Recieved:", sig.String())
-		close(sigCh)
-		done <- true
-	}()
-
-	return done
 }
 
 func (src *Chain) parsePacketData(dst *Chain, events map[string][]string) (packetData chanState.PacketDataI, seq int64, err error) {

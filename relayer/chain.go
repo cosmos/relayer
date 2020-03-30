@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -241,7 +242,8 @@ func (src *Chain) MustGetAddress() sdk.AccAddress {
 }
 
 func (src *Chain) String() string {
-	return src.ChainID
+	out, _ := json.Marshal(src)
+	return string(out)
 }
 
 // Update returns a new chain with updated values

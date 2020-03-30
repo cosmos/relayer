@@ -537,21 +537,22 @@ func (c *Chain) QueryChannels(page, limit int) ([]chanTypes.Channel, error) {
 func qChansErr(err error) error { return fmt.Errorf("query channels failed: %w", err) }
 
 // WaitForNBlocks blocks until the next block on a given chain
-func (c *Chain) WaitForNBlocks(n int) error {
+func (c *Chain) WaitForNBlocks(n int64) error {
 	var initial int64
 	h, err := c.Client.Status()
 	if err != nil {
 		return err
 	}
-	if !h.SyncInfo.CatchingUp {
-		initial = h.SyncInfo.LatestBlockHeight
+	if h.SyncInfo.CatchingUp {
+		return fmt.Errorf("chain catching up")
 	}
+	initial = h.SyncInfo.LatestBlockHeight
 	for {
 		h, err = c.Client.Status()
 		if err != nil {
 			return err
 		}
-		if h.SyncInfo.LatestBlockHeight > initial {
+		if h.SyncInfo.LatestBlockHeight > initial+n {
 			return nil
 		}
 		time.Sleep(10 * time.Millisecond)
