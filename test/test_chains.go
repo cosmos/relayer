@@ -33,14 +33,14 @@ var (
 		trustingPeriod: "330h",
 	}
 
-	// MTD BLOCK TIMEOUTS on jackzampolin/mtzonetest:ibc-alpha
+	// MTD BLOCK TIMEOUTS on microtick/mtzonetest:ibc-alpha
 	// timeout_commit = "1000ms"
 	// timeout_propose = "1000ms"
 	// 3 second relayer timeout works well with these block times
 	mtdTestConfig = testChainConfig{
 		cdc:            codecstd.NewAppCodec(codecstd.MakeCodec(simapp.ModuleBasics)),
 		amino:          codecstd.MakeCodec(simapp.ModuleBasics),
-		dockerImage:    "jackzampolin/mtzonetest",
+		dockerImage:    "microtick/mtzonetest",
 		dockerTag:      "ibc-alpha",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
