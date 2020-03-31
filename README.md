@@ -28,6 +28,7 @@ If you would like to join the relayer testnet, please [check out the instruction
 | chain | tests | supported ports |
 |-------|--------|----------------|
 | [`gaia`](https://github.com/cosmos/gaia) | ![gaia](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20gaia%20to%20gaia%20integration/badge.svg) | `transfer` |
+| `microtick` | ![microtick](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20mtd%20to%20mtd%20integration/badge.svg) | `transfer` |
 
 ## Demoing the Relayer
 

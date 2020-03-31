@@ -38,7 +38,10 @@ test:
 	@go test -mod=readonly -v -coverprofile coverage.out ./test/...
 
 test-gaia:
-	@go test -mod=readonly -v -coverprofile coverage.out ./test/... -tags gaia
+	@go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestGaia*
+
+test-mtd:
+	@go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestMtd*
 
 coverage:
 	@echo "viewing test coverage..."
