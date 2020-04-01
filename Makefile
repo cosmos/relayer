@@ -43,6 +43,9 @@ test-gaia:
 test-mtd:
 	@go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestMtd*
 
+test-rocketzone:
+	@go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestRocket*
+
 coverage:
 	@echo "viewing test coverage..."
 	@go tool cover --html=coverage.out

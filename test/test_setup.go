@@ -103,7 +103,7 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *
 		Cmd:          []string{c.ChainID, c.MustGetAddress().String()},
 		ExposedPorts: []string{tc.t.rpcPort},
 		PortBindings: map[dc.Port][]dc.PortBinding{
-			dc.Port(tc.t.rpcPort): []dc.PortBinding{{HostPort: c.GetRPCPort()}},
+			dc.Port(tc.t.rpcPort): {{HostPort: c.GetRPCPort()}},
 		},
 	}
 
