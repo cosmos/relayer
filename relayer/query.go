@@ -298,7 +298,7 @@ func qClntsErr(err error) error { return fmt.Errorf("query clients failed: %w", 
 //////////////////////////////
 
 // QueryConnections gets any connections on a chain
-func (c *Chain) QueryConnections(page, limit int) (conns []connTypes.ConnectionEnd, err error) {
+func (c *Chain) QueryConnections(page, limit int) (conns []connTypes.IdentifiedConnectionEnd, err error) {
 	var bz []byte
 	if bz, err = c.Cdc.MarshalJSON(connTypes.NewQueryAllConnectionsParams(page, limit)); err != nil {
 		return nil, qConnsErr(err)
@@ -431,7 +431,8 @@ func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (map[string]connType
 
 func qConnErr(err error) error { return fmt.Errorf("query connection failed: %w", err) }
 
-var emptyConnRes = connTypes.ConnectionResponse{Connection: connTypes.ConnectionEnd{State: connState.UNINITIALIZED}}
+var emptyConn = connTypes.ConnectionEnd{State: connState.UNINITIALIZED}
+var emptyConnRes = connTypes.ConnectionResponse{Connection: connTypes.IdentifiedConnectionEnd{emptyConn, ""}}
 
 //////////////////////////////
 //    ICS 04 -> CHANNEL     //
