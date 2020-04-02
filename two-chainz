@@ -42,15 +42,20 @@ if [[ -d $GAIA_REPO ]]; then
     if [[ ! -n $(git status -s) ]]; then
       # sync with remote $GAIA_BRANCH
       git fetch --all &> /dev/null
-      git checkout $GAIA_BRANCH &> /dev/null
-      git pull origin $GAIA_BRANCH &> /dev/null
+
+      # ensure the gaia repository successfully pulls the latest $GAIA_BRANCH
+      if [[ -n $(git checkout $GAIA_BRANCH -q) ]] || [[ -n $(git pull origin $GAIA_BRANCH -q) ]]; then
+        echo "failed to sync remote branch $GAIA_BRANCH"
+        echo "in $GAIA_REPO, please rename the remote repository github.com/cosmos/gaia to 'origin'"
+        exit 1
+      fi
 
       # install
       make install &> /dev/null
 
       # ensure that built binary has the same version as the repo
       if [[ ! "$(gaiad version --long 2>&1 | grep "commit:" | sed 's/commit: //g')" == "$(git rev-parse HEAD)" ]]; then
-        echo "built version of gaiad commit doesn't match "
+        echo "built version of gaiad commit doesn't match"
         exit 1
       fi 
     else
