@@ -19,6 +19,7 @@ var (
 
 func TestGaiaToGaiaBasicTransfer(t *testing.T) {
 	t.Parallel()
+	t.Skip()
 	chains := spinUpTestChains(t, gaiaChains...)
 
 	_, err := genTestPathAndSet(chains.MustGet("ibc0"), chains.MustGet("ibc1"), "transfer", "transfer")
@@ -58,6 +59,7 @@ func TestGaiaToGaiaBasicTransfer(t *testing.T) {
 }
 
 func TestGaiaToGaiaRelayUnRelayedPacketsOrderedChan(t *testing.T) {
+	t.Skip()
 	t.Parallel()
 	chains := spinUpTestChains(t, gaiaChains...)
 

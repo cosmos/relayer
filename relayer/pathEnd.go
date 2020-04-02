@@ -124,7 +124,7 @@ func (src *PathEnd) ChanTry(dst *PathEnd, dstChanState chanTypes.ChannelResponse
 		src.PortID,
 		src.ChannelID,
 		defaultIBCVersion,
-		dstChanState.Channel.Ordering,
+		dstChanState.Channel.Channel.Ordering,
 		[]string{src.ConnectionID},
 		dst.PortID,
 		dst.ChannelID,
@@ -140,7 +140,7 @@ func (src *PathEnd) ChanAck(dstChanState chanTypes.ChannelResponse, signer sdk.A
 	return chanTypes.NewMsgChannelOpenAck(
 		src.PortID,
 		src.ChannelID,
-		dstChanState.Channel.GetVersion(),
+		dstChanState.Channel.Channel.GetVersion(),
 		dstChanState.Proof,
 		dstChanState.ProofHeight+1,
 		signer,
@@ -179,12 +179,13 @@ func (src *PathEnd) ChanCloseConfirm(dstChanState chanTypes.ChannelResponse, sig
 }
 
 // MsgRecvPacket creates a MsgPacket
-func (src *PathEnd) MsgRecvPacket(dst *PathEnd, sequence uint64, packetData chanState.PacketDataI, proof chanTypes.PacketResponse, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) MsgRecvPacket(dst *PathEnd, sequence, timeoutHeight uint64, packetData []byte, proof chanTypes.PacketResponse, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgPacket(
 		dst.NewPacket(
 			src,
 			sequence,
 			packetData,
+			timeoutHeight,
 		),
 		proof.Proof,
 		proof.ProofHeight+1,
@@ -204,7 +205,7 @@ func (src *PathEnd) MsgTimeout(packet chanTypes.Packet, seq uint64, proof chanTy
 }
 
 // MsgAck creates MsgAck
-func (src *PathEnd) MsgAck(packet chanTypes.Packet, ack chanState.PacketAcknowledgementI, proof chanTypes.PacketResponse, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) MsgAck(packet chanTypes.Packet, ack []byte, proof chanTypes.PacketResponse, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgAcknowledgement(
 		packet,
 		ack,
@@ -228,7 +229,7 @@ func (src *PathEnd) MsgTransfer(dst *PathEnd, dstHeight uint64, amount sdk.Coins
 }
 
 // NewPacket returns a new packet from src to dist w
-func (src *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData chanState.PacketDataI) chanTypes.Packet {
+func (src *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte, timeoutHeight uint64) chanTypes.Packet {
 	return chanTypes.NewPacket(
 		packetData,
 		sequence,
@@ -236,16 +237,16 @@ func (src *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData chanStat
 		src.ChannelID,
 		dst.PortID,
 		dst.ChannelID,
+		timeoutHeight,
 	)
 }
 
 // XferPacket creates a new transfer packet
-func (src *PathEnd) XferPacket(amount sdk.Coins, sender, reciever sdk.AccAddress, source bool, timeout uint64) chanState.PacketDataI {
+func (src *PathEnd) XferPacket(amount sdk.Coins, sender, reciever sdk.AccAddress, source bool) []byte {
 	return xferTypes.NewFungibleTokenPacketData(
 		amount,
 		sender,
 		reciever,
 		source,
-		timeout,
-	)
+	).GetBytes()
 }

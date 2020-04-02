@@ -332,7 +332,6 @@ func transferCmd() *cobra.Command {
 				c[src].MustGetAddress(),
 				dstAddr,
 				source,
-				dstHeader.GetHeight()+1000,
 			)
 
 			// Debugging by simply passing in the packet information that we know was sent earlier in the SendPacket
@@ -344,6 +343,7 @@ func transferCmd() *cobra.Command {
 					c[dst].PathEnd.MsgRecvPacket(
 						c[src].PathEnd,
 						seqRecv.NextSequenceRecv,
+						uint64(hs[dst].Height+1000),
 						xferPacket,
 						chanTypes.NewPacketResponse(
 							c[src].PathEnd.PortID,
@@ -353,6 +353,7 @@ func transferCmd() *cobra.Command {
 								c[dst].PathEnd,
 								seqSend-1,
 								xferPacket,
+								uint64(hs[dst].Height+1000),
 							),
 							srcCommitRes.Proof.Proof,
 							int64(srcCommitRes.ProofHeight),

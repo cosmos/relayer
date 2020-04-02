@@ -41,20 +41,20 @@ func testConnection(t *testing.T, src, dst *Chain) {
 	conns, err := src.QueryConnections(1, 1000)
 	require.NoError(t, err)
 	require.Equal(t, len(conns), 1)
-	require.Equal(t, conns[0].GetClientID(), src.PathEnd.ClientID)
-	require.Equal(t, conns[0].GetCounterparty().GetClientID(), dst.PathEnd.ClientID)
-	require.Equal(t, conns[0].GetCounterparty().GetConnectionID(), dst.PathEnd.ConnectionID)
-	require.Equal(t, conns[0].GetState().String(), "OPEN")
+	require.Equal(t, conns[0].Connection.GetClientID(), src.PathEnd.ClientID)
+	require.Equal(t, conns[0].Connection.GetCounterparty().GetClientID(), dst.PathEnd.ClientID)
+	require.Equal(t, conns[0].Connection.GetCounterparty().GetConnectionID(), dst.PathEnd.ConnectionID)
+	require.Equal(t, conns[0].Connection.GetState().String(), "OPEN")
 
 	h, err := src.Client.Status()
 	require.NoError(t, err)
 
 	conn, err := src.QueryConnection(h.SyncInfo.LatestBlockHeight)
 	require.NoError(t, err)
-	require.Equal(t, conn.Connection.GetClientID(), src.PathEnd.ClientID)
-	require.Equal(t, conn.Connection.GetCounterparty().GetClientID(), dst.PathEnd.ClientID)
-	require.Equal(t, conn.Connection.GetCounterparty().GetConnectionID(), dst.PathEnd.ConnectionID)
-	require.Equal(t, conn.Connection.GetState().String(), "OPEN")
+	require.Equal(t, conn.Connection.Connection.GetClientID(), src.PathEnd.ClientID)
+	require.Equal(t, conn.Connection.Connection.GetCounterparty().GetClientID(), dst.PathEnd.ClientID)
+	require.Equal(t, conn.Connection.Connection.GetCounterparty().GetConnectionID(), dst.PathEnd.ConnectionID)
+	require.Equal(t, conn.Connection.Connection.GetState().String(), "OPEN")
 }
 
 // testChannelPair tests that the only channel on src and dst is between the two chains
@@ -78,10 +78,10 @@ func testChannel(t *testing.T, src, dst *Chain) {
 
 	ch, err := src.QueryChannel(h.SyncInfo.LatestBlockHeight)
 	require.NoError(t, err)
-	require.Equal(t, ch.Channel.GetOrdering().String(), "ORDERED")
-	require.Equal(t, ch.Channel.GetState().String(), "OPEN")
-	require.Equal(t, ch.Channel.GetCounterparty().GetChannelID(), dst.PathEnd.ChannelID)
-	require.Equal(t, ch.Channel.GetCounterparty().GetPortID(), dst.PathEnd.PortID)
+	require.Equal(t, ch.Channel.Channel.GetOrdering().String(), "ORDERED")
+	require.Equal(t, ch.Channel.Channel.GetState().String(), "OPEN")
+	require.Equal(t, ch.Channel.Channel.GetCounterparty().GetChannelID(), dst.PathEnd.ChannelID)
+	require.Equal(t, ch.Channel.Channel.GetCounterparty().GetPortID(), dst.PathEnd.PortID)
 }
 
 // for the love of logs https://www.youtube.com/watch?v=DtsKcHmceqY

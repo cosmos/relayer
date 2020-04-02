@@ -7,7 +7,6 @@ import (
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 )
@@ -163,7 +162,7 @@ func (src *Chain) handlePacket(dst *Chain, events map[string][]string) {
 	}
 }
 
-func (src *Chain) sendPacket(dst *Chain, xferPacket chanState.PacketDataI, seq int64) {
+func (src *Chain) sendPacket(dst *Chain, xferPacket []byte, seq int64) {
 	var (
 		err          error
 		dstH         *tmclient.Header
@@ -198,6 +197,7 @@ func (src *Chain) sendPacket(dst *Chain, xferPacket chanState.PacketDataI, seq i
 			src.PathEnd.MsgRecvPacket(
 				dst.PathEnd,
 				uint64(seq),
+				uint64(dstH.Height+1000),
 				xferPacket,
 				chanTypes.NewPacketResponse(
 					dst.PathEnd.PortID,
@@ -207,6 +207,7 @@ func (src *Chain) sendPacket(dst *Chain, xferPacket chanState.PacketDataI, seq i
 						src.PathEnd,
 						uint64(seq),
 						xferPacket,
+						uint64(dstH.Height+1000),
 					),
 					dstCommitRes.Proof.Proof,
 					int64(dstCommitRes.ProofHeight),
@@ -219,7 +220,7 @@ func (src *Chain) sendPacket(dst *Chain, xferPacket chanState.PacketDataI, seq i
 	txs.Send(src, dst)
 }
 
-func (src *Chain) parsePacketData(dst *Chain, events map[string][]string) (packetData chanState.PacketDataI, seq int64, err error) {
+func (src *Chain) parsePacketData(dst *Chain, events map[string][]string) (packetData []byte, seq int64, err error) {
 	// first, we log the actions and msg hash
 	src.logTx(events)
 

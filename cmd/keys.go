@@ -19,7 +19,7 @@ import (
 	"fmt"
 
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
-	"github.com/cosmos/cosmos-sdk/crypto/keys"
+	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 )

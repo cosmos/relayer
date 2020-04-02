@@ -156,14 +156,14 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	switch {
 	// Handshake hasn't been started on src or dst, relay `connOpenInit` to src
-	case conn[scid].Connection.State == connState.UNINITIALIZED && conn[dcid].Connection.State == connState.UNINITIALIZED:
+	case conn[scid].Connection.Connection.State == connState.UNINITIALIZED && conn[dcid].Connection.Connection.State == connState.UNINITIALIZED:
 		if src.debug {
 			logConnectionStates(src, dst, conn)
 		}
 		out.Src = append(out.Src, src.PathEnd.ConnInit(dst.PathEnd, src.MustGetAddress()))
 
 	// Handshake has started on dst (1 stepdone), relay `connOpenTry` and `updateClient` on src
-	case conn[scid].Connection.State == connState.UNINITIALIZED && conn[dcid].Connection.State == connState.INIT:
+	case conn[scid].Connection.Connection.State == connState.UNINITIALIZED && conn[dcid].Connection.Connection.State == connState.INIT:
 		if src.debug {
 			logConnectionStates(src, dst, conn)
 		}
@@ -173,7 +173,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		)
 
 	// Handshake has started on src (1 step done), relay `connOpenTry` and `updateClient` on dst
-	case conn[scid].Connection.State == connState.INIT && conn[dcid].Connection.State == connState.UNINITIALIZED:
+	case conn[scid].Connection.Connection.State == connState.INIT && conn[dcid].Connection.Connection.State == connState.UNINITIALIZED:
 		if dst.debug {
 			logConnectionStates(dst, src, conn)
 		}
@@ -183,7 +183,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		)
 
 	// Handshake has started on src end (2 steps done), relay `connOpenAck` and `updateClient` to dst end
-	case conn[scid].Connection.State == connState.TRYOPEN && conn[dcid].Connection.State == connState.INIT:
+	case conn[scid].Connection.Connection.State == connState.TRYOPEN && conn[dcid].Connection.Connection.State == connState.INIT:
 		if dst.debug {
 			logConnectionStates(dst, src, conn)
 		}
@@ -193,7 +193,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		)
 
 	// Handshake has started on dst end (2 steps done), relay `connOpenAck` and `updateClient` to src end
-	case conn[scid].Connection.State == connState.INIT && conn[dcid].Connection.State == connState.TRYOPEN:
+	case conn[scid].Connection.Connection.State == connState.INIT && conn[dcid].Connection.Connection.State == connState.TRYOPEN:
 		if src.debug {
 			logConnectionStates(src, dst, conn)
 		}
@@ -203,7 +203,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		)
 
 	// Handshake has confirmed on dst (3 steps done), relay `connOpenConfirm` and `updateClient` to src end
-	case conn[scid].Connection.State == connState.TRYOPEN && conn[dcid].Connection.State == connState.OPEN:
+	case conn[scid].Connection.Connection.State == connState.TRYOPEN && conn[dcid].Connection.Connection.State == connState.OPEN:
 		if src.debug {
 			logConnectionStates(src, dst, conn)
 		}
@@ -214,7 +214,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		out.last = true
 
 	// Handshake has confirmed on src (3 steps done), relay `connOpenConfirm` and `updateClient` to dst end
-	case conn[scid].Connection.State == connState.OPEN && conn[dcid].Connection.State == connState.TRYOPEN:
+	case conn[scid].Connection.Connection.State == connState.OPEN && conn[dcid].Connection.Connection.State == connState.TRYOPEN:
 		if dst.debug {
 			logConnectionStates(dst, src, conn)
 		}
@@ -233,11 +233,11 @@ func logConnectionStates(src, dst *Chain, conn map[string]connTypes.ConnectionRe
 		src.ChainID,
 		conn[src.ChainID].ProofHeight,
 		src.PathEnd.ConnectionID,
-		conn[src.ChainID].Connection.GetState(),
+		conn[src.ChainID].Connection.Connection.GetState(),
 		dst.ChainID,
 		conn[dst.ChainID].ProofHeight,
 		dst.PathEnd.ConnectionID,
-		conn[dst.ChainID].Connection.GetState(),
+		conn[dst.ChainID].Connection.Connection.GetState(),
 	))
 }
 
@@ -309,7 +309,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 
 	switch {
 	// Handshake hasn't been started on src or dst, relay `chanOpenInit` to src
-	case chans[scid].Channel.State == chanState.UNINITIALIZED && chans[dcid].Channel.State == chanState.UNINITIALIZED:
+	case chans[scid].Channel.Channel.State == chanState.UNINITIALIZED && chans[dcid].Channel.Channel.State == chanState.UNINITIALIZED:
 		if src.debug {
 			logChannelStates(src, dst, chans)
 		}
@@ -318,7 +318,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 		)
 
 	// Handshake has started on dst (1 step done), relay `chanOpenTry` and `updateClient` to src
-	case chans[scid].Channel.State == chanState.UNINITIALIZED && chans[dcid].Channel.State == chanState.INIT:
+	case chans[scid].Channel.Channel.State == chanState.UNINITIALIZED && chans[dcid].Channel.Channel.State == chanState.INIT:
 		if src.debug {
 			logChannelStates(src, dst, chans)
 		}
@@ -328,7 +328,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 		)
 
 	// Handshake has started on src (1 step done), relay `chanOpenTry` and `updateClient` to dst
-	case chans[scid].Channel.State == chanState.INIT && chans[dcid].Channel.State == chanState.UNINITIALIZED:
+	case chans[scid].Channel.Channel.State == chanState.INIT && chans[dcid].Channel.Channel.State == chanState.UNINITIALIZED:
 		if dst.debug {
 			logChannelStates(dst, src, chans)
 		}
@@ -338,7 +338,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 		)
 
 	// Handshake has started on src (2 steps done), relay `chanOpenAck` and `updateClient` to dst
-	case chans[scid].Channel.State == chanState.TRYOPEN && chans[dcid].Channel.State == chanState.INIT:
+	case chans[scid].Channel.Channel.State == chanState.TRYOPEN && chans[dcid].Channel.Channel.State == chanState.INIT:
 		if dst.debug {
 			logChannelStates(dst, src, chans)
 		}
@@ -348,7 +348,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 		)
 
 	// Handshake has started on dst (2 steps done), relay `chanOpenAck` and `updateClient` to src
-	case chans[scid].Channel.State == chanState.INIT && chans[dcid].Channel.State == chanState.TRYOPEN:
+	case chans[scid].Channel.Channel.State == chanState.INIT && chans[dcid].Channel.Channel.State == chanState.TRYOPEN:
 		if src.debug {
 			logChannelStates(src, dst, chans)
 		}
@@ -358,7 +358,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 		)
 
 	// Handshake has confirmed on dst (3 steps done), relay `chanOpenConfirm` and `updateClient` to src
-	case chans[scid].Channel.State == chanState.TRYOPEN && chans[dcid].Channel.State == chanState.OPEN:
+	case chans[scid].Channel.Channel.State == chanState.TRYOPEN && chans[dcid].Channel.Channel.State == chanState.OPEN:
 		if src.debug {
 			logChannelStates(src, dst, chans)
 		}
@@ -369,7 +369,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 		out.last = true
 
 	// Handshake has confirmed on src (3 steps done), relay `chanOpenConfirm` and `updateClient` to dst
-	case chans[scid].Channel.State == chanState.OPEN && chans[dcid].Channel.State == chanState.TRYOPEN:
+	case chans[scid].Channel.Channel.State == chanState.OPEN && chans[dcid].Channel.Channel.State == chanState.TRYOPEN:
 		if dst.debug {
 			logChannelStates(dst, src, chans)
 		}
@@ -446,8 +446,8 @@ func (src *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 	switch {
 	// Closing handshake has not started, relay `updateClient` and `chanCloseInit` to src or dst according
 	// to the channel state
-	case chans[scid].Channel.State != chanState.CLOSED && chans[dcid].Channel.State != chanState.CLOSED:
-		if chans[scid].Channel.State != chanState.UNINITIALIZED {
+	case chans[scid].Channel.Channel.State != chanState.CLOSED && chans[dcid].Channel.Channel.State != chanState.CLOSED:
+		if chans[scid].Channel.Channel.State != chanState.UNINITIALIZED {
 			if src.debug {
 				logChannelStates(src, dst, chans)
 			}
@@ -455,7 +455,7 @@ func (src *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
 				src.PathEnd.ChanCloseInit(src.MustGetAddress()),
 			)
-		} else if chans[dcid].Channel.State != chanState.UNINITIALIZED {
+		} else if chans[dcid].Channel.Channel.State != chanState.UNINITIALIZED {
 			if dst.debug {
 				logChannelStates(dst, src, chans)
 			}
@@ -466,8 +466,8 @@ func (src *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 		}
 
 	// Closing handshake has started on src, relay `updateClient` and `chanCloseConfirm` to dst
-	case chans[scid].Channel.State == chanState.CLOSED && chans[dcid].Channel.State != chanState.CLOSED:
-		if chans[dcid].Channel.State != chanState.UNINITIALIZED {
+	case chans[scid].Channel.Channel.State == chanState.CLOSED && chans[dcid].Channel.Channel.State != chanState.CLOSED:
+		if chans[dcid].Channel.Channel.State != chanState.UNINITIALIZED {
 			if dst.debug {
 				logChannelStates(dst, src, chans)
 			}
@@ -479,8 +479,8 @@ func (src *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 		}
 
 	// Closing handshake has started on dst, relay `updateClient` and `chanCloseConfirm` to src
-	case chans[dcid].Channel.State == chanState.CLOSED && chans[scid].Channel.State != chanState.CLOSED:
-		if chans[scid].Channel.State != chanState.UNINITIALIZED {
+	case chans[dcid].Channel.Channel.State == chanState.CLOSED && chans[scid].Channel.Channel.State != chanState.CLOSED:
+		if chans[scid].Channel.Channel.State != chanState.UNINITIALIZED {
 			if src.debug {
 				logChannelStates(src, dst, chans)
 			}
@@ -500,11 +500,11 @@ func logChannelStates(src, dst *Chain, conn map[string]chanTypes.ChannelResponse
 		src.ChainID,
 		conn[src.ChainID].ProofHeight,
 		src.PathEnd.ChannelID,
-		conn[src.ChainID].Channel.GetState(),
+		conn[src.ChainID].Channel.Channel.GetState(),
 		dst.ChainID,
 		conn[dst.ChainID].ProofHeight,
 		dst.PathEnd.ChannelID,
-		conn[dst.ChainID].Channel.GetState(),
+		conn[dst.ChainID].Channel.Channel.GetState(),
 	))
 }
 
@@ -637,7 +637,6 @@ func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk
 		src.MustGetAddress(),
 		dstAddr,
 		source,
-		dstHeader.GetHeight()+1000,
 	)
 
 	// Debugging by simply passing in the packet information that we know was sent earlier in the SendPacket
@@ -649,6 +648,7 @@ func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk
 			dst.PathEnd.MsgRecvPacket(
 				src.PathEnd,
 				seqRecv.NextSequenceRecv,
+				uint64(hs[dst.ChainID].Height+1000),
 				xferPacket,
 				chanTypes.NewPacketResponse(
 					src.PathEnd.PortID,
@@ -658,6 +658,7 @@ func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk
 						dst.PathEnd,
 						seqSend-1,
 						xferPacket,
+						uint64(hs[dst.ChainID].Height+1000),
 					),
 					srcCommitRes.Proof.Proof,
 					int64(srcCommitRes.ProofHeight),
@@ -720,6 +721,7 @@ func addPacketMsg(src, dst *Chain, srcH, dstH *tmclient.Header, seq uint64, msgs
 	if err != nil {
 		return err
 	}
+
 	// If we have a transaction to relay that hasn't been, and there are no messages yet,
 	// we need to append an update_client message
 	if source {
@@ -730,7 +732,7 @@ func addPacketMsg(src, dst *Chain, srcH, dstH *tmclient.Header, seq uint64, msgs
 	return nil
 }
 
-func (src *Chain) packetMsg(dst *Chain, dstH *tmclient.Header, xferPacket chanState.PacketDataI, seq int64) (sdk.Msg, error) {
+func (src *Chain) packetMsg(dst *Chain, dstH *tmclient.Header, xferPacket []byte, seq int64) (sdk.Msg, error) {
 	var (
 		err          error
 		dstCommitRes CommitmentResponse
@@ -748,9 +750,9 @@ func (src *Chain) packetMsg(dst *Chain, dstH *tmclient.Header, xferPacket chanSt
 		return nil, err
 	}
 
-	return src.PathEnd.MsgRecvPacket(dst.PathEnd, uint64(seq), xferPacket,
+	return src.PathEnd.MsgRecvPacket(dst.PathEnd, uint64(seq), uint64(dstH.Height+1000), xferPacket,
 		chanTypes.NewPacketResponse(dst.PathEnd.PortID, dst.PathEnd.ChannelID, uint64(seq),
-			dst.PathEnd.NewPacket(src.PathEnd, uint64(seq), xferPacket),
+			dst.PathEnd.NewPacket(src.PathEnd, uint64(seq), xferPacket, uint64(dstH.Height+1000)),
 			dstCommitRes.Proof.Proof,
 			int64(dstCommitRes.ProofHeight),
 		),
@@ -758,7 +760,7 @@ func (src *Chain) packetMsg(dst *Chain, dstH *tmclient.Header, xferPacket chanSt
 	), nil
 }
 
-func (src *Chain) txPacketData(dst *Chain, res sdk.TxResponse) (packetData chanState.PacketDataI, err error) {
+func (src *Chain) txPacketData(dst *Chain, res sdk.TxResponse) (packetData []byte, err error) {
 	// TODO: Log what we are about to do here, maybe set behind debug flag
 
 	// Set sdk config to use custom Bech32 account prefix
@@ -770,9 +772,7 @@ func (src *Chain) txPacketData(dst *Chain, res sdk.TxResponse) (packetData chanS
 			if e.Type == "send_packet" {
 				for _, p := range e.Attributes {
 					if p.Key == "packet_data" {
-						if err = src.Cdc.UnmarshalJSON([]byte(p.Value), &packetData); err != nil {
-							return
-						}
+						packetData = []byte(p.Value)
 						return
 					}
 				}

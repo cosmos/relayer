@@ -456,7 +456,7 @@ func (c *Chain) QueryChannel(height int64) (chanRes chanTypes.ChannelResponse, e
 		return chanRes, qChanErr(err)
 	} else if res.Value == nil {
 		// NOTE: This is returned so that the switch statement in ChannelStep works properly
-		return emptyChanRes, nil
+		return chanTypes.NewChannelResponse(c.PathEnd.PortID, c.PathEnd.ChannelID, chanTypes.Channel{State: chanState.UNINITIALIZED}, nil, 0), nil
 	}
 
 	var channel chanTypes.Channel
@@ -509,8 +509,6 @@ func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (map[string]chanTypes.C
 }
 
 func qChanErr(err error) error { return fmt.Errorf("query channel failed: %w", err) }
-
-var emptyChanRes = chanTypes.ChannelResponse{Channel: chanTypes.Channel{State: chanState.UNINITIALIZED}}
 
 // QueryChannels returns all the channels that are registered on a chain
 func (c *Chain) QueryChannels(page, limit int) ([]chanTypes.Channel, error) {
