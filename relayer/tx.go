@@ -27,10 +27,10 @@ func (src *Chain) CreateClients(dst *Chain) (err error) {
 	clients := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
 	// Create client for dst on src if it doesn't exist
-	var srcCs, dstCs clientTypes.StateResponse
+	var srcCs, dstCs *clientTypes.StateResponse
 	if srcCs, err = src.QueryClientState(); err != nil {
 		return err
-	} else if srcCs.ClientState == nil {
+	} else if srcCs == nil {
 		dstH, err := dst.UpdateLiteWithHeader()
 		if err != nil {
 			return err
@@ -45,7 +45,7 @@ func (src *Chain) CreateClients(dst *Chain) (err error) {
 	// Create client for src on dst if it doesn't exist
 	if dstCs, err = dst.QueryClientState(); err != nil {
 		return err
-	} else if dstCs.ClientState == nil {
+	} else if dstCs == nil {
 		srcH, err := src.UpdateLiteWithHeader()
 		if err != nil {
 			return err
@@ -143,6 +143,9 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	}
 
 	// TODO: log these heights or something about client state? debug?
+	if cs[scid] == nil || cs[dcid] == nil {
+		return nil, err
+	}
 
 	// Store the heights
 	srcConsH, dstConsH := int64(cs[scid].ClientState.GetLatestHeight()), int64(cs[dcid].ClientState.GetLatestHeight())

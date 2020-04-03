@@ -199,10 +199,10 @@ func QueryClientConsensusStatePair(src, dst *Chain, srcH, dstH, srcClientConsH, 
 func qClntConsStateErr(err error) error { return fmt.Errorf("query client cons state failed: %w", err) }
 
 // QueryClientState retrevies the latest consensus state for a client in state at a given height
-func (c *Chain) QueryClientState() (clientTypes.StateResponse, error) {
-	var conStateRes clientTypes.StateResponse
+func (c *Chain) QueryClientState() (*clientTypes.StateResponse, error) {
+	var conStateRes *clientTypes.StateResponse
 	if !c.PathSet() {
-		return conStateRes, c.ErrPathNotSet()
+		return nil, c.ErrPathNotSet()
 	}
 
 	req := abci.RequestQuery{
@@ -216,30 +216,31 @@ func (c *Chain) QueryClientState() (clientTypes.StateResponse, error) {
 		return conStateRes, qClntStateErr(err)
 	} else if res.Value == nil {
 		// TODO: Better way to handle this?
-		return clientTypes.StateResponse{}, nil
+		return nil, nil
 	}
 
 	var cs exported.ClientState
 	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
 		if err = c.Amino.UnmarshalBinaryBare(res.Value, &cs); err != nil {
-			return conStateRes, qClntConsStateErr(err)
+			return nil, qClntConsStateErr(err)
 		}
-		return conStateRes, qClntStateErr(err)
+		return nil, qClntStateErr(err)
 	}
 
-	return clientTypes.NewClientStateResponse(c.PathEnd.ClientID, cs, res.Proof, res.Height), nil
+	csr := clientTypes.NewClientStateResponse(c.PathEnd.ClientID, cs, res.Proof, res.Height)
+	return &csr, nil
 }
 
 type cstates struct {
 	sync.Mutex
-	Map  map[string]clientTypes.StateResponse
+	Map  map[string]*clientTypes.StateResponse
 	Errs errs
 }
 
 // QueryClientStatePair returns a pair of connection responses
-func QueryClientStatePair(src, dst *Chain) (map[string]clientTypes.StateResponse, error) {
+func QueryClientStatePair(src, dst *Chain) (map[string]*clientTypes.StateResponse, error) {
 	hs := &cstates{
-		Map:  make(map[string]clientTypes.StateResponse),
+		Map:  make(map[string]*clientTypes.StateResponse),
 		Errs: []error{},
 	}
 

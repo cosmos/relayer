@@ -19,6 +19,10 @@ type RelayMsgs struct {
 
 // Ready returns true if there are messages to relay
 func (r *RelayMsgs) Ready() bool {
+	if r == nil {
+		return false
+	}
+
 	if len(r.Src) == 0 && len(r.Dst) == 0 {
 		return false
 	}

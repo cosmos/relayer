@@ -83,7 +83,7 @@ func pathsListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"l"},
-		Short:   "print out configured paths with direction",
+		Short:   "print out configured paths",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsn, err := cmd.Flags().GetBool(flagJSON)
 			if err != nil {
@@ -113,7 +113,68 @@ func pathsListCmd() *cobra.Command {
 			default:
 				i := 0
 				for k, pth := range config.Paths {
-					fmt.Printf("%2d: %-20s >> [%s]port{%s} -> [%s]port{%s}\n", i, k, pth.Src.ChainID, pth.Src.PortID, pth.Dst.ChainID, pth.Dst.PortID)
+					var (
+						chains     = "✘"
+						clients    = "✘"
+						connection = "✘"
+						channel    = "✘"
+					)
+					src, dst := pth.Src.ChainID, pth.Dst.ChainID
+					ch, err := config.Chains.Gets(src, dst)
+					if err == nil {
+						chains = "✔"
+						err = ch[src].SetPath(pth.Src)
+						err = ch[dst].SetPath(pth.Dst)
+						if err != nil {
+							printPath(i, k, pth, chains, clients, connection, channel)
+							i++
+							continue
+						}
+					} else {
+						printPath(i, k, pth, chains, clients, connection, channel)
+						i++
+						continue
+					}
+
+					srcCs, err := ch[src].QueryClientState()
+					dstCs, err := ch[dst].QueryClientState()
+					if err == nil && srcCs != nil && dstCs != nil {
+						clients = "✔"
+					} else {
+						printPath(i, k, pth, chains, clients, connection, channel)
+						i++
+						continue
+					}
+
+					srch, err := ch[src].QueryLatestHeight()
+					dsth, err := ch[dst].QueryLatestHeight()
+					if err != nil || srch == -1 || dsth == -1 {
+						printPath(i, k, pth, chains, clients, connection, channel)
+						i++
+						continue
+					}
+
+					srcConn, err := ch[src].QueryConnection(srch)
+					dstConn, err := ch[dst].QueryConnection(dsth)
+					if err == nil && srcConn.Connection.Connection.State.String() == "OPEN" && dstConn.Connection.Connection.State.String() == "OPEN" {
+						connection = "✔"
+					} else {
+						printPath(i, k, pth, chains, clients, connection, channel)
+						i++
+						continue
+					}
+
+					srcChan, err := ch[src].QueryChannel(srch)
+					dstChan, err := ch[dst].QueryChannel(dsth)
+					if err == nil && srcChan.Channel.Channel.State.String() == "OPEN" && dstChan.Channel.Channel.State.String() == "OPEN" {
+						channel = "✔"
+					} else {
+						printPath(i, k, pth, chains, clients, connection, channel)
+						i++
+						continue
+					}
+
+					printPath(i, k, pth, chains, clients, connection, channel)
 					i++
 				}
 				return nil
@@ -121,6 +182,11 @@ func pathsListCmd() *cobra.Command {
 		},
 	}
 	return yamlFlag(jsonFlag(cmd))
+}
+
+func printPath(i int, k string, pth *relayer.Path, chains, clients, connection, channel string) {
+	fmt.Printf("%2d: %-20s -> chns(%s) clnts(%s) conn(%s) chan(%s) (%s:%s<>%s:%s)\n",
+		i, k, chains, clients, connection, channel, pth.Src.ChainID, pth.Src.PortID, pth.Dst.ChainID, pth.Dst.PortID)
 }
 
 func pathsShowCmd() *cobra.Command {
@@ -161,6 +227,43 @@ func pathsShowCmd() *cobra.Command {
 				fmt.Println(string(out))
 				return nil
 			default:
+				var (
+					chains     = "✘"
+					clients    = "✘"
+					connection = "✘"
+					channel    = "✘"
+					srch, dsth int64
+				)
+				src, dst := path.Src.ChainID, path.Dst.ChainID
+				ch, err := config.Chains.Gets(src, dst)
+				if err == nil {
+					srch, err = ch[src].QueryLatestHeight()
+					dsth, err = ch[dst].QueryLatestHeight()
+					if err == nil {
+						chains = "✔"
+						err = ch[src].SetPath(path.Src)
+						err = ch[dst].SetPath(path.Dst)
+					}
+				}
+
+				srcCs, err := ch[src].QueryClientState()
+				dstCs, err := ch[dst].QueryClientState()
+				if err == nil && srcCs != nil && dstCs != nil {
+					clients = "✔"
+				}
+
+				srcConn, err := ch[src].QueryConnection(srch)
+				dstConn, err := ch[dst].QueryConnection(dsth)
+				if err == nil && srcConn.Connection.Connection.State.String() == "OPEN" && dstConn.Connection.Connection.State.String() == "OPEN" {
+					connection = "✔"
+				}
+
+				srcChan, err := ch[src].QueryChannel(srch)
+				dstChan, err := ch[dst].QueryChannel(dsth)
+				if err == nil && srcChan.Channel.Channel.State.String() == "OPEN" && dstChan.Channel.Channel.State.String() == "OPEN" {
+					channel = "✔"
+				}
+
 				fmt.Printf(`Path "%s" strategy(%s):
   SRC(%s)
     ClientID:     %s
@@ -172,8 +275,13 @@ func pathsShowCmd() *cobra.Command {
     ConnectionID: %s
     ChannelID:    %s
     PortID:       %s
+  STATUS:
+    Chains:       %s
+    Clients:      %s
+    Connection:   %s
+    Channel:      %s
 `, args[0], path.Strategy.Type, path.Src.ChainID, path.Src.ClientID, path.Src.ConnectionID, path.Src.ChannelID, path.Src.PortID,
-					path.Dst.ChainID, path.Dst.ClientID, path.Dst.ConnectionID, path.Dst.ChannelID, path.Dst.PortID)
+					path.Dst.ChainID, path.Dst.ClientID, path.Dst.ConnectionID, path.Dst.ChannelID, path.Dst.PortID, chains, clients, connection, channel)
 				return nil
 			}
 
