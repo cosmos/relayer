@@ -76,7 +76,7 @@ func keysAddCmd() *cobra.Command {
 
 			ko := keyOutput{Mnemonic: mnemonic, Address: info.GetAddress().String()}
 
-			return queryOutput(ko, chain, cmd)
+			return chain.Print(ko, false, false)
 		},
 	}
 
@@ -247,7 +247,7 @@ func keysExportCmd() *cobra.Command {
 				return err
 			}
 
-			return queryOutput(info, chain, cmd)
+			return chain.Print(info, false, false)
 		},
 	}
 

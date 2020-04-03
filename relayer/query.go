@@ -439,6 +439,29 @@ var emptyConnRes = connTypes.ConnectionResponse{Connection: connTypes.Identified
 //    ICS 04 -> CHANNEL     //
 //////////////////////////////
 
+// QueryConnectionChannels queries the channels associated with a connection
+func (c *Chain) QueryConnectionChannels(connectionID string, page, limit int) ([]chanTypes.IdentifiedChannel, error) {
+	var (
+		bz       []byte
+		err      error
+		channels []chanTypes.IdentifiedChannel
+	)
+
+	if bz, err = c.Cdc.MarshalJSON(chanTypes.NewQueryConnectionChannelsParams(connectionID, page, limit)); err != nil {
+		return nil, qChansErr(err)
+	}
+
+	if bz, _, err = c.QueryWithData(ibcQuerierRoute(chanTypes.QuerierRoute, chanTypes.QueryConnectionChannels), bz); err != nil {
+		return nil, qChansErr(err)
+	}
+
+	if err = c.Cdc.UnmarshalJSON(bz, &channels); err != nil {
+		return nil, qChansErr(err)
+	}
+
+	return channels, nil
+}
+
 // QueryChannel returns the channel associated with a channelID
 func (c *Chain) QueryChannel(height int64) (chanRes chanTypes.ChannelResponse, err error) {
 	if !c.PathSet() {
@@ -512,11 +535,11 @@ func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (map[string]chanTypes.C
 func qChanErr(err error) error { return fmt.Errorf("query channel failed: %w", err) }
 
 // QueryChannels returns all the channels that are registered on a chain
-func (c *Chain) QueryChannels(page, limit int) ([]chanTypes.Channel, error) {
+func (c *Chain) QueryChannels(page, limit int) ([]chanTypes.IdentifiedChannel, error) {
 	var (
 		bz       []byte
 		err      error
-		channels []chanTypes.Channel
+		channels []chanTypes.IdentifiedChannel
 	)
 
 	if bz, err = c.Cdc.MarshalJSON(chanTypes.NewQueryAllChannelsParams(page, limit)); err != nil {
@@ -606,8 +629,8 @@ type SeqPair struct {
 
 // RelaySequences represents the unrelayed sequence numbers on src and dst
 type RelaySequences struct {
-	Src []uint64 `json:"src" yaml:"src"`
-	Dst []uint64 `json:"dst" yaml:"dst"`
+	Src []uint64 `json:"src,omitempty" yaml:"src,omitempty"`
+	Dst []uint64 `json:"dst,omitempty" yaml:"dst,omitempty"`
 }
 
 // ToRelay represents an array of sequence numbers on each chain that need to be relayed
@@ -788,6 +811,138 @@ func (c *Chain) QueryPacketAck(height, seq int64) (comRes CommitmentResponse, er
 
 func qPacketAckErr(err error) error {
 	return fmt.Errorf("query packet acknowledgement failed: %w", err)
+}
+
+// PathStatus returns the status of a given path
+type PathStatus struct {
+	Chains       map[string]*ChainStatus `json:"chains" yaml:"chains"`
+	UnrelayedSeq *RelaySequences         `json:"unrelayed-seq" yaml:"unrelayed-seq"`
+}
+
+// ChainStatus is for printing a chain's link status
+type ChainStatus struct {
+	Reachable  bool              `json:"reachable" yaml:"reachable"`
+	Height     int64             `json:"height" yaml:"height"`
+	Client     *ClientStatus     `json:"client" yaml:"client"`
+	Connection *ConnectionStatus `json:"connection" yaml:"connection"`
+	Channel    *ChannelStatus    `json:"channel" yaml:"channel"`
+}
+
+// ClientStatus is for printing client status
+type ClientStatus struct {
+	ID     string `json:"id,omitempty" yaml:"id,omitempty"`
+	Height uint64 `json:"height,omitempty" yaml:"height,omitempty"`
+}
+
+// ConnectionStatus is for printing connection status
+type ConnectionStatus struct {
+	ID    string `json:"id,omitempty" yaml:"id,omitempty"`
+	State string `json:"state,omitempty" yaml:"state,omitempty"`
+}
+
+// ChannelStatus is for printing channel status
+type ChannelStatus struct {
+	ID    string `json:"id,omitempty" yaml:"id,omitempty"`
+	Port  string `json:"port,omitempty" yaml:"port,omitempty"`
+	State string `json:"state,omitempty" yaml:"state,omitempty"`
+	Order string `json:"order,omitempty" yaml:"order,omitempty"`
+}
+
+// QueryPathStatus takes both ends of a path and queries all the data about the link
+func QueryPathStatus(src, dst *Chain, path *Path) (stat *PathStatus, err error) {
+	stat = &PathStatus{
+		Chains: map[string]*ChainStatus{
+			src.ChainID: &ChainStatus{
+				Reachable:  false,
+				Height:     -1,
+				Client:     &ClientStatus{},
+				Connection: &ConnectionStatus{},
+				Channel:    &ChannelStatus{},
+			},
+			dst.ChainID: &ChainStatus{
+				Reachable:  false,
+				Height:     -1,
+				Client:     &ClientStatus{},
+				Connection: &ConnectionStatus{},
+				Channel:    &ChannelStatus{},
+			},
+		},
+		UnrelayedSeq: &RelaySequences{},
+	}
+
+	if err = src.SetPath(path.Src); err != nil {
+		return
+	}
+	if err = dst.SetPath(path.Dst); err != nil {
+		return
+	}
+
+	srch, err := src.QueryLatestHeight()
+	if err != nil {
+		return
+	}
+	stat.Chains[src.ChainID].Height = srch
+	stat.Chains[src.ChainID].Reachable = true
+
+	dsth, err := dst.QueryLatestHeight()
+	if err != nil {
+		return
+	}
+	stat.Chains[dst.ChainID].Height = dsth
+	stat.Chains[dst.ChainID].Reachable = true
+
+	srcCs, err := src.QueryClientState()
+	if err != nil {
+		return
+	}
+	stat.Chains[src.ChainID].Client.ID = srcCs.ClientState.GetID()
+	stat.Chains[src.ChainID].Client.Height = srcCs.ClientState.GetLatestHeight()
+
+	dstCs, err := dst.QueryClientState()
+	if err != nil {
+		return
+	}
+	stat.Chains[dst.ChainID].Client.ID = dstCs.ClientState.GetID()
+	stat.Chains[dst.ChainID].Client.Height = dstCs.ClientState.GetLatestHeight()
+
+	srcConn, err := src.QueryConnection(srch)
+	if err != nil {
+		return
+	}
+	stat.Chains[src.ChainID].Connection.ID = srcConn.Connection.Identifier
+	stat.Chains[src.ChainID].Connection.State = srcConn.Connection.Connection.GetState().String()
+
+	dstConn, err := dst.QueryConnection(dsth)
+	if err != nil {
+		return
+	}
+	stat.Chains[dst.ChainID].Connection.ID = dstConn.Connection.Identifier
+	stat.Chains[dst.ChainID].Connection.State = dstConn.Connection.Connection.GetState().String()
+
+	srcChan, err := src.QueryChannel(srch)
+	if err != nil {
+		return
+	}
+	stat.Chains[src.ChainID].Channel.ID = srcChan.Channel.ChannelIdentifier
+	stat.Chains[src.ChainID].Channel.Port = srcChan.Channel.PortIdentifier
+	stat.Chains[src.ChainID].Channel.State = srcChan.Channel.Channel.GetState().String()
+	stat.Chains[src.ChainID].Channel.Order = srcChan.Channel.Channel.GetOrdering().String()
+
+	dstChan, err := dst.QueryChannel(dsth)
+	if err != nil {
+		return
+	}
+	stat.Chains[dst.ChainID].Channel.ID = dstChan.Channel.ChannelIdentifier
+	stat.Chains[dst.ChainID].Channel.Port = dstChan.Channel.PortIdentifier
+	stat.Chains[dst.ChainID].Channel.State = dstChan.Channel.Channel.GetState().String()
+	stat.Chains[dst.ChainID].Channel.Order = dstChan.Channel.Channel.GetOrdering().String()
+
+	unrelayed, err := UnrelayedSequences(src, dst, srch, dsth)
+	if err != nil {
+		return
+	}
+	stat.UnrelayedSeq = unrelayed
+	return
 }
 
 // QueryTx takes a transaction hash and returns the transaction

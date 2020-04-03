@@ -113,6 +113,7 @@ func pathsListCmd() *cobra.Command {
 			default:
 				i := 0
 				for k, pth := range config.Paths {
+					// TODO: replace this with relayer.QueryPathStatus
 					var (
 						chains     = "✘"
 						clients    = "✘"
@@ -227,6 +228,7 @@ func pathsShowCmd() *cobra.Command {
 				fmt.Println(string(out))
 				return nil
 			default:
+				// TODO: transition this to use relayer.QueryPathStatus
 				var (
 					chains     = "✘"
 					clients    = "✘"
