@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"mallowchain","rpc-addr":"http://3.211.57.24:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025mal","default-denom":"mal","trusting-period":"330h"}
