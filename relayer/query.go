@@ -817,6 +817,8 @@ func qPacketAckErr(err error) error {
 type PathStatus struct {
 	Chains       map[string]*ChainStatus `json:"chains" yaml:"chains"`
 	UnrelayedSeq *RelaySequences         `json:"unrelayed-seq" yaml:"unrelayed-seq"`
+	src          string
+	dst          string
 }
 
 // ChainStatus is for printing a chain's link status
@@ -868,6 +870,8 @@ func QueryPathStatus(src, dst *Chain, path *Path) (stat *PathStatus, err error) 
 			},
 		},
 		UnrelayedSeq: &RelaySequences{},
+		src:          src.ChainID,
+		dst:          dst.ChainID,
 	}
 
 	if err = src.SetPath(path.Src); err != nil {

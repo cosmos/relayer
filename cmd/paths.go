@@ -27,8 +27,25 @@ connection, and channel ids from both the source and destination chains.`,
 		pathsAddCmd(),
 		pathsGenCmd(),
 		pathsDeleteCmd(),
+		pathsFindCmd(),
 	)
 
+	return cmd
+}
+
+func pathsFindCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "find",
+		Short: "finds any existing paths between any configured chains",
+		Args:  cobra.ExactArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			paths, err := relayer.FindPaths(config.Chains)
+			if err != nil {
+				return err
+			}
+			return config.Chains[0].Print(paths, false, false)
+		},
+	}
 	return cmd
 }
 

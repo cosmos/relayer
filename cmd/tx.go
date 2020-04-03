@@ -261,6 +261,7 @@ func transferCmd() *cobra.Command {
 				return err
 			}
 
+			// TODO: This needs to be changed to incorporate the upstream changes
 			if source {
 				amount.Denom = fmt.Sprintf("%s/%s/%s", c[dst].PathEnd.PortID, c[dst].PathEnd.ChannelID, amount.Denom)
 			} else {
@@ -279,7 +280,7 @@ func transferCmd() *cobra.Command {
 
 			// MsgTransfer will call SendPacket on src chain
 			txs := relayer.RelayMsgs{
-				Src: []sdk.Msg{c[src].PathEnd.MsgTransfer(c[dst].PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source, c[src].MustGetAddress())},
+				Src: []sdk.Msg{c[src].PathEnd.MsgTransfer(c[dst].PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, c[src].MustGetAddress())},
 				Dst: []sdk.Msg{},
 			}
 
@@ -331,7 +332,6 @@ func transferCmd() *cobra.Command {
 				sdk.NewCoins(amount),
 				c[src].MustGetAddress(),
 				dstAddr,
-				source,
 			)
 
 			// Debugging by simply passing in the packet information that we know was sent earlier in the SendPacket

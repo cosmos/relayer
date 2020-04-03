@@ -6,6 +6,13 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+var ( // Default identifiers for dummy usage
+	dcli = "defaultclientid"
+	dcon = "defaultconnectionid"
+	dcha = "defaultchannelid"
+	dpor = "defaultportid"
+)
+
 // Paths represent connection paths between chains
 type Paths map[string]*Path
 
@@ -131,4 +138,75 @@ func GenPath(srcChainID, dstChainID, srcPortID, dstPortID string) *Path {
 			Type: "naive",
 		},
 	}
+}
+
+// FindPaths returns all the open paths that exist between chains
+func FindPaths(chains Chains) (*Paths, error) {
+	var out = &Paths{}
+	hs, err := QueryLatestHeights(chains...)
+	if err != nil {
+		return nil, err
+	}
+	for _, src := range chains {
+		clients, err := src.QueryClients(1, 1000)
+		if err != nil {
+			return nil, err
+		}
+		for _, client := range clients {
+			dst, err := chains.Get(client.GetChainID())
+			if err != nil {
+				continue
+			}
+
+			if err = src.AddPath(client.GetID(), dcon, dcha, dpor); err != nil {
+				return nil, err
+			}
+
+			conns, err := src.QueryConnectionsUsingClient(hs[src.ChainID])
+			if err != nil {
+				return nil, err
+			}
+
+			for _, connid := range conns.ConnectionPaths {
+				if err = src.AddPath(client.GetID(), connid, dcha, dpor); err != nil {
+					return nil, err
+				}
+				conn, err := src.QueryConnection(hs[src.ChainID])
+				if err != nil {
+					return nil, err
+				}
+				if conn.Connection.Connection.GetState().String() == "OPEN" {
+					chans, err := src.QueryConnectionChannels(connid, 1, 1000)
+					if err != nil {
+						return nil, err
+					}
+					for _, chn := range chans {
+						if chn.Channel.State.String() == "OPEN" {
+							p := &Path{
+								Src: &PathEnd{
+									ChainID:      src.ChainID,
+									ClientID:     client.GetID(),
+									ConnectionID: conn.Connection.Identifier,
+									ChannelID:    chn.ChannelIdentifier,
+									PortID:       chn.PortIdentifier,
+								},
+								Dst: &PathEnd{
+									ChainID:      dst.ChainID,
+									ClientID:     conn.Connection.Connection.GetCounterparty().GetClientID(),
+									ConnectionID: conn.Connection.Connection.GetCounterparty().GetConnectionID(),
+									ChannelID:    chn.Channel.GetCounterparty().GetChannelID(),
+									PortID:       chn.Channel.GetCounterparty().GetPortID(),
+								},
+								Strategy: &StrategyCfg{
+									Type: "naive",
+								},
+							}
+							out.Add(fmt.Sprintf("%s-%s", src.ChainID, dst.ChainID), p)
+						}
+					}
+				}
+			}
+		}
+	}
+	return out, nil
 }

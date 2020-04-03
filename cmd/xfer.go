@@ -48,6 +48,7 @@ func xfersend() *cobra.Command {
 				return err
 			}
 
+			// TODO: This needs to be changed to incorporate the upstream changes
 			if source {
 				amount.Denom = fmt.Sprintf("%s/%s/%s", c[dst].PathEnd.PortID, c[dst].PathEnd.ChannelID, amount.Denom)
 			} else {
@@ -66,7 +67,7 @@ func xfersend() *cobra.Command {
 
 			// MsgTransfer will call SendPacket on src chain
 			txs := relayer.RelayMsgs{
-				Src: []sdk.Msg{c[src].PathEnd.MsgTransfer(c[dst].PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source, c[src].MustGetAddress())},
+				Src: []sdk.Msg{c[src].PathEnd.MsgTransfer(c[dst].PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, c[src].MustGetAddress())},
 				Dst: []sdk.Msg{},
 			}
 

@@ -573,6 +573,7 @@ func RelayUnRelayedPacketsOrderedChan(src, dst *Chain) error {
 // SendTransferBothSides sends a ICS20 packet from src to dst
 func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk.AccAddress, source bool) error {
 
+	// TODO: This needs to be changed to incorporate the upstream changes
 	if source {
 		amount.Denom = fmt.Sprintf("%s/%s/%s", dst.PathEnd.PortID, dst.PathEnd.ChannelID, amount.Denom)
 	} else {
@@ -586,7 +587,7 @@ func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk
 
 	// MsgTransfer will call SendPacket on src chain
 	txs := RelayMsgs{
-		Src: []sdk.Msg{src.PathEnd.MsgTransfer(dst.PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source, src.MustGetAddress())},
+		Src: []sdk.Msg{src.PathEnd.MsgTransfer(dst.PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, src.MustGetAddress())},
 		Dst: []sdk.Msg{},
 	}
 
@@ -639,7 +640,6 @@ func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk
 		sdk.NewCoins(amount),
 		src.MustGetAddress(),
 		dstAddr,
-		source,
 	)
 
 	// Debugging by simply passing in the packet information that we know was sent earlier in the SendPacket
@@ -678,6 +678,7 @@ func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk
 
 // SendTransferMsg initiates an ibs20 transfer from src to dst with the specified args
 func (src *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr sdk.AccAddress, source bool) error {
+	// TODO: This needs to be changed to incorporate the upstream changes
 	if source {
 		amount.Denom = fmt.Sprintf("%s/%s/%s", dst.PathEnd.PortID, dst.PathEnd.ChannelID, amount.Denom)
 	} else {
@@ -691,7 +692,7 @@ func (src *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr sdk.AccAd
 
 	// MsgTransfer will call SendPacket on src chain
 	txs := RelayMsgs{
-		Src: []sdk.Msg{src.PathEnd.MsgTransfer(dst.PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source, src.MustGetAddress())},
+		Src: []sdk.Msg{src.PathEnd.MsgTransfer(dst.PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, src.MustGetAddress())},
 		Dst: []sdk.Msg{},
 	}
 
@@ -727,6 +728,7 @@ func addPacketMsg(src, dst *Chain, srcH, dstH *tmclient.Header, seq uint64, msgs
 
 	// If we have a transaction to relay that hasn't been, and there are no messages yet,
 	// we need to append an update_client message
+	// TODO: This needs to be changed to incorporate the upstream changes
 	if source {
 		msgs.Dst = append(msgs.Dst, msg)
 	} else {
