@@ -433,7 +433,7 @@ func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (map[string]connType
 func qConnErr(err error) error { return fmt.Errorf("query connection failed: %w", err) }
 
 var emptyConn = connTypes.ConnectionEnd{State: connState.UNINITIALIZED}
-var emptyConnRes = connTypes.ConnectionResponse{Connection: connTypes.IdentifiedConnectionEnd{emptyConn, ""}}
+var emptyConnRes = connTypes.ConnectionResponse{Connection: connTypes.IdentifiedConnectionEnd{Connection: emptyConn, Identifier: ""}}
 
 //////////////////////////////
 //    ICS 04 -> CHANNEL     //

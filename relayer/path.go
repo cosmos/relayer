@@ -7,7 +7,6 @@ import (
 )
 
 var ( // Default identifiers for dummy usage
-	dcli = "defaultclientid"
 	dcon = "defaultconnectionid"
 	dcha = "defaultchannelid"
 	dpor = "defaultportid"
@@ -45,15 +44,15 @@ func (p Paths) MustGet(name string) *Path {
 }
 
 // Add adds a path by its name
-func (p Paths) Add(name string, path *Path) (Paths, error) {
+func (p Paths) Add(name string, path *Path) error {
 	if err := path.Validate(); err != nil {
-		return Paths{}, err
+		return err
 	}
 	if _, found := p[name]; found {
-		return Paths{}, fmt.Errorf("path with name %s already exists", name)
+		return fmt.Errorf("path with name %s already exists", name)
 	}
 	p[name] = path
-	return p, nil
+	return nil
 }
 
 // MustYAML returns the yaml string representation of the Path
@@ -201,7 +200,9 @@ func FindPaths(chains Chains) (*Paths, error) {
 									Type: "naive",
 								},
 							}
-							out.Add(fmt.Sprintf("%s-%s", src.ChainID, dst.ChainID), p)
+							if err = out.Add(fmt.Sprintf("%s-%s", src.ChainID, dst.ChainID), p); err != nil {
+								return nil, err
+							}
 						}
 					}
 				}

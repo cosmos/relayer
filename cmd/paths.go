@@ -64,15 +64,11 @@ func pathsGenCmd() *cobra.Command {
 
 			path := relayer.GenPath(src, dst, "transfer", "transfer")
 
-			pths, err := config.Paths.Add(args[2], path)
-			if err != nil {
+			if err = config.Paths.Add(args[2], path); err != nil {
 				return err
 			}
 
-			c := config
-			c.Paths = pths
-
-			return overWriteConfig(cmd, c)
+			return overWriteConfig(cmd, config)
 		},
 	}
 	return cmd
@@ -142,6 +138,11 @@ func pathsListCmd() *cobra.Command {
 					if err == nil {
 						chains = "✔"
 						err = ch[src].SetPath(pth.Src)
+						if err != nil {
+							printPath(i, k, pth, chains, clients, connection, channel)
+							i++
+							continue
+						}
 						err = ch[dst].SetPath(pth.Dst)
 						if err != nil {
 							printPath(i, k, pth, chains, clients, connection, channel)
@@ -155,7 +156,7 @@ func pathsListCmd() *cobra.Command {
 					}
 
 					srcCs, err := ch[src].QueryClientState()
-					dstCs, err := ch[dst].QueryClientState()
+					dstCs, _ := ch[dst].QueryClientState()
 					if err == nil && srcCs != nil && dstCs != nil {
 						clients = "✔"
 					} else {
@@ -165,7 +166,7 @@ func pathsListCmd() *cobra.Command {
 					}
 
 					srch, err := ch[src].QueryLatestHeight()
-					dsth, err := ch[dst].QueryLatestHeight()
+					dsth, _ := ch[dst].QueryLatestHeight()
 					if err != nil || srch == -1 || dsth == -1 {
 						printPath(i, k, pth, chains, clients, connection, channel)
 						i++
@@ -173,7 +174,7 @@ func pathsListCmd() *cobra.Command {
 					}
 
 					srcConn, err := ch[src].QueryConnection(srch)
-					dstConn, err := ch[dst].QueryConnection(dsth)
+					dstConn, _ := ch[dst].QueryConnection(dsth)
 					if err == nil && srcConn.Connection.Connection.State.String() == "OPEN" && dstConn.Connection.Connection.State.String() == "OPEN" {
 						connection = "✔"
 					} else {
@@ -183,7 +184,7 @@ func pathsListCmd() *cobra.Command {
 					}
 
 					srcChan, err := ch[src].QueryChannel(srch)
-					dstChan, err := ch[dst].QueryChannel(dsth)
+					dstChan, _ := ch[dst].QueryChannel(dsth)
 					if err == nil && srcChan.Channel.Channel.State.String() == "OPEN" && dstChan.Channel.Channel.State.String() == "OPEN" {
 						channel = "✔"
 					} else {
@@ -257,28 +258,28 @@ func pathsShowCmd() *cobra.Command {
 				ch, err := config.Chains.Gets(src, dst)
 				if err == nil {
 					srch, err = ch[src].QueryLatestHeight()
-					dsth, err = ch[dst].QueryLatestHeight()
+					dsth, _ = ch[dst].QueryLatestHeight()
 					if err == nil {
 						chains = "✔"
-						err = ch[src].SetPath(path.Src)
-						err = ch[dst].SetPath(path.Dst)
+						_ = ch[src].SetPath(path.Src)
+						_ = ch[dst].SetPath(path.Dst)
 					}
 				}
 
 				srcCs, err := ch[src].QueryClientState()
-				dstCs, err := ch[dst].QueryClientState()
+				dstCs, _ := ch[dst].QueryClientState()
 				if err == nil && srcCs != nil && dstCs != nil {
 					clients = "✔"
 				}
 
 				srcConn, err := ch[src].QueryConnection(srch)
-				dstConn, err := ch[dst].QueryConnection(dsth)
+				dstConn, _ := ch[dst].QueryConnection(dsth)
 				if err == nil && srcConn.Connection.Connection.State.String() == "OPEN" && dstConn.Connection.Connection.State.String() == "OPEN" {
 					connection = "✔"
 				}
 
 				srcChan, err := ch[src].QueryChannel(srch)
-				dstChan, err := ch[dst].QueryChannel(dsth)
+				dstChan, _ := ch[dst].QueryChannel(dsth)
 				if err == nil && srcChan.Channel.Channel.State.String() == "OPEN" && dstChan.Channel.Channel.State.String() == "OPEN" {
 					channel = "✔"
 				}
@@ -360,15 +361,11 @@ func fileInputPathAdd(file, name string) (cfg *Config, err error) {
 		return nil, err
 	}
 
-	paths, err := config.Paths.Add(name, p)
-	if err != nil {
+	if err = config.Paths.Add(name, p); err != nil {
 		return nil, err
 	}
 
-	cfg = config
-	cfg.Paths = paths
-
-	return cfg, nil
+	return config, nil
 }
 
 func userInputPathAdd(src, dst, name string) (*Config, error) {
@@ -474,13 +471,9 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		return nil, err
 	}
 
-	paths, err := config.Paths.Add(name, path)
-	if err != nil {
+	if err = config.Paths.Add(name, path); err != nil {
 		return nil, err
 	}
 
-	out := config
-	out.Paths = paths
-
-	return out, nil
+	return config, nil
 }

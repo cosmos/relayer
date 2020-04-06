@@ -16,11 +16,12 @@ jobs:
 
       # setup docker
       - name: Set up Docker 19.03
-        uses: docker-practice/actions-setup-docker@0.0.1
-        with:
-          docker-version: 19.03
-          docker-channel: stable
-
+        run: |
+          sudo apt-get update -y
+          sudo apt-get remove docker docker-engine docker.io
+          sudo apt install docker.io
+          sudo systemctl start docker
+        
       # checkout relayer
       - name: checkout relayer
         uses: actions/checkout@v2

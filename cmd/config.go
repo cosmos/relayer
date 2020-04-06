@@ -280,12 +280,7 @@ func (c *Config) AddChain(chain *relayer.Chain) (err error) {
 
 // AddPath adds an additional path to the config
 func (c *Config) AddPath(name string, path *relayer.Path) (err error) {
-	pths, err := c.Paths.Add(name, path)
-	if pths == nil || err != nil {
-		return fmt.Errorf("error adding path to config: %w", err)
-	}
-	c.Paths = pths
-	return nil
+	return c.Paths.Add(name, path)
 }
 
 // DeleteChain removes a chain from the config
