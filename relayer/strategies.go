@@ -154,25 +154,20 @@ func nrsLoop(src, dst *Chain, doneChan chan struct{}) {
 }
 
 func (src *Chain) handlePacket(dst *Chain, events map[string][]string) {
-	byt, seq, timeout, err := src.parsePacketData(dst, events)
+	byt, seq, timeout, err := src.packetDataAndTimeoutFromEvent(dst, events)
 	if byt != nil && seq != 0 && err == nil {
-		src.sendPacket(dst, byt, seq, timeout)
+		src.sendPacketFromEvent(dst, byt, seq, timeout)
 	} else if err != nil {
 		src.Error(err)
 	}
 }
 
-func (src *Chain) sendPacket(dst *Chain, xferPacket []byte, seq int64, timeout uint64) {
+func (src *Chain) sendPacketFromEvent(dst *Chain, xferPacket []byte, seq int64, timeout uint64) {
 	var (
 		err          error
 		dstH         *tmclient.Header
 		dstCommitRes CommitmentResponse
 	)
-
-	err = dst.WaitForNBlocks(2)
-	if err != nil {
-		dst.Error(err)
-	}
 
 	if err = retry.Do(func() error {
 		dstH, err = dst.UpdateLiteWithHeader()
@@ -220,7 +215,7 @@ func (src *Chain) sendPacket(dst *Chain, xferPacket []byte, seq int64, timeout u
 	txs.Send(src, dst)
 }
 
-func (src *Chain) parsePacketData(dst *Chain, events map[string][]string) (packetData []byte, seq int64, timeout uint64, err error) {
+func (src *Chain) packetDataAndTimeoutFromEvent(dst *Chain, events map[string][]string) (packetData []byte, seq int64, timeout uint64, err error) {
 	// first, we log the actions and msg hash
 	src.logTx(events)
 
@@ -237,14 +232,12 @@ func (src *Chain) parsePacketData(dst *Chain, events map[string][]string) (packe
 	if sval, ok := events["send_packet.packet_sequence"]; ok {
 		seq, err = strconv.ParseInt(sval[0], 10, 64)
 		if err != nil {
-			fmt.Println("seq")
 			return nil, 0, 0, err
 		}
 	}
 
 	// finally, get and parse the timeout
 	if sval, ok := events["send_packet.packet_timeout"]; ok {
-		fmt.Println("seq")
 		timeout, err = strconv.ParseUint(sval[0], 10, 64)
 		if err != nil {
 			return nil, 0, 0, err
@@ -252,15 +245,6 @@ func (src *Chain) parsePacketData(dst *Chain, events map[string][]string) (packe
 	}
 
 	return
-}
-
-func (src *Chain) logTx(events map[string][]string) {
-	src.Log(fmt.Sprintf("• [%s]@{%d} - actions(%s) hash(%s)",
-		src.ChainID,
-		getEventHeight(events),
-		actions(events["message.action"]),
-		events["tx.hash"][0]),
-	)
 }
 
 func getEventHeight(events map[string][]string) int64 {

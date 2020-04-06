@@ -248,3 +248,27 @@ func (src *PathEnd) XferPacket(amount sdk.Coins, sender, reciever sdk.AccAddress
 		reciever,
 	).GetBytes()
 }
+
+// PacketMsg returns a new MsgPacket for forwarding packets from one chain to another
+func (src *Chain) PacketMsg(dst *Chain, xferPacket []byte, timeout uint64, seq int64, dstCommitRes CommitmentResponse) (sdk.Msg, error) {
+	return src.PathEnd.MsgRecvPacket(
+		dst.PathEnd,
+		uint64(seq),
+		timeout,
+		xferPacket,
+		chanTypes.NewPacketResponse(
+			dst.PathEnd.PortID,
+			dst.PathEnd.ChannelID,
+			uint64(seq),
+			dst.PathEnd.NewPacket(
+				src.PathEnd,
+				uint64(seq),
+				xferPacket,
+				timeout,
+			),
+			dstCommitRes.Proof.Proof,
+			int64(dstCommitRes.ProofHeight),
+		),
+		src.MustGetAddress(),
+	), nil
+}
