@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/iqlusioninc/relayer/relayer"
@@ -13,10 +12,10 @@ import (
 
 func xfersend() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "xfer-send [src-chain-id] [dst-chain-id] [amount] [source] [dst-addr]",
+		Use:   "xfer-send [src-chain-id] [dst-chain-id] [amount] [dst-addr]",
 		Short: "xfer-send",
 		Long:  "This sends tokens from a relayers configured wallet on chain src to a dst addr on dst",
-		Args:  cobra.ExactArgs(5),
+		Args:  cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			c, err := config.Chains.Gets(src, dst)
@@ -38,24 +37,9 @@ func xfersend() *cobra.Command {
 				return err
 			}
 
-			// If there is a path seperator in the denom of the coins being sent,
-			// then src is not the source, otherwise it is
-			// NOTE: this will not work in the case where tokens are sent from A -> B -> C
-			// Need a function in the SDK to determine from a denom if the tokens are from this chain
-			// TODO: Refactor this in the SDK.
-			source, err := strconv.ParseBool(args[3])
-			if err != nil {
-				return err
-			}
+			amount.Denom = fmt.Sprintf("%s/%s/%s", c[dst].PathEnd.PortID, c[dst].PathEnd.ChannelID, amount.Denom)
 
-			// TODO: This needs to be changed to incorporate the upstream changes
-			if source {
-				amount.Denom = fmt.Sprintf("%s/%s/%s", c[dst].PathEnd.PortID, c[dst].PathEnd.ChannelID, amount.Denom)
-			} else {
-				amount.Denom = fmt.Sprintf("%s/%s/%s", c[src].PathEnd.PortID, c[src].PathEnd.ChannelID, amount.Denom)
-			}
-
-			dstAddr, err := sdk.AccAddressFromBech32(args[4])
+			dstAddr, err := sdk.AccAddressFromBech32(args[3])
 			if err != nil {
 				return err
 			}

@@ -721,6 +721,7 @@ func addPacketMsg(src, dst *Chain, srcH, dstH *tmclient.Header, seq uint64, msgs
 	if err != nil {
 		return err
 	}
+	fmt.Println(string(pd))
 	msg, err := dst.packetMsg(src, srcH, pd, int64(seq))
 	if err != nil {
 		return err
