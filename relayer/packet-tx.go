@@ -94,7 +94,7 @@ func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk
 		return err
 	}
 
-	timeoutHeight := dstHeader.GetHeight() + 1000
+	timeoutHeight := dstHeader.GetHeight() + uint64(defaultPacketTimeout)
 
 	// MsgTransfer will call SendPacket on src chain
 	txs := RelayMsgs{

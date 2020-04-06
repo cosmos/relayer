@@ -1,11 +1,9 @@
 package test
 
 import (
-	"strings"
 	"testing"
 
 	. "github.com/iqlusioninc/relayer/relayer"
-	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -82,25 +80,4 @@ func testChannel(t *testing.T, src, dst *Chain) {
 	require.Equal(t, ch.Channel.Channel.GetState().String(), "OPEN")
 	require.Equal(t, ch.Channel.Channel.GetCounterparty().GetChannelID(), dst.PathEnd.ChannelID)
 	require.Equal(t, ch.Channel.Channel.GetCounterparty().GetPortID(), dst.PathEnd.PortID)
-}
-
-// for the love of logs https://www.youtube.com/watch?v=DtsKcHmceqY
-func getLoggingChain(chns []*Chain, rsr *dockertest.Resource) *Chain {
-	for _, c := range chns {
-		if strings.Contains(rsr.Container.Name, c.ChainID) {
-			return c
-		}
-	}
-	return nil
-}
-
-func genTestPathAndSet(src, dst *Chain, srcPort, dstPort string) (*Path, error) {
-	path := GenPath(src.ChainID, dst.ChainID, srcPort, dstPort)
-	if err := src.SetPath(path.Src); err != nil {
-		return nil, err
-	}
-	if err := dst.SetPath(path.Dst); err != nil {
-		return nil, err
-	}
-	return path, nil
 }

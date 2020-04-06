@@ -5,7 +5,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
-	// . "github.com/iqlusioninc/relayer/relayer"
 )
 
 var (
@@ -16,7 +15,6 @@ var (
 )
 
 func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
-	t.Parallel()
 	chains := spinUpTestChains(t, gaiaChains...)
 
 	var (
@@ -38,8 +36,11 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 
 	// create path
 	require.NoError(t, src.CreateClients(dst))
+	testClientPair(t, src, dst)
 	require.NoError(t, src.CreateConnection(dst, src.GetTimeout()))
+	testConnectionPair(t, src, dst)
 	require.NoError(t, src.CreateChannel(dst, true, src.GetTimeout()))
+	testChannelPair(t, src, dst)
 
 	// send a couple of transfers to the queue on src
 	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.MustGetAddress(), true))
@@ -89,4 +90,7 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 	dstGot, err = dst.QueryBalance(dst.Key)
 	require.NoError(t, err)
 	require.Equal(t, dstExpected.AmountOf(testDenom).Int64(), dstGot.AmountOf(testDenom).Int64())
+
+	// TODO: Add close channel here
+	require.NoError(t, src.CloseChannel(dst, src.GetTimeout()))
 }

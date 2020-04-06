@@ -39,8 +39,11 @@ func TestMtdToGaiaSteaming(t *testing.T) {
 
 	// create path
 	require.NoError(t, src.CreateClients(dst))
+	testClientPair(t, src, dst)
 	require.NoError(t, src.CreateConnection(dst, src.GetTimeout()))
+	testConnectionPair(t, src, dst)
 	require.NoError(t, src.CreateChannel(dst, true, src.GetTimeout()))
+	testChannelPair(t, src, dst)
 
 	// send a couple of transfers to the queue on src
 	require.NoError(t, src.SendTransferMsg(dst, srcTestCoin, dst.MustGetAddress(), true))
@@ -90,4 +93,7 @@ func TestMtdToGaiaSteaming(t *testing.T) {
 	dstGot, err = dst.QueryBalance(dst.Key)
 	require.NoError(t, err)
 	require.Equal(t, dstExpected.AmountOf(dstDenom).Int64(), dstGot.AmountOf(dstDenom).Int64())
+
+	// TODO: Add close channel here
+	require.NoError(t, src.CloseChannel(dst, src.GetTimeout()))
 }

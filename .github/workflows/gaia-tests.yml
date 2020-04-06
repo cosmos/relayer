@@ -30,4 +30,4 @@ jobs:
     
     # run tests
     - name: run gaia tests
-      run: make test-gaia
+      run: TEST_DEBUG=true make test-gaia
