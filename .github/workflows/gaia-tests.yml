@@ -16,13 +16,6 @@ jobs:
         go-version: 1.14
       id: go
 
-    # setup docker
-    - name: Set up Docker 19.03
-      uses: docker-practice/actions-setup-docker@0.0.1    
-      with:
-        docker-version: 19.03
-        docker-channel: stable
-
     # checkout relayer
     - name: checkout relayer
       uses: actions/checkout@v2
@@ -37,4 +30,4 @@ jobs:
     
     # run tests
     - name: run gaia tests
-      run: make test-gaia
+      run: TEST_DEBUG=true make test-gaia

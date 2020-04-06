@@ -23,9 +23,9 @@ jobs:
         echo "::add-path::$(go env GOPATH)/bin"
       shell: bash
 
-    # install linter
-    - name: install linter
-      run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $GOPATH/bin v1.24.0
+    # # install linter
+    # - name: install linter
+    #   run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $GOPATH/bin v1.24.0
       
     # checkout relayer
     - name: checkout relayer
@@ -39,9 +39,9 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    # run linter
-    - name: linter
-      run: make ci-lint
+    # # run linter
+    # - name: linter
+    #   run: make ci-lint
     
     # build binary
     - name: build binary and move to upload location

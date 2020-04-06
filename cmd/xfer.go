@@ -38,20 +38,9 @@ func xfersend() *cobra.Command {
 				return err
 			}
 
-			// If there is a path seperator in the denom of the coins being sent,
-			// then src is not the source, otherwise it is
-			// NOTE: this will not work in the case where tokens are sent from A -> B -> C
-			// Need a function in the SDK to determine from a denom if the tokens are from this chain
-			// TODO: Refactor this in the SDK.
 			source, err := strconv.ParseBool(args[3])
 			if err != nil {
 				return err
-			}
-
-			if source {
-				amount.Denom = fmt.Sprintf("%s/%s/%s", c[dst].PathEnd.PortID, c[dst].PathEnd.ChannelID, amount.Denom)
-			} else {
-				amount.Denom = fmt.Sprintf("%s/%s/%s", c[src].PathEnd.PortID, c[src].PathEnd.ChannelID, amount.Denom)
 			}
 
 			dstAddr, err := sdk.AccAddressFromBech32(args[4])
@@ -59,22 +48,51 @@ func xfersend() *cobra.Command {
 				return err
 			}
 
-			dstHeader, err := c[dst].UpdateLiteWithHeader()
+			return c[src].SendTransferMsg(c[dst], amount, dstAddr, source)
+		},
+	}
+	return pathFlag(cmd)
+}
+
+func transferCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "transfer [src-chain-id] [dst-chain-id] [amount] [source] [dst-chain-addr]",
+		Aliases: []string{"xfer"},
+		Short:   "transfer",
+		Long:    "This sends tokens from a relayers configured wallet on chain src to a dst addr on dst",
+		Args:    cobra.ExactArgs(5),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			c, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
 
-			// MsgTransfer will call SendPacket on src chain
-			txs := relayer.RelayMsgs{
-				Src: []sdk.Msg{c[src].PathEnd.MsgTransfer(c[dst].PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source, c[src].MustGetAddress())},
-				Dst: []sdk.Msg{},
+			pth, err := cmd.Flags().GetString(flagPath)
+			if err != nil {
+				return err
 			}
 
-			if txs.Send(c[src], c[dst]); !txs.Success() {
-				return fmt.Errorf("failed to send first transaction")
+			if _, err = setPathsFromArgs(c[src], c[dst], pth); err != nil {
+				return err
 			}
 
-			return nil
+			amount, err := sdk.ParseCoin(args[2])
+			if err != nil {
+				return err
+			}
+
+			source, err := strconv.ParseBool(args[3])
+			if err != nil {
+				return err
+			}
+
+			dstAddr, err := sdk.AccAddressFromBech32(args[4])
+			if err != nil {
+				return err
+			}
+
+			return c[src].SendTransferBothSides(c[dst], amount, dstAddr, source)
 		},
 	}
 	return pathFlag(cmd)

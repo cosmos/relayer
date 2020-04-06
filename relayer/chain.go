@@ -14,7 +14,7 @@ import (
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	aminocodec "github.com/cosmos/cosmos-sdk/codec"
 	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
-	"github.com/cosmos/cosmos-sdk/crypto/keys"
+	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/go-bip39"
