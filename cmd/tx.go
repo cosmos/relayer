@@ -225,7 +225,7 @@ func relayMsgsCmd() *cobra.Command {
 
 func transferCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "transfer [src-chain-id] [dst-chain-id] [amount] [is-source] [dst-chain-addr]",
+		Use:     "transfer [src-chain-id] [dst-chain-id] [amount] [source] [dst-chain-addr]",
 		Aliases: []string{"xfer"},
 		Short:   "transfer",
 		Long:    "This sends tokens from a relayers configured wallet on chain src to a dst addr on dst",

@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	retry "github.com/avast/retry-go"
@@ -717,12 +718,12 @@ func addPacketMsg(src, dst *Chain, srcH, dstH *tmclient.Header, seq uint64, msgs
 		return fmt.Errorf("more than one transaction returned with query")
 	}
 
-	pd, err := src.txPacketData(src, tx.Txs[0])
+	pd, to, err := src.txPacketData(src, tx.Txs[0])
 	if err != nil {
 		return err
 	}
-	fmt.Println(string(pd))
-	msg, err := dst.packetMsg(src, srcH, pd, int64(seq))
+
+	msg, err := dst.packetMsg(src, srcH, pd, to, int64(seq))
 	if err != nil {
 		return err
 	}
@@ -738,7 +739,7 @@ func addPacketMsg(src, dst *Chain, srcH, dstH *tmclient.Header, seq uint64, msgs
 	return nil
 }
 
-func (src *Chain) packetMsg(dst *Chain, dstH *tmclient.Header, xferPacket []byte, seq int64) (sdk.Msg, error) {
+func (src *Chain) packetMsg(dst *Chain, dstH *tmclient.Header, xferPacket []byte, timeout uint64, seq int64) (sdk.Msg, error) {
 	var (
 		err          error
 		dstCommitRes CommitmentResponse
@@ -756,9 +757,9 @@ func (src *Chain) packetMsg(dst *Chain, dstH *tmclient.Header, xferPacket []byte
 		return nil, err
 	}
 
-	return src.PathEnd.MsgRecvPacket(dst.PathEnd, uint64(seq), uint64(dstH.Height+1000), xferPacket,
+	return src.PathEnd.MsgRecvPacket(dst.PathEnd, uint64(seq), timeout, xferPacket,
 		chanTypes.NewPacketResponse(dst.PathEnd.PortID, dst.PathEnd.ChannelID, uint64(seq),
-			dst.PathEnd.NewPacket(src.PathEnd, uint64(seq), xferPacket, uint64(dstH.Height+1000)),
+			dst.PathEnd.NewPacket(src.PathEnd, uint64(seq), xferPacket, timeout),
 			dstCommitRes.Proof.Proof,
 			int64(dstCommitRes.ProofHeight),
 		),
@@ -766,7 +767,7 @@ func (src *Chain) packetMsg(dst *Chain, dstH *tmclient.Header, xferPacket []byte
 	), nil
 }
 
-func (src *Chain) txPacketData(dst *Chain, res sdk.TxResponse) (packetData []byte, err error) {
+func (src *Chain) txPacketData(dst *Chain, res sdk.TxResponse) (packetData []byte, timeout uint64, err error) {
 	// TODO: Log what we are about to do here, maybe set behind debug flag
 
 	// Set sdk config to use custom Bech32 account prefix
@@ -779,13 +780,19 @@ func (src *Chain) txPacketData(dst *Chain, res sdk.TxResponse) (packetData []byt
 				for _, p := range e.Attributes {
 					if p.Key == "packet_data" {
 						packetData = []byte(p.Value)
-						return
 					}
+					if p.Key == "packet_timeout" {
+						to, _ := strconv.ParseUint(p.Value, 10, 64)
+						timeout = to
+					}
+				}
+				if packetData != nil && timeout != 0 {
+					return
 				}
 			}
 		}
 	}
-	return nil, fmt.Errorf("no packet data found")
+	return nil, 0, fmt.Errorf("no packet data found")
 }
 
 func seqEvents(channelID string, seq uint64) []string {

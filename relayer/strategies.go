@@ -154,15 +154,15 @@ func nrsLoop(src, dst *Chain, doneChan chan struct{}) {
 }
 
 func (src *Chain) handlePacket(dst *Chain, events map[string][]string) {
-	byt, seq, err := src.parsePacketData(dst, events)
+	byt, seq, timeout, err := src.parsePacketData(dst, events)
 	if byt != nil && seq != 0 && err == nil {
-		src.sendPacket(dst, byt, seq)
+		src.sendPacket(dst, byt, seq, timeout)
 	} else if err != nil {
 		src.Error(err)
 	}
 }
 
-func (src *Chain) sendPacket(dst *Chain, xferPacket []byte, seq int64) {
+func (src *Chain) sendPacket(dst *Chain, xferPacket []byte, seq int64, timeout uint64) {
 	var (
 		err          error
 		dstH         *tmclient.Header
@@ -197,7 +197,7 @@ func (src *Chain) sendPacket(dst *Chain, xferPacket []byte, seq int64) {
 			src.PathEnd.MsgRecvPacket(
 				dst.PathEnd,
 				uint64(seq),
-				uint64(dstH.Height+1000),
+				timeout,
 				xferPacket,
 				chanTypes.NewPacketResponse(
 					dst.PathEnd.PortID,
@@ -207,7 +207,7 @@ func (src *Chain) sendPacket(dst *Chain, xferPacket []byte, seq int64) {
 						src.PathEnd,
 						uint64(seq),
 						xferPacket,
-						uint64(dstH.Height+1000),
+						timeout,
 					),
 					dstCommitRes.Proof.Proof,
 					int64(dstCommitRes.ProofHeight),
@@ -220,7 +220,7 @@ func (src *Chain) sendPacket(dst *Chain, xferPacket []byte, seq int64) {
 	txs.Send(src, dst)
 }
 
-func (src *Chain) parsePacketData(dst *Chain, events map[string][]string) (packetData []byte, seq int64, err error) {
+func (src *Chain) parsePacketData(dst *Chain, events map[string][]string) (packetData []byte, seq int64, timeout uint64, err error) {
 	// first, we log the actions and msg hash
 	src.logTx(events)
 
@@ -230,19 +230,27 @@ func (src *Chain) parsePacketData(dst *Chain, events map[string][]string) (packe
 
 	// then, get packet data and parse
 	if pdval, ok := events["send_packet.packet_data"]; ok {
-		err = src.Cdc.UnmarshalJSON([]byte(pdval[0]), &packetData)
-		if err != nil {
-			return nil, 0, err
-		}
+		packetData = []byte(pdval[0])
 	}
 
-	// finally, get and parse the sequence
+	// next, get and parse the sequence
 	if sval, ok := events["send_packet.packet_sequence"]; ok {
 		seq, err = strconv.ParseInt(sval[0], 10, 64)
 		if err != nil {
-			return nil, 0, err
+			fmt.Println("seq")
+			return nil, 0, 0, err
 		}
 	}
+
+	// finally, get and parse the timeout
+	if sval, ok := events["send_packet.packet_timeout"]; ok {
+		fmt.Println("seq")
+		timeout, err = strconv.ParseUint(sval[0], 10, 64)
+		if err != nil {
+			return nil, 0, 0, err
+		}
+	}
+
 	return
 }
 
