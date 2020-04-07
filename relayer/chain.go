@@ -188,12 +188,13 @@ func (src *Chain) Error(err error) {
 	src.logger.Error(fmt.Sprintf("%s: err(%s)", src.ChainID, err.Error()))
 }
 
+// Start the client service
+func (src *Chain) Start() error {
+	return src.Client.Start()
+}
+
 // Subscribe returns channel of events given a query
 func (src *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, context.CancelFunc, error) {
-	if err := src.Client.Start(); err != nil {
-		return nil, nil, err
-	}
-
 	suffix, err := GenerateRandomString(8)
 	if err != nil {
 		return nil, nil, err
