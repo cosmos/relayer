@@ -8,10 +8,9 @@ import (
 	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/cosmos-sdk/simapp"
+	. "github.com/iqlusioninc/relayer/relayer"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/go-amino"
-
-	. "github.com/iqlusioninc/relayer/relayer"
 )
 
 var (
@@ -66,6 +65,24 @@ var (
 		gas:            200000,
 		gasPrices:      "0.025ufuel",
 		defaultDenom:   "ufuel",
+		trustingPeriod: "330h",
+	}
+
+	// Agoric Chain
+	// timeout_commit = "1000ms"
+	// timeout_propose = "1000ms"
+	// 3 second relayer timeout works well with these block times
+	agoricTestConfig = testChainConfig{
+		cdc:            codecstd.NewAppCodec(codecstd.MakeCodec(simapp.ModuleBasics)),
+		amino:          codecstd.MakeCodec(simapp.ModuleBasics),
+		dockerImage:    "agoric/agoric-sdk",
+		dockerTag:      "ibc-alpha",
+		timeout:        3 * time.Second,
+		rpcPort:        "26657",
+		accountPrefix:  "cosmos",
+		gas:            200000,
+		gasPrices:      "0.025uagstake",
+		defaultDenom:   "uagstake",
 		trustingPeriod: "330h",
 	}
 )

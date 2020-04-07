@@ -35,16 +35,19 @@ install: go.sum
 # Tests / CI
 ###############################################################################
 test:
-	@go test -mod=readonly -v -coverprofile coverage.out ./test/...
+	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/...
 
 test-gaia:
-	@go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestGaia*
+	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestGaia*
 
 test-mtd:
-	@go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestMtd*
+	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestMtd*
 
 test-rocketzone:
-	@go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestRocket*
+	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestRocket*
+
+test-agoric:
+	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestAgoric* 
 
 coverage:
 	@echo "viewing test coverage..."
