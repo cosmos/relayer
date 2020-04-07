@@ -122,6 +122,7 @@ func nrsLoop(src, dst *Chain, doneChan chan struct{}) {
 	// Subscribe to source chain
 	if err := src.Start(); err != nil {
 		src.Error(err)
+		return
 	}
 
 	srcTxEvents, srcTxCancel, err := src.Subscribe(txEvents)
@@ -143,6 +144,7 @@ func nrsLoop(src, dst *Chain, doneChan chan struct{}) {
 	// Subscribe to destination chain
 	if err := dst.Start(); err != nil {
 		dst.Error(err)
+		return
 	}
 
 	dstTxEvents, dstTxCancel, err := dst.Subscribe(txEvents)
