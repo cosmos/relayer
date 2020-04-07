@@ -25,12 +25,14 @@ func init() {
 	queryCmd.AddCommand(queryConnectionsUsingClient())
 	queryCmd.AddCommand(queryChannel())
 	queryCmd.AddCommand(queryChannels())
+	queryCmd.AddCommand(queryConnectionChannels())
 	queryCmd.AddCommand(queryNextSeqRecv())
 	queryCmd.AddCommand(queryPacketCommitment())
 	queryCmd.AddCommand(queryPacketAck())
 	queryCmd.AddCommand(queryTxs())
 	queryCmd.AddCommand(queryTx())
-	queryCmd.AddCommand(queryQueue())
+	queryCmd.AddCommand(queryUnrelayed())
+	queryCmd.AddCommand(queryFullPathCmd())
 }
 
 // queryCmd represents the chain command
@@ -56,7 +58,7 @@ func queryTx() *cobra.Command {
 				return err
 			}
 
-			return queryOutput(txs, chain, cmd)
+			return chain.Print(txs, false, false)
 		},
 	}
 	return cmd
@@ -88,7 +90,7 @@ func queryTxs() *cobra.Command {
 				return err
 			}
 
-			return queryOutput(txs, chain, cmd)
+			return chain.Print(txs, false, false)
 		},
 	}
 	return paginationFlags(cmd)
@@ -116,7 +118,7 @@ func queryAccountCmd() *cobra.Command {
 				return err
 			}
 
-			return queryOutput(acc, chain, cmd)
+			return chain.Print(acc, false, false)
 		},
 	}
 	return cmd
@@ -217,7 +219,7 @@ func queryHeaderCmd() *cobra.Command {
 				return nil
 			}
 
-			return queryOutput(header, chain, cmd)
+			return chain.Print(header, false, false)
 		},
 	}
 
@@ -257,7 +259,7 @@ func queryNodeStateCmd() *cobra.Command {
 				return err
 			}
 
-			return queryOutput(csRes, chain, cmd)
+			return chain.Print(csRes, false, false)
 		},
 	}
 
@@ -285,7 +287,7 @@ func queryClientCmd() *cobra.Command {
 				return err
 			}
 
-			return queryOutput(res, chain, cmd)
+			return chain.Print(res, false, false)
 		},
 	}
 
@@ -309,7 +311,7 @@ func queryClientsCmd() *cobra.Command {
 				return err
 			}
 
-			return queryOutput(res, chain, cmd)
+			return chain.Print(res, false, false)
 		},
 	}
 
@@ -333,7 +335,7 @@ func queryConnections() *cobra.Command {
 				return err
 			}
 
-			return queryOutput(res, chain, cmd)
+			return chain.Print(res, false, false)
 		},
 	}
 
@@ -366,7 +368,7 @@ func queryConnectionsUsingClient() *cobra.Command {
 				return err
 			}
 
-			return queryOutput(res.ConnectionPaths, chain, cmd)
+			return chain.Print(res, false, false)
 		},
 	}
 
@@ -399,10 +401,36 @@ func queryConnection() *cobra.Command {
 				return err
 			}
 
-			return queryOutput(res, chain, cmd)
+			return chain.Print(res, false, false)
 		},
 	}
 
+	return cmd
+}
+
+func queryConnectionChannels() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "connection-channels [chain-id] [connection-id]",
+		Aliases: []string{"conn-chans"},
+		Short:   "Query any channels associated with a given connection",
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
+			if err = chain.AddPath(dcli, args[1], dcha, dpor); err != nil {
+				return err
+			}
+
+			chans, err := chain.QueryConnectionChannels(args[1], viper.GetInt(flags.FlagPage), viper.GetInt(flags.FlagLimit))
+			if err != nil {
+				return err
+			}
+
+			return chain.Print(chans, false, false)
+		},
+	}
 	return paginationFlags(cmd)
 }
 
@@ -432,7 +460,7 @@ func queryChannel() *cobra.Command {
 				return err
 			}
 
-			return queryOutput(res, chain, cmd)
+			return chain.Print(res, false, false)
 		},
 	}
 
@@ -456,7 +484,7 @@ func queryChannels() *cobra.Command {
 				return err
 			}
 
-			return queryOutput(res, chain, cmd)
+			return chain.Print(res, false, false)
 		},
 	}
 
@@ -488,7 +516,7 @@ func queryNextSeqRecv() *cobra.Command {
 				return err
 			}
 
-			return queryOutput(res, chain, cmd)
+			return chain.Print(res, false, false)
 		},
 	}
 
@@ -525,7 +553,7 @@ func queryPacketCommitment() *cobra.Command {
 				return err
 			}
 
-			return queryOutput(res, chain, cmd)
+			return chain.Print(res, false, false)
 		},
 	}
 
@@ -562,18 +590,19 @@ func queryPacketAck() *cobra.Command {
 				return err
 			}
 
-			return queryOutput(res, chain, cmd)
+			return chain.Print(res, false, false)
 		},
 	}
 
 	return paginationFlags(cmd)
 }
 
-func queryQueue() *cobra.Command {
+func queryUnrelayed() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "queue [path]",
-		Short: "Query for the packets that remain to be relayed on a given path",
-		Args:  cobra.ExactArgs(1),
+		Use:     "unrelayed [path]",
+		Aliases: []string{"queue"},
+		Short:   "Query for the packets that remain to be relayed on a given path",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, err := config.Paths.Get(args[0])
 			if err != nil {
@@ -610,6 +639,32 @@ func queryQueue() *cobra.Command {
 	return cmd
 }
 
-func queryOutput(res interface{}, chain *relayer.Chain, cmd *cobra.Command) error {
-	return chain.Print(res, false, false)
+func queryFullPathCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "full-path [path-name]",
+		Aliases: []string{"link", "connect", "path", "pth"},
+		Short:   "get the status of clients, connections, channels and packets on a path",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path, err := config.Paths.Get(args[0])
+			if err != nil {
+				return err
+			}
+
+			src, dst := path.Src.ChainID, path.Dst.ChainID
+			c, err := config.Chains.Gets(src, dst)
+			if err != nil {
+				return err
+			}
+
+			stat, err := relayer.QueryPathStatus(c[src], c[dst], path)
+			if err != nil {
+				return err
+			}
+
+			return c[src].Print(stat, false, false)
+		},
+	}
+
+	return cmd
 }

@@ -1,0 +1,1 @@
+{"src":{"chain-id":"ibc3","client-id":"zjyshingti","connection-id":"kygrljuplq","channel-id":"hdiooxmgry","port-id":"transfer"},"dst":{"chain-id":"ibc0","client-id":"vddpwioaua","connection-id":"wmvxarvtdj","channel-id":"mytxyocvdk","port-id":"transfer"},"strategy":{"type":"naive"}}

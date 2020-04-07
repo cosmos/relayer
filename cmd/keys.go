@@ -19,7 +19,7 @@ import (
 	"fmt"
 
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
-	"github.com/cosmos/cosmos-sdk/crypto/keys"
+	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -76,7 +76,7 @@ func keysAddCmd() *cobra.Command {
 
 			ko := keyOutput{Mnemonic: mnemonic, Address: info.GetAddress().String()}
 
-			return queryOutput(ko, chain, cmd)
+			return chain.Print(ko, false, false)
 		},
 	}
 
@@ -247,7 +247,7 @@ func keysExportCmd() *cobra.Command {
 				return err
 			}
 
-			return queryOutput(info, chain, cmd)
+			return chain.Print(info, false, false)
 		},
 	}
 

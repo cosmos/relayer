@@ -299,6 +299,15 @@ func filesAdd(dir string) (cfg *Config, err error) {
 			fmt.Printf("failed to unmarshal file %s, skipping...\n", pth)
 			continue
 		}
+		if c.ChainID == "" && c.Key == "" && c.RPCAddr == "" {
+			p := &relayer.Path{}
+			if err = json.Unmarshal(byt, p); err == nil {
+				fmt.Printf("%s is a path file, try adding it with 'rly pth add -f %s'...\n", f.Name(), pth)
+				continue
+			}
+			fmt.Printf("%s did not contain valid chain config, skipping...\n", pth)
+
+		}
 		if err = cfg.AddChain(c); err != nil {
 			fmt.Printf("%s: %s\n", pth, err.Error())
 			continue

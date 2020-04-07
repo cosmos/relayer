@@ -16,10 +16,12 @@ limitations under the License.
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -39,6 +41,7 @@ func configCmd() *cobra.Command {
 	cmd.AddCommand(
 		configShowCmd(),
 		configInitCmd(),
+		configAddDirCmd(),
 	)
 
 	return cmd
@@ -132,6 +135,78 @@ func configInitCmd() *cobra.Command {
 	return cmd
 }
 
+func configAddDirCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "add-dir [dir]",
+		Aliases: []string{"ad"},
+		Short:   "Add new chains and paths to the configuration file from a directory full of chain and path configuration, useful for adding testnet configurations",
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			var out *Config
+			if out, err = cfgFilesAdd(args[0]); err != nil {
+				return err
+			}
+			return overWriteConfig(cmd, out)
+		},
+	}
+
+	return cmd
+}
+
+func cfgFilesAdd(dir string) (cfg *Config, err error) {
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	cfg = config
+	for _, f := range files {
+		c := &relayer.Chain{}
+		pth := fmt.Sprintf("%s%s", dir, f.Name())
+		if f.IsDir() {
+			fmt.Printf("directory at %s, skipping...\n", pth)
+			continue
+		}
+
+		byt, err := ioutil.ReadFile(pth)
+		if err != nil {
+			fmt.Printf("failed to read file %s, skipping...\n", pth)
+			continue
+		}
+
+		if err = json.Unmarshal(byt, c); err != nil {
+			fmt.Printf("failed to unmarshal file %s, skipping...\n", pth)
+			continue
+		}
+
+		if c.ChainID == "" && c.Key == "" && c.RPCAddr == "" {
+			p := &relayer.Path{}
+			if err = json.Unmarshal(byt, p); err != nil {
+				fmt.Printf("failed to unmarshal file %s, skipping...\n", pth)
+			}
+
+			pthName := strings.Split(f.Name(), ".")[0]
+			if err = cfg.AddPath(pthName, p); err != nil {
+				fmt.Printf("%s: %s\n", pth, err.Error())
+				continue
+			}
+
+			if err = p.Validate(); err == nil {
+				fmt.Printf("added path %s...\n", pthName)
+				continue
+			} else if err != nil {
+				fmt.Printf("%s did not contain valid path config, skipping...\n", pth)
+				continue
+			}
+		}
+
+		if err = cfg.AddChain(c); err != nil {
+			fmt.Printf("%s: %s\n", pth, err.Error())
+			continue
+		}
+		fmt.Printf("added chain %s...\n", c.ChainID)
+	}
+	return cfg, nil
+}
+
 // Config represents the config file for the relayer
 type Config struct {
 	Global GlobalConfig   `yaml:"global" json:"global"`
@@ -201,6 +276,11 @@ func (c *Config) AddChain(chain *relayer.Chain) (err error) {
 	}
 	c.Chains = append(c.Chains, chain)
 	return nil
+}
+
+// AddPath adds an additional path to the config
+func (c *Config) AddPath(name string, path *relayer.Path) (err error) {
+	return c.Paths.Add(name, path)
 }
 
 // DeleteChain removes a chain from the config
