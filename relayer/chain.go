@@ -58,7 +58,7 @@ type Chain struct {
 // Init initializes the pieces of a chain that aren't set when it parses a config
 // NOTE: All validation of the chain should happen here.
 func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.Codec, timeout time.Duration, debug bool) error {
-	keybase, err := keys.New(src.ChainID, "test", keysDir(homePath), nil)
+	keybase, err := keys.New(src.ChainID, "test", keysDir(homePath, src.ChainID), nil)
 	if err != nil {
 		return err
 	}
@@ -206,8 +206,8 @@ func (src *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, context.Ca
 }
 
 // KeysDir returns the path to the keys for this chain
-func keysDir(home string) string {
-	return path.Join(home, "keys")
+func keysDir(home, chainID string) string {
+	return path.Join(home, "keys", chainID)
 }
 
 func liteDir(home string) string {
@@ -390,7 +390,7 @@ func (src *Chain) CreateTestKey() error {
 		return err
 	}
 
-	_, err = src.Keybase.NewAccount(src.Key, mnemonic, ckeys.DefaultKeyPass, hd.CreateHDPath(118, 0, 0).String(), hd.Secp256k1)
+	_, err = src.Keybase.NewAccount(src.Key, mnemonic, "", hd.CreateHDPath(118, 0, 0).String(), hd.Secp256k1)
 	return err
 }
 

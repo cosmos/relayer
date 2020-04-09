@@ -69,7 +69,7 @@ func keysAddCmd() *cobra.Command {
 				return err
 			}
 
-			info, err := chain.Keybase.NewAccount(keyName, mnemonic, ckeys.DefaultKeyPass, hd.CreateHDPath(118, 0, 0).String(), hd.Secp256k1)
+			info, err := chain.Keybase.NewAccount(keyName, mnemonic, "", hd.CreateHDPath(118, 0, 0).String(), hd.Secp256k1)
 			if err != nil {
 				return err
 			}
@@ -106,7 +106,7 @@ func keysRestoreCmd() *cobra.Command {
 				return errKeyExists(keyName)
 			}
 
-			info, err := chain.Keybase.NewAccount(keyName, args[2], ckeys.DefaultKeyPass, hd.CreateHDPath(118, 0, 0).String(), hd.Secp256k1)
+			info, err := chain.Keybase.NewAccount(keyName, args[2], "", hd.CreateHDPath(118, 0, 0).String(), hd.Secp256k1)
 			if err != nil {
 				return err
 			}
