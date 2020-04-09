@@ -109,7 +109,7 @@ func (src *PathEnd) ChanInit(dst *PathEnd, ordering chanState.Order, signer sdk.
 	return chanTypes.NewMsgChannelOpenInit(
 		src.PortID,
 		src.ChannelID,
-		defaultTranferVersion,
+		defaultTransferVersion,
 		ordering,
 		[]string{src.ConnectionID},
 		dst.PortID,
@@ -123,12 +123,12 @@ func (src *PathEnd) ChanTry(dst *PathEnd, dstChanState chanTypes.ChannelResponse
 	return chanTypes.NewMsgChannelOpenTry(
 		src.PortID,
 		src.ChannelID,
-		defaultIBCVersion,
+		defaultTransferVersion,
 		dstChanState.Channel.Channel.Ordering,
 		[]string{src.ConnectionID},
 		dst.PortID,
 		dst.ChannelID,
-		defaultTranferVersion,
+		dstChanState.Channel.Channel.GetVersion(),
 		dstChanState.Proof,
 		dstChanState.ProofHeight+1,
 		signer,
