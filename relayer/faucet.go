@@ -29,7 +29,7 @@ func (src *Chain) BuildAndSignTxWithKey(datagram []sdk.Msg, keyName string) ([]b
 	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
 
 	// Fetch account and sequence numbers for the account
-	info, err := src.Keybase.Get(keyName)
+	info, err := src.Keybase.Key(keyName)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (src *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amount sdk.Coin) e
 	sdkConf := sdk.GetConfig()
 	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
 
-	info, err := src.Keybase.GetByAddress(fromAddr)
+	info, err := src.Keybase.KeyByAddress(fromAddr)
 	if err != nil {
 		return err
 	}

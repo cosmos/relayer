@@ -57,7 +57,7 @@ func faucetService() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = chain.Keybase.Get(args[3])
+			_, err = chain.Keybase.Key(args[3])
 			if err != nil {
 				return err
 			}

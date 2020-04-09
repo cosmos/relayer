@@ -67,7 +67,7 @@ func faucetRequestCmd() *cobra.Command {
 				keyName = chain.Key
 			}
 
-			info, err := chain.Keybase.Get(keyName)
+			info, err := chain.Keybase.Key(keyName)
 			if err != nil {
 				return err
 			}
@@ -105,7 +105,7 @@ func faucetStartCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			info, err := chain.Keybase.Get(args[1])
+			info, err := chain.Keybase.Key(args[1])
 			if err != nil {
 				return err
 			}
