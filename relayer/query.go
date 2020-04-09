@@ -50,7 +50,7 @@ func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
 	if keyName == "" {
 		addr = c.MustGetAddress()
 	} else {
-		info, err := c.Keybase.Get(keyName)
+		info, err := c.Keybase.Key(keyName)
 		if err != nil {
 			return nil, err
 		}

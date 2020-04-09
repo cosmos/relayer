@@ -59,6 +59,12 @@ var codespaces = map[string]map[int]string{
 		12: "too many connection hops",
 		13: "acknowledgement too long",
 	},
+	"port": {
+		1: "port is already binded",
+		2: "port not found",
+		3: "invalid port",
+		4: "route not found",
+	},
 	"tendermint": {
 		1: "invalid trusting period",
 		2: "invalid unbonding period",

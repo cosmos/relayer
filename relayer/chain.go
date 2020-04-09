@@ -14,6 +14,7 @@ import (
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	aminocodec "github.com/cosmos/cosmos-sdk/codec"
 	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
@@ -40,7 +41,7 @@ type Chain struct {
 	// TODO: make these private
 	HomePath string            `yaml:"-" json:"-"`
 	PathEnd  *PathEnd          `yaml:"-" json:"-"`
-	Keybase  keys.Keybase      `yaml:"-" json:"-"`
+	Keybase  keys.Keyring      `yaml:"-" json:"-"`
 	Client   rpcclient.Client  `yaml:"-" json:"-"`
 	Cdc      *codecstd.Codec   `yaml:"-" json:"-"`
 	Amino    *aminocodec.Codec `yaml:"-" json:"-"`
@@ -57,7 +58,7 @@ type Chain struct {
 // Init initializes the pieces of a chain that aren't set when it parses a config
 // NOTE: All validation of the chain should happen here.
 func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.Codec, timeout time.Duration, debug bool) error {
-	keybase, err := keys.NewKeyring(src.ChainID, "test", keysDir(homePath), nil)
+	keybase, err := keys.New(src.ChainID, "test", keysDir(homePath, src.ChainID), nil)
 	if err != nil {
 		return err
 	}
@@ -205,8 +206,8 @@ func (src *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, context.Ca
 }
 
 // KeysDir returns the path to the keys for this chain
-func keysDir(home string) string {
-	return path.Join(home, "keys")
+func keysDir(home, chainID string) string {
+	return path.Join(home, "keys", chainID)
 }
 
 func liteDir(home string) string {
@@ -224,7 +225,7 @@ func (src *Chain) GetAddress() (sdk.AccAddress, error) {
 	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
 
 	// Signing key for src chain
-	srcAddr, err := src.Keybase.Get(src.Key)
+	srcAddr, err := src.Keybase.Key(src.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -389,7 +390,7 @@ func (src *Chain) CreateTestKey() error {
 		return err
 	}
 
-	_, err = src.Keybase.CreateAccount(src.Key, mnemonic, "", ckeys.DefaultKeyPass, keys.CreateHDPath(0, 0).String(), keys.Secp256k1)
+	_, err = src.Keybase.NewAccount(src.Key, mnemonic, "", hd.CreateHDPath(118, 0, 0).String(), hd.Secp256k1)
 	return err
 }
 
