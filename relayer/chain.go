@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"sync"
 	"time"
 
 	sdkCtx "github.com/cosmos/cosmos-sdk/client/context"
@@ -80,8 +81,8 @@ func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.C
 
 	src.Keybase = keybase
 	src.Client = client
-	src.Cdc = newContextualStdCodec(cdc, src.SetSDKContext)
-	src.Amino = newContextualAminoCodec(amino, src.SetSDKContext)
+	src.Cdc = newContextualStdCodec(cdc, src.UseSDKContext)
+	src.Amino = newContextualAminoCodec(amino, src.UseSDKContext)
 	src.HomePath = homePath
 	src.logger = defaultChainLogger()
 	src.timeout = timeout
@@ -158,8 +159,7 @@ func (src *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
 		return nil, err
 	}
 
-	reset := src.Amino.setContext()
-	defer reset()
+	defer src.UseSDKContext()()
 	return auth.NewTxBuilder(
 		auth.DefaultTxEncoder(src.Amino.Codec), acc.GetAccountNumber(),
 		acc.GetSequence(), src.Gas, src.GasAdjustment, false, src.ChainID,
@@ -220,16 +220,12 @@ func (src *Chain) GetAddress() (sdk.AccAddress, error) {
 		return src.address, nil
 	}
 
-	reset := src.SetSDKContext()
-	defer reset()
-
 	// Signing key for src chain
 	srcAddr, err := src.Keybase.Key(src.Key)
 	if err != nil {
 		return nil, err
 	}
 
-	src.SetSDKContext()
 	src.address = srcAddr.GetAddress()
 	return src.address, nil
 }
@@ -243,16 +239,22 @@ func (src *Chain) MustGetAddress() sdk.AccAddress {
 	return srcAddr
 }
 
-// SetSDKContext uses a custom Bech32 account prefix and restores after
-func (src *Chain) SetSDKContext() func() {
+var sdkContextMutex sync.Mutex
+
+// UseSDKContext uses a custom Bech32 account prefix and returns a restore func
+func (src *Chain) UseSDKContext() func() {
+	// Ensure we're the only one using the global context.
+	sdkContextMutex.Lock()
 	sdkConf := sdk.GetConfig()
 	account := sdkConf.GetBech32AccountAddrPrefix()
 	pubaccount := sdkConf.GetBech32AccountPubPrefix()
 
 	// Mutate the sdkConf
 	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
+
+	// Return a function that resets and unlocks.
 	return func() {
-		// Restore the sdkConf
+		defer sdkContextMutex.Unlock()
 		sdkConf.SetBech32PrefixForAccount(account, pubaccount)
 	}
 }

@@ -1200,8 +1200,7 @@ func (c *Chain) formatTxResults(resTxs []*ctypes.ResultTx, resBlocks map[int64]*
 
 // formatTxResult parses a tx into a TxResponse object
 func (c *Chain) formatTxResult(resTx *ctypes.ResultTx, resBlock *ctypes.ResultBlock) (sdk.TxResponse, error) {
-	reset := c.Amino.setContext()
-	defer reset()
+	defer c.UseSDKContext()()
 	tx, err := parseTx(c.Amino.Codec, resTx.Tx)
 	if err != nil {
 		return sdk.TxResponse{}, err

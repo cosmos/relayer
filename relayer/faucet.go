@@ -39,8 +39,7 @@ func (src *Chain) BuildAndSignTxWithKey(datagram []sdk.Msg, keyName string) ([]b
 		return nil, err
 	}
 
-	reset := src.Amino.setContext()
-	defer reset()
+	defer src.UseSDKContext()()
 	return auth.NewTxBuilder(
 		auth.DefaultTxEncoder(src.Amino.Codec), acc.GetAccountNumber(),
 		acc.GetSequence(), src.Gas, src.GasAdjustment, false, src.ChainID,
