@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"newroadchain","rpc-addr":"http://ibct01.newroad.network:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025newroad","default-denom":"newroad","trusting-period":"330h"}
