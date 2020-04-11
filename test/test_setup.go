@@ -97,11 +97,16 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *
 	require.NoError(t, c.CreateTestKey())
 
 	// setup docker options
+	reset := c.SetSDKContext()
+	addr := c.MustGetAddress()
+	addrString := addr.String()
+	reset()
+
 	dockerOpts := &dockertest.RunOptions{
 		Name:         fmt.Sprintf("%s-%s", c.ChainID, t.Name()),
 		Repository:   tc.t.dockerImage,
 		Tag:          tc.t.dockerTag,
-		Cmd:          []string{c.ChainID, c.MustGetAddress().String()},
+		Cmd:          []string{c.ChainID, addrString},
 		ExposedPorts: []string{tc.t.rpcPort},
 		PortBindings: map[dc.Port][]dc.PortBinding{
 			dc.Port(tc.t.rpcPort): {{HostPort: c.GetRPCPort()}},

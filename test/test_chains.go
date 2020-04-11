@@ -79,10 +79,10 @@ var (
 		dockerTag:      "ibc-alpha",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
-		accountPrefix:  "cosmos",
+		accountPrefix:  "agoric",
 		gas:            200000,
-		gasPrices:      "0.025uagstake",
-		defaultDenom:   "uagstake",
+		gasPrices:      "",
+		defaultDenom:   "uag",
 		trustingPeriod: "330h",
 	}
 )
