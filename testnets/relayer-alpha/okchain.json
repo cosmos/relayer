@@ -1,0 +1,1 @@
+{"key":"okchain","chain-id":"okchain","rpc-addr":"http://ibc-alpha.okchain.io:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.0125okt","default-denom":"okt","trusting-period":"336h"}
