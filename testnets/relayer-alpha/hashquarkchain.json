@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"hashquarkchain","rpc-addr":"http://152.32.135.74:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025quark","default-denom":"quark","trusting-period":"330h"}
