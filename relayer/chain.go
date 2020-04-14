@@ -55,6 +55,55 @@ type Chain struct {
 	faucetAddrs map[string]time.Time
 }
 
+// ListenRPCEmitJSON listens for tx and block events from a chain and outputs them as JSON to stdout
+func (src *Chain) ListenRPCEmitJSON() func() {
+	doneChan := make(chan struct{})
+	go src.listenLoop(doneChan)
+	return func() { doneChan <- struct{}{} }
+}
+
+func (src *Chain) listenLoop(doneChan chan struct{}) {
+	// Subscribe to source chain
+	if err := src.Start(); err != nil {
+		src.Error(err)
+		return
+	}
+
+	srcTxEvents, srcTxCancel, err := src.Subscribe(txEvents)
+	if err != nil {
+		src.Error(err)
+		return
+	}
+	defer srcTxCancel()
+
+	srcBlockEvents, srcBlockCancel, err := src.Subscribe(blEvents)
+	if err != nil {
+		src.Error(err)
+		return
+	}
+	defer srcBlockCancel()
+
+	// Listen to channels and take appropriate action
+	var byt []byte
+	for {
+		select {
+		case srcMsg := <-srcTxEvents:
+			if byt, err = json.Marshal(srcMsg); err != nil {
+				src.Error(err)
+			}
+			fmt.Println(string(byt))
+		case srcMsg := <-srcBlockEvents:
+			if byt, err = json.Marshal(srcMsg); err != nil {
+				src.Error(err)
+			}
+			fmt.Println(string(byt))
+		case <-doneChan:
+			close(doneChan)
+			return
+		}
+	}
+}
+
 // Init initializes the pieces of a chain that aren't set when it parses a config
 // NOTE: All validation of the chain should happen here.
 func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.Codec, timeout time.Duration, debug bool) error {
