@@ -13,7 +13,7 @@ import (
 
 var (
 	txEvents = "tm.event = 'Tx'"
-	// blEvents = "tm.event = 'NewBlock'"
+	blEvents = "tm.event = 'NewBlock'"
 )
 
 // MustGetStrategy returns the strategy and panics on error
@@ -120,29 +120,61 @@ func (nrs NaiveStrategy) Run(src, dst *Chain) (func(), error) {
 
 func nrsLoop(src, dst *Chain, doneChan chan struct{}) {
 	// Subscribe to source chain
-	srcEvents, srcCancel, err := src.Subscribe(txEvents)
+	if err := src.Start(); err != nil {
+		src.Error(err)
+		return
+	}
+
+	srcTxEvents, srcTxCancel, err := src.Subscribe(txEvents)
 	if err != nil {
 		src.Error(err)
 		return
 	}
-	defer srcCancel()
-	src.Log(fmt.Sprintf("- listening to events from %s...", src.ChainID))
+	defer srcTxCancel()
+	src.Log(fmt.Sprintf("- listening to tx events from %s...", src.ChainID))
+
+	srcBlockEvents, srcBlockCancel, err := src.Subscribe(blEvents)
+	if err != nil {
+		src.Error(err)
+		return
+	}
+	defer srcBlockCancel()
+	src.Log(fmt.Sprintf("- listening to block events from %s...", src.ChainID))
 
 	// Subscribe to destination chain
-	dstEvents, dstCancel, err := dst.Subscribe(txEvents)
+	if err := dst.Start(); err != nil {
+		dst.Error(err)
+		return
+	}
+
+	dstTxEvents, dstTxCancel, err := dst.Subscribe(txEvents)
 	if err != nil {
 		dst.Error(err)
 		return
 	}
-	defer dstCancel()
-	dst.Log(fmt.Sprintf("- listening to events from %s...", dst.ChainID))
+	defer dstTxCancel()
+	dst.Log(fmt.Sprintf("- listening to tx events from %s...", dst.ChainID))
+
+	dstBlockEvents, dstBlockCancel, err := dst.Subscribe(blEvents)
+	if err != nil {
+		src.Error(err)
+		return
+	}
+	defer dstBlockCancel()
+	dst.Log(fmt.Sprintf("- listening to block events from %s...", dst.ChainID))
 
 	// Listen to channels and take appropriate action
 	for {
 		select {
-		case srcMsg := <-srcEvents:
+		case srcMsg := <-srcTxEvents:
+			src.logTx(srcMsg.Events)
 			go dst.handlePacket(src, srcMsg.Events)
-		case dstMsg := <-dstEvents:
+		case dstMsg := <-dstTxEvents:
+			dst.logTx(dstMsg.Events)
+			go src.handlePacket(dst, dstMsg.Events)
+		case srcMsg := <-srcBlockEvents:
+			go dst.handlePacket(src, srcMsg.Events)
+		case dstMsg := <-dstBlockEvents:
 			go src.handlePacket(dst, dstMsg.Events)
 		case <-doneChan:
 			src.Log(fmt.Sprintf("- [%s]:{%s} <-> [%s]:{%s} relayer shutting down",
@@ -216,9 +248,6 @@ func (src *Chain) sendPacketFromEvent(dst *Chain, xferPacket []byte, seq int64, 
 }
 
 func (src *Chain) packetDataAndTimeoutFromEvent(dst *Chain, events map[string][]string) (packetData []byte, seq int64, timeout uint64, err error) {
-	// first, we log the actions and msg hash
-	src.logTx(events)
-
 	// Set sdk config to use custom Bech32 account prefix
 	sdkConf := sdk.GetConfig()
 	sdkConf.SetBech32PrefixForAccount(dst.AccountPrefix, dst.AccountPrefix+"pub")
