@@ -125,8 +125,6 @@ gaiacli config --home $chainid1/$gclpth output json &> /dev/null
 gaiacli config --home $chainid0/$gclpth node http://localhost:26657 &> /dev/null
 gaiacli config --home $chainid1/$gclpth node http://localhost:26557 &> /dev/null
 
-echo "Starting Gaiad instances (background this script or terminate with Control-C)..."
-trap 'kill %1 %2' EXIT
+echo "Starting Gaiad instances..."
 gaiad --home $GAIA_DATA/$chainid0/n0/gaiad start --pruning=nothing > $chainid0.log 2>&1 &
 gaiad --home $GAIA_DATA/$chainid1/n0/gaiad start --pruning=nothing > $chainid1.log 2>&1 & 
-wait

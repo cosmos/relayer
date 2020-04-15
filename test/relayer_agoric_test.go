@@ -28,7 +28,7 @@ func TestAgoricToGaiaStreaming(t *testing.T) {
 		twoDstTestCoin = sdk.NewCoin(dstDenom, sdk.NewInt(2000))
 	)
 
-	path, err := genTestPathAndSet(src, dst, "transfer", "transfer")
+	path, err := genTestPathAndSet(src, dst, "transfer", "transfer") // FIGME: "relayertesttransfer")
 	require.NoError(t, err)
 
 	// query initial balances to compare against at the end
