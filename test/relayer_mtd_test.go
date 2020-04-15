@@ -14,7 +14,7 @@ var (
 	}
 )
 
-func TestMtdToGaiaSteaming(t *testing.T) {
+func TestMtdToGaiaStreaming(t *testing.T) {
 	chains := spinUpTestChains(t, mtdChains...)
 
 	var (

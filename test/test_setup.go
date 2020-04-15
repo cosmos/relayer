@@ -101,12 +101,17 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *
 		Name:         fmt.Sprintf("%s-%s", c.ChainID, t.Name()),
 		Repository:   tc.t.dockerImage,
 		Tag:          tc.t.dockerTag,
-		Cmd:          []string{c.ChainID, c.MustGetAddress().String()},
 		ExposedPorts: []string{tc.t.rpcPort},
 		PortBindings: map[dc.Port][]dc.PortBinding{
 			dc.Port(tc.t.rpcPort): {{HostPort: c.GetRPCPort()}},
 		},
 	}
+
+	func() {
+		// Ensure our address is encoded properly.
+		defer c.UseSDKContext()()
+		dockerOpts.Cmd = []string{c.ChainID, c.MustGetAddress().String()}
+	}()
 
 	// create the proper docker image with port forwarding setup
 	var resource *dockertest.Resource

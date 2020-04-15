@@ -14,7 +14,7 @@ var (
 	}
 )
 
-func TestAgoricToGaiaSteaming(t *testing.T) {
+func TestAgoricToGaiaStreaming(t *testing.T) {
 	chains := spinUpTestChains(t, agoricChains...)
 
 	var (
@@ -28,7 +28,7 @@ func TestAgoricToGaiaSteaming(t *testing.T) {
 		twoDstTestCoin = sdk.NewCoin(dstDenom, sdk.NewInt(2000))
 	)
 
-	path, err := genTestPathAndSet(src, dst, "transfer", "swingset")
+	path, err := genTestPathAndSet(src, dst, "transfer", "transfer") // FIGME: "relayertesttransfer")
 	require.NoError(t, err)
 
 	// query initial balances to compare against at the end
