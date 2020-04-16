@@ -8,5 +8,6 @@
     "default-denom": "uagstake",
     "trusting-period": "336h"
   },
-  "port-id": "transfer"
+  "port-id": "transfer",
+  "daemon-start": "bootaddr=$($CLI keys show $chainid-bootstrap -a --keyring-backend=test 2>/dev/null || { $CLI keys add $chainid-bootstrap --keyring-backend=test; $CLI keys show $chainid-bootstrap -a -keyring-backend=test; })\necho bootaddr=$bootaddr, $chainid\nDEBUG=$CONFIG BOOT_ADDRESS=$bootaddr $DAEMON --home \"$DAEMON_HOME\" start --pruning=nothing"
 }

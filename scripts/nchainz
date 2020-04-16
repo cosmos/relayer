@@ -8,6 +8,7 @@ trap 'kill $(jobs -p) 2>/dev/null' EXIT
 
 BASEDIR=$progname
 DEFAULT_CONFIG=gaia
+SKIP=no
 
 RELAYER_DIR=$(cd "$thisdir/.." && pwd)
 CONFIGS_DIR="$RELAYER_DIR/configs"
@@ -60,7 +61,7 @@ get_port() {
   id="$1"
   for i in ${!IDS[@]}; do
     if [[ ${IDS[$i]} == $id ]]; then
-      port=$(eval echo $(jq '."port-id"' ${JSONS[$i]}))
+      port=$(jq -r '."port-id"' ${JSONS[$i]})
       return
     fi
   done
@@ -176,8 +177,8 @@ Options:
   --basedir=DIR  create DIR [default=\`$progname']
   --help         display this help
 
-CONFIGs are found in \`$CONFIGS_DIR/CONFIG`.
-If no arguments are supplied, use \`$DEFAULT_CONFIGS`.
+CONFIGs are found in \`$CONFIGS_DIR/CONFIG'.
+If no arguments are supplied, use \`$DEFAULT_CONFIG'.
 
 Create configuration in \`$DATA' for:
  each CHAIN, which is \`ID=CONFIG'
@@ -211,8 +212,12 @@ while [[ $# -gt 0 ]]; do
   *=*) CHAINS+=( "$1" ) ;;
   *:*) LINKS+=( "$1" ) ;;
   *)
-    generate_id "$1"
-    CHAINS+=( "$id=$1" )
+    if [[ $1 == skip ]]; then
+      SKIP=yes
+    else
+      generate_id "$1"
+      CHAINS+=( "$id=$1" )
+    fi
     ;;
   esac
   shift
@@ -226,15 +231,15 @@ show_plan
 
 # Ensure user understands what will be deleted
 echo
-if [[ -d $BASEDIR ]]; then
+if [[ -e $BASEDIR ]] && [[ $SKIP != yes ]]; then
   read -p "$progname: will delete $BASEDIR folder. Do you wish to continue? (y/n): " -n 1 -r
   echo
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
       exit 1
   fi
-  rm -rf "$BASEDIR"
 fi
 
+rm -rf "$BASEDIR"
 mkdir -p "$BASEDIR/config"
 
 
@@ -294,8 +299,8 @@ base=0
 for i in ${!IDS[@]}; do
   ID=${IDS[$i]}
   json=${JSONS[$i]}
-  DAEMON=$(eval echo $(jq .daemon $json))
-  CLI=$(eval echo $(jq .cli $json))
+  DAEMON=$(jq -r .daemon $json)
+  CLI=$(jq -r .cli $json)
 
   cat >>"$run" <<EOF
 chainid="$ID"
@@ -304,6 +309,7 @@ CLI="$CLI"
 p26656=$(( 26656 - $i * 100 ))
 p26657=$(( 26657 - $i * 100 ))
 p26658=$(( 26658 - $i * 100 ))
+p26660=$(( 26660 - $i * 100 ))
 p6060=$(( 6060 + $i ))
 EOF
 
@@ -317,10 +323,11 @@ sed -i 's/index_all_keys = false/index_all_keys = true/g' "$cfgpth"
 
 # Set proper defaults and change ports
 sed -i 's/"leveldb"/"goleveldb"/g' "$cfgpth"
-sed -i "s#\"tcp://0.0.0.0:26656\"#\"tcp://0.0.0.0:$p26656\"#g" "$cfgpth"
-sed -i "s#\"tcp://0.0.0.0:26657\"#\"tcp://0.0.0.0:$p26657\"#g" "$cfgpth"
-sed -i "s#\"localhost:6060\"#\"localhost:$p6060\"#g" "$cfgpth"
-sed -i "s#\"tcp://127.0.0.1:26658\"#\"tcp://127.0.0.1:$p26558\"#g" "$cfgpth"
+sed -i "s#:26656#:$p26656#g" "$cfgpth"
+sed -i "s#:26657#:$p26657#g" "$cfgpth"
+sed -i "s#:26658#:$p26658#g" "$cfgpth"
+sed -i "s#:26660#:$p26660#g" "$cfgpth"
+sed -i "s#:6060#:$p6060#g" "$cfgpth"
 
 # Make blocks run faster than normal
 sed -i 's/timeout_commit = "[0-9]*s"/timeout_commit = "1s"/g' "$cfgpth"
@@ -335,13 +342,29 @@ done
 
 for i in ${!IDS[@]}; do
   json=${JSONS[$i]}
-  DAEMON=$(jq .daemon $json)
+  CLI=$(jq -r .cli $json)
+  DAEMON=$(jq -r .daemon $json)
+  CONFIG=${CONFIGS[$i]}
   ID=${IDS[$i]}
   chainid=$ID
-  cat >>"$run" <<EOF
 
-echo "'$DAEMON start ($ID) logs in $DATA/$ID.log"
-$DAEMON --home "$DATA/$chainid/n0/$DAEMON" start --pruning=nothing > $chainid.log 2>&1 &
+  # Allow the config to override the start command.
+  DAEMON_HOME="\$DATA/$chainid/n0/$DAEMON"
+  DAEMON_START=$(jq -r '."daemon-start"' "$json")
+  [[ $DAEMON_START == null ]] && DAEMON_START='$DAEMON --home "$DAEMON_HOME" start --pruning=nothing'
+
+  echo "START=$DAEMON_START"
+  cat >>"$run" <<EOF
+CLI="$CLI"
+DAEMON="$DAEMON"
+DAEMON_HOME="$DAEMON_HOME"
+CONFIG="$CONFIG"
+chainid="$ID"
+EOF
+
+  cat >>"$run" <<EOF
+echo "'$DAEMON start' ($chainid) logs in \$DATA/$ID.log"
+$DAEMON_START > "\$DATA/$ID.log" 2>&1 &
 EOF
 done
 
@@ -458,8 +481,8 @@ EOF
 for i in ${!IDS[@]}; do
   id=${IDS[$i]}
   json=${JSONS[$i]}
-  CLI=$(eval echo $(jq .cli $json))
-  DAEMON=$(eval echo $(jq .daemon $json))
+  CLI=$(jq -r .cli $json)
+  DAEMON=$(jq -r .daemon $json)
   cat >>"$link" <<EOF
 
 chainid="$id"
@@ -467,19 +490,35 @@ CLI="$CLI"
 DAEMON="$DAEMON"
 EOF
   cat >>"$link" <<\EOF
-SEED=$(jq -r '.secret' "$DATA/$chainid/n0/$CLI/key_seed.json")
-echo "Key $(rly keys restore $chainid testkey "$SEED") imported from $chainid to relayer..."
-echo "Creating lite client for $chainid ($DAEMON)..."
 (
   try=0
-  gen="$DATA/$chainid/n0/$DAEMON/config/genesis.json"
-  while [[ ! -f $gen ]]; do
+  f="$DATA/$chainid/n0/$CLI/key_seed.json"
+  while [[ ! -f $f ]]; do
     try=$(( $try + 1 ))
-    echo "no $gen"
+    echo "no $f"
+    echo "$chainid $CLI is not yet ready (try=$try)"
+    sleep 1
+  done
+  SEED=$(jq -r '.secret' "$f")
+  echo "Key $(rly keys restore $chainid testkey "$SEED") imported from $chainid to relayer..."
+
+  try=0
+  f="$DATA/$chainid/n0/$DAEMON/config/genesis.json"
+  while [[ ! -f $f ]]; do
+    try=$(( $try + 1 ))
+    echo "no $f"
     echo "$chainid is not yet ready (try=$try)"
     sleep 1
   done
-  rly lite init $chainid -f
+  echo "Creating lite client for $chainid ($DAEMON)..."
+  try=0
+  while ! rly lite init $chainid -f >> "$DATA/lite-$chainid.log" 2>&1; do
+    try=$(( $try + 1 ))
+    echo "$chainid lite client did not initialize (try=$try)"
+    sleep 1
+  done
+  try=$(( $try + 1 ))
+  echo "$chainid lite client initialized (try=$try)"
 ) &
 EOF
 done
@@ -499,15 +538,15 @@ for i in ${!SRCS[@]}; do
 # Let all our chains initialise.
 wait
 
-echo "Starting 'rly tx link $demo' ($src<>$dst) logs in $DATA/$demo.log"
-rly tx link $demo --timeout=3s -d 2>&1 > $DATA/$demo.log &
+echo "Starting 'rly tx link $demo' ($src<>$dst) logs in \$DATA/$demo.log"
+rly tx link $demo --timeout=3s -d 2>&1 >> \$DATA/$demo.log &
 EOF
 done
 
 cat >>"$link" <<EOF
 
 echo "Check the state of the links using 'rly paths list' to see when they are ready..."
-(while sleep 5; do rly paths list; done) &
+(while :; do rly paths list; sleep 5; done) &
 
 echo "Ctrl-C exits, or you can background this job..."
 wait
@@ -528,16 +567,17 @@ at any time.
 
 EOF
 
-read -p "Do you wish to start the chains and relayers (y/N)? " -n 1 -r
-echo
+if [[ $SKIP != yes ]]; then
+  read -p "Do you wish to start the chains and relayers (y/N)? " -n 1 -r
+  echo
 
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-  exit 0
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    exit 0
+  fi
 fi
 
 echo "Running $run"
 "$run" skip &
-sleep 10
 echo "Running $link"
 "$link" skip &
 echo "Hit Control-C to exit"
