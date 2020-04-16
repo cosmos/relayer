@@ -1,0 +1,12 @@
+{
+  "daemon": "ag-chain-cosmos",
+  "cli": "ag-cosmos-helper",
+  "link": {
+    "account-prefix": "agoric",
+    "gas": 200000,
+    "gas-prices": "",
+    "default-denom": "uagstake",
+    "trusting-period": "336h"
+  },
+  "port-id": "transfer"
+}

@@ -1,4 +1,4 @@
 {
   "daemon": "gaiad",
-  "cli": "gaiacli"
+  "cli": "gaiacli",
 }
