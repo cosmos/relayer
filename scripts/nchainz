@@ -523,6 +523,13 @@ EOF
 EOF
 done
 
+cat >>"$link" <<\EOF
+
+# Let all our chains initialise.
+wait
+
+EOF
+
 for i in ${!SRCS[@]}; do
   src=${SRCS[$i]}
   get_alpha "$src"
@@ -535,11 +542,17 @@ for i in ${!SRCS[@]}; do
   demo="$srca$dsta"
   cat >>"$link" <<EOF
 
-# Let all our chains initialise.
-wait
-
 echo "Starting 'rly tx link $demo' ($src<>$dst) logs in \$DATA/$demo.log"
-rly tx link $demo --timeout=3s -d 2>&1 >> \$DATA/$demo.log &
+(
+  try=0
+  while ! rly tx link $demo --timeout=3s -d >> \$DATA/$demo.log 2>&1; do
+    try=$(( $try + 1 ))
+    echo "$demo tx link did not initialize (try=$try)"
+    sleep 1
+  done
+  try=$(( $try + 1 ))
+  echo "$demo tx link initialized (try=$try)"
+) &
 EOF
 done
 
