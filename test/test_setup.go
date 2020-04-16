@@ -13,6 +13,7 @@ import (
 
 	"github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
+
 	"github.com/stretchr/testify/require"
 
 	. "github.com/iqlusioninc/relayer/relayer"
@@ -76,6 +77,34 @@ func spinUpTestChains(t *testing.T, testChains ...testChain) Chains {
 	return chains
 }
 
+func removeTestContainer(pool *dockertest.Pool, containerName string) error {
+	containers, err := pool.Client.ListContainers(dc.ListContainersOptions{
+		All: true,
+		Filters: map[string][]string{
+			"name":  {containerName},
+			"label": {"io.iqlusion.relayer.test=true"},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("Error while listing containers with name %s %w", containerName, err)
+	}
+
+	if len(containers) == 0 {
+		return nil
+	}
+
+	err = pool.Client.RemoveContainer(dc.RemoveContainerOptions{
+		ID:            containers[0].ID,
+		Force:         true,
+		RemoveVolumes: true,
+	})
+	if err != nil {
+		return fmt.Errorf("Error while removing container with name %s %w", containerName, err)
+	}
+
+	return nil
+}
+
 // spinUpTestContainer spins up a test container with the given configuration
 func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *dockertest.Pool, c *Chain, dir string, wg *sync.WaitGroup, tc testChain) {
 	defer wg.Done()
@@ -96,9 +125,10 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *
 	// create the test key
 	require.NoError(t, c.CreateTestKey())
 
+	containerName := fmt.Sprintf("%s-%s", c.ChainID, t.Name())
 	// setup docker options
 	dockerOpts := &dockertest.RunOptions{
-		Name:         fmt.Sprintf("%s-%s", c.ChainID, t.Name()),
+		Name:         containerName,
 		Repository:   tc.t.dockerImage,
 		Tag:          tc.t.dockerTag,
 		ExposedPorts: []string{tc.t.rpcPort},
@@ -111,8 +141,12 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *
 		// Ensure our address is encoded properly.
 		defer c.UseSDKContext()()
 		dockerOpts.Cmd = []string{c.ChainID, c.MustGetAddress().String()}
+		dockerOpts.Labels = make(map[string]string)
+		dockerOpts.Labels["io.iqlusion.relayer.test"] = "true"
 	}()
 
+	err = removeTestContainer(pool, containerName)
+	require.NoError(t, err)
 	// create the proper docker image with port forwarding setup
 	var resource *dockertest.Resource
 	resource, err = pool.RunWithOptions(dockerOpts)
