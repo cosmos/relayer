@@ -88,7 +88,7 @@ validate() {
       id=${BASH_REMATCH[1]}
       config=${BASH_REMATCH[2]}
       IDS+=( "$id" )
-      json=$CONFIGS_DIR/$config/chainz.json
+      json=$CONFIGS_DIR/$config.json
       if [[ ! -f $json ]]; then
         echo 1>&2 "$progname: error: CHAIN \`$chain' config \`$json' does not exist"
         status=1
