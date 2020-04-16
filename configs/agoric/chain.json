@@ -1,0 +1,4 @@
+{
+  "daemon": "ag-chain-cosmos",
+  "cli": "ag-cosmos-helper"
+}

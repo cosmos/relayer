@@ -3,3 +3,6 @@ data/
 coverage.out
 release.tar.gz
 .env
+
+link-chainz
+run-chainz
