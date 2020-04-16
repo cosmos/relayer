@@ -453,12 +453,15 @@ EOF
 
 for i in ${!IDS[@]}; do
   id=${IDS[$i]}
+  json=${JSONS[$i]}
+  CLI=$(eval echo $(jq .cli $json))
   cat >>"$link" <<EOF
 
 chainid="$id"
+CLI="$CLI"
 EOF
   cat >>"$link" <<\EOF
-SEED=$(jq -r '.secret' "$DATA/$chainid/n0/ag-cosmos-helper/key_seed.json")
+SEED=$(jq -r '.secret' "$DATA/$chainid/n0/$CLI/key_seed.json")
 echo "Key $(rly keys restore $chainid testkey "$SEED") imported from $chainid to relayer..."
 echo "Creating lite client for $chainid..."
 rly lite init $chainid -f
