@@ -1,13 +1,14 @@
 {
+  "description": "Agoric Cosmos Chain",
+  "url": "https://testnet.agoric.com",
   "daemon": "ag-chain-cosmos",
   "cli": "ag-cosmos-helper",
+  "daemon-start": "bootaddr=$($CLI keys show $chainid-bootstrap -a --keyring-backend=test 2>/dev/null || { $CLI keys add $chainid-bootstrap --keyring-backend=test; $CLI keys show $chainid-bootstrap -a -keyring-backend=test; })\necho bootaddr=$bootaddr, $chainid\nDEBUG=$CONFIG BOOT_ADDRESS=$bootaddr $DAEMON --home \"$DAEMON_HOME\" start --pruning=nothing",
   "link": {
     "account-prefix": "agoric",
     "gas": 200000,
     "gas-prices": "",
     "default-denom": "uagstake",
     "trusting-period": "336h"
-  },
-  "port-id": "transfer",
-  "daemon-start": "bootaddr=$($CLI keys show $chainid-bootstrap -a --keyring-backend=test 2>/dev/null || { $CLI keys add $chainid-bootstrap --keyring-backend=test; $CLI keys show $chainid-bootstrap -a -keyring-backend=test; })\necho bootaddr=$bootaddr, $chainid\nDEBUG=$CONFIG BOOT_ADDRESS=$bootaddr $DAEMON --home \"$DAEMON_HOME\" start --pruning=nothing"
+  }
 }

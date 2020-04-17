@@ -7,6 +7,5 @@
     "gas-prices": "0.025stake",
     "default-denom": "stake",
     "trusting-period": "336h"
-  },
-  "port-id": "transfer"
+  }
 }

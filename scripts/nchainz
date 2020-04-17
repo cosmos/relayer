@@ -8,6 +8,7 @@ trap 'kill $(jobs -p) 2>/dev/null' EXIT
 
 BASEDIR=$progname
 DEFAULT_CONFIG=gaia
+DEFAULT_PORT=transfer
 SKIP=no
 
 RELAYER_DIR=$(cd "$thisdir/.." && pwd)
@@ -15,6 +16,7 @@ CONFIGS_DIR="$RELAYER_DIR/configs"
 
 CHAIN_RE='^([^=]+)=(.+)$'
 LINK_RE='^([^:]+):([^:]+)$'
+PORT_RE='^([^@]+)@(.*)$'
 
 CHAINS=()
 LINKS=()
@@ -52,21 +54,9 @@ JSONS=()
 SRCS=()
 DSTS=()
 
-get_alpha() {
+get_alphabetic() {
   id="$1"
   ida=$(echo "$1" | sed -e 's/0/zero/g; s/1/one/g; s/2/two/g; s/3/three/g; s/4/four/g; s/5/five/g; s/6/six/g; s/7/seven/g; s/8/eight/g; s/9/nine/g;')
-}
-
-get_port() {
-  id="$1"
-  for i in ${!IDS[@]}; do
-    if [[ ${IDS[$i]} == $id ]]; then
-      port=$(jq -r '."port-id"' ${JSONS[$i]})
-      return
-    fi
-  done
-  echo "$progname: cannot locate \`$id' in chain ids list"
-  exit 1
 }
 
 validate() {
@@ -127,6 +117,18 @@ validate() {
     if [[ $link =~ $LINK_RE ]]; then
       src=${BASH_REMATCH[1]}
       dst=${BASH_REMATCH[2]}
+      if [[ $src =~ $PORT_RE ]]; then
+        srcport=${BASH_REMATCH[1]}
+        src=${BASH_REMATCH[2]}
+      else
+        srcport=$DEFAULT_PORT
+      fi
+      if [[ $dst =~ $PORT_RE ]]; then
+        dstport=${BASH_REMATCH[1]}
+        dst=${BASH_REMATCH[2]}
+      else
+        dstport=$DEFAULT_PORT
+      fi
       found_src=no
       found_dst=no
       for id in ${IDS[@]}; do
@@ -142,7 +144,9 @@ validate() {
         status=1
       fi
       SRCS+=( "$src" )
+      SRCPORTS+=( "$srcport" )
       DSTS+=( "$dst" )
+      DSTPORTS+=( "$dstport" )
     else
       echo 1>&2 "$progname: error: invalid LINK specification \`$link'"
       status=1
@@ -182,8 +186,10 @@ If no arguments are supplied, use \`$DEFAULT_CONFIG'.
 
 Create configuration in \`$DATA' for:
  each CHAIN, which is \`ID=CONFIG'
- each LINK, which is \`SRCID:DSTID'
- 
+ each LINK, which is \`SRC:DST',
+  where each SRC or DST is \`PORT@ID',
+    or just \`ID' to use \`$DEFAULT_PORT\@ID'.
+
 If no LINKS are supplied, use a circuit around the CHAINS.
 EOF
   else
@@ -387,15 +393,13 @@ done
 
 for i in ${!SRCS[@]}; do
   src=${SRCS[$i]}
-  get_port "$src"
-  srcport=$port
-  get_alpha "$src"
+  srcport=${SRCPORTS[$i]}
+  get_alphabetic "$src"
   srca=$ida
 
   dst=${DSTS[$i]}
-  get_port "$dst"
-  dstport=$port
-  get_alpha "$dst"
+  dstport=${DSTPORTS[$i]}
+  get_alphabetic "$dst"
   dsta=$ida
 
   demo="$srca$dsta"
@@ -514,7 +518,7 @@ EOF
   try=0
   while ! rly lite init $chainid -f >> "$DATA/lite-$chainid.log" 2>&1; do
     try=$(( $try + 1 ))
-    echo "$chainid lite client did not initialize (try=$try)"
+    echo "$chainid lite client not yet ready (try=$try)"
     sleep 1
   done
   try=$(( $try + 1 ))
@@ -532,11 +536,11 @@ EOF
 
 for i in ${!SRCS[@]}; do
   src=${SRCS[$i]}
-  get_alpha "$src"
+  get_alphabetic "$src"
   srca=$ida
 
   dst=${DSTS[$i]}
-  get_alpha "$dst"
+  get_alphabetic "$dst"
   dsta=$ida
 
   demo="$srca$dsta"
