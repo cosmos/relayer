@@ -129,7 +129,7 @@ func (c *Chain) QueryClientConsensusState(srcHeight, srcClientConsHeight int64) 
 	req := abci.RequestQuery{
 		Path:   "store/ibc/key",
 		Height: int64(srcHeight),
-		Data:   ibctypes.KeyConsensusState(c.PathEnd.ClientID, uint64(srcClientConsHeight)),
+		Data:   prefixClientKey(c.PathEnd.ClientID, ibctypes.KeyConsensusState(uint64(srcClientConsHeight))),
 		Prove:  true,
 	}
 
@@ -207,7 +207,7 @@ func (c *Chain) QueryClientState() (*clientTypes.StateResponse, error) {
 
 	req := abci.RequestQuery{
 		Path:  "store/ibc/key",
-		Data:  ibctypes.KeyClientState(c.PathEnd.ClientID),
+		Data:  prefixClientKey(c.PathEnd.ClientID, ibctypes.KeyClientState()),
 		Prove: true,
 	}
 
@@ -1256,4 +1256,8 @@ func ParseEvents(e string) ([]string, error) {
 		tmEvents = append(tmEvents, event)
 	}
 	return tmEvents, nil
+}
+
+func prefixClientKey(clientID string, key []byte) []byte {
+	return append([]byte(fmt.Sprintf("clients/%s/", clientID)), key...)
 }

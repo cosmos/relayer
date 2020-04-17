@@ -93,7 +93,4 @@ func TestAgoricToGaiaStreaming(t *testing.T) {
 	dstGot, err = dst.QueryBalance(dst.Key)
 	require.NoError(t, err)
 	require.Equal(t, dstExpected.AmountOf(dstDenom).Int64(), dstGot.AmountOf(dstDenom).Int64())
-
-	// TODO: Add close channel here
-	require.NoError(t, src.CloseChannel(dst, src.GetTimeout()))
 }

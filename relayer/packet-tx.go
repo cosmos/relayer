@@ -97,9 +97,16 @@ func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk
 
 	timeoutHeight := dstHeader.GetHeight() + uint64(defaultPacketTimeout)
 
+	// Properly render the address string
+	done := dst.UseSDKContext()
+	dstAddrString := dstAddr.String()
+	done()
+
 	// MsgTransfer will call SendPacket on src chain
 	txs := RelayMsgs{
-		Src: []sdk.Msg{src.PathEnd.MsgTransfer(dst.PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, src.MustGetAddress())},
+		Src: []sdk.Msg{src.PathEnd.MsgTransfer(
+			dst.PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddrString, src.MustGetAddress(),
+		)},
 		Dst: []sdk.Msg{},
 	}
 
@@ -147,11 +154,20 @@ func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk
 		return err
 	}
 
+	// Properly render the source and destination address strings
+	done = src.UseSDKContext()
+	srcAddrString := src.MustGetAddress().String()
+	done()
+
+	done = dst.UseSDKContext()
+	dstAddrString = dstAddr.String()
+	done()
+
 	// reconstructing packet data here instead of retrieving from an indexed node
 	xferPacket := src.PathEnd.XferPacket(
 		sdk.NewCoins(amount),
-		src.MustGetAddress(),
-		dstAddr,
+		srcAddrString,
+		dstAddrString,
 	)
 
 	// Debugging by simply passing in the packet information that we know was sent earlier in the SendPacket
@@ -202,9 +218,16 @@ func (src *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr sdk.AccAd
 		return err
 	}
 
+	// Properly render the address string
+	done := dst.UseSDKContext()
+	dstAddrString := dstAddr.String()
+	done()
+
 	// MsgTransfer will call SendPacket on src chain
 	txs := RelayMsgs{
-		Src: []sdk.Msg{src.PathEnd.MsgTransfer(dst.PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, src.MustGetAddress())},
+		Src: []sdk.Msg{src.PathEnd.MsgTransfer(
+			dst.PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddrString, src.MustGetAddress(),
+		)},
 		Dst: []sdk.Msg{},
 	}
 
