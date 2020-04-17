@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"iqlusionchain","rpc-addr":"http://fridayco.in:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025iqlusion","default-denom":"iqlusion","trusting-period":"330h"}
