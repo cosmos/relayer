@@ -181,19 +181,8 @@ func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk
 				seqRecv.NextSequenceRecv,
 				timeoutHeight,
 				xferPacket,
-				chanTypes.NewPacketResponse(
-					src.PathEnd.PortID,
-					src.PathEnd.ChannelID,
-					seqSend-1,
-					src.PathEnd.NewPacket(
-						dst.PathEnd,
-						seqSend-1,
-						xferPacket,
-						timeoutHeight,
-					),
-					srcCommitRes.Proof.Proof,
-					int64(srcCommitRes.ProofHeight),
-				),
+				srcCommitRes.Proof,
+				srcCommitRes.ProofHeight,
 				dst.MustGetAddress(),
 			),
 		},
@@ -291,6 +280,7 @@ func addPacketMsg(src, dst *Chain, srcH, dstH *tmclient.Header, seq uint64, msgs
 	return nil
 }
 
+// TODO: refactor to use relayPacket and check for multiple packets in a tx
 func (src *Chain) packetDataAndTimeoutFromQueryResponse(dst *Chain, res sdk.TxResponse) (packetData []byte, timeout uint64, seq uint64, err error) {
 	// Set sdk config to use custom Bech32 account prefix
 	defer dst.UseSDKContext()()

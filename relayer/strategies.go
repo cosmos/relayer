@@ -7,7 +7,6 @@ import (
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 )
 
@@ -228,31 +227,18 @@ func (src *Chain) sendPacketFromEvent(dst *Chain, xferPacket []byte, seq int64, 
 				uint64(seq),
 				timeout,
 				xferPacket,
-				chanTypes.NewPacketResponse(
-					dst.PathEnd.PortID,
-					dst.PathEnd.ChannelID,
-					uint64(seq),
-					dst.PathEnd.NewPacket(
-						src.PathEnd,
-						uint64(seq),
-						xferPacket,
-						timeout,
-					),
-					dstCommitRes.Proof.Proof,
-					int64(dstCommitRes.ProofHeight),
-				),
+				dstCommitRes.Proof,
+				dstCommitRes.ProofHeight,
 				src.MustGetAddress(),
 			),
 		},
 		Dst: []sdk.Msg{},
 	}
-	txs.Send(src, dst)
-}
 
-type relayPacket struct {
-	packetData string
-	seq        int64
-	timeout    uint64
+	// for _, pkt := range rlyPackets {
+	// 	txs.Src = append(txs.Src, pkt.Msg(src, dst, dstCommitRes.Proof, dstCommitRes.ProofHeight))
+	// }
+	txs.Send(src, dst)
 }
 
 // TODO: rewrite this function to return a relayPacket and also return relay packets for acks and multiple msg trasactions
@@ -279,6 +265,155 @@ func (src *Chain) packetDataAndTimeoutFromEvent(dst *Chain, events map[string][]
 		}
 	}
 
+	return
+}
+
+type relayPacket interface {
+	Msg(src, dst *Chain) sdk.Msg
+	FetchCommitResponse(src, dst *Chain)
+}
+
+type relayMsgRecvPacket struct {
+	packetData []byte
+	seq        uint64
+	timeout    uint64
+	dstComRes  *CommitmentResponse
+}
+
+func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain) {
+	var (
+		err          error
+		dstH         *tmclient.Header
+		dstCommitRes CommitmentResponse
+	)
+	if err = retry.Do(func() error {
+		dstH, err = dst.UpdateLiteWithHeader()
+		if err != nil {
+			return err
+		}
+		dstCommitRes, err = dst.QueryPacketCommitment(dstH.Height-1, int64(rp.seq))
+		if err != nil {
+			return err
+		} else if dstCommitRes.Proof.Proof == nil {
+			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)", dst.ChainID, dstH.Height-1, rp.seq)
+		}
+		return nil
+	}); err != nil {
+		dst.Error(err)
+		return
+	}
+	rp.dstComRes = &dstCommitRes
+}
+
+func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) sdk.Msg {
+	if rp.dstComRes == nil {
+		return nil
+	}
+	return src.PathEnd.MsgRecvPacket(
+		dst.PathEnd,
+		rp.seq,
+		rp.timeout,
+		rp.packetData,
+		rp.dstComRes.Proof,
+		rp.dstComRes.ProofHeight,
+		src.MustGetAddress(),
+	)
+}
+
+type relayMsgPacketAck struct {
+	ack       []byte
+	seq       uint64
+	timeout   uint64
+	dstComRes *CommitmentResponse
+}
+
+func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
+	return src.PathEnd.MsgAck(
+		dst.PathEnd,
+		rp.seq,
+		rp.timeout,
+		rp.ack,
+		rp.dstComRes.Proof,
+		rp.dstComRes.ProofHeight,
+		src.MustGetAddress(),
+	)
+}
+
+func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain) {
+	var (
+		err          error
+		dstH         *tmclient.Header
+		dstCommitRes CommitmentResponse
+	)
+	if err = retry.Do(func() error {
+		dstH, err = dst.UpdateLiteWithHeader()
+		if err != nil {
+			return err
+		}
+		dstCommitRes, err = dst.QueryPacketAck(dstH.Height-1, int64(rp.seq))
+		if err != nil {
+			return err
+		} else if dstCommitRes.Proof.Proof == nil {
+			return fmt.Errorf("- [%s]@{%d} - Packet Ack Proof is nil seq(%d)", dst.ChainID, dstH.Height-1, rp.seq)
+		}
+		return nil
+	}); err != nil {
+		dst.Error(err)
+		return
+	}
+	rp.dstComRes = &dstCommitRes
+}
+
+func relayPacketsFromEvent(events map[string][]string) (rlyPkts []relayPacket, err error) {
+	// check for send packets
+	if pdval, ok := events["send_packet.packet_data"]; ok {
+		for i, pd := range pdval {
+			rp := &relayMsgRecvPacket{packetData: []byte(pd)}
+			// next, get and parse the sequence
+			if sval, ok := events["send_packet.packet_sequence"]; ok {
+				seq, err := strconv.ParseUint(sval[i], 10, 64)
+				if err != nil {
+					return nil, err
+				}
+				rp.seq = seq
+			}
+
+			// finally, get and parse the timeout
+			if sval, ok := events["send_packet.packet_timeout"]; ok {
+				timeout, err := strconv.ParseUint(sval[i], 10, 64)
+				if err != nil {
+					return nil, err
+				}
+				rp.timeout = timeout
+			}
+			rlyPkts = append(rlyPkts, rp)
+		}
+	}
+
+	// then, check for recv packets
+	if pdval, ok := events["recv_packet.packet_data"]; ok {
+		for i, pd := range pdval {
+			rp := &relayMsgPacketAck{ack: []byte(pd)}
+			// next, get and parse the sequence
+			if sval, ok := events["recv_packet.packet_sequence"]; ok {
+				seq, err := strconv.ParseUint(sval[i], 10, 64)
+				if err != nil {
+					return nil, err
+				}
+				rp.seq = seq
+			}
+
+			// finally, get and parse the timeout
+			if sval, ok := events["recv_packet.packet_timeout"]; ok {
+				timeout, err := strconv.ParseUint(sval[i], 10, 64)
+				if err != nil {
+					return nil, err
+				}
+				rp.timeout = timeout
+			}
+			rlyPkts = append(rlyPkts, rp)
+		}
+	}
 	return
 }
 
