@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"sync"
 	"time"
 
 	sdkCtx "github.com/cosmos/cosmos-sdk/client/context"
@@ -39,12 +40,12 @@ type Chain struct {
 	TrustingPeriod string  `yaml:"trusting-period" json:"trusting-period"`
 
 	// TODO: make these private
-	HomePath string            `yaml:"-" json:"-"`
-	PathEnd  *PathEnd          `yaml:"-" json:"-"`
-	Keybase  keys.Keyring      `yaml:"-" json:"-"`
-	Client   rpcclient.Client  `yaml:"-" json:"-"`
-	Cdc      *codecstd.Codec   `yaml:"-" json:"-"`
-	Amino    *aminocodec.Codec `yaml:"-" json:"-"`
+	HomePath string                `yaml:"-" json:"-"`
+	PathEnd  *PathEnd              `yaml:"-" json:"-"`
+	Keybase  keys.Keyring          `yaml:"-" json:"-"`
+	Client   rpcclient.Client      `yaml:"-" json:"-"`
+	Cdc      *contextualStdCodec   `yaml:"-" json:"-"`
+	Amino    *contextualAminoCodec `yaml:"-" json:"-"`
 
 	address sdk.AccAddress
 	logger  log.Logger
@@ -129,8 +130,8 @@ func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.C
 
 	src.Keybase = keybase
 	src.Client = client
-	src.Cdc = cdc
-	src.Amino = amino
+	src.Cdc = newContextualStdCodec(cdc, src.UseSDKContext)
+	src.Amino = newContextualAminoCodec(amino, src.UseSDKContext)
 	src.HomePath = homePath
 	src.logger = defaultChainLogger()
 	src.timeout = timeout
@@ -202,16 +203,14 @@ func (src *Chain) SendMsgs(datagrams []sdk.Msg) (res sdk.TxResponse, err error) 
 // BuildAndSignTx takes messages and builds, signs and marshals a sdk.Tx to prepare it for broadcast
 func (src *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
 	// Fetch account and sequence numbers for the account
-	sdkConf := sdk.GetConfig()
-	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
-
 	acc, err := auth.NewAccountRetriever(src.Cdc, src).GetAccount(src.MustGetAddress())
 	if err != nil {
 		return nil, err
 	}
 
+	defer src.UseSDKContext()()
 	return auth.NewTxBuilder(
-		auth.DefaultTxEncoder(src.Amino), acc.GetAccountNumber(),
+		auth.DefaultTxEncoder(src.Amino.Codec), acc.GetAccountNumber(),
 		acc.GetSequence(), src.Gas, src.GasAdjustment, false, src.ChainID,
 		src.Memo, sdk.NewCoins(), src.getGasPrices()).WithKeybase(src.Keybase).
 		BuildAndSign(src.Key, ckeys.DefaultKeyPass, datagram)
@@ -270,17 +269,14 @@ func (src *Chain) GetAddress() (sdk.AccAddress, error) {
 		return src.address, nil
 	}
 
-	// Set sdk config to use custom Bech32 account prefix
-	sdkConf := sdk.GetConfig()
-	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
-
 	// Signing key for src chain
 	srcAddr, err := src.Keybase.Key(src.Key)
 	if err != nil {
 		return nil, err
 	}
+
 	src.address = srcAddr.GetAddress()
-	return srcAddr.GetAddress(), nil
+	return src.address, nil
 }
 
 // MustGetAddress used for brevity
@@ -290,6 +286,26 @@ func (src *Chain) MustGetAddress() sdk.AccAddress {
 		panic(err)
 	}
 	return srcAddr
+}
+
+var sdkContextMutex sync.Mutex
+
+// UseSDKContext uses a custom Bech32 account prefix and returns a restore func
+func (src *Chain) UseSDKContext() func() {
+	// Ensure we're the only one using the global context.
+	sdkContextMutex.Lock()
+	sdkConf := sdk.GetConfig()
+	account := sdkConf.GetBech32AccountAddrPrefix()
+	pubaccount := sdkConf.GetBech32AccountPubPrefix()
+
+	// Mutate the sdkConf
+	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
+
+	// Return a function that resets and unlocks.
+	return func() {
+		defer sdkContextMutex.Unlock()
+		sdkConf.SetBech32PrefixForAccount(account, pubaccount)
+	}
 }
 
 func (src *Chain) String() string {

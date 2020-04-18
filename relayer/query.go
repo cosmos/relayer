@@ -129,7 +129,7 @@ func (c *Chain) QueryClientConsensusState(srcHeight, srcClientConsHeight int64) 
 	req := abci.RequestQuery{
 		Path:   "store/ibc/key",
 		Height: int64(srcHeight),
-		Data:   ibctypes.KeyConsensusState(c.PathEnd.ClientID, uint64(srcClientConsHeight)),
+		Data:   prefixClientKey(c.PathEnd.ClientID, ibctypes.KeyConsensusState(uint64(srcClientConsHeight))),
 		Prove:  true,
 	}
 
@@ -207,7 +207,7 @@ func (c *Chain) QueryClientState() (*clientTypes.StateResponse, error) {
 
 	req := abci.RequestQuery{
 		Path:  "store/ibc/key",
-		Data:  ibctypes.KeyClientState(c.PathEnd.ClientID),
+		Data:  prefixClientKey(c.PathEnd.ClientID, ibctypes.KeyClientState()),
 		Prove: true,
 	}
 
@@ -1200,7 +1200,8 @@ func (c *Chain) formatTxResults(resTxs []*ctypes.ResultTx, resBlocks map[int64]*
 
 // formatTxResult parses a tx into a TxResponse object
 func (c *Chain) formatTxResult(resTx *ctypes.ResultTx, resBlock *ctypes.ResultBlock) (sdk.TxResponse, error) {
-	tx, err := parseTx(c.Amino, resTx.Tx)
+	defer c.UseSDKContext()()
+	tx, err := parseTx(c.Amino.Codec, resTx.Tx)
 	if err != nil {
 		return sdk.TxResponse{}, err
 	}
@@ -1255,4 +1256,8 @@ func ParseEvents(e string) ([]string, error) {
 		tmEvents = append(tmEvents, event)
 	}
 	return tmEvents, nil
+}
+
+func prefixClientKey(clientID string, key []byte) []byte {
+	return append([]byte(fmt.Sprintf("clients/%s/", clientID)), key...)
 }

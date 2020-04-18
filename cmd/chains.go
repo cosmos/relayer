@@ -36,9 +36,10 @@ func chainsCmd() *cobra.Command {
 
 func chainsAddrCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "addr [chain-id]",
-		Short: "Returns a chain's configured key's address",
-		Args:  cobra.ExactArgs(1),
+		Use:     "address [chain-id]",
+		Aliases: []string{"addr"},
+		Short:   "Returns a chain's configured key's address",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {

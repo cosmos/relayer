@@ -24,6 +24,7 @@ func testClient(t *testing.T, src, dst *Chain) {
 
 	client, err := src.QueryClientState()
 	require.NoError(t, err)
+	require.NotNil(t, client)
 	require.Equal(t, client.ClientState.GetID(), src.PathEnd.ClientID)
 	require.Equal(t, client.ClientState.ClientType().String(), "tendermint")
 }

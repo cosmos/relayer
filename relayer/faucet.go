@@ -39,8 +39,9 @@ func (src *Chain) BuildAndSignTxWithKey(datagram []sdk.Msg, keyName string) ([]b
 		return nil, err
 	}
 
+	defer src.UseSDKContext()()
 	return auth.NewTxBuilder(
-		auth.DefaultTxEncoder(src.Amino), acc.GetAccountNumber(),
+		auth.DefaultTxEncoder(src.Amino.Codec), acc.GetAccountNumber(),
 		acc.GetSequence(), src.Gas, src.GasAdjustment, false, src.ChainID,
 		src.Memo, sdk.NewCoins(), src.getGasPrices()).WithKeybase(src.Keybase).
 		BuildAndSign(info.GetName(), ckeys.DefaultKeyPass, datagram)

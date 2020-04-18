@@ -33,6 +33,8 @@ If you would like to join the relayer testnet, please [check out the instruction
 
 ## Demoing the Relayer
 
+![Demo](./docs/images/demo.gif)
+
 While the relayer is under active development, it is meant primarily as a learning tool to better understand the Inter-Blockchain Communication (IBC) protocol. In that vein, the following demo demonstrates the core functionality which will remain even after the changes:
 
 ```bash
@@ -61,7 +63,7 @@ $ rly chains add -f configs/demo/ibc1.json
 $ cat ~/.relayer/config/config.yaml
 
 # To finalize your config, add a path between the two chains
-$ rly paths add ibc0 ibc1 demo-path -f configs/demo/path.json
+$ rly paths add ibc0 ibc1 demo-path -f configs/demo/demo.json
 
 # Now, add the key seeds from each chain to the relayer to give it funds to work with
 $ rly keys restore ibc0 testkey "$(jq -r '.secret' data/ibc0/n0/gaiacli/key_seed.json)"

@@ -14,7 +14,7 @@ var (
 	}
 )
 
-func TestAgoricToGaiaSteaming(t *testing.T) {
+func TestAgoricToGaiaStreaming(t *testing.T) {
 	chains := spinUpTestChains(t, agoricChains...)
 
 	var (
@@ -28,7 +28,7 @@ func TestAgoricToGaiaSteaming(t *testing.T) {
 		twoDstTestCoin = sdk.NewCoin(dstDenom, sdk.NewInt(2000))
 	)
 
-	path, err := genTestPathAndSet(src, dst, "transfer", "swingset")
+	path, err := genTestPathAndSet(src, dst, "transfer", "transfer") // FIGME: "relayertesttransfer")
 	require.NoError(t, err)
 
 	// query initial balances to compare against at the end
@@ -93,7 +93,4 @@ func TestAgoricToGaiaSteaming(t *testing.T) {
 	dstGot, err = dst.QueryBalance(dst.Key)
 	require.NoError(t, err)
 	require.Equal(t, dstExpected.AmountOf(dstDenom).Int64(), dstGot.AmountOf(dstDenom).Int64())
-
-	// TODO: Add close channel here
-	require.NoError(t, src.CloseChannel(dst, src.GetTimeout()))
 }

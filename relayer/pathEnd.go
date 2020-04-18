@@ -216,7 +216,7 @@ func (src *PathEnd) MsgAck(packet chanTypes.Packet, ack []byte, proof chanTypes.
 }
 
 // MsgTransfer creates a new transfer message
-func (src *PathEnd) MsgTransfer(dst *PathEnd, dstHeight uint64, amount sdk.Coins, dstAddr sdk.AccAddress, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) MsgTransfer(dst *PathEnd, dstHeight uint64, amount sdk.Coins, dstAddr string, signer sdk.AccAddress) sdk.Msg {
 	return xferTypes.NewMsgTransfer(
 		src.PortID,
 		src.ChannelID,
@@ -241,7 +241,7 @@ func (src *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte, 
 }
 
 // XferPacket creates a new transfer packet
-func (src *PathEnd) XferPacket(amount sdk.Coins, sender, reciever sdk.AccAddress) []byte {
+func (src *PathEnd) XferPacket(amount sdk.Coins, sender, reciever string) []byte {
 	return xferTypes.NewFungibleTokenPacketData(
 		amount,
 		sender,
