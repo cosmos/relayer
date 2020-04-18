@@ -33,6 +33,8 @@ If you would like to join the relayer testnet, please [check out the instruction
 
 ## Demoing the Relayer
 
+![Demo](./docs/images/demo.gif)
+
 While the relayer is under active development, it is meant primarily as a learning tool to better understand the Inter-Blockchain Communication (IBC) protocol. In that vein, the following demo demonstrates the core functionality which will remain even after the changes:
 
 ```bash
