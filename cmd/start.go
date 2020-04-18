@@ -30,7 +30,7 @@ func startCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "start [path-name]",
 		Aliases: []string{"st"},
-		Short:   "Start runs the relayer strategy associated with a path between the two chains",
+		Short:   "Start the listening relayer on a given path",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/x/auth"
@@ -13,33 +14,40 @@ import (
 	"github.com/spf13/viper"
 )
 
-func init() {
-	queryCmd.AddCommand(queryAccountCmd())
-	queryCmd.AddCommand(queryBalanceCmd())
-	queryCmd.AddCommand(queryHeaderCmd())
-	queryCmd.AddCommand(queryNodeStateCmd())
-	queryCmd.AddCommand(queryClientCmd())
-	queryCmd.AddCommand(queryClientsCmd())
-	queryCmd.AddCommand(queryConnection())
-	queryCmd.AddCommand(queryConnections())
-	queryCmd.AddCommand(queryConnectionsUsingClient())
-	queryCmd.AddCommand(queryChannel())
-	queryCmd.AddCommand(queryChannels())
-	queryCmd.AddCommand(queryConnectionChannels())
-	queryCmd.AddCommand(queryNextSeqRecv())
-	queryCmd.AddCommand(queryPacketCommitment())
-	queryCmd.AddCommand(queryPacketAck())
-	queryCmd.AddCommand(queryTxs())
-	queryCmd.AddCommand(queryTx())
-	queryCmd.AddCommand(queryUnrelayed())
-	queryCmd.AddCommand(queryFullPathCmd())
-}
-
 // queryCmd represents the chain command
-var queryCmd = &cobra.Command{
-	Use:     "query",
-	Aliases: []string{"q"},
-	Short:   "query functionality for configured chains",
+func queryCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "query",
+		Aliases: []string{"q"},
+		Short:   "IBC Query Commands",
+		Long:    "Commands to query IBC primatives, and other useful data on configured chains.",
+	}
+
+	cmd.AddCommand(
+		queryFullPathCmd(),
+		queryUnrelayed(),
+		flags.LineBreak,
+		queryAccountCmd(),
+		queryBalanceCmd(),
+		queryHeaderCmd(),
+		queryNodeStateCmd(),
+		queryTxs(),
+		queryTx(),
+		flags.LineBreak,
+		queryClientCmd(),
+		queryClientsCmd(),
+		queryConnection(),
+		queryConnections(),
+		queryConnectionsUsingClient(),
+		queryChannel(),
+		queryChannels(),
+		queryConnectionChannels(),
+		queryNextSeqRecv(),
+		queryPacketCommitment(),
+		queryPacketAck(),
+	)
+
+	return cmd
 }
 
 func queryTx() *cobra.Command {
@@ -68,7 +76,11 @@ func queryTxs() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "txs [chain-id] [events]",
 		Short: "Query transactions by the events they produce",
-		Args:  cobra.ExactArgs(2),
+		Long: strings.TrimSpace(`Search for transactions that match the exact given events where results are paginated. Each event 
+takes the form of '{eventType}.{eventAttribute}={value}' with multiple events seperated by '&'. 
+Please refer to each module's documentation for the full set of events to query for. Each module
+documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.`),
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -100,7 +112,7 @@ func queryAccountCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "account [chain-id]",
 		Aliases: []string{"acc"},
-		Short:   "Query the account data of the relayer account",
+		Short:   "Query the account data",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -128,7 +140,7 @@ func queryBalanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "balance [chain-id] [[key-name]]",
 		Aliases: []string{"bal"},
-		Short:   "Query the account balance of the relayer account, or pass in an optional second arg to fetch balance from a configured key",
+		Short:   "Query the account balances",
 		Args:    cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -173,7 +185,7 @@ func queryHeaderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "header [chain-id] [height]",
 		Aliases: []string{"hdr"},
-		Short:   "Query the header at a given height",
+		Short:   "Query the header of a chain at a given height",
 		Args:    cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -231,7 +243,7 @@ func queryHeaderCmd() *cobra.Command {
 func queryNodeStateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "node-state [chain-id] [height]",
-		Short: "Query the consensus state of a client at a given height, or at latest height if height is not passed",
+		Short: "Query the consensus state of a client at a given height",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -270,7 +282,7 @@ func queryClientCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "client [chain-id] [client-id]",
 		Aliases: []string{"clnt"},
-		Short:   "Query the client state for the given client id",
+		Short:   "Query the state of a client given it's client-id",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -298,7 +310,7 @@ func queryClientsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "clients [chain-id]",
 		Aliases: []string{"clnts"},
-		Short:   "Query for all client states",
+		Short:   "Query for all client states on a chain",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -322,7 +334,7 @@ func queryConnections() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "connections [chain-id]",
 		Aliases: []string{"conns"},
-		Short:   "Query for all connections",
+		Short:   "Query for all connections on a chain",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -438,7 +450,7 @@ func queryChannel() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "channel [chain-id] [channel-id] [port-id]",
 		Aliases: []string{"chan"},
-		Short:   "Query the channel for the given channel and port ids",
+		Short:   "Query a channel given it's channel and port ids",
 		Args:    cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -471,7 +483,7 @@ func queryChannels() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "channels [chain-id]",
 		Aliases: []string{"chans"},
-		Short:   "Query for all channels",
+		Short:   "Query for all channels on a chain",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -526,7 +538,7 @@ func queryNextSeqRecv() *cobra.Command {
 func queryPacketCommitment() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "packet-commit [chain-id] [channel-id] [port-id] [seq]",
-		Short: "Query the commitment for a given packet",
+		Short: "Query for the packet commitment given it's sequence and channel ids",
 		Args:  cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -563,7 +575,7 @@ func queryPacketCommitment() *cobra.Command {
 func queryPacketAck() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "packet-ack [chain-id] [channel-id] [port-id] [seq]",
-		Short: "Query the commitment for a given packet",
+		Short: "Query for the packet acknoledgement given it's sequence and channel ids",
 		Args:  cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -601,7 +613,7 @@ func queryUnrelayed() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "unrelayed [path]",
 		Aliases: []string{"queue"},
-		Short:   "Query for the packets that remain to be relayed on a given path",
+		Short:   "Query for the packet sequence numbers that remain to be relayed on a given path",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, err := config.Paths.Get(args[0])
@@ -643,7 +655,7 @@ func queryFullPathCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "full-path [path-name]",
 		Aliases: []string{"link", "connect", "path", "pth"},
-		Short:   "get the status of clients, connections, channels and packets on a path",
+		Short:   "Query for the status of clients, connections, channels and packets on a path",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, err := config.Paths.Get(args[0])

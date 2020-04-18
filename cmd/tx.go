@@ -16,6 +16,9 @@ limitations under the License.
 package cmd
 
 import (
+	"strings"
+
+	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -23,20 +26,25 @@ import (
 // transactionCmd represents the tx command
 func transactionCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "transactions",
+		Use:     "transact",
 		Aliases: []string{"tx"},
 		Short:   "IBC Transaction Commands",
+		Long: strings.TrimSpace(`Commands to create IBC transactions on configured chains. Most of these commands take a '[path]' arguement. Make sure:
+	1. Chains are properly configured to relay over by using the 'rly chains list' command
+	2. Path is properly configured to relay over by using the 'rly paths list' command`),
 	}
 
 	cmd.AddCommand(
+		fullPathCmd(),
+		relayMsgsCmd(),
+		transferCmd(),
+		flags.LineBreak,
 		createClientsCmd(),
 		createConnectionCmd(),
 		createChannelCmd(),
 		closeChannelCmd(),
-		fullPathCmd(),
+		flags.LineBreak,
 		rawTransactionCmd(),
-		transferCmd(),
-		relayMsgsCmd(),
 	)
 
 	return cmd
@@ -172,7 +180,7 @@ func relayMsgsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "relay [path-name]",
 		Aliases: []string{"rly", "queue"},
-		Short:   "Queries for the packets that remain to be relayed on a given path, in both directions, and relays them",
+		Short:   "relay any packets that remain to be relayed on a given path, in both directions",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])

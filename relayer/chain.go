@@ -56,6 +56,70 @@ type Chain struct {
 	faucetAddrs map[string]time.Time
 }
 
+// ListenRPCEmitJSON listens for tx and block events from a chain and outputs them as JSON to stdout
+func (src *Chain) ListenRPCEmitJSON(tx, block, data bool) func() {
+	doneChan := make(chan struct{})
+	go src.listenLoop(doneChan, tx, block, data)
+	return func() { doneChan <- struct{}{} }
+}
+
+func (src *Chain) listenLoop(doneChan chan struct{}, tx, block, data bool) {
+	// Subscribe to source chain
+	if err := src.Start(); err != nil {
+		src.Error(err)
+		return
+	}
+
+	srcTxEvents, srcTxCancel, err := src.Subscribe(txEvents)
+	if err != nil {
+		src.Error(err)
+		return
+	}
+	defer srcTxCancel()
+
+	srcBlockEvents, srcBlockCancel, err := src.Subscribe(blEvents)
+	if err != nil {
+		src.Error(err)
+		return
+	}
+	defer srcBlockCancel()
+
+	// Listen to channels and take appropriate action
+	var byt []byte
+	var mar interface{}
+	for {
+		select {
+		case srcMsg := <-srcTxEvents:
+			if tx {
+				continue
+			} else if data {
+				mar = srcMsg
+			} else {
+				mar = srcMsg.Events
+			}
+			if byt, err = json.Marshal(mar); err != nil {
+				src.Error(err)
+			}
+			fmt.Println(string(byt))
+		case srcMsg := <-srcBlockEvents:
+			if block {
+				continue
+			} else if data {
+				mar = srcMsg
+			} else {
+				mar = srcMsg.Events
+			}
+			if byt, err = json.Marshal(mar); err != nil {
+				src.Error(err)
+			}
+			fmt.Println(string(byt))
+		case <-doneChan:
+			close(doneChan)
+			return
+		}
+	}
+}
+
 // Init initializes the pieces of a chain that aren't set when it parses a config
 // NOTE: All validation of the chain should happen here.
 func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.Codec, timeout time.Duration, debug bool) error {

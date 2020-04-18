@@ -189,11 +189,13 @@ func (src *Chain) handlePacket(dst *Chain, events map[string][]string) {
 	byt, seq, timeout, err := src.packetDataAndTimeoutFromEvent(dst, events)
 	if byt != nil && seq != 0 && err == nil {
 		src.sendPacketFromEvent(dst, byt, seq, timeout)
+		return
 	} else if err != nil {
 		src.Error(err)
 	}
 }
 
+// TODO: rewrite this function to take a relayPacket
 func (src *Chain) sendPacketFromEvent(dst *Chain, xferPacket []byte, seq int64, timeout uint64) {
 	var (
 		err          error
@@ -247,10 +249,14 @@ func (src *Chain) sendPacketFromEvent(dst *Chain, xferPacket []byte, seq int64, 
 	txs.Send(src, dst)
 }
 
+type relayPacket struct {
+	packetData string
+	seq        int64
+	timeout    uint64
+}
+
+// TODO: rewrite this function to return a relayPacket and also return relay packets for acks and multiple msg trasactions
 func (src *Chain) packetDataAndTimeoutFromEvent(dst *Chain, events map[string][]string) (packetData []byte, seq int64, timeout uint64, err error) {
-	// Set sdk config to use custom Bech32 account prefix
-	sdkConf := sdk.GetConfig()
-	sdkConf.SetBech32PrefixForAccount(dst.AccountPrefix, dst.AccountPrefix+"pub")
 
 	// then, get packet data and parse
 	if pdval, ok := events["send_packet.packet_data"]; ok {

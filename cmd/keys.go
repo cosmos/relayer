@@ -24,20 +24,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func init() {
-	keysCmd.AddCommand(keysAddCmd())
-	keysCmd.AddCommand(keysRestoreCmd())
-	keysCmd.AddCommand(keysDeleteCmd())
-	keysCmd.AddCommand(keysListCmd())
-	keysCmd.AddCommand(keysShowCmd())
-	keysCmd.AddCommand(keysExportCmd())
-}
-
 // keysCmd represents the keys command
-var keysCmd = &cobra.Command{
-	Use:     "keys",
-	Aliases: []string{"k"},
-	Short:   "helps users manage keys for multiple chains",
+func keysCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "keys",
+		Aliases: []string{"k"},
+		Short:   "manage keys held by the relayer for each chain",
+	}
+
+	cmd.AddCommand(keysAddCmd())
+	cmd.AddCommand(keysRestoreCmd())
+	cmd.AddCommand(keysDeleteCmd())
+	cmd.AddCommand(keysListCmd())
+	cmd.AddCommand(keysShowCmd())
+	cmd.AddCommand(keysExportCmd())
+
+	return cmd
 }
 
 // keysAddCmd respresents the `keys add` command

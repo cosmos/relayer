@@ -8,18 +8,59 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func servicesCommand() *cobra.Command {
+func devCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "services",
-		Aliases: []string{"svc"},
-		Short:   "commands to generate systemd unit files for local use",
+		Use:     "development",
+		Aliases: []string{"dev"},
+		Short:   "commands for developers either deploying or hacking on the relayer",
 	}
 	cmd.AddCommand(
 		gaiaServiceCmd(),
 		faucetService(),
 		rlyService(),
+		listenCmd(),
 	)
 	return cmd
+}
+
+// listenCmd represents the listen command
+func listenCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "listen [chain-id]",
+		Aliases: []string{"l"},
+		Short:   "listen to all transaction and block events from a given chain and output them to stdout",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
+
+			tx, err := cmd.Flags().GetBool(flagTx)
+			if err != nil {
+				return err
+			}
+			block, err := cmd.Flags().GetBool(flagBlock)
+			if err != nil {
+				return err
+			}
+			data, err := cmd.Flags().GetBool(flagData)
+			if err != nil {
+				return err
+			}
+
+			if block && tx {
+				return fmt.Errorf("Must output block and/or tx")
+			}
+
+			done := c.ListenRPCEmitJSON(tx, block, data)
+
+			trapSignal(done)
+
+			return nil
+		},
+	}
+	return listenFlags(cmd)
 }
 
 func gaiaServiceCmd() *cobra.Command {
