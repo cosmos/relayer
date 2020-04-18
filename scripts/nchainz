@@ -163,9 +163,11 @@ show_plan() {
     echo " create $id from $json"
   done
   for i in ${!SRCS[@]}; do
+    srcport=${SRCPORTS[$i]}
     src=${SRCS[$i]}
+    dstport=${DSTPORTS[$i]}
     dst=${DSTS[$i]}
-    echo " link $src to $dst"
+    echo " link $srcport@$src to $dstport@$dst"
   done
 }
 
@@ -480,6 +482,8 @@ fi
 echo "Generating rly configurations..."
 rly config init
 rly config add-dir "$BASEDIR/config/"
+
+sleep 2
 EOF
 
 for i in ${!IDS[@]}; do
