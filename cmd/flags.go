@@ -20,6 +20,9 @@ var (
 	flagFile       = "file"
 	flagPath       = "path"
 	flagListenAddr = "listen"
+	flagTx         = "no-tx"
+	flagBlock      = "no-block"
+	flagData       = "data"
 )
 
 func liteFlags(cmd *cobra.Command) *cobra.Command {
@@ -53,6 +56,22 @@ func paginationFlags(cmd *cobra.Command) *cobra.Command {
 func yamlFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagYAML, "y", false, "output using yaml")
 	if err := viper.BindPFlag(flagYAML, cmd.Flags().Lookup(flagYAML)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func listenFlags(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP(flagTx, "t", false, "don't output transaction events")
+	cmd.Flags().BoolP(flagBlock, "b", false, "don't output block events")
+	cmd.Flags().Bool(flagData, false, "output full event data")
+	if err := viper.BindPFlag(flagTx, cmd.Flags().Lookup(flagTx)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flagBlock, cmd.Flags().Lookup(flagBlock)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flagData, cmd.Flags().Lookup(flagData)); err != nil {
 		panic(err)
 	}
 	return cmd

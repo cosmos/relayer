@@ -46,6 +46,10 @@ var (
 )
 
 func init() {
+	cobra.EnableCommandSorting = false
+
+	rootCmd.SilenceUsage = true
+
 	// Register top level flags --home and --config
 	// TODO: just rely on homePath and remove the config path arg?
 	rootCmd.PersistentFlags().StringVar(&homePath, flags.FlagHome, defaultHome, "set home directory")
@@ -63,18 +67,20 @@ func init() {
 
 	// Register subcommands
 	rootCmd.AddCommand(
-		liteCmd,
-		keysCmd,
-		queryCmd,
-		startCmd(),
-		transactionCmd(),
+		configCmd(),
 		chainsCmd(),
 		pathsCmd(),
-		configCmd(),
-		getVersionCmd(),
+		flags.LineBreak,
+		keysCmd(),
+		liteCmd(),
+		flags.LineBreak,
+		transactionCmd(),
+		queryCmd(),
+		startCmd(),
+		flags.LineBreak,
+		devCommand(),
 		testnetsCmd(),
-		servicesCommand(),
-		listenCmd(),
+		getVersionCmd(),
 	)
 
 	// This is a bit of a cheat :shushing_face:
@@ -86,6 +92,14 @@ func init() {
 var rootCmd = &cobra.Command{
 	Use:   "rly",
 	Short: "This application relays data between configured IBC enabled chains",
+	Long: strings.TrimSpace(`The relayer has commands for:
+  1. Configuration of the Chains and Paths that the relayer with transfer packets over
+  2. Management of keys and lite clients on the local machine that will be used to sign and verify txs
+  3. Query and transaction functionality for IBC
+  4. A responsive relaying application that listens on a path
+  5. Commands to assist with development, testnets, and versioning.
+
+NOTE: Most of the commands have aliases that make typing them much quicker (i.e. 'rly tx', 'rly q', etc...)`),
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

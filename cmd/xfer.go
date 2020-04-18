@@ -58,7 +58,7 @@ func transferCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "transfer [src-chain-id] [dst-chain-id] [amount] [source] [dst-chain-addr]",
 		Aliases: []string{"xfer"},
-		Short:   "transfer",
+		Short:   "transfer tokens from a source chain to a destination chain in one command",
 		Long:    "This sends tokens from a relayers configured wallet on chain src to a dst addr on dst",
 		Args:    cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {

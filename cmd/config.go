@@ -35,7 +35,7 @@ func configCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "config",
 		Aliases: []string{"cfg"},
-		Short:   "commands to manage the config file",
+		Short:   "manage configuration file",
 	}
 
 	cmd.AddCommand(

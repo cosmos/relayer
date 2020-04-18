@@ -32,17 +32,19 @@ import (
 )
 
 // chainCmd represents the keys command
-var liteCmd = &cobra.Command{
-	Use:     "lite",
-	Aliases: []string{"l"},
-	Short:   "basic functionality for managing the lite clients",
-}
+func liteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "lite",
+		Aliases: []string{"l"},
+		Short:   "manage lite clients held by the relayer for each chain",
+	}
 
-func init() {
-	liteCmd.AddCommand(liteHeaderCmd())
-	liteCmd.AddCommand(initLiteCmd())
-	liteCmd.AddCommand(updateLiteCmd())
-	liteCmd.AddCommand(deleteLiteCmd())
+	cmd.AddCommand(liteHeaderCmd())
+	cmd.AddCommand(initLiteCmd())
+	cmd.AddCommand(updateLiteCmd())
+	cmd.AddCommand(deleteLiteCmd())
+
+	return cmd
 }
 
 func initLiteCmd() *cobra.Command {

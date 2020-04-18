@@ -15,10 +15,10 @@ func pathsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "paths",
 		Aliases: []string{"pth"},
-		Short:   "commands to manage path configurations",
+		Short:   "manage path configurations",
 		Long: `
-A path represents the full path for communication between two chains, including the client, 
-connection, and channel ids from both the source and destination chains.`,
+A path represents the "full path" or "link" for communication between two chains. This includes the client, 
+connection, and channel ids from both the source and destination chains as well as the strategy to use when relaying`,
 	}
 
 	cmd.AddCommand(
@@ -36,7 +36,7 @@ connection, and channel ids from both the source and destination chains.`,
 func pathsFindCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "find",
-		Short: "finds any existing paths between any configured chains",
+		Short: "WIP: finds any existing paths between any configured chains and outputs them to stdout",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			paths, err := relayer.FindPaths(config.Chains)

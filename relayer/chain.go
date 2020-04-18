@@ -57,13 +57,13 @@ type Chain struct {
 }
 
 // ListenRPCEmitJSON listens for tx and block events from a chain and outputs them as JSON to stdout
-func (src *Chain) ListenRPCEmitJSON() func() {
+func (src *Chain) ListenRPCEmitJSON(tx, block, data bool) func() {
 	doneChan := make(chan struct{})
-	go src.listenLoop(doneChan)
+	go src.listenLoop(doneChan, tx, block, data)
 	return func() { doneChan <- struct{}{} }
 }
 
-func (src *Chain) listenLoop(doneChan chan struct{}) {
+func (src *Chain) listenLoop(doneChan chan struct{}, tx, block, data bool) {
 	// Subscribe to source chain
 	if err := src.Start(); err != nil {
 		src.Error(err)
@@ -86,15 +86,30 @@ func (src *Chain) listenLoop(doneChan chan struct{}) {
 
 	// Listen to channels and take appropriate action
 	var byt []byte
+	var mar interface{}
 	for {
 		select {
 		case srcMsg := <-srcTxEvents:
-			if byt, err = json.Marshal(srcMsg); err != nil {
+			if tx {
+				continue
+			} else if data {
+				mar = srcMsg
+			} else {
+				mar = srcMsg.Events
+			}
+			if byt, err = json.Marshal(mar); err != nil {
 				src.Error(err)
 			}
 			fmt.Println(string(byt))
 		case srcMsg := <-srcBlockEvents:
-			if byt, err = json.Marshal(srcMsg); err != nil {
+			if block {
+				continue
+			} else if data {
+				mar = srcMsg
+			} else {
+				mar = srcMsg.Events
+			}
+			if byt, err = json.Marshal(mar); err != nil {
 				src.Error(err)
 			}
 			fmt.Println(string(byt))

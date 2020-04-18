@@ -16,7 +16,7 @@ import (
 func rawTransactionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "raw",
-		Short: "raw connection and channel steps",
+		Short: "raw IBC transaction commands",
 	}
 
 	cmd.AddCommand(

@@ -20,7 +20,7 @@ func testnetsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "testnets",
 		Aliases: []string{"tst"},
-		Short:   "commands for managing and using relayer faucets",
+		Short:   "commands for joining and running relayer testnets",
 	}
 	cmd.AddCommand(
 		faucetStartCmd(),
