@@ -293,8 +293,7 @@ func addPacketMsg(src, dst *Chain, srcH, dstH *tmclient.Header, seq uint64, msgs
 
 func (src *Chain) packetDataAndTimeoutFromQueryResponse(dst *Chain, res sdk.TxResponse) (packetData []byte, timeout uint64, seq uint64, err error) {
 	// Set sdk config to use custom Bech32 account prefix
-	sdkConf := sdk.GetConfig()
-	sdkConf.SetBech32PrefixForAccount(dst.AccountPrefix, dst.AccountPrefix+"pub")
+	defer dst.UseSDKContext()()
 
 	for _, l := range res.Logs {
 		for _, e := range l.Events {

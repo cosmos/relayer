@@ -53,8 +53,6 @@ func listenCmd() *cobra.Command {
 				return fmt.Errorf("Must output block and/or tx")
 			}
 
-			fmt.Println("tx", tx, "block", block, "data", data)
-
 			done := c.ListenRPCEmitJSON(tx, block, data)
 
 			trapSignal(done)
