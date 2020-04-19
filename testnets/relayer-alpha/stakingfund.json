@@ -1,0 +1,10 @@
+{
+  "key": "faucet",
+  "chain-id": "stakingfund",
+  "rpc-addr": "http://ibc.staking.fund:26657",
+  "account-prefix": "cosmos",
+  "gas": 200000,
+  "gas-prices": "0.025sftoken",
+  "default-denom": "sftoken",
+  "trusting-period": "330h"
+}
