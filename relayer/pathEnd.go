@@ -233,6 +233,12 @@ func (src *PathEnd) MsgTransfer(dst *PathEnd, dstHeight uint64, amount sdk.Coins
 	)
 }
 
+// NewMsgSendPacket return a new message to send a packet
+func (src *PathEnd) NewMsgSendPacket(dst *PathEnd, packetData []byte, timeoutHeight uint64, signer sdk.AccAddress) sdk.Msg {
+	packet := chanTypes.NewPacket(packetData, 0, src.PortID, src.ChannelID, dst.PortID, dst.ChannelID, timeoutHeight)
+	return NewMsgSendPacket(packet, signer)
+}
+
 // NewPacket returns a new packet from src to dist w
 func (src *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte, timeoutHeight uint64) chanTypes.Packet {
 	return chanTypes.NewPacket(

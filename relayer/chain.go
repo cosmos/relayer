@@ -147,6 +147,7 @@ func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.C
 	src.Client = client
 	src.Cdc = newContextualStdCodec(cdc, src.UseSDKContext)
 	src.Amino = newContextualAminoCodec(amino, src.UseSDKContext)
+	RegisterCodec(amino)
 	src.HomePath = homePath
 	src.logger = defaultChainLogger()
 	src.timeout = timeout

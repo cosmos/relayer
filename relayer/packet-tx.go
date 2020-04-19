@@ -218,6 +218,27 @@ func (src *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr sdk.AccAd
 	return nil
 }
 
+// SendPacket sends arbitrary bytes from src to dst
+func (src *Chain) SendPacket(dst *Chain, packetData []byte) error {
+	dstHeader, err := dst.UpdateLiteWithHeader()
+	if err != nil {
+		return err
+	}
+
+	// MsgSendPacket will call SendPacket on src chain
+	txs := RelayMsgs{
+		Src: []sdk.Msg{src.PathEnd.NewMsgSendPacket(
+			dst.PathEnd, packetData, dstHeader.GetHeight()+uint64(defaultPacketTimeout), src.MustGetAddress(),
+		)},
+		Dst: []sdk.Msg{},
+	}
+
+	if txs.Send(src, dst); !txs.success {
+		return fmt.Errorf("failed to send packet")
+	}
+	return nil
+}
+
 // packetMsgFromTxQuery returns a sdk.Msg to relay a packet with a given seq on src
 func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (sdk.Msg, error) {
 	eve, err := ParseEvents(fmt.Sprintf(defaultPacketQuery, src.PathEnd.ChannelID, seq))
