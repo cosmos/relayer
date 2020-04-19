@@ -20,7 +20,7 @@ var (
 	defaultUnbondingTime   = time.Hour * 504 // 3 weeks in hours
 	defaultPacketTimeout   = 1000
 	defaultPacketQuery     = "send_packet.packet_src_channel=%s&send_packet.packet_sequence=%d"
-	defaultPacketAckQuery  = "recv_packet.packet_src_channel=%s&recv_packet.packet_sequence=%d"
+	// defaultPacketAckQuery  = "recv_packet.packet_src_channel=%s&recv_packet.packet_sequence=%d"
 )
 
 // RelayPacketsOrderedChan creates transactions to clear both queues
@@ -218,7 +218,7 @@ func (src *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr sdk.AccAd
 	return nil
 }
 
-// TODO: POTENTIALLY DUPE CODE
+// packetMsgFromTxQuery returns a sdk.Msg to relay a packet with a given seq on src
 func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (sdk.Msg, error) {
 	eve, err := ParseEvents(fmt.Sprintf(defaultPacketQuery, src.PathEnd.ChannelID, seq))
 	if err != nil {
@@ -235,101 +235,33 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (sdk.Msg
 		return nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	pd, to, qSeq, err := packetDataAndTimeoutFromQueryResponse(tx.Txs[0])
-	if err != nil {
-		return nil, err
-	}
-
-	if seq != qSeq {
-		return nil, fmt.Errorf("Different sequence number from query (%d vs %d)", seq, qSeq)
-	}
-
-	var (
-		srcCommitRes CommitmentResponse
-	)
-
-	if err = retry.Do(func() error {
-		srcCommitRes, err = src.QueryPacketCommitment(int64(sh.GetHeight(src.ChainID)-1), int64(seq))
-		if err != nil {
-			return err
-		} else if srcCommitRes.Proof.Proof == nil {
-			return fmt.Errorf("[%s]@{%d} - Packet Commitment Proof is nil seq(%d)", src.ChainID, sh.GetHeight(src.ChainID)-1, seq)
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	return dst.PacketMsg(src, pd, to, int64(seq), srcCommitRes)
-}
-
-// TODO: POTENTIALLY DUPE CODE
-func packetDataAndTimeoutFromQueryResponse(res sdk.TxResponse) (packetData []byte, timeout uint64, seq uint64, err error) {
-	// Set sdk config to use custom Bech32 account prefix
-
-	for _, l := range res.Logs {
-		for _, e := range l.Events {
-			if e.Type == "send_packet" {
-				for _, p := range e.Attributes {
-					if p.Key == "packet_data" {
-						packetData = []byte(p.Value)
-					}
-					if p.Key == "packet_timeout" {
-						timeout, _ = strconv.ParseUint(p.Value, 10, 64)
-					}
-					if p.Key == "packet_sequence" {
-						seq, _ = strconv.ParseUint(p.Value, 10, 64)
-
-					}
-				}
-				if packetData != nil && timeout != 0 {
-					return
-				}
-			}
-		}
-	}
-	return nil, 0, 0, fmt.Errorf("no packet data found")
-}
-
-// TODO: POTENTIALLY DUPE CODE
-func addRelayPackets(src, dst *Chain, sh *SyncHeaders, seq uint64, msgs *RelayMsgs, source bool) error {
-	eve, err := ParseEvents(fmt.Sprintf(defaultPacketQuery, src.PathEnd.ChannelID, seq))
-	if err != nil {
-		return err
-	}
-
-	tx, err := src.QueryTxs(sh.GetHeight(src.ChainID), 1, 1000, eve)
+	rlyPackets, err := relayPacketsFromQueryResponse(tx.Txs[0])
 	switch {
 	case err != nil:
-		return err
-	case tx.Count == 0:
-		return fmt.Errorf("no transactions returned with query")
-	case tx.Count > 1:
-		return fmt.Errorf("more than one transaction returned with query")
+		return nil, err
+	case len(rlyPackets) == 0:
+		return nil, fmt.Errorf("no relay msgs created from query response")
+	case len(rlyPackets) > 1:
+		return nil, fmt.Errorf("more than one relay msg found in tx query")
 	}
 
-	pd, err := relayPacketsFromQueryResponse(tx.Txs[0])
-	if err != nil {
-		return err
-	} else if len(pd) != 1 {
-		return fmt.Errorf("more than one message to relay in this transaction")
+	// sanity check the sequence number against the one we are querying for
+	// TODO: move this into relayPacketsFromQueryResponse?
+	if seq != rlyPackets[0].Seq() {
+		return nil, fmt.Errorf("Different sequence number from query (%d vs %d)", seq, rlyPackets[0].Seq())
 	}
 
-	if seq != pd[0].Seq() {
-		return fmt.Errorf("Different sequence number from query (%d vs %d)", seq, pd[0].Seq())
+	// fetch the proof from the sending chain
+	if err = rlyPackets[0].FetchCommitResponse(dst, src, sh); err != nil {
+		return nil, err
 	}
 
-	pd[0].FetchCommitResponse(src, dst, sh)
-
-	if source {
-		msgs.Dst = append(msgs.Dst, pd[0].Msg(dst, src))
-	} else {
-		msgs.Src = append(msgs.Src, pd[0].Msg(src, dst))
-	}
-	return nil
+	// return the sending msg
+	return rlyPackets[0].Msg(dst, src), nil
 }
 
-// TODO: POTENTIALLY DUPE CODE
+// relayPacketsFromQueryResponse looks through the events in a sdk.Response
+// and returns relayPackets with the appropriate data
 func relayPacketsFromQueryResponse(res sdk.TxResponse) (rlyPackets []relayPacket, err error) {
 	for _, l := range res.Logs {
 		for _, e := range l.Events {
@@ -338,23 +270,6 @@ func relayPacketsFromQueryResponse(res sdk.TxResponse) (rlyPackets []relayPacket
 				for _, p := range e.Attributes {
 					if p.Key == "packet_data" {
 						rp.packetData = []byte(p.Value)
-					}
-					if p.Key == "packet_timeout" {
-						timeout, _ := strconv.ParseUint(p.Value, 10, 64)
-						rp.timeout = timeout
-					}
-					if p.Key == "packet_sequence" {
-						seq, _ := strconv.ParseUint(p.Value, 10, 64)
-						rp.seq = seq
-					}
-				}
-				rlyPackets = append(rlyPackets, rp)
-			}
-			if e.Type == "recv_packet" {
-				rp := &relayMsgPacketAck{}
-				for _, p := range e.Attributes {
-					if p.Key == "packet_data" {
-						rp.ack = []byte(p.Value)
 					}
 					if p.Key == "packet_timeout" {
 						timeout, _ := strconv.ParseUint(p.Value, 10, 64)
