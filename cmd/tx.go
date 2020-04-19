@@ -193,7 +193,7 @@ func relayMsgsCmd() *cobra.Command {
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(c[src], c[dst], int64(sh.GetHeight(src)), int64(sh.GetHeight(dst)))
+			sp, err := relayer.UnrelayedSequences(c[src], c[dst], sh)
 			if err != nil {
 				return err
 			}
