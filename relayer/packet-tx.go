@@ -235,7 +235,7 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (sdk.Msg
 		return nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	rlyPackets, err := relayPacketsFromQueryResponse(tx.Txs[0])
+	rlyPackets, err := relayPacketFromQueryResponse(tx.Txs[0])
 	switch {
 	case err != nil:
 		return nil, err
@@ -246,7 +246,7 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (sdk.Msg
 	}
 
 	// sanity check the sequence number against the one we are querying for
-	// TODO: move this into relayPacketsFromQueryResponse?
+	// TODO: move this into relayPacketFromQueryResponse?
 	if seq != rlyPackets[0].Seq() {
 		return nil, fmt.Errorf("Different sequence number from query (%d vs %d)", seq, rlyPackets[0].Seq())
 	}
@@ -260,9 +260,9 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (sdk.Msg
 	return rlyPackets[0].Msg(dst, src), nil
 }
 
-// relayPacketsFromQueryResponse looks through the events in a sdk.Response
+// relayPacketFromQueryResponse looks through the events in a sdk.Response
 // and returns relayPackets with the appropriate data
-func relayPacketsFromQueryResponse(res sdk.TxResponse) (rlyPackets []relayPacket, err error) {
+func relayPacketFromQueryResponse(res sdk.TxResponse) (rlyPackets []relayPacket, err error) {
 	for _, l := range res.Logs {
 		for _, e := range l.Events {
 			if e.Type == "send_packet" {

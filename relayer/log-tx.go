@@ -77,13 +77,13 @@ func (c *Chain) logCreateClient(dst *Chain, dstH uint64) {
 func (c *Chain) logTx(events map[string][]string) {
 	c.Log(fmt.Sprintf("• [%s]@{%d} - actions(%s) hash(%s)",
 		c.ChainID,
-		getEventHeight(events),
-		actions(events["message.action"]),
+		getTxEventHeight(events),
+		getTxActions(events["message.action"]),
 		events["tx.hash"][0]),
 	)
 }
 
-func getEventHeight(events map[string][]string) int64 {
+func getTxEventHeight(events map[string][]string) int64 {
 	if val, ok := events["tx.height"]; ok {
 		out, _ := strconv.ParseInt(val[0], 10, 64)
 		return out
@@ -91,7 +91,7 @@ func getEventHeight(events map[string][]string) int64 {
 	return -1
 }
 
-func actions(act []string) string {
+func getTxActions(act []string) string {
 	out := ""
 	for i, a := range act {
 		out += fmt.Sprintf("%d:%s,", i, a)

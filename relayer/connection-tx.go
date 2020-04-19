@@ -12,6 +12,7 @@ import (
 // TODO: add max retries or something to this function
 func (src *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 	ticker := time.NewTicker(to)
+	failed := 0
 	for ; true; <-ticker.C {
 		connSteps, err := src.CreateConnectionStep(dst)
 		if err != nil {
@@ -22,13 +23,17 @@ func (src *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 			break
 		}
 
-		if connSteps.Send(src, dst); connSteps.success && connSteps.last {
-			conns, err := QueryConnectionPair(src, dst, 0, 0)
-			if err != nil {
-				return err
-			}
+		connSteps.Send(src, dst)
 
+		switch {
+		// In the case of success and this being the last transaction
+		// debug logging, log created connection and break
+		case connSteps.success && connSteps.last:
 			if src.debug {
+				conns, err := QueryConnectionPair(src, dst, 0, 0)
+				if err != nil {
+					return err
+				}
 				logConnectionStates(src, dst, conns)
 			}
 
@@ -36,6 +41,19 @@ func (src *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 				src.ChainID, src.PathEnd.ClientID, src.PathEnd.ConnectionID,
 				dst.ChainID, dst.PathEnd.ClientID, dst.PathEnd.ConnectionID))
 			break
+		// In the case of success, reset the failures counter
+		case connSteps.success:
+			failed = 0
+			continue
+		// In the case of failure, increment the failures counter and exit if this is the 3rd failure
+		case !connSteps.success:
+			failed++
+			if failed > 2 {
+				src.Error(fmt.Errorf("! Connection failed: [%s]client{%s}conn{%s} -> [%s]client{%s}conn{%s}",
+					src.ChainID, src.PathEnd.ClientID, src.PathEnd.ConnectionID,
+					dst.ChainID, dst.PathEnd.ClientID, dst.PathEnd.ConnectionID))
+				break
+			}
 		}
 	}
 

@@ -19,6 +19,7 @@ func (src *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) erro
 	}
 
 	ticker := time.NewTicker(to)
+	failures := 0
 	for ; true; <-ticker.C {
 		chanSteps, err := src.CreateChannelStep(dst, order)
 		if err != nil {
@@ -29,7 +30,12 @@ func (src *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) erro
 			break
 		}
 
-		if chanSteps.Send(src, dst); chanSteps.success && chanSteps.last {
+		chanSteps.Send(src, dst)
+
+		switch {
+		// In the case of success and this being the last transaction
+		// debug logging, log created connection and break
+		case chanSteps.success && chanSteps.last:
 			chans, err := QueryChannelPair(src, dst, 0, 0)
 			if err != nil {
 				return err
@@ -41,6 +47,19 @@ func (src *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) erro
 				src.ChainID, src.PathEnd.ChannelID, src.PathEnd.PortID,
 				dst.ChainID, dst.PathEnd.ChannelID, dst.PathEnd.PortID))
 			break
+		// In the case of success, reset the failures counter
+		case chanSteps.success:
+			failures = 0
+			continue
+		// In the case of failure, increment the failures counter and exit if this is the 3rd failure
+		case !chanSteps.success:
+			failures++
+			if failures > 2 {
+				src.Error(fmt.Errorf("! Channel failed: [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
+					src.ChainID, src.PathEnd.ChannelID, src.PathEnd.PortID,
+					dst.ChainID, dst.PathEnd.ChannelID, dst.PathEnd.PortID))
+				break
+			}
 		}
 	}
 

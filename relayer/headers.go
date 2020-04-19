@@ -49,12 +49,3 @@ func (uh *SyncHeaders) GetHeight(chainID string) uint64 {
 	defer uh.Unlock()
 	return uh.hds[chainID].GetHeight()
 }
-
-// UpdatingHeaders calls UpdateLiteWithHeader on the passed chains concurrently
-func UpdatingHeaders(src, dst *Chain) (*SyncHeaders, error) {
-	mp, err := UpdatesWithHeaders(src, dst)
-	if err != nil {
-		return nil, err
-	}
-	return &SyncHeaders{hds: mp}, nil
-}
