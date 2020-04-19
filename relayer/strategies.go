@@ -1,13 +1,14 @@
 package relayer
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 )
 
 var (
@@ -118,22 +119,29 @@ func (nrs NaiveStrategy) Run(src, dst *Chain) (func(), error) {
 }
 
 func nrsLoop(src, dst *Chain, doneChan chan struct{}) {
-	// Subscribe to source chain
-	if err := src.Start(); err != nil {
+	var (
+		srcTxEvents, srcBlockEvents, dstTxEvents, dstBlockEvents <-chan ctypes.ResultEvent
+		srcTxCancel, srcBlockCancel, dstTxCancel, dstBlockCancel context.CancelFunc
+		err                                                      error
+		syncHeaders                                              *SyncHeaders
+	)
+
+	// Start client for source chain
+	if err = src.Start(); err != nil {
 		src.Error(err)
 		return
 	}
 
-	srcTxEvents, srcTxCancel, err := src.Subscribe(txEvents)
-	if err != nil {
+	// Subscibe to txEvents from the source chain
+	if srcTxEvents, srcTxCancel, err = src.Subscribe(txEvents); err != nil {
 		src.Error(err)
 		return
 	}
 	defer srcTxCancel()
 	src.Log(fmt.Sprintf("- listening to tx events from %s...", src.ChainID))
 
-	srcBlockEvents, srcBlockCancel, err := src.Subscribe(blEvents)
-	if err != nil {
+	// Subscibe to blockEvents from the source chain
+	if srcBlockEvents, srcBlockCancel, err = src.Subscribe(blEvents); err != nil {
 		src.Error(err)
 		return
 	}
@@ -141,40 +149,48 @@ func nrsLoop(src, dst *Chain, doneChan chan struct{}) {
 	src.Log(fmt.Sprintf("- listening to block events from %s...", src.ChainID))
 
 	// Subscribe to destination chain
-	if err := dst.Start(); err != nil {
+	if err = dst.Start(); err != nil {
 		dst.Error(err)
 		return
 	}
 
-	dstTxEvents, dstTxCancel, err := dst.Subscribe(txEvents)
-	if err != nil {
+	// Subscibe to txEvents from the destination chain
+	if dstTxEvents, dstTxCancel, err = dst.Subscribe(txEvents); err != nil {
 		dst.Error(err)
 		return
 	}
 	defer dstTxCancel()
 	dst.Log(fmt.Sprintf("- listening to tx events from %s...", dst.ChainID))
 
-	dstBlockEvents, dstBlockCancel, err := dst.Subscribe(blEvents)
-	if err != nil {
+	// Subscibe to blockEvents from the destination chain
+	if dstBlockEvents, dstBlockCancel, err = dst.Subscribe(blEvents); err != nil {
 		src.Error(err)
 		return
 	}
 	defer dstBlockCancel()
 	dst.Log(fmt.Sprintf("- listening to block events from %s...", dst.ChainID))
 
+	// Create the updating headers
+	if syncHeaders, err = UpdatingHeaders(src, dst); err != nil {
+		src.Error(err)
+		return
+	}
+
 	// Listen to channels and take appropriate action
 	for {
 		select {
 		case srcMsg := <-srcTxEvents:
 			src.logTx(srcMsg.Events)
-			go dst.handlePacket(src, srcMsg.Events)
+			go dst.handlePacket(src, srcMsg.Events, syncHeaders)
 		case dstMsg := <-dstTxEvents:
 			dst.logTx(dstMsg.Events)
-			go src.handlePacket(dst, dstMsg.Events)
+			go src.handlePacket(dst, dstMsg.Events, syncHeaders)
 		case srcMsg := <-srcBlockEvents:
-			go dst.handlePacket(src, srcMsg.Events)
+			syncHeaders.Update(src)
+			go dst.handlePacket(src, srcMsg.Events, syncHeaders)
 		case dstMsg := <-dstBlockEvents:
-			go src.handlePacket(dst, dstMsg.Events)
+			syncHeaders.Update(dst)
+			go src.handlePacket(dst, dstMsg.Events, syncHeaders)
 		case <-doneChan:
 			src.Log(fmt.Sprintf("- [%s]:{%s} <-> [%s]:{%s} relayer shutting down",
 				src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))
@@ -184,34 +200,36 @@ func nrsLoop(src, dst *Chain, doneChan chan struct{}) {
 	}
 }
 
-func (src *Chain) handlePacket(dst *Chain, events map[string][]string) {
+func (src *Chain) handlePacket(dst *Chain, events map[string][]string, sh *SyncHeaders) {
 	byt, seq, timeout, err := src.packetDataAndTimeoutFromEvent(dst, events)
 	if byt != nil && seq != 0 && err == nil {
-		src.sendPacketFromEvent(dst, byt, seq, timeout)
+		src.sendPacketFromEvent(dst, byt, seq, timeout, sh)
 		return
 	} else if err != nil {
 		src.Error(err)
 	}
 }
 
+func (src *Chain) handleEvents(dst *Chain, events map[string][]string, sh *SyncHeaders) {
+	rlyPackets, err := relayPacketsFromEvent(events)
+	if len(rlyPackets) > 0 && err == nil {
+		src.sendTxFromEventPackets(dst, rlyPackets, sh)
+	}
+}
+
 // TODO: rewrite this function to take a relayPacket
-func (src *Chain) sendPacketFromEvent(dst *Chain, xferPacket []byte, seq int64, timeout uint64) {
+func (src *Chain) sendPacketFromEvent(dst *Chain, xferPacket []byte, seq int64, timeout uint64, sh *SyncHeaders) {
 	var (
 		err          error
-		dstH         *tmclient.Header
 		dstCommitRes CommitmentResponse
 	)
 
 	if err = retry.Do(func() error {
-		dstH, err = dst.UpdateLiteWithHeader()
-		if err != nil {
-			return err
-		}
-		dstCommitRes, err = dst.QueryPacketCommitment(dstH.Height-1, int64(seq))
+		dstCommitRes, err = dst.QueryPacketCommitment(int64(sh.GetHeight(dst.ChainID)-1), int64(seq))
 		if err != nil {
 			return err
 		} else if dstCommitRes.Proof.Proof == nil {
-			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)", dst.ChainID, dstH.Height-1, seq)
+			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)", dst.ChainID, sh.GetHeight(dst.ChainID)-1, seq)
 		}
 		return nil
 	}); err != nil {
@@ -221,7 +239,7 @@ func (src *Chain) sendPacketFromEvent(dst *Chain, xferPacket []byte, seq int64, 
 
 	txs := &RelayMsgs{
 		Src: []sdk.Msg{
-			src.PathEnd.UpdateClient(dstH, src.MustGetAddress()),
+			src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress()),
 			src.PathEnd.MsgRecvPacket(
 				dst.PathEnd,
 				uint64(seq),
@@ -235,9 +253,6 @@ func (src *Chain) sendPacketFromEvent(dst *Chain, xferPacket []byte, seq int64, 
 		Dst: []sdk.Msg{},
 	}
 
-	// for _, pkt := range rlyPackets {
-	// 	txs.Src = append(txs.Src, pkt.Msg(src, dst, dstCommitRes.Proof, dstCommitRes.ProofHeight))
-	// }
 	txs.Send(src, dst)
 }
 
@@ -265,155 +280,6 @@ func (src *Chain) packetDataAndTimeoutFromEvent(dst *Chain, events map[string][]
 		}
 	}
 
-	return
-}
-
-type relayPacket interface {
-	Msg(src, dst *Chain) sdk.Msg
-	FetchCommitResponse(src, dst *Chain)
-}
-
-type relayMsgRecvPacket struct {
-	packetData []byte
-	seq        uint64
-	timeout    uint64
-	dstComRes  *CommitmentResponse
-}
-
-func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain) {
-	var (
-		err          error
-		dstH         *tmclient.Header
-		dstCommitRes CommitmentResponse
-	)
-	if err = retry.Do(func() error {
-		dstH, err = dst.UpdateLiteWithHeader()
-		if err != nil {
-			return err
-		}
-		dstCommitRes, err = dst.QueryPacketCommitment(dstH.Height-1, int64(rp.seq))
-		if err != nil {
-			return err
-		} else if dstCommitRes.Proof.Proof == nil {
-			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)", dst.ChainID, dstH.Height-1, rp.seq)
-		}
-		return nil
-	}); err != nil {
-		dst.Error(err)
-		return
-	}
-	rp.dstComRes = &dstCommitRes
-}
-
-func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) sdk.Msg {
-	if rp.dstComRes == nil {
-		return nil
-	}
-	return src.PathEnd.MsgRecvPacket(
-		dst.PathEnd,
-		rp.seq,
-		rp.timeout,
-		rp.packetData,
-		rp.dstComRes.Proof,
-		rp.dstComRes.ProofHeight,
-		src.MustGetAddress(),
-	)
-}
-
-type relayMsgPacketAck struct {
-	ack       []byte
-	seq       uint64
-	timeout   uint64
-	dstComRes *CommitmentResponse
-}
-
-func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
-	return src.PathEnd.MsgAck(
-		dst.PathEnd,
-		rp.seq,
-		rp.timeout,
-		rp.ack,
-		rp.dstComRes.Proof,
-		rp.dstComRes.ProofHeight,
-		src.MustGetAddress(),
-	)
-}
-
-func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain) {
-	var (
-		err          error
-		dstH         *tmclient.Header
-		dstCommitRes CommitmentResponse
-	)
-	if err = retry.Do(func() error {
-		dstH, err = dst.UpdateLiteWithHeader()
-		if err != nil {
-			return err
-		}
-		dstCommitRes, err = dst.QueryPacketAck(dstH.Height-1, int64(rp.seq))
-		if err != nil {
-			return err
-		} else if dstCommitRes.Proof.Proof == nil {
-			return fmt.Errorf("- [%s]@{%d} - Packet Ack Proof is nil seq(%d)", dst.ChainID, dstH.Height-1, rp.seq)
-		}
-		return nil
-	}); err != nil {
-		dst.Error(err)
-		return
-	}
-	rp.dstComRes = &dstCommitRes
-}
-
-func relayPacketsFromEvent(events map[string][]string) (rlyPkts []relayPacket, err error) {
-	// check for send packets
-	if pdval, ok := events["send_packet.packet_data"]; ok {
-		for i, pd := range pdval {
-			rp := &relayMsgRecvPacket{packetData: []byte(pd)}
-			// next, get and parse the sequence
-			if sval, ok := events["send_packet.packet_sequence"]; ok {
-				seq, err := strconv.ParseUint(sval[i], 10, 64)
-				if err != nil {
-					return nil, err
-				}
-				rp.seq = seq
-			}
-
-			// finally, get and parse the timeout
-			if sval, ok := events["send_packet.packet_timeout"]; ok {
-				timeout, err := strconv.ParseUint(sval[i], 10, 64)
-				if err != nil {
-					return nil, err
-				}
-				rp.timeout = timeout
-			}
-			rlyPkts = append(rlyPkts, rp)
-		}
-	}
-
-	// then, check for recv packets
-	if pdval, ok := events["recv_packet.packet_data"]; ok {
-		for i, pd := range pdval {
-			rp := &relayMsgPacketAck{ack: []byte(pd)}
-			// next, get and parse the sequence
-			if sval, ok := events["recv_packet.packet_sequence"]; ok {
-				seq, err := strconv.ParseUint(sval[i], 10, 64)
-				if err != nil {
-					return nil, err
-				}
-				rp.seq = seq
-			}
-
-			// finally, get and parse the timeout
-			if sval, ok := events["recv_packet.packet_timeout"]; ok {
-				timeout, err := strconv.ParseUint(sval[i], 10, 64)
-				if err != nil {
-					return nil, err
-				}
-				rp.timeout = timeout
-			}
-			rlyPkts = append(rlyPkts, rp)
-		}
-	}
 	return
 }
 

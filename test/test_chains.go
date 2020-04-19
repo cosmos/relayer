@@ -8,9 +8,10 @@ import (
 	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/cosmos-sdk/simapp"
-	. "github.com/iqlusioninc/relayer/relayer"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/go-amino"
+
+	. "github.com/iqlusioninc/relayer/relayer"
 )
 
 var (

@@ -854,14 +854,14 @@ type ChannelStatus struct {
 func QueryPathStatus(src, dst *Chain, path *Path) (stat *PathStatus, err error) {
 	stat = &PathStatus{
 		Chains: map[string]*ChainStatus{
-			src.ChainID: &ChainStatus{
+			src.ChainID: {
 				Reachable:  false,
 				Height:     -1,
 				Client:     &ClientStatus{},
 				Connection: &ConnectionStatus{},
 				Channel:    &ChannelStatus{},
 			},
-			dst.ChainID: &ChainStatus{
+			dst.ChainID: {
 				Reachable:  false,
 				Height:     -1,
 				Client:     &ClientStatus{},

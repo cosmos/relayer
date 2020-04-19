@@ -68,8 +68,8 @@ func RelayUnRelayedPacketsOrderedChan(src, dst *Chain) error {
 	// notify the user of that
 
 	if msgs.Send(src, dst); msgs.success {
-		src.Log(fmt.Sprintf("★ Clients updated: [%s]client(%s) and [%s]client(%s)",
-			src.ChainID, src.PathEnd.ClientID, dst.ChainID, dst.PathEnd.ClientID))
+		// src.Log(fmt.Sprintf("★ Clients updated: [%s]client(%s) and [%s]client(%s)",
+		// 	src.ChainID, src.PathEnd.ClientID, dst.ChainID, dst.PathEnd.ClientID))
 		if len(msgs.Dst) > 1 {
 			src.logPacketsRelayed(dst, len(msgs.Dst)-1)
 		}
@@ -283,7 +283,6 @@ func addPacketMsg(src, dst *Chain, srcH, dstH *tmclient.Header, seq uint64, msgs
 // TODO: refactor to use relayPacket and check for multiple packets in a tx
 func (src *Chain) packetDataAndTimeoutFromQueryResponse(dst *Chain, res sdk.TxResponse) (packetData []byte, timeout uint64, seq uint64, err error) {
 	// Set sdk config to use custom Bech32 account prefix
-	defer dst.UseSDKContext()()
 
 	for _, l := range res.Logs {
 		for _, e := range l.Events {
@@ -307,4 +306,148 @@ func (src *Chain) packetDataAndTimeoutFromQueryResponse(dst *Chain, res sdk.TxRe
 		}
 	}
 	return nil, 0, 0, fmt.Errorf("no packet data found")
+}
+
+// RelayPacketsOrderedChanAlt creates transactions to clear both queues
+func RelayPacketsOrderedChanAlt(src, dst *Chain, sh *SyncHeaders) error {
+	if err := sh.Update(src); err != nil {
+		return err
+	}
+
+	if err := sh.Update(dst); err != nil {
+		return err
+	}
+
+	// find any unrelayed packets
+	sp, err := UnrelayedSequences(src, dst, int64(sh.GetHeight(src.ChainID)-1), int64(sh.GetHeight(dst.ChainID)-1))
+	if err != nil {
+		return err
+	}
+
+	// create the appropriate update client messages
+	msgs := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
+	if len(sp.Src) > 0 {
+		msgs.Dst = append(msgs.Dst, dst.PathEnd.UpdateClient(sh.GetHeader(src.ChainID), dst.MustGetAddress()))
+	}
+	if len(sp.Dst) > 0 {
+		msgs.Src = append(msgs.Src, src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress()))
+	}
+
+	// add messages for src -> dst
+	for _, seq := range sp.Src {
+		if err = addRelayPackets(src, dst, sh, seq, msgs, true); err != nil {
+			return err
+		}
+	}
+
+	// add messages for dst -> src
+	for _, seq := range sp.Dst {
+		if err = addRelayPackets(dst, src, sh, seq, msgs, false); err != nil {
+			return err
+		}
+	}
+
+	if !msgs.Ready() {
+		src.Log(fmt.Sprintf("- No packets to relay between [%s]port{%s} and [%s]port{%s}", src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))
+		return nil
+	}
+
+	// TODO: increase the amount of gas as the number of messages increases
+	// notify the user of that
+
+	if msgs.Send(src, dst); msgs.success {
+		// src.Log(fmt.Sprintf("★ Clients updated: [%s]client(%s) and [%s]client(%s)",
+		// 	src.ChainID, src.PathEnd.ClientID, dst.ChainID, dst.PathEnd.ClientID))
+		if len(msgs.Dst) > 1 {
+			src.logPacketsRelayed(dst, len(msgs.Dst)-1)
+		}
+		if len(msgs.Src) > 1 {
+			dst.logPacketsRelayed(src, len(msgs.Src)-1)
+		}
+	}
+
+	return nil
+}
+
+func addRelayPackets(src, dst *Chain, sh *SyncHeaders, seq uint64, msgs *RelayMsgs, source bool) error {
+	eve, err := ParseEvents(fmt.Sprintf(defaultPacketQuery, src.PathEnd.ChannelID, seq))
+	if err != nil {
+		return err
+	}
+
+	tx, err := src.QueryTxs(sh.GetHeight(src.ChainID), 1, 1000, eve)
+	switch {
+	case err != nil:
+		return err
+	case tx.Count == 0:
+		return fmt.Errorf("no transactions returned with query")
+	case tx.Count > 1:
+		return fmt.Errorf("more than one transaction returned with query")
+	}
+
+	pd, err := relayPacketsFromQueryResponse(tx.Txs[0])
+	if err != nil {
+		return err
+	} else if len(pd) != 1 {
+		return fmt.Errorf("more than one message to relay in this transaction")
+	}
+
+	if seq != pd[0].Seq() {
+		return fmt.Errorf("Different sequence number from query (%d vs %d)", seq, pd[0].Seq())
+	}
+
+	pd[0].FetchCommitResponse(src, dst, sh)
+
+	if source {
+		msgs.Dst = append(msgs.Dst, pd[0].Msg(dst, src))
+	} else {
+		msgs.Src = append(msgs.Src, pd[0].Msg(src, dst))
+	}
+	return nil
+}
+func relayPacketsFromQueryResponse(res sdk.TxResponse) (rlyPackets []relayPacket, err error) {
+	for _, l := range res.Logs {
+		for _, e := range l.Events {
+			if e.Type == "send_packet" {
+				rp := &relayMsgRecvPacket{}
+				for _, p := range e.Attributes {
+					if p.Key == "packet_data" {
+						rp.packetData = []byte(p.Value)
+					}
+					if p.Key == "packet_timeout" {
+						timeout, _ := strconv.ParseUint(p.Value, 10, 64)
+						rp.timeout = timeout
+					}
+					if p.Key == "packet_sequence" {
+						seq, _ := strconv.ParseUint(p.Value, 10, 64)
+						rp.seq = seq
+					}
+				}
+				rlyPackets = append(rlyPackets, rp)
+			}
+			if e.Type == "recv_packet" {
+				rp := &relayMsgPacketAck{}
+				for _, p := range e.Attributes {
+					if p.Key == "packet_data" {
+						rp.ack = []byte(p.Value)
+					}
+					if p.Key == "packet_timeout" {
+						timeout, _ := strconv.ParseUint(p.Value, 10, 64)
+						rp.timeout = timeout
+					}
+					if p.Key == "packet_sequence" {
+						seq, _ := strconv.ParseUint(p.Value, 10, 64)
+						rp.seq = seq
+					}
+				}
+				rlyPackets = append(rlyPackets, rp)
+			}
+		}
+	}
+
+	if len(rlyPackets) > 0 {
+		return
+	}
+
+	return nil, fmt.Errorf("no packet data found")
 }
