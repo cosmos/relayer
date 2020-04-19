@@ -188,7 +188,17 @@ func relayMsgsCmd() *cobra.Command {
 				return err
 			}
 
-			if err = relayer.RelayUnRelayedPacketsOrderedChan(c[src], c[dst]); err != nil {
+			sh, err := relayer.NewSyncHeaders(c[src], c[dst])
+			if err != nil {
+				return err
+			}
+
+			sp, err := relayer.UnrelayedSequences(c[src], c[dst], int64(sh.GetHeight(src)), int64(sh.GetHeight(dst)))
+			if err != nil {
+				return err
+			}
+
+			if err = relayer.RelayPacketsOrderedChan(c[src], c[dst], sh, sp); err != nil {
 				return err
 			}
 

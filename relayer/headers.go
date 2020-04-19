@@ -6,8 +6,18 @@ import (
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 )
 
+// NewSyncHeaders returns a new instance of map[string]*tmclient.Header that can be easily
+// kept "reasonably up to date"
+func NewSyncHeaders(chains ...*Chain) (*SyncHeaders, error) {
+	mp, err := UpdatesWithHeaders(chains...)
+	if err != nil {
+		return nil, err
+	}
+	return &SyncHeaders{hds: mp}, nil
+}
+
 // SyncHeaders is an instance of map[string]*tmclient.Header
-// that is "reasonably" up to date
+// that can be kept "reasonably up to date" using it's Update method
 type SyncHeaders struct {
 	sync.Mutex
 

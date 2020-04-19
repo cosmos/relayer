@@ -20,43 +20,38 @@ var (
 	defaultUnbondingTime   = time.Hour * 504 // 3 weeks in hours
 	defaultPacketTimeout   = 1000
 	defaultPacketQuery     = "send_packet.packet_src_channel=%s&send_packet.packet_sequence=%d"
+	defaultPacketAckQuery  = "recv_packet.packet_src_channel=%s&recv_packet.packet_sequence=%d"
 )
 
-// RelayUnRelayedPacketsOrderedChan creates transactions to clear both queues
-func RelayUnRelayedPacketsOrderedChan(src, dst *Chain) error {
-	// Update lite clients, headers to be used later
-	hs, err := UpdatesWithHeaders(src, dst)
-	if err != nil {
-		return err
-	}
-
-	// find any unrelayed packets
-	sp, err := UnrelayedSequences(src, dst, hs[src.ChainID].Height-1, hs[dst.ChainID].Height-1)
-	if err != nil {
-		return err
-	}
+// RelayPacketsOrderedChan creates transactions to clear both queues
+// CONTRACT: the SyncHeaders passed in here must be up to date or being kept updated
+func RelayPacketsOrderedChan(src, dst *Chain, sh *SyncHeaders, sp *RelaySequences) error {
 
 	// create the appropriate update client messages
 	msgs := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 	if len(sp.Src) > 0 {
-		msgs.Dst = append(msgs.Dst, dst.PathEnd.UpdateClient(hs[src.ChainID], dst.MustGetAddress()))
+		msgs.Dst = append(msgs.Dst, dst.PathEnd.UpdateClient(sh.GetHeader(src.ChainID), dst.MustGetAddress()))
 	}
 	if len(sp.Dst) > 0 {
-		msgs.Src = append(msgs.Src, src.PathEnd.UpdateClient(hs[dst.ChainID], src.MustGetAddress()))
+		msgs.Src = append(msgs.Src, src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress()))
 	}
 
 	// add messages for src -> dst
 	for _, seq := range sp.Src {
-		if err = addPacketMsg(src, dst, hs[src.ChainID], hs[dst.ChainID], seq, msgs, true); err != nil {
+		msg, err := packetMsgFromTxQuery(src, dst, sh, seq)
+		if err != nil {
 			return err
 		}
+		msgs.Dst = append(msgs.Dst, msg)
 	}
 
 	// add messages for dst -> src
 	for _, seq := range sp.Dst {
-		if err = addPacketMsg(dst, src, hs[dst.ChainID], hs[src.ChainID], seq, msgs, false); err != nil {
+		msg, err := packetMsgFromTxQuery(dst, src, sh, seq)
+		if err != nil {
 			return err
 		}
+		msgs.Src = append(msgs.Src, msg)
 	}
 
 	if !msgs.Ready() {
@@ -66,15 +61,12 @@ func RelayUnRelayedPacketsOrderedChan(src, dst *Chain) error {
 
 	// TODO: increase the amount of gas as the number of messages increases
 	// notify the user of that
-
 	if msgs.Send(src, dst); msgs.success {
-		// src.Log(fmt.Sprintf("★ Clients updated: [%s]client(%s) and [%s]client(%s)",
-		// 	src.ChainID, src.PathEnd.ClientID, dst.ChainID, dst.PathEnd.ClientID))
 		if len(msgs.Dst) > 1 {
-			src.logPacketsRelayed(dst, len(msgs.Dst)-1)
+			dst.logPacketsRelayed(src, len(msgs.Dst)-1)
 		}
 		if len(msgs.Src) > 1 {
-			dst.logPacketsRelayed(src, len(msgs.Src)-1)
+			src.logPacketsRelayed(dst, len(msgs.Src)-1)
 		}
 	}
 
@@ -226,29 +218,30 @@ func (src *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr sdk.AccAd
 	return nil
 }
 
-func addPacketMsg(src, dst *Chain, srcH, dstH *tmclient.Header, seq uint64, msgs *RelayMsgs, source bool) error {
+// TODO: POTENTIALLY DUPE CODE
+func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (sdk.Msg, error) {
 	eve, err := ParseEvents(fmt.Sprintf(defaultPacketQuery, src.PathEnd.ChannelID, seq))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	tx, err := src.QueryTxs(srcH.GetHeight(), 1, 1000, eve)
+	tx, err := src.QueryTxs(sh.GetHeight(src.ChainID), 1, 1000, eve)
 	switch {
 	case err != nil:
-		return err
+		return nil, err
 	case tx.Count == 0:
-		return fmt.Errorf("no transactions returned with query")
+		return nil, fmt.Errorf("no transactions returned with query")
 	case tx.Count > 1:
-		return fmt.Errorf("more than one transaction returned with query")
+		return nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	pd, to, qSeq, err := src.packetDataAndTimeoutFromQueryResponse(src, tx.Txs[0])
+	pd, to, qSeq, err := packetDataAndTimeoutFromQueryResponse(tx.Txs[0])
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if seq != qSeq {
-		return fmt.Errorf("Different sequence number from query (%d vs %d)", seq, qSeq)
+		return nil, fmt.Errorf("Different sequence number from query (%d vs %d)", seq, qSeq)
 	}
 
 	var (
@@ -256,32 +249,22 @@ func addPacketMsg(src, dst *Chain, srcH, dstH *tmclient.Header, seq uint64, msgs
 	)
 
 	if err = retry.Do(func() error {
-		srcCommitRes, err = src.QueryPacketCommitment(srcH.Height-1, int64(seq))
+		srcCommitRes, err = src.QueryPacketCommitment(int64(sh.GetHeight(src.ChainID)-1), int64(seq))
 		if err != nil {
 			return err
 		} else if srcCommitRes.Proof.Proof == nil {
-			return fmt.Errorf("[%s]@{%d} - Packet Commitment Proof is nil seq(%d)", src.ChainID, srcH.Height-1, seq)
+			return fmt.Errorf("[%s]@{%d} - Packet Commitment Proof is nil seq(%d)", src.ChainID, sh.GetHeight(src.ChainID)-1, seq)
 		}
 		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
 
-	msg, err := dst.PacketMsg(src, pd, to, int64(seq), srcCommitRes)
-	if err != nil {
-		return err
-	}
-
-	if source {
-		msgs.Dst = append(msgs.Dst, msg)
-	} else {
-		msgs.Src = append(msgs.Src, msg)
-	}
-	return nil
+	return dst.PacketMsg(src, pd, to, int64(seq), srcCommitRes)
 }
 
-// TODO: refactor to use relayPacket and check for multiple packets in a tx
-func (src *Chain) packetDataAndTimeoutFromQueryResponse(dst *Chain, res sdk.TxResponse) (packetData []byte, timeout uint64, seq uint64, err error) {
+// TODO: POTENTIALLY DUPE CODE
+func packetDataAndTimeoutFromQueryResponse(res sdk.TxResponse) (packetData []byte, timeout uint64, seq uint64, err error) {
 	// Set sdk config to use custom Bech32 account prefix
 
 	for _, l := range res.Logs {
@@ -308,67 +291,7 @@ func (src *Chain) packetDataAndTimeoutFromQueryResponse(dst *Chain, res sdk.TxRe
 	return nil, 0, 0, fmt.Errorf("no packet data found")
 }
 
-// RelayPacketsOrderedChanAlt creates transactions to clear both queues
-func RelayPacketsOrderedChanAlt(src, dst *Chain, sh *SyncHeaders) error {
-	if err := sh.Update(src); err != nil {
-		return err
-	}
-
-	if err := sh.Update(dst); err != nil {
-		return err
-	}
-
-	// find any unrelayed packets
-	sp, err := UnrelayedSequences(src, dst, int64(sh.GetHeight(src.ChainID)-1), int64(sh.GetHeight(dst.ChainID)-1))
-	if err != nil {
-		return err
-	}
-
-	// create the appropriate update client messages
-	msgs := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
-	if len(sp.Src) > 0 {
-		msgs.Dst = append(msgs.Dst, dst.PathEnd.UpdateClient(sh.GetHeader(src.ChainID), dst.MustGetAddress()))
-	}
-	if len(sp.Dst) > 0 {
-		msgs.Src = append(msgs.Src, src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress()))
-	}
-
-	// add messages for src -> dst
-	for _, seq := range sp.Src {
-		if err = addRelayPackets(src, dst, sh, seq, msgs, true); err != nil {
-			return err
-		}
-	}
-
-	// add messages for dst -> src
-	for _, seq := range sp.Dst {
-		if err = addRelayPackets(dst, src, sh, seq, msgs, false); err != nil {
-			return err
-		}
-	}
-
-	if !msgs.Ready() {
-		src.Log(fmt.Sprintf("- No packets to relay between [%s]port{%s} and [%s]port{%s}", src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))
-		return nil
-	}
-
-	// TODO: increase the amount of gas as the number of messages increases
-	// notify the user of that
-
-	if msgs.Send(src, dst); msgs.success {
-		// src.Log(fmt.Sprintf("★ Clients updated: [%s]client(%s) and [%s]client(%s)",
-		// 	src.ChainID, src.PathEnd.ClientID, dst.ChainID, dst.PathEnd.ClientID))
-		if len(msgs.Dst) > 1 {
-			src.logPacketsRelayed(dst, len(msgs.Dst)-1)
-		}
-		if len(msgs.Src) > 1 {
-			dst.logPacketsRelayed(src, len(msgs.Src)-1)
-		}
-	}
-
-	return nil
-}
-
+// TODO: POTENTIALLY DUPE CODE
 func addRelayPackets(src, dst *Chain, sh *SyncHeaders, seq uint64, msgs *RelayMsgs, source bool) error {
 	eve, err := ParseEvents(fmt.Sprintf(defaultPacketQuery, src.PathEnd.ChannelID, seq))
 	if err != nil {
@@ -405,6 +328,8 @@ func addRelayPackets(src, dst *Chain, sh *SyncHeaders, seq uint64, msgs *RelayMs
 	}
 	return nil
 }
+
+// TODO: POTENTIALLY DUPE CODE
 func relayPacketsFromQueryResponse(res sdk.TxResponse) (rlyPackets []relayPacket, err error) {
 	for _, l := range res.Logs {
 		for _, e := range l.Events {

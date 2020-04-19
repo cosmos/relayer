@@ -106,8 +106,18 @@ func (nrs NaiveStrategy) GetConstraints() map[string]string {
 func (nrs NaiveStrategy) Run(src, dst *Chain) (func(), error) {
 	doneChan := make(chan struct{})
 
+	sh, err := NewSyncHeaders(src, dst)
+	if err != nil {
+		return nil, err
+	}
+
+	sp, err := UnrelayedSequences(src, dst, int64(sh.GetHeight(src.ChainID)), int64(sh.GetHeight(dst.ChainID)))
+	if err != nil {
+		return nil, err
+	}
+
 	// first, we want to ensure that there are no packets remaining to be relayed
-	if err := RelayUnRelayedPacketsOrderedChan(src, dst); err != nil {
+	if err := RelayPacketsOrderedChan(src, dst, sh, sp); err != nil {
 		// TODO: some errors may leak here when there are no packets to be relayed
 		// be on the lookout for that
 		return nil, err
