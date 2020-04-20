@@ -57,13 +57,10 @@ $ cat ~/.relayer/config/config.yaml
 
 # Then add the chains and paths that you will need to work with the
 # gaia chains spun up by the two-chains script
-$ rly chains add -f configs/demo/ibc0.json
-$ rly chains add -f configs/demo/ibc1.json
+$ rly cfg add-dir configs/demo
 
+# NOTE: you may want to look at the config between these steps
 $ cat ~/.relayer/config/config.yaml
-
-# To finalize your config, add a path between the two chains
-$ rly paths add ibc0 ibc1 demo-path -f configs/demo/demo.json
 
 # Now, add the key seeds from each chain to the relayer to give it funds to work with
 $ rly keys restore ibc0 testkey "$(jq -r '.secret' data/ibc0/n0/gaiacli/key_seed.json)"
@@ -79,38 +76,36 @@ $ rly lite init ibc1 -f
 $ tree ~/.relayer
 
 # Now you can connect the two chains with one command:
-$ rly tx full-path demo-path
+$ rly tx link demo-path
 
 # Check the token balances on both chains
 $ rly q balance ibc0
-$ rly q balance ibc1
+$ rly q bal ibc1
 
 # Then send some tokens between the chains
 $ rly tx transfer ibc0 ibc1 10000n0token true $(rly keys show ibc1 testkey)
 
 # See that the transfer has completed
-$ rly q balance ibc0
-$ rly q balance ibc1
+$ rly q bal ibc0
+$ rly q bal ibc1
 
 # Send the tokens back to the account on ibc0
-$ rly tx transfer ibc1 ibc0 10000n0token false $(rly keys show ibc0 testkey)
+$ rly tx xfer ibc1 ibc0 10000n0token false $(rly keys show ibc0 testkey)
 
 # See that the return trip has completed
-$ rly q balance ibc0
-$ rly q balance ibc1
+$ rly q bal ibc0
+$ rly q bal ibc1
 
 # NOTE: you will see the stake balances decreasing on each chain. This is to pay for fees
 # You can change the amount of fees you are paying on each chain in the configuration.
 ```
 
-> NOTE: The relayer relies on `cosmos/cosmos-sdk@ibc-alpha`. If you run into problems building it likely related to this dependancy. Also the `two-chainz` script requires that the `cosmos/gaia` and `iqlusion/relayer` repos be present locally and buildable. Read the script and change the paths as needed if you are using another repo.
-
 ## Next items
 
 - [ ] Path negotiation reuse commands
 - [x] Integration test framework: additional tests
-- [ ] Integration test framework: additional chains
-- [ ] Less lite client database access, concurrent header map
+- [x] Integration test framework: additional chains
+- [x] Less lite client database access, concurrent header map
 - [x] Exponential backoff queries for proofs
 
 ## Setting up Developer Environment
