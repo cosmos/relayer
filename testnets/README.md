@@ -67,8 +67,8 @@ gaiad gentx --name validator --amount 90000000000$DENOM
 gaiad collect-gentxs
 
 # Setup the service definitions
-rly svc gaia $USER $HOME > gaiad.service
-rly svc faucet $USER $HOME $CHAINID $RLYKEY 100000$DENOM > faucet.service
+rly development gaia $USER $HOME > gaiad.service
+rly development faucet $USER $HOME $CHAINID $RLYKEY 100000$DENOM > faucet.service
 sudo mv gaiad.service /etc/systemd/system/gaiad.service
 sudo mv faucet.service /etc/systemd/system/faucet.service
 sudo systemctl daemon-reload
