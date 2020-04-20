@@ -34,31 +34,34 @@ func relayPacketsFromEventListener(events map[string][]string) (rlyPkts []relayP
 		}
 	}
 
-	// // then, check for packet acks
-	// if pdval, ok := events["recv_packet.packet_data"]; ok {
-	// 	for i, pd := range pdval {
-	// 		rp := &relayMsgPacketAck{ack: []byte(pd)}
-	// 		// next, get and parse the sequence
-	// 		if sval, ok := events["recv_packet.packet_sequence"]; ok {
-	// 			seq, err := strconv.ParseUint(sval[i], 10, 64)
-	// 			if err != nil {
-	// 				return nil, err
-	// 			}
-	// 			rp.seq = seq
-	// 		}
+	// then, check for packet acks
+	if pdval, ok := events["recv_packet.packet_data"]; ok {
+		for i, pd := range pdval {
+			rp := &relayMsgPacketAck{packetData: []byte(pd)}
+			// next, get and parse the sequence
+			if ack, ok := events["recv_packet.packet_ack"]; ok {
+				rp.ack = []byte(ack[i])
+			}
+			if sval, ok := events["recv_packet.packet_sequence"]; ok {
+				seq, err := strconv.ParseUint(sval[i], 10, 64)
+				if err != nil {
+					return nil, err
+				}
+				rp.seq = seq
+			}
 
-	// 		// finally, get and parse the timeout
-	// 		if sval, ok := events["recv_packet.packet_timeout"]; ok {
-	// 			timeout, err := strconv.ParseUint(sval[i], 10, 64)
-	// 			if err != nil {
-	// 				return nil, err
-	// 			}
-	// 			rp.timeout = timeout
-	// 		}
+			// finally, get and parse the timeout
+			if sval, ok := events["recv_packet.packet_timeout"]; ok {
+				timeout, err := strconv.ParseUint(sval[i], 10, 64)
+				if err != nil {
+					return nil, err
+				}
+				rp.timeout = timeout
+			}
 
-	// 		rlyPkts = append(rlyPkts, rp)
-	// 	}
-	// }
+			rlyPkts = append(rlyPkts, rp)
+		}
+	}
 	return
 }
 
@@ -148,14 +151,15 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) sdk.Msg {
 
 // nolint
 type relayMsgPacketAck struct {
-	ack       []byte
-	seq       uint64
-	timeout   uint64
-	dstComRes *CommitmentResponse
+	packetData []byte
+	ack        []byte
+	seq        uint64
+	timeout    uint64
+	dstComRes  *CommitmentResponse
 }
 
 func (rp *relayMsgPacketAck) Data() []byte {
-	return rp.ack
+	return rp.packetData
 }
 func (rp *relayMsgPacketAck) Seq() uint64 {
 	return rp.seq
@@ -170,6 +174,7 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
 		rp.seq,
 		rp.timeout,
 		rp.ack,
+		rp.packetData,
 		rp.dstComRes.Proof,
 		rp.dstComRes.ProofHeight,
 		src.MustGetAddress(),

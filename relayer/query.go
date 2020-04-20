@@ -220,10 +220,7 @@ func (c *Chain) QueryClientState() (*clientTypes.StateResponse, error) {
 	}
 
 	var cs exported.ClientState
-	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
-		if err = c.Amino.UnmarshalBinaryBare(res.Value, &cs); err != nil {
-			return nil, qClntConsStateErr(err)
-		}
+	if err := c.Amino.UnmarshalBinaryBare(res.Value, &cs); err != nil || cs == nil {
 		return nil, qClntStateErr(err)
 	}
 

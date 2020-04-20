@@ -212,12 +212,12 @@ func (src *PathEnd) MsgTimeout(packet chanTypes.Packet, seq uint64, proof chanTy
 }
 
 // MsgAck creates MsgAck
-func (src *PathEnd) MsgAck(dst *PathEnd, sequence, timeoutHeight uint64, ack []byte, proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) MsgAck(dst *PathEnd, sequence, timeoutHeight uint64, ack, packetData []byte, proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgAcknowledgement(
-		dst.NewPacket(
-			src,
+		src.NewPacket(
+			dst,
 			sequence,
-			ack,
+			packetData,
 			timeoutHeight,
 		),
 		ack,
