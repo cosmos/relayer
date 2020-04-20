@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"nochainnogain","rpc-addr":"http://ibc.blockscape.network:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025gain","default-denom":"gain","trusting-period":"330h"}
