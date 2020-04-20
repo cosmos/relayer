@@ -57,7 +57,7 @@ $ cat ~/.relayer/config/config.yaml
 
 # Then add the chains and paths that you will need to work with the
 # gaia chains spun up by the two-chains script
-$ rly cfg add-dir configs/demo
+$ rly cfg add-dir configs/demo/
 
 # NOTE: you may want to look at the config between these steps
 $ cat ~/.relayer/config/config.yaml
@@ -76,7 +76,7 @@ $ rly lite init ibc1 -f
 $ tree ~/.relayer
 
 # Now you can connect the two chains with one command:
-$ rly tx link demo-path
+$ rly tx link demo
 
 # Check the token balances on both chains
 $ rly q balance ibc0
