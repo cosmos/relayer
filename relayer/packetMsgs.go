@@ -1,52 +1,67 @@
 package relayer
 
 import (
+	"github.com/cosmos/cosmos-sdk/codec"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+
+	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 )
 
-// MsgOpaquePacket sends an outgoing IBC packet
-type MsgOpaquePacket struct {
-	Data   []byte         `json:"data" yaml:"data"`
-	Sender sdk.AccAddress `json:"sender" yaml:"sender"` // the sender address
+var ModuleCdc *codec.Codec
+
+func RegisterCodec(cdc *codec.Codec) {
+	if ModuleCdc != nil {
+		return
+	}
+	cdc.RegisterConcrete(MsgSendPacket{}, "swingset/SendPacket", nil)
+	ModuleCdc = cdc
 }
 
-var _ sdk.Msg = MsgOpaquePacket{}
+// MsgSendPacket sends an outgoing IBC packet
+type MsgSendPacket struct {
+	Packet chanTypes.Packet `json:"packet" yaml:"packet"`
+	Sender sdk.AccAddress   `json:"sender" yaml:"sender"` // the sender address
+}
 
-// NewMsgOpaquePacket returns a new send request
-func NewMsgOpaquePacket(packetData []byte, sender sdk.AccAddress) MsgOpaquePacket {
-	return MsgOpaquePacket{
-		Data:   packetData,
+var _ sdk.Msg = MsgSendPacket{}
+
+// NewMsgSendPacket returns a new send request
+func NewMsgSendPacket(packet chanTypes.Packet, sender sdk.AccAddress) MsgSendPacket {
+	return MsgSendPacket{
+		Packet: packet,
 		Sender: sender,
 	}
 }
 
 // Route implements sdk.Msg
-func (msg MsgOpaquePacket) Route() string {
+func (msg MsgSendPacket) Route() string {
 	// FIXME: Do we need this if we are only sending?
 	return "swingset"
 }
 
 // ValidateBasic implements sdk.Msg
-func (msg MsgOpaquePacket) ValidateBasic() error {
+func (msg MsgSendPacket) ValidateBasic() error {
 	if msg.Sender.Empty() {
 		return sdkerrors.ErrInvalidAddress
 	}
 
-	return nil
+	return msg.Packet.ValidateBasic()
 }
 
 // GetSignBytes implements sdk.Msg
-func (msg MsgOpaquePacket) GetSignBytes() []byte {
-	return msg.Data
+func (msg MsgSendPacket) GetSignBytes() []byte {
+	// FIXME: What do we need here?
+	return sdk.MustSortJSON(ModuleCdc.MustMarshalJSON(msg))
 }
 
 // GetSigners implements sdk.Msg
-func (msg MsgOpaquePacket) GetSigners() []sdk.AccAddress {
+func (msg MsgSendPacket) GetSigners() []sdk.AccAddress {
 	return []sdk.AccAddress{msg.Sender}
 }
 
 // Type implements sdk.Msg
-func (msg MsgOpaquePacket) Type() string {
-	return "ibc/opaque"
+func (msg MsgSendPacket) Type() string {
+	return "sendpacket"
 }
