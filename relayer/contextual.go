@@ -1,13 +1,9 @@
 package relayer
 
 import (
-	"sync"
-
 	"github.com/cosmos/cosmos-sdk/codec"
 	stdcodec "github.com/cosmos/cosmos-sdk/codec/std"
 )
-
-var globalMutex sync.Mutex
 
 type contextualStdCodec struct {
 	*stdcodec.Codec

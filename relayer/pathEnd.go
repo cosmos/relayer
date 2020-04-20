@@ -10,6 +10,7 @@ import (
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc/20-transfer/types"
+	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
 )
 
 // TODO: add Order chanTypes.Order as a property and wire it up in validation
@@ -179,7 +180,7 @@ func (src *PathEnd) ChanCloseConfirm(dstChanState chanTypes.ChannelResponse, sig
 }
 
 // MsgRecvPacket creates a MsgPacket
-func (src *PathEnd) MsgRecvPacket(dst *PathEnd, sequence, timeoutHeight uint64, packetData []byte, proof chanTypes.PacketResponse, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) MsgRecvPacket(dst *PathEnd, sequence, timeoutHeight uint64, packetData []byte, proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgPacket(
 		dst.NewPacket(
 			src,
@@ -187,8 +188,8 @@ func (src *PathEnd) MsgRecvPacket(dst *PathEnd, sequence, timeoutHeight uint64, 
 			packetData,
 			timeoutHeight,
 		),
-		proof.Proof,
-		proof.ProofHeight+1,
+		proof,
+		proofHeight+1,
 		signer,
 	)
 }
@@ -205,12 +206,17 @@ func (src *PathEnd) MsgTimeout(packet chanTypes.Packet, seq uint64, proof chanTy
 }
 
 // MsgAck creates MsgAck
-func (src *PathEnd) MsgAck(packet chanTypes.Packet, ack []byte, proof chanTypes.PacketResponse, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) MsgAck(dst *PathEnd, sequence, timeoutHeight uint64, ack []byte, proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgAcknowledgement(
-		packet,
+		dst.NewPacket(
+			src,
+			sequence,
+			ack,
+			timeoutHeight,
+		),
 		ack,
-		proof.Proof,
-		proof.ProofHeight+1,
+		proof,
+		proofHeight+1,
 		signer,
 	)
 }
@@ -250,25 +256,14 @@ func (src *PathEnd) XferPacket(amount sdk.Coins, sender, reciever string) []byte
 }
 
 // PacketMsg returns a new MsgPacket for forwarding packets from one chain to another
-func (src *Chain) PacketMsg(dst *Chain, xferPacket []byte, timeout uint64, seq int64, dstCommitRes CommitmentResponse) (sdk.Msg, error) {
+func (src *Chain) PacketMsg(dst *Chain, xferPacket []byte, timeout uint64, seq int64, dstCommitRes CommitmentResponse) sdk.Msg {
 	return src.PathEnd.MsgRecvPacket(
 		dst.PathEnd,
 		uint64(seq),
 		timeout,
 		xferPacket,
-		chanTypes.NewPacketResponse(
-			dst.PathEnd.PortID,
-			dst.PathEnd.ChannelID,
-			uint64(seq),
-			dst.PathEnd.NewPacket(
-				src.PathEnd,
-				uint64(seq),
-				xferPacket,
-				timeout,
-			),
-			dstCommitRes.Proof.Proof,
-			int64(dstCommitRes.ProofHeight),
-		),
+		dstCommitRes.Proof,
+		dstCommitRes.ProofHeight,
 		src.MustGetAddress(),
-	), nil
+	)
 }

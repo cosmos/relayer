@@ -634,12 +634,12 @@ func queryUnrelayed() *cobra.Command {
 				return err
 			}
 
-			hs, err := relayer.UpdatesWithHeaders(c[src], c[dst])
+			sh, err := relayer.NewSyncHeaders(c[src], c[dst])
 			if err != nil {
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(c[src], c[dst], hs[src].Height, hs[dst].Height)
+			sp, err := relayer.UnrelayedSequences(c[src], c[dst], sh)
 			if err != nil {
 				return err
 			}

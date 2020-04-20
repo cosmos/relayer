@@ -62,7 +62,7 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 	require.NoError(t, dst.SendTransferMsg(src, twoTestCoin, src.MustGetAddress(), false))
 
 	// wait for packet processing
-	require.NoError(t, dst.WaitForNBlocks(4))
+	require.NoError(t, dst.WaitForNBlocks(6))
 
 	// kill relayer routine
 	rlyDone()

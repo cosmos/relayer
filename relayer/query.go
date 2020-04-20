@@ -654,8 +654,8 @@ func newRlySeq(start, end uint64) []uint64 {
 }
 
 // UnrelayedSequences returns the unrelayed sequence numbers between two chains
-func UnrelayedSequences(src, dst *Chain, srcH, dstH int64) (*RelaySequences, error) {
-	seqP, err := QueryNextSeqPairs(src, dst, srcH, dstH)
+func UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error) {
+	seqP, err := QueryNextSeqPairs(src, dst, sh)
 	if err != nil {
 		return nil, err
 	}
@@ -663,14 +663,14 @@ func UnrelayedSequences(src, dst *Chain, srcH, dstH int64) (*RelaySequences, err
 }
 
 // QueryNextSeqPairs returns a pair of chain's next sequences for the configured channel
-func QueryNextSeqPairs(src, dst *Chain, srcH, dstH int64) (*SeqPairs, error) {
+func QueryNextSeqPairs(src, dst *Chain, sh *SyncHeaders) (*SeqPairs, error) {
 	sps := &SeqPairs{Src: &SeqPair{}, Dst: &SeqPair{}, errs: errs{}}
 	var wg sync.WaitGroup
 	wg.Add(4)
-	go src.queryNextSendWG(sps, srcH, &wg, true)
-	go src.queryNextRecvWG(sps, srcH, &wg, true)
-	go dst.queryNextSendWG(sps, dstH, &wg, false)
-	go dst.queryNextRecvWG(sps, dstH, &wg, false)
+	go src.queryNextSendWG(sps, int64(sh.GetHeight(src.ChainID)), &wg, true)
+	go src.queryNextRecvWG(sps, int64(sh.GetHeight(src.ChainID)), &wg, true)
+	go dst.queryNextSendWG(sps, int64(sh.GetHeight(dst.ChainID)), &wg, false)
+	go dst.queryNextRecvWG(sps, int64(sh.GetHeight(dst.ChainID)), &wg, false)
 	wg.Wait()
 	return sps, sps.errs.err()
 }
@@ -854,14 +854,14 @@ type ChannelStatus struct {
 func QueryPathStatus(src, dst *Chain, path *Path) (stat *PathStatus, err error) {
 	stat = &PathStatus{
 		Chains: map[string]*ChainStatus{
-			src.ChainID: &ChainStatus{
+			src.ChainID: {
 				Reachable:  false,
 				Height:     -1,
 				Client:     &ClientStatus{},
 				Connection: &ConnectionStatus{},
 				Channel:    &ChannelStatus{},
 			},
-			dst.ChainID: &ChainStatus{
+			dst.ChainID: {
 				Reachable:  false,
 				Height:     -1,
 				Client:     &ClientStatus{},
@@ -881,18 +881,15 @@ func QueryPathStatus(src, dst *Chain, path *Path) (stat *PathStatus, err error) 
 		return
 	}
 
-	srch, err := src.QueryLatestHeight()
+	sh, err := NewSyncHeaders(src, dst)
 	if err != nil {
 		return
 	}
-	stat.Chains[src.ChainID].Height = srch
+
+	stat.Chains[src.ChainID].Height = int64(sh.GetHeight(src.ChainID))
 	stat.Chains[src.ChainID].Reachable = true
 
-	dsth, err := dst.QueryLatestHeight()
-	if err != nil {
-		return
-	}
-	stat.Chains[dst.ChainID].Height = dsth
+	stat.Chains[dst.ChainID].Height = int64(sh.GetHeight(dst.ChainID))
 	stat.Chains[dst.ChainID].Reachable = true
 
 	srcCs, err := src.QueryClientState()
@@ -909,21 +906,21 @@ func QueryPathStatus(src, dst *Chain, path *Path) (stat *PathStatus, err error) 
 	stat.Chains[dst.ChainID].Client.ID = dstCs.ClientState.GetID()
 	stat.Chains[dst.ChainID].Client.Height = dstCs.ClientState.GetLatestHeight()
 
-	srcConn, err := src.QueryConnection(srch)
+	srcConn, err := src.QueryConnection(int64(sh.GetHeight(src.ChainID)))
 	if err != nil {
 		return
 	}
 	stat.Chains[src.ChainID].Connection.ID = srcConn.Connection.Identifier
 	stat.Chains[src.ChainID].Connection.State = srcConn.Connection.Connection.GetState().String()
 
-	dstConn, err := dst.QueryConnection(dsth)
+	dstConn, err := dst.QueryConnection(int64(sh.GetHeight(dst.ChainID)))
 	if err != nil {
 		return
 	}
 	stat.Chains[dst.ChainID].Connection.ID = dstConn.Connection.Identifier
 	stat.Chains[dst.ChainID].Connection.State = dstConn.Connection.Connection.GetState().String()
 
-	srcChan, err := src.QueryChannel(srch)
+	srcChan, err := src.QueryChannel(int64(sh.GetHeight(src.ChainID)))
 	if err != nil {
 		return
 	}
@@ -932,7 +929,7 @@ func QueryPathStatus(src, dst *Chain, path *Path) (stat *PathStatus, err error) 
 	stat.Chains[src.ChainID].Channel.State = srcChan.Channel.Channel.GetState().String()
 	stat.Chains[src.ChainID].Channel.Order = srcChan.Channel.Channel.GetOrdering().String()
 
-	dstChan, err := dst.QueryChannel(dsth)
+	dstChan, err := dst.QueryChannel(int64(sh.GetHeight(dst.ChainID)))
 	if err != nil {
 		return
 	}
@@ -941,7 +938,7 @@ func QueryPathStatus(src, dst *Chain, path *Path) (stat *PathStatus, err error) 
 	stat.Chains[dst.ChainID].Channel.State = dstChan.Channel.Channel.GetState().String()
 	stat.Chains[dst.ChainID].Channel.Order = dstChan.Channel.Channel.GetOrdering().String()
 
-	unrelayed, err := UnrelayedSequences(src, dst, srch, dsth)
+	unrelayed, err := UnrelayedSequences(src, dst, sh)
 	if err != nil {
 		return
 	}

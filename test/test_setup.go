@@ -9,11 +9,8 @@ import (
 	"sync"
 	"testing"
 
-	// TODO: replace this codec with the gaia codec
-
 	"github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
-
 	"github.com/stretchr/testify/require"
 
 	. "github.com/iqlusioninc/relayer/relayer"
