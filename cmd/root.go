@@ -43,6 +43,7 @@ var (
 	dcon = "defaultconnectionid"
 	dcha = "defaultchannelid"
 	dpor = "defaultportid"
+	dord = "ordered"
 )
 
 func init() {

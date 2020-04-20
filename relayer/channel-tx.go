@@ -100,7 +100,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 			logChannelStates(src, dst, chans)
 		}
 		out.Src = append(out.Src,
-			src.PathEnd.ChanInit(dst.PathEnd, ordering, src.MustGetAddress()),
+			src.PathEnd.ChanInit(dst.PathEnd, src.MustGetAddress()),
 		)
 
 	// Handshake has started on dst (1 step done), relay `chanOpenTry` and `updateClient` to src

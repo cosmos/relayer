@@ -117,7 +117,7 @@ func (p *Path) String() string {
 
 // GenPath generates a path with random client, connection and channel identifiers
 // given chainIDs and portIDs
-func GenPath(srcChainID, dstChainID, srcPortID, dstPortID string) *Path {
+func GenPath(srcChainID, dstChainID, srcPortID, dstPortID, order string) *Path {
 	return &Path{
 		Src: &PathEnd{
 			ChainID:      srcChainID,
@@ -125,6 +125,7 @@ func GenPath(srcChainID, dstChainID, srcPortID, dstPortID string) *Path {
 			ConnectionID: RandLowerCaseLetterString(10),
 			ChannelID:    RandLowerCaseLetterString(10),
 			PortID:       srcPortID,
+			Order:        order,
 		},
 		Dst: &PathEnd{
 			ChainID:      dstChainID,
@@ -132,6 +133,7 @@ func GenPath(srcChainID, dstChainID, srcPortID, dstPortID string) *Path {
 			ConnectionID: RandLowerCaseLetterString(10),
 			ChannelID:    RandLowerCaseLetterString(10),
 			PortID:       dstPortID,
+			Order:        order,
 		},
 		Strategy: &StrategyCfg{
 			Type: "naive",
@@ -157,7 +159,7 @@ func FindPaths(chains Chains) (*Paths, error) {
 				continue
 			}
 
-			if err = src.AddPath(client.GetID(), dcon, dcha, dpor); err != nil {
+			if err = src.AddPath(client.GetID(), dcon, dcha, dpor, "ORDERED"); err != nil {
 				return nil, err
 			}
 
@@ -167,7 +169,7 @@ func FindPaths(chains Chains) (*Paths, error) {
 			}
 
 			for _, connid := range conns.ConnectionPaths {
-				if err = src.AddPath(client.GetID(), connid, dcha, dpor); err != nil {
+				if err = src.AddPath(client.GetID(), connid, dcha, dpor, "ORDERED"); err != nil {
 					return nil, err
 				}
 				conn, err := src.QueryConnection(hs[src.ChainID])

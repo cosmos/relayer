@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"strings"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -24,6 +25,11 @@ type PathEnd struct {
 	ConnectionID string `yaml:"connection-id,omitempty" json:"connection-id,omitempty"`
 	ChannelID    string `yaml:"channel-id,omitempty" json:"channel-id,omitempty"`
 	PortID       string `yaml:"port-id,omitempty" json:"port-id,omitempty"`
+	Order        string `yaml:"order,omitempty",json:"order,omitempty"`
+}
+
+func (src *PathEnd) getOrder() chanState.Order {
+	return chanState.OrderFromString(strings.ToUpper(src.Order))
 }
 
 // UpdateClient creates an sdk.Msg to update the client on c with data pulled from cp
@@ -106,12 +112,12 @@ func (src *PathEnd) ConnConfirm(dstConnState connTypes.ConnectionResponse, signe
 }
 
 // ChanInit creates a MsgChannelOpenInit
-func (src *PathEnd) ChanInit(dst *PathEnd, ordering chanState.Order, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) ChanInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgChannelOpenInit(
 		src.PortID,
 		src.ChannelID,
 		defaultTransferVersion,
-		ordering,
+		src.getOrder(),
 		[]string{src.ConnectionID},
 		dst.PortID,
 		dst.ChannelID,

@@ -290,7 +290,7 @@ func queryClientCmd() *cobra.Command {
 				return err
 			}
 
-			if err = chain.AddPath(args[1], dcon, dcha, dpor); err != nil {
+			if err = chain.AddPath(args[1], dcon, dcha, dpor, dord); err != nil {
 				return err
 			}
 
@@ -366,7 +366,7 @@ func queryConnectionsUsingClient() *cobra.Command {
 				return err
 			}
 
-			if err := chain.AddPath(args[1], dcon, dcha, dpor); err != nil {
+			if err := chain.AddPath(args[1], dcon, dcha, dpor, dord); err != nil {
 				return err
 			}
 
@@ -399,7 +399,7 @@ func queryConnection() *cobra.Command {
 				return err
 			}
 
-			if err := chain.AddPath(dcli, args[1], dcon, dpor); err != nil {
+			if err := chain.AddPath(dcli, args[1], dcon, dpor, dord); err != nil {
 				return err
 			}
 
@@ -431,7 +431,7 @@ func queryConnectionChannels() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err = chain.AddPath(dcli, args[1], dcha, dpor); err != nil {
+			if err = chain.AddPath(dcli, args[1], dcha, dpor, dord); err != nil {
 				return err
 			}
 
@@ -458,7 +458,7 @@ func queryChannel() *cobra.Command {
 				return err
 			}
 
-			if err = chain.AddPath(dcli, dcon, args[1], args[2]); err != nil {
+			if err = chain.AddPath(dcli, dcon, args[1], args[2], dord); err != nil {
 				return err
 			}
 
@@ -514,7 +514,7 @@ func queryNextSeqRecv() *cobra.Command {
 				return err
 			}
 
-			if err = chain.AddPath(dcli, dcon, args[1], args[2]); err != nil {
+			if err = chain.AddPath(dcli, dcon, args[1], args[2], dord); err != nil {
 				return err
 			}
 
@@ -546,7 +546,7 @@ func queryPacketCommitment() *cobra.Command {
 				return err
 			}
 
-			if err = chain.AddPath(dcli, dcon, args[1], args[2]); err != nil {
+			if err = chain.AddPath(dcli, dcon, args[1], args[2], dord); err != nil {
 				return err
 			}
 
@@ -583,7 +583,7 @@ func queryPacketAck() *cobra.Command {
 				return err
 			}
 
-			if err = chain.AddPath(dcli, dcon, args[1], args[2]); err != nil {
+			if err = chain.AddPath(dcli, dcon, args[1], args[2], dord); err != nil {
 				return err
 			}
 
