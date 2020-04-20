@@ -224,7 +224,6 @@ func (c *Chain) QueryClientState() (*clientTypes.StateResponse, error) {
 		if err = c.Amino.UnmarshalBinaryBare(res.Value, &cs); err != nil {
 			return nil, qClntConsStateErr(err)
 		}
-		return nil, qClntStateErr(err)
 	}
 
 	csr := clientTypes.NewClientStateResponse(c.PathEnd.ClientID, cs, res.Proof, res.Height)
