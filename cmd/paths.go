@@ -51,20 +51,19 @@ func pathsFindCmd() *cobra.Command {
 
 func pathsGenCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "generate [src-chain-id] [dst-chain-id] [name]",
+		Use:     "generate [src-chain-id] [src-port] [dst-chain-id] [dst-port] [name]",
 		Aliases: []string{"gen"},
 		Short:   "generate identifiers for a new path between src and dst",
-		Args:    cobra.ExactArgs(3),
+		Args:    cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			src, dst := args[0], args[1]
+			src, srcPort, dst, dstPort := args[0], args[1], args[2], args[3]
 			_, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
 			}
 
-			path := relayer.GenPath(src, dst, "transfer", "transfer")
-
-			if err = config.Paths.Add(args[2], path); err != nil {
+			path := relayer.GenPath(src, dst, srcPort, dstPort)
+			if err = config.Paths.Add(args[4], path); err != nil {
 				return err
 			}
 
