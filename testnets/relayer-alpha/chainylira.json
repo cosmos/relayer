@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"chainylira","rpc-addr":"http://n01.gozlira.com:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025nickel","default-denom":"nickel","trusting-period":"330h"}
