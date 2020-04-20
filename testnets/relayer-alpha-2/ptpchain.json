@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"ptpchain","rpc-addr":"http://95.217.135.90:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025ptp","default-denom":"ptp","trusting-period":"330h"}

@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"simplystaking","rpc-addr":"http://80.64.211.64:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025simp","default-denom":"simp","trusting-period":"330h"}

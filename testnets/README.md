@@ -19,6 +19,8 @@ build_tags: netgo,ledger
 go: go version go1.14 darwin/amd64
 ```
 
+- Relayer Version Info
+
 ### *19 March 2020 17:00 PST* - `relayer-alpha` testnet
 
 This is the first `relayer` testnet! Please submit your JSON files for this testnet to `./testnets/relayer-alpha/{{chain_id}}.json`.

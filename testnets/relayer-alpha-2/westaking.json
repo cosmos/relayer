@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"westaking","rpc-addr":"http://ibc.westaking.io:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025unme","default-denom":"unme","trusting-period":"330h"}

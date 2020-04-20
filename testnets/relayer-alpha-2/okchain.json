@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"okchain","rpc-addr":"http://13.231.12.191:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025okt","default-denom":"okt","trusting-period":"336h"}
