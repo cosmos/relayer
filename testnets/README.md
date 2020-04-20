@@ -21,6 +21,14 @@ go: go version go1.14 darwin/amd64
 
 - Relayer Version Info
 
+```bash
+$ rly version
+version: 0.2.0
+commit: 49e0d7316410b480236e280b0d94731adc807383
+cosmos-sdk: v0.34.4-0.20200419154345-84774907316c
+go: go1.14 darwin/amd64
+```
+
 ### *19 March 2020 17:00 PST* - `relayer-alpha` testnet
 
 This is the first `relayer` testnet! Please submit your JSON files for this testnet to `./testnets/relayer-alpha/{{chain_id}}.json`.
