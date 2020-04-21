@@ -498,8 +498,8 @@ for i in ${!SRCS[@]}; do
   get_alphabetic "$dst"
   dsta=$ida
 
-  demo="$srca$dsta"
-  out="$BASEDIR/config/$demo.json"
+  path="$srca$dsta"
+  out="$BASEDIR/config/$path.json"
   echo "creating $out"
   cat >"$out" <<EOF
 {
@@ -642,31 +642,47 @@ for i in ${!SRCS[@]}; do
   get_alphabetic "$dst"
   dsta=$ida
 
-  demo="$srca$dsta"
+  path="$srca$dsta"
   cat >>"$link" <<EOF
 
-echo "Starting 'rly tx link $demo' ($src<>$dst) logs in \$DATA/$demo.log"
+paths="\$paths $path"
+echo "Starting 'rly tx link $path' ($src<>$dst) logs in \$DATA/$path.log"
 (
   try=0
-  while ! rly tx link $demo --timeout=3s -d >> "\$DATA/$demo.log" 2>&1; do
+  while ! rly tx link $path --timeout=3s -d >> "\$DATA/$path.log" 2>&1; do
     try=\$(( \$try + 1 ))
-    echo "$demo tx link not yet ready (try=\$try)"
+    echo "$path tx link not yet ready (try=\$try)"
     sleep 1
   done
   try=\$(( \$try + 1 ))
-  echo "$demo tx link initialized (try=\$try)"
+  echo "$path tx link initialized (try=\$try)"
 ) &
 EOF
 done
 
-cat >>"$link" <<EOF
+cat >>"$link" <<\EOF
 
 echo "Check the state of the links using 'rly paths list' to see when they are ready..."
 echo "(Ctrl-C exits, or you can background this job)"
+todo=$paths
 while :; do
   rly paths list
+  remaining=$todo
+  todo=
+  for path in $remaining; do
+    if [[ $(rly paths show "$path" --json | jq -r .status.channel) != true ]]; then
+      todo="$todo $path"
+    else
+      rly start "$path" &
+    fi
+  done
+  if [[ -z $todo ]]; then
+    break
+  fi
   sleep 5
 done
+
+wait
 EOF
 chmod +x "$link"
 

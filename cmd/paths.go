@@ -207,6 +207,25 @@ func printPath(i int, k string, pth *relayer.Path, chains, clients, connection, 
 		i, k, chains, clients, connection, channel, pth.Src.ChainID, pth.Src.PortID, pth.Dst.ChainID, pth.Dst.PortID)
 }
 
+type PathStatus struct {
+	Chains     bool `yaml:"chains" json:"chains"`
+	Clients    bool `yaml:"clients" json:"clients"`
+	Connection bool `yaml:"connection" json:"connection"`
+	Channel    bool `yaml:"channel" json:"channel"`
+}
+
+type PathWithStatus struct {
+	Path   *relayer.Path `yaml:"path" json:"chains"`
+	Status PathStatus    `yaml:"status" json:"status"`
+}
+
+func checkmark(status bool) string {
+	if status {
+		return "✔"
+	}
+	return "✘"
+}
+
 func pathsShowCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "show [path-name]",
@@ -227,62 +246,73 @@ func pathsShowCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			switch {
-			case yml && jsn:
+			if yml && jsn {
 				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
+			}
+			// TODO: transition this to use relayer.QueryPathStatus
+			var (
+				chains     = false
+				clients    = false
+				connection = false
+				channel    = false
+				srch, dsth int64
+			)
+			src, dst := path.Src.ChainID, path.Dst.ChainID
+			ch, err := config.Chains.Gets(src, dst)
+			if err == nil {
+				srch, err = ch[src].QueryLatestHeight()
+				dsth, _ = ch[dst].QueryLatestHeight()
+				if err == nil {
+					chains = true
+					_ = ch[src].SetPath(path.Src)
+					_ = ch[dst].SetPath(path.Dst)
+				}
+			}
+
+			srcCs, err := ch[src].QueryClientState()
+			dstCs, _ := ch[dst].QueryClientState()
+			if err == nil && srcCs != nil && dstCs != nil {
+				clients = true
+			}
+
+			srcConn, err := ch[src].QueryConnection(srch)
+			dstConn, _ := ch[dst].QueryConnection(dsth)
+			if err == nil && srcConn.Connection.Connection.State.String() == "OPEN" && dstConn.Connection.Connection.State.String() == "OPEN" {
+				connection = true
+			}
+
+			srcChan, err := ch[src].QueryChannel(srch)
+			dstChan, _ := ch[dst].QueryChannel(dsth)
+			if err == nil && srcChan.Channel.Channel.State.String() == "OPEN" && dstChan.Channel.Channel.State.String() == "OPEN" {
+				channel = true
+			}
+
+			pathStatus := PathStatus{
+				Chains:     chains,
+				Clients:    clients,
+				Connection: connection,
+				Channel:    channel,
+			}
+			pathWithStatus := PathWithStatus{
+				Path:   path,
+				Status: pathStatus,
+			}
+			switch {
 			case yml:
-				out, err := yaml.Marshal(path)
+				out, err := yaml.Marshal(pathWithStatus)
 				if err != nil {
 					return err
 				}
 				fmt.Println(string(out))
 				return nil
 			case jsn:
-				out, err := json.Marshal(path)
+				out, err := json.Marshal(pathWithStatus)
 				if err != nil {
 					return err
 				}
 				fmt.Println(string(out))
 				return nil
 			default:
-				// TODO: transition this to use relayer.QueryPathStatus
-				var (
-					chains     = "✘"
-					clients    = "✘"
-					connection = "✘"
-					channel    = "✘"
-					srch, dsth int64
-				)
-				src, dst := path.Src.ChainID, path.Dst.ChainID
-				ch, err := config.Chains.Gets(src, dst)
-				if err == nil {
-					srch, err = ch[src].QueryLatestHeight()
-					dsth, _ = ch[dst].QueryLatestHeight()
-					if err == nil {
-						chains = "✔"
-						_ = ch[src].SetPath(path.Src)
-						_ = ch[dst].SetPath(path.Dst)
-					}
-				}
-
-				srcCs, err := ch[src].QueryClientState()
-				dstCs, _ := ch[dst].QueryClientState()
-				if err == nil && srcCs != nil && dstCs != nil {
-					clients = "✔"
-				}
-
-				srcConn, err := ch[src].QueryConnection(srch)
-				dstConn, _ := ch[dst].QueryConnection(dsth)
-				if err == nil && srcConn.Connection.Connection.State.String() == "OPEN" && dstConn.Connection.Connection.State.String() == "OPEN" {
-					connection = "✔"
-				}
-
-				srcChan, err := ch[src].QueryChannel(srch)
-				dstChan, _ := ch[dst].QueryChannel(dsth)
-				if err == nil && srcChan.Channel.Channel.State.String() == "OPEN" && dstChan.Channel.Channel.State.String() == "OPEN" {
-					channel = "✔"
-				}
-
 				fmt.Printf(`Path "%s" strategy(%s):
   SRC(%s)
     ClientID:     %s
@@ -300,10 +330,11 @@ func pathsShowCmd() *cobra.Command {
     Connection:   %s
     Channel:      %s
 `, args[0], path.Strategy.Type, path.Src.ChainID, path.Src.ClientID, path.Src.ConnectionID, path.Src.ChannelID, path.Src.PortID,
-					path.Dst.ChainID, path.Dst.ClientID, path.Dst.ConnectionID, path.Dst.ChannelID, path.Dst.PortID, chains, clients, connection, channel)
-				return nil
+					path.Dst.ChainID, path.Dst.ClientID, path.Dst.ConnectionID, path.Dst.ChannelID, path.Dst.PortID,
+					checkmark(chains), checkmark(clients), checkmark(connection), checkmark(channel))
 			}
 
+			return nil
 		},
 	}
 	return yamlFlag(jsonFlag(cmd))
