@@ -46,7 +46,7 @@ func (src *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) erro
 			src.Log(fmt.Sprintf("★ Channel created: [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
 				src.ChainID, src.PathEnd.ChannelID, src.PathEnd.PortID,
 				dst.ChainID, dst.PathEnd.ChannelID, dst.PathEnd.PortID))
-			break
+			return nil
 		// In the case of success, reset the failures counter
 		case chanSteps.success:
 			failures = 0
@@ -55,10 +55,9 @@ func (src *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) erro
 		case !chanSteps.success:
 			failures++
 			if failures > 2 {
-				src.Error(fmt.Errorf("! Channel failed: [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
+				return fmt.Errorf("! Channel failed: [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
 					src.ChainID, src.PathEnd.ChannelID, src.PathEnd.PortID,
-					dst.ChainID, dst.PathEnd.ChannelID, dst.PathEnd.PortID))
-				break
+					dst.ChainID, dst.PathEnd.ChannelID, dst.PathEnd.PortID)
 			}
 		}
 	}

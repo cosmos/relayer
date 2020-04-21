@@ -146,8 +146,8 @@ func closeChannelCmd() *cobra.Command {
 
 func fullPathCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "full-path [path-name]",
-		Aliases: []string{"link", "connect", "path", "pth"},
+		Use:     "link [path-name]",
+		Aliases: []string{"full-path", "connect", "path", "pth"},
 		Short:   "create clients, connection, and channel between two configured chains with a configured path",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
