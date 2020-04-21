@@ -498,7 +498,9 @@ for i in ${!SRCS[@]}; do
   get_alphabetic "$dst"
   dsta=$ida
 
-  path="$srca$dsta"
+  get_alphabetic "$i"
+  ia=$ida
+  path="$ida"
   out="$BASEDIR/config/$path.json"
   echo "creating $out"
   cat >"$out" <<EOF
@@ -507,14 +509,14 @@ for i in ${!SRCS[@]}; do
     "chain-id": "$src",
     "client-id": "${dsta}client",
     "connection-id": "${dsta}link",
-    "channel-id": "${dsta}xfer",
+    "channel-id": "${dsta}xfer${ida}",
     "port-id": "$srcport"
   },
   "dst": {
     "chain-id": "$dst",
     "client-id": "${srca}client",
     "connection-id": "${srca}link",
-    "channel-id": "${srca}xfer",
+    "channel-id": "${srca}xfer${ida}",
     "port-id": "$dstport"
   },
   "strategy": {
@@ -642,7 +644,9 @@ for i in ${!SRCS[@]}; do
   get_alphabetic "$dst"
   dsta=$ida
 
-  path="$srca$dsta"
+  get_alphabetic "$i"
+  ia=$ida
+  path="$ia"
   cat >>"$link" <<EOF
 
 paths="\$paths $path"
@@ -656,6 +660,7 @@ echo "Starting 'rly tx link $path' ($src<>$dst) logs in \$DATA/$path.log"
   done
   try=\$(( \$try + 1 ))
   echo "$path tx link initialized (try=\$try)"
+  rly start "$path" &
 ) &
 EOF
 done
@@ -672,8 +677,6 @@ while :; do
   for path in $remaining; do
     if [[ $(rly paths show "$path" --json | jq -r .status.channel) != true ]]; then
       todo="$todo $path"
-    else
-      rly start "$path" &
     fi
   done
   if [[ -z $todo ]]; then
@@ -682,6 +685,7 @@ while :; do
   sleep 5
 done
 
+echo "All paths initialized, waiting for relayers (Control-C to exit)..."
 wait
 EOF
 chmod +x "$link"
