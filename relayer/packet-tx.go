@@ -220,10 +220,15 @@ func (src *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr sdk.AccAd
 
 // SendPacket sends arbitrary bytes from src to dst
 func (src *Chain) SendPacket(dst *Chain, packetData []byte) error {
+	dstHeader, err := dst.UpdateLiteWithHeader()
+	if err != nil {
+		return err
+	}
+
 	// MsgSendPacket will call SendPacket on src chain
 	txs := RelayMsgs{
 		Src: []sdk.Msg{src.PathEnd.MsgSendPacket(
-			dst.PathEnd, packetData, uint64(defaultPacketTimeout), src.MustGetAddress(),
+			dst.PathEnd, packetData, dstHeader.GetHeight()+uint64(defaultPacketTimeout), src.MustGetAddress(),
 		)},
 		Dst: []sdk.Msg{},
 	}

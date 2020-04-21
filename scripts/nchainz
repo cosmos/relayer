@@ -648,13 +648,13 @@ for i in ${!SRCS[@]}; do
 echo "Starting 'rly tx link $demo' ($src<>$dst) logs in \$DATA/$demo.log"
 (
   try=0
-  while ! rly tx link $demo --timeout=3s -d >> \$DATA/$demo.log 2>&1; do
-    try=$(( $try + 1 ))
-    echo "$demo tx link did not initialize (try=$try)"
+  while ! rly tx link $demo --timeout=3s -d >> "\$DATA/$demo.log" 2>&1; do
+    try=\$(( \$try + 1 ))
+    echo "$demo tx link not yet ready (try=\$try)"
     sleep 1
   done
-  try=$(( $try + 1 ))
-  echo "$demo tx link initialized (try=$try)"
+  try=\$(( \$try + 1 ))
+  echo "$demo tx link initialized (try=\$try)"
 ) &
 EOF
 done
@@ -662,10 +662,11 @@ done
 cat >>"$link" <<EOF
 
 echo "Check the state of the links using 'rly paths list' to see when they are ready..."
-(while :; do rly paths list; sleep 5; done) &
-
-echo "Ctrl-C exits, or you can background this job..."
-wait
+echo "(Ctrl-C exits, or you can background this job)"
+while :; do
+  rly paths list
+  sleep 5
+done
 EOF
 chmod +x "$link"
 
