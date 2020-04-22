@@ -1,0 +1,1 @@
+{"src":{"chain-id":"ibc0","client-id":"ibconeclient","connection-id":"ibconeconnection","channel-id":"ibconexfer","port-id":"transfer","order":"ordered"},"dst":{"chain-id":"ibc1","client-id":"ibczeroclient","connection-id":"ibczeroconnection","channel-id":"ibczeroxfer","port-id":"transfer","order":"ordered"},"strategy":{"type":"naive"}}
