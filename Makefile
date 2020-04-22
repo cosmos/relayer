@@ -47,7 +47,10 @@ test-rocketzone:
 	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestRocket*
 
 test-agoric:
-	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestAgoric* 
+	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestAgoric*
+
+test-coco:
+	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestCoCo*
 
 coverage:
 	@echo "viewing test coverage..."

@@ -12,6 +12,7 @@ import (
 	"github.com/tendermint/go-amino"
 
 	. "github.com/iqlusioninc/relayer/relayer"
+	"github.com/CosmicCompass/post-chain/app"
 )
 
 var (
@@ -84,6 +85,24 @@ var (
 		gas:            200000,
 		gasPrices:      "",
 		defaultDenom:   "uag",
+		trustingPeriod: "330h",
+	}
+	
+	// CoCo Chain
+	// timeout_commit = "1000ms"
+	// timeout_propose = "1000ms"
+	// 4 second relayer timeout works well with these block times
+	cocoTestConfig = testChainConfig{
+		cdc:            codecstd.NewAppCodec(codecstd.MakeCodec(app.ModuleBasics)),
+		amino:          codecstd.MakeCodec(app.ModuleBasics),
+		dockerImage:    "saisunkari19/coco",
+		dockerTag:      "ibc-alpha",
+		timeout:        3 * time.Second,
+		rpcPort:        "26657",
+		accountPrefix:  "cosmic",
+		gas:            200000,
+		gasPrices:      "0.025coco",
+		defaultDenom:   "coco",
 		trustingPeriod: "330h",
 	}
 )
