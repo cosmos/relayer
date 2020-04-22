@@ -239,6 +239,14 @@ func (src *PathEnd) MsgTransfer(dst *PathEnd, dstHeight uint64, amount sdk.Coins
 	)
 }
 
+// MsgSendPacket creates a new arbitrary packet message
+func (src *PathEnd) MsgSendPacket(dst *PathEnd, packetData []byte, relativeTimeout uint64, signer sdk.AccAddress) sdk.Msg {
+	// NOTE: Use this just to pass the packet integrity checks.
+	fakeSequence := uint64(1)
+	packet := chanTypes.NewPacket(packetData, fakeSequence, src.PortID, src.ChannelID, dst.PortID, dst.ChannelID, relativeTimeout)
+	return NewMsgSendPacket(packet, signer)
+}
+
 // NewPacket returns a new packet from src to dist w
 func (src *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte, timeoutHeight uint64) chanTypes.Packet {
 	return chanTypes.NewPacket(
