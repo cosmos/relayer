@@ -293,6 +293,7 @@ done
 BASEDIR=$(cd "$BASEDIR" && pwd)
 NCONFIG="$BASEDIR/nchainz.json"
 DATA="$BASEDIR/data"
+LOGS="$BASEDIR/logs"
 
 case $COMMAND in
 "")
@@ -360,6 +361,7 @@ progname=$(basename -- "$0")
 cd $(dirname -- ${BASH_SOURCE[0]}) || exit $?
 BASEDIR=$PWD
 DATA="$BASEDIR/data"
+LOGS="$BASEDIR/logs"
 trap 'kill $(jobs -p) 2>/dev/null' EXIT 
 
 # Ensure gopath is set and go is installed
@@ -372,17 +374,17 @@ if [[ ! -d $GOPATH ]] || [[ ! -d $GOBIN ]] || [[ ! -x "$(which go)" ]]; then
 fi
 
 # Ensure user understands what will be deleted
-if [[ -d $DATA && $1 != skip ]]; then
-  read -p "$progname: will delete $DATA folder. Do you wish to continue? (y/N): " -n 1 -r
+if [[ -d $DATA || -d $LOGS ]] && [[ $1 != skip ]]; then
+  read -p "$progname: will delete $DATA and $LOGS folder. Do you wish to continue? (y/N): " -n 1 -r
   echo 
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
       exit 1
   fi
 fi
-rm -rf "$DATA"
+rm -rf "$DATA" "$LOGS"
 
-echo "mkdir $DATA"
-mkdir -p "$DATA"
+echo "mkdir $DATA $LOGS"
+mkdir -p "$DATA" "$LOGS"
 
 set -e
 
@@ -403,7 +405,11 @@ for i in ${!IDS[@]}; do
   DAEMON=$(jq -r .daemon $json)
   CLI=$(jq -r .cli $json)
 
+  DAEMON_TESTNET=$(jq -r '."daemon-testnet"' "$json")
+  [[ $DAEMON_TESTNET == null ]] && DAEMON_TESTNET='echo | $DAEMON testnet -o $chainid --v 1 --chain-id $chainid --node-dir-prefix n --keyring-backend test'
+
   cat >>"$run" <<EOF
+
 chainid="$ID"
 DAEMON="$DAEMON"
 CLI="$CLI"
@@ -412,11 +418,12 @@ p26657=$(( 26657 - $i * 100 ))
 p26658=$(( 26658 - $i * 100 ))
 p26660=$(( 26660 - $i * 100 ))
 p6060=$(( 6060 + $i ))
+
+cd "$DATA"
+$DAEMON_TESTNET
 EOF
 
   sed -e "s/sed -i/$sedi/g" >>"$run" <<\EOF
-
-echo -e "\n" | $DAEMON testnet -o $chainid --v 1 --chain-id $chainid --node-dir-prefix n --keyring-backend test &> /dev/null
 
 cfgpth="$DATA/$chainid/n0/$DAEMON/config/config.toml"
 # TODO: Just index *some* specified tags, not all
@@ -465,8 +472,10 @@ chainid="$ID"
 EOF
 
   cat >>"$run" <<EOF
-echo "'$DAEMON start' ($chainid) logs in \$DATA/$ID.log"
-$DAEMON_START > "\$DATA/$ID.log" 2>&1 &
+echo "'$DAEMON start' ($chainid) logs in \$LOGS/$ID.log"
+(
+  $DAEMON_START
+) >> "\$LOGS/$ID.log" 2>&1 &
 EOF
 done
 
@@ -540,6 +549,7 @@ progname=$(basename -- "$0")
 cd $(dirname -- ${BASH_SOURCE[0]}) || exit $?
 BASEDIR=$PWD
 DATA="$BASEDIR/data"
+LOGS="$BASEDIR/logs"
 RELAYER_CONF="$HOME/.relayer"
 EOF
 
@@ -617,7 +627,7 @@ EOF
   done
   echo "Creating lite client for $chainid ($DAEMON)..."
   try=0
-  while ! rly lite init $chainid -f >> "$DATA/lite-$chainid.log" 2>&1; do
+  while ! rly lite init $chainid -f >> "$LOGS/lite-$chainid.log" 2>&1; do
     try=$(( $try + 1 ))
     echo "$chainid lite client not yet ready (try=$try)"
     sleep 1
@@ -635,6 +645,23 @@ wait
 
 EOF
 
+for i in ${!IDS[@]}; do
+  id=${IDS[$i]}
+  json=${JSONS[$i]}
+  
+  CMD=$(jq -r '."post-lite-client"' $json)
+
+  [[ $CMD == null ]] && continue
+  cat >>"$link" <<EOF
+
+(
+  cd ..
+  chainid=$id
+  $CMD
+) &
+EOF
+done
+
 for i in ${!SRCS[@]}; do
   src=${SRCS[$i]}
   get_alphabetic "$src"
@@ -650,10 +677,10 @@ for i in ${!SRCS[@]}; do
   cat >>"$link" <<EOF
 
 paths="\$paths $path"
-echo "Starting 'rly tx link $path' ($src<>$dst) logs in \$DATA/$path.log"
+echo "Starting 'rly tx link $path' ($src<>$dst) logs in \$LOGS/$path.log"
 (
   try=0
-  while ! rly tx link $path --timeout=3s -d >> "\$DATA/$path.log" 2>&1; do
+  while ! rly tx link $path --timeout=3s -d >> "\$LOGS/$path.log" 2>&1; do
     try=\$(( \$try + 1 ))
     echo "$path tx link not yet ready (try=\$try)"
     sleep 1
