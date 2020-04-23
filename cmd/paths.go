@@ -8,6 +8,7 @@ import (
 
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -96,8 +97,11 @@ func pathsGenCmd() *cobra.Command {
 			}
 
 			for _, c := range srcClients {
-				if c.GetChainID() == dst && !c.IsFrozen() {
-					path.Src.ClientID = c.GetID()
+				clnt, ok := c.(tmclient.ClientState)
+				if ok && clnt.LastHeader.Commit != nil && clnt.LastHeader.Header != nil {
+					if clnt.GetChainID() == dst && !clnt.IsFrozen() {
+						path.Src.ClientID = c.GetID()
+					}
 				}
 			}
 
@@ -107,8 +111,11 @@ func pathsGenCmd() *cobra.Command {
 			}
 
 			for _, c := range dstClients {
-				if c.GetChainID() == src && !c.IsFrozen() {
-					path.Dst.ClientID = c.GetID()
+				clnt, ok := c.(tmclient.ClientState)
+				if ok && clnt.LastHeader.Commit != nil && clnt.LastHeader.Header != nil {
+					if c.GetChainID() == src && !c.IsFrozen() {
+						path.Dst.ClientID = c.GetID()
+					}
 				}
 			}
 
