@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -57,7 +58,7 @@ func TestRocket_GaiaToRocketStreamingRelayer(t *testing.T) {
 	require.NoError(t, dst.WaitForNBlocks(1))
 
 	// start the relayer process in it's own goroutine
-	rlyDone, err := path.MustGetStrategy().Run(src, dst)
+	rlyDone, err := relayer.RunStrategy(src, dst, path.MustGetStrategy(), path.Ordered())
 	require.NoError(t, err)
 
 	// send those tokens from dst back to dst and src back to src

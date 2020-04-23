@@ -198,7 +198,7 @@ func getLoggingChain(chns []*Chain, rsr *dockertest.Resource) *Chain {
 }
 
 func genTestPathAndSet(src, dst *Chain, srcPort, dstPort string) (*Path, error) {
-	path := GenPath(src.ChainID, dst.ChainID, srcPort, dstPort)
+	path := GenPath(src.ChainID, dst.ChainID, srcPort, dstPort, "ORDERED")
 	if err := src.SetPath(path.Src); err != nil {
 		return nil, err
 	}

@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"fmt"
+	"strings"
 
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
 )
@@ -56,8 +57,8 @@ func (c *Chain) SetPath(p *PathEnd) error {
 }
 
 // AddPath takes the elements of a path and validates then, setting that path to the chain
-func (c *Chain) AddPath(clientID, connectionID, channelID, port string) error {
-	return c.SetPath(&PathEnd{ChainID: c.ChainID, ClientID: clientID, ConnectionID: connectionID, ChannelID: channelID, PortID: port})
+func (c *Chain) AddPath(clientID, connectionID, channelID, port, order string) error {
+	return c.SetPath(&PathEnd{ChainID: c.ChainID, ClientID: clientID, ConnectionID: connectionID, ChannelID: channelID, PortID: port, Order: order})
 }
 
 // Validate returns errors about invalid identifiers as well as
@@ -74,6 +75,9 @@ func (p *PathEnd) Validate() error {
 	}
 	if err := p.Vport(); err != nil {
 		return err
+	}
+	if !(strings.ToUpper(p.Order) == "ORDERED" || strings.ToUpper(p.Order) == "UNORDERED") {
+		return fmt.Errorf("channel must be either 'ORDERED' or 'UNORDERED' is '%s'", p.Order)
 	}
 	return nil
 }

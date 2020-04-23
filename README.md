@@ -42,7 +42,7 @@ While the relayer is under active development, it is meant primarily as a learni
 # Documentation: https://golang.org/doc/install
 
 # two-chainz creates two gaia-based chains with data directories in this
-$ ./two-chainz
+$ ./scripts/two-chainz
 # NOTE: If you want to stop the two gaia-based chains running in the background use `killall gaiad`
 
 # Make the relayer binary (rly)
