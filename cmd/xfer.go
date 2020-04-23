@@ -118,7 +118,7 @@ func setPathsFromArgs(src, dst *relayer.Chain, name string) (*relayer.Path, erro
 			return path, err
 		}
 	case name == "" && len(paths) > 1:
-		return nil, fmt.Errorf("more than one path between %s and %s exists, pass in path name", src, dst)
+		return nil, fmt.Errorf("more than one path between %s and %s exists, pass in path name", src.ChainID, dst.ChainID)
 	case name == "" && len(paths) == 1:
 		for _, v := range paths {
 			path = v

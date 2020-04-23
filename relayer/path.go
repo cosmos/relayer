@@ -89,10 +89,7 @@ type Path struct {
 
 // Ordered returns true if the path is ordered and false if otherwise
 func (p *Path) Ordered() bool {
-	if p.Src.getOrder() == chanState.ORDERED {
-		return true
-	}
-	return false
+	return p.Src.getOrder() == chanState.ORDERED
 }
 
 // Validate checks that a path is valid

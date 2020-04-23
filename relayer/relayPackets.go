@@ -21,6 +21,8 @@ type relayMsgRecvPacket struct {
 	timeout      uint64
 	timeoutStamp uint64
 	dstComRes    *CommitmentResponse
+
+	pass bool
 }
 
 func (rp *relayMsgRecvPacket) Data() []byte {
@@ -72,6 +74,8 @@ type relayMsgPacketAck struct {
 	timeout      uint64
 	timeoutStamp uint64
 	dstComRes    *CommitmentResponse
+
+	pass bool
 }
 
 func (rp *relayMsgPacketAck) Data() []byte {
