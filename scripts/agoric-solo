@@ -1,0 +1,121 @@
+#! /bin/bash
+# agoric-solo - start a client for each nchainz-configured Agoric chain
+#
+# Usage:
+# agoric-solo [skip] init   configure the solo clients for each chain
+# agoric-solo start         run the solo client machines
+#
+# first run at least two Agoric chains:
+# nchainz agoric agoric
+# or something.  See nchainz --help for more details.
+set -e
+progname=$(basename -- "$0")
+
+trap 'kill $(jobs -p) 2>/dev/null' EXIT 
+
+CLI=ag-cosmos-helper
+DAEMON=ag-chain-cosmos
+SKIP=no
+COMMAND=
+SIM_CHAIN_DELAY=1
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+  -*)
+    echo "unrecognized option \`$1'"
+    exit 1
+    ;;
+  *)
+    home="nchainz/data/$1/solo/$CLI-statedir"
+    if [[ $SKIP == no && $1 == skip ]]; then
+      SKIP=yes
+      shift
+    elif [[ -d $home ]]; then
+      shift
+      case $1 in
+      keys|tx) 
+        # Commands that need keyring.
+        exec $CLI --home=$home --keyring-backend=test ${1+"$@"}
+        ;;
+      *)
+        # Other commands cannot have keyring.
+        exec $CLI --home=$home ${1+"$@"}
+        ;;
+      esac
+      exit $?
+    elif [[ -z $COMMAND ]]; then
+      COMMAND=$1
+      shift
+      break;
+    fi
+    ;;
+  esac
+done
+
+case $COMMAND in
+init)
+  port=8000
+  for ach in nchainz/data/*/n0/"$CLI"; do
+    d=$(dirname -- "$(dirname -- "$ach")")
+    echo
+    echo "Initializing ag-solo in $d/solo"
+    (
+      cd "$d"
+      BASEDIR=solo
+      if [[ -e $BASEDIR ]] && [[ $SKIP != yes ]]; then
+        read -p "$progname: will delete $BASEDIR folder. Do you wish to continue? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+          exit 1
+        fi
+      fi
+      rm -rf solo
+
+      mkdir solo
+      cp -r "n0/$CLI" "solo/$CLI-statedir"
+      (
+        cd "solo/$CLI-statedir"
+        rm -rf keyring-test
+        jq -r .secret key_seed.json | $CLI keys add --home=. --recover --keyring-backend=test ag-solo
+        $CLI keys show --home=. ag-solo -a --keyring-backend=test > ../ag-cosmos-helper-address
+      )
+      ag-solo init solo --webport="$port"
+
+      gci=`ag-solo calc-gci n0/$DAEMON/config/genesis.json`
+      chainid=`jq -r .chain_id n0/$DAEMON/config/genesis.json`
+	    rpcport=`ag-solo calc-rpcport n0/$DAEMON/config/config.toml`
+
+      # For each solo, run:
+      cd solo && ag-solo set-gci-ingress --chainID="$chainid" "$gci" "$rpcport"
+    )
+    port=$(( $port + 1 ))
+  done
+
+  echo
+  if [[ $SKIP != yes ]]; then
+    read -p "$progname: would you like to start the solo vats now? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      exit 1
+    fi
+  fi
+
+  exec "$0" start
+  ;;
+start)
+  for solo in nchainz/data/*/solo; do
+    (
+      cd "$solo"
+      echo "Logging to $PWD/solo.log"
+			# ag-solo set-fake-chain --role=two_chain --delay=$SIM_CHAIN_DELAY mySimGCI >>solo.log 2>&1
+      DEBUG=agoric ag-solo start --role=two_client >>solo.log 2>&1
+    ) &
+  done
+  echo "Hit Control-C to exit"
+  wait
+  ;;
+*)
+  echo 1>&2 "$progname: unrecognized command \`$COMMAND'"
+  exit 1
+  ;;
+esac
