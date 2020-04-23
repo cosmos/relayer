@@ -25,7 +25,7 @@ type PathEnd struct {
 	ConnectionID string `yaml:"connection-id,omitempty" json:"connection-id,omitempty"`
 	ChannelID    string `yaml:"channel-id,omitempty" json:"channel-id,omitempty"`
 	PortID       string `yaml:"port-id,omitempty" json:"port-id,omitempty"`
-	Order        string `yaml:"order,omitempty",json:"order,omitempty"`
+	Order        string `yaml:"order,omitempty" json:"order,omitempty"`
 }
 
 func (src *PathEnd) getOrder() chanState.Order {
