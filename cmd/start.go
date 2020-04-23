@@ -21,6 +21,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -38,12 +39,8 @@ func startCmd() *cobra.Command {
 				return err
 			}
 
-			strategy, err := config.Paths.MustGet(args[0]).GetStrategy()
-			if err != nil {
-				return err
-			}
-
-			done, err := strategy.Run(c[src], c[dst])
+			path := config.Paths.MustGet(args[0])
+			done, err := relayer.RunStrategy(c[src], c[dst], path.MustGetStrategy(), path.Ordered())
 			if err != nil {
 				return err
 			}

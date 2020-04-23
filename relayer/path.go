@@ -3,6 +3,7 @@ package relayer
 import (
 	"fmt"
 
+	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	"gopkg.in/yaml.v2"
 )
 
@@ -86,6 +87,14 @@ type Path struct {
 	Strategy *StrategyCfg `yaml:"strategy" json:"strategy"`
 }
 
+// Ordered returns true if the path is ordered and false if otherwise
+func (p *Path) Ordered() bool {
+	if p.Src.getOrder() == chanState.ORDERED {
+		return true
+	}
+	return false
+}
+
 // Validate checks that a path is valid
 func (p *Path) Validate() (err error) {
 	if err = p.Src.Validate(); err != nil {
@@ -96,6 +105,9 @@ func (p *Path) Validate() (err error) {
 	}
 	if _, err = p.GetStrategy(); err != nil {
 		return err
+	}
+	if p.Src.Order != p.Dst.Order {
+		return fmt.Errorf("Both sides must have same order ('ORDERED' or 'UNORDERED'), got src(%s) and dst(%s)", p.Src.Order, p.Dst.Order)
 	}
 	return nil
 }
