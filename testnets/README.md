@@ -23,9 +23,9 @@ go: go version go1.14 darwin/amd64
 
 ```bash
 $ rly version
-version: 0.2.0
-commit: 49e0d7316410b480236e280b0d94731adc807383
-cosmos-sdk: v0.34.4-0.20200419154345-84774907316c
+version: 0.3.0
+commit: 781026cf46c6d144ab7fcd02d92817cc3d524903
+cosmos-sdk: v0.34.4-0.20200423152229-f1fdde5d1b18
 go: go1.14 darwin/amd64
 ```
 
