@@ -19,7 +19,31 @@ func devCommand() *cobra.Command {
 		faucetService(),
 		rlyService(),
 		listenCmd(),
+		genesisCmd(),
 	)
+	return cmd
+}
+
+func genesisCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "genesis [chain-id]",
+		Aliases: []string{"gen"},
+		Short:   "fetch the genesis file for a configured chain",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
+
+			gen, err := c.Client.Genesis()
+			if err != nil {
+				return err
+			}
+
+			return c.Print(gen, false, false)
+		},
+	}
 	return cmd
 }
 

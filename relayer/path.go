@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	"gopkg.in/yaml.v2"
 )
 
@@ -163,6 +164,10 @@ func FindPaths(chains Chains) (*Paths, error) {
 			return nil, err
 		}
 		for _, client := range clients {
+			clnt, ok := client.(tmclient.ClientState)
+			if !ok || clnt.LastHeader.Commit == nil || clnt.LastHeader.Header == nil {
+				continue
+			}
 			dst, err := chains.Get(client.GetChainID())
 			if err != nil {
 				continue

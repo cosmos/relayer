@@ -97,6 +97,7 @@ func pathsGenCmd() *cobra.Command {
 			}
 
 			for _, c := range srcClients {
+				// TODO: support other client types through a switch here as they become available
 				clnt, ok := c.(tmclient.ClientState)
 				if ok && clnt.LastHeader.Commit != nil && clnt.LastHeader.Header != nil {
 					if clnt.GetChainID() == dst && !clnt.IsFrozen() {
@@ -111,6 +112,7 @@ func pathsGenCmd() *cobra.Command {
 			}
 
 			for _, c := range dstClients {
+				// TODO: support other client types through a switch here as they become available
 				clnt, ok := c.(tmclient.ClientState)
 				if ok && clnt.LastHeader.Commit != nil && clnt.LastHeader.Header != nil {
 					if c.GetChainID() == src && !c.IsFrozen() {

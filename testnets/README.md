@@ -13,8 +13,8 @@ $ gaiad version --long
 name: gaia
 server_name: gaiad
 client_name: gaiacli
-version: 0.0.0-303-g9a09e54
-commit: 9a09e5499c25f8bbe48f2f9abe6f74360923266b
+version: 0.0.0-180-g50be36d
+commit: 50be36de941b9410a4b06ec9ce4288b1529c4bd4
 build_tags: netgo,ledger
 go: go version go1.14 darwin/amd64
 ```
@@ -66,9 +66,10 @@ export DENOM=pylon
 export CHAINID=pylonchain
 export DOMAIN=shitcoincasinos.com
 export RLYKEY=faucet
+export GAIASHA=50be36d
 
 # Start by downloading and installing both gaia and the relayer
-mkdir -p $(dirname $GAIA) && git clone https://github.com/cosmos/gaia $GAIA && cd $GAIA && git checkout ibc-alpha && make install
+mkdir -p $(dirname $GAIA) && git clone https://github.com/cosmos/gaia $GAIA && cd $GAIA && git checkout $GAIASHA && make install
 mkdir -p $(dirname $RELAYER) && git clone https://github.com/iqlusioninc/relayer $RELAYER && cd $RELAYER && make install
 
 # Now its time to configure both the relayer and gaia, start with the relayer

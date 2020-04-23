@@ -115,4 +115,4 @@ Working with the relayer can frequently involve working with local developement 
 1. Set `replace github.com/cosmos/cosmos-sdk => /path/to/local/github.com/comsos/cosmos-sdk` at the end of the `go.mod` files for the `relayer` and `gaia`. This will force building from the local version of the `cosmos-sdk` when running the `./dev-env` script.
 2. After `./dev-env` has run, you can use `go run main.go` for any relayer commands you are working on. This allows you make changes and immediately test them as long as there are no server side changes.
 3. If you make changes in `cosmos-sdk` that need to be reflected server-side, be sure to re-run `./two-chainz`.
-4. If you need to work off of a `gaia` branch other than `ibc-alpha`, change the branch name at the top of the `./two-chainz` script.
+4. If you need to work off of a `gaia` branch other than `master`, change the branch name at the top of the `./two-chainz` script.

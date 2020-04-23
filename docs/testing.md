@@ -12,14 +12,14 @@ The test framework is built using `go test` and `docker`. What is happening for 
 
 ### Step 1: Write a Dockerfile and publish an image for your chain
 
-The testing framework expects your chain to have a `Dockerfile` with an `ENTRYPOINT` script that accepts two arguements: `chain-id`, which should be unique to the individual test, and `relayer-address`, an address to include in the genesis file so that the testing relayer has access to funds. This is normally best acomplished with an `./entrypoint.sh` script that performs the necessary chain bootstrapping. The `cosmos/gaia@ibc-alpha` repository provides an example of both:
+The testing framework expects your chain to have a `Dockerfile` with an `ENTRYPOINT` script that accepts two arguements: `chain-id`, which should be unique to the individual test, and `relayer-address`, an address to include in the genesis file so that the testing relayer has access to funds. This is normally best acomplished with an `./entrypoint.sh` script that performs the necessary chain bootstrapping. The `cosmos/gaia` repositories provide an example of both:
 
-- [`./entrypoint.sh`](https://github.com/cosmos/gaia/tree/ibc-alpha/contrib/single-node.sh)
-- [`Dockerfile.test`](https://github.com/cosmos/gaia/tree/ibc-alpha/contrib/Dockerfile.test)
+- [`./entrypoint.sh`](https://github.com/cosmos/gaia/tree/master/contrib/single-node.sh)
+- [`Dockerfile.test`](https://github.com/cosmos/gaia/tree/master/contrib/Dockerfile.test)
 
 Then you need to build and push your image to a public image repository. Having it tagged with the git sha and branch is best practice. See the build proceedure for the gaia image:
 
-- [`Makefile`](https://github.com/cosmos/gaia/blob/ibc-alpha/Makefile#L164)
+- [`Makefile`](https://github.com/cosmos/gaia/blob/master/Makefile#L164)
 
 At the end, you should have an image you can run which starts up an instance of your chain: 
 
@@ -38,7 +38,7 @@ rly q bal mychainid
 
 Next you will need to define a new instance of `testChainConfig` in the `test/test_chains.go` file. Follow the `gaiaTestConfig` example:
 
-> NOTE: I've increased the default block timeouts for gaia to the values noted below. This makes the tests faster. If you would like to do the same for your chain see the `sed` commands in the [entrypoint](https://github.com/cosmos/gaia/tree/ibc-alpha/contrib/single-node.sh).
+> NOTE: I've increased the default block timeouts for gaia to the values noted below. This makes the tests faster. If you would like to do the same for your chain see the `sed` commands in the [entrypoint](https://github.com/cosmos/gaia/tree/master/contrib/single-node.sh).
 
 ```go
 // GAIA BLOCK TIMEOUTS on jackzampolin/gaiatest:jack_relayer-testing
@@ -49,7 +49,7 @@ gaiaTestConfig = testChainConfig{
     cdc:            codecstd.NewAppCodec(codecstd.MakeCodec(simapp.ModuleBasics)),
     amino:          codecstd.MakeCodec(simapp.ModuleBasics),
     dockerImage:    "jackzampolin/gaiatest",
-    dockerTag:      "ibc-alpha",
+    dockerTag:      "master",
     timeout:        3 * time.Second,
     rpcPort:        "26657",
     accountPrefix:  "cosmos",
