@@ -181,9 +181,11 @@ Usage: $progname COMMAND [OPTIONS]...
 
 COMMAND is one of:
   help [CMD]    display help information for CMD (default: main)
-  init ...      create a configuration for \`link' and \`run'
-  link          link chains together with relayers per \`init'
-  run           start chains running per \`init'
+  init ...      create a configuration directory
+  chains        start chains running per \`init'
+  clients       start clients running per \`init'
+  relay         link chains together with relayers per \`init'
+  run           both chains and clients
 EOF
   else
     echo "Try \`$progname --help' for more information"
@@ -225,18 +227,27 @@ Create configuration in \`$DATA' for:
 If no LINKS are supplied, use a circuit around the CHAINS.
 EOF
     ;;
-  run)
+  chains)
     cat <<EOF
-Usage: $progname run [skip]
+Usage: $progname chains [skip]
 
 Start chains running in a directory created by \`$progname init'.
 
 If \`skip' is provided, files will be deleted without prompting.
 EOF
     ;;
-  link)
+  clients)
     cat <<EOF
-Usage: $progname link [skip]
+Usage: $progname clients [skip]
+
+Start clients running in a directory created by \`$progname init'.
+
+If \`skip' is provided, files will be deleted without prompting.
+EOF
+   ;;
+  relay)
+    cat <<EOF
+Usage: $progname relay [skip]
 
 Start relayers in a directory created by \`$progname init'.
 
@@ -308,21 +319,21 @@ help)
 init)
   # Just continue.
   ;;
-run)
+chains)
   source "$NCONFIG"
 
   # Ensure user understands what will be deleted
-  if [[ -d $DATA || -d $LOGS ]] && [[ $1 != skip ]]; then
-    read -p "$progname: will delete $DATA and $LOGS folder. Do you wish to continue? (y/N): " -n 1 -r
+  if [[ -d $DATA ]] && [[ $1 != skip ]]; then
+    read -p "$progname: will delete $DATA folder. Do you wish to continue? (y/N): " -n 1 -r
     echo 
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         exit 1
     fi
   fi
-  rm -rf "$DATA" "$LOGS"
+  rm -rf "$DATA"
 
-  echo "mkdir $DATA $LOGS"
-  mkdir -p "$DATA" "$LOGS"
+  echo "mkdir $DATA"
+  mkdir -p "$DATA"
 
   set -e
 
@@ -356,7 +367,7 @@ run)
     p26660=$(( 26660 - $i * 100 ))
     p6060=$(( 6060 + $i ))
 
-    eval $DAEMON_TESTNET
+    eval $DAEMON_TESTNET || echo $?
 
     cfgpth="$DATA/$chainid/n0/$DAEMON/config/config.toml"
     # TODO: Just index *some* specified tags, not all
@@ -403,7 +414,7 @@ run)
   wait
   exit 0
   ;;
-link)
+clients)
   source "$NCONFIG"
   RELAYER_CONF="$HOME/.relayer"
 
@@ -490,11 +501,17 @@ link)
 
     [[ $CMD != null ]] || continue
     (
-      cd ..
-      chainid=$id
+      chainid=$ID
       eval $CMD
     ) &
   done
+  echo "Waiting for clients (Control-C to exit)..."
+  wait
+  exit 0
+  ;;
+
+relay)
+  . "$NCONFIG"
 
   paths=
   for i in ${!SRCS[@]}; do
@@ -546,6 +563,12 @@ link)
   wait
   exit 0
   ;;
+run)
+  "$0" chains skip &
+  "$0" clients skip &
+  wait
+  exit 0
+  ;;
 *)
   echo 1>&2 "$progname: unrecognized COMMAND \`$COMMAND'"
   usage 1
@@ -567,7 +590,7 @@ if [[ -e $BASEDIR ]] && [[ $SKIP != yes ]]; then
 fi
 
 rm -rf "$BASEDIR"
-mkdir -p "$BASEDIR/config"
+mkdir -p "$BASEDIR/config" "$LOGS"
 
 echo "creating $NCONFIG"
 cat <<EOF >"$NCONFIG"
@@ -639,12 +662,12 @@ cat <<EOF
 =====================
 Done generating $BASEDIR
 
-You can use: \`$progname run' or \`$progname link' at any time.
+You can use: \`$progname [run|relay]' at any time.
 
 EOF
 
 if [[ $SKIP != yes ]]; then
-  read -p "Do you wish to \`run' and \`link' right now (y/N)? " -n 1 -r
+  read -p "Do you wish to \`run', and \`relay' right now (y/N)? " -n 1 -r
   echo
 
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -653,6 +676,6 @@ if [[ $SKIP != yes ]]; then
 fi
 
 "$0" run skip &
-"$0" link skip &
+"$0" relay skip &
 echo "Hit Control-C to exit"
 wait
