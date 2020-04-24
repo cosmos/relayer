@@ -1,0 +1,1 @@
+{"key":"pupu.relay","chain-id":"pupu","rpc-addr":"http://35.230.42.221:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025pup","default-denom":"pup","trusting-period":"330h"}
