@@ -165,6 +165,7 @@ rly keys add {{src_chain_id}}
 rly k a {{dst_chain_id}}
 
 # ensure you have funds on both chains...
+# this adds tokens to your addresses from each chain's faucet
 rly testnets request {{src_chain_id}}
 rly tst req {{dst_chain_id}}
 
@@ -172,7 +173,9 @@ rly tst req {{dst_chain_id}}
 rly paths add {{src_chain}} {{dst_chain_id}} {{path_name}}
 
 # or generate one...
-rly pth gen {{src_chain_id}} {{src_port}} {{dst_chain_id}} {{dst_port}} {{path_name}}
+rly pth gen {{src_chain_id}} transfer {{dst_chain_id}} transfer {{path_name}}
+
+# NOTE: path_name can be any string, but one convention is srcchain_dstchain
 
 # or find all the existing paths...
 # NOTE: this command is still under development, but will output
