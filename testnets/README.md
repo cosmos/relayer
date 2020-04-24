@@ -183,7 +183,7 @@ rly pth gen {{src_chain_id}} transfer {{dst_chain_id}} transfer {{path_name}}
 rly pth find
 
 # ensure that the path exists
-rly tx link {{src_chain_id}} {{dst_chain_id}}
+rly tx link {{path_name}}
 
 # then send some funds back and forth!
 rly q bal {{src_chain_id}}
