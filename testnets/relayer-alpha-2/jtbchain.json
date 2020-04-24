@@ -1,0 +1,10 @@
+{
+  "key":"faucet",
+  "chain-id":"jtbchain",
+  "rpc-addr":"http://213.32.70.133:26657",
+  "account-prefix":"cosmos",
+  "gas":200000,
+  "gas-prices":"0.025jtb",
+  "default-denom":"jtb",
+  "trusting-period":"330h"
+}
