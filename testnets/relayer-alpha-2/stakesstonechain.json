@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"stakesstonechain","rpc-addr":"http://5.181.51.80:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025stakesstone","default-denom":"stakesstone","trusting-period":"330h"}
