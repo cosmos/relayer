@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"retz80chain","rpc-addr":"http://tnet-csg.c9ret.xyz:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025rzc","default-denom":"rzc","trusting-period":"330h"}
