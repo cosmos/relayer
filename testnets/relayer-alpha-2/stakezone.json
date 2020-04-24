@@ -1,0 +1,10 @@
+{
+  "key": "faucet",
+  "chain-id": "stakezonechain",
+  "rpc-addr": "http://goz.stake.zone:26657",
+  "account-prefix": "cosmos",
+  "gas": 200000,
+  "gas-prices": "0.025stakezone",
+  "default-denom": "stakezone",
+  "trusting-period": "330h"
+}
