@@ -1,0 +1,2 @@
+{"key":"faucet","chain-id":"gunchain","rpc-addr":"http://goz.gunray.xyz:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025gun","default-denom":"gun","trusting-period":"330h"}
+
