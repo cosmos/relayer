@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"stakematic-asia","rpc-addr":"http://34.87.102.225:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025stm","default-denom":"stm","trusting-period":"330h"}
