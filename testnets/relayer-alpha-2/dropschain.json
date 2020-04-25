@@ -1,0 +1,1 @@
+{"key":"kotique","chain-id":"dropschain","rpc-addr":"http://dropschain.com:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025drops","default-denom":"drops","trusting-period":"330h"}
