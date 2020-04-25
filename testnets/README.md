@@ -189,7 +189,7 @@ rly q bal {{dst_chain_id}}
 rly tx transfer {{src_chain_id}} {{dst_chain_id}} {{amount}} true $(rly ch addr {{dst_chain_id}})
 rly q bal {{src_chain_id}}
 rly q bal {{dst_chain_id}}
-rly tx xfer {{ds_chain_id}} {{src_chain_id}} {{amount}} false $(rly ch addr {{src_chain_id}})
+rly tx xfer {{dst_chain_id}} {{src_chain_id}} {{amount}} false $(rly ch addr {{src_chain_id}})
 rly q bal {{src_chain_id}}
 rly q bal {{dst_chain_id}}
 ```
