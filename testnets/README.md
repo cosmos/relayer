@@ -149,7 +149,7 @@ Once you have your chain configured on your relayer, follow these steps to send 
 ```bash
 # first ensure the chain is configured locally
 # do it either individually...
-rly ch a -f testnets/relayer-alpha/pylonchain.json
+rly ch a -f testnets/relayer-alpha-2/pylonchain.json
 
 # or add all the chain configurations for the testnet at once...
 rly chains add-dir testnets/relayer-alpha-2/
