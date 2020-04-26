@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	// GAIA BLOCK TIMEOUTS on jackzampolin/gaiatest:ibc-alpha
+	// GAIA BLOCK TIMEOUTS on jackzampolin/gaiatest:master
 	// timeout_commit = "1000ms"
 	// timeout_propose = "1000ms"
 	// 3 second relayer timeout works well with these block times
@@ -23,7 +23,7 @@ var (
 		cdc:            codecstd.NewAppCodec(codecstd.MakeCodec(simapp.ModuleBasics)),
 		amino:          codecstd.MakeCodec(simapp.ModuleBasics),
 		dockerImage:    "jackzampolin/gaiatest",
-		dockerTag:      "ibc-alpha",
+		dockerTag:      "master",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "cosmos",

@@ -220,11 +220,13 @@ func (c *Chain) QueryClientState() (*clientTypes.StateResponse, error) {
 	}
 
 	var cs exported.ClientState
-	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
-		if err = c.Amino.UnmarshalBinaryBare(res.Value, &cs); err != nil {
-			return nil, qClntConsStateErr(err)
+
+	// If this decoding fails, try with UnmarshalBinaryLengthPrefixed this changed
+	// reciently and will help support older versions.
+	if err := c.Amino.UnmarshalBinaryBare(res.Value, &cs); err != nil {
+		if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
+			return nil, qClntStateErr(err)
 		}
-		return nil, qClntStateErr(err)
 	}
 
 	csr := clientTypes.NewClientStateResponse(c.PathEnd.ClientID, cs, res.Proof, res.Height)

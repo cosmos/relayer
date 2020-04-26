@@ -40,7 +40,7 @@ func (src *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 			src.Log(fmt.Sprintf("★ Connection created: [%s]client{%s}conn{%s} -> [%s]client{%s}conn{%s}",
 				src.ChainID, src.PathEnd.ClientID, src.PathEnd.ConnectionID,
 				dst.ChainID, dst.PathEnd.ClientID, dst.PathEnd.ConnectionID))
-			break
+			return nil
 		// In the case of success, reset the failures counter
 		case connSteps.success:
 			failed = 0
@@ -49,10 +49,9 @@ func (src *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 		case !connSteps.success:
 			failed++
 			if failed > 2 {
-				src.Error(fmt.Errorf("! Connection failed: [%s]client{%s}conn{%s} -> [%s]client{%s}conn{%s}",
+				return fmt.Errorf("! Connection failed: [%s]client{%s}conn{%s} -> [%s]client{%s}conn{%s}",
 					src.ChainID, src.PathEnd.ClientID, src.PathEnd.ConnectionID,
-					dst.ChainID, dst.PathEnd.ClientID, dst.PathEnd.ConnectionID))
-				break
+					dst.ChainID, dst.PathEnd.ClientID, dst.PathEnd.ConnectionID)
 			}
 		}
 	}

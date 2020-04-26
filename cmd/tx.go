@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -45,6 +46,7 @@ func transactionCmd() *cobra.Command {
 		closeChannelCmd(),
 		flags.LineBreak,
 		rawTransactionCmd(),
+		sendPacketCmd(),
 	)
 
 	return cmd
@@ -146,8 +148,8 @@ func closeChannelCmd() *cobra.Command {
 
 func fullPathCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "full-path [path-name]",
-		Aliases: []string{"link", "connect", "path", "pth"},
+		Use:     "link [path-name]",
+		Aliases: []string{"full-path", "connect", "path", "pth"},
 		Short:   "create clients, connection, and channel between two configured chains with a configured path",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -207,4 +209,43 @@ func relayMsgsCmd() *cobra.Command {
 	}
 
 	return cmd
+}
+
+func sendPacketCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "send-packet [src-chain-id] [dst-chain-id] [packet-data]",
+		Aliases: []string{"pkt", "sp"},
+		Short:   "send a raw packet from a source chain to a destination chain",
+		Long:    "This sends packet-data (default: stdin) from a relayer's configured wallet on chain src to chain dst",
+		Args:    cobra.RangeArgs(2, 3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			c, err := config.Chains.Gets(src, dst)
+			if err != nil {
+				return err
+			}
+
+			pth, err := cmd.Flags().GetString(flagPath)
+			if err != nil {
+				return err
+			}
+
+			if _, err = setPathsFromArgs(c[src], c[dst], pth); err != nil {
+				return err
+			}
+
+			var packetData string
+			if len(args) < 3 {
+				// Reading from stdin.
+				if _, err := fmt.Scanln(&packetData); err != nil {
+					return err
+				}
+			} else {
+				packetData = args[2]
+			}
+
+			return c[src].SendPacket(c[dst], []byte(packetData))
+		},
+	}
+	return pathFlag(cmd)
 }

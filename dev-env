@@ -15,11 +15,8 @@ fi
 
 cd $RELAYER_DIR
 rm -rf $RELAYER_CONF &> /dev/null
-bash two-chainz "local" "skip"
-bash config-relayer "skip"
+bash scripts/three-chainz "local" "skip"
+bash scripts/config-three "skip"
 sleep 2
 rly tx link demo -o 3s
-rly tx raw xfer-send ibc0 ibc1 1000n0token true $(rly ch addr ibc1)
-rly tx raw xfer-send ibc0 ibc1 1000n0token true $(rly ch addr ibc1) 
-rly tx raw xfer-send ibc1 ibc0 1000n0token true $(rly ch addr ibc0)
-rly tx raw xfer-send ibc1 ibc0 1000n0token true $(rly ch addr ibc0)
+rly tx link demo2 -o 3s -d

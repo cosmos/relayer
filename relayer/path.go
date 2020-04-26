@@ -3,6 +3,8 @@ package relayer
 import (
 	"fmt"
 
+	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	"gopkg.in/yaml.v2"
 )
 
@@ -86,6 +88,11 @@ type Path struct {
 	Strategy *StrategyCfg `yaml:"strategy" json:"strategy"`
 }
 
+// Ordered returns true if the path is ordered and false if otherwise
+func (p *Path) Ordered() bool {
+	return p.Src.getOrder() == chanState.ORDERED
+}
+
 // Validate checks that a path is valid
 func (p *Path) Validate() (err error) {
 	if err = p.Src.Validate(); err != nil {
@@ -96,6 +103,9 @@ func (p *Path) Validate() (err error) {
 	}
 	if _, err = p.GetStrategy(); err != nil {
 		return err
+	}
+	if p.Src.Order != p.Dst.Order {
+		return fmt.Errorf("Both sides must have same order ('ORDERED' or 'UNORDERED'), got src(%s) and dst(%s)", p.Src.Order, p.Dst.Order)
 	}
 	return nil
 }
@@ -117,7 +127,7 @@ func (p *Path) String() string {
 
 // GenPath generates a path with random client, connection and channel identifiers
 // given chainIDs and portIDs
-func GenPath(srcChainID, dstChainID, srcPortID, dstPortID string) *Path {
+func GenPath(srcChainID, dstChainID, srcPortID, dstPortID, order string) *Path {
 	return &Path{
 		Src: &PathEnd{
 			ChainID:      srcChainID,
@@ -125,6 +135,7 @@ func GenPath(srcChainID, dstChainID, srcPortID, dstPortID string) *Path {
 			ConnectionID: RandLowerCaseLetterString(10),
 			ChannelID:    RandLowerCaseLetterString(10),
 			PortID:       srcPortID,
+			Order:        order,
 		},
 		Dst: &PathEnd{
 			ChainID:      dstChainID,
@@ -132,6 +143,7 @@ func GenPath(srcChainID, dstChainID, srcPortID, dstPortID string) *Path {
 			ConnectionID: RandLowerCaseLetterString(10),
 			ChannelID:    RandLowerCaseLetterString(10),
 			PortID:       dstPortID,
+			Order:        order,
 		},
 		Strategy: &StrategyCfg{
 			Type: "naive",
@@ -152,12 +164,16 @@ func FindPaths(chains Chains) (*Paths, error) {
 			return nil, err
 		}
 		for _, client := range clients {
+			clnt, ok := client.(tmclient.ClientState)
+			if !ok || clnt.LastHeader.Commit == nil || clnt.LastHeader.Header == nil {
+				continue
+			}
 			dst, err := chains.Get(client.GetChainID())
 			if err != nil {
 				continue
 			}
 
-			if err = src.AddPath(client.GetID(), dcon, dcha, dpor); err != nil {
+			if err = src.AddPath(client.GetID(), dcon, dcha, dpor, "ORDERED"); err != nil {
 				return nil, err
 			}
 
@@ -167,7 +183,7 @@ func FindPaths(chains Chains) (*Paths, error) {
 			}
 
 			for _, connid := range conns.ConnectionPaths {
-				if err = src.AddPath(client.GetID(), connid, dcha, dpor); err != nil {
+				if err = src.AddPath(client.GetID(), connid, dcha, dpor, "ORDERED"); err != nil {
 					return nil, err
 				}
 				conn, err := src.QueryConnection(hs[src.ChainID])

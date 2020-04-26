@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"nibiru-ibc","rpc-addr":"http://167.179.104.210:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025quark","default-denom":"quark","trusting-period":"330h"}

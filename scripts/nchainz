@@ -460,6 +460,7 @@ CLI="$CLI"
 DAEMON="$DAEMON"
 DAEMON_HOME="$DAEMON_HOME"
 CONFIG="$CONFIG"
+ID="$ID"
 chainid="$ID"
 EOF
 
@@ -497,8 +498,10 @@ for i in ${!SRCS[@]}; do
   get_alphabetic "$dst"
   dsta=$ida
 
-  demo="$srca$dsta"
-  out="$BASEDIR/config/$demo.json"
+  get_alphabetic "$i"
+  ia=$ida
+  path="$ida"
+  out="$BASEDIR/config/$path.json"
   echo "creating $out"
   cat >"$out" <<EOF
 {
@@ -506,14 +509,14 @@ for i in ${!SRCS[@]}; do
     "chain-id": "$src",
     "client-id": "${dsta}client",
     "connection-id": "${dsta}link",
-    "channel-id": "${dsta}xfer",
+    "channel-id": "${dsta}xfer${ida}",
     "port-id": "$srcport"
   },
   "dst": {
     "chain-id": "$dst",
     "client-id": "${srca}client",
     "connection-id": "${srca}link",
-    "channel-id": "${srca}xfer",
+    "channel-id": "${srca}xfer${ida}",
     "port-id": "$dstport"
   },
   "strategy": {
@@ -641,29 +644,48 @@ for i in ${!SRCS[@]}; do
   get_alphabetic "$dst"
   dsta=$ida
 
-  demo="$srca$dsta"
+  get_alphabetic "$i"
+  ia=$ida
+  path="$ia"
   cat >>"$link" <<EOF
 
-echo "Starting 'rly tx link $demo' ($src<>$dst) logs in \$DATA/$demo.log"
+paths="\$paths $path"
+echo "Starting 'rly tx link $path' ($src<>$dst) logs in \$DATA/$path.log"
 (
   try=0
-  while ! rly tx link $demo --timeout=3s -d >> \$DATA/$demo.log 2>&1; do
-    try=$(( $try + 1 ))
-    echo "$demo tx link did not initialize (try=$try)"
+  while ! rly tx link $path --timeout=3s -d >> "\$DATA/$path.log" 2>&1; do
+    try=\$(( \$try + 1 ))
+    echo "$path tx link not yet ready (try=\$try)"
     sleep 1
   done
-  try=$(( $try + 1 ))
-  echo "$demo tx link initialized (try=$try)"
+  try=\$(( \$try + 1 ))
+  echo "$path tx link initialized (try=\$try)"
+  rly start "$path" &
 ) &
 EOF
 done
 
-cat >>"$link" <<EOF
+cat >>"$link" <<\EOF
 
 echo "Check the state of the links using 'rly paths list' to see when they are ready..."
-(while :; do rly paths list; sleep 5; done) &
+echo "(Ctrl-C exits, or you can background this job)"
+todo=$paths
+while :; do
+  rly paths list
+  remaining=$todo
+  todo=
+  for path in $remaining; do
+    if [[ $(rly paths show "$path" --json | jq -r .status.channel) != true ]]; then
+      todo="$todo $path"
+    fi
+  done
+  if [[ -z $todo ]]; then
+    break
+  fi
+  sleep 5
+done
 
-echo "Ctrl-C exits, or you can background this job..."
+echo "All paths initialized, waiting for relayers (Control-C to exit)..."
 wait
 EOF
 chmod +x "$link"
