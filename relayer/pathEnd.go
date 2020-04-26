@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"strings"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -24,6 +25,11 @@ type PathEnd struct {
 	ConnectionID string `yaml:"connection-id,omitempty" json:"connection-id,omitempty"`
 	ChannelID    string `yaml:"channel-id,omitempty" json:"channel-id,omitempty"`
 	PortID       string `yaml:"port-id,omitempty" json:"port-id,omitempty"`
+	Order        string `yaml:"order,omitempty" json:"order,omitempty"`
+}
+
+func (src *PathEnd) getOrder() chanState.Order {
+	return chanState.OrderFromString(strings.ToUpper(src.Order))
 }
 
 // UpdateClient creates an sdk.Msg to update the client on c with data pulled from cp
@@ -46,6 +52,7 @@ func (src *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod time
 		*dstHeader,
 		trustingPeriod,
 		defaultUnbondingTime,
+		defaultMaxClockDrift,
 		signer,
 	)
 }
@@ -106,12 +113,12 @@ func (src *PathEnd) ConnConfirm(dstConnState connTypes.ConnectionResponse, signe
 }
 
 // ChanInit creates a MsgChannelOpenInit
-func (src *PathEnd) ChanInit(dst *PathEnd, ordering chanState.Order, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) ChanInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgChannelOpenInit(
 		src.PortID,
 		src.ChannelID,
 		defaultTransferVersion,
-		ordering,
+		src.getOrder(),
 		[]string{src.ConnectionID},
 		dst.PortID,
 		dst.ChannelID,
@@ -180,13 +187,14 @@ func (src *PathEnd) ChanCloseConfirm(dstChanState chanTypes.ChannelResponse, sig
 }
 
 // MsgRecvPacket creates a MsgPacket
-func (src *PathEnd) MsgRecvPacket(dst *PathEnd, sequence, timeoutHeight uint64, packetData []byte, proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) MsgRecvPacket(dst *PathEnd, sequence, timeoutHeight, timeoutStamp uint64, packetData []byte, proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgPacket(
 		dst.NewPacket(
 			src,
 			sequence,
 			packetData,
 			timeoutHeight,
+			timeoutStamp,
 		),
 		proof,
 		proofHeight+1,
@@ -206,13 +214,14 @@ func (src *PathEnd) MsgTimeout(packet chanTypes.Packet, seq uint64, proof chanTy
 }
 
 // MsgAck creates MsgAck
-func (src *PathEnd) MsgAck(dst *PathEnd, sequence, timeoutHeight uint64, ack []byte, proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) MsgAck(dst *PathEnd, sequence, timeoutHeight, timeoutStamp uint64, ack, packetData []byte, proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgAcknowledgement(
-		dst.NewPacket(
-			src,
+		src.NewPacket(
+			dst,
 			sequence,
-			ack,
+			packetData,
 			timeoutHeight,
+			timeoutStamp,
 		),
 		ack,
 		proof,
@@ -233,8 +242,16 @@ func (src *PathEnd) MsgTransfer(dst *PathEnd, dstHeight uint64, amount sdk.Coins
 	)
 }
 
+// MsgSendPacket creates a new arbitrary packet message
+func (src *PathEnd) MsgSendPacket(dst *PathEnd, packetData []byte, relativeTimeout, timeoutStamp uint64, signer sdk.AccAddress) sdk.Msg {
+	// NOTE: Use this just to pass the packet integrity checks.
+	fakeSequence := uint64(1)
+	packet := chanTypes.NewPacket(packetData, fakeSequence, src.PortID, src.ChannelID, dst.PortID, dst.ChannelID, relativeTimeout, timeoutStamp)
+	return NewMsgSendPacket(packet, signer)
+}
+
 // NewPacket returns a new packet from src to dist w
-func (src *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte, timeoutHeight uint64) chanTypes.Packet {
+func (src *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte, timeoutHeight, timeoutStamp uint64) chanTypes.Packet {
 	return chanTypes.NewPacket(
 		packetData,
 		sequence,
@@ -243,6 +260,7 @@ func (src *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte, 
 		dst.PortID,
 		dst.ChannelID,
 		timeoutHeight,
+		timeoutStamp,
 	)
 }
 
@@ -256,11 +274,12 @@ func (src *PathEnd) XferPacket(amount sdk.Coins, sender, reciever string) []byte
 }
 
 // PacketMsg returns a new MsgPacket for forwarding packets from one chain to another
-func (src *Chain) PacketMsg(dst *Chain, xferPacket []byte, timeout uint64, seq int64, dstCommitRes CommitmentResponse) sdk.Msg {
+func (src *Chain) PacketMsg(dst *Chain, xferPacket []byte, timeout, timeoutStamp uint64, seq int64, dstCommitRes CommitmentResponse) sdk.Msg {
 	return src.PathEnd.MsgRecvPacket(
 		dst.PathEnd,
 		uint64(seq),
 		timeout,
+		timeoutStamp,
 		xferPacket,
 		dstCommitRes.Proof,
 		dstCommitRes.ProofHeight,

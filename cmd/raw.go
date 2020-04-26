@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	"github.com/iqlusioninc/relayer/relayer"
@@ -54,7 +52,7 @@ func updateClientCmd() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].AddPath(args[2], dcon, dcha, dpor); err != nil {
+			if err = chains[src].AddPath(args[2], dcon, dcha, dpor, dord); err != nil {
 				return err
 			}
 			if err != nil {
@@ -90,7 +88,7 @@ func createClientCmd() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].AddPath(args[2], dcon, dcha, dpor); err != nil {
+			if err = chains[src].AddPath(args[2], dcon, dcha, dpor, dord); err != nil {
 				return err
 			}
 
@@ -112,11 +110,11 @@ func connInit() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].AddPath(args[2], args[4], dcha, dpor); err != nil {
+			if err = chains[src].AddPath(args[2], args[4], dcha, dpor, dord); err != nil {
 				return err
 			}
 
-			if err = chains[dst].AddPath(args[3], args[5], dcha, dpor); err != nil {
+			if err = chains[dst].AddPath(args[3], args[5], dcha, dpor, dord); err != nil {
 				return err
 			}
 
@@ -138,11 +136,11 @@ func connTry() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].AddPath(args[2], args[4], dcha, dpor); err != nil {
+			if err = chains[src].AddPath(args[2], args[4], dcha, dpor, dord); err != nil {
 				return err
 			}
 
-			if err = chains[dst].AddPath(args[3], args[5], dcha, dpor); err != nil {
+			if err = chains[dst].AddPath(args[3], args[5], dcha, dpor, dord); err != nil {
 				return err
 			}
 
@@ -194,11 +192,11 @@ func connAck() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].AddPath(args[2], args[4], dcha, dpor); err != nil {
+			if err = chains[src].AddPath(args[2], args[4], dcha, dpor, dord); err != nil {
 				return err
 			}
 
-			if err = chains[dst].AddPath(args[3], args[5], dcha, dpor); err != nil {
+			if err = chains[dst].AddPath(args[3], args[5], dcha, dpor, dord); err != nil {
 				return err
 			}
 
@@ -250,11 +248,11 @@ func connConfirm() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].AddPath(args[2], args[4], dcha, dpor); err != nil {
+			if err = chains[src].AddPath(args[2], args[4], dcha, dpor, dord); err != nil {
 				return err
 			}
 
-			if err = chains[dst].AddPath(args[3], args[5], dcha, dpor); err != nil {
+			if err = chains[dst].AddPath(args[3], args[5], dcha, dpor, dord); err != nil {
 				return err
 			}
 
@@ -295,11 +293,11 @@ func createConnectionStepCmd() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].AddPath(args[2], args[4], dcha, dpor); err != nil {
+			if err = chains[src].AddPath(args[2], args[4], dcha, dpor, dord); err != nil {
 				return err
 			}
 
-			if err = chains[dst].AddPath(args[3], args[5], dcha, dpor); err != nil {
+			if err = chains[dst].AddPath(args[3], args[5], dcha, dpor, dord); err != nil {
 				return err
 			}
 
@@ -336,20 +334,15 @@ func chanInit() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].AddPath(args[2], args[4], args[6], args[8]); err != nil {
+			if err = chains[src].AddPath(args[2], args[4], args[6], args[8], args[10]); err != nil {
 				return err
 			}
 
-			if err = chains[dst].AddPath(args[3], args[5], args[7], args[9]); err != nil {
+			if err = chains[dst].AddPath(args[3], args[5], args[7], args[9], args[10]); err != nil {
 				return err
 			}
 
-			var order chanState.Order
-			if order = chanState.OrderFromString(args[10]); order == chanState.NONE {
-				return fmt.Errorf("invalid order '%s' passed in, expected 'UNORDERED' or 'ORDERED'", args[6])
-			}
-
-			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.ChanInit(chains[dst].PathEnd, order, chains[src].MustGetAddress())}, chains[src], cmd)
+			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.ChanInit(chains[dst].PathEnd, chains[src].MustGetAddress())}, chains[src], cmd)
 		},
 	}
 	return cmd
@@ -367,11 +360,11 @@ func chanTry() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].AddPath(args[2], args[3], args[4], args[6]); err != nil {
+			if err = chains[src].AddPath(args[2], args[3], args[4], args[6], dord); err != nil {
 				return err
 			}
 
-			if err = chains[dst].AddPath(dcli, dcon, args[5], args[7]); err != nil {
+			if err = chains[dst].AddPath(dcli, dcon, args[5], args[7], dord); err != nil {
 				return err
 			}
 
@@ -408,11 +401,11 @@ func chanAck() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].AddPath(args[2], dcon, args[3], args[5]); err != nil {
+			if err = chains[src].AddPath(args[2], dcon, args[3], args[5], dord); err != nil {
 				return err
 			}
 
-			if err = chains[dst].AddPath(dcli, dcon, args[4], args[6]); err != nil {
+			if err = chains[dst].AddPath(dcli, dcon, args[4], args[6], dord); err != nil {
 				return err
 			}
 
@@ -449,11 +442,11 @@ func chanConfirm() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].AddPath(args[2], dcon, args[3], args[5]); err != nil {
+			if err = chains[src].AddPath(args[2], dcon, args[3], args[5], dord); err != nil {
 				return err
 			}
 
-			if err = chains[dst].AddPath(dcli, dcon, args[4], args[6]); err != nil {
+			if err = chains[dst].AddPath(dcli, dcon, args[4], args[6], dord); err != nil {
 				return err
 			}
 
@@ -492,11 +485,11 @@ func createChannelStepCmd() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].AddPath(args[2], args[4], args[6], args[8]); err != nil {
+			if err = chains[src].AddPath(args[2], args[4], args[6], args[8], dord); err != nil {
 				return err
 			}
 
-			if err = chains[dst].AddPath(args[3], args[5], args[7], args[9]); err != nil {
+			if err = chains[dst].AddPath(args[3], args[5], args[7], args[9], dord); err != nil {
 				return err
 			}
 
@@ -532,7 +525,7 @@ func chanCloseInit() *cobra.Command {
 				return err
 			}
 
-			if err := src.AddPath(dcli, dcon, args[1], args[2]); err != nil {
+			if err := src.AddPath(dcli, dcon, args[1], args[2], dord); err != nil {
 				return err
 			}
 
@@ -554,11 +547,11 @@ func chanCloseConfirm() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].AddPath(args[2], dcon, args[3], args[5]); err != nil {
+			if err = chains[src].AddPath(args[2], dcon, args[3], args[5], dord); err != nil {
 				return err
 			}
 
-			if err = chains[dst].AddPath(dcli, dcon, args[4], args[6]); err != nil {
+			if err = chains[dst].AddPath(dcli, dcon, args[4], args[6], dord); err != nil {
 				return err
 			}
 
@@ -595,11 +588,11 @@ func closeChannelStepCmd() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].AddPath(args[2], args[4], args[6], args[8]); err != nil {
+			if err = chains[src].AddPath(args[2], args[4], args[6], args[8], dord); err != nil {
 				return err
 			}
 
-			if err = chains[dst].AddPath(args[3], args[5], args[7], args[9]); err != nil {
+			if err = chains[dst].AddPath(args[3], args[5], args[7], args[9], dord); err != nil {
 				return err
 			}
 

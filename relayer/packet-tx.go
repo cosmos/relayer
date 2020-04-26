@@ -2,7 +2,6 @@ package relayer
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	retry "github.com/avast/retry-go"
@@ -18,10 +17,15 @@ var (
 	defaultIBCVersions     = []string{defaultIBCVersion}
 	defaultTransferVersion = "ics20-1"
 	defaultUnbondingTime   = time.Hour * 504 // 3 weeks in hours
+	defaultMaxClockDrift   = time.Second * 10
 	defaultPacketTimeout   = 1000
-	defaultPacketQuery     = "send_packet.packet_src_channel=%s&send_packet.packet_sequence=%d"
+	defaultPacketSendQuery = "send_packet.packet_src_channel=%s&send_packet.packet_sequence=%d"
 	// defaultPacketAckQuery  = "recv_packet.packet_src_channel=%s&recv_packet.packet_sequence=%d"
 )
+
+func defaultPacketTimeoutStamp() uint64 {
+	return uint64(time.Now().Add(time.Hour * 12).UnixNano())
+}
 
 // RelayPacketsOrderedChan creates transactions to clear both queues
 // CONTRACT: the SyncHeaders passed in here must be up to date or being kept updated
@@ -172,6 +176,7 @@ func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk
 				src.PathEnd,
 				seqRecv.NextSequenceRecv,
 				timeoutHeight,
+				defaultPacketTimeoutStamp(),
 				xferPacket,
 				srcCommitRes.Proof,
 				srcCommitRes.ProofHeight,
@@ -218,76 +223,27 @@ func (src *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr sdk.AccAd
 	return nil
 }
 
-// packetMsgFromTxQuery returns a sdk.Msg to relay a packet with a given seq on src
-func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (sdk.Msg, error) {
-	eve, err := ParseEvents(fmt.Sprintf(defaultPacketQuery, src.PathEnd.ChannelID, seq))
+// SendPacket sends arbitrary bytes from src to dst
+func (src *Chain) SendPacket(dst *Chain, packetData []byte) error {
+	dstHeader, err := dst.UpdateLiteWithHeader()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	tx, err := src.QueryTxs(sh.GetHeight(src.ChainID), 1, 1000, eve)
-	switch {
-	case err != nil:
-		return nil, err
-	case tx.Count == 0:
-		return nil, fmt.Errorf("no transactions returned with query")
-	case tx.Count > 1:
-		return nil, fmt.Errorf("more than one transaction returned with query")
+	// MsgSendPacket will call SendPacket on src chain
+	txs := RelayMsgs{
+		Src: []sdk.Msg{src.PathEnd.MsgSendPacket(
+			dst.PathEnd,
+			packetData,
+			dstHeader.GetHeight()+uint64(defaultPacketTimeout),
+			defaultPacketTimeoutStamp(),
+			src.MustGetAddress(),
+		)},
+		Dst: []sdk.Msg{},
 	}
 
-	rlyPackets, err := relayPacketFromQueryResponse(tx.Txs[0])
-	switch {
-	case err != nil:
-		return nil, err
-	case len(rlyPackets) == 0:
-		return nil, fmt.Errorf("no relay msgs created from query response")
-	case len(rlyPackets) > 1:
-		return nil, fmt.Errorf("more than one relay msg found in tx query")
+	if txs.Send(src, dst); !txs.success {
+		return fmt.Errorf("failed to send packet")
 	}
-
-	// sanity check the sequence number against the one we are querying for
-	// TODO: move this into relayPacketFromQueryResponse?
-	if seq != rlyPackets[0].Seq() {
-		return nil, fmt.Errorf("Different sequence number from query (%d vs %d)", seq, rlyPackets[0].Seq())
-	}
-
-	// fetch the proof from the sending chain
-	if err = rlyPackets[0].FetchCommitResponse(dst, src, sh); err != nil {
-		return nil, err
-	}
-
-	// return the sending msg
-	return rlyPackets[0].Msg(dst, src), nil
-}
-
-// relayPacketFromQueryResponse looks through the events in a sdk.Response
-// and returns relayPackets with the appropriate data
-func relayPacketFromQueryResponse(res sdk.TxResponse) (rlyPackets []relayPacket, err error) {
-	for _, l := range res.Logs {
-		for _, e := range l.Events {
-			if e.Type == "send_packet" {
-				rp := &relayMsgRecvPacket{}
-				for _, p := range e.Attributes {
-					if p.Key == "packet_data" {
-						rp.packetData = []byte(p.Value)
-					}
-					if p.Key == "packet_timeout" {
-						timeout, _ := strconv.ParseUint(p.Value, 10, 64)
-						rp.timeout = timeout
-					}
-					if p.Key == "packet_sequence" {
-						seq, _ := strconv.ParseUint(p.Value, 10, 64)
-						rp.seq = seq
-					}
-				}
-				rlyPackets = append(rlyPackets, rp)
-			}
-		}
-	}
-
-	if len(rlyPackets) > 0 {
-		return
-	}
-
-	return nil, fmt.Errorf("no packet data found")
+	return nil
 }

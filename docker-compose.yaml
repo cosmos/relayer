@@ -1,28 +1,28 @@
 version: "3.7"
 services:
     ibc0:
-        image: "jackzampolin/gaiatest:ibc-alpha"
+        image: "jackzampolin/gaiatest:master"
         ports:
             - "46657:26657"
         command: 
             - "ibc0"
             - "${IBC0ADDR}"
     ibc1:
-        image: "jackzampolin/gaiatest:ibc-alpha"
+        image: "jackzampolin/gaiatest:master"
         ports:
             - "46658:26657"
         command: 
             - "ibc1"
             - "${IBC1ADDR}"
     ibc2:
-        image: "jackzampolin/gaiatest:ibc-alpha"
+        image: "jackzampolin/gaiatest:master"
         ports:
             - "46659:26657"
         command: 
             - "ibc2"
             - "${IBC2ADDR}"
     ibc3:
-        image: "jackzampolin/gaiatest:ibc-alpha"
+        image: "jackzampolin/gaiatest:master"
         ports:
             - "46660:26657"
         command: 

@@ -3,7 +3,7 @@
   "url": "https://testnet.agoric.com",
   "daemon": "ag-chain-cosmos",
   "cli": "ag-cosmos-helper",
-  "daemon-start": "bootaddr=$($CLI keys show $chainid-bootstrap -a --keyring-backend=test 2>/dev/null || { $CLI keys add $chainid-bootstrap --keyring-backend=test; $CLI keys show $chainid-bootstrap -a -keyring-backend=test; })\necho bootaddr=$bootaddr, $chainid\nDEBUG=$CONFIG BOOT_ADDRESS=$bootaddr $DAEMON --home \"$DAEMON_HOME\" start --pruning=nothing",
+  "daemon-start": "bootaddr=$($CLI --home \"$DATA/$ID/n0/$CLI\" keys show n0 --keyring-backend=test | jq -r .address)\necho bootaddr=$bootaddr, $chainid\nDEBUG=$CONFIG ROLE=two_chain BOOT_ADDRESS=$bootaddr $DAEMON --home \"$DAEMON_HOME\" start --pruning=nothing",
   "link": {
     "account-prefix": "agoric",
     "gas": 200000,

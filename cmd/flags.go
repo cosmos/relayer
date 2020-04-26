@@ -23,6 +23,7 @@ var (
 	flagTx         = "no-tx"
 	flagBlock      = "no-block"
 	flagData       = "data"
+	flagOrder      = "unordered"
 )
 
 func liteFlags(cmd *cobra.Command) *cobra.Command {
@@ -56,6 +57,14 @@ func paginationFlags(cmd *cobra.Command) *cobra.Command {
 func yamlFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagYAML, "y", false, "output using yaml")
 	if err := viper.BindPFlag(flagYAML, cmd.Flags().Lookup(flagYAML)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func orderFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP(flagOrder, "o", false, "create an unordered channel")
+	if err := viper.BindPFlag(flagOrder, cmd.Flags().Lookup(flagOrder)); err != nil {
 		panic(err)
 	}
 	return cmd

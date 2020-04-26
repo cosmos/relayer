@@ -13,8 +13,8 @@ $ gaiad version --long
 name: gaia
 server_name: gaiad
 client_name: gaiacli
-version: 0.0.0-303-g9a09e54
-commit: 9a09e5499c25f8bbe48f2f9abe6f74360923266b
+version: 0.0.0-180-g50be36d
+commit: 50be36de941b9410a4b06ec9ce4288b1529c4bd4
 build_tags: netgo,ledger
 go: go version go1.14 darwin/amd64
 ```
@@ -23,9 +23,9 @@ go: go version go1.14 darwin/amd64
 
 ```bash
 $ rly version
-version: 0.2.0
-commit: 49e0d7316410b480236e280b0d94731adc807383
-cosmos-sdk: v0.34.4-0.20200419154345-84774907316c
+version: 0.3.0
+commit: 781026cf46c6d144ab7fcd02d92817cc3d524903
+cosmos-sdk: v0.34.4-0.20200423152229-f1fdde5d1b18
 go: go1.14 darwin/amd64
 ```
 
@@ -66,10 +66,11 @@ export DENOM=pylon
 export CHAINID=pylonchain
 export DOMAIN=shitcoincasinos.com
 export RLYKEY=faucet
+export GAIASHA=50be36d
 export ACCOUNT_PREFIX=cosmos
 
 # Start by downloading and installing both gaia and the relayer
-mkdir -p $(dirname $GAIA) && git clone https://github.com/cosmos/gaia $GAIA && cd $GAIA && git checkout ibc-alpha && make install
+mkdir -p $(dirname $GAIA) && git clone https://github.com/cosmos/gaia $GAIA && cd $GAIA && git checkout $GAIASHA && make install
 mkdir -p $(dirname $RELAYER) && git clone https://github.com/iqlusioninc/relayer $RELAYER && cd $RELAYER && make install
 
 # Now its time to configure both the relayer and gaia, start with the relayer
@@ -107,8 +108,9 @@ sudo systemctl start faucet
 # Be sure you have the text from ~/$CHAINID.json for the next step
 ```
 
-### Local Setup
-Once you have your server 
+### Relayer Setup
+
+Once you have your server (you could deploy the relayer on a different machine as above server)
 
 ```bash
 # install the relayer
@@ -136,6 +138,8 @@ rly tst request {{chain_id}} testkey
 # you should see a balance for the rly key now
 rly q bal {{chain_id}}
 ```
+Note that most of these instructions would also work directly on the 
+server on which you deployed your gaia node on (not recommended though).
 
 ### Submit your {{chain_id}}.json to the relayer repo
 
@@ -170,7 +174,7 @@ rly tst req {{dst_chain_id}}
 rly paths add {{src_chain}} {{dst_chain_id}} {{path_name}}
 
 # or generate one...
-rly pth gen {{src_chain_id}} {{src_port}} {{dst_chain_id}} {{dst_port}} {{path_name}}
+rly pth gen {{src_chain_id}} transfer {{dst_chain_id}} transfer {{path_name}}
 
 # or find all the existing paths...
 # NOTE: this command is still under development, but will output
@@ -178,7 +182,7 @@ rly pth gen {{src_chain_id}} {{src_port}} {{dst_chain_id}} {{dst_port}} {{path_n
 rly pth find
 
 # ensure that the path exists
-rly tx link {{src_chain_id}} {{dst_chain_id}}
+rly tx link {{path_name}}
 
 # then send some funds back and forth!
 rly q bal {{src_chain_id}}
@@ -186,7 +190,7 @@ rly q bal {{dst_chain_id}}
 rly tx transfer {{src_chain_id}} {{dst_chain_id}} {{amount}} true $(rly ch addr {{dst_chain_id}})
 rly q bal {{src_chain_id}}
 rly q bal {{dst_chain_id}}
-rly tx xfer {{ds_chain_id}} {{src_chain_id}} {{amount}} false $(rly ch addr {{src_chain_id}})
+rly tx xfer {{dst_chain_id}} {{src_chain_id}} {{amount}} false $(rly ch addr {{src_chain_id}})
 rly q bal {{src_chain_id}}
 rly q bal {{dst_chain_id}}
 ```
