@@ -1,0 +1,1 @@
+{"key":"fauset","chain-id":"stirchain","rpc-addr":"http://207.148.74.172:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025stir","default-denom":"stir","trusting-period":"330h"}
