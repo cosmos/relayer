@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"konstellation","rpc-addr":"http://goz.konstellation.tech:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025darc","default-denom":"darc","trusting-period":"330h"}
