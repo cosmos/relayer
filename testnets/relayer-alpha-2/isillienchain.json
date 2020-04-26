@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"isillienchain","rpc-addr":"http://49.12.106.6:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025isillien","default-denom":"isillien","trusting-period":"330h"}
