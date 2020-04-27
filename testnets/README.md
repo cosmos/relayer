@@ -151,11 +151,13 @@ Once you have your chain configured on your relayer, follow these steps to send 
 
 ```bash
 # first ensure the chain is configured locally
+cd $RELAYER
+
 # do it either individually...
 rly ch a -f testnets/relayer-alpha/pylonchain.json
 
 # or add all the chain configurations for the testnet at once...
-rly chains add-dir tesetnets/relayer-alpha/
+rly chains add-dir testnets/relayer-alpha/
 
 # ensure the lite clients are created locally...
 rly lite init {{src_chain_id}} -f 
@@ -166,6 +168,7 @@ rly keys add {{src_chain_id}}
 rly k a {{dst_chain_id}}
 
 # ensure you have funds on both chains...
+# this adds tokens to your addresses from each chain's faucet
 rly testnets request {{src_chain_id}}
 rly tst req {{dst_chain_id}}
 
@@ -174,6 +177,8 @@ rly paths add {{src_chain}} {{dst_chain_id}} {{path_name}}
 
 # or generate one...
 rly pth gen {{src_chain_id}} transfer {{dst_chain_id}} transfer {{path_name}}
+
+# NOTE: path_name can be any string, but one convention is srcchain_dstchain
 
 # or find all the existing paths...
 # NOTE: this command is still under development, but will output
