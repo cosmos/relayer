@@ -1,0 +1,10 @@
+{
+  "key": "01",
+  "chain-id": "01node",
+  "rpc-addr": "http://goz.01node.com:26657",
+  "account-prefix": "cosmos",
+  "gas": 200000,
+  "gas-prices": "0.025no01",
+  "default-denom": "no01",
+  "trusting-period": "330h"
+}
