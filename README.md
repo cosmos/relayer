@@ -30,6 +30,7 @@ If you would like to join the relayer testnet, please [check out the instruction
 | [`gaia`](https://github.com/cosmos/gaia) | ![gaia](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20gaia%20to%20gaia%20integration/badge.svg) | `transfer` |
 | `microtick` | ![microtick](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20mtd%20to%20ibc%20integration/badge.svg) | `transfer` |
 | [`rocketzone`](https://github.com/rocket-protocol/rocketzone) | ![rocketzone](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20rocketzone%20to%20ibc%20integration/badge.svg) | `transfer` |
+| [`coco`](https://github.com/CosmicCompass/post-chain) | ![coco](https://github.com/CosmicCompass/relayer/workflows/TESTING%20-%20coco%20to%20ibc%20integration/badge.svg) | `transfer` |
 
 ## Demoing the Relayer
 
