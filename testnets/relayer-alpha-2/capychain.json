@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"capychain","rpc-addr":"http://capychain.com:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025capybara","default-denom":"capybara","trusting-period":"330h"}
