@@ -155,7 +155,7 @@ Once you have your chain configured on your relayer, follow these steps to send 
 rly ch a -f testnets/relayer-alpha/pylonchain.json
 
 # or add all the chain configurations for the testnet at once...
-rly chains add-dir tesetnets/relayer-alpha/
+rly chains add-dir testnets/relayer-alpha/
 
 # ensure the lite clients are created locally...
 rly lite init {{src_chain_id}} -f 
