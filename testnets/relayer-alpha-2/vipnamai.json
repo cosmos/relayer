@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"vipnamai","rpc-addr":"http://173.249.12.108:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025vip","default-denom":"vip","trusting-period":"330h"}
