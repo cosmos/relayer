@@ -1,0 +1,1 @@
+{"key":"blockngine","chain-id":"blockngine-ibc","rpc-addr":"http://rpc.blockngine.io:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025ngine","default-denom":"ngine","trusting-period":"330h"}
