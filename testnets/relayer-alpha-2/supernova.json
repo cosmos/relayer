@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"supernova","rpc-addr":"http://supernova.commonwealth.im:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025dust","default-denom":"dust","trusting-period":"330h"}
