@@ -67,6 +67,7 @@ export CHAINID=pylonchain
 export DOMAIN=shitcoincasinos.com
 export RLYKEY=faucet
 export GAIASHA=50be36d
+export ACCOUNT_PREFIX=cosmos
 
 # Start by downloading and installing both gaia and the relayer
 mkdir -p $(dirname $GAIA) && git clone https://github.com/cosmos/gaia $GAIA && cd $GAIA && git checkout $GAIASHA && make install
@@ -75,7 +76,7 @@ mkdir -p $(dirname $RELAYER) && git clone https://github.com/iqlusioninc/relayer
 # Now its time to configure both the relayer and gaia, start with the relayer
 cd
 rly config init
-echo "{\"key\":\"$RLYKEY\",\"chain-id\":\"$CHAINID\",\"rpc-addr\":\"http://$DOMAIN:26657\",\"account-prefix\":\"cosmos\",\"gas\":200000,\"gas-prices\":\"0.025$DENOM\",\"default-denom\":\"$DENOM\",\"trusting-period\":\"330h\"}" > $CHAINID.json
+echo "{\"key\":\"$RLYKEY\",\"chain-id\":\"$CHAINID\",\"rpc-addr\":\"http://$DOMAIN:26657\",\"account-prefix\":\"$ACCOUNT_PREFIX\",\"gas\":200000,\"gas-prices\":\"0.025$DENOM\",\"default-denom\":\"$DENOM\",\"trusting-period\":\"330h\"}" > $CHAINID.json
 # NOTE: you will want to save the content from this JSON file
 rly chains add -f $CHAINID.json
 rly keys add $CHAINID $RLYKEY
@@ -154,10 +155,10 @@ Once you have your chain configured on your relayer, follow these steps to send 
 cd $RELAYER
 
 # do it either individually...
-rly ch a -f testnets/relayer-alpha/pylonchain.json
+rly ch a -f testnets/relayer-alpha-2/pylonchain.json
 
 # or add all the chain configurations for the testnet at once...
-rly chains add-dir testnets/relayer-alpha/
+rly chains add-dir testnets/relayer-alpha-2/
 
 # ensure the lite clients are created locally...
 rly lite init {{src_chain_id}} -f 
