@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"setanchain","rpc-addr":"http://setan.ml:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025setan","default-denom":"setan","trusting-period":"330h"}

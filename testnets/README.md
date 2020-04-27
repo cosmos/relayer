@@ -107,8 +107,9 @@ sudo systemctl start faucet
 # Be sure you have the text from ~/$CHAINID.json for the next step
 ```
 
-### Local Setup
-Once you have your server 
+### Relayer Setup
+
+Once you have your server (you could deploy the relayer on a different machine as above server)
 
 ```bash
 # install the relayer
@@ -136,6 +137,8 @@ rly tst request {{chain_id}} testkey
 # you should see a balance for the rly key now
 rly q bal {{chain_id}}
 ```
+Note that most of these instructions would also work directly on the 
+server on which you deployed your gaia node on (not recommended though).
 
 ### Submit your {{chain_id}}.json to the relayer repo
 
@@ -191,7 +194,7 @@ rly q bal {{dst_chain_id}}
 rly tx transfer {{src_chain_id}} {{dst_chain_id}} {{amount}} true $(rly ch addr {{dst_chain_id}})
 rly q bal {{src_chain_id}}
 rly q bal {{dst_chain_id}}
-rly tx xfer {{ds_chain_id}} {{src_chain_id}} {{amount}} false $(rly ch addr {{src_chain_id}})
+rly tx xfer {{dst_chain_id}} {{src_chain_id}} {{amount}} false $(rly ch addr {{src_chain_id}})
 rly q bal {{src_chain_id}}
 rly q bal {{dst_chain_id}}
 ```
