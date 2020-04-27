@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"gemstone","rpc-addr":"http://goz.jptpool.com:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025gem","default-denom":"gem","trusting-period":"330h"}
