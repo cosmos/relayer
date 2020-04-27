@@ -52,7 +52,9 @@ IDS=()
 CONFIGS=()
 JSONS=()
 SRCS=()
+SRCPORTS=()
 DSTS=()
+DSTPORTS=()
 
 get_alphabetic() {
   id="$1"
@@ -132,8 +134,8 @@ validate() {
       found_src=no
       found_dst=no
       for id in ${IDS[@]}; do
-        [[ $id == $src ]] && found_src=yes
-        [[ $id == $dst ]] && found_dst=yes
+        [[ $id != $src ]] || found_src=yes
+        [[ $id != $dst ]] || found_dst=yes
       done
       if [[ $found_src != yes ]]; then
         echo 1>&2 "$progname: error: LINK \`$link' source ID \`$src' does not match a CHAIN"
@@ -179,9 +181,11 @@ Usage: $progname COMMAND [OPTIONS]...
 
 COMMAND is one of:
   help [CMD]    display help information for CMD (default: main)
-  init ...      create a configuration for \`link' and \`run'
-  link          link chains together with relayers per \`init'
-  run           start chains running per \`init'
+  init ...      create a configuration directory
+  chains        start chains running per \`init'
+  clients       start clients running per \`init'
+  relay         link chains together with relayers per \`init'
+  run           both chains and clients
 EOF
   else
     echo "Try \`$progname --help' for more information"
@@ -223,18 +227,27 @@ Create configuration in \`$DATA' for:
 If no LINKS are supplied, use a circuit around the CHAINS.
 EOF
     ;;
-  run)
+  chains)
     cat <<EOF
-Usage: $progname run [skip]
+Usage: $progname chains [skip]
 
 Start chains running in a directory created by \`$progname init'.
 
 If \`skip' is provided, files will be deleted without prompting.
 EOF
     ;;
-  link)
+  clients)
     cat <<EOF
-Usage: $progname link [skip]
+Usage: $progname clients [skip]
+
+Start clients running in a directory created by \`$progname init'.
+
+If \`skip' is provided, files will be deleted without prompting.
+EOF
+   ;;
+  relay)
+    cat <<EOF
+Usage: $progname relay [skip]
 
 Start relayers in a directory created by \`$progname init'.
 
@@ -291,8 +304,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 BASEDIR=$(cd "$BASEDIR" && pwd)
-NCONFIG="$BASEDIR/nchainz.json"
+NCONFIG="$BASEDIR/nchainz.cfg"
 DATA="$BASEDIR/data"
+LOGS="$BASEDIR/logs"
 
 case $COMMAND in
 "")
@@ -305,9 +319,255 @@ help)
 init)
   # Just continue.
   ;;
-run | link)
-  exec "$BASEDIR/$COMMAND" ${1+"$@"}
-  exit $?
+chains)
+  source "$NCONFIG"
+
+  # Ensure user understands what will be deleted
+  if [[ -d $DATA ]] && [[ $1 != skip ]]; then
+    read -p "$progname: will delete $DATA folder. Do you wish to continue? (y/N): " -n 1 -r
+    echo 
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
+  fi
+  rm -rf "$DATA"
+
+  echo "mkdir $DATA"
+  mkdir -p "$DATA"
+
+  set -e
+
+  echo "Generating chain configurations..."
+  cd "$DATA"
+
+  if [[ "$(uname)" == Darwin ]]; then
+    sedi() {
+      sed -i '' ${1+"$@"}
+    }
+  else
+    sedi() {
+      sed -i ${1+"$@"}
+    }
+  fi
+
+  base=0
+  for i in ${!IDS[@]}; do
+    ID=${IDS[$i]}
+    json=${JSONS[$i]}
+    DAEMON=$(jq -r .daemon $json)
+    CLI=$(jq -r .cli $json)
+
+    DAEMON_TESTNET=$(jq -r '."daemon-testnet"' "$json")
+    [[ $DAEMON_TESTNET != null ]] || DAEMON_TESTNET='echo | $DAEMON testnet -o $chainid --v 1 --chain-id $chainid --node-dir-prefix n --keyring-backend test'
+
+    chainid="$ID"
+    p26656=$(( 26656 - $i * 100 ))
+    p26657=$(( 26657 - $i * 100 ))
+    p26658=$(( 26658 - $i * 100 ))
+    p26660=$(( 26660 - $i * 100 ))
+    p6060=$(( 6060 + $i ))
+
+    eval $DAEMON_TESTNET || echo $?
+
+    cfgpth="$DATA/$chainid/n0/$DAEMON/config/config.toml"
+    # TODO: Just index *some* specified tags, not all
+    sedi 's/index_all_keys = false/index_all_keys = true/g' "$cfgpth"
+
+    # Set proper defaults and change ports
+    sedi 's/"leveldb"/"goleveldb"/g' "$cfgpth"
+    sedi "s#:26656#:$p26656#g" "$cfgpth"
+    sedi "s#:26657#:$p26657#g" "$cfgpth"
+    sedi "s#:26658#:$p26658#g" "$cfgpth"
+    sedi "s#:26660#:$p26660#g" "$cfgpth"
+    sedi "s#:6060#:$p6060#g" "$cfgpth"
+
+    # Make blocks run faster than normal
+    sedi 's/timeout_commit = "[0-9]*s"/timeout_commit = "1s"/g' "$cfgpth"
+    sedi 's/timeout_propose = "[0-9]*s"/timeout_propose = "1s"/g' "$cfgpth"
+
+    gclpth="$DATA/$chainid/n0/$CLI/"
+    $CLI config --home "$gclpth" chain-id $chainid &> /dev/null
+    $CLI config --home "$gclpth" output json &> /dev/null
+    $CLI config --home "$gclpth" node http://localhost:$p26657 &> /dev/null
+  done
+
+  for i in ${!IDS[@]}; do
+    json=${JSONS[$i]}
+    CLI=$(jq -r .cli $json)
+    DAEMON=$(jq -r .daemon $json)
+    CONFIG=${CONFIGS[$i]}
+    ID=${IDS[$i]}
+    chainid=$ID
+
+    # Allow the config to override the start command.
+    DAEMON_HOME="$DATA/$chainid/n0/$DAEMON"
+    DAEMON_START=$(jq -r '."daemon-start"' "$json")
+    [[ $DAEMON_START != null ]] || DAEMON_START='$DAEMON --home "$DAEMON_HOME" start --pruning=nothing'
+
+    echo "'$DAEMON start' ($chainid) logs in $LOGS/$ID.log"
+    (
+      eval $DAEMON_START
+    ) >> "$LOGS/$ID.log" 2>&1 &
+  done
+
+  echo "Ctrl-C exits, or you can background this script..."
+  wait
+  exit 0
+  ;;
+clients)
+  source "$NCONFIG"
+  RELAYER_CONF="$HOME/.relayer"
+
+  set -e
+
+  # Ensure gopath is set and go is installed
+  GOBIN=${GOBIN-${GOPATH-$HOME/go}/bin}
+  if [[ ! -d $GOPATH ]] || [[ ! -d $GOBIN ]] || [[ ! -x "$(which go)" ]]; then
+    echo "Your \$GOPATH is not set or go is not installed,"
+    echo "ensure you have a working installation of go before trying again..."
+    echo "https://golang.org/doc/install"
+    exit 1
+  fi
+
+  # Ensure user understands what will be deleted
+  if [[ -d $RELAYER_CONF ]] && [[ "$1" != "skip" ]]; then
+    read -p "$progname: will delete $RELAYER_CONF folder. Do you wish to continue? (y/n): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
+  fi
+
+  (
+    cd "$RELAYER_DIR"
+    rm -rf "$RELAYER_CONF"
+
+    echo "Building Relayer..."
+    make install
+  )
+
+  echo "Generating rly configurations..."
+  rly config init
+  rly config add-dir "$BASEDIR/config/"
+
+  sleep 2
+
+  for i in ${!IDS[@]}; do
+    ID=${IDS[$i]}
+    json=${JSONS[$i]}
+    CLI=$(jq -r .cli $json)
+    DAEMON=$(jq -r .daemon $json)
+    chainid=$ID
+    (
+      try=0
+      f="$DATA/$chainid/n0/$CLI/key_seed.json"
+      while [[ ! -f $f ]]; do
+        try=$(( $try + 1 ))
+        echo "no $f"
+        echo "$chainid $CLI is not yet ready (try=$try)"
+        sleep 1
+      done
+      SEED=$(jq -r '.secret' "$f")
+      echo "Key $(rly keys restore $chainid testkey "$SEED") imported from $chainid to relayer..."
+
+      try=0
+      f="$DATA/$chainid/n0/$DAEMON/config/genesis.json"
+      while [[ ! -f $f ]]; do
+        try=$(( $try + 1 ))
+        echo "no $f"
+        echo "$chainid is not yet ready (try=$try)"
+        sleep 1
+      done
+      echo "Creating lite client for $chainid ($DAEMON)..."
+      try=0
+      while ! rly lite init $chainid -f >> "$LOGS/lite-$chainid.log" 2>&1; do
+        try=$(( $try + 1 ))
+        echo "$chainid lite client not yet ready (try=$try)"
+        sleep 1
+      done
+      try=$(( $try + 1 ))
+      echo "$chainid lite client initialized (try=$try)"
+    ) &
+  done
+
+  # Let all our chains initialise.
+  wait
+
+  for i in ${!IDS[@]}; do
+    ID=${IDS[$i]}
+    json=${JSONS[$i]}
+    
+    CMD=$(jq -r '."post-lite-client"' $json)
+
+    [[ $CMD != null ]] || continue
+    (
+      chainid=$ID
+      eval $CMD
+    ) &
+  done
+  echo "Waiting for clients (Control-C to exit)..."
+  wait
+  exit 0
+  ;;
+
+relay)
+  . "$NCONFIG"
+
+  paths=
+  for i in ${!SRCS[@]}; do
+    src=${SRCS[$i]}
+    get_alphabetic "$src"
+    srca=$ida
+
+    dst=${DSTS[$i]}
+    get_alphabetic "$dst"
+    dsta=$ida
+
+    get_alphabetic "$i"
+    ia=$ida
+    path="$ia"
+    paths="$paths $path"
+    echo "Starting 'rly tx link $path' ($src<>$dst) logs in $LOGS/$path.log"
+    (
+      try=0
+      while ! rly tx link $path --timeout=3s -d >> "$LOGS/$path.log" 2>&1; do
+        try=$(( $try + 1 ))
+        echo "$path tx link not yet ready (try=$try)"
+        sleep 1
+      done
+      try=$(( $try + 1 ))
+      echo "$path tx link initialized (try=$try)"
+      rly start "$path" &
+    ) &
+  done
+
+  echo "Check the state of the links using 'rly paths list' to see when they are ready..."
+  echo "(Ctrl-C exits, or you can background this job)"
+  todo=$paths
+  while :; do
+    rly paths list
+    remaining=$todo
+    todo=
+    for path in $remaining; do
+      if [[ $(rly paths show "$path" --json | jq -r .status.channel) != true ]]; then
+        todo="$todo $path"
+      fi
+    done
+    if [[ -z $todo ]]; then
+      break
+    fi
+    sleep 5
+  done
+
+  echo "All paths initialized, waiting for relayers (Control-C to exit)..."
+  wait
+  exit 0
+  ;;
+run)
+  "$0" chains skip &
+  "$0" clients skip &
+  wait
+  exit 0
   ;;
 *)
   echo 1>&2 "$progname: unrecognized COMMAND \`$COMMAND'"
@@ -330,152 +590,22 @@ if [[ -e $BASEDIR ]] && [[ $SKIP != yes ]]; then
 fi
 
 rm -rf "$BASEDIR"
-mkdir -p "$BASEDIR/config"
+mkdir -p "$BASEDIR/config" "$LOGS"
 
 echo "creating $NCONFIG"
 cat <<EOF >"$NCONFIG"
-{
-  "FIXME": "This file would be the $progname configuration"
-}
-EOF
-
-# FIXME: Use this when run and link are in this script and use $NCONFIG
-# exit 0
-
-
-# Fail on error.
-set -e
-
-#####################
-# Create $BASEDIR/run
-
-run=$BASEDIR/run
-echo "creating $run"
-cat <<\EOF >"$run"
-#! /bin/bash
-# run - create all the chains
+# $NCONFIG - $progname configuration script
 # DO NOT EDIT - Automatically generated by $progname $args
-
-progname=$(basename -- "$0")
-cd $(dirname -- ${BASH_SOURCE[0]}) || exit $?
-BASEDIR=$PWD
-DATA="$BASEDIR/data"
-trap 'kill $(jobs -p) 2>/dev/null' EXIT 
-
-# Ensure gopath is set and go is installed
-GOBIN=${GOBIN-${GOPATH-$HOME/go}/bin}
-if [[ ! -d $GOPATH ]] || [[ ! -d $GOBIN ]] || [[ ! -x "$(which go)" ]]; then
-  echo "Your \$GOPATH is not set or go is not installed,"
-  echo "ensure you have a working installation of go before trying again..."
-  echo "https://golang.org/doc/install"
-  exit 1
-fi
-
-# Ensure user understands what will be deleted
-if [[ -d $DATA && $1 != skip ]]; then
-  read -p "$progname: will delete $DATA folder. Do you wish to continue? (y/N): " -n 1 -r
-  echo 
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-      exit 1
-  fi
-fi
-rm -rf "$DATA"
-
-echo "mkdir $DATA"
-mkdir -p "$DATA"
-
-set -e
-
-echo "Generating chain configurations..."
-cd "$DATA"
+DATA='$BASEDIR/data'
+LOGS='$BASEDIR/logs'
+IDS=( $(printf "'%s' " "${IDS[@]}"))
+CONFIGS=( $(printf "'%s' " "${CONFIGS[@]}"))
+JSONS=( $(printf "'%s' " "${JSONS[@]}"))
+SRCS=( $(printf "'%s' " "${SRCS[@]}"))
+SRCPORTS=( $(printf "'%s' " "${SRCPORTS[@]}"))
+DSTS=( $(printf "'%s' " "${DSTS[@]}"))
+DSTPORTS=( $(printf "'%s' " "${DSTPORTS[@]}"))
 EOF
-
-if [[ "$(uname)" == Darwin ]]; then
-  sedi="sed -i ''"
-else
-  sedi="sed -i"
-fi
-
-base=0
-for i in ${!IDS[@]}; do
-  ID=${IDS[$i]}
-  json=${JSONS[$i]}
-  DAEMON=$(jq -r .daemon $json)
-  CLI=$(jq -r .cli $json)
-
-  cat >>"$run" <<EOF
-chainid="$ID"
-DAEMON="$DAEMON"
-CLI="$CLI"
-p26656=$(( 26656 - $i * 100 ))
-p26657=$(( 26657 - $i * 100 ))
-p26658=$(( 26658 - $i * 100 ))
-p26660=$(( 26660 - $i * 100 ))
-p6060=$(( 6060 + $i ))
-EOF
-
-  sed -e "s/sed -i/$sedi/g" >>"$run" <<\EOF
-
-echo -e "\n" | $DAEMON testnet -o $chainid --v 1 --chain-id $chainid --node-dir-prefix n --keyring-backend test &> /dev/null
-
-cfgpth="$DATA/$chainid/n0/$DAEMON/config/config.toml"
-# TODO: Just index *some* specified tags, not all
-sed -i 's/index_all_keys = false/index_all_keys = true/g' "$cfgpth"
-
-# Set proper defaults and change ports
-sed -i 's/"leveldb"/"goleveldb"/g' "$cfgpth"
-sed -i "s#:26656#:$p26656#g" "$cfgpth"
-sed -i "s#:26657#:$p26657#g" "$cfgpth"
-sed -i "s#:26658#:$p26658#g" "$cfgpth"
-sed -i "s#:26660#:$p26660#g" "$cfgpth"
-sed -i "s#:6060#:$p6060#g" "$cfgpth"
-
-# Make blocks run faster than normal
-sed -i 's/timeout_commit = "[0-9]*s"/timeout_commit = "1s"/g' "$cfgpth"
-sed -i 's/timeout_propose = "[0-9]*s"/timeout_propose = "1s"/g' "$cfgpth"
-
-gclpth="$DATA/$chainid/n0/$CLI/"
-$CLI config --home "$gclpth" chain-id $chainid &> /dev/null
-$CLI config --home "$gclpth" output json &> /dev/null
-$CLI config --home "$gclpth" node http://localhost:$p26657 &> /dev/null
-EOF
-done
-
-for i in ${!IDS[@]}; do
-  json=${JSONS[$i]}
-  CLI=$(jq -r .cli $json)
-  DAEMON=$(jq -r .daemon $json)
-  CONFIG=${CONFIGS[$i]}
-  ID=${IDS[$i]}
-  chainid=$ID
-
-  # Allow the config to override the start command.
-  DAEMON_HOME="\$DATA/$chainid/n0/$DAEMON"
-  DAEMON_START=$(jq -r '."daemon-start"' "$json")
-  [[ $DAEMON_START == null ]] && DAEMON_START='$DAEMON --home "$DAEMON_HOME" start --pruning=nothing'
-
-  # echo "START=$DAEMON_START"
-  cat >>"$run" <<EOF
-CLI="$CLI"
-DAEMON="$DAEMON"
-DAEMON_HOME="$DAEMON_HOME"
-CONFIG="$CONFIG"
-ID="$ID"
-chainid="$ID"
-EOF
-
-  cat >>"$run" <<EOF
-echo "'$DAEMON start' ($chainid) logs in \$DATA/$ID.log"
-$DAEMON_START > "\$DATA/$ID.log" 2>&1 &
-EOF
-done
-
-cat >>"$run" <<\EOF
-
-echo "Ctrl-C exits, or you can background this script..."
-wait
-EOF
-chmod +x "$run"
 
 for i in ${!IDS[@]}; do
   id=${IDS[$i]}
@@ -526,182 +656,18 @@ for i in ${!SRCS[@]}; do
 EOF
 done
 
-######################
-# Create $BASEDIR/link
-
-link=$BASEDIR/link
-echo "creating $link"
-cat <<\EOF >"$link"
-#! /bin/bash
-# link - create specific relayers
-# DO NOT EDIT - Automatically generated by $progname $args
-
-progname=$(basename -- "$0")
-cd $(dirname -- ${BASH_SOURCE[0]}) || exit $?
-BASEDIR=$PWD
-DATA="$BASEDIR/data"
-RELAYER_CONF="$HOME/.relayer"
-EOF
-
-cat >>"$link" <<EOF
-RELAYER_DIR="$RELAYER_DIR"
-EOF
-
-cat >>"$link" <<\EOF
-
-set -e
-trap 'kill $(jobs -p) 2>/dev/null' EXIT 
-
-# Ensure jq is installed
-if [[ ! -x "$(which jq)" ]]; then
-  echo "jq (a tool for parsing json in the command line) is required..."
-  echo "https://stedolan.github.io/jq/download/"
-  exit 1
-fi
-
-# Ensure user understands what will be deleted
-if [[ -d $RELAYER_CONF ]] && [[ "$1" != "skip" ]]; then
-  read -p "$progname: will delete $RELAYER_CONF folder. Do you wish to continue? (y/n): " -n 1 -r
-  echo
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-      exit 1
-  fi
-fi
-
-(
-  cd "$RELAYER_DIR"
-  rm -rf "$RELAYER_CONF"
-
-  echo "Building Relayer..."
-  make install
-)
-
-echo "Generating rly configurations..."
-rly config init
-rly config add-dir "$BASEDIR/config/"
-
-sleep 2
-EOF
-
-for i in ${!IDS[@]}; do
-  id=${IDS[$i]}
-  json=${JSONS[$i]}
-  CLI=$(jq -r .cli $json)
-  DAEMON=$(jq -r .daemon $json)
-  cat >>"$link" <<EOF
-
-chainid="$id"
-CLI="$CLI"
-DAEMON="$DAEMON"
-EOF
-  cat >>"$link" <<\EOF
-(
-  try=0
-  f="$DATA/$chainid/n0/$CLI/key_seed.json"
-  while [[ ! -f $f ]]; do
-    try=$(( $try + 1 ))
-    echo "no $f"
-    echo "$chainid $CLI is not yet ready (try=$try)"
-    sleep 1
-  done
-  SEED=$(jq -r '.secret' "$f")
-  echo "Key $(rly keys restore $chainid testkey "$SEED") imported from $chainid to relayer..."
-
-  try=0
-  f="$DATA/$chainid/n0/$DAEMON/config/genesis.json"
-  while [[ ! -f $f ]]; do
-    try=$(( $try + 1 ))
-    echo "no $f"
-    echo "$chainid is not yet ready (try=$try)"
-    sleep 1
-  done
-  echo "Creating lite client for $chainid ($DAEMON)..."
-  try=0
-  while ! rly lite init $chainid -f >> "$DATA/lite-$chainid.log" 2>&1; do
-    try=$(( $try + 1 ))
-    echo "$chainid lite client not yet ready (try=$try)"
-    sleep 1
-  done
-  try=$(( $try + 1 ))
-  echo "$chainid lite client initialized (try=$try)"
-) &
-EOF
-done
-
-cat >>"$link" <<\EOF
-
-# Let all our chains initialise.
-wait
-
-EOF
-
-for i in ${!SRCS[@]}; do
-  src=${SRCS[$i]}
-  get_alphabetic "$src"
-  srca=$ida
-
-  dst=${DSTS[$i]}
-  get_alphabetic "$dst"
-  dsta=$ida
-
-  get_alphabetic "$i"
-  ia=$ida
-  path="$ia"
-  cat >>"$link" <<EOF
-
-paths="\$paths $path"
-echo "Starting 'rly tx link $path' ($src<>$dst) logs in \$DATA/$path.log"
-(
-  try=0
-  while ! rly tx link $path --timeout=3s -d >> "\$DATA/$path.log" 2>&1; do
-    try=\$(( \$try + 1 ))
-    echo "$path tx link not yet ready (try=\$try)"
-    sleep 1
-  done
-  try=\$(( \$try + 1 ))
-  echo "$path tx link initialized (try=\$try)"
-  rly start "$path" &
-) &
-EOF
-done
-
-cat >>"$link" <<\EOF
-
-echo "Check the state of the links using 'rly paths list' to see when they are ready..."
-echo "(Ctrl-C exits, or you can background this job)"
-todo=$paths
-while :; do
-  rly paths list
-  remaining=$todo
-  todo=
-  for path in $remaining; do
-    if [[ $(rly paths show "$path" --json | jq -r .status.channel) != true ]]; then
-      todo="$todo $path"
-    fi
-  done
-  if [[ -z $todo ]]; then
-    break
-  fi
-  sleep 5
-done
-
-echo "All paths initialized, waiting for relayers (Control-C to exit)..."
-wait
-EOF
-chmod +x "$link"
-
 #####################
 cat <<EOF
 
 =====================
 Done generating $BASEDIR
 
-You can use: \`$progname run' or \`$progname link' at any time.
+You can use: \`$progname [run|relay]' at any time.
 
 EOF
 
 if [[ $SKIP != yes ]]; then
-  read -p "Do you wish to \`run' and \`link' right now (y/N)? " -n 1 -r
+  read -p "Do you wish to \`run', and \`relay' right now (y/N)? " -n 1 -r
   echo
 
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -710,6 +676,6 @@ if [[ $SKIP != yes ]]; then
 fi
 
 "$0" run skip &
-"$0" link skip &
+"$0" relay skip &
 echo "Hit Control-C to exit"
 wait

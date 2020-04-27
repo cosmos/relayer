@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"freeflix-media-hub","rpc-addr":"http://51.178.119.162:26657","account-prefix":"freeflix","gas":200000,"gas-prices":"0.025fmt","default-denom":"fmt","trusting-period":"330h"}

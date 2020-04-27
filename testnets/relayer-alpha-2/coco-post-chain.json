@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"coco-post-chain","rpc-addr":"http://51.178.119.163:26657","account-prefix":"cosmic","gas":200000,"gas-prices":"0.025coco","default-denom":"coco","trusting-period":"330h"}

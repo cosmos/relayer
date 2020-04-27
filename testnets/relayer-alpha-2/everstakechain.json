@@ -1,0 +1,2 @@
+{"key":"faucet","chain-id":"everstakechain","rpc-addr":"http://goz.everstake.one:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025everstake","default-denom":"everstake","trusting-period":"330h"}
+
