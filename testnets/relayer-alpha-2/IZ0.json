@@ -1,1 +1,10 @@
-{"key":"faucet","chain-id":"IZ0","rpc-addr":"http://ibc.izo.ro:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025izo","default-denom":"izo","trusting-period":"330h"}
+{
+  "key":"faucet",
+  "chain-id":"IZ0",
+  "rpc-addr":"http://ibc.izo.ro:26657",
+  "account-prefix":"cosmos",
+  "gas":200000,
+  "gas-prices":"0.025izo",
+  "default-denom":"izo",
+  "trusting-period":"330h"
+}
