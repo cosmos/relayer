@@ -1,7 +1,7 @@
 {
   "key": "faucet",
-  "chain-id": "chainapsis-1",
-  "rpc-addr": "http://testnet-n1.chainapsis.com/",
+  "chain-id": "chainapsis",
+  "rpc-addr": "http://testnet-n1.chainapsis.com:80",
   "account-prefix": "cosmos",
   "gas": 200000,
   "gas-prices": "0.025uapsis",
