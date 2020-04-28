@@ -1,1 +1,1 @@
-{"key":"Node123","chain-id":"Node123","rpc-addr":"http://http://193.30.121.61:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025Node123","default-denom":"Node123","trusting-period":"330h"}
+{"key":"Node123","chain-id":"Node123","rpc-addr":"http://193.30.121.61:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025node123","default-denom":"node123","trusting-period":"330h"}
