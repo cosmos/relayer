@@ -219,13 +219,15 @@ func (src *Chain) SendMsgs(datagrams []sdk.Msg) (res sdk.TxResponse, err error) 
 
 // BuildAndSignTx takes messages and builds, signs and marshals a sdk.Tx to prepare it for broadcast
 func (src *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
+	done := src.UseSDKContext()
+	defer done()
+
 	// Fetch account and sequence numbers for the account
 	acc, err := auth.NewAccountRetriever(src.Cdc, src).GetAccount(src.MustGetAddress())
 	if err != nil {
 		return nil, err
 	}
 
-	defer src.UseSDKContext()()
 	return auth.NewTxBuilder(
 		auth.DefaultTxEncoder(src.Amino.Codec), acc.GetAccountNumber(),
 		acc.GetSequence(), src.Gas, src.GasAdjustment, false, src.ChainID,
@@ -311,6 +313,8 @@ var sdkContextMutex sync.Mutex
 func (src *Chain) UseSDKContext() func() {
 	// Ensure we're the only one using the global context.
 	sdkContextMutex.Lock()
+	defer sdkContextMutex.Unlock()
+
 	sdkConf := sdk.GetConfig()
 	account := sdkConf.GetBech32AccountAddrPrefix()
 	pubaccount := sdkConf.GetBech32AccountPubPrefix()
@@ -320,12 +324,17 @@ func (src *Chain) UseSDKContext() func() {
 
 	// Return a function that resets and unlocks.
 	return func() {
+		sdkContextMutex.Lock()
 		defer sdkContextMutex.Unlock()
+
 		sdkConf.SetBech32PrefixForAccount(account, pubaccount)
 	}
 }
 
 func (src *Chain) String() string {
+	done := src.UseSDKContext()
+	defer done()
+
 	out, _ := json.Marshal(src)
 	return string(out)
 }

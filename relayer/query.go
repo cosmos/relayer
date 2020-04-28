@@ -76,9 +76,9 @@ func qBalErr(acc sdk.AccAddress, err error) error {
 	return fmt.Errorf("query balance for acct %s failed: %w", acc.String(), err)
 }
 
-//////////////////////////////
+// ////////////////////////////
 //    ICS 02 -> CLIENTS     //
-//////////////////////////////
+// ////////////////////////////
 
 // QueryConsensusState returns a consensus state for a given chain to be used as a
 // client in another chain, fetches latest height when passed 0 as arg
@@ -296,9 +296,9 @@ func (c *Chain) QueryClients(page, limit int) ([]clientExported.ClientState, err
 
 func qClntsErr(err error) error { return fmt.Errorf("query clients failed: %w", err) }
 
-//////////////////////////////
+// ////////////////////////////
 //  ICS 03 -> CONNECTIONS   //
-//////////////////////////////
+// ////////////////////////////
 
 // QueryConnections gets any connections on a chain
 func (c *Chain) QueryConnections(page, limit int) (conns []connTypes.IdentifiedConnectionEnd, err error) {
@@ -437,9 +437,9 @@ func qConnErr(err error) error { return fmt.Errorf("query connection failed: %w"
 var emptyConn = connTypes.ConnectionEnd{State: connState.UNINITIALIZED}
 var emptyConnRes = connTypes.ConnectionResponse{Connection: connTypes.IdentifiedConnectionEnd{Connection: emptyConn, Identifier: ""}}
 
-//////////////////////////////
+// ////////////////////////////
 //    ICS 04 -> CHANNEL     //
-//////////////////////////////
+// ////////////////////////////
 
 // QueryConnectionChannels queries the channels associated with a connection
 func (c *Chain) QueryConnectionChannels(connectionID string, page, limit int) ([]chanTypes.IdentifiedChannel, error) {
@@ -1199,7 +1199,6 @@ func (c *Chain) formatTxResults(resTxs []*ctypes.ResultTx, resBlocks map[int64]*
 
 // formatTxResult parses a tx into a TxResponse object
 func (c *Chain) formatTxResult(resTx *ctypes.ResultTx, resBlock *ctypes.ResultBlock) (sdk.TxResponse, error) {
-	defer c.UseSDKContext()()
 	tx, err := parseTx(c.Amino.Codec, resTx.Tx)
 	if err != nil {
 		return sdk.TxResponse{}, err

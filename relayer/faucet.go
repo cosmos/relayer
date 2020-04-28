@@ -31,12 +31,14 @@ func (src *Chain) BuildAndSignTxWithKey(datagram []sdk.Msg, keyName string) ([]b
 		return nil, err
 	}
 
+	done := src.UseSDKContext()
+	defer done()
+
 	acc, err := auth.NewAccountRetriever(src.Cdc, src).GetAccount(info.GetAddress())
 	if err != nil {
 		return nil, err
 	}
 
-	defer src.UseSDKContext()()
 	return auth.NewTxBuilder(
 		auth.DefaultTxEncoder(src.Amino.Codec), acc.GetAccountNumber(),
 		acc.GetSequence(), src.Gas, src.GasAdjustment, false, src.ChainID,
@@ -95,7 +97,7 @@ func (src *Chain) checkAddress(addr string) (time.Duration, error) {
 	if val, ok := src.faucetAddrs[addr]; ok {
 		sinceLastRequest := time.Since(val)
 		if faucetTimeout > sinceLastRequest {
-			wait := (faucetTimeout - sinceLastRequest)
+			wait := faucetTimeout - sinceLastRequest
 			return wait, fmt.Errorf("%s has requested funds within the last %s, wait %s before trying again", addr, faucetTimeout.String(), wait.String())
 		}
 	}

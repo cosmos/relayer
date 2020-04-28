@@ -136,7 +136,9 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *
 
 	func() {
 		// Ensure our address is encoded properly.
-		defer c.UseSDKContext()()
+		done := c.UseSDKContext()
+		defer done()
+
 		dockerOpts.Cmd = []string{c.ChainID, c.MustGetAddress().String()}
 		dockerOpts.Labels = make(map[string]string)
 		dockerOpts.Labels["io.iqlusion.relayer.test"] = "true"
