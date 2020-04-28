@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"defending-network","rpc-addr":"http://ibc.defending.network:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025defend","default-denom":"defend","trusting-period":"330h"}
