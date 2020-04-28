@@ -1,0 +1,10 @@
+{
+  "key": "faucet",
+  "chain-id": "kalpatechchain",
+  "rpc-addr": "http://goz.kalpatech.co:26657",
+  "account-prefix": "cosmos",
+  "gas": 200000,
+  "gas-prices": "0.025kalpa",
+  "default-denom": "kalpa",
+  "trusting-period": "330h"
+}
