@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"rvc-1","rpc-addr":"http://rvc.novy.pw:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025rvc","default-denom":"rvc","trusting-period":"330h"}
