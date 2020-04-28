@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"fuckgoogle","rpc-addr":"http://fuckgoogle.cyberd.ai:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025cyberlink","default-denom":"cyberlink","trusting-period":"330h"}

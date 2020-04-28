@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"cyberdevs","rpc-addr":"http://cyberdevs.cyberd.ai:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025commit","default-denom":"commit","trusting-period":"330h"}
