@@ -63,6 +63,9 @@ func (src *Chain) FaucetHandler(fromKey sdk.AccAddress, amount sdk.Coin) func(w 
 			return
 		}
 
+		done := src.UseSDKContext()
+		defer done()
+
 		if err := src.faucetSend(fromKey, fr.addr(), amount); err != nil {
 			src.Error(err)
 			respondWithError(w, http.StatusInternalServerError, err.Error())
