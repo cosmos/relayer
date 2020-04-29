@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"SNZPoolHub","rpc-addr":"http://ibc.snzholding.com:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025snzpool","default-denom":"snzpool","trusting-period":"330h"}
