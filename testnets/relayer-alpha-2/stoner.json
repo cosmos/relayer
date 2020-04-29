@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"stoner","rpc-addr":"http://157.230.75.134:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025stoners","default-denom":"stoners","trusting-period":"330h"}
