@@ -1,0 +1,10 @@
+{
+  "key": "faucet",
+  "chain-id": "plex",
+  "rpc-addr": "http://ibc.j96.me:26657",
+  "account-prefix": "cosmos",
+  "gas": 200000,
+  "gas-prices": "0.025plex",
+  "default-denom": "plex",
+  "trusting-period": "330h"
+}
