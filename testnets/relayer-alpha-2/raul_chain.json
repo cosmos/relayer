@@ -1,0 +1,8 @@
+{"key":"faucet",
+"chain-id":"raul_chain",
+"rpc-addr":"http://goz.lunesfullnode.com:26657",
+"account-prefix":"cosmos",
+"gas":200000,
+"gas-prices":"0.025raul",
+"default-denom":"raul",
+"trusting-period":"330h"}
