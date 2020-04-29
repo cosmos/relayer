@@ -1,0 +1,10 @@
+{
+    "key": "faucet",
+    "chain-id": "thetechtrap-goz",
+    "rpc-addr": "http://thetechtrap.com:26657",
+    "account-prefix": "cosmos",
+    "gas": 200000,
+    "gas-prices": "0.025ttt",
+    "default-denom": "ttt",
+    "trusting-period": "330h"
+}
