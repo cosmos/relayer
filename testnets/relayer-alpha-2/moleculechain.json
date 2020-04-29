@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"moleculechain","rpc-addr":"http://molecule.adri.co:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025molecule","default-denom":"molecule","trusting-period":"330h"}
