@@ -1,0 +1,2 @@
+{"key":"faucet","chain-id":"ozone","rpc-addr":"http://goz.ozonechain.xyz:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025ozn","default-denom":"ozn","trusting-period":"330h"}
+
