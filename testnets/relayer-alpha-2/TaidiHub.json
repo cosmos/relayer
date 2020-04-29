@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"TaidiHub","rpc-addr":"http://ibc.ethgeek.cn:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025taidi","default-denom":"taidi","trusting-period":"330h"}
