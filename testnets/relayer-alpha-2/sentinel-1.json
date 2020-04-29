@@ -1,0 +1,1 @@
+{"key":"relayer","chain-id":"sentinel-1","rpc-addr":"http://one.ibc-test.sentinel.co:26657","account-prefix":"sent","gas":200000,"gas-prices":"0.025isent","default-denom":"isent","trusting-period":"336h"}
