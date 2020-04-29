@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"dunhillchain","rpc-addr":"http://52.231.28.219:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025nico","default-denom":"nico","trusting-period":"330h"}
