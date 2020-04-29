@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"BlogChain","rpc-addr":"http://blogchain.xyz:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025blog","default-denom":"blog","trusting-period":"330h"}
