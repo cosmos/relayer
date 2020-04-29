@@ -1,0 +1,10 @@
+{
+  "key": "faucet",
+  "chain-id": "figment",
+  "rpc-addr": "http://goz-ibc.figment.network:26657",
+  "account-prefix": "cosmos",
+  "gas": 200000,
+  "gas-prices": "0.025fig",
+  "default-denom": "fig",
+  "trusting-period": "330h"
+}
