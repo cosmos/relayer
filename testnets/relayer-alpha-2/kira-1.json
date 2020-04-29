@@ -1,7 +1,7 @@
 {
   "key": "faucet",
   "chain-id": "kira-1",
-  "rpc-addr": "http://goz.kiraex.com:10001",
+  "rpc-addr": "http://alpha.kiraex.com:10001",
   "account-prefix": "cosmos",
   "gas": 200000,
   "gas-prices": "0.025ukex",
