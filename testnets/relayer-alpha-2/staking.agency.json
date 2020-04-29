@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"staking.agency","rpc-addr":"http://goz.staking.agency:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025drd","default-denom":"drd","trusting-period":"330h"}
