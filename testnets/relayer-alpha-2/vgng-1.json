@@ -1,0 +1,10 @@
+{
+   "key":"faucet",
+   "chain-id":"vgng-1",
+   "rpc-addr":"http://ibc.vgng.io:26657",
+   "account-prefix":"cosmos",
+   "gas":200000,
+   "gas-prices":"0.025tuki",
+   "default-denom":"tuki",
+   "trusting-period":"330h"
+}
