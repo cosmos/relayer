@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"aynchain","rpc-addr":"http://52.247.127.40:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025ayn","default-denom":"ayn","trusting-period":"330h"}
