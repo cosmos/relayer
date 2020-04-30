@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"dawnsworld","rpc-addr":"http://testnet.dawns.world:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025dawns","default-denom":"dawns","trusting-period":"330h"}

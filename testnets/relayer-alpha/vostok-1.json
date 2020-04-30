@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"vostok-1","rpc-addr":"http://chain.exchange-fees.com:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025space","default-denom":"space","trusting-period":"330h"}
