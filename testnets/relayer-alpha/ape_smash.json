@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"ape_smash","rpc-addr":"http://main.goz.u8.apeunit.com:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.001ape","default-denom":"ape","trusting-period":"336h"}
