@@ -1,0 +1,2 @@
+{"key":"faucet","chain-id":"commercio","rpc-addr":"http://goz-cosmos.commercio.network:26657","account-prefix":"cosmos","gas":200000,"gas-prices
+":"0.025ucommercio","default-denom":"ucommercio","trusting-period":"330h"}
