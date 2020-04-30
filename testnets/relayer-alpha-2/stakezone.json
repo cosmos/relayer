@@ -1,10 +1,10 @@
 {
   "key": "faucet",
-  "chain-id": "stakezonechain",
-  "rpc-addr": "http://144.91.94.61:26657",
+  "chain-id": "szchain",
+  "rpc-addr": "http://goztest.stake.zone:26657",
   "account-prefix": "cosmos",
   "gas": 200000,
-  "gas-prices": "0.025stakezone",
-  "default-denom": "stakezone",
+  "gas-prices": "0.025szcoin",
+  "default-denom": "szcoin",
   "trusting-period": "330h"
 }
