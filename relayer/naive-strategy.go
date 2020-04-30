@@ -3,6 +3,7 @@ package relayer
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -242,7 +243,7 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (sdk.Msg
 		return nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	rlyPackets, err := relayPacketFromQueryResponse(src.PathEnd, dst.PathEnd, tx.Txs[0])
+	rlyPackets, err := relayPacketFromQueryResponse(src.PathEnd, dst.PathEnd, tx.Txs[0], sh)
 	switch {
 	case err != nil:
 		return nil, err
@@ -269,7 +270,7 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (sdk.Msg
 
 // relayPacketFromQueryResponse looks through the events in a sdk.Response
 // and returns relayPackets with the appropriate data
-func relayPacketFromQueryResponse(src, dst *PathEnd, res sdk.TxResponse) (rlyPackets []relayPacket, err error) {
+func relayPacketFromQueryResponse(src, dst *PathEnd, res sdk.TxResponse, sh *SyncHeaders) (rlyPackets []relayPacket, err error) {
 	for _, l := range res.Logs {
 		for _, e := range l.Events {
 			if e.Type == "send_packet" {
@@ -318,7 +319,14 @@ func relayPacketFromQueryResponse(src, dst *PathEnd, res sdk.TxResponse) (rlyPac
 				}
 
 				// if we have decided not to relay this packet, don't add it
-				if !rp.pass {
+				switch {
+				case sh.GetHeight(src.ChainID) >= rp.timeout:
+					fmt.Printf("sh.GetHeight(src.ChainID) (%d) >= rp.timeout (%d)\n", sh.GetHeight(src.ChainID), rp.timeout)
+					rlyPackets = append(rlyPackets, rp.timeoutPacket())
+				case rp.timeoutStamp != 0 && time.Now().UnixNano() >= int64(rp.timeoutStamp):
+					fmt.Printf("time.Now().UnixNano() (%d) >= int64(rp.timeoutStamp) (%d)\n", time.Now().UnixNano(), int64(rp.timeoutStamp))
+					rlyPackets = append(rlyPackets, rp.timeoutPacket())
+				case !rp.pass:
 					rlyPackets = append(rlyPackets, rp)
 				}
 			}
