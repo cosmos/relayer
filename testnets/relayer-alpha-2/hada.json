@@ -1,0 +1,10 @@
+{
+  "key": "faucet",
+  "chain-id": "hada",
+  "rpc-addr": "http://15.165.120.204:26657",
+  "account-prefix": "cosmos",
+  "gas": 200000,
+  "gas-prices": "0.025hada",
+  "default-denom": "hada",
+  "trusting-period": "330h"
+}
