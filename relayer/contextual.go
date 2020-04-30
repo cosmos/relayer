@@ -25,23 +25,31 @@ func newContextualStdCodec(cdc *stdcodec.Codec, useContext func() func()) *conte
 
 // MarshalJSON marshals with the original codec and new context
 func (cdc *contextualStdCodec) MarshalJSON(ptr interface{}) ([]byte, error) {
-	defer cdc.useContext()()
+	done := cdc.useContext()
+	defer done()
+
 	return cdc.Codec.MarshalJSON(ptr)
 }
 
 // UnmarshalJSON unmarshals with the original codec and new context
 func (cdc *contextualStdCodec) UnmarshalJSON(bz []byte, ptr interface{}) error {
-	defer cdc.useContext()()
+	done := cdc.useContext()
+	defer done()
+
 	return cdc.Codec.UnmarshalJSON(bz, ptr)
 }
 
 func (cdc *contextualStdCodec) MarshalBinaryBare(ptr codec.ProtoMarshaler) ([]byte, error) {
-	defer cdc.useContext()()
+	done := cdc.useContext()
+	defer done()
+
 	return cdc.Codec.MarshalBinaryBare(ptr)
 }
 
 func (cdc *contextualStdCodec) UnmarshalBinaryBare(bz []byte, ptr codec.ProtoMarshaler) error {
-	defer cdc.useContext()()
+	done := cdc.useContext()
+	defer done()
+
 	return cdc.Codec.UnmarshalBinaryBare(bz, ptr)
 }
 
@@ -55,22 +63,30 @@ func newContextualAminoCodec(cdc *codec.Codec, useContext func() func()) *contex
 
 // MarshalJSON marshals with the original codec and new context
 func (cdc *contextualAminoCodec) MarshalJSON(ptr interface{}) ([]byte, error) {
-	defer cdc.useContext()()
+	done := cdc.useContext()
+	defer done()
+
 	return cdc.Codec.MarshalJSON(ptr)
 }
 
 // UnmarshalJSON unmarshals with the original codec and new context
 func (cdc *contextualAminoCodec) UnmarshalJSON(bz []byte, ptr interface{}) error {
-	defer cdc.useContext()()
+	done := cdc.useContext()
+	defer done()
+
 	return cdc.Codec.UnmarshalJSON(bz, ptr)
 }
 
 func (cdc *contextualAminoCodec) MarshalBinaryBare(ptr interface{}) ([]byte, error) {
-	defer cdc.useContext()()
+	done := cdc.useContext()
+	defer done()
+
 	return cdc.Codec.MarshalBinaryBare(ptr)
 }
 
 func (cdc *contextualAminoCodec) UnmarshalBinaryBare(bz []byte, ptr interface{}) error {
-	defer cdc.useContext()()
+	done := cdc.useContext()
+	defer done()
+
 	return cdc.Codec.UnmarshalBinaryBare(bz, ptr)
 }

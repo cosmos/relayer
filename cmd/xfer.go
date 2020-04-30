@@ -5,8 +5,9 @@ import (
 	"strconv"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
+
+	"github.com/iqlusioninc/relayer/relayer"
 )
 
 // NOTE: These commands are registered over in cmd/raw.go
@@ -87,10 +88,12 @@ func transferCmd() *cobra.Command {
 				return err
 			}
 
+			done := c[dst].UseSDKContext()
 			dstAddr, err := sdk.AccAddressFromBech32(args[4])
 			if err != nil {
 				return err
 			}
+			done()
 
 			return c[src].SendTransferBothSides(c[dst], amount, dstAddr, source)
 		},

@@ -79,7 +79,6 @@ func RelayPacketsOrderedChan(src, dst *Chain, sh *SyncHeaders, sp *RelaySequence
 
 // SendTransferBothSides sends a ICS20 packet from src to dst
 func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk.AccAddress, source bool) error {
-
 	if source {
 		amount.Denom = fmt.Sprintf("%s/%s/%s", dst.PathEnd.PortID, dst.PathEnd.ChannelID, amount.Denom)
 	} else {
@@ -192,7 +191,6 @@ func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk
 
 // SendTransferMsg initiates an ibs20 transfer from src to dst with the specified args
 func (src *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr sdk.AccAddress, source bool) error {
-
 	if source {
 		amount.Denom = fmt.Sprintf("%s/%s/%s", dst.PathEnd.PortID, dst.PathEnd.ChannelID, amount.Denom)
 	} else {

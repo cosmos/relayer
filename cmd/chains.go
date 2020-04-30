@@ -9,9 +9,10 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
+
+	"github.com/iqlusioninc/relayer/relayer"
 )
 
 func chainsCmd() *cobra.Command {
@@ -45,6 +46,9 @@ func chainsAddrCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
+			done := chain.UseSDKContext()
+			defer done()
 
 			addr, err := chain.GetAddress()
 			if err != nil {
