@@ -1,0 +1,1 @@
+{"key":"faucetkey","chain-id":"fetchBeacon","rpc-addr":"http://fetch-goz.fetch.ai:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025ufet","default-denom":"ufet","trusting-period":"330h"}
