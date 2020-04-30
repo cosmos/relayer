@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"ublochain","rpc-addr":"http://goz.fanprime.io:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025ublo","default-denom":"ublo","trusting-period":"330h"}
