@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"outpost","rpc-addr":"http://goz.kysenpool.io:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025outpost","default-denom":"outpost","trusting-period":"330h"}
