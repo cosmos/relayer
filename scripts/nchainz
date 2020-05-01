@@ -537,7 +537,7 @@ relay)
       done
       try=$(( $try + 1 ))
       echo "$path tx link initialized (try=$try)"
-      rly start "$path" &
+      rly start "$path"
     ) &
   done
 
