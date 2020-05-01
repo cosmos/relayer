@@ -2,7 +2,7 @@
 
 RELAYER_DIR="$GOPATH/src/github.com/iqlusioninc/relayer"
 RELAYER_CONF="$HOME/.relayer"
-GAIA_CONF="$RELAYER_DIR/data"
+GAIA_CONF="$(pwd)/data"
 
 # Ensure user understands what will be deleted
 if ([[ -d $RELAYER_CONF ]] || [[ -d $GAIA_CONF ]]) && [[ ! "$1" == "skip" ]]; then
@@ -15,8 +15,7 @@ fi
 
 cd $RELAYER_DIR
 rm -rf $RELAYER_CONF &> /dev/null
-bash scripts/three-chainz "local" "skip"
-bash scripts/config-three "skip"
+./scripts/two-chainz "local" "skip"
+./scripts/config-relayer "skip"
 sleep 2
 rly tx link demo -o 3s
-rly tx link demo2 -o 3s -d
