@@ -57,6 +57,18 @@ func (p Paths) Add(name string, path *Path) error {
 	return nil
 }
 
+// AddForce ignores existing paths and overwrites an existing path with that name
+func (p Paths) AddForce(name string, path *Path) error {
+	if err := path.Validate(); err != nil {
+		return err
+	}
+	if _, found := p[name]; found {
+		fmt.Printf("overwriting path %s with new path...\n", name)
+	}
+	p[name] = path
+	return nil
+}
+
 // MustYAML returns the yaml string representation of the Path
 func (p *Path) MustYAML() string {
 	out, err := yaml.Marshal(p)

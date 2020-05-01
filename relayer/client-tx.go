@@ -18,6 +18,7 @@ func (src *Chain) CreateClients(dst *Chain) (err error) {
 	} else if srcCs == nil {
 		dstH, err := dst.UpdateLiteWithHeader()
 		if err != nil {
+			// fmt.Println("Herere")
 			return err
 		}
 		if src.debug {

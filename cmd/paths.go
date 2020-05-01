@@ -80,7 +80,7 @@ func pathsGenCmd() *cobra.Command {
 
 			unordered, err := cmd.Flags().GetBool(flagOrder)
 			if err != nil {
-				return nil
+				return err
 			}
 
 			if unordered {
@@ -89,6 +89,24 @@ func pathsGenCmd() *cobra.Command {
 			} else {
 				path.Src.Order = "ORDERED"
 				path.Dst.Order = "ORDERED"
+			}
+
+			force, err := cmd.Flags().GetBool(flagForce)
+			if err != nil {
+				return err
+			}
+
+			if force {
+				path.Dst.ClientID = relayer.RandLowerCaseLetterString(10)
+				path.Src.ClientID = relayer.RandLowerCaseLetterString(10)
+				path.Src.ConnectionID = relayer.RandLowerCaseLetterString(10)
+				path.Dst.ConnectionID = relayer.RandLowerCaseLetterString(10)
+				path.Src.ChannelID = relayer.RandLowerCaseLetterString(10)
+				path.Dst.ChannelID = relayer.RandLowerCaseLetterString(10)
+				if err = config.Paths.AddForce(args[4], path); err != nil {
+					return err
+				}
+				return overWriteConfig(cmd, config)
 			}
 
 			srcClients, err := c[src].QueryClients(1, 1000)
@@ -265,7 +283,7 @@ func pathsGenCmd() *cobra.Command {
 			}
 		},
 	}
-	return orderFlag(cmd)
+	return forceFlag(orderFlag(cmd))
 }
 
 func pathsDeleteCmd() *cobra.Command {
@@ -601,9 +619,11 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 			Strategy: relayer.NewNaiveStrategy(),
 			Src: &relayer.PathEnd{
 				ChainID: src,
+				Order:   "ORDERED",
 			},
 			Dst: &relayer.PathEnd{
 				ChainID: dst,
+				Order:   "ORDERED",
 			},
 		}
 	)
