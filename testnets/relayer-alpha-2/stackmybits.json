@@ -1,0 +1,1 @@
+{"key":"faucet","chain-id":"stackmybits","rpc-addr":"http://dockme.nl:26657","account-prefix":"cosmos","gas":200000,"gas-prices":"0.025bits","default-denom":"bits","trusting-period":"330h"}
