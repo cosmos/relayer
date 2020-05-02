@@ -528,6 +528,7 @@ relay)
     path="$ia"
     paths="$paths $path"
     echo "Starting 'rly tx link $path' ($src<>$dst) logs in $LOGS/$path.log"
+    rly start -d "$path" &
     (
       try=0
       while ! rly tx link $path --timeout=3s -d >> "$LOGS/$path.log" 2>&1; do
@@ -537,7 +538,6 @@ relay)
       done
       try=$(( $try + 1 ))
       echo "$path tx link initialized (try=$try)"
-      rly start "$path"
     ) &
   done
 
