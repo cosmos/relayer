@@ -194,7 +194,9 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 		if err != nil {
 			return err
 		}
-		msgs.Dst = append(msgs.Dst, msg)
+		if msg != nil {
+			msgs.Dst = append(msgs.Dst, msg)
+		}
 	}
 
 	// add messages for dst -> src
@@ -203,7 +205,9 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 		if err != nil {
 			return err
 		}
-		msgs.Src = append(msgs.Src, msg)
+		if msg != nil {
+			msgs.Src = append(msgs.Src, msg)
+		}
 	}
 
 	if !msgs.Ready() {
@@ -237,7 +241,8 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (sdk.Msg
 	case err != nil:
 		return nil, err
 	case tx.Count == 0:
-		return nil, fmt.Errorf("no transactions returned with query")
+		// Not an error, just try again later.
+		return nil, nil
 	case tx.Count > 1:
 		return nil, fmt.Errorf("more than one transaction returned with query")
 	}
