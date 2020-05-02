@@ -112,14 +112,14 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	switch {
 	// Handshake hasn't been started on src or dst, relay `connOpenInit` to src
-	case conn[scid].Connection.Connection.State == connState.UNINITIALIZED && conn[dcid].Connection.Connection.State == connState.UNINITIALIZED:
+	case conn[scid].Connection.State == connState.UNINITIALIZED && conn[dcid].Connection.State == connState.UNINITIALIZED:
 		if src.debug {
 			logConnectionStates(src, dst, conn)
 		}
 		out.Src = append(out.Src, src.PathEnd.ConnInit(dst.PathEnd, src.MustGetAddress()))
 
 	// Handshake has started on dst (1 stepdone), relay `connOpenTry` and `updateClient` on src
-	case conn[scid].Connection.Connection.State == connState.UNINITIALIZED && conn[dcid].Connection.Connection.State == connState.INIT:
+	case conn[scid].Connection.State == connState.UNINITIALIZED && conn[dcid].Connection.State == connState.INIT:
 		if src.debug {
 			logConnectionStates(src, dst, conn)
 		}
@@ -129,7 +129,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		)
 
 	// Handshake has started on src (1 step done), relay `connOpenTry` and `updateClient` on dst
-	case conn[scid].Connection.Connection.State == connState.INIT && conn[dcid].Connection.Connection.State == connState.UNINITIALIZED:
+	case conn[scid].Connection.State == connState.INIT && conn[dcid].Connection.State == connState.UNINITIALIZED:
 		if dst.debug {
 			logConnectionStates(dst, src, conn)
 		}
@@ -139,7 +139,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		)
 
 	// Handshake has started on src end (2 steps done), relay `connOpenAck` and `updateClient` to dst end
-	case conn[scid].Connection.Connection.State == connState.TRYOPEN && conn[dcid].Connection.Connection.State == connState.INIT:
+	case conn[scid].Connection.State == connState.TRYOPEN && conn[dcid].Connection.State == connState.INIT:
 		if dst.debug {
 			logConnectionStates(dst, src, conn)
 		}
@@ -149,7 +149,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		)
 
 	// Handshake has started on dst end (2 steps done), relay `connOpenAck` and `updateClient` to src end
-	case conn[scid].Connection.Connection.State == connState.INIT && conn[dcid].Connection.Connection.State == connState.TRYOPEN:
+	case conn[scid].Connection.State == connState.INIT && conn[dcid].Connection.State == connState.TRYOPEN:
 		if src.debug {
 			logConnectionStates(src, dst, conn)
 		}
@@ -159,7 +159,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		)
 
 	// Handshake has confirmed on dst (3 steps done), relay `connOpenConfirm` and `updateClient` to src end
-	case conn[scid].Connection.Connection.State == connState.TRYOPEN && conn[dcid].Connection.Connection.State == connState.OPEN:
+	case conn[scid].Connection.State == connState.TRYOPEN && conn[dcid].Connection.State == connState.OPEN:
 		if src.debug {
 			logConnectionStates(src, dst, conn)
 		}
@@ -170,7 +170,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		out.last = true
 
 	// Handshake has confirmed on src (3 steps done), relay `connOpenConfirm` and `updateClient` to dst end
-	case conn[scid].Connection.Connection.State == connState.OPEN && conn[dcid].Connection.Connection.State == connState.TRYOPEN:
+	case conn[scid].Connection.State == connState.OPEN && conn[dcid].Connection.State == connState.TRYOPEN:
 		if dst.debug {
 			logConnectionStates(dst, src, conn)
 		}

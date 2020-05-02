@@ -23,8 +23,8 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/codec"
-	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
 	"github.com/cosmos/cosmos-sdk/simapp"
+	codecstd "github.com/cosmos/cosmos-sdk/std"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

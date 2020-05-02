@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"testing"
 	"time"
-	
-	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
+
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/cosmos-sdk/simapp"
+	codecstd "github.com/cosmos/cosmos-sdk/std"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/go-amino"
-	
-	. "github.com/iqlusioninc/relayer/relayer"
+
 	"github.com/CosmicCompass/post-chain/app"
+	. "github.com/iqlusioninc/relayer/relayer"
 )
 
 var (
@@ -33,7 +33,7 @@ var (
 		defaultDenom:   "stake",
 		trustingPeriod: "330h",
 	}
-	
+
 	// MTD BLOCK TIMEOUTS on microtick/mtzonetest:ibc-alpha
 	// timeout_commit = "1000ms"
 	// timeout_propose = "1000ms"
@@ -51,7 +51,7 @@ var (
 		defaultDenom:   "stake",
 		trustingPeriod: "330h",
 	}
-	
+
 	// RocketZone
 	// timeout_commit = "1000ms"
 	// timeout_propose = "1000ms"
@@ -69,7 +69,7 @@ var (
 		defaultDenom:   "ufuel",
 		trustingPeriod: "330h",
 	}
-	
+
 	// Agoric Chain
 	// timeout_commit = "1000ms"
 	// timeout_propose = "1000ms"
@@ -87,7 +87,7 @@ var (
 		defaultDenom:   "uag",
 		trustingPeriod: "330h",
 	}
-	
+
 	// CoCo Chain  saisunkari19/coco:ibc-alpha
 	// timeout_commit = "1000ms"
 	// timeout_propose = "1000ms"
@@ -114,7 +114,7 @@ type (
 		chainID string
 		t       testChainConfig
 	}
-	
+
 	// testChainConfig represents the chain specific docker and codec configurations
 	// required.
 	testChainConfig struct {
