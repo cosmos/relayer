@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/go-amino"
 
-	"github.com/CosmicCompass/post-chain/app"
 	. "github.com/iqlusioninc/relayer/relayer"
 )
 
@@ -24,7 +23,7 @@ var (
 		cdc:            codecstd.NewAppCodec(codecstd.MakeCodec(simapp.ModuleBasics)),
 		amino:          codecstd.MakeCodec(simapp.ModuleBasics),
 		dockerImage:    "jackzampolin/gaiatest",
-		dockerTag:      "master",
+		dockerTag:      "efc2f27",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "cosmos",
@@ -93,8 +92,8 @@ var (
 	// timeout_propose = "1000ms"
 	// 3 second relayer timeout works well with these block times
 	cocoTestConfig = testChainConfig{
-		cdc:            codecstd.NewAppCodec(codecstd.MakeCodec(app.ModuleBasics)),
-		amino:          codecstd.MakeCodec(app.ModuleBasics),
+		cdc:            codecstd.NewAppCodec(codecstd.MakeCodec(simapp.ModuleBasics)),
+		amino:          codecstd.MakeCodec(simapp.ModuleBasics),
 		dockerImage:    "saisunkari19/coco",
 		dockerTag:      "ibc-alpha",
 		timeout:        3 * time.Second,
