@@ -151,21 +151,21 @@ func sendTxFromEventPackets(src, dst *Chain, rlyPackets []relayPacket, sh *SyncH
 		}
 	}
 
-	// instantiate the RelayMsgs with the appropriate update client
-	txs := &RelayMsgs{
-		Src: []sdk.Msg{
-			src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress()),
-		},
-		Dst: []sdk.Msg{},
-	}
-
-	// add the packet msgs to RelayPackets
-	for _, rp := range rlyPackets {
-		txs.Src = append(txs.Src, rp.Msg(src, dst))
-	}
-
 	// send the transaction, retrying if not successful
 	if err := retry.Do(func() error {
+		// instantiate the RelayMsgs with the appropriate update client
+		txs := &RelayMsgs{
+			Src: []sdk.Msg{
+				src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress()),
+			},
+			Dst: []sdk.Msg{},
+		}
+
+		// add the packet msgs to RelayPackets
+		for _, rp := range rlyPackets {
+			txs.Src = append(txs.Src, rp.Msg(src, dst))
+		}
+
 		if txs.Send(src, dst); !txs.success {
 			return fmt.Errorf("failed to send packets")
 		}
