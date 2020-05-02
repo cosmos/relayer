@@ -33,34 +33,44 @@ func RelayPacketsOrderedChan(src, dst *Chain, sh *SyncHeaders, sp *RelaySequence
 
 	// create the appropriate update client messages
 	msgs := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
-	if len(sp.Src) > 0 {
-		msgs.Dst = append(msgs.Dst, dst.PathEnd.UpdateClient(sh.GetHeader(src.ChainID), dst.MustGetAddress()))
-	}
-	if len(sp.Dst) > 0 {
-		msgs.Src = append(msgs.Src, src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress()))
-	}
 
 	// add messages for src -> dst
 	for _, seq := range sp.Src {
-		msg, err := packetMsgFromTxQuery(src, dst, sh, seq)
+		chain, msg, err := packetMsgFromTxQuery(src, dst, sh, seq)
 		if err != nil {
 			return err
 		}
-		msgs.Dst = append(msgs.Dst, msg)
+		if chain == dst {
+			msgs.Dst = append(msgs.Dst, msg)
+		} else {
+			msgs.Src = append(msgs.Src, msg)
+		}
 	}
 
 	// add messages for dst -> src
 	for _, seq := range sp.Dst {
-		msg, err := packetMsgFromTxQuery(dst, src, sh, seq)
+		chain, msg, err := packetMsgFromTxQuery(dst, src, sh, seq)
 		if err != nil {
 			return err
 		}
-		msgs.Src = append(msgs.Src, msg)
+		if chain == src {
+			msgs.Src = append(msgs.Src, msg)
+		} else {
+			msgs.Dst = append(msgs.Dst, msg)
+		}
 	}
 
 	if !msgs.Ready() {
 		src.Log(fmt.Sprintf("- No packets to relay between [%s]port{%s} and [%s]port{%s}", src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))
 		return nil
+	}
+
+	// Prepend non-empty msg lists with UpdateClient
+	if len(msgs.Dst) != 0 {
+		msgs.Dst = append([]sdk.Msg{dst.PathEnd.UpdateClient(sh.GetHeader(src.ChainID), dst.MustGetAddress())}, msgs.Dst...)
+	}
+	if len(msgs.Src) != 0 {
+		msgs.Src = append([]sdk.Msg{src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress())}, msgs.Src...)
 	}
 
 	// TODO: increase the amount of gas as the number of messages increases
