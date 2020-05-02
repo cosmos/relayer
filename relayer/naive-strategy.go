@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -163,9 +164,14 @@ func sendTxFromEventPackets(src, dst *Chain, rlyPackets []relayPacket, sh *SyncH
 		txs.Src = append(txs.Src, rp.Msg(src, dst))
 	}
 
-	// send the transaction, maybe retry here if not successful
-	if txs.Send(src, dst); !txs.success {
-		src.Error(fmt.Errorf("failed to send packets, maybe we should add a retry here"))
+	// send the transaction, retrying if not successful
+	if err := retry.Do(func() error {
+		if txs.Send(src, dst); !txs.success {
+			return fmt.Errorf("failed to send packets")
+		}
+		return nil
+	}); err != nil {
+		src.Error(err)
 	}
 }
 
