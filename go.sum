@@ -103,6 +103,8 @@ github.com/cosmos/cosmos-sdk v0.34.4-0.20200423152229-f1fdde5d1b18 h1:9OjontPURN
 github.com/cosmos/cosmos-sdk v0.34.4-0.20200423152229-f1fdde5d1b18/go.mod h1:Kcgs8c2WWtO2Q+KmDogvGRw+sdEqpvHYXFhj/QiAoOg=
 github.com/cosmos/cosmos-sdk v0.34.4-0.20200430150743-930802e7a13c h1:6ssAsFEFfGnTE+rMBmI8qjacpqqmaXnvBx02i5Nnr3E=
 github.com/cosmos/cosmos-sdk v0.34.4-0.20200430150743-930802e7a13c/go.mod h1:tvCen72hkJxkYT1/CsOaKHjZ4PouX4Isp4w9aRL2K4c=
+github.com/cosmos/cosmos-sdk v0.34.4-0.20200502230752-7557f0eda346 h1:8zSHAaoImyObcijcfmAxiRRfYR65IW/i3SkQKE+b2d8=
+github.com/cosmos/cosmos-sdk v0.34.4-0.20200502230752-7557f0eda346/go.mod h1:tvCen72hkJxkYT1/CsOaKHjZ4PouX4Isp4w9aRL2K4c=
 github.com/cosmos/cosmos-sdk v0.38.3 h1:qIBTiw+2T9POaSUJ5rvbBbXeq8C8btBlJxnSegPBd3Y=
 github.com/cosmos/go-bip39 v0.0.0-20180819234021-555e2067c45d h1:49RLWk1j44Xu4fjHb6JFYmeUnDORVwHNkDxaQ0ctCVU=
 github.com/cosmos/go-bip39 v0.0.0-20180819234021-555e2067c45d/go.mod h1:tSxLoYXyBmiFeKpvmq4dzayMdCjCnu8uqmCysIGBT2Y=
