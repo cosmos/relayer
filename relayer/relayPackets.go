@@ -5,6 +5,7 @@ import (
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 )
 
 type relayPacket interface {
@@ -20,7 +21,7 @@ type relayMsgTimeout struct {
 	seq          uint64
 	timeout      uint64
 	timeoutStamp uint64
-	dstComRes    *CommitmentResponse
+	dstRecvRes   *chanTypes.RecvResponse
 
 	pass bool
 }
@@ -38,14 +39,15 @@ func (rp *relayMsgTimeout) Timeout() uint64 {
 }
 
 func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
-	var dstCommitRes CommitmentResponse
+	var dstRecvRes chanTypes.RecvResponse
 
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
-		dstCommitRes, err = dst.QueryPacketCommitment(int64(sh.GetHeight(dst.ChainID)-1), int64(rp.seq))
+		// NOTE: Timeouts currently only work with ORDERED channels for nwo
+		dstRecvRes, err = dst.QueryNextSeqRecv(int64(sh.GetHeight(dst.ChainID) - 1))
 		if err != nil {
 			return err
-		} else if dstCommitRes.Proof.Proof == nil {
+		} else if dstRecvRes.Proof.Proof == nil {
 			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)", dst.ChainID, int64(sh.GetHeight(dst.ChainID)-1), rp.seq)
 		}
 		return nil
@@ -54,12 +56,12 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders)
 		return
 	}
 
-	rp.dstComRes = &dstCommitRes
+	rp.dstRecvRes = &dstRecvRes
 	return
 }
 
 func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
-	if rp.dstComRes == nil {
+	if rp.dstRecvRes == nil {
 		return nil
 	}
 	return src.PathEnd.MsgTimeout(
@@ -68,8 +70,8 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
 		rp.seq,
 		rp.timeout,
 		rp.timeoutStamp,
-		rp.dstComRes.Proof,
-		rp.dstComRes.ProofHeight,
+		rp.dstRecvRes.Proof,
+		rp.dstRecvRes.ProofHeight,
 		src.MustGetAddress(),
 	)
 }
@@ -90,7 +92,7 @@ func (rp *relayMsgRecvPacket) timeoutPacket() *relayMsgTimeout {
 		seq:          rp.seq,
 		timeout:      rp.timeout,
 		timeoutStamp: rp.timeoutStamp,
-		dstComRes:    rp.dstComRes,
+		dstRecvRes:   nil,
 		pass:         false,
 	}
 }
