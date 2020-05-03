@@ -1,10 +1,36 @@
 # Relayer commands list
 
+## rly
+
+This application relays data between configured IBC enabled chains
+
+### Synopsis
+
+The relayer has commands for:
+  1. Configuration of the Chains and Paths that the relayer with transfer packets over
+  2. Management of keys and lite clients on the local machine that will be used to sign and verify txs
+  3. Query and transaction functionality for IBC
+  4. A responsive relaying application that listens on a path
+  5. Commands to assist with development, testnets, and stuff
+
+NOTE: Most of the commands have aliases that make typing them much quicker (i.e. 'rly tx', 'rly q', etc...). Almost all commands have `--help` flag to show usage information.
+
+### Options
+
+```
+      --config string   set config file (default "config.yaml")
+  -d, --debug           debug output
+  -h, --help            help for the current command
+      --home string     set home directory (default "/Users/vsh/.relayer")
+```
+
+
+## Table of Contents
+
 - [Relayer commands list](#relayer-commands-list)
-  - [rly](#rly)
   - [rly chains](#rly-chains)
-  - [rly chains add-dir](#rly-chains-add-dir)
   - [rly chains add](#rly-chains-add)
+  - [rly chains add-dir](#rly-chains-add-dir)
   - [rly chains address](#rly-chains-address)
   - [rly chains delete](#rly-chains-delete)
   - [rly chains edit](#rly-chains-edit)
@@ -92,144 +118,24 @@
   - [rly transact transfer](#rly-transact-transfer)
   - [rly version](#rly-version)
 
-
-
-
-
-## rly
-
-This application relays data between configured IBC enabled chains
-
-### Synopsis
-
-The relayer has commands for:
-  1. Configuration of the Chains and Paths that the relayer with transfer packets over
-  2. Management of keys and lite clients on the local machine that will be used to sign and verify txs
-  3. Query and transaction functionality for IBC
-  4. A responsive relaying application that listens on a path
-  5. Commands to assist with development, testnets, and .
-
-NOTE: Most of the commands have aliases that make typing them much quicker (i.e. 'rly tx', 'rly q', etc...)
-
-### Options
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-  -h, --help            help for rly
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly ](#rly)	 - 
-* [rly ](#rly)	 - 
-* [rly ](#rly)	 - 
-* [rly chains](#rly-chains)	 - manage chain configurations
-* [rly config](#rly-config)	 - manage configuration file
-* [rly development](#rly-development)	 - commands for developers either deploying or hacking on the relayer
-* [rly genmd](#rly-genmd)	 - Generates markdown help file
-* [rly keys](#rly-keys)	 - manage keys held by the relayer for each chain
-* [rly lite](#rly-lite)	 - manage lite clients held by the relayer for each chain
-* [rly paths](#rly-paths)	 - manage path configurations
-* [rly query](#rly-query)	 - IBC Query Commands
-* [rly start](#rly-start)	 - Start the listening relayer on a given path
-* [rly testnets](#rly-testnets)	 - commands for joining and running relayer testnets
-* [rly transact](#rly-transact)	 - IBC Transaction Commands
-* [rly version](#rly-version)	 - Print relayer version info
-
-## rly 
-
-
-
-### Synopsis
-
-
-
-```
-rly  [flags]
-```
-
-### Options
-
-```
-  -h, --help   help for this command
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly](#rly)	 - This application relays data between configured IBC enabled chains
-
 ## rly chains
 
-manage chain configurations
+Manage chains configurations
 
 ### Synopsis
 
-manage chain configurations
+Manage chains configurations
 
-### Options
+### Subcommands
 
-```
-  -h, --help   help for chains
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly](#rly)	 - This application relays data between configured IBC enabled chains
 * [rly chains add](#rly-chains-add)	 - Add a new chain to the configuration file by passing a file (-f) or url (-u), or user input
 * [rly chains add-dir](#rly-chains-add-dir)	 - Add new chains to the configuration file from a directory full of chain configuration, useful for adding testnet configurations
 * [rly chains address](#rly-chains-address)	 - Returns a chain's configured key's address
-* [rly chains delete](#rly-chains-delete)	 - Returns chain configuration data
-* [rly chains edit](#rly-chains-edit)	 - Returns chain configuration data
-* [rly chains list](#rly-chains-list)	 - Returns chain configuration data
+* [rly chains delete](#rly-chains-delete)	 - Deletes chain configuration data
+* [rly chains edit](#rly-chains-edit)	 - Edit chain configuration
+* [rly chains list](#rly-chains-list)	 - Returns all chains configuration data
 * [rly chains show](#rly-chains-show)	 - Returns a chain's configuration data
 
-## rly chains add-dir
-
-Add new chains to the configuration file from a directory full of chain configuration, useful for adding testnet configurations
-
-### Synopsis
-
-Add new chains to the configuration file from a directory full of chain configuration, useful for adding testnet configurations
-
-```
-rly chains add-dir [dir] [flags]
-```
-
-### Options
-
-```
-  -h, --help   help for add-dir
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly chains](#rly-chains)	 - manage chain configurations
 
 ## rly chains add
 
@@ -247,21 +153,21 @@ rly chains add [flags]
 
 ```
   -f, --file string   fetch json data from specified file
-  -h, --help          help for add
   -u, --url string    url to fetch data from
 ```
 
-### Options inherited from parent commands
+
+## rly chains add-dir
+
+Add new chains to the configuration file from a directory full of chain configuration, useful for adding testnet configurations
+
+### Synopsis
+
+Add new chains to the configuration file from a directory full of chain configuration, useful for adding testnet configurations
 
 ```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
+rly chains add-dir [dir]
 ```
-
-### SEE ALSO
-
-* [rly chains](#rly-chains)	 - manage chain configurations
 
 ## rly chains address
 
@@ -272,94 +178,42 @@ Returns a chain's configured key's address
 Returns a chain's configured key's address
 
 ```
-rly chains address [chain-id] [flags]
+rly chains address [chain-id]
 ```
-
-### Options
-
-```
-  -h, --help   help for address
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly chains](#rly-chains)	 - manage chain configurations
 
 ## rly chains delete
 
-Returns chain configuration data
+Deletes the chain cofiguration data (does not clear lite client or close and channels)
 
 ### Synopsis
 
-Returns chain configuration data
+Deletes the chain cofiguration data (does not clear lite client or close and channels)
 
 ```
 rly chains delete [chain-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for delete
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly chains](#rly-chains)	 - manage chain configurations
 
 ## rly chains edit
 
-Returns chain configuration data
+Edits chain configuration data
 
 ### Synopsis
 
-Returns chain configuration data
+Set chain confuguration key's value
 
 ```
 rly chains edit [chain-id] [key] [value] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for edit
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly chains](#rly-chains)	 - manage chain configurations
 
 ## rly chains list
 
-Returns chain configuration data
+Returns all chains configuration data
 
 ### Synopsis
 
-Returns chain configuration data
+Returns all chains configuration data
 
 ```
 rly chains list [flags]
@@ -368,22 +222,10 @@ rly chains list [flags]
 ### Options
 
 ```
-  -h, --help   help for list
   -j, --json   returns the response in json format
   -y, --yaml   output using yaml
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly chains](#rly-chains)	 - manage chain configurations
 
 ## rly chains show
 
@@ -400,48 +242,20 @@ rly chains show [chain-id] [flags]
 ### Options
 
 ```
-  -h, --help   help for show
   -j, --json   returns the response in json format
   -y, --yaml   output using yaml
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly chains](#rly-chains)	 - manage chain configurations
-
 ## rly config
 
-manage configuration file
+Manage relayer's main configuration file
 
 ### Synopsis
 
-manage configuration file
+Manage configuration file
 
-### Options
+### Subcommands
 
-```
-  -h, --help   help for config
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly](#rly)	 - This application relays data between configured IBC enabled chains
 * [rly config add-dir](#rly-config-add-dir)	 - Add new chains and paths to the configuration file from a directory full of chain and path configuration, useful for adding testnet configurations
 * [rly config init](#rly-config-init)	 - Creates a default home directory at path defined by --home
 * [rly config show](#rly-config-show)	 - Prints current configuration
@@ -458,24 +272,6 @@ Add new chains and paths to the configuration file from a directory full of chai
 rly config add-dir [dir] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for add-dir
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly config](#rly-config)	 - manage configuration file
-
 ## rly config init
 
 Creates a default home directory at path defined by --home
@@ -488,23 +284,11 @@ Creates a default home directory at path defined by --home
 rly config init [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for init
-```
-
 ### Options inherited from parent commands
 
 ```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
       --home string     set home directory (default "/Users/vsh/.relayer")
 ```
-
-### SEE ALSO
-
-* [rly config](#rly-config)	 - manage configuration file
 
 ## rly config show
 
@@ -518,23 +302,6 @@ Prints current configuration
 rly config show [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for show
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly config](#rly-config)	 - manage configuration file
 
 ## rly development
 
@@ -544,23 +311,8 @@ commands for developers either deploying or hacking on the relayer
 
 commands for developers either deploying or hacking on the relayer
 
-### Options
+### Subcommands
 
-```
-  -h, --help   help for development
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly](#rly)	 - This application relays data between configured IBC enabled chains
 * [rly development faucet](#rly-development-faucet)	 - faucet returns a sample faucet service file
 * [rly development gaia](#rly-development-gaia)	 - gaia returns a sample gaiad service file
 * [rly development genesis](#rly-development-genesis)	 - fetch the genesis file for a configured chain
@@ -579,23 +331,6 @@ faucet returns a sample faucet service file
 rly development faucet [user] [home] [chain-id] [key-name] [amount] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for faucet
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly development](#rly-development)	 - commands for developers either deploying or hacking on the relayer
 
 ## rly development gaia
 
@@ -609,23 +344,6 @@ gaia returns a sample gaiad service file
 rly development gaia [user] [home] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for gaia
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly development](#rly-development)	 - commands for developers either deploying or hacking on the relayer
 
 ## rly development genesis
 
@@ -639,23 +357,6 @@ fetch the genesis file for a configured chain
 rly development genesis [chain-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for genesis
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly development](#rly-development)	 - commands for developers either deploying or hacking on the relayer
 
 ## rly development listen
 
@@ -673,22 +374,10 @@ rly development listen [chain-id] [flags]
 
 ```
       --data       output full event data
-  -h, --help       help for listen
   -b, --no-block   don't output block events
   -t, --no-tx      don't output transaction events
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly development](#rly-development)	 - commands for developers either deploying or hacking on the relayer
 
 ## rly development relayer
 
@@ -702,23 +391,6 @@ relayer returns a service file for the relayer to relay over an individual path
 rly development relayer [path-name] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for relayer
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly development](#rly-development)	 - commands for developers either deploying or hacking on the relayer
 
 ## rly genmd
 
@@ -735,21 +407,9 @@ rly genmd [flags]
 ### Options
 
 ```
-  -h, --help   help for genmd
   -j, --json   returns the response in json format
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly](#rly)	 - This application relays data between configured IBC enabled chains
 
 ## rly keys
 
@@ -759,23 +419,8 @@ manage keys held by the relayer for each chain
 
 manage keys held by the relayer for each chain
 
-### Options
+### Subcommands
 
-```
-  -h, --help   help for keys
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly](#rly)	 - This application relays data between configured IBC enabled chains
 * [rly keys add](#rly-keys-add)	 - adds a key to the keychain associated with a particular chain
 * [rly keys delete](#rly-keys-delete)	 - deletes a key from the keychain associated with a particular chain
 * [rly keys export](#rly-keys-export)	 - exports a privkey from the keychain associated with a particular chain
@@ -795,23 +440,6 @@ adds a key to the keychain associated with a particular chain
 rly keys add [chain-id] [[name]] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for add
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly keys](#rly-keys)	 - manage keys held by the relayer for each chain
 
 ## rly keys delete
 
@@ -825,23 +453,6 @@ deletes a key from the keychain associated with a particular chain
 rly keys delete [chain-id] [[name]] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for delete
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly keys](#rly-keys)	 - manage keys held by the relayer for each chain
 
 ## rly keys export
 
@@ -855,23 +466,6 @@ exports a privkey from the keychain associated with a particular chain
 rly keys export [chain-id] [name] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for export
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly keys](#rly-keys)	 - manage keys held by the relayer for each chain
 
 ## rly keys list
 
@@ -885,23 +479,6 @@ lists keys from the keychain associated with a particular chain
 rly keys list [chain-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for list
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly keys](#rly-keys)	 - manage keys held by the relayer for each chain
 
 ## rly keys restore
 
@@ -915,23 +492,6 @@ restores a mnemonic to the keychain associated with a particular chain
 rly keys restore [chain-id] [name] [mnemonic] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for restore
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly keys](#rly-keys)	 - manage keys held by the relayer for each chain
 
 ## rly keys show
 
@@ -945,23 +505,6 @@ shows a key from the keychain associated with a particular chain
 rly keys show [chain-id] [[name]] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for show
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly keys](#rly-keys)	 - manage keys held by the relayer for each chain
 
 ## rly lite
 
@@ -971,23 +514,8 @@ manage lite clients held by the relayer for each chain
 
 manage lite clients held by the relayer for each chain
 
-### Options
+### Subcommands
 
-```
-  -h, --help   help for lite
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly](#rly)	 - This application relays data between configured IBC enabled chains
 * [rly lite delete](#rly-lite-delete)	 - wipe the lite client database, forcing re-initialzation on the next run
 * [rly lite header](#rly-lite-header)	 - Get header from the database. 0 returns last trusted header and all others return the header at that height if stored
 * [rly lite init](#rly-lite-init)	 - Initiate the light client
@@ -1005,23 +533,6 @@ wipe the lite client database, forcing re-initialzation on the next run
 rly lite delete [chain-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for delete
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly lite](#rly-lite)	 - manage lite clients held by the relayer for each chain
 
 ## rly lite header
 
@@ -1035,23 +546,6 @@ Get header from the database. 0 returns last trusted header and all others retur
 rly lite header [chain-id] [height] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for header
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly lite](#rly-lite)	 - manage lite clients held by the relayer for each chain
 
 ## rly lite init
 
@@ -1074,21 +568,9 @@ rly lite init [chain-id] [flags]
   -f, --force           option to force non-standard behavior such as initialization of lite client from configured chain or generation of new path
   -x, --hash bytesHex   Trusted header's hash
       --height int      Trusted header's height (default -1)
-  -h, --help            help for init
   -u, --url string      Optional URL to fetch trusted-hash and trusted-height
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly lite](#rly-lite)	 - manage lite clients held by the relayer for each chain
 
 ## rly lite update
 
@@ -1110,21 +592,9 @@ rly lite update [chain-id] [flags]
 ```
   -x, --hash bytesHex   Trusted header's hash
       --height int      Trusted header's height (default -1)
-  -h, --help            help for update
   -u, --url string      Optional URL to fetch trusted-hash and trusted-height
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly lite](#rly-lite)	 - manage lite clients held by the relayer for each chain
 
 ## rly paths
 
@@ -1132,27 +602,11 @@ manage path configurations
 
 ### Synopsis
 
-
 A path represents the "full path" or "link" for communication between two chains. This includes the client, 
 connection, and channel ids from both the source and destination chains as well as the strategy to use when relaying
 
-### Options
+### Subcommands
 
-```
-  -h, --help   help for paths
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly](#rly)	 - This application relays data between configured IBC enabled chains
 * [rly paths add](#rly-paths-add)	 - add a path to the list of paths
 * [rly paths delete](#rly-paths-delete)	 - delete a path with a given index
 * [rly paths find](#rly-paths-find)	 - WIP: finds any existing paths between any configured chains and outputs them to stdout
@@ -1176,20 +630,8 @@ rly paths add [src-chain-id] [dst-chain-id] [path-name] [flags]
 
 ```
   -f, --file string   fetch json data from specified file
-  -h, --help          help for add
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly paths](#rly-paths)	 - manage path configurations
 
 ## rly paths delete
 
@@ -1203,23 +645,6 @@ delete a path with a given index
 rly paths delete [index] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for delete
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly paths](#rly-paths)	 - manage path configurations
 
 ## rly paths find
 
@@ -1233,23 +658,6 @@ WIP: finds any existing paths between any configured chains and outputs them to 
 rly paths find [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for find
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly paths](#rly-paths)	 - manage path configurations
 
 ## rly paths generate
 
@@ -1267,21 +675,9 @@ rly paths generate [src-chain-id] [src-port] [dst-chain-id] [dst-port] [name] [f
 
 ```
   -f, --force       option to force non-standard behavior such as initialization of lite client from configured chain or generation of new path
-  -h, --help        help for generate
   -o, --unordered   create an unordered channel
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly paths](#rly-paths)	 - manage path configurations
 
 ## rly paths list
 
@@ -1298,22 +694,10 @@ rly paths list [flags]
 ### Options
 
 ```
-  -h, --help   help for list
   -j, --json   returns the response in json format
   -y, --yaml   output using yaml
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly paths](#rly-paths)	 - manage path configurations
 
 ## rly paths show
 
@@ -1330,22 +714,10 @@ rly paths show [path-name] [flags]
 ### Options
 
 ```
-  -h, --help   help for show
   -j, --json   returns the response in json format
   -y, --yaml   output using yaml
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly paths](#rly-paths)	 - manage path configurations
 
 ## rly query
 
@@ -1355,23 +727,8 @@ IBC Query Commands
 
 Commands to query IBC primatives, and other useful data on configured chains.
 
-### Options
+### Subcommands
 
-```
-  -h, --help   help for query
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly](#rly)	 - This application relays data between configured IBC enabled chains
 * [rly query ](#rly-query_)	 - 
 * [rly query ](#rly-query_)	 - 
 * [rly query account](#rly-query-account)	 - Query the account data
@@ -1406,23 +763,6 @@ Query the account data
 rly query account [chain-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for account
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query balance
 
@@ -1439,21 +779,9 @@ rly query balance [chain-id] [[key-name]] [flags]
 ### Options
 
 ```
-  -h, --help   help for balance
   -j, --json   returns the response in json format
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query channel
 
@@ -1470,22 +798,10 @@ rly query channel [chain-id] [channel-id] [port-id] [flags]
 ### Options
 
 ```
-  -h, --help        help for channel
   -l, --limit int   pagination limit of light clients to query for (default 100)
   -p, --page int    pagination page of light clients to to query for (default 1)
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query channels
 
@@ -1502,22 +818,10 @@ rly query channels [chain-id] [flags]
 ### Options
 
 ```
-  -h, --help        help for channels
   -l, --limit int   pagination limit of light clients to query for (default 100)
   -p, --page int    pagination page of light clients to to query for (default 1)
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query client-connections
 
@@ -1534,22 +838,10 @@ rly query client-connections [chain-id] [client-id] [flags]
 ### Options
 
 ```
-  -h, --help        help for client-connections
   -l, --limit int   pagination limit of light clients to query for (default 100)
   -p, --page int    pagination page of light clients to to query for (default 1)
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query client
 
@@ -1563,23 +855,6 @@ Query the state of a client given it's client-id
 rly query client [chain-id] [client-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for client
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query clients
 
@@ -1596,22 +871,10 @@ rly query clients [chain-id] [flags]
 ### Options
 
 ```
-  -h, --help        help for clients
   -l, --limit int   pagination limit of light clients to query for (default 100)
   -p, --page int    pagination page of light clients to to query for (default 1)
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query connection-channels
 
@@ -1628,22 +891,10 @@ rly query connection-channels [chain-id] [connection-id] [flags]
 ### Options
 
 ```
-  -h, --help        help for connection-channels
   -l, --limit int   pagination limit of light clients to query for (default 100)
   -p, --page int    pagination page of light clients to to query for (default 1)
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query connection
 
@@ -1657,23 +908,6 @@ Query the connection state for the given connection id
 rly query connection [chain-id] [connection-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for connection
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query connections
 
@@ -1690,22 +924,10 @@ rly query connections [chain-id] [flags]
 ### Options
 
 ```
-  -h, --help        help for connections
   -l, --limit int   pagination limit of light clients to query for (default 100)
   -p, --page int    pagination page of light clients to to query for (default 1)
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query full-path
 
@@ -1719,23 +941,6 @@ Query for the status of clients, connections, channels and packets on a path
 rly query full-path [path-name] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for full-path
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query header
 
@@ -1753,20 +958,8 @@ rly query header [chain-id] [height] [flags]
 
 ```
   -f, --flags   pass flag to output the flags for lite init/update
-  -h, --help    help for header
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query node-state
 
@@ -1780,23 +973,6 @@ Query the consensus state of a client at a given height
 rly query node-state [chain-id] [height] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for node-state
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query packet-ack
 
@@ -1813,22 +989,10 @@ rly query packet-ack [chain-id] [channel-id] [port-id] [seq] [flags]
 ### Options
 
 ```
-  -h, --help        help for packet-ack
   -l, --limit int   pagination limit of light clients to query for (default 100)
   -p, --page int    pagination page of light clients to to query for (default 1)
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query packet-commit
 
@@ -1845,22 +1009,10 @@ rly query packet-commit [chain-id] [channel-id] [port-id] [seq] [flags]
 ### Options
 
 ```
-  -h, --help        help for packet-commit
   -l, --limit int   pagination limit of light clients to query for (default 100)
   -p, --page int    pagination page of light clients to to query for (default 1)
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query seq-send
 
@@ -1877,22 +1029,10 @@ rly query seq-send [chain-id] [channel-id] [port-id] [flags]
 ### Options
 
 ```
-  -h, --help        help for seq-send
   -l, --limit int   pagination limit of light clients to query for (default 100)
   -p, --page int    pagination page of light clients to to query for (default 1)
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query tx
 
@@ -1906,23 +1046,6 @@ Query transaction by transaction hash
 rly query tx [chain-id] [tx-hash] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for tx
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query txs
 
@@ -1942,22 +1065,10 @@ rly query txs [chain-id] [events] [flags]
 ### Options
 
 ```
-  -h, --help        help for txs
   -l, --limit int   pagination limit of light clients to query for (default 100)
   -p, --page int    pagination page of light clients to to query for (default 1)
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly query unrelayed
 
@@ -1971,23 +1082,6 @@ Query for the packet sequence numbers that remain to be relayed on a given path
 rly query unrelayed [path] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for unrelayed
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly query](#rly-query)	 - IBC Query Commands
 
 ## rly start
 
@@ -2001,23 +1095,6 @@ Start the listening relayer on a given path
 rly start [path-name] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for start
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly](#rly)	 - This application relays data between configured IBC enabled chains
 
 ## rly testnets
 
@@ -2027,23 +1104,8 @@ commands for joining and running relayer testnets
 
 commands for joining and running relayer testnets
 
-### Options
+### Subcommands
 
-```
-  -h, --help   help for testnets
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly](#rly)	 - This application relays data between configured IBC enabled chains
 * [rly testnets faucet](#rly-testnets-faucet)	 - listens on a port for requests for tokens
 * [rly testnets request](#rly-testnets-request)	 - request tokens from a relayer faucet
 
@@ -2062,21 +1124,9 @@ rly testnets faucet [chain-id] [key-name] [amount] [flags]
 ### Options
 
 ```
-  -h, --help            help for faucet
   -l, --listen string   sets the faucet listener addresss (default "0.0.0.0:8000")
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly testnets](#rly-testnets)	 - commands for joining and running relayer testnets
 
 ## rly testnets request
 
@@ -2093,21 +1143,9 @@ rly testnets request [chain-id] [[key-name]] [flags]
 ### Options
 
 ```
-  -h, --help         help for request
   -u, --url string   url to fetch data from
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly testnets](#rly-testnets)	 - commands for joining and running relayer testnets
 
 ## rly transact
 
@@ -2119,23 +1157,8 @@ Commands to create IBC transactions on configured chains. Most of these commands
 	1. Chains are properly configured to relay over by using the 'rly chains list' command
 	2. Path is properly configured to relay over by using the 'rly paths list' command
 
-### Options
+### Subcommands
 
-```
-  -h, --help   help for transact
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly](#rly)	 - This application relays data between configured IBC enabled chains
 * [rly transact ](#rly-transact_)	 - 
 * [rly transact ](#rly-transact_)	 - 
 * [rly transact channel](#rly-transact-channel)	 - create a channel between two configured chains with a configured path
@@ -2163,21 +1186,9 @@ rly transact channel-close [path-name] [flags]
 ### Options
 
 ```
-  -h, --help             help for channel-close
   -o, --timeout string   timeout between relayer runs (default "10s")
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact](#rly-transact)	 - IBC Transaction Commands
 
 ## rly transact channel
 
@@ -2194,21 +1205,9 @@ rly transact channel [path-name] [flags]
 ### Options
 
 ```
-  -h, --help             help for channel
   -o, --timeout string   timeout between relayer runs (default "10s")
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact](#rly-transact)	 - IBC Transaction Commands
 
 ## rly transact clients
 
@@ -2222,23 +1221,6 @@ create a clients between two configured chains with a configured path
 rly transact clients [path-name] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for clients
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact](#rly-transact)	 - IBC Transaction Commands
 
 ## rly transact connection
 
@@ -2255,21 +1237,9 @@ rly transact connection [path-name] [flags]
 ### Options
 
 ```
-  -h, --help             help for connection
   -o, --timeout string   timeout between relayer runs (default "10s")
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact](#rly-transact)	 - IBC Transaction Commands
 
 ## rly transact link
 
@@ -2286,21 +1256,9 @@ rly transact link [path-name] [flags]
 ### Options
 
 ```
-  -h, --help             help for link
   -o, --timeout string   timeout between relayer runs (default "10s")
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact](#rly-transact)	 - IBC Transaction Commands
 
 ## rly transact raw
 
@@ -2310,21 +1268,7 @@ raw IBC transaction commands
 
 raw IBC transaction commands
 
-### Options
-
-```
-  -h, --help   help for raw
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
+### Subcommands
 
 * [rly transact](#rly-transact)	 - IBC Transaction Commands
 * [rly transact raw chan-ack](#rly-transact-raw-chan-ack)	 - chan-ack
@@ -2356,23 +1300,6 @@ chan-ack
 rly transact raw chan-ack [src-chain-id] [dst-chain-id] [src-client-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for chan-ack
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact raw](#rly-transact-raw)	 - raw IBC transaction commands
 
 ## rly transact raw chan-close-confirm
 
@@ -2386,23 +1313,6 @@ chan-close-confirm
 rly transact raw chan-close-confirm [src-chain-id] [dst-chain-id] [src-client-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for chan-close-confirm
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact raw](#rly-transact-raw)	 - raw IBC transaction commands
 
 ## rly transact raw chan-close-init
 
@@ -2416,23 +1326,6 @@ chan-close-init
 rly transact raw chan-close-init [chain-id] [channel-id] [port-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for chan-close-init
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact raw](#rly-transact-raw)	 - raw IBC transaction commands
 
 ## rly transact raw chan-confirm
 
@@ -2446,23 +1339,6 @@ chan-confirm
 rly transact raw chan-confirm [src-chain-id] [dst-chain-id] [src-client-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for chan-confirm
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact raw](#rly-transact-raw)	 - raw IBC transaction commands
 
 ## rly transact raw chan-init
 
@@ -2476,23 +1352,6 @@ chan-init
 rly transact raw chan-init [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id] [ordering] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for chan-init
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact raw](#rly-transact-raw)	 - raw IBC transaction commands
 
 ## rly transact raw chan-try
 
@@ -2506,23 +1365,6 @@ chan-try
 rly transact raw chan-try [src-chain-id] [dst-chain-id] [src-client-id] [src-conn-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for chan-try
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact raw](#rly-transact-raw)	 - raw IBC transaction commands
 
 ## rly transact raw channel-step
 
@@ -2536,23 +1378,6 @@ create the next step in creating a channel between chains with the passed identi
 rly transact raw channel-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id] [ordering] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for channel-step
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact raw](#rly-transact-raw)	 - raw IBC transaction commands
 
 ## rly transact raw client
 
@@ -2566,23 +1391,6 @@ create a client for dst-chain on src-chain
 rly transact raw client [src-chain-id] [dst-chain-id] [client-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for client
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact raw](#rly-transact-raw)	 - raw IBC transaction commands
 
 ## rly transact raw close-channel-step
 
@@ -2596,23 +1404,6 @@ create the next step in closing a channel between chains with the passed identif
 rly transact raw close-channel-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for close-channel-step
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact raw](#rly-transact-raw)	 - raw IBC transaction commands
 
 ## rly transact raw conn-ack
 
@@ -2626,23 +1417,6 @@ conn-ack
 rly transact raw conn-ack [src-chain-id] [dst-chain-id] [dst-client-id] [src-client-id] [src-conn-id] [dst-conn-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for conn-ack
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact raw](#rly-transact-raw)	 - raw IBC transaction commands
 
 ## rly transact raw conn-confirm
 
@@ -2656,23 +1430,6 @@ conn-confirm
 rly transact raw conn-confirm [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for conn-confirm
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact raw](#rly-transact-raw)	 - raw IBC transaction commands
 
 ## rly transact raw conn-init
 
@@ -2686,23 +1443,6 @@ conn-init
 rly transact raw conn-init [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for conn-init
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact raw](#rly-transact-raw)	 - raw IBC transaction commands
 
 ## rly transact raw conn-try
 
@@ -2716,23 +1456,6 @@ conn-try
 rly transact raw conn-try [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for conn-try
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact raw](#rly-transact-raw)	 - raw IBC transaction commands
 
 ## rly transact raw connection-step
 
@@ -2746,23 +1469,6 @@ This command creates the next handshake message given a specifc set of identifie
 rly transact raw connection-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for connection-step
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact raw](#rly-transact-raw)	 - raw IBC transaction commands
 
 ## rly transact raw update-client
 
@@ -2776,23 +1482,6 @@ update client for dst-chain on src-chain
 rly transact raw update-client [src-chain-id] [dst-chain-id] [client-id] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for update-client
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact raw](#rly-transact-raw)	 - raw IBC transaction commands
 
 ## rly transact raw xfer-send
 
@@ -2809,21 +1498,9 @@ rly transact raw xfer-send [src-chain-id] [dst-chain-id] [amount] [source] [dst-
 ### Options
 
 ```
-  -h, --help          help for xfer-send
   -p, --path string   specify the path to relay over
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact raw](#rly-transact-raw)	 - raw IBC transaction commands
 
 ## rly transact relay
 
@@ -2837,23 +1514,6 @@ relay any packets that remain to be relayed on a given path, in both directions
 rly transact relay [path-name] [flags]
 ```
 
-### Options
-
-```
-  -h, --help   help for relay
-```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact](#rly-transact)	 - IBC Transaction Commands
 
 ## rly transact send-packet
 
@@ -2870,21 +1530,9 @@ rly transact send-packet [src-chain-id] [dst-chain-id] [packet-data] [flags]
 ### Options
 
 ```
-  -h, --help          help for send-packet
   -p, --path string   specify the path to relay over
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact](#rly-transact)	 - IBC Transaction Commands
 
 ## rly transact transfer
 
@@ -2901,21 +1549,9 @@ rly transact transfer [src-chain-id] [dst-chain-id] [amount] [source] [dst-chain
 ### Options
 
 ```
-  -h, --help          help for transfer
   -p, --path string   specify the path to relay over
 ```
 
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly transact](#rly-transact)	 - IBC Transaction Commands
 
 ## rly version
 
@@ -2932,19 +1568,5 @@ rly version [flags]
 ### Options
 
 ```
-  -h, --help   help for version
   -j, --json   returns the response in json format
 ```
-
-### Options inherited from parent commands
-
-```
-      --config string   set config file (default "config.yaml")
-  -d, --debug           debug output
-      --home string     set home directory (default "/Users/vsh/.relayer")
-```
-
-### SEE ALSO
-
-* [rly](#rly)	 - This application relays data between configured IBC enabled chains
-
