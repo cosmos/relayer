@@ -729,8 +729,6 @@ Commands to query IBC primatives, and other useful data on configured chains.
 
 ### Subcommands
 
-* [rly query ](#rly-query_)	 - 
-* [rly query ](#rly-query_)	 - 
 * [rly query account](#rly-query-account)	 - Query the account data
 * [rly query balance](#rly-query-balance)	 - Query the account balances
 * [rly query channel](#rly-query-channel)	 - Query a channel given it's channel and port ids
