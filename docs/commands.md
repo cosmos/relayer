@@ -40,7 +40,7 @@ NOTE: Most of the commands have aliases that make typing them much quicker (i.e.
     - [rly config add-dir](#rly-config-add-dir)
     - [rly config init](#rly-config-init)
     - [rly config show](#rly-config-show)
-    - [rly development](#rly-development)
+  - [rly development](#rly-development)
     - [rly development faucet](#rly-development-faucet)
     - [rly development gaia](#rly-development-gaia)
     - [rly development genesis](#rly-development-genesis)
