@@ -3,6 +3,7 @@ package relayer
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -49,13 +50,31 @@ func (src *Chain) BuildAndSignTxWithKey(datagram []sdk.Msg, keyName string) ([]b
 // FaucetHandler listens for addresses
 func (src *Chain) FaucetHandler(fromKey sdk.AccAddress, amount sdk.Coin) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var fr FaucetRequest
-		decoder := json.NewDecoder(r.Body)
-		if err := decoder.Decode(&fr); err != nil || fr.ChainID != src.ChainID {
-			respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		defer r.Body.Close()
+		src.Log("handling faucet request...")
+
+		byt, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			str := "Failed to read request body"
+			src.Error(fmt.Errorf(str))
+			respondWithError(w, http.StatusBadGateway, str)
 			return
 		}
-		defer r.Body.Close()
+
+		var fr FaucetRequest
+		err = json.Unmarshal(byt, &fr)
+		switch {
+		case err != nil:
+			str := fmt.Sprintf("Failed to unmarshal request payload: %s", string(byt))
+			src.Log(str)
+			respondWithError(w, http.StatusBadRequest, str)
+			return
+		case fr.ChainID != src.ChainID:
+			str := fmt.Sprintf("Invalid chain id: exp(%s) got(%s)", src.ChainID, fr.ChainID)
+			src.Log(str)
+			respondWithError(w, http.StatusBadRequest, str)
+			return
+		}
 
 		if wait, err := src.checkAddress(fr.Address); err != nil {
 			src.Log(fmt.Sprintf("%s hit rate limit, needs to wait %s", fr.Address, wait.String()))
