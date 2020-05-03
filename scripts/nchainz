@@ -303,6 +303,7 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+mkdir -p "$BASEDIR"
 BASEDIR=$(cd "$BASEDIR" && pwd)
 NCONFIG="$BASEDIR/nchainz.cfg"
 DATA="$BASEDIR/data"
