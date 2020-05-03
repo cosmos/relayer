@@ -1083,11 +1083,11 @@ rly query unrelayed [path] [flags]
 
 ## rly start
 
-Start the listening relayer on a given path
+Start the listening relayer on a given path according to a path's strategy.
 
 ### Synopsis
 
-Start the listening relayer on a given path
+Start the listening relayer on a given path. A path must have an associated relaying strategy. Starts a loop where relayer listens for events in connected chains and, if the event requires action according to the strategy (e.g. someone posted first half of the transfer in the chain A), relayer takes the required action (e.g. finish transfer with an appropriate tx in chain B)
 
 ```
 rly start [path-name] [flags]
