@@ -1157,8 +1157,6 @@ Commands to create IBC transactions on configured chains. Most of these commands
 
 ### Subcommands
 
-* [rly transact ](#rly-transact_)	 - 
-* [rly transact ](#rly-transact_)	 - 
 * [rly transact channel](#rly-transact-channel)	 - create a channel between two configured chains with a configured path
 * [rly transact channel-close](#rly-transact-channel-close)	 - close a channel between two configured chains with a configured path
 * [rly transact clients](#rly-transact-clients)	 - create a clients between two configured chains with a configured path
@@ -1268,7 +1266,6 @@ raw IBC transaction commands
 
 ### Subcommands
 
-* [rly transact](#rly-transact)	 - IBC Transaction Commands
 * [rly transact raw chan-ack](#rly-transact-raw-chan-ack)	 - chan-ack
 * [rly transact raw chan-close-confirm](#rly-transact-raw-chan-close-confirm)	 - chan-close-confirm
 * [rly transact raw chan-close-init](#rly-transact-raw-chan-close-init)	 - chan-close-init
