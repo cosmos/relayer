@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	"github.com/spf13/cobra"
 )
 
@@ -20,8 +23,86 @@ func devCommand() *cobra.Command {
 		rlyService(),
 		listenCmd(),
 		genesisCmd(),
+		gozDataCmd(),
 	)
 	return cmd
+}
+
+func gozDataCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "goz-dump [chain-id]",
+		Aliases: []string{"dump", "goz"},
+		Short:   "fetch the list of chains connected as a CSV dump",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
+
+			clients, err := c.QueryClients(1, 1000)
+			if err != nil {
+				return err
+			}
+
+			header, err := c.UpdateLiteWithHeader()
+			if err != nil {
+				return err
+			}
+
+			var clientDatas = []*clientData{}
+			for _, cl := range clients {
+				cd := &clientData{
+					ClientID:            cl.GetID(),
+					ChainID:             cl.GetChainID(),
+					TimeSinceLastUpdate: time.Since(cl.(tmclient.ClientState).LastHeader.Time).String(),
+					ChannelIDs:          []string{},
+				}
+
+				if err := c.AddPath(cd.ClientID, dcon, dcha, dpor, dord); err != nil {
+					return err
+				}
+
+				conns, err := c.QueryConnectionsUsingClient(header.Height)
+				if err != nil {
+					return err
+				}
+
+				cd.ConnectionIDs = conns.ConnectionPaths
+				for _, conn := range conns.ConnectionPaths {
+					if err := c.AddPath(cl.GetID(), conn, dcha, dpor, dord); err != nil {
+						return err
+					}
+
+					chans, err := c.QueryConnectionChannels(conn, 1, 1000)
+					if err != nil {
+						return err
+					}
+					for _, cha := range chans {
+						if cha.State.String() == "OPEN" {
+							cd.ChannelIDs = append(cd.ChannelIDs, cha.ID)
+						}
+					}
+
+				}
+				clientDatas = append(clientDatas, cd)
+
+			}
+
+			out, _ := json.Marshal(clientDatas)
+			fmt.Println(string(out))
+			return nil
+		},
+	}
+	return cmd
+}
+
+type clientData struct {
+	ClientID            string   `json:"client-id"`
+	ConnectionIDs       []string `json:"connection-ids"`
+	ChannelIDs          []string `json:"channel-ids"`
+	ChainID             string   `json:"chain-id"`
+	TimeSinceLastUpdate string   `json:"since-last-update"`
 }
 
 func genesisCmd() *cobra.Command {
