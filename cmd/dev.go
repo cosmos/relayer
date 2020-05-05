@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
+
+	statsd "github.com/etsy/statsd/examples/go"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
@@ -26,6 +29,7 @@ func devCommand() *cobra.Command {
 		genesisCmd(),
 		gozDataCmd(),
 		gozCSVCmd(),
+		gozStatsDCmd(),
 	)
 	return cmd
 }
@@ -34,7 +38,7 @@ func gozCSVCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "goz-csv [chain-id] [file]",
 		Aliases: []string{"csv"},
-		Short:   "read in source of truth csv",
+		Short:   "read in source of truth csv, and enrich on chain w/ team data",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			to, err := readGoZCsv(args[1])
@@ -51,6 +55,37 @@ func gozCSVCmd() *cobra.Command {
 			}
 			out, _ := json.Marshal(cd)
 			fmt.Println(string(out))
+			return nil
+		},
+	}
+	return cmd
+}
+
+func gozStatsDCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "goz-statsd [chain-id] [file] [statsd-host] [statd-port]",
+		Aliases: []string{"statsd"},
+		Short:   "read in source of truth csv",
+		Args:    cobra.ExactArgs(4),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			port, err := strconv.ParseInt(args[3], 10, 64)
+			if err != nil {
+				return err
+			}
+			to, err := readGoZCsv(args[1])
+			if err != nil {
+				return err
+			}
+			cd, err := fetchClientData(args[0])
+			if err != nil {
+				return err
+			}
+			client := statsd.New(args[2], int(port))
+			for _, c := range cd {
+				info := to[c.ChainID]
+				c.TeamInfo = info
+				c.StatsD(client)
+			}
 			return nil
 		},
 	}
@@ -385,4 +420,17 @@ type clientData struct {
 	ChainID             string    `json:"chain-id"`
 	TimeSinceLastUpdate string    `json:"since-last-update"`
 	TeamInfo            *teamInfo `json:"team-info"`
+}
+
+func (cd *clientData) StatsD(cl *statsd.StatsdClient) {
+	switch {
+	case len(cd.ConnectionIDs) != 1:
+		byt, _ := json.Marshal(cd)
+		fmt.Fprintf(os.Stderr, "%s", string(byt))
+	case len(cd.ChannelIDs) != 1:
+		byt, _ := json.Marshal(cd)
+		fmt.Fprintf(os.Stderr, "%s", string(byt))
+		// TODO: add more cases here
+	}
+	cl.Increment(fmt.Sprintf("relayer.client-query.%s.%s.%s.%s.%s", cd.TeamInfo.Name, cd.ChainID, cd.ClientID, cd.ConnectionIDs[0], cd.ChannelIDs[0]))
 }
