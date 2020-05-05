@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -24,7 +25,35 @@ func devCommand() *cobra.Command {
 		listenCmd(),
 		genesisCmd(),
 		gozDataCmd(),
+		gozCSVCmd(),
 	)
+	return cmd
+}
+
+func gozCSVCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "goz-csv [chain-id] [file]",
+		Aliases: []string{"csv"},
+		Short:   "read in source of truth csv",
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			to, err := readGoZCsv(args[1])
+			if err != nil {
+				return err
+			}
+			cd, err := fetchClientData(args[0])
+			if err != nil {
+				return err
+			}
+			for _, c := range cd {
+				info := to[c.ChainID]
+				c.TeamInfo = info
+			}
+			out, _ := json.Marshal(cd)
+			fmt.Println(string(out))
+			return nil
+		},
+	}
 	return cmd
 }
 
@@ -35,74 +64,16 @@ func gozDataCmd() *cobra.Command {
 		Short:   "fetch the list of chains connected as a CSV dump",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := config.Chains.Get(args[0])
+			cd, err := fetchClientData(args[0])
 			if err != nil {
 				return err
 			}
-
-			clients, err := c.QueryClients(1, 1000)
-			if err != nil {
-				return err
-			}
-
-			header, err := c.UpdateLiteWithHeader()
-			if err != nil {
-				return err
-			}
-
-			var clientDatas = []*clientData{}
-			for _, cl := range clients {
-				cd := &clientData{
-					ClientID:            cl.GetID(),
-					ChainID:             cl.GetChainID(),
-					TimeSinceLastUpdate: time.Since(cl.(tmclient.ClientState).LastHeader.Time).String(),
-					ChannelIDs:          []string{},
-				}
-
-				if err := c.AddPath(cd.ClientID, dcon, dcha, dpor, dord); err != nil {
-					return err
-				}
-
-				conns, err := c.QueryConnectionsUsingClient(header.Height)
-				if err != nil {
-					return err
-				}
-
-				cd.ConnectionIDs = conns.ConnectionPaths
-				for _, conn := range conns.ConnectionPaths {
-					if err := c.AddPath(cl.GetID(), conn, dcha, dpor, dord); err != nil {
-						return err
-					}
-
-					chans, err := c.QueryConnectionChannels(conn, 1, 1000)
-					if err != nil {
-						return err
-					}
-					for _, cha := range chans {
-						if cha.State.String() == "OPEN" {
-							cd.ChannelIDs = append(cd.ChannelIDs, cha.ID)
-						}
-					}
-
-				}
-				clientDatas = append(clientDatas, cd)
-
-			}
-
-			out, _ := json.Marshal(clientDatas)
+			out, _ := json.Marshal(cd)
 			fmt.Println(string(out))
 			return nil
 		},
 	}
 	return cmd
-}
-
-type clientData struct {
-	ClientID            string   `json:"client-id"`
-	ConnectionIDs       []string `json:"connection-ids"`
-	ChannelIDs          []string `json:"channel-ids"`
-	ChainID             string   `json:"chain-id"`
-	TimeSinceLastUpdate string   `json:"since-last-update"`
 }
 
 func genesisCmd() *cobra.Command {
@@ -311,4 +282,107 @@ WantedBy=multi-user.target
 		},
 	}
 	return cmd
+}
+
+func readGoZCsv(path string) (map[string]*teamInfo, error) {
+	// open the CSV file
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	// create the csv reader
+	cs := csv.NewReader(f)
+
+	// ignore the header line
+	if _, err := cs.Read(); err != nil {
+		return nil, err
+	}
+
+	// read all the records into memory
+	records, err := cs.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	// format the map[chain-id]Info
+	var out = map[string]*teamInfo{}
+	for _, r := range records {
+		out[r[2]] = &teamInfo{r[0], r[1], r[3]}
+	}
+
+	return out, nil
+}
+
+type teamInfo struct {
+	Name    string `json:"name"`
+	Address string `json:"address"`
+	RPCAddr string `json:"rpc-addr"`
+}
+
+func fetchClientData(chainID string) ([]*clientData, error) {
+	c, err := config.Chains.Get(chainID)
+	if err != nil {
+		return nil, err
+	}
+
+	clients, err := c.QueryClients(1, 1000)
+	if err != nil {
+		return nil, err
+	}
+
+	header, err := c.UpdateLiteWithHeader()
+	if err != nil {
+		return nil, err
+	}
+
+	var clientDatas = []*clientData{}
+	for _, cl := range clients {
+		cd := &clientData{
+			ClientID:            cl.GetID(),
+			ChainID:             cl.GetChainID(),
+			TimeSinceLastUpdate: time.Since(cl.(tmclient.ClientState).LastHeader.Time).String(),
+			ChannelIDs:          []string{},
+		}
+
+		if err := c.AddPath(cd.ClientID, dcon, dcha, dpor, dord); err != nil {
+			return nil, err
+		}
+
+		conns, err := c.QueryConnectionsUsingClient(header.Height)
+		if err != nil {
+			return nil, err
+		}
+
+		cd.ConnectionIDs = conns.ConnectionPaths
+		for _, conn := range conns.ConnectionPaths {
+			if err := c.AddPath(cl.GetID(), conn, dcha, dpor, dord); err != nil {
+				return nil, err
+			}
+
+			chans, err := c.QueryConnectionChannels(conn, 1, 1000)
+			if err != nil {
+				return nil, err
+			}
+			for _, cha := range chans {
+				if cha.State.String() == "OPEN" {
+					cd.ChannelIDs = append(cd.ChannelIDs, cha.ID)
+				}
+			}
+
+		}
+		clientDatas = append(clientDatas, cd)
+
+	}
+	return clientDatas, nil
+}
+
+type clientData struct {
+	ClientID            string    `json:"client-id"`
+	ConnectionIDs       []string  `json:"connection-ids"`
+	ChannelIDs          []string  `json:"channel-ids"`
+	ChainID             string    `json:"chain-id"`
+	TimeSinceLastUpdate string    `json:"since-last-update"`
+	TeamInfo            *teamInfo `json:"team-info"`
 }
