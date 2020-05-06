@@ -372,6 +372,11 @@ func fetchClientData(chainID string) ([]*clientData, error) {
 		return nil, err
 	}
 
+	chans, err := c.QueryChannels(1, 10000)
+	if err != nil {
+		return nil, err
+	}
+
 	var clientDatas = []*clientData{}
 	for _, cl := range clients {
 		cd := &clientData{
@@ -391,22 +396,17 @@ func fetchClientData(chainID string) ([]*clientData, error) {
 		}
 
 		cd.ConnectionIDs = conns.ConnectionPaths
-		for _, conn := range conns.ConnectionPaths {
-			if err := c.AddPath(cl.GetID(), conn, dcha, dpor, dord); err != nil {
-				return nil, err
-			}
-
-			chans, err := c.QueryConnectionChannels(conn, 1, 1000)
-			if err != nil {
-				return nil, err
-			}
-			for _, cha := range chans {
-				if cha.State.String() == "OPEN" {
-					cd.ChannelIDs = append(cd.ChannelIDs, cha.ID)
+		for _, conn := range cd.ConnectionIDs {
+			for _, ch := range chans {
+				for _, co := range ch.ConnectionHops {
+					if co == conn {
+						cd.ChannelIDs = append(cd.ChannelIDs, ch.ID)
+					}
 				}
 			}
-
 		}
+
+		// todo deal with channels
 		clientDatas = append(clientDatas, cd)
 
 	}
