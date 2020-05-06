@@ -219,13 +219,13 @@ After=network.target
 Type=simple
 User=%s
 WorkingDirectory=%s
-ExecStart=%s/go/bin/rly start %s %s %s -d
+ExecStart=%s/go/bin/rly start %s -d
 Restart=on-failure
 RestartSec=3
 LimitNOFILE=4096
 [Install]
 WantedBy=multi-user.target
-`, args[0], user, home, home, src, dst, args[0])
+`, args[0], user, home, home, args[0])
 			return nil
 		},
 	}
