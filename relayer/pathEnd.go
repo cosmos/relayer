@@ -32,7 +32,7 @@ func (src *PathEnd) getOrder() chanState.Order {
 	return chanState.OrderFromString(strings.ToUpper(src.Order))
 }
 
-// UpdateClient creates an sdk.Msg to update the client on c with data pulled from cp
+// UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst
 func (src *PathEnd) UpdateClient(dstHeader *tmclient.Header, signer sdk.AccAddress) sdk.Msg {
 	return tmclient.NewMsgUpdateClient(
 		src.ClientID,
