@@ -16,12 +16,15 @@ var (
 	Commit = ""
 	// SDKCommit defines the CosmosSDK commit hash (defined at compile time)
 	SDKCommit = ""
+	// GaiaCommit defines the Gaia commit hash (defined at compile time)
+	GaiaCommit = ""
 )
 
 type versionInfo struct {
 	Version   string `json:"version" yaml:"version"`
 	Commit    string `json:"commit" yaml:"commit"`
 	CosmosSDK string `json:"cosmos-sdk" yaml:"cosmos-sdk"`
+	Gaia      string `json:"gaia" yaml:"gaia"`
 	Go        string `json:"go" yaml:"go"`
 }
 
@@ -40,6 +43,7 @@ func getVersionCmd() *cobra.Command {
 				Version:   Version,
 				Commit:    Commit,
 				CosmosSDK: SDKCommit,
+				Gaia:      GaiaCommit,
 				Go:        fmt.Sprintf("%s %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH),
 			}
 
