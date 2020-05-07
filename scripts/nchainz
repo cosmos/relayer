@@ -368,7 +368,7 @@ chains)
     p26660=$(( 26660 - $i * 100 ))
     p6060=$(( 6060 + $i ))
 
-    eval $DAEMON_TESTNET || echo $?
+    eval $DAEMON_TESTNET || true
 
     cfgpth="$DATA/$chainid/n0/$DAEMON/config/config.toml"
     # TODO: Just index *some* specified tags, not all
@@ -565,6 +565,8 @@ relay)
   exit 0
   ;;
 run)
+  mv nchainz/logs nchainz/logs-$(date +%Y%m%dT%H:%M:%S) || true
+  mkdir -p nchainz/logs
   "$0" chains skip &
   "$0" clients skip &
   wait
