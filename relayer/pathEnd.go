@@ -32,7 +32,7 @@ func (src *PathEnd) getOrder() chanState.Order {
 	return chanState.OrderFromString(strings.ToUpper(src.Order))
 }
 
-// UpdateClient creates an sdk.Msg to update the client on c with data pulled from cp
+// UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst
 func (src *PathEnd) UpdateClient(dstHeader *tmclient.Header, signer sdk.AccAddress) sdk.Msg {
 	return tmclient.NewMsgUpdateClient(
 		src.ClientID,
@@ -132,11 +132,11 @@ func (src *PathEnd) ChanTry(dst *PathEnd, dstChanState chanTypes.ChannelResponse
 		src.PortID,
 		src.ChannelID,
 		defaultTransferVersion,
-		dstChanState.Channel.Channel.Ordering,
+		dstChanState.Channel.Ordering,
 		[]string{src.ConnectionID},
 		dst.PortID,
 		dst.ChannelID,
-		dstChanState.Channel.Channel.GetVersion(),
+		dstChanState.Channel.Version,
 		dstChanState.Proof,
 		dstChanState.ProofHeight+1,
 		signer,
@@ -148,7 +148,7 @@ func (src *PathEnd) ChanAck(dstChanState chanTypes.ChannelResponse, signer sdk.A
 	return chanTypes.NewMsgChannelOpenAck(
 		src.PortID,
 		src.ChannelID,
-		dstChanState.Channel.Channel.GetVersion(),
+		dstChanState.Channel.Version,
 		dstChanState.Proof,
 		dstChanState.ProofHeight+1,
 		signer,

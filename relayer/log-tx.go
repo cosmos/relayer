@@ -49,11 +49,11 @@ func logChannelStates(src, dst *Chain, conn map[string]chanTypes.ChannelResponse
 		src.ChainID,
 		conn[src.ChainID].ProofHeight,
 		src.PathEnd.ChannelID,
-		conn[src.ChainID].Channel.Channel.GetState(),
+		conn[src.ChainID].Channel.State,
 		dst.ChainID,
 		conn[dst.ChainID].ProofHeight,
 		dst.PathEnd.ChannelID,
-		conn[dst.ChainID].Channel.Channel.GetState(),
+		conn[dst.ChainID].Channel.State,
 	))
 }
 
@@ -62,11 +62,11 @@ func logConnectionStates(src, dst *Chain, conn map[string]connTypes.ConnectionRe
 		src.ChainID,
 		conn[src.ChainID].ProofHeight,
 		src.PathEnd.ConnectionID,
-		conn[src.ChainID].Connection.Connection.GetState(),
+		conn[src.ChainID].Connection.State,
 		dst.ChainID,
 		conn[dst.ChainID].ProofHeight,
 		dst.PathEnd.ConnectionID,
-		conn[dst.ChainID].Connection.Connection.GetState(),
+		conn[dst.ChainID].Connection.State,
 	))
 }
 

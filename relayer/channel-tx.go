@@ -94,7 +94,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 
 	switch {
 	// Handshake hasn't been started on src or dst, relay `chanOpenInit` to src
-	case chans[scid].Channel.Channel.State == chanState.UNINITIALIZED && chans[dcid].Channel.Channel.State == chanState.UNINITIALIZED:
+	case chans[scid].Channel.State == chanState.UNINITIALIZED && chans[dcid].Channel.State == chanState.UNINITIALIZED:
 		if src.debug {
 			logChannelStates(src, dst, chans)
 		}
@@ -103,7 +103,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 		)
 
 	// Handshake has started on dst (1 step done), relay `chanOpenTry` and `updateClient` to src
-	case chans[scid].Channel.Channel.State == chanState.UNINITIALIZED && chans[dcid].Channel.Channel.State == chanState.INIT:
+	case chans[scid].Channel.State == chanState.UNINITIALIZED && chans[dcid].Channel.State == chanState.INIT:
 		if src.debug {
 			logChannelStates(src, dst, chans)
 		}
@@ -113,7 +113,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 		)
 
 	// Handshake has started on src (1 step done), relay `chanOpenTry` and `updateClient` to dst
-	case chans[scid].Channel.Channel.State == chanState.INIT && chans[dcid].Channel.Channel.State == chanState.UNINITIALIZED:
+	case chans[scid].Channel.State == chanState.INIT && chans[dcid].Channel.State == chanState.UNINITIALIZED:
 		if dst.debug {
 			logChannelStates(dst, src, chans)
 		}
@@ -123,7 +123,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 		)
 
 	// Handshake has started on src (2 steps done), relay `chanOpenAck` and `updateClient` to dst
-	case chans[scid].Channel.Channel.State == chanState.TRYOPEN && chans[dcid].Channel.Channel.State == chanState.INIT:
+	case chans[scid].Channel.State == chanState.TRYOPEN && chans[dcid].Channel.State == chanState.INIT:
 		if dst.debug {
 			logChannelStates(dst, src, chans)
 		}
@@ -133,7 +133,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 		)
 
 	// Handshake has started on dst (2 steps done), relay `chanOpenAck` and `updateClient` to src
-	case chans[scid].Channel.Channel.State == chanState.INIT && chans[dcid].Channel.Channel.State == chanState.TRYOPEN:
+	case chans[scid].Channel.State == chanState.INIT && chans[dcid].Channel.State == chanState.TRYOPEN:
 		if src.debug {
 			logChannelStates(src, dst, chans)
 		}
@@ -143,7 +143,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 		)
 
 	// Handshake has confirmed on dst (3 steps done), relay `chanOpenConfirm` and `updateClient` to src
-	case chans[scid].Channel.Channel.State == chanState.TRYOPEN && chans[dcid].Channel.Channel.State == chanState.OPEN:
+	case chans[scid].Channel.State == chanState.TRYOPEN && chans[dcid].Channel.State == chanState.OPEN:
 		if src.debug {
 			logChannelStates(src, dst, chans)
 		}
@@ -154,7 +154,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 		out.last = true
 
 	// Handshake has confirmed on src (3 steps done), relay `chanOpenConfirm` and `updateClient` to dst
-	case chans[scid].Channel.Channel.State == chanState.OPEN && chans[dcid].Channel.Channel.State == chanState.TRYOPEN:
+	case chans[scid].Channel.State == chanState.OPEN && chans[dcid].Channel.State == chanState.TRYOPEN:
 		if dst.debug {
 			logChannelStates(dst, src, chans)
 		}
@@ -231,8 +231,8 @@ func (src *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 	switch {
 	// Closing handshake has not started, relay `updateClient` and `chanCloseInit` to src or dst according
 	// to the channel state
-	case chans[scid].Channel.Channel.State != chanState.CLOSED && chans[dcid].Channel.Channel.State != chanState.CLOSED:
-		if chans[scid].Channel.Channel.State != chanState.UNINITIALIZED {
+	case chans[scid].Channel.State != chanState.CLOSED && chans[dcid].Channel.State != chanState.CLOSED:
+		if chans[scid].Channel.State != chanState.UNINITIALIZED {
 			if src.debug {
 				logChannelStates(src, dst, chans)
 			}
@@ -240,7 +240,7 @@ func (src *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
 				src.PathEnd.ChanCloseInit(src.MustGetAddress()),
 			)
-		} else if chans[dcid].Channel.Channel.State != chanState.UNINITIALIZED {
+		} else if chans[dcid].Channel.State != chanState.UNINITIALIZED {
 			if dst.debug {
 				logChannelStates(dst, src, chans)
 			}
@@ -251,8 +251,8 @@ func (src *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 		}
 
 	// Closing handshake has started on src, relay `updateClient` and `chanCloseConfirm` to dst
-	case chans[scid].Channel.Channel.State == chanState.CLOSED && chans[dcid].Channel.Channel.State != chanState.CLOSED:
-		if chans[dcid].Channel.Channel.State != chanState.UNINITIALIZED {
+	case chans[scid].Channel.State == chanState.CLOSED && chans[dcid].Channel.State != chanState.CLOSED:
+		if chans[dcid].Channel.State != chanState.UNINITIALIZED {
 			if dst.debug {
 				logChannelStates(dst, src, chans)
 			}
@@ -264,8 +264,8 @@ func (src *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 		}
 
 	// Closing handshake has started on dst, relay `updateClient` and `chanCloseConfirm` to src
-	case chans[dcid].Channel.Channel.State == chanState.CLOSED && chans[scid].Channel.Channel.State != chanState.CLOSED:
-		if chans[scid].Channel.Channel.State != chanState.UNINITIALIZED {
+	case chans[dcid].Channel.State == chanState.CLOSED && chans[scid].Channel.State != chanState.CLOSED:
+		if chans[scid].Channel.State != chanState.UNINITIALIZED {
 			if src.debug {
 				logChannelStates(src, dst, chans)
 			}

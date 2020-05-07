@@ -97,7 +97,17 @@ documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.
 				return err
 			}
 
-			txs, err := chain.QueryTxs(h.GetHeight(), viper.GetInt(flags.FlagPage), viper.GetInt(flags.FlagLimit), events)
+			page, err := cmd.Flags().GetInt(flags.FlagPage)
+			if err != nil {
+				return err
+			}
+
+			limit, err := cmd.Flags().GetInt(flags.FlagLimit)
+			if err != nil {
+				return err
+			}
+
+			txs, err := chain.QueryTxs(h.GetHeight(), page, limit, events)
 			if err != nil {
 				return err
 			}
@@ -318,7 +328,17 @@ func queryClientsCmd() *cobra.Command {
 				return err
 			}
 
-			res, err := chain.QueryClients(viper.GetInt(flags.FlagPage), viper.GetInt(flags.FlagLimit))
+			page, err := cmd.Flags().GetInt(flags.FlagPage)
+			if err != nil {
+				return err
+			}
+
+			limit, err := cmd.Flags().GetInt(flags.FlagLimit)
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryClients(page, limit)
 			if err != nil {
 				return err
 			}
@@ -342,7 +362,17 @@ func queryConnections() *cobra.Command {
 				return err
 			}
 
-			res, err := chain.QueryConnections(viper.GetInt(flags.FlagPage), viper.GetInt(flags.FlagLimit))
+			page, err := cmd.Flags().GetInt(flags.FlagPage)
+			if err != nil {
+				return err
+			}
+
+			limit, err := cmd.Flags().GetInt(flags.FlagLimit)
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryConnections(page, limit)
 			if err != nil {
 				return err
 			}
@@ -384,7 +414,7 @@ func queryConnectionsUsingClient() *cobra.Command {
 		},
 	}
 
-	return paginationFlags(cmd)
+	return cmd
 }
 
 func queryConnection() *cobra.Command {
@@ -435,7 +465,17 @@ func queryConnectionChannels() *cobra.Command {
 				return err
 			}
 
-			chans, err := chain.QueryConnectionChannels(args[1], viper.GetInt(flags.FlagPage), viper.GetInt(flags.FlagLimit))
+			page, err := cmd.Flags().GetInt(flags.FlagPage)
+			if err != nil {
+				return err
+			}
+
+			limit, err := cmd.Flags().GetInt(flags.FlagLimit)
+			if err != nil {
+				return err
+			}
+
+			chans, err := chain.QueryConnectionChannels(args[1], page, limit)
 			if err != nil {
 				return err
 			}
@@ -476,7 +516,7 @@ func queryChannel() *cobra.Command {
 		},
 	}
 
-	return paginationFlags(cmd)
+	return cmd
 }
 
 func queryChannels() *cobra.Command {
@@ -491,7 +531,17 @@ func queryChannels() *cobra.Command {
 				return err
 			}
 
-			res, err := chain.QueryChannels(viper.GetInt(flags.FlagPage), viper.GetInt(flags.FlagLimit))
+			page, err := cmd.Flags().GetInt(flags.FlagPage)
+			if err != nil {
+				return err
+			}
+
+			limit, err := cmd.Flags().GetInt(flags.FlagLimit)
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryChannels(page, limit)
 			if err != nil {
 				return err
 			}
@@ -532,7 +582,7 @@ func queryNextSeqRecv() *cobra.Command {
 		},
 	}
 
-	return paginationFlags(cmd)
+	return cmd
 }
 
 func queryPacketCommitment() *cobra.Command {
@@ -569,7 +619,7 @@ func queryPacketCommitment() *cobra.Command {
 		},
 	}
 
-	return paginationFlags(cmd)
+	return cmd
 }
 
 func queryPacketAck() *cobra.Command {
@@ -606,7 +656,7 @@ func queryPacketAck() *cobra.Command {
 		},
 	}
 
-	return paginationFlags(cmd)
+	return cmd
 }
 
 func queryUnrelayed() *cobra.Command {
