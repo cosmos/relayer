@@ -5,10 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
-	statsd "github.com/etsy/statsd/examples/go"
+	"github.com/DataDog/datadog-go/statsd"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
@@ -68,23 +67,24 @@ func gozStatsDCmd() *cobra.Command {
 		Short:   "read in source of truth csv",
 		Args:    cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			port, err := strconv.ParseInt(args[3], 10, 64)
-			if err != nil {
-				return err
-			}
+
 			to, err := readGoZCsv(args[1])
 			if err != nil {
 				return err
 			}
+			client, err := statsd.New(args[2])
+			if err != nil {
+				return err
+			}
+
 			cd, err := fetchClientData(args[0])
 			if err != nil {
 				return err
 			}
-			client := statsd.New(args[2], int(port))
 			for _, c := range cd {
 				info := to[c.ChainID]
 				c.TeamInfo = info
-				c.StatsD(client)
+				c.StatsD(client, args[3])
 			}
 			return nil
 		},
@@ -380,10 +380,10 @@ func fetchClientData(chainID string) ([]*clientData, error) {
 	var clientDatas = []*clientData{}
 	for _, cl := range clients {
 		cd := &clientData{
-			ClientID:            cl.GetID(),
-			ChainID:             cl.GetChainID(),
-			TimeSinceLastUpdate: time.Since(cl.(tmclient.ClientState).LastHeader.Time).String(),
-			ChannelIDs:          []string{},
+			ClientID:         cl.GetID(),
+			ChainID:          cl.GetChainID(),
+			TimeOfLastUpdate: cl.(tmclient.ClientState).LastHeader.Time,
+			ChannelIDs:       []string{},
 		}
 
 		if err := c.AddPath(cd.ClientID, dcon, dcha, dpor, dord); err != nil {
@@ -414,15 +414,15 @@ func fetchClientData(chainID string) ([]*clientData, error) {
 }
 
 type clientData struct {
-	ClientID            string    `json:"client-id"`
-	ConnectionIDs       []string  `json:"connection-ids"`
-	ChannelIDs          []string  `json:"channel-ids"`
-	ChainID             string    `json:"chain-id"`
-	TimeSinceLastUpdate string    `json:"since-last-update"`
-	TeamInfo            *teamInfo `json:"team-info"`
+	ClientID         string    `json:"client-id"`
+	ConnectionIDs    []string  `json:"connection-ids"`
+	ChannelIDs       []string  `json:"channel-ids"`
+	ChainID          string    `json:"chain-id"`
+	TimeOfLastUpdate time.Time `json:"since-last-update"`
+	TeamInfo         *teamInfo `json:"team-info"`
 }
 
-func (cd *clientData) StatsD(cl *statsd.StatsdClient) {
+func (cd *clientData) StatsD(cl *statsd.Client, prefix string) {
 	switch {
 	case len(cd.ConnectionIDs) != 1:
 		byt, _ := json.Marshal(cd)
@@ -432,5 +432,5 @@ func (cd *clientData) StatsD(cl *statsd.StatsdClient) {
 		fmt.Fprintf(os.Stderr, "%s", string(byt))
 		// TODO: add more cases here
 	}
-	cl.Increment(fmt.Sprintf("relayer.client-query.%s.%s.%s.%s.%s", cd.TeamInfo.Name, cd.ChainID, cd.ClientID, cd.ConnectionIDs[0], cd.ChannelIDs[0]))
+	cl.TimeInMilliseconds(fmt.Sprintf("relayer.%s.client", prefix), float64(time.Since(cd.TimeOfLastUpdate).Milliseconds()), []string{"teamname", cd.TeamInfo.Name, "chain-id", cd.ChainID, "client-id", cd.ClientID, "connection-id", cd.ConnectionIDs[0], "channelid", cd.ChannelIDs[0]}, 1)
 }
