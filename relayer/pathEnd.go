@@ -203,12 +203,18 @@ func (src *PathEnd) MsgRecvPacket(dst *PathEnd, sequence, timeoutHeight, timeout
 }
 
 // MsgTimeout creates MsgTimeout
-func (src *PathEnd) MsgTimeout(packet chanTypes.Packet, seq uint64, proof chanTypes.PacketResponse, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) MsgTimeout(dst *PathEnd, packetData []byte, seq, timeout, timeoutStamp uint64, proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgTimeout(
-		packet,
+		src.NewPacket(
+			dst,
+			seq,
+			packetData,
+			timeout,
+			timeoutStamp,
+		),
 		seq,
-		proof.Proof,
-		proof.ProofHeight+1,
+		proof,
+		proofHeight+1,
 		signer,
 	)
 }
