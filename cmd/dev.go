@@ -80,7 +80,7 @@ func processPhaseOneData() *cobra.Command {
 					return err
 				}
 				for _, cd := range fdat {
-					cl.TimeInMilliseconds(fmt.Sprintf("relayer.%s.client", args[3]), float64(cd.TimeSinceUpdateMS), []string{fmt.Sprintf("teamname:%s", cleanStringForTags(cd.TeamInfo.Name)), fmt.Sprintf("chain-id:%s", cleanStringForTags(cd.ChainID)), fmt.Sprintf("client-id:%s", cleanStringForTags(cd.ClientID))}, 1)
+					cl.TimeInMilliseconds(fmt.Sprintf("relayer.%s.client.%d", args[3], bl.Block.Height), float64(cd.TimeSinceUpdateMS), []string{fmt.Sprintf("teamname:%s", cleanStringForTags(cd.TeamInfo.Name)), fmt.Sprintf("chain-id:%s", cleanStringForTags(cd.ChainID)), fmt.Sprintf("client-id:%s", cleanStringForTags(cd.ClientID))}, 1)
 				}
 			}
 			cl.Flush()
