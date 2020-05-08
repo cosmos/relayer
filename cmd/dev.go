@@ -548,14 +548,20 @@ func (cd *clientData) StatsD(cl *statsd.Client, prefix string) {
 	case len(cd.ConnectionIDs) != 1:
 		byt, _ := json.Marshal(cd)
 		fmt.Fprintf(os.Stderr, "%s", string(byt))
-	case len(cd.ConnectionIDs) == 0:
-		cd.ConnectionIDs = []string{"no_connections"}
+
 	case len(cd.ChannelIDs) != 1:
 		byt, _ := json.Marshal(cd)
 		fmt.Fprintf(os.Stderr, "%s", string(byt))
-	case len(cd.ChannelIDs) == 0:
-		cd.ChannelIDs = []string{"no_channels"}
+
 		// TODO: add more cases here
+	}
+
+	if len(cd.ChannelIDs) == 0 {
+		cd.ChannelIDs = []string{"no_channels"}
+	}
+
+	if len(cd.ConnectionIDs) == 0 {
+		cd.ConnectionIDs = []string{"no_connections"}
 	}
 	cl.TimeInMilliseconds(fmt.Sprintf("relayer.%s.client", prefix), float64(time.Since(cd.TimeOfLastUpdate).Milliseconds()), []string{"teamname", cd.TeamInfo.Name, "chain-id", cd.ChainID, "client-id", cd.ClientID, "connection-id", cd.ConnectionIDs[0], "channelid", cd.ChannelIDs[0]}, 1)
 }
