@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
@@ -164,9 +165,17 @@ func gozStatsDCmd() *cobra.Command {
 			}
 			for _, c := range cd {
 				info := to[c.ChainID]
+				if info == nil {
+					info = &teamInfo{
+						"Unregistered",
+						"Unregistered",
+						"Unregistered",
+					}
+				}
 				c.TeamInfo = info
 				c.StatsD(client, args[3])
 			}
+			client.Flush()
 			return nil
 		},
 	}
@@ -541,10 +550,28 @@ func (cd *clientData) StatsD(cl *statsd.Client, prefix string) {
 	case len(cd.ConnectionIDs) != 1:
 		byt, _ := json.Marshal(cd)
 		fmt.Fprintf(os.Stderr, "%s", string(byt))
+
 	case len(cd.ChannelIDs) != 1:
 		byt, _ := json.Marshal(cd)
 		fmt.Fprintf(os.Stderr, "%s", string(byt))
+
 		// TODO: add more cases here
 	}
-	cl.TimeInMilliseconds(fmt.Sprintf("relayer.%s.client", prefix), float64(time.Since(cd.TimeOfLastUpdate).Milliseconds()), []string{"teamname", cd.TeamInfo.Name, "chain-id", cd.ChainID, "client-id", cd.ClientID, "connection-id", cd.ConnectionIDs[0], "channelid", cd.ChannelIDs[0]}, 1)
+
+	if len(cd.ChannelIDs) == 0 {
+		cd.ChannelIDs = []string{"no_channels"}
+	}
+
+	if len(cd.ConnectionIDs) == 0 {
+		cd.ConnectionIDs = []string{"no_connections"}
+	}
+	cl.TimeInMilliseconds(fmt.Sprintf("relayer.%s.client", prefix), float64(time.Since(cd.TimeOfLastUpdate).Milliseconds()), []string{fmt.Sprintf("teamname:%s", cleanStringForTags(cd.TeamInfo.Name)), fmt.Sprintf("chain-id:%s", cleanStringForTags(cd.ChainID)), fmt.Sprintf("client-id:%s", cleanStringForTags(cd.ClientID)), fmt.Sprintf("connection-id:%s", cleanStringForTags(cd.ConnectionIDs[0])), fmt.Sprintf("channelid:%s", cd.ChannelIDs[0])}, 1)
+}
+
+func cleanStringForTags(s string) string {
+
+	s = strings.ToLower(s)
+	s = strings.ReplaceAll(s, " ", "_")
+
+	return s
 }
