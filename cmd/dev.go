@@ -164,6 +164,13 @@ func gozStatsDCmd() *cobra.Command {
 			}
 			for _, c := range cd {
 				info := to[c.ChainID]
+				if info == nil {
+					info = &teamInfo{
+						"Unregistered",
+						"Unregistered",
+						"Unregistered",
+					}
+				}
 				c.TeamInfo = info
 				c.StatsD(client, args[3])
 			}
