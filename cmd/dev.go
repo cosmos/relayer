@@ -564,5 +564,5 @@ func (cd *clientData) StatsD(cl *statsd.Client, prefix string) {
 	if len(cd.ConnectionIDs) == 0 {
 		cd.ConnectionIDs = []string{"no_connections"}
 	}
-	cl.TimeInMilliseconds(fmt.Sprintf("relayer.%s.client", prefix), float64(time.Since(cd.TimeOfLastUpdate).Milliseconds()), []string{"teamname", cd.TeamInfo.Name, "chain-id", cd.ChainID, "client-id", cd.ClientID, "connection-id", cd.ConnectionIDs[0], "channelid", cd.ChannelIDs[0]}, 1)
+	cl.TimeInMilliseconds(fmt.Sprintf("relayer.%s.client", prefix), float64(time.Since(cd.TimeOfLastUpdate).Milliseconds()), []string{fmt.Sprintf("teamname:%s", cd.TeamInfo.Name), fmt.Sprintf("chain-id:%s", cd.ChainID), fmt.Sprintf("client-id:%s", cd.ClientID), fmt.Sprintf("connection-id:%s", cd.ConnectionIDs[0]), fmt.Sprintf("channelid:%s", cd.ChannelIDs[0])}, 1)
 }
