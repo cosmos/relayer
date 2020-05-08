@@ -174,6 +174,7 @@ func gozStatsDCmd() *cobra.Command {
 				c.TeamInfo = info
 				c.StatsD(client, args[3])
 			}
+			client.Flush()
 			return nil
 		},
 	}
