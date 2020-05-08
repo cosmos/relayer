@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
@@ -564,5 +565,13 @@ func (cd *clientData) StatsD(cl *statsd.Client, prefix string) {
 	if len(cd.ConnectionIDs) == 0 {
 		cd.ConnectionIDs = []string{"no_connections"}
 	}
-	cl.TimeInMilliseconds(fmt.Sprintf("relayer.%s.client", prefix), float64(time.Since(cd.TimeOfLastUpdate).Milliseconds()), []string{fmt.Sprintf("teamname:%s", cd.TeamInfo.Name), fmt.Sprintf("chain-id:%s", cd.ChainID), fmt.Sprintf("client-id:%s", cd.ClientID), fmt.Sprintf("connection-id:%s", cd.ConnectionIDs[0]), fmt.Sprintf("channelid:%s", cd.ChannelIDs[0])}, 1)
+	cl.TimeInMilliseconds(fmt.Sprintf("relayer.%s.client", prefix), float64(time.Since(cd.TimeOfLastUpdate).Milliseconds()), []string{fmt.Sprintf("teamname:%s", cleanStringForTags(cd.TeamInfo.Name)), fmt.Sprintf("chain-id:%s", cleanStringForTags(cd.ChainID)), fmt.Sprintf("client-id:%s", cleanStringForTags(cd.ClientID)), fmt.Sprintf("connection-id:%s", cleanStringForTags(cd.ConnectionIDs[0])), fmt.Sprintf("channelid:%s", cd.ChannelIDs[0])}, 1)
+}
+
+func cleanStringForTags(s string) string {
+
+	s = strings.ToLower(s)
+	s = strings.ReplaceAll(s, " ", "_")
+
+	return s
 }
