@@ -4,12 +4,16 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
+	"github.com/iqlusioninc/relayer/relayer"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	"github.com/spf13/cobra"
 )
@@ -29,14 +33,91 @@ func devCommand() *cobra.Command {
 		gozDataCmd(),
 		gozCSVCmd(),
 		gozStatsDCmd(),
+		phaseOneData(),
 	)
 	return cmd
 }
 
+func phaseOneData() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "phase-one [chain-id] [file] [start-height]",
+		Aliases: []string{"one"},
+		Short:   "read in 'rly dev goz-client-data'.json, and query each client at each height",
+		Args:    cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
+
+			cd, err := readClientData(args[1])
+			if err != nil {
+				return err
+			}
+
+			stat, err := c.Client.Status()
+			if err != nil {
+				return err
+			}
+
+			h, err := strconv.ParseInt(args[2], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Exporting data between blocks %d and %d, expect %d files in ./phase-1/\n", stat.SyncInfo.LatestBlockHeight, h, (stat.SyncInfo.LatestBlockHeight-h)/100)
+			for i := h; i < stat.SyncInfo.LatestBlockHeight; i += 100 {
+				fmt.Printf("Exporting block %d...\n", i)
+				clientDataPerBlock(c, i, cd, "./phase-1")
+			}
+			return nil
+		},
+	}
+	return cmd
+}
+
+func clientDataPerBlock(c *relayer.Chain, height int64, cd []*clientData, path string) error {
+	var vcs []*validClient
+	stat, err := c.Client.Block(&height)
+	if err != nil {
+		return err
+	}
+	for _, client := range cd {
+		cs, err := c.QueryClientStateHeight(client.ClientID, height)
+		if err != nil {
+			return err
+		}
+		if cs != nil {
+			cl := cs.ClientState.(tmclient.ClientState)
+			vcs = append(vcs, &validClient{
+				TeamInfo:          *client.TeamInfo,
+				ClientID:          client.ClientID,
+				ChainID:           client.ChainID,
+				TimeSinceUpdateMS: stat.Block.Time.Sub(cl.LastHeader.Header.Time).Milliseconds(),
+			})
+		}
+	}
+	write, err := json.Marshal(vcs)
+	if err != nil {
+		return err
+	}
+	if err = ioutil.WriteFile(fmt.Sprintf("%s/%d.json", path, stat.Block.Height), write, 0644); err != nil {
+		return err
+	}
+	return nil
+}
+
+type validClient struct {
+	TeamInfo          teamInfo `json:"teamInfo"`
+	ClientID          string   `json:"clientID`
+	ChainID           string   `json:"chainID"`
+	TimeSinceUpdateMS int64    `json:"timeSinceUpdateMS"`
+}
+
 func gozCSVCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "goz-csv [chain-id] [file]",
-		Aliases: []string{"csv"},
+		Use:     "goz-client-data [chain-id] [file]",
+		Aliases: []string{"cd", "csv"},
 		Short:   "read in source of truth csv, and enrich on chain w/ team data",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -356,13 +437,44 @@ type teamInfo struct {
 	RPCAddr string `json:"rpc-addr"`
 }
 
+func readClientData(path string) ([]*clientData, error) {
+	// open the CSV file
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	byt, err := ioutil.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+
+	var cd []*clientData
+	err = json.Unmarshal(byt, &cd)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("%d open connections in fine %s\n", len(cd), path)
+	var out = []*clientData{}
+	for _, c := range cd {
+		// we want open connections and chains with team info, discard everyone else
+		if len(c.ConnectionIDs) != 0 && len(c.ChannelIDs) != 0 && c.TeamInfo != nil {
+			out = append(out, c)
+		}
+	}
+	fmt.Printf("%d valid connections after (len(client.ConnectionIDs) != 0 && len(client.ChannelIDs) != 0 && client.TeamInfo != nil) filter\n", len(out))
+	return out, nil
+}
+
 func fetchClientData(chainID string) ([]*clientData, error) {
 	c, err := config.Chains.Get(chainID)
 	if err != nil {
 		return nil, err
 	}
 
-	clients, err := c.QueryClients(1, 1000)
+	clients, err := c.QueryClients(1, 2000)
 	if err != nil {
 		return nil, err
 	}
@@ -398,9 +510,11 @@ func fetchClientData(chainID string) ([]*clientData, error) {
 		cd.ConnectionIDs = conns.ConnectionPaths
 		for _, conn := range cd.ConnectionIDs {
 			for _, ch := range chans {
-				for _, co := range ch.ConnectionHops {
-					if co == conn {
-						cd.ChannelIDs = append(cd.ChannelIDs, ch.ID)
+				if ch.State == ibctypes.OPEN {
+					for _, co := range ch.ConnectionHops {
+						if co == conn {
+							cd.ChannelIDs = append(cd.ChannelIDs, ch.ID)
+						}
 					}
 				}
 			}
