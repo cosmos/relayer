@@ -78,6 +78,14 @@ func handleDataInflux(dir []os.FileInfo, c *relayer.Chain, methost, dataDir, pre
 	if authToken == "" {
 		return fmt.Errorf("env INFLUX_AUTH_TOKEN not set, please set and retry command")
 	}
+	influxBucket := os.Getenv("INFLUX_BUCKET")
+	if influxBucket == "" {
+		return fmt.Errorf("env INFLUX_BUCKET not set, please set and retry command")
+	}
+	influxOrg := os.Getenv("INFLUX_ORG")
+	if influxOrg == "" {
+		return fmt.Errorf("env INFLUX_ORG not set, please set and retry command")
+	}
 	// create new client with default option for server url authenticate by token
 	cl := influxdb2.NewClientWithOptions(
 		methost,
@@ -86,7 +94,7 @@ func handleDataInflux(dir []os.FileInfo, c *relayer.Chain, methost, dataDir, pre
 	)
 
 	// user blocking write client for writes to desired bucket
-	writeApi := cl.WriteApiBlocking("fooorg", "foobucket")
+	writeApi := cl.WriteApiBlocking(influxOrg, influxBucket)
 	for i, f := range dir {
 		h, err := strconv.ParseInt(strings.TrimSuffix(f.Name(), ".json"), 10, 64)
 		if err != nil {
