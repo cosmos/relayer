@@ -163,17 +163,12 @@ func defaultChainLogger() log.Logger {
 
 // KeyExists returns true if there is a specified key in chain's keybase
 func (src *Chain) KeyExists(name string) bool {
-	keyInfos, err := src.Keybase.List()
+	k, err := src.Keybase.Key(name)
 	if err != nil {
 		return false
 	}
 
-	for _, k := range keyInfos {
-		if k.GetName() == name {
-			return true
-		}
-	}
-	return false
+	return k.GetName() == name
 }
 
 func (src *Chain) getGasPrices() sdk.DecCoins {
