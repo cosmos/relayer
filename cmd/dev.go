@@ -353,7 +353,7 @@ func readGoZCsv(path string) (map[string]*teamInfo, error) {
 type teamInfo struct {
 	Name    string `json:"name"`
 	Address string `json:"address"`
-	RPCAddr string `json:"rpc-addr"`
+	RPCAddr string `json:"rpcAddr"`
 }
 
 func fetchClientData(chainID string) ([]*clientData, error) {
@@ -414,12 +414,12 @@ func fetchClientData(chainID string) ([]*clientData, error) {
 }
 
 type clientData struct {
-	ClientID         string    `json:"client-id"`
-	ConnectionIDs    []string  `json:"connection-ids"`
-	ChannelIDs       []string  `json:"channel-ids"`
-	ChainID          string    `json:"chain-id"`
-	TimeOfLastUpdate time.Time `json:"since-last-update"`
-	TeamInfo         *teamInfo `json:"team-info"`
+	ClientID         string    `json:"clientID"`
+	ConnectionIDs    []string  `json:"connectionIDs"`
+	ChannelIDs       []string  `json:"channelIDs"`
+	ChainID          string    `json:"chainID"`
+	TimeOfLastUpdate time.Time `json:"sinceLastUpdate"`
+	TeamInfo         *teamInfo `json:"teamInfo"`
 }
 
 func (cd *clientData) StatsD(cl *statsd.Client, prefix string) {
