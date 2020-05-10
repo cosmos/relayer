@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
+	influxdb2 "github.com/influxdata/influxdb-client-go"
 	"github.com/iqlusioninc/relayer/relayer"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -43,9 +45,9 @@ func devCommand() *cobra.Command {
 
 func processPhaseOneData() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "process-phase-1 [chain-id] [data-dir] [statd-host] [data-prefix]",
+		Use:     "process-phase-1 [chain-id] [data-dir] [metrics-host] [data-prefix] [influx/statsd]",
 		Aliases: []string{"process"},
-		Args:    cobra.ExactArgs(4),
+		Args:    cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -57,37 +59,93 @@ func processPhaseOneData() *cobra.Command {
 				return err
 			}
 
-			cl, err := statsd.New(args[2])
-			if err != nil {
-				return err
+			switch args[4] {
+			case "influx":
+				return handleDataInflux(dir, c, args[2], args[1], args[3])
+			case "statsd":
+				return handleDataStatsd(dir, c, args[2], args[1], args[3])
+			default:
+				return fmt.Errorf("must choose either influx or statsd")
 			}
 
-			for _, f := range dir {
-				h, err := strconv.ParseInt(strings.TrimSuffix(f.Name(), ".json"), 10, 64)
-				if err != nil {
-					return err
-				}
-				bl, err := c.Client.Block(&h)
-				if err != nil {
-					return err
-				}
-				dat, err := ioutil.ReadFile(path.Join(args[1], f.Name()))
-				if err != nil {
-					return err
-				}
-				var fdat []*validClient
-				if err = json.Unmarshal(dat, &fdat); err != nil {
-					return err
-				}
-				for _, cd := range fdat {
-					cl.TimeInMilliseconds(fmt.Sprintf("relayer.%s.client.%d", args[3], bl.Block.Height), float64(cd.TimeSinceUpdateMS), []string{fmt.Sprintf("teamname:%s", cleanStringForTags(cd.TeamInfo.Name)), fmt.Sprintf("chain-id:%s", cleanStringForTags(cd.ChainID)), fmt.Sprintf("client-id:%s", cleanStringForTags(cd.ClientID))}, 1)
-				}
-			}
-			cl.Flush()
-			return nil
 		},
 	}
 	return cmd
+}
+
+func handleDataInflux(dir []os.FileInfo, c *relayer.Chain, methost, dataDir, prefix string) error {
+	// create new client with default option for server url authenticate by token
+	cl := influxdb2.NewClientWithOptions(
+		methost,
+		"QA6NlqaDk0HC0J6rm7LCGbzR7SQpfkU26myEn8weJ0zeCp_xfbfJYMkToT8Dt4IRAo3NqkwxqGNv_CIt4d57AA==",
+		influxdb2.DefaultOptions().SetBatchSize(10000),
+	)
+
+	// user blocking write client for writes to desired bucket
+	writeApi := cl.WriteApiBlocking("fooorg", "foobucket")
+	for i, f := range dir {
+		h, err := strconv.ParseInt(strings.TrimSuffix(f.Name(), ".json"), 10, 64)
+		if err != nil {
+			return err
+		}
+		bl, err := c.Client.Block(&h)
+		if err != nil {
+			return err
+		}
+		dat, err := ioutil.ReadFile(path.Join(dataDir, f.Name()))
+		if err != nil {
+			return err
+		}
+		var fdat []*validClient
+		if err = json.Unmarshal(dat, &fdat); err != nil {
+			return err
+		}
+		for _, cd := range fdat {
+			p := influxdb2.NewPointWithMeasurement("client-updates").
+				AddTag("teamname", cleanStringForTags(cd.TeamInfo.Name)).
+				AddTag("chainID", cleanStringForTags(cd.ChainID)).
+				AddTag("clientID", cleanStringForTags(cd.ClientID)).
+				AddField("sinceLastUpdate", cd.TimeSinceUpdateMS).
+				SetTime(bl.Block.Time)
+			writeApi.WritePoint(context.Background(), p)
+		}
+		fmt.Printf("finishing %s, %d/%d complete\n", f.Name(), i, len(dir))
+	}
+
+	// Ensures background processes finishes
+	cl.Close()
+	return nil
+}
+
+func handleDataStatsd(dir []os.FileInfo, c *relayer.Chain, methost, dataDir, prefix string) error {
+	cl, err := statsd.New(methost)
+	if err != nil {
+		return err
+	}
+
+	for _, f := range dir {
+		h, err := strconv.ParseInt(strings.TrimSuffix(f.Name(), ".json"), 10, 64)
+		if err != nil {
+			return err
+		}
+		bl, err := c.Client.Block(&h)
+		if err != nil {
+			return err
+		}
+		dat, err := ioutil.ReadFile(path.Join(dataDir, f.Name()))
+		if err != nil {
+			return err
+		}
+		var fdat []*validClient
+		if err = json.Unmarshal(dat, &fdat); err != nil {
+			return err
+		}
+		for _, cd := range fdat {
+			cl.TimeInMilliseconds(fmt.Sprintf("relayer.%s.client.%d", prefix, bl.Block.Height), float64(cd.TimeSinceUpdateMS), []string{fmt.Sprintf("teamname:%s", cleanStringForTags(cd.TeamInfo.Name)), fmt.Sprintf("chain-id:%s", cleanStringForTags(cd.ChainID)), fmt.Sprintf("client-id:%s", cleanStringForTags(cd.ClientID))}, 1)
+		}
+	}
+
+	return cl.Flush()
 }
 
 func phaseOneData() *cobra.Command {
