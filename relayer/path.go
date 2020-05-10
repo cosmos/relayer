@@ -3,8 +3,8 @@ package relayer
 import (
 	"fmt"
 
-	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 	"gopkg.in/yaml.v2"
 )
 
@@ -102,7 +102,7 @@ type Path struct {
 
 // Ordered returns true if the path is ordered and false if otherwise
 func (p *Path) Ordered() bool {
-	return p.Src.getOrder() == chanState.ORDERED
+	return p.Src.getOrder() == ibctypes.ORDERED
 }
 
 // Validate checks that a path is valid

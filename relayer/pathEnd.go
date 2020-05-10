@@ -7,11 +7,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
-	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc/20-transfer/types"
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
+	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 )
 
 // TODO: add Order chanTypes.Order as a property and wire it up in validation
@@ -28,8 +28,20 @@ type PathEnd struct {
 	Order        string `yaml:"order,omitempty" json:"order,omitempty"`
 }
 
-func (src *PathEnd) getOrder() chanState.Order {
-	return chanState.OrderFromString(strings.ToUpper(src.Order))
+// OrderFromString parses a string into a channel order byte
+func OrderFromString(order string) ibctypes.Order {
+	switch order {
+	case "UNORDERED":
+		return ibctypes.UNORDERED
+	case "ORDERED":
+		return ibctypes.ORDERED
+	default:
+		return ibctypes.NONE
+	}
+}
+
+func (src *PathEnd) getOrder() ibctypes.Order {
+	return OrderFromString(strings.ToUpper(src.Order))
 }
 
 // UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst

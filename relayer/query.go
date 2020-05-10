@@ -17,9 +17,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
-	connState "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/exported"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
-	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
@@ -374,10 +372,8 @@ func (c *Chain) QueryConnection(height int64) (connTypes.ConnectionResponse, err
 	}
 
 	var connection connTypes.ConnectionEnd
-	if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &connection); err != nil {
-		if err = c.Amino.UnmarshalBinaryBare(res.Value, &connection); err != nil {
-			return connTypes.ConnectionResponse{}, qConnErr(err)
-		}
+	if err = c.Cdc.UnmarshalBinaryBare(res.Value, &connection); err != nil {
+		return connTypes.ConnectionResponse{}, qConnErr(err)
 	}
 
 	return connTypes.NewConnectionResponse(c.PathEnd.ConnectionID, connection, res.Proof, res.Height), nil
@@ -434,7 +430,7 @@ func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (map[string]connType
 
 func qConnErr(err error) error { return fmt.Errorf("query connection failed: %w", err) }
 
-var emptyConn = connTypes.ConnectionEnd{State: connState.UNINITIALIZED}
+var emptyConn = connTypes.ConnectionEnd{State: ibctypes.UNINITIALIZED}
 var emptyConnRes = connTypes.ConnectionResponse{Connection: connTypes.ConnectionEnd{ID: ""}}
 
 // ////////////////////////////
@@ -482,15 +478,18 @@ func (c *Chain) QueryChannel(height int64) (chanRes chanTypes.ChannelResponse, e
 		return chanRes, qChanErr(err)
 	} else if res.Value == nil {
 		// NOTE: This is returned so that the switch statement in ChannelStep works properly
-		return chanTypes.NewChannelResponse(c.PathEnd.PortID, c.PathEnd.ChannelID, chanTypes.Channel{State: chanState.UNINITIALIZED}, nil, 0), nil
+		return chanTypes.NewChannelResponse(c.PathEnd.PortID, c.PathEnd.ChannelID, chanTypes.Channel{State: ibctypes.UNINITIALIZED}, nil, 0), nil
 	}
 
 	var channel chanTypes.Channel
-	if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &channel); err != nil {
-		if err = c.Amino.UnmarshalBinaryBare(res.Value, &channel); err != nil {
-			return chanRes, qChanErr(err)
-		}
+	if err = c.Cdc.UnmarshalBinaryBare(res.Value, &channel); err != nil {
+		return chanRes, qChanErr(err)
 	}
+	// if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &channel); err != nil {
+	// 	if err = c.Amino.UnmarshalBinaryBare(res.Value, &channel); err != nil {
+	// 		return chanRes, qChanErr(err)
+	// 	}
+	// }
 
 	return chanTypes.NewChannelResponse(c.PathEnd.PortID, c.PathEnd.ChannelID, channel, res.Proof, res.Height), nil
 }
