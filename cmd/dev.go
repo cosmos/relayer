@@ -74,10 +74,14 @@ func processPhaseOneData() *cobra.Command {
 }
 
 func handleDataInflux(dir []os.FileInfo, c *relayer.Chain, methost, dataDir, prefix string) error {
+	authToken := os.Getenv("INFLUX_AUTH_TOKEN")
+	if authToken == "" {
+		return fmt.Errorf("env INFLUX_AUTH_TOKEN not set, please set and retry command")
+	}
 	// create new client with default option for server url authenticate by token
 	cl := influxdb2.NewClientWithOptions(
 		methost,
-		"QA6NlqaDk0HC0J6rm7LCGbzR7SQpfkU26myEn8weJ0zeCp_xfbfJYMkToT8Dt4IRAo3NqkwxqGNv_CIt4d57AA==",
+		authToken,
 		influxdb2.DefaultOptions().SetBatchSize(10000),
 	)
 
