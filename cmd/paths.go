@@ -9,6 +9,7 @@ import (
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	ibcTypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -387,7 +388,7 @@ func pathsListCmd() *cobra.Command {
 
 					srcConn, err := ch[src].QueryConnection(srch)
 					dstConn, _ := ch[dst].QueryConnection(dsth)
-					if err == nil && srcConn.Connection.State.String() == "OPEN" && dstConn.Connection.State.String() == "OPEN" {
+					if err == nil && srcConn.Connection.State == ibcTypes.OPEN && dstConn.Connection.State == ibcTypes.OPEN {
 						connection = "✔"
 					} else {
 						printPath(i, k, pth, chains, clients, connection, channel)
@@ -397,7 +398,7 @@ func pathsListCmd() *cobra.Command {
 
 					srcChan, err := ch[src].QueryChannel(srch)
 					dstChan, _ := ch[dst].QueryChannel(dsth)
-					if err == nil && srcChan.Channel.State.String() == "OPEN" && dstChan.Channel.State.String() == "OPEN" {
+					if err == nil && srcChan.Channel.State == ibcTypes.OPEN && dstChan.Channel.State == ibcTypes.OPEN {
 						channel = "✔"
 					} else {
 						printPath(i, k, pth, chains, clients, connection, channel)
@@ -490,13 +491,13 @@ func pathsShowCmd() *cobra.Command {
 
 			srcConn, err := ch[src].QueryConnection(srch)
 			dstConn, _ := ch[dst].QueryConnection(dsth)
-			if err == nil && srcConn.Connection.State.String() == "OPEN" && dstConn.Connection.State.String() == "OPEN" {
+			if err == nil && srcConn.Connection.State == ibcTypes.OPEN && dstConn.Connection.State == ibcTypes.OPEN {
 				connection = true
 			}
 
 			srcChan, err := ch[src].QueryChannel(srch)
 			dstChan, _ := ch[dst].QueryChannel(dsth)
-			if err == nil && srcChan.Channel.State.String() == "OPEN" && dstChan.Channel.State.String() == "OPEN" {
+			if err == nil && srcChan.Channel.State == ibcTypes.OPEN && dstChan.Channel.State == ibcTypes.OPEN {
 				channel = true
 			}
 
