@@ -45,9 +45,9 @@ func devCommand() *cobra.Command {
 
 func processPhaseOneData() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "process-phase-1 [chain-id] [data-dir] [metrics-host] [data-prefix] [influx/statsd]",
+		Use:     "process-phase-1 [chain-id] [data-dir] [metrics-host] [height]",
 		Aliases: []string{"process"},
-		Args:    cobra.ExactArgs(5),
+		Args:    cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -59,21 +59,17 @@ func processPhaseOneData() *cobra.Command {
 				return err
 			}
 
-			switch args[4] {
-			case "influx":
-				return handleDataInflux(dir, c, args[2], args[1], args[3])
-			case "statsd":
-				return handleDataStatsd(dir, c, args[2], args[1], args[3])
-			default:
-				return fmt.Errorf("must choose either influx or statsd")
+			h, err := strconv.ParseInt(args[3], 10, 64)
+			if err != nil {
+				return err
 			}
-
+			return handleDataInflux(dir, c, args[2], args[1], h)
 		},
 	}
 	return cmd
 }
 
-func handleDataInflux(dir []os.FileInfo, c *relayer.Chain, methost, dataDir, prefix string) error {
+func handleDataInflux(dir []os.FileInfo, c *relayer.Chain, methost, dataDir string, height int64) error {
 	authToken := os.Getenv("INFLUX_AUTH_TOKEN")
 	if authToken == "" {
 		return fmt.Errorf("env INFLUX_AUTH_TOKEN not set, please set and retry command")
@@ -90,7 +86,7 @@ func handleDataInflux(dir []os.FileInfo, c *relayer.Chain, methost, dataDir, pre
 	cl := influxdb2.NewClientWithOptions(
 		methost,
 		authToken,
-		influxdb2.DefaultOptions().SetBatchSize(10000),
+		influxdb2.DefaultOptions().SetBatchSize(200),
 	)
 
 	// user blocking write client for writes to desired bucket
@@ -100,10 +96,18 @@ func handleDataInflux(dir []os.FileInfo, c *relayer.Chain, methost, dataDir, pre
 		if err != nil {
 			return err
 		}
+		// only start at passed height if it is > 0
+		if height > 0 && height > h {
+			fmt.Printf("skipping block %d...\n", h)
+			continue
+		}
+		fmt.Printf("starting block %d...\n", h)
+		// grab the block data
 		bl, err := c.Client.Block(&h)
 		if err != nil {
 			return err
 		}
+		// read the file data
 		dat, err := ioutil.ReadFile(path.Join(dataDir, f.Name()))
 		if err != nil {
 			return err
@@ -119,9 +123,11 @@ func handleDataInflux(dir []os.FileInfo, c *relayer.Chain, methost, dataDir, pre
 				AddTag("clientID", cleanStringForTags(cd.ClientID)).
 				AddField("sinceLastUpdate", cd.TimeSinceUpdateMS).
 				SetTime(bl.Block.Time)
-			writeApi.WritePoint(context.Background(), p)
+			if err = writeApi.WritePoint(context.Background(), p); err != nil {
+				return err
+			}
 		}
-		fmt.Printf("finishing %s, %d/%d complete\n", f.Name(), i, len(dir))
+		fmt.Printf("finishing block %d, %d records written, %d/%d blocks complete\n", h, len(fdat), i, len(dir))
 	}
 
 	// Ensures background processes finishes
