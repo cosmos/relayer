@@ -5,6 +5,3 @@ release.tar.gz
 .env
 nchainz/
 .idea/
-.csv
-phase-1/
-client-data.json/
