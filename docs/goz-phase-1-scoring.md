@@ -22,3 +22,5 @@ from(bucket: "mybucket")
   |> range(start: 2020-05-06T07:00:00Z, stop: 2020-05-10T19:00:00Z)
   |> count(column: "_value")
 ```
+
+You can see the results of this analysis in [`goz-phase-1-scoring.csv`](./goz-phase-1-scoring.csv). The units in the score are expressed in (number of blocks)/100 a client ID maintained by the team (determined by the client's chain-id matching with their registration data in goz-roster.csv) was w/in the 90m update period.
