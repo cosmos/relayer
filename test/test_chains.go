@@ -24,7 +24,7 @@ var (
 		cdc:            cdc,
 		amino:          amino,
 		dockerImage:    "jackzampolin/gaiatest",
-		dockerTag:      "bde5e9c",
+		dockerTag:      "cbc3321",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "cosmos",

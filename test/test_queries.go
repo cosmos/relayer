@@ -20,9 +20,8 @@ func testClientPair(t *testing.T, src, dst *Chain) {
 func testClient(t *testing.T, src, dst *Chain) {
 	clients, err := src.QueryClients(1, 1000)
 	require.NoError(t, err)
-	require.Equal(t, len(clients), 1)
-	require.Equal(t, clients[0].GetID(), src.PathEnd.ClientID)
-
+	require.Equal(t, len(clients), 2)
+	require.Equal(t, clients[1].GetID(), src.PathEnd.ClientID)
 	client, err := src.QueryClientState()
 	require.NoError(t, err)
 	require.NotNil(t, client)
