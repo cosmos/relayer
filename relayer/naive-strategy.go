@@ -9,11 +9,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-const (
-	// MaxTxSize is the maximum permitted size of a bundled relay tx.
-	MaxTxSize = 2097152 // 2MB
+//const (
+//	// MaxTxSize is the maximum permitted size of a bundled relay tx.
+//	MaxTxSize = 2097152 // 2MB
 
-)
+//)
 
 // NewNaiveStrategy returns the proper config for the NaiveStrategy
 func NewNaiveStrategy() *StrategyCfg {
@@ -22,9 +22,12 @@ func NewNaiveStrategy() *StrategyCfg {
 	}
 }
 
-// NaiveStrategy is an implementation of Strategy
+// NaiveStrategy is an implementation of Strategy. MaxTxSize and MaxMsgLength
+// are ignored if they are not set.
 type NaiveStrategy struct {
-	Ordered bool
+	Ordered      bool
+	MaxTxSize    uint64 // maximum permitted size of a bundled relay tx in bytes
+	MaxMsgLength uint64 // maximum amount of messages in a bundled relay tx
 }
 
 // GetType implements Strategy
@@ -191,12 +194,18 @@ func (nrs *NaiveStrategy) RelayPacketsUnorderedChan(src, dst *Chain, sp *RelaySe
 // RelayPacketsOrderedChan creates transactions to clear both queues
 // CONTRACT: the SyncHeaders passed in here must be up to date or being kept updated
 func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) error {
+	var txSize int
 
 	// create the appropriate update client messages
 	msgs := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
 	// add messages for src -> dst
-	for _, seq := range sp.Src {
+	for i, seq := range sp.Src {
+		// enforce a maximum message length and size
+		if nrs.isMaxTx(i, txSize) {
+			break
+		}
+
 		chain, msg, err := packetMsgFromTxQuery(src, dst, sh, seq)
 		if err != nil {
 			return err
@@ -206,10 +215,19 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 		} else {
 			msgs.Src = append(msgs.Src, msg)
 		}
+
+		txSize += len(msg.GetSignBytes())
 	}
 
+	// reset txSize
+	txSize = 0
+
 	// add messages for dst -> src
-	for _, seq := range sp.Dst {
+	for i, seq := range sp.Dst {
+		// enforce a maximum message length and size
+		if nrs.isMaxTx(i, txSize) {
+			break
+		}
 		chain, msg, err := packetMsgFromTxQuery(dst, src, sh, seq)
 		if err != nil {
 			return err
@@ -219,6 +237,8 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 		} else {
 			msgs.Dst = append(msgs.Dst, msg)
 		}
+
+		txSize += len(msg.GetSignBytes())
 	}
 
 	if !msgs.Ready() {
@@ -246,6 +266,12 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 	}
 
 	return nil
+}
+
+// isMaxTx returns true if the passed in parameters surpass the maximum message length or maximum tx size.
+// Defualt values of zero are ignored.
+func (nrs *NaiveStrategy) isMaxTx(msgLength, txSize int) bool {
+	return (nrs.MaxMsgLength != 0 && uint64(msgLength) >= nrs.MaxMsgLength) || (nrs.MaxTxSize != 0 && uint64(txSize) >= nrs.MaxTxSize)
 }
 
 // packetMsgFromTxQuery returns a sdk.Msg to relay a packet with a given seq on src
