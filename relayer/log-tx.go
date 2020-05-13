@@ -22,7 +22,7 @@ func (c *Chain) LogFailedTx(res sdk.TxResponse, err error, msgs []sdk.Msg) {
 	}
 
 	if res.Codespace != "" && res.Code != 0 {
-		c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%s:%s)", c.ChainID, res.Height, getMsgAction(msgs), res.Codespace, res.RawLog))
+		c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%s: %s)", c.ChainID, res.Height, getMsgAction(msgs), res.Codespace, res.RawLog))
 	}
 
 	if c.debug && !res.Empty() {
@@ -98,5 +98,5 @@ func getTxActions(act []string) string {
 // returns the original error
 func unwrapRawLog(log string) string {
 	s := strings.Split(log, ":")
-	return s[len(s)-1]
+	return strings.TrimSpace(s[len(s)-1])
 }
