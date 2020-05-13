@@ -9,6 +9,7 @@ import (
 
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/cosmos-sdk/x/bank"
 )
@@ -105,11 +106,7 @@ func (src *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amount sdk.Coin) e
 	}
 	res, err := src.SendMsgWithKey(bank.NewMsgSend(fromAddr, toAddr, sdk.NewCoins(amount)), info.GetName())
 	if err != nil || res.Code != 0 {
-		cs, err := GetCodespace(res.Codespace, int(res.Code))
-		if err != nil {
-			return err
-		}
-		return fmt.Errorf("failed to send transaction: %w\ncodespaceErr(%s)\n%s", err, cs, res.String())
+		return fmt.Errorf("failed to send transaction: %v\n", sdkerrors.New(res.Codespace, res.Code, res.RawLog))
 	}
 	return nil
 }

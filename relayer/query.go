@@ -1204,7 +1204,7 @@ func (c *Chain) formatTxResult(resTx *ctypes.ResultTx, resBlock *ctypes.ResultBl
 	}
 	res := sdk.NewResponseResultTx(resTx, tx, resBlock.Block.Time.Format(time.RFC3339))
 	if !c.debug {
-		res.RawLog = ""
+		res.RawLog = unwrapRawLog(res.RawLog)
 	}
 	return res, nil
 }

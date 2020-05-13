@@ -235,7 +235,7 @@ func (src *Chain) BroadcastTxCommit(txBytes []byte) (sdk.TxResponse, error) {
 	res, err := sdkCtx.CLIContext{Client: src.Client}.BroadcastTxCommit(txBytes)
 
 	if !src.debug {
-		res.RawLog = ""
+		res.RawLog = unwrapRawLog(res.RawLog)
 	}
 
 	return res, err
