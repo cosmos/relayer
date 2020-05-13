@@ -9,6 +9,12 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+const (
+	// MaxTxSize is the maximum permitted size of a bundled relay tx.
+	MaxTxSize = 2097152 // 2MB
+
+)
+
 // NewNaiveStrategy returns the proper config for the NaiveStrategy
 func NewNaiveStrategy() *StrategyCfg {
 	return &StrategyCfg{
