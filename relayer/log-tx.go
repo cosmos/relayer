@@ -95,8 +95,25 @@ func getTxActions(act []string) string {
 	return strings.TrimSuffix(out, ",")
 }
 
-// returns the original error
+// returns the original error with the message index preappended.
 func unwrapRawLog(log string) string {
+	msgIndex := spliceMsgIndex(log)
 	s := strings.Split(log, ":")
-	return strings.TrimSpace(s[len(s)-1])
+	return strings.TrimSpace(msgIndex + s[len(s)-1])
+}
+
+func spliceMsgIndex(log string) string {
+	s := strings.Split(log, "message index:")
+	if len(s) > 2 {
+		panic(fmt.Sprintf("transaction log (%s) contains multiple occurrences of `message index`", log))
+	} else if (len(s)) == 1 {
+		// no occurence of message index
+		return ""
+	}
+
+	// message index occurence happens after sep
+	s = strings.Split(s[1], ":")
+
+	// message index should be in first returned split
+	return fmt.Sprintf("message index: %s :", strings.TrimSpace(s[0]))
 }
