@@ -208,7 +208,7 @@ func relayMsgsCmd() *cobra.Command {
 		},
 	}
 
-	return cmd
+	return strategyFlag(cmd)
 }
 
 func sendPacketCmd() *cobra.Command {

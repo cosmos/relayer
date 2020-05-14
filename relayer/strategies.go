@@ -34,8 +34,8 @@ func (r *Path) MustGetStrategy() Strategy {
 // GetStrategy the strategy defined in the relay messages
 func (r *Path) GetStrategy() (Strategy, error) {
 	switch r.Strategy.Type {
-	case (&NaiveStrategy{}).GetType():
-		return &NaiveStrategy{}, nil
+	case (NaiveStrategy{}).GetType():
+		return NaiveStrategy{}, nil
 	default:
 		return nil, fmt.Errorf("invalid strategy: %s", r.Strategy.Type)
 	}

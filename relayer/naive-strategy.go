@@ -9,10 +9,12 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+var _ Strategy = NaiveStrategy{}
+
 // NewNaiveStrategy returns the proper config for the NaiveStrategy
 func NewNaiveStrategy() *StrategyCfg {
 	return &StrategyCfg{
-		Type: (&NaiveStrategy{}).GetType(),
+		Type: (NaiveStrategy{}).GetType(),
 	}
 }
 
@@ -25,22 +27,22 @@ type NaiveStrategy struct {
 }
 
 // GetType implements Strategy
-func (nrs *NaiveStrategy) GetType() string {
+func (nrs NaiveStrategy) GetType() string {
 	return "naive"
 }
 
 // UnrelayedSequencesOrdered returns the unrelayed sequence numbers between two chains
-func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error) {
+func (nrs NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error) {
 	return UnrelayedSequences(src, dst, sh)
 }
 
 // UnrelayedSequencesUnordered returns the unrelayed sequence numbers between two chains
-func (nrs *NaiveStrategy) UnrelayedSequencesUnordered(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error) {
+func (nrs NaiveStrategy) UnrelayedSequencesUnordered(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error) {
 	return UnrelayedSequences(src, dst, sh)
 }
 
 // HandleEvents defines how the relayer will handle block and transaction events as they are emmited
-func (nrs *NaiveStrategy) HandleEvents(src, dst *Chain, sh *SyncHeaders, events map[string][]string) {
+func (nrs NaiveStrategy) HandleEvents(src, dst *Chain, sh *SyncHeaders, events map[string][]string) {
 	rlyPackets, err := relayPacketsFromEventListener(src.PathEnd, dst.PathEnd, events)
 	if len(rlyPackets) > 0 && err == nil {
 		sendTxFromEventPackets(src, dst, rlyPackets, sh)
@@ -180,14 +182,14 @@ func sendTxFromEventPackets(src, dst *Chain, rlyPackets []relayPacket, sh *SyncH
 }
 
 // RelayPacketsUnorderedChan creates transactions to relay un-relayed messages
-func (nrs *NaiveStrategy) RelayPacketsUnorderedChan(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) error {
+func (nrs NaiveStrategy) RelayPacketsUnorderedChan(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) error {
 	// TODO: Implement unordered channels
 	return nrs.RelayPacketsOrderedChan(src, dst, sp, sh)
 }
 
 // RelayPacketsOrderedChan creates transactions to clear both queues
 // CONTRACT: the SyncHeaders passed in here must be up to date or being kept updated
-func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) error {
+func (nrs NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) error {
 	var txSize int
 
 	// create the appropriate update client messages
@@ -196,7 +198,7 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 	// add messages for src -> dst
 	for i, seq := range sp.Src {
 		// enforce a maximum message length and size
-		if nrs.isMaxTx(i, txSize) {
+		if nrs.IsMaxTx(i, txSize) {
 			break
 		}
 
@@ -219,7 +221,7 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 	// add messages for dst -> src
 	for i, seq := range sp.Dst {
 		// enforce a maximum message length and size
-		if nrs.isMaxTx(i, txSize) {
+		if nrs.IsMaxTx(i, txSize) {
 			break
 		}
 		chain, msg, err := packetMsgFromTxQuery(dst, src, sh, seq)
@@ -262,9 +264,9 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 	return nil
 }
 
-// isMaxTx returns true if the passed in parameters surpass the maximum message length or maximum tx size.
+// IsMaxTx returns true if the passed in parameters surpass the maximum message length or maximum tx size.
 // Defualt values of zero are ignored.
-func (nrs *NaiveStrategy) isMaxTx(msgLength, txSize int) bool {
+func (nrs NaiveStrategy) IsMaxTx(msgLength, txSize int) bool {
 	return (nrs.MaxMsgLength != 0 && uint64(msgLength) >= nrs.MaxMsgLength) || (nrs.MaxTxSize != 0 && uint64(txSize) >= nrs.MaxTxSize)
 }
 
