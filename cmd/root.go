@@ -17,7 +17,7 @@ package cmd
 
 import (
 	"bufio"
-	"fmt"
+	//	"fmt"
 	"os"
 	"strings"
 
@@ -113,7 +113,6 @@ func Execute() {
 	}
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
 		os.Exit(1)
 	}
 }

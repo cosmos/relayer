@@ -18,18 +18,15 @@ func (c *Chain) LogFailedTx(res sdk.TxResponse, err error, msgs []sdk.Msg) {
 	}
 
 	if err != nil {
-		c.logger.Error(fmt.Errorf("- [%s] -> err(%w)", c.ChainID, err).Error())
+		c.logger.Error(fmt.Errorf("- [%s] -> err(%v)", c.ChainID, err).Error())
 	}
 
 	if res.Codespace != "" && res.Code != 0 {
-		msg, err := GetCodespace(res.Codespace, int(res.Code))
-		if err != nil {
-			c.logger.Info(err.Error())
-		}
-		c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%s: %s)", c.ChainID, res.Height, getMsgAction(msgs), res.Codespace, msg))
+		c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%s:%d:%s)", c.ChainID, res.Height, getMsgAction(msgs), res.Codespace, res.Code, res.RawLog))
 	}
 
 	if c.debug && !res.Empty() {
+		c.Log("- transaction response:")
 		c.Print(res, false, false)
 	}
 }
