@@ -104,12 +104,10 @@ func (src *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amount sdk.Coin) e
 		return err
 	}
 	res, err := src.SendMsgWithKey(bank.NewMsgSend(fromAddr, toAddr, sdk.NewCoins(amount)), info.GetName())
-	if err != nil || res.Code != 0 {
-		cs, err := GetCodespace(res.Codespace, int(res.Code))
-		if err != nil {
-			return err
-		}
-		return fmt.Errorf("failed to send transaction: %w\ncodespaceErr(%s)\n%s", err, cs, res.String())
+	if err != nil {
+		return fmt.Errorf("failed to send transaction: %w\n%s", err, res)
+	} else if res.Code != 0 {
+		return fmt.Errorf("transaction failed to execute\n%s", res)
 	}
 	return nil
 }

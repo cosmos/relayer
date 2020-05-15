@@ -232,13 +232,7 @@ func (src *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
 
 // BroadcastTxCommit takes the marshaled transaction bytes and broadcasts them
 func (src *Chain) BroadcastTxCommit(txBytes []byte) (sdk.TxResponse, error) {
-	res, err := sdkCtx.CLIContext{Client: src.Client}.BroadcastTxCommit(txBytes)
-
-	if !src.debug {
-		res.RawLog = ""
-	}
-
-	return res, err
+	return sdkCtx.CLIContext{Client: src.Client}.BroadcastTxCommit(txBytes)
 }
 
 // Log takes a string and logs the data
