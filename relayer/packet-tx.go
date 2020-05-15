@@ -27,66 +27,6 @@ func defaultPacketTimeoutStamp() uint64 {
 	return uint64(time.Now().Add(time.Hour * 12).UnixNano())
 }
 
-// RelayPacketsOrderedChan creates transactions to clear both queues
-// CONTRACT: the SyncHeaders passed in here must be up to date or being kept updated
-func RelayPacketsOrderedChan(src, dst *Chain, sh *SyncHeaders, sp *RelaySequences) error {
-
-	// create the appropriate update client messages
-	msgs := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
-
-	// add messages for src -> dst
-	for _, seq := range sp.Src {
-		chain, msg, err := packetMsgFromTxQuery(src, dst, sh, seq)
-		if err != nil {
-			return err
-		}
-		if chain == dst {
-			msgs.Dst = append(msgs.Dst, msg)
-		} else {
-			msgs.Src = append(msgs.Src, msg)
-		}
-	}
-
-	// add messages for dst -> src
-	for _, seq := range sp.Dst {
-		chain, msg, err := packetMsgFromTxQuery(dst, src, sh, seq)
-		if err != nil {
-			return err
-		}
-		if chain == src {
-			msgs.Src = append(msgs.Src, msg)
-		} else {
-			msgs.Dst = append(msgs.Dst, msg)
-		}
-	}
-
-	if !msgs.Ready() {
-		src.Log(fmt.Sprintf("- No packets to relay between [%s]port{%s} and [%s]port{%s}", src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))
-		return nil
-	}
-
-	// Prepend non-empty msg lists with UpdateClient
-	if len(msgs.Dst) != 0 {
-		msgs.Dst = append([]sdk.Msg{dst.PathEnd.UpdateClient(sh.GetHeader(src.ChainID), dst.MustGetAddress())}, msgs.Dst...)
-	}
-	if len(msgs.Src) != 0 {
-		msgs.Src = append([]sdk.Msg{src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress())}, msgs.Src...)
-	}
-
-	// TODO: increase the amount of gas as the number of messages increases
-	// notify the user of that
-	if msgs.Send(src, dst); msgs.success {
-		if len(msgs.Dst) > 1 {
-			dst.logPacketsRelayed(src, len(msgs.Dst)-1)
-		}
-		if len(msgs.Src) > 1 {
-			src.logPacketsRelayed(dst, len(msgs.Src)-1)
-		}
-	}
-
-	return nil
-}
-
 // SendTransferBothSides sends a ICS20 packet from src to dst
 func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk.AccAddress, source bool) error {
 	if source {
