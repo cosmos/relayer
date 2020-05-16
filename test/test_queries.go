@@ -14,15 +14,8 @@ func testClientPair(t *testing.T, src, dst *Chain) {
 	testClient(t, dst, src)
 }
 
-// testClient queries clients and client for dst on src and returns a variety of errors
-// testClient expects just one client on src, that for dst
-// a localhost client is always created upon init genesis
+// testClient queries client for existance of dst on src
 func testClient(t *testing.T, src, dst *Chain) {
-	// require 2 clients on src, localhost and dst
-	clients, err := src.QueryClients(1, 1000)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(clients))
-
 	client, err := src.QueryClientState()
 	require.NoError(t, err)
 	require.NotNil(t, client)

@@ -60,6 +60,7 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 
 	// Wait for relay message inclusion in both chains
 	require.NoError(t, src.WaitForNBlocks(1))
+	require.NoError(t, dst.WaitForNBlocks(1))
 
 	// send those tokens from dst back to dst and src back to src
 	require.NoError(t, src.SendTransferMsg(dst, twoTestCoin, dst.MustGetAddress(), false))
