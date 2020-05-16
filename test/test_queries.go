@@ -14,14 +14,8 @@ func testClientPair(t *testing.T, src, dst *Chain) {
 	testClient(t, dst, src)
 }
 
-// testClient queries clients and client for dst on src and returns a variety of errors
-// testClient expects just one client on src, that for dst
-// TODO: we should be able to find the chain id of dst on src, add a case for this in each switch
+// testClient queries client for existance of dst on src
 func testClient(t *testing.T, src, dst *Chain) {
-	clients, err := src.QueryClients(1, 1000)
-	require.NoError(t, err)
-	require.Equal(t, len(clients), 2)
-	require.Equal(t, clients[0].GetID(), src.PathEnd.ClientID)
 	client, err := src.QueryClientState()
 	require.NoError(t, err)
 	require.NotNil(t, client)
