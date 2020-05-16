@@ -213,7 +213,7 @@ func (c *Chain) QueryClientState() (*clientTypes.StateResponse, error) {
 	if err != nil {
 		return conStateRes, qClntStateErr(err)
 	} else if res.Value == nil {
-		// TODO: Better way to handle this?
+		// client does not exist
 		return nil, nil
 	}
 

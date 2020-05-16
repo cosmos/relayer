@@ -68,7 +68,7 @@ func logConnectionStates(src, dst *Chain, conn map[string]connTypes.ConnectionRe
 }
 
 func (c *Chain) logCreateClient(dst *Chain, dstH uint64) {
-	c.Log(fmt.Sprintf("- [%s] -> creating client for [%s]header-height{%d} trust-period(%s)", c.ChainID, dst.ChainID, dstH, dst.GetTrustingPeriod()))
+	c.Log(fmt.Sprintf("- [%s] -> creating client (%s) for [%s]header-height{%d} trust-period(%s)", c.ChainID, c.PathEnd.ClientID, dst.ChainID, dstH, dst.GetTrustingPeriod()))
 }
 
 func (c *Chain) logTx(events map[string][]string) {
