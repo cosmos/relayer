@@ -21,7 +21,7 @@ func testClient(t *testing.T, src, dst *Chain) {
 	// require 2 clients on src, localhost and dst
 	clients, err := src.QueryClients(1, 1000)
 	require.NoError(t, err)
-	require.Equal(t, len(clients), 2)
+	require.Equal(t, 2, len(clients))
 
 	client, err := src.QueryClientState()
 	require.NoError(t, err)
