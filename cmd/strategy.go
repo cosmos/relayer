@@ -11,8 +11,8 @@ import (
 // GetStrategyWithOptions sets strategy specific fields.
 func GetStrategyWithOptions(cmd *cobra.Command, strategy relayer.Strategy) (relayer.Strategy, error) {
 	switch strategy.GetType() {
-	case (relayer.NaiveStrategy{}).GetType():
-		ns, ok := strategy.(relayer.NaiveStrategy)
+	case (&relayer.NaiveStrategy{}).GetType():
+		ns, ok := strategy.(*relayer.NaiveStrategy)
 		if !ok {
 			return strategy, fmt.Errorf("strategy.GetType() returns naive, but strategy type (%T) is not type NaiveStrategy", strategy)
 

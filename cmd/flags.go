@@ -25,7 +25,7 @@ var (
 	flagData         = "data"
 	flagOrder        = "unordered"
 	flagMaxTxSize    = "max-tx-size"
-	flagMaxMsgLength = "max-msg-len"
+	flagMaxMsgLength = "max-msgs"
 )
 
 func liteFlags(cmd *cobra.Command) *cobra.Command {
@@ -167,8 +167,8 @@ func urlFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func strategyFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagMaxTxSize, "t", "", "maximum relay transaction size in MB")
-	cmd.Flags().StringP(flagMaxMsgLength, "m", "", "maximum relay transaction message length")
+	cmd.Flags().StringP(flagMaxTxSize, "s", "2", "maximum size (in MB) of the messages in a relay transaction")
+	cmd.Flags().StringP(flagMaxMsgLength, "l", "5", "maximum number of messages in a relay transaction")
 	if err := viper.BindPFlag(flagMaxTxSize, cmd.Flags().Lookup(flagMaxTxSize)); err != nil {
 		panic(err)
 	}
