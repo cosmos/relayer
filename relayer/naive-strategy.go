@@ -219,10 +219,17 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 		return nil
 	}
 
+	// Prepend non-empty msg lists with UpdateClient
+	if len(relayMsgs[0].Dst) != 0 {
+		relayMsgs[0].Dst = append([]sdk.Msg{dst.PathEnd.UpdateClient(sh.GetHeader(src.ChainID), dst.MustGetAddress())}, relayMsgs[0].Dst...)
+	}
+	if len(relayMsgs[0].Src) != 0 {
+		relayMsgs[0].Src = append([]sdk.Msg{src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress())}, relayMsgs[0].Src...)
+	}
+
 	for _, relayMsg := range relayMsgs {
 		// TODO: increase the amount of gas as the number of messages increases
 		// notify the user of that
-		// XXX: should this just be a single log entry or one log per relay transaction?
 		if relayMsg.Send(src, dst); relayMsg.success {
 			if len(relayMsg.Dst) > 1 {
 				dst.logPacketsRelayed(src, len(relayMsg.Dst)-1)
@@ -299,15 +306,6 @@ func (nrs *NaiveStrategy) buildRelayMsgs(src, dst *Chain, sp *RelaySequences, sh
 		if i == len(sp.Dst)-1 {
 			sp.Dst = []uint64{}
 		}
-	}
-
-	// Prepend non-empty msg lists with UpdateClient
-	// XXX: should this be done just once since relay sequences aren't dynamically added after the call to this function?
-	if len(msgs.Dst) != 0 {
-		msgs.Dst = append([]sdk.Msg{dst.PathEnd.UpdateClient(sh.GetHeader(src.ChainID), dst.MustGetAddress())}, msgs.Dst...)
-	}
-	if len(msgs.Src) != 0 {
-		msgs.Src = append([]sdk.Msg{src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress())}, msgs.Src...)
 	}
 
 	// base case
