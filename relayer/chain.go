@@ -19,6 +19,7 @@ import (
 	codecstd "github.com/cosmos/cosmos-sdk/std"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
+	authclient "github.com/cosmos/cosmos-sdk/x/auth/client"
 	"github.com/cosmos/go-bip39"
 	"github.com/tendermint/tendermint/libs/log"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
@@ -213,7 +214,7 @@ func (src *Chain) SendMsgs(datagrams []sdk.Msg) (res sdk.TxResponse, err error) 
 }
 
 // BuildAndSignTx takes messages and builds, signs and marshals a sdk.Tx to prepare it for broadcast
-func (src *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
+func (src *Chain) BuildAndSignTx(msgs []sdk.Msg) ([]byte, error) {
 	done := src.UseSDKContext()
 	defer done()
 
@@ -222,12 +223,18 @@ func (src *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return auth.NewTxBuilder(
+	ctx := sdkCtx.CLIContext{Client: src.Client}
+	txBldr := auth.NewTxBuilder(
 		auth.DefaultTxEncoder(src.Amino.Codec), acc.GetAccountNumber(),
-		acc.GetSequence(), src.Gas, src.GasAdjustment, false, src.ChainID,
-		src.Memo, sdk.NewCoins(), src.getGasPrices()).WithKeybase(src.Keybase).
-		BuildAndSign(src.Key, ckeys.DefaultKeyPass, datagram)
+		acc.GetSequence(), src.Gas, src.GasAdjustment, true, src.ChainID,
+		src.Memo, sdk.NewCoins(), src.getGasPrices()).WithKeybase(src.Keybase)
+	if src.GasAdjustment > 0 {
+		txBldr, err = authclient.EnrichWithGas(txBldr, ctx, msgs)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return txBldr.BuildAndSign(src.Key, ckeys.DefaultKeyPass, msgs)
 }
 
 // BroadcastTxCommit takes the marshaled transaction bytes and broadcasts them

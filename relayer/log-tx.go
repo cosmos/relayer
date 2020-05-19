@@ -75,6 +75,9 @@ func (c *Chain) logCreateClient(dst *Chain, dstH uint64) {
 }
 
 func (c *Chain) logTx(events map[string][]string) {
+	if len(events["tx.hash"]) == 0 {
+		return
+	}
 	c.Log(fmt.Sprintf("• [%s]@{%d} - actions(%s) hash(%s)",
 		c.ChainID,
 		getTxEventHeight(events),
@@ -85,6 +88,9 @@ func (c *Chain) logTx(events map[string][]string) {
 
 func getTxEventHeight(events map[string][]string) int64 {
 	if val, ok := events["tx.height"]; ok {
+		if len(val) == 0 {
+			return -1
+		}
 		out, _ := strconv.ParseInt(val[0], 10, 64)
 		return out
 	}
