@@ -4,16 +4,16 @@
 
 ![Relayer Build](https://github.com/iqlusioninc/relayer/workflows/Build%20then%20run%20CI%20Chains/badge.svg)
 
-The Cosmos IBC `relayer` package contains a basic relayer implementation that are
-meant to be used by users wishing to relay packets between sets of IBC enabled chains.
-It is also well documented and intended as a place where users who are
-interested in building their own relayer can come for working examples.
+The Cosmos IBC `relayer` package contains a basic relayer implementation that is
+meant for users wishing to relay packets/data between sets of IBC enabled chains.
+In additon, it is well documented and intended as an example where anyone who is
+interested in building their own relayer can come for complete, working, examples.
 
-The team that brought you Game of Stakes will be bringing you Game of Zones this May for the Cosmos community this may.
+If you are here for Game of Zones, please be sure to check out the [offical website](https://goz.cosmosnetwork.dev). The best place for questions is [gameofzones@cosmosnetwork.dev](mailto:gameofzones@cosmosnetwork.dev) regarding Game of Zones and prepratory testnets.
 
-Learn more about [Game of Zones](https://goz.cosmosnetwork.dev/).
+### Security Notice
 
-The best place for questions is [gameofzones@cosmosnetwork.dev](mailto:gameofzones@cosmosnetwork.dev) regarding Game of Zones and prepratory testnets.
+If you would like to report a security critical bug related to the relayer repo, please send an email to [`security@cosmosnetwork.dev`](mailto:security@cosmosnetwork.dev)
 
 ## Code of Conduct
 
@@ -24,6 +24,8 @@ The iqlusion team is dedicated to providing an inclusive and harrassment free ex
 If you would like to join the relayer testnet, please [check out the instructions](./testnets/README.md).
 
 ### Compatability Table:
+
+> NOTE: 
 
 | chain | tests | supported ports |
 |-------|--------|----------------|
@@ -100,14 +102,6 @@ $ rly q bal ibc1
 # NOTE: you will see the stake balances decreasing on each chain. This is to pay for fees
 # You can change the amount of fees you are paying on each chain in the configuration.
 ```
-
-## Next items
-
-- [ ] Path negotiation reuse commands
-- [x] Integration test framework: additional tests
-- [x] Integration test framework: additional chains
-- [x] Less lite client database access, concurrent header map
-- [x] Exponential backoff queries for proofs
 
 ## Setting up Developer Environment
 
