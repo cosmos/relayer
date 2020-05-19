@@ -159,8 +159,10 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 
 	// send the transaction, retrying if not successful
 	if err := retry.Do(func() error {
+		// continue to create relay transactions until all packets are processed
 		for len(rlyPackets) > 0 {
 			txSize := 0
+
 			// instantiate the RelayMsgs with the appropriate update client
 			tx := &RelayMsgs{
 				Src: []sdk.Msg{
@@ -174,6 +176,7 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 				msg := rp.Msg(src, dst)
 				txSize += len(msg.GetSignBytes())
 
+				// enforce a maximum message length and maximum size of a relay transaction
 				if nrs.IsMaxTx(i, txSize) {
 					rlyPackets = rlyPackets[i:]
 					break
@@ -233,11 +236,11 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 	return nil
 }
 
-func (nrs *NaiveStrategy) buildRelayMsgs(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) ([]RelayMsgs, error) {
+func (nrs *NaiveStrategy) buildRelayMsgs(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) ([]*RelayMsgs, error) {
 	var txSize int
 
 	// create the appropriate update client messages
-	msgs := RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
+	msgs := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
 	// add messages for src -> dst
 	for i, seq := range sp.Src {
@@ -309,7 +312,7 @@ func (nrs *NaiveStrategy) buildRelayMsgs(src, dst *Chain, sp *RelaySequences, sh
 
 	// base case
 	if len(sp.Src) == 0 && len(sp.Dst) == 0 {
-		return []RelayMsgs{msgs}, nil
+		return []*RelayMsgs{msgs}, nil
 	}
 
 	// recurse until all sequences have been processed
@@ -318,7 +321,7 @@ func (nrs *NaiveStrategy) buildRelayMsgs(src, dst *Chain, sp *RelaySequences, sh
 		return nil, err
 	}
 
-	return append([]RelayMsgs{msgs}, relayMsgs...), nil
+	return append([]*RelayMsgs{msgs}, relayMsgs...), nil
 }
 
 // IsMaxTx returns true if the passed in parameters surpass the maximum message length or maximum tx size.
