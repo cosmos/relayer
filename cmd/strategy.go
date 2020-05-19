@@ -18,25 +18,31 @@ func GetStrategyWithOptions(cmd *cobra.Command, strategy relayer.Strategy) (rela
 
 		}
 
-		if maxTxSize, err := cmd.Flags().GetString(flagMaxTxSize); err != nil {
+		maxTxSize, err := cmd.Flags().GetString(flagMaxTxSize)
+		if err != nil {
 			return ns, err
-		} else if maxTxSize != "" {
-			txSize, err := strconv.ParseUint(maxTxSize, 10, 64)
-			if err != nil {
-				return ns, err
-			}
-			ns.MaxTxSize = txSize * MB
 		}
 
-		if maxMsgLength, err := cmd.Flags().GetString(flagMaxMsgLength); err != nil {
+		txSize, err := strconv.ParseUint(maxTxSize, 10, 64)
+		if err != nil {
 			return ns, err
-		} else if maxMsgLength != "" {
-			msgLen, err := strconv.ParseUint(maxMsgLength, 10, 64)
-			if err != nil {
-				return ns, err
-			}
-			ns.MaxMsgLength = msgLen
 		}
+
+		// set max size of messages in a relay transaction
+		ns.MaxTxSize = txSize * MB // in MB
+
+		maxMsgLength, err := cmd.Flags().GetString(flagMaxMsgLength)
+		if err != nil {
+			return ns, err
+		}
+
+		msgLen, err := strconv.ParseUint(maxMsgLength, 10, 64)
+		if err != nil {
+			return ns, err
+		}
+
+		// set max length messages in relay transaction
+		ns.MaxMsgLength = msgLen
 
 		return ns, nil
 	default:
