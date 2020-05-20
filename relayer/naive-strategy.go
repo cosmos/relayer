@@ -159,41 +159,25 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 
 	// send the transaction, retrying if not successful
 	if err := retry.Do(func() error {
-		// continue to create relay transactions until all packets are processed
-		for len(rlyPackets) > 0 {
-			txSize := 0
-
-			// instantiate the RelayMsgs with the appropriate update client
-			tx := &RelayMsgs{
-				Src: []sdk.Msg{
-					src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress()),
-				},
-				Dst: []sdk.Msg{},
-			}
-
-			// add the packet msgs to RelayPackets
-			for i, rp := range rlyPackets {
-				msg := rp.Msg(src, dst)
-				txSize += len(msg.GetSignBytes())
-
-				// enforce a maximum message length and maximum size of a relay transaction
-				if nrs.IsMaxTx(i, txSize) {
-					rlyPackets = rlyPackets[i:]
-					break
-				}
-
-				tx.Src = append(tx.Src, msg)
-
-				if i == len(rlyPackets)-1 {
-					// clear the queue
-					rlyPackets = []relayPacket{}
-				}
-			}
-
-			if tx.Send(src, dst); !tx.success {
-				return fmt.Errorf("failed to send packet %v", tx)
-			}
+		// instantiate the RelayMsgs with the appropriate update client
+		txs := &RelayMsgs{
+			Src: []sdk.Msg{
+				src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress()),
+			},
+			Dst:          []sdk.Msg{},
+			MaxTxSize:    nrs.MaxTxSize,
+			MaxMsgLength: nrs.MaxMsgLength,
 		}
+
+		// add the packet msgs to RelayPackets
+		for _, rp := range rlyPackets {
+			txs.Src = append(txs.Src, rp.Msg(src, dst))
+		}
+
+		if txs.Send(src, dst); !txs.success {
+			return fmt.Errorf("failed to send packets")
+		}
+
 		return nil
 	}); err != nil {
 		src.Error(err)
@@ -209,123 +193,65 @@ func (nrs *NaiveStrategy) RelayPacketsUnorderedChan(src, dst *Chain, sp *RelaySe
 // RelayPacketsOrderedChan creates transactions to clear both queues
 // CONTRACT: the SyncHeaders passed in here must be up to date or being kept updated
 func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) error {
-	relayMsgs, err := nrs.buildRelayMsgs(src, dst, sp, sh)
-	if err != nil {
-		return err
+	// set the maximum relay transaction constraints
+	msgs := &RelayMsgs{
+		Src:          []sdk.Msg{},
+		Dst:          []sdk.Msg{},
+		MaxTxSize:    nrs.MaxTxSize,
+		MaxMsgLength: nrs.MaxMsgLength,
 	}
-
-	if len(relayMsgs) == 0 {
-		src.Log(fmt.Sprintf("- No packets to relay between [%s]port{%s} and [%s]port{%s}", src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))
-		return nil
-	}
-
-	// Prepend non-empty msg lists with UpdateClient
-	if len(relayMsgs[0].Dst) != 0 {
-		relayMsgs[0].Dst = append([]sdk.Msg{dst.PathEnd.UpdateClient(sh.GetHeader(src.ChainID), dst.MustGetAddress())}, relayMsgs[0].Dst...)
-	}
-	if len(relayMsgs[0].Src) != 0 {
-		relayMsgs[0].Src = append([]sdk.Msg{src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress())}, relayMsgs[0].Src...)
-	}
-
-	for _, relayMsg := range relayMsgs {
-		// TODO: increase the amount of gas as the number of messages increases
-		// notify the user of that
-		if relayMsg.Send(src, dst); relayMsg.success {
-			if len(relayMsg.Dst) > 1 {
-				dst.logPacketsRelayed(src, len(relayMsg.Dst)-1)
-			}
-			if len(relayMsg.Src) > 1 {
-				src.logPacketsRelayed(dst, len(relayMsg.Src)-1)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (nrs *NaiveStrategy) buildRelayMsgs(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) ([]*RelayMsgs, error) {
-	var txSize int
-
-	// create the appropriate update client messages
-	msgs := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
 	// add messages for src -> dst
-	for i, seq := range sp.Src {
+	for _, seq := range sp.Src {
 		chain, msg, err := packetMsgFromTxQuery(src, dst, sh, seq)
 		if err != nil {
-			return nil, err
+			return err
 		}
-
-		txSize += len(msg.GetSignBytes())
-
-		// enforce a maximum message length and maximum size of combined messages
-		if nrs.IsMaxTx(i, txSize) {
-			// update sequences processed
-			sp.Src = sp.Src[i:]
-			break
-		}
-
 		if chain == dst {
 			msgs.Dst = append(msgs.Dst, msg)
 		} else {
 			msgs.Src = append(msgs.Src, msg)
 		}
-
-		// clear sequence queue
-		if i == len(sp.Src)-1 {
-			sp.Src = []uint64{}
-		}
 	}
 
-	// reset txSize
-	txSize = 0
-
 	// add messages for dst -> src
-	for i, seq := range sp.Dst {
+	for _, seq := range sp.Dst {
 		chain, msg, err := packetMsgFromTxQuery(dst, src, sh, seq)
 		if err != nil {
-			return nil, err
+			return err
 		}
-
-		txSize += len(msg.GetSignBytes())
-
-		// enforce a maximum message length and maximum size of combined messages
-		if nrs.IsMaxTx(i, txSize) {
-			// update sequences processed
-			sp.Dst = sp.Dst[i:]
-			break
-		}
-
 		if chain == src {
 			msgs.Src = append(msgs.Src, msg)
 		} else {
 			msgs.Dst = append(msgs.Dst, msg)
 		}
+	}
 
-		// clear sequence queue
-		if i == len(sp.Dst)-1 {
-			sp.Dst = []uint64{}
+	if !msgs.Ready() {
+		src.Log(fmt.Sprintf("- No packets to relay between [%s]port{%s} and [%s]port{%s}", src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))
+		return nil
+	}
+
+	// Prepend non-empty msg lists with UpdateClient
+	if len(msgs.Dst) != 0 {
+		msgs.Dst = append([]sdk.Msg{dst.PathEnd.UpdateClient(sh.GetHeader(src.ChainID), dst.MustGetAddress())}, msgs.Dst...)
+	}
+	if len(msgs.Src) != 0 {
+		msgs.Src = append([]sdk.Msg{src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress())}, msgs.Src...)
+	}
+
+	// TODO: increase the amount of gas as the number of messages increases
+	// notify the user of that
+	if msgs.Send(src, dst); msgs.success {
+		if len(msgs.Dst) > 1 {
+			dst.logPacketsRelayed(src, len(msgs.Dst)-1)
+		}
+		if len(msgs.Src) > 1 {
+			src.logPacketsRelayed(dst, len(msgs.Src)-1)
 		}
 	}
 
-	// base case
-	if len(sp.Src) == 0 && len(sp.Dst) == 0 {
-		return []*RelayMsgs{msgs}, nil
-	}
-
-	// recurse until all sequences have been processed
-	relayMsgs, err := nrs.buildRelayMsgs(src, dst, sp, sh)
-	if err != nil {
-		return nil, err
-	}
-
-	return append([]*RelayMsgs{msgs}, relayMsgs...), nil
-}
-
-// IsMaxTx returns true if the passed in parameters surpass the maximum message length or maximum tx size.
-// Defualt values of zero are ignored.
-func (nrs *NaiveStrategy) IsMaxTx(msgLength, txSize int) bool {
-	return (nrs.MaxMsgLength != 0 && uint64(msgLength) >= nrs.MaxMsgLength) || (nrs.MaxTxSize != 0 && uint64(txSize) >= nrs.MaxTxSize)
+	return nil
 }
 
 // packetMsgFromTxQuery returns a sdk.Msg to relay a packet with a given seq on src

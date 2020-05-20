@@ -200,7 +200,12 @@ func relayMsgsCmd() *cobra.Command {
 				return err
 			}
 
-			strategy := &relayer.NaiveStrategy{}
+			path := config.Paths.MustGet(args[0])
+			strategy, err := GetStrategyWithOptions(cmd, path.MustGetStrategy())
+			if err != nil {
+				return err
+			}
+
 			if err = strategy.RelayPacketsOrderedChan(c[src], c[dst], sp, sh); err != nil {
 				return err
 			}
