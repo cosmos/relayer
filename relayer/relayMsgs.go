@@ -11,11 +11,10 @@ import (
 // after a given relay round. MaxTxSize and MaxMsgLength are ignored if they are
 // set to zero.
 type RelayMsgs struct {
-	Src []sdk.Msg
-	Dst []sdk.Msg
-
-	MaxTxSize    uint64 // maximum amount of messages in a bundled relay transaction
-	MaxMsgLength uint64 // maximum permitted size of the msgs in a bundled relay transaction
+	Src          []sdk.Msg
+	Dst          []sdk.Msg
+	MaxTxSize    uint64 // maximum permitted size of the msgs in a bundled relay transaction
+	MaxMsgLength uint64 // maximum amount of messages in a bundled relay transaction
 
 	last    bool
 	success bool
