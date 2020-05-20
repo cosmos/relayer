@@ -59,7 +59,8 @@ func (r *RelayMsgs) Send(src, dst *Chain) {
 			// Submit the transactions to src chain and update its status
 			r.success = r.success && send(src, msgs)
 
-			// clear the current batch
+			// clear the current batch and reset variables
+			msgLen, txSize = 1, uint64(len(msg.GetSignBytes()))
 			msgs = []sdk.Msg{}
 		}
 		msgs = append(msgs, msg)
@@ -82,7 +83,8 @@ func (r *RelayMsgs) Send(src, dst *Chain) {
 			// Submit the transaction to dst chain and update its status
 			r.success = r.success && send(dst, msgs)
 
-			// clear the current batch
+			// clear the current batch and reset variables
+			msgLen, txSize = 1, uint64(len(msg.GetSignBytes()))
 			msgs = []sdk.Msg{}
 		}
 		msgs = append(msgs, msg)
