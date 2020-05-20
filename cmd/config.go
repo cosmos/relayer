@@ -305,12 +305,12 @@ func (c *Config) DeleteChain(chain string) *Config {
 func validateConfig(c *Config) error {
 	to, err := time.ParseDuration(config.Global.Timeout)
 	if err != nil {
-		return err
+		return fmt.Errorf("Did you remember to run 'rly config init' error:%w", err)
 	}
 
 	for _, i := range c.Chains {
 		if err := i.Init(homePath, appCodec, cdc, to, debug); err != nil {
-			return err
+			return fmt.Errorf("Did you remember to run 'rly config init' error:%w", err)
 		}
 	}
 
