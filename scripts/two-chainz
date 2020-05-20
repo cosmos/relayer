@@ -9,7 +9,7 @@ if [[ ! -d $GOPATH ]] || [[ ! -d $GOBIN ]] || [[ ! -x "$(which go)" ]]; then
 fi
 
 GAIA_REPO="$GOPATH/src/github.com/cosmos/gaia"
-GAIA_BRANCH=master
+GAIA_BRANCH="cbc33219c3d9084028a96798dc85514223408bac"
 GAIA_DATA="$(pwd)/data"
 
 # ARGS: 

@@ -43,6 +43,7 @@ func queryCmd() *cobra.Command {
 		queryChannels(),
 		queryConnectionChannels(),
 		queryNextSeqRecv(),
+		queryAllSeqRecv(),
 		queryPacketCommitment(),
 		queryPacketAck(),
 	)
@@ -585,6 +586,38 @@ func queryNextSeqRecv() *cobra.Command {
 	return cmd
 }
 
+func queryAllSeqRecv() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "all-seq-send [chain-id] [channel-id] [port-id]",
+		Short: "Query the next sequence send for a given channel",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
+
+			if err = chain.AddPath(dcli, dcon, args[1], args[2], dord); err != nil {
+				return err
+			}
+
+			height, err := chain.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryAllSeqAck(height)
+			if err != nil {
+				return err
+			}
+
+			return chain.Print(res, false, false)
+		},
+	}
+
+	return cmd
+}
+
 func queryPacketCommitment() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "packet-commit [chain-id] [channel-id] [port-id] [seq]",
@@ -689,7 +722,13 @@ func queryUnrelayed() *cobra.Command {
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(c[src], c[dst], sh)
+			var sp *relayer.RelaySequences
+			if path.Ordered() {
+				sp, err = relayer.UnrelayedSequences(c[src], c[dst], sh)
+			} else {
+				sp, err = relayer.UnrelayedSequencesUnordered(c[src], c[dst], sh)
+			}
+
 			if err != nil {
 				return err
 			}

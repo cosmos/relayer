@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -583,6 +584,57 @@ func (c *Chain) WaitForNBlocks(n int64) error {
 	}
 }
 
+func (c *Chain) QueryAllSeqAck(height int64) (recvAcks []chanTypes.RecvResponse, err error) {
+	if !c.PathSet() {
+		return recvAcks, c.ErrPathNotSet()
+	}
+
+	ackPath := ibctypes.PacketAcknowledgementPath(c.PathEnd.PortID, c.PathEnd.ChannelID, 1)
+	ackPath = strings.Replace(ackPath, "/1", "", -1) // remove the sequence number since we are iterating over all
+
+	req := abci.RequestQuery{
+		Path:   "store/ibc/subspace",
+		Data:   []byte(ackPath),
+		Height: height,
+		Prove:  true,
+	}
+
+	res, err := c.QueryABCI(req)
+	if err != nil {
+		return recvAcks, err
+	} else if res.Value == nil {
+		// TODO: figure out how to return not found error
+		return recvAcks, nil
+	}
+
+	var kvs []sdk.KVPair
+	err = c.Amino.Codec.UnmarshalBinaryBare(res.Value, &kvs)
+	if err != nil {
+		return recvAcks, err
+	}
+
+	for _, kv := range kvs {
+		seq := extractSeqFromAck(string(kv.Key))
+		recvAck := chanTypes.NewRecvResponse(
+			c.PathEnd.PortID,
+			c.PathEnd.ChannelID,
+			seq,
+			nil, // as far as I can tell, subspace queries dont provide proofs
+			res.Height,
+		)
+		recvAcks = append(recvAcks, recvAck)
+	}
+
+	return recvAcks, nil
+}
+
+func extractSeqFromAck(ackKey string) uint64 {
+	seqparts := strings.Split(ackKey, "/")
+	seqstr := seqparts[len(seqparts)-1]
+	seq, _ := strconv.Atoi(seqstr)
+	return uint64(seq)
+}
+
 // QueryNextSeqRecv returns the next seqRecv for a configured channel
 func (c *Chain) QueryNextSeqRecv(height int64) (recvRes chanTypes.RecvResponse, err error) {
 	if !c.PathSet() {
@@ -630,8 +682,9 @@ type SeqPair struct {
 
 // RelaySequences represents the unrelayed sequence numbers on src and dst
 type RelaySequences struct {
-	Src []uint64 `json:"src,omitempty" yaml:"src,omitempty"`
-	Dst []uint64 `json:"dst,omitempty" yaml:"dst,omitempty"`
+	Src  []uint64 `json:"src,omitempty" yaml:"src,omitempty"`
+	Dst  []uint64 `json:"dst,omitempty" yaml:"dst,omitempty"`
+	errs errs
 }
 
 // ToRelay represents an array of sequence numbers on each chain that need to be relayed
@@ -652,6 +705,51 @@ func newRlySeq(start, end uint64) []uint64 {
 		start++
 	}
 	return s
+}
+
+// UnrelayedSequencesUnordered returns the unrelayed sequence numbers between two chains over an unorderd path
+func UnrelayedSequencesUnordered(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error) {
+	rseq := &RelaySequences{}
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go QueryNextSeqPairsUnordered(src, dst, sh, rseq, &wg, true)
+	go QueryNextSeqPairsUnordered(dst, src, sh, rseq, &wg, false)
+	wg.Wait()
+	return rseq, rseq.errs.err()
+}
+
+// Scan and compare the src send seq against all the dst ack sequences
+func QueryNextSeqPairsUnordered(src, dst *Chain, sh *SyncHeaders, rseq *RelaySequences, wg *sync.WaitGroup, source bool) {
+	defer wg.Done()
+	seq, err := src.QueryNextSeqSend(int64(sh.GetHeight(src.ChainID)))
+	if err != nil {
+		rseq.errs = append(rseq.errs, err)
+	}
+
+	ackSeqs, err := dst.QueryAllSeqAck(int64(sh.GetHeight(dst.ChainID)))
+	if err != nil {
+		rseq.errs = append(rseq.errs, err)
+	}
+
+	// convert ackSeqs to a simple lookup map for faster checking
+	ackSeqMaps := make(map[uint64]bool)
+	for _, ack := range ackSeqs {
+		ackSeqMaps[ack.NextSequenceRecv] = true
+	}
+
+	seqs := make([]uint64, 0)
+	for i := uint64(1); i < seq; i++ {
+		_, exists := ackSeqMaps[i]
+		if !exists {
+			seqs = append(seqs, i)
+		}
+	}
+
+	if source {
+		rseq.Src = seqs
+	} else {
+		rseq.Dst = seqs
+	}
 }
 
 // UnrelayedSequences returns the unrelayed sequence numbers between two chains
