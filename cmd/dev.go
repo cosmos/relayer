@@ -44,10 +44,13 @@ func gozCSVCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			fmt.Println("Got CSV data")
+
 			cd, err := fetchClientData(args[0])
 			if err != nil {
 				return err
 			}
+			fmt.Println("Got Client data")
 			w := csv.NewWriter(os.Stdout)
 
 			for _, c := range cd {
