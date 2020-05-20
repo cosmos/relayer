@@ -1,5 +1,7 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
+SDKCOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/cosmos-sdk)
+GAIACOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/gaia)
 all: ci-lint install
 
 ###############################################################################
@@ -7,7 +9,9 @@ all: ci-lint install
 ###############################################################################
 
 LD_FLAGS = -X github.com/iqlusioninc/relayer/cmd.Version=$(VERSION) \
-	-X github.com/iqlusioninc/relayer/cmd.Commit=$(COMMIT)
+	-X github.com/iqlusioninc/relayer/cmd.Commit=$(COMMIT) \
+	-X github.com/iqlusioninc/relayer/cmd.SDKCommit=$(SDKCOMMIT) \
+	-X github.com/iqlusioninc/relayer/cmd.GaiaCommit=$(GAIACOMMIT)
 
 BUILD_FLAGS := -ldflags '$(LD_FLAGS)'
 

@@ -2,6 +2,10 @@
 
 These are instructions on how to setup a node to run a basic IBC relayer testnet. Currently, coordination is happening in the [`ibc-testnet-alpha` group on telegram](https://t.me/joinchat/IYdbxRRFYIkj9FR99X3-BA).
 
+### Game Of Zones
+
+Please see the [Game of Zones repository](https://github.com/cosmosdevs/GameOfZones) for details on competing in Game of Zones.
+
 ### *20 April 2020 17:00 PST* - `relayer-alpha-2` testnet
 
 This is the second `relayer` testnet! I will be copying JSON files from the first testnet to the new folder as well as merging all the backlogged pull requests. Please make sure you are using the following version of `gaia` to ensure compatability.
@@ -85,7 +89,7 @@ rly keys add $CHAINID $RLYKEY
 gaiad init --chain-id $CHAINID $CHAINID
 # NOTE: ensure that the gaia rpc is open to all connections
 sed -i 's#tcp://127.0.0.1:26657#tcp://0.0.0.0:26657#g' ~/.gaiad/config/config.toml
-sed -i "s/stake/$DENOM/g" ~/.gaiad/config/genesis.json
+sed -i "s/\"stake\"/\"$DENOM\"/g" ~/.gaiad/config/genesis.json
 sed -i 's/pruning = "syncable"/pruning = "nothing"/g' ~/.gaiad/config/app.toml
 gaiacli keys add validator
 

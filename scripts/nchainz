@@ -303,6 +303,7 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+mkdir -p "$BASEDIR"
 BASEDIR=$(cd "$BASEDIR" && pwd)
 NCONFIG="$BASEDIR/nchainz.cfg"
 DATA="$BASEDIR/data"
@@ -367,7 +368,7 @@ chains)
     p26660=$(( 26660 - $i * 100 ))
     p6060=$(( 6060 + $i ))
 
-    eval $DAEMON_TESTNET || echo $?
+    eval $DAEMON_TESTNET || true
 
     cfgpth="$DATA/$chainid/n0/$DAEMON/config/config.toml"
     # TODO: Just index *some* specified tags, not all
@@ -528,6 +529,7 @@ relay)
     path="$ia"
     paths="$paths $path"
     echo "Starting 'rly tx link $path' ($src<>$dst) logs in $LOGS/$path.log"
+    rly start -d "$path" &
     (
       try=0
       while ! rly tx link $path --timeout=3s -d >> "$LOGS/$path.log" 2>&1; do
@@ -537,7 +539,6 @@ relay)
       done
       try=$(( $try + 1 ))
       echo "$path tx link initialized (try=$try)"
-      rly start "$path"
     ) &
   done
 
@@ -564,6 +565,8 @@ relay)
   exit 0
   ;;
 run)
+  mv nchainz/logs nchainz/logs-$(date +%Y%m%dT%H:%M:%S) || true
+  mkdir -p nchainz/logs
   "$0" chains skip &
   "$0" clients skip &
   wait

@@ -27,56 +27,6 @@ func defaultPacketTimeoutStamp() uint64 {
 	return uint64(time.Now().Add(time.Hour * 12).UnixNano())
 }
 
-// RelayPacketsOrderedChan creates transactions to clear both queues
-// CONTRACT: the SyncHeaders passed in here must be up to date or being kept updated
-func RelayPacketsOrderedChan(src, dst *Chain, sh *SyncHeaders, sp *RelaySequences) error {
-
-	// create the appropriate update client messages
-	msgs := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
-	if len(sp.Src) > 0 {
-		msgs.Dst = append(msgs.Dst, dst.PathEnd.UpdateClient(sh.GetHeader(src.ChainID), dst.MustGetAddress()))
-	}
-	if len(sp.Dst) > 0 {
-		msgs.Src = append(msgs.Src, src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress()))
-	}
-
-	// add messages for src -> dst
-	for _, seq := range sp.Src {
-		msg, err := packetMsgFromTxQuery(src, dst, sh, seq)
-		if err != nil {
-			return err
-		}
-		msgs.Dst = append(msgs.Dst, msg)
-	}
-
-	// add messages for dst -> src
-	for _, seq := range sp.Dst {
-		msg, err := packetMsgFromTxQuery(dst, src, sh, seq)
-		if err != nil {
-			return err
-		}
-		msgs.Src = append(msgs.Src, msg)
-	}
-
-	if !msgs.Ready() {
-		src.Log(fmt.Sprintf("- No packets to relay between [%s]port{%s} and [%s]port{%s}", src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))
-		return nil
-	}
-
-	// TODO: increase the amount of gas as the number of messages increases
-	// notify the user of that
-	if msgs.Send(src, dst); msgs.success {
-		if len(msgs.Dst) > 1 {
-			dst.logPacketsRelayed(src, len(msgs.Dst)-1)
-		}
-		if len(msgs.Src) > 1 {
-			src.logPacketsRelayed(dst, len(msgs.Src)-1)
-		}
-	}
-
-	return nil
-}
-
 // SendTransferBothSides sends a ICS20 packet from src to dst
 func (src *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin, dstAddr sdk.AccAddress, source bool) error {
 	if source {

@@ -17,9 +17,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
-	connState "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/exported"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
-	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
@@ -215,7 +213,7 @@ func (c *Chain) QueryClientState() (*clientTypes.StateResponse, error) {
 	if err != nil {
 		return conStateRes, qClntStateErr(err)
 	} else if res.Value == nil {
-		// TODO: Better way to handle this?
+		// client does not exist
 		return nil, nil
 	}
 
@@ -301,7 +299,7 @@ func qClntsErr(err error) error { return fmt.Errorf("query clients failed: %w", 
 // ////////////////////////////
 
 // QueryConnections gets any connections on a chain
-func (c *Chain) QueryConnections(page, limit int) (conns []connTypes.IdentifiedConnectionEnd, err error) {
+func (c *Chain) QueryConnections(page, limit int) (conns []connTypes.ConnectionEnd, err error) {
 	var bz []byte
 	if bz, err = c.Cdc.MarshalJSON(connTypes.NewQueryAllConnectionsParams(page, limit)); err != nil {
 		return nil, qConnsErr(err)
@@ -374,10 +372,8 @@ func (c *Chain) QueryConnection(height int64) (connTypes.ConnectionResponse, err
 	}
 
 	var connection connTypes.ConnectionEnd
-	if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &connection); err != nil {
-		if err = c.Amino.UnmarshalBinaryBare(res.Value, &connection); err != nil {
-			return connTypes.ConnectionResponse{}, qConnErr(err)
-		}
+	if err = c.Cdc.UnmarshalBinaryBare(res.Value, &connection); err != nil {
+		return connTypes.ConnectionResponse{}, qConnErr(err)
 	}
 
 	return connTypes.NewConnectionResponse(c.PathEnd.ConnectionID, connection, res.Proof, res.Height), nil
@@ -434,8 +430,8 @@ func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (map[string]connType
 
 func qConnErr(err error) error { return fmt.Errorf("query connection failed: %w", err) }
 
-var emptyConn = connTypes.ConnectionEnd{State: connState.UNINITIALIZED}
-var emptyConnRes = connTypes.ConnectionResponse{Connection: connTypes.IdentifiedConnectionEnd{Connection: emptyConn, Identifier: ""}}
+var emptyConn = connTypes.ConnectionEnd{State: ibctypes.UNINITIALIZED}
+var emptyConnRes = connTypes.ConnectionResponse{Connection: connTypes.ConnectionEnd{ID: ""}}
 
 // ////////////////////////////
 //    ICS 04 -> CHANNEL     //
@@ -482,15 +478,18 @@ func (c *Chain) QueryChannel(height int64) (chanRes chanTypes.ChannelResponse, e
 		return chanRes, qChanErr(err)
 	} else if res.Value == nil {
 		// NOTE: This is returned so that the switch statement in ChannelStep works properly
-		return chanTypes.NewChannelResponse(c.PathEnd.PortID, c.PathEnd.ChannelID, chanTypes.Channel{State: chanState.UNINITIALIZED}, nil, 0), nil
+		return chanTypes.NewChannelResponse(c.PathEnd.PortID, c.PathEnd.ChannelID, chanTypes.Channel{State: ibctypes.UNINITIALIZED}, nil, 0), nil
 	}
 
 	var channel chanTypes.Channel
-	if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &channel); err != nil {
-		if err = c.Amino.UnmarshalBinaryBare(res.Value, &channel); err != nil {
-			return chanRes, qChanErr(err)
-		}
+	if err = c.Cdc.UnmarshalBinaryBare(res.Value, &channel); err != nil {
+		return chanRes, qChanErr(err)
 	}
+	// if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &channel); err != nil {
+	// 	if err = c.Amino.UnmarshalBinaryBare(res.Value, &channel); err != nil {
+	// 		return chanRes, qChanErr(err)
+	// 	}
+	// }
 
 	return chanTypes.NewChannelResponse(c.PathEnd.PortID, c.PathEnd.ChannelID, channel, res.Proof, res.Height), nil
 }
@@ -912,33 +911,33 @@ func QueryPathStatus(src, dst *Chain, path *Path) (stat *PathStatus, err error) 
 	if err != nil {
 		return
 	}
-	stat.Chains[src.ChainID].Connection.ID = srcConn.Connection.Identifier
-	stat.Chains[src.ChainID].Connection.State = srcConn.Connection.Connection.GetState().String()
+	stat.Chains[src.ChainID].Connection.ID = srcConn.Connection.ID
+	stat.Chains[src.ChainID].Connection.State = srcConn.Connection.State.String()
 
 	dstConn, err := dst.QueryConnection(int64(sh.GetHeight(dst.ChainID)))
 	if err != nil {
 		return
 	}
-	stat.Chains[dst.ChainID].Connection.ID = dstConn.Connection.Identifier
-	stat.Chains[dst.ChainID].Connection.State = dstConn.Connection.Connection.GetState().String()
+	stat.Chains[dst.ChainID].Connection.ID = dstConn.Connection.ID
+	stat.Chains[dst.ChainID].Connection.State = dstConn.Connection.State.String()
 
 	srcChan, err := src.QueryChannel(int64(sh.GetHeight(src.ChainID)))
 	if err != nil {
 		return
 	}
-	stat.Chains[src.ChainID].Channel.ID = srcChan.Channel.ChannelIdentifier
-	stat.Chains[src.ChainID].Channel.Port = srcChan.Channel.PortIdentifier
-	stat.Chains[src.ChainID].Channel.State = srcChan.Channel.Channel.GetState().String()
-	stat.Chains[src.ChainID].Channel.Order = srcChan.Channel.Channel.GetOrdering().String()
+	stat.Chains[src.ChainID].Channel.ID = srcChan.Channel.ID
+	stat.Chains[src.ChainID].Channel.Port = srcChan.Channel.PortID
+	stat.Chains[src.ChainID].Channel.State = srcChan.Channel.State.String()
+	stat.Chains[src.ChainID].Channel.Order = srcChan.Channel.Ordering.String()
 
 	dstChan, err := dst.QueryChannel(int64(sh.GetHeight(dst.ChainID)))
 	if err != nil {
 		return
 	}
-	stat.Chains[dst.ChainID].Channel.ID = dstChan.Channel.ChannelIdentifier
-	stat.Chains[dst.ChainID].Channel.Port = dstChan.Channel.PortIdentifier
-	stat.Chains[dst.ChainID].Channel.State = dstChan.Channel.Channel.GetState().String()
-	stat.Chains[dst.ChainID].Channel.Order = dstChan.Channel.Channel.GetOrdering().String()
+	stat.Chains[dst.ChainID].Channel.ID = dstChan.Channel.ID
+	stat.Chains[dst.ChainID].Channel.Port = dstChan.Channel.PortID
+	stat.Chains[dst.ChainID].Channel.State = dstChan.Channel.State.String()
+	stat.Chains[dst.ChainID].Channel.Order = dstChan.Channel.Ordering.String()
 
 	unrelayed, err := UnrelayedSequences(src, dst, sh)
 	if err != nil {
@@ -1203,11 +1202,8 @@ func (c *Chain) formatTxResult(resTx *ctypes.ResultTx, resBlock *ctypes.ResultBl
 	if err != nil {
 		return sdk.TxResponse{}, err
 	}
-	res := sdk.NewResponseResultTx(resTx, tx, resBlock.Block.Time.Format(time.RFC3339))
-	if !c.debug {
-		res.RawLog = ""
-	}
-	return res, nil
+
+	return sdk.NewResponseResultTx(resTx, tx, resBlock.Block.Time.Format(time.RFC3339)), nil
 }
 
 // Takes some bytes and a codec and returns an sdk.Tx

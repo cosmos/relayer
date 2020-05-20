@@ -18,18 +18,15 @@ func (c *Chain) LogFailedTx(res sdk.TxResponse, err error, msgs []sdk.Msg) {
 	}
 
 	if err != nil {
-		c.logger.Error(fmt.Errorf("- [%s] -> err(%w)", c.ChainID, err).Error())
+		c.logger.Error(fmt.Errorf("- [%s] -> err(%v)", c.ChainID, err).Error())
 	}
 
 	if res.Codespace != "" && res.Code != 0 {
-		msg, err := GetCodespace(res.Codespace, int(res.Code))
-		if err != nil {
-			c.logger.Info(err.Error())
-		}
-		c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%s: %s)", c.ChainID, res.Height, getMsgAction(msgs), res.Codespace, msg))
+		c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%s:%d:%s)", c.ChainID, res.Height, getMsgAction(msgs), res.Codespace, res.Code, res.RawLog))
 	}
 
 	if c.debug && !res.Empty() {
+		c.Log("- transaction response:")
 		c.Print(res, false, false)
 	}
 }
@@ -49,11 +46,11 @@ func logChannelStates(src, dst *Chain, conn map[string]chanTypes.ChannelResponse
 		src.ChainID,
 		conn[src.ChainID].ProofHeight,
 		src.PathEnd.ChannelID,
-		conn[src.ChainID].Channel.Channel.GetState(),
+		conn[src.ChainID].Channel.State,
 		dst.ChainID,
 		conn[dst.ChainID].ProofHeight,
 		dst.PathEnd.ChannelID,
-		conn[dst.ChainID].Channel.Channel.GetState(),
+		conn[dst.ChainID].Channel.State,
 	))
 }
 
@@ -62,16 +59,16 @@ func logConnectionStates(src, dst *Chain, conn map[string]connTypes.ConnectionRe
 		src.ChainID,
 		conn[src.ChainID].ProofHeight,
 		src.PathEnd.ConnectionID,
-		conn[src.ChainID].Connection.Connection.GetState(),
+		conn[src.ChainID].Connection.State,
 		dst.ChainID,
 		conn[dst.ChainID].ProofHeight,
 		dst.PathEnd.ConnectionID,
-		conn[dst.ChainID].Connection.Connection.GetState(),
+		conn[dst.ChainID].Connection.State,
 	))
 }
 
 func (c *Chain) logCreateClient(dst *Chain, dstH uint64) {
-	c.Log(fmt.Sprintf("- [%s] -> creating client for [%s]header-height{%d} trust-period(%s)", c.ChainID, dst.ChainID, dstH, dst.GetTrustingPeriod()))
+	c.Log(fmt.Sprintf("- [%s] -> creating client (%s) for [%s]header-height{%d} trust-period(%s)", c.ChainID, c.PathEnd.ClientID, dst.ChainID, dstH, dst.GetTrustingPeriod()))
 }
 
 func (c *Chain) logTx(events map[string][]string) {

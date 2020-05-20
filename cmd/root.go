@@ -17,14 +17,13 @@ package cmd
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/codec"
-	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
-	"github.com/cosmos/cosmos-sdk/simapp"
+	codecstd "github.com/cosmos/cosmos-sdk/std"
+	gaia "github.com/cosmos/gaia/app"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -85,8 +84,9 @@ func init() {
 	)
 
 	// This is a bit of a cheat :shushing_face:
-	cdc = codecstd.MakeCodec(simapp.ModuleBasics)
-	appCodec = codecstd.NewAppCodec(cdc)
+	appCodec, cdc = gaia.MakeCodecs()
+	// cdc = codecstd.MakeCodec(simapp.ModuleBasics)
+	// appCodec = codecstd.NewAppCodec(cdc)
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -112,7 +112,6 @@ func Execute() {
 	}
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
 		os.Exit(1)
 	}
 }

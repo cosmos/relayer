@@ -2,7 +2,7 @@ package relayer
 
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
-	stdcodec "github.com/cosmos/cosmos-sdk/codec/std"
+	stdcodec "github.com/cosmos/cosmos-sdk/std"
 )
 
 type contextualStdCodec struct {

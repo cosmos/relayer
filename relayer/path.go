@@ -3,8 +3,8 @@ package relayer
 import (
 	"fmt"
 
-	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 	"gopkg.in/yaml.v2"
 )
 
@@ -102,7 +102,7 @@ type Path struct {
 
 // Ordered returns true if the path is ordered and false if otherwise
 func (p *Path) Ordered() bool {
-	return p.Src.getOrder() == chanState.ORDERED
+	return p.Src.getOrder() == ibctypes.ORDERED
 }
 
 // Validate checks that a path is valid
@@ -202,27 +202,27 @@ func FindPaths(chains Chains) (*Paths, error) {
 				if err != nil {
 					return nil, err
 				}
-				if conn.Connection.Connection.GetState().String() == "OPEN" {
+				if conn.Connection.GetState().String() == "OPEN" {
 					chans, err := src.QueryConnectionChannels(connid, 1, 1000)
 					if err != nil {
 						return nil, err
 					}
 					for _, chn := range chans {
-						if chn.Channel.State.String() == "OPEN" {
+						if chn.State.String() == "OPEN" {
 							p := &Path{
 								Src: &PathEnd{
 									ChainID:      src.ChainID,
 									ClientID:     client.GetID(),
-									ConnectionID: conn.Connection.Identifier,
-									ChannelID:    chn.ChannelIdentifier,
-									PortID:       chn.PortIdentifier,
+									ConnectionID: conn.Connection.ID,
+									ChannelID:    chn.ID,
+									PortID:       chn.PortID,
 								},
 								Dst: &PathEnd{
 									ChainID:      dst.ChainID,
-									ClientID:     conn.Connection.Connection.GetCounterparty().GetClientID(),
-									ConnectionID: conn.Connection.Connection.GetCounterparty().GetConnectionID(),
-									ChannelID:    chn.Channel.GetCounterparty().GetChannelID(),
-									PortID:       chn.Channel.GetCounterparty().GetPortID(),
+									ClientID:     conn.Connection.Counterparty.GetClientID(),
+									ConnectionID: conn.Connection.Counterparty.GetConnectionID(),
+									ChannelID:    chn.Counterparty.GetChannelID(),
+									PortID:       chn.Counterparty.GetPortID(),
 								},
 								Strategy: &StrategyCfg{
 									Type: "naive",

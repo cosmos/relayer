@@ -5,6 +5,7 @@ import (
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 )
 
 type relayPacket interface {
@@ -15,6 +16,66 @@ type relayPacket interface {
 	Timeout() uint64
 }
 
+type relayMsgTimeout struct {
+	packetData   []byte
+	seq          uint64
+	timeout      uint64
+	timeoutStamp uint64
+	dstRecvRes   *chanTypes.RecvResponse
+
+	pass bool
+}
+
+func (rp *relayMsgTimeout) Data() []byte {
+	return rp.packetData
+}
+
+func (rp *relayMsgTimeout) Seq() uint64 {
+	return rp.seq
+}
+
+func (rp *relayMsgTimeout) Timeout() uint64 {
+	return rp.timeout
+}
+
+func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
+	var dstRecvRes chanTypes.RecvResponse
+
+	// retry getting commit response until it succeeds
+	if err = retry.Do(func() error {
+		// NOTE: Timeouts currently only work with ORDERED channels for nwo
+		dstRecvRes, err = dst.QueryNextSeqRecv(int64(sh.GetHeight(dst.ChainID) - 1))
+		if err != nil {
+			return err
+		} else if dstRecvRes.Proof.Proof == nil {
+			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)", dst.ChainID, int64(sh.GetHeight(dst.ChainID)-1), rp.seq)
+		}
+		return nil
+	}); err != nil {
+		dst.Error(err)
+		return
+	}
+
+	rp.dstRecvRes = &dstRecvRes
+	return
+}
+
+func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
+	if rp.dstRecvRes == nil {
+		return nil
+	}
+	return src.PathEnd.MsgTimeout(
+		dst.PathEnd,
+		rp.packetData,
+		rp.seq,
+		rp.timeout,
+		rp.timeoutStamp,
+		rp.dstRecvRes.Proof,
+		rp.dstRecvRes.ProofHeight,
+		src.MustGetAddress(),
+	)
+}
+
 type relayMsgRecvPacket struct {
 	packetData   []byte
 	seq          uint64
@@ -23,6 +84,17 @@ type relayMsgRecvPacket struct {
 	dstComRes    *CommitmentResponse
 
 	pass bool
+}
+
+func (rp *relayMsgRecvPacket) timeoutPacket() *relayMsgTimeout {
+	return &relayMsgTimeout{
+		packetData:   rp.packetData,
+		seq:          rp.seq,
+		timeout:      rp.timeout,
+		timeoutStamp: rp.timeoutStamp,
+		dstRecvRes:   nil,
+		pass:         false,
+	}
 }
 
 func (rp *relayMsgRecvPacket) Data() []byte {

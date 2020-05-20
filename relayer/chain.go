@@ -14,9 +14,9 @@ import (
 	sdkCtx "github.com/cosmos/cosmos-sdk/client/context"
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	aminocodec "github.com/cosmos/cosmos-sdk/codec"
-	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
+	codecstd "github.com/cosmos/cosmos-sdk/std"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/go-bip39"
@@ -163,17 +163,12 @@ func defaultChainLogger() log.Logger {
 
 // KeyExists returns true if there is a specified key in chain's keybase
 func (src *Chain) KeyExists(name string) bool {
-	keyInfos, err := src.Keybase.List()
+	k, err := src.Keybase.Key(name)
 	if err != nil {
 		return false
 	}
 
-	for _, k := range keyInfos {
-		if k.GetName() == name {
-			return true
-		}
-	}
-	return false
+	return k.GetName() == name
 }
 
 func (src *Chain) getGasPrices() sdk.DecCoins {
@@ -237,13 +232,7 @@ func (src *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
 
 // BroadcastTxCommit takes the marshaled transaction bytes and broadcasts them
 func (src *Chain) BroadcastTxCommit(txBytes []byte) (sdk.TxResponse, error) {
-	res, err := sdkCtx.CLIContext{Client: src.Client}.BroadcastTxCommit(txBytes)
-
-	if !src.debug {
-		res.RawLog = ""
-	}
-
-	return res, err
+	return sdkCtx.CLIContext{Client: src.Client}.BroadcastTxCommit(txBytes)
 }
 
 // Log takes a string and logs the data
@@ -269,7 +258,7 @@ func (src *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, context.Ca
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	eventChan, err := src.Client.Subscribe(ctx, fmt.Sprintf("%s-subscriber-%s", src.ChainID, suffix), query)
+	eventChan, err := src.Client.Subscribe(ctx, fmt.Sprintf("%s-subscriber-%s", src.ChainID, suffix), query, 1000)
 	return eventChan, cancel, err
 }
 

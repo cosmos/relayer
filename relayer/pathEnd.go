@@ -7,11 +7,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
-	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc/20-transfer/types"
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
+	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 )
 
 // TODO: add Order chanTypes.Order as a property and wire it up in validation
@@ -28,11 +28,23 @@ type PathEnd struct {
 	Order        string `yaml:"order,omitempty" json:"order,omitempty"`
 }
 
-func (src *PathEnd) getOrder() chanState.Order {
-	return chanState.OrderFromString(strings.ToUpper(src.Order))
+// OrderFromString parses a string into a channel order byte
+func OrderFromString(order string) ibctypes.Order {
+	switch order {
+	case "UNORDERED":
+		return ibctypes.UNORDERED
+	case "ORDERED":
+		return ibctypes.ORDERED
+	default:
+		return ibctypes.NONE
+	}
 }
 
-// UpdateClient creates an sdk.Msg to update the client on c with data pulled from cp
+func (src *PathEnd) getOrder() ibctypes.Order {
+	return OrderFromString(strings.ToUpper(src.Order))
+}
+
+// UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst
 func (src *PathEnd) UpdateClient(dstHeader *tmclient.Header, signer sdk.AccAddress) sdk.Msg {
 	return tmclient.NewMsgUpdateClient(
 		src.ClientID,
@@ -132,11 +144,11 @@ func (src *PathEnd) ChanTry(dst *PathEnd, dstChanState chanTypes.ChannelResponse
 		src.PortID,
 		src.ChannelID,
 		defaultTransferVersion,
-		dstChanState.Channel.Channel.Ordering,
+		dstChanState.Channel.Ordering,
 		[]string{src.ConnectionID},
 		dst.PortID,
 		dst.ChannelID,
-		dstChanState.Channel.Channel.GetVersion(),
+		dstChanState.Channel.Version,
 		dstChanState.Proof,
 		dstChanState.ProofHeight+1,
 		signer,
@@ -148,7 +160,7 @@ func (src *PathEnd) ChanAck(dstChanState chanTypes.ChannelResponse, signer sdk.A
 	return chanTypes.NewMsgChannelOpenAck(
 		src.PortID,
 		src.ChannelID,
-		dstChanState.Channel.Channel.GetVersion(),
+		dstChanState.Channel.Version,
 		dstChanState.Proof,
 		dstChanState.ProofHeight+1,
 		signer,
@@ -203,12 +215,18 @@ func (src *PathEnd) MsgRecvPacket(dst *PathEnd, sequence, timeoutHeight, timeout
 }
 
 // MsgTimeout creates MsgTimeout
-func (src *PathEnd) MsgTimeout(packet chanTypes.Packet, seq uint64, proof chanTypes.PacketResponse, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) MsgTimeout(dst *PathEnd, packetData []byte, seq, timeout, timeoutStamp uint64, proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgTimeout(
-		packet,
+		src.NewPacket(
+			dst,
+			seq,
+			packetData,
+			timeout,
+			timeoutStamp,
+		),
 		seq,
-		proof.Proof,
-		proof.ProofHeight+1,
+		proof,
+		proofHeight+1,
 		signer,
 	)
 }
