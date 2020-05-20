@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	"github.com/spf13/cobra"
 )
 
@@ -44,19 +44,19 @@ func gozCSVCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Println("Got CSV data")
 
 			cd, err := fetchClientData(args[0])
 			if err != nil {
 				return err
 			}
-			fmt.Println("Got Client data")
 			w := csv.NewWriter(os.Stdout)
 
 			for _, c := range cd {
 				info := to[c.ChainID]
-				c.TeamInfo = info
-				w.Write([]string{c.TeamInfo.Name, c.TeamInfo.Address, c.TeamInfo.RPCAddr, c.ClientID})
+				if info != nil {
+					c.TeamInfo = info
+					w.Write([]string{c.TeamInfo.Name, c.TeamInfo.Address, c.TeamInfo.RPCAddr, c.ClientID})
+				}
 			}
 			w.Flush()
 
@@ -385,10 +385,14 @@ func fetchClientData(chainID string) ([]*clientData, error) {
 
 	var clientDatas = []*clientData{}
 	for _, cl := range clients {
+		tmdata, ok := cl.(tmclient.ClientState)
+		if !ok {
+			continue
+		}
 		cd := &clientData{
 			ClientID:         cl.GetID(),
 			ChainID:          cl.GetChainID(),
-			TimeOfLastUpdate: cl.(tmclient.ClientState).LastHeader.Time,
+			TimeOfLastUpdate: tmdata.LastHeader.Time,
 			ChannelIDs:       []string{},
 		}
 
