@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/cosmos/cosmos-sdk/x/auth/client"
 	"net/url"
 	"os"
 	"path"
@@ -223,11 +224,24 @@ func (src *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
 		return nil, err
 	}
 
-	return auth.NewTxBuilder(
+	txBldr :=  auth.NewTxBuilder(
 		auth.DefaultTxEncoder(src.Amino.Codec), acc.GetAccountNumber(),
-		acc.GetSequence(), src.Gas, src.GasAdjustment, false, src.ChainID,
-		src.Memo, sdk.NewCoins(), src.getGasPrices()).WithKeybase(src.Keybase).
-		BuildAndSign(src.Key, ckeys.DefaultKeyPass, datagram)
+		acc.GetSequence(), src.Gas, src.GasAdjustment, src.GasAdjustment != 0, src.ChainID,
+		src.Memo, sdk.NewCoins(), src.getGasPrices()).WithKeybase(src.Keybase)
+
+	if src.GasAdjustment != 0 {
+		data, err := txBldr.BuildTxForSim(datagram)
+		if err != nil {
+			return nil, err
+		}
+		_, gasAdjusted, err := client.CalculateGas(src.QueryWithData, src.Amino.Codec, data, txBldr.GasAdjustment())
+		if err != nil {
+			return nil, err
+		}
+		txBldr = txBldr.WithGas(gasAdjusted)
+	}
+
+	return txBldr.BuildAndSign(src.Key, ckeys.DefaultKeyPass, datagram)
 }
 
 // BroadcastTxCommit takes the marshaled transaction bytes and broadcasts them
