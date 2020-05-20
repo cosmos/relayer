@@ -379,10 +379,16 @@ func fetchClientData(chainID string) ([]*clientData, error) {
 
 	var clientDatas = []*clientData{}
 	for _, cl := range clients {
+
+		clnt, ok := cl.(tmclient.ClientState)
+		if !ok || clnt.LastHeader.Header == nil {
+			continue
+		}
+
 		cd := &clientData{
 			ClientID:         cl.GetID(),
 			ChainID:          cl.GetChainID(),
-			TimeOfLastUpdate: cl.(tmclient.ClientState).LastHeader.Time,
+			TimeOfLastUpdate: clnt.LastHeader.Time,
 			ChannelIDs:       []string{},
 		}
 
@@ -418,7 +424,7 @@ type clientData struct {
 	ConnectionIDs    []string  `json:"connection-ids"`
 	ChannelIDs       []string  `json:"channel-ids"`
 	ChainID          string    `json:"chain-id"`
-	TimeOfLastUpdate time.Time `json:"since-last-update"`
+	TimeOfLastUpdate time.Time `json:"time-last-update"`
 	TeamInfo         *teamInfo `json:"team-info"`
 }
 
