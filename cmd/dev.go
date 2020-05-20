@@ -48,12 +48,15 @@ func gozCSVCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			w := csv.NewWriter(os.Stdout)
+
 			for _, c := range cd {
 				info := to[c.ChainID]
 				c.TeamInfo = info
+				w.Write([]string{c.TeamInfo.Name, c.TeamInfo.Address, c.TeamInfo.RPCAddr, c.ClientID})
 			}
-			out, _ := json.Marshal(cd)
-			fmt.Println(string(out))
+			w.Flush()
+
 			return nil
 		},
 	}
