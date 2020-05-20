@@ -8,13 +8,14 @@ import (
 )
 
 // RelayMsgs contains the msgs that need to be sent to both a src and dst chain
-// after a given relay round
+// after a given relay round. MaxTxSize and MaxMsgLength are ignored if they are
+// set to zero.
 type RelayMsgs struct {
 	Src []sdk.Msg
 	Dst []sdk.Msg
 
-	MaxMsgLength uint64
-	MaxTxSize    uint64
+	MaxTxSize    uint64 // maximum amount of messages in a bundled relay transaction
+	MaxMsgLength uint64 // maximum permitted size of the msgs in a bundled relay transaction
 
 	last    bool
 	success bool
@@ -94,6 +95,8 @@ func (r *RelayMsgs) Send(src, dst *Chain) {
 	}
 }
 
+// Submits the messages to the provided chain and logs the result of the transaction.
+// Returns true upon success and false otherwise.
 func send(chain *Chain, msgs []sdk.Msg) bool {
 	res, err := chain.SendMsgs(msgs)
 	if err != nil || res.Code != 0 {

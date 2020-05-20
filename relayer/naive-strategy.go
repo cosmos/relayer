@@ -18,8 +18,7 @@ func NewNaiveStrategy() *StrategyCfg {
 	}
 }
 
-// NaiveStrategy is an implementation of Strategy. MaxTxSize and MaxMsgLength
-// are ignored if they are set to zero.
+// NaiveStrategy is an implementation of Strategy.
 type NaiveStrategy struct {
 	Ordered      bool
 	MaxTxSize    uint64 // maximum permitted size of the msgs in a bundled relay transaction
