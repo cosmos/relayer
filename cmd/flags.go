@@ -9,21 +9,23 @@ import (
 )
 
 var (
-	flagHash       = "hash"
-	flagURL        = "url"
-	flagForce      = "force"
-	flagFlags      = "flags"
-	flagTimeout    = "timeout"
-	flagConfig     = "config"
-	flagJSON       = "json"
-	flagYAML       = "yaml"
-	flagFile       = "file"
-	flagPath       = "path"
-	flagListenAddr = "listen"
-	flagTx         = "no-tx"
-	flagBlock      = "no-block"
-	flagData       = "data"
-	flagOrder      = "unordered"
+	flagHash         = "hash"
+	flagURL          = "url"
+	flagForce        = "force"
+	flagFlags        = "flags"
+	flagTimeout      = "timeout"
+	flagConfig       = "config"
+	flagJSON         = "json"
+	flagYAML         = "yaml"
+	flagFile         = "file"
+	flagPath         = "path"
+	flagListenAddr   = "listen"
+	flagTx           = "no-tx"
+	flagBlock        = "no-block"
+	flagData         = "data"
+	flagOrder        = "unordered"
+	flagMaxTxSize    = "max-tx-size"
+	flagMaxMsgLength = "max-msgs"
 )
 
 func liteFlags(cmd *cobra.Command) *cobra.Command {
@@ -167,6 +169,18 @@ func getTimeout(cmd *cobra.Command) (time.Duration, error) {
 func urlFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagURL, "u", "", "url to fetch data from")
 	if err := viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func strategyFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagMaxTxSize, "s", "2", "maximum size (in MB) of the messages in a relay transaction")
+	cmd.Flags().StringP(flagMaxMsgLength, "l", "5", "maximum number of messages in a relay transaction")
+	if err := viper.BindPFlag(flagMaxTxSize, cmd.Flags().Lookup(flagMaxTxSize)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flagMaxMsgLength, cmd.Flags().Lookup(flagMaxMsgLength)); err != nil {
 		panic(err)
 	}
 	return cmd

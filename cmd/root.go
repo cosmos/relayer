@@ -28,6 +28,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	MB = 1048576 // in bytes
+)
+
 var (
 	cfgPath     string
 	homePath    string

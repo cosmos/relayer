@@ -40,7 +40,12 @@ func startCmd() *cobra.Command {
 			}
 
 			path := config.Paths.MustGet(args[0])
-			done, err := relayer.RunStrategy(c[src], c[dst], path.MustGetStrategy(), path.Ordered())
+			strategy, err := GetStrategyWithOptions(cmd, path.MustGetStrategy())
+			if err != nil {
+				return err
+			}
+
+			done, err := relayer.RunStrategy(c[src], c[dst], strategy, path.Ordered())
 			if err != nil {
 				return err
 			}
@@ -49,7 +54,7 @@ func startCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return strategyFlag(cmd)
 }
 
 // trap signal waits for a SIGINT or SIGTERM and then sends down the done channel

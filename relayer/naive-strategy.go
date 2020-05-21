@@ -9,6 +9,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+var _ Strategy = &NaiveStrategy{}
+
 // NewNaiveStrategy returns the proper config for the NaiveStrategy
 func NewNaiveStrategy() *StrategyCfg {
 	return &StrategyCfg{
@@ -16,9 +18,11 @@ func NewNaiveStrategy() *StrategyCfg {
 	}
 }
 
-// NaiveStrategy is an implementation of Strategy
+// NaiveStrategy is an implementation of Strategy.
 type NaiveStrategy struct {
-	Ordered bool
+	Ordered      bool
+	MaxTxSize    uint64 // maximum permitted size of the msgs in a bundled relay transaction
+	MaxMsgLength uint64 // maximum amount of messages in a bundled relay transaction
 }
 
 // GetType implements Strategy
@@ -40,7 +44,7 @@ func (nrs *NaiveStrategy) UnrelayedSequencesUnordered(src, dst *Chain, sh *SyncH
 func (nrs *NaiveStrategy) HandleEvents(src, dst *Chain, sh *SyncHeaders, events map[string][]string) {
 	rlyPackets, err := relayPacketsFromEventListener(src.PathEnd, dst.PathEnd, events)
 	if len(rlyPackets) > 0 && err == nil {
-		sendTxFromEventPackets(src, dst, rlyPackets, sh)
+		nrs.sendTxFromEventPackets(src, dst, rlyPackets, sh)
 	}
 }
 
@@ -142,7 +146,7 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 	return
 }
 
-func sendTxFromEventPackets(src, dst *Chain, rlyPackets []relayPacket, sh *SyncHeaders) {
+func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []relayPacket, sh *SyncHeaders) {
 	// fetch the proofs for the relayPackets
 	for _, rp := range rlyPackets {
 		if err := rp.FetchCommitResponse(src, dst, sh); err != nil {
@@ -159,7 +163,9 @@ func sendTxFromEventPackets(src, dst *Chain, rlyPackets []relayPacket, sh *SyncH
 			Src: []sdk.Msg{
 				src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress()),
 			},
-			Dst: []sdk.Msg{},
+			Dst:          []sdk.Msg{},
+			MaxTxSize:    nrs.MaxTxSize,
+			MaxMsgLength: nrs.MaxMsgLength,
 		}
 
 		// add the packet msgs to RelayPackets
@@ -170,6 +176,7 @@ func sendTxFromEventPackets(src, dst *Chain, rlyPackets []relayPacket, sh *SyncH
 		if txs.Send(src, dst); !txs.success {
 			return fmt.Errorf("failed to send packets")
 		}
+
 		return nil
 	}); err != nil {
 		src.Error(err)
@@ -184,10 +191,14 @@ func (nrs *NaiveStrategy) RelayPacketsUnorderedChan(src, dst *Chain, sp *RelaySe
 
 // RelayPacketsOrderedChan creates transactions to clear both queues
 // CONTRACT: the SyncHeaders passed in here must be up to date or being kept updated
-func (*NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) error {
-
-	// create the appropriate update client messages
-	msgs := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
+func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) error {
+	// set the maximum relay transaction constraints
+	msgs := &RelayMsgs{
+		Src:          []sdk.Msg{},
+		Dst:          []sdk.Msg{},
+		MaxTxSize:    nrs.MaxTxSize,
+		MaxMsgLength: nrs.MaxMsgLength,
+	}
 
 	// add messages for src -> dst
 	for _, seq := range sp.Src {
