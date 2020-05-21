@@ -42,6 +42,14 @@ func liteFlags(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
+func heightFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Int64(flags.FlagHeight, -1, "Height of headers to fetch")
+	if err := viper.BindPFlag(flags.FlagHeight, cmd.Flags().Lookup(flags.FlagHeight)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
 func paginationFlags(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().IntP(flags.FlagPage, "p", 1, "pagination page of light clients to to query for")
 	cmd.Flags().IntP(flags.FlagLimit, "l", 100, "pagination limit of light clients to query for")

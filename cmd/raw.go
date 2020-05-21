@@ -65,7 +65,7 @@ func updateClientCmd() *cobra.Command {
 			var dstHeader *tmclient.Header
 
 			if height > 0 {
-				dstHeader, err = chains[dst].UpdateLiteWithHeaderHeight(int64(height))
+				dstHeader, err = chains[dst].UpdateLiteWithHeaderHeight(height)
 				if err != nil {
 					return err
 				}
@@ -79,7 +79,7 @@ func updateClientCmd() *cobra.Command {
 			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress())}, chains[src], cmd)
 		},
 	}
-	return liteFlags(cmd)
+	return heightFlag(cmd)
 }
 
 func createClientCmd() *cobra.Command {
