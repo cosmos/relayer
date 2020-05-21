@@ -93,6 +93,32 @@ func (c *Chain) UpdateLiteWithHeader() (*tmclient.Header, error) {
 	return &tmclient.Header{SignedHeader: *sh, ValidatorSet: vs}, nil
 }
 
+func (c *Chain) UpdateLiteWithHeaderHeight(height int64) (*tmclient.Header, error) {
+	// create database connection
+	db, df, err := c.NewLiteDB()
+	if err != nil {
+		return nil, err
+	}
+	defer df()
+
+	client, err := c.LiteClientWithoutTrust(db)
+	if err != nil {
+		return nil, err
+	}
+
+	sh, err := client.VerifyHeaderAtHeight(height, time.Now())
+	if err != nil {
+		return nil, err
+	}
+
+	vs, _, err := client.TrustedValidatorSet(sh.Height)
+	if err != nil {
+		return nil, err
+	}
+
+	return &tmclient.Header{SignedHeader: *sh, ValidatorSet: vs}, nil
+}
+
 // LiteClientWithoutTrust reads the trusted period off of the chain.
 func (c *Chain) LiteClientWithoutTrust(db *dbm.GoLevelDB) (*lite.Client, error) {
 	httpProvider, err := litehttp.New(c.ChainID, c.RPCAddr)
