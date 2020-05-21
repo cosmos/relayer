@@ -91,7 +91,7 @@ func createClientCmd() *cobra.Command {
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.CreateClient(dstHeader, chains[src].GetTrustingPeriod(), chains[src].MustGetAddress())}, chains[src], cmd)
+			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.CreateClient(dstHeader, chains[dst].GetTrustingPeriod(), chains[src].MustGetAddress())}, chains[src], cmd)
 		},
 	}
 	return cmd
