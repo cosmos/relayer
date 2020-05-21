@@ -23,7 +23,7 @@ func (src *Chain) CreateClients(dst *Chain) (err error) {
 		if src.debug {
 			src.logCreateClient(dst, dstH.GetHeight())
 		}
-		clients.Src = append(clients.Src, src.PathEnd.CreateClient(dstH, src.GetTrustingPeriod(), src.MustGetAddress()))
+		clients.Src = append(clients.Src, src.PathEnd.CreateClient(dstH, dst.GetTrustingPeriod(), src.MustGetAddress()))
 	}
 
 	// Create client for src on dst if it doesn't exist
@@ -37,7 +37,7 @@ func (src *Chain) CreateClients(dst *Chain) (err error) {
 		if dst.debug {
 			dst.logCreateClient(src, srcH.GetHeight())
 		}
-		clients.Dst = append(clients.Dst, dst.PathEnd.CreateClient(srcH, dst.GetTrustingPeriod(), dst.MustGetAddress()))
+		clients.Dst = append(clients.Dst, dst.PathEnd.CreateClient(srcH, src.GetTrustingPeriod(), dst.MustGetAddress()))
 	}
 
 	// Send msgs to both chains
