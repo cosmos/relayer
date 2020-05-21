@@ -72,11 +72,15 @@ func (c *Chain) logCreateClient(dst *Chain, dstH uint64) {
 }
 
 func (c *Chain) logTx(events map[string][]string) {
+	hash := ""
+	if len(events["tx.hash"]) > 0 {
+		hash = events["tx.hash"][0]
+	}
 	c.Log(fmt.Sprintf("• [%s]@{%d} - actions(%s) hash(%s)",
 		c.ChainID,
 		getTxEventHeight(events),
 		getTxActions(events["message.action"]),
-		events["tx.hash"][0]),
+		hash),
 	)
 }
 
