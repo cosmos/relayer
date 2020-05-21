@@ -428,7 +428,7 @@ type clientData struct {
 	ConnectionIDs    []string  `json:"connection-ids"`
 	ChannelIDs       []string  `json:"channel-ids"`
 	ChainID          string    `json:"chain-id"`
-	TimeOfLastUpdate time.Time `json:"since-last-update"`
+	TimeOfLastUpdate time.Time `json:"time-last-update"`
 	TeamInfo         *teamInfo `json:"team-info"`
 }
 
