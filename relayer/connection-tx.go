@@ -116,6 +116,17 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		if src.debug {
 			logConnectionStates(src, dst, conn)
 		}
+		// Let’s say you have created ibc1client on ibc0 and ibc0client on ibc1. And initialized the connection on ibc0.
+		// Now we want to build and send MsgConnOpenTry to ibc1 using this command:
+		// rly tx raw connection-step ibc0 ibc1 ibc1client ibc0client ibc0conn2ibc1 ibc1conn2ibc0 -d
+		// You may see this message from ibc1:
+		// {"height":"1911","txhash":"1FCDCC8C584C8ED23481D417979133EC9516FB9BE0FC0F0938581028A1BE3909","codespace":"client","code":19,"raw_log":"failed to execute message; message index: 1: self consensus state not found","gas_wanted":"200000","gas_used":"103616"}
+		// This means that ibc1 connection handle could not find a local consensus state with the consensus_height from the message because it was not present in the historical data, which means consensus_height < latest_height - 100. So ibc1client on ibc0 is behind more than 100 headers. However it is not expired (i.e. not older than trusting period).
+		// The way to fix this via cli is rly tx raw update-client ibc0 ibc1 ibc1client
+		// Could also be fixed in the code, maybe in:
+		// func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
+		// After getting the latest consensus state, check if it’s too far away from the latest height of counterparty chain and send MsgUpdateClient to ibc0. Or just send one regardless for MsgOpenTry and MsgOpenAck. Collect the proofs after this update. (edited)
+
 		out.Src = append(out.Src, src.PathEnd.ConnInit(dst.PathEnd, src.MustGetAddress()))
 
 	// Handshake has started on dst (1 stepdone), relay `connOpenTry` and `updateClient` on src
