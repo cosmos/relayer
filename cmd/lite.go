@@ -55,7 +55,7 @@ func initLiteCmd() *cobra.Command {
 		Long: `Initiate the light client by:
 	1. passing it a root of trust as a --hash/-x and --height
 	2. via --url/-u where trust options can be found
-	3. Use --force/-f to initalize from the configured node`,
+	3. Use --force/-f to initialize from the configured node`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -289,7 +289,7 @@ func deleteLiteCmd() *cobra.Command {
 
 func queryTrustOptions(url string) (out lite.TrustOptions, err error) {
 	// fetch from URL
-	res, err := http.Get(url)
+	res, err := http.Get(url) //nolint:gosec // Potential HTTP request made with variable url
 	if err != nil {
 		return
 	}

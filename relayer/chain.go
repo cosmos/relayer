@@ -92,11 +92,12 @@ func (src *Chain) listenLoop(doneChan chan struct{}, tx, block, data bool) {
 	for {
 		select {
 		case srcMsg := <-srcTxEvents:
-			if tx {
+			switch {
+			case tx:
 				continue
-			} else if data {
+			case data:
 				mar = srcMsg
-			} else {
+			default:
 				mar = srcMsg.Events
 			}
 			if byt, err = json.Marshal(mar); err != nil {
@@ -104,11 +105,12 @@ func (src *Chain) listenLoop(doneChan chan struct{}, tx, block, data bool) {
 			}
 			fmt.Println(string(byt))
 		case srcMsg := <-srcBlockEvents:
-			if block {
+			switch {
+			case block:
 				continue
-			} else if data {
+			case data:
 				mar = srcMsg
-			} else {
+			default:
 				mar = srcMsg.Events
 			}
 			if byt, err = json.Marshal(mar); err != nil {
@@ -124,7 +126,8 @@ func (src *Chain) listenLoop(doneChan chan struct{}, tx, block, data bool) {
 
 // Init initializes the pieces of a chain that aren't set when it parses a config
 // NOTE: All validation of the chain should happen here.
-func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.Codec, timeout time.Duration, debug bool) error {
+func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.Codec,
+	timeout time.Duration, debug bool) error {
 	keybase, err := keys.New(src.ChainID, "test", keysDir(homePath, src.ChainID), nil)
 	if err != nil {
 		return err
@@ -375,7 +378,7 @@ func (src *Chain) Update(key, value string) (out *Chain, err error) {
 		return out, fmt.Errorf("key %s not found", key)
 	}
 
-	return
+	return out, err
 }
 
 // Print fmt.Printlns the json or yaml representation of whatever is passed in

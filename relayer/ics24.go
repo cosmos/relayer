@@ -7,22 +7,22 @@ import (
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
 )
 
-// Vclient validates the client identifer in the path
+// Vclient validates the client identifier in the path
 func (p *PathEnd) Vclient() error {
 	return host.ClientIdentifierValidator(p.ClientID)
 }
 
-// Vconn validates the connection identifer in the path
+// Vconn validates the connection identifier in the path
 func (p *PathEnd) Vconn() error {
 	return host.ConnectionIdentifierValidator(p.ConnectionID)
 }
 
-// Vchan validates the channel identifer in the path
+// Vchan validates the channel identifier in the path
 func (p *PathEnd) Vchan() error {
 	return host.ChannelIdentifierValidator(p.ChannelID)
 }
 
-// Vport validates the port identifer in the path
+// Vport validates the port identifier in the path
 func (p *PathEnd) Vport() error {
 	return host.PortIdentifierValidator(p.PortID)
 }
@@ -32,8 +32,8 @@ func (p PathEnd) String() string {
 }
 
 // PathSet check if the chain has a path set
-func (c *Chain) PathSet() bool {
-	return c.PathEnd != nil
+func (src *Chain) PathSet() bool {
+	return src.PathEnd != nil
 }
 
 // PathsSet checks if the chains have their paths set
@@ -47,18 +47,19 @@ func PathsSet(chains ...*Chain) bool {
 }
 
 // SetPath sets the path and validates the identifiers
-func (c *Chain) SetPath(p *PathEnd) error {
+func (src *Chain) SetPath(p *PathEnd) error {
 	err := p.Validate()
 	if err != nil {
-		return c.ErrCantSetPath(err)
+		return src.ErrCantSetPath(err)
 	}
-	c.PathEnd = p
+	src.PathEnd = p
 	return nil
 }
 
 // AddPath takes the elements of a path and validates then, setting that path to the chain
-func (c *Chain) AddPath(clientID, connectionID, channelID, port, order string) error {
-	return c.SetPath(&PathEnd{ChainID: c.ChainID, ClientID: clientID, ConnectionID: connectionID, ChannelID: channelID, PortID: port, Order: order})
+func (src *Chain) AddPath(clientID, connectionID, channelID, port, order string) error {
+	return src.SetPath(&PathEnd{ChainID: src.ChainID, ClientID: clientID,
+		ConnectionID: connectionID, ChannelID: channelID, PortID: port, Order: order})
 }
 
 // Validate returns errors about invalid identifiers as well as
@@ -83,11 +84,11 @@ func (p *PathEnd) Validate() error {
 }
 
 // ErrPathNotSet returns information what identifiers are needed to relay
-func (c *Chain) ErrPathNotSet() error {
-	return fmt.Errorf("Path on chain %s not set", c.ChainID)
+func (src *Chain) ErrPathNotSet() error {
+	return fmt.Errorf("path on chain %s not set", src.ChainID)
 }
 
 // ErrCantSetPath returns an error if the path doesn't set properly
-func (c *Chain) ErrCantSetPath(err error) error {
-	return fmt.Errorf("Path on chain %s failed to set: %w", c.ChainID, err)
+func (src *Chain) ErrCantSetPath(err error) error {
+	return fmt.Errorf("path on chain %s failed to set: %w", src.ChainID, err)
 }

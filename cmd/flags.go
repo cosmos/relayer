@@ -143,7 +143,7 @@ func timeoutFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func forceFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP(flagForce, "f", false, "option to force non-standard behavior such as initialization of lite client from configured chain or generation of new path")
+	cmd.Flags().BoolP(flagForce, "f", false, "option to force non-standard behavior such as initialization of lite client from configured chain or generation of new path") //nolint:lll
 	if err := viper.BindPFlag(flagForce, cmd.Flags().Lookup(flagForce)); err != nil {
 		panic(err)
 	}

@@ -60,7 +60,7 @@ coverage:
 	@echo "viewing test coverage..."
 	@go tool cover --html=coverage.out
 
-ci-lint:
+lint:
 	@GO111MODULE=on golangci-lint run
 	@find . -name '*.go' -type f -not -path "*.git*" | xargs gofmt -d -s
 	@go mod verify

@@ -56,7 +56,7 @@ func (src *Chain) FaucetHandler(fromKey sdk.AccAddress, amount sdk.Coin) func(w 
 		byt, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			str := "Failed to read request body"
-			src.Error(fmt.Errorf(str))
+			src.Error(fmt.Errorf("%s: %w", str, err))
 			respondWithError(w, http.StatusBadGateway, str)
 			return
 		}
@@ -118,7 +118,8 @@ func (src *Chain) checkAddress(addr string) (time.Duration, error) {
 		sinceLastRequest := time.Since(val)
 		if faucetTimeout > sinceLastRequest {
 			wait := faucetTimeout - sinceLastRequest
-			return wait, fmt.Errorf("%s has requested funds within the last %s, wait %s before trying again", addr, faucetTimeout.String(), wait.String())
+			return wait, fmt.Errorf("%s has requested funds within the last %s, wait %s before trying again",
+				addr, faucetTimeout.String(), wait.String())
 		}
 	}
 	src.faucetAddrs[addr] = time.Now()

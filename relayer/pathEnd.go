@@ -54,7 +54,8 @@ func (src *PathEnd) UpdateClient(dstHeader *tmclient.Header, signer sdk.AccAddre
 }
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (src *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod time.Duration, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod time.Duration,
+	signer sdk.AccAddress) sdk.Msg {
 	if err := dstHeader.ValidateBasic(dstHeader.ChainID); err != nil {
 		panic(err)
 	}
@@ -83,7 +84,8 @@ func (src *PathEnd) ConnInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 
 // ConnTry creates a MsgConnectionOpenTry
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (src *PathEnd) ConnTry(dst *PathEnd, dstConnState connTypes.ConnectionResponse, dstConsState clientTypes.ConsensusStateResponse, dstCsHeight int64, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) ConnTry(dst *PathEnd, dstConnState connTypes.ConnectionResponse,
+	dstConsState clientTypes.ConsensusStateResponse, dstCsHeight int64, signer sdk.AccAddress) sdk.Msg {
 	return connTypes.NewMsgConnectionOpenTry(
 		src.ConnectionID,
 		src.ClientID,
@@ -101,7 +103,8 @@ func (src *PathEnd) ConnTry(dst *PathEnd, dstConnState connTypes.ConnectionRespo
 
 // ConnAck creates a MsgConnectionOpenAck
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (src *PathEnd) ConnAck(dstConnState connTypes.ConnectionResponse, dstConsState clientTypes.ConsensusStateResponse, dstCsHeight int64, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) ConnAck(dstConnState connTypes.ConnectionResponse, dstConsState clientTypes.ConsensusStateResponse,
+	dstCsHeight int64, signer sdk.AccAddress) sdk.Msg {
 	return connTypes.NewMsgConnectionOpenAck(
 		src.ConnectionID,
 		dstConnState.Proof,
@@ -199,7 +202,8 @@ func (src *PathEnd) ChanCloseConfirm(dstChanState chanTypes.ChannelResponse, sig
 }
 
 // MsgRecvPacket creates a MsgPacket
-func (src *PathEnd) MsgRecvPacket(dst *PathEnd, sequence, timeoutHeight, timeoutStamp uint64, packetData []byte, proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) MsgRecvPacket(dst *PathEnd, sequence, timeoutHeight, timeoutStamp uint64,
+	packetData []byte, proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgPacket(
 		dst.NewPacket(
 			src,
@@ -215,7 +219,8 @@ func (src *PathEnd) MsgRecvPacket(dst *PathEnd, sequence, timeoutHeight, timeout
 }
 
 // MsgTimeout creates MsgTimeout
-func (src *PathEnd) MsgTimeout(dst *PathEnd, packetData []byte, seq, timeout, timeoutStamp uint64, proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) MsgTimeout(dst *PathEnd, packetData []byte, seq, timeout, timeoutStamp uint64,
+	proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgTimeout(
 		src.NewPacket(
 			dst,
@@ -232,7 +237,8 @@ func (src *PathEnd) MsgTimeout(dst *PathEnd, packetData []byte, seq, timeout, ti
 }
 
 // MsgAck creates MsgAck
-func (src *PathEnd) MsgAck(dst *PathEnd, sequence, timeoutHeight, timeoutStamp uint64, ack, packetData []byte, proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) MsgAck(dst *PathEnd, sequence, timeoutHeight, timeoutStamp uint64, ack, packetData []byte,
+	proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgAcknowledgement(
 		src.NewPacket(
 			dst,
@@ -249,7 +255,8 @@ func (src *PathEnd) MsgAck(dst *PathEnd, sequence, timeoutHeight, timeoutStamp u
 }
 
 // MsgTransfer creates a new transfer message
-func (src *PathEnd) MsgTransfer(dst *PathEnd, dstHeight uint64, amount sdk.Coins, dstAddr string, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) MsgTransfer(dst *PathEnd, dstHeight uint64, amount sdk.Coins, dstAddr string,
+	signer sdk.AccAddress) sdk.Msg {
 	return xferTypes.NewMsgTransfer(
 		src.PortID,
 		src.ChannelID,
@@ -261,15 +268,18 @@ func (src *PathEnd) MsgTransfer(dst *PathEnd, dstHeight uint64, amount sdk.Coins
 }
 
 // MsgSendPacket creates a new arbitrary packet message
-func (src *PathEnd) MsgSendPacket(dst *PathEnd, packetData []byte, relativeTimeout, timeoutStamp uint64, signer sdk.AccAddress) sdk.Msg {
+func (src *PathEnd) MsgSendPacket(dst *PathEnd, packetData []byte, relativeTimeout, timeoutStamp uint64,
+	signer sdk.AccAddress) sdk.Msg {
 	// NOTE: Use this just to pass the packet integrity checks.
 	fakeSequence := uint64(1)
-	packet := chanTypes.NewPacket(packetData, fakeSequence, src.PortID, src.ChannelID, dst.PortID, dst.ChannelID, relativeTimeout, timeoutStamp)
+	packet := chanTypes.NewPacket(packetData, fakeSequence, src.PortID, src.ChannelID, dst.PortID,
+		dst.ChannelID, relativeTimeout, timeoutStamp)
 	return NewMsgSendPacket(packet, signer)
 }
 
 // NewPacket returns a new packet from src to dist w
-func (src *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte, timeoutHeight, timeoutStamp uint64) chanTypes.Packet {
+func (src *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte,
+	timeoutHeight, timeoutStamp uint64) chanTypes.Packet {
 	return chanTypes.NewPacket(
 		packetData,
 		sequence,
@@ -283,16 +293,17 @@ func (src *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte, 
 }
 
 // XferPacket creates a new transfer packet
-func (src *PathEnd) XferPacket(amount sdk.Coins, sender, reciever string) []byte {
+func (src *PathEnd) XferPacket(amount sdk.Coins, sender, receiver string) []byte {
 	return xferTypes.NewFungibleTokenPacketData(
 		amount,
 		sender,
-		reciever,
+		receiver,
 	).GetBytes()
 }
 
 // PacketMsg returns a new MsgPacket for forwarding packets from one chain to another
-func (src *Chain) PacketMsg(dst *Chain, xferPacket []byte, timeout, timeoutStamp uint64, seq int64, dstCommitRes CommitmentResponse) sdk.Msg {
+func (src *Chain) PacketMsg(dst *Chain, xferPacket []byte, timeout, timeoutStamp uint64,
+	seq int64, dstCommitRes CommitmentResponse) sdk.Msg {
 	return src.PathEnd.MsgRecvPacket(
 		dst.PathEnd,
 		uint64(seq),

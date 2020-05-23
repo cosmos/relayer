@@ -40,7 +40,7 @@ func (nrs *NaiveStrategy) UnrelayedSequencesUnordered(src, dst *Chain, sh *SyncH
 	return UnrelayedSequences(src, dst, sh)
 }
 
-// HandleEvents defines how the relayer will handle block and transaction events as they are emmited
+// HandleEvents defines how the relayer will handle block and transaction events as they are emitted
 func (nrs *NaiveStrategy) HandleEvents(src, dst *Chain, sh *SyncHeaders, events map[string][]string) {
 	rlyPackets, err := relayPacketsFromEventListener(src.PathEnd, dst.PathEnd, events)
 	if len(rlyPackets) > 0 && err == nil {
@@ -59,7 +59,8 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 			dstChan, dstPort := events["send_packet.packet_dst_channel"], events["send_packet.packet_dst_port"]
 
 			// NOTE: Src and Dst are switched here
-			if dst.PortID == srcPort[i] && dst.ChannelID == srcChan[i] && src.PortID == dstPort[i] && src.ChannelID == dstChan[i] {
+			if dst.PortID == srcPort[i] && dst.ChannelID == srcChan[i] &&
+				src.PortID == dstPort[i] && src.ChannelID == dstChan[i] {
 				rp := &relayMsgRecvPacket{packetData: []byte(pd)}
 
 				// next, get and parse the sequence
@@ -104,7 +105,8 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 			dstChan, dstPort := events["recv_packet.packet_dst_channel"], events["recv_packet.packet_dst_port"]
 
 			// NOTE: Src and Dst are not switched here
-			if src.PortID == srcPort[i] && src.ChannelID == srcChan[i] && dst.PortID == dstPort[i] && dst.ChannelID == dstChan[i] {
+			if src.PortID == srcPort[i] && src.ChannelID == srcChan[i] &&
+				dst.PortID == dstPort[i] && dst.ChannelID == dstChan[i] {
 				rp := &relayMsgPacketAck{packetData: []byte(pd)}
 
 				// first get the ack
@@ -143,7 +145,7 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 			}
 		}
 	}
-	return
+	return rlyPkts, nil
 }
 
 func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []relayPacket, sh *SyncHeaders) {
@@ -227,7 +229,8 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 	}
 
 	if !msgs.Ready() {
-		src.Log(fmt.Sprintf("- No packets to relay between [%s]port{%s} and [%s]port{%s}", src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))
+		src.Log(fmt.Sprintf("- No packets to relay between [%s]port{%s} and [%s]port{%s}",
+			src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))
 		return nil
 	}
 
@@ -286,7 +289,8 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (*Chain,
 		// sanity check the sequence number against the one we are querying for
 		// TODO: move this into relayPacketFromQueryResponse?
 		if seq != rcvPackets[0].Seq() {
-			return nil, nil, fmt.Errorf("Different sequence number from query (%d vs %d)", seq, rcvPackets[0].Seq())
+			return nil, nil,
+				fmt.Errorf("different sequence number from query (%d vs %d)", seq, rcvPackets[0].Seq())
 		}
 
 		// fetch the proof from the sending chain
@@ -302,7 +306,8 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (*Chain,
 	// recv packets
 	// relayPacketFromQueryResponse returned a timeout msg, create a timeout msg to be sent to original sender chain
 	if seq != timeoutPackets[0].Seq() {
-		return nil, nil, fmt.Errorf("Different sequence number from query (%d vs %d)", seq, timeoutPackets[0].Seq())
+		return nil, nil,
+			fmt.Errorf("different sequence number from query (%d vs %d)", seq, timeoutPackets[0].Seq())
 	}
 
 	// fetch the timeout proof from the receiving chain
@@ -317,7 +322,8 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (*Chain,
 
 // relayPacketFromQueryResponse looks through the events in a sdk.Response
 // and returns relayPackets with the appropriate data
-func relayPacketFromQueryResponse(src, dst *PathEnd, res sdk.TxResponse, sh *SyncHeaders) (rcvPackets []relayPacket, timeoutPackets []relayPacket, err error) {
+func relayPacketFromQueryResponse(src, dst *PathEnd, res sdk.TxResponse,
+	sh *SyncHeaders) (rcvPackets []relayPacket, timeoutPackets []relayPacket, err error) {
 	for _, l := range res.Logs {
 		for _, e := range l.Events {
 			if e.Type == "send_packet" {

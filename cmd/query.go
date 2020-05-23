@@ -20,7 +20,7 @@ func queryCmd() *cobra.Command {
 		Use:     "query",
 		Aliases: []string{"q"},
 		Short:   "IBC Query Commands",
-		Long:    "Commands to query IBC primatives, and other useful data on configured chains.",
+		Long:    "Commands to query IBC primitives, and other useful data on configured chains.",
 	}
 
 	cmd.AddCommand(
@@ -76,8 +76,9 @@ func queryTxs() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "txs [chain-id] [events]",
 		Short: "Query transactions by the events they produce",
-		Long: strings.TrimSpace(`Search for transactions that match the exact given events where results are paginated. Each event 
-takes the form of '{eventType}.{eventAttribute}={value}' with multiple events seperated by '&'. 
+		Long: strings.TrimSpace(
+			`Search for transactions that match the exact given events where results are paginated. Each event 
+takes the form of '{eventType}.{eventAttribute}={value}' with multiple events separated by '&'. 
 Please refer to each module's documentation for the full set of events to query for. Each module
 documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.`),
 		Args: cobra.ExactArgs(2),

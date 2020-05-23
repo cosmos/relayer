@@ -55,7 +55,9 @@ func gozCSVCmd() *cobra.Command {
 				info := to[c.ChainID]
 				if info != nil {
 					c.TeamInfo = info
-					w.Write([]string{c.TeamInfo.Name, c.TeamInfo.Address, c.TeamInfo.RPCAddr, c.ClientID})
+					if err := w.Write([]string{c.TeamInfo.Name, c.TeamInfo.Address, c.TeamInfo.RPCAddr, c.ClientID}); err != nil {
+						return err
+					}
 				}
 			}
 			w.Flush()
@@ -167,7 +169,7 @@ func listenCmd() *cobra.Command {
 			}
 
 			if block && tx {
-				return fmt.Errorf("Must output block and/or tx")
+				return fmt.Errorf("must output block and/or tx")
 			}
 
 			done := c.ListenRPCEmitJSON(tx, block, data)
@@ -289,20 +291,22 @@ func rlyService() *cobra.Command {
 			if srcBal, err = chains[src].QueryBalance(chains[src].Key); err != nil {
 				return err
 			} else if srcBal.AmountOf(chains[src].DefaultDenom).IsZero() {
-				return fmt.Errorf("no balance on %s, ensure %s has a balance before continuing setup", src, chains[src].MustGetAddress())
+				return fmt.Errorf("no balance on %s, ensure %s has a balance before continuing setup",
+					src, chains[src].MustGetAddress())
 			}
 			if dstBal, err = chains[dst].QueryBalance(chains[dst].Key); err != nil {
 				return err
 			} else if dstBal.AmountOf(chains[dst].DefaultDenom).IsZero() {
-				return fmt.Errorf("no balance on %s, ensure %s has a balance before continuing setup", dst, chains[dst].MustGetAddress())
+				return fmt.Errorf("no balance on %s, ensure %s has a balance before continuing setup",
+					dst, chains[dst].MustGetAddress())
 			}
 
 			// ensure lite clients are initialized
 			if _, err = chains[src].GetLatestLiteHeight(); err != nil {
-				return fmt.Errorf("no lite client on %s, ensure it is initalized before continuing: %w", src, err)
+				return fmt.Errorf("no lite client on %s, ensure it is initialized before continuing: %w", src, err)
 			}
 			if _, err = chains[dst].GetLatestLiteHeight(); err != nil {
-				return fmt.Errorf("no lite client on %s, ensure it is initalized before continuing: %w", dst, err)
+				return fmt.Errorf("no lite client on %s, ensure it is initialized before continuing: %w", dst, err)
 			}
 
 			fmt.Printf(`[Unit]
@@ -442,5 +446,8 @@ func (cd *clientData) StatsD(cl *statsd.Client, prefix string) {
 		fmt.Fprintf(os.Stderr, "%s", string(byt))
 		// TODO: add more cases here
 	}
-	cl.TimeInMilliseconds(fmt.Sprintf("relayer.%s.client", prefix), float64(time.Since(cd.TimeOfLastUpdate).Milliseconds()), []string{"teamname", cd.TeamInfo.Name, "chain-id", cd.ChainID, "client-id", cd.ClientID, "connection-id", cd.ConnectionIDs[0], "channelid", cd.ChannelIDs[0]}, 1)
+	cl.TimeInMilliseconds(fmt.Sprintf("relayer.%s.client", prefix), //nolint:errcheck // ignore error
+		float64(time.Since(cd.TimeOfLastUpdate).Milliseconds()),
+		[]string{"teamname", cd.TeamInfo.Name, "chain-id", cd.ChainID,
+			"client-id", cd.ClientID, "connection-id", cd.ConnectionIDs[0], "channelid", cd.ChannelIDs[0]}, 1)
 }

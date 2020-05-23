@@ -45,8 +45,10 @@ func (r *RelayMsgs) IsMaxTx(msgLen, txSize uint64) bool {
 // Send sends the messages with appropriate output
 // TODO: Parallelize? Maybe?
 func (r *RelayMsgs) Send(src, dst *Chain) {
-	var msgLen, txSize uint64
-	var msgs []sdk.Msg
+	var (
+		msgLen, txSize uint64
+		msgs           = make([]sdk.Msg, len(r.Src))
+	)
 
 	r.success = true
 
@@ -103,10 +105,10 @@ func send(chain *Chain, msgs []sdk.Msg) bool {
 	if err != nil || res.Code != 0 {
 		chain.LogFailedTx(res, err, msgs)
 		return false
-	} else {
-		// NOTE: Add more data to this such as identifiers
-		chain.LogSuccessTx(res, msgs)
 	}
+	// NOTE: Add more data to this such as identifiers
+	chain.LogSuccessTx(res, msgs)
+
 	return true
 }
 

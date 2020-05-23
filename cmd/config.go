@@ -31,6 +31,8 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const ORDERED = "ORDERED"
+
 func configCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "config",
@@ -62,9 +64,9 @@ func configShowCmd() *cobra.Command {
 			cfgPath := path.Join(home, "config", "config.yaml")
 			if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 				if _, err := os.Stat(home); os.IsNotExist(err) {
-					return fmt.Errorf("Home path does not exist: %s", home)
+					return fmt.Errorf("home path does not exist: %s", home)
 				}
-				return fmt.Errorf("Config does not exist: %s", cfgPath)
+				return fmt.Errorf("config does not exist: %s", cfgPath)
 			}
 
 			out, err := yaml.Marshal(config)
@@ -129,7 +131,7 @@ func configInitCmd() *cobra.Command {
 			}
 
 			// Otherwise, the config file exists, and an error is returned...
-			return fmt.Errorf("Config already exists: %s", cfgPath)
+			return fmt.Errorf("config already exists: %s", cfgPath)
 		},
 	}
 	return cmd
@@ -139,7 +141,8 @@ func configAddDirCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "add-dir [dir]",
 		Aliases: []string{"ad"},
-		Short:   "Add new chains and paths to the configuration file from a directory full of chain and path configuration, useful for adding testnet configurations",
+		Short: `Add new chains and paths to the configuration file from a
+		 directory full of chain and path configuration, useful for adding testnet configurations`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var out *Config
 			if out, err = cfgFilesAdd(args[0]); err != nil {
@@ -185,8 +188,8 @@ func cfgFilesAdd(dir string) (cfg *Config, err error) {
 
 			// In the case that order isn't added to the path, add it manually
 			if p.Src.Order == "" || p.Dst.Order == "" {
-				p.Src.Order = "ORDERED"
-				p.Dst.Order = "ORDERED"
+				p.Src.Order = ORDERED
+				p.Dst.Order = ORDERED
 			}
 
 			pthName := strings.Split(f.Name(), ".")[0]
@@ -305,12 +308,12 @@ func (c *Config) DeleteChain(chain string) *Config {
 func validateConfig(c *Config) error {
 	to, err := time.ParseDuration(config.Global.Timeout)
 	if err != nil {
-		return fmt.Errorf("Did you remember to run 'rly config init' error:%w", err)
+		return fmt.Errorf("did you remember to run 'rly config init' error:%w", err)
 	}
 
 	for _, i := range c.Chains {
 		if err := i.Init(homePath, appCodec, cdc, to, debug); err != nil {
-			return fmt.Errorf("Did you remember to run 'rly config init' error:%w", err)
+			return fmt.Errorf("did you remember to run 'rly config init' error:%w", err)
 		}
 	}
 
@@ -377,7 +380,7 @@ func overWriteConfig(cmd *cobra.Command, cfg *Config) error {
 			}
 
 			// overwrite the config file
-			err = ioutil.WriteFile(viper.ConfigFileUsed(), out, 0666)
+			err = ioutil.WriteFile(viper.ConfigFileUsed(), out, 0600)
 			if err != nil {
 				return err
 			}

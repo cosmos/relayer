@@ -65,7 +65,7 @@ func trapSignal(done func()) {
 
 	// wait for a signal
 	sig := <-sigCh
-	fmt.Println("Signal Recieved:", sig.String())
+	fmt.Println("Signal Received", sig.String())
 	close(sigCh)
 
 	// call the cleanup func
