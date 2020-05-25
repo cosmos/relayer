@@ -13,24 +13,24 @@ The team that brought you Game of Stakes will be bringing you Game of Zones this
 
 Learn more about [Game of Zones](https://goz.cosmosnetwork.dev/).
 
-The best place for questions is [gameofzones@cosmosnetwork.dev](mailto:gameofzones@cosmosnetwork.dev) regarding Game of Zones and prepratory testnets.
+The best place for questions is [gameofzones@cosmosnetwork.dev](mailto:gameofzones@cosmosnetwork.dev) regarding Game of Zones and preparatory testnets.
 
 ## Code of Conduct
 
-The iqlusion team is dedicated to providing an inclusive and harrassment free experience for contributors. Please visit [Code of Conduct](CODE_OF_CONDUCT.md) for more information.
+The iqlusion team is dedicated to providing an inclusive and harassment free experience for contributors. Please visit [Code of Conduct](CODE_OF_CONDUCT.md) for more information.
 
 ## Testnet
 
 If you would like to join the relayer testnet, please [check out the instructions](./testnets/README.md).
 
-### Compatability Table:
+### Compatibility Table:
 
-| chain | tests | supported ports |
-|-------|--------|----------------|
-| [`gaia`](https://github.com/cosmos/gaia) | ![gaia](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20gaia%20to%20gaia%20integration/badge.svg) | `transfer` |
-| `microtick` | ![microtick](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20mtd%20to%20ibc%20integration/badge.svg) | `transfer` |
-| [`rocketzone`](https://github.com/rocket-protocol/rocketzone) | ![rocketzone](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20rocketzone%20to%20ibc%20integration/badge.svg) | `transfer` |
-| [`coco`](https://github.com/CosmicCompass/post-chain) | ![coco](https://github.com/CosmicCompass/relayer/workflows/TESTING%20-%20coco%20to%20ibc%20integration/badge.svg) | `transfer` |
+| chain                                                         | tests                                                                                                                       | supported ports |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| [`gaia`](https://github.com/cosmos/gaia)                      | ![gaia](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20gaia%20to%20gaia%20integration/badge.svg)            | `transfer`      |
+| `microtick`                                                   | ![microtick](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20mtd%20to%20ibc%20integration/badge.svg)         | `transfer`      |
+| [`rocketzone`](https://github.com/rocket-protocol/rocketzone) | ![rocketzone](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20rocketzone%20to%20ibc%20integration/badge.svg) | `transfer`      |
+| [`coco`](https://github.com/CosmicCompass/post-chain)         | ![coco](https://github.com/CosmicCompass/relayer/workflows/TESTING%20-%20coco%20to%20ibc%20integration/badge.svg)           | `transfer`      |
 
 ## Demoing the Relayer
 
@@ -111,7 +111,7 @@ $ rly q bal ibc1
 
 ## Setting up Developer Environment
 
-Working with the relayer can frequently involve working with local developement branches of `gaia`, `cosmos-sdk` and the `relayer`. To setup your environment to point at the local versions of the code and reduce the amount of time in your read-eval-print loops try the following:
+Working with the relayer can frequently involve working with local development branches of `gaia`, `cosmos-sdk` and the `relayer`. To setup your environment to point at the local versions of the code and reduce the amount of time in your read-eval-print loops try the following:
 
 1. Set `replace github.com/cosmos/cosmos-sdk => /path/to/local/github.com/comsos/cosmos-sdk` at the end of the `go.mod` files for the `relayer` and `gaia`. This will force building from the local version of the `cosmos-sdk` when running the `./dev-env` script.
 2. After `./dev-env` has run, you can use `go run main.go` for any relayer commands you are working on. This allows you make changes and immediately test them as long as there are no server side changes.

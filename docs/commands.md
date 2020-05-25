@@ -182,11 +182,11 @@ rly chains address [chain-id]
 
 ## rly chains delete
 
-Deletes the chain cofiguration data (does not clear lite client or close and channels)
+Deletes the chain configuration data (does not clear lite client or close and channels)
 
 ### Synopsis
 
-Deletes the chain cofiguration data (does not clear lite client or close and channels)
+Deletes the chain configuration data (does not clear lite client or close and channels)
 
 ```
 rly chains delete [chain-id] [flags]
@@ -199,7 +199,7 @@ Edits chain configuration data
 
 ### Synopsis
 
-Set chain confuguration key's value
+Set chain configuration key's value
 
 ```
 rly chains edit [chain-id] [key] [value] [flags]
@@ -496,18 +496,18 @@ manage lite clients held by the relayer for each chain
 
 ### Subcommands
 
-* [rly lite delete](#rly-lite-delete)	 - wipe the lite client database, forcing re-initialzation on the next run
+* [rly lite delete](#rly-lite-delete)	 - wipe the lite client database, forcing re-initialization on the next run
 * [rly lite header](#rly-lite-header)	 - Get header from the database. 0 returns last trusted header and all others return the header at that height if stored
 * [rly lite init](#rly-lite-init)	 - Initiate the light client
 * [rly lite update](#rly-lite-update)	 - Update the light client by providing a new root of trust
 
 ## rly lite delete
 
-wipe the lite client database, forcing re-initialzation on the next run
+wipe the lite client database, forcing re-initialization on the next run
 
 ### Synopsis
 
-wipe the lite client database, forcing re-initialzation on the next run
+wipe the lite client database, forcing re-initialization on the next run
 
 ```
 rly lite delete [chain-id] [flags]
@@ -705,7 +705,7 @@ IBC Query Commands
 
 ### Synopsis
 
-Commands to query IBC primatives, and other useful data on configured chains.
+Commands to query IBC primitives, and other useful data on configured chains.
 
 ### Subcommands
 
@@ -722,7 +722,7 @@ Commands to query IBC primatives, and other useful data on configured chains.
 * [rly query full-path](#rly-query-full-path)	 - Query for the status of clients, connections, channels and packets on a path
 * [rly query header](#rly-query-header)	 - Query the header of a chain at a given height
 * [rly query node-state](#rly-query-node-state)	 - Query the consensus state of a client at a given height
-* [rly query packet-ack](#rly-query-packet-ack)	 - Query for the packet acknoledgement given it's sequence and channel ids
+* [rly query packet-ack](#rly-query-packet-ack)	 - Query for the packet acknowledgement given it's sequence and channel ids
 * [rly query packet-commit](#rly-query-packet-commit)	 - Query for the packet commitment given it's sequence and channel ids
 * [rly query seq-send](#rly-query-seq-send)	 - Query the next sequence send for a given channel
 * [rly query tx](#rly-query-tx)	 - Query transaction by transaction hash
@@ -954,11 +954,11 @@ rly query node-state [chain-id] [height] [flags]
 
 ## rly query packet-ack
 
-Query for the packet acknoledgement given it's sequence and channel ids
+Query for the packet acknowledgement given it's sequence and channel ids
 
 ### Synopsis
 
-Query for the packet acknoledgement given it's sequence and channel ids
+Query for the packet acknowledgement given it's sequence and channel ids
 
 ```
 rly query packet-ack [chain-id] [channel-id] [port-id] [seq] [flags]
@@ -1438,7 +1438,7 @@ create a connection between chains, passing in identifiers
 
 ### Synopsis
 
-This command creates the next handshake message given a specifc set of identifiers. If the command fails, you can safely run it again to repair an unfinished connection
+This command creates the next handshake message given a specific set of identifiers. If the command fails, you can safely run it again to repair an unfinished connection
 
 ```
 rly transact raw connection-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id] [flags]
