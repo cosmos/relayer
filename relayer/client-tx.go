@@ -18,15 +18,13 @@ func (src *Chain) CreateClients(dst *Chain) (err error) {
 	} else if srcCs == nil {
 		dstH, err := dst.UpdateLiteWithHeader()
 		if err != nil {
-			// fmt.Println("Herere")
 			return err
 		}
 		if src.debug {
 			src.logCreateClient(dst, dstH.GetHeight())
 		}
-		clients.Src = append(clients.Src, src.PathEnd.CreateClient(dstH, src.GetTrustingPeriod(), src.MustGetAddress()))
+		clients.Src = append(clients.Src, src.PathEnd.CreateClient(dstH, dst.GetTrustingPeriod(), src.MustGetAddress()))
 	}
-	// TODO: maybe log something here that the client has been created?
 
 	// Create client for src on dst if it doesn't exist
 	if dstCs, err = dst.QueryClientState(); err != nil {
@@ -39,9 +37,8 @@ func (src *Chain) CreateClients(dst *Chain) (err error) {
 		if dst.debug {
 			dst.logCreateClient(src, srcH.GetHeight())
 		}
-		clients.Dst = append(clients.Dst, dst.PathEnd.CreateClient(srcH, dst.GetTrustingPeriod(), dst.MustGetAddress()))
+		clients.Dst = append(clients.Dst, dst.PathEnd.CreateClient(srcH, src.GetTrustingPeriod(), dst.MustGetAddress()))
 	}
-	// TODO: maybe log something here that the client has been created?
 
 	// Send msgs to both chains
 	if clients.Ready() {

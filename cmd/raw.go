@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -54,19 +56,30 @@ func updateClientCmd() *cobra.Command {
 			if err = chains[src].AddPath(args[2], dcon, dcha, dpor, dord); err != nil {
 				return err
 			}
+
+			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
 			if err != nil {
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLiteWithHeader()
-			if err != nil {
-				return err
+			var dstHeader *tmclient.Header
+
+			if height > 0 {
+				dstHeader, err = chains[dst].UpdateLiteWithHeaderHeight(height)
+				if err != nil {
+					return err
+				}
+			} else {
+				dstHeader, err = chains[dst].UpdateLiteWithHeader()
+				if err != nil {
+					return err
+				}
 			}
 
 			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress())}, chains[src], cmd)
 		},
 	}
-	return cmd
+	return heightFlag(cmd)
 }
 
 func createClientCmd() *cobra.Command {
@@ -91,7 +104,7 @@ func createClientCmd() *cobra.Command {
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.CreateClient(dstHeader, chains[src].GetTrustingPeriod(), chains[src].MustGetAddress())}, chains[src], cmd)
+			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.CreateClient(dstHeader, chains[dst].GetTrustingPeriod(), chains[src].MustGetAddress())}, chains[src], cmd)
 		},
 	}
 	return cmd

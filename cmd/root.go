@@ -17,7 +17,6 @@ package cmd
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"strings"
 
@@ -27,6 +26,10 @@ import (
 	gaia "github.com/cosmos/gaia/app"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+)
+
+const (
+	MB = 1048576 // in bytes
 )
 
 var (
@@ -113,7 +116,6 @@ func Execute() {
 	}
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
 		os.Exit(1)
 	}
 }

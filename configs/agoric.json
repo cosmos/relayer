@@ -9,6 +9,7 @@
   "link": {
     "account-prefix": "agoric",
     "gas": 200000,
+    "gas-adjustment":1.0,
     "gas-prices": "",
     "default-denom": "uagstake",
     "trusting-period": "336h"

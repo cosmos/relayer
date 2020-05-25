@@ -57,8 +57,43 @@ func UpdatesWithHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
 	return hs.Map, hs.err()
 }
 
+func liteError(err error) error { return fmt.Errorf("lite client: %w", err) }
+
 // UpdateLiteWithHeader calls client.Update and then .
 func (c *Chain) UpdateLiteWithHeader() (*tmclient.Header, error) {
+	// create database connection
+	db, df, err := c.NewLiteDB()
+	if err != nil {
+		return nil, liteError(err)
+	}
+	defer df()
+
+	client, err := c.LiteClientWithoutTrust(db)
+	if err != nil {
+		return nil, liteError(err)
+	}
+
+	sh, err := client.Update(time.Now())
+	if err != nil {
+		return nil, liteError(err)
+	}
+
+	if sh == nil {
+		sh, err = client.TrustedHeader(0)
+		if err != nil {
+			return nil, liteError(err)
+		}
+	}
+
+	vs, _, err := client.TrustedValidatorSet(sh.Height)
+	if err != nil {
+		return nil, liteError(err)
+	}
+
+	return &tmclient.Header{SignedHeader: *sh, ValidatorSet: vs}, nil
+}
+
+func (c *Chain) UpdateLiteWithHeaderHeight(height int64) (*tmclient.Header, error) {
 	// create database connection
 	db, df, err := c.NewLiteDB()
 	if err != nil {
@@ -71,16 +106,9 @@ func (c *Chain) UpdateLiteWithHeader() (*tmclient.Header, error) {
 		return nil, err
 	}
 
-	sh, err := client.Update(time.Now())
+	sh, err := client.VerifyHeaderAtHeight(height, time.Now())
 	if err != nil {
 		return nil, err
-	}
-
-	if sh == nil {
-		sh, err = client.TrustedHeader(0)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	vs, _, err := client.TrustedValidatorSet(sh.Height)

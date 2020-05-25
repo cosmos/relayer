@@ -1,0 +1,131 @@
+team_name,cosmos_addr,chain_id,rpc
+Node A-Team,cosmos1s0fymxncdm2tga7swzucywggcunxvq89d3pcyn,achain-1b,tcp://achain.nodeateam.com:26657
+Agoric GoZ,cosmos1kunv205wrrywmny2nhyt87kzeuq5nhq9z8vncw,agoric-goz-1b,tcp://178.128.254.143:26657
+All in Bits Inc,cosmos1xnc4hwja48e77nms0a49eqkdw36d7dqzrj006n,aib-goz-1b,tcp://138.197.157.152:26657
+Akashian,cosmos1dt6wukc53dangle8qz7xjc792u0yrdc35tlcfm,akashian-1b,tcp://159.89.183.144:26657
+Aneka,cosmos14ahfuwynumydy2kz2gq6qe2l4w4n7pr8ycka55,aneka-1b,tcp://goz.aneka.io:26657
+Anonstake,cosmos10zehl3artk76qfmn4h09pxfvvq264ew2me8lap,anon-chain-1b,tcp://116.203.245.68:26657
+Ape Smash,cosmos1jljl9ks0093mewjjmdkdujp6cs3du8pzgh99e4,ape_smash-1b,tcp://116.203.208.175:26657
+ArmyIDs,cosmos13u9vzlmxpk44uzmzvhgctkw0cpht42cgwjw54c,armyids-1b,tcp://goz.armyids.com:26657
+Atomic Bombers,cosmos1kmrn6a4wf2sqw6fxemhee9tr6qz46wvl0hdzya,atomicbombers-1b,tcp://bombers.dokia.cloud:26657
+Audit.One,cosmos1nknhkw97mj8aelekg7v73am6zlrdc3fd3n2lyc,audit.one-1b,tcp://goz.audit.one:26657
+Alpha Virtual,cosmos1x2f3vpdww36px4r6m40mzjnndn8aghfq8yeda7,avnet-1b,tcp://goz.cosmos.alphavirtual.com:26657
+Aynelis,cosmos1afed0xhvc2hzkn38fpqcfl9m9wjycqw7mtvkag,aynchain-1b,tcp://52.247.127.40:26657
+B-Harvest,cosmos1f9z2gazg52a8n6c06xf2234c9y0tzsgtqv4j8q,B-Harvest-1b,tcp://ibc.bharvest.io:26657
+BitSong,cosmos12m0en3wm0f50w25nzqfxvxu3je0vk3qvwqqxxt,bitsong-goz-1b,tcp://goz-1.bitsong.network:26657
+BlockNgine,cosmos1qmd7y0mw63qcuts0z53sptne6vypen5q00xmww,blockngine-ibc-1b,tcp://rpc.blockngine.io:26657
+BigBeautifulSilverPlate,cosmos1fj9lg5n4demt42t6ey6wfzx4ut9pz6yyltzxyx,BlogChain-1b,tcp://blogchain.xyz:26657
+teddyrabbit,cosmos1fnp2kdujj2vrlfj5y4nly2wpy9unjthx8ngfx8,brankochain-1b,tcp://149.248.61.193:26657
+BurekSteak,cosmos12gec735tjutvyjwc0lnlqllgdufnctg62uek7r,burek-1b,tcp://95.216.198.111:26657
+Byzantine Battalion,cosmos12sjv59l22c8evpxd3ekqxzhhg82d4meqx5dajg,byzantine-goz-1b,tcp://178.128.186.74:26657
+Capybara,cosmos1y4gs9xtwk0335zf3kej8el5kzkpalq3dtmxljr,capychain-1b,tcp://capychain.com:26657
+Bit Cat,cosmos12knqu4ecmg0982plzs9m9f5jareh0cvedv6yz0,cat-1b,tcp://3.130.208.130:26657
+Chainapsis,cosmos1l28a844m6p0csr6ypcpnygl4hrg9vr4mqty83j,chainapsis-1b,http://goz.chainapsis.com:80
+chainflow,cosmos1c5udlt5f3m3fj3p2eufw3k9407df8zkhrjlg33,chainflow-1b,tcp://goz.chainflow.io:26657
+ChainLayer,cosmos1j4tmary50sq3cfn6n9vk3k7addplljjmfs5fjd,chainlayer-1b,tcp://176.9.238.157:26657
+Cosmic Compass (CoCo),cosmos17hm0z0gme9nd8th32yz4lde5k48t3nykuu90yq,coco-post-chain-1b,tcp://ibc.cosmiccompass.io:26657
+Compass,cosmos1u0fdsfw0wflm2n9x2ggv09u89ed2nhmfgq88zr,Compass-1b,tcp://goz.val.network:26657
+COSMOON,cosmos1402ggxz5u6vm29sqztwqq8vxs3ke6dmw67kpp9,cosmoon-testnet-1b,tcp://ibc.cosmoon.org:26657
+crazyzoo,cosmos1fxwzwvrd30gzl39c6yy244l3zgxl4x9urnw5zf,crazyzoo-1b,tcp://47.240.29.196:26657
+cyber~Congress,cosmos13fmcdmkurnaz6sklf0tyynln4k48xjj0dwuvpu,cyberdevs-1b,http://cyberdevs.cyberd.ai:26657
+Dawns.World,cosmos1v5fhgkkkvcd9sqpd5arzce0h36jqezcwmf2w3z,dawnsworld-1b,tcp://testnet.dawns.world:26657
+Datachain,cosmos1hezg9c7etk6qvs5p6j22jgxuqdc82fy9tnynmr,dcz-1b,tcp://goz.dev.datachain.jp:26657
+Defending.Network,cosmos1hcapezvn75r8p7c4xglsq82kzrvffudmyp50td,defending-network-1b,tcp://ibc.defending.network:26657
+disraptor,cosmos18wfsw3jqna9268crdzksz897uw08pzdmjwjn5n,disraptorchain-1b,tcp://3.21.156.79:26657
+TeamDK,cosmos1hu9yyd6vyk840gu2lvnajhhmnvxufydxucgsmz,dking-1b,tcp://34.66.86.162:26657
+cdos,cosmos1xl0pc9phu3meevzfy4v8f35c2vy2as3trzwt9w,dos-ibc-1b,tcp://goz.dos.network:26657
+Drops Power,cosmos1jr2kxdw3je9kr7rhxw8y6t40qrms53z5ksc3w2,dropschain-1b,tcp://dropschain.com:26657
+DUNHILL,cosmos154gkwufztxevns3adkmk3q8uhp8mlqwd03r2zy,dunhillchain-1b,tcp://52.231.28.219:26657
+Enigma,cosmos1n4syv5vyndkpswyu6a6cgjvuwzwnrte854c547,enigma-goz-1b,tcp://val1.goz.enigma.co:26657
+Everstake,cosmos1zt902wvvf2340qpq3uxtmst8a5cpgww95s6rv9,everstakechain-1b,tcp://goz.everstake.one:26657
+Protofire,cosmos14el02ask2rr9uez9gc5uqr98cskdt4ydz9nw2x,EVM.Protofire.io-1b,tcp://3.22.194.241:26657
+Chorus One,cosmos1a66jar5lh0mgzexgqfl7rkcuy6gt5rj06l9v2e,fedzone-1b,tcp://fedzone.chorus.one:26657
+Fetch.AI,cosmos16sctx4fhuczxxy6sfj2e5s4v72sqdspx6eectt,fetchBeacon-1b,tcp://fetch-goz.fetch.ai:26657
+Figment Networks,cosmos1yf058v9ur9t59nhmwew2z90q0m28t9fk4nmksr,figment-1b,tcp://goz-ibc.figment.network:26657
+finalbattle,cosmos13m5p3g4xcsmnsneh4c82dmuy45vqa0wav3659p,finalbattlechain-1b,tcp://18.217.240.174:26657
+FreeFlix Media,cosmos1ljd64u6uf5x23c85e6t0v7rquss3weqff6x3mj,freeflix-media-hub-1b,tcp://ibc.freeflix.media:26657
+huglester,cosmos14r2l50t22kk63st9e0zeg3m6hjel6gnzpnmr2j,gemstone-1b,tcp://goz.jptpool.com:26657
+Genesis Lab,cosmos1pah42z0avajjcpdf5u83p9vjp9vpkkc4p82sx3,genesis-lab-1b,tcp://95.216.216.117:26657
+Gruberx_crew,cosmos1ygz4u35t0yyt7vm6fxtl0x6t8nyuw0dly05asn,grbx-route-1b,tcp://176.9.8.110:26657
+gunray,cosmos1wu8mv84pwsmcryq98w8nzwskusmqyv24qpy9pv,gunchain-1b,tcp://goz.gunray.xyz:26657
+Strong,cosmos1wrdpscszcevkeplqykedphclquh3ha6mr0709c,hada-1b,tcp://15.165.120.204:26657
+hashquark,cosmos1a76ndykhlcgm7u7rexn99vmj2uptm2633ypw6f,hashquarkchain-1b,http://goz.hashquark.io:26657
+kokuwa,cosmos1xl67sr4mdv2ejc4whgpkz66llm2v8g24dmxcn7,hongo-3-1b,tcp://18.178.211.15:26657
+Interstation,cosmos108rpmv2kr798p7nalkdgdexkmem70shkecqvhh,interstation-1b,tcp://interstation.cosmostation.io:26657
+IRISnet,cosmos10uvrya46d400ymgp7ygdp6auasfvfx9lxpdtja,irishub-goz-1b,tcp://35.236.168.104:26657
+isillien,cosmos1c4e4pd8p39tr4tvtgdt8zapu4pmmxg7693235m,isillienchain-1b,tcp://49.12.106.6:26657
+Certus One,cosmos1t73d3c57mu7w4gncf50yuupfutkqthjw7d6f66,it-wasnt-us-1b,tcp://wasntus.goz.certus.one:26657
+stakefish,cosmos1vskhrny09fjjmrsf90nqccaxcp40eyc2gvkgp4,jellyfish-1b,tcp://goz.cosmos.fish:26657
+joonZone,cosmos17dp0722pxv3fycv2g3gvr00reug9cgq56mhpmm,joon-chain-goz-1b,tcp://joon-chain-goz.cosmostation.io:26657
+JS,cosmos18yk6fxjd2sgds5qk6zkhwjfdafxs8z535qyht9,js-1b,tcp://54.211.26.151:26657
+JokerTheBond,cosmos1v6p6p0dr4ll0p53q8zn78fdf5dd5ldmnecp0wl,jtbchain-1b,tcp://213.32.70.133:26657
+Kira Core,cosmos1efzs6x9244z9hjz6pcrsam4muxxms74wz98h7c,kira-1b,tcp://goz.kiraex.com:10001
+Konstellation,cosmos1mtv5e6zq8grgpnrsm7cr23h5k5q9qw4egz6678,konstellation-1b,tcp://goz.konstellation.tech:26657
+Mia // Lableet,cosmos1g0n9dhy4d3vyvaesgtw0sdruehugyyk3mv3hge,kugs-030-1b,tcp://goz.labeleet.com:26657
+Microtick,cosmos153lxtrh996g6g0lrv3uquw7dzpya8kfzz8tj7h,microtick-ibc-1b,tcp://45.79.207.112:26657
+mintonium,cosmos1sjj6v2v2hzl9mrup5gnnta66pd76krz3qw3hhw,mintonium-1b,tcp://45.77.91.232:26657
+mmmh-validator,cosmos1erslkc49pkcxa7f44vu0se4w7n4tl53la7ta8y,mmmh-lazy-1b,tcp://mmmh.sytes.net:26657
+modulus,cosmos18l22jvep8cc8cdzvyntc4utnkgkqhz2vj84jt7,modulus-goz-1b,tcp://goz.modulus.network:26657
+Molecule,cosmos14htdkcv4mrm0txhnmeqelaxfekc24k8s36e7q0,moleculechain-1b,tcp://molecule.adri.co:26657
+Desmos,cosmos1engcn8p4vj8fsta62l3n3c5menm6sc9djvrzee,morpheus-goz-1b,http://goz.desmos.network:80
+Muzamint,cosmos1runeqr6aagcgv9ysw420mvw0sfymsz58szxew9,muzamint-1b,tcp://muzamint.com:26657/
+Newroad Network,cosmos1l0qgnjr4uw3jv7r735kfgu3n6awpnqea229m4c,newroadchain-1b,tcp://goz.newroad.network:26657
+nibiru,cosmos15fz7asxctg528lwgde3x633vru9rgz64qkvrq7,nibiru-ibc-1b,tcp://goz.nibiru.network:26657
+blockscape,cosmos16tdeldrswlksrejchqtzndrkal9cxawtnh8mvd,NoChainNoGain-1000-1b,tcp://ibc.blockscape.network:26657
+Node123,cosmos15h39aypryvsd87p2tsxxv0aedrlqu93neenjys,Node123-1b,tcp://193.30.121.61:26657
+Nodeasy.com,cosmos152zx830nl6gy97m6qms7chyktzk729cyveqv9n,nodeasy-1b,tcp://144.76.118.133:26657
+staked.sh,cosmos1z0gsnxexgc5jxgcl3uz55kqy29y8ck7ayk5ejz,nuube-goz-1b,tcp://ibc.stake.sh:26657
+okchain/OKex,cosmos1rdrtfn7rgzula94vv9cz4tah75uh2zr930ftes,okchain-1b,tcp://3.112.29.150:26657
+Kysen Outpost,cosmos1mpqvdhh7cq47j6qjxgtwarsxsgxdzjw9cd66ul,outpost-1b,tcp://goz.kysenpool.io:26657
+ozone,cosmos19ytadpwm7687ywft6sdksz2j5sgxh4ywl5ev44,ozone-1b,tcp://goz.ozonechain.xyz:26657
+P2P.ORG - P2P Validator,cosmos1vf93vh2rsn4yf3rgu5sy8n39q52cna0rewmrn4,p2p-org-1b,tcp://p2p-org-1.goz.p2p.org:26657
+Persistence,cosmos1tznxzdk4t9vr9nstrvjwmnztq4k6wjj55cgeqq,persistence-1b,tcp://relayer.persistence.one:26657
+Cypher Core,cosmos1ww8zfd4ts6fac55wt8z5lnm5wdfqy67ldanua8,petomhub-1b,tcp://goz.cyphercore.io:26657
+Bitple,cosmos1vndhkx9sdheewhdg58ug7fy388l8wm689gn7jg,plex-1b,tcp://ibc.j96.me:26657
+Protofire,cosmos1y8ejrm82rzaqf5n4n5nx338m6x3u9x082qfqe8,Protofire.io-1b,tcp://3.134.115.80:26657
+pupu,cosmos10xq9nh42m7wd79mel9uhae4xqk7yk7yurs5q2v,pupu-1b,tcp://35.230.42.221:26657
+Pylons,cosmos1kzukf5nkrrezwxlrxlguxljfy3p4zees9e74wg,pylons-1b,tcp://node.pylons.tech:26657
+Meeseeks,cosmos1mhdnss2nd7mx29qnc9gqp4lpxjqdp3j6drhe0v,meeseeks-1b,tcp://validating.for.co.ke:26657
+Regen,cosmos1fnlw6290j037gyff6zdy8rzlv88wr9qn3v4l3h,regengoz-1b,tcp://regengoz.vaasl.io:26657
+ResponsibleChain,cosmos1dtx6e6we59j03grm55zpc3pymz52msx0hsq8ce,responsible-1b,tcp://95.216.204.82:26657
+retz80,cosmos1ud9yn60f9eppkgc7hy6tt8ye9kaga8mtd4e6ep,retz80chain-1b,tcp://tnet-csg.c9ret.xyz:26657
+RVC Group,cosmos1qyfu9s408exw2yae0d86m5tupr8q9h8qt4tnge,rvc-1b,tcp://rvc.novy.pw:26657
+HashMoney,cosmos178zck85waenzw4mhwchkzw44wst8kqx3he9hzu,seen-1b,tcp://35.222.132.154:26657
+Sentinel,cosmos1mcm426eejm5y7dsjvppxfg2dd2uel0gyt8cxxj,sentinel-goz-1b,tcp://one.goz.sentinel.co:26657
+astronomia,cosmos1hwux8hlz2xrwggdcltg7net4v7sfjnn76w5ec3,setanchain-1b,tcp://setan.ml:26657
+Simply Staking,cosmos1sreeksgvr62zgamuewp0znkta8gdkj7agxdl56,simplystaking-1b,tcp://80.64.211.64:26657
+Validatorich,cosmos1mvu547ythhm8c7ew2xnh6d8njhvdljgen3dr65,snakey-1b,tcp://ananas.alpe1.net:26657
+SNZPool,cosmos1tstp7pl0fd6zk2v3tzmpq86x8pv29jevyrgswk,SNZPoolHub-1b,tcp://18.136.225.71:26657
+Source,cosmos1qz2s5unwu3l4hn2jw09cnsd3muvrcerezm9c52,source-xgoz-1b,tcp://goz.source.network:26657
+Stake Capital,cosmos1c6vyd9sqmxslqkrqtn84det6ukefrxrnwru66p,stake-capital-1b,tcp://goz.stakedao.org:26657
+Stakebird,cosmos1ar20w6rf4ulfljld7xaj4qjklyulr5myw0xqt6,stakebird-1b,tcp://goz.stakebird.com:26657
+Staked,cosmos1w8ueuqk007aqy33tgfx5yveatlfamapwty47p0,staked-ibc-1b,tcp://ibc.staked.cloud:26657
+stakematic,cosmos1pzgw03td8l5hsa3e6jert6gpjfratxxsm32adg,stakematic-1b,tcp://35.198.125.128:26657
+StakesStone,cosmos1dx2jqcrjfd3y9mvdd56t54j7pa2wgx2qqk0tx2,stakesstonechain-1b,tcp://5.181.51.80:26657
+stakewolf,cosmos1auhk88eyt7y4paywhtv3ykqfzfkmtjzk57aynt,wolfwolf-1b,tcp://stakewolf.com:26657
+Stakin,cosmos1atkhc2che0en0yzy5prh00wqwn5nhclvlgymrm,stakin-1b,tcp://161.35.45.178:26657
+staking-defense,cosmos1c00l9xvwmh4f77pwnnnh5x0fww0x245sdlzlxg,staking-defense-1b,tcp://goz.stakingdefense.org:26657
+Staking Fund,cosmos1a533d3t2k5pynxh3hn3mzjhwe9jmeskqxh3cz9,stakingfund-1b,tcp://ibc.staking.fund:26657
+StarCluster,cosmos16gp9q9euupf2m96cvv7kta7q09h8ce0cl6wky9,starcluster-1337-1b,tcp://goz.starcluster.tech:26657
+Stratus,cosmos1gx77frp5shnhnf2ffupt6mp97nalxsyav7mphq,stardust-1111-1b,tcp://stratus.mycryptobets.com:26657
+Dapps Inc.,cosmos1vxnhz4jzs5qushcfrdwg3ptp28nfevpg3u78hu,stateset-1b,tcp://35.209.174.13:26657
+Team Stoner,cosmos15dgc2xv3l28vqy9n6r8q7aya5s37zdu2phjxm8,stoner-ibc-1b,tcp://157.230.75.134:26657
+Commonwealth Labs Inc.,cosmos1k8zxp6yxqqpgafe0m3ujs2gccs9f5zkvy9anv8,supernova-1b,tcp://supernova.commonwealth.im:26657
+Supernova,cosmos15wa9rkp28zsw8ymuj7dpvpyuqd5ncywnggsqeu,supernovachain-1b,tcp://supernovachain.cosmostation.io:26657
+stakezone,cosmos1ufa0sa4hjwj389t2f0r028mspr4nr5eu0vg4d6,szchain-1b,tcp://goz2.stake.zone:26657
+Taidi,cosmos1xgcjknmn6y2cjapje5aw6fq93a5r7hejcu6y6j,TaidiHub-1b,tcp://13.250.207.24:26657
+TheTechTrap,cosmos12c3wmcqqhy3xvkac5zc5rvgxf2hunm6qydm7az,thetechtrap-goz-1b,tcp://thetechtrap.com:26657
+timetowin,cosmos1wltxa7d9lu3pgm2lyz5ser8fvasmtxhlxu0nxw,timetowinchain-1b,tcp://3.22.166.56:26657
+Tom,cosmos15f9vuwylnyzggwtgcxe84th0yx4ugf0pwqj5hf,tom-1b,tcp://47.245.35.172:26657
+Fanprime,cosmos1780eywt4gghkhzu62fkr2exqkkya06ydj68ckh,ublochain-1b,tcp://15.236.69.21:26657
+Umbrella,cosmos10ekrjlmat8sgr6c40fg8j348gv9tearfkmx883,umbrellachain-1b,tcp://goz.umbrellavalidator.com:26657
+Mr.K,cosmos1kgrhmxu6khuzcamwgwrent45ufhpdqlmm0473u,universe-1b,tcp://35.193.176.142:26657
+Vb,cosmos13dus5s0c2ey32509xy6hgk8s923wufrv2dyy6g,vbstreetz-1b,tcp://144.202.100.245:26657
+VGNG,cosmos1vgng37d8ksml9yxaryzect6pdvlpzx64yzfzff,vgng-1b,tcp://ibc.vgng.io:26657
+vipnamai,cosmos1trq740zypnm64g9deufsdkx0qcw8xd09vfxx06,vipnamai-1b,tcp://173.249.12.108:26657
+Yura Forgive Us,cosmos18g6s0cdlm593ej66rr6hrxc55362dkjattvc7h,vostok-1b,tcp://chain.exchange-fees.com:26657
+WeStaking,cosmos16qp669v7k2wcsml6zv945nmnsknhckp39w0a0k,westaking-1b,tcp://ibc.westaking.io:26657
+Wetez,cosmos1gnpwvxwkj6a855z2708hnfy3h30muewcfmckw2,Wetez-1b,tcp://goz.wetez.io:26657
+zilot,cosmos1aftl8e8maxkw0q7yjzytfhpcz75stu835gzhxw,zilotchain-1b,tcp://3.21.169.1:26657
+Ping.pub,cosmos182pr5pdngtkglyjgk057jam4v2uuk952jswkt0,ping-ibc-1b,tcp://ibc.ping.pub:26657
+melea,cosmos1exwcn4rmcyuf4xfjs722amqrfheng7z8cjfzgn,melea-1111-1b,tcp://melea.xyz:26657

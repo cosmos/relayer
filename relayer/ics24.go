@@ -9,22 +9,22 @@ import (
 
 // Vclient validates the client identifer in the path
 func (p *PathEnd) Vclient() error {
-	return host.DefaultClientIdentifierValidator(p.ClientID)
+	return host.ClientIdentifierValidator(p.ClientID)
 }
 
 // Vconn validates the connection identifer in the path
 func (p *PathEnd) Vconn() error {
-	return host.DefaultConnectionIdentifierValidator(p.ConnectionID)
+	return host.ConnectionIdentifierValidator(p.ConnectionID)
 }
 
 // Vchan validates the channel identifer in the path
 func (p *PathEnd) Vchan() error {
-	return host.DefaultChannelIdentifierValidator(p.ChannelID)
+	return host.ChannelIdentifierValidator(p.ChannelID)
 }
 
 // Vport validates the port identifer in the path
 func (p *PathEnd) Vport() error {
-	return host.DefaultPortIdentifierValidator(p.PortID)
+	return host.PortIdentifierValidator(p.PortID)
 }
 
 func (p PathEnd) String() string {

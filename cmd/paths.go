@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/tendermint/tendermint/types/time"
 	"io/ioutil"
 	"os"
 
@@ -119,8 +120,9 @@ func pathsGenCmd() *cobra.Command {
 				// TODO: support other client types through a switch here as they become available
 				clnt, ok := c.(tmclient.ClientState)
 				if ok && clnt.LastHeader.Commit != nil && clnt.LastHeader.Header != nil {
-					if clnt.GetChainID() == dst && !clnt.IsFrozen() {
-						path.Src.ClientID = c.GetID()
+					if clnt.GetChainID() == dst && !clnt.IsFrozen() &&
+						time.Now().Sub(clnt.GetLatestTimestamp()) < clnt.TrustingPeriod{
+						path.Src.ClientID = clnt.GetID()
 					}
 				}
 			}
@@ -134,8 +136,9 @@ func pathsGenCmd() *cobra.Command {
 				// TODO: support other client types through a switch here as they become available
 				clnt, ok := c.(tmclient.ClientState)
 				if ok && clnt.LastHeader.Commit != nil && clnt.LastHeader.Header != nil {
-					if c.GetChainID() == src && !c.IsFrozen() {
-						path.Dst.ClientID = c.GetID()
+					if clnt.GetChainID() == src && !clnt.IsFrozen() &&
+						time.Now().Sub(clnt.GetLatestTimestamp()) < clnt.TrustingPeriod {
+						path.Dst.ClientID = clnt.GetID()
 					}
 				}
 			}

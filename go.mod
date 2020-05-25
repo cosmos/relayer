@@ -7,8 +7,8 @@ require (
 	github.com/avast/retry-go v2.6.0+incompatible
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
 	github.com/containerd/continuity v0.0.0-20200228182428-0f16d7a0959c // indirect
-	github.com/cosmos/cosmos-sdk v0.34.4-0.20200511222341-80be50319ca5
-	github.com/cosmos/gaia v0.0.1-0.20200511233019-cbc33219c3d9
+	github.com/cosmos/cosmos-sdk v0.34.4-0.20200522204605-4a07d536a7cc
+	github.com/cosmos/gaia v0.0.1-0.20200522222820-2d61264338e5
 	github.com/cosmos/go-bip39 v0.0.0-20180819234021-555e2067c45d
 	github.com/gorilla/mux v1.7.4
 	github.com/ory/dockertest/v3 v3.5.5
