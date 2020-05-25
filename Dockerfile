@@ -5,7 +5,7 @@ WORKDIR /relayer
 # Copy the files from host
 COPY . .
 
-# Update, Upgrade and install needed deps prioir to installing the binary.
+# Update and install needed deps prioir to installing the binary.
 RUN apk update && \
     apk --no-cache add make=4.2.1-r2 git=2.24.3-r0 && \
     make install
