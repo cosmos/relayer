@@ -40,28 +40,28 @@ func OrderFromString(order string) ibctypes.Order {
 	}
 }
 
-func (src *PathEnd) getOrder() ibctypes.Order {
-	return OrderFromString(strings.ToUpper(src.Order))
+func (pe *PathEnd) getOrder() ibctypes.Order {
+	return OrderFromString(strings.ToUpper(pe.Order))
 }
 
 // UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst
-func (src *PathEnd) UpdateClient(dstHeader *tmclient.Header, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) UpdateClient(dstHeader *tmclient.Header, signer sdk.AccAddress) sdk.Msg {
 	return tmclient.NewMsgUpdateClient(
-		src.ClientID,
+		pe.ClientID,
 		*dstHeader,
 		signer,
 	)
 }
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (src *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod time.Duration,
+func (pe *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod time.Duration,
 	signer sdk.AccAddress) sdk.Msg {
 	if err := dstHeader.ValidateBasic(dstHeader.ChainID); err != nil {
 		panic(err)
 	}
 	// TODO: figure out how to dynmaically set unbonding time
 	return tmclient.NewMsgCreateClient(
-		src.ClientID,
+		pe.ClientID,
 		*dstHeader,
 		trustingPeriod,
 		defaultUnbondingTime,
@@ -71,10 +71,10 @@ func (src *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod time
 }
 
 // ConnInit creates a MsgConnectionOpenInit
-func (src *PathEnd) ConnInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ConnInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 	return connTypes.NewMsgConnectionOpenInit(
-		src.ConnectionID,
-		src.ClientID,
+		pe.ConnectionID,
+		pe.ClientID,
 		dst.ConnectionID,
 		dst.ClientID,
 		defaultChainPrefix,
@@ -84,11 +84,11 @@ func (src *PathEnd) ConnInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 
 // ConnTry creates a MsgConnectionOpenTry
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (src *PathEnd) ConnTry(dst *PathEnd, dstConnState connTypes.ConnectionResponse,
+func (pe *PathEnd) ConnTry(dst *PathEnd, dstConnState connTypes.ConnectionResponse,
 	dstConsState clientTypes.ConsensusStateResponse, dstCsHeight int64, signer sdk.AccAddress) sdk.Msg {
 	return connTypes.NewMsgConnectionOpenTry(
-		src.ConnectionID,
-		src.ClientID,
+		pe.ConnectionID,
+		pe.ClientID,
 		dst.ConnectionID,
 		dst.ClientID,
 		defaultChainPrefix,
@@ -103,10 +103,10 @@ func (src *PathEnd) ConnTry(dst *PathEnd, dstConnState connTypes.ConnectionRespo
 
 // ConnAck creates a MsgConnectionOpenAck
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (src *PathEnd) ConnAck(dstConnState connTypes.ConnectionResponse, dstConsState clientTypes.ConsensusStateResponse,
+func (pe *PathEnd) ConnAck(dstConnState connTypes.ConnectionResponse, dstConsState clientTypes.ConsensusStateResponse,
 	dstCsHeight int64, signer sdk.AccAddress) sdk.Msg {
 	return connTypes.NewMsgConnectionOpenAck(
-		src.ConnectionID,
+		pe.ConnectionID,
 		dstConnState.Proof,
 		dstConsState.Proof,
 		dstConnState.ProofHeight+1,
@@ -118,9 +118,9 @@ func (src *PathEnd) ConnAck(dstConnState connTypes.ConnectionResponse, dstConsSt
 
 // ConnConfirm creates a MsgConnectionOpenAck
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (src *PathEnd) ConnConfirm(dstConnState connTypes.ConnectionResponse, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ConnConfirm(dstConnState connTypes.ConnectionResponse, signer sdk.AccAddress) sdk.Msg {
 	return connTypes.NewMsgConnectionOpenConfirm(
-		src.ConnectionID,
+		pe.ConnectionID,
 		dstConnState.Proof,
 		dstConnState.ProofHeight+1,
 		signer,
@@ -128,13 +128,13 @@ func (src *PathEnd) ConnConfirm(dstConnState connTypes.ConnectionResponse, signe
 }
 
 // ChanInit creates a MsgChannelOpenInit
-func (src *PathEnd) ChanInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ChanInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgChannelOpenInit(
-		src.PortID,
-		src.ChannelID,
+		pe.PortID,
+		pe.ChannelID,
 		defaultTransferVersion,
-		src.getOrder(),
-		[]string{src.ConnectionID},
+		pe.getOrder(),
+		[]string{pe.ConnectionID},
 		dst.PortID,
 		dst.ChannelID,
 		signer,
@@ -142,13 +142,13 @@ func (src *PathEnd) ChanInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 }
 
 // ChanTry creates a MsgChannelOpenTry
-func (src *PathEnd) ChanTry(dst *PathEnd, dstChanState chanTypes.ChannelResponse, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ChanTry(dst *PathEnd, dstChanState chanTypes.ChannelResponse, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgChannelOpenTry(
-		src.PortID,
-		src.ChannelID,
+		pe.PortID,
+		pe.ChannelID,
 		defaultTransferVersion,
 		dstChanState.Channel.Ordering,
-		[]string{src.ConnectionID},
+		[]string{pe.ConnectionID},
 		dst.PortID,
 		dst.ChannelID,
 		dstChanState.Channel.Version,
@@ -159,10 +159,10 @@ func (src *PathEnd) ChanTry(dst *PathEnd, dstChanState chanTypes.ChannelResponse
 }
 
 // ChanAck creates a MsgChannelOpenAck
-func (src *PathEnd) ChanAck(dstChanState chanTypes.ChannelResponse, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ChanAck(dstChanState chanTypes.ChannelResponse, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgChannelOpenAck(
-		src.PortID,
-		src.ChannelID,
+		pe.PortID,
+		pe.ChannelID,
 		dstChanState.Channel.Version,
 		dstChanState.Proof,
 		dstChanState.ProofHeight+1,
@@ -171,10 +171,10 @@ func (src *PathEnd) ChanAck(dstChanState chanTypes.ChannelResponse, signer sdk.A
 }
 
 // ChanConfirm creates a MsgChannelOpenConfirm
-func (src *PathEnd) ChanConfirm(dstChanState chanTypes.ChannelResponse, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ChanConfirm(dstChanState chanTypes.ChannelResponse, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgChannelOpenConfirm(
-		src.PortID,
-		src.ChannelID,
+		pe.PortID,
+		pe.ChannelID,
 		dstChanState.Proof,
 		dstChanState.ProofHeight+1,
 		signer,
@@ -182,19 +182,19 @@ func (src *PathEnd) ChanConfirm(dstChanState chanTypes.ChannelResponse, signer s
 }
 
 // ChanCloseInit creates a MsgChannelCloseInit
-func (src *PathEnd) ChanCloseInit(signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ChanCloseInit(signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgChannelCloseInit(
-		src.PortID,
-		src.ChannelID,
+		pe.PortID,
+		pe.ChannelID,
 		signer,
 	)
 }
 
 // ChanCloseConfirm creates a MsgChannelCloseConfirm
-func (src *PathEnd) ChanCloseConfirm(dstChanState chanTypes.ChannelResponse, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ChanCloseConfirm(dstChanState chanTypes.ChannelResponse, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgChannelCloseConfirm(
-		src.PortID,
-		src.ChannelID,
+		pe.PortID,
+		pe.ChannelID,
 		dstChanState.Proof,
 		dstChanState.ProofHeight+1,
 		signer,
@@ -202,11 +202,11 @@ func (src *PathEnd) ChanCloseConfirm(dstChanState chanTypes.ChannelResponse, sig
 }
 
 // MsgRecvPacket creates a MsgPacket
-func (src *PathEnd) MsgRecvPacket(dst *PathEnd, sequence, timeoutHeight, timeoutStamp uint64,
+func (pe *PathEnd) MsgRecvPacket(dst *PathEnd, sequence, timeoutHeight, timeoutStamp uint64,
 	packetData []byte, proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgPacket(
 		dst.NewPacket(
-			src,
+			pe,
 			sequence,
 			packetData,
 			timeoutHeight,
@@ -219,10 +219,10 @@ func (src *PathEnd) MsgRecvPacket(dst *PathEnd, sequence, timeoutHeight, timeout
 }
 
 // MsgTimeout creates MsgTimeout
-func (src *PathEnd) MsgTimeout(dst *PathEnd, packetData []byte, seq, timeout, timeoutStamp uint64,
+func (pe *PathEnd) MsgTimeout(dst *PathEnd, packetData []byte, seq, timeout, timeoutStamp uint64,
 	proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgTimeout(
-		src.NewPacket(
+		pe.NewPacket(
 			dst,
 			seq,
 			packetData,
@@ -237,10 +237,10 @@ func (src *PathEnd) MsgTimeout(dst *PathEnd, packetData []byte, seq, timeout, ti
 }
 
 // MsgAck creates MsgAck
-func (src *PathEnd) MsgAck(dst *PathEnd, sequence, timeoutHeight, timeoutStamp uint64, ack, packetData []byte,
+func (pe *PathEnd) MsgAck(dst *PathEnd, sequence, timeoutHeight, timeoutStamp uint64, ack, packetData []byte,
 	proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgAcknowledgement(
-		src.NewPacket(
+		pe.NewPacket(
 			dst,
 			sequence,
 			packetData,
@@ -255,11 +255,11 @@ func (src *PathEnd) MsgAck(dst *PathEnd, sequence, timeoutHeight, timeoutStamp u
 }
 
 // MsgTransfer creates a new transfer message
-func (src *PathEnd) MsgTransfer(dst *PathEnd, dstHeight uint64, amount sdk.Coins, dstAddr string,
+func (pe *PathEnd) MsgTransfer(dst *PathEnd, dstHeight uint64, amount sdk.Coins, dstAddr string,
 	signer sdk.AccAddress) sdk.Msg {
 	return xferTypes.NewMsgTransfer(
-		src.PortID,
-		src.ChannelID,
+		pe.PortID,
+		pe.ChannelID,
 		dstHeight,
 		amount,
 		signer,
@@ -268,23 +268,23 @@ func (src *PathEnd) MsgTransfer(dst *PathEnd, dstHeight uint64, amount sdk.Coins
 }
 
 // MsgSendPacket creates a new arbitrary packet message
-func (src *PathEnd) MsgSendPacket(dst *PathEnd, packetData []byte, relativeTimeout, timeoutStamp uint64,
+func (pe *PathEnd) MsgSendPacket(dst *PathEnd, packetData []byte, relativeTimeout, timeoutStamp uint64,
 	signer sdk.AccAddress) sdk.Msg {
 	// NOTE: Use this just to pass the packet integrity checks.
 	fakeSequence := uint64(1)
-	packet := chanTypes.NewPacket(packetData, fakeSequence, src.PortID, src.ChannelID, dst.PortID,
+	packet := chanTypes.NewPacket(packetData, fakeSequence, pe.PortID, pe.ChannelID, dst.PortID,
 		dst.ChannelID, relativeTimeout, timeoutStamp)
 	return NewMsgSendPacket(packet, signer)
 }
 
 // NewPacket returns a new packet from src to dist w
-func (src *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte,
+func (pe *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte,
 	timeoutHeight, timeoutStamp uint64) chanTypes.Packet {
 	return chanTypes.NewPacket(
 		packetData,
 		sequence,
-		src.PortID,
-		src.ChannelID,
+		pe.PortID,
+		pe.ChannelID,
 		dst.PortID,
 		dst.ChannelID,
 		timeoutHeight,
@@ -293,7 +293,7 @@ func (src *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte,
 }
 
 // XferPacket creates a new transfer packet
-func (src *PathEnd) XferPacket(amount sdk.Coins, sender, receiver string) []byte {
+func (pe *PathEnd) XferPacket(amount sdk.Coins, sender, receiver string) []byte {
 	return xferTypes.NewFungibleTokenPacketData(
 		amount,
 		sender,
@@ -302,9 +302,9 @@ func (src *PathEnd) XferPacket(amount sdk.Coins, sender, receiver string) []byte
 }
 
 // PacketMsg returns a new MsgPacket for forwarding packets from one chain to another
-func (src *Chain) PacketMsg(dst *Chain, xferPacket []byte, timeout, timeoutStamp uint64,
+func (c *Chain) PacketMsg(dst *Chain, xferPacket []byte, timeout, timeoutStamp uint64,
 	seq int64, dstCommitRes CommitmentResponse) sdk.Msg {
-	return src.PathEnd.MsgRecvPacket(
+	return c.PathEnd.MsgRecvPacket(
 		dst.PathEnd,
 		uint64(seq),
 		timeout,
@@ -312,6 +312,6 @@ func (src *Chain) PacketMsg(dst *Chain, xferPacket []byte, timeout, timeoutStamp
 		xferPacket,
 		dstCommitRes.Proof,
 		dstCommitRes.ProofHeight,
-		src.MustGetAddress(),
+		c.MustGetAddress(),
 	)
 }
