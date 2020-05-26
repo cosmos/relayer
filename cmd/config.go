@@ -31,7 +31,10 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-const ORDERED = "ORDERED"
+const (
+	ORDERED   = "ORDERED"
+	UNORDERED = "UNORDERED"
+)
 
 func configCmd() *cobra.Command {
 	cmd := &cobra.Command{

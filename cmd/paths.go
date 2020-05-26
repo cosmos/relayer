@@ -89,11 +89,11 @@ func pathsGenCmd() *cobra.Command {
 			}
 
 			if unordered {
-				path.Src.Order = "UNORDERED"
-				path.Dst.Order = "UNORDERED"
+				path.Src.Order = UNORDERED
+				path.Dst.Order = UNORDERED
 			} else {
-				path.Src.Order = "ORDERED"
-				path.Dst.Order = "ORDERED"
+				path.Src.Order = ORDERED
+				path.Dst.Order = ORDERED
 			}
 
 			force, err := cmd.Flags().GetBool(flagForce)
