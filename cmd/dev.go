@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
+	"strconv"
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	"github.com/iqlusioninc/relayer/relayer"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
@@ -29,7 +32,66 @@ func devCommand() *cobra.Command {
 		gozDataCmd(),
 		gozCSVCmd(),
 		gozStatsDCmd(),
+		scorephase1b(),
 	)
+	return cmd
+}
+
+// ByAge implements sort.Interface for []Person based on
+// the Age field.
+type ByTrustPeriod []*clientData
+
+func (a ByTrustPeriod) Len() int           { return len(a) }
+func (a ByTrustPeriod) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByTrustPeriod) Less(i, j int) bool { return a[i].TrustPeriod < a[j].TrustPeriod }
+
+func scorephase1b() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "phase1b [chain-id] [start-block] [end-block]",
+		Aliases: []string{"csv"},
+		Short:   "Find all the clients that live at the end of phase 1b",
+		Args:    cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			cd, err := fetchClientData(args[0])
+			if err != nil {
+				return err
+			}
+
+			// Filter by clients that were alive in the starting block.
+
+			c, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
+
+			startHeight, err := strconv.ParseInt(args[1], 10, 64)
+
+			if err != nil {
+				return err
+			}
+			startClients, err := liveClientsAtBlock(c, startHeight, cd)
+
+			if err != nil {
+				return err
+			}
+
+			endHeight, err := strconv.ParseInt(args[2], 10, 64)
+
+			endClients, err := liveClientsAtBlock(c, endHeight, startClients)
+			sort.Sort(ByTrustPeriod(endClients))
+
+			w := csv.NewWriter(os.Stdout)
+
+			for _, c := range endClients {
+				w.Write([]string{c.ChainID, c.TrustPeriod.String(), c.ClientID})
+			}
+
+			w.Flush()
+
+			return nil
+		},
+	}
 	return cmd
 }
 
@@ -373,7 +435,7 @@ func fetchClientData(chainID string) ([]*clientData, error) {
 		return nil, err
 	}
 
-	header, err := c.UpdateLiteWithHeader()
+	height, err := c.QueryLatestHeight()
 	if err != nil {
 		return nil, err
 	}
@@ -393,6 +455,7 @@ func fetchClientData(chainID string) ([]*clientData, error) {
 			ClientID:         cl.GetID(),
 			ChainID:          cl.GetChainID(),
 			TimeOfLastUpdate: tmdata.LastHeader.Time,
+			TrustPeriod:      tmdata.TrustingPeriod,
 			ChannelIDs:       []string{},
 		}
 
@@ -400,7 +463,7 @@ func fetchClientData(chainID string) ([]*clientData, error) {
 			return nil, err
 		}
 
-		conns, err := c.QueryConnectionsUsingClient(header.Height)
+		conns, err := c.QueryConnectionsUsingClient(height)
 		if err != nil {
 			return nil, err
 		}
@@ -424,12 +487,13 @@ func fetchClientData(chainID string) ([]*clientData, error) {
 }
 
 type clientData struct {
-	ClientID         string    `json:"client-id"`
-	ConnectionIDs    []string  `json:"connection-ids"`
-	ChannelIDs       []string  `json:"channel-ids"`
-	ChainID          string    `json:"chain-id"`
-	TimeOfLastUpdate time.Time `json:"time-last-update"`
-	TeamInfo         *teamInfo `json:"team-info"`
+	ClientID         string        `json:"client-id"`
+	ConnectionIDs    []string      `json:"connection-ids"`
+	ChannelIDs       []string      `json:"channel-ids"`
+	ChainID          string        `json:"chain-id"`
+	TimeOfLastUpdate time.Time     `json:"time-last-update"`
+	TeamInfo         *teamInfo     `json:"team-info"`
+	TrustPeriod      time.Duration `json:"trust-period"`
 }
 
 func (cd *clientData) StatsD(cl *statsd.Client, prefix string) {
@@ -443,4 +507,27 @@ func (cd *clientData) StatsD(cl *statsd.Client, prefix string) {
 		// TODO: add more cases here
 	}
 	cl.TimeInMilliseconds(fmt.Sprintf("relayer.%s.client", prefix), float64(time.Since(cd.TimeOfLastUpdate).Milliseconds()), []string{"teamname", cd.TeamInfo.Name, "chain-id", cd.ChainID, "client-id", cd.ClientID, "connection-id", cd.ConnectionIDs[0], "channelid", cd.ChannelIDs[0]}, 1)
+}
+
+func liveClientsAtBlock(c *relayer.Chain, height int64, cd []*clientData) ([]*clientData, error) {
+	var vcs []*clientData
+	stat, err := c.Client.Block(&height)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, client := range cd {
+		cs, err := c.QueryClientStateHeight(client.ClientID, height)
+		if err != nil {
+			return nil, err
+		}
+		if cs != nil {
+			cl := cs.ClientState.(tmclient.ClientState)
+			if stat.Block.Time.Sub(cl.LastHeader.Time) < cl.TrustingPeriod {
+				vcs = append(vcs, client)
+			}
+		}
+	}
+
+	return vcs, nil
 }

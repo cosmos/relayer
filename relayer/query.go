@@ -1255,3 +1255,35 @@ func ParseEvents(e string) ([]string, error) {
 func prefixClientKey(clientID string, key []byte) []byte {
 	return append([]byte(fmt.Sprintf("clients/%s/", clientID)), key...)
 }
+
+// QueryClientStateHeight retrevies the latest consensus state for a client in state at a given height
+func (c *Chain) QueryClientStateHeight(clientID string, height int64) (*clientTypes.StateResponse, error) {
+	var conStateRes *clientTypes.StateResponse
+	req := abci.RequestQuery{
+		Path:   "store/ibc/key",
+		Height: height,
+		Data:   prefixClientKey(clientID, ibctypes.KeyClientState()),
+		Prove:  true,
+	}
+
+	res, err := c.QueryABCI(req)
+	if err != nil {
+		return conStateRes, qClntStateErr(err)
+	} else if res.Value == nil {
+		// TODO: Better way to handle this?
+		return nil, nil
+	}
+
+	var cs exported.ClientState
+
+	// If this decoding fails, try with UnmarshalBinaryLengthPrefixed this changed
+	// reciently and will help support older versions.
+	if err := c.Amino.UnmarshalBinaryBare(res.Value, &cs); err != nil {
+		if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
+			return nil, qClntStateErr(err)
+		}
+	}
+
+	csr := clientTypes.NewClientStateResponse(clientID, cs, res.Proof, res.Height)
+	return &csr, nil
+}
