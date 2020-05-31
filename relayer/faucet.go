@@ -23,15 +23,6 @@ func (src *Chain) SendMsgWithKey(datagram sdk.Msg, keyName string) (res sdk.TxRe
 
 }
 
-// SendMsgsWithKey sign and broadcast tx with multiple messages
-func (src *Chain) SendMsgsWithKey(datagram []sdk.Msg, keyName string) (res sdk.TxResponse, err error) {
-	var out []byte
-	if out, err = src.BuildAndSignTxWithKey(datagram, keyName); err != nil {
-		return res, err
-	}
-	return src.BroadcastTxCommit(out)
-}
-
 // BuildAndSignTxWithKey allows the user to specify which relayer key will sign the message
 func (src *Chain) BuildAndSignTxWithKey(datagram []sdk.Msg, keyName string) ([]byte, error) {
 
@@ -112,12 +103,7 @@ func (src *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amounts sdk.Coins)
 		return err
 	}
 
-	msgs := []sdk.Msg{}
-	for _, amount := range amounts {
-		msgs = append(msgs, bank.NewMsgSend(fromAddr, toAddr, sdk.NewCoins(amount)))
-	}
-
-	res, err := src.SendMsgsWithKey(msgs, info.GetName())
+	res, err := src.SendMsgWithKey(bank.NewMsgSend(fromAddr, toAddr, amounts), info.GetName())
 	if err != nil {
 		return fmt.Errorf("failed to send transaction: %w\n%s", err, res)
 	} else if res.Code != 0 {
