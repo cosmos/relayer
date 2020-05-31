@@ -103,7 +103,7 @@ func (src *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amounts sdk.Coins)
 		return err
 	}
 
-	res, err := src.SendMsgWithKey(bank.NewMsgSend(fromAddr, toAddr, amounts), info.GetName())
+	res, err := src.SendMsgWithKey(bank.NewMsgSend(fromAddr, toAddr, sdk.NewCoins(amounts...)), info.GetName())
 	if err != nil {
 		return fmt.Errorf("failed to send transaction: %w\n%s", err, res)
 	} else if res.Code != 0 {
