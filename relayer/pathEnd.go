@@ -26,6 +26,7 @@ type PathEnd struct {
 	ChannelID    string `yaml:"channel-id,omitempty" json:"channel-id,omitempty"`
 	PortID       string `yaml:"port-id,omitempty" json:"port-id,omitempty"`
 	Order        string `yaml:"order,omitempty" json:"order,omitempty"`
+	Version      string `yaml:"version,omitempty" json:"version,omitempty"`
 }
 
 // OrderFromString parses a string into a channel order byte
@@ -129,7 +130,7 @@ func (src *PathEnd) ChanInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgChannelOpenInit(
 		src.PortID,
 		src.ChannelID,
-		defaultTransferVersion,
+		src.Version,
 		src.getOrder(),
 		[]string{src.ConnectionID},
 		dst.PortID,
@@ -143,7 +144,7 @@ func (src *PathEnd) ChanTry(dst *PathEnd, dstChanState chanTypes.ChannelResponse
 	return chanTypes.NewMsgChannelOpenTry(
 		src.PortID,
 		src.ChannelID,
-		defaultTransferVersion,
+		src.Version,
 		dstChanState.Channel.Ordering,
 		[]string{src.ConnectionID},
 		dst.PortID,

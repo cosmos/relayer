@@ -110,6 +110,9 @@ func (p *Path) Validate() (err error) {
 	if err = p.Src.Validate(); err != nil {
 		return err
 	}
+	if p.Src.Version == "" {
+		return fmt.Errorf("Source must specify a version")
+	}
 	if err = p.Dst.Validate(); err != nil {
 		return err
 	}
@@ -139,7 +142,7 @@ func (p *Path) String() string {
 
 // GenPath generates a path with random client, connection and channel identifiers
 // given chainIDs and portIDs
-func GenPath(srcChainID, dstChainID, srcPortID, dstPortID, order string) *Path {
+func GenPath(srcChainID, dstChainID, srcPortID, dstPortID, order string, version string) *Path {
 	return &Path{
 		Src: &PathEnd{
 			ChainID:      srcChainID,

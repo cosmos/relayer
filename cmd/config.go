@@ -31,6 +31,11 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const (
+	defaultOrder   = "ORDERED"
+	defaultVersion = "ics20-1"
+)
+
 func configCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "config",
@@ -185,8 +190,16 @@ func cfgFilesAdd(dir string) (cfg *Config, err error) {
 
 			// In the case that order isn't added to the path, add it manually
 			if p.Src.Order == "" || p.Dst.Order == "" {
-				p.Src.Order = "ORDERED"
-				p.Dst.Order = "ORDERED"
+				p.Src.Order = defaultOrder
+				p.Dst.Order = defaultOrder
+			}
+
+			// If the version isn't added to the path, add it manually
+			if p.Src.Version == "" {
+				p.Src.Version = defaultVersion
+			}
+			if p.Dst.Version == "" {
+				p.Dst.Version = defaultVersion
 			}
 
 			pthName := strings.Split(f.Name(), ".")[0]
