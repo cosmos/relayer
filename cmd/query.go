@@ -689,7 +689,7 @@ func queryUnrelayed() *cobra.Command {
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(c[src], c[dst], sh)
+			sp, err := relayer.UnrelayedSequences(c[src], c[dst], sh, path.Ordered())
 			if err != nil {
 				return err
 			}

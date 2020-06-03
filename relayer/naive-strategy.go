@@ -32,12 +32,12 @@ func (nrs *NaiveStrategy) GetType() string {
 
 // UnrelayedSequencesOrdered returns the unrelayed sequence numbers between two chains
 func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error) {
-	return UnrelayedSequences(src, dst, sh)
+	return UnrelayedSequences(src, dst, sh, true)
 }
 
 // UnrelayedSequencesUnordered returns the unrelayed sequence numbers between two chains
 func (nrs *NaiveStrategy) UnrelayedSequencesUnordered(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error) {
-	return UnrelayedSequences(src, dst, sh)
+	return UnrelayedSequences(src, dst, sh, false)
 }
 
 // HandleEvents defines how the relayer will handle block and transaction events as they are emmited

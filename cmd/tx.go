@@ -195,13 +195,13 @@ func relayMsgsCmd() *cobra.Command {
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(c[src], c[dst], sh)
+			path := config.Paths.MustGet(args[0])
+			strategy, err := GetStrategyWithOptions(cmd, path.MustGetStrategy())
 			if err != nil {
 				return err
 			}
 
-			path := config.Paths.MustGet(args[0])
-			strategy, err := GetStrategyWithOptions(cmd, path.MustGetStrategy())
+			sp, err := relayer.UnrelayedSequences(c[src], c[dst], sh, path.Ordered())
 			if err != nil {
 				return err
 			}

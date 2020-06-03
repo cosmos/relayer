@@ -635,32 +635,47 @@ type RelaySequences struct {
 }
 
 // ToRelay represents an array of sequence numbers on each chain that need to be relayed
-func (sp *SeqPairs) ToRelay() *RelaySequences {
+func (sp *SeqPairs) ToRelay(src, dst *Chain, srcH, dstH uint64, ordered bool) *RelaySequences {
 	return &RelaySequences{
-		Src: newRlySeq(sp.Dst.Recv, sp.Src.Send),
-		Dst: newRlySeq(sp.Src.Recv, sp.Dst.Send),
+		Src: newRlySeq(dst, sp.Dst.Recv, sp.Src.Send, ordered, srcH),
+		Dst: newRlySeq(src, sp.Src.Recv, sp.Dst.Send, ordered, dstH),
 	}
 }
 
-func newRlySeq(start, end uint64) []uint64 {
+func newRlySeq(chain *Chain, start, end uint64, ordered bool, height uint64) []uint64 {
 	if end < start {
 		return []uint64{}
 	}
 	s := make([]uint64, 0, 1+(end-start))
 	for start < end {
-		s = append(s, start)
-		start++
+		if ordered {
+			s = append(s, start)
+			start++
+		} else {
+			ack, err := chain.QueryPacketAck(int64(height), int64(start))
+			if err != nil {
+				chain.Log(err.Error())
+			} else if ack.Data == nil {
+				s = append(s, start)
+			}
+			start++
+		}
 	}
 	return s
 }
 
 // UnrelayedSequences returns the unrelayed sequence numbers between two chains
-func UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error) {
+func UnrelayedSequences(src, dst *Chain, sh *SyncHeaders, ordered bool) (*RelaySequences, error) {
 	seqP, err := QueryNextSeqPairs(src, dst, sh)
 	if err != nil {
 		return nil, err
 	}
-	return seqP.ToRelay(), err
+	return seqP.ToRelay(
+		src, dst,
+		sh.GetHeight(src.ChainID),
+		sh.GetHeight(src.ChainID),
+		ordered,
+	), err
 }
 
 // QueryNextSeqPairs returns a pair of chain's next sequences for the configured channel
@@ -939,7 +954,7 @@ func QueryPathStatus(src, dst *Chain, path *Path) (stat *PathStatus, err error) 
 	stat.Chains[dst.ChainID].Channel.State = dstChan.Channel.State.String()
 	stat.Chains[dst.ChainID].Channel.Order = dstChan.Channel.Ordering.String()
 
-	unrelayed, err := UnrelayedSequences(src, dst, sh)
+	unrelayed, err := UnrelayedSequences(src, dst, sh, path.Ordered())
 	if err != nil {
 		return
 	}
