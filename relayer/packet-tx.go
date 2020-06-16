@@ -36,7 +36,7 @@ func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringe
 	}
 	unlock()
 
-	if txs.Send(c, dst); !txs.success {
+	if txs.Send(c, dst); !txs.Success() {
 		return fmt.Errorf("failed to send transfer message")
 	}
 	return nil

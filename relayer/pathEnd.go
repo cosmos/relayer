@@ -47,6 +47,23 @@ func (pe *PathEnd) getOrder() chantypes.Order {
 	return OrderFromString(strings.ToUpper(pe.Order))
 }
 
+var marshalledChains = map[PathEnd]*Chain{}
+
+func MarshalChain(c *Chain) PathEnd {
+	pe := *c.PathEnd
+	if _, ok := marshalledChains[pe]; !ok {
+		marshalledChains[pe] = c
+	}
+	return pe
+}
+
+func UnmarshalChain(pe PathEnd) *Chain {
+	if c, ok := marshalledChains[pe]; ok {
+		return c
+	}
+	return nil
+}
+
 // UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst
 func (pe *PathEnd) UpdateClient(dstHeader ibcexported.Header, signer sdk.AccAddress) sdk.Msg {
 	if err := dstHeader.ValidateBasic(); err != nil {

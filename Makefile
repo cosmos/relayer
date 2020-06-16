@@ -31,6 +31,10 @@ build-zip: go.sum
 	@GOOS=windows GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/windows-amd64-rly.exe main.go
 	@tar -czvf release.tar.gz ./build
 
+# Compile the relayer as a shared library to be linked into another program
+compile-clib:
+	go build -v -mod=readonly -buildmode=c-shared -o librelayer.so clib.go 
+
 install: go.sum
 	@echo "installing rly binary..."
 	@go build -mod=readonly $(BUILD_FLAGS) -o $${GOBIN-$${GOPATH-$$HOME/go}/bin}/rly main.go
