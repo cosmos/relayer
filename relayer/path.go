@@ -111,7 +111,7 @@ func (p *Path) Validate() (err error) {
 		return err
 	}
 	if p.Src.Version == "" {
-		return fmt.Errorf("Source must specify a version")
+		return fmt.Errorf("source must specify a version")
 	}
 	if err = p.Dst.Validate(); err != nil {
 		return err
@@ -151,6 +151,7 @@ func GenPath(srcChainID, dstChainID, srcPortID, dstPortID, order string, version
 			ChannelID:    RandLowerCaseLetterString(10),
 			PortID:       srcPortID,
 			Order:        order,
+			Version:      version,
 		},
 		Dst: &PathEnd{
 			ChainID:      dstChainID,
@@ -159,6 +160,7 @@ func GenPath(srcChainID, dstChainID, srcPortID, dstPortID, order string, version
 			ChannelID:    RandLowerCaseLetterString(10),
 			PortID:       dstPortID,
 			Order:        order,
+			Version:      version,
 		},
 		Strategy: &StrategyCfg{
 			Type: "naive",
