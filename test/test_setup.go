@@ -183,7 +183,7 @@ func cleanUpTest(t *testing.T, testsDone <-chan struct{}, contDone chan<- struct
 	// remove all the docker containers
 	for i, r := range resources {
 		if err := pool.Purge(r); err != nil {
-			require.NoError(t, fmt.Errorf("cculd not purge container %s: %w", r.Container.Name, err))
+			require.NoError(t, fmt.Errorf("could not purge container %s: %w", r.Container.Name, err))
 		}
 		c := getLoggingChain(chains, r)
 		chains[i].Log(fmt.Sprintf("- [%s] SPUN DOWN CONTAINER %s from %s", c.ChainID, r.Container.Name,
