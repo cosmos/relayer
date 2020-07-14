@@ -48,7 +48,7 @@ func (c *Chain) BuildAndSignTxWithKey(datagram []sdk.Msg, keyName string) ([]byt
 }
 
 // FaucetHandler listens for addresses
-func (c *Chain) FaucetHandler(fromKey sdk.AccAddress, amount sdk.Coin) func(w http.ResponseWriter, r *http.Request) {
+func (c *Chain) FaucetHandler(fromKey sdk.AccAddress, amounts sdk.Coins) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		c.Log("handling faucet request...")
@@ -85,14 +85,14 @@ func (c *Chain) FaucetHandler(fromKey sdk.AccAddress, amount sdk.Coin) func(w ht
 		done := c.UseSDKContext()
 		defer done()
 
-		if err := c.faucetSend(fromKey, fr.addr(), amount); err != nil {
+		if err := c.faucetSend(fromKey, fr.addr(), amounts); err != nil {
 			c.Error(err)
 			respondWithError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		c.Log(fmt.Sprintf("%s was sent %s successfully", fr.Address, amount.String()))
-		respondWithJSON(w, http.StatusCreated, success{Address: fr.Address, Amount: amount.String()})
+		c.Log(fmt.Sprintf("%s was sent %s successfully", fr.Address, amounts.String()))
+		respondWithJSON(w, http.StatusCreated, success{Address: fr.Address, Amount: amounts.String()})
 	}
 }
 
@@ -103,7 +103,9 @@ func (c *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amount sdk.Coin) err
 	if err != nil {
 		return err
 	}
-	res, err := c.SendMsgWithKey(bank.NewMsgSend(fromAddr, toAddr, sdk.NewCoins(amount)), info.GetName())
+
+	res, err := c.SendMsgWithKey(bank.NewMsgSend(fromAddr, toAddr, sdk.NewCoins(amounts...)), info.GetName())
+
 	if err != nil {
 		return fmt.Errorf("failed to send transaction: %w\n%s", err, res)
 	} else if res.Code != 0 {
