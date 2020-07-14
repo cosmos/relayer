@@ -15,7 +15,6 @@ var (
 	defaultChainPrefix     = commitmentypes.NewMerklePrefix([]byte("ibc"))
 	defaultIBCVersion      = "1.0.0"
 	defaultIBCVersions     = []string{defaultIBCVersion}
-	defaultTransferVersion = "ics20-1"
 	defaultUnbondingTime   = time.Hour * 504 // 3 weeks in hours
 	defaultMaxClockDrift   = time.Second * 10
 	defaultPacketTimeout   = 1000
