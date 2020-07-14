@@ -96,7 +96,7 @@ func (c *Chain) FaucetHandler(fromKey sdk.AccAddress, amounts sdk.Coins) func(w 
 	}
 }
 
-func (c *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amounts sdk.Coin) error {
+func (c *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amounts sdk.Coins) error {
 	// Set sdk config to use custom Bech32 account prefix
 
 	info, err := c.Keybase.KeyByAddress(fromAddr)
