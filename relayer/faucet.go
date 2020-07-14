@@ -48,7 +48,7 @@ func (src *Chain) BuildAndSignTxWithKey(datagram []sdk.Msg, keyName string) ([]b
 }
 
 // FaucetHandler listens for addresses
-func (src *Chain) FaucetHandler(fromKey sdk.AccAddress, amount sdk.Coin) func(w http.ResponseWriter, r *http.Request) {
+func (src *Chain) FaucetHandler(fromKey sdk.AccAddress, amounts sdk.Coins) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		src.Log("handling faucet request...")
@@ -85,25 +85,25 @@ func (src *Chain) FaucetHandler(fromKey sdk.AccAddress, amount sdk.Coin) func(w 
 		done := src.UseSDKContext()
 		defer done()
 
-		if err := src.faucetSend(fromKey, fr.addr(), amount); err != nil {
+		if err := src.faucetSend(fromKey, fr.addr(), amounts); err != nil {
 			src.Error(err)
 			respondWithError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-
-		src.Log(fmt.Sprintf("%s was sent %s successfully", fr.Address, amount.String()))
-		respondWithJSON(w, http.StatusCreated, success{Address: fr.Address, Amount: amount.String()})
+		src.Log(fmt.Sprintf("%s was sent %s successfully", fr.Address, amounts.String()))
+		respondWithJSON(w, http.StatusCreated, success{Address: fr.Address, Amount: amounts.String()})
 	}
 }
 
-func (src *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amount sdk.Coin) error {
+func (src *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amounts sdk.Coins) error {
 	// Set sdk config to use custom Bech32 account prefix
 
 	info, err := src.Keybase.KeyByAddress(fromAddr)
 	if err != nil {
 		return err
 	}
-	res, err := src.SendMsgWithKey(bank.NewMsgSend(fromAddr, toAddr, sdk.NewCoins(amount)), info.GetName())
+
+	res, err := src.SendMsgWithKey(bank.NewMsgSend(fromAddr, toAddr, sdk.NewCoins(amounts...)), info.GetName())
 	if err != nil {
 		return fmt.Errorf("failed to send transaction: %w\n%s", err, res)
 	} else if res.Code != 0 {
