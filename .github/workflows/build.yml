@@ -1,6 +1,10 @@
 name: BUILD - build and binary upload
 
-on: [push]
+on:
+  pull_request:
+  push:
+    branches:
+      - master
 
 jobs:
   build:
