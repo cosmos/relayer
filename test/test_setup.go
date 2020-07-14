@@ -42,9 +42,9 @@ func spinUpTestChains(t *testing.T, testChains ...testChain) ry.Chains {
 	}
 
 	// make each container and initialize the chains
-	for _, tc := range testChains {
+	for i, tc := range testChains {
 		c := newTestChain(t, tc)
-		chains = append(chains, c)
+		chains[i] = c
 		wg.Add(1)
 		go spinUpTestContainer(t, rchan, pool, c, dir, &wg, tc)
 	}
