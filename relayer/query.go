@@ -14,7 +14,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
+	clientexported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
@@ -271,11 +271,11 @@ func QueryClientStatePair(src, dst *Chain) (map[string]*clientTypes.StateRespons
 func qClntStateErr(err error) error { return fmt.Errorf("query client state failed: %w", err) }
 
 // QueryClients queries all the clients!
-func (c *Chain) QueryClients(page, limit int) ([]clientExported.ClientState, error) {
+func (c *Chain) QueryClients(page, limit int) ([]clientexported.ClientState, error) {
 	var (
 		bz      []byte
 		err     error
-		clients []clientExported.ClientState
+		clients []clientexported.ClientState
 	)
 
 	if bz, err = c.Cdc.MarshalJSON(clientTypes.NewQueryAllClientsParams(page, limit)); err != nil {
