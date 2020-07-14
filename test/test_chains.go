@@ -11,7 +11,7 @@ import (
 	gaia "github.com/cosmos/gaia/app"
 	"github.com/stretchr/testify/require"
 
-	. "github.com/iqlusioninc/relayer/relayer"
+	ry "github.com/iqlusioninc/relayer/relayer"
 )
 
 var (
@@ -133,10 +133,11 @@ type (
 )
 
 // newTestChain generates a new instance of *Chain with a free TCP port configured as the RPC port
-func newTestChain(t *testing.T, tc testChain) *Chain {
+func newTestChain(t *testing.T, tc testChain) *ry.Chain {
 	_, port, err := server.FreeTCPAddr()
 	require.NoError(t, err)
-	return &Chain{
+
+	return &ry.Chain{
 		Key:            "testkey",
 		ChainID:        tc.chainID,
 		RPCAddr:        fmt.Sprintf("http://localhost:%s", port),

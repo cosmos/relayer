@@ -79,7 +79,7 @@ func faucetRequestCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-
+			//nolint:gosec // Potential HTTP request made with variable url
 			resp, err := http.Post(urlString, "application/json", bytes.NewBuffer(body))
 			if err != nil {
 				return err

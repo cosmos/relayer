@@ -59,29 +59,29 @@ type Chain struct {
 }
 
 // ListenRPCEmitJSON listens for tx and block events from a chain and outputs them as JSON to stdout
-func (src *Chain) ListenRPCEmitJSON(tx, block, data bool) func() {
+func (c *Chain) ListenRPCEmitJSON(tx, block, data bool) func() {
 	doneChan := make(chan struct{})
-	go src.listenLoop(doneChan, tx, block, data)
+	go c.listenLoop(doneChan, tx, block, data)
 	return func() { doneChan <- struct{}{} }
 }
 
-func (src *Chain) listenLoop(doneChan chan struct{}, tx, block, data bool) {
+func (c *Chain) listenLoop(doneChan chan struct{}, tx, block, data bool) {
 	// Subscribe to source chain
-	if err := src.Start(); err != nil {
-		src.Error(err)
+	if err := c.Start(); err != nil {
+		c.Error(err)
 		return
 	}
 
-	srcTxEvents, srcTxCancel, err := src.Subscribe(txEvents)
+	srcTxEvents, srcTxCancel, err := c.Subscribe(txEvents)
 	if err != nil {
-		src.Error(err)
+		c.Error(err)
 		return
 	}
 	defer srcTxCancel()
 
-	srcBlockEvents, srcBlockCancel, err := src.Subscribe(blEvents)
+	srcBlockEvents, srcBlockCancel, err := c.Subscribe(blEvents)
 	if err != nil {
-		src.Error(err)
+		c.Error(err)
 		return
 	}
 	defer srcBlockCancel()
@@ -92,27 +92,29 @@ func (src *Chain) listenLoop(doneChan chan struct{}, tx, block, data bool) {
 	for {
 		select {
 		case srcMsg := <-srcTxEvents:
-			if tx {
+			switch {
+			case tx:
 				continue
-			} else if data {
+			case data:
 				mar = srcMsg
-			} else {
+			default:
 				mar = srcMsg.Events
 			}
 			if byt, err = json.Marshal(mar); err != nil {
-				src.Error(err)
+				c.Error(err)
 			}
 			fmt.Println(string(byt))
 		case srcMsg := <-srcBlockEvents:
-			if block {
+			switch {
+			case block:
 				continue
-			} else if data {
+			case data:
 				mar = srcMsg
-			} else {
+			default:
 				mar = srcMsg.Events
 			}
 			if byt, err = json.Marshal(mar); err != nil {
-				src.Error(err)
+				c.Error(err)
 			}
 			fmt.Println(string(byt))
 		case <-doneChan:
@@ -124,37 +126,38 @@ func (src *Chain) listenLoop(doneChan chan struct{}, tx, block, data bool) {
 
 // Init initializes the pieces of a chain that aren't set when it parses a config
 // NOTE: All validation of the chain should happen here.
-func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.Codec, timeout time.Duration, debug bool) error {
-	keybase, err := keys.New(src.ChainID, "test", keysDir(homePath, src.ChainID), nil)
+func (c *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.Codec,
+	timeout time.Duration, debug bool) error {
+	keybase, err := keys.New(c.ChainID, "test", keysDir(homePath, c.ChainID), nil)
 	if err != nil {
 		return err
 	}
 
-	client, err := newRPCClient(src.RPCAddr, timeout)
+	client, err := newRPCClient(c.RPCAddr, timeout)
 	if err != nil {
 		return err
 	}
 
-	_, err = sdk.ParseDecCoins(src.GasPrices)
+	_, err = sdk.ParseDecCoins(c.GasPrices)
 	if err != nil {
 		return err
 	}
 
-	_, err = time.ParseDuration(src.TrustingPeriod)
+	_, err = time.ParseDuration(c.TrustingPeriod)
 	if err != nil {
-		return fmt.Errorf("failed to parse trusting period (%s) for chain %s", src.TrustingPeriod, src.ChainID)
+		return fmt.Errorf("failed to parse trusting period (%s) for chain %s", c.TrustingPeriod, c.ChainID)
 	}
 
-	src.Keybase = keybase
-	src.Client = client
-	src.Cdc = newContextualStdCodec(cdc, src.UseSDKContext)
-	src.Amino = newContextualAminoCodec(amino, src.UseSDKContext)
+	c.Keybase = keybase
+	c.Client = client
+	c.Cdc = newContextualStdCodec(cdc, c.UseSDKContext)
+	c.Amino = newContextualAminoCodec(amino, c.UseSDKContext)
 	RegisterCodec(amino)
-	src.HomePath = homePath
-	src.logger = defaultChainLogger()
-	src.timeout = timeout
-	src.debug = debug
-	src.faucetAddrs = make(map[string]time.Time)
+	c.HomePath = homePath
+	c.logger = defaultChainLogger()
+	c.timeout = timeout
+	c.debug = debug
+	c.faucetAddrs = make(map[string]time.Time)
 	return nil
 }
 
@@ -163,8 +166,8 @@ func defaultChainLogger() log.Logger {
 }
 
 // KeyExists returns true if there is a specified key in chain's keybase
-func (src *Chain) KeyExists(name string) bool {
-	k, err := src.Keybase.Key(name)
+func (c *Chain) KeyExists(name string) bool {
+	k, err := c.Keybase.Key(name)
 	if err != nil {
 		return false
 	}
@@ -172,14 +175,14 @@ func (src *Chain) KeyExists(name string) bool {
 	return k.GetName() == name
 }
 
-func (src *Chain) getGasPrices() sdk.DecCoins {
-	gp, _ := sdk.ParseDecCoins(src.GasPrices)
+func (c *Chain) getGasPrices() sdk.DecCoins {
+	gp, _ := sdk.ParseDecCoins(c.GasPrices)
 	return gp
 }
 
 // GetTrustingPeriod returns the trusting period for the chain
-func (src *Chain) GetTrustingPeriod() time.Duration {
-	tp, _ := time.ParseDuration(src.TrustingPeriod)
+func (c *Chain) GetTrustingPeriod() time.Duration {
+	tp, _ := time.ParseDuration(c.TrustingPeriod)
 	return tp
 }
 
@@ -200,72 +203,72 @@ func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
 }
 
 // SendMsg wraps the msg in a stdtx, signs and sends it
-func (src *Chain) SendMsg(datagram sdk.Msg) (sdk.TxResponse, error) {
-	return src.SendMsgs([]sdk.Msg{datagram})
+func (c *Chain) SendMsg(datagram sdk.Msg) (sdk.TxResponse, error) {
+	return c.SendMsgs([]sdk.Msg{datagram})
 }
 
 // SendMsgs wraps the msgs in a stdtx, signs and sends it
-func (src *Chain) SendMsgs(datagrams []sdk.Msg) (res sdk.TxResponse, err error) {
+func (c *Chain) SendMsgs(datagrams []sdk.Msg) (res sdk.TxResponse, err error) {
 	var out []byte
-	if out, err = src.BuildAndSignTx(datagrams); err != nil {
+	if out, err = c.BuildAndSignTx(datagrams); err != nil {
 		return res, err
 	}
-	return src.BroadcastTxCommit(out)
+	return c.BroadcastTxCommit(out)
 }
 
 // BuildAndSignTx takes messages and builds, signs and marshals a sdk.Tx to prepare it for broadcast
-func (src *Chain) BuildAndSignTx(msgs []sdk.Msg) ([]byte, error) {
-	done := src.UseSDKContext()
+func (c *Chain) BuildAndSignTx(msgs []sdk.Msg) ([]byte, error) {
+	done := c.UseSDKContext()
 	defer done()
 
 	// Fetch account and sequence numbers for the account
-	acc, err := auth.NewAccountRetriever(src.Cdc, src).GetAccount(src.MustGetAddress())
+	acc, err := auth.NewAccountRetriever(c.Cdc, c).GetAccount(c.MustGetAddress())
 	if err != nil {
 		return nil, err
 	}
-	ctx := sdkCtx.CLIContext{Client: src.Client}
+	ctx := sdkCtx.CLIContext{Client: c.Client}
 	txBldr := auth.NewTxBuilder(
-		auth.DefaultTxEncoder(src.Amino.Codec), acc.GetAccountNumber(),
-		acc.GetSequence(), src.Gas, src.GasAdjustment, true, src.ChainID,
-		src.Memo, sdk.NewCoins(), src.getGasPrices()).WithKeybase(src.Keybase)
-	if src.GasAdjustment > 0 {
+		auth.DefaultTxEncoder(c.Amino.Codec), acc.GetAccountNumber(),
+		acc.GetSequence(), c.Gas, c.GasAdjustment, true, c.ChainID,
+		c.Memo, sdk.NewCoins(), c.getGasPrices()).WithKeybase(c.Keybase)
+	if c.GasAdjustment > 0 {
 		txBldr, err = authclient.EnrichWithGas(txBldr, ctx, msgs)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return txBldr.BuildAndSign(src.Key, ckeys.DefaultKeyPass, msgs)
+	return txBldr.BuildAndSign(c.Key, ckeys.DefaultKeyPass, msgs)
 }
 
 // BroadcastTxCommit takes the marshaled transaction bytes and broadcasts them
-func (src *Chain) BroadcastTxCommit(txBytes []byte) (sdk.TxResponse, error) {
-	return sdkCtx.CLIContext{Client: src.Client}.BroadcastTxCommit(txBytes)
+func (c *Chain) BroadcastTxCommit(txBytes []byte) (sdk.TxResponse, error) {
+	return sdkCtx.CLIContext{Client: c.Client}.BroadcastTxCommit(txBytes)
 }
 
 // Log takes a string and logs the data
-func (src *Chain) Log(s string) {
-	src.logger.Info(s)
+func (c *Chain) Log(s string) {
+	c.logger.Info(s)
 }
 
 // Error takes an error, wraps it in the chainID and logs the error
-func (src *Chain) Error(err error) {
-	src.logger.Error(fmt.Sprintf("%s: err(%s)", src.ChainID, err.Error()))
+func (c *Chain) Error(err error) {
+	c.logger.Error(fmt.Sprintf("%s: err(%s)", c.ChainID, err.Error()))
 }
 
 // Start the client service
-func (src *Chain) Start() error {
-	return src.Client.Start()
+func (c *Chain) Start() error {
+	return c.Client.Start()
 }
 
 // Subscribe returns channel of events given a query
-func (src *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, context.CancelFunc, error) {
+func (c *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, context.CancelFunc, error) {
 	suffix, err := GenerateRandomString(8)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	eventChan, err := src.Client.Subscribe(ctx, fmt.Sprintf("%s-subscriber-%s", src.ChainID, suffix), query, 1000)
+	eventChan, err := c.Client.Subscribe(ctx, fmt.Sprintf("%s-subscriber-%s", c.ChainID, suffix), query, 1000)
 	return eventChan, cancel, err
 }
 
@@ -279,24 +282,24 @@ func liteDir(home string) string {
 }
 
 // GetAddress returns the sdk.AccAddress associated with the configred key
-func (src *Chain) GetAddress() (sdk.AccAddress, error) {
-	if src.address != nil {
-		return src.address, nil
+func (c *Chain) GetAddress() (sdk.AccAddress, error) {
+	if c.address != nil {
+		return c.address, nil
 	}
 
-	// Signing key for src chain
-	srcAddr, err := src.Keybase.Key(src.Key)
+	// Signing key for c chain
+	srcAddr, err := c.Keybase.Key(c.Key)
 	if err != nil {
 		return nil, err
 	}
 
-	src.address = srcAddr.GetAddress()
-	return src.address, nil
+	c.address = srcAddr.GetAddress()
+	return c.address, nil
 }
 
 // MustGetAddress used for brevity
-func (src *Chain) MustGetAddress() sdk.AccAddress {
-	srcAddr, err := src.GetAddress()
+func (c *Chain) MustGetAddress() sdk.AccAddress {
+	srcAddr, err := c.GetAddress()
 	if err != nil {
 		panic(err)
 	}
@@ -306,7 +309,7 @@ func (src *Chain) MustGetAddress() sdk.AccAddress {
 var sdkContextMutex sync.Mutex
 
 // UseSDKContext uses a custom Bech32 account prefix and returns a restore func
-func (src *Chain) UseSDKContext() func() {
+func (c *Chain) UseSDKContext() func() {
 	// Ensure we're the only one using the global context.
 	sdkContextMutex.Lock()
 	defer sdkContextMutex.Unlock()
@@ -316,7 +319,7 @@ func (src *Chain) UseSDKContext() func() {
 	pubaccount := sdkConf.GetBech32AccountPubPrefix()
 
 	// Mutate the sdkConf
-	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
+	sdkConf.SetBech32PrefixForAccount(c.AccountPrefix, c.AccountPrefix+"pub")
 
 	// Return a function that resets and unlocks.
 	return func() {
@@ -327,17 +330,17 @@ func (src *Chain) UseSDKContext() func() {
 	}
 }
 
-func (src *Chain) String() string {
-	done := src.UseSDKContext()
+func (c *Chain) String() string {
+	done := c.UseSDKContext()
 	defer done()
 
-	out, _ := json.Marshal(src)
+	out, _ := json.Marshal(c)
 	return string(out)
 }
 
 // Update returns a new chain with updated values
-func (src *Chain) Update(key, value string) (out *Chain, err error) {
-	out = src
+func (c *Chain) Update(key, value string) (out *Chain, err error) {
+	out = c
 	switch key {
 	case "key":
 		out.Key = value
@@ -375,13 +378,13 @@ func (src *Chain) Update(key, value string) (out *Chain, err error) {
 		return out, fmt.Errorf("key %s not found", key)
 	}
 
-	return
+	return out, err
 }
 
 // Print fmt.Printlns the json or yaml representation of whatever is passed in
 // CONTRACT: The cmd calling this function needs to have the "json" and "indent" flags set
 // TODO: better "text" printing here would be a nice to have
-func (src *Chain) Print(toPrint interface{}, text, indent bool) error {
+func (c *Chain) Print(toPrint interface{}, text, indent bool) error {
 	var (
 		out []byte
 		err error
@@ -391,12 +394,12 @@ func (src *Chain) Print(toPrint interface{}, text, indent bool) error {
 	case indent && text:
 		return fmt.Errorf("must pass either indent or text, not both")
 	case indent:
-		out, err = src.Amino.MarshalJSONIndent(toPrint, "", "  ")
+		out, err = c.Amino.MarshalJSONIndent(toPrint, "", "  ")
 	case text:
 		// TODO: This isn't really a good option,
 		out = []byte(fmt.Sprintf("%v", toPrint))
 	default:
-		out, err = src.Amino.MarshalJSON(toPrint)
+		out, err = c.Amino.MarshalJSON(toPrint)
 	}
 
 	if err != nil {
@@ -408,19 +411,19 @@ func (src *Chain) Print(toPrint interface{}, text, indent bool) error {
 }
 
 // SendAndPrint sends a transaction and prints according to the passed args
-func (src *Chain) SendAndPrint(txs []sdk.Msg, text, indent bool) (err error) {
-	if src.debug {
-		if err = src.Print(txs, text, indent); err != nil {
+func (c *Chain) SendAndPrint(txs []sdk.Msg, text, indent bool) (err error) {
+	if c.debug {
+		if err = c.Print(txs, text, indent); err != nil {
 			return err
 		}
 	}
 	// SendAndPrint sends the transaction with printing options from the CLI
-	res, err := src.SendMsgs(txs)
+	res, err := c.SendMsgs(txs)
 	if err != nil {
 		return err
 	}
 
-	return src.Print(res, text, indent)
+	return c.Print(res, text, indent)
 
 }
 
@@ -462,15 +465,15 @@ func (c Chains) Gets(chainIDs ...string) (map[string]*Chain, error) {
 }
 
 // GetRPCPort returns the port configured for the chain
-func (src *Chain) GetRPCPort() string {
-	u, _ := url.Parse(src.RPCAddr)
+func (c *Chain) GetRPCPort() string {
+	u, _ := url.Parse(c.RPCAddr)
 	return u.Port()
 }
 
 // CreateTestKey creates a key for test chain
-func (src *Chain) CreateTestKey() error {
-	if src.KeyExists(src.Key) {
-		return fmt.Errorf("key %s exists for chain %s", src.ChainID, src.Key)
+func (c *Chain) CreateTestKey() error {
+	if c.KeyExists(c.Key) {
+		return fmt.Errorf("key %s exists for chain %s", c.ChainID, c.Key)
 	}
 
 	mnemonic, err := CreateMnemonic()
@@ -478,7 +481,7 @@ func (src *Chain) CreateTestKey() error {
 		return err
 	}
 
-	_, err = src.Keybase.NewAccount(src.Key, mnemonic, "", hd.CreateHDPath(118, 0, 0).String(), hd.Secp256k1)
+	_, err = c.Keybase.NewAccount(c.Key, mnemonic, "", hd.CreateHDPath(118, 0, 0).String(), hd.Secp256k1)
 	return err
 }
 
@@ -496,13 +499,13 @@ func CreateMnemonic() (string, error) {
 }
 
 // GetTimeout returns the chain's configured timeout
-func (src *Chain) GetTimeout() time.Duration {
-	return src.timeout
+func (c *Chain) GetTimeout() time.Duration {
+	return c.timeout
 }
 
 // StatusErr returns err unless the chain is ready to go
-func (src *Chain) StatusErr() error {
-	stat, err := src.Client.Status()
+func (c *Chain) StatusErr() error {
+	stat, err := c.Client.Status()
 	switch {
 	case err != nil:
 		return err

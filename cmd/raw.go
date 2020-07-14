@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"strings"
+
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
@@ -76,7 +78,8 @@ func updateClientCmd() *cobra.Command {
 				}
 			}
 
-			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress())}, chains[src], cmd)
+			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress())},
+				chains[src], cmd)
 		},
 	}
 	return heightFlag(cmd)
@@ -104,7 +107,9 @@ func createClientCmd() *cobra.Command {
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.CreateClient(dstHeader, chains[dst].GetTrustingPeriod(), chains[src].MustGetAddress())}, chains[src], cmd)
+			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.CreateClient(dstHeader,
+				chains[dst].GetTrustingPeriod(), chains[src].MustGetAddress())},
+				chains[src], cmd)
 		},
 	}
 	return cmd
@@ -130,7 +135,8 @@ func connInit() *cobra.Command {
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.ConnInit(chains[dst].PathEnd, chains[src].MustGetAddress())}, chains[src], cmd)
+			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.ConnInit(chains[dst].PathEnd, chains[src].MustGetAddress())},
+				chains[src], cmd)
 		},
 	}
 	return cmd
@@ -183,7 +189,8 @@ func connTry() *cobra.Command {
 
 			txs := []sdk.Msg{
 				chains[src].PathEnd.UpdateClient(hs[dst], chains[src].MustGetAddress()),
-				chains[src].PathEnd.ConnTry(chains[dst].PathEnd, dstConnState, dstConsState, dstCsHeight, chains[src].MustGetAddress()),
+				chains[src].PathEnd.ConnTry(chains[dst].PathEnd, dstConnState,
+					dstConsState, dstCsHeight, chains[src].MustGetAddress()),
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -293,11 +300,13 @@ func connConfirm() *cobra.Command {
 
 func createConnectionStepCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "connection-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id]",
+		Use: strings.TrimSpace(`connection-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] 
+		[src-connection-id] [dst-connection-id]`),
 		Aliases: []string{"conn-step"},
 		Short:   "create a connection between chains, passing in identifiers",
-		Long:    "This command creates the next handshake message given a specifc set of identifiers. If the command fails, you can safely run it again to repair an unfinished connection",
-		Args:    cobra.ExactArgs(6),
+		Long: strings.TrimSpace(`This command creates the next handshake message given a specifc set of identifiers. 
+		If the command fails, you can safely run it again to repair an unfinished connection`),
+		Args: cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -336,7 +345,8 @@ func createConnectionStepCmd() *cobra.Command {
 
 func chanInit() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "chan-init [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id] [ordering]",
+		Use: strings.TrimSpace(`chan-init [src-chain-id] [dst-chain-id] [src-client-id] 
+		[dst-client-id] [src-conn-id] [dst-conn-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id] [ordering]`),
 		Short: "chan-init",
 		Args:  cobra.ExactArgs(11),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -354,7 +364,8 @@ func chanInit() *cobra.Command {
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.ChanInit(chains[dst].PathEnd, chains[src].MustGetAddress())}, chains[src], cmd)
+			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.ChanInit(chains[dst].PathEnd, chains[src].MustGetAddress())},
+				chains[src], cmd)
 		},
 	}
 	return cmd
@@ -362,7 +373,8 @@ func chanInit() *cobra.Command {
 
 func chanTry() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "chan-try [src-chain-id] [dst-chain-id] [src-client-id] [src-conn-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]",
+		Use: strings.TrimSpace(`chan-try [src-chain-id] [dst-chain-id] 
+		[src-client-id] [src-conn-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]`),
 		Short: "chan-try",
 		Args:  cobra.ExactArgs(8),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -403,7 +415,8 @@ func chanTry() *cobra.Command {
 
 func chanAck() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "chan-ack [src-chain-id] [dst-chain-id] [src-client-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]",
+		Use: strings.TrimSpace(`chan-ack [src-chain-id] [dst-chain-id] [src-client-id] 
+		[src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]`),
 		Short: "chan-ack",
 		Args:  cobra.ExactArgs(7),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -444,7 +457,8 @@ func chanAck() *cobra.Command {
 
 func chanConfirm() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "chan-confirm [src-chain-id] [dst-chain-id] [src-client-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]",
+		Use: strings.TrimSpace(`chan-confirm [src-chain-id] [dst-chain-id] [src-client-id] 
+		[src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]`),
 		Short: "chan-confirm",
 		Args:  cobra.ExactArgs(7),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -485,7 +499,8 @@ func chanConfirm() *cobra.Command {
 
 func createChannelStepCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "channel-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id] [ordering]",
+		Use: strings.TrimSpace(`channel-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] 
+		[src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id] [ordering]`),
 		Aliases: []string{"chan-step"},
 		Short:   "create the next step in creating a channel between chains with the passed identifiers",
 		Args:    cobra.ExactArgs(11),
@@ -549,7 +564,8 @@ func chanCloseInit() *cobra.Command {
 
 func chanCloseConfirm() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "chan-close-confirm [src-chain-id] [dst-chain-id] [src-client-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]",
+		Use: strings.TrimSpace(`chan-close-confirm [src-chain-id] [dst-chain-id] 
+		[src-client-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]`),
 		Short: "chan-close-confirm",
 		Args:  cobra.ExactArgs(7),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -590,7 +606,8 @@ func chanCloseConfirm() *cobra.Command {
 
 func closeChannelStepCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "close-channel-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id]",
+		Use: strings.TrimSpace(`close-channel-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] 
+		[src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id]`),
 		Short: "create the next step in closing a channel between chains with the passed identifiers",
 		Args:  cobra.ExactArgs(10),
 		RunE: func(cmd *cobra.Command, args []string) error {

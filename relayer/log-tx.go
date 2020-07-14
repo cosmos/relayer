@@ -22,7 +22,8 @@ func (c *Chain) LogFailedTx(res sdk.TxResponse, err error, msgs []sdk.Msg) {
 	}
 
 	if res.Codespace != "" && res.Code != 0 {
-		c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%s:%d:%s)", c.ChainID, res.Height, getMsgAction(msgs), res.Codespace, res.Code, res.RawLog))
+		c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%s:%d:%s)",
+			c.ChainID, res.Height, getMsgAction(msgs), res.Codespace, res.Code, res.RawLog))
 	}
 
 	if c.debug && !res.Empty() {
@@ -37,7 +38,8 @@ func (c *Chain) LogSuccessTx(res sdk.TxResponse, msgs []sdk.Msg) {
 }
 
 func (c *Chain) logPacketsRelayed(dst *Chain, num int) {
-	dst.Log(fmt.Sprintf("★ Relayed %d packets: [%s]port{%s}->[%s]port{%s}", num, dst.ChainID, dst.PathEnd.PortID, c.ChainID, c.PathEnd.PortID))
+	dst.Log(fmt.Sprintf("★ Relayed %d packets: [%s]port{%s}->[%s]port{%s}",
+		num, dst.ChainID, dst.PathEnd.PortID, c.ChainID, c.PathEnd.PortID))
 }
 
 func logChannelStates(src, dst *Chain, conn map[string]chanTypes.ChannelResponse) {
@@ -68,7 +70,8 @@ func logConnectionStates(src, dst *Chain, conn map[string]connTypes.ConnectionRe
 }
 
 func (c *Chain) logCreateClient(dst *Chain, dstH uint64) {
-	c.Log(fmt.Sprintf("- [%s] -> creating client (%s) for [%s]header-height{%d} trust-period(%s)", c.ChainID, c.PathEnd.ClientID, dst.ChainID, dstH, dst.GetTrustingPeriod()))
+	c.Log(fmt.Sprintf("- [%s] -> creating client (%s) for [%s]header-height{%d} trust-period(%s)",
+		c.ChainID, c.PathEnd.ClientID, dst.ChainID, dstH, dst.GetTrustingPeriod()))
 }
 
 func (c *Chain) logTx(events map[string][]string) {

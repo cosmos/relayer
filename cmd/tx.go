@@ -30,7 +30,8 @@ func transactionCmd() *cobra.Command {
 		Use:     "transact",
 		Aliases: []string{"tx"},
 		Short:   "IBC Transaction Commands",
-		Long: strings.TrimSpace(`Commands to create IBC transactions on configured chains. Most of these commands take a '[path]' arguement. Make sure:
+		Long: strings.TrimSpace(`Commands to create IBC transactions on configured chains. 
+		Most of these commands take a '[path]' argument. Make sure:
 	1. Chains are properly configured to relay over by using the 'rly chains list' command
 	2. Path is properly configured to relay over by using the 'rly paths list' command`),
 	}
@@ -75,8 +76,9 @@ func createConnectionCmd() *cobra.Command {
 		Use:     "connection [path-name]",
 		Aliases: []string{"conn"},
 		Short:   "create a connection between two configured chains with a configured path",
-		Long:    "This command is meant to be used to repair or create a connection between two chains with a configured path in the config file",
-		Args:    cobra.ExactArgs(1),
+		Long: strings.TrimSpace(`This command is meant to be used to repair or create 
+		a connection between two chains with a configured path in the config file`),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -100,8 +102,9 @@ func createChannelCmd() *cobra.Command {
 		Use:     "channel [path-name]",
 		Aliases: []string{"chan"},
 		Short:   "create a channel between two configured chains with a configured path",
-		Long:    "This command is meant to be used to repair or create a channel between two chains with a configured path in the config file",
-		Args:    cobra.ExactArgs(1),
+		Long: strings.TrimSpace(`This command is meant to be used to repair or 
+		create a channel between two chains with a configured path in the config file`),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {

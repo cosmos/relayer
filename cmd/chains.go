@@ -15,6 +15,11 @@ import (
 	"github.com/iqlusioninc/relayer/relayer"
 )
 
+const (
+	check = "✔"
+	xIcon = "✘"
+)
+
 func chainsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "chains",
@@ -55,7 +60,7 @@ func chainsAddrCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Println(string(addr.String()))
+			fmt.Println(addr.String())
 			return nil
 		},
 	}
@@ -192,29 +197,29 @@ func chainsListCmd() *cobra.Command {
 			default:
 				for i, c := range config.Chains {
 					var (
-						lite = "✘"
-						key  = "✘"
-						path = "✘"
-						bal  = "✘"
+						lite = xIcon
+						key  = xIcon
+						path = xIcon
+						bal  = xIcon
 					)
 					_, err := c.GetAddress()
 					if err == nil {
-						key = "✔"
+						key = check
 					}
 
 					coins, err := c.QueryBalance(c.Key)
 					if err == nil && !coins.Empty() {
-						bal = "✔"
+						bal = check
 					}
 
 					_, err = c.GetLatestLiteHeader()
 					if err == nil {
-						lite = "✔"
+						lite = check
 					}
 
 					for _, pth := range config.Paths {
 						if pth.Src.ChainID == c.ChainID || pth.Dst.ChainID == c.ChainID {
-							path = "✔"
+							path = check
 						}
 					}
 					fmt.Printf("%2d: %-20s -> key(%s) bal(%s) lite(%s) path(%s)\n", i, c.ChainID, key, bal, lite, path)
@@ -269,7 +274,8 @@ func chainsAddDirCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "add-dir [dir]",
 		Aliases: []string{"ad"},
-		Short:   "Add new chains to the configuration file from a directory full of chain configuration, useful for adding testnet configurations",
+		Short: `Add new chains to the configuration file from a directory 
+		full of chain configuration, useful for adding testnet configurations`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var out *Config
 			if out, err = filesAdd(args[0]); err != nil {
@@ -432,7 +438,7 @@ func userInputAdd(cmd *cobra.Command) (cfg *Config, err error) {
 func urlInputAdd(rawurl string) (cfg *Config, err error) {
 	u, err := url.Parse(rawurl)
 	if err != nil || u.Scheme == "" || u.Host == "" {
-		return cfg, errors.New("Invalid URL")
+		return cfg, errors.New("invalid URL")
 	}
 
 	resp, err := http.Get(u.String())

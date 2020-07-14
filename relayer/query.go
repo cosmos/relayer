@@ -14,8 +14,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
-	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
+	clientexported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
@@ -118,7 +117,8 @@ func qConsStateErr(err error) error { return fmt.Errorf("query cons state failed
 
 // QueryClientConsensusState retrevies the latest consensus state for a client in state at a given height
 // NOTE: dstHeight is the height from dst that is stored on src, it is needed to construct the appropriate store query
-func (c *Chain) QueryClientConsensusState(srcHeight, srcClientConsHeight int64) (clientTypes.ConsensusStateResponse, error) {
+func (c *Chain) QueryClientConsensusState(srcHeight,
+	srcClientConsHeight int64) (clientTypes.ConsensusStateResponse, error) {
 	var conStateRes clientTypes.ConsensusStateResponse
 	if !c.PathSet() {
 		return conStateRes, c.ErrPathNotSet()
@@ -126,7 +126,7 @@ func (c *Chain) QueryClientConsensusState(srcHeight, srcClientConsHeight int64) 
 
 	req := abci.RequestQuery{
 		Path:   "store/ibc/key",
-		Height: int64(srcHeight),
+		Height: srcHeight,
 		Data:   prefixClientKey(c.PathEnd.ClientID, ibctypes.KeyConsensusState(uint64(srcClientConsHeight))),
 		Prove:  true,
 	}
@@ -139,7 +139,7 @@ func (c *Chain) QueryClientConsensusState(srcHeight, srcClientConsHeight int64) 
 		return clientTypes.NewConsensusStateResponse("notfound", nil, nil, 0), nil
 	}
 
-	var cs exported.ConsensusState
+	var cs clientexported.ConsensusState
 	if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
 		if err = c.Amino.UnmarshalBinaryBare(res.Value, &cs); err != nil {
 			return conStateRes, qClntConsStateErr(err)
@@ -162,7 +162,8 @@ type chh struct {
 }
 
 // QueryClientConsensusStatePair allows for the querying of multiple client states at the same time
-func QueryClientConsensusStatePair(src, dst *Chain, srcH, dstH, srcClientConsH, dstClientConsH int64) (map[string]clientTypes.ConsensusStateResponse, error) {
+func QueryClientConsensusStatePair(src, dst *Chain,
+	srcH, dstH, srcClientConsH, dstClientConsH int64) (map[string]clientTypes.ConsensusStateResponse, error) {
 	hs := &csstates{
 		Map:  make(map[string]clientTypes.ConsensusStateResponse),
 		Errs: []error{},
@@ -217,7 +218,7 @@ func (c *Chain) QueryClientState() (*clientTypes.StateResponse, error) {
 		return nil, nil
 	}
 
-	var cs exported.ClientState
+	var cs clientexported.ClientState
 
 	// If this decoding fails, try with UnmarshalBinaryLengthPrefixed this changed
 	// reciently and will help support older versions.
@@ -270,18 +271,19 @@ func QueryClientStatePair(src, dst *Chain) (map[string]*clientTypes.StateRespons
 func qClntStateErr(err error) error { return fmt.Errorf("query client state failed: %w", err) }
 
 // QueryClients queries all the clients!
-func (c *Chain) QueryClients(page, limit int) ([]clientExported.ClientState, error) {
+func (c *Chain) QueryClients(page, limit int) ([]clientexported.ClientState, error) {
 	var (
 		bz      []byte
 		err     error
-		clients []clientExported.ClientState
+		clients []clientexported.ClientState
 	)
 
 	if bz, err = c.Cdc.MarshalJSON(clientTypes.NewQueryAllClientsParams(page, limit)); err != nil {
 		return nil, qClntsErr(err)
 	}
 
-	if bz, _, err = c.QueryWithData(ibcQuerierRoute(clientTypes.QuerierRoute, clientTypes.QueryAllClients), bz); err != nil {
+	if bz, _, err = c.QueryWithData(
+		ibcQuerierRoute(clientTypes.QuerierRoute, clientTypes.QueryAllClients), bz); err != nil {
 		return nil, qClntsErr(err)
 	}
 
@@ -305,7 +307,8 @@ func (c *Chain) QueryConnections(page, limit int) (conns []connTypes.ConnectionE
 		return nil, qConnsErr(err)
 	}
 
-	if bz, _, err = c.QueryWithData(ibcQuerierRoute(connTypes.QuerierRoute, connTypes.QueryAllConnections), bz); err != nil {
+	if bz, _, err = c.QueryWithData(
+		ibcQuerierRoute(connTypes.QuerierRoute, connTypes.QueryAllConnections), bz); err != nil {
 		return nil, qConnsErr(err)
 	}
 
@@ -430,7 +433,6 @@ func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (map[string]connType
 
 func qConnErr(err error) error { return fmt.Errorf("query connection failed: %w", err) }
 
-var emptyConn = connTypes.ConnectionEnd{State: ibctypes.UNINITIALIZED}
 var emptyConnRes = connTypes.ConnectionResponse{Connection: connTypes.ConnectionEnd{ID: ""}}
 
 // ////////////////////////////
@@ -449,7 +451,8 @@ func (c *Chain) QueryConnectionChannels(connectionID string, page, limit int) ([
 		return nil, qChansErr(err)
 	}
 
-	if bz, _, err = c.QueryWithData(ibcQuerierRoute(chanTypes.QuerierRoute, chanTypes.QueryConnectionChannels), bz); err != nil {
+	if bz, _, err = c.QueryWithData(
+		ibcQuerierRoute(chanTypes.QuerierRoute, chanTypes.QueryConnectionChannels), bz); err != nil {
 		return nil, qChansErr(err)
 	}
 
@@ -478,7 +481,8 @@ func (c *Chain) QueryChannel(height int64) (chanRes chanTypes.ChannelResponse, e
 		return chanRes, qChanErr(err)
 	} else if res.Value == nil {
 		// NOTE: This is returned so that the switch statement in ChannelStep works properly
-		return chanTypes.NewChannelResponse(c.PathEnd.PortID, c.PathEnd.ChannelID, chanTypes.Channel{State: ibctypes.UNINITIALIZED}, nil, 0), nil
+		return chanTypes.NewChannelResponse(c.PathEnd.PortID, c.PathEnd.ChannelID,
+			chanTypes.Channel{State: ibctypes.UNINITIALIZED}, nil, 0), nil
 	}
 
 	var channel chanTypes.Channel
@@ -944,7 +948,7 @@ func QueryPathStatus(src, dst *Chain, path *Path) (stat *PathStatus, err error) 
 		return
 	}
 	stat.UnrelayedSeq = unrelayed
-	return
+	return stat, err
 }
 
 // QueryTx takes a transaction hash and returns the transaction
@@ -1184,7 +1188,8 @@ func (c *Chain) queryBlocksForTxResults(resTxs []*ctypes.ResultTx) (map[int64]*c
 }
 
 // formatTxResults parses the indexed txs into a slice of TxResponse objects.
-func (c *Chain) formatTxResults(resTxs []*ctypes.ResultTx, resBlocks map[int64]*ctypes.ResultBlock) ([]sdk.TxResponse, error) {
+func (c *Chain) formatTxResults(resTxs []*ctypes.ResultTx,
+	resBlocks map[int64]*ctypes.ResultBlock) ([]sdk.TxResponse, error) {
 	var err error
 	out := make([]sdk.TxResponse, len(resTxs))
 	for i := range resTxs {
@@ -1231,9 +1236,9 @@ func ParseEvents(e string) ([]string, error) {
 		events = append(events, eventsStr)
 	}
 
-	var tmEvents []string
+	var tmEvents = make([]string, len(events))
 
-	for _, event := range events {
+	for i, event := range events {
 		if !strings.Contains(event, "=") {
 			return []string{}, fmt.Errorf("invalid event; event %s should be of the format: %s", event, eventFormat)
 		} else if strings.Count(event, "=") > 1 {
@@ -1247,7 +1252,7 @@ func ParseEvents(e string) ([]string, error) {
 			event = fmt.Sprintf("%s='%s'", tokens[0], tokens[1])
 		}
 
-		tmEvents = append(tmEvents, event)
+		tmEvents[i] = event
 	}
 	return tmEvents, nil
 }

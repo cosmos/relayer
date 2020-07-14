@@ -3,9 +3,10 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/tendermint/tendermint/types/time"
 	"io/ioutil"
 	"os"
+
+	"github.com/tendermint/tendermint/types/time"
 
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
@@ -15,6 +16,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
+
+const OPEN = "OPEN"
 
 func pathsCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -86,11 +89,11 @@ func pathsGenCmd() *cobra.Command {
 			}
 
 			if unordered {
-				path.Src.Order = "UNORDERED"
-				path.Dst.Order = "UNORDERED"
+				path.Src.Order = UNORDERED
+				path.Dst.Order = UNORDERED
 			} else {
-				path.Src.Order = "ORDERED"
-				path.Dst.Order = "ORDERED"
+				path.Src.Order = ORDERED
+				path.Dst.Order = ORDERED
 			}
 
 			force, err := cmd.Flags().GetBool(flagForce)
@@ -121,7 +124,7 @@ func pathsGenCmd() *cobra.Command {
 				clnt, ok := c.(tmclient.ClientState)
 				if ok && clnt.LastHeader.Commit != nil && clnt.LastHeader.Header != nil {
 					if clnt.GetChainID() == dst && !clnt.IsFrozen() &&
-						time.Now().Sub(clnt.GetLatestTimestamp()) < clnt.TrustingPeriod{
+						time.Now().Sub(clnt.GetLatestTimestamp()) < clnt.TrustingPeriod {
 						path.Src.ClientID = clnt.GetID()
 					}
 				}
@@ -210,8 +213,8 @@ func pathsGenCmd() *cobra.Command {
 				// we should generate a new connection identifier
 				dstCpForSrc := srcCon.Counterparty.ConnectionID == dstCon.ID
 				srcCpForDst := dstCon.Counterparty.ConnectionID == srcCon.ID
-				srcOpen := srcCon.State.String() == "OPEN"
-				dstOpen := dstCon.State.String() == "OPEN"
+				srcOpen := srcCon.State.String() == OPEN
+				dstOpen := dstCon.State.String() == OPEN
 				if !(dstCpForSrc && srcCpForDst && srcOpen && dstOpen) {
 					path.Src.ConnectionID = relayer.RandLowerCaseLetterString(10)
 					path.Dst.ConnectionID = relayer.RandLowerCaseLetterString(10)
@@ -263,8 +266,8 @@ func pathsGenCmd() *cobra.Command {
 			case path.Src.ChannelID != "" && path.Dst.ChannelID != "":
 				dstCpForSrc := srcChan.Counterparty.ChannelID == dstChan.ID
 				srcCpForDst := dstChan.Counterparty.ChannelID == srcChan.ID
-				srcOpen := srcChan.State.String() == "OPEN"
-				dstOpen := dstChan.State.String() == "OPEN"
+				srcOpen := srcChan.State.String() == OPEN
+				dstOpen := dstChan.State.String() == OPEN
 				srcPort := srcChan.PortID == path.Src.PortID
 				dstPort := dstChan.PortID == path.Dst.PortID
 				srcOrder := srcChan.Ordering.String() == path.Src.Order
@@ -344,15 +347,15 @@ func pathsListCmd() *cobra.Command {
 				for k, pth := range config.Paths {
 					// TODO: replace this with relayer.QueryPathStatus
 					var (
-						chains     = "✘"
-						clients    = "✘"
-						connection = "✘"
-						channel    = "✘"
+						chains     = xIcon
+						clients    = xIcon
+						connection = xIcon
+						channel    = xIcon
 					)
 					src, dst := pth.Src.ChainID, pth.Dst.ChainID
 					ch, err := config.Chains.Gets(src, dst)
 					if err == nil {
-						chains = "✔"
+						chains = check
 						err = ch[src].SetPath(pth.Src)
 						if err != nil {
 							printPath(i, k, pth, chains, clients, connection, channel)
@@ -374,7 +377,7 @@ func pathsListCmd() *cobra.Command {
 					srcCs, err := ch[src].QueryClientState()
 					dstCs, _ := ch[dst].QueryClientState()
 					if err == nil && srcCs != nil && dstCs != nil {
-						clients = "✔"
+						clients = check
 					} else {
 						printPath(i, k, pth, chains, clients, connection, channel)
 						i++
@@ -392,7 +395,7 @@ func pathsListCmd() *cobra.Command {
 					srcConn, err := ch[src].QueryConnection(srch)
 					dstConn, _ := ch[dst].QueryConnection(dsth)
 					if err == nil && srcConn.Connection.State == ibcTypes.OPEN && dstConn.Connection.State == ibcTypes.OPEN {
-						connection = "✔"
+						connection = check
 					} else {
 						printPath(i, k, pth, chains, clients, connection, channel)
 						i++
@@ -402,7 +405,7 @@ func pathsListCmd() *cobra.Command {
 					srcChan, err := ch[src].QueryChannel(srch)
 					dstChan, _ := ch[dst].QueryChannel(dsth)
 					if err == nil && srcChan.Channel.State == ibcTypes.OPEN && dstChan.Channel.State == ibcTypes.OPEN {
-						channel = "✔"
+						channel = check
 					} else {
 						printPath(i, k, pth, chains, clients, connection, channel)
 						i++
@@ -438,9 +441,9 @@ type PathWithStatus struct {
 
 func checkmark(status bool) string {
 	if status {
-		return "✔"
+		return check
 	}
-	return "✘"
+	return xIcon
 }
 
 func pathsShowCmd() *cobra.Command {
@@ -546,7 +549,8 @@ func pathsShowCmd() *cobra.Command {
     Clients:      %s
     Connection:   %s
     Channel:      %s
-`, args[0], path.Strategy.Type, path.Src.ChainID, path.Src.ClientID, path.Src.ConnectionID, path.Src.ChannelID, path.Src.PortID,
+`, args[0], path.Strategy.Type, path.Src.ChainID,
+					path.Src.ClientID, path.Src.ConnectionID, path.Src.ChannelID, path.Src.PortID,
 					path.Dst.ChainID, path.Dst.ClientID, path.Dst.ConnectionID, path.Dst.ChannelID, path.Dst.PortID,
 					checkmark(chains), checkmark(clients), checkmark(connection), checkmark(channel))
 			}

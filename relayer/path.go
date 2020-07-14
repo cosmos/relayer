@@ -3,9 +3,10 @@ package relayer
 import (
 	"fmt"
 
+	"gopkg.in/yaml.v2"
+
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
-	"gopkg.in/yaml.v2"
 )
 
 var ( // Default identifiers for dummy usage
@@ -120,7 +121,8 @@ func (p *Path) Validate() (err error) {
 		return err
 	}
 	if p.Src.Order != p.Dst.Order {
-		return fmt.Errorf("Both sides must have same order ('ORDERED' or 'UNORDERED'), got src(%s) and dst(%s)", p.Src.Order, p.Dst.Order)
+		return fmt.Errorf("both sides must have same order ('ORDERED' or 'UNORDERED'), got src(%s) and dst(%s)",
+			p.Src.Order, p.Dst.Order)
 	}
 	return nil
 }

@@ -48,7 +48,8 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders)
 		if err != nil {
 			return err
 		} else if dstRecvRes.Proof.Proof == nil {
-			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)", dst.ChainID, int64(sh.GetHeight(dst.ChainID)-1), rp.seq)
+			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)",
+				dst.ChainID, int64(sh.GetHeight(dst.ChainID)-1), rp.seq)
 		}
 		return nil
 	}); err != nil {
@@ -118,7 +119,8 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeade
 		if err != nil {
 			return err
 		} else if dstCommitRes.Proof.Proof == nil {
-			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)", dst.ChainID, int64(sh.GetHeight(dst.ChainID)-1), rp.seq)
+			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)",
+				dst.ChainID, int64(sh.GetHeight(dst.ChainID)-1), rp.seq)
 		}
 		return nil
 	}); err != nil {
@@ -146,8 +148,6 @@ type relayMsgPacketAck struct {
 	timeout      uint64
 	timeoutStamp uint64
 	dstComRes    *CommitmentResponse
-
-	pass bool
 }
 
 func (rp *relayMsgPacketAck) Data() []byte {
@@ -181,7 +181,8 @@ func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, sh *SyncHeader
 		if err != nil {
 			return err
 		} else if dstCommitRes.Proof.Proof == nil {
-			return fmt.Errorf("- [%s]@{%d} - Packet Ack Proof is nil seq(%d)", dst.ChainID, int64(sh.GetHeight(dst.ChainID)-1), rp.seq)
+			return fmt.Errorf("- [%s]@{%d} - Packet Ack Proof is nil seq(%d)",
+				dst.ChainID, int64(sh.GetHeight(dst.ChainID)-1), rp.seq)
 		}
 		return nil
 	}); err != nil {

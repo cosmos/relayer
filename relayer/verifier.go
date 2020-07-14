@@ -120,7 +120,7 @@ func (c *Chain) UpdateLiteWithHeaderHeight(height int64) (*tmclient.Header, erro
 }
 
 // LiteClientWithoutTrust reads the trusted period off of the chain.
-func (c *Chain) LiteClientWithoutTrust(db *dbm.GoLevelDB) (*lite.Client, error) {
+func (c *Chain) LiteClientWithoutTrust(db dbm.DB) (*lite.Client, error) {
 	httpProvider, err := litehttp.New(c.ChainID, c.RPCAddr)
 	if err != nil {
 		return nil, err
@@ -139,7 +139,7 @@ func (c *Chain) LiteClientWithoutTrust(db *dbm.GoLevelDB) (*lite.Client, error) 
 }
 
 // LiteClient initializes the lite client for a given chain.
-func (c *Chain) LiteClient(db *dbm.GoLevelDB, trustOpts lite.TrustOptions) (*lite.Client, error) {
+func (c *Chain) LiteClient(db dbm.DB, trustOpts lite.TrustOptions) (*lite.Client, error) {
 	httpProvider, err := litehttp.New(c.ChainID, c.RPCAddr)
 	if err != nil {
 		return nil, err
@@ -158,7 +158,7 @@ func (c *Chain) LiteClient(db *dbm.GoLevelDB, trustOpts lite.TrustOptions) (*lit
 }
 
 // InitLiteClient instantantiates the lite client object and calls update
-func (c *Chain) InitLiteClient(db *dbm.GoLevelDB, trustOpts lite.TrustOptions) (*lite.Client, error) {
+func (c *Chain) InitLiteClient(db dbm.DB, trustOpts lite.TrustOptions) (*lite.Client, error) {
 	lc, err := c.LiteClient(db, trustOpts)
 	if err != nil {
 		return nil, err
@@ -171,7 +171,7 @@ func (c *Chain) InitLiteClient(db *dbm.GoLevelDB, trustOpts lite.TrustOptions) (
 }
 
 // TrustNodeInitClient trusts the configured node and initializes the lite client
-func (c *Chain) TrustNodeInitClient(db *dbm.GoLevelDB) (*lite.Client, error) {
+func (c *Chain) TrustNodeInitClient(db dbm.DB) (*lite.Client, error) {
 	// fetch latest height from configured node
 	var (
 		height int64
@@ -310,7 +310,7 @@ func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, err
 	return &tmclient.Header{SignedHeader: *sh, ValidatorSet: vs}, nil
 }
 
-// ErrLiteNotInitialized returns the cannonical error for a an uninitialized lite client
+// ErrLiteNotInitialized returns the canonical error for a an uninitialized lite client
 var ErrLiteNotInitialized = errors.New("lite client is not initialized")
 
 // ForceInitLite forces initialization of the lite client from the configured node
