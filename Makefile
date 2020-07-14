@@ -54,7 +54,7 @@ test-agoric:
 	@TEST_DEBUG=true go test -mod=readonly -v -race ./test/... -run TestAgoric*
 
 test-coco:
-	@TEST_DEBUG=true go test -mod=mod -v -race ./test/... -run TestCoCo*
+	@TEST_DEBUG=true go test -mod=readonly -v -race ./test/... -run TestCoCo*
 
 coverage:
 	@echo "viewing test coverage..."

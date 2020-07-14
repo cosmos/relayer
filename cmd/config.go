@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	ORDERED   = "ORDERED"
-	UNORDERED = "UNORDERED"
+	ORDERED        = "ORDERED"
+	UNORDERED      = "UNORDERED"
 	defaultOrder   = ORDERED
 	defaultVersion = "ics20-1"
 )
