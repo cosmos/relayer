@@ -139,7 +139,7 @@ func (c *Chain) QueryClientConsensusState(srcHeight,
 		return clientTypes.NewConsensusStateResponse("notfound", nil, nil, 0), nil
 	}
 
-	var cs clientExported.ConsensusState
+	var cs clientexported.ConsensusState
 	if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
 		if err = c.Amino.UnmarshalBinaryBare(res.Value, &cs); err != nil {
 			return conStateRes, qClntConsStateErr(err)
@@ -218,7 +218,7 @@ func (c *Chain) QueryClientState() (*clientTypes.StateResponse, error) {
 		return nil, nil
 	}
 
-	var cs clientExported.ClientState
+	var cs clientexported.ClientState
 
 	// If this decoding fails, try with UnmarshalBinaryLengthPrefixed this changed
 	// reciently and will help support older versions.
