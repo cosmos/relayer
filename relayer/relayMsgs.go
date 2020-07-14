@@ -47,7 +47,7 @@ func (r *RelayMsgs) IsMaxTx(msgLen, txSize uint64) bool {
 func (r *RelayMsgs) Send(src, dst *Chain) {
 	var (
 		msgLen, txSize uint64
-		msgs           []sdk.Msg //nolint:prealloc
+		msgs           []sdk.Msg //nolint:prealloc // can not be pre allocated
 	)
 
 	r.success = true
