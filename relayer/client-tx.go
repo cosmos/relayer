@@ -11,7 +11,7 @@ import (
 func (c *Chain) CreateClients(dst *Chain) (err error) {
 	clients := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
-	// Create client for dst on c if it doesn't exist
+	// Create client for the destination chain on the source chain if it doesn't exist
 	var srcCs, dstCs *clientTypes.StateResponse
 	if srcCs, err = c.QueryClientState(); err != nil {
 		return err
@@ -26,7 +26,7 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		clients.Src = append(clients.Src, c.PathEnd.CreateClient(dstH, dst.GetTrustingPeriod(), c.MustGetAddress()))
 	}
 
-	// Create client for c on dst if it doesn't exist
+	// Create client for the source chain on destination chain if it doesn't exist
 	if dstCs, err = dst.QueryClientState(); err != nil {
 		return err
 	} else if dstCs == nil {
