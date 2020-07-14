@@ -1238,7 +1238,7 @@ func ParseEvents(e string) ([]string, error) {
 
 	var tmEvents = make([]string, len(events))
 
-	for _, event := range events {
+	for i, event := range events {
 		if !strings.Contains(event, "=") {
 			return []string{}, fmt.Errorf("invalid event; event %s should be of the format: %s", event, eventFormat)
 		} else if strings.Count(event, "=") > 1 {
@@ -1252,7 +1252,7 @@ func ParseEvents(e string) ([]string, error) {
 			event = fmt.Sprintf("%s='%s'", tokens[0], tokens[1])
 		}
 
-		tmEvents = append(tmEvents, event)
+		tmEvents[i] = event
 	}
 	return tmEvents, nil
 }

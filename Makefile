@@ -39,22 +39,22 @@ install: go.sum
 # Tests / CI
 ###############################################################################
 test:
-	@TEST_DEBUG=true go test -mod=readonly -v -race ./test/...
+	@TEST_DEBUG=true go test -mod=readonly -v ./test/...
 
 test-gaia:
-	@TEST_DEBUG=true go test -mod=readonly -v -race ./test/... -run TestGaia*
+	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestGaia*
 
 test-mtd:
-	@TEST_DEBUG=true go test -mod=readonly -v -race ./test/... -run TestMtd*
+	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestMtd*
 
 test-rocketzone:
-	@TEST_DEBUG=true go test -mod=readonly -v -race ./test/... -run TestRocket*
+	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestRocket*
 
 test-agoric:
-	@TEST_DEBUG=true go test -mod=readonly -v -race ./test/... -run TestAgoric*
+	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestAgoric*
 
 test-coco:
-	@TEST_DEBUG=true go test -mod=readonly -v -race ./test/... -run TestCoCo*
+	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestCoCo*
 
 coverage:
 	@echo "viewing test coverage..."
