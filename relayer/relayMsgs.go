@@ -45,9 +45,10 @@ func (r *RelayMsgs) IsMaxTx(msgLen, txSize uint64) bool {
 // Send sends the messages with appropriate output
 // TODO: Parallelize? Maybe?
 func (r *RelayMsgs) Send(src, dst *Chain) {
+	//nolint:prealloc // can not be pre allocated
 	var (
 		msgLen, txSize uint64
-		msgs           []sdk.Msg //nolint:prealloc // can not be pre allocated
+		msgs           []sdk.Msg
 	)
 
 	r.success = true
