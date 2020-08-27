@@ -1,4 +1,4 @@
-module github.com/iqlusioninc/relayer
+module github.com/ovrclk/relayer
 
 go 1.14
 

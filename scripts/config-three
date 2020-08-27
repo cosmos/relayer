@@ -7,7 +7,7 @@ if [[ ! -x "$(which jq)" ]]; then
   exit 1
 fi
 
-RELAYER_DIR="$GOPATH/src/github.com/iqlusioninc/relayer"
+RELAYER_DIR="$GOPATH/src/github.com/ovrclk/relayer"
 RELAYER_CONF="$HOME/.relayer"
 GAIA_CONF="$RELAYER_DIR/data"
 

@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iqlusioninc/relayer/relayer"
+	"github.com/ovrclk/relayer/relayer"
 )
 
 const (

@@ -12,7 +12,7 @@ import (
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	ibcTypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
-	"github.com/iqlusioninc/relayer/relayer"
+	"github.com/ovrclk/relayer/relayer"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )

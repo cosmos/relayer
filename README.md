@@ -2,7 +2,7 @@
 
 ![GOZ](./docs/images/github-repo-banner.png)
 
-![Relayer Build](https://github.com/iqlusioninc/relayer/workflows/Build%20then%20run%20CI%20Chains/badge.svg)
+![Relayer Build](https://github.com/ovrclk/relayer/workflows/Build%20then%20run%20CI%20Chains/badge.svg)
 
 The Cosmos IBC `relayer` package contains a basic relayer implementation that is
 meant for users wishing to relay packets/data between sets of IBC enabled chains.
@@ -29,9 +29,9 @@ If you would like to join the relayer testnet, please [check out the instruction
 
 | chain | tests | supported ports |
 |-------|--------|----------------|
-| [`gaia`](https://github.com/cosmos/gaia) | ![gaia](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20gaia%20to%20gaia%20integration/badge.svg) | `transfer` |
-| `microtick` | ![microtick](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20mtd%20to%20ibc%20integration/badge.svg) | `transfer` |
-| [`rocketzone`](https://github.com/rocket-protocol/rocketzone) | ![rocketzone](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20rocketzone%20to%20ibc%20integration/badge.svg) | `transfer` |
+| [`gaia`](https://github.com/cosmos/gaia) | ![gaia](https://github.com/ovrclk/relayer/workflows/TESTING%20-%20gaia%20to%20gaia%20integration/badge.svg) | `transfer` |
+| `microtick` | ![microtick](https://github.com/ovrclk/relayer/workflows/TESTING%20-%20mtd%20to%20ibc%20integration/badge.svg) | `transfer` |
+| [`rocketzone`](https://github.com/rocket-protocol/rocketzone) | ![rocketzone](https://github.com/ovrclk/relayer/workflows/TESTING%20-%20rocketzone%20to%20ibc%20integration/badge.svg) | `transfer` |
 | [`coco`](https://github.com/CosmicCompass/post-chain) | ![coco](https://github.com/CosmicCompass/relayer/workflows/TESTING%20-%20coco%20to%20ibc%20integration/badge.svg) | `transfer` |
 
 ## Demoing the Relayer

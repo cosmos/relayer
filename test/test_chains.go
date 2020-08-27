@@ -11,7 +11,7 @@ import (
 	gaia "github.com/cosmos/gaia/app"
 	"github.com/stretchr/testify/require"
 
-	ry "github.com/iqlusioninc/relayer/relayer"
+	ry "github.com/ovrclk/relayer/relayer"
 )
 
 var (

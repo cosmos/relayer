@@ -1,6 +1,6 @@
 #/bin/bash -e
 
-RELAYER_DIR="$GOPATH/src/github.com/iqlusioninc/relayer"
+RELAYER_DIR="$GOPATH/src/github.com/ovrclk/relayer"
 RELAYER_CONF="$HOME/.relayer"
 GAIA_CONF="$(pwd)/data"
 
