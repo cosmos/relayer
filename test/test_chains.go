@@ -8,21 +8,17 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/cosmos-sdk/std"
-	gaia "github.com/cosmos/gaia/app"
 	"github.com/stretchr/testify/require"
 
 	ry "github.com/ovrclk/relayer/relayer"
 )
 
 var (
-	cdc, amino = gaia.MakeCodecs()
 	// GAIA BLOCK TIMEOUTS on jackzampolin/gaiatest:master
 	// timeout_commit = "1000ms"
 	// timeout_propose = "1000ms"
 	// 3 second relayer timeout works well with these block times
 	gaiaTestConfig = testChainConfig{
-		cdc:            cdc,
-		amino:          amino,
 		dockerImage:    "jackzampolin/gaiatest",
 		dockerTag:      "gaiav3.0",
 		timeout:        3 * time.Second,

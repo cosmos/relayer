@@ -5,7 +5,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
+	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 )
 
 // CreateConnection runs the connection creation messages on timeout until they pass
@@ -83,7 +83,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	// Query Connection data from src and dst
 	// NOTE: We query connection at height - 1 because of the way tendermint returns
 	// proofs the commit for height n is contained in the header of height n + 1
-	conn, err := QueryConnectionPair(c, dst, hs[scid].Height-1, hs[dcid].Height-1)
+	conn, err := QueryConnectionPair(c, dst, hs[scid].Header.Height-1, hs[dcid].Header.Height-1)
 	if err != nil {
 		return nil, err
 	}
@@ -101,11 +101,11 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	}
 
 	// Store the heights
-	srcConsH, dstConsH := int64(cs[scid].ClientState.GetLatestHeight()), int64(cs[dcid].ClientState.GetLatestHeight())
+	srcConsH, dstConsH := int64(cs[scid].GetLatestHeight()), int64(cs[dcid].GetLatestHeight())
 
 	// NOTE: We query connection at height - 1 because of the way tendermint returns
 	// proofs the commit for height n is contained in the header of height n + 1
-	cons, err := QueryClientConsensusStatePair(c, dst, hs[scid].Height-1, hs[dcid].Height-1, srcConsH, dstConsH)
+	cons, err := QueryClientConsensusStatePair(c, dst, hs[scid].Header.Height-1, hs[dcid].Header.Height-1, srcConsH, dstConsH)
 	if err != nil {
 		return nil, err
 	}

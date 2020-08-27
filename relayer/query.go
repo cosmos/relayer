@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	clientexported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
@@ -54,19 +56,21 @@ func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
 		addr = info.GetAddress()
 	}
 
-	if bz, err = c.Cdc.MarshalJSON(bankTypes.NewQueryAllBalancesParams(addr)); err != nil {
-		return nil, qBalErr(addr, err)
+	params := bankTypes.NewQueryAllBalancesRequest(addr, &query.PageRequest{
+		Key:        []byte(""),
+		Offset:     0,
+		Limit:      1000,
+		CountTotal: false,
+	})
+
+	queryClient := bankTypes.NewQueryClient(c.CLIContext())
+
+	res, err := queryClient.AllBalances(context.Background(), params)
+	if err != nil {
+		return nil, err
 	}
 
-	if bz, _, err = c.QueryWithData(route, bz); err != nil {
-		return nil, qBalErr(addr, err)
-	}
-
-	if err = c.Cdc.UnmarshalJSON(bz, &coins); err != nil {
-		return nil, qBalErr(addr, err)
-	}
-
-	return coins, nil
+	return res.Balances, nil
 }
 
 func qBalErr(acc sdk.AccAddress, err error) error {
@@ -84,30 +88,29 @@ func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, err
 		commit     *ctypes.ResultCommit
 		validators *ctypes.ResultValidators
 		err        error
+		page       = 1
+		perPage    = 10000
 	)
 
 	if height == 0 {
 		commit, err = c.Client.Commit(nil)
-		if err != nil {
-			return nil, qConsStateErr(err)
-		}
-		validators, err = c.Client.Validators(nil, 1, 10000)
 	} else {
 		commit, err = c.Client.Commit(&height)
-		if err != nil {
-			return nil, qConsStateErr(err)
-		}
-		validators, err = c.Client.Validators(nil, 1, 10000)
 	}
 
 	if err != nil {
 		return nil, qConsStateErr(err)
 	}
 
+	validators, err = c.Client.Validators(nil, &page, &perPage)
+	if err != nil {
+		return nil, qConsStateErr(err)
+	}
+
 	state := &tmclient.ConsensusState{
-		Timestamp:    commit.Time,
-		Root:         commitmenttypes.NewMerkleRoot(commit.AppHash),
-		ValidatorSet: tmtypes.NewValidatorSet(validators.Validators),
+		Timestamp:          commit.Time,
+		Root:               commitmenttypes.NewMerkleRoot(commit.AppHash),
+		NextValidatorsHash: tmtypes.NewValidatorSet(validators.Validators).Hash(),
 	}
 
 	return state, nil
@@ -239,9 +242,9 @@ type cstates struct {
 }
 
 // QueryClientStatePair returns a pair of connection responses
-func QueryClientStatePair(src, dst *Chain) (map[string]*clientTypes.QueryClientStateResponse, error) {
+func QueryClientStatePair(src, dst *Chain) (map[string]clientexported.ClientState, error) {
 	hs := &cstates{
-		Map:  make(map[string]*clientTypes.QueryClientStateResponse),
+		Map:  make(map[string]clientexported.ClientState),
 		Errs: []error{},
 	}
 
@@ -259,7 +262,7 @@ func QueryClientStatePair(src, dst *Chain) (map[string]*clientTypes.QueryClientS
 				hs.Unlock()
 			}
 			hs.Lock()
-			hs.Map[c.ChainID] = conn
+			hs.Map[c.ChainID] = clientexported.ClientState(conn.ClientState)
 			hs.Unlock()
 			wg.Done()
 		}(hs, &wg, chain)
@@ -278,7 +281,7 @@ func (c *Chain) QueryClients(page, limit int) ([]clientexported.ClientState, err
 		clients []clientexported.ClientState
 	)
 
-	if bz, err = c.Cdc.MarshalJSON(clientTypes.NewQueryAllClientsParams(page, limit)); err != nil {
+	if bz, err = c.Cdc.MarshalJSON(sdk.NewPaginationParams(page, limit)); err != nil {
 		return nil, qClntsErr(err)
 	}
 

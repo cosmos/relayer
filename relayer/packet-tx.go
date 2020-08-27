@@ -64,7 +64,7 @@ func (c *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin,
 
 	var (
 		hs           map[string]*tmclient.Header
-		seqRecv      chanTypes.RecvResponse
+		seqRecv      chanTypes.QueryNextSequenceReceiveResponse
 		seqSend      uint64
 		srcCommitRes CommitmentResponse
 	)
@@ -75,17 +75,17 @@ func (c *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin,
 			return err
 		}
 
-		seqRecv, err = dst.QueryNextSeqRecv(hs[dst.ChainID].Height)
+		seqRecv, err = dst.QueryNextSeqRecv(hs[dst.ChainID].Header.Height)
 		if err != nil {
 			return err
 		}
 
-		seqSend, err = c.QueryNextSeqSend(hs[c.ChainID].Height)
+		seqSend, err = c.QueryNextSeqSend(hs[c.ChainID].Header.Height)
 		if err != nil {
 			return err
 		}
 
-		srcCommitRes, err = c.QueryPacketCommitment(hs[c.ChainID].Height-1, int64(seqSend-1))
+		srcCommitRes, err = c.QueryPacketCommitment(hs[c.ChainID].Header.Height-1, int64(seqSend-1))
 		if err != nil {
 			return err
 		}
@@ -123,7 +123,7 @@ func (c *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin,
 			dst.PathEnd.UpdateClient(hs[c.ChainID], dst.MustGetAddress()),
 			dst.PathEnd.MsgRecvPacket(
 				c.PathEnd,
-				seqRecv.NextSequenceRecv,
+				seqRecv.NextSequenceReceive,
 				timeoutHeight,
 				defaultPacketTimeoutStamp(),
 				xferPacket,

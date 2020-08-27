@@ -12,7 +12,7 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 	clients := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
 	// Create client for the destination chain on the source chain if it doesn't exist
-	var srcCs, dstCs *clientTypes.StateResponse
+	var srcCs, dstCs *clientTypes.QueryClientStateResponse
 	if srcCs, err = c.QueryClientState(); err != nil {
 		return err
 	} else if srcCs == nil {

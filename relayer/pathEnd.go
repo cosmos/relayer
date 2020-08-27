@@ -11,7 +11,6 @@ import (
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
-	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 )
 
 // TODO: add Order chanTypes.Order as a property and wire it up in validation
@@ -33,11 +32,11 @@ type PathEnd struct {
 func OrderFromString(order string) chanTypes.Order {
 	switch order {
 	case "UNORDERED":
-		return ibctypes.UNORDERED
+		return chanTypes.UNORDERED
 	case "ORDERED":
-		return ibctypes.ORDERED
+		return chanTypes.ORDERED
 	default:
-		return ibctypes.NONE
+		return chanTypes.NONE
 	}
 }
 
@@ -49,7 +48,7 @@ func (pe *PathEnd) getOrder() chanTypes.Order {
 func (pe *PathEnd) UpdateClient(dstHeader *tmclient.Header, signer sdk.AccAddress) sdk.Msg {
 	return tmclient.NewMsgUpdateClient(
 		pe.ClientID,
-		*dstHeader,
+		dstHeader,
 		signer,
 	)
 }
@@ -57,16 +56,18 @@ func (pe *PathEnd) UpdateClient(dstHeader *tmclient.Header, signer sdk.AccAddres
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
 func (pe *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod time.Duration,
 	signer sdk.AccAddress) sdk.Msg {
-	if err := dstHeader.ValidateBasic(dstHeader.ChainID); err != nil {
+	if err := dstHeader.ValidateBasic(dstHeader.Header.ChainID); err != nil {
 		panic(err)
 	}
 	// TODO: figure out how to dynmaically set unbonding time
 	return tmclient.NewMsgCreateClient(
 		pe.ClientID,
-		*dstHeader,
+		dstHeader,
+		tmclient.DefaultTrustLevel,
 		trustingPeriod,
 		defaultUnbondingTime,
 		defaultMaxClockDrift,
+		commitmenttypes.GetSDKSpecs(),
 		signer,
 	)
 }
@@ -85,6 +86,7 @@ func (pe *PathEnd) ConnInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 
 // ConnTry creates a MsgConnectionOpenTry
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
+// TODO: Need to do some more looking here
 func (pe *PathEnd) ConnTry(dst *PathEnd, dstConnState connTypes.QueryConnectionResponse,
 	dstConsState clientTypes.QueryConsensusStateResponse, dstCsHeight int64, signer sdk.AccAddress) sdk.Msg {
 	return connTypes.NewMsgConnectionOpenTry(
@@ -203,6 +205,7 @@ func (pe *PathEnd) ChanCloseConfirm(dstChanState chanTypes.QueryChannelResponse,
 }
 
 // MsgRecvPacket creates a MsgPacket
+// TODO: need to do some more looking here
 func (pe *PathEnd) MsgRecvPacket(dst *PathEnd, sequence, timeoutHeight, timeoutStamp uint64,
 	packetData []byte, proof commitmenttypes.MerkleProof, proofHeight uint64, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgPacket(

@@ -7,44 +7,15 @@ import (
 	"net/http"
 	"time"
 
-	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/auth"
-	"github.com/cosmos/cosmos-sdk/x/bank"
+	bank "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // SendMsgWithKey allows the user to specify which relayer key will sign the message
-func (c *Chain) SendMsgWithKey(datagram sdk.Msg, keyName string) (res sdk.TxResponse, err error) {
-	var out []byte
-	if out, err = c.BuildAndSignTxWithKey([]sdk.Msg{datagram}, keyName); err != nil {
-		return res, err
-	}
-	return c.BroadcastTxCommit(out)
+func (c *Chain) SendMsgWithKey(msg sdk.Msg, keyName string) (res *sdk.TxResponse, err error) {
+	c.Key = keyName
+	return c.SendMsg(msg)
 
-}
-
-// BuildAndSignTxWithKey allows the user to specify which relayer key will sign the message
-func (c *Chain) BuildAndSignTxWithKey(datagram []sdk.Msg, keyName string) ([]byte, error) {
-
-	// Fetch account and sequence numbers for the account
-	info, err := c.Keybase.Key(keyName)
-	if err != nil {
-		return nil, err
-	}
-
-	done := c.UseSDKContext()
-	defer done()
-
-	acc, err := auth.NewAccountRetriever(c.Cdc, c).GetAccount(info.GetAddress())
-	if err != nil {
-		return nil, err
-	}
-
-	return auth.NewTxBuilder(
-		auth.DefaultTxEncoder(c.Amino.Codec), acc.GetAccountNumber(),
-		acc.GetSequence(), c.Gas, c.GasAdjustment, false, c.ChainID,
-		c.Memo, sdk.NewCoins(), c.getGasPrices()).WithKeybase(c.Keybase).
-		BuildAndSign(info.GetName(), ckeys.DefaultKeyPass, datagram)
 }
 
 // FaucetHandler listens for addresses

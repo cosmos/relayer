@@ -322,7 +322,7 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (*Chain,
 
 // relayPacketFromQueryResponse looks through the events in a sdk.Response
 // and returns relayPackets with the appropriate data
-func relayPacketFromQueryResponse(src, dst *PathEnd, res sdk.TxResponse,
+func relayPacketFromQueryResponse(src, dst *PathEnd, res *sdk.TxResponse,
 	sh *SyncHeaders) (rcvPackets []relayPacket, timeoutPackets []relayPacket, err error) {
 	for _, l := range res.Logs {
 		for _, e := range l.Events {

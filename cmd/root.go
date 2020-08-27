@@ -23,7 +23,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codecstd "github.com/cosmos/cosmos-sdk/std"
-	gaia "github.com/cosmos/gaia/app"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -88,7 +87,6 @@ func init() {
 	)
 
 	// This is a bit of a cheat :shushing_face:
-	appCodec, cdc = gaia.MakeCodecs()
 	// cdc = codecstd.MakeCodec(simapp.ModuleBasics)
 	// appCodec = codecstd.NewAppCodec(cdc)
 }

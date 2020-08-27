@@ -13,13 +13,12 @@ import (
 
 	sdkCtx "github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
+	tx "github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/simapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/auth"
-	authclient "github.com/cosmos/cosmos-sdk/x/auth/client"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/go-bip39"
 	"github.com/tendermint/tendermint/libs/log"
@@ -154,7 +153,6 @@ func (c *Chain) Init(homePath string, timeout time.Duration, debug bool) error {
 	c.Client = client
 	c.Cdc = newContextualStdCodec(encodingConfig.Marshaler, c.UseSDKContext)
 	c.Amino = newContextualAminoCodec(encodingConfig.Amino, c.UseSDKContext)
-	RegisterCodec(encodingConfig.Amino)
 	c.HomePath = homePath
 	c.logger = defaultChainLogger()
 	c.timeout = timeout
@@ -205,43 +203,54 @@ func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
 }
 
 // SendMsg wraps the msg in a stdtx, signs and sends it
-func (c *Chain) SendMsg(datagram sdk.Msg) (sdk.TxResponse, error) {
+func (c *Chain) SendMsg(datagram sdk.Msg) (*sdk.TxResponse, error) {
 	return c.SendMsgs([]sdk.Msg{datagram})
 }
 
 // SendMsgs wraps the msgs in a stdtx, signs and sends it
-func (c *Chain) SendMsgs(datagrams []sdk.Msg) (res sdk.TxResponse, err error) {
-	var out []byte
-	if out, err = c.BuildAndSignTx(datagrams); err != nil {
-		return res, err
-	}
-	return c.BroadcastTxCommit(out)
-}
-
-// BuildAndSignTx takes messages and builds, signs and marshals a sdk.Tx to prepare it for broadcast
-func (c *Chain) BuildAndSignTx(msgs []sdk.Msg) ([]byte, error) {
+func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
 	done := c.UseSDKContext()
 	defer done()
 
-	// Fetch account and sequence numbers for the account
+	// Instantiate the client context
 	ctx := c.CLIContext()
-	accNum, accSeq, err := ctx.AccountRetriever.GetAccountNumberSequence(c.MustGetAddress())
+
+	// Query account details
+	txf, err := tx.PrepareFactory(ctx, c.TxFactory())
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: Migrating transaction path is going to take a bit more looking
-	txBldr := auth.NewTxBuilder(
-		auth.DefaultTxEncoder(c.Amino.Codec), acc.GetAccountNumber(),
-		acc.GetSequence(), c.Gas, c.GasAdjustment, true, c.ChainID,
-		c.Memo, sdk.NewCoins(), c.getGasPrices()).WithKeybase(c.Keybase)
-	if c.GasAdjustment > 0 {
-		txBldr, err = authclient.EnrichWithGas(txBldr, ctx, msgs)
-		if err != nil {
-			return nil, err
-		}
+	// If users pass gas adjustment, then caclulate gas
+	// TODO: make all txs estimate/
+	_, adjusted, err := tx.CalculateGas(ctx.QueryWithData, txf, msgs...)
+	if err != nil {
+		return nil, err
 	}
-	return txBldr.BuildAndSign(c.Key, ckeys.DefaultKeyPass, msgs)
+
+	// Set the gas amount on the transaction factory
+	txf = txf.WithGas(adjusted)
+
+	// Build the transaction builder
+	txb, err := tx.BuildUnsignedTx(txf, msgs...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Attach the signature to the transaction
+	err = tx.Sign(txf, c.Key, txb)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate the transaction bytes
+	txBytes, err := ctx.TxConfig.TxEncoder()(txb.GetTx())
+	if err != nil {
+		return nil, err
+	}
+
+	// Broadcast those bytes
+	return ctx.BroadcastTx(txBytes)
 }
 
 // CLIContext returns an instance of client.Context derived from Chain
@@ -262,9 +271,19 @@ func (c *Chain) CLIContext() sdkCtx.Context {
 		WithNodeURI(c.RPCAddr)
 }
 
-// BroadcastTxCommit takes the marshaled transaction bytes and broadcasts them
-func (c *Chain) BroadcastTxCommit(txBytes []byte) (sdk.TxResponse, error) {
-	return c.CLIContext().BroadcastTxCommit(txBytes)
+// TxFactory returns an instance of tx.Factory derived from
+func (c *Chain) TxFactory() tx.Factory {
+	ctx := c.CLIContext()
+	return tx.Factory{}.
+		WithAccountRetriever(ctx.AccountRetriever).
+		WithChainID(c.ChainID).
+		WithTxConfig(ctx.TxConfig).
+		WithGasAdjustment(c.GasAdjustment).
+		WithGasPrices(c.GasPrices).
+		WithGas(c.Gas).
+		WithMemo(c.Memo).
+		WithKeybase(c.Keybase).
+		WithSignMode(signing.SignMode_SIGN_MODE_DIRECT)
 }
 
 // Log takes a string and logs the data

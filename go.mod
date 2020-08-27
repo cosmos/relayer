@@ -8,7 +8,6 @@ require (
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
 	github.com/containerd/continuity v0.0.0-20200228182428-0f16d7a0959c // indirect
 	github.com/cosmos/cosmos-sdk v0.34.4-0.20200825201020-d9fd4d2ca9a3
-	github.com/cosmos/gaia v0.0.1-0.20200522222820-2d61264338e5
 	github.com/cosmos/go-bip39 v0.0.0-20180819234021-555e2067c45d
 	github.com/gorilla/mux v1.8.0
 	github.com/ory/dockertest/v3 v3.5.5
@@ -21,7 +20,7 @@ require (
 )
 
 replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
+
 replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.2-alpha.regen.4
 
 replace github.com/cosmos/cosmos-sdk => /Users/johnzampolin/go/src/github.com/cosmos/cosmos-sdk
-replace github.com/cosmos/gaia => /Users/johnzampolin/go/src/github.com/cosmos/gaia
