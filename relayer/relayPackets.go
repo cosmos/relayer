@@ -21,7 +21,7 @@ type relayMsgTimeout struct {
 	seq          uint64
 	timeout      uint64
 	timeoutStamp uint64
-	dstRecvRes   *chanTypes.RecvResponse
+	dstRecvRes   *chanTypes.QueryNextSequenceReceiveResponse
 
 	pass bool
 }

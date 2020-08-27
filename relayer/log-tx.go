@@ -42,7 +42,7 @@ func (c *Chain) logPacketsRelayed(dst *Chain, num int) {
 		num, dst.ChainID, dst.PathEnd.PortID, c.ChainID, c.PathEnd.PortID))
 }
 
-func logChannelStates(src, dst *Chain, conn map[string]chanTypes.ChannelResponse) {
+func logChannelStates(src, dst *Chain, conn map[string]chanTypes.QueryChannelResponse) {
 	// TODO: replace channelID with portID?
 	src.Log(fmt.Sprintf("- [%s]@{%d}chan(%s)-{%s} : [%s]@{%d}chan(%s)-{%s}",
 		src.ChainID,
@@ -56,7 +56,7 @@ func logChannelStates(src, dst *Chain, conn map[string]chanTypes.ChannelResponse
 	))
 }
 
-func logConnectionStates(src, dst *Chain, conn map[string]connTypes.ConnectionResponse) {
+func logConnectionStates(src, dst *Chain, conn map[string]connTypes.QueryConnectionResponse) {
 	src.Log(fmt.Sprintf("- [%s]@{%d}conn(%s)-{%s} : [%s]@{%d}conn(%s)-{%s}",
 		src.ChainID,
 		conn[src.ChainID].ProofHeight,

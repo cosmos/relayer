@@ -28,7 +28,7 @@ import (
 	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	lite "github.com/tendermint/tendermint/lite2"
+	lite "github.com/tendermint/tendermint/light"
 )
 
 // chainCmd represents the keys command

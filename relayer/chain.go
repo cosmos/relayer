@@ -11,21 +11,22 @@ import (
 	"sync"
 	"time"
 
-	sdkCtx "github.com/cosmos/cosmos-sdk/client/context"
+	sdkCtx "github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/flags"
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
-	aminocodec "github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
-	codecstd "github.com/cosmos/cosmos-sdk/std"
+	"github.com/cosmos/cosmos-sdk/simapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	authclient "github.com/cosmos/cosmos-sdk/x/auth/client"
+	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/go-bip39"
 	"github.com/tendermint/tendermint/libs/log"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
-	libclient "github.com/tendermint/tendermint/rpc/lib/client"
+	libclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
 )
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
@@ -126,8 +127,7 @@ func (c *Chain) listenLoop(doneChan chan struct{}, tx, block, data bool) {
 
 // Init initializes the pieces of a chain that aren't set when it parses a config
 // NOTE: All validation of the chain should happen here.
-func (c *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.Codec,
-	timeout time.Duration, debug bool) error {
+func (c *Chain) Init(homePath string, timeout time.Duration, debug bool) error {
 	keybase, err := keys.New(c.ChainID, "test", keysDir(homePath, c.ChainID), nil)
 	if err != nil {
 		return err
@@ -148,11 +148,13 @@ func (c *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.Cod
 		return fmt.Errorf("failed to parse trusting period (%s) for chain %s", c.TrustingPeriod, c.ChainID)
 	}
 
+	encodingConfig := simapp.MakeEncodingConfig()
+
 	c.Keybase = keybase
 	c.Client = client
-	c.Cdc = newContextualStdCodec(cdc, c.UseSDKContext)
-	c.Amino = newContextualAminoCodec(amino, c.UseSDKContext)
-	RegisterCodec(amino)
+	c.Cdc = newContextualStdCodec(encodingConfig.Marshaler, c.UseSDKContext)
+	c.Amino = newContextualAminoCodec(encodingConfig.Amino, c.UseSDKContext)
+	RegisterCodec(encodingConfig.Amino)
 	c.HomePath = homePath
 	c.logger = defaultChainLogger()
 	c.timeout = timeout
@@ -222,11 +224,13 @@ func (c *Chain) BuildAndSignTx(msgs []sdk.Msg) ([]byte, error) {
 	defer done()
 
 	// Fetch account and sequence numbers for the account
-	acc, err := auth.NewAccountRetriever(c.Cdc, c).GetAccount(c.MustGetAddress())
+	ctx := c.CLIContext()
+	accNum, accSeq, err := ctx.AccountRetriever.GetAccountNumberSequence(c.MustGetAddress())
 	if err != nil {
 		return nil, err
 	}
-	ctx := sdkCtx.CLIContext{Client: c.Client}
+
+	// TODO: Migrating transaction path is going to take a bit more looking
 	txBldr := auth.NewTxBuilder(
 		auth.DefaultTxEncoder(c.Amino.Codec), acc.GetAccountNumber(),
 		acc.GetSequence(), c.Gas, c.GasAdjustment, true, c.ChainID,
@@ -240,9 +244,27 @@ func (c *Chain) BuildAndSignTx(msgs []sdk.Msg) ([]byte, error) {
 	return txBldr.BuildAndSign(c.Key, ckeys.DefaultKeyPass, msgs)
 }
 
+// CLIContext returns an instance of client.Context derived from Chain
+func (c *Chain) CLIContext() sdkCtx.Context {
+	encodingConfig := simapp.MakeEncodingConfig()
+	return sdkCtx.Context{}.
+		WithJSONMarshaler(encodingConfig.Marshaler).
+		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
+		WithTxConfig(encodingConfig.TxConfig).
+		WithLegacyAmino(encodingConfig.Amino).
+		WithInput(os.Stdin).
+		WithAccountRetriever(authTypes.AccountRetriever{}).
+		WithBroadcastMode(flags.BroadcastBlock).
+		WithKeyring(c.Keybase).
+		WithOutputFormat("json").
+		WithFrom(c.Key).
+		WithSkipConfirmation(true).
+		WithNodeURI(c.RPCAddr)
+}
+
 // BroadcastTxCommit takes the marshaled transaction bytes and broadcasts them
 func (c *Chain) BroadcastTxCommit(txBytes []byte) (sdk.TxResponse, error) {
-	return sdkCtx.CLIContext{Client: c.Client}.BroadcastTxCommit(txBytes)
+	return c.CLIContext().BroadcastTxCommit(txBytes)
 }
 
 // Log takes a string and logs the data

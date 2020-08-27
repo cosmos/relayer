@@ -118,8 +118,8 @@ func qConsStateErr(err error) error { return fmt.Errorf("query cons state failed
 // QueryClientConsensusState retrevies the latest consensus state for a client in state at a given height
 // NOTE: dstHeight is the height from dst that is stored on src, it is needed to construct the appropriate store query
 func (c *Chain) QueryClientConsensusState(srcHeight,
-	srcClientConsHeight int64) (clientTypes.ConsensusStateResponse, error) {
-	var conStateRes clientTypes.ConsensusStateResponse
+	srcClientConsHeight int64) (clientTypes.QueryConsensusStateResponse, error) {
+	var conStateRes clientTypes.QueryConsensusStateResponse
 	if !c.PathSet() {
 		return conStateRes, c.ErrPathNotSet()
 	}
@@ -151,7 +151,7 @@ func (c *Chain) QueryClientConsensusState(srcHeight,
 
 type csstates struct {
 	sync.Mutex
-	Map  map[string]clientTypes.ConsensusStateResponse
+	Map  map[string]clientTypes.QueryConsensusStateResponse
 	Errs errs
 }
 
@@ -163,9 +163,9 @@ type chh struct {
 
 // QueryClientConsensusStatePair allows for the querying of multiple client states at the same time
 func QueryClientConsensusStatePair(src, dst *Chain,
-	srcH, dstH, srcClientConsH, dstClientConsH int64) (map[string]clientTypes.ConsensusStateResponse, error) {
+	srcH, dstH, srcClientConsH, dstClientConsH int64) (map[string]clientTypes.QueryConsensusStateResponse, error) {
 	hs := &csstates{
-		Map:  make(map[string]clientTypes.ConsensusStateResponse),
+		Map:  make(map[string]clientTypes.QueryConsensusStateResponse),
 		Errs: []error{},
 	}
 
@@ -198,8 +198,8 @@ func QueryClientConsensusStatePair(src, dst *Chain,
 func qClntConsStateErr(err error) error { return fmt.Errorf("query client cons state failed: %w", err) }
 
 // QueryClientState retrevies the latest consensus state for a client in state at a given height
-func (c *Chain) QueryClientState() (*clientTypes.StateResponse, error) {
-	var conStateRes *clientTypes.StateResponse
+func (c *Chain) QueryClientState() (*clientTypes.QueryClientStateResponse, error) {
+	var conStateRes *clientTypes.QueryClientStateResponse
 	if !c.PathSet() {
 		return nil, c.ErrPathNotSet()
 	}
@@ -234,14 +234,14 @@ func (c *Chain) QueryClientState() (*clientTypes.StateResponse, error) {
 
 type cstates struct {
 	sync.Mutex
-	Map  map[string]*clientTypes.StateResponse
+	Map  map[string]*clientTypes.QueryClientStateResponse
 	Errs errs
 }
 
 // QueryClientStatePair returns a pair of connection responses
-func QueryClientStatePair(src, dst *Chain) (map[string]*clientTypes.StateResponse, error) {
+func QueryClientStatePair(src, dst *Chain) (map[string]*clientTypes.QueryClientStateResponse, error) {
 	hs := &cstates{
-		Map:  make(map[string]*clientTypes.StateResponse),
+		Map:  make(map[string]*clientTypes.QueryClientStateResponse),
 		Errs: []error{},
 	}
 
@@ -322,7 +322,7 @@ func (c *Chain) QueryConnections(page, limit int) (conns []connTypes.ConnectionE
 func qConnsErr(err error) error { return fmt.Errorf("query connections failed: %w", err) }
 
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
-func (c *Chain) QueryConnectionsUsingClient(height int64) (clientConns connTypes.ClientConnectionsResponse, err error) {
+func (c *Chain) QueryConnectionsUsingClient(height int64) (clientConns connTypes.QueryClientConnectionsResponse, err error) {
 	if !c.PathSet() {
 		return clientConns, c.ErrPathNotSet()
 	}
@@ -354,9 +354,9 @@ func qConnsUsingClntsErr(err error) error {
 }
 
 // QueryConnection returns the remote end of a given connection
-func (c *Chain) QueryConnection(height int64) (connTypes.ConnectionResponse, error) {
+func (c *Chain) QueryConnection(height int64) (connTypes.QueryConnectionResponse, error) {
 	if !c.PathSet() {
-		return connTypes.ConnectionResponse{}, c.ErrPathNotSet()
+		return connTypes.QueryConnectionResponse{}, c.ErrPathNotSet()
 	}
 
 	req := abci.RequestQuery{
@@ -368,7 +368,7 @@ func (c *Chain) QueryConnection(height int64) (connTypes.ConnectionResponse, err
 
 	res, err := c.QueryABCI(req)
 	if err != nil {
-		return connTypes.ConnectionResponse{}, qConnErr(err)
+		return connTypes.QueryConnectionResponse{}, qConnErr(err)
 	} else if res.Value == nil {
 		// NOTE: This is returned so that the switch statement in ConnectionStep works properly
 		return emptyConnRes, nil
@@ -376,7 +376,7 @@ func (c *Chain) QueryConnection(height int64) (connTypes.ConnectionResponse, err
 
 	var connection connTypes.ConnectionEnd
 	if err = c.Cdc.UnmarshalBinaryBare(res.Value, &connection); err != nil {
-		return connTypes.ConnectionResponse{}, qConnErr(err)
+		return connTypes.QueryConnectionResponse{}, qConnErr(err)
 	}
 
 	return connTypes.NewConnectionResponse(c.PathEnd.ConnectionID, connection, res.Proof, res.Height), nil
@@ -384,7 +384,7 @@ func (c *Chain) QueryConnection(height int64) (connTypes.ConnectionResponse, err
 
 type conns struct {
 	sync.Mutex
-	Map  map[string]connTypes.ConnectionResponse
+	Map  map[string]connTypes.QueryConnectionResponse
 	Errs errs
 }
 
@@ -394,9 +394,9 @@ type chpair struct {
 }
 
 // QueryConnectionPair returns a pair of connection responses
-func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (map[string]connTypes.ConnectionResponse, error) {
+func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (map[string]connTypes.QueryConnectionResponse, error) {
 	hs := &conns{
-		Map:  make(map[string]connTypes.ConnectionResponse),
+		Map:  make(map[string]connTypes.QueryConnectionResponse),
 		Errs: []error{},
 	}
 
@@ -433,7 +433,7 @@ func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (map[string]connType
 
 func qConnErr(err error) error { return fmt.Errorf("query connection failed: %w", err) }
 
-var emptyConnRes = connTypes.ConnectionResponse{Connection: connTypes.ConnectionEnd{ID: ""}}
+var emptyConnRes = connTypes.QueryConnectionResponse{Connection: &connTypes.ConnectionEnd{ClientId: ""}}
 
 // ////////////////////////////
 //    ICS 04 -> CHANNEL     //
@@ -464,7 +464,7 @@ func (c *Chain) QueryConnectionChannels(connectionID string, page, limit int) ([
 }
 
 // QueryChannel returns the channel associated with a channelID
-func (c *Chain) QueryChannel(height int64) (chanRes chanTypes.ChannelResponse, err error) {
+func (c *Chain) QueryChannel(height int64) (chanRes chanTypes.QueryChannelResponse, err error) {
 	if !c.PathSet() {
 		return chanRes, c.ErrPathNotSet()
 	}
@@ -500,14 +500,14 @@ func (c *Chain) QueryChannel(height int64) (chanRes chanTypes.ChannelResponse, e
 
 type chans struct {
 	sync.Mutex
-	Map  map[string]chanTypes.ChannelResponse
+	Map  map[string]chanTypes.QueryChannelResponse
 	Errs errs
 }
 
 // QueryChannelPair returns a pair of channel responses
-func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (map[string]chanTypes.ChannelResponse, error) {
+func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (map[string]chanTypes.QueryChannelResponse, error) {
 	hs := &chans{
-		Map:  make(map[string]chanTypes.ChannelResponse),
+		Map:  make(map[string]chanTypes.QueryChannelResponse),
 		Errs: []error{},
 	}
 
@@ -588,7 +588,7 @@ func (c *Chain) WaitForNBlocks(n int64) error {
 }
 
 // QueryNextSeqRecv returns the next seqRecv for a configured channel
-func (c *Chain) QueryNextSeqRecv(height int64) (recvRes chanTypes.RecvResponse, err error) {
+func (c *Chain) QueryNextSeqRecv(height int64) (recvRes chanTypes.QueryNextSequenceReceiveResponse, err error) {
 	if !c.PathSet() {
 		return recvRes, c.ErrPathNotSet()
 	}
@@ -1212,7 +1212,7 @@ func (c *Chain) formatTxResult(resTx *ctypes.ResultTx, resBlock *ctypes.ResultBl
 }
 
 // Takes some bytes and a codec and returns an sdk.Tx
-func parseTx(cdc *codec.Codec, txBytes []byte) (sdk.Tx, error) {
+func parseTx(cdc *codec.JSONMarshaler, txBytes []byte) (sdk.Tx, error) {
 	var tx authTypes.StdTx
 	err := cdc.UnmarshalBinaryBare(txBytes, &tx)
 	if err != nil {

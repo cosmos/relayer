@@ -15,10 +15,10 @@ import (
 	retry "github.com/avast/retry-go"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
-	lite "github.com/tendermint/tendermint/lite2"
-	litep "github.com/tendermint/tendermint/lite2/provider"
-	litehttp "github.com/tendermint/tendermint/lite2/provider/http"
-	dbs "github.com/tendermint/tendermint/lite2/store/db"
+	lite "github.com/tendermint/tendermint/light"
+	litep "github.com/tendermint/tendermint/light/provider"
+	litehttp "github.com/tendermint/tendermint/light/provider/http"
+	dbs "github.com/tendermint/tendermint/light/store/db"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 )
 

@@ -9,9 +9,9 @@ import (
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 )
 
-var ModuleCdc *codec.Codec
+var ModuleCdc *codec.LegacyAmino
 
-func RegisterCodec(cdc *codec.Codec) {
+func RegisterCodec(cdc *codec.LegacyAmino) {
 	if ModuleCdc != nil {
 		return
 	}
@@ -25,6 +25,7 @@ type MsgSendPacket struct {
 	Sender sdk.AccAddress   `json:"sender" yaml:"sender"` // the sender address
 }
 
+// TODO: Implement ProtoMessage method
 var _ sdk.Msg = MsgSendPacket{}
 
 // NewMsgSendPacket returns a new send request

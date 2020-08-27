@@ -2,21 +2,20 @@ package relayer
 
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
-	stdcodec "github.com/cosmos/cosmos-sdk/std"
 )
 
 type contextualStdCodec struct {
-	*stdcodec.Codec
+	codec.JSONMarshaler
 	useContext func() func()
 }
 
 type contextualAminoCodec struct {
-	*codec.Codec
+	*codec.LegacyAmino
 	useContext func() func()
 }
 
 // newContextualCodec creates a codec that sets and resets context
-func newContextualStdCodec(cdc *stdcodec.Codec, useContext func() func()) *contextualStdCodec {
+func newContextualStdCodec(cdc codec.JSONMarshaler, useContext func() func()) *contextualStdCodec {
 	return &contextualStdCodec{
 		Codec:      cdc,
 		useContext: useContext,
@@ -54,7 +53,7 @@ func (cdc *contextualStdCodec) UnmarshalBinaryBare(bz []byte, ptr codec.ProtoMar
 }
 
 // newContextualCodec creates a codec that sets and resets context
-func newContextualAminoCodec(cdc *codec.Codec, useContext func() func()) *contextualAminoCodec {
+func newContextualAminoCodec(cdc *codec.LegacyAmino, useContext func() func()) *contextualAminoCodec {
 	return &contextualAminoCodec{
 		Codec:      cdc,
 		useContext: useContext,

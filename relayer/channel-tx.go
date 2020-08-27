@@ -5,7 +5,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
+	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 )
 
 // CreateChannel runs the channel creation messages on timeout until they pass
@@ -68,7 +68,7 @@ func (c *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) error 
 // CreateChannelStep returns the next set of messages for creating a channel with given
 // identifiers between chains src and dst. If the handshake hasn't started, then CreateChannelStep
 // will begin the handshake on the src chain
-func (c *Chain) CreateChannelStep(dst *Chain, ordering ibctypes.Order) (*RelayMsgs, error) {
+func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayMsgs, error) {
 	var (
 		out        = &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}, last: false}
 		scid, dcid = c.ChainID, dst.ChainID

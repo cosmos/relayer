@@ -5,11 +5,11 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc-transfer/types"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
-	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc/20-transfer/types"
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
 	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 )
@@ -30,7 +30,7 @@ type PathEnd struct {
 }
 
 // OrderFromString parses a string into a channel order byte
-func OrderFromString(order string) ibctypes.Order {
+func OrderFromString(order string) chanTypes.Order {
 	switch order {
 	case "UNORDERED":
 		return ibctypes.UNORDERED
@@ -41,7 +41,7 @@ func OrderFromString(order string) ibctypes.Order {
 	}
 }
 
-func (pe *PathEnd) getOrder() ibctypes.Order {
+func (pe *PathEnd) getOrder() chanTypes.Order {
 	return OrderFromString(strings.ToUpper(pe.Order))
 }
 
@@ -85,8 +85,8 @@ func (pe *PathEnd) ConnInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 
 // ConnTry creates a MsgConnectionOpenTry
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (pe *PathEnd) ConnTry(dst *PathEnd, dstConnState connTypes.ConnectionResponse,
-	dstConsState clientTypes.ConsensusStateResponse, dstCsHeight int64, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ConnTry(dst *PathEnd, dstConnState connTypes.QueryConnectionResponse,
+	dstConsState clientTypes.QueryConsensusStateResponse, dstCsHeight int64, signer sdk.AccAddress) sdk.Msg {
 	return connTypes.NewMsgConnectionOpenTry(
 		pe.ConnectionID,
 		pe.ClientID,
@@ -104,7 +104,7 @@ func (pe *PathEnd) ConnTry(dst *PathEnd, dstConnState connTypes.ConnectionRespon
 
 // ConnAck creates a MsgConnectionOpenAck
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (pe *PathEnd) ConnAck(dstConnState connTypes.ConnectionResponse, dstConsState clientTypes.ConsensusStateResponse,
+func (pe *PathEnd) ConnAck(dstConnState connTypes.QueryConnectionResponse, dstConsState clientTypes.QueryConsensusStateResponse,
 	dstCsHeight int64, signer sdk.AccAddress) sdk.Msg {
 	return connTypes.NewMsgConnectionOpenAck(
 		pe.ConnectionID,
@@ -119,7 +119,7 @@ func (pe *PathEnd) ConnAck(dstConnState connTypes.ConnectionResponse, dstConsSta
 
 // ConnConfirm creates a MsgConnectionOpenAck
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (pe *PathEnd) ConnConfirm(dstConnState connTypes.ConnectionResponse, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ConnConfirm(dstConnState connTypes.QueryConnectionResponse, signer sdk.AccAddress) sdk.Msg {
 	return connTypes.NewMsgConnectionOpenConfirm(
 		pe.ConnectionID,
 		dstConnState.Proof,
@@ -143,7 +143,7 @@ func (pe *PathEnd) ChanInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 }
 
 // ChanTry creates a MsgChannelOpenTry
-func (pe *PathEnd) ChanTry(dst *PathEnd, dstChanState chanTypes.ChannelResponse, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ChanTry(dst *PathEnd, dstChanState chanTypes.QueryChannelResponse, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgChannelOpenTry(
 		pe.PortID,
 		pe.ChannelID,
@@ -160,7 +160,7 @@ func (pe *PathEnd) ChanTry(dst *PathEnd, dstChanState chanTypes.ChannelResponse,
 }
 
 // ChanAck creates a MsgChannelOpenAck
-func (pe *PathEnd) ChanAck(dstChanState chanTypes.ChannelResponse, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ChanAck(dstChanState chanTypes.QueryChannelResponse, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgChannelOpenAck(
 		pe.PortID,
 		pe.ChannelID,
@@ -172,7 +172,7 @@ func (pe *PathEnd) ChanAck(dstChanState chanTypes.ChannelResponse, signer sdk.Ac
 }
 
 // ChanConfirm creates a MsgChannelOpenConfirm
-func (pe *PathEnd) ChanConfirm(dstChanState chanTypes.ChannelResponse, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ChanConfirm(dstChanState chanTypes.QueryChannelResponse, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgChannelOpenConfirm(
 		pe.PortID,
 		pe.ChannelID,
@@ -192,7 +192,7 @@ func (pe *PathEnd) ChanCloseInit(signer sdk.AccAddress) sdk.Msg {
 }
 
 // ChanCloseConfirm creates a MsgChannelCloseConfirm
-func (pe *PathEnd) ChanCloseConfirm(dstChanState chanTypes.ChannelResponse, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ChanCloseConfirm(dstChanState chanTypes.QueryChannelResponse, signer sdk.AccAddress) sdk.Msg {
 	return chanTypes.NewMsgChannelCloseConfirm(
 		pe.PortID,
 		pe.ChannelID,
