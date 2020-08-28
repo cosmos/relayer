@@ -16,8 +16,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/query"
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	clientUtils "github.com/cosmos/cosmos-sdk/x/ibc/02-client/client/utils"
 	clientexported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
+	connUtils "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/client/utils"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
@@ -83,78 +85,18 @@ func qBalErr(acc sdk.AccAddress, err error) error {
 
 // QueryConsensusState returns a consensus state for a given chain to be used as a
 // client in another chain, fetches latest height when passed 0 as arg
-func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, error) {
-	var (
-		commit     *ctypes.ResultCommit
-		validators *ctypes.ResultValidators
-		err        error
-		page       = 1
-		perPage    = 10000
-	)
-
-	if height == 0 {
-		commit, err = c.Client.Commit(nil)
-	} else {
-		commit, err = c.Client.Commit(&height)
-	}
-
-	if err != nil {
-		return nil, qConsStateErr(err)
-	}
-
-	validators, err = c.Client.Validators(nil, &page, &perPage)
-	if err != nil {
-		return nil, qConsStateErr(err)
-	}
-
-	state := &tmclient.ConsensusState{
-		Timestamp:          commit.Time,
-		Root:               commitmenttypes.NewMerkleRoot(commit.AppHash),
-		NextValidatorsHash: tmtypes.NewValidatorSet(validators.Validators).Hash(),
-	}
-
-	return state, nil
+func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, int64, error) {
+	return clientUtils.QueryNodeConsensusState(c.CLIContext())
 }
 
-func qConsStateErr(err error) error { return fmt.Errorf("query cons state failed: %w", err) }
-
 // QueryClientConsensusState retrevies the latest consensus state for a client in state at a given height
-// NOTE: dstHeight is the height from dst that is stored on src, it is needed to construct the appropriate store query
-func (c *Chain) QueryClientConsensusState(srcHeight,
-	srcClientConsHeight int64) (clientTypes.QueryConsensusStateResponse, error) {
-	var conStateRes clientTypes.QueryConsensusStateResponse
-	if !c.PathSet() {
-		return conStateRes, c.ErrPathNotSet()
-	}
-
-	req := abci.RequestQuery{
-		Path:   "store/ibc/key",
-		Height: srcHeight,
-		Data:   prefixClientKey(c.PathEnd.ClientID, ibctypes.KeyConsensusState(uint64(srcClientConsHeight))),
-		Prove:  true,
-	}
-
-	res, err := c.QueryABCI(req)
-	if err != nil {
-		return conStateRes, qClntConsStateErr(err)
-	} else if res.Value == nil {
-		// TODO: Better way to handle this?
-		return clientTypes.NewConsensusStateResponse("notfound", nil, nil, 0), nil
-	}
-
-	var cs clientexported.ConsensusState
-	if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
-		if err = c.Amino.UnmarshalBinaryBare(res.Value, &cs); err != nil {
-			return conStateRes, qClntConsStateErr(err)
-		}
-	}
-
-	return clientTypes.NewConsensusStateResponse(c.PathEnd.ClientID, cs, res.Proof, res.Height), nil
+func (c *Chain) QueryClientConsensusState(clientConsHeight uint64) (*clientTypes.QueryConsensusStateResponse, error) {
+	return clientUtils.QueryConsensusStateABCI(c.CLIContext(), c.PathEnd.ClientID, clientConsHeight)
 }
 
 type csstates struct {
 	sync.Mutex
-	Map  map[string]clientTypes.QueryConsensusStateResponse
+	Map  map[string]*clientTypes.QueryConsensusStateResponse
 	Errs errs
 }
 
@@ -166,9 +108,9 @@ type chh struct {
 
 // QueryClientConsensusStatePair allows for the querying of multiple client states at the same time
 func QueryClientConsensusStatePair(src, dst *Chain,
-	srcH, dstH, srcClientConsH, dstClientConsH int64) (map[string]clientTypes.QueryConsensusStateResponse, error) {
+	srcH, dstH, srcClientConsH, dstClientConsH int64) (map[string]*clientTypes.QueryConsensusStateResponse, error) {
 	hs := &csstates{
-		Map:  make(map[string]clientTypes.QueryConsensusStateResponse),
+		Map:  make(map[string]*clientTypes.QueryConsensusStateResponse),
 		Errs: []error{},
 	}
 
@@ -182,7 +124,7 @@ func QueryClientConsensusStatePair(src, dst *Chain,
 	for _, chain := range chps {
 		wg.Add(1)
 		go func(hs *csstates, wg *sync.WaitGroup, chp chh) {
-			conn, err := chp.c.QueryClientConsensusState(chp.h, chp.csh)
+			conn, err := chp.c.QueryClientConsensusState(uint64(chp.csh))
 			if err != nil {
 				hs.Lock()
 				hs.Errs = append(hs.Errs, err)
@@ -198,51 +140,20 @@ func QueryClientConsensusStatePair(src, dst *Chain,
 	return hs.Map, hs.Errs.err()
 }
 
-func qClntConsStateErr(err error) error { return fmt.Errorf("query client cons state failed: %w", err) }
-
 // QueryClientState retrevies the latest consensus state for a client in state at a given height
 func (c *Chain) QueryClientState() (*clientTypes.QueryClientStateResponse, error) {
-	var conStateRes *clientTypes.QueryClientStateResponse
-	if !c.PathSet() {
-		return nil, c.ErrPathNotSet()
-	}
-
-	req := abci.RequestQuery{
-		Path:  "store/ibc/key",
-		Data:  prefixClientKey(c.PathEnd.ClientID, ibctypes.KeyClientState()),
-		Prove: true,
-	}
-
-	res, err := c.QueryABCI(req)
-	if err != nil {
-		return conStateRes, qClntStateErr(err)
-	} else if res.Value == nil {
-		// client does not exist
-		return nil, nil
-	}
-
-	var cs clientexported.ClientState
-
-	// If this decoding fails, try with UnmarshalBinaryLengthPrefixed this changed
-	// reciently and will help support older versions.
-	if err := c.Amino.UnmarshalBinaryBare(res.Value, &cs); err != nil {
-		if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
-			return nil, qClntStateErr(err)
-		}
-	}
-
-	csr := clientTypes.NewClientStateResponse(c.PathEnd.ClientID, cs, res.Proof, res.Height)
-	return &csr, nil
+	return clientUtils.QueryClientStateABCI(c.CLIContext(), c.PathEnd.ClientID)
 }
 
 type cstates struct {
 	sync.Mutex
-	Map  map[string]*clientTypes.QueryClientStateResponse
+	Map  map[string]clientexported.ClientState
 	Errs errs
 }
 
 // QueryClientStatePair returns a pair of connection responses
 func QueryClientStatePair(src, dst *Chain) (map[string]clientexported.ClientState, error) {
+	ctx := src.CLIContext()
 	hs := &cstates{
 		Map:  make(map[string]clientexported.ClientState),
 		Errs: []error{},
@@ -261,8 +172,9 @@ func QueryClientStatePair(src, dst *Chain) (map[string]clientexported.ClientStat
 				hs.Errs = append(hs.Errs, err)
 				hs.Unlock()
 			}
+			cs, _ := clientTypes.UnpackClientState(conn.ClientState)
 			hs.Lock()
-			hs.Map[c.ChainID] = clientexported.ClientState(conn.ClientState)
+			hs.Map[c.ChainID] = cs
 			hs.Unlock()
 			wg.Done()
 		}(hs, &wg, chain)
@@ -274,120 +186,50 @@ func QueryClientStatePair(src, dst *Chain) (map[string]clientexported.ClientStat
 func qClntStateErr(err error) error { return fmt.Errorf("query client state failed: %w", err) }
 
 // QueryClients queries all the clients!
-func (c *Chain) QueryClients(page, limit int) ([]clientexported.ClientState, error) {
-	var (
-		bz      []byte
-		err     error
-		clients []clientexported.ClientState
-	)
-
-	if bz, err = c.Cdc.MarshalJSON(sdk.NewPaginationParams(page, limit)); err != nil {
-		return nil, qClntsErr(err)
-	}
-
-	if bz, _, err = c.QueryWithData(
-		ibcQuerierRoute(clientTypes.QuerierRoute, clientTypes.QueryAllClients), bz); err != nil {
-		return nil, qClntsErr(err)
-	}
-
-	if err = c.Cdc.UnmarshalJSON(bz, &clients); err != nil {
-		return nil, qClntsErr(err)
-	}
-
-	return clients, nil
+func (c *Chain) QueryClients(offset, limit uint64) ([]*clientTypes.IdentifiedClientState, error) {
+	res, err := clientTypes.NewQueryClient(c.CLIContext()).ClientStates(context.Background(), &clientTypes.QueryClientStatesRequest{
+		Pagination: &query.PageRequest{
+			Key:        []byte(""),
+			Offset:     offset,
+			Limit:      limit,
+			CountTotal: false,
+		},
+	})
+	return res.ClientStates, err
 }
-
-func qClntsErr(err error) error { return fmt.Errorf("query clients failed: %w", err) }
 
 // ////////////////////////////
 //  ICS 03 -> CONNECTIONS   //
 // ////////////////////////////
 
 // QueryConnections gets any connections on a chain
-func (c *Chain) QueryConnections(page, limit int) (conns []connTypes.ConnectionEnd, err error) {
-	var bz []byte
-	if bz, err = c.Cdc.MarshalJSON(connTypes.NewQueryAllConnectionsParams(page, limit)); err != nil {
-		return nil, qConnsErr(err)
-	}
-
-	if bz, _, err = c.QueryWithData(
-		ibcQuerierRoute(connTypes.QuerierRoute, connTypes.QueryAllConnections), bz); err != nil {
-		return nil, qConnsErr(err)
-	}
-
-	if err = c.Cdc.UnmarshalJSON(bz, &conns); err != nil {
-		return nil, qConnsErr(err)
-	}
-
-	return conns, nil
+func (c *Chain) QueryConnections(page, limit int) (conns []*connTypes.IdentifiedConnection, err error) {
+	res, err := connTypes.NewQueryClient(c.CLIContext()).Connections(context.Background(), &connTypes.QueryConnectionsRequest{
+		Pagination: &query.PageRequest{
+			Key:        []byte(""),
+			Offset:     0,
+			Limit:      1000,
+			CountTotal: false,
+		},
+	})
+	return res.Connections, err
 }
 
 func qConnsErr(err error) error { return fmt.Errorf("query connections failed: %w", err) }
 
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
-func (c *Chain) QueryConnectionsUsingClient(height int64) (clientConns connTypes.QueryClientConnectionsResponse, err error) {
-	if !c.PathSet() {
-		return clientConns, c.ErrPathNotSet()
-	}
-
-	req := abci.RequestQuery{
-		Path:   "store/ibc/key",
-		Height: height,
-		Data:   ibctypes.KeyClientConnections(c.PathEnd.ClientID),
-		Prove:  true,
-	}
-
-	res, err := c.QueryABCI(req)
-	if err != nil {
-		return clientConns, qConnsUsingClntsErr(err)
-	}
-
-	var paths []string
-	if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &paths); err != nil {
-		if err = c.Amino.UnmarshalBinaryBare(res.Value, &paths); err != nil {
-			return clientConns, qConnsUsingClntsErr(err)
-		}
-	}
-
-	return connTypes.NewClientConnectionsResponse(c.PathEnd.ClientID, paths, res.Proof, res.Height), nil
-}
-
-func qConnsUsingClntsErr(err error) error {
-	return fmt.Errorf("query connections using clients failed: %w", err)
+func (c *Chain) QueryConnectionsUsingClient(height int64) (clientConns *connTypes.QueryClientConnectionsResponse, err error) {
+	return connUtils.QueryClientConnections(c.CLIContext(), c.PathEnd.ClientID, true)
 }
 
 // QueryConnection returns the remote end of a given connection
-func (c *Chain) QueryConnection(height int64) (connTypes.QueryConnectionResponse, error) {
-	if !c.PathSet() {
-		return connTypes.QueryConnectionResponse{}, c.ErrPathNotSet()
-	}
-
-	req := abci.RequestQuery{
-		Path:   "store/ibc/key",
-		Data:   ibctypes.KeyConnection(c.PathEnd.ConnectionID),
-		Height: height,
-		Prove:  true,
-	}
-
-	res, err := c.QueryABCI(req)
-	if err != nil {
-		return connTypes.QueryConnectionResponse{}, qConnErr(err)
-	} else if res.Value == nil {
-		// NOTE: This is returned so that the switch statement in ConnectionStep works properly
-		return emptyConnRes, nil
-	}
-
-	var connection connTypes.ConnectionEnd
-	if err = c.Cdc.UnmarshalBinaryBare(res.Value, &connection); err != nil {
-		return connTypes.QueryConnectionResponse{}, qConnErr(err)
-	}
-
-	return connTypes.NewConnectionResponse(c.PathEnd.ConnectionID, connection, res.Proof, res.Height), nil
+func (c *Chain) QueryConnection(height int64) (*connTypes.QueryConnectionResponse, error) {
+	return connUtils.QueryConnection(c.CLIContext(), c.PathEnd.ConnectionID, true)
 }
 
 type conns struct {
 	sync.Mutex
-	Map  map[string]connTypes.QueryConnectionResponse
+	Map  map[string]*connTypes.QueryConnectionResponse
 	Errs errs
 }
 
@@ -397,9 +239,9 @@ type chpair struct {
 }
 
 // QueryConnectionPair returns a pair of connection responses
-func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (map[string]connTypes.QueryConnectionResponse, error) {
+func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (map[string]*connTypes.QueryConnectionResponse, error) {
 	hs := &conns{
-		Map:  make(map[string]connTypes.QueryConnectionResponse),
+		Map:  make(map[string]*connTypes.QueryConnectionResponse),
 		Errs: []error{},
 	}
 

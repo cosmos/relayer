@@ -87,8 +87,8 @@ func (pe *PathEnd) ConnInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 // ConnTry creates a MsgConnectionOpenTry
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
 // TODO: Need to do some more looking here
-func (pe *PathEnd) ConnTry(dst *PathEnd, dstConnState connTypes.QueryConnectionResponse,
-	dstConsState clientTypes.QueryConsensusStateResponse, dstCsHeight int64, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ConnTry(dst *PathEnd, dstConnState *connTypes.QueryConnectionResponse,
+	dstConsState *clientTypes.QueryConsensusStateResponse, dstCsHeight int64, signer sdk.AccAddress) sdk.Msg {
 	return connTypes.NewMsgConnectionOpenTry(
 		pe.ConnectionID,
 		pe.ClientID,
@@ -106,7 +106,7 @@ func (pe *PathEnd) ConnTry(dst *PathEnd, dstConnState connTypes.QueryConnectionR
 
 // ConnAck creates a MsgConnectionOpenAck
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (pe *PathEnd) ConnAck(dstConnState connTypes.QueryConnectionResponse, dstConsState clientTypes.QueryConsensusStateResponse,
+func (pe *PathEnd) ConnAck(dstConnState *connTypes.QueryConnectionResponse, dstConsState *clientTypes.QueryConsensusStateResponse,
 	dstCsHeight int64, signer sdk.AccAddress) sdk.Msg {
 	return connTypes.NewMsgConnectionOpenAck(
 		pe.ConnectionID,
@@ -121,7 +121,7 @@ func (pe *PathEnd) ConnAck(dstConnState connTypes.QueryConnectionResponse, dstCo
 
 // ConnConfirm creates a MsgConnectionOpenAck
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (pe *PathEnd) ConnConfirm(dstConnState connTypes.QueryConnectionResponse, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ConnConfirm(dstConnState *connTypes.QueryConnectionResponse, signer sdk.AccAddress) sdk.Msg {
 	return connTypes.NewMsgConnectionOpenConfirm(
 		pe.ConnectionID,
 		dstConnState.Proof,

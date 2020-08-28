@@ -56,7 +56,7 @@ func logChannelStates(src, dst *Chain, conn map[string]chanTypes.QueryChannelRes
 	))
 }
 
-func logConnectionStates(src, dst *Chain, conn map[string]connTypes.QueryConnectionResponse) {
+func logConnectionStates(src, dst *Chain, conn map[string]*connTypes.QueryConnectionResponse) {
 	src.Log(fmt.Sprintf("- [%s]@{%d}conn(%s)-{%s} : [%s]@{%d}conn(%s)-{%s}",
 		src.ChainID,
 		conn[src.ChainID].ProofHeight,
