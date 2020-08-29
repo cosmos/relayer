@@ -11,7 +11,7 @@ import (
 )
 
 // LogFailedTx takes the transaction and the messages to create it and logs the appropriate data
-func (c *Chain) LogFailedTx(res sdk.TxResponse, err error, msgs []sdk.Msg) {
+func (c *Chain) LogFailedTx(res *sdk.TxResponse, err error, msgs []sdk.Msg) {
 	if c.debug {
 		c.Log(fmt.Sprintf("- [%s] -> sending transaction:", c.ChainID))
 		c.Print(msgs, false, false)
@@ -33,7 +33,7 @@ func (c *Chain) LogFailedTx(res sdk.TxResponse, err error, msgs []sdk.Msg) {
 }
 
 // LogSuccessTx take the transaction and the messages to create it and logs the appropriate data
-func (c *Chain) LogSuccessTx(res sdk.TxResponse, msgs []sdk.Msg) {
+func (c *Chain) LogSuccessTx(res *sdk.TxResponse, msgs []sdk.Msg) {
 	c.logger.Info(fmt.Sprintf("✔ [%s]@{%d} - msg(%s) hash(%s)", c.ChainID, res.Height, getMsgAction(msgs), res.TxHash))
 }
 
@@ -42,7 +42,7 @@ func (c *Chain) logPacketsRelayed(dst *Chain, num int) {
 		num, dst.ChainID, dst.PathEnd.PortID, c.ChainID, c.PathEnd.PortID))
 }
 
-func logChannelStates(src, dst *Chain, conn map[string]chanTypes.QueryChannelResponse) {
+func logChannelStates(src, dst *Chain, conn map[string]*chanTypes.QueryChannelResponse) {
 	// TODO: replace channelID with portID?
 	src.Log(fmt.Sprintf("- [%s]@{%d}chan(%s)-{%s} : [%s]@{%d}chan(%s)-{%s}",
 		src.ChainID,

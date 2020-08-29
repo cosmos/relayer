@@ -48,9 +48,10 @@ func (c *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin,
 	done()
 
 	// MsgTransfer will call SendPacket on src chain
+	// TODO: FIX
 	txs := RelayMsgs{
 		Src: []sdk.Msg{c.PathEnd.MsgTransfer(
-			dst.PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddrString, c.MustGetAddress(),
+			dst.PathEnd, amount, dstAddrString, c.MustGetAddress(), 1, 1,
 		)},
 		Dst: []sdk.Msg{},
 	}
@@ -64,9 +65,9 @@ func (c *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin,
 
 	var (
 		hs           map[string]*tmclient.Header
-		seqRecv      chanTypes.QueryNextSequenceReceiveResponse
+		seqRecv      *chanTypes.QueryNextSequenceReceiveResponse
 		seqSend      uint64
-		srcCommitRes CommitmentResponse
+		srcCommitRes *chanTypes.QueryPacketCommitmentResponse
 	)
 
 	if err = retry.Do(func() error {
@@ -80,17 +81,12 @@ func (c *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin,
 			return err
 		}
 
-		seqSend, err = c.QueryNextSeqSend(hs[c.ChainID].Header.Height)
+		srcCommitRes, err = c.QueryPacketCommitment(seqSend - 1)
 		if err != nil {
 			return err
 		}
 
-		srcCommitRes, err = c.QueryPacketCommitment(hs[c.ChainID].Header.Height-1, int64(seqSend-1))
-		if err != nil {
-			return err
-		}
-
-		if srcCommitRes.Proof.Proof == nil {
+		if srcCommitRes.Proof == nil {
 			return fmt.Errorf("proof nil, retrying")
 		}
 
@@ -110,7 +106,7 @@ func (c *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin,
 
 	// reconstructing packet data here instead of retrieving from an indexed node
 	xferPacket := c.PathEnd.XferPacket(
-		sdk.NewCoins(amount),
+		amount,
 		srcAddrString,
 		dstAddrString,
 	)
@@ -147,7 +143,7 @@ func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringe
 		amount.Denom = fmt.Sprintf("%s/%s/%s", c.PathEnd.PortID, c.PathEnd.ChannelID, amount.Denom)
 	}
 
-	dstHeader, err := dst.UpdateLiteWithHeader()
+	_, err := dst.UpdateLiteWithHeader()
 	if err != nil {
 		return err
 	}
@@ -158,9 +154,10 @@ func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringe
 	done()
 
 	// MsgTransfer will call SendPacket on src chain
+	// TODO: FIX
 	txs := RelayMsgs{
 		Src: []sdk.Msg{c.PathEnd.MsgTransfer(
-			dst.PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddrString, c.MustGetAddress(),
+			dst.PathEnd, amount, dstAddrString, c.MustGetAddress(), 1, 1,
 		)},
 		Dst: []sdk.Msg{},
 	}
@@ -171,27 +168,28 @@ func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringe
 	return nil
 }
 
-// SendPacket sends arbitrary bytes from src to dst
-func (c *Chain) SendPacket(dst *Chain, packetData []byte) error {
-	dstHeader, err := dst.UpdateLiteWithHeader()
-	if err != nil {
-		return err
-	}
+// TODO: reimplement
+// // SendPacket sends arbitrary bytes from src to dst
+// func (c *Chain) SendPacket(dst *Chain, packetData []byte) error {
+// 	dstHeader, err := dst.UpdateLiteWithHeader()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// MsgSendPacket will call SendPacket on src chain
-	txs := RelayMsgs{
-		Src: []sdk.Msg{c.PathEnd.MsgSendPacket(
-			dst.PathEnd,
-			packetData,
-			dstHeader.GetHeight()+uint64(defaultPacketTimeout),
-			defaultPacketTimeoutStamp(),
-			c.MustGetAddress(),
-		)},
-		Dst: []sdk.Msg{},
-	}
+// 	// MsgSendPacket will call SendPacket on src chain
+// 	txs := RelayMsgs{
+// 		Src: []sdk.Msg{c.PathEnd.MsgSendPacket(
+// 			dst.PathEnd,
+// 			packetData,
+// 			dstHeader.GetHeight()+uint64(defaultPacketTimeout),
+// 			defaultPacketTimeoutStamp(),
+// 			c.MustGetAddress(),
+// 		)},
+// 		Dst: []sdk.Msg{},
+// 	}
 
-	if txs.Send(c, dst); !txs.success {
-		return fmt.Errorf("failed to send packet")
-	}
-	return nil
-}
+// 	if txs.Send(c, dst); !txs.success {
+// 		return fmt.Errorf("failed to send packet")
+// 	}
+// 	return nil
+// }
