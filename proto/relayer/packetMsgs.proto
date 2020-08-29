@@ -1,0 +1,22 @@
+syntax = "proto3";
+package relayer;
+
+option go_package = "github.com/ovrclk/relayer/relayer";
+
+import "gogoproto/gogo.proto";
+import "ibc/channel/channel.proto";
+
+// MsgSendPacket sends an outgoing IBC packet
+message MsgSendPacket{
+    ibc.channel.Packet packet = 3 [
+        (gogoproto.nullable)   = false,
+        (gogoproto.jsontag)    = "packet",
+        (gogoproto.moretags)   = "yaml:\"packet\""
+    ];
+
+    bytes sender = 1 [
+        (gogoproto.casttype)   = "github.com/cosmos/cosmos-sdk/types.AccAddress",
+        (gogoproto.jsontag)    = "sender",
+        (gogoproto.moretags)   = "yaml:\"sender\""
+    ];
+}

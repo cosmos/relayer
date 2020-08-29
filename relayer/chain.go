@@ -148,6 +148,7 @@ func (c *Chain) Init(homePath string, timeout time.Duration, debug bool) error {
 	}
 
 	encodingConfig := simapp.MakeEncodingConfig()
+	RegisterInterfaces(encodingConfig.InterfaceRegistry)
 
 	c.Keybase = keybase
 	c.Client = client

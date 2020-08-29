@@ -23,4 +23,4 @@ replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.
 
 replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.2-alpha.regen.4
 
-replace github.com/cosmos/cosmos-sdk => /Users/johnzampolin/go/src/github.com/cosmos/cosmos-sdk
+replace github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.34.4-0.20200825201020-d9fd4d2ca9a3

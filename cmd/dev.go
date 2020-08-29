@@ -372,6 +372,8 @@ func fetchClientData(chainID string) ([]*clientData, error) {
 		return nil, err
 	}
 
+	ctx := c.CLIContext()
+
 	clients, err := c.QueryClients(1, 1000)
 	if err != nil {
 		return nil, err
@@ -389,13 +391,15 @@ func fetchClientData(chainID string) ([]*clientData, error) {
 
 	var clientDatas = []*clientData{}
 	for _, cl := range clients {
-		tmdata, ok := cl.(tmclient.ClientState)
-		if !ok {
+		var tmdata tmclient.ClientState
+		err = ctx.InterfaceRegistry.UnpackAny(cl.ClientState, &tmdata)
+		if err != nil {
 			continue
 		}
 		cd := &clientData{
-			ClientID:         cl.GetID(),
-			ChainID:          cl.GetChainID(),
+			ClientID: cl.GetClientId(),
+			ChainID:  tmdata.GetChainID(),
+			// TODO: how to get lastheader here?
 			TimeOfLastUpdate: tmdata.LastHeader.Time,
 			ChannelIDs:       []string{},
 		}
@@ -414,7 +418,7 @@ func fetchClientData(chainID string) ([]*clientData, error) {
 			for _, ch := range chans {
 				for _, co := range ch.ConnectionHops {
 					if co == conn {
-						cd.ChannelIDs = append(cd.ChannelIDs, ch.ID)
+						cd.ChannelIDs = append(cd.ChannelIDs, ch.ChannelId)
 					}
 				}
 			}
