@@ -86,41 +86,67 @@ func (pe *PathEnd) ConnInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 
 // ConnTry creates a MsgConnectionOpenTry
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-// TODO: Need to do some more looking here
-func (pe *PathEnd) ConnTry(dst *PathEnd, dstConnState *connTypes.QueryConnectionResponse,
-	dstConsState *clientTypes.QueryConsensusStateResponse, dstCsHeight int64, signer sdk.AccAddress) sdk.Msg {
-	return &connTypes.MsgConnectionOpenTry{}
-	// TODO: reimplement
-	// return connTypes.NewMsgConnectionOpenTry(
-	// 	pe.ConnectionID,
-	// 	pe.ClientID,
-	// 	dst.ConnectionID,
-	// 	dst.ClientID,
-	// 	defaultChainPrefix,
-	// 	defaultIBCVersions,
-	// 	dstConnState.Proof,
-	// 	dstConsState.Proof,
-	// 	dstConnState.ProofHeight+1,
-	// 	uint64(dstCsHeight),
-	// 	signer,
-	// )
+func (pe *PathEnd) ConnTry(
+	dst *PathEnd,
+	dstClientState *clientTypes.QueryClientStateResponse,
+	dstConnState *connTypes.QueryConnectionResponse,
+	dstConsState *clientTypes.QueryConsensusStateResponse,
+	signer sdk.AccAddress,
+) sdk.Msg {
+	cs, err := clientTypes.UnpackClientState(dstClientState.ClientState)
+	if err != nil {
+		panic(err)
+	}
+	css, err := clientTypes.UnpackConsensusState(dstConsState.ConsensusState)
+	if err != nil {
+		panic(err)
+	}
+	return connTypes.NewMsgConnectionOpenTry(
+		pe.ConnectionID,
+		pe.ClientID,
+		dst.ConnectionID,
+		dst.ClientID,
+		cs,
+		defaultChainPrefix,
+		defaultIBCVersions,
+		dstConnState.Proof,
+		dstClientState.Proof,
+		dstConsState.Proof,
+		dstConsState.ProofHeight+1,
+		css.GetHeight(),
+		signer,
+	)
+
 }
 
 // ConnAck creates a MsgConnectionOpenAck
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (pe *PathEnd) ConnAck(dstConnState *connTypes.QueryConnectionResponse, dstConsState *clientTypes.QueryConsensusStateResponse,
-	dstCsHeight int64, signer sdk.AccAddress) sdk.Msg {
-	return &connTypes.MsgConnectionOpenAck{}
-	// TODO: reimplement
-	// return connTypes.NewMsgConnectionOpenAck(
-	// 	pe.ConnectionID,
-	// 	dstConnState.Proof,
-	// 	dstConsState.Proof,
-	// 	dstConnState.ProofHeight+1,
-	// 	uint64(dstCsHeight),
-	// 	defaultIBCVersion,
-	// 	signer,
-	// )
+func (pe *PathEnd) ConnAck(
+	dst *PathEnd,
+	dstClientState *clientTypes.QueryClientStateResponse,
+	dstConnState *connTypes.QueryConnectionResponse,
+	dstConsState *clientTypes.QueryConsensusStateResponse,
+	signer sdk.AccAddress,
+) sdk.Msg {
+	cs, err := clientTypes.UnpackClientState(dstClientState.ClientState)
+	if err != nil {
+		panic(err)
+	}
+	css, err := clientTypes.UnpackConsensusState(dstConsState.ConsensusState)
+	if err != nil {
+		panic(err)
+	}
+	return connTypes.NewMsgConnectionOpenAck(
+		pe.ConnectionID,
+		cs,
+		dstConnState.Proof,
+		dstClientState.Proof,
+		dstConsState.Proof,
+		dstConsState.ProofHeight,
+		css.GetHeight(),
+		defaultIBCVersion,
+		signer,
+	)
 }
 
 // ConnConfirm creates a MsgConnectionOpenAck

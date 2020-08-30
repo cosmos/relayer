@@ -194,8 +194,8 @@ func connTry() *cobra.Command {
 
 			txs := []sdk.Msg{
 				chains[src].PathEnd.UpdateClient(hs[dst], chains[src].MustGetAddress()),
-				chains[src].PathEnd.ConnTry(chains[dst].PathEnd, dstConnState,
-					dstConsState, dstCsHeight, chains[src].MustGetAddress()),
+				chains[src].PathEnd.ConnTry(chains[dst].PathEnd, dstClientStateRes, dstConnState,
+					dstConsState, chains[src].MustGetAddress()),
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -251,7 +251,7 @@ func connAck() *cobra.Command {
 			}
 
 			txs := []sdk.Msg{
-				chains[src].PathEnd.ConnAck(dstState, dstConsState, dstCsHeight, chains[src].MustGetAddress()),
+				chains[src].PathEnd.ConnAck(chains[dst].PathEnd, dstClientStateResponse, dstState, dstConsState, chains[src].MustGetAddress()),
 				chains[src].PathEnd.UpdateClient(hs[dst], chains[src].MustGetAddress()),
 			}
 

@@ -16,7 +16,6 @@ import (
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	clientUtils "github.com/cosmos/cosmos-sdk/x/ibc/02-client/client/utils"
-	clientexported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connUtils "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/client/utils"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
@@ -139,14 +138,14 @@ func (c *Chain) QueryClientState() (*clientTypes.QueryClientStateResponse, error
 
 type cstates struct {
 	sync.Mutex
-	Map  map[string]clientexported.ClientState
+	Map  map[string]*clientTypes.QueryClientStateResponse
 	Errs errs
 }
 
 // QueryClientStatePair returns a pair of connection responses
-func QueryClientStatePair(src, dst *Chain) (map[string]clientexported.ClientState, error) {
+func QueryClientStatePair(src, dst *Chain) (map[string]*clientTypes.QueryClientStateResponse, error) {
 	hs := &cstates{
-		Map:  make(map[string]clientexported.ClientState),
+		Map:  make(map[string]*clientTypes.QueryClientStateResponse),
 		Errs: []error{},
 	}
 
@@ -163,9 +162,8 @@ func QueryClientStatePair(src, dst *Chain) (map[string]clientexported.ClientStat
 				hs.Errs = append(hs.Errs, err)
 				hs.Unlock()
 			}
-			cs, _ := clientTypes.UnpackClientState(conn.ClientState)
 			hs.Lock()
-			hs.Map[c.ChainID] = cs
+			hs.Map[c.ChainID] = conn
 			hs.Unlock()
 			wg.Done()
 		}(hs, &wg, chain)

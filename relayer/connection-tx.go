@@ -5,6 +5,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 )
 
@@ -100,8 +101,17 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		return nil, err
 	}
 
+	srcCS, err := clientTypes.UnpackClientState(cs[scid].ClientState)
+	if err != nil {
+		return nil, err
+	}
+	dstCS, err := clientTypes.UnpackClientState(cs[dcid].ClientState)
+	if err != nil {
+		return nil, err
+	}
+
 	// Store the heights
-	srcConsH, dstConsH := int64(cs[scid].GetLatestHeight()), int64(cs[dcid].GetLatestHeight())
+	srcConsH, dstConsH := int64(srcCS.GetLatestHeight()), int64(dstCS.GetLatestHeight())
 
 	// NOTE: We query connection at height - 1 because of the way tendermint returns
 	// proofs the commit for height n is contained in the header of height n + 1
@@ -125,7 +135,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		}
 		out.Src = append(out.Src,
 			c.PathEnd.UpdateClient(hs[dcid], c.MustGetAddress()),
-			c.PathEnd.ConnTry(dst.PathEnd, conn[dcid], cons[dcid], dstConsH, c.MustGetAddress()),
+			c.PathEnd.ConnTry(dst.PathEnd, cs[dcid], conn[dcid], cons[dcid], c.MustGetAddress()),
 		)
 
 	// Handshake has started on src (1 step done), relay `connOpenTry` and `updateClient` on dst
@@ -135,7 +145,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		}
 		out.Dst = append(out.Dst,
 			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
-			dst.PathEnd.ConnTry(c.PathEnd, conn[scid], cons[scid], srcConsH, dst.MustGetAddress()),
+			dst.PathEnd.ConnTry(c.PathEnd, cs[scid], conn[scid], cons[scid], dst.MustGetAddress()),
 		)
 
 	// Handshake has started on src end (2 steps done), relay `connOpenAck` and `updateClient` to dst end
@@ -145,7 +155,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		}
 		out.Dst = append(out.Dst,
 			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
-			dst.PathEnd.ConnAck(conn[scid], cons[scid], srcConsH, dst.MustGetAddress()),
+			dst.PathEnd.ConnAck(c.PathEnd, cs[scid], conn[scid], cons[scid], dst.MustGetAddress()),
 		)
 
 	// Handshake has started on dst end (2 steps done), relay `connOpenAck` and `updateClient` to src end
@@ -155,7 +165,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		}
 		out.Src = append(out.Src,
 			c.PathEnd.UpdateClient(hs[dcid], c.MustGetAddress()),
-			c.PathEnd.ConnAck(conn[dcid], cons[dcid], dstConsH, c.MustGetAddress()),
+			c.PathEnd.ConnAck(dst.PathEnd, cs[dcid], conn[dcid], cons[dcid], c.MustGetAddress()),
 		)
 
 	// Handshake has confirmed on dst (3 steps done), relay `connOpenConfirm` and `updateClient` to src end
