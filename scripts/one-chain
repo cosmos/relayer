@@ -1,0 +1,61 @@
+#!/bin/sh
+# USAGE: ./one-chain test-chain-id ./data 26657 26656
+
+CHAINID=$1
+CHAINDIR=$2
+RPCPORT=$3
+P2PPORT=$4
+PROFPORT=$5
+GRPCPORT=$6
+
+if [ -z "$1" ]; then
+  echo "Need to input chain id..."
+  exit 1
+fi
+
+if [ -z "$2" ]; then
+  echo "Need to input directory to create files in..."
+  exit 1
+fi
+
+if [ -z "$3" ]; then
+  echo "Need to input rpc port (e.g. 26657)..."
+  exit 1
+fi
+
+if [ -z "$4" ]; then
+  echo "Need to input p2p port (e.g. 26656)..."
+  exit 1
+fi
+
+if [ -z "$5" ]; then
+  echo "Need to input profiling server port (e.g. 6060)..."
+  exit 1
+fi
+
+if [ -z "$6" ]; then
+  echo "Need to input grpc server port (e.g. 9090)..."
+  exit 1
+fi
+
+echo "Creating gaiad instance with home=$CHAINDIR chain-id=$CHAINID p2p=:$P2PPORT rpc=:$RPCPORT..."
+# Build genesis file incl account for passed address
+coins="100000000000stake,100000000000samoleans"
+gaiad --home $CHAINDIR/$CHAINID --chain-id $CHAINID init $CHAINID &> /dev/null
+gaiad --home $CHAINDIR/$CHAINID keys add validator --keyring-backend="test" > $CHAINDIR/$CHAINID/validator_seed.json 2> /dev/null
+gaiad --home $CHAINDIR/$CHAINID keys add user --keyring-backend="test" --output json > $CHAINDIR/$CHAINID/key_seed.json 2> /dev/null
+gaiad --home $CHAINDIR/$CHAINID add-genesis-account validator $coins --keyring-backend="test" &> /dev/null
+gaiad --home $CHAINDIR/$CHAINID add-genesis-account user $coins --keyring-backend="test" &> /dev/null
+gaiad --home $CHAINDIR/$CHAINID gentx validator --keyring-backend="test" --chain-id $CHAINID &> /dev/null
+gaiad --home $CHAINDIR/$CHAINID collect-gentxs &> /dev/null
+
+# Set proper defaults and change ports
+sed -i '' 's#"tcp://127.0.0.1:26657"#"tcp://0.0.0.0:'"$RPCPORT"'"#g' $CHAINDIR/$CHAINID/config/config.toml
+sed -i '' 's#"tcp://0.0.0.0:26656"#"tcp://0.0.0.0:'"$P2PPORT"'"#g' $CHAINDIR/$CHAINID/config/config.toml
+sed -i '' 's#"localhost:6060"#"localhost:'"$P2PPORT"'"#g' $CHAINDIR/$CHAINID/config/config.toml
+sed -i '' 's/timeout_commit = "5s"/timeout_commit = "1s"/g' $CHAINDIR/$CHAINID/config/config.toml
+sed -i '' 's/timeout_propose = "3s"/timeout_propose = "1s"/g' $CHAINDIR/$CHAINID/config/config.toml
+sed -i '' 's/index_all_keys = false/index_all_keys = true/g' $CHAINDIR/$CHAINID/config/config.toml
+
+# Start the gaia
+gaiad --home $CHAINDIR/$CHAINID start --pruning=nothing --grpc.address="0.0.0.0:$GRPCPORT" > $CHAINDIR/$CHAINID.log 2>&1 &

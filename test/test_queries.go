@@ -3,6 +3,7 @@ package test
 import (
 	"testing"
 
+	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	"github.com/stretchr/testify/require"
 
 	ry "github.com/ovrclk/relayer/relayer"
@@ -19,8 +20,10 @@ func testClient(t *testing.T, src, dst *ry.Chain) {
 	client, err := src.QueryClientState()
 	require.NoError(t, err)
 	require.NotNil(t, client)
-	require.Equal(t, client.ClientState.GetID(), src.PathEnd.ClientID)
-	require.Equal(t, client.ClientState.ClientType().String(), "tendermint")
+	cs, err := clientTypes.UnpackClientState(client.ClientState)
+	require.NoError(t, err)
+	require.Equal(t, cs.GetChainID(), src.PathEnd.ChainID)
+	require.Equal(t, cs.ClientType().String(), "tendermint")
 }
 
 // testConnectionPair tests that the only connection on src and dst is between the two chains
@@ -34,20 +37,21 @@ func testConnection(t *testing.T, src, dst *ry.Chain) {
 	conns, err := src.QueryConnections(1, 1000)
 	require.NoError(t, err)
 	require.Equal(t, len(conns), 1)
-	require.Equal(t, conns[0].GetClientID(), src.PathEnd.ClientID)
-	require.Equal(t, conns[0].GetCounterparty().GetClientID(), dst.PathEnd.ClientID)
-	require.Equal(t, conns[0].GetCounterparty().GetConnectionID(), dst.PathEnd.ConnectionID)
-	require.Equal(t, conns[0].GetState().String(), "STATE_OPEN")
+	// conns[0].
+	require.Equal(t, conns[0].ClientId, src.PathEnd.ClientID)
+	require.Equal(t, conns[0].Counterparty.GetClientID(), dst.PathEnd.ClientID)
+	require.Equal(t, conns[0].Counterparty.GetConnectionID(), dst.PathEnd.ConnectionID)
+	require.Equal(t, conns[0].State.String(), "STATE_OPEN")
 
 	h, err := src.Client.Status()
 	require.NoError(t, err)
 
 	conn, err := src.QueryConnection(h.SyncInfo.LatestBlockHeight)
 	require.NoError(t, err)
-	require.Equal(t, conn.Connection.GetClientID(), src.PathEnd.ClientID)
+	require.Equal(t, conn.Connection.ClientId, src.PathEnd.ClientID)
 	require.Equal(t, conn.Connection.GetCounterparty().GetClientID(), dst.PathEnd.ClientID)
 	require.Equal(t, conn.Connection.GetCounterparty().GetConnectionID(), dst.PathEnd.ConnectionID)
-	require.Equal(t, conn.Connection.GetState().String(), "STATE_OPEN")
+	require.Equal(t, conn.Connection.State.String(), "STATE_OPEN")
 }
 
 // testChannelPair tests that the only channel on src and dst is between the two chains
@@ -63,7 +67,7 @@ func testChannel(t *testing.T, src, dst *ry.Chain) {
 	require.Equal(t, 1, len(chans))
 	require.Equal(t, chans[0].Ordering.String(), "ORDER_ORDERED")
 	require.Equal(t, chans[0].State.String(), "STATE_OPEN")
-	require.Equal(t, chans[0].Counterparty.ChannelID, dst.PathEnd.ChannelID)
+	require.Equal(t, chans[0].Counterparty.ChannelId, dst.PathEnd.ChannelID)
 	require.Equal(t, chans[0].Counterparty.GetPortID(), dst.PathEnd.PortID)
 
 	h, err := src.Client.Status()
@@ -73,6 +77,6 @@ func testChannel(t *testing.T, src, dst *ry.Chain) {
 	require.NoError(t, err)
 	require.Equal(t, ch.Channel.Ordering.String(), "ORDER_ORDERED")
 	require.Equal(t, ch.Channel.State.String(), "STATE_OPEN")
-	require.Equal(t, ch.Channel.Counterparty.ChannelID, dst.PathEnd.ChannelID)
+	require.Equal(t, ch.Channel.Counterparty.ChannelId, dst.PathEnd.ChannelID)
 	require.Equal(t, ch.Channel.Counterparty.GetPortID(), dst.PathEnd.PortID)
 }

@@ -558,7 +558,7 @@ func (c *Chain) QueryLatestHeader() (out *tmclient.Header, err error) {
 // QueryHeaderAtHeight returns the header at a given height
 func (c *Chain) QueryHeaderAtHeight(height int64) (*tmclient.Header, error) {
 	var (
-		page    int = 0
+		page    int = 1
 		perPage int = 100000
 	)
 	if height <= 0 {

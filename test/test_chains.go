@@ -7,18 +7,28 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/server"
-	"github.com/cosmos/cosmos-sdk/std"
+	"github.com/cosmos/cosmos-sdk/simapp"
 	"github.com/stretchr/testify/require"
 
 	ry "github.com/ovrclk/relayer/relayer"
 )
 
+func init() {
+	ec := simapp.MakeEncodingConfig()
+	cdc = ec.Marshaler
+	amino = ec.Amino
+}
+
 var (
+	cdc   codec.JSONMarshaler
+	amino *codec.LegacyAmino
 	// GAIA BLOCK TIMEOUTS on jackzampolin/gaiatest:master
 	// timeout_commit = "1000ms"
 	// timeout_propose = "1000ms"
 	// 3 second relayer timeout works well with these block times
 	gaiaTestConfig = testChainConfig{
+		cdc:            cdc,
+		amino:          amino,
 		dockerImage:    "jackzampolin/gaiatest",
 		dockerTag:      "gaiav3.0",
 		timeout:        3 * time.Second,
@@ -116,8 +126,8 @@ type (
 	testChainConfig struct {
 		dockerImage    string
 		dockerTag      string
-		cdc            *std.Codec
-		amino          *codec.Codec
+		amino          *codec.LegacyAmino
+		cdc            codec.JSONMarshaler
 		rpcPort        string
 		timeout        time.Duration
 		accountPrefix  string
