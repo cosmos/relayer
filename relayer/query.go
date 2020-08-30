@@ -77,7 +77,7 @@ func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
 
 // QueryConsensusState returns a consensus state for a given chain to be used as a
 // client in another chain, fetches latest height when passed 0 as arg
-func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, int64, error) {
+func (c *Chain) QueryConsensusState() (*tmclient.ConsensusState, int64, error) {
 	return clientUtils.QueryNodeConsensusState(c.CLIContext())
 }
 

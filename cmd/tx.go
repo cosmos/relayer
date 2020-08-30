@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -47,7 +46,7 @@ func transactionCmd() *cobra.Command {
 		closeChannelCmd(),
 		flags.LineBreak,
 		rawTransactionCmd(),
-		sendPacketCmd(),
+		// sendPacketCmd(),
 	)
 
 	return cmd
@@ -198,13 +197,13 @@ func relayMsgsCmd() *cobra.Command {
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(c[src], c[dst], sh)
+			path := config.Paths.MustGet(args[0])
+			strategy, err := GetStrategyWithOptions(cmd, path.MustGetStrategy())
 			if err != nil {
 				return err
 			}
 
-			path := config.Paths.MustGet(args[0])
-			strategy, err := GetStrategyWithOptions(cmd, path.MustGetStrategy())
+			sp, err := strategy.UnrelayedSequencesOrdered(c[src], c[dst], sh)
 			if err != nil {
 				return err
 			}
@@ -220,41 +219,42 @@ func relayMsgsCmd() *cobra.Command {
 	return strategyFlag(cmd)
 }
 
-func sendPacketCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "send-packet [src-chain-id] [dst-chain-id] [packet-data]",
-		Aliases: []string{"pkt", "sp"},
-		Short:   "send a raw packet from a source chain to a destination chain",
-		Long:    "This sends packet-data (default: stdin) from a relayer's configured wallet on chain src to chain dst",
-		Args:    cobra.RangeArgs(2, 3),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			src, dst := args[0], args[1]
-			c, err := config.Chains.Gets(src, dst)
-			if err != nil {
-				return err
-			}
+// TODO: Reimplement send packet
+// func sendPacketCmd() *cobra.Command {
+// 	cmd := &cobra.Command{
+// 		Use:     "send-packet [src-chain-id] [dst-chain-id] [packet-data]",
+// 		Aliases: []string{"pkt", "sp"},
+// 		Short:   "send a raw packet from a source chain to a destination chain",
+// 		Long:    "This sends packet-data (default: stdin) from a relayer's configured wallet on chain src to chain dst",
+// 		Args:    cobra.RangeArgs(2, 3),
+// 		RunE: func(cmd *cobra.Command, args []string) error {
+// 			src, dst := args[0], args[1]
+// 			c, err := config.Chains.Gets(src, dst)
+// 			if err != nil {
+// 				return err
+// 			}
 
-			pth, err := cmd.Flags().GetString(flagPath)
-			if err != nil {
-				return err
-			}
+// 			pth, err := cmd.Flags().GetString(flagPath)
+// 			if err != nil {
+// 				return err
+// 			}
 
-			if _, err = setPathsFromArgs(c[src], c[dst], pth); err != nil {
-				return err
-			}
+// 			if _, err = setPathsFromArgs(c[src], c[dst], pth); err != nil {
+// 				return err
+// 			}
 
-			var packetData string
-			if len(args) < 3 {
-				// Reading from stdin.
-				if _, err := fmt.Scanln(&packetData); err != nil {
-					return err
-				}
-			} else {
-				packetData = args[2]
-			}
+// 			var packetData string
+// 			if len(args) < 3 {
+// 				// Reading from stdin.
+// 				if _, err := fmt.Scanln(&packetData); err != nil {
+// 					return err
+// 				}
+// 			} else {
+// 				packetData = args[2]
+// 			}
 
-			return c[src].SendPacket(c[dst], []byte(packetData))
-		},
-	}
-	return pathFlag(cmd)
-}
+// 			return c[src].SendPacket(c[dst], []byte(packetData))
+// 		},
+// 	}
+// 	return pathFlag(cmd)
+// }
