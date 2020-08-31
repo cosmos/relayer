@@ -1,17 +1,16 @@
 package cmd
 
 import (
-	"encoding/json"
-	"fmt"
+	"context"
 	"strconv"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/cosmos-sdk/x/auth"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/auth/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	"github.com/ovrclk/relayer/relayer"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // queryCmd represents the chain command
@@ -24,7 +23,7 @@ func queryCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		queryFullPathCmd(),
+		// queryFullPathCmd(),
 		queryUnrelayed(),
 		flags.LineBreak,
 		queryAccountCmd(),
@@ -136,12 +135,16 @@ func queryAccountCmd() *cobra.Command {
 				return err
 			}
 
-			acc, err := auth.NewAccountRetriever(chain.Cdc, chain).GetAccount(addr)
+			res, err := types.NewQueryClient(chain.CLIContext()).Account(
+				context.Background(),
+				&types.QueryAccountRequest{
+					Address: addr,
+				})
 			if err != nil {
 				return err
 			}
 
-			return chain.Print(acc, false, false)
+			return chain.Print(res, false, false)
 		},
 	}
 	return cmd
@@ -159,37 +162,20 @@ func queryBalanceCmd() *cobra.Command {
 				return err
 			}
 
-			jsn, err := cmd.Flags().GetBool(flagJSON)
-			if err != nil {
-				return err
-			}
-
-			var keyName string
+			var coins sdk.Coins
 			if len(args) == 2 {
-				keyName = args[1]
+				coins, err = chain.QueryBalance(args[1])
+			} else {
+				coins, err = chain.QueryBalance(chain.Key)
 			}
-
-			coins, err := chain.QueryBalance(keyName)
 			if err != nil {
 				return err
 			}
 
-			var out string
-			if jsn {
-				byt, err := json.Marshal(coins)
-				if err != nil {
-					return err
-				}
-				out = string(byt)
-			} else {
-				out = coins.String()
-			}
-
-			fmt.Println(out)
-			return nil
+			return chain.Print(coins, false, false)
 		},
 	}
-	return jsonFlag(cmd)
+	return cmd
 }
 
 func queryHeaderCmd() *cobra.Command {
@@ -237,47 +223,27 @@ func queryHeaderCmd() *cobra.Command {
 
 			}
 
-			if viper.GetBool(flagFlags) {
-				fmt.Printf("-x %x --height %d", header.SignedHeader.Hash(), header.Header.Height)
-				return nil
-			}
-
 			return chain.Print(header, false, false)
 		},
 	}
 
-	return flagsFlag(cmd)
+	return cmd
 }
 
 // GetCmdQueryConsensusState defines the command to query the consensus state of
 // the chain as defined in https://github.com/cosmos/ics/tree/master/spec/ics-002-client-semantics#query
 func queryNodeStateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "node-state [chain-id] [height]",
-		Short: "Query the consensus state of a client at a given height",
-		Args:  cobra.RangeArgs(1, 2),
+		Use:   "node-state [chain-id]",
+		Short: "Query the consensus state of a node",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
 
-			var height int64
-			switch len(args) {
-			case 1:
-				height, err = chain.QueryLatestHeight()
-				if err != nil {
-					return err
-				}
-			case 2:
-				height, err = strconv.ParseInt(args[1], 10, 64)
-				if err != nil {
-					fmt.Println("invalid height, defaulting to latest:", args[1])
-					height = 0
-				}
-			}
-
-			csRes, err := chain.QueryConsensusState(height)
+			csRes, _, err := chain.QueryConsensusState()
 			if err != nil {
 				return err
 			}
@@ -329,12 +295,12 @@ func queryClientsCmd() *cobra.Command {
 				return err
 			}
 
-			page, err := cmd.Flags().GetInt(flags.FlagPage)
+			page, err := cmd.Flags().GetUint64(flags.FlagOffset)
 			if err != nil {
 				return err
 			}
 
-			limit, err := cmd.Flags().GetInt(flags.FlagLimit)
+			limit, err := cmd.Flags().GetUint64(flags.FlagLimit)
 			if err != nil {
 				return err
 			}
@@ -363,12 +329,12 @@ func queryConnections() *cobra.Command {
 				return err
 			}
 
-			page, err := cmd.Flags().GetInt(flags.FlagPage)
+			page, err := cmd.Flags().GetUint64(flags.FlagOffset)
 			if err != nil {
 				return err
 			}
 
-			limit, err := cmd.Flags().GetInt(flags.FlagLimit)
+			limit, err := cmd.Flags().GetUint64(flags.FlagLimit)
 			if err != nil {
 				return err
 			}
@@ -466,12 +432,12 @@ func queryConnectionChannels() *cobra.Command {
 				return err
 			}
 
-			page, err := cmd.Flags().GetInt(flags.FlagPage)
+			page, err := cmd.Flags().GetUint64(flags.FlagOffset)
 			if err != nil {
 				return err
 			}
 
-			limit, err := cmd.Flags().GetInt(flags.FlagLimit)
+			limit, err := cmd.Flags().GetUint64(flags.FlagLimit)
 			if err != nil {
 				return err
 			}
@@ -532,12 +498,12 @@ func queryChannels() *cobra.Command {
 				return err
 			}
 
-			page, err := cmd.Flags().GetInt(flags.FlagPage)
+			page, err := cmd.Flags().GetUint64(flags.FlagOffset)
 			if err != nil {
 				return err
 			}
 
-			limit, err := cmd.Flags().GetInt(flags.FlagLimit)
+			limit, err := cmd.Flags().GetUint64(flags.FlagLimit)
 			if err != nil {
 				return err
 			}
@@ -601,17 +567,12 @@ func queryPacketCommitment() *cobra.Command {
 				return err
 			}
 
-			height, err := chain.QueryLatestHeight()
+			seq, err := strconv.ParseUint(args[3], 10, 64)
 			if err != nil {
 				return err
 			}
 
-			seq, err := strconv.ParseInt(args[3], 10, 64)
-			if err != nil {
-				return err
-			}
-
-			res, err := chain.QueryPacketCommitment(height, seq)
+			res, err := chain.QueryPacketCommitment(seq)
 			if err != nil {
 				return err
 			}
@@ -638,17 +599,12 @@ func queryPacketAck() *cobra.Command {
 				return err
 			}
 
-			height, err := chain.QueryLatestHeight()
+			seq, err := strconv.ParseUint(args[3], 10, 64)
 			if err != nil {
 				return err
 			}
 
-			seq, err := strconv.ParseInt(args[3], 10, 64)
-			if err != nil {
-				return err
-			}
-
-			res, err := chain.QueryPacketAck(height, seq)
+			res, err := chain.QueryPacketCommitment(seq)
 			if err != nil {
 				return err
 			}
@@ -690,7 +646,12 @@ func queryUnrelayed() *cobra.Command {
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(c[src], c[dst], sh)
+			strat, err := path.GetStrategy()
+			if err != nil {
+				return err
+			}
+
+			sp, err := strat.UnrelayedSequencesOrdered(c[src], c[dst], sh)
 			if err != nil {
 				return err
 			}
@@ -702,32 +663,4 @@ func queryUnrelayed() *cobra.Command {
 	return cmd
 }
 
-func queryFullPathCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "full-path [path-name]",
-		Aliases: []string{"link", "connect", "path", "pth"},
-		Short:   "Query for the status of clients, connections, channels and packets on a path",
-		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			path, err := config.Paths.Get(args[0])
-			if err != nil {
-				return err
-			}
-
-			src, dst := path.Src.ChainID, path.Dst.ChainID
-			c, err := config.Chains.Gets(src, dst)
-			if err != nil {
-				return err
-			}
-
-			stat, err := relayer.QueryPathStatus(c[src], c[dst], path)
-			if err != nil {
-				return err
-			}
-
-			return c[src].Print(stat, false, false)
-		},
-	}
-
-	return cmd
-}
+// TODO: Reimplement query path status

@@ -5,6 +5,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	"github.com/ovrclk/relayer/relayer"
 	"github.com/spf13/cobra"
@@ -169,28 +170,32 @@ func connTry() *cobra.Command {
 
 			// NOTE: We query connection at height - 1 because of the way tendermint returns
 			// proofs the commit for height n is contained in the header of height n + 1
-			dstConnState, err := chains[dst].QueryConnection(hs[dst].Height - 1)
+			dstConnState, err := chains[dst].QueryConnection(hs[dst].Header.Height - 1)
 			if err != nil {
 				return err
 			}
 
 			// We are querying the state of the client for src on dst and finding the height
-			dstClientState, err := chains[dst].QueryClientState()
+			dstClientStateRes, err := chains[dst].QueryClientState()
 			if err != nil {
 				return err
 			}
-			dstCsHeight := int64(dstClientState.ClientState.GetLatestHeight())
+			dstClientState, err := clientTypes.UnpackClientState(dstClientStateRes.ClientState)
+			if err != nil {
+				return err
+			}
+			dstCsHeight := int64(dstClientState.GetLatestHeight())
 
 			// Then we need to query the consensus state for src at that height on dst
-			dstConsState, err := chains[dst].QueryClientConsensusState(hs[dst].Height-1, dstCsHeight)
+			dstConsState, err := chains[dst].QueryClientConsensusState(uint64(dstCsHeight))
 			if err != nil {
 				return err
 			}
 
 			txs := []sdk.Msg{
 				chains[src].PathEnd.UpdateClient(hs[dst], chains[src].MustGetAddress()),
-				chains[src].PathEnd.ConnTry(chains[dst].PathEnd, dstConnState,
-					dstConsState, dstCsHeight, chains[src].MustGetAddress()),
+				chains[src].PathEnd.ConnTry(chains[dst].PathEnd, dstClientStateRes, dstConnState,
+					dstConsState, chains[src].MustGetAddress()),
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -226,26 +231,27 @@ func connAck() *cobra.Command {
 
 			// NOTE: We query connection at height - 1 because of the way tendermint returns
 			// proofs the commit for height n is contained in the header of height n + 1
-			dstState, err := chains[dst].QueryConnection(hs[dst].Height - 1)
+			dstState, err := chains[dst].QueryConnection(hs[dst].Header.Height - 1)
 			if err != nil {
 				return err
 			}
 
 			// We are querying the state of the client for src on dst and finding the height
-			dstClientState, err := chains[dst].QueryClientState()
+			dstClientStateResponse, err := chains[dst].QueryClientState()
 			if err != nil {
 				return err
 			}
-			dstCsHeight := int64(dstClientState.ClientState.GetLatestHeight())
+			dstClientState, _ := clientTypes.UnpackClientState(dstClientStateResponse.ClientState)
+			dstCsHeight := int64(dstClientState.GetLatestHeight())
 
 			// Then we need to query the consensus state for src at that height on dst
-			dstConsState, err := chains[dst].QueryClientConsensusState(hs[dst].Height-1, dstCsHeight)
+			dstConsState, err := chains[dst].QueryClientConsensusState(uint64(dstCsHeight))
 			if err != nil {
 				return err
 			}
 
 			txs := []sdk.Msg{
-				chains[src].PathEnd.ConnAck(dstState, dstConsState, dstCsHeight, chains[src].MustGetAddress()),
+				chains[src].PathEnd.ConnAck(chains[dst].PathEnd, dstClientStateResponse, dstState, dstConsState, chains[src].MustGetAddress()),
 				chains[src].PathEnd.UpdateClient(hs[dst], chains[src].MustGetAddress()),
 			}
 
@@ -282,7 +288,7 @@ func connConfirm() *cobra.Command {
 
 			// NOTE: We query connection at height - 1 because of the way tendermint returns
 			// proofs the commit for height n is contained in the header of height n + 1
-			dstState, err := chains[dst].QueryConnection(hs[dst].Height - 1)
+			dstState, err := chains[dst].QueryConnection(hs[dst].Header.Height - 1)
 			if err != nil {
 				return err
 			}
@@ -397,7 +403,7 @@ func chanTry() *cobra.Command {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height - 1)
+			dstChanState, err := chains[dst].QueryChannel(dstHeader.Header.Height - 1)
 			if err != nil {
 				return err
 			}
@@ -439,7 +445,7 @@ func chanAck() *cobra.Command {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height - 1)
+			dstChanState, err := chains[dst].QueryChannel(dstHeader.Header.Height - 1)
 			if err != nil {
 				return err
 			}
@@ -481,7 +487,7 @@ func chanConfirm() *cobra.Command {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height - 1)
+			dstChanState, err := chains[dst].QueryChannel(dstHeader.Header.Height - 1)
 			if err != nil {
 				return err
 			}
@@ -588,7 +594,7 @@ func chanCloseConfirm() *cobra.Command {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height - 1)
+			dstChanState, err := chains[dst].QueryChannel(dstHeader.Header.Height - 1)
 			if err != nil {
 				return err
 			}

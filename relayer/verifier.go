@@ -20,6 +20,7 @@ import (
 	litehttp "github.com/tendermint/tendermint/light/provider/http"
 	dbs "github.com/tendermint/tendermint/light/store/db"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	tmtypes "github.com/tendermint/tendermint/types"
 )
 
 type header struct {
@@ -90,7 +91,12 @@ func (c *Chain) UpdateLiteWithHeader() (*tmclient.Header, error) {
 		return nil, liteError(err)
 	}
 
-	return &tmclient.Header{SignedHeader: *sh, ValidatorSet: vs}, nil
+	protoVal, err := tmtypes.NewValidatorSet(vs.Validators).ToProto()
+	if err != nil {
+		return nil, err
+	}
+
+	return &tmclient.Header{SignedHeader: sh.ToProto(), ValidatorSet: protoVal}, nil
 }
 
 func (c *Chain) UpdateLiteWithHeaderHeight(height int64) (*tmclient.Header, error) {
@@ -116,7 +122,12 @@ func (c *Chain) UpdateLiteWithHeaderHeight(height int64) (*tmclient.Header, erro
 		return nil, err
 	}
 
-	return &tmclient.Header{SignedHeader: *sh, ValidatorSet: vs}, nil
+	protoVal, err := tmtypes.NewValidatorSet(vs.Validators).ToProto()
+	if err != nil {
+		return nil, err
+	}
+
+	return &tmclient.Header{SignedHeader: sh.ToProto(), ValidatorSet: protoVal}, nil
 }
 
 // LiteClientWithoutTrust reads the trusted period off of the chain.
@@ -194,7 +205,7 @@ func (c *Chain) TrustNodeInitClient(db dbm.DB) (*lite.Client, error) {
 		return nil, err
 	}
 
-	lc, err := c.LiteClient(db, c.TrustOptions(height, header.Hash().Bytes()))
+	lc, err := c.LiteClient(db, c.TrustOptions(height, header.Header.AppHash))
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +318,12 @@ func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, err
 		return nil, err
 	}
 
-	return &tmclient.Header{SignedHeader: *sh, ValidatorSet: vs}, nil
+	protoVal, err := tmtypes.NewValidatorSet(vs.Validators).ToProto()
+	if err != nil {
+		return nil, err
+	}
+
+	return &tmclient.Header{SignedHeader: sh.ToProto(), ValidatorSet: protoVal}, nil
 }
 
 // ErrLiteNotInitialized returns the canonical error for a an uninitialized lite client

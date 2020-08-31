@@ -1,7 +1,7 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
 SDKCOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/cosmos-sdk)
-GAIACOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/gaia)
+# GAIACOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/gaia)
 all: ci-lint install
 
 ###############################################################################
