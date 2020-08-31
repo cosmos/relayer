@@ -100,6 +100,7 @@ type chh struct {
 // QueryClientConsensusStatePair allows for the querying of multiple client states at the same time
 func QueryClientConsensusStatePair(src, dst *Chain,
 	srcH, dstH, srcClientConsH, dstClientConsH int64) (map[string]*clientTypes.QueryConsensusStateResponse, error) {
+	fmt.Println("QueryClientConsensusStatePair")
 	hs := &csstates{
 		Map:  make(map[string]*clientTypes.QueryConsensusStateResponse),
 		Errs: []error{},
@@ -144,6 +145,7 @@ type cstates struct {
 
 // QueryClientStatePair returns a pair of connection responses
 func QueryClientStatePair(src, dst *Chain) (map[string]*clientTypes.QueryClientStateResponse, error) {
+	fmt.Println("QueryClientStatePair")
 	hs := &cstates{
 		Map:  make(map[string]*clientTypes.QueryClientStateResponse),
 		Errs: []error{},
@@ -225,6 +227,7 @@ type chpair struct {
 
 // QueryConnectionPair returns a pair of connection responses
 func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (map[string]*connTypes.QueryConnectionResponse, error) {
+	fmt.Println("QueryConnectionPair")
 	hs := &conns{
 		Map:  make(map[string]*connTypes.QueryConnectionResponse),
 		Errs: []error{},
@@ -286,6 +289,7 @@ type chans struct {
 
 // QueryChannelPair returns a pair of channel responses
 func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (map[string]*chanTypes.QueryChannelResponse, error) {
+	fmt.Println("QueryChannelPair")
 	hs := &chans{
 		Map:  make(map[string]*chanTypes.QueryChannelResponse),
 		Errs: []error{},
@@ -527,7 +531,6 @@ func QueryLatestHeights(chains ...*Chain) (map[string]int64, error) {
 		wg.Add(1)
 		go func(hs *heights, wg *sync.WaitGroup, chain *Chain) {
 			height, err := chain.QueryLatestHeight()
-
 			if err != nil {
 				hs.Lock()
 				hs.Errs = append(hs.Errs, err)
@@ -639,7 +642,7 @@ func (c *Chain) formatTxResults(resTxs []*ctypes.ResultTx,
 
 // formatTxResult parses a tx into a TxResponse object
 func (c *Chain) formatTxResult(resTx *ctypes.ResultTx, resBlock *ctypes.ResultBlock) (*sdk.TxResponse, error) {
-	tx, err := parseTx(c.Cdc.JSONMarshaler, resTx.Tx)
+	tx, err := parseTx(c.Amino, resTx.Tx)
 	if err != nil {
 		return &sdk.TxResponse{}, err
 	}
@@ -648,7 +651,7 @@ func (c *Chain) formatTxResult(resTx *ctypes.ResultTx, resBlock *ctypes.ResultBl
 }
 
 // Takes some bytes and a codec and returns an sdk.Tx
-func parseTx(cdc codec.JSONMarshaler, txBytes []byte) (sdk.Tx, error) {
+func parseTx(cdc *codec.LegacyAmino, txBytes []byte) (sdk.Tx, error) {
 	var tx authTypes.StdTx
 	err := cdc.UnmarshalJSON(txBytes, &tx)
 	if err != nil {

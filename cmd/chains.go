@@ -52,8 +52,7 @@ func chainsAddrCmd() *cobra.Command {
 				return err
 			}
 
-			done := chain.UseSDKContext()
-			defer done()
+			chain.UseSDKContext()
 
 			addr, err := chain.GetAddress()
 			if err != nil {

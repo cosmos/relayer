@@ -13,9 +13,7 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 
 	// Create client for the destination chain on the source chain if it doesn't exist
 	var srcCs, dstCs *clientTypes.QueryClientStateResponse
-	if srcCs, err = c.QueryClientState(); err != nil {
-		return err
-	} else if srcCs == nil {
+	if srcCs, err = c.QueryClientState(); err != nil && srcCs == nil {
 		dstH, err := dst.UpdateLiteWithHeader()
 		if err != nil {
 			return err
@@ -27,9 +25,7 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 	}
 
 	// Create client for the source chain on destination chain if it doesn't exist
-	if dstCs, err = dst.QueryClientState(); err != nil {
-		return err
-	} else if dstCs == nil {
+	if dstCs, err = dst.QueryClientState(); err != nil && dstCs == nil {
 		srcH, err := c.UpdateLiteWithHeader()
 		if err != nil {
 			return err

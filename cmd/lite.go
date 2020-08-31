@@ -16,19 +16,13 @@ limitations under the License.
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	neturl "net/url"
 	"strconv"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	"github.com/ovrclk/relayer/relayer"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	lite "github.com/tendermint/tendermint/light"
 )
 
 // chainCmd represents the keys command
@@ -54,8 +48,7 @@ func initLiteCmd() *cobra.Command {
 		Short:   "Initiate the light client",
 		Long: `Initiate the light client by:
 	1. passing it a root of trust as a --hash/-x and --height
-	2. via --url/-u where trust options can be found
-	3. Use --force/-f to initialize from the configured node`,
+	2. Use --force/-f to initialize from the configured node`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
@@ -69,10 +62,6 @@ func initLiteCmd() *cobra.Command {
 			}
 			defer df()
 
-			url, err := cmd.Flags().GetString(flagURL)
-			if err != nil {
-				return err
-			}
 			force, err := cmd.Flags().GetBool(flagForce)
 			if err != nil {
 				return err
@@ -88,27 +77,12 @@ func initLiteCmd() *cobra.Command {
 
 			switch {
 			case force: // force initialization from trusted node
-				_, err = chain.TrustNodeInitClient(db)
+				_, err = chain.LiteClientWithoutTrust(db)
 				if err != nil {
 					return err
 				}
 			case height > 0 && len(hash) > 0: // height and hash are given
-				_, err = chain.InitLiteClient(db, chain.TrustOptions(height, hash))
-				if err != nil {
-					return wrapInitFailed(err)
-				}
-			case len(url) > 0: // URL is given, query trust options
-				_, err := neturl.Parse(url)
-				if err != nil {
-					return wrapIncorrectURL(err)
-				}
-
-				to, err := queryTrustOptions(url)
-				if err != nil {
-					return err
-				}
-
-				_, err = chain.InitLiteClient(db, to)
+				_, err = chain.LiteClientWithTrust(db, chain.TrustOptions(height, hash))
 				if err != nil {
 					return wrapInitFailed(err)
 				}
@@ -139,7 +113,6 @@ func updateLiteCmd() *cobra.Command {
 				return err
 			}
 
-			url := viper.GetString(flagURL)
 			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
 			if err != nil {
 				return err
@@ -157,28 +130,7 @@ func updateLiteCmd() *cobra.Command {
 				}
 				defer df()
 
-				_, err = chain.InitLiteClient(db, chain.TrustOptions(height, hash))
-				if err != nil {
-					return wrapInitFailed(err)
-				}
-			case len(url) > 0: // URL is given
-				_, err := neturl.Parse(url)
-				if err != nil {
-					return wrapIncorrectURL(err)
-				}
-
-				to, err := queryTrustOptions(url)
-				if err != nil {
-					return err
-				}
-
-				db, df, err := chain.NewLiteDB()
-				if err != nil {
-					return err
-				}
-				defer df()
-
-				_, err = chain.InitLiteClient(db, to)
+				_, err = chain.LiteClientWithTrust(db, chain.TrustOptions(height, hash))
 				if err != nil {
 					return wrapInitFailed(err)
 				}
@@ -285,32 +237,4 @@ func deleteLiteCmd() *cobra.Command {
 		},
 	}
 	return cmd
-}
-
-func queryTrustOptions(url string) (out lite.TrustOptions, err error) {
-	// fetch from URL
-	res, err := http.Get(url) //nolint:gosec // Potential HTTP request made with variable url
-	if err != nil {
-		return
-	}
-
-	// read in the res body
-	bz, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return
-	}
-
-	// close the response body
-	err = res.Body.Close()
-	if err != nil {
-		return
-	}
-
-	// unmarshal the data into the trust options hash
-	err = json.Unmarshal(bz, &out)
-	if err != nil {
-		return
-	}
-
-	return
 }

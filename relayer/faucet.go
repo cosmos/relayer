@@ -53,8 +53,8 @@ func (c *Chain) FaucetHandler(fromKey sdk.AccAddress, amounts sdk.Coins) func(w 
 			return
 		}
 
-		done := c.UseSDKContext()
-		defer done()
+		c.UseSDKContext()
+		// defer done()
 
 		if err := c.faucetSend(fromKey, fr.addr(), amounts); err != nil {
 			c.Error(err)

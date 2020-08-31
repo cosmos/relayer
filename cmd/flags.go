@@ -31,14 +31,10 @@ var (
 func liteFlags(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Int64(flags.FlagHeight, -1, "Trusted header's height")
 	cmd.Flags().BytesHexP(flagHash, "x", []byte{}, "Trusted header's hash")
-	cmd.Flags().StringP(flagURL, "u", "", "Optional URL to fetch trusted-hash and trusted-height")
 	if err := viper.BindPFlag(flags.FlagHeight, cmd.Flags().Lookup(flags.FlagHeight)); err != nil {
 		panic(err)
 	}
 	if err := viper.BindPFlag(flagHash, cmd.Flags().Lookup(flagHash)); err != nil {
-		panic(err)
-	}
-	if err := viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL)); err != nil {
 		panic(err)
 	}
 	return cmd

@@ -43,9 +43,8 @@ func (c *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin,
 	timeoutHeight := dstHeader.GetHeight() + uint64(defaultPacketTimeout)
 
 	// Properly render the address string
-	done := dst.UseSDKContext()
+	dst.UseSDKContext()
 	dstAddrString := dstAddr.String()
-	done()
 
 	// MsgTransfer will call SendPacket on src chain
 	// TODO: FIX
@@ -96,13 +95,11 @@ func (c *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin,
 	}
 
 	// Properly render the source and destination address strings
-	done = c.UseSDKContext()
+	c.UseSDKContext()
 	srcAddrString := c.MustGetAddress().String()
-	done()
 
-	done = dst.UseSDKContext()
+	dst.UseSDKContext()
 	dstAddrString = dstAddr.String()
-	done()
 
 	// reconstructing packet data here instead of retrieving from an indexed node
 	xferPacket := c.PathEnd.XferPacket(
@@ -149,9 +146,8 @@ func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringe
 	}
 
 	// Properly render the address string
-	done := dst.UseSDKContext()
+	dst.UseSDKContext()
 	dstAddrString := dstAddr.String()
-	done()
 
 	// MsgTransfer will call SendPacket on src chain
 	// TODO: FIX

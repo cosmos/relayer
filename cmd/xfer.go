@@ -44,12 +44,11 @@ func xfersend() *cobra.Command {
 				return err
 			}
 
-			done := c[dst].UseSDKContext()
+			c[dst].UseSDKContext()
 			dstAddr, err := sdk.AccAddressFromBech32(args[4])
 			if err != nil {
 				return err
 			}
-			done()
 
 			return c[src].SendTransferMsg(c[dst], amount, dstAddr, source)
 		},
@@ -90,12 +89,11 @@ func transferCmd() *cobra.Command {
 				return err
 			}
 
-			done := c[dst].UseSDKContext()
+			c[dst].UseSDKContext()
 			dstAddr, err := sdk.AccAddressFromBech32(args[4])
 			if err != nil {
 				return err
 			}
-			done()
 
 			return c[src].SendTransferBothSides(c[dst], amount, dstAddr, source)
 		},

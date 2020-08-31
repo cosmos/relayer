@@ -41,8 +41,7 @@ func faucetRequestCmd() *cobra.Command {
 				return err
 			}
 
-			done := chain.UseSDKContext()
-			defer done()
+			chain.UseSDKContext()
 
 			urlString, err := cmd.Flags().GetString(flagURL)
 			if err != nil {

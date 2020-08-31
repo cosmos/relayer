@@ -14,6 +14,7 @@ import (
 	sdkCtx "github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	tx "github.com/cosmos/cosmos-sdk/client/tx"
+	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/simapp"
@@ -42,12 +43,12 @@ type Chain struct {
 	TrustingPeriod string  `yaml:"trusting-period" json:"trusting-period"`
 
 	// TODO: make these private
-	HomePath string                `yaml:"-" json:"-"`
-	PathEnd  *PathEnd              `yaml:"-" json:"-"`
-	Keybase  keys.Keyring          `yaml:"-" json:"-"`
-	Client   rpcclient.Client      `yaml:"-" json:"-"`
-	Cdc      *contextualStdCodec   `yaml:"-" json:"-"`
-	Amino    *contextualAminoCodec `yaml:"-" json:"-"`
+	HomePath string              `yaml:"-" json:"-"`
+	PathEnd  *PathEnd            `yaml:"-" json:"-"`
+	Keybase  keys.Keyring        `yaml:"-" json:"-"`
+	Client   rpcclient.Client    `yaml:"-" json:"-"`
+	Cdc      codec.JSONMarshaler `yaml:"-" json:"-"`
+	Amino    *codec.LegacyAmino  `yaml:"-" json:"-"`
 
 	address sdk.AccAddress
 	logger  log.Logger
@@ -151,8 +152,8 @@ func (c *Chain) Init(homePath string, timeout time.Duration, debug bool) error {
 
 	c.Keybase = keybase
 	c.Client = client
-	c.Cdc = newContextualStdCodec(encodingConfig.Marshaler, c.UseSDKContext)
-	c.Amino = newContextualAminoCodec(encodingConfig.Amino, c.UseSDKContext)
+	c.Cdc = encodingConfig.Marshaler
+	c.Amino = encodingConfig.Amino
 	c.HomePath = homePath
 	c.logger = defaultChainLogger()
 	c.timeout = timeout
@@ -209,8 +210,7 @@ func (c *Chain) SendMsg(datagram sdk.Msg) (*sdk.TxResponse, error) {
 
 // SendMsgs wraps the msgs in a stdtx, signs and sends it
 func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
-	done := c.UseSDKContext()
-	defer done()
+	c.UseSDKContext()
 
 	// Instantiate the client context
 	ctx := c.CLIContext()
@@ -267,6 +267,8 @@ func (c *Chain) CLIContext() sdkCtx.Context {
 		WithKeyring(c.Keybase).
 		WithOutputFormat("json").
 		WithFrom(c.Key).
+		WithFromName(c.Key).
+		WithFromAddress(c.MustGetAddress()).
 		WithSkipConfirmation(true).
 		WithNodeURI(c.RPCAddr)
 }
@@ -350,30 +352,30 @@ func (c *Chain) MustGetAddress() sdk.AccAddress {
 var sdkContextMutex sync.Mutex
 
 // UseSDKContext uses a custom Bech32 account prefix and returns a restore func
-func (c *Chain) UseSDKContext() func() {
+func (c *Chain) UseSDKContext() {
 	// Ensure we're the only one using the global context.
-	sdkContextMutex.Lock()
-	defer sdkContextMutex.Unlock()
+	// defer sdkContextMutex.Unlock()
+	// sdkContextMutex.Lock()
 
 	sdkConf := sdk.GetConfig()
-	account := sdkConf.GetBech32AccountAddrPrefix()
-	pubaccount := sdkConf.GetBech32AccountPubPrefix()
+	// account := sdkConf.GetBech32AccountAddrPrefix()
+	// pubaccount := sdkConf.GetBech32AccountPubPrefix()
 
 	// Mutate the sdkConf
 	sdkConf.SetBech32PrefixForAccount(c.AccountPrefix, c.AccountPrefix+"pub")
 
 	// Return a function that resets and unlocks.
-	return func() {
-		sdkContextMutex.Lock()
-		defer sdkContextMutex.Unlock()
+	// return func() {
+	// 	sdkContextMutex.Lock()
+	// 	defer sdkContextMutex.Unlock()
 
-		sdkConf.SetBech32PrefixForAccount(account, pubaccount)
-	}
+	// 	sdkConf.SetBech32PrefixForAccount(account, pubaccount)
+	// }
 }
 
 func (c *Chain) String() string {
-	done := c.UseSDKContext()
-	defer done()
+	c.UseSDKContext()
+	// defer done()
 
 	out, _ := json.Marshal(c)
 	return string(out)
