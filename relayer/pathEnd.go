@@ -11,6 +11,7 @@ import (
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
+	"github.com/tendermint/tendermint/light"
 )
 
 // TODO: add Order chanTypes.Order as a property and wire it up in validation
@@ -46,30 +47,40 @@ func (pe *PathEnd) getOrder() chanTypes.Order {
 
 // UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst
 func (pe *PathEnd) UpdateClient(dstHeader *tmclient.Header, signer sdk.AccAddress) sdk.Msg {
-	return tmclient.NewMsgUpdateClient(
+	if err := dstHeader.ValidateBasic(); err != nil {
+		panic(err)
+	}
+	msg, err := clientTypes.NewMsgUpdateClient(
 		pe.ClientID,
 		dstHeader,
 		signer,
 	)
+	if err != nil {
+		panic(err)
+	}
+	return msg
 }
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (pe *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod time.Duration,
-	signer sdk.AccAddress) sdk.Msg {
-	if err := dstHeader.ValidateBasic(dstHeader.Header.ChainID); err != nil {
+func (pe *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod time.Duration, signer sdk.AccAddress) sdk.Msg {
+	if err := dstHeader.ValidateBasic(); err != nil {
 		panic(err)
 	}
+
+	clientState := tmclient.NewClientState(
+		dstHeader.GetHeader().GetChainID(), tmclient.NewFractionFromTm(light.DefaultTrustLevel), trustingPeriod, trustingPeriod*2, time.Minute*1, clientTypes.NewHeight(0, dstHeader.GetHeight()), commitmenttypes.GetSDKSpecs(),
+	)
 	// TODO: figure out how to dynmaically set unbonding time
-	return tmclient.NewMsgCreateClient(
+	msg, err := clientTypes.NewMsgCreateClient(
 		pe.ClientID,
-		dstHeader,
-		tmclient.DefaultTrustLevel,
-		trustingPeriod,
-		defaultUnbondingTime,
-		defaultMaxClockDrift,
-		commitmenttypes.GetSDKSpecs(),
+		clientState,
+		dstHeader.ConsensusState(),
 		signer,
 	)
+	if err != nil {
+		panic(err)
+	}
+	return msg
 }
 
 // ConnInit creates a MsgConnectionOpenInit

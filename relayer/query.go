@@ -145,7 +145,6 @@ type cstates struct {
 
 // QueryClientStatePair returns a pair of connection responses
 func QueryClientStatePair(src, dst *Chain) (map[string]*clientTypes.QueryClientStateResponse, error) {
-	fmt.Println("QueryClientStatePair")
 	hs := &cstates{
 		Map:  make(map[string]*clientTypes.QueryClientStateResponse),
 		Errs: []error{},
@@ -227,7 +226,6 @@ type chpair struct {
 
 // QueryConnectionPair returns a pair of connection responses
 func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (map[string]*connTypes.QueryConnectionResponse, error) {
-	fmt.Println("QueryConnectionPair")
 	hs := &conns{
 		Map:  make(map[string]*connTypes.QueryConnectionResponse),
 		Errs: []error{},
