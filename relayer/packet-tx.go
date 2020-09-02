@@ -40,7 +40,7 @@ func (c *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin,
 		return err
 	}
 
-	timeoutHeight := dstHeader.GetHeight() + uint64(defaultPacketTimeout)
+	timeoutHeight := MustGetHeight(dstHeader.GetHeight()) + uint64(defaultPacketTimeout)
 
 	// Properly render the address string
 	dst.UseSDKContext()
@@ -121,7 +121,7 @@ func (c *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin,
 				defaultPacketTimeoutStamp(),
 				xferPacket,
 				srcCommitRes.Proof,
-				srcCommitRes.ProofHeight,
+				MustGetHeight(srcCommitRes.ProofHeight),
 				dst.MustGetAddress(),
 			),
 		},

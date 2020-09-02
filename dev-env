@@ -18,4 +18,7 @@ rm -rf $RELAYER_CONF &> /dev/null
 bash scripts/two-chainz "local" "skip"
 bash scripts/config-relayer "skip"
 
-rly tx full-path demo -d
+echo "waiting for blocks..."
+sleep 5
+
+rly tx full-path demo -d -o 3s

@@ -82,7 +82,7 @@ func (c *Chain) QueryConsensusState() (*tmclient.ConsensusState, int64, error) {
 
 // QueryClientConsensusState retrevies the latest consensus state for a client in state at a given height
 func (c *Chain) QueryClientConsensusState(clientConsHeight uint64) (*clientTypes.QueryConsensusStateResponse, error) {
-	return clientUtils.QueryConsensusStateABCI(c.CLIContext(), c.PathEnd.ClientID, clientConsHeight)
+	return clientUtils.QueryConsensusStateABCI(c.CLIContext(), c.PathEnd.ClientID, clientTypes.NewHeight(0, clientConsHeight))
 }
 
 type csstates struct {
@@ -100,7 +100,6 @@ type chh struct {
 // QueryClientConsensusStatePair allows for the querying of multiple client states at the same time
 func QueryClientConsensusStatePair(src, dst *Chain,
 	srcH, dstH, srcClientConsH, dstClientConsH int64) (map[string]*clientTypes.QueryConsensusStateResponse, error) {
-	fmt.Println("QueryClientConsensusStatePair")
 	hs := &csstates{
 		Map:  make(map[string]*clientTypes.QueryConsensusStateResponse),
 		Errs: []error{},

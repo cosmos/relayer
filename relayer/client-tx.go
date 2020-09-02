@@ -19,7 +19,7 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 			return err
 		}
 		if c.debug {
-			c.logCreateClient(dst, dstH.GetHeight())
+			c.logCreateClient(dst, MustGetHeight(dstH.GetHeight()))
 		}
 		clients.Src = append(clients.Src, c.PathEnd.CreateClient(dstH, dst.GetTrustingPeriod(), c.MustGetAddress()))
 	}
@@ -31,7 +31,7 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 			return err
 		}
 		if dst.debug {
-			dst.logCreateClient(c, srcH.GetHeight())
+			dst.logCreateClient(c, MustGetHeight(srcH.GetHeight()))
 		}
 		clients.Dst = append(clients.Dst, dst.PathEnd.CreateClient(srcH, c.GetTrustingPeriod(), dst.MustGetAddress()))
 	}

@@ -126,6 +126,11 @@ github.com/coreos/pkg v0.0.0-20160727233714-3ac0863d7acf/go.mod h1:E3G3o1h8I7cfc
 github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f/go.mod h1:E3G3o1h8I7cfcXa63jLwjI0eiQQMgzzUDFVpN/nH/eA=
 github.com/cosmos/cosmos-sdk v0.34.4-0.20200901224407-b043797a0794 h1:EYw3ZQXN+Rm+48C4TwkRHCAB+6DeJgN4JuwFk+szsb4=
 github.com/cosmos/cosmos-sdk v0.34.4-0.20200901224407-b043797a0794/go.mod h1:NUfsL2rXjFdO3GCHutCGWWKrRyL7MaSyDj86YbVBgGQ=
+github.com/cosmos/cosmos-sdk v0.34.4-0.20200901232145-2d1a2b2110ef h1:gmJ2pgLUU077KiNFJF/JG5qsI4BzkOQ3HuB95StMpBQ=
+github.com/cosmos/cosmos-sdk v0.34.4-0.20200901232145-2d1a2b2110ef/go.mod h1:NUfsL2rXjFdO3GCHutCGWWKrRyL7MaSyDj86YbVBgGQ=
+github.com/cosmos/cosmos-sdk v0.34.4-0.20200902231530-7602b5a5fb7e h1:eE/zxGG0pdP0cayzxG2o1haiowTztNX9UVBm37iZxio=
+github.com/cosmos/cosmos-sdk v0.34.4-0.20200902231530-7602b5a5fb7e/go.mod h1:NUfsL2rXjFdO3GCHutCGWWKrRyL7MaSyDj86YbVBgGQ=
+github.com/cosmos/cosmos-sdk v0.39.1 h1:vhjf9PZh9ph8btAj9aBpHoVITgVVjNBpM3x5Gl/Vwac=
 github.com/cosmos/go-bip39 v0.0.0-20180819234021-555e2067c45d h1:49RLWk1j44Xu4fjHb6JFYmeUnDORVwHNkDxaQ0ctCVU=
 github.com/cosmos/go-bip39 v0.0.0-20180819234021-555e2067c45d/go.mod h1:tSxLoYXyBmiFeKpvmq4dzayMdCjCnu8uqmCysIGBT2Y=
 github.com/cosmos/iavl v0.15.0-rc3 h1:rSm60IFfDCD9qDfvXKEmaJhcv0rB5uCbVlBDKsynxqw=
@@ -601,6 +606,7 @@ github.com/tendermint/crypto v0.0.0-20191022145703-50d29ede1e15 h1:hqAk8riJvK4RM
 github.com/tendermint/crypto v0.0.0-20191022145703-50d29ede1e15/go.mod h1:z4YtwM70uOnk8h0pjJYlj3zdYwi9l03By6iAIF5j/Pk=
 github.com/tendermint/go-amino v0.15.1 h1:D2uk35eT4iTsvJd9jWIetzthE5C0/k2QmMFkCN+4JgQ=
 github.com/tendermint/go-amino v0.15.1/go.mod h1:TQU0M1i/ImAo+tYpZi73AU3V/dKeCoMC9Sphe2ZwGME=
+github.com/tendermint/tendermint v0.33.8 h1:Xxu4QhpqcomSE0iQDw1MqLgfsa8fqtPtWFJK6zZOVso=
 github.com/tendermint/tendermint v0.34.0-rc3 h1:d7Fsd5rdbxq4GmJ0kRfx7l7LesQM7e70f0ytWLTQ/Go=
 github.com/tendermint/tendermint v0.34.0-rc3/go.mod h1:BoHcEpjfpBHc1Be7RQz3AHaXFNObcDG7SNHCev6Or4g=
 github.com/tendermint/tm-db v0.6.1 h1:w3X87itMPXopcRPlFiqspEKhw4FXihPk2rnFFkP0zGk=

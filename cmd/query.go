@@ -107,7 +107,7 @@ documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.
 				return err
 			}
 
-			txs, err := chain.QueryTxs(h.GetHeight(), page, limit, events)
+			txs, err := chain.QueryTxs(relayer.MustGetHeight(h.GetHeight()), page, limit, events)
 			if err != nil {
 				return err
 			}

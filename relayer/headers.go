@@ -3,7 +3,9 @@ package relayer
 import (
 	"sync"
 
+	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/exported"
 )
 
 // NewSyncHeaders returns a new instance of map[string]*tmclient.Header that can be easily
@@ -47,5 +49,14 @@ func (uh *SyncHeaders) GetHeader(chainID string) *tmclient.Header {
 func (uh *SyncHeaders) GetHeight(chainID string) uint64 {
 	uh.Lock()
 	defer uh.Unlock()
-	return uh.hds[chainID].GetHeight()
+	return MustGetHeight(uh.hds[chainID].GetHeight())
+}
+
+// MustGetHeight takes the height inteface and returns the actual height
+func MustGetHeight(h clientExported.Height) uint64 {
+	height, ok := h.(clientTypes.Height)
+	if !ok {
+		panic("height is not an instance of height! wtf")
+	}
+	return height.EpochHeight
 }

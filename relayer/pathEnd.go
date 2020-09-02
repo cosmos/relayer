@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -67,17 +68,30 @@ func (pe *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod time.
 		panic(err)
 	}
 
-	clientState := tmclient.NewClientState(
-		dstHeader.GetHeader().GetChainID(), tmclient.NewFractionFromTm(light.DefaultTrustLevel), trustingPeriod, trustingPeriod*2, time.Minute*1, clientTypes.NewHeight(0, dstHeader.GetHeight()), commitmenttypes.GetSDKSpecs(),
-	)
+	// Blank Client State
 	// TODO: figure out how to dynmaically set unbonding time
+	clientState := tmclient.NewClientState(
+		dstHeader.GetHeader().GetChainID(),
+		tmclient.NewFractionFromTm(light.DefaultTrustLevel),
+		trustingPeriod,
+		trustingPeriod*2,
+		time.Minute*1,
+		dstHeader.GetHeight().(clientTypes.Height),
+		commitmenttypes.GetSDKSpecs(),
+	)
+
 	msg, err := clientTypes.NewMsgCreateClient(
 		pe.ClientID,
 		clientState,
 		dstHeader.ConsensusState(),
 		signer,
 	)
+
 	if err != nil {
+		panic(err)
+	}
+	if err = msg.ValidateBasic(); err != nil {
+		fmt.Printf("%#v\n", dstHeader)
 		panic(err)
 	}
 	return msg
@@ -123,8 +137,8 @@ func (pe *PathEnd) ConnTry(
 		dstConnState.Proof,
 		dstClientState.Proof,
 		dstConsState.Proof,
-		dstConsState.ProofHeight+1,
-		css.GetHeight(),
+		dstConsState.ProofHeight.Increment(),
+		css.GetHeight().(clientTypes.Height),
 		signer,
 	)
 
@@ -154,7 +168,7 @@ func (pe *PathEnd) ConnAck(
 		dstClientState.Proof,
 		dstConsState.Proof,
 		dstConsState.ProofHeight,
-		css.GetHeight(),
+		css.GetHeight().(clientTypes.Height),
 		defaultIBCVersion,
 		signer,
 	)
@@ -166,7 +180,7 @@ func (pe *PathEnd) ConnConfirm(dstConnState *connTypes.QueryConnectionResponse, 
 	return connTypes.NewMsgConnectionOpenConfirm(
 		pe.ConnectionID,
 		dstConnState.Proof,
-		dstConnState.ProofHeight+1,
+		dstConnState.ProofHeight.Increment(),
 		signer,
 	)
 }
@@ -197,7 +211,7 @@ func (pe *PathEnd) ChanTry(dst *PathEnd, dstChanState *chanTypes.QueryChannelRes
 		dst.ChannelID,
 		dstChanState.Channel.Version,
 		dstChanState.Proof,
-		dstChanState.ProofHeight+1,
+		dstChanState.ProofHeight.Increment(),
 		signer,
 	)
 }
@@ -209,7 +223,7 @@ func (pe *PathEnd) ChanAck(dstChanState *chanTypes.QueryChannelResponse, signer 
 		pe.ChannelID,
 		dstChanState.Channel.Version,
 		dstChanState.Proof,
-		dstChanState.ProofHeight+1,
+		dstChanState.ProofHeight.Increment(),
 		signer,
 	)
 }
@@ -220,7 +234,7 @@ func (pe *PathEnd) ChanConfirm(dstChanState *chanTypes.QueryChannelResponse, sig
 		pe.PortID,
 		pe.ChannelID,
 		dstChanState.Proof,
-		dstChanState.ProofHeight+1,
+		dstChanState.ProofHeight.Increment(),
 		signer,
 	)
 }
@@ -240,7 +254,7 @@ func (pe *PathEnd) ChanCloseConfirm(dstChanState *chanTypes.QueryChannelResponse
 		pe.PortID,
 		pe.ChannelID,
 		dstChanState.Proof,
-		dstChanState.ProofHeight+1,
+		dstChanState.ProofHeight.Increment(),
 		signer,
 	)
 }
@@ -314,7 +328,7 @@ func (pe *PathEnd) MsgTransfer(dst *PathEnd, amount sdk.Coin, dstAddr string,
 		amount,
 		signer,
 		dstAddr,
-		timeoutHeight,
+		clientTypes.NewHeight(timeoutHeight, timeoutHeight),
 		timeoutTimestamp,
 	)
 }
@@ -340,7 +354,7 @@ func (pe *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte,
 		pe.ChannelID,
 		dst.PortID,
 		dst.ChannelID,
-		timeoutHeight,
+		clientTypes.NewHeight(timeoutHeight, timeoutHeight),
 		timeoutStamp,
 	)
 }
@@ -365,7 +379,7 @@ func (c *Chain) PacketMsg(dst *Chain, xferPacket []byte, timeout, timeoutStamp u
 		timeoutStamp,
 		xferPacket,
 		dstCommitRes.Proof,
-		dstCommitRes.ProofHeight,
+		MustGetHeight(dstCommitRes.ProofHeight),
 		c.MustGetAddress(),
 	)
 }

@@ -72,7 +72,7 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
 		rp.timeout,
 		rp.timeoutStamp,
 		rp.dstRecvRes.Proof,
-		rp.dstRecvRes.ProofHeight,
+		MustGetHeight(rp.dstRecvRes.ProofHeight),
 		src.MustGetAddress(),
 	)
 }
@@ -169,7 +169,7 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
 		rp.ack,
 		rp.packetData,
 		rp.dstComRes.Proof,
-		rp.dstComRes.ProofHeight,
+		MustGetHeight(rp.dstComRes.ProofHeight),
 		src.MustGetAddress(),
 	)
 }
