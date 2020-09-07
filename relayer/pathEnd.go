@@ -63,7 +63,7 @@ func (pe *PathEnd) UpdateClient(dstHeader *tmclient.Header, signer sdk.AccAddres
 }
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (pe *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod time.Duration, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod, ubdPeriod time.Duration, signer sdk.AccAddress) sdk.Msg {
 	if err := dstHeader.ValidateBasic(); err != nil {
 		panic(err)
 	}
@@ -74,7 +74,7 @@ func (pe *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod time.
 		dstHeader.GetHeader().GetChainID(),
 		tmclient.NewFractionFromTm(light.DefaultTrustLevel),
 		trustingPeriod,
-		trustingPeriod*2,
+		ubdPeriod,
 		time.Minute*1,
 		dstHeader.GetHeight().(clientTypes.Height),
 		commitmenttypes.GetSDKSpecs(),

@@ -112,8 +112,13 @@ func createClientCmd() *cobra.Command {
 				return err
 			}
 
+			ubdPeriod, err := chains[dst].QueryUnbondingPeriod()
+			if err != nil {
+				return err
+			}
+
 			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.CreateClient(dstHeader,
-				chains[dst].GetTrustingPeriod(), chains[src].MustGetAddress())},
+				chains[dst].GetTrustingPeriod(), ubdPeriod, chains[src].MustGetAddress())},
 				chains[src], cmd)
 		},
 	}

@@ -372,6 +372,20 @@ func (c *Chain) QueryValsetAtHeight(height clientTypes.Height) (*tmproto.Validat
 	return tmProtoSet, nil
 }
 
+// QueryUnbondingPeriod returns the unbonding period of the chain
+func (c *Chain) QueryUnbondingPeriod() (time.Duration, error) {
+	req := stakingTypes.QueryParamsRequest{}
+
+	queryClient := stakingTypes.NewQueryClient(c.CLIContext())
+
+	res, err := queryClient.Params(context.Background(), &req)
+	if err != nil {
+		return 0, err
+	}
+
+	return res.Params.UnbondingTime, nil
+}
+
 // WaitForNBlocks blocks until the next block on a given chain
 func (c *Chain) WaitForNBlocks(n int64) error {
 	var initial int64
