@@ -137,8 +137,7 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 
 	func() {
 		// Ensure our address is encoded properly.
-		done := c.UseSDKContext()
-		defer done()
+		c.UseSDKContext()
 
 		dockerOpts.Cmd = []string{c.ChainID, c.MustGetAddress().String()}
 		dockerOpts.Labels = make(map[string]string)

@@ -23,7 +23,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	stakingTypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	abci "github.com/tendermint/tendermint/abci/types"
+	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
@@ -329,6 +331,44 @@ func (c *Chain) QueryChannels(offset, limit uint64) ([]*chanTypes.IdentifiedChan
 		},
 	})
 	return res.Channels, err
+}
+
+// ///////////////////////////////////
+//    STAKING -> HistoricalInfo     //
+// ///////////////////////////////////
+
+func (c *Chain) QueryHistoricalInfo(height clientTypes.Height) (*stakingTypes.QueryHistoricalInfoResponse, error) {
+	//TODO: use epoch number in query once SDK gets updated
+	params := stakingTypes.QueryHistoricalInfoRequest{
+		Height: int64(height.EpochHeight),
+	}
+
+	queryClient := stakingTypes.NewQueryClient(c.CLIContext())
+
+	res, err := queryClient.HistoricalInfo(context.Background(), &params)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (c *Chain) QueryValsetAtHeight(height clientTypes.Height) (*tmproto.ValidatorSet, error) {
+	res, err := c.QueryHistoricalInfo(height)
+	if err != nil {
+		return nil, err
+	}
+
+	// create tendermint ValidatorSet from SDK Validators
+	tmVals := stakingTypes.Validators(res.Hist.Valset).ToTmValidators()
+	tmValSet := &tmtypes.ValidatorSet{
+		Validators: tmVals,
+	}
+	tmProtoSet, err := tmValSet.ToProto()
+	if err != nil {
+		return nil, err
+	}
+	return tmProtoSet, nil
 }
 
 // WaitForNBlocks blocks until the next block on a given chain

@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"fmt"
 	"sync"
 
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
@@ -50,6 +51,38 @@ func (uh *SyncHeaders) GetHeight(chainID string) uint64 {
 	uh.Lock()
 	defer uh.Unlock()
 	return MustGetHeight(uh.hds[chainID].GetHeight())
+}
+
+// GetTrustedHeaderForChain returns the latest header for the chain specified by the chainID
+// with the trusted fields injected for the given destination chain (ie chain that receives UpdateClient
+// msg). The TrustedHeight will be the current height of the src client stored on the dst chain. And the
+// TrustedVals will be the src validators at the trusted height
+func InjectTrustedFields(srcChain, dstChain *Chain, srcHeader *tmclient.Header) (*tmclient.Header, error) {
+	// make copy of header stored in mop
+	h := *(srcHeader)
+	// check that dstChain PathEnd set correctly
+	if dstChain.PathEnd.ChainID != h.Header.ChainID {
+		return nil, fmt.Errorf("counterparty chain has incorrect PathEnd. expected chainID: %s, got: %s", dstChain.PathEnd.ChainID, h.Header.ChainID)
+	}
+	// retrieve counterparty client from dst chain
+	counterpartyClientRes, err := dstChain.QueryClientState()
+	if err != nil {
+		return nil, err
+	}
+	cs, err := clientTypes.UnpackClientState(counterpartyClientRes.ClientState)
+	if err != nil {
+		panic(err)
+	}
+	// inject TrustedHeight as latest height stored on counterparty client
+	h.TrustedHeight = cs.GetLatestHeight().(clientTypes.Height)
+	// query TrustedValidators at Trusted Height from srcChain
+	valSet, err := srcChain.QueryValsetAtHeight(h.TrustedHeight)
+	if err != nil {
+		return nil, err
+	}
+	// inject TrustedValidators into header
+	h.TrustedValidators = valSet
+	return &h, nil
 }
 
 // MustGetHeight takes the height inteface and returns the actual height
