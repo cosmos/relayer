@@ -108,12 +108,16 @@ func (c *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin,
 		dstAddrString,
 	)
 
+	updateHeader, err := InjectTrustedFields(c, dst, hs[c.ChainID])
+	if err != nil {
+		return err
+	}
 	// Debugging by simply passing in the packet information that we know was sent earlier in the SendPacket
 	// part of the command. In a real relayer, this would be a separate command that retrieved the packet
 	// information from an indexing node
 	txs = RelayMsgs{
 		Dst: []sdk.Msg{
-			dst.PathEnd.UpdateClient(hs[c.ChainID], dst.MustGetAddress()),
+			dst.PathEnd.UpdateClient(updateHeader, dst.MustGetAddress()),
 			dst.PathEnd.MsgRecvPacket(
 				c.PathEnd,
 				seqRecv.NextSequenceReceive,

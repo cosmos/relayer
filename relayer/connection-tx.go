@@ -81,6 +81,20 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	scid, dcid := c.ChainID, dst.ChainID
 
+	// create the UpdateHeaders for src and dest Chains
+	srcUpdateHeader, err := InjectTrustedFields(c, dst, hs[scid])
+	if err != nil {
+		fmt.Printf("%#v\n", dst.PathEnd)
+		fmt.Println("SRC")
+		fmt.Println(scid)
+		return nil, err
+	}
+	dstUpdateHeader, err := InjectTrustedFields(dst, c, hs[dcid])
+	if err != nil {
+		fmt.Println("DST")
+		return nil, err
+	}
+
 	// Query Connection data from src and dst
 	// NOTE: We query connection at height - 1 because of the way tendermint returns
 	// proofs the commit for height n is contained in the header of height n + 1
@@ -134,7 +148,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 			logConnectionStates(c, dst, conn)
 		}
 		out.Src = append(out.Src,
-			c.PathEnd.UpdateClient(hs[dcid], c.MustGetAddress()),
+			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 			c.PathEnd.ConnTry(dst.PathEnd, cs[dcid], conn[dcid], cons[dcid], c.MustGetAddress()),
 		)
 
@@ -144,7 +158,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 			logConnectionStates(dst, c, conn)
 		}
 		out.Dst = append(out.Dst,
-			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
+			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			dst.PathEnd.ConnTry(c.PathEnd, cs[scid], conn[scid], cons[scid], dst.MustGetAddress()),
 		)
 
@@ -154,7 +168,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 			logConnectionStates(dst, c, conn)
 		}
 		out.Dst = append(out.Dst,
-			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
+			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			dst.PathEnd.ConnAck(c.PathEnd, cs[scid], conn[scid], cons[scid], dst.MustGetAddress()),
 		)
 
@@ -164,7 +178,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 			logConnectionStates(c, dst, conn)
 		}
 		out.Src = append(out.Src,
-			c.PathEnd.UpdateClient(hs[dcid], c.MustGetAddress()),
+			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 			c.PathEnd.ConnAck(dst.PathEnd, cs[dcid], conn[dcid], cons[dcid], c.MustGetAddress()),
 		)
 
@@ -174,7 +188,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 			logConnectionStates(c, dst, conn)
 		}
 		out.Src = append(out.Src,
-			c.PathEnd.UpdateClient(hs[dcid], c.MustGetAddress()),
+			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 			c.PathEnd.ConnConfirm(conn[dcid], c.MustGetAddress()),
 		)
 		out.last = true
@@ -185,7 +199,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 			logConnectionStates(dst, c, conn)
 		}
 		out.Dst = append(out.Dst,
-			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
+			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			dst.PathEnd.ConnConfirm(conn[scid], dst.MustGetAddress()),
 		)
 		out.last = true

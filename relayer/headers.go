@@ -1,7 +1,6 @@
 package relayer
 
 import (
-	"fmt"
 	"sync"
 
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
@@ -46,6 +45,13 @@ func (uh *SyncHeaders) GetHeader(chainID string) *tmclient.Header {
 	return uh.hds[chainID]
 }
 
+// GetUpdateHeader returns a header to be used to UpdateClient of dstChain stored on srcChain
+func (uh *SyncHeaders) GetUpdateHeader(srcChain, dstChain *Chain) (*tmclient.Header, error) {
+	h := uh.GetHeader(srcChain.ChainID)
+
+	return InjectTrustedFields(srcChain, dstChain, h)
+}
+
 // GetHeight returns the latest height for a given chainID
 func (uh *SyncHeaders) GetHeight(chainID string) uint64 {
 	uh.Lock()
@@ -62,9 +68,9 @@ func InjectTrustedFields(srcChain, dstChain *Chain, srcHeader *tmclient.Header) 
 	// make copy of header stored in mop
 	h := *(srcHeader)
 	// check that dstChain PathEnd set correctly
-	if dstChain.PathEnd.ChainID != h.Header.ChainID {
-		return nil, fmt.Errorf("counterparty chain has incorrect PathEnd. expected chainID: %s, got: %s", dstChain.PathEnd.ChainID, h.Header.ChainID)
-	}
+	// 	if dstChain.PathEnd.ChainID != h.Header.ChainID {
+	// 		return nil, fmt.Errorf("counterparty chain has incorrect PathEnd. expected chainID: %s, got: %s", dstChain.PathEnd.ChainID, h.Header.ChainID)
+	// 	}
 	// retrieve counterparty client from dst chain
 	counterpartyClientRes, err := dstChain.QueryClientState()
 	if err != nil {

@@ -162,10 +162,14 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 
 	// send the transaction, retrying if not successful
 	if err := retry.Do(func() error {
+		updateHeader, err := sh.GetUpdateHeader(src, dst)
+		if err != nil {
+			return err
+		}
 		// instantiate the RelayMsgs with the appropriate update client
 		txs := &RelayMsgs{
 			Src: []sdk.Msg{
-				src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress()),
+				src.PathEnd.UpdateClient(updateHeader, src.MustGetAddress()),
 			},
 			Dst:          []sdk.Msg{},
 			MaxTxSize:    nrs.MaxTxSize,
@@ -244,10 +248,20 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 
 	// Prepend non-empty msg lists with UpdateClient
 	if len(msgs.Dst) != 0 {
-		msgs.Dst = append([]sdk.Msg{dst.PathEnd.UpdateClient(sh.GetHeader(src.ChainID), dst.MustGetAddress())}, msgs.Dst...)
+		// Sending an update from src to dst
+		updateHeader, err := sh.GetUpdateHeader(src, dst)
+		if err != nil {
+			return err
+		}
+		msgs.Dst = append([]sdk.Msg{dst.PathEnd.UpdateClient(updateHeader, dst.MustGetAddress())}, msgs.Dst...)
 	}
 	if len(msgs.Src) != 0 {
-		msgs.Src = append([]sdk.Msg{src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress())}, msgs.Src...)
+		// Sending an update from dst to src
+		updateHeader, err := sh.GetUpdateHeader(dst, src)
+		if err != nil {
+			return err
+		}
+		msgs.Src = append([]sdk.Msg{src.PathEnd.UpdateClient(updateHeader, src.MustGetAddress())}, msgs.Src...)
 	}
 
 	// TODO: increase the amount of gas as the number of messages increases

@@ -79,7 +79,11 @@ func updateClientCmd() *cobra.Command {
 				}
 			}
 
-			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress())},
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
+			if err != nil {
+				return err
+			}
+			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress())},
 				chains[src], cmd)
 		},
 	}
@@ -192,8 +196,12 @@ func connTry() *cobra.Command {
 				return err
 			}
 
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], hs[dst])
+			if err != nil {
+				return err
+			}
 			txs := []sdk.Msg{
-				chains[src].PathEnd.UpdateClient(hs[dst], chains[src].MustGetAddress()),
+				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
 				chains[src].PathEnd.ConnTry(chains[dst].PathEnd, dstClientStateRes, dstConnState,
 					dstConsState, chains[src].MustGetAddress()),
 			}
@@ -250,9 +258,13 @@ func connAck() *cobra.Command {
 				return err
 			}
 
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], hs[dst])
+			if err != nil {
+				return err
+			}
 			txs := []sdk.Msg{
 				chains[src].PathEnd.ConnAck(chains[dst].PathEnd, dstClientStateResponse, dstState, dstConsState, chains[src].MustGetAddress()),
-				chains[src].PathEnd.UpdateClient(hs[dst], chains[src].MustGetAddress()),
+				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -293,9 +305,13 @@ func connConfirm() *cobra.Command {
 				return err
 			}
 
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], hs[dst])
+			if err != nil {
+				return err
+			}
 			txs := []sdk.Msg{
 				chains[src].PathEnd.ConnConfirm(dstState, chains[src].MustGetAddress()),
-				chains[src].PathEnd.UpdateClient(hs[dst], chains[src].MustGetAddress()),
+				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -408,8 +424,12 @@ func chanTry() *cobra.Command {
 				return err
 			}
 
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
+			if err != nil {
+				return err
+			}
 			txs := []sdk.Msg{
-				chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress()),
+				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
 				chains[src].PathEnd.ChanTry(chains[dst].PathEnd, dstChanState, chains[src].MustGetAddress()),
 			}
 
@@ -450,8 +470,12 @@ func chanAck() *cobra.Command {
 				return err
 			}
 
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
+			if err != nil {
+				return err
+			}
 			txs := []sdk.Msg{
-				chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress()),
+				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
 				chains[src].PathEnd.ChanAck(dstChanState, chains[src].MustGetAddress()),
 			}
 
@@ -492,8 +516,12 @@ func chanConfirm() *cobra.Command {
 				return err
 			}
 
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
+			if err != nil {
+				return err
+			}
 			txs := []sdk.Msg{
-				chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress()),
+				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
 				chains[src].PathEnd.ChanConfirm(dstChanState, chains[src].MustGetAddress()),
 			}
 
@@ -599,8 +627,12 @@ func chanCloseConfirm() *cobra.Command {
 				return err
 			}
 
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
+			if err != nil {
+				return err
+			}
 			txs := []sdk.Msg{
-				chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress()),
+				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
 				chains[src].PathEnd.ChanCloseConfirm(dstChanState, chains[src].MustGetAddress()),
 			}
 

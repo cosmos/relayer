@@ -86,6 +86,15 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayM
 	if err != nil {
 		return nil, err
 	}
+	// create the UpdateHeaders for src and dest Chains
+	srcUpdateHeader, err := InjectTrustedFields(c, dst, hs[scid])
+	if err != nil {
+		return nil, err
+	}
+	dstUpdateHeader, err := InjectTrustedFields(dst, c, hs[dcid])
+	if err != nil {
+		return nil, err
+	}
 
 	chans, err := QueryChannelPair(c, dst, hs[scid].Header.Height-1, hs[dcid].Header.Height-1)
 	if err != nil {
@@ -108,7 +117,7 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayM
 			logChannelStates(c, dst, chans)
 		}
 		out.Src = append(out.Src,
-			c.PathEnd.UpdateClient(hs[dcid], c.MustGetAddress()),
+			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 			c.PathEnd.ChanTry(dst.PathEnd, chans[dcid], c.MustGetAddress()),
 		)
 
@@ -118,7 +127,7 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayM
 			logChannelStates(dst, c, chans)
 		}
 		out.Dst = append(out.Dst,
-			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
+			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			dst.PathEnd.ChanTry(c.PathEnd, chans[scid], dst.MustGetAddress()),
 		)
 
@@ -128,7 +137,7 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayM
 			logChannelStates(dst, c, chans)
 		}
 		out.Dst = append(out.Dst,
-			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
+			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			dst.PathEnd.ChanAck(chans[scid], dst.MustGetAddress()),
 		)
 
@@ -138,7 +147,7 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayM
 			logChannelStates(c, dst, chans)
 		}
 		out.Src = append(out.Src,
-			c.PathEnd.UpdateClient(hs[dcid], c.MustGetAddress()),
+			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 			c.PathEnd.ChanAck(chans[dcid], c.MustGetAddress()),
 		)
 
@@ -148,7 +157,7 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayM
 			logChannelStates(c, dst, chans)
 		}
 		out.Src = append(out.Src,
-			c.PathEnd.UpdateClient(hs[dcid], c.MustGetAddress()),
+			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 			c.PathEnd.ChanConfirm(chans[dcid], c.MustGetAddress()),
 		)
 		out.last = true
@@ -159,7 +168,7 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayM
 			logChannelStates(dst, c, chans)
 		}
 		out.Dst = append(out.Dst,
-			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
+			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			dst.PathEnd.ChanConfirm(chans[scid], dst.MustGetAddress()),
 		)
 		out.last = true
@@ -221,6 +230,15 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 	if err != nil {
 		return nil, err
 	}
+	// create the UpdateHeaders for src and dest Chains
+	srcUpdateHeader, err := InjectTrustedFields(c, dst, hs[scid])
+	if err != nil {
+		return nil, err
+	}
+	dstUpdateHeader, err := InjectTrustedFields(dst, c, hs[dcid])
+	if err != nil {
+		return nil, err
+	}
 
 	chans, err := QueryChannelPair(c, dst, hs[scid].Header.Height-1, hs[dcid].Header.Height-1)
 	if err != nil {
@@ -237,7 +255,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				logChannelStates(c, dst, chans)
 			}
 			out.Src = append(out.Src,
-				c.PathEnd.UpdateClient(hs[dcid], c.MustGetAddress()),
+				c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 				c.PathEnd.ChanCloseInit(c.MustGetAddress()),
 			)
 		} else if chans[dcid].Channel.State != chantypes.UNINITIALIZED {
@@ -245,7 +263,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				logChannelStates(dst, c, chans)
 			}
 			out.Dst = append(out.Dst,
-				dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
+				dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 				dst.PathEnd.ChanCloseInit(dst.MustGetAddress()),
 			)
 		}
@@ -257,7 +275,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				logChannelStates(dst, c, chans)
 			}
 			out.Dst = append(out.Dst,
-				dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
+				dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 				dst.PathEnd.ChanCloseConfirm(chans[scid], dst.MustGetAddress()),
 			)
 			out.last = true
@@ -270,7 +288,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				logChannelStates(c, dst, chans)
 			}
 			out.Src = append(out.Src,
-				c.PathEnd.UpdateClient(hs[dcid], c.MustGetAddress()),
+				c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 				c.PathEnd.ChanCloseConfirm(chans[dcid], c.MustGetAddress()),
 			)
 			out.last = true
