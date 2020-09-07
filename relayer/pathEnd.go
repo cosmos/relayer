@@ -78,6 +78,8 @@ func (pe *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod time.
 		time.Minute*1,
 		dstHeader.GetHeight().(clientTypes.Height),
 		commitmenttypes.GetSDKSpecs(),
+		false,
+		false,
 	)
 
 	msg, err := clientTypes.NewMsgCreateClient(

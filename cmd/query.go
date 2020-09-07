@@ -2,12 +2,15 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	"github.com/ovrclk/relayer/relayer"
 	"github.com/spf13/cobra"
@@ -276,7 +279,18 @@ func queryClientCmd() *cobra.Command {
 				return err
 			}
 
-			return chain.Print(res, false, false)
+			cs, err := clienttypes.UnpackClientState(res.ClientState)
+			if err != nil {
+				return err
+			}
+
+			out, err := json.Marshal(cs)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(out)
+			return nil
 		},
 	}
 
@@ -310,7 +324,13 @@ func queryClientsCmd() *cobra.Command {
 				return err
 			}
 
-			return chain.Print(res, false, false)
+			out, err := json.Marshal(res)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(out))
+			return nil
 		},
 	}
 
