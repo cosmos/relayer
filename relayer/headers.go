@@ -53,10 +53,11 @@ func (uh *SyncHeaders) GetHeight(chainID string) uint64 {
 	return MustGetHeight(uh.hds[chainID].GetHeight())
 }
 
-// GetTrustedHeaderForChain returns the latest header for the chain specified by the chainID
-// with the trusted fields injected for the given destination chain (ie chain that receives UpdateClient
-// msg). The TrustedHeight will be the current height of the src client stored on the dst chain. And the
-// TrustedVals will be the src validators at the trusted height
+// InjectTrustedFields injects the necessary trusted fields for a srcHeader coming from a srcChain
+// destined for an IBC client stored on the dstChain
+// TrustedHeight is the latest height of the IBC client on dstChain
+// TrustedValidators is the validator set of srcChain at the TrustedHeight
+// InjectTrustedFields returns a copy of the header with TrustedFields modified
 func InjectTrustedFields(srcChain, dstChain *Chain, srcHeader *tmclient.Header) (*tmclient.Header, error) {
 	// make copy of header stored in mop
 	h := *(srcHeader)
