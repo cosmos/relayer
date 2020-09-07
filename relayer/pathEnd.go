@@ -128,14 +128,14 @@ func (pe *PathEnd) ConnTry(
 	if err != nil {
 		panic(err)
 	}
-	return connTypes.NewMsgConnectionOpenTry(
+	msg := connTypes.NewMsgConnectionOpenTry(
 		pe.ConnectionID,
 		pe.ClientID,
 		dst.ConnectionID,
 		dst.ClientID,
 		cs,
 		defaultChainPrefix,
-		defaultIBCVersions,
+		connTypes.GetCompatibleEncodedVersions(),
 		dstConnState.Proof,
 		dstClientState.Proof,
 		dstConsState.Proof,
@@ -143,7 +143,10 @@ func (pe *PathEnd) ConnTry(
 		css.GetHeight().(clientTypes.Height),
 		signer,
 	)
-
+	if err = msg.ValidateBasic(); err != nil {
+		panic(err)
+	}
+	return msg
 }
 
 // ConnAck creates a MsgConnectionOpenAck

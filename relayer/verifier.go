@@ -142,7 +142,10 @@ func (c *Chain) UpdateLiteWithHeader() (*tmclient.Header, error) {
 		return nil, err
 	}
 
-	return &tmclient.Header{SignedHeader: sh.ToProto(), ValidatorSet: protoVal}, nil
+	return &tmclient.Header{
+		SignedHeader: sh.ToProto(),
+		ValidatorSet: protoVal,
+	}, nil
 }
 
 // UpdateLiteWithHeaderHeight updates the lite client database to the given height
