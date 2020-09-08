@@ -108,21 +108,16 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	if !(srcConn.Connection.State == ibctypes.UNINITIALIZED && dstConn.Connection.State == ibctypes.UNINITIALIZED) {
 		// Query client state from each chain's client
-		eg.Go(func() error {
-			srcCsRes, dstCsRes, err = QueryClientStatePair(c, dst, srch.Header.Height-1, dsth.Header.Height-1)
-			if err != nil && (srcCsRes == nil || dstCsRes == nil) {
-				return err
-			}
-			srcCS, err = clientTypes.UnpackClientState(srcCsRes.ClientState)
-			if err != nil {
-				return err
-			}
-			dstCS, err = clientTypes.UnpackClientState(dstCsRes.ClientState)
-
-			return err
-		})
-
-		if err = eg.Wait(); err != nil {
+		srcCsRes, dstCsRes, err = QueryClientStatePair(c, dst, srch.Header.Height-1, dsth.Header.Height-1)
+		if err != nil && (srcCsRes == nil || dstCsRes == nil) {
+			return nil, err
+		}
+		srcCS, err = clientTypes.UnpackClientState(srcCsRes.ClientState)
+		if err != nil {
+			return nil, err
+		}
+		dstCS, err = clientTypes.UnpackClientState(dstCsRes.ClientState)
+		if err != nil {
 			return nil, err
 		}
 
@@ -135,18 +130,6 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		fmt.Println("src header", srch.Header.Height)
-		fmt.Printf("src header hash: %X\n", srch.Header.AppHash)
-		fmt.Println("dst header", dsth.Header.Height)
-		fmt.Println("src conn proof height", srcConn.ProofHeight)
-		fmt.Println("dst conn proof height", dstConn.ProofHeight)
-		fmt.Println("src client state proof height", srcCsRes.ProofHeight)
-		fmt.Println("src client state height", srcConsH)
-		fmt.Println("dst client state proof height", dstCsRes.ProofHeight)
-		fmt.Println("dst client state height", dstConsH)
-		fmt.Println("src client consensus state proof height", srcCons.ProofHeight)
-		fmt.Println("dst client consensus state proof height", dstCons.ProofHeight)
 	}
 
 	switch {
@@ -184,7 +167,6 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		if dst.debug {
 			logConnectionStates(dst, c, dstConn, srcConn)
 		}
-		fmt.Println("DST IS SRC")
 		out.Dst = append(out.Dst,
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			dst.PathEnd.ConnAck(c.PathEnd, srcCsRes, srcConn, srcCons, dst.MustGetAddress()),
@@ -195,7 +177,6 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		if c.debug {
 			logConnectionStates(c, dst, srcConn, dstConn)
 		}
-		fmt.Println("SRC IS SRC")
 		out.Src = append(out.Src,
 			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 			c.PathEnd.ConnAck(dst.PathEnd, dstCsRes, dstConn, dstCons, c.MustGetAddress()),

@@ -117,12 +117,10 @@ func QueryClientStatePair(src, dst *Chain, srch, dsth int64) (srcCsRes, dstCsRes
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
 		srcCsRes, err = src.QueryClientState(srch)
-		fmt.Println("srccs err")
 		return err
 	})
 	eg.Go(func() error {
 		dstCsRes, err = dst.QueryClientState(dsth)
-		fmt.Println("dstcs err")
 		return err
 	})
 	err = eg.Wait()
@@ -214,7 +212,7 @@ func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (srcChan, dstChan *chan
 		return err
 	})
 	eg.Go(func() error {
-		srcChan, err = src.QueryChannel(srcH)
+		dstChan, err = dst.QueryChannel(dstH)
 		return err
 	})
 	err = eg.Wait()

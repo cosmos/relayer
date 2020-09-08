@@ -172,7 +172,7 @@ func (pe *PathEnd) ConnAck(
 		dstConsState.Proof,
 		dstConsState.ProofHeight,
 		css.GetHeight().(clientTypes.Height),
-		defaultIBCVersion,
+		connTypes.GetCompatibleEncodedVersions()[0],
 		signer,
 	)
 }

@@ -94,7 +94,7 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayM
 	})
 
 	eg.Go(func() error {
-		srcChan, dstChan, err = QueryChannelPair(c, dst, srch.Header.Height, dsth.Header.Height)
+		srcChan, dstChan, err = QueryChannelPair(c, dst, srch.Header.Height-1, dsth.Header.Height-1)
 		return err
 	})
 
