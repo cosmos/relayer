@@ -113,7 +113,6 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		return err
 	})
 
-	// TODO: log these heights or something about client state? debug?
 	if err = eg.Wait(); err != nil {
 		return nil, err
 	}
@@ -127,6 +126,19 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("src header", srch.Header.Height)
+	fmt.Println("src trusted header", srcUpdateHeader.TrustedHeight)
+	fmt.Println("dst header", dsth.Header.Height)
+	fmt.Println("dst trusted header", dstUpdateHeader.TrustedHeight)
+	fmt.Println("src conn proof height", srcConn.ProofHeight)
+	fmt.Println("dst conn proof height", dstConn.ProofHeight)
+	fmt.Println("src client state proof height", srcCsRes.ProofHeight)
+	fmt.Println("src client state height", srcConsH)
+	fmt.Println("dst client state proof height", dstCsRes.ProofHeight)
+	fmt.Println("dst client state height", dstConsH)
+	fmt.Println("src client consensus state proof height", srcCons.ProofHeight)
+	fmt.Println("dst client consensus state proof height", dstCons.ProofHeight)
 
 	switch {
 	// Handshake hasn't been started on src or dst, relay `connOpenInit` to src
@@ -143,7 +155,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		}
 		out.Src = append(out.Src,
 			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
-			c.PathEnd.ConnTry(dst.PathEnd, srcCsRes, dstConn, dstCons, c.MustGetAddress()),
+			c.PathEnd.ConnTry(dst.PathEnd, dstCsRes, dstConn, dstCons, c.MustGetAddress()),
 		)
 
 	// Handshake has started on src (1 step done), relay `connOpenTry` and `updateClient` on dst

@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	"golang.org/x/sync/errgroup"
 )
 
 // CreateChannel runs the channel creation messages on timeout until they pass
@@ -69,14 +71,9 @@ func (c *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) error 
 // identifiers between chains src and dst. If the handshake hasn't started, then CreateChannelStep
 // will begin the handshake on the src chain
 func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayMsgs, error) {
-	var out = &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}, last: false}
-
-	if err := c.PathEnd.Validate(); err != nil {
-		return nil, c.ErrCantSetPath(err)
-	}
-
-	if err := dst.PathEnd.Validate(); err != nil {
-		return nil, dst.ErrCantSetPath(err)
+	out := NewRelayMsgs()
+	if err := ValidatePaths(c, dst); err != nil {
+		return nil, err
 	}
 
 	srch, dsth, err := UpdatesWithHeaders(c, dst)
@@ -84,14 +81,24 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayM
 		return nil, err
 	}
 
-	// create the UpdateHeaders for src and dest Chains
-	srcUpdateHeader, dstUpdateHeader, err := InjectTrustedFieldsHeaders(c, dst, srch, dsth)
-	if err != nil {
-		return nil, err
-	}
+	// Query a number of things all at once
+	var (
+		eg                               = new(errgroup.Group)
+		srcUpdateHeader, dstUpdateHeader *tmclient.Header
+		srcChan, dstChan                 *chanTypes.QueryChannelResponse
+	)
 
-	srcChan, dstChan, err := QueryChannelPair(c, dst, srch.Header.Height, dsth.Header.Height)
-	if err != nil {
+	eg.Go(func() error {
+		srcUpdateHeader, dstUpdateHeader, err = InjectTrustedFieldsHeaders(c, dst, srch, dsth)
+		return err
+	})
+
+	eg.Go(func() error {
+		srcChan, dstChan, err = QueryChannelPair(c, dst, srch.Header.Height, dsth.Header.Height)
+		return err
+	})
+
+	if err = eg.Wait(); err != nil {
 		return nil, err
 	}
 
@@ -207,7 +214,7 @@ func (c *Chain) CloseChannel(dst *Chain, to time.Duration) error {
 // identifiers between chains src and dst. If the closing handshake hasn't started, then CloseChannelStep
 // will begin the handshake on the src chain
 func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
-	var out = &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}, last: false}
+	out := NewRelayMsgs()
 	if err := ValidatePaths(c, dst); err != nil {
 		return nil, err
 	}
@@ -216,16 +223,29 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 	if err != nil {
 		return nil, err
 	}
-	// create the UpdateHeaders for src and dest Chains
-	srcUpdateHeader, dstUpdateHeader, err := InjectTrustedFieldsHeaders(c, dst, srch, dsth)
-	if err != nil {
+
+	// Query a number of things all at once
+	var (
+		eg                               = new(errgroup.Group)
+		srcUpdateHeader, dstUpdateHeader *tmclient.Header
+		srcChan, dstChan                 *chanTypes.QueryChannelResponse
+	)
+
+	eg.Go(func() error {
+		// create the UpdateHeaders for src and dest Chains
+		srcUpdateHeader, dstUpdateHeader, err = InjectTrustedFieldsHeaders(c, dst, srch, dsth)
+		return err
+	})
+
+	eg.Go(func() error {
+		srcChan, dstChan, err = QueryChannelPair(c, dst, srch.Header.Height, dsth.Header.Height)
+		return err
+	})
+
+	if err = eg.Wait(); err != nil {
 		return nil, err
 	}
 
-	srcChan, dstChan, err := QueryChannelPair(c, dst, srch.Header.Height, dsth.Header.Height)
-	if err != nil {
-		return nil, err
-	}
 	logChannelStates(c, dst, srcChan, dstChan)
 
 	switch {

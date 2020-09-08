@@ -86,7 +86,7 @@ func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, int
 // QueryClientConsensusState retrevies the latest consensus state for a client in state at a given height
 func (c *Chain) QueryClientConsensusState(height, dstClientConsHeight int64) (*clientTypes.QueryConsensusStateResponse, error) {
 	return clientUtils.QueryConsensusStateABCI(
-		c.CLIContext(int64(height)),
+		c.CLIContext(height),
 		c.PathEnd.ClientID,
 		clientTypes.NewHeight(0, uint64(dstClientConsHeight)),
 	)
