@@ -30,7 +30,7 @@ var (
 		cdc:            cdc,
 		amino:          amino,
 		dockerImage:    "jackzampolin/gaiatest",
-		dockerTag:      "gaiav3.0",
+		dockerTag:      "jack_gaiav3.0",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "cosmos",
@@ -150,6 +150,7 @@ func newTestChain(t *testing.T, tc testChain) *ry.Chain {
 		AccountPrefix:  tc.t.accountPrefix,
 		Gas:            tc.t.gas,
 		GasPrices:      tc.t.gasPrices,
+		GasAdjustment:  1.0,
 		DefaultDenom:   tc.t.defaultDenom,
 		TrustingPeriod: tc.t.trustingPeriod,
 	}

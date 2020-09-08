@@ -17,7 +17,7 @@ func testClientPair(t *testing.T, src, dst *ry.Chain) {
 
 // testClient queries client for existence of dst on src
 func testClient(t *testing.T, src, dst *ry.Chain) {
-	client, err := src.QueryClientState()
+	client, err := src.QueryClientState(0)
 	require.NoError(t, err)
 	require.NotNil(t, client)
 	cs, err := clientTypes.UnpackClientState(client.ClientState)
