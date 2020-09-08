@@ -137,7 +137,7 @@ func (pe *PathEnd) ConnTry(
 		dstConnState.Proof,
 		dstClientState.Proof,
 		dstConsState.Proof,
-		dstConsState.ProofHeight,
+		dstConnState.ProofHeight,
 		css.GetHeight().(clientTypes.Height),
 		signer,
 	)
