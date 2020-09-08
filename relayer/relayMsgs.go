@@ -20,6 +20,11 @@ type RelayMsgs struct {
 	success bool
 }
 
+// NewRelayMsgs returns an initialized version of relay messages
+func NewRelayMsgs() *RelayMsgs {
+	return &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}, last: false, success: false}
+}
+
 // Ready returns true if there are messages to relay
 func (r *RelayMsgs) Ready() bool {
 	if r == nil {

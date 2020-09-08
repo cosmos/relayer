@@ -348,8 +348,8 @@ func pathsListCmd() *cobra.Command {
 						continue
 					}
 
-					srcCs, err := ch[src].QueryClientState()
-					dstCs, _ := ch[dst].QueryClientState()
+					srcCs, err := ch[src].QueryClientState(0)
+					dstCs, _ := ch[dst].QueryClientState(0)
 					if err == nil && srcCs != nil && dstCs != nil {
 						clients = check
 					} else {
@@ -463,8 +463,8 @@ func pathsShowCmd() *cobra.Command {
 				}
 			}
 
-			srcCs, err := ch[src].QueryClientState()
-			dstCs, _ := ch[dst].QueryClientState()
+			srcCs, err := ch[src].QueryClientState(srch)
+			dstCs, _ := ch[dst].QueryClientState(dsth)
 			if err == nil && srcCs != nil && dstCs != nil {
 				clients = true
 			}

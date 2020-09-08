@@ -44,12 +44,12 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders)
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
 		// NOTE: Timeouts currently only work with ORDERED channels for nwo
-		dstRecvRes, err = dst.QueryPacketCommitment(rp.seq)
+		dstRecvRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height, rp.seq)
 		if err != nil {
 			return err
 		} else if dstRecvRes.Proof == nil {
 			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)",
-				dst.ChainID, int64(sh.GetHeight(dst.ChainID)-1), rp.seq)
+				dst.ChainID, int64(sh.GetHeight(dst.ChainID)), rp.seq)
 		}
 		return nil
 	}); err != nil {
@@ -115,12 +115,12 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeade
 
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
-		dstCommitRes, err = dst.QueryPacketCommitment(rp.seq)
+		dstCommitRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height, rp.seq)
 		if err != nil {
 			return err
 		} else if dstCommitRes.Proof == nil {
 			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)",
-				dst.ChainID, int64(sh.GetHeight(dst.ChainID)-1), rp.seq)
+				dst.ChainID, int64(sh.GetHeight(dst.ChainID)), rp.seq)
 		}
 		return nil
 	}); err != nil {
@@ -177,12 +177,12 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
 func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
 	var dstCommitRes *chanTypes.QueryPacketCommitmentResponse
 	if err = retry.Do(func() error {
-		dstCommitRes, err = dst.QueryPacketCommitment(rp.seq)
+		dstCommitRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height, rp.seq)
 		if err != nil {
 			return err
 		} else if dstCommitRes.Proof == nil {
 			return fmt.Errorf("- [%s]@{%d} - Packet Ack Proof is nil seq(%d)",
-				dst.ChainID, int64(sh.GetHeight(dst.ChainID)-1), rp.seq)
+				dst.ChainID, int64(sh.GetHeight(dst.ChainID)), rp.seq)
 		}
 		return nil
 	}); err != nil {

@@ -1,7 +1,6 @@
 package relayer
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -63,7 +62,7 @@ func (pe *PathEnd) UpdateClient(dstHeader *tmclient.Header, signer sdk.AccAddres
 }
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (pe *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod, ubdPeriod time.Duration, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod, unbondingPeriod time.Duration, signer sdk.AccAddress) sdk.Msg {
 	if err := dstHeader.ValidateBasic(); err != nil {
 		panic(err)
 	}
@@ -74,7 +73,7 @@ func (pe *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod, ubdP
 		dstHeader.GetHeader().GetChainID(),
 		tmclient.NewFractionFromTm(light.DefaultTrustLevel),
 		trustingPeriod,
-		ubdPeriod,
+		unbondingPeriod,
 		time.Minute*1,
 		dstHeader.GetHeight().(clientTypes.Height),
 		commitmenttypes.GetSDKSpecs(),
@@ -93,7 +92,6 @@ func (pe *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod, ubdP
 		panic(err)
 	}
 	if err = msg.ValidateBasic(); err != nil {
-		fmt.Printf("%#v\n", dstHeader)
 		panic(err)
 	}
 	return msg
@@ -139,7 +137,7 @@ func (pe *PathEnd) ConnTry(
 		dstConnState.Proof,
 		dstClientState.Proof,
 		dstConsState.Proof,
-		dstConsState.ProofHeight.Increment(),
+		dstConsState.ProofHeight,
 		css.GetHeight().(clientTypes.Height),
 		signer,
 	)
@@ -185,7 +183,7 @@ func (pe *PathEnd) ConnConfirm(dstConnState *connTypes.QueryConnectionResponse, 
 	return connTypes.NewMsgConnectionOpenConfirm(
 		pe.ConnectionID,
 		dstConnState.Proof,
-		dstConnState.ProofHeight.Increment(),
+		dstConnState.ProofHeight,
 		signer,
 	)
 }
@@ -216,7 +214,7 @@ func (pe *PathEnd) ChanTry(dst *PathEnd, dstChanState *chanTypes.QueryChannelRes
 		dst.ChannelID,
 		dstChanState.Channel.Version,
 		dstChanState.Proof,
-		dstChanState.ProofHeight.Increment(),
+		dstChanState.ProofHeight,
 		signer,
 	)
 }
@@ -228,7 +226,7 @@ func (pe *PathEnd) ChanAck(dstChanState *chanTypes.QueryChannelResponse, signer 
 		pe.ChannelID,
 		dstChanState.Channel.Version,
 		dstChanState.Proof,
-		dstChanState.ProofHeight.Increment(),
+		dstChanState.ProofHeight,
 		signer,
 	)
 }
@@ -239,7 +237,7 @@ func (pe *PathEnd) ChanConfirm(dstChanState *chanTypes.QueryChannelResponse, sig
 		pe.PortID,
 		pe.ChannelID,
 		dstChanState.Proof,
-		dstChanState.ProofHeight.Increment(),
+		dstChanState.ProofHeight,
 		signer,
 	)
 }
@@ -259,7 +257,7 @@ func (pe *PathEnd) ChanCloseConfirm(dstChanState *chanTypes.QueryChannelResponse
 		pe.PortID,
 		pe.ChannelID,
 		dstChanState.Proof,
-		dstChanState.ProofHeight.Increment(),
+		dstChanState.ProofHeight,
 		signer,
 	)
 }

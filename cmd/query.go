@@ -138,7 +138,7 @@ func queryAccountCmd() *cobra.Command {
 				return err
 			}
 
-			res, err := types.NewQueryClient(chain.CLIContext()).Account(
+			res, err := types.NewQueryClient(chain.CLIContext(0)).Account(
 				context.Background(),
 				&types.QueryAccountRequest{
 					Address: addr,
@@ -246,7 +246,7 @@ func queryNodeStateCmd() *cobra.Command {
 				return err
 			}
 
-			csRes, _, err := chain.QueryConsensusState()
+			csRes, _, err := chain.QueryConsensusState(0)
 			if err != nil {
 				return err
 			}
@@ -274,7 +274,7 @@ func queryClientCmd() *cobra.Command {
 				return err
 			}
 
-			res, err := chain.QueryClientState()
+			res, err := chain.QueryClientState(0)
 			if err != nil {
 				return err
 			}
@@ -592,7 +592,7 @@ func queryPacketCommitment() *cobra.Command {
 				return err
 			}
 
-			res, err := chain.QueryPacketCommitment(seq)
+			res, err := chain.QueryPacketCommitment(0, seq)
 			if err != nil {
 				return err
 			}
@@ -624,7 +624,7 @@ func queryPacketAck() *cobra.Command {
 				return err
 			}
 
-			res, err := chain.QueryPacketCommitment(seq)
+			res, err := chain.QueryPacketCommitment(0, seq)
 			if err != nil {
 				return err
 			}

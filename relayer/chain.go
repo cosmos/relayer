@@ -59,6 +59,17 @@ type Chain struct {
 	faucetAddrs map[string]time.Time
 }
 
+// ValidatePaths takes two chains and validates their paths
+func ValidatePaths(src, dst *Chain) error {
+	if err := src.PathEnd.Validate(); err != nil {
+		return src.ErrCantSetPath(err)
+	}
+	if err := dst.PathEnd.Validate(); err != nil {
+		return dst.ErrCantSetPath(err)
+	}
+	return nil
+}
+
 // ListenRPCEmitJSON listens for tx and block events from a chain and outputs them as JSON to stdout
 func (c *Chain) ListenRPCEmitJSON(tx, block, data bool) func() {
 	doneChan := make(chan struct{})
@@ -213,10 +224,10 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
 	c.UseSDKContext()
 
 	// Instantiate the client context
-	ctx := c.CLIContext()
+	ctx := c.CLIContext(0)
 
 	// Query account details
-	txf, err := tx.PrepareFactory(ctx, c.TxFactory())
+	txf, err := tx.PrepareFactory(ctx, c.TxFactory(0))
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +265,7 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
 }
 
 // CLIContext returns an instance of client.Context derived from Chain
-func (c *Chain) CLIContext() sdkCtx.Context {
+func (c *Chain) CLIContext(height int64) sdkCtx.Context {
 	encodingConfig := simapp.MakeEncodingConfig()
 	return sdkCtx.Context{}.
 		WithJSONMarshaler(encodingConfig.Marshaler).
@@ -270,12 +281,13 @@ func (c *Chain) CLIContext() sdkCtx.Context {
 		WithFromName(c.Key).
 		WithFromAddress(c.MustGetAddress()).
 		WithSkipConfirmation(true).
-		WithNodeURI(c.RPCAddr)
+		WithNodeURI(c.RPCAddr).
+		WithHeight(height)
 }
 
 // TxFactory returns an instance of tx.Factory derived from
-func (c *Chain) TxFactory() tx.Factory {
-	ctx := c.CLIContext()
+func (c *Chain) TxFactory(height int64) tx.Factory {
+	ctx := c.CLIContext(height)
 	return tx.Factory{}.
 		WithAccountRetriever(ctx.AccountRetriever).
 		WithChainID(c.ChainID).

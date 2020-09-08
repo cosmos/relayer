@@ -63,24 +63,24 @@ func (c *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin,
 	// Working on DST chain :point_down:
 
 	var (
-		hs           map[string]*tmclient.Header
+		srch, dsth   *tmclient.Header
 		seqRecv      *chanTypes.QueryNextSequenceReceiveResponse
 		seqSend      uint64
 		srcCommitRes *chanTypes.QueryPacketCommitmentResponse
 	)
 
 	if err = retry.Do(func() error {
-		hs, err = UpdatesWithHeaders(c, dst)
+		srch, dsth, err = UpdatesWithHeaders(c, dst)
 		if err != nil {
 			return err
 		}
 
-		seqRecv, err = dst.QueryNextSeqRecv(hs[dst.ChainID].Header.Height)
+		seqRecv, err = dst.QueryNextSeqRecv(dsth.Header.Height)
 		if err != nil {
 			return err
 		}
 
-		srcCommitRes, err = c.QueryPacketCommitment(seqSend - 1)
+		srcCommitRes, err = c.QueryPacketCommitment(srch.Header.Height, seqSend-1)
 		if err != nil {
 			return err
 		}
@@ -108,7 +108,7 @@ func (c *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin,
 		dstAddrString,
 	)
 
-	updateHeader, err := InjectTrustedFields(c, dst, hs[c.ChainID])
+	updateHeader, err := InjectTrustedFields(c, dst, srch)
 	if err != nil {
 		return err
 	}

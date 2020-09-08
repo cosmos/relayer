@@ -172,20 +172,20 @@ func connTry() *cobra.Command {
 				return err
 			}
 
-			hs, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
+			_, dsth, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
 			if err != nil {
 				return err
 			}
 
 			// NOTE: We query connection at height - 1 because of the way tendermint returns
 			// proofs the commit for height n is contained in the header of height n + 1
-			dstConnState, err := chains[dst].QueryConnection(hs[dst].Header.Height - 1)
+			dstConnState, err := chains[dst].QueryConnection(dsth.Header.Height - 1)
 			if err != nil {
 				return err
 			}
 
 			// We are querying the state of the client for src on dst and finding the height
-			dstClientStateRes, err := chains[dst].QueryClientState()
+			dstClientStateRes, err := chains[dst].QueryClientState(dsth.Header.Height)
 			if err != nil {
 				return err
 			}
@@ -196,12 +196,12 @@ func connTry() *cobra.Command {
 			dstCsHeight := int64(relayer.MustGetHeight(dstClientState.GetLatestHeight()))
 
 			// Then we need to query the consensus state for src at that height on dst
-			dstConsState, err := chains[dst].QueryClientConsensusState(uint64(dstCsHeight))
+			dstConsState, err := chains[dst].QueryClientConsensusState(dsth.Header.Height, dstCsHeight)
 			if err != nil {
 				return err
 			}
 
-			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], hs[dst])
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dsth)
 			if err != nil {
 				return err
 			}
@@ -237,20 +237,20 @@ func connAck() *cobra.Command {
 				return err
 			}
 
-			hs, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
+			_, dsth, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
 			if err != nil {
 				return err
 			}
 
 			// NOTE: We query connection at height - 1 because of the way tendermint returns
 			// proofs the commit for height n is contained in the header of height n + 1
-			dstState, err := chains[dst].QueryConnection(hs[dst].Header.Height - 1)
+			dstState, err := chains[dst].QueryConnection(dsth.Header.Height - 1)
 			if err != nil {
 				return err
 			}
 
 			// We are querying the state of the client for src on dst and finding the height
-			dstClientStateResponse, err := chains[dst].QueryClientState()
+			dstClientStateResponse, err := chains[dst].QueryClientState(dsth.Header.Height)
 			if err != nil {
 				return err
 			}
@@ -258,12 +258,12 @@ func connAck() *cobra.Command {
 			dstCsHeight := int64(relayer.MustGetHeight(dstClientState.GetLatestHeight()))
 
 			// Then we need to query the consensus state for src at that height on dst
-			dstConsState, err := chains[dst].QueryClientConsensusState(uint64(dstCsHeight))
+			dstConsState, err := chains[dst].QueryClientConsensusState(dsth.Header.Height, dstCsHeight)
 			if err != nil {
 				return err
 			}
 
-			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], hs[dst])
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dsth)
 			if err != nil {
 				return err
 			}
@@ -298,19 +298,19 @@ func connConfirm() *cobra.Command {
 				return err
 			}
 
-			hs, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
+			_, dsth, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
 			if err != nil {
 				return err
 			}
 
 			// NOTE: We query connection at height - 1 because of the way tendermint returns
 			// proofs the commit for height n is contained in the header of height n + 1
-			dstState, err := chains[dst].QueryConnection(hs[dst].Header.Height - 1)
+			dstState, err := chains[dst].QueryConnection(dsth.Header.Height - 1)
 			if err != nil {
 				return err
 			}
 
-			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], hs[dst])
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dsth)
 			if err != nil {
 				return err
 			}

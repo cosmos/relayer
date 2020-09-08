@@ -42,34 +42,34 @@ func (c *Chain) logPacketsRelayed(dst *Chain, num int) {
 		num, dst.ChainID, dst.PathEnd.PortID, c.ChainID, c.PathEnd.PortID))
 }
 
-func logChannelStates(src, dst *Chain, conn map[string]*chanTypes.QueryChannelResponse) {
+func logChannelStates(src, dst *Chain, srcChan, dstChan *chanTypes.QueryChannelResponse) {
 	// TODO: replace channelID with portID?
 	src.Log(fmt.Sprintf("- [%s]@{%d}chan(%s)-{%s} : [%s]@{%d}chan(%s)-{%s}",
 		src.ChainID,
-		conn[src.ChainID].ProofHeight,
+		srcChan.ProofHeight,
 		src.PathEnd.ChannelID,
-		conn[src.ChainID].Channel.State,
+		srcChan.Channel.State,
 		dst.ChainID,
-		conn[dst.ChainID].ProofHeight,
+		dstChan.ProofHeight,
 		dst.PathEnd.ChannelID,
-		conn[dst.ChainID].Channel.State,
+		dstChan.Channel.State,
 	))
 }
 
-func logConnectionStates(src, dst *Chain, conn map[string]*connTypes.QueryConnectionResponse) {
+func logConnectionStates(src, dst *Chain, srcConn, dstConn *connTypes.QueryConnectionResponse) {
 	src.Log(fmt.Sprintf("- [%s]@{%d}conn(%s)-{%s} : [%s]@{%d}conn(%s)-{%s}",
 		src.ChainID,
-		conn[src.ChainID].ProofHeight,
+		srcConn.ProofHeight,
 		src.PathEnd.ConnectionID,
-		conn[src.ChainID].Connection.State,
+		srcConn.Connection.State,
 		dst.ChainID,
-		conn[dst.ChainID].ProofHeight,
+		dstConn.ProofHeight,
 		dst.PathEnd.ConnectionID,
-		conn[dst.ChainID].Connection.State,
+		dstConn.Connection.State,
 	))
 }
 
-func (c *Chain) logCreateClient(dst *Chain, dstH uint64) {
+func (c *Chain) logCreateClient(dst *Chain, dstH int64) {
 	c.Log(fmt.Sprintf("- [%s] -> creating client (%s) for [%s]header-height{%d} trust-period(%s)",
 		c.ChainID, c.PathEnd.ClientID, dst.ChainID, dstH, dst.GetTrustingPeriod()))
 }

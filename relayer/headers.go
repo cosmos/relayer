@@ -10,12 +10,12 @@ import (
 
 // NewSyncHeaders returns a new instance of map[string]*tmclient.Header that can be easily
 // kept "reasonably up to date"
-func NewSyncHeaders(chains ...*Chain) (*SyncHeaders, error) {
-	mp, err := UpdatesWithHeaders(chains...)
+func NewSyncHeaders(src, dst *Chain) (*SyncHeaders, error) {
+	srch, dsth, err := UpdatesWithHeaders(src, dst)
 	if err != nil {
 		return nil, err
 	}
-	return &SyncHeaders{hds: mp}, nil
+	return &SyncHeaders{hds: map[string]*tmclient.Header{src.ChainID: srch, dst.ChainID: dsth}}, nil
 }
 
 // SyncHeaders is an instance of map[string]*tmclient.Header
@@ -72,7 +72,7 @@ func InjectTrustedFields(srcChain, dstChain *Chain, srcHeader *tmclient.Header) 
 	// 		return nil, fmt.Errorf("counterparty chain has incorrect PathEnd. expected chainID: %s, got: %s", dstChain.PathEnd.ChainID, h.Header.ChainID)
 	// 	}
 	// retrieve counterparty client from dst chain
-	counterpartyClientRes, err := dstChain.QueryClientState()
+	counterpartyClientRes, err := dstChain.QueryClientState(0)
 	if err != nil {
 		return nil, err
 	}

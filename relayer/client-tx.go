@@ -4,45 +4,53 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
+	"golang.org/x/sync/errgroup"
 )
 
 // CreateClients creates clients for src on dst and dst on src given the configured paths
 func (c *Chain) CreateClients(dst *Chain) (err error) {
-	clients := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
+	var (
+		clients = &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
+		eg      = new(errgroup.Group)
+	)
 
-	// Create client for the destination chain on the source chain if it doesn't exist
-	var srcCs, dstCs *clientTypes.QueryClientStateResponse
-	if srcCs, err = c.QueryClientState(); err != nil && srcCs == nil {
-		dstH, err := dst.UpdateLiteWithHeader()
-		if err != nil {
-			return err
-		}
-		if c.debug {
-			c.logCreateClient(dst, MustGetHeight(dstH.GetHeight()))
-		}
-		ubdPeriod, err := dst.QueryUnbondingPeriod()
-		if err != nil {
-			return err
-		}
-		clients.Src = append(clients.Src, c.PathEnd.CreateClient(dstH, dst.GetTrustingPeriod(), ubdPeriod, c.MustGetAddress()))
+	srcH, dstH, err := UpdatesWithHeaders(c, dst)
+	if err != nil {
+		return err
 	}
 
-	// Create client for the source chain on destination chain if it doesn't exist
-	if dstCs, err = dst.QueryClientState(); err != nil && dstCs == nil {
-		srcH, err := c.UpdateLiteWithHeader()
-		if err != nil {
-			return err
+	// Create client for the destination chain on the source chain if it doesn't exist
+	eg.Go(func() error {
+		if srcCs, err := c.QueryClientState(srcH.Header.Height); err != nil && srcCs == nil {
+			if c.debug {
+				c.logCreateClient(dst, dstH.Header.Height)
+			}
+			ubdPeriod, err := dst.QueryUnbondingPeriod()
+			if err != nil {
+				return err
+			}
+			clients.Src = append(clients.Src, c.PathEnd.CreateClient(dstH, dst.GetTrustingPeriod(), ubdPeriod, c.MustGetAddress()))
 		}
-		if dst.debug {
-			dst.logCreateClient(c, MustGetHeight(srcH.GetHeight()))
-		}
-		ubdPeriod, err := c.QueryUnbondingPeriod()
-		if err != nil {
-			return err
-		}
+		return nil
+	})
 
-		clients.Dst = append(clients.Dst, dst.PathEnd.CreateClient(srcH, c.GetTrustingPeriod(), ubdPeriod, dst.MustGetAddress()))
+	eg.Go(func() error {
+		// Create client for the source chain on destination chain if it doesn't exist
+		if dstCs, err := dst.QueryClientState(dstH.Header.Height); err != nil && dstCs == nil {
+			if dst.debug {
+				dst.logCreateClient(c, srcH.Header.Height)
+			}
+			ubdPeriod, err := c.QueryUnbondingPeriod()
+			if err != nil {
+				return err
+			}
+			clients.Dst = append(clients.Dst, dst.PathEnd.CreateClient(srcH, c.GetTrustingPeriod(), ubdPeriod, dst.MustGetAddress()))
+		}
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
+		return err
 	}
 
 	// Send msgs to both chains

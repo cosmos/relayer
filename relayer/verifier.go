@@ -1,13 +1,11 @@
 package relayer
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
@@ -31,77 +29,38 @@ import (
 // on the Chain struct that users could pass in the config??)
 var logger = lite.Logger(log.NewTMLogger(log.NewSyncWriter(ioutil.Discard)))
 
-type header struct {
-	sync.Mutex
-	Map  map[string]*tmclient.Header
-	Errs []error
-}
-
-func (h *header) err() error {
-	var out error
-	for _, err := range h.Errs {
-		fmt.Println("in verifier")
-		out = fmt.Errorf("err: %w", err)
+// InjectTrustedFieldsHeaders takes the headers and enriches them
+func InjectTrustedFieldsHeaders(src, dst *Chain, srch, dsth *tmclient.Header) (srcho *tmclient.Header, dstho *tmclient.Header, err error) {
+	var eg = new(errgroup.Group)
+	eg.Go(func() error {
+		srcho, err = InjectTrustedFields(src, dst, srch)
+		return err
+	})
+	eg.Go(func() error {
+		dstho, err = InjectTrustedFields(dst, src, dsth)
+		return err
+	})
+	if err = eg.Wait(); err != nil {
+		return
 	}
-	return out
+	return
 }
 
 // UpdatesWithHeaders calls UpdateLiteWithHeader on the passed chains concurrently
-func UpdatesWithHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
-	hs := &header{Map: make(map[string]*tmclient.Header), Errs: []error{}}
-	var wg sync.WaitGroup
-	for _, chain := range chains {
-		wg.Add(1)
-		go func(hs *header, wg *sync.WaitGroup, chain *Chain) {
-			defer wg.Done()
-			header, err := chain.UpdateLiteWithHeader()
-			hs.Lock()
-			hs.Map[chain.ChainID] = header
-			if err != nil {
-				hs.Errs = append(hs.Errs, err)
-			}
-			hs.Unlock()
-		}(hs, &wg, chain)
-	}
-	wg.Wait()
-	return hs.Map, hs.err()
-}
-
-type hu struct {
-	h *tmclient.Header
-	c string
-}
-
-// UpdatesWithHeadersAlt uses sync.Errorgroup to manage the goroutines
-func UpdatesWithHeadersAlt(chains ...*Chain) (map[string]*tmclient.Header, error) {
-	hs := make(map[string]*tmclient.Header)
-	hchan := make(chan hu)
-	eg, _ := errgroup.WithContext(context.Background())
+func UpdatesWithHeaders(src, dst *Chain) (srch, dsth *tmclient.Header, err error) {
+	var eg = new(errgroup.Group)
 	eg.Go(func() error {
-		for h := range hchan {
-			hs[h.c] = h.h
-			if len(hs) == len(chains) {
-				close(hchan)
-				return nil
-			}
-		}
-		return nil
+		srch, err = src.QueryLatestHeader()
+		return err
 	})
-	for _, c := range chains {
-		eg.Go(func() error {
-			header, err := c.UpdateLiteWithHeader()
-			if err != nil {
-				return err
-			}
-			hchan <- hu{h: header, c: c.ChainID}
-			return nil
-		})
+	eg.Go(func() error {
+		dsth, err = dst.QueryLatestHeader()
+		return err
+	})
+	if err := eg.Wait(); err != nil {
+		return nil, nil, err
 	}
-	err := eg.Wait()
-	if err != nil {
-		return nil, err
-	}
-	return hs, nil
+	return srch, dsth, nil
 }
 
 func liteError(err error) error { return fmt.Errorf("lite client: %w", err) }
