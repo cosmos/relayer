@@ -8,7 +8,6 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"sync"
 	"time"
 
 	sdkCtx "github.com/cosmos/cosmos-sdk/client"
@@ -361,28 +360,10 @@ func (c *Chain) MustGetAddress() sdk.AccAddress {
 	return srcAddr
 }
 
-var sdkContextMutex sync.Mutex
-
 // UseSDKContext uses a custom Bech32 account prefix and returns a restore func
 func (c *Chain) UseSDKContext() {
-	// Ensure we're the only one using the global context.
-	// defer sdkContextMutex.Unlock()
-	// sdkContextMutex.Lock()
-
 	sdkConf := sdk.GetConfig()
-	// account := sdkConf.GetBech32AccountAddrPrefix()
-	// pubaccount := sdkConf.GetBech32AccountPubPrefix()
-
-	// Mutate the sdkConf
 	sdkConf.SetBech32PrefixForAccount(c.AccountPrefix, c.AccountPrefix+"pub")
-
-	// Return a function that resets and unlocks.
-	// return func() {
-	// 	sdkContextMutex.Lock()
-	// 	defer sdkContextMutex.Unlock()
-
-	// 	sdkConf.SetBech32PrefixForAccount(account, pubaccount)
-	// }
 }
 
 func (c *Chain) String() string {
