@@ -5,6 +5,7 @@ import (
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 )
 
@@ -40,11 +41,10 @@ func (rp *relayMsgTimeout) Timeout() uint64 {
 
 func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
 	var dstRecvRes *chanTypes.QueryPacketCommitmentResponse
-
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
 		// NOTE: Timeouts currently only work with ORDERED channels for nwo
-		dstRecvRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height, rp.seq)
+		dstRecvRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
 		if err != nil {
 			return err
 		} else if dstRecvRes.Proof == nil {
@@ -56,7 +56,6 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders)
 		dst.Error(err)
 		return
 	}
-
 	rp.dstRecvRes = dstRecvRes
 	return
 }
@@ -65,14 +64,20 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
 	if rp.dstRecvRes == nil {
 		return nil
 	}
-	return src.PathEnd.MsgTimeout(
-		dst.PathEnd,
-		rp.packetData,
+	return chanTypes.NewMsgTimeout(
+		chanTypes.NewPacket(
+			rp.packetData,
+			rp.seq,
+			dst.PathEnd.PortID,
+			dst.PathEnd.ChannelID,
+			src.PathEnd.PortID,
+			src.PathEnd.ChannelID,
+			clientTypes.NewHeight(0, rp.timeout),
+			rp.timeoutStamp,
+		),
 		rp.seq,
-		rp.timeout,
-		rp.timeoutStamp,
 		rp.dstRecvRes.Proof,
-		MustGetHeight(rp.dstRecvRes.ProofHeight),
+		rp.dstRecvRes.ProofHeight,
 		src.MustGetAddress(),
 	)
 }
@@ -112,10 +117,9 @@ func (rp *relayMsgRecvPacket) Timeout() uint64 {
 
 func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
 	var dstCommitRes *chanTypes.QueryPacketCommitmentResponse
-
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
-		dstCommitRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height, rp.seq)
+		dstCommitRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
 		if err != nil {
 			return err
 		} else if dstCommitRes.Proof == nil {
@@ -136,8 +140,20 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) sdk.Msg {
 	if rp.dstComRes == nil {
 		return nil
 	}
-	return src.PacketMsg(
-		dst, rp.packetData, rp.timeout, rp.timeoutStamp, int64(rp.seq), rp.dstComRes,
+	return chanTypes.NewMsgRecvPacket(
+		chanTypes.NewPacket(
+			rp.packetData,
+			rp.seq,
+			src.PathEnd.PortID,
+			src.PathEnd.ChannelID,
+			dst.PathEnd.PortID,
+			dst.PathEnd.ChannelID,
+			clientTypes.NewHeight(0, rp.timeout),
+			rp.timeoutStamp,
+		),
+		rp.dstComRes.Proof,
+		rp.dstComRes.ProofHeight,
+		src.MustGetAddress(),
 	)
 }
 
@@ -161,15 +177,20 @@ func (rp *relayMsgPacketAck) Timeout() uint64 {
 }
 
 func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
-	return src.PathEnd.MsgAck(
-		dst.PathEnd,
-		rp.seq,
-		rp.timeout,
-		rp.timeoutStamp,
+	return chanTypes.NewMsgAcknowledgement(
+		chanTypes.NewPacket(
+			rp.packetData,
+			rp.seq,
+			src.PathEnd.PortID,
+			src.PathEnd.ChannelID,
+			dst.PathEnd.PortID,
+			dst.PathEnd.ChannelID,
+			clientTypes.NewHeight(0, rp.timeout),
+			rp.timeoutStamp,
+		),
 		rp.ack,
-		rp.packetData,
 		rp.dstComRes.Proof,
-		MustGetHeight(rp.dstComRes.ProofHeight),
+		rp.dstComRes.ProofHeight,
 		src.MustGetAddress(),
 	)
 }
@@ -177,7 +198,7 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
 func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
 	var dstCommitRes *chanTypes.QueryPacketCommitmentResponse
 	if err = retry.Do(func() error {
-		dstCommitRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height, rp.seq)
+		dstCommitRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
 		if err != nil {
 			return err
 		} else if dstCommitRes.Proof == nil {

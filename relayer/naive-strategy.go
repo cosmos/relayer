@@ -3,10 +3,13 @@ package relayer
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	"golang.org/x/sync/errgroup"
 )
 
 var _ Strategy = &NaiveStrategy{}
@@ -32,14 +35,62 @@ func (nrs *NaiveStrategy) GetType() string {
 
 // UnrelayedSequencesOrdered returns the unrelayed sequence numbers between two chains
 func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error) {
-	// TODO: Implement
-	return &RelaySequences{}, nil
+	var (
+		eg           = new(errgroup.Group)
+		srcPacketSeq = []uint64{}
+		dstPacketSeq = []uint64{}
+		rs           = &RelaySequences{Src: []uint64{}, Dst: []uint64{}}
+	)
+	eg.Go(func() error {
+		res, err := src.QueryPacketCommitments(0, 1000, sh.GetHeight(src.ChainID))
+		if err != nil {
+			return err
+		}
+		for _, pc := range res {
+			srcPacketSeq = append(srcPacketSeq, pc.Sequence)
+		}
+		return nil
+	})
+	eg.Go(func() error {
+		res, err := dst.QueryPacketCommitments(0, 1000, sh.GetHeight(dst.ChainID))
+		if err != nil {
+			return err
+		}
+		for _, pc := range res {
+			dstPacketSeq = append(dstPacketSeq, pc.Sequence)
+		}
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	eg.Go(func() error {
+		res, err := src.QueryUnrelayedPackets(sh.GetHeight(src.ChainID), srcPacketSeq, false)
+		if len(res) > 0 {
+			rs.Src = res
+		}
+		return err
+	})
+	eg.Go(func() error {
+		res, err := dst.QueryUnrelayedPackets(sh.GetHeight(dst.ChainID), dstPacketSeq, false)
+		if len(res) > 0 {
+			rs.Dst = res
+		}
+		return err
+	})
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	return rs, nil
 }
 
 // UnrelayedSequencesUnordered returns the unrelayed sequence numbers between two chains
 func (nrs *NaiveStrategy) UnrelayedSequencesUnordered(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error) {
-	// TODO: Implement
-	return &RelaySequences{}, nil
+	return nrs.UnrelayedSequencesOrdered(src, dst, sh)
 }
 
 // HandleEvents defines how the relayer will handle block and transaction events as they are emitted
@@ -193,8 +244,8 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 
 // RelaySequences represents unrelayed packets on src and dst
 type RelaySequences struct {
-	Src []uint64
-	Dst []uint64
+	Src []uint64 `json:"src"`
+	Dst []uint64 `json:"dst"`
 }
 
 // RelayPacketsUnorderedChan creates transactions to relay un-relayed messages
@@ -215,6 +266,7 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 	}
 
 	// add messages for src -> dst
+
 	for _, seq := range sp.Src {
 		chain, msg, err := packetMsgFromTxQuery(src, dst, sh, seq)
 		if err != nil {
@@ -285,17 +337,17 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (*Chain,
 		return nil, nil, err
 	}
 
-	tx, err := src.QueryTxs(sh.GetHeight(src.ChainID), 1, 1000, eveSend)
+	txs, err := src.QueryTxs(sh.GetHeight(src.ChainID), 1, 1000, eveSend)
 	switch {
 	case err != nil:
 		return nil, nil, err
-	case tx.Count == 0:
+	case len(txs) == 0:
 		return nil, nil, fmt.Errorf("no transactions returned with query")
-	case tx.Count > 1:
+	case len(txs) > 1:
 		return nil, nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	rcvPackets, timeoutPackets, err := relayPacketFromQueryResponse(src.PathEnd, dst.PathEnd, tx.Txs[0], sh)
+	rcvPackets, timeoutPackets, err := relayPacketFromQueryResponse(src.PathEnd, dst.PathEnd, txs[0], sh)
 	switch {
 	case err != nil:
 		return nil, nil, err
@@ -344,64 +396,62 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (*Chain,
 
 // relayPacketFromQueryResponse looks through the events in a sdk.Response
 // and returns relayPackets with the appropriate data
-func relayPacketFromQueryResponse(src, dst *PathEnd, res *sdk.TxResponse,
+func relayPacketFromQueryResponse(src, dst *PathEnd, res *ctypes.ResultTx,
 	sh *SyncHeaders) (rcvPackets []relayPacket, timeoutPackets []relayPacket, err error) {
-	for _, l := range res.Logs {
-		for _, e := range l.Events {
-			if e.Type == "send_packet" {
-				// NOTE: Src and Dst are switched here
-				rp := &relayMsgRecvPacket{pass: false}
-				for _, p := range e.Attributes {
-					if p.Key == "packet_src_channel" {
-						if p.Value != src.ChannelID {
-							rp.pass = true
-							continue
-						}
-					}
-					if p.Key == "packet_dst_channel" {
-						if p.Value != dst.ChannelID {
-							rp.pass = true
-							continue
-						}
-					}
-					if p.Key == "packet_src_port" {
-						if p.Value != src.PortID {
-							rp.pass = true
-							continue
-						}
-					}
-					if p.Key == "packet_dst_port" {
-						if p.Value != dst.PortID {
-							rp.pass = true
-							continue
-						}
-					}
-					if p.Key == "packet_data" {
-						rp.packetData = []byte(p.Value)
-					}
-					if p.Key == "packet_timeout_height" {
-						timeout, _ := strconv.ParseUint(p.Value, 10, 64)
-						rp.timeout = timeout
-					}
-					if p.Key == "packet_timeout_timestamp" {
-						timeout, _ := strconv.ParseUint(p.Value, 10, 64)
-						rp.timeoutStamp = timeout
-					}
-					if p.Key == "packet_sequence" {
-						seq, _ := strconv.ParseUint(p.Value, 10, 64)
-						rp.seq = seq
+	for _, e := range res.TxResult.Events {
+		if e.Type == "send_packet" {
+			// NOTE: Src and Dst are switched here
+			rp := &relayMsgRecvPacket{pass: false}
+			for _, p := range e.Attributes {
+				if string(p.Key) == "packet_src_channel" {
+					if string(p.Value) != src.ChannelID {
+						rp.pass = true
+						continue
 					}
 				}
+				if string(p.Key) == "packet_dst_channel" {
+					if string(p.Value) != dst.ChannelID {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == "packet_src_port" {
+					if string(p.Value) != src.PortID {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == "packet_dst_port" {
+					if string(p.Value) != dst.PortID {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == "packet_data" {
+					rp.packetData = []byte(p.Value)
+				}
+				if string(p.Key) == "packet_timeout_height" {
+					timeout, _ := strconv.ParseUint(strings.Split(string(p.Value), "-")[0], 10, 64)
+					rp.timeout = timeout
+				}
+				if string(p.Key) == "packet_timeout_timestamp" {
+					timeout, _ := strconv.ParseUint(string(p.Value), 10, 64)
+					rp.timeoutStamp = timeout
+				}
+				if string(p.Key) == "packet_sequence" {
+					seq, _ := strconv.ParseUint(string(p.Value), 10, 64)
+					rp.seq = seq
+				}
+			}
 
-				// if we have decided not to relay this packet, don't add it
-				switch {
-				case sh.GetHeight(src.ChainID) >= rp.timeout:
-					timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
-				case rp.timeoutStamp != 0 && time.Now().UnixNano() >= int64(rp.timeoutStamp):
-					timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
-				case !rp.pass:
-					rcvPackets = append(rcvPackets, rp)
-				}
+			// if we have decided not to relay this packet, don't add it
+			switch {
+			case sh.GetHeight(src.ChainID) >= rp.timeout:
+				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
+			case rp.timeoutStamp != 0 && time.Now().UnixNano() >= int64(rp.timeoutStamp):
+				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
+			case !rp.pass:
+				rcvPackets = append(rcvPackets, rp)
 			}
 		}
 	}

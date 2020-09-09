@@ -14,10 +14,10 @@ import (
 
 func xfersend() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "xfer-send [src-chain-id] [dst-chain-id] [amount] [source] [dst-addr]",
+		Use:   "xfer-send [src-chain-id] [dst-chain-id] [amount] [dst-addr]",
 		Short: "xfer-send",
 		Long:  "This sends tokens from a relayers configured wallet on chain src to a dst addr on dst",
-		Args:  cobra.ExactArgs(5),
+		Args:  cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			c, err := config.Chains.Gets(src, dst)
@@ -39,18 +39,17 @@ func xfersend() *cobra.Command {
 				return err
 			}
 
-			source, err := strconv.ParseBool(args[3])
-			if err != nil {
-				return err
-			}
-
+			// TODO: add ability to set timeout height and time from flags
+			// Should be relative to current time and block height
+			// --timeout-height-offset=1000
+			// --timeout-time-offset=2h
 			c[dst].UseSDKContext()
-			dstAddr, err := sdk.AccAddressFromBech32(args[4])
+			dstAddr, err := sdk.AccAddressFromBech32(args[3])
 			if err != nil {
 				return err
 			}
 
-			return c[src].SendTransferMsg(c[dst], amount, dstAddr, source)
+			return c[src].SendTransferMsg(c[dst], amount, dstAddr)
 		},
 	}
 	return pathFlag(cmd)

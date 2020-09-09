@@ -9,11 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
-	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	clientUtils "github.com/cosmos/cosmos-sdk/x/ibc/02-client/client/utils"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
@@ -319,12 +317,11 @@ func (c *Chain) QueryPacketCommitment(height int64, seq uint64) (comRes *chanTyp
 }
 
 // QueryPacketCommitments returns an array of packet commitment proofs
-func (c *Chain) QueryPacketCommitments(limit, offset uint64) (comRes []*chanTypes.PacketAckCommitment, err error) {
-	res, err := chanTypes.NewQueryClient(c.CLIContext(0)).PacketCommitments(context.Background(), &types.QueryPacketCommitmentsRequest{
+func (c *Chain) QueryPacketCommitments(offset, limit, height uint64) (comRes []*chanTypes.PacketAckCommitment, err error) {
+	res, err := chanTypes.NewQueryClient(c.CLIContext(int64(height))).PacketCommitments(context.Background(), &types.QueryPacketCommitmentsRequest{
 		PortId:    c.PathEnd.PortID,
 		ChannelId: c.PathEnd.ChannelID,
 		Pagination: &query.PageRequest{
-			Key:        []byte(""),
 			Offset:     offset,
 			Limit:      limit,
 			CountTotal: false,
@@ -333,35 +330,30 @@ func (c *Chain) QueryPacketCommitments(limit, offset uint64) (comRes []*chanType
 	return res.Commitments, err
 }
 
+// QueryUnrelayedPackets returns a list of unrelayed packet commitments
+func (c *Chain) QueryUnrelayedPackets(height uint64, seqs []uint64, acks bool) ([]uint64, error) {
+	res, err := chanTypes.NewQueryClient(c.CLIContext(int64(height))).UnrelayedPackets(context.Background(), &types.QueryUnrelayedPacketsRequest{
+		PortId:                    c.PathEnd.PortID,
+		ChannelId:                 c.PathEnd.ChannelID,
+		PacketCommitmentSequences: seqs,
+		Acknowledgements:          acks,
+	})
+	return res.Sequences, err
+
+}
+
 // QueryTx takes a transaction hash and returns the transaction
-func (c *Chain) QueryTx(hashHex string) (*sdk.TxResponse, error) {
+func (c *Chain) QueryTx(hashHex string) (*ctypes.ResultTx, error) {
 	hash, err := hex.DecodeString(hashHex)
 	if err != nil {
-		return &sdk.TxResponse{}, err
+		return &ctypes.ResultTx{}, err
 	}
 
-	resTx, err := c.Client.Tx(hash, true)
-	if err != nil {
-		return &sdk.TxResponse{}, err
-	}
-
-	// TODO: validate data coming back with local lite client
-
-	resBlocks, err := c.queryBlocksForTxResults([]*ctypes.ResultTx{resTx})
-	if err != nil {
-		return &sdk.TxResponse{}, err
-	}
-
-	out, err := c.formatTxResult(resTx, resBlocks[resTx.Height])
-	if err != nil {
-		return out, err
-	}
-
-	return out, nil
+	return c.Client.Tx(hash, true)
 }
 
 // QueryTxs returns an array of transactions given a tag
-func (c *Chain) QueryTxs(height uint64, page, limit int, events []string) (*sdk.SearchTxsResult, error) {
+func (c *Chain) QueryTxs(height uint64, page, limit int, events []string) ([]*ctypes.ResultTx, error) {
 	if len(events) == 0 {
 		return nil, errors.New("must declare at least one event to search")
 	}
@@ -374,30 +366,11 @@ func (c *Chain) QueryTxs(height uint64, page, limit int, events []string) (*sdk.
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	resTxs, err := c.Client.TxSearch(strings.Join(events, " AND "), true, &page, &limit, "")
+	res, err := c.Client.TxSearch(strings.Join(events, " AND "), true, &page, &limit, "")
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO: Enable lite client validation
-	// for _, tx := range resTxs.Txs {
-	// 	if err = c.ValidateTxResult(tx); err != nil {
-	// 		return nil, err
-	// 	}
-	// }
-
-	resBlocks, err := c.queryBlocksForTxResults(resTxs.Txs)
-	if err != nil {
-		return nil, err
-	}
-
-	txs, err := c.formatTxResults(resTxs.Txs, resBlocks)
-	if err != nil {
-		return nil, err
-	}
-
-	res := sdk.NewSearchTxsResult(resTxs.TotalCount, len(txs), page, limit, txs)
-	return &res, nil
+	return res.Txs, nil
 }
 
 // QueryABCI is an affordance for querying the ABCI server associated with a chain
@@ -549,56 +522,6 @@ func isQueryStoreWithProof(path string) bool {
 	}
 
 	return false
-}
-
-// queryBlocksForTxResults returns a map[blockHeight]txResult
-func (c *Chain) queryBlocksForTxResults(resTxs []*ctypes.ResultTx) (map[int64]*ctypes.ResultBlock, error) {
-	resBlocks := make(map[int64]*ctypes.ResultBlock)
-	for _, resTx := range resTxs {
-		if _, ok := resBlocks[resTx.Height]; !ok {
-			resBlock, err := c.Client.Block(&resTx.Height)
-			if err != nil {
-				return nil, err
-			}
-			resBlocks[resTx.Height] = resBlock
-		}
-	}
-	return resBlocks, nil
-}
-
-// formatTxResults parses the indexed txs into a slice of TxResponse objects.
-func (c *Chain) formatTxResults(resTxs []*ctypes.ResultTx,
-	resBlocks map[int64]*ctypes.ResultBlock) ([]*sdk.TxResponse, error) {
-	var err error
-	out := make([]*sdk.TxResponse, len(resTxs))
-	for i := range resTxs {
-		out[i], err = c.formatTxResult(resTxs[i], resBlocks[resTxs[i].Height])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return out, nil
-}
-
-// formatTxResult parses a tx into a TxResponse object
-func (c *Chain) formatTxResult(resTx *ctypes.ResultTx, resBlock *ctypes.ResultBlock) (*sdk.TxResponse, error) {
-	tx, err := parseTx(c.Amino, resTx.Tx)
-	if err != nil {
-		return &sdk.TxResponse{}, err
-	}
-
-	return sdk.NewResponseResultTx(resTx, tx, resBlock.Block.Time.Format(time.RFC3339)), nil
-}
-
-// Takes some bytes and a codec and returns an sdk.Tx
-func parseTx(cdc *codec.LegacyAmino, txBytes []byte) (sdk.Tx, error) {
-	var tx authTypes.StdTx
-	err := cdc.UnmarshalJSON(txBytes, &tx)
-	if err != nil {
-		return nil, err
-	}
-
-	return tx, nil
 }
 
 // ParseEvents takes events in the query format and reutrns

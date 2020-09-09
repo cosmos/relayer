@@ -22,3 +22,8 @@ echo "waiting for blocks..."
 sleep 5
 
 rly tx full-path demo -d -o 3s
+rly tx raw xfer-send ibc0 ibc1 10000000samoleans $(rly k s ibc1)
+rly tx raw xfer-send ibc0 ibc1 10000000samoleans $(rly k s ibc1)
+rly tx raw xfer-send ibc1 ibc0 10000000samoleans $(rly k s ibc0)
+rly tx raw xfer-send ibc1 ibc0 10000000samoleans $(rly k s ibc0)
+rly tx relay demo -d

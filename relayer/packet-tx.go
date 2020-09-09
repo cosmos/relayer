@@ -4,10 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	commitmentypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
 )
 
@@ -29,122 +26,12 @@ func defaultPacketTimeoutStamp() uint64 {
 // SendTransferBothSides sends a ICS20 packet from src to dst
 func (c *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin,
 	dstAddr fmt.Stringer, source bool) error {
-	if source {
-		amount.Denom = fmt.Sprintf("%s/%s/%s", dst.PathEnd.PortID, dst.PathEnd.ChannelID, amount.Denom)
-	} else {
-		amount.Denom = fmt.Sprintf("%s/%s/%s", c.PathEnd.PortID, c.PathEnd.ChannelID, amount.Denom)
-	}
-
-	dstHeader, err := dst.UpdateLiteWithHeader()
-	if err != nil {
-		return err
-	}
-
-	timeoutHeight := MustGetHeight(dstHeader.GetHeight()) + uint64(defaultPacketTimeout)
-
-	// Properly render the address string
-	dst.UseSDKContext()
-	dstAddrString := dstAddr.String()
-
-	// MsgTransfer will call SendPacket on src chain
-	// TODO: FIX
-	txs := RelayMsgs{
-		Src: []sdk.Msg{c.PathEnd.MsgTransfer(
-			dst.PathEnd, amount, dstAddrString, c.MustGetAddress(), 1, 1,
-		)},
-		Dst: []sdk.Msg{},
-	}
-
-	if txs.Send(c, dst); !txs.Success() {
-		return fmt.Errorf("failed to send first transaction")
-	}
-
-	// Working on SRC chain :point_up:
-	// Working on DST chain :point_down:
-
-	var (
-		srch, dsth   *tmclient.Header
-		seqRecv      *chanTypes.QueryNextSequenceReceiveResponse
-		seqSend      uint64
-		srcCommitRes *chanTypes.QueryPacketCommitmentResponse
-	)
-
-	if err = retry.Do(func() error {
-		srch, dsth, err = UpdatesWithHeaders(c, dst)
-		if err != nil {
-			return err
-		}
-
-		seqRecv, err = dst.QueryNextSeqRecv(dsth.Header.Height)
-		if err != nil {
-			return err
-		}
-
-		srcCommitRes, err = c.QueryPacketCommitment(srch.Header.Height, seqSend-1)
-		if err != nil {
-			return err
-		}
-
-		if srcCommitRes.Proof == nil {
-			return fmt.Errorf("proof nil, retrying")
-		}
-
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	// Properly render the source and destination address strings
-	c.UseSDKContext()
-	srcAddrString := c.MustGetAddress().String()
-
-	dst.UseSDKContext()
-	dstAddrString = dstAddr.String()
-
-	// reconstructing packet data here instead of retrieving from an indexed node
-	xferPacket := c.PathEnd.XferPacket(
-		amount,
-		srcAddrString,
-		dstAddrString,
-	)
-
-	updateHeader, err := InjectTrustedFields(c, dst, srch)
-	if err != nil {
-		return err
-	}
-	// Debugging by simply passing in the packet information that we know was sent earlier in the SendPacket
-	// part of the command. In a real relayer, this would be a separate command that retrieved the packet
-	// information from an indexing node
-	txs = RelayMsgs{
-		Dst: []sdk.Msg{
-			dst.PathEnd.UpdateClient(updateHeader, dst.MustGetAddress()),
-			dst.PathEnd.MsgRecvPacket(
-				c.PathEnd,
-				seqRecv.NextSequenceReceive,
-				timeoutHeight,
-				defaultPacketTimeoutStamp(),
-				xferPacket,
-				srcCommitRes.Proof,
-				MustGetHeight(srcCommitRes.ProofHeight),
-				dst.MustGetAddress(),
-			),
-		},
-		Src: []sdk.Msg{},
-	}
-
-	txs.Send(c, dst)
 	return nil
 }
 
 // SendTransferMsg initiates an ibs20 transfer from src to dst with the specified args
-func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringer, source bool) error {
-	if source {
-		amount.Denom = fmt.Sprintf("%s/%s/%s", dst.PathEnd.PortID, dst.PathEnd.ChannelID, amount.Denom)
-	} else {
-		amount.Denom = fmt.Sprintf("%s/%s/%s", c.PathEnd.PortID, c.PathEnd.ChannelID, amount.Denom)
-	}
-
-	_, err := dst.UpdateLiteWithHeader()
+func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringer) error {
+	h, err := dst.UpdateLiteWithHeader()
 	if err != nil {
 		return err
 	}
@@ -154,10 +41,10 @@ func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringe
 	dstAddrString := dstAddr.String()
 
 	// MsgTransfer will call SendPacket on src chain
-	// TODO: FIX
+	// TODO: Add ability to specify timeout time or height via command line flags
 	txs := RelayMsgs{
 		Src: []sdk.Msg{c.PathEnd.MsgTransfer(
-			dst.PathEnd, amount, dstAddrString, c.MustGetAddress(), 1, 1,
+			dst.PathEnd, amount, dstAddrString, c.MustGetAddress(), uint64(h.Header.Height+1000), 0,
 		)},
 		Dst: []sdk.Msg{},
 	}
@@ -167,29 +54,3 @@ func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringe
 	}
 	return nil
 }
-
-// TODO: reimplement
-// // SendPacket sends arbitrary bytes from src to dst
-// func (c *Chain) SendPacket(dst *Chain, packetData []byte) error {
-// 	dstHeader, err := dst.UpdateLiteWithHeader()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	// MsgSendPacket will call SendPacket on src chain
-// 	txs := RelayMsgs{
-// 		Src: []sdk.Msg{c.PathEnd.MsgSendPacket(
-// 			dst.PathEnd,
-// 			packetData,
-// 			dstHeader.GetHeight()+uint64(defaultPacketTimeout),
-// 			defaultPacketTimeoutStamp(),
-// 			c.MustGetAddress(),
-// 		)},
-// 		Dst: []sdk.Msg{},
-// 	}
-
-// 	if txs.Send(c, dst); !txs.success {
-// 		return fmt.Errorf("failed to send packet")
-// 	}
-// 	return nil
-// }
