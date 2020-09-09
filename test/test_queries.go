@@ -33,7 +33,7 @@ func testConnectionPair(t *testing.T, src, dst *ry.Chain) {
 
 // testConnection tests that the only connection on src has a counterparty that is the connection on dst
 func testConnection(t *testing.T, src, dst *ry.Chain) {
-	conns, err := src.QueryConnections(1, 1000)
+	conns, err := src.QueryConnections(0, 1000)
 	require.NoError(t, err)
 	require.Equal(t, len(conns), 1)
 	// conns[0].
@@ -61,10 +61,10 @@ func testChannelPair(t *testing.T, src, dst *ry.Chain) {
 
 // testChannel tests that the only channel on src is a counterparty of dst
 func testChannel(t *testing.T, src, dst *ry.Chain) {
-	chans, err := src.QueryChannels(1, 1000)
+	chans, err := src.QueryChannels(0, 1000)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(chans))
-	require.Equal(t, chans[0].Ordering.String(), "ORDER_ORDERED")
+	require.Equal(t, chans[0].Ordering.String(), "ORDER_UNORDERED")
 	require.Equal(t, chans[0].State.String(), "STATE_OPEN")
 	require.Equal(t, chans[0].Counterparty.ChannelId, dst.PathEnd.ChannelID)
 	require.Equal(t, chans[0].Counterparty.GetPortID(), dst.PathEnd.PortID)
@@ -74,7 +74,7 @@ func testChannel(t *testing.T, src, dst *ry.Chain) {
 
 	ch, err := src.QueryChannel(h.SyncInfo.LatestBlockHeight)
 	require.NoError(t, err)
-	require.Equal(t, ch.Channel.Ordering.String(), "ORDER_ORDERED")
+	require.Equal(t, ch.Channel.Ordering.String(), "ORDER_UNORDERED")
 	require.Equal(t, ch.Channel.State.String(), "STATE_OPEN")
 	require.Equal(t, ch.Channel.Counterparty.ChannelId, dst.PathEnd.ChannelID)
 	require.Equal(t, ch.Channel.Counterparty.GetPortID(), dst.PathEnd.PortID)
