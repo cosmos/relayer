@@ -305,6 +305,7 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 		if err != nil {
 			return err
 		}
+		fmt.Printf("Sending update client for chain(%s){%d} to chain(%s)\n", src.ChainID, updateHeader.Header.Height, dst.ChainID)
 		msgs.Dst = append([]sdk.Msg{dst.PathEnd.UpdateClient(updateHeader, dst.MustGetAddress())}, msgs.Dst...)
 	}
 	if len(msgs.Src) != 0 {

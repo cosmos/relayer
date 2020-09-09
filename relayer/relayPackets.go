@@ -68,10 +68,10 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
 		chanTypes.NewPacket(
 			rp.packetData,
 			rp.seq,
-			dst.PathEnd.PortID,
-			dst.PathEnd.ChannelID,
 			src.PathEnd.PortID,
 			src.PathEnd.ChannelID,
+			dst.PathEnd.PortID,
+			dst.PathEnd.ChannelID,
 			clientTypes.NewHeight(0, rp.timeout),
 			rp.timeoutStamp,
 		),
@@ -116,6 +116,7 @@ func (rp *relayMsgRecvPacket) Timeout() uint64 {
 }
 
 func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
+	fmt.Printf("Querying commit proof on chain(%s) for seq(%d) at height(%d)\n", dst.ChainID, rp.seq, sh.GetHeader(dst.ChainID).Header.Height-1)
 	var dstCommitRes *chanTypes.QueryPacketCommitmentResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
@@ -140,14 +141,15 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) sdk.Msg {
 	if rp.dstComRes == nil {
 		return nil
 	}
+	fmt.Printf("Creating NewMsgRecvPacket to send to chain(%s)\n", src.ChainID)
 	return chanTypes.NewMsgRecvPacket(
 		chanTypes.NewPacket(
 			rp.packetData,
 			rp.seq,
-			src.PathEnd.PortID,
-			src.PathEnd.ChannelID,
 			dst.PathEnd.PortID,
 			dst.PathEnd.ChannelID,
+			src.PathEnd.PortID,
+			src.PathEnd.ChannelID,
 			clientTypes.NewHeight(0, rp.timeout),
 			rp.timeoutStamp,
 		),

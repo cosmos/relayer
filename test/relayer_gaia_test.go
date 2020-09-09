@@ -44,12 +44,12 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 	testChannelPair(t, src, dst)
 
 	// send a couple of transfers to the queue on src
-	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.MustGetAddress(), true))
-	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.MustGetAddress(), true))
+	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.MustGetAddress()))
+	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.MustGetAddress()))
 
 	// send a couple of transfers to the queue on dst
-	require.NoError(t, dst.SendTransferMsg(src, testCoin, src.MustGetAddress(), true))
-	require.NoError(t, dst.SendTransferMsg(src, testCoin, src.MustGetAddress(), true))
+	require.NoError(t, dst.SendTransferMsg(src, testCoin, src.MustGetAddress()))
+	require.NoError(t, dst.SendTransferMsg(src, testCoin, src.MustGetAddress()))
 
 	// Wait for message inclusion in both chains
 	require.NoError(t, dst.WaitForNBlocks(1))
@@ -63,8 +63,8 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 	require.NoError(t, dst.WaitForNBlocks(1))
 
 	// send those tokens from dst back to dst and src back to src
-	require.NoError(t, src.SendTransferMsg(dst, twoTestCoin, dst.MustGetAddress(), false))
-	require.NoError(t, dst.SendTransferMsg(src, twoTestCoin, src.MustGetAddress(), false))
+	require.NoError(t, src.SendTransferMsg(dst, twoTestCoin, dst.MustGetAddress()))
+	require.NoError(t, dst.SendTransferMsg(src, twoTestCoin, src.MustGetAddress()))
 
 	// wait for packet processing
 	require.NoError(t, dst.WaitForNBlocks(6))
