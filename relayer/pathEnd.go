@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -265,13 +266,16 @@ func (pe *PathEnd) ChanCloseConfirm(dstChanState *chanTypes.QueryChannelResponse
 // MsgTransfer creates a new transfer message
 func (pe *PathEnd) MsgTransfer(dst *PathEnd, amount sdk.Coin, dstAddr string,
 	signer sdk.AccAddress, timeoutHeight, timeoutTimestamp uint64) sdk.Msg {
+	fmt.Println(clientTypes.NewHeight(0, timeoutHeight))
+	fmt.Println(clientTypes.NewHeight(0, timeoutHeight).IsZero())
+
 	return xferTypes.NewMsgTransfer(
 		pe.PortID,
 		pe.ChannelID,
 		amount,
 		signer,
 		dstAddr,
-		clientTypes.NewHeight(timeoutHeight, timeoutHeight),
+		clientTypes.NewHeight(0, timeoutHeight),
 		timeoutTimestamp,
 	)
 }

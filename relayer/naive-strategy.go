@@ -432,7 +432,8 @@ func relayPacketFromQueryResponse(src, dst *PathEnd, res *ctypes.ResultTx,
 					rp.packetData = []byte(p.Value)
 				}
 				if string(p.Key) == "packet_timeout_height" {
-					timeout, _ := strconv.ParseUint(strings.Split(string(p.Value), "-")[0], 10, 64)
+					fmt.Println("TIMEOUT HEIGHT VALUE:", string(p.Value))
+					timeout, _ := strconv.ParseUint(strings.Split(string(p.Value), "-")[1], 10, 64)
 					rp.timeout = timeout
 				}
 				if string(p.Key) == "packet_timeout_timestamp" {

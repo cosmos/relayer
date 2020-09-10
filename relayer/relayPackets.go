@@ -68,10 +68,10 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
 		chanTypes.NewPacket(
 			rp.packetData,
 			rp.seq,
-			src.PathEnd.PortID,
-			src.PathEnd.ChannelID,
 			dst.PathEnd.PortID,
 			dst.PathEnd.ChannelID,
+			src.PathEnd.PortID,
+			src.PathEnd.ChannelID,
 			clientTypes.NewHeight(0, rp.timeout),
 			rp.timeoutStamp,
 		),
