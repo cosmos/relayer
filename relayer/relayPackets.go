@@ -142,17 +142,20 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) sdk.Msg {
 		return nil
 	}
 	fmt.Printf("Creating NewMsgRecvPacket to send to chain(%s)\n", src.ChainID)
+	packet := chanTypes.NewPacket(
+		rp.packetData,
+		rp.seq,
+		dst.PathEnd.PortID,
+		dst.PathEnd.ChannelID,
+		src.PathEnd.PortID,
+		src.PathEnd.ChannelID,
+		clientTypes.NewHeight(0, rp.timeout),
+		rp.timeoutStamp,
+	)
+	fmt.Println("packet", packet)
+	fmt.Println("packetData", string(rp.packetData))
 	return chanTypes.NewMsgRecvPacket(
-		chanTypes.NewPacket(
-			rp.packetData,
-			rp.seq,
-			dst.PathEnd.PortID,
-			dst.PathEnd.ChannelID,
-			src.PathEnd.PortID,
-			src.PathEnd.ChannelID,
-			clientTypes.NewHeight(0, rp.timeout),
-			rp.timeoutStamp,
-		),
+		packet,
 		rp.dstComRes.Proof,
 		rp.dstComRes.ProofHeight,
 		src.MustGetAddress(),

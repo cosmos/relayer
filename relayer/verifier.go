@@ -85,58 +85,21 @@ func (c *Chain) UpdateLiteWithHeader() (*tmclient.Header, error) {
 	}
 
 	if sh == nil {
-		sh, err = client.TrustedHeader(0)
+		sh, err = client.TrustedLightBlock(0)
 		if err != nil {
 			return nil, liteError(err)
 		}
 	}
 
-	vs, _, err := client.TrustedValidatorSet(sh.Height)
-	if err != nil {
-		return nil, liteError(err)
-	}
-
-	protoVal, err := tmtypes.NewValidatorSet(vs.Validators).ToProto()
+	protoVal, err := tmtypes.NewValidatorSet(sh.ValidatorSet.Validators).ToProto()
 	if err != nil {
 		return nil, err
 	}
 
 	return &tmclient.Header{
-		SignedHeader: sh.ToProto(),
+		SignedHeader: sh.SignedHeader.ToProto(),
 		ValidatorSet: protoVal,
 	}, nil
-}
-
-// UpdateLiteWithHeaderHeight updates the lite client database to the given height
-func (c *Chain) UpdateLiteWithHeaderHeight(height int64) (*tmclient.Header, error) {
-	// create database connection
-	db, df, err := c.NewLiteDB()
-	if err != nil {
-		return nil, err
-	}
-	defer df()
-
-	client, err := c.LiteClientWithoutTrust(db)
-	if err != nil {
-		return nil, err
-	}
-
-	sh, err := client.VerifyHeaderAtHeight(height, time.Now())
-	if err != nil {
-		return nil, err
-	}
-
-	vs, _, err := client.TrustedValidatorSet(sh.Height)
-	if err != nil {
-		return nil, err
-	}
-
-	protoVal, err := tmtypes.NewValidatorSet(vs.Validators).ToProto()
-	if err != nil {
-		return nil, err
-	}
-
-	return &tmclient.Header{SignedHeader: sh.ToProto(), ValidatorSet: protoVal}, nil
 }
 
 // LiteHTTP returns the http client for lite clients
@@ -167,7 +130,7 @@ func (c *Chain) LiteClientWithoutTrust(db dbm.DB) (*lite.Client, error) {
 		return nil, err
 	}
 
-	header, err := prov.SignedHeader(height)
+	lb, err := prov.LightBlock(height)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +139,7 @@ func (c *Chain) LiteClientWithoutTrust(db dbm.DB) (*lite.Client, error) {
 		lite.TrustOptions{
 			Period: c.GetTrustingPeriod(),
 			Height: height,
-			Hash:   header.Hash(),
+			Hash:   lb.SignedHeader.Hash(),
 		},
 		prov,
 		// TODO: provide actual witnesses!
@@ -307,22 +270,17 @@ func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, err
 		return nil, err
 	}
 
-	sh, err := client.TrustedHeader(height)
+	sh, err := client.TrustedLightBlock(height)
 	if err != nil {
 		return nil, err
 	}
 
-	vs, _, err := client.TrustedValidatorSet(sh.Height)
+	protoVal, err := tmtypes.NewValidatorSet(sh.ValidatorSet.Validators).ToProto()
 	if err != nil {
 		return nil, err
 	}
 
-	protoVal, err := tmtypes.NewValidatorSet(vs.Validators).ToProto()
-	if err != nil {
-		return nil, err
-	}
-
-	return &tmclient.Header{SignedHeader: sh.ToProto(), ValidatorSet: protoVal}, nil
+	return &tmclient.Header{SignedHeader: sh.SignedHeader.ToProto(), ValidatorSet: protoVal}, nil
 }
 
 // ErrLiteNotInitialized returns the canonical error for a an uninitialized lite client

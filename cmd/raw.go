@@ -3,10 +3,8 @@ package cmd
 import (
 	"strings"
 
-	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	"github.com/ovrclk/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -60,23 +58,9 @@ func updateClientCmd() *cobra.Command {
 				return err
 			}
 
-			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
+			dstHeader, err := chains[dst].UpdateLiteWithHeader()
 			if err != nil {
 				return err
-			}
-
-			var dstHeader *tmclient.Header
-
-			if height > 0 {
-				dstHeader, err = chains[dst].UpdateLiteWithHeaderHeight(height)
-				if err != nil {
-					return err
-				}
-			} else {
-				dstHeader, err = chains[dst].UpdateLiteWithHeader()
-				if err != nil {
-					return err
-				}
 			}
 
 			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
@@ -87,7 +71,7 @@ func updateClientCmd() *cobra.Command {
 				chains[src], cmd)
 		},
 	}
-	return heightFlag(cmd)
+	return cmd
 }
 
 func createClientCmd() *cobra.Command {
