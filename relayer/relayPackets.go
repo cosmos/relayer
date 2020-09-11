@@ -123,7 +123,13 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeade
 		dstCommitRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
 		if err != nil {
 			return err
-		} else if dstCommitRes.Proof == nil {
+		} else if dstCommitRes.Proof == nil || dstCommitRes.Commitment == nil {
+			if err := sh.Update(src); err != nil {
+				return err
+			}
+			if err := sh.Update(dst); err != nil {
+				return err
+			}
 			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)",
 				dst.ChainID, int64(sh.GetHeight(dst.ChainID)), rp.seq)
 		}
