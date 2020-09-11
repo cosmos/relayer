@@ -75,12 +75,12 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 	// check balance on src against expected
 	srcGot, err := src.QueryBalance(src.Key)
 	require.NoError(t, err)
-	require.Equal(t, srcExpected.AmountOf(testDenom).Int64(), srcGot.AmountOf(testDenom).Int64())
+	require.Equal(t, srcExpected.AmountOf(testDenom).Int64()-4000, srcGot.AmountOf(testDenom).Int64())
 
 	// check balance on dst against expected
 	dstGot, err := dst.QueryBalance(dst.Key)
 	require.NoError(t, err)
-	require.Equal(t, dstExpected.AmountOf(testDenom).Int64(), dstGot.AmountOf(testDenom).Int64())
+	require.Equal(t, dstExpected.AmountOf(testDenom).Int64()-4000, dstGot.AmountOf(testDenom).Int64())
 
 	// Test the full transfer command as well
 	require.NoError(t, src.SendTransferBothSides(dst, testCoin, dst.MustGetAddress(), true))
@@ -89,10 +89,10 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 	// check balance on src against expected
 	srcGot, err = src.QueryBalance(src.Key)
 	require.NoError(t, err)
-	require.Equal(t, srcExpected.AmountOf(testDenom).Int64(), srcGot.AmountOf(testDenom).Int64())
+	require.Equal(t, srcExpected.AmountOf(testDenom).Int64()-4000, srcGot.AmountOf(testDenom).Int64())
 
 	// check balance on dst against expected
 	dstGot, err = dst.QueryBalance(dst.Key)
 	require.NoError(t, err)
-	require.Equal(t, dstExpected.AmountOf(testDenom).Int64(), dstGot.AmountOf(testDenom).Int64())
+	require.Equal(t, dstExpected.AmountOf(testDenom).Int64()-4000, dstGot.AmountOf(testDenom).Int64())
 }

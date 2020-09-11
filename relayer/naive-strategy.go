@@ -305,7 +305,6 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Sending update client for chain(%s){%d} to chain(%s)\n", src.ChainID, updateHeader.Header.Height, dst.ChainID)
 		msgs.Dst = append([]sdk.Msg{dst.PathEnd.UpdateClient(updateHeader, dst.MustGetAddress())}, msgs.Dst...)
 	}
 	if len(msgs.Src) != 0 {
@@ -432,7 +431,6 @@ func relayPacketFromQueryResponse(src, dst *PathEnd, res *ctypes.ResultTx,
 					rp.packetData = []byte(p.Value)
 				}
 				if string(p.Key) == "packet_timeout_height" {
-					fmt.Println("TIMEOUT HEIGHT VALUE:", string(p.Value))
 					timeout, _ := strconv.ParseUint(strings.Split(string(p.Value), "-")[1], 10, 64)
 					rp.timeout = timeout
 				}
