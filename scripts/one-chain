@@ -44,8 +44,8 @@ coins="100000000000stake,100000000000samoleans"
 gaiad --home $CHAINDIR/$CHAINID --chain-id $CHAINID init $CHAINID &> /dev/null
 gaiad --home $CHAINDIR/$CHAINID keys add validator --keyring-backend="test" > $CHAINDIR/$CHAINID/validator_seed.json 2> /dev/null
 gaiad --home $CHAINDIR/$CHAINID keys add user --keyring-backend="test" --output json > $CHAINDIR/$CHAINID/key_seed.json 2> /dev/null
-gaiad --home $CHAINDIR/$CHAINID add-genesis-account validator $coins --keyring-backend="test" &> /dev/null
-gaiad --home $CHAINDIR/$CHAINID add-genesis-account user $coins --keyring-backend="test" &> /dev/null
+gaiad --home $CHAINDIR/$CHAINID add-genesis-account $(gaiad --home $CHAINDIR/$CHAINID keys --keyring-backend="test" show user -a) $coins &> /dev/null
+gaiad --home $CHAINDIR/$CHAINID add-genesis-account $(gaiad --home $CHAINDIR/$CHAINID keys --keyring-backend="test" show validator -a) $coins  &> /dev/null
 gaiad --home $CHAINDIR/$CHAINID gentx validator --keyring-backend="test" --chain-id $CHAINID &> /dev/null
 gaiad --home $CHAINDIR/$CHAINID collect-gentxs &> /dev/null
 
