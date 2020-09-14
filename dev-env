@@ -23,4 +23,6 @@ sleep 5
 
 rly tx full-path demo -d -o 3s
 rly tx raw xfer-send ibc0 ibc1 10000000samoleans $(rly k s ibc1)
+rly tx raw xfer-send ibc0 ibc1 10000000samoleans $(rly k s ibc1)
 rly tx relay demo -d
+rly q bal ibc1 | jq

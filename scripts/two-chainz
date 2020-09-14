@@ -38,7 +38,7 @@ if [[ -d $GAIA_REPO ]]; then
   # remote build syncs with remote then builds
   if [[ "$1" == "local" ]]; then
     echo "Using local version of github.com/cosmos/gaia"
-    make install #&> /dev/null
+    make install &> /dev/null
   else
     echo "Building github.com/cosmos/gaia@$GAIA_BRANCH..."
     if [[ ! -n $(git status -s) ]]; then
@@ -53,7 +53,7 @@ if [[ -d $GAIA_REPO ]]; then
       fi
 
       # install
-      make install #&> /dev/null
+      make install &> /dev/null
 
       # ensure that built binary has the same version as the repo
       if [[ ! "$(gaiad version --long 2>&1 | grep "commit:" | sed 's/commit: //g')" == "$(git rev-parse HEAD)" ]]; then

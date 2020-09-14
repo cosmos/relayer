@@ -19,9 +19,12 @@ func (c *Chain) LogFailedTx(res *sdk.TxResponse, err error, msgs []sdk.Msg) {
 
 	if err != nil {
 		c.logger.Error(fmt.Errorf("- [%s] -> err(%v)", c.ChainID, err).Error())
+		if res == nil {
+			return
+		}
 	}
 
-	if res.Codespace != "" && res.Code != 0 {
+	if res.Code != 0 && res.Codespace != "" {
 		c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%s:%d:%s)",
 			c.ChainID, res.Height, getMsgAction(msgs), res.Codespace, res.Code, res.RawLog))
 	}
@@ -46,11 +49,11 @@ func logChannelStates(src, dst *Chain, srcChan, dstChan *chanTypes.QueryChannelR
 	// TODO: replace channelID with portID?
 	src.Log(fmt.Sprintf("- [%s]@{%d}chan(%s)-{%s} : [%s]@{%d}chan(%s)-{%s}",
 		src.ChainID,
-		srcChan.ProofHeight,
+		MustGetHeight(srcChan.ProofHeight),
 		src.PathEnd.ChannelID,
 		srcChan.Channel.State,
 		dst.ChainID,
-		dstChan.ProofHeight,
+		MustGetHeight(dstChan.ProofHeight),
 		dst.PathEnd.ChannelID,
 		dstChan.Channel.State,
 	))
@@ -59,11 +62,11 @@ func logChannelStates(src, dst *Chain, srcChan, dstChan *chanTypes.QueryChannelR
 func logConnectionStates(src, dst *Chain, srcConn, dstConn *connTypes.QueryConnectionResponse) {
 	src.Log(fmt.Sprintf("- [%s]@{%d}conn(%s)-{%s} : [%s]@{%d}conn(%s)-{%s}",
 		src.ChainID,
-		srcConn.ProofHeight,
+		MustGetHeight(srcConn.ProofHeight),
 		src.PathEnd.ConnectionID,
 		srcConn.Connection.State,
 		dst.ChainID,
-		dstConn.ProofHeight,
+		MustGetHeight(dstConn.ProofHeight),
 		dst.PathEnd.ConnectionID,
 		dstConn.Connection.State,
 	))
