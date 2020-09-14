@@ -26,22 +26,22 @@ import (
 )
 
 // chainCmd represents the keys command
-func liteCmd() *cobra.Command {
+func lightCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "lite",
+		Use:     "light",
 		Aliases: []string{"l"},
-		Short:   "manage lite clients held by the relayer for each chain",
+		Short:   "manage light clients held by the relayer for each chain",
 	}
 
-	cmd.AddCommand(liteHeaderCmd())
-	cmd.AddCommand(initLiteCmd())
-	cmd.AddCommand(updateLiteCmd())
-	cmd.AddCommand(deleteLiteCmd())
+	cmd.AddCommand(lightHeaderCmd())
+	cmd.AddCommand(initLightCmd())
+	cmd.AddCommand(updateLightCmd())
+	cmd.AddCommand(deleteLightCmd())
 
 	return cmd
 }
 
-func initLiteCmd() *cobra.Command {
+func initLightCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "init [chain-id]",
 		Aliases: []string{"i"},
@@ -56,7 +56,7 @@ func initLiteCmd() *cobra.Command {
 				return err
 			}
 
-			db, df, err := chain.NewLiteDB()
+			db, df, err := chain.NewLightDB()
 			if err != nil {
 				return err
 			}
@@ -77,12 +77,12 @@ func initLiteCmd() *cobra.Command {
 
 			switch {
 			case force: // force initialization from trusted node
-				_, err = chain.LiteClientWithoutTrust(db)
+				_, err = chain.LightClientWithoutTrust(db)
 				if err != nil {
 					return err
 				}
 			case height > 0 && len(hash) > 0: // height and hash are given
-				_, err = chain.LiteClientWithTrust(db, chain.TrustOptions(height, hash))
+				_, err = chain.LightClientWithTrust(db, chain.TrustOptions(height, hash))
 				if err != nil {
 					return wrapInitFailed(err)
 				}
@@ -94,75 +94,47 @@ func initLiteCmd() *cobra.Command {
 		},
 	}
 
-	return forceFlag(liteFlags(cmd))
+	return forceFlag(lightFlags(cmd))
 }
 
-func updateLiteCmd() *cobra.Command {
+func updateLightCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "update [chain-id]",
 		Aliases: []string{"u"},
-		Short:   "Update the light client by providing a new root of trust",
-		Long: `Update the light client by
-	1. providing a new root of trust as a --hash/-x and --height
-	2. via --url/-u where trust options can be found
-	3. updating from the configured node by passing no flags`,
-		Args: cobra.ExactArgs(1),
+		Short:   "Update the light client to latest header from configured node",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
 
-			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
-			if err != nil {
-				return err
-			}
-			hash, err := cmd.Flags().GetBytesHex(flagHash)
+			bh, err := chain.GetLatestLightHeader()
 			if err != nil {
 				return err
 			}
 
-			switch {
-			case height > 0 && len(hash) > 0: // height and hash are given
-				db, df, err := chain.NewLiteDB()
-				if err != nil {
-					return err
-				}
-				defer df()
-
-				_, err = chain.LiteClientWithTrust(db, chain.TrustOptions(height, hash))
-				if err != nil {
-					return wrapInitFailed(err)
-				}
-			default: // nothing is given => update existing client
-				// NOTE: "Update the light client by providing a new root of trust"
-				// does not mention this at all. I mean that we can update existing
-				// client by calling "update [chain-id]".
-				//
-				// Since first two conditions essentially repeat initLiteCmd above, I
-				// think we should remove first two conditions here and just make
-				// updateLiteCmd only about updating the light client to latest header
-				// (i.e. not mix responsibilities).
-				_, err = chain.UpdateLiteWithHeader()
-				if err != nil {
-					return wrapIncorrectHeader(err)
-				}
+			ah, err := chain.UpdateLightWithHeader()
+			if err != nil {
+				return err
 			}
 
+			// TODO: more fun printing here like time deltas?
+			fmt.Printf("Updated light client for %s from height %d -> height %d\n", args[0], bh.Header.Height, ah.Header.Height)
 			return nil
 		},
 	}
 
-	return liteFlags(cmd)
+	return cmd
 }
 
-func liteHeaderCmd() *cobra.Command {
+func lightHeaderCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "header [chain-id] [height]",
+		Use:     "header [chain-id] [[height]]",
 		Aliases: []string{"hdr"},
-		Short: "Get header from the database. 0 returns last trusted header and " +
-			"all others return the header at that height if stored",
-		Args: cobra.RangeArgs(1, 2),
+		Short:   "Get a header from the light client database",
+		Long:    "Get a header from the light client database. 0 returns last trusted header and all others return the header at that height if stored",
+		Args:    cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainID := args[0]
 			chain, err := config.Chains.Get(chainID)
@@ -174,7 +146,7 @@ func liteHeaderCmd() *cobra.Command {
 
 			switch len(args) {
 			case 1:
-				header, err = chain.GetLatestLiteHeader()
+				header, err = chain.GetLatestLightHeader()
 				if err != nil {
 					return err
 				}
@@ -186,17 +158,17 @@ func liteHeaderCmd() *cobra.Command {
 				}
 
 				if height == 0 {
-					height, err = chain.GetLatestLiteHeight()
+					height, err = chain.GetLatestLightHeight()
 					if err != nil {
 						return err
 					}
 
 					if height == -1 {
-						return relayer.ErrLiteNotInitialized
+						return relayer.ErrLightNotInitialized
 					}
 				}
 
-				header, err = chain.GetLiteSignedHeaderAtHeight(height)
+				header, err = chain.GetLightSignedHeaderAtHeight(height)
 				if err != nil {
 					return err
 				}
@@ -215,11 +187,11 @@ func liteHeaderCmd() *cobra.Command {
 	return cmd
 }
 
-func deleteLiteCmd() *cobra.Command {
+func deleteLightCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "delete [chain-id]",
 		Aliases: []string{"d"},
-		Short:   "wipe the lite client database, forcing re-initialzation on the next run",
+		Short:   "wipe the light client database, forcing re-initialzation on the next run",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainID := args[0]
@@ -228,7 +200,7 @@ func deleteLiteCmd() *cobra.Command {
 				return err
 			}
 
-			err = chain.DeleteLiteDB()
+			err = chain.DeleteLightDB()
 			if err != nil {
 				return err
 			}

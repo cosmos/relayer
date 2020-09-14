@@ -31,7 +31,7 @@ func (c *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin,
 
 // SendTransferMsg initiates an ibs20 transfer from src to dst with the specified args
 func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringer) error {
-	h, err := dst.UpdateLiteWithHeader()
+	h, err := dst.UpdateLightWithHeader()
 	if err != nil {
 		return err
 	}

@@ -28,7 +28,7 @@ type SyncHeaders struct {
 
 // Update the header for a given chain
 func (uh *SyncHeaders) Update(c *Chain) error {
-	hd, err := c.UpdateLiteWithHeader()
+	hd, err := c.UpdateLightWithHeader()
 	if err != nil {
 		return err
 	}

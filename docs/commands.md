@@ -8,7 +8,7 @@ This application relays data between configured IBC enabled chains
 
 The relayer has commands for:
   1. Configuration of the Chains and Paths that the relayer with transfer packets over
-  2. Management of keys and lite clients on the local machine that will be used to sign and verify txs
+  2. Management of keys and light clients on the local machine that will be used to sign and verify txs
   3. Query and transaction functionality for IBC
   4. A responsive relaying application that listens on a path
   5. Commands to assist with development, testnets, and stuff
@@ -53,11 +53,11 @@ NOTE: Most of the commands have aliases that make typing them much quicker (i.e.
     - [rly keys list](#rly-keys-list)
     - [rly keys restore](#rly-keys-restore)
     - [rly keys show](#rly-keys-show)
-  - [rly lite](#rly-lite)
-    - [rly lite delete](#rly-lite-delete)
-    - [rly lite header](#rly-lite-header)
-    - [rly lite init](#rly-lite-init)
-    - [rly lite update](#rly-lite-update)
+  - [rly light](#rly-light)
+    - [rly light delete](#rly-light-delete)
+    - [rly light header](#rly-light-header)
+    - [rly light init](#rly-light-init)
+    - [rly light update](#rly-light-update)
   - [rly paths](#rly-paths)
     - [rly paths add](#rly-paths-add)
     - [rly paths delete](#rly-paths-delete)
@@ -182,11 +182,11 @@ rly chains address [chain-id]
 
 ## rly chains delete
 
-Deletes the chain cofiguration data (does not clear lite client or close and channels)
+Deletes the chain cofiguration data (does not clear light client or close and channels)
 
 ### Synopsis
 
-Deletes the chain cofiguration data (does not clear lite client or close and channels)
+Deletes the chain cofiguration data (does not clear light client or close and channels)
 
 ```
 rly chains delete [chain-id] [flags]
@@ -486,35 +486,35 @@ rly keys show [chain-id] [[name]] [flags]
 ```
 
 
-## rly lite
+## rly light
 
-manage lite clients held by the relayer for each chain
+manage light clients held by the relayer for each chain
 
 ### Synopsis
 
-manage lite clients held by the relayer for each chain
+manage light clients held by the relayer for each chain
 
 ### Subcommands
 
-* [rly lite delete](#rly-lite-delete)	 - wipe the lite client database, forcing re-initialzation on the next run
-* [rly lite header](#rly-lite-header)	 - Get header from the database. 0 returns last trusted header and all others return the header at that height if stored
-* [rly lite init](#rly-lite-init)	 - Initiate the light client
-* [rly lite update](#rly-lite-update)	 - Update the light client by providing a new root of trust
+* [rly light delete](#rly-light-delete)	 - wipe the light client database, forcing re-initialzation on the next run
+* [rly light header](#rly-light-header)	 - Get header from the database. 0 returns last trusted header and all others return the header at that height if stored
+* [rly light init](#rly-light-init)	 - Initiate the light client
+* [rly light update](#rly-light-update)	 - Update the light client by providing a new root of trust
 
-## rly lite delete
+## rly light delete
 
-wipe the lite client database, forcing re-initialzation on the next run
+wipe the light client database, forcing re-initialzation on the next run
 
 ### Synopsis
 
-wipe the lite client database, forcing re-initialzation on the next run
+wipe the light client database, forcing re-initialzation on the next run
 
 ```
-rly lite delete [chain-id] [flags]
+rly light delete [chain-id] [flags]
 ```
 
 
-## rly lite header
+## rly light header
 
 Get header from the database. 0 returns last trusted header and all others return the header at that height if stored
 
@@ -523,11 +523,11 @@ Get header from the database. 0 returns last trusted header and all others retur
 Get header from the database. 0 returns last trusted header and all others return the header at that height if stored
 
 ```
-rly lite header [chain-id] [height] [flags]
+rly light header [chain-id] [height] [flags]
 ```
 
 
-## rly lite init
+## rly light init
 
 Initiate the light client
 
@@ -539,20 +539,20 @@ Initiate the light client by:
 	3. Use --force/-f to initalize from the configured node
 
 ```
-rly lite init [chain-id] [flags]
+rly light init [chain-id] [flags]
 ```
 
 ### Options
 
 ```
-  -f, --force           option to force non-standard behavior such as initialization of lite client from configured chain or generation of new path
+  -f, --force           option to force non-standard behavior such as initialization of light client from configured chain or generation of new path
   -x, --hash bytesHex   Trusted header's hash
       --height int      Trusted header's height (default -1)
   -u, --url string      Optional URL to fetch trusted-hash and trusted-height
 ```
 
 
-## rly lite update
+## rly light update
 
 Update the light client by providing a new root of trust
 
@@ -564,7 +564,7 @@ Update the light client by
 	3. updating from the configured node by passing no flags
 
 ```
-rly lite update [chain-id] [flags]
+rly light update [chain-id] [flags]
 ```
 
 ### Options
@@ -654,7 +654,7 @@ rly paths generate [src-chain-id] [src-port] [dst-chain-id] [dst-port] [name] [f
 ### Options
 
 ```
-  -f, --force       option to force non-standard behavior such as initialization of lite client from configured chain or generation of new path
+  -f, --force       option to force non-standard behavior such as initialization of light client from configured chain or generation of new path
   -o, --unordered   create an unordered channel
 ```
 
@@ -935,7 +935,7 @@ rly query header [chain-id] [height] [flags]
 ### Options
 
 ```
-  -f, --flags   pass flag to output the flags for lite init/update
+  -f, --flags   pass flag to output the flags for light init/update
 ```
 
 

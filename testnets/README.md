@@ -133,8 +133,8 @@ rly keys add {{chain_id}} testkey
 # confiure the chain to use that key by default
 rly ch edit {{chain_id}} key testkey
 
-# initialize the lite client for {{chain_id}}
-rly lite init {{chain_id}} -f
+# initialize the light client for {{chain_id}}
+rly light init {{chain_id}} -f
 
 # request funds from the faucet to test it
 rly tst request {{chain_id}} testkey
@@ -164,8 +164,8 @@ rly ch a -f testnets/relayer-alpha-2/pylonchain.json
 # or add all the chain configurations for the testnet at once...
 rly chains add-dir testnets/relayer-alpha-2/
 
-# ensure the lite clients are created locally...
-rly lite init {{src_chain_id}} -f 
+# ensure the light clients are created locally...
+rly light init {{src_chain_id}} -f 
 rly l i {{dst_chain_id}} -f
 
 # ensure each chain has its appropriate key...

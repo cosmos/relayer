@@ -278,15 +278,15 @@ func defaultConfig() []byte {
 
 // GlobalConfig describes any global relayer settings
 type GlobalConfig struct {
-	Timeout       string `yaml:"timeout" json:"timeout"`
-	LiteCacheSize int    `yaml:"lite-cache-size" json:"lite-cache-size"`
+	Timeout        string `yaml:"timeout" json:"timeout"`
+	LightCacheSize int    `yaml:"light-cache-size" json:"light-cache-size"`
 }
 
 // newDefaultGlobalConfig returns a global config with defaults set
 func newDefaultGlobalConfig() GlobalConfig {
 	return GlobalConfig{
-		Timeout:       "10s",
-		LiteCacheSize: 20,
+		Timeout:        "10s",
+		LightCacheSize: 20,
 	}
 }
 

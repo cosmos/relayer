@@ -196,10 +196,10 @@ func chainsListCmd() *cobra.Command {
 			default:
 				for i, c := range config.Chains {
 					var (
-						lite = xIcon
-						key  = xIcon
-						path = xIcon
-						bal  = xIcon
+						light = xIcon
+						key   = xIcon
+						path  = xIcon
+						bal   = xIcon
 					)
 					_, err := c.GetAddress()
 					if err == nil {
@@ -211,9 +211,9 @@ func chainsListCmd() *cobra.Command {
 						bal = check
 					}
 
-					_, err = c.GetLatestLiteHeader()
+					_, err = c.GetLatestLightHeader()
 					if err == nil {
-						lite = check
+						light = check
 					}
 
 					for _, pth := range config.Paths {
@@ -221,7 +221,7 @@ func chainsListCmd() *cobra.Command {
 							path = check
 						}
 					}
-					fmt.Printf("%2d: %-20s -> key(%s) bal(%s) lite(%s) path(%s)\n", i, c.ChainID, key, bal, lite, path)
+					fmt.Printf("%2d: %-20s -> key(%s) bal(%s) light(%s) path(%s)\n", i, c.ChainID, key, bal, light, path)
 				}
 				return nil
 			}

@@ -34,7 +34,7 @@ SEED0=$(jq -r '.mnemonic' $GAIA_CONF/ibc0/key_seed.json)
 SEED1=$(jq -r '.mnemonic' $GAIA_CONF/ibc1/key_seed.json)
 echo "Key $(rly keys restore ibc0 testkey "$SEED0") imported from ibc0 to relayer..."
 echo "Key $(rly keys restore ibc1 testkey "$SEED1") imported from ibc1 to relayer..."
-echo "Creating lite clients..."
+echo "Creating light clients..."
 sleep 3
-rly lite init ibc0 -f
-rly lite init ibc1 -f
+rly light init ibc0 -f
+rly light init ibc1 -f

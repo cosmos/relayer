@@ -95,7 +95,7 @@ documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.
 				return err
 			}
 
-			h, err := chain.UpdateLiteWithHeader()
+			h, err := chain.UpdateLightWithHeader()
 			if err != nil {
 				return err
 			}
@@ -215,7 +215,7 @@ func queryHeaderCmd() *cobra.Command {
 					}
 
 					if height == -1 {
-						return relayer.ErrLiteNotInitialized
+						return relayer.ErrLightNotInitialized
 					}
 				}
 

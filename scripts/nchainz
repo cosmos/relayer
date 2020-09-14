@@ -479,15 +479,15 @@ clients)
         echo "$chainid is not yet ready (try=$try)"
         sleep 1
       done
-      echo "Creating lite client for $chainid ($DAEMON)..."
+      echo "Creating light client for $chainid ($DAEMON)..."
       try=0
-      while ! rly lite init $chainid -f >> "$LOGS/lite-$chainid.log" 2>&1; do
+      while ! rly light init $chainid -f >> "$LOGS/light-$chainid.log" 2>&1; do
         try=$(( $try + 1 ))
-        echo "$chainid lite client not yet ready (try=$try)"
+        echo "$chainid light client not yet ready (try=$try)"
         sleep 1
       done
       try=$(( $try + 1 ))
-      echo "$chainid lite client initialized (try=$try)"
+      echo "$chainid light client initialized (try=$try)"
     ) &
   done
 
@@ -498,7 +498,7 @@ clients)
     ID=${IDS[$i]}
     json=${JSONS[$i]}
     
-    CMD=$(jq -r '."post-lite-client"' $json)
+    CMD=$(jq -r '."post-light-client"' $json)
 
     [[ $CMD != null ]] || continue
     (

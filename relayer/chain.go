@@ -331,8 +331,8 @@ func keysDir(home, chainID string) string {
 	return path.Join(home, "keys", chainID)
 }
 
-func liteDir(home string) string {
-	return path.Join(home, "lite")
+func lightDir(home string) string {
+	return path.Join(home, "light")
 }
 
 // GetAddress returns the sdk.AccAddress associated with the configred key

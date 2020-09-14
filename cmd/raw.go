@@ -58,7 +58,7 @@ func updateClientCmd() *cobra.Command {
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLiteWithHeader()
+			dstHeader, err := chains[dst].UpdateLightWithHeader()
 			if err != nil {
 				return err
 			}
@@ -87,7 +87,7 @@ func createClientCmd() *cobra.Command {
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLiteWithHeader()
+			dstHeader, err := chains[dst].UpdateLightWithHeader()
 			if err != nil {
 				return err
 			}
@@ -403,7 +403,7 @@ func chanTry() *cobra.Command {
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLiteWithHeader()
+			dstHeader, err := chains[dst].UpdateLightWithHeader()
 			if err != nil {
 				return err
 			}
@@ -449,7 +449,7 @@ func chanAck() *cobra.Command {
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLiteWithHeader()
+			dstHeader, err := chains[dst].UpdateLightWithHeader()
 			if err != nil {
 				return err
 			}
@@ -495,7 +495,7 @@ func chanConfirm() *cobra.Command {
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLiteWithHeader()
+			dstHeader, err := chains[dst].UpdateLightWithHeader()
 			if err != nil {
 				return err
 			}
@@ -606,7 +606,7 @@ func chanCloseConfirm() *cobra.Command {
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLiteWithHeader()
+			dstHeader, err := chains[dst].UpdateLightWithHeader()
 			if err != nil {
 				return err
 			}

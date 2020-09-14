@@ -161,8 +161,8 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 
 	c.Log(fmt.Sprintf("- [%s] CONTAINER AVAILABLE AT PORT %s", c.ChainID, c.RPCAddr))
 
-	// initialize the lite client
-	require.NoError(t, c.ForceInitLite())
+	// initialize the light client
+	require.NoError(t, c.ForceInitLight())
 
 	rchan <- resource
 }

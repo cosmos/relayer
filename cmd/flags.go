@@ -28,7 +28,7 @@ var (
 	flagMaxMsgLength = "max-msgs"
 )
 
-func liteFlags(cmd *cobra.Command) *cobra.Command {
+func lightFlags(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Int64(flags.FlagHeight, -1, "Trusted header's height")
 	cmd.Flags().BytesHexP(flagHash, "x", []byte{}, "Trusted header's hash")
 	if err := viper.BindPFlag(flags.FlagHeight, cmd.Flags().Lookup(flags.FlagHeight)); err != nil {
@@ -139,7 +139,7 @@ func timeoutFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func forceFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP(flagForce, "f", false, "option to force non-standard behavior such as initialization of lite client from configured chain or generation of new path") //nolint:lll
+	cmd.Flags().BoolP(flagForce, "f", false, "option to force non-standard behavior such as initialization of light client from configured chain or generation of new path") //nolint:lll
 	if err := viper.BindPFlag(flagForce, cmd.Flags().Lookup(flagForce)); err != nil {
 		panic(err)
 	}
@@ -147,7 +147,7 @@ func forceFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func flagsFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP(flagFlags, "f", false, "pass flag to output the flags for lite init/update")
+	cmd.Flags().BoolP(flagFlags, "f", false, "pass flag to output the flags for light init/update")
 	if err := viper.BindPFlag(flagFlags, cmd.Flags().Lookup(flagFlags)); err != nil {
 		panic(err)
 	}

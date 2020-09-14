@@ -498,7 +498,7 @@ func (c *Chain) QueryHeaderAtHeight(height int64) (*tmclient.Header, error) {
 
 	return &tmclient.Header{
 		// NOTE: This is not a SignedHeader
-		// We are missing a lite.Commit type here
+		// We are missing a light.Commit type here
 		SignedHeader: res.SignedHeader.ToProto(),
 		ValidatorSet: protoVal,
 	}, nil
