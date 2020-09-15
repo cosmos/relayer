@@ -67,17 +67,48 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 	}
 
 	eg.Go(func() error {
-		res, err := src.QueryUnrelayedPackets(sh.GetHeight(src.ChainID), srcPacketSeq, false)
-		if len(res) > 0 {
-			rs.Src = res
+		// Query all packets sent by src that have been received by dst
+		recvd, err := dst.QueryUnrelayedPackets(sh.GetHeight(dst.ChainID), srcPacketSeq, true)
+		if err != nil {
+			return err
 		}
+		// Iterate over all packets commitment sequences still remaining on dst,
+		// and add if the sequence has not been processed by dst
+		for _, packet := range srcPacketSeq {
+			processed := false
+			for _, r := range recvd {
+				if packet == r {
+					processed = true
+				}
+			}
+			if !processed {
+				rs.Src = append(rs.Src, packet)
+			}
+		}
+
 		return err
 	})
 	eg.Go(func() error {
-		res, err := dst.QueryUnrelayedPackets(sh.GetHeight(dst.ChainID), dstPacketSeq, false)
-		if len(res) > 0 {
-			rs.Dst = res
+		// Query all packets sent by dst that have been received by src
+		recvd, err := src.QueryUnrelayedPackets(sh.GetHeight(src.ChainID), dstPacketSeq, true)
+		if err != nil {
+			return err
 		}
+		// Iterate over all packets commitment sequences still remaining on dst,
+		// and add if the sequence has not been processed by dst
+		for _, packet := range dstPacketSeq {
+			processed := false
+			for _, r := range recvd {
+				if packet == r {
+					processed = true
+				}
+			}
+
+			if !processed {
+				rs.Dst = append(rs.Dst, packet)
+			}
+		}
+
 		return err
 	})
 
