@@ -111,7 +111,7 @@ NOTE: Most of the commands have aliases that make typing them much quicker (i.e.
       - [rly transact raw conn-try](#rly-transact-raw-conn-try)
       - [rly transact raw connection-step](#rly-transact-raw-connection-step)
       - [rly transact raw update-client](#rly-transact-raw-update-client)
-      - [rly transact raw xfer-send](#rly-transact-raw-xfer-send)
+      - [rly transact raw transfer](#rly-transact-raw-transfer)
     - [rly transact relay](#rly-transact-relay)
     - [rly transact send-packet](#rly-transact-send-packet)
     - [rly transact transfer](#rly-transact-transfer)
@@ -1261,7 +1261,7 @@ raw IBC transaction commands
 * [rly transact raw conn-try](#rly-transact-raw-conn-try)	 - conn-try
 * [rly transact raw connection-step](#rly-transact-raw-connection-step)	 - create a connection between chains, passing in identifiers
 * [rly transact raw update-client](#rly-transact-raw-update-client)	 - update client for dst-chain on src-chain
-* [rly transact raw xfer-send](#rly-transact-raw-xfer-send)	 - xfer-send
+* [rly transact raw transfer](#rly-transact-raw-transfer)	 - transfer
 
 ## rly transact raw chan-ack
 
@@ -1458,16 +1458,16 @@ rly transact raw update-client [src-chain-id] [dst-chain-id] [client-id] [flags]
 ```
 
 
-## rly transact raw xfer-send
+## rly transact raw transfer
 
-xfer-send
+transfer
 
 ### Synopsis
 
 This sends tokens from a relayers configured wallet on chain src to a dst addr on dst
 
 ```
-rly transact raw xfer-send [src-chain-id] [dst-chain-id] [amount] [source] [dst-addr] [flags]
+rly transact raw transfer [src-chain-id] [dst-chain-id] [amount] [source] [dst-addr] [flags]
 ```
 
 ### Options

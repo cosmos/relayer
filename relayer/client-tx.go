@@ -63,3 +63,40 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 
 	return nil
 }
+
+// UpdateClients updates clients for src on dst and dst on src given the configured paths
+func (c *Chain) UpdateClients(dst *Chain) (err error) {
+	clients := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
+
+	srcH, dstH, err := UpdatesWithHeaders(c, dst)
+	if err != nil {
+		return err
+	}
+
+	srcUH, dstUH, err := InjectTrustedFieldsHeaders(c, dst, srcH, dstH)
+	if err != nil {
+		return err
+	}
+
+	clients.Src = append(clients.Src, c.PathEnd.UpdateClient(dstUH, c.MustGetAddress()))
+	clients.Dst = append(clients.Dst, dst.PathEnd.UpdateClient(srcUH, dst.MustGetAddress()))
+
+	// Send msgs to both chains
+	if clients.Ready() {
+		if clients.Send(c, dst); clients.success {
+			c.Log(fmt.Sprintf("★ Clients updated: [%s]client(%s) {%d}->{%d} and [%s]client(%s) {%d}->{%d}",
+				c.ChainID,
+				c.PathEnd.ClientID,
+				MustGetHeight(srcUH.TrustedHeight),
+				srcUH.Header.Height,
+				dst.ChainID,
+				dst.PathEnd.ClientID,
+				MustGetHeight(dstUH.TrustedHeight),
+				dstUH.Header.Height,
+			),
+			)
+		}
+	}
+
+	return nil
+}

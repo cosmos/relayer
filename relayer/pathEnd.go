@@ -122,10 +122,6 @@ func (pe *PathEnd) ConnTry(
 	if err != nil {
 		panic(err)
 	}
-	css, err := clientTypes.UnpackConsensusState(dstConsState.ConsensusState)
-	if err != nil {
-		panic(err)
-	}
 	msg := connTypes.NewMsgConnectionOpenTry(
 		pe.ConnectionID,
 		pe.ClientID,
@@ -138,7 +134,7 @@ func (pe *PathEnd) ConnTry(
 		dstClientState.Proof,
 		dstConsState.Proof,
 		dstConnState.ProofHeight,
-		css.GetHeight().(clientTypes.Height),
+		cs.GetLatestHeight().(clientTypes.Height),
 		signer,
 	)
 	if err = msg.ValidateBasic(); err != nil {
@@ -160,10 +156,6 @@ func (pe *PathEnd) ConnAck(
 	if err != nil {
 		panic(err)
 	}
-	css, err := clientTypes.UnpackConsensusState(dstConsState.ConsensusState)
-	if err != nil {
-		panic(err)
-	}
 	return connTypes.NewMsgConnectionOpenAck(
 		pe.ConnectionID,
 		cs,
@@ -171,7 +163,7 @@ func (pe *PathEnd) ConnAck(
 		dstClientState.Proof,
 		dstConsState.Proof,
 		dstConsState.ProofHeight,
-		css.GetHeight().(clientTypes.Height),
+		cs.GetLatestHeight().(clientTypes.Height),
 		connTypes.GetCompatibleEncodedVersions()[0],
 		signer,
 	)

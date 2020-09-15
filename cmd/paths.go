@@ -99,7 +99,7 @@ func pathsGenCmd() *cobra.Command {
 				return err
 			}
 
-			for _, c := range srcClients {
+			for _, c := range srcClients.ClientStates {
 				// TODO: support other client types through a switch here as they become available
 				clnt, _ := clientTypes.UnpackClientState(c.ClientState)
 				if relayer.MustGetHeight(clnt.GetLatestHeight()) != 0 && !clnt.IsFrozen() { // TODO: re-enable this check && clnt.GetChainID() == dst {
@@ -112,7 +112,7 @@ func pathsGenCmd() *cobra.Command {
 				return err
 			}
 
-			for _, c := range dstClients {
+			for _, c := range dstClients.ClientStates {
 				// TODO: support other client types through a switch here as they become available
 				clnt, _ := clientTypes.UnpackClientState(c.ClientState)
 				if relayer.MustGetHeight(clnt.GetLatestHeight()) != 0 && !clnt.IsFrozen() { // TODO: re-enable this check && clnt.GetChainID() == src {
@@ -160,7 +160,7 @@ func pathsGenCmd() *cobra.Command {
 			}
 
 			var srcCon *connTypes.IdentifiedConnection
-			for _, c := range srcConns {
+			for _, c := range srcConns.Connections {
 				if c.ClientId == path.Src.ClientID {
 					srcCon = c
 					path.Src.ConnectionID = c.Id
@@ -173,7 +173,7 @@ func pathsGenCmd() *cobra.Command {
 			}
 
 			var dstCon *connTypes.IdentifiedConnection
-			for _, c := range dstConns {
+			for _, c := range dstConns.Connections {
 				if c.ClientId == path.Dst.ClientID {
 					dstCon = c
 					path.Dst.ConnectionID = c.Id
@@ -216,7 +216,7 @@ func pathsGenCmd() *cobra.Command {
 			}
 
 			var srcChan *chanTypes.IdentifiedChannel
-			for _, c := range srcChans {
+			for _, c := range srcChans.Channels {
 				if c.ConnectionHops[0] == path.Src.ConnectionID {
 					srcChan = c
 					path.Src.ChannelID = c.ChannelId
@@ -229,7 +229,7 @@ func pathsGenCmd() *cobra.Command {
 			}
 
 			var dstChan *chanTypes.IdentifiedChannel
-			for _, c := range dstChans {
+			for _, c := range dstChans.Channels {
 				if c.ConnectionHops[0] == path.Dst.ConnectionID {
 					dstChan = c
 					path.Dst.ChannelID = c.ChannelId

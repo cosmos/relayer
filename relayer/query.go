@@ -21,6 +21,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	commitTypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
 	stakingTypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	abci "github.com/tendermint/tendermint/abci/types"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
@@ -126,7 +127,7 @@ func QueryClientStatePair(src, dst *Chain, srch, dsth int64) (srcCsRes, dstCsRes
 }
 
 // QueryClients queries all the clients!
-func (c *Chain) QueryClients(offset, limit uint64) ([]*clientTypes.IdentifiedClientState, error) {
+func (c *Chain) QueryClients(offset, limit uint64) (*clientTypes.QueryClientStatesResponse, error) {
 	res, err := clientTypes.NewQueryClient(c.CLIContext(0)).ClientStates(context.Background(), &clientTypes.QueryClientStatesRequest{
 		Pagination: &query.PageRequest{
 			Key:        []byte(""),
@@ -135,7 +136,7 @@ func (c *Chain) QueryClients(offset, limit uint64) ([]*clientTypes.IdentifiedCli
 			CountTotal: false,
 		},
 	})
-	return res.ClientStates, err
+	return res, err
 }
 
 // ////////////////////////////
@@ -143,7 +144,7 @@ func (c *Chain) QueryClients(offset, limit uint64) ([]*clientTypes.IdentifiedCli
 // ////////////////////////////
 
 // QueryConnections gets any connections on a chain
-func (c *Chain) QueryConnections(offset, limit uint64) (conns []*connTypes.IdentifiedConnection, err error) {
+func (c *Chain) QueryConnections(offset, limit uint64) (conns *connTypes.QueryConnectionsResponse, err error) {
 	res, err := connTypes.NewQueryClient(c.CLIContext(0)).Connections(context.Background(), &connTypes.QueryConnectionsRequest{
 		Pagination: &query.PageRequest{
 			Key:        []byte(""),
@@ -152,7 +153,7 @@ func (c *Chain) QueryConnections(offset, limit uint64) (conns []*connTypes.Ident
 			CountTotal: false,
 		},
 	})
-	return res.Connections, err
+	return res, err
 }
 
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
@@ -162,8 +163,30 @@ func (c *Chain) QueryConnectionsUsingClient(height int64) (clientConns *connType
 
 // QueryConnection returns the remote end of a given connection
 func (c *Chain) QueryConnection(height int64) (*connTypes.QueryConnectionResponse, error) {
-	return connUtils.QueryConnection(c.CLIContext(height), c.PathEnd.ConnectionID, true)
+	res, err := connUtils.QueryConnection(c.CLIContext(height), c.PathEnd.ConnectionID, true)
+	if err != nil && strings.Contains(err.Error(), "not found") {
+		return emptyConnRes, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return res, nil
 }
+
+var emptyConnRes = connTypes.NewQueryConnectionResponse(
+	"uninitialized",
+	connTypes.NewConnectionEnd(
+		connTypes.UNINITIALIZED,
+		"client",
+		connTypes.NewCounterparty(
+			"client",
+			"connection",
+			commitTypes.NewMerklePrefix([]byte{}),
+		),
+		[]string{},
+	),
+	[]byte{},
+	clientTypes.NewHeight(0, 0),
+)
 
 // QueryConnectionPair returns a pair of connection responses
 func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (srcConn, dstConn *connTypes.QueryConnectionResponse, err error) {
@@ -185,8 +208,9 @@ func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (srcConn, dstConn *c
 // ////////////////////////////
 
 // QueryConnectionChannels queries the channels associated with a connection
-func (c *Chain) QueryConnectionChannels(connectionID string, offset, limit uint64) ([]*chanTypes.IdentifiedChannel, error) {
+func (c *Chain) QueryConnectionChannels(connectionID string, offset, limit uint64) (*chanTypes.QueryConnectionChannelsResponse, error) {
 	res, err := chanTypes.NewQueryClient(c.CLIContext(0)).ConnectionChannels(context.Background(), &chanTypes.QueryConnectionChannelsRequest{
+		Connection: connectionID,
 		Pagination: &query.PageRequest{
 			Key:        []byte(""),
 			Offset:     offset,
@@ -194,13 +218,36 @@ func (c *Chain) QueryConnectionChannels(connectionID string, offset, limit uint6
 			CountTotal: false,
 		},
 	})
-	return res.Channels, err
+	return res, err
 }
 
 // QueryChannel returns the channel associated with a channelID
 func (c *Chain) QueryChannel(height int64) (chanRes *chanTypes.QueryChannelResponse, err error) {
-	return chanUtils.QueryChannel(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, true)
+	res, err := chanUtils.QueryChannel(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, true)
+	if err != nil && strings.Contains(err.Error(), "not found") {
+		return emptyChannelRes, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return res, nil
 }
+
+var emptyChannelRes = chanTypes.NewQueryChannelResponse(
+	"port",
+	"channel",
+	chanTypes.NewChannel(
+		chanTypes.UNINITIALIZED,
+		chanTypes.UNORDERED,
+		chanTypes.NewCounterparty(
+			"port",
+			"channel",
+		),
+		[]string{},
+		"version",
+	),
+	[]byte{},
+	clientTypes.NewHeight(0, 0),
+)
 
 // QueryChannelPair returns a pair of channel responses
 func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (srcChan, dstChan *chanTypes.QueryChannelResponse, err error) {
@@ -218,7 +265,7 @@ func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (srcChan, dstChan *chan
 }
 
 // QueryChannels returns all the channels that are registered on a chain
-func (c *Chain) QueryChannels(offset, limit uint64) ([]*chanTypes.IdentifiedChannel, error) {
+func (c *Chain) QueryChannels(offset, limit uint64) (*chanTypes.QueryChannelsResponse, error) {
 	res, err := types.NewQueryClient(c.CLIContext(0)).Channels(context.Background(), &types.QueryChannelsRequest{
 		Pagination: &query.PageRequest{
 			Key:        []byte(""),
@@ -227,7 +274,7 @@ func (c *Chain) QueryChannels(offset, limit uint64) ([]*chanTypes.IdentifiedChan
 			CountTotal: false,
 		},
 	})
-	return res.Channels, err
+	return res, err
 }
 
 // ///////////////////////////////////
