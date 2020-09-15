@@ -38,7 +38,10 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 	var (
 		eg           = new(errgroup.Group)
 		srcPacketSeq = []uint64{}
+		srcRecvd     = []uint64{}
 		dstPacketSeq = []uint64{}
+		dstRecvd     = []uint64{}
+		err          error
 		rs           = &RelaySequences{Src: []uint64{}, Dst: []uint64{}}
 	)
 
@@ -70,53 +73,47 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 
 	eg.Go(func() error {
 		// Query all packets sent by src that have been received by dst
-		recvd, err := dst.QueryUnrelayedPackets(sh.GetHeight(dst.ChainID), srcPacketSeq, true)
-		if err != nil {
-			return err
-		}
-		// Iterate over all packets commitment sequences still remaining on dst,
-		// and add if the sequence has not been processed by dst
-		for _, packet := range srcPacketSeq {
-			processed := false
-			for _, r := range recvd {
-				if packet == r {
-					processed = true
-				}
-			}
-			if !processed {
-				rs.Src = append(rs.Src, packet)
-			}
-		}
-
+		dstRecvd, err = dst.QueryUnrelayedPackets(sh.GetHeight(dst.ChainID), srcPacketSeq, true)
 		return err
 	})
 
 	eg.Go(func() error {
 		// Query all packets sent by dst that have been received by src
-		recvd, err := src.QueryUnrelayedPackets(sh.GetHeight(src.ChainID), dstPacketSeq, true)
-		if err != nil {
-			return err
-		}
-		// Iterate over all packets commitment sequences still remaining on dst,
-		// and add if the sequence has not been processed by dst
-		for _, packet := range dstPacketSeq {
-			processed := false
-			for _, r := range recvd {
-				if packet == r {
-					processed = true
-				}
-			}
-
-			if !processed {
-				rs.Dst = append(rs.Dst, packet)
-			}
-		}
-
+		srcRecvd, err = src.QueryUnrelayedPackets(sh.GetHeight(src.ChainID), dstPacketSeq, true)
 		return err
 	})
 
 	if err := eg.Wait(); err != nil {
 		return nil, err
+	}
+
+	// Iterate over all packets commitment sequences still remaining on src,
+	// and add if the sequence has not been processed by dst
+	for _, packet := range srcPacketSeq {
+		processed := false
+		for _, r := range dstRecvd {
+			if packet == r {
+				processed = true
+			}
+		}
+		if !processed {
+			rs.Src = append(rs.Src, packet)
+		}
+	}
+
+	// Iterate over all packets commitment sequences still remaining on dst,
+	// and add if the sequence has not been processed by src
+	for _, packet := range dstPacketSeq {
+		processed := false
+		for _, r := range srcRecvd {
+			if packet == r {
+				processed = true
+			}
+		}
+
+		if !processed {
+			rs.Dst = append(rs.Dst, packet)
+		}
 	}
 
 	return rs, nil
