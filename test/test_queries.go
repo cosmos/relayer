@@ -33,14 +33,14 @@ func testConnectionPair(t *testing.T, src, dst *ry.Chain) {
 
 // testConnection tests that the only connection on src has a counterparty that is the connection on dst
 func testConnection(t *testing.T, src, dst *ry.Chain) {
-	conns, err := src.QueryConnections(0, 1000)
+	conns, err := src.QueryConnections(1, 1000)
 	require.NoError(t, err)
-	require.Equal(t, len(conns), 1)
-	// conns[0].
-	require.Equal(t, conns[0].ClientId, src.PathEnd.ClientID)
-	require.Equal(t, conns[0].Counterparty.GetClientID(), dst.PathEnd.ClientID)
-	require.Equal(t, conns[0].Counterparty.GetConnectionID(), dst.PathEnd.ConnectionID)
-	require.Equal(t, conns[0].State.String(), "STATE_OPEN")
+	require.Equal(t, len(conns.Connections), 1)
+	// conns.Connections[0].
+	require.Equal(t, conns.Connections[0].ClientId, src.PathEnd.ClientID)
+	require.Equal(t, conns.Connections[0].Counterparty.GetClientID(), dst.PathEnd.ClientID)
+	require.Equal(t, conns.Connections[0].Counterparty.GetConnectionID(), dst.PathEnd.ConnectionID)
+	require.Equal(t, conns.Connections[0].State.String(), "STATE_OPEN")
 
 	h, err := src.Client.Status()
 	require.NoError(t, err)
@@ -63,11 +63,11 @@ func testChannelPair(t *testing.T, src, dst *ry.Chain) {
 func testChannel(t *testing.T, src, dst *ry.Chain) {
 	chans, err := src.QueryChannels(0, 1000)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(chans))
-	require.Equal(t, chans[0].Ordering.String(), "ORDER_UNORDERED")
-	require.Equal(t, chans[0].State.String(), "STATE_OPEN")
-	require.Equal(t, chans[0].Counterparty.ChannelId, dst.PathEnd.ChannelID)
-	require.Equal(t, chans[0].Counterparty.GetPortID(), dst.PathEnd.PortID)
+	require.Equal(t, 1, len(chans.Channels))
+	require.Equal(t, chans.Channels[0].Ordering.String(), "ORDER_UNORDERED")
+	require.Equal(t, chans.Channels[0].State.String(), "STATE_OPEN")
+	require.Equal(t, chans.Channels[0].Counterparty.ChannelId, dst.PathEnd.ChannelID)
+	require.Equal(t, chans.Channels[0].Counterparty.GetPortID(), dst.PathEnd.PortID)
 
 	h, err := src.Client.Status()
 	require.NoError(t, err)
