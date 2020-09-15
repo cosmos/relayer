@@ -2,12 +2,15 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
+	xfertypes "github.com/cosmos/cosmos-sdk/x/ibc-transfer/types"
+	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	"github.com/ovrclk/relayer/relayer"
 	"github.com/spf13/cobra"
@@ -41,8 +44,43 @@ func queryCmd() *cobra.Command {
 		queryChannels(),
 		queryConnectionChannels(),
 		queryPacketCommitment(),
+		queryIBCDenom(),
 	)
 
+	return cmd
+}
+
+func queryIBCDenom() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "ibc-denom [chain-id] [denom-hash]",
+		Short: "Query transaction by transaction hash",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
+
+			trace := xfertypes.ParseDenomTrace(args[1])
+			tqc := xfertypes.NewQueryClient(chain.CLIContext(0))
+			dtRes, err := tqc.DenomTrace(context.Background(), &xfertypes.QueryDenomTraceRequest{
+				Hash: trace.BaseDenom,
+			})
+
+			pc := strings.Split(dtRes.DenomTrace.Path, "/")
+
+			cqc := chantypes.NewQueryClient(chain.CLIContext(0))
+			cCsRes, err := cqc.ChannelClientState(context.Background(), &chantypes.QueryChannelClientStateRequest{
+				PortId:    pc[0],
+				ChannelId: pc[1],
+			})
+			if err != nil {
+				return err
+			}
+			fmt.Println(cCsRes.IdentifiedClientState)
+			return chain.Print(cqc, false, false)
+		},
+	}
 	return cmd
 }
 

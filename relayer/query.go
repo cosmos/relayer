@@ -13,6 +13,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc-transfer/types"
 	clientUtils "github.com/cosmos/cosmos-sdk/x/ibc/02-client/client/utils"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connUtils "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/client/utils"
@@ -277,26 +278,50 @@ func (c *Chain) QueryChannels(offset, limit uint64) (*chanTypes.QueryChannelsRes
 	return res, err
 }
 
-// ///////////////////////////////////
-//    STAKING -> HistoricalInfo     //
-// ///////////////////////////////////
-
-func (c *Chain) QueryHistoricalInfo(height clientTypes.Height) (*stakingTypes.QueryHistoricalInfoResponse, error) {
-	//TODO: use epoch number in query once SDK gets updated
-	params := stakingTypes.QueryHistoricalInfoRequest{
-		Height: int64(height.EpochHeight),
-	}
-
-	queryClient := stakingTypes.NewQueryClient(c.CLIContext(int64(height.EpochHeight)))
-
-	res, err := queryClient.HistoricalInfo(context.Background(), &params)
-	if err != nil {
-		return nil, err
-	}
-
-	return res, nil
+// QueryChannelClient returns the client state of the client supporting a given channel
+func (c *Chain) QueryChannelClient() (*chanTypes.QueryChannelClientStateResponse, error) {
+	return types.NewQueryClient(c.CLIContext(0)).ChannelClientState(context.Background(), &types.QueryChannelClientStateRequest{
+		PortId:    c.PathEnd.PortID,
+		ChannelId: c.PathEnd.ChannelID,
+	})
 }
 
+/////////////////////////////////////
+//    TRANSFER -> Denoms           //
+/////////////////////////////////////
+
+// QueryDenomTrace takes a denom from IBC and queries the information about it
+func (c *Chain) QueryDenomTrace(denom string) (*xferTypes.QueryDenomTraceResponse, error) {
+	return xferTypes.NewQueryClient(c.CLIContext(0)).DenomTrace(context.Background(), &xferTypes.QueryDenomTraceRequest{
+		Hash: denom,
+	})
+}
+
+// QueryDenomTraces returns all the denom traces from a given chain
+func (c *Chain) QueryDenomTraces(offset, limit uint64) (*xferTypes.QueryDenomTracesResponse, error) {
+	return xferTypes.NewQueryClient(c.CLIContext(0)).DenomTraces(context.Background(), &xferTypes.QueryDenomTracesRequest{
+		Pagination: &query.PageRequest{
+			Key:        []byte(""),
+			Offset:     offset,
+			Limit:      limit,
+			CountTotal: false,
+		},
+	})
+}
+
+/////////////////////////////////////
+//    STAKING -> HistoricalInfo     //
+/////////////////////////////////////
+
+// QueryHistoricalInfo returns historical header data
+func (c *Chain) QueryHistoricalInfo(height clientTypes.Height) (*stakingTypes.QueryHistoricalInfoResponse, error) {
+	//TODO: use epoch number in query once SDK gets updated
+	return stakingTypes.NewQueryClient(c.CLIContext(int64(height.EpochHeight))).HistoricalInfo(context.Background(), &stakingTypes.QueryHistoricalInfoRequest{
+		Height: int64(height.EpochHeight),
+	})
+}
+
+// QueryValsetAtHeight returns the validator set at a given height
 func (c *Chain) QueryValsetAtHeight(height clientTypes.Height) (*tmproto.ValidatorSet, error) {
 	res, err := c.QueryHistoricalInfo(height)
 	if err != nil {
@@ -309,11 +334,8 @@ func (c *Chain) QueryValsetAtHeight(height clientTypes.Height) (*tmproto.Validat
 		Validators: tmVals,
 		Proposer:   tmVals[0],
 	}
-	tmProtoSet, err := tmValSet.ToProto()
-	if err != nil {
-		return nil, err
-	}
-	return tmProtoSet, nil
+
+	return tmValSet.ToProto()
 }
 
 // QueryUnbondingPeriod returns the unbonding period of the chain

@@ -41,6 +41,7 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 		dstPacketSeq = []uint64{}
 		rs           = &RelaySequences{Src: []uint64{}, Dst: []uint64{}}
 	)
+
 	eg.Go(func() error {
 		res, err := src.QueryPacketCommitments(0, 1000, sh.GetHeight(src.ChainID))
 		if err != nil {
@@ -51,6 +52,7 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 		}
 		return nil
 	})
+
 	eg.Go(func() error {
 		res, err := dst.QueryPacketCommitments(0, 1000, sh.GetHeight(dst.ChainID))
 		if err != nil {
@@ -88,6 +90,7 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 
 		return err
 	})
+
 	eg.Go(func() error {
 		// Query all packets sent by dst that have been received by src
 		recvd, err := src.QueryUnrelayedPackets(sh.GetHeight(src.ChainID), dstPacketSeq, true)
