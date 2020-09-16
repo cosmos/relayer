@@ -60,7 +60,7 @@ func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
 		Key:        []byte(""),
 		Offset:     0,
 		Limit:      1000,
-		CountTotal: false,
+		CountTotal: true,
 	})
 
 	queryClient := bankTypes.NewQueryClient(c.CLIContext(0))
@@ -134,7 +134,7 @@ func (c *Chain) QueryClients(offset, limit uint64) (*clientTypes.QueryClientStat
 			Key:        []byte(""),
 			Offset:     offset,
 			Limit:      limit,
-			CountTotal: false,
+			CountTotal: true,
 		},
 	})
 	return res, err
@@ -151,7 +151,7 @@ func (c *Chain) QueryConnections(offset, limit uint64) (conns *connTypes.QueryCo
 			Key:        []byte(""),
 			Offset:     offset,
 			Limit:      limit,
-			CountTotal: false,
+			CountTotal: true,
 		},
 	})
 	return res, err
@@ -216,7 +216,7 @@ func (c *Chain) QueryConnectionChannels(connectionID string, offset, limit uint6
 			Key:        []byte(""),
 			Offset:     offset,
 			Limit:      limit,
-			CountTotal: false,
+			CountTotal: true,
 		},
 	})
 	return res, err
@@ -272,7 +272,7 @@ func (c *Chain) QueryChannels(offset, limit uint64) (*chanTypes.QueryChannelsRes
 			Key:        []byte(""),
 			Offset:     offset,
 			Limit:      limit,
-			CountTotal: false,
+			CountTotal: true,
 		},
 	})
 	return res, err
@@ -304,7 +304,7 @@ func (c *Chain) QueryDenomTraces(offset, limit uint64) (*xferTypes.QueryDenomTra
 			Key:        []byte(""),
 			Offset:     offset,
 			Limit:      limit,
-			CountTotal: false,
+			CountTotal: true,
 		},
 	})
 }
@@ -393,7 +393,7 @@ func (c *Chain) QueryPacketCommitments(offset, limit, height uint64) (comRes []*
 		Pagination: &query.PageRequest{
 			Offset:     offset,
 			Limit:      limit,
-			CountTotal: false,
+			CountTotal: true,
 		},
 	})
 	return res.Commitments, err

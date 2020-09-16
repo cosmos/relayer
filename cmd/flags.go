@@ -49,7 +49,7 @@ func heightFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func paginationFlags(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().Uint64P(flags.FlagOffset, "o", 1, "pagination offset for query")
+	cmd.Flags().Uint64P(flags.FlagOffset, "o", 0, "pagination offset for query")
 	cmd.Flags().Uint64P(flags.FlagLimit, "l", 1000, "pagination limit for query")
 	if err := viper.BindPFlag(flags.FlagOffset, cmd.Flags().Lookup(flags.FlagOffset)); err != nil {
 		panic(err)
