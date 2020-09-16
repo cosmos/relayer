@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	txEvents = "tm.event = 'Tx'"
-	blEvents = "tm.event = 'NewBlock'"
+	txEvents = "tm.event='Tx'"
+	blEvents = "tm.event='NewBlock'"
 )
 
 // Strategy defines
