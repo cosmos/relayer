@@ -44,18 +44,6 @@ test:
 test-gaia:
 	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestGaia*
 
-test-mtd:
-	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestMtd*
-
-test-rocketzone:
-	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestRocket*
-
-test-agoric:
-	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestAgoric*
-
-test-coco:
-	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestCoCo*
-
 coverage:
 	@echo "viewing test coverage..."
 	@go tool cover --html=coverage.out
