@@ -56,11 +56,7 @@ type ChainConfig struct {
 	ChainID        string  `yaml:"chain-id" json:"chain-id"`
 	RPCAddr        string  `yaml:"rpc-addr" json:"rpc-addr"`
 	AccountPrefix  string  `yaml:"account-prefix" json:"account-prefix"`
-	Gas            uint64  `yaml:"gas,omitempty" json:"gas,omitempty"`
 	GasAdjustment  float64 `yaml:"gas-adjustment,omitempty" json:"gas-adjustment,omitempty"`
-	GasPrices      string  `yaml:"gas-prices,omitempty" json:"gas-prices,omitempty"`
-	DefaultDenom   string  `yaml:"default-denom,omitempty" json:"default-denom,omitempty"`
-	Memo           string  `yaml:"memo,omitempty" json:"memo,omitempty"`
 	TrustingPeriod string  `yaml:"trusting-period" json:"trusting-period"`
 }
 ```

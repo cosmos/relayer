@@ -8,10 +8,7 @@
   "post-light-client": "ag-nchainz start-solos $chainid",
   "link": {
     "account-prefix": "agoric",
-    "gas": 200000,
-    "gas-adjustment":1.0,
-    "gas-prices": "",
-    "default-denom": "uagstake",
+    "gas-adjustment": 1.0,
     "trusting-period": "336h"
   }
 }

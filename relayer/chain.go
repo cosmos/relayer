@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"strconv"
 	"time"
 
 	sdkCtx "github.com/cosmos/cosmos-sdk/client"
@@ -34,11 +33,7 @@ type Chain struct {
 	ChainID        string  `yaml:"chain-id" json:"chain-id"`
 	RPCAddr        string  `yaml:"rpc-addr" json:"rpc-addr"`
 	AccountPrefix  string  `yaml:"account-prefix" json:"account-prefix"`
-	Gas            uint64  `yaml:"gas,omitempty" json:"gas,omitempty"`
 	GasAdjustment  float64 `yaml:"gas-adjustment,omitempty" json:"gas-adjustment,omitempty"`
-	GasPrices      string  `yaml:"gas-prices,omitempty" json:"gas-prices,omitempty"`
-	DefaultDenom   string  `yaml:"default-denom,omitempty" json:"default-denom,omitempty"`
-	Memo           string  `yaml:"memo,omitempty" json:"memo,omitempty"`
 	TrustingPeriod string  `yaml:"trusting-period" json:"trusting-period"`
 
 	// TODO: make these private
@@ -144,11 +139,6 @@ func (c *Chain) Init(homePath string, timeout time.Duration, debug bool) error {
 	}
 
 	client, err := newRPCClient(c.RPCAddr, timeout)
-	if err != nil {
-		return err
-	}
-
-	_, err = sdk.ParseDecCoins(c.GasPrices)
 	if err != nil {
 		return err
 	}
@@ -287,9 +277,6 @@ func (c *Chain) TxFactory(height int64) tx.Factory {
 		WithChainID(c.ChainID).
 		WithTxConfig(ctx.TxConfig).
 		WithGasAdjustment(c.GasAdjustment).
-		WithGasPrices(c.GasPrices).
-		WithGas(c.Gas).
-		WithMemo(c.Memo).
 		WithKeybase(c.Keybase).
 		WithSignMode(signing.SignMode_SIGN_MODE_DIRECT)
 }
@@ -384,22 +371,6 @@ func (c *Chain) Update(key, value string) (out *Chain, err error) {
 		out.RPCAddr = value
 	case "account-prefix":
 		out.AccountPrefix = value
-	case "gas":
-		var gas uint64
-		gas, err = strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			return
-		}
-		out.Gas = gas
-	case "gas-prices":
-		if _, err = sdk.ParseDecCoins(value); err != nil {
-			return
-		}
-		out.GasPrices = value
-	case "default-denom":
-		out.DefaultDenom = value
-	case "memo":
-		out.Memo = value
 	case "trusting-period":
 		if _, err = time.ParseDuration(value); err != nil {
 			return

@@ -108,11 +108,9 @@ func chainsShowCmd() *cobra.Command {
 rpc-addr:        %s
 trusting-period: %s
 default-denom:   %s
-gas:             %d
-gas-prices:      %s
 key:             %s
 account-prefix:  %s
-`, c.ChainID, c.RPCAddr, c.TrustingPeriod, c.DefaultDenom, c.Gas, c.GasPrices, c.Key, c.AccountPrefix)
+`, c.ChainID, c.RPCAddr, c.TrustingPeriod, c.Key, c.AccountPrefix)
 				return nil
 			}
 		},

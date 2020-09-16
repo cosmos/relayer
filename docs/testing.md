@@ -53,9 +53,6 @@ gaiaTestConfig = testChainConfig{
     timeout:        3 * time.Second,
     rpcPort:        "26657",
     accountPrefix:  "cosmos",
-    gas:            200000,
-    gasPrices:      "0.025stake",
-    defaultDenom:   "stake",
     trustingPeriod: "330h",
 }
 

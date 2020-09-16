@@ -46,13 +46,15 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 
 	eg.Go(func() error {
 		var res *chanTypes.QueryPacketCommitmentsResponse
-		retry.Do(func() error {
+		if err = retry.Do(func() error {
 			res, err = src.QueryPacketCommitments(0, 1000, sh.GetHeight(src.ChainID))
 			if err != nil || res == nil {
 				return err
 			}
 			return nil
-		})
+		}); err != nil {
+			return err
+		}
 		for _, pc := range res.Commitments {
 			srcPacketSeq = append(srcPacketSeq, pc.Sequence)
 		}
@@ -61,13 +63,15 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 
 	eg.Go(func() error {
 		var res *chanTypes.QueryPacketCommitmentsResponse
-		retry.Do(func() error {
+		if err = retry.Do(func() error {
 			res, err = dst.QueryPacketCommitments(0, 1000, sh.GetHeight(dst.ChainID))
 			if err != nil || res == nil {
 				return err
 			}
 			return nil
-		})
+		}); err != nil {
+			return err
+		}
 		for _, pc := range res.Commitments {
 			dstPacketSeq = append(dstPacketSeq, pc.Sequence)
 		}

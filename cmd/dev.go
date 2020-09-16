@@ -197,13 +197,13 @@ func rlyService() *cobra.Command {
 			var srcBal, dstBal sdk.Coins
 			if srcBal, err = chains[src].QueryBalance(chains[src].Key); err != nil {
 				return err
-			} else if srcBal.AmountOf(chains[src].DefaultDenom).IsZero() {
+			} else if srcBal.Empty() {
 				return fmt.Errorf("no balance on %s, ensure %s has a balance before continuing setup",
 					src, chains[src].MustGetAddress())
 			}
 			if dstBal, err = chains[dst].QueryBalance(chains[dst].Key); err != nil {
 				return err
-			} else if dstBal.AmountOf(chains[dst].DefaultDenom).IsZero() {
+			} else if dstBal.Empty() {
 				return fmt.Errorf("no balance on %s, ensure %s has a balance before continuing setup",
 					dst, chains[dst].MustGetAddress())
 			}
