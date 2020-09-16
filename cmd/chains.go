@@ -107,7 +107,6 @@ func chainsShowCmd() *cobra.Command {
 				fmt.Printf(`chain-id:        %s
 rpc-addr:        %s
 trusting-period: %s
-default-denom:   %s
 key:             %s
 account-prefix:  %s
 `, c.ChainID, c.RPCAddr, c.TrustingPeriod, c.Key, c.AccountPrefix)
