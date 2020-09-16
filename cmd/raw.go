@@ -252,7 +252,11 @@ func connAck() *cobra.Command {
 				return err
 			}
 			txs := []sdk.Msg{
-				chains[src].PathEnd.ConnAck(chains[dst].PathEnd, dstClientStateResponse, dstState, dstConsState, chains[src].MustGetAddress()),
+				chains[src].PathEnd.ConnAck(
+					chains[dst].PathEnd,
+					dstClientStateResponse,
+					dstState, dstConsState,
+					chains[src].MustGetAddress()),
 				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
 			}
 

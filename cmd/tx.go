@@ -57,8 +57,9 @@ func createClientsCmd() *cobra.Command {
 		Use:     "clients [path-name]",
 		Aliases: []string{"clnts"},
 		Short:   "create a clients between two configured chains with a configured path",
-		Long:    "Creates a working ibc client for chain configured on each end of the path by querying headers from each chain and then sending the cooresponding create-client messages",
-		Args:    cobra.ExactArgs(1),
+		Long: "Creates a working ibc client for chain configured on each end of the" +
+			" path by querying headers from each chain and then sending the corresponding create-client messages",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -76,8 +77,9 @@ func updateClientsCmd() *cobra.Command {
 		Use:     "update-clients [path-name]",
 		Aliases: []string{"update", "uc"},
 		Short:   "update a clients between two configured chains with a configured path",
-		Long:    "Updates a working ibc client for chain configured on each end of the path by querying headers from each chain and then sending the cooresponding update-client messages",
-		Args:    cobra.ExactArgs(1),
+		Long: "Updates a working ibc client for chain configured on each end of the " +
+			"path by querying headers from each chain and then sending the corresponding update-client messages",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {

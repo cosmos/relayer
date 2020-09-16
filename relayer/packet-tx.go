@@ -2,7 +2,6 @@ package relayer
 
 import (
 	"fmt"
-	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	commitmentypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
@@ -10,24 +9,9 @@ import (
 
 var (
 	defaultChainPrefix     = commitmentypes.NewMerklePrefix([]byte("ibc"))
-	defaultIBCVersion      = "1.0.0"
-	defaultIBCVersions     = []string{defaultIBCVersion}
-	defaultUnbondingTime   = time.Hour * 504 // 3 weeks in hours
-	defaultMaxClockDrift   = time.Second * 10
-	defaultPacketTimeout   = 1000
 	defaultPacketSendQuery = "send_packet.packet_src_channel=%s&send_packet.packet_sequence=%d"
 	// defaultPacketAckQuery  = "recv_packet.packet_src_channel=%s&recv_packet.packet_sequence=%d"
 )
-
-func defaultPacketTimeoutStamp() uint64 {
-	return uint64(time.Now().Add(time.Hour * 12).UnixNano())
-}
-
-// SendTransferBothSides sends a ICS20 packet from src to dst
-func (c *Chain) SendTransferBothSides(dst *Chain, amount sdk.Coin,
-	dstAddr fmt.Stringer, source bool) error {
-	return nil
-}
 
 // SendTransferMsg initiates an ibs20 transfer from src to dst with the specified args
 func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringer) error {

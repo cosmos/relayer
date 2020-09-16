@@ -33,7 +33,7 @@ func testConnectionPair(t *testing.T, src, dst *ry.Chain) {
 
 // testConnection tests that the only connection on src has a counterparty that is the connection on dst
 func testConnection(t *testing.T, src, dst *ry.Chain) {
-	conns, err := src.QueryConnections(1, 1000)
+	conns, err := src.QueryConnections(0, 1000)
 	require.NoError(t, err)
 	require.Equal(t, len(conns.Connections), 1)
 	// conns.Connections[0].

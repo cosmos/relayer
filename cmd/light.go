@@ -133,8 +133,9 @@ func lightHeaderCmd() *cobra.Command {
 		Use:     "header [chain-id] [[height]]",
 		Aliases: []string{"hdr"},
 		Short:   "Get a header from the light client database",
-		Long:    "Get a header from the light client database. 0 returns last trusted header and all others return the header at that height if stored",
-		Args:    cobra.RangeArgs(1, 2),
+		Long: "Get a header from the light client database. 0 returns last" +
+			"trusted header and all others return the header at that height if stored",
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainID := args[0]
 			chain, err := config.Chains.Get(chainID)

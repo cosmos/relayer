@@ -11,6 +11,7 @@ import (
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
+	"github.com/cosmos/cosmos-sdk/x/ibc/exported"
 	"github.com/tendermint/tendermint/light"
 )
 
@@ -46,7 +47,7 @@ func (pe *PathEnd) getOrder() chanTypes.Order {
 }
 
 // UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst
-func (pe *PathEnd) UpdateClient(dstHeader *tmclient.Header, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) UpdateClient(dstHeader exported.Header, signer sdk.AccAddress) sdk.Msg {
 	if err := dstHeader.ValidateBasic(); err != nil {
 		panic(err)
 	}
@@ -62,7 +63,10 @@ func (pe *PathEnd) UpdateClient(dstHeader *tmclient.Header, signer sdk.AccAddres
 }
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (pe *PathEnd) CreateClient(dstHeader *tmclient.Header, trustingPeriod, unbondingPeriod time.Duration, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) CreateClient(
+	dstHeader *tmclient.Header,
+	trustingPeriod, unbondingPeriod time.Duration,
+	signer sdk.AccAddress) sdk.Msg {
 	if err := dstHeader.ValidateBasic(); err != nil {
 		panic(err)
 	}

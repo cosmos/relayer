@@ -8,12 +8,6 @@ import (
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 )
 
-var ( // Default identifiers for dummy usage
-	dcon = "defaultconnectionid"
-	dcha = "defaultchannelid"
-	dpor = "defaultportid"
-)
-
 // Paths represent connection paths between chains
 type Paths map[string]*Path
 

@@ -103,9 +103,6 @@ func TestGaiaToGaiaBasicTransfer(t *testing.T) {
 	// Check if channel has been created, if not create it
 	require.NoError(t, src.CreateChannel(dst, true, src.GetTimeout()))
 
-	// Then send the transfer
-	require.NoError(t, src.SendTransferBothSides(dst, testCoin, dst.MustGetAddress(), true))
-
 	// ...and check the balance
 	dstBal, err := dst.QueryBalance(dst.Key)
 	require.NoError(t, err)

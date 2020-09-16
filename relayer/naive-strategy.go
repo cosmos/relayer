@@ -8,6 +8,7 @@ import (
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	"golang.org/x/sync/errgroup"
 )
@@ -44,22 +45,30 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 	)
 
 	eg.Go(func() error {
-		res, err := src.QueryPacketCommitments(0, 1000, sh.GetHeight(src.ChainID))
-		if err != nil {
-			return err
-		}
-		for _, pc := range res {
+		var res *chanTypes.QueryPacketCommitmentsResponse
+		retry.Do(func() error {
+			res, err = src.QueryPacketCommitments(0, 1000, sh.GetHeight(src.ChainID))
+			if err != nil || res == nil {
+				return err
+			}
+			return nil
+		})
+		for _, pc := range res.Commitments {
 			srcPacketSeq = append(srcPacketSeq, pc.Sequence)
 		}
 		return nil
 	})
 
 	eg.Go(func() error {
-		res, err := dst.QueryPacketCommitments(0, 1000, sh.GetHeight(dst.ChainID))
-		if err != nil {
-			return err
-		}
-		for _, pc := range res {
+		var res *chanTypes.QueryPacketCommitmentsResponse
+		retry.Do(func() error {
+			res, err = dst.QueryPacketCommitments(0, 1000, sh.GetHeight(dst.ChainID))
+			if err != nil || res == nil {
+				return err
+			}
+			return nil
+		})
+		for _, pc := range res.Commitments {
 			dstPacketSeq = append(dstPacketSeq, pc.Sequence)
 		}
 		return nil
@@ -428,7 +437,7 @@ func relayPacketFromQueryResponse(src, dst *PathEnd, res *ctypes.ResultTx,
 					}
 				}
 				if string(p.Key) == "packet_data" {
-					rp.packetData = []byte(p.Value)
+					rp.packetData = p.Value
 				}
 				if string(p.Key) == "packet_timeout_height" {
 					timeout, _ := strconv.ParseUint(strings.Split(string(p.Value), "-")[1], 10, 64)

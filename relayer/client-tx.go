@@ -29,7 +29,14 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 			if err != nil {
 				return err
 			}
-			clients.Src = append(clients.Src, c.PathEnd.CreateClient(dstH, dst.GetTrustingPeriod(), ubdPeriod, c.MustGetAddress()))
+			clients.Src = append(
+				clients.Src,
+				c.PathEnd.CreateClient(
+					dstH,
+					dst.GetTrustingPeriod(),
+					ubdPeriod,
+					c.MustGetAddress(),
+				))
 		}
 		return nil
 	})
@@ -44,7 +51,14 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 			if err != nil {
 				return err
 			}
-			clients.Dst = append(clients.Dst, dst.PathEnd.CreateClient(srcH, c.GetTrustingPeriod(), ubdPeriod, dst.MustGetAddress()))
+			clients.Dst = append(
+				clients.Dst,
+				dst.PathEnd.CreateClient(
+					srcH,
+					c.GetTrustingPeriod(),
+					ubdPeriod,
+					dst.MustGetAddress(),
+				))
 		}
 		return nil
 	})

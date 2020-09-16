@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -36,8 +35,6 @@ var (
 	debug       bool
 	config      *Config
 	defaultHome = os.ExpandEnv("$HOME/.relayer")
-	cdc         *codec.LegacyAmino
-	appCodec    *codec.JSONMarshaler
 
 	// Default identifiers for dummy usage
 	dcli = "defaultclientid"

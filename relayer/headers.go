@@ -43,6 +43,7 @@ func (uh *SyncHeaders) Update(c *Chain) error {
 func (uh *SyncHeaders) Updates(c ...*Chain) error {
 	eg := new(errgroup.Group)
 	for _, chain := range c {
+		chain := chain
 		eg.Go(func() error {
 			return uh.Update(chain)
 		})
@@ -107,10 +108,7 @@ func (uh *SyncHeaders) GetTrustedHeaders(src, dst *Chain) (srcTh, dstTh *tmclien
 func InjectTrustedFields(srcChain, dstChain *Chain, srcHeader *tmclient.Header) (*tmclient.Header, error) {
 	// make copy of header stored in mop
 	h := *(srcHeader)
-	// check that dstChain PathEnd set correctly
-	// 	if dstChain.PathEnd.ChainID != h.Header.ChainID {
-	// 		return nil, fmt.Errorf("counterparty chain has incorrect PathEnd. expected chainID: %s, got: %s", dstChain.PathEnd.ChainID, h.Header.ChainID)
-	// 	}
+
 	// retrieve counterparty client from dst chain
 	counterpartyClientRes, err := dstChain.QueryClientState(0)
 	if err != nil {

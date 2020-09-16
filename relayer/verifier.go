@@ -30,7 +30,9 @@ import (
 var logger = light.Logger(log.NewTMLogger(log.NewSyncWriter(ioutil.Discard)))
 
 // InjectTrustedFieldsHeaders takes the headers and enriches them
-func InjectTrustedFieldsHeaders(src, dst *Chain, srch, dsth *tmclient.Header) (srcho *tmclient.Header, dstho *tmclient.Header, err error) {
+func InjectTrustedFieldsHeaders(
+	src, dst *Chain,
+	srch, dsth *tmclient.Header) (srcho *tmclient.Header, dstho *tmclient.Header, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
 		srcho, err = InjectTrustedFields(src, dst, srch)

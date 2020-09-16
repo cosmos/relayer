@@ -605,12 +605,12 @@ func queryUnrelayed() *cobra.Command {
 				return err
 			}
 
-			strat, err := path.GetStrategy()
+			strategy, err := path.GetStrategy()
 			if err != nil {
 				return err
 			}
 
-			sp, err := strat.UnrelayedSequencesOrdered(c[src], c[dst], sh)
+			sp, err := strategy.UnrelayedSequencesOrdered(c[src], c[dst], sh)
 			if err != nil {
 				return err
 			}

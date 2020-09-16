@@ -186,11 +186,6 @@ func (c *Chain) KeyExists(name string) bool {
 	return k.GetName() == name
 }
 
-func (c *Chain) getGasPrices() sdk.DecCoins {
-	gp, _ := sdk.ParseDecCoins(c.GasPrices)
-	return gp
-}
-
 // GetTrustingPeriod returns the trusting period for the chain
 func (c *Chain) GetTrustingPeriod() time.Duration {
 	tp, _ := time.ParseDuration(c.TrustingPeriod)
@@ -231,7 +226,7 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
 		return nil, err
 	}
 
-	// If users pass gas adjustment, then caclulate gas
+	// If users pass gas adjustment, then calculate gas
 	// TODO: make all txs estimate/
 	_, adjusted, err := tx.CalculateGas(ctx.QueryWithData, txf, msgs...)
 	if err != nil {

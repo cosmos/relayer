@@ -82,10 +82,6 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, dstExpected.AmountOf(testDenom).Int64()-4000, dstGot.AmountOf(testDenom).Int64())
 
-	// Test the full transfer command as well
-	require.NoError(t, src.SendTransferBothSides(dst, testCoin, dst.MustGetAddress(), true))
-	require.NoError(t, dst.SendTransferBothSides(src, testCoin, src.MustGetAddress(), false))
-
 	// check balance on src against expected
 	srcGot, err = src.QueryBalance(src.Key)
 	require.NoError(t, err)

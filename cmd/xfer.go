@@ -16,8 +16,9 @@ func xfersend() *cobra.Command {
 		Use:     "transfer [src-chain-id] [dst-chain-id] [amount] [dst-addr]",
 		Short:   "Initiate a transfer from one chain to another",
 		Aliases: []string{"xfer", "txf"},
-		Long:    "Sends the first step to transfer tokens in an IBC transfer. The created packet must be relayed to another chain",
-		Args:    cobra.ExactArgs(4),
+		Long: "Sends the first step to transfer tokens in an IBC transfer." +
+			" The created packet must be relayed to another chain",
+		Args: cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			c, err := config.Chains.Gets(src, dst)

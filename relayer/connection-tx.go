@@ -6,7 +6,6 @@ import (
 
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
-	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	ibcExported "github.com/cosmos/cosmos-sdk/x/ibc/exported"
 	"golang.org/x/sync/errgroup"
@@ -106,7 +105,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		return nil, err
 	}
 
-	if !(srcConn.Connection.State == ibctypes.UNINITIALIZED && dstConn.Connection.State == ibctypes.UNINITIALIZED) {
+	if !(srcConn.Connection.State == connTypes.UNINITIALIZED && dstConn.Connection.State == connTypes.UNINITIALIZED) {
 		// Query client state from each chain's client
 		srcCsRes, dstCsRes, err = QueryClientStatePair(c, dst, srch.Header.Height-1, dsth.Header.Height-1)
 		if err != nil && (srcCsRes == nil || dstCsRes == nil) {
@@ -126,7 +125,8 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 		// NOTE: We query connection at height - 1 because of the way tendermint returns
 		// proofs the commit for height n is contained in the header of height n + 1
-		srcCons, dstCons, err = QueryClientConsensusStatePair(c, dst, srch.Header.Height-1, dsth.Header.Height-1, srcConsH, dstConsH)
+		srcCons, dstCons, err = QueryClientConsensusStatePair(
+			c, dst, srch.Header.Height-1, dsth.Header.Height-1, srcConsH, dstConsH)
 		if err != nil {
 			return nil, err
 		}
@@ -134,14 +134,14 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	switch {
 	// Handshake hasn't been started on src or dst, relay `connOpenInit` to src
-	case srcConn.Connection.State == ibctypes.UNINITIALIZED && dstConn.Connection.State == ibctypes.UNINITIALIZED:
+	case srcConn.Connection.State == connTypes.UNINITIALIZED && dstConn.Connection.State == connTypes.UNINITIALIZED:
 		if c.debug {
 			logConnectionStates(c, dst, srcConn, dstConn)
 		}
 		out.Src = append(out.Src, c.PathEnd.ConnInit(dst.PathEnd, c.MustGetAddress()))
 
 	// Handshake has started on dst (1 stepdone), relay `connOpenTry` and `updateClient` on src
-	case srcConn.Connection.State == ibctypes.UNINITIALIZED && dstConn.Connection.State == ibctypes.INIT:
+	case srcConn.Connection.State == connTypes.UNINITIALIZED && dstConn.Connection.State == connTypes.INIT:
 		if c.debug {
 			logConnectionStates(c, dst, srcConn, dstConn)
 		}
@@ -152,7 +152,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		)
 
 	// Handshake has started on src (1 step done), relay `connOpenTry` and `updateClient` on dst
-	case srcConn.Connection.State == ibctypes.INIT && dstConn.Connection.State == ibctypes.UNINITIALIZED:
+	case srcConn.Connection.State == connTypes.INIT && dstConn.Connection.State == connTypes.UNINITIALIZED:
 		if dst.debug {
 			logConnectionStates(dst, c, dstConn, srcConn)
 		}
@@ -163,7 +163,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		)
 
 	// Handshake has started on src end (2 steps done), relay `connOpenAck` and `updateClient` to dst end
-	case srcConn.Connection.State == ibctypes.TRYOPEN && dstConn.Connection.State == ibctypes.INIT:
+	case srcConn.Connection.State == connTypes.TRYOPEN && dstConn.Connection.State == connTypes.INIT:
 		if dst.debug {
 			logConnectionStates(dst, c, dstConn, srcConn)
 		}
@@ -173,7 +173,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		)
 
 	// Handshake has started on dst end (2 steps done), relay `connOpenAck` and `updateClient` to src end
-	case srcConn.Connection.State == ibctypes.INIT && dstConn.Connection.State == ibctypes.TRYOPEN:
+	case srcConn.Connection.State == connTypes.INIT && dstConn.Connection.State == connTypes.TRYOPEN:
 		if c.debug {
 			logConnectionStates(c, dst, srcConn, dstConn)
 		}
@@ -183,7 +183,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		)
 
 	// Handshake has confirmed on dst (3 steps done), relay `connOpenConfirm` and `updateClient` to src end
-	case srcConn.Connection.State == ibctypes.TRYOPEN && dstConn.Connection.State == ibctypes.OPEN:
+	case srcConn.Connection.State == connTypes.TRYOPEN && dstConn.Connection.State == connTypes.OPEN:
 		if c.debug {
 			logConnectionStates(c, dst, srcConn, dstConn)
 		}
@@ -194,7 +194,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		out.last = true
 
 	// Handshake has confirmed on src (3 steps done), relay `connOpenConfirm` and `updateClient` to dst end
-	case srcConn.Connection.State == ibctypes.OPEN && dstConn.Connection.State == ibctypes.TRYOPEN:
+	case srcConn.Connection.State == connTypes.OPEN && dstConn.Connection.State == connTypes.TRYOPEN:
 		if dst.debug {
 			logConnectionStates(dst, c, dstConn, srcConn)
 		}
