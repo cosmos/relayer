@@ -85,35 +85,6 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 		return nil, err
 	}
 
-	// 	// Iterate over all packets commitment sequences still remaining on src,
-	// 	// and add if the sequence has not been processed by dst
-	// 	for _, packet := range srcPacketSeq {
-	// 		processed := false
-	// 		for _, r := range dstRecvd {
-	// 			if packet == r {
-	// 				processed = true
-	// 			}
-	// 		}
-	// 		if !processed {
-	// 			rs.Src = append(rs.Src, packet)
-	// 		}
-	// 	}
-	//
-	// 	// Iterate over all packets commitment sequences still remaining on dst,
-	// 	// and add if the sequence has not been processed by src
-	// 	for _, packet := range dstPacketSeq {
-	// 		processed := false
-	// 		for _, r := range srcRecvd {
-	// 			if packet == r {
-	// 				processed = true
-	// 			}
-	// 		}
-	//
-	// 		if !processed {
-	// 			rs.Dst = append(rs.Dst, packet)
-	// 		}
-	// 	}
-
 	return rs, nil
 }
 
