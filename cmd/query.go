@@ -190,7 +190,23 @@ func queryBalanceCmd() *cobra.Command {
 				return err
 			}
 
-			return chain.Print(coins, false, false)
+			dts, err := chain.QueryDenomTraces(0, 1000)
+			if err != nil {
+				return err
+			}
+
+			out := sdk.Coins{}
+			for _, c := range coins {
+				for _, d := range dts.DenomTraces {
+					if c.Denom == d.IBCDenom() {
+						out = append(out, sdk.NewCoin(d.GetFullDenomPath(), c.Amount))
+						continue
+					}
+					out = append(out, c)
+				}
+			}
+
+			return chain.Print(out, false, false)
 		},
 	}
 	return cmd
