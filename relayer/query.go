@@ -417,17 +417,26 @@ func (c *Chain) QueryPacketCommitments(
 	// return res.Commitments, err
 }
 
-// QueryUnrelayedPackets returns a list of unrelayed packet commitments
-func (c *Chain) QueryUnrelayedPackets(height uint64, seqs []uint64, acks bool) ([]uint64, error) {
+// QueryUnrecievedPackets returns a list of unrelayed packet commitments
+func (c *Chain) QueryUnrecievedPackets(height uint64, seqs []uint64) ([]uint64, error) {
 	qc := chanTypes.NewQueryClient(c.CLIContext(int64(height)))
-	res, err := qc.UnrelayedPackets(context.Background(), &chanTypes.QueryUnrelayedPacketsRequest{
+	res, err := qc.UnreceivedPackets(context.Background(), &chanTypes.QueryUnreceivedPacketsRequest{
 		PortId:                    c.PathEnd.PortID,
 		ChannelId:                 c.PathEnd.ChannelID,
 		PacketCommitmentSequences: seqs,
-		Acknowledgements:          acks,
 	})
 	return res.Sequences, err
+}
 
+// QueryUnrelayedAcks returns a list of unrelayed packet acks
+func (c *Chain) QueryUnrelayedAcks(height uint64, seqs []uint64) ([]uint64, error) {
+	qc := chanTypes.NewQueryClient(c.CLIContext(int64(height)))
+	res, err := qc.UnrelayedAcks(context.Background(), &chanTypes.QueryUnrelayedAcksRequest{
+		PortId:                    c.PathEnd.PortID,
+		ChannelId:                 c.PathEnd.ChannelID,
+		PacketCommitmentSequences: seqs,
+	})
+	return res.Sequences, err
 }
 
 // QueryTx takes a transaction hash and returns the transaction
