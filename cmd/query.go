@@ -180,6 +180,11 @@ func queryBalanceCmd() *cobra.Command {
 				return err
 			}
 
+			showDenoms, err := cmd.Flags().GetBool(flagIBCDenoms)
+			if err != nil {
+				return err
+			}
+
 			var coins sdk.Coins
 			if len(args) == 2 {
 				coins, err = chain.QueryBalance(args[1])
@@ -188,6 +193,10 @@ func queryBalanceCmd() *cobra.Command {
 			}
 			if err != nil {
 				return err
+			}
+
+			if showDenoms {
+				return chain.Print(coins, false, false)
 			}
 
 			dts, err := chain.QueryDenomTraces(0, 1000)
@@ -212,7 +221,7 @@ func queryBalanceCmd() *cobra.Command {
 			return chain.Print(coins, false, false)
 		},
 	}
-	return cmd
+	return ibcDenomFlags(cmd)
 }
 
 func queryHeaderCmd() *cobra.Command {

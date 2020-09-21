@@ -25,7 +25,16 @@ var (
 	flagOrder        = "unordered"
 	flagMaxTxSize    = "max-tx-size"
 	flagMaxMsgLength = "max-msgs"
+	flagIBCDenoms    = "ibc-denoms"
 )
+
+func ibcDenomFlags(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP(flagIBCDenoms, "i", false, "Display IBC denominations for sending tokens back to other chains")
+	if err := viper.BindPFlag(flagIBCDenoms, cmd.Flags().Lookup(flagIBCDenoms)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
 
 func lightFlags(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Int64(flags.FlagHeight, -1, "Trusted header's height")
