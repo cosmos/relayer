@@ -3,10 +3,9 @@ package cmd
 import (
 	"strings"
 
-	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
-	"github.com/iqlusioninc/relayer/relayer"
+	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
+	"github.com/ovrclk/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -59,30 +58,20 @@ func updateClientCmd() *cobra.Command {
 				return err
 			}
 
-			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
+			dstHeader, err := chains[dst].UpdateLightWithHeader()
 			if err != nil {
 				return err
 			}
 
-			var dstHeader *tmclient.Header
-
-			if height > 0 {
-				dstHeader, err = chains[dst].UpdateLiteWithHeaderHeight(height)
-				if err != nil {
-					return err
-				}
-			} else {
-				dstHeader, err = chains[dst].UpdateLiteWithHeader()
-				if err != nil {
-					return err
-				}
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
+			if err != nil {
+				return err
 			}
-
-			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress())},
+			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress())},
 				chains[src], cmd)
 		},
 	}
-	return heightFlag(cmd)
+	return cmd
 }
 
 func createClientCmd() *cobra.Command {
@@ -98,7 +87,7 @@ func createClientCmd() *cobra.Command {
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLiteWithHeader()
+			dstHeader, err := chains[dst].UpdateLightWithHeader()
 			if err != nil {
 				return err
 			}
@@ -107,8 +96,13 @@ func createClientCmd() *cobra.Command {
 				return err
 			}
 
+			ubdPeriod, err := chains[dst].QueryUnbondingPeriod()
+			if err != nil {
+				return err
+			}
+
 			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.CreateClient(dstHeader,
-				chains[dst].GetTrustingPeriod(), chains[src].MustGetAddress())},
+				chains[dst].GetTrustingPeriod(), ubdPeriod, chains[src].MustGetAddress())},
 				chains[src], cmd)
 		},
 	}
@@ -162,35 +156,43 @@ func connTry() *cobra.Command {
 				return err
 			}
 
-			hs, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
+			_, dsth, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
 			if err != nil {
 				return err
 			}
 
 			// NOTE: We query connection at height - 1 because of the way tendermint returns
 			// proofs the commit for height n is contained in the header of height n + 1
-			dstConnState, err := chains[dst].QueryConnection(hs[dst].Height - 1)
+			dstConnState, err := chains[dst].QueryConnection(dsth.Header.Height - 1)
 			if err != nil {
 				return err
 			}
 
 			// We are querying the state of the client for src on dst and finding the height
-			dstClientState, err := chains[dst].QueryClientState()
+			dstClientStateRes, err := chains[dst].QueryClientState(dsth.Header.Height)
 			if err != nil {
 				return err
 			}
-			dstCsHeight := int64(dstClientState.ClientState.GetLatestHeight())
+			dstClientState, err := clientTypes.UnpackClientState(dstClientStateRes.ClientState)
+			if err != nil {
+				return err
+			}
+			dstCsHeight := int64(relayer.MustGetHeight(dstClientState.GetLatestHeight()))
 
 			// Then we need to query the consensus state for src at that height on dst
-			dstConsState, err := chains[dst].QueryClientConsensusState(hs[dst].Height-1, dstCsHeight)
+			dstConsState, err := chains[dst].QueryClientConsensusState(dsth.Header.Height, dstCsHeight)
 			if err != nil {
 				return err
 			}
 
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dsth)
+			if err != nil {
+				return err
+			}
 			txs := []sdk.Msg{
-				chains[src].PathEnd.UpdateClient(hs[dst], chains[src].MustGetAddress()),
-				chains[src].PathEnd.ConnTry(chains[dst].PathEnd, dstConnState,
-					dstConsState, dstCsHeight, chains[src].MustGetAddress()),
+				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
+				chains[src].PathEnd.ConnTry(chains[dst].PathEnd, dstClientStateRes, dstConnState,
+					dstConsState, chains[src].MustGetAddress()),
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -219,34 +221,43 @@ func connAck() *cobra.Command {
 				return err
 			}
 
-			hs, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
+			_, dsth, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
 			if err != nil {
 				return err
 			}
 
 			// NOTE: We query connection at height - 1 because of the way tendermint returns
 			// proofs the commit for height n is contained in the header of height n + 1
-			dstState, err := chains[dst].QueryConnection(hs[dst].Height - 1)
+			dstState, err := chains[dst].QueryConnection(dsth.Header.Height - 1)
 			if err != nil {
 				return err
 			}
 
 			// We are querying the state of the client for src on dst and finding the height
-			dstClientState, err := chains[dst].QueryClientState()
+			dstClientStateResponse, err := chains[dst].QueryClientState(dsth.Header.Height)
 			if err != nil {
 				return err
 			}
-			dstCsHeight := int64(dstClientState.ClientState.GetLatestHeight())
+			dstClientState, _ := clientTypes.UnpackClientState(dstClientStateResponse.ClientState)
+			dstCsHeight := int64(relayer.MustGetHeight(dstClientState.GetLatestHeight()))
 
 			// Then we need to query the consensus state for src at that height on dst
-			dstConsState, err := chains[dst].QueryClientConsensusState(hs[dst].Height-1, dstCsHeight)
+			dstConsState, err := chains[dst].QueryClientConsensusState(dsth.Header.Height, dstCsHeight)
 			if err != nil {
 				return err
 			}
 
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dsth)
+			if err != nil {
+				return err
+			}
 			txs := []sdk.Msg{
-				chains[src].PathEnd.ConnAck(dstState, dstConsState, dstCsHeight, chains[src].MustGetAddress()),
-				chains[src].PathEnd.UpdateClient(hs[dst], chains[src].MustGetAddress()),
+				chains[src].PathEnd.ConnAck(
+					chains[dst].PathEnd,
+					dstClientStateResponse,
+					dstState, dstConsState,
+					chains[src].MustGetAddress()),
+				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -275,21 +286,25 @@ func connConfirm() *cobra.Command {
 				return err
 			}
 
-			hs, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
+			_, dsth, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
 			if err != nil {
 				return err
 			}
 
 			// NOTE: We query connection at height - 1 because of the way tendermint returns
 			// proofs the commit for height n is contained in the header of height n + 1
-			dstState, err := chains[dst].QueryConnection(hs[dst].Height - 1)
+			dstState, err := chains[dst].QueryConnection(dsth.Header.Height - 1)
 			if err != nil {
 				return err
 			}
 
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dsth)
+			if err != nil {
+				return err
+			}
 			txs := []sdk.Msg{
 				chains[src].PathEnd.ConnConfirm(dstState, chains[src].MustGetAddress()),
-				chains[src].PathEnd.UpdateClient(hs[dst], chains[src].MustGetAddress()),
+				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -392,18 +407,22 @@ func chanTry() *cobra.Command {
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLiteWithHeader()
+			dstHeader, err := chains[dst].UpdateLightWithHeader()
 			if err != nil {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height - 1)
+			dstChanState, err := chains[dst].QueryChannel(dstHeader.Header.Height - 1)
 			if err != nil {
 				return err
 			}
 
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
+			if err != nil {
+				return err
+			}
 			txs := []sdk.Msg{
-				chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress()),
+				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
 				chains[src].PathEnd.ChanTry(chains[dst].PathEnd, dstChanState, chains[src].MustGetAddress()),
 			}
 
@@ -434,18 +453,22 @@ func chanAck() *cobra.Command {
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLiteWithHeader()
+			dstHeader, err := chains[dst].UpdateLightWithHeader()
 			if err != nil {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height - 1)
+			dstChanState, err := chains[dst].QueryChannel(dstHeader.Header.Height - 1)
 			if err != nil {
 				return err
 			}
 
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
+			if err != nil {
+				return err
+			}
 			txs := []sdk.Msg{
-				chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress()),
+				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
 				chains[src].PathEnd.ChanAck(dstChanState, chains[src].MustGetAddress()),
 			}
 
@@ -476,18 +499,22 @@ func chanConfirm() *cobra.Command {
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLiteWithHeader()
+			dstHeader, err := chains[dst].UpdateLightWithHeader()
 			if err != nil {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height - 1)
+			dstChanState, err := chains[dst].QueryChannel(dstHeader.Header.Height - 1)
 			if err != nil {
 				return err
 			}
 
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
+			if err != nil {
+				return err
+			}
 			txs := []sdk.Msg{
-				chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress()),
+				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
 				chains[src].PathEnd.ChanConfirm(dstChanState, chains[src].MustGetAddress()),
 			}
 
@@ -583,18 +610,22 @@ func chanCloseConfirm() *cobra.Command {
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLiteWithHeader()
+			dstHeader, err := chains[dst].UpdateLightWithHeader()
 			if err != nil {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height - 1)
+			dstChanState, err := chains[dst].QueryChannel(dstHeader.Header.Height - 1)
 			if err != nil {
 				return err
 			}
 
+			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
+			if err != nil {
+				return err
+			}
 			txs := []sdk.Msg{
-				chains[src].PathEnd.UpdateClient(dstHeader, chains[src].MustGetAddress()),
+				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
 				chains[src].PathEnd.ChanCloseConfirm(dstChanState, chains[src].MustGetAddress()),
 			}
 

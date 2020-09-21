@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iqlusioninc/relayer/relayer"
+	"github.com/ovrclk/relayer/relayer"
 )
 
 const (
@@ -52,8 +52,7 @@ func chainsAddrCmd() *cobra.Command {
 				return err
 			}
 
-			done := chain.UseSDKContext()
-			defer done()
+			chain.UseSDKContext()
 
 			addr, err := chain.GetAddress()
 			if err != nil {
@@ -108,12 +107,9 @@ func chainsShowCmd() *cobra.Command {
 				fmt.Printf(`chain-id:        %s
 rpc-addr:        %s
 trusting-period: %s
-default-denom:   %s
-gas:             %d
-gas-prices:      %s
 key:             %s
 account-prefix:  %s
-`, c.ChainID, c.RPCAddr, c.TrustingPeriod, c.DefaultDenom, c.Gas, c.GasPrices, c.Key, c.AccountPrefix)
+`, c.ChainID, c.RPCAddr, c.TrustingPeriod, c.Key, c.AccountPrefix)
 				return nil
 			}
 		},
@@ -197,10 +193,10 @@ func chainsListCmd() *cobra.Command {
 			default:
 				for i, c := range config.Chains {
 					var (
-						lite = xIcon
-						key  = xIcon
-						path = xIcon
-						bal  = xIcon
+						light = xIcon
+						key   = xIcon
+						path  = xIcon
+						bal   = xIcon
 					)
 					_, err := c.GetAddress()
 					if err == nil {
@@ -212,9 +208,9 @@ func chainsListCmd() *cobra.Command {
 						bal = check
 					}
 
-					_, err = c.GetLatestLiteHeader()
+					_, err = c.GetLatestLightHeader()
 					if err == nil {
-						lite = check
+						light = check
 					}
 
 					for _, pth := range config.Paths {
@@ -222,7 +218,7 @@ func chainsListCmd() *cobra.Command {
 							path = check
 						}
 					}
-					fmt.Printf("%2d: %-20s -> key(%s) bal(%s) lite(%s) path(%s)\n", i, c.ChainID, key, bal, lite, path)
+					fmt.Printf("%2d: %-20s -> key(%s) bal(%s) light(%s) path(%s)\n", i, c.ChainID, key, bal, light, path)
 				}
 				return nil
 			}

@@ -13,7 +13,7 @@ import (
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
 
-	ry "github.com/iqlusioninc/relayer/relayer"
+	ry "github.com/ovrclk/relayer/relayer"
 )
 
 // spinUpTestChains is to be passed any number of test chains with given configuration options
@@ -118,7 +118,7 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 	}
 
 	// initialize the chain
-	require.NoError(t, c.Init(dir, tc.t.cdc, tc.t.amino, tc.t.timeout, debug))
+	require.NoError(t, c.Init(dir, tc.t.timeout, debug))
 
 	// create the test key
 	require.NoError(t, c.CreateTestKey())
@@ -137,8 +137,7 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 
 	func() {
 		// Ensure our address is encoded properly.
-		done := c.UseSDKContext()
-		defer done()
+		c.UseSDKContext()
 
 		dockerOpts.Cmd = []string{c.ChainID, c.MustGetAddress().String()}
 		dockerOpts.Labels = make(map[string]string)
@@ -162,8 +161,8 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 
 	c.Log(fmt.Sprintf("- [%s] CONTAINER AVAILABLE AT PORT %s", c.ChainID, c.RPCAddr))
 
-	// initialize the lite client
-	require.NoError(t, c.ForceInitLite())
+	// initialize the light client
+	require.NoError(t, c.ForceInitLight())
 
 	rchan <- resource
 }
@@ -205,7 +204,7 @@ func getLoggingChain(chns []*ry.Chain, rsr *dockertest.Resource) *ry.Chain {
 }
 
 func genTestPathAndSet(src, dst *ry.Chain, srcPort, dstPort string) (*ry.Path, error) {
-	path := ry.GenPath(src.ChainID, dst.ChainID, srcPort, dstPort, "ORDERED", "ics20-1")
+	path := ry.GenPath(src.ChainID, dst.ChainID, srcPort, dstPort, "UNORDERED", "ics20-1")
 	if err := src.SetPath(path.Src); err != nil {
 		return nil, err
 	}

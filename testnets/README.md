@@ -61,7 +61,7 @@ echo 'export GOPATH=$HOME/go' >> ~/.profile
 echo 'export GOBIN=$GOPATH/bin' >> ~/.profile
 echo 'export PATH=$PATH:/usr/local/go/bin:$GOBIN' >> ~/.profile
 echo "export GAIA=\$GOPATH/src/github.com/cosmos/gaia" >> ~/.profile
-echo "export RELAYER=\$GOPATH/src/github.com/iqlusioninc/relayer" >> ~/.profile
+echo "export RELAYER=\$GOPATH/src/github.com/ovrclk/relayer" >> ~/.profile
 source ~/.profile
 
 # Set these variables to different values that are specific to your chain
@@ -75,7 +75,7 @@ export ACCOUNT_PREFIX=cosmos
 
 # Start by downloading and installing both gaia and the relayer
 mkdir -p $(dirname $GAIA) && git clone https://github.com/cosmos/gaia $GAIA && cd $GAIA && git checkout $GAIASHA && make install
-mkdir -p $(dirname $RELAYER) && git clone https://github.com/iqlusioninc/relayer $RELAYER && cd $RELAYER && make install
+mkdir -p $(dirname $RELAYER) && git clone https://github.com/ovrclk/relayer $RELAYER && cd $RELAYER && make install
 
 # Now its time to configure both the relayer and gaia, start with the relayer
 cd
@@ -118,8 +118,8 @@ Once you have your server (you could deploy the relayer on a different machine a
 
 ```bash
 # install the relayer
-export RELAYER=$GOPATH/src/github.com/iqlusioninc/relayer
-mkdir -p $(dirname $RELAYER) && git clone git@github.com:iqlusioninc/relayer $RELAYER && cd $RELAYER
+export RELAYER=$GOPATH/src/github.com/ovrclk/relayer
+mkdir -p $(dirname $RELAYER) && git clone git@github.com:ovrclk/relayer $RELAYER && cd $RELAYER
 make install
 
 # then to configure your local relayer to talk to your remote chain
@@ -133,8 +133,8 @@ rly keys add {{chain_id}} testkey
 # confiure the chain to use that key by default
 rly ch edit {{chain_id}} key testkey
 
-# initialize the lite client for {{chain_id}}
-rly lite init {{chain_id}} -f
+# initialize the light client for {{chain_id}}
+rly light init {{chain_id}} -f
 
 # request funds from the faucet to test it
 rly tst request {{chain_id}} testkey
@@ -164,8 +164,8 @@ rly ch a -f testnets/relayer-alpha-2/pylonchain.json
 # or add all the chain configurations for the testnet at once...
 rly chains add-dir testnets/relayer-alpha-2/
 
-# ensure the lite clients are created locally...
-rly lite init {{src_chain_id}} -f 
+# ensure the light clients are created locally...
+rly light init {{src_chain_id}} -f 
 rly l i {{dst_chain_id}} -f
 
 # ensure each chain has its appropriate key...

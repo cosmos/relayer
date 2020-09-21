@@ -14,7 +14,7 @@ if [[ ! -x "$(which docker-compose)" ]]; then
   exit 1
 fi
 
-RELAYER_DIR="$GOPATH/src/github.com/iqlusioninc/relayer"
+RELAYER_DIR="$GOPATH/src/github.com/ovrclk/relayer"
 RELAYER_CONF="$HOME/.relayer"
 ENV_FILE="$RELAYER_DIR/.env"
 
@@ -55,11 +55,11 @@ docker-compose up -d &> /dev/null
 echo "Waiting for blocks..."
 sleep 8
 
-echo "Creating lite clients for chains..."
-rly lite init ibc0 -f
-rly lite init ibc1 -f
-rly lite init ibc2 -f
-rly lite init ibc3 -f
+echo "Creating light clients for chains..."
+rly light init ibc0 -f
+rly light init ibc1 -f
+rly light init ibc2 -f
+rly light init ibc3 -f
 
 echo "Starting 'rly tx link zeroone' (ibc0<>ibc1) logs in data/zeroone.log"
 rly tx link zeroone -d -o 3s 2>&1 > data/zeroone.log &

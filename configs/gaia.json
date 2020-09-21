@@ -3,10 +3,7 @@
   "cli": "gaiacli",
   "link": {
     "account-prefix": "cosmos",
-    "gas": 200000,
-    "gas-adjustment":1.0,
-    "gas-prices": "0.025stake",
-    "default-denom": "stake",
+    "gas-adjustment": 1.0,
     "trusting-period": "336h"
   }
 }

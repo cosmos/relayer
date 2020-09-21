@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
+	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
+	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	ibcExported "github.com/cosmos/cosmos-sdk/x/ibc/exported"
+	"golang.org/x/sync/errgroup"
 )
 
 // CreateConnection runs the connection creation messages on timeout until they pass
@@ -30,11 +33,11 @@ func (c *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 		// debug logging, log created connection and break
 		case connSteps.success && connSteps.last:
 			if c.debug {
-				conns, err := QueryConnectionPair(c, dst, 0, 0)
+				srcConn, dstConn, err := QueryConnectionPair(c, dst, 0, 0)
 				if err != nil {
 					return err
 				}
-				logConnectionStates(c, dst, conns)
+				logConnectionStates(c, dst, srcConn, dstConn)
 			}
 
 			c.Log(fmt.Sprintf("★ Connection created: [%s]client{%s}conn{%s} -> [%s]client{%s}conn{%s}",
@@ -63,120 +66,141 @@ func (c *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 // with the given identifier between chains src and dst. If handshake hasn't started,
 // CreateConnetionStep will start the handshake on src
 func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
-	out := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}, last: false}
-
-	if err := c.PathEnd.Validate(); err != nil {
-		return nil, c.ErrCantSetPath(err)
+	out := NewRelayMsgs()
+	if err := ValidatePaths(c, dst); err != nil {
+		return nil, err
 	}
 
-	if err := dst.PathEnd.Validate(); err != nil {
-		return nil, dst.ErrCantSetPath(err)
-	}
-
-	hs, err := UpdatesWithHeaders(c, dst)
+	// First, update the light clients to the latest header and return the header
+	srch, dsth, err := UpdatesWithHeaders(c, dst)
 	if err != nil {
 		return nil, err
 	}
 
-	scid, dcid := c.ChainID, dst.ChainID
+	// Query a number of things all at once
+	var (
+		eg                               = new(errgroup.Group)
+		srcUpdateHeader, dstUpdateHeader *tmclient.Header
+		srcConn, dstConn                 *connTypes.QueryConnectionResponse
+		srcCsRes, dstCsRes               *clientTypes.QueryClientStateResponse
+		srcCS, dstCS                     ibcExported.ClientState
+		srcCons, dstCons                 *clientTypes.QueryConsensusStateResponse
+		srcConsH, dstConsH               int64
+	)
+
+	// create the UpdateHeaders for src and dest Chains
+	eg.Go(func() error {
+		srcUpdateHeader, dstUpdateHeader, err = InjectTrustedFieldsHeaders(c, dst, srch, dsth)
+		return err
+	})
 
 	// Query Connection data from src and dst
-	// NOTE: We query connection at height - 1 because of the way tendermint returns
-	// proofs the commit for height n is contained in the header of height n + 1
-	conn, err := QueryConnectionPair(c, dst, hs[scid].Height-1, hs[dcid].Height-1)
-	if err != nil {
+	eg.Go(func() error {
+		srcConn, dstConn, err = QueryConnectionPair(c, dst, srch.Header.Height-1, dsth.Header.Height-1)
+		return err
+
+	})
+
+	if err = eg.Wait(); err != nil {
 		return nil, err
 	}
 
-	// NOTE: We query connection at height - 1 because of the way tendermint returns
-	// proofs the commit for height n is contained in the header of height n + 1
-	cs, err := QueryClientStatePair(c, dst)
-	if err != nil {
-		return nil, err
-	}
+	if !(srcConn.Connection.State == connTypes.UNINITIALIZED && dstConn.Connection.State == connTypes.UNINITIALIZED) {
+		// Query client state from each chain's client
+		srcCsRes, dstCsRes, err = QueryClientStatePair(c, dst, srch.Header.Height-1, dsth.Header.Height-1)
+		if err != nil && (srcCsRes == nil || dstCsRes == nil) {
+			return nil, err
+		}
+		srcCS, err = clientTypes.UnpackClientState(srcCsRes.ClientState)
+		if err != nil {
+			return nil, err
+		}
+		dstCS, err = clientTypes.UnpackClientState(dstCsRes.ClientState)
+		if err != nil {
+			return nil, err
+		}
 
-	// TODO: log these heights or something about client state? debug?
-	if cs[scid] == nil || cs[dcid] == nil {
-		return nil, err
-	}
+		// Store the heights
+		srcConsH, dstConsH = int64(MustGetHeight(srcCS.GetLatestHeight())), int64(MustGetHeight(dstCS.GetLatestHeight()))
 
-	// Store the heights
-	srcConsH, dstConsH := int64(cs[scid].ClientState.GetLatestHeight()), int64(cs[dcid].ClientState.GetLatestHeight())
-
-	// NOTE: We query connection at height - 1 because of the way tendermint returns
-	// proofs the commit for height n is contained in the header of height n + 1
-	cons, err := QueryClientConsensusStatePair(c, dst, hs[scid].Height-1, hs[dcid].Height-1, srcConsH, dstConsH)
-	if err != nil {
-		return nil, err
+		// NOTE: We query connection at height - 1 because of the way tendermint returns
+		// proofs the commit for height n is contained in the header of height n + 1
+		srcCons, dstCons, err = QueryClientConsensusStatePair(
+			c, dst, srch.Header.Height-1, dsth.Header.Height-1, srcConsH, dstConsH)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	switch {
 	// Handshake hasn't been started on src or dst, relay `connOpenInit` to src
-	case conn[scid].Connection.State == ibctypes.UNINITIALIZED && conn[dcid].Connection.State == ibctypes.UNINITIALIZED:
+	case srcConn.Connection.State == connTypes.UNINITIALIZED && dstConn.Connection.State == connTypes.UNINITIALIZED:
 		if c.debug {
-			logConnectionStates(c, dst, conn)
+			logConnectionStates(c, dst, srcConn, dstConn)
 		}
 		out.Src = append(out.Src, c.PathEnd.ConnInit(dst.PathEnd, c.MustGetAddress()))
 
 	// Handshake has started on dst (1 stepdone), relay `connOpenTry` and `updateClient` on src
-	case conn[scid].Connection.State == ibctypes.UNINITIALIZED && conn[dcid].Connection.State == ibctypes.INIT:
+	case srcConn.Connection.State == connTypes.UNINITIALIZED && dstConn.Connection.State == connTypes.INIT:
 		if c.debug {
-			logConnectionStates(c, dst, conn)
+			logConnectionStates(c, dst, srcConn, dstConn)
 		}
+
 		out.Src = append(out.Src,
-			c.PathEnd.UpdateClient(hs[dcid], c.MustGetAddress()),
-			c.PathEnd.ConnTry(dst.PathEnd, conn[dcid], cons[dcid], dstConsH, c.MustGetAddress()),
+			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
+			c.PathEnd.ConnTry(dst.PathEnd, dstCsRes, dstConn, dstCons, c.MustGetAddress()),
 		)
 
 	// Handshake has started on src (1 step done), relay `connOpenTry` and `updateClient` on dst
-	case conn[scid].Connection.State == ibctypes.INIT && conn[dcid].Connection.State == ibctypes.UNINITIALIZED:
+	case srcConn.Connection.State == connTypes.INIT && dstConn.Connection.State == connTypes.UNINITIALIZED:
 		if dst.debug {
-			logConnectionStates(dst, c, conn)
+			logConnectionStates(dst, c, dstConn, srcConn)
 		}
+
 		out.Dst = append(out.Dst,
-			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
-			dst.PathEnd.ConnTry(c.PathEnd, conn[scid], cons[scid], srcConsH, dst.MustGetAddress()),
+			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
+			dst.PathEnd.ConnTry(c.PathEnd, srcCsRes, srcConn, srcCons, dst.MustGetAddress()),
 		)
 
 	// Handshake has started on src end (2 steps done), relay `connOpenAck` and `updateClient` to dst end
-	case conn[scid].Connection.State == ibctypes.TRYOPEN && conn[dcid].Connection.State == ibctypes.INIT:
+	case srcConn.Connection.State == connTypes.TRYOPEN && dstConn.Connection.State == connTypes.INIT:
 		if dst.debug {
-			logConnectionStates(dst, c, conn)
+			logConnectionStates(dst, c, dstConn, srcConn)
 		}
 		out.Dst = append(out.Dst,
-			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
-			dst.PathEnd.ConnAck(conn[scid], cons[scid], srcConsH, dst.MustGetAddress()),
+			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
+			dst.PathEnd.ConnAck(c.PathEnd, srcCsRes, srcConn, srcCons, dst.MustGetAddress()),
 		)
 
 	// Handshake has started on dst end (2 steps done), relay `connOpenAck` and `updateClient` to src end
-	case conn[scid].Connection.State == ibctypes.INIT && conn[dcid].Connection.State == ibctypes.TRYOPEN:
+	case srcConn.Connection.State == connTypes.INIT && dstConn.Connection.State == connTypes.TRYOPEN:
 		if c.debug {
-			logConnectionStates(c, dst, conn)
+			logConnectionStates(c, dst, srcConn, dstConn)
 		}
 		out.Src = append(out.Src,
-			c.PathEnd.UpdateClient(hs[dcid], c.MustGetAddress()),
-			c.PathEnd.ConnAck(conn[dcid], cons[dcid], dstConsH, c.MustGetAddress()),
+			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
+			c.PathEnd.ConnAck(dst.PathEnd, dstCsRes, dstConn, dstCons, c.MustGetAddress()),
 		)
 
 	// Handshake has confirmed on dst (3 steps done), relay `connOpenConfirm` and `updateClient` to src end
-	case conn[scid].Connection.State == ibctypes.TRYOPEN && conn[dcid].Connection.State == ibctypes.OPEN:
+	case srcConn.Connection.State == connTypes.TRYOPEN && dstConn.Connection.State == connTypes.OPEN:
 		if c.debug {
-			logConnectionStates(c, dst, conn)
+			logConnectionStates(c, dst, srcConn, dstConn)
 		}
 		out.Src = append(out.Src,
-			c.PathEnd.UpdateClient(hs[dcid], c.MustGetAddress()),
-			c.PathEnd.ConnConfirm(conn[dcid], c.MustGetAddress()),
+			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
+			c.PathEnd.ConnConfirm(dstConn, c.MustGetAddress()),
 		)
 		out.last = true
 
 	// Handshake has confirmed on src (3 steps done), relay `connOpenConfirm` and `updateClient` to dst end
-	case conn[scid].Connection.State == ibctypes.OPEN && conn[dcid].Connection.State == ibctypes.TRYOPEN:
+	case srcConn.Connection.State == connTypes.OPEN && dstConn.Connection.State == connTypes.TRYOPEN:
 		if dst.debug {
-			logConnectionStates(dst, c, conn)
+			logConnectionStates(dst, c, dstConn, srcConn)
 		}
 		out.Dst = append(out.Dst,
-			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
-			dst.PathEnd.ConnConfirm(conn[scid], dst.MustGetAddress()),
+			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
+			dst.PathEnd.ConnConfirm(srcConn, dst.MustGetAddress()),
 		)
 		out.last = true
 	}

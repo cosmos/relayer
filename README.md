@@ -2,7 +2,7 @@
 
 ![GOZ](./docs/images/github-repo-banner.png)
 
-![Relayer Build](https://github.com/iqlusioninc/relayer/workflows/Build%20then%20run%20CI%20Chains/badge.svg)
+![Relayer Build](https://github.com/ovrclk/relayer/workflows/Build%20then%20run%20CI%20Chains/badge.svg)
 
 The Cosmos IBC `relayer` package contains a basic relayer implementation that is
 meant for users wishing to relay packets/data between sets of IBC enabled chains.
@@ -29,10 +29,7 @@ If you would like to join the relayer testnet, please [check out the instruction
 
 | chain | tests | supported ports |
 |-------|--------|----------------|
-| [`gaia`](https://github.com/cosmos/gaia) | ![gaia](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20gaia%20to%20gaia%20integration/badge.svg) | `transfer` |
-| `microtick` | ![microtick](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20mtd%20to%20ibc%20integration/badge.svg) | `transfer` |
-| [`rocketzone`](https://github.com/rocket-protocol/rocketzone) | ![rocketzone](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20rocketzone%20to%20ibc%20integration/badge.svg) | `transfer` |
-| [`coco`](https://github.com/CosmicCompass/post-chain) | ![coco](https://github.com/CosmicCompass/relayer/workflows/TESTING%20-%20coco%20to%20ibc%20integration/badge.svg) | `transfer` |
+| [`gaia`](https://github.com/cosmos/gaia) | ![gaia](https://github.com/ovrclk/relayer/workflows/TESTING%20-%20gaia%20to%20gaia%20integration/badge.svg) | `transfer` |
 
 ## Demoing the Relayer
 
@@ -69,10 +66,10 @@ $ cat ~/.relayer/config/config.yaml
 $ rly keys restore ibc0 testkey "$(jq -r '.secret' data/ibc0/n0/gaiacli/key_seed.json)"
 $ rly keys restore ibc1 testkey "$(jq -r '.secret' data/ibc1/n0/gaiacli/key_seed.json)"
 
-# Then its time to initialize the relayer's lite clients for each chain
-# All data moving forward is validated by these lite clients.
-$ rly lite init ibc0 -f
-$ rly lite init ibc1 -f
+# Then its time to initialize the relayer's light clients for each chain
+# All data moving forward is validated by these light clients.
+$ rly light init ibc0 -f
+$ rly light init ibc1 -f
 
 # At this point the relayer --home directory is ready for normal operations between
 # ibc0 and ibc1. Looking at the folder structure of the relayer at this point is helpful

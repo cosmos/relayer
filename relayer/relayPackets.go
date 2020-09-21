@@ -5,6 +5,7 @@ import (
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 )
 
@@ -21,7 +22,7 @@ type relayMsgTimeout struct {
 	seq          uint64
 	timeout      uint64
 	timeoutStamp uint64
-	dstRecvRes   *chanTypes.RecvResponse
+	dstRecvRes   *chanTypes.QueryPacketCommitmentResponse
 
 	pass bool
 }
@@ -39,25 +40,29 @@ func (rp *relayMsgTimeout) Timeout() uint64 {
 }
 
 func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
-	var dstRecvRes chanTypes.RecvResponse
-
+	var dstRecvRes *chanTypes.QueryPacketCommitmentResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
 		// NOTE: Timeouts currently only work with ORDERED channels for nwo
-		dstRecvRes, err = dst.QueryNextSeqRecv(int64(sh.GetHeight(dst.ChainID) - 1))
+		dstRecvRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
 		if err != nil {
 			return err
-		} else if dstRecvRes.Proof.Proof == nil {
+		} else if dstRecvRes.Proof == nil || dstRecvRes.Commitment == nil {
+			if err := sh.Update(src); err != nil {
+				return err
+			}
+			if err := sh.Update(dst); err != nil {
+				return err
+			}
 			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)",
-				dst.ChainID, int64(sh.GetHeight(dst.ChainID)-1), rp.seq)
+				dst.ChainID, int64(sh.GetHeight(dst.ChainID)), rp.seq)
 		}
 		return nil
 	}); err != nil {
 		dst.Error(err)
 		return
 	}
-
-	rp.dstRecvRes = &dstRecvRes
+	rp.dstRecvRes = dstRecvRes
 	return
 }
 
@@ -65,12 +70,18 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
 	if rp.dstRecvRes == nil {
 		return nil
 	}
-	return src.PathEnd.MsgTimeout(
-		dst.PathEnd,
-		rp.packetData,
+	return chanTypes.NewMsgTimeout(
+		chanTypes.NewPacket(
+			rp.packetData,
+			rp.seq,
+			dst.PathEnd.PortID,
+			dst.PathEnd.ChannelID,
+			src.PathEnd.PortID,
+			src.PathEnd.ChannelID,
+			clientTypes.NewHeight(0, rp.timeout),
+			rp.timeoutStamp,
+		),
 		rp.seq,
-		rp.timeout,
-		rp.timeoutStamp,
 		rp.dstRecvRes.Proof,
 		rp.dstRecvRes.ProofHeight,
 		src.MustGetAddress(),
@@ -82,7 +93,7 @@ type relayMsgRecvPacket struct {
 	seq          uint64
 	timeout      uint64
 	timeoutStamp uint64
-	dstComRes    *CommitmentResponse
+	dstComRes    *chanTypes.QueryPacketCommitmentResponse
 
 	pass bool
 }
@@ -111,16 +122,21 @@ func (rp *relayMsgRecvPacket) Timeout() uint64 {
 }
 
 func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
-	var dstCommitRes CommitmentResponse
-
+	var dstCommitRes *chanTypes.QueryPacketCommitmentResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
-		dstCommitRes, err = dst.QueryPacketCommitment(int64(sh.GetHeight(dst.ChainID)-1), int64(rp.seq))
+		dstCommitRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
 		if err != nil {
 			return err
-		} else if dstCommitRes.Proof.Proof == nil {
+		} else if dstCommitRes.Proof == nil || dstCommitRes.Commitment == nil {
+			if err := sh.Update(src); err != nil {
+				return err
+			}
+			if err := sh.Update(dst); err != nil {
+				return err
+			}
 			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)",
-				dst.ChainID, int64(sh.GetHeight(dst.ChainID)-1), rp.seq)
+				dst.ChainID, int64(sh.GetHeight(dst.ChainID)), rp.seq)
 		}
 		return nil
 	}); err != nil {
@@ -128,7 +144,7 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeade
 		return
 	}
 
-	rp.dstComRes = &dstCommitRes
+	rp.dstComRes = dstCommitRes
 	return
 }
 
@@ -136,8 +152,21 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) sdk.Msg {
 	if rp.dstComRes == nil {
 		return nil
 	}
-	return src.PacketMsg(
-		dst, rp.packetData, rp.timeout, rp.timeoutStamp, int64(rp.seq), *rp.dstComRes,
+	packet := chanTypes.NewPacket(
+		rp.packetData,
+		rp.seq,
+		dst.PathEnd.PortID,
+		dst.PathEnd.ChannelID,
+		src.PathEnd.PortID,
+		src.PathEnd.ChannelID,
+		clientTypes.NewHeight(0, rp.timeout),
+		rp.timeoutStamp,
+	)
+	return chanTypes.NewMsgRecvPacket(
+		packet,
+		rp.dstComRes.Proof,
+		rp.dstComRes.ProofHeight,
+		src.MustGetAddress(),
 	)
 }
 
@@ -147,7 +176,7 @@ type relayMsgPacketAck struct {
 	seq          uint64
 	timeout      uint64
 	timeoutStamp uint64
-	dstComRes    *CommitmentResponse
+	dstComRes    *chanTypes.QueryPacketCommitmentResponse
 }
 
 func (rp *relayMsgPacketAck) Data() []byte {
@@ -161,13 +190,18 @@ func (rp *relayMsgPacketAck) Timeout() uint64 {
 }
 
 func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
-	return src.PathEnd.MsgAck(
-		dst.PathEnd,
-		rp.seq,
-		rp.timeout,
-		rp.timeoutStamp,
+	return chanTypes.NewMsgAcknowledgement(
+		chanTypes.NewPacket(
+			rp.packetData,
+			rp.seq,
+			src.PathEnd.PortID,
+			src.PathEnd.ChannelID,
+			dst.PathEnd.PortID,
+			dst.PathEnd.ChannelID,
+			clientTypes.NewHeight(0, rp.timeout),
+			rp.timeoutStamp,
+		),
 		rp.ack,
-		rp.packetData,
 		rp.dstComRes.Proof,
 		rp.dstComRes.ProofHeight,
 		src.MustGetAddress(),
@@ -175,20 +209,26 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
 }
 
 func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
-	var dstCommitRes CommitmentResponse
+	var dstCommitRes *chanTypes.QueryPacketCommitmentResponse
 	if err = retry.Do(func() error {
-		dstCommitRes, err = dst.QueryPacketAck(int64(sh.GetHeight(dst.ChainID)-1), int64(rp.seq))
+		dstCommitRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
 		if err != nil {
 			return err
-		} else if dstCommitRes.Proof.Proof == nil {
+		} else if dstCommitRes.Proof == nil || dstCommitRes.Commitment == nil {
+			if err := sh.Update(src); err != nil {
+				return err
+			}
+			if err := sh.Update(dst); err != nil {
+				return err
+			}
 			return fmt.Errorf("- [%s]@{%d} - Packet Ack Proof is nil seq(%d)",
-				dst.ChainID, int64(sh.GetHeight(dst.ChainID)-1), rp.seq)
+				dst.ChainID, int64(sh.GetHeight(dst.ChainID)), rp.seq)
 		}
 		return nil
 	}); err != nil {
 		dst.Error(err)
 		return
 	}
-	rp.dstComRes = &dstCommitRes
+	rp.dstComRes = dstCommitRes
 	return nil
 }

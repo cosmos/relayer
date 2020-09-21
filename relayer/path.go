@@ -5,14 +5,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
-	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
-)
-
-var ( // Default identifiers for dummy usage
-	dcon = "defaultconnectionid"
-	dcha = "defaultchannelid"
-	dpor = "defaultportid"
+	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 )
 
 // Paths represent connection paths between chains
@@ -103,7 +96,7 @@ type Path struct {
 
 // Ordered returns true if the path is ordered and false if otherwise
 func (p *Path) Ordered() bool {
-	return p.Src.getOrder() == ibctypes.ORDERED
+	return p.Src.getOrder() == chantypes.ORDERED
 }
 
 // Validate checks that a path is valid
@@ -168,81 +161,4 @@ func GenPath(srcChainID, dstChainID, srcPortID, dstPortID, order string, version
 			Type: "naive",
 		},
 	}
-}
-
-// FindPaths returns all the open paths that exist between chains
-func FindPaths(chains Chains) (*Paths, error) {
-	var out = &Paths{}
-	hs, err := QueryLatestHeights(chains...)
-	if err != nil {
-		return nil, err
-	}
-	for _, src := range chains {
-		clients, err := src.QueryClients(1, 1000)
-		if err != nil {
-			return nil, err
-		}
-		for _, client := range clients {
-			clnt, ok := client.(tmclient.ClientState)
-			if !ok || clnt.LastHeader.Commit == nil || clnt.LastHeader.Header == nil {
-				continue
-			}
-			dst, err := chains.Get(client.GetChainID())
-			if err != nil {
-				continue
-			}
-
-			if err = src.AddPath(client.GetID(), dcon, dcha, dpor, "ORDERED"); err != nil {
-				return nil, err
-			}
-
-			conns, err := src.QueryConnectionsUsingClient(hs[src.ChainID])
-			if err != nil {
-				return nil, err
-			}
-
-			for _, connid := range conns.ConnectionPaths {
-				if err = src.AddPath(client.GetID(), connid, dcha, dpor, "ORDERED"); err != nil {
-					return nil, err
-				}
-				conn, err := src.QueryConnection(hs[src.ChainID])
-				if err != nil {
-					return nil, err
-				}
-				if conn.Connection.GetState().String() == "OPEN" {
-					chans, err := src.QueryConnectionChannels(connid, 1, 1000)
-					if err != nil {
-						return nil, err
-					}
-					for _, chn := range chans {
-						if chn.State.String() == "OPEN" {
-							p := &Path{
-								Src: &PathEnd{
-									ChainID:      src.ChainID,
-									ClientID:     client.GetID(),
-									ConnectionID: conn.Connection.ID,
-									ChannelID:    chn.ID,
-									PortID:       chn.PortID,
-								},
-								Dst: &PathEnd{
-									ChainID:      dst.ChainID,
-									ClientID:     conn.Connection.Counterparty.GetClientID(),
-									ConnectionID: conn.Connection.Counterparty.GetConnectionID(),
-									ChannelID:    chn.Counterparty.GetChannelID(),
-									PortID:       chn.Counterparty.GetPortID(),
-								},
-								Strategy: &StrategyCfg{
-									Type: "naive",
-								},
-							}
-							if err = out.Add(fmt.Sprintf("%s-%s", src.ChainID, dst.ChainID), p); err != nil {
-								return nil, err
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	return out, nil
 }

@@ -8,4 +8,4 @@ contributions under the terms of the [Apache License, Version 2.0]
 * Jack Zampolin (@jackzampolin)
 
 [Apache License, Version 2.0]: https://www.apache.org/licenses/LICENSE-2.0
-[LICENSE]: https://github.com/iqlusioninc/relayer/blob/master/LICENSE
+[LICENSE]: https://github.com/ovrclk/relayer/blob/master/LICENSE

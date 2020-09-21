@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
@@ -15,168 +14,113 @@ import (
 	retry "github.com/avast/retry-go"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
-	lite "github.com/tendermint/tendermint/lite2"
-	litep "github.com/tendermint/tendermint/lite2/provider"
-	litehttp "github.com/tendermint/tendermint/lite2/provider/http"
-	dbs "github.com/tendermint/tendermint/lite2/store/db"
+	light "github.com/tendermint/tendermint/light"
+	lightp "github.com/tendermint/tendermint/light/provider"
+	lighthttp "github.com/tendermint/tendermint/light/provider/http"
+	dbs "github.com/tendermint/tendermint/light/store/db"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	tmtypes "github.com/tendermint/tendermint/types"
+	"golang.org/x/sync/errgroup"
 )
 
-type header struct {
-	sync.Mutex
-	Map  map[string]*tmclient.Header
-	Errs []error
-}
+// NOTE: currently we are discarding the very noisy light client logs
+// it would be nice if we could add a setting the chain or otherwise
+// that allowed users to enable light client logging. (maybe as a hidden prop
+// on the Chain struct that users could pass in the config??)
+var logger = light.Logger(log.NewTMLogger(log.NewSyncWriter(ioutil.Discard)))
 
-func (h *header) err() error {
-	var out error
-	for _, err := range h.Errs {
-		out = fmt.Errorf("err: %w", err)
+// InjectTrustedFieldsHeaders takes the headers and enriches them
+func InjectTrustedFieldsHeaders(
+	src, dst *Chain,
+	srch, dsth *tmclient.Header) (srcho *tmclient.Header, dstho *tmclient.Header, err error) {
+	var eg = new(errgroup.Group)
+	eg.Go(func() error {
+		srcho, err = InjectTrustedFields(src, dst, srch)
+		return err
+	})
+	eg.Go(func() error {
+		dstho, err = InjectTrustedFields(dst, src, dsth)
+		return err
+	})
+	if err = eg.Wait(); err != nil {
+		return
 	}
-	return out
+	return
 }
 
-// UpdatesWithHeaders calls UpdateLiteWithHeader on the passed chains concurrently
-func UpdatesWithHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
-	hs := &header{Map: make(map[string]*tmclient.Header), Errs: []error{}}
-	var wg sync.WaitGroup
-	for _, chain := range chains {
-		wg.Add(1)
-		go func(hs *header, wg *sync.WaitGroup, chain *Chain) {
-			defer wg.Done()
-			header, err := chain.UpdateLiteWithHeader()
-			hs.Lock()
-			hs.Map[chain.ChainID] = header
-			if err != nil {
-				hs.Errs = append(hs.Errs, err)
-			}
-			hs.Unlock()
-		}(hs, &wg, chain)
+// UpdatesWithHeaders calls UpdateLightWithHeader on the passed chains concurrently
+func UpdatesWithHeaders(src, dst *Chain) (srch, dsth *tmclient.Header, err error) {
+	var eg = new(errgroup.Group)
+	eg.Go(func() error {
+		srch, err = src.QueryLatestHeader()
+		return err
+	})
+	eg.Go(func() error {
+		dsth, err = dst.QueryLatestHeader()
+		return err
+	})
+	if err := eg.Wait(); err != nil {
+		return nil, nil, err
 	}
-	wg.Wait()
-	return hs.Map, hs.err()
+	return srch, dsth, nil
 }
 
-func liteError(err error) error { return fmt.Errorf("lite client: %w", err) }
+func lightError(err error) error { return fmt.Errorf("light client: %w", err) }
 
-// UpdateLiteWithHeader calls client.Update and then .
-func (c *Chain) UpdateLiteWithHeader() (*tmclient.Header, error) {
+// UpdateLightWithHeader calls client.Update and then .
+func (c *Chain) UpdateLightWithHeader() (*tmclient.Header, error) {
 	// create database connection
-	db, df, err := c.NewLiteDB()
+	db, df, err := c.NewLightDB()
 	if err != nil {
-		return nil, liteError(err)
+		return nil, lightError(err)
 	}
 	defer df()
 
-	client, err := c.LiteClientWithoutTrust(db)
+	client, err := c.LightClient(db)
 	if err != nil {
-		return nil, liteError(err)
+		return nil, lightError(err)
 	}
 
 	sh, err := client.Update(time.Now())
 	if err != nil {
-		return nil, liteError(err)
+		return nil, lightError(err)
 	}
 
 	if sh == nil {
-		sh, err = client.TrustedHeader(0)
+		sh, err = client.TrustedLightBlock(0)
 		if err != nil {
-			return nil, liteError(err)
+			return nil, lightError(err)
 		}
 	}
 
-	vs, _, err := client.TrustedValidatorSet(sh.Height)
+	protoVal, err := tmtypes.NewValidatorSet(sh.ValidatorSet.Validators).ToProto()
 	if err != nil {
-		return nil, liteError(err)
+		return nil, err
 	}
 
-	return &tmclient.Header{SignedHeader: *sh, ValidatorSet: vs}, nil
+	return &tmclient.Header{
+		SignedHeader: sh.SignedHeader.ToProto(),
+		ValidatorSet: protoVal,
+	}, nil
 }
 
-func (c *Chain) UpdateLiteWithHeaderHeight(height int64) (*tmclient.Header, error) {
-	// create database connection
-	db, df, err := c.NewLiteDB()
+// LightHTTP returns the http client for light clients
+func (c *Chain) LightHTTP() lightp.Provider {
+	cl, err := lighthttp.New(c.ChainID, c.RPCAddr)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	defer df()
-
-	client, err := c.LiteClientWithoutTrust(db)
-	if err != nil {
-		return nil, err
-	}
-
-	sh, err := client.VerifyHeaderAtHeight(height, time.Now())
-	if err != nil {
-		return nil, err
-	}
-
-	vs, _, err := client.TrustedValidatorSet(sh.Height)
-	if err != nil {
-		return nil, err
-	}
-
-	return &tmclient.Header{SignedHeader: *sh, ValidatorSet: vs}, nil
+	return cl
 }
 
-// LiteClientWithoutTrust reads the trusted period off of the chain.
-func (c *Chain) LiteClientWithoutTrust(db dbm.DB) (*lite.Client, error) {
-	httpProvider, err := litehttp.New(c.ChainID, c.RPCAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	// NOTE: currently we are discarding the very noisy lite client logs
-	// it would be nice if we could add a setting the chain or otherwise
-	// that allowed users to enable lite client logging. (maybe as a hidden prop
-	// on the Chain struct that users could pass in the config??)
-	logger := log.NewTMLogger(log.NewSyncWriter(ioutil.Discard))
-
-	// TODO: provide actual witnesses!
-	return lite.NewClientFromTrustedStore(c.ChainID, c.GetTrustingPeriod(), httpProvider,
-		[]litep.Provider{httpProvider}, dbs.New(db, ""),
-		lite.Logger(logger))
-}
-
-// LiteClient initializes the lite client for a given chain.
-func (c *Chain) LiteClient(db dbm.DB, trustOpts lite.TrustOptions) (*lite.Client, error) {
-	httpProvider, err := litehttp.New(c.ChainID, c.RPCAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	// NOTE: currently we are discarding the very noisy lite client logs
-	// it would be nice if we could add a setting the chain or otherwise
-	// that allowed users to enable lite client logging. (maybe as a hidden prop
-	// on the Chain struct that users could pass in the config??)
-	logger := log.NewTMLogger(log.NewSyncWriter(ioutil.Discard))
-
-	// TODO: provide actual witnesses!
-	return lite.NewClient(c.ChainID, trustOpts, httpProvider,
-		[]litep.Provider{httpProvider}, dbs.New(db, ""),
-		lite.Logger(logger))
-}
-
-// InitLiteClient instantantiates the lite client object and calls update
-func (c *Chain) InitLiteClient(db dbm.DB, trustOpts lite.TrustOptions) (*lite.Client, error) {
-	lc, err := c.LiteClient(db, trustOpts)
-	if err != nil {
-		return nil, err
-	}
-	_, err = lc.Update(time.Now())
-	if err != nil {
-		return nil, err
-	}
-	return lc, err
-}
-
-// TrustNodeInitClient trusts the configured node and initializes the lite client
-func (c *Chain) TrustNodeInitClient(db dbm.DB) (*lite.Client, error) {
-	// fetch latest height from configured node
+// LightClientWithoutTrust querys the latest header from the chain and initializes a new light client
+// database using that header. This should only be called when first initializing the light client
+func (c *Chain) LightClientWithoutTrust(db dbm.DB) (*light.Client, error) {
 	var (
 		height int64
 		err    error
 	)
+	prov := c.LightHTTP()
 
 	if err := retry.Do(func() error {
 		height, err = c.QueryLatestHeight()
@@ -188,32 +132,63 @@ func (c *Chain) TrustNodeInitClient(db dbm.DB) (*lite.Client, error) {
 		return nil, err
 	}
 
-	// fetch header from configured node
-	header, err := c.QueryHeaderAtHeight(height)
+	lb, err := prov.LightBlock(height)
 	if err != nil {
 		return nil, err
 	}
-
-	lc, err := c.LiteClient(db, c.TrustOptions(height, header.Hash().Bytes()))
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = lc.Update(time.Now())
-	if err != nil {
-		return nil, err
-	}
-
-	return lc, nil
+	return light.NewClient(
+		c.ChainID,
+		light.TrustOptions{
+			Period: c.GetTrustingPeriod(),
+			Height: height,
+			Hash:   lb.SignedHeader.Hash(),
+		},
+		prov,
+		// TODO: provide actual witnesses!
+		// NOTE: This requires adding them to the chain config
+		[]lightp.Provider{prov},
+		dbs.New(db, ""),
+		logger)
 }
 
-// NewLiteDB returns a new instance of the liteclient database connection
+// LightClientWithTrust takes a header from the chain and attempts to add that header to the light
+// database.
+func (c *Chain) LightClientWithTrust(db dbm.DB, to light.TrustOptions) (*light.Client, error) {
+	prov := c.LightHTTP()
+	return light.NewClient(
+		c.ChainID,
+		to,
+		prov,
+		// TODO: provide actual witnesses!
+		// NOTE: This requires adding them to the chain config
+		[]lightp.Provider{prov},
+		dbs.New(db, ""),
+		logger)
+}
+
+// LightClient initializes the light client for a given chain from the trusted store in the database
+// this should be call for all other light client usage
+func (c *Chain) LightClient(db dbm.DB) (*light.Client, error) {
+	prov := c.LightHTTP()
+	return light.NewClientFromTrustedStore(
+		c.ChainID,
+		c.GetTrustingPeriod(),
+		prov,
+		// TODO: provide actual witnesses!
+		// NOTE: This requires adding them to the chain config
+		[]lightp.Provider{prov},
+		dbs.New(db, ""),
+		logger,
+	)
+}
+
+// NewLightDB returns a new instance of the lightclient database connection
 // CONTRACT: must close the database connection when done with it (defer df())
-func (c *Chain) NewLiteDB() (db *dbm.GoLevelDB, df func(), err error) {
+func (c *Chain) NewLightDB() (db *dbm.GoLevelDB, df func(), err error) {
 	if err := retry.Do(func() error {
-		db, err = dbm.NewGoLevelDB(c.ChainID, liteDir(c.HomePath))
+		db, err = dbm.NewGoLevelDB(c.ChainID, lightDir(c.HomePath))
 		if err != nil {
-			return fmt.Errorf("can't open lite client database: %w", err)
+			return fmt.Errorf("can't open light client database: %w", err)
 		}
 		return nil
 	}); err != nil {
@@ -230,23 +205,23 @@ func (c *Chain) NewLiteDB() (db *dbm.GoLevelDB, df func(), err error) {
 	return
 }
 
-// DeleteLiteDB removes the lite client database on disk, forcing re-initialization
-func (c *Chain) DeleteLiteDB() error {
-	return os.RemoveAll(filepath.Join(liteDir(c.HomePath), fmt.Sprintf("%s.db", c.ChainID)))
+// DeleteLightDB removes the light client database on disk, forcing re-initialization
+func (c *Chain) DeleteLightDB() error {
+	return os.RemoveAll(filepath.Join(lightDir(c.HomePath), fmt.Sprintf("%s.db", c.ChainID)))
 }
 
-// TrustOptions returns lite.TrustOptions given a height and hash
-func (c *Chain) TrustOptions(height int64, hash []byte) lite.TrustOptions {
-	return lite.TrustOptions{
+// TrustOptions returns light.TrustOptions given a height and hash
+func (c *Chain) TrustOptions(height int64, hash []byte) light.TrustOptions {
+	return light.TrustOptions{
 		Period: c.GetTrustingPeriod(),
 		Height: height,
 		Hash:   hash,
 	}
 }
 
-// GetLatestLiteHeader returns the header to be used for client creation
-func (c *Chain) GetLatestLiteHeader() (*tmclient.Header, error) {
-	return c.GetLiteSignedHeaderAtHeight(0)
+// GetLatestLightHeader returns the header to be used for client creation
+func (c *Chain) GetLatestLightHeader() (*tmclient.Header, error) {
+	return c.GetLightSignedHeaderAtHeight(0)
 }
 
 // VerifyProof performs response proof verification.
@@ -257,8 +232,8 @@ func (c *Chain) VerifyProof(queryPath string, resp abci.ResponseQuery) error {
 
 // ValidateTxResult takes a transaction and validates the proof against a stored root of trust
 func (c *Chain) ValidateTxResult(resTx *ctypes.ResultTx) (err error) {
-	// fetch the header at the height from the ResultTx from the lite database
-	check, err := c.GetLiteSignedHeaderAtHeight(resTx.Height - 1)
+	// fetch the header at the height from the ResultTx from the light database
+	check, err := c.GetLightSignedHeaderAtHeight(resTx.Height - 1)
 	if err != nil {
 		return
 	}
@@ -267,15 +242,15 @@ func (c *Chain) ValidateTxResult(resTx *ctypes.ResultTx) (err error) {
 	return resTx.Proof.Validate(check.Header.DataHash)
 }
 
-// GetLatestLiteHeight uses the CLI utilities to pull the latest height from a given chain
-func (c *Chain) GetLatestLiteHeight() (int64, error) {
-	db, df, err := c.NewLiteDB()
+// GetLatestLightHeight uses the CLI utilities to pull the latest height from a given chain
+func (c *Chain) GetLatestLightHeight() (int64, error) {
+	db, df, err := c.NewLightDB()
 	if err != nil {
 		return -1, err
 	}
 	defer df()
 
-	client, err := c.LiteClientWithoutTrust(db)
+	client, err := c.LightClient(db)
 	if err != nil {
 		return -1, err
 	}
@@ -283,43 +258,43 @@ func (c *Chain) GetLatestLiteHeight() (int64, error) {
 	return client.LastTrustedHeight()
 }
 
-// GetLiteSignedHeaderAtHeight returns a signed header at a particular height.
-func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, error) {
+// GetLightSignedHeaderAtHeight returns a signed header at a particular height.
+func (c *Chain) GetLightSignedHeaderAtHeight(height int64) (*tmclient.Header, error) {
 	// create database connection
-	db, df, err := c.NewLiteDB()
+	db, df, err := c.NewLightDB()
 	if err != nil {
 		return nil, err
 	}
 	defer df()
 
-	client, err := c.LiteClientWithoutTrust(db)
+	client, err := c.LightClient(db)
 	if err != nil {
 		return nil, err
 	}
 
-	sh, err := client.TrustedHeader(height)
+	sh, err := client.TrustedLightBlock(height)
 	if err != nil {
 		return nil, err
 	}
 
-	vs, _, err := client.TrustedValidatorSet(sh.Height)
+	protoVal, err := tmtypes.NewValidatorSet(sh.ValidatorSet.Validators).ToProto()
 	if err != nil {
 		return nil, err
 	}
 
-	return &tmclient.Header{SignedHeader: *sh, ValidatorSet: vs}, nil
+	return &tmclient.Header{SignedHeader: sh.SignedHeader.ToProto(), ValidatorSet: protoVal}, nil
 }
 
-// ErrLiteNotInitialized returns the canonical error for a an uninitialized lite client
-var ErrLiteNotInitialized = errors.New("lite client is not initialized")
+// ErrLightNotInitialized returns the canonical error for a an uninitialized light client
+var ErrLightNotInitialized = errors.New("light client is not initialized")
 
-// ForceInitLite forces initialization of the lite client from the configured node
-func (c *Chain) ForceInitLite() error {
-	db, df, err := c.NewLiteDB()
+// ForceInitLight forces initialization of the light client from the configured node
+func (c *Chain) ForceInitLight() error {
+	db, df, err := c.NewLightDB()
 	if err != nil {
 		return err
 	}
-	_, err = c.TrustNodeInitClient(db)
+	_, err = c.LightClientWithoutTrust(db)
 	if err != nil {
 		return err
 	}

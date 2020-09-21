@@ -7,7 +7,7 @@ if [[ ! -x "$(which jq)" ]]; then
   exit 1
 fi
 
-RELAYER_DIR="$GOPATH/src/github.com/iqlusioninc/relayer"
+RELAYER_DIR="$GOPATH/src/github.com/ovrclk/relayer"
 RELAYER_CONF="$HOME/.relayer"
 GAIA_CONF="$RELAYER_DIR/data"
 
@@ -38,9 +38,9 @@ echo "Key $(rly keys restore ibc0 testkey "$SEED0") imported from ibc0 to relaye
 echo "Key $(rly keys restore ibc1 testkey "$SEED1") imported from ibc1 to relayer..."
 echo "Key $(rly keys restore ibc2 testkey "$SEED2") imported from ibc2 to relayer..."
 echo
-echo "Creating lite clients..."
+echo "Creating light clients..."
 echo
 sleep 3
-rly lite init ibc0 -f
-rly lite init ibc1 -f
-rly lite init ibc2 -f
+rly light init ibc0 -f
+rly light init ibc1 -f
+rly light init ibc2 -f

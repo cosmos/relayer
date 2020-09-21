@@ -16,11 +16,10 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/iqlusioninc/relayer/relayer"
+	"github.com/ovrclk/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -37,17 +36,17 @@ func transactionCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		fullPathCmd(),
+		linkCmd(),
 		relayMsgsCmd(),
-		transferCmd(),
+		xfersend(),
 		flags.LineBreak,
 		createClientsCmd(),
+		updateClientsCmd(),
 		createConnectionCmd(),
 		createChannelCmd(),
 		closeChannelCmd(),
 		flags.LineBreak,
 		rawTransactionCmd(),
-		sendPacketCmd(),
 	)
 
 	return cmd
@@ -58,7 +57,9 @@ func createClientsCmd() *cobra.Command {
 		Use:     "clients [path-name]",
 		Aliases: []string{"clnts"},
 		Short:   "create a clients between two configured chains with a configured path",
-		Args:    cobra.ExactArgs(1),
+		Long: "Creates a working ibc client for chain configured on each end of the" +
+			" path by querying headers from each chain and then sending the corresponding create-client messages",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -71,10 +72,30 @@ func createClientsCmd() *cobra.Command {
 	return cmd
 }
 
+func updateClientsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "update-clients [path-name]",
+		Aliases: []string{"update", "uc"},
+		Short:   "update a clients between two configured chains with a configured path",
+		Long: "Updates a working ibc client for chain configured on each end of the " +
+			"path by querying headers from each chain and then sending the corresponding update-client messages",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, src, dst, err := config.ChainsFromPath(args[0])
+			if err != nil {
+				return err
+			}
+
+			return c[src].UpdateClients(c[dst])
+		},
+	}
+	return cmd
+}
+
 func createConnectionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "connection [path-name]",
-		Aliases: []string{"conn"},
+		Aliases: []string{"conn", "con"},
 		Short:   "create a connection between two configured chains with a configured path",
 		Long: strings.TrimSpace(`This command is meant to be used to repair or create 
 		a connection between two chains with a configured path in the config file`),
@@ -100,7 +121,7 @@ func createConnectionCmd() *cobra.Command {
 func createChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "channel [path-name]",
-		Aliases: []string{"chan"},
+		Aliases: []string{"chan", "ch"},
 		Short:   "create a channel between two configured chains with a configured path",
 		Long: strings.TrimSpace(`This command is meant to be used to repair or 
 		create a channel between two chains with a configured path in the config file`),
@@ -116,8 +137,7 @@ func createChannelCmd() *cobra.Command {
 				return err
 			}
 
-			// TODO: read order out of path config
-			return c[src].CreateChannel(c[dst], true, to)
+			return c[src].CreateChannel(c[dst], false, to)
 		},
 	}
 
@@ -149,7 +169,7 @@ func closeChannelCmd() *cobra.Command {
 	return timeoutFlag(cmd)
 }
 
-func fullPathCmd() *cobra.Command {
+func linkCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "link [path-name]",
 		Aliases: []string{"full-path", "connect", "path", "pth"},
@@ -184,7 +204,7 @@ func fullPathCmd() *cobra.Command {
 func relayMsgsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "relay [path-name]",
-		Aliases: []string{"rly", "queue"},
+		Aliases: []string{"rly", "queue", "clear"},
 		Short:   "relay any packets that remain to be relayed on a given path, in both directions",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -198,13 +218,13 @@ func relayMsgsCmd() *cobra.Command {
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(c[src], c[dst], sh)
+			path := config.Paths.MustGet(args[0])
+			strategy, err := GetStrategyWithOptions(cmd, path.MustGetStrategy())
 			if err != nil {
 				return err
 			}
 
-			path := config.Paths.MustGet(args[0])
-			strategy, err := GetStrategyWithOptions(cmd, path.MustGetStrategy())
+			sp, err := strategy.UnrelayedSequencesOrdered(c[src], c[dst], sh)
 			if err != nil {
 				return err
 			}
@@ -218,43 +238,4 @@ func relayMsgsCmd() *cobra.Command {
 	}
 
 	return strategyFlag(cmd)
-}
-
-func sendPacketCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "send-packet [src-chain-id] [dst-chain-id] [packet-data]",
-		Aliases: []string{"pkt", "sp"},
-		Short:   "send a raw packet from a source chain to a destination chain",
-		Long:    "This sends packet-data (default: stdin) from a relayer's configured wallet on chain src to chain dst",
-		Args:    cobra.RangeArgs(2, 3),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			src, dst := args[0], args[1]
-			c, err := config.Chains.Gets(src, dst)
-			if err != nil {
-				return err
-			}
-
-			pth, err := cmd.Flags().GetString(flagPath)
-			if err != nil {
-				return err
-			}
-
-			if _, err = setPathsFromArgs(c[src], c[dst], pth); err != nil {
-				return err
-			}
-
-			var packetData string
-			if len(args) < 3 {
-				// Reading from stdin.
-				if _, err := fmt.Scanln(&packetData); err != nil {
-					return err
-				}
-			} else {
-				packetData = args[2]
-			}
-
-			return c[src].SendPacket(c[dst], []byte(packetData))
-		},
-	}
-	return pathFlag(cmd)
 }

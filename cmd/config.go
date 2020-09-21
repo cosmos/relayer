@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/iqlusioninc/relayer/relayer"
+	"github.com/ovrclk/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
@@ -278,15 +278,15 @@ func defaultConfig() []byte {
 
 // GlobalConfig describes any global relayer settings
 type GlobalConfig struct {
-	Timeout       string `yaml:"timeout" json:"timeout"`
-	LiteCacheSize int    `yaml:"lite-cache-size" json:"lite-cache-size"`
+	Timeout        string `yaml:"timeout" json:"timeout"`
+	LightCacheSize int    `yaml:"light-cache-size" json:"light-cache-size"`
 }
 
 // newDefaultGlobalConfig returns a global config with defaults set
 func newDefaultGlobalConfig() GlobalConfig {
 	return GlobalConfig{
-		Timeout:       "10s",
-		LiteCacheSize: 20,
+		Timeout:        "10s",
+		LightCacheSize: 20,
 	}
 }
 
@@ -325,7 +325,7 @@ func validateConfig(c *Config) error {
 	}
 
 	for _, i := range c.Chains {
-		if err := i.Init(homePath, appCodec, cdc, to, debug); err != nil {
+		if err := i.Init(homePath, to, debug); err != nil {
 			return fmt.Errorf("did you remember to run 'rly config init' error:%w", err)
 		}
 	}

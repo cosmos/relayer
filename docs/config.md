@@ -2,7 +2,7 @@
 
 ### Relayer Home Folder Layout 
 
-The following is the folder structure for the relayer `--home` directory when there are two chains (`ibc0` an `ibc1`) properly configured with keys and lite clients
+The following is the folder structure for the relayer `--home` directory when there are two chains (`ibc0` an `ibc1`) properly configured with keys and light clients
 
 ```bash
 ~/.relayer
@@ -11,7 +11,7 @@ The following is the folder structure for the relayer `--home` directory when th
 ├── keys
 │   ├── keyring-test-ibc0
 │   └── keyring-test-ibc1
-└── lite
+└── light
     ├── ibc0.db
     └── ibc1.db
 ```
@@ -31,7 +31,7 @@ type Config struct {
 #### Global Configuration
 
 - Amount of time to sleep between relayer loops
-- Number of block headers to cache for the lite client
+- Number of block headers to cache for the light client
 
 > NOTE: Additional global configuration will be added/removed in this section as relayer development progresses
 
@@ -39,7 +39,7 @@ type Config struct {
 // NOTE: are there any other items that could be useful here?
 type Global struct {
 	Timeout       string `yaml:"timeout"`
-	LiteCacheSize int    `yaml:"lite-cache-size"`
+	LightCacheSize int    `yaml:"light-cache-size"`
 }
 ```
 
@@ -56,11 +56,7 @@ type ChainConfig struct {
 	ChainID        string  `yaml:"chain-id" json:"chain-id"`
 	RPCAddr        string  `yaml:"rpc-addr" json:"rpc-addr"`
 	AccountPrefix  string  `yaml:"account-prefix" json:"account-prefix"`
-	Gas            uint64  `yaml:"gas,omitempty" json:"gas,omitempty"`
 	GasAdjustment  float64 `yaml:"gas-adjustment,omitempty" json:"gas-adjustment,omitempty"`
-	GasPrices      string  `yaml:"gas-prices,omitempty" json:"gas-prices,omitempty"`
-	DefaultDenom   string  `yaml:"default-denom,omitempty" json:"default-denom,omitempty"`
-	Memo           string  `yaml:"memo,omitempty" json:"memo,omitempty"`
 	TrustingPeriod string  `yaml:"trusting-period" json:"trusting-period"`
 }
 ```
