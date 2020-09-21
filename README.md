@@ -76,21 +76,26 @@ $ rly light init ibc1 -f
 $ tree ~/.relayer
 
 # Now you can connect the two chains with one command:
-$ rly tx link demo
+$ rly tx link demo -d -o 3s
 
 # Check the token balances on both chains
 $ rly q balance ibc0
 $ rly q bal ibc1
 
 # Then send some tokens between the chains
-$ rly tx transfer ibc0 ibc1 10000n0token true $(rly keys show ibc1 testkey)
+$ rly tx transfer ibc0 ibc1 1000000samoleans $(rly chains address ibc1)
+$ rly tx relay demo
 
 # See that the transfer has completed
 $ rly q bal ibc0
 $ rly q bal ibc1
 
+# Query the ibc denom to send the tokens back to the sender
+$ rly q bal ibc1 -i
+
 # Send the tokens back to the account on ibc0
-$ rly tx xfer ibc1 ibc0 10000n0token false $(rly keys show ibc0 testkey)
+$ rly tx xfer ibc1 ibc0 1000000ibc/2EF4DA9D3880846723AE8514CA9D77738B4F11FBA2A437EDEE43FF62E6792037 $(rly ch addr ibc0)
+$ rly tx relay demo
 
 # See that the return trip has completed
 $ rly q bal ibc0
