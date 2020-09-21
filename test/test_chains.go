@@ -18,7 +18,7 @@ var (
 	// 3 second relayer timeout works well with these block times
 	gaiaTestConfig = testChainConfig{
 		dockerImage:    "jackzampolin/gaiatest",
-		dockerTag:      "jack_gaiav3.0",
+		dockerTag:      "gaiav3.0",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "cosmos",
