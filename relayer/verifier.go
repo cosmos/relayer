@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -81,7 +82,7 @@ func (c *Chain) UpdateLightWithHeader() (*tmclient.Header, error) {
 		return nil, lightError(err)
 	}
 
-	sh, err := client.Update(time.Now())
+	sh, err := client.Update(context.Background(), time.Now())
 	if err != nil {
 		return nil, lightError(err)
 	}
@@ -132,11 +133,12 @@ func (c *Chain) LightClientWithoutTrust(db dbm.DB) (*light.Client, error) {
 		return nil, err
 	}
 
-	lb, err := prov.LightBlock(height)
+	lb, err := prov.LightBlock(context.Background(), height)
 	if err != nil {
 		return nil, err
 	}
 	return light.NewClient(
+		context.Background(),
 		c.ChainID,
 		light.TrustOptions{
 			Period: c.GetTrustingPeriod(),
@@ -156,6 +158,7 @@ func (c *Chain) LightClientWithoutTrust(db dbm.DB) (*light.Client, error) {
 func (c *Chain) LightClientWithTrust(db dbm.DB, to light.TrustOptions) (*light.Client, error) {
 	prov := c.LightHTTP()
 	return light.NewClient(
+		context.Background(),
 		c.ChainID,
 		to,
 		prov,
@@ -240,6 +243,23 @@ func (c *Chain) ValidateTxResult(resTx *ctypes.ResultTx) (err error) {
 
 	// validate the proof against that header
 	return resTx.Proof.Validate(check.Header.DataHash)
+}
+
+// GetLatestLightHeights returns both the src and dst latest height in the local client
+func GetLatestLightHeights(src, dst *Chain) (srch int64, dsth int64, err error) {
+	var eg = new(errgroup.Group)
+	eg.Go(func() error {
+		srch, err = src.GetLatestLightHeight()
+		return err
+	})
+	eg.Go(func() error {
+		dsth, err = dst.GetLatestLightHeight()
+		return err
+	})
+	if err = eg.Wait(); err != nil {
+		return
+	}
+	return
 }
 
 // GetLatestLightHeight uses the CLI utilities to pull the latest height from a given chain

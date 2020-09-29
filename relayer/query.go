@@ -370,7 +370,7 @@ func (c *Chain) QueryUnbondingPeriod() (time.Duration, error) {
 // WaitForNBlocks blocks until the next block on a given chain
 func (c *Chain) WaitForNBlocks(n int64) error {
 	var initial int64
-	h, err := c.Client.Status()
+	h, err := c.Client.Status(context.Background())
 	if err != nil {
 		return err
 	}
@@ -379,7 +379,7 @@ func (c *Chain) WaitForNBlocks(n int64) error {
 	}
 	initial = h.SyncInfo.LatestBlockHeight
 	for {
-		h, err = c.Client.Status()
+		h, err = c.Client.Status(context.Background())
 		if err != nil {
 			return err
 		}
@@ -446,7 +446,7 @@ func (c *Chain) QueryTx(hashHex string) (*ctypes.ResultTx, error) {
 		return &ctypes.ResultTx{}, err
 	}
 
-	return c.Client.Tx(hash, true)
+	return c.Client.Tx(context.Background(), hash, true)
 }
 
 // QueryTxs returns an array of transactions given a tag
@@ -463,7 +463,7 @@ func (c *Chain) QueryTxs(height uint64, page, limit int, events []string) ([]*ct
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	res, err := c.Client.TxSearch(strings.Join(events, " AND "), true, &page, &limit, "")
+	res, err := c.Client.TxSearch(context.Background(), strings.Join(events, " AND "), true, &page, &limit, "")
 	if err != nil {
 		return nil, err
 	}
@@ -478,7 +478,7 @@ func (c *Chain) QueryABCI(req abci.RequestQuery) (res abci.ResponseQuery, err er
 		Prove:  req.Prove,
 	}
 
-	result, err := c.Client.ABCIQueryWithOptions(req.Path, req.Data, opts)
+	result, err := c.Client.ABCIQueryWithOptions(context.Background(), req.Path, req.Data, opts)
 	if err != nil {
 		// retry queries on EOF
 		if strings.Contains(err.Error(), "EOF") {
@@ -518,7 +518,7 @@ func (c *Chain) QueryWithData(p string, d []byte) (byt []byte, i int64, err erro
 
 // QueryLatestHeight queries the chain for the latest height and returns it
 func (c *Chain) QueryLatestHeight() (int64, error) {
-	res, err := c.Client.Status()
+	res, err := c.Client.Status(context.Background())
 	if err != nil {
 		return -1, err
 	} else if res.SyncInfo.CatchingUp {
@@ -562,12 +562,12 @@ func (c *Chain) QueryHeaderAtHeight(height int64) (*tmclient.Header, error) {
 		return nil, fmt.Errorf("must pass in valid height, %d not valid", height)
 	}
 
-	res, err := c.Client.Commit(&height)
+	res, err := c.Client.Commit(context.Background(), &height)
 	if err != nil {
 		return nil, err
 	}
 
-	val, err := c.Client.Validators(&height, &page, &perPage)
+	val, err := c.Client.Validators(context.Background(), &height, &page, &perPage)
 	if err != nil {
 		return nil, err
 	}

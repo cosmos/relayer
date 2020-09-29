@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -38,7 +39,7 @@ func genesisCmd() *cobra.Command {
 				return err
 			}
 
-			gen, err := c.Client.Genesis()
+			gen, err := c.Client.Genesis(context.Background())
 			if err != nil {
 				return err
 			}

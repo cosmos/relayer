@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	retry "github.com/avast/retry-go"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
@@ -33,7 +34,11 @@ func (c *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 		// debug logging, log created connection and break
 		case connSteps.success && connSteps.last:
 			if c.debug {
-				srcConn, dstConn, err := QueryConnectionPair(c, dst, 0, 0)
+				srcH, dstH, err := GetLatestLightHeights(c, dst)
+				if err != nil {
+					return err
+				}
+				srcConn, dstConn, err := QueryConnectionPair(c, dst, srcH, dstH)
 				if err != nil {
 					return err
 				}
@@ -72,7 +77,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	}
 
 	// First, update the light clients to the latest header and return the header
-	srch, dsth, err := UpdatesWithHeaders(c, dst)
+	sh, err := NewSyncHeaders(c, dst)
 	if err != nil {
 		return nil, err
 	}
@@ -90,13 +95,20 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	// create the UpdateHeaders for src and dest Chains
 	eg.Go(func() error {
-		srcUpdateHeader, dstUpdateHeader, err = InjectTrustedFieldsHeaders(c, dst, srch, dsth)
+		var err error
+		retry.Do(func() error {
+			srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(c, dst)
+			if err != nil {
+				sh.Updates(c, dst)
+			}
+			return err
+		})
 		return err
 	})
 
 	// Query Connection data from src and dst
 	eg.Go(func() error {
-		srcConn, dstConn, err = QueryConnectionPair(c, dst, srch.Header.Height-1, dsth.Header.Height-1)
+		srcConn, dstConn, err = QueryConnectionPair(c, dst, int64(sh.GetHeight(c.ChainID))-1, int64(sh.GetHeight(dst.ChainID))-1)
 		return err
 
 	})
@@ -107,7 +119,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	if !(srcConn.Connection.State == connTypes.UNINITIALIZED && dstConn.Connection.State == connTypes.UNINITIALIZED) {
 		// Query client state from each chain's client
-		srcCsRes, dstCsRes, err = QueryClientStatePair(c, dst, srch.Header.Height-1, dsth.Header.Height-1)
+		srcCsRes, dstCsRes, err = QueryClientStatePair(c, dst, int64(sh.GetHeight(c.ChainID))-1, int64(sh.GetHeight(dst.ChainID))-1)
 		if err != nil && (srcCsRes == nil || dstCsRes == nil) {
 			return nil, err
 		}
@@ -126,7 +138,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		// NOTE: We query connection at height - 1 because of the way tendermint returns
 		// proofs the commit for height n is contained in the header of height n + 1
 		srcCons, dstCons, err = QueryClientConsensusStatePair(
-			c, dst, srch.Header.Height-1, dsth.Header.Height-1, srcConsH, dstConsH)
+			c, dst, int64(sh.GetHeight(c.ChainID))-1, int64(sh.GetHeight(dst.ChainID))-1, srcConsH, dstConsH)
 		if err != nil {
 			return nil, err
 		}

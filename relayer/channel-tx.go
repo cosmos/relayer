@@ -37,7 +37,11 @@ func (c *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) error 
 		// In the case of success and this being the last transaction
 		// debug logging, log created connection and break
 		case chanSteps.success && chanSteps.last:
-			srcChan, dstChan, err := QueryChannelPair(c, dst, 0, 0)
+			srch, dsth, err := GetLatestLightHeights(c, dst)
+			if err != nil {
+				return err
+			}
+			srcChan, dstChan, err := QueryChannelPair(c, dst, srch, dsth)
 			if err != nil {
 				return err
 			}
@@ -75,7 +79,7 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chanTypes.Order) (*RelayM
 		return nil, err
 	}
 
-	srch, dsth, err := UpdatesWithHeaders(c, dst)
+	sh, err := NewSyncHeaders(c, dst)
 	if err != nil {
 		return nil, err
 	}
@@ -88,12 +92,12 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chanTypes.Order) (*RelayM
 	)
 
 	eg.Go(func() error {
-		srcUpdateHeader, dstUpdateHeader, err = InjectTrustedFieldsHeaders(c, dst, srch, dsth)
+		srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(c, dst)
 		return err
 	})
 
 	eg.Go(func() error {
-		srcChan, dstChan, err = QueryChannelPair(c, dst, srch.Header.Height-1, dsth.Header.Height-1)
+		srcChan, dstChan, err = QueryChannelPair(c, dst, int64(sh.GetHeight(c.ChainID))-1, int64(sh.GetHeight(dst.ChainID))-1)
 		return err
 	})
 
@@ -218,7 +222,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 		return nil, err
 	}
 
-	srch, dsth, err := UpdatesWithHeaders(c, dst)
+	sh, err := NewSyncHeaders(c, dst)
 	if err != nil {
 		return nil, err
 	}
@@ -232,12 +236,12 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 
 	eg.Go(func() error {
 		// create the UpdateHeaders for src and dest Chains
-		srcUpdateHeader, dstUpdateHeader, err = InjectTrustedFieldsHeaders(c, dst, srch, dsth)
+		srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(c, dst)
 		return err
 	})
 
 	eg.Go(func() error {
-		srcChan, dstChan, err = QueryChannelPair(c, dst, srch.Header.Height, dsth.Header.Height)
+		srcChan, dstChan, err = QueryChannelPair(c, dst, int64(sh.GetHeight(c.ChainID)), int64(sh.GetHeight(dst.ChainID)))
 		return err
 	})
 

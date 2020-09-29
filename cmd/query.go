@@ -153,10 +153,12 @@ func queryAccountCmd() *cobra.Command {
 				return err
 			}
 
+			chain.UseSDKContext()
+
 			res, err := types.NewQueryClient(chain.CLIContext(0)).Account(
 				context.Background(),
 				&types.QueryAccountRequest{
-					Address: addr,
+					Address: addr.String(),
 				})
 			if err != nil {
 				return err

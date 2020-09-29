@@ -514,7 +514,7 @@ func (c *Chain) GetTimeout() time.Duration {
 
 // StatusErr returns err unless the chain is ready to go
 func (c *Chain) StatusErr() error {
-	stat, err := c.Client.Status()
+	stat, err := c.Client.Status(context.Background())
 	switch {
 	case err != nil:
 		return err

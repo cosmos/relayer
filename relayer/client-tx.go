@@ -82,12 +82,12 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 func (c *Chain) UpdateClients(dst *Chain) (err error) {
 	clients := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
-	srcH, dstH, err := UpdatesWithHeaders(c, dst)
+	sh, err := NewSyncHeaders(c, dst)
 	if err != nil {
 		return err
 	}
 
-	srcUH, dstUH, err := InjectTrustedFieldsHeaders(c, dst, srcH, dstH)
+	srcUH, dstUH, err := sh.GetTrustedHeaders(c, dst)
 	if err != nil {
 		return err
 	}
