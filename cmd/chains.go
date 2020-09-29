@@ -387,30 +387,12 @@ func userInputAdd(cmd *cobra.Command) (cfg *Config, err error) {
 		return nil, err
 	}
 
-	fmt.Println("Gas (i.e. 200000):")
+	fmt.Println("Gas Adjustment (i.e. 1.0):")
 	if value, err = readStdin(); err != nil {
 		return nil, err
 	}
 
-	if c, err = c.Update("gas", value); err != nil {
-		return nil, err
-	}
-
-	fmt.Println("Gas Prices (i.e. 0.025stake):")
-	if value, err = readStdin(); err != nil {
-		return nil, err
-	}
-
-	if c, err = c.Update("gas-prices", value); err != nil {
-		return nil, err
-	}
-
-	fmt.Println("Default Denom (i.e. stake):")
-	if value, err = readStdin(); err != nil {
-		return nil, err
-	}
-
-	if c, err = c.Update("default-denom", value); err != nil {
+	if c, err = c.Update("gas-adjustment", value); err != nil {
 		return nil, err
 	}
 

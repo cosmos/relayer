@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"strconv"
 	"time"
 
 	sdkCtx "github.com/cosmos/cosmos-sdk/client"
@@ -33,7 +34,7 @@ type Chain struct {
 	ChainID        string  `yaml:"chain-id" json:"chain-id"`
 	RPCAddr        string  `yaml:"rpc-addr" json:"rpc-addr"`
 	AccountPrefix  string  `yaml:"account-prefix" json:"account-prefix"`
-	GasAdjustment  float64 `yaml:"gas-adjustment,omitempty" json:"gas-adjustment,omitempty"`
+	GasAdjustment  float64 `yaml:"gas-adjustment" json:"gas-adjustment"`
 	TrustingPeriod string  `yaml:"trusting-period" json:"trusting-period"`
 
 	// TODO: make these private
@@ -369,6 +370,12 @@ func (c *Chain) Update(key, value string) (out *Chain, err error) {
 			return
 		}
 		out.RPCAddr = value
+	case "gas-adjustment":
+		adj, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return nil, err
+		}
+		out.GasAdjustment = adj
 	case "account-prefix":
 		out.AccountPrefix = value
 	case "trusting-period":
