@@ -8,6 +8,7 @@ import (
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	"golang.org/x/sync/errgroup"
@@ -140,11 +141,11 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 
 				// finally, get and parse the timeout
 				if sval, ok := events["send_packet.packet_timeout_height"]; ok {
-					timeout, err := strconv.ParseUint(sval[i], 10, 64)
+					timeout, err := clientTypes.ParseHeight(sval[i])
 					if err != nil {
 						return nil, err
 					}
-					rp.timeout = timeout
+					rp.timeout = MustGetHeight(timeout)
 				}
 
 				// finally, get and parse the timeout
@@ -190,11 +191,11 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 
 				// finally, get and parse the timeout
 				if sval, ok := events["recv_packet.packet_timeout_height"]; ok {
-					timeout, err := strconv.ParseUint(sval[i], 10, 64)
+					timeout, err := clientTypes.ParseHeight(sval[i])
 					if err != nil {
 						return nil, err
 					}
-					rp.timeout = timeout
+					rp.timeout = MustGetHeight(timeout)
 				}
 
 				// finally, get and parse the timeout
@@ -215,6 +216,7 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 }
 
 func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []relayPacket, sh *SyncHeaders) {
+
 	// fetch the proofs for the relayPackets
 	for _, rp := range rlyPackets {
 		if err := rp.FetchCommitResponse(src, dst, sh); err != nil {
