@@ -77,7 +77,7 @@ func yamlFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func orderFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP(flagOrder, "o", false, "create an unordered channel")
+	cmd.Flags().BoolP(flagOrder, "o", true, "create an unordered channel")
 	if err := viper.BindPFlag(flagOrder, cmd.Flags().Lookup(flagOrder)); err != nil {
 		panic(err)
 	}

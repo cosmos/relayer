@@ -49,10 +49,12 @@ func pathsGenCmd() *cobra.Command {
 				Src: &relayer.PathEnd{
 					ChainID: src,
 					PortID:  srcPort,
+					Version: "ics20-1",
 				},
 				Dst: &relayer.PathEnd{
 					ChainID: dst,
 					PortID:  dstPort,
+					Version: "ics20-1",
 				},
 				Strategy: &relayer.StrategyCfg{
 					Type: "naive",
