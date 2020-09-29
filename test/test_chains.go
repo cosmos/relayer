@@ -55,7 +55,7 @@ func newTestChain(t *testing.T, tc testChain) *ry.Chain {
 		ChainID:        tc.chainID,
 		RPCAddr:        fmt.Sprintf("http://localhost:%s", port),
 		AccountPrefix:  tc.t.accountPrefix,
-		GasAdjustment:  1.0,
+		GasAdjustment:  1.3,
 		TrustingPeriod: tc.t.trustingPeriod,
 	}
 }
