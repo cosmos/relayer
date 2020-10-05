@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	dbm "github.com/tendermint/tm-db"
 
 	retry "github.com/avast/retry-go"

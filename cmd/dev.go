@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	// tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
 )

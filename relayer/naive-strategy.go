@@ -8,8 +8,8 @@ import (
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
-	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	"golang.org/x/sync/errgroup"
 )
@@ -46,7 +46,7 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 	)
 
 	eg.Go(func() error {
-		var res *chanTypes.QueryPacketCommitmentsResponse
+		var res *chantypes.QueryPacketCommitmentsResponse
 		if err = retry.Do(func() error {
 			res, err = src.QueryPacketCommitments(0, 1000, sh.GetHeight(src.ChainID))
 			if err != nil || res == nil {
@@ -63,7 +63,7 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 	})
 
 	eg.Go(func() error {
-		var res *chanTypes.QueryPacketCommitmentsResponse
+		var res *chantypes.QueryPacketCommitmentsResponse
 		if err = retry.Do(func() error {
 			res, err = dst.QueryPacketCommitments(0, 1000, sh.GetHeight(dst.ChainID))
 			if err != nil || res == nil {
@@ -141,7 +141,7 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 
 				// finally, get and parse the timeout
 				if sval, ok := events["send_packet.packet_timeout_height"]; ok {
-					timeout, err := clientTypes.ParseHeight(sval[i])
+					timeout, err := clienttypes.ParseHeight(sval[i])
 					if err != nil {
 						return nil, err
 					}
@@ -191,7 +191,7 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 
 				// finally, get and parse the timeout
 				if sval, ok := events["recv_packet.packet_timeout_height"]; ok {
-					timeout, err := clientTypes.ParseHeight(sval[i])
+					timeout, err := clienttypes.ParseHeight(sval[i])
 					if err != nil {
 						return nil, err
 					}

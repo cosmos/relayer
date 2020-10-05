@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
-	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
+	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 )
 
 // LogFailedTx takes the transaction and the messages to create it and logs the appropriate data
@@ -45,7 +45,7 @@ func (c *Chain) logPacketsRelayed(dst *Chain, num int) {
 		num, dst.ChainID, dst.PathEnd.PortID, c.ChainID, c.PathEnd.PortID))
 }
 
-func logChannelStates(src, dst *Chain, srcChan, dstChan *chanTypes.QueryChannelResponse) {
+func logChannelStates(src, dst *Chain, srcChan, dstChan *chantypes.QueryChannelResponse) {
 	// TODO: replace channelID with portID?
 	src.Log(fmt.Sprintf("- [%s]@{%d}chan(%s)-{%s} : [%s]@{%d}chan(%s)-{%s}",
 		src.ChainID,
@@ -59,7 +59,7 @@ func logChannelStates(src, dst *Chain, srcChan, dstChan *chanTypes.QueryChannelR
 	))
 }
 
-func logConnectionStates(src, dst *Chain, srcConn, dstConn *connTypes.QueryConnectionResponse) {
+func logConnectionStates(src, dst *Chain, srcConn, dstConn *conntypes.QueryConnectionResponse) {
 	src.Log(fmt.Sprintf("- [%s]@{%d}conn(%s)-{%s} : [%s]@{%d}conn(%s)-{%s}",
 		src.ChainID,
 		MustGetHeight(srcConn.ProofHeight),

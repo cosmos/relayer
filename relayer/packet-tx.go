@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	commitmentypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
+	commitmentypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
 )
 
 var (

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/avast/retry-go"
-	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
+	clientypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	"github.com/stretchr/testify/require"
 
 	ry "github.com/ovrclk/relayer/relayer"
@@ -22,7 +22,7 @@ func testClient(t *testing.T, src, dst *ry.Chain) {
 	srch, err := src.GetLatestLightHeight()
 	require.NoError(t, err)
 	var (
-		client *clientTypes.QueryClientStateResponse
+		client *clientypes.QueryClientStateResponse
 	)
 	retry.Do(func() error {
 		client, err = src.QueryClientState(srch)
@@ -33,7 +33,7 @@ func testClient(t *testing.T, src, dst *ry.Chain) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, client)
-	cs, err := clientTypes.UnpackClientState(client.ClientState)
+	cs, err := clientypes.UnpackClientState(client.ClientState)
 	require.NoError(t, err)
 	require.Equal(t, cs.ClientType(), "Tendermint")
 }

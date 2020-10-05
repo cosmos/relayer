@@ -4,19 +4,19 @@ import (
 	"fmt"
 	"time"
 
-	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	"golang.org/x/sync/errgroup"
 )
 
 // CreateChannel runs the channel creation messages on timeout until they pass
 // TODO: add max retries or something to this function
 func (c *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) error {
-	var order chanTypes.Order
+	var order chantypes.Order
 	if ordered {
-		order = chanTypes.ORDERED
+		order = chantypes.ORDERED
 	} else {
-		order = chanTypes.UNORDERED
+		order = chantypes.UNORDERED
 	}
 
 	ticker := time.NewTicker(to)
@@ -73,7 +73,7 @@ func (c *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) error 
 // CreateChannelStep returns the next set of messages for creating a channel with given
 // identifiers between chains src and dst. If the handshake hasn't started, then CreateChannelStep
 // will begin the handshake on the src chain
-func (c *Chain) CreateChannelStep(dst *Chain, ordering chanTypes.Order) (*RelayMsgs, error) {
+func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayMsgs, error) {
 	out := NewRelayMsgs()
 	if err := ValidatePaths(c, dst); err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chanTypes.Order) (*RelayM
 	var (
 		eg                               = new(errgroup.Group)
 		srcUpdateHeader, dstUpdateHeader *tmclient.Header
-		srcChan, dstChan                 *chanTypes.QueryChannelResponse
+		srcChan, dstChan                 *chantypes.QueryChannelResponse
 	)
 
 	eg.Go(func() error {
@@ -107,7 +107,7 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chanTypes.Order) (*RelayM
 
 	switch {
 	// Handshake hasn't been started on src or dst, relay `chanOpenInit` to src
-	case srcChan.Channel.State == chanTypes.UNINITIALIZED && dstChan.Channel.State == chanTypes.UNINITIALIZED:
+	case srcChan.Channel.State == chantypes.UNINITIALIZED && dstChan.Channel.State == chantypes.UNINITIALIZED:
 		if c.debug {
 			logChannelStates(c, dst, srcChan, dstChan)
 		}
@@ -116,7 +116,7 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chanTypes.Order) (*RelayM
 		)
 
 	// Handshake has started on dst (1 step done), relay `chanOpenTry` and `updateClient` to src
-	case srcChan.Channel.State == chanTypes.UNINITIALIZED && dstChan.Channel.State == chanTypes.INIT:
+	case srcChan.Channel.State == chantypes.UNINITIALIZED && dstChan.Channel.State == chantypes.INIT:
 		if c.debug {
 			logChannelStates(c, dst, srcChan, dstChan)
 		}
@@ -126,7 +126,7 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chanTypes.Order) (*RelayM
 		)
 
 	// Handshake has started on src (1 step done), relay `chanOpenTry` and `updateClient` to dst
-	case srcChan.Channel.State == chanTypes.INIT && dstChan.Channel.State == chanTypes.UNINITIALIZED:
+	case srcChan.Channel.State == chantypes.INIT && dstChan.Channel.State == chantypes.UNINITIALIZED:
 		if dst.debug {
 			logChannelStates(dst, c, dstChan, srcChan)
 		}
@@ -136,27 +136,27 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chanTypes.Order) (*RelayM
 		)
 
 	// Handshake has started on src (2 steps done), relay `chanOpenAck` and `updateClient` to dst
-	case srcChan.Channel.State == chanTypes.TRYOPEN && dstChan.Channel.State == chanTypes.INIT:
+	case srcChan.Channel.State == chantypes.TRYOPEN && dstChan.Channel.State == chantypes.INIT:
 		if dst.debug {
 			logChannelStates(dst, c, dstChan, srcChan)
 		}
 		out.Dst = append(out.Dst,
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
-			dst.PathEnd.ChanAck(srcChan, dst.MustGetAddress()),
+			dst.PathEnd.ChanAck(c.PathEnd, srcChan, dst.MustGetAddress()),
 		)
 
 	// Handshake has started on dst (2 steps done), relay `chanOpenAck` and `updateClient` to src
-	case srcChan.Channel.State == chanTypes.INIT && dstChan.Channel.State == chanTypes.TRYOPEN:
+	case srcChan.Channel.State == chantypes.INIT && dstChan.Channel.State == chantypes.TRYOPEN:
 		if c.debug {
 			logChannelStates(c, dst, srcChan, dstChan)
 		}
 		out.Src = append(out.Src,
 			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
-			c.PathEnd.ChanAck(dstChan, c.MustGetAddress()),
+			c.PathEnd.ChanAck(dst.PathEnd, dstChan, c.MustGetAddress()),
 		)
 
 	// Handshake has confirmed on dst (3 steps done), relay `chanOpenConfirm` and `updateClient` to src
-	case srcChan.Channel.State == chanTypes.TRYOPEN && dstChan.Channel.State == chanTypes.OPEN:
+	case srcChan.Channel.State == chantypes.TRYOPEN && dstChan.Channel.State == chantypes.OPEN:
 		if c.debug {
 			logChannelStates(c, dst, srcChan, dstChan)
 		}
@@ -167,7 +167,7 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chanTypes.Order) (*RelayM
 		out.last = true
 
 	// Handshake has confirmed on src (3 steps done), relay `chanOpenConfirm` and `updateClient` to dst
-	case srcChan.Channel.State == chanTypes.OPEN && dstChan.Channel.State == chanTypes.TRYOPEN:
+	case srcChan.Channel.State == chantypes.OPEN && dstChan.Channel.State == chantypes.TRYOPEN:
 		if dst.debug {
 			logChannelStates(dst, c, dstChan, srcChan)
 		}
@@ -231,7 +231,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 	var (
 		eg                               = new(errgroup.Group)
 		srcUpdateHeader, dstUpdateHeader *tmclient.Header
-		srcChan, dstChan                 *chanTypes.QueryChannelResponse
+		srcChan, dstChan                 *chantypes.QueryChannelResponse
 	)
 
 	eg.Go(func() error {
@@ -254,8 +254,8 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 	switch {
 	// Closing handshake has not started, relay `updateClient` and `chanCloseInit` to src or dst according
 	// to the channel state
-	case srcChan.Channel.State != chanTypes.CLOSED && dstChan.Channel.State != chanTypes.CLOSED:
-		if srcChan.Channel.State != chanTypes.UNINITIALIZED {
+	case srcChan.Channel.State != chantypes.CLOSED && dstChan.Channel.State != chantypes.CLOSED:
+		if srcChan.Channel.State != chantypes.UNINITIALIZED {
 			if c.debug {
 				logChannelStates(c, dst, srcChan, dstChan)
 			}
@@ -263,7 +263,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 				c.PathEnd.ChanCloseInit(c.MustGetAddress()),
 			)
-		} else if dstChan.Channel.State != chanTypes.UNINITIALIZED {
+		} else if dstChan.Channel.State != chantypes.UNINITIALIZED {
 			if dst.debug {
 				logChannelStates(dst, c, dstChan, srcChan)
 			}
@@ -274,8 +274,8 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 		}
 
 	// Closing handshake has started on src, relay `updateClient` and `chanCloseConfirm` to dst
-	case srcChan.Channel.State == chanTypes.CLOSED && dstChan.Channel.State != chanTypes.CLOSED:
-		if dstChan.Channel.State != chanTypes.UNINITIALIZED {
+	case srcChan.Channel.State == chantypes.CLOSED && dstChan.Channel.State != chantypes.CLOSED:
+		if dstChan.Channel.State != chantypes.UNINITIALIZED {
 			if dst.debug {
 				logChannelStates(dst, c, dstChan, srcChan)
 			}
@@ -287,8 +287,8 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 		}
 
 	// Closing handshake has started on dst, relay `updateClient` and `chanCloseConfirm` to src
-	case dstChan.Channel.State == chanTypes.CLOSED && srcChan.Channel.State != chanTypes.CLOSED:
-		if srcChan.Channel.State != chanTypes.UNINITIALIZED {
+	case dstChan.Channel.State == chantypes.CLOSED && srcChan.Channel.State != chantypes.CLOSED:
+		if srcChan.Channel.State != chantypes.UNINITIALIZED {
 			if c.debug {
 				logChannelStates(c, dst, srcChan, dstChan)
 			}

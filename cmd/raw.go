@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	"github.com/ovrclk/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -173,7 +173,7 @@ func connTry() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			dstClientState, err := clientTypes.UnpackClientState(dstClientStateRes.ClientState)
+			dstClientState, err := clienttypes.UnpackClientState(dstClientStateRes.ClientState)
 			if err != nil {
 				return err
 			}
@@ -238,7 +238,7 @@ func connAck() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			dstClientState, _ := clientTypes.UnpackClientState(dstClientStateResponse.ClientState)
+			dstClientState, _ := clienttypes.UnpackClientState(dstClientStateResponse.ClientState)
 			dstCsHeight := int64(relayer.MustGetHeight(dstClientState.GetLatestHeight()))
 
 			// Then we need to query the consensus state for src at that height on dst
@@ -469,7 +469,7 @@ func chanAck() *cobra.Command {
 			}
 			txs := []sdk.Msg{
 				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
-				chains[src].PathEnd.ChanAck(dstChanState, chains[src].MustGetAddress()),
+				chains[src].PathEnd.ChanAck(chains[dst].PathEnd, dstChanState, chains[src].MustGetAddress()),
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)

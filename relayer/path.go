@@ -5,7 +5,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 )
 
 // Paths represent connection paths between chains

@@ -5,10 +5,10 @@ import (
 	"time"
 
 	retry "github.com/avast/retry-go"
-	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
-	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
-	ibcExported "github.com/cosmos/cosmos-sdk/x/ibc/exported"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
+	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -86,10 +86,10 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	var (
 		eg                               = new(errgroup.Group)
 		srcUpdateHeader, dstUpdateHeader *tmclient.Header
-		srcConn, dstConn                 *connTypes.QueryConnectionResponse
-		srcCsRes, dstCsRes               *clientTypes.QueryClientStateResponse
-		srcCS, dstCS                     ibcExported.ClientState
-		srcCons, dstCons                 *clientTypes.QueryConsensusStateResponse
+		srcConn, dstConn                 *conntypes.QueryConnectionResponse
+		srcCsRes, dstCsRes               *clienttypes.QueryClientStateResponse
+		srcCS, dstCS                     ibcexported.ClientState
+		srcCons, dstCons                 *clienttypes.QueryConsensusStateResponse
 		srcConsH, dstConsH               int64
 	)
 
@@ -117,17 +117,17 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		return nil, err
 	}
 
-	if !(srcConn.Connection.State == connTypes.UNINITIALIZED && dstConn.Connection.State == connTypes.UNINITIALIZED) {
+	if !(srcConn.Connection.State == conntypes.UNINITIALIZED && dstConn.Connection.State == conntypes.UNINITIALIZED) {
 		// Query client state from each chain's client
 		srcCsRes, dstCsRes, err = QueryClientStatePair(c, dst, int64(sh.GetHeight(c.ChainID))-1, int64(sh.GetHeight(dst.ChainID))-1)
 		if err != nil && (srcCsRes == nil || dstCsRes == nil) {
 			return nil, err
 		}
-		srcCS, err = clientTypes.UnpackClientState(srcCsRes.ClientState)
+		srcCS, err = clienttypes.UnpackClientState(srcCsRes.ClientState)
 		if err != nil {
 			return nil, err
 		}
-		dstCS, err = clientTypes.UnpackClientState(dstCsRes.ClientState)
+		dstCS, err = clienttypes.UnpackClientState(dstCsRes.ClientState)
 		if err != nil {
 			return nil, err
 		}
@@ -146,14 +146,14 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	switch {
 	// Handshake hasn't been started on src or dst, relay `connOpenInit` to src
-	case srcConn.Connection.State == connTypes.UNINITIALIZED && dstConn.Connection.State == connTypes.UNINITIALIZED:
+	case srcConn.Connection.State == conntypes.UNINITIALIZED && dstConn.Connection.State == conntypes.UNINITIALIZED:
 		if c.debug {
 			logConnectionStates(c, dst, srcConn, dstConn)
 		}
 		out.Src = append(out.Src, c.PathEnd.ConnInit(dst.PathEnd, c.MustGetAddress()))
 
 	// Handshake has started on dst (1 stepdone), relay `connOpenTry` and `updateClient` on src
-	case srcConn.Connection.State == connTypes.UNINITIALIZED && dstConn.Connection.State == connTypes.INIT:
+	case srcConn.Connection.State == conntypes.UNINITIALIZED && dstConn.Connection.State == conntypes.INIT:
 		if c.debug {
 			logConnectionStates(c, dst, srcConn, dstConn)
 		}
@@ -164,7 +164,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		)
 
 	// Handshake has started on src (1 step done), relay `connOpenTry` and `updateClient` on dst
-	case srcConn.Connection.State == connTypes.INIT && dstConn.Connection.State == connTypes.UNINITIALIZED:
+	case srcConn.Connection.State == conntypes.INIT && dstConn.Connection.State == conntypes.UNINITIALIZED:
 		if dst.debug {
 			logConnectionStates(dst, c, dstConn, srcConn)
 		}
@@ -175,7 +175,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		)
 
 	// Handshake has started on src end (2 steps done), relay `connOpenAck` and `updateClient` to dst end
-	case srcConn.Connection.State == connTypes.TRYOPEN && dstConn.Connection.State == connTypes.INIT:
+	case srcConn.Connection.State == conntypes.TRYOPEN && dstConn.Connection.State == conntypes.INIT:
 		if dst.debug {
 			logConnectionStates(dst, c, dstConn, srcConn)
 		}
@@ -185,7 +185,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		)
 
 	// Handshake has started on dst end (2 steps done), relay `connOpenAck` and `updateClient` to src end
-	case srcConn.Connection.State == connTypes.INIT && dstConn.Connection.State == connTypes.TRYOPEN:
+	case srcConn.Connection.State == conntypes.INIT && dstConn.Connection.State == conntypes.TRYOPEN:
 		if c.debug {
 			logConnectionStates(c, dst, srcConn, dstConn)
 		}
@@ -195,7 +195,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		)
 
 	// Handshake has confirmed on dst (3 steps done), relay `connOpenConfirm` and `updateClient` to src end
-	case srcConn.Connection.State == connTypes.TRYOPEN && dstConn.Connection.State == connTypes.OPEN:
+	case srcConn.Connection.State == conntypes.TRYOPEN && dstConn.Connection.State == conntypes.OPEN:
 		if c.debug {
 			logConnectionStates(c, dst, srcConn, dstConn)
 		}
@@ -206,7 +206,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		out.last = true
 
 	// Handshake has confirmed on src (3 steps done), relay `connOpenConfirm` and `updateClient` to dst end
-	case srcConn.Connection.State == connTypes.OPEN && dstConn.Connection.State == connTypes.TRYOPEN:
+	case srcConn.Connection.State == conntypes.OPEN && dstConn.Connection.State == conntypes.TRYOPEN:
 		if dst.debug {
 			logConnectionStates(dst, c, dstConn, srcConn)
 		}
