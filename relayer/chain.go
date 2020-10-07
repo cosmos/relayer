@@ -201,6 +201,7 @@ func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
 
 // SendMsg wraps the msg in a stdtx, signs and sends it
 func (c *Chain) SendMsg(datagram sdk.Msg) (*sdk.TxResponse, error) {
+	fmt.Println("in sendmsg using key", c.Key)
 	return c.SendMsgs([]sdk.Msg{datagram})
 }
 
@@ -234,6 +235,7 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
 	}
 
 	// Attach the signature to the transaction
+	fmt.Println("signing with key", c.Key)
 	err = tx.Sign(txf, c.Key, txb)
 	if err != nil {
 		return nil, err
