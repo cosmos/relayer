@@ -76,8 +76,8 @@ func (c *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amounts sdk.Coins) e
 		return err
 	}
 
-	fmt.Println("From Address", fromAddr)
-	fmt.Println("To Address", toAddr)
+	fmt.Println("From Address", fromAddr.String())
+	fmt.Println("To Address", toAddr.String())
 	fmt.Println("Amount", amounts)
 	res, err := c.SendMsgWithKey(bank.NewMsgSend(fromAddr, toAddr, sdk.NewCoins(amounts...)), info.GetName())
 
