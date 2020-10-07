@@ -228,7 +228,10 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 
 	// send the transaction, retrying if not successful
 	if err := retry.Do(func() error {
-		updateHeader, err := sh.GetUpdateHeader(src, dst)
+		if err := sh.Updates(src, dst); err != nil {
+			return err
+		}
+		updateHeader, err := sh.GetUpdateHeader(dst, src)
 		if err != nil {
 			return err
 		}
