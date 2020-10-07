@@ -76,12 +76,15 @@ func (c *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amounts sdk.Coins) e
 		return err
 	}
 
+	fmt.Println("From Address", fromAddr)
+	fmt.Println("To Address", toAddr)
+	fmt.Println("Amount", amounts)
 	res, err := c.SendMsgWithKey(bank.NewMsgSend(fromAddr, toAddr, sdk.NewCoins(amounts...)), info.GetName())
 
 	if err != nil {
-		return fmt.Errorf("failed to send transaction: %w\n%s", err, res)
+		return fmt.Errorf("%w:%s", err, res.RawLog)
 	} else if res.Code != 0 {
-		return fmt.Errorf("transaction failed to execute\n%s", res.RawLog)
+		return fmt.Errorf("%s", res.RawLog)
 	}
 	return nil
 }
