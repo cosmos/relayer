@@ -210,11 +210,13 @@ func queryBalanceCmd() *cobra.Command {
 				out := sdk.Coins{}
 				for _, c := range coins {
 					for _, d := range dts.DenomTraces {
-						if c.Denom == d.IBCDenom() {
+						switch {
+						case c.Amount.Equal(sdk.NewInt(0)):
+						case c.Denom == d.IBCDenom():
 							out = append(out, sdk.NewCoin(d.GetFullDenomPath(), c.Amount))
-							continue
+						default:
+							out = append(out, c)
 						}
-						out = append(out, c)
 					}
 				}
 				return chain.Print(out, false, false)
@@ -318,6 +320,13 @@ func queryClientCmd() *cobra.Command {
 			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
 			if err != nil {
 				return err
+			}
+
+			if height == 0 {
+				height, err = chain.QueryLatestHeight()
+				if err != nil {
+					return err
+				}
 			}
 
 			if err = chain.AddPath(args[1], dcon, dcha, dpor, dord); err != nil {
@@ -425,6 +434,13 @@ func queryConnectionsUsingClient() *cobra.Command {
 				return err
 			}
 
+			if height == 0 {
+				height, err = chain.QueryLatestHeight()
+				if err != nil {
+					return err
+				}
+			}
+
 			res, err := chain.QueryConnectionsUsingClient(height)
 			if err != nil {
 				return err
@@ -525,6 +541,13 @@ func queryChannel() *cobra.Command {
 			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
 			if err != nil {
 				return err
+			}
+
+			if height == 0 {
+				height, err = chain.QueryLatestHeight()
+				if err != nil {
+					return err
+				}
 			}
 
 			res, err := chain.QueryChannel(height)

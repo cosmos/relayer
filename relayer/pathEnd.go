@@ -132,7 +132,7 @@ func (pe *PathEnd) ConnTry(
 	}
 	msg := conntypes.NewMsgConnectionOpenTry(
 		pe.ConnectionID,
-		"",
+		pe.ConnectionID,
 		pe.ClientID,
 		dst.ConnectionID,
 		dst.ClientID,
@@ -167,7 +167,7 @@ func (pe *PathEnd) ConnAck(
 	}
 	return conntypes.NewMsgConnectionOpenAck(
 		pe.ConnectionID,
-		"",
+		dst.ConnectionID,
 		cs,
 		dstConnState.Proof,
 		dstClientState.Proof,
@@ -209,7 +209,7 @@ func (pe *PathEnd) ChanTry(dst *PathEnd, dstChanState *chantypes.QueryChannelRes
 	return chantypes.NewMsgChannelOpenTry(
 		pe.PortID,
 		pe.ChannelID,
-		dst.ChannelID,
+		pe.ChannelID,
 		pe.Version,
 		dstChanState.Channel.Ordering,
 		[]string{pe.ConnectionID},
