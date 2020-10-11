@@ -5,7 +5,6 @@ mkdir -p ./data
 
 killall ibc0d ibc1d
 
-
 cd ./data || exit 1
 
 starport app github.com/utx0/ibc0 --sdk-version stargate
@@ -30,7 +29,7 @@ rly config init
 
 cat ~/.relayer/config/config.yaml
 
-rly cfg add-dir configs/demo/
+rly cfg add-dir configs/starport/
 cat ~/.relayer/config/config.yaml
 
 # Now, add the key seeds from each chain to the relayer to give it funds to work with
