@@ -3,9 +3,9 @@ package relayer
 import (
 	"sync"
 
-	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
-	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/exported"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -109,17 +109,22 @@ func InjectTrustedFields(srcChain, dstChain *Chain, srcHeader *tmclient.Header) 
 	// make copy of header stored in mop
 	h := *(srcHeader)
 
-	// retrieve counterparty client from dst chain
-	counterpartyClientRes, err := dstChain.QueryClientState(0)
+	dsth, err := dstChain.GetLatestLightHeight()
 	if err != nil {
 		return nil, err
 	}
-	cs, err := clientTypes.UnpackClientState(counterpartyClientRes.ClientState)
+	// retrieve counterparty client from dst chain
+	counterpartyClientRes, err := dstChain.QueryClientState(dsth)
+	if err != nil {
+		return nil, err
+	}
+	cs, err := clienttypes.UnpackClientState(counterpartyClientRes.ClientState)
 	if err != nil {
 		panic(err)
 	}
 	// inject TrustedHeight as latest height stored on counterparty client
-	h.TrustedHeight = cs.GetLatestHeight().(clientTypes.Height)
+	h.TrustedHeight = cs.GetLatestHeight().(clienttypes.Height)
+
 	// query TrustedValidators at Trusted Height from srcChain
 	valSet, err := srcChain.QueryValsetAtHeight(h.TrustedHeight)
 	if err != nil {
@@ -131,10 +136,10 @@ func InjectTrustedFields(srcChain, dstChain *Chain, srcHeader *tmclient.Header) 
 }
 
 // MustGetHeight takes the height inteface and returns the actual height
-func MustGetHeight(h clientExported.Height) uint64 {
-	height, ok := h.(clientTypes.Height)
+func MustGetHeight(h ibcexported.Height) uint64 {
+	height, ok := h.(clienttypes.Height)
 	if !ok {
 		panic("height is not an instance of height! wtf")
 	}
-	return height.EpochHeight
+	return height.GetVersionHeight()
 }

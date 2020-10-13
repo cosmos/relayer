@@ -1,9 +1,11 @@
 package test
 
 import (
+	"context"
 	"testing"
 
-	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
+	"github.com/avast/retry-go"
+	clientypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	"github.com/stretchr/testify/require"
 
 	ry "github.com/ovrclk/relayer/relayer"
@@ -17,12 +19,23 @@ func testClientPair(t *testing.T, src, dst *ry.Chain) {
 
 // testClient queries client for existence of dst on src
 func testClient(t *testing.T, src, dst *ry.Chain) {
-	client, err := src.QueryClientState(0)
+	srch, err := src.GetLatestLightHeight()
+	require.NoError(t, err)
+	var (
+		client *clientypes.QueryClientStateResponse
+	)
+	retry.Do(func() error {
+		client, err = src.QueryClientState(srch)
+		if err != nil {
+			srch, _ = src.QueryLatestHeight()
+		}
+		return err
+	})
 	require.NoError(t, err)
 	require.NotNil(t, client)
-	cs, err := clientTypes.UnpackClientState(client.ClientState)
+	cs, err := clientypes.UnpackClientState(client.ClientState)
 	require.NoError(t, err)
-	require.Equal(t, cs.ClientType().String(), "tendermint")
+	require.Equal(t, cs.ClientType(), "Tendermint")
 }
 
 // testConnectionPair tests that the only connection on src and dst is between the two chains
@@ -42,7 +55,7 @@ func testConnection(t *testing.T, src, dst *ry.Chain) {
 	require.Equal(t, conns.Connections[0].Counterparty.GetConnectionID(), dst.PathEnd.ConnectionID)
 	require.Equal(t, conns.Connections[0].State.String(), "STATE_OPEN")
 
-	h, err := src.Client.Status()
+	h, err := src.Client.Status(context.Background())
 	require.NoError(t, err)
 
 	conn, err := src.QueryConnection(h.SyncInfo.LatestBlockHeight)
@@ -69,7 +82,7 @@ func testChannel(t *testing.T, src, dst *ry.Chain) {
 	require.Equal(t, chans.Channels[0].Counterparty.ChannelId, dst.PathEnd.ChannelID)
 	require.Equal(t, chans.Channels[0].Counterparty.GetPortID(), dst.PathEnd.PortID)
 
-	h, err := src.Client.Status()
+	h, err := src.Client.Status(context.Background())
 	require.NoError(t, err)
 
 	ch, err := src.QueryChannel(h.SyncInfo.LatestBlockHeight)

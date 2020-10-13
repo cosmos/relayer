@@ -6,9 +6,9 @@ import (
 	"io/ioutil"
 	"os"
 
-	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
-	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
-	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
+	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 	"github.com/ovrclk/relayer/relayer"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -103,7 +103,7 @@ func pathsGenCmd() *cobra.Command {
 
 			for _, c := range srcClients.ClientStates {
 				// TODO: support other client types through a switch here as they become available
-				clnt, _ := clientTypes.UnpackClientState(c.ClientState)
+				clnt, _ := clienttypes.UnpackClientState(c.ClientState)
 				if relayer.MustGetHeight(clnt.GetLatestHeight()) != 0 && !clnt.IsFrozen() {
 					path.Src.ClientID = c.ClientId
 				}
@@ -116,7 +116,7 @@ func pathsGenCmd() *cobra.Command {
 
 			for _, c := range dstClients.ClientStates {
 				// TODO: support other client types through a switch here as they become available
-				clnt, _ := clientTypes.UnpackClientState(c.ClientState)
+				clnt, _ := clienttypes.UnpackClientState(c.ClientState)
 				if relayer.MustGetHeight(clnt.GetLatestHeight()) != 0 && !clnt.IsFrozen() {
 					path.Dst.ClientID = c.ClientId
 				}
@@ -161,7 +161,7 @@ func pathsGenCmd() *cobra.Command {
 				return err
 			}
 
-			var srcCon *connTypes.IdentifiedConnection
+			var srcCon *conntypes.IdentifiedConnection
 			for _, c := range srcConns.Connections {
 				if c.ClientId == path.Src.ClientID {
 					srcCon = c
@@ -174,7 +174,7 @@ func pathsGenCmd() *cobra.Command {
 				return err
 			}
 
-			var dstCon *connTypes.IdentifiedConnection
+			var dstCon *conntypes.IdentifiedConnection
 			for _, c := range dstConns.Connections {
 				if c.ClientId == path.Dst.ClientID {
 					dstCon = c
@@ -217,7 +217,7 @@ func pathsGenCmd() *cobra.Command {
 				return err
 			}
 
-			var srcChan *chanTypes.IdentifiedChannel
+			var srcChan *chantypes.IdentifiedChannel
 			for _, c := range srcChans.Channels {
 				if c.ConnectionHops[0] == path.Src.ConnectionID {
 					srcChan = c
@@ -230,7 +230,7 @@ func pathsGenCmd() *cobra.Command {
 				return err
 			}
 
-			var dstChan *chanTypes.IdentifiedChannel
+			var dstChan *chantypes.IdentifiedChannel
 			for _, c := range dstChans.Channels {
 				if c.ConnectionHops[0] == path.Dst.ConnectionID {
 					dstChan = c
@@ -370,7 +370,7 @@ func pathsListCmd() *cobra.Command {
 
 					srcConn, err := ch[src].QueryConnection(srch)
 					dstConn, _ := ch[dst].QueryConnection(dsth)
-					if err == nil && srcConn.Connection.State == connTypes.OPEN && dstConn.Connection.State == connTypes.OPEN {
+					if err == nil && srcConn.Connection.State == conntypes.OPEN && dstConn.Connection.State == conntypes.OPEN {
 						connection = check
 					} else {
 						printPath(i, k, pth, chains, clients, connection, channel)
@@ -380,7 +380,7 @@ func pathsListCmd() *cobra.Command {
 
 					srcChan, err := ch[src].QueryChannel(srch)
 					dstChan, _ := ch[dst].QueryChannel(dsth)
-					if err == nil && srcChan.Channel.State == chanTypes.OPEN && dstChan.Channel.State == chanTypes.OPEN {
+					if err == nil && srcChan.Channel.State == chantypes.OPEN && dstChan.Channel.State == chantypes.OPEN {
 						channel = check
 					} else {
 						printPath(i, k, pth, chains, clients, connection, channel)
@@ -473,13 +473,13 @@ func pathsShowCmd() *cobra.Command {
 
 			srcConn, err := ch[src].QueryConnection(srch)
 			dstConn, _ := ch[dst].QueryConnection(dsth)
-			if err == nil && srcConn.Connection.State == connTypes.OPEN && dstConn.Connection.State == connTypes.OPEN {
+			if err == nil && srcConn.Connection.State == conntypes.OPEN && dstConn.Connection.State == conntypes.OPEN {
 				connection = true
 			}
 
 			srcChan, err := ch[src].QueryChannel(srch)
 			dstChan, _ := ch[dst].QueryChannel(dsth)
-			if err == nil && srcChan.Channel.State == chanTypes.OPEN && dstChan.Channel.State == chanTypes.OPEN {
+			if err == nil && srcChan.Channel.State == chantypes.OPEN && dstChan.Channel.State == chantypes.OPEN {
 				channel = true
 			}
 

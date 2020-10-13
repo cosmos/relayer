@@ -13,6 +13,7 @@ import (
 
 // SendMsgWithKey allows the user to specify which relayer key will sign the message
 func (c *Chain) SendMsgWithKey(msg sdk.Msg, keyName string) (res *sdk.TxResponse, err error) {
+	fmt.Println("setting use of key", keyName)
 	c.Key = keyName
 	return c.SendMsg(msg)
 
@@ -75,12 +76,15 @@ func (c *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amounts sdk.Coins) e
 		return err
 	}
 
+	fmt.Println("From Address", fromAddr.String())
+	fmt.Println("To Address", toAddr.String())
+	fmt.Println("Amount", amounts)
 	res, err := c.SendMsgWithKey(bank.NewMsgSend(fromAddr, toAddr, sdk.NewCoins(amounts...)), info.GetName())
 
 	if err != nil {
-		return fmt.Errorf("failed to send transaction: %w\n%s", err, res)
+		return fmt.Errorf("%w:%s", err, res.RawLog)
 	} else if res.Code != 0 {
-		return fmt.Errorf("transaction failed to execute\n%s", res)
+		return fmt.Errorf("%s", res.RawLog)
 	}
 	return nil
 }

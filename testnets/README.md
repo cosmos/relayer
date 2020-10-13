@@ -16,7 +16,7 @@ This is the second `relayer` testnet! I will be copying JSON files from the firs
 $ gaiad version --long
 name: gaia
 server_name: gaiad
-client_name: gaiacli
+client_name: gaiad
 version: 0.0.0-180-g50be36d
 commit: 50be36de941b9410a4b06ec9ce4288b1529c4bd4
 build_tags: netgo,ledger
@@ -91,10 +91,10 @@ gaiad init --chain-id $CHAINID $CHAINID
 sed -i 's#tcp://127.0.0.1:26657#tcp://0.0.0.0:26657#g' ~/.gaiad/config/config.toml
 sed -i "s/\"stake\"/\"$DENOM\"/g" ~/.gaiad/config/genesis.json
 sed -i 's/pruning = "syncable"/pruning = "nothing"/g' ~/.gaiad/config/app.toml
-gaiacli keys add validator
+gaiad keys add validator
 
 # Now its time to construct the genesis file
-gaiad add-genesis-account $(gaiacli keys show validator -a) 100000000000$DENOM,10000000samoleans
+gaiad add-genesis-account $(gaiad keys show validator -a) 100000000000$DENOM,10000000samoleans
 gaiad add-genesis-account $(rly chains addr $CHAINID) 10000000000000$DENOM,10000000samoleans
 gaiad gentx --name validator --amount 90000000000$DENOM
 gaiad collect-gentxs

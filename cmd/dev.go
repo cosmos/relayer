@@ -1,10 +1,9 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
-
-	// tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
@@ -38,7 +37,7 @@ func genesisCmd() *cobra.Command {
 				return err
 			}
 
-			gen, err := c.Client.Genesis()
+			gen, err := c.Client.Genesis(context.Background())
 			if err != nil {
 				return err
 			}

@@ -10,18 +10,18 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/query"
+	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc-transfer/types"
-	clientUtils "github.com/cosmos/cosmos-sdk/x/ibc/02-client/client/utils"
-	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
-	connUtils "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/client/utils"
-	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
-	chanUtils "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/client/utils"
-	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
-	commitTypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
-	stakingTypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	transfertypes "github.com/cosmos/cosmos-sdk/x/ibc/applications/transfer/types"
+	clientutils "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/client/utils"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	connutils "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/client/utils"
+	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
+	chanutils "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/client/utils"
+	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
+	committypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	abci "github.com/tendermint/tendermint/abci/types"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
@@ -54,7 +54,7 @@ func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
 		addr = info.GetAddress()
 	}
 
-	params := bankTypes.NewQueryAllBalancesRequest(addr, &query.PageRequest{
+	params := bankTypes.NewQueryAllBalancesRequest(addr, &querytypes.PageRequest{
 		Key:        []byte(""),
 		Offset:     0,
 		Limit:      1000,
@@ -78,16 +78,16 @@ func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
 // QueryConsensusState returns a consensus state for a given chain to be used as a
 // client in another chain, fetches latest height when passed 0 as arg
 func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, int64, error) {
-	return clientUtils.QueryNodeConsensusState(c.CLIContext(height))
+	return clientutils.QueryNodeConsensusState(c.CLIContext(height))
 }
 
 // QueryClientConsensusState retrevies the latest consensus state for a client in state at a given height
 func (c *Chain) QueryClientConsensusState(
-	height, dstClientConsHeight int64) (*clientTypes.QueryConsensusStateResponse, error) {
-	return clientUtils.QueryConsensusStateABCI(
+	height, dstClientConsHeight int64) (*clienttypes.QueryConsensusStateResponse, error) {
+	return clientutils.QueryConsensusStateABCI(
 		c.CLIContext(height),
 		c.PathEnd.ClientID,
-		clientTypes.NewHeight(0, uint64(dstClientConsHeight)),
+		clienttypes.NewHeight(0, uint64(dstClientConsHeight)),
 	)
 }
 
@@ -95,7 +95,7 @@ func (c *Chain) QueryClientConsensusState(
 func QueryClientConsensusStatePair(
 	src, dst *Chain,
 	srch, dsth, srcClientConsH,
-	dstClientConsH int64) (srcCsRes, dstCsRes *clientTypes.QueryConsensusStateResponse, err error) {
+	dstClientConsH int64) (srcCsRes, dstCsRes *clienttypes.QueryConsensusStateResponse, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
 		srcCsRes, err = src.QueryClientConsensusState(srch, srcClientConsH)
@@ -110,14 +110,14 @@ func QueryClientConsensusStatePair(
 }
 
 // QueryClientState retrevies the latest consensus state for a client in state at a given height
-func (c *Chain) QueryClientState(height int64) (*clientTypes.QueryClientStateResponse, error) {
-	return clientUtils.QueryClientStateABCI(c.CLIContext(height), c.PathEnd.ClientID)
+func (c *Chain) QueryClientState(height int64) (*clienttypes.QueryClientStateResponse, error) {
+	return clientutils.QueryClientStateABCI(c.CLIContext(height), c.PathEnd.ClientID)
 }
 
 // QueryClientStatePair returns a pair of connection responses
 func QueryClientStatePair(
 	src, dst *Chain,
-	srch, dsth int64) (srcCsRes, dstCsRes *clientTypes.QueryClientStateResponse, err error) {
+	srch, dsth int64) (srcCsRes, dstCsRes *clienttypes.QueryClientStateResponse, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
 		srcCsRes, err = src.QueryClientState(srch)
@@ -132,10 +132,10 @@ func QueryClientStatePair(
 }
 
 // QueryClients queries all the clients!
-func (c *Chain) QueryClients(offset, limit uint64) (*clientTypes.QueryClientStatesResponse, error) {
-	qc := clientTypes.NewQueryClient(c.CLIContext(0))
-	res, err := qc.ClientStates(context.Background(), &clientTypes.QueryClientStatesRequest{
-		Pagination: &query.PageRequest{
+func (c *Chain) QueryClients(offset, limit uint64) (*clienttypes.QueryClientStatesResponse, error) {
+	qc := clienttypes.NewQueryClient(c.CLIContext(0))
+	res, err := qc.ClientStates(context.Background(), &clienttypes.QueryClientStatesRequest{
+		Pagination: &querytypes.PageRequest{
 			Key:        []byte(""),
 			Offset:     offset,
 			Limit:      limit,
@@ -151,10 +151,10 @@ func (c *Chain) QueryClients(offset, limit uint64) (*clientTypes.QueryClientStat
 
 // QueryConnections gets any connections on a chain
 func (c *Chain) QueryConnections(
-	offset, limit uint64) (conns *connTypes.QueryConnectionsResponse, err error) {
-	qc := connTypes.NewQueryClient(c.CLIContext(0))
-	res, err := qc.Connections(context.Background(), &connTypes.QueryConnectionsRequest{
-		Pagination: &query.PageRequest{
+	offset, limit uint64) (conns *conntypes.QueryConnectionsResponse, err error) {
+	qc := conntypes.NewQueryClient(c.CLIContext(0))
+	res, err := qc.Connections(context.Background(), &conntypes.QueryConnectionsRequest{
+		Pagination: &querytypes.PageRequest{
 			Key:        []byte(""),
 			Offset:     offset,
 			Limit:      limit,
@@ -166,13 +166,13 @@ func (c *Chain) QueryConnections(
 
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
 func (c *Chain) QueryConnectionsUsingClient(
-	height int64) (clientConns *connTypes.QueryClientConnectionsResponse, err error) {
-	return connUtils.QueryClientConnections(c.CLIContext(height), c.PathEnd.ClientID, true)
+	height int64) (clientConns *conntypes.QueryClientConnectionsResponse, err error) {
+	return connutils.QueryClientConnections(c.CLIContext(height), c.PathEnd.ClientID, true)
 }
 
 // QueryConnection returns the remote end of a given connection
-func (c *Chain) QueryConnection(height int64) (*connTypes.QueryConnectionResponse, error) {
-	res, err := connUtils.QueryConnection(c.CLIContext(height), c.PathEnd.ConnectionID, true)
+func (c *Chain) QueryConnection(height int64) (*conntypes.QueryConnectionResponse, error) {
+	res, err := connutils.QueryConnection(c.CLIContext(height), c.PathEnd.ConnectionID, true)
 	if err != nil && strings.Contains(err.Error(), "not found") {
 		return emptyConnRes, nil
 	} else if err != nil {
@@ -181,26 +181,26 @@ func (c *Chain) QueryConnection(height int64) (*connTypes.QueryConnectionRespons
 	return res, nil
 }
 
-var emptyConnRes = connTypes.NewQueryConnectionResponse(
+var emptyConnRes = conntypes.NewQueryConnectionResponse(
 	"uninitialized",
-	connTypes.NewConnectionEnd(
-		connTypes.UNINITIALIZED,
+	conntypes.NewConnectionEnd(
+		conntypes.UNINITIALIZED,
 		"client",
-		connTypes.NewCounterparty(
+		conntypes.NewCounterparty(
 			"client",
 			"connection",
-			commitTypes.NewMerklePrefix([]byte{}),
+			committypes.NewMerklePrefix([]byte{}),
 		),
 		[]string{},
 	),
 	[]byte{},
-	clientTypes.NewHeight(0, 0),
+	clienttypes.NewHeight(0, 0),
 )
 
 // QueryConnectionPair returns a pair of connection responses
 func QueryConnectionPair(
 	src, dst *Chain,
-	srcH, dstH int64) (srcConn, dstConn *connTypes.QueryConnectionResponse, err error) {
+	srcH, dstH int64) (srcConn, dstConn *conntypes.QueryConnectionResponse, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
 		srcConn, err = src.QueryConnection(srcH)
@@ -221,11 +221,11 @@ func QueryConnectionPair(
 // QueryConnectionChannels queries the channels associated with a connection
 func (c *Chain) QueryConnectionChannels(
 	connectionID string,
-	offset, limit uint64) (*chanTypes.QueryConnectionChannelsResponse, error) {
-	qc := chanTypes.NewQueryClient(c.CLIContext(0))
-	return qc.ConnectionChannels(context.Background(), &chanTypes.QueryConnectionChannelsRequest{
+	offset, limit uint64) (*chantypes.QueryConnectionChannelsResponse, error) {
+	qc := chantypes.NewQueryClient(c.CLIContext(0))
+	return qc.ConnectionChannels(context.Background(), &chantypes.QueryConnectionChannelsRequest{
 		Connection: connectionID,
-		Pagination: &query.PageRequest{
+		Pagination: &querytypes.PageRequest{
 			Key:        []byte(""),
 			Offset:     offset,
 			Limit:      limit,
@@ -235,8 +235,8 @@ func (c *Chain) QueryConnectionChannels(
 }
 
 // QueryChannel returns the channel associated with a channelID
-func (c *Chain) QueryChannel(height int64) (chanRes *chanTypes.QueryChannelResponse, err error) {
-	res, err := chanUtils.QueryChannel(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, true)
+func (c *Chain) QueryChannel(height int64) (chanRes *chantypes.QueryChannelResponse, err error) {
+	res, err := chanutils.QueryChannel(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, true)
 	if err != nil && strings.Contains(err.Error(), "not found") {
 		return emptyChannelRes, nil
 	} else if err != nil {
@@ -245,13 +245,13 @@ func (c *Chain) QueryChannel(height int64) (chanRes *chanTypes.QueryChannelRespo
 	return res, nil
 }
 
-var emptyChannelRes = chanTypes.NewQueryChannelResponse(
+var emptyChannelRes = chantypes.NewQueryChannelResponse(
 	"port",
 	"channel",
-	chanTypes.NewChannel(
-		chanTypes.UNINITIALIZED,
-		chanTypes.UNORDERED,
-		chanTypes.NewCounterparty(
+	chantypes.NewChannel(
+		chantypes.UNINITIALIZED,
+		chantypes.UNORDERED,
+		chantypes.NewCounterparty(
 			"port",
 			"channel",
 		),
@@ -259,11 +259,11 @@ var emptyChannelRes = chanTypes.NewQueryChannelResponse(
 		"version",
 	),
 	[]byte{},
-	clientTypes.NewHeight(0, 0),
+	clienttypes.NewHeight(0, 0),
 )
 
 // QueryChannelPair returns a pair of channel responses
-func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (srcChan, dstChan *chanTypes.QueryChannelResponse, err error) {
+func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (srcChan, dstChan *chantypes.QueryChannelResponse, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
 		srcChan, err = src.QueryChannel(srcH)
@@ -278,10 +278,10 @@ func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (srcChan, dstChan *chan
 }
 
 // QueryChannels returns all the channels that are registered on a chain
-func (c *Chain) QueryChannels(offset, limit uint64) (*chanTypes.QueryChannelsResponse, error) {
-	qc := chanTypes.NewQueryClient(c.CLIContext(0))
-	res, err := qc.Channels(context.Background(), &chanTypes.QueryChannelsRequest{
-		Pagination: &query.PageRequest{
+func (c *Chain) QueryChannels(offset, limit uint64) (*chantypes.QueryChannelsResponse, error) {
+	qc := chantypes.NewQueryClient(c.CLIContext(0))
+	res, err := qc.Channels(context.Background(), &chantypes.QueryChannelsRequest{
+		Pagination: &querytypes.PageRequest{
 			Key:        []byte(""),
 			Offset:     offset,
 			Limit:      limit,
@@ -292,9 +292,9 @@ func (c *Chain) QueryChannels(offset, limit uint64) (*chanTypes.QueryChannelsRes
 }
 
 // QueryChannelClient returns the client state of the client supporting a given channel
-func (c *Chain) QueryChannelClient() (*chanTypes.QueryChannelClientStateResponse, error) {
-	qc := chanTypes.NewQueryClient(c.CLIContext(0))
-	return qc.ChannelClientState(context.Background(), &chanTypes.QueryChannelClientStateRequest{
+func (c *Chain) QueryChannelClient(height int64) (*chantypes.QueryChannelClientStateResponse, error) {
+	qc := chantypes.NewQueryClient(c.CLIContext(height))
+	return qc.ChannelClientState(context.Background(), &chantypes.QueryChannelClientStateRequest{
 		PortId:    c.PathEnd.PortID,
 		ChannelId: c.PathEnd.ChannelID,
 	})
@@ -305,16 +305,16 @@ func (c *Chain) QueryChannelClient() (*chanTypes.QueryChannelClientStateResponse
 /////////////////////////////////////
 
 // QueryDenomTrace takes a denom from IBC and queries the information about it
-func (c *Chain) QueryDenomTrace(denom string) (*xferTypes.QueryDenomTraceResponse, error) {
-	return xferTypes.NewQueryClient(c.CLIContext(0)).DenomTrace(context.Background(), &xferTypes.QueryDenomTraceRequest{
+func (c *Chain) QueryDenomTrace(denom string) (*transfertypes.QueryDenomTraceResponse, error) {
+	return transfertypes.NewQueryClient(c.CLIContext(0)).DenomTrace(context.Background(), &transfertypes.QueryDenomTraceRequest{
 		Hash: denom,
 	})
 }
 
 // QueryDenomTraces returns all the denom traces from a given chain
-func (c *Chain) QueryDenomTraces(offset, limit uint64) (*xferTypes.QueryDenomTracesResponse, error) {
-	return xferTypes.NewQueryClient(c.CLIContext(0)).DenomTraces(context.Background(), &xferTypes.QueryDenomTracesRequest{
-		Pagination: &query.PageRequest{
+func (c *Chain) QueryDenomTraces(offset, limit uint64, height int64) (*transfertypes.QueryDenomTracesResponse, error) {
+	return transfertypes.NewQueryClient(c.CLIContext(height)).DenomTraces(context.Background(), &transfertypes.QueryDenomTracesRequest{
+		Pagination: &querytypes.PageRequest{
 			Key:        []byte(""),
 			Offset:     offset,
 			Limit:      limit,
@@ -328,23 +328,23 @@ func (c *Chain) QueryDenomTraces(offset, limit uint64) (*xferTypes.QueryDenomTra
 /////////////////////////////////////
 
 // QueryHistoricalInfo returns historical header data
-func (c *Chain) QueryHistoricalInfo(height clientTypes.Height) (*stakingTypes.QueryHistoricalInfoResponse, error) {
+func (c *Chain) QueryHistoricalInfo(height clienttypes.Height) (*stakingtypes.QueryHistoricalInfoResponse, error) {
 	//TODO: use epoch number in query once SDK gets updated
-	qc := stakingTypes.NewQueryClient(c.CLIContext(int64(height.EpochHeight)))
-	return qc.HistoricalInfo(context.Background(), &stakingTypes.QueryHistoricalInfoRequest{
-		Height: int64(height.EpochHeight),
+	qc := stakingtypes.NewQueryClient(c.CLIContext(int64(height.GetVersionHeight())))
+	return qc.HistoricalInfo(context.Background(), &stakingtypes.QueryHistoricalInfoRequest{
+		Height: int64(height.GetVersionHeight()),
 	})
 }
 
 // QueryValsetAtHeight returns the validator set at a given height
-func (c *Chain) QueryValsetAtHeight(height clientTypes.Height) (*tmproto.ValidatorSet, error) {
+func (c *Chain) QueryValsetAtHeight(height clienttypes.Height) (*tmproto.ValidatorSet, error) {
 	res, err := c.QueryHistoricalInfo(height)
 	if err != nil {
 		return nil, err
 	}
 
 	// create tendermint ValidatorSet from SDK Validators
-	tmVals := stakingTypes.Validators(res.Hist.Valset).ToTmValidators()
+	tmVals := stakingtypes.Validators(res.Hist.Valset).ToTmValidators()
 	tmValSet := &tmtypes.ValidatorSet{
 		Validators: tmVals,
 		Proposer:   tmVals[0],
@@ -355,9 +355,9 @@ func (c *Chain) QueryValsetAtHeight(height clientTypes.Height) (*tmproto.Validat
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
 func (c *Chain) QueryUnbondingPeriod() (time.Duration, error) {
-	req := stakingTypes.QueryParamsRequest{}
+	req := stakingtypes.QueryParamsRequest{}
 
-	queryClient := stakingTypes.NewQueryClient(c.CLIContext(0))
+	queryClient := stakingtypes.NewQueryClient(c.CLIContext(0))
 
 	res, err := queryClient.Params(context.Background(), &req)
 	if err != nil {
@@ -367,10 +367,20 @@ func (c *Chain) QueryUnbondingPeriod() (time.Duration, error) {
 	return res.Params.UnbondingTime, nil
 }
 
+// QueryConsensusParams returns the consensus params
+func (c *Chain) QueryConsensusParams() (*abci.ConsensusParams, error) {
+	rg, err := c.Client.Genesis(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	return tmtypes.TM2PB.ConsensusParams(rg.Genesis.ConsensusParams), nil
+}
+
 // WaitForNBlocks blocks until the next block on a given chain
 func (c *Chain) WaitForNBlocks(n int64) error {
 	var initial int64
-	h, err := c.Client.Status()
+	h, err := c.Client.Status(context.Background())
 	if err != nil {
 		return err
 	}
@@ -379,7 +389,7 @@ func (c *Chain) WaitForNBlocks(n int64) error {
 	}
 	initial = h.SyncInfo.LatestBlockHeight
 	for {
-		h, err = c.Client.Status()
+		h, err = c.Client.Status(context.Background())
 		if err != nil {
 			return err
 		}
@@ -391,24 +401,24 @@ func (c *Chain) WaitForNBlocks(n int64) error {
 }
 
 // QueryNextSeqRecv returns the next seqRecv for a configured channel
-func (c *Chain) QueryNextSeqRecv(height int64) (recvRes *chanTypes.QueryNextSequenceReceiveResponse, err error) {
-	return chanUtils.QueryNextSequenceReceive(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, true)
+func (c *Chain) QueryNextSeqRecv(height int64) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
+	return chanutils.QueryNextSequenceReceive(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, true)
 }
 
 // QueryPacketCommitment returns the packet commitment proof at a given height
 func (c *Chain) QueryPacketCommitment(
-	height int64, seq uint64) (comRes *chanTypes.QueryPacketCommitmentResponse, err error) {
-	return chanUtils.QueryPacketCommitment(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, seq, true)
+	height int64, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error) {
+	return chanutils.QueryPacketCommitment(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, seq, true)
 }
 
 // QueryPacketCommitments returns an array of packet commitment proofs
 func (c *Chain) QueryPacketCommitments(
-	offset, limit, height uint64) (comRes *chanTypes.QueryPacketCommitmentsResponse, err error) {
-	qc := chanTypes.NewQueryClient(c.CLIContext(int64(height)))
-	return qc.PacketCommitments(context.Background(), &chanTypes.QueryPacketCommitmentsRequest{
+	offset, limit, height uint64) (comRes *chantypes.QueryPacketCommitmentsResponse, err error) {
+	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
+	return qc.PacketCommitments(context.Background(), &chantypes.QueryPacketCommitmentsRequest{
 		PortId:    c.PathEnd.PortID,
 		ChannelId: c.PathEnd.ChannelID,
-		Pagination: &query.PageRequest{
+		Pagination: &querytypes.PageRequest{
 			Offset:     offset,
 			Limit:      limit,
 			CountTotal: true,
@@ -419,8 +429,8 @@ func (c *Chain) QueryPacketCommitments(
 
 // QueryUnrecievedPackets returns a list of unrelayed packet commitments
 func (c *Chain) QueryUnrecievedPackets(height uint64, seqs []uint64) ([]uint64, error) {
-	qc := chanTypes.NewQueryClient(c.CLIContext(int64(height)))
-	res, err := qc.UnreceivedPackets(context.Background(), &chanTypes.QueryUnreceivedPacketsRequest{
+	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
+	res, err := qc.UnreceivedPackets(context.Background(), &chantypes.QueryUnreceivedPacketsRequest{
 		PortId:                    c.PathEnd.PortID,
 		ChannelId:                 c.PathEnd.ChannelID,
 		PacketCommitmentSequences: seqs,
@@ -430,8 +440,8 @@ func (c *Chain) QueryUnrecievedPackets(height uint64, seqs []uint64) ([]uint64, 
 
 // QueryUnrelayedAcks returns a list of unrelayed packet acks
 func (c *Chain) QueryUnrelayedAcks(height uint64, seqs []uint64) ([]uint64, error) {
-	qc := chanTypes.NewQueryClient(c.CLIContext(int64(height)))
-	res, err := qc.UnrelayedAcks(context.Background(), &chanTypes.QueryUnrelayedAcksRequest{
+	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
+	res, err := qc.UnrelayedAcks(context.Background(), &chantypes.QueryUnrelayedAcksRequest{
 		PortId:                    c.PathEnd.PortID,
 		ChannelId:                 c.PathEnd.ChannelID,
 		PacketCommitmentSequences: seqs,
@@ -446,7 +456,7 @@ func (c *Chain) QueryTx(hashHex string) (*ctypes.ResultTx, error) {
 		return &ctypes.ResultTx{}, err
 	}
 
-	return c.Client.Tx(hash, true)
+	return c.Client.Tx(context.Background(), hash, true)
 }
 
 // QueryTxs returns an array of transactions given a tag
@@ -463,7 +473,7 @@ func (c *Chain) QueryTxs(height uint64, page, limit int, events []string) ([]*ct
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	res, err := c.Client.TxSearch(strings.Join(events, " AND "), true, &page, &limit, "")
+	res, err := c.Client.TxSearch(context.Background(), strings.Join(events, " AND "), true, &page, &limit, "")
 	if err != nil {
 		return nil, err
 	}
@@ -478,7 +488,7 @@ func (c *Chain) QueryABCI(req abci.RequestQuery) (res abci.ResponseQuery, err er
 		Prove:  req.Prove,
 	}
 
-	result, err := c.Client.ABCIQueryWithOptions(req.Path, req.Data, opts)
+	result, err := c.Client.ABCIQueryWithOptions(context.Background(), req.Path, req.Data, opts)
 	if err != nil {
 		// retry queries on EOF
 		if strings.Contains(err.Error(), "EOF") {
@@ -518,7 +528,7 @@ func (c *Chain) QueryWithData(p string, d []byte) (byt []byte, i int64, err erro
 
 // QueryLatestHeight queries the chain for the latest height and returns it
 func (c *Chain) QueryLatestHeight() (int64, error) {
-	res, err := c.Client.Status()
+	res, err := c.Client.Status(context.Background())
 	if err != nil {
 		return -1, err
 	} else if res.SyncInfo.CatchingUp {
@@ -562,12 +572,12 @@ func (c *Chain) QueryHeaderAtHeight(height int64) (*tmclient.Header, error) {
 		return nil, fmt.Errorf("must pass in valid height, %d not valid", height)
 	}
 
-	res, err := c.Client.Commit(&height)
+	res, err := c.Client.Commit(context.Background(), &height)
 	if err != nil {
 		return nil, err
 	}
 
-	val, err := c.Client.Validators(&height, &page, &perPage)
+	val, err := c.Client.Validators(context.Background(), &height, &page, &perPage)
 	if err != nil {
 		return nil, err
 	}

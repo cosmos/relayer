@@ -5,8 +5,8 @@ import (
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
-	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 )
 
 type relayPacket interface {
@@ -22,7 +22,7 @@ type relayMsgTimeout struct {
 	seq          uint64
 	timeout      uint64
 	timeoutStamp uint64
-	dstRecvRes   *chanTypes.QueryPacketCommitmentResponse
+	dstRecvRes   *chantypes.QueryPacketCommitmentResponse
 
 	pass bool
 }
@@ -40,7 +40,7 @@ func (rp *relayMsgTimeout) Timeout() uint64 {
 }
 
 func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
-	var dstRecvRes *chanTypes.QueryPacketCommitmentResponse
+	var dstRecvRes *chantypes.QueryPacketCommitmentResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
 		// NOTE: Timeouts currently only work with ORDERED channels for nwo
@@ -70,15 +70,15 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
 	if rp.dstRecvRes == nil {
 		return nil
 	}
-	return chanTypes.NewMsgTimeout(
-		chanTypes.NewPacket(
+	return chantypes.NewMsgTimeout(
+		chantypes.NewPacket(
 			rp.packetData,
 			rp.seq,
 			dst.PathEnd.PortID,
 			dst.PathEnd.ChannelID,
 			src.PathEnd.PortID,
 			src.PathEnd.ChannelID,
-			clientTypes.NewHeight(0, rp.timeout),
+			clienttypes.NewHeight(0, rp.timeout),
 			rp.timeoutStamp,
 		),
 		rp.seq,
@@ -93,7 +93,7 @@ type relayMsgRecvPacket struct {
 	seq          uint64
 	timeout      uint64
 	timeoutStamp uint64
-	dstComRes    *chanTypes.QueryPacketCommitmentResponse
+	dstComRes    *chantypes.QueryPacketCommitmentResponse
 
 	pass bool
 }
@@ -122,17 +122,14 @@ func (rp *relayMsgRecvPacket) Timeout() uint64 {
 }
 
 func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
-	var dstCommitRes *chanTypes.QueryPacketCommitmentResponse
+	var dstCommitRes *chantypes.QueryPacketCommitmentResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
 		dstCommitRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
 		if err != nil {
 			return err
 		} else if dstCommitRes.Proof == nil || dstCommitRes.Commitment == nil {
-			if err := sh.Update(src); err != nil {
-				return err
-			}
-			if err := sh.Update(dst); err != nil {
+			if err = sh.Updates(src, dst); err != nil {
 				return err
 			}
 			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)",
@@ -152,17 +149,17 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) sdk.Msg {
 	if rp.dstComRes == nil {
 		return nil
 	}
-	packet := chanTypes.NewPacket(
+	packet := chantypes.NewPacket(
 		rp.packetData,
 		rp.seq,
 		dst.PathEnd.PortID,
 		dst.PathEnd.ChannelID,
 		src.PathEnd.PortID,
 		src.PathEnd.ChannelID,
-		clientTypes.NewHeight(0, rp.timeout),
+		clienttypes.NewHeight(0, rp.timeout),
 		rp.timeoutStamp,
 	)
-	return chanTypes.NewMsgRecvPacket(
+	return chantypes.NewMsgRecvPacket(
 		packet,
 		rp.dstComRes.Proof,
 		rp.dstComRes.ProofHeight,
@@ -176,7 +173,7 @@ type relayMsgPacketAck struct {
 	seq          uint64
 	timeout      uint64
 	timeoutStamp uint64
-	dstComRes    *chanTypes.QueryPacketCommitmentResponse
+	dstComRes    *chantypes.QueryPacketCommitmentResponse
 }
 
 func (rp *relayMsgPacketAck) Data() []byte {
@@ -190,15 +187,15 @@ func (rp *relayMsgPacketAck) Timeout() uint64 {
 }
 
 func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
-	return chanTypes.NewMsgAcknowledgement(
-		chanTypes.NewPacket(
+	return chantypes.NewMsgAcknowledgement(
+		chantypes.NewPacket(
 			rp.packetData,
 			rp.seq,
 			src.PathEnd.PortID,
 			src.PathEnd.ChannelID,
 			dst.PathEnd.PortID,
 			dst.PathEnd.ChannelID,
-			clientTypes.NewHeight(0, rp.timeout),
+			clienttypes.NewHeight(0, rp.timeout),
 			rp.timeoutStamp,
 		),
 		rp.ack,
@@ -209,7 +206,7 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
 }
 
 func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
-	var dstCommitRes *chanTypes.QueryPacketCommitmentResponse
+	var dstCommitRes *chantypes.QueryPacketCommitmentResponse
 	if err = retry.Do(func() error {
 		dstCommitRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
 		if err != nil {

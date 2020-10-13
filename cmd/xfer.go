@@ -15,7 +15,7 @@ func xfersend() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "transfer [src-chain-id] [dst-chain-id] [amount] [dst-addr]",
 		Short:   "Initiate a transfer from one chain to another",
-		Aliases: []string{"xfer", "txf"},
+		Aliases: []string{"xfer", "txf", "send"},
 		Long: "Sends the first step to transfer tokens in an IBC transfer." +
 			" The created packet must be relayed to another chain",
 		Args: cobra.ExactArgs(4),
@@ -38,6 +38,22 @@ func xfersend() *cobra.Command {
 			amount, err := sdk.ParseCoin(args[2])
 			if err != nil {
 				return err
+			}
+
+			srch, err := c[src].QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			dts, err := c[src].QueryDenomTraces(0, 1000, srch)
+			if err != nil {
+				return err
+			}
+
+			for _, d := range dts.DenomTraces {
+				if amount.Denom == d.GetFullDenomPath() {
+					amount = sdk.NewCoin(d.IBCDenom(), amount.Amount)
+				}
 			}
 
 			// TODO: add ability to set timeout height and time from flags

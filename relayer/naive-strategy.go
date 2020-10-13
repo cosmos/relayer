@@ -8,7 +8,8 @@ import (
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	"golang.org/x/sync/errgroup"
 )
@@ -45,7 +46,7 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 	)
 
 	eg.Go(func() error {
-		var res *chanTypes.QueryPacketCommitmentsResponse
+		var res *chantypes.QueryPacketCommitmentsResponse
 		if err = retry.Do(func() error {
 			res, err = src.QueryPacketCommitments(0, 1000, sh.GetHeight(src.ChainID))
 			if err != nil || res == nil {
@@ -62,7 +63,7 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 	})
 
 	eg.Go(func() error {
-		var res *chanTypes.QueryPacketCommitmentsResponse
+		var res *chantypes.QueryPacketCommitmentsResponse
 		if err = retry.Do(func() error {
 			res, err = dst.QueryPacketCommitments(0, 1000, sh.GetHeight(dst.ChainID))
 			if err != nil || res == nil {
@@ -140,11 +141,11 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 
 				// finally, get and parse the timeout
 				if sval, ok := events["send_packet.packet_timeout_height"]; ok {
-					timeout, err := strconv.ParseUint(sval[i], 10, 64)
+					timeout, err := clienttypes.ParseHeight(sval[i])
 					if err != nil {
 						return nil, err
 					}
-					rp.timeout = timeout
+					rp.timeout = MustGetHeight(timeout)
 				}
 
 				// finally, get and parse the timeout
@@ -190,11 +191,11 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 
 				// finally, get and parse the timeout
 				if sval, ok := events["recv_packet.packet_timeout_height"]; ok {
-					timeout, err := strconv.ParseUint(sval[i], 10, 64)
+					timeout, err := clienttypes.ParseHeight(sval[i])
 					if err != nil {
 						return nil, err
 					}
-					rp.timeout = timeout
+					rp.timeout = MustGetHeight(timeout)
 				}
 
 				// finally, get and parse the timeout
@@ -215,6 +216,7 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 }
 
 func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []relayPacket, sh *SyncHeaders) {
+
 	// fetch the proofs for the relayPackets
 	for _, rp := range rlyPackets {
 		if err := rp.FetchCommitResponse(src, dst, sh); err != nil {
@@ -226,7 +228,10 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 
 	// send the transaction, retrying if not successful
 	if err := retry.Do(func() error {
-		updateHeader, err := sh.GetUpdateHeader(src, dst)
+		if err := sh.Updates(src, dst); err != nil {
+			return err
+		}
+		updateHeader, err := sh.GetUpdateHeader(dst, src)
 		if err != nil {
 			return err
 		}
