@@ -40,7 +40,12 @@ func xfersend() *cobra.Command {
 				return err
 			}
 
-			dts, err := c[src].QueryDenomTraces(0, 1000)
+			srch, err := c[src].QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			dts, err := c[src].QueryDenomTraces(0, 1000, srch)
 			if err != nil {
 				return err
 			}

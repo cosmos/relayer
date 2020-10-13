@@ -292,8 +292,8 @@ func (c *Chain) QueryChannels(offset, limit uint64) (*chantypes.QueryChannelsRes
 }
 
 // QueryChannelClient returns the client state of the client supporting a given channel
-func (c *Chain) QueryChannelClient() (*chantypes.QueryChannelClientStateResponse, error) {
-	qc := chantypes.NewQueryClient(c.CLIContext(0))
+func (c *Chain) QueryChannelClient(height int64) (*chantypes.QueryChannelClientStateResponse, error) {
+	qc := chantypes.NewQueryClient(c.CLIContext(height))
 	return qc.ChannelClientState(context.Background(), &chantypes.QueryChannelClientStateRequest{
 		PortId:    c.PathEnd.PortID,
 		ChannelId: c.PathEnd.ChannelID,
@@ -312,8 +312,8 @@ func (c *Chain) QueryDenomTrace(denom string) (*transfertypes.QueryDenomTraceRes
 }
 
 // QueryDenomTraces returns all the denom traces from a given chain
-func (c *Chain) QueryDenomTraces(offset, limit uint64) (*transfertypes.QueryDenomTracesResponse, error) {
-	return transfertypes.NewQueryClient(c.CLIContext(0)).DenomTraces(context.Background(), &transfertypes.QueryDenomTracesRequest{
+func (c *Chain) QueryDenomTraces(offset, limit uint64, height int64) (*transfertypes.QueryDenomTracesResponse, error) {
+	return transfertypes.NewQueryClient(c.CLIContext(height)).DenomTraces(context.Background(), &transfertypes.QueryDenomTracesRequest{
 		Pagination: &querytypes.PageRequest{
 			Key:        []byte(""),
 			Offset:     offset,
@@ -330,9 +330,9 @@ func (c *Chain) QueryDenomTraces(offset, limit uint64) (*transfertypes.QueryDeno
 // QueryHistoricalInfo returns historical header data
 func (c *Chain) QueryHistoricalInfo(height clienttypes.Height) (*stakingtypes.QueryHistoricalInfoResponse, error) {
 	//TODO: use epoch number in query once SDK gets updated
-	qc := stakingtypes.NewQueryClient(c.CLIContext(int64(height.GetEpochHeight())))
+	qc := stakingtypes.NewQueryClient(c.CLIContext(int64(height.GetVersionHeight())))
 	return qc.HistoricalInfo(context.Background(), &stakingtypes.QueryHistoricalInfoRequest{
-		Height: int64(height.GetEpochHeight()),
+		Height: int64(height.GetVersionHeight()),
 	})
 }
 
@@ -365,6 +365,16 @@ func (c *Chain) QueryUnbondingPeriod() (time.Duration, error) {
 	}
 
 	return res.Params.UnbondingTime, nil
+}
+
+// QueryConsensusParams returns the consensus params
+func (c *Chain) QueryConsensusParams() (*abci.ConsensusParams, error) {
+	rg, err := c.Client.Genesis(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	return tmtypes.TM2PB.ConsensusParams(rg.Genesis.ConsensusParams), nil
 }
 
 // WaitForNBlocks blocks until the next block on a given chain

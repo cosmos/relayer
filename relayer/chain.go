@@ -35,6 +35,7 @@ type Chain struct {
 	RPCAddr        string  `yaml:"rpc-addr" json:"rpc-addr"`
 	AccountPrefix  string  `yaml:"account-prefix" json:"account-prefix"`
 	GasAdjustment  float64 `yaml:"gas-adjustment" json:"gas-adjustment"`
+	GasPrices      string  `yaml:"gas-prices" json:"gas-prices"`
 	TrustingPeriod string  `yaml:"trusting-period" json:"trusting-period"`
 
 	// TODO: make these private
@@ -149,6 +150,11 @@ func (c *Chain) Init(homePath string, timeout time.Duration, debug bool) error {
 		return fmt.Errorf("failed to parse trusting period (%s) for chain %s", c.TrustingPeriod, c.ChainID)
 	}
 
+	_, err = sdk.ParseDecCoins(c.GasPrices)
+	if err != nil {
+		return fmt.Errorf("failed to parse gas prices (%s) for chain %s", c.GasPrices, c.ChainID)
+	}
+
 	encodingConfig := simapp.MakeEncodingConfig()
 
 	c.Keybase = keybase
@@ -201,7 +207,6 @@ func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
 
 // SendMsg wraps the msg in a stdtx, signs and sends it
 func (c *Chain) SendMsg(datagram sdk.Msg) (*sdk.TxResponse, error) {
-	fmt.Println("in sendmsg using key", c.Key)
 	return c.SendMsgs([]sdk.Msg{datagram})
 }
 
@@ -235,7 +240,6 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
 	}
 
 	// Attach the signature to the transaction
-	fmt.Println("signing with key", c.Key)
 	err = tx.Sign(txf, c.Key, txb)
 	if err != nil {
 		return nil, err
@@ -280,6 +284,7 @@ func (c *Chain) TxFactory(height int64) tx.Factory {
 		WithChainID(c.ChainID).
 		WithTxConfig(ctx.TxConfig).
 		WithGasAdjustment(c.GasAdjustment).
+		WithGasPrices(c.GasPrices).
 		WithKeybase(c.Keybase).
 		WithSignMode(signing.SignMode_SIGN_MODE_DIRECT)
 }
@@ -378,6 +383,12 @@ func (c *Chain) Update(key, value string) (out *Chain, err error) {
 			return nil, err
 		}
 		out.GasAdjustment = adj
+	case "gas-prices":
+		_, err = sdk.ParseDecCoins(value)
+		if err != nil {
+			return nil, err
+		}
+		out.GasPrices = value
 	case "account-prefix":
 		out.AccountPrefix = value
 	case "trusting-period":

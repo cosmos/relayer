@@ -11,7 +11,7 @@ if [[ ! -d $GOPATH ]] || [[ ! -d $GOBIN ]] || [[ ! -x "$(which go)" ]]; then
 fi
 
 GAIA_REPO="$GOPATH/src/github.com/cosmos/gaia"
-GAIA_BRANCH=stargate-3
+GAIA_BRANCH=stargate-4
 GAIA_DATA="$(pwd)/data"
 
 # ARGS:

@@ -9,8 +9,6 @@ meant for users wishing to relay packets/data between sets of IBC enabled chains
 In additon, it is well documented and intended as an example where anyone who is
 interested in building their own relayer can come for complete, working, examples.
 
-If you are here for Game of Zones, please be sure to check out the [offical website](https://goz.cosmosnetwork.dev). The best place for questions is [gameofzones@cosmosnetwork.dev](mailto:gameofzones@cosmosnetwork.dev) regarding Game of Zones and prepratory testnets.
-
 ### Security Notice
 
 If you would like to report a security critical bug related to the relayer repo, please send an email to [`security@cosmosnetwork.dev`](mailto:security@cosmosnetwork.dev)
@@ -21,7 +19,7 @@ The iqlusion team is dedicated to providing an inclusive and harrassment free ex
 
 ## Testnet
 
-If you would like to join the relayer testnet, please [check out the instructions](./testnets/README.md).
+If you would like to join a relayer testnet, please [check out the instructions](./testnets/README.md).
 
 ### Compatability Table:
 
@@ -63,43 +61,43 @@ $ rly cfg add-dir configs/demo/
 $ cat ~/.relayer/config/config.yaml
 
 # Now, add the key seeds from each chain to the relayer to give it funds to work with
-$ rly keys restore ibc0 testkey "$(jq -r '.secret' data/ibc0/n0/gaiacli/key_seed.json)"
-$ rly keys restore ibc1 testkey "$(jq -r '.secret' data/ibc1/n0/gaiacli/key_seed.json)"
+$ rly keys restore ibc0 testkey "$(jq -r '.mnemonic' data/ibc0/key_seed.json)"
+$ rly k r ibc1 testkey "$(jq -r '.mnemonic' data/ibc1/key_seed.json)"
 
 # Then its time to initialize the relayer's light clients for each chain
 # All data moving forward is validated by these light clients.
 $ rly light init ibc0 -f
-$ rly light init ibc1 -f
+$ rly l i ibc1 -f
 
 # At this point the relayer --home directory is ready for normal operations between
 # ibc0 and ibc1. Looking at the folder structure of the relayer at this point is helpful
 $ tree ~/.relayer
 
+# See if the chains are ready to relay over
+$ rly chains list
+
 # Now you can connect the two chains with one command:
 $ rly tx link demo -d -o 3s
 
 # Check the token balances on both chains
-$ rly q balance ibc0
-$ rly q bal ibc1
+$ rly q balance ibc0 | jq
+$ rly q bal ibc1 | jq
 
 # Then send some tokens between the chains
 $ rly tx transfer ibc0 ibc1 1000000samoleans $(rly chains address ibc1)
-$ rly tx relay demo
+$ rly tx relay demo -d
 
 # See that the transfer has completed
-$ rly q bal ibc0
-$ rly q bal ibc1
-
-# Query the ibc denom to send the tokens back to the sender
-$ rly q bal ibc1 -i
+$ rly q bal ibc0 | jq
+$ rly q bal ibc1 | jq
 
 # Send the tokens back to the account on ibc0
-$ rly tx xfer ibc1 ibc0 1000000ibc/2EF4DA9D3880846723AE8514CA9D77738B4F11FBA2A437EDEE43FF62E6792037 $(rly ch addr ibc0)
-$ rly tx relay demo
+$ rly tx xfer ibc1 ibc0 1000000transfer/ibczeroxfer/samoleans $(rly ch addr ibc0)
+$ rly tx rly demo -d
 
 # See that the return trip has completed
-$ rly q bal ibc0
-$ rly q bal ibc1
+$ rly q bal ibc0 | jq
+$ rly q bal ibc1 | jq
 
 # NOTE: you will see the stake balances decreasing on each chain. This is to pay for fees
 # You can change the amount of fees you are paying on each chain in the configuration.

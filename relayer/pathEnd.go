@@ -12,7 +12,7 @@ import (
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
 	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
-	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
+	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/light"
 )
 
@@ -67,6 +67,7 @@ func (pe *PathEnd) UpdateClient(dstHeader ibcexported.Header, signer sdk.AccAddr
 func (pe *PathEnd) CreateClient(
 	dstHeader *tmclient.Header,
 	trustingPeriod, unbondingPeriod time.Duration,
+	consensusParams *abci.ConsensusParams,
 	signer sdk.AccAddress) sdk.Msg {
 	if err := dstHeader.ValidateBasic(); err != nil {
 		panic(err)
@@ -74,16 +75,16 @@ func (pe *PathEnd) CreateClient(
 
 	// Blank Client State
 	// TODO: figure out how to dynmaically set unbonding time
-	upgradePath := commitmenttypes.NewMerklePath([]string{"upgrade", upgradetypes.KeyUpgradedClient})
 	clientState := tmclient.NewClientState(
 		dstHeader.GetHeader().GetChainID(),
 		tmclient.NewFractionFromTm(light.DefaultTrustLevel),
 		trustingPeriod,
 		unbondingPeriod,
-		time.Minute*1,
+		time.Minute*10,
 		dstHeader.GetHeight().(clienttypes.Height),
+		consensusParams,
 		commitmenttypes.GetSDKSpecs(),
-		&upgradePath,
+		"upgrade/upgradedClient",
 		false,
 		false,
 	)

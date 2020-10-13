@@ -57,7 +57,11 @@ func queryIBCDenoms() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			res, err := chain.QueryDenomTraces(0, 1000)
+			h, err := chain.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+			res, err := chain.QueryDenomTraces(0, 1000, h)
 			if err != nil {
 				return err
 			}
@@ -201,7 +205,12 @@ func queryBalanceCmd() *cobra.Command {
 				return chain.Print(coins, false, false)
 			}
 
-			dts, err := chain.QueryDenomTraces(0, 1000)
+			h, err := chain.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			dts, err := chain.QueryDenomTraces(0, 1000, h)
 			if err != nil {
 				return err
 			}

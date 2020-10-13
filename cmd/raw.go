@@ -101,8 +101,13 @@ func createClientCmd() *cobra.Command {
 				return err
 			}
 
+			consensusParams, err := chains[dst].QueryConsensusParams()
+			if err != nil {
+				return err
+			}
+
 			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.CreateClient(dstHeader,
-				chains[dst].GetTrustingPeriod(), ubdPeriod, chains[src].MustGetAddress())},
+				chains[dst].GetTrustingPeriod(), ubdPeriod, consensusParams, chains[src].MustGetAddress())},
 				chains[src], cmd)
 		},
 	}
