@@ -344,6 +344,7 @@ func (c *Chain) QueryValsetAtHeight(height clienttypes.Height) (*tmproto.Validat
 	}
 
 	// create tendermint ValidatorSet from SDK Validators
+	// c.UseSDKContext()
 	tmVals := stakingtypes.Validators(res.Hist.Valset).ToTmValidators()
 	tmValSet := &tmtypes.ValidatorSet{
 		Validators: tmVals,

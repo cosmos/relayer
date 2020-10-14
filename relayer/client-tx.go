@@ -33,6 +33,7 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 			if err != nil {
 				return err
 			}
+			c.UseSDKContext()
 			clients.Src = append(
 				clients.Src,
 				c.PathEnd.CreateClient(
@@ -60,6 +61,7 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 			if err != nil {
 				return err
 			}
+			dst.UseSDKContext()
 			clients.Dst = append(
 				clients.Dst,
 				dst.PathEnd.CreateClient(

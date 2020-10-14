@@ -126,6 +126,7 @@ func InjectTrustedFields(srcChain, dstChain *Chain, srcHeader *tmclient.Header) 
 	h.TrustedHeight = cs.GetLatestHeight().(clienttypes.Height)
 
 	// query TrustedValidators at Trusted Height from srcChain
+	// srcChain.UseSDKContext()
 	valSet, err := srcChain.QueryValsetAtHeight(h.TrustedHeight)
 	if err != nil {
 		return nil, err

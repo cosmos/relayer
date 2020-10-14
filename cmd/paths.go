@@ -104,8 +104,10 @@ func pathsGenCmd() *cobra.Command {
 			for _, c := range srcClients.ClientStates {
 				// TODO: support other client types through a switch here as they become available
 				clnt, _ := clienttypes.UnpackClientState(c.ClientState)
-				if relayer.MustGetHeight(clnt.GetLatestHeight()) != 0 && !clnt.IsFrozen() {
-					path.Src.ClientID = c.ClientId
+				if clnt != nil {
+					if relayer.MustGetHeight(clnt.GetLatestHeight()) != 0 && !clnt.IsFrozen() {
+						path.Src.ClientID = c.ClientId
+					}
 				}
 			}
 
@@ -117,8 +119,10 @@ func pathsGenCmd() *cobra.Command {
 			for _, c := range dstClients.ClientStates {
 				// TODO: support other client types through a switch here as they become available
 				clnt, _ := clienttypes.UnpackClientState(c.ClientState)
-				if relayer.MustGetHeight(clnt.GetLatestHeight()) != 0 && !clnt.IsFrozen() {
-					path.Dst.ClientID = c.ClientId
+				if clnt != nil {
+					if relayer.MustGetHeight(clnt.GetLatestHeight()) != 0 && !clnt.IsFrozen() {
+						path.Dst.ClientID = c.ClientId
+					}
 				}
 			}
 
