@@ -2,6 +2,32 @@
 
 These are instructions on how to setup a node to run a basic IBC relayer testnet. Currently, coordination is happening in the [`ibc-testnet-alpha` group on telegram](https://t.me/joinchat/IYdbxRRFYIkj9FR99X3-BA).
 
+### *14 October 2020 10:30 PST* - `stargate-4` testnet
+
+This is the first relayer testnet that is using the `v0.40.0` (Stargate) code. Users are encouraged to submit their chain configuration (`rly chains show {my-chain} --json`) to the `testnets/stargate-4` folder in this repository to share their publiclly available node with other testnet participants.
+
+- Gaia Version Info
+
+```bash
+$ gaiad version --long
+name: gaia
+server_name: gaiad
+version: stargate-4
+commit: 3a8b1b414004ccddfa255fd0cd1499bbf6659d71
+build_tags: netgo,ledger
+go: go version go1.15.2 linux/amd64
+```
+
+- Relayer Version Info
+
+```bash
+$ rly version
+version: stargate-4
+commit: 438815d47a857318199d556f4c1115f2fa6315a2
+cosmos-sdk: v0.40.0-rc0
+go: go1.15.2 linux/amd64
+```
+
 ### Game Of Zones
 
 Please see the [Game of Zones repository](https://github.com/cosmosdevs/GameOfZones) for details on competing in Game of Zones.
