@@ -75,11 +75,11 @@ The following instructions have been tested and are working from a default insta
 ```bash
 # Update the system and install dependancies
 sudo apt update
-sudo apt install build-essential jq -y
+sudo apt install build-essential jq git -y
 
 # Install latest go version https://golang.org/doc/install
-wget https://dl.google.com/go/go1.14.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.14.linux-amd64.tar.gz
+wget https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.15.2.linux-amd64.tar.gz
 
 # Add $GOPATH, $GOBIN and both to $PATH
 echo "" >> ~/.profile
@@ -96,12 +96,15 @@ export DENOM=pylon
 export CHAINID=pylonchain
 export DOMAIN=shitcoincasinos.com
 export RLYKEY=faucet
-export GAIASHA=50be36d
+export GAIASHA=stargate-4
 export ACCOUNT_PREFIX=cosmos
 
 # Start by downloading and installing both gaia and the relayer
 mkdir -p $(dirname $GAIA) && git clone https://github.com/cosmos/gaia $GAIA && cd $GAIA && git checkout $GAIASHA && make install
 mkdir -p $(dirname $RELAYER) && git clone https://github.com/ovrclk/relayer $RELAYER && cd $RELAYER && make install
+
+# Verify gaia version matches that of the latest testnet above
+gaia version --long
 
 # Now its time to configure both the relayer and gaia, start with the relayer
 cd
@@ -114,15 +117,15 @@ rly keys add $CHAINID $RLYKEY
 # Move on to configuring gaia
 gaiad init --chain-id $CHAINID $CHAINID
 # NOTE: ensure that the gaia rpc is open to all connections
-sed -i 's#tcp://127.0.0.1:26657#tcp://0.0.0.0:26657#g' ~/.gaiad/config/config.toml
-sed -i "s/\"stake\"/\"$DENOM\"/g" ~/.gaiad/config/genesis.json
-sed -i 's/pruning = "syncable"/pruning = "nothing"/g' ~/.gaiad/config/app.toml
+sed -i 's#tcp://127.0.0.1:26657#tcp://0.0.0.0:26657#g' ~/.gaia/config/config.toml
+sed -i "s/\"stake\"/\"$DENOM\"/g" ~/.gaia/config/genesis.json
+sed -i 's/pruning = "syncable"/pruning = "nothing"/g' ~/.gaia/config/app.toml
 gaiad keys add validator
 
 # Now its time to construct the genesis file
 gaiad add-genesis-account $(gaiad keys show validator -a) 100000000000$DENOM,10000000samoleans
 gaiad add-genesis-account $(rly chains addr $CHAINID) 10000000000000$DENOM,10000000samoleans
-gaiad gentx --name validator --amount 90000000000$DENOM
+gaiad gentx validator --amount 90000000000$DENOM --chain-id $CHAINID
 gaiad collect-gentxs
 
 # Setup the service definitions
