@@ -191,6 +191,7 @@ func queryBalanceCmd() *cobra.Command {
 				return err
 			}
 
+			chain.UseSDKContext()
 			var coins sdk.Coins
 			if len(args) == 2 {
 				coins, err = chain.QueryBalance(args[1])
