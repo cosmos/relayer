@@ -338,20 +338,19 @@ func (c *Chain) QueryHistoricalInfo(height clienttypes.Height) (*stakingtypes.Qu
 
 // QueryValsetAtHeight returns the validator set at a given height
 func (c *Chain) QueryValsetAtHeight(height clienttypes.Height) (*tmproto.ValidatorSet, error) {
+	unlock := SDKConfig.SetLock(c)
 	res, err := c.QueryHistoricalInfo(height)
 	if err != nil {
 		return nil, err
 	}
 
 	// create tendermint ValidatorSet from SDK Validators
-	fmt.Println("USING SDK CONTEXT IN QUERYVALSETATHEIGHT")
-	fmt.Println(c.ChainID, c.AccountPrefix)
-	c.UseSDKContext()
 	tmVals := stakingtypes.Validators(res.Hist.Valset).ToTmValidators()
 	tmValSet := &tmtypes.ValidatorSet{
 		Validators: tmVals,
 		Proposer:   tmVals[0],
 	}
+	unlock()
 
 	return tmValSet.ToProto()
 }

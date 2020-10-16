@@ -159,7 +159,7 @@ func queryAccountCmd() *cobra.Command {
 				return err
 			}
 
-			chain.UseSDKContext()
+			relayer.SDKConfig.Set(chain)
 
 			res, err := types.NewQueryClient(chain.CLIContext(0)).Account(
 				context.Background(),
@@ -193,7 +193,7 @@ func queryBalanceCmd() *cobra.Command {
 				return err
 			}
 
-			chain.UseSDKContext()
+			relayer.SDKConfig.Set(chain)
 			var coins sdk.Coins
 			if len(args) == 2 {
 				coins, err = chain.QueryBalance(args[1])

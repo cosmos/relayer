@@ -52,14 +52,14 @@ func chainsAddrCmd() *cobra.Command {
 				return err
 			}
 
-			chain.UseSDKContext()
-
+			unlock := relayer.SDKConfig.SetLock(chain)
 			addr, err := chain.GetAddress()
 			if err != nil {
 				return err
 			}
 
 			fmt.Println(addr.String())
+			unlock()
 			return nil
 		},
 	}

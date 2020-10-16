@@ -13,6 +13,7 @@ import (
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ovrclk/relayer/relayer"
 	ry "github.com/ovrclk/relayer/relayer"
 )
 
@@ -137,8 +138,7 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 
 	func() {
 		// Ensure our address is encoded properly.
-		c.UseSDKContext()
-
+		relayer.SDKConfig.Set(c)
 		dockerOpts.Cmd = []string{c.ChainID, c.MustGetAddress().String()}
 		dockerOpts.Labels = make(map[string]string)
 		dockerOpts.Labels["io.iqlusion.relayer.test"] = "true"
