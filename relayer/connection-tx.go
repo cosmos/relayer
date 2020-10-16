@@ -150,7 +150,9 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		if c.debug {
 			logConnectionStates(c, dst, srcConn, dstConn)
 		}
+		unlock := SDKConfig.SetLock(c)
 		out.Src = append(out.Src, c.PathEnd.ConnInit(dst.PathEnd, c.MustGetAddress()))
+		unlock()
 
 	// Handshake has started on dst (1 stepdone), relay `connOpenTry` and `updateClient` on src
 	case srcConn.Connection.State == conntypes.UNINITIALIZED && dstConn.Connection.State == conntypes.INIT:
@@ -158,10 +160,12 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 			logConnectionStates(c, dst, srcConn, dstConn)
 		}
 
+		unlock := SDKConfig.SetLock(c)
 		out.Src = append(out.Src,
 			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 			c.PathEnd.ConnTry(dst.PathEnd, dstCsRes, dstConn, dstCons, c.MustGetAddress()),
 		)
+		unlock()
 
 	// Handshake has started on src (1 step done), relay `connOpenTry` and `updateClient` on dst
 	case srcConn.Connection.State == conntypes.INIT && dstConn.Connection.State == conntypes.UNINITIALIZED:
@@ -169,40 +173,49 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 			logConnectionStates(dst, c, dstConn, srcConn)
 		}
 
+		unlock := SDKConfig.SetLock(dst)
 		out.Dst = append(out.Dst,
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			dst.PathEnd.ConnTry(c.PathEnd, srcCsRes, srcConn, srcCons, dst.MustGetAddress()),
 		)
+		unlock()
 
 	// Handshake has started on src end (2 steps done), relay `connOpenAck` and `updateClient` to dst end
 	case srcConn.Connection.State == conntypes.TRYOPEN && dstConn.Connection.State == conntypes.INIT:
 		if dst.debug {
 			logConnectionStates(dst, c, dstConn, srcConn)
 		}
+
+		unlock := SDKConfig.SetLock(dst)
 		out.Dst = append(out.Dst,
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			dst.PathEnd.ConnAck(c.PathEnd, srcCsRes, srcConn, srcCons, dst.MustGetAddress()),
 		)
+		unlock()
 
 	// Handshake has started on dst end (2 steps done), relay `connOpenAck` and `updateClient` to src end
 	case srcConn.Connection.State == conntypes.INIT && dstConn.Connection.State == conntypes.TRYOPEN:
 		if c.debug {
 			logConnectionStates(c, dst, srcConn, dstConn)
 		}
+		unlock := SDKConfig.SetLock(c)
 		out.Src = append(out.Src,
 			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 			c.PathEnd.ConnAck(dst.PathEnd, dstCsRes, dstConn, dstCons, c.MustGetAddress()),
 		)
+		unlock()
 
 	// Handshake has confirmed on dst (3 steps done), relay `connOpenConfirm` and `updateClient` to src end
 	case srcConn.Connection.State == conntypes.TRYOPEN && dstConn.Connection.State == conntypes.OPEN:
 		if c.debug {
 			logConnectionStates(c, dst, srcConn, dstConn)
 		}
+		unlock := SDKConfig.SetLock(c)
 		out.Src = append(out.Src,
 			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 			c.PathEnd.ConnConfirm(dstConn, c.MustGetAddress()),
 		)
+		unlock()
 		out.last = true
 
 	// Handshake has confirmed on src (3 steps done), relay `connOpenConfirm` and `updateClient` to dst end
@@ -210,10 +223,12 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		if dst.debug {
 			logConnectionStates(dst, c, dstConn, srcConn)
 		}
+		unlock := SDKConfig.SetLock(dst)
 		out.Dst = append(out.Dst,
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			dst.PathEnd.ConnConfirm(srcConn, dst.MustGetAddress()),
 		)
+		unlock()
 		out.last = true
 	}
 

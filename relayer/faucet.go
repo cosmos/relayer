@@ -54,14 +54,13 @@ func (c *Chain) FaucetHandler(fromKey sdk.AccAddress, amounts sdk.Coins) func(w 
 			return
 		}
 
-		c.UseSDKContext()
-		// defer done()
-
+		unlock := SDKConfig.SetLock(c)
 		if err := c.faucetSend(fromKey, fr.addr(), amounts); err != nil {
 			c.Error(err)
 			respondWithError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		unlock()
 
 		c.Log(fmt.Sprintf("%s was sent %s successfully", fr.Address, amounts.String()))
 		respondWithJSON(w, http.StatusCreated, success{Address: fr.Address, Amount: amounts.String()})

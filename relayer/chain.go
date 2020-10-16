@@ -212,7 +212,7 @@ func (c *Chain) SendMsg(datagram sdk.Msg) (*sdk.TxResponse, error) {
 
 // SendMsgs wraps the msgs in a stdtx, signs and sends it
 func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
-	c.UseSDKContext()
+	unlock := SDKConfig.SetLock(c)
 
 	// Instantiate the client context
 	ctx := c.CLIContext(0)
@@ -250,6 +250,8 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
 	if err != nil {
 		return nil, err
 	}
+
+	unlock()
 
 	// Broadcast those bytes
 	return ctx.BroadcastTx(txBytes)
@@ -353,14 +355,16 @@ func (c *Chain) MustGetAddress() sdk.AccAddress {
 // UseSDKContext uses a custom Bech32 account prefix and returns a restore func
 func (c *Chain) UseSDKContext() {
 	sdkConf := sdk.GetConfig()
-	sdkConf.SetBech32PrefixForAccount(c.AccountPrefix, c.AccountPrefix+"pub")
+	p := c.AccountPrefix
+	sdkConf.SetBech32PrefixForAccount(p, p+"pub")
+	sdkConf.SetBech32PrefixForValidator(p+"valoper", p+"valoperpub")
+	sdkConf.SetBech32PrefixForConsensusNode(p+"valcons", p+"valconspub")
 }
 
 func (c *Chain) String() string {
-	c.UseSDKContext()
-	// defer done()
-
+	unlock := SDKConfig.SetLock(c)
 	out, _ := json.Marshal(c)
+	unlock()
 	return string(out)
 }
 

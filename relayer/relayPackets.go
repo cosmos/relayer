@@ -70,7 +70,8 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
 	if rp.dstRecvRes == nil {
 		return nil
 	}
-	return chantypes.NewMsgTimeout(
+	unlock := SDKConfig.SetLock(src)
+	msg := chantypes.NewMsgTimeout(
 		chantypes.NewPacket(
 			rp.packetData,
 			rp.seq,
@@ -86,6 +87,8 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
 		rp.dstRecvRes.ProofHeight,
 		src.MustGetAddress(),
 	)
+	unlock()
+	return msg
 }
 
 type relayMsgRecvPacket struct {
@@ -159,12 +162,15 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) sdk.Msg {
 		clienttypes.NewHeight(0, rp.timeout),
 		rp.timeoutStamp,
 	)
-	return chantypes.NewMsgRecvPacket(
+	unlock := SDKConfig.SetLock(src)
+	msg := chantypes.NewMsgRecvPacket(
 		packet,
 		rp.dstComRes.Proof,
 		rp.dstComRes.ProofHeight,
 		src.MustGetAddress(),
 	)
+	unlock()
+	return msg
 }
 
 type relayMsgPacketAck struct {
@@ -187,7 +193,8 @@ func (rp *relayMsgPacketAck) Timeout() uint64 {
 }
 
 func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
-	return chantypes.NewMsgAcknowledgement(
+	unlock := SDKConfig.SetLock(src)
+	msg := chantypes.NewMsgAcknowledgement(
 		chantypes.NewPacket(
 			rp.packetData,
 			rp.seq,
@@ -203,6 +210,8 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
 		rp.dstComRes.ProofHeight,
 		src.MustGetAddress(),
 	)
+	unlock()
+	return msg
 }
 
 func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {

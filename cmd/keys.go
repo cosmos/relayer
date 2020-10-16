@@ -56,7 +56,7 @@ func keysAddCmd() *cobra.Command {
 				return err
 			}
 
-			chain.UseSDKContext()
+			relayer.SDKConfig.Set(chain)
 
 			var keyName string
 			if len(args) == 2 {
@@ -107,7 +107,7 @@ func keysRestoreCmd() *cobra.Command {
 				return err
 			}
 
-			chain.UseSDKContext()
+			relayer.SDKConfig.Set(chain)
 
 			if chain.KeyExists(keyName) {
 				return errKeyExists(keyName)
@@ -178,7 +178,7 @@ func keysListCmd() *cobra.Command {
 				return err
 			}
 
-			chain.UseSDKContext()
+			relayer.SDKConfig.Set(chain)
 
 			info, err := chain.Keybase.List()
 			if err != nil {
@@ -209,7 +209,7 @@ func keysShowCmd() *cobra.Command {
 				return err
 			}
 
-			chain.UseSDKContext()
+			relayer.SDKConfig.Set(chain)
 
 			var keyName string
 			if len(args) == 2 {

@@ -8,6 +8,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	"github.com/ovrclk/relayer/relayer"
 	"github.com/spf13/cobra"
@@ -29,6 +30,7 @@ func queryCmd() *cobra.Command {
 		queryBalanceCmd(),
 		queryHeaderCmd(),
 		queryNodeStateCmd(),
+		queryValSetAtHeightCmd(),
 		queryTxs(),
 		queryTx(),
 		flags.LineBreak,
@@ -157,7 +159,7 @@ func queryAccountCmd() *cobra.Command {
 				return err
 			}
 
-			chain.UseSDKContext()
+			relayer.SDKConfig.Set(chain)
 
 			res, err := types.NewQueryClient(chain.CLIContext(0)).Account(
 				context.Background(),
@@ -191,7 +193,7 @@ func queryBalanceCmd() *cobra.Command {
 				return err
 			}
 
-			chain.UseSDKContext()
+			relayer.SDKConfig.Set(chain)
 			var coins sdk.Coins
 			if len(args) == 2 {
 				coins, err = chain.QueryBalance(args[1])
@@ -387,6 +389,35 @@ func queryClientsCmd() *cobra.Command {
 	}
 
 	return paginationFlags(cmd)
+}
+
+func queryValSetAtHeightCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "valset [chain-id]",
+		Aliases: []string{"vs"},
+		Short:   "Query validator set at particular height",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
+
+			h, err := chain.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryValsetAtHeight(clienttypes.NewHeight(0, uint64(h)))
+			if err != nil {
+				return err
+			}
+
+			return chain.CLIContext(0).PrintOutput(res)
+		},
+	}
+
+	return cmd
 }
 
 func queryConnections() *cobra.Command {

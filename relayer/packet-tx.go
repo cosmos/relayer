@@ -21,17 +21,20 @@ func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringe
 	}
 
 	// Properly render the address string
-	dst.UseSDKContext()
+	unlock := SDKConfig.SetLock(dst)
 	dstAddrString := dstAddr.String()
+	unlock()
 
 	// MsgTransfer will call SendPacket on src chain
 	// TODO: Add ability to specify timeout time or height via command line flags
+	unlock = SDKConfig.SetLock(c)
 	txs := RelayMsgs{
 		Src: []sdk.Msg{c.PathEnd.MsgTransfer(
 			dst.PathEnd, amount, dstAddrString, c.MustGetAddress(), uint64(h.Header.Height+1000), 0,
 		)},
 		Dst: []sdk.Msg{},
 	}
+	unlock()
 
 	if txs.Send(c, dst); !txs.success {
 		return fmt.Errorf("failed to send transfer message")

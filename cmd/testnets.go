@@ -41,7 +41,7 @@ func faucetRequestCmd() *cobra.Command {
 				return err
 			}
 
-			chain.UseSDKContext()
+			relayer.SDKConfig.Set(chain)
 
 			urlString, err := cmd.Flags().GetString(flagURL)
 			if err != nil {

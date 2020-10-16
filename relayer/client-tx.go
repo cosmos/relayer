@@ -4,14 +4,12 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"golang.org/x/sync/errgroup"
 )
 
 // CreateClients creates clients for src on dst and dst on src given the configured paths
 func (c *Chain) CreateClients(dst *Chain) (err error) {
 	var (
 		clients = &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
-		eg      = new(errgroup.Group)
 	)
 
 	srcH, dstH, err := UpdatesWithHeaders(c, dst)
@@ -20,63 +18,54 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 	}
 
 	// Create client for the destination chain on the source chain if it doesn't exist
-	eg.Go(func() error {
-		if srcCs, err := c.QueryClientState(srcH.Header.Height); err != nil && srcCs == nil {
-			if c.debug {
-				c.logCreateClient(dst, dstH.Header.Height)
-			}
-			ubdPeriod, err := dst.QueryUnbondingPeriod()
-			if err != nil {
-				return err
-			}
-			consensusParams, err := dst.QueryConsensusParams()
-			if err != nil {
-				return err
-			}
-			c.UseSDKContext()
-			clients.Src = append(
-				clients.Src,
-				c.PathEnd.CreateClient(
-					dstH,
-					dst.GetTrustingPeriod(),
-					ubdPeriod,
-					consensusParams,
-					c.MustGetAddress(),
-				))
+	if srcCs, err := c.QueryClientState(srcH.Header.Height); err != nil && srcCs == nil {
+		if c.debug {
+			c.logCreateClient(dst, dstH.Header.Height)
 		}
-		return nil
-	})
-
-	eg.Go(func() error {
-		// Create client for the source chain on destination chain if it doesn't exist
-		if dstCs, err := dst.QueryClientState(dstH.Header.Height); err != nil && dstCs == nil {
-			if dst.debug {
-				dst.logCreateClient(c, srcH.Header.Height)
-			}
-			ubdPeriod, err := c.QueryUnbondingPeriod()
-			if err != nil {
-				return err
-			}
-			consensusParams, err := c.QueryConsensusParams()
-			if err != nil {
-				return err
-			}
-			dst.UseSDKContext()
-			clients.Dst = append(
-				clients.Dst,
-				dst.PathEnd.CreateClient(
-					srcH,
-					c.GetTrustingPeriod(),
-					ubdPeriod,
-					consensusParams,
-					dst.MustGetAddress(),
-				))
+		ubdPeriod, err := dst.QueryUnbondingPeriod()
+		if err != nil {
+			return err
 		}
-		return nil
-	})
+		consensusParams, err := dst.QueryConsensusParams()
+		if err != nil {
+			return err
+		}
+		unlock := SDKConfig.SetLock(c)
+		clients.Src = append(clients.Src,
+			c.PathEnd.CreateClient(
+				dstH,
+				dst.GetTrustingPeriod(),
+				ubdPeriod,
+				consensusParams,
+				c.MustGetAddress(),
+			))
+		unlock()
+	}
 
-	if err := eg.Wait(); err != nil {
-		return err
+	// Create client for the source chain on destination chain if it doesn't exist
+	if dstCs, err := dst.QueryClientState(dstH.Header.Height); err != nil && dstCs == nil {
+		if dst.debug {
+			dst.logCreateClient(c, srcH.Header.Height)
+		}
+		ubdPeriod, err := c.QueryUnbondingPeriod()
+		if err != nil {
+			return err
+		}
+		consensusParams, err := c.QueryConsensusParams()
+		if err != nil {
+			return err
+		}
+		unlock := SDKConfig.SetLock(dst)
+		clients.Dst = append(
+			clients.Dst,
+			dst.PathEnd.CreateClient(
+				srcH,
+				c.GetTrustingPeriod(),
+				ubdPeriod,
+				consensusParams,
+				dst.MustGetAddress(),
+			))
+		unlock()
 	}
 
 	// Send msgs to both chains
