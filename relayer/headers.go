@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"fmt"
 	"sync"
 
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
@@ -127,6 +128,9 @@ func InjectTrustedFields(srcChain, dstChain *Chain, srcHeader *tmclient.Header) 
 
 	// query TrustedValidators at Trusted Height from srcChain
 	// srcChain.UseSDKContext()
+	fmt.Println("IN INJECTTRUSTEDFIELDS")
+	fmt.Println("SRC", srcChain.ChainID, srcChain.AccountPrefix)
+	fmt.Println("DST", dstChain.ChainID, dstChain.AccountPrefix)
 	valSet, err := srcChain.QueryValsetAtHeight(h.TrustedHeight)
 	if err != nil {
 		return nil, err
