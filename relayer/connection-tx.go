@@ -119,7 +119,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	if !(srcConn.Connection.State == conntypes.UNINITIALIZED && dstConn.Connection.State == conntypes.UNINITIALIZED) {
 		// Query client state from each chain's client
-		srcCsRes, dstCsRes, err = QueryClientStatePair(c, dst, int64(sh.GetHeight(c.ChainID))-1, int64(sh.GetHeight(dst.ChainID))-1)
+		srcCsRes, dstCsRes, err = QueryClientStatePair(c, dst, int64(sh.GetHeight(c.ChainID)), int64(sh.GetHeight(dst.ChainID)))
 		if err != nil && (srcCsRes == nil || dstCsRes == nil) {
 			return nil, err
 		}
@@ -138,7 +138,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		// NOTE: We query connection at height - 1 because of the way tendermint returns
 		// proofs the commit for height n is contained in the header of height n + 1
 		srcCons, dstCons, err = QueryClientConsensusStatePair(
-			c, dst, int64(sh.GetHeight(c.ChainID))-1, int64(sh.GetHeight(dst.ChainID))-1, srcConsH, dstConsH)
+			c, dst, int64(sh.GetHeight(c.ChainID)), int64(sh.GetHeight(dst.ChainID)), srcConsH, dstConsH)
 		if err != nil {
 			return nil, err
 		}
