@@ -408,7 +408,9 @@ func queryValSetAtHeightCmd() *cobra.Command {
 				return err
 			}
 
-			res, err := chain.QueryValsetAtHeight(clienttypes.NewHeight(0, uint64(h)))
+			version := clienttypes.ParseChainID(args[0])
+
+			res, err := chain.QueryValsetAtHeight(clienttypes.NewHeight(version, uint64(h)))
 			if err != nil {
 				return err
 			}
