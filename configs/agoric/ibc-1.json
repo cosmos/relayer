@@ -1,0 +1,1 @@
+{"key":"testkey","chain-id":"ibc-1","rpc-addr":"http://localhost:26557","account-prefix":"agoric","gas":200000,"gas-adjustment":1.0,"gas-prices":"","default-denom":"uagstake","trusting-period":"336h"}

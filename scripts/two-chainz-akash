@@ -115,8 +115,8 @@ else
   echo "mkdir -p $(dirname $AKASH_REPO) && git clone git@github.com:ovrclk/akash $AKASH_REPO"
 fi
 
-chainid0=ibc0
-chainid1=ibc1
+chainid0=ibc-0
+chainid1=ibc-1
 
 echo "Generating gaia configurations..."
 mkdir -p $GAIA_DATA && cd $GAIA_DATA && cd ../
