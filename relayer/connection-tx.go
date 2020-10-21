@@ -108,7 +108,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	// Query Connection data from src and dst
 	eg.Go(func() error {
-		srcConn, dstConn, err = QueryConnectionPair(c, dst, int64(sh.GetHeight(c.ChainID))-1, int64(sh.GetHeight(dst.ChainID))-1)
+		srcConn, dstConn, err = QueryConnectionPair(c, dst, int64(sh.GetHeight(c.ChainID)), int64(sh.GetHeight(dst.ChainID)))
 		return err
 
 	})
