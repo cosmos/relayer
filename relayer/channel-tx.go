@@ -105,77 +105,69 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayM
 		return nil, err
 	}
 
+	unlock := SDKConfig.SetLock(c)
+	defer unlock()
+
 	switch {
 	// Handshake hasn't been started on src or dst, relay `chanOpenInit` to src
 	case srcChan.Channel.State == chantypes.UNINITIALIZED && dstChan.Channel.State == chantypes.UNINITIALIZED:
 		if c.debug {
 			logChannelStates(c, dst, srcChan, dstChan)
 		}
-		unlock := SDKConfig.SetLock(c)
+
 		out.Src = append(out.Src,
 			c.PathEnd.ChanInit(dst.PathEnd, c.MustGetAddress()),
 		)
-		unlock()
 
 	// Handshake has started on dst (1 step done), relay `chanOpenTry` and `updateClient` to src
 	case srcChan.Channel.State == chantypes.UNINITIALIZED && dstChan.Channel.State == chantypes.INIT:
 		if c.debug {
 			logChannelStates(c, dst, srcChan, dstChan)
 		}
-		unlock := SDKConfig.SetLock(c)
 		out.Src = append(out.Src,
 			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 			c.PathEnd.ChanTry(dst.PathEnd, dstChan, c.MustGetAddress()),
 		)
-		unlock()
 
 	// Handshake has started on src (1 step done), relay `chanOpenTry` and `updateClient` to dst
 	case srcChan.Channel.State == chantypes.INIT && dstChan.Channel.State == chantypes.UNINITIALIZED:
 		if dst.debug {
 			logChannelStates(dst, c, dstChan, srcChan)
 		}
-		unlock := SDKConfig.SetLock(dst)
 		out.Dst = append(out.Dst,
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			dst.PathEnd.ChanTry(c.PathEnd, srcChan, dst.MustGetAddress()),
 		)
-		unlock()
 
 	// Handshake has started on src (2 steps done), relay `chanOpenAck` and `updateClient` to dst
 	case srcChan.Channel.State == chantypes.TRYOPEN && dstChan.Channel.State == chantypes.INIT:
 		if dst.debug {
 			logChannelStates(dst, c, dstChan, srcChan)
 		}
-		unlock := SDKConfig.SetLock(dst)
 		out.Dst = append(out.Dst,
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			dst.PathEnd.ChanAck(c.PathEnd, srcChan, dst.MustGetAddress()),
 		)
-		unlock()
 
 	// Handshake has started on dst (2 steps done), relay `chanOpenAck` and `updateClient` to src
 	case srcChan.Channel.State == chantypes.INIT && dstChan.Channel.State == chantypes.TRYOPEN:
 		if c.debug {
 			logChannelStates(c, dst, srcChan, dstChan)
 		}
-		unlock := SDKConfig.SetLock(c)
 		out.Src = append(out.Src,
 			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 			c.PathEnd.ChanAck(dst.PathEnd, dstChan, c.MustGetAddress()),
 		)
-		unlock()
 
 	// Handshake has confirmed on dst (3 steps done), relay `chanOpenConfirm` and `updateClient` to src
 	case srcChan.Channel.State == chantypes.TRYOPEN && dstChan.Channel.State == chantypes.OPEN:
 		if c.debug {
 			logChannelStates(c, dst, srcChan, dstChan)
 		}
-		unlock := SDKConfig.SetLock(c)
 		out.Src = append(out.Src,
 			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 			c.PathEnd.ChanConfirm(dstChan, c.MustGetAddress()),
 		)
-		unlock()
 		out.last = true
 
 	// Handshake has confirmed on src (3 steps done), relay `chanOpenConfirm` and `updateClient` to dst
@@ -183,12 +175,10 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayM
 		if dst.debug {
 			logChannelStates(dst, c, dstChan, srcChan)
 		}
-		unlock := SDKConfig.SetLock(dst)
 		out.Dst = append(out.Dst,
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			dst.PathEnd.ChanConfirm(srcChan, dst.MustGetAddress()),
 		)
-		unlock()
 		out.last = true
 	}
 

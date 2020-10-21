@@ -341,6 +341,7 @@ func (c *Chain) QueryHistoricalInfo(height clienttypes.Height) (*stakingtypes.Qu
 // QueryValsetAtHeight returns the validator set at a given height
 func (c *Chain) QueryValsetAtHeight(height clienttypes.Height) (*tmproto.ValidatorSet, error) {
 	unlock := SDKConfig.SetLock(c)
+	defer unlock()
 	res, err := c.QueryHistoricalInfo(height)
 	if err != nil {
 		return nil, err
@@ -354,7 +355,6 @@ func (c *Chain) QueryValsetAtHeight(height clienttypes.Height) (*tmproto.Validat
 		Validators: tmVals,
 	}
 	tmValSet.GetProposer()
-	unlock()
 
 	return tmValSet.ToProto()
 }
