@@ -267,6 +267,7 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
 func (c *Chain) CLIContext(height int64) sdkCtx.Context {
 	encodingConfig := simapp.MakeEncodingConfig()
 	return sdkCtx.Context{}.
+		WithChainID(c.ChainID).
 		WithJSONMarshaler(encodingConfig.Marshaler).
 		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
 		WithTxConfig(encodingConfig.TxConfig).
