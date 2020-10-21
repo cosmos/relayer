@@ -20,6 +20,7 @@ import (
 	chanutils "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/client/utils"
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 	committypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
+	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	abci "github.com/tendermint/tendermint/abci/types"
@@ -83,19 +84,19 @@ func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, int
 
 // QueryClientConsensusState retrevies the latest consensus state for a client in state at a given height
 func (c *Chain) QueryClientConsensusState(
-	height, dstClientConsHeight int64) (*clienttypes.QueryConsensusStateResponse, error) {
+	height int64, dstClientConsHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
 	return clientutils.QueryConsensusStateABCI(
 		c.CLIContext(height),
 		c.PathEnd.ClientID,
-		clienttypes.NewHeight(0, uint64(dstClientConsHeight)),
+		dstClientConsHeight,
 	)
 }
 
 // QueryClientConsensusStatePair allows for the querying of multiple client states at the same time
 func QueryClientConsensusStatePair(
 	src, dst *Chain,
-	srch, dsth, srcClientConsH,
-	dstClientConsH int64) (srcCsRes, dstCsRes *clienttypes.QueryConsensusStateResponse, err error) {
+	srch, dsth int64, srcClientConsH,
+	dstClientConsH ibcexported.Height) (srcCsRes, dstCsRes *clienttypes.QueryConsensusStateResponse, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
 		srcCsRes, err = src.QueryClientConsensusState(srch, srcClientConsH)

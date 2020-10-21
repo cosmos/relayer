@@ -271,13 +271,14 @@ func (pe *PathEnd) ChanCloseConfirm(dstChanState *chantypes.QueryChannelResponse
 func (pe *PathEnd) MsgTransfer(dst *PathEnd, amount sdk.Coin, dstAddr string,
 	signer sdk.AccAddress, timeoutHeight, timeoutTimestamp uint64) sdk.Msg {
 
+	version := clienttypes.ParseChainID(dst.ChainID)
 	return transfertypes.NewMsgTransfer(
 		pe.PortID,
 		pe.ChannelID,
 		amount,
 		signer,
 		dstAddr,
-		clienttypes.NewHeight(0, timeoutHeight),
+		clienttypes.NewHeight(version, timeoutHeight),
 		timeoutTimestamp,
 	)
 }
@@ -285,6 +286,7 @@ func (pe *PathEnd) MsgTransfer(dst *PathEnd, amount sdk.Coin, dstAddr string,
 // NewPacket returns a new packet from src to dist w
 func (pe *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte,
 	timeoutHeight, timeoutStamp uint64) chantypes.Packet {
+	version := clienttypes.ParseChainID(dst.ChainID)
 	return chantypes.NewPacket(
 		packetData,
 		sequence,
@@ -292,7 +294,7 @@ func (pe *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte,
 		pe.ChannelID,
 		dst.PortID,
 		dst.ChannelID,
-		clienttypes.NewHeight(0, timeoutHeight),
+		clienttypes.NewHeight(version, timeoutHeight),
 		timeoutStamp,
 	)
 }
