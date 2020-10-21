@@ -189,11 +189,6 @@ func (c *Chain) GetSelfVersion() uint64 {
 	return clienttypes.ParseChainID(c.ChainID)
 }
 
-// GetCounterpartyVersion returns the version of the counterparty chain
-func (c *Chain) GetCounterpartyVersion() uint64 {
-	return clienttypes.ParseChainID(c.PathEnd.ChainID)
-}
-
 // GetTrustingPeriod returns the trusting period for the chain
 func (c *Chain) GetTrustingPeriod() time.Duration {
 	tp, _ := time.ParseDuration(c.TrustingPeriod)
