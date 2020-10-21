@@ -349,8 +349,8 @@ func (c *Chain) QueryValsetAtHeight(height clienttypes.Height) (*tmproto.Validat
 	tmVals := stakingtypes.Validators(res.Hist.Valset).ToTmValidators()
 	tmValSet := &tmtypes.ValidatorSet{
 		Validators: tmVals,
-		Proposer:   tmVals[0],
 	}
+	tmValSet.GetProposer()
 	unlock()
 
 	return tmValSet.ToProto()
