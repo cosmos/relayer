@@ -90,7 +90,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		srcCsRes, dstCsRes               *clienttypes.QueryClientStateResponse
 		srcCS, dstCS                     ibcexported.ClientState
 		srcCons, dstCons                 *clienttypes.QueryConsensusStateResponse
-		srcConsH, dstConsH               int64
+		srcConsH, dstConsH               ibcexported.Height
 	)
 
 	// create the UpdateHeaders for src and dest Chains
@@ -133,7 +133,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		}
 
 		// Store the heights
-		srcConsH, dstConsH = int64(MustGetHeight(srcCS.GetLatestHeight())), int64(MustGetHeight(dstCS.GetLatestHeight()))
+		srcConsH, dstConsH = srcCS.GetLatestHeight(), dstCS.GetLatestHeight()
 
 		// NOTE: We query connection at height - 1 because of the way tendermint returns
 		// proofs the commit for height n is contained in the header of height n + 1
