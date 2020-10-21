@@ -59,6 +59,8 @@ func (c *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) error 
 		// In the case of failure, increment the failures counter and exit if this is the 3rd failure
 		case !chanSteps.success:
 			failures++
+			c.Log(fmt.Sprintf("retrying transaction..."))
+			time.Sleep(5 * time.Second)
 			if failures > 2 {
 				return fmt.Errorf("! Channel failed: [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
 					c.ChainID, c.PathEnd.ChannelID, c.PathEnd.PortID,

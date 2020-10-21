@@ -56,6 +56,8 @@ func (c *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 		// In the case of failure, increment the failures counter and exit if this is the 3rd failure
 		case !connSteps.success:
 			failed++
+			c.Log(fmt.Sprintf("retrying transaction..."))
+			time.Sleep(5 * time.Second)
 			if failed > 2 {
 				return fmt.Errorf("! Connection failed: [%s]client{%s}conn{%s} -> [%s]client{%s}conn{%s}",
 					c.ChainID, c.PathEnd.ClientID, c.PathEnd.ConnectionID,
