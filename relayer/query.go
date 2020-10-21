@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -347,6 +348,7 @@ func (c *Chain) QueryValsetAtHeight(height clienttypes.Height) (*tmproto.Validat
 
 	// create tendermint ValidatorSet from SDK Validators
 	tmVals := stakingtypes.Validators(res.Hist.Valset).ToTmValidators()
+	sort.Sort(tmtypes.ValidatorsByVotingPower(tmVals))
 	tmValSet := &tmtypes.ValidatorSet{
 		Validators: tmVals,
 	}
