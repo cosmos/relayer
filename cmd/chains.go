@@ -53,13 +53,13 @@ func chainsAddrCmd() *cobra.Command {
 			}
 
 			unlock := relayer.SDKConfig.SetLock(chain)
+			defer unlock()
 			addr, err := chain.GetAddress()
 			if err != nil {
 				return err
 			}
 
 			fmt.Println(addr.String())
-			unlock()
 			return nil
 		},
 	}

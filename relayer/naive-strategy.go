@@ -237,6 +237,8 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 		}
 		// instantiate the RelayMsgs with the appropriate update client
 		unlock := SDKConfig.SetLock(src)
+		defer unlock()
+
 		txs := &RelayMsgs{
 			Src: []sdk.Msg{
 				src.PathEnd.UpdateClient(updateHeader, src.MustGetAddress()),
@@ -245,7 +247,6 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 			MaxTxSize:    nrs.MaxTxSize,
 			MaxMsgLength: nrs.MaxMsgLength,
 		}
-		unlock()
 
 		// add the packet msgs to RelayPackets
 		for _, rp := range rlyPackets {
