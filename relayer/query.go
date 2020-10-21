@@ -87,7 +87,7 @@ func (c *Chain) QueryClientConsensusState(
 	return clientutils.QueryConsensusStateABCI(
 		c.CLIContext(height),
 		c.PathEnd.ClientID,
-		clienttypes.NewHeight(0, uint64(dstClientConsHeight)),
+		clienttypes.NewHeight(c.GetCounterpartyVersion(), uint64(dstClientConsHeight)),
 	)
 }
 

@@ -20,6 +20,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	"github.com/cosmos/go-bip39"
 	"github.com/tendermint/tendermint/libs/log"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
@@ -181,6 +182,16 @@ func (c *Chain) KeyExists(name string) bool {
 	}
 
 	return k.GetName() == name
+}
+
+// GetSelfVersion returns the version of the given chain
+func (c *Chain) GetSelfVersion() uint64 {
+	return clienttypes.ParseChainID(c.ChainID)
+}
+
+// GetCounterpartyVersion returns the version of the counterparty chain
+func (c *Chain) GetCounterpartyVersion() uint64 {
+	return clienttypes.ParseChainID(c.PathEnd.ChainID)
 }
 
 // GetTrustingPeriod returns the trusting period for the chain

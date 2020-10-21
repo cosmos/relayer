@@ -71,6 +71,7 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
 		return nil
 	}
 	unlock := SDKConfig.SetLock(src)
+	version := clienttypes.ParseChainID(src.PathEnd.ChainID)
 	msg := chantypes.NewMsgTimeout(
 		chantypes.NewPacket(
 			rp.packetData,
@@ -79,7 +80,7 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
 			dst.PathEnd.ChannelID,
 			src.PathEnd.PortID,
 			src.PathEnd.ChannelID,
-			clienttypes.NewHeight(0, rp.timeout),
+			clienttypes.NewHeight(version, rp.timeout),
 			rp.timeoutStamp,
 		),
 		rp.seq,
@@ -152,6 +153,7 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) sdk.Msg {
 	if rp.dstComRes == nil {
 		return nil
 	}
+	version := clienttypes.ParseChainID(src.PathEnd.ChainID)
 	packet := chantypes.NewPacket(
 		rp.packetData,
 		rp.seq,
@@ -159,7 +161,7 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) sdk.Msg {
 		dst.PathEnd.ChannelID,
 		src.PathEnd.PortID,
 		src.PathEnd.ChannelID,
-		clienttypes.NewHeight(0, rp.timeout),
+		clienttypes.NewHeight(version, rp.timeout),
 		rp.timeoutStamp,
 	)
 	unlock := SDKConfig.SetLock(src)
@@ -194,6 +196,7 @@ func (rp *relayMsgPacketAck) Timeout() uint64 {
 
 func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
 	unlock := SDKConfig.SetLock(src)
+	version := clienttypes.ParseChainID(dst.PathEnd.ChainID)
 	msg := chantypes.NewMsgAcknowledgement(
 		chantypes.NewPacket(
 			rp.packetData,
@@ -202,7 +205,7 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
 			src.PathEnd.ChannelID,
 			dst.PathEnd.PortID,
 			dst.PathEnd.ChannelID,
-			clienttypes.NewHeight(0, rp.timeout),
+			clienttypes.NewHeight(version, rp.timeout),
 			rp.timeoutStamp,
 		),
 		rp.ack,
