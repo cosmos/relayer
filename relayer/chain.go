@@ -264,6 +264,7 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
 // CLIContext returns an instance of client.Context derived from Chain
 func (c *Chain) CLIContext(height int64) sdkCtx.Context {
 	encodingConfig := simapp.MakeEncodingConfig()
+
 	return sdkCtx.Context{}.
 		WithChainID(c.ChainID).
 		WithJSONMarshaler(newContextualStdCodec(encodingConfig.Marshaler, c.UseSDKContext)).
