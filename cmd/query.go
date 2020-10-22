@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -89,7 +91,13 @@ func queryTx() *cobra.Command {
 				return err
 			}
 
-			return chain.Print(txs, false, false)
+			out, err := json.Marshal(txs)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(out))
+			return nil
 		},
 	}
 	return cmd
@@ -136,7 +144,13 @@ documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.
 				return err
 			}
 
-			return chain.Print(txs, false, false)
+			out, err := json.Marshal(txs)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(out))
+			return nil
 		},
 	}
 	return paginationFlags(cmd)
@@ -158,8 +172,6 @@ func queryAccountCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-
-			relayer.SDKConfig.Set(chain)
 
 			res, err := types.NewQueryClient(chain.CLIContext(0)).Account(
 				context.Background(),
@@ -193,7 +205,6 @@ func queryBalanceCmd() *cobra.Command {
 				return err
 			}
 
-			relayer.SDKConfig.Set(chain)
 			var coins sdk.Coins
 			if len(args) == 2 {
 				coins, err = chain.QueryBalance(args[1])
@@ -205,7 +216,8 @@ func queryBalanceCmd() *cobra.Command {
 			}
 
 			if showDenoms {
-				return chain.Print(coins, false, false)
+				fmt.Println(coins)
+				return nil
 			}
 
 			h, err := chain.QueryLatestHeight()
@@ -231,10 +243,12 @@ func queryBalanceCmd() *cobra.Command {
 						}
 					}
 				}
-				return chain.Print(out, false, false)
+				fmt.Println(out)
+				return nil
 			}
 
-			return chain.Print(coins, false, false)
+			fmt.Println(coins)
+			return nil
 		},
 	}
 	return ibcDenomFlags(cmd)
@@ -711,7 +725,13 @@ func queryUnrelayed() *cobra.Command {
 				return err
 			}
 
-			return c[src].Print(sp, false, false)
+			out, err := json.Marshal(sp)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(out))
+			return nil
 		},
 	}
 

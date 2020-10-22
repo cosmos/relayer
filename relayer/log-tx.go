@@ -14,7 +14,9 @@ import (
 func (c *Chain) LogFailedTx(res *sdk.TxResponse, err error, msgs []sdk.Msg) {
 	if c.debug {
 		c.Log(fmt.Sprintf("- [%s] -> sending transaction:", c.ChainID))
-		c.Print(msgs, false, false)
+		for _, msg := range msgs {
+			c.Print(msg, false, false)
+		}
 	}
 
 	if err != nil {

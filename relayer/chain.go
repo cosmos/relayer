@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"sync"
 	"time"
 
 	sdkCtx "github.com/cosmos/cosmos-sdk/client"
@@ -22,6 +23,7 @@ import (
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	"github.com/cosmos/go-bip39"
+	"github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/libs/log"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
@@ -45,7 +47,7 @@ type Chain struct {
 	Keybase  keys.Keyring        `yaml:"-" json:"-"`
 	Client   rpcclient.Client    `yaml:"-" json:"-"`
 	Cdc      codec.JSONMarshaler `yaml:"-" json:"-"`
-	Amino    *codec.LegacyAmino  `yaml:"-" json:"-"`
+	Amino    codec.Marshaler     `yaml:"-" json:"-"`
 
 	address sdk.AccAddress
 	logger  log.Logger
@@ -160,8 +162,8 @@ func (c *Chain) Init(homePath string, timeout time.Duration, debug bool) error {
 
 	c.Keybase = keybase
 	c.Client = client
-	c.Cdc = encodingConfig.Marshaler
-	c.Amino = encodingConfig.Amino
+	c.Cdc = newContextualStdCodec(encodingConfig.Marshaler, c.UseSDKContext)
+	c.Amino = newContextualAminoCodec(encodingConfig.Amino, c.UseSDKContext)
 	c.HomePath = homePath
 	c.logger = defaultChainLogger()
 	c.timeout = timeout
@@ -218,9 +220,6 @@ func (c *Chain) SendMsg(datagram sdk.Msg) (*sdk.TxResponse, error) {
 
 // SendMsgs wraps the msgs in a stdtx, signs and sends it
 func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
-	unlock := SDKConfig.SetLock(c)
-	defer unlock()
-
 	// Instantiate the client context
 	ctx := c.CLIContext(0)
 
@@ -267,7 +266,7 @@ func (c *Chain) CLIContext(height int64) sdkCtx.Context {
 	encodingConfig := simapp.MakeEncodingConfig()
 	return sdkCtx.Context{}.
 		WithChainID(c.ChainID).
-		WithJSONMarshaler(encodingConfig.Marshaler).
+		WithJSONMarshaler(newContextualStdCodec(encodingConfig.Marshaler, c.UseSDKContext)).
 		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
 		WithTxConfig(encodingConfig.TxConfig).
 		WithLegacyAmino(encodingConfig.Amino).
@@ -335,6 +334,8 @@ func lightDir(home string) string {
 
 // GetAddress returns the sdk.AccAddress associated with the configred key
 func (c *Chain) GetAddress() (sdk.AccAddress, error) {
+	reset := c.UseSDKContext()
+	defer reset()
 	if c.address != nil {
 		return c.address, nil
 	}
@@ -358,18 +359,48 @@ func (c *Chain) MustGetAddress() sdk.AccAddress {
 	return srcAddr
 }
 
+// // UseSDKContext uses a custom Bech32 account prefix and returns a restore func
+// func (c *Chain) UseSDKContext() {
+// 	sdkConf := sdk.GetConfig()
+// 	p := c.AccountPrefix
+// 	sdkConf.SetBech32PrefixForAccount(p, p+"pub")
+// 	sdkConf.SetBech32PrefixForValidator(p+"valoper", p+"valoperpub")
+// 	sdkConf.SetBech32PrefixForConsensusNode(p+"valcons", p+"valconspub")
+// }
+
+var sdkContextMutex sync.Mutex
+
 // UseSDKContext uses a custom Bech32 account prefix and returns a restore func
-func (c *Chain) UseSDKContext() {
+func (c *Chain) UseSDKContext() func() {
+	// Ensure we're the only one using the global context.
+	sdkContextMutex.Lock()
+	defer sdkContextMutex.Unlock()
+
 	sdkConf := sdk.GetConfig()
-	p := c.AccountPrefix
-	sdkConf.SetBech32PrefixForAccount(p, p+"pub")
-	sdkConf.SetBech32PrefixForValidator(p+"valoper", p+"valoperpub")
-	sdkConf.SetBech32PrefixForConsensusNode(p+"valcons", p+"valconspub")
+	account := sdkConf.GetBech32AccountAddrPrefix()
+	pubaccount := sdkConf.GetBech32AccountPubPrefix()
+	val := sdkConf.GetBech32ValidatorAddrPrefix()
+	valpub := sdkConf.GetBech32ValidatorPubPrefix()
+	cons := sdkConf.GetBech32ConsensusAddrPrefix()
+	conspub := sdkConf.GetBech32ConsensusPubPrefix()
+
+	// Mutate the sdkConf
+	sdkConf.SetBech32PrefixForAccount(c.AccountPrefix, c.AccountPrefix+"pub")
+	sdkConf.SetBech32PrefixForValidator(c.AccountPrefix+"valoper", c.AccountPrefix+"valoperpub")
+	sdkConf.SetBech32PrefixForConsensusNode(c.AccountPrefix+"valcons", c.AccountPrefix+"valconspub")
+
+	// Return a function that resets and unlocks.
+	return func() {
+		sdkContextMutex.Lock()
+		defer sdkContextMutex.Unlock()
+
+		sdkConf.SetBech32PrefixForAccount(account, pubaccount)
+		sdkConf.SetBech32PrefixForValidator(val, valpub)
+		sdkConf.SetBech32PrefixForConsensusNode(cons, conspub)
+	}
 }
 
 func (c *Chain) String() string {
-	unlock := SDKConfig.SetLock(c)
-	defer unlock()
 	out, _ := json.Marshal(c)
 	return string(out)
 }
@@ -416,7 +447,7 @@ func (c *Chain) Update(key, value string) (out *Chain, err error) {
 // Print fmt.Printlns the json or yaml representation of whatever is passed in
 // CONTRACT: The cmd calling this function needs to have the "json" and "indent" flags set
 // TODO: better "text" printing here would be a nice to have
-func (c *Chain) Print(toPrint interface{}, text, indent bool) error {
+func (c *Chain) Print(toPrint proto.Message, text, indent bool) error {
 	var (
 		out []byte
 		err error
@@ -425,8 +456,6 @@ func (c *Chain) Print(toPrint interface{}, text, indent bool) error {
 	switch {
 	case indent && text:
 		return fmt.Errorf("must pass either indent or text, not both")
-	case indent:
-		out, err = c.Amino.MarshalJSONIndent(toPrint, "", "  ")
 	case text:
 		// TODO: This isn't really a good option,
 		out = []byte(fmt.Sprintf("%v", toPrint))
@@ -445,8 +474,10 @@ func (c *Chain) Print(toPrint interface{}, text, indent bool) error {
 // SendAndPrint sends a transaction and prints according to the passed args
 func (c *Chain) SendAndPrint(txs []sdk.Msg, text, indent bool) (err error) {
 	if c.debug {
-		if err = c.Print(txs, text, indent); err != nil {
-			return err
+		for _, msg := range txs {
+			if err = c.Print(msg, text, indent); err != nil {
+				return err
+			}
 		}
 	}
 	// SendAndPrint sends the transaction with printing options from the CLI
