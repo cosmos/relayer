@@ -23,7 +23,8 @@ func (c *sdkCfg) Set(chain *Chain) {
 
 // SetLock returns the unlock function from the mutex so that the context can be held
 func (c *sdkCfg) SetLock(chain *Chain) func() {
-	c.Lock()
+	// c.Lock()
 	chain.UseSDKContext()
-	return c.Unlock
+	// return c.Unlock
+	return func() {}
 }
