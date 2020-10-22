@@ -40,15 +40,16 @@ func (c *Chain) MakeEncodingConfig() params.EncodingConfig {
 // ProtoCodec defines a codec that utilizes Protobuf for both binary and JSON
 // encoding.
 type ProtoCodec struct {
-	anyUnpacker types.AnyUnpacker
-	useContext  func() func()
+	useContext        func() func()
+	interfaceRegistry types.InterfaceRegistry
 }
 
 var _ codec.Marshaler = &ProtoCodec{}
+var _ codec.ProtoCodecMarshaler = &ProtoCodec{}
 
 // NewProtoCodec returns a reference to a new ProtoCodec
-func (c *Chain) NewProtoCodec(anyUnpacker types.AnyUnpacker) *ProtoCodec {
-	return &ProtoCodec{anyUnpacker, c.UseSDKContext}
+func (c *Chain) NewProtoCodec(interfaceRegistry types.InterfaceRegistry) *ProtoCodec {
+	return &ProtoCodec{useContext: c.UseSDKContext, interfaceRegistry: interfaceRegistry}
 }
 
 // MarshalBinaryBare implements BinaryMarshaler.MarshalBinaryBare method.
@@ -100,7 +101,7 @@ func (pc *ProtoCodec) UnmarshalBinaryBare(bz []byte, ptr codec.ProtoMarshaler) e
 	if err != nil {
 		return err
 	}
-	err = types.UnpackInterfaces(ptr, pc.anyUnpacker)
+	err = types.UnpackInterfaces(ptr, pc)
 	if err != nil {
 		return err
 	}
@@ -150,7 +151,7 @@ func (pc *ProtoCodec) MarshalJSON(o proto.Message) ([]byte, error) {
 		return nil, fmt.Errorf("cannot protobuf JSON encode unsupported type: %T", o)
 	}
 
-	return codec.ProtoMarshalJSON(m)
+	return codec.ProtoMarshalJSON(m, pc.interfaceRegistry)
 }
 
 // MustMarshalJSON implements JSONMarshaler.MustMarshalJSON method,
@@ -179,7 +180,7 @@ func (pc *ProtoCodec) UnmarshalJSON(bz []byte, ptr proto.Message) error {
 		return err
 	}
 
-	return types.UnpackInterfaces(ptr, pc.anyUnpacker)
+	return types.UnpackInterfaces(ptr, pc)
 }
 
 // MustUnmarshalJSON implements JSONMarshaler.MustUnmarshalJSON method,
@@ -196,5 +197,9 @@ func (pc *ProtoCodec) MustUnmarshalJSON(bz []byte, ptr proto.Message) {
 func (pc *ProtoCodec) UnpackAny(any *types.Any, iface interface{}) error {
 	reset := pc.useContext()
 	defer reset()
-	return pc.anyUnpacker.UnpackAny(any, iface)
+	return pc.interfaceRegistry.UnpackAny(any, iface)
+}
+
+func (pc *ProtoCodec) InterfaceRegistry() types.InterfaceRegistry {
+	return pc.interfaceRegistry
 }

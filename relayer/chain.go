@@ -14,10 +14,9 @@ import (
 	sdkCtx "github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	tx "github.com/cosmos/cosmos-sdk/client/tx"
-	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
-	"github.com/cosmos/cosmos-sdk/simapp"
+	"github.com/cosmos/cosmos-sdk/simapp/params"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -42,12 +41,11 @@ type Chain struct {
 	TrustingPeriod string  `yaml:"trusting-period" json:"trusting-period"`
 
 	// TODO: make these private
-	HomePath string              `yaml:"-" json:"-"`
-	PathEnd  *PathEnd            `yaml:"-" json:"-"`
-	Keybase  keys.Keyring        `yaml:"-" json:"-"`
-	Client   rpcclient.Client    `yaml:"-" json:"-"`
-	Cdc      codec.JSONMarshaler `yaml:"-" json:"-"`
-	Amino    codec.Marshaler     `yaml:"-" json:"-"`
+	HomePath string                `yaml:"-" json:"-"`
+	PathEnd  *PathEnd              `yaml:"-" json:"-"`
+	Keybase  keys.Keyring          `yaml:"-" json:"-"`
+	Client   rpcclient.Client      `yaml:"-" json:"-"`
+	Encoding params.EncodingConfig `yaml:"-" json:"-"`
 
 	address sdk.AccAddress
 	logger  log.Logger
@@ -158,13 +156,12 @@ func (c *Chain) Init(homePath string, timeout time.Duration, debug bool) error {
 		return fmt.Errorf("failed to parse gas prices (%s) for chain %s", c.GasPrices, c.ChainID)
 	}
 
-	encodingConfig := simapp.MakeEncodingConfig()
+	encodingConfig := c.MakeEncodingConfig()
 
 	c.Keybase = keybase
 	c.Client = client
-	c.Cdc = newContextualStdCodec(encodingConfig.Marshaler, c.UseSDKContext)
-	c.Amino = newContextualAminoCodec(encodingConfig.Amino, c.UseSDKContext)
 	c.HomePath = homePath
+	c.Encoding = encodingConfig
 	c.logger = defaultChainLogger()
 	c.timeout = timeout
 	c.debug = debug
@@ -263,14 +260,12 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
 
 // CLIContext returns an instance of client.Context derived from Chain
 func (c *Chain) CLIContext(height int64) sdkCtx.Context {
-	encodingConfig := simapp.MakeEncodingConfig()
-
 	return sdkCtx.Context{}.
 		WithChainID(c.ChainID).
-		WithJSONMarshaler(newContextualStdCodec(encodingConfig.Marshaler, c.UseSDKContext)).
-		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
-		WithTxConfig(encodingConfig.TxConfig).
-		WithLegacyAmino(encodingConfig.Amino).
+		WithJSONMarshaler(newContextualStdCodec(c.Encoding.Marshaler, c.UseSDKContext)).
+		WithInterfaceRegistry(c.Encoding.InterfaceRegistry).
+		WithTxConfig(c.Encoding.TxConfig).
+		WithLegacyAmino(c.Encoding.Amino).
 		WithInput(os.Stdin).
 		WithAccountRetriever(authTypes.AccountRetriever{}).
 		WithBroadcastMode(flags.BroadcastBlock).
@@ -359,15 +354,6 @@ func (c *Chain) MustGetAddress() sdk.AccAddress {
 	}
 	return srcAddr
 }
-
-// // UseSDKContext uses a custom Bech32 account prefix and returns a restore func
-// func (c *Chain) UseSDKContext() {
-// 	sdkConf := sdk.GetConfig()
-// 	p := c.AccountPrefix
-// 	sdkConf.SetBech32PrefixForAccount(p, p+"pub")
-// 	sdkConf.SetBech32PrefixForValidator(p+"valoper", p+"valoperpub")
-// 	sdkConf.SetBech32PrefixForConsensusNode(p+"valcons", p+"valconspub")
-// }
 
 var sdkContextMutex sync.Mutex
 
@@ -461,7 +447,7 @@ func (c *Chain) Print(toPrint proto.Message, text, indent bool) error {
 		// TODO: This isn't really a good option,
 		out = []byte(fmt.Sprintf("%v", toPrint))
 	default:
-		out, err = c.Amino.MarshalJSON(toPrint)
+		out, err = c.Encoding.Amino.MarshalJSON(toPrint)
 	}
 
 	if err != nil {
