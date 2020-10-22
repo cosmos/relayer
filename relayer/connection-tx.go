@@ -155,7 +155,10 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		if c.debug {
 			logConnectionStates(c, dst, srcConn, dstConn)
 		}
-		out.Src = append(out.Src, c.PathEnd.ConnInit(dst.PathEnd, c.MustGetAddress()))
+		out.Src = append(out.Src,
+			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
+			c.PathEnd.ConnInit(dst.PathEnd, c.MustGetAddress()),
+		)
 
 	// Handshake has started on dst (1 stepdone), relay `connOpenTry` and `updateClient` on src
 	case srcConn.Connection.State == conntypes.UNINITIALIZED && dstConn.Connection.State == conntypes.INIT:
