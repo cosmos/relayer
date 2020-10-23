@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gogo/protobuf/proto"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -68,7 +70,11 @@ func (r *RelayMsgs) Send(src, dst *Chain) {
 			r.success = r.success && send(src, msgs)
 
 			// clear the current batch and reset variables
-			msgLen, txSize = 1, uint64(len(msg.GetSignBytes()))
+			bz, err := proto.Marshal(msg)
+			if err != nil {
+				panic(err)
+			}
+			msgLen, txSize = 1, uint64(len(bz))
 			msgs = []sdk.Msg{}
 		}
 		msgs = append(msgs, msg)
@@ -92,7 +98,11 @@ func (r *RelayMsgs) Send(src, dst *Chain) {
 			r.success = r.success && send(dst, msgs)
 
 			// clear the current batch and reset variables
-			msgLen, txSize = 1, uint64(len(msg.GetSignBytes()))
+			bz, err := proto.Marshal(msg)
+			if err != nil {
+				panic(err)
+			}
+			msgLen, txSize = 1, uint64(len(bz))
 			msgs = []sdk.Msg{}
 		}
 		msgs = append(msgs, msg)
