@@ -54,8 +54,6 @@ func (c *Chain) FaucetHandler(fromKey sdk.AccAddress, amounts sdk.Coins) func(w 
 			return
 		}
 
-		unlock := SDKConfig.SetLock(c)
-		defer unlock()
 		if err := c.faucetSend(fromKey, fr.addr(), amounts); err != nil {
 			c.Error(err)
 			respondWithError(w, http.StatusInternalServerError, err.Error())
