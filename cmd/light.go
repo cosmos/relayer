@@ -176,7 +176,7 @@ func lightHeaderCmd() *cobra.Command {
 
 			}
 
-			out, err := chain.Cdc.MarshalJSON(header)
+			out, err := chain.Encoding.Marshaler.MarshalJSON(header)
 			if err != nil {
 				return err
 			}

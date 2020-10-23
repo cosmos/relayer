@@ -146,9 +146,6 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		}
 	}
 
-	unlock := SDKConfig.SetLock(c)
-	defer unlock()
-
 	switch {
 	// Handshake hasn't been started on src or dst, relay `connOpenInit` to src
 	case srcConn.Connection.State == conntypes.UNINITIALIZED && dstConn.Connection.State == conntypes.UNINITIALIZED:

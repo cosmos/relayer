@@ -236,8 +236,6 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 			return err
 		}
 		// instantiate the RelayMsgs with the appropriate update client
-		unlock := SDKConfig.SetLock(src)
-
 		txs := &RelayMsgs{
 			Src: []sdk.Msg{
 				src.PathEnd.UpdateClient(updateHeader, src.MustGetAddress()),
@@ -325,9 +323,7 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 		if err != nil {
 			return err
 		}
-		unlock := SDKConfig.SetLock(dst)
 		msgs.Dst = append([]sdk.Msg{dst.PathEnd.UpdateClient(updateHeader, dst.MustGetAddress())}, msgs.Dst...)
-		unlock()
 	}
 
 	if len(msgs.Src) != 0 {
@@ -336,9 +332,7 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 		if err != nil {
 			return err
 		}
-		unlock := SDKConfig.SetLock(src)
 		msgs.Src = append([]sdk.Msg{src.PathEnd.UpdateClient(updateHeader, src.MustGetAddress())}, msgs.Src...)
-		unlock()
 	}
 
 	// TODO: increase the amount of gas as the number of messages increases

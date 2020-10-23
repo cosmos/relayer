@@ -70,8 +70,6 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
 	if rp.dstRecvRes == nil {
 		return nil
 	}
-	unlock := SDKConfig.SetLock(src)
-	defer unlock()
 	version := clienttypes.ParseChainID(src.PathEnd.ChainID)
 	msg := chantypes.NewMsgTimeout(
 		chantypes.NewPacket(
@@ -164,8 +162,6 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) sdk.Msg {
 		clienttypes.NewHeight(version, rp.timeout),
 		rp.timeoutStamp,
 	)
-	unlock := SDKConfig.SetLock(src)
-	defer unlock()
 	msg := chantypes.NewMsgRecvPacket(
 		packet,
 		rp.dstComRes.Proof,
@@ -195,8 +191,6 @@ func (rp *relayMsgPacketAck) Timeout() uint64 {
 }
 
 func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
-	unlock := SDKConfig.SetLock(src)
-	defer unlock()
 	version := clienttypes.ParseChainID(dst.PathEnd.ChainID)
 	msg := chantypes.NewMsgAcknowledgement(
 		chantypes.NewPacket(

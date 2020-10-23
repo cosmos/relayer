@@ -30,7 +30,6 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		if err != nil {
 			return err
 		}
-		unlock := SDKConfig.SetLock(c)
 		clients.Src = append(clients.Src,
 			c.PathEnd.CreateClient(
 				dstH,
@@ -39,7 +38,6 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 				consensusParams,
 				c.MustGetAddress(),
 			))
-		unlock()
 	}
 
 	// Create client for the source chain on destination chain if it doesn't exist
@@ -55,7 +53,6 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		if err != nil {
 			return err
 		}
-		unlock := SDKConfig.SetLock(dst)
 		clients.Dst = append(
 			clients.Dst,
 			dst.PathEnd.CreateClient(
@@ -65,7 +62,6 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 				consensusParams,
 				dst.MustGetAddress(),
 			))
-		unlock()
 	}
 
 	// Send msgs to both chains

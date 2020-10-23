@@ -52,8 +52,6 @@ func chainsAddrCmd() *cobra.Command {
 				return err
 			}
 
-			unlock := relayer.SDKConfig.SetLock(chain)
-			defer unlock()
 			addr, err := chain.GetAddress()
 			if err != nil {
 				return err
