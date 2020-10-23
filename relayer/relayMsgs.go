@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gogo/protobuf/proto"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -60,15 +62,20 @@ func (r *RelayMsgs) Send(src, dst *Chain) {
 
 	// submit batches of relay transactions
 	for _, msg := range r.Src {
+		bz, err := proto.Marshal(msg)
+		if err != nil {
+			panic(err)
+		}
+
 		msgLen++
-		txSize += uint64(len(msg.GetSignBytes()))
+		txSize += uint64(len(bz))
 
 		if r.IsMaxTx(msgLen, txSize) {
 			// Submit the transactions to src chain and update its status
 			r.success = r.success && send(src, msgs)
 
 			// clear the current batch and reset variables
-			msgLen, txSize = 1, uint64(len(msg.GetSignBytes()))
+			msgLen, txSize = 1, uint64(len(bz))
 			msgs = []sdk.Msg{}
 		}
 		msgs = append(msgs, msg)
@@ -84,15 +91,20 @@ func (r *RelayMsgs) Send(src, dst *Chain) {
 	msgs = []sdk.Msg{}
 
 	for _, msg := range r.Dst {
+		bz, err := proto.Marshal(msg)
+		if err != nil {
+			panic(err)
+		}
+
 		msgLen++
-		txSize += uint64(len(msg.GetSignBytes()))
+		txSize += uint64(len(bz))
 
 		if r.IsMaxTx(msgLen, txSize) {
 			// Submit the transaction to dst chain and update its status
 			r.success = r.success && send(dst, msgs)
 
 			// clear the current batch and reset variables
-			msgLen, txSize = 1, uint64(len(msg.GetSignBytes()))
+			msgLen, txSize = 1, uint64(len(bz))
 			msgs = []sdk.Msg{}
 		}
 		msgs = append(msgs, msg)
