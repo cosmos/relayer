@@ -121,6 +121,7 @@ func keysRestoreCmd() *cobra.Command {
 				return err
 			}
 
+			defer chain.UseSDKContext()()
 			fmt.Println(info.GetAddress().String())
 			return nil
 		},

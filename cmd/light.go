@@ -81,6 +81,7 @@ func initLightCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				fmt.Printf("successfully created light client for %s\n", chain.ChainID)
 			case height > 0 && len(hash) > 0: // height and hash are given
 				_, err = chain.LightClientWithTrust(db, chain.TrustOptions(height, hash))
 				if err != nil {

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
@@ -346,7 +347,10 @@ func (c *Chain) QueryValsetAtHeight(height clienttypes.Height) (*tmproto.Validat
 	}
 
 	// create tendermint ValidatorSet from SDK Validators
-	tmVals := stakingtypes.Validators(res.Hist.Valset).ToTmValidators()
+	tmVals, err := c.toTmValidators(res.Hist.Valset)
+	if err != nil {
+		return nil, err
+	}
 	// TODO: Add sorting logic to historical info
 	sort.Sort(tmtypes.ValidatorsByVotingPower(tmVals))
 	tmValSet := &tmtypes.ValidatorSet{
@@ -355,6 +359,31 @@ func (c *Chain) QueryValsetAtHeight(height clienttypes.Height) (*tmproto.Validat
 	tmValSet.GetProposer()
 
 	return tmValSet.ToProto()
+}
+
+func (c *Chain) toTmValidators(vals stakingtypes.Validators) ([]*tmtypes.Validator, error) {
+	validators := make([]*tmtypes.Validator, len(vals))
+	var err error
+	for i, val := range vals {
+		validators[i], err = c.toTmValidator(val)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return validators, nil
+}
+
+func (c *Chain) toTmValidator(val stakingtypes.Validator) (*tmtypes.Validator, error) {
+	var pk cryptotypes.PubKey
+	if err := c.Encoding.Marshaler.UnpackAny(val.ConsensusPubkey, &pk); err != nil {
+		return nil, err
+	}
+	intoTmPk, ok := pk.(cryptotypes.IntoTmPubKey)
+	if !ok {
+		return nil, fmt.Errorf("pubkey not a pub key *scratches head*")
+	}
+	return tmtypes.NewValidator(intoTmPk.AsTmPubKey(), val.ConsensusPower()), nil
 }
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
@@ -377,6 +406,8 @@ func (c *Chain) QueryConsensusParams() (*abci.ConsensusParams, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println(string(c.Encoding.Marshaler.MustMarshalJSON(rg.Genesis.ConsensusParams)))
 
 	return tmtypes.TM2PB.ConsensusParams(rg.Genesis.ConsensusParams), nil
 }

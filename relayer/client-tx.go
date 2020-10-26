@@ -30,14 +30,15 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		if err != nil {
 			return err
 		}
-		clients.Src = append(clients.Src,
-			c.PathEnd.CreateClient(
-				dstH,
-				dst.GetTrustingPeriod(),
-				ubdPeriod,
-				consensusParams,
-				c.MustGetAddress(),
-			))
+		msg := c.PathEnd.CreateClient(
+			dstH,
+			dst.GetTrustingPeriod(),
+			ubdPeriod,
+			consensusParams,
+			c.MustGetAddress(),
+		)
+		clients.Src = append(clients.Src, msg)
+
 	}
 
 	// Create client for the source chain on destination chain if it doesn't exist
@@ -53,15 +54,14 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		if err != nil {
 			return err
 		}
-		clients.Dst = append(
-			clients.Dst,
-			dst.PathEnd.CreateClient(
-				srcH,
-				c.GetTrustingPeriod(),
-				ubdPeriod,
-				consensusParams,
-				dst.MustGetAddress(),
-			))
+		msg := dst.PathEnd.CreateClient(
+			srcH,
+			c.GetTrustingPeriod(),
+			ubdPeriod,
+			consensusParams,
+			dst.MustGetAddress(),
+		)
+		clients.Dst = append(clients.Dst, msg)
 	}
 
 	// Send msgs to both chains

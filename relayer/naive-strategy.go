@@ -244,7 +244,6 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 			MaxTxSize:    nrs.MaxTxSize,
 			MaxMsgLength: nrs.MaxMsgLength,
 		}
-		unlock()
 
 		// add the packet msgs to RelayPackets
 		for _, rp := range rlyPackets {

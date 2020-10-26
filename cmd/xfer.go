@@ -60,10 +60,12 @@ func xfersend() *cobra.Command {
 			// Should be relative to current time and block height
 			// --timeout-height-offset=1000
 			// --timeout-time-offset=2h
+			done := c[dst].UseSDKContext()
 			dstAddr, err := sdk.AccAddressFromBech32(args[3])
 			if err != nil {
 				return err
 			}
+			done()
 
 			return c[src].SendTransferMsg(c[dst], amount, dstAddr)
 		},

@@ -19,7 +19,7 @@ import (
 func (c *Chain) MakeEncodingConfig() params.EncodingConfig {
 	amino := codec.NewLegacyAmino()
 	interfaceRegistry := types.NewInterfaceRegistry()
-	marshaler := c.NewProtoCodec(interfaceRegistry)
+	marshaler := c.NewProtoCodec(interfaceRegistry, c.AccountPrefix)
 	txCfg := tx.NewTxConfig(marshaler, tx.DefaultSignModes)
 
 	encodingConfig := params.EncodingConfig{
@@ -40,22 +40,21 @@ func (c *Chain) MakeEncodingConfig() params.EncodingConfig {
 // ProtoCodec defines a codec that utilizes Protobuf for both binary and JSON
 // encoding.
 type ProtoCodec struct {
-	useContext        func() func()
 	interfaceRegistry types.InterfaceRegistry
+	useContext        func() func()
 }
 
 var _ codec.Marshaler = &ProtoCodec{}
 var _ codec.ProtoCodecMarshaler = &ProtoCodec{}
 
 // NewProtoCodec returns a reference to a new ProtoCodec
-func (c *Chain) NewProtoCodec(interfaceRegistry types.InterfaceRegistry) *ProtoCodec {
-	return &ProtoCodec{useContext: c.UseSDKContext, interfaceRegistry: interfaceRegistry}
+func (c *Chain) NewProtoCodec(interfaceRegistry types.InterfaceRegistry, accountPrefix string) *ProtoCodec {
+	return &ProtoCodec{interfaceRegistry: interfaceRegistry, useContext: c.UseSDKContext}
 }
 
 // MarshalBinaryBare implements BinaryMarshaler.MarshalBinaryBare method.
 func (pc *ProtoCodec) MarshalBinaryBare(o codec.ProtoMarshaler) ([]byte, error) {
-	reset := pc.useContext()
-	defer reset()
+	defer pc.useContext()()
 	return o.Marshal()
 }
 
@@ -71,8 +70,7 @@ func (pc *ProtoCodec) MustMarshalBinaryBare(o codec.ProtoMarshaler) []byte {
 
 // MarshalBinaryLengthPrefixed implements BinaryMarshaler.MarshalBinaryLengthPrefixed method.
 func (pc *ProtoCodec) MarshalBinaryLengthPrefixed(o codec.ProtoMarshaler) ([]byte, error) {
-	reset := pc.useContext()
-	defer reset()
+	defer pc.useContext()()
 	bz, err := pc.MarshalBinaryBare(o)
 	if err != nil {
 		return nil, err
@@ -95,8 +93,7 @@ func (pc *ProtoCodec) MustMarshalBinaryLengthPrefixed(o codec.ProtoMarshaler) []
 
 // UnmarshalBinaryBare implements BinaryMarshaler.UnmarshalBinaryBare method.
 func (pc *ProtoCodec) UnmarshalBinaryBare(bz []byte, ptr codec.ProtoMarshaler) error {
-	reset := pc.useContext()
-	defer reset()
+	defer pc.useContext()()
 	err := ptr.Unmarshal(bz)
 	if err != nil {
 		return err
@@ -117,8 +114,7 @@ func (pc *ProtoCodec) MustUnmarshalBinaryBare(bz []byte, ptr codec.ProtoMarshale
 
 // UnmarshalBinaryLengthPrefixed implements BinaryMarshaler.UnmarshalBinaryLengthPrefixed method.
 func (pc *ProtoCodec) UnmarshalBinaryLengthPrefixed(bz []byte, ptr codec.ProtoMarshaler) error {
-	reset := pc.useContext()
-	defer reset()
+	defer pc.useContext()()
 	size, n := binary.Uvarint(bz)
 	if n < 0 {
 		return fmt.Errorf("invalid number of bytes read from length-prefixed encoding: %d", n)
@@ -144,14 +140,18 @@ func (pc *ProtoCodec) MustUnmarshalBinaryLengthPrefixed(bz []byte, ptr codec.Pro
 // MarshalJSON implements JSONMarshaler.MarshalJSON method,
 // it marshals to JSON using proto codec.
 func (pc *ProtoCodec) MarshalJSON(o proto.Message) ([]byte, error) {
-	reset := pc.useContext()
-	defer reset()
+	done := pc.useContext()
 	m, ok := o.(codec.ProtoMarshaler)
 	if !ok {
 		return nil, fmt.Errorf("cannot protobuf JSON encode unsupported type: %T", o)
 	}
 
-	return codec.ProtoMarshalJSON(m, pc.interfaceRegistry)
+	bz, err := codec.ProtoMarshalJSON(m, pc.interfaceRegistry)
+	if err != nil {
+		return []byte{}, err
+	}
+	done()
+	return bz, nil
 }
 
 // MustMarshalJSON implements JSONMarshaler.MustMarshalJSON method,
@@ -168,8 +168,7 @@ func (pc *ProtoCodec) MustMarshalJSON(o proto.Message) []byte {
 // UnmarshalJSON implements JSONMarshaler.UnmarshalJSON method,
 // it unmarshals from JSON using proto codec.
 func (pc *ProtoCodec) UnmarshalJSON(bz []byte, ptr proto.Message) error {
-	reset := pc.useContext()
-	defer reset()
+	defer pc.useContext()()
 	m, ok := ptr.(codec.ProtoMarshaler)
 	if !ok {
 		return fmt.Errorf("cannot protobuf JSON decode unsupported type: %T", ptr)
@@ -195,8 +194,7 @@ func (pc *ProtoCodec) MustUnmarshalJSON(bz []byte, ptr proto.Message) {
 // it unpacks the value in any to the interface pointer passed in as
 // iface.
 func (pc *ProtoCodec) UnpackAny(any *types.Any, iface interface{}) error {
-	reset := pc.useContext()
-	defer reset()
+	defer pc.useContext()()
 	return pc.interfaceRegistry.UnpackAny(any, iface)
 }
 

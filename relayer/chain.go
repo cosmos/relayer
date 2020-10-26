@@ -330,8 +330,7 @@ func lightDir(home string) string {
 
 // GetAddress returns the sdk.AccAddress associated with the configred key
 func (c *Chain) GetAddress() (sdk.AccAddress, error) {
-	reset := c.UseSDKContext()
-	defer reset()
+	defer c.UseSDKContext()()
 	if c.address != nil {
 		return c.address, nil
 	}
@@ -342,8 +341,7 @@ func (c *Chain) GetAddress() (sdk.AccAddress, error) {
 		return nil, err
 	}
 
-	c.address = srcAddr.GetAddress()
-	return c.address, nil
+	return srcAddr.GetAddress(), nil
 }
 
 // MustGetAddress used for brevity
@@ -358,33 +356,22 @@ func (c *Chain) MustGetAddress() sdk.AccAddress {
 var sdkContextMutex sync.Mutex
 
 // UseSDKContext uses a custom Bech32 account prefix and returns a restore func
+// CONTRACT: When using this function, caller must ensure that lock contention
+// doesn't cause program to hang. This function is only for use in codec calls
 func (c *Chain) UseSDKContext() func() {
-	// Ensure we're the only one using the global context.
+	// Ensure we're the only one using the global context,
+	// lock context to begin function
 	sdkContextMutex.Lock()
-	defer sdkContextMutex.Unlock()
-
-	sdkConf := sdk.GetConfig()
-	account := sdkConf.GetBech32AccountAddrPrefix()
-	pubaccount := sdkConf.GetBech32AccountPubPrefix()
-	val := sdkConf.GetBech32ValidatorAddrPrefix()
-	valpub := sdkConf.GetBech32ValidatorPubPrefix()
-	cons := sdkConf.GetBech32ConsensusAddrPrefix()
-	conspub := sdkConf.GetBech32ConsensusPubPrefix()
 
 	// Mutate the sdkConf
+	sdkConf := sdk.GetConfig()
 	sdkConf.SetBech32PrefixForAccount(c.AccountPrefix, c.AccountPrefix+"pub")
 	sdkConf.SetBech32PrefixForValidator(c.AccountPrefix+"valoper", c.AccountPrefix+"valoperpub")
 	sdkConf.SetBech32PrefixForConsensusNode(c.AccountPrefix+"valcons", c.AccountPrefix+"valconspub")
 
-	// Return a function that resets and unlocks.
-	return func() {
-		sdkContextMutex.Lock()
-		defer sdkContextMutex.Unlock()
-
-		sdkConf.SetBech32PrefixForAccount(account, pubaccount)
-		sdkConf.SetBech32PrefixForValidator(val, valpub)
-		sdkConf.SetBech32PrefixForConsensusNode(cons, conspub)
-	}
+	// Return the unlock function, caller must lock and ensure that lock is released
+	// before any other function needs to use c.UseSDKContext
+	return sdkContextMutex.Unlock
 }
 
 func (c *Chain) String() string {
@@ -447,7 +434,7 @@ func (c *Chain) Print(toPrint proto.Message, text, indent bool) error {
 		// TODO: This isn't really a good option,
 		out = []byte(fmt.Sprintf("%v", toPrint))
 	default:
-		out, err = c.Encoding.Amino.MarshalJSON(toPrint)
+		out, err = c.Encoding.Marshaler.MarshalJSON(toPrint)
 	}
 
 	if err != nil {
