@@ -660,6 +660,17 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		return nil, err
 	}
 
+	fmt.Printf("enter src(%s) version...\n", src)
+	if value, err = readStdin(); err != nil {
+		return nil, err
+	}
+
+	path.Src.Version = value
+
+	if err = path.Src.Vversion(); err != nil {
+		return nil, err
+	}
+
 	fmt.Printf("enter dst(%s) client-id...\n", dst)
 	if value, err = readStdin(); err != nil {
 		return nil, err
@@ -701,6 +712,17 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 	path.Dst.PortID = value
 
 	if err = path.Dst.Vport(); err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("enter dst(%s) version...\n", dst)
+	if value, err = readStdin(); err != nil {
+		return nil, err
+	}
+
+	path.Dst.Version = value
+
+	if err = path.Dst.Vversion(); err != nil {
 		return nil, err
 	}
 
