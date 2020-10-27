@@ -162,6 +162,7 @@ func configAddDirCmd() *cobra.Command {
 }
 
 func cfgFilesAdd(dir string) (cfg *Config, err error) {
+	dir = path.Clean(dir)
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -169,7 +170,7 @@ func cfgFilesAdd(dir string) (cfg *Config, err error) {
 	cfg = config
 	for _, f := range files {
 		c := &relayer.Chain{}
-		pth := fmt.Sprintf("%s%s", dir, f.Name())
+		pth := fmt.Sprintf("%s/%s", dir, f.Name())
 		if f.IsDir() {
 			fmt.Printf("directory at %s, skipping...\n", pth)
 			continue

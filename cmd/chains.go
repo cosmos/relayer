@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -284,6 +285,7 @@ func chainsAddDirCmd() *cobra.Command {
 }
 
 func filesAdd(dir string) (cfg *Config, err error) {
+	dir = path.Clean(dir)
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -291,7 +293,7 @@ func filesAdd(dir string) (cfg *Config, err error) {
 	cfg = config
 	for _, f := range files {
 		c := &relayer.Chain{}
-		pth := fmt.Sprintf("%s%s", dir, f.Name())
+		pth := fmt.Sprintf("%s/%s", dir, f.Name())
 		if f.IsDir() {
 			fmt.Printf("directory at %s, skipping...\n", pth)
 			continue
