@@ -9,23 +9,25 @@ import (
 )
 
 var (
-	flagHash         = "hash"
-	flagURL          = "url"
-	flagForce        = "force"
-	flagTimeout      = "timeout"
-	flagConfig       = "config"
-	flagJSON         = "json"
-	flagYAML         = "yaml"
-	flagFile         = "file"
-	flagPath         = "path"
-	flagListenAddr   = "listen"
-	flagTx           = "no-tx"
-	flagBlock        = "no-block"
-	flagData         = "data"
-	flagOrder        = "unordered"
-	flagMaxTxSize    = "max-tx-size"
-	flagMaxMsgLength = "max-msgs"
-	flagIBCDenoms    = "ibc-denoms"
+	flagHash                = "hash"
+	flagURL                 = "url"
+	flagForce               = "force"
+	flagTimeout             = "timeout"
+	flagConfig              = "config"
+	flagJSON                = "json"
+	flagYAML                = "yaml"
+	flagFile                = "file"
+	flagPath                = "path"
+	flagListenAddr          = "listen"
+	flagTx                  = "no-tx"
+	flagBlock               = "no-block"
+	flagData                = "data"
+	flagOrder               = "unordered"
+	flagMaxTxSize           = "max-tx-size"
+	flagMaxMsgLength        = "max-msgs"
+	flagIBCDenoms           = "ibc-denoms"
+	flagTimeoutHeightOffset = "timeout-height-offset"
+	flagTimeoutTimeOffset   = "timeout-time-offset"
 )
 
 func ibcDenomFlags(cmd *cobra.Command) *cobra.Command {
@@ -117,6 +119,22 @@ func listenFlag(cmd *cobra.Command) *cobra.Command {
 func pathFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagPath, "p", "", "specify the path to relay over")
 	if err := viper.BindPFlag(flagPath, cmd.Flags().Lookup(flagPath)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+// TODO: add ability to set timeout height and time from flags
+// Should be relative to current time and block height
+// --timeout-height-offset=1000
+// --timeout-time-offset=2h
+func timeoutFlags(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Uint64P(flagTimeoutHeightOffset, "y", 0, "set timeout height offset for ")
+	cmd.Flags().DurationP(flagTimeoutTimeOffset, "c", time.Duration(0), "specify the path to relay over")
+	if err := viper.BindPFlag(flagTimeoutHeightOffset, cmd.Flags().Lookup(flagTimeoutHeightOffset)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flagTimeoutTimeOffset, cmd.Flags().Lookup(flagTimeoutTimeOffset)); err != nil {
 		panic(err)
 	}
 	return cmd

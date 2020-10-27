@@ -60,6 +60,17 @@ func xfersend() *cobra.Command {
 			// Should be relative to current time and block height
 			// --timeout-height-offset=1000
 			// --timeout-time-offset=2h
+
+			toHeightOffset, err := cmd.Flags().GetUint64(flagTimeoutHeightOffset)
+			if err != nil {
+				return err
+			}
+
+			toTimeOffset, err := cmd.Flags().GetDuration(flagTimeoutTimeOffset)
+			if err != nil {
+				return err
+			}
+
 			done := c[dst].UseSDKContext()
 			dstAddr, err := sdk.AccAddressFromBech32(args[3])
 			if err != nil {
@@ -67,10 +78,22 @@ func xfersend() *cobra.Command {
 			}
 			done()
 
-			return c[src].SendTransferMsg(c[dst], amount, dstAddr)
+			switch {
+			case toHeightOffset > 0 && toTimeOffset > 0:
+				return fmt.Errorf("cannot set both --timeout-height-offset and --timeout-time-offset, choose one")
+			case toHeightOffset > 0:
+				return c[src].SendTransferMsg(c[dst], amount, dstAddr, toHeightOffset, 0)
+			case toTimeOffset > 0:
+				return c[src].SendTransferMsg(c[dst], amount, dstAddr, 0, toTimeOffset)
+			case toHeightOffset == 0 && toTimeOffset == 0:
+				return c[src].SendTransferMsg(c[dst], amount, dstAddr, 0, 0)
+			default:
+				return fmt.Errorf("shouldn't be here")
+			}
+
 		},
 	}
-	return pathFlag(cmd)
+	return timeoutFlags(pathFlag(cmd))
 }
 
 func setPathsFromArgs(src, dst *relayer.Chain, name string) (*relayer.Path, error) {
