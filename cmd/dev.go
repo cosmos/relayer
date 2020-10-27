@@ -195,7 +195,7 @@ func rlyService() *cobra.Command {
 			if _, err = chains[src].GetAddress(); err != nil {
 				return err
 			}
-			if _, err = chains[src].GetAddress(); err != nil {
+			if _, err = chains[dst].GetAddress(); err != nil {
 				return err
 			}
 

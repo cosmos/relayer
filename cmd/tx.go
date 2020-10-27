@@ -66,6 +66,14 @@ func createClientsCmd() *cobra.Command {
 				return err
 			}
 
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
+				return err
+			}
+
 			return c[src].CreateClients(c[dst])
 		},
 	}
@@ -83,6 +91,14 @@ func updateClientsCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
 				return err
 			}
 
@@ -108,6 +124,14 @@ func createConnectionCmd() *cobra.Command {
 
 			to, err := getTimeout(cmd)
 			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
 				return err
 			}
 
@@ -137,6 +161,14 @@ func createChannelCmd() *cobra.Command {
 				return err
 			}
 
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
+				return err
+			}
+
 			return c[src].CreateChannel(c[dst], false, to)
 		},
 	}
@@ -159,6 +191,14 @@ func closeChannelCmd() *cobra.Command {
 
 			to, err := getTimeout(cmd)
 			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
 				return err
 			}
 
@@ -186,14 +226,25 @@ func linkCmd() *cobra.Command {
 				return err
 			}
 
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
+				return err
+			}
+
+			// create clients if they aren't already created
 			if err = c[src].CreateClients(c[dst]); err != nil {
 				return err
 			}
 
+			// create connection if it isn't already created
 			if err = c[src].CreateConnection(c[dst], to); err != nil {
 				return err
 			}
 
+			// create channel if it isn't already created
 			return c[src].CreateChannel(c[dst], true, to)
 		},
 	}
@@ -210,6 +261,14 @@ func relayMsgsCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
 				return err
 			}
 

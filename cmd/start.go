@@ -39,6 +39,14 @@ func startCmd() *cobra.Command {
 				return err
 			}
 
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
+				return err
+			}
+
 			path := config.Paths.MustGet(args[0])
 			strategy, err := GetStrategyWithOptions(cmd, path.MustGetStrategy())
 			if err != nil {
