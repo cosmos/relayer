@@ -219,6 +219,7 @@ func (c *Chain) SendMsg(datagram sdk.Msg) (*sdk.TxResponse, error) {
 // SendMsgs wraps the msgs in a stdtx, signs and sends it
 func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
 	unlock := SDKConfig.SetLock(c)
+	defer unlock()
 
 	// Instantiate the client context
 	ctx := c.CLIContext(0)
@@ -256,8 +257,6 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
 	if err != nil {
 		return nil, err
 	}
-
-	unlock()
 
 	// Broadcast those bytes
 	return ctx.BroadcastTx(txBytes)
@@ -370,8 +369,8 @@ func (c *Chain) UseSDKContext() {
 
 func (c *Chain) String() string {
 	unlock := SDKConfig.SetLock(c)
+	defer unlock()
 	out, _ := json.Marshal(c)
-	unlock()
 	return string(out)
 }
 

@@ -237,6 +237,7 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 		}
 		// instantiate the RelayMsgs with the appropriate update client
 		unlock := SDKConfig.SetLock(src)
+
 		txs := &RelayMsgs{
 			Src: []sdk.Msg{
 				src.PathEnd.UpdateClient(updateHeader, src.MustGetAddress()),
@@ -470,7 +471,7 @@ func relayPacketFromQueryResponse(src, dst *PathEnd, res *ctypes.ResultTx,
 
 			// if we have decided not to relay this packet, don't add it
 			switch {
-			case sh.GetHeight(src.ChainID) >= rp.timeout:
+			case rp.timeout != 0 && sh.GetHeight(dst.ChainID) >= rp.timeout:
 				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
 			case rp.timeoutStamp != 0 && time.Now().UnixNano() >= int64(rp.timeoutStamp):
 				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
