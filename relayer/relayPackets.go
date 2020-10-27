@@ -10,7 +10,7 @@ import (
 )
 
 type relayPacket interface {
-	Msg(src, dst *Chain) sdk.Msg
+	Msg(src, dst *Chain) (sdk.Msg, error)
 	FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) error
 	Data() []byte
 	Seq() uint64
@@ -66,9 +66,9 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders)
 	return
 }
 
-func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
+func (rp *relayMsgTimeout) Msg(src, dst *Chain) (sdk.Msg, error) {
 	if rp.dstRecvRes == nil {
-		return nil
+		return nil, fmt.Errorf("timeout packet [%c]seq{%d} has no associated proofs: %w", src.ChainID, rp.seq)
 	}
 	version := clienttypes.ParseChainID(src.PathEnd.ChainID)
 	msg := chantypes.NewMsgTimeout(
@@ -87,7 +87,7 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
 		rp.dstRecvRes.ProofHeight,
 		src.MustGetAddress(),
 	)
-	return msg
+	return msg, nil
 }
 
 type relayMsgRecvPacket struct {
@@ -147,9 +147,9 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeade
 	return
 }
 
-func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) sdk.Msg {
+func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) (sdk.Msg, error) {
 	if rp.dstComRes == nil {
-		return nil
+		return nil, fmt.Errorf("recieve packet [%c]seq{%d} has no associated proofs: %w", src.ChainID, rp.seq)
 	}
 	version := clienttypes.ParseChainID(src.PathEnd.ChainID)
 	packet := chantypes.NewPacket(
@@ -168,7 +168,7 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) sdk.Msg {
 		rp.dstComRes.ProofHeight,
 		src.MustGetAddress(),
 	)
-	return msg
+	return msg, nil
 }
 
 type relayMsgPacketAck struct {
@@ -190,7 +190,10 @@ func (rp *relayMsgPacketAck) Timeout() uint64 {
 	return rp.timeout
 }
 
-func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
+func (rp *relayMsgPacketAck) Msg(src, dst *Chain) (sdk.Msg, error) {
+	if rp.dstComRes == nil {
+		return nil, fmt.Errorf("ack packet [%c]seq{%d} has no associated proofs: %w", src.ChainID, rp.seq)
+	}
 	version := clienttypes.ParseChainID(dst.PathEnd.ChainID)
 	msg := chantypes.NewMsgAcknowledgement(
 		chantypes.NewPacket(
@@ -208,7 +211,7 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
 		rp.dstComRes.ProofHeight,
 		src.MustGetAddress(),
 	)
-	return msg
+	return msg, nil
 }
 
 func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {

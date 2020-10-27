@@ -50,6 +50,7 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 		if err = retry.Do(func() error {
 			res, err = src.QueryPacketCommitments(0, 1000, sh.GetHeight(src.ChainID))
 			if err != nil || res == nil {
+				src.Log(fmt.Sprintf("- [%s] failed to query packet commitments, retrying: %s", src.ChainID, err))
 				return err
 			}
 			return nil
@@ -67,6 +68,7 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 		if err = retry.Do(func() error {
 			res, err = dst.QueryPacketCommitments(0, 1000, sh.GetHeight(dst.ChainID))
 			if err != nil || res == nil {
+				dst.Log(fmt.Sprintf("- [%s] failed to query packet commitment, retrying: %s", dst.ChainID, err))
 				return err
 			}
 			return nil
@@ -229,10 +231,12 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 	// send the transaction, retrying if not successful
 	if err := retry.Do(func() error {
 		if err := sh.Updates(src, dst); err != nil {
+			src.Log(fmt.Sprintf("- failed to update headers, retrying: %s", err))
 			return err
 		}
 		updateHeader, err := sh.GetUpdateHeader(dst, src)
 		if err != nil {
+			src.Log(fmt.Sprintf("- failed to enrich headers for updates, retrying: %s", err))
 			return err
 		}
 		// instantiate the RelayMsgs with the appropriate update client
@@ -247,10 +251,16 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 
 		// add the packet msgs to RelayPackets
 		for _, rp := range rlyPackets {
-			txs.Src = append(txs.Src, rp.Msg(src, dst))
+			msg, err := rp.Msg(src, dst)
+			if err != nil {
+				src.Log("failed to create relay packet message")
+				return err
+			}
+			txs.Src = append(txs.Src, msg)
 		}
 
 		if txs.Send(src, dst); !txs.success {
+			src.Log("failed to send transaction, retrying...")
 			return fmt.Errorf("failed to send packets")
 		}
 
@@ -391,7 +401,11 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (*Chain,
 		}
 
 		// return the sending msg
-		return dst, rcvPackets[0].Msg(dst, src), nil
+		msg, err := rcvPackets[0].Msg(dst, src)
+		if err != nil {
+			return nil, nil, err
+		}
+		return dst, msg, nil
 	}
 
 	// NOTE: Since timeout packets are sent to the original sending chain, src and dst are flipped relative to the
@@ -408,7 +422,11 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (*Chain,
 	}
 
 	// return the sending msg
-	return src, timeoutPackets[0].Msg(src, dst), nil
+	msg, err := timeoutPackets[0].Msg(src, dst)
+	if err != nil {
+		return nil, nil, err
+	}
+	return src, msg, nil
 
 }
 

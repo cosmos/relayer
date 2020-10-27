@@ -101,6 +101,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		retry.Do(func() error {
 			srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(c, dst)
 			if err != nil {
+				c.Log(fmt.Sprintf("- failed to update headers, retrying %s", err))
 				sh.Updates(c, dst)
 			}
 			return err

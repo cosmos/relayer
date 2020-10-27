@@ -407,8 +407,6 @@ func (c *Chain) QueryConsensusParams() (*abci.ConsensusParams, error) {
 		return nil, err
 	}
 
-	fmt.Println(string(c.Encoding.Marshaler.MustMarshalJSON(rg.Genesis.ConsensusParams)))
-
 	return tmtypes.TM2PB.ConsensusParams(rg.Genesis.ConsensusParams), nil
 }
 

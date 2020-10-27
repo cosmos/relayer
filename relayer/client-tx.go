@@ -38,7 +38,6 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 			c.MustGetAddress(),
 		)
 		clients.Src = append(clients.Src, msg)
-
 	}
 
 	// Create client for the source chain on destination chain if it doesn't exist
