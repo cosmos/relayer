@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/ovrclk/relayer/relayer"
+	"github.com/cosmos/relayer/relayer"
 )
 
 const (
@@ -268,6 +268,7 @@ func chainsAddDirCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "add-dir [dir]",
 		Aliases: []string{"ad"},
+		Args:    cobra.ExactArgs(1),
 		Short: `Add new chains to the configuration file from a directory 
 		full of chain configuration, useful for adding testnet configurations`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {

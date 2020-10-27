@@ -8,7 +8,7 @@ import (
 	clientypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	"github.com/stretchr/testify/require"
 
-	ry "github.com/ovrclk/relayer/relayer"
+	ry "github.com/cosmos/relayer/relayer"
 )
 
 // testClientPair tests that the client for src on dst and dst on src are the only clients on those chains

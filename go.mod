@@ -1,4 +1,4 @@
-module github.com/ovrclk/relayer
+module github.com/cosmos/relayer
 
 go 1.14
 
