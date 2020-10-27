@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -481,10 +480,12 @@ func relayPacketFromQueryResponse(src, dst *PathEnd, res *ctypes.ResultTx,
 			}
 
 			// if we have decided not to relay this packet, don't add it
+			block := sh.GetHeader(dst.ChainID)
+
 			switch {
-			case rp.timeout != 0 && sh.GetHeight(dst.ChainID) >= rp.timeout:
+			case rp.timeout != 0 && block.GetHeight().GetVersionHeight() >= rp.timeout:
 				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
-			case rp.timeoutStamp != 0 && time.Now().UnixNano() >= int64(rp.timeoutStamp):
+			case rp.timeoutStamp != 0 && block.GetTime().UnixNano() >= int64(rp.timeoutStamp):
 				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
 			case !rp.pass:
 				rcvPackets = append(rcvPackets, rp)
