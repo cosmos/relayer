@@ -2,6 +2,32 @@
 
 These are instructions on how to setup a node to run a basic IBC relayer testnet. Currently, coordination is happening in the [`ibc-testnet-alpha` group on telegram](https://t.me/joinchat/IYdbxRRFYIkj9FR99X3-BA).
 
+### *14 October 2020 10:30 PST* - `stargate-4` testnet
+
+This is the first relayer testnet that is using the `v0.40.0` (Stargate) code. Users are encouraged to submit their chain configuration (`rly chains show {my-chain} --json`) to the `testnets/stargate-4` folder in this repository to share their publiclly available node with other testnet participants.
+
+- Gaia Version Info
+
+```bash
+$ gaiad version --long
+name: gaia
+server_name: gaiad
+version: stargate-4
+commit: 3a8b1b414004ccddfa255fd0cd1499bbf6659d71
+build_tags: netgo,ledger
+go: go version go1.15.2 linux/amd64
+```
+
+- Relayer Version Info
+
+```bash
+$ rly version
+version: stargate-4
+commit: 438815d47a857318199d556f4c1115f2fa6315a2
+cosmos-sdk: v0.40.0-rc0
+go: go1.15.2 linux/amd64
+```
+
 ### Game Of Zones
 
 Please see the [Game of Zones repository](https://github.com/cosmosdevs/GameOfZones) for details on competing in Game of Zones.
@@ -16,7 +42,7 @@ This is the second `relayer` testnet! I will be copying JSON files from the firs
 $ gaiad version --long
 name: gaia
 server_name: gaiad
-client_name: gaiacli
+client_name: gaiad
 version: 0.0.0-180-g50be36d
 commit: 50be36de941b9410a4b06ec9ce4288b1529c4bd4
 build_tags: netgo,ledger
@@ -49,11 +75,11 @@ The following instructions have been tested and are working from a default insta
 ```bash
 # Update the system and install dependancies
 sudo apt update
-sudo apt install build-essential jq -y
+sudo apt install build-essential jq git -y
 
 # Install latest go version https://golang.org/doc/install
-wget https://dl.google.com/go/go1.14.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.14.linux-amd64.tar.gz
+wget https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.15.2.linux-amd64.tar.gz
 
 # Add $GOPATH, $GOBIN and both to $PATH
 echo "" >> ~/.profile
@@ -61,7 +87,7 @@ echo 'export GOPATH=$HOME/go' >> ~/.profile
 echo 'export GOBIN=$GOPATH/bin' >> ~/.profile
 echo 'export PATH=$PATH:/usr/local/go/bin:$GOBIN' >> ~/.profile
 echo "export GAIA=\$GOPATH/src/github.com/cosmos/gaia" >> ~/.profile
-echo "export RELAYER=\$GOPATH/src/github.com/iqlusioninc/relayer" >> ~/.profile
+echo "export RELAYER=\$GOPATH/src/github.com/ovrclk/relayer" >> ~/.profile
 source ~/.profile
 
 # Set these variables to different values that are specific to your chain
@@ -70,12 +96,15 @@ export DENOM=pylon
 export CHAINID=pylonchain
 export DOMAIN=shitcoincasinos.com
 export RLYKEY=faucet
-export GAIASHA=50be36d
+export GAIASHA=stargate-4
 export ACCOUNT_PREFIX=cosmos
 
 # Start by downloading and installing both gaia and the relayer
 mkdir -p $(dirname $GAIA) && git clone https://github.com/cosmos/gaia $GAIA && cd $GAIA && git checkout $GAIASHA && make install
-mkdir -p $(dirname $RELAYER) && git clone https://github.com/iqlusioninc/relayer $RELAYER && cd $RELAYER && make install
+mkdir -p $(dirname $RELAYER) && git clone https://github.com/ovrclk/relayer $RELAYER && cd $RELAYER && make install
+
+# Verify gaia version matches that of the latest testnet above
+gaia version --long
 
 # Now its time to configure both the relayer and gaia, start with the relayer
 cd
@@ -88,15 +117,15 @@ rly keys add $CHAINID $RLYKEY
 # Move on to configuring gaia
 gaiad init --chain-id $CHAINID $CHAINID
 # NOTE: ensure that the gaia rpc is open to all connections
-sed -i 's#tcp://127.0.0.1:26657#tcp://0.0.0.0:26657#g' ~/.gaiad/config/config.toml
-sed -i "s/\"stake\"/\"$DENOM\"/g" ~/.gaiad/config/genesis.json
-sed -i 's/pruning = "syncable"/pruning = "nothing"/g' ~/.gaiad/config/app.toml
-gaiacli keys add validator
+sed -i 's#tcp://127.0.0.1:26657#tcp://0.0.0.0:26657#g' ~/.gaia/config/config.toml
+sed -i "s/\"stake\"/\"$DENOM\"/g" ~/.gaia/config/genesis.json
+sed -i 's/pruning = "syncable"/pruning = "nothing"/g' ~/.gaia/config/app.toml
+gaiad keys add validator
 
 # Now its time to construct the genesis file
-gaiad add-genesis-account $(gaiacli keys show validator -a) 100000000000$DENOM,10000000samoleans
+gaiad add-genesis-account $(gaiad keys show validator -a) 100000000000$DENOM,10000000samoleans
 gaiad add-genesis-account $(rly chains addr $CHAINID) 10000000000000$DENOM,10000000samoleans
-gaiad gentx --name validator --amount 90000000000$DENOM
+gaiad gentx validator --amount 90000000000$DENOM --chain-id $CHAINID
 gaiad collect-gentxs
 
 # Setup the service definitions
@@ -118,8 +147,8 @@ Once you have your server (you could deploy the relayer on a different machine a
 
 ```bash
 # install the relayer
-export RELAYER=$GOPATH/src/github.com/iqlusioninc/relayer
-mkdir -p $(dirname $RELAYER) && git clone git@github.com:iqlusioninc/relayer $RELAYER && cd $RELAYER
+export RELAYER=$GOPATH/src/github.com/ovrclk/relayer
+mkdir -p $(dirname $RELAYER) && git clone git@github.com:ovrclk/relayer $RELAYER && cd $RELAYER
 make install
 
 # then to configure your local relayer to talk to your remote chain
@@ -133,8 +162,8 @@ rly keys add {{chain_id}} testkey
 # confiure the chain to use that key by default
 rly ch edit {{chain_id}} key testkey
 
-# initialize the lite client for {{chain_id}}
-rly lite init {{chain_id}} -f
+# initialize the light client for {{chain_id}}
+rly light init {{chain_id}} -f
 
 # request funds from the faucet to test it
 rly tst request {{chain_id}} testkey
@@ -164,8 +193,8 @@ rly ch a -f testnets/relayer-alpha-2/pylonchain.json
 # or add all the chain configurations for the testnet at once...
 rly chains add-dir testnets/relayer-alpha-2/
 
-# ensure the lite clients are created locally...
-rly lite init {{src_chain_id}} -f 
+# ensure the light clients are created locally...
+rly light init {{src_chain_id}} -f 
 rly l i {{dst_chain_id}} -f
 
 # ensure each chain has its appropriate key...

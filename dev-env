@@ -1,6 +1,6 @@
 #/bin/bash -e
 
-RELAYER_DIR="$GOPATH/src/github.com/iqlusioninc/relayer"
+RELAYER_DIR="$GOPATH/src/github.com/ovrclk/relayer"
 RELAYER_CONF="$HOME/.relayer"
 GAIA_CONF="$(pwd)/data"
 
@@ -15,11 +15,12 @@ fi
 
 cd $RELAYER_DIR
 rm -rf $RELAYER_CONF &> /dev/null
-bash scripts/two-chainz "local" "skip"
-bash scripts/config-relayer "skip"
-sleep 2
-rly tx link demo -o 3s -d
-rly tx raw xfer-send ibc0 ibc1 10000n0token true $(rly ch addr ibc1)
-rly tx raw xfer-send ibc0 ibc1 10000n0token true $(rly ch addr ibc1)
-rly tx raw xfer-send ibc1 ibc0 10000n0token true $(rly ch addr ibc0)
-rly tx raw xfer-send ibc1 ibc0 10000n0token true $(rly ch addr ibc0)
+bash scripts/two-chainz-akash "local" "skip"
+bash scripts/config-relayer-akash "skip"
+
+echo "waiting for blocks..."
+sleep 3
+
+rly tx full-path demo -d -o 3s
+rly tx txf ibc-0 ibc-1 100000samoleans $(rly ch addr ibc-1)
+rly tx txf ibc-1 ibc-0 100000samoleans $(rly ch addr ibc-0)

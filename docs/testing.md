@@ -53,9 +53,6 @@ gaiaTestConfig = testChainConfig{
     timeout:        3 * time.Second,
     rpcPort:        "26657",
     accountPrefix:  "cosmos",
-    gas:            200000,
-    gasPrices:      "0.025stake",
-    defaultDenom:   "stake",
     trustingPeriod: "330h",
 }
 
@@ -75,8 +72,8 @@ Now you can write tests! Create a new file named `test/relayer_{chain-type}_test
 ```go
 var (
 	gaiaChains = []testChain{
-		{"ibc0", gaiaTestConfig},
-		{"ibc1", gaiaTestConfig},
+		{"ibc-0", gaiaTestConfig},
+		{"ibc-1", gaiaTestConfig},
 	}
 )
 
@@ -84,12 +81,12 @@ func TestGaiaToGaiaBasicTransfer(t *testing.T) {
 	t.Parallel()
 	chains := spinUpTestChains(t, gaiaChains...)
 
-	_, err := genTestPathAndSet(chains.MustGet("ibc0"), chains.MustGet("ibc1"), "transfer", "transfer")
+	_, err := genTestPathAndSet(chains.MustGet("ibc-0"), chains.MustGet("ibc-1"), "transfer", "transfer")
 	require.NoError(t, err)
 
 	var (
-		src          = chains.MustGet("ibc0")
-		dst          = chains.MustGet("ibc1")
+		src          = chains.MustGet("ibc-0")
+		dst          = chains.MustGet("ibc-1")
 		testDenom    = "samoleans"
 		dstDenom     = fmt.Sprintf("%s/%s/%s", dst.PathEnd.PortID, dst.PathEnd.ChannelID, testDenom)
 		testCoin     = sdk.NewCoin(testDenom, sdk.NewInt(1000))
@@ -102,9 +99,6 @@ func TestGaiaToGaiaBasicTransfer(t *testing.T) {
 	require.NoError(t, src.CreateConnection(dst, src.GetTimeout()))
 	// Check if channel has been created, if not create it
 	require.NoError(t, src.CreateChannel(dst, true, src.GetTimeout()))
-
-	// Then send the transfer
-	require.NoError(t, src.SendTransferBothSides(dst, testCoin, dst.MustGetAddress(), true))
 
 	// ...and check the balance
 	dstBal, err := dst.QueryBalance(dst.Key)

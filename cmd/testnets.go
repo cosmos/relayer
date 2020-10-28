@@ -12,7 +12,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/gorilla/mux"
-	"github.com/iqlusioninc/relayer/relayer"
+	"github.com/ovrclk/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -41,8 +41,7 @@ func faucetRequestCmd() *cobra.Command {
 				return err
 			}
 
-			done := chain.UseSDKContext()
-			defer done()
+			relayer.SDKConfig.Set(chain)
 
 			urlString, err := cmd.Flags().GetString(flagURL)
 			if err != nil {
@@ -79,7 +78,7 @@ func faucetRequestCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-
+			//nolint:gosec // Potential HTTP request made with variable url
 			resp, err := http.Post(urlString, "application/json", bytes.NewBuffer(body))
 			if err != nil {
 				return err
@@ -112,7 +111,7 @@ func faucetStartCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			amount, err := sdk.ParseCoin(args[2])
+			amount, err := sdk.ParseCoins(args[2])
 			if err != nil {
 				return err
 			}

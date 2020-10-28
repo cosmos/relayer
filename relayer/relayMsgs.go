@@ -20,6 +20,11 @@ type RelayMsgs struct {
 	success bool
 }
 
+// NewRelayMsgs returns an initialized version of relay messages
+func NewRelayMsgs() *RelayMsgs {
+	return &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}, last: false, success: false}
+}
+
 // Ready returns true if there are messages to relay
 func (r *RelayMsgs) Ready() bool {
 	if r == nil {
@@ -45,8 +50,11 @@ func (r *RelayMsgs) IsMaxTx(msgLen, txSize uint64) bool {
 // Send sends the messages with appropriate output
 // TODO: Parallelize? Maybe?
 func (r *RelayMsgs) Send(src, dst *Chain) {
-	var msgLen, txSize uint64
-	var msgs []sdk.Msg
+	//nolint:prealloc // can not be pre allocated
+	var (
+		msgLen, txSize uint64
+		msgs           []sdk.Msg
+	)
 
 	r.success = true
 
@@ -103,10 +111,10 @@ func send(chain *Chain, msgs []sdk.Msg) bool {
 	if err != nil || res.Code != 0 {
 		chain.LogFailedTx(res, err, msgs)
 		return false
-	} else {
-		// NOTE: Add more data to this such as identifiers
-		chain.LogSuccessTx(res, msgs)
 	}
+	// NOTE: Add more data to this such as identifiers
+	chain.LogSuccessTx(res, msgs)
+
 	return true
 }
 

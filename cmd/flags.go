@@ -12,7 +12,6 @@ var (
 	flagHash         = "hash"
 	flagURL          = "url"
 	flagForce        = "force"
-	flagFlags        = "flags"
 	flagTimeout      = "timeout"
 	flagConfig       = "config"
 	flagJSON         = "json"
@@ -26,26 +25,31 @@ var (
 	flagOrder        = "unordered"
 	flagMaxTxSize    = "max-tx-size"
 	flagMaxMsgLength = "max-msgs"
+	flagIBCDenoms    = "ibc-denoms"
 )
 
-func liteFlags(cmd *cobra.Command) *cobra.Command {
+func ibcDenomFlags(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP(flagIBCDenoms, "i", false, "Display IBC denominations for sending tokens back to other chains")
+	if err := viper.BindPFlag(flagIBCDenoms, cmd.Flags().Lookup(flagIBCDenoms)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func lightFlags(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Int64(flags.FlagHeight, -1, "Trusted header's height")
 	cmd.Flags().BytesHexP(flagHash, "x", []byte{}, "Trusted header's hash")
-	cmd.Flags().StringP(flagURL, "u", "", "Optional URL to fetch trusted-hash and trusted-height")
 	if err := viper.BindPFlag(flags.FlagHeight, cmd.Flags().Lookup(flags.FlagHeight)); err != nil {
 		panic(err)
 	}
 	if err := viper.BindPFlag(flagHash, cmd.Flags().Lookup(flagHash)); err != nil {
 		panic(err)
 	}
-	if err := viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL)); err != nil {
-		panic(err)
-	}
 	return cmd
 }
 
 func heightFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().Int64(flags.FlagHeight, -1, "Height of headers to fetch")
+	cmd.Flags().Int64(flags.FlagHeight, 0, "Height of headers to fetch")
 	if err := viper.BindPFlag(flags.FlagHeight, cmd.Flags().Lookup(flags.FlagHeight)); err != nil {
 		panic(err)
 	}
@@ -53,9 +57,9 @@ func heightFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func paginationFlags(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().IntP(flags.FlagPage, "p", 1, "pagination page of light clients to to query for")
-	cmd.Flags().IntP(flags.FlagLimit, "l", 100, "pagination limit of light clients to query for")
-	if err := viper.BindPFlag(flags.FlagPage, cmd.Flags().Lookup(flags.FlagPage)); err != nil {
+	cmd.Flags().Uint64P(flags.FlagOffset, "o", 0, "pagination offset for query")
+	cmd.Flags().Uint64P(flags.FlagLimit, "l", 1000, "pagination limit for query")
+	if err := viper.BindPFlag(flags.FlagOffset, cmd.Flags().Lookup(flags.FlagOffset)); err != nil {
 		panic(err)
 	}
 	if err := viper.BindPFlag(flags.FlagLimit, cmd.Flags().Lookup(flags.FlagLimit)); err != nil {
@@ -73,7 +77,7 @@ func yamlFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func orderFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP(flagOrder, "o", false, "create an unordered channel")
+	cmd.Flags().BoolP(flagOrder, "o", true, "create an unordered channel")
 	if err := viper.BindPFlag(flagOrder, cmd.Flags().Lookup(flagOrder)); err != nil {
 		panic(err)
 	}
@@ -143,16 +147,8 @@ func timeoutFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func forceFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP(flagForce, "f", false, "option to force non-standard behavior such as initialization of lite client from configured chain or generation of new path")
+	cmd.Flags().BoolP(flagForce, "f", false, "option to force non-standard behavior such as initialization of light client from configured chain or generation of new path") //nolint:lll
 	if err := viper.BindPFlag(flagForce, cmd.Flags().Lookup(flagForce)); err != nil {
-		panic(err)
-	}
-	return cmd
-}
-
-func flagsFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP(flagFlags, "f", false, "pass flag to output the flags for lite init/update")
-	if err := viper.BindPFlag(flagFlags, cmd.Flags().Lookup(flagFlags)); err != nil {
 		panic(err)
 	}
 	return cmd

@@ -3,10 +3,15 @@ package relayer
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	"golang.org/x/sync/errgroup"
 )
 
 var _ Strategy = &NaiveStrategy{}
@@ -32,15 +37,77 @@ func (nrs *NaiveStrategy) GetType() string {
 
 // UnrelayedSequencesOrdered returns the unrelayed sequence numbers between two chains
 func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error) {
-	return UnrelayedSequences(src, dst, sh)
+	var (
+		eg           = new(errgroup.Group)
+		srcPacketSeq = []uint64{}
+		dstPacketSeq = []uint64{}
+		err          error
+		rs           = &RelaySequences{Src: []uint64{}, Dst: []uint64{}}
+	)
+
+	eg.Go(func() error {
+		var res *chantypes.QueryPacketCommitmentsResponse
+		if err = retry.Do(func() error {
+			res, err = src.QueryPacketCommitments(0, 1000, sh.GetHeight(src.ChainID))
+			if err != nil || res == nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+		for _, pc := range res.Commitments {
+			srcPacketSeq = append(srcPacketSeq, pc.Sequence)
+		}
+		return nil
+	})
+
+	eg.Go(func() error {
+		var res *chantypes.QueryPacketCommitmentsResponse
+		if err = retry.Do(func() error {
+			res, err = dst.QueryPacketCommitments(0, 1000, sh.GetHeight(dst.ChainID))
+			if err != nil || res == nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+		for _, pc := range res.Commitments {
+			dstPacketSeq = append(dstPacketSeq, pc.Sequence)
+		}
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	eg.Go(func() error {
+		// Query all packets sent by src that have been received by dst
+		rs.Src, err = dst.QueryUnrecievedPackets(sh.GetHeight(dst.ChainID), srcPacketSeq)
+		return err
+	})
+
+	eg.Go(func() error {
+		// Query all packets sent by dst that have been received by src
+		rs.Dst, err = src.QueryUnrecievedPackets(sh.GetHeight(src.ChainID), dstPacketSeq)
+		return err
+	})
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	return rs, nil
 }
 
 // UnrelayedSequencesUnordered returns the unrelayed sequence numbers between two chains
 func (nrs *NaiveStrategy) UnrelayedSequencesUnordered(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error) {
-	return UnrelayedSequences(src, dst, sh)
+	return nrs.UnrelayedSequencesOrdered(src, dst, sh)
 }
 
-// HandleEvents defines how the relayer will handle block and transaction events as they are emmited
+// HandleEvents defines how the relayer will handle block and transaction events as they are emitted
 func (nrs *NaiveStrategy) HandleEvents(src, dst *Chain, sh *SyncHeaders, events map[string][]string) {
 	rlyPackets, err := relayPacketsFromEventListener(src.PathEnd, dst.PathEnd, events)
 	if len(rlyPackets) > 0 && err == nil {
@@ -59,7 +126,8 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 			dstChan, dstPort := events["send_packet.packet_dst_channel"], events["send_packet.packet_dst_port"]
 
 			// NOTE: Src and Dst are switched here
-			if dst.PortID == srcPort[i] && dst.ChannelID == srcChan[i] && src.PortID == dstPort[i] && src.ChannelID == dstChan[i] {
+			if dst.PortID == srcPort[i] && dst.ChannelID == srcChan[i] &&
+				src.PortID == dstPort[i] && src.ChannelID == dstChan[i] {
 				rp := &relayMsgRecvPacket{packetData: []byte(pd)}
 
 				// next, get and parse the sequence
@@ -73,11 +141,11 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 
 				// finally, get and parse the timeout
 				if sval, ok := events["send_packet.packet_timeout_height"]; ok {
-					timeout, err := strconv.ParseUint(sval[i], 10, 64)
+					timeout, err := clienttypes.ParseHeight(sval[i])
 					if err != nil {
 						return nil, err
 					}
-					rp.timeout = timeout
+					rp.timeout = MustGetHeight(timeout)
 				}
 
 				// finally, get and parse the timeout
@@ -104,7 +172,8 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 			dstChan, dstPort := events["recv_packet.packet_dst_channel"], events["recv_packet.packet_dst_port"]
 
 			// NOTE: Src and Dst are not switched here
-			if src.PortID == srcPort[i] && src.ChannelID == srcChan[i] && dst.PortID == dstPort[i] && dst.ChannelID == dstChan[i] {
+			if src.PortID == srcPort[i] && src.ChannelID == srcChan[i] &&
+				dst.PortID == dstPort[i] && dst.ChannelID == dstChan[i] {
 				rp := &relayMsgPacketAck{packetData: []byte(pd)}
 
 				// first get the ack
@@ -122,11 +191,11 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 
 				// finally, get and parse the timeout
 				if sval, ok := events["recv_packet.packet_timeout_height"]; ok {
-					timeout, err := strconv.ParseUint(sval[i], 10, 64)
+					timeout, err := clienttypes.ParseHeight(sval[i])
 					if err != nil {
 						return nil, err
 					}
-					rp.timeout = timeout
+					rp.timeout = MustGetHeight(timeout)
 				}
 
 				// finally, get and parse the timeout
@@ -143,10 +212,11 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 			}
 		}
 	}
-	return
+	return rlyPkts, nil
 }
 
 func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []relayPacket, sh *SyncHeaders) {
+
 	// fetch the proofs for the relayPackets
 	for _, rp := range rlyPackets {
 		if err := rp.FetchCommitResponse(src, dst, sh); err != nil {
@@ -158,15 +228,25 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 
 	// send the transaction, retrying if not successful
 	if err := retry.Do(func() error {
+		if err := sh.Updates(src, dst); err != nil {
+			return err
+		}
+		updateHeader, err := sh.GetUpdateHeader(dst, src)
+		if err != nil {
+			return err
+		}
 		// instantiate the RelayMsgs with the appropriate update client
+		unlock := SDKConfig.SetLock(src)
+
 		txs := &RelayMsgs{
 			Src: []sdk.Msg{
-				src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress()),
+				src.PathEnd.UpdateClient(updateHeader, src.MustGetAddress()),
 			},
 			Dst:          []sdk.Msg{},
 			MaxTxSize:    nrs.MaxTxSize,
 			MaxMsgLength: nrs.MaxMsgLength,
 		}
+		unlock()
 
 		// add the packet msgs to RelayPackets
 		for _, rp := range rlyPackets {
@@ -181,6 +261,12 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 	}); err != nil {
 		src.Error(err)
 	}
+}
+
+// RelaySequences represents unrelayed packets on src and dst
+type RelaySequences struct {
+	Src []uint64 `json:"src"`
+	Dst []uint64 `json:"dst"`
 }
 
 // RelayPacketsUnorderedChan creates transactions to relay un-relayed messages
@@ -227,16 +313,32 @@ func (nrs *NaiveStrategy) RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequ
 	}
 
 	if !msgs.Ready() {
-		src.Log(fmt.Sprintf("- No packets to relay between [%s]port{%s} and [%s]port{%s}", src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))
+		src.Log(fmt.Sprintf("- No packets to relay between [%s]port{%s} and [%s]port{%s}",
+			src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))
 		return nil
 	}
 
 	// Prepend non-empty msg lists with UpdateClient
 	if len(msgs.Dst) != 0 {
-		msgs.Dst = append([]sdk.Msg{dst.PathEnd.UpdateClient(sh.GetHeader(src.ChainID), dst.MustGetAddress())}, msgs.Dst...)
+		// Sending an update from src to dst
+		updateHeader, err := sh.GetUpdateHeader(src, dst)
+		if err != nil {
+			return err
+		}
+		unlock := SDKConfig.SetLock(dst)
+		msgs.Dst = append([]sdk.Msg{dst.PathEnd.UpdateClient(updateHeader, dst.MustGetAddress())}, msgs.Dst...)
+		unlock()
 	}
+
 	if len(msgs.Src) != 0 {
-		msgs.Src = append([]sdk.Msg{src.PathEnd.UpdateClient(sh.GetHeader(dst.ChainID), src.MustGetAddress())}, msgs.Src...)
+		// Sending an update from dst to src
+		updateHeader, err := sh.GetUpdateHeader(dst, src)
+		if err != nil {
+			return err
+		}
+		unlock := SDKConfig.SetLock(src)
+		msgs.Src = append([]sdk.Msg{src.PathEnd.UpdateClient(updateHeader, src.MustGetAddress())}, msgs.Src...)
+		unlock()
 	}
 
 	// TODO: increase the amount of gas as the number of messages increases
@@ -260,17 +362,17 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (*Chain,
 		return nil, nil, err
 	}
 
-	tx, err := src.QueryTxs(sh.GetHeight(src.ChainID), 1, 1000, eveSend)
+	txs, err := src.QueryTxs(sh.GetHeight(src.ChainID), 1, 1000, eveSend)
 	switch {
 	case err != nil:
 		return nil, nil, err
-	case tx.Count == 0:
+	case len(txs) == 0:
 		return nil, nil, fmt.Errorf("no transactions returned with query")
-	case tx.Count > 1:
+	case len(txs) > 1:
 		return nil, nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	rcvPackets, timeoutPackets, err := relayPacketFromQueryResponse(src.PathEnd, dst.PathEnd, tx.Txs[0], sh)
+	rcvPackets, timeoutPackets, err := relayPacketFromQueryResponse(src.PathEnd, dst.PathEnd, txs[0], sh)
 	switch {
 	case err != nil:
 		return nil, nil, err
@@ -286,7 +388,8 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (*Chain,
 		// sanity check the sequence number against the one we are querying for
 		// TODO: move this into relayPacketFromQueryResponse?
 		if seq != rcvPackets[0].Seq() {
-			return nil, nil, fmt.Errorf("Different sequence number from query (%d vs %d)", seq, rcvPackets[0].Seq())
+			return nil, nil,
+				fmt.Errorf("different sequence number from query (%d vs %d)", seq, rcvPackets[0].Seq())
 		}
 
 		// fetch the proof from the sending chain
@@ -302,7 +405,8 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (*Chain,
 	// recv packets
 	// relayPacketFromQueryResponse returned a timeout msg, create a timeout msg to be sent to original sender chain
 	if seq != timeoutPackets[0].Seq() {
-		return nil, nil, fmt.Errorf("Different sequence number from query (%d vs %d)", seq, timeoutPackets[0].Seq())
+		return nil, nil,
+			fmt.Errorf("different sequence number from query (%d vs %d)", seq, timeoutPackets[0].Seq())
 	}
 
 	// fetch the timeout proof from the receiving chain
@@ -317,63 +421,62 @@ func packetMsgFromTxQuery(src, dst *Chain, sh *SyncHeaders, seq uint64) (*Chain,
 
 // relayPacketFromQueryResponse looks through the events in a sdk.Response
 // and returns relayPackets with the appropriate data
-func relayPacketFromQueryResponse(src, dst *PathEnd, res sdk.TxResponse, sh *SyncHeaders) (rcvPackets []relayPacket, timeoutPackets []relayPacket, err error) {
-	for _, l := range res.Logs {
-		for _, e := range l.Events {
-			if e.Type == "send_packet" {
-				// NOTE: Src and Dst are switched here
-				rp := &relayMsgRecvPacket{pass: false}
-				for _, p := range e.Attributes {
-					if p.Key == "packet_src_channel" {
-						if p.Value != src.ChannelID {
-							rp.pass = true
-							continue
-						}
-					}
-					if p.Key == "packet_dst_channel" {
-						if p.Value != dst.ChannelID {
-							rp.pass = true
-							continue
-						}
-					}
-					if p.Key == "packet_src_port" {
-						if p.Value != src.PortID {
-							rp.pass = true
-							continue
-						}
-					}
-					if p.Key == "packet_dst_port" {
-						if p.Value != dst.PortID {
-							rp.pass = true
-							continue
-						}
-					}
-					if p.Key == "packet_data" {
-						rp.packetData = []byte(p.Value)
-					}
-					if p.Key == "packet_timeout_height" {
-						timeout, _ := strconv.ParseUint(p.Value, 10, 64)
-						rp.timeout = timeout
-					}
-					if p.Key == "packet_timeout_timestamp" {
-						timeout, _ := strconv.ParseUint(p.Value, 10, 64)
-						rp.timeoutStamp = timeout
-					}
-					if p.Key == "packet_sequence" {
-						seq, _ := strconv.ParseUint(p.Value, 10, 64)
-						rp.seq = seq
+func relayPacketFromQueryResponse(src, dst *PathEnd, res *ctypes.ResultTx,
+	sh *SyncHeaders) (rcvPackets []relayPacket, timeoutPackets []relayPacket, err error) {
+	for _, e := range res.TxResult.Events {
+		if e.Type == "send_packet" {
+			// NOTE: Src and Dst are switched here
+			rp := &relayMsgRecvPacket{pass: false}
+			for _, p := range e.Attributes {
+				if string(p.Key) == "packet_src_channel" {
+					if string(p.Value) != src.ChannelID {
+						rp.pass = true
+						continue
 					}
 				}
+				if string(p.Key) == "packet_dst_channel" {
+					if string(p.Value) != dst.ChannelID {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == "packet_src_port" {
+					if string(p.Value) != src.PortID {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == "packet_dst_port" {
+					if string(p.Value) != dst.PortID {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == "packet_data" {
+					rp.packetData = p.Value
+				}
+				if string(p.Key) == "packet_timeout_height" {
+					timeout, _ := strconv.ParseUint(strings.Split(string(p.Value), "-")[1], 10, 64)
+					rp.timeout = timeout
+				}
+				if string(p.Key) == "packet_timeout_timestamp" {
+					timeout, _ := strconv.ParseUint(string(p.Value), 10, 64)
+					rp.timeoutStamp = timeout
+				}
+				if string(p.Key) == "packet_sequence" {
+					seq, _ := strconv.ParseUint(string(p.Value), 10, 64)
+					rp.seq = seq
+				}
+			}
 
-				// if we have decided not to relay this packet, don't add it
-				switch {
-				case sh.GetHeight(src.ChainID) >= rp.timeout:
-					timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
-				case rp.timeoutStamp != 0 && time.Now().UnixNano() >= int64(rp.timeoutStamp):
-					timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
-				case !rp.pass:
-					rcvPackets = append(rcvPackets, rp)
-				}
+			// if we have decided not to relay this packet, don't add it
+			switch {
+			case rp.timeout != 0 && sh.GetHeight(dst.ChainID) >= rp.timeout:
+				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
+			case rp.timeoutStamp != 0 && time.Now().UnixNano() >= int64(rp.timeoutStamp):
+				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
+			case !rp.pass:
+				rcvPackets = append(rcvPackets, rp)
 			}
 		}
 	}

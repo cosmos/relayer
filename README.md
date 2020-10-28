@@ -2,14 +2,12 @@
 
 ![GOZ](./docs/images/github-repo-banner.png)
 
-![Relayer Build](https://github.com/iqlusioninc/relayer/workflows/Build%20then%20run%20CI%20Chains/badge.svg)
+![Relayer Build](https://github.com/ovrclk/relayer/workflows/Build%20then%20run%20CI%20Chains/badge.svg)
 
 The Cosmos IBC `relayer` package contains a basic relayer implementation that is
 meant for users wishing to relay packets/data between sets of IBC enabled chains.
 In addition, it is well documented and intended as an example where anyone who is
 interested in building their own relayer can come for complete, working, examples.
-
-If you are here for Game of Zones, please be sure to check out the [official website](https://goz.cosmosnetwork.dev). The best place for questions is [gameofzones@cosmosnetwork.dev](mailto:gameofzones@cosmosnetwork.dev) regarding Game of Zones and preparatory testnets.
 
 ### Security Notice
 
@@ -21,7 +19,7 @@ The iqlusion team is dedicated to providing an inclusive and harassment free exp
 
 ## Testnet
 
-If you would like to join the relayer testnet, please [check out the instructions](./testnets/README.md).
+If you would like to join a relayer testnet, please [check out the instructions](./testnets/README.md).
 
 ### Compatibility Table:
 
@@ -29,10 +27,7 @@ If you would like to join the relayer testnet, please [check out the instruction
 
 | chain | tests | supported ports |
 |-------|--------|----------------|
-| [`gaia`](https://github.com/cosmos/gaia) | ![gaia](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20gaia%20to%20gaia%20integration/badge.svg) | `transfer` |
-| `microtick` | ![microtick](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20mtd%20to%20ibc%20integration/badge.svg) | `transfer` |
-| [`rocketzone`](https://github.com/rocket-protocol/rocketzone) | ![rocketzone](https://github.com/iqlusioninc/relayer/workflows/TESTING%20-%20rocketzone%20to%20ibc%20integration/badge.svg) | `transfer` |
-| [`coco`](https://github.com/CosmicCompass/post-chain) | ![coco](https://github.com/CosmicCompass/relayer/workflows/TESTING%20-%20coco%20to%20ibc%20integration/badge.svg) | `transfer` |
+| [`gaia`](https://github.com/cosmos/gaia) | ![gaia](https://github.com/ovrclk/relayer/workflows/TESTING%20-%20gaia%20to%20gaia%20integration/badge.svg) | `transfer` |
 
 ## Demoing the Relayer
 
@@ -66,38 +61,43 @@ $ rly cfg add-dir configs/demo/
 $ cat ~/.relayer/config/config.yaml
 
 # Now, add the key seeds from each chain to the relayer to give it funds to work with
-$ rly keys restore ibc0 testkey "$(jq -r '.secret' data/ibc0/n0/gaiacli/key_seed.json)"
-$ rly keys restore ibc1 testkey "$(jq -r '.secret' data/ibc1/n0/gaiacli/key_seed.json)"
+$ rly keys restore ibc-0 testkey "$(jq -r '.mnemonic' data/ibc-0/key_seed.json)"
+$ rly k r ibc-1 testkey "$(jq -r '.mnemonic' data/ibc-1/key_seed.json)"
 
-# Then its time to initialize the relayer's lite clients for each chain
-# All data moving forward is validated by these lite clients.
-$ rly lite init ibc0 -f
-$ rly lite init ibc1 -f
+# Then its time to initialize the relayer's light clients for each chain
+# All data moving forward is validated by these light clients.
+$ rly light init ibc-0 -f
+$ rly l i ibc-1 -f
 
 # At this point the relayer --home directory is ready for normal operations between
-# ibc0 and ibc1. Looking at the folder structure of the relayer at this point is helpful
+# ibc-0 and ibc-1. Looking at the folder structure of the relayer at this point is helpful
 $ tree ~/.relayer
 
+# See if the chains are ready to relay over
+$ rly chains list
+
 # Now you can connect the two chains with one command:
-$ rly tx link demo
+$ rly tx link demo -d -o 3s
 
 # Check the token balances on both chains
-$ rly q balance ibc0
-$ rly q bal ibc1
+$ rly q balance ibc-0 | jq
+$ rly q bal ibc-1 | jq
 
 # Then send some tokens between the chains
-$ rly tx transfer ibc0 ibc1 10000n0token true $(rly keys show ibc1 testkey)
+$ rly tx transfer ibc-0 ibc-1 1000000samoleans $(rly chains address ibc-1)
+$ rly tx relay demo -d
 
 # See that the transfer has completed
-$ rly q bal ibc0
-$ rly q bal ibc1
+$ rly q bal ibc-0 | jq
+$ rly q bal ibc-1 | jq
 
-# Send the tokens back to the account on ibc0
-$ rly tx xfer ibc1 ibc0 10000n0token false $(rly keys show ibc0 testkey)
+# Send the tokens back to the account on ibc-0
+$ rly tx xfer ibc-1 ibc-0 1000000transfer/ibczeroxfer/samoleans $(rly ch addr ibc-0)
+$ rly tx rly demo -d
 
 # See that the return trip has completed
-$ rly q bal ibc0
-$ rly q bal ibc1
+$ rly q bal ibc-0 | jq
+$ rly q bal ibc-1 | jq
 
 # NOTE: you will see the stake balances decreasing on each chain. This is to pay for fees
 # You can change the amount of fees you are paying on each chain in the configuration.

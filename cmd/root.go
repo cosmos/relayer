@@ -21,9 +21,6 @@ import (
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/cosmos-sdk/codec"
-	codecstd "github.com/cosmos/cosmos-sdk/std"
-	gaia "github.com/cosmos/gaia/app"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -38,8 +35,6 @@ var (
 	debug       bool
 	config      *Config
 	defaultHome = os.ExpandEnv("$HOME/.relayer")
-	cdc         *codec.Codec
-	appCodec    *codecstd.Codec
 
 	// Default identifiers for dummy usage
 	dcli = "defaultclientid"
@@ -76,7 +71,7 @@ func init() {
 		pathsCmd(),
 		flags.LineBreak,
 		keysCmd(),
-		liteCmd(),
+		lightCmd(),
 		flags.LineBreak,
 		transactionCmd(),
 		queryCmd(),
@@ -88,7 +83,6 @@ func init() {
 	)
 
 	// This is a bit of a cheat :shushing_face:
-	appCodec, cdc = gaia.MakeCodecs()
 	// cdc = codecstd.MakeCodec(simapp.ModuleBasics)
 	// appCodec = codecstd.NewAppCodec(cdc)
 }
@@ -99,7 +93,7 @@ var rootCmd = &cobra.Command{
 	Short: "This application relays data between configured IBC enabled chains",
 	Long: strings.TrimSpace(`The relayer has commands for:
   1. Configuration of the Chains and Paths that the relayer with transfer packets over
-  2. Management of keys and lite clients on the local machine that will be used to sign and verify txs
+  2. Management of keys and light clients on the local machine that will be used to sign and verify txs
   3. Query and transaction functionality for IBC
   4. A responsive relaying application that listens on a path
   5. Commands to assist with development, testnets, and versioning.

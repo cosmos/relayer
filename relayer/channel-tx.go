@@ -4,24 +4,25 @@ import (
 	"fmt"
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
+	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	"golang.org/x/sync/errgroup"
 )
 
 // CreateChannel runs the channel creation messages on timeout until they pass
 // TODO: add max retries or something to this function
-func (src *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) error {
-	var order ibctypes.Order
+func (c *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) error {
+	var order chantypes.Order
 	if ordered {
-		order = ibctypes.ORDERED
+		order = chantypes.ORDERED
 	} else {
-		order = ibctypes.UNORDERED
+		order = chantypes.UNORDERED
 	}
 
 	ticker := time.NewTicker(to)
 	failures := 0
 	for ; true; <-ticker.C {
-		chanSteps, err := src.CreateChannelStep(dst, order)
+		chanSteps, err := c.CreateChannelStep(dst, order)
 		if err != nil {
 			return err
 		}
@@ -30,21 +31,25 @@ func (src *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) erro
 			break
 		}
 
-		chanSteps.Send(src, dst)
+		chanSteps.Send(c, dst)
 
 		switch {
 		// In the case of success and this being the last transaction
 		// debug logging, log created connection and break
 		case chanSteps.success && chanSteps.last:
-			chans, err := QueryChannelPair(src, dst, 0, 0)
+			srch, dsth, err := GetLatestLightHeights(c, dst)
 			if err != nil {
 				return err
 			}
-			if src.debug {
-				logChannelStates(src, dst, chans)
+			srcChan, dstChan, err := QueryChannelPair(c, dst, srch, dsth)
+			if err != nil {
+				return err
 			}
-			src.Log(fmt.Sprintf("★ Channel created: [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
-				src.ChainID, src.PathEnd.ChannelID, src.PathEnd.PortID,
+			if c.debug {
+				logChannelStates(c, dst, srcChan, dstChan)
+			}
+			c.Log(fmt.Sprintf("★ Channel created: [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
+				c.ChainID, c.PathEnd.ChannelID, c.PathEnd.PortID,
 				dst.ChainID, dst.PathEnd.ChannelID, dst.PathEnd.PortID))
 			return nil
 		// In the case of success, reset the failures counter
@@ -54,9 +59,11 @@ func (src *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) erro
 		// In the case of failure, increment the failures counter and exit if this is the 3rd failure
 		case !chanSteps.success:
 			failures++
+			c.Log(fmt.Sprintf("retrying transaction..."))
+			time.Sleep(5 * time.Second)
 			if failures > 2 {
 				return fmt.Errorf("! Channel failed: [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
-					src.ChainID, src.PathEnd.ChannelID, src.PathEnd.PortID,
+					c.ChainID, c.PathEnd.ChannelID, c.PathEnd.PortID,
 					dst.ChainID, dst.PathEnd.ChannelID, dst.PathEnd.PortID)
 			}
 		}
@@ -68,99 +75,111 @@ func (src *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) erro
 // CreateChannelStep returns the next set of messages for creating a channel with given
 // identifiers between chains src and dst. If the handshake hasn't started, then CreateChannelStep
 // will begin the handshake on the src chain
-func (src *Chain) CreateChannelStep(dst *Chain, ordering ibctypes.Order) (*RelayMsgs, error) {
+func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayMsgs, error) {
+	out := NewRelayMsgs()
+	if err := ValidatePaths(c, dst); err != nil {
+		return nil, err
+	}
+
+	sh, err := NewSyncHeaders(c, dst)
+	if err != nil {
+		return nil, err
+	}
+
+	// Query a number of things all at once
 	var (
-		out        = &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}, last: false}
-		scid, dcid = src.ChainID, dst.ChainID
+		eg                               = new(errgroup.Group)
+		srcUpdateHeader, dstUpdateHeader *tmclient.Header
+		srcChan, dstChan                 *chantypes.QueryChannelResponse
 	)
 
-	if err := src.PathEnd.Validate(); err != nil {
-		return nil, src.ErrCantSetPath(err)
-	}
+	eg.Go(func() error {
+		srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(c, dst)
+		return err
+	})
 
-	if err := dst.PathEnd.Validate(); err != nil {
-		return nil, dst.ErrCantSetPath(err)
-	}
+	eg.Go(func() error {
+		srcChan, dstChan, err = QueryChannelPair(c, dst, int64(sh.GetHeight(c.ChainID))-1, int64(sh.GetHeight(dst.ChainID))-1)
+		return err
+	})
 
-	hs, err := UpdatesWithHeaders(src, dst)
-	if err != nil {
+	if err = eg.Wait(); err != nil {
 		return nil, err
 	}
 
-	chans, err := QueryChannelPair(src, dst, hs[scid].Height-1, hs[dcid].Height-1)
-	if err != nil {
-		return nil, err
-	}
+	unlock := SDKConfig.SetLock(c)
+	defer unlock()
 
 	switch {
 	// Handshake hasn't been started on src or dst, relay `chanOpenInit` to src
-	case chans[scid].Channel.State == ibctypes.UNINITIALIZED && chans[dcid].Channel.State == ibctypes.UNINITIALIZED:
-		if src.debug {
-			logChannelStates(src, dst, chans)
+	case srcChan.Channel.State == chantypes.UNINITIALIZED && dstChan.Channel.State == chantypes.UNINITIALIZED:
+		if c.debug {
+			logChannelStates(c, dst, srcChan, dstChan)
 		}
+
 		out.Src = append(out.Src,
-			src.PathEnd.ChanInit(dst.PathEnd, src.MustGetAddress()),
+			c.PathEnd.ChanInit(dst.PathEnd, c.MustGetAddress()),
 		)
 
 	// Handshake has started on dst (1 step done), relay `chanOpenTry` and `updateClient` to src
-	case chans[scid].Channel.State == ibctypes.UNINITIALIZED && chans[dcid].Channel.State == ibctypes.INIT:
-		if src.debug {
-			logChannelStates(src, dst, chans)
+	case srcChan.Channel.State == chantypes.UNINITIALIZED && dstChan.Channel.State == chantypes.INIT:
+		if c.debug {
+			logChannelStates(c, dst, srcChan, dstChan)
 		}
 		out.Src = append(out.Src,
-			src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
-			src.PathEnd.ChanTry(dst.PathEnd, chans[dcid], src.MustGetAddress()),
+			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
+			c.PathEnd.ChanTry(dst.PathEnd, dstChan, c.MustGetAddress()),
 		)
 
 	// Handshake has started on src (1 step done), relay `chanOpenTry` and `updateClient` to dst
-	case chans[scid].Channel.State == ibctypes.INIT && chans[dcid].Channel.State == ibctypes.UNINITIALIZED:
+	case srcChan.Channel.State == chantypes.INIT && dstChan.Channel.State == chantypes.UNINITIALIZED:
 		if dst.debug {
-			logChannelStates(dst, src, chans)
+			logChannelStates(dst, c, dstChan, srcChan)
 		}
 		out.Dst = append(out.Dst,
-			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
-			dst.PathEnd.ChanTry(src.PathEnd, chans[scid], dst.MustGetAddress()),
+			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
+			dst.PathEnd.ChanTry(c.PathEnd, srcChan, dst.MustGetAddress()),
 		)
 
 	// Handshake has started on src (2 steps done), relay `chanOpenAck` and `updateClient` to dst
-	case chans[scid].Channel.State == ibctypes.TRYOPEN && chans[dcid].Channel.State == ibctypes.INIT:
+	case srcChan.Channel.State == chantypes.TRYOPEN && dstChan.Channel.State == chantypes.INIT:
 		if dst.debug {
-			logChannelStates(dst, src, chans)
+			logChannelStates(dst, c, dstChan, srcChan)
 		}
 		out.Dst = append(out.Dst,
-			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
-			dst.PathEnd.ChanAck(chans[scid], dst.MustGetAddress()),
+			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
+			dst.PathEnd.ChanAck(c.PathEnd, srcChan, dst.MustGetAddress()),
 		)
 
 	// Handshake has started on dst (2 steps done), relay `chanOpenAck` and `updateClient` to src
-	case chans[scid].Channel.State == ibctypes.INIT && chans[dcid].Channel.State == ibctypes.TRYOPEN:
-		if src.debug {
-			logChannelStates(src, dst, chans)
+	case srcChan.Channel.State == chantypes.INIT && dstChan.Channel.State == chantypes.TRYOPEN:
+		if c.debug {
+			logChannelStates(c, dst, srcChan, dstChan)
 		}
 		out.Src = append(out.Src,
-			src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
-			src.PathEnd.ChanAck(chans[dcid], src.MustGetAddress()),
+			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
+			c.PathEnd.ChanAck(dst.PathEnd, dstChan, c.MustGetAddress()),
 		)
 
 	// Handshake has confirmed on dst (3 steps done), relay `chanOpenConfirm` and `updateClient` to src
-	case chans[scid].Channel.State == ibctypes.TRYOPEN && chans[dcid].Channel.State == ibctypes.OPEN:
-		if src.debug {
-			logChannelStates(src, dst, chans)
+	case srcChan.Channel.State == chantypes.TRYOPEN && dstChan.Channel.State == chantypes.OPEN:
+		if c.debug {
+			logChannelStates(c, dst, srcChan, dstChan)
 		}
 		out.Src = append(out.Src,
-			src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
-			src.PathEnd.ChanConfirm(chans[dcid], src.MustGetAddress()),
+			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
+			c.PathEnd.ChanConfirm(dstChan, c.MustGetAddress()),
 		)
 		out.last = true
 
 	// Handshake has confirmed on src (3 steps done), relay `chanOpenConfirm` and `updateClient` to dst
-	case chans[scid].Channel.State == ibctypes.OPEN && chans[dcid].Channel.State == ibctypes.TRYOPEN:
+	case srcChan.Channel.State == chantypes.OPEN && dstChan.Channel.State == chantypes.TRYOPEN:
 		if dst.debug {
-			logChannelStates(dst, src, chans)
+			logChannelStates(dst, c, dstChan, srcChan)
 		}
 		out.Dst = append(out.Dst,
-			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
-			dst.PathEnd.ChanConfirm(chans[scid], dst.MustGetAddress()),
+			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
+			dst.PathEnd.ChanConfirm(srcChan, dst.MustGetAddress()),
 		)
 		out.last = true
 	}
@@ -170,11 +189,11 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering ibctypes.Order) (*Relay
 
 // CloseChannel runs the channel closing messages on timeout until they pass
 // TODO: add max retries or something to this function
-func (src *Chain) CloseChannel(dst *Chain, to time.Duration) error {
+func (c *Chain) CloseChannel(dst *Chain, to time.Duration) error {
 
 	ticker := time.NewTicker(to)
 	for ; true; <-ticker.C {
-		closeSteps, err := src.CloseChannelStep(dst)
+		closeSteps, err := c.CloseChannelStep(dst)
 		if err != nil {
 			return err
 		}
@@ -183,16 +202,16 @@ func (src *Chain) CloseChannel(dst *Chain, to time.Duration) error {
 			break
 		}
 
-		if closeSteps.Send(src, dst); closeSteps.success && closeSteps.last {
-			chans, err := QueryChannelPair(src, dst, 0, 0)
+		if closeSteps.Send(c, dst); closeSteps.success && closeSteps.last {
+			srcChan, dstChan, err := QueryChannelPair(c, dst, 0, 0)
 			if err != nil {
 				return err
 			}
-			if src.debug {
-				logChannelStates(src, dst, chans)
+			if c.debug {
+				logChannelStates(c, dst, srcChan, dstChan)
 			}
-			src.Log(fmt.Sprintf("★ Closed channel between [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
-				src.ChainID, src.PathEnd.ChannelID, src.PathEnd.PortID,
+			c.Log(fmt.Sprintf("★ Closed channel between [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
+				c.ChainID, c.PathEnd.ChannelID, c.PathEnd.PortID,
 				dst.ChainID, dst.PathEnd.ChannelID, dst.PathEnd.PortID))
 			break
 		}
@@ -203,75 +222,85 @@ func (src *Chain) CloseChannel(dst *Chain, to time.Duration) error {
 // CloseChannelStep returns the next set of messages for closing a channel with given
 // identifiers between chains src and dst. If the closing handshake hasn't started, then CloseChannelStep
 // will begin the handshake on the src chain
-func (src *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
+func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
+	out := NewRelayMsgs()
+	if err := ValidatePaths(c, dst); err != nil {
+		return nil, err
+	}
+
+	sh, err := NewSyncHeaders(c, dst)
+	if err != nil {
+		return nil, err
+	}
+
+	// Query a number of things all at once
 	var (
-		out        = &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}, last: false}
-		scid, dcid = src.ChainID, dst.ChainID
+		eg                               = new(errgroup.Group)
+		srcUpdateHeader, dstUpdateHeader *tmclient.Header
+		srcChan, dstChan                 *chantypes.QueryChannelResponse
 	)
 
-	if err := src.PathEnd.Validate(); err != nil {
-		return nil, src.ErrCantSetPath(err)
-	}
+	eg.Go(func() error {
+		// create the UpdateHeaders for src and dest Chains
+		srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(c, dst)
+		return err
+	})
 
-	if err := dst.PathEnd.Validate(); err != nil {
-		return nil, dst.ErrCantSetPath(err)
-	}
+	eg.Go(func() error {
+		srcChan, dstChan, err = QueryChannelPair(c, dst, int64(sh.GetHeight(c.ChainID)), int64(sh.GetHeight(dst.ChainID)))
+		return err
+	})
 
-	hs, err := UpdatesWithHeaders(src, dst)
-	if err != nil {
+	if err = eg.Wait(); err != nil {
 		return nil, err
 	}
 
-	chans, err := QueryChannelPair(src, dst, hs[scid].Height-1, hs[dcid].Height-1)
-	if err != nil {
-		return nil, err
-	}
-	logChannelStates(src, dst, chans)
+	logChannelStates(c, dst, srcChan, dstChan)
 
 	switch {
 	// Closing handshake has not started, relay `updateClient` and `chanCloseInit` to src or dst according
 	// to the channel state
-	case chans[scid].Channel.State != ibctypes.CLOSED && chans[dcid].Channel.State != ibctypes.CLOSED:
-		if chans[scid].Channel.State != ibctypes.UNINITIALIZED {
-			if src.debug {
-				logChannelStates(src, dst, chans)
+	case srcChan.Channel.State != chantypes.CLOSED && dstChan.Channel.State != chantypes.CLOSED:
+		if srcChan.Channel.State != chantypes.UNINITIALIZED {
+			if c.debug {
+				logChannelStates(c, dst, srcChan, dstChan)
 			}
 			out.Src = append(out.Src,
-				src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
-				src.PathEnd.ChanCloseInit(src.MustGetAddress()),
+				c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
+				c.PathEnd.ChanCloseInit(c.MustGetAddress()),
 			)
-		} else if chans[dcid].Channel.State != ibctypes.UNINITIALIZED {
+		} else if dstChan.Channel.State != chantypes.UNINITIALIZED {
 			if dst.debug {
-				logChannelStates(dst, src, chans)
+				logChannelStates(dst, c, dstChan, srcChan)
 			}
 			out.Dst = append(out.Dst,
-				dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
+				dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 				dst.PathEnd.ChanCloseInit(dst.MustGetAddress()),
 			)
 		}
 
 	// Closing handshake has started on src, relay `updateClient` and `chanCloseConfirm` to dst
-	case chans[scid].Channel.State == ibctypes.CLOSED && chans[dcid].Channel.State != ibctypes.CLOSED:
-		if chans[dcid].Channel.State != ibctypes.UNINITIALIZED {
+	case srcChan.Channel.State == chantypes.CLOSED && dstChan.Channel.State != chantypes.CLOSED:
+		if dstChan.Channel.State != chantypes.UNINITIALIZED {
 			if dst.debug {
-				logChannelStates(dst, src, chans)
+				logChannelStates(dst, c, dstChan, srcChan)
 			}
 			out.Dst = append(out.Dst,
-				dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
-				dst.PathEnd.ChanCloseConfirm(chans[scid], dst.MustGetAddress()),
+				dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
+				dst.PathEnd.ChanCloseConfirm(srcChan, dst.MustGetAddress()),
 			)
 			out.last = true
 		}
 
 	// Closing handshake has started on dst, relay `updateClient` and `chanCloseConfirm` to src
-	case chans[dcid].Channel.State == ibctypes.CLOSED && chans[scid].Channel.State != ibctypes.CLOSED:
-		if chans[scid].Channel.State != ibctypes.UNINITIALIZED {
-			if src.debug {
-				logChannelStates(src, dst, chans)
+	case dstChan.Channel.State == chantypes.CLOSED && srcChan.Channel.State != chantypes.CLOSED:
+		if srcChan.Channel.State != chantypes.UNINITIALIZED {
+			if c.debug {
+				logChannelStates(c, dst, srcChan, dstChan)
 			}
 			out.Src = append(out.Src,
-				src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
-				src.PathEnd.ChanCloseConfirm(chans[dcid], src.MustGetAddress()),
+				c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
+				c.PathEnd.ChanCloseConfirm(dstChan, c.MustGetAddress()),
 			)
 			out.last = true
 		}

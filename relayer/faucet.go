@@ -7,56 +7,28 @@ import (
 	"net/http"
 	"time"
 
-	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/auth"
-	"github.com/cosmos/cosmos-sdk/x/bank"
+	bank "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // SendMsgWithKey allows the user to specify which relayer key will sign the message
-func (src *Chain) SendMsgWithKey(datagram sdk.Msg, keyName string) (res sdk.TxResponse, err error) {
-	var out []byte
-	if out, err = src.BuildAndSignTxWithKey([]sdk.Msg{datagram}, keyName); err != nil {
-		return res, err
-	}
-	return src.BroadcastTxCommit(out)
+func (c *Chain) SendMsgWithKey(msg sdk.Msg, keyName string) (res *sdk.TxResponse, err error) {
+	fmt.Println("setting use of key", keyName)
+	c.Key = keyName
+	return c.SendMsg(msg)
 
-}
-
-// BuildAndSignTxWithKey allows the user to specify which relayer key will sign the message
-func (src *Chain) BuildAndSignTxWithKey(datagram []sdk.Msg, keyName string) ([]byte, error) {
-
-	// Fetch account and sequence numbers for the account
-	info, err := src.Keybase.Key(keyName)
-	if err != nil {
-		return nil, err
-	}
-
-	done := src.UseSDKContext()
-	defer done()
-
-	acc, err := auth.NewAccountRetriever(src.Cdc, src).GetAccount(info.GetAddress())
-	if err != nil {
-		return nil, err
-	}
-
-	return auth.NewTxBuilder(
-		auth.DefaultTxEncoder(src.Amino.Codec), acc.GetAccountNumber(),
-		acc.GetSequence(), src.Gas, src.GasAdjustment, false, src.ChainID,
-		src.Memo, sdk.NewCoins(), src.getGasPrices()).WithKeybase(src.Keybase).
-		BuildAndSign(info.GetName(), ckeys.DefaultKeyPass, datagram)
 }
 
 // FaucetHandler listens for addresses
-func (src *Chain) FaucetHandler(fromKey sdk.AccAddress, amount sdk.Coin) func(w http.ResponseWriter, r *http.Request) {
+func (c *Chain) FaucetHandler(fromKey sdk.AccAddress, amounts sdk.Coins) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
-		src.Log("handling faucet request...")
+		c.Log("handling faucet request...")
 
 		byt, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			str := "Failed to read request body"
-			src.Error(fmt.Errorf(str))
+			c.Error(fmt.Errorf("%s: %w", str, err))
 			respondWithError(w, http.StatusBadGateway, str)
 			return
 		}
@@ -66,62 +38,65 @@ func (src *Chain) FaucetHandler(fromKey sdk.AccAddress, amount sdk.Coin) func(w 
 		switch {
 		case err != nil:
 			str := fmt.Sprintf("Failed to unmarshal request payload: %s", string(byt))
-			src.Log(str)
+			c.Log(str)
 			respondWithError(w, http.StatusBadRequest, str)
 			return
-		case fr.ChainID != src.ChainID:
-			str := fmt.Sprintf("Invalid chain id: exp(%s) got(%s)", src.ChainID, fr.ChainID)
-			src.Log(str)
+		case fr.ChainID != c.ChainID:
+			str := fmt.Sprintf("Invalid chain id: exp(%s) got(%s)", c.ChainID, fr.ChainID)
+			c.Log(str)
 			respondWithError(w, http.StatusBadRequest, str)
 			return
 		}
 
-		if wait, err := src.checkAddress(fr.Address); err != nil {
-			src.Log(fmt.Sprintf("%s hit rate limit, needs to wait %s", fr.Address, wait.String()))
+		if wait, err := c.checkAddress(fr.Address); err != nil {
+			c.Log(fmt.Sprintf("%s hit rate limit, needs to wait %s", fr.Address, wait.String()))
 			respondWithError(w, http.StatusTooManyRequests, err.Error())
 			return
 		}
 
-		done := src.UseSDKContext()
-		defer done()
-
-		if err := src.faucetSend(fromKey, fr.addr(), amount); err != nil {
-			src.Error(err)
+		if err := c.faucetSend(fromKey, fr.addr(), amounts); err != nil {
+			c.Error(err)
 			respondWithError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		src.Log(fmt.Sprintf("%s was sent %s successfully", fr.Address, amount.String()))
-		respondWithJSON(w, http.StatusCreated, success{Address: fr.Address, Amount: amount.String()})
+		c.Log(fmt.Sprintf("%s was sent %s successfully", fr.Address, amounts.String()))
+		respondWithJSON(w, http.StatusCreated, success{Address: fr.Address, Amount: amounts.String()})
 	}
 }
 
-func (src *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amount sdk.Coin) error {
+func (c *Chain) faucetSend(fromAddr, toAddr sdk.AccAddress, amounts sdk.Coins) error {
 	// Set sdk config to use custom Bech32 account prefix
 
-	info, err := src.Keybase.KeyByAddress(fromAddr)
+	info, err := c.Keybase.KeyByAddress(fromAddr)
 	if err != nil {
 		return err
 	}
-	res, err := src.SendMsgWithKey(bank.NewMsgSend(fromAddr, toAddr, sdk.NewCoins(amount)), info.GetName())
+
+	fmt.Println("From Address", fromAddr.String())
+	fmt.Println("To Address", toAddr.String())
+	fmt.Println("Amount", amounts)
+	res, err := c.SendMsgWithKey(bank.NewMsgSend(fromAddr, toAddr, sdk.NewCoins(amounts...)), info.GetName())
+
 	if err != nil {
-		return fmt.Errorf("failed to send transaction: %w\n%s", err, res)
+		return fmt.Errorf("%w:%s", err, res.RawLog)
 	} else if res.Code != 0 {
-		return fmt.Errorf("transaction failed to execute\n%s", res)
+		return fmt.Errorf("%s", res.RawLog)
 	}
 	return nil
 }
 
-func (src *Chain) checkAddress(addr string) (time.Duration, error) {
+func (c *Chain) checkAddress(addr string) (time.Duration, error) {
 	faucetTimeout := 5 * time.Minute
-	if val, ok := src.faucetAddrs[addr]; ok {
+	if val, ok := c.faucetAddrs[addr]; ok {
 		sinceLastRequest := time.Since(val)
 		if faucetTimeout > sinceLastRequest {
 			wait := faucetTimeout - sinceLastRequest
-			return wait, fmt.Errorf("%s has requested funds within the last %s, wait %s before trying again", addr, faucetTimeout.String(), wait.String())
+			return wait, fmt.Errorf("%s has requested funds within the last %s, wait %s before trying again",
+				addr, faucetTimeout.String(), wait.String())
 		}
 	}
-	src.faucetAddrs[addr] = time.Now()
+	c.faucetAddrs[addr] = time.Now()
 	return 1 * time.Second, nil
 }
 

@@ -1,17 +1,17 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
 SDKCOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/cosmos-sdk)
-GAIACOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/gaia)
+# GAIACOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/gaia)
 all: ci-lint install
 
 ###############################################################################
 # Build / Install
 ###############################################################################
 
-LD_FLAGS = -X github.com/iqlusioninc/relayer/cmd.Version=$(VERSION) \
-	-X github.com/iqlusioninc/relayer/cmd.Commit=$(COMMIT) \
-	-X github.com/iqlusioninc/relayer/cmd.SDKCommit=$(SDKCOMMIT) \
-	-X github.com/iqlusioninc/relayer/cmd.GaiaCommit=$(GAIACOMMIT)
+LD_FLAGS = -X github.com/ovrclk/relayer/cmd.Version=$(VERSION) \
+	-X github.com/ovrclk/relayer/cmd.Commit=$(COMMIT) \
+	-X github.com/ovrclk/relayer/cmd.SDKCommit=$(SDKCOMMIT) \
+	-X github.com/ovrclk/relayer/cmd.GaiaCommit=$(GAIACOMMIT)
 
 BUILD_FLAGS := -ldflags '$(LD_FLAGS)'
 
@@ -39,33 +39,21 @@ install: go.sum
 # Tests / CI
 ###############################################################################
 test:
-	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/...
+	@TEST_DEBUG=true go test -mod=readonly -v ./test/...
 
 test-gaia:
-	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestGaia*
-
-test-mtd:
-	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestMtd*
-
-test-rocketzone:
-	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestRocket*
-
-test-agoric:
-	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestAgoric*
-
-test-coco:
-	@TEST_DEBUG=true go test -mod=mod -v -coverprofile coverage.out ./test/... -run TestCoCo*
+	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestGaia*
 
 coverage:
 	@echo "viewing test coverage..."
 	@go tool cover --html=coverage.out
 
-ci-lint:
-	@GO111MODULE=on golangci-lint run
+lint:
+	@golangci-lint run
 	@find . -name '*.go' -type f -not -path "*.git*" | xargs gofmt -d -s
 	@go mod verify
 
-.PHONY: install build ci-lint coverage clean
+.PHONY: install build lint coverage clean
 
 # TODO: Port reproducable build scripts from gaia for relayer
 # TODO: Full tested and working releases

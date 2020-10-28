@@ -1,0 +1,40 @@
+#/bin/bash
+
+# Ensure jq is installed
+if [[ ! -x "$(which jq)" ]]; then
+  echo "jq (a tool for parsing json in the command line) is required..."
+  echo "https://stedolan.github.io/jq/download/"
+  exit 1
+fi
+
+RELAYER_DIR="$GOPATH/src/github.com/ovrclk/relayer"
+RELAYER_CONF="$HOME/.relayer"
+GAIA_CONF="$RELAYER_DIR/data"
+
+# Ensure user understands what will be deleted
+if [[ -d $RELAYER_CONF ]] && [[ ! "$1" == "skip" ]]; then
+  read -p "$0 will delete $RELAYER_CONF folder. Do you wish to continue? (y/n): " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      exit 1
+  fi
+fi
+
+cd $RELAYER_DIR
+rm -rf $RELAYER_CONF &> /dev/null
+
+echo "Building Relayer..."
+make install
+
+echo "Generating rly configurations..."
+rly config init
+rly config add-dir configs/akash/
+
+SEED0=$(jq -r '.mnemonic' $GAIA_CONF/ibc-0/key_seed.json)
+SEED1=$(jq -r '.mnemonic' $GAIA_CONF/ibc-1/key_seed.json)
+echo "Key $(rly keys restore ibc-0 testkey "$SEED0") imported from ibc-0 to relayer..."
+echo "Key $(rly keys restore ibc-1 testkey "$SEED1") imported from ibc-1 to relayer..."
+echo "Creating light clients..."
+sleep 3
+rly light init ibc-0 -f
+rly light init ibc-1 -f

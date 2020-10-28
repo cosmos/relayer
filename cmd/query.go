@@ -1,17 +1,17 @@
 package cmd
 
 import (
-	"encoding/json"
-	"fmt"
+	"context"
 	"strconv"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/cosmos-sdk/x/auth"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
-	"github.com/iqlusioninc/relayer/relayer"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/auth/types"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	"github.com/ovrclk/relayer/relayer"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // queryCmd represents the chain command
@@ -20,17 +20,17 @@ func queryCmd() *cobra.Command {
 		Use:     "query",
 		Aliases: []string{"q"},
 		Short:   "IBC Query Commands",
-		Long:    "Commands to query IBC primatives, and other useful data on configured chains.",
+		Long:    "Commands to query IBC primitives, and other useful data on configured chains.",
 	}
 
 	cmd.AddCommand(
-		queryFullPathCmd(),
 		queryUnrelayed(),
 		flags.LineBreak,
 		queryAccountCmd(),
 		queryBalanceCmd(),
 		queryHeaderCmd(),
 		queryNodeStateCmd(),
+		queryValSetAtHeightCmd(),
 		queryTxs(),
 		queryTx(),
 		flags.LineBreak,
@@ -42,11 +42,34 @@ func queryCmd() *cobra.Command {
 		queryChannel(),
 		queryChannels(),
 		queryConnectionChannels(),
-		queryNextSeqRecv(),
 		queryPacketCommitment(),
-		queryPacketAck(),
+		queryIBCDenoms(),
 	)
 
+	return cmd
+}
+
+func queryIBCDenoms() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "ibc-denoms [chain-id]",
+		Short: "Query transaction by transaction hash",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
+			h, err := chain.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+			res, err := chain.QueryDenomTraces(0, 1000, h)
+			if err != nil {
+				return err
+			}
+			return chain.CLIContext(0).PrintOutput(res)
+		},
+	}
 	return cmd
 }
 
@@ -76,8 +99,9 @@ func queryTxs() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "txs [chain-id] [events]",
 		Short: "Query transactions by the events they produce",
-		Long: strings.TrimSpace(`Search for transactions that match the exact given events where results are paginated. Each event 
-takes the form of '{eventType}.{eventAttribute}={value}' with multiple events seperated by '&'. 
+		Long: strings.TrimSpace(
+			`Search for transactions that match the exact given events where results are paginated. Each event 
+takes the form of '{eventType}.{eventAttribute}={value}' with multiple events separated by '&'. 
 Please refer to each module's documentation for the full set of events to query for. Each module
 documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.`),
 		Args: cobra.ExactArgs(2),
@@ -92,22 +116,22 @@ documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.
 				return err
 			}
 
-			h, err := chain.UpdateLiteWithHeader()
+			h, err := chain.UpdateLightWithHeader()
 			if err != nil {
 				return err
 			}
 
-			page, err := cmd.Flags().GetInt(flags.FlagPage)
+			offset, err := cmd.Flags().GetUint64(flags.FlagOffset)
 			if err != nil {
 				return err
 			}
 
-			limit, err := cmd.Flags().GetInt(flags.FlagLimit)
+			limit, err := cmd.Flags().GetUint64(flags.FlagLimit)
 			if err != nil {
 				return err
 			}
 
-			txs, err := chain.QueryTxs(h.GetHeight(), page, limit, events)
+			txs, err := chain.QueryTxs(relayer.MustGetHeight(h.GetHeight()), int(offset), int(limit), events)
 			if err != nil {
 				return err
 			}
@@ -135,12 +159,18 @@ func queryAccountCmd() *cobra.Command {
 				return err
 			}
 
-			acc, err := auth.NewAccountRetriever(chain.Cdc, chain).GetAccount(addr)
+			relayer.SDKConfig.Set(chain)
+
+			res, err := types.NewQueryClient(chain.CLIContext(0)).Account(
+				context.Background(),
+				&types.QueryAccountRequest{
+					Address: addr.String(),
+				})
 			if err != nil {
 				return err
 			}
 
-			return chain.Print(acc, false, false)
+			return chain.CLIContext(0).PrintOutput(res)
 		},
 	}
 	return cmd
@@ -158,37 +188,56 @@ func queryBalanceCmd() *cobra.Command {
 				return err
 			}
 
-			jsn, err := cmd.Flags().GetBool(flagJSON)
+			showDenoms, err := cmd.Flags().GetBool(flagIBCDenoms)
 			if err != nil {
 				return err
 			}
 
-			var keyName string
+			relayer.SDKConfig.Set(chain)
+			var coins sdk.Coins
 			if len(args) == 2 {
-				keyName = args[1]
+				coins, err = chain.QueryBalance(args[1])
+			} else {
+				coins, err = chain.QueryBalance(chain.Key)
 			}
-
-			coins, err := chain.QueryBalance(keyName)
 			if err != nil {
 				return err
 			}
 
-			var out string
-			if jsn {
-				byt, err := json.Marshal(coins)
-				if err != nil {
-					return err
-				}
-				out = string(byt)
-			} else {
-				out = coins.String()
+			if showDenoms {
+				return chain.Print(coins, false, false)
 			}
 
-			fmt.Println(out)
-			return nil
+			h, err := chain.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			dts, err := chain.QueryDenomTraces(0, 1000, h)
+			if err != nil {
+				return err
+			}
+
+			if len(dts.DenomTraces) > 0 {
+				out := sdk.Coins{}
+				for _, c := range coins {
+					for _, d := range dts.DenomTraces {
+						switch {
+						case c.Amount.Equal(sdk.NewInt(0)):
+						case c.Denom == d.IBCDenom():
+							out = append(out, sdk.NewCoin(d.GetFullDenomPath(), c.Amount))
+						default:
+							out = append(out, c)
+						}
+					}
+				}
+				return chain.Print(out, false, false)
+			}
+
+			return chain.Print(coins, false, false)
 		},
 	}
-	return jsonFlag(cmd)
+	return ibcDenomFlags(cmd)
 }
 
 func queryHeaderCmd() *cobra.Command {
@@ -225,7 +274,7 @@ func queryHeaderCmd() *cobra.Command {
 					}
 
 					if height == -1 {
-						return relayer.ErrLiteNotInitialized
+						return relayer.ErrLightNotInitialized
 					}
 				}
 
@@ -236,47 +285,27 @@ func queryHeaderCmd() *cobra.Command {
 
 			}
 
-			if viper.GetBool(flagFlags) {
-				fmt.Printf("-x %x --height %d", header.SignedHeader.Hash(), header.Header.Height)
-				return nil
-			}
-
-			return chain.Print(header, false, false)
+			return chain.CLIContext(0).PrintOutput(header)
 		},
 	}
 
-	return flagsFlag(cmd)
+	return cmd
 }
 
 // GetCmdQueryConsensusState defines the command to query the consensus state of
 // the chain as defined in https://github.com/cosmos/ics/tree/master/spec/ics-002-client-semantics#query
 func queryNodeStateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "node-state [chain-id] [height]",
-		Short: "Query the consensus state of a client at a given height",
-		Args:  cobra.RangeArgs(1, 2),
+		Use:   "node-state [chain-id]",
+		Short: "Query the consensus state of a node",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
 
-			var height int64
-			switch len(args) {
-			case 1:
-				height, err = chain.QueryLatestHeight()
-				if err != nil {
-					return err
-				}
-			case 2:
-				height, err = strconv.ParseInt(args[1], 10, 64)
-				if err != nil {
-					fmt.Println("invalid height, defaulting to latest:", args[1])
-					height = 0
-				}
-			}
-
-			csRes, err := chain.QueryConsensusState(height)
+			csRes, _, err := chain.QueryConsensusState(0)
 			if err != nil {
 				return err
 			}
@@ -300,20 +329,32 @@ func queryClientCmd() *cobra.Command {
 				return err
 			}
 
-			if err = chain.AddPath(args[1], dcon, dcha, dpor, dord); err != nil {
-				return err
-			}
-
-			res, err := chain.QueryClientState()
+			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
 			if err != nil {
 				return err
 			}
 
-			return chain.Print(res, false, false)
+			if height == 0 {
+				height, err = chain.QueryLatestHeight()
+				if err != nil {
+					return err
+				}
+			}
+
+			if err = chain.AddPath(args[1], dcon, dcha, dpor, dord); err != nil {
+				return err
+			}
+
+			res, err := chain.QueryClientState(height)
+			if err != nil {
+				return err
+			}
+
+			return chain.CLIContext(height).PrintOutput(res)
 		},
 	}
 
-	return cmd
+	return heightFlag(cmd)
 }
 
 func queryClientsCmd() *cobra.Command {
@@ -328,26 +369,57 @@ func queryClientsCmd() *cobra.Command {
 				return err
 			}
 
-			page, err := cmd.Flags().GetInt(flags.FlagPage)
+			offset, err := cmd.Flags().GetUint64(flags.FlagOffset)
 			if err != nil {
 				return err
 			}
 
-			limit, err := cmd.Flags().GetInt(flags.FlagLimit)
+			limit, err := cmd.Flags().GetUint64(flags.FlagLimit)
 			if err != nil {
 				return err
 			}
 
-			res, err := chain.QueryClients(page, limit)
+			res, err := chain.QueryClients(offset, limit)
 			if err != nil {
 				return err
 			}
 
-			return chain.Print(res, false, false)
+			return chain.CLIContext(0).PrintOutput(res)
 		},
 	}
 
 	return paginationFlags(cmd)
+}
+
+func queryValSetAtHeightCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "valset [chain-id]",
+		Aliases: []string{"vs"},
+		Short:   "Query validator set at particular height",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
+
+			h, err := chain.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			version := clienttypes.ParseChainID(args[0])
+
+			res, err := chain.QueryValsetAtHeight(clienttypes.NewHeight(version, uint64(h)))
+			if err != nil {
+				return err
+			}
+
+			return chain.CLIContext(0).PrintOutput(res)
+		},
+	}
+
+	return cmd
 }
 
 func queryConnections() *cobra.Command {
@@ -362,12 +434,12 @@ func queryConnections() *cobra.Command {
 				return err
 			}
 
-			page, err := cmd.Flags().GetInt(flags.FlagPage)
+			page, err := cmd.Flags().GetUint64(flags.FlagOffset)
 			if err != nil {
 				return err
 			}
 
-			limit, err := cmd.Flags().GetInt(flags.FlagLimit)
+			limit, err := cmd.Flags().GetUint64(flags.FlagLimit)
 			if err != nil {
 				return err
 			}
@@ -377,7 +449,7 @@ func queryConnections() *cobra.Command {
 				return err
 			}
 
-			return chain.Print(res, false, false)
+			return chain.CLIContext(0).PrintOutput(res)
 		},
 	}
 
@@ -400,9 +472,16 @@ func queryConnectionsUsingClient() *cobra.Command {
 				return err
 			}
 
-			height, err := chain.QueryLatestHeight()
+			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
 			if err != nil {
 				return err
+			}
+
+			if height == 0 {
+				height, err = chain.QueryLatestHeight()
+				if err != nil {
+					return err
+				}
 			}
 
 			res, err := chain.QueryConnectionsUsingClient(height)
@@ -410,11 +489,11 @@ func queryConnectionsUsingClient() *cobra.Command {
 				return err
 			}
 
-			return chain.Print(res, false, false)
+			return chain.CLIContext(height).PrintOutput(res)
 		},
 	}
 
-	return cmd
+	return heightFlag(cmd)
 }
 
 func queryConnection() *cobra.Command {
@@ -443,7 +522,7 @@ func queryConnection() *cobra.Command {
 				return err
 			}
 
-			return chain.Print(res, false, false)
+			return chain.CLIContext(height).PrintOutput(res)
 		},
 	}
 
@@ -465,12 +544,12 @@ func queryConnectionChannels() *cobra.Command {
 				return err
 			}
 
-			page, err := cmd.Flags().GetInt(flags.FlagPage)
+			page, err := cmd.Flags().GetUint64(flags.FlagOffset)
 			if err != nil {
 				return err
 			}
 
-			limit, err := cmd.Flags().GetInt(flags.FlagLimit)
+			limit, err := cmd.Flags().GetUint64(flags.FlagLimit)
 			if err != nil {
 				return err
 			}
@@ -502,9 +581,16 @@ func queryChannel() *cobra.Command {
 				return err
 			}
 
-			height, err := chain.QueryLatestHeight()
+			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
 			if err != nil {
 				return err
+			}
+
+			if height == 0 {
+				height, err = chain.QueryLatestHeight()
+				if err != nil {
+					return err
+				}
 			}
 
 			res, err := chain.QueryChannel(height)
@@ -512,11 +598,11 @@ func queryChannel() *cobra.Command {
 				return err
 			}
 
-			return chain.Print(res, false, false)
+			return chain.CLIContext(height).PrintOutput(res)
 		},
 	}
 
-	return cmd
+	return heightFlag(cmd)
 }
 
 func queryChannels() *cobra.Command {
@@ -531,12 +617,12 @@ func queryChannels() *cobra.Command {
 				return err
 			}
 
-			page, err := cmd.Flags().GetInt(flags.FlagPage)
+			page, err := cmd.Flags().GetUint64(flags.FlagOffset)
 			if err != nil {
 				return err
 			}
 
-			limit, err := cmd.Flags().GetInt(flags.FlagLimit)
+			limit, err := cmd.Flags().GetUint64(flags.FlagLimit)
 			if err != nil {
 				return err
 			}
@@ -551,38 +637,6 @@ func queryChannels() *cobra.Command {
 	}
 
 	return paginationFlags(cmd)
-}
-
-func queryNextSeqRecv() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "seq-send [chain-id] [channel-id] [port-id]",
-		Short: "Query the next sequence send for a given channel",
-		Args:  cobra.ExactArgs(3),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.Chains.Get(args[0])
-			if err != nil {
-				return err
-			}
-
-			if err = chain.AddPath(dcli, dcon, args[1], args[2], dord); err != nil {
-				return err
-			}
-
-			height, err := chain.QueryLatestHeight()
-			if err != nil {
-				return err
-			}
-
-			res, err := chain.QueryNextSeqRecv(height)
-			if err != nil {
-				return err
-			}
-
-			return chain.Print(res, false, false)
-		},
-	}
-
-	return cmd
 }
 
 func queryPacketCommitment() *cobra.Command {
@@ -600,54 +654,12 @@ func queryPacketCommitment() *cobra.Command {
 				return err
 			}
 
-			height, err := chain.QueryLatestHeight()
+			seq, err := strconv.ParseUint(args[3], 10, 64)
 			if err != nil {
 				return err
 			}
 
-			seq, err := strconv.ParseInt(args[3], 10, 64)
-			if err != nil {
-				return err
-			}
-
-			res, err := chain.QueryPacketCommitment(height, seq)
-			if err != nil {
-				return err
-			}
-
-			return chain.Print(res, false, false)
-		},
-	}
-
-	return cmd
-}
-
-func queryPacketAck() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "packet-ack [chain-id] [channel-id] [port-id] [seq]",
-		Short: "Query for the packet acknoledgement given it's sequence and channel ids",
-		Args:  cobra.ExactArgs(4),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.Chains.Get(args[0])
-			if err != nil {
-				return err
-			}
-
-			if err = chain.AddPath(dcli, dcon, args[1], args[2], dord); err != nil {
-				return err
-			}
-
-			height, err := chain.QueryLatestHeight()
-			if err != nil {
-				return err
-			}
-
-			seq, err := strconv.ParseInt(args[3], 10, 64)
-			if err != nil {
-				return err
-			}
-
-			res, err := chain.QueryPacketAck(height, seq)
+			res, err := chain.QueryPacketCommitment(0, seq)
 			if err != nil {
 				return err
 			}
@@ -689,7 +701,12 @@ func queryUnrelayed() *cobra.Command {
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(c[src], c[dst], sh)
+			strategy, err := path.GetStrategy()
+			if err != nil {
+				return err
+			}
+
+			sp, err := strategy.UnrelayedSequencesOrdered(c[src], c[dst], sh)
 			if err != nil {
 				return err
 			}
@@ -701,32 +718,4 @@ func queryUnrelayed() *cobra.Command {
 	return cmd
 }
 
-func queryFullPathCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "full-path [path-name]",
-		Aliases: []string{"link", "connect", "path", "pth"},
-		Short:   "Query for the status of clients, connections, channels and packets on a path",
-		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			path, err := config.Paths.Get(args[0])
-			if err != nil {
-				return err
-			}
-
-			src, dst := path.Src.ChainID, path.Dst.ChainID
-			c, err := config.Chains.Gets(src, dst)
-			if err != nil {
-				return err
-			}
-
-			stat, err := relayer.QueryPathStatus(c[src], c[dst], path)
-			if err != nil {
-				return err
-			}
-
-			return c[src].Print(stat, false, false)
-		},
-	}
-
-	return cmd
-}
+// TODO: Reimplement query path status

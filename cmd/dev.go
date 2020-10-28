@@ -1,14 +1,9 @@
 package cmd
 
 import (
-	"encoding/csv"
-	"encoding/json"
+	"context"
 	"fmt"
 	"os"
-	"time"
-
-	"github.com/DataDog/datadog-go/statsd"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
@@ -26,94 +21,7 @@ func devCommand() *cobra.Command {
 		rlyService(),
 		listenCmd(),
 		genesisCmd(),
-		gozDataCmd(),
-		gozCSVCmd(),
-		gozStatsDCmd(),
 	)
-	return cmd
-}
-
-func gozCSVCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "goz-csv [chain-id] [file]",
-		Aliases: []string{"csv"},
-		Short:   "read in source of truth csv, and enrich on chain w/ team data",
-		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			to, err := readGoZCsv(args[1])
-			if err != nil {
-				return err
-			}
-
-			cd, err := fetchClientData(args[0])
-			if err != nil {
-				return err
-			}
-			w := csv.NewWriter(os.Stdout)
-
-			for _, c := range cd {
-				info := to[c.ChainID]
-				if info != nil {
-					c.TeamInfo = info
-					w.Write([]string{c.TeamInfo.Name, c.TeamInfo.Address, c.TeamInfo.RPCAddr, c.ClientID})
-				}
-			}
-			w.Flush()
-
-			return nil
-		},
-	}
-	return cmd
-}
-
-func gozStatsDCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "goz-statsd [chain-id] [file] [statsd-host] [statd-port]",
-		Aliases: []string{"statsd"},
-		Short:   "read in source of truth csv",
-		Args:    cobra.ExactArgs(4),
-		RunE: func(cmd *cobra.Command, args []string) error {
-
-			to, err := readGoZCsv(args[1])
-			if err != nil {
-				return err
-			}
-			client, err := statsd.New(args[2])
-			if err != nil {
-				return err
-			}
-
-			cd, err := fetchClientData(args[0])
-			if err != nil {
-				return err
-			}
-			for _, c := range cd {
-				info := to[c.ChainID]
-				c.TeamInfo = info
-				c.StatsD(client, args[3])
-			}
-			return nil
-		},
-	}
-	return cmd
-}
-
-func gozDataCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "goz-dump [chain-id]",
-		Aliases: []string{"dump", "goz"},
-		Short:   "fetch the list of chains connected as a CSV dump",
-		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cd, err := fetchClientData(args[0])
-			if err != nil {
-				return err
-			}
-			out, _ := json.Marshal(cd)
-			fmt.Println(string(out))
-			return nil
-		},
-	}
 	return cmd
 }
 
@@ -129,7 +37,7 @@ func genesisCmd() *cobra.Command {
 				return err
 			}
 
-			gen, err := c.Client.Genesis()
+			gen, err := c.Client.Genesis(context.Background())
 			if err != nil {
 				return err
 			}
@@ -167,7 +75,7 @@ func listenCmd() *cobra.Command {
 			}
 
 			if block && tx {
-				return fmt.Errorf("Must output block and/or tx")
+				return fmt.Errorf("must output block and/or tx")
 			}
 
 			done := c.ListenRPCEmitJSON(tx, block, data)
@@ -288,21 +196,23 @@ func rlyService() *cobra.Command {
 			var srcBal, dstBal sdk.Coins
 			if srcBal, err = chains[src].QueryBalance(chains[src].Key); err != nil {
 				return err
-			} else if srcBal.AmountOf(chains[src].DefaultDenom).IsZero() {
-				return fmt.Errorf("no balance on %s, ensure %s has a balance before continuing setup", src, chains[src].MustGetAddress())
+			} else if srcBal.Empty() {
+				return fmt.Errorf("no balance on %s, ensure %s has a balance before continuing setup",
+					src, chains[src].MustGetAddress())
 			}
 			if dstBal, err = chains[dst].QueryBalance(chains[dst].Key); err != nil {
 				return err
-			} else if dstBal.AmountOf(chains[dst].DefaultDenom).IsZero() {
-				return fmt.Errorf("no balance on %s, ensure %s has a balance before continuing setup", dst, chains[dst].MustGetAddress())
+			} else if dstBal.Empty() {
+				return fmt.Errorf("no balance on %s, ensure %s has a balance before continuing setup",
+					dst, chains[dst].MustGetAddress())
 			}
 
-			// ensure lite clients are initialized
-			if _, err = chains[src].GetLatestLiteHeight(); err != nil {
-				return fmt.Errorf("no lite client on %s, ensure it is initalized before continuing: %w", src, err)
+			// ensure light clients are initialized
+			if _, err = chains[src].GetLatestLightHeight(); err != nil {
+				return fmt.Errorf("no light client on %s, ensure it is initialized before continuing: %w", src, err)
 			}
-			if _, err = chains[dst].GetLatestLiteHeight(); err != nil {
-				return fmt.Errorf("no lite client on %s, ensure it is initalized before continuing: %w", dst, err)
+			if _, err = chains[dst].GetLatestLightHeight(); err != nil {
+				return fmt.Errorf("no light client on %s, ensure it is initialized before continuing: %w", dst, err)
 			}
 
 			fmt.Printf(`[Unit]
@@ -323,124 +233,4 @@ WantedBy=multi-user.target
 		},
 	}
 	return cmd
-}
-
-func readGoZCsv(path string) (map[string]*teamInfo, error) {
-	// open the CSV file
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	// create the csv reader
-	cs := csv.NewReader(f)
-
-	// ignore the header line
-	if _, err := cs.Read(); err != nil {
-		return nil, err
-	}
-
-	// read all the records into memory
-	records, err := cs.ReadAll()
-	if err != nil {
-		return nil, err
-	}
-
-	// format the map[chain-id]Info
-	var out = map[string]*teamInfo{}
-	for _, r := range records {
-		out[r[2]] = &teamInfo{r[0], r[1], r[3]}
-	}
-
-	return out, nil
-}
-
-type teamInfo struct {
-	Name    string `json:"name"`
-	Address string `json:"address"`
-	RPCAddr string `json:"rpc-addr"`
-}
-
-func fetchClientData(chainID string) ([]*clientData, error) {
-	c, err := config.Chains.Get(chainID)
-	if err != nil {
-		return nil, err
-	}
-
-	clients, err := c.QueryClients(1, 1000)
-	if err != nil {
-		return nil, err
-	}
-
-	header, err := c.UpdateLiteWithHeader()
-	if err != nil {
-		return nil, err
-	}
-
-	chans, err := c.QueryChannels(1, 10000)
-	if err != nil {
-		return nil, err
-	}
-
-	var clientDatas = []*clientData{}
-	for _, cl := range clients {
-		tmdata, ok := cl.(tmclient.ClientState)
-		if !ok {
-			continue
-		}
-		cd := &clientData{
-			ClientID:         cl.GetID(),
-			ChainID:          cl.GetChainID(),
-			TimeOfLastUpdate: tmdata.LastHeader.Time,
-			ChannelIDs:       []string{},
-		}
-
-		if err := c.AddPath(cd.ClientID, dcon, dcha, dpor, dord); err != nil {
-			return nil, err
-		}
-
-		conns, err := c.QueryConnectionsUsingClient(header.Height)
-		if err != nil {
-			return nil, err
-		}
-
-		cd.ConnectionIDs = conns.ConnectionPaths
-		for _, conn := range cd.ConnectionIDs {
-			for _, ch := range chans {
-				for _, co := range ch.ConnectionHops {
-					if co == conn {
-						cd.ChannelIDs = append(cd.ChannelIDs, ch.ID)
-					}
-				}
-			}
-		}
-
-		// todo deal with channels
-		clientDatas = append(clientDatas, cd)
-
-	}
-	return clientDatas, nil
-}
-
-type clientData struct {
-	ClientID         string    `json:"client-id"`
-	ConnectionIDs    []string  `json:"connection-ids"`
-	ChannelIDs       []string  `json:"channel-ids"`
-	ChainID          string    `json:"chain-id"`
-	TimeOfLastUpdate time.Time `json:"time-last-update"`
-	TeamInfo         *teamInfo `json:"team-info"`
-}
-
-func (cd *clientData) StatsD(cl *statsd.Client, prefix string) {
-	switch {
-	case len(cd.ConnectionIDs) != 1:
-		byt, _ := json.Marshal(cd)
-		fmt.Fprintf(os.Stderr, "%s", string(byt))
-	case len(cd.ChannelIDs) != 1:
-		byt, _ := json.Marshal(cd)
-		fmt.Fprintf(os.Stderr, "%s", string(byt))
-		// TODO: add more cases here
-	}
-	cl.TimeInMilliseconds(fmt.Sprintf("relayer.%s.client", prefix), float64(time.Since(cd.TimeOfLastUpdate).Milliseconds()), []string{"teamname", cd.TeamInfo.Name, "chain-id", cd.ChainID, "client-id", cd.ClientID, "connection-id", cd.ConnectionIDs[0], "channelid", cd.ChannelIDs[0]}, 1)
 }

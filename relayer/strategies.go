@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	txEvents = "tm.event = 'Tx'"
-	blEvents = "tm.event = 'NewBlock'"
+	txEvents = "tm.event='Tx'"
+	blEvents = "tm.event='NewBlock'"
 )
 
 // Strategy defines
@@ -23,21 +23,22 @@ type Strategy interface {
 }
 
 // MustGetStrategy returns the strategy and panics on error
-func (r *Path) MustGetStrategy() Strategy {
-	strat, err := r.GetStrategy()
+func (p *Path) MustGetStrategy() Strategy {
+	strategy, err := p.GetStrategy()
 	if err != nil {
 		panic(err)
 	}
-	return strat
+
+	return strategy
 }
 
 // GetStrategy the strategy defined in the relay messages
-func (r *Path) GetStrategy() (Strategy, error) {
-	switch r.Strategy.Type {
+func (p *Path) GetStrategy() (Strategy, error) {
+	switch p.Strategy.Type {
 	case (&NaiveStrategy{}).GetType():
 		return &NaiveStrategy{}, nil
 	default:
-		return nil, fmt.Errorf("invalid strategy: %s", r.Strategy.Type)
+		return nil, fmt.Errorf("invalid strategy: %s", p.Strategy.Type)
 	}
 }
 

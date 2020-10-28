@@ -12,7 +12,12 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iqlusioninc/relayer/relayer"
+	"github.com/ovrclk/relayer/relayer"
+)
+
+const (
+	check = "✔"
+	xIcon = "✘"
 )
 
 func chainsCmd() *cobra.Command {
@@ -47,15 +52,14 @@ func chainsAddrCmd() *cobra.Command {
 				return err
 			}
 
-			done := chain.UseSDKContext()
-			defer done()
-
+			unlock := relayer.SDKConfig.SetLock(chain)
+			defer unlock()
 			addr, err := chain.GetAddress()
 			if err != nil {
 				return err
 			}
 
-			fmt.Println(string(addr.String()))
+			fmt.Println(addr.String())
 			return nil
 		},
 	}
@@ -103,12 +107,9 @@ func chainsShowCmd() *cobra.Command {
 				fmt.Printf(`chain-id:        %s
 rpc-addr:        %s
 trusting-period: %s
-default-denom:   %s
-gas:             %d
-gas-prices:      %s
 key:             %s
 account-prefix:  %s
-`, c.ChainID, c.RPCAddr, c.TrustingPeriod, c.DefaultDenom, c.Gas, c.GasPrices, c.Key, c.AccountPrefix)
+`, c.ChainID, c.RPCAddr, c.TrustingPeriod, c.Key, c.AccountPrefix)
 				return nil
 			}
 		},
@@ -192,32 +193,32 @@ func chainsListCmd() *cobra.Command {
 			default:
 				for i, c := range config.Chains {
 					var (
-						lite = "✘"
-						key  = "✘"
-						path = "✘"
-						bal  = "✘"
+						light = xIcon
+						key   = xIcon
+						path  = xIcon
+						bal   = xIcon
 					)
 					_, err := c.GetAddress()
 					if err == nil {
-						key = "✔"
+						key = check
 					}
 
 					coins, err := c.QueryBalance(c.Key)
 					if err == nil && !coins.Empty() {
-						bal = "✔"
+						bal = check
 					}
 
-					_, err = c.GetLatestLiteHeader()
+					_, err = c.GetLatestLightHeader()
 					if err == nil {
-						lite = "✔"
+						light = check
 					}
 
 					for _, pth := range config.Paths {
 						if pth.Src.ChainID == c.ChainID || pth.Dst.ChainID == c.ChainID {
-							path = "✔"
+							path = check
 						}
 					}
-					fmt.Printf("%2d: %-20s -> key(%s) bal(%s) lite(%s) path(%s)\n", i, c.ChainID, key, bal, lite, path)
+					fmt.Printf("%2d: %-20s -> key(%s) bal(%s) light(%s) path(%s)\n", i, c.ChainID, key, bal, light, path)
 				}
 				return nil
 			}
@@ -269,7 +270,8 @@ func chainsAddDirCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "add-dir [dir]",
 		Aliases: []string{"ad"},
-		Short:   "Add new chains to the configuration file from a directory full of chain configuration, useful for adding testnet configurations",
+		Short: `Add new chains to the configuration file from a directory 
+		full of chain configuration, useful for adding testnet configurations`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var out *Config
 			if out, err = filesAdd(args[0]); err != nil {
@@ -385,12 +387,12 @@ func userInputAdd(cmd *cobra.Command) (cfg *Config, err error) {
 		return nil, err
 	}
 
-	fmt.Println("Gas (i.e. 200000):")
+	fmt.Println("Gas Adjustment (i.e. 1.3):")
 	if value, err = readStdin(); err != nil {
 		return nil, err
 	}
 
-	if c, err = c.Update("gas", value); err != nil {
+	if c, err = c.Update("gas-adjustment", value); err != nil {
 		return nil, err
 	}
 
@@ -400,15 +402,6 @@ func userInputAdd(cmd *cobra.Command) (cfg *Config, err error) {
 	}
 
 	if c, err = c.Update("gas-prices", value); err != nil {
-		return nil, err
-	}
-
-	fmt.Println("Default Denom (i.e. stake):")
-	if value, err = readStdin(); err != nil {
-		return nil, err
-	}
-
-	if c, err = c.Update("default-denom", value); err != nil {
 		return nil, err
 	}
 
@@ -432,7 +425,7 @@ func userInputAdd(cmd *cobra.Command) (cfg *Config, err error) {
 func urlInputAdd(rawurl string) (cfg *Config, err error) {
 	u, err := url.Parse(rawurl)
 	if err != nil || u.Scheme == "" || u.Host == "" {
-		return cfg, errors.New("Invalid URL")
+		return cfg, errors.New("invalid URL")
 	}
 
 	resp, err := http.Get(u.String())

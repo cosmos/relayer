@@ -5,13 +5,10 @@
   "cli": "ag-cosmos-helper",
   "daemon-testnet": "ag-nchainz testnet $chainid -o $chainid --v 1 --chain-id $chainid --node-dir-prefix n --keyring-backend test",
   "daemon-start": "ag-nchainz start-daemon $chainid --home \"$DAEMON_HOME\" start --pruning=nothing",
-  "post-lite-client": "ag-nchainz start-solos $chainid",
+  "post-light-client": "ag-nchainz start-solos $chainid",
   "link": {
     "account-prefix": "agoric",
-    "gas": 200000,
-    "gas-adjustment":1.0,
-    "gas-prices": "",
-    "default-denom": "uagstake",
+    "gas-adjustment": 1.0,
     "trusting-period": "336h"
   }
 }

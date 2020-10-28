@@ -1,0 +1,9 @@
+{
+    "key": "testkey",
+    "chain-id": "pylonchain",
+    "rpc-addr": "http://stargate.technofractal.com:26657",
+    "account-prefix": "cosmos",
+    "gas-adjustment": 1.3,
+    "gas-prices": "0.025samoleans",
+    "trusting-period": "336h"
+}

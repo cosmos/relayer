@@ -21,7 +21,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/iqlusioninc/relayer/relayer"
+	"github.com/ovrclk/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -65,7 +65,7 @@ func trapSignal(done func()) {
 
 	// wait for a signal
 	sig := <-sigCh
-	fmt.Println("Signal Recieved:", sig.String())
+	fmt.Println("Signal Received", sig.String())
 	close(sigCh)
 
 	// call the cleanup func
