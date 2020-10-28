@@ -72,8 +72,8 @@ Now you can write tests! Create a new file named `test/relayer_{chain-type}_test
 ```go
 var (
 	gaiaChains = []testChain{
-		{"ibc0", gaiaTestConfig},
-		{"ibc1", gaiaTestConfig},
+		{"ibc-0", gaiaTestConfig},
+		{"ibc-1", gaiaTestConfig},
 	}
 )
 
@@ -81,12 +81,12 @@ func TestGaiaToGaiaBasicTransfer(t *testing.T) {
 	t.Parallel()
 	chains := spinUpTestChains(t, gaiaChains...)
 
-	_, err := genTestPathAndSet(chains.MustGet("ibc0"), chains.MustGet("ibc1"), "transfer", "transfer")
+	_, err := genTestPathAndSet(chains.MustGet("ibc-0"), chains.MustGet("ibc-1"), "transfer", "transfer")
 	require.NoError(t, err)
 
 	var (
-		src          = chains.MustGet("ibc0")
-		dst          = chains.MustGet("ibc1")
+		src          = chains.MustGet("ibc-0")
+		dst          = chains.MustGet("ibc-1")
 		testDenom    = "samoleans"
 		dstDenom     = fmt.Sprintf("%s/%s/%s", dst.PathEnd.PortID, dst.PathEnd.ChannelID, testDenom)
 		testCoin     = sdk.NewCoin(testDenom, sdk.NewInt(1000))

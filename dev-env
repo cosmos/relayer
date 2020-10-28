@@ -22,5 +22,5 @@ echo "waiting for blocks..."
 sleep 3
 
 rly tx full-path demo -d -o 3s
-rly tx txf ibc0 ibc1 100000samoleans $(rly ch addr ibc1)
-rly tx txf ibc1 ibc0 100000samoleans $(rly ch addr ibc0)
+rly tx txf ibc-0 ibc-1 100000samoleans $(rly ch addr ibc-1)
+rly tx txf ibc-1 ibc-0 100000samoleans $(rly ch addr ibc-0)
