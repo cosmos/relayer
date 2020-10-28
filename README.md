@@ -6,7 +6,7 @@
 
 The Cosmos IBC `relayer` package contains a basic relayer implementation that is
 meant for users wishing to relay packets/data between sets of IBC enabled chains.
-In additon, it is well documented and intended as an example where anyone who is
+In addition, it is well documented and intended as an example where anyone who is
 interested in building their own relayer can come for complete, working, examples.
 
 ### Security Notice
@@ -15,13 +15,13 @@ If you would like to report a security critical bug related to the relayer repo,
 
 ## Code of Conduct
 
-The iqlusion team is dedicated to providing an inclusive and harrassment free experience for contributors. Please visit [Code of Conduct](CODE_OF_CONDUCT.md) for more information.
+The iqlusion team is dedicated to providing an inclusive and harassment free experience for contributors. Please visit [Code of Conduct](CODE_OF_CONDUCT.md) for more information.
 
 ## Testnet
 
 If you would like to join a relayer testnet, please [check out the instructions](./testnets/README.md).
 
-### Compatability Table:
+### Compatibility Table:
 
 > NOTE: 
 
@@ -105,7 +105,7 @@ $ rly q bal ibc-1 | jq
 
 ## Setting up Developer Environment
 
-Working with the relayer can frequently involve working with local developement branches of `gaia`, `cosmos-sdk` and the `relayer`. To setup your environment to point at the local versions of the code and reduce the amount of time in your read-eval-print loops try the following:
+Working with the relayer can frequently involve working with local development branches of `gaia`, `cosmos-sdk` and the `relayer`. To setup your environment to point at the local versions of the code and reduce the amount of time in your read-eval-print loops try the following:
 
 1. Set `replace github.com/cosmos/cosmos-sdk => /path/to/local/github.com/comsos/cosmos-sdk` at the end of the `go.mod` files for the `relayer` and `gaia`. This will force building from the local version of the `cosmos-sdk` when running the `./dev-env` script.
 2. After `./dev-env` has run, you can use `go run main.go` for any relayer commands you are working on. This allows you make changes and immediately test them as long as there are no server side changes.

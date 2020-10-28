@@ -1,23 +1,23 @@
 # Testing
 
-The relayer contains a testing framework designed to be used to test compatability between different cosmos-sdk based chains for IBC relaying. This will be especially useful during the period where IBC is under active development as it will provide a central integration test to ensure that the many different implemenations all work together. It will also be required if you are looking to participate with a custom zone in Game of Zones.
+The relayer contains a testing framework designed to be used to test compatibility between different cosmos-sdk based chains for IBC relaying. This will be especially useful during the period where IBC is under active development as it will provide a central integration test to ensure that the many different implementations all work together. It will also be required if you are looking to participate with a custom zone in Game of Zones.
 
 ## Using the test framework
 
-Because of the nature of the relayer (i.e. it is meant to run against different chains), mocking out the interfaces for unit tests would be prohibitively expensive from a resources point of view. Because of this, I've decided to go with a full integration testing framework that tests the user-critical paths of the relayer code for each chain to ensure compatability between the chains and a functional Game of Zones. To add your chain to the framework, follow the guide below:
+Because of the nature of the relayer (i.e. it is meant to run against different chains), mocking out the interfaces for unit tests would be prohibitively expensive from a resources point of view. Because of this, I've decided to go with a full integration testing framework that tests the user-critical paths of the relayer code for each chain to ensure compatibility between the chains and a functional Game of Zones. To add your chain to the framework, follow the guide below:
 
 ### Overview
 
-The test framework is built using `go test` and `docker`. What is happening for each test is that a number of independent chains of a specified type are spun up and the relayer runs a series of transactions and tests for the expected results. We are using the [`ory/dockertest`](https://github.com/ory/dockertest) to provide a nice interface for using docker programatically w/in the tests.
+The test framework is built using `go test` and `docker`. What is happening for each test is that a number of independent chains of a specified type are spun up and the relayer runs a series of transactions and tests for the expected results. We are using the [`ory/dockertest`](https://github.com/ory/dockertest) to provide a nice interface for using docker programmatically w/in the tests.
 
 ### Step 1: Write a Dockerfile and publish an image for your chain
 
-The testing framework expects your chain to have a `Dockerfile` with an `ENTRYPOINT` script that accepts two arguements: `chain-id`, which should be unique to the individual test, and `relayer-address`, an address to include in the genesis file so that the testing relayer has access to funds. This is normally best acomplished with an `./entrypoint.sh` script that performs the necessary chain bootstrapping. The `cosmos/gaia` repositories provide an example of both:
+The testing framework expects your chain to have a `Dockerfile` with an `ENTRYPOINT` script that accepts two arguments: `chain-id`, which should be unique to the individual test, and `relayer-address`, an address to include in the genesis file so that the testing relayer has access to funds. This is normally best accomplished with an `./entrypoint.sh` script that performs the necessary chain bootstrapping. The `cosmos/gaia` repositories provide an example of both:
 
 - [`./entrypoint.sh`](https://github.com/cosmos/gaia/tree/master/contrib/single-node.sh)
 - [`Dockerfile.test`](https://github.com/cosmos/gaia/tree/master/contrib/Dockerfile.test)
 
-Then you need to build and push your image to a public image repository. Having it tagged with the git sha and branch is best practice. See the build proceedure for the gaia image:
+Then you need to build and push your image to a public image repository. Having it tagged with the git sha and branch is best practice. See the build procedure for the gaia image:
 
 - [`Makefile`](https://github.com/cosmos/gaia/blob/master/Makefile#L164)
 
@@ -63,7 +63,7 @@ myChainTestConfig = testChainConfig {
 }
 ```
 
-> NOTE: If you do any custom encoding/decoding in your chain, you may want to import your codec and attach it here. To do this, `go get` the package your codec is in, include it in the `test/test_chains.go` `import` section and instantiate your codec. You may run into build errors due to incompatable tendermint or sdk versions. Please bring your chain up the relayer version to continue with a custom codec.
+> NOTE: If you do any custom encoding/decoding in your chain, you may want to import your codec and attach it here. To do this, `go get` the package your codec is in, include it in the `test/test_chains.go` `import` section and instantiate your codec. You may run into build errors due to incompatible Tendermint or SDK versions. Please bring your chain up the relayer version to continue with a custom codec.
 
 ### Step 3: Write your tests!
 
