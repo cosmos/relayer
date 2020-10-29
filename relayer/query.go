@@ -457,7 +457,6 @@ func (c *Chain) QueryPacketCommitments(
 			CountTotal: true,
 		},
 	})
-	// return res.Commitments, err
 }
 
 // QueryUnrecievedPackets returns a list of unrelayed packet commitments
