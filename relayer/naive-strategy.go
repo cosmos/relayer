@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -47,13 +48,22 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 	eg.Go(func() error {
 		var res *chantypes.QueryPacketCommitmentsResponse
 		if err = retry.Do(func() error {
+			// Query the packet commitment
 			res, err = src.QueryPacketCommitments(0, 1000, sh.GetHeight(src.ChainID))
-			if err != nil || res == nil {
-				src.Log(fmt.Sprintf("- [%s] failed to query packet commitments, retrying: %s", src.ChainID, err))
+			switch {
+			case err != nil:
 				return err
+			case res == nil:
+				return fmt.Errorf("No error on QueryPacketCommitments for %s, however response is nil", src.ChainID)
+			default:
+				return nil
 			}
-			return nil
-		}); err != nil {
+		}, retry.Attempts(3), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true),
+			retry.OnRetry(func(n uint, err error) {
+				if src.debug {
+					src.Log(fmt.Sprintf("- [%s] failed to query packet commitments %d/3, retrying: %s", src.ChainID, n, err))
+				}
+			})); err != nil {
 			return err
 		}
 		for _, pc := range res.Commitments {
@@ -66,12 +76,20 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 		var res *chantypes.QueryPacketCommitmentsResponse
 		if err = retry.Do(func() error {
 			res, err = dst.QueryPacketCommitments(0, 1000, sh.GetHeight(dst.ChainID))
-			if err != nil || res == nil {
-				dst.Log(fmt.Sprintf("- [%s] failed to query packet commitment, retrying: %s", dst.ChainID, err))
+			switch {
+			case err != nil:
 				return err
+			case res == nil:
+				return fmt.Errorf("No error on QueryPacketCommitments for %s, however response is nil", dst.ChainID)
+			default:
+				return nil
 			}
-			return nil
-		}); err != nil {
+		}, retry.Attempts(3), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true),
+			retry.OnRetry(func(n uint, err error) {
+				if dst.debug {
+					dst.Log(fmt.Sprintf("- [%s] failed to query packet commitments %d/3, retrying: %s", dst.ChainID, n, err))
+				}
+			})); err != nil {
 			return err
 		}
 		for _, pc := range res.Commitments {
@@ -230,12 +248,16 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 	// send the transaction, retrying if not successful
 	if err := retry.Do(func() error {
 		if err := sh.Updates(src, dst); err != nil {
-			src.Log(fmt.Sprintf("- failed to update headers, retrying: %s", err))
+			if src.debug {
+				src.Log(fmt.Sprintf("- failed to update headers for %s and %s, retrying: %s", src.ChainID, dst.ChainID, err))
+			}
 			return err
 		}
 		updateHeader, err := sh.GetUpdateHeader(dst, src)
 		if err != nil {
-			src.Log(fmt.Sprintf("- failed to enrich headers for updates, retrying: %s", err))
+			if src.debug {
+				src.Log(fmt.Sprintf("- failed to enrich update headers for %s and %s, retrying: %s", src.ChainID, dst.ChainID, err))
+			}
 			return err
 		}
 		// instantiate the RelayMsgs with the appropriate update client
@@ -252,19 +274,20 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 		for _, rp := range rlyPackets {
 			msg, err := rp.Msg(src, dst)
 			if err != nil {
-				src.Log("failed to create relay packet message")
+				if src.debug {
+					src.Log(fmt.Sprintf("- [%s] failed to create relay packet message bound for %s of type %T, retrying: %s", src.ChainID, dst.ChainID, rp, err))
+				}
 				return err
 			}
 			txs.Src = append(txs.Src, msg)
 		}
 
 		if txs.Send(src, dst); !txs.success {
-			src.Log("failed to send transaction, retrying...")
-			return fmt.Errorf("failed to send packets")
+			return fmt.Errorf("failed to send packets, see above logs for details")
 		}
 
 		return nil
-	}); err != nil {
+	}, retry.Attempts(3), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true)); err != nil {
 		src.Error(err)
 	}
 }

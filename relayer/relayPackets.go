@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"fmt"
+	"time"
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -44,21 +45,26 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders)
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
 		// NOTE: Timeouts currently only work with ORDERED channels for nwo
-		dstRecvRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
-		if err != nil {
+		queryHeight := sh.GetHeight(dst.ChainID) - 1
+		dstRecvRes, err = dst.QueryPacketCommitment(int64(queryHeight), rp.seq)
+		switch {
+		case err != nil:
 			return err
-		} else if dstRecvRes.Proof == nil || dstRecvRes.Commitment == nil {
-			if err := sh.Update(src); err != nil {
-				return err
-			}
-			if err := sh.Update(dst); err != nil {
-				return err
-			}
-			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)",
-				dst.ChainID, int64(sh.GetHeight(dst.ChainID)), rp.seq)
+		case dstRecvRes.Commitment == nil:
+			return fmt.Errorf("timeout packet commitment query seq(%d) is nil", rp.seq)
+		case dstRecvRes.Proof == nil:
+			return fmt.Errorf("timeout packet commitment proof seq(%d) is nil", rp.seq)
+		default:
+			return nil
 		}
-		return nil
-	}); err != nil {
+	}, retry.Attempts(5), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true),
+		retry.OnRetry(func(n uint, err error) {
+			// OnRetry we want to update the headers and then debug log
+			sh.Updates(src, dst)
+			if dst.debug {
+				dst.Log(fmt.Sprintf("- [%s]@{%d} Failed to query packet commitment %d/5: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, err))
+			}
+		})); err != nil {
 		dst.Error(err)
 		return
 	}
@@ -68,7 +74,7 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders)
 
 func (rp *relayMsgTimeout) Msg(src, dst *Chain) (sdk.Msg, error) {
 	if rp.dstRecvRes == nil {
-		return nil, fmt.Errorf("timeout packet [%c]seq{%d} has no associated proofs: %w", src.ChainID, rp.seq)
+		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
 	}
 	version := clienttypes.ParseChainID(src.PathEnd.ChainID)
 	msg := chantypes.NewMsgTimeout(
@@ -128,17 +134,24 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeade
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
 		dstCommitRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
-		if err != nil {
+		switch {
+		case err != nil:
 			return err
-		} else if dstCommitRes.Proof == nil || dstCommitRes.Commitment == nil {
-			if err = sh.Updates(src, dst); err != nil {
-				return err
-			}
-			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)",
-				dst.ChainID, int64(sh.GetHeight(dst.ChainID)), rp.seq)
+		case dstCommitRes.Proof == nil:
+			return fmt.Errorf("recv packet commitment proof seq(%d) is nil", rp.seq)
+		case dstCommitRes.Commitment == nil:
+			return fmt.Errorf("recv packet commitment query seq(%d) is nil", rp.seq)
+		default:
+			return nil
 		}
-		return nil
-	}); err != nil {
+	}, retry.Attempts(5), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true),
+		retry.OnRetry(func(n uint, err error) {
+			// OnRetry we want to update the headers and then debug log
+			sh.Updates(src, dst)
+			if dst.debug {
+				dst.Log(fmt.Sprintf("- [%s]@{%d} Failed to query packet commitment %d/5: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, err))
+			}
+		})); err != nil {
 		dst.Error(err)
 		return
 	}
@@ -149,7 +162,7 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeade
 
 func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) (sdk.Msg, error) {
 	if rp.dstComRes == nil {
-		return nil, fmt.Errorf("recieve packet [%c]seq{%d} has no associated proofs: %w", src.ChainID, rp.seq)
+		return nil, fmt.Errorf("recieve packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
 	}
 	version := clienttypes.ParseChainID(src.PathEnd.ChainID)
 	packet := chantypes.NewPacket(
@@ -192,7 +205,7 @@ func (rp *relayMsgPacketAck) Timeout() uint64 {
 
 func (rp *relayMsgPacketAck) Msg(src, dst *Chain) (sdk.Msg, error) {
 	if rp.dstComRes == nil {
-		return nil, fmt.Errorf("ack packet [%c]seq{%d} has no associated proofs: %w", src.ChainID, rp.seq)
+		return nil, fmt.Errorf("ack packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
 	}
 	version := clienttypes.ParseChainID(dst.PathEnd.ChainID)
 	msg := chantypes.NewMsgAcknowledgement(
@@ -216,22 +229,27 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) (sdk.Msg, error) {
 
 func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
 	var dstCommitRes *chantypes.QueryPacketCommitmentResponse
+	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
 		dstCommitRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
-		if err != nil {
+		switch {
+		case err != nil:
 			return err
-		} else if dstCommitRes.Proof == nil || dstCommitRes.Commitment == nil {
-			if err := sh.Update(src); err != nil {
-				return err
-			}
-			if err := sh.Update(dst); err != nil {
-				return err
-			}
-			return fmt.Errorf("- [%s]@{%d} - Packet Ack Proof is nil seq(%d)",
-				dst.ChainID, int64(sh.GetHeight(dst.ChainID)), rp.seq)
+		case dstCommitRes.Proof == nil:
+			return fmt.Errorf("ack packet commitment proof seq(%d) is nil", rp.seq)
+		case dstCommitRes.Commitment == nil:
+			return fmt.Errorf("ack packet commitment query seq(%d) is nil", rp.seq)
+		default:
+			return nil
 		}
-		return nil
-	}); err != nil {
+	}, retry.Attempts(5), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true),
+		retry.OnRetry(func(n uint, err error) {
+			// OnRetry we want to update the headers and then debug log
+			sh.Updates(src, dst)
+			if dst.debug {
+				dst.Log(fmt.Sprintf("- [%s]@{%d} Failed to query packet commitment %d/5: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, err))
+			}
+		})); err != nil {
 		dst.Error(err)
 		return
 	}

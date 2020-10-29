@@ -125,11 +125,15 @@ func (c *Chain) LightClientWithoutTrust(db dbm.DB) (*light.Client, error) {
 
 	if err := retry.Do(func() error {
 		height, err = c.QueryLatestHeight()
-		if err != nil || height == 0 {
+		switch {
+		case err != nil:
 			return err
+		case height == 0:
+			return fmt.Errorf("shouldn't be here")
+		default:
+			return nil
 		}
-		return nil
-	}); err != nil {
+	}, retry.Attempts(3), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true)); err != nil {
 		return nil, err
 	}
 
@@ -194,7 +198,7 @@ func (c *Chain) NewLightDB() (db *dbm.GoLevelDB, df func(), err error) {
 			return fmt.Errorf("can't open light client database: %w", err)
 		}
 		return nil
-	}); err != nil {
+	}, retry.Attempts(3), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true)); err != nil {
 		return nil, nil, err
 	}
 

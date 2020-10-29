@@ -99,13 +99,18 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	eg.Go(func() error {
 		var err error
 		retry.Do(func() error {
+			// Get the trusted header data
 			srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(c, dst)
-			if err != nil {
-				c.Log(fmt.Sprintf("- failed to update headers, retrying %s", err))
-				sh.Updates(c, dst)
-			}
 			return err
-		})
+		}, retry.Attempts(3), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true),
+			retry.OnRetry(func(n uint, err error) {
+				// in the case of a retry, debug logging for retry...
+				if c.debug {
+					c.Log(fmt.Sprintf("- failed to update headers, retrying %d/3: %s", n, err))
+				}
+				// ...and update headers again
+				sh.Updates(c, dst)
+			}))
 		return err
 	})
 

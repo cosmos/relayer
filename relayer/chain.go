@@ -267,6 +267,8 @@ func (c *Chain) CLIContext(height int64) sdkCtx.Context {
 		WithTxConfig(c.Encoding.TxConfig).
 		WithLegacyAmino(c.Encoding.Amino).
 		WithInput(os.Stdin).
+		WithNodeURI(c.RPCAddr).
+		WithClient(c.Client).
 		WithAccountRetriever(authTypes.AccountRetriever{}).
 		WithBroadcastMode(flags.BroadcastBlock).
 		WithKeyring(c.Keybase).
