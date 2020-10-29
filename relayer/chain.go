@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	retry "github.com/avast/retry-go"
 	sdkCtx "github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	tx "github.com/cosmos/cosmos-sdk/client/tx"
@@ -28,6 +29,13 @@ import (
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	libclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
+)
+
+var (
+	rtyAttNum = uint(5)
+	rtyAtt    = retry.Attempts(rtyAttNum)
+	rtyDel    = retry.Delay(time.Millisecond * 200)
+	rtyErr    = retry.LastErrorOnly(true)
 )
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites

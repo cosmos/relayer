@@ -2,7 +2,6 @@ package relayer
 
 import (
 	"fmt"
-	"time"
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -57,14 +56,13 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders)
 		default:
 			return nil
 		}
-	}, retry.Attempts(5), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true),
-		retry.OnRetry(func(n uint, err error) {
-			// OnRetry we want to update the headers and then debug log
-			sh.Updates(src, dst)
-			if dst.debug {
-				dst.Log(fmt.Sprintf("- [%s]@{%d} Failed to query packet commitment %d/5: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, err))
-			}
-		})); err != nil {
+	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+		// OnRetry we want to update the headers and then debug log
+		sh.Updates(src, dst)
+		if dst.debug {
+			dst.Log(fmt.Sprintf("- [%s]@{%d} Failed to query packet commitment %d/%d: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
+		}
+	})); err != nil {
 		dst.Error(err)
 		return
 	}
@@ -144,14 +142,13 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeade
 		default:
 			return nil
 		}
-	}, retry.Attempts(5), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true),
-		retry.OnRetry(func(n uint, err error) {
-			// OnRetry we want to update the headers and then debug log
-			sh.Updates(src, dst)
-			if dst.debug {
-				dst.Log(fmt.Sprintf("- [%s]@{%d} Failed to query packet commitment %d/5: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, err))
-			}
-		})); err != nil {
+	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+		// OnRetry we want to update the headers and then debug log
+		sh.Updates(src, dst)
+		if dst.debug {
+			dst.Log(fmt.Sprintf("- [%s]@{%d} Failed to query packet commitment %d/%d: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
+		}
+	})); err != nil {
 		dst.Error(err)
 		return
 	}
@@ -190,7 +187,7 @@ type relayMsgPacketAck struct {
 	seq          uint64
 	timeout      uint64
 	timeoutStamp uint64
-	dstComRes    *chantypes.QueryPacketCommitmentResponse
+	dstComRes    *chantypes.QueryPacketAcknowledgementResponse
 }
 
 func (rp *relayMsgPacketAck) Data() []byte {
@@ -228,28 +225,27 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) (sdk.Msg, error) {
 }
 
 func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
-	var dstCommitRes *chantypes.QueryPacketCommitmentResponse
+	var dstCommitRes *chantypes.QueryPacketAcknowledgementResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
-		dstCommitRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
+		dstCommitRes, err = dst.QueryPacketAck(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
 		switch {
 		case err != nil:
 			return err
 		case dstCommitRes.Proof == nil:
 			return fmt.Errorf("ack packet commitment proof seq(%d) is nil", rp.seq)
-		case dstCommitRes.Commitment == nil:
+		case dstCommitRes.Acknowledgement == nil:
 			return fmt.Errorf("ack packet commitment query seq(%d) is nil", rp.seq)
 		default:
 			return nil
 		}
-	}, retry.Attempts(5), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true),
-		retry.OnRetry(func(n uint, err error) {
-			// OnRetry we want to update the headers and then debug log
-			sh.Updates(src, dst)
-			if dst.debug {
-				dst.Log(fmt.Sprintf("- [%s]@{%d} Failed to query packet commitment %d/5: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, err))
-			}
-		})); err != nil {
+	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+		// OnRetry we want to update the headers and then debug log
+		sh.Updates(src, dst)
+		if dst.debug {
+			dst.Log(fmt.Sprintf("- [%s]@{%d} Failed to query packet commitment %d/%d: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
+		}
+	})); err != nil {
 		dst.Error(err)
 		return
 	}

@@ -133,7 +133,7 @@ func (c *Chain) LightClientWithoutTrust(db dbm.DB) (*light.Client, error) {
 		default:
 			return nil
 		}
-	}, retry.Attempts(3), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true)); err != nil {
+	}, rtyAtt, rtyDel, rtyErr); err != nil {
 		return nil, err
 	}
 
@@ -198,7 +198,7 @@ func (c *Chain) NewLightDB() (db *dbm.GoLevelDB, df func(), err error) {
 			return fmt.Errorf("can't open light client database: %w", err)
 		}
 		return nil
-	}, retry.Attempts(3), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true)); err != nil {
+	}, rtyAtt, rtyDel, rtyErr); err != nil {
 		return nil, nil, err
 	}
 

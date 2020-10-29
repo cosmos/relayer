@@ -69,7 +69,7 @@ func queryIBCDenoms() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return chain.CLIContext(0).PrintOutput(res)
+			return chain.Print(res, false, false)
 		},
 	}
 	return cmd
@@ -182,7 +182,7 @@ func queryAccountCmd() *cobra.Command {
 				return err
 			}
 
-			return chain.CLIContext(0).PrintOutput(res)
+			return chain.Print(res, false, false)
 		},
 	}
 	return cmd
@@ -299,7 +299,7 @@ func queryHeaderCmd() *cobra.Command {
 
 			}
 
-			return chain.CLIContext(0).PrintOutput(header)
+			return chain.Print(header, false, false)
 		},
 	}
 
@@ -398,7 +398,7 @@ func queryClientsCmd() *cobra.Command {
 				return err
 			}
 
-			return chain.CLIContext(0).PrintOutput(res)
+			return chain.Print(res, false, false)
 		},
 	}
 
@@ -429,7 +429,7 @@ func queryValSetAtHeightCmd() *cobra.Command {
 				return err
 			}
 
-			return chain.CLIContext(0).PrintOutput(res)
+			return chain.Print(res, false, false)
 		},
 	}
 
@@ -463,7 +463,7 @@ func queryConnections() *cobra.Command {
 				return err
 			}
 
-			return chain.CLIContext(0).PrintOutput(res)
+			return chain.Print(res, false, false)
 		},
 	}
 

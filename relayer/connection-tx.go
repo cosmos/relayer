@@ -102,15 +102,14 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 			// Get the trusted header data
 			srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(c, dst)
 			return err
-		}, retry.Attempts(3), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true),
-			retry.OnRetry(func(n uint, err error) {
-				// in the case of a retry, debug logging for retry...
-				if c.debug {
-					c.Log(fmt.Sprintf("- failed to update headers, retrying %d/3: %s", n, err))
-				}
-				// ...and update headers again
-				sh.Updates(c, dst)
-			}))
+		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+			// in the case of a retry, debug logging for retry...
+			if c.debug {
+				c.Log(fmt.Sprintf("- failed to update headers, retrying %d/%d: %s", n+1, rtyAttNum, err))
+			}
+			// ...and update headers again
+			sh.Updates(c, dst)
+		}))
 		return err
 	})
 

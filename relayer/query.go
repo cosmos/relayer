@@ -137,7 +137,7 @@ func QueryClientStatePair(
 // QueryClients queries all the clients!
 func (c *Chain) QueryClients(offset, limit uint64) (*clienttypes.QueryClientStatesResponse, error) {
 	qc := clienttypes.NewQueryClient(c.CLIContext(0))
-	res, err := qc.ClientStates(context.Background(), &clienttypes.QueryClientStatesRequest{
+	return qc.ClientStates(context.Background(), &clienttypes.QueryClientStatesRequest{
 		Pagination: &querytypes.PageRequest{
 			Key:        []byte(""),
 			Offset:     offset,
@@ -145,7 +145,6 @@ func (c *Chain) QueryClients(offset, limit uint64) (*clienttypes.QueryClientStat
 			CountTotal: true,
 		},
 	})
-	return res, err
 }
 
 // ////////////////////////////
@@ -185,7 +184,6 @@ func (c *Chain) QueryConnection(height int64) (*conntypes.QueryConnectionRespons
 }
 
 var emptyConnRes = conntypes.NewQueryConnectionResponse(
-	"uninitialized",
 	conntypes.NewConnectionEnd(
 		conntypes.UNINITIALIZED,
 		"client",
@@ -249,8 +247,6 @@ func (c *Chain) QueryChannel(height int64) (chanRes *chantypes.QueryChannelRespo
 }
 
 var emptyChannelRes = chantypes.NewQueryChannelResponse(
-	"port",
-	"channel",
 	chantypes.NewChannel(
 		chantypes.UNINITIALIZED,
 		chantypes.UNORDERED,
@@ -442,6 +438,11 @@ func (c *Chain) QueryNextSeqRecv(height int64) (recvRes *chantypes.QueryNextSequ
 func (c *Chain) QueryPacketCommitment(
 	height int64, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error) {
 	return chanutils.QueryPacketCommitment(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, seq, true)
+}
+
+// QueryPacketAck returns the packet ack proof at a given height
+func (c *Chain) QueryPacketAck(height int64, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
+	return chanutils.QueryPacketAcknowledgement(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, seq, true)
 }
 
 // QueryPacketCommitments returns an array of packet commitment proofs

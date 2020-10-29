@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -58,12 +57,11 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 			default:
 				return nil
 			}
-		}, retry.Attempts(3), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true),
-			retry.OnRetry(func(n uint, err error) {
-				if src.debug {
-					src.Log(fmt.Sprintf("- [%s] failed to query packet commitments %d/3, retrying: %s", src.ChainID, n, err))
-				}
-			})); err != nil {
+		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+			if src.debug {
+				src.Log(fmt.Sprintf("- [%s] failed to query packet commitments %d/%d, retrying: %s", src.ChainID, n+1, rtyAttNum, err))
+			}
+		})); err != nil {
 			return err
 		}
 		for _, pc := range res.Commitments {
@@ -84,12 +82,11 @@ func (nrs *NaiveStrategy) UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHea
 			default:
 				return nil
 			}
-		}, retry.Attempts(3), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true),
-			retry.OnRetry(func(n uint, err error) {
-				if dst.debug {
-					dst.Log(fmt.Sprintf("- [%s] failed to query packet commitments %d/3, retrying: %s", dst.ChainID, n, err))
-				}
-			})); err != nil {
+		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+			if dst.debug {
+				dst.Log(fmt.Sprintf("- [%s] failed to query packet commitments %d/%d, retrying: %s", dst.ChainID, n+1, rtyAttNum, err))
+			}
+		})); err != nil {
 			return err
 		}
 		for _, pc := range res.Commitments {
@@ -246,6 +243,7 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 	}
 
 	// send the transaction, retrying if not successful
+	// TODO: have seperate retries for different pieces here
 	if err := retry.Do(func() error {
 		if err := sh.Updates(src, dst); err != nil {
 			if src.debug {
@@ -287,7 +285,7 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 		}
 
 		return nil
-	}, retry.Attempts(3), retry.Delay(time.Millisecond*200), retry.LastErrorOnly(true)); err != nil {
+	}, rtyAtt, rtyDel, rtyErr); err != nil {
 		src.Error(err)
 	}
 }
