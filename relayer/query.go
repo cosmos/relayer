@@ -474,10 +474,10 @@ func (c *Chain) QueryUnrecievedPackets(height uint64, seqs []uint64) ([]uint64, 
 // QueryUnrelayedAcks returns a list of unrelayed packet acks
 func (c *Chain) QueryUnrelayedAcks(height uint64, seqs []uint64) ([]uint64, error) {
 	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
-	res, err := qc.UnrelayedAcks(context.Background(), &chantypes.QueryUnrelayedAcksRequest{
-		PortId:                    c.PathEnd.PortID,
-		ChannelId:                 c.PathEnd.ChannelID,
-		PacketCommitmentSequences: seqs,
+	res, err := qc.UnreceivedAcks(context.Background(), &chantypes.QueryUnreceivedAcksRequest{
+		PortId:             c.PathEnd.PortID,
+		ChannelId:          c.PathEnd.ChannelID,
+		PacketAckSequences: seqs,
 	})
 	return res.Sequences, err
 }
