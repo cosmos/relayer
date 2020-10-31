@@ -16,10 +16,10 @@ var (
 type Strategy interface {
 	GetType() string
 	HandleEvents(src, dst *Chain, sh *SyncHeaders, events map[string][]string)
-	UnrelayedSequencesUnordered(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error)
-	UnrelayedSequencesOrdered(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error)
-	RelayPacketsOrderedChan(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) error
-	RelayPacketsUnorderedChan(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) error
+	UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error)
+	UnrelayedAcknowledgements(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error)
+	RelayPackets(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) error
+	RelayAcknowledgements(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) error
 }
 
 // MustGetStrategy returns the strategy and panics on error
@@ -61,25 +61,12 @@ func RunStrategy(src, dst *Chain, strategy Strategy, ordered bool) (func(), erro
 	go relayerListenLoop(src, dst, doneChan, sh, strategy)
 
 	// Fetch any unrelayed sequences depending on the channel order
-	var sp *RelaySequences
-	if ordered {
-		sp, err = strategy.UnrelayedSequencesOrdered(src, dst, sh)
-	} else {
-		sp, err = strategy.UnrelayedSequencesUnordered(src, dst, sh)
-	}
-
+	sp, err := strategy.UnrelayedSequences(src, dst, sh)
 	if err != nil {
 		return nil, err
 	}
 
-	// Relay any packets that remain to be relayed depending on order
-	if ordered {
-		err = strategy.RelayPacketsOrderedChan(src, dst, sp, sh)
-	} else {
-		err = strategy.RelayPacketsUnorderedChan(src, dst, sp, sh)
-	}
-
-	if err != nil {
+	if err = strategy.RelayPackets(src, dst, sp, sh); err != nil {
 		return nil, err
 	}
 

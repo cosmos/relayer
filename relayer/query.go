@@ -440,16 +440,35 @@ func (c *Chain) QueryPacketCommitment(
 	return chanutils.QueryPacketCommitment(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, seq, true)
 }
 
-// QueryPacketAck returns the packet ack proof at a given height
-func (c *Chain) QueryPacketAck(height int64, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
+// QueryPacketAcknowledgement returns the packet ack proof at a given height
+func (c *Chain) QueryPacketAcknowledgement(height int64, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
 	return chanutils.QueryPacketAcknowledgement(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, seq, true)
 }
 
-// QueryPacketCommitments returns an array of packet commitment proofs
+// QueryPacketReciept returns the packet reciept proof at a given height
+func (c *Chain) QueryPacketReciept(height int64, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
+	return chanutils.QueryPacketReceipt(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, seq, true)
+}
+
+// QueryPacketCommitments returns an array of packet commitments
 func (c *Chain) QueryPacketCommitments(
 	offset, limit, height uint64) (comRes *chantypes.QueryPacketCommitmentsResponse, err error) {
 	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
 	return qc.PacketCommitments(context.Background(), &chantypes.QueryPacketCommitmentsRequest{
+		PortId:    c.PathEnd.PortID,
+		ChannelId: c.PathEnd.ChannelID,
+		Pagination: &querytypes.PageRequest{
+			Offset:     offset,
+			Limit:      limit,
+			CountTotal: true,
+		},
+	})
+}
+
+// QueryPacketAcknowledgements returns an array of packet acks
+func (c *Chain) QueryPacketAcknowledgements(offset, limit, height uint64) (comRes *chantypes.QueryPacketAcknowledgementsResponse, err error) {
+	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
+	return qc.PacketAcknowledgements(context.Background(), &chantypes.QueryPacketAcknowledgementsRequest{
 		PortId:    c.PathEnd.PortID,
 		ChannelId: c.PathEnd.ChannelID,
 		Pagination: &querytypes.PageRequest{
@@ -471,8 +490,8 @@ func (c *Chain) QueryUnrecievedPackets(height uint64, seqs []uint64) ([]uint64, 
 	return res.Sequences, err
 }
 
-// QueryUnrelayedAcks returns a list of unrelayed packet acks
-func (c *Chain) QueryUnrelayedAcks(height uint64, seqs []uint64) ([]uint64, error) {
+// QueryUnrecievedAcknowledgements returns a list of unrelayed packet acks
+func (c *Chain) QueryUnrecievedAcknowledgements(height uint64, seqs []uint64) ([]uint64, error) {
 	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
 	res, err := qc.UnreceivedAcks(context.Background(), &chantypes.QueryUnreceivedAcksRequest{
 		PortId:             c.PathEnd.PortID,

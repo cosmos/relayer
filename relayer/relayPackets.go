@@ -22,7 +22,7 @@ type relayMsgTimeout struct {
 	seq          uint64
 	timeout      uint64
 	timeoutStamp uint64
-	dstRecvRes   *chantypes.QueryPacketCommitmentResponse
+	dstRecvRes   *chantypes.QueryPacketReceiptResponse
 
 	pass bool
 }
@@ -40,19 +40,17 @@ func (rp *relayMsgTimeout) Timeout() uint64 {
 }
 
 func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
-	var dstRecvRes *chantypes.QueryPacketCommitmentResponse
+	var dstRecvRes *chantypes.QueryPacketReceiptResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
 		// NOTE: Timeouts currently only work with ORDERED channels for nwo
 		queryHeight := sh.GetHeight(dst.ChainID) - 1
-		dstRecvRes, err = dst.QueryPacketCommitment(int64(queryHeight), rp.seq)
+		dstRecvRes, err = dst.QueryPacketReciept(int64(queryHeight), rp.seq)
 		switch {
 		case err != nil:
 			return err
-		case dstRecvRes.Commitment == nil:
-			return fmt.Errorf("timeout packet commitment query seq(%d) is nil", rp.seq)
 		case dstRecvRes.Proof == nil:
-			return fmt.Errorf("timeout packet commitment proof seq(%d) is nil", rp.seq)
+			return fmt.Errorf("timeout packet reciept proof seq(%d) is nil", rp.seq)
 		default:
 			return nil
 		}
@@ -79,10 +77,10 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) (sdk.Msg, error) {
 		chantypes.NewPacket(
 			rp.packetData,
 			rp.seq,
-			dst.PathEnd.PortID,
-			dst.PathEnd.ChannelID,
 			src.PathEnd.PortID,
 			src.PathEnd.ChannelID,
+			dst.PathEnd.PortID,
+			dst.PathEnd.ChannelID,
 			clienttypes.NewHeight(version, rp.timeout),
 			rp.timeoutStamp,
 		),
@@ -188,6 +186,8 @@ type relayMsgPacketAck struct {
 	timeout      uint64
 	timeoutStamp uint64
 	dstComRes    *chantypes.QueryPacketAcknowledgementResponse
+
+	pass bool
 }
 
 func (rp *relayMsgPacketAck) Data() []byte {
@@ -228,7 +228,7 @@ func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, sh *SyncHeader
 	var dstCommitRes *chantypes.QueryPacketAcknowledgementResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
-		dstCommitRes, err = dst.QueryPacketAck(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
+		dstCommitRes, err = dst.QueryPacketAcknowledgement(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
 		switch {
 		case err != nil:
 			return err

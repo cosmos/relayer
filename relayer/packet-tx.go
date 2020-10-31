@@ -9,9 +9,7 @@ import (
 )
 
 var (
-	defaultChainPrefix     = commitmentypes.NewMerklePrefix([]byte("ibc"))
-	defaultPacketSendQuery = "send_packet.packet_src_channel=%s&send_packet.packet_sequence=%d"
-	// defaultPacketAckQuery  = "recv_packet.packet_src_channel=%s&recv_packet.packet_sequence=%d"
+	defaultChainPrefix = commitmentypes.NewMerklePrefix([]byte("ibc"))
 )
 
 // SendTransferMsg initiates an ibs20 transfer from src to dst with the specified args
