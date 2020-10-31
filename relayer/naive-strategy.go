@@ -25,6 +25,7 @@ var (
 	srcPortTag  = "packet_src_port"
 	dstPortTag  = "packet_dst_port"
 	dataTag     = "packet_data"
+	ackTag      = "packet_ack"
 	toHeightTag = "packet_timeout_height"
 	toTsTag     = "packet_timeout_timestamp"
 	seqTag      = "packet_sequence"
@@ -74,7 +75,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 			if src.debug {
-				src.Log(fmt.Sprintf("- [%s] failed to query packet commitments %d/%d, retrying: %s", src.ChainID, n+1, rtyAttNum, err))
+				src.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitments: %s", src.ChainID, sh.GetHeight(src.ChainID), n+1, rtyAttNum, err))
 			}
 		})); err != nil {
 			return err
@@ -99,7 +100,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 			if dst.debug {
-				dst.Log(fmt.Sprintf("- [%s] failed to query packet commitments %d/%d, retrying: %s", dst.ChainID, n+1, rtyAttNum, err))
+				dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitments: %s", dst.ChainID, sh.GetHeight(dst.ChainID), n+1, rtyAttNum, err))
 			}
 		})); err != nil {
 			return err
@@ -152,14 +153,13 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain, sh *SyncHea
 			case err != nil:
 				return err
 			case res == nil:
-				return fmt.Errorf("No error on QueryUnrelayedAcknowledgements for %s, however response is nil", src.ChainID)
+				return src.errQueryUnrelayedPacketAcks()
 			default:
 				return nil
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-			if src.debug {
-				src.Log(fmt.Sprintf("- [%s] failed to query packet commitments %d/%d, retrying: %s", src.ChainID, n+1, rtyAttNum, err))
-			}
+			src.logRetryQueryPacketAcknowledgements(sh.GetHeight(src.ChainID), n, err)
+			sh.Updates(src, dst)
 		})); err != nil {
 			return err
 		}
@@ -177,14 +177,13 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain, sh *SyncHea
 			case err != nil:
 				return err
 			case res == nil:
-				return fmt.Errorf("No error on QueryPacketUnrelayedAcknowledgements for %s, however response is nil", dst.ChainID)
+				return dst.errQueryUnrelayedPacketAcks()
 			default:
 				return nil
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-			if dst.debug {
-				dst.Log(fmt.Sprintf("- [%s] failed to query packet commitments %d/%d, retrying: %s", dst.ChainID, n+1, rtyAttNum, err))
-			}
+			dst.logRetryQueryPacketAcknowledgements(sh.GetHeight(dst.ChainID), n, err)
+			sh.Updates(src, dst)
 		})); err != nil {
 			return err
 		}
@@ -227,13 +226,13 @@ func (nrs *NaiveStrategy) HandleEvents(src, dst *Chain, sh *SyncHeaders, events 
 
 func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string) (rlyPkts []relayPacket, err error) {
 	// check for send packets
-	if pdval, ok := events["send_packet.packet_data"]; ok {
+	if pdval, ok := events[fmt.Sprintf("%s.%s", spTag, dataTag)]; ok {
 		for i, pd := range pdval {
 			// Ensure that we only relay over the channel and port specified
 			// OPTIONAL FEATURE: add additional filtering options
 			// Example Events - "transfer.amount(sdk.Coin)", "message.sender(sdk.AccAddress)"
-			srcChan, srcPort := events["send_packet.packet_src_channel"], events["send_packet.packet_src_port"]
-			dstChan, dstPort := events["send_packet.packet_dst_channel"], events["send_packet.packet_dst_port"]
+			srcChan, srcPort := events[fmt.Sprintf("%s.%s", spTag, srcChanTag)], events[fmt.Sprintf("%s.%s", spTag, srcPortTag)]
+			dstChan, dstPort := events[fmt.Sprintf("%s.%s", spTag, dstChanTag)], events[fmt.Sprintf("%s.%s", spTag, dstPortTag)]
 
 			// NOTE: Src and Dst are switched here
 			if dst.PortID == srcPort[i] && dst.ChannelID == srcChan[i] &&
@@ -241,7 +240,7 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 				rp := &relayMsgRecvPacket{packetData: []byte(pd)}
 
 				// next, get and parse the sequence
-				if sval, ok := events["send_packet.packet_sequence"]; ok {
+				if sval, ok := events[fmt.Sprintf("%s.%s", spTag, seqTag)]; ok {
 					seq, err := strconv.ParseUint(sval[i], 10, 64)
 					if err != nil {
 						return nil, err
@@ -250,7 +249,7 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 				}
 
 				// finally, get and parse the timeout
-				if sval, ok := events["send_packet.packet_timeout_height"]; ok {
+				if sval, ok := events[fmt.Sprintf("%s.%s", spTag, toHeightTag)]; ok {
 					timeout, err := clienttypes.ParseHeight(sval[i])
 					if err != nil {
 						return nil, err
@@ -259,7 +258,7 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 				}
 
 				// finally, get and parse the timeout
-				if sval, ok := events["send_packet.packet_timeout_timestamp"]; ok {
+				if sval, ok := events[fmt.Sprintf("%s.%s", spTag, toTsTag)]; ok {
 					timeout, err := strconv.ParseUint(sval[i], 10, 64)
 					if err != nil {
 						return nil, err
@@ -274,12 +273,12 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 	}
 
 	// then, check for packet acks
-	if pdval, ok := events["recv_packet.packet_data"]; ok {
+	if pdval, ok := events[fmt.Sprintf("%s.%s", waTag, dataTag)]; ok {
 		for i, pd := range pdval {
 			// Ensure that we only relay over the channel and port specified
 			// OPTIONAL FEATURE: add additional filtering options
-			srcChan, srcPort := events["recv_packet.packet_src_channel"], events["recv_packet.packet_src_port"]
-			dstChan, dstPort := events["recv_packet.packet_dst_channel"], events["recv_packet.packet_dst_port"]
+			srcChan, srcPort := events[fmt.Sprintf("%s.%s", waTag, srcChanTag)], events[fmt.Sprintf("%s.%s", waTag, srcPortTag)]
+			dstChan, dstPort := events[fmt.Sprintf("%s.%s", waTag, dstChanTag)], events[fmt.Sprintf("%s.%s", waTag, dstPortTag)]
 
 			// NOTE: Src and Dst are not switched here
 			if src.PortID == srcPort[i] && src.ChannelID == srcChan[i] &&
@@ -287,11 +286,11 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 				rp := &relayMsgPacketAck{packetData: []byte(pd)}
 
 				// first get the ack
-				if ack, ok := events["recv_packet.packet_ack"]; ok {
+				if ack, ok := events[fmt.Sprintf("%s.%s", waTag, ackTag)]; ok {
 					rp.ack = []byte(ack[i])
 				}
 				// next, get and parse the sequence
-				if sval, ok := events["recv_packet.packet_sequence"]; ok {
+				if sval, ok := events[fmt.Sprintf("%s.%s", waTag, seqTag)]; ok {
 					seq, err := strconv.ParseUint(sval[i], 10, 64)
 					if err != nil {
 						return nil, err
@@ -300,7 +299,7 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 				}
 
 				// finally, get and parse the timeout
-				if sval, ok := events["recv_packet.packet_timeout_height"]; ok {
+				if sval, ok := events[fmt.Sprintf("%s.%s", waTag, toHeightTag)]; ok {
 					timeout, err := clienttypes.ParseHeight(sval[i])
 					if err != nil {
 						return nil, err
@@ -309,7 +308,7 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 				}
 
 				// finally, get and parse the timeout
-				if sval, ok := events["recv_packet.packet_timeout_timestamp"]; ok {
+				if sval, ok := events[fmt.Sprintf("%s.%s", waTag, toTsTag)]; ok {
 					timeout, err := strconv.ParseUint(sval[i], 10, 64)
 					if err != nil {
 						return nil, err

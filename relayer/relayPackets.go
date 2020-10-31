@@ -58,7 +58,7 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders)
 		// OnRetry we want to update the headers and then debug log
 		sh.Updates(src, dst)
 		if dst.debug {
-			dst.Log(fmt.Sprintf("- [%s]@{%d} Failed to query packet commitment %d/%d: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
+			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet reciept: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
 		}
 	})); err != nil {
 		dst.Error(err)
@@ -144,7 +144,7 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeade
 		// OnRetry we want to update the headers and then debug log
 		sh.Updates(src, dst)
 		if dst.debug {
-			dst.Log(fmt.Sprintf("- [%s]@{%d} Failed to query packet commitment %d/%d: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
+			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitment: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
 		}
 	})); err != nil {
 		dst.Error(err)
@@ -233,9 +233,9 @@ func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, sh *SyncHeader
 		case err != nil:
 			return err
 		case dstCommitRes.Proof == nil:
-			return fmt.Errorf("ack packet commitment proof seq(%d) is nil", rp.seq)
+			return fmt.Errorf("ack packet acknowledgement proof seq(%d) is nil", rp.seq)
 		case dstCommitRes.Acknowledgement == nil:
-			return fmt.Errorf("ack packet commitment query seq(%d) is nil", rp.seq)
+			return fmt.Errorf("ack packet acknowledgement query seq(%d) is nil", rp.seq)
 		default:
 			return nil
 		}
@@ -243,7 +243,7 @@ func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, sh *SyncHeader
 		// OnRetry we want to update the headers and then debug log
 		sh.Updates(src, dst)
 		if dst.debug {
-			dst.Log(fmt.Sprintf("- [%s]@{%d} Failed to query packet commitment %d/%d: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
+			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgement: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
 		}
 	})); err != nil {
 		dst.Error(err)

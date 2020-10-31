@@ -48,7 +48,7 @@ type StrategyCfg struct {
 }
 
 // RunStrategy runs a given strategy
-func RunStrategy(src, dst *Chain, strategy Strategy, ordered bool) (func(), error) {
+func RunStrategy(src, dst *Chain, strategy Strategy) (func(), error) {
 	doneChan := make(chan struct{})
 
 	// Fetch latest headers for each chain and store them in sync headers

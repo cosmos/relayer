@@ -39,11 +39,7 @@ func startCmd() *cobra.Command {
 				return err
 			}
 
-			// ensure that keys exist
-			if _, err = c[src].GetAddress(); err != nil {
-				return err
-			}
-			if _, err = c[dst].GetAddress(); err != nil {
+			if err = ensureKeysExist(c); err != nil {
 				return err
 			}
 
@@ -53,7 +49,7 @@ func startCmd() *cobra.Command {
 				return err
 			}
 
-			done, err := relayer.RunStrategy(c[src], c[dst], strategy, path.Ordered())
+			done, err := relayer.RunStrategy(c[src], c[dst], strategy)
 			if err != nil {
 				return err
 			}
