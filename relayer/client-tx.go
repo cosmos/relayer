@@ -70,7 +70,7 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 
 	// Send msgs to both chains
 	if clients.Ready() {
-		if clients.Send(c, dst); clients.success {
+		if clients.Send(c, dst); clients.Success() {
 			c.Log(fmt.Sprintf("★ Clients created: [%s]client(%s) and [%s]client(%s)",
 				c.ChainID, c.PathEnd.ClientID, dst.ChainID, dst.PathEnd.ClientID))
 		}
@@ -98,7 +98,7 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 
 	// Send msgs to both chains
 	if clients.Ready() {
-		if clients.Send(c, dst); clients.success {
+		if clients.Send(c, dst); clients.Success() {
 			c.Log(fmt.Sprintf("★ Clients updated: [%s]client(%s) {%d}->{%d} and [%s]client(%s) {%d}->{%d}",
 				c.ChainID,
 				c.PathEnd.ClientID,

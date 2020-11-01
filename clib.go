@@ -14,8 +14,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/iqlusioninc/relayer/cmd"
-	"github.com/iqlusioninc/relayer/relayer"
+	"github.com/ovrclk/relayer/cmd"
+	"github.com/ovrclk/relayer/relayer"
 )
 
 type goReturn = struct {
