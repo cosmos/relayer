@@ -1,3 +1,9 @@
+// This is the entry point for a shared library built around the relayer.
+// It depends on cgo, unlike the rly binary.
+//
+// This library was used as the basis for the Agoric Smart Relay:
+// https://github.com/Agoric/agoric-sdk/tree/goz-smart-relay/packages/smart-relay
+
 package main
 
 // /* These comments before the import "C" are included in the C output. */

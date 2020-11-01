@@ -33,7 +33,7 @@ build-zip: go.sum
 
 # Compile the relayer as a shared library to be linked into another program
 compile-clib:
-	go build -v -mod=readonly -buildmode=c-shared -o librelayer.so clib.go 
+	go build -v -mod=readonly -buildmode=c-shared -o librelayer.so ./clib
 
 install: go.sum
 	@echo "installing rly binary..."
