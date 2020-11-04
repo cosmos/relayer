@@ -759,6 +759,9 @@ func acknowledgementsFromResultTx(src, dst *PathEnd, res *ctypes.ResultTx, sh *S
 						continue
 					}
 				}
+				if string(p.Key) == ackTag {
+					rp.ack = p.Value
+				}
 				if string(p.Key) == dataTag {
 					rp.packetData = p.Value
 				}
