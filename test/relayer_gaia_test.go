@@ -10,8 +10,8 @@ import (
 
 var (
 	gaiaChains = []testChain{
-		{"ibc0", gaiaTestConfig},
-		{"ibc1", gaiaTestConfig},
+		{"ibc-0", gaiaTestConfig},
+		{"ibc-1", gaiaTestConfig},
 	}
 )
 
@@ -19,8 +19,8 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 	chains := spinUpTestChains(t, gaiaChains...)
 
 	var (
-		src         = chains.MustGet("ibc0")
-		dst         = chains.MustGet("ibc1")
+		src         = chains.MustGet("ibc-0")
+		dst         = chains.MustGet("ibc-1")
 		testDenom   = "samoleans"
 		testCoin    = sdk.NewCoin(testDenom, sdk.NewInt(1000))
 		twoTestCoin = sdk.NewCoin(testDenom, sdk.NewInt(2000))

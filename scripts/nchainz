@@ -284,6 +284,7 @@ while [[ $# -gt 0 ]]; do
     init)
       case "$1" in
       skip) SKIP=yes ;;
+      norun) SKIP=norun ;;
       *=*) CHAINS+=( "$1" ) ;;
       *:*) LINKS+=( "$1" ) ;;
       *)
@@ -417,7 +418,7 @@ chains)
   ;;
 clients)
   source "$NCONFIG"
-  RELAYER_CONF="$HOME/.relayer"
+  RELAYER_CONF=$(rly config show-home 2>/dev/null || echo "$HOME/.relayer")
 
   set -e
 
@@ -668,6 +669,10 @@ Done generating $BASEDIR
 You can use: \`$progname [run|relay]' at any time.
 
 EOF
+
+if [[ $SKIP == norun ]]; then
+  exit 0
+fi
 
 if [[ $SKIP != yes ]]; then
   read -p "Do you wish to \`run', and \`relay' right now (y/N)? " -n 1 -r

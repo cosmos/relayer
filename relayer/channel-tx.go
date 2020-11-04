@@ -36,7 +36,7 @@ func (c *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) error 
 		switch {
 		// In the case of success and this being the last transaction
 		// debug logging, log created connection and break
-		case chanSteps.success && chanSteps.last:
+		case chanSteps.Success() && chanSteps.Last:
 			srch, dsth, err := GetLatestLightHeights(c, dst)
 			if err != nil {
 				return err
@@ -53,11 +53,11 @@ func (c *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) error 
 				dst.ChainID, dst.PathEnd.ChannelID, dst.PathEnd.PortID))
 			return nil
 		// In the case of success, reset the failures counter
-		case chanSteps.success:
+		case chanSteps.Success():
 			failures = 0
 			continue
 		// In the case of failure, increment the failures counter and exit if this is the 3rd failure
-		case !chanSteps.success:
+		case !chanSteps.Success():
 			failures++
 			c.Log(fmt.Sprintf("retrying transaction..."))
 			time.Sleep(5 * time.Second)
@@ -167,7 +167,7 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayM
 			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 			c.PathEnd.ChanConfirm(dstChan, c.MustGetAddress()),
 		)
-		out.last = true
+		out.Last = true
 
 	// Handshake has confirmed on src (3 steps done), relay `chanOpenConfirm` and `updateClient` to dst
 	case srcChan.Channel.State == chantypes.OPEN && dstChan.Channel.State == chantypes.TRYOPEN:
@@ -178,7 +178,7 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayM
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			dst.PathEnd.ChanConfirm(srcChan, dst.MustGetAddress()),
 		)
-		out.last = true
+		out.Last = true
 	}
 
 	return out, nil
@@ -199,7 +199,7 @@ func (c *Chain) CloseChannel(dst *Chain, to time.Duration) error {
 			break
 		}
 
-		if closeSteps.Send(c, dst); closeSteps.success && closeSteps.last {
+		if closeSteps.Send(c, dst); closeSteps.Success() && closeSteps.Last {
 			srcChan, dstChan, err := QueryChannelPair(c, dst, 0, 0)
 			if err != nil {
 				return err
@@ -286,7 +286,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 				dst.PathEnd.ChanCloseConfirm(srcChan, dst.MustGetAddress()),
 			)
-			out.last = true
+			out.Last = true
 		}
 
 	// Closing handshake has started on dst, relay `updateClient` and `chanCloseConfirm` to src
@@ -299,7 +299,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 				c.PathEnd.ChanCloseConfirm(dstChan, c.MustGetAddress()),
 			)
-			out.last = true
+			out.Last = true
 		}
 	}
 	return out, nil

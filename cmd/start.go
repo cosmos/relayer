@@ -49,6 +49,17 @@ func startCmd() *cobra.Command {
 				return err
 			}
 
+			if relayer.SendToController != nil {
+				action := relayer.PathAction{
+					Path: path,
+					Type: "RELAYER_PATH_START",
+				}
+				cont, err := relayer.ControllerUpcall(&action)
+				if !cont {
+					return err
+				}
+			}
+
 			done, err := relayer.RunStrategy(c[src], c[dst], strategy)
 			if err != nil {
 				return err

@@ -94,6 +94,11 @@ func (p Paths) PathsFromChains(src, dst string) (Paths, error) {
 	return out, nil
 }
 
+type PathAction struct {
+	*Path
+	Type string `json:"type"`
+}
+
 // Path represents a pair of chains and the identifiers needed to
 // relay over them
 type Path struct {
