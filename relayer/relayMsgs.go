@@ -68,7 +68,7 @@ func (r *RelayMsgs) Send(src, dst *Chain) {
 func EncodeMsgs(c *Chain, msgs []sdk.Msg) []string {
 	outMsgs := make([]string, 0, len(msgs))
 	for _, msg := range msgs {
-		bz, err := c.Amino.MarshalJSON(msg)
+		bz, err := c.Encoding.Amino.MarshalJSON(msg)
 		if err != nil {
 			fmt.Println("Cannot marshal message", msg, err)
 		} else {
@@ -82,7 +82,7 @@ func DecodeMsgs(c *Chain, msgs []string) []sdk.Msg {
 	outMsgs := make([]sdk.Msg, 0, len(msgs))
 	for _, msg := range msgs {
 		var sm sdk.Msg
-		err := c.Amino.UnmarshalJSON([]byte(msg), &sm)
+		err := c.Encoding.Amino.UnmarshalJSON([]byte(msg), &sm)
 		if err != nil {
 			fmt.Println("Cannot unmarshal message", err)
 		} else {
