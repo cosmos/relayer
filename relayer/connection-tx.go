@@ -97,15 +97,13 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	// create the UpdateHeaders for src and dest Chains
 	eg.Go(func() error {
-		var err error
-		retry.Do(func() error {
+		return retry.Do(func() error {
 			srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(c, dst)
-			if err != nil {
-				sh.Updates(c, dst)
-			}
 			return err
-		})
-		return err
+		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+			logRetryUpdateHeaders(c, dst, n, err)
+			sh.Updates(c, dst)
+		}))
 	})
 
 	// Query Connection data from src and dst
@@ -145,9 +143,6 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 			return nil, err
 		}
 	}
-
-	unlock := SDKConfig.SetLock(c)
-	defer unlock()
 
 	switch {
 	// Handshake hasn't been started on src or dst, relay `connOpenInit` to src

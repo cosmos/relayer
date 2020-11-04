@@ -9,7 +9,7 @@ import (
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
-	"github.com/ovrclk/relayer/relayer"
+	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
@@ -660,6 +660,17 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		return nil, err
 	}
 
+	fmt.Printf("enter src(%s) version...\n", src)
+	if value, err = readStdin(); err != nil {
+		return nil, err
+	}
+
+	path.Src.Version = value
+
+	if err = path.Src.Vversion(); err != nil {
+		return nil, err
+	}
+
 	fmt.Printf("enter dst(%s) client-id...\n", dst)
 	if value, err = readStdin(); err != nil {
 		return nil, err
@@ -701,6 +712,17 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 	path.Dst.PortID = value
 
 	if err = path.Dst.Vport(); err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("enter dst(%s) version...\n", dst)
+	if value, err = readStdin(); err != nil {
+		return nil, err
+	}
+
+	path.Dst.Version = value
+
+	if err = path.Dst.Vversion(); err != nil {
 		return nil, err
 	}
 

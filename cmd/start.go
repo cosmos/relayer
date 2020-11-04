@@ -21,7 +21,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/ovrclk/relayer/relayer"
+	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -36,6 +36,10 @@ func startCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
+				return err
+			}
+
+			if err = ensureKeysExist(c); err != nil {
 				return err
 			}
 
@@ -56,7 +60,7 @@ func startCmd() *cobra.Command {
 				}
 			}
 
-			done, err := relayer.RunStrategy(c[src], c[dst], strategy, path.Ordered())
+			done, err := relayer.RunStrategy(c[src], c[dst], strategy)
 			if err != nil {
 				return err
 			}

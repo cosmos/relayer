@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/ovrclk/relayer/relayer"
+	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
@@ -146,6 +146,7 @@ func configAddDirCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "add-dir [dir]",
 		Aliases: []string{"ad"},
+		Args:    cobra.ExactArgs(1),
 		Short: `Add new chains and paths to the configuration file from a
 		 directory full of chain and path configuration, useful for adding testnet configurations`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
@@ -161,6 +162,7 @@ func configAddDirCmd() *cobra.Command {
 }
 
 func cfgFilesAdd(dir string) (cfg *Config, err error) {
+	dir = path.Clean(dir)
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -168,7 +170,7 @@ func cfgFilesAdd(dir string) (cfg *Config, err error) {
 	cfg = config
 	for _, f := range files {
 		c := &relayer.Chain{}
-		pth := fmt.Sprintf("%s%s", dir, f.Name())
+		pth := fmt.Sprintf("%s/%s", dir, f.Name())
 		if f.IsDir() {
 			fmt.Printf("directory at %s, skipping...\n", pth)
 			continue

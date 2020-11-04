@@ -8,10 +8,10 @@ all: ci-lint install
 # Build / Install
 ###############################################################################
 
-LD_FLAGS = -X github.com/ovrclk/relayer/cmd.Version=$(VERSION) \
-	-X github.com/ovrclk/relayer/cmd.Commit=$(COMMIT) \
-	-X github.com/ovrclk/relayer/cmd.SDKCommit=$(SDKCOMMIT) \
-	-X github.com/ovrclk/relayer/cmd.GaiaCommit=$(GAIACOMMIT)
+LD_FLAGS = -X github.com/cosmos/relayer/cmd.Version=$(VERSION) \
+	-X github.com/cosmos/relayer/cmd.Commit=$(COMMIT) \
+	-X github.com/cosmos/relayer/cmd.SDKCommit=$(SDKCOMMIT) \
+	-X github.com/cosmos/relayer/cmd.GaiaCommit=$(GAIACOMMIT)
 
 BUILD_FLAGS := -ldflags '$(LD_FLAGS)'
 

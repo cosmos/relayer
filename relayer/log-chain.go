@@ -14,7 +14,9 @@ import (
 func (c *Chain) LogFailedTx(res *sdk.TxResponse, err error, msgs []sdk.Msg) {
 	if c.debug {
 		c.Log(fmt.Sprintf("- [%s] -> sending transaction:", c.ChainID))
-		c.Print(msgs, false, false)
+		for _, msg := range msgs {
+			c.Print(msg, false, false)
+		}
 	}
 
 	if err != nil {
@@ -104,4 +106,20 @@ func getTxActions(act []string) string {
 		out += fmt.Sprintf("%d:%s,", i, a)
 	}
 	return strings.TrimSuffix(out, ",")
+}
+
+func logRetryUpdateHeaders(src, dst *Chain, n uint, err error) {
+	if src.debug && dst.debug {
+		src.Log(fmt.Sprintf("- [%s]&[%s] - try(%d/%d) update headers: %s", src.ChainID, dst.ChainID, n+1, rtyAttNum, err))
+	}
+}
+
+func (c *Chain) logRetryQueryPacketAcknowledgements(height uint64, n uint, err error) {
+	if c.debug {
+		c.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgements: %s", c.ChainID, height, n+1, rtyAttNum, err))
+	}
+}
+
+func (c *Chain) errQueryUnrelayedPacketAcks() error {
+	return fmt.Errorf("No error on QueryPacketUnrelayedAcknowledgements for %s, however response is nil", c.ChainID)
 }

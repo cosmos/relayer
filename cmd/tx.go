@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/ovrclk/relayer/relayer"
+	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -41,6 +41,7 @@ func transactionCmd() *cobra.Command {
 		linkCmd(),
 		linkThenStartCmd(),
 		relayMsgsCmd(),
+		relayAcksCmd(),
 		xfersend(),
 		flags.LineBreak,
 		createClientsCmd(),
@@ -69,6 +70,14 @@ func createClientsCmd() *cobra.Command {
 				return err
 			}
 
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
+				return err
+			}
+
 			return c[src].CreateClients(c[dst])
 		},
 	}
@@ -86,6 +95,14 @@ func updateClientsCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
 				return err
 			}
 
@@ -111,6 +128,14 @@ func createConnectionCmd() *cobra.Command {
 
 			to, err := getTimeout(cmd)
 			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
 				return err
 			}
 
@@ -140,6 +165,14 @@ func createChannelCmd() *cobra.Command {
 				return err
 			}
 
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
+				return err
+			}
+
 			return c[src].CreateChannel(c[dst], false, to)
 		},
 	}
@@ -162,6 +195,14 @@ func closeChannelCmd() *cobra.Command {
 
 			to, err := getTimeout(cmd)
 			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
 				return err
 			}
 
@@ -189,14 +230,25 @@ func linkCmd() *cobra.Command {
 				return err
 			}
 
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
+				return err
+			}
+
+			// create clients if they aren't already created
 			if err = c[src].CreateClients(c[dst]); err != nil {
 				return err
 			}
 
+			// create connection if it isn't already created
 			if err = c[src].CreateConnection(c[dst], to); err != nil {
 				return err
 			}
 
+			// create channel if it isn't already created
 			return c[src].CreateChannel(c[dst], true, to)
 		},
 	}
@@ -224,8 +276,8 @@ func linkThenStartCmd() *cobra.Command {
 
 func relayMsgsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "relay [path-name]",
-		Aliases: []string{"rly", "queue", "clear"},
+		Use:     "relay-packets [path-name]",
+		Aliases: []string{"rly", "pkts", "relay"},
 		Short:   "relay any packets that remain to be relayed on a given path, in both directions",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -234,23 +286,26 @@ func relayMsgsCmd() *cobra.Command {
 				return err
 			}
 
+			if err = ensureKeysExist(c); err != nil {
+				return err
+			}
+
 			sh, err := relayer.NewSyncHeaders(c[src], c[dst])
 			if err != nil {
 				return err
 			}
 
-			path := config.Paths.MustGet(args[0])
-			strategy, err := GetStrategyWithOptions(cmd, path.MustGetStrategy())
+			strategy, err := GetStrategyWithOptions(cmd, config.Paths.MustGet(args[0]).MustGetStrategy())
 			if err != nil {
 				return err
 			}
 
-			sp, err := strategy.UnrelayedSequencesOrdered(c[src], c[dst], sh)
+			sp, err := strategy.UnrelayedSequences(c[src], c[dst], sh)
 			if err != nil {
 				return err
 			}
 
-			if err = strategy.RelayPacketsOrderedChan(c[src], c[dst], sp, sh); err != nil {
+			if err = strategy.RelayPackets(c[src], c[dst], sp, sh); err != nil {
 				return err
 			}
 
@@ -259,4 +314,56 @@ func relayMsgsCmd() *cobra.Command {
 	}
 
 	return strategyFlag(cmd)
+}
+
+func relayAcksCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "relay-acknowledgements [path-name]",
+		Aliases: []string{"acks"},
+		Short:   "relay any acknowledgements that remain to be relayed on a given path, in both directions",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, src, dst, err := config.ChainsFromPath(args[0])
+			if err != nil {
+				return err
+			}
+
+			if err = ensureKeysExist(c); err != nil {
+				return err
+			}
+
+			sh, err := relayer.NewSyncHeaders(c[src], c[dst])
+			if err != nil {
+				return err
+			}
+
+			strategy, err := GetStrategyWithOptions(cmd, config.Paths.MustGet(args[0]).MustGetStrategy())
+			if err != nil {
+				return err
+			}
+
+			sp, err := strategy.UnrelayedAcknowledgements(c[src], c[dst], sh)
+			if err != nil {
+				return err
+			}
+
+			if err = strategy.RelayAcknowledgements(c[src], c[dst], sp, sh); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	return strategyFlag(cmd)
+}
+
+// Returns an error if a configured key for a given chain doesn't exist
+func ensureKeysExist(chains map[string]*relayer.Chain) (err error) {
+	for _, v := range chains {
+		if _, err = v.GetAddress(); err != nil {
+			return
+		}
+	}
+	return nil
 }

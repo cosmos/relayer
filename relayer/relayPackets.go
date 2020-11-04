@@ -10,7 +10,7 @@ import (
 )
 
 type relayPacket interface {
-	Msg(src, dst *Chain) sdk.Msg
+	Msg(src, dst *Chain) (sdk.Msg, error)
 	FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) error
 	Data() []byte
 	Seq() uint64
@@ -22,7 +22,7 @@ type relayMsgTimeout struct {
 	seq          uint64
 	timeout      uint64
 	timeoutStamp uint64
-	dstRecvRes   *chantypes.QueryPacketCommitmentResponse
+	dstRecvRes   *chantypes.QueryPacketReceiptResponse
 
 	pass bool
 }
@@ -40,25 +40,27 @@ func (rp *relayMsgTimeout) Timeout() uint64 {
 }
 
 func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
-	var dstRecvRes *chantypes.QueryPacketCommitmentResponse
+	var dstRecvRes *chantypes.QueryPacketReceiptResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
 		// NOTE: Timeouts currently only work with ORDERED channels for nwo
-		dstRecvRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
-		if err != nil {
+		queryHeight := sh.GetHeight(dst.ChainID) - 1
+		dstRecvRes, err = dst.QueryPacketReciept(int64(queryHeight), rp.seq)
+		switch {
+		case err != nil:
 			return err
-		} else if dstRecvRes.Proof == nil || dstRecvRes.Commitment == nil {
-			if err := sh.Update(src); err != nil {
-				return err
-			}
-			if err := sh.Update(dst); err != nil {
-				return err
-			}
-			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)",
-				dst.ChainID, int64(sh.GetHeight(dst.ChainID)), rp.seq)
+		case dstRecvRes.Proof == nil:
+			return fmt.Errorf("timeout packet reciept proof seq(%d) is nil", rp.seq)
+		default:
+			return nil
 		}
-		return nil
-	}); err != nil {
+	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+		// OnRetry we want to update the headers and then debug log
+		sh.Updates(src, dst)
+		if dst.debug {
+			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet reciept: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
+		}
+	})); err != nil {
 		dst.Error(err)
 		return
 	}
@@ -66,21 +68,19 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders)
 	return
 }
 
-func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
+func (rp *relayMsgTimeout) Msg(src, dst *Chain) (sdk.Msg, error) {
 	if rp.dstRecvRes == nil {
-		return nil
+		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
 	}
-	unlock := SDKConfig.SetLock(src)
-	defer unlock()
 	version := clienttypes.ParseChainID(src.PathEnd.ChainID)
 	msg := chantypes.NewMsgTimeout(
 		chantypes.NewPacket(
 			rp.packetData,
 			rp.seq,
-			dst.PathEnd.PortID,
-			dst.PathEnd.ChannelID,
 			src.PathEnd.PortID,
 			src.PathEnd.ChannelID,
+			dst.PathEnd.PortID,
+			dst.PathEnd.ChannelID,
 			clienttypes.NewHeight(version, rp.timeout),
 			rp.timeoutStamp,
 		),
@@ -89,7 +89,7 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) sdk.Msg {
 		rp.dstRecvRes.ProofHeight,
 		src.MustGetAddress(),
 	)
-	return msg
+	return msg, nil
 }
 
 type relayMsgRecvPacket struct {
@@ -130,17 +130,23 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeade
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
 		dstCommitRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
-		if err != nil {
+		switch {
+		case err != nil:
 			return err
-		} else if dstCommitRes.Proof == nil || dstCommitRes.Commitment == nil {
-			if err = sh.Updates(src, dst); err != nil {
-				return err
-			}
-			return fmt.Errorf("- [%s]@{%d} - Packet Commitment Proof is nil seq(%d)",
-				dst.ChainID, int64(sh.GetHeight(dst.ChainID)), rp.seq)
+		case dstCommitRes.Proof == nil:
+			return fmt.Errorf("recv packet commitment proof seq(%d) is nil", rp.seq)
+		case dstCommitRes.Commitment == nil:
+			return fmt.Errorf("recv packet commitment query seq(%d) is nil", rp.seq)
+		default:
+			return nil
 		}
-		return nil
-	}); err != nil {
+	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+		// OnRetry we want to update the headers and then debug log
+		sh.Updates(src, dst)
+		if dst.debug {
+			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitment: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
+		}
+	})); err != nil {
 		dst.Error(err)
 		return
 	}
@@ -149,9 +155,9 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeade
 	return
 }
 
-func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) sdk.Msg {
+func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) (sdk.Msg, error) {
 	if rp.dstComRes == nil {
-		return nil
+		return nil, fmt.Errorf("recieve packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
 	}
 	version := clienttypes.ParseChainID(src.PathEnd.ChainID)
 	packet := chantypes.NewPacket(
@@ -164,15 +170,13 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) sdk.Msg {
 		clienttypes.NewHeight(version, rp.timeout),
 		rp.timeoutStamp,
 	)
-	unlock := SDKConfig.SetLock(src)
-	defer unlock()
 	msg := chantypes.NewMsgRecvPacket(
 		packet,
 		rp.dstComRes.Proof,
 		rp.dstComRes.ProofHeight,
 		src.MustGetAddress(),
 	)
-	return msg
+	return msg, nil
 }
 
 type relayMsgPacketAck struct {
@@ -181,7 +185,9 @@ type relayMsgPacketAck struct {
 	seq          uint64
 	timeout      uint64
 	timeoutStamp uint64
-	dstComRes    *chantypes.QueryPacketCommitmentResponse
+	dstComRes    *chantypes.QueryPacketAcknowledgementResponse
+
+	pass bool
 }
 
 func (rp *relayMsgPacketAck) Data() []byte {
@@ -194,9 +200,10 @@ func (rp *relayMsgPacketAck) Timeout() uint64 {
 	return rp.timeout
 }
 
-func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
-	unlock := SDKConfig.SetLock(src)
-	defer unlock()
+func (rp *relayMsgPacketAck) Msg(src, dst *Chain) (sdk.Msg, error) {
+	if rp.dstComRes == nil {
+		return nil, fmt.Errorf("ack packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
+	}
 	version := clienttypes.ParseChainID(dst.PathEnd.ChainID)
 	msg := chantypes.NewMsgAcknowledgement(
 		chantypes.NewPacket(
@@ -214,27 +221,31 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) sdk.Msg {
 		rp.dstComRes.ProofHeight,
 		src.MustGetAddress(),
 	)
-	return msg
+	return msg, nil
 }
 
 func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders) (err error) {
-	var dstCommitRes *chantypes.QueryPacketCommitmentResponse
+	var dstCommitRes *chantypes.QueryPacketAcknowledgementResponse
+	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
-		dstCommitRes, err = dst.QueryPacketCommitment(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
-		if err != nil {
+		dstCommitRes, err = dst.QueryPacketAcknowledgement(sh.GetHeader(dst.ChainID).Header.Height-1, rp.seq)
+		switch {
+		case err != nil:
 			return err
-		} else if dstCommitRes.Proof == nil || dstCommitRes.Commitment == nil {
-			if err := sh.Update(src); err != nil {
-				return err
-			}
-			if err := sh.Update(dst); err != nil {
-				return err
-			}
-			return fmt.Errorf("- [%s]@{%d} - Packet Ack Proof is nil seq(%d)",
-				dst.ChainID, int64(sh.GetHeight(dst.ChainID)), rp.seq)
+		case dstCommitRes.Proof == nil:
+			return fmt.Errorf("ack packet acknowledgement proof seq(%d) is nil", rp.seq)
+		case dstCommitRes.Acknowledgement == nil:
+			return fmt.Errorf("ack packet acknowledgement query seq(%d) is nil", rp.seq)
+		default:
+			return nil
 		}
-		return nil
-	}); err != nil {
+	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+		// OnRetry we want to update the headers and then debug log
+		sh.Updates(src, dst)
+		if dst.debug {
+			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgement: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
+		}
+	})); err != nil {
 		dst.Error(err)
 		return
 	}

@@ -124,13 +124,14 @@ func (pe *PathEnd) CreateClient(
 
 // ConnInit creates a MsgConnectionOpenInit
 func (pe *PathEnd) ConnInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
+	var version *conntypes.Version
 	return conntypes.NewMsgConnectionOpenInit(
 		pe.ConnectionID,
 		pe.ClientID,
 		dst.ConnectionID,
 		dst.ClientID,
 		defaultChainPrefix,
-		"",
+		version,
 		signer,
 	)
 }
@@ -156,7 +157,7 @@ func (pe *PathEnd) ConnTry(
 		dst.ClientID,
 		cs,
 		defaultChainPrefix,
-		conntypes.GetCompatibleEncodedVersions(),
+		conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
 		dstConnState.Proof,
 		dstClientState.Proof,
 		dstConsState.Proof,
@@ -192,7 +193,7 @@ func (pe *PathEnd) ConnAck(
 		dstConsState.Proof,
 		dstConsState.ProofHeight,
 		cs.GetLatestHeight().(clienttypes.Height),
-		conntypes.GetCompatibleEncodedVersions()[0],
+		conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions())[0],
 		signer,
 	)
 }

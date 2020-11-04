@@ -27,6 +27,12 @@ func (pe *PathEnd) Vport() error {
 	return host.PortIdentifierValidator(pe.PortID)
 }
 
+// Vversion validates the version identifier in the path
+func (pe *PathEnd) Vversion() error {
+	// TODO: version validation
+	return nil
+}
+
 func (pe PathEnd) String() string {
 	return fmt.Sprintf("%s:cl(%s):co(%s):ch(%s):pt(%s)", pe.ChainID, pe.ClientID, pe.ConnectionID, pe.ChannelID, pe.PortID)
 }

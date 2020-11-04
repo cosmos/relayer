@@ -107,9 +107,6 @@ func (c *Chain) CreateChannelStep(dst *Chain, ordering chantypes.Order) (*RelayM
 		return nil, err
 	}
 
-	unlock := SDKConfig.SetLock(c)
-	defer unlock()
-
 	switch {
 	// Handshake hasn't been started on src or dst, relay `chanOpenInit` to src
 	case srcChan.Channel.State == chantypes.UNINITIALIZED && dstChan.Channel.State == chantypes.UNINITIALIZED:

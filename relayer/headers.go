@@ -113,6 +113,7 @@ func InjectTrustedFields(srcChain, dstChain *Chain, srcHeader *tmclient.Header) 
 	if err != nil {
 		return nil, err
 	}
+
 	// retrieve counterparty client from dst chain
 	counterpartyClientRes, err := dstChain.QueryClientState(dsth)
 	if err != nil {
@@ -122,6 +123,7 @@ func InjectTrustedFields(srcChain, dstChain *Chain, srcHeader *tmclient.Header) 
 	if err != nil {
 		panic(err)
 	}
+
 	// inject TrustedHeight as latest height stored on counterparty client
 	h.TrustedHeight = cs.GetLatestHeight().(clienttypes.Height)
 
@@ -130,6 +132,7 @@ func InjectTrustedFields(srcChain, dstChain *Chain, srcHeader *tmclient.Header) 
 	if err != nil {
 		return nil, err
 	}
+
 	// inject TrustedValidators into header
 	h.TrustedValidators = valSet
 	return &h, nil

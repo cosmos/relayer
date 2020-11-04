@@ -11,8 +11,8 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/relayer/relayer"
 	"github.com/gorilla/mux"
-	"github.com/ovrclk/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -40,8 +40,6 @@ func faucetRequestCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-
-			relayer.SDKConfig.Set(chain)
 
 			urlString, err := cmd.Flags().GetString(flagURL)
 			if err != nil {

@@ -13,8 +13,8 @@ import (
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ovrclk/relayer/relayer"
-	ry "github.com/ovrclk/relayer/relayer"
+	"github.com/cosmos/relayer/relayer"
+	ry "github.com/cosmos/relayer/relayer"
 )
 
 // spinUpTestChains is to be passed any number of test chains with given configuration options

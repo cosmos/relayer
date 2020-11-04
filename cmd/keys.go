@@ -16,13 +16,14 @@ limitations under the License.
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/spf13/cobra"
 
-	"github.com/ovrclk/relayer/relayer"
+	"github.com/cosmos/relayer/relayer"
 )
 
 // keysCmd represents the keys command
@@ -56,8 +57,6 @@ func keysAddCmd() *cobra.Command {
 				return err
 			}
 
-			relayer.SDKConfig.Set(chain)
-
 			var keyName string
 			if len(args) == 2 {
 				keyName = args[1]
@@ -81,7 +80,13 @@ func keysAddCmd() *cobra.Command {
 
 			ko := keyOutput{Mnemonic: mnemonic, Address: info.GetAddress().String()}
 
-			return chain.Print(ko, false, false)
+			out, err := json.Marshal(&ko)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(out))
+			return nil
 		},
 	}
 
@@ -107,8 +112,6 @@ func keysRestoreCmd() *cobra.Command {
 				return err
 			}
 
-			relayer.SDKConfig.Set(chain)
-
 			if chain.KeyExists(keyName) {
 				return errKeyExists(keyName)
 			}
@@ -118,6 +121,7 @@ func keysRestoreCmd() *cobra.Command {
 				return err
 			}
 
+			defer chain.UseSDKContext()()
 			fmt.Println(info.GetAddress().String())
 			return nil
 		},
@@ -178,8 +182,6 @@ func keysListCmd() *cobra.Command {
 				return err
 			}
 
-			relayer.SDKConfig.Set(chain)
-
 			info, err := chain.Keybase.List()
 			if err != nil {
 				return err
@@ -208,8 +210,6 @@ func keysShowCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-
-			relayer.SDKConfig.Set(chain)
 
 			var keyName string
 			if len(args) == 2 {
@@ -258,7 +258,8 @@ func keysExportCmd() *cobra.Command {
 				return err
 			}
 
-			return chain.Print(info, false, false)
+			fmt.Println(info)
+			return nil
 		},
 	}
 
