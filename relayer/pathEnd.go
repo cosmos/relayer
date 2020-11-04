@@ -43,7 +43,7 @@ func OrderFromString(order string) chantypes.Order {
 	}
 }
 
-func (pe *PathEnd) getOrder() chantypes.Order {
+func (pe *PathEnd) GetOrder() chantypes.Order {
 	return OrderFromString(strings.ToUpper(pe.Order))
 }
 
@@ -198,7 +198,7 @@ func (pe *PathEnd) ChanInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 		pe.PortID,
 		pe.ChannelID,
 		pe.Version,
-		pe.getOrder(),
+		pe.GetOrder(),
 		[]string{pe.ConnectionID},
 		dst.PortID,
 		dst.ChannelID,

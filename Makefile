@@ -55,5 +55,4 @@ lint:
 
 .PHONY: install build lint coverage clean
 
-# TODO: Port reproducable build scripts from gaia for relayer
 # TODO: Full tested and working releases

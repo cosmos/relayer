@@ -120,7 +120,6 @@ func updateLightCmd() *cobra.Command {
 				return err
 			}
 
-			// TODO: more fun printing here like time deltas?
 			fmt.Printf("Updated light client for %s from height %d -> height %d\n", args[0], bh.Header.Height, ah.Header.Height)
 			return nil
 		},
