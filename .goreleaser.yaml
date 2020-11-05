@@ -1,0 +1,27 @@
+project_name: Cosmos Relayer
+
+env:
+  # Require use of Go modules.
+  - GO111MODULE=on
+
+builds:
+  - id: "relayer"
+    main: ./main.go
+    ldflags:
+      - -X github.com/cosmos/relayer/cmd.Version={{ .Tag }}
+      - -X github.com/cosmos/relayer/cmd.Commit={{ .FullCommit }}
+      - -X github.com/cosmos/relayer/cmd.SDKCommit={{ .Env.SDK_COMMIT }}
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm
+      - arm64
+
+checksum:
+  name_template: SHA256SUMS-{{.Version}}.txt
+  algorithm: sha256
+
+release:
+  name_template: "{{ .Version }} - Relayer Release"
