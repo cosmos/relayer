@@ -8,10 +8,10 @@ all: ci-lint install
 # Build / Install
 ###############################################################################
 
-LD_FLAGS = -X github.com/ovrclk/relayer/cmd.Version=$(VERSION) \
-	-X github.com/ovrclk/relayer/cmd.Commit=$(COMMIT) \
-	-X github.com/ovrclk/relayer/cmd.SDKCommit=$(SDKCOMMIT) \
-	-X github.com/ovrclk/relayer/cmd.GaiaCommit=$(GAIACOMMIT)
+LD_FLAGS = -X github.com/cosmos/relayer/cmd.Version=$(VERSION) \
+	-X github.com/cosmos/relayer/cmd.Commit=$(COMMIT) \
+	-X github.com/cosmos/relayer/cmd.SDKCommit=$(SDKCOMMIT) \
+	-X github.com/cosmos/relayer/cmd.GaiaCommit=$(GAIACOMMIT)
 
 BUILD_FLAGS := -ldflags '$(LD_FLAGS)'
 
@@ -30,6 +30,10 @@ build-zip: go.sum
 	@GOOS=darwin GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/darwin-amd64-rly main.go
 	@GOOS=windows GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/windows-amd64-rly.exe main.go
 	@tar -czvf release.tar.gz ./build
+
+# Compile the relayer as a shared library to be linked into another program
+compile-clib:
+	go build -v -mod=readonly -buildmode=c-shared -o librelayer.so ./clib
 
 install: go.sum
 	@echo "installing rly binary..."
@@ -55,5 +59,4 @@ lint:
 
 .PHONY: install build lint coverage clean
 
-# TODO: Port reproducable build scripts from gaia for relayer
 # TODO: Full tested and working releases

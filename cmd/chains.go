@@ -8,11 +8,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/ovrclk/relayer/relayer"
+	"github.com/cosmos/relayer/relayer"
 )
 
 const (
@@ -52,8 +53,6 @@ func chainsAddrCmd() *cobra.Command {
 				return err
 			}
 
-			unlock := relayer.SDKConfig.SetLock(chain)
-			defer unlock()
 			addr, err := chain.GetAddress()
 			if err != nil {
 				return err
@@ -270,6 +269,7 @@ func chainsAddDirCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "add-dir [dir]",
 		Aliases: []string{"ad"},
+		Args:    cobra.ExactArgs(1),
 		Short: `Add new chains to the configuration file from a directory 
 		full of chain configuration, useful for adding testnet configurations`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
@@ -285,6 +285,7 @@ func chainsAddDirCmd() *cobra.Command {
 }
 
 func filesAdd(dir string) (cfg *Config, err error) {
+	dir = path.Clean(dir)
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -292,7 +293,7 @@ func filesAdd(dir string) (cfg *Config, err error) {
 	cfg = config
 	for _, f := range files {
 		c := &relayer.Chain{}
-		pth := fmt.Sprintf("%s%s", dir, f.Name())
+		pth := fmt.Sprintf("%s/%s", dir, f.Name())
 		if f.IsDir() {
 			fmt.Printf("directory at %s, skipping...\n", pth)
 			continue

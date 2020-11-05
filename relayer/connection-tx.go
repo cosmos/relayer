@@ -32,7 +32,7 @@ func (c *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 		switch {
 		// In the case of success and this being the last transaction
 		// debug logging, log created connection and break
-		case connSteps.success && connSteps.last:
+		case connSteps.Success() && connSteps.Last:
 			if c.debug {
 				srcH, dstH, err := GetLatestLightHeights(c, dst)
 				if err != nil {
@@ -50,11 +50,11 @@ func (c *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 				dst.ChainID, dst.PathEnd.ClientID, dst.PathEnd.ConnectionID))
 			return nil
 		// In the case of success, reset the failures counter
-		case connSteps.success:
+		case connSteps.Success():
 			failed = 0
 			continue
 		// In the case of failure, increment the failures counter and exit if this is the 3rd failure
-		case !connSteps.success:
+		case !connSteps.Success():
 			failed++
 			c.Log(fmt.Sprintf("retrying transaction..."))
 			time.Sleep(5 * time.Second)
@@ -97,15 +97,13 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	// create the UpdateHeaders for src and dest Chains
 	eg.Go(func() error {
-		var err error
-		retry.Do(func() error {
+		return retry.Do(func() error {
 			srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(c, dst)
-			if err != nil {
-				sh.Updates(c, dst)
-			}
 			return err
-		})
-		return err
+		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+			logRetryUpdateHeaders(c, dst, n, err)
+			sh.Updates(c, dst)
+		}))
 	})
 
 	// Query Connection data from src and dst
@@ -145,9 +143,6 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 			return nil, err
 		}
 	}
-
-	unlock := SDKConfig.SetLock(c)
-	defer unlock()
 
 	switch {
 	// Handshake hasn't been started on src or dst, relay `connOpenInit` to src
@@ -212,7 +207,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 			c.PathEnd.ConnConfirm(dstConn, c.MustGetAddress()),
 		)
-		out.last = true
+		out.Last = true
 
 	// Handshake has confirmed on src (3 steps done), relay `connOpenConfirm` and `updateClient` to dst end
 	case srcConn.Connection.State == conntypes.OPEN && dstConn.Connection.State == conntypes.TRYOPEN:
@@ -223,7 +218,7 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			dst.PathEnd.ConnConfirm(srcConn, dst.MustGetAddress()),
 		)
-		out.last = true
+		out.Last = true
 	}
 
 	return out, nil

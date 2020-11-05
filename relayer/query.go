@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
@@ -136,7 +137,7 @@ func QueryClientStatePair(
 // QueryClients queries all the clients!
 func (c *Chain) QueryClients(offset, limit uint64) (*clienttypes.QueryClientStatesResponse, error) {
 	qc := clienttypes.NewQueryClient(c.CLIContext(0))
-	res, err := qc.ClientStates(context.Background(), &clienttypes.QueryClientStatesRequest{
+	return qc.ClientStates(context.Background(), &clienttypes.QueryClientStatesRequest{
 		Pagination: &querytypes.PageRequest{
 			Key:        []byte(""),
 			Offset:     offset,
@@ -144,7 +145,6 @@ func (c *Chain) QueryClients(offset, limit uint64) (*clienttypes.QueryClientStat
 			CountTotal: true,
 		},
 	})
-	return res, err
 }
 
 // ////////////////////////////
@@ -184,7 +184,6 @@ func (c *Chain) QueryConnection(height int64) (*conntypes.QueryConnectionRespons
 }
 
 var emptyConnRes = conntypes.NewQueryConnectionResponse(
-	"uninitialized",
 	conntypes.NewConnectionEnd(
 		conntypes.UNINITIALIZED,
 		"client",
@@ -193,7 +192,7 @@ var emptyConnRes = conntypes.NewQueryConnectionResponse(
 			"connection",
 			committypes.NewMerklePrefix([]byte{}),
 		),
-		[]string{},
+		[]*conntypes.Version{},
 	),
 	[]byte{},
 	clienttypes.NewHeight(0, 0),
@@ -248,8 +247,6 @@ func (c *Chain) QueryChannel(height int64) (chanRes *chantypes.QueryChannelRespo
 }
 
 var emptyChannelRes = chantypes.NewQueryChannelResponse(
-	"port",
-	"channel",
 	chantypes.NewChannel(
 		chantypes.UNINITIALIZED,
 		chantypes.UNORDERED,
@@ -340,15 +337,16 @@ func (c *Chain) QueryHistoricalInfo(height clienttypes.Height) (*stakingtypes.Qu
 
 // QueryValsetAtHeight returns the validator set at a given height
 func (c *Chain) QueryValsetAtHeight(height clienttypes.Height) (*tmproto.ValidatorSet, error) {
-	unlock := SDKConfig.SetLock(c)
-	defer unlock()
 	res, err := c.QueryHistoricalInfo(height)
 	if err != nil {
 		return nil, err
 	}
 
 	// create tendermint ValidatorSet from SDK Validators
-	tmVals := stakingtypes.Validators(res.Hist.Valset).ToTmValidators()
+	tmVals, err := c.toTmValidators(res.Hist.Valset)
+	if err != nil {
+		return nil, err
+	}
 	// TODO: Add sorting logic to historical info
 	sort.Sort(tmtypes.ValidatorsByVotingPower(tmVals))
 	tmValSet := &tmtypes.ValidatorSet{
@@ -357,6 +355,31 @@ func (c *Chain) QueryValsetAtHeight(height clienttypes.Height) (*tmproto.Validat
 	tmValSet.GetProposer()
 
 	return tmValSet.ToProto()
+}
+
+func (c *Chain) toTmValidators(vals stakingtypes.Validators) ([]*tmtypes.Validator, error) {
+	validators := make([]*tmtypes.Validator, len(vals))
+	var err error
+	for i, val := range vals {
+		validators[i], err = c.toTmValidator(val)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return validators, nil
+}
+
+func (c *Chain) toTmValidator(val stakingtypes.Validator) (*tmtypes.Validator, error) {
+	var pk cryptotypes.PubKey
+	if err := c.Encoding.Marshaler.UnpackAny(val.ConsensusPubkey, &pk); err != nil {
+		return nil, err
+	}
+	intoTmPk, ok := pk.(cryptotypes.IntoTmPubKey)
+	if !ok {
+		return nil, fmt.Errorf("pubkey not a pub key *scratches head*")
+	}
+	return tmtypes.NewValidator(intoTmPk.AsTmPubKey(), val.ConsensusPower()), nil
 }
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
@@ -417,7 +440,17 @@ func (c *Chain) QueryPacketCommitment(
 	return chanutils.QueryPacketCommitment(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, seq, true)
 }
 
-// QueryPacketCommitments returns an array of packet commitment proofs
+// QueryPacketAcknowledgement returns the packet ack proof at a given height
+func (c *Chain) QueryPacketAcknowledgement(height int64, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
+	return chanutils.QueryPacketAcknowledgement(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, seq, true)
+}
+
+// QueryPacketReciept returns the packet reciept proof at a given height
+func (c *Chain) QueryPacketReciept(height int64, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
+	return chanutils.QueryPacketReceipt(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, seq, true)
+}
+
+// QueryPacketCommitments returns an array of packet commitments
 func (c *Chain) QueryPacketCommitments(
 	offset, limit, height uint64) (comRes *chantypes.QueryPacketCommitmentsResponse, err error) {
 	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
@@ -430,7 +463,20 @@ func (c *Chain) QueryPacketCommitments(
 			CountTotal: true,
 		},
 	})
-	// return res.Commitments, err
+}
+
+// QueryPacketAcknowledgements returns an array of packet acks
+func (c *Chain) QueryPacketAcknowledgements(offset, limit, height uint64) (comRes *chantypes.QueryPacketAcknowledgementsResponse, err error) {
+	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
+	return qc.PacketAcknowledgements(context.Background(), &chantypes.QueryPacketAcknowledgementsRequest{
+		PortId:    c.PathEnd.PortID,
+		ChannelId: c.PathEnd.ChannelID,
+		Pagination: &querytypes.PageRequest{
+			Offset:     offset,
+			Limit:      limit,
+			CountTotal: true,
+		},
+	})
 }
 
 // QueryUnrecievedPackets returns a list of unrelayed packet commitments
@@ -444,13 +490,13 @@ func (c *Chain) QueryUnrecievedPackets(height uint64, seqs []uint64) ([]uint64, 
 	return res.Sequences, err
 }
 
-// QueryUnrelayedAcks returns a list of unrelayed packet acks
-func (c *Chain) QueryUnrelayedAcks(height uint64, seqs []uint64) ([]uint64, error) {
+// QueryUnrecievedAcknowledgements returns a list of unrelayed packet acks
+func (c *Chain) QueryUnrecievedAcknowledgements(height uint64, seqs []uint64) ([]uint64, error) {
 	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
-	res, err := qc.UnrelayedAcks(context.Background(), &chantypes.QueryUnrelayedAcksRequest{
-		PortId:                    c.PathEnd.PortID,
-		ChannelId:                 c.PathEnd.ChannelID,
-		PacketCommitmentSequences: seqs,
+	res, err := qc.UnreceivedAcks(context.Background(), &chantypes.QueryUnreceivedAcksRequest{
+		PortId:             c.PathEnd.PortID,
+		ChannelId:          c.PathEnd.ChannelID,
+		PacketAckSequences: seqs,
 	})
 	return res.Sequences, err
 }

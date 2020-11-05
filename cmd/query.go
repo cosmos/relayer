@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -10,7 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
-	"github.com/ovrclk/relayer/relayer"
+	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -24,7 +26,8 @@ func queryCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		queryUnrelayed(),
+		queryUnrelayedPackets(),
+		queryUnrelayedAcknowledgements(),
 		flags.LineBreak,
 		queryAccountCmd(),
 		queryBalanceCmd(),
@@ -67,7 +70,7 @@ func queryIBCDenoms() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return chain.CLIContext(0).PrintOutput(res)
+			return chain.Print(res, false, false)
 		},
 	}
 	return cmd
@@ -89,7 +92,13 @@ func queryTx() *cobra.Command {
 				return err
 			}
 
-			return chain.Print(txs, false, false)
+			out, err := json.Marshal(txs)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(out))
+			return nil
 		},
 	}
 	return cmd
@@ -136,7 +145,13 @@ documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.
 				return err
 			}
 
-			return chain.Print(txs, false, false)
+			out, err := json.Marshal(txs)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(out))
+			return nil
 		},
 	}
 	return paginationFlags(cmd)
@@ -159,8 +174,6 @@ func queryAccountCmd() *cobra.Command {
 				return err
 			}
 
-			relayer.SDKConfig.Set(chain)
-
 			res, err := types.NewQueryClient(chain.CLIContext(0)).Account(
 				context.Background(),
 				&types.QueryAccountRequest{
@@ -170,7 +183,7 @@ func queryAccountCmd() *cobra.Command {
 				return err
 			}
 
-			return chain.CLIContext(0).PrintOutput(res)
+			return chain.Print(res, false, false)
 		},
 	}
 	return cmd
@@ -193,7 +206,6 @@ func queryBalanceCmd() *cobra.Command {
 				return err
 			}
 
-			relayer.SDKConfig.Set(chain)
 			var coins sdk.Coins
 			if len(args) == 2 {
 				coins, err = chain.QueryBalance(args[1])
@@ -205,7 +217,8 @@ func queryBalanceCmd() *cobra.Command {
 			}
 
 			if showDenoms {
-				return chain.Print(coins, false, false)
+				fmt.Println(coins)
+				return nil
 			}
 
 			h, err := chain.QueryLatestHeight()
@@ -231,10 +244,12 @@ func queryBalanceCmd() *cobra.Command {
 						}
 					}
 				}
-				return chain.Print(out, false, false)
+				fmt.Println(out)
+				return nil
 			}
 
-			return chain.Print(coins, false, false)
+			fmt.Println(coins)
+			return nil
 		},
 	}
 	return ibcDenomFlags(cmd)
@@ -285,7 +300,7 @@ func queryHeaderCmd() *cobra.Command {
 
 			}
 
-			return chain.CLIContext(0).PrintOutput(header)
+			return chain.Print(header, false, false)
 		},
 	}
 
@@ -384,7 +399,7 @@ func queryClientsCmd() *cobra.Command {
 				return err
 			}
 
-			return chain.CLIContext(0).PrintOutput(res)
+			return chain.Print(res, false, false)
 		},
 	}
 
@@ -415,7 +430,7 @@ func queryValSetAtHeightCmd() *cobra.Command {
 				return err
 			}
 
-			return chain.CLIContext(0).PrintOutput(res)
+			return chain.Print(res, false, false)
 		},
 	}
 
@@ -449,7 +464,7 @@ func queryConnections() *cobra.Command {
 				return err
 			}
 
-			return chain.CLIContext(0).PrintOutput(res)
+			return chain.Print(res, false, false)
 		},
 	}
 
@@ -671,10 +686,10 @@ func queryPacketCommitment() *cobra.Command {
 	return cmd
 }
 
-func queryUnrelayed() *cobra.Command {
+func queryUnrelayedPackets() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "unrelayed [path]",
-		Aliases: []string{"queue"},
+		Use:     "unrelayed-packets [path]",
+		Aliases: []string{"unrelayed", "pkts"},
 		Short:   "Query for the packet sequence numbers that remain to be relayed on a given path",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -706,12 +721,71 @@ func queryUnrelayed() *cobra.Command {
 				return err
 			}
 
-			sp, err := strategy.UnrelayedSequencesOrdered(c[src], c[dst], sh)
+			sp, err := strategy.UnrelayedSequences(c[src], c[dst], sh)
 			if err != nil {
 				return err
 			}
 
-			return c[src].Print(sp, false, false)
+			out, err := json.Marshal(sp)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(out))
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func queryUnrelayedAcknowledgements() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "unrelayed-acknowledgements [path]",
+		Aliases: []string{"acks"},
+		Short:   "Query for the packet sequence numbers that remain to be relayed on a given path",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path, err := config.Paths.Get(args[0])
+			if err != nil {
+				return err
+			}
+			src, dst := path.Src.ChainID, path.Dst.ChainID
+
+			c, err := config.Chains.Gets(src, dst)
+			if err != nil {
+				return err
+			}
+
+			if err = c[src].SetPath(path.Src); err != nil {
+				return err
+			}
+			if err = c[dst].SetPath(path.Dst); err != nil {
+				return err
+			}
+
+			sh, err := relayer.NewSyncHeaders(c[src], c[dst])
+			if err != nil {
+				return err
+			}
+
+			strategy, err := path.GetStrategy()
+			if err != nil {
+				return err
+			}
+
+			sp, err := strategy.UnrelayedAcknowledgements(c[src], c[dst], sh)
+			if err != nil {
+				return err
+			}
+
+			out, err := json.Marshal(sp)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(out))
+			return nil
 		},
 	}
 

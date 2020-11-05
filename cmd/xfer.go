@@ -6,7 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
 
-	"github.com/ovrclk/relayer/relayer"
+	"github.com/cosmos/relayer/relayer"
 )
 
 // NOTE: These commands are registered over in cmd/raw.go
@@ -60,15 +60,40 @@ func xfersend() *cobra.Command {
 			// Should be relative to current time and block height
 			// --timeout-height-offset=1000
 			// --timeout-time-offset=2h
-			dstAddr, err := sdk.AccAddressFromBech32(args[3])
+
+			toHeightOffset, err := cmd.Flags().GetUint64(flagTimeoutHeightOffset)
 			if err != nil {
 				return err
 			}
 
-			return c[src].SendTransferMsg(c[dst], amount, dstAddr)
+			toTimeOffset, err := cmd.Flags().GetDuration(flagTimeoutTimeOffset)
+			if err != nil {
+				return err
+			}
+
+			done := c[dst].UseSDKContext()
+			dstAddr, err := sdk.AccAddressFromBech32(args[3])
+			if err != nil {
+				return err
+			}
+			done()
+
+			switch {
+			case toHeightOffset > 0 && toTimeOffset > 0:
+				return fmt.Errorf("cannot set both --timeout-height-offset and --timeout-time-offset, choose one")
+			case toHeightOffset > 0:
+				return c[src].SendTransferMsg(c[dst], amount, dstAddr, toHeightOffset, 0)
+			case toTimeOffset > 0:
+				return c[src].SendTransferMsg(c[dst], amount, dstAddr, 0, toTimeOffset)
+			case toHeightOffset == 0 && toTimeOffset == 0:
+				return c[src].SendTransferMsg(c[dst], amount, dstAddr, 0, 0)
+			default:
+				return fmt.Errorf("shouldn't be here")
+			}
+
 		},
 	}
-	return pathFlag(cmd)
+	return timeoutFlags(pathFlag(cmd))
 }
 
 func setPathsFromArgs(src, dst *relayer.Chain, name string) (*relayer.Path, error) {

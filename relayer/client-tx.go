@@ -30,16 +30,14 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		if err != nil {
 			return err
 		}
-		unlock := SDKConfig.SetLock(c)
-		clients.Src = append(clients.Src,
-			c.PathEnd.CreateClient(
-				dstH,
-				dst.GetTrustingPeriod(),
-				ubdPeriod,
-				consensusParams,
-				c.MustGetAddress(),
-			))
-		unlock()
+		msg := c.PathEnd.CreateClient(
+			dstH,
+			dst.GetTrustingPeriod(),
+			ubdPeriod,
+			consensusParams,
+			c.MustGetAddress(),
+		)
+		clients.Src = append(clients.Src, msg)
 	}
 
 	// Create client for the source chain on destination chain if it doesn't exist
@@ -55,22 +53,19 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		if err != nil {
 			return err
 		}
-		unlock := SDKConfig.SetLock(dst)
-		clients.Dst = append(
-			clients.Dst,
-			dst.PathEnd.CreateClient(
-				srcH,
-				c.GetTrustingPeriod(),
-				ubdPeriod,
-				consensusParams,
-				dst.MustGetAddress(),
-			))
-		unlock()
+		msg := dst.PathEnd.CreateClient(
+			srcH,
+			c.GetTrustingPeriod(),
+			ubdPeriod,
+			consensusParams,
+			dst.MustGetAddress(),
+		)
+		clients.Dst = append(clients.Dst, msg)
 	}
 
 	// Send msgs to both chains
 	if clients.Ready() {
-		if clients.Send(c, dst); clients.success {
+		if clients.Send(c, dst); clients.Success() {
 			c.Log(fmt.Sprintf("★ Clients created: [%s]client(%s) and [%s]client(%s)",
 				c.ChainID, c.PathEnd.ClientID, dst.ChainID, dst.PathEnd.ClientID))
 		}
@@ -98,7 +93,7 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 
 	// Send msgs to both chains
 	if clients.Ready() {
-		if clients.Send(c, dst); clients.success {
+		if clients.Send(c, dst); clients.Success() {
 			c.Log(fmt.Sprintf("★ Clients updated: [%s]client(%s) {%d}->{%d} and [%s]client(%s) {%d}->{%d}",
 				c.ChainID,
 				c.PathEnd.ClientID,

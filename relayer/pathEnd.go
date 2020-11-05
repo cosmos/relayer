@@ -43,8 +43,25 @@ func OrderFromString(order string) chantypes.Order {
 	}
 }
 
-func (pe *PathEnd) getOrder() chantypes.Order {
+func (pe *PathEnd) GetOrder() chantypes.Order {
 	return OrderFromString(strings.ToUpper(pe.Order))
+}
+
+var marshalledChains = map[PathEnd]*Chain{}
+
+func MarshalChain(c *Chain) PathEnd {
+	pe := *c.PathEnd
+	if _, ok := marshalledChains[pe]; !ok {
+		marshalledChains[pe] = c
+	}
+	return pe
+}
+
+func UnmarshalChain(pe PathEnd) *Chain {
+	if c, ok := marshalledChains[pe]; ok {
+		return c
+	}
+	return nil
 }
 
 // UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst
@@ -107,13 +124,14 @@ func (pe *PathEnd) CreateClient(
 
 // ConnInit creates a MsgConnectionOpenInit
 func (pe *PathEnd) ConnInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
+	var version *conntypes.Version
 	return conntypes.NewMsgConnectionOpenInit(
 		pe.ConnectionID,
 		pe.ClientID,
 		dst.ConnectionID,
 		dst.ClientID,
 		defaultChainPrefix,
-		"",
+		version,
 		signer,
 	)
 }
@@ -139,7 +157,7 @@ func (pe *PathEnd) ConnTry(
 		dst.ClientID,
 		cs,
 		defaultChainPrefix,
-		conntypes.GetCompatibleEncodedVersions(),
+		conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
 		dstConnState.Proof,
 		dstClientState.Proof,
 		dstConsState.Proof,
@@ -175,7 +193,7 @@ func (pe *PathEnd) ConnAck(
 		dstConsState.Proof,
 		dstConsState.ProofHeight,
 		cs.GetLatestHeight().(clienttypes.Height),
-		conntypes.GetCompatibleEncodedVersions()[0],
+		conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions())[0],
 		signer,
 	)
 }
@@ -197,7 +215,7 @@ func (pe *PathEnd) ChanInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 		pe.PortID,
 		pe.ChannelID,
 		pe.Version,
-		pe.getOrder(),
+		pe.GetOrder(),
 		[]string{pe.ConnectionID},
 		dst.PortID,
 		dst.ChannelID,

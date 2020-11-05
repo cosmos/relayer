@@ -9,23 +9,28 @@ import (
 )
 
 var (
-	flagHash         = "hash"
-	flagURL          = "url"
-	flagForce        = "force"
-	flagTimeout      = "timeout"
-	flagConfig       = "config"
-	flagJSON         = "json"
-	flagYAML         = "yaml"
-	flagFile         = "file"
-	flagPath         = "path"
-	flagListenAddr   = "listen"
-	flagTx           = "no-tx"
-	flagBlock        = "no-block"
-	flagData         = "data"
-	flagOrder        = "unordered"
-	flagMaxTxSize    = "max-tx-size"
-	flagMaxMsgLength = "max-msgs"
-	flagIBCDenoms    = "ibc-denoms"
+	flagHash                = "hash"
+	flagURL                 = "url"
+	flagForce               = "force"
+	flagVersion             = "version"
+	flagStrategy            = "strategy"
+	flagTimeout             = "timeout"
+	flagConfig              = "config"
+	flagJSON                = "json"
+	flagYAML                = "yaml"
+	flagFile                = "file"
+	flagPort                = "port"
+	flagPath                = "path"
+	flagListenAddr          = "listen"
+	flagTx                  = "no-tx"
+	flagBlock               = "no-block"
+	flagData                = "data"
+	flagOrder               = "unordered"
+	flagMaxTxSize           = "max-tx-size"
+	flagMaxMsgLength        = "max-msgs"
+	flagIBCDenoms           = "ibc-denoms"
+	flagTimeoutHeightOffset = "timeout-height-offset"
+	flagTimeoutTimeOffset   = "timeout-time-offset"
 )
 
 func ibcDenomFlags(cmd *cobra.Command) *cobra.Command {
@@ -71,6 +76,14 @@ func paginationFlags(cmd *cobra.Command) *cobra.Command {
 func yamlFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagYAML, "y", false, "output using yaml")
 	if err := viper.BindPFlag(flagYAML, cmd.Flags().Lookup(flagYAML)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func portFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagPort, "p", "transfer", "port to use when generating path")
+	if err := viper.BindPFlag(flagPort, cmd.Flags().Lookup(flagPort)); err != nil {
 		panic(err)
 	}
 	return cmd
@@ -122,6 +135,26 @@ func pathFlag(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
+func pathStrategy(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagStrategy, "s", "naive", "specify strategy of path to generate")
+	if err := viper.BindPFlag(flagStrategy, cmd.Flags().Lookup(flagStrategy)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func timeoutFlags(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Uint64P(flagTimeoutHeightOffset, "y", 0, "set timeout height offset for ")
+	cmd.Flags().DurationP(flagTimeoutTimeOffset, "c", time.Duration(0), "specify the path to relay over")
+	if err := viper.BindPFlag(flagTimeoutHeightOffset, cmd.Flags().Lookup(flagTimeoutHeightOffset)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flagTimeoutTimeOffset, cmd.Flags().Lookup(flagTimeoutTimeOffset)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
 func jsonFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagJSON, "j", false, "returns the response in json format")
 	if err := viper.BindPFlag(flagJSON, cmd.Flags().Lookup(flagJSON)); err != nil {
@@ -141,6 +174,14 @@ func fileFlag(cmd *cobra.Command) *cobra.Command {
 func timeoutFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagTimeout, "o", "10s", "timeout between relayer runs")
 	if err := viper.BindPFlag(flagTimeout, cmd.Flags().Lookup(flagTimeout)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func versionFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagVersion, "v", "ics20-1", "version of channel to create")
+	if err := viper.BindPFlag(flagVersion, cmd.Flags().Lookup(flagVersion)); err != nil {
 		panic(err)
 	}
 	return cmd
@@ -171,7 +212,7 @@ func urlFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func strategyFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagMaxTxSize, "s", "2", "maximum size (in MB) of the messages in a relay transaction")
+	cmd.Flags().StringP(flagMaxTxSize, "s", "2", "strategy of path to generate of the messages in a relay transaction")
 	cmd.Flags().StringP(flagMaxMsgLength, "l", "5", "maximum number of messages in a relay transaction")
 	if err := viper.BindPFlag(flagMaxTxSize, cmd.Flags().Lookup(flagMaxTxSize)); err != nil {
 		panic(err)

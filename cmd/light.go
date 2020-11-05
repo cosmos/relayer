@@ -21,7 +21,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
-	"github.com/ovrclk/relayer/relayer"
+	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -77,10 +77,11 @@ func initLightCmd() *cobra.Command {
 
 			switch {
 			case force: // force initialization from trusted node
-				_, err = chain.LightClientWithoutTrust(db)
+				_, err := chain.LightClientWithoutTrust(db)
 				if err != nil {
 					return err
 				}
+				fmt.Printf("successfully created light client for %s by trusting endpoint %s...\n", chain.ChainID, chain.RPCAddr)
 			case height > 0 && len(hash) > 0: // height and hash are given
 				_, err = chain.LightClientWithTrust(db, chain.TrustOptions(height, hash))
 				if err != nil {
@@ -119,7 +120,6 @@ func updateLightCmd() *cobra.Command {
 				return err
 			}
 
-			// TODO: more fun printing here like time deltas?
 			fmt.Printf("Updated light client for %s from height %d -> height %d\n", args[0], bh.Header.Height, ah.Header.Height)
 			return nil
 		},
@@ -176,7 +176,7 @@ func lightHeaderCmd() *cobra.Command {
 
 			}
 
-			out, err := chain.Cdc.MarshalJSON(header)
+			out, err := chain.Encoding.Marshaler.MarshalJSON(header)
 			if err != nil {
 				return err
 			}

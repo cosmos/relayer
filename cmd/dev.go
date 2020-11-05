@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -42,7 +43,13 @@ func genesisCmd() *cobra.Command {
 				return err
 			}
 
-			return c.Print(gen, false, false)
+			out, err := json.Marshal(gen)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(out))
+			return nil
 		},
 	}
 	return cmd
@@ -188,7 +195,7 @@ func rlyService() *cobra.Command {
 			if _, err = chains[src].GetAddress(); err != nil {
 				return err
 			}
-			if _, err = chains[src].GetAddress(); err != nil {
+			if _, err = chains[dst].GetAddress(); err != nil {
 				return err
 			}
 

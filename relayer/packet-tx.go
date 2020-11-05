@@ -2,41 +2,55 @@ package relayer
 
 import (
 	"fmt"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	commitmentypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
 )
 
 var (
-	defaultChainPrefix     = commitmentypes.NewMerklePrefix([]byte("ibc"))
-	defaultPacketSendQuery = "send_packet.packet_src_channel=%s&send_packet.packet_sequence=%d"
-	// defaultPacketAckQuery  = "recv_packet.packet_src_channel=%s&recv_packet.packet_sequence=%d"
+	defaultChainPrefix = commitmentypes.NewMerklePrefix([]byte("ibc"))
 )
 
 // SendTransferMsg initiates an ibs20 transfer from src to dst with the specified args
-func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringer) error {
+func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringer, toHeightOffset uint64, toTimeOffset time.Duration) error {
+	var (
+		timeoutHeight    uint64
+		timeoutTimestamp uint64
+	)
+
 	h, err := dst.UpdateLightWithHeader()
 	if err != nil {
 		return err
 	}
 
 	// Properly render the address string
-	unlock := SDKConfig.SetLock(dst)
 	dstAddrString := dstAddr.String()
-	unlock()
+
+	switch {
+	case toHeightOffset > 0 && toTimeOffset > 0:
+		return fmt.Errorf("cant set both timeout height and time offset")
+	case toHeightOffset > 0:
+		timeoutHeight = uint64(h.Header.Height) + toHeightOffset
+		timeoutTimestamp = 0
+	case toTimeOffset > 0:
+		timeoutHeight = 0
+		timeoutTimestamp = uint64(time.Now().Add(toTimeOffset).UnixNano())
+	case toHeightOffset == 0 && toTimeOffset == 0:
+		timeoutHeight = uint64(h.Header.Height + 1000)
+		timeoutTimestamp = 0
+	}
 
 	// MsgTransfer will call SendPacket on src chain
 	// TODO: Add ability to specify timeout time or height via command line flags
-	unlock = SDKConfig.SetLock(c)
 	txs := RelayMsgs{
 		Src: []sdk.Msg{c.PathEnd.MsgTransfer(
-			dst.PathEnd, amount, dstAddrString, c.MustGetAddress(), uint64(h.Header.Height+1000), 0,
+			dst.PathEnd, amount, dstAddrString, c.MustGetAddress(), timeoutHeight, timeoutTimestamp,
 		)},
 		Dst: []sdk.Msg{},
 	}
-	unlock()
 
-	if txs.Send(c, dst); !txs.success {
+	if txs.Send(c, dst); !txs.Success() {
 		return fmt.Errorf("failed to send transfer message")
 	}
 	return nil
