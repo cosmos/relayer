@@ -321,6 +321,8 @@ func relayAcksCmd() *cobra.Command {
 				return err
 			}
 
+			// sp.Src contains all sequences acked on SRC but acknowledgement not processed on DST
+			// sp.Dst contains all sequences acked on DST but acknowledgement not processed on SRC
 			sp, err := strategy.UnrelayedAcknowledgements(c[src], c[dst], sh)
 			if err != nil {
 				return err

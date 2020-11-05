@@ -401,23 +401,8 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 
 	// add messages for sequences on src
 	for _, seq := range sp.Src {
-		// Query src for the sequence number to get type of packet
+		// SRC wrote ack, so we query packet and send to DST
 		pkt, err := acknowledgementFromSequence(src, dst, sh, seq)
-		if err != nil {
-			return err
-		}
-
-		msg, err := pkt.Msg(src, dst)
-		if err != nil {
-			return err
-		}
-		msgs.Src = append(msgs.Src, msg)
-	}
-
-	// add messages for sequences on dst
-	for _, seq := range sp.Dst {
-		// Query dst for the sequence number to get type of packet
-		pkt, err := acknowledgementFromSequence(dst, src, sh, seq)
 		if err != nil {
 			return err
 		}
@@ -427,6 +412,21 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 			return err
 		}
 		msgs.Dst = append(msgs.Dst, msg)
+	}
+
+	// add messages for sequences on dst
+	for _, seq := range sp.Dst {
+		// DST wrote ack, so we query packet and send to SRC
+		pkt, err := acknowledgementFromSequence(dst, src, sh, seq)
+		if err != nil {
+			return err
+		}
+
+		msg, err := pkt.Msg(src, dst)
+		if err != nil {
+			return err
+		}
+		msgs.Src = append(msgs.Src, msg)
 	}
 
 	if !msgs.Ready() {
