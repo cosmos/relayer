@@ -12,11 +12,14 @@ var (
 	flagHash                = "hash"
 	flagURL                 = "url"
 	flagForce               = "force"
+	flagVersion             = "version"
+	flagStrategy            = "strategy"
 	flagTimeout             = "timeout"
 	flagConfig              = "config"
 	flagJSON                = "json"
 	flagYAML                = "yaml"
 	flagFile                = "file"
+	flagPort                = "port"
 	flagPath                = "path"
 	flagListenAddr          = "listen"
 	flagTx                  = "no-tx"
@@ -78,6 +81,14 @@ func yamlFlag(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
+func portFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagPort, "p", "transfer", "port to use when generating path")
+	if err := viper.BindPFlag(flagPort, cmd.Flags().Lookup(flagPort)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
 func orderFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagOrder, "o", true, "create an unordered channel")
 	if err := viper.BindPFlag(flagOrder, cmd.Flags().Lookup(flagOrder)); err != nil {
@@ -124,10 +135,14 @@ func pathFlag(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
-// TODO: add ability to set timeout height and time from flags
-// Should be relative to current time and block height
-// --timeout-height-offset=1000
-// --timeout-time-offset=2h
+func pathStrategy(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagStrategy, "s", "naive", "specify strategy of path to generate")
+	if err := viper.BindPFlag(flagStrategy, cmd.Flags().Lookup(flagStrategy)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
 func timeoutFlags(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Uint64P(flagTimeoutHeightOffset, "y", 0, "set timeout height offset for ")
 	cmd.Flags().DurationP(flagTimeoutTimeOffset, "c", time.Duration(0), "specify the path to relay over")
@@ -164,6 +179,14 @@ func timeoutFlag(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
+func versionFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagVersion, "v", "ics20-1", "version of channel to create")
+	if err := viper.BindPFlag(flagVersion, cmd.Flags().Lookup(flagVersion)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
 func forceFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagForce, "f", false, "option to force non-standard behavior such as initialization of light client from configured chain or generation of new path") //nolint:lll
 	if err := viper.BindPFlag(flagForce, cmd.Flags().Lookup(flagForce)); err != nil {
@@ -189,7 +212,7 @@ func urlFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func strategyFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagMaxTxSize, "s", "2", "maximum size (in MB) of the messages in a relay transaction")
+	cmd.Flags().StringP(flagMaxTxSize, "s", "2", "strategy of path to generate of the messages in a relay transaction")
 	cmd.Flags().StringP(flagMaxMsgLength, "l", "5", "maximum number of messages in a relay transaction")
 	if err := viper.BindPFlag(flagMaxTxSize, cmd.Flags().Lookup(flagMaxTxSize)); err != nil {
 		panic(err)

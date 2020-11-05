@@ -1,0 +1,1 @@
+{"key":"testkey","chain-id":"ibc-0","rpc-addr":"http://localhost:46657","account-prefix":"cosmos","gas-adjustment":1.0,"trusting-period":"336h"}

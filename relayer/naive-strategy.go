@@ -373,7 +373,7 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 			txs.Src = append(txs.Src, msg)
 		}
 
-		if txs.Send(src, dst); !txs.success {
+		if txs.Send(src, dst); !txs.Success() {
 			return fmt.Errorf("failed to send packets, see above logs for details")
 		}
 
@@ -455,7 +455,7 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 	}
 
 	// send messages to their respective chains
-	if msgs.Send(src, dst); msgs.success {
+	if msgs.Send(src, dst); msgs.Success() {
 		if len(msgs.Dst) > 1 {
 			dst.logPacketsRelayed(src, len(msgs.Dst)-1)
 		}
@@ -560,7 +560,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences, sh *
 	}
 
 	// send messages to their respective chains
-	if msgs.Send(src, dst); msgs.success {
+	if msgs.Send(src, dst); msgs.Success() {
 		if len(msgs.Dst) > 1 {
 			dst.logPacketsRelayed(src, len(msgs.Dst)-1)
 		}

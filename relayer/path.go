@@ -3,9 +3,17 @@ package relayer
 import (
 	"fmt"
 
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
 
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
+)
+
+const (
+	check = "✔"
+	xIcon = "✘"
 )
 
 // Paths represent connection paths between chains
@@ -86,6 +94,11 @@ func (p Paths) PathsFromChains(src, dst string) (Paths, error) {
 	return out, nil
 }
 
+type PathAction struct {
+	*Path
+	Type string `json:"type"`
+}
+
 // Path represents a pair of chains and the identifiers needed to
 // relay over them
 type Path struct {
@@ -94,9 +107,27 @@ type Path struct {
 	Strategy *StrategyCfg `yaml:"strategy" json:"strategy"`
 }
 
+// GenSrcClientID generates the specififed identifier
+func (p *Path) GenSrcClientID() { p.Src.ClientID = RandLowerCaseLetterString(10) }
+
+// GenDstClientID generates the specififed identifier
+func (p *Path) GenDstClientID() { p.Dst.ClientID = RandLowerCaseLetterString(10) }
+
+// GenSrcConnID generates the specififed identifier
+func (p *Path) GenSrcConnID() { p.Src.ConnectionID = RandLowerCaseLetterString(10) }
+
+// GenDstConnID generates the specififed identifier
+func (p *Path) GenDstConnID() { p.Dst.ConnectionID = RandLowerCaseLetterString(10) }
+
+// GenSrcChanID generates the specififed identifier
+func (p *Path) GenSrcChanID() { p.Src.ChannelID = RandLowerCaseLetterString(10) }
+
+// GenDstChanID generates the specififed identifier
+func (p *Path) GenDstChanID() { p.Dst.ChannelID = RandLowerCaseLetterString(10) }
+
 // Ordered returns true if the path is ordered and false if otherwise
 func (p *Path) Ordered() bool {
-	return p.Src.getOrder() == chantypes.ORDERED
+	return p.Src.GetOrder() == chantypes.ORDERED
 }
 
 // Validate checks that a path is valid
@@ -161,4 +192,123 @@ func GenPath(srcChainID, dstChainID, srcPortID, dstPortID, order string, version
 			Type: "naive",
 		},
 	}
+}
+
+// PathStatus holds the status of the primatives in the path
+type PathStatus struct {
+	Chains     bool `yaml:"chains" json:"chains"`
+	Clients    bool `yaml:"clients" json:"clients"`
+	Connection bool `yaml:"connection" json:"connection"`
+	Channel    bool `yaml:"channel" json:"channel"`
+}
+
+// PathWithStatus is used for showing the status of the path
+type PathWithStatus struct {
+	Path   *Path      `yaml:"path" json:"chains"`
+	Status PathStatus `yaml:"status" json:"status"`
+}
+
+// QueryPathStatus returns an instance of the path struct with some attached data about
+// the current status of the path
+func (p *Path) QueryPathStatus(src, dst *Chain) *PathWithStatus {
+	// TODO: add sanity check for paths and chainIDs
+	var (
+		err              error
+		eg               errgroup.Group
+		srch, dsth       int64
+		srcCs, dstCs     *clienttypes.QueryClientStateResponse
+		srcConn, dstConn *conntypes.QueryConnectionResponse
+		srcChan, dstChan *chantypes.QueryChannelResponse
+
+		out = &PathWithStatus{Path: p, Status: PathStatus{false, false, false, false}}
+	)
+	eg.Go(func() error {
+		srch, err = src.QueryLatestHeight()
+		return err
+	})
+	eg.Go(func() error {
+		dsth, err = dst.QueryLatestHeight()
+		return err
+	})
+	if eg.Wait(); err != nil {
+		return out
+	}
+	out.Status.Chains = true
+	if err = src.SetPath(p.Src); err != nil {
+		return out
+	}
+	if err = dst.SetPath(p.Dst); err != nil {
+		return out
+	}
+
+	eg.Go(func() error {
+		srcCs, err = src.QueryClientState(srch)
+		return err
+	})
+	eg.Go(func() error {
+		dstCs, err = dst.QueryClientState(dsth)
+		return err
+	})
+	if err = eg.Wait(); err != nil || srcCs == nil || dstCs == nil {
+		return out
+	}
+	out.Status.Clients = true
+
+	eg.Go(func() error {
+		srcConn, err = src.QueryConnection(srch)
+		return err
+	})
+	eg.Go(func() error {
+		dstConn, err = dst.QueryConnection(dsth)
+		return err
+	})
+	if err = eg.Wait(); err != nil || srcConn.Connection.State != conntypes.OPEN || dstConn.Connection.State != conntypes.OPEN {
+		return out
+	}
+	out.Status.Connection = true
+
+	eg.Go(func() error {
+		srcChan, err = src.QueryChannel(srch)
+		return err
+	})
+	eg.Go(func() error {
+		dstChan, err = dst.QueryChannel(dsth)
+		return err
+	})
+	if err = eg.Wait(); err != nil || srcChan.Channel.State != chantypes.OPEN || dstChan.Channel.State != chantypes.OPEN {
+		return out
+	}
+	out.Status.Channel = true
+	return out
+}
+
+// PrintString prints a string representations of the path status
+func (ps *PathWithStatus) PrintString(name string) string {
+	pth := ps.Path
+	return fmt.Sprintf(`Path "%s" strategy(%s):
+  SRC(%s)
+    ClientID:     %s
+    ConnectionID: %s
+    ChannelID:    %s
+    PortID:       %s
+  DST(%s)
+    ClientID:     %s
+    ConnectionID: %s
+    ChannelID:    %s
+    PortID:       %s
+  STATUS:
+    Chains:       %s
+    Clients:      %s
+    Connection:   %s
+    Channel:      %s`, name, pth.Strategy.Type, pth.Src.ChainID,
+		pth.Src.ClientID, pth.Src.ConnectionID, pth.Src.ChannelID, pth.Src.PortID,
+		pth.Dst.ChainID, pth.Dst.ClientID, pth.Dst.ConnectionID, pth.Dst.ChannelID, pth.Dst.PortID,
+		checkmark(ps.Status.Chains), checkmark(ps.Status.Clients), checkmark(ps.Status.Connection), checkmark(ps.Status.Channel))
+}
+
+func checkmark(status bool) string {
+	if status {
+		return check
+	}
+	return xIcon
 }

@@ -16,7 +16,9 @@ limitations under the License.
 package cmd
 
 import (
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/relayer/relayer"
@@ -37,6 +39,7 @@ func transactionCmd() *cobra.Command {
 
 	cmd.AddCommand(
 		linkCmd(),
+		linkThenStartCmd(),
 		relayMsgsCmd(),
 		relayAcksCmd(),
 		xfersend(),
@@ -250,6 +253,24 @@ func linkCmd() *cobra.Command {
 		},
 	}
 
+	return timeoutFlag(cmd)
+}
+
+func linkThenStartCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "link-then-start [path-name]",
+		Short: "wait for a link to come up, then start relaying packets",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			lCmd := linkCmd()
+			for err := lCmd.RunE(cmd, args); err != nil; err = lCmd.RunE(cmd, args) {
+				fmt.Printf("retrying link: %s\n", err)
+				time.Sleep(1 * time.Second)
+			}
+			sCmd := startCmd()
+			return sCmd.RunE(cmd, args)
+		},
+	}
 	return timeoutFlag(cmd)
 }
 
