@@ -1,7 +1,8 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
 SDKCOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/cosmos-sdk)
-# GAIACOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/gaia)
+GAIA_VERSION := jack/gaiav3.0
+AKASH_VERSION := jack/update-sdk
 all: ci-lint install
 
 ###############################################################################
@@ -59,4 +60,26 @@ lint:
 
 .PHONY: install build lint coverage clean
 
-# TODO: Full tested and working releases
+###############################################################################
+# Chain Code Downloads
+###############################################################################
+
+get-gaia:
+	@mkdir -p ./chain-code/
+	@git clone --branch $(GAIA_VERSION) git@github.com:cosmos/gaia.git ./chain-code/gaia
+
+build-gaia:
+	@./scripts/build-gaia
+
+build-akash:
+	@./scripts/build-akash
+
+get-akash:
+	@mkdir -p ./chain-code/
+	@git clone --branch $(AKASH_VERSION) git@github.com:ovrclk/akash.git ./chain-code/akash
+
+get-chains: get-gaia get-akash
+
+delete-chains: 
+	@echo "Removing the ./chain-code/ directory..."
+	@rm -rf ./chain-code

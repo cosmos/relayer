@@ -2,43 +2,48 @@
 
 display_usage() {
 	echo "\nMissing $1 parameter. Please check if all parameters were specified."
-	echo "\nUsage: ./one-chain [CHAIN_ID] [CHAIN_DIR] [RPC_PORT] [P2P_PORT] [PROFILING_PORT] [GRPC_PORT]"
-  echo "\nExample: ./one-chain test-chain-id ./data 26657 26656 6060 9090 \n"
+	echo "\nUsage: ./one-chain [BINARY] [CHAIN_ID] [CHAIN_DIR] [RPC_PORT] [P2P_PORT] [PROFILING_PORT] [GRPC_PORT]"
+  echo "\nExample: ./one-chain $BINARY test-chain-id ./data 26657 26656 6060 9090 \n"
   exit 1
 }
 
-CHAINID=$1
-CHAINDIR=$2
-RPCPORT=$3
-P2PPORT=$4
-PROFPORT=$5
-GRPCPORT=$6
+BINARY=$1
+CHAINID=$2
+CHAINDIR=$3
+RPCPORT=$4
+P2PPORT=$5
+PROFPORT=$6
+GRPCPORT=$7
 
 if [ -z "$1" ]; then
-  display_usage "[CHAIN_ID]"
+  display_usage "[BINARY] ($BINARY|akash)"
 fi
 
 if [ -z "$2" ]; then
-  display_usage "[CHAIN_DIR]"
+  display_usage "[CHAIN_ID]"
 fi
 
 if [ -z "$3" ]; then
-  display_usage "[RPC_PORT]"
+  display_usage "[CHAIN_DIR]"
 fi
 
 if [ -z "$4" ]; then
-  display_usage "[P2P_PORT]"
+  display_usage "[RPC_PORT]"
 fi
 
 if [ -z "$5" ]; then
-  display_usage "[PROFILING_PORT]"
+  display_usage "[P2P_PORT]"
 fi
 
 if [ -z "$6" ]; then
+  display_usage "[PROFILING_PORT]"
+fi
+
+if [ -z "$7" ]; then
   display_usage "[GRPC_PORT]"
 fi
 
-echo "Creating gaiad instance: home=$CHAINDIR | chain-id=$CHAINID | p2p=:$P2PPORT | rpc=:$RPCPORT | profiling=:$PROFPORT | grpc=:$GRPCPORT"
+echo "Creating $BINARY instance: home=$CHAINDIR | chain-id=$CHAINID | p2p=:$P2PPORT | rpc=:$RPCPORT | profiling=:$PROFPORT | grpc=:$GRPCPORT"
 
 # Add dir for chain, exit if error
 if ! mkdir -p $CHAINDIR/$CHAINID 2>/dev/null; then
@@ -49,19 +54,19 @@ fi
 # Build genesis file incl account for passed address
 coins="100000000000stake,100000000000samoleans"
 
-gaiad --home $CHAINDIR/$CHAINID --chain-id $CHAINID init $CHAINID &> /dev/null
+$BINARY --home $CHAINDIR/$CHAINID --chain-id $CHAINID init $CHAINID &> /dev/null
 sleep 1
-gaiad --home $CHAINDIR/$CHAINID keys add validator --keyring-backend="test" --output json > $CHAINDIR/$CHAINID/validator_seed.json 2> /dev/null
+$BINARY --home $CHAINDIR/$CHAINID keys add validator --keyring-backend="test" --output json > $CHAINDIR/$CHAINID/validator_seed.json 2> /dev/null
 sleep 1
-gaiad --home $CHAINDIR/$CHAINID keys add user --keyring-backend="test" --output json > $CHAINDIR/$CHAINID/key_seed.json 2> /dev/null
+$BINARY --home $CHAINDIR/$CHAINID keys add user --keyring-backend="test" --output json > $CHAINDIR/$CHAINID/key_seed.json 2> /dev/null
 sleep 1
-gaiad --home $CHAINDIR/$CHAINID add-genesis-account $(gaiad --home $CHAINDIR/$CHAINID keys --keyring-backend="test" show user -a) $coins &> /dev/null
+$BINARY --home $CHAINDIR/$CHAINID add-genesis-account $($BINARY --home $CHAINDIR/$CHAINID keys --keyring-backend="test" show user -a) $coins &> /dev/null
 sleep 1
-gaiad --home $CHAINDIR/$CHAINID add-genesis-account $(gaiad --home $CHAINDIR/$CHAINID keys --keyring-backend="test" show validator -a) $coins  &> /dev/null
+$BINARY --home $CHAINDIR/$CHAINID add-genesis-account $($BINARY --home $CHAINDIR/$CHAINID keys --keyring-backend="test" show validator -a) $coins  &> /dev/null
 sleep 1
-gaiad --home $CHAINDIR/$CHAINID gentx validator --keyring-backend="test" --chain-id $CHAINID &> /dev/null
+$BINARY --home $CHAINDIR/$CHAINID gentx validator --keyring-backend="test" --chain-id $CHAINID &> /dev/null
 sleep 1
-gaiad --home $CHAINDIR/$CHAINID collect-gentxs &> /dev/null
+$BINARY --home $CHAINDIR/$CHAINID collect-gentxs &> /dev/null
 sleep 1
 
 # Check platform
@@ -92,4 +97,4 @@ else
 fi
 
 # Start the gaia
-gaiad --home $CHAINDIR/$CHAINID start --pruning=nothing --grpc.address="0.0.0.0:$GRPCPORT" > $CHAINDIR/$CHAINID.log 2>&1 &
+$BINARY --home $CHAINDIR/$CHAINID start --pruning=nothing --grpc.address="0.0.0.0:$GRPCPORT" > $CHAINDIR/$CHAINID.log 2>&1 &

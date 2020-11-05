@@ -1,4 +1,5 @@
 #!/bin/bash
+# TODO: test again, don't think this is currently working
 
 # Ensure jq is installed
 if [[ ! -x "$(which jq)" ]]; then
