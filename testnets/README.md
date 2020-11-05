@@ -106,6 +106,9 @@ mkdir -p $(dirname $RELAYER) && git clone https://github.com/cosmos/relayer $REL
 # Verify gaia version matches that of the latest testnet above
 gaia version --long
 
+# Verify gaia version matches that of the latest testnet above
+gaia version --long
+
 # Now its time to configure both the relayer and gaia, start with the relayer
 cd
 rly config init
