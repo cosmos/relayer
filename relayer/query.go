@@ -54,7 +54,9 @@ func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
 		if err != nil {
 			return nil, err
 		}
+		done := c.UseSDKContext()
 		addr = info.GetAddress()
+		done()
 	}
 
 	params := bankTypes.NewQueryAllBalancesRequest(addr, &querytypes.PageRequest{
