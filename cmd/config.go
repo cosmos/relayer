@@ -280,6 +280,7 @@ func defaultConfig() []byte {
 
 // GlobalConfig describes any global relayer settings
 type GlobalConfig struct {
+	APIListenPort  string `yaml:"api-listen-addr" json:"api-listen-addr"`
 	Timeout        string `yaml:"timeout" json:"timeout"`
 	LightCacheSize int    `yaml:"light-cache-size" json:"light-cache-size"`
 }
@@ -287,6 +288,7 @@ type GlobalConfig struct {
 // newDefaultGlobalConfig returns a global config with defaults set
 func newDefaultGlobalConfig() GlobalConfig {
 	return GlobalConfig{
+		APIListenPort:  ":5183",
 		Timeout:        "10s",
 		LightCacheSize: 20,
 	}

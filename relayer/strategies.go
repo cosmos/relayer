@@ -83,8 +83,8 @@ func relayerListenLoop(src, dst *Chain, doneChan chan struct{}, sh *SyncHeaders,
 
 	// Start client for source chain
 	if err = src.Start(); err != nil {
-		src.Error(err)
-		return
+		// Don't exit on error, if the client is already started its ok
+		// TODO: Need to do anything here?
 	}
 
 	// Subscibe to txEvents from the source chain
@@ -105,8 +105,8 @@ func relayerListenLoop(src, dst *Chain, doneChan chan struct{}, sh *SyncHeaders,
 
 	// Subscribe to destination chain
 	if err = dst.Start(); err != nil {
-		dst.Error(err)
-		return
+		// Don't exit on error, if the client is already started its ok
+		// TODO: Need to do anything here?
 	}
 
 	// Subscibe to txEvents from the destination chain

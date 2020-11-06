@@ -77,6 +77,8 @@ func init() {
 		queryCmd(),
 		startCmd(),
 		flags.LineBreak,
+		getAPICmd(),
+		flags.LineBreak,
 		devCommand(),
 		testnetsCmd(),
 		getVersionCmd(),
