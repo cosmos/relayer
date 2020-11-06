@@ -125,10 +125,10 @@ func InjectTrustedFields(srcChain, dstChain *Chain, srcHeader *tmclient.Header) 
 	}
 
 	// inject TrustedHeight as latest height stored on counterparty client
-	h.TrustedHeight = cs.GetLatestHeight().(clienttypes.Height)
+	h.TrustedHeight = cs.GetLatestHeight().(*clienttypes.Height)
 
 	// query TrustedValidators at Trusted Height from srcChain
-	valSet, err := srcChain.QueryValsetAtHeight(h.TrustedHeight)
+	valSet, err := srcChain.QueryValsetAtHeight(*h.TrustedHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func InjectTrustedFields(srcChain, dstChain *Chain, srcHeader *tmclient.Header) 
 
 // MustGetHeight takes the height inteface and returns the actual height
 func MustGetHeight(h ibcexported.Height) uint64 {
-	height, ok := h.(clienttypes.Height)
+	height, ok := h.(*clienttypes.Height)
 	if !ok {
 		panic("height is not an instance of height! wtf")
 	}

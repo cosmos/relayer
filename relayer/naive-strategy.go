@@ -18,7 +18,7 @@ var (
 	_ Strategy = &NaiveStrategy{}
 
 	// Strings for parsing events
-	spTag       = "send_packet"
+	spTag       = "ibc.core.channel.v1.EventChannelSendPacket"
 	waTag       = "write_acknowledgement"
 	srcChanTag  = "packet_src_channel"
 	dstChanTag  = "packet_dst_channel"
@@ -574,6 +574,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences, sh *
 
 // relayPacketFromSequence returns a sdk.Msg to relay a packet with a given seq on src
 func relayPacketFromSequence(src, dst *Chain, sh *SyncHeaders, seq uint64) (relayPacket, error) {
+	fmt.Println(rcvPacketQuery(src.PathEnd.ChannelID, int(seq)))
 	txs, err := src.QueryTxs(sh.GetHeight(src.ChainID), 1, 1000, rcvPacketQuery(src.PathEnd.ChannelID, int(seq)))
 	switch {
 	case err != nil:
@@ -735,6 +736,7 @@ func acknowledgementsFromResultTx(src, dst *PathEnd, res *ctypes.ResultTx, sh *S
 			// NOTE: Src and Dst are switched here
 			rp := &relayMsgPacketAck{pass: false}
 			for _, p := range e.Attributes {
+				fmt.Println("p.Key", p.Key, "p.Value", p.Value)
 				if string(p.Key) == srcChanTag {
 					if string(p.Value) != src.ChannelID {
 						rp.pass = true
@@ -793,9 +795,9 @@ func acknowledgementsFromResultTx(src, dst *PathEnd, res *ctypes.ResultTx, sh *S
 }
 
 func rcvPacketQuery(channelID string, seq int) []string {
-	return []string{fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID), fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq)}
+	return []string{fmt.Sprintf("%s.src_channel='%s'", spTag, channelID), fmt.Sprintf("%s.sequence='%d'", spTag, seq)}
 }
 
 func ackPacketQuery(channelID string, seq int) []string {
-	return []string{fmt.Sprintf("%s.packet_src_channel='%s'", waTag, channelID), fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq)}
+	return []string{fmt.Sprintf("%s.src_channel='%s'", waTag, channelID), fmt.Sprintf("%s.sequence='%d'", waTag, seq)}
 }

@@ -68,24 +68,24 @@ func listenCmd() *cobra.Command {
 				return err
 			}
 
-			tx, err := cmd.Flags().GetBool(flagTx)
-			if err != nil {
-				return err
-			}
-			block, err := cmd.Flags().GetBool(flagBlock)
-			if err != nil {
-				return err
-			}
-			data, err := cmd.Flags().GetBool(flagData)
-			if err != nil {
-				return err
-			}
+			// tx, err := cmd.Flags().GetBool(flagTx)
+			// if err != nil {
+			// 	return err
+			// }
+			// block, err := cmd.Flags().GetBool(flagBlock)
+			// if err != nil {
+			// 	return err
+			// }
+			// data, err := cmd.Flags().GetBool(flagData)
+			// if err != nil {
+			// 	return err
+			// }
 
-			if block && tx {
-				return fmt.Errorf("must output block and/or tx")
-			}
+			// if block && tx {
+			// 	return fmt.Errorf("must output block and/or tx")
+			// }
 
-			done := c.ListenRPCEmitJSON(tx, block, data)
+			done := c.ListenRPCTestTypedEvents()
 
 			trapSignal(done)
 

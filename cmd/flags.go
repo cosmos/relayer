@@ -74,6 +74,18 @@ func paginationFlags(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
+func tmPaginationFlags(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Uint64P(flags.FlagPage, "p", 1, "pagination offset for query")
+	cmd.Flags().Uint64P(flags.FlagLimit, "l", 1000, "pagination limit for query")
+	if err := viper.BindPFlag(flags.FlagPage, cmd.Flags().Lookup(flags.FlagPage)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flags.FlagLimit, cmd.Flags().Lookup(flags.FlagLimit)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
 func yamlFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagYAML, "y", false, "output using yaml")
 	if err := viper.BindPFlag(flagYAML, cmd.Flags().Lookup(flagYAML)); err != nil {

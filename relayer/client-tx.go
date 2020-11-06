@@ -16,7 +16,6 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 	if err != nil {
 		return err
 	}
-
 	// Create client for the destination chain on the source chain if it doesn't exist
 	if srcCs, err := c.QueryClientState(srcH.Header.Height); err != nil && srcCs == nil {
 		if c.debug {

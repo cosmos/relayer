@@ -130,7 +130,7 @@ documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.
 				return err
 			}
 
-			offset, err := cmd.Flags().GetUint64(flags.FlagOffset)
+			offset, err := cmd.Flags().GetUint64(flags.FlagPage)
 			if err != nil {
 				return err
 			}
@@ -154,7 +154,7 @@ documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.
 			return nil
 		},
 	}
-	return paginationFlags(cmd)
+	return tmPaginationFlags(cmd)
 }
 
 func queryAccountCmd() *cobra.Command {
@@ -425,7 +425,8 @@ func queryValSetAtHeightCmd() *cobra.Command {
 
 			version := clienttypes.ParseChainID(args[0])
 
-			res, err := chain.QueryValsetAtHeight(clienttypes.NewHeight(version, uint64(h)))
+			height := clienttypes.NewHeight(version, uint64(h))
+			res, err := chain.QueryValsetAtHeight(*height)
 			if err != nil {
 				return err
 			}

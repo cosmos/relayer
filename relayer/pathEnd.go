@@ -83,6 +83,7 @@ func (pe *PathEnd) CreateClient(
 	trustingPeriod, unbondingPeriod time.Duration,
 	consensusParams *abci.ConsensusParams,
 	signer sdk.AccAddress) sdk.Msg {
+	dstHeader.TrustedHeight = clienttypes.NewHeight(0, 0)
 	if err := dstHeader.ValidateBasic(); err != nil {
 		panic(err)
 	}
@@ -94,7 +95,7 @@ func (pe *PathEnd) CreateClient(
 		trustingPeriod,
 		unbondingPeriod,
 		time.Minute*10,
-		dstHeader.GetHeight().(clienttypes.Height),
+		dstHeader.GetHeight().(*clienttypes.Height),
 		consensusParams,
 		commitmenttypes.GetSDKSpecs(),
 		"upgrade/upgradedClient",
@@ -158,7 +159,7 @@ func (pe *PathEnd) ConnTry(
 		dstClientState.Proof,
 		dstConsState.Proof,
 		dstConnState.ProofHeight,
-		cs.GetLatestHeight().(clienttypes.Height),
+		cs.GetLatestHeight().(*clienttypes.Height),
 		signer,
 	)
 	if err = msg.ValidateBasic(); err != nil {
@@ -188,7 +189,7 @@ func (pe *PathEnd) ConnAck(
 		dstClientState.Proof,
 		dstConsState.Proof,
 		dstConsState.ProofHeight,
-		cs.GetLatestHeight().(clienttypes.Height),
+		cs.GetLatestHeight().(*clienttypes.Height),
 		conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions())[0],
 		signer,
 	)
