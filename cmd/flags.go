@@ -13,6 +13,7 @@ var (
 	flagURL                 = "url"
 	flagForce               = "force"
 	flagVersion             = "version"
+	flagSkip                = "skip"
 	flagStrategy            = "strategy"
 	flagTimeout             = "timeout"
 	flagConfig              = "config"
@@ -76,6 +77,14 @@ func paginationFlags(cmd *cobra.Command) *cobra.Command {
 func yamlFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagYAML, "y", false, "output using yaml")
 	if err := viper.BindPFlag(flagYAML, cmd.Flags().Lookup(flagYAML)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func skipConfirm(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP(flagSkip, "y", false, "output using yaml")
+	if err := viper.BindPFlag(flagSkip, cmd.Flags().Lookup(flagSkip)); err != nil {
 		panic(err)
 	}
 	return cmd

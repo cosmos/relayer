@@ -349,7 +349,7 @@ func (c *Chain) QueryValsetAtHeight(height clienttypes.Height) (*tmproto.Validat
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Add sorting logic to historical info
+
 	sort.Sort(tmtypes.ValidatorsByVotingPower(tmVals))
 	tmValSet := &tmtypes.ValidatorSet{
 		Validators: tmVals,

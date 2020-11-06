@@ -16,9 +16,6 @@ import (
 	"github.com/tendermint/tendermint/light"
 )
 
-// TODO: add Order chantypes.Order as a property and wire it up in validation
-// as well as in the transaction commands
-
 // PathEnd represents the local connection identifers for a relay path
 // The path is set on the chain before performing operations
 type PathEnd struct {
@@ -91,7 +88,6 @@ func (pe *PathEnd) CreateClient(
 	}
 
 	// Blank Client State
-	// TODO: figure out how to dynmaically set unbonding time
 	clientState := tmclient.NewClientState(
 		dstHeader.GetHeader().GetChainID(),
 		tmclient.NewFractionFromTm(light.DefaultTrustLevel),

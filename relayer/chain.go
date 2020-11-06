@@ -208,7 +208,6 @@ func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
 		return nil, err
 	}
 
-	// TODO: Replace with the global timeout value?
 	httpClient.Timeout = timeout
 	rpcClient, err := rpchttp.NewWithClient(addr, "/websocket", httpClient)
 	if err != nil {
@@ -235,7 +234,6 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
 	}
 
 	// If users pass gas adjustment, then calculate gas
-	// TODO: make all txs estimate/
 	_, adjusted, err := tx.CalculateGas(ctx.QueryWithData, txf, msgs...)
 	if err != nil {
 		return nil, err
@@ -431,6 +429,7 @@ func (c *Chain) Update(key, value string) (out *Chain, err error) {
 // Print fmt.Printlns the json or yaml representation of whatever is passed in
 // CONTRACT: The cmd calling this function needs to have the "json" and "indent" flags set
 // TODO: better "text" printing here would be a nice to have
+// TODO: fix indenting all over the code base
 func (c *Chain) Print(toPrint proto.Message, text, indent bool) error {
 	var (
 		out []byte

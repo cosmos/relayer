@@ -18,6 +18,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"strings"
 
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
@@ -154,7 +156,12 @@ func keysDeleteCmd() *cobra.Command {
 				return errKeyDoesntExist(keyName)
 			}
 
-			// TODO: prompt to delete with flag to ignore
+			if skip, _ := cmd.Flags().GetBool(flagSkip); !skip {
+				fmt.Printf("Are you sure you want to delete key(%s) from chain(%s)? (Y/n)\n", keyName, args[0])
+				if !askForConfirmation() {
+					return nil
+				}
+			}
 
 			err = chain.Keybase.Delete(keyName)
 			if err != nil {
@@ -166,7 +173,26 @@ func keysDeleteCmd() *cobra.Command {
 		},
 	}
 
-	return cmd
+	return skipConfirm(cmd)
+}
+
+func askForConfirmation() bool {
+	var response string
+
+	_, err := fmt.Scanln(&response)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	switch strings.ToLower(response) {
+	case "y", "yes":
+		return true
+	case "n", "no":
+		return false
+	default:
+		fmt.Println("please type (y)es or (n)o and then press enter")
+		return askForConfirmation()
+	}
 }
 
 // keysListCmd respresents the `keys list` command

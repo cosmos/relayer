@@ -211,7 +211,6 @@ type PathWithStatus struct {
 // QueryPathStatus returns an instance of the path struct with some attached data about
 // the current status of the path
 func (p *Path) QueryPathStatus(src, dst *Chain) *PathWithStatus {
-	// TODO: add sanity check for paths and chainIDs
 	var (
 		err              error
 		eg               errgroup.Group
