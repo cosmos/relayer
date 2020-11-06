@@ -33,6 +33,7 @@ import (
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	libclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
+	tmtypes "github.com/tendermint/tendermint/types"
 )
 
 var (
@@ -166,6 +167,13 @@ func (c *Chain) simpleListenLoop(doneChan chan struct{}) {
 	}
 	defer srcTxCancel()
 
+	srcBlockEvents, srcBlockCancel, err := c.Subscribe(blEvents)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	defer srcBlockCancel()
+
 	// Listen to channels and take appropriate action
 	for {
 		select {
@@ -175,10 +183,16 @@ func (c *Chain) simpleListenLoop(doneChan chan struct{}) {
 				c.Error(err)
 			}
 			for _, eve := range eves {
-				msg, err := sdk.ParseTypedEvent(eve)
-				if err != nil {
-					c.Error(err)
-				}
+				msg, _ := sdk.ParseTypedEvent(eve)
+				HandleProtoEvent(msg)
+			}
+		case srcMsg := <-srcBlockEvents:
+			eves, err := ResultEventToABCIEvent(srcMsg)
+			if err != nil {
+				c.Error(err)
+			}
+			for _, eve := range eves {
+				msg, _ := sdk.ParseTypedEvent(eve)
 				HandleProtoEvent(msg)
 			}
 		case <-doneChan:
@@ -188,20 +202,44 @@ func (c *Chain) simpleListenLoop(doneChan chan struct{}) {
 	}
 }
 
-//
+// ResultEventToABCIEvent takes the ctypes.ResultEvent and casts it to a TxResult, extracting the []abci.Event
 func ResultEventToABCIEvent(rev ctypes.ResultEvent) ([]abci.Event, error) {
-	out := []abci.Event{}
-	fmt.Println("NEW EVENT")
-	for k, v := range rev.Events {
-		fmt.Println("k", k, "v", v)
-		eve := abci.Event{}
-		out = append(out, eve)
+	switch rev.Query {
+	case txEvents:
+		var txResult abci.TxResult
+		txResBytes, err := json.Marshal(rev.Data)
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(txResBytes, &txResult); err != nil {
+			return nil, fmt.Errorf("failed to unmarshall into abci.TxResult: %s", string(txResBytes))
+		}
+		return txResult.Result.Events, nil
+	case blEvents:
+		var blResult tmtypes.EventDataNewBlock
+		bl, err := json.Marshal(rev.Data)
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(bl, &blResult); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal into tmtypes.EventDataNewBlock: %s", string(bl))
+		}
+		out := []abci.Event{}
+		for _, eve := range blResult.ResultBeginBlock.Events {
+			out = append(out, eve)
+		}
+		for _, eve := range blResult.ResultEndBlock.Events {
+			out = append(out, eve)
+		}
+		return out, nil
+	default:
+		return nil, fmt.Errorf("not where we exect: %s", rev.Query)
 	}
-	return out, nil
 }
 
+// HandleProtoEvent prints the type of proto event
 func HandleProtoEvent(eve proto.Message) {
-	switch eve.(type) {
+	switch foo := eve.(type) {
 	case *clienttypes.EventCreateClient:
 		fmt.Println("*clienttypes.EventCreateClient")
 	case *clienttypes.EventUpdateClient:
@@ -256,6 +294,9 @@ func HandleProtoEvent(eve proto.Message) {
 		fmt.Println("*transfertypes.EventTransfer")
 	case *transfertypes.EventDenominationTrace:
 		fmt.Println("*transfertypes.EventDenominationTrace")
+	case nil:
+	default:
+		fmt.Printf("NOT AN EVENT? %T\n", foo)
 	}
 }
 
