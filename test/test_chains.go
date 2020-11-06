@@ -24,6 +24,19 @@ var (
 		accountPrefix:  "cosmos",
 		trustingPeriod: "330h",
 	}
+
+	// AKASH BLOCK TIMEOUTS on jackzampolin/akashtest:master
+	// timeout_commit = "1000ms"
+	// timeout_propose = "1000ms"
+	// 3 second relayer timeout works well with these block times
+	akashTestConfig = testChainConfig{
+		dockerImage:    "jackzampolin/akashtest",
+		dockerTag:      "jack_update-sdk",
+		timeout:        3 * time.Second,
+		rpcPort:        "26657",
+		accountPrefix:  "akash",
+		trustingPeriod: "330h",
+	}
 )
 
 type (
