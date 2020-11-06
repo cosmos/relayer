@@ -106,10 +106,13 @@ func removeTestContainer(pool *dockertest.Pool, containerName string) error {
 func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 	pool *dockertest.Pool, c *ry.Chain, dir string, wg *sync.WaitGroup, tc testChain) {
 	defer wg.Done()
-	var err error
+	var (
+		err      error
+		debug    bool
+		resource *dockertest.Resource
+	)
 
 	// add extra logging if TEST_DEBUG=true
-	var debug bool
 	if val, ok := os.LookupEnv("TEST_DEBUG"); ok {
 		debug, err = strconv.ParseBool(val)
 		if err != nil {
@@ -124,28 +127,24 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 	require.NoError(t, c.CreateTestKey())
 
 	containerName := fmt.Sprintf("%s-%s", c.ChainID, t.Name())
+
 	// setup docker options
 	dockerOpts := &dockertest.RunOptions{
 		Name:         containerName,
 		Repository:   tc.t.dockerImage,
 		Tag:          tc.t.dockerTag,
-		ExposedPorts: []string{tc.t.rpcPort},
+		ExposedPorts: []string{tc.t.rpcPort, c.GetRPCPort()},
+		Cmd:          []string{c.ChainID, c.MustGetAddress().String()},
+		Labels:       map[string]string{"io.iqlusion.relayer.test": "true"},
 		PortBindings: map[dc.Port][]dc.PortBinding{
 			dc.Port(tc.t.rpcPort): {{HostPort: c.GetRPCPort()}},
 		},
 	}
 
-	func() {
-		// Ensure our address is encoded properly.
-		dockerOpts.Cmd = []string{c.ChainID, c.MustGetAddress().String()}
-		dockerOpts.Labels = make(map[string]string)
-		dockerOpts.Labels["io.iqlusion.relayer.test"] = "true"
-	}()
+	// err = removeTestContainer(pool, containerName)
+	require.NoError(t, removeTestContainer(pool, containerName))
 
-	err = removeTestContainer(pool, containerName)
-	require.NoError(t, err)
 	// create the proper docker image with port forwarding setup
-	var resource *dockertest.Resource
 	resource, err = pool.RunWithOptions(dockerOpts)
 	require.NoError(t, err)
 
