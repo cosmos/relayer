@@ -28,6 +28,10 @@ import (
 	"github.com/cosmos/relayer/relayer"
 )
 
+const (
+	flagCoinType = "coin-type"
+)
+
 // keysCmd represents the keys command
 func keysCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -79,7 +83,9 @@ $ %s k a ibc-2 testkey`, appName, appName, appName)),
 				return err
 			}
 
-			info, err := chain.Keybase.NewAccount(keyName, mnemonic, "", hd.CreateHDPath(118, 0, 0).String(), hd.Secp256k1)
+			coinType, _ := cmd.Flags().GetUint32(flagCoinType)
+
+			info, err := chain.Keybase.NewAccount(keyName, mnemonic, "", hd.CreateHDPath(coinType, 0, 0).String(), hd.Secp256k1)
 			if err != nil {
 				return err
 			}
@@ -95,6 +101,7 @@ $ %s k a ibc-2 testkey`, appName, appName, appName)),
 			return nil
 		},
 	}
+	cmd.Flags().Uint32(flagCoinType, 188, "coin type number for HD derivation")
 
 	return cmd
 }
@@ -125,7 +132,9 @@ $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 				return errKeyExists(keyName)
 			}
 
-			info, err := chain.Keybase.NewAccount(keyName, args[2], "", hd.CreateHDPath(118, 0, 0).String(), hd.Secp256k1)
+			coinType, _ := cmd.Flags().GetUint32(flagCoinType)
+
+			info, err := chain.Keybase.NewAccount(keyName, args[2], "", hd.CreateHDPath(coinType, 0, 0).String(), hd.Secp256k1)
 			if err != nil {
 				return err
 			}
@@ -135,6 +144,7 @@ $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 			return nil
 		},
 	}
+	cmd.Flags().Uint32(flagCoinType, 188, "coin type number for HD derivation")
 
 	return cmd
 }
