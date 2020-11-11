@@ -89,6 +89,7 @@ func (c *Chain) ListenRPCEmitJSON(tx, block, data bool) func() {
 
 // ListenRPCTestTypedEvents listens for tx events from a chain and parses them into typed events
 func (c *Chain) ListenRPCTestTypedEvents() func() {
+	c.Log(fmt.Sprintf("- [%s] listening to events...", c.ChainID))
 	doneChan := make(chan struct{})
 	go c.simpleListenLoop(doneChan)
 	return func() { doneChan <- struct{}{} }
@@ -178,13 +179,14 @@ func (c *Chain) simpleListenLoop(doneChan chan struct{}) {
 	for {
 		select {
 		case srcMsg := <-srcTxEvents:
+
 			eves, err := ResultEventToABCIEvent(srcMsg)
 			if err != nil {
 				c.Error(err)
 			}
 			for _, eve := range eves {
 				msg, _ := sdk.ParseTypedEvent(eve)
-				HandleProtoEvent(msg)
+				HandleProtoEvent(c, msg)
 			}
 		case srcMsg := <-srcBlockEvents:
 			eves, err := ResultEventToABCIEvent(srcMsg)
@@ -193,7 +195,7 @@ func (c *Chain) simpleListenLoop(doneChan chan struct{}) {
 			}
 			for _, eve := range eves {
 				msg, _ := sdk.ParseTypedEvent(eve)
-				HandleProtoEvent(msg)
+				HandleProtoEvent(c, msg)
 			}
 		case <-doneChan:
 			close(doneChan)
@@ -225,78 +227,73 @@ func ResultEventToABCIEvent(rev ctypes.ResultEvent) ([]abci.Event, error) {
 			return nil, fmt.Errorf("failed to unmarshal into tmtypes.EventDataNewBlock: %s", string(bl))
 		}
 		out := []abci.Event{}
-		for _, eve := range blResult.ResultBeginBlock.Events {
-			out = append(out, eve)
-		}
-		for _, eve := range blResult.ResultEndBlock.Events {
-			out = append(out, eve)
-		}
-		return out, nil
+		out = append(out, blResult.ResultBeginBlock.Events...)
+		return append(out, blResult.ResultEndBlock.Events...), nil
 	default:
 		return nil, fmt.Errorf("not where we exect: %s", rev.Query)
 	}
 }
 
 // HandleProtoEvent prints the type of proto event
-func HandleProtoEvent(eve proto.Message) {
+func HandleProtoEvent(c *Chain, eve proto.Message) {
 	switch foo := eve.(type) {
 	case *clienttypes.EventCreateClient:
-		fmt.Println("*clienttypes.EventCreateClient")
+		c.Log(fmt.Sprintf("- [%s] ", c.ChainID))
 	case *clienttypes.EventUpdateClient:
-		fmt.Println("*clienttypes.EventUpdateClient")
+		c.Log(fmt.Sprintf("- [%s] event(update-client) client-id(%s) client-type(%s)", c.ChainID, foo.ClientId, foo.ClientType))
 	case *clienttypes.EventUpgradeClient:
-		fmt.Println("*clienttypes.EventUpgradeClient")
+		c.Log(fmt.Sprintf("- [%s] *clienttypes.EventUpgradeClient", c.ChainID))
 	case *clienttypes.EventUpdateClientProposal:
-		fmt.Println("*clienttypes.EventUpdateClientProposal")
+		c.Log(fmt.Sprintf("- [%s] *clienttypes.EventUpdateClientProposal", c.ChainID))
 	case *clienttypes.EventClientMisbehaviour:
-		fmt.Println("*clienttypes.EventClientMisbehaviour")
+		c.Log(fmt.Sprintf("- [%s] *clienttypes.EventClientMisbehaviour", c.ChainID))
 	case *conntypes.EventConnectionOpenInit:
-		fmt.Println("*conntypes.EventConnectionOpenInit")
+		c.Log(fmt.Sprintf("- [%s] *conntypes.EventConnectionOpenInit", c.ChainID))
 	case *conntypes.EventConnectionOpenTry:
-		fmt.Println("*conntypes.EventConnectionOpenTry")
+		c.Log(fmt.Sprintf("- [%s] *conntypes.EventConnectionOpenTry", c.ChainID))
 	case *conntypes.EventConnectionOpenAck:
-		fmt.Println("*conntypes.EventConnectionOpenAck")
+		c.Log(fmt.Sprintf("- [%s] *conntypes.EventConnectionOpenAck", c.ChainID))
 	case *conntypes.EventConnectionOpenConfirm:
-		fmt.Println("*conntypes.EventConnectionOpenConfirm")
+		c.Log(fmt.Sprintf("- [%s] *conntypes.EventConnectionOpenConfirm", c.ChainID))
 	case *chantypes.EventChannelOpenInit:
-		fmt.Println("*chantypes.EventChannelOpenInit")
+		c.Log(fmt.Sprintf("- [%s] *chantypes.EventChannelOpenInit", c.ChainID))
 	case *chantypes.EventChannelOpenTry:
-		fmt.Println("*chantypes.EventChannelOpenTry")
+		c.Log(fmt.Sprintf("- [%s] *chantypes.EventChannelOpenTry", c.ChainID))
 	case *chantypes.EventChannelOpenAck:
-		fmt.Println("*chantypes.EventChannelOpenAck")
+		c.Log(fmt.Sprintf("- [%s] *chantypes.EventChannelOpenAck", c.ChainID))
 	case *chantypes.EventChannelCloseInit:
-		fmt.Println("*chantypes.EventChannelCloseInit")
+		c.Log(fmt.Sprintf("- [%s] *chantypes.EventChannelCloseInit", c.ChainID))
 	case *chantypes.EventChannelOpenConfirm:
-		fmt.Println("*chantypes.EventChannelOpenConfirm")
+		c.Log(fmt.Sprintf("- [%s] *chantypes.EventChannelOpenConfirm", c.ChainID))
 	case *chantypes.EventChannelCloseConfirm:
-		fmt.Println("*chantypes.EventChannelCloseConfirm")
+		c.Log(fmt.Sprintf("- [%s] *chantypes.EventChannelCloseConfirm", c.ChainID))
 	case *chantypes.EventChannelSendPacket:
-		fmt.Println("*chantypes.EventChannelSendPacket")
+		c.Log(fmt.Sprintf("- [%s] *chantypes.EventChannelSendPacket", c.ChainID))
 	case *chantypes.EventChannelRecvPacket:
-		fmt.Println("*chantypes.EventChannelRecvPacket")
+		c.Log(fmt.Sprintf("- [%s] *chantypes.EventChannelRecvPacket", c.ChainID))
 	case *chantypes.EventChannelWriteAck:
-		fmt.Println("*chantypes.EventChannelWriteAck")
+		c.Log(fmt.Sprintf("- [%s] *chantypes.EventChannelWriteAck", c.ChainID))
 	case *chantypes.EventChannelAckPacket:
-		fmt.Println("*chantypes.EventChannelAckPacket")
+		c.Log(fmt.Sprintf("- [%s] *chantypes.EventChannelAckPacket", c.ChainID))
 	case *chantypes.EventChannelTimeoutPacket:
-		fmt.Println("*chantypes.EventChannelTimeoutPacket")
+		c.Log(fmt.Sprintf("- [%s] *chantypes.EventChannelTimeoutPacket", c.ChainID))
 	case *transfertypes.EventOnRecvPacket:
-		fmt.Println("*transfertypes.EventOnRecvPacket")
+		c.Log(fmt.Sprintf("- [%s] *transfertypes.EventOnRecvPacket", c.ChainID))
 	case *transfertypes.EventOnAcknowledgementPacket:
-		fmt.Println("*transfertypes.EventOnAcknowledgementPacket")
+		c.Log(fmt.Sprintf("- [%s] *transfertypes.EventOnAcknowledgementPacket", c.ChainID))
 	case *transfertypes.EventAcknowledgementSuccess:
-		fmt.Println("*transfertypes.EventAcknowledgementSuccess")
+		c.Log(fmt.Sprintf("- [%s] *transfertypes.EventAcknowledgementSuccess", c.ChainID))
 	case *transfertypes.EventAcknowledgementError:
-		fmt.Println("*transfertypes.EventAcknowledgementError")
+		c.Log(fmt.Sprintf("- [%s] *transfertypes.EventAcknowledgementError", c.ChainID))
 	case *transfertypes.EventOnTimeoutPacket:
-		fmt.Println("*transfertypes.EventOnTimeoutPacket")
+		c.Log(fmt.Sprintf("- [%s] *transfertypes.EventOnTimeoutPacket", c.ChainID))
 	case *transfertypes.EventTransfer:
-		fmt.Println("*transfertypes.EventTransfer")
+		c.Log(fmt.Sprintf("- [%s] *transfertypes.EventTransfer", c.ChainID))
 	case *transfertypes.EventDenominationTrace:
-		fmt.Println("*transfertypes.EventDenominationTrace")
+		c.Log(fmt.Sprintf("- [%s] *transfertypes.EventDenominationTrace", c.ChainID))
 	case nil:
 	default:
-		fmt.Printf("NOT AN EVENT? %T\n", foo)
+		fmt.Sprintf("- [%s] No handler defined for type(%T)", foo)
 	}
 }
 

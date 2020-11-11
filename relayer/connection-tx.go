@@ -7,6 +7,7 @@ import (
 	retry "github.com/avast/retry-go"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
+	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
 	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	"golang.org/x/sync/errgroup"
@@ -161,6 +162,17 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 			logConnectionStates(c, dst, srcConn, dstConn)
 		}
 
+		var foo commitmenttypes.MerkleProof
+		if err := c.Encoding.Marshaler.UnmarshalBinaryBare(dstCsRes.Proof, &foo); err != nil {
+			panic(err)
+		}
+		if err := c.Encoding.Marshaler.UnmarshalBinaryBare(dstConn.Proof, &foo); err != nil {
+			panic(err)
+		}
+		if err := c.Encoding.Marshaler.UnmarshalBinaryBare(dstCons.Proof, &foo); err != nil {
+			panic(err)
+		}
+
 		out.Src = append(out.Src,
 			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
 			c.PathEnd.ConnTry(dst.PathEnd, dstCsRes, dstConn, dstCons, c.MustGetAddress()),
@@ -172,6 +184,16 @@ func (c *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 			logConnectionStates(dst, c, dstConn, srcConn)
 		}
 
+		var foo commitmenttypes.MerkleProof
+		if err := dst.Encoding.Marshaler.UnmarshalBinaryBare(srcCsRes.Proof, &foo); err != nil {
+			panic(err)
+		}
+		if err := dst.Encoding.Marshaler.UnmarshalBinaryBare(srcConn.Proof, &foo); err != nil {
+			panic(err)
+		}
+		if err := dst.Encoding.Marshaler.UnmarshalBinaryBare(srcCons.Proof, &foo); err != nil {
+			panic(err)
+		}
 		out.Dst = append(out.Dst,
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			dst.PathEnd.ConnTry(c.PathEnd, srcCsRes, srcConn, srcCons, dst.MustGetAddress()),

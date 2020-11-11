@@ -1,8 +1,8 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
 SDKCOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/cosmos-sdk)
-GAIA_VERSION := jack/gaiav3.0
-AKASH_VERSION := jack/update-sdk
+GAIA_VERSION := jack/test-typed-events
+AKASH_VERSION := jack/test-typed-events
 all: ci-lint install
 
 ###############################################################################

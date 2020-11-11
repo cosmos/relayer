@@ -18,17 +18,17 @@ var (
 	_ Strategy = &NaiveStrategy{}
 
 	// Strings for parsing events
-	spTag       = "ibc.core.channel.v1.EventChannelSendPacket"
-	waTag       = "write_acknowledgement"
-	srcChanTag  = "packet_src_channel"
-	dstChanTag  = "packet_dst_channel"
-	srcPortTag  = "packet_src_port"
-	dstPortTag  = "packet_dst_port"
-	dataTag     = "packet_data"
-	ackTag      = "packet_ack"
-	toHeightTag = "packet_timeout_height"
-	toTsTag     = "packet_timeout_timestamp"
-	seqTag      = "packet_sequence"
+	spTag       = "ibc-core-channel-v1-EventChannelSendPacket"
+	waTag       = "ibc-core-channel-v1-EventChannelWriteAck"
+	srcChanTag  = "src_channel"
+	dstChanTag  = "dst_channel"
+	srcPortTag  = "src_port"
+	dstPortTag  = "dst_port"
+	dataTag     = "data"
+	ackTag      = "ack"
+	toHeightTag = "timeout_height"
+	toTsTag     = "timeout_timestamp"
+	seqTag      = "sequence"
 )
 
 // NewNaiveStrategy returns the proper config for the NaiveStrategy

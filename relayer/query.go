@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -377,11 +378,11 @@ func (c *Chain) toTmValidator(val stakingtypes.Validator) (*tmtypes.Validator, e
 	if err := c.Encoding.Marshaler.UnpackAny(val.ConsensusPubkey, &pk); err != nil {
 		return nil, err
 	}
-	intoTmPk, ok := pk.(cryptotypes.IntoTmPubKey)
-	if !ok {
+	pubKey, err := cryptocodec.ToTmPubKeyInterface(pk)
+	if err != nil {
 		return nil, fmt.Errorf("pubkey not a pub key *scratches head*")
 	}
-	return tmtypes.NewValidator(intoTmPk.AsTmPubKey(), val.ConsensusPower()), nil
+	return tmtypes.NewValidator(pubKey, val.ConsensusPower()), nil
 }
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
