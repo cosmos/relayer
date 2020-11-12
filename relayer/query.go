@@ -341,7 +341,7 @@ func (c *Chain) QueryHistoricalInfo(height clienttypes.Height) (*stakingtypes.Qu
 func (c *Chain) QueryValsetAtHeight(height clienttypes.Height) (*tmproto.ValidatorSet, error) {
 	res, err := c.QueryHistoricalInfo(height)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("chain(%s): %s", c.ChainID, err)
 	}
 
 	// create tendermint ValidatorSet from SDK Validators
