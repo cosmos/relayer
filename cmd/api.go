@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
@@ -70,10 +72,10 @@ func getAPICmd() *cobra.Command {
 
 			// VERSION
 			// version get
-			r.HandleFunc(version, VersionHandler).Methods("GET")
+			r.HandleFunc(fmt.Sprintf("/%s", version), VersionHandler).Methods("GET")
 			// CONFIG
 			// config get
-			r.HandleFunc(cfg, ConfigHandler).Methods("GET")
+			r.HandleFunc(fmt.Sprintf("/%s", cfg), ConfigHandler).Methods("GET")
 			// CHAINS
 			// chains get
 			r.HandleFunc(fmt.Sprintf("/%s", chains), GetChainsHandler).Methods("GET")
@@ -93,17 +95,17 @@ func getAPICmd() *cobra.Command {
 			r.HandleFunc(fmt.Sprintf("/%s/%s", chains, nameArg), DeleteChainHandler).Methods("DELETE")
 			// PATHS
 			// paths get
-			r.HandleFunc(fmt.Sprintf("%s", paths), GetPathsHandler).Methods("GET")
+			r.HandleFunc(fmt.Sprintf("/%s", paths), GetPathsHandler).Methods("GET")
 			// path get
-			r.HandleFunc(fmt.Sprintf("%s/%s", paths, nameArg), GetPathHandler).Methods("GET")
+			r.HandleFunc(fmt.Sprintf("/%s/%s", paths, nameArg), GetPathHandler).Methods("GET")
 			// path status get
-			r.HandleFunc(fmt.Sprintf("%s/%s/%s", paths, nameArg, status), GetPathStatusHandler).Methods("GET")
+			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", paths, nameArg, status), GetPathStatusHandler).Methods("GET")
 			// path add
-			r.HandleFunc(fmt.Sprintf("%s/%s", paths, nameArg), PostPathHandler).Methods("POST")
+			r.HandleFunc(fmt.Sprintf("/%s/%s", paths, nameArg), PostPathHandler).Methods("POST")
 			// path update
-			r.HandleFunc(fmt.Sprintf("%s/%s", paths, nameArg), PutPathHandler).Methods("PUT")
+			r.HandleFunc(fmt.Sprintf("/%s/%s", paths, nameArg), PutPathHandler).Methods("PUT")
 			// path delete
-			r.HandleFunc(fmt.Sprintf("%s/%s", paths, nameArg), DeletePathHandler).Methods("DELETE")
+			r.HandleFunc(fmt.Sprintf("/%s/%s", paths, nameArg), DeletePathHandler).Methods("DELETE")
 			// KEYS
 			// keys get
 			r.HandleFunc(fmt.Sprintf("/%s/%s", keys, chainIDArg), GetKeysHandler).Methods("GET")
@@ -195,7 +197,9 @@ func getAPICmd() *cobra.Command {
 }
 
 // ConfigHandler handles the route
-func ConfigHandler(w http.ResponseWriter, r *http.Request) {}
+func ConfigHandler(w http.ResponseWriter, r *http.Request) {
+	successJSONBytes(config, w)
+}
 
 // PostChainHandler handles the route
 func PostChainHandler(w http.ResponseWriter, r *http.Request) {}
@@ -215,11 +219,61 @@ func PutPathHandler(w http.ResponseWriter, r *http.Request) {}
 // DeletePathHandler handles the route
 func DeletePathHandler(w http.ResponseWriter, r *http.Request) {}
 
+type keyResponse struct {
+	Name    string `json:"name"`
+	Address string `json:"address"`
+}
+
+func formatKey(info keyring.Info) keyResponse {
+	return keyResponse{
+		Name:    info.GetName(),
+		Address: info.GetAddress().String(),
+	}
+}
+
 // GetKeysHandler handles the route
-func GetKeysHandler(w http.ResponseWriter, r *http.Request) {}
+func GetKeysHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+	info, err := chain.Keybase.List()
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	keys := make([]keyResponse, len(info))
+	for index, key := range info {
+		keys[index] = formatKey(key)
+	}
+	successJSONBytes(keys, w)
+}
 
 // GetKeyHandler handles the route
-func GetKeyHandler(w http.ResponseWriter, r *http.Request) {}
+func GetKeyHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	keyName := vars["name"]
+	if !chain.KeyExists(keyName) {
+		errJSONBytes(errKeyDoesntExist(keyName), w)
+		return
+	}
+
+	info, err := chain.Keybase.Key(keyName)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+	successJSONBytes(formatKey(info), w)
+}
 
 // PostKeyHandler handles the route
 func PostKeyHandler(w http.ResponseWriter, r *http.Request) {}
@@ -231,10 +285,49 @@ func PutKeyHandler(w http.ResponseWriter, r *http.Request) {}
 func DeleteKeyHandler(w http.ResponseWriter, r *http.Request) {}
 
 // GetLightHeader handles the route
-func GetLightHeader(w http.ResponseWriter, r *http.Request) {}
+func GetLightHeader(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	var header *tmclient.Header
+	height := r.URL.Query().Get("height")
+
+	if len(height) == 0 {
+		header, err = getLightHeader(chain)
+		if err != nil {
+			errJSONBytes(err, w)
+			return
+		}
+	} else {
+		header, err = getLightHeader(chain, height)
+		if err != nil {
+			errJSONBytes(err, w)
+			return
+		}
+	}
+	successJSONBytes(header, w)
+}
 
 // GetLightHeight handles the route
-func GetLightHeight(w http.ResponseWriter, r *http.Request) {}
+func GetLightHeight(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	height, err := chain.GetLatestLightHeight()
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+	successJSONBytes(height, w)
+}
 
 // PostLight handles the route
 func PostLight(w http.ResponseWriter, r *http.Request) {}
@@ -328,9 +421,7 @@ func PostRelayerListenHandler(sm *ServicesManager) func(w http.ResponseWriter, r
 
 // GetChainsHandler returns the configured chains in json format
 func GetChainsHandler(w http.ResponseWriter, r *http.Request) {
-	out, _ := json.Marshal(config.Chains)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(out)
+	successJSONBytes(config.Chains, w)
 }
 
 // GetChainHandler returns the configured chains in json format
@@ -341,9 +432,7 @@ func GetChainHandler(w http.ResponseWriter, r *http.Request) {
 		errJSONBytes(err, w)
 		return
 	}
-	out, _ := json.Marshal(chain)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(out)
+	successJSONBytes(chain, w)
 }
 
 // GetChainStatusHandler returns the configured chains in json format
@@ -354,9 +443,7 @@ func GetChainStatusHandler(w http.ResponseWriter, r *http.Request) {
 		errJSONBytes(err, w)
 		return
 	}
-	out, _ := json.Marshal(chainStatusResponse{}.Populate(chain))
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(out)
+	successJSONBytes(chainStatusResponse{}.Populate(chain), w)
 }
 
 type chainStatusResponse struct {
@@ -392,9 +479,7 @@ func (cs chainStatusResponse) Populate(c *relayer.Chain) chainStatusResponse {
 
 // GetPathsHandler returns the configured chains in json format
 func GetPathsHandler(w http.ResponseWriter, r *http.Request) {
-	out, _ := json.Marshal(config.Paths)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(out)
+	successJSONBytes(config.Paths, w)
 }
 
 // GetPathHandler returns the configured chains in json format
@@ -405,9 +490,7 @@ func GetPathHandler(w http.ResponseWriter, r *http.Request) {
 		errJSONBytes(err, w)
 		return
 	}
-	out, _ := json.Marshal(pth)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(out)
+	successJSONBytes(pth, w)
 }
 
 // GetPathStatusHandler returns the configured chains in json format
@@ -424,9 +507,7 @@ func GetPathStatusHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ps := pth.QueryPathStatus(c[src], c[dst])
-	out, _ := json.Marshal(ps)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(out)
+	successJSONBytes(ps, w)
 }
 
 // VersionHandler returns the version info in json format
@@ -437,9 +518,7 @@ func VersionHandler(w http.ResponseWriter, r *http.Request) {
 		CosmosSDK: SDKCommit,
 		Go:        fmt.Sprintf("%s %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH),
 	}
-	out, _ := json.Marshal(version)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(out)
+	successJSONBytes(version, w)
 }
 
 // TODO: do we need better errors
@@ -451,4 +530,10 @@ func VersionHandler(w http.ResponseWriter, r *http.Request) {
 func errJSONBytes(err error, w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(fmt.Sprintf("{\"err\": \"%s\"}", err)))
+}
+
+func successJSONBytes(v interface{}, w http.ResponseWriter) {
+	out, _ := json.Marshal(v)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(out)
 }
