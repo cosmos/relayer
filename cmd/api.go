@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,8 +9,11 @@ import (
 	"sync"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/x/auth/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
 )
@@ -118,7 +122,7 @@ func getAPICmd() *cobra.Command {
 			// key delete
 			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", keys, chainIDArg, nameArg), DeleteKeyHandler).Methods("DELETE")
 			// LIGHT
-			// light header
+			// light header, if no ?height={height} is passed, latest
 			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", light, chainIDArg, header), GetLightHeader).Methods("GET")
 			// light height
 			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", light, chainIDArg, height), GetLightHeight).Methods("GET")
@@ -131,7 +135,7 @@ func getAPICmd() *cobra.Command {
 			// QUERY
 			// query account info for an address
 			r.HandleFunc(fmt.Sprintf("/%s/%s/account/{address}", query, chainIDArg), QueryAccountHandler).Methods("GET")
-			// query balance info for an address
+			// query balance info for an address, if ibc-denoms=true?, then display ibc denominations
 			r.HandleFunc(fmt.Sprintf("/%s/%s/balance/{address}", query, chainIDArg), QueryBalanceHandler).Methods("GET")
 			// query header at height, if no ?height={height} is passed, latest
 			r.HandleFunc(fmt.Sprintf("/%s/%s/header", query, chainIDArg), QueryHeaderHandler).Methods("GET")
@@ -339,10 +343,49 @@ func PutLight(w http.ResponseWriter, r *http.Request) {}
 func DeleteLight(w http.ResponseWriter, r *http.Request) {}
 
 // QueryAccountHandler handles the route
-func QueryAccountHandler(w http.ResponseWriter, r *http.Request) {}
+func QueryAccountHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	res, err := authtypes.NewQueryClient(chain.CLIContext(0)).Account(
+		context.Background(),
+		&types.QueryAccountRequest{
+			Address: vars["address"],
+		})
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+	successProtoBytes(chain, res, w)
+}
 
 // QueryBalanceHandler handles the route
-func QueryBalanceHandler(w http.ResponseWriter, r *http.Request) {}
+func QueryBalanceHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	ibcDenoms := r.URL.Query().Get("ibc-denoms")
+
+	showDenoms := false
+	if ibcDenoms == "true" {
+		showDenoms = true
+	}
+
+	res, err := queryBalanceHelper(chain, vars["address"], showDenoms)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+	successJSONBytes(res, w)
+}
 
 // QueryHeaderHandler handles the route
 func QueryHeaderHandler(w http.ResponseWriter, r *http.Request) {}
@@ -534,6 +577,12 @@ func errJSONBytes(err error, w http.ResponseWriter) {
 
 func successJSONBytes(v interface{}, w http.ResponseWriter) {
 	out, _ := json.Marshal(v)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(out)
+}
+
+func successProtoBytes(chain *relayer.Chain, v proto.Message, w http.ResponseWriter) {
+	out, _ := chain.Encoding.Marshaler.MarshalJSON(v)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(out)
 }

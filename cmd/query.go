@@ -206,46 +206,23 @@ func queryBalanceCmd() *cobra.Command {
 				return err
 			}
 
-			var coins sdk.Coins
+			keyName := chain.Key
 			if len(args) == 2 {
-				coins, err = chain.QueryBalance(args[1])
-			} else {
-				coins, err = chain.QueryBalance(chain.Key)
+				keyName = args[1]
 			}
+
+			if !chain.KeyExists(keyName) {
+				return errKeyDoesntExist(keyName)
+			}
+
+			info, err := chain.Keybase.Key(keyName)
 			if err != nil {
 				return err
 			}
 
-			if showDenoms {
-				fmt.Println(coins)
-				return nil
-			}
-
-			h, err := chain.QueryLatestHeight()
+			coins, err := queryBalanceHelper(chain, info.GetAddress().String(), showDenoms)
 			if err != nil {
 				return err
-			}
-
-			dts, err := chain.QueryDenomTraces(0, 1000, h)
-			if err != nil {
-				return err
-			}
-
-			if len(dts.DenomTraces) > 0 {
-				out := sdk.Coins{}
-				for _, c := range coins {
-					for _, d := range dts.DenomTraces {
-						switch {
-						case c.Amount.Equal(sdk.NewInt(0)):
-						case c.Denom == d.IBCDenom():
-							out = append(out, sdk.NewCoin(d.GetFullDenomPath(), c.Amount))
-						default:
-							out = append(out, c)
-						}
-					}
-				}
-				fmt.Println(out)
-				return nil
 			}
 
 			fmt.Println(coins)
@@ -253,6 +230,45 @@ func queryBalanceCmd() *cobra.Command {
 		},
 	}
 	return ibcDenomFlags(cmd)
+}
+
+func queryBalanceHelper(chain *relayer.Chain, address string, showDenoms bool) (sdk.Coins, error) {
+	coins, err := chain.QueryBalanceWithAddress(address)
+	if err != nil {
+		return nil, err
+	}
+
+	if showDenoms {
+		return coins, nil
+	}
+
+	h, err := chain.QueryLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+
+	dts, err := chain.QueryDenomTraces(0, 1000, h)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(dts.DenomTraces) > 0 {
+		out := sdk.Coins{}
+		for _, c := range coins {
+			for _, d := range dts.DenomTraces {
+				switch {
+				case c.Amount.Equal(sdk.NewInt(0)):
+				case c.Denom == d.IBCDenom():
+					out = append(out, sdk.NewCoin(d.GetFullDenomPath(), c.Amount))
+				default:
+					out = append(out, c)
+				}
+			}
+		}
+		return out, nil
+	}
+
+	return coins, nil
 }
 
 func queryHeaderCmd() *cobra.Command {

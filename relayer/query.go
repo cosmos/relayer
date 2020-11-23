@@ -43,10 +43,7 @@ var eventFormat = "{eventType}.{eventAttribute}={value}"
 
 // QueryBalance returns the amount of coins in the relayer account
 func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
-	var (
-		err  error
-		addr sdk.AccAddress
-	)
+	var addr sdk.AccAddress
 	if keyName == "" {
 		addr = c.MustGetAddress()
 	} else {
@@ -56,6 +53,17 @@ func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
 		}
 		addr = info.GetAddress()
 	}
+	return c.QueryBalanceWithAddress(addr.String())
+}
+
+// QueryBalanceWithAddress returns the amount of coins in the relayer account with address as input
+func (c *Chain) QueryBalanceWithAddress(address string) (sdk.Coins, error) {
+	done := c.UseSDKContext()
+	addr, err := sdk.AccAddressFromBech32(address)
+	if err != nil {
+		return nil, err
+	}
+	done()
 
 	params := bankTypes.NewQueryAllBalancesRequest(addr, &querytypes.PageRequest{
 		Key:        []byte(""),
