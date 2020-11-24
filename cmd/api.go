@@ -11,7 +11,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	"github.com/cosmos/relayer/helpers"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gorilla/mux"
@@ -139,29 +141,29 @@ func getAPICmd() *cobra.Command {
 			r.HandleFunc(fmt.Sprintf("/%s/%s/balance/{address}", query, chainIDArg), QueryBalanceHandler).Methods("GET")
 			// query header at height, if no ?height={height} is passed, latest
 			r.HandleFunc(fmt.Sprintf("/%s/%s/header", query, chainIDArg), QueryHeaderHandler).Methods("GET")
-			// query node-state at height, if no ?height={height} is passed, latest
+			// query node-state
 			r.HandleFunc(fmt.Sprintf("/%s/%s/node-state", query, chainIDArg), QueryNodeStateHandler).Methods("GET")
 			// query valset at height, if no ?height={height} is passed, latest
 			r.HandleFunc(fmt.Sprintf("/%s/%s/valset", query, chainIDArg), QueryValSetHandler).Methods("GET")
 			// query txs passing in a query via POST request
 			r.HandleFunc(fmt.Sprintf("/%s/%s/txs", query, chainIDArg), QuerytxsHandler).Methods("POST")
 			// query tx by hash
-			r.HandleFunc(fmt.Sprintf("/%s/%s/tx/{hash}", query, chainIDArg), QuerytxHandler).Methods("GET")
-			// query client by chain-id and client-id
-			r.HandleFunc(fmt.Sprintf("/%s/%s/client/{client-id}", query, chainIDArg), QueryClientHandler).Methods("GET")
-			// query clients by chain-id
+			r.HandleFunc(fmt.Sprintf("/%s/%s/tx/{hash}", query, chainIDArg), QueryTxHandler).Methods("GET")
+			// query client by chain-id and client-id, if no ?height={height} is passed, latest
+			r.HandleFunc(fmt.Sprintf("/%s/%s/clients/{client-id}", query, chainIDArg), QueryClientHandler).Methods("GET")
+			// query clients by chain-id with pagination (offset and limit query params)
 			r.HandleFunc(fmt.Sprintf("/%s/%s/clients", query, chainIDArg), QueryClientsHandler).Methods("GET")
-			// query connection by chain-id and conn-id
-			r.HandleFunc(fmt.Sprintf("/%s/%s/connection/{conn-id}", query, chainIDArg), QueryConnectionHandler).Methods("GET")
-			// query connections by chain-id
+			// query connection by chain-id and conn-id, if no ?height={height} is passed, latest
+			r.HandleFunc(fmt.Sprintf("/%s/%s/connections/{conn-id}", query, chainIDArg), QueryConnectionHandler).Methods("GET")
+			// query connections by chain-id with pagination (offset and limit query params)
 			r.HandleFunc(fmt.Sprintf("/%s/%s/connections", query, chainIDArg), QueryConnectionsHandler).Methods("GET")
-			// query connections by chain-id and client-id
+			// query connections by chain-id and client-id, if no ?height={height} is passed, latest
 			r.HandleFunc(fmt.Sprintf("/%s/%s/connections/client/{client-id}", query, chainIDArg), QueryClientConnectionsHandler).Methods("GET")
-			// query channel by chain-id and chan-id
-			r.HandleFunc(fmt.Sprintf("/%s/%s/channel/{chan-id}", query, chainIDArg), QueryChannelHandler).Methods("GET")
-			// query channels by chain-id
+			// query channel by chain-id chan-id and port-id, if no ?height={height} is passed, latest
+			r.HandleFunc(fmt.Sprintf("/%s/%s/channels/{chan-id}/{port-id}", query, chainIDArg), QueryChannelHandler).Methods("GET")
+			// query channels by chain-id with pagination (offset and limit query params)
 			r.HandleFunc(fmt.Sprintf("/%s/%s/channels", query, chainIDArg), QueryChannelsHandler).Methods("GET")
-			// query channels by chain-id and conn-id
+			// query channels by chain-id and conn-id with pagination (offset and limit query params)
 			r.HandleFunc(fmt.Sprintf("/%s/%s/channels/connection/{conn-id}", query, chainIDArg), QueryConnectionChannelsHandler).Methods("GET")
 			// query a chain's ibc denoms
 			r.HandleFunc(fmt.Sprintf("/%s/%s/ibc-denoms", query, chainIDArg), QueryIBCDenomsHandler).Methods("GET")
@@ -301,19 +303,19 @@ func GetLightHeader(w http.ResponseWriter, r *http.Request) {
 	height := r.URL.Query().Get("height")
 
 	if len(height) == 0 {
-		header, err = getLightHeader(chain)
+		header, err = helpers.GetLightHeader(chain)
 		if err != nil {
 			errJSONBytes(err, w)
 			return
 		}
 	} else {
-		header, err = getLightHeader(chain, height)
+		header, err = helpers.GetLightHeader(chain, height)
 		if err != nil {
 			errJSONBytes(err, w)
 			return
 		}
 	}
-	successJSONBytes(header, w)
+	successProtoBytes(chain, header, w)
 }
 
 // GetLightHeight handles the route
@@ -379,7 +381,7 @@ func QueryBalanceHandler(w http.ResponseWriter, r *http.Request) {
 		showDenoms = true
 	}
 
-	res, err := queryBalanceHelper(chain, vars["address"], showDenoms)
+	res, err := helpers.QueryBalance(chain, vars["address"], showDenoms)
 	if err != nil {
 		errJSONBytes(err, w)
 		return
@@ -388,46 +390,326 @@ func QueryBalanceHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // QueryHeaderHandler handles the route
-func QueryHeaderHandler(w http.ResponseWriter, r *http.Request) {}
+func QueryHeaderHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	var header *tmclient.Header
+	height := r.URL.Query().Get("height")
+
+	if len(height) == 0 {
+		header, err = helpers.QueryHeader(chain)
+		if err != nil {
+			errJSONBytes(err, w)
+			return
+		}
+	} else {
+		header, err = helpers.QueryHeader(chain, height)
+		if err != nil {
+			errJSONBytes(err, w)
+			return
+		}
+	}
+	successProtoBytes(chain, header, w)
+}
 
 // QueryNodeStateHandler handles the route
-func QueryNodeStateHandler(w http.ResponseWriter, r *http.Request) {}
+func QueryNodeStateHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	consensusState, _, err := chain.QueryConsensusState(0)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+	successProtoBytes(chain, consensusState, w)
+}
 
 // QueryValSetHandler handles the route
-func QueryValSetHandler(w http.ResponseWriter, r *http.Request) {}
+func QueryValSetHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	height, err := helpers.ParseHeightFromRequest(r, chain)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	version := clienttypes.ParseChainID(vars["chain-id"])
+
+	res, err := chain.QueryValsetAtHeight(clienttypes.NewHeight(version, uint64(height)))
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+	successProtoBytes(chain, res, w)
+}
 
 // QuerytxsHandler handles the route
 func QuerytxsHandler(w http.ResponseWriter, r *http.Request) {}
 
-// QuerytxHandler handles the route
-func QuerytxHandler(w http.ResponseWriter, r *http.Request) {}
+// QueryTxHandler handles the route
+func QueryTxHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	tx, err := chain.QueryTx(vars["hash"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+	successJSONBytes(tx, w)
+}
 
 // QueryClientHandler handles the route
-func QueryClientHandler(w http.ResponseWriter, r *http.Request) {}
+func QueryClientHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	height, err := helpers.ParseHeightFromRequest(r, chain)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	if err = chain.AddPath(vars["client-id"], dcon, dcha, dpor, dord); err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	res, err := chain.QueryClientState(height)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+	successProtoBytes(chain, res, w)
+}
 
 // QueryClientsHandler handles the route
-func QueryClientsHandler(w http.ResponseWriter, r *http.Request) {}
+func QueryClientsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	offset, limit, err := helpers.ParsePaginationParams(r)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	res, err := chain.QueryClients(offset, limit)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+	successProtoBytes(chain, res, w)
+}
 
 // QueryConnectionHandler handles the route
-func QueryConnectionHandler(w http.ResponseWriter, r *http.Request) {}
+func QueryConnectionHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	height, err := helpers.ParseHeightFromRequest(r, chain)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	if err = chain.AddPath(dcli, vars["conn-id"], dcha, dpor, dord); err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	res, err := chain.QueryConnection(height)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+	successProtoBytes(chain, res, w)
+}
 
 // QueryConnectionsHandler handles the route
-func QueryConnectionsHandler(w http.ResponseWriter, r *http.Request) {}
+func QueryConnectionsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	offset, limit, err := helpers.ParsePaginationParams(r)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	res, err := chain.QueryConnections(offset, limit)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+	successProtoBytes(chain, res, w)
+}
 
 // QueryClientConnectionsHandler handles the route
-func QueryClientConnectionsHandler(w http.ResponseWriter, r *http.Request) {}
+func QueryClientConnectionsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	height, err := helpers.ParseHeightFromRequest(r, chain)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	if err = chain.AddPath(vars["client-id"], dcon, dcha, dpor, dord); err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	res, err := chain.QueryConnectionsUsingClient(height)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+	successProtoBytes(chain, res, w)
+}
 
 // QueryChannelHandler handles the route
-func QueryChannelHandler(w http.ResponseWriter, r *http.Request) {}
+func QueryChannelHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	height, err := helpers.ParseHeightFromRequest(r, chain)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	if err = chain.AddPath(dcli, dcon, vars["chan-id"], vars["port-id"], dord); err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	res, err := chain.QueryChannel(height)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+	successProtoBytes(chain, res, w)
+}
 
 // QueryChannelsHandler handles the route
-func QueryChannelsHandler(w http.ResponseWriter, r *http.Request) {}
+func QueryChannelsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	offset, limit, err := helpers.ParsePaginationParams(r)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	res, err := chain.QueryChannels(offset, limit)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+	successProtoBytes(chain, res, w)
+}
 
 // QueryConnectionChannelsHandler handles the route
-func QueryConnectionChannelsHandler(w http.ResponseWriter, r *http.Request) {}
+func QueryConnectionChannelsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	if err = chain.AddPath(dcli, vars["conn-id"], dcha, dpor, dord); err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	offset, limit, err := helpers.ParsePaginationParams(r)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	res, err := chain.QueryConnectionChannels(vars["conn-id"], offset, limit)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+	successProtoBytes(chain, res, w)
+}
 
 // QueryIBCDenomsHandler handles the route
-func QueryIBCDenomsHandler(w http.ResponseWriter, r *http.Request) {}
+func QueryIBCDenomsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	h, err := chain.QueryLatestHeight()
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+
+	res, err := chain.QueryDenomTraces(0, 1000, h)
+	if err != nil {
+		errJSONBytes(err, w)
+		return
+	}
+	successProtoBytes(chain, res, w)
+}
 
 // PostRelayerListenHandler returns a handler for a listener that can listen on many IBC paths
 func PostRelayerListenHandler(sm *ServicesManager) func(w http.ResponseWriter, r *http.Request) {

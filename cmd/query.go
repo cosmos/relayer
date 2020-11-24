@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	"github.com/cosmos/relayer/helpers"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -220,7 +220,7 @@ func queryBalanceCmd() *cobra.Command {
 				return err
 			}
 
-			coins, err := queryBalanceHelper(chain, info.GetAddress().String(), showDenoms)
+			coins, err := helpers.QueryBalance(chain, info.GetAddress().String(), showDenoms)
 			if err != nil {
 				return err
 			}
@@ -230,45 +230,6 @@ func queryBalanceCmd() *cobra.Command {
 		},
 	}
 	return ibcDenomFlags(cmd)
-}
-
-func queryBalanceHelper(chain *relayer.Chain, address string, showDenoms bool) (sdk.Coins, error) {
-	coins, err := chain.QueryBalanceWithAddress(address)
-	if err != nil {
-		return nil, err
-	}
-
-	if showDenoms {
-		return coins, nil
-	}
-
-	h, err := chain.QueryLatestHeight()
-	if err != nil {
-		return nil, err
-	}
-
-	dts, err := chain.QueryDenomTraces(0, 1000, h)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(dts.DenomTraces) > 0 {
-		out := sdk.Coins{}
-		for _, c := range coins {
-			for _, d := range dts.DenomTraces {
-				switch {
-				case c.Amount.Equal(sdk.NewInt(0)):
-				case c.Denom == d.IBCDenom():
-					out = append(out, sdk.NewCoin(d.GetFullDenomPath(), c.Amount))
-				default:
-					out = append(out, c)
-				}
-			}
-		}
-		return out, nil
-	}
-
-	return coins, nil
 }
 
 func queryHeaderCmd() *cobra.Command {
@@ -292,28 +253,10 @@ func queryHeaderCmd() *cobra.Command {
 					return err
 				}
 			case 2:
-				var height int64
-				height, err = strconv.ParseInt(args[1], 10, 64) //convert to int64
+				header, err = helpers.QueryHeader(chain, args[1])
 				if err != nil {
 					return err
 				}
-
-				if height == 0 {
-					height, err = chain.QueryLatestHeight()
-					if err != nil {
-						return err
-					}
-
-					if height == -1 {
-						return relayer.ErrLightNotInitialized
-					}
-				}
-
-				header, err = chain.QueryHeaderAtHeight(height)
-				if err != nil {
-					return err
-				}
-
 			}
 
 			return chain.Print(header, false, false)

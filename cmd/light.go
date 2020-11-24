@@ -17,11 +17,10 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
-	"github.com/cosmos/relayer/relayer"
+	"github.com/cosmos/relayer/helpers"
 	"github.com/spf13/cobra"
 )
 
@@ -152,7 +151,7 @@ func lightHeaderCmd() *cobra.Command {
 					return err
 				}
 			case 2:
-				header, err = getLightHeader(chain, args[1])
+				header, err = helpers.GetLightHeader(chain, args[1])
 				if err != nil {
 					return err
 				}
@@ -168,40 +167,6 @@ func lightHeaderCmd() *cobra.Command {
 		},
 	}
 	return cmd
-}
-
-// getLightHeader returns header with chain and optional height as inputs
-func getLightHeader(chain *relayer.Chain, opts ...string) (*tmclient.Header, error) {
-	if len(opts) > 0 {
-		height, err := strconv.ParseInt(opts[0], 10, 64) //convert to int64
-		if err != nil {
-			return nil, err
-		}
-
-		if height == 0 {
-			height, err = chain.GetLatestLightHeight()
-			if err != nil {
-				return nil, err
-			}
-
-			if height == -1 {
-				return nil, relayer.ErrLightNotInitialized
-			}
-		}
-
-		header, err := chain.GetLightSignedHeaderAtHeight(height)
-		if err != nil {
-			return nil, err
-		}
-		return header, nil
-	}
-
-	header, err := chain.GetLatestLightHeader()
-	if err != nil {
-		return nil, err
-	}
-
-	return header, nil
 }
 
 func deleteLightCmd() *cobra.Command {

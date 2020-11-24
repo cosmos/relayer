@@ -61,6 +61,7 @@ func (c *Chain) QueryBalanceWithAddress(address string) (sdk.Coins, error) {
 	done := c.UseSDKContext()
 	addr, err := sdk.AccAddressFromBech32(address)
 	if err != nil {
+		done()
 		return nil, err
 	}
 	done()
