@@ -20,10 +20,8 @@ import (
 	"fmt"
 
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
-	"github.com/cosmos/cosmos-sdk/crypto/hd"
+	"github.com/cosmos/relayer/helpers"
 	"github.com/spf13/cobra"
-
-	"github.com/cosmos/relayer/relayer"
 )
 
 // keysCmd represents the keys command
@@ -68,17 +66,11 @@ func keysAddCmd() *cobra.Command {
 				return errKeyExists(keyName)
 			}
 
-			mnemonic, err := relayer.CreateMnemonic()
+			// Adding key with key add helper
+			ko, err := helpers.KeyAddOrRestore(chain, keyName)
 			if err != nil {
 				return err
 			}
-
-			info, err := chain.Keybase.NewAccount(keyName, mnemonic, "", hd.CreateHDPath(118, 0, 0).String(), hd.Secp256k1)
-			if err != nil {
-				return err
-			}
-
-			ko := keyOutput{Mnemonic: mnemonic, Address: info.GetAddress().String()}
 
 			out, err := json.Marshal(&ko)
 			if err != nil {
@@ -91,11 +83,6 @@ func keysAddCmd() *cobra.Command {
 	}
 
 	return cmd
-}
-
-type keyOutput struct {
-	Mnemonic string `json:"mnemonic" yaml:"mnemonic"`
-	Address  string `json:"address" yaml:"address"`
 }
 
 // keysRestoreCmd respresents the `keys add` command
@@ -116,13 +103,13 @@ func keysRestoreCmd() *cobra.Command {
 				return errKeyExists(keyName)
 			}
 
-			info, err := chain.Keybase.NewAccount(keyName, args[2], "", hd.CreateHDPath(118, 0, 0).String(), hd.Secp256k1)
+			// Restoring key with passing mnemonic
+			ko, err := helpers.KeyAddOrRestore(chain, keyName, args[2])
 			if err != nil {
 				return err
 			}
 
-			defer chain.UseSDKContext()()
-			fmt.Println(info.GetAddress().String())
+			fmt.Println(ko.Address)
 			return nil
 		},
 	}

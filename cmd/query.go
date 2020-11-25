@@ -120,16 +120,6 @@ documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.
 				return err
 			}
 
-			events, err := relayer.ParseEvents(args[1])
-			if err != nil {
-				return err
-			}
-
-			h, err := chain.UpdateLightWithHeader()
-			if err != nil {
-				return err
-			}
-
 			offset, err := cmd.Flags().GetUint64(flags.FlagOffset)
 			if err != nil {
 				return err
@@ -140,7 +130,7 @@ documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.
 				return err
 			}
 
-			txs, err := chain.QueryTxs(relayer.MustGetHeight(h.GetHeight()), int(offset), int(limit), events)
+			txs, err := helpers.QueryTxs(chain, args[1], offset, limit)
 			if err != nil {
 				return err
 			}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -15,7 +16,6 @@ import (
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/helpers"
 	"github.com/cosmos/relayer/relayer"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
 )
@@ -119,10 +119,10 @@ func getAPICmd() *cobra.Command {
 			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", keys, chainIDArg, nameArg), GetKeyHandler).Methods("GET")
 			// key add
 			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", keys, chainIDArg, nameArg), PostKeyHandler).Methods("POST")
-			// key update
-			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", keys, chainIDArg, nameArg), PutKeyHandler).Methods("PUT")
 			// key delete
 			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", keys, chainIDArg, nameArg), DeleteKeyHandler).Methods("DELETE")
+			// key restore
+			r.HandleFunc(fmt.Sprintf("/%s/%s/%s/restore", keys, chainIDArg, nameArg), RestoreKeyHandler).Methods("POST")
 			// LIGHT
 			// light header, if no ?height={height} is passed, latest
 			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", light, chainIDArg, header), GetLightHeader).Methods("GET")
@@ -204,7 +204,7 @@ func getAPICmd() *cobra.Command {
 
 // ConfigHandler handles the route
 func ConfigHandler(w http.ResponseWriter, r *http.Request) {
-	successJSONBytes(config, w)
+	helpers.SuccessJSONResponse(http.StatusOK, config, w)
 }
 
 // PostChainHandler handles the route
@@ -242,12 +242,12 @@ func GetKeysHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 	info, err := chain.Keybase.List()
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
 
@@ -255,7 +255,7 @@ func GetKeysHandler(w http.ResponseWriter, r *http.Request) {
 	for index, key := range info {
 		keys[index] = formatKey(key)
 	}
-	successJSONBytes(keys, w)
+	helpers.SuccessJSONResponse(http.StatusOK, keys, w)
 }
 
 // GetKeyHandler handles the route
@@ -263,39 +263,109 @@ func GetKeyHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	keyName := vars["name"]
 	if !chain.KeyExists(keyName) {
-		errJSONBytes(errKeyDoesntExist(keyName), w)
+		helpers.WriteErrorResponse(http.StatusNotFound, errKeyDoesntExist(keyName), w)
 		return
 	}
 
 	info, err := chain.Keybase.Key(keyName)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
-	successJSONBytes(formatKey(info), w)
+	helpers.SuccessJSONResponse(http.StatusOK, formatKey(info), w)
 }
 
 // PostKeyHandler handles the route
-func PostKeyHandler(w http.ResponseWriter, r *http.Request) {}
+func PostKeyHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
 
-// PutKeyHandler handles the route
-func PutKeyHandler(w http.ResponseWriter, r *http.Request) {}
+	keyName := vars["name"]
+	if chain.KeyExists(keyName) {
+		helpers.WriteErrorResponse(http.StatusBadRequest, errKeyExists(keyName), w)
+		return
+	}
+
+	ko, err := helpers.KeyAddOrRestore(chain, keyName)
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusCreated, ko, w)
+}
+
+type restoreKeyRequest struct {
+	Mnemonic string `json:"mnemonic"`
+}
+
+// RestoreKeyHandler handles the route
+func RestoreKeyHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	keyName := vars["name"]
+	if chain.KeyExists(keyName) {
+		helpers.WriteErrorResponse(http.StatusNotFound, errKeyExists(keyName), w)
+		return
+	}
+
+	var request restoreKeyRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	ko, err := helpers.KeyAddOrRestore(chain, keyName, request.Mnemonic)
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, ko, w)
+}
 
 // DeleteKeyHandler handles the route
-func DeleteKeyHandler(w http.ResponseWriter, r *http.Request) {}
+func DeleteKeyHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	keyName := vars["name"]
+	if !chain.KeyExists(keyName) {
+		helpers.WriteErrorResponse(http.StatusNotFound, errKeyDoesntExist(keyName), w)
+		return
+	}
+
+	err = chain.Keybase.Delete(keyName)
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, fmt.Sprintf("key %s deleted", keyName), w)
+}
 
 // GetLightHeader handles the route
 func GetLightHeader(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
@@ -305,17 +375,17 @@ func GetLightHeader(w http.ResponseWriter, r *http.Request) {
 	if len(height) == 0 {
 		header, err = helpers.GetLightHeader(chain)
 		if err != nil {
-			errJSONBytes(err, w)
+			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 			return
 		}
 	} else {
 		header, err = helpers.GetLightHeader(chain, height)
 		if err != nil {
-			errJSONBytes(err, w)
+			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 			return
 		}
 	}
-	successProtoBytes(chain, header, w)
+	helpers.SuccessProtoResponse(http.StatusOK, chain, header, w)
 }
 
 // GetLightHeight handles the route
@@ -323,16 +393,16 @@ func GetLightHeight(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	height, err := chain.GetLatestLightHeight()
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
-	successJSONBytes(height, w)
+	helpers.SuccessJSONResponse(http.StatusOK, height, w)
 }
 
 // PostLight handles the route
@@ -349,7 +419,7 @@ func QueryAccountHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
@@ -359,10 +429,10 @@ func QueryAccountHandler(w http.ResponseWriter, r *http.Request) {
 			Address: vars["address"],
 		})
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
-	successProtoBytes(chain, res, w)
+	helpers.SuccessProtoResponse(http.StatusOK, chain, res, w)
 }
 
 // QueryBalanceHandler handles the route
@@ -370,7 +440,7 @@ func QueryBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
@@ -383,10 +453,10 @@ func QueryBalanceHandler(w http.ResponseWriter, r *http.Request) {
 
 	res, err := helpers.QueryBalance(chain, vars["address"], showDenoms)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
-	successJSONBytes(res, w)
+	helpers.SuccessJSONResponse(http.StatusOK, res, w)
 }
 
 // QueryHeaderHandler handles the route
@@ -394,7 +464,7 @@ func QueryHeaderHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
@@ -404,17 +474,17 @@ func QueryHeaderHandler(w http.ResponseWriter, r *http.Request) {
 	if len(height) == 0 {
 		header, err = helpers.QueryHeader(chain)
 		if err != nil {
-			errJSONBytes(err, w)
+			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 			return
 		}
 	} else {
 		header, err = helpers.QueryHeader(chain, height)
 		if err != nil {
-			errJSONBytes(err, w)
+			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 			return
 		}
 	}
-	successProtoBytes(chain, header, w)
+	helpers.SuccessProtoResponse(http.StatusOK, chain, header, w)
 }
 
 // QueryNodeStateHandler handles the route
@@ -422,16 +492,16 @@ func QueryNodeStateHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	consensusState, _, err := chain.QueryConsensusState(0)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
-	successProtoBytes(chain, consensusState, w)
+	helpers.SuccessProtoResponse(http.StatusOK, chain, consensusState, w)
 }
 
 // QueryValSetHandler handles the route
@@ -439,13 +509,13 @@ func QueryValSetHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	height, err := helpers.ParseHeightFromRequest(r, chain)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
@@ -453,30 +523,69 @@ func QueryValSetHandler(w http.ResponseWriter, r *http.Request) {
 
 	res, err := chain.QueryValsetAtHeight(clienttypes.NewHeight(version, uint64(height)))
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
-	successProtoBytes(chain, res, w)
+	helpers.SuccessProtoResponse(http.StatusOK, chain, res, w)
+}
+
+type TxsRequest struct {
+	Events []string `json:"events"`
 }
 
 // QuerytxsHandler handles the route
-func QuerytxsHandler(w http.ResponseWriter, r *http.Request) {}
+func QuerytxsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	offset, limit, err := helpers.ParsePaginationParams(r)
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	// Setting default values for pagination if query params not given
+	if len(r.URL.Query().Get("offset")) == 0 {
+		offset = 1
+	}
+
+	if len(r.URL.Query().Get("limit")) == 0 {
+		limit = 100
+	}
+
+	var request TxsRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	txs, err := helpers.QueryTxs(chain, strings.Join(request.Events, "&"), offset, limit)
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, txs, w)
+}
 
 // QueryTxHandler handles the route
 func QueryTxHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	tx, err := chain.QueryTx(vars["hash"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
-	successJSONBytes(tx, w)
+	helpers.SuccessJSONResponse(http.StatusOK, tx, w)
 }
 
 // QueryClientHandler handles the route
@@ -484,27 +593,27 @@ func QueryClientHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	height, err := helpers.ParseHeightFromRequest(r, chain)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	if err = chain.AddPath(vars["client-id"], dcon, dcha, dpor, dord); err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
 
 	res, err := chain.QueryClientState(height)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
-	successProtoBytes(chain, res, w)
+	helpers.SuccessProtoResponse(http.StatusOK, chain, res, w)
 }
 
 // QueryClientsHandler handles the route
@@ -512,22 +621,22 @@ func QueryClientsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	offset, limit, err := helpers.ParsePaginationParams(r)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	res, err := chain.QueryClients(offset, limit)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
-	successProtoBytes(chain, res, w)
+	helpers.SuccessProtoResponse(http.StatusOK, chain, res, w)
 }
 
 // QueryConnectionHandler handles the route
@@ -535,27 +644,27 @@ func QueryConnectionHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	height, err := helpers.ParseHeightFromRequest(r, chain)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	if err = chain.AddPath(dcli, vars["conn-id"], dcha, dpor, dord); err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
 
 	res, err := chain.QueryConnection(height)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
-	successProtoBytes(chain, res, w)
+	helpers.SuccessProtoResponse(http.StatusOK, chain, res, w)
 }
 
 // QueryConnectionsHandler handles the route
@@ -563,22 +672,22 @@ func QueryConnectionsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	offset, limit, err := helpers.ParsePaginationParams(r)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	res, err := chain.QueryConnections(offset, limit)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
-	successProtoBytes(chain, res, w)
+	helpers.SuccessProtoResponse(http.StatusOK, chain, res, w)
 }
 
 // QueryClientConnectionsHandler handles the route
@@ -586,27 +695,27 @@ func QueryClientConnectionsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	height, err := helpers.ParseHeightFromRequest(r, chain)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	if err = chain.AddPath(vars["client-id"], dcon, dcha, dpor, dord); err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
 
 	res, err := chain.QueryConnectionsUsingClient(height)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
-	successProtoBytes(chain, res, w)
+	helpers.SuccessProtoResponse(http.StatusOK, chain, res, w)
 }
 
 // QueryChannelHandler handles the route
@@ -614,27 +723,27 @@ func QueryChannelHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	height, err := helpers.ParseHeightFromRequest(r, chain)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	if err = chain.AddPath(dcli, dcon, vars["chan-id"], vars["port-id"], dord); err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
 
 	res, err := chain.QueryChannel(height)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
-	successProtoBytes(chain, res, w)
+	helpers.SuccessProtoResponse(http.StatusOK, chain, res, w)
 }
 
 // QueryChannelsHandler handles the route
@@ -642,22 +751,22 @@ func QueryChannelsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	offset, limit, err := helpers.ParsePaginationParams(r)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	res, err := chain.QueryChannels(offset, limit)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
-	successProtoBytes(chain, res, w)
+	helpers.SuccessProtoResponse(http.StatusOK, chain, res, w)
 }
 
 // QueryConnectionChannelsHandler handles the route
@@ -665,27 +774,27 @@ func QueryConnectionChannelsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	if err = chain.AddPath(dcli, vars["conn-id"], dcha, dpor, dord); err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
 
 	offset, limit, err := helpers.ParsePaginationParams(r)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
 
 	res, err := chain.QueryConnectionChannels(vars["conn-id"], offset, limit)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
-	successProtoBytes(chain, res, w)
+	helpers.SuccessProtoResponse(http.StatusOK, chain, res, w)
 }
 
 // QueryIBCDenomsHandler handles the route
@@ -693,22 +802,22 @@ func QueryIBCDenomsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
 	h, err := chain.QueryLatestHeight()
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
 
 	res, err := chain.QueryDenomTraces(0, 1000, h)
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
-	successProtoBytes(chain, res, w)
+	helpers.SuccessProtoResponse(http.StatusOK, chain, res, w)
 }
 
 // PostRelayerListenHandler returns a handler for a listener that can listen on many IBC paths
@@ -719,23 +828,23 @@ func PostRelayerListenHandler(sm *ServicesManager) func(w http.ResponseWriter, r
 		// TODO: make this handler accept a json post arguement
 		pth, err := config.Paths.Get(vars["path"])
 		if err != nil {
-			errJSONBytes(err, w)
+			helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 			return
 		}
 		c, src, dst, err := config.ChainsFromPath(vars["path"])
 		if err != nil {
-			errJSONBytes(err, w)
+			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 			return
 		}
 		pth.Strategy = &relayer.StrategyCfg{Type: vars["strategy"]}
 		strat, err := pth.GetStrategy()
 		if err != nil {
-			errJSONBytes(err, w)
+			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 			return
 		}
 		done, err := relayer.RunStrategy(c[src], c[dst], strat)
 		if err != nil {
-			errJSONBytes(err, w)
+			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 			return
 		}
 		sm.Lock()
@@ -746,7 +855,7 @@ func PostRelayerListenHandler(sm *ServicesManager) func(w http.ResponseWriter, r
 
 // GetChainsHandler returns the configured chains in json format
 func GetChainsHandler(w http.ResponseWriter, r *http.Request) {
-	successJSONBytes(config.Chains, w)
+	helpers.SuccessJSONResponse(http.StatusOK, config.Chains, w)
 }
 
 // GetChainHandler returns the configured chains in json format
@@ -754,10 +863,10 @@ func GetChainHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["name"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
-	successJSONBytes(chain, w)
+	helpers.SuccessJSONResponse(http.StatusOK, chain, w)
 }
 
 // GetChainStatusHandler returns the configured chains in json format
@@ -765,10 +874,10 @@ func GetChainStatusHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["name"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
-	successJSONBytes(chainStatusResponse{}.Populate(chain), w)
+	helpers.SuccessJSONResponse(http.StatusOK, chainStatusResponse{}.Populate(chain), w)
 }
 
 type chainStatusResponse struct {
@@ -804,7 +913,7 @@ func (cs chainStatusResponse) Populate(c *relayer.Chain) chainStatusResponse {
 
 // GetPathsHandler returns the configured chains in json format
 func GetPathsHandler(w http.ResponseWriter, r *http.Request) {
-	successJSONBytes(config.Paths, w)
+	helpers.SuccessJSONResponse(http.StatusOK, config.Paths, w)
 }
 
 // GetPathHandler returns the configured chains in json format
@@ -812,10 +921,10 @@ func GetPathHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	pth, err := config.Paths.Get(vars["name"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
-	successJSONBytes(pth, w)
+	helpers.SuccessJSONResponse(http.StatusOK, pth, w)
 }
 
 // GetPathStatusHandler returns the configured chains in json format
@@ -823,16 +932,16 @@ func GetPathStatusHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	pth, err := config.Paths.Get(vars["name"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 	c, src, dst, err := config.ChainsFromPath(vars["name"])
 	if err != nil {
-		errJSONBytes(err, w)
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
 	}
 	ps := pth.QueryPathStatus(c[src], c[dst])
-	successJSONBytes(ps, w)
+	helpers.SuccessJSONResponse(http.StatusOK, ps, w)
 }
 
 // VersionHandler returns the version info in json format
@@ -843,28 +952,5 @@ func VersionHandler(w http.ResponseWriter, r *http.Request) {
 		CosmosSDK: SDKCommit,
 		Go:        fmt.Sprintf("%s %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH),
 	}
-	successJSONBytes(version, w)
-}
-
-// TODO: do we need better errors
-// errors for things like:
-// - out of funds
-// - transaction errors
-// Lets utilize the codec to make these error returns
-// useful to users and allow them to take proper action
-func errJSONBytes(err error, w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(fmt.Sprintf("{\"err\": \"%s\"}", err)))
-}
-
-func successJSONBytes(v interface{}, w http.ResponseWriter) {
-	out, _ := json.Marshal(v)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(out)
-}
-
-func successProtoBytes(chain *relayer.Chain, v proto.Message, w http.ResponseWriter) {
-	out, _ := chain.Encoding.Marshaler.MarshalJSON(v)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(out)
+	helpers.SuccessJSONResponse(http.StatusOK, version, w)
 }

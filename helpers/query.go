@@ -1,12 +1,12 @@
 package helpers
 
 import (
-	"net/http"
 	"strconv"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer"
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 )
 
 // QueryBalance is a helper function for query balance
@@ -83,46 +83,22 @@ func QueryHeader(chain *relayer.Chain, opts ...string) (*tmclient.Header, error)
 	return header, nil
 }
 
-// ParseHeightFromRequest parse height from query params and if not found, returns latest height
-func ParseHeightFromRequest(r *http.Request, chain *relayer.Chain) (int64, error) {
-	heightStr := r.URL.Query().Get("height")
-
-	if len(heightStr) == 0 {
-		height, err := chain.QueryLatestHeight()
-		if err != nil {
-			return 0, err
-		}
-		return height, nil
-	}
-
-	height, err := strconv.ParseInt(heightStr, 10, 64) //convert to int64
+// QueryTxs is a helper function for query txs
+func QueryTxs(chain *relayer.Chain, eventsStr string, offset uint64, limit uint64) ([]*ctypes.ResultTx, error) {
+	events, err := relayer.ParseEvents(eventsStr)
 	if err != nil {
-		return 0, err
-	}
-	return height, nil
-}
-
-// ParsePaginationParams parse limit and offset query params in request
-func ParsePaginationParams(r *http.Request) (uint64, uint64, error) {
-	offsetStr := r.URL.Query().Get("offset")
-	limitStr := r.URL.Query().Get("limit")
-
-	var offset, limit uint64
-	var err error
-
-	if len(offsetStr) != 0 {
-		offset, err = strconv.ParseUint(offsetStr, 10, 64) //convert to int64
-		if err != nil {
-			return offset, limit, err
-		}
+		return nil, err
 	}
 
-	if len(limitStr) != 0 {
-		limit, err = strconv.ParseUint(limitStr, 10, 64) //convert to int64
-		if err != nil {
-			return offset, limit, err
-		}
+	h, err := chain.UpdateLightWithHeader()
+	if err != nil {
+		return nil, err
 	}
 
-	return offset, limit, nil
+	txs, err := chain.QueryTxs(relayer.MustGetHeight(h.GetHeight()), int(offset), int(limit), events)
+	if err != nil {
+		return nil, err
+	}
+
+	return txs, nil
 }
