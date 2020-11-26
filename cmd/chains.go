@@ -137,7 +137,7 @@ func chainsEditCmd() *cobra.Command {
 				return err
 			}
 
-			return overWriteConfig(cmd, config)
+			return overWriteConfig(config)
 		},
 	}
 	return cmd
@@ -150,7 +150,7 @@ func chainsDeleteCmd() *cobra.Command {
 		Short:   "Returns chain configuration data",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return overWriteConfig(cmd, config.DeleteChain(args[0]))
+			return overWriteConfig(config.DeleteChain(args[0]))
 		},
 	}
 	return cmd
@@ -258,7 +258,7 @@ func chainsAddCmd() *cobra.Command {
 				return err
 			}
 
-			return overWriteConfig(cmd, out)
+			return overWriteConfig(out)
 		},
 	}
 
@@ -277,7 +277,7 @@ func chainsAddDirCmd() *cobra.Command {
 			if out, err = filesAdd(args[0]); err != nil {
 				return err
 			}
-			return overWriteConfig(cmd, out)
+			return overWriteConfig(out)
 		},
 	}
 

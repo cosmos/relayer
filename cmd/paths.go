@@ -90,7 +90,7 @@ func pathsGenCmd() *cobra.Command {
 				}
 				logPathGen(pth)
 				// ...then add it to the config file
-				return overWriteConfig(cmd, config)
+				return overWriteConfig(config)
 			}
 
 			// see if there are existing clients that can be reused
@@ -155,7 +155,7 @@ func pathsGenCmd() *cobra.Command {
 					return err
 				}
 				logPathGen(pth)
-				return overWriteConfig(cmd, config)
+				return overWriteConfig(config)
 			case path.Src.ClientID == "" && path.Dst.ClientID != "":
 				path.GenSrcClientID()
 				path.GenSrcConnID()
@@ -166,7 +166,7 @@ func pathsGenCmd() *cobra.Command {
 					return err
 				}
 				logPathGen(pth)
-				return overWriteConfig(cmd, config)
+				return overWriteConfig(config)
 			case path.Dst.ClientID == "" && path.Src.ClientID != "":
 				path.GenDstClientID()
 				path.GenSrcConnID()
@@ -177,7 +177,7 @@ func pathsGenCmd() *cobra.Command {
 					return err
 				}
 				logPathGen(pth)
-				return overWriteConfig(cmd, config)
+				return overWriteConfig(config)
 			}
 
 			// see if there are existing connections that can be reused
@@ -225,7 +225,7 @@ func pathsGenCmd() *cobra.Command {
 						return err
 					}
 					logPathGen(pth)
-					return overWriteConfig(cmd, config)
+					return overWriteConfig(config)
 				}
 			default:
 				path.GenSrcConnID()
@@ -236,7 +236,7 @@ func pathsGenCmd() *cobra.Command {
 					return err
 				}
 				logPathGen(pth)
-				return overWriteConfig(cmd, config)
+				return overWriteConfig(config)
 			}
 
 			eg.Go(func() error {
@@ -288,7 +288,7 @@ func pathsGenCmd() *cobra.Command {
 					return err
 				}
 				logPathGen(pth)
-				return overWriteConfig(cmd, config)
+				return overWriteConfig(config)
 			default:
 				path.GenSrcChanID()
 				path.GenDstChanID()
@@ -296,7 +296,7 @@ func pathsGenCmd() *cobra.Command {
 					return err
 				}
 				logPathGen(pth)
-				return overWriteConfig(cmd, config)
+				return overWriteConfig(config)
 			}
 		},
 	}
@@ -319,7 +319,7 @@ func pathsDeleteCmd() *cobra.Command {
 			}
 			cfg := config
 			delete(cfg.Paths, args[0])
-			return overWriteConfig(cmd, cfg)
+			return overWriteConfig(cfg)
 		},
 	}
 	return cmd
@@ -454,7 +454,7 @@ func pathsAddCmd() *cobra.Command {
 				}
 			}
 
-			return overWriteConfig(cmd, out)
+			return overWriteConfig(out)
 		},
 	}
 	return fileFlag(cmd)

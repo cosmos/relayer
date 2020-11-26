@@ -154,7 +154,7 @@ func configAddDirCmd() *cobra.Command {
 			if out, err = cfgFilesAdd(args[0]); err != nil {
 				return err
 			}
-			return overWriteConfig(cmd, out)
+			return overWriteConfig(out)
 		},
 	}
 
@@ -374,13 +374,8 @@ func initConfig(cmd *cobra.Command) error {
 	return nil
 }
 
-func overWriteConfig(cmd *cobra.Command, cfg *Config) error {
-	home, err := cmd.Flags().GetString(flags.FlagHome)
-	if err != nil {
-		return err
-	}
-
-	cfgPath := path.Join(home, "config", "config.yaml")
+func overWriteConfig(cfg *Config) (err error) {
+	cfgPath := path.Join(homePath, "config", "config.yaml")
 	if _, err = os.Stat(cfgPath); err == nil {
 		viper.SetConfigFile(cfgPath)
 		if err = viper.ReadInConfig(); err == nil {

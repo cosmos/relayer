@@ -146,7 +146,7 @@ func getAPICmd() *cobra.Command {
 			// query valset at height, if no ?height={height} is passed, latest
 			r.HandleFunc(fmt.Sprintf("/%s/%s/valset", query, chainIDArg), QueryValSetHandler).Methods("GET")
 			// query txs passing in a query via POST request
-			r.HandleFunc(fmt.Sprintf("/%s/%s/txs", query, chainIDArg), QuerytxsHandler).Methods("POST")
+			r.HandleFunc(fmt.Sprintf("/%s/%s/txs", query, chainIDArg), QueryTxsHandler).Methods("POST")
 			// query tx by hash
 			r.HandleFunc(fmt.Sprintf("/%s/%s/tx/{hash}", query, chainIDArg), QueryTxHandler).Methods("GET")
 			// query client by chain-id and client-id, if no ?height={height} is passed, latest
@@ -210,11 +210,55 @@ func ConfigHandler(w http.ResponseWriter, r *http.Request) {
 // PostChainHandler handles the route
 func PostChainHandler(w http.ResponseWriter, r *http.Request) {}
 
+type editChainRequest struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
 // PutChainHandler handles the route
-func PutChainHandler(w http.ResponseWriter, r *http.Request) {}
+func PutChainHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["name"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	var request editChainRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	c, err := chain.Update(request.Key, request.Value)
+	if err != nil {
+		// TODO: Fix issues with trusting-period wrong format error when rendering
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	if err = config.DeleteChain(vars["name"]).AddChain(c); err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	if err = overWriteConfig(config); err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, fmt.Sprintf("chain %s updated", vars["name"]), w)
+
+}
 
 // DeleteChainHandler handles the route
-func DeleteChainHandler(w http.ResponseWriter, r *http.Request) {}
+func DeleteChainHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	if err := overWriteConfig(config.DeleteChain(vars["name"])); err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, fmt.Sprintf("chain %s deleted", vars["name"]), w)
+}
 
 // PostPathHandler handles the route
 func PostPathHandler(w http.ResponseWriter, r *http.Request) {}
@@ -529,12 +573,12 @@ func QueryValSetHandler(w http.ResponseWriter, r *http.Request) {
 	helpers.SuccessProtoResponse(http.StatusOK, chain, res, w)
 }
 
-type TxsRequest struct {
+type txsRequest struct {
 	Events []string `json:"events"`
 }
 
-// QuerytxsHandler handles the route
-func QuerytxsHandler(w http.ResponseWriter, r *http.Request) {
+// QueryTxsHandler handles the route
+func QueryTxsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chain, err := config.Chains.Get(vars["chain-id"])
 	if err != nil {
@@ -557,7 +601,7 @@ func QuerytxsHandler(w http.ResponseWriter, r *http.Request) {
 		limit = 100
 	}
 
-	var request TxsRequest
+	var request txsRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
