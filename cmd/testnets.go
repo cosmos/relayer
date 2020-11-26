@@ -109,7 +109,7 @@ func faucetStartCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			amount, err := sdk.ParseCoins(args[2])
+			amount, err := sdk.ParseCoinsNormalized(args[2])
 			if err != nil {
 				return err
 			}

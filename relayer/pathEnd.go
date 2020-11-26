@@ -12,7 +12,6 @@ import (
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
 	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
-	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/light"
 )
 
@@ -81,7 +80,6 @@ func (pe *PathEnd) UpdateClient(dstHeader ibcexported.Header, signer sdk.AccAddr
 func (pe *PathEnd) CreateClient(
 	dstHeader *tmclient.Header,
 	trustingPeriod, unbondingPeriod time.Duration,
-	consensusParams *abci.ConsensusParams,
 	signer sdk.AccAddress) sdk.Msg {
 	if err := dstHeader.ValidateBasic(); err != nil {
 		panic(err)
@@ -95,9 +93,8 @@ func (pe *PathEnd) CreateClient(
 		unbondingPeriod,
 		time.Minute*10,
 		dstHeader.GetHeight().(clienttypes.Height),
-		consensusParams,
 		commitmenttypes.GetSDKSpecs(),
-		"upgrade/upgradedClient",
+		[]string{"upgrade", "upgradedClient"},
 		false,
 		false,
 	)
@@ -122,9 +119,7 @@ func (pe *PathEnd) CreateClient(
 func (pe *PathEnd) ConnInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 	var version *conntypes.Version
 	return conntypes.NewMsgConnectionOpenInit(
-		pe.ConnectionID,
 		pe.ClientID,
-		dst.ConnectionID,
 		dst.ClientID,
 		defaultChainPrefix,
 		version,
@@ -146,7 +141,6 @@ func (pe *PathEnd) ConnTry(
 		panic(err)
 	}
 	msg := conntypes.NewMsgConnectionOpenTry(
-		pe.ConnectionID,
 		pe.ConnectionID,
 		pe.ClientID,
 		dst.ConnectionID,
@@ -209,12 +203,10 @@ func (pe *PathEnd) ConnConfirm(dstConnState *conntypes.QueryConnectionResponse, 
 func (pe *PathEnd) ChanInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 	return chantypes.NewMsgChannelOpenInit(
 		pe.PortID,
-		pe.ChannelID,
 		pe.Version,
 		pe.GetOrder(),
 		[]string{pe.ConnectionID},
 		dst.PortID,
-		dst.ChannelID,
 		signer,
 	)
 }
@@ -223,7 +215,6 @@ func (pe *PathEnd) ChanInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 func (pe *PathEnd) ChanTry(dst *PathEnd, dstChanState *chantypes.QueryChannelResponse, signer sdk.AccAddress) sdk.Msg {
 	return chantypes.NewMsgChannelOpenTry(
 		pe.PortID,
-		pe.ChannelID,
 		pe.ChannelID,
 		pe.Version,
 		dstChanState.Channel.Ordering,

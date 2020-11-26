@@ -707,7 +707,7 @@ func relayPacketsFromResultTx(src, dst *PathEnd, res *ctypes.ResultTx, sh *SyncH
 
 			switch {
 			// If the packet has a timeout height, and it has been reached, return a timeout packet
-			case rp.timeout != 0 && block.GetHeight().GetVersionHeight() >= rp.timeout:
+			case rp.timeout != 0 && block.GetHeight().GetRevisionHeight() >= rp.timeout:
 				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
 			// If the packet has a timeout timestamp and it has been reached, return a timeout packet
 			case rp.timeoutStamp != 0 && block.GetTime().UnixNano() >= int64(rp.timeoutStamp):

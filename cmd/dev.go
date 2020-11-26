@@ -134,7 +134,7 @@ func faucetService() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = sdk.ParseCoin(args[4])
+			_, err = sdk.ParseCoinNormalized(args[4])
 			if err != nil {
 				return err
 			}

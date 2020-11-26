@@ -26,15 +26,10 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		if err != nil {
 			return err
 		}
-		consensusParams, err := dst.QueryConsensusParams()
-		if err != nil {
-			return err
-		}
 		msg := c.PathEnd.CreateClient(
 			dstH,
 			dst.GetTrustingPeriod(),
 			ubdPeriod,
-			consensusParams,
 			c.MustGetAddress(),
 		)
 		clients.Src = append(clients.Src, msg)
@@ -49,15 +44,10 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		if err != nil {
 			return err
 		}
-		consensusParams, err := c.QueryConsensusParams()
-		if err != nil {
-			return err
-		}
 		msg := dst.PathEnd.CreateClient(
 			srcH,
 			c.GetTrustingPeriod(),
 			ubdPeriod,
-			consensusParams,
 			dst.MustGetAddress(),
 		)
 		clients.Dst = append(clients.Dst, msg)

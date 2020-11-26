@@ -35,7 +35,7 @@ func xfersend() *cobra.Command {
 				return err
 			}
 
-			amount, err := sdk.ParseCoin(args[2])
+			amount, err := sdk.ParseCoinNormalized(args[2])
 			if err != nil {
 				return err
 			}

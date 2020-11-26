@@ -144,5 +144,5 @@ func MustGetHeight(h ibcexported.Height) uint64 {
 	if !ok {
 		panic("height is not an instance of height! wtf")
 	}
-	return height.GetVersionHeight()
+	return height.GetRevisionHeight()
 }
