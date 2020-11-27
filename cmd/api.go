@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
@@ -65,6 +64,14 @@ const (
 	chainIDArg = "{chain-id}"
 )
 
+// Middleware calls initConfig for every request
+func Middleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = initConfig(rootCmd)
+		h.ServeHTTP(w, r)
+	})
+}
+
 func getAPICmd() *cobra.Command {
 	apiCmd := &cobra.Command{
 		Use: "api",
@@ -72,6 +79,9 @@ func getAPICmd() *cobra.Command {
 		Short: "Start the relayer API",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r := mux.NewRouter()
+
+			r.Use(Middleware)
+
 			sm := NewServicesManager()
 			// NOTE: there is no hardening of this API. It is meant to be run in a secure environment and
 			// accessed via private networking
@@ -108,8 +118,6 @@ func getAPICmd() *cobra.Command {
 			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", paths, nameArg, status), GetPathStatusHandler).Methods("GET")
 			// path add
 			r.HandleFunc(fmt.Sprintf("/%s/%s", paths, nameArg), PostPathHandler).Methods("POST")
-			// path update
-			r.HandleFunc(fmt.Sprintf("/%s/%s", paths, nameArg), PutPathHandler).Methods("PUT")
 			// path delete
 			r.HandleFunc(fmt.Sprintf("/%s/%s", paths, nameArg), DeletePathHandler).Methods("DELETE")
 			// KEYS
@@ -207,256 +215,16 @@ func ConfigHandler(w http.ResponseWriter, r *http.Request) {
 	helpers.SuccessJSONResponse(http.StatusOK, config, w)
 }
 
-// PostChainHandler handles the route
-func PostChainHandler(w http.ResponseWriter, r *http.Request) {}
-
-type editChainRequest struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+// VersionHandler returns the version info in json format
+func VersionHandler(w http.ResponseWriter, r *http.Request) {
+	version := versionInfo{
+		Version:   Version,
+		Commit:    Commit,
+		CosmosSDK: SDKCommit,
+		Go:        fmt.Sprintf("%s %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH),
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, version, w)
 }
-
-// PutChainHandler handles the route
-func PutChainHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	chain, err := config.Chains.Get(vars["name"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-
-	var request editChainRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-
-	c, err := chain.Update(request.Key, request.Value)
-	if err != nil {
-		// TODO: Fix issues with trusting-period wrong format error when rendering
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-
-	if err = config.DeleteChain(vars["name"]).AddChain(c); err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-
-	if err = overWriteConfig(config); err != nil {
-		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-		return
-	}
-	helpers.SuccessJSONResponse(http.StatusOK, fmt.Sprintf("chain %s updated", vars["name"]), w)
-
-}
-
-// DeleteChainHandler handles the route
-func DeleteChainHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	if err := overWriteConfig(config.DeleteChain(vars["name"])); err != nil {
-		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-		return
-	}
-	helpers.SuccessJSONResponse(http.StatusOK, fmt.Sprintf("chain %s deleted", vars["name"]), w)
-}
-
-// PostPathHandler handles the route
-func PostPathHandler(w http.ResponseWriter, r *http.Request) {}
-
-// PutPathHandler handles the route
-func PutPathHandler(w http.ResponseWriter, r *http.Request) {}
-
-// DeletePathHandler handles the route
-func DeletePathHandler(w http.ResponseWriter, r *http.Request) {}
-
-type keyResponse struct {
-	Name    string `json:"name"`
-	Address string `json:"address"`
-}
-
-func formatKey(info keyring.Info) keyResponse {
-	return keyResponse{
-		Name:    info.GetName(),
-		Address: info.GetAddress().String(),
-	}
-}
-
-// GetKeysHandler handles the route
-func GetKeysHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	chain, err := config.Chains.Get(vars["chain-id"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-	info, err := chain.Keybase.List()
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-		return
-	}
-
-	keys := make([]keyResponse, len(info))
-	for index, key := range info {
-		keys[index] = formatKey(key)
-	}
-	helpers.SuccessJSONResponse(http.StatusOK, keys, w)
-}
-
-// GetKeyHandler handles the route
-func GetKeyHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	chain, err := config.Chains.Get(vars["chain-id"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-
-	keyName := vars["name"]
-	if !chain.KeyExists(keyName) {
-		helpers.WriteErrorResponse(http.StatusNotFound, errKeyDoesntExist(keyName), w)
-		return
-	}
-
-	info, err := chain.Keybase.Key(keyName)
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-		return
-	}
-	helpers.SuccessJSONResponse(http.StatusOK, formatKey(info), w)
-}
-
-// PostKeyHandler handles the route
-func PostKeyHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	chain, err := config.Chains.Get(vars["chain-id"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-
-	keyName := vars["name"]
-	if chain.KeyExists(keyName) {
-		helpers.WriteErrorResponse(http.StatusBadRequest, errKeyExists(keyName), w)
-		return
-	}
-
-	ko, err := helpers.KeyAddOrRestore(chain, keyName)
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-		return
-	}
-	helpers.SuccessJSONResponse(http.StatusCreated, ko, w)
-}
-
-type restoreKeyRequest struct {
-	Mnemonic string `json:"mnemonic"`
-}
-
-// RestoreKeyHandler handles the route
-func RestoreKeyHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	chain, err := config.Chains.Get(vars["chain-id"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-
-	keyName := vars["name"]
-	if chain.KeyExists(keyName) {
-		helpers.WriteErrorResponse(http.StatusNotFound, errKeyExists(keyName), w)
-		return
-	}
-
-	var request restoreKeyRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-
-	ko, err := helpers.KeyAddOrRestore(chain, keyName, request.Mnemonic)
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-		return
-	}
-	helpers.SuccessJSONResponse(http.StatusOK, ko, w)
-}
-
-// DeleteKeyHandler handles the route
-func DeleteKeyHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	chain, err := config.Chains.Get(vars["chain-id"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-
-	keyName := vars["name"]
-	if !chain.KeyExists(keyName) {
-		helpers.WriteErrorResponse(http.StatusNotFound, errKeyDoesntExist(keyName), w)
-		return
-	}
-
-	err = chain.Keybase.Delete(keyName)
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-		return
-	}
-	helpers.SuccessJSONResponse(http.StatusOK, fmt.Sprintf("key %s deleted", keyName), w)
-}
-
-// GetLightHeader handles the route
-func GetLightHeader(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	chain, err := config.Chains.Get(vars["chain-id"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-
-	var header *tmclient.Header
-	height := r.URL.Query().Get("height")
-
-	if len(height) == 0 {
-		header, err = helpers.GetLightHeader(chain)
-		if err != nil {
-			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-			return
-		}
-	} else {
-		header, err = helpers.GetLightHeader(chain, height)
-		if err != nil {
-			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-			return
-		}
-	}
-	helpers.SuccessProtoResponse(http.StatusOK, chain, header, w)
-}
-
-// GetLightHeight handles the route
-func GetLightHeight(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	chain, err := config.Chains.Get(vars["chain-id"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-
-	height, err := chain.GetLatestLightHeight()
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-		return
-	}
-	helpers.SuccessJSONResponse(http.StatusOK, height, w)
-}
-
-// PostLight handles the route
-func PostLight(w http.ResponseWriter, r *http.Request) {}
-
-// PutLight handles the route
-func PutLight(w http.ResponseWriter, r *http.Request) {}
-
-// DeleteLight handles the route
-func DeleteLight(w http.ResponseWriter, r *http.Request) {}
 
 // QueryAccountHandler handles the route
 func QueryAccountHandler(w http.ResponseWriter, r *http.Request) {
@@ -895,106 +663,4 @@ func PostRelayerListenHandler(sm *ServicesManager) func(w http.ResponseWriter, r
 		sm.Services[vars["name"]] = NewService(vars["name"], vars["path"], c[src], c[dst], done)
 		sm.Unlock()
 	}
-}
-
-// GetChainsHandler returns the configured chains in json format
-func GetChainsHandler(w http.ResponseWriter, r *http.Request) {
-	helpers.SuccessJSONResponse(http.StatusOK, config.Chains, w)
-}
-
-// GetChainHandler returns the configured chains in json format
-func GetChainHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	chain, err := config.Chains.Get(vars["name"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-	helpers.SuccessJSONResponse(http.StatusOK, chain, w)
-}
-
-// GetChainStatusHandler returns the configured chains in json format
-func GetChainStatusHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	chain, err := config.Chains.Get(vars["name"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-	helpers.SuccessJSONResponse(http.StatusOK, chainStatusResponse{}.Populate(chain), w)
-}
-
-type chainStatusResponse struct {
-	Light   bool `json:"light"`
-	Path    bool `json:"path"`
-	Key     bool `json:"key"`
-	Balance bool `json:"balance"`
-}
-
-func (cs chainStatusResponse) Populate(c *relayer.Chain) chainStatusResponse {
-	_, err := c.GetAddress()
-	if err == nil {
-		cs.Key = true
-	}
-
-	coins, err := c.QueryBalance(c.Key)
-	if err == nil && !coins.Empty() {
-		cs.Balance = true
-	}
-
-	_, err = c.GetLatestLightHeader()
-	if err == nil {
-		cs.Light = true
-	}
-
-	for _, pth := range config.Paths {
-		if pth.Src.ChainID == c.ChainID || pth.Dst.ChainID == c.ChainID {
-			cs.Path = true
-		}
-	}
-	return cs
-}
-
-// GetPathsHandler returns the configured chains in json format
-func GetPathsHandler(w http.ResponseWriter, r *http.Request) {
-	helpers.SuccessJSONResponse(http.StatusOK, config.Paths, w)
-}
-
-// GetPathHandler returns the configured chains in json format
-func GetPathHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	pth, err := config.Paths.Get(vars["name"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-	helpers.SuccessJSONResponse(http.StatusOK, pth, w)
-}
-
-// GetPathStatusHandler returns the configured chains in json format
-func GetPathStatusHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	pth, err := config.Paths.Get(vars["name"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-	c, src, dst, err := config.ChainsFromPath(vars["name"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-		return
-	}
-	ps := pth.QueryPathStatus(c[src], c[dst])
-	helpers.SuccessJSONResponse(http.StatusOK, ps, w)
-}
-
-// VersionHandler returns the version info in json format
-func VersionHandler(w http.ResponseWriter, r *http.Request) {
-	version := versionInfo{
-		Version:   Version,
-		Commit:    Commit,
-		CosmosSDK: SDKCommit,
-		Go:        fmt.Sprintf("%s %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH),
-	}
-	helpers.SuccessJSONResponse(http.StatusOK, version, w)
 }

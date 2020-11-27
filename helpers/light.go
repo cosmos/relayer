@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"fmt"
 	"strconv"
 
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
@@ -39,4 +40,48 @@ func GetLightHeader(chain *relayer.Chain, opts ...string) (*tmclient.Header, err
 	}
 
 	return header, nil
+}
+
+// InitLight is a helper function for init light
+func InitLight(chain *relayer.Chain, force bool, height int64, hash []byte) (string, error) {
+	db, df, err := chain.NewLightDB()
+	if err != nil {
+		return "", err
+	}
+	defer df()
+
+	switch {
+	case force: // force initialization from trusted node
+		_, err := chain.LightClientWithoutTrust(db)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("successfully created light client for %s by trusting endpoint %s...",
+			chain.ChainID, chain.RPCAddr), nil
+	case height > 0 && len(hash) > 0: // height and hash are given
+		_, err = chain.LightClientWithTrust(db, chain.TrustOptions(height, hash))
+		if err != nil {
+			return "", wrapInitFailed(err)
+		}
+	default: // return error
+		return "", errInitWrongFlags
+	}
+
+	return "", nil
+}
+
+// UpdateLight is a helper function for update light
+func UpdateLight(chain *relayer.Chain) (string, error) {
+	bh, err := chain.GetLatestLightHeader()
+	if err != nil {
+		return "", err
+	}
+
+	ah, err := chain.UpdateLightWithHeader()
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("Updated light client for %s from height %d -> height %d",
+		chain.ChainID, bh.Header.Height, ah.Header.Height), nil
 }

@@ -2,7 +2,6 @@ package helpers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -39,6 +38,10 @@ func WriteSuccessResponse(statusCode int, data []byte, w http.ResponseWriter) {
 	w.Write(data)
 }
 
+type errorResponse struct {
+	Err string `json:"err"`
+}
+
 // TODO: do we need better errors
 // errors for things like:
 // - out of funds
@@ -52,7 +55,11 @@ func WriteErrorResponse(statusCode int, err error, w http.ResponseWriter) {
 
 	w.WriteHeader(statusCode)
 
-	w.Write([]byte(fmt.Sprintf("{\"error\": \"%s\"}", err)))
+	_ = json.NewEncoder(w).Encode(errorResponse{
+		Err: err.Error(),
+	})
+
+	return
 }
 
 // ParseHeightFromRequest parse height from query params and if not found, returns latest height

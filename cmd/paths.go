@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
@@ -11,7 +12,9 @@ import (
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 	"github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	"github.com/cosmos/relayer/helpers"
 	"github.com/cosmos/relayer/relayer"
+	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
@@ -615,4 +618,136 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 	}
 
 	return config, nil
+}
+
+// API Handlers
+
+// GetPathsHandler returns the configured chains in json format
+func GetPathsHandler(w http.ResponseWriter, r *http.Request) {
+	helpers.SuccessJSONResponse(http.StatusOK, config.Paths, w)
+}
+
+// GetPathHandler returns the configured chains in json format
+func GetPathHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	pth, err := config.Paths.Get(vars["name"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, pth, w)
+}
+
+// GetPathStatusHandler returns the configured chains in json format
+func GetPathStatusHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	pth, err := config.Paths.Get(vars["name"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+	c, src, dst, err := config.ChainsFromPath(vars["name"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	ps := pth.QueryPathStatus(c[src], c[dst])
+	helpers.SuccessJSONResponse(http.StatusOK, ps, w)
+}
+
+type postPathRequest struct {
+	FilePath   string          `json:"file"`
+	SrcChainID string          `json:"src-chain-id"`
+	DstChainID string          `json:"dst-chain-id"`
+	Src        relayer.PathEnd `json:"src"`
+	Dst        relayer.PathEnd `json:"dst"`
+}
+
+// PostPathHandler handles the route
+func PostPathHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	pathName := vars["name"]
+
+	var request postPathRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	if request.SrcChainID == "" {
+		helpers.WriteErrorResponse(http.StatusBadRequest, fmt.Errorf("src-chain-id is required"), w)
+		return
+	}
+
+	if request.DstChainID == "" {
+		helpers.WriteErrorResponse(http.StatusBadRequest, fmt.Errorf("dst-chain-id is required"), w)
+		return
+	}
+
+	_, err := config.Chains.Gets(request.SrcChainID, request.DstChainID)
+	if err != nil {
+		helpers.WriteErrorResponse(
+			http.StatusBadRequest,
+			fmt.Errorf("chains need to be configured before paths to them can be added: %w", err),
+			w,
+		)
+		return
+	}
+
+	var out *Config
+	if request.FilePath != "" {
+		if out, err = fileInputPathAdd(request.FilePath, pathName); err != nil {
+			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+			return
+		}
+	} else {
+		if out, err = addPathByRequest(request, pathName); err != nil {
+			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+			return
+		}
+	}
+
+	if err = overWriteConfig(out); err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusCreated, fmt.Sprintf("path %s added successfully", pathName), w)
+}
+
+func addPathByRequest(req postPathRequest, pathName string) (*Config, error) {
+	var (
+		path = &relayer.Path{
+			Strategy: relayer.NewNaiveStrategy(),
+			Src:      &req.Src,
+			Dst:      &req.Dst,
+		}
+	)
+
+	path.Src.ChainID = req.SrcChainID
+	path.Dst.ChainID = req.DstChainID
+
+	if err := config.Paths.Add(pathName, path); err != nil {
+		return nil, err
+	}
+
+	return config, nil
+}
+
+// DeletePathHandler handles the route
+func DeletePathHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	_, err := config.Paths.Get(vars["name"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	cfg := config
+	delete(cfg.Paths, vars["name"])
+
+	if err = overWriteConfig(cfg); err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, fmt.Sprintf("path %s deleted", vars["name"]), w)
 }
