@@ -218,25 +218,29 @@ func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
 }
 
 // SendMsg wraps the msg in a stdtx, signs and sends it
-func (c *Chain) SendMsg(datagram sdk.Msg) (*sdk.TxResponse, error) {
+func (c *Chain) SendMsg(datagram sdk.Msg) (*sdk.TxResponse, bool, error) {
 	return c.SendMsgs([]sdk.Msg{datagram})
 }
 
-// SendMsgs wraps the msgs in a stdtx, signs and sends it
-func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
+// SendMsgs wraps the msgs in a StdTx, signs and sends it. An error is returned if there
+// was an issue sending the transaction. A successfully sent, but failed transaction will
+// not return an error. If a transaction is successfully sent, the result of the execution
+// of that transaction will be logged. A boolean indicating if a transaction was successfully
+// sent and executed successfully is returned.
+func (c *Chain) SendMsgs(msgs []sdk.Msg) (*sdk.TxResponse, bool, error) {
 	// Instantiate the client context
 	ctx := c.CLIContext(0)
 
 	// Query account details
 	txf, err := tx.PrepareFactory(ctx, c.TxFactory(0))
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// If users pass gas adjustment, then calculate gas
 	_, adjusted, err := tx.CalculateGas(ctx.QueryWithData, txf, msgs...)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// Set the gas amount on the transaction factory
@@ -245,23 +249,37 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
 	// Build the transaction builder
 	txb, err := tx.BuildUnsignedTx(txf, msgs...)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// Attach the signature to the transaction
 	err = tx.Sign(txf, c.Key, txb)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// Generate the transaction bytes
 	txBytes, err := ctx.TxConfig.TxEncoder()(txb.GetTx())
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// Broadcast those bytes
-	return ctx.BroadcastTx(txBytes)
+	res, err := ctx.BroadcastTx(txBytes)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// transaction was executed, log the success or failure using the tx response code
+	// NOTE: error is nil, logic should use the returned error to determine if the
+	// transaction was successfully executed.
+	if res.Code != 0 {
+		c.LogFailedTx(res, err, msgs)
+		return res, false, nil
+	}
+
+	c.LogSuccessTx(res, msgs)
+	return res, true, nil
 }
 
 // CLIContext returns an instance of client.Context derived from Chain
