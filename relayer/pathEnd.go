@@ -127,35 +127,33 @@ func (pe *PathEnd) ConnInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
 	)
 }
 
-// ConnTry creates a MsgConnectionOpenTry
-// NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
+// ConnTry creates a MsgConnectionOpenTry. All the proofs provided must be generated using the
+// counterparty chain.
 func (pe *PathEnd) ConnTry(
-	dst *PathEnd,
-	dstClientState *clienttypes.QueryClientStateResponse,
-	dstConnState *conntypes.QueryConnectionResponse,
-	dstConsState *clienttypes.QueryConsensusStateResponse,
+	counterparty *PathEnd,
+	clientState ibcexported.ClientState,
+	clientStateProof []byte,
+	consStateProof []byte,
+	connProof []byte,
+	proofHeight clienttypes.Height,
 	signer sdk.AccAddress,
 ) sdk.Msg {
-	cs, err := clienttypes.UnpackClientState(dstClientState.ClientState)
-	if err != nil {
-		panic(err)
-	}
 	msg := conntypes.NewMsgConnectionOpenTry(
 		pe.ConnectionID,
 		pe.ClientID,
-		dst.ConnectionID,
-		dst.ClientID,
-		cs,
+		counterparty.ConnectionID,
+		counterparty.ClientID,
+		clientState,
 		defaultChainPrefix,
 		conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
-		dstConnState.Proof,
-		dstClientState.Proof,
-		dstConsState.Proof,
-		dstConnState.ProofHeight,
-		cs.GetLatestHeight().(clienttypes.Height),
+		connProof,
+		clientStateProof,
+		consStateProof,
+		proofHeight,
+		clientState.GetLatestHeight().(clienttypes.Height),
 		signer,
 	)
-	if err = msg.ValidateBasic(); err != nil {
+	if err := msg.ValidateBasic(); err != nil {
 		panic(err)
 	}
 	return msg

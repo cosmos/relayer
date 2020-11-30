@@ -22,6 +22,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	connectiontypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
+	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/exported"
 	"github.com/cosmos/go-bip39"
 	"github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/libs/log"
@@ -29,6 +31,7 @@ import (
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	libclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -578,4 +581,45 @@ func (c *Chain) StatusErr() error {
 	default:
 		return nil
 	}
+}
+
+// GenerateConnHandshakeProofs generates all the proofs needed to prove the existence of the
+// connection state on this chain. A counterparty should use these generated proofs.
+func (c *Chain) GenerateConnHandshakeProof(height uint64) ([]byte, []byte, []byte, clienttypes.Height, error) {
+	var (
+		clientState        ibcexported.ClientState
+		clientStateRes     *clienttypes.QueryClientStateResponse
+		consensusStateRes  *clienttypes.QueryConsensusStateResponse
+		connectionStateRes *connectiontypes.QueryConnectionResponse
+
+		eg  = new(errgroup.Group)
+		err error
+	)
+
+	// query for the client state for the proof and get the height to query the consensus state at.
+	clientStateRes, err = c.QueryClientState(int64(height))
+	if err != nil {
+		return nil, nil, nil, nil, clienttypes.Height{}, err
+	}
+
+	clientState, err = clienttypes.UnpackClientState(clientStateRes.ClientState)
+	if err != nil {
+		return nil, nil, nil, nil, clienttypes.Height{}, err
+	}
+
+	eg.Go(func() error {
+		consensusStateRes, err = c.QueryClientConsensusState(int64(height), clientState.GetLatestHeight())
+		return err
+	})
+	eg.Go(func() error {
+		connectionStateRes, err = c.QueryConnection(int64(height))
+		return err
+	})
+
+	if err := eg.Wait(); err != nil {
+		return nil, nil, nil, nil, clienttypes.Height{}, err
+	}
+
+	return clientState, clientStateRes.Proof, consensusStateRes.Proof, connectionStateRes.Proof, connectionStateRes.ProofHeight, nil
+
 }
