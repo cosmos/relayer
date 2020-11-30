@@ -185,8 +185,8 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 // Submits the messages to the provided chain and logs the result of the transaction.
 // Returns true upon success and false otherwise.
 func send(chain *Chain, msgs []sdk.Msg) bool {
-	res, err := chain.SendMsgs(msgs)
-	if err != nil || res.Code != 0 {
+	res, success, err := chain.SendMsgs(msgs)
+	if !success {
 		chain.LogFailedTx(res, err, msgs)
 		return false
 	}

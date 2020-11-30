@@ -159,29 +159,27 @@ func (pe *PathEnd) ConnTry(
 	return msg
 }
 
-// ConnAck creates a MsgConnectionOpenAck
-// NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
+// ConnAck creates a MsgConnectionOpenAck. All the proofs provided must be generated using the
+// counterparty chain.
 func (pe *PathEnd) ConnAck(
-	dst *PathEnd,
-	dstClientState *clienttypes.QueryClientStateResponse,
-	dstConnState *conntypes.QueryConnectionResponse,
-	dstConsState *clienttypes.QueryConsensusStateResponse,
+	counterparty *PathEnd,
+	clientState ibcexported.ClientState,
+	clientStateProof []byte,
+	consStateProof []byte,
+	connProof []byte,
+	proofHeight clienttypes.Height,
 	signer sdk.AccAddress,
 ) sdk.Msg {
-	cs, err := clienttypes.UnpackClientState(dstClientState.ClientState)
-	if err != nil {
-		panic(err)
-	}
 	return conntypes.NewMsgConnectionOpenAck(
 		pe.ConnectionID,
-		dst.ConnectionID,
-		cs,
-		dstConnState.Proof,
-		dstClientState.Proof,
-		dstConsState.Proof,
-		dstConsState.ProofHeight,
-		cs.GetLatestHeight().(clienttypes.Height),
-		conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions())[0],
+		counterparty.ConnectionID,
+		clientState,
+		connProof,
+		clientStateProof,
+		consStateProof,
+		proofHeight,
+		clientState.GetLatestHeight().(clienttypes.Height),
+		conntypes.DefaultIBCVersion,
 		signer,
 	)
 }

@@ -23,7 +23,7 @@ import (
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	connectiontypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
-	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/exported"
+	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
 	"github.com/cosmos/go-bip39"
 	"github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/libs/log"
@@ -485,7 +485,7 @@ func (c *Chain) SendAndPrint(txs []sdk.Msg, text, indent bool) (err error) {
 		}
 	}
 	// SendAndPrint sends the transaction with printing options from the CLI
-	res, err := c.SendMsgs(txs)
+	res, _, err := c.SendMsgs(txs)
 	if err != nil {
 		return err
 	}
@@ -583,9 +583,9 @@ func (c *Chain) StatusErr() error {
 	}
 }
 
-// GenerateConnHandshakeProofs generates all the proofs needed to prove the existence of the
+// GenerateConnHandshakeProof generates all the proofs needed to prove the existence of the
 // connection state on this chain. A counterparty should use these generated proofs.
-func (c *Chain) GenerateConnHandshakeProof(height uint64) ([]byte, []byte, []byte, clienttypes.Height, error) {
+func (c *Chain) GenerateConnHandshakeProof(height uint64) (ibcexported.ClientState, []byte, []byte, []byte, clienttypes.Height, error) {
 	var (
 		clientState        ibcexported.ClientState
 		clientStateRes     *clienttypes.QueryClientStateResponse

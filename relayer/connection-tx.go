@@ -6,19 +6,18 @@ import (
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
-	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 )
 
 // CreateConnection runs the connection creation messages on timeout until they pass
+// TODO: rename to CreateOpenConnections
 // TODO: add max retries or something to this function
 func (c *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 	ticker := time.NewTicker(to)
 	failed := 0
 	for ; true; <-ticker.C {
-		success, lastStep, err := c.ExecuteConnectionStep(dst)
+		success, lastStep, err := ExecuteConnectionStep(c, dst)
 		if err != nil {
 			return err
 		}
@@ -69,14 +68,14 @@ func (c *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 // states of two connection ends specified by the relayer configuration
 // file. The booleans return indicate if the message was successfully
 // executed and if this was the last handshake step.
-func (c *Chain) ExecuteConnectionStep(dst *Chain) (bool, bool, error) {
+func ExecuteConnectionStep(src, dst *Chain) (bool, bool, error) {
 	// client identifiers must be filled in
-	if err := ValidatePaths(c, dst); err != nil {
+	if err := ValidatePaths(src, dst); err != nil {
 		return false, false, err
 	}
 
 	// update the off chain light clients to the latest header and return the header
-	sh, err := NewSyncHeaders(c, dst)
+	sh, err := NewSyncHeaders(src, dst)
 	if err != nil {
 		return false, false, err
 	}
@@ -85,16 +84,18 @@ func (c *Chain) ExecuteConnectionStep(dst *Chain) (bool, bool, error) {
 	var (
 		srcUpdateHeader, dstUpdateHeader *tmclient.Header
 		srcConn, dstConn                 *conntypes.QueryConnectionResponse
+		msgs                             []sdk.Msg
+		last                             bool // indicate if the connections are open
 	)
 
 	// create a go routine to construct update headers to update the on chain light clients
 	if err := retry.Do(func() error {
-		srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(c, dst)
+		srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(src, dst)
 		return err
 	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 		// callback for each retry attempt
-		logRetryUpdateHeaders(c, dst, n, err)
-		sh.Updates(c, dst)
+		logRetryUpdateHeaders(src, dst, n, err)
+		sh.Updates(src, dst)
 	})); err != nil {
 		return false, false, err
 	}
@@ -103,63 +104,89 @@ func (c *Chain) ExecuteConnectionStep(dst *Chain) (bool, bool, error) {
 	// is chosen or a new connection is created.
 	if src.PathEnd.ConnectionID == "" || dst.PathEnd.ConnectionID == "" {
 		// TODO: Query for existing identifier and fill config, if possible
-		success, err := CreateNewConnection()
+		success, err := CreateNewConnection(src, dst, srcUpdateHeader, dstUpdateHeader, sh)
 		if err != nil {
 			return false, false, err
 		}
+
+		return success, false, nil
 	}
 
 	// Query Connection data from src and dst
-	srcConn, dstConn, err = QueryConnectionPair(c, dst, int64(sh.GetHeight(c.ChainID))-1, int64(sh.GetHeight(dst.ChainID))-1)
+	srcConn, dstConn, err = QueryConnectionPair(src, dst, int64(sh.GetHeight(src.ChainID))-1, int64(sh.GetHeight(dst.ChainID))-1)
 	if err != nil {
 		return false, false, err
 	}
 
-	// Handshake has started on src end (2 steps done), relay `connOpenAck` and `updateClient` to dst end
 	switch {
+
+	// OpenAck on source
+	// obtain proof of counterparty in TRYOPEN state and submit to source chain to update state
+	// from INIT to OPEN.
+	case srcConn.Connection.State == conntypes.INIT && dstConn.Connection.State == conntypes.TRYOPEN:
+		if src.debug {
+			logConnectionStates(src, dst, srcConn, dstConn)
+		}
+
+		// obtain proof from destination chain since it is further along in the handshake
+		clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := dst.GenerateConnHandshakeProof(sh.GetHeight(dst.ChainID) - 1)
+		if err != nil {
+			return false, false, err
+		}
+
+		msgs = []sdk.Msg{
+			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
+			src.PathEnd.ConnAck(dst.PathEnd, clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, src.MustGetAddress()),
+		}
+
+	// OpenAck on counterparty
+	// obtain proof of source in TRYOPEN state and submit to counterparty chain to update state
+	// from INIT to OPEN.
 	case srcConn.Connection.State == conntypes.TRYOPEN && dstConn.Connection.State == conntypes.INIT:
 		if dst.debug {
-			logConnectionStates(dst, c, dstConn, srcConn)
+			logConnectionStates(dst, src, dstConn, srcConn)
 		}
 
-		out.Dst = append(out.Dst,
+		// obtain proof from source chain since it is further along in the handshake
+		clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := src.GenerateConnHandshakeProof(sh.GetHeight(src.ChainID) - 1)
+		if err != nil {
+			return false, false, err
+		}
+
+		msgs = []sdk.Msg{
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
-			dst.PathEnd.ConnAck(c.PathEnd, srcCsRes, srcConn, srcCons, dst.MustGetAddress()),
-		)
-
-	// Handshake has started on dst end (2 steps done), relay `connOpenAck` and `updateClient` to src end
-	case srcConn.Connection.State == conntypes.INIT && dstConn.Connection.State == conntypes.TRYOPEN:
-		if c.debug {
-			logConnectionStates(c, dst, srcConn, dstConn)
+			dst.PathEnd.ConnAck(src.PathEnd, clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, dst.MustGetAddress()),
 		}
-		out.Src = append(out.Src,
-			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
-			c.PathEnd.ConnAck(dst.PathEnd, dstCsRes, dstConn, dstCons, c.MustGetAddress()),
-		)
 
-	// Handshake has confirmed on dst (3 steps done), relay `connOpenConfirm` and `updateClient` to src end
+	// OpenConfirm on source
 	case srcConn.Connection.State == conntypes.TRYOPEN && dstConn.Connection.State == conntypes.OPEN:
-		if c.debug {
-			logConnectionStates(c, dst, srcConn, dstConn)
+		if src.debug {
+			logConnectionStates(src, dst, srcConn, dstConn)
 		}
-		out.Src = append(out.Src,
-			c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
-			c.PathEnd.ConnConfirm(dstConn, c.MustGetAddress()),
-		)
-		out.Last = true
-	// Handshake has confirmed on src (3 steps done), relay `connOpenConfirm` and `updateClient` to dst end
+		msgs = []sdk.Msg{
+			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
+			src.PathEnd.ConnConfirm(dstConn, src.MustGetAddress()),
+		}
+		last = true
+
+	// OpenConfrim on counterparty
 	case srcConn.Connection.State == conntypes.OPEN && dstConn.Connection.State == conntypes.TRYOPEN:
 		if dst.debug {
-			logConnectionStates(dst, c, dstConn, srcConn)
+			logConnectionStates(dst, src, dstConn, srcConn)
 		}
-		out.Dst = append(out.Dst,
+		msgs = []sdk.Msg{
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			dst.PathEnd.ConnConfirm(srcConn, dst.MustGetAddress()),
-		)
-		out.Last = true
+		}
+		last = true
 	}
 
-	return out, nil
+	_, success, err := dst.SendMsgs(msgs)
+	if !success {
+		return false, false, err
+	}
+
+	return true, last, nil
 }
 
 // CreateNewConnection creates a new connection on either the source or destination chain .
