@@ -45,7 +45,7 @@ func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Dur
 			failed = 0
 			continue
 
-		// increment the failures counter and exit if this is the 3rd failure
+		// increment the failures counter and exit if we used all retry attempts
 		case !success:
 			failed++
 			c.Log(fmt.Sprintf("retrying transaction..."))
@@ -66,12 +66,7 @@ func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Dur
 // states of two connection ends specified by the relayer configuration
 // file. The booleans return indicate if the message was successfully
 // executed and if this was the last handshake step.
-func ExecuteConnectionStep(src, dst *Chain) (bool, bool, error) {
-	// client identifiers must be filled in
-	if err := ValidatePaths(src, dst); err != nil {
-		return false, false, err
-	}
-
+func ExecuteConnectionStep(src, dst *Chain) (success bool, last bool, err error) {
 	// update the off chain light clients to the latest header and return the header
 	sh, err := NewSyncHeaders(src, dst)
 	if err != nil {
@@ -83,7 +78,6 @@ func ExecuteConnectionStep(src, dst *Chain) (bool, bool, error) {
 		srcUpdateHeader, dstUpdateHeader *tmclient.Header
 		srcConn, dstConn                 *conntypes.QueryConnectionResponse
 		msgs                             []sdk.Msg
-		last                             bool // indicate if the connections are open
 	)
 
 	// get headers to update light clients on chain
@@ -94,9 +88,10 @@ func ExecuteConnectionStep(src, dst *Chain) (bool, bool, error) {
 
 	// if either identifier is missing, an existing connection that matches the required fields
 	// is chosen or a new connection is created.
+	// This will perform either an OpenInit or OpenTry step and return
 	if src.PathEnd.ConnectionID == "" || dst.PathEnd.ConnectionID == "" {
 		// TODO: Query for existing identifier and fill config, if possible
-		success, err := CreateNewConnection(src, dst, srcUpdateHeader, dstUpdateHeader, sh)
+		success, err := InitializeConnection(src, dst, srcUpdateHeader, dstUpdateHeader, sh)
 		if err != nil {
 			return false, false, err
 		}
@@ -112,10 +107,28 @@ func ExecuteConnectionStep(src, dst *Chain) (bool, bool, error) {
 
 	switch {
 
-	// OpenAck on source
+	// OpenTry on source if both connections are at INIT (crossing hellos)
+	// obtain proof of counterparty in INIT state and submit to source chain to update state
+	// from INIT to TRYOPEN.
+	case srcConn.Connection.State == conntypes.INIT && dstConn.Connection.State == conntypes.INIT:
+		if src.debug {
+			logConnectionStates(src, dst, srcConn, dstConn)
+		}
+
+		openTry, err := src.PathEnd.ConnTry(dst, sh, src.MustGetAddress())
+		if err != nil {
+			return false, false, err
+		}
+
+		msgs = []sdk.Msg{
+			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
+			openTry,
+		}
+
+	// OpenAck on source if dst is at TRYOPEN and src is on INIT or TRYOPEN (crossing hellos case)
 	// obtain proof of counterparty in TRYOPEN state and submit to source chain to update state
-	// from INIT to OPEN.
-	case srcConn.Connection.State == conntypes.INIT && dstConn.Connection.State == conntypes.TRYOPEN:
+	// from INIT/TRYOPEN to OPEN.
+	case (srcConn.Connection.State == conntypes.INIT || srcConn.Connection.State == conntypes.TRYOPEN) && dstConn.Connection.State == conntypes.TRYOPEN:
 		if src.debug {
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
@@ -159,7 +172,7 @@ func ExecuteConnectionStep(src, dst *Chain) (bool, bool, error) {
 		}
 		last = true
 
-	// OpenConfrim on counterparty
+	// OpenConfirm on counterparty
 	case srcConn.Connection.State == conntypes.OPEN && dstConn.Connection.State == conntypes.TRYOPEN:
 		if dst.debug {
 			logConnectionStates(dst, src, dstConn, srcConn)
@@ -171,7 +184,7 @@ func ExecuteConnectionStep(src, dst *Chain) (bool, bool, error) {
 		last = true
 	}
 
-	_, success, err := dst.SendMsgs(msgs)
+	_, success, err = dst.SendMsgs(msgs)
 	if !success {
 		return false, false, err
 	}
@@ -179,11 +192,11 @@ func ExecuteConnectionStep(src, dst *Chain) (bool, bool, error) {
 	return true, last, nil
 }
 
-// CreateNewConnection creates a new connection on either the source or destination chain .
+// InitializeConnection creates a new connection on either the source or destination chain .
 // The identifiers set in the PathEnd's are used to determine which connection ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither connection exists.
-func CreateNewConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header, sh *SyncHeaders) (bool, error) {
+func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header, sh *SyncHeaders) (bool, error) {
 	switch {
 
 	// OpenInit on source

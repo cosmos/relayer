@@ -69,11 +69,6 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 // file. The booleans return indicate if the message was successfully
 // executed and if this was the last handshake step.
 func ExecuteChannelStep(src, dst *Chain) (bool, bool, error) {
-	// client and connection identifiers must be filled in
-	if err := ValidatePaths(src, dst); err != nil {
-		return false, false, err
-	}
-
 	// update the off chain light clients to the latest header and return the header
 	sh, err := NewSyncHeaders(src, dst)
 	if err != nil {
@@ -98,7 +93,7 @@ func ExecuteChannelStep(src, dst *Chain) (bool, bool, error) {
 	// is chosen or a new channel is created.
 	if src.PathEnd.ChannelID == "" || dst.PathEnd.ChannelID == "" {
 		// TODO: Query for existing identifier and fill config, if possible
-		success, err := CreateNewChannel(src, dst, srcUpdateHeader, dstUpdateHeader, sh)
+		success, err := InitializeChannel(src, dst, srcUpdateHeader, dstUpdateHeader, sh)
 		if err != nil {
 			return false, false, err
 		}
@@ -114,10 +109,28 @@ func ExecuteChannelStep(src, dst *Chain) (bool, bool, error) {
 
 	switch {
 
-	// OpenAck on source
+	// OpenTry on source in case of crossing hellos (both channels are on INIT)
 	// obtain proof of counterparty in TRYOPEN state and submit to source chain to update state
-	// from INIT to OPEN.
-	case srcChan.Channel.State == chantypes.INIT && dstChan.Channel.State == chantypes.TRYOPEN:
+	// from INIT to TRYOPEN.
+	case srcChan.Channel.State == chantypes.INIT && dstChan.Channel.State == chantypes.INIT:
+		if src.debug {
+			logChannelStates(src, dst, srcChan, dstChan)
+		}
+
+		openTry, err := src.PathEnd.ChanTry(dst, sh, src.MustGetAddress())
+		if err != nil {
+			return false, false, err
+		}
+
+		msgs = []sdk.Msg{
+			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
+			openTry,
+		}
+
+	// OpenAck on source if dst is at TRYOPEN and src is at INIT or TRYOPEN (crossing hellos)
+	// obtain proof of counterparty in TRYOPEN state and submit to source chain to update state
+	// from INIT/TRYOPEN to OPEN.
+	case (srcChan.Channel.State == chantypes.INIT || srcChan.Channel.State == chantypes.TRYOPEN) && dstChan.Channel.State == chantypes.TRYOPEN:
 		if src.debug {
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
@@ -181,11 +194,11 @@ func ExecuteChannelStep(src, dst *Chain) (bool, bool, error) {
 	return true, last, nil
 }
 
-// CreateNewChannel creates a new channel on either the source or destination chain .
+// InitializeChannel creates a new channel on either the source or destination chain .
 // The identifiers set in the PathEnd's are used to determine which channel ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither channel exists.
-func CreateNewChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header, sh *SyncHeaders) (bool, error) {
+func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header, sh *SyncHeaders) (bool, error) {
 	switch {
 
 	// OpenInit on source
