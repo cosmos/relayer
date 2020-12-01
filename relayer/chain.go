@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -74,6 +75,56 @@ func ValidatePaths(src, dst *Chain) error {
 	}
 	if err := dst.PathEnd.Validate(); err != nil {
 		return dst.ErrCantSetPath(err)
+	}
+	return nil
+}
+
+// ValidateClientPath takes two chains and validates their clients
+func ValidateClientPaths(src, dst *Chain) error {
+	if err := src.PathEnd.Vclient(); err != nil {
+		return err
+	}
+	if err := dst.PathEnd.Vclient(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ValidateConnectionPaths takes two chains and validates the connections
+// and underlying client identifiers
+func ValidateConnectionPaths(src, dst *Chain) error {
+	if err := src.PathEnd.Vclient(); err != nil {
+		return err
+	}
+	if err := dst.PathEnd.Vclient(); err != nil {
+		return err
+	}
+	if err := src.PathEnd.Vconn(); err != nil {
+		return err
+	}
+	if err := dst.PathEnd.Vconn(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ValidateChannelParams takes two chains and validates their respective channel params
+func ValidateChannelParams(src, dst *Chain) error {
+	if err := src.PathEnd.Vport(); err != nil {
+		return err
+	}
+	if err := dst.PathEnd.Vport(); err != nil {
+		return err
+	}
+	if !(strings.ToUpper(src.PathEnd.Order) == "ORDERED" || strings.ToUpper(src.PathEnd.Order) == "UNORDERED") {
+		return fmt.Errorf("channel must be either 'ORDERED' or 'UNORDERED' is '%s'", src.PathEnd.Order)
+	}
+	if !(strings.ToUpper(dst.PathEnd.Order) == "ORDERED" || strings.ToUpper(dst.PathEnd.Order) == "UNORDERED") {
+		return fmt.Errorf("channel must be either 'ORDERED' or 'UNORDERED' is '%s'", dst.PathEnd.Order)
+	}
+	if strings.ToUpper(src.PathEnd.Order) != strings.ToUpper(dst.PathEnd.Order) {
+		return fmt.Errorf("src and dst path ends must have same ORDER. got src: %s, dst: %s",
+			src.PathEnd.Order, dst.PathEnd.Order)
 	}
 	return nil
 }

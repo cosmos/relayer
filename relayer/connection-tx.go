@@ -11,6 +11,11 @@ import (
 
 // CreateOpenConnections runs the connection creation messages on timeout until they pass
 func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Duration) error {
+	// client identifiers must be filled in
+	if err := ValidateClientPaths(c, dst); err != nil {
+		return err
+	}
+
 	ticker := time.NewTicker(to)
 	failed := uint64(0)
 	for ; true; <-ticker.C {
@@ -215,15 +220,17 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 		// TODO: with the introduction of typed events, we can abstract sending
 		// and event parsing to the bottom of this function. Until then it is
 		// easier to parse events if we know exactly what message we are parsing.
-		res, success, err := src.SendMsgs(msgs)
+		_, success, err := src.SendMsgs(msgs)
 		if !success {
 			return false, err
 		}
 
 		// update connection identifier in PathEnd
-		if err := src.HandleOpenInitEvents(res); err != nil {
-			return true, err
-		}
+		// TODO: Parse INIT events to get generated connection identifier
+		// and write to config
+		// if err := src.HandleOpenInitEvents(res); err != nil {
+		// 	return true, err
+		// }
 
 		return true, nil
 
@@ -243,15 +250,17 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
 			openTry,
 		}
-		res, success, err := src.SendMsgs(msgs)
+		_, success, err := src.SendMsgs(msgs)
 		if !success {
 			return false, err
 		}
 
 		// update connection identifier in PathEnd
-		if err := src.HandleOpenTryEvents(res); err != nil {
-			return true, err
-		}
+		// TODO: Parse OPENTRY events to get generated connection identifier
+		// and write to config
+		// if err := src.HandleOpenTryEvents(res); err != nil {
+		// 	return true, err
+		// }
 
 		return true, nil
 
@@ -271,15 +280,17 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			openTry,
 		}
-		res, success, err := dst.SendMsgs(msgs)
+		_, success, err := dst.SendMsgs(msgs)
 		if !success {
 			return false, err
 		}
 
 		// update connection identifier in PathEnd
-		if err := dst.HandleOpenTryEvents(res); err != nil {
-			return true, err
-		}
+		// TODO: Parse OPENTRY events to get generated connection identifier
+		// and write to config
+		// if err := dst.HandleOpenTryEvents(res); err != nil {
+		// 	return true, err
+		// }
 
 		return true, nil
 
