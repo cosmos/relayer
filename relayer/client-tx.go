@@ -6,7 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// CreateClients creates clients for src on dst and dst on src given the configured paths
+// CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
 func (c *Chain) CreateClients(dst *Chain) (err error) {
 	var (
 		clients = &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
@@ -17,8 +17,8 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		return err
 	}
 
-	// Create client for the destination chain on the source chain if it doesn't exist
-	if srcCs, err := c.QueryClientState(srcH.Header.Height); err != nil && srcCs == nil {
+	// Create client for the destination chain on the source chain if client id is unspecified
+	if c.PathEnd.ClientID == "" {
 		if c.debug {
 			c.logCreateClient(dst, dstH.Header.Height)
 		}
@@ -26,17 +26,28 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		if err != nil {
 			return err
 		}
-		msg := c.PathEnd.CreateClient(
-			dstH,
-			dst.GetTrustingPeriod(),
-			ubdPeriod,
-			c.MustGetAddress(),
-		)
-		clients.Src = append(clients.Src, msg)
+		msgs := []sdk.Msg{
+			c.PathEnd.CreateClient(
+				dstH,
+				dst.GetTrustingPeriod(),
+				ubdPeriod,
+				c.MustGetAddress(),
+			),
+		}
+		res, success, err := c.SendMsgs(msgs)
+		if err != nil {
+			return err
+		}
+		if !success {
+			return fmt.Errorf("tx failed: %s", res.RawLog)
+		}
+
+		// TODO: Parse CreateClient events from result to get generated client id
+		// and set in path end and config file
 	}
 
-	// Create client for the source chain on destination chain if it doesn't exist
-	if dstCs, err := dst.QueryClientState(dstH.Header.Height); err != nil && dstCs == nil {
+	// Create client for the source chain on destination chain if client id is unspecified
+	if dst.PathEnd.ClientID == "" {
 		if dst.debug {
 			dst.logCreateClient(c, srcH.Header.Height)
 		}
@@ -44,13 +55,25 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		if err != nil {
 			return err
 		}
-		msg := dst.PathEnd.CreateClient(
-			srcH,
-			c.GetTrustingPeriod(),
-			ubdPeriod,
-			dst.MustGetAddress(),
-		)
-		clients.Dst = append(clients.Dst, msg)
+		msgs := []sdk.Msg{
+			dst.PathEnd.CreateClient(
+				srcH,
+				c.GetTrustingPeriod(),
+				ubdPeriod,
+				dst.MustGetAddress(),
+			),
+		}
+		res, success, err := dst.SendMsgs(msgs)
+		if err != nil {
+			return err
+		}
+		if !success {
+			return fmt.Errorf("tx failed: %s", res.RawLog)
+		}
+
+		// TODO: Parse CreateClient events from result to get generated client id
+		// and set in path end and config file
+
 	}
 
 	// Send msgs to both chains

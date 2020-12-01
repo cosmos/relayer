@@ -226,15 +226,17 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 		// TODO: with the introduction of typed events, we can abstract sending
 		// and event parsing to the bottom of this function. Until then it is
 		// easier to parse events if we know exactly what message we are parsing.
-		res, success, err := src.SendMsgs(msgs)
+		_, success, err := src.SendMsgs(msgs)
 		if !success {
 			return false, err
 		}
 
 		// update channel identifier in PathEnd
-		if err := src.HandleOpenInitEvents(res); err != nil {
-			return true, err
-		}
+		// TODO: Parse INIT events to get generated connection identifier
+		// and write to config
+		// if err := src.HandleOpenInitEvents(res); err != nil {
+		// 	return true, err
+		// }
 
 		return true, nil
 
@@ -255,15 +257,17 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
 			openTry,
 		}
-		res, success, err := src.SendMsgs(msgs)
+		_, success, err := src.SendMsgs(msgs)
 		if !success {
 			return false, err
 		}
 
 		// update channel identifier in PathEnd
-		if err := src.HandleOpenTryEvents(res); err != nil {
-			return true, err
-		}
+		// TODO: Parse OPENTRY events to get generated connection identifier
+		// and write to config
+		// if err := src.HandleOpenTryEvents(res); err != nil {
+		// 	return true, err
+		// }
 
 		return true, nil
 
@@ -284,15 +288,17 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			openTry,
 		}
-		res, success, err := dst.SendMsgs(msgs)
+		_, success, err := dst.SendMsgs(msgs)
 		if !success {
 			return false, err
 		}
 
 		// update channel identifier in PathEnd
-		if err := dst.HandleOpenTryEvents(res); err != nil {
-			return true, err
-		}
+		// TODO: Parse OPENTRY events to get generated connection identifier
+		// and write to config
+		// if err := dst.HandleOpenTryEvents(res); err != nil {
+		// 	return true, err
+		// }
 
 		return true, nil
 
