@@ -15,7 +15,8 @@ import (
 func (c *Chain) SendMsgWithKey(msg sdk.Msg, keyName string) (res *sdk.TxResponse, err error) {
 	fmt.Println("setting use of key", keyName)
 	c.Key = keyName
-	return c.SendMsg(msg)
+	res, _, err = c.SendMsg(msg)
+	return res, err
 
 }
 

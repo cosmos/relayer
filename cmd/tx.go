@@ -139,7 +139,7 @@ func createConnectionCmd() *cobra.Command {
 				return err
 			}
 
-			return c[src].CreateConnection(c[dst], to)
+			return c[src].CreateOpenConnections(c[dst], to)
 		},
 	}
 
@@ -244,7 +244,7 @@ func linkCmd() *cobra.Command {
 			}
 
 			// create connection if it isn't already created
-			if err = c[src].CreateConnection(c[dst], to); err != nil {
+			if err = c[src].CreateOpenConnections(c[dst], to); err != nil {
 				return err
 			}
 

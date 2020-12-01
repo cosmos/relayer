@@ -337,19 +337,9 @@ func createConnectionStepCmd() *cobra.Command {
 				return err
 			}
 
-			msgs, err := chains[src].CreateConnectionStep(chains[dst])
+			_, _, err = relayer.ExecuteConnectionStep(chains[src], chains[dst])
 			if err != nil {
 				return err
-			}
-
-			if len(msgs.Src) > 0 {
-				if err = sendAndPrint(msgs.Src, chains[src], cmd); err != nil {
-					return err
-				}
-			} else if len(msgs.Dst) > 0 {
-				if err = sendAndPrint(msgs.Dst, chains[dst], cmd); err != nil {
-					return err
-				}
 			}
 
 			return nil

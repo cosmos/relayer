@@ -116,11 +116,11 @@ func (pe *PathEnd) CreateClient(
 }
 
 // ConnInit creates a MsgConnectionOpenInit
-func (pe *PathEnd) ConnInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ConnInit(counterparty *PathEnd, signer sdk.AccAddress) sdk.Msg {
 	var version *conntypes.Version
 	return conntypes.NewMsgConnectionOpenInit(
 		pe.ClientID,
-		dst.ClientID,
+		counterparty.ClientID,
 		defaultChainPrefix,
 		version,
 		signer,
@@ -185,56 +185,67 @@ func (pe *PathEnd) ConnAck(
 }
 
 // ConnConfirm creates a MsgConnectionOpenAck
-// NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (pe *PathEnd) ConnConfirm(dstConnState *conntypes.QueryConnectionResponse, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ConnConfirm(counterpartyConnState *conntypes.QueryConnectionResponse, signer sdk.AccAddress) sdk.Msg {
 	return conntypes.NewMsgConnectionOpenConfirm(
 		pe.ConnectionID,
-		dstConnState.Proof,
-		dstConnState.ProofHeight,
+		counterpartyConnState.Proof,
+		counterpartyConnState.ProofHeight,
 		signer,
 	)
 }
 
 // ChanInit creates a MsgChannelOpenInit
-func (pe *PathEnd) ChanInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ChanInit(counterparty *PathEnd, signer sdk.AccAddress) sdk.Msg {
 	return chantypes.NewMsgChannelOpenInit(
 		pe.PortID,
 		pe.Version,
 		pe.GetOrder(),
 		[]string{pe.ConnectionID},
-		dst.PortID,
+		counterparty.PortID,
 		signer,
 	)
 }
 
 // ChanTry creates a MsgChannelOpenTry
-func (pe *PathEnd) ChanTry(dst *PathEnd, dstChanState *chantypes.QueryChannelResponse, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ChanTry(counterparty *Chain, sh *SyncHeaders, signer sdk.AccAddress) (sdk.Msg, error) {
+	// obtain proof from counterparty chain
+	counterpartyChannelRes, err := counterparty.QueryChannel(int64(sh.GetHeight(counterparty.ChainID)))
+	if err != nil {
+		return nil, err
+	}
+
 	return chantypes.NewMsgChannelOpenTry(
 		pe.PortID,
 		pe.ChannelID,
 		pe.Version,
-		dstChanState.Channel.Ordering,
+		counterpartyChannelRes.Channel.Ordering,
 		[]string{pe.ConnectionID},
-		dst.PortID,
-		dst.ChannelID,
-		dstChanState.Channel.Version,
-		dstChanState.Proof,
-		dstChanState.ProofHeight,
+		counterparty.PathEnd.PortID,
+		counterparty.PathEnd.ChannelID,
+		counterpartyChannelRes.Channel.Version,
+		counterpartyChannelRes.Proof,
+		counterpartyChannelRes.ProofHeight,
 		signer,
-	)
+	), nil
 }
 
 // ChanAck creates a MsgChannelOpenAck
-func (pe *PathEnd) ChanAck(dst *PathEnd, dstChanState *chantypes.QueryChannelResponse, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ChanAck(counterparty *Chain, sh *SyncHeaders, signer sdk.AccAddress) (sdk.Msg, error) {
+	// obtain proof from counterparty chain
+	counterpartyChannelRes, err := counterparty.QueryChannel(int64(sh.GetHeight(counterparty.ChainID)))
+	if err != nil {
+		return nil, err
+	}
+
 	return chantypes.NewMsgChannelOpenAck(
 		pe.PortID,
 		pe.ChannelID,
-		dst.ChannelID,
-		dstChanState.Channel.Version,
-		dstChanState.Proof,
-		dstChanState.ProofHeight,
+		counterparty.PathEnd.ChannelID,
+		counterpartyChannelRes.Channel.Version,
+		counterpartyChannelRes.Proof,
+		counterpartyChannelRes.ProofHeight,
 		signer,
-	)
+	), nil
 }
 
 // ChanConfirm creates a MsgChannelOpenConfirm

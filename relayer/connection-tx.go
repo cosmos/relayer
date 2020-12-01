@@ -10,10 +10,9 @@ import (
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 )
 
-// CreateConnection runs the connection creation messages on timeout until they pass
-// TODO: rename to CreateOpenConnections
+// CreateOpenConnections runs the connection creation messages on timeout until they pass
 // TODO: add max retries or something to this function
-func (c *Chain) CreateConnection(dst *Chain, to time.Duration) error {
+func (c *Chain) CreateOpenConnections(dst *Chain, to time.Duration) error {
 	ticker := time.NewTicker(to)
 	failed := 0
 	for ; true; <-ticker.C {
@@ -53,6 +52,7 @@ func (c *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 			failed++
 			c.Log(fmt.Sprintf("retrying transaction..."))
 			time.Sleep(5 * time.Second)
+
 			if failed > 2 {
 				return fmt.Errorf("! Connection failed: [%s]client{%s}conn{%s} -> [%s]client{%s}conn{%s}",
 					c.ChainID, c.PathEnd.ClientID, c.PathEnd.ConnectionID,
@@ -88,15 +88,9 @@ func ExecuteConnectionStep(src, dst *Chain) (bool, bool, error) {
 		last                             bool // indicate if the connections are open
 	)
 
-	// create a go routine to construct update headers to update the on chain light clients
-	if err := retry.Do(func() error {
-		srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(src, dst)
-		return err
-	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-		// callback for each retry attempt
-		logRetryUpdateHeaders(src, dst, n, err)
-		sh.Updates(src, dst)
-	})); err != nil {
+	// get headers to update light clients on chain
+	srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(src, dst)
+	if err != nil {
 		return false, false, err
 	}
 
