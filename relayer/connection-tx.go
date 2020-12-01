@@ -4,17 +4,15 @@ import (
 	"fmt"
 	"time"
 
-	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 )
 
 // CreateOpenConnections runs the connection creation messages on timeout until they pass
-// TODO: add max retries or something to this function
-func (c *Chain) CreateOpenConnections(dst *Chain, to time.Duration) error {
+func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Duration) error {
 	ticker := time.NewTicker(to)
-	failed := 0
+	failed := uint64(0)
 	for ; true; <-ticker.C {
 		success, lastStep, err := ExecuteConnectionStep(c, dst)
 		if err != nil {
@@ -53,7 +51,7 @@ func (c *Chain) CreateOpenConnections(dst *Chain, to time.Duration) error {
 			c.Log(fmt.Sprintf("retrying transaction..."))
 			time.Sleep(5 * time.Second)
 
-			if failed > 2 {
+			if failed > maxRetries {
 				return fmt.Errorf("! Connection failed: [%s]client{%s}conn{%s} -> [%s]client{%s}conn{%s}",
 					c.ChainID, c.PathEnd.ClientID, c.PathEnd.ConnectionID,
 					dst.ChainID, dst.PathEnd.ClientID, dst.PathEnd.ConnectionID)
@@ -122,15 +120,14 @@ func ExecuteConnectionStep(src, dst *Chain) (bool, bool, error) {
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
 
-		// obtain proof from destination chain since it is further along in the handshake
-		clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := dst.GenerateConnHandshakeProof(sh.GetHeight(dst.ChainID) - 1)
+		openAck, err := src.PathEnd.ConnAck(dst, sh, src.MustGetAddress())
 		if err != nil {
 			return false, false, err
 		}
 
 		msgs = []sdk.Msg{
 			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
-			src.PathEnd.ConnAck(dst.PathEnd, clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, src.MustGetAddress()),
+			openAck,
 		}
 
 	// OpenAck on counterparty
@@ -141,15 +138,14 @@ func ExecuteConnectionStep(src, dst *Chain) (bool, bool, error) {
 			logConnectionStates(dst, src, dstConn, srcConn)
 		}
 
-		// obtain proof from source chain since it is further along in the handshake
-		clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := src.GenerateConnHandshakeProof(sh.GetHeight(src.ChainID) - 1)
+		openAck, err := dst.PathEnd.ConnAck(src, sh, dst.MustGetAddress())
 		if err != nil {
 			return false, false, err
 		}
 
 		msgs = []sdk.Msg{
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
-			dst.PathEnd.ConnAck(src.PathEnd, clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, dst.MustGetAddress()),
+			openAck,
 		}
 
 	// OpenConfirm on source
@@ -225,15 +221,14 @@ func CreateNewConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmcl
 			// TODO: update logging
 		}
 
-		// destination connection exists, get proof for it
-		clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := dst.GenerateConnHandshakeProof(sh.GetHeight(dst.ChainID) - 1)
+		openTry, err := src.PathEnd.ConnTry(dst, sh, src.MustGetAddress())
 		if err != nil {
 			return false, err
 		}
 
 		msgs := []sdk.Msg{
 			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
-			src.PathEnd.ConnTry(dst.PathEnd, clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, src.MustGetAddress()),
+			openTry,
 		}
 		res, success, err := src.SendMsgs(msgs)
 		if !success {
@@ -254,15 +249,14 @@ func CreateNewConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmcl
 			// TODO: update logging
 		}
 
-		// source connection exists, get proof for it
-		clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := src.GenerateConnHandshakeProof(sh.GetHeight(src.ChainID) - 1)
+		openTry, err := dst.PathEnd.ConnTry(src, sh, dst.MustGetAddress())
 		if err != nil {
 			return false, err
 		}
 
 		msgs := []sdk.Msg{
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
-			dst.PathEnd.ConnTry(src.PathEnd, clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, dst.MustGetAddress()),
+			openTry,
 		}
 		res, success, err := dst.SendMsgs(msgs)
 		if !success {

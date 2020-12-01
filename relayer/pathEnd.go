@@ -127,64 +127,64 @@ func (pe *PathEnd) ConnInit(counterparty *PathEnd, signer sdk.AccAddress) sdk.Ms
 	)
 }
 
-// ConnTry creates a MsgConnectionOpenTry. All the proofs provided must be generated using the
-// counterparty chain.
+// ConnTry creates a MsgConnectionOpenTry
 func (pe *PathEnd) ConnTry(
-	counterparty *PathEnd,
-	clientState ibcexported.ClientState,
-	clientStateProof []byte,
-	consStateProof []byte,
-	connProof []byte,
-	proofHeight clienttypes.Height,
+	counterparty *Chain,
+	sh *SyncHeaders,
 	signer sdk.AccAddress,
-) sdk.Msg {
+) (sdk.Msg, error) {
+	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := counterparty.GenerateConnHandshakeProof(sh.GetHeight(counterparty.ChainID) - 1)
+	if err != nil {
+		return nil, err
+	}
+
 	msg := conntypes.NewMsgConnectionOpenTry(
 		pe.ConnectionID,
 		pe.ClientID,
-		counterparty.ConnectionID,
-		counterparty.ClientID,
+		counterparty.PathEnd.ConnectionID,
+		counterparty.PathEnd.ClientID,
 		clientState,
 		defaultChainPrefix,
 		conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
-		connProof,
+		connStateProof,
 		clientStateProof,
-		consStateProof,
+		consensusStateProof,
 		proofHeight,
 		clientState.GetLatestHeight().(clienttypes.Height),
 		signer,
 	)
 	if err := msg.ValidateBasic(); err != nil {
-		panic(err)
+		return nil, err
 	}
-	return msg
+	return msg, nil
 }
 
-// ConnAck creates a MsgConnectionOpenAck. All the proofs provided must be generated using the
-// counterparty chain.
+// ConnAck creates a MsgConnectionOpenAck
 func (pe *PathEnd) ConnAck(
-	counterparty *PathEnd,
-	clientState ibcexported.ClientState,
-	clientStateProof []byte,
-	consStateProof []byte,
-	connProof []byte,
-	proofHeight clienttypes.Height,
+	counterparty *Chain,
+	sh *SyncHeaders,
 	signer sdk.AccAddress,
-) sdk.Msg {
+) (sdk.Msg, error) {
+	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := counterparty.GenerateConnHandshakeProof(sh.GetHeight(counterparty.ChainID) - 1)
+	if err != nil {
+		return nil, err
+	}
+
 	return conntypes.NewMsgConnectionOpenAck(
 		pe.ConnectionID,
-		counterparty.ConnectionID,
+		counterparty.PathEnd.ConnectionID,
 		clientState,
-		connProof,
+		connStateProof,
 		clientStateProof,
-		consStateProof,
+		consensusStateProof,
 		proofHeight,
 		clientState.GetLatestHeight().(clienttypes.Height),
 		conntypes.DefaultIBCVersion,
 		signer,
-	)
+	), nil
 }
 
-// ConnConfirm creates a MsgConnectionOpenAck
+// ConnConfirm creates a MsgConnectionOpenConfirm
 func (pe *PathEnd) ConnConfirm(counterpartyConnState *conntypes.QueryConnectionResponse, signer sdk.AccAddress) sdk.Msg {
 	return conntypes.NewMsgConnectionOpenConfirm(
 		pe.ConnectionID,

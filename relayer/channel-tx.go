@@ -11,10 +11,9 @@ import (
 )
 
 // CreateChannel runs the channel creation messages on timeout until they pass
-// TODO: add max retries or something to this function
-func (c *Chain) CreateOpenChannels(dst *Chain, to time.Duration) error {
+func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Duration) error {
 	ticker := time.NewTicker(to)
-	failures := 0
+	failures := uint64(0)
 	for ; true; <-ticker.C {
 		success, lastStep, err := ExecuteChannelStep(c, dst)
 		if err != nil {
@@ -54,7 +53,7 @@ func (c *Chain) CreateOpenChannels(dst *Chain, to time.Duration) error {
 			c.Log(fmt.Sprintf("retrying transaction..."))
 			time.Sleep(5 * time.Second)
 
-			if failures > 2 {
+			if failures > maxRetries {
 				return fmt.Errorf("! Channel failed: [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
 					c.ChainID, c.PathEnd.ChannelID, c.PathEnd.PortID,
 					dst.ChainID, dst.PathEnd.ChannelID, dst.PathEnd.PortID)
