@@ -13,7 +13,7 @@ import (
 // CreateChannel runs the channel creation messages on timeout until they pass
 func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Duration) error {
 	// client and connection identifiers must be filled in
-	if err := ValidateClientPaths(c, dst); err != nil {
+	if err := ValidateConnectionPaths(c, dst); err != nil {
 		return err
 	}
 	// ports must be valid and channel ORDER must be the same
