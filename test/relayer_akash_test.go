@@ -38,9 +38,9 @@ func TestAkashToGaiaStreamingRelayer(t *testing.T) {
 	// create path
 	require.NoError(t, src.CreateClients(dst))
 	testClientPair(t, src, dst)
-	require.NoError(t, src.CreateConnection(dst, src.GetTimeout()))
+	require.NoError(t, src.CreateOpenConnections(dst, 3, src.GetTimeout()))
 	testConnectionPair(t, src, dst)
-	require.NoError(t, src.CreateChannel(dst, true, src.GetTimeout()))
+	require.NoError(t, src.CreateOpenChannels(dst, 3, src.GetTimeout()))
 	testChannelPair(t, src, dst)
 
 	// send a couple of transfers to the queue on src

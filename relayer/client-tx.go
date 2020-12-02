@@ -44,6 +44,8 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 
 		// TODO: Parse CreateClient events from result to get generated client id
 		// and set in path end and config file
+	} else {
+		// TODO return error if the client does not exist
 	}
 
 	// Create client for the source chain on destination chain if client id is unspecified
@@ -74,6 +76,8 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		// TODO: Parse CreateClient events from result to get generated client id
 		// and set in path end and config file
 
+	} else {
+		// TODO: throw error if the client does not exist
 	}
 
 	// Send msgs to both chains
