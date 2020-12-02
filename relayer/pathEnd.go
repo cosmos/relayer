@@ -100,7 +100,6 @@ func (pe *PathEnd) CreateClient(
 	)
 
 	msg, err := clienttypes.NewMsgCreateClient(
-		pe.ClientID,
 		clientState,
 		dstHeader.ConsensusState(),
 		signer,
