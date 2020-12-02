@@ -70,10 +70,10 @@ type Chain struct {
 
 // ValidatePaths takes two chains and validates their paths
 func ValidatePaths(src, dst *Chain) error {
-	if err := src.PathEnd.Validate(); err != nil {
+	if err := src.PathEnd.ValidateFull(); err != nil {
 		return src.ErrCantSetPath(err)
 	}
-	if err := dst.PathEnd.Validate(); err != nil {
+	if err := dst.PathEnd.ValidateFull(); err != nil {
 		return dst.ErrCantSetPath(err)
 	}
 	return nil
@@ -110,17 +110,11 @@ func ValidateConnectionPaths(src, dst *Chain) error {
 
 // ValidateChannelParams takes two chains and validates their respective channel params
 func ValidateChannelParams(src, dst *Chain) error {
-	if err := src.PathEnd.Vport(); err != nil {
+	if err := src.PathEnd.ValidateBasic(); err != nil {
 		return err
 	}
-	if err := dst.PathEnd.Vport(); err != nil {
+	if err := dst.PathEnd.ValidateBasic(); err != nil {
 		return err
-	}
-	if !(strings.ToUpper(src.PathEnd.Order) == "ORDERED" || strings.ToUpper(src.PathEnd.Order) == "UNORDERED") {
-		return fmt.Errorf("channel must be either 'ORDERED' or 'UNORDERED' is '%s'", src.PathEnd.Order)
-	}
-	if !(strings.ToUpper(dst.PathEnd.Order) == "ORDERED" || strings.ToUpper(dst.PathEnd.Order) == "UNORDERED") {
-		return fmt.Errorf("channel must be either 'ORDERED' or 'UNORDERED' is '%s'", dst.PathEnd.Order)
 	}
 	if strings.ToUpper(src.PathEnd.Order) != strings.ToUpper(dst.PathEnd.Order) {
 		return fmt.Errorf("src and dst path ends must have same ORDER. got src: %s, dst: %s",

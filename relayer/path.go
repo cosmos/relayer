@@ -132,13 +132,13 @@ func (p *Path) Ordered() bool {
 
 // Validate checks that a path is valid
 func (p *Path) Validate() (err error) {
-	if err = p.Src.Validate(); err != nil {
+	if err = p.Src.ValidateFull(); err != nil {
 		return err
 	}
 	if p.Src.Version == "" {
 		return fmt.Errorf("source must specify a version")
 	}
-	if err = p.Dst.Validate(); err != nil {
+	if err = p.Dst.ValidateFull(); err != nil {
 		return err
 	}
 	if _, err = p.GetStrategy(); err != nil {
@@ -166,24 +166,24 @@ func (p *Path) String() string {
 	return fmt.Sprintf("[ ] %s ->\n %s", p.Src.String(), p.Dst.String())
 }
 
-// GenPath generates a path with random client, connection and channel identifiers
-// given chainIDs and portIDs
+// GenPath generates a path with unspecified client, connection and channel identifiers
+// given chainIDs and portIDs.
 func GenPath(srcChainID, dstChainID, srcPortID, dstPortID, order string, version string) *Path {
 	return &Path{
 		Src: &PathEnd{
 			ChainID:      srcChainID,
-			ClientID:     RandLowerCaseLetterString(10),
-			ConnectionID: RandLowerCaseLetterString(10),
-			ChannelID:    RandLowerCaseLetterString(10),
+			ClientID:     "",
+			ConnectionID: "",
+			ChannelID:    "",
 			PortID:       srcPortID,
 			Order:        order,
 			Version:      version,
 		},
 		Dst: &PathEnd{
 			ChainID:      dstChainID,
-			ClientID:     RandLowerCaseLetterString(10),
-			ConnectionID: RandLowerCaseLetterString(10),
-			ChannelID:    RandLowerCaseLetterString(10),
+			ClientID:     "",
+			ConnectionID: "",
+			ChannelID:    "",
 			PortID:       dstPortID,
 			Order:        order,
 			Version:      version,
