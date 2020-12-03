@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -148,6 +147,12 @@ func connTry() *cobra.Command {
 				return err
 			}
 
+			// update the off chain light clients to the latest header and return the header
+			sh, err := relayer.NewSyncHeaders(chains[src], chains[dst])
+			if err != nil {
+				return err
+			}
+
 			if err = chains[src].AddPath(args[2], args[4], dcha, dpor, dord); err != nil {
 				return err
 			}
@@ -161,38 +166,18 @@ func connTry() *cobra.Command {
 				return err
 			}
 
-			// NOTE: We query connection at height - 1 because of the way tendermint returns
-			// proofs the commit for height n is contained in the header of height n + 1
-			dstConnState, err := chains[dst].QueryConnection(dsth.Header.Height - 1)
-			if err != nil {
-				return err
-			}
-
-			// We are querying the state of the client for src on dst and finding the height
-			dstClientStateRes, err := chains[dst].QueryClientState(dsth.Header.Height)
-			if err != nil {
-				return err
-			}
-			dstClientState, err := clienttypes.UnpackClientState(dstClientStateRes.ClientState)
-			if err != nil {
-				return err
-			}
-			dstCsHeight := dstClientState.GetLatestHeight()
-
-			// Then we need to query the consensus state for src at that height on dst
-			dstConsState, err := chains[dst].QueryClientConsensusState(dsth.Header.Height, dstCsHeight)
-			if err != nil {
-				return err
-			}
-
 			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dsth)
 			if err != nil {
 				return err
 			}
+			openTry, err := chains[src].PathEnd.ConnTry(chains[dst], sh, chains[src].MustGetAddress())
+			if err != nil {
+				return err
+			}
+
 			txs := []sdk.Msg{
 				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
-				chains[src].PathEnd.ConnTry(chains[dst].PathEnd, dstClientStateRes, dstConnState,
-					dstConsState, chains[src].MustGetAddress()),
+				openTry,
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -213,6 +198,12 @@ func connAck() *cobra.Command {
 				return err
 			}
 
+			// update the off chain light clients to the latest header and return the header
+			sh, err := relayer.NewSyncHeaders(chains[src], chains[dst])
+			if err != nil {
+				return err
+			}
+
 			if err = chains[src].AddPath(args[2], args[4], dcha, dpor, dord); err != nil {
 				return err
 			}
@@ -226,38 +217,19 @@ func connAck() *cobra.Command {
 				return err
 			}
 
-			// NOTE: We query connection at height - 1 because of the way tendermint returns
-			// proofs the commit for height n is contained in the header of height n + 1
-			dstState, err := chains[dst].QueryConnection(dsth.Header.Height - 1)
-			if err != nil {
-				return err
-			}
-
-			// We are querying the state of the client for src on dst and finding the height
-			dstClientStateResponse, err := chains[dst].QueryClientState(dsth.Header.Height)
-			if err != nil {
-				return err
-			}
-			dstClientState, _ := clienttypes.UnpackClientState(dstClientStateResponse.ClientState)
-			dstCsHeight := dstClientState.GetLatestHeight()
-
-			// Then we need to query the consensus state for src at that height on dst
-			dstConsState, err := chains[dst].QueryClientConsensusState(dsth.Header.Height, dstCsHeight)
-			if err != nil {
-				return err
-			}
-
 			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dsth)
 			if err != nil {
 				return err
 			}
+
+			openAck, err := chains[src].PathEnd.ConnAck(chains[dst], sh, chains[src].MustGetAddress())
+			if err != nil {
+				return err
+			}
+
 			txs := []sdk.Msg{
-				chains[src].PathEnd.ConnAck(
-					chains[dst].PathEnd,
-					dstClientStateResponse,
-					dstState, dstConsState,
-					chains[src].MustGetAddress()),
 				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
+				openAck,
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -389,6 +361,12 @@ func chanTry() *cobra.Command {
 				return err
 			}
 
+			// update the off chain light clients to the latest header and return the header
+			sh, err := relayer.NewSyncHeaders(chains[src], chains[dst])
+			if err != nil {
+				return err
+			}
+
 			if err = chains[src].AddPath(args[2], args[3], args[4], args[6], dord); err != nil {
 				return err
 			}
@@ -402,18 +380,19 @@ func chanTry() *cobra.Command {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Header.Height - 1)
-			if err != nil {
-				return err
-			}
-
 			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
 			if err != nil {
 				return err
 			}
+
+			openTry, err := chains[src].PathEnd.ChanTry(chains[dst], sh, chains[src].MustGetAddress())
+			if err != nil {
+				return err
+			}
+
 			txs := []sdk.Msg{
 				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
-				chains[src].PathEnd.ChanTry(chains[dst].PathEnd, dstChanState, chains[src].MustGetAddress()),
+				openTry,
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -435,6 +414,12 @@ func chanAck() *cobra.Command {
 				return err
 			}
 
+			// update the off chain light clients to the latest header and return the header
+			sh, err := relayer.NewSyncHeaders(chains[src], chains[dst])
+			if err != nil {
+				return err
+			}
+
 			if err = chains[src].AddPath(args[2], dcon, args[3], args[5], dord); err != nil {
 				return err
 			}
@@ -448,18 +433,19 @@ func chanAck() *cobra.Command {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Header.Height - 1)
-			if err != nil {
-				return err
-			}
-
 			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
 			if err != nil {
 				return err
 			}
+
+			openAck, err := chains[src].PathEnd.ChanAck(chains[dst], sh, chains[src].MustGetAddress())
+			if err != nil {
+				return err
+			}
+
 			txs := []sdk.Msg{
 				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
-				chains[src].PathEnd.ChanAck(chains[dst].PathEnd, dstChanState, chains[src].MustGetAddress()),
+				openAck,
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -523,7 +509,6 @@ func createChannelStepCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(11),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			ordering := relayer.OrderFromString(args[10])
 			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
@@ -537,19 +522,9 @@ func createChannelStepCmd() *cobra.Command {
 				return err
 			}
 
-			msgs, err := chains[src].CreateChannelStep(chains[dst], ordering)
+			_, _, err = relayer.ExecuteChannelStep(chains[src], chains[dst])
 			if err != nil {
 				return err
-			}
-
-			if len(msgs.Src) > 0 {
-				if err = sendAndPrint(msgs.Src, chains[src], cmd); err != nil {
-					return err
-				}
-			} else if len(msgs.Dst) > 0 {
-				if err = sendAndPrint(msgs.Dst, chains[dst], cmd); err != nil {
-					return err
-				}
 			}
 
 			return nil
