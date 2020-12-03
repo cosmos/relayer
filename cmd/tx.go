@@ -139,7 +139,8 @@ func createConnectionCmd() *cobra.Command {
 				return err
 			}
 
-			return c[src].CreateOpenConnections(c[dst], to)
+			// TODO: make '3' be a flag, maximum retries after failed message send
+			return c[src].CreateOpenConnections(c[dst], 3, to)
 		},
 	}
 
@@ -173,7 +174,8 @@ func createChannelCmd() *cobra.Command {
 				return err
 			}
 
-			return c[src].CreateChannel(c[dst], false, to)
+			// TODO: make '3' a flag, max retries after failed message send
+			return c[src].CreateOpenChannels(c[dst], 3, to)
 		},
 	}
 
@@ -243,13 +245,14 @@ func linkCmd() *cobra.Command {
 				return err
 			}
 
+			// TODO: make '3' a flag, maximum retries after failed message send
 			// create connection if it isn't already created
-			if err = c[src].CreateOpenConnections(c[dst], to); err != nil {
+			if err = c[src].CreateOpenConnections(c[dst], 3, to); err != nil {
 				return err
 			}
 
 			// create channel if it isn't already created
-			return c[src].CreateChannel(c[dst], true, to)
+			return c[src].CreateOpenChannels(c[dst], 3, to)
 		},
 	}
 

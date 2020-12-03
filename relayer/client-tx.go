@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
@@ -44,16 +43,13 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		}
 
 		// update the client identifier
-		clientEvents := res.Logs[0].Events
-		for _, ev := range clientEvents {
-			if ev.Type == clienttypes.EventTypeCreateClient {
-				for _, attr := range ev.Attributes {
-					if attr.Key == clienttypes.AttributeKeyClientID {
-						c.PathEnd.ClientID = attr.Value
-					}
-				}
-			}
+		// use index 0, the transaction only has one message
+		clientID, err := ParseClientIDFromEvents(res.Logs[0].Events)
+		if err != nil {
+			return err
 		}
+		c.PathEnd.ClientID = clientID
+
 		// TOOD: ensure config file is updated
 
 	} else {
@@ -86,16 +82,12 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		}
 
 		// update client identifier
-		clientEvents := res.Logs[0].Events
-		for _, ev := range clientEvents {
-			if ev.Type == clienttypes.EventTypeCreateClient {
-				for _, attr := range ev.Attributes {
-					if attr.Key == clienttypes.AttributeKeyClientID {
-						dst.PathEnd.ClientID = attr.Value
-					}
-				}
-			}
+		clientID, err := ParseClientIDFromEvents(res.Logs[0].Events)
+		if err != nil {
+			return err
 		}
+		dst.PathEnd.ClientID = clientID
+
 		// TODO: ensure config file is updated
 
 	} else {
