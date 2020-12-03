@@ -94,7 +94,7 @@ func (pe *PathEnd) CreateClient(
 		time.Minute*10,
 		dstHeader.GetHeight().(clienttypes.Height),
 		commitmenttypes.GetSDKSpecs(),
-		[]string{"upgrade", "upgradedClient"},
+		[]string{"upgrade", "upgradedIBCState"},
 		false,
 		false,
 	)

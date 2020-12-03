@@ -54,7 +54,7 @@ func PathsSet(chains ...*Chain) bool {
 
 // SetPath sets the path and validates the identifiers
 func (c *Chain) SetPath(p *PathEnd) error {
-	err := p.ValidateFull()
+	err := p.ValidateBasic()
 	if err != nil {
 		return c.ErrCantSetPath(err)
 	}

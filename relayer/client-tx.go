@@ -8,10 +8,6 @@ import (
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
 func (c *Chain) CreateClients(dst *Chain) (err error) {
-	var (
-		clients = &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
-	)
-
 	srcH, dstH, err := UpdatesWithHeaders(c, dst)
 	if err != nil {
 		return err
@@ -94,14 +90,8 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		// TODO: throw error if the client does not exist
 	}
 
-	// Send msgs to both chains
-	if clients.Ready() {
-		// TODO: Add retry here for out of gas or other errors
-		if clients.Send(c, dst); clients.Success() {
-			c.Log(fmt.Sprintf("★ Clients created: [%s]client(%s) and [%s]client(%s)",
-				c.ChainID, c.PathEnd.ClientID, dst.ChainID, dst.PathEnd.ClientID))
-		}
-	}
+	c.Log(fmt.Sprintf("★ Clients created: [%s]client(%s) and [%s]client(%s)",
+		c.ChainID, c.PathEnd.ClientID, dst.ChainID, dst.PathEnd.ClientID))
 
 	return nil
 }
