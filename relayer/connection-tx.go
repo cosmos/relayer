@@ -217,20 +217,18 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 			src.PathEnd.ConnInit(dst.PathEnd, src.MustGetAddress()),
 		}
 
-		// TODO: with the introduction of typed events, we can abstract sending
-		// and event parsing to the bottom of this function. Until then it is
-		// easier to parse events if we know exactly what message we are parsing.
-		_, success, err := src.SendMsgs(msgs)
+		res, success, err := src.SendMsgs(msgs)
 		if !success {
 			return false, err
 		}
 
 		// update connection identifier in PathEnd
-		// TODO: Parse INIT events to get generated connection identifier
-		// and write to config
-		// if err := src.HandleOpenInitEvents(res); err != nil {
-		// 	return true, err
-		// }
+		// use index 1, connection open init is the second message in the transaction
+		connectionID, err := ParseConnectionIDFromEvents(res.Logs[1].Events)
+		if err != nil {
+			return false, err
+		}
+		src.PathEnd.ConnectionID = connectionID
 
 		return true, nil
 
@@ -250,17 +248,18 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
 			openTry,
 		}
-		_, success, err := src.SendMsgs(msgs)
+		res, success, err := src.SendMsgs(msgs)
 		if !success {
 			return false, err
 		}
 
 		// update connection identifier in PathEnd
-		// TODO: Parse OPENTRY events to get generated connection identifier
-		// and write to config
-		// if err := src.HandleOpenTryEvents(res); err != nil {
-		// 	return true, err
-		// }
+		// use index 1, connection open try is the second message in the transaction
+		connectionID, err := ParseConnectionIDFromEvents(res.Logs[1].Events)
+		if err != nil {
+			return false, err
+		}
+		src.PathEnd.ConnectionID = connectionID
 
 		return true, nil
 
@@ -280,17 +279,18 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			openTry,
 		}
-		_, success, err := dst.SendMsgs(msgs)
+		res, success, err := dst.SendMsgs(msgs)
 		if !success {
 			return false, err
 		}
 
 		// update connection identifier in PathEnd
-		// TODO: Parse OPENTRY events to get generated connection identifier
-		// and write to config
-		// if err := dst.HandleOpenTryEvents(res); err != nil {
-		// 	return true, err
-		// }
+		// use index 1, connection open try is the second message in the transaction
+		connectionID, err := ParseConnectionIDFromEvents(res.Logs[1].Events)
+		if err != nil {
+			return false, err
+		}
+		dst.PathEnd.ConnectionID = connectionID
 
 		return true, nil
 
