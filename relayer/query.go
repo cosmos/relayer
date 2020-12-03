@@ -117,7 +117,7 @@ func QueryClientConsensusStatePair(
 
 // QueryClientState retrevies the latest consensus state for a client in state at a given height
 func (c *Chain) QueryClientState(height int64) (*clienttypes.QueryClientStateResponse, error) {
-	return clientutils.QueryClientStateABCI(c.CLIContext(height), c.PathEnd.ClientID)
+	return clientutils.QueryClientStateABCI(c.CLIContext(0), c.PathEnd.ClientID)
 }
 
 // QueryClientStatePair returns a pair of connection responses
@@ -177,7 +177,7 @@ func (c *Chain) QueryConnectionsUsingClient(
 
 // QueryConnection returns the remote end of a given connection
 func (c *Chain) QueryConnection(height int64) (*conntypes.QueryConnectionResponse, error) {
-	res, err := connutils.QueryConnection(c.CLIContext(height), c.PathEnd.ConnectionID, true)
+	res, err := connutils.QueryConnection(c.CLIContext(0), c.PathEnd.ConnectionID, true)
 	if err != nil && strings.Contains(err.Error(), "not found") {
 		return emptyConnRes, nil
 	} else if err != nil {

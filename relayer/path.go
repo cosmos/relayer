@@ -107,23 +107,25 @@ type Path struct {
 	Strategy *StrategyCfg `yaml:"strategy" json:"strategy"`
 }
 
+// TODO: remove gen functions
+
 // GenSrcClientID generates the specififed identifier
-func (p *Path) GenSrcClientID() { p.Src.ClientID = RandLowerCaseLetterString(10) }
+func (p *Path) GenSrcClientID() { p.Src.ClientID = "" }
 
 // GenDstClientID generates the specififed identifier
-func (p *Path) GenDstClientID() { p.Dst.ClientID = RandLowerCaseLetterString(10) }
+func (p *Path) GenDstClientID() { p.Dst.ClientID = "" }
 
 // GenSrcConnID generates the specififed identifier
-func (p *Path) GenSrcConnID() { p.Src.ConnectionID = RandLowerCaseLetterString(10) }
+func (p *Path) GenSrcConnID() { p.Src.ConnectionID = "" }
 
 // GenDstConnID generates the specififed identifier
-func (p *Path) GenDstConnID() { p.Dst.ConnectionID = RandLowerCaseLetterString(10) }
+func (p *Path) GenDstConnID() { p.Dst.ConnectionID = "" }
 
 // GenSrcChanID generates the specififed identifier
-func (p *Path) GenSrcChanID() { p.Src.ChannelID = RandLowerCaseLetterString(10) }
+func (p *Path) GenSrcChanID() { p.Src.ChannelID = "" }
 
 // GenDstChanID generates the specififed identifier
-func (p *Path) GenDstChanID() { p.Dst.ChannelID = RandLowerCaseLetterString(10) }
+func (p *Path) GenDstChanID() { p.Dst.ChannelID = "" }
 
 // Ordered returns true if the path is ordered and false if otherwise
 func (p *Path) Ordered() bool {

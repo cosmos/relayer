@@ -78,7 +78,12 @@ func createClientsCmd() *cobra.Command {
 				return err
 			}
 
-			return c[src].CreateClients(c[dst])
+			modified, err := c[src].CreateClients(c[dst])
+			if modified {
+				overWriteConfig(cmd, config)
+			}
+
+			return err
 		},
 	}
 	return cmd
@@ -241,7 +246,12 @@ func linkCmd() *cobra.Command {
 			}
 
 			// create clients if they aren't already created
-			if err = c[src].CreateClients(c[dst]); err != nil {
+			modified, err := c[src].CreateClients(c[dst])
+			if modified {
+				overWriteConfig(cmd, config)
+			}
+
+			if err != nil {
 				return err
 			}
 

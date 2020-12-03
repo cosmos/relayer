@@ -21,7 +21,7 @@ func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Dur
 	for ; true; <-ticker.C {
 		success, lastStep, err := ExecuteConnectionStep(c, dst)
 		if err != nil {
-			return err
+			fmt.Println(err)
 		}
 
 		switch {
@@ -85,6 +85,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success bool, last bool, err error)
 		msgs                             []sdk.Msg
 	)
 
+	// TODO: add back retries due to commit delay/update
 	// get headers to update light clients on chain
 	srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(src, dst)
 	if err != nil {
