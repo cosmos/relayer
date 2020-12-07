@@ -10,7 +10,7 @@ import (
 func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 	srcH, dstH, err := UpdatesWithHeaders(c, dst)
 	if err != nil {
-		return modified, err
+		return false, err
 	}
 
 	// Create client for the destination chain on the source chain if client id is unspecified
