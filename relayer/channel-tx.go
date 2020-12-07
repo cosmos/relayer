@@ -26,7 +26,7 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 	for ; true; <-ticker.C {
 		success, lastStep, recentlyModified, err := ExecuteChannelStep(c, dst)
 		if err != nil {
-			return modified, err
+			c.Log(err.Error())
 		}
 		if recentlyModified {
 			modified = true
@@ -375,6 +375,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 	if err != nil {
 		return nil, err
 	}
+	sh.Updates(c, dst)
 
 	// Query a number of things all at once
 	var (
