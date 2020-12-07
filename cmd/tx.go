@@ -80,7 +80,9 @@ func createClientsCmd() *cobra.Command {
 
 			modified, err := c[src].CreateClients(c[dst])
 			if modified {
-				overWriteConfig(cmd, config)
+				if err := overWriteConfig(cmd, config); err != nil {
+					return err
+				}
 			}
 
 			return err
@@ -187,7 +189,15 @@ func createChannelCmd() *cobra.Command {
 			}
 
 			// TODO: make '3' a flag, max retries after failed message send
-			return c[src].CreateOpenChannels(c[dst], 3, to)
+			modified, err := c[src].CreateOpenChannels(c[dst], 3, to)
+			if modified {
+				if err := overWriteConfig(cmd, config); err != nil {
+					return err
+				}
+			}
+
+			return err
+
 		},
 	}
 
@@ -275,7 +285,13 @@ func linkCmd() *cobra.Command {
 			}
 
 			// create channel if it isn't already created
-			return c[src].CreateOpenChannels(c[dst], 3, to)
+			modified, err = c[src].CreateOpenChannels(c[dst], 3, to)
+			if modified {
+				if err := overWriteConfig(cmd, config); err != nil {
+					return err
+				}
+			}
+			return err
 		},
 	}
 

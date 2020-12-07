@@ -527,7 +527,12 @@ func createChannelStepCmd() *cobra.Command {
 				return err
 			}
 
-			_, _, err = relayer.ExecuteChannelStep(chains[src], chains[dst])
+			_, _, modified, err := relayer.ExecuteChannelStep(chains[src], chains[dst])
+			if modified {
+				if err := overWriteConfig(cmd, config); err != nil {
+					return err
+				}
+			}
 			if err != nil {
 				return err
 			}

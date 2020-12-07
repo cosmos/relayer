@@ -11,22 +11,24 @@ import (
 )
 
 // CreateChannel runs the channel creation messages on timeout until they pass
-func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Duration) error {
+func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Duration) (modified bool, err error) {
+	var success, lastStep bool
+
 	// client and connection identifiers must be filled in
 	if err := ValidateConnectionPaths(c, dst); err != nil {
-		return err
+		return modified, err
 	}
 	// ports must be valid and channel ORDER must be the same
 	if err := ValidateChannelParams(c, dst); err != nil {
-		return err
+		return modified, err
 	}
 
 	ticker := time.NewTicker(to)
 	failures := uint64(0)
 	for ; true; <-ticker.C {
-		success, lastStep, err := ExecuteChannelStep(c, dst)
+		success, lastStep, modified, err = ExecuteChannelStep(c, dst)
 		if err != nil {
-			return err
+			return modified, err
 		}
 
 		switch {
@@ -37,11 +39,11 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 			if c.debug {
 				srch, dsth, err := GetLatestLightHeights(c, dst)
 				if err != nil {
-					return err
+					return modified, err
 				}
 				srcChan, dstChan, err := QueryChannelPair(c, dst, srch, dsth)
 				if err != nil {
-					return err
+					return modified, err
 				}
 				logChannelStates(c, dst, srcChan, dstChan)
 			}
@@ -49,7 +51,7 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 			c.Log(fmt.Sprintf("★ Channel created: [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
 				c.ChainID, c.PathEnd.ChannelID, c.PathEnd.PortID,
 				dst.ChainID, dst.PathEnd.ChannelID, dst.PathEnd.PortID))
-			return nil
+			return modified, nil
 
 		// In the case of success, reset the failures counter
 		case success:
@@ -63,25 +65,25 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 			time.Sleep(5 * time.Second)
 
 			if failures > maxRetries {
-				return fmt.Errorf("! Channel failed: [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
+				return modified, fmt.Errorf("! Channel failed: [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
 					c.ChainID, c.PathEnd.ChannelID, c.PathEnd.PortID,
 					dst.ChainID, dst.PathEnd.ChannelID, dst.PathEnd.PortID)
 			}
 		}
 	}
 
-	return nil
+	return modified, nil
 }
 
 // ExecuteChannelStep executes the next channel step based on the
 // states of two channel ends specified by the relayer configuration
 // file. The booleans return indicate if the message was successfully
 // executed and if this was the last handshake step.
-func ExecuteChannelStep(src, dst *Chain) (bool, bool, error) {
+func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err error) {
 	// update the off chain light clients to the latest header and return the header
 	sh, err := NewSyncHeaders(src, dst)
 	if err != nil {
-		return false, false, err
+		return false, false, false, err
 	}
 
 	// variables needed to determine the current handshake step
@@ -89,31 +91,30 @@ func ExecuteChannelStep(src, dst *Chain) (bool, bool, error) {
 		srcUpdateHeader, dstUpdateHeader *tmclient.Header
 		srcChan, dstChan                 *chantypes.QueryChannelResponse
 		msgs                             []sdk.Msg
-		last                             bool // indicate if the channels are open
 	)
 
 	// get headers to update light clients on chain
 	srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(src, dst)
 	if err != nil {
-		return false, false, err
+		return false, false, false, err
 	}
 
 	// if either identifier is missing, an existing channel that matches the required fields
 	// is chosen or a new channel is created.
 	if src.PathEnd.ChannelID == "" || dst.PathEnd.ChannelID == "" {
 		// TODO: Query for existing identifier and fill config, if possible
-		success, err := InitializeChannel(src, dst, srcUpdateHeader, dstUpdateHeader, sh)
+		success, modified, err := InitializeChannel(src, dst, srcUpdateHeader, dstUpdateHeader, sh)
 		if err != nil {
-			return false, false, err
+			return false, false, false, err
 		}
 
-		return success, false, nil
+		return success, false, modified, nil
 	}
 
 	// Query Channel data from src and dst
 	srcChan, dstChan, err = QueryChannelPair(src, dst, int64(sh.GetHeight(src.ChainID))-1, int64(sh.GetHeight(dst.ChainID))-1)
 	if err != nil {
-		return false, false, err
+		return false, false, false, err
 	}
 
 	switch {
@@ -128,7 +129,7 @@ func ExecuteChannelStep(src, dst *Chain) (bool, bool, error) {
 
 		openTry, err := src.PathEnd.ChanTry(dst, sh, src.MustGetAddress())
 		if err != nil {
-			return false, false, err
+			return false, false, false, err
 		}
 
 		msgs = []sdk.Msg{
@@ -146,7 +147,7 @@ func ExecuteChannelStep(src, dst *Chain) (bool, bool, error) {
 
 		openAck, err := src.PathEnd.ChanAck(dst, sh, src.MustGetAddress())
 		if err != nil {
-			return false, false, err
+			return false, false, false, err
 		}
 
 		msgs = []sdk.Msg{
@@ -164,7 +165,7 @@ func ExecuteChannelStep(src, dst *Chain) (bool, bool, error) {
 
 		openAck, err := dst.PathEnd.ChanAck(src, sh, src.MustGetAddress())
 		if err != nil {
-			return false, false, err
+			return false, false, false, err
 		}
 
 		msgs = []sdk.Msg{
@@ -195,19 +196,19 @@ func ExecuteChannelStep(src, dst *Chain) (bool, bool, error) {
 		last = true
 	}
 
-	_, success, err := dst.SendMsgs(msgs)
+	_, success, err = dst.SendMsgs(msgs)
 	if !success {
-		return false, false, err
+		return false, false, false, err
 	}
 
-	return true, last, nil
+	return true, last, false, nil
 }
 
 // InitializeChannel creates a new channel on either the source or destination chain .
 // The identifiers set in the PathEnd's are used to determine which channel ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither channel exists.
-func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header, sh *SyncHeaders) (bool, error) {
+func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header, sh *SyncHeaders) (success, modified bool, err error) {
 	switch {
 
 	// OpenInit on source
@@ -225,18 +226,18 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 
 		res, success, err := src.SendMsgs(msgs)
 		if !success {
-			return false, err
+			return false, false, err
 		}
 
 		// update channel identifier in PathEnd
 		// use index 1, channel open init is the second message in the transaction
 		channelID, err := ParseChannelIDFromEvents(res.Logs[1].Events)
 		if err != nil {
-			return false, err
+			return false, false, err
 		}
 		src.PathEnd.ChannelID = channelID
 
-		return true, nil
+		return true, true, nil
 
 	// OpenTry on source
 	// source channel does not exist, but counterparty channel exists
@@ -248,7 +249,7 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 		// open try on source chain
 		openTry, err := src.PathEnd.ChanTry(dst, sh, src.MustGetAddress())
 		if err != nil {
-			return false, err
+			return false, false, err
 		}
 
 		msgs := []sdk.Msg{
@@ -257,18 +258,18 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 		}
 		res, success, err := src.SendMsgs(msgs)
 		if !success {
-			return false, err
+			return false, false, err
 		}
 
 		// update channel identifier in PathEnd
 		// use index 1, channel open try is the second message in the transaction
 		channelID, err := ParseChannelIDFromEvents(res.Logs[1].Events)
 		if err != nil {
-			return false, err
+			return false, false, err
 		}
 		src.PathEnd.ChannelID = channelID
 
-		return true, nil
+		return true, true, nil
 
 	// OpenTry on counterparty
 	// source channel exists, but counterparty channel does not exist
@@ -280,7 +281,7 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 		// open try on destination chain
 		openTry, err := dst.PathEnd.ChanTry(src, sh, dst.MustGetAddress())
 		if err != nil {
-			return false, err
+			return false, false, err
 		}
 
 		msgs := []sdk.Msg{
@@ -289,21 +290,21 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 		}
 		res, success, err := dst.SendMsgs(msgs)
 		if !success {
-			return false, err
+			return false, false, err
 		}
 
 		// update channel identifier in PathEnd
 		// use index 1, channel open try is the second message in the transaction
 		channelID, err := ParseChannelIDFromEvents(res.Logs[1].Events)
 		if err != nil {
-			return false, err
+			return false, false, err
 		}
 		dst.PathEnd.ChannelID = channelID
 
-		return true, nil
+		return true, true, nil
 
 	default:
-		return false, fmt.Errorf("channel ends already created")
+		return false, false, fmt.Errorf("channel ends already created")
 	}
 }
 
