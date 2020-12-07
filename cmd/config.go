@@ -213,11 +213,12 @@ func cfgFilesAdd(dir string) (cfg *Config, err error) {
 				continue
 			}
 
-			if err = p.Validate(); err == nil {
-				fmt.Printf("added path %s...\n", pthName)
-				continue
-			} else if err != nil {
-				fmt.Printf("%s did not contain valid path config, skipping...\n", pth)
+			// TODO: Do bottom up validation
+			// For now, we assume that all chain files must have same filename as chain-id
+			// this is to ensure non-chain files (global config) does not get parsed into chain struct.
+			// Future work should implement bottom-up validation.
+			if c.ChainID != pthName {
+				fmt.Printf("Skipping non chain file: %s", f.Name())
 				continue
 			}
 		}
