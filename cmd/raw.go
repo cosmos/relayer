@@ -147,12 +147,6 @@ func connTry() *cobra.Command {
 				return err
 			}
 
-			// update the off chain light clients to the latest header and return the header
-			sh, err := relayer.NewSyncHeaders(chains[src], chains[dst])
-			if err != nil {
-				return err
-			}
-
 			if err = chains[src].AddPath(args[2], args[4], dcha, dpor, dord); err != nil {
 				return err
 			}
@@ -170,7 +164,7 @@ func connTry() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			openTry, err := chains[src].PathEnd.ConnTry(chains[dst], sh, chains[src].MustGetAddress())
+			openTry, err := chains[src].PathEnd.ConnTry(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1, chains[src].MustGetAddress())
 			if err != nil {
 				return err
 			}
@@ -198,12 +192,6 @@ func connAck() *cobra.Command {
 				return err
 			}
 
-			// update the off chain light clients to the latest header and return the header
-			sh, err := relayer.NewSyncHeaders(chains[src], chains[dst])
-			if err != nil {
-				return err
-			}
-
 			if err = chains[src].AddPath(args[2], args[4], dcha, dpor, dord); err != nil {
 				return err
 			}
@@ -222,7 +210,7 @@ func connAck() *cobra.Command {
 				return err
 			}
 
-			openAck, err := chains[src].PathEnd.ConnAck(chains[dst], sh, chains[src].MustGetAddress())
+			openAck, err := chains[src].PathEnd.ConnAck(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1, chains[src].MustGetAddress())
 			if err != nil {
 				return err
 			}
@@ -366,12 +354,6 @@ func chanTry() *cobra.Command {
 				return err
 			}
 
-			// update the off chain light clients to the latest header and return the header
-			sh, err := relayer.NewSyncHeaders(chains[src], chains[dst])
-			if err != nil {
-				return err
-			}
-
 			if err = chains[src].AddPath(args[2], args[3], args[4], args[6], dord); err != nil {
 				return err
 			}
@@ -390,7 +372,7 @@ func chanTry() *cobra.Command {
 				return err
 			}
 
-			openTry, err := chains[src].PathEnd.ChanTry(chains[dst], sh, chains[src].MustGetAddress())
+			openTry, err := chains[src].PathEnd.ChanTry(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1, chains[src].MustGetAddress())
 			if err != nil {
 				return err
 			}
@@ -419,12 +401,6 @@ func chanAck() *cobra.Command {
 				return err
 			}
 
-			// update the off chain light clients to the latest header and return the header
-			sh, err := relayer.NewSyncHeaders(chains[src], chains[dst])
-			if err != nil {
-				return err
-			}
-
 			if err = chains[src].AddPath(args[2], dcon, args[3], args[5], dord); err != nil {
 				return err
 			}
@@ -443,7 +419,7 @@ func chanAck() *cobra.Command {
 				return err
 			}
 
-			openAck, err := chains[src].PathEnd.ChanAck(chains[dst], sh, chains[src].MustGetAddress())
+			openAck, err := chains[src].PathEnd.ChanAck(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1, chains[src].MustGetAddress())
 			if err != nil {
 				return err
 			}
