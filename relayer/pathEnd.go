@@ -129,10 +129,10 @@ func (pe *PathEnd) ConnInit(counterparty *PathEnd, signer sdk.AccAddress) sdk.Ms
 // ConnTry creates a MsgConnectionOpenTry
 func (pe *PathEnd) ConnTry(
 	counterparty *Chain,
-	sh *SyncHeaders,
+	height uint64,
 	signer sdk.AccAddress,
 ) (sdk.Msg, error) {
-	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := counterparty.GenerateConnHandshakeProof(sh.GetHeight(counterparty.ChainID) - 1)
+	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := counterparty.GenerateConnHandshakeProof(height)
 	if err != nil {
 		return nil, err
 	}
@@ -161,10 +161,10 @@ func (pe *PathEnd) ConnTry(
 // ConnAck creates a MsgConnectionOpenAck
 func (pe *PathEnd) ConnAck(
 	counterparty *Chain,
-	sh *SyncHeaders,
+	height uint64,
 	signer sdk.AccAddress,
 ) (sdk.Msg, error) {
-	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := counterparty.GenerateConnHandshakeProof(sh.GetHeight(counterparty.ChainID) - 1)
+	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := counterparty.GenerateConnHandshakeProof(height)
 	if err != nil {
 		return nil, err
 	}
@@ -206,9 +206,9 @@ func (pe *PathEnd) ChanInit(counterparty *PathEnd, signer sdk.AccAddress) sdk.Ms
 }
 
 // ChanTry creates a MsgChannelOpenTry
-func (pe *PathEnd) ChanTry(counterparty *Chain, sh *SyncHeaders, signer sdk.AccAddress) (sdk.Msg, error) {
+func (pe *PathEnd) ChanTry(counterparty *Chain, height uint64, signer sdk.AccAddress) (sdk.Msg, error) {
 	// obtain proof from counterparty chain
-	counterpartyChannelRes, err := counterparty.QueryChannel(int64(sh.GetHeight(counterparty.ChainID)))
+	counterpartyChannelRes, err := counterparty.QueryChannel(int64(height))
 	if err != nil {
 		return nil, err
 	}
@@ -229,9 +229,9 @@ func (pe *PathEnd) ChanTry(counterparty *Chain, sh *SyncHeaders, signer sdk.AccA
 }
 
 // ChanAck creates a MsgChannelOpenAck
-func (pe *PathEnd) ChanAck(counterparty *Chain, sh *SyncHeaders, signer sdk.AccAddress) (sdk.Msg, error) {
+func (pe *PathEnd) ChanAck(counterparty *Chain, height uint64, signer sdk.AccAddress) (sdk.Msg, error) {
 	// obtain proof from counterparty chain
-	counterpartyChannelRes, err := counterparty.QueryChannel(int64(sh.GetHeight(counterparty.ChainID)))
+	counterpartyChannelRes, err := counterparty.QueryChannel(int64(height))
 	if err != nil {
 		return nil, err
 	}

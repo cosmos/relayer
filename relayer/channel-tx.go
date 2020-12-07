@@ -12,8 +12,6 @@ import (
 
 // CreateChannel runs the channel creation messages on timeout until they pass
 func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Duration) (modified bool, err error) {
-	var success, lastStep bool
-
 	// client and connection identifiers must be filled in
 	if err := ValidateConnectionPaths(c, dst); err != nil {
 		return modified, err
@@ -26,9 +24,12 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 	ticker := time.NewTicker(to)
 	failures := uint64(0)
 	for ; true; <-ticker.C {
-		success, lastStep, modified, err = ExecuteChannelStep(c, dst)
+		success, lastStep, recentlyModified, err := ExecuteChannelStep(c, dst)
 		if err != nil {
 			return modified, err
+		}
+		if recentlyModified {
+			modified = true
 		}
 
 		switch {
@@ -127,7 +128,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
 
-		openTry, err := src.PathEnd.ChanTry(dst, sh, src.MustGetAddress())
+		openTry, err := src.PathEnd.ChanTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1, src.MustGetAddress())
 		if err != nil {
 			return false, false, false, err
 		}
@@ -135,6 +136,11 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 		msgs = []sdk.Msg{
 			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
 			openTry,
+		}
+
+		_, success, err = src.SendMsgs(msgs)
+		if !success {
+			return false, false, false, err
 		}
 
 	// OpenAck on source if dst is at TRYOPEN and src is at INIT or TRYOPEN (crossing hellos)
@@ -145,7 +151,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
 
-		openAck, err := src.PathEnd.ChanAck(dst, sh, src.MustGetAddress())
+		openAck, err := src.PathEnd.ChanAck(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1, src.MustGetAddress())
 		if err != nil {
 			return false, false, false, err
 		}
@@ -153,6 +159,11 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 		msgs = []sdk.Msg{
 			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
 			openAck,
+		}
+
+		_, success, err = src.SendMsgs(msgs)
+		if !success {
+			return false, false, false, err
 		}
 
 	// OpenAck on counterparty
@@ -163,7 +174,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(dst, src, dstChan, srcChan)
 		}
 
-		openAck, err := dst.PathEnd.ChanAck(src, sh, src.MustGetAddress())
+		openAck, err := dst.PathEnd.ChanAck(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1, src.MustGetAddress())
 		if err != nil {
 			return false, false, false, err
 		}
@@ -171,6 +182,11 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 		msgs = []sdk.Msg{
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			openAck,
+		}
+
+		_, success, err = dst.SendMsgs(msgs)
+		if !success {
+			return false, false, false, err
 		}
 
 	// OpenConfirm on source
@@ -184,6 +200,11 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 		}
 		last = true
 
+		_, success, err = src.SendMsgs(msgs)
+		if !success {
+			return false, false, false, err
+		}
+
 	// OpenConfrim on counterparty
 	case srcChan.Channel.State == chantypes.OPEN && dstChan.Channel.State == chantypes.TRYOPEN:
 		if dst.debug {
@@ -194,11 +215,12 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			dst.PathEnd.ChanConfirm(srcChan, dst.MustGetAddress()),
 		}
 		last = true
-	}
 
-	_, success, err = dst.SendMsgs(msgs)
-	if !success {
-		return false, false, false, err
+		_, success, err = dst.SendMsgs(msgs)
+		if !success {
+			return false, false, false, err
+		}
+
 	}
 
 	return true, last, false, nil
@@ -247,7 +269,7 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 		}
 
 		// open try on source chain
-		openTry, err := src.PathEnd.ChanTry(dst, sh, src.MustGetAddress())
+		openTry, err := src.PathEnd.ChanTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1, src.MustGetAddress())
 		if err != nil {
 			return false, false, err
 		}
@@ -279,7 +301,7 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 		}
 
 		// open try on destination chain
-		openTry, err := dst.PathEnd.ChanTry(src, sh, dst.MustGetAddress())
+		openTry, err := dst.PathEnd.ChanTry(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1, dst.MustGetAddress())
 		if err != nil {
 			return false, false, err
 		}

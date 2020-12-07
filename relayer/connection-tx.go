@@ -12,8 +12,6 @@ import (
 // CreateOpenConnections runs the connection creation messages on timeout until they pass.
 // The returned boolean indicates that the path end has been modified.
 func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Duration) (modified bool, err error) {
-	var success, lastStep bool
-
 	// client identifiers must be filled in
 	if err := ValidateClientPaths(c, dst); err != nil {
 		return modified, err
@@ -22,9 +20,13 @@ func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Dur
 	ticker := time.NewTicker(to)
 	failed := uint64(0)
 	for ; true; <-ticker.C {
-		success, lastStep, modified, err = ExecuteConnectionStep(c, dst)
+		success, lastStep, recentlyModified, err := ExecuteConnectionStep(c, dst)
 		if err != nil {
-			fmt.Println(err)
+			c.Log(fmt.Sprintf("%v", err))
+		}
+
+		if recentlyModified {
+			modified = true
 		}
 
 		switch {
@@ -80,6 +82,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	if err != nil {
 		return false, false, false, err
 	}
+	sh.Updates(src, dst)
 
 	// variables needed to determine the current handshake step
 	var (
@@ -124,7 +127,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
 
-		openTry, err := src.PathEnd.ConnTry(dst, sh, src.MustGetAddress())
+		openTry, err := src.PathEnd.ConnTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1, src.MustGetAddress())
 		if err != nil {
 			return false, false, false, err
 		}
@@ -132,6 +135,10 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 		msgs = []sdk.Msg{
 			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
 			openTry,
+		}
+		_, success, err = src.SendMsgs(msgs)
+		if !success {
+			return false, false, false, err
 		}
 
 	// OpenAck on source if dst is at TRYOPEN and src is on INIT or TRYOPEN (crossing hellos case)
@@ -142,7 +149,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
 
-		openAck, err := src.PathEnd.ConnAck(dst, sh, src.MustGetAddress())
+		openAck, err := src.PathEnd.ConnAck(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1, src.MustGetAddress())
 		if err != nil {
 			return false, false, false, err
 		}
@@ -150,6 +157,10 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 		msgs = []sdk.Msg{
 			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
 			openAck,
+		}
+		_, success, err = src.SendMsgs(msgs)
+		if !success {
+			return false, false, false, err
 		}
 
 	// OpenAck on counterparty
@@ -160,7 +171,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(dst, src, dstConn, srcConn)
 		}
 
-		openAck, err := dst.PathEnd.ConnAck(src, sh, dst.MustGetAddress())
+		openAck, err := dst.PathEnd.ConnAck(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1, dst.MustGetAddress())
 		if err != nil {
 			return false, false, false, err
 		}
@@ -168,6 +179,10 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 		msgs = []sdk.Msg{
 			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
 			openAck,
+		}
+		_, success, err = dst.SendMsgs(msgs)
+		if !success {
+			return false, false, false, err
 		}
 
 	// OpenConfirm on source
@@ -179,6 +194,11 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
 			src.PathEnd.ConnConfirm(dstConn, src.MustGetAddress()),
 		}
+		_, success, err = src.SendMsgs(msgs)
+		if !success {
+			return false, false, false, err
+		}
+
 		last = true
 
 	// OpenConfirm on counterparty
@@ -191,11 +211,11 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			dst.PathEnd.ConnConfirm(srcConn, dst.MustGetAddress()),
 		}
 		last = true
-	}
+		_, success, err = dst.SendMsgs(msgs)
+		if !success {
+			return false, false, false, err
+		}
 
-	_, success, err = dst.SendMsgs(msgs)
-	if !success {
-		return false, false, false, err
 	}
 
 	return true, last, false, nil
@@ -243,7 +263,7 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 			// TODO: update logging
 		}
 
-		openTry, err := src.PathEnd.ConnTry(dst, sh, src.MustGetAddress())
+		openTry, err := src.PathEnd.ConnTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1, src.MustGetAddress())
 		if err != nil {
 			return false, false, err
 		}
@@ -274,7 +294,7 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 			// TODO: update logging
 		}
 
-		openTry, err := dst.PathEnd.ConnTry(src, sh, dst.MustGetAddress())
+		openTry, err := dst.PathEnd.ConnTry(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1, dst.MustGetAddress())
 		if err != nil {
 			return false, false, err
 		}
