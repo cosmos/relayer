@@ -309,7 +309,12 @@ func createConnectionStepCmd() *cobra.Command {
 				return err
 			}
 
-			_, _, err = relayer.ExecuteConnectionStep(chains[src], chains[dst])
+			_, _, modified, err := relayer.ExecuteConnectionStep(chains[src], chains[dst])
+			if modified {
+				if err := overWriteConfig(cmd, config); err != nil {
+					return err
+				}
+			}
 			if err != nil {
 				return err
 			}

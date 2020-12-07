@@ -145,7 +145,14 @@ func createConnectionCmd() *cobra.Command {
 			}
 
 			// TODO: make '3' be a flag, maximum retries after failed message send
-			return c[src].CreateOpenConnections(c[dst], 3, to)
+			modified, err := c[src].CreateOpenConnections(c[dst], 3, to)
+			if modified {
+				if err := overWriteConfig(cmd, config); err != nil {
+					return err
+				}
+			}
+
+			return err
 		},
 	}
 
@@ -257,7 +264,13 @@ func linkCmd() *cobra.Command {
 
 			// TODO: make '3' a flag, maximum retries after failed message send
 			// create connection if it isn't already created
-			if err = c[src].CreateOpenConnections(c[dst], 3, to); err != nil {
+			modified, err = c[src].CreateOpenConnections(c[dst], 3, to)
+			if modified {
+				if err := overWriteConfig(cmd, config); err != nil {
+					return err
+				}
+			}
+			if err != nil {
 				return err
 			}
 
