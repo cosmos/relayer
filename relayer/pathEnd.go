@@ -144,6 +144,7 @@ func (pe *PathEnd) ConnTry(
 		return nil, err
 	}
 
+	// TODO: Get DelayPeriod from counterparty connection rather than using default value
 	msg := conntypes.NewMsgConnectionOpenTry(
 		pe.ConnectionID,
 		pe.ClientID,
