@@ -7,10 +7,10 @@ import (
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
-func (c *Chain) CreateClients(dst *Chain) (err error) {
+func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 	srcH, dstH, err := UpdatesWithHeaders(c, dst)
 	if err != nil {
-		return err
+		return modified, err
 	}
 
 	// Create client for the destination chain on the source chain if client id is unspecified
@@ -20,7 +20,7 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		}
 		ubdPeriod, err := dst.QueryUnbondingPeriod()
 		if err != nil {
-			return err
+			return modified, err
 		}
 		msgs := []sdk.Msg{
 			c.PathEnd.CreateClient(
@@ -32,19 +32,20 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		}
 		res, success, err := c.SendMsgs(msgs)
 		if err != nil {
-			return err
+			return modified, err
 		}
 		if !success {
-			return fmt.Errorf("tx failed: %s", res.RawLog)
+			return modified, fmt.Errorf("tx failed: %s", res.RawLog)
 		}
 
 		// update the client identifier
 		// use index 0, the transaction only has one message
 		clientID, err := ParseClientIDFromEvents(res.Logs[0].Events)
 		if err != nil {
-			return err
+			return modified, err
 		}
 		c.PathEnd.ClientID = clientID
+		modified = true
 
 		// TOOD: ensure config file is updated
 
@@ -59,7 +60,7 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		}
 		ubdPeriod, err := c.QueryUnbondingPeriod()
 		if err != nil {
-			return err
+			return modified, err
 		}
 		msgs := []sdk.Msg{
 			dst.PathEnd.CreateClient(
@@ -71,18 +72,19 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 		}
 		res, success, err := dst.SendMsgs(msgs)
 		if err != nil {
-			return err
+			return modified, err
 		}
 		if !success {
-			return fmt.Errorf("tx failed: %s", res.RawLog)
+			return modified, fmt.Errorf("tx failed: %s", res.RawLog)
 		}
 
 		// update client identifier
 		clientID, err := ParseClientIDFromEvents(res.Logs[0].Events)
 		if err != nil {
-			return err
+			return modified, err
 		}
 		dst.PathEnd.ClientID = clientID
+		modified = true
 
 		// TODO: ensure config file is updated
 
@@ -93,7 +95,7 @@ func (c *Chain) CreateClients(dst *Chain) (err error) {
 	c.Log(fmt.Sprintf("★ Clients created: [%s]client(%s) and [%s]client(%s)",
 		c.ChainID, c.PathEnd.ClientID, dst.ChainID, dst.PathEnd.ClientID))
 
-	return nil
+	return modified, nil
 }
 
 // UpdateClients updates clients for src on dst and dst on src given the configured paths
