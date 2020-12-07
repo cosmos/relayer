@@ -5,11 +5,6 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	commitmentypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
-)
-
-var (
-	defaultChainPrefix = commitmentypes.NewMerklePrefix([]byte("ibc"))
 )
 
 // SendTransferMsg initiates an ibs20 transfer from src to dst with the specified args

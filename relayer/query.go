@@ -196,6 +196,7 @@ var emptyConnRes = conntypes.NewQueryConnectionResponse(
 			committypes.NewMerklePrefix([]byte{}),
 		),
 		[]*conntypes.Version{},
+		0,
 	),
 	[]byte{},
 	clienttypes.NewHeight(0, 0),

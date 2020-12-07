@@ -15,6 +15,12 @@ import (
 	"github.com/tendermint/tendermint/light"
 )
 
+var (
+	defaultChainPrefix = commitmenttypes.NewMerklePrefix([]byte("ibc"))
+	defaultDelayPeriod = uint64(0)
+	defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
+)
+
 // PathEnd represents the local connection identifers for a relay path
 // The path is set on the chain before performing operations
 type PathEnd struct {
@@ -94,7 +100,7 @@ func (pe *PathEnd) CreateClient(
 		time.Minute*10,
 		dstHeader.GetHeight().(clienttypes.Height),
 		commitmenttypes.GetSDKSpecs(),
-		[]string{"upgrade", "upgradedIBCState"},
+		defaultUpgradePath,
 		false,
 		false,
 	)
@@ -122,6 +128,7 @@ func (pe *PathEnd) ConnInit(counterparty *PathEnd, signer sdk.AccAddress) sdk.Ms
 		counterparty.ClientID,
 		defaultChainPrefix,
 		version,
+		defaultDelayPeriod,
 		signer,
 	)
 }
@@ -145,6 +152,7 @@ func (pe *PathEnd) ConnTry(
 		clientState,
 		defaultChainPrefix,
 		conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
+		defaultDelayPeriod,
 		connStateProof,
 		clientStateProof,
 		consensusStateProof,
