@@ -120,7 +120,7 @@ func updateClientsCmd() *cobra.Command {
 	return cmd
 }
 
-func uppgradeClientsCmd() *cobra.Command {
+func upgradeClientsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "upgrade-clients [path-name] [chain-id]",
 		Aliases: []string{"upgrade"},
