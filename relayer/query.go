@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
@@ -26,6 +27,7 @@ import (
 	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	abci "github.com/tendermint/tendermint/abci/types"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
@@ -400,14 +402,81 @@ func (c *Chain) QueryUnbondingPeriod() (time.Duration, error) {
 	return res.Params.UnbondingTime, nil
 }
 
-// QueryConsensusParams returns the consensus params
-func (c *Chain) QueryConsensusParams() (*abci.ConsensusParams, error) {
-	rg, err := c.Client.Genesis(context.Background())
+/////////////////////////////////////
+//          UPGRADES               //
+/////////////////////////////////////
+
+func (c *Chain) QueryUpgradedClient(height int64) (*codectypes.Any, []byte, clienttypes.Height, error) {
+	req := upgradetypes.QueryCurrentPlanRequest{}
+
+	queryClient := upgradetypes.NewQueryClient(c.CLIContext(height))
+
+	res, err := queryClient.CurrentPlan(context.Background(), &req)
 	if err != nil {
-		return nil, err
+		return nil, nil, clienttypes.Height{}, err
 	}
 
-	return tmtypes.TM2PB.ConsensusParams(rg.Genesis.ConsensusParams), nil
+	client := res.Plan.UpgradedClientState
+
+	proof, proofHeight, err := c.QueryUpgradeProof(upgradetypes.UpgradedClientKey(height), uint64(height))
+	if err != nil {
+		return nil, nil, clienttypes.Height{}, err
+	}
+
+	return client, proof, proofHeight, nil
+}
+
+func (c *Chain) QueryUpgradedConsState(height int64) (*codectypes.Any, []byte, clienttypes.Height, error) {
+	req := upgradetypes.QueryUpgradedConsensusStateRequest{
+		LastHeight: height,
+	}
+
+	queryClient := upgradetypes.NewQueryClient(c.CLIContext(height))
+
+	res, err := queryClient.UpgradedConsensusState(context.Background(), &req)
+	if err != nil {
+		return nil, nil, clienttypes.Height{}, err
+	}
+
+	consState := res.UpgradedConsensusState
+
+	proof, proofHeight, err := c.QueryUpgradeProof(upgradetypes.UpgradedConsStateKey(height), uint64(height))
+	if err != nil {
+		return nil, nil, clienttypes.Height{}, err
+	}
+
+	return consState, proof, proofHeight, nil
+}
+
+// QueryUpgradeProof performs an abci query with the given key and returns the proto encoded merkle proof
+// for the query and the height at which the proof will succeed on a tendermint verifier.
+func (chain *Chain) QueryUpgradeProof(key []byte, height uint64) ([]byte, clienttypes.Height, error) {
+	res, err := chain.QueryABCI(abci.RequestQuery{
+		Path:   "store/upgrade/key",
+		Height: int64(height - 1),
+		Data:   key,
+		Prove:  true,
+	})
+	if err != nil {
+		return nil, clienttypes.Height{}, err
+	}
+
+	merkleProof, err := committypes.ConvertProofs(res.ProofOps)
+	if err != nil {
+		return nil, clienttypes.Height{}, err
+	}
+
+	proof, err := chain.Encoding.Marshaler.MarshalBinaryBare(&merkleProof)
+	if err != nil {
+		return nil, clienttypes.Height{}, err
+	}
+
+	revision := clienttypes.ParseChainID(chain.ChainID)
+
+	// proof height + 1 is returned as the proof created corresponds to the height the proof
+	// was created in the IAVL tree. Tendermint and subsequently the clients that rely on it
+	// have heights 1 above the IAVL tree. Thus we return proof height + 1
+	return proof, clienttypes.NewHeight(revision, uint64(res.Height+1)), nil
 }
 
 // WaitForNBlocks blocks until the next block on a given chain
