@@ -46,6 +46,7 @@ func transactionCmd() *cobra.Command {
 		flags.LineBreak,
 		createClientsCmd(),
 		updateClientsCmd(),
+		upgradeClientsCmd(),
 		createConnectionCmd(),
 		createChannelCmd(),
 		closeChannelCmd(),
@@ -114,6 +115,38 @@ func updateClientsCmd() *cobra.Command {
 			}
 
 			return c[src].UpdateClients(c[dst])
+		},
+	}
+	return cmd
+}
+
+func uppgradeClientsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "upgrade-clients [path-name] [chain-id]",
+		Aliases: []string{"upgrade"},
+		Short:   "upgrade a client on the provided chain-id",
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, src, dst, err := config.ChainsFromPath(args[0])
+			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
+				return err
+			}
+
+			targetChainID := args[1]
+			// send the upgrade message on the targetChainID
+			if src == targetChainID {
+				return c[src].UpgradeClients(c[dst])
+			}
+
+			return c[dst].UpgradeClients(c[src])
 		},
 	}
 	return cmd

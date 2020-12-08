@@ -134,3 +134,18 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 
 	return nil
 }
+
+// UpgradesClients upgrades the client on src after dst chain has undergone an upgrade.
+func (c *Chain) UpgradeClients(dst *Chain) (err error) {
+	sh, err := NewSyncHeaders(c, dst)
+	if err != nil {
+		return err
+	}
+
+	srcUH, dstUH, err := sh.GetTrustedHeaders(c, dst)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
