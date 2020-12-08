@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
@@ -136,19 +137,34 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 }
 
 // UpgradesClients upgrades the client on src after dst chain has undergone an upgrade.
-func (c *Chain) UpgradeClients(dst *Chain) (err error) {
+func (c *Chain) UpgradeClients(dst *Chain) error {
 	sh, err := NewSyncHeaders(c, dst)
 	if err != nil {
 		return err
 	}
+	sh.Updates(c, dst)
+	height := int64(sh.GetHeight(dst.ChainID))
 
-	srcUH, dstUH, err := sh.GetTrustedHeaders(c, dst)
+	// query proofs on counterparty
+	clientState, proofUpgradeClient, _, err := dst.QueryUpgradedClient(height)
 	if err != nil {
 		return err
 	}
 
-	// query upgrade client/proof
-	// query consensus state/proof
+	consensusState, proofUpgradeConsensusState, _, err := dst.QueryUpgradedConsState(height)
+	if err != nil {
+		return err
+	}
+
+	msg := &clienttypes.MsgUpgradeClient{c.PathEnd.ClientID, clientState, consensusState, proofUpgradeClient, proofUpgradeConsensusState, c.MustGetAddress().String()}
+	if err != nil {
+		return err
+	}
+
+	_, _, err = c.SendMsg(msg)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
