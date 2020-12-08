@@ -416,6 +416,9 @@ func (c *Chain) QueryUpgradedClient(height int64) (*codectypes.Any, []byte, clie
 		return nil, nil, clienttypes.Height{}, err
 	}
 
+	if res == nil || res.Plan == nil || res.Plan.UpgradedClientState == nil {
+		return nil, nil, clienttypes.Height{}, fmt.Errorf("upgraded client state plan does not exist at height %d", height)
+	}
 	client := res.Plan.UpgradedClientState
 
 	proof, proofHeight, err := c.QueryUpgradeProof(upgradetypes.UpgradedClientKey(height), uint64(height))
@@ -438,6 +441,9 @@ func (c *Chain) QueryUpgradedConsState(height int64) (*codectypes.Any, []byte, c
 		return nil, nil, clienttypes.Height{}, err
 	}
 
+	if res == nil || res.UpgradedConsensusState == nil {
+		return nil, nil, clienttypes.Height{}, fmt.Errorf("upgraded consensus state plan does not exist at height %d", height)
+	}
 	consState := res.UpgradedConsensusState
 
 	proof, proofHeight, err := c.QueryUpgradeProof(upgradetypes.UpgradedConsStateKey(height), uint64(height))
