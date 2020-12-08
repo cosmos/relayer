@@ -147,5 +147,8 @@ func (c *Chain) UpgradeClients(dst *Chain) (err error) {
 		return err
 	}
 
+	// query upgrade client/proof
+	// query consensus state/proof
+
 	return nil
 }
