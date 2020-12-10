@@ -18,6 +18,7 @@ package cmd
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
@@ -50,6 +51,10 @@ func initLightCmd() *cobra.Command {
 	1. passing it a root of trust as a --hash/-x and --height
 	2. Use --force/-f to initialize from the configured node`,
 		Args: cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s light init ibc-0 --force
+$ %s light init ibc-1 --height 1406 --hash <hash>
+$ %s l i ibc-2 --force`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -104,6 +109,9 @@ func updateLightCmd() *cobra.Command {
 		Aliases: []string{"u"},
 		Short:   "Update the light client to latest header from configured node",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s light update ibc-0
+$ %s l u ibc-1`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -136,6 +144,10 @@ func lightHeaderCmd() *cobra.Command {
 		Long: "Get a header from the light client database. 0 returns last" +
 			"trusted header and all others return the header at that height if stored",
 		Args: cobra.RangeArgs(1, 2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s light header ibc-0
+$ %s light header ibc-1 1400
+$ %s l hdr ibc-2`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainID := args[0]
 			chain, err := config.Chains.Get(chainID)
@@ -194,6 +206,9 @@ func deleteLightCmd() *cobra.Command {
 		Aliases: []string{"d"},
 		Short:   "wipe the light client database, forcing re-initialzation on the next run",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s light delete ibc-0
+$ %s l d ibc-2`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainID := args[0]
 			chain, err := config.Chains.Get(chainID)
