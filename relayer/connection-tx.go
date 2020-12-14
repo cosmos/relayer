@@ -69,7 +69,7 @@ func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Dur
 		}
 	}
 
-	return modified, nil
+	return modified, nil //lgtm [go/unreachable-statement]
 }
 
 // ExecuteConnectionStep executes the next connection step based on the

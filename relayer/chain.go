@@ -22,9 +22,12 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	connectiontypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
 	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
+	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	"github.com/cosmos/go-bip39"
 	"github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/libs/log"
@@ -667,4 +670,46 @@ func (c *Chain) GenerateConnHandshakeProof(height uint64) (ibcexported.ClientSta
 
 	return clientState, clientStateRes.Proof, consensusStateRes.Proof, connectionStateRes.Proof, connectionStateRes.ProofHeight, nil
 
+}
+
+// UpgradesChain submits and upgrade proposal using a zero'd out client state with an updated unbonding period.
+func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Coin, unbondingPeriod time.Duration) error {
+	sh, err := NewSyncHeaders(c, dst)
+	if err != nil {
+		return err
+	}
+	sh.Updates(c, dst)
+	height := int64(sh.GetHeight(dst.ChainID))
+
+	clientStateRes, err := dst.QueryClientState(height)
+	if err != nil {
+		return err
+	}
+	clientState, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
+	if err != nil {
+		return err
+	}
+
+	upgradedClientState := clientState.ZeroCustomFields().(*ibctmtypes.ClientState)
+	upgradedClientState.UnbondingPeriod = unbondingPeriod
+	upgradedAny, err := clienttypes.PackClientState(upgradedClientState)
+	if err != nil {
+		return err
+	}
+
+	plan.UpgradedClientState = upgradedAny
+
+	// TODO: make cli args for title and description
+	upgradeProposal := upgradetypes.NewSoftwareUpgradeProposal("upgrade", "upgrade the chain's software and unbonding period", *plan)
+	msg, err := govtypes.NewMsgSubmitProposal(upgradeProposal, sdk.NewCoins(deposit), c.MustGetAddress())
+	if err != nil {
+		return err
+	}
+
+	_, _, err = c.SendMsg(msg)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

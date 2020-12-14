@@ -73,7 +73,7 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 		}
 	}
 
-	return modified, nil
+	return modified, nil //lgtm [go/unreachable-statement]
 }
 
 // ExecuteChannelStep executes the next channel step based on the

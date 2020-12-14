@@ -434,7 +434,7 @@ func (c *Chain) QueryUpgradedConsState(height int64) (*codectypes.Any, []byte, c
 		LastHeight: height,
 	}
 
-	queryClient := upgradetypes.NewQueryClient(c.CLIContext(height))
+	queryClient := upgradetypes.NewQueryClient(c.CLIContext(height + 1))
 
 	res, err := queryClient.UpgradedConsensusState(context.Background(), &req)
 	if err != nil {
