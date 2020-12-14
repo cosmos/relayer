@@ -69,7 +69,7 @@ func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Dur
 		}
 	}
 
-	return modified, nil //lgtm [go/unreachable-statement]
+	return modified, nil // lgtm [go/unreachable-statement]
 }
 
 // ExecuteConnectionStep executes the next connection step based on the
@@ -82,7 +82,9 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	if err != nil {
 		return false, false, false, err
 	}
-	sh.Updates(src, dst)
+	if err := sh.Updates(src, dst); err != nil {
+		return false, false, false, err
+	}
 
 	// variables needed to determine the current handshake step
 	var (
@@ -95,7 +97,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	// get headers to update light clients on chain
 	srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(src, dst)
 	if err != nil {
-		return false, false, false, err
+		return false, false, false, fmt.Errorf("failed to get trusted headers: %v", err)
 	}
 
 	// if either identifier is missing, an existing connection that matches the required fields
