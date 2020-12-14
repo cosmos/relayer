@@ -335,7 +335,7 @@ func (c *Chain) QueryDenomTraces(offset, limit uint64, height int64) (*transfert
 // QueryHistoricalInfo returns historical header data
 func (c *Chain) QueryHistoricalInfo(height clienttypes.Height) (*stakingtypes.QueryHistoricalInfoResponse, error) {
 	//TODO: use epoch number in query once SDK gets updated
-	qc := stakingtypes.NewQueryClient(c.CLIContext(int64(height.GetRevisionHeight())))
+	qc := stakingtypes.NewQueryClient(c.CLIContext(0))
 	return qc.HistoricalInfo(context.Background(), &stakingtypes.QueryHistoricalInfoRequest{
 		Height: int64(height.GetRevisionHeight()),
 	})

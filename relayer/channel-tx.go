@@ -73,7 +73,7 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 		}
 	}
 
-	return modified, nil //lgtm [go/unreachable-statement]
+	return modified, nil // lgtm [go/unreachable-statement]
 }
 
 // ExecuteChannelStep executes the next channel step based on the
@@ -375,7 +375,9 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 	if err != nil {
 		return nil, err
 	}
-	sh.Updates(c, dst)
+	if err := sh.Updates(c, dst); err != nil {
+		return nil, err
+	}
 
 	// Query a number of things all at once
 	var (

@@ -9,6 +9,15 @@ import (
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
 func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
+	// Handle off chain light clients
+	if err := c.ValidateLightInitialized(); err != nil {
+		return false, err
+	}
+
+	if err = dst.ValidateLightInitialized(); err != nil {
+		return false, err
+	}
+
 	srcH, dstH, err := UpdatesWithHeaders(c, dst)
 	if err != nil {
 		return false, err
@@ -48,10 +57,12 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		c.PathEnd.ClientID = clientID
 		modified = true
 
-		// TOOD: ensure config file is updated
-
 	} else {
-		// TODO return error if the client does not exist
+		// Ensure client exists in the event of user inputted identifiers
+		_, err := c.QueryClientState(srcH.Header.Height)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	// Create client for the source chain on destination chain if client id is unspecified
@@ -87,14 +98,17 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		dst.PathEnd.ClientID = clientID
 		modified = true
 
-		// TODO: ensure config file is updated
-
 	} else {
-		// TODO: throw error if the client does not exist
+		// Ensure client exists in the event of user inputted identifiers
+		_, err := dst.QueryClientState(dstH.Header.Height)
+		if err != nil {
+			return false, err
+		}
+
 	}
 
-	c.Log(fmt.Sprintf("★ Clients created: [%s]client(%s) and [%s]client(%s)",
-		c.ChainID, c.PathEnd.ClientID, dst.ChainID, dst.PathEnd.ClientID))
+	c.Log(fmt.Sprintf("★ Clients created: client(%s) on chain[%s] and client(%s) on chain[%s]",
+		c.PathEnd.ClientID, c.ChainID, dst.PathEnd.ClientID, dst.ChainID))
 
 	return modified, nil
 }
