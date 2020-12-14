@@ -16,11 +16,16 @@ limitations under the License.
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -433,6 +438,65 @@ func relayAcksCmd() *cobra.Command {
 	}
 
 	return strategyFlag(cmd)
+}
+
+func upgradeChainCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "upgrade-chain [path-name] [chain-id] [new-unbonding-period] [deposit] [path/to/upgradePlan.json]",
+		Short: "upgrade a chain ",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, src, dst, err := config.ChainsFromPath(args[0])
+			if err != nil {
+				return err
+			}
+
+			targetChainID := args[1]
+
+			unbondingPeriod, err := time.ParseDuration(args[2])
+			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
+				return err
+			}
+
+			// parse deposit
+			deposit, err := sdk.ParseCoinNormalized(args[3])
+			if err != nil {
+				return err
+			}
+
+			// parse plan
+			plan := &upgradetypes.Plan{}
+			path := args[4]
+			if _, err := os.Stat(path); err != nil {
+				return err
+			}
+
+			byt, err := ioutil.ReadFile(path)
+			if err != nil {
+				return err
+			}
+
+			if err = json.Unmarshal(byt, plan); err != nil {
+				return err
+			}
+
+			// send the upgrade message on the targetChainID
+			if src == targetChainID {
+				return c[src].UpgradeChain(c[dst], plan, deposit, unbondingPeriod)
+			}
+
+			return c[dst].UpgradeChain(c[src], plan, deposit, unbondingPeriod)
+		},
+	}
+	return cmd
 }
 
 // Returns an error if a configured key for a given chain doesn't exist
