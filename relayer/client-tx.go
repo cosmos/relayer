@@ -61,7 +61,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		// Ensure client exists in the event of user inputted identifiers
 		_, err := c.QueryClientState(srcH.Header.Height)
 		if err != nil {
-			return false, err
+			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v", c.PathEnd.ClientID, c.ChainID, err)
 		}
 	}
 
@@ -102,7 +102,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		// Ensure client exists in the event of user inputted identifiers
 		_, err := dst.QueryClientState(dstH.Header.Height)
 		if err != nil {
-			return false, err
+			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v", dst.PathEnd.ClientID, dst.ChainID, err)
 		}
 
 	}

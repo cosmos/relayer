@@ -52,6 +52,7 @@ func transactionCmd() *cobra.Command {
 		createClientsCmd(),
 		updateClientsCmd(),
 		upgradeClientsCmd(),
+		upgradeChainCmd(),
 		createConnectionCmd(),
 		createChannelCmd(),
 		closeChannelCmd(),
@@ -443,8 +444,8 @@ func relayAcksCmd() *cobra.Command {
 func upgradeChainCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upgrade-chain [path-name] [chain-id] [new-unbonding-period] [deposit] [path/to/upgradePlan.json]",
-		Short: "upgrade a chain ",
-		Args:  cobra.ExactArgs(3),
+		Short: "upgrade a chain by providing the chain-id of the chain being upgraded, the new unbonding period, the proposal deposit and the json file of the upgrade plan without the upgrade client state ",
+		Args:  cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
