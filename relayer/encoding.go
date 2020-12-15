@@ -195,6 +195,7 @@ func (pc *ProtoCodec) MustUnmarshalJSON(bz []byte, ptr proto.Message) {
 // the provided value, which must be an interface, in an Any and then marshals it to bytes.
 // NOTE: to marshal a concrete type, you should use MarshalBinaryBare instead
 func (pc *ProtoCodec) MarshalInterface(i proto.Message) ([]byte, error) {
+	defer pc.useContext()()
 	if err := assertNotNil(i); err != nil {
 		return nil, err
 	}
@@ -228,6 +229,7 @@ func (pc *ProtoCodec) UnmarshalInterface(bz []byte, ptr interface{}) error {
 // packs the provided value in an Any and then marshals it to bytes.
 // NOTE: to marshal a concrete type, you should use MarshalJSON instead
 func (pc *ProtoCodec) MarshalInterfaceJSON(x proto.Message) ([]byte, error) {
+	defer pc.useContext()()
 	any, err := types.NewAnyWithValue(x)
 	if err != nil {
 		return nil, err
