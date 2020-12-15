@@ -365,7 +365,7 @@ func queryClientCmd() *cobra.Command {
 				return err
 			}
 
-			return chain.CLIContext(height).PrintOutput(res)
+			return chain.CLIContext(height).PrintProto(res)
 		},
 	}
 
@@ -504,7 +504,7 @@ func queryConnectionsUsingClient() *cobra.Command {
 				return err
 			}
 
-			return chain.CLIContext(height).PrintOutput(res)
+			return chain.CLIContext(height).PrintProto(res)
 		},
 	}
 
@@ -537,7 +537,7 @@ func queryConnection() *cobra.Command {
 				return err
 			}
 
-			return chain.CLIContext(height).PrintOutput(res)
+			return chain.CLIContext(height).PrintProto(res)
 		},
 	}
 
@@ -613,7 +613,7 @@ func queryChannel() *cobra.Command {
 				return err
 			}
 
-			return chain.CLIContext(height).PrintOutput(res)
+			return chain.CLIContext(height).PrintProto(res)
 		},
 	}
 

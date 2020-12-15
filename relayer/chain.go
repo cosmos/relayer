@@ -304,7 +304,7 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (*sdk.TxResponse, bool, error) {
 	}
 
 	// Attach the signature to the transaction
-	err = tx.Sign(txf, c.Key, txb)
+	err = tx.Sign(txf, c.Key, txb, false)
 	if err != nil {
 		return nil, false, err
 	}
