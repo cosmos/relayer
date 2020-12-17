@@ -7,7 +7,7 @@ require (
 	github.com/avast/retry-go v2.6.0+incompatible
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
 	github.com/containerd/continuity v0.0.0-20200928162600-f2cc35102c2a // indirect
-	github.com/cosmos/cosmos-sdk v0.40.0-rc5
+	github.com/cosmos/cosmos-sdk v0.40.0-rc5.0.20201216094120-1c6881def899
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/gogo/protobuf v1.3.1
 	github.com/gorilla/mux v1.8.0
