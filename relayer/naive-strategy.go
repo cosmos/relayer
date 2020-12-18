@@ -470,6 +470,10 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 // RelayPackets creates transactions to relay packets from src to dst and from dst to src
 // CONTRACT: the SyncHeaders passed in here must be up to date or being kept updated
 func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) error {
+	if err := sh.Updates(src, dst); err != nil {
+		return err
+	}
+
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []sdk.Msg{},

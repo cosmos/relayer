@@ -72,7 +72,7 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) (sdk.Msg, error) {
 	if rp.dstRecvRes == nil {
 		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
 	}
-	version := clienttypes.ParseChainID(src.PathEnd.ChainID)
+	version := clienttypes.ParseChainID(dst.PathEnd.ChainID)
 	msg := chantypes.NewMsgTimeout(
 		chantypes.NewPacket(
 			rp.packetData,
