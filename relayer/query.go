@@ -409,7 +409,7 @@ func (c *Chain) QueryUnbondingPeriod() (time.Duration, error) {
 func (c *Chain) QueryUpgradedClient(height int64) (*codectypes.Any, []byte, clienttypes.Height, error) {
 	req := upgradetypes.QueryCurrentPlanRequest{}
 
-	queryClient := upgradetypes.NewQueryClient(c.CLIContext(height))
+	queryClient := upgradetypes.NewQueryClient(c.CLIContext(0))
 
 	res, err := queryClient.CurrentPlan(context.Background(), &req)
 	if err != nil {
@@ -434,7 +434,7 @@ func (c *Chain) QueryUpgradedConsState(height int64) (*codectypes.Any, []byte, c
 		LastHeight: height,
 	}
 
-	queryClient := upgradetypes.NewQueryClient(c.CLIContext(height + 1))
+	queryClient := upgradetypes.NewQueryClient(c.CLIContext(0))
 
 	res, err := queryClient.UpgradedConsensusState(context.Background(), &req)
 	if err != nil {

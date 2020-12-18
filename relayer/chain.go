@@ -691,6 +691,7 @@ func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Co
 	}
 
 	upgradedClientState := clientState.ZeroCustomFields().(*ibctmtypes.ClientState)
+	upgradedClientState.LatestHeight.RevisionHeight = uint64(plan.Height + 1)
 	upgradedClientState.UnbondingPeriod = unbondingPeriod
 	upgradedAny, err := clienttypes.PackClientState(upgradedClientState)
 	if err != nil {

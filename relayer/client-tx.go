@@ -156,8 +156,15 @@ func (c *Chain) UpgradeClients(dst *Chain) error {
 	if err != nil {
 		return err
 	}
-	sh.Updates(c, dst)
+	if err := sh.Updates(c, dst); err != nil {
+		return err
+	}
 	height := int64(sh.GetHeight(dst.ChainID))
+
+	// TODO: construct method of only attempting to get dst header
+	// Note: we explicitly do not check the error since the source
+	// trusted header will fail
+	_, dstUpdateHeader, _ := sh.GetTrustedHeaders(c, dst)
 
 	// query proofs on counterparty
 	clientState, proofUpgradeClient, _, err := dst.QueryUpgradedClient(height)
@@ -170,12 +177,17 @@ func (c *Chain) UpgradeClients(dst *Chain) error {
 		return err
 	}
 
-	msg := &clienttypes.MsgUpgradeClient{c.PathEnd.ClientID, clientState, consensusState, proofUpgradeClient, proofUpgradeConsensusState, c.MustGetAddress().String()}
+	upgradeMsg := &clienttypes.MsgUpgradeClient{c.PathEnd.ClientID, clientState, consensusState, proofUpgradeClient, proofUpgradeConsensusState, c.MustGetAddress().String()}
 	if err != nil {
 		return err
 	}
 
-	_, _, err = c.SendMsg(msg)
+	msgs := []sdk.Msg{
+		c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
+		upgradeMsg,
+	}
+
+	_, _, err = c.SendMsgs(msgs)
 	if err != nil {
 		return err
 	}
