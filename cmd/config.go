@@ -218,7 +218,7 @@ func cfgFilesAdd(dir string) (cfg *Config, err error) {
 			// this is to ensure non-chain files (global config) does not get parsed into chain struct.
 			// Future work should implement bottom-up validation.
 			if c.ChainID != pthName {
-				fmt.Printf("Skipping non chain file: %s", f.Name())
+				fmt.Printf("Skipping non chain file: %s\n", f.Name())
 				continue
 			}
 		}
