@@ -740,5 +740,3 @@ func queryUnrelayedAcknowledgements() *cobra.Command {
 
 	return cmd
 }
-
-// TODO: Reimplement query path status

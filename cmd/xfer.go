@@ -56,11 +56,6 @@ func xfersend() *cobra.Command {
 				}
 			}
 
-			// TODO: add ability to set timeout height and time from flags
-			// Should be relative to current time and block height
-			// --timeout-height-offset=1000
-			// --timeout-time-offset=2h
-
 			toHeightOffset, err := cmd.Flags().GetUint64(flagTimeoutHeightOffset)
 			if err != nil {
 				return err

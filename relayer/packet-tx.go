@@ -42,7 +42,6 @@ func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringe
 	}
 
 	// MsgTransfer will call SendPacket on src chain
-	// TODO: Add ability to specify timeout time or height via command line flags
 	txs := RelayMsgs{
 		Src: []sdk.Msg{c.PathEnd.MsgTransfer(
 			dst.PathEnd, amount, dstAddrString, c.MustGetAddress(), timeoutHeight, timeoutTimestamp,

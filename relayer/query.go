@@ -51,7 +51,9 @@ func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
 		if err != nil {
 			return nil, err
 		}
+		done := c.UseSDKContext()
 		addr = info.GetAddress()
+		done()
 	}
 	return c.QueryBalanceWithAddress(addr.String())
 }
@@ -348,7 +350,7 @@ func (c *Chain) QueryHistoricalInfo(height clienttypes.Height) (*stakingtypes.Qu
 func (c *Chain) QueryValsetAtHeight(height clienttypes.Height) (*tmproto.ValidatorSet, error) {
 	res, err := c.QueryHistoricalInfo(height)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("chain(%s): %s", c.ChainID, err)
 	}
 
 	// create tendermint ValidatorSet from SDK Validators
@@ -356,7 +358,7 @@ func (c *Chain) QueryValsetAtHeight(height clienttypes.Height) (*tmproto.Validat
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Add sorting logic to historical info
+
 	sort.Sort(tmtypes.ValidatorsByVotingPower(tmVals))
 	tmValSet := &tmtypes.ValidatorSet{
 		Validators: tmVals,

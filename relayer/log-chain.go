@@ -48,7 +48,6 @@ func (c *Chain) logPacketsRelayed(dst *Chain, num int) {
 }
 
 func logChannelStates(src, dst *Chain, srcChan, dstChan *chantypes.QueryChannelResponse) {
-	// TODO: replace channelID with portID?
 	src.Log(fmt.Sprintf("- [%s]@{%d}chan(%s)-{%s} : [%s]@{%d}chan(%s)-{%s}",
 		src.ChainID,
 		MustGetHeight(srcChan.ProofHeight),
