@@ -36,11 +36,16 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 	require.NoError(t, err)
 
 	// create path
-	require.NoError(t, src.CreateClients(dst))
+	_, err = src.CreateClients(dst)
+	require.NoError(t, err)
 	testClientPair(t, src, dst)
-	require.NoError(t, src.CreateOpenConnections(dst, 3, src.GetTimeout()))
+
+	_, err = src.CreateOpenConnections(dst, 3, src.GetTimeout())
+	require.NoError(t, err)
 	testConnectionPair(t, src, dst)
-	require.NoError(t, src.CreateOpenChannels(dst, 3, src.GetTimeout()))
+
+	_, err = src.CreateOpenChannels(dst, 3, src.GetTimeout())
+	require.NoError(t, err)
 	testChannelPair(t, src, dst)
 
 	// send a couple of transfers to the queue on src
