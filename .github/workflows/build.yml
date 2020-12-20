@@ -20,7 +20,7 @@ jobs:
       # setup gopath
       - name: Set PATH
         run: |
-          echo "::add-path::$(go env GOPATH)/bin"
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
         shell: bash
 
       # checkout relayer
