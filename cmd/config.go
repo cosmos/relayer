@@ -191,6 +191,7 @@ func cfgFilesAdd(dir string) (cfg *Config, err error) {
 			p := &relayer.Path{}
 			if err = json.Unmarshal(byt, p); err != nil {
 				fmt.Printf("failed to unmarshal file %s, skipping...\n", pth)
+				continue
 			}
 
 			// In the case that order isn't added to the path, add it manually
