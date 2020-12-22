@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	tmservice "github.com/tendermint/tendermint/libs/service"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 )
 
@@ -83,8 +84,10 @@ func relayerListenLoop(src, dst *Chain, doneChan chan struct{}, sh *SyncHeaders,
 
 	// Start client for source chain
 	if err = src.Start(); err != nil {
-		// Don't exit on error, if the client is already started its ok
-		// TODO: Need to do anything here?
+		if err != tmservice.ErrAlreadyStarted {
+			src.Error(err)
+			return
+		}
 	}
 
 	// Subscibe to txEvents from the source chain
@@ -105,8 +108,10 @@ func relayerListenLoop(src, dst *Chain, doneChan chan struct{}, sh *SyncHeaders,
 
 	// Subscribe to destination chain
 	if err = dst.Start(); err != nil {
-		// Don't exit on error, if the client is already started its ok
-		// TODO: Need to do anything here?
+		if err != tmservice.ErrAlreadyStarted {
+			dst.Error(err)
+			return
+		}
 	}
 
 	// Subscibe to txEvents from the destination chain
