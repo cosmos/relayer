@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/cosmos/relayer/relayer"
 	"github.com/gogo/protobuf/proto"
@@ -64,7 +65,7 @@ func WriteErrorResponse(statusCode int, err error, w http.ResponseWriter) {
 
 // ParseHeightFromRequest parse height from query params and if not found, returns latest height
 func ParseHeightFromRequest(r *http.Request, chain *relayer.Chain) (int64, error) {
-	heightStr := r.URL.Query().Get("height")
+	heightStr := strings.TrimSpace(r.URL.Query().Get("height"))
 
 	if len(heightStr) == 0 {
 		height, err := chain.QueryLatestHeight()
@@ -83,8 +84,8 @@ func ParseHeightFromRequest(r *http.Request, chain *relayer.Chain) (int64, error
 
 // ParsePaginationParams parse limit and offset query params in request
 func ParsePaginationParams(r *http.Request) (uint64, uint64, error) {
-	offsetStr := r.URL.Query().Get("offset")
-	limitStr := r.URL.Query().Get("limit")
+	offsetStr := strings.TrimSpace(r.URL.Query().Get("offset"))
+	limitStr := strings.TrimSpace(r.URL.Query().Get("limit"))
 
 	var offset, limit uint64
 	var err error

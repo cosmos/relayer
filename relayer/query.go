@@ -62,11 +62,10 @@ func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
 func (c *Chain) QueryBalanceWithAddress(address string) (sdk.Coins, error) {
 	done := c.UseSDKContext()
 	addr, err := sdk.AccAddressFromBech32(address)
+	done()
 	if err != nil {
-		done()
 		return nil, err
 	}
-	done()
 
 	params := bankTypes.NewQueryAllBalancesRequest(addr, &querytypes.PageRequest{
 		Key:        []byte(""),

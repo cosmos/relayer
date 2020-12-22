@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
@@ -190,7 +191,7 @@ func GetLightHeader(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var header *tmclient.Header
-	height := r.URL.Query().Get("height")
+	height := strings.TrimSpace(r.URL.Query().Get("height"))
 
 	if len(height) == 0 {
 		header, err = helpers.GetLightHeader(chain)

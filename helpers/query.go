@@ -30,23 +30,23 @@ func QueryBalance(chain *relayer.Chain, address string, showDenoms bool) (sdk.Co
 		return nil, err
 	}
 
-	if len(dts.DenomTraces) > 0 {
-		out := sdk.Coins{}
-		for _, c := range coins {
-			for _, d := range dts.DenomTraces {
-				switch {
-				case c.Amount.Equal(sdk.NewInt(0)):
-				case c.Denom == d.IBCDenom():
-					out = append(out, sdk.NewCoin(d.GetFullDenomPath(), c.Amount))
-				default:
-					out = append(out, c)
-				}
-			}
-		}
-		return out, nil
+	if len(dts.DenomTraces) == 0 {
+		return coins, nil
 	}
 
-	return coins, nil
+	var out sdk.Coins
+	for _, c := range coins {
+		for _, d := range dts.DenomTraces {
+			switch {
+			case c.Amount.Equal(sdk.NewInt(0)):
+			case c.Denom == d.IBCDenom():
+				out = append(out, sdk.NewCoin(d.GetFullDenomPath(), c.Amount))
+			default:
+				out = append(out, c)
+			}
+		}
+	}
+	return out, nil
 }
 
 // QueryHeader is a helper function for query header
@@ -57,30 +57,21 @@ func QueryHeader(chain *relayer.Chain, opts ...string) (*tmclient.Header, error)
 			return nil, err
 		}
 
-		if height == 0 {
+		if height <= 0 {
 			height, err = chain.QueryLatestHeight()
 			if err != nil {
 				return nil, err
 			}
 
-			if height == -1 {
+			if height < 0 {
 				return nil, relayer.ErrLightNotInitialized
 			}
 		}
 
-		header, err := chain.QueryHeaderAtHeight(height)
-		if err != nil {
-			return nil, err
-		}
-		return header, nil
+		return chain.QueryHeaderAtHeight(height)
 	}
 
-	header, err := chain.QueryLatestHeader()
-	if err != nil {
-		return nil, err
-	}
-
-	return header, nil
+	return chain.QueryLatestHeader()
 }
 
 // QueryTxs is a helper function for query txs
@@ -95,10 +86,5 @@ func QueryTxs(chain *relayer.Chain, eventsStr string, offset uint64, limit uint6
 		return nil, err
 	}
 
-	txs, err := chain.QueryTxs(relayer.MustGetHeight(h.GetHeight()), int(offset), int(limit), events)
-	if err != nil {
-		return nil, err
-	}
-
-	return txs, nil
+	return chain.QueryTxs(relayer.MustGetHeight(h.GetHeight()), int(offset), int(limit), events)
 }

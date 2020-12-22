@@ -256,7 +256,7 @@ func QueryBalanceHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ibcDenoms := r.URL.Query().Get("ibc-denoms")
+	ibcDenoms := strings.TrimSpace(r.URL.Query().Get("ibc-denoms"))
 
 	showDenoms := false
 	if ibcDenoms == "true" {
@@ -281,7 +281,7 @@ func QueryHeaderHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var header *tmclient.Header
-	height := r.URL.Query().Get("height")
+	height := strings.TrimSpace(r.URL.Query().Get("height"))
 
 	if len(height) == 0 {
 		header, err = helpers.QueryHeader(chain)
@@ -361,11 +361,11 @@ func QueryTxsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Setting default values for pagination if query params not given
-	if len(r.URL.Query().Get("offset")) == 0 {
+	if len(strings.TrimSpace(r.URL.Query().Get("offset"))) == 0 {
 		offset = 1
 	}
 
-	if len(r.URL.Query().Get("limit")) == 0 {
+	if len(strings.TrimSpace(r.URL.Query().Get("limit"))) == 0 {
 		limit = 100
 	}
 

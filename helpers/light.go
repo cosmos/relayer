@@ -16,30 +16,21 @@ func GetLightHeader(chain *relayer.Chain, opts ...string) (*tmclient.Header, err
 			return nil, err
 		}
 
-		if height == 0 {
+		if height <= 0 {
 			height, err = chain.GetLatestLightHeight()
 			if err != nil {
 				return nil, err
 			}
 
-			if height == -1 {
+			if height < 0 {
 				return nil, relayer.ErrLightNotInitialized
 			}
 		}
 
-		header, err := chain.GetLightSignedHeaderAtHeight(height)
-		if err != nil {
-			return nil, err
-		}
-		return header, nil
+		return chain.GetLightSignedHeaderAtHeight(height)
 	}
 
-	header, err := chain.GetLatestLightHeader()
-	if err != nil {
-		return nil, err
-	}
-
-	return header, nil
+	return chain.GetLatestLightHeader()
 }
 
 // InitLight is a helper function for init light
@@ -63,11 +54,10 @@ func InitLight(chain *relayer.Chain, force bool, height int64, hash []byte) (str
 		if err != nil {
 			return "", wrapInitFailed(err)
 		}
+		return "", nil
 	default: // return error
 		return "", errInitWrongFlags
 	}
-
-	return "", nil
 }
 
 // UpdateLight is a helper function for update light
