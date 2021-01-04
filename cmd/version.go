@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -30,6 +31,9 @@ func getVersionCmd() *cobra.Command {
 		Use:     "version",
 		Aliases: []string{"v"},
 		Short:   "Print relayer version info",
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s version --json
+$ %s v`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsn, err := cmd.Flags().GetBool(flagJSON)
 			if err != nil {

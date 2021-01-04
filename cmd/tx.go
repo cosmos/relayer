@@ -71,6 +71,9 @@ func createClientsCmd() *cobra.Command {
 		Long: "Creates a working ibc client for chain configured on each end of the" +
 			" path by querying headers from each chain and then sending the corresponding create-client messages",
 		Args: cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact clients demo-path
+$ %s tx clnts demo-path`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -106,6 +109,10 @@ func updateClientsCmd() *cobra.Command {
 		Long: "Updates a working ibc client for chain configured on each end of the " +
 			"path by querying headers from each chain and then sending the corresponding update-client messages",
 		Args: cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact update-clients demo-path
+$ %s tx update demo-path
+$ %s tx uc demo-path`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -166,6 +173,10 @@ func createConnectionCmd() *cobra.Command {
 		Long: strings.TrimSpace(`This command is meant to be used to repair or create 
 		a connection between two chains with a configured path in the config file`),
 		Args: cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact connection demo-path
+$ %s tx conn demo-path --timeout 5s
+$ %s tx con demo-path -o 3s`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -208,6 +219,10 @@ func createChannelCmd() *cobra.Command {
 		Long: strings.TrimSpace(`This command is meant to be used to repair or 
 		create a channel between two chains with a configured path in the config file`),
 		Args: cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact channel demo-path
+$ %s tx chan demo-path --timeout 5s
+$ %s tx ch demo-path -o 3s`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -250,6 +265,11 @@ func closeChannelCmd() *cobra.Command {
 		Short:   "close a channel between two configured chains with a configured path",
 		Long:    "This command is meant to close a channel",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact channel-close demo-path
+$ %s tx chan-cl demo-path --timeout 5s
+$ %s tx cl demo-path
+$ %s tx close demo-path -o 3s`, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -282,6 +302,12 @@ func linkCmd() *cobra.Command {
 		Aliases: []string{"full-path", "connect", "path", "pth"},
 		Short:   "create clients, connection, and channel between two configured chains with a configured path",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact link demo-path
+$ %s tx full-path demo-path --timeout 5s
+$ %s tx connect demo-path
+$ %s tx path demo-path -o 3s
+$ %s tx pth demo-path`, appName, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -342,6 +368,9 @@ func linkThenStartCmd() *cobra.Command {
 		Use:   "link-then-start [path-name]",
 		Short: "wait for a link to come up, then start relaying packets",
 		Args:  cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact link-then-start demo-path
+$ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lCmd := linkCmd()
 			for err := lCmd.RunE(cmd, args); err != nil; err = lCmd.RunE(cmd, args) {
@@ -361,6 +390,11 @@ func relayMsgsCmd() *cobra.Command {
 		Aliases: []string{"rly", "pkts", "relay"},
 		Short:   "relay any packets that remain to be relayed on a given path, in both directions",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact relay-packets demo-path
+$ %s tx rly demo-path -l 3
+$ %s tx pkts demo-path -s 5
+$ %s tx relay demo-path`, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -403,6 +437,9 @@ func relayAcksCmd() *cobra.Command {
 		Aliases: []string{"acks"},
 		Short:   "relay any acknowledgements that remain to be relayed on a given path, in both directions",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact relay-acknowledgements demo-path
+$ %s tx acks demo-path -l 3 -s 6`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {

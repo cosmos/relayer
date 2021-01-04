@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -45,6 +46,9 @@ func updateClientCmd() *cobra.Command {
 		Aliases: []string{"uc"},
 		Short:   "update client for dst-chain on src-chain",
 		Args:    cobra.ExactArgs(3),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact raw update-client ibc-0 ibc-1 ibczeroclient
+$ %s tx raw uc ibc-0 ibc-1 ibconeclient`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 
@@ -79,6 +83,9 @@ func createClientCmd() *cobra.Command {
 		Aliases: []string{"clnt"},
 		Short:   "create a client for dst-chain on src-chain",
 		Args:    cobra.ExactArgs(3),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact raw client ibc-0 ibc-1 ibczeroclient
+$ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -113,6 +120,9 @@ func connInit() *cobra.Command {
 		Use:   "conn-init [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id]",
 		Short: "conn-init",
 		Args:  cobra.ExactArgs(6),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact raw conn-init ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2
+$ %s tx raw conn-init ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -140,6 +150,9 @@ func connTry() *cobra.Command {
 		Use:   "conn-try [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id]",
 		Short: "conn-try",
 		Args:  cobra.ExactArgs(6),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact raw conn-try ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2
+$ %s tx raw conn-try ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -185,6 +198,9 @@ func connAck() *cobra.Command {
 		Use:   "conn-ack [src-chain-id] [dst-chain-id] [dst-client-id] [src-client-id] [src-conn-id] [dst-conn-id]",
 		Short: "conn-ack",
 		Args:  cobra.ExactArgs(6),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact raw conn-ack ibc-0 ibc-1 ibconeclient ibczeroclient ibcconn1 ibcconn2
+$ %s tx raw conn-ack ibc-0 ibc-1 ibconeclient ibczeroclient ibcconn1 ibcconn2`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -231,6 +247,9 @@ func connConfirm() *cobra.Command {
 		Use:   "conn-confirm [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id]",
 		Short: "conn-confirm",
 		Args:  cobra.ExactArgs(6),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact raw conn-confirm ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2
+$ %s tx raw conn-confirm ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -282,6 +301,9 @@ func createConnectionStepCmd() *cobra.Command {
 		Long: strings.TrimSpace(`This command creates the next handshake message given a specifc set of identifiers. 
 		If the command fails, you can safely run it again to repair an unfinished connection`),
 		Args: cobra.ExactArgs(6),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact raw connection-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2
+$ %s tx raw conn-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -319,6 +341,8 @@ func chanInit() *cobra.Command {
 		[dst-client-id] [src-conn-id] [dst-conn-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id] [ordering]`),
 		Short: "chan-init",
 		Args:  cobra.ExactArgs(11),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s tx raw chan-init ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2 ibcchan1 ibcchan2 transfer transfer ordered`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(args[0], args[1])
@@ -347,6 +371,9 @@ func chanTry() *cobra.Command {
 		[src-client-id] [src-conn-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]`),
 		Short: "chan-try",
 		Args:  cobra.ExactArgs(8),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact raw chan-try ibc-0 ibc-1 ibczeroclient ibcconn0 ibcchan1 ibcchan2 transfer transfer
+$ %s tx raw chan-try ibc-0 ibc-1 ibczeroclient ibcconn0 ibcchan1 ibcchan2 transfer transfer`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -394,6 +421,10 @@ func chanAck() *cobra.Command {
 		[src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]`),
 		Short: "chan-ack",
 		Args:  cobra.ExactArgs(7),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact raw chan-ack ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer transfer
+$ %s tx raw chan-ack ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer transfer
+`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -441,6 +472,9 @@ func chanConfirm() *cobra.Command {
 		[src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]`),
 		Short: "chan-confirm",
 		Args:  cobra.ExactArgs(7),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact raw chan-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer transfer
+$ %s tx raw chan-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer transfer`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -488,6 +522,10 @@ func createChannelStepCmd() *cobra.Command {
 		Aliases: []string{"chan-step"},
 		Short:   "create the next step in creating a channel between chains with the passed identifiers",
 		Args:    cobra.ExactArgs(11),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact raw chan-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2 ibcchan1 ibcchan2 transfer transfer ordered
+$ %s tx raw channel-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2 ibcchan1 ibcchan2 transfer transfer ordered
+`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -524,6 +562,9 @@ func chanCloseInit() *cobra.Command {
 		Use:   "chan-close-init [chain-id] [channel-id] [port-id]",
 		Short: "chan-close-init",
 		Args:  cobra.ExactArgs(3),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact raw chan-close-init ibc-0 ibcchan1 transfer
+$ %s tx raw chan-close-init ibc-0 ibcchan1 transfer`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -546,6 +587,8 @@ func chanCloseConfirm() *cobra.Command {
 		[src-client-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]`),
 		Short: "chan-close-confirm",
 		Args:  cobra.ExactArgs(7),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s tx raw chan-close-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer transfer`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -592,6 +635,8 @@ func closeChannelStepCmd() *cobra.Command {
 		[src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id]`),
 		Short: "create the next step in closing a channel between chains with the passed identifiers",
 		Args:  cobra.ExactArgs(10),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s tx raw close-channel-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2 ibcchan1 ibcchan2 transfer transfer`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)

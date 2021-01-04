@@ -53,6 +53,10 @@ func keysAddCmd() *cobra.Command {
 		Aliases: []string{"a"},
 		Short:   "adds a key to the keychain associated with a particular chain",
 		Args:    cobra.RangeArgs(1, 2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s keys add ibc-0
+$ %s keys add ibc-1 key2
+$ %s k a ibc-2 testkey`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -107,6 +111,9 @@ func keysRestoreCmd() *cobra.Command {
 		Aliases: []string{"r"},
 		Short:   "restores a mnemonic to the keychain associated with a particular chain",
 		Args:    cobra.ExactArgs(3),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s keys restore ibc-0 testkey "[mnemonic-words]"
+$ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
 			chain, err := config.Chains.Get(args[0])
@@ -139,6 +146,10 @@ func keysDeleteCmd() *cobra.Command {
 		Aliases: []string{"d"},
 		Short:   "deletes a key from the keychain associated with a particular chain",
 		Args:    cobra.RangeArgs(1, 2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s keys delete ibc-0 -y
+$ %s keys delete ibc-1 key2 -y
+$ %s k d ibc-2 testkey`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -202,6 +213,9 @@ func keysListCmd() *cobra.Command {
 		Aliases: []string{"l"},
 		Short:   "lists keys from the keychain associated with a particular chain",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s keys list ibc-0
+$ %s k l ibc-1`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -231,6 +245,10 @@ func keysShowCmd() *cobra.Command {
 		Aliases: []string{"s"},
 		Short:   "shows a key from the keychain associated with a particular chain",
 		Args:    cobra.RangeArgs(1, 2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s keys show ibc-0
+$ %s keys show ibc-1 key2
+$ %s k s ibc-2 testkey`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -268,6 +286,9 @@ func keysExportCmd() *cobra.Command {
 		Aliases: []string{"e"},
 		Short:   "exports a privkey from the keychain associated with a particular chain",
 		Args:    cobra.ExactArgs(2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s keys export ibc-0 testkey
+$ %s k e ibc-2 testkey`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
 			chain, err := config.Chains.Get(args[0])
