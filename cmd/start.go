@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/cosmos/relayer/relayer"
@@ -33,6 +34,9 @@ func startCmd() *cobra.Command {
 		Aliases: []string{"st"},
 		Short:   "Start the listening relayer on a given path",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s start demo-path --max-msgs 3
+$ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {

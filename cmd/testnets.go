@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -35,6 +36,10 @@ func faucetRequestCmd() *cobra.Command {
 		Aliases: []string{"req"},
 		Short:   "request tokens from a relayer faucet",
 		Args:    cobra.RangeArgs(1, 2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s testnets request ibc-0 --url http://0.0.0.0:8000
+$ %s testnets request ibc-0 testkey --url http://0.0.0.0:8000
+$ %s tst req ibc-0`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -100,6 +105,9 @@ func faucetStartCmd() *cobra.Command {
 		Use:   "faucet [chain-id] [key-name] [amount]",
 		Short: "listens on a port for requests for tokens",
 		Args:  cobra.ExactArgs(3),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s testnets faucet ibc-0 testkey 100000stake --listen http://0.0.0.0:8081
+$ %s tst faucet ibc-0 testkey 100000stake`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {

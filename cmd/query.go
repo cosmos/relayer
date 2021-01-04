@@ -57,6 +57,9 @@ func queryIBCDenoms() *cobra.Command {
 		Use:   "ibc-denoms [chain-id]",
 		Short: "Query transaction by transaction hash",
 		Args:  cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query ibc-denoms ibc-0
+$ %s q ibc-denoms ibc-0`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -81,6 +84,9 @@ func queryTx() *cobra.Command {
 		Use:   "tx [chain-id] [tx-hash]",
 		Short: "Query transaction by transaction hash",
 		Args:  cobra.ExactArgs(2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query tx ibc-0 [tx-hash]
+$ %s q tx ibc-0 A5DF8D272F1C451CFF92BA6C41942C4D29B5CF180279439ED6AB038282F956BE`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -114,6 +120,9 @@ takes the form of '{eventType}.{eventAttribute}={value}' with multiple events se
 Please refer to each module's documentation for the full set of events to query for. Each module
 documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.`),
 		Args: cobra.ExactArgs(2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query txs ibc-0 "message.action=transfer" --offset 1 --limit 10
+$ %s q txs ibc-0 "message.action=transfer"`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -163,6 +172,9 @@ func queryAccountCmd() *cobra.Command {
 		Aliases: []string{"acc"},
 		Short:   "Query the account data",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query account ibc-0
+$ %s q acc ibc-1`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -195,6 +207,10 @@ func queryBalanceCmd() *cobra.Command {
 		Aliases: []string{"bal"},
 		Short:   "Query the account balances",
 		Args:    cobra.RangeArgs(1, 2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query balance ibc-0
+$ %s query balance ibc-0 testkey
+$ %s q bal ibc-1 --ibc-denoms`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -257,10 +273,14 @@ func queryBalanceCmd() *cobra.Command {
 
 func queryHeaderCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "header [chain-id] [height]",
+		Use:     "header [chain-id] [[height]]",
 		Aliases: []string{"hdr"},
 		Short:   "Query the header of a chain at a given height",
 		Args:    cobra.RangeArgs(1, 2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query header ibc-0
+$ %s query header ibc-0 1400
+$ %s q hdr ibc-1`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -314,6 +334,9 @@ func queryNodeStateCmd() *cobra.Command {
 		Use:   "node-state [chain-id]",
 		Short: "Query the consensus state of a node",
 		Args:  cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query node-state ibc-0
+$ %s q node-state ibc-1`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -338,6 +361,10 @@ func queryClientCmd() *cobra.Command {
 		Aliases: []string{"clnt"},
 		Short:   "Query the state of a client given it's client-id",
 		Args:    cobra.ExactArgs(2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query client ibc-0 ibczeroclient
+$ %s query client ibc-0 ibczeroclient --height 1205
+$ %s q clnt ibc-1 ibconeclient`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -378,6 +405,10 @@ func queryClientsCmd() *cobra.Command {
 		Aliases: []string{"clnts"},
 		Short:   "Query for all client states on a chain",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query clients ibc-0
+$ %s query clients ibc-2 --offset 2 --limit 30
+$ %s q clnts ibc-1`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -412,6 +443,9 @@ func queryValSetAtHeightCmd() *cobra.Command {
 		Aliases: []string{"vs"},
 		Short:   "Query validator set at particular height",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query valset ibc-0
+$ %s q vs ibc-1`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -443,6 +477,10 @@ func queryConnections() *cobra.Command {
 		Aliases: []string{"conns"},
 		Short:   "Query for all connections on a chain",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query connections ibc-0
+$ %s query connections ibc-2 --offset 2 --limit 30
+$ %s q conns ibc-1`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -477,6 +515,10 @@ func queryConnectionsUsingClient() *cobra.Command {
 		Aliases: []string{"clnt-conns"},
 		Short:   "Query for all connections on a given client",
 		Args:    cobra.ExactArgs(2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query client-connections ibc-0 ibczeroclient
+$ %s query client-connections ibc-0 ibczeroclient --height 1205
+$ %s q clnt-conns ibc-1 ibconeclient`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -517,6 +559,9 @@ func queryConnection() *cobra.Command {
 		Aliases: []string{"conn"},
 		Short:   "Query the connection state for the given connection id",
 		Args:    cobra.ExactArgs(2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query connection ibc-0 ibconnection0
+$ %s q conn ibc-1 ibconeconn`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -550,6 +595,10 @@ func queryConnectionChannels() *cobra.Command {
 		Aliases: []string{"conn-chans"},
 		Short:   "Query any channels associated with a given connection",
 		Args:    cobra.ExactArgs(2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query connection-channels ibc-0 ibcconnection1
+$ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30
+$ %s q conn-chans ibc-0 ibcconnection1`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -586,6 +635,10 @@ func queryChannel() *cobra.Command {
 		Aliases: []string{"chan"},
 		Short:   "Query a channel given it's channel and port ids",
 		Args:    cobra.ExactArgs(3),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query channel ibc-0 ibczerochannel transfer
+$ %s query channel ibc-2 ibctwochannel transfer --height 1205
+$ %s q chan ibc-1 ibconechannel transfer`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -626,6 +679,10 @@ func queryChannels() *cobra.Command {
 		Aliases: []string{"chans"},
 		Short:   "Query for all channels on a chain",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query channels ibc-0
+$ %s query channels ibc-2 --offset 2 --limit 30
+$ %s q chans ibc-1`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -659,6 +716,9 @@ func queryPacketCommitment() *cobra.Command {
 		Use:   "packet-commit [chain-id] [channel-id] [port-id] [seq]",
 		Short: "Query for the packet commitment given it's sequence and channel ids",
 		Args:  cobra.ExactArgs(4),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query packet-commit ibc-0 ibczerochannel transfer 32
+$ %s q packet-commit ibc-1 ibconechannel transfer 31`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -692,6 +752,10 @@ func queryUnrelayedPackets() *cobra.Command {
 		Aliases: []string{"unrelayed", "pkts"},
 		Short:   "Query for the packet sequence numbers that remain to be relayed on a given path",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query unrelayed-packets demo-path
+$ %s query unrelayed demo-path
+$ %s q pkts demo-path`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, err := config.Paths.Get(args[0])
 			if err != nil {
@@ -745,6 +809,9 @@ func queryUnrelayedAcknowledgements() *cobra.Command {
 		Aliases: []string{"acks"},
 		Short:   "Query for the packet sequence numbers that remain to be relayed on a given path",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query unrelayed-acknowledgements demo-path
+$ %s q acks demo-path`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, err := config.Paths.Get(args[0])
 			if err != nil {
