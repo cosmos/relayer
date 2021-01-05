@@ -138,7 +138,8 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 		if r.IsMaxTx(msgLen, txSize) {
 			// Submit the transactions to src chain and update its status
-			r.Succeeded = r.Succeeded && send(src, msgs)
+			_, success, _ := src.SendMsgs(msgs)
+			r.Succeeded = r.Succeeded && success
 
 			// clear the current batch and reset variables
 			msgLen, txSize = 1, uint64(len(bz))
@@ -148,8 +149,9 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 	}
 
 	// submit leftover msgs
-	if len(msgs) > 0 && !send(src, msgs) {
-		r.Succeeded = false
+	if len(msgs) > 0 {
+		_, success, _ := src.SendMsgs(msgs)
+		r.Succeeded = success
 	}
 
 	// reset variables
@@ -167,7 +169,8 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 		if r.IsMaxTx(msgLen, txSize) {
 			// Submit the transaction to dst chain and update its status
-			r.Succeeded = r.Succeeded && send(dst, msgs)
+			_, success, _ := dst.SendMsgs(msgs)
+			r.Succeeded = r.Succeeded && success
 
 			// clear the current batch and reset variables
 			msgLen, txSize = 1, uint64(len(bz))
@@ -177,23 +180,10 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 	}
 
 	// submit leftover msgs
-	if len(msgs) > 0 && !send(dst, msgs) {
-		r.Succeeded = false
+	if len(msgs) > 0 {
+		_, success, _ := dst.SendMsgs(msgs)
+		r.Succeeded = success
 	}
-}
-
-// Submits the messages to the provided chain and logs the result of the transaction.
-// Returns true upon success and false otherwise.
-func send(chain *Chain, msgs []sdk.Msg) bool {
-	res, err := chain.SendMsgs(msgs)
-	if err != nil || res.Code != 0 {
-		chain.LogFailedTx(res, err, msgs)
-		return false
-	}
-	// NOTE: Add more data to this such as identifiers
-	chain.LogSuccessTx(res, msgs)
-
-	return true
 }
 
 func getMsgAction(msgs []sdk.Msg) string {

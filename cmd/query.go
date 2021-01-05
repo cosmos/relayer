@@ -392,7 +392,7 @@ $ %s q clnt ibc-1 ibconeclient`, appName, appName, appName)),
 				return err
 			}
 
-			return chain.CLIContext(height).PrintOutput(res)
+			return chain.CLIContext(height).PrintProto(res)
 		},
 	}
 
@@ -546,7 +546,7 @@ $ %s q clnt-conns ibc-1 ibconeclient`, appName, appName, appName)),
 				return err
 			}
 
-			return chain.CLIContext(height).PrintOutput(res)
+			return chain.CLIContext(height).PrintProto(res)
 		},
 	}
 
@@ -582,7 +582,7 @@ $ %s q conn ibc-1 ibconeconn`, appName, appName)),
 				return err
 			}
 
-			return chain.CLIContext(height).PrintOutput(res)
+			return chain.CLIContext(height).PrintProto(res)
 		},
 	}
 
@@ -666,7 +666,7 @@ $ %s q chan ibc-1 ibconechannel transfer`, appName, appName, appName)),
 				return err
 			}
 
-			return chain.CLIContext(height).PrintOutput(res)
+			return chain.CLIContext(height).PrintProto(res)
 		},
 	}
 

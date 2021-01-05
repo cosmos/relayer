@@ -16,11 +16,16 @@ limitations under the License.
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -46,6 +51,8 @@ func transactionCmd() *cobra.Command {
 		flags.LineBreak,
 		createClientsCmd(),
 		updateClientsCmd(),
+		upgradeClientsCmd(),
+		upgradeChainCmd(),
 		createConnectionCmd(),
 		createChannelCmd(),
 		closeChannelCmd(),
@@ -81,7 +88,14 @@ $ %s tx clnts demo-path`, appName, appName)),
 				return err
 			}
 
-			return c[src].CreateClients(c[dst])
+			modified, err := c[src].CreateClients(c[dst])
+			if modified {
+				if err := overWriteConfig(cmd, config); err != nil {
+					return err
+				}
+			}
+
+			return err
 		},
 	}
 	return cmd
@@ -119,6 +133,38 @@ $ %s tx uc demo-path`, appName, appName, appName)),
 	return cmd
 }
 
+func upgradeClientsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "upgrade-clients [path-name] [chain-id]",
+		Aliases: []string{"upgrade"},
+		Short:   "upgrade a client on the provided chain-id",
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, src, dst, err := config.ChainsFromPath(args[0])
+			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
+				return err
+			}
+
+			targetChainID := args[1]
+			// send the upgrade message on the targetChainID
+			if src == targetChainID {
+				return c[src].UpgradeClients(c[dst])
+			}
+
+			return c[dst].UpgradeClients(c[src])
+		},
+	}
+	return cmd
+}
+
 func createConnectionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "connection [path-name]",
@@ -150,7 +196,15 @@ $ %s tx con demo-path -o 3s`, appName, appName, appName)),
 				return err
 			}
 
-			return c[src].CreateConnection(c[dst], to)
+			// TODO: make '3' be a flag, maximum retries after failed message send
+			modified, err := c[src].CreateOpenConnections(c[dst], 3, to)
+			if modified {
+				if err := overWriteConfig(cmd, config); err != nil {
+					return err
+				}
+			}
+
+			return err
 		},
 	}
 
@@ -188,7 +242,16 @@ $ %s tx ch demo-path -o 3s`, appName, appName, appName)),
 				return err
 			}
 
-			return c[src].CreateChannel(c[dst], false, to)
+			// TODO: make '3' a flag, max retries after failed message send
+			modified, err := c[src].CreateOpenChannels(c[dst], 3, to)
+			if modified {
+				if err := overWriteConfig(cmd, config); err != nil {
+					return err
+				}
+			}
+
+			return err
+
 		},
 	}
 
@@ -265,17 +328,35 @@ $ %s tx pth demo-path`, appName, appName, appName, appName, appName)),
 			}
 
 			// create clients if they aren't already created
-			if err = c[src].CreateClients(c[dst]); err != nil {
+			modified, err := c[src].CreateClients(c[dst])
+			if modified {
+				overWriteConfig(cmd, config)
+			}
+
+			if err != nil {
 				return err
 			}
 
+			// TODO: make '3' a flag, maximum retries after failed message send
 			// create connection if it isn't already created
-			if err = c[src].CreateConnection(c[dst], to); err != nil {
+			modified, err = c[src].CreateOpenConnections(c[dst], 3, to)
+			if modified {
+				if err := overWriteConfig(cmd, config); err != nil {
+					return err
+				}
+			}
+			if err != nil {
 				return err
 			}
 
 			// create channel if it isn't already created
-			return c[src].CreateChannel(c[dst], true, to)
+			modified, err = c[src].CreateOpenChannels(c[dst], 3, to)
+			if modified {
+				if err := overWriteConfig(cmd, config); err != nil {
+					return err
+				}
+			}
+			return err
 		},
 	}
 
@@ -395,6 +476,65 @@ $ %s tx acks demo-path -l 3 -s 6`, appName, appName)),
 	}
 
 	return strategyFlag(cmd)
+}
+
+func upgradeChainCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "upgrade-chain [path-name] [chain-id] [new-unbonding-period] [deposit] [path/to/upgradePlan.json]",
+		Short: "upgrade a chain by providing the chain-id of the chain being upgraded, the new unbonding period, the proposal deposit and the json file of the upgrade plan without the upgrade client state ",
+		Args:  cobra.ExactArgs(5),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, src, dst, err := config.ChainsFromPath(args[0])
+			if err != nil {
+				return err
+			}
+
+			targetChainID := args[1]
+
+			unbondingPeriod, err := time.ParseDuration(args[2])
+			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
+				return err
+			}
+
+			// parse deposit
+			deposit, err := sdk.ParseCoinNormalized(args[3])
+			if err != nil {
+				return err
+			}
+
+			// parse plan
+			plan := &upgradetypes.Plan{}
+			path := args[4]
+			if _, err := os.Stat(path); err != nil {
+				return err
+			}
+
+			byt, err := ioutil.ReadFile(path)
+			if err != nil {
+				return err
+			}
+
+			if err = json.Unmarshal(byt, plan); err != nil {
+				return err
+			}
+
+			// send the upgrade message on the targetChainID
+			if src == targetChainID {
+				return c[src].UpgradeChain(c[dst], plan, deposit, unbondingPeriod)
+			}
+
+			return c[dst].UpgradeChain(c[src], plan, deposit, unbondingPeriod)
+		},
+	}
+	return cmd
 }
 
 // Returns an error if a configured key for a given chain doesn't exist

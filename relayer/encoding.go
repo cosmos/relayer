@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -190,6 +191,69 @@ func (pc *ProtoCodec) MustUnmarshalJSON(bz []byte, ptr proto.Message) {
 	}
 }
 
+// MarshalInterface is a convenience function for proto marshalling interfaces. It packs
+// the provided value, which must be an interface, in an Any and then marshals it to bytes.
+// NOTE: to marshal a concrete type, you should use MarshalBinaryBare instead
+func (pc *ProtoCodec) MarshalInterface(i proto.Message) ([]byte, error) {
+	defer pc.useContext()()
+	if err := assertNotNil(i); err != nil {
+		return nil, err
+	}
+	any, err := types.NewAnyWithValue(i)
+	if err != nil {
+		return nil, err
+	}
+
+	return pc.MarshalBinaryBare(any)
+}
+
+// UnmarshalInterface is a convenience function for proto unmarshaling interfaces. It
+// unmarshals an Any from bz bytes and then unpacks it to the `ptr`, which must
+// be a pointer to a non empty interface with registered implementations.
+// NOTE: to unmarshal a concrete type, you should use UnmarshalBinaryBare instead
+//
+// Example:
+//    var x MyInterface
+//    err := cdc.UnmarshalInterface(bz, &x)
+func (pc *ProtoCodec) UnmarshalInterface(bz []byte, ptr interface{}) error {
+	any := &types.Any{}
+	err := pc.UnmarshalBinaryBare(bz, any)
+	if err != nil {
+		return err
+	}
+
+	return pc.UnpackAny(any, ptr)
+}
+
+// MarshalInterfaceJSON is a convenience function for proto marshalling interfaces. It
+// packs the provided value in an Any and then marshals it to bytes.
+// NOTE: to marshal a concrete type, you should use MarshalJSON instead
+func (pc *ProtoCodec) MarshalInterfaceJSON(x proto.Message) ([]byte, error) {
+	defer pc.useContext()()
+	any, err := types.NewAnyWithValue(x)
+	if err != nil {
+		return nil, err
+	}
+	return pc.MarshalJSON(any)
+}
+
+// UnmarshalInterfaceJSON is a convenience function for proto unmarshaling interfaces.
+// It unmarshals an Any from bz bytes and then unpacks it to the `iface`, which must
+// be a pointer to a non empty interface, implementing proto.Message with registered implementations.
+// NOTE: to unmarshal a concrete type, you should use UnmarshalJSON instead
+//
+// Example:
+//    var x MyInterface  // must implement proto.Message
+//    err := cdc.UnmarshalInterfaceJSON(&x, bz)
+func (pc *ProtoCodec) UnmarshalInterfaceJSON(bz []byte, iface interface{}) error {
+	any := &types.Any{}
+	err := pc.UnmarshalJSON(bz, any)
+	if err != nil {
+		return err
+	}
+	return pc.UnpackAny(any, iface)
+}
+
 // UnpackAny implements AnyUnpacker.UnpackAny method,
 // it unpacks the value in any to the interface pointer passed in as
 // iface.
@@ -200,4 +264,11 @@ func (pc *ProtoCodec) UnpackAny(any *types.Any, iface interface{}) error {
 
 func (pc *ProtoCodec) InterfaceRegistry() types.InterfaceRegistry {
 	return pc.interfaceRegistry
+}
+
+func assertNotNil(i interface{}) error {
+	if i == nil {
+		return errors.New("can't marshal <nil> value")
+	}
+	return nil
 }

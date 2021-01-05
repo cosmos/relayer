@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,7 +22,12 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	connectiontypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
+	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
+	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	"github.com/cosmos/go-bip39"
 	"github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/libs/log"
@@ -29,6 +35,7 @@ import (
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	libclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -66,11 +73,55 @@ type Chain struct {
 
 // ValidatePaths takes two chains and validates their paths
 func ValidatePaths(src, dst *Chain) error {
-	if err := src.PathEnd.Validate(); err != nil {
+	if err := src.PathEnd.ValidateFull(); err != nil {
 		return src.ErrCantSetPath(err)
 	}
-	if err := dst.PathEnd.Validate(); err != nil {
+	if err := dst.PathEnd.ValidateFull(); err != nil {
 		return dst.ErrCantSetPath(err)
+	}
+	return nil
+}
+
+// ValidateClientPath takes two chains and validates their clients
+func ValidateClientPaths(src, dst *Chain) error {
+	if err := src.PathEnd.Vclient(); err != nil {
+		return err
+	}
+	if err := dst.PathEnd.Vclient(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ValidateConnectionPaths takes two chains and validates the connections
+// and underlying client identifiers
+func ValidateConnectionPaths(src, dst *Chain) error {
+	if err := src.PathEnd.Vclient(); err != nil {
+		return err
+	}
+	if err := dst.PathEnd.Vclient(); err != nil {
+		return err
+	}
+	if err := src.PathEnd.Vconn(); err != nil {
+		return err
+	}
+	if err := dst.PathEnd.Vconn(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ValidateChannelParams takes two chains and validates their respective channel params
+func ValidateChannelParams(src, dst *Chain) error {
+	if err := src.PathEnd.ValidateBasic(); err != nil {
+		return err
+	}
+	if err := dst.PathEnd.ValidateBasic(); err != nil {
+		return err
+	}
+	if strings.ToUpper(src.PathEnd.Order) != strings.ToUpper(dst.PathEnd.Order) {
+		return fmt.Errorf("src and dst path ends must have same ORDER. got src: %s, dst: %s",
+			src.PathEnd.Order, dst.PathEnd.Order)
 	}
 	return nil
 }
@@ -218,25 +269,29 @@ func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
 }
 
 // SendMsg wraps the msg in a stdtx, signs and sends it
-func (c *Chain) SendMsg(datagram sdk.Msg) (*sdk.TxResponse, error) {
+func (c *Chain) SendMsg(datagram sdk.Msg) (*sdk.TxResponse, bool, error) {
 	return c.SendMsgs([]sdk.Msg{datagram})
 }
 
-// SendMsgs wraps the msgs in a stdtx, signs and sends it
-func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
+// SendMsgs wraps the msgs in a StdTx, signs and sends it. An error is returned if there
+// was an issue sending the transaction. A successfully sent, but failed transaction will
+// not return an error. If a transaction is successfully sent, the result of the execution
+// of that transaction will be logged. A boolean indicating if a transaction was successfully
+// sent and executed successfully is returned.
+func (c *Chain) SendMsgs(msgs []sdk.Msg) (*sdk.TxResponse, bool, error) {
 	// Instantiate the client context
 	ctx := c.CLIContext(0)
 
 	// Query account details
 	txf, err := tx.PrepareFactory(ctx, c.TxFactory(0))
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// If users pass gas adjustment, then calculate gas
 	_, adjusted, err := tx.CalculateGas(ctx.QueryWithData, txf, msgs...)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// Set the gas amount on the transaction factory
@@ -245,23 +300,37 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (res *sdk.TxResponse, err error) {
 	// Build the transaction builder
 	txb, err := tx.BuildUnsignedTx(txf, msgs...)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// Attach the signature to the transaction
-	err = tx.Sign(txf, c.Key, txb)
+	err = tx.Sign(txf, c.Key, txb, false)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// Generate the transaction bytes
 	txBytes, err := ctx.TxConfig.TxEncoder()(txb.GetTx())
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// Broadcast those bytes
-	return ctx.BroadcastTx(txBytes)
+	res, err := ctx.BroadcastTx(txBytes)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// transaction was executed, log the success or failure using the tx response code
+	// NOTE: error is nil, logic should use the returned error to determine if the
+	// transaction was successfully executed.
+	if res.Code != 0 {
+		c.LogFailedTx(res, err, msgs)
+		return res, false, nil
+	}
+
+	c.LogSuccessTx(res, msgs)
+	return res, true, nil
 }
 
 // CLIContext returns an instance of client.Context derived from Chain
@@ -464,7 +533,7 @@ func (c *Chain) SendAndPrint(txs []sdk.Msg, text, indent bool) (err error) {
 		}
 	}
 	// SendAndPrint sends the transaction with printing options from the CLI
-	res, err := c.SendMsgs(txs)
+	res, _, err := c.SendMsgs(txs)
 	if err != nil {
 		return err
 	}
@@ -560,4 +629,88 @@ func (c *Chain) StatusErr() error {
 	default:
 		return nil
 	}
+}
+
+// GenerateConnHandshakeProof generates all the proofs needed to prove the existence of the
+// connection state on this chain. A counterparty should use these generated proofs.
+func (c *Chain) GenerateConnHandshakeProof(height uint64) (ibcexported.ClientState, []byte, []byte, []byte, clienttypes.Height, error) {
+	var (
+		clientState        ibcexported.ClientState
+		clientStateRes     *clienttypes.QueryClientStateResponse
+		consensusStateRes  *clienttypes.QueryConsensusStateResponse
+		connectionStateRes *connectiontypes.QueryConnectionResponse
+
+		eg  = new(errgroup.Group)
+		err error
+	)
+
+	// query for the client state for the proof and get the height to query the consensus state at.
+	clientStateRes, err = c.QueryClientState(int64(height))
+	if err != nil {
+		return nil, nil, nil, nil, clienttypes.Height{}, err
+	}
+
+	clientState, err = clienttypes.UnpackClientState(clientStateRes.ClientState)
+	if err != nil {
+		return nil, nil, nil, nil, clienttypes.Height{}, err
+	}
+
+	eg.Go(func() error {
+		consensusStateRes, err = c.QueryClientConsensusState(int64(height), clientState.GetLatestHeight())
+		return err
+	})
+	eg.Go(func() error {
+		connectionStateRes, err = c.QueryConnection(int64(height))
+		return err
+	})
+
+	if err := eg.Wait(); err != nil {
+		return nil, nil, nil, nil, clienttypes.Height{}, err
+	}
+
+	return clientState, clientStateRes.Proof, consensusStateRes.Proof, connectionStateRes.Proof, connectionStateRes.ProofHeight, nil
+
+}
+
+// UpgradesChain submits and upgrade proposal using a zero'd out client state with an updated unbonding period.
+func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Coin, unbondingPeriod time.Duration) error {
+	sh, err := NewSyncHeaders(c, dst)
+	if err != nil {
+		return err
+	}
+	sh.Updates(c, dst)
+	height := int64(sh.GetHeight(dst.ChainID))
+
+	clientStateRes, err := dst.QueryClientState(height)
+	if err != nil {
+		return err
+	}
+	clientState, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
+	if err != nil {
+		return err
+	}
+
+	upgradedClientState := clientState.ZeroCustomFields().(*ibctmtypes.ClientState)
+	upgradedClientState.LatestHeight.RevisionHeight = uint64(plan.Height + 1)
+	upgradedClientState.UnbondingPeriod = unbondingPeriod
+	upgradedAny, err := clienttypes.PackClientState(upgradedClientState)
+	if err != nil {
+		return err
+	}
+
+	plan.UpgradedClientState = upgradedAny
+
+	// TODO: make cli args for title and description
+	upgradeProposal := upgradetypes.NewSoftwareUpgradeProposal("upgrade", "upgrade the chain's software and unbonding period", *plan)
+	msg, err := govtypes.NewMsgSubmitProposal(upgradeProposal, sdk.NewCoins(deposit), c.MustGetAddress())
+	if err != nil {
+		return err
+	}
+
+	_, _, err = c.SendMsg(msg)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

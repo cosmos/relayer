@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -108,13 +107,8 @@ $ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 				return err
 			}
 
-			consensusParams, err := chains[dst].QueryConsensusParams()
-			if err != nil {
-				return err
-			}
-
 			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.CreateClient(dstHeader,
-				chains[dst].GetTrustingPeriod(), ubdPeriod, consensusParams, chains[src].MustGetAddress())},
+				chains[dst].GetTrustingPeriod(), ubdPeriod, chains[src].MustGetAddress())},
 				chains[src], cmd)
 		},
 	}
@@ -179,38 +173,18 @@ $ %s tx raw conn-try ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`, 
 				return err
 			}
 
-			// NOTE: We query connection at height - 1 because of the way tendermint returns
-			// proofs the commit for height n is contained in the header of height n + 1
-			dstConnState, err := chains[dst].QueryConnection(dsth.Header.Height - 1)
-			if err != nil {
-				return err
-			}
-
-			// We are querying the state of the client for src on dst and finding the height
-			dstClientStateRes, err := chains[dst].QueryClientState(dsth.Header.Height)
-			if err != nil {
-				return err
-			}
-			dstClientState, err := clienttypes.UnpackClientState(dstClientStateRes.ClientState)
-			if err != nil {
-				return err
-			}
-			dstCsHeight := dstClientState.GetLatestHeight()
-
-			// Then we need to query the consensus state for src at that height on dst
-			dstConsState, err := chains[dst].QueryClientConsensusState(dsth.Header.Height, dstCsHeight)
-			if err != nil {
-				return err
-			}
-
 			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dsth)
 			if err != nil {
 				return err
 			}
+			openTry, err := chains[src].PathEnd.ConnTry(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1, chains[src].MustGetAddress())
+			if err != nil {
+				return err
+			}
+
 			txs := []sdk.Msg{
 				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
-				chains[src].PathEnd.ConnTry(chains[dst].PathEnd, dstClientStateRes, dstConnState,
-					dstConsState, chains[src].MustGetAddress()),
+				openTry,
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -247,38 +221,19 @@ $ %s tx raw conn-ack ibc-0 ibc-1 ibconeclient ibczeroclient ibcconn1 ibcconn2`, 
 				return err
 			}
 
-			// NOTE: We query connection at height - 1 because of the way tendermint returns
-			// proofs the commit for height n is contained in the header of height n + 1
-			dstState, err := chains[dst].QueryConnection(dsth.Header.Height - 1)
-			if err != nil {
-				return err
-			}
-
-			// We are querying the state of the client for src on dst and finding the height
-			dstClientStateResponse, err := chains[dst].QueryClientState(dsth.Header.Height)
-			if err != nil {
-				return err
-			}
-			dstClientState, _ := clienttypes.UnpackClientState(dstClientStateResponse.ClientState)
-			dstCsHeight := dstClientState.GetLatestHeight()
-
-			// Then we need to query the consensus state for src at that height on dst
-			dstConsState, err := chains[dst].QueryClientConsensusState(dsth.Header.Height, dstCsHeight)
-			if err != nil {
-				return err
-			}
-
 			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dsth)
 			if err != nil {
 				return err
 			}
+
+			openAck, err := chains[src].PathEnd.ConnAck(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1, chains[src].MustGetAddress())
+			if err != nil {
+				return err
+			}
+
 			txs := []sdk.Msg{
-				chains[src].PathEnd.ConnAck(
-					chains[dst].PathEnd,
-					dstClientStateResponse,
-					dstState, dstConsState,
-					chains[src].MustGetAddress()),
 				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
+				openAck,
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -364,19 +319,14 @@ $ %s tx raw conn-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`,
 				return err
 			}
 
-			msgs, err := chains[src].CreateConnectionStep(chains[dst])
+			_, _, modified, err := relayer.ExecuteConnectionStep(chains[src], chains[dst])
+			if modified {
+				if err := overWriteConfig(cmd, config); err != nil {
+					return err
+				}
+			}
 			if err != nil {
 				return err
-			}
-
-			if len(msgs.Src) > 0 {
-				if err = sendAndPrint(msgs.Src, chains[src], cmd); err != nil {
-					return err
-				}
-			} else if len(msgs.Dst) > 0 {
-				if err = sendAndPrint(msgs.Dst, chains[dst], cmd); err != nil {
-					return err
-				}
 			}
 
 			return nil
@@ -444,18 +394,19 @@ $ %s tx raw chan-try ibc-0 ibc-1 ibczeroclient ibcconn0 ibcchan1 ibcchan2 transf
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Header.Height - 1)
-			if err != nil {
-				return err
-			}
-
 			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
 			if err != nil {
 				return err
 			}
+
+			openTry, err := chains[src].PathEnd.ChanTry(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1, chains[src].MustGetAddress())
+			if err != nil {
+				return err
+			}
+
 			txs := []sdk.Msg{
 				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
-				chains[src].PathEnd.ChanTry(chains[dst].PathEnd, dstChanState, chains[src].MustGetAddress()),
+				openTry,
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -494,18 +445,19 @@ $ %s tx raw chan-ack ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer transf
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Header.Height - 1)
-			if err != nil {
-				return err
-			}
-
 			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
 			if err != nil {
 				return err
 			}
+
+			openAck, err := chains[src].PathEnd.ChanAck(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1, chains[src].MustGetAddress())
+			if err != nil {
+				return err
+			}
+
 			txs := []sdk.Msg{
 				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
-				chains[src].PathEnd.ChanAck(chains[dst].PathEnd, dstChanState, chains[src].MustGetAddress()),
+				openAck,
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -576,7 +528,6 @@ $ %s tx raw channel-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn
 `, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			ordering := relayer.OrderFromString(args[10])
 			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
@@ -590,19 +541,14 @@ $ %s tx raw channel-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn
 				return err
 			}
 
-			msgs, err := chains[src].CreateChannelStep(chains[dst], ordering)
+			_, _, modified, err := relayer.ExecuteChannelStep(chains[src], chains[dst])
+			if modified {
+				if err := overWriteConfig(cmd, config); err != nil {
+					return err
+				}
+			}
 			if err != nil {
 				return err
-			}
-
-			if len(msgs.Src) > 0 {
-				if err = sendAndPrint(msgs.Src, chains[src], cmd); err != nil {
-					return err
-				}
-			} else if len(msgs.Dst) > 0 {
-				if err = sendAndPrint(msgs.Dst, chains[dst], cmd); err != nil {
-					return err
-				}
 			}
 
 			return nil

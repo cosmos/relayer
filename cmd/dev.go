@@ -149,7 +149,7 @@ $ %s development faucet root /home/root ibc-1 testkey2 1000000stake`, appName, a
 			if err != nil {
 				return err
 			}
-			_, err = sdk.ParseCoin(args[4])
+			_, err = sdk.ParseCoinNormalized(args[4])
 			if err != nil {
 				return err
 			}

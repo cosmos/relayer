@@ -12,8 +12,13 @@ import (
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
 	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
-	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/light"
+)
+
+var (
+	defaultChainPrefix = commitmenttypes.NewMerklePrefix([]byte("ibc"))
+	defaultDelayPeriod = uint64(0)
+	defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 )
 
 // PathEnd represents the local connection identifers for a relay path
@@ -81,7 +86,6 @@ func (pe *PathEnd) UpdateClient(dstHeader ibcexported.Header, signer sdk.AccAddr
 func (pe *PathEnd) CreateClient(
 	dstHeader *tmclient.Header,
 	trustingPeriod, unbondingPeriod time.Duration,
-	consensusParams *abci.ConsensusParams,
 	signer sdk.AccAddress) sdk.Msg {
 	if err := dstHeader.ValidateBasic(); err != nil {
 		panic(err)
@@ -95,15 +99,13 @@ func (pe *PathEnd) CreateClient(
 		unbondingPeriod,
 		time.Minute*10,
 		dstHeader.GetHeight().(clienttypes.Height),
-		consensusParams,
 		commitmenttypes.GetSDKSpecs(),
-		"upgrade/upgradedClient",
+		defaultUpgradePath,
 		false,
 		false,
 	)
 
 	msg, err := clienttypes.NewMsgCreateClient(
-		pe.ClientID,
 		clientState,
 		dstHeader.ConsensusState(),
 		signer,
@@ -119,135 +121,139 @@ func (pe *PathEnd) CreateClient(
 }
 
 // ConnInit creates a MsgConnectionOpenInit
-func (pe *PathEnd) ConnInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ConnInit(counterparty *PathEnd, signer sdk.AccAddress) sdk.Msg {
 	var version *conntypes.Version
 	return conntypes.NewMsgConnectionOpenInit(
-		pe.ConnectionID,
 		pe.ClientID,
-		dst.ConnectionID,
-		dst.ClientID,
+		counterparty.ClientID,
 		defaultChainPrefix,
 		version,
+		defaultDelayPeriod,
 		signer,
 	)
 }
 
 // ConnTry creates a MsgConnectionOpenTry
-// NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
 func (pe *PathEnd) ConnTry(
-	dst *PathEnd,
-	dstClientState *clienttypes.QueryClientStateResponse,
-	dstConnState *conntypes.QueryConnectionResponse,
-	dstConsState *clienttypes.QueryConsensusStateResponse,
+	counterparty *Chain,
+	height uint64,
 	signer sdk.AccAddress,
-) sdk.Msg {
-	cs, err := clienttypes.UnpackClientState(dstClientState.ClientState)
+) (sdk.Msg, error) {
+	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := counterparty.GenerateConnHandshakeProof(height)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+
+	// TODO: Get DelayPeriod from counterparty connection rather than using default value
 	msg := conntypes.NewMsgConnectionOpenTry(
 		pe.ConnectionID,
-		pe.ConnectionID,
 		pe.ClientID,
-		dst.ConnectionID,
-		dst.ClientID,
-		cs,
+		counterparty.PathEnd.ConnectionID,
+		counterparty.PathEnd.ClientID,
+		clientState,
 		defaultChainPrefix,
 		conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
-		dstConnState.Proof,
-		dstClientState.Proof,
-		dstConsState.Proof,
-		dstConnState.ProofHeight,
-		cs.GetLatestHeight().(clienttypes.Height),
+		defaultDelayPeriod,
+		connStateProof,
+		clientStateProof,
+		consensusStateProof,
+		proofHeight,
+		clientState.GetLatestHeight().(clienttypes.Height),
 		signer,
 	)
-	if err = msg.ValidateBasic(); err != nil {
-		panic(err)
+	if err := msg.ValidateBasic(); err != nil {
+		return nil, err
 	}
-	return msg
+	return msg, nil
 }
 
 // ConnAck creates a MsgConnectionOpenAck
-// NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
 func (pe *PathEnd) ConnAck(
-	dst *PathEnd,
-	dstClientState *clienttypes.QueryClientStateResponse,
-	dstConnState *conntypes.QueryConnectionResponse,
-	dstConsState *clienttypes.QueryConsensusStateResponse,
+	counterparty *Chain,
+	height uint64,
 	signer sdk.AccAddress,
-) sdk.Msg {
-	cs, err := clienttypes.UnpackClientState(dstClientState.ClientState)
+) (sdk.Msg, error) {
+	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := counterparty.GenerateConnHandshakeProof(height)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+
 	return conntypes.NewMsgConnectionOpenAck(
 		pe.ConnectionID,
-		dst.ConnectionID,
-		cs,
-		dstConnState.Proof,
-		dstClientState.Proof,
-		dstConsState.Proof,
-		dstConsState.ProofHeight,
-		cs.GetLatestHeight().(clienttypes.Height),
-		conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions())[0],
+		counterparty.PathEnd.ConnectionID,
+		clientState,
+		connStateProof,
+		clientStateProof,
+		consensusStateProof,
+		proofHeight,
+		clientState.GetLatestHeight().(clienttypes.Height),
+		conntypes.DefaultIBCVersion,
 		signer,
-	)
+	), nil
 }
 
-// ConnConfirm creates a MsgConnectionOpenAck
-// NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (pe *PathEnd) ConnConfirm(dstConnState *conntypes.QueryConnectionResponse, signer sdk.AccAddress) sdk.Msg {
+// ConnConfirm creates a MsgConnectionOpenConfirm
+func (pe *PathEnd) ConnConfirm(counterpartyConnState *conntypes.QueryConnectionResponse, signer sdk.AccAddress) sdk.Msg {
 	return conntypes.NewMsgConnectionOpenConfirm(
 		pe.ConnectionID,
-		dstConnState.Proof,
-		dstConnState.ProofHeight,
+		counterpartyConnState.Proof,
+		counterpartyConnState.ProofHeight,
 		signer,
 	)
 }
 
 // ChanInit creates a MsgChannelOpenInit
-func (pe *PathEnd) ChanInit(dst *PathEnd, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ChanInit(counterparty *PathEnd, signer sdk.AccAddress) sdk.Msg {
 	return chantypes.NewMsgChannelOpenInit(
 		pe.PortID,
-		pe.ChannelID,
 		pe.Version,
 		pe.GetOrder(),
 		[]string{pe.ConnectionID},
-		dst.PortID,
-		dst.ChannelID,
+		counterparty.PortID,
 		signer,
 	)
 }
 
 // ChanTry creates a MsgChannelOpenTry
-func (pe *PathEnd) ChanTry(dst *PathEnd, dstChanState *chantypes.QueryChannelResponse, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ChanTry(counterparty *Chain, height uint64, signer sdk.AccAddress) (sdk.Msg, error) {
+	// obtain proof from counterparty chain
+	counterpartyChannelRes, err := counterparty.QueryChannel(int64(height))
+	if err != nil {
+		return nil, err
+	}
+
 	return chantypes.NewMsgChannelOpenTry(
 		pe.PortID,
 		pe.ChannelID,
-		pe.ChannelID,
 		pe.Version,
-		dstChanState.Channel.Ordering,
+		counterpartyChannelRes.Channel.Ordering,
 		[]string{pe.ConnectionID},
-		dst.PortID,
-		dst.ChannelID,
-		dstChanState.Channel.Version,
-		dstChanState.Proof,
-		dstChanState.ProofHeight,
+		counterparty.PathEnd.PortID,
+		counterparty.PathEnd.ChannelID,
+		counterpartyChannelRes.Channel.Version,
+		counterpartyChannelRes.Proof,
+		counterpartyChannelRes.ProofHeight,
 		signer,
-	)
+	), nil
 }
 
 // ChanAck creates a MsgChannelOpenAck
-func (pe *PathEnd) ChanAck(dst *PathEnd, dstChanState *chantypes.QueryChannelResponse, signer sdk.AccAddress) sdk.Msg {
+func (pe *PathEnd) ChanAck(counterparty *Chain, height uint64, signer sdk.AccAddress) (sdk.Msg, error) {
+	// obtain proof from counterparty chain
+	counterpartyChannelRes, err := counterparty.QueryChannel(int64(height))
+	if err != nil {
+		return nil, err
+	}
+
 	return chantypes.NewMsgChannelOpenAck(
 		pe.PortID,
 		pe.ChannelID,
-		dst.ChannelID,
-		dstChanState.Channel.Version,
-		dstChanState.Proof,
-		dstChanState.ProofHeight,
+		counterparty.PathEnd.ChannelID,
+		counterpartyChannelRes.Channel.Version,
+		counterpartyChannelRes.Proof,
+		counterpartyChannelRes.ProofHeight,
 		signer,
-	)
+	), nil
 }
 
 // ChanConfirm creates a MsgChannelOpenConfirm
