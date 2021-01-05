@@ -341,6 +341,7 @@ func filesAdd(dir string) (cfg *Config, err error) {
 				continue
 			}
 			fmt.Printf("%s did not contain valid chain config, skipping...\n", pth)
+			continue
 
 		}
 		if err = cfg.AddChain(c); err != nil {
