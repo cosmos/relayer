@@ -633,15 +633,13 @@ func (c *Chain) StatusErr() error {
 
 // GenerateConnHandshakeProof generates all the proofs needed to prove the existence of the
 // connection state on this chain. A counterparty should use these generated proofs.
-func (c *Chain) GenerateConnHandshakeProof(height uint64) (ibcexported.ClientState, []byte, []byte, []byte, clienttypes.Height, error) {
+func (c *Chain) GenerateConnHandshakeProof(height uint64) (clientState ibcexported.ClientState, clientStateProof []byte, consensusProof []byte, connectionProof []byte, connectionProofHeight clienttypes.Height, err error) {
 	var (
-		clientState        ibcexported.ClientState
 		clientStateRes     *clienttypes.QueryClientStateResponse
 		consensusStateRes  *clienttypes.QueryConsensusStateResponse
 		connectionStateRes *connectiontypes.QueryConnectionResponse
 
-		eg  = new(errgroup.Group)
-		err error
+		eg = new(errgroup.Group)
 	)
 
 	// query for the client state for the proof and get the height to query the consensus state at.
