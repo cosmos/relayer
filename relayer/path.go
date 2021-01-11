@@ -229,7 +229,7 @@ func (p *Path) QueryPathStatus(src, dst *Chain) *PathWithStatus {
 		dsth, err = dst.QueryLatestHeight()
 		return err
 	})
-	if eg.Wait(); err != nil {
+	if err = eg.Wait(); err != nil {
 		return out
 	}
 	out.Status.Chains = true
