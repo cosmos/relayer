@@ -12,13 +12,13 @@ import (
 )
 
 var (
-	// GAIA BLOCK TIMEOUTS on jackzampolin/gaiatest:master
+	// GAIA BLOCK TIMEOUTS on colinaxner/gaiatest:latest
 	// timeout_commit = "1000ms"
 	// timeout_propose = "1000ms"
 	// 3 second relayer timeout works well with these block times
 	gaiaTestConfig = testChainConfig{
-		dockerImage:    "jackzampolin/gaiatest",
-		dockerTag:      "jack_gaiav3.0",
+		dockerImage:    "colinaxner/gaiatest",
+		dockerTag:      "latest",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "cosmos",
