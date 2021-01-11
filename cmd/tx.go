@@ -381,7 +381,7 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 			return sCmd.RunE(cmd, args)
 		},
 	}
-	return timeoutFlag(cmd)
+	return strategyFlag(timeoutFlag(cmd))
 }
 
 func relayMsgsCmd() *cobra.Command {
