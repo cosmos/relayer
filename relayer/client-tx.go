@@ -5,10 +5,12 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clientutils "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/client/utils"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	"github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
+	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
@@ -206,12 +208,7 @@ func (c *Chain) UpgradeClients(dst *Chain) error {
 
 // FindMatchingClient will determine if there exists a client with identical client and consensus states
 // to the client which would have been created.
-func FindMatchingClient(c *Chain, msg sdk.Msg, consensusStateHeight exported.Height) (string, bool) {
-	createClientMsg, ok := msg.(*clienttypes.MsgCreateClient)
-	if !ok {
-		return "", false
-	}
-
+func FindMatchingClient(c *Chain, clientState *ibctmtypes.ClientState, consensusStateHeight exported.Height) (string, bool) {
 	// TODO: add appropriate offset and limits, along with retries
 	clientsResp, err := c.QueryClients(0, 1000)
 	if err != nil {
@@ -220,21 +217,44 @@ func FindMatchingClient(c *Chain, msg sdk.Msg, consensusStateHeight exported.Hei
 
 	for _, identifiedClientState := range clientsResp.ClientStates {
 		// check if the client states match
-		if proto.Equal(createClientMsg.ClientState, identifiedClientState.ClientState) {
+		if IsMatchingClient(clientState, identifiedClientState.ClientState) {
 
-			// check if consensus state exists
-			consensusStateResp, err := clientutils.QueryConsensusStateABCI(c.CLIContext(0), identifiedClientState.ClientId, consensusStateHeight)
+			// query the latest consensus state of the potential matching client
+			consensusStateResp, err := c.QueryClientConsensusState(0, clientState.GetLatestHeight())
 			if err != nil {
-				// consensus state does not exist, try next client
 				continue
 			}
+			// dst.QueryHeaderAtHeight?
 
-			if proto.Equal(consensusStateResp.ConsensusState, createClientMsg.ConsensusState) {
-				// matching client found
-				return identifiedClientState.ClientId, true
-			}
+			//	if proto.Equal(consensusStateResp.ConsensusState, createClientMsg.ConsensusState) {
+			// matching client found
+			//		return identifiedClientState.ClientId, true
+			//	}
 		}
 	}
 
 	return "", false
+}
+
+// IsMatchingClient determines if the two provided clients match in all fields
+// except latest height. They are assumed to be tendermint light clients.
+func IsMatchingClient(clientStateA *ibctmtypes.ClientState, clientStateAnyB *codectypes.Any) bool {
+	// zero out latest client height since this is determined and incremented
+	// by on-chain updates. Changing the latest height does not fundamentally
+	// change the client. The associated consensus state at the latest height
+	// determines this last check
+	clientStateA.LatestHeight = clienttypes.ZeroHeight()
+
+	clientStateExportedB, err := clienttypes.UnpackClientState(clientStateAnyB)
+	if err != nil {
+		return false
+	}
+	// cast from interface to ocncrete type
+	clientStateB, ok := clientStateExportedB.(*ibctmtypes.ClientState)
+	if !ok {
+		return false
+	}
+	clientStateB.LatestHeight = clienttypes.ZeroHeight()
+
+	return proto.Equal(clientStateA, clientStateB)
 }
