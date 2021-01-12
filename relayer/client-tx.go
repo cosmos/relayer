@@ -3,8 +3,12 @@ package relayer
 import (
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	clientutils "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/client/utils"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	"github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
@@ -32,28 +36,33 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		if err != nil {
 			return modified, err
 		}
-		msgs := []sdk.Msg{
-			c.PathEnd.CreateClient(
-				dstH,
-				dst.GetTrustingPeriod(),
-				ubdPeriod,
-				c.MustGetAddress(),
-			),
-		}
-		res, success, err := c.SendMsgs(msgs)
-		if err != nil {
-			return modified, err
-		}
-		if !success {
-			return modified, fmt.Errorf("tx failed: %s", res.RawLog)
+		msg := c.PathEnd.CreateClient(
+			dstH,
+			dst.GetTrustingPeriod(),
+			ubdPeriod,
+			c.MustGetAddress(),
+		)
+
+		// Check if an identical light client already exists
+		clientID, found := FindMatchingClient(c, msg, dstH.GetHeight())
+		if !found {
+			// if a matching client does not exist, create one
+			res, success, err := c.SendMsgs([]sdk.Msg{msg})
+			if err != nil {
+				return modified, err
+			}
+			if !success {
+				return modified, fmt.Errorf("tx failed: %s", res.RawLog)
+			}
+
+			// update the client identifier
+			// use index 0, the transaction only has one message
+			clientID, err = ParseClientIDFromEvents(res.Logs[0].Events)
+			if err != nil {
+				return modified, err
+			}
 		}
 
-		// update the client identifier
-		// use index 0, the transaction only has one message
-		clientID, err := ParseClientIDFromEvents(res.Logs[0].Events)
-		if err != nil {
-			return modified, err
-		}
 		c.PathEnd.ClientID = clientID
 		modified = true
 
@@ -74,26 +83,29 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		if err != nil {
 			return modified, err
 		}
-		msgs := []sdk.Msg{
-			dst.PathEnd.CreateClient(
-				srcH,
-				c.GetTrustingPeriod(),
-				ubdPeriod,
-				dst.MustGetAddress(),
-			),
-		}
-		res, success, err := dst.SendMsgs(msgs)
-		if err != nil {
-			return modified, err
-		}
-		if !success {
-			return modified, fmt.Errorf("tx failed: %s", res.RawLog)
-		}
+		msg := dst.PathEnd.CreateClient(
+			srcH,
+			c.GetTrustingPeriod(),
+			ubdPeriod,
+			dst.MustGetAddress(),
+		)
+		// Check if an identical light client already exists
+		clientID, found := FindMatchingClient(c, msg, dstH.GetHeight())
+		if !found {
+			// if a matching client does not exist, create one
+			res, success, err := dst.SendMsgs([]sdk.Msg{msg})
+			if err != nil {
+				return modified, err
+			}
+			if !success {
+				return modified, fmt.Errorf("tx failed: %s", res.RawLog)
+			}
 
-		// update client identifier
-		clientID, err := ParseClientIDFromEvents(res.Logs[0].Events)
-		if err != nil {
-			return modified, err
+			// update client identifier
+			clientID, err = ParseClientIDFromEvents(res.Logs[0].Events)
+			if err != nil {
+				return modified, err
+			}
 		}
 		dst.PathEnd.ClientID = clientID
 		modified = true
@@ -190,4 +202,39 @@ func (c *Chain) UpgradeClients(dst *Chain) error {
 	}
 
 	return nil
+}
+
+// FindMatchingClient will determine if there exists a client with identical client and consensus states
+// to the client which would have been created.
+func FindMatchingClient(c *Chain, msg sdk.Msg, consensusStateHeight exported.Height) (string, bool) {
+	createClientMsg, ok := msg.(*clienttypes.MsgCreateClient)
+	if !ok {
+		return "", false
+	}
+
+	// TODO: add appropriate offset and limits, along with retries
+	clientsResp, err := c.QueryClients(0, 1000)
+	if err != nil {
+		return "", false
+	}
+
+	for _, identifiedClientState := range clientsResp.ClientStates {
+		// check if the client states match
+		if proto.Equal(createClientMsg.ClientState, identifiedClientState.ClientState) {
+
+			// check if consensus state exists
+			consensusStateResp, err := clientutils.QueryConsensusStateABCI(c.CLIContext(0), identifiedClientState.ClientId, consensusStateHeight)
+			if err != nil {
+				// consensus state does not exist, try next client
+				continue
+			}
+
+			if proto.Equal(consensusStateResp.ConsensusState, createClientMsg.ConsensusState) {
+				// matching client found
+				return identifiedClientState.ClientId, true
+			}
+		}
+	}
+
+	return "", false
 }
