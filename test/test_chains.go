@@ -17,8 +17,10 @@ var (
 	// timeout_propose = "1000ms"
 	// 3 second relayer timeout works well with these block times
 	gaiaTestConfig = testChainConfig{
-		dockerImage:    "colinaxner/gaiatest",
-		dockerTag:      "latest",
+		// This is built from contrib/Dockerfile.test of this PR:
+		// https://github.com/CosmWasm/gaia/tree/ethanfrey/docker-test-fixes
+		dockerImage:    "cosmwasm/gaiatest",
+		dockerTag:      "v3.0.0",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "cosmos",
