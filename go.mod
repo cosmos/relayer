@@ -10,6 +10,7 @@ require (
 	github.com/cosmos/cosmos-sdk v0.40.0
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/gogo/protobuf v1.3.1
+	github.com/golang/protobuf v1.4.3
 	github.com/gorilla/mux v1.8.0
 	github.com/moby/term v0.0.0-20201101162038-25d840ce174a // indirect
 	github.com/ory/dockertest/v3 v3.6.2
