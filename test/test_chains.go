@@ -12,7 +12,8 @@ import (
 )
 
 var (
-	// GAIA BLOCK TIMEOUTS on colinaxner/gaiatest:latest
+	// GAIA BLOCK TIMEOUTS are located in the single node setup script on gaia
+	// https://github.com/cosmos/gaia/blob/main/contrib/single-node.sh
 	// timeout_commit = "1000ms"
 	// timeout_propose = "1000ms"
 	// 3 second relayer timeout works well with these block times
