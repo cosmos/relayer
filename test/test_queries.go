@@ -35,7 +35,7 @@ func testClient(t *testing.T, src, dst *ry.Chain) {
 	require.NotNil(t, client)
 	cs, err := clientypes.UnpackClientState(client.ClientState)
 	require.NoError(t, err)
-	require.Equal(t, cs.ClientType(), "Tendermint")
+	require.Equal(t, cs.ClientType(), "07-tendermint")
 }
 
 // testConnectionPair tests that the only connection on src and dst is between the two chains

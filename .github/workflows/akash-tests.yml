@@ -1,10 +1,9 @@
 name: TESTING - akash to gaia integration
 
 on:
-  pull_request:
   push:
     branches:
-      - master
+      - disabled_until_new_akash_build
 
 jobs:
   build:
