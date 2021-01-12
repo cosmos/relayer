@@ -1,7 +1,6 @@
 name: TESTING - akash to gaia integration
 
 on:
-  pull_request:
   push:
     branches:
       - disabled_until_new_akash_build
