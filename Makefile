@@ -1,7 +1,7 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
 SDKCOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/cosmos-sdk)
-GAIA_VERSION := jack/gaiav3.0
+GAIA_VERSION := main
 AKASH_VERSION := jack/update-sdk
 all: ci-lint install
 
@@ -50,7 +50,8 @@ test-gaia:
 	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestGaia*
 
 test-akash:
-	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestAkash*
+	@echo Temporarily Disabled
+#	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestAkash*
 
 coverage:
 	@echo "viewing test coverage..."
