@@ -51,7 +51,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			time.Minute*10,
 			dstH.GetHeight().(clienttypes.Height),
 			commitmenttypes.GetSDKSpecs(),
-			defaultUpgradePath,
+			DefaultUpgradePath,
 			false,
 			false,
 		)
@@ -112,7 +112,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			time.Minute*10,
 			srcH.GetHeight().(clienttypes.Height),
 			commitmenttypes.GetSDKSpecs(),
-			defaultUpgradePath,
+			DefaultUpgradePath,
 			false,
 			false,
 		)
