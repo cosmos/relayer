@@ -101,7 +101,7 @@ $ %s k a ibc-2 testkey`, appName, appName, appName)),
 			return nil
 		},
 	}
-	cmd.Flags().Uint32(flagCoinType, 188, "coin type number for HD derivation")
+	cmd.Flags().Uint32(flagCoinType, 118, "coin type number for HD derivation")
 
 	return cmd
 }
@@ -144,7 +144,7 @@ $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 			return nil
 		},
 	}
-	cmd.Flags().Uint32(flagCoinType, 188, "coin type number for HD derivation")
+	cmd.Flags().Uint32(flagCoinType, 118, "coin type number for HD derivation")
 
 	return cmd
 }
