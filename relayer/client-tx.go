@@ -2,15 +2,14 @@ package relayer
 
 import (
 	"fmt"
+	"reflect"
 	"time"
-
-	"github.com/golang/protobuf/proto"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	clientutils "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/client/utils"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
-	"github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
 	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	"github.com/tendermint/tendermint/light"
 )
@@ -57,7 +56,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		)
 
 		// Check if an identical light client already exists
-		clientID, found := FindMatchingClient(c, dst, clientState, dstH.GetHeight())
+		clientID, found := FindMatchingClient(c, dst, clientState)
 		if !found {
 			msgs := []sdk.Msg{
 				c.PathEnd.CreateClient(
@@ -120,7 +119,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		// Check if an identical light client already exists
 		// NOTE: we pass in 'dst' as the source and 'c' as the
 		// counterparty.
-		clientID, found := FindMatchingClient(c, dst, clientState, dstH.GetHeight())
+		clientID, found := FindMatchingClient(dst, c, clientState)
 		if !found {
 			msgs := []sdk.Msg{
 				dst.PathEnd.CreateClient(
@@ -248,25 +247,46 @@ func (c *Chain) UpgradeClients(dst *Chain) error {
 // and check if any match the counterparty. The counterparty must have a matching consensus state
 // to the latest consensus state of a potential match. The provided client state is the client
 // state that will be created if there exist no matches.
-// TODO: log errors,however we don't want to stop execution on an error
-func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.ClientState, consensusStateHeight exported.Height) (string, bool) {
+func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.ClientState) (string, bool) {
 	// TODO: add appropriate offset and limits, along with retries
 	clientsResp, err := source.QueryClients(0, 1000)
 	if err != nil {
+		if source.debug {
+			source.Log(fmt.Sprintf("Error: querying clients on %s failed: %v", source.PathEnd.ChainID, err))
+		}
 		return "", false
 	}
 
 	for _, identifiedClientState := range clientsResp.ClientStates {
+		// unpack any into ibc tendermint client state
+		clientStateExported, err := clienttypes.UnpackClientState(identifiedClientState.ClientState)
+		if err != nil {
+			return "", false
+		}
+
+		// cast from interface to concrete type
+		existingClientState, ok := clientStateExported.(*ibctmtypes.ClientState)
+		if !ok {
+			return "", false
+		}
+
 		// check if the client states match
-		if IsMatchingClient(*clientState, identifiedClientState.ClientState) {
+		if IsMatchingClient(*clientState, *existingClientState) {
 
 			// query the latest consensus state of the potential matching client
-			consensusStateResp, err := source.QueryClientConsensusState(0, clientState.GetLatestHeight())
+			consensusStateResp, err := clientutils.QueryConsensusStateABCI(source.CLIContext(0), identifiedClientState.ClientId, existingClientState.GetLatestHeight())
 			if err != nil {
+				if source.debug {
+					source.Log(fmt.Sprintf("Error: failed to query latest consensus state for existing client on chain %s: %v", source.PathEnd.ChainID, err))
+				}
 				continue
 			}
-			header, err := counterparty.QueryHeaderAtHeight(int64(clientState.GetLatestHeight().GetRevisionHeight()))
+
+			header, err := counterparty.QueryHeaderAtHeight(int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
 			if err != nil {
+				if source.debug {
+					source.Log(fmt.Sprintf("Error: failed to query header for chain %s at height %d: %v", counterparty.PathEnd.ChainID, existingClientState.GetLatestHeight().GetRevisionHeight(), err))
+				}
 				continue
 			}
 
@@ -283,33 +303,20 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 // IsMatchingClient determines if the two provided clients match in all fields
 // except latest height. They are assumed to be IBC tendermint light clients.
 // NOTE: we don't pass in a pointer so upstream references don't have a modified
-// latest height set to zero. We use pointers in the proto comparison to ensure
-// both types implement proto.Messsage which is required for comparison.
-// TODO: log errors
-func IsMatchingClient(clientStateA ibctmtypes.ClientState, clientStateAnyB *codectypes.Any) bool {
+// latest height set to zero.
+func IsMatchingClient(clientStateA, clientStateB ibctmtypes.ClientState) bool {
 	// zero out latest client height since this is determined and incremented
 	// by on-chain updates. Changing the latest height does not fundamentally
 	// change the client. The associated consensus state at the latest height
 	// determines this last check
 	clientStateA.LatestHeight = clienttypes.ZeroHeight()
-
-	clientStateExportedB, err := clienttypes.UnpackClientState(clientStateAnyB)
-	if err != nil {
-		return false
-	}
-	// cast from interface to ocncrete type
-	clientStateB, ok := clientStateExportedB.(*ibctmtypes.ClientState)
-	if !ok {
-		return false
-	}
 	clientStateB.LatestHeight = clienttypes.ZeroHeight()
 
-	return proto.Equal(&clientStateA, clientStateB)
+	return reflect.DeepEqual(clientStateA, clientStateB)
 }
 
 // IsMatchingConsensusState determines if the two provided consensus states are
 // identical. They are assumed to be IBC tendermint light clients.
-// TODO: log errors
 func IsMatchingConsensusState(anyConsState *codectypes.Any, consensusStateB *ibctmtypes.ConsensusState) bool {
 	exportedConsState, err := clienttypes.UnpackConsensusState(anyConsState)
 	if err != nil {
@@ -320,5 +327,5 @@ func IsMatchingConsensusState(anyConsState *codectypes.Any, consensusStateB *ibc
 		return false
 	}
 
-	return proto.Equal(consensusStateA, consensusStateB)
+	return reflect.DeepEqual(*consensusStateA, *consensusStateB)
 }
