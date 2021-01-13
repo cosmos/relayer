@@ -258,7 +258,7 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 
 	for _, identifiedClientState := range clientsResp.ClientStates {
 		// check if the client states match
-		if IsMatchingClient(clientState, identifiedClientState.ClientState) {
+		if IsMatchingClient(*clientState, identifiedClientState.ClientState) {
 
 			// query the latest consensus state of the potential matching client
 			consensusStateResp, err := source.QueryClientConsensusState(0, clientState.GetLatestHeight())
@@ -282,8 +282,11 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 
 // IsMatchingClient determines if the two provided clients match in all fields
 // except latest height. They are assumed to be IBC tendermint light clients.
+// NOTE: we don't pass in a pointer so upstream references don't have a modified
+// latest height set to zero. We use pointers in the proto comparison to ensure
+// both types implement proto.Messsage which is required for comparison.
 // TODO: log errors
-func IsMatchingClient(clientStateA *ibctmtypes.ClientState, clientStateAnyB *codectypes.Any) bool {
+func IsMatchingClient(clientStateA ibctmtypes.ClientState, clientStateAnyB *codectypes.Any) bool {
 	// zero out latest client height since this is determined and incremented
 	// by on-chain updates. Changing the latest height does not fundamentally
 	// change the client. The associated consensus state at the latest height
@@ -301,7 +304,7 @@ func IsMatchingClient(clientStateA *ibctmtypes.ClientState, clientStateAnyB *cod
 	}
 	clientStateB.LatestHeight = clienttypes.ZeroHeight()
 
-	return proto.Equal(clientStateA, clientStateB)
+	return proto.Equal(&clientStateA, clientStateB)
 }
 
 // IsMatchingConsensusState determines if the two provided consensus states are
