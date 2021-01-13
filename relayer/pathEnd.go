@@ -2,7 +2,6 @@ package relayer
 
 import (
 	"strings"
-	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/cosmos-sdk/x/ibc/applications/transfer/types"
@@ -12,7 +11,6 @@ import (
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
 	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
-	"github.com/tendermint/tendermint/light"
 )
 
 var (
@@ -84,26 +82,13 @@ func (pe *PathEnd) UpdateClient(dstHeader ibcexported.Header, signer sdk.AccAddr
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
 func (pe *PathEnd) CreateClient(
+	clientState *tmclient.ClientState,
 	dstHeader *tmclient.Header,
-	trustingPeriod, unbondingPeriod time.Duration,
 	signer sdk.AccAddress) sdk.Msg {
+
 	if err := dstHeader.ValidateBasic(); err != nil {
 		panic(err)
 	}
-
-	// Blank Client State
-	clientState := tmclient.NewClientState(
-		dstHeader.GetHeader().GetChainID(),
-		tmclient.NewFractionFromTm(light.DefaultTrustLevel),
-		trustingPeriod,
-		unbondingPeriod,
-		time.Minute*10,
-		dstHeader.GetHeight().(clienttypes.Height),
-		commitmenttypes.GetSDKSpecs(),
-		defaultUpgradePath,
-		false,
-		false,
-	)
 
 	msg, err := clienttypes.NewMsgCreateClient(
 		clientState,
