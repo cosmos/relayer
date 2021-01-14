@@ -1,6 +1,7 @@
 name: TESTING - akash to gaia integration
 
 on:
+- pull request:
   push:
     branches:
       - master
