@@ -127,8 +127,8 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 		return err
 	}
 
-	clients.Src = append(clients.Src, c.PathEnd.UpdateClient(dstUH, c.MustGetAddress()))
-	clients.Dst = append(clients.Dst, dst.PathEnd.UpdateClient(srcUH, dst.MustGetAddress()))
+	clients.Src = append(clients.Src, c.UpdateClient(dstUH))
+	clients.Dst = append(clients.Dst, dst.UpdateClient(srcUH))
 
 	// Send msgs to both chains
 	if clients.Ready() {
@@ -180,7 +180,7 @@ func (c *Chain) UpgradeClients(dst *Chain) error {
 	upgradeMsg := &clienttypes.MsgUpgradeClient{c.PathEnd.ClientID, clientState, consensusState, proofUpgradeClient, proofUpgradeConsensusState, c.MustGetAddress().String()}
 
 	msgs := []sdk.Msg{
-		c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
+		c.UpdateClient(dstUpdateHeader),
 		upgradeMsg,
 	}
 

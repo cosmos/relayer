@@ -427,6 +427,7 @@ func (c *Chain) MustGetAddress() sdk.AccAddress {
 	if err != nil {
 		panic(err)
 	}
+
 	return srcAddr
 }
 

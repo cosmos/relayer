@@ -38,8 +38,8 @@ func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringe
 
 	// MsgTransfer will call SendPacket on src chain
 	txs := RelayMsgs{
-		Src: []sdk.Msg{c.PathEnd.MsgTransfer(
-			dst.PathEnd, amount, dstAddrString, c.MustGetAddress(), timeoutHeight, timeoutTimestamp,
+		Src: []sdk.Msg{c.MsgTransfer(
+			dst.PathEnd, amount, dstAddrString, timeoutHeight, timeoutTimestamp,
 		)},
 		Dst: []sdk.Msg{},
 	}

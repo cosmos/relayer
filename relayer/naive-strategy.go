@@ -354,7 +354,7 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 		// instantiate the RelayMsgs with the appropriate update client
 		txs := &RelayMsgs{
 			Src: []sdk.Msg{
-				src.PathEnd.UpdateClient(updateHeader, src.MustGetAddress()),
+				src.UpdateClient(updateHeader),
 			},
 			Dst:          []sdk.Msg{},
 			MaxTxSize:    nrs.MaxTxSize,
@@ -442,7 +442,7 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 		if err != nil {
 			return err
 		}
-		msgs.Dst = append([]sdk.Msg{dst.PathEnd.UpdateClient(updateHeader, dst.MustGetAddress())}, msgs.Dst...)
+		msgs.Dst = append([]sdk.Msg{dst.UpdateClient(updateHeader)}, msgs.Dst...)
 	}
 
 	if len(msgs.Src) != 0 {
@@ -451,7 +451,7 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 		if err != nil {
 			return err
 		}
-		msgs.Src = append([]sdk.Msg{src.PathEnd.UpdateClient(updateHeader, src.MustGetAddress())}, msgs.Src...)
+		msgs.Src = append([]sdk.Msg{src.UpdateClient(updateHeader)}, msgs.Src...)
 	}
 
 	// send messages to their respective chains
@@ -551,7 +551,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences, sh *
 		if err != nil {
 			return err
 		}
-		msgs.Dst = append([]sdk.Msg{dst.PathEnd.UpdateClient(updateHeader, dst.MustGetAddress())}, msgs.Dst...)
+		msgs.Dst = append([]sdk.Msg{dst.UpdateClient(updateHeader)}, msgs.Dst...)
 	}
 
 	if len(msgs.Src) != 0 {
@@ -560,7 +560,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences, sh *
 		if err != nil {
 			return err
 		}
-		msgs.Src = append([]sdk.Msg{src.PathEnd.UpdateClient(updateHeader, src.MustGetAddress())}, msgs.Src...)
+		msgs.Src = append([]sdk.Msg{src.UpdateClient(updateHeader)}, msgs.Src...)
 	}
 
 	// send messages to their respective chains

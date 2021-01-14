@@ -50,8 +50,7 @@ test-gaia:
 	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestGaia*
 
 test-akash:
-	@echo Temporarily Disabled
-#	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestAkash*
+	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestAkash*
 
 coverage:
 	@echo "viewing test coverage..."
