@@ -3,7 +3,7 @@ name: TESTING - akash to gaia integration
 on:
   push:
     branches:
-      - disabled_until_new_akash_build
+      - master
 
 jobs:
   build:
