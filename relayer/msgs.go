@@ -17,6 +17,7 @@ import (
 // swap the config file. 'MustGetAddress' sets the config file
 // correctly. Do not change this ordering until the SDK config
 // file handling has been refactored.
+// https://github.com/cosmos/cosmos-sdk/issues/8332
 
 // UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst
 func (c *Chain) UpdateClient(dstHeader ibcexported.Header) sdk.Msg {
