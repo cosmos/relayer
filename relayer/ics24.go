@@ -54,7 +54,7 @@ func PathsSet(chains ...*Chain) bool {
 
 // SetPath sets the path and validates the identifiers
 func (c *Chain) SetPath(p *PathEnd) error {
-	err := p.Validate()
+	err := p.ValidateBasic()
 	if err != nil {
 		return c.ErrCantSetPath(err)
 	}
@@ -68,9 +68,12 @@ func (c *Chain) AddPath(clientID, connectionID, channelID, port, order string) e
 		ConnectionID: connectionID, ChannelID: channelID, PortID: port, Order: order})
 }
 
-// Validate returns errors about invalid identifiers as well as
+// ValidateFull returns errors about invalid identifiers as well as
 // unset path variables for the appropriate type
-func (pe *PathEnd) Validate() error {
+func (pe *PathEnd) ValidateFull() error {
+	if err := pe.ValidateBasic(); err != nil {
+		return err
+	}
 	if err := pe.Vclient(); err != nil {
 		return err
 	}
@@ -80,6 +83,12 @@ func (pe *PathEnd) Validate() error {
 	if err := pe.Vchan(); err != nil {
 		return err
 	}
+	return nil
+}
+
+// ValidateBasic validates fields that cannot be empty such as the
+// port and channel order.
+func (pe *PathEnd) ValidateBasic() error {
 	if err := pe.Vport(); err != nil {
 		return err
 	}

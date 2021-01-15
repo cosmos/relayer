@@ -15,7 +15,7 @@ fi
 
 cd $RELAYER_DIR
 rm -rf $RELAYER_CONF &> /dev/null
-bash scripts/two-chainz-akash "skip"
+bash scripts/two-chainz "skip"
 
 echo "waiting for blocks..."
 sleep 3

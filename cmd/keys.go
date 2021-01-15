@@ -18,8 +18,9 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"log"
+	"net/http"
+	"strconv"
 	"strings"
 
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
@@ -27,6 +28,11 @@ import (
 	"github.com/cosmos/relayer/helpers"
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
+)
+
+const (
+	flagCoinType           = "coin-type"
+	defaultCoinType uint32 = 118
 )
 
 // keysCmd represents the keys command
@@ -54,6 +60,10 @@ func keysAddCmd() *cobra.Command {
 		Aliases: []string{"a"},
 		Short:   "adds a key to the keychain associated with a particular chain",
 		Args:    cobra.RangeArgs(1, 2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s keys add ibc-0
+$ %s keys add ibc-1 key2
+$ %s k a ibc-2 testkey`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -71,8 +81,10 @@ func keysAddCmd() *cobra.Command {
 				return errKeyExists(keyName)
 			}
 
+			coinType, _ := cmd.Flags().GetUint32(flagCoinType)
+
 			// Adding key with key add helper
-			ko, err := helpers.KeyAddOrRestore(chain, keyName)
+			ko, err := helpers.KeyAddOrRestore(chain, keyName, coinType)
 			if err != nil {
 				return err
 			}
@@ -86,6 +98,7 @@ func keysAddCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().Uint32(flagCoinType, defaultCoinType, "coin type number for HD derivation")
 
 	return cmd
 }
@@ -97,6 +110,9 @@ func keysRestoreCmd() *cobra.Command {
 		Aliases: []string{"r"},
 		Short:   "restores a mnemonic to the keychain associated with a particular chain",
 		Args:    cobra.ExactArgs(3),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s keys restore ibc-0 testkey "[mnemonic-words]"
+$ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
 			chain, err := config.Chains.Get(args[0])
@@ -108,8 +124,10 @@ func keysRestoreCmd() *cobra.Command {
 				return errKeyExists(keyName)
 			}
 
+			coinType, _ := cmd.Flags().GetUint32(flagCoinType)
+
 			// Restoring key with passing mnemonic
-			ko, err := helpers.KeyAddOrRestore(chain, keyName, args[2])
+			ko, err := helpers.KeyAddOrRestore(chain, keyName, coinType, args[2])
 			if err != nil {
 				return err
 			}
@@ -118,6 +136,7 @@ func keysRestoreCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().Uint32(flagCoinType, defaultCoinType, "coin type number for HD derivation")
 
 	return cmd
 }
@@ -129,6 +148,10 @@ func keysDeleteCmd() *cobra.Command {
 		Aliases: []string{"d"},
 		Short:   "deletes a key from the keychain associated with a particular chain",
 		Args:    cobra.RangeArgs(1, 2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s keys delete ibc-0 -y
+$ %s keys delete ibc-1 key2 -y
+$ %s k d ibc-2 testkey`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -192,6 +215,9 @@ func keysListCmd() *cobra.Command {
 		Aliases: []string{"l"},
 		Short:   "lists keys from the keychain associated with a particular chain",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s keys list ibc-0
+$ %s k l ibc-1`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -221,6 +247,10 @@ func keysShowCmd() *cobra.Command {
 		Aliases: []string{"s"},
 		Short:   "shows a key from the keychain associated with a particular chain",
 		Args:    cobra.RangeArgs(1, 2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s keys show ibc-0
+$ %s keys show ibc-1 key2
+$ %s k s ibc-2 testkey`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -258,6 +288,9 @@ func keysExportCmd() *cobra.Command {
 		Aliases: []string{"e"},
 		Short:   "exports a privkey from the keychain associated with a particular chain",
 		Args:    cobra.ExactArgs(2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s keys export ibc-0 testkey
+$ %s k e ibc-2 testkey`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
 			chain, err := config.Chains.Get(args[0])
@@ -355,7 +388,20 @@ func PostKeyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ko, err := helpers.KeyAddOrRestore(chain, keyName)
+	coinTypeStr := strings.TrimSpace(r.URL.Query().Get(flagCoinType))
+
+	coinType := defaultCoinType
+
+	if len(coinTypeStr) != 0 {
+		v, err := strconv.ParseUint(coinTypeStr, 10, 32)
+		if err != nil {
+			helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+			return
+		}
+		coinType = uint32(v)
+	}
+
+	ko, err := helpers.KeyAddOrRestore(chain, keyName, coinType)
 	if err != nil {
 		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
@@ -388,7 +434,20 @@ func RestoreKeyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ko, err := helpers.KeyAddOrRestore(chain, keyName, request.Mnemonic)
+	coinTypeStr := strings.TrimSpace(r.URL.Query().Get(flagCoinType))
+
+	coinType := defaultCoinType
+
+	if len(coinTypeStr) != 0 {
+		v, err := strconv.ParseUint(coinTypeStr, 10, 32)
+		if err != nil {
+			helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+			return
+		}
+		coinType = uint32(v)
+	}
+
+	ko, err := helpers.KeyAddOrRestore(chain, keyName, coinType, request.Mnemonic)
 	if err != nil {
 		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return

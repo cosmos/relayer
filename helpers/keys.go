@@ -12,7 +12,7 @@ type KeyOutput struct {
 }
 
 // KeyAddOrRestore is a helper function for add key and restores key when mnemonic is passed
-func KeyAddOrRestore(chain *relayer.Chain, keyName string, mnemonic ...string) (KeyOutput, error) {
+func KeyAddOrRestore(chain *relayer.Chain, keyName string, coinType uint32, mnemonic ...string) (KeyOutput, error) {
 	var mnemonicStr string
 	var err error
 
@@ -25,7 +25,7 @@ func KeyAddOrRestore(chain *relayer.Chain, keyName string, mnemonic ...string) (
 		}
 	}
 
-	info, err := chain.Keybase.NewAccount(keyName, mnemonicStr, "", hd.CreateHDPath(118, 0, 0).String(), hd.Secp256k1)
+	info, err := chain.Keybase.NewAccount(keyName, mnemonicStr, "", hd.CreateHDPath(coinType, 0, 0).String(), hd.Secp256k1)
 	if err != nil {
 		return KeyOutput{}, err
 	}

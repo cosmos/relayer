@@ -325,3 +325,19 @@ func (c *Chain) ForceInitLight() error {
 	df()
 	return nil
 }
+
+// ValidateLightInitialized returns an error if the light client isn't initialized or there is a problem
+// interacting with the light client.
+func (c *Chain) ValidateLightInitialized() error {
+	height, err := c.GetLatestLightHeight()
+	if err != nil {
+		return fmt.Errorf("encountered issue with off chain light client for chain (%s): %v", c.ChainID, err)
+	}
+
+	// height will return -1 when the client has not been initialized
+	if height == -1 {
+		return fmt.Errorf("please initialize an off chain light client for chain (%s)", c.ChainID)
+	}
+
+	return nil
+}

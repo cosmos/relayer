@@ -16,11 +16,16 @@ limitations under the License.
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -46,6 +51,8 @@ func transactionCmd() *cobra.Command {
 		flags.LineBreak,
 		createClientsCmd(),
 		updateClientsCmd(),
+		upgradeClientsCmd(),
+		upgradeChainCmd(),
 		createConnectionCmd(),
 		createChannelCmd(),
 		closeChannelCmd(),
@@ -64,6 +71,9 @@ func createClientsCmd() *cobra.Command {
 		Long: "Creates a working ibc client for chain configured on each end of the" +
 			" path by querying headers from each chain and then sending the corresponding create-client messages",
 		Args: cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact clients demo-path
+$ %s tx clnts demo-path`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -78,7 +88,14 @@ func createClientsCmd() *cobra.Command {
 				return err
 			}
 
-			return c[src].CreateClients(c[dst])
+			modified, err := c[src].CreateClients(c[dst])
+			if modified {
+				if err := overWriteConfig(config); err != nil {
+					return err
+				}
+			}
+
+			return err
 		},
 	}
 	return cmd
@@ -92,6 +109,10 @@ func updateClientsCmd() *cobra.Command {
 		Long: "Updates a working ibc client for chain configured on each end of the " +
 			"path by querying headers from each chain and then sending the corresponding update-client messages",
 		Args: cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact update-clients demo-path
+$ %s tx update demo-path
+$ %s tx uc demo-path`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -112,6 +133,38 @@ func updateClientsCmd() *cobra.Command {
 	return cmd
 }
 
+func upgradeClientsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "upgrade-clients [path-name] [chain-id]",
+		Aliases: []string{"upgrade"},
+		Short:   "upgrade a client on the provided chain-id",
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, src, dst, err := config.ChainsFromPath(args[0])
+			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
+				return err
+			}
+
+			targetChainID := args[1]
+			// send the upgrade message on the targetChainID
+			if src == targetChainID {
+				return c[src].UpgradeClients(c[dst])
+			}
+
+			return c[dst].UpgradeClients(c[src])
+		},
+	}
+	return cmd
+}
+
 func createConnectionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "connection [path-name]",
@@ -120,6 +173,10 @@ func createConnectionCmd() *cobra.Command {
 		Long: strings.TrimSpace(`This command is meant to be used to repair or create 
 		a connection between two chains with a configured path in the config file`),
 		Args: cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact connection demo-path
+$ %s tx conn demo-path --timeout 5s
+$ %s tx con demo-path -o 3s`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -139,7 +196,15 @@ func createConnectionCmd() *cobra.Command {
 				return err
 			}
 
-			return c[src].CreateConnection(c[dst], to)
+			// TODO: make '3' be a flag, maximum retries after failed message send
+			modified, err := c[src].CreateOpenConnections(c[dst], 3, to)
+			if modified {
+				if err := overWriteConfig(config); err != nil {
+					return err
+				}
+			}
+
+			return err
 		},
 	}
 
@@ -154,6 +219,10 @@ func createChannelCmd() *cobra.Command {
 		Long: strings.TrimSpace(`This command is meant to be used to repair or 
 		create a channel between two chains with a configured path in the config file`),
 		Args: cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact channel demo-path
+$ %s tx chan demo-path --timeout 5s
+$ %s tx ch demo-path -o 3s`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -173,7 +242,16 @@ func createChannelCmd() *cobra.Command {
 				return err
 			}
 
-			return c[src].CreateChannel(c[dst], false, to)
+			// TODO: make '3' a flag, max retries after failed message send
+			modified, err := c[src].CreateOpenChannels(c[dst], 3, to)
+			if modified {
+				if err := overWriteConfig(config); err != nil {
+					return err
+				}
+			}
+
+			return err
+
 		},
 	}
 
@@ -187,6 +265,11 @@ func closeChannelCmd() *cobra.Command {
 		Short:   "close a channel between two configured chains with a configured path",
 		Long:    "This command is meant to close a channel",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact channel-close demo-path
+$ %s tx chan-cl demo-path --timeout 5s
+$ %s tx cl demo-path
+$ %s tx close demo-path -o 3s`, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -219,6 +302,12 @@ func linkCmd() *cobra.Command {
 		Aliases: []string{"full-path", "connect", "path", "pth"},
 		Short:   "create clients, connection, and channel between two configured chains with a configured path",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact link demo-path
+$ %s tx full-path demo-path --timeout 5s
+$ %s tx connect demo-path
+$ %s tx path demo-path -o 3s
+$ %s tx pth demo-path`, appName, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -239,17 +328,35 @@ func linkCmd() *cobra.Command {
 			}
 
 			// create clients if they aren't already created
-			if err = c[src].CreateClients(c[dst]); err != nil {
+			modified, err := c[src].CreateClients(c[dst])
+			if modified {
+				overWriteConfig(config)
+			}
+
+			if err != nil {
 				return err
 			}
 
+			// TODO: make '3' a flag, maximum retries after failed message send
 			// create connection if it isn't already created
-			if err = c[src].CreateConnection(c[dst], to); err != nil {
+			modified, err = c[src].CreateOpenConnections(c[dst], 3, to)
+			if modified {
+				if err := overWriteConfig(config); err != nil {
+					return err
+				}
+			}
+			if err != nil {
 				return err
 			}
 
 			// create channel if it isn't already created
-			return c[src].CreateChannel(c[dst], true, to)
+			modified, err = c[src].CreateOpenChannels(c[dst], 3, to)
+			if modified {
+				if err := overWriteConfig(config); err != nil {
+					return err
+				}
+			}
+			return err
 		},
 	}
 
@@ -261,6 +368,9 @@ func linkThenStartCmd() *cobra.Command {
 		Use:   "link-then-start [path-name]",
 		Short: "wait for a link to come up, then start relaying packets",
 		Args:  cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact link-then-start demo-path
+$ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lCmd := linkCmd()
 			for err := lCmd.RunE(cmd, args); err != nil; err = lCmd.RunE(cmd, args) {
@@ -271,7 +381,7 @@ func linkThenStartCmd() *cobra.Command {
 			return sCmd.RunE(cmd, args)
 		},
 	}
-	return timeoutFlag(cmd)
+	return strategyFlag(timeoutFlag(cmd))
 }
 
 func relayMsgsCmd() *cobra.Command {
@@ -280,6 +390,11 @@ func relayMsgsCmd() *cobra.Command {
 		Aliases: []string{"rly", "pkts", "relay"},
 		Short:   "relay any packets that remain to be relayed on a given path, in both directions",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact relay-packets demo-path
+$ %s tx rly demo-path -l 3
+$ %s tx pkts demo-path -s 5
+$ %s tx relay demo-path`, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -322,6 +437,9 @@ func relayAcksCmd() *cobra.Command {
 		Aliases: []string{"acks"},
 		Short:   "relay any acknowledgements that remain to be relayed on a given path, in both directions",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact relay-acknowledgements demo-path
+$ %s tx acks demo-path -l 3 -s 6`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -358,6 +476,65 @@ func relayAcksCmd() *cobra.Command {
 	}
 
 	return strategyFlag(cmd)
+}
+
+func upgradeChainCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "upgrade-chain [path-name] [chain-id] [new-unbonding-period] [deposit] [path/to/upgradePlan.json]",
+		Short: "upgrade a chain by providing the chain-id of the chain being upgraded, the new unbonding period, the proposal deposit and the json file of the upgrade plan without the upgrade client state ",
+		Args:  cobra.ExactArgs(5),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, src, dst, err := config.ChainsFromPath(args[0])
+			if err != nil {
+				return err
+			}
+
+			targetChainID := args[1]
+
+			unbondingPeriod, err := time.ParseDuration(args[2])
+			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if _, err = c[src].GetAddress(); err != nil {
+				return err
+			}
+			if _, err = c[dst].GetAddress(); err != nil {
+				return err
+			}
+
+			// parse deposit
+			deposit, err := sdk.ParseCoinNormalized(args[3])
+			if err != nil {
+				return err
+			}
+
+			// parse plan
+			plan := &upgradetypes.Plan{}
+			path := args[4]
+			if _, err := os.Stat(path); err != nil {
+				return err
+			}
+
+			byt, err := ioutil.ReadFile(path)
+			if err != nil {
+				return err
+			}
+
+			if err = json.Unmarshal(byt, plan); err != nil {
+				return err
+			}
+
+			// send the upgrade message on the targetChainID
+			if src == targetChainID {
+				return c[src].UpgradeChain(c[dst], plan, deposit, unbondingPeriod)
+			}
+
+			return c[dst].UpgradeChain(c[src], plan, deposit, unbondingPeriod)
+		},
+	}
+	return cmd
 }
 
 // Returns an error if a configured key for a given chain doesn't exist

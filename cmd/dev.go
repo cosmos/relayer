@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
@@ -32,6 +33,10 @@ func genesisCmd() *cobra.Command {
 		Aliases: []string{"gen"},
 		Short:   "fetch the genesis file for a configured chain",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s dev genesis ibc-0
+$ %s dev gen ibc-0
+$ %s development genesis ibc-2`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -62,6 +67,10 @@ func listenCmd() *cobra.Command {
 		Aliases: []string{"l"},
 		Short:   "listen to all transaction and block events from a given chain and output them to stdout",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s dev listen ibc-0 --data --no-tx
+$ %s dev l ibc-1 --no-block
+$ %s development listen ibc-2 --no-tx`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -100,6 +109,9 @@ func gaiaServiceCmd() *cobra.Command {
 		Use:   "gaia [user] [home]",
 		Short: "gaia returns a sample gaiad service file",
 		Args:  cobra.ExactArgs(2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s dev gaia [user-name] [path-to-home]
+$ %s development gaia user /home/user`, appName, appName)),
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf(`[Unit]
 Description=gaiad
@@ -125,6 +137,9 @@ func faucetService() *cobra.Command {
 		Use:   "faucet [user] [home] [chain-id] [key-name] [amount]",
 		Short: "faucet returns a sample faucet service file",
 		Args:  cobra.ExactArgs(5),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s dev faucet faucetuser /home/faucetuser ibc-0 testkey 1000000stake
+$ %s development faucet root /home/root ibc-1 testkey2 1000000stake`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[2])
 			if err != nil {
@@ -134,7 +149,7 @@ func faucetService() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = sdk.ParseCoin(args[4])
+			_, err = sdk.ParseCoinNormalized(args[4])
 			if err != nil {
 				return err
 			}
@@ -163,7 +178,10 @@ func rlyService() *cobra.Command {
 		Use:     "relayer [path-name]",
 		Aliases: []string{"rly"},
 		Short:   "relayer returns a service file for the relayer to relay over an individual path",
-		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s dev rly demo-path
+$ %s development relayer path-test`, appName, appName)),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			user, home := os.Getenv("USER"), os.Getenv("HOME")
 			if user == "" || home == "" {

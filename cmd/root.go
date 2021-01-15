@@ -34,6 +34,7 @@ var (
 	debug       bool
 	config      *Config
 	defaultHome = os.ExpandEnv("$HOME/.relayer")
+	appName     = "rly"
 
 	// Default identifiers for dummy usage
 	dcli = "defaultclientid"
@@ -85,7 +86,7 @@ func init() {
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "rly",
+	Use:   appName,
 	Short: "This application relays data between configured IBC enabled chains",
 	Long: strings.TrimSpace(`The relayer has commands for:
   1. Configuration of the Chains and Paths that the relayer with transfer packets over

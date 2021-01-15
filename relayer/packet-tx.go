@@ -5,11 +5,6 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	commitmentypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
-)
-
-var (
-	defaultChainPrefix = commitmentypes.NewMerklePrefix([]byte("ibc"))
 )
 
 // SendTransferMsg initiates an ibs20 transfer from src to dst with the specified args
@@ -43,8 +38,8 @@ func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringe
 
 	// MsgTransfer will call SendPacket on src chain
 	txs := RelayMsgs{
-		Src: []sdk.Msg{c.PathEnd.MsgTransfer(
-			dst.PathEnd, amount, dstAddrString, c.MustGetAddress(), timeoutHeight, timeoutTimestamp,
+		Src: []sdk.Msg{c.MsgTransfer(
+			dst.PathEnd, amount, dstAddrString, timeoutHeight, timeoutTimestamp,
 		)},
 		Dst: []sdk.Msg{},
 	}

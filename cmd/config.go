@@ -60,6 +60,9 @@ func configShowCmd() *cobra.Command {
 		Use:     "show",
 		Aliases: []string{"s", "list", "l"},
 		Short:   "Prints current configuration",
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s config show --home %s
+$ %s cfg list`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			home, err := cmd.Flags().GetString(flags.FlagHome)
 			if err != nil {
@@ -93,6 +96,9 @@ func configInitCmd() *cobra.Command {
 		Use:     "init",
 		Aliases: []string{"i"},
 		Short:   "Creates a default home directory at path defined by --home",
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s config init --home %s
+$ %s cfg i`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			home, err := cmd.Flags().GetString(flags.FlagHome)
 			if err != nil {
@@ -149,6 +155,9 @@ func configAddDirCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Short: `Add new chains and paths to the configuration file from a
 		 directory full of chain and path configuration, useful for adding testnet configurations`,
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s config add-dir configs/
+$ %s cfg ad configs/`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var out *Config
 			if out, err = cfgFilesAdd(args[0]); err != nil {
@@ -191,6 +200,7 @@ func cfgFilesAdd(dir string) (cfg *Config, err error) {
 			p := &relayer.Path{}
 			if err = json.Unmarshal(byt, p); err != nil {
 				fmt.Printf("failed to unmarshal file %s, skipping...\n", pth)
+				continue
 			}
 
 			// In the case that order isn't added to the path, add it manually
@@ -213,11 +223,12 @@ func cfgFilesAdd(dir string) (cfg *Config, err error) {
 				continue
 			}
 
-			if err = p.Validate(); err == nil {
-				fmt.Printf("added path %s...\n", pthName)
-				continue
-			} else if err != nil {
-				fmt.Printf("%s did not contain valid path config, skipping...\n", pth)
+			// TODO: Do bottom up validation
+			// For now, we assume that all chain files must have same filename as chain-id
+			// this is to ensure non-chain files (global config) does not get parsed into chain struct.
+			// Future work should implement bottom-up validation.
+			if c.ChainID != pthName {
+				fmt.Printf("Skipping non chain file: %s\n", f.Name())
 				continue
 			}
 		}

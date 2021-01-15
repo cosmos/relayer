@@ -360,14 +360,16 @@ chains)
     CLI=$(jq -r .cli $json)
 
     DAEMON_TESTNET=$(jq -r '."daemon-testnet"' "$json")
-    [[ $DAEMON_TESTNET != null ]] || DAEMON_TESTNET='echo | $DAEMON testnet -o $chainid --v 1 --chain-id $chainid --node-dir-prefix n --keyring-backend test'
+    [[ $DAEMON_TESTNET != null ]] || DAEMON_TESTNET='echo | $DAEMON testnet -o $chainid --v 1 --node-daemon-home=$DAEMON --chain-id $chainid --node-dir-prefix n --keyring-backend test'
 
     chainid="$ID"
+    p1317=$(( 1317 + $i ))
     p26656=$(( 26656 - $i * 100 ))
     p26657=$(( 26657 - $i * 100 ))
     p26658=$(( 26658 - $i * 100 ))
     p26660=$(( 26660 - $i * 100 ))
     p6060=$(( 6060 + $i ))
+    p9090=$(( 9090 + $i ))
 
     eval $DAEMON_TESTNET || true
 
@@ -387,10 +389,9 @@ chains)
     sedi 's/timeout_commit = "[0-9]*s"/timeout_commit = "1s"/g' "$cfgpth"
     sedi 's/timeout_propose = "[0-9]*s"/timeout_propose = "1s"/g' "$cfgpth"
 
-    gclpth="$DATA/$chainid/n0/$CLI/"
-    $CLI config --home "$gclpth" chain-id $chainid &> /dev/null
-    $CLI config --home "$gclpth" output json &> /dev/null
-    $CLI config --home "$gclpth" node http://localhost:$p26657 &> /dev/null
+    apppth="$DATA/$chainid/n0/$DAEMON/config/app.toml"
+    sedi "s#:1317#:$p1317#g" "$apppth"
+    sedi "s#:9090#:$p9090#g" "$apppth"
   done
 
   for i in ${!IDS[@]}; do
@@ -418,7 +419,7 @@ chains)
   ;;
 clients)
   source "$NCONFIG"
-  RELAYER_CONF=$(rly config show-home 2>/dev/null || echo "$HOME/.relayer")
+  RELAYER_CONF="$HOME/.relayer"
 
   set -e
 
@@ -462,7 +463,7 @@ clients)
     chainid=$ID
     (
       try=0
-      f="$DATA/$chainid/n0/$CLI/key_seed.json"
+      f="$DATA/$chainid/n0/$DAEMON/key_seed.json"
       while [[ ! -f $f ]]; do
         try=$(( $try + 1 ))
         echo "no $f"
@@ -530,7 +531,6 @@ relay)
     path="$ia"
     paths="$paths $path"
     echo "Starting 'rly tx link $path' ($src<>$dst) logs in $LOGS/$path.log"
-    rly start -d "$path" &
     (
       try=0
       while ! rly tx link $path --timeout=3s -d >> "$LOGS/$path.log" 2>&1; do
@@ -540,6 +540,9 @@ relay)
       done
       try=$(( $try + 1 ))
       echo "$path tx link initialized (try=$try)"
+
+      # Run the relayer for future packets.
+      rly start -d "$path"
     ) &
   done
 
@@ -644,14 +647,16 @@ for i in ${!SRCS[@]}; do
     "client-id": "${dsta}client",
     "connection-id": "${dsta}link",
     "channel-id": "${dsta}xfer${ida}",
-    "port-id": "$srcport"
+    "port-id": "$srcport",
+    "order": "unordered"
   },
   "dst": {
     "chain-id": "$dst",
     "client-id": "${srca}client",
     "connection-id": "${srca}link",
     "channel-id": "${srca}xfer${ida}",
-    "port-id": "$dstport"
+    "port-id": "$dstport",
+    "order": "unordered"
   },
   "strategy": {
     "type": "naive"

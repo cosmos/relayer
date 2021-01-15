@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
@@ -19,6 +20,12 @@ func xfersend() *cobra.Command {
 		Long: "Sends the first step to transfer tokens in an IBC transfer." +
 			" The created packet must be relayed to another chain",
 		Args: cobra.ExactArgs(4),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact transfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo-path
+$ %s tx xfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo -y 2 -c 10
+$ %s tx txf ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo
+$ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo -c 5
+`, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			c, err := config.Chains.Gets(src, dst)
@@ -35,7 +42,7 @@ func xfersend() *cobra.Command {
 				return err
 			}
 
-			amount, err := sdk.ParseCoin(args[2])
+			amount, err := sdk.ParseCoinNormalized(args[2])
 			if err != nil {
 				return err
 			}

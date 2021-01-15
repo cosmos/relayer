@@ -74,8 +74,8 @@ func logConnectionStates(src, dst *Chain, srcConn, dstConn *conntypes.QueryConne
 }
 
 func (c *Chain) logCreateClient(dst *Chain, dstH int64) {
-	c.Log(fmt.Sprintf("- [%s] -> creating client (%s) for [%s]header-height{%d} trust-period(%s)",
-		c.ChainID, c.PathEnd.ClientID, dst.ChainID, dstH, dst.GetTrustingPeriod()))
+	c.Log(fmt.Sprintf("- [%s] -> creating client on %s for %s header-height{%d} trust-period(%s)",
+		c.ChainID, c.ChainID, dst.ChainID, dstH, dst.GetTrustingPeriod()))
 }
 
 func (c *Chain) logTx(events map[string][]string) {

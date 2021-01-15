@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
@@ -49,6 +50,9 @@ func chainsAddrCmd() *cobra.Command {
 		Aliases: []string{"addr"},
 		Short:   "Returns a chain's configured key's address",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s chains address ibc-0
+$ %s ch addr ibc-0`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -74,6 +78,11 @@ func chainsShowCmd() *cobra.Command {
 		Aliases: []string{"s"},
 		Short:   "Returns a chain's configuration data",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s chains show ibc-0 --json
+$ %s chains show ibc-0 --yaml
+$ %s ch s ibc-0 --json
+$ %s ch s ibc-0 --yaml`, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -124,6 +133,9 @@ func chainsEditCmd() *cobra.Command {
 		Aliases: []string{"e"},
 		Short:   "Returns chain configuration data",
 		Args:    cobra.ExactArgs(3),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s chains edit ibc-0 trusting-period 32h
+$ %s ch e ibc-0 trusting-period 32h`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -151,6 +163,9 @@ func chainsDeleteCmd() *cobra.Command {
 		Aliases: []string{"d"},
 		Short:   "Returns chain configuration data",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s chains delete ibc-0
+$ %s ch d ibc-0`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return overWriteConfig(config.DeleteChain(args[0]))
 		},
@@ -163,6 +178,9 @@ func chainsListCmd() *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"l"},
 		Short:   "Returns chain configuration data",
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s chains list
+$ %s ch l`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsn, err := cmd.Flags().GetBool(flagJSON)
 			if err != nil {
@@ -233,6 +251,12 @@ func chainsAddCmd() *cobra.Command {
 		Use:     "add",
 		Aliases: []string{"a"},
 		Short:   "Add a new chain to the configuration file by passing a file (-f) or url (-u), or user input",
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s chains add
+$ %s ch a
+$ %s chains add --file chains/ibc0.json
+$ %s chains add --url http://relayer.com/ibc0.json
+`, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var out *Config
 
@@ -274,6 +298,9 @@ func chainsAddDirCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Short: `Add new chains to the configuration file from a directory 
 		full of chain configuration, useful for adding testnet configurations`,
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s chains add-dir testnet/chains/
+$ %s ch ad testnet/chains/`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var out *Config
 			if out, err = filesAdd(args[0]); err != nil {
@@ -316,6 +343,7 @@ func filesAdd(dir string) (cfg *Config, err error) {
 				continue
 			}
 			fmt.Printf("%s did not contain valid chain config, skipping...\n", pth)
+			continue
 
 		}
 		if err = cfg.AddChain(c); err != nil {

@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
@@ -47,6 +48,9 @@ func pathsGenCmd() *cobra.Command {
 		Aliases: []string{"gen"},
 		Short:   "generate identifiers for a new path between src and dst, reusing any that exist",
 		Args:    cobra.ExactArgs(3),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s paths generate ibc-0 ibc-1 demo-path --force
+$ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var (
 				src, dst, pth          = args[0], args[1], args[2]
@@ -316,6 +320,9 @@ func pathsDeleteCmd() *cobra.Command {
 		Aliases: []string{"d"},
 		Short:   "delete a path with a given index",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s paths delete demo-path
+$ %s pth d path-name`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if _, err := config.Paths.Get(args[0]); err != nil {
 				return err
@@ -333,6 +340,10 @@ func pathsListCmd() *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"l"},
 		Short:   "print out configured paths",
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s paths list --yaml
+$ %s paths list --json
+$ %s pth l`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsn, _ := cmd.Flags().GetBool(flagJSON)
 			yml, _ := cmd.Flags().GetBool(flagYAML)
@@ -389,6 +400,10 @@ func pathsShowCmd() *cobra.Command {
 		Aliases: []string{"s"},
 		Short:   "show a path given its name",
 		Args:    cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s paths show demo-path --yaml
+$ %s paths show demo-path --json
+$ %s pth s path-name`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, err := config.Paths.Get(args[0])
 			if err != nil {
@@ -434,6 +449,10 @@ func pathsAddCmd() *cobra.Command {
 		Aliases: []string{"a"},
 		Short:   "add a path to the list of paths",
 		Args:    cobra.ExactArgs(3),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s paths add ibc-0 ibc-1 demo-path
+$ %s paths add ibc-0 ibc-1 demo-path --file paths/demo.json
+$ %s pth a ibc-0 ibc-1 demo-path`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			_, err := config.Chains.Gets(src, dst)
