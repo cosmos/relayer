@@ -7,6 +7,17 @@ display_usage() {
   exit 1
 }
 
+KEYRING=--keyring-backend="test"
+SILENT=0
+
+redirect() {
+  if [ "$SILENT" -eq 1 ]; then
+    "$@" > /dev/null 2>&1
+  else
+    "$@"
+  fi
+}
+
 BINARY=$1
 CHAINID=$2
 CHAINDIR=$3
@@ -53,20 +64,21 @@ fi
 
 # Build genesis file incl account for passed address
 coins="100000000000stake,100000000000samoleans"
+delegate="100000000000stake"
 
-$BINARY --home $CHAINDIR/$CHAINID --chain-id $CHAINID init $CHAINID &> /dev/null
+redirect $BINARY --home $CHAINDIR/$CHAINID --chain-id $CHAINID init $CHAINID 
 sleep 1
-$BINARY --home $CHAINDIR/$CHAINID keys add validator --keyring-backend="test" --output json > $CHAINDIR/$CHAINID/validator_seed.json 2> /dev/null
+redirect $BINARY --home $CHAINDIR/$CHAINID keys add validator $KEYRING --output json > $CHAINDIR/$CHAINID/validator_seed.json 
 sleep 1
-$BINARY --home $CHAINDIR/$CHAINID keys add user --keyring-backend="test" --output json > $CHAINDIR/$CHAINID/key_seed.json 2> /dev/null
+redirect $BINARY --home $CHAINDIR/$CHAINID keys add user $KEYRING --output json > $CHAINDIR/$CHAINID/key_seed.json
 sleep 1
-$BINARY --home $CHAINDIR/$CHAINID add-genesis-account $($BINARY --home $CHAINDIR/$CHAINID keys --keyring-backend="test" show user -a) $coins &> /dev/null
+redirect $BINARY --home $CHAINDIR/$CHAINID add-genesis-account $($BINARY --home $CHAINDIR/$CHAINID keys $KEYRING show user -a) $coins 
 sleep 1
-$BINARY --home $CHAINDIR/$CHAINID add-genesis-account $($BINARY --home $CHAINDIR/$CHAINID keys --keyring-backend="test" show validator -a) $coins  &> /dev/null
+redirect $BINARY --home $CHAINDIR/$CHAINID add-genesis-account $($BINARY --home $CHAINDIR/$CHAINID keys $KEYRING show validator -a) $coins 
 sleep 1
-$BINARY --home $CHAINDIR/$CHAINID gentx validator --keyring-backend="test" --chain-id $CHAINID &> /dev/null
+redirect $BINARY --home $CHAINDIR/$CHAINID gentx validator $delegate $KEYRING --chain-id $CHAINID
 sleep 1
-$BINARY --home $CHAINDIR/$CHAINID collect-gentxs &> /dev/null
+redirect $BINARY --home $CHAINDIR/$CHAINID collect-gentxs 
 sleep 1
 
 # Check platform
