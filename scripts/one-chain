@@ -8,7 +8,7 @@ display_usage() {
 }
 
 KEYRING=--keyring-backend="test"
-SILENT=0
+SILENT=1
 
 redirect() {
   if [ "$SILENT" -eq 1 ]; then
