@@ -64,7 +64,7 @@ $BINARY --home $CHAINDIR/$CHAINID add-genesis-account $($BINARY --home $CHAINDIR
 sleep 1
 $BINARY --home $CHAINDIR/$CHAINID add-genesis-account $($BINARY --home $CHAINDIR/$CHAINID keys --keyring-backend="test" show validator -a) $coins  &> /dev/null
 sleep 1
-$BINARY --home $CHAINDIR/$CHAINID gentx validator --keyring-backend="test" --chain-id $CHAINID &> /dev/null
+$BINARY --home $CHAINDIR/$CHAINID gentx validator --keyring-backend="test" --chain-id $CHAINID 1000000stake &> /dev/null
 sleep 1
 $BINARY --home $CHAINDIR/$CHAINID collect-gentxs &> /dev/null
 sleep 1
