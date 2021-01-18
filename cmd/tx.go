@@ -145,6 +145,11 @@ func upgradeClientsCmd() *cobra.Command {
 				return err
 			}
 
+			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
+			if err != nil {
+				return err
+			}
+
 			// ensure that keys exist
 			if _, err = c[src].GetAddress(); err != nil {
 				return err
@@ -156,13 +161,13 @@ func upgradeClientsCmd() *cobra.Command {
 			targetChainID := args[1]
 			// send the upgrade message on the targetChainID
 			if src == targetChainID {
-				return c[src].UpgradeClients(c[dst])
+				return c[src].UpgradeClients(c[dst], height)
 			}
 
-			return c[dst].UpgradeClients(c[src])
+			return c[dst].UpgradeClients(c[src], height)
 		},
 	}
-	return cmd
+	return heightFlag(cmd)
 }
 
 func createConnectionCmd() *cobra.Command {
@@ -188,6 +193,11 @@ $ %s tx con demo-path -o 3s`, appName, appName, appName)),
 				return err
 			}
 
+			retries, err := cmd.Flags().GetUint64(flagMaxRetries)
+			if err != nil {
+				return err
+			}
+
 			// ensure that keys exist
 			if _, err = c[src].GetAddress(); err != nil {
 				return err
@@ -196,8 +206,7 @@ $ %s tx con demo-path -o 3s`, appName, appName, appName)),
 				return err
 			}
 
-			// TODO: make '3' be a flag, maximum retries after failed message send
-			modified, err := c[src].CreateOpenConnections(c[dst], 3, to)
+			modified, err := c[src].CreateOpenConnections(c[dst], retries, to)
 			if modified {
 				if err := overWriteConfig(cmd, config); err != nil {
 					return err
@@ -208,7 +217,7 @@ $ %s tx con demo-path -o 3s`, appName, appName, appName)),
 		},
 	}
 
-	return timeoutFlag(cmd)
+	return retryFlag(timeoutFlag(cmd))
 }
 
 func createChannelCmd() *cobra.Command {
@@ -234,6 +243,11 @@ $ %s tx ch demo-path -o 3s`, appName, appName, appName)),
 				return err
 			}
 
+			retries, err := cmd.Flags().GetUint64(flagMaxRetries)
+			if err != nil {
+				return err
+			}
+
 			// ensure that keys exist
 			if _, err = c[src].GetAddress(); err != nil {
 				return err
@@ -242,8 +256,7 @@ $ %s tx ch demo-path -o 3s`, appName, appName, appName)),
 				return err
 			}
 
-			// TODO: make '3' a flag, max retries after failed message send
-			modified, err := c[src].CreateOpenChannels(c[dst], 3, to)
+			modified, err := c[src].CreateOpenChannels(c[dst], retries, to)
 			if modified {
 				if err := overWriteConfig(cmd, config); err != nil {
 					return err
@@ -255,7 +268,7 @@ $ %s tx ch demo-path -o 3s`, appName, appName, appName)),
 		},
 	}
 
-	return timeoutFlag(cmd)
+	return retryFlag(timeoutFlag(cmd))
 }
 
 func closeChannelCmd() *cobra.Command {
@@ -319,6 +332,11 @@ $ %s tx pth demo-path`, appName, appName, appName, appName, appName)),
 				return err
 			}
 
+			retries, err := cmd.Flags().GetUint64(flagMaxRetries)
+			if err != nil {
+				return err
+			}
+
 			// ensure that keys exist
 			if _, err = c[src].GetAddress(); err != nil {
 				return err
@@ -337,9 +355,8 @@ $ %s tx pth demo-path`, appName, appName, appName, appName, appName)),
 				return err
 			}
 
-			// TODO: make '3' a flag, maximum retries after failed message send
 			// create connection if it isn't already created
-			modified, err = c[src].CreateOpenConnections(c[dst], 3, to)
+			modified, err = c[src].CreateOpenConnections(c[dst], retries, to)
 			if modified {
 				if err := overWriteConfig(cmd, config); err != nil {
 					return err
@@ -360,7 +377,7 @@ $ %s tx pth demo-path`, appName, appName, appName, appName, appName)),
 		},
 	}
 
-	return timeoutFlag(cmd)
+	return retryFlag(timeoutFlag(cmd))
 }
 
 func linkThenStartCmd() *cobra.Command {

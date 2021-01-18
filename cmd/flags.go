@@ -32,6 +32,7 @@ var (
 	flagIBCDenoms           = "ibc-denoms"
 	flagTimeoutHeightOffset = "timeout-height-offset"
 	flagTimeoutTimeOffset   = "timeout-time-offset"
+	flagMaxRetries          = "max-retries"
 )
 
 func ibcDenomFlags(cmd *cobra.Command) *cobra.Command {
@@ -248,4 +249,12 @@ func getAddInputs(cmd *cobra.Command) (file string, url string, err error) {
 	}
 
 	return
+}
+
+func retryFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Uint64P(flagMaxRetries, "r", 3, "maximum retries after failed message send")
+	if err := viper.BindPFlag(flagMaxRetries, cmd.Flags().Lookup(flagMaxRetries)); err != nil {
+		panic(err)
+	}
+	return cmd
 }
