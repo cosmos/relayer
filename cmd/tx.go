@@ -145,6 +145,11 @@ func upgradeClientsCmd() *cobra.Command {
 				return err
 			}
 
+			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
+			if err != nil {
+				return err
+			}
+
 			// ensure that keys exist
 			if _, err = c[src].GetAddress(); err != nil {
 				return err
@@ -156,13 +161,13 @@ func upgradeClientsCmd() *cobra.Command {
 			targetChainID := args[1]
 			// send the upgrade message on the targetChainID
 			if src == targetChainID {
-				return c[src].UpgradeClients(c[dst])
+				return c[src].UpgradeClients(c[dst], height)
 			}
 
-			return c[dst].UpgradeClients(c[src])
+			return c[dst].UpgradeClients(c[src], height)
 		},
 	}
-	return cmd
+	return heightFlag(cmd)
 }
 
 func createConnectionCmd() *cobra.Command {
