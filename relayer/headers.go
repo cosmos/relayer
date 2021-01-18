@@ -119,8 +119,8 @@ func InjectTrustedFields(srcChain, dstChain *Chain, srcHeader *tmclient.Header) 
 	if err != nil {
 		return nil, err
 	}
-	cs, err := clienttypes.UnpackClientState(counterpartyClientRes.ClientState)
-	if err != nil {
+	var cs ibcexported.ClientState
+	if err := dstChain.Encoding.InterfaceRegistry.UnpackAny(counterpartyClientRes.ClientState, &cs); err != nil {
 		panic(err)
 	}
 
