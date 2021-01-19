@@ -10,10 +10,6 @@ import (
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
 )
 
-// TODO: migrate all message construction methods to msgs.go and use the chain
-// to construct them.
-// https://github.com/cosmos/relayer/issues/368
-
 var (
 	defaultChainPrefix = commitmenttypes.NewMerklePrefix([]byte("ibc"))
 	defaultDelayPeriod = uint64(0)
