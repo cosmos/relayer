@@ -33,7 +33,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			return modified, err
 		}
 		msgs := []sdk.Msg{
-			c.PathEnd.CreateClient(
+			c.CreateClient(
 				dstH,
 				dst.GetTrustingPeriod(),
 				ubdPeriod,
@@ -75,7 +75,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			return modified, err
 		}
 		msgs := []sdk.Msg{
-			dst.PathEnd.CreateClient(
+			dst.CreateClient(
 				srcH,
 				c.GetTrustingPeriod(),
 				ubdPeriod,

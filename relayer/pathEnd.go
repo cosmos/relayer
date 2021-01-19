@@ -2,16 +2,12 @@ package relayer
 
 import (
 	"strings"
-	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/cosmos-sdk/x/ibc/applications/transfer/types"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
-	"github.com/tendermint/tendermint/light"
 )
 
 // TODO: migrate all message construction methods to msgs.go and use the chain
@@ -67,110 +63,6 @@ func UnmarshalChain(pe PathEnd) *Chain {
 		return c
 	}
 	return nil
-}
-
-// CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (pe *PathEnd) CreateClient(
-	dstHeader *tmclient.Header,
-	trustingPeriod, unbondingPeriod time.Duration,
-	signer sdk.AccAddress) sdk.Msg {
-	if err := dstHeader.ValidateBasic(); err != nil {
-		panic(err)
-	}
-
-	// Blank Client State
-	clientState := tmclient.NewClientState(
-		dstHeader.GetHeader().GetChainID(),
-		tmclient.NewFractionFromTm(light.DefaultTrustLevel),
-		trustingPeriod,
-		unbondingPeriod,
-		time.Minute*10,
-		dstHeader.GetHeight().(clienttypes.Height),
-		commitmenttypes.GetSDKSpecs(),
-		defaultUpgradePath,
-		false,
-		false,
-	)
-
-	msg, err := clienttypes.NewMsgCreateClient(
-		clientState,
-		dstHeader.ConsensusState(),
-		signer,
-	)
-
-	if err != nil {
-		panic(err)
-	}
-	if err = msg.ValidateBasic(); err != nil {
-		panic(err)
-	}
-	return msg
-}
-
-// ConnInit creates a MsgConnectionOpenInit
-func (pe *PathEnd) ConnInit(counterparty *PathEnd, signer sdk.AccAddress) sdk.Msg {
-	var version *conntypes.Version
-	return conntypes.NewMsgConnectionOpenInit(
-		pe.ClientID,
-		counterparty.ClientID,
-		defaultChainPrefix,
-		version,
-		defaultDelayPeriod,
-		signer,
-	)
-}
-
-// ConnConfirm creates a MsgConnectionOpenConfirm
-func (pe *PathEnd) ConnConfirm(counterpartyConnState *conntypes.QueryConnectionResponse, signer sdk.AccAddress) sdk.Msg {
-	return conntypes.NewMsgConnectionOpenConfirm(
-		pe.ConnectionID,
-		counterpartyConnState.Proof,
-		counterpartyConnState.ProofHeight,
-		signer,
-	)
-}
-
-// ChanInit creates a MsgChannelOpenInit
-func (pe *PathEnd) ChanInit(counterparty *PathEnd, signer sdk.AccAddress) sdk.Msg {
-	return chantypes.NewMsgChannelOpenInit(
-		pe.PortID,
-		pe.Version,
-		pe.GetOrder(),
-		[]string{pe.ConnectionID},
-		counterparty.PortID,
-		signer,
-	)
-}
-
-// ChanConfirm creates a MsgChannelOpenConfirm
-func (pe *PathEnd) ChanConfirm(dstChanState *chantypes.QueryChannelResponse, signer sdk.AccAddress) sdk.Msg {
-	return chantypes.NewMsgChannelOpenConfirm(
-		pe.PortID,
-		pe.ChannelID,
-		dstChanState.Proof,
-		dstChanState.ProofHeight,
-		signer,
-	)
-}
-
-// ChanCloseInit creates a MsgChannelCloseInit
-func (pe *PathEnd) ChanCloseInit(signer sdk.AccAddress) sdk.Msg {
-	return chantypes.NewMsgChannelCloseInit(
-		pe.PortID,
-		pe.ChannelID,
-		signer,
-	)
-}
-
-// ChanCloseConfirm creates a MsgChannelCloseConfirm
-func (pe *PathEnd) ChanCloseConfirm(dstChanState *chantypes.QueryChannelResponse, signer sdk.AccAddress) sdk.Msg {
-	return chantypes.NewMsgChannelCloseConfirm(
-		pe.PortID,
-		pe.ChannelID,
-		dstChanState.Proof,
-		dstChanState.ProofHeight,
-		signer,
-	)
 }
 
 // NewPacket returns a new packet from src to dist w

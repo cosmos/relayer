@@ -1,12 +1,17 @@
 package relayer
 
 import (
+	"time"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/cosmos-sdk/x/ibc/applications/transfer/types"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
 	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	light "github.com/tendermint/tendermint/light"
 )
 
 // NOTE: we explicitly call 'MustGetAddress' before 'NewMsg...'
@@ -154,5 +159,109 @@ func (c *Chain) MsgTransfer(dst *PathEnd, amount sdk.Coin, dstAddr string,
 		dstAddr,
 		clienttypes.NewHeight(version, timeoutHeight),
 		timeoutTimestamp,
+	)
+}
+
+// CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
+func (c *Chain) CreateClient(
+	dstHeader *tmclient.Header,
+	trustingPeriod, unbondingPeriod time.Duration,
+	signer sdk.AccAddress) sdk.Msg {
+	if err := dstHeader.ValidateBasic(); err != nil {
+		panic(err)
+	}
+
+	// Blank Client State
+	clientState := tmclient.NewClientState(
+		dstHeader.GetHeader().GetChainID(),
+		tmclient.NewFractionFromTm(light.DefaultTrustLevel),
+		trustingPeriod,
+		unbondingPeriod,
+		time.Minute*10,
+		dstHeader.GetHeight().(clienttypes.Height),
+		commitmenttypes.GetSDKSpecs(),
+		defaultUpgradePath,
+		false,
+		false,
+	)
+
+	msg, err := clienttypes.NewMsgCreateClient(
+		clientState,
+		dstHeader.ConsensusState(),
+		signer,
+	)
+
+	if err != nil {
+		panic(err)
+	}
+	if err = msg.ValidateBasic(); err != nil {
+		panic(err)
+	}
+	return msg
+}
+
+// ConnInit creates a MsgConnectionOpenInit
+func (c *Chain) ConnInit(counterparty *PathEnd, signer sdk.AccAddress) sdk.Msg {
+	var version *conntypes.Version
+	return conntypes.NewMsgConnectionOpenInit(
+		c.PathEnd.ClientID,
+		counterparty.ClientID,
+		defaultChainPrefix,
+		version,
+		defaultDelayPeriod,
+		signer,
+	)
+}
+
+// ConnConfirm creates a MsgConnectionOpenConfirm
+func (c *Chain) ConnConfirm(counterpartyConnState *conntypes.QueryConnectionResponse, signer sdk.AccAddress) sdk.Msg {
+	return conntypes.NewMsgConnectionOpenConfirm(
+		c.PathEnd.ConnectionID,
+		counterpartyConnState.Proof,
+		counterpartyConnState.ProofHeight,
+		signer,
+	)
+}
+
+// ChanInit creates a MsgChannelOpenInit
+func (c *Chain) ChanInit(counterparty *PathEnd, signer sdk.AccAddress) sdk.Msg {
+	return chantypes.NewMsgChannelOpenInit(
+		c.PathEnd.PortID,
+		c.PathEnd.Version,
+		c.PathEnd.GetOrder(),
+		[]string{c.PathEnd.ConnectionID},
+		counterparty.PortID,
+		signer,
+	)
+}
+
+// ChanConfirm creates a MsgChannelOpenConfirm
+func (c *Chain) ChanConfirm(dstChanState *chantypes.QueryChannelResponse, signer sdk.AccAddress) sdk.Msg {
+	return chantypes.NewMsgChannelOpenConfirm(
+		c.PathEnd.PortID,
+		c.PathEnd.ChannelID,
+		dstChanState.Proof,
+		dstChanState.ProofHeight,
+		signer,
+	)
+}
+
+// ChanCloseInit creates a MsgChannelCloseInit
+func (c *Chain) ChanCloseInit(signer sdk.AccAddress) sdk.Msg {
+	return chantypes.NewMsgChannelCloseInit(
+		c.PathEnd.PortID,
+		c.PathEnd.ChannelID,
+		signer,
+	)
+}
+
+// ChanCloseConfirm creates a MsgChannelCloseConfirm
+func (c *Chain) ChanCloseConfirm(dstChanState *chantypes.QueryChannelResponse, signer sdk.AccAddress) sdk.Msg {
+	return chantypes.NewMsgChannelCloseConfirm(
+		c.PathEnd.PortID,
+		c.PathEnd.ChannelID,
+		dstChanState.Proof,
+		dstChanState.ProofHeight,
+		signer,
 	)
 }
