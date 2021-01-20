@@ -37,7 +37,6 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 				dstH,
 				dst.GetTrustingPeriod(),
 				ubdPeriod,
-				c.MustGetAddress(),
 			),
 		}
 		res, success, err := c.SendMsgs(msgs)
@@ -79,7 +78,6 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 				srcH,
 				c.GetTrustingPeriod(),
 				ubdPeriod,
-				dst.MustGetAddress(),
 			),
 		}
 		res, success, err := dst.SendMsgs(msgs)

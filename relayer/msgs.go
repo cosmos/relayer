@@ -165,8 +165,7 @@ func (c *Chain) MsgTransfer(dst *PathEnd, amount sdk.Coin, dstAddr string,
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
 func (c *Chain) CreateClient(
 	dstHeader *tmclient.Header,
-	trustingPeriod, unbondingPeriod time.Duration,
-	signer sdk.AccAddress) sdk.Msg {
+	trustingPeriod, unbondingPeriod time.Duration) sdk.Msg {
 	if err := dstHeader.ValidateBasic(); err != nil {
 		panic(err)
 	}
@@ -188,7 +187,7 @@ func (c *Chain) CreateClient(
 	msg, err := clienttypes.NewMsgCreateClient(
 		clientState,
 		dstHeader.ConsensusState(),
-		signer,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
 	if err != nil {
@@ -201,7 +200,7 @@ func (c *Chain) CreateClient(
 }
 
 // ConnInit creates a MsgConnectionOpenInit
-func (c *Chain) ConnInit(counterparty *PathEnd, signer sdk.AccAddress) sdk.Msg {
+func (c *Chain) ConnInit(counterparty *PathEnd) sdk.Msg {
 	var version *conntypes.Version
 	return conntypes.NewMsgConnectionOpenInit(
 		c.PathEnd.ClientID,
@@ -209,59 +208,59 @@ func (c *Chain) ConnInit(counterparty *PathEnd, signer sdk.AccAddress) sdk.Msg {
 		defaultChainPrefix,
 		version,
 		defaultDelayPeriod,
-		signer,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 }
 
 // ConnConfirm creates a MsgConnectionOpenConfirm
-func (c *Chain) ConnConfirm(counterpartyConnState *conntypes.QueryConnectionResponse, signer sdk.AccAddress) sdk.Msg {
+func (c *Chain) ConnConfirm(counterpartyConnState *conntypes.QueryConnectionResponse) sdk.Msg {
 	return conntypes.NewMsgConnectionOpenConfirm(
 		c.PathEnd.ConnectionID,
 		counterpartyConnState.Proof,
 		counterpartyConnState.ProofHeight,
-		signer,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 }
 
 // ChanInit creates a MsgChannelOpenInit
-func (c *Chain) ChanInit(counterparty *PathEnd, signer sdk.AccAddress) sdk.Msg {
+func (c *Chain) ChanInit(counterparty *PathEnd) sdk.Msg {
 	return chantypes.NewMsgChannelOpenInit(
 		c.PathEnd.PortID,
 		c.PathEnd.Version,
 		c.PathEnd.GetOrder(),
 		[]string{c.PathEnd.ConnectionID},
 		counterparty.PortID,
-		signer,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 }
 
 // ChanConfirm creates a MsgChannelOpenConfirm
-func (c *Chain) ChanConfirm(dstChanState *chantypes.QueryChannelResponse, signer sdk.AccAddress) sdk.Msg {
+func (c *Chain) ChanConfirm(dstChanState *chantypes.QueryChannelResponse) sdk.Msg {
 	return chantypes.NewMsgChannelOpenConfirm(
 		c.PathEnd.PortID,
 		c.PathEnd.ChannelID,
 		dstChanState.Proof,
 		dstChanState.ProofHeight,
-		signer,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 }
 
 // ChanCloseInit creates a MsgChannelCloseInit
-func (c *Chain) ChanCloseInit(signer sdk.AccAddress) sdk.Msg {
+func (c *Chain) ChanCloseInit() sdk.Msg {
 	return chantypes.NewMsgChannelCloseInit(
 		c.PathEnd.PortID,
 		c.PathEnd.ChannelID,
-		signer,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 }
 
 // ChanCloseConfirm creates a MsgChannelCloseConfirm
-func (c *Chain) ChanCloseConfirm(dstChanState *chantypes.QueryChannelResponse, signer sdk.AccAddress) sdk.Msg {
+func (c *Chain) ChanCloseConfirm(dstChanState *chantypes.QueryChannelResponse) sdk.Msg {
 	return chantypes.NewMsgChannelCloseConfirm(
 		c.PathEnd.PortID,
 		c.PathEnd.ChannelID,
 		dstChanState.Proof,
 		dstChanState.ProofHeight,
-		signer,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 }

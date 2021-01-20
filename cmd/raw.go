@@ -108,7 +108,7 @@ $ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 			}
 
 			return sendAndPrint([]sdk.Msg{chains[src].CreateClient(dstHeader,
-				chains[dst].GetTrustingPeriod(), ubdPeriod, chains[src].MustGetAddress())},
+				chains[dst].GetTrustingPeriod(), ubdPeriod)},
 				chains[src], cmd)
 		},
 	}
@@ -138,7 +138,7 @@ $ %s tx raw conn-init ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`,
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{chains[src].ConnInit(chains[dst].PathEnd, chains[src].MustGetAddress())},
+			return sendAndPrint([]sdk.Msg{chains[src].ConnInit(chains[dst].PathEnd)},
 				chains[src], cmd)
 		},
 	}
@@ -282,7 +282,7 @@ $ %s tx raw conn-confirm ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn
 				return err
 			}
 			txs := []sdk.Msg{
-				chains[src].ConnConfirm(dstState, chains[src].MustGetAddress()),
+				chains[src].ConnConfirm(dstState),
 				chains[src].UpdateClient(updateHeader),
 			}
 
@@ -358,7 +358,7 @@ $ %s tx raw chan-init ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2 i
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{chains[src].ChanInit(chains[dst].PathEnd, chains[src].MustGetAddress())},
+			return sendAndPrint([]sdk.Msg{chains[src].ChanInit(chains[dst].PathEnd)},
 				chains[src], cmd)
 		},
 	}
@@ -506,7 +506,7 @@ $ %s tx raw chan-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer tr
 			}
 			txs := []sdk.Msg{
 				chains[src].UpdateClient(updateHeader),
-				chains[src].ChanConfirm(dstChanState, chains[src].MustGetAddress()),
+				chains[src].ChanConfirm(dstChanState),
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -575,7 +575,7 @@ $ %s tx raw chan-close-init ibc-0 ibcchan1 transfer`, appName, appName)),
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{src.ChanCloseInit(src.MustGetAddress())}, src, cmd)
+			return sendAndPrint([]sdk.Msg{src.ChanCloseInit()}, src, cmd)
 		},
 	}
 	return cmd
@@ -620,7 +620,7 @@ $ %s tx raw chan-close-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 trans
 			}
 			txs := []sdk.Msg{
 				chains[src].UpdateClient(updateHeader),
-				chains[src].ChanCloseConfirm(dstChanState, chains[src].MustGetAddress()),
+				chains[src].ChanCloseConfirm(dstChanState),
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
