@@ -56,7 +56,7 @@ The relayer currently cannot:
 - monitor and submit misbehaviour for clients
 - use IBC light clients other than Tendermint such as Solo Machine
 - connect to chains which don't implement/enable IBC
-- connect to chains using a different IBC implementation (chain is not using SDK's `x/ibc` module)
+- connect to chains using a different IBC implementation (chains not using SDK's `x/ibc` module)
 
 ## Relayer Terminology
 
