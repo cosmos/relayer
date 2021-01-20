@@ -3,10 +3,15 @@ package cmd
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
+	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
+	"github.com/tendermint/tendermint/light"
 )
 
 ////////////////////////////////////////
@@ -107,8 +112,22 @@ $ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.CreateClient(dstHeader,
-				chains[dst].GetTrustingPeriod(), ubdPeriod, chains[src].MustGetAddress())},
+			clientState := ibctmtypes.NewClientState(
+				dstHeader.GetHeader().GetChainID(),
+				ibctmtypes.NewFractionFromTm(light.DefaultTrustLevel),
+				chains[dst].GetTrustingPeriod(),
+				ubdPeriod,
+				time.Minute*10,
+				dstHeader.GetHeight().(clienttypes.Height),
+				commitmenttypes.GetSDKSpecs(),
+				relayer.DefaultUpgradePath,
+				false,
+				false,
+			)
+
+			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.CreateClient(
+				clientState, dstHeader,
+				chains[src].MustGetAddress())},
 				chains[src], cmd)
 		},
 	}

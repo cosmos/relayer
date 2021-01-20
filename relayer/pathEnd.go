@@ -2,7 +2,6 @@ package relayer
 
 import (
 	"strings"
-	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/cosmos-sdk/x/ibc/applications/transfer/types"
@@ -11,7 +10,6 @@ import (
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
-	"github.com/tendermint/tendermint/light"
 )
 
 // TODO: migrate all message construction methods to msgs.go and use the chain
@@ -21,7 +19,7 @@ import (
 var (
 	defaultChainPrefix = commitmenttypes.NewMerklePrefix([]byte("ibc"))
 	defaultDelayPeriod = uint64(0)
-	defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
+	DefaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 )
 
 // PathEnd represents the local connection identifers for a relay path
@@ -71,26 +69,13 @@ func UnmarshalChain(pe PathEnd) *Chain {
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
 func (pe *PathEnd) CreateClient(
+	clientState *tmclient.ClientState,
 	dstHeader *tmclient.Header,
-	trustingPeriod, unbondingPeriod time.Duration,
 	signer sdk.AccAddress) sdk.Msg {
+
 	if err := dstHeader.ValidateBasic(); err != nil {
 		panic(err)
 	}
-
-	// Blank Client State
-	clientState := tmclient.NewClientState(
-		dstHeader.GetHeader().GetChainID(),
-		tmclient.NewFractionFromTm(light.DefaultTrustLevel),
-		trustingPeriod,
-		unbondingPeriod,
-		time.Minute*10,
-		dstHeader.GetHeight().(clienttypes.Height),
-		commitmenttypes.GetSDKSpecs(),
-		defaultUpgradePath,
-		false,
-		false,
-	)
 
 	msg, err := clienttypes.NewMsgCreateClient(
 		clientState,
