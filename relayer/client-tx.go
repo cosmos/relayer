@@ -41,7 +41,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			return modified, err
 		}
 
-		// Create the ClientState we want on 'c' tracking dst
+		// Create the ClientState we want on 'c' tracking 'dst'
 		clientState := ibctmtypes.NewClientState(
 			dstH.GetHeader().GetChainID(),
 			ibctmtypes.NewFractionFromTm(light.DefaultTrustLevel),
