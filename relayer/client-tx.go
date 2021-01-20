@@ -103,6 +103,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		if err != nil {
 			return modified, err
 		}
+                 // Create the ClientState we want on 'dst' tracking 'c'
 		clientState := ibctmtypes.NewClientState(
 			srcH.GetHeader().GetChainID(),
 			ibctmtypes.NewFractionFromTm(light.DefaultTrustLevel),
