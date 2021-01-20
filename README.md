@@ -51,6 +51,7 @@ The relayer supports the following:
 - upgrading clients after a counterparty chain has performed an upgrade for IBC breaking changes
 
 The relayer currently cannot:
+- create clients with user chosen parameters (such as UpgradePath)
 - submit IBC client unfreezing proposals 
 - monitor and submit misbehaviour for clients
 - use IBC light clients other than Tendermint such as Solo Machine
