@@ -1,4 +1,5 @@
 # Relayer
+![Relayer](./docs/images/github-repo-banner.gif)
 
 ![Relayer Build](https://github.com/cosmos/relayer/workflows/Build%20then%20run%20CI%20Chains/badge.svg)
 
