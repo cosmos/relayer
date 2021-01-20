@@ -176,8 +176,8 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 		return err
 	}
 
-	clients.Src = append(clients.Src, c.PathEnd.UpdateClient(dstUH, c.MustGetAddress()))
-	clients.Dst = append(clients.Dst, dst.PathEnd.UpdateClient(srcUH, dst.MustGetAddress()))
+	clients.Src = append(clients.Src, c.UpdateClient(dstUH))
+	clients.Dst = append(clients.Dst, dst.UpdateClient(srcUH))
 
 	// Send msgs to both chains
 	if clients.Ready() {
@@ -200,7 +200,7 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 }
 
 // UpgradesClients upgrades the client on src after dst chain has undergone an upgrade.
-func (c *Chain) UpgradeClients(dst *Chain) error {
+func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 	sh, err := NewSyncHeaders(c, dst)
 	if err != nil {
 		return err
@@ -208,7 +208,10 @@ func (c *Chain) UpgradeClients(dst *Chain) error {
 	if err := sh.Updates(c, dst); err != nil {
 		return err
 	}
-	height := int64(sh.GetHeight(dst.ChainID))
+
+	if height == 0 {
+		height = int64(sh.GetHeight(dst.ChainID))
+	}
 
 	// TODO: construct method of only attempting to get dst header
 	// Note: we explicitly do not check the error since the source
@@ -229,7 +232,7 @@ func (c *Chain) UpgradeClients(dst *Chain) error {
 	upgradeMsg := &clienttypes.MsgUpgradeClient{c.PathEnd.ClientID, clientState, consensusState, proofUpgradeClient, proofUpgradeConsensusState, c.MustGetAddress().String()}
 
 	msgs := []sdk.Msg{
-		c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
+		c.UpdateClient(dstUpdateHeader),
 		upgradeMsg,
 	}
 

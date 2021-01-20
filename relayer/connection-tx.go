@@ -129,13 +129,13 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
 
-		openTry, err := src.PathEnd.ConnTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1, src.MustGetAddress())
+		openTry, err := src.ConnTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
 		if err != nil {
 			return false, false, false, err
 		}
 
 		msgs = []sdk.Msg{
-			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
+			src.UpdateClient(dstUpdateHeader),
 			openTry,
 		}
 		_, success, err = src.SendMsgs(msgs)
@@ -151,13 +151,13 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
 
-		openAck, err := src.PathEnd.ConnAck(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1, src.MustGetAddress())
+		openAck, err := src.ConnAck(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
 		if err != nil {
 			return false, false, false, err
 		}
 
 		msgs = []sdk.Msg{
-			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
+			src.UpdateClient(dstUpdateHeader),
 			openAck,
 		}
 		_, success, err = src.SendMsgs(msgs)
@@ -173,13 +173,13 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(dst, src, dstConn, srcConn)
 		}
 
-		openAck, err := dst.PathEnd.ConnAck(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1, dst.MustGetAddress())
+		openAck, err := dst.ConnAck(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1)
 		if err != nil {
 			return false, false, false, err
 		}
 
 		msgs = []sdk.Msg{
-			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
+			dst.UpdateClient(srcUpdateHeader),
 			openAck,
 		}
 		_, success, err = dst.SendMsgs(msgs)
@@ -193,7 +193,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
 		msgs = []sdk.Msg{
-			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
+			src.UpdateClient(dstUpdateHeader),
 			src.PathEnd.ConnConfirm(dstConn, src.MustGetAddress()),
 		}
 		_, success, err = src.SendMsgs(msgs)
@@ -209,7 +209,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(dst, src, dstConn, srcConn)
 		}
 		msgs = []sdk.Msg{
-			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
+			dst.UpdateClient(srcUpdateHeader),
 			dst.PathEnd.ConnConfirm(srcConn, dst.MustGetAddress()),
 		}
 		last = true
@@ -239,7 +239,7 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 
 		// cosntruct OpenInit message to be submitted on source chain
 		msgs := []sdk.Msg{
-			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
+			src.UpdateClient(dstUpdateHeader),
 			src.PathEnd.ConnInit(dst.PathEnd, src.MustGetAddress()),
 		}
 
@@ -265,13 +265,13 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 			// TODO: update logging
 		}
 
-		openTry, err := src.PathEnd.ConnTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1, src.MustGetAddress())
+		openTry, err := src.ConnTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
 		if err != nil {
 			return false, false, err
 		}
 
 		msgs := []sdk.Msg{
-			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
+			src.UpdateClient(dstUpdateHeader),
 			openTry,
 		}
 		res, success, err := src.SendMsgs(msgs)
@@ -296,13 +296,13 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 			// TODO: update logging
 		}
 
-		openTry, err := dst.PathEnd.ConnTry(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1, dst.MustGetAddress())
+		openTry, err := dst.ConnTry(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1)
 		if err != nil {
 			return false, false, err
 		}
 
 		msgs := []sdk.Msg{
-			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
+			dst.UpdateClient(srcUpdateHeader),
 			openTry,
 		}
 		res, success, err := dst.SendMsgs(msgs)

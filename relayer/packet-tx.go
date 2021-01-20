@@ -24,7 +24,8 @@ func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringe
 
 	switch {
 	case toHeightOffset > 0 && toTimeOffset > 0:
-		return fmt.Errorf("cant set both timeout height and time offset")
+		timeoutHeight = uint64(h.Header.Height) + toHeightOffset
+		timeoutTimestamp = uint64(time.Now().Add(toTimeOffset).UnixNano())
 	case toHeightOffset > 0:
 		timeoutHeight = uint64(h.Header.Height) + toHeightOffset
 		timeoutTimestamp = 0
@@ -38,8 +39,8 @@ func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr fmt.Stringe
 
 	// MsgTransfer will call SendPacket on src chain
 	txs := RelayMsgs{
-		Src: []sdk.Msg{c.PathEnd.MsgTransfer(
-			dst.PathEnd, amount, dstAddrString, c.MustGetAddress(), timeoutHeight, timeoutTimestamp,
+		Src: []sdk.Msg{c.MsgTransfer(
+			dst.PathEnd, amount, dstAddrString, timeoutHeight, timeoutTimestamp,
 		)},
 		Dst: []sdk.Msg{},
 	}

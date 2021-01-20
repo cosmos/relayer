@@ -75,7 +75,7 @@ $ %s tx raw uc ibc-0 ibc-1 ibconeclient`, appName, appName)),
 			if err != nil {
 				return err
 			}
-			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress())},
+			return sendAndPrint([]sdk.Msg{chains[src].UpdateClient(updateHeader)},
 				chains[src], cmd)
 		},
 	}
@@ -196,13 +196,13 @@ $ %s tx raw conn-try ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`, 
 			if err != nil {
 				return err
 			}
-			openTry, err := chains[src].PathEnd.ConnTry(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1, chains[src].MustGetAddress())
+			openTry, err := chains[src].ConnTry(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1)
 			if err != nil {
 				return err
 			}
 
 			txs := []sdk.Msg{
-				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
+				chains[src].UpdateClient(updateHeader),
 				openTry,
 			}
 
@@ -245,13 +245,13 @@ $ %s tx raw conn-ack ibc-0 ibc-1 ibconeclient ibczeroclient ibcconn1 ibcconn2`, 
 				return err
 			}
 
-			openAck, err := chains[src].PathEnd.ConnAck(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1, chains[src].MustGetAddress())
+			openAck, err := chains[src].ConnAck(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1)
 			if err != nil {
 				return err
 			}
 
 			txs := []sdk.Msg{
-				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
+				chains[src].UpdateClient(updateHeader),
 				openAck,
 			}
 
@@ -302,7 +302,7 @@ $ %s tx raw conn-confirm ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn
 			}
 			txs := []sdk.Msg{
 				chains[src].PathEnd.ConnConfirm(dstState, chains[src].MustGetAddress()),
-				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
+				chains[src].UpdateClient(updateHeader),
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -418,13 +418,13 @@ $ %s tx raw chan-try ibc-0 ibc-1 ibczeroclient ibcconn0 ibcchan1 ibcchan2 transf
 				return err
 			}
 
-			openTry, err := chains[src].PathEnd.ChanTry(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1, chains[src].MustGetAddress())
+			openTry, err := chains[src].ChanTry(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1)
 			if err != nil {
 				return err
 			}
 
 			txs := []sdk.Msg{
-				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
+				chains[src].UpdateClient(updateHeader),
 				openTry,
 			}
 
@@ -469,13 +469,13 @@ $ %s tx raw chan-ack ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer transf
 				return err
 			}
 
-			openAck, err := chains[src].PathEnd.ChanAck(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1, chains[src].MustGetAddress())
+			openAck, err := chains[src].ChanAck(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1)
 			if err != nil {
 				return err
 			}
 
 			txs := []sdk.Msg{
-				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
+				chains[src].UpdateClient(updateHeader),
 				openAck,
 			}
 
@@ -524,7 +524,7 @@ $ %s tx raw chan-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer tr
 				return err
 			}
 			txs := []sdk.Msg{
-				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
+				chains[src].UpdateClient(updateHeader),
 				chains[src].PathEnd.ChanConfirm(dstChanState, chains[src].MustGetAddress()),
 			}
 
@@ -638,7 +638,7 @@ $ %s tx raw chan-close-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 trans
 				return err
 			}
 			txs := []sdk.Msg{
-				chains[src].PathEnd.UpdateClient(updateHeader, chains[src].MustGetAddress()),
+				chains[src].UpdateClient(updateHeader),
 				chains[src].PathEnd.ChanCloseConfirm(dstChanState, chains[src].MustGetAddress()),
 			}
 

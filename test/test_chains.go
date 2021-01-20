@@ -34,7 +34,7 @@ var (
 	// 3 second relayer timeout works well with these block times
 	akashTestConfig = testChainConfig{
 		dockerImage:    "jackzampolin/akashtest",
-		dockerTag:      "jack_update-sdk",
+		dockerTag:      "jack_update-ibc-args",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "akash",

@@ -128,13 +128,13 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
 
-		openTry, err := src.PathEnd.ChanTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1, src.MustGetAddress())
+		openTry, err := src.ChanTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
 		if err != nil {
 			return false, false, false, err
 		}
 
 		msgs = []sdk.Msg{
-			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
+			src.UpdateClient(dstUpdateHeader),
 			openTry,
 		}
 
@@ -151,13 +151,13 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
 
-		openAck, err := src.PathEnd.ChanAck(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1, src.MustGetAddress())
+		openAck, err := src.ChanAck(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
 		if err != nil {
 			return false, false, false, err
 		}
 
 		msgs = []sdk.Msg{
-			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
+			src.UpdateClient(dstUpdateHeader),
 			openAck,
 		}
 
@@ -174,13 +174,13 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(dst, src, dstChan, srcChan)
 		}
 
-		openAck, err := dst.PathEnd.ChanAck(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1, src.MustGetAddress())
+		openAck, err := dst.ChanAck(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1)
 		if err != nil {
 			return false, false, false, err
 		}
 
 		msgs = []sdk.Msg{
-			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
+			dst.UpdateClient(srcUpdateHeader),
 			openAck,
 		}
 
@@ -195,7 +195,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
 		msgs = []sdk.Msg{
-			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
+			src.UpdateClient(dstUpdateHeader),
 			src.PathEnd.ChanConfirm(dstChan, src.MustGetAddress()),
 		}
 		last = true
@@ -211,7 +211,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(dst, src, dstChan, srcChan)
 		}
 		msgs = []sdk.Msg{
-			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
+			dst.UpdateClient(srcUpdateHeader),
 			dst.PathEnd.ChanConfirm(srcChan, dst.MustGetAddress()),
 		}
 		last = true
@@ -242,7 +242,7 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 
 		// cosntruct OpenInit message to be submitted on source chain
 		msgs := []sdk.Msg{
-			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
+			src.UpdateClient(dstUpdateHeader),
 			src.PathEnd.ChanInit(dst.PathEnd, src.MustGetAddress()),
 		}
 
@@ -269,13 +269,13 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 		}
 
 		// open try on source chain
-		openTry, err := src.PathEnd.ChanTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1, src.MustGetAddress())
+		openTry, err := src.ChanTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
 		if err != nil {
 			return false, false, err
 		}
 
 		msgs := []sdk.Msg{
-			src.PathEnd.UpdateClient(dstUpdateHeader, src.MustGetAddress()),
+			src.UpdateClient(dstUpdateHeader),
 			openTry,
 		}
 		res, success, err := src.SendMsgs(msgs)
@@ -301,13 +301,13 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 		}
 
 		// open try on destination chain
-		openTry, err := dst.PathEnd.ChanTry(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1, dst.MustGetAddress())
+		openTry, err := dst.ChanTry(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1)
 		if err != nil {
 			return false, false, err
 		}
 
 		msgs := []sdk.Msg{
-			dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
+			dst.UpdateClient(srcUpdateHeader),
 			openTry,
 		}
 		res, success, err := dst.SendMsgs(msgs)
@@ -412,7 +412,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				logChannelStates(c, dst, srcChan, dstChan)
 			}
 			out.Src = append(out.Src,
-				c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
+				c.UpdateClient(dstUpdateHeader),
 				c.PathEnd.ChanCloseInit(c.MustGetAddress()),
 			)
 		} else if dstChan.Channel.State != chantypes.UNINITIALIZED {
@@ -420,7 +420,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				logChannelStates(dst, c, dstChan, srcChan)
 			}
 			out.Dst = append(out.Dst,
-				dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
+				dst.UpdateClient(srcUpdateHeader),
 				dst.PathEnd.ChanCloseInit(dst.MustGetAddress()),
 			)
 		}
@@ -432,7 +432,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				logChannelStates(dst, c, dstChan, srcChan)
 			}
 			out.Dst = append(out.Dst,
-				dst.PathEnd.UpdateClient(srcUpdateHeader, dst.MustGetAddress()),
+				dst.UpdateClient(srcUpdateHeader),
 				dst.PathEnd.ChanCloseConfirm(srcChan, dst.MustGetAddress()),
 			)
 			out.Last = true
@@ -445,7 +445,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				logChannelStates(c, dst, srcChan, dstChan)
 			}
 			out.Src = append(out.Src,
-				c.PathEnd.UpdateClient(dstUpdateHeader, c.MustGetAddress()),
+				c.UpdateClient(dstUpdateHeader),
 				c.PathEnd.ChanCloseConfirm(dstChan, c.MustGetAddress()),
 			)
 			out.Last = true
