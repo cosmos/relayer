@@ -7,6 +7,10 @@ meant for users wishing to relay packets/data between sets of IBC enabled chains
 In addition, it is intended as an example where anyone who is interested in building 
 their own relayer can come for complete, working, examples.
 
+The relayer is in alpha and is not production ready. If it is used in production, 
+it should always be run in a secure environment and only with just enough funds to 
+relay transactions. 
+
 ### Security Notice
 
 If you would like to report a security critical bug related to the relayer repo, please send an email to [`security@cosmosnetwork.dev`](mailto:security@cosmosnetwork.dev)
