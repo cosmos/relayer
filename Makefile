@@ -3,6 +3,10 @@ COMMIT  := $(shell git log -1 --format='%H')
 SDKCOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/cosmos-sdk)
 GAIA_VERSION := main
 AKASH_VERSION := jack/update-sdk
+
+GOPATH := $(shell go env GOPATH)
+GOBIN := $(GOPATH)/bin
+
 all: ci-lint install
 
 ###############################################################################
@@ -38,7 +42,7 @@ compile-clib:
 
 install: go.sum
 	@echo "installing rly binary..."
-	@go build -mod=readonly $(BUILD_FLAGS) -o $${GOBIN-$${GOPATH-$$HOME/go}/bin}/rly main.go
+	@go build -mod=readonly $(BUILD_FLAGS) -o $(GOBIN)/rly main.go
 
 ###############################################################################
 # Tests / CI

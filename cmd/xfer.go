@@ -80,19 +80,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 			}
 			done()
 
-			switch {
-			case toHeightOffset > 0 && toTimeOffset > 0:
-				return fmt.Errorf("cannot set both --timeout-height-offset and --timeout-time-offset, choose one")
-			case toHeightOffset > 0:
-				return c[src].SendTransferMsg(c[dst], amount, dstAddr, toHeightOffset, 0)
-			case toTimeOffset > 0:
-				return c[src].SendTransferMsg(c[dst], amount, dstAddr, 0, toTimeOffset)
-			case toHeightOffset == 0 && toTimeOffset == 0:
-				return c[src].SendTransferMsg(c[dst], amount, dstAddr, 0, 0)
-			default:
-				return fmt.Errorf("shouldn't be here")
-			}
-
+			return c[src].SendTransferMsg(c[dst], amount, dstAddr, toHeightOffset, toTimeOffset)
 		},
 	}
 	return timeoutFlags(pathFlag(cmd))
