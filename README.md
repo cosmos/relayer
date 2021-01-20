@@ -50,7 +50,7 @@ The relayer supports the following:
 - sending an UpgradePlan proposal for an IBC breaking upgrade
 - upgrading clients after a counterparty chain has performed an upgrade for IBC breaking changes
 
-The relayer cannot currently:
+The relayer currently cannot:
 - submit IBC client unfreezing proposals 
 - monitor and submit misbehaviour for clients
 - use other IBC light clients such as Solo Machine
