@@ -24,6 +24,43 @@ import (
 // file handling has been refactored.
 // https://github.com/cosmos/cosmos-sdk/issues/8332
 
+// CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
+func (c *Chain) CreateClient(
+	dstHeader *tmclient.Header,
+	trustingPeriod, unbondingPeriod time.Duration) sdk.Msg {
+	if err := dstHeader.ValidateBasic(); err != nil {
+		panic(err)
+	}
+
+	// Blank Client State
+	clientState := tmclient.NewClientState(
+		dstHeader.GetHeader().GetChainID(),
+		tmclient.NewFractionFromTm(light.DefaultTrustLevel),
+		trustingPeriod,
+		unbondingPeriod,
+		time.Minute*10,
+		dstHeader.GetHeight().(clienttypes.Height),
+		commitmenttypes.GetSDKSpecs(),
+		defaultUpgradePath,
+		false,
+		false,
+	)
+
+	msg, err := clienttypes.NewMsgCreateClient(
+		clientState,
+		dstHeader.ConsensusState(),
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+
+	if err != nil {
+		panic(err)
+	}
+	if err = msg.ValidateBasic(); err != nil {
+		panic(err)
+	}
+	return msg
+}
+
 // UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst
 func (c *Chain) UpdateClient(dstHeader ibcexported.Header) sdk.Msg {
 	if err := dstHeader.ValidateBasic(); err != nil {
@@ -38,6 +75,19 @@ func (c *Chain) UpdateClient(dstHeader ibcexported.Header) sdk.Msg {
 		panic(err)
 	}
 	return msg
+}
+
+// ConnInit creates a MsgConnectionOpenInit
+func (c *Chain) ConnInit(counterparty *PathEnd) sdk.Msg {
+	var version *conntypes.Version
+	return conntypes.NewMsgConnectionOpenInit(
+		c.PathEnd.ClientID,
+		counterparty.ClientID,
+		defaultChainPrefix,
+		version,
+		defaultDelayPeriod,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
 }
 
 // ConnTry creates a MsgConnectionOpenTry
@@ -97,6 +147,28 @@ func (c *Chain) ConnAck(
 	), nil
 }
 
+// ConnConfirm creates a MsgConnectionOpenConfirm
+func (c *Chain) ConnConfirm(counterpartyConnState *conntypes.QueryConnectionResponse) sdk.Msg {
+	return conntypes.NewMsgConnectionOpenConfirm(
+		c.PathEnd.ConnectionID,
+		counterpartyConnState.Proof,
+		counterpartyConnState.ProofHeight,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+}
+
+// ChanInit creates a MsgChannelOpenInit
+func (c *Chain) ChanInit(counterparty *PathEnd) sdk.Msg {
+	return chantypes.NewMsgChannelOpenInit(
+		c.PathEnd.PortID,
+		c.PathEnd.Version,
+		c.PathEnd.GetOrder(),
+		[]string{c.PathEnd.ConnectionID},
+		counterparty.PortID,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+}
+
 // ChanTry creates a MsgChannelOpenTry
 func (c *Chain) ChanTry(
 	counterparty *Chain,
@@ -146,94 +218,6 @@ func (c *Chain) ChanAck(
 	), nil
 }
 
-// MsgTransfer creates a new transfer message
-func (c *Chain) MsgTransfer(dst *PathEnd, amount sdk.Coin, dstAddr string,
-	timeoutHeight, timeoutTimestamp uint64) sdk.Msg {
-
-	version := clienttypes.ParseChainID(dst.ChainID)
-	return transfertypes.NewMsgTransfer(
-		c.PathEnd.PortID,
-		c.PathEnd.ChannelID,
-		amount,
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
-		dstAddr,
-		clienttypes.NewHeight(version, timeoutHeight),
-		timeoutTimestamp,
-	)
-}
-
-// CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (c *Chain) CreateClient(
-	dstHeader *tmclient.Header,
-	trustingPeriod, unbondingPeriod time.Duration) sdk.Msg {
-	if err := dstHeader.ValidateBasic(); err != nil {
-		panic(err)
-	}
-
-	// Blank Client State
-	clientState := tmclient.NewClientState(
-		dstHeader.GetHeader().GetChainID(),
-		tmclient.NewFractionFromTm(light.DefaultTrustLevel),
-		trustingPeriod,
-		unbondingPeriod,
-		time.Minute*10,
-		dstHeader.GetHeight().(clienttypes.Height),
-		commitmenttypes.GetSDKSpecs(),
-		defaultUpgradePath,
-		false,
-		false,
-	)
-
-	msg, err := clienttypes.NewMsgCreateClient(
-		clientState,
-		dstHeader.ConsensusState(),
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
-	)
-
-	if err != nil {
-		panic(err)
-	}
-	if err = msg.ValidateBasic(); err != nil {
-		panic(err)
-	}
-	return msg
-}
-
-// ConnInit creates a MsgConnectionOpenInit
-func (c *Chain) ConnInit(counterparty *PathEnd) sdk.Msg {
-	var version *conntypes.Version
-	return conntypes.NewMsgConnectionOpenInit(
-		c.PathEnd.ClientID,
-		counterparty.ClientID,
-		defaultChainPrefix,
-		version,
-		defaultDelayPeriod,
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
-	)
-}
-
-// ConnConfirm creates a MsgConnectionOpenConfirm
-func (c *Chain) ConnConfirm(counterpartyConnState *conntypes.QueryConnectionResponse) sdk.Msg {
-	return conntypes.NewMsgConnectionOpenConfirm(
-		c.PathEnd.ConnectionID,
-		counterpartyConnState.Proof,
-		counterpartyConnState.ProofHeight,
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
-	)
-}
-
-// ChanInit creates a MsgChannelOpenInit
-func (c *Chain) ChanInit(counterparty *PathEnd) sdk.Msg {
-	return chantypes.NewMsgChannelOpenInit(
-		c.PathEnd.PortID,
-		c.PathEnd.Version,
-		c.PathEnd.GetOrder(),
-		[]string{c.PathEnd.ConnectionID},
-		counterparty.PortID,
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
-	)
-}
-
 // ChanConfirm creates a MsgChannelOpenConfirm
 func (c *Chain) ChanConfirm(dstChanState *chantypes.QueryChannelResponse) sdk.Msg {
 	return chantypes.NewMsgChannelOpenConfirm(
@@ -262,5 +246,21 @@ func (c *Chain) ChanCloseConfirm(dstChanState *chantypes.QueryChannelResponse) s
 		dstChanState.Proof,
 		dstChanState.ProofHeight,
 		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+}
+
+// MsgTransfer creates a new transfer message
+func (c *Chain) MsgTransfer(dst *PathEnd, amount sdk.Coin, dstAddr string,
+	timeoutHeight, timeoutTimestamp uint64) sdk.Msg {
+
+	version := clienttypes.ParseChainID(dst.ChainID)
+	return transfertypes.NewMsgTransfer(
+		c.PathEnd.PortID,
+		c.PathEnd.ChannelID,
+		amount,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		dstAddr,
+		clienttypes.NewHeight(version, timeoutHeight),
+		timeoutTimestamp,
 	)
 }
