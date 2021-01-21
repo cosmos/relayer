@@ -194,7 +194,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 		}
 		msgs = []sdk.Msg{
 			src.UpdateClient(dstUpdateHeader),
-			src.PathEnd.ConnConfirm(dstConn, src.MustGetAddress()),
+			src.ConnConfirm(dstConn),
 		}
 		_, success, err = src.SendMsgs(msgs)
 		if !success {
@@ -210,7 +210,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 		}
 		msgs = []sdk.Msg{
 			dst.UpdateClient(srcUpdateHeader),
-			dst.PathEnd.ConnConfirm(srcConn, dst.MustGetAddress()),
+			dst.ConnConfirm(srcConn),
 		}
 		last = true
 		_, success, err = dst.SendMsgs(msgs)
@@ -240,7 +240,7 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 		// cosntruct OpenInit message to be submitted on source chain
 		msgs := []sdk.Msg{
 			src.UpdateClient(dstUpdateHeader),
-			src.PathEnd.ConnInit(dst.PathEnd, src.MustGetAddress()),
+			src.ConnInit(dst.PathEnd),
 		}
 
 		res, success, err := src.SendMsgs(msgs)

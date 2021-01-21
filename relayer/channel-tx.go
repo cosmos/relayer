@@ -196,7 +196,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 		}
 		msgs = []sdk.Msg{
 			src.UpdateClient(dstUpdateHeader),
-			src.PathEnd.ChanConfirm(dstChan, src.MustGetAddress()),
+			src.ChanConfirm(dstChan),
 		}
 		last = true
 
@@ -212,7 +212,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 		}
 		msgs = []sdk.Msg{
 			dst.UpdateClient(srcUpdateHeader),
-			dst.PathEnd.ChanConfirm(srcChan, dst.MustGetAddress()),
+			dst.ChanConfirm(srcChan),
 		}
 		last = true
 
@@ -243,7 +243,7 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 		// cosntruct OpenInit message to be submitted on source chain
 		msgs := []sdk.Msg{
 			src.UpdateClient(dstUpdateHeader),
-			src.PathEnd.ChanInit(dst.PathEnd, src.MustGetAddress()),
+			src.ChanInit(dst.PathEnd),
 		}
 
 		res, success, err := src.SendMsgs(msgs)
@@ -413,7 +413,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 			}
 			out.Src = append(out.Src,
 				c.UpdateClient(dstUpdateHeader),
-				c.PathEnd.ChanCloseInit(c.MustGetAddress()),
+				c.ChanCloseInit(),
 			)
 		} else if dstChan.Channel.State != chantypes.UNINITIALIZED {
 			if dst.debug {
@@ -421,7 +421,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 			}
 			out.Dst = append(out.Dst,
 				dst.UpdateClient(srcUpdateHeader),
-				dst.PathEnd.ChanCloseInit(dst.MustGetAddress()),
+				dst.ChanCloseInit(),
 			)
 		}
 
@@ -433,7 +433,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 			}
 			out.Dst = append(out.Dst,
 				dst.UpdateClient(srcUpdateHeader),
-				dst.PathEnd.ChanCloseConfirm(srcChan, dst.MustGetAddress()),
+				dst.ChanCloseConfirm(srcChan),
 			)
 			out.Last = true
 		}
@@ -446,7 +446,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 			}
 			out.Src = append(out.Src,
 				c.UpdateClient(dstUpdateHeader),
-				c.PathEnd.ChanCloseConfirm(dstChan, c.MustGetAddress()),
+				c.ChanCloseConfirm(dstChan),
 			)
 			out.Last = true
 		}

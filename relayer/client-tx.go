@@ -59,10 +59,9 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		clientID, found := FindMatchingClient(c, dst, clientState)
 		if !found {
 			msgs := []sdk.Msg{
-				c.PathEnd.CreateClient(
+				c.CreateClient(
 					clientState,
 					dstH,
-					c.MustGetAddress(),
 				),
 			}
 
@@ -123,10 +122,9 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		clientID, found := FindMatchingClient(dst, c, clientState)
 		if !found {
 			msgs := []sdk.Msg{
-				dst.PathEnd.CreateClient(
+				dst.CreateClient(
 					clientState,
 					srcH,
-					dst.MustGetAddress(),
 				),
 			}
 

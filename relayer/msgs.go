@@ -7,6 +7,7 @@ import (
 	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 )
 
 // NOTE: we explicitly call 'MustGetAddress' before 'NewMsg...'
@@ -18,6 +19,30 @@ import (
 // correctly. Do not change this ordering until the SDK config
 // file handling has been refactored.
 // https://github.com/cosmos/cosmos-sdk/issues/8332
+
+// CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
+func (c *Chain) CreateClient(
+	clientState *tmclient.ClientState,
+	dstHeader *tmclient.Header) sdk.Msg {
+
+	if err := dstHeader.ValidateBasic(); err != nil {
+		panic(err)
+	}
+
+	msg, err := clienttypes.NewMsgCreateClient(
+		clientState,
+		dstHeader.ConsensusState(),
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+
+	if err != nil {
+		panic(err)
+	}
+	if err = msg.ValidateBasic(); err != nil {
+		panic(err)
+	}
+	return msg
+}
 
 // UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst
 func (c *Chain) UpdateClient(dstHeader ibcexported.Header) sdk.Msg {
@@ -33,6 +58,19 @@ func (c *Chain) UpdateClient(dstHeader ibcexported.Header) sdk.Msg {
 		panic(err)
 	}
 	return msg
+}
+
+// ConnInit creates a MsgConnectionOpenInit
+func (c *Chain) ConnInit(counterparty *PathEnd) sdk.Msg {
+	var version *conntypes.Version
+	return conntypes.NewMsgConnectionOpenInit(
+		c.PathEnd.ClientID,
+		counterparty.ClientID,
+		defaultChainPrefix,
+		version,
+		defaultDelayPeriod,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
 }
 
 // ConnTry creates a MsgConnectionOpenTry
@@ -92,6 +130,28 @@ func (c *Chain) ConnAck(
 	), nil
 }
 
+// ConnConfirm creates a MsgConnectionOpenConfirm
+func (c *Chain) ConnConfirm(counterpartyConnState *conntypes.QueryConnectionResponse) sdk.Msg {
+	return conntypes.NewMsgConnectionOpenConfirm(
+		c.PathEnd.ConnectionID,
+		counterpartyConnState.Proof,
+		counterpartyConnState.ProofHeight,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+}
+
+// ChanInit creates a MsgChannelOpenInit
+func (c *Chain) ChanInit(counterparty *PathEnd) sdk.Msg {
+	return chantypes.NewMsgChannelOpenInit(
+		c.PathEnd.PortID,
+		c.PathEnd.Version,
+		c.PathEnd.GetOrder(),
+		[]string{c.PathEnd.ConnectionID},
+		counterparty.PortID,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+}
+
 // ChanTry creates a MsgChannelOpenTry
 func (c *Chain) ChanTry(
 	counterparty *Chain,
@@ -139,6 +199,37 @@ func (c *Chain) ChanAck(
 		counterpartyChannelRes.ProofHeight,
 		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	), nil
+}
+
+// ChanConfirm creates a MsgChannelOpenConfirm
+func (c *Chain) ChanConfirm(dstChanState *chantypes.QueryChannelResponse) sdk.Msg {
+	return chantypes.NewMsgChannelOpenConfirm(
+		c.PathEnd.PortID,
+		c.PathEnd.ChannelID,
+		dstChanState.Proof,
+		dstChanState.ProofHeight,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+}
+
+// ChanCloseInit creates a MsgChannelCloseInit
+func (c *Chain) ChanCloseInit() sdk.Msg {
+	return chantypes.NewMsgChannelCloseInit(
+		c.PathEnd.PortID,
+		c.PathEnd.ChannelID,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+}
+
+// ChanCloseConfirm creates a MsgChannelCloseConfirm
+func (c *Chain) ChanCloseConfirm(dstChanState *chantypes.QueryChannelResponse) sdk.Msg {
+	return chantypes.NewMsgChannelCloseConfirm(
+		c.PathEnd.PortID,
+		c.PathEnd.ChannelID,
+		dstChanState.Proof,
+		dstChanState.ProofHeight,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
 }
 
 // MsgTransfer creates a new transfer message
