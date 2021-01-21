@@ -103,13 +103,17 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 	// if either identifier is missing, an existing channel that matches the required fields
 	// is chosen or a new channel is created.
 	if src.PathEnd.ChannelID == "" || dst.PathEnd.ChannelID == "" {
-		// TODO: Query for existing identifier and fill config, if possible
-		success, modified, err := InitializeChannel(src, dst, srcUpdateHeader, dstUpdateHeader, sh)
-		if err != nil {
-			return false, false, false, err
+		channelID, found := FindMatchingChannel(src, dst)
+		if !found {
+			success, modified, err := InitializeChannel(src, dst, srcUpdateHeader, dstUpdateHeader, sh)
+			if err != nil {
+				return false, false, false, err
+			}
+			return success, false, modified, nil
 		}
 
-		return success, false, modified, nil
+		src.PathEnd.ChannelID = channelID
+		return true, false, true, nil
 	}
 
 	// Query Channel data from src and dst
@@ -452,4 +456,37 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 		}
 	}
 	return out, nil
+}
+
+// FindMatchingChannel will determine if there already exists a unintialized channel between source and counterparty.
+func FindMatchingChannel(source, counterparty *Chain) (string, bool) {
+	// TODO: add appropriate offset and limits, along with retries
+	channelsResp, err := source.QueryChannels(0, 1000)
+	if err != nil {
+		if source.debug {
+			source.Log(fmt.Sprintf("Error: querying channels on %s failed: %v", source.PathEnd.ChainID, err))
+		}
+		return "", false
+	}
+
+	for _, channel := range channelsResp.Channels {
+		if channel.State == chantypes.UNINITIALIZED && channel.Ordering == source.PathEnd.GetOrder() &&
+			IsConnectionFound(channel.ConnectionHops, source.PathEnd.ConnectionID) &&
+			channel.PortId == source.PathEnd.PortID && channel.Counterparty.PortId == counterparty.PathEnd.PortID {
+			// unused channel found
+			return channel.ChannelId, true
+		}
+	}
+
+	return "", false
+}
+
+// IsConnectionFound determines if given connectionId is present in channel connectionHops list
+func IsConnectionFound(connectionHops []string, connectionID string) bool {
+	for _, id := range connectionHops {
+		if id == connectionID {
+			return true
+		}
+	}
+	return false
 }

@@ -104,13 +104,17 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	// is chosen or a new connection is created.
 	// This will perform either an OpenInit or OpenTry step and return
 	if src.PathEnd.ConnectionID == "" || dst.PathEnd.ConnectionID == "" {
-		// TODO: Query for existing identifier and fill config, if possible
-		success, modified, err := InitializeConnection(src, dst, srcUpdateHeader, dstUpdateHeader, sh)
-		if err != nil {
-			return false, false, false, err
+		connectionID, found := FindMatchingConnection(src, dst)
+		if !found {
+			success, modified, err := InitializeConnection(src, dst, srcUpdateHeader, dstUpdateHeader, sh)
+			if err != nil {
+				return false, false, false, err
+			}
+			return success, false, modified, nil
 		}
 
-		return success, false, modified, nil
+		src.PathEnd.ConnectionID = connectionID
+		return true, false, true, nil
 	}
 
 	// Query Connection data from src and dst
@@ -323,4 +327,27 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 	default:
 		return false, true, fmt.Errorf("connection ends already created")
 	}
+}
+
+// FindMatchingConnection will determine if there already exists a unintialized connection between source and counterparty.
+func FindMatchingConnection(source, counterparty *Chain) (string, bool) {
+	// TODO: add appropriate offset and limits, along with retries
+	connectionsResp, err := source.QueryConnections(0, 1000)
+	if err != nil {
+		if source.debug {
+			source.Log(fmt.Sprintf("Error: querying connections on %s failed: %v", source.PathEnd.ChainID, err))
+		}
+		return "", false
+	}
+
+	for _, connection := range connectionsResp.Connections {
+		if connection.ClientId == source.PathEnd.ClientID &&
+			connection.Counterparty.ClientId == counterparty.PathEnd.ClientID &&
+			connection.State == conntypes.UNINITIALIZED {
+			// unused connection found
+			return connection.Id, true
+		}
+	}
+
+	return "", false
 }
