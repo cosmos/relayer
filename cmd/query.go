@@ -254,7 +254,7 @@ $ %s q bal ibc-1 --ibc-denoms`, appName, appName, appName)),
 						switch {
 						case c.Amount.Equal(sdk.NewInt(0)):
 						case c.Denom == d.IBCDenom():
-							out = append(out, sdk.NewCoin(d.GetFullDenomPath(), c.Amount))
+							out = append(out, sdk.NewCoin(d.IBCDenom(), c.Amount))
 						default:
 							out = append(out, c)
 						}
