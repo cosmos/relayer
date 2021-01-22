@@ -3,7 +3,7 @@
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 WASMDDIR="$(dirname $SCRIPTDIR)/chain-code/wasmd"
 
-[ ! -d "$WASMDDIR" ] && echo "Repository for akash does not exist at $WASMDDIR. Try running 'make get-akash'..." && exit 1
+[ ! -d "$WASMDDIR" ] && echo "Repository for wasmd does not exist at $WASMDDIR. Try running 'make get-wasmd'..." && exit 1
 
 cd $WASMDDIR
 echo "Building wasmd binary at branch($(git branch --show-current)) tag($(git describe --tags)) commit($(git rev-parse HEAD))"
