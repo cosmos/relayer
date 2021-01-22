@@ -104,17 +104,11 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	// is chosen or a new connection is created.
 	// This will perform either an OpenInit or OpenTry step and return
 	if src.PathEnd.ConnectionID == "" || dst.PathEnd.ConnectionID == "" {
-		connectionID, found := FindMatchingConnection(src, dst)
-		if !found {
-			success, modified, err := InitializeConnection(src, dst, srcUpdateHeader, dstUpdateHeader, sh)
-			if err != nil {
-				return false, false, false, err
-			}
-			return success, false, modified, nil
+		success, modified, err := InitializeConnection(src, dst, srcUpdateHeader, dstUpdateHeader, sh)
+		if err != nil {
+			return false, false, false, err
 		}
-
-		src.PathEnd.ConnectionID = connectionID
-		return true, false, true, nil
+		return success, false, modified, nil
 	}
 
 	// Query Connection data from src and dst
@@ -241,23 +235,27 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 			// TODO: log that we are attempting to create new connection ends
 		}
 
-		// cosntruct OpenInit message to be submitted on source chain
-		msgs := []sdk.Msg{
-			src.UpdateClient(dstUpdateHeader),
-			src.PathEnd.ConnInit(dst.PathEnd, src.MustGetAddress()),
+		connectionID, found := FindMatchingConnection(src, dst)
+		if !found {
+			// construct OpenInit message to be submitted on source chain
+			msgs := []sdk.Msg{
+				src.UpdateClient(dstUpdateHeader),
+				src.PathEnd.ConnInit(dst.PathEnd, src.MustGetAddress()),
+			}
+
+			res, success, err := src.SendMsgs(msgs)
+			if !success {
+				return false, false, err
+			}
+
+			// update connection identifier in PathEnd
+			// use index 1, connection open init is the second message in the transaction
+			connectionID, err = ParseConnectionIDFromEvents(res.Logs[1].Events)
+			if err != nil {
+				return false, false, err
+			}
 		}
 
-		res, success, err := src.SendMsgs(msgs)
-		if !success {
-			return false, false, err
-		}
-
-		// update connection identifier in PathEnd
-		// use index 1, connection open init is the second message in the transaction
-		connectionID, err := ParseConnectionIDFromEvents(res.Logs[1].Events)
-		if err != nil {
-			return false, false, err
-		}
 		src.PathEnd.ConnectionID = connectionID
 
 		return true, true, nil
@@ -269,26 +267,30 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 			// TODO: update logging
 		}
 
-		openTry, err := src.ConnTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
-		if err != nil {
-			return false, false, err
+		connectionID, found := FindMatchingConnection(src, dst)
+		if !found {
+			openTry, err := src.ConnTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
+			if err != nil {
+				return false, false, err
+			}
+
+			msgs := []sdk.Msg{
+				src.UpdateClient(dstUpdateHeader),
+				openTry,
+			}
+			res, success, err := src.SendMsgs(msgs)
+			if !success {
+				return false, false, err
+			}
+
+			// update connection identifier in PathEnd
+			// use index 1, connection open try is the second message in the transaction
+			connectionID, err = ParseConnectionIDFromEvents(res.Logs[1].Events)
+			if err != nil {
+				return false, false, err
+			}
 		}
 
-		msgs := []sdk.Msg{
-			src.UpdateClient(dstUpdateHeader),
-			openTry,
-		}
-		res, success, err := src.SendMsgs(msgs)
-		if !success {
-			return false, false, err
-		}
-
-		// update connection identifier in PathEnd
-		// use index 1, connection open try is the second message in the transaction
-		connectionID, err := ParseConnectionIDFromEvents(res.Logs[1].Events)
-		if err != nil {
-			return false, false, err
-		}
 		src.PathEnd.ConnectionID = connectionID
 
 		return true, true, nil
@@ -300,26 +302,30 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 			// TODO: update logging
 		}
 
-		openTry, err := dst.ConnTry(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1)
-		if err != nil {
-			return false, false, err
+		connectionID, found := FindMatchingConnection(dst, src)
+		if !found {
+			openTry, err := dst.ConnTry(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1)
+			if err != nil {
+				return false, false, err
+			}
+
+			msgs := []sdk.Msg{
+				dst.UpdateClient(srcUpdateHeader),
+				openTry,
+			}
+			res, success, err := dst.SendMsgs(msgs)
+			if !success {
+				return false, false, err
+			}
+
+			// update connection identifier in PathEnd
+			// use index 1, connection open try is the second message in the transaction
+			connectionID, err = ParseConnectionIDFromEvents(res.Logs[1].Events)
+			if err != nil {
+				return false, false, err
+			}
 		}
 
-		msgs := []sdk.Msg{
-			dst.UpdateClient(srcUpdateHeader),
-			openTry,
-		}
-		res, success, err := dst.SendMsgs(msgs)
-		if !success {
-			return false, false, err
-		}
-
-		// update connection identifier in PathEnd
-		// use index 1, connection open try is the second message in the transaction
-		connectionID, err := ParseConnectionIDFromEvents(res.Logs[1].Events)
-		if err != nil {
-			return false, false, err
-		}
 		dst.PathEnd.ConnectionID = connectionID
 
 		return true, true, nil
@@ -341,13 +347,23 @@ func FindMatchingConnection(source, counterparty *Chain) (string, bool) {
 	}
 
 	for _, connection := range connectionsResp.Connections {
-		if connection.ClientId == source.PathEnd.ClientID &&
-			connection.Counterparty.ClientId == counterparty.PathEnd.ClientID &&
-			connection.State == conntypes.UNINITIALIZED {
+		if IsMatchingConnection(source, counterparty, connection) {
 			// unused connection found
 			return connection.Id, true
 		}
 	}
 
 	return "", false
+}
+
+// IsMatchingConnection determines if given connection matches required conditions
+func IsMatchingConnection(source, counterparty *Chain, connection *conntypes.IdentifiedConnection) bool {
+	// determines version we use is matching with given versions
+	_, isVersionMatched := conntypes.FindSupportedVersion(&conntypes.Version{}, conntypes.ProtoVersionsToExported(connection.Versions))
+	return connection.ClientId == source.PathEnd.ClientID &&
+		connection.Counterparty.ClientId == counterparty.PathEnd.ClientID &&
+		isVersionMatched && connection.DelayPeriod == defaultDelayPeriod &&
+		connection.Counterparty.Prefix.String() == defaultChainPrefix.String() &&
+		(connection.State == conntypes.UNINITIALIZED || connection.State == conntypes.OPEN &&
+			connection.Counterparty.ConnectionId == counterparty.PathEnd.ConnectionID)
 }
