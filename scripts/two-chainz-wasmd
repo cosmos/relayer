@@ -38,7 +38,6 @@ rm -rf $RELAYER_CONF &> /dev/null
 
 # Stop existing wasmd processes
 killall wasmd &> /dev/null
-killall akash &> /dev/null
 
 set -e
 
