@@ -474,9 +474,7 @@ func FindMatchingChannel(source, counterparty *Chain) (string, bool) {
 	}
 
 	for _, channel := range channelsResp.Channels {
-		if channel.State == chantypes.UNINITIALIZED && channel.Ordering == source.PathEnd.GetOrder() &&
-			IsConnectionFound(channel.ConnectionHops, source.PathEnd.ConnectionID) &&
-			channel.PortId == source.PathEnd.PortID && channel.Counterparty.PortId == counterparty.PathEnd.PortID {
+		if IsMatchingChannel(source, counterparty, channel) {
 			// unused channel found
 			return channel.ChannelId, true
 		}
