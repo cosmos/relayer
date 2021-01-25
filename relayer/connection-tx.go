@@ -333,7 +333,8 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 	}
 }
 
-// FindMatchingConnection will determine if there already exists a unintialized connection between source and counterparty.
+// FindMatchingConnection will determine if there already exists a connection between source and counterparty
+// that matches the parameters set in the relayer config.
 func FindMatchingConnection(source, counterparty *Chain) (string, bool) {
 	// TODO: add appropriate offset and limits, along with retries
 	connectionsResp, err := source.QueryConnections(0, 1000)
@@ -357,11 +358,11 @@ func FindMatchingConnection(source, counterparty *Chain) (string, bool) {
 // IsMatchingConnection determines if given connection matches required conditions
 func IsMatchingConnection(source, counterparty *Chain, connection *conntypes.IdentifiedConnection) bool {
 	// determines version we use is matching with given versions
-	_, isVersionMatched := conntypes.FindSupportedVersion(&conntypes.Version{}, conntypes.ProtoVersionsToExported(connection.Versions))
+	_, isVersionMatched := conntypes.FindSupportedVersion(conntypes.DefaultIBCVersion, conntypes.ProtoVersionsToExported(connection.Versions))
 	return connection.ClientId == source.PathEnd.ClientID &&
 		connection.Counterparty.ClientId == counterparty.PathEnd.ClientID &&
 		isVersionMatched && connection.DelayPeriod == defaultDelayPeriod &&
 		connection.Counterparty.Prefix.String() == defaultChainPrefix.String() &&
-		(connection.State == conntypes.UNINITIALIZED || connection.State == conntypes.OPEN &&
-			connection.Counterparty.ConnectionId == counterparty.PathEnd.ConnectionID)
+		(((connection.State == conntypes.INIT || connection.State == conntypes.TRYOPEN) && connection.Counterparty.ConnectionId == "") ||
+			(connection.State == conntypes.OPEN && connection.Counterparty.ConnectionId == counterparty.PathEnd.ConnectionID))
 }

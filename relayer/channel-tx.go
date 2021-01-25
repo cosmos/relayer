@@ -462,7 +462,8 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 	return out, nil
 }
 
-// FindMatchingChannel will determine if there already exists a unintialized channel between source and counterparty.
+// FindMatchingChannel will determine if there already exists a channel between source and counterparty
+// that matches the parameters set in the relayer config.
 func FindMatchingChannel(source, counterparty *Chain) (string, bool) {
 	// TODO: add appropriate offset and limits, along with retries
 	channelsResp, err := source.QueryChannels(0, 1000)
@@ -489,8 +490,8 @@ func IsMatchingChannel(source, counterparty *Chain, channel *chantypes.Identifie
 		IsConnectionFound(channel.ConnectionHops, source.PathEnd.ConnectionID) &&
 		channel.Version == source.PathEnd.Version &&
 		channel.PortId == source.PathEnd.PortID && channel.Counterparty.PortId == counterparty.PathEnd.PortID &&
-		(channel.State == chantypes.UNINITIALIZED || channel.State == chantypes.OPEN &&
-			channel.Counterparty.ChannelId == counterparty.PathEnd.ChannelID)
+		(((channel.State == chantypes.INIT || channel.State == chantypes.TRYOPEN) && channel.Counterparty.ChannelId == "") ||
+			(channel.State == chantypes.OPEN && channel.Counterparty.ChannelId == counterparty.PathEnd.ChannelID))
 }
 
 // IsConnectionFound determines if given connectionId is present in channel connectionHops list
