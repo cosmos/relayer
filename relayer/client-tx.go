@@ -272,7 +272,7 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 		}
 
 		// check if the client states match
-		// NOTE: the IsFrozen is just a sanity check, the client to be created should always
+		// NOTE: IsFrozen is a sanity check, the client to be created should always
 		// have a zero frozen height and therefore should never match with a frozen client
 		if IsMatchingClient(*clientState, *existingClientState) && !existingClientState.IsFrozen() {
 
