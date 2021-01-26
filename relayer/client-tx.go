@@ -272,7 +272,7 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 		}
 
 		// check if the client states match
-		if IsMatchingClient(*clientState, *existingClientState) {
+		if IsMatchingClient(*clientState, *existingClientState) && !existingClientState.IsFrozen() {
 
 			// query the latest consensus state of the potential matching client
 			consensusStateResp, err := clientutils.QueryConsensusStateABCI(source.CLIContext(0), identifiedClientState.ClientId, existingClientState.GetLatestHeight())
