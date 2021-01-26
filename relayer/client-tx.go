@@ -306,16 +306,14 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 				continue
 			}
 
-			if !IsMatchingConsensusState(existingConsensusState, header.ConsensusState()) {
-				continue
-			}
-
 			if existingClientState.IsExpired(existingConsensusState.Timestamp, time.Now()) {
 				continue
 			}
 
-			// found matching client
-			return identifiedClientState.ClientId, true
+			if IsMatchingConsensusState(existingConsensusState, header.ConsensusState()) {
+				// found matching client
+				return identifiedClientState.ClientId, true
+			}
 		}
 	}
 
