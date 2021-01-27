@@ -106,7 +106,7 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				dstClients, err = c[dst].QueryClients(0, 1000)
 				return err
 			})
-			if eg.Wait(); err != nil {
+			if err := eg.Wait(); err != nil {
 				return err
 			}
 

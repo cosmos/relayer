@@ -524,8 +524,8 @@ func (c *Chain) QueryPacketAcknowledgement(height int64, seq uint64) (ackRes *ch
 	return chanutils.QueryPacketAcknowledgement(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, seq, true)
 }
 
-// QueryPacketReciept returns the packet reciept proof at a given height
-func (c *Chain) QueryPacketReciept(height int64, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
+// QueryPacketReceipt returns the packet receipt proof at a given height
+func (c *Chain) QueryPacketReceipt(height int64, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
 	return chanutils.QueryPacketReceipt(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, seq, true)
 }
 
@@ -558,8 +558,8 @@ func (c *Chain) QueryPacketAcknowledgements(offset, limit, height uint64) (comRe
 	})
 }
 
-// QueryUnrecievedPackets returns a list of unrelayed packet commitments
-func (c *Chain) QueryUnrecievedPackets(height uint64, seqs []uint64) ([]uint64, error) {
+// QueryUnreceivedPackets returns a list of unrelayed packet commitments
+func (c *Chain) QueryUnreceivedPackets(height uint64, seqs []uint64) ([]uint64, error) {
 	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
 	res, err := qc.UnreceivedPackets(context.Background(), &chantypes.QueryUnreceivedPacketsRequest{
 		PortId:                    c.PathEnd.PortID,
@@ -569,8 +569,8 @@ func (c *Chain) QueryUnrecievedPackets(height uint64, seqs []uint64) ([]uint64, 
 	return res.Sequences, err
 }
 
-// QueryUnrecievedAcknowledgements returns a list of unrelayed packet acks
-func (c *Chain) QueryUnrecievedAcknowledgements(height uint64, seqs []uint64) ([]uint64, error) {
+// QueryUnreceivedAcknowledgements returns a list of unrelayed packet acks
+func (c *Chain) QueryUnreceivedAcknowledgements(height uint64, seqs []uint64) ([]uint64, error) {
 	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
 	res, err := qc.UnreceivedAcks(context.Background(), &chantypes.QueryUnreceivedAcksRequest{
 		PortId:             c.PathEnd.PortID,

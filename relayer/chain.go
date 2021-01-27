@@ -677,7 +677,9 @@ func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Co
 	if err != nil {
 		return err
 	}
-	sh.Updates(c, dst)
+	if err := sh.Updates(c, dst); err != nil {
+		return err
+	}
 	height := int64(sh.GetHeight(dst.ChainID))
 
 	clientStateRes, err := dst.QueryClientState(height)

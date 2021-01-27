@@ -16,7 +16,6 @@ var (
 	flagSkip                = "skip"
 	flagStrategy            = "strategy"
 	flagTimeout             = "timeout"
-	flagConfig              = "config"
 	flagJSON                = "json"
 	flagYAML                = "yaml"
 	flagFile                = "file"

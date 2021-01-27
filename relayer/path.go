@@ -194,7 +194,7 @@ func GenPath(srcChainID, dstChainID, srcPortID, dstPortID, order string, version
 	}
 }
 
-// PathStatus holds the status of the primatives in the path
+// PathStatus holds the status of the primitives in the path
 type PathStatus struct {
 	Chains     bool `yaml:"chains" json:"chains"`
 	Clients    bool `yaml:"clients" json:"clients"`
