@@ -82,7 +82,7 @@ func ValidatePaths(src, dst *Chain) error {
 	return nil
 }
 
-// ValidateClientPath takes two chains and validates their clients
+// ValidateClientPaths takes two chains and validates their clients
 func ValidateClientPaths(src, dst *Chain) error {
 	if err := src.PathEnd.Vclient(); err != nil {
 		return err
@@ -671,7 +671,7 @@ func (c *Chain) GenerateConnHandshakeProof(height uint64) (clientState ibcexport
 
 }
 
-// UpgradesChain submits and upgrade proposal using a zero'd out client state with an updated unbonding period.
+// UpgradeChain submits and upgrade proposal using a zero'd out client state with an updated unbonding period.
 func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Coin, unbondingPeriod time.Duration) error {
 	sh, err := NewSyncHeaders(c, dst)
 	if err != nil {

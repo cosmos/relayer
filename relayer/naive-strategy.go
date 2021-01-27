@@ -336,7 +336,7 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 	}
 
 	// send the transaction, retrying if not successful
-	// TODO: have seperate retries for different pieces here
+	// TODO: have separate retries for different pieces here
 	if err := retry.Do(func() error {
 		if err := sh.Updates(src, dst); err != nil {
 			if src.debug {

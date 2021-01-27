@@ -12,7 +12,7 @@ type contextualStdCodec struct {
 
 var _ codec.Marshaler = &contextualStdCodec{}
 
-// newContextualCodec creates a codec that sets and resets context
+// newContextualStdCodec creates a codec that sets and resets context
 func newContextualStdCodec(cdc codec.Marshaler, useContext func() func()) *contextualStdCodec {
 	return &contextualStdCodec{
 		Marshaler:  cdc,

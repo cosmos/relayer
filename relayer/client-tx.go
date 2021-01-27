@@ -198,7 +198,7 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 	return nil
 }
 
-// UpgradesClients upgrades the client on src after dst chain has undergone an upgrade.
+// UpgradeClients upgrades the client on src after dst chain has undergone an upgrade.
 func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 	sh, err := NewSyncHeaders(c, dst)
 	if err != nil {
