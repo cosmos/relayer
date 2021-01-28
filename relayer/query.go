@@ -454,8 +454,8 @@ func (c *Chain) QueryUpgradedConsState(height int64) (*codectypes.Any, []byte, c
 
 // QueryUpgradeProof performs an abci query with the given key and returns the proto encoded merkle proof
 // for the query and the height at which the proof will succeed on a tendermint verifier.
-func (chain *Chain) QueryUpgradeProof(key []byte, height uint64) ([]byte, clienttypes.Height, error) {
-	res, err := chain.QueryABCI(abci.RequestQuery{
+func (c *Chain) QueryUpgradeProof(key []byte, height uint64) ([]byte, clienttypes.Height, error) {
+	res, err := c.QueryABCI(abci.RequestQuery{
 		Path:   "store/upgrade/key",
 		Height: int64(height - 1),
 		Data:   key,
@@ -470,12 +470,12 @@ func (chain *Chain) QueryUpgradeProof(key []byte, height uint64) ([]byte, client
 		return nil, clienttypes.Height{}, err
 	}
 
-	proof, err := chain.Encoding.Marshaler.MarshalBinaryBare(&merkleProof)
+	proof, err := c.Encoding.Marshaler.MarshalBinaryBare(&merkleProof)
 	if err != nil {
 		return nil, clienttypes.Height{}, err
 	}
 
-	revision := clienttypes.ParseChainID(chain.ChainID)
+	revision := clienttypes.ParseChainID(c.ChainID)
 
 	// proof height + 1 is returned as the proof created corresponds to the height the proof
 	// was created in the IAVL tree. Tendermint and subsequently the clients that rely on it
