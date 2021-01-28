@@ -624,7 +624,7 @@ func relayPacketFromSequence(src, dst *Chain, sh *SyncHeaders, seq uint64) (rela
 		return pkt, nil
 	}
 
-	return nil, fmt.Errorf("Should have errored before here")
+	return nil, fmt.Errorf("should have errored before here")
 }
 
 func acknowledgementFromSequence(src, dst *Chain, sh *SyncHeaders, seq uint64) (relayPacket, error) {
