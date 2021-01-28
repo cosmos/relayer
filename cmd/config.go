@@ -417,3 +417,46 @@ func overWriteConfig(cmd *cobra.Command, cfg *Config) error {
 	}
 	return err
 }
+
+// ValidatePath checks that a path is valid
+func (c *Config) ValidatePath(p *relayer.Path) (err error) {
+	if err = p.Src.ValidateFull(); err != nil {
+		return err
+	}
+	if p.Src.Version == "" {
+		return fmt.Errorf("source must specify a version")
+	}
+	if err = p.Dst.ValidateFull(); err != nil {
+		return err
+	}
+	if _, err = p.GetStrategy(); err != nil {
+		return err
+	}
+	if p.Src.Order != p.Dst.Order {
+		return fmt.Errorf("both sides must have same order ('ORDERED' or 'UNORDERED'), got src(%s) and dst(%s)",
+			p.Src.Order, p.Dst.Order)
+	}
+	return nil
+}
+
+// ValidatePathEnd allow empty identifiers and check specific config if user provides identifier
+// returns error for invalid identifiers
+func (c *Config) ValidatePathEnd(pe *relayer.PathEnd) error {
+	if err := pe.ValidateBasic(); err != nil {
+		return err
+	}
+	if err := pe.Vclient(); err != nil {
+		return err
+	}
+	if pe.ConnectionID != "" {
+		if err := pe.Vconn(); err != nil {
+			return err
+		}
+	}
+	if pe.ChannelID != "" {
+		if err := pe.Vchan(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
