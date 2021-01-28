@@ -78,7 +78,8 @@ func (c *Chain) ConnTry(
 	counterparty *Chain,
 	height uint64,
 ) (sdk.Msg, error) {
-	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := counterparty.GenerateConnHandshakeProof(height)
+	clientState, clientStateProof, consensusStateProof, connStateProof,
+		proofHeight, err := counterparty.GenerateConnHandshakeProof(height)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +112,8 @@ func (c *Chain) ConnAck(
 	counterparty *Chain,
 	height uint64,
 ) (sdk.Msg, error) {
-	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := counterparty.GenerateConnHandshakeProof(height)
+	clientState, clientStateProof, consensusStateProof, connStateProof,
+		proofHeight, err := counterparty.GenerateConnHandshakeProof(height)
 	if err != nil {
 		return nil, err
 	}

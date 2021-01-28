@@ -147,7 +147,8 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	// OpenAck on source if dst is at TRYOPEN and src is on INIT or TRYOPEN (crossing hellos case)
 	// obtain proof of counterparty in TRYOPEN state and submit to source chain to update state
 	// from INIT/TRYOPEN to OPEN.
-	case (srcConn.Connection.State == conntypes.INIT || srcConn.Connection.State == conntypes.TRYOPEN) && dstConn.Connection.State == conntypes.TRYOPEN:
+	case (srcConn.Connection.State == conntypes.INIT || srcConn.Connection.State == conntypes.TRYOPEN) &&
+		dstConn.Connection.State == conntypes.TRYOPEN:
 		if src.debug {
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
