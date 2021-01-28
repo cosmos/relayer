@@ -353,7 +353,8 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 		updateHeader, err := sh.GetUpdateHeader(dst, src)
 		if err != nil {
 			if src.debug {
-				src.Log(fmt.Sprintf("- failed to enrich update headers for %s and %s, retrying: %s", src.ChainID, dst.ChainID, err))
+				src.Log(fmt.Sprintf("- failed to enrich update headers for %s and %s, retrying: %s",
+					src.ChainID, dst.ChainID, err))
 			}
 			return err
 		}
@@ -661,8 +662,10 @@ func acknowledgementFromSequence(src, dst *Chain, sh *SyncHeaders, seq uint64) (
 	return pkt, nil
 }
 
-// relayPacketsFromResultTx looks through the events in a *ctypes.ResultTx and returns relayPackets with the appropriate data
-func relayPacketsFromResultTx(src, dst *PathEnd, res *ctypes.ResultTx, sh *SyncHeaders) ([]relayPacket, []relayPacket, error) {
+// relayPacketsFromResultTx looks through the events in a *ctypes.ResultTx
+// and returns relayPackets with the appropriate data
+func relayPacketsFromResultTx(src, dst *PathEnd, res *ctypes.ResultTx,
+	sh *SyncHeaders) ([]relayPacket, []relayPacket, error) {
 	var (
 		rcvPackets     []relayPacket
 		timeoutPackets []relayPacket
@@ -738,7 +741,8 @@ func relayPacketsFromResultTx(src, dst *PathEnd, res *ctypes.ResultTx, sh *SyncH
 	return nil, nil, fmt.Errorf("no packet data found")
 }
 
-// acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns relayPackets with the appropriate data
+// acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
+//relayPackets with the appropriate data
 func acknowledgementsFromResultTx(src, dst *PathEnd, res *ctypes.ResultTx, sh *SyncHeaders) ([]*relayMsgPacketAck, error) {
 	var ackPackets []*relayMsgPacketAck
 	for _, e := range res.TxResult.Events {
