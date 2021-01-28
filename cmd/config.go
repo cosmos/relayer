@@ -1,4 +1,5 @@
 /*
+Package cmd ...
 Copyright © 2020 Jack Zampolin jack.zampolin@gmail.com
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,7 +33,9 @@ import (
 )
 
 const (
-	ORDERED        = "ORDERED"
+	//ORDERED is ...
+	ORDERED = "ORDERED"
+	//UNORDERED is ...
 	UNORDERED      = "UNORDERED"
 	defaultOrder   = ORDERED
 	defaultVersion = "ics20-1"

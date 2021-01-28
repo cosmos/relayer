@@ -1,4 +1,5 @@
 /*
+Package cmd ...
 Copyright © 2020 Jack Zampolin jack.zampolin@gmail.com
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,6 +26,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+//const is ...
 const (
 	MB = 1048576 // in bytes
 )

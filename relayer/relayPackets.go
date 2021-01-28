@@ -56,7 +56,9 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders)
 		}
 	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 		// OnRetry we want to update the headers and then debug log
-		sh.Updates(src, dst)
+		if err := sh.Updates(src, dst); err != nil {
+			return
+		}
 		if dst.debug {
 			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet receipt: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
 		}
@@ -142,7 +144,9 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeade
 		}
 	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 		// OnRetry we want to update the headers and then debug log
-		sh.Updates(src, dst)
+		if err := sh.Updates(src, dst); err != nil {
+			return
+		}
 		if dst.debug {
 			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitment: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
 		}
@@ -241,7 +245,9 @@ func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, sh *SyncHeader
 		}
 	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 		// OnRetry we want to update the headers and then debug log
-		sh.Updates(src, dst)
+		if err := sh.Updates(src, dst); err != nil {
+			return
+		}
 		if dst.debug {
 			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgement: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
 		}

@@ -1,4 +1,5 @@
 /*
+Package cmd ...
 Copyright © 2020 NAME HERE <EMAIL ADDRESS>
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -348,7 +349,9 @@ $ %s tx pth demo-path`, appName, appName, appName, appName, appName)),
 			// create clients if they aren't already created
 			modified, err := c[src].CreateClients(c[dst])
 			if modified {
-				overWriteConfig(cmd, config)
+				if err := overWriteConfig(cmd, config); err != nil {
+					return err
+				}
 			}
 
 			if err != nil {

@@ -69,7 +69,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (
 			case err != nil:
 				return err
 			case res == nil:
-				return fmt.Errorf("No error on QueryPacketCommitments for %s, however response is nil", src.ChainID)
+				return fmt.Errorf("no error on QueryPacketCommitments for %s, however response is nil", src.ChainID)
 			default:
 				return nil
 			}
@@ -94,7 +94,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (
 			case err != nil:
 				return err
 			case res == nil:
-				return fmt.Errorf("No error on QueryPacketCommitments for %s, however response is nil", dst.ChainID)
+				return fmt.Errorf("no error on QueryPacketCommitments for %s, however response is nil", dst.ChainID)
 			default:
 				return nil
 			}
@@ -159,7 +159,9 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain, sh *SyncHea
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 			src.logRetryQueryPacketAcknowledgements(sh.GetHeight(src.ChainID), n, err)
-			sh.Updates(src, dst)
+			if err := sh.Updates(src, dst); err != nil {
+				return
+			}
 		})); err != nil {
 			return err
 		}
@@ -183,7 +185,9 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain, sh *SyncHea
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 			dst.logRetryQueryPacketAcknowledgements(sh.GetHeight(dst.ChainID), n, err)
-			sh.Updates(src, dst)
+			if err := sh.Updates(src, dst); err != nil {
+				return
+			}
 		})); err != nil {
 			return err
 		}

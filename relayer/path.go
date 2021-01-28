@@ -92,6 +92,7 @@ func (p Paths) PathsFromChains(src, dst string) (Paths, error) {
 	return out, nil
 }
 
+//PathAction is ...
 type PathAction struct {
 	*Path
 	Type string `json:"type"`

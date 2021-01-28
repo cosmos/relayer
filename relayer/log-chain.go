@@ -114,5 +114,5 @@ func (c *Chain) logRetryQueryPacketAcknowledgements(height uint64, n uint, err e
 }
 
 func (c *Chain) errQueryUnrelayedPacketAcks() error {
-	return fmt.Errorf("No error on QueryPacketUnrelayedAcknowledgements for %s, however response is nil", c.ChainID)
+	return fmt.Errorf("no error on QueryPacketUnrelayedAcknowledgements for %s, however response is nil", c.ChainID)
 }
