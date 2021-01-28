@@ -109,7 +109,8 @@ func getTxActions(act []string) string {
 
 func (c *Chain) logRetryQueryPacketAcknowledgements(height uint64, n uint, err error) {
 	if c.debug {
-		c.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgements: %s", c.ChainID, height, n+1, rtyAttNum, err))
+		c.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgements: %s",
+			c.ChainID, height, n+1, rtyAttNum, err))
 	}
 }
 

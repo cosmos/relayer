@@ -147,7 +147,8 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 	// OpenAck on source if dst is at TRYOPEN and src is at INIT or TRYOPEN (crossing hellos)
 	// obtain proof of counterparty in TRYOPEN state and submit to source chain to update state
 	// from INIT/TRYOPEN to OPEN.
-	case (srcChan.Channel.State == chantypes.INIT || srcChan.Channel.State == chantypes.TRYOPEN) && dstChan.Channel.State == chantypes.TRYOPEN:
+	case (srcChan.Channel.State == chantypes.INIT ||
+		srcChan.Channel.State == chantypes.TRYOPEN) && dstChan.Channel.State == chantypes.TRYOPEN:
 		if src.debug {
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
