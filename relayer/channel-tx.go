@@ -113,7 +113,8 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 	}
 
 	// Query Channel data from src and dst
-	srcChan, dstChan, err = QueryChannelPair(src, dst, int64(sh.GetHeight(src.ChainID))-1, int64(sh.GetHeight(dst.ChainID))-1)
+	srcChan, dstChan, err = QueryChannelPair(src, dst, int64(sh.GetHeight(src.ChainID))-1,
+		int64(sh.GetHeight(dst.ChainID))-1)
 	if err != nil {
 		return false, false, false, err
 	}
@@ -230,7 +231,8 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 // The identifiers set in the PathEnd's are used to determine which channel ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither channel exists.
-func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header, sh *SyncHeaders) (success, modified bool, err error) {
+func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header,
+	sh *SyncHeaders) (success, modified bool, err error) {
 	switch {
 
 	// OpenInit on source
@@ -393,7 +395,8 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 	})
 
 	eg.Go(func() error {
-		srcChan, dstChan, err = QueryChannelPair(c, dst, int64(sh.GetHeight(c.ChainID)), int64(sh.GetHeight(dst.ChainID)))
+		srcChan, dstChan, err = QueryChannelPair(c, dst, int64(sh.GetHeight(c.ChainID)),
+			int64(sh.GetHeight(dst.ChainID)))
 		return err
 	})
 

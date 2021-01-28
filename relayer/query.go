@@ -311,21 +311,23 @@ func (c *Chain) QueryChannelClient(height int64) (*chantypes.QueryChannelClientS
 
 // QueryDenomTrace takes a denom from IBC and queries the information about it
 func (c *Chain) QueryDenomTrace(denom string) (*transfertypes.QueryDenomTraceResponse, error) {
-	return transfertypes.NewQueryClient(c.CLIContext(0)).DenomTrace(context.Background(), &transfertypes.QueryDenomTraceRequest{
-		Hash: denom,
-	})
+	return transfertypes.NewQueryClient(c.CLIContext(0)).DenomTrace(context.Background(),
+		&transfertypes.QueryDenomTraceRequest{
+			Hash: denom,
+		})
 }
 
 // QueryDenomTraces returns all the denom traces from a given chain
 func (c *Chain) QueryDenomTraces(offset, limit uint64, height int64) (*transfertypes.QueryDenomTracesResponse, error) {
-	return transfertypes.NewQueryClient(c.CLIContext(height)).DenomTraces(context.Background(), &transfertypes.QueryDenomTracesRequest{
-		Pagination: &querytypes.PageRequest{
-			Key:        []byte(""),
-			Offset:     offset,
-			Limit:      limit,
-			CountTotal: true,
-		},
-	})
+	return transfertypes.NewQueryClient(c.CLIContext(height)).DenomTraces(context.Background(),
+		&transfertypes.QueryDenomTracesRequest{
+			Pagination: &querytypes.PageRequest{
+				Key:        []byte(""),
+				Offset:     offset,
+				Limit:      limit,
+				CountTotal: true,
+			},
+		})
 }
 
 /////////////////////////////////////
@@ -414,7 +416,8 @@ func (c *Chain) QueryUpgradedClient(height int64) (*codectypes.Any, []byte, clie
 	}
 
 	if res == nil || res.Plan == nil || res.Plan.UpgradedClientState == nil {
-		return nil, nil, clienttypes.Height{}, fmt.Errorf("upgraded client state plan does not exist at height %d", height)
+		return nil, nil, clienttypes.Height{},
+			fmt.Errorf("upgraded client state plan does not exist at height %d", height)
 	}
 	client := res.Plan.UpgradedClientState
 
@@ -440,7 +443,8 @@ func (c *Chain) QueryUpgradedConsState(height int64) (*codectypes.Any, []byte, c
 	}
 
 	if res == nil || res.UpgradedConsensusState == nil {
-		return nil, nil, clienttypes.Height{}, fmt.Errorf("upgraded consensus state plan does not exist at height %d", height)
+		return nil, nil, clienttypes.Height{},
+			fmt.Errorf("upgraded consensus state plan does not exist at height %d", height)
 	}
 	consState := res.UpgradedConsensusState
 
@@ -508,7 +512,8 @@ func (c *Chain) WaitForNBlocks(n int64) error {
 
 // QueryNextSeqRecv returns the next seqRecv for a configured channel
 func (c *Chain) QueryNextSeqRecv(height int64) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
-	return chanutils.QueryNextSequenceReceive(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, true)
+	return chanutils.QueryNextSequenceReceive(c.CLIContext(height),
+		c.PathEnd.PortID, c.PathEnd.ChannelID, true)
 }
 
 // QueryPacketCommitment returns the packet commitment proof at a given height

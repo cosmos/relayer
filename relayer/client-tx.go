@@ -89,7 +89,8 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		// Ensure client exists in the event of user inputted identifiers
 		_, err := c.QueryClientState(srcH.Header.Height)
 		if err != nil {
-			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v", c.PathEnd.ClientID, c.ChainID, err)
+			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
+				c.PathEnd.ClientID, c.ChainID, err)
 		}
 	}
 
@@ -150,7 +151,8 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		// Ensure client exists in the event of user inputted identifiers
 		_, err := dst.QueryClientState(dstH.Header.Height)
 		if err != nil {
-			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v", dst.PathEnd.ClientID, dst.ChainID, err)
+			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
+				dst.PathEnd.ClientID, dst.ChainID, err)
 		}
 
 	}
@@ -228,7 +230,8 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 		return err
 	}
 
-	upgradeMsg := &clienttypes.MsgUpgradeClient{c.PathEnd.ClientID, clientState, consensusState, proofUpgradeClient, proofUpgradeConsensusState, c.MustGetAddress().String()}
+	upgradeMsg := &clienttypes.MsgUpgradeClient{c.PathEnd.ClientID, clientState,
+		consensusState, proofUpgradeClient, proofUpgradeConsensusState, c.MustGetAddress().String()}
 
 	msgs := []sdk.Msg{
 		c.UpdateClient(dstUpdateHeader),
@@ -276,10 +279,12 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 		if IsMatchingClient(*clientState, *existingClientState) {
 
 			// query the latest consensus state of the potential matching client
-			consensusStateResp, err := clientutils.QueryConsensusStateABCI(source.CLIContext(0), identifiedClientState.ClientId, existingClientState.GetLatestHeight())
+			consensusStateResp, err := clientutils.QueryConsensusStateABCI(source.CLIContext(0),
+				identifiedClientState.ClientId, existingClientState.GetLatestHeight())
 			if err != nil {
 				if source.debug {
-					source.Log(fmt.Sprintf("Error: failed to query latest consensus state for existing client on chain %s: %v", source.PathEnd.ChainID, err))
+					source.Log(fmt.Sprintf("Error: failed to query latest consensus state for existing client on chain %s: %v",
+						source.PathEnd.ChainID, err))
 				}
 				continue
 			}
@@ -287,7 +292,8 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 			header, err := counterparty.QueryHeaderAtHeight(int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
 			if err != nil {
 				if source.debug {
-					source.Log(fmt.Sprintf("Error: failed to query header for chain %s at height %d: %v", counterparty.PathEnd.ChainID, existingClientState.GetLatestHeight().GetRevisionHeight(), err))
+					source.Log(fmt.Sprintf("Error: failed to query header for chain %s at height %d: %v",
+						counterparty.PathEnd.ChainID, existingClientState.GetLatestHeight().GetRevisionHeight(), err))
 				}
 				continue
 			}

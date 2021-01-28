@@ -634,7 +634,9 @@ func (c *Chain) StatusErr() error {
 
 // GenerateConnHandshakeProof generates all the proofs needed to prove the existence of the
 // connection state on this chain. A counterparty should use these generated proofs.
-func (c *Chain) GenerateConnHandshakeProof(height uint64) (clientState ibcexported.ClientState, clientStateProof []byte, consensusProof []byte, connectionProof []byte, connectionProofHeight clienttypes.Height, err error) {
+func (c *Chain) GenerateConnHandshakeProof(height uint64) (clientState ibcexported.ClientState,
+	clientStateProof []byte, consensusProof []byte, connectionProof []byte,
+	connectionProofHeight clienttypes.Height, err error) {
 	var (
 		clientStateRes     *clienttypes.QueryClientStateResponse
 		consensusStateRes  *clienttypes.QueryConsensusStateResponse
@@ -667,12 +669,14 @@ func (c *Chain) GenerateConnHandshakeProof(height uint64) (clientState ibcexport
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
 
-	return clientState, clientStateRes.Proof, consensusStateRes.Proof, connectionStateRes.Proof, connectionStateRes.ProofHeight, nil
+	return clientState, clientStateRes.Proof, consensusStateRes.Proof, connectionStateRes.Proof,
+		connectionStateRes.ProofHeight, nil
 
 }
 
 // UpgradeChain submits and upgrade proposal using a zero'd out client state with an updated unbonding period.
-func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Coin, unbondingPeriod time.Duration) error {
+func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Coin,
+	unbondingPeriod time.Duration) error {
 	sh, err := NewSyncHeaders(c, dst)
 	if err != nil {
 		return err
@@ -702,7 +706,8 @@ func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Co
 	plan.UpgradedClientState = upgradedAny
 
 	// TODO: make cli args for title and description
-	upgradeProposal := upgradetypes.NewSoftwareUpgradeProposal("upgrade", "upgrade the chain's software and unbonding period", *plan)
+	upgradeProposal := upgradetypes.NewSoftwareUpgradeProposal("upgrade",
+		"upgrade the chain's software and unbonding period", *plan)
 	msg, err := govtypes.NewMsgSubmitProposal(upgradeProposal, sdk.NewCoins(deposit), c.MustGetAddress())
 	if err != nil {
 		return err
