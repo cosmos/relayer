@@ -60,7 +60,8 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders)
 			return
 		}
 		if dst.debug {
-			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet receipt: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
+			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet receipt: %s", dst.ChainID,
+				sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
 		}
 	})); err != nil {
 		dst.Error(err)
@@ -148,7 +149,8 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeade
 			return
 		}
 		if dst.debug {
-			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitment: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
+			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitment: %s", dst.ChainID,
+				sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
 		}
 	})); err != nil {
 		dst.Error(err)
@@ -249,7 +251,8 @@ func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, sh *SyncHeader
 			return
 		}
 		if dst.debug {
-			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgement: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
+			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgement: %s",
+				dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
 		}
 	})); err != nil {
 		dst.Error(err)

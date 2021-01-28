@@ -369,7 +369,8 @@ $ %s pth l`, appName, appName, appName)),
 						return err
 					}
 					stat := pth.QueryPathStatus(chains[pth.Src.ChainID], chains[pth.Dst.ChainID]).Status
-					printPath(i, k, pth, checkmark(stat.Chains), checkmark(stat.Clients), checkmark(stat.Connection), checkmark(stat.Channel))
+					printPath(i, k, pth, checkmark(stat.Chains), checkmark(stat.Clients),
+						checkmark(stat.Connection), checkmark(stat.Channel))
 					i++
 				}
 				return nil

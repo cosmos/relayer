@@ -75,7 +75,8 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 			if src.debug {
-				src.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitments: %s", src.ChainID, sh.GetHeight(src.ChainID), n+1, rtyAttNum, err))
+				src.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitments: %s", src.ChainID,
+					sh.GetHeight(src.ChainID), n+1, rtyAttNum, err))
 			}
 		})); err != nil {
 			return err
@@ -100,7 +101,8 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 			if dst.debug {
-				dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitments: %s", dst.ChainID, sh.GetHeight(dst.ChainID), n+1, rtyAttNum, err))
+				dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitments: %s",
+					dst.ChainID, sh.GetHeight(dst.ChainID), n+1, rtyAttNum, err))
 			}
 		})); err != nil {
 			return err
@@ -370,7 +372,8 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 			msg, err := rp.Msg(src, dst)
 			if err != nil {
 				if src.debug {
-					src.Log(fmt.Sprintf("- [%s] failed to create relay packet message bound for %s of type %T, retrying: %s", src.ChainID, dst.ChainID, rp, err))
+					src.Log(fmt.Sprintf("- [%s] failed to create relay packet message bound for %s of type %T, retrying: %s",
+						src.ChainID, dst.ChainID, rp, err))
 				}
 				return err
 			}
