@@ -231,7 +231,8 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 	}
 
 	upgradeMsg := &clienttypes.MsgUpgradeClient{ClientId: c.PathEnd.ClientID, ClientState: clientState,
-		ConsensusState: consensusState, ProofUpgradeClient: proofUpgradeClient, ProofUpgradeConsensusState: proofUpgradeConsensusState, Signer: c.MustGetAddress().String()}
+		ConsensusState: consensusState, ProofUpgradeClient: proofUpgradeClient,
+		ProofUpgradeConsensusState: proofUpgradeConsensusState, Signer: c.MustGetAddress().String()}
 
 	msgs := []sdk.Msg{
 		c.UpdateClient(dstUpdateHeader),
