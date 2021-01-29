@@ -33,7 +33,8 @@ var clibPort = 0
 var replies = map[int]chan goReturn{}
 var lastReply = 0
 
-func runClib(nodePort C.int, toNode C.sendFunc, clibArgs []*C.char) C.int {
+//export RunClib
+func RunClib(nodePort C.int, toNode C.sendFunc, clibArgs []*C.char) C.int {
 	if relayer.SendToController == nil {
 		relayer.SendToController = func(needReply bool, str string) (string, error) {
 			var rPort int
@@ -74,7 +75,8 @@ func runClib(nodePort C.int, toNode C.sendFunc, clibArgs []*C.char) C.int {
 	return C.int(clibPort)
 }
 
-func replyToClib(replyPort C.int, isError C.int, str C.Body) C.int {
+//export ReplyToClib
+func ReplyToClib(replyPort C.int, isError C.int, str C.Body) C.int {
 	goStr := C.GoString(str)
 	returnCh := replies[int(replyPort)]
 	if returnCh == nil {
@@ -90,7 +92,8 @@ func replyToClib(replyPort C.int, isError C.int, str C.Body) C.int {
 	return C.int(0)
 }
 
-func sendToClib(port C.int, str C.Body) C.Body {
+//export SendToClib
+func SendToClib(port C.int, str C.Body) C.Body {
 	goStr := C.GoString(str)
 	var action relayer.DeliverMsgsAction
 	err := json.Unmarshal([]byte(goStr), &action)
