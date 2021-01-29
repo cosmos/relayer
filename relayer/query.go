@@ -523,8 +523,8 @@ func (c *Chain) QueryPacketCommitment(
 }
 
 // QueryPacketAcknowledgement returns the packet ack proof at a given height
-func (c *Chain) QueryPacketAcknowledgement(height int64, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse,
-	err error) {
+func (c *Chain) QueryPacketAcknowledgement(height int64,
+	seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
 	return chanutils.QueryPacketAcknowledgement(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, seq, true)
 }
 
@@ -549,8 +549,8 @@ func (c *Chain) QueryPacketCommitments(
 }
 
 // QueryPacketAcknowledgements returns an array of packet acks
-func (c *Chain) QueryPacketAcknowledgements(offset, limit, height uint64) (comRes *chantypes.QueryPacketAcknowledgementsResponse,
-	err error) {
+func (c *Chain) QueryPacketAcknowledgements(offset, limit,
+	height uint64) (comRes *chantypes.QueryPacketAcknowledgementsResponse, err error) {
 	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
 	return qc.PacketAcknowledgements(context.Background(), &chantypes.QueryPacketAcknowledgementsRequest{
 		PortId:    c.PathEnd.PortID,
