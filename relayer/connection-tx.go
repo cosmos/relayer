@@ -364,5 +364,6 @@ func IsMatchingConnection(source, counterparty *Chain, connection *conntypes.Ide
 		isVersionMatched && connection.DelayPeriod == defaultDelayPeriod &&
 		connection.Counterparty.Prefix.String() == defaultChainPrefix.String() &&
 		(((connection.State == conntypes.INIT || connection.State == conntypes.TRYOPEN) && connection.Counterparty.ConnectionId == "") ||
-			(connection.State == conntypes.OPEN && connection.Counterparty.ConnectionId == counterparty.PathEnd.ConnectionID))
+			(connection.State == conntypes.OPEN && (counterparty.PathEnd.ConnectionID == "" ||
+				connection.Counterparty.ConnectionId == counterparty.PathEnd.ConnectionID)))
 }

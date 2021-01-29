@@ -491,7 +491,8 @@ func IsMatchingChannel(source, counterparty *Chain, channel *chantypes.Identifie
 		channel.Version == source.PathEnd.Version &&
 		channel.PortId == source.PathEnd.PortID && channel.Counterparty.PortId == counterparty.PathEnd.PortID &&
 		(((channel.State == chantypes.INIT || channel.State == chantypes.TRYOPEN) && channel.Counterparty.ChannelId == "") ||
-			(channel.State == chantypes.OPEN && channel.Counterparty.ChannelId == counterparty.PathEnd.ChannelID))
+			(channel.State == chantypes.OPEN && (counterparty.PathEnd.ChannelID == "" ||
+				channel.Counterparty.ChannelId == counterparty.PathEnd.ChannelID)))
 }
 
 // IsConnectionFound determines if given connectionId is present in channel connectionHops list

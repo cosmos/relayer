@@ -125,9 +125,13 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	expectedSrc := src
 	expectedDst := dst
 
-	// clearing old config and generating path again
-	_, err = genTestPathAndSet(src, dst, "transfer", "transfer")
-	require.NoError(t, err)
+	// clear old config
+	src.PathEnd.ClientID = ""
+	src.PathEnd.ConnectionID = ""
+	src.PathEnd.ChannelID = ""
+	dst.PathEnd.ClientID = ""
+	dst.PathEnd.ConnectionID = ""
+	dst.PathEnd.ChannelID = ""
 
 	_, err = src.CreateClients(dst)
 	require.NoError(t, err)
