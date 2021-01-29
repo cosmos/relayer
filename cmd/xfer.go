@@ -80,7 +80,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 			}
 			done()
 
-			return c[src].SendTransferMsg(c[dst], amount, dstAddr, toHeightOffset, toTimeOffset)
+			return c[src].SendTransferMsg(c[dst], amount, dstAddr.String(), toHeightOffset, toTimeOffset)
 		},
 	}
 	return timeoutFlags(pathFlag(cmd))
