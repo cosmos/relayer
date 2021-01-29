@@ -743,7 +743,8 @@ func relayPacketsFromResultTx(src, dst *PathEnd, res *ctypes.ResultTx,
 
 // acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
 //relayPackets with the appropriate data
-func acknowledgementsFromResultTx(src, dst *PathEnd, res *ctypes.ResultTx, sh *SyncHeaders) ([]*relayMsgPacketAck, error) {
+func acknowledgementsFromResultTx(src, dst *PathEnd,
+	res *ctypes.ResultTx, sh *SyncHeaders) ([]*relayMsgPacketAck, error) {
 	var ackPackets []*relayMsgPacketAck
 	for _, e := range res.TxResult.Events {
 		if e.Type == waTag {
@@ -808,9 +809,11 @@ func acknowledgementsFromResultTx(src, dst *PathEnd, res *ctypes.ResultTx, sh *S
 }
 
 func rcvPacketQuery(channelID string, seq int) []string {
-	return []string{fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID), fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq)}
+	return []string{fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
+		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq)}
 }
 
 func ackPacketQuery(channelID string, seq int) []string {
-	return []string{fmt.Sprintf("%s.packet_src_channel='%s'", waTag, channelID), fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq)}
+	return []string{fmt.Sprintf("%s.packet_src_channel='%s'", waTag, channelID),
+		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq)}
 }
