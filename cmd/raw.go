@@ -542,9 +542,10 @@ func createChannelStepCmd() *cobra.Command {
 		Short:   "create the next step in creating a channel between chains with the passed identifiers",
 		Args:    cobra.ExactArgs(11),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s transact raw chan-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2 ibcchan1 ibcchan2 transfer transfer ordered
-$ %s tx raw channel-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2 ibcchan1 ibcchan2 transfer transfer ordered
-`, appName, appName)),
+$ %s transact raw chan-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 
+ibcconn2 ibcchan1 ibcchan2 transfer transfer ordered
+$ %s tx raw channel-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1
+ ibcconn2 ibcchan1 ibcchan2 transfer transfer ordered`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
