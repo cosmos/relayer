@@ -12,16 +12,17 @@ import (
 )
 
 var (
+	// Chains built using SDK v0.41.0
+
 	// GAIA BLOCK TIMEOUTS are located in the single node setup script on gaia
 	// https://github.com/cosmos/gaia/blob/main/contrib/single-node.sh
 	// timeout_commit = "1000ms"
 	// timeout_propose = "1000ms"
 	// 3 second relayer timeout works well with these block times
 	gaiaTestConfig = testChainConfig{
-		// This is built from contrib/Dockerfile.test of this PR:
-		// https://github.com/CosmWasm/gaia/tree/ethanfrey/docker-test-fixes
-		dockerImage:    "cosmwasm/gaiatest",
-		dockerTag:      "v3.0.0",
+		// This is built from contrib/Dockerfile.test from the gaia repository:
+		dockerImage:    "colinaxner/gaiatest",
+		dockerTag:      "v4.0.0",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "cosmos",
@@ -32,9 +33,10 @@ var (
 	// timeout_commit = "1000ms"
 	// timeout_propose = "1000ms"
 	// 3 second relayer timeout works well with these block times
+	// This is built from contrib/Dockerfile.test from the akash repository:
 	akashTestConfig = testChainConfig{
-		dockerImage:    "jackzampolin/akashtest",
-		dockerTag:      "jack_update-ibc-args",
+		dockerImage:    "colinaxner/akashtest",
+		dockerTag:      "latest",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "akash",
