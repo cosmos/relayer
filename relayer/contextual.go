@@ -48,7 +48,6 @@ func (cdc *contextualStdCodec) MustUnmarshalJSON(bz []byte, ptr proto.Message) {
 	if err := cdc.UnmarshalJSON(bz, ptr); err != nil {
 		panic(err)
 	}
-	return
 }
 
 func (cdc *contextualStdCodec) MarshalBinaryBare(ptr codec.ProtoMarshaler) ([]byte, error) {

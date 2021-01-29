@@ -146,7 +146,6 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeade
 	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 		// OnRetry we want to update the headers and then debug log
 		if err := sh.Updates(src, dst); err != nil {
-			return
 		}
 		if dst.debug {
 			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitment: %s", dst.ChainID,
@@ -156,7 +155,6 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeade
 		dst.Error(err)
 		return
 	}
-
 	rp.dstComRes = dstCommitRes
 	return
 }
