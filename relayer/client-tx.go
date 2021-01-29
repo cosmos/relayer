@@ -230,8 +230,8 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 		return err
 	}
 
-	upgradeMsg := &clienttypes.MsgUpgradeClient{c.PathEnd.ClientID, clientState,
-		consensusState, proofUpgradeClient, proofUpgradeConsensusState, c.MustGetAddress().String()}
+	upgradeMsg := &clienttypes.MsgUpgradeClient{ClientId: c.PathEnd.ClientID, ClientState: clientState,
+		ConsensusState: consensusState, ProofUpgradeClient: proofUpgradeClient, ProofUpgradeConsensusState: proofUpgradeConsensusState, Signer: c.MustGetAddress().String()}
 
 	msgs := []sdk.Msg{
 		c.UpdateClient(dstUpdateHeader),
