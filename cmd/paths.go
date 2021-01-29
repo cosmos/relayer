@@ -155,6 +155,9 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				path.GenSrcConnID()
 				path.GenSrcChanID()
 				path.GenDstChanID()
+				if err = config.ValidatePath(path); err != nil {
+					return err
+				}
 				if err = config.Paths.Add(pth, path); err != nil {
 					return err
 				}
@@ -166,6 +169,9 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				path.GenSrcConnID()
 				path.GenSrcChanID()
 				path.GenDstChanID()
+				if err = config.ValidatePath(path); err != nil {
+					return err
+				}
 				if err = config.Paths.Add(pth, path); err != nil {
 					return err
 				}
@@ -177,6 +183,9 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				path.GenSrcConnID()
 				path.GenSrcChanID()
 				path.GenDstChanID()
+				if err = config.ValidatePath(path); err != nil {
+					return err
+				}
 				if err = config.Paths.Add(pth, path); err != nil {
 					return err
 				}
@@ -225,6 +234,9 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 					path.GenDstConnID()
 					path.GenSrcChanID()
 					path.GenDstChanID()
+					if err = config.ValidatePath(path); err != nil {
+						return err
+					}
 					if err = config.Paths.Add(pth, path); err != nil {
 						return err
 					}
@@ -236,6 +248,9 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				path.GenDstConnID()
 				path.GenSrcChanID()
 				path.GenDstChanID()
+				if err = config.ValidatePath(path); err != nil {
+					return err
+				}
 				if err = config.Paths.Add(pth, path); err != nil {
 					return err
 				}
@@ -288,6 +303,9 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 					path.GenSrcChanID()
 					path.GenDstChanID()
 				}
+				if err = config.ValidatePath(path); err != nil {
+					return err
+				}
 				if err = config.Paths.Add(pth, path); err != nil {
 					return err
 				}
@@ -296,6 +314,9 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 			default:
 				path.GenSrcChanID()
 				path.GenDstChanID()
+				if err = config.ValidatePath(path); err != nil {
+					return err
+				}
 				if err = config.Paths.Add(pth, path); err != nil {
 					return err
 				}
@@ -495,6 +516,10 @@ func fileInputPathAdd(file, name string) (cfg *Config, err error) {
 		return nil, err
 	}
 
+	if err = config.ValidatePath(p); err != nil {
+		return nil, err
+	}
+
 	if err = config.Paths.Add(name, p); err != nil {
 		return nil, err
 	}
@@ -626,6 +651,10 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 	path.Dst.Version = value
 
 	if err = path.Dst.Vversion(); err != nil {
+		return nil, err
+	}
+
+	if err = config.ValidatePath(path); err != nil {
 		return nil, err
 	}
 

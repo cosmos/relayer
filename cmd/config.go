@@ -218,15 +218,17 @@ func cfgFilesAdd(dir string) (cfg *Config, err error) {
 			}
 
 			pthName := strings.Split(f.Name(), ".")[0]
+			if err = config.ValidatePath(p); err != nil {
+				fmt.Printf("%s: %s\n", pth, err.Error())
+				continue
+			}
 			if err = cfg.AddPath(pthName, p); err != nil {
 				fmt.Printf("%s: %s\n", pth, err.Error())
 				continue
 			}
 
-			// TODO: Do bottom up validation
 			// For now, we assume that all chain files must have same filename as chain-id
 			// this is to ensure non-chain files (global config) does not get parsed into chain struct.
-			// Future work should implement bottom-up validation.
 			if c.ChainID != pthName {
 				fmt.Printf("Skipping non chain file: %s\n", f.Name())
 				continue
@@ -420,13 +422,13 @@ func overWriteConfig(cmd *cobra.Command, cfg *Config) error {
 
 // ValidatePath checks that a path is valid
 func (c *Config) ValidatePath(p *relayer.Path) (err error) {
-	if err = p.Src.ValidateFull(); err != nil {
+	if err = c.ValidatePathEnd(p.Src); err != nil {
 		return err
 	}
 	if p.Src.Version == "" {
 		return fmt.Errorf("source must specify a version")
 	}
-	if err = p.Dst.ValidateFull(); err != nil {
+	if err = c.ValidatePathEnd(p.Dst); err != nil {
 		return err
 	}
 	if _, err = p.GetStrategy(); err != nil {
@@ -439,24 +441,104 @@ func (c *Config) ValidatePath(p *relayer.Path) (err error) {
 	return nil
 }
 
-// ValidatePathEnd allow empty identifiers and check specific config if user provides identifier
-// returns error for invalid identifiers
+// ValidatePathEnd allow validates provided pathend and returns error for invalid identifiers
 func (c *Config) ValidatePathEnd(pe *relayer.PathEnd) error {
 	if err := pe.ValidateBasic(); err != nil {
 		return err
 	}
-	if err := pe.Vclient(); err != nil {
-		return err
+	if pe.ClientID != "" {
+		if err := c.ValidateClient(pe); err != nil {
+			return err
+		}
 	}
 	if pe.ConnectionID != "" {
-		if err := pe.Vconn(); err != nil {
+		if err := c.ValidateConnection(pe); err != nil {
 			return err
 		}
 	}
 	if pe.ChannelID != "" {
-		if err := pe.Vchan(); err != nil {
+		if err := c.ValidateChannel(pe); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// ValidateClient validates client id in provided pathend
+func (c *Config) ValidateClient(pe *relayer.PathEnd) error {
+	if err := pe.Vclient(); err != nil {
+		return err
+	}
+
+	chain, err := c.Chains.Get(pe.ChainID)
+	if err != nil {
+		return err
+	}
+
+	// TODO: add appropriate offset and limits, along with retries
+	clients, err := chain.QueryClients(0, 1000)
+	if err != nil {
+		return err
+	}
+
+	for _, clientState := range clients.ClientStates {
+		if clientState.ClientId == pe.ClientID {
+			return nil
+		}
+	}
+	return fmt.Errorf("No client exists with given client id: %s", pe.ClientID)
+}
+
+// ValidateConnection validates connection id in provided pathend
+func (c *Config) ValidateConnection(pe *relayer.PathEnd) error {
+	if err := pe.Vconn(); err != nil {
+		return err
+	}
+
+	chain, err := c.Chains.Get(pe.ChainID)
+	if err != nil {
+		return err
+	}
+
+	// TODO: add appropriate offset and limits, along with retries
+	connections, err := chain.QueryConnections(0, 1000)
+	if err != nil {
+		return err
+	}
+
+	for _, connection := range connections.Connections {
+		if connection.ClientId == pe.ClientID && connection.Id == pe.ConnectionID {
+			return nil
+		}
+	}
+	return fmt.Errorf("No connection exists with given connection id: %s", pe.ConnectionID)
+}
+
+// ValidateChannel validates channel id in provided pathend
+func (c *Config) ValidateChannel(pe *relayer.PathEnd) error {
+	if err := pe.Vchan(); err != nil {
+		return err
+	}
+
+	chain, err := c.Chains.Get(pe.ChainID)
+	if err != nil {
+		return err
+	}
+
+	// TODO: add appropriate offset and limits, along with retries
+	channels, err := chain.QueryChannels(0, 1000)
+	if err != nil {
+		return err
+	}
+
+	for _, channel := range channels.Channels {
+		if channel.ChannelId == pe.ChannelID {
+			for _, connection := range channel.ConnectionHops {
+				if connection == pe.ConnectionID {
+					return nil
+				}
+			}
+		}
+	}
+	return fmt.Errorf("No channel exists with given channel id: %s", pe.ChannelID)
 }
