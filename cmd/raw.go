@@ -656,8 +656,8 @@ func closeChannelStepCmd() *cobra.Command {
 		Short: "create the next step in closing a channel between chains with the passed identifiers",
 		Args:  cobra.ExactArgs(10),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s tx raw close-channel-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2 ibcchan1 ibcchan2 transfer transfer`,
-			appName)),
+$ %s tx raw close-channel-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 
+ibcconn2 ibcchan1 ibcchan2 transfer transfer`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
