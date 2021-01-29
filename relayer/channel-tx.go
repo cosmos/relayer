@@ -62,7 +62,7 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 		// In the case of failure, increment the failures counter and exit if this is the 3rd failure
 		case !success:
 			failures++
-			str := fmt.Sprint("retrying transaction...")
+			str := "retrying transaction..."
 			c.Log(str)
 			time.Sleep(5 * time.Second)
 
