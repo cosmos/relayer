@@ -76,8 +76,6 @@ func (cdc *contextualStdCodec) MustUnmarshalBinaryBare(bz []byte, ptr codec.Prot
 	if err := cdc.UnmarshalBinaryBare(bz, ptr); err != nil {
 		panic(err)
 	}
-
-	return
 }
 
 // // newContextualCodec creates a codec that sets and resets context
