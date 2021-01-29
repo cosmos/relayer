@@ -217,6 +217,9 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			return false, false, false, err
 		}
 
+	case srcConn.Connection.State == conntypes.OPEN && dstConn.Connection.State == conntypes.OPEN:
+		last = true
+
 	}
 
 	return true, last, false, nil

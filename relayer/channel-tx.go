@@ -220,6 +220,9 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			return false, false, false, err
 		}
 
+	case srcChan.Channel.State == chantypes.OPEN && dstChan.Channel.State == chantypes.OPEN:
+		last = true
+
 	}
 
 	return true, last, false, nil
