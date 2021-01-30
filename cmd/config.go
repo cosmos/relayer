@@ -441,32 +441,9 @@ func (c *Config) ValidatePath(p *relayer.Path) (err error) {
 	return nil
 }
 
-// ValidatePathEnd allow validates provided pathend and returns error for invalid identifiers
+// ValidatePathEnd validates provided pathend and returns error for invalid identifiers
 func (c *Config) ValidatePathEnd(pe *relayer.PathEnd) error {
 	if err := pe.ValidateBasic(); err != nil {
-		return err
-	}
-	if pe.ClientID != "" {
-		if err := c.ValidateClient(pe); err != nil {
-			return err
-		}
-	}
-	if pe.ConnectionID != "" {
-		if err := c.ValidateConnection(pe); err != nil {
-			return err
-		}
-	}
-	if pe.ChannelID != "" {
-		if err := c.ValidateChannel(pe); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// ValidateClient validates client id in provided pathend
-func (c *Config) ValidateClient(pe *relayer.PathEnd) error {
-	if err := pe.Vclient(); err != nil {
 		return err
 	}
 
@@ -480,7 +457,31 @@ func (c *Config) ValidateClient(pe *relayer.PathEnd) error {
 		return err
 	}
 
-	_, err = chain.QueryClientState(height)
+	if pe.ClientID != "" {
+		if err := c.ValidateClient(chain, height, pe); err != nil {
+			return err
+		}
+	}
+	if pe.ConnectionID != "" {
+		if err := c.ValidateConnection(chain, height, pe); err != nil {
+			return err
+		}
+	}
+	if pe.ChannelID != "" {
+		if err := c.ValidateChannel(chain, height, pe); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ValidateClient validates client id in provided pathend
+func (c *Config) ValidateClient(chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
+	if err := pe.Vclient(); err != nil {
+		return err
+	}
+
+	_, err := chain.QueryClientState(height)
 	if err != nil {
 		return err
 	}
@@ -489,18 +490,8 @@ func (c *Config) ValidateClient(pe *relayer.PathEnd) error {
 }
 
 // ValidateConnection validates connection id in provided pathend
-func (c *Config) ValidateConnection(pe *relayer.PathEnd) error {
+func (c *Config) ValidateConnection(chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
 	if err := pe.Vconn(); err != nil {
-		return err
-	}
-
-	chain, err := c.Chains.Get(pe.ChainID)
-	if err != nil {
-		return err
-	}
-
-	height, err := chain.QueryLatestHeight()
-	if err != nil {
 		return err
 	}
 
@@ -517,18 +508,8 @@ func (c *Config) ValidateConnection(pe *relayer.PathEnd) error {
 }
 
 // ValidateChannel validates channel id in provided pathend
-func (c *Config) ValidateChannel(pe *relayer.PathEnd) error {
+func (c *Config) ValidateChannel(chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
 	if err := pe.Vchan(); err != nil {
-		return err
-	}
-
-	chain, err := c.Chains.Get(pe.ChainID)
-	if err != nil {
-		return err
-	}
-
-	height, err := chain.QueryLatestHeight()
-	if err != nil {
 		return err
 	}
 
