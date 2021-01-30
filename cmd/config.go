@@ -475,18 +475,17 @@ func (c *Config) ValidateClient(pe *relayer.PathEnd) error {
 		return err
 	}
 
-	// TODO: add appropriate offset and limits, along with retries
-	clients, err := chain.QueryClients(0, 1000)
+	height, err := chain.QueryLatestHeight()
 	if err != nil {
 		return err
 	}
 
-	for _, clientState := range clients.ClientStates {
-		if clientState.ClientId == pe.ClientID {
-			return nil
-		}
+	_, err = chain.QueryClientState(height)
+	if err != nil {
+		return err
 	}
-	return fmt.Errorf("No client exists with given client id: %s", pe.ClientID)
+
+	return nil
 }
 
 // ValidateConnection validates connection id in provided pathend
@@ -500,18 +499,21 @@ func (c *Config) ValidateConnection(pe *relayer.PathEnd) error {
 		return err
 	}
 
-	// TODO: add appropriate offset and limits, along with retries
-	connections, err := chain.QueryConnections(0, 1000)
+	height, err := chain.QueryLatestHeight()
 	if err != nil {
 		return err
 	}
 
-	for _, connection := range connections.Connections {
-		if connection.ClientId == pe.ClientID && connection.Id == pe.ConnectionID {
-			return nil
-		}
+	connection, err := chain.QueryConnection(height)
+	if err != nil {
+		return err
 	}
-	return fmt.Errorf("No connection exists with given connection id: %s", pe.ConnectionID)
+
+	if connection.Connection.ClientId != pe.ClientID {
+		return fmt.Errorf("ClientID of connection: %s didn't match with provided ClientID", pe.ConnectionID)
+	}
+
+	return nil
 }
 
 // ValidateChannel validates channel id in provided pathend
@@ -525,20 +527,21 @@ func (c *Config) ValidateChannel(pe *relayer.PathEnd) error {
 		return err
 	}
 
-	// TODO: add appropriate offset and limits, along with retries
-	channels, err := chain.QueryChannels(0, 1000)
+	height, err := chain.QueryLatestHeight()
 	if err != nil {
 		return err
 	}
 
-	for _, channel := range channels.Channels {
-		if channel.ChannelId == pe.ChannelID {
-			for _, connection := range channel.ConnectionHops {
-				if connection == pe.ConnectionID {
-					return nil
-				}
-			}
+	channel, err := chain.QueryChannel(height)
+	if err != nil {
+		return err
+	}
+
+	for _, connection := range channel.Channel.ConnectionHops {
+		if connection == pe.ConnectionID {
+			return nil
 		}
 	}
-	return fmt.Errorf("No channel exists with given channel id: %s", pe.ChannelID)
+
+	return fmt.Errorf("ConnectionID of channel: %s didn't match with provided ConnectionID", pe.ChannelID)
 }
