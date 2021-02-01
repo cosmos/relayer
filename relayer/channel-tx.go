@@ -240,7 +240,7 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 	// OpenInit on source
 	// Neither channel has been initialized
 	case src.PathEnd.ChannelID == "" && dst.PathEnd.ChannelID == "":
-		//nolint:gosec
+		//nolint:staticcheck
 		if src.debug {
 			// TODO: log that we are attempting to create new channel ends
 		}
@@ -269,7 +269,7 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 	// OpenTry on source
 	// source channel does not exist, but counterparty channel exists
 	case src.PathEnd.ChannelID == "" && dst.PathEnd.ChannelID != "":
-		//nolint:gosec
+		//nolint:staticcheck
 		if src.debug {
 			// TODO: update logging
 		}
