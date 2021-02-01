@@ -77,6 +77,7 @@ func RunClib(nodePort C.int, toNode C.sendFunc, clibArgs []*C.char) C.int {
 }
 
 //nolint:golint
+//export ReplyToClib
 func ReplyToClib(replyPort C.int, isError C.int, str C.Body) C.int {
 	goStr := C.GoString(str)
 	returnCh := replies[int(replyPort)]
@@ -94,6 +95,7 @@ func ReplyToClib(replyPort C.int, isError C.int, str C.Body) C.int {
 }
 
 //nolint:golint
+//export SendToClib
 func SendToClib(port C.int, str C.Body) C.Body {
 	goStr := C.GoString(str)
 	var action relayer.DeliverMsgsAction
