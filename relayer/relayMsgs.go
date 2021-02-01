@@ -55,7 +55,6 @@ func (r *RelayMsgs) Success() bool {
 	return r.Succeeded
 }
 
-//IsMaxTx is
 func (r *RelayMsgs) IsMaxTx(msgLen, txSize uint64) bool {
 	return (r.MaxMsgLength != 0 && msgLen > r.MaxMsgLength) ||
 		(r.MaxTxSize != 0 && txSize > r.MaxTxSize)
@@ -67,7 +66,6 @@ func (r *RelayMsgs) Send(src, dst *Chain) {
 	r.SendWithController(src, dst, true)
 }
 
-//EncodeMsgs is ...
 func EncodeMsgs(c *Chain, msgs []sdk.Msg) []string {
 	outMsgs := make([]string, 0, len(msgs))
 	for _, msg := range msgs {
@@ -95,7 +93,6 @@ func DecodeMsgs(c *Chain, msgs []string) []sdk.Msg {
 	return outMsgs
 }
 
-//SendWithController is ...
 func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 	if useController && SendToController != nil {
 		action := &DeliverMsgsAction{
