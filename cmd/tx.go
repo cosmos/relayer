@@ -1,5 +1,5 @@
 /*
-Package cmd ...
+Package cmd includes relayer commands
 Copyright © 2020 NAME HERE <EMAIL ADDRESS>
 
 Licensed under the Apache License, Version 2.0 (the "License");
