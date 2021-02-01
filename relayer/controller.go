@@ -7,7 +7,7 @@ import (
 //SendToController is ...
 var SendToController func(needReply bool, str string) (string, error)
 
-//ControllerUpcall is ...
+//ControllerUpcall takes action interface type
 func ControllerUpcall(action interface{}) (bool, error) {
 	bz, err := json.Marshal(action)
 	if err != nil {

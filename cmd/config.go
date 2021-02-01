@@ -33,9 +33,9 @@ import (
 )
 
 const (
-	//ORDERED is ...
+	//ORDERED is exported constant
 	ORDERED = "ORDERED"
-	//UNORDERED is ...
+	//UNORDERED is exported constant
 	UNORDERED      = "UNORDERED"
 	defaultOrder   = ORDERED
 	defaultVersion = "ics20-1"
