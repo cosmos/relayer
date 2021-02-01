@@ -134,7 +134,7 @@ $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 			}
 
 			coinType, _ := cmd.Flags().GetUint32(flagCoinType)
-
+			//nolint:lll
 			info, err := chain.Keybase.NewAccount(keyName, args[2], "", hd.CreateHDPath(coinType, 0, 0).String(), hd.Secp256k1)
 			if err != nil {
 				return err
