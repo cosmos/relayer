@@ -284,7 +284,6 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 				identifiedClientState.ClientId, existingClientState.GetLatestHeight())
 			if err != nil {
 				if source.debug {
-					//nolint:lll
 					source.Log(fmt.Sprintf("Error: failed to query latest consensus state for existing client on chain %s: %v",
 						source.PathEnd.ChainID, err))
 				}
