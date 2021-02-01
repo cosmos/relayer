@@ -63,6 +63,15 @@ coverage:
 lint:
 	@golangci-lint run
 	@find . -name '*.go' -type f -not -path "*.git*" | xargs gofmt -d -s
+	@touch $(TMPFILEGOLINT)
+	-@for pkg in $(PKGS) ; do \
+		echo `golint $$pkg | grep -v "empty branch (staticcheck)" | grep -v "line is 135 charachters (111)"` >> $(TMPFILEGOLINT) ; \
+	done
+	@grep -Ev "^$$" $(TMPFILEGOLINT) || true
+	@if [ "$$(grep -Ev "^$$" $(TMPFILEGOLINT) | wc -l)" -gt "0" ]; then \
+		rm -f $(TMPFILEGOLINT); echo "golint failure\n"; exit 1; else \
+		rm -f $(TMPFILEGOLINT); echo "golint success\n"; \
+	fi
 	@go mod verify
 
 .PHONY: install build lint coverage clean
