@@ -404,7 +404,7 @@ func (c *Chain) QueryUnbondingPeriod() (time.Duration, error) {
 	return res.Params.UnbondingTime, nil
 }
 
-//QueryUpgradedClient is ...
+//QueryUpgradedClient returns upgraded client info
 func (c *Chain) QueryUpgradedClient(height int64) (*codectypes.Any, []byte, clienttypes.Height, error) {
 	req := upgradetypes.QueryCurrentPlanRequest{}
 
@@ -429,7 +429,7 @@ func (c *Chain) QueryUpgradedClient(height int64) (*codectypes.Any, []byte, clie
 	return client, proof, proofHeight, nil
 }
 
-//QueryUpgradedConsState is ...
+//QueryUpgradedConsState returns upgraded consensus state and height of client
 func (c *Chain) QueryUpgradedConsState(height int64) (*codectypes.Any, []byte, clienttypes.Height, error) {
 	req := upgradetypes.QueryUpgradedConsensusStateRequest{
 		LastHeight: height,

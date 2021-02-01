@@ -41,14 +41,14 @@ func OrderFromString(order string) chantypes.Order {
 	}
 }
 
-//nolint:golint
+//GetOrder is ...
 func (pe *PathEnd) GetOrder() chantypes.Order {
 	return OrderFromString(strings.ToUpper(pe.Order))
 }
 
 var marshalledChains = map[PathEnd]*Chain{}
 
-//nolint:golint
+//MarshalChain is PathEnd
 func MarshalChain(c *Chain) PathEnd {
 	pe := *c.PathEnd
 	if _, ok := marshalledChains[pe]; !ok {
@@ -57,7 +57,7 @@ func MarshalChain(c *Chain) PathEnd {
 	return pe
 }
 
-//nolint:golint
+//UnmarshalChain returns Marshalled chain
 func UnmarshalChain(pe PathEnd) *Chain {
 	if c, ok := marshalledChains[pe]; ok {
 		return c

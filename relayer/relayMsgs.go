@@ -9,7 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-//DeliverMsgsAction is ...
+//DeliverMsgsAction is struct
 type DeliverMsgsAction struct {
 	SrcMsgs   []string `json:"src_msgs"`
 	Src       PathEnd  `json:"src"`
@@ -55,7 +55,7 @@ func (r *RelayMsgs) Success() bool {
 	return r.Succeeded
 }
 
-//IsMaxTx is ...
+//IsMaxTx is
 func (r *RelayMsgs) IsMaxTx(msgLen, txSize uint64) bool {
 	return (r.MaxMsgLength != 0 && msgLen > r.MaxMsgLength) ||
 		(r.MaxTxSize != 0 && txSize > r.MaxTxSize)
@@ -81,7 +81,6 @@ func EncodeMsgs(c *Chain, msgs []sdk.Msg) []string {
 	return outMsgs
 }
 
-//DecodeMsgs is ...
 func DecodeMsgs(c *Chain, msgs []string) []sdk.Msg {
 	outMsgs := make([]sdk.Msg, 0, len(msgs))
 	for _, msg := range msgs {
