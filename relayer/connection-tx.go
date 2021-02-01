@@ -226,6 +226,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	return true, last, false, nil
 }
 
+//nolint:interfacer
 // InitializeConnection creates a new connection on either the source or destination chain .
 // The identifiers set in the PathEnd's are used to determine which connection ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.
