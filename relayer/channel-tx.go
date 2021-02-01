@@ -229,6 +229,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 	return true, last, false, nil
 }
 
+//nolint:interfacer
 // InitializeChannel creates a new channel on either the source or destination chain .
 // The identifiers set in the PathEnd's are used to determine which channel ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.

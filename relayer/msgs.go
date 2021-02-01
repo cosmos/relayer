@@ -22,6 +22,7 @@ import (
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
 func (c *Chain) CreateClient(
+	//nolint:interfacer
 	clientState *tmclient.ClientState,
 	dstHeader *tmclient.Header) sdk.Msg {
 
