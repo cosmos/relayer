@@ -1,5 +1,5 @@
 /*
-Package cmd ...
+Package cmd includes relayer commands
 Copyright © 2020 Jack Zampolin jack.zampolin@gmail.com
 
 Licensed under the Apache License, Version 2.0 (the "License");
