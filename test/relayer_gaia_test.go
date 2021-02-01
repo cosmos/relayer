@@ -97,3 +97,54 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, dstExpected.AmountOf(testDenom).Int64()-4000, dstGot.AmountOf(testDenom).Int64())
 }
+
+func TestGaiaReuseIdentifiers(t *testing.T) {
+	chains := spinUpTestChains(t, gaiaChains...)
+
+	var (
+		src = chains.MustGet("ibc-0")
+		dst = chains.MustGet("ibc-1")
+	)
+
+	_, err := genTestPathAndSet(src, dst, "transfer", "transfer")
+	require.NoError(t, err)
+
+	// create path
+	_, err = src.CreateClients(dst)
+	require.NoError(t, err)
+	testClientPair(t, src, dst)
+
+	_, err = src.CreateOpenConnections(dst, 3, src.GetTimeout())
+	require.NoError(t, err)
+	testConnectionPair(t, src, dst)
+
+	_, err = src.CreateOpenChannels(dst, 3, src.GetTimeout())
+	require.NoError(t, err)
+	testChannelPair(t, src, dst)
+
+	expectedSrc := src
+	expectedDst := dst
+
+	// clear old config
+	src.PathEnd.ClientID = ""
+	src.PathEnd.ConnectionID = ""
+	src.PathEnd.ChannelID = ""
+	dst.PathEnd.ClientID = ""
+	dst.PathEnd.ConnectionID = ""
+	dst.PathEnd.ChannelID = ""
+
+	_, err = src.CreateClients(dst)
+	require.NoError(t, err)
+	testClientPair(t, src, dst)
+
+	_, err = src.CreateOpenConnections(dst, 3, src.GetTimeout())
+	require.NoError(t, err)
+	testConnectionPair(t, src, dst)
+
+	_, err = src.CreateOpenChannels(dst, 3, src.GetTimeout())
+	require.NoError(t, err)
+	testChannelPair(t, src, dst)
+
+	require.Equal(t, expectedSrc, src)
+	require.Equal(t, expectedDst, dst)
+}
