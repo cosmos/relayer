@@ -119,6 +119,7 @@ func ValidateChannelParams(src, dst *Chain) error {
 	if err := dst.PathEnd.ValidateBasic(); err != nil {
 		return err
 	}
+	//nolint:staticcheck
 	if strings.ToUpper(src.PathEnd.Order) != strings.ToUpper(dst.PathEnd.Order) {
 		return fmt.Errorf("src and dst path ends must have same ORDER. got src: %s, dst: %s",
 			src.PathEnd.Order, dst.PathEnd.Order)

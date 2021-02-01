@@ -302,6 +302,7 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 	// OpenTry on counterparty
 	// source channel exists, but counterparty channel does not exist
 	case src.PathEnd.ChannelID != "" && dst.PathEnd.ChannelID == "":
+		//nolint:staticcheck
 		if dst.debug {
 			// TODO: update logging
 		}

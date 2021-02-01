@@ -237,6 +237,7 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 	// OpenInit on source
 	// Neither connection has been initialized
 	case src.PathEnd.ConnectionID == "" && dst.PathEnd.ConnectionID == "":
+		//nolint:staticcheck
 		if src.debug {
 			// TODO: log that we are attempting to create new connection ends
 		}
