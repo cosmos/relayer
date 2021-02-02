@@ -49,7 +49,6 @@ func (p Paths) MustGet(name string) *Path {
 
 // Add adds a path by its name
 func (p Paths) Add(name string, path *Path) error {
-	// TODO: Do bottomo up validation of path
 	if _, found := p[name]; found {
 		return fmt.Errorf("path with name %s already exists", name)
 	}
