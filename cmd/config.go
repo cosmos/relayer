@@ -33,9 +33,9 @@ import (
 )
 
 const (
-	//ORDERED is exported constant
+	// ORDERED is exported channel type constant
 	ORDERED = "ORDERED"
-	//UNORDERED is exported constant
+	// UNORDERED is exported channel type constant
 	UNORDERED      = "UNORDERED"
 	defaultOrder   = ORDERED
 	defaultVersion = "ics20-1"

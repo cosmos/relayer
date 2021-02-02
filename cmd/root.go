@@ -26,7 +26,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-//MB is ...
+// MB is a megabyte
 const (
 	MB = 1048576 // in bytes
 )

@@ -13,7 +13,7 @@ import (
 var (
 	defaultChainPrefix = commitmenttypes.NewMerklePrefix([]byte("ibc"))
 	defaultDelayPeriod = uint64(0)
-	//DefaultUpgradePath is ..
+	// DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
 	DefaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 )
 
@@ -41,14 +41,14 @@ func OrderFromString(order string) chantypes.Order {
 	}
 }
 
-//GetOrder is ...
+// GetOrder returns the channel order for the path end
 func (pe *PathEnd) GetOrder() chantypes.Order {
 	return OrderFromString(strings.ToUpper(pe.Order))
 }
 
 var marshalledChains = map[PathEnd]*Chain{}
 
-//MarshalChain is PathEnd
+// MarshalChain is PathEnd
 func MarshalChain(c *Chain) PathEnd {
 	pe := *c.PathEnd
 	if _, ok := marshalledChains[pe]; !ok {
@@ -57,7 +57,7 @@ func MarshalChain(c *Chain) PathEnd {
 	return pe
 }
 
-//UnmarshalChain returns Marshalled chain
+// UnmarshalChain returns Marshalled chain
 func UnmarshalChain(pe PathEnd) *Chain {
 	if c, ok := marshalledChains[pe]; ok {
 		return c
