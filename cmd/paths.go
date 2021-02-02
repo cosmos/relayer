@@ -106,7 +106,7 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				dstClients, err = c[dst].QueryClients(0, 1000)
 				return err
 			})
-			if eg.Wait(); err != nil {
+			if err := eg.Wait(); err != nil {
 				return err
 			}
 
@@ -299,7 +299,8 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				dstOrder := dstChan.Ordering == path.Dst.GetOrder()
 				srcVersion := srcChan.Version == path.Src.Version
 				dstVersion := dstChan.Version == path.Dst.Version
-				if !(dstCpForSrc && srcCpForDst && srcOpen && dstOpen && srcPort && dstPort && srcOrder && dstOrder && srcVersion && dstVersion) {
+				if !(dstCpForSrc && srcCpForDst && srcOpen && dstOpen && srcPort && dstPort &&
+					srcOrder && dstOrder && srcVersion && dstVersion) {
 					path.GenSrcChanID()
 					path.GenDstChanID()
 				}
@@ -390,7 +391,8 @@ $ %s pth l`, appName, appName, appName)),
 						return err
 					}
 					stat := pth.QueryPathStatus(chains[pth.Src.ChainID], chains[pth.Dst.ChainID]).Status
-					printPath(i, k, pth, checkmark(stat.Chains), checkmark(stat.Clients), checkmark(stat.Connection), checkmark(stat.Channel))
+					printPath(i, k, pth, checkmark(stat.Chains), checkmark(stat.Clients),
+						checkmark(stat.Connection), checkmark(stat.Channel))
 					i++
 				}
 				return nil

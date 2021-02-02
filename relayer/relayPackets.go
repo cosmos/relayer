@@ -45,20 +45,23 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, sh *SyncHeaders)
 	if err = retry.Do(func() error {
 		// NOTE: Timeouts currently only work with ORDERED channels for nwo
 		queryHeight := sh.GetHeight(dst.ChainID) - 1
-		dstRecvRes, err = dst.QueryPacketReciept(int64(queryHeight), rp.seq)
+		dstRecvRes, err = dst.QueryPacketReceipt(int64(queryHeight), rp.seq)
 		switch {
 		case err != nil:
 			return err
 		case dstRecvRes.Proof == nil:
-			return fmt.Errorf("timeout packet reciept proof seq(%d) is nil", rp.seq)
+			return fmt.Errorf("timeout packet receipt proof seq(%d) is nil", rp.seq)
 		default:
 			return nil
 		}
 	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 		// OnRetry we want to update the headers and then debug log
-		sh.Updates(src, dst)
+		if err := sh.Updates(src, dst); err != nil {
+			return
+		}
 		if dst.debug {
-			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet reciept: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
+			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet receipt: %s", dst.ChainID,
+				sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
 		}
 	})); err != nil {
 		dst.Error(err)
@@ -142,22 +145,24 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, sh *SyncHeade
 		}
 	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 		// OnRetry we want to update the headers and then debug log
-		sh.Updates(src, dst)
+		if err := sh.Updates(src, dst); err != nil {
+			return
+		}
 		if dst.debug {
-			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitment: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
+			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitment: %s", dst.ChainID,
+				sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
 		}
 	})); err != nil {
 		dst.Error(err)
 		return
 	}
-
 	rp.dstComRes = dstCommitRes
 	return
 }
 
 func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) (sdk.Msg, error) {
 	if rp.dstComRes == nil {
-		return nil, fmt.Errorf("recieve packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
+		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
 	}
 	version := clienttypes.ParseChainID(src.PathEnd.ChainID)
 	packet := chantypes.NewPacket(
@@ -241,9 +246,12 @@ func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, sh *SyncHeader
 		}
 	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 		// OnRetry we want to update the headers and then debug log
-		sh.Updates(src, dst)
+		if err := sh.Updates(src, dst); err != nil {
+			return
+		}
 		if dst.debug {
-			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgement: %s", dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
+			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgement: %s",
+				dst.ChainID, sh.GetHeight(dst.ChainID)-1, n+1, rtyAttNum, err))
 		}
 	})); err != nil {
 		dst.Error(err)

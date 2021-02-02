@@ -28,7 +28,8 @@ func ParseClientIDFromEvents(events sdk.StringEvents) (string, error) {
 // MsgConnectionOpenTry and returns the connection identifier.
 func ParseConnectionIDFromEvents(events sdk.StringEvents) (string, error) {
 	for _, ev := range events {
-		if ev.Type == connectiontypes.EventTypeConnectionOpenInit || ev.Type == connectiontypes.EventTypeConnectionOpenTry {
+		if ev.Type == connectiontypes.EventTypeConnectionOpenInit ||
+			ev.Type == connectiontypes.EventTypeConnectionOpenTry {
 			for _, attr := range ev.Attributes {
 				if attr.Key == connectiontypes.AttributeKeyConnectionID {
 					return attr.Value, nil

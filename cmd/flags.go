@@ -16,7 +16,6 @@ var (
 	flagSkip                = "skip"
 	flagStrategy            = "strategy"
 	flagTimeout             = "timeout"
-	flagConfig              = "config"
 	flagJSON                = "json"
 	flagYAML                = "yaml"
 	flagFile                = "file"
@@ -198,7 +197,9 @@ func versionFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func forceFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP(flagForce, "f", false, "option to force non-standard behavior such as initialization of light client from configured chain or generation of new path") //nolint:lll
+	cmd.Flags().BoolP(flagForce, "f", false,
+		"option to force non-standard behavior such as initialization of light client from"+
+			"configured chain or generation of new path")
 	if err := viper.BindPFlag(flagForce, cmd.Flags().Lookup(flagForce)); err != nil {
 		panic(err)
 	}

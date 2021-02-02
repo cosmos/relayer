@@ -10,7 +10,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// CreateChannel runs the channel creation messages on timeout until they pass
+// CreateOpenChannels runs the channel creation messages on timeout until they pass
 func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Duration) (modified bool, err error) {
 	// client and connection identifiers must be filled in
 	if err := ValidateConnectionPaths(c, dst); err != nil {
@@ -62,7 +62,7 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 		// In the case of failure, increment the failures counter and exit if this is the 3rd failure
 		case !success:
 			failures++
-			c.Log(fmt.Sprintf("retrying transaction..."))
+			c.Log("retrying transaction...")
 			time.Sleep(5 * time.Second)
 
 			if failures > maxRetries {
@@ -103,7 +103,6 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 	// if either identifier is missing, an existing channel that matches the required fields
 	// is chosen or a new channel is created.
 	if src.PathEnd.ChannelID == "" || dst.PathEnd.ChannelID == "" {
-		// TODO: Query for existing identifier and fill config, if possible
 		success, modified, err := InitializeChannel(src, dst, srcUpdateHeader, dstUpdateHeader, sh)
 		if err != nil {
 			return false, false, false, err
@@ -113,7 +112,8 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 	}
 
 	// Query Channel data from src and dst
-	srcChan, dstChan, err = QueryChannelPair(src, dst, int64(sh.GetHeight(src.ChainID))-1, int64(sh.GetHeight(dst.ChainID))-1)
+	srcChan, dstChan, err = QueryChannelPair(src, dst, int64(sh.GetHeight(src.ChainID))-1,
+		int64(sh.GetHeight(dst.ChainID))-1)
 	if err != nil {
 		return false, false, false, err
 	}
@@ -146,7 +146,8 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 	// OpenAck on source if dst is at TRYOPEN and src is at INIT or TRYOPEN (crossing hellos)
 	// obtain proof of counterparty in TRYOPEN state and submit to source chain to update state
 	// from INIT/TRYOPEN to OPEN.
-	case (srcChan.Channel.State == chantypes.INIT || srcChan.Channel.State == chantypes.TRYOPEN) && dstChan.Channel.State == chantypes.TRYOPEN:
+	case (srcChan.Channel.State == chantypes.INIT ||
+		srcChan.Channel.State == chantypes.TRYOPEN) && dstChan.Channel.State == chantypes.TRYOPEN:
 		if src.debug {
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
@@ -221,41 +222,50 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			return false, false, false, err
 		}
 
+	case srcChan.Channel.State == chantypes.OPEN && dstChan.Channel.State == chantypes.OPEN:
+		last = true
+
 	}
 
 	return true, last, false, nil
 }
 
+//nolint:interfacer
 // InitializeChannel creates a new channel on either the source or destination chain .
 // The identifiers set in the PathEnd's are used to determine which channel ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither channel exists.
-func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header, sh *SyncHeaders) (success, modified bool, err error) {
+func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header,
+	sh *SyncHeaders) (success, modified bool, err error) {
 	switch {
 
 	// OpenInit on source
 	// Neither channel has been initialized
 	case src.PathEnd.ChannelID == "" && dst.PathEnd.ChannelID == "":
+		//nolint:staticcheck
 		if src.debug {
 			// TODO: log that we are attempting to create new channel ends
 		}
 
-		// cosntruct OpenInit message to be submitted on source chain
-		msgs := []sdk.Msg{
-			src.UpdateClient(dstUpdateHeader),
-			src.ChanInit(dst.PathEnd),
-		}
+		channelID, found := FindMatchingChannel(src, dst)
+		if !found {
+			// construct OpenInit message to be submitted on source chain
+			msgs := []sdk.Msg{
+				src.UpdateClient(dstUpdateHeader),
+				src.ChanInit(dst.PathEnd),
+			}
 
-		res, success, err := src.SendMsgs(msgs)
-		if !success {
-			return false, false, err
-		}
+			res, success, err := src.SendMsgs(msgs)
+			if !success {
+				return false, false, err
+			}
 
-		// update channel identifier in PathEnd
-		// use index 1, channel open init is the second message in the transaction
-		channelID, err := ParseChannelIDFromEvents(res.Logs[1].Events)
-		if err != nil {
-			return false, false, err
+			// update channel identifier in PathEnd
+			// use index 1, channel open init is the second message in the transaction
+			channelID, err = ParseChannelIDFromEvents(res.Logs[1].Events)
+			if err != nil {
+				return false, false, err
+			}
 		}
 		src.PathEnd.ChannelID = channelID
 
@@ -264,30 +274,34 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 	// OpenTry on source
 	// source channel does not exist, but counterparty channel exists
 	case src.PathEnd.ChannelID == "" && dst.PathEnd.ChannelID != "":
+		//nolint:staticcheck
 		if src.debug {
 			// TODO: update logging
 		}
 
-		// open try on source chain
-		openTry, err := src.ChanTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
-		if err != nil {
-			return false, false, err
-		}
+		channelID, found := FindMatchingChannel(src, dst)
+		if !found {
+			// open try on source chain
+			openTry, err := src.ChanTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
+			if err != nil {
+				return false, false, err
+			}
 
-		msgs := []sdk.Msg{
-			src.UpdateClient(dstUpdateHeader),
-			openTry,
-		}
-		res, success, err := src.SendMsgs(msgs)
-		if !success {
-			return false, false, err
-		}
+			msgs := []sdk.Msg{
+				src.UpdateClient(dstUpdateHeader),
+				openTry,
+			}
+			res, success, err := src.SendMsgs(msgs)
+			if !success {
+				return false, false, err
+			}
 
-		// update channel identifier in PathEnd
-		// use index 1, channel open try is the second message in the transaction
-		channelID, err := ParseChannelIDFromEvents(res.Logs[1].Events)
-		if err != nil {
-			return false, false, err
+			// update channel identifier in PathEnd
+			// use index 1, channel open try is the second message in the transaction
+			channelID, err = ParseChannelIDFromEvents(res.Logs[1].Events)
+			if err != nil {
+				return false, false, err
+			}
 		}
 		src.PathEnd.ChannelID = channelID
 
@@ -296,30 +310,34 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 	// OpenTry on counterparty
 	// source channel exists, but counterparty channel does not exist
 	case src.PathEnd.ChannelID != "" && dst.PathEnd.ChannelID == "":
+		//nolint:staticcheck
 		if dst.debug {
 			// TODO: update logging
 		}
 
-		// open try on destination chain
-		openTry, err := dst.ChanTry(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1)
-		if err != nil {
-			return false, false, err
-		}
+		channelID, found := FindMatchingChannel(dst, src)
+		if !found {
+			// open try on destination chain
+			openTry, err := dst.ChanTry(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1)
+			if err != nil {
+				return false, false, err
+			}
 
-		msgs := []sdk.Msg{
-			dst.UpdateClient(srcUpdateHeader),
-			openTry,
-		}
-		res, success, err := dst.SendMsgs(msgs)
-		if !success {
-			return false, false, err
-		}
+			msgs := []sdk.Msg{
+				dst.UpdateClient(srcUpdateHeader),
+				openTry,
+			}
+			res, success, err := dst.SendMsgs(msgs)
+			if !success {
+				return false, false, err
+			}
 
-		// update channel identifier in PathEnd
-		// use index 1, channel open try is the second message in the transaction
-		channelID, err := ParseChannelIDFromEvents(res.Logs[1].Events)
-		if err != nil {
-			return false, false, err
+			// update channel identifier in PathEnd
+			// use index 1, channel open try is the second message in the transaction
+			channelID, err = ParseChannelIDFromEvents(res.Logs[1].Events)
+			if err != nil {
+				return false, false, err
+			}
 		}
 		dst.PathEnd.ChannelID = channelID
 
@@ -393,7 +411,8 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 	})
 
 	eg.Go(func() error {
-		srcChan, dstChan, err = QueryChannelPair(c, dst, int64(sh.GetHeight(c.ChainID)), int64(sh.GetHeight(dst.ChainID)))
+		srcChan, dstChan, err = QueryChannelPair(c, dst, int64(sh.GetHeight(c.ChainID)),
+			int64(sh.GetHeight(dst.ChainID)))
 		return err
 	})
 
@@ -452,4 +471,47 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 		}
 	}
 	return out, nil
+}
+
+// FindMatchingChannel will determine if there already exists a channel between source and counterparty
+// that matches the parameters set in the relayer config.
+func FindMatchingChannel(source, counterparty *Chain) (string, bool) {
+	// TODO: add appropriate offset and limits, along with retries
+	channelsResp, err := source.QueryChannels(0, 1000)
+	if err != nil {
+		if source.debug {
+			source.Log(fmt.Sprintf("Error: querying channels on %s failed: %v", source.PathEnd.ChainID, err))
+		}
+		return "", false
+	}
+
+	for _, channel := range channelsResp.Channels {
+		if IsMatchingChannel(source, counterparty, channel) {
+			// unused channel found
+			return channel.ChannelId, true
+		}
+	}
+
+	return "", false
+}
+
+// IsMatchingChannel determines if given channel matches required conditions
+func IsMatchingChannel(source, counterparty *Chain, channel *chantypes.IdentifiedChannel) bool {
+	return channel.Ordering == source.PathEnd.GetOrder() &&
+		IsConnectionFound(channel.ConnectionHops, source.PathEnd.ConnectionID) &&
+		channel.Version == source.PathEnd.Version &&
+		channel.PortId == source.PathEnd.PortID && channel.Counterparty.PortId == counterparty.PathEnd.PortID &&
+		(((channel.State == chantypes.INIT || channel.State == chantypes.TRYOPEN) && channel.Counterparty.ChannelId == "") ||
+			(channel.State == chantypes.OPEN && (counterparty.PathEnd.ChannelID == "" ||
+				channel.Counterparty.ChannelId == counterparty.PathEnd.ChannelID)))
+}
+
+// IsConnectionFound determines if given connectionId is present in channel connectionHops list
+func IsConnectionFound(connectionHops []string, connectionID string) bool {
+	for _, id := range connectionHops {
+		if id == connectionID {
+			return true
+		}
+	}
+	return false
 }
