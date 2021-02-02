@@ -213,10 +213,10 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 		height = int64(sh.GetHeight(dst.ChainID))
 	}
 
-	// TODO: construct method of only attempting to get dst header
-	// Note: we explicitly do not check the error since the source
-	// trusted header will fail
-	_, dstUpdateHeader, _ := sh.GetTrustedHeaders(c, dst)
+	dstUpdateHeader, err := sh.GetTrustedHeader(dst, c)
+	if err != nil {
+		return err
+	}
 
 	// query proofs on counterparty
 	clientState, proofUpgradeClient, _, err := dst.QueryUpgradedClient(height)
