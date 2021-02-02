@@ -473,10 +473,14 @@ func (c *Config) ValidatePathEnd(pe *relayer.PathEnd) error {
 				}
 			}
 		}
+
+		if pe.ConnectionID == "" && pe.ChannelID != "" {
+			return fmt.Errorf("ConnectionID is not configured for the channel: %s", pe.ChannelID)
+		}
 	}
 
 	if pe.ClientID == "" && pe.ConnectionID != "" {
-		return fmt.Errorf("ClientID is not conifgured for the connection: %s", pe.ConnectionID)
+		return fmt.Errorf("ClientID is not configured for the connection: %s", pe.ConnectionID)
 	}
 
 	return nil
