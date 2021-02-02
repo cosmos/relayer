@@ -343,10 +343,10 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 	}
 }
 
-//nolint:staticcheck
 // FindMatchingConnection will determine if there already exists a connection between source and counterparty
 // that matches the parameters set in the relayer config.
 func FindMatchingConnection(source, counterparty *Chain) (string, bool) {
+	//nolint:staticcheck
 	// TODO: add appropriate offset and limits, along with retries
 	connectionsResp, err := source.QueryConnections(0, 1000)
 	if err != nil {
