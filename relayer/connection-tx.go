@@ -233,6 +233,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 // The identifiers set in the PathEnd's are used to determine which connection ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither connection exists.
+//nolint:lll
 func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header, sh *SyncHeaders) (success, modified bool, err error) {
 	switch {
 
@@ -368,11 +369,12 @@ func FindMatchingConnection(source, counterparty *Chain) (string, bool) {
 // IsMatchingConnection determines if given connection matches required conditions
 func IsMatchingConnection(source, counterparty *Chain, connection *conntypes.IdentifiedConnection) bool {
 	// determines version we use is matching with given versions
+	//nolint:lll
 	_, isVersionMatched := conntypes.FindSupportedVersion(conntypes.DefaultIBCVersion, conntypes.ProtoVersionsToExported(connection.Versions))
 	return connection.ClientId == source.PathEnd.ClientID &&
 		connection.Counterparty.ClientId == counterparty.PathEnd.ClientID &&
 		isVersionMatched && connection.DelayPeriod == defaultDelayPeriod &&
-		connection.Counterparty.Prefix.String() == defaultChainPrefix.String() &&
+		connection.Counterparty.Prefix.String() == defaultChainPrefix.String() && //nolint:lll
 		(((connection.State == conntypes.INIT || connection.State == conntypes.TRYOPEN) && connection.Counterparty.ConnectionId == "") ||
 			(connection.State == conntypes.OPEN && (counterparty.PathEnd.ConnectionID == "" ||
 				connection.Counterparty.ConnectionId == counterparty.PathEnd.ConnectionID)))
