@@ -10,7 +10,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// CreateChannel runs the channel creation messages on timeout until they pass
+// CreateOpenChannels runs the channel creation messages on timeout until they pass
 func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Duration) (modified bool, err error) {
 	// client and connection identifiers must be filled in
 	if err := ValidateConnectionPaths(c, dst); err != nil {
@@ -62,7 +62,7 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 		// In the case of failure, increment the failures counter and exit if this is the 3rd failure
 		case !success:
 			failures++
-			c.Log(fmt.Sprintf("retrying transaction..."))
+			c.Log("retrying transaction...")
 			time.Sleep(5 * time.Second)
 
 			if failures > maxRetries {
@@ -112,7 +112,8 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 	}
 
 	// Query Channel data from src and dst
-	srcChan, dstChan, err = QueryChannelPair(src, dst, int64(sh.GetHeight(src.ChainID))-1, int64(sh.GetHeight(dst.ChainID))-1)
+	srcChan, dstChan, err = QueryChannelPair(src, dst, int64(sh.GetHeight(src.ChainID))-1,
+		int64(sh.GetHeight(dst.ChainID))-1)
 	if err != nil {
 		return false, false, false, err
 	}
@@ -145,7 +146,8 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 	// OpenAck on source if dst is at TRYOPEN and src is at INIT or TRYOPEN (crossing hellos)
 	// obtain proof of counterparty in TRYOPEN state and submit to source chain to update state
 	// from INIT/TRYOPEN to OPEN.
-	case (srcChan.Channel.State == chantypes.INIT || srcChan.Channel.State == chantypes.TRYOPEN) && dstChan.Channel.State == chantypes.TRYOPEN:
+	case (srcChan.Channel.State == chantypes.INIT ||
+		srcChan.Channel.State == chantypes.TRYOPEN) && dstChan.Channel.State == chantypes.TRYOPEN:
 		if src.debug {
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
@@ -228,16 +230,19 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 	return true, last, false, nil
 }
 
+//nolint:interfacer
 // InitializeChannel creates a new channel on either the source or destination chain .
 // The identifiers set in the PathEnd's are used to determine which channel ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither channel exists.
-func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header, sh *SyncHeaders) (success, modified bool, err error) {
+func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header,
+	sh *SyncHeaders) (success, modified bool, err error) {
 	switch {
 
 	// OpenInit on source
 	// Neither channel has been initialized
 	case src.PathEnd.ChannelID == "" && dst.PathEnd.ChannelID == "":
+		//nolint:staticcheck
 		if src.debug {
 			// TODO: log that we are attempting to create new channel ends
 		}
@@ -269,6 +274,7 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 	// OpenTry on source
 	// source channel does not exist, but counterparty channel exists
 	case src.PathEnd.ChannelID == "" && dst.PathEnd.ChannelID != "":
+		//nolint:staticcheck
 		if src.debug {
 			// TODO: update logging
 		}
@@ -304,6 +310,7 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 	// OpenTry on counterparty
 	// source channel exists, but counterparty channel does not exist
 	case src.PathEnd.ChannelID != "" && dst.PathEnd.ChannelID == "":
+		//nolint:staticcheck
 		if dst.debug {
 			// TODO: update logging
 		}
@@ -404,7 +411,8 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 	})
 
 	eg.Go(func() error {
-		srcChan, dstChan, err = QueryChannelPair(c, dst, int64(sh.GetHeight(c.ChainID)), int64(sh.GetHeight(dst.ChainID)))
+		srcChan, dstChan, err = QueryChannelPair(c, dst, int64(sh.GetHeight(c.ChainID)),
+			int64(sh.GetHeight(dst.ChainID)))
 		return err
 	})
 

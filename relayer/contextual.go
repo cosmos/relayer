@@ -12,7 +12,7 @@ type contextualStdCodec struct {
 
 var _ codec.Marshaler = &contextualStdCodec{}
 
-// newContextualCodec creates a codec that sets and resets context
+// newContextualStdCodec creates a codec that sets and resets context
 func newContextualStdCodec(cdc codec.Marshaler, useContext func() func()) *contextualStdCodec {
 	return &contextualStdCodec{
 		Marshaler:  cdc,
@@ -48,7 +48,6 @@ func (cdc *contextualStdCodec) MustUnmarshalJSON(bz []byte, ptr proto.Message) {
 	if err := cdc.UnmarshalJSON(bz, ptr); err != nil {
 		panic(err)
 	}
-	return
 }
 
 func (cdc *contextualStdCodec) MarshalBinaryBare(ptr codec.ProtoMarshaler) ([]byte, error) {
@@ -77,8 +76,6 @@ func (cdc *contextualStdCodec) MustUnmarshalBinaryBare(bz []byte, ptr codec.Prot
 	if err := cdc.UnmarshalBinaryBare(bz, ptr); err != nil {
 		panic(err)
 	}
-
-	return
 }
 
 // // newContextualCodec creates a codec that sets and resets context

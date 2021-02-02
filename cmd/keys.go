@@ -1,4 +1,5 @@
 /*
+Package cmd includes relayer commands
 Copyright © 2020 Jack Zampolin jack.zampolin@gmail.com
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -133,7 +134,6 @@ $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 			}
 
 			coinType, _ := cmd.Flags().GetUint32(flagCoinType)
-
 			info, err := chain.Keybase.NewAccount(keyName, args[2], "", hd.CreateHDPath(coinType, 0, 0).String(), hd.Secp256k1)
 			if err != nil {
 				return err

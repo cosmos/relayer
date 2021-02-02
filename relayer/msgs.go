@@ -22,6 +22,7 @@ import (
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
 func (c *Chain) CreateClient(
+	//nolint:interfacer
 	clientState *tmclient.ClientState,
 	dstHeader *tmclient.Header) sdk.Msg {
 
@@ -78,7 +79,8 @@ func (c *Chain) ConnTry(
 	counterparty *Chain,
 	height uint64,
 ) (sdk.Msg, error) {
-	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := counterparty.GenerateConnHandshakeProof(height)
+	clientState, clientStateProof, consensusStateProof, connStateProof,
+		proofHeight, err := counterparty.GenerateConnHandshakeProof(height)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +113,8 @@ func (c *Chain) ConnAck(
 	counterparty *Chain,
 	height uint64,
 ) (sdk.Msg, error) {
-	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := counterparty.GenerateConnHandshakeProof(height)
+	clientState, clientStateProof, consensusStateProof, connStateProof,
+		proofHeight, err := counterparty.GenerateConnHandshakeProof(height)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,5 @@
 /*
+Package cmd includes relayer commands
 Copyright © 2020 Jack Zampolin <jack.zampolin@gmail.com>
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -86,7 +87,8 @@ $ %s l i ibc-2 --force`, appName, appName, appName)),
 				if err != nil {
 					return err
 				}
-				fmt.Printf("successfully created light client for %s by trusting endpoint %s...\n", chain.ChainID, chain.RPCAddr)
+				fmt.Printf("successfully created light client for %s by trusting endpoint %s...\n",
+					chain.ChainID, chain.RPCAddr)
 			case height > 0 && len(hash) > 0: // height and hash are given
 				_, err = chain.LightClientWithTrust(db, chain.TrustOptions(height, hash))
 				if err != nil {
@@ -127,8 +129,8 @@ $ %s l u ibc-1`, appName, appName)),
 			if err != nil {
 				return err
 			}
-
-			fmt.Printf("Updated light client for %s from height %d -> height %d\n", args[0], bh.Header.Height, ah.Header.Height)
+			fmt.Printf("Updated light client for %s from height %d -> height %d\n",
+				args[0], bh.Header.Height, ah.Header.Height)
 			return nil
 		},
 	}

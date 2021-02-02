@@ -76,8 +76,8 @@ $ %s tst req ibc-0`, appName, appName, appName)),
 			if err != nil {
 				return err
 			}
-
-			body, err := json.Marshal(relayer.FaucetRequest{Address: info.GetAddress().String(), ChainID: chain.ChainID})
+			body, err := json.Marshal(relayer.FaucetRequest{Address: info.GetAddress().String(),
+				ChainID: chain.ChainID})
 			if err != nil {
 				return err
 			}
