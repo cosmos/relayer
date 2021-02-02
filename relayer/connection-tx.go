@@ -369,11 +369,12 @@ func FindMatchingConnection(source, counterparty *Chain) (string, bool) {
 // IsMatchingConnection determines if given connection matches required conditions
 func IsMatchingConnection(source, counterparty *Chain, connection *conntypes.IdentifiedConnection) bool {
 	// determines version we use is matching with given versions
+	//nolint:lll
 	_, isVersionMatched := conntypes.FindSupportedVersion(conntypes.DefaultIBCVersion, conntypes.ProtoVersionsToExported(connection.Versions))
 	return connection.ClientId == source.PathEnd.ClientID &&
 		connection.Counterparty.ClientId == counterparty.PathEnd.ClientID &&
 		isVersionMatched && connection.DelayPeriod == defaultDelayPeriod &&
-		connection.Counterparty.Prefix.String() == defaultChainPrefix.String() &&
+		connection.Counterparty.Prefix.String() == defaultChainPrefix.String() && //nolint:lll
 		(((connection.State == conntypes.INIT || connection.State == conntypes.TRYOPEN) && connection.Counterparty.ConnectionId == "") ||
 			(connection.State == conntypes.OPEN && (counterparty.PathEnd.ConnectionID == "" ||
 				connection.Counterparty.ConnectionId == counterparty.PathEnd.ConnectionID)))
