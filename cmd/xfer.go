@@ -10,6 +10,14 @@ import (
 	"github.com/cosmos/relayer/relayer"
 )
 
+type stringStringer struct {
+	str string
+}
+
+func (ss stringStringer) String() string {
+	return ss.str
+}
+
 // NOTE: These commands are registered over in cmd/raw.go
 
 func xfersend() *cobra.Command {
@@ -23,6 +31,7 @@ func xfersend() *cobra.Command {
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact transfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo-path
 $ %s tx xfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo -y 2 -c 10
+$ %s tx xfer ibc-0 ibc-1 100000stake raw:non-bech32-address --path demo
 $ %s tx txf ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo
 $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo -c 5
 `, appName, appName, appName, appName)),
@@ -73,14 +82,23 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 				return err
 			}
 
-			done := c[dst].UseSDKContext()
-			dstAddr, err := sdk.AccAddressFromBech32(args[3])
-			if err != nil {
-				return err
+			// If the argument begins with "raw:" then use the suffix directly.
+			rawDstAddr := strings.TrimPrefix(args[3], "raw:")
+			var dstAddr fmt.Stringer
+			if rawDstAddr == args[3] {
+				// Not "raw:", treat the dstAddr as bech32.
+				done := c[dst].UseSDKContext()
+				dstAddr, err = sdk.AccAddressFromBech32(args[3])
+				if err != nil {
+					return err
+				}
+				done()
+			} else {
+				// Don't parse the rest of the dstAddr... it's raw.
+				dstAddr = stringStringer{str: rawDstAddr}
 			}
-			done()
 
-			return c[src].SendTransferMsg(c[dst], amount, dstAddr, toHeightOffset, toTimeOffset)
+			return c[src].SendTransferMsg(c[dst], amount, dstAddr.String(), toHeightOffset, toTimeOffset)
 		},
 	}
 	return timeoutFlags(pathFlag(cmd))

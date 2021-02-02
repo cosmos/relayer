@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"time"
 
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clientutils "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/client/utils"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
@@ -273,7 +272,9 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 		}
 
 		// check if the client states match
-		if IsMatchingClient(*clientState, *existingClientState) {
+		// NOTE: IsFrozen is a sanity check, the client to be created should always
+		// have a zero frozen height and therefore should never match with a frozen client
+		if IsMatchingClient(*clientState, *existingClientState) && !existingClientState.IsFrozen() {
 
 			// query the latest consensus state of the potential matching client
 			consensusStateResp, err := clientutils.QueryConsensusStateABCI(source.CLIContext(0), identifiedClientState.ClientId, existingClientState.GetLatestHeight())
@@ -292,8 +293,27 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 				continue
 			}
 
-			if IsMatchingConsensusState(consensusStateResp.ConsensusState, header.ConsensusState()) {
-				// matching client found
+			exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
+			if err != nil {
+				if source.debug {
+					source.Log(fmt.Sprintf("Error: failed to consensus state on chain %s: %v", counterparty.PathEnd.ChainID, err))
+				}
+				continue
+			}
+			existingConsensusState, ok := exportedConsState.(*ibctmtypes.ConsensusState)
+			if !ok {
+				if source.debug {
+					source.Log(fmt.Sprintf("Error:consensus state is not tendermint type on chain %s", counterparty.PathEnd.ChainID))
+				}
+				continue
+			}
+
+			if existingClientState.IsExpired(existingConsensusState.Timestamp, time.Now()) {
+				continue
+			}
+
+			if IsMatchingConsensusState(existingConsensusState, header.ConsensusState()) {
+				// found matching client
 				return identifiedClientState.ClientId, true
 			}
 		}
@@ -319,15 +339,6 @@ func IsMatchingClient(clientStateA, clientStateB ibctmtypes.ClientState) bool {
 
 // IsMatchingConsensusState determines if the two provided consensus states are
 // identical. They are assumed to be IBC tendermint light clients.
-func IsMatchingConsensusState(anyConsState *codectypes.Any, consensusStateB *ibctmtypes.ConsensusState) bool {
-	exportedConsState, err := clienttypes.UnpackConsensusState(anyConsState)
-	if err != nil {
-		return false
-	}
-	consensusStateA, ok := exportedConsState.(*ibctmtypes.ConsensusState)
-	if !ok {
-		return false
-	}
-
+func IsMatchingConsensusState(consensusStateA, consensusStateB *ibctmtypes.ConsensusState) bool {
 	return reflect.DeepEqual(*consensusStateA, *consensusStateB)
 }
