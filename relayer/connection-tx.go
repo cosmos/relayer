@@ -58,7 +58,8 @@ func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Dur
 		// increment the failures counter and exit if we used all retry attempts
 		case !success:
 			failed++
-			c.Log(fmt.Sprintf("retrying transaction..."))
+			str := ("retrying transaction...")
+			c.Log(fmt.Sprint(str))
 			time.Sleep(5 * time.Second)
 
 			if failed > maxRetries {
@@ -113,7 +114,8 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	}
 
 	// Query Connection data from src and dst
-	srcConn, dstConn, err = QueryConnectionPair(src, dst, int64(sh.GetHeight(src.ChainID))-1, int64(sh.GetHeight(dst.ChainID))-1)
+	srcConn, dstConn, err = QueryConnectionPair(src, dst, int64(sh.GetHeight(src.ChainID))-1,
+		int64(sh.GetHeight(dst.ChainID))-1)
 	if err != nil {
 		return false, false, false, err
 	}
@@ -145,7 +147,8 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	// OpenAck on source if dst is at TRYOPEN and src is on INIT or TRYOPEN (crossing hellos case)
 	// obtain proof of counterparty in TRYOPEN state and submit to source chain to update state
 	// from INIT/TRYOPEN to OPEN.
-	case (srcConn.Connection.State == conntypes.INIT || srcConn.Connection.State == conntypes.TRYOPEN) && dstConn.Connection.State == conntypes.TRYOPEN:
+	case (srcConn.Connection.State == conntypes.INIT || srcConn.Connection.State == conntypes.TRYOPEN) &&
+		dstConn.Connection.State == conntypes.TRYOPEN:
 		if src.debug {
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
@@ -225,6 +228,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	return true, last, false, nil
 }
 
+//nolint:interfacer
 // InitializeConnection creates a new connection on either the source or destination chain .
 // The identifiers set in the PathEnd's are used to determine which connection ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.
@@ -235,6 +239,7 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 	// OpenInit on source
 	// Neither connection has been initialized
 	case src.PathEnd.ConnectionID == "" && dst.PathEnd.ConnectionID == "":
+		//nolint:staticcheck
 		if src.debug {
 			// TODO: log that we are attempting to create new connection ends
 		}
@@ -266,6 +271,7 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 	// OpenTry on source
 	// source connection does not exist, but counterparty connection exists
 	case src.PathEnd.ConnectionID == "" && dst.PathEnd.ConnectionID != "":
+		//nolint:staticcheck
 		if src.debug {
 			// TODO: update logging
 		}
@@ -300,6 +306,7 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 	// OpenTry on counterparty
 	// source connection exists, but counterparty connection does not exist
 	case src.PathEnd.ConnectionID != "" && dst.PathEnd.ConnectionID == "":
+		//nolint:staticcheck
 		if dst.debug {
 			// TODO: update logging
 		}
@@ -336,6 +343,7 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 	}
 }
 
+//nolint:staticcheck
 // FindMatchingConnection will determine if there already exists a connection between source and counterparty
 // that matches the parameters set in the relayer config.
 func FindMatchingConnection(source, counterparty *Chain) (string, bool) {
@@ -361,12 +369,14 @@ func FindMatchingConnection(source, counterparty *Chain) (string, bool) {
 // IsMatchingConnection determines if given connection matches required conditions
 func IsMatchingConnection(source, counterparty *Chain, connection *conntypes.IdentifiedConnection) bool {
 	// determines version we use is matching with given versions
-	_, isVersionMatched := conntypes.FindSupportedVersion(conntypes.DefaultIBCVersion, conntypes.ProtoVersionsToExported(connection.Versions))
+	_, isVersionMatched := conntypes.FindSupportedVersion(conntypes.DefaultIBCVersion,
+		conntypes.ProtoVersionsToExported(connection.Versions))
 	return connection.ClientId == source.PathEnd.ClientID &&
 		connection.Counterparty.ClientId == counterparty.PathEnd.ClientID &&
 		isVersionMatched && connection.DelayPeriod == defaultDelayPeriod &&
 		connection.Counterparty.Prefix.String() == defaultChainPrefix.String() &&
-		(((connection.State == conntypes.INIT || connection.State == conntypes.TRYOPEN) && connection.Counterparty.ConnectionId == "") ||
+		(((connection.State == conntypes.INIT || connection.State == conntypes.TRYOPEN) &&
+			connection.Counterparty.ConnectionId == "") ||
 			(connection.State == conntypes.OPEN && (counterparty.PathEnd.ConnectionID == "" ||
 				connection.Counterparty.ConnectionId == counterparty.PathEnd.ConnectionID)))
 }
