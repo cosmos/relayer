@@ -77,17 +77,36 @@ $ %s cfg list`, appName, defaultHome, appName)),
 				return fmt.Errorf("config does not exist: %s", cfgPath)
 			}
 
-			out, err := yaml.Marshal(config)
+			jsn, err := cmd.Flags().GetBool(flagJSON)
 			if err != nil {
 				return err
 			}
-
-			fmt.Println(string(out))
-			return nil
+			yml, err := cmd.Flags().GetBool(flagYAML)
+			if err != nil {
+				return err
+			}
+			switch {
+			case yml && jsn:
+				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
+			case jsn:
+				out, err := json.Marshal(config)
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(out))
+				return nil
+			default:
+				out, err := yaml.Marshal(config)
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(out))
+				return nil
+			}
 		},
 	}
 
-	return cmd
+	return yamlFlag(jsonFlag(cmd))
 }
 
 // Command for inititalizing an empty config at the --home location
