@@ -207,7 +207,18 @@ $ %s tx con demo-path -o 3s`, appName, appName, appName)),
 				return err
 			}
 
-			modified, err := c[src].CreateOpenConnections(c[dst], retries, to)
+			// ensure that the clients exist
+			modified, err := c[src].CreateClients(c[dst])
+			if modified {
+				if err := overWriteConfig(cmd, config); err != nil {
+					return err
+				}
+			}
+			if err != nil {
+				return err
+			}
+
+			modified, err = c[src].CreateOpenConnections(c[dst], retries, to)
 			if modified {
 				if err := overWriteConfig(cmd, config); err != nil {
 					return err
@@ -401,7 +412,7 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 			return sCmd.RunE(cmd, args)
 		},
 	}
-	return strategyFlag(timeoutFlag(cmd))
+	return strategyFlag(retryFlag(timeoutFlag(cmd)))
 }
 
 func relayMsgsCmd() *cobra.Command {
