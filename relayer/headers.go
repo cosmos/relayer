@@ -100,6 +100,17 @@ func (uh *SyncHeaders) GetTrustedHeaders(src, dst *Chain) (srcTh, dstTh *tmclien
 	return
 }
 
+// GetTrustedHeader returns given chain ID's trusted header
+func (uh *SyncHeaders) GetTrustedHeader(src, dst *Chain) (header *tmclient.Header, err error) {
+	eg := new(errgroup.Group)
+	eg.Go(func() error {
+		header, err = InjectTrustedFields(src, dst, uh.GetHeader(src.ChainID))
+		return err
+	})
+	err = eg.Wait()
+	return
+}
+
 // InjectTrustedFields injects the necessary trusted fields for a srcHeader coming from a srcChain
 // destined for an IBC client stored on the dstChain
 // TrustedHeight is the latest height of the IBC client on dstChain
