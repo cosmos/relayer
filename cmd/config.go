@@ -478,12 +478,12 @@ func (c *Config) ValidatePathEnd(pe *relayer.PathEnd) error {
 		}
 
 		if pe.ConnectionID == "" && pe.ChannelID != "" {
-			return fmt.Errorf("ConnectionID is not configured for the channel: %s", pe.ChannelID)
+			return fmt.Errorf("connectionID is not configured for the channel: %s", pe.ChannelID)
 		}
 	}
 
 	if pe.ClientID == "" && pe.ConnectionID != "" {
-		return fmt.Errorf("ClientID is not configured for the connection: %s", pe.ConnectionID)
+		return fmt.Errorf("clientID is not configured for the connection: %s", pe.ConnectionID)
 	}
 
 	return nil
@@ -515,7 +515,7 @@ func (c *Config) ValidateConnection(chain *relayer.Chain, height int64, pe *rela
 	}
 
 	if connection.Connection.ClientId != pe.ClientID {
-		return fmt.Errorf("ClientID of connection: %s didn't match with provided ClientID", pe.ConnectionID)
+		return fmt.Errorf("clientID of connection: %s didn't match with provided ClientID", pe.ConnectionID)
 	}
 
 	return nil
@@ -538,5 +538,5 @@ func (c *Config) ValidateChannel(chain *relayer.Chain, height int64, pe *relayer
 		}
 	}
 
-	return fmt.Errorf("ConnectionID of channel: %s didn't match with provided ConnectionID", pe.ChannelID)
+	return fmt.Errorf("connectionID of channel: %s didn't match with provided ConnectionID", pe.ChannelID)
 }
