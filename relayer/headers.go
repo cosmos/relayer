@@ -100,10 +100,11 @@ func (uh *SyncHeaders) GetTrustedHeaders(src, dst *Chain) (srcTh, dstTh *tmclien
 	return
 }
 
-func (uh *SyncHeaders) GetTrusteddsthHeader(src, dst *Chain) (dstTh *tmclient.Header, err error) {
+// GetTrustedHeader returns given chain ID's trusted header
+func (uh *SyncHeaders) GetTrustedHeader(src, dst *Chain) (header *tmclient.Header, err error) {
 	eg := new(errgroup.Group)
 	eg.Go(func() error {
-		dstTh, err = InjectTrustedFields(dst, src, uh.GetHeader(dst.ChainID))
+		header, err = InjectTrustedFields(src, dst, uh.GetHeader(src.ChainID))
 		return err
 	})
 	err = eg.Wait()
