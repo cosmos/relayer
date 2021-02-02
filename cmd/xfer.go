@@ -34,7 +34,7 @@ $ %s tx xfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39
 $ %s tx xfer ibc-0 ibc-1 100000stake raw:non-bech32-address --path demo
 $ %s tx txf ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo
 $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo -c 5
-`, appName, appName, appName, appName)),
+`, appName, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			c, err := config.Chains.Gets(src, dst)
