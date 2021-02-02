@@ -49,12 +49,12 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 	testChannelPair(t, src, dst)
 
 	// send a couple of transfers to the queue on src
-	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.MustGetAddress(), 0, 0))
-	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.MustGetAddress(), 0, 0))
+	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.MustGetAddress().String(), 0, 0))
+	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.MustGetAddress().String(), 0, 0))
 
 	// send a couple of transfers to the queue on dst
-	require.NoError(t, dst.SendTransferMsg(src, testCoin, src.MustGetAddress(), 0, 0))
-	require.NoError(t, dst.SendTransferMsg(src, testCoin, src.MustGetAddress(), 0, 0))
+	require.NoError(t, dst.SendTransferMsg(src, testCoin, src.MustGetAddress().String(), 0, 0))
+	require.NoError(t, dst.SendTransferMsg(src, testCoin, src.MustGetAddress().String(), 0, 0))
 
 	// Wait for message inclusion in both chains
 	require.NoError(t, dst.WaitForNBlocks(1))
@@ -68,8 +68,8 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 	require.NoError(t, dst.WaitForNBlocks(1))
 
 	// send those tokens from dst back to dst and src back to src
-	require.NoError(t, src.SendTransferMsg(dst, twoTestCoin, dst.MustGetAddress(), 0, 0))
-	require.NoError(t, dst.SendTransferMsg(src, twoTestCoin, src.MustGetAddress(), 0, 0))
+	require.NoError(t, src.SendTransferMsg(dst, twoTestCoin, dst.MustGetAddress().String(), 0, 0))
+	require.NoError(t, dst.SendTransferMsg(src, twoTestCoin, src.MustGetAddress().String(), 0, 0))
 
 	// wait for packet processing
 	require.NoError(t, dst.WaitForNBlocks(6))
@@ -96,4 +96,55 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 	dstGot, err = dst.QueryBalance(dst.Key)
 	require.NoError(t, err)
 	require.Equal(t, dstExpected.AmountOf(testDenom).Int64()-4000, dstGot.AmountOf(testDenom).Int64())
+}
+
+func TestGaiaReuseIdentifiers(t *testing.T) {
+	chains := spinUpTestChains(t, gaiaChains...)
+
+	var (
+		src = chains.MustGet("ibc-0")
+		dst = chains.MustGet("ibc-1")
+	)
+
+	_, err := genTestPathAndSet(src, dst, "transfer", "transfer")
+	require.NoError(t, err)
+
+	// create path
+	_, err = src.CreateClients(dst)
+	require.NoError(t, err)
+	testClientPair(t, src, dst)
+
+	_, err = src.CreateOpenConnections(dst, 3, src.GetTimeout())
+	require.NoError(t, err)
+	testConnectionPair(t, src, dst)
+
+	_, err = src.CreateOpenChannels(dst, 3, src.GetTimeout())
+	require.NoError(t, err)
+	testChannelPair(t, src, dst)
+
+	expectedSrc := src
+	expectedDst := dst
+
+	// clear old config
+	src.PathEnd.ClientID = ""
+	src.PathEnd.ConnectionID = ""
+	src.PathEnd.ChannelID = ""
+	dst.PathEnd.ClientID = ""
+	dst.PathEnd.ConnectionID = ""
+	dst.PathEnd.ChannelID = ""
+
+	_, err = src.CreateClients(dst)
+	require.NoError(t, err)
+	testClientPair(t, src, dst)
+
+	_, err = src.CreateOpenConnections(dst, 3, src.GetTimeout())
+	require.NoError(t, err)
+	testConnectionPair(t, src, dst)
+
+	_, err = src.CreateOpenChannels(dst, 3, src.GetTimeout())
+	require.NoError(t, err)
+	testChannelPair(t, src, dst)
+
+	require.Equal(t, expectedSrc, src)
+	require.Equal(t, expectedDst, dst)
 }
