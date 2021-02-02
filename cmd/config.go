@@ -422,11 +422,11 @@ func overWriteConfig(cmd *cobra.Command, cfg *Config) error {
 
 // ValidatePath checks that a path is valid
 func (c *Config) ValidatePath(p *relayer.Path) (err error) {
-	if err = c.ValidatePathEnd(p.Src); err != nil {
-		return err
-	}
 	if p.Src.Version == "" {
 		return fmt.Errorf("source must specify a version")
+	}
+	if err = c.ValidatePathEnd(p.Src); err != nil {
+		return err
 	}
 	if err = c.ValidatePathEnd(p.Dst); err != nil {
 		return err
@@ -461,17 +461,24 @@ func (c *Config) ValidatePathEnd(pe *relayer.PathEnd) error {
 		if err := c.ValidateClient(chain, height, pe); err != nil {
 			return err
 		}
-	}
-	if pe.ConnectionID != "" {
-		if err := c.ValidateConnection(chain, height, pe); err != nil {
-			return err
+
+		if pe.ConnectionID != "" {
+			if err := c.ValidateConnection(chain, height, pe); err != nil {
+				return err
+			}
+
+			if pe.ChannelID != "" {
+				if err := c.ValidateChannel(chain, height, pe); err != nil {
+					return err
+				}
+			}
 		}
 	}
-	if pe.ChannelID != "" {
-		if err := c.ValidateChannel(chain, height, pe); err != nil {
-			return err
-		}
+
+	if pe.ClientID == "" && pe.ConnectionID != "" {
+		return fmt.Errorf("ClientID is not conifgured for the connection: %s", pe.ConnectionID)
 	}
+
 	return nil
 }
 
