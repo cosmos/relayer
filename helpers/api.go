@@ -57,8 +57,6 @@ func WriteErrorResponse(statusCode int, err error, w http.ResponseWriter) {
 	}); err != nil {
 		fmt.Printf("Write failed: %v", err)
 	}
-
-	return
 }
 
 // ParseHeightFromRequest parse height from query params and if not found, returns latest height

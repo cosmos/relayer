@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cosmos/cosmos-sdk/x/auth/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
@@ -166,13 +165,16 @@ func getAPICmd() *cobra.Command {
 			// query connections by chain-id with pagination (offset and limit query params)
 			r.HandleFunc(fmt.Sprintf("/%s/%s/connections", query, chainIDArg), QueryConnectionsHandler).Methods("GET")
 			// query connections by chain-id and client-id, if no ?height={height} is passed, latest
-			r.HandleFunc(fmt.Sprintf("/%s/%s/connections/client/{client-id}", query, chainIDArg), QueryClientConnectionsHandler).Methods("GET")
+			r.HandleFunc(fmt.Sprintf("/%s/%s/connections/client/{client-id}", query, chainIDArg),
+				QueryClientConnectionsHandler).Methods("GET")
 			// query channel by chain-id chan-id and port-id, if no ?height={height} is passed, latest
-			r.HandleFunc(fmt.Sprintf("/%s/%s/channels/{chan-id}/{port-id}", query, chainIDArg), QueryChannelHandler).Methods("GET")
+			r.HandleFunc(fmt.Sprintf("/%s/%s/channels/{chan-id}/{port-id}", query, chainIDArg),
+				QueryChannelHandler).Methods("GET")
 			// query channels by chain-id with pagination (offset and limit query params)
 			r.HandleFunc(fmt.Sprintf("/%s/%s/channels", query, chainIDArg), QueryChannelsHandler).Methods("GET")
 			// query channels by chain-id and conn-id with pagination (offset and limit query params)
-			r.HandleFunc(fmt.Sprintf("/%s/%s/channels/connection/{conn-id}", query, chainIDArg), QueryConnectionChannelsHandler).Methods("GET")
+			r.HandleFunc(fmt.Sprintf("/%s/%s/channels/connection/{conn-id}", query, chainIDArg),
+				QueryConnectionChannelsHandler).Methods("GET")
 			// query a chain's ibc denoms
 			r.HandleFunc(fmt.Sprintf("/%s/%s/ibc-denoms", query, chainIDArg), QueryIBCDenomsHandler).Methods("GET")
 
@@ -237,7 +239,7 @@ func QueryAccountHandler(w http.ResponseWriter, r *http.Request) {
 
 	res, err := authtypes.NewQueryClient(chain.CLIContext(0)).Account(
 		context.Background(),
-		&types.QueryAccountRequest{
+		&authtypes.QueryAccountRequest{
 			Address: vars["address"],
 		})
 	if err != nil {
@@ -637,7 +639,7 @@ func PostRelayerListenHandler(sm *ServicesManager) func(w http.ResponseWriter, r
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		// TODO: check name to ensure that no other servies exist
-		// TODO: make this handler accept a json post arguement
+		// TODO: make this handler accept a json post argument
 		pth, err := config.Paths.Get(vars["path"])
 		if err != nil {
 			helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
@@ -649,12 +651,12 @@ func PostRelayerListenHandler(sm *ServicesManager) func(w http.ResponseWriter, r
 			return
 		}
 		pth.Strategy = &relayer.StrategyCfg{Type: vars["strategy"]}
-		strat, err := pth.GetStrategy()
+		strategyType, err := pth.GetStrategy()
 		if err != nil {
 			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 			return
 		}
-		done, err := relayer.RunStrategy(c[src], c[dst], strat)
+		done, err := relayer.RunStrategy(c[src], c[dst], strategyType)
 		if err != nil {
 			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 			return
