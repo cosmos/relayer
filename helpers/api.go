@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -36,19 +37,14 @@ func WriteSuccessResponse(statusCode int, data []byte, w http.ResponseWriter) {
 
 	w.WriteHeader(statusCode)
 
-	w.Write(data)
+	if _, err := w.Write(data); err != nil {
+		fmt.Printf("Write failed: %v", err)
+	}
 }
 
 type errorResponse struct {
 	Err string `json:"err"`
 }
-
-// TODO: do we need better errors
-// errors for things like:
-// - out of funds
-// - transaction errors
-// Lets utilize the codec to make these error returns
-// useful to users and allow them to take proper action
 
 // WriteErrorResponse writes a HTTP error given a status code and an error message
 func WriteErrorResponse(statusCode int, err error, w http.ResponseWriter) {
@@ -56,9 +52,11 @@ func WriteErrorResponse(statusCode int, err error, w http.ResponseWriter) {
 
 	w.WriteHeader(statusCode)
 
-	_ = json.NewEncoder(w).Encode(errorResponse{
+	if err := json.NewEncoder(w).Encode(errorResponse{
 		Err: err.Error(),
-	})
+	}); err != nil {
+		fmt.Printf("Write failed: %v", err)
+	}
 
 	return
 }

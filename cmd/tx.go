@@ -210,7 +210,7 @@ $ %s tx con demo-path -o 3s`, appName, appName, appName)),
 			// ensure that the clients exist
 			modified, err := c[src].CreateClients(c[dst])
 			if modified {
-				if err := overWriteConfig(cmd, config); err != nil {
+				if err := overWriteConfig(config); err != nil {
 					return err
 				}
 			}

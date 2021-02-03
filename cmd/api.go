@@ -60,7 +60,7 @@ const (
 	header     = "header"
 	height     = "height"
 	query      = "query"
-	light      = "light"
+	lightPath  = "light"
 	chainIDArg = "{chain-id}"
 )
 
@@ -133,15 +133,15 @@ func getAPICmd() *cobra.Command {
 			r.HandleFunc(fmt.Sprintf("/%s/%s/%s/restore", keys, chainIDArg, nameArg), RestoreKeyHandler).Methods("POST")
 			// LIGHT
 			// light header, if no ?height={height} is passed, latest
-			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", light, chainIDArg, header), GetLightHeader).Methods("GET")
+			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", lightPath, chainIDArg, header), GetLightHeader).Methods("GET")
 			// light height
-			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", light, chainIDArg, height), GetLightHeight).Methods("GET")
+			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", lightPath, chainIDArg, height), GetLightHeight).Methods("GET")
 			// light create
-			r.HandleFunc(fmt.Sprintf("/%s/%s", light, chainIDArg), PostLight).Methods("POST")
+			r.HandleFunc(fmt.Sprintf("/%s/%s", lightPath, chainIDArg), PostLight).Methods("POST")
 			// light update
-			r.HandleFunc(fmt.Sprintf("/%s/%s", light, chainIDArg), PutLight).Methods("PUT")
+			r.HandleFunc(fmt.Sprintf("/%s/%s", lightPath, chainIDArg), PutLight).Methods("PUT")
 			// light delete
-			r.HandleFunc(fmt.Sprintf("/%s/%s", light, chainIDArg), DeleteLight).Methods("DELETE")
+			r.HandleFunc(fmt.Sprintf("/%s/%s", lightPath, chainIDArg), DeleteLight).Methods("DELETE")
 			// QUERY
 			// query account info for an address
 			r.HandleFunc(fmt.Sprintf("/%s/%s/account/{address}", query, chainIDArg), QueryAccountHandler).Methods("GET")
