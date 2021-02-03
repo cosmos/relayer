@@ -362,7 +362,7 @@ func validateConfig(c *Config) error {
 	}
 
 	for _, i := range c.Chains {
-		if err := i.Init(homePath, to, debug); err != nil {
+		if err := i.Init(homePath, to, nil, debug); err != nil {
 			return fmt.Errorf("did you remember to run 'rly config init' error:%w", err)
 		}
 	}
