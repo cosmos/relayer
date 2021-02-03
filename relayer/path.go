@@ -49,7 +49,6 @@ func (p Paths) MustGet(name string) *Path {
 
 // Add adds a path by its name
 func (p Paths) Add(name string, path *Path) error {
-	// TODO: Do bottomo up validation of path
 	if _, found := p[name]; found {
 		return fmt.Errorf("path with name %s already exists", name)
 	}
@@ -82,7 +81,8 @@ func (p *Path) MustYAML() string {
 func (p Paths) PathsFromChains(src, dst string) (Paths, error) {
 	out := Paths{}
 	for name, path := range p {
-		if (path.Dst.ChainID == src || path.Src.ChainID == src) && (path.Dst.ChainID == dst || path.Src.ChainID == dst) {
+		if (path.Dst.ChainID == src || path.Src.ChainID == src) &&
+			(path.Dst.ChainID == dst || path.Src.ChainID == dst) {
 			out[name] = path
 		}
 	}
@@ -92,6 +92,7 @@ func (p Paths) PathsFromChains(src, dst string) (Paths, error) {
 	return out, nil
 }
 
+// PathAction is struct
 type PathAction struct {
 	*Path
 	Type string `json:"type"`
@@ -194,7 +195,7 @@ func GenPath(srcChainID, dstChainID, srcPortID, dstPortID, order string, version
 	}
 }
 
-// PathStatus holds the status of the primatives in the path
+// PathStatus holds the status of the primitives in the path
 type PathStatus struct {
 	Chains     bool `yaml:"chains" json:"chains"`
 	Clients    bool `yaml:"clients" json:"clients"`
@@ -261,7 +262,8 @@ func (p *Path) QueryPathStatus(src, dst *Chain) *PathWithStatus {
 		dstConn, err = dst.QueryConnection(dsth)
 		return err
 	})
-	if err = eg.Wait(); err != nil || srcConn.Connection.State != conntypes.OPEN || dstConn.Connection.State != conntypes.OPEN {
+	if err = eg.Wait(); err != nil || srcConn.Connection.State != conntypes.OPEN ||
+		dstConn.Connection.State != conntypes.OPEN {
 		return out
 	}
 	out.Status.Connection = true
@@ -274,7 +276,8 @@ func (p *Path) QueryPathStatus(src, dst *Chain) *PathWithStatus {
 		dstChan, err = dst.QueryChannel(dsth)
 		return err
 	})
-	if err = eg.Wait(); err != nil || srcChan.Channel.State != chantypes.OPEN || dstChan.Channel.State != chantypes.OPEN {
+	if err = eg.Wait(); err != nil || srcChan.Channel.State != chantypes.OPEN ||
+		dstChan.Channel.State != chantypes.OPEN {
 		return out
 	}
 	out.Status.Channel = true
@@ -302,7 +305,8 @@ func (ps *PathWithStatus) PrintString(name string) string {
     Channel:      %s`, name, pth.Strategy.Type, pth.Src.ChainID,
 		pth.Src.ClientID, pth.Src.ConnectionID, pth.Src.ChannelID, pth.Src.PortID,
 		pth.Dst.ChainID, pth.Dst.ClientID, pth.Dst.ConnectionID, pth.Dst.ChannelID, pth.Dst.PortID,
-		checkmark(ps.Status.Chains), checkmark(ps.Status.Clients), checkmark(ps.Status.Connection), checkmark(ps.Status.Channel))
+		checkmark(ps.Status.Chains), checkmark(ps.Status.Clients), checkmark(ps.Status.Connection),
+		checkmark(ps.Status.Channel))
 }
 
 func checkmark(status bool) string {

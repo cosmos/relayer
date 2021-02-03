@@ -3,10 +3,15 @@ package cmd
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
+	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
+	"github.com/tendermint/tendermint/light"
 )
 
 ////////////////////////////////////////
@@ -107,8 +112,21 @@ $ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.CreateClient(dstHeader,
-				chains[dst].GetTrustingPeriod(), ubdPeriod, chains[src].MustGetAddress())},
+			clientState := ibctmtypes.NewClientState(
+				dstHeader.GetHeader().GetChainID(),
+				ibctmtypes.NewFractionFromTm(light.DefaultTrustLevel),
+				chains[dst].GetTrustingPeriod(),
+				ubdPeriod,
+				time.Minute*10,
+				dstHeader.GetHeight().(clienttypes.Height),
+				commitmenttypes.GetSDKSpecs(),
+				relayer.DefaultUpgradePath,
+				false,
+				false,
+			)
+
+			return sendAndPrint([]sdk.Msg{chains[src].CreateClient(
+				clientState, dstHeader)},
 				chains[src], cmd)
 		},
 	}
@@ -138,7 +156,7 @@ $ %s tx raw conn-init ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`,
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.ConnInit(chains[dst].PathEnd, chains[src].MustGetAddress())},
+			return sendAndPrint([]sdk.Msg{chains[src].ConnInit(chains[dst].PathEnd)},
 				chains[src], cmd)
 		},
 	}
@@ -282,7 +300,7 @@ $ %s tx raw conn-confirm ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn
 				return err
 			}
 			txs := []sdk.Msg{
-				chains[src].PathEnd.ConnConfirm(dstState, chains[src].MustGetAddress()),
+				chains[src].ConnConfirm(dstState),
 				chains[src].UpdateClient(updateHeader),
 			}
 
@@ -342,7 +360,8 @@ func chanInit() *cobra.Command {
 		Short: "chan-init",
 		Args:  cobra.ExactArgs(11),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s tx raw chan-init ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2 ibcchan1 ibcchan2 transfer transfer ordered`, appName)),
+$ %s tx raw chan-init ibc-0 ibc-1 ibczeroclient ibconeclient 
+ibcconn1 ibcconn2 ibcchan1 ibcchan2 transfer transfer ordered`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(args[0], args[1])
@@ -358,7 +377,7 @@ $ %s tx raw chan-init ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2 i
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{chains[src].PathEnd.ChanInit(chains[dst].PathEnd, chains[src].MustGetAddress())},
+			return sendAndPrint([]sdk.Msg{chains[src].ChanInit(chains[dst].PathEnd)},
 				chains[src], cmd)
 		},
 	}
@@ -506,7 +525,7 @@ $ %s tx raw chan-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer tr
 			}
 			txs := []sdk.Msg{
 				chains[src].UpdateClient(updateHeader),
-				chains[src].PathEnd.ChanConfirm(dstChanState, chains[src].MustGetAddress()),
+				chains[src].ChanConfirm(dstChanState),
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -523,9 +542,10 @@ func createChannelStepCmd() *cobra.Command {
 		Short:   "create the next step in creating a channel between chains with the passed identifiers",
 		Args:    cobra.ExactArgs(11),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s transact raw chan-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2 ibcchan1 ibcchan2 transfer transfer ordered
-$ %s tx raw channel-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2 ibcchan1 ibcchan2 transfer transfer ordered
-`, appName, appName)),
+$ %s transact raw chan-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 
+ibcconn2 ibcchan1 ibcchan2 transfer transfer ordered
+$ %s tx raw channel-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1
+ ibcconn2 ibcchan1 ibcchan2 transfer transfer ordered`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -575,7 +595,7 @@ $ %s tx raw chan-close-init ibc-0 ibcchan1 transfer`, appName, appName)),
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{src.PathEnd.ChanCloseInit(src.MustGetAddress())}, src, cmd)
+			return sendAndPrint([]sdk.Msg{src.ChanCloseInit()}, src, cmd)
 		},
 	}
 	return cmd
@@ -620,7 +640,7 @@ $ %s tx raw chan-close-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 trans
 			}
 			txs := []sdk.Msg{
 				chains[src].UpdateClient(updateHeader),
-				chains[src].PathEnd.ChanCloseConfirm(dstChanState, chains[src].MustGetAddress()),
+				chains[src].ChanCloseConfirm(dstChanState),
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -636,7 +656,8 @@ func closeChannelStepCmd() *cobra.Command {
 		Short: "create the next step in closing a channel between chains with the passed identifiers",
 		Args:  cobra.ExactArgs(10),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s tx raw close-channel-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2 ibcchan1 ibcchan2 transfer transfer`, appName)),
+$ %s tx raw close-channel-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 
+ibcconn2 ibcchan1 ibcchan2 transfer transfer`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)

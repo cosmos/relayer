@@ -10,6 +10,14 @@ import (
 	"github.com/cosmos/relayer/relayer"
 )
 
+type stringStringer struct {
+	str string
+}
+
+func (ss stringStringer) String() string {
+	return ss.str
+}
+
 // NOTE: These commands are registered over in cmd/raw.go
 
 func xfersend() *cobra.Command {
@@ -23,9 +31,10 @@ func xfersend() *cobra.Command {
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact transfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo-path
 $ %s tx xfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo -y 2 -c 10
+$ %s tx xfer ibc-0 ibc-1 100000stake raw:non-bech32-address --path demo
 $ %s tx txf ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo
 $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo -c 5
-`, appName, appName, appName, appName)),
+`, appName, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			c, err := config.Chains.Gets(src, dst)
@@ -73,26 +82,23 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 				return err
 			}
 
-			done := c[dst].UseSDKContext()
-			dstAddr, err := sdk.AccAddressFromBech32(args[3])
-			if err != nil {
-				return err
-			}
-			done()
-
-			switch {
-			case toHeightOffset > 0 && toTimeOffset > 0:
-				return fmt.Errorf("cannot set both --timeout-height-offset and --timeout-time-offset, choose one")
-			case toHeightOffset > 0:
-				return c[src].SendTransferMsg(c[dst], amount, dstAddr, toHeightOffset, 0)
-			case toTimeOffset > 0:
-				return c[src].SendTransferMsg(c[dst], amount, dstAddr, 0, toTimeOffset)
-			case toHeightOffset == 0 && toTimeOffset == 0:
-				return c[src].SendTransferMsg(c[dst], amount, dstAddr, 0, 0)
-			default:
-				return fmt.Errorf("shouldn't be here")
+			// If the argument begins with "raw:" then use the suffix directly.
+			rawDstAddr := strings.TrimPrefix(args[3], "raw:")
+			var dstAddr fmt.Stringer
+			if rawDstAddr == args[3] {
+				// Not "raw:", treat the dstAddr as bech32.
+				done := c[dst].UseSDKContext()
+				dstAddr, err = sdk.AccAddressFromBech32(args[3])
+				if err != nil {
+					return err
+				}
+				done()
+			} else {
+				// Don't parse the rest of the dstAddr... it's raw.
+				dstAddr = stringStringer{str: rawDstAddr}
 			}
 
+			return c[src].SendTransferMsg(c[dst], amount, dstAddr.String(), toHeightOffset, toTimeOffset)
 		},
 	}
 	return timeoutFlags(pathFlag(cmd))
@@ -118,7 +124,8 @@ func setPathsFromArgs(src, dst *relayer.Chain, name string) (*relayer.Path, erro
 			return path, err
 		}
 	case name == "" && len(paths) > 1:
-		return nil, fmt.Errorf("more than one path between %s and %s exists, pass in path name", src.ChainID, dst.ChainID)
+		return nil, fmt.Errorf("more than one path between %s and %s exists, pass in path name",
+			src.ChainID, dst.ChainID)
 	case name == "" && len(paths) == 1:
 		for _, v := range paths {
 			path = v

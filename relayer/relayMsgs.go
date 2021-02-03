@@ -9,6 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+// DeliverMsgsAction is struct
 type DeliverMsgsAction struct {
 	SrcMsgs   []string `json:"src_msgs"`
 	Src       PathEnd  `json:"src"`

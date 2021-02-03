@@ -16,7 +16,6 @@ var (
 	flagSkip                = "skip"
 	flagStrategy            = "strategy"
 	flagTimeout             = "timeout"
-	flagConfig              = "config"
 	flagJSON                = "json"
 	flagYAML                = "yaml"
 	flagFile                = "file"
@@ -32,6 +31,7 @@ var (
 	flagIBCDenoms           = "ibc-denoms"
 	flagTimeoutHeightOffset = "timeout-height-offset"
 	flagTimeoutTimeOffset   = "timeout-time-offset"
+	flagMaxRetries          = "max-retries"
 )
 
 func ibcDenomFlags(cmd *cobra.Command) *cobra.Command {
@@ -197,7 +197,9 @@ func versionFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func forceFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP(flagForce, "f", false, "option to force non-standard behavior such as initialization of light client from configured chain or generation of new path") //nolint:lll
+	cmd.Flags().BoolP(flagForce, "f", false,
+		"option to force non-standard behavior such as initialization of light client from"+
+			"configured chain or generation of new path")
 	if err := viper.BindPFlag(flagForce, cmd.Flags().Lookup(flagForce)); err != nil {
 		panic(err)
 	}
@@ -248,4 +250,12 @@ func getAddInputs(cmd *cobra.Command) (file string, url string, err error) {
 	}
 
 	return
+}
+
+func retryFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Uint64P(flagMaxRetries, "r", 3, "maximum retries after failed message send")
+	if err := viper.BindPFlag(flagMaxRetries, cmd.Flags().Lookup(flagMaxRetries)); err != nil {
+		panic(err)
+	}
+	return cmd
 }

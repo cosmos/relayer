@@ -1,8 +1,13 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
 SDKCOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/cosmos-sdk)
-GAIA_VERSION := main
+GAIA_VERSION := v4.0.0
 AKASH_VERSION := jack/update-sdk
+WASMD_VERSION := v0.14.1
+
+GOPATH := $(shell go env GOPATH)
+GOBIN := $(GOPATH)/bin
+
 all: ci-lint install
 
 ###############################################################################
@@ -38,7 +43,7 @@ compile-clib:
 
 install: go.sum
 	@echo "installing rly binary..."
-	@go build -mod=readonly $(BUILD_FLAGS) -o $${GOBIN-$${GOPATH-$$HOME/go}/bin}/rly main.go
+	@go build -mod=readonly $(BUILD_FLAGS) -o $(GOBIN)/rly main.go
 
 ###############################################################################
 # Tests / CI
@@ -81,7 +86,14 @@ get-akash:
 	@mkdir -p ./chain-code/
 	@git clone --branch $(AKASH_VERSION) git@github.com:ovrclk/akash.git ./chain-code/akash
 
-get-chains: get-gaia get-akash
+get-chains: get-gaia get-akash get-wasmd
+
+get-wasmd:
+	@mkdir -p ./chain-code/
+	@git clone --branch $(WASMD_VERSION) git@github.com:CosmWasm/wasmd.git ./chain-code/wasmd
+
+build-wasmd:
+	@./scripts/build-wasmd
 
 delete-chains: 
 	@echo "Removing the ./chain-code/ directory..."

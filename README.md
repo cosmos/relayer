@@ -1,13 +1,21 @@
 # Relayer
-
-![GOZ](./docs/images/github-repo-banner.png)
+![Relayer](./docs/images/github-repo-banner.gif)
 
 ![Relayer Build](https://github.com/cosmos/relayer/workflows/Build%20then%20run%20CI%20Chains/badge.svg)
 
 The Cosmos IBC `relayer` package contains a basic relayer implementation that is
 meant for users wishing to relay packets/data between sets of IBC enabled chains.
-In addition, it is well documented and intended as an example where anyone who is
-interested in building their own relayer can come for complete, working, examples.
+In addition, it is intended as an example where anyone who is interested in building 
+their own relayer can come for complete, working, examples.
+
+**NOTE:** The relayer is in alpha and is not production ready. If it is used in production, 
+it should always be run in a secure environment and only with just enough funds to 
+relay transactions. Security critical operations **should** manually verify that the
+client identifier used in the configuration file corresponds to the correct initial 
+consensus state of the counterparty chain. This can be done by querying the initial 
+consensus state and the header of the counterparty and verifying that the root and
+hash of the next validator set match. This can be considered equivalent to checking
+the sha hash of a download or a GPG signature. 
 
 ### Security Notice
 
@@ -15,7 +23,7 @@ If you would like to report a security critical bug related to the relayer repo,
 
 ## Code of Conduct
 
-The iqlusion team is dedicated to providing an inclusive and harassment free experience for contributors. Please visit [Code of Conduct](CODE_OF_CONDUCT.md) for more information.
+The Cosmos community is dedicated to providing an inclusive and harassment free experience for contributors. Please visit [Code of Conduct](CODE_OF_CONDUCT.md) for more information.
 
 ## Testnet
 
@@ -28,6 +36,38 @@ If you would like to join a relayer testnet, please [check out the instructions]
 | chain | tests | supported ports |
 |-------|--------|----------------|
 | [`gaia`](https://github.com/cosmos/gaia) | ![gaia](https://github.com/cosmos/relayer/workflows/TESTING%20-%20gaia%20to%20gaia%20integration/badge.svg) | `transfer` |
+
+## Features
+
+The relayer supports the following:
+- creating/updating IBC Tendermint light clients
+- creating IBC connections
+- creating IBC transfer channels.
+- initiating a cross chain transfer
+- relaying a cross chain transfer transaction, its acknowledgement, and timeouts
+- relaying from state
+- relaying from streaming events 
+- sending an UpgradePlan proposal for an IBC breaking upgrade
+- upgrading clients after a counterparty chain has performed an upgrade for IBC breaking changes
+
+The relayer currently cannot:
+- create clients with user chosen parameters (such as UpgradePath)
+- submit IBC client unfreezing proposals 
+- monitor and submit misbehaviour for clients
+- use IBC light clients other than Tendermint such as Solo Machine
+- connect to chains which don't implement/enable IBC
+- connect to chains using a different IBC implementation (chains not using SDK's `x/ibc` module)
+
+## Relayer Terminology
+
+A Path in the relayer represents one very specific path followed to get from one chain to another. 
+Two chains may have many different paths between them. Any path with different clients, connections,
+or channels are considered unqiuely different and non-fungible. 
+
+When using with live networks, it is advised to pre-select your desired parameters for your client, 
+connection, and channel. The relayer will automatically reuse any existing clients that match your
+configurations since clients, connections, and channels are public goods (no one has control over 
+them). 
 
 ## Demoing the Relayer
 
@@ -75,7 +115,7 @@ $ rly q bal ibc-0
 $ rly q bal ibc-1
 
 # Send the tokens back to the account on ibc-0
-$ rly tx xfer ibc-1 ibc-0 1000000transfer/ibczeroxfer/samoleans $(rly ch addr ibc-0)
+$ rly tx xfer ibc-1 ibc-0 1000000ibc/27A6394C3F9FF9C9DCF5DFFADF9BB5FE9A37C7E92B006199894CF1824DF9AC7C $(rly ch addr ibc-0)
 $ rly tx rly demo -d
 
 # See that the return trip has completed

@@ -1,4 +1,5 @@
 /*
+Package cmd includes relayer commands
 Copyright © 2020 Jack Zampolin jack.zampolin@gmail.com
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,7 +33,9 @@ import (
 )
 
 const (
-	ORDERED        = "ORDERED"
+	// ORDERED is exported channel type constant
+	ORDERED = "ORDERED"
+	// UNORDERED is exported channel type constant
 	UNORDERED      = "UNORDERED"
 	defaultOrder   = ORDERED
 	defaultVersion = "ics20-1"
@@ -77,17 +80,36 @@ $ %s cfg list`, appName, defaultHome, appName)),
 				return fmt.Errorf("config does not exist: %s", cfgPath)
 			}
 
-			out, err := yaml.Marshal(config)
+			jsn, err := cmd.Flags().GetBool(flagJSON)
 			if err != nil {
 				return err
 			}
-
-			fmt.Println(string(out))
-			return nil
+			yml, err := cmd.Flags().GetBool(flagYAML)
+			if err != nil {
+				return err
+			}
+			switch {
+			case yml && jsn:
+				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
+			case jsn:
+				out, err := json.Marshal(config)
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(out))
+				return nil
+			default:
+				out, err := yaml.Marshal(config)
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(out))
+				return nil
+			}
 		},
 	}
 
-	return cmd
+	return yamlFlag(jsonFlag(cmd))
 }
 
 // Command for inititalizing an empty config at the --home location
@@ -218,15 +240,17 @@ func cfgFilesAdd(dir string) (cfg *Config, err error) {
 			}
 
 			pthName := strings.Split(f.Name(), ".")[0]
+			if err = config.ValidatePath(p); err != nil {
+				fmt.Printf("%s: %s\n", pth, err.Error())
+				continue
+			}
 			if err = cfg.AddPath(pthName, p); err != nil {
 				fmt.Printf("%s: %s\n", pth, err.Error())
 				continue
 			}
 
-			// TODO: Do bottom up validation
 			// For now, we assume that all chain files must have same filename as chain-id
 			// this is to ensure non-chain files (global config) does not get parsed into chain struct.
-			// Future work should implement bottom-up validation.
 			if c.ChainID != pthName {
 				fmt.Printf("Skipping non chain file: %s\n", f.Name())
 				continue
@@ -413,4 +437,122 @@ func overWriteConfig(cfg *Config) (err error) {
 		}
 	}
 	return err
+}
+
+// ValidatePath checks that a path is valid
+func (c *Config) ValidatePath(p *relayer.Path) (err error) {
+	if p.Src.Version == "" {
+		return fmt.Errorf("source must specify a version")
+	}
+	if err = c.ValidatePathEnd(p.Src); err != nil {
+		return err
+	}
+	if err = c.ValidatePathEnd(p.Dst); err != nil {
+		return err
+	}
+	if _, err = p.GetStrategy(); err != nil {
+		return err
+	}
+	if p.Src.Order != p.Dst.Order {
+		return fmt.Errorf("both sides must have same order ('ORDERED' or 'UNORDERED'), got src(%s) and dst(%s)",
+			p.Src.Order, p.Dst.Order)
+	}
+	return nil
+}
+
+// ValidatePathEnd validates provided pathend and returns error for invalid identifiers
+func (c *Config) ValidatePathEnd(pe *relayer.PathEnd) error {
+	if err := pe.ValidateBasic(); err != nil {
+		return err
+	}
+
+	chain, err := c.Chains.Get(pe.ChainID)
+	if err != nil {
+		return err
+	}
+
+	height, err := chain.QueryLatestHeight()
+	if err != nil {
+		return err
+	}
+
+	if pe.ClientID != "" {
+		if err := c.ValidateClient(chain, height, pe); err != nil {
+			return err
+		}
+
+		if pe.ConnectionID != "" {
+			if err := c.ValidateConnection(chain, height, pe); err != nil {
+				return err
+			}
+
+			if pe.ChannelID != "" {
+				if err := c.ValidateChannel(chain, height, pe); err != nil {
+					return err
+				}
+			}
+		}
+
+		if pe.ConnectionID == "" && pe.ChannelID != "" {
+			return fmt.Errorf("connectionID is not configured for the channel: %s", pe.ChannelID)
+		}
+	}
+
+	if pe.ClientID == "" && pe.ConnectionID != "" {
+		return fmt.Errorf("clientID is not configured for the connection: %s", pe.ConnectionID)
+	}
+
+	return nil
+}
+
+// ValidateClient validates client id in provided pathend
+func (c *Config) ValidateClient(chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
+	if err := pe.Vclient(); err != nil {
+		return err
+	}
+
+	_, err := chain.QueryClientState(height)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ValidateConnection validates connection id in provided pathend
+func (c *Config) ValidateConnection(chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
+	if err := pe.Vconn(); err != nil {
+		return err
+	}
+
+	connection, err := chain.QueryConnection(height)
+	if err != nil {
+		return err
+	}
+
+	if connection.Connection.ClientId != pe.ClientID {
+		return fmt.Errorf("clientID of connection: %s didn't match with provided ClientID", pe.ConnectionID)
+	}
+
+	return nil
+}
+
+// ValidateChannel validates channel id in provided pathend
+func (c *Config) ValidateChannel(chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
+	if err := pe.Vchan(); err != nil {
+		return err
+	}
+
+	channel, err := chain.QueryChannel(height)
+	if err != nil {
+		return err
+	}
+
+	for _, connection := range channel.Channel.ConnectionHops {
+		if connection == pe.ConnectionID {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("connectionID of channel: %s didn't match with provided ConnectionID", pe.ChannelID)
 }

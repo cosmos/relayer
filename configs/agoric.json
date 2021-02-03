@@ -4,7 +4,7 @@
   "daemon": "ag-chain-cosmos",
   "cli": "ag-cosmos-helper",
   "daemon-testnet": "ag-nchainz testnet $chainid -o $chainid --v 1 --chain-id $chainid --node-dir-prefix n --keyring-backend test",
-  "daemon-start": "ag-nchainz start-daemon $chainid --home \"$DAEMON_HOME\" start --pruning=nothing",
+  "daemon-start": "ag-nchainz start-daemon $chainid --home \"$DAEMON_HOME\" start --pruning=nothing --log_level=warn",
   "post-light-client": "ag-nchainz start-solos $chainid",
   "link": {
     "account-prefix": "agoric",
