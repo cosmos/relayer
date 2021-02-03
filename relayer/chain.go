@@ -195,7 +195,7 @@ func (c *Chain) listenLoop(doneChan chan struct{}, tx, block, data bool) {
 
 // Init initializes the pieces of a chain that aren't set when it parses a config
 // NOTE: All validation of the chain should happen here.
-func (c *Chain) Init(homePath string, timeout time.Duration, debug bool) error {
+func (c *Chain) Init(homePath string, timeout time.Duration, logger log.Logger, debug bool) error {
 	keybase, err := keys.New(c.ChainID, "test", keysDir(homePath, c.ChainID), nil)
 	if err != nil {
 		return err
@@ -222,10 +222,15 @@ func (c *Chain) Init(homePath string, timeout time.Duration, debug bool) error {
 	c.Client = client
 	c.HomePath = homePath
 	c.Encoding = encodingConfig
-	c.logger = defaultChainLogger()
+	c.logger = logger
 	c.timeout = timeout
 	c.debug = debug
 	c.faucetAddrs = make(map[string]time.Time)
+
+	if c.logger == nil {
+		c.logger = defaultChainLogger()
+	}
+
 	return nil
 }
 
