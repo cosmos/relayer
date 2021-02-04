@@ -350,7 +350,7 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 			}
 			return err
 		}
-		updateHeader, err := sh.GetUpdateHeader(dst, src)
+		updateHeader, err := ConstructIBCTMHeader(sh, dst, src)
 		if err != nil {
 			if src.debug {
 				src.Log(fmt.Sprintf("- failed to enrich update headers for %s and %s, retrying: %s",
@@ -446,7 +446,7 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 	// Prepend non-empty msg lists with UpdateClient
 	if len(msgs.Dst) != 0 {
 		// Sending an update from src to dst
-		updateHeader, err := sh.GetUpdateHeader(src, dst)
+		updateHeader, err := ConstructIBCTMHeader(sh, src, dst)
 		if err != nil {
 			return err
 		}
@@ -455,7 +455,7 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 
 	if len(msgs.Src) != 0 {
 		// Sending an update from dst to src
-		updateHeader, err := sh.GetUpdateHeader(dst, src)
+		updateHeader, err := ConstructIBCTMHeader(sh, dst, src)
 		if err != nil {
 			return err
 		}
@@ -555,7 +555,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences, sh *
 	// Prepend non-empty msg lists with UpdateClient
 	if len(msgs.Dst) != 0 {
 		// Sending an update from src to dst
-		updateHeader, err := sh.GetUpdateHeader(src, dst)
+		updateHeader, err := ConstructIBCTMHeader(sh, src, dst)
 		if err != nil {
 			return err
 		}
@@ -564,7 +564,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences, sh *
 
 	if len(msgs.Src) != 0 {
 		// Sending an update from dst to src
-		updateHeader, err := sh.GetUpdateHeader(dst, src)
+		updateHeader, err := ConstructIBCTMHeader(sh, dst, src)
 		if err != nil {
 			return err
 		}

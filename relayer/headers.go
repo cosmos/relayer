@@ -58,13 +58,6 @@ func (uh *SyncHeaders) GetHeader(chainID string) *tmclient.Header {
 	return uh.hds[chainID]
 }
 
-// GetUpdateHeader returns a header to be used to UpdateClient of dstChain stored on srcChain
-func (uh *SyncHeaders) GetUpdateHeader(srcChain, dstChain *Chain) (*tmclient.Header, error) {
-	h := uh.GetHeader(srcChain.ChainID)
-
-	return InjectTrustedFields(srcChain, dstChain, h)
-}
-
 // GetHeight returns the latest height for a given chainID
 func (uh *SyncHeaders) GetHeight(chainID string) uint64 {
 	uh.Lock()
@@ -109,44 +102,6 @@ func (uh *SyncHeaders) GetTrustedHeader(src, dst *Chain) (header *tmclient.Heade
 	})
 	err = eg.Wait()
 	return
-}
-
-// InjectTrustedFields injects the necessary trusted fields for a srcHeader coming from a srcChain
-// destined for an IBC client stored on the dstChain
-// TrustedHeight is the latest height of the IBC client on dstChain
-// TrustedValidators is the validator set of srcChain at the TrustedHeight
-// InjectTrustedFields returns a copy of the header with TrustedFields modified
-func InjectTrustedFields(srcChain, dstChain *Chain, srcHeader *tmclient.Header) (*tmclient.Header, error) {
-	// make copy of header stored in mop
-	h := *(srcHeader)
-
-	dsth, err := dstChain.GetLatestLightHeight()
-	if err != nil {
-		return nil, err
-	}
-
-	// retrieve counterparty client from dst chain
-	counterpartyClientRes, err := dstChain.QueryClientState(dsth)
-	if err != nil {
-		return nil, err
-	}
-	cs, err := clienttypes.UnpackClientState(counterpartyClientRes.ClientState)
-	if err != nil {
-		panic(err)
-	}
-
-	// inject TrustedHeight as latest height stored on counterparty client
-	h.TrustedHeight = cs.GetLatestHeight().(clienttypes.Height)
-
-	// query TrustedValidators at Trusted Height from srcChain
-	valSet, err := srcChain.QueryValsetAtHeight(h.TrustedHeight)
-	if err != nil {
-		return nil, err
-	}
-
-	// inject TrustedValidators into header
-	h.TrustedValidators = valSet
-	return &h, nil
 }
 
 // MustGetHeight takes the height inteface and returns the actual height
