@@ -51,7 +51,8 @@ func configCmd() *cobra.Command {
 	cmd.AddCommand(
 		configShowCmd(),
 		configInitCmd(),
-		configAddDirCmd(),
+		configAddChainsCmd(),
+		configAddPathsCmd(),
 	)
 
 	return cmd
@@ -170,19 +171,17 @@ $ %s cfg i`, appName, defaultHome, appName)),
 	return cmd
 }
 
-func configAddDirCmd() *cobra.Command {
+func configAddChainsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "add-dir [dir]",
-		Aliases: []string{"ad"},
-		Args:    cobra.ExactArgs(1),
-		Short: `Add new chains and paths to the configuration file from a
-		 directory full of chain and path configuration, useful for adding testnet configurations`,
+		Use:  "add-chains [/path/to/chains/]",
+		Args: cobra.ExactArgs(1),
+		Short: `Add new chains to the configuration file from a
+		 directory full of chain configurations, useful for adding testnet configurations`,
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s config add-dir configs/
-$ %s cfg ad configs/`, appName, appName)),
+$ %s config add-chains configs/chains`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var out *Config
-			if out, err = cfgFilesAdd(args[0]); err != nil {
+			if out, err = cfgFilesAddChains(args[0]); err != nil {
 				return err
 			}
 			return overWriteConfig(cmd, out)
@@ -192,7 +191,27 @@ $ %s cfg ad configs/`, appName, appName)),
 	return cmd
 }
 
-func cfgFilesAdd(dir string) (cfg *Config, err error) {
+func configAddPathsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:  "add-paths [/path/to/paths/]",
+		Args: cobra.ExactArgs(1),
+		Short: `Add new paths to the configuration file from a directory full of path configurations, useful for adding testnet configurations. 
+		Chain configuration files must be added before calling this command.`,
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s config add-paths configs/paths`, appName)),
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			var out *Config
+			if out, err = cfgFilesAddPaths(args[0]); err != nil {
+				return err
+			}
+			return overWriteConfig(cmd, out)
+		},
+	}
+
+	return cmd
+}
+
+func cfgFilesAddChains(dir string) (cfg *Config, err error) {
 	dir = path.Clean(dir)
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -218,53 +237,69 @@ func cfgFilesAdd(dir string) (cfg *Config, err error) {
 			continue
 		}
 
-		if c.ChainID == "" && c.Key == "" && c.RPCAddr == "" {
-			p := &relayer.Path{}
-			if err = json.Unmarshal(byt, p); err != nil {
-				fmt.Printf("failed to unmarshal file %s, skipping...\n", pth)
-				continue
-			}
-
-			// In the case that order isn't added to the path, add it manually
-			if p.Src.Order == "" || p.Dst.Order == "" {
-				p.Src.Order = defaultOrder
-				p.Dst.Order = defaultOrder
-			}
-
-			// If the version isn't added to the path, add it manually
-			if p.Src.Version == "" {
-				p.Src.Version = defaultVersion
-			}
-			if p.Dst.Version == "" {
-				p.Dst.Version = defaultVersion
-			}
-
-			pthName := strings.Split(f.Name(), ".")[0]
-			if err = cfg.AddPath(pthName, p); err != nil {
-				fmt.Printf("%s: %s\n", pth, err.Error())
-				continue
-			}
-
-			// For now, we assume that all chain files must have same filename as chain-id
-			// this is to ensure non-chain files (global config) does not get parsed into chain struct.
-			if c.ChainID != pthName {
-				fmt.Printf("Skipping non chain file: %s\n", f.Name())
-				continue
-			}
-		}
-
 		if err = cfg.AddChain(c); err != nil {
 			fmt.Printf("%s: %s\n", pth, err.Error())
 			continue
 		}
 		fmt.Printf("added chain %s...\n", c.ChainID)
 	}
-	for _, p := range cfg.Paths {
-		if err = config.ValidatePath(p); err != nil {
-			fmt.Println("Error occured...Config is not updated")
-			return nil, err
-		}
+	return cfg, nil
+}
+
+func cfgFilesAddPaths(dir string) (cfg *Config, err error) {
+	dir = path.Clean(dir)
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, err
 	}
+	cfg = config
+	for _, f := range files {
+		pth := fmt.Sprintf("%s/%s", dir, f.Name())
+		if f.IsDir() {
+			fmt.Printf("directory at %s, skipping...\n", pth)
+			continue
+		}
+
+		byt, err := ioutil.ReadFile(pth)
+		if err != nil {
+			fmt.Printf("failed to read file %s, skipping...\n", pth)
+			continue
+		}
+
+		p := &relayer.Path{}
+		if err = json.Unmarshal(byt, p); err != nil {
+			fmt.Printf("failed to unmarshal file %s, skipping...\n", pth)
+			continue
+		}
+
+		// In the case that order isn't added to the path, add it manually
+		if p.Src.Order == "" || p.Dst.Order == "" {
+			p.Src.Order = defaultOrder
+			p.Dst.Order = defaultOrder
+		}
+
+		// If the version isn't added to the path, add it manually
+		if p.Src.Version == "" {
+			p.Src.Version = defaultVersion
+		}
+		if p.Dst.Version == "" {
+			p.Dst.Version = defaultVersion
+		}
+
+		pthName := strings.Split(f.Name(), ".")[0]
+		if err = config.ValidatePath(p); err != nil {
+			fmt.Printf("%s: %s\n", pth, err.Error())
+			continue
+		}
+
+		if err = cfg.AddPath(pthName, p); err != nil {
+			fmt.Printf("%s: %s\n", pth, err.Error())
+			continue
+		}
+
+		fmt.Printf("added path %s...\n", pthName)
+	}
+
 	return cfg, nil
 }
 

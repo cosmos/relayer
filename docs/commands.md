@@ -37,7 +37,8 @@ NOTE: Most of the commands have aliases that make typing them much quicker (i.e.
     - [rly chains list](#rly-chains-list)
     - [rly chains show](#rly-chains-show)
   - [rly config](#rly-config)
-    - [rly config add-dir](#rly-config-add-dir)
+    - [rly config add-chains](#rly-config-add-chains)
+    - [rly config add-paths](#rly-config-add-paths)
     - [rly config init](#rly-config-init)
     - [rly config show](#rly-config-show)
   - [rly development](#rly-development)
@@ -253,17 +254,30 @@ Manage configuration file
 
 ### Subcommands
 
-* [rly config add-dir](#rly-config-add-dir)	 - Add new chains and paths to the configuration file from a directory full of chain and path configuration, useful for adding testnet configurations
+* [rly config add-chains](#rly-config-add-chains)	 - Add new chains to the configuration file from a directory full of chain configurations, useful for adding testnet configurations
+* [rly config add-paths](#rly-config-add-paths)	 - Add new paths to the configuration file from a directory full of path configurations, useful for adding testnet configurations. Must be called after adding chains and keys.
 * [rly config init](#rly-config-init)	 - Creates a default home directory at path defined by --home
 * [rly config show](#rly-config-show)	 - Prints current configuration
 
-## rly config add-dir
+## rly config add-chains
 
-Add new chains and paths to the configuration file from a directory full of chain and path configuration, useful for adding testnet configurations
+Add new chains to the configuration file from a directory full of chain configurations, useful for adding testnet configurations
 
 ### Synopsis
 
-Add new chains and paths to the configuration file from a directory full of chain and path configuration, useful for adding testnet configurations
+Add new chains to the configuration file from a directory full of chain configurations, useful for adding testnet configurations
+
+```
+rly config add-chains [dir] [flags]
+```
+
+## rly config add-paths
+
+Add new paths to the configuration file from a directory full of path configurations, useful for adding testnet configurations. Must be called after adding chains and keys.
+
+### Synopsis
+
+Add new paths to the configuration file from a directory full of path configurations, useful for adding testnet configurations. Must be called after adding chains and keys.
 
 ```
 rly config add-dir [dir] [flags]

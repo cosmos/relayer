@@ -446,7 +446,7 @@ clients)
 
   echo "Generating rly configurations..."
   rly config init
-  rly config add-dir "$BASEDIR/config/"
+  rly config add-chains "$BASEDIR/config/chains"
 
   sleep 2
 
@@ -467,6 +467,7 @@ clients)
       done
       SEED=$(jq -r '.secret' "$f")
       echo "Key $(rly keys restore $chainid testkey "$SEED") imported from $chainid to relayer..."
+      rly config add-paths "$BASEDIR/config/paths"
 
       try=0
       f="$DATA/$chainid/n0/$DAEMON/config/genesis.json"
