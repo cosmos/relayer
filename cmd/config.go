@@ -196,6 +196,7 @@ func configAddPathsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:  "add-paths [/path/to/paths/]",
 		Args: cobra.ExactArgs(1),
+		//nolint:lll
 		Short: `Add new paths to the configuration file from a directory full of path configurations, useful for adding testnet configurations. 
 		Chain configuration files must be added before calling this command.`,
 		Example: strings.TrimSpace(fmt.Sprintf(`
