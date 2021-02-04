@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -288,7 +289,7 @@ func cfgFilesAddPaths(dir string) (cfg *Config, err error) {
 
 		pthName := strings.Split(f.Name(), ".")[0]
 		if err = config.ValidatePath(p); err != nil {
-			fmt.Printf("%s: %s\n", pth, err.Error())
+			fmt.Printf("%s: failed to validate path: %s\n", pth, err.Error())
 			continue
 		}
 
@@ -485,10 +486,10 @@ func (c *Config) ValidatePath(p *relayer.Path) (err error) {
 		return fmt.Errorf("source must specify a version")
 	}
 	if err = c.ValidatePathEnd(p.Src); err != nil {
-		return err
+		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Src.ChainID)
 	}
 	if err = c.ValidatePathEnd(p.Dst); err != nil {
-		return err
+		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Dst.ChainID)
 	}
 	if _, err = p.GetStrategy(); err != nil {
 		return err
