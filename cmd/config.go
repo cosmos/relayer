@@ -230,15 +230,15 @@ func cfgFilesAddChains(dir string) (cfg *Config, err error) {
 
 		byt, err := ioutil.ReadFile(pth)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read file %s: %w\n", pth, err)
+			return nil, fmt.Errorf("failed to read file %s: %w", pth, err)
 		}
 
 		if err = json.Unmarshal(byt, c); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal file %s: %w\n", pth, err)
+			return nil, fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
 		}
 
 		if err = cfg.AddChain(c); err != nil {
-			return nil, fmt.Errorf("failed to add chain%s: %w\n", pth, err)
+			return nil, fmt.Errorf("failed to add chain%s: %w", pth, err)
 		}
 		fmt.Printf("added chain %s...\n", c.ChainID)
 	}
@@ -261,12 +261,12 @@ func cfgFilesAddPaths(dir string) (cfg *Config, err error) {
 
 		byt, err := ioutil.ReadFile(pth)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read file %s: %w\n", pth, err)
+			return nil, fmt.Errorf("failed to read file %s: %w", pth, err)
 		}
 
 		p := &relayer.Path{}
 		if err = json.Unmarshal(byt, p); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal file %s: %w\n", pth, err)
+			return nil, fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
 		}
 
 		// In the case that order isn't added to the path, add it manually
@@ -285,11 +285,11 @@ func cfgFilesAddPaths(dir string) (cfg *Config, err error) {
 
 		pthName := strings.Split(f.Name(), ".")[0]
 		if err = config.ValidatePath(p); err != nil {
-			return nil, fmt.Errorf("failed to validate path %s: %w\n", pth, err)
+			return nil, fmt.Errorf("failed to validate path %s: %w", pth, err)
 		}
 
 		if err = cfg.AddPath(pthName, p); err != nil {
-			return nil, fmt.Errorf("failed to add path %s: %w\n", pth, err)
+			return nil, fmt.Errorf("failed to add path %s: %w", pth, err)
 		}
 
 		fmt.Printf("added path %s...\n", pthName)
