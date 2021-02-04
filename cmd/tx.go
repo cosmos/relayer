@@ -55,7 +55,7 @@ func transactionCmd() *cobra.Command {
 		upgradeClientsCmd(),
 		upgradeChainCmd(),
 		createConnectionCmd(),
-		createChannelCmd(),
+		//createChannelCmd(),
 		closeChannelCmd(),
 		flags.LineBreak,
 		rawTransactionCmd(),
@@ -232,12 +232,12 @@ $ %s tx con demo-path -o 3s`, appName, appName, appName)),
 	return retryFlag(timeoutFlag(cmd))
 }
 
-func createChannelCmd() *cobra.Command {
+/*func createChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "channel [path-name]",
 		Aliases: []string{"chan", "ch"},
 		Short:   "create a channel between two configured chains with a configured path",
-		Long: strings.TrimSpace(`This command is meant to be used to repair or 
+		Long: strings.TrimSpace(`This command is meant to be used to repair or
 		create a channel between two chains with a configured path in the config file`),
 		Args: cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
@@ -281,7 +281,7 @@ $ %s tx ch demo-path -o 3s`, appName, appName, appName)),
 	}
 
 	return retryFlag(timeoutFlag(cmd))
-}
+}*/
 
 func closeChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
