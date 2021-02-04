@@ -184,25 +184,6 @@ func getAPICmd() *cobra.Command {
 			// Data for this should be stored in the ServicesManager struct
 			r.HandleFunc("/listen/{path}/{strategy}/{name}", PostRelayerListenHandler(sm)).Methods("POST")
 
-			// TODO: do we want to add the transaction commands here to?
-			// initial thoughts: expose high level transactions
-			// tx create-clients
-			// POST /paths/{name}/clients
-			// tx update-clients
-			// PUT /paths/{name}/clients
-			// tx connection
-			// POST /paths/{name}/connections
-			// tx channel
-			// POST /paths/{name}/channels
-			// tx link
-			// POST /paths/{name}/link
-			// tx relay-packets
-			// POST /paths/{name}/relay/packets
-			// tx relay-acks
-			// POST /paths/{name}/relay/acks
-			// tx transfer
-			// POST /paths/{name}/transfers
-
 			// TODO: listen validation in config
 			fmt.Println("listening on", config.Global.APIListenPort)
 
