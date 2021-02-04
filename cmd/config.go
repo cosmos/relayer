@@ -240,10 +240,6 @@ func cfgFilesAdd(dir string) (cfg *Config, err error) {
 			}
 
 			pthName := strings.Split(f.Name(), ".")[0]
-			if err = config.ValidatePath(p); err != nil {
-				fmt.Printf("%s: %s\n", pth, err.Error())
-				continue
-			}
 			if err = cfg.AddPath(pthName, p); err != nil {
 				fmt.Printf("%s: %s\n", pth, err.Error())
 				continue
@@ -262,6 +258,12 @@ func cfgFilesAdd(dir string) (cfg *Config, err error) {
 			continue
 		}
 		fmt.Printf("added chain %s...\n", c.ChainID)
+	}
+	for _, p := range cfg.Paths {
+		if err = config.ValidatePath(p); err != nil {
+			fmt.Println("Error occured...Config is not updated")
+			return nil, err
+		}
 	}
 	return cfg, nil
 }
