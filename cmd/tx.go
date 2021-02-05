@@ -55,7 +55,7 @@ func transactionCmd() *cobra.Command {
 		upgradeClientsCmd(),
 		upgradeChainCmd(),
 		createConnectionCmd(),
-		//createChannelCmd(),
+		createChannelCmd(),
 		closeChannelCmd(),
 		flags.LineBreak,
 		rawTransactionCmd(),
@@ -232,7 +232,8 @@ $ %s tx con demo-path -o 3s`, appName, appName, appName)),
 	return retryFlag(timeoutFlag(cmd))
 }
 
-/*func createChannelCmd() *cobra.Command {
+// Deprecated: Use linkCmd insted to create channel.
+func createChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "channel [path-name]",
 		Aliases: []string{"chan", "ch"},
@@ -281,7 +282,7 @@ $ %s tx ch demo-path -o 3s`, appName, appName, appName)),
 	}
 
 	return retryFlag(timeoutFlag(cmd))
-}*/
+}
 
 func closeChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
