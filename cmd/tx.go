@@ -232,7 +232,8 @@ $ %s tx con demo-path -o 3s`, appName, appName, appName)),
 	return retryFlag(timeoutFlag(cmd))
 }
 
-// Deprecated: Use linkCmd insted to create channel.
+// Deprecated: createChannelCmd exists for historical compatability and should not be used.
+// To create channel use linkCmd instead
 func createChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "channel [path-name]",
@@ -240,7 +241,8 @@ func createChannelCmd() *cobra.Command {
 		Short:   "create a channel between two configured chains with a configured path",
 		Long: strings.TrimSpace(`This command is meant to be used to repair or
 		create a channel between two chains with a configured path in the config file`),
-		Args: cobra.ExactArgs(1),
+		Args:       cobra.ExactArgs(1),
+		Deprecated: "Use rly tx link command to create channel",
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact channel demo-path
 $ %s tx chan demo-path --timeout 5s
