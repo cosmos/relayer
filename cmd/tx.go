@@ -232,7 +232,7 @@ $ %s tx con demo-path -o 3s`, appName, appName, appName)),
 	return retryFlag(timeoutFlag(cmd))
 }
 
-// Deprecated: createChannelCmd exists for historical compatability and should not be used.
+// Deprecated: createChannelCmd exists for historical compatibility and should not be used.
 // To create channel use linkCmd instead
 func createChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
