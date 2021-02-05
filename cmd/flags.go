@@ -32,6 +32,8 @@ var (
 	flagTimeoutHeightOffset = "timeout-height-offset"
 	flagTimeoutTimeOffset   = "timeout-time-offset"
 	flagMaxRetries          = "max-retries"
+	flagTimeInterval        = "time-interval"
+	flagThresholdTime       = "time-threshold"
 )
 
 func ibcDenomFlags(cmd *cobra.Command) *cobra.Command {
@@ -255,6 +257,18 @@ func getAddInputs(cmd *cobra.Command) (file string, url string, err error) {
 func retryFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Uint64P(flagMaxRetries, "r", 3, "maximum retries after failed message send")
 	if err := viper.BindPFlag(flagMaxRetries, cmd.Flags().Lookup(flagMaxRetries)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func updateTimeFlags(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().DurationP(flagTimeInterval, "i", 60*time.Second, "time interval to run update client process")
+	cmd.Flags().Float64P(flagThresholdTime, "n", 10, "update client n minutes before to expiry time")
+	if err := viper.BindPFlag(flagTimeInterval, cmd.Flags().Lookup(flagTimeInterval)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flagThresholdTime, cmd.Flags().Lookup(flagThresholdTime)); err != nil {
 		panic(err)
 	}
 	return cmd
