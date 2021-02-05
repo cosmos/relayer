@@ -166,7 +166,7 @@ func GetClientAndUpdate(src, dst *relayer.Chain) error {
 	}
 
 	consensusState, ok := exportedConsState.(*ibctmtypes.ConsensusState)
-	if err != nil {
+	if !ok {
 		return fmt.Errorf("error: consensus state is not tendermint type on chain %s", src.PathEnd.ChainID)
 	}
 
@@ -175,7 +175,7 @@ func GetClientAndUpdate(src, dst *relayer.Chain) error {
 	checkExpiryTime := viper.GetFloat64(flagThresholdTime)
 
 	// Checking expiration time is below 10minutes to current time
-	if expirationTime.After(time.Now()) && expirationTime.Sub(time.Now()).Minutes() <= checkExpiryTime {
+	if expirationTime.After(time.Now()) && time.Until(expirationTime).Minutes() <= checkExpiryTime {
 		sh, err := relayer.NewSyncHeaders(src, dst)
 		if err != nil {
 			return err
