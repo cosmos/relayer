@@ -55,7 +55,6 @@ func transactionCmd() *cobra.Command {
 		upgradeClientsCmd(),
 		upgradeChainCmd(),
 		createConnectionCmd(),
-		createChannelCmd(),
 		closeChannelCmd(),
 		flags.LineBreak,
 		rawTransactionCmd(),
@@ -232,60 +231,6 @@ $ %s tx con demo-path -o 3s`, appName, appName, appName)),
 	return retryFlag(timeoutFlag(cmd))
 }
 
-// Deprecated: createChannelCmd exists for historical compatibility and should not be used.
-// To create channel use linkCmd instead
-func createChannelCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "channel [path-name]",
-		Aliases: []string{"chan", "ch"},
-		Short:   "create a channel between two configured chains with a configured path",
-		Long: strings.TrimSpace(`This command is meant to be used to repair or
-		create a channel between two chains with a configured path in the config file`),
-		Args:       cobra.ExactArgs(1),
-		Deprecated: "Use rly tx link command to create channel",
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s transact channel demo-path
-$ %s tx chan demo-path --timeout 5s
-$ %s tx ch demo-path -o 3s`, appName, appName, appName)),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := config.ChainsFromPath(args[0])
-			if err != nil {
-				return err
-			}
-
-			to, err := getTimeout(cmd)
-			if err != nil {
-				return err
-			}
-
-			retries, err := cmd.Flags().GetUint64(flagMaxRetries)
-			if err != nil {
-				return err
-			}
-
-			// ensure that keys exist
-			if _, err = c[src].GetAddress(); err != nil {
-				return err
-			}
-			if _, err = c[dst].GetAddress(); err != nil {
-				return err
-			}
-
-			modified, err := c[src].CreateOpenChannels(c[dst], retries, to)
-			if modified {
-				if err := overWriteConfig(cmd, config); err != nil {
-					return err
-				}
-			}
-
-			return err
-
-		},
-	}
-
-	return retryFlag(timeoutFlag(cmd))
-}
-
 func closeChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "channel-close [path-name]",
@@ -327,7 +272,7 @@ $ %s tx close demo-path -o 3s`, appName, appName, appName, appName)),
 func linkCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "link [path-name]",
-		Aliases: []string{"full-path", "connect", "path", "pth"},
+		Aliases: []string{"full-path", "connect", "path", "pth", "channel"},
 		Short:   "create clients, connection, and channel between two configured chains with a configured path",
 		Args:    cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
@@ -335,7 +280,8 @@ $ %s transact link demo-path
 $ %s tx full-path demo-path --timeout 5s
 $ %s tx connect demo-path
 $ %s tx path demo-path -o 3s
-$ %s tx pth demo-path`, appName, appName, appName, appName, appName)),
+$ %s tx channel demo-path
+$ %s tx pth demo-path`, appName, appName, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {

@@ -92,7 +92,6 @@ NOTE: Most of the commands have aliases that make typing them much quicker (i.e.
     - [rly testnets request](#rly-testnets-request)
   - [rly transact](#rly-transact)
     - [rly transact channel-close](#rly-transact-channel-close)
-    - [rly transact channel](#rly-transact-channel)
     - [rly transact clients](#rly-transact-clients)
     - [rly transact connection](#rly-transact-connection)
     - [rly transact link](#rly-transact-link)
@@ -1147,7 +1146,6 @@ Commands to create IBC transactions on configured chains. Most of these commands
 
 ### Subcommands
 
-* [rly transact channel](#rly-transact-channel)	 - create a channel between two configured chains with a configured path
 * [rly transact channel-close](#rly-transact-channel-close)	 - close a channel between two configured chains with a configured path
 * [rly transact clients](#rly-transact-clients)	 - create a clients between two configured chains with a configured path
 * [rly transact connection](#rly-transact-connection)	 - create a connection between two configured chains with a configured path
@@ -1167,25 +1165,6 @@ This command is meant to close a channel
 
 ```
 rly transact channel-close [path-name] [flags]
-```
-
-### Options
-
-```
-  -o, --timeout string   timeout between relayer runs (default "10s")
-```
-
-
-## rly transact channel
-
-create a channel between two configured chains with a configured path
-
-### Synopsis
-
-This command is meant to be used to repair or create a channel between two chains with a configured path in the config file
-
-```
-rly transact channel [path-name] [flags]
 ```
 
 ### Options
