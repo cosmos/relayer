@@ -31,11 +31,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// var (
-// 	// defaultTime to return when there is error or client didn't exists.
-// 	defaultTime time.Duration = time.Minute * 1
-// )
-
 // startCmd represents the start command
 // NOTE: This is basically psuedocode
 func startCmd() *cobra.Command {
