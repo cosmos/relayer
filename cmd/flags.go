@@ -32,7 +32,6 @@ var (
 	flagTimeoutHeightOffset = "timeout-height-offset"
 	flagTimeoutTimeOffset   = "timeout-time-offset"
 	flagMaxRetries          = "max-retries"
-	flagTimeInterval        = "time-interval"
 	flagThresholdTime       = "time-threshold"
 )
 
@@ -263,11 +262,7 @@ func retryFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func updateTimeFlags(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().DurationP(flagTimeInterval, "i", 60*time.Second, "time interval to run update client process")
-	cmd.Flags().Float64P(flagThresholdTime, "n", 10, "update client n minutes before to expiry time")
-	if err := viper.BindPFlag(flagTimeInterval, cmd.Flags().Lookup(flagTimeInterval)); err != nil {
-		panic(err)
-	}
+	cmd.Flags().DurationP(flagThresholdTime, "n", 6*time.Hour, "time before to expiry time to update client")
 	if err := viper.BindPFlag(flagThresholdTime, cmd.Flags().Lookup(flagThresholdTime)); err != nil {
 		panic(err)
 	}

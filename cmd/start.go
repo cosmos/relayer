@@ -24,15 +24,17 @@ import (
 	"syscall"
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	clientutils "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/client/utils"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	retry "github.com/avast/retry-go"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
 )
+
+// var (
+// 	// defaultTime to return when there is error or client didn't exists.
+// 	defaultTime time.Duration = time.Minute * 1
+// )
 
 // startCmd represents the start command
 // NOTE: This is basically psuedocode
@@ -77,17 +79,26 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				return err
 			}
 
-			timeInterval := viper.GetDuration(flagTimeInterval)
-
-			go func() {
+			eg := new(errgroup.Group)
+			eg.Go(func() error {
 				for {
-					// run for every 60 seconds
-					if err := UpdateClientsFromChains(c[src], c[dst]); err != nil {
-						fmt.Printf("Error in updating clients....%v", err)
+					var sleepTime time.Duration
+					if err := retry.Do(func() error {
+						sleepTime, err = UpdateClientsFromChains(c[src], c[dst])
+						if err != nil {
+							return err
+						}
+						return nil
+					}, retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true)); err != nil {
+						return err
 					}
-					time.Sleep(timeInterval)
+					time.Sleep(sleepTime)
 				}
-			}()
+			})
+
+			if err = eg.Wait(); err != nil {
+				return err
+			}
 
 			trapSignal(done)
 			return nil
@@ -112,96 +123,42 @@ func trapSignal(done func()) {
 }
 
 // UpdateClientsFromChains takes src, dst chains and update clients based on expiry time
-func UpdateClientsFromChains(src, dst *relayer.Chain) (err error) {
-	if src.PathEnd.ClientID == "" || dst.PathEnd.ClientID == "" {
-		return nil
-	}
+func UpdateClientsFromChains(src, dst *relayer.Chain) (sleepTime time.Duration, err error) {
+	var srcTimeExpiry, dstTimeExpiry time.Duration
+
+	thresholdTime := viper.GetDuration(flagThresholdTime)
+
 	eg := new(errgroup.Group)
 	eg.Go(func() error {
-		err = GetClientAndUpdate(src, dst)
+		srcTimeExpiry, err = relayer.GetClientAndUpdate(src, dst, thresholdTime)
 		return err
 	})
 	eg.Go(func() error {
-		err = GetClientAndUpdate(dst, src)
+		dstTimeExpiry, err = relayer.GetClientAndUpdate(dst, src, thresholdTime)
 		return err
 	})
-	err = eg.Wait()
-	return err
-}
-
-// GetClientAndUpdate update clients to prevent expiry
-func GetClientAndUpdate(src, dst *relayer.Chain) error {
-	height, err := src.QueryLatestHeight()
-	if err != nil {
-		return err
+	if err := eg.Wait(); err != nil {
+		return 0, err
 	}
 
-	clientStateRes, err := src.QueryClientState(height)
-	if err != nil {
-		return err
-	}
+	if srcTimeExpiry > 0 {
+		if dstTimeExpiry > 0 {
+			if srcTimeExpiry < dstTimeExpiry {
+				sleepTime = srcTimeExpiry - thresholdTime
 
-	// unpack any into ibc tendermint client state
-	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
-	if err != nil {
-		return err
-	}
-
-	// cast from interface to concrete type
-	clientState, ok := clientStateExported.(*ibctmtypes.ClientState)
-	if !ok {
-		return fmt.Errorf("error when casting exported clientstate on chain: %s", src.PathEnd.ClientID)
-	}
-
-	// query the latest consensus state of the potential matching client
-	consensusStateResp, err := clientutils.QueryConsensusStateABCI(src.CLIContext(0),
-		src.PathEnd.ClientID, clientState.GetLatestHeight())
-	if err != nil {
-		return err
-	}
-
-	exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
-	if err != nil {
-		return err
-	}
-
-	consensusState, ok := exportedConsState.(*ibctmtypes.ConsensusState)
-	if !ok {
-		return fmt.Errorf("error: consensus state is not tendermint type on chain %s", src.PathEnd.ChainID)
-	}
-
-	expirationTime := consensusState.Timestamp.Add(clientState.TrustingPeriod)
-
-	checkExpiryTime := viper.GetFloat64(flagThresholdTime)
-
-	// Checking expiration time is below 10minutes to current time
-	if expirationTime.After(time.Now()) && time.Until(expirationTime).Minutes() <= checkExpiryTime {
-		sh, err := relayer.NewSyncHeaders(src, dst)
-		if err != nil {
-			return err
+			} else {
+				sleepTime = dstTimeExpiry - thresholdTime
+			}
+		} else {
+			sleepTime = srcTimeExpiry - thresholdTime
 		}
-
-		dstUH, err := sh.GetTrustedHeader(dst, src)
-		if err != nil {
-			return err
+	} else {
+		if dstTimeExpiry > 0 {
+			sleepTime = dstTimeExpiry - thresholdTime
+		} else {
+			return 0, fmt.Errorf("seems clients of both src:%s and dst:%s are expired",
+				src.PathEnd.ChainID, dst.PathEnd.ChainID)
 		}
-
-		msgs := []sdk.Msg{
-			src.UpdateClient(dstUH),
-		}
-
-		_, _, err = src.SendMsgs(msgs)
-		if err != nil {
-			return err
-		}
-		src.Log(fmt.Sprintf("★ Client updated: [%s]client(%s) {%d}->{%d}",
-			src.ChainID,
-			src.PathEnd.ClientID,
-			relayer.MustGetHeight(dstUH.TrustedHeight),
-			dstUH.Header.Height,
-		))
-	} else if !expirationTime.After(time.Now()) {
-		fmt.Printf("Client is already expired on chain: %s", src.ChainID)
 	}
-	return nil
+	return sleepTime, nil
 }
