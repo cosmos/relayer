@@ -66,7 +66,7 @@ const (
 // Middleware calls initConfig for every request
 func Middleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = initConfig(rootCmd)
+		_ = initConfig(NewRootCmd())
 		h.ServeHTTP(w, r)
 	})
 }
@@ -87,96 +87,95 @@ func getAPICmd() *cobra.Command {
 
 			// VERSION
 			// version get
-			r.HandleFunc(fmt.Sprintf("/%s", version), VersionHandler).Methods("GET")
+			r.HandleFunc("/version", VersionHandler).Methods("GET")
 			// CONFIG
 			// config get
-			r.HandleFunc(fmt.Sprintf("/%s", cfg), ConfigHandler).Methods("GET")
+			r.HandleFunc("/config", ConfigHandler).Methods("GET")
 			// CHAINS
 			// chains get
-			r.HandleFunc(fmt.Sprintf("/%s", chains), GetChainsHandler).Methods("GET")
+			r.HandleFunc("/chains", GetChainsHandler).Methods("GET")
 			// chain get
-			r.HandleFunc(fmt.Sprintf("/%s/%s", chains, nameArg), GetChainHandler).Methods("GET")
+			r.HandleFunc("/chains/{name}", GetChainHandler).Methods("GET")
 			// chain status get
-			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", chains, nameArg, status), GetChainStatusHandler).Methods("GET")
+			r.HandleFunc("/chains/{name}/status", GetChainStatusHandler).Methods("GET")
 			// chain add
 			// NOTE: when updating the config, we need to update the global config object ()
 			// as well as the file on disk updating the file on disk may cause contention, just
 			// retry the `file.Open` until the file can be opened, rewrite it with the new config
 			// and close it
-			r.HandleFunc(fmt.Sprintf("/%s/%s", chains, nameArg), PostChainHandler).Methods("POST")
+			r.HandleFunc("/chains/{name}", PostChainHandler).Methods("POST")
 			// chain update
-			r.HandleFunc(fmt.Sprintf("/%s/%s", chains, nameArg), PutChainHandler).Methods("PUT")
+			r.HandleFunc("/chains/{name}", PutChainHandler).Methods("PUT")
 			// chain delete
-			r.HandleFunc(fmt.Sprintf("/%s/%s", chains, nameArg), DeleteChainHandler).Methods("DELETE")
+			r.HandleFunc("/chains/{name}", DeleteChainHandler).Methods("DELETE")
 			// PATHS
 			// paths get
-			r.HandleFunc(fmt.Sprintf("/%s", paths), GetPathsHandler).Methods("GET")
+			r.HandleFunc("/paths", GetPathsHandler).Methods("GET")
 			// path get
-			r.HandleFunc(fmt.Sprintf("/%s/%s", paths, nameArg), GetPathHandler).Methods("GET")
+			r.HandleFunc("/paths/{name}", GetPathHandler).Methods("GET")
 			// path status get
-			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", paths, nameArg, status), GetPathStatusHandler).Methods("GET")
+			r.HandleFunc("/paths/{name}/status", GetPathStatusHandler).Methods("GET")
 			// path add
-			r.HandleFunc(fmt.Sprintf("/%s/%s", paths, nameArg), PostPathHandler).Methods("POST")
+			r.HandleFunc("/paths/{name}", PostPathHandler).Methods("POST")
 			// path delete
-			r.HandleFunc(fmt.Sprintf("/%s/%s", paths, nameArg), DeletePathHandler).Methods("DELETE")
+			r.HandleFunc("/paths/{name}", DeletePathHandler).Methods("DELETE")
 			// KEYS
 			// keys get
-			r.HandleFunc(fmt.Sprintf("/%s/%s", keys, chainIDArg), GetKeysHandler).Methods("GET")
+			r.HandleFunc("/keys/{chain-id}", GetKeysHandler).Methods("GET")
 			// key get
-			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", keys, chainIDArg, nameArg), GetKeyHandler).Methods("GET")
+			r.HandleFunc("/keys/{chain-id}/{name}", GetKeyHandler).Methods("GET")
 			// key add
-			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", keys, chainIDArg, nameArg), PostKeyHandler).Methods("POST")
+			r.HandleFunc("/keys/{chain-id}/{name}", PostKeyHandler).Methods("POST")
 			// key delete
-			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", keys, chainIDArg, nameArg), DeleteKeyHandler).Methods("DELETE")
+			r.HandleFunc("/keys/{chain-id}/{name}", DeleteKeyHandler).Methods("DELETE")
 			// key restore
-			r.HandleFunc(fmt.Sprintf("/%s/%s/%s/restore", keys, chainIDArg, nameArg), RestoreKeyHandler).Methods("POST")
+			r.HandleFunc("/keys/{chain-id}/{name}/restore", RestoreKeyHandler).Methods("POST")
 			// LIGHT
 			// light header, if no ?height={height} is passed, latest
-			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", lightPath, chainIDArg, header), GetLightHeader).Methods("GET")
+			r.HandleFunc("/light/{chain-id}/header", GetLightHeader).Methods("GET")
 			// light height
-			r.HandleFunc(fmt.Sprintf("/%s/%s/%s", lightPath, chainIDArg, height), GetLightHeight).Methods("GET")
+			r.HandleFunc("/light/{chain-id}/height", GetLightHeight).Methods("GET")
 			// light create
-			r.HandleFunc(fmt.Sprintf("/%s/%s", lightPath, chainIDArg), PostLight).Methods("POST")
+			r.HandleFunc("/light/{chain-id}", PostLight).Methods("POST")
 			// light update
-			r.HandleFunc(fmt.Sprintf("/%s/%s", lightPath, chainIDArg), PutLight).Methods("PUT")
+			r.HandleFunc("/light/{chain-id}", PutLight).Methods("PUT")
 			// light delete
-			r.HandleFunc(fmt.Sprintf("/%s/%s", lightPath, chainIDArg), DeleteLight).Methods("DELETE")
+			r.HandleFunc("/light/{chain-id}", DeleteLight).Methods("DELETE")
 			// QUERY
 			// query account info for an address
-			r.HandleFunc(fmt.Sprintf("/%s/%s/account/{address}", query, chainIDArg), QueryAccountHandler).Methods("GET")
+			r.HandleFunc("/query/{chain-id}/account/{address}", QueryAccountHandler).Methods("GET")
 			// query balance info for an address, if ibc-denoms=true?, then display ibc denominations
-			r.HandleFunc(fmt.Sprintf("/%s/%s/balance/{address}", query, chainIDArg), QueryBalanceHandler).Methods("GET")
+			r.HandleFunc("/query/{chain-id}/balance/{address}", QueryBalanceHandler).Methods("GET")
 			// query header at height, if no ?height={height} is passed, latest
-			r.HandleFunc(fmt.Sprintf("/%s/%s/header", query, chainIDArg), QueryHeaderHandler).Methods("GET")
+			r.HandleFunc("/query/{chain-id}/header", QueryHeaderHandler).Methods("GET")
 			// query node-state
-			r.HandleFunc(fmt.Sprintf("/%s/%s/node-state", query, chainIDArg), QueryNodeStateHandler).Methods("GET")
+			r.HandleFunc("/query/{chain-id}/node-state", QueryNodeStateHandler).Methods("GET")
 			// query valset at height, if no ?height={height} is passed, latest
-			r.HandleFunc(fmt.Sprintf("/%s/%s/valset", query, chainIDArg), QueryValSetHandler).Methods("GET")
+			r.HandleFunc("/query/{chain-id}/valset", QueryValSetHandler).Methods("GET")
 			// query txs passing in a query via POST request
-			r.HandleFunc(fmt.Sprintf("/%s/%s/txs", query, chainIDArg), QueryTxsHandler).Methods("POST")
+			r.HandleFunc("/query/{chain-id}/txs", QueryTxsHandler).Methods("POST")
 			// query tx by hash
-			r.HandleFunc(fmt.Sprintf("/%s/%s/tx/{hash}", query, chainIDArg), QueryTxHandler).Methods("GET")
+			r.HandleFunc("/query/{chain-id}/tx/{hash}", QueryTxHandler).Methods("GET")
 			// query client by chain-id and client-id, if no ?height={height} is passed, latest
-			r.HandleFunc(fmt.Sprintf("/%s/%s/clients/{client-id}", query, chainIDArg), QueryClientHandler).Methods("GET")
+			r.HandleFunc("/query/{chain-id}/clients/{client-id}", QueryClientHandler).Methods("GET")
 			// query clients by chain-id with pagination (offset and limit query params)
-			r.HandleFunc(fmt.Sprintf("/%s/%s/clients", query, chainIDArg), QueryClientsHandler).Methods("GET")
+			r.HandleFunc("/query/{chain-id}/clients", QueryClientsHandler).Methods("GET")
 			// query connection by chain-id and conn-id, if no ?height={height} is passed, latest
-			r.HandleFunc(fmt.Sprintf("/%s/%s/connections/{conn-id}", query, chainIDArg), QueryConnectionHandler).Methods("GET")
+			r.HandleFunc("/query/{chain-id}/connections/{conn-id}", QueryConnectionHandler).Methods("GET")
 			// query connections by chain-id with pagination (offset and limit query params)
-			r.HandleFunc(fmt.Sprintf("/%s/%s/connections", query, chainIDArg), QueryConnectionsHandler).Methods("GET")
+			r.HandleFunc("/query/{chain-id}/connections", QueryConnectionsHandler).Methods("GET")
 			// query connections by chain-id and client-id, if no ?height={height} is passed, latest
-			r.HandleFunc(fmt.Sprintf("/%s/%s/connections/client/{client-id}", query, chainIDArg),
+			r.HandleFunc("/query/{chain-id}/connections/client/{client-id}",
 				QueryClientConnectionsHandler).Methods("GET")
 			// query channel by chain-id chan-id and port-id, if no ?height={height} is passed, latest
-			r.HandleFunc(fmt.Sprintf("/%s/%s/channels/{chan-id}/{port-id}", query, chainIDArg),
+			r.HandleFunc("/query/{chain-id}/channels/{chan-id}/{port-id}",
 				QueryChannelHandler).Methods("GET")
 			// query channels by chain-id with pagination (offset and limit query params)
-			r.HandleFunc(fmt.Sprintf("/%s/%s/channels", query, chainIDArg), QueryChannelsHandler).Methods("GET")
+			r.HandleFunc("/query/{chain-id}/channels", QueryChannelsHandler).Methods("GET")
 			// query channels by chain-id and conn-id with pagination (offset and limit query params)
-			r.HandleFunc(fmt.Sprintf("/%s/%s/channels/connection/{conn-id}", query, chainIDArg),
-				QueryConnectionChannelsHandler).Methods("GET")
+			r.HandleFunc("/query/{chain-id}/channels/connection/{conn-id}", QueryConnectionChannelsHandler).Methods("GET")
 			// query a chain's ibc denoms
-			r.HandleFunc(fmt.Sprintf("/%s/%s/ibc-denoms", query, chainIDArg), QueryIBCDenomsHandler).Methods("GET")
+			r.HandleFunc("/query/{chain-id}/ibc-denoms", QueryIBCDenomsHandler).Methods("GET")
 
 			// TODO: this particular function needs some work, we need to listen on chains in configuration and
 			// route all the events (both block and tx) though and event bus to allow for multiple subscribers
@@ -184,10 +183,12 @@ func getAPICmd() *cobra.Command {
 			// Data for this should be stored in the ServicesManager struct
 			r.HandleFunc("/listen/{path}/{strategy}/{name}", PostRelayerListenHandler(sm)).Methods("POST")
 
-			// TODO: listen validation in config
-			fmt.Println("listening on", config.Global.APIListenPort)
+			if err := http.ListenAndServe(config.Global.APIListenPort, r); err != nil {
+				return err
+			}
 
-			return http.ListenAndServe(config.Global.APIListenPort, r)
+			fmt.Println("listening on", config.Global.APIListenPort)
+			return nil
 		},
 	}
 	return apiCmd
@@ -619,7 +620,7 @@ func QueryIBCDenomsHandler(w http.ResponseWriter, r *http.Request) {
 func PostRelayerListenHandler(sm *ServicesManager) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		// TODO: check name to ensure that no other servies exist
+		// TODO: check name to ensure that no other services exist
 		// TODO: make this handler accept a json post argument
 		pth, err := config.Paths.Get(vars["path"])
 		if err != nil {

@@ -26,6 +26,7 @@ import (
 
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/helpers"
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
@@ -33,7 +34,7 @@ import (
 
 const (
 	flagCoinType           = "coin-type"
-	defaultCoinType uint32 = 118
+	defaultCoinType uint32 = sdk.CoinType
 )
 
 // keysCmd represents the keys command
