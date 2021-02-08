@@ -446,7 +446,7 @@ clients)
 
   echo "Generating rly configurations..."
   rly config init
-  rly config add-dir "$BASEDIR/config/"
+  rly config add-chains "$BASEDIR/config/chains"
 
   sleep 2
 
@@ -490,6 +490,7 @@ clients)
 
   # Let all our chains initialise.
   wait
+  rly config add-paths "$BASEDIR/config/paths"
 
   for i in ${!IDS[@]}; do
     ID=${IDS[$i]}
@@ -618,7 +619,7 @@ if [[ -e $BASEDIR ]] && [[ $SKIP != yes ]]; then
 fi
 
 rm -rf "$BASEDIR"
-mkdir -p "$BASEDIR/config" "$LOGS"
+mkdir -p "$BASEDIR/config/paths" "$BASEDIR/config/chains" "$LOGS"
 
 echo "creating $NCONFIG"
 cat <<EOF >"$NCONFIG"
@@ -639,7 +640,7 @@ for i in ${!IDS[@]}; do
   id=${IDS[$i]}
   json=${JSONS[$i]}
   p26657=$(( 26657 - $i * 100 ))
-  out="$BASEDIR/config/$id.json"
+  out="$BASEDIR/config/chains/$id.json"
   echo "creating $out"
   jq ".link + { \"chain-id\": \"$id\", \"rpc-addr\": \"http://localhost:$p26657\", \"key\": \"testkey\" }" "$json" \
     > "$out"
@@ -653,7 +654,7 @@ for i in ${!SRCS[@]}; do
   dstport=${DSTPORTS[$i]}
 
   path="path-$i"
-  out="$BASEDIR/config/$path.json"
+  out="$BASEDIR/config/paths/$path.json"
   echo "creating $out"
   cat >"$out" <<EOF
 {

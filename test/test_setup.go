@@ -121,7 +121,7 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 	}
 
 	// initialize the chain
-	require.NoError(t, c.Init(dir, tc.t.timeout, debug))
+	require.NoError(t, c.Init(dir, tc.t.timeout, nil, debug))
 
 	// create the test key
 	require.NoError(t, c.CreateTestKey())
