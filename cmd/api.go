@@ -48,21 +48,6 @@ func NewService(name, path string, src, dst *relayer.Chain, doneFunc func()) *Se
 	return &Service{name, path, src.ChainID, src.Key, dst.ChainID, dst.Key, doneFunc}
 }
 
-const (
-	version    = "version"
-	cfg        = "config"
-	chains     = "chains"
-	paths      = "paths"
-	keys       = "keys"
-	nameArg    = "{name}"
-	status     = "status"
-	header     = "header"
-	height     = "height"
-	query      = "query"
-	lightPath  = "light"
-	chainIDArg = "{chain-id}"
-)
-
 // Middleware calls initConfig for every request
 func Middleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
