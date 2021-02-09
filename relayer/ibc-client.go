@@ -1,6 +1,8 @@
 package relayer
 
 import (
+	"fmt"
+
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
@@ -110,7 +112,7 @@ func (c *Chain) InjectTrustedFields(dst *Chain, header *tmclient.Header) (*tmcli
 	// query TrustedValidators at Trusted Height from srcChain
 	trustedHeader, err := c.GetLightSignedHeaderAtHeight(int64(h.TrustedHeight.RevisionHeight))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get trusted header, please ensure the connected node is pruning nothing: %w", err)
 	}
 
 	// inject TrustedValidators into header

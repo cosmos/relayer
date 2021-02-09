@@ -86,6 +86,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 
 	} else {
 		// Ensure client exists in the event of user inputted identifiers
+		// TODO: check client is not expired
 		_, err := c.QueryClientState(srcUpdateHeader.Header.Height)
 		if err != nil {
 			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
@@ -148,6 +149,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 
 	} else {
 		// Ensure client exists in the event of user inputted identifiers
+		// TODO: check client is not expired
 		_, err := dst.QueryClientState(dstUpdateHeader.Header.Height)
 		if err != nil {
 			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
