@@ -103,7 +103,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	}
 
 	// Query Connection data from src and dst
-	srcConn, dstConn, err = QueryConnectionPair(src, dst, int64(srcUpdateHeader.GetHeight().GetRevisionHeight())-1,
+	srcConn, dstConn, err = QueryConnectionPair(src, dst, int64(src.MustGetLatestLightHeight())-1,
 		int64(dstUpdateHeader.GetHeight().GetRevisionHeight())-1)
 	if err != nil {
 		return false, false, false, err
@@ -119,7 +119,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
 
-		openTry, err := src.ConnTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
+		openTry, err := src.ConnTry(dst)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -142,7 +142,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
 
-		openAck, err := src.ConnAck(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
+		openAck, err := src.ConnAck(dst)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -164,7 +164,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(dst, src, dstConn, srcConn)
 		}
 
-		openAck, err := dst.ConnAck(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1)
+		openAck, err := dst.ConnAck(src)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -267,7 +267,7 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 
 		connectionID, found := FindMatchingConnection(src, dst)
 		if !found {
-			openTry, err := src.ConnTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
+			openTry, err := src.ConnTry(dst)
 			if err != nil {
 				return false, false, err
 			}
@@ -302,7 +302,7 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 
 		connectionID, found := FindMatchingConnection(dst, src)
 		if !found {
-			openTry, err := dst.ConnTry(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1)
+			openTry, err := dst.ConnTry(src)
 			if err != nil {
 				return false, false, err
 			}

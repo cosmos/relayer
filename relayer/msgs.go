@@ -77,10 +77,9 @@ func (c *Chain) ConnInit(counterparty *PathEnd) sdk.Msg {
 // ConnTry creates a MsgConnectionOpenTry
 func (c *Chain) ConnTry(
 	counterparty *Chain,
-	height uint64,
 ) (sdk.Msg, error) {
 	clientState, clientStateProof, consensusStateProof, connStateProof,
-		proofHeight, err := counterparty.GenerateConnHandshakeProof(height)
+		proofHeight, err := counterparty.GenerateConnHandshakeProof(uint64(counterparty.MustGetLatestLightHeight()) - 1)
 	if err != nil {
 		return nil, err
 	}
@@ -111,10 +110,9 @@ func (c *Chain) ConnTry(
 // ConnAck creates a MsgConnectionOpenAck
 func (c *Chain) ConnAck(
 	counterparty *Chain,
-	height uint64,
 ) (sdk.Msg, error) {
 	clientState, clientStateProof, consensusStateProof, connStateProof,
-		proofHeight, err := counterparty.GenerateConnHandshakeProof(height)
+		proofHeight, err := counterparty.GenerateConnHandshakeProof(uint64(counterparty.MustGetLatestLightHeight() - 1))
 	if err != nil {
 		return nil, err
 	}
@@ -158,10 +156,9 @@ func (c *Chain) ChanInit(counterparty *PathEnd) sdk.Msg {
 // ChanTry creates a MsgChannelOpenTry
 func (c *Chain) ChanTry(
 	counterparty *Chain,
-	height uint64,
 ) (sdk.Msg, error) {
 	// obtain proof from counterparty chain
-	counterpartyChannelRes, err := counterparty.QueryChannel(int64(height))
+	counterpartyChannelRes, err := counterparty.QueryChannel(counterparty.MustGetLatestLightHeight() - 1)
 	if err != nil {
 		return nil, err
 	}
@@ -185,10 +182,9 @@ func (c *Chain) ChanTry(
 // ChanAck creates a MsgChannelOpenAck
 func (c *Chain) ChanAck(
 	counterparty *Chain,
-	height uint64,
 ) (sdk.Msg, error) {
 	// obtain proof from counterparty chain
-	counterpartyChannelRes, err := counterparty.QueryChannel(int64(height))
+	counterpartyChannelRes, err := counterparty.QueryChannel(counterparty.MustGetLatestLightHeight() - 1)
 	if err != nil {
 		return nil, err
 	}

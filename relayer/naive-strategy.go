@@ -56,9 +56,13 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 		eg           = new(errgroup.Group)
 		srcPacketSeq = []uint64{}
 		dstPacketSeq = []uint64{}
-		err          error
 		rs           = &RelaySequences{Src: []uint64{}, Dst: []uint64{}}
 	)
+
+	_, _, err := UpdateLightClients(src, dst)
+	if err != nil {
+		return nil, err
+	}
 
 	eg.Go(func() error {
 		var res *chantypes.QueryPacketCommitmentsResponse
@@ -712,8 +716,8 @@ func relayPacketsFromResultTx(src, dst *Chain, res *ctypes.ResultTx) ([]relayPac
 				}
 			}
 
-			// fetch the header which represents a block produced on source
-			block, err := dst.GetIBCUpdateHeader(src)
+			// fetch the header which represents a block produced on destination
+			block, err := src.GetIBCUpdateHeader(dst)
 			if err != nil {
 				return nil, nil, err
 			}

@@ -29,23 +29,6 @@ import (
 // on the Chain struct that users could pass in the config??)
 var logger = light.Logger(log.NewTMLogger(log.NewSyncWriter(ioutil.Discard)))
 
-// UpdatesWithHeaders calls UpdateLightWithHeader on the passed chains concurrently
-func QueryLatestLightHeaders(src, dst *Chain) (srch, dsth *tmclient.Header, err error) {
-	var eg = new(errgroup.Group)
-	eg.Go(func() error {
-		srch, err = src.QueryLatestHeader()
-		return err
-	})
-	eg.Go(func() error {
-		dsth, err = dst.QueryLatestHeader()
-		return err
-	})
-	if err := eg.Wait(); err != nil {
-		return nil, nil, err
-	}
-	return srch, dsth, nil
-}
-
 func lightError(err error) error { return fmt.Errorf("light client: %w", err) }
 
 // UpdateLightClients updates the off-chain tendermint light clients concurrently.

@@ -278,7 +278,7 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 				continue
 			}
 
-			header, err := counterparty.QueryHeaderAtHeight(int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
+			header, err := counterparty.GetLightSignedHeaderAtHeight(int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
 			if err != nil {
 				if source.debug {
 					source.Log(fmt.Sprintf("Error: failed to query header for chain %s at height %d: %v",

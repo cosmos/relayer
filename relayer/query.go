@@ -689,15 +689,6 @@ func QueryLatestHeights(src, dst *Chain) (srch, dsth int64, err error) {
 	return
 }
 
-// QueryLatestHeader returns the latest header from the chain
-func (c *Chain) QueryLatestHeader() (out *tmclient.Header, err error) {
-	var h int64
-	if h, err = c.QueryLatestHeight(); err != nil {
-		return nil, err
-	}
-	return c.QueryHeaderAtHeight(h)
-}
-
 // QueryHeaderAtHeight returns the header at a given height
 func (c *Chain) QueryHeaderAtHeight(height int64) (*tmclient.Header, error) {
 	var (

@@ -134,7 +134,7 @@ $ %s q txs ibc-0 "message.action=transfer"`, appName, appName)),
 				return err
 			}
 
-			h, err := chain.UpdateLightWithHeader()
+			_, err = chain.UpdateLightClient()
 			if err != nil {
 				return err
 			}
@@ -149,7 +149,7 @@ $ %s q txs ibc-0 "message.action=transfer"`, appName, appName)),
 				return err
 			}
 
-			txs, err := chain.QueryTxs(relayer.MustGetHeight(h.GetHeight()), int(offset), int(limit), events)
+			txs, err := chain.QueryTxs(uint64(chain.MustGetLatestLightHeight()), int(offset), int(limit), events)
 			if err != nil {
 				return err
 			}
@@ -291,7 +291,7 @@ $ %s q hdr ibc-1`, appName, appName, appName)),
 
 			switch len(args) {
 			case 1:
-				header, err = chain.QueryLatestHeader()
+				header, err = chain.GetLightSignedHeaderAtHeight(0)
 				if err != nil {
 					return err
 				}
@@ -300,17 +300,6 @@ $ %s q hdr ibc-1`, appName, appName, appName)),
 				height, err = strconv.ParseInt(args[1], 10, 64) //convert to int64
 				if err != nil {
 					return err
-				}
-
-				if height == 0 {
-					height, err = chain.QueryLatestHeight()
-					if err != nil {
-						return err
-					}
-
-					if height == -1 {
-						return relayer.ErrLightNotInitialized
-					}
 				}
 
 				header, err = chain.QueryHeaderAtHeight(height)
@@ -775,17 +764,12 @@ $ %s q pkts demo-path`, appName, appName, appName)),
 				return err
 			}
 
-			sh, err := relayer.NewSyncHeaders(c[src], c[dst])
-			if err != nil {
-				return err
-			}
-
 			strategy, err := path.GetStrategy()
 			if err != nil {
 				return err
 			}
 
-			sp, err := strategy.UnrelayedSequences(c[src], c[dst], sh)
+			sp, err := strategy.UnrelayedSequences(c[src], c[dst])
 			if err != nil {
 				return err
 			}

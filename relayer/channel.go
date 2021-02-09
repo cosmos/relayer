@@ -120,7 +120,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
 
-		openTry, err := src.ChanTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
+		openTry, err := src.ChanTry(dst)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -144,7 +144,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
 
-		openAck, err := src.ChanAck(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
+		openAck, err := src.ChanAck(dst)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -167,7 +167,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(dst, src, dstChan, srcChan)
 		}
 
-		openAck, err := dst.ChanAck(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1)
+		openAck, err := dst.ChanAck(src)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -273,7 +273,7 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 		channelID, found := FindMatchingChannel(src, dst)
 		if !found {
 			// open try on source chain
-			openTry, err := src.ChanTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
+			openTry, err := src.ChanTry(dst)
 			if err != nil {
 				return false, false, err
 			}
@@ -309,7 +309,7 @@ func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclie
 		channelID, found := FindMatchingChannel(dst, src)
 		if !found {
 			// open try on destination chain
-			openTry, err := dst.ChanTry(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1)
+			openTry, err := dst.ChanTry(src)
 			if err != nil {
 				return false, false, err
 			}
