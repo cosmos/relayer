@@ -204,7 +204,7 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 	}
 
 	if height == 0 {
-		height = int64(dstUpdateHeader.GetHeight().GetRevisionHeight())
+		height = int64(dst.MustGetLatestLightHeight())
 	}
 
 	// query proofs on counterparty

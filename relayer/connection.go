@@ -104,7 +104,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 
 	// Query Connection data from src and dst
 	srcConn, dstConn, err = QueryConnectionPair(src, dst, int64(src.MustGetLatestLightHeight())-1,
-		int64(dstUpdateHeader.GetHeight().GetRevisionHeight())-1)
+		int64(dst.MustGetLatestLightHeight()-1))
 	if err != nil {
 		return false, false, false, err
 	}

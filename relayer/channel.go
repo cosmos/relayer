@@ -104,7 +104,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 	}
 
 	// Query Channel data from src and dst
-	srcChan, dstChan, err = QueryChannelPair(src, dst, int64(srcUpdateHeader.GetHeight().GetRevisionHeight())-1,
+	srcChan, dstChan, err = QueryChannelPair(src, dst, int64(src.MustGetLatestLightHeight())-1,
 		int64(dstUpdateHeader.GetHeight().GetRevisionHeight())-1)
 	if err != nil {
 		return false, false, false, err
@@ -385,8 +385,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 		return nil, err
 	}
 
-	srcChan, dstChan, err := QueryChannelPair(c, dst, int64(srcUpdateHeader.GetHeight().GetRevisionHeight()),
-		int64(dstUpdateHeader.GetHeight().GetRevisionHeight()))
+	srcChan, dstChan, err := QueryChannelPair(c, dst, int64(c.MustGetLatestLightHeight())-1, int64(dst.MustGetLatestLightHeight())-1)
 	if err != nil {
 		return nil, err
 	}

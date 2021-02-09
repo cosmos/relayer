@@ -447,8 +447,7 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 
 	// Prepend non-empty msg lists with UpdateClient
 	if len(msgs.Dst) != 0 {
-		// Sending an update from src to dst
-		updateHeader, err := src.GetIBCUpdateHeader(dst)
+		updateHeader, err := dst.GetIBCUpdateHeader(src)
 		if err != nil {
 			return err
 		}
@@ -456,8 +455,7 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 	}
 
 	if len(msgs.Src) != 0 {
-		// Sending an update from dst to src
-		updateHeader, err := dst.GetIBCUpdateHeader(src)
+		updateHeader, err := src.GetIBCUpdateHeader(dst)
 		if err != nil {
 			return err
 		}
@@ -555,8 +553,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) erro
 
 	// Prepend non-empty msg lists with UpdateClient
 	if len(msgs.Dst) != 0 {
-		// Sending an update from src to dst
-		updateHeader, err := src.GetIBCUpdateHeader(dst)
+		updateHeader, err := dst.GetIBCUpdateHeader(src)
 		if err != nil {
 			return err
 		}
@@ -564,8 +561,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) erro
 	}
 
 	if len(msgs.Src) != 0 {
-		// Sending an update from dst to src
-		updateHeader, err := dst.GetIBCUpdateHeader(src)
+		updateHeader, err := src.GetIBCUpdateHeader(dst)
 		if err != nil {
 			return err
 		}
