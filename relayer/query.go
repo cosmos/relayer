@@ -571,6 +571,9 @@ func (c *Chain) QueryUnreceivedPackets(height uint64, seqs []uint64) ([]uint64, 
 		ChannelId:                 c.PathEnd.ChannelID,
 		PacketCommitmentSequences: seqs,
 	})
+	if err != nil {
+		return nil, err
+	}
 	return res.Sequences, err
 }
 
@@ -582,6 +585,9 @@ func (c *Chain) QueryUnreceivedAcknowledgements(height uint64, seqs []uint64) ([
 		ChannelId:          c.PathEnd.ChannelID,
 		PacketAckSequences: seqs,
 	})
+	if err != nil {
+		return nil, err
+	}
 	return res.Sequences, err
 }
 
