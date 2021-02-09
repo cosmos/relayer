@@ -68,7 +68,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 		var res *chantypes.QueryPacketCommitmentsResponse
 		if err = retry.Do(func() error {
 			// Query the packet commitment
-			res, err = src.QueryPacketCommitments(0, 1000, uint64(src.MustGetLatestLightHeight()))
+			res, err = src.QueryPacketCommitments(0, 1000, src.MustGetLatestLightHeight())
 			switch {
 			case err != nil:
 				return err
@@ -94,7 +94,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 	eg.Go(func() error {
 		var res *chantypes.QueryPacketCommitmentsResponse
 		if err = retry.Do(func() error {
-			res, err = dst.QueryPacketCommitments(0, 1000, uint64(dst.MustGetLatestLightHeight()))
+			res, err = dst.QueryPacketCommitments(0, 1000, dst.MustGetLatestLightHeight())
 			switch {
 			case err != nil:
 				return err
@@ -123,13 +123,13 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 
 	eg.Go(func() error {
 		// Query all packets sent by src that have been received by dst
-		rs.Src, err = dst.QueryUnreceivedPackets(uint64(dst.MustGetLatestLightHeight()), srcPacketSeq)
+		rs.Src, err = dst.QueryUnreceivedPackets(dst.MustGetLatestLightHeight(), srcPacketSeq)
 		return err
 	})
 
 	eg.Go(func() error {
 		// Query all packets sent by dst that have been received by src
-		rs.Dst, err = src.QueryUnreceivedPackets(uint64(src.MustGetLatestLightHeight()), dstPacketSeq)
+		rs.Dst, err = src.QueryUnreceivedPackets(src.MustGetLatestLightHeight(), dstPacketSeq)
 		return err
 	})
 
@@ -158,7 +158,7 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 		var res *chantypes.QueryPacketAcknowledgementsResponse
 		if err = retry.Do(func() error {
 			// Query the packet commitment
-			res, err = src.QueryPacketAcknowledgements(0, 1000, uint64(src.MustGetLatestLightHeight()))
+			res, err = src.QueryPacketAcknowledgements(0, 1000, src.MustGetLatestLightHeight())
 			switch {
 			case err != nil:
 				return err
@@ -168,7 +168,7 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 				return nil
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-			src.logRetryQueryPacketAcknowledgements(uint64(src.MustGetLatestLightHeight()), n, err)
+			src.logRetryQueryPacketAcknowledgements(src.MustGetLatestLightHeight(), n, err)
 			if _, _, err := UpdateLightClients(src, dst); err != nil {
 				return
 			}
@@ -184,7 +184,7 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 	eg.Go(func() error {
 		var res *chantypes.QueryPacketAcknowledgementsResponse
 		if err = retry.Do(func() error {
-			res, err = dst.QueryPacketAcknowledgements(0, 1000, uint64(dst.MustGetLatestLightHeight()))
+			res, err = dst.QueryPacketAcknowledgements(0, 1000, dst.MustGetLatestLightHeight())
 			switch {
 			case err != nil:
 				return err
@@ -194,7 +194,7 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 				return nil
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-			dst.logRetryQueryPacketAcknowledgements(uint64(dst.MustGetLatestLightHeight()), n, err)
+			dst.logRetryQueryPacketAcknowledgements(dst.MustGetLatestLightHeight(), n, err)
 			if _, _, err := UpdateLightClients(src, dst); err != nil {
 				return
 			}
@@ -213,13 +213,13 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 
 	eg.Go(func() error {
 		// Query all packets sent by src that have been received by dst
-		rs.Src, err = dst.QueryUnreceivedAcknowledgements(uint64(dst.MustGetLatestLightHeight()), srcPacketSeq)
+		rs.Src, err = dst.QueryUnreceivedAcknowledgements(dst.MustGetLatestLightHeight(), srcPacketSeq)
 		return err
 	})
 
 	eg.Go(func() error {
 		// Query all packets sent by dst that have been received by src
-		rs.Dst, err = src.QueryUnreceivedAcknowledgements(uint64(src.MustGetLatestLightHeight()), dstPacketSeq)
+		rs.Dst, err = src.QueryUnreceivedAcknowledgements(src.MustGetLatestLightHeight(), dstPacketSeq)
 		return err
 	})
 
@@ -587,7 +587,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) erro
 
 // relayPacketFromSequence returns a sdk.Msg to relay a packet with a given seq on src
 func relayPacketFromSequence(src, dst *Chain, seq uint64) (relayPacket, error) {
-	txs, err := src.QueryTxs(uint64(src.MustGetLatestLightHeight()), 1, 1000, rcvPacketQuery(src.PathEnd.ChannelID, int(seq)))
+	txs, err := src.QueryTxs(src.MustGetLatestLightHeight(), 1, 1000, rcvPacketQuery(src.PathEnd.ChannelID, int(seq)))
 	switch {
 	case err != nil:
 		return nil, err
@@ -633,7 +633,7 @@ func relayPacketFromSequence(src, dst *Chain, seq uint64) (relayPacket, error) {
 }
 
 func acknowledgementFromSequence(src, dst *Chain, seq uint64) (relayPacket, error) {
-	txs, err := src.QueryTxs(uint64(src.MustGetLatestLightHeight()), 1, 1000, ackPacketQuery(dst.PathEnd.ChannelID, int(seq)))
+	txs, err := src.QueryTxs(src.MustGetLatestLightHeight(), 1, 1000, ackPacketQuery(dst.PathEnd.ChannelID, int(seq)))
 	switch {
 	case err != nil:
 		return nil, err

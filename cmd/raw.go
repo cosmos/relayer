@@ -275,7 +275,7 @@ $ %s tx raw conn-confirm ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn
 
 			// NOTE: We query connection at height - 1 because of the way tendermint returns
 			// proofs the commit for height n is contained in the header of height n + 1
-			dstState, err := chains[dst].QueryConnection(chains[dst].MustGetLatestLightHeight() - 1)
+			dstState, err := chains[dst].QueryConnection(int64(chains[dst].MustGetLatestLightHeight()) - 1)
 			if err != nil {
 				return err
 			}
@@ -485,7 +485,7 @@ $ %s tx raw chan-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer tr
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(chains[dst].MustGetLatestLightHeight() - 1)
+			dstChanState, err := chains[dst].QueryChannel(int64(chains[dst].MustGetLatestLightHeight()) - 1)
 			if err != nil {
 				return err
 			}
@@ -596,7 +596,7 @@ $ %s tx raw chan-close-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 trans
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(chains[dst].MustGetLatestLightHeight() - 1)
+			dstChanState, err := chains[dst].QueryChannel(int64(chains[dst].MustGetLatestLightHeight()) - 1)
 			if err != nil {
 				return err
 			}

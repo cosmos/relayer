@@ -132,7 +132,7 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain) (err error) {
 	var dstCommitRes *chantypes.QueryPacketCommitmentResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
-		dstCommitRes, err = dst.QueryPacketCommitment(dst.MustGetLatestLightHeight()-1, rp.seq)
+		dstCommitRes, err = dst.QueryPacketCommitment(int64(dst.MustGetLatestLightHeight()-1), rp.seq)
 		switch {
 		case err != nil:
 			return err
@@ -233,7 +233,7 @@ func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain) (err error) {
 	var dstCommitRes *chantypes.QueryPacketAcknowledgementResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
-		dstCommitRes, err = dst.QueryPacketAcknowledgement(dst.MustGetLatestLightHeight()-1, rp.seq)
+		dstCommitRes, err = dst.QueryPacketAcknowledgement(int64(dst.MustGetLatestLightHeight())-1, rp.seq)
 		switch {
 		case err != nil:
 			return err

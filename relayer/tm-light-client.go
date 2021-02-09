@@ -258,13 +258,13 @@ func (c *Chain) GetLatestLightHeight() (int64, error) {
 
 // MustGetLatestLightHeight returns the latest height of the light client
 // and panics if an error occurs.
-func (c *Chain) MustGetLatestLightHeight() int64 {
+func (c *Chain) MustGetLatestLightHeight() uint64 {
 	height, err := c.GetLatestLightHeight()
 	if err != nil {
 		panic(err)
 	}
 
-	return height
+	return uint64(height)
 }
 
 // GetLightSignedHeaderAtHeight returns a signed header at a particular height.

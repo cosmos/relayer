@@ -79,7 +79,7 @@ func (c *Chain) ConnTry(
 	counterparty *Chain,
 ) (sdk.Msg, error) {
 	clientState, clientStateProof, consensusStateProof, connStateProof,
-		proofHeight, err := counterparty.GenerateConnHandshakeProof(uint64(counterparty.MustGetLatestLightHeight()) - 1)
+		proofHeight, err := counterparty.GenerateConnHandshakeProof(counterparty.MustGetLatestLightHeight() - 1)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (c *Chain) ConnAck(
 	counterparty *Chain,
 ) (sdk.Msg, error) {
 	clientState, clientStateProof, consensusStateProof, connStateProof,
-		proofHeight, err := counterparty.GenerateConnHandshakeProof(uint64(counterparty.MustGetLatestLightHeight() - 1))
+		proofHeight, err := counterparty.GenerateConnHandshakeProof(counterparty.MustGetLatestLightHeight() - 1)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +158,7 @@ func (c *Chain) ChanTry(
 	counterparty *Chain,
 ) (sdk.Msg, error) {
 	// obtain proof from counterparty chain
-	counterpartyChannelRes, err := counterparty.QueryChannel(counterparty.MustGetLatestLightHeight() - 1)
+	counterpartyChannelRes, err := counterparty.QueryChannel(int64(counterparty.MustGetLatestLightHeight()) - 1)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +184,7 @@ func (c *Chain) ChanAck(
 	counterparty *Chain,
 ) (sdk.Msg, error) {
 	// obtain proof from counterparty chain
-	counterpartyChannelRes, err := counterparty.QueryChannel(counterparty.MustGetLatestLightHeight() - 1)
+	counterpartyChannelRes, err := counterparty.QueryChannel(int64(counterparty.MustGetLatestLightHeight()) - 1)
 	if err != nil {
 		return nil, err
 	}
