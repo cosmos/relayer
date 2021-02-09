@@ -815,17 +815,12 @@ $ %s q acks demo-path`, appName, appName)),
 				return err
 			}
 
-			sh, err := relayer.NewSyncHeaders(c[src], c[dst])
-			if err != nil {
-				return err
-			}
-
 			strategy, err := path.GetStrategy()
 			if err != nil {
 				return err
 			}
 
-			sp, err := strategy.UnrelayedAcknowledgements(c[src], c[dst], sh)
+			sp, err := strategy.UnrelayedAcknowledgements(c[src], c[dst])
 			if err != nil {
 				return err
 			}

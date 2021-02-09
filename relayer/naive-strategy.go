@@ -146,9 +146,13 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 		eg           = new(errgroup.Group)
 		srcPacketSeq = []uint64{}
 		dstPacketSeq = []uint64{}
-		err          error
 		rs           = &RelaySequences{Src: []uint64{}, Dst: []uint64{}}
 	)
+
+	_, _, err := UpdateLightClients(src, dst)
+	if err != nil {
+		return nil, err
+	}
 
 	eg.Go(func() error {
 		var res *chantypes.QueryPacketAcknowledgementsResponse
