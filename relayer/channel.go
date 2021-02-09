@@ -7,7 +7,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
-	"golang.org/x/sync/errgroup"
 )
 
 // CreateOpenChannels runs the channel creation messages on timeout until they pass
@@ -81,29 +80,22 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 // file. The booleans return indicate if the message was successfully
 // executed and if this was the last handshake step.
 func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err error) {
-	// update the off chain light clients to the latest header and return the header
-	sh, err := NewSyncHeaders(src, dst)
+	// get headers to update light clients on chain
+	srcUpdateHeader, dstUpdateHeader, err := GetIBCUpdateHeaders(src, dst)
 	if err != nil {
 		return false, false, false, err
 	}
 
 	// variables needed to determine the current handshake step
 	var (
-		srcUpdateHeader, dstUpdateHeader *tmclient.Header
-		srcChan, dstChan                 *chantypes.QueryChannelResponse
-		msgs                             []sdk.Msg
+		srcChan, dstChan *chantypes.QueryChannelResponse
+		msgs             []sdk.Msg
 	)
-
-	// get headers to update light clients on chain
-	srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(src, dst)
-	if err != nil {
-		return false, false, false, err
-	}
 
 	// if either identifier is missing, an existing channel that matches the required fields
 	// is chosen or a new channel is created.
 	if src.PathEnd.ChannelID == "" || dst.PathEnd.ChannelID == "" {
-		success, modified, err := InitializeChannel(src, dst, srcUpdateHeader, dstUpdateHeader, sh)
+		success, modified, err := InitializeChannel(src, dst, srcUpdateHeader, dstUpdateHeader)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -112,8 +104,8 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 	}
 
 	// Query Channel data from src and dst
-	srcChan, dstChan, err = QueryChannelPair(src, dst, int64(sh.GetHeight(src.ChainID))-1,
-		int64(sh.GetHeight(dst.ChainID))-1)
+	srcChan, dstChan, err = QueryChannelPair(src, dst, int64(srcUpdateHeader.GetHeight().GetRevisionHeight())-1,
+		int64(dstUpdateHeader.GetHeight().GetRevisionHeight())-1)
 	if err != nil {
 		return false, false, false, err
 	}
@@ -235,8 +227,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 // The identifiers set in the PathEnd's are used to determine which channel ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither channel exists.
-func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header,
-	sh *SyncHeaders) (success, modified bool, err error) {
+func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header) (success, modified bool, err error) {
 	switch {
 
 	// OpenInit on source
@@ -389,34 +380,14 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 		return nil, err
 	}
 
-	sh, err := NewSyncHeaders(c, dst)
+	srcUpdateHeader, dstUpdateHeader, err := GetIBCUpdateHeaders(c, dst)
 	if err != nil {
 		return nil, err
 	}
-	if err := sh.Updates(c, dst); err != nil {
-		return nil, err
-	}
 
-	// Query a number of things all at once
-	var (
-		eg                               = new(errgroup.Group)
-		srcUpdateHeader, dstUpdateHeader *tmclient.Header
-		srcChan, dstChan                 *chantypes.QueryChannelResponse
-	)
-
-	eg.Go(func() error {
-		// create the UpdateHeaders for src and dest Chains
-		srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(c, dst)
-		return err
-	})
-
-	eg.Go(func() error {
-		srcChan, dstChan, err = QueryChannelPair(c, dst, int64(sh.GetHeight(c.ChainID)),
-			int64(sh.GetHeight(dst.ChainID)))
-		return err
-	})
-
-	if err = eg.Wait(); err != nil {
+	srcChan, dstChan, err := QueryChannelPair(c, dst, int64(srcUpdateHeader.GetHeight().GetRevisionHeight()),
+		int64(dstUpdateHeader.GetHeight().GetRevisionHeight()))
+	if err != nil {
 		return nil, err
 	}
 

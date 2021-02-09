@@ -51,7 +51,7 @@ func (nrs *NaiveStrategy) GetType() string {
 }
 
 // UnrelayedSequences returns the unrelayed sequence numbers between two chains
-func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error) {
+func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, error) {
 	var (
 		eg           = new(errgroup.Group)
 		srcPacketSeq = []uint64{}
@@ -64,7 +64,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (
 		var res *chantypes.QueryPacketCommitmentsResponse
 		if err = retry.Do(func() error {
 			// Query the packet commitment
-			res, err = src.QueryPacketCommitments(0, 1000, sh.GetHeight(src.ChainID))
+			res, err = src.QueryPacketCommitments(0, 1000, uint64(src.MustGetLatestLightHeight()))
 			switch {
 			case err != nil:
 				return err
@@ -76,7 +76,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 			if src.debug {
 				src.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitments: %s", src.ChainID,
-					sh.GetHeight(src.ChainID), n+1, rtyAttNum, err))
+					src.MustGetLatestLightHeight(), n+1, rtyAttNum, err))
 			}
 		})); err != nil {
 			return err
@@ -90,7 +90,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (
 	eg.Go(func() error {
 		var res *chantypes.QueryPacketCommitmentsResponse
 		if err = retry.Do(func() error {
-			res, err = dst.QueryPacketCommitments(0, 1000, sh.GetHeight(dst.ChainID))
+			res, err = dst.QueryPacketCommitments(0, 1000, uint64(dst.MustGetLatestLightHeight()))
 			switch {
 			case err != nil:
 				return err
@@ -102,7 +102,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 			if dst.debug {
 				dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitments: %s",
-					dst.ChainID, sh.GetHeight(dst.ChainID), n+1, rtyAttNum, err))
+					dst.ChainID, dst.MustGetLatestLightHeight(), n+1, rtyAttNum, err))
 			}
 		})); err != nil {
 			return err
@@ -119,13 +119,13 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (
 
 	eg.Go(func() error {
 		// Query all packets sent by src that have been received by dst
-		rs.Src, err = dst.QueryUnreceivedPackets(sh.GetHeight(dst.ChainID), srcPacketSeq)
+		rs.Src, err = dst.QueryUnreceivedPackets(uint64(dst.MustGetLatestLightHeight()), srcPacketSeq)
 		return err
 	})
 
 	eg.Go(func() error {
 		// Query all packets sent by dst that have been received by src
-		rs.Dst, err = src.QueryUnreceivedPackets(sh.GetHeight(src.ChainID), dstPacketSeq)
+		rs.Dst, err = src.QueryUnreceivedPackets(uint64(src.MustGetLatestLightHeight()), dstPacketSeq)
 		return err
 	})
 
@@ -137,7 +137,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (
 }
 
 // UnrelayedAcknowledgements returns the unrelayed sequence numbers between two chains
-func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error) {
+func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequences, error) {
 	var (
 		eg           = new(errgroup.Group)
 		srcPacketSeq = []uint64{}
@@ -150,7 +150,7 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain, sh *SyncHea
 		var res *chantypes.QueryPacketAcknowledgementsResponse
 		if err = retry.Do(func() error {
 			// Query the packet commitment
-			res, err = src.QueryPacketAcknowledgements(0, 1000, sh.GetHeight(src.ChainID))
+			res, err = src.QueryPacketAcknowledgements(0, 1000, uint64(src.MustGetLatestLightHeight()))
 			switch {
 			case err != nil:
 				return err
@@ -160,8 +160,8 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain, sh *SyncHea
 				return nil
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-			src.logRetryQueryPacketAcknowledgements(sh.GetHeight(src.ChainID), n, err)
-			if err := sh.Updates(src, dst); err != nil {
+			src.logRetryQueryPacketAcknowledgements(uint64(src.MustGetLatestLightHeight()), n, err)
+			if _, _, err := UpdateLightClients(src, dst); err != nil {
 				return
 			}
 		})); err != nil {
@@ -176,7 +176,7 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain, sh *SyncHea
 	eg.Go(func() error {
 		var res *chantypes.QueryPacketAcknowledgementsResponse
 		if err = retry.Do(func() error {
-			res, err = dst.QueryPacketAcknowledgements(0, 1000, sh.GetHeight(dst.ChainID))
+			res, err = dst.QueryPacketAcknowledgements(0, 1000, uint64(dst.MustGetLatestLightHeight()))
 			switch {
 			case err != nil:
 				return err
@@ -186,8 +186,8 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain, sh *SyncHea
 				return nil
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-			dst.logRetryQueryPacketAcknowledgements(sh.GetHeight(dst.ChainID), n, err)
-			if err := sh.Updates(src, dst); err != nil {
+			dst.logRetryQueryPacketAcknowledgements(uint64(dst.MustGetLatestLightHeight()), n, err)
+			if _, _, err := UpdateLightClients(src, dst); err != nil {
 				return
 			}
 		})); err != nil {
@@ -205,13 +205,13 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain, sh *SyncHea
 
 	eg.Go(func() error {
 		// Query all packets sent by src that have been received by dst
-		rs.Src, err = dst.QueryUnreceivedAcknowledgements(sh.GetHeight(dst.ChainID), srcPacketSeq)
+		rs.Src, err = dst.QueryUnreceivedAcknowledgements(uint64(dst.MustGetLatestLightHeight()), srcPacketSeq)
 		return err
 	})
 
 	eg.Go(func() error {
 		// Query all packets sent by dst that have been received by src
-		rs.Dst, err = src.QueryUnreceivedAcknowledgements(sh.GetHeight(src.ChainID), dstPacketSeq)
+		rs.Dst, err = src.QueryUnreceivedAcknowledgements(uint64(src.MustGetLatestLightHeight()), dstPacketSeq)
 		return err
 	})
 
@@ -223,10 +223,10 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain, sh *SyncHea
 }
 
 // HandleEvents defines how the relayer will handle block and transaction events as they are emitted
-func (nrs *NaiveStrategy) HandleEvents(src, dst *Chain, sh *SyncHeaders, events map[string][]string) {
+func (nrs *NaiveStrategy) HandleEvents(src, dst *Chain, events map[string][]string) {
 	rlyPackets, err := relayPacketsFromEventListener(src.PathEnd, dst.PathEnd, events)
 	if len(rlyPackets) > 0 && err == nil {
-		nrs.sendTxFromEventPackets(src, dst, rlyPackets, sh)
+		nrs.sendTxFromEventPackets(src, dst, rlyPackets)
 	}
 }
 
@@ -330,11 +330,11 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 	return rlyPkts, nil
 }
 
-func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []relayPacket, sh *SyncHeaders) {
+func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []relayPacket) {
 
 	// fetch the proofs for the relayPackets
 	for _, rp := range rlyPackets {
-		if err := rp.FetchCommitResponse(src, dst, sh); err != nil {
+		if err := rp.FetchCommitResponse(src, dst); err != nil {
 			// we don't expect many errors here because of the retry
 			// in FetchCommitResponse
 			src.Error(err)
@@ -344,17 +344,11 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 	// send the transaction, retrying if not successful
 	// TODO: have separate retries for different pieces here
 	if err := retry.Do(func() error {
-		if err := sh.Updates(src, dst); err != nil {
-			if src.debug {
-				src.Log(fmt.Sprintf("- failed to update headers for %s and %s, retrying: %s", src.ChainID, dst.ChainID, err))
-			}
-			return err
-		}
-		updateHeader, err := ConstructIBCTMHeader(sh, dst, src)
+		updateHeader, err := dst.GetIBCUpdateHeader(src)
 		if err != nil {
 			if src.debug {
-				src.Log(fmt.Sprintf("- failed to enrich update headers for %s and %s, retrying: %s",
-					src.ChainID, dst.ChainID, err))
+				src.Log(fmt.Sprintf("- failed get IBC update header for client on chain %s, retrying: %s",
+					dst.ChainID, err))
 			}
 			return err
 		}
@@ -398,7 +392,7 @@ type RelaySequences struct {
 }
 
 // RelayAcknowledgements creates transactions to relay acknowledgements from src to dst and from dst to src
-func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) error {
+func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequences) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []sdk.Msg{},
@@ -410,7 +404,7 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 	// add messages for sequences on src
 	for _, seq := range sp.Src {
 		// SRC wrote ack, so we query packet and send to DST
-		pkt, err := acknowledgementFromSequence(src, dst, sh, seq)
+		pkt, err := acknowledgementFromSequence(src, dst, seq)
 		if err != nil {
 			return err
 		}
@@ -425,7 +419,7 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 	// add messages for sequences on dst
 	for _, seq := range sp.Dst {
 		// DST wrote ack, so we query packet and send to SRC
-		pkt, err := acknowledgementFromSequence(dst, src, sh, seq)
+		pkt, err := acknowledgementFromSequence(dst, src, seq)
 		if err != nil {
 			return err
 		}
@@ -446,7 +440,7 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 	// Prepend non-empty msg lists with UpdateClient
 	if len(msgs.Dst) != 0 {
 		// Sending an update from src to dst
-		updateHeader, err := ConstructIBCTMHeader(sh, src, dst)
+		updateHeader, err := src.GetIBCUpdateHeader(dst)
 		if err != nil {
 			return err
 		}
@@ -455,7 +449,7 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 
 	if len(msgs.Src) != 0 {
 		// Sending an update from dst to src
-		updateHeader, err := ConstructIBCTMHeader(sh, dst, src)
+		updateHeader, err := dst.GetIBCUpdateHeader(src)
 		if err != nil {
 			return err
 		}
@@ -476,9 +470,8 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 }
 
 // RelayPackets creates transactions to relay packets from src to dst and from dst to src
-// CONTRACT: the SyncHeaders passed in here must be up to date or being kept updated
-func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) error {
-	if err := sh.Updates(src, dst); err != nil {
+func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) error {
+	if _, _, err := UpdateLightClients(src, dst); err != nil {
 		return err
 	}
 
@@ -493,7 +486,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences, sh *
 	// add messages for sequences on src
 	for _, seq := range sp.Src {
 		// Query src for the sequence number to get type of packet
-		pkt, err := relayPacketFromSequence(src, dst, sh, seq)
+		pkt, err := relayPacketFromSequence(src, dst, seq)
 		if err != nil {
 			return err
 		}
@@ -521,7 +514,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences, sh *
 	// add messages for sequences on dst
 	for _, seq := range sp.Dst {
 		// Query dst for the sequence number to get type of packet
-		pkt, err := relayPacketFromSequence(dst, src, sh, seq)
+		pkt, err := relayPacketFromSequence(dst, src, seq)
 		if err != nil {
 			return err
 		}
@@ -555,7 +548,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences, sh *
 	// Prepend non-empty msg lists with UpdateClient
 	if len(msgs.Dst) != 0 {
 		// Sending an update from src to dst
-		updateHeader, err := ConstructIBCTMHeader(sh, src, dst)
+		updateHeader, err := src.GetIBCUpdateHeader(dst)
 		if err != nil {
 			return err
 		}
@@ -564,7 +557,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences, sh *
 
 	if len(msgs.Src) != 0 {
 		// Sending an update from dst to src
-		updateHeader, err := ConstructIBCTMHeader(sh, dst, src)
+		updateHeader, err := dst.GetIBCUpdateHeader(src)
 		if err != nil {
 			return err
 		}
@@ -585,8 +578,8 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences, sh *
 }
 
 // relayPacketFromSequence returns a sdk.Msg to relay a packet with a given seq on src
-func relayPacketFromSequence(src, dst *Chain, sh *SyncHeaders, seq uint64) (relayPacket, error) {
-	txs, err := src.QueryTxs(sh.GetHeight(src.ChainID), 1, 1000, rcvPacketQuery(src.PathEnd.ChannelID, int(seq)))
+func relayPacketFromSequence(src, dst *Chain, seq uint64) (relayPacket, error) {
+	txs, err := src.QueryTxs(uint64(src.MustGetLatestLightHeight()), 1, 1000, rcvPacketQuery(src.PathEnd.ChannelID, int(seq)))
 	switch {
 	case err != nil:
 		return nil, err
@@ -596,7 +589,7 @@ func relayPacketFromSequence(src, dst *Chain, sh *SyncHeaders, seq uint64) (rela
 		return nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	rcvPackets, timeoutPackets, err := relayPacketsFromResultTx(src.PathEnd, dst.PathEnd, txs[0], sh)
+	rcvPackets, timeoutPackets, err := relayPacketsFromResultTx(src, dst, txs[0])
 	switch {
 	case err != nil:
 		return nil, err
@@ -611,7 +604,7 @@ func relayPacketFromSequence(src, dst *Chain, sh *SyncHeaders, seq uint64) (rela
 		if seq != pkt.Seq() {
 			return nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
 		}
-		if err = pkt.FetchCommitResponse(dst, src, sh); err != nil {
+		if err = pkt.FetchCommitResponse(dst, src); err != nil {
 			return nil, err
 		}
 		return pkt, nil
@@ -622,7 +615,7 @@ func relayPacketFromSequence(src, dst *Chain, sh *SyncHeaders, seq uint64) (rela
 		if seq != pkt.Seq() {
 			return nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
 		}
-		if err = pkt.FetchCommitResponse(src, dst, sh); err != nil {
+		if err = pkt.FetchCommitResponse(src, dst); err != nil {
 			return nil, err
 		}
 		return pkt, nil
@@ -631,8 +624,8 @@ func relayPacketFromSequence(src, dst *Chain, sh *SyncHeaders, seq uint64) (rela
 	return nil, fmt.Errorf("should have errored before here")
 }
 
-func acknowledgementFromSequence(src, dst *Chain, sh *SyncHeaders, seq uint64) (relayPacket, error) {
-	txs, err := src.QueryTxs(sh.GetHeight(src.ChainID), 1, 1000, ackPacketQuery(dst.PathEnd.ChannelID, int(seq)))
+func acknowledgementFromSequence(src, dst *Chain, seq uint64) (relayPacket, error) {
+	txs, err := src.QueryTxs(uint64(src.MustGetLatestLightHeight()), 1, 1000, ackPacketQuery(dst.PathEnd.ChannelID, int(seq)))
 	switch {
 	case err != nil:
 		return nil, err
@@ -642,7 +635,7 @@ func acknowledgementFromSequence(src, dst *Chain, sh *SyncHeaders, seq uint64) (
 		return nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	acks, err := acknowledgementsFromResultTx(dst.PathEnd, src.PathEnd, txs[0], sh)
+	acks, err := acknowledgementsFromResultTx(dst.PathEnd, src.PathEnd, txs[0])
 	switch {
 	case err != nil:
 		return nil, err
@@ -656,7 +649,7 @@ func acknowledgementFromSequence(src, dst *Chain, sh *SyncHeaders, seq uint64) (
 	if seq != pkt.Seq() {
 		return nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
 	}
-	if err = pkt.FetchCommitResponse(dst, src, sh); err != nil {
+	if err = pkt.FetchCommitResponse(dst, src); err != nil {
 		return nil, err
 	}
 	return pkt, nil
@@ -664,37 +657,40 @@ func acknowledgementFromSequence(src, dst *Chain, sh *SyncHeaders, seq uint64) (
 
 // relayPacketsFromResultTx looks through the events in a *ctypes.ResultTx
 // and returns relayPackets with the appropriate data
-func relayPacketsFromResultTx(src, dst *PathEnd, res *ctypes.ResultTx,
-	sh *SyncHeaders) ([]relayPacket, []relayPacket, error) {
+func relayPacketsFromResultTx(src, dst *Chain, res *ctypes.ResultTx) ([]relayPacket, []relayPacket, error) {
 	var (
 		rcvPackets     []relayPacket
 		timeoutPackets []relayPacket
 	)
+
+	srcPE := src.PathEnd
+	dstPE := dst.PathEnd
+
 	for _, e := range res.TxResult.Events {
 		if e.Type == spTag {
 			// NOTE: Src and Dst are switched here
 			rp := &relayMsgRecvPacket{pass: false}
 			for _, p := range e.Attributes {
 				if string(p.Key) == srcChanTag {
-					if string(p.Value) != src.ChannelID {
+					if string(p.Value) != srcPE.ChannelID {
 						rp.pass = true
 						continue
 					}
 				}
 				if string(p.Key) == dstChanTag {
-					if string(p.Value) != dst.ChannelID {
+					if string(p.Value) != dstPE.ChannelID {
 						rp.pass = true
 						continue
 					}
 				}
 				if string(p.Key) == srcPortTag {
-					if string(p.Value) != src.PortID {
+					if string(p.Value) != srcPE.PortID {
 						rp.pass = true
 						continue
 					}
 				}
 				if string(p.Key) == dstPortTag {
-					if string(p.Value) != dst.PortID {
+					if string(p.Value) != dstPE.PortID {
 						rp.pass = true
 						continue
 					}
@@ -716,8 +712,11 @@ func relayPacketsFromResultTx(src, dst *PathEnd, res *ctypes.ResultTx,
 				}
 			}
 
-			// fetch header data from sync headers to determine if we need to timeout the packet
-			block := sh.GetHeader(dst.ChainID)
+			// fetch the header which represents a block produced on source
+			block, err := dst.GetIBCUpdateHeader(src)
+			if err != nil {
+				return nil, nil, err
+			}
 
 			switch {
 			// If the packet has a timeout height, and it has been reached, return a timeout packet
@@ -744,7 +743,7 @@ func relayPacketsFromResultTx(src, dst *PathEnd, res *ctypes.ResultTx,
 // acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
 //relayPackets with the appropriate data
 func acknowledgementsFromResultTx(src, dst *PathEnd,
-	res *ctypes.ResultTx, sh *SyncHeaders) ([]*relayMsgPacketAck, error) {
+	res *ctypes.ResultTx) ([]*relayMsgPacketAck, error) {
 	var ackPackets []*relayMsgPacketAck
 	for _, e := range res.TxResult.Events {
 		if e.Type == waTag {

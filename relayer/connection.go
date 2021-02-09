@@ -77,34 +77,24 @@ func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Dur
 // file. The booleans return indicate if the message was successfully
 // executed and if this was the last handshake step.
 func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err error) {
-	// update the off chain light clients to the latest header and return the header
-	sh, err := NewSyncHeaders(src, dst)
-	if err != nil {
-		return false, false, false, err
-	}
-	if err := sh.Updates(src, dst); err != nil {
-		return false, false, false, err
-	}
-
-	// variables needed to determine the current handshake step
-	var (
-		srcUpdateHeader, dstUpdateHeader *tmclient.Header
-		srcConn, dstConn                 *conntypes.QueryConnectionResponse
-		msgs                             []sdk.Msg
-	)
-
-	// TODO: add back retries due to commit delay/update
-	// get headers to update light clients on chain
-	srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(src, dst)
+	srcUpdateHeader, dstUpdateHeader, err := GetIBCUpdateHeaders(src, dst)
 	if err != nil {
 		return false, false, false, fmt.Errorf("failed to get trusted headers: %v", err)
 	}
 
+	// variables needed to determine the current handshake step
+	var (
+		srcConn, dstConn *conntypes.QueryConnectionResponse
+		msgs             []sdk.Msg
+	)
+
+	// TODO: add back retries due to commit delay/update
+	// get headers to update light clients on chain
 	// if either identifier is missing, an existing connection that matches the required fields
 	// is chosen or a new connection is created.
 	// This will perform either an OpenInit or OpenTry step and return
 	if src.PathEnd.ConnectionID == "" || dst.PathEnd.ConnectionID == "" {
-		success, modified, err := InitializeConnection(src, dst, srcUpdateHeader, dstUpdateHeader, sh)
+		success, modified, err := InitializeConnection(src, dst, srcUpdateHeader, dstUpdateHeader)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -113,8 +103,8 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	}
 
 	// Query Connection data from src and dst
-	srcConn, dstConn, err = QueryConnectionPair(src, dst, int64(sh.GetHeight(src.ChainID))-1,
-		int64(sh.GetHeight(dst.ChainID))-1)
+	srcConn, dstConn, err = QueryConnectionPair(src, dst, int64(srcUpdateHeader.GetHeight().GetRevisionHeight())-1,
+		int64(dstUpdateHeader.GetHeight().GetRevisionHeight())-1)
 	if err != nil {
 		return false, false, false, err
 	}
@@ -232,8 +222,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 // The identifiers set in the PathEnd's are used to determine which connection ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither connection exists.
-func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header,
-	sh *SyncHeaders) (success, modified bool, err error) {
+func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header) (success, modified bool, err error) {
 	switch {
 
 	// OpenInit on source
