@@ -149,7 +149,7 @@ $ %s q txs ibc-0 "message.action=transfer"`, appName, appName)),
 				return err
 			}
 
-			txs, err := chain.QueryTxs(uint64(chain.MustGetLatestLightHeight()), int(offset), int(limit), events)
+			txs, err := chain.QueryTxs(chain.MustGetLatestLightHeight(), int(offset), int(limit), events)
 			if err != nil {
 				return err
 			}
