@@ -371,11 +371,13 @@ func GetClientAndUpdate(src, dst *Chain, thresholdTime time.Duration) (time.Dura
 	// cast from interface to concrete type
 	clientState, ok := clientStateExported.(*ibctmtypes.ClientState)
 	if !ok {
-		return 0, fmt.Errorf("error when casting exported clientstate on chain: %s", src.PathEnd.ClientID)
+		return 0, fmt.Errorf("error when casting exported clientstate with clientID %s on chain: %s",
+			src.PathEnd.ClientID, src.PathEnd.ChainID)
 	}
 
-	if clientState.TrustingPeriod < thresholdTime {
-		return 0, fmt.Errorf("client:%s trusting period time is less than threshold time", src.PathEnd.ClientID)
+	if clientState.TrustingPeriod <= thresholdTime {
+		return 0, fmt.Errorf("client (%s) trusting period time is less than or equal to threshold time",
+			src.PathEnd.ClientID)
 	}
 
 	// query the latest consensus state of the potential matching client
@@ -392,46 +394,49 @@ func GetClientAndUpdate(src, dst *Chain, thresholdTime time.Duration) (time.Dura
 
 	consensusState, ok := exportedConsState.(*ibctmtypes.ConsensusState)
 	if !ok {
-		return 0, fmt.Errorf("error: consensus state is not tendermint type on chain %s", src.PathEnd.ChainID)
+		return 0, fmt.Errorf("consensus state with clientID %s from chain %s is not IBC tendermint type",
+			src.PathEnd.ClientID, src.PathEnd.ChainID)
 	}
 
 	expirationTime := consensusState.Timestamp.Add(clientState.TrustingPeriod)
 
 	timeToExpiry := time.Until(expirationTime)
 
-	// Checking expiration time is below threshold time to current time
-	if !clientState.IsExpired(consensusState.Timestamp, time.Now()) && timeToExpiry <= thresholdTime {
-		sh, err := NewSyncHeaders(src, dst)
-		if err != nil {
-			return 0, err
-		}
-
-		dstUH, err := sh.GetTrustedHeader(dst, src)
-		if err != nil {
-			return 0, err
-		}
-
-		msgs := []sdk.Msg{
-			src.UpdateClient(dstUH),
-		}
-
-		res, success, err := src.SendMsgs(msgs)
-		if err != nil {
-			return 0, err
-		}
-		if !success {
-			return 0, fmt.Errorf("tx failed: %s", res.RawLog)
-		}
-		src.Log(fmt.Sprintf("★ Client updated: [%s]client(%s) {%d}->{%d}",
-			src.ChainID,
-			src.PathEnd.ClientID,
-			MustGetHeight(dstUH.TrustedHeight),
-			dstUH.Header.Height,
-		))
-		timeToExpiry = clientState.TrustingPeriod
-	} else if !expirationTime.After(time.Now()) {
-		timeToExpiry = 0
-		fmt.Printf("Client is already expired on chain: %s", src.ChainID)
+	if timeToExpiry > thresholdTime {
+		return timeToExpiry, nil
 	}
-	return timeToExpiry, nil
+
+	if clientState.IsExpired(consensusState.Timestamp, time.Now()) {
+		return 0, fmt.Errorf("client (%s) is already expired on chain: %s", src.PathEnd.ClientID, src.ChainID)
+	}
+
+	sh, err := NewSyncHeaders(src, dst)
+	if err != nil {
+		return 0, err
+	}
+
+	dstUH, err := sh.GetTrustedHeader(dst, src)
+	if err != nil {
+		return 0, err
+	}
+
+	msgs := []sdk.Msg{
+		src.UpdateClient(dstUH),
+	}
+
+	res, success, err := src.SendMsgs(msgs)
+	if err != nil {
+		return 0, err
+	}
+	if !success {
+		return 0, fmt.Errorf("tx failed: %s", res.RawLog)
+	}
+	src.Log(fmt.Sprintf("★ Client updated: [%s]client(%s) {%d}->{%d}",
+		src.ChainID,
+		src.PathEnd.ClientID,
+		MustGetHeight(dstUH.TrustedHeight),
+		dstUH.Header.Height,
+	))
+
+	return clientState.TrustingPeriod, nil
 }

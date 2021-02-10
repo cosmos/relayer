@@ -262,7 +262,7 @@ func retryFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func updateTimeFlags(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().DurationP(flagThresholdTime, "n", 6*time.Hour, "time before to expiry time to update client")
+	cmd.Flags().Duration(flagThresholdTime, 6*time.Hour, "time before to expiry time to update client")
 	if err := viper.BindPFlag(flagThresholdTime, cmd.Flags().Lookup(flagThresholdTime)); err != nil {
 		panic(err)
 	}

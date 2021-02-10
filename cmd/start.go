@@ -74,12 +74,14 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				return err
 			}
 
+			thresholdTime := viper.GetDuration(flagThresholdTime)
+
 			eg := new(errgroup.Group)
 			eg.Go(func() error {
 				for {
-					var sleepTime time.Duration
+					var timeToExpiry time.Duration
 					if err := retry.Do(func() error {
-						sleepTime, err = UpdateClientsFromChains(c[src], c[dst])
+						timeToExpiry, err = UpdateClientsFromChains(c[src], c[dst], thresholdTime)
 						if err != nil {
 							return err
 						}
@@ -87,10 +89,9 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 					}, retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true)); err != nil {
 						return err
 					}
-					time.Sleep(sleepTime)
+					time.Sleep(timeToExpiry - thresholdTime)
 				}
 			})
-
 			if err = eg.Wait(); err != nil {
 				return err
 			}
@@ -117,11 +118,12 @@ func trapSignal(done func()) {
 	done()
 }
 
-// UpdateClientsFromChains takes src, dst chains and update clients based on expiry time
-func UpdateClientsFromChains(src, dst *relayer.Chain) (sleepTime time.Duration, err error) {
-	var srcTimeExpiry, dstTimeExpiry time.Duration
-
-	thresholdTime := viper.GetDuration(flagThresholdTime)
+// UpdateClientsFromChains takes src, dst chains, threshold time and update clients based on expiry time
+func UpdateClientsFromChains(src, dst *relayer.Chain, thresholdTime time.Duration) (time.Duration, error) {
+	var (
+		srcTimeExpiry, dstTimeExpiry time.Duration
+		err                          error
+	)
 
 	eg := new(errgroup.Group)
 	eg.Go(func() error {
@@ -136,24 +138,14 @@ func UpdateClientsFromChains(src, dst *relayer.Chain) (sleepTime time.Duration, 
 		return 0, err
 	}
 
-	if srcTimeExpiry > 0 {
-		if dstTimeExpiry > 0 {
-			if srcTimeExpiry < dstTimeExpiry {
-				sleepTime = srcTimeExpiry - thresholdTime
-
-			} else {
-				sleepTime = dstTimeExpiry - thresholdTime
-			}
-		} else {
-			sleepTime = srcTimeExpiry - thresholdTime
-		}
-	} else {
-		if dstTimeExpiry > 0 {
-			sleepTime = dstTimeExpiry - thresholdTime
-		} else {
-			return 0, fmt.Errorf("seems clients of both src:%s and dst:%s are expired",
-				src.PathEnd.ChainID, dst.PathEnd.ChainID)
-		}
+	if srcTimeExpiry <= 0 || dstTimeExpiry <= 0 {
+		return 0, fmt.Errorf("one of the clients (%s,%s) trusting period is 0 or expired",
+			src.PathEnd.ClientID, dst.PathEnd.ClientID)
 	}
-	return sleepTime, nil
+
+	if srcTimeExpiry <= dstTimeExpiry {
+		return srcTimeExpiry, nil
+	}
+
+	return dstTimeExpiry, nil
 }
