@@ -133,6 +133,7 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain) (err error) {
 	var dstCommitRes *chantypes.QueryPacketCommitmentResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
+		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 		dstCommitRes, err = dst.QueryPacketCommitment(int64(dst.MustGetLatestLightHeight()-1), rp.seq)
 		switch {
 		case err != nil:
@@ -234,6 +235,7 @@ func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain) (err error) {
 	var dstCommitRes *chantypes.QueryPacketAcknowledgementResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
+		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 		dstCommitRes, err = dst.QueryPacketAcknowledgement(int64(dst.MustGetLatestLightHeight())-1, rp.seq)
 		switch {
 		case err != nil:
