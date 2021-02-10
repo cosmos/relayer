@@ -574,7 +574,7 @@ func (c *Chain) QueryUnreceivedPackets(height uint64, seqs []uint64) ([]uint64, 
 	if err != nil {
 		return nil, err
 	}
-	return res.Sequences, err
+	return res.Sequences, nil
 }
 
 // QueryUnreceivedAcknowledgements returns a list of unrelayed packet acks
@@ -588,7 +588,7 @@ func (c *Chain) QueryUnreceivedAcknowledgements(height uint64, seqs []uint64) ([
 	if err != nil {
 		return nil, err
 	}
-	return res.Sequences, err
+	return res.Sequences, nil
 }
 
 // QueryTx takes a transaction hash and returns the transaction

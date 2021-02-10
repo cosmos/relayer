@@ -25,7 +25,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		return false, err
 	}
 
-	srcUpdateHeader, dstUpdateHeader, err := GetIBCCreationHeaders(c, dst)
+	srcUpdateHeader, dstUpdateHeader, err := GetIBCCreateClientHeaders(c, dst)
 	if err != nil {
 		return false, err
 	}

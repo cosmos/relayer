@@ -10,10 +10,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// GetIBCCreationHeader updates the off chain tendermint light client and
+// GetIBCCreateClientHeader updates the off chain tendermint light client and
 // returns an IBC Update Header which can be used to create an on-chain
 // light client.
-func (c *Chain) GetIBCCreationHeader(dst *Chain) (*tmclient.Header, error) {
+func (c *Chain) GetIBCCreateClientHeader(dst *Chain) (*tmclient.Header, error) {
 	lightBlock, err := c.UpdateLightClient()
 	if err != nil {
 		return nil, err
@@ -30,17 +30,17 @@ func (c *Chain) GetIBCCreationHeader(dst *Chain) (*tmclient.Header, error) {
 	}, nil
 }
 
-// GetIBCCreationHeaders returns the IBC TM header which will create an on-chain
+// GetIBCCreateClientHeaders returns the IBC TM header which will create an on-chain
 // light client. The headers do not have trusted headers (ie trusted validators
 // and trusted height)
-func GetIBCCreationHeaders(src, dst *Chain) (srcHeader, dstHeader *tmclient.Header, err error) {
+func GetIBCCreateClientHeaders(src, dst *Chain) (srcHeader, dstHeader *tmclient.Header, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
-		srcHeader, err = src.GetIBCCreationHeader(dst)
+		srcHeader, err = src.GetIBCCreateClientHeader(dst)
 		return err
 	})
 	eg.Go(func() error {
-		dstHeader, err = dst.GetIBCCreationHeader(src)
+		dstHeader, err = dst.GetIBCCreateClientHeader(src)
 		return err
 	})
 	if err = eg.Wait(); err != nil {
@@ -54,7 +54,7 @@ func GetIBCCreationHeaders(src, dst *Chain) (srcHeader, dstHeader *tmclient.Head
 // returns an IBC Update Header which can be used to update an on chain
 // light client.
 func (c *Chain) GetIBCUpdateHeader(dst *Chain) (*tmclient.Header, error) {
-	h, err := c.GetIBCCreationHeader(dst)
+	h, err := c.GetIBCCreateClientHeader(dst)
 	if err != nil {
 		return nil, err
 	}
@@ -118,25 +118,6 @@ func (c *Chain) InjectTrustedFields(dst *Chain, header *tmclient.Header) (*tmcli
 	// inject TrustedValidators into header
 	h.TrustedValidators = trustedHeader.ValidatorSet
 	return &h, nil
-}
-
-// InjectTrustedFieldsHeaders takes the headers and enriches them
-func InjectTrustedFieldsHeaders(
-	src, dst *Chain,
-	srch, dsth *tmclient.Header) (srcho *tmclient.Header, dstho *tmclient.Header, err error) {
-	var eg = new(errgroup.Group)
-	eg.Go(func() error {
-		srcho, err = src.InjectTrustedFields(dst, srch)
-		return err
-	})
-	eg.Go(func() error {
-		dstho, err = dst.InjectTrustedFields(src, dsth)
-		return err
-	})
-	if err = eg.Wait(); err != nil {
-		return
-	}
-	return
 }
 
 // MustGetHeight takes the height inteface and returns the actual height
