@@ -69,7 +69,7 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain) (err error) {
 		return
 	}
 	rp.dstRecvRes = dstRecvRes
-	return
+	return nil
 }
 
 func (rp *relayMsgTimeout) Msg(src, dst *Chain) (sdk.Msg, error) {
@@ -159,7 +159,7 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain) (err error) {
 		return
 	}
 	rp.dstComRes = dstCommitRes
-	return
+	return nil
 }
 
 func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) (sdk.Msg, error) {
