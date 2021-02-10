@@ -227,7 +227,9 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 // The identifiers set in the PathEnd's are used to determine which channel ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither channel exists.
-func InitializeChannel(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header) (success, modified bool, err error) {
+func InitializeChannel(
+	src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header,
+) (success, modified bool, err error) {
 	switch {
 
 	// OpenInit on source
@@ -385,7 +387,9 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 		return nil, err
 	}
 
-	srcChan, dstChan, err := QueryChannelPair(c, dst, int64(c.MustGetLatestLightHeight())-1, int64(dst.MustGetLatestLightHeight())-1)
+	srcChan, dstChan, err := QueryChannelPair(c, dst,
+		int64(c.MustGetLatestLightHeight())-1,
+		int64(dst.MustGetLatestLightHeight())-1)
 	if err != nil {
 		return nil, err
 	}

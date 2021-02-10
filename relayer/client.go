@@ -280,6 +280,7 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 				continue
 			}
 
+			//nolint:lll
 			header, err := counterparty.GetLightSignedHeaderAtHeight(int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
 			if err != nil {
 				if source.debug {

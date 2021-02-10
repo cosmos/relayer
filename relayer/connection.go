@@ -222,7 +222,9 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 // The identifiers set in the PathEnd's are used to determine which connection ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither connection exists.
-func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header) (success, modified bool, err error) {
+func InitializeConnection(
+	src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header,
+) (success, modified bool, err error) {
 	switch {
 
 	// OpenInit on source
