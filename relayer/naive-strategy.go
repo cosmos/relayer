@@ -629,7 +629,7 @@ func relayPacketFromSequence(src, dst *Chain, seq uint64) (relayPacket, error) {
 }
 
 func acknowledgementFromSequence(src, dst *Chain, seq uint64) (relayPacket, error) {
-	txs, err := src.QueryTxs(src.MustGetLatestLightHeight(), 1, 1000, ackPacketQuery(dst.PathEnd.ChannelID, int(seq)))
+	txs, err := src.QueryTxs(src.MustGetLatestLightHeight(), 1, 1000, ackPacketQuery(src.PathEnd.ChannelID, int(seq)))
 	switch {
 	case err != nil:
 		return nil, err
@@ -817,6 +817,6 @@ func rcvPacketQuery(channelID string, seq int) []string {
 }
 
 func ackPacketQuery(channelID string, seq int) []string {
-	return []string{fmt.Sprintf("%s.packet_src_channel='%s'", waTag, channelID),
+	return []string{fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
 		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq)}
 }
