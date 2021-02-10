@@ -78,6 +78,7 @@ func (c *Chain) ConnInit(counterparty *PathEnd) sdk.Msg {
 func (c *Chain) ConnTry(
 	counterparty *Chain,
 ) (sdk.Msg, error) {
+	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 	clientState, clientStateProof, consensusStateProof, connStateProof,
 		proofHeight, err := counterparty.GenerateConnHandshakeProof(counterparty.MustGetLatestLightHeight() - 1)
 	if err != nil {
@@ -111,6 +112,7 @@ func (c *Chain) ConnTry(
 func (c *Chain) ConnAck(
 	counterparty *Chain,
 ) (sdk.Msg, error) {
+	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 	clientState, clientStateProof, consensusStateProof, connStateProof,
 		proofHeight, err := counterparty.GenerateConnHandshakeProof(counterparty.MustGetLatestLightHeight() - 1)
 	if err != nil {
@@ -157,7 +159,7 @@ func (c *Chain) ChanInit(counterparty *PathEnd) sdk.Msg {
 func (c *Chain) ChanTry(
 	counterparty *Chain,
 ) (sdk.Msg, error) {
-	// obtain proof from counterparty chain
+	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 	counterpartyChannelRes, err := counterparty.QueryChannel(int64(counterparty.MustGetLatestLightHeight()) - 1)
 	if err != nil {
 		return nil, err
@@ -183,7 +185,7 @@ func (c *Chain) ChanTry(
 func (c *Chain) ChanAck(
 	counterparty *Chain,
 ) (sdk.Msg, error) {
-	// obtain proof from counterparty chain
+	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 	counterpartyChannelRes, err := counterparty.QueryChannel(int64(counterparty.MustGetLatestLightHeight()) - 1)
 	if err != nil {
 		return nil, err

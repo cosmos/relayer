@@ -44,6 +44,7 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain) (err error) {
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
 		// NOTE: Timeouts currently only work with ORDERED channels for nwo
+		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 		queryHeight := dst.MustGetLatestLightHeight() - 1
 		dstRecvRes, err = dst.QueryPacketReceipt(int64(queryHeight), rp.seq)
 		switch {
