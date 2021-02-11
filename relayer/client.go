@@ -340,8 +340,8 @@ func IsMatchingConsensusState(consensusStateA, consensusStateB *ibctmtypes.Conse
 	return reflect.DeepEqual(*consensusStateA, *consensusStateB)
 }
 
-// GetClientAndUpdate update clients to prevent expiry
-func GetClientAndUpdate(src, dst *Chain, thresholdTime time.Duration) (time.Duration, error) {
+// AutoUpdateClient update client automatically to prevent expiry
+func AutoUpdateClient(src, dst *Chain, thresholdTime time.Duration) (time.Duration, error) {
 	height, err := src.QueryLatestHeight()
 	if err != nil {
 		return 0, err
@@ -400,18 +400,13 @@ func GetClientAndUpdate(src, dst *Chain, thresholdTime time.Duration) (time.Dura
 		return 0, fmt.Errorf("client (%s) is already expired on chain: %s", src.PathEnd.ClientID, src.ChainID)
 	}
 
-	sh, err := NewSyncHeaders(src, dst)
-	if err != nil {
-		return 0, err
-	}
-
-	dstUH, err := sh.GetTrustedHeader(dst, src)
+	srcUpdateHeader, err := src.GetIBCUpdateHeader(dst)
 	if err != nil {
 		return 0, err
 	}
 
 	msgs := []sdk.Msg{
-		src.UpdateClient(dstUH),
+		src.UpdateClient(srcUpdateHeader),
 	}
 
 	res, success, err := src.SendMsgs(msgs)
@@ -424,8 +419,8 @@ func GetClientAndUpdate(src, dst *Chain, thresholdTime time.Duration) (time.Dura
 	src.Log(fmt.Sprintf("★ Client updated: [%s]client(%s) {%d}->{%d}",
 		src.ChainID,
 		src.PathEnd.ClientID,
-		MustGetHeight(dstUH.TrustedHeight),
-		dstUH.Header.Height,
+		MustGetHeight(srcUpdateHeader.TrustedHeight),
+		srcUpdateHeader.Header.Height,
 	))
 
 	return clientState.TrustingPeriod, nil
