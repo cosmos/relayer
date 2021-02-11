@@ -397,8 +397,9 @@ func (c *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, context.Canc
 		return nil, nil, err
 	}
 
+	subscriber := fmt.Sprintf("%s-subscriber-%s", c.ChainID, suffix)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	eventChan, err := c.Client.Subscribe(ctx, fmt.Sprintf("%s-subscriber-%s", c.ChainID, suffix), query, 1000)
+	eventChan, err := c.Client.Subscribe(ctx, subscriber, query, 1000)
 	return eventChan, cancel, err
 }
 

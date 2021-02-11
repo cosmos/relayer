@@ -90,7 +90,7 @@ $ %s tx clnts demo-path`, appName, appName)),
 
 			modified, err := c[src].CreateClients(c[dst])
 			if modified {
-				if err := overWriteConfig(cmd, config); err != nil {
+				if err := overWriteConfig(config); err != nil {
 					return err
 				}
 			}
@@ -209,7 +209,7 @@ $ %s tx con demo-path -o 3s`, appName, appName, appName)),
 			// ensure that the clients exist
 			modified, err := c[src].CreateClients(c[dst])
 			if modified {
-				if err := overWriteConfig(cmd, config); err != nil {
+				if err := overWriteConfig(config); err != nil {
 					return err
 				}
 			}
@@ -219,7 +219,7 @@ $ %s tx con demo-path -o 3s`, appName, appName, appName)),
 
 			modified, err = c[src].CreateOpenConnections(c[dst], retries, to)
 			if modified {
-				if err := overWriteConfig(cmd, config); err != nil {
+				if err := overWriteConfig(config); err != nil {
 					return err
 				}
 			}
@@ -309,7 +309,7 @@ $ %s tx pth demo-path`, appName, appName, appName, appName, appName, appName)),
 			// create clients if they aren't already created
 			modified, err := c[src].CreateClients(c[dst])
 			if modified {
-				if err := overWriteConfig(cmd, config); err != nil {
+				if err := overWriteConfig(config); err != nil {
 					return err
 				}
 			}
@@ -321,7 +321,7 @@ $ %s tx pth demo-path`, appName, appName, appName, appName, appName, appName)),
 			// create connection if it isn't already created
 			modified, err = c[src].CreateOpenConnections(c[dst], retries, to)
 			if modified {
-				if err := overWriteConfig(cmd, config); err != nil {
+				if err := overWriteConfig(config); err != nil {
 					return err
 				}
 			}
@@ -332,7 +332,7 @@ $ %s tx pth demo-path`, appName, appName, appName, appName, appName, appName)),
 			// create channel if it isn't already created
 			modified, err = c[src].CreateOpenChannels(c[dst], 3, to)
 			if modified {
-				if err := overWriteConfig(cmd, config); err != nil {
+				if err := overWriteConfig(config); err != nil {
 					return err
 				}
 			}

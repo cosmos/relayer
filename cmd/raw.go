@@ -322,7 +322,7 @@ $ %s tx raw conn-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`,
 
 			_, _, modified, err := relayer.ExecuteConnectionStep(chains[src], chains[dst])
 			if modified {
-				if err := overWriteConfig(cmd, config); err != nil {
+				if err := overWriteConfig(config); err != nil {
 					return err
 				}
 			}
@@ -532,7 +532,7 @@ $ %s tx raw channel-step ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1
 
 			_, _, modified, err := relayer.ExecuteChannelStep(chains[src], chains[dst])
 			if modified {
-				if err := overWriteConfig(cmd, config); err != nil {
+				if err := overWriteConfig(config); err != nil {
 					return err
 				}
 			}

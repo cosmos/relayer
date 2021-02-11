@@ -185,7 +185,7 @@ $ %s config add-chains configs/chains`, appName)),
 			if out, err = cfgFilesAddChains(args[0]); err != nil {
 				return err
 			}
-			return overWriteConfig(cmd, out)
+			return overWriteConfig(out)
 		},
 	}
 
@@ -206,7 +206,7 @@ $ %s config add-paths configs/paths`, appName)),
 			if out, err = cfgFilesAddPaths(args[0]); err != nil {
 				return err
 			}
-			return overWriteConfig(cmd, out)
+			return overWriteConfig(out)
 		},
 	}
 
@@ -347,6 +347,7 @@ func defaultConfig() []byte {
 
 // GlobalConfig describes any global relayer settings
 type GlobalConfig struct {
+	APIListenPort  string `yaml:"api-listen-addr" json:"api-listen-addr"`
 	Timeout        string `yaml:"timeout" json:"timeout"`
 	LightCacheSize int    `yaml:"light-cache-size" json:"light-cache-size"`
 }
@@ -354,6 +355,7 @@ type GlobalConfig struct {
 // newDefaultGlobalConfig returns a global config with defaults set
 func newDefaultGlobalConfig() GlobalConfig {
 	return GlobalConfig{
+		APIListenPort:  ":5183",
 		Timeout:        "10s",
 		LightCacheSize: 20,
 	}
@@ -439,13 +441,8 @@ func initConfig(cmd *cobra.Command) error {
 	return nil
 }
 
-func overWriteConfig(cmd *cobra.Command, cfg *Config) error {
-	home, err := cmd.Flags().GetString(flags.FlagHome)
-	if err != nil {
-		return err
-	}
-
-	cfgPath := path.Join(home, "config", "config.yaml")
+func overWriteConfig(cfg *Config) (err error) {
+	cfgPath := path.Join(homePath, "config", "config.yaml")
 	if _, err = os.Stat(cfgPath); err == nil {
 		viper.SetConfigFile(cfgPath)
 		if err = viper.ReadInConfig(); err == nil {
