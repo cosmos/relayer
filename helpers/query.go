@@ -1,6 +1,8 @@
 package helpers
 
 import (
+	"fmt"
+	"math"
 	"strconv"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -73,6 +75,14 @@ func QueryTxs(chain *relayer.Chain, eventsStr string, offset uint64, limit uint6
 	_, err = chain.UpdateLightClient()
 	if err != nil {
 		return nil, err
+	}
+
+	if offset > math.MaxInt64 {
+		return nil, fmt.Errorf("offset (%d) value is greater than max int value", offset)
+	}
+
+	if limit > math.MaxInt64 {
+		return nil, fmt.Errorf("limit (%d) value is greater than max int value", limit)
 	}
 
 	return chain.QueryTxs(chain.MustGetLatestLightHeight(), int(offset), int(limit), events)
