@@ -66,11 +66,12 @@ $ %s tx raw uc ibc-0 ibc-1 ibconeclient`, appName, appName)),
 				return err
 			}
 
-			updateHeader, err := chains[src].GetIBCUpdateHeader(chains[dst])
+			updateMsg, err := chains[src].UpdateClient(chains[dst])
 			if err != nil {
 				return err
 			}
-			return sendAndPrint([]sdk.Msg{chains[src].UpdateClient(updateHeader)},
+
+			return sendAndPrint([]sdk.Msg{updateMsg},
 				chains[src], cmd)
 		},
 	}
@@ -93,7 +94,7 @@ $ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 				return err
 			}
 
-			dstHeader, err := chains[src].GetIBCCreateClientHeader(chains[dst])
+			dstHeader, err := chains[src].GetIBCCreateClientHeader()
 			if err != nil {
 				return err
 			}
@@ -181,17 +182,18 @@ $ %s tx raw conn-try ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`, 
 				return err
 			}
 
-			updateHeader, err := chains[src].GetIBCUpdateHeader(chains[dst])
+			updateMsg, err := chains[src].UpdateClient(chains[dst])
 			if err != nil {
 				return err
 			}
+
 			openTry, err := chains[src].ConnTry(chains[dst])
 			if err != nil {
 				return err
 			}
 
 			txs := []sdk.Msg{
-				chains[src].UpdateClient(updateHeader),
+				updateMsg,
 				openTry,
 			}
 
@@ -224,7 +226,7 @@ $ %s tx raw conn-ack ibc-0 ibc-1 ibconeclient ibczeroclient ibcconn1 ibcconn2`, 
 				return err
 			}
 
-			updateHeader, err := chains[src].GetIBCUpdateHeader(chains[dst])
+			updateMsg, err := chains[src].UpdateClient(chains[dst])
 			if err != nil {
 				return err
 			}
@@ -235,7 +237,7 @@ $ %s tx raw conn-ack ibc-0 ibc-1 ibconeclient ibczeroclient ibcconn1 ibcconn2`, 
 			}
 
 			txs := []sdk.Msg{
-				chains[src].UpdateClient(updateHeader),
+				updateMsg,
 				openAck,
 			}
 
@@ -268,7 +270,7 @@ $ %s tx raw conn-confirm ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn
 				return err
 			}
 
-			updateHeader, err := chains[src].GetIBCUpdateHeader(chains[dst])
+			updateMsg, err := chains[src].UpdateClient(chains[dst])
 			if err != nil {
 				return err
 			}
@@ -281,8 +283,8 @@ $ %s tx raw conn-confirm ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn
 			}
 
 			txs := []sdk.Msg{
+				updateMsg,
 				chains[src].ConnConfirm(dstState),
-				chains[src].UpdateClient(updateHeader),
 			}
 
 			return sendAndPrint(txs, chains[src], cmd)
@@ -389,7 +391,7 @@ $ %s tx raw chan-try ibc-0 ibc-1 ibczeroclient ibcconn0 ibcchan1 ibcchan2 transf
 				return err
 			}
 
-			updateHeader, err := chains[src].GetIBCUpdateHeader(chains[dst])
+			updateMsg, err := chains[src].UpdateClient(chains[dst])
 			if err != nil {
 				return err
 			}
@@ -400,7 +402,7 @@ $ %s tx raw chan-try ibc-0 ibc-1 ibczeroclient ibcconn0 ibcchan1 ibcchan2 transf
 			}
 
 			txs := []sdk.Msg{
-				chains[src].UpdateClient(updateHeader),
+				updateMsg,
 				openTry,
 			}
 
@@ -435,7 +437,7 @@ $ %s tx raw chan-ack ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer transf
 				return err
 			}
 
-			updateHeader, err := chains[src].GetIBCUpdateHeader(chains[dst])
+			updateMsg, err := chains[src].UpdateClient(chains[dst])
 			if err != nil {
 				return err
 			}
@@ -446,7 +448,7 @@ $ %s tx raw chan-ack ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer transf
 			}
 
 			txs := []sdk.Msg{
-				chains[src].UpdateClient(updateHeader),
+				updateMsg,
 				openAck,
 			}
 
@@ -480,7 +482,7 @@ $ %s tx raw chan-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer tr
 				return err
 			}
 
-			updateHeader, err := chains[src].GetIBCUpdateHeader(chains[dst])
+			updateMsg, err := chains[src].UpdateClient(chains[dst])
 			if err != nil {
 				return err
 			}
@@ -491,7 +493,7 @@ $ %s tx raw chan-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer tr
 			}
 
 			txs := []sdk.Msg{
-				chains[src].UpdateClient(updateHeader),
+				updateMsg,
 				chains[src].ChanConfirm(dstChanState),
 			}
 
@@ -591,7 +593,7 @@ $ %s tx raw chan-close-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 trans
 				return err
 			}
 
-			updateHeader, err := chains[src].GetIBCUpdateHeader(chains[dst])
+			updateMsg, err := chains[src].UpdateClient(chains[dst])
 			if err != nil {
 				return err
 			}
@@ -602,7 +604,7 @@ $ %s tx raw chan-close-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 trans
 			}
 
 			txs := []sdk.Msg{
-				chains[src].UpdateClient(updateHeader),
+				updateMsg,
 				chains[src].ChanCloseConfirm(dstChanState),
 			}
 

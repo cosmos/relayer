@@ -173,8 +173,17 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 		return err
 	}
 
-	clients.Src = append(clients.Src, c.UpdateClient(srcUpdateHeader))
-	clients.Dst = append(clients.Dst, dst.UpdateClient(dstUpdateHeader))
+	srcUpdateMsg, err := c.UpdateClient(dst)
+	if err != nil {
+		return err
+	}
+	dstUpdateMsg, err := dst.UpdateClient(c)
+	if err != nil {
+		return err
+	}
+
+	clients.Src = append(clients.Src, srcUpdateMsg)
+	clients.Dst = append(clients.Dst, dstUpdateMsg)
 
 	// Send msgs to both chains
 	if clients.Ready() {
@@ -198,7 +207,8 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 
 // UpgradeClients upgrades the client on src after dst chain has undergone an upgrade.
 func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
-	dstUpdateHeader, err := dst.GetIBCUpdateHeader(c)
+	// updates off-chain light client
+	updateMsg, err := c.UpdateClient(dst)
 	if err != nil {
 		return err
 	}
@@ -223,7 +233,7 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 		ProofUpgradeConsensusState: proofUpgradeConsensusState, Signer: c.MustGetAddress().String()}
 
 	msgs := []sdk.Msg{
-		c.UpdateClient(dstUpdateHeader),
+		updateMsg,
 		upgradeMsg,
 	}
 

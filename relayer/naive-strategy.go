@@ -352,19 +352,18 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 	// send the transaction, retrying if not successful
 	// TODO: have separate retries for different pieces here
 	if err := retry.Do(func() error {
-		updateHeader, err := dst.GetIBCUpdateHeader(src)
+		updateMsg, err := src.UpdateClient(dst)
 		if err != nil {
 			if src.debug {
-				src.Log(fmt.Sprintf("- failed get IBC update header for client on chain %s, retrying: %s",
-					dst.ChainID, err))
+				src.Log(fmt.Sprintf("- failed to construct update message for client on chain %s, retrying: %s",
+					src.PathEnd.ChainID, err))
 			}
+
 			return err
 		}
-		// instantiate the RelayMsgs with the appropriate update client
+
 		txs := &RelayMsgs{
-			Src: []sdk.Msg{
-				src.UpdateClient(updateHeader),
-			},
+			Src:          []sdk.Msg{updateMsg},
 			Dst:          []sdk.Msg{},
 			MaxTxSize:    nrs.MaxTxSize,
 			MaxMsgLength: nrs.MaxMsgLength,
@@ -447,19 +446,21 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 
 	// Prepend non-empty msg lists with UpdateClient
 	if len(msgs.Dst) != 0 {
-		updateHeader, err := dst.GetIBCUpdateHeader(src)
+		updateMsg, err := dst.UpdateClient(src)
 		if err != nil {
 			return err
 		}
-		msgs.Dst = append([]sdk.Msg{dst.UpdateClient(updateHeader)}, msgs.Dst...)
+
+		msgs.Dst = append([]sdk.Msg{updateMsg}, msgs.Dst...)
 	}
 
 	if len(msgs.Src) != 0 {
-		updateHeader, err := src.GetIBCUpdateHeader(dst)
+		updateMsg, err := src.UpdateClient(dst)
 		if err != nil {
 			return err
 		}
-		msgs.Src = append([]sdk.Msg{src.UpdateClient(updateHeader)}, msgs.Src...)
+
+		msgs.Src = append([]sdk.Msg{updateMsg}, msgs.Src...)
 	}
 
 	// send messages to their respective chains
@@ -553,19 +554,21 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) erro
 
 	// Prepend non-empty msg lists with UpdateClient
 	if len(msgs.Dst) != 0 {
-		updateHeader, err := dst.GetIBCUpdateHeader(src)
+		updateMsg, err := dst.UpdateClient(src)
 		if err != nil {
 			return err
 		}
-		msgs.Dst = append([]sdk.Msg{dst.UpdateClient(updateHeader)}, msgs.Dst...)
+
+		msgs.Dst = append([]sdk.Msg{updateMsg}, msgs.Dst...)
 	}
 
 	if len(msgs.Src) != 0 {
-		updateHeader, err := src.GetIBCUpdateHeader(dst)
+		updateMsg, err := dst.UpdateClient(src)
 		if err != nil {
 			return err
 		}
-		msgs.Src = append([]sdk.Msg{src.UpdateClient(updateHeader)}, msgs.Src...)
+
+		msgs.Src = append([]sdk.Msg{updateMsg}, msgs.Src...)
 	}
 
 	// send messages to their respective chains

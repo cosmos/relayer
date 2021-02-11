@@ -65,7 +65,7 @@ func (c *Chain) UpdateLightClient() (*tmtypes.LightBlock, error) {
 
 	lightBlock, err := client.Update(context.Background(), time.Now())
 	if err != nil {
-		return nil, fmt.Errorf("failed to update off-chain light client on chain %s: %w", c.PathEnd.ChainID, err)
+		return nil, fmt.Errorf("failed to update off-chain light client for chain %s: %w", c.ChainID, err)
 	}
 
 	// new clients, cannot be updated without trusted starting state
