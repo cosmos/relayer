@@ -139,7 +139,10 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 		if r.IsMaxTx(msgLen, txSize) {
 			// Submit the transactions to src chain and update its status
-			_, success, _ := src.SendMsgs(msgs)
+			_, success, err := src.SendMsgs(msgs)
+			if src.debug {
+				fmt.Println(err)
+			}
 			r.Succeeded = r.Succeeded && success
 
 			// clear the current batch and reset variables
@@ -151,7 +154,11 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 	// submit leftover msgs
 	if len(msgs) > 0 {
-		_, success, _ := src.SendMsgs(msgs)
+		_, success, err := src.SendMsgs(msgs)
+		if src.debug {
+			fmt.Println(err)
+		}
+
 		r.Succeeded = success
 	}
 

@@ -10,10 +10,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// GetIBCCreateClientHeader updates the off chain tendermint light client and
-// returns an IBC Update Header which can be used to create an on-chain
-// light client.
-func (c *Chain) GetIBCCreateClientHeader(dst *Chain) (*tmclient.Header, error) {
+// GetIBCCreateClientHeader updates the off chain tendermint light client on source
+// and returns an IBC Update Header which can be used to create an on-chain
+// light client on counterparty chain.
+func (c *Chain) GetIBCCreateClientHeader() (*tmclient.Header, error) {
 	lightBlock, err := c.UpdateLightClient()
 	if err != nil {
 		return nil, err
@@ -36,11 +36,11 @@ func (c *Chain) GetIBCCreateClientHeader(dst *Chain) (*tmclient.Header, error) {
 func GetIBCCreateClientHeaders(src, dst *Chain) (srcHeader, dstHeader *tmclient.Header, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
-		srcHeader, err = src.GetIBCCreateClientHeader(dst)
+		srcHeader, err = src.GetIBCCreateClientHeader()
 		return err
 	})
 	eg.Go(func() error {
-		dstHeader, err = dst.GetIBCCreateClientHeader(src)
+		dstHeader, err = dst.GetIBCCreateClientHeader()
 		return err
 	})
 	if err = eg.Wait(); err != nil {
@@ -52,13 +52,16 @@ func GetIBCCreateClientHeaders(src, dst *Chain) (srcHeader, dstHeader *tmclient.
 
 // GetIBCUpdateHeader updates the off chain tendermint light client and
 // returns an IBC Update Header which can be used to update an on chain
-// light client.
+// light client on the destination chain. The source is used to construct
+// the header data.
 func (c *Chain) GetIBCUpdateHeader(dst *Chain) (*tmclient.Header, error) {
-	h, err := c.GetIBCCreateClientHeader(dst)
+	// Construct header data from light client representing source.
+	h, err := c.GetIBCCreateClientHeader()
 	if err != nil {
 		return nil, err
 	}
 
+	// Inject trusted fields based on previous header data from source
 	return c.InjectTrustedFields(dst, h)
 }
 
@@ -91,13 +94,9 @@ func (c *Chain) InjectTrustedFields(dst *Chain, header *tmclient.Header) (*tmcli
 	// make copy of header stored in mop
 	h := *(header)
 
-	dstH, err := dst.GetLatestLightHeight()
-	if err != nil {
-		return nil, err
-	}
-
-	// retrieve counterparty client from dst chain
-	counterpartyClientRes, err := dst.QueryClientState(dstH)
+	// retrieve counterparty client from src chain
+	// this is the client that will updated
+	counterpartyClientRes, err := dst.QueryClientState(0)
 	if err != nil {
 		return nil, err
 	}
