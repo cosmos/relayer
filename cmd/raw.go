@@ -226,12 +226,12 @@ $ %s tx raw conn-ack ibc-0 ibc-1 ibconeclient ibczeroclient ibcconn1 ibcconn2`, 
 				return err
 			}
 
-			openAck, err := chains[src].ConnAck(chains[dst])
+			updateMsg, err := chains[src].UpdateClient(chains[dst])
 			if err != nil {
 				return err
 			}
 
-			updateMsg, err := chains[src].UpdateClient(chains[dst])
+			openAck, err := chains[src].ConnAck(chains[dst])
 			if err != nil {
 				return err
 			}
