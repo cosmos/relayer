@@ -12,7 +12,6 @@ import (
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/helpers"
-	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -258,7 +257,7 @@ $ %s q hdr ibc-1`, appName, appName, appName)),
 
 			switch len(args) {
 			case 1:
-				header, err = chain.QueryLatestHeader()
+				header, err = chain.GetLightSignedHeaderAtHeight(0)
 				if err != nil {
 					return err
 				}
@@ -724,17 +723,12 @@ $ %s q pkts demo-path`, appName, appName, appName)),
 				return err
 			}
 
-			sh, err := relayer.NewSyncHeaders(c[src], c[dst])
-			if err != nil {
-				return err
-			}
-
 			strategy, err := path.GetStrategy()
 			if err != nil {
 				return err
 			}
 
-			sp, err := strategy.UnrelayedSequences(c[src], c[dst], sh)
+			sp, err := strategy.UnrelayedSequences(c[src], c[dst])
 			if err != nil {
 				return err
 			}
@@ -780,17 +774,12 @@ $ %s q acks demo-path`, appName, appName)),
 				return err
 			}
 
-			sh, err := relayer.NewSyncHeaders(c[src], c[dst])
-			if err != nil {
-				return err
-			}
-
 			strategy, err := path.GetStrategy()
 			if err != nil {
 				return err
 			}
 
-			sp, err := strategy.UnrelayedAcknowledgements(c[src], c[dst], sh)
+			sp, err := strategy.UnrelayedAcknowledgements(c[src], c[dst])
 			if err != nil {
 				return err
 			}

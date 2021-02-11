@@ -57,21 +57,10 @@ func QueryHeader(chain *relayer.Chain, opts ...string) (*tmclient.Header, error)
 			return nil, err
 		}
 
-		if height <= 0 {
-			height, err = chain.QueryLatestHeight()
-			if err != nil {
-				return nil, err
-			}
-
-			if height < 0 {
-				return nil, relayer.ErrLightNotInitialized
-			}
-		}
-
 		return chain.QueryHeaderAtHeight(height)
 	}
 
-	return chain.QueryLatestHeader()
+	return chain.GetLightSignedHeaderAtHeight(0)
 }
 
 // QueryTxs is a helper function for query txs
@@ -81,10 +70,10 @@ func QueryTxs(chain *relayer.Chain, eventsStr string, offset uint64, limit uint6
 		return nil, err
 	}
 
-	h, err := chain.UpdateLightWithHeader()
+	_, err = chain.UpdateLightClient()
 	if err != nil {
 		return nil, err
 	}
 
-	return chain.QueryTxs(relayer.MustGetHeight(h.GetHeight()), int(offset), int(limit), events)
+	return chain.QueryTxs(chain.MustGetLatestLightHeight(), int(offset), int(limit), events)
 }

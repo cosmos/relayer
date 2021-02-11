@@ -684,14 +684,10 @@ func (c *Chain) GenerateConnHandshakeProof(height uint64) (clientState ibcexport
 // UpgradeChain submits and upgrade proposal using a zero'd out client state with an updated unbonding period.
 func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Coin,
 	unbondingPeriod time.Duration) error {
-	sh, err := NewSyncHeaders(c, dst)
-	if err != nil {
+	if _, _, err := UpdateLightClients(c, dst); err != nil {
 		return err
 	}
-	if err := sh.Updates(c, dst); err != nil {
-		return err
-	}
-	height := int64(sh.GetHeight(dst.ChainID))
+	height := int64(dst.MustGetLatestLightHeight())
 
 	clientStateRes, err := dst.QueryClientState(height)
 	if err != nil {

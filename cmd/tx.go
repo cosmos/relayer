@@ -385,22 +385,17 @@ $ %s tx relay demo-path`, appName, appName, appName, appName)),
 				return err
 			}
 
-			sh, err := relayer.NewSyncHeaders(c[src], c[dst])
-			if err != nil {
-				return err
-			}
-
 			strategy, err := GetStrategyWithOptions(cmd, config.Paths.MustGet(args[0]).MustGetStrategy())
 			if err != nil {
 				return err
 			}
 
-			sp, err := strategy.UnrelayedSequences(c[src], c[dst], sh)
+			sp, err := strategy.UnrelayedSequences(c[src], c[dst])
 			if err != nil {
 				return err
 			}
 
-			if err = strategy.RelayPackets(c[src], c[dst], sp, sh); err != nil {
+			if err = strategy.RelayPackets(c[src], c[dst], sp); err != nil {
 				return err
 			}
 
@@ -430,11 +425,6 @@ $ %s tx acks demo-path -l 3 -s 6`, appName, appName)),
 				return err
 			}
 
-			sh, err := relayer.NewSyncHeaders(c[src], c[dst])
-			if err != nil {
-				return err
-			}
-
 			strategy, err := GetStrategyWithOptions(cmd, config.Paths.MustGet(args[0]).MustGetStrategy())
 			if err != nil {
 				return err
@@ -442,12 +432,12 @@ $ %s tx acks demo-path -l 3 -s 6`, appName, appName)),
 
 			// sp.Src contains all sequences acked on SRC but acknowledgement not processed on DST
 			// sp.Dst contains all sequences acked on DST but acknowledgement not processed on SRC
-			sp, err := strategy.UnrelayedAcknowledgements(c[src], c[dst], sh)
+			sp, err := strategy.UnrelayedAcknowledgements(c[src], c[dst])
 			if err != nil {
 				return err
 			}
 
-			if err = strategy.RelayAcknowledgements(c[src], c[dst], sp, sh); err != nil {
+			if err = strategy.RelayAcknowledgements(c[src], c[dst], sp); err != nil {
 				return err
 			}
 

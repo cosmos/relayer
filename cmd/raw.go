@@ -66,12 +66,7 @@ $ %s tx raw uc ibc-0 ibc-1 ibconeclient`, appName, appName)),
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLightWithHeader()
-			if err != nil {
-				return err
-			}
-
-			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
+			updateHeader, err := chains[src].GetIBCUpdateHeader(chains[dst])
 			if err != nil {
 				return err
 			}
@@ -98,7 +93,7 @@ $ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLightWithHeader()
+			dstHeader, err := chains[src].GetIBCCreateClientHeader(chains[dst])
 			if err != nil {
 				return err
 			}
@@ -186,16 +181,11 @@ $ %s tx raw conn-try ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`, 
 				return err
 			}
 
-			_, dsth, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
+			updateHeader, err := chains[src].GetIBCUpdateHeader(chains[dst])
 			if err != nil {
 				return err
 			}
-
-			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dsth)
-			if err != nil {
-				return err
-			}
-			openTry, err := chains[src].ConnTry(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1)
+			openTry, err := chains[src].ConnTry(chains[dst])
 			if err != nil {
 				return err
 			}
@@ -234,17 +224,12 @@ $ %s tx raw conn-ack ibc-0 ibc-1 ibconeclient ibczeroclient ibcconn1 ibcconn2`, 
 				return err
 			}
 
-			_, dsth, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
+			updateHeader, err := chains[src].GetIBCUpdateHeader(chains[dst])
 			if err != nil {
 				return err
 			}
 
-			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dsth)
-			if err != nil {
-				return err
-			}
-
-			openAck, err := chains[src].ConnAck(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1)
+			openAck, err := chains[src].ConnAck(chains[dst])
 			if err != nil {
 				return err
 			}
@@ -283,22 +268,18 @@ $ %s tx raw conn-confirm ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn
 				return err
 			}
 
-			_, dsth, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
+			updateHeader, err := chains[src].GetIBCUpdateHeader(chains[dst])
 			if err != nil {
 				return err
 			}
 
 			// NOTE: We query connection at height - 1 because of the way tendermint returns
 			// proofs the commit for height n is contained in the header of height n + 1
-			dstState, err := chains[dst].QueryConnection(dsth.Header.Height - 1)
+			dstState, err := chains[dst].QueryConnection(int64(chains[dst].MustGetLatestLightHeight()) - 1)
 			if err != nil {
 				return err
 			}
 
-			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dsth)
-			if err != nil {
-				return err
-			}
 			txs := []sdk.Msg{
 				chains[src].ConnConfirm(dstState),
 				chains[src].UpdateClient(updateHeader),
@@ -408,17 +389,12 @@ $ %s tx raw chan-try ibc-0 ibc-1 ibczeroclient ibcconn0 ibcchan1 ibcchan2 transf
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLightWithHeader()
+			updateHeader, err := chains[src].GetIBCUpdateHeader(chains[dst])
 			if err != nil {
 				return err
 			}
 
-			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
-			if err != nil {
-				return err
-			}
-
-			openTry, err := chains[src].ChanTry(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1)
+			openTry, err := chains[src].ChanTry(chains[dst])
 			if err != nil {
 				return err
 			}
@@ -459,17 +435,12 @@ $ %s tx raw chan-ack ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer transf
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLightWithHeader()
+			updateHeader, err := chains[src].GetIBCUpdateHeader(chains[dst])
 			if err != nil {
 				return err
 			}
 
-			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
-			if err != nil {
-				return err
-			}
-
-			openAck, err := chains[src].ChanAck(chains[dst], updateHeader.GetHeight().GetRevisionHeight()-1)
+			openAck, err := chains[src].ChanAck(chains[dst])
 			if err != nil {
 				return err
 			}
@@ -509,20 +480,16 @@ $ %s tx raw chan-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer tr
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLightWithHeader()
+			updateHeader, err := chains[src].GetIBCUpdateHeader(chains[dst])
 			if err != nil {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Header.Height - 1)
+			dstChanState, err := chains[dst].QueryChannel(int64(chains[dst].MustGetLatestLightHeight()) - 1)
 			if err != nil {
 				return err
 			}
 
-			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
-			if err != nil {
-				return err
-			}
 			txs := []sdk.Msg{
 				chains[src].UpdateClient(updateHeader),
 				chains[src].ChanConfirm(dstChanState),
@@ -624,20 +591,16 @@ $ %s tx raw chan-close-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 trans
 				return err
 			}
 
-			dstHeader, err := chains[dst].UpdateLightWithHeader()
+			updateHeader, err := chains[src].GetIBCUpdateHeader(chains[dst])
 			if err != nil {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Header.Height - 1)
+			dstChanState, err := chains[dst].QueryChannel(int64(chains[dst].MustGetLatestLightHeight()) - 1)
 			if err != nil {
 				return err
 			}
 
-			updateHeader, err := relayer.InjectTrustedFields(chains[dst], chains[src], dstHeader)
-			if err != nil {
-				return err
-			}
 			txs := []sdk.Msg{
 				chains[src].UpdateClient(updateHeader),
 				chains[src].ChanCloseConfirm(dstChanState),

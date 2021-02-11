@@ -67,11 +67,11 @@ func UpdateLight(chain *relayer.Chain) (string, error) {
 		return "", err
 	}
 
-	ah, err := chain.UpdateLightWithHeader()
+	lightBlock, err := chain.UpdateLightClient()
 	if err != nil {
 		return "", err
 	}
 
 	return fmt.Sprintf("Updated light client for %s from height %d -> height %d",
-		chain.ChainID, bh.Header.Height, ah.Header.Height), nil
+		chain.ChainID, bh.Header.Height, lightBlock.Header.Height), nil
 }
