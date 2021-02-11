@@ -415,9 +415,12 @@ func AutoUpdateClient(src, dst *Chain, thresholdTime time.Duration) (time.Durati
 		return 0, err
 	}
 
-	msgs := []sdk.Msg{
-		src.UpdateClient(srcUpdateHeader),
+	updateMsg, err := src.UpdateClient(dst)
+	if err != nil {
+		return 0, err
 	}
+
+	msgs := []sdk.Msg{updateMsg}
 
 	res, success, err := src.SendMsgs(msgs)
 	if err != nil {
