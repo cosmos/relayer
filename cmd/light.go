@@ -125,12 +125,12 @@ $ %s l u ibc-1`, appName, appName)),
 				return err
 			}
 
-			ah, err := chain.UpdateLightWithHeader()
+			lightBlock, err := chain.UpdateLightClient()
 			if err != nil {
 				return err
 			}
 			fmt.Printf("Updated light client for %s from height %d -> height %d\n",
-				args[0], bh.Header.Height, ah.Header.Height)
+				args[0], bh.Header.Height, lightBlock.Header.Height)
 			return nil
 		},
 	}

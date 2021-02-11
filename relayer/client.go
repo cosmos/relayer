@@ -25,7 +25,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		return false, err
 	}
 
-	srcH, dstH, err := UpdatesWithHeaders(c, dst)
+	srcUpdateHeader, dstUpdateHeader, err := GetIBCCreateClientHeaders(c, dst)
 	if err != nil {
 		return false, err
 	}
@@ -33,7 +33,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 	// Create client for the destination chain on the source chain if client id is unspecified
 	if c.PathEnd.ClientID == "" {
 		if c.debug {
-			c.logCreateClient(dst, dstH.Header.Height)
+			c.logCreateClient(dst, dstUpdateHeader.Header.Height)
 		}
 		ubdPeriod, err := dst.QueryUnbondingPeriod()
 		if err != nil {
@@ -42,12 +42,12 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 
 		// Create the ClientState we want on 'c' tracking 'dst'
 		clientState := ibctmtypes.NewClientState(
-			dstH.GetHeader().GetChainID(),
+			dstUpdateHeader.GetHeader().GetChainID(),
 			ibctmtypes.NewFractionFromTm(light.DefaultTrustLevel),
 			dst.GetTrustingPeriod(),
 			ubdPeriod,
 			time.Minute*10,
-			dstH.GetHeight().(clienttypes.Height),
+			dstUpdateHeader.GetHeight().(clienttypes.Height),
 			commitmenttypes.GetSDKSpecs(),
 			DefaultUpgradePath,
 			false,
@@ -60,7 +60,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			msgs := []sdk.Msg{
 				c.CreateClient(
 					clientState,
-					dstH,
+					dstUpdateHeader,
 				),
 			}
 
@@ -86,7 +86,8 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 
 	} else {
 		// Ensure client exists in the event of user inputted identifiers
-		_, err := c.QueryClientState(srcH.Header.Height)
+		// TODO: check client is not expired
+		_, err := c.QueryClientState(srcUpdateHeader.Header.Height)
 		if err != nil {
 			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
 				c.PathEnd.ClientID, c.ChainID, err)
@@ -96,7 +97,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 	// Create client for the source chain on destination chain if client id is unspecified
 	if dst.PathEnd.ClientID == "" {
 		if dst.debug {
-			dst.logCreateClient(c, srcH.Header.Height)
+			dst.logCreateClient(c, srcUpdateHeader.Header.Height)
 		}
 		ubdPeriod, err := c.QueryUnbondingPeriod()
 		if err != nil {
@@ -104,12 +105,12 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		}
 		// Create the ClientState we want on 'dst' tracking 'c'
 		clientState := ibctmtypes.NewClientState(
-			srcH.GetHeader().GetChainID(),
+			srcUpdateHeader.GetHeader().GetChainID(),
 			ibctmtypes.NewFractionFromTm(light.DefaultTrustLevel),
 			c.GetTrustingPeriod(),
 			ubdPeriod,
 			time.Minute*10,
-			srcH.GetHeight().(clienttypes.Height),
+			srcUpdateHeader.GetHeight().(clienttypes.Height),
 			commitmenttypes.GetSDKSpecs(),
 			DefaultUpgradePath,
 			false,
@@ -124,7 +125,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			msgs := []sdk.Msg{
 				dst.CreateClient(
 					clientState,
-					srcH,
+					srcUpdateHeader,
 				),
 			}
 
@@ -148,7 +149,8 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 
 	} else {
 		// Ensure client exists in the event of user inputted identifiers
-		_, err := dst.QueryClientState(dstH.Header.Height)
+		// TODO: check client is not expired
+		_, err := dst.QueryClientState(dstUpdateHeader.Header.Height)
 		if err != nil {
 			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
 				dst.PathEnd.ClientID, dst.ChainID, err)
@@ -166,18 +168,13 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 func (c *Chain) UpdateClients(dst *Chain) (err error) {
 	clients := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
-	sh, err := NewSyncHeaders(c, dst)
+	srcUpdateHeader, dstUpdateHeader, err := GetIBCUpdateHeaders(c, dst)
 	if err != nil {
 		return err
 	}
 
-	srcUH, dstUH, err := sh.GetTrustedHeaders(c, dst)
-	if err != nil {
-		return err
-	}
-
-	clients.Src = append(clients.Src, c.UpdateClient(dstUH))
-	clients.Dst = append(clients.Dst, dst.UpdateClient(srcUH))
+	clients.Src = append(clients.Src, c.UpdateClient(srcUpdateHeader))
+	clients.Dst = append(clients.Dst, dst.UpdateClient(dstUpdateHeader))
 
 	// Send msgs to both chains
 	if clients.Ready() {
@@ -185,12 +182,12 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 			c.Log(fmt.Sprintf("★ Clients updated: [%s]client(%s) {%d}->{%d} and [%s]client(%s) {%d}->{%d}",
 				c.ChainID,
 				c.PathEnd.ClientID,
-				MustGetHeight(srcUH.TrustedHeight),
-				srcUH.Header.Height,
+				MustGetHeight(srcUpdateHeader.TrustedHeight),
+				srcUpdateHeader.Header.Height,
 				dst.ChainID,
 				dst.PathEnd.ClientID,
-				MustGetHeight(dstUH.TrustedHeight),
-				dstUH.Header.Height,
+				MustGetHeight(dstUpdateHeader.TrustedHeight),
+				dstUpdateHeader.Header.Height,
 			),
 			)
 		}
@@ -201,21 +198,13 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 
 // UpgradeClients upgrades the client on src after dst chain has undergone an upgrade.
 func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
-	sh, err := NewSyncHeaders(c, dst)
+	dstUpdateHeader, err := dst.GetIBCUpdateHeader(c)
 	if err != nil {
-		return err
-	}
-	if err := sh.Updates(c, dst); err != nil {
 		return err
 	}
 
 	if height == 0 {
-		height = int64(sh.GetHeight(dst.ChainID))
-	}
-
-	dstUpdateHeader, err := sh.GetTrustedHeader(dst, c)
-	if err != nil {
-		return err
+		height = int64(dst.MustGetLatestLightHeight())
 	}
 
 	// query proofs on counterparty
@@ -291,7 +280,8 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 				continue
 			}
 
-			header, err := counterparty.QueryHeaderAtHeight(int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
+			//nolint:lll
+			header, err := counterparty.GetLightSignedHeaderAtHeight(int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
 			if err != nil {
 				if source.debug {
 					source.Log(fmt.Sprintf("Error: failed to query header for chain %s at height %d: %v",
