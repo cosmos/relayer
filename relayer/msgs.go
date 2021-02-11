@@ -6,7 +6,6 @@ import (
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
-	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 )
 
@@ -45,10 +44,15 @@ func (c *Chain) CreateClient(
 	return msg
 }
 
-// UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst
-func (c *Chain) UpdateClient(header ibcexported.Header) sdk.Msg {
+// UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst.
+func (c *Chain) UpdateClient(dst *Chain) (sdk.Msg, error) {
+	header, err := dst.GetIBCUpdateHeader(c)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := header.ValidateBasic(); err != nil {
-		panic(err)
+		return nil, err
 	}
 	msg, err := clienttypes.NewMsgUpdateClient(
 		c.PathEnd.ClientID,
@@ -56,9 +60,9 @@ func (c *Chain) UpdateClient(header ibcexported.Header) sdk.Msg {
 		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return msg
+	return msg, nil
 }
 
 // ConnInit creates a MsgConnectionOpenInit

@@ -6,7 +6,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 )
 
 // CreateOpenConnections runs the connection creation messages on timeout until they pass.
@@ -77,16 +76,15 @@ func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Dur
 // file. The booleans return indicate if the message was successfully
 // executed and if this was the last handshake step.
 func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err error) {
-	srcUpdateHeader, dstUpdateHeader, err := GetIBCUpdateHeaders(src, dst)
-	if err != nil {
-		return false, false, false, fmt.Errorf("failed to get trusted headers: %v", err)
-	}
-
 	// variables needed to determine the current handshake step
 	var (
 		srcConn, dstConn *conntypes.QueryConnectionResponse
 		msgs             []sdk.Msg
 	)
+
+	if _, _, err := UpdateLightClients(src, dst); err != nil {
+		return false, false, false, err
+	}
 
 	// TODO: add back retries due to commit delay/update
 	// get headers to update light clients on chain
@@ -94,7 +92,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	// is chosen or a new connection is created.
 	// This will perform either an OpenInit or OpenTry step and return
 	if src.PathEnd.ConnectionID == "" || dst.PathEnd.ConnectionID == "" {
-		success, modified, err := InitializeConnection(src, dst, srcUpdateHeader, dstUpdateHeader)
+		success, modified, err := InitializeConnection(src, dst)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -124,8 +122,13 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			return false, false, false, err
 		}
 
+		updateMsg, err := src.UpdateClient(dst)
+		if err != nil {
+			return false, false, false, err
+		}
+
 		msgs = []sdk.Msg{
-			src.UpdateClient(dstUpdateHeader),
+			updateMsg,
 			openTry,
 		}
 		_, success, err = src.SendMsgs(msgs)
@@ -147,8 +150,13 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			return false, false, false, err
 		}
 
+		updateMsg, err := src.UpdateClient(dst)
+		if err != nil {
+			return false, false, false, err
+		}
+
 		msgs = []sdk.Msg{
-			src.UpdateClient(dstUpdateHeader),
+			updateMsg,
 			openAck,
 		}
 		_, success, err = src.SendMsgs(msgs)
@@ -169,8 +177,13 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			return false, false, false, err
 		}
 
+		updateMsg, err := dst.UpdateClient(src)
+		if err != nil {
+			return false, false, false, err
+		}
+
 		msgs = []sdk.Msg{
-			dst.UpdateClient(srcUpdateHeader),
+			updateMsg,
 			openAck,
 		}
 		_, success, err = dst.SendMsgs(msgs)
@@ -183,8 +196,14 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 		if src.debug {
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
+
+		updateMsg, err := src.UpdateClient(dst)
+		if err != nil {
+			return false, false, false, err
+		}
+
 		msgs = []sdk.Msg{
-			src.UpdateClient(dstUpdateHeader),
+			updateMsg,
 			src.ConnConfirm(dstConn),
 		}
 		_, success, err = src.SendMsgs(msgs)
@@ -199,8 +218,14 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 		if dst.debug {
 			logConnectionStates(dst, src, dstConn, srcConn)
 		}
+
+		updateMsg, err := dst.UpdateClient(src)
+		if err != nil {
+			return false, false, false, err
+		}
+
 		msgs = []sdk.Msg{
-			dst.UpdateClient(srcUpdateHeader),
+			updateMsg,
 			dst.ConnConfirm(srcConn),
 		}
 		last = true
@@ -217,13 +242,12 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	return true, last, false, nil
 }
 
-//nolint:interfacer
 // InitializeConnection creates a new connection on either the source or destination chain .
 // The identifiers set in the PathEnd's are used to determine which connection ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither connection exists.
 func InitializeConnection(
-	src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header,
+	src, dst *Chain,
 ) (success, modified bool, err error) {
 	switch {
 
@@ -238,8 +262,14 @@ func InitializeConnection(
 		connectionID, found := FindMatchingConnection(src, dst)
 		if !found {
 			// construct OpenInit message to be submitted on source chain
+
+			updateMsg, err := src.UpdateClient(dst)
+			if err != nil {
+				return false, false, err
+			}
+
 			msgs := []sdk.Msg{
-				src.UpdateClient(dstUpdateHeader),
+				updateMsg,
 				src.ConnInit(dst.PathEnd),
 			}
 
@@ -274,8 +304,13 @@ func InitializeConnection(
 				return false, false, err
 			}
 
+			updateMsg, err := src.UpdateClient(dst)
+			if err != nil {
+				return false, false, err
+			}
+
 			msgs := []sdk.Msg{
-				src.UpdateClient(dstUpdateHeader),
+				updateMsg,
 				openTry,
 			}
 			res, success, err := src.SendMsgs(msgs)
@@ -309,8 +344,13 @@ func InitializeConnection(
 				return false, false, err
 			}
 
+			updateMsg, err := dst.UpdateClient(src)
+			if err != nil {
+				return false, false, err
+			}
+
 			msgs := []sdk.Msg{
-				dst.UpdateClient(srcUpdateHeader),
+				updateMsg,
 				openTry,
 			}
 			res, success, err := dst.SendMsgs(msgs)
