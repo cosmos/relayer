@@ -82,7 +82,19 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 		msgs             []sdk.Msg
 	)
 
-	if _, _, err := UpdateLightClients(src, dst); err != nil {
+	// NOTE: proof construction for handshake messages
+	// relies on delivery of the associated update message.
+	// Updating the light client again could result in
+	// failed handshakes since the proof height would
+	// rely on a consensus state that has not been committed
+	// to the chain.
+	srcUpdateMsg, err := src.UpdateClient(dst)
+	if err != nil {
+		return false, false, false, err
+	}
+
+	dstUpdateMsg, err := dst.UpdateClient(src)
+	if err != nil {
 		return false, false, false, err
 	}
 
@@ -92,7 +104,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	// is chosen or a new connection is created.
 	// This will perform either an OpenInit or OpenTry step and return
 	if src.PathEnd.ConnectionID == "" || dst.PathEnd.ConnectionID == "" {
-		success, modified, err := InitializeConnection(src, dst)
+		success, modified, err := InitializeConnection(src, dst, srcUpdateMsg, dstUpdateMsg)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -122,13 +134,8 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			return false, false, false, err
 		}
 
-		updateMsg, err := src.UpdateClient(dst)
-		if err != nil {
-			return false, false, false, err
-		}
-
 		msgs = []sdk.Msg{
-			updateMsg,
+			srcUpdateMsg,
 			openTry,
 		}
 		_, success, err = src.SendMsgs(msgs)
@@ -150,13 +157,8 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			return false, false, false, err
 		}
 
-		updateMsg, err := src.UpdateClient(dst)
-		if err != nil {
-			return false, false, false, err
-		}
-
 		msgs = []sdk.Msg{
-			updateMsg,
+			srcUpdateMsg,
 			openAck,
 		}
 		_, success, err = src.SendMsgs(msgs)
@@ -177,13 +179,8 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			return false, false, false, err
 		}
 
-		updateMsg, err := dst.UpdateClient(src)
-		if err != nil {
-			return false, false, false, err
-		}
-
 		msgs = []sdk.Msg{
-			updateMsg,
+			dstUpdateMsg,
 			openAck,
 		}
 		_, success, err = dst.SendMsgs(msgs)
@@ -197,13 +194,8 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
 
-		updateMsg, err := src.UpdateClient(dst)
-		if err != nil {
-			return false, false, false, err
-		}
-
 		msgs = []sdk.Msg{
-			updateMsg,
+			srcUpdateMsg,
 			src.ConnConfirm(dstConn),
 		}
 		_, success, err = src.SendMsgs(msgs)
@@ -219,13 +211,8 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(dst, src, dstConn, srcConn)
 		}
 
-		updateMsg, err := dst.UpdateClient(src)
-		if err != nil {
-			return false, false, false, err
-		}
-
 		msgs = []sdk.Msg{
-			updateMsg,
+			dstUpdateMsg,
 			dst.ConnConfirm(srcConn),
 		}
 		last = true
@@ -247,7 +234,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither connection exists.
 func InitializeConnection(
-	src, dst *Chain,
+	src, dst *Chain, srcUpdateMsg, dstUpdateMsg sdk.Msg,
 ) (success, modified bool, err error) {
 	switch {
 
@@ -263,13 +250,8 @@ func InitializeConnection(
 		if !found {
 			// construct OpenInit message to be submitted on source chain
 
-			updateMsg, err := src.UpdateClient(dst)
-			if err != nil {
-				return false, false, err
-			}
-
 			msgs := []sdk.Msg{
-				updateMsg,
+				srcUpdateMsg,
 				src.ConnInit(dst.PathEnd),
 			}
 
@@ -304,13 +286,8 @@ func InitializeConnection(
 				return false, false, err
 			}
 
-			updateMsg, err := src.UpdateClient(dst)
-			if err != nil {
-				return false, false, err
-			}
-
 			msgs := []sdk.Msg{
-				updateMsg,
+				srcUpdateMsg,
 				openTry,
 			}
 			res, success, err := src.SendMsgs(msgs)
@@ -344,13 +321,8 @@ func InitializeConnection(
 				return false, false, err
 			}
 
-			updateMsg, err := dst.UpdateClient(src)
-			if err != nil {
-				return false, false, err
-			}
-
 			msgs := []sdk.Msg{
-				updateMsg,
+				dstUpdateMsg,
 				openTry,
 			}
 			res, success, err := dst.SendMsgs(msgs)

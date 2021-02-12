@@ -407,6 +407,15 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 		MaxTxSize:    nrs.MaxTxSize,
 		MaxMsgLength: nrs.MaxMsgLength,
 	}
+	srcUpdateMsg, err := src.UpdateClient(dst)
+	if err != nil {
+		return err
+	}
+
+	dstUpdateMsg, err := dst.UpdateClient(src)
+	if err != nil {
+		return err
+	}
 
 	// add messages for sequences on src
 	for _, seq := range sp.Src {
@@ -446,21 +455,11 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 
 	// Prepend non-empty msg lists with UpdateClient
 	if len(msgs.Dst) != 0 {
-		updateMsg, err := dst.UpdateClient(src)
-		if err != nil {
-			return err
-		}
-
-		msgs.Dst = append([]sdk.Msg{updateMsg}, msgs.Dst...)
+		msgs.Dst = append([]sdk.Msg{dstUpdateMsg}, msgs.Dst...)
 	}
 
 	if len(msgs.Src) != 0 {
-		updateMsg, err := src.UpdateClient(dst)
-		if err != nil {
-			return err
-		}
-
-		msgs.Src = append([]sdk.Msg{updateMsg}, msgs.Src...)
+		msgs.Src = append([]sdk.Msg{srcUpdateMsg}, msgs.Src...)
 	}
 
 	// send messages to their respective chains
@@ -563,7 +562,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) erro
 	}
 
 	if len(msgs.Src) != 0 {
-		updateMsg, err := dst.UpdateClient(src)
+		updateMsg, err := src.UpdateClient(dst)
 		if err != nil {
 			return err
 		}
