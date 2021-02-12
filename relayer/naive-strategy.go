@@ -563,7 +563,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) erro
 	}
 
 	if len(msgs.Src) != 0 {
-		updateMsg, err := dst.UpdateClient(src)
+		updateMsg, err := src.UpdateClient(dst)
 		if err != nil {
 			return err
 		}
