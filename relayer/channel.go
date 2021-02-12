@@ -85,14 +85,20 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 		msgs             []sdk.Msg
 	)
 
-	if _, _, err := UpdateLightClients(src, dst); err != nil {
+	srcUpdateMsg, err := src.UpdateClient(dst)
+	if err != nil {
+		return false, false, false, err
+	}
+
+	dstUpdateMsg, err := dst.UpdateClient(src)
+	if err != nil {
 		return false, false, false, err
 	}
 
 	// if either identifier is missing, an existing channel that matches the required fields
 	// is chosen or a new channel is created.
 	if src.PathEnd.ChannelID == "" || dst.PathEnd.ChannelID == "" {
-		success, modified, err := InitializeChannel(src, dst)
+		success, modified, err := InitializeChannel(src, dst, srcUpdateMsg, dstUpdateMsg)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -122,13 +128,8 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			return false, false, false, err
 		}
 
-		updateMsg, err := src.UpdateClient(dst)
-		if err != nil {
-			return false, false, false, err
-		}
-
 		msgs = []sdk.Msg{
-			updateMsg,
+			srcUpdateMsg,
 			openTry,
 		}
 
@@ -151,13 +152,8 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			return false, false, false, err
 		}
 
-		updateMsg, err := src.UpdateClient(dst)
-		if err != nil {
-			return false, false, false, err
-		}
-
 		msgs = []sdk.Msg{
-			updateMsg,
+			srcUpdateMsg,
 			openAck,
 		}
 
@@ -179,13 +175,8 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			return false, false, false, err
 		}
 
-		updateMsg, err := dst.UpdateClient(src)
-		if err != nil {
-			return false, false, false, err
-		}
-
 		msgs = []sdk.Msg{
-			updateMsg,
+			dstUpdateMsg,
 			openAck,
 		}
 
@@ -200,13 +191,8 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
 
-		updateMsg, err := src.UpdateClient(dst)
-		if err != nil {
-			return false, false, false, err
-		}
-
 		msgs = []sdk.Msg{
-			updateMsg,
+			srcUpdateMsg,
 			src.ChanConfirm(dstChan),
 		}
 		last = true
@@ -222,13 +208,8 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(dst, src, dstChan, srcChan)
 		}
 
-		updateMsg, err := dst.UpdateClient(src)
-		if err != nil {
-			return false, false, false, err
-		}
-
 		msgs = []sdk.Msg{
-			updateMsg,
+			dstUpdateMsg,
 			dst.ChanConfirm(srcChan),
 		}
 		last = true
@@ -251,7 +232,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither channel exists.
 func InitializeChannel(
-	src, dst *Chain,
+	src, dst *Chain, srcUpdateMsg, dstUpdateMsg sdk.Msg,
 ) (success, modified bool, err error) {
 	switch {
 
@@ -266,14 +247,8 @@ func InitializeChannel(
 		channelID, found := FindMatchingChannel(src, dst)
 		if !found {
 			// construct OpenInit message to be submitted on source chain
-
-			updateMsg, err := src.UpdateClient(dst)
-			if err != nil {
-				return false, false, err
-			}
-
 			msgs := []sdk.Msg{
-				updateMsg,
+				srcUpdateMsg,
 				src.ChanInit(dst.PathEnd),
 			}
 
@@ -309,13 +284,8 @@ func InitializeChannel(
 				return false, false, err
 			}
 
-			updateMsg, err := src.UpdateClient(dst)
-			if err != nil {
-				return false, false, err
-			}
-
 			msgs := []sdk.Msg{
-				updateMsg,
+				srcUpdateMsg,
 				openTry,
 			}
 			res, success, err := src.SendMsgs(msgs)
@@ -350,13 +320,8 @@ func InitializeChannel(
 				return false, false, err
 			}
 
-			updateMsg, err := dst.UpdateClient(src)
-			if err != nil {
-				return false, false, err
-			}
-
 			msgs := []sdk.Msg{
-				updateMsg,
+				dstUpdateMsg,
 				openTry,
 			}
 			res, success, err := dst.SendMsgs(msgs)
