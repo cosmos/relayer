@@ -371,9 +371,75 @@ func (c *Config) AddChain(chain *relayer.Chain) (err error) {
 	return nil
 }
 
+func checkPathConflict(pathID, fieldName, oldP, newP string) (err error) {
+	if oldP != "" && oldP != newP {
+		return fmt.Errorf(
+			"path with ID %s and conflicting %s (%s) already exists",
+			pathID, fieldName, oldP,
+		)
+	}
+	return nil
+}
+
+func checkPathEndConflict(pathID, direction string, oldPe, newPe *relayer.PathEnd) (err error) {
+	if err = checkPathConflict(
+		pathID, direction+" chain ID",
+		oldPe.ChainID, newPe.ChainID); err != nil {
+		return err
+	}
+	if err = checkPathConflict(
+		pathID, direction+" client ID",
+		oldPe.ClientID, newPe.ClientID); err != nil {
+		return err
+	}
+	if err = checkPathConflict(
+		pathID, direction+" connection ID",
+		oldPe.ConnectionID, newPe.ConnectionID); err != nil {
+		return err
+	}
+	if err = checkPathConflict(
+		pathID, direction+" port ID",
+		oldPe.PortID, newPe.PortID); err != nil {
+		return err
+	}
+	if err = checkPathConflict(
+		pathID, direction+" order",
+		strings.ToLower(oldPe.Order), strings.ToLower(newPe.Order)); err != nil {
+		return err
+	}
+	if err = checkPathConflict(
+		pathID, direction+" version",
+		oldPe.Version, newPe.Version); err != nil {
+		return err
+	}
+	if err = checkPathConflict(
+		pathID, direction+" channel ID",
+		oldPe.ChannelID, newPe.ChannelID); err != nil {
+		return err
+	}
+	return nil
+}
+
 // AddPath adds an additional path to the config
 func (c *Config) AddPath(name string, path *relayer.Path) (err error) {
-	return c.Paths.Add(name, path)
+	// Check if the path does not yet exist.
+	oldPath, err := c.Paths.Get(name)
+	if err != nil {
+		return c.Paths.Add(name, path)
+	}
+	// Now check if the update would cause any conflicts.
+	if err = checkPathEndConflict(name, "source", oldPath.Src, path.Src); err != nil {
+		return err
+	}
+	if err = checkPathEndConflict(name, "destination", oldPath.Dst, path.Dst); err != nil {
+		return err
+	}
+	if err = checkPathConflict(name, "strategy type", oldPath.Strategy.Type, path.Strategy.Type); err != nil {
+		return err
+	}
+	// Update the existing path.
+	*oldPath = *path
+	return nil
 }
 
 // DeleteChain removes a chain from the config
