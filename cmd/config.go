@@ -373,31 +373,48 @@ func (c *Config) AddChain(chain *relayer.Chain) (err error) {
 
 func checkPathConflict(pathID, fieldName, oldP, newP string) (err error) {
 	if oldP != "" && oldP != newP {
-		return fmt.Errorf("path with ID %s and conflicting %s (%s) already exists", pathID, fieldName, oldP)
+		return fmt.Errorf(
+			"path with ID %s and conflicting %s (%s) already exists",
+			pathID, fieldName, oldP,
+		)
 	}
 	return nil
 }
 
 func checkPathEndConflict(pathID, direction string, oldPe, newPe *relayer.PathEnd) (err error) {
-	if err = checkPathConflict(pathID, direction+" chain ID", oldPe.ChainID, newPe.ChainID); err != nil {
+	if err = checkPathConflict(
+		pathID, direction+" chain ID",
+		oldPe.ChainID, newPe.ChainID); err != nil {
 		return err
 	}
-	if err = checkPathConflict(pathID, direction+" client ID", oldPe.ClientID, newPe.ClientID); err != nil {
+	if err = checkPathConflict(
+		pathID, direction+" client ID",
+		oldPe.ClientID, newPe.ClientID); err != nil {
 		return err
 	}
-	if err = checkPathConflict(pathID, direction+" connection ID", oldPe.ConnectionID, newPe.ConnectionID); err != nil {
+	if err = checkPathConflict(
+		pathID, direction+" connection ID",
+		oldPe.ConnectionID, newPe.ConnectionID); err != nil {
 		return err
 	}
-	if err = checkPathConflict(pathID, direction+" port ID", oldPe.PortID, newPe.PortID); err != nil {
+	if err = checkPathConflict(
+		pathID, direction+" port ID",
+		oldPe.PortID, newPe.PortID); err != nil {
 		return err
 	}
-	if err = checkPathConflict(pathID, direction+" order", strings.ToLower(oldPe.Order), strings.ToLower(newPe.Order)); err != nil {
+	if err = checkPathConflict(
+		pathID, direction+" order",
+		strings.ToLower(oldPe.Order), strings.ToLower(newPe.Order)); err != nil {
 		return err
 	}
-	if err = checkPathConflict(pathID, direction+" version", oldPe.Version, newPe.Version); err != nil {
+	if err = checkPathConflict(
+		pathID, direction+" version",
+		oldPe.Version, newPe.Version); err != nil {
 		return err
 	}
-	if err = checkPathConflict(pathID, direction+" channel ID", oldPe.ChannelID, newPe.ChannelID); err != nil {
+	if err = checkPathConflict(
+		pathID, direction+" channel ID",
+		oldPe.ChannelID, newPe.ChannelID); err != nil {
 		return err
 	}
 	return nil
