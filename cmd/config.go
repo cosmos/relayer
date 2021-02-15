@@ -507,6 +507,11 @@ func (c *Config) ValidatePathEnd(pe *relayer.PathEnd) error {
 	if err != nil {
 		return err
 	}
+	// NOTE: this is just to do validation, the path
+	// is not written to the config file
+	if err = chain.SetPath(pe); err != nil {
+		return err
+	}
 
 	height, err := chain.QueryLatestHeight()
 	if err != nil {
