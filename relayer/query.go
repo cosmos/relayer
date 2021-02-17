@@ -46,10 +46,7 @@ var eventFormat = "{eventType}.{eventAttribute}={value}"
 
 // QueryBalance returns the amount of coins in the relayer account
 func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
-	var (
-		err  error
-		addr sdk.AccAddress
-	)
+	var addr sdk.AccAddress
 	if keyName == "" {
 		addr = c.MustGetAddress()
 	} else {
@@ -60,6 +57,17 @@ func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
 		done := c.UseSDKContext()
 		addr = info.GetAddress()
 		done()
+	}
+	return c.QueryBalanceWithAddress(addr.String())
+}
+
+// QueryBalanceWithAddress returns the amount of coins in the relayer account with address as input
+func (c *Chain) QueryBalanceWithAddress(address string) (sdk.Coins, error) {
+	done := c.UseSDKContext()
+	addr, err := sdk.AccAddressFromBech32(address)
+	done()
+	if err != nil {
+		return nil, err
 	}
 
 	params := bankTypes.NewQueryAllBalancesRequest(addr, &querytypes.PageRequest{
@@ -311,21 +319,23 @@ func (c *Chain) QueryChannelClient(height int64) (*chantypes.QueryChannelClientS
 
 // QueryDenomTrace takes a denom from IBC and queries the information about it
 func (c *Chain) QueryDenomTrace(denom string) (*transfertypes.QueryDenomTraceResponse, error) {
-	return transfertypes.NewQueryClient(c.CLIContext(0)).DenomTrace(context.Background(), &transfertypes.QueryDenomTraceRequest{
-		Hash: denom,
-	})
+	return transfertypes.NewQueryClient(c.CLIContext(0)).DenomTrace(context.Background(),
+		&transfertypes.QueryDenomTraceRequest{
+			Hash: denom,
+		})
 }
 
 // QueryDenomTraces returns all the denom traces from a given chain
 func (c *Chain) QueryDenomTraces(offset, limit uint64, height int64) (*transfertypes.QueryDenomTracesResponse, error) {
-	return transfertypes.NewQueryClient(c.CLIContext(height)).DenomTraces(context.Background(), &transfertypes.QueryDenomTracesRequest{
-		Pagination: &querytypes.PageRequest{
-			Key:        []byte(""),
-			Offset:     offset,
-			Limit:      limit,
-			CountTotal: true,
-		},
-	})
+	return transfertypes.NewQueryClient(c.CLIContext(height)).DenomTraces(context.Background(),
+		&transfertypes.QueryDenomTracesRequest{
+			Pagination: &querytypes.PageRequest{
+				Key:        []byte(""),
+				Offset:     offset,
+				Limit:      limit,
+				CountTotal: true,
+			},
+		})
 }
 
 /////////////////////////////////////
@@ -402,10 +412,7 @@ func (c *Chain) QueryUnbondingPeriod() (time.Duration, error) {
 	return res.Params.UnbondingTime, nil
 }
 
-/////////////////////////////////////
-//          UPGRADES               //
-/////////////////////////////////////
-
+// QueryUpgradedClient returns upgraded client info
 func (c *Chain) QueryUpgradedClient(height int64) (*codectypes.Any, []byte, clienttypes.Height, error) {
 	req := upgradetypes.QueryCurrentPlanRequest{}
 
@@ -417,7 +424,8 @@ func (c *Chain) QueryUpgradedClient(height int64) (*codectypes.Any, []byte, clie
 	}
 
 	if res == nil || res.Plan == nil || res.Plan.UpgradedClientState == nil {
-		return nil, nil, clienttypes.Height{}, fmt.Errorf("upgraded client state plan does not exist at height %d", height)
+		return nil, nil, clienttypes.Height{},
+			fmt.Errorf("upgraded client state plan does not exist at height %d", height)
 	}
 	client := res.Plan.UpgradedClientState
 
@@ -429,6 +437,7 @@ func (c *Chain) QueryUpgradedClient(height int64) (*codectypes.Any, []byte, clie
 	return client, proof, proofHeight, nil
 }
 
+// QueryUpgradedConsState returns upgraded consensus state and height of client
 func (c *Chain) QueryUpgradedConsState(height int64) (*codectypes.Any, []byte, clienttypes.Height, error) {
 	req := upgradetypes.QueryUpgradedConsensusStateRequest{
 		LastHeight: height,
@@ -442,7 +451,8 @@ func (c *Chain) QueryUpgradedConsState(height int64) (*codectypes.Any, []byte, c
 	}
 
 	if res == nil || res.UpgradedConsensusState == nil {
-		return nil, nil, clienttypes.Height{}, fmt.Errorf("upgraded consensus state plan does not exist at height %d", height)
+		return nil, nil, clienttypes.Height{},
+			fmt.Errorf("upgraded consensus state plan does not exist at height %d", height)
 	}
 	consState := res.UpgradedConsensusState
 
@@ -456,8 +466,8 @@ func (c *Chain) QueryUpgradedConsState(height int64) (*codectypes.Any, []byte, c
 
 // QueryUpgradeProof performs an abci query with the given key and returns the proto encoded merkle proof
 // for the query and the height at which the proof will succeed on a tendermint verifier.
-func (chain *Chain) QueryUpgradeProof(key []byte, height uint64) ([]byte, clienttypes.Height, error) {
-	res, err := chain.QueryABCI(abci.RequestQuery{
+func (c *Chain) QueryUpgradeProof(key []byte, height uint64) ([]byte, clienttypes.Height, error) {
+	res, err := c.QueryABCI(abci.RequestQuery{
 		Path:   "store/upgrade/key",
 		Height: int64(height - 1),
 		Data:   key,
@@ -472,12 +482,12 @@ func (chain *Chain) QueryUpgradeProof(key []byte, height uint64) ([]byte, client
 		return nil, clienttypes.Height{}, err
 	}
 
-	proof, err := chain.Encoding.Marshaler.MarshalBinaryBare(&merkleProof)
+	proof, err := c.Encoding.Marshaler.MarshalBinaryBare(&merkleProof)
 	if err != nil {
 		return nil, clienttypes.Height{}, err
 	}
 
-	revision := clienttypes.ParseChainID(chain.ChainID)
+	revision := clienttypes.ParseChainID(c.ChainID)
 
 	// proof height + 1 is returned as the proof created corresponds to the height the proof
 	// was created in the IAVL tree. Tendermint and subsequently the clients that rely on it
@@ -510,7 +520,8 @@ func (c *Chain) WaitForNBlocks(n int64) error {
 
 // QueryNextSeqRecv returns the next seqRecv for a configured channel
 func (c *Chain) QueryNextSeqRecv(height int64) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
-	return chanutils.QueryNextSequenceReceive(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, true)
+	return chanutils.QueryNextSequenceReceive(c.CLIContext(height),
+		c.PathEnd.PortID, c.PathEnd.ChannelID, true)
 }
 
 // QueryPacketCommitment returns the packet commitment proof at a given height
@@ -520,12 +531,13 @@ func (c *Chain) QueryPacketCommitment(
 }
 
 // QueryPacketAcknowledgement returns the packet ack proof at a given height
-func (c *Chain) QueryPacketAcknowledgement(height int64, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
+func (c *Chain) QueryPacketAcknowledgement(height int64,
+	seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
 	return chanutils.QueryPacketAcknowledgement(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, seq, true)
 }
 
-// QueryPacketReciept returns the packet reciept proof at a given height
-func (c *Chain) QueryPacketReciept(height int64, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
+// QueryPacketReceipt returns the packet receipt proof at a given height
+func (c *Chain) QueryPacketReceipt(height int64, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
 	return chanutils.QueryPacketReceipt(c.CLIContext(height), c.PathEnd.PortID, c.PathEnd.ChannelID, seq, true)
 }
 
@@ -545,7 +557,8 @@ func (c *Chain) QueryPacketCommitments(
 }
 
 // QueryPacketAcknowledgements returns an array of packet acks
-func (c *Chain) QueryPacketAcknowledgements(offset, limit, height uint64) (comRes *chantypes.QueryPacketAcknowledgementsResponse, err error) {
+func (c *Chain) QueryPacketAcknowledgements(offset, limit,
+	height uint64) (comRes *chantypes.QueryPacketAcknowledgementsResponse, err error) {
 	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
 	return qc.PacketAcknowledgements(context.Background(), &chantypes.QueryPacketAcknowledgementsRequest{
 		PortId:    c.PathEnd.PortID,
@@ -558,26 +571,32 @@ func (c *Chain) QueryPacketAcknowledgements(offset, limit, height uint64) (comRe
 	})
 }
 
-// QueryUnrecievedPackets returns a list of unrelayed packet commitments
-func (c *Chain) QueryUnrecievedPackets(height uint64, seqs []uint64) ([]uint64, error) {
+// QueryUnreceivedPackets returns a list of unrelayed packet commitments
+func (c *Chain) QueryUnreceivedPackets(height uint64, seqs []uint64) ([]uint64, error) {
 	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
 	res, err := qc.UnreceivedPackets(context.Background(), &chantypes.QueryUnreceivedPacketsRequest{
 		PortId:                    c.PathEnd.PortID,
 		ChannelId:                 c.PathEnd.ChannelID,
 		PacketCommitmentSequences: seqs,
 	})
-	return res.Sequences, err
+	if err != nil {
+		return nil, err
+	}
+	return res.Sequences, nil
 }
 
-// QueryUnrecievedAcknowledgements returns a list of unrelayed packet acks
-func (c *Chain) QueryUnrecievedAcknowledgements(height uint64, seqs []uint64) ([]uint64, error) {
+// QueryUnreceivedAcknowledgements returns a list of unrelayed packet acks
+func (c *Chain) QueryUnreceivedAcknowledgements(height uint64, seqs []uint64) ([]uint64, error) {
 	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
 	res, err := qc.UnreceivedAcks(context.Background(), &chantypes.QueryUnreceivedAcksRequest{
 		PortId:             c.PathEnd.PortID,
 		ChannelId:          c.PathEnd.ChannelID,
 		PacketAckSequences: seqs,
 	})
-	return res.Sequences, err
+	if err != nil {
+		return nil, err
+	}
+	return res.Sequences, nil
 }
 
 // QueryTx takes a transaction hash and returns the transaction
@@ -682,15 +701,6 @@ func QueryLatestHeights(src, dst *Chain) (srch, dsth int64, err error) {
 	})
 	err = eg.Wait()
 	return
-}
-
-// QueryLatestHeader returns the latest header from the chain
-func (c *Chain) QueryLatestHeader() (out *tmclient.Header, err error) {
-	var h int64
-	if h, err = c.QueryLatestHeight(); err != nil {
-		return nil, err
-	}
-	return c.QueryHeaderAtHeight(h)
 }
 
 // QueryHeaderAtHeight returns the header at a given height

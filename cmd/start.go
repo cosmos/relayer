@@ -1,4 +1,5 @@
 /*
+Package cmd includes relayer commands
 Copyright © 2020 Jack Zampolin <jack.zampolin@gmail.com>
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,13 +18,18 @@ package cmd
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
+	retry "github.com/avast/retry-go"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"golang.org/x/sync/errgroup"
 )
 
 // startCmd represents the start command
@@ -69,11 +75,33 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				return err
 			}
 
+			thresholdTime := viper.GetDuration(flagThresholdTime)
+
+			eg := new(errgroup.Group)
+			eg.Go(func() error {
+				for {
+					var timeToExpiry time.Duration
+					if err := retry.Do(func() error {
+						timeToExpiry, err = UpdateClientsFromChains(c[src], c[dst], thresholdTime)
+						if err != nil {
+							return err
+						}
+						return nil
+					}, retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true)); err != nil {
+						return err
+					}
+					time.Sleep(timeToExpiry - thresholdTime)
+				}
+			})
+			if err = eg.Wait(); err != nil {
+				return err
+			}
+
 			trapSignal(done)
 			return nil
 		},
 	}
-	return strategyFlag(cmd)
+	return strategyFlag(updateTimeFlags(cmd))
 }
 
 // trap signal waits for a SIGINT or SIGTERM and then sends down the done channel
@@ -89,4 +117,39 @@ func trapSignal(done func()) {
 
 	// call the cleanup func
 	done()
+}
+
+// UpdateClientsFromChains takes src, dst chains, threshold time and update clients based on expiry time
+func UpdateClientsFromChains(src, dst *relayer.Chain, thresholdTime time.Duration) (time.Duration, error) {
+	var (
+		srcTimeExpiry, dstTimeExpiry time.Duration
+		err                          error
+	)
+
+	eg := new(errgroup.Group)
+	eg.Go(func() error {
+		srcTimeExpiry, err = relayer.AutoUpdateClient(src, dst, thresholdTime)
+		return err
+	})
+	eg.Go(func() error {
+		dstTimeExpiry, err = relayer.AutoUpdateClient(dst, src, thresholdTime)
+		return err
+	})
+	if err := eg.Wait(); err != nil {
+		return 0, err
+	}
+
+	if srcTimeExpiry <= 0 {
+		return 0, fmt.Errorf("client (%s) of chain: %s is expired",
+			src.PathEnd.ClientID, src.ChainID)
+	}
+
+	if dstTimeExpiry <= 0 {
+		return 0, fmt.Errorf("client (%s) of chain: %s is expired",
+			dst.PathEnd.ClientID, dst.ChainID)
+	}
+
+	minTimeExpiry := math.Min(float64(srcTimeExpiry), float64(dstTimeExpiry))
+
+	return time.Duration(int64(minTimeExpiry)), nil
 }

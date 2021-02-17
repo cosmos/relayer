@@ -56,11 +56,6 @@ SRCPORTS=()
 DSTS=()
 DSTPORTS=()
 
-get_alphabetic() {
-  id="$1"
-  ida=$(echo "$1" | sed -e 's/0/zero/g; s/1/one/g; s/2/two/g; s/3/three/g; s/4/four/g; s/5/five/g; s/6/six/g; s/7/seven/g; s/8/eight/g; s/9/nine/g;')
-}
-
 validate() {
   status=0
   # Have at least one default.
@@ -451,7 +446,7 @@ clients)
 
   echo "Generating rly configurations..."
   rly config init
-  rly config add-dir "$BASEDIR/config/"
+  rly config add-chains "$BASEDIR/config/chains"
 
   sleep 2
 
@@ -495,6 +490,7 @@ clients)
 
   # Let all our chains initialise.
   wait
+  rly config add-paths "$BASEDIR/config/paths"
 
   for i in ${!IDS[@]}; do
     ID=${IDS[$i]}
@@ -513,22 +509,48 @@ clients)
   exit 0
   ;;
 
+connect)
+  . "$NCONFIG"
+
+  paths=
+  for i in ${!SRCS[@]}; do
+    src=${SRCS[$i]}
+    dst=${DSTS[$i]}
+
+    path="path-$i"
+    paths="$paths $path"
+    echo "Starting 'rly tx conn $path' ($src<>$dst) logs in $LOGS/$path.log"
+    (
+      try=0
+      while ! rly tx conn $path --timeout=3s -d >> "$LOGS/$path.log" 2>&1; do
+        try=$(( $try + 1 ))
+        echo "$path tx conn not yet ready (try=$try)"
+        sleep 1
+      done
+      try=$(( $try + 1 ))
+      echo "$path tx conn initialized (try=$try)"
+    ) &
+  done
+
+  wait
+  echo "==============================="
+  echo "=== All connections initialized"
+  for path in $paths; do
+    tail -1 "$LOGS/$path.log"
+  done
+  echo "==============================="
+  exit 0
+  ;;
+
 relay)
   . "$NCONFIG"
 
   paths=
   for i in ${!SRCS[@]}; do
     src=${SRCS[$i]}
-    get_alphabetic "$src"
-    srca=$ida
-
     dst=${DSTS[$i]}
-    get_alphabetic "$dst"
-    dsta=$ida
 
-    get_alphabetic "$i"
-    ia=$ida
-    path="$ia"
+    path="path-$i"
     paths="$paths $path"
     echo "Starting 'rly tx link $path' ($src<>$dst) logs in $LOGS/$path.log"
     (
@@ -597,7 +619,7 @@ if [[ -e $BASEDIR ]] && [[ $SKIP != yes ]]; then
 fi
 
 rm -rf "$BASEDIR"
-mkdir -p "$BASEDIR/config" "$LOGS"
+mkdir -p "$BASEDIR/config/paths" "$BASEDIR/config/chains" "$LOGS"
 
 echo "creating $NCONFIG"
 cat <<EOF >"$NCONFIG"
@@ -618,7 +640,7 @@ for i in ${!IDS[@]}; do
   id=${IDS[$i]}
   json=${JSONS[$i]}
   p26657=$(( 26657 - $i * 100 ))
-  out="$BASEDIR/config/$id.json"
+  out="$BASEDIR/config/chains/$id.json"
   echo "creating $out"
   jq ".link + { \"chain-id\": \"$id\", \"rpc-addr\": \"http://localhost:$p26657\", \"key\": \"testkey\" }" "$json" \
     > "$out"
@@ -627,34 +649,22 @@ done
 for i in ${!SRCS[@]}; do
   src=${SRCS[$i]}
   srcport=${SRCPORTS[$i]}
-  get_alphabetic "$src"
-  srca=$ida
 
   dst=${DSTS[$i]}
   dstport=${DSTPORTS[$i]}
-  get_alphabetic "$dst"
-  dsta=$ida
 
-  get_alphabetic "$i"
-  ia=$ida
-  path="$ida"
-  out="$BASEDIR/config/$path.json"
+  path="path-$i"
+  out="$BASEDIR/config/paths/$path.json"
   echo "creating $out"
   cat >"$out" <<EOF
 {
   "src": {
     "chain-id": "$src",
-    "client-id": "${dsta}client",
-    "connection-id": "${dsta}link",
-    "channel-id": "${dsta}xfer${ida}",
     "port-id": "$srcport",
     "order": "unordered"
   },
   "dst": {
     "chain-id": "$dst",
-    "client-id": "${srca}client",
-    "connection-id": "${srca}link",
-    "channel-id": "${srca}xfer${ida}",
     "port-id": "$dstport",
     "order": "unordered"
   },
@@ -671,7 +681,7 @@ cat <<EOF
 =====================
 Done generating $BASEDIR
 
-You can use: \`$progname [run|relay]' at any time.
+You can use: \`$progname [run|connect|relay]' at any time.
 
 EOF
 
@@ -680,7 +690,7 @@ if [[ $SKIP == norun ]]; then
 fi
 
 if [[ $SKIP != yes ]]; then
-  read -p "Do you wish to \`run', and \`relay' right now (y/N)? " -n 1 -r
+  read -p "Do you wish to \`run', and \`connect' right now (y/N)? " -n 1 -r
   echo
 
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -689,6 +699,6 @@ if [[ $SKIP != yes ]]; then
 fi
 
 "$0" run skip &
-"$0" relay skip &
+"$0" connect skip &
 echo "Hit Control-C to exit"
 wait

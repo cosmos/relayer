@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"strings"
 
@@ -12,7 +13,9 @@ import (
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 	"github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	"github.com/cosmos/relayer/helpers"
 	"github.com/cosmos/relayer/relayer"
+	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
@@ -94,7 +97,7 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				}
 				logPathGen(pth)
 				// ...then add it to the config file
-				return overWriteConfig(cmd, config)
+				return overWriteConfig(config)
 			}
 
 			// see if there are existing clients that can be reused
@@ -106,7 +109,7 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				dstClients, err = c[dst].QueryClients(0, 1000)
 				return err
 			})
-			if eg.Wait(); err != nil {
+			if err := eg.Wait(); err != nil {
 				return err
 			}
 
@@ -155,33 +158,42 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				path.GenSrcConnID()
 				path.GenSrcChanID()
 				path.GenDstChanID()
+				if err = config.ValidatePath(path); err != nil {
+					return err
+				}
 				if err = config.Paths.Add(pth, path); err != nil {
 					return err
 				}
 				logPathGen(pth)
-				return overWriteConfig(cmd, config)
+				return overWriteConfig(config)
 			case path.Src.ClientID == "" && path.Dst.ClientID != "":
 				path.GenSrcClientID()
 				path.GenSrcConnID()
 				path.GenSrcConnID()
 				path.GenSrcChanID()
 				path.GenDstChanID()
+				if err = config.ValidatePath(path); err != nil {
+					return err
+				}
 				if err = config.Paths.Add(pth, path); err != nil {
 					return err
 				}
 				logPathGen(pth)
-				return overWriteConfig(cmd, config)
+				return overWriteConfig(config)
 			case path.Dst.ClientID == "" && path.Src.ClientID != "":
 				path.GenDstClientID()
 				path.GenSrcConnID()
 				path.GenSrcConnID()
 				path.GenSrcChanID()
 				path.GenDstChanID()
+				if err = config.ValidatePath(path); err != nil {
+					return err
+				}
 				if err = config.Paths.Add(pth, path); err != nil {
 					return err
 				}
 				logPathGen(pth)
-				return overWriteConfig(cmd, config)
+				return overWriteConfig(config)
 			}
 
 			// see if there are existing connections that can be reused
@@ -225,22 +237,28 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 					path.GenDstConnID()
 					path.GenSrcChanID()
 					path.GenDstChanID()
+					if err = config.ValidatePath(path); err != nil {
+						return err
+					}
 					if err = config.Paths.Add(pth, path); err != nil {
 						return err
 					}
 					logPathGen(pth)
-					return overWriteConfig(cmd, config)
+					return overWriteConfig(config)
 				}
 			default:
 				path.GenSrcConnID()
 				path.GenDstConnID()
 				path.GenSrcChanID()
 				path.GenDstChanID()
+				if err = config.ValidatePath(path); err != nil {
+					return err
+				}
 				if err = config.Paths.Add(pth, path); err != nil {
 					return err
 				}
 				logPathGen(pth)
-				return overWriteConfig(cmd, config)
+				return overWriteConfig(config)
 			}
 
 			eg.Go(func() error {
@@ -284,23 +302,30 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				dstOrder := dstChan.Ordering == path.Dst.GetOrder()
 				srcVersion := srcChan.Version == path.Src.Version
 				dstVersion := dstChan.Version == path.Dst.Version
-				if !(dstCpForSrc && srcCpForDst && srcOpen && dstOpen && srcPort && dstPort && srcOrder && dstOrder && srcVersion && dstVersion) {
+				if !(dstCpForSrc && srcCpForDst && srcOpen && dstOpen && srcPort && dstPort &&
+					srcOrder && dstOrder && srcVersion && dstVersion) {
 					path.GenSrcChanID()
 					path.GenDstChanID()
 				}
+				if err = config.ValidatePath(path); err != nil {
+					return err
+				}
 				if err = config.Paths.Add(pth, path); err != nil {
 					return err
 				}
 				logPathGen(pth)
-				return overWriteConfig(cmd, config)
+				return overWriteConfig(config)
 			default:
 				path.GenSrcChanID()
 				path.GenDstChanID()
+				if err = config.ValidatePath(path); err != nil {
+					return err
+				}
 				if err = config.Paths.Add(pth, path); err != nil {
 					return err
 				}
 				logPathGen(pth)
-				return overWriteConfig(cmd, config)
+				return overWriteConfig(config)
 			}
 		},
 	}
@@ -326,7 +351,7 @@ $ %s pth d path-name`, appName, appName)),
 			}
 			cfg := config
 			delete(cfg.Paths, args[0])
-			return overWriteConfig(cmd, cfg)
+			return overWriteConfig(cfg)
 		},
 	}
 	return cmd
@@ -369,7 +394,8 @@ $ %s pth l`, appName, appName, appName)),
 						return err
 					}
 					stat := pth.QueryPathStatus(chains[pth.Src.ChainID], chains[pth.Dst.ChainID]).Status
-					printPath(i, k, pth, checkmark(stat.Chains), checkmark(stat.Clients), checkmark(stat.Connection), checkmark(stat.Channel))
+					printPath(i, k, pth, checkmark(stat.Chains), checkmark(stat.Clients),
+						checkmark(stat.Connection), checkmark(stat.Channel))
 					i++
 				}
 				return nil
@@ -473,7 +499,7 @@ $ %s pth a ibc-0 ibc-1 demo-path`, appName, appName, appName)),
 				}
 			}
 
-			return overWriteConfig(cmd, out)
+			return overWriteConfig(out)
 		},
 	}
 	return fileFlag(cmd)
@@ -492,6 +518,10 @@ func fileInputPathAdd(file, name string) (cfg *Config, err error) {
 	}
 
 	if err = json.Unmarshal(byt, &p); err != nil {
+		return nil, err
+	}
+
+	if err = config.ValidatePath(p); err != nil {
 		return nil, err
 	}
 
@@ -629,9 +659,145 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		return nil, err
 	}
 
+	if err = config.ValidatePath(path); err != nil {
+		return nil, err
+	}
+
 	if err = config.Paths.Add(name, path); err != nil {
 		return nil, err
 	}
 
 	return config, nil
+}
+
+// API Handlers
+
+// GetPathsHandler returns the configured chains in json format
+func GetPathsHandler(w http.ResponseWriter, r *http.Request) {
+	helpers.SuccessJSONResponse(http.StatusOK, config.Paths, w)
+}
+
+// GetPathHandler returns the configured chains in json format
+func GetPathHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	pth, err := config.Paths.Get(vars["name"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, pth, w)
+}
+
+// GetPathStatusHandler returns the configured chains in json format
+func GetPathStatusHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	pth, err := config.Paths.Get(vars["name"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+	c, src, dst, err := config.ChainsFromPath(vars["name"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	ps := pth.QueryPathStatus(c[src], c[dst])
+	helpers.SuccessJSONResponse(http.StatusOK, ps, w)
+}
+
+type postPathRequest struct {
+	FilePath   string          `json:"file"`
+	SrcChainID string          `json:"src-chain-id"`
+	DstChainID string          `json:"dst-chain-id"`
+	Src        relayer.PathEnd `json:"src"`
+	Dst        relayer.PathEnd `json:"dst"`
+}
+
+// PostPathHandler handles the route
+func PostPathHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	pathName := vars["name"]
+
+	var request postPathRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	if request.SrcChainID == "" {
+		helpers.WriteErrorResponse(http.StatusBadRequest, fmt.Errorf("src-chain-id is required"), w)
+		return
+	}
+
+	if request.DstChainID == "" {
+		helpers.WriteErrorResponse(http.StatusBadRequest, fmt.Errorf("dst-chain-id is required"), w)
+		return
+	}
+
+	_, err := config.Chains.Gets(request.SrcChainID, request.DstChainID)
+	if err != nil {
+		helpers.WriteErrorResponse(
+			http.StatusBadRequest,
+			fmt.Errorf("chains need to be configured before paths to them can be added: %w", err),
+			w,
+		)
+		return
+	}
+
+	var out *Config
+	if request.FilePath != "" {
+		if out, err = fileInputPathAdd(request.FilePath, pathName); err != nil {
+			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+			return
+		}
+	} else {
+		if out, err = addPathByRequest(request, pathName); err != nil {
+			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+			return
+		}
+	}
+
+	if err = overWriteConfig(out); err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusCreated, fmt.Sprintf("path %s added successfully", pathName), w)
+}
+
+func addPathByRequest(req postPathRequest, pathName string) (*Config, error) {
+	var (
+		path = &relayer.Path{
+			Strategy: relayer.NewNaiveStrategy(),
+			Src:      &req.Src,
+			Dst:      &req.Dst,
+		}
+	)
+
+	path.Src.ChainID = req.SrcChainID
+	path.Dst.ChainID = req.DstChainID
+
+	if err := config.Paths.Add(pathName, path); err != nil {
+		return nil, err
+	}
+
+	return config, nil
+}
+
+// DeletePathHandler handles the route
+func DeletePathHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	_, err := config.Paths.Get(vars["name"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	cfg := config
+	delete(cfg.Paths, vars["name"])
+
+	if err = overWriteConfig(cfg); err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, fmt.Sprintf("path %s deleted", vars["name"]), w)
 }

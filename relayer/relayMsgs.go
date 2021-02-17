@@ -9,6 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+// DeliverMsgsAction is struct
 type DeliverMsgsAction struct {
 	SrcMsgs   []string `json:"src_msgs"`
 	Src       PathEnd  `json:"src"`
@@ -138,7 +139,10 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 		if r.IsMaxTx(msgLen, txSize) {
 			// Submit the transactions to src chain and update its status
-			_, success, _ := src.SendMsgs(msgs)
+			_, success, err := src.SendMsgs(msgs)
+			if err != nil && src.debug {
+				fmt.Println(err)
+			}
 			r.Succeeded = r.Succeeded && success
 
 			// clear the current batch and reset variables
@@ -150,7 +154,11 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 	// submit leftover msgs
 	if len(msgs) > 0 {
-		_, success, _ := src.SendMsgs(msgs)
+		_, success, err := src.SendMsgs(msgs)
+		if err != nil && src.debug {
+			fmt.Println(err)
+		}
+
 		r.Succeeded = success
 	}
 
@@ -169,7 +177,11 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 		if r.IsMaxTx(msgLen, txSize) {
 			// Submit the transaction to dst chain and update its status
-			_, success, _ := dst.SendMsgs(msgs)
+			_, success, err := dst.SendMsgs(msgs)
+			if err != nil && dst.debug {
+				fmt.Println(err)
+			}
+
 			r.Succeeded = r.Succeeded && success
 
 			// clear the current batch and reset variables
@@ -181,7 +193,11 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 	// submit leftover msgs
 	if len(msgs) > 0 {
-		_, success, _ := dst.SendMsgs(msgs)
+		_, success, err := dst.SendMsgs(msgs)
+		if err != nil && dst.debug {
+			fmt.Println(err)
+		}
+
 		r.Succeeded = success
 	}
 }

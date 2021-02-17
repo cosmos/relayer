@@ -24,13 +24,15 @@ func testClient(t *testing.T, src, dst *ry.Chain) {
 	var (
 		client *clientypes.QueryClientStateResponse
 	)
-	retry.Do(func() error {
+	if err = retry.Do(func() error {
 		client, err = src.QueryClientState(srch)
 		if err != nil {
 			srch, _ = src.QueryLatestHeight()
 		}
 		return err
-	})
+	}); err != nil {
+		return
+	}
 	require.NoError(t, err)
 	require.NotNil(t, client)
 	cs, err := clientypes.UnpackClientState(client.ClientState)

@@ -107,18 +107,13 @@ func getTxActions(act []string) string {
 	return strings.TrimSuffix(out, ",")
 }
 
-func logRetryUpdateHeaders(src, dst *Chain, n uint, err error) {
-	if src.debug && dst.debug {
-		src.Log(fmt.Sprintf("- [%s]&[%s] - try(%d/%d) update headers: %s", src.ChainID, dst.ChainID, n+1, rtyAttNum, err))
-	}
-}
-
 func (c *Chain) logRetryQueryPacketAcknowledgements(height uint64, n uint, err error) {
 	if c.debug {
-		c.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgements: %s", c.ChainID, height, n+1, rtyAttNum, err))
+		c.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgements: %s",
+			c.ChainID, height, n+1, rtyAttNum, err))
 	}
 }
 
 func (c *Chain) errQueryUnrelayedPacketAcks() error {
-	return fmt.Errorf("No error on QueryPacketUnrelayedAcknowledgements for %s, however response is nil", c.ChainID)
+	return fmt.Errorf("no error on QueryPacketUnrelayedAcknowledgements for %s, however response is nil", c.ChainID)
 }

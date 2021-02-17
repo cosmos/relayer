@@ -1,4 +1,5 @@
 /*
+Package cmd includes relayer commands
 Copyright © 2020 NAME HERE <EMAIL ADDRESS>
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -54,7 +55,6 @@ func transactionCmd() *cobra.Command {
 		upgradeClientsCmd(),
 		upgradeChainCmd(),
 		createConnectionCmd(),
-		createChannelCmd(),
 		closeChannelCmd(),
 		flags.LineBreak,
 		rawTransactionCmd(),
@@ -90,7 +90,7 @@ $ %s tx clnts demo-path`, appName, appName)),
 
 			modified, err := c[src].CreateClients(c[dst])
 			if modified {
-				if err := overWriteConfig(cmd, config); err != nil {
+				if err := overWriteConfig(config); err != nil {
 					return err
 				}
 			}
@@ -206,65 +206,25 @@ $ %s tx con demo-path -o 3s`, appName, appName, appName)),
 				return err
 			}
 
-			modified, err := c[src].CreateOpenConnections(c[dst], retries, to)
+			// ensure that the clients exist
+			modified, err := c[src].CreateClients(c[dst])
 			if modified {
-				if err := overWriteConfig(cmd, config); err != nil {
+				if err := overWriteConfig(config); err != nil {
+					return err
+				}
+			}
+			if err != nil {
+				return err
+			}
+
+			modified, err = c[src].CreateOpenConnections(c[dst], retries, to)
+			if modified {
+				if err := overWriteConfig(config); err != nil {
 					return err
 				}
 			}
 
 			return err
-		},
-	}
-
-	return retryFlag(timeoutFlag(cmd))
-}
-
-func createChannelCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "channel [path-name]",
-		Aliases: []string{"chan", "ch"},
-		Short:   "create a channel between two configured chains with a configured path",
-		Long: strings.TrimSpace(`This command is meant to be used to repair or 
-		create a channel between two chains with a configured path in the config file`),
-		Args: cobra.ExactArgs(1),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s transact channel demo-path
-$ %s tx chan demo-path --timeout 5s
-$ %s tx ch demo-path -o 3s`, appName, appName, appName)),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := config.ChainsFromPath(args[0])
-			if err != nil {
-				return err
-			}
-
-			to, err := getTimeout(cmd)
-			if err != nil {
-				return err
-			}
-
-			retries, err := cmd.Flags().GetUint64(flagMaxRetries)
-			if err != nil {
-				return err
-			}
-
-			// ensure that keys exist
-			if _, err = c[src].GetAddress(); err != nil {
-				return err
-			}
-			if _, err = c[dst].GetAddress(); err != nil {
-				return err
-			}
-
-			modified, err := c[src].CreateOpenChannels(c[dst], retries, to)
-			if modified {
-				if err := overWriteConfig(cmd, config); err != nil {
-					return err
-				}
-			}
-
-			return err
-
 		},
 	}
 
@@ -312,7 +272,7 @@ $ %s tx close demo-path -o 3s`, appName, appName, appName, appName)),
 func linkCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "link [path-name]",
-		Aliases: []string{"full-path", "connect", "path", "pth"},
+		Aliases: []string{"full-path", "connect", "path", "pth", "channel"},
 		Short:   "create clients, connection, and channel between two configured chains with a configured path",
 		Args:    cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
@@ -320,7 +280,8 @@ $ %s transact link demo-path
 $ %s tx full-path demo-path --timeout 5s
 $ %s tx connect demo-path
 $ %s tx path demo-path -o 3s
-$ %s tx pth demo-path`, appName, appName, appName, appName, appName)),
+$ %s tx channel demo-path
+$ %s tx pth demo-path`, appName, appName, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -348,7 +309,9 @@ $ %s tx pth demo-path`, appName, appName, appName, appName, appName)),
 			// create clients if they aren't already created
 			modified, err := c[src].CreateClients(c[dst])
 			if modified {
-				overWriteConfig(cmd, config)
+				if err := overWriteConfig(config); err != nil {
+					return err
+				}
 			}
 
 			if err != nil {
@@ -358,7 +321,7 @@ $ %s tx pth demo-path`, appName, appName, appName, appName, appName)),
 			// create connection if it isn't already created
 			modified, err = c[src].CreateOpenConnections(c[dst], retries, to)
 			if modified {
-				if err := overWriteConfig(cmd, config); err != nil {
+				if err := overWriteConfig(config); err != nil {
 					return err
 				}
 			}
@@ -369,7 +332,7 @@ $ %s tx pth demo-path`, appName, appName, appName, appName, appName)),
 			// create channel if it isn't already created
 			modified, err = c[src].CreateOpenChannels(c[dst], 3, to)
 			if modified {
-				if err := overWriteConfig(cmd, config); err != nil {
+				if err := overWriteConfig(config); err != nil {
 					return err
 				}
 			}
@@ -398,7 +361,7 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 			return sCmd.RunE(cmd, args)
 		},
 	}
-	return strategyFlag(timeoutFlag(cmd))
+	return strategyFlag(retryFlag(timeoutFlag(cmd)))
 }
 
 func relayMsgsCmd() *cobra.Command {
@@ -422,22 +385,17 @@ $ %s tx relay demo-path`, appName, appName, appName, appName)),
 				return err
 			}
 
-			sh, err := relayer.NewSyncHeaders(c[src], c[dst])
-			if err != nil {
-				return err
-			}
-
 			strategy, err := GetStrategyWithOptions(cmd, config.Paths.MustGet(args[0]).MustGetStrategy())
 			if err != nil {
 				return err
 			}
 
-			sp, err := strategy.UnrelayedSequences(c[src], c[dst], sh)
+			sp, err := strategy.UnrelayedSequences(c[src], c[dst])
 			if err != nil {
 				return err
 			}
 
-			if err = strategy.RelayPackets(c[src], c[dst], sp, sh); err != nil {
+			if err = strategy.RelayPackets(c[src], c[dst], sp); err != nil {
 				return err
 			}
 
@@ -467,11 +425,6 @@ $ %s tx acks demo-path -l 3 -s 6`, appName, appName)),
 				return err
 			}
 
-			sh, err := relayer.NewSyncHeaders(c[src], c[dst])
-			if err != nil {
-				return err
-			}
-
 			strategy, err := GetStrategyWithOptions(cmd, config.Paths.MustGet(args[0]).MustGetStrategy())
 			if err != nil {
 				return err
@@ -479,12 +432,12 @@ $ %s tx acks demo-path -l 3 -s 6`, appName, appName)),
 
 			// sp.Src contains all sequences acked on SRC but acknowledgement not processed on DST
 			// sp.Dst contains all sequences acked on DST but acknowledgement not processed on SRC
-			sp, err := strategy.UnrelayedAcknowledgements(c[src], c[dst], sh)
+			sp, err := strategy.UnrelayedAcknowledgements(c[src], c[dst])
 			if err != nil {
 				return err
 			}
 
-			if err = strategy.RelayAcknowledgements(c[src], c[dst], sp, sh); err != nil {
+			if err = strategy.RelayAcknowledgements(c[src], c[dst], sp); err != nil {
 				return err
 			}
 
@@ -497,9 +450,10 @@ $ %s tx acks demo-path -l 3 -s 6`, appName, appName)),
 
 func upgradeChainCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "upgrade-chain [path-name] [chain-id] [new-unbonding-period] [deposit] [path/to/upgradePlan.json]",
-		Short: "upgrade a chain by providing the chain-id of the chain being upgraded, the new unbonding period, the proposal deposit and the json file of the upgrade plan without the upgrade client state ",
-		Args:  cobra.ExactArgs(5),
+		Use: "upgrade-chain [path-name] [chain-id] [new-unbonding-period] [deposit] [path/to/upgradePlan.json]",
+		Short: "upgrade a chain by providing the chain-id of the chain being upgraded, the new unbonding period," +
+			"the proposal deposit and the json file of the upgrade plan without the upgrade client state",
+		Args: cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {

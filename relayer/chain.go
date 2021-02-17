@@ -82,7 +82,7 @@ func ValidatePaths(src, dst *Chain) error {
 	return nil
 }
 
-// ValidateClientPath takes two chains and validates their clients
+// ValidateClientPaths takes two chains and validates their clients
 func ValidateClientPaths(src, dst *Chain) error {
 	if err := src.PathEnd.Vclient(); err != nil {
 		return err
@@ -119,6 +119,7 @@ func ValidateChannelParams(src, dst *Chain) error {
 	if err := dst.PathEnd.ValidateBasic(); err != nil {
 		return err
 	}
+	//nolint:staticcheck
 	if strings.ToUpper(src.PathEnd.Order) != strings.ToUpper(dst.PathEnd.Order) {
 		return fmt.Errorf("src and dst path ends must have same ORDER. got src: %s, dst: %s",
 			src.PathEnd.Order, dst.PathEnd.Order)
@@ -194,7 +195,7 @@ func (c *Chain) listenLoop(doneChan chan struct{}, tx, block, data bool) {
 
 // Init initializes the pieces of a chain that aren't set when it parses a config
 // NOTE: All validation of the chain should happen here.
-func (c *Chain) Init(homePath string, timeout time.Duration, debug bool) error {
+func (c *Chain) Init(homePath string, timeout time.Duration, logger log.Logger, debug bool) error {
 	keybase, err := keys.New(c.ChainID, "test", keysDir(homePath, c.ChainID), nil)
 	if err != nil {
 		return err
@@ -221,10 +222,15 @@ func (c *Chain) Init(homePath string, timeout time.Duration, debug bool) error {
 	c.Client = client
 	c.HomePath = homePath
 	c.Encoding = encodingConfig
-	c.logger = defaultChainLogger()
+	c.logger = logger
 	c.timeout = timeout
 	c.debug = debug
 	c.faucetAddrs = make(map[string]time.Time)
+
+	if c.logger == nil {
+		c.logger = defaultChainLogger()
+	}
+
 	return nil
 }
 
@@ -391,8 +397,9 @@ func (c *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, context.Canc
 		return nil, nil, err
 	}
 
+	subscriber := fmt.Sprintf("%s-subscriber-%s", c.ChainID, suffix)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	eventChan, err := c.Client.Subscribe(ctx, fmt.Sprintf("%s-subscriber-%s", c.ChainID, suffix), query, 1000)
+	eventChan, err := c.Client.Subscribe(ctx, subscriber, query, 1000)
 	return eventChan, cancel, err
 }
 
@@ -634,7 +641,9 @@ func (c *Chain) StatusErr() error {
 
 // GenerateConnHandshakeProof generates all the proofs needed to prove the existence of the
 // connection state on this chain. A counterparty should use these generated proofs.
-func (c *Chain) GenerateConnHandshakeProof(height uint64) (clientState ibcexported.ClientState, clientStateProof []byte, consensusProof []byte, connectionProof []byte, connectionProofHeight clienttypes.Height, err error) {
+func (c *Chain) GenerateConnHandshakeProof(height uint64) (clientState ibcexported.ClientState,
+	clientStateProof []byte, consensusProof []byte, connectionProof []byte,
+	connectionProofHeight clienttypes.Height, err error) {
 	var (
 		clientStateRes     *clienttypes.QueryClientStateResponse
 		consensusStateRes  *clienttypes.QueryConsensusStateResponse
@@ -667,18 +676,18 @@ func (c *Chain) GenerateConnHandshakeProof(height uint64) (clientState ibcexport
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
 
-	return clientState, clientStateRes.Proof, consensusStateRes.Proof, connectionStateRes.Proof, connectionStateRes.ProofHeight, nil
+	return clientState, clientStateRes.Proof, consensusStateRes.Proof, connectionStateRes.Proof,
+		connectionStateRes.ProofHeight, nil
 
 }
 
-// UpgradesChain submits and upgrade proposal using a zero'd out client state with an updated unbonding period.
-func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Coin, unbondingPeriod time.Duration) error {
-	sh, err := NewSyncHeaders(c, dst)
-	if err != nil {
+// UpgradeChain submits and upgrade proposal using a zero'd out client state with an updated unbonding period.
+func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Coin,
+	unbondingPeriod time.Duration) error {
+	if _, _, err := UpdateLightClients(c, dst); err != nil {
 		return err
 	}
-	sh.Updates(c, dst)
-	height := int64(sh.GetHeight(dst.ChainID))
+	height := int64(dst.MustGetLatestLightHeight())
 
 	clientStateRes, err := dst.QueryClientState(height)
 	if err != nil {
@@ -700,7 +709,8 @@ func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Co
 	plan.UpgradedClientState = upgradedAny
 
 	// TODO: make cli args for title and description
-	upgradeProposal := upgradetypes.NewSoftwareUpgradeProposal("upgrade", "upgrade the chain's software and unbonding period", *plan)
+	upgradeProposal := upgradetypes.NewSoftwareUpgradeProposal("upgrade",
+		"upgrade the chain's software and unbonding period", *plan)
 	msg, err := govtypes.NewMsgSubmitProposal(upgradeProposal, sdk.NewCoins(deposit), c.MustGetAddress())
 	if err != nil {
 		return err

@@ -25,7 +25,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		return false, err
 	}
 
-	srcH, dstH, err := UpdatesWithHeaders(c, dst)
+	srcUpdateHeader, dstUpdateHeader, err := GetIBCCreateClientHeaders(c, dst)
 	if err != nil {
 		return false, err
 	}
@@ -33,7 +33,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 	// Create client for the destination chain on the source chain if client id is unspecified
 	if c.PathEnd.ClientID == "" {
 		if c.debug {
-			c.logCreateClient(dst, dstH.Header.Height)
+			c.logCreateClient(dst, dstUpdateHeader.Header.Height)
 		}
 		ubdPeriod, err := dst.QueryUnbondingPeriod()
 		if err != nil {
@@ -42,12 +42,12 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 
 		// Create the ClientState we want on 'c' tracking 'dst'
 		clientState := ibctmtypes.NewClientState(
-			dstH.GetHeader().GetChainID(),
+			dstUpdateHeader.GetHeader().GetChainID(),
 			ibctmtypes.NewFractionFromTm(light.DefaultTrustLevel),
 			dst.GetTrustingPeriod(),
 			ubdPeriod,
 			time.Minute*10,
-			dstH.GetHeight().(clienttypes.Height),
+			dstUpdateHeader.GetHeight().(clienttypes.Height),
 			commitmenttypes.GetSDKSpecs(),
 			DefaultUpgradePath,
 			false,
@@ -60,7 +60,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			msgs := []sdk.Msg{
 				c.CreateClient(
 					clientState,
-					dstH,
+					dstUpdateHeader,
 				),
 			}
 
@@ -86,16 +86,18 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 
 	} else {
 		// Ensure client exists in the event of user inputted identifiers
-		_, err := c.QueryClientState(srcH.Header.Height)
+		// TODO: check client is not expired
+		_, err := c.QueryClientState(srcUpdateHeader.Header.Height)
 		if err != nil {
-			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v", c.PathEnd.ClientID, c.ChainID, err)
+			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
+				c.PathEnd.ClientID, c.ChainID, err)
 		}
 	}
 
 	// Create client for the source chain on destination chain if client id is unspecified
 	if dst.PathEnd.ClientID == "" {
 		if dst.debug {
-			dst.logCreateClient(c, srcH.Header.Height)
+			dst.logCreateClient(c, srcUpdateHeader.Header.Height)
 		}
 		ubdPeriod, err := c.QueryUnbondingPeriod()
 		if err != nil {
@@ -103,12 +105,12 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 		}
 		// Create the ClientState we want on 'dst' tracking 'c'
 		clientState := ibctmtypes.NewClientState(
-			srcH.GetHeader().GetChainID(),
+			srcUpdateHeader.GetHeader().GetChainID(),
 			ibctmtypes.NewFractionFromTm(light.DefaultTrustLevel),
 			c.GetTrustingPeriod(),
 			ubdPeriod,
 			time.Minute*10,
-			srcH.GetHeight().(clienttypes.Height),
+			srcUpdateHeader.GetHeight().(clienttypes.Height),
 			commitmenttypes.GetSDKSpecs(),
 			DefaultUpgradePath,
 			false,
@@ -123,7 +125,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			msgs := []sdk.Msg{
 				dst.CreateClient(
 					clientState,
-					srcH,
+					srcUpdateHeader,
 				),
 			}
 
@@ -147,9 +149,11 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 
 	} else {
 		// Ensure client exists in the event of user inputted identifiers
-		_, err := dst.QueryClientState(dstH.Header.Height)
+		// TODO: check client is not expired
+		_, err := dst.QueryClientState(dstUpdateHeader.Header.Height)
 		if err != nil {
-			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v", dst.PathEnd.ClientID, dst.ChainID, err)
+			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
+				dst.PathEnd.ClientID, dst.ChainID, err)
 		}
 
 	}
@@ -164,18 +168,22 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 func (c *Chain) UpdateClients(dst *Chain) (err error) {
 	clients := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
-	sh, err := NewSyncHeaders(c, dst)
+	srcUpdateHeader, dstUpdateHeader, err := GetIBCUpdateHeaders(c, dst)
 	if err != nil {
 		return err
 	}
 
-	srcUH, dstUH, err := sh.GetTrustedHeaders(c, dst)
+	srcUpdateMsg, err := c.UpdateClient(dst)
+	if err != nil {
+		return err
+	}
+	dstUpdateMsg, err := dst.UpdateClient(c)
 	if err != nil {
 		return err
 	}
 
-	clients.Src = append(clients.Src, c.UpdateClient(dstUH))
-	clients.Dst = append(clients.Dst, dst.UpdateClient(srcUH))
+	clients.Src = append(clients.Src, srcUpdateMsg)
+	clients.Dst = append(clients.Dst, dstUpdateMsg)
 
 	// Send msgs to both chains
 	if clients.Ready() {
@@ -183,12 +191,12 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 			c.Log(fmt.Sprintf("★ Clients updated: [%s]client(%s) {%d}->{%d} and [%s]client(%s) {%d}->{%d}",
 				c.ChainID,
 				c.PathEnd.ClientID,
-				MustGetHeight(srcUH.TrustedHeight),
-				srcUH.Header.Height,
+				MustGetHeight(srcUpdateHeader.TrustedHeight),
+				srcUpdateHeader.Header.Height,
 				dst.ChainID,
 				dst.PathEnd.ClientID,
-				MustGetHeight(dstUH.TrustedHeight),
-				dstUH.Header.Height,
+				MustGetHeight(dstUpdateHeader.TrustedHeight),
+				dstUpdateHeader.Header.Height,
 			),
 			)
 		}
@@ -197,24 +205,17 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 	return nil
 }
 
-// UpgradesClients upgrades the client on src after dst chain has undergone an upgrade.
+// UpgradeClients upgrades the client on src after dst chain has undergone an upgrade.
 func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
-	sh, err := NewSyncHeaders(c, dst)
+	// updates off-chain light client
+	updateMsg, err := c.UpdateClient(dst)
 	if err != nil {
-		return err
-	}
-	if err := sh.Updates(c, dst); err != nil {
 		return err
 	}
 
 	if height == 0 {
-		height = int64(sh.GetHeight(dst.ChainID))
+		height = int64(dst.MustGetLatestLightHeight())
 	}
-
-	// TODO: construct method of only attempting to get dst header
-	// Note: we explicitly do not check the error since the source
-	// trusted header will fail
-	_, dstUpdateHeader, _ := sh.GetTrustedHeaders(c, dst)
 
 	// query proofs on counterparty
 	clientState, proofUpgradeClient, _, err := dst.QueryUpgradedClient(height)
@@ -227,10 +228,12 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 		return err
 	}
 
-	upgradeMsg := &clienttypes.MsgUpgradeClient{c.PathEnd.ClientID, clientState, consensusState, proofUpgradeClient, proofUpgradeConsensusState, c.MustGetAddress().String()}
+	upgradeMsg := &clienttypes.MsgUpgradeClient{ClientId: c.PathEnd.ClientID, ClientState: clientState,
+		ConsensusState: consensusState, ProofUpgradeClient: proofUpgradeClient,
+		ProofUpgradeConsensusState: proofUpgradeConsensusState, Signer: c.MustGetAddress().String()}
 
 	msgs := []sdk.Msg{
-		c.UpdateClient(dstUpdateHeader),
+		updateMsg,
 		upgradeMsg,
 	}
 
@@ -277,18 +280,22 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 		if IsMatchingClient(*clientState, *existingClientState) && !existingClientState.IsFrozen() {
 
 			// query the latest consensus state of the potential matching client
-			consensusStateResp, err := clientutils.QueryConsensusStateABCI(source.CLIContext(0), identifiedClientState.ClientId, existingClientState.GetLatestHeight())
+			consensusStateResp, err := clientutils.QueryConsensusStateABCI(source.CLIContext(0),
+				identifiedClientState.ClientId, existingClientState.GetLatestHeight())
 			if err != nil {
 				if source.debug {
-					source.Log(fmt.Sprintf("Error: failed to query latest consensus state for existing client on chain %s: %v", source.PathEnd.ChainID, err))
+					source.Log(fmt.Sprintf("Error: failed to query latest consensus state for existing client on chain %s: %v",
+						source.PathEnd.ChainID, err))
 				}
 				continue
 			}
 
-			header, err := counterparty.QueryHeaderAtHeight(int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
+			//nolint:lll
+			header, err := counterparty.GetLightSignedHeaderAtHeight(int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
 			if err != nil {
 				if source.debug {
-					source.Log(fmt.Sprintf("Error: failed to query header for chain %s at height %d: %v", counterparty.PathEnd.ChainID, existingClientState.GetLatestHeight().GetRevisionHeight(), err))
+					source.Log(fmt.Sprintf("Error: failed to query header for chain %s at height %d: %v",
+						counterparty.PathEnd.ChainID, existingClientState.GetLatestHeight().GetRevisionHeight(), err))
 				}
 				continue
 			}
@@ -341,4 +348,93 @@ func IsMatchingClient(clientStateA, clientStateB ibctmtypes.ClientState) bool {
 // identical. They are assumed to be IBC tendermint light clients.
 func IsMatchingConsensusState(consensusStateA, consensusStateB *ibctmtypes.ConsensusState) bool {
 	return reflect.DeepEqual(*consensusStateA, *consensusStateB)
+}
+
+// AutoUpdateClient update client automatically to prevent expiry
+func AutoUpdateClient(src, dst *Chain, thresholdTime time.Duration) (time.Duration, error) {
+	height, err := src.QueryLatestHeight()
+	if err != nil {
+		return 0, err
+	}
+
+	clientStateRes, err := src.QueryClientState(height)
+	if err != nil {
+		return 0, err
+	}
+
+	// unpack any into ibc tendermint client state
+	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
+	if err != nil {
+		return 0, err
+	}
+
+	// cast from interface to concrete type
+	clientState, ok := clientStateExported.(*ibctmtypes.ClientState)
+	if !ok {
+		return 0, fmt.Errorf("error when casting exported clientstate with clientID %s on chain: %s",
+			src.PathEnd.ClientID, src.PathEnd.ChainID)
+	}
+
+	if clientState.TrustingPeriod <= thresholdTime {
+		return 0, fmt.Errorf("client (%s) trusting period time is less than or equal to threshold time",
+			src.PathEnd.ClientID)
+	}
+
+	// query the latest consensus state of the potential matching client
+	consensusStateResp, err := clientutils.QueryConsensusStateABCI(src.CLIContext(0),
+		src.PathEnd.ClientID, clientState.GetLatestHeight())
+	if err != nil {
+		return 0, err
+	}
+
+	exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
+	if err != nil {
+		return 0, err
+	}
+
+	consensusState, ok := exportedConsState.(*ibctmtypes.ConsensusState)
+	if !ok {
+		return 0, fmt.Errorf("consensus state with clientID %s from chain %s is not IBC tendermint type",
+			src.PathEnd.ClientID, src.PathEnd.ChainID)
+	}
+
+	expirationTime := consensusState.Timestamp.Add(clientState.TrustingPeriod)
+
+	timeToExpiry := time.Until(expirationTime)
+
+	if timeToExpiry > thresholdTime {
+		return timeToExpiry, nil
+	}
+
+	if clientState.IsExpired(consensusState.Timestamp, time.Now()) {
+		return 0, fmt.Errorf("client (%s) is already expired on chain: %s", src.PathEnd.ClientID, src.ChainID)
+	}
+
+	srcUpdateHeader, err := src.GetIBCUpdateHeader(dst)
+	if err != nil {
+		return 0, err
+	}
+
+	updateMsg, err := src.UpdateClient(dst)
+	if err != nil {
+		return 0, err
+	}
+
+	msgs := []sdk.Msg{updateMsg}
+
+	res, success, err := src.SendMsgs(msgs)
+	if err != nil {
+		return 0, err
+	}
+	if !success {
+		return 0, fmt.Errorf("tx failed: %s", res.RawLog)
+	}
+	src.Log(fmt.Sprintf("★ Client updated: [%s]client(%s) {%d}->{%d}",
+		src.ChainID,
+		src.PathEnd.ClientID,
+		MustGetHeight(srcUpdateHeader.TrustedHeight),
+		srcUpdateHeader.Header.Height,
+	))
+
+	return clientState.TrustingPeriod, nil
 }

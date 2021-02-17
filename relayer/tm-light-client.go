@@ -9,10 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
-	dbm "github.com/tendermint/tm-db"
-
 	retry "github.com/avast/retry-go"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
 	light "github.com/tendermint/tendermint/light"
@@ -21,6 +19,7 @@ import (
 	dbs "github.com/tendermint/tendermint/light/store/db"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
+	dbm "github.com/tendermint/tm-db"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -30,46 +29,28 @@ import (
 // on the Chain struct that users could pass in the config??)
 var logger = light.Logger(log.NewTMLogger(log.NewSyncWriter(ioutil.Discard)))
 
-// InjectTrustedFieldsHeaders takes the headers and enriches them
-func InjectTrustedFieldsHeaders(
-	src, dst *Chain,
-	srch, dsth *tmclient.Header) (srcho *tmclient.Header, dstho *tmclient.Header, err error) {
-	var eg = new(errgroup.Group)
-	eg.Go(func() error {
-		srcho, err = InjectTrustedFields(src, dst, srch)
-		return err
-	})
-	eg.Go(func() error {
-		dstho, err = InjectTrustedFields(dst, src, dsth)
-		return err
-	})
-	if err = eg.Wait(); err != nil {
-		return
-	}
-	return
-}
+func lightError(err error) error { return fmt.Errorf("light client: %w", err) }
 
-// UpdatesWithHeaders calls UpdateLightWithHeader on the passed chains concurrently
-func UpdatesWithHeaders(src, dst *Chain) (srch, dsth *tmclient.Header, err error) {
+// UpdateLightClients updates the off-chain tendermint light clients concurrently.
+func UpdateLightClients(src, dst *Chain) (srcLB, dstLB *tmtypes.LightBlock, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
-		srch, err = src.QueryLatestHeader()
+		srcLB, err = src.UpdateLightClient()
 		return err
 	})
 	eg.Go(func() error {
-		dsth, err = dst.QueryLatestHeader()
+		dstLB, err = dst.UpdateLightClient()
 		return err
 	})
 	if err := eg.Wait(); err != nil {
 		return nil, nil, err
 	}
-	return srch, dsth, nil
+	return srcLB, dstLB, nil
 }
 
-func lightError(err error) error { return fmt.Errorf("light client: %w", err) }
-
-// UpdateLightWithHeader calls client.Update and then .
-func (c *Chain) UpdateLightWithHeader() (*tmclient.Header, error) {
+// UpdateLightClient updates the tendermint light client by verifying the current
+// header against a trusted header.
+func (c *Chain) UpdateLightClient() (*tmtypes.LightBlock, error) {
 	// create database connection
 	db, df, err := c.NewLightDB()
 	if err != nil {
@@ -82,27 +63,20 @@ func (c *Chain) UpdateLightWithHeader() (*tmclient.Header, error) {
 		return nil, lightError(err)
 	}
 
-	sh, err := client.Update(context.Background(), time.Now())
+	lightBlock, err := client.Update(context.Background(), time.Now())
 	if err != nil {
-		return nil, lightError(err)
+		return nil, fmt.Errorf("failed to update off-chain light client for chain %s: %w", c.ChainID, err)
 	}
 
-	if sh == nil {
-		sh, err = client.TrustedLightBlock(0)
+	// new clients, cannot be updated without trusted starting state
+	if lightBlock == nil {
+		lightBlock, err = client.TrustedLightBlock(0)
 		if err != nil {
 			return nil, lightError(err)
 		}
 	}
 
-	protoVal, err := tmtypes.NewValidatorSet(sh.ValidatorSet.Validators).ToProto()
-	if err != nil {
-		return nil, err
-	}
-
-	return &tmclient.Header{
-		SignedHeader: sh.SignedHeader.ToProto(),
-		ValidatorSet: protoVal,
-	}, nil
+	return lightBlock, nil
 }
 
 // LightHTTP returns the http client for light clients
@@ -266,7 +240,7 @@ func GetLatestLightHeights(src, dst *Chain) (srch int64, dsth int64, err error) 
 	return
 }
 
-// GetLatestLightHeight uses the CLI utilities to pull the latest height from a given chain
+// GetLatestLightHeight returns the latest height of the light client.
 func (c *Chain) GetLatestLightHeight() (int64, error) {
 	db, df, err := c.NewLightDB()
 	if err != nil {
@@ -280,6 +254,17 @@ func (c *Chain) GetLatestLightHeight() (int64, error) {
 	}
 
 	return client.LastTrustedHeight()
+}
+
+// MustGetLatestLightHeight returns the latest height of the light client
+// and panics if an error occurs.
+func (c *Chain) MustGetLatestLightHeight() uint64 {
+	height, err := c.GetLatestLightHeight()
+	if err != nil {
+		panic(err)
+	}
+
+	return uint64(height)
 }
 
 // GetLightSignedHeaderAtHeight returns a signed header at a particular height.

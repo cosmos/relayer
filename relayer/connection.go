@@ -6,7 +6,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 )
 
 // CreateOpenConnections runs the connection creation messages on timeout until they pass.
@@ -58,7 +57,7 @@ func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Dur
 		// increment the failures counter and exit if we used all retry attempts
 		case !success:
 			failed++
-			c.Log(fmt.Sprintf("retrying transaction..."))
+			c.Log("retrying transaction...")
 			time.Sleep(5 * time.Second)
 
 			if failed > maxRetries {
@@ -77,34 +76,35 @@ func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Dur
 // file. The booleans return indicate if the message was successfully
 // executed and if this was the last handshake step.
 func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err error) {
-	// update the off chain light clients to the latest header and return the header
-	sh, err := NewSyncHeaders(src, dst)
+	// variables needed to determine the current handshake step
+	var (
+		srcConn, dstConn *conntypes.QueryConnectionResponse
+		msgs             []sdk.Msg
+	)
+
+	// NOTE: proof construction for handshake messages
+	// relies on delivery of the associated update message.
+	// Updating the light client again could result in
+	// failed handshakes since the proof height would
+	// rely on a consensus state that has not been committed
+	// to the chain.
+	srcUpdateMsg, err := src.UpdateClient(dst)
 	if err != nil {
 		return false, false, false, err
 	}
-	if err := sh.Updates(src, dst); err != nil {
+
+	dstUpdateMsg, err := dst.UpdateClient(src)
+	if err != nil {
 		return false, false, false, err
 	}
-
-	// variables needed to determine the current handshake step
-	var (
-		srcUpdateHeader, dstUpdateHeader *tmclient.Header
-		srcConn, dstConn                 *conntypes.QueryConnectionResponse
-		msgs                             []sdk.Msg
-	)
 
 	// TODO: add back retries due to commit delay/update
 	// get headers to update light clients on chain
-	srcUpdateHeader, dstUpdateHeader, err = sh.GetTrustedHeaders(src, dst)
-	if err != nil {
-		return false, false, false, fmt.Errorf("failed to get trusted headers: %v", err)
-	}
-
 	// if either identifier is missing, an existing connection that matches the required fields
 	// is chosen or a new connection is created.
 	// This will perform either an OpenInit or OpenTry step and return
 	if src.PathEnd.ConnectionID == "" || dst.PathEnd.ConnectionID == "" {
-		success, modified, err := InitializeConnection(src, dst, srcUpdateHeader, dstUpdateHeader, sh)
+		success, modified, err := InitializeConnection(src, dst, srcUpdateMsg, dstUpdateMsg)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -113,7 +113,8 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	}
 
 	// Query Connection data from src and dst
-	srcConn, dstConn, err = QueryConnectionPair(src, dst, int64(sh.GetHeight(src.ChainID))-1, int64(sh.GetHeight(dst.ChainID))-1)
+	srcConn, dstConn, err = QueryConnectionPair(src, dst, int64(src.MustGetLatestLightHeight())-1,
+		int64(dst.MustGetLatestLightHeight()-1))
 	if err != nil {
 		return false, false, false, err
 	}
@@ -128,13 +129,13 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
 
-		openTry, err := src.ConnTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
+		openTry, err := src.ConnTry(dst)
 		if err != nil {
 			return false, false, false, err
 		}
 
 		msgs = []sdk.Msg{
-			src.UpdateClient(dstUpdateHeader),
+			srcUpdateMsg,
 			openTry,
 		}
 		_, success, err = src.SendMsgs(msgs)
@@ -145,18 +146,19 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	// OpenAck on source if dst is at TRYOPEN and src is on INIT or TRYOPEN (crossing hellos case)
 	// obtain proof of counterparty in TRYOPEN state and submit to source chain to update state
 	// from INIT/TRYOPEN to OPEN.
-	case (srcConn.Connection.State == conntypes.INIT || srcConn.Connection.State == conntypes.TRYOPEN) && dstConn.Connection.State == conntypes.TRYOPEN:
+	case (srcConn.Connection.State == conntypes.INIT || srcConn.Connection.State == conntypes.TRYOPEN) &&
+		dstConn.Connection.State == conntypes.TRYOPEN:
 		if src.debug {
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
 
-		openAck, err := src.ConnAck(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
+		openAck, err := src.ConnAck(dst)
 		if err != nil {
 			return false, false, false, err
 		}
 
 		msgs = []sdk.Msg{
-			src.UpdateClient(dstUpdateHeader),
+			srcUpdateMsg,
 			openAck,
 		}
 		_, success, err = src.SendMsgs(msgs)
@@ -172,13 +174,13 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(dst, src, dstConn, srcConn)
 		}
 
-		openAck, err := dst.ConnAck(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1)
+		openAck, err := dst.ConnAck(src)
 		if err != nil {
 			return false, false, false, err
 		}
 
 		msgs = []sdk.Msg{
-			dst.UpdateClient(srcUpdateHeader),
+			dstUpdateMsg,
 			openAck,
 		}
 		_, success, err = dst.SendMsgs(msgs)
@@ -191,8 +193,9 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 		if src.debug {
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
+
 		msgs = []sdk.Msg{
-			src.UpdateClient(dstUpdateHeader),
+			srcUpdateMsg,
 			src.ConnConfirm(dstConn),
 		}
 		_, success, err = src.SendMsgs(msgs)
@@ -207,8 +210,9 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 		if dst.debug {
 			logConnectionStates(dst, src, dstConn, srcConn)
 		}
+
 		msgs = []sdk.Msg{
-			dst.UpdateClient(srcUpdateHeader),
+			dstUpdateMsg,
 			dst.ConnConfirm(srcConn),
 		}
 		last = true
@@ -229,12 +233,15 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 // The identifiers set in the PathEnd's are used to determine which connection ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither connection exists.
-func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmclient.Header, sh *SyncHeaders) (success, modified bool, err error) {
+func InitializeConnection(
+	src, dst *Chain, srcUpdateMsg, dstUpdateMsg sdk.Msg,
+) (success, modified bool, err error) {
 	switch {
 
 	// OpenInit on source
 	// Neither connection has been initialized
 	case src.PathEnd.ConnectionID == "" && dst.PathEnd.ConnectionID == "":
+		//nolint:staticcheck
 		if src.debug {
 			// TODO: log that we are attempting to create new connection ends
 		}
@@ -242,8 +249,9 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 		connectionID, found := FindMatchingConnection(src, dst)
 		if !found {
 			// construct OpenInit message to be submitted on source chain
+
 			msgs := []sdk.Msg{
-				src.UpdateClient(dstUpdateHeader),
+				srcUpdateMsg,
 				src.ConnInit(dst.PathEnd),
 			}
 
@@ -266,19 +274,20 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 	// OpenTry on source
 	// source connection does not exist, but counterparty connection exists
 	case src.PathEnd.ConnectionID == "" && dst.PathEnd.ConnectionID != "":
+		//nolint:staticcheck
 		if src.debug {
 			// TODO: update logging
 		}
 
 		connectionID, found := FindMatchingConnection(src, dst)
 		if !found {
-			openTry, err := src.ConnTry(dst, dstUpdateHeader.GetHeight().GetRevisionHeight()-1)
+			openTry, err := src.ConnTry(dst)
 			if err != nil {
 				return false, false, err
 			}
 
 			msgs := []sdk.Msg{
-				src.UpdateClient(dstUpdateHeader),
+				srcUpdateMsg,
 				openTry,
 			}
 			res, success, err := src.SendMsgs(msgs)
@@ -300,19 +309,20 @@ func InitializeConnection(src, dst *Chain, srcUpdateHeader, dstUpdateHeader *tmc
 	// OpenTry on counterparty
 	// source connection exists, but counterparty connection does not exist
 	case src.PathEnd.ConnectionID != "" && dst.PathEnd.ConnectionID == "":
+		//nolint:staticcheck
 		if dst.debug {
 			// TODO: update logging
 		}
 
 		connectionID, found := FindMatchingConnection(dst, src)
 		if !found {
-			openTry, err := dst.ConnTry(src, srcUpdateHeader.GetHeight().GetRevisionHeight()-1)
+			openTry, err := dst.ConnTry(src)
 			if err != nil {
 				return false, false, err
 			}
 
 			msgs := []sdk.Msg{
-				dst.UpdateClient(srcUpdateHeader),
+				dstUpdateMsg,
 				openTry,
 			}
 			res, success, err := dst.SendMsgs(msgs)
@@ -361,12 +371,14 @@ func FindMatchingConnection(source, counterparty *Chain) (string, bool) {
 // IsMatchingConnection determines if given connection matches required conditions
 func IsMatchingConnection(source, counterparty *Chain, connection *conntypes.IdentifiedConnection) bool {
 	// determines version we use is matching with given versions
-	_, isVersionMatched := conntypes.FindSupportedVersion(conntypes.DefaultIBCVersion, conntypes.ProtoVersionsToExported(connection.Versions))
+	_, isVersionMatched := conntypes.FindSupportedVersion(conntypes.DefaultIBCVersion,
+		conntypes.ProtoVersionsToExported(connection.Versions))
 	return connection.ClientId == source.PathEnd.ClientID &&
 		connection.Counterparty.ClientId == counterparty.PathEnd.ClientID &&
 		isVersionMatched && connection.DelayPeriod == defaultDelayPeriod &&
 		connection.Counterparty.Prefix.String() == defaultChainPrefix.String() &&
-		(((connection.State == conntypes.INIT || connection.State == conntypes.TRYOPEN) && connection.Counterparty.ConnectionId == "") ||
+		(((connection.State == conntypes.INIT || connection.State == conntypes.TRYOPEN) &&
+			connection.Counterparty.ConnectionId == "") ||
 			(connection.State == conntypes.OPEN && (counterparty.PathEnd.ConnectionID == "" ||
 				connection.Counterparty.ConnectionId == counterparty.PathEnd.ConnectionID)))
 }

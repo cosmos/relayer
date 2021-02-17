@@ -1,4 +1,5 @@
 /*
+Package cmd includes relayer commands
 Copyright © 2020 Jack Zampolin jack.zampolin@gmail.com
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,17 +20,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
+	"strconv"
 	"strings"
 
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
-	"github.com/cosmos/cosmos-sdk/crypto/hd"
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/relayer/helpers"
+	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
-
-	"github.com/cosmos/relayer/relayer"
 )
 
 const (
-	flagCoinType = "coin-type"
+	flagCoinType           = "coin-type"
+	defaultCoinType uint32 = sdk.CoinType
 )
 
 // keysCmd represents the keys command
@@ -78,19 +83,13 @@ $ %s k a ibc-2 testkey`, appName, appName, appName)),
 				return errKeyExists(keyName)
 			}
 
-			mnemonic, err := relayer.CreateMnemonic()
-			if err != nil {
-				return err
-			}
-
 			coinType, _ := cmd.Flags().GetUint32(flagCoinType)
 
-			info, err := chain.Keybase.NewAccount(keyName, mnemonic, "", hd.CreateHDPath(coinType, 0, 0).String(), hd.Secp256k1)
+			// Adding key with key add helper
+			ko, err := helpers.KeyAddOrRestore(chain, keyName, coinType)
 			if err != nil {
 				return err
 			}
-
-			ko := keyOutput{Mnemonic: mnemonic, Address: info.GetAddress().String()}
 
 			out, err := json.Marshal(&ko)
 			if err != nil {
@@ -101,14 +100,9 @@ $ %s k a ibc-2 testkey`, appName, appName, appName)),
 			return nil
 		},
 	}
-	cmd.Flags().Uint32(flagCoinType, 118, "coin type number for HD derivation")
+	cmd.Flags().Uint32(flagCoinType, defaultCoinType, "coin type number for HD derivation")
 
 	return cmd
-}
-
-type keyOutput struct {
-	Mnemonic string `json:"mnemonic" yaml:"mnemonic"`
-	Address  string `json:"address" yaml:"address"`
 }
 
 // keysRestoreCmd respresents the `keys add` command
@@ -134,17 +128,17 @@ $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 
 			coinType, _ := cmd.Flags().GetUint32(flagCoinType)
 
-			info, err := chain.Keybase.NewAccount(keyName, args[2], "", hd.CreateHDPath(coinType, 0, 0).String(), hd.Secp256k1)
+			// Restoring key with passing mnemonic
+			ko, err := helpers.KeyAddOrRestore(chain, keyName, coinType, args[2])
 			if err != nil {
 				return err
 			}
 
-			defer chain.UseSDKContext()()
-			fmt.Println(info.GetAddress().String())
+			fmt.Println(ko.Address)
 			return nil
 		},
 	}
-	cmd.Flags().Uint32(flagCoinType, 118, "coin type number for HD derivation")
+	cmd.Flags().Uint32(flagCoinType, defaultCoinType, "coin type number for HD derivation")
 
 	return cmd
 }
@@ -321,4 +315,167 @@ $ %s k e ibc-2 testkey`, appName, appName)),
 	}
 
 	return cmd
+}
+
+// API Handlers
+
+type keyResponse struct {
+	Name    string `json:"name"`
+	Address string `json:"address"`
+}
+
+func formatKey(info keyring.Info) keyResponse {
+	return keyResponse{
+		Name:    info.GetName(),
+		Address: info.GetAddress().String(),
+	}
+}
+
+// GetKeysHandler handles the route
+func GetKeysHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+	info, err := chain.Keybase.List()
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+
+	keys := make([]keyResponse, len(info))
+	for index, key := range info {
+		keys[index] = formatKey(key)
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, keys, w)
+}
+
+// GetKeyHandler handles the route
+func GetKeyHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	keyName := vars["name"]
+	if !chain.KeyExists(keyName) {
+		helpers.WriteErrorResponse(http.StatusNotFound, errKeyDoesntExist(keyName), w)
+		return
+	}
+
+	info, err := chain.Keybase.Key(keyName)
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, formatKey(info), w)
+}
+
+// PostKeyHandler handles the route
+func PostKeyHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	keyName := vars["name"]
+	if chain.KeyExists(keyName) {
+		helpers.WriteErrorResponse(http.StatusBadRequest, errKeyExists(keyName), w)
+		return
+	}
+
+	coinTypeStr := strings.TrimSpace(r.URL.Query().Get(flagCoinType))
+
+	coinType := defaultCoinType
+
+	if len(coinTypeStr) != 0 {
+		v, err := strconv.ParseUint(coinTypeStr, 10, 32)
+		if err != nil {
+			helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+			return
+		}
+		coinType = uint32(v)
+	}
+
+	ko, err := helpers.KeyAddOrRestore(chain, keyName, coinType)
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusCreated, ko, w)
+}
+
+type restoreKeyRequest struct {
+	Mnemonic string `json:"mnemonic"`
+}
+
+// RestoreKeyHandler handles the route
+func RestoreKeyHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	keyName := vars["name"]
+	if chain.KeyExists(keyName) {
+		helpers.WriteErrorResponse(http.StatusNotFound, errKeyExists(keyName), w)
+		return
+	}
+
+	var request restoreKeyRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	coinTypeStr := strings.TrimSpace(r.URL.Query().Get(flagCoinType))
+
+	coinType := defaultCoinType
+
+	if len(coinTypeStr) != 0 {
+		v, err := strconv.ParseUint(coinTypeStr, 10, 32)
+		if err != nil {
+			helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+			return
+		}
+		coinType = uint32(v)
+	}
+
+	ko, err := helpers.KeyAddOrRestore(chain, keyName, coinType, request.Mnemonic)
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, ko, w)
+}
+
+// DeleteKeyHandler handles the route
+func DeleteKeyHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["chain-id"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	keyName := vars["name"]
+	if !chain.KeyExists(keyName) {
+		helpers.WriteErrorResponse(http.StatusNotFound, errKeyDoesntExist(keyName), w)
+		return
+	}
+
+	err = chain.Keybase.Delete(keyName)
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, fmt.Sprintf("key %s deleted", keyName), w)
 }

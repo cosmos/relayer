@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	tmservice "github.com/tendermint/tendermint/libs/service"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 )
 
@@ -15,11 +16,11 @@ var (
 // Strategy defines
 type Strategy interface {
 	GetType() string
-	HandleEvents(src, dst *Chain, sh *SyncHeaders, events map[string][]string)
-	UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error)
-	UnrelayedAcknowledgements(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error)
-	RelayPackets(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) error
-	RelayAcknowledgements(src, dst *Chain, sp *RelaySequences, sh *SyncHeaders) error
+	HandleEvents(src, dst *Chain, events map[string][]string)
+	UnrelayedSequences(src, dst *Chain) (*RelaySequences, error)
+	UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequences, error)
+	RelayPackets(src, dst *Chain, sp *RelaySequences) error
+	RelayAcknowledgements(src, dst *Chain, sp *RelaySequences) error
 }
 
 // MustGetStrategy returns the strategy and panics on error
@@ -52,21 +53,21 @@ func RunStrategy(src, dst *Chain, strategy Strategy) (func(), error) {
 	doneChan := make(chan struct{})
 
 	// Fetch latest headers for each chain and store them in sync headers
-	sh, err := NewSyncHeaders(src, dst)
+	_, _, err := UpdateLightClients(src, dst)
 	if err != nil {
 		return nil, err
 	}
 
 	// Next start the goroutine that listens to each chain for block and tx events
-	go relayerListenLoop(src, dst, doneChan, sh, strategy)
+	go relayerListenLoop(src, dst, doneChan, strategy)
 
 	// Fetch any unrelayed sequences depending on the channel order
-	sp, err := strategy.UnrelayedSequences(src, dst, sh)
+	sp, err := strategy.UnrelayedSequences(src, dst)
 	if err != nil {
 		return nil, err
 	}
 
-	if err = strategy.RelayPackets(src, dst, sp, sh); err != nil {
+	if err = strategy.RelayPackets(src, dst, sp); err != nil {
 		return nil, err
 	}
 
@@ -74,7 +75,7 @@ func RunStrategy(src, dst *Chain, strategy Strategy) (func(), error) {
 	return func() { doneChan <- struct{}{} }, nil
 }
 
-func relayerListenLoop(src, dst *Chain, doneChan chan struct{}, sh *SyncHeaders, strategy Strategy) {
+func relayerListenLoop(src, dst *Chain, doneChan chan struct{}, strategy Strategy) {
 	var (
 		srcTxEvents, srcBlockEvents, dstTxEvents, dstBlockEvents <-chan ctypes.ResultEvent
 		srcTxCancel, srcBlockCancel, dstTxCancel, dstBlockCancel context.CancelFunc
@@ -83,8 +84,10 @@ func relayerListenLoop(src, dst *Chain, doneChan chan struct{}, sh *SyncHeaders,
 
 	// Start client for source chain
 	if err = src.Start(); err != nil {
-		src.Error(err)
-		return
+		if err != tmservice.ErrAlreadyStarted {
+			src.Error(err)
+			return
+		}
 	}
 
 	// Subscibe to txEvents from the source chain
@@ -105,8 +108,10 @@ func relayerListenLoop(src, dst *Chain, doneChan chan struct{}, sh *SyncHeaders,
 
 	// Subscribe to destination chain
 	if err = dst.Start(); err != nil {
-		dst.Error(err)
-		return
+		if err != tmservice.ErrAlreadyStarted {
+			dst.Error(err)
+			return
+		}
 	}
 
 	// Subscibe to txEvents from the destination chain
@@ -130,22 +135,22 @@ func relayerListenLoop(src, dst *Chain, doneChan chan struct{}, sh *SyncHeaders,
 		select {
 		case srcMsg := <-srcTxEvents:
 			src.logTx(srcMsg.Events)
-			go strategy.HandleEvents(dst, src, sh, srcMsg.Events)
+			go strategy.HandleEvents(dst, src, srcMsg.Events)
 		case dstMsg := <-dstTxEvents:
 			dst.logTx(dstMsg.Events)
-			go strategy.HandleEvents(src, dst, sh, dstMsg.Events)
+			go strategy.HandleEvents(src, dst, dstMsg.Events)
 		case srcMsg := <-srcBlockEvents:
 			// TODO: Add debug block logging here
-			if err = sh.Update(src); err != nil {
+			if _, err = src.UpdateLightClient(); err != nil {
 				src.Error(err)
 			}
-			go strategy.HandleEvents(dst, src, sh, srcMsg.Events)
+			go strategy.HandleEvents(dst, src, srcMsg.Events)
 		case dstMsg := <-dstBlockEvents:
 			// TODO: Add debug block logging here
-			if err = sh.Update(dst); err != nil {
+			if _, err = dst.UpdateLightClient(); err != nil {
 				dst.Error(err)
 			}
-			go strategy.HandleEvents(src, dst, sh, dstMsg.Events)
+			go strategy.HandleEvents(src, dst, dstMsg.Events)
 		case <-doneChan:
 			src.Log(fmt.Sprintf("- [%s]:{%s} <-> [%s]:{%s} relayer shutting down",
 				src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))

@@ -6,7 +6,6 @@ import (
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
-	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 )
 
@@ -22,6 +21,7 @@ import (
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
 func (c *Chain) CreateClient(
+	//nolint:interfacer
 	clientState *tmclient.ClientState,
 	dstHeader *tmclient.Header) sdk.Msg {
 
@@ -44,20 +44,25 @@ func (c *Chain) CreateClient(
 	return msg
 }
 
-// UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst
-func (c *Chain) UpdateClient(dstHeader ibcexported.Header) sdk.Msg {
-	if err := dstHeader.ValidateBasic(); err != nil {
-		panic(err)
+// UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst.
+func (c *Chain) UpdateClient(dst *Chain) (sdk.Msg, error) {
+	header, err := dst.GetIBCUpdateHeader(c)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := header.ValidateBasic(); err != nil {
+		return nil, err
 	}
 	msg, err := clienttypes.NewMsgUpdateClient(
 		c.PathEnd.ClientID,
-		dstHeader,
+		header,
 		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return msg
+	return msg, nil
 }
 
 // ConnInit creates a MsgConnectionOpenInit
@@ -76,9 +81,10 @@ func (c *Chain) ConnInit(counterparty *PathEnd) sdk.Msg {
 // ConnTry creates a MsgConnectionOpenTry
 func (c *Chain) ConnTry(
 	counterparty *Chain,
-	height uint64,
 ) (sdk.Msg, error) {
-	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := counterparty.GenerateConnHandshakeProof(height)
+	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
+	clientState, clientStateProof, consensusStateProof, connStateProof,
+		proofHeight, err := counterparty.GenerateConnHandshakeProof(counterparty.MustGetLatestLightHeight() - 1)
 	if err != nil {
 		return nil, err
 	}
@@ -109,9 +115,10 @@ func (c *Chain) ConnTry(
 // ConnAck creates a MsgConnectionOpenAck
 func (c *Chain) ConnAck(
 	counterparty *Chain,
-	height uint64,
 ) (sdk.Msg, error) {
-	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := counterparty.GenerateConnHandshakeProof(height)
+	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
+	clientState, clientStateProof, consensusStateProof, connStateProof,
+		proofHeight, err := counterparty.GenerateConnHandshakeProof(counterparty.MustGetLatestLightHeight() - 1)
 	if err != nil {
 		return nil, err
 	}
@@ -155,10 +162,9 @@ func (c *Chain) ChanInit(counterparty *PathEnd) sdk.Msg {
 // ChanTry creates a MsgChannelOpenTry
 func (c *Chain) ChanTry(
 	counterparty *Chain,
-	height uint64,
 ) (sdk.Msg, error) {
-	// obtain proof from counterparty chain
-	counterpartyChannelRes, err := counterparty.QueryChannel(int64(height))
+	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
+	counterpartyChannelRes, err := counterparty.QueryChannel(int64(counterparty.MustGetLatestLightHeight()) - 1)
 	if err != nil {
 		return nil, err
 	}
@@ -182,10 +188,9 @@ func (c *Chain) ChanTry(
 // ChanAck creates a MsgChannelOpenAck
 func (c *Chain) ChanAck(
 	counterparty *Chain,
-	height uint64,
 ) (sdk.Msg, error) {
-	// obtain proof from counterparty chain
-	counterpartyChannelRes, err := counterparty.QueryChannel(int64(height))
+	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
+	counterpartyChannelRes, err := counterparty.QueryChannel(int64(counterparty.MustGetLatestLightHeight()) - 1)
 	if err != nil {
 		return nil, err
 	}

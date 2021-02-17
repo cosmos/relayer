@@ -11,9 +11,11 @@ import (
 	"path"
 	"strings"
 
+	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
+	"github.com/cosmos/relayer/helpers"
 	"github.com/cosmos/relayer/relayer"
 )
 
@@ -149,7 +151,7 @@ $ %s ch e ibc-0 trusting-period 32h`, appName, appName)),
 				return err
 			}
 
-			return overWriteConfig(cmd, config)
+			return overWriteConfig(config)
 		},
 	}
 	return cmd
@@ -165,7 +167,7 @@ func chainsDeleteCmd() *cobra.Command {
 $ %s chains delete ibc-0
 $ %s ch d ibc-0`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return overWriteConfig(cmd, config.DeleteChain(args[0]))
+			return overWriteConfig(config.DeleteChain(args[0]))
 		},
 	}
 	return cmd
@@ -282,7 +284,7 @@ $ %s chains add --url http://relayer.com/ibc0.json
 				return err
 			}
 
-			return overWriteConfig(cmd, out)
+			return overWriteConfig(out)
 		},
 	}
 
@@ -304,7 +306,7 @@ $ %s ch ad testnet/chains/`, appName, appName)),
 			if out, err = filesAdd(args[0]); err != nil {
 				return err
 			}
-			return overWriteConfig(cmd, out)
+			return overWriteConfig(out)
 		},
 	}
 
@@ -475,4 +477,210 @@ func urlInputAdd(rawurl string) (cfg *Config, err error) {
 		return nil, err
 	}
 	return config, err
+}
+
+// API Handlers
+
+// GetChainsHandler returns the configured chains in json format
+func GetChainsHandler(w http.ResponseWriter, r *http.Request) {
+	helpers.SuccessJSONResponse(http.StatusOK, config.Chains, w)
+}
+
+// GetChainHandler returns the configured chains in json format
+func GetChainHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["name"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, chain, w)
+}
+
+// GetChainStatusHandler returns the configured chains in json format
+func GetChainStatusHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["name"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, chainStatusResponse{}.Populate(chain), w)
+}
+
+type chainStatusResponse struct {
+	Light   bool `json:"light"`
+	Path    bool `json:"path"`
+	Key     bool `json:"key"`
+	Balance bool `json:"balance"`
+}
+
+func (cs chainStatusResponse) Populate(c *relayer.Chain) chainStatusResponse {
+	_, err := c.GetAddress()
+	if err == nil {
+		cs.Key = true
+	}
+
+	coins, err := c.QueryBalance(c.Key)
+	if err == nil && !coins.Empty() {
+		cs.Balance = true
+	}
+
+	_, err = c.GetLatestLightHeader()
+	if err == nil {
+		cs.Light = true
+	}
+
+	for _, pth := range config.Paths {
+		if pth.Src.ChainID == c.ChainID || pth.Dst.ChainID == c.ChainID {
+			cs.Path = true
+		}
+	}
+	return cs
+}
+
+type addChainRequest struct {
+	Key            string `json:"key"`
+	RPCAddr        string `json:"rpc-addr"`
+	AccountPrefix  string `json:"account-prefix"`
+	GasAdjustment  string `json:"gas-adjustment"`
+	GasPrices      string `json:"gas-prices"`
+	TrustingPeriod string `json:"trusting-period"`
+	FilePath       string `json:"file"`
+	URL            string `json:"url"`
+}
+
+// PostChainHandler handles the route
+func PostChainHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chainID := vars["name"]
+
+	var request addChainRequest
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	if request.FilePath != "" && request.URL != "" {
+		helpers.WriteErrorResponse(http.StatusBadRequest, errMultipleAddFlags, w)
+		return
+	}
+
+	var out *Config
+	switch {
+	case request.FilePath != "":
+		if out, err = fileInputAdd(request.FilePath); err != nil {
+			helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+			return
+		}
+	case request.URL != "":
+		if out, err = urlInputAdd(request.URL); err != nil {
+			helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+			return
+		}
+	default:
+		if out, err = addChainByRequest(request, chainID); err != nil {
+			helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+			return
+		}
+	}
+
+	if err = validateConfig(out); err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+
+	if err = overWriteConfig(out); err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusCreated, fmt.Sprintf("chain %s added successfully", chainID), w)
+}
+
+func addChainByRequest(request addChainRequest, chainID string) (cfg *Config, err error) {
+	c := &relayer.Chain{}
+
+	if c, err = c.Update("chain-id", chainID); err != nil {
+		return nil, err
+	}
+
+	if c, err = c.Update("key", request.Key); err != nil {
+		return nil, err
+	}
+
+	if c, err = c.Update("rpc-addr", request.RPCAddr); err != nil {
+		return nil, err
+	}
+
+	if c, err = c.Update("account-prefix", request.AccountPrefix); err != nil {
+		return nil, err
+	}
+
+	if c, err = c.Update("gas-adjustment", request.GasAdjustment); err != nil {
+		return nil, err
+	}
+
+	if c, err = c.Update("gas-prices", request.GasPrices); err != nil {
+		return nil, err
+	}
+
+	if c, err = c.Update("trusting-period", request.TrustingPeriod); err != nil {
+		return nil, err
+	}
+
+	if err = config.AddChain(c); err != nil {
+		return nil, err
+	}
+
+	return config, nil
+}
+
+type editChainRequest struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+// PutChainHandler handles the route
+func PutChainHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chain, err := config.Chains.Get(vars["name"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	var request editChainRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	c, err := chain.Update(request.Key, request.Value)
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	if err = config.DeleteChain(vars["name"]).AddChain(c); err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
+
+	if err = overWriteConfig(config); err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, fmt.Sprintf("chain %s updated", vars["name"]), w)
+
+}
+
+// DeleteChainHandler handles the route
+func DeleteChainHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	if err := overWriteConfig(config.DeleteChain(vars["name"])); err != nil {
+		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
+		return
+	}
+	helpers.SuccessJSONResponse(http.StatusOK, fmt.Sprintf("chain %s deleted", vars["name"]), w)
 }
