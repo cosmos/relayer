@@ -4,6 +4,10 @@
 
 **2021/02/17**
 
+### Dependencies 
+
+* [#\429](https://github.com/cosmos/relayer/pull/429) Bump SDK version to v0.41.1
+
 ### Relayer 
 
 * [\#424](https://github.com/cosmos/relayer/pull/424) Fix update bug via DRY handshake code
