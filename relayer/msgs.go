@@ -44,7 +44,8 @@ func (c *Chain) CreateClient(
 	return msg
 }
 
-// UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst.
+// UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst
+// at the request height..
 func (c *Chain) UpdateClient(dst *Chain) (sdk.Msg, error) {
 	header, err := dst.GetIBCUpdateHeader(c)
 	if err != nil {
@@ -66,22 +67,35 @@ func (c *Chain) UpdateClient(dst *Chain) (sdk.Msg, error) {
 }
 
 // ConnInit creates a MsgConnectionOpenInit
-func (c *Chain) ConnInit(counterparty *PathEnd) sdk.Msg {
+func (c *Chain) ConnInit(counterparty *Chain) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty)
+	if err != nil {
+		return nil, err
+	}
+
 	var version *conntypes.Version
-	return conntypes.NewMsgConnectionOpenInit(
+	msg := conntypes.NewMsgConnectionOpenInit(
 		c.PathEnd.ClientID,
-		counterparty.ClientID,
+		counterparty.PathEnd.ClientID,
 		defaultChainPrefix,
 		version,
 		defaultDelayPeriod,
 		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
+
+	return []sdk.Msg{updateMsg, msg}, nil
+
 }
 
 // ConnTry creates a MsgConnectionOpenTry
 func (c *Chain) ConnTry(
 	counterparty *Chain,
-) (sdk.Msg, error) {
+) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty)
+	if err != nil {
+		return nil, err
+	}
+
 	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 	clientState, clientStateProof, consensusStateProof, connStateProof,
 		proofHeight, err := counterparty.GenerateConnHandshakeProof(counterparty.MustGetLatestLightHeight() - 1)
@@ -109,13 +123,19 @@ func (c *Chain) ConnTry(
 	if err := msg.ValidateBasic(); err != nil {
 		return nil, err
 	}
-	return msg, nil
+
+	return []sdk.Msg{updateMsg, msg}, nil
 }
 
 // ConnAck creates a MsgConnectionOpenAck
 func (c *Chain) ConnAck(
 	counterparty *Chain,
-) (sdk.Msg, error) {
+) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty)
+	if err != nil {
+		return nil, err
+	}
+
 	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 	clientState, clientStateProof, consensusStateProof, connStateProof,
 		proofHeight, err := counterparty.GenerateConnHandshakeProof(counterparty.MustGetLatestLightHeight() - 1)
@@ -123,7 +143,7 @@ func (c *Chain) ConnAck(
 		return nil, err
 	}
 
-	return conntypes.NewMsgConnectionOpenAck(
+	msg := conntypes.NewMsgConnectionOpenAck(
 		c.PathEnd.ConnectionID,
 		counterparty.PathEnd.ConnectionID,
 		clientState,
@@ -134,17 +154,31 @@ func (c *Chain) ConnAck(
 		clientState.GetLatestHeight().(clienttypes.Height),
 		conntypes.DefaultIBCVersion,
 		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
-	), nil
+	)
+
+	return []sdk.Msg{updateMsg, msg}, nil
 }
 
 // ConnConfirm creates a MsgConnectionOpenConfirm
-func (c *Chain) ConnConfirm(counterpartyConnState *conntypes.QueryConnectionResponse) sdk.Msg {
-	return conntypes.NewMsgConnectionOpenConfirm(
+func (c *Chain) ConnConfirm(counterparty *Chain) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty)
+	if err != nil {
+		return nil, err
+	}
+
+	counterpartyConnState, err := counterparty.QueryConnection(int64(counterparty.MustGetLatestLightHeight()) - 1)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := conntypes.NewMsgConnectionOpenConfirm(
 		c.PathEnd.ConnectionID,
 		counterpartyConnState.Proof,
 		counterpartyConnState.ProofHeight,
 		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
+
+	return []sdk.Msg{updateMsg, msg}, nil
 }
 
 // ChanInit creates a MsgChannelOpenInit
@@ -162,7 +196,7 @@ func (c *Chain) ChanInit(counterparty *PathEnd) sdk.Msg {
 // ChanTry creates a MsgChannelOpenTry
 func (c *Chain) ChanTry(
 	counterparty *Chain,
-) (sdk.Msg, error) {
+) (*chantypes.MsgChannelOpenTry, error) {
 	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 	counterpartyChannelRes, err := counterparty.QueryChannel(int64(counterparty.MustGetLatestLightHeight()) - 1)
 	if err != nil {
@@ -188,7 +222,7 @@ func (c *Chain) ChanTry(
 // ChanAck creates a MsgChannelOpenAck
 func (c *Chain) ChanAck(
 	counterparty *Chain,
-) (sdk.Msg, error) {
+) (*chantypes.MsgChannelOpenAck, error) {
 	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 	counterpartyChannelRes, err := counterparty.QueryChannel(int64(counterparty.MustGetLatestLightHeight()) - 1)
 	if err != nil {
