@@ -182,28 +182,40 @@ func (c *Chain) ConnConfirm(counterparty *Chain) ([]sdk.Msg, error) {
 }
 
 // ChanInit creates a MsgChannelOpenInit
-func (c *Chain) ChanInit(counterparty *PathEnd) sdk.Msg {
-	return chantypes.NewMsgChannelOpenInit(
+func (c *Chain) ChanInit(counterparty *Chain) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := chantypes.NewMsgChannelOpenInit(
 		c.PathEnd.PortID,
 		c.PathEnd.Version,
 		c.PathEnd.GetOrder(),
 		[]string{c.PathEnd.ConnectionID},
-		counterparty.PortID,
+		counterparty.PathEnd.PortID,
 		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
+
+	return []sdk.Msg{updateMsg, msg}, nil
 }
 
 // ChanTry creates a MsgChannelOpenTry
 func (c *Chain) ChanTry(
 	counterparty *Chain,
-) (*chantypes.MsgChannelOpenTry, error) {
+) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty)
+	if err != nil {
+		return nil, err
+	}
+
 	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 	counterpartyChannelRes, err := counterparty.QueryChannel(int64(counterparty.MustGetLatestLightHeight()) - 1)
 	if err != nil {
 		return nil, err
 	}
 
-	return chantypes.NewMsgChannelOpenTry(
+	msg := chantypes.NewMsgChannelOpenTry(
 		c.PathEnd.PortID,
 		c.PathEnd.ChannelID,
 		c.PathEnd.Version,
@@ -216,20 +228,27 @@ func (c *Chain) ChanTry(
 		counterpartyChannelRes.ProofHeight,
 		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 
-	), nil
+	)
+
+	return []sdk.Msg{updateMsg, msg}, nil
 }
 
 // ChanAck creates a MsgChannelOpenAck
 func (c *Chain) ChanAck(
 	counterparty *Chain,
-) (*chantypes.MsgChannelOpenAck, error) {
+) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty)
+	if err != nil {
+		return nil, err
+	}
+
 	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 	counterpartyChannelRes, err := counterparty.QueryChannel(int64(counterparty.MustGetLatestLightHeight()) - 1)
 	if err != nil {
 		return nil, err
 	}
 
-	return chantypes.NewMsgChannelOpenAck(
+	msg := chantypes.NewMsgChannelOpenAck(
 		c.PathEnd.PortID,
 		c.PathEnd.ChannelID,
 		counterparty.PathEnd.ChannelID,
@@ -237,18 +256,33 @@ func (c *Chain) ChanAck(
 		counterpartyChannelRes.Proof,
 		counterpartyChannelRes.ProofHeight,
 		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
-	), nil
+	)
+
+	return []sdk.Msg{updateMsg, msg}, nil
 }
 
 // ChanConfirm creates a MsgChannelOpenConfirm
-func (c *Chain) ChanConfirm(dstChanState *chantypes.QueryChannelResponse) sdk.Msg {
-	return chantypes.NewMsgChannelOpenConfirm(
+func (c *Chain) ChanConfirm(counterparty *Chain) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty)
+	if err != nil {
+		return nil, err
+	}
+
+	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
+	counterpartyChanState, err := counterparty.QueryChannel(int64(counterparty.MustGetLatestLightHeight()) - 1)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := chantypes.NewMsgChannelOpenConfirm(
 		c.PathEnd.PortID,
 		c.PathEnd.ChannelID,
-		dstChanState.Proof,
-		dstChanState.ProofHeight,
+		counterpartyChanState.Proof,
+		counterpartyChanState.ProofHeight,
 		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
+
+	return []sdk.Msg{updateMsg, msg}, nil
 }
 
 // ChanCloseInit creates a MsgChannelCloseInit
