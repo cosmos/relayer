@@ -1,0 +1,1 @@
+{"key":"testkey","chain-id":"cosmoshub-4","rpc-addr":"tcp://157.230.116.241:26657","account-prefix":"cosmos","gas-adjustment":2,"gas-prices":"1uatom", "trusting-period":"336h"}

@@ -42,8 +42,8 @@ killall akash &> /dev/null
 
 set -e
 
-chainid0=ibc-0
-chainid1=ibc-1
+chainid0=okwme
+chainid1=cosmoshub-4
 
 echo "Generating gaia configurations..."
 mkdir -p $GAIA_DATA && cd $GAIA_DATA && cd ../
@@ -51,7 +51,7 @@ mkdir -p $GAIA_DATA && cd $GAIA_DATA && cd ../
 ./scripts/one-chain gaiad $chainid1 ./data 26557 26556 6061 9091
 
 [ -f $GAIA_DATA/$chainid0.log ] && echo "$chainid0 initialized. Watch file $GAIA_DATA/$chainid0.log to see its execution."
-[ -f $GAIA_DATA/$chainid1.log ] && echo "$chainid1 initialized. Watch file $GAIA_DATA/$chainid1.log to see its execution."
+# [ -f $GAIA_DATA/$chainid1.log ] && echo "$chainid1 initialized. Watch file $GAIA_DATA/$chainid1.log to see its execution."
 
 cd $RELAYER_DIR
 
@@ -61,15 +61,17 @@ make install
 echo "Generating rly configurations..."
 rly config init
 rly config add-chains configs/demo/chains
-
-SEED0=$(jq -r '.mnemonic' $GAIA_DATA/ibc-0/key_seed.json)
-SEED1=$(jq -r '.mnemonic' $GAIA_DATA/ibc-1/key_seed.json)
-echo "Key $(rly keys restore ibc-0 testkey "$SEED0") imported from ibc-0 to relayer..."
-echo "Key $(rly keys restore ibc-1 testkey "$SEED1") imported from ibc-1 to relayer..."
+echo "here2"
+SEED0="xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx" #$(jq -r '.mnemonic' $GAIA_DATA/okwme/key_seed.json)
+SEED1=$SEED0 #$(jq -r '.mnemonic' $GAIA_DATA/cosmoshub-4/key_seed.json)
+# SEED0=$(jq -r '.mnemonic' $GAIA_DATA/okwme/key_seed.json)
+# SEED1=$(jq -r '.mnemonic' $GAIA_DATA/cosmoshub-4/key_seed.json)
+echo "Key $(rly keys restore okwme testkey "$SEED0") imported from okwme to relayer..."
+echo "Key $(rly keys restore cosmoshub-4 testkey "$SEED1") imported from cosmoshub-4 to relayer..."
 
 rly config add-paths configs/demo/paths
 
 echo "Creating light clients..."
 sleep 3
-rly light init ibc-0 -f
-rly light init ibc-1 -f
+rly light init okwme -f
+rly light init cosmoshub-4 -f

@@ -25,6 +25,7 @@ RPCPORT=$4
 P2PPORT=$5
 PROFPORT=$6
 GRPCPORT=$7
+MNEMONIC="xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx xxx"
 
 if [ -z "$1" ]; then
   display_usage "[BINARY] ($BINARY|akash)"
@@ -70,7 +71,8 @@ redirect $BINARY --home $CHAINDIR/$CHAINID --chain-id $CHAINID init $CHAINID
 sleep 1
 $BINARY --home $CHAINDIR/$CHAINID keys add validator $KEYRING --output json > $CHAINDIR/$CHAINID/validator_seed.json 2> /dev/null
 sleep 1
-$BINARY --home $CHAINDIR/$CHAINID keys add user $KEYRING --output json > $CHAINDIR/$CHAINID/key_seed.json 2> /dev/null
+echo "here\n"
+echo $MNEMONIC | $BINARY --home $CHAINDIR/$CHAINID keys add user --recover $KEYRING --output json > $CHAINDIR/$CHAINID/key_seed.json 2> /dev/null
 sleep 1
 redirect $BINARY --home $CHAINDIR/$CHAINID add-genesis-account $($BINARY --home $CHAINDIR/$CHAINID keys $KEYRING show user -a) $coins 
 sleep 1
