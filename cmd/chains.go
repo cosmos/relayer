@@ -546,8 +546,10 @@ type addChainRequest struct {
 	GasAdjustment  string `json:"gas-adjustment"`
 	GasPrices      string `json:"gas-prices"`
 	TrustingPeriod string `json:"trusting-period"`
-	FilePath       string `json:"file"`
-	URL            string `json:"url"`
+	// required: false
+	FilePath string `json:"file"`
+	// required: false
+	URL string `json:"url"`
 }
 
 // PostChainHandler handles the route
