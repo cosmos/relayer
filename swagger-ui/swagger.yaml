@@ -145,6 +145,32 @@ definitions:
         x-go-name: URL
     type: object
     x-go-package: github.com/cosmos/relayer/cmd
+  chainStatusResponse:
+    properties:
+      balance:
+        type: boolean
+        x-go-name: Balance
+      key:
+        type: boolean
+        x-go-name: Key
+      light:
+        type: boolean
+        x-go-name: Light
+      path:
+        type: boolean
+        x-go-name: Path
+    type: object
+    x-go-package: github.com/cosmos/relayer/cmd
+  editChainRequest:
+    properties:
+      key:
+        type: string
+        x-go-name: Key
+      value:
+        type: string
+        x-go-name: Value
+    type: object
+    x-go-package: github.com/cosmos/relayer/cmd
   versionInfo:
     properties:
       commit:
@@ -177,6 +203,22 @@ paths:
       tags:
       - Chains
   /chains/{name}:
+    delete:
+      operationId: deleteChain
+      parameters:
+      - in: path
+        name: name
+        required: true
+        type: string
+        x-go-name: Name
+      responses:
+        "200":
+          $ref: '#/responses/chainResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Delete Chain.
+      tags:
+      - Chains
     get:
       operationId: getChain
       parameters:
@@ -194,7 +236,8 @@ paths:
       tags:
       - Chains
     post:
-      description: Add a chain
+      description: file and url parameters in body are optional and can't use both
+        at once.
       operationId: addChain
       parameters:
       - in: path
@@ -203,16 +246,54 @@ paths:
         type: string
         x-go-name: Name
       - in: body
-        name: Body
+        name: body
+        required: true
         schema:
           $ref: '#/definitions/addChainRequest'
+        x-go-name: Body
       responses:
         "201":
-          $ref: '#/responses/addChainResponse'
+          $ref: '#/responses/chainResponse'
         "400":
           $ref: '#/responses/errorResponse'
         "500":
           $ref: '#/responses/errorResponse'
+      summary: Add a chain.
+      tags:
+      - Chains
+    put:
+      operationId: updateChain
+      parameters:
+      - in: path
+        name: name
+        required: true
+        type: string
+        x-go-name: Name
+      - in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/editChainRequest'
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/chainResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Update chain config values.
+      tags:
+      - Chains
+  /chains/{name}/status:
+    get:
+      operationId: getChainStatus
+      responses:
+        "200":
+          $ref: '#/responses/getChainStatus'
+        "400":
+          $ref: '#/responses/errorResponse'
+      summary: Get status of a chain.
       tags:
       - Chains
   /config:
@@ -236,7 +317,7 @@ paths:
 produces:
 - application/json
 responses:
-  addChainResponse:
+  chainResponse:
     description: ""
   configResponse:
     description: ""
@@ -254,6 +335,10 @@ responses:
     description: ""
     schema:
       $ref: '#/definitions/Chain'
+  getChainStatus:
+    description: ""
+    schema:
+      $ref: '#/definitions/chainStatusResponse'
   getChainsResponse:
     description: ""
     schema:

@@ -70,7 +70,7 @@ type getChainsResWrapper struct {
 //   200: getChainResponse
 //   400: errorResponse
 
-// swagger:parameters getChain addChain
+// swagger:parameters getChain addChain updateChain deleteChain getChainStatus
 type chainParamsWrapper struct {
 	// in:path
 	Name string `json:"name" yaml:"name"`
@@ -84,20 +84,56 @@ type getChainResWrapper struct {
 }
 
 // swagger:route POST /chains/{name} Chains addChain
-// Add a chain
+// Add a chain.
+//
+// file and url parameters in body are optional and can't use both at once.
 // responses:
-//   201: addChainResponse
+//   201: chainResponse
 //   400: errorResponse
 //   500: errorResponse
 
 // swagger:parameters addChain
 type addChainParamsWrapper struct {
+	// required:true
 	// in:body
-	Body addChainRequest
+	Body addChainRequest `json:"body" yaml:"body"`
 }
 
-// swagger:response addChainResponse
-type addChainResWrapper struct {
+// swagger:response chainResponse
+type chainResWrapper struct {
 	// in:body
-	Res string
+	Res string `json:"res" yaml:"res"`
+}
+
+// swagger:route PUT /chains/{name} Chains updateChain
+// Update chain config values.
+// responses:
+//   200: chainResponse
+//   400: errorResponse
+//   500: errorResponse
+
+// swagger:parameters updateChain
+type updateChainParamsWrapper struct {
+	// required:true
+	// in:body
+	Body editChainRequest `json:"body" yaml:"body"`
+}
+
+// swagger:route DELETE /chains/{name} Chains deleteChain
+// Delete Chain.
+// responses:
+//   200: chainResponse
+//   400: errorResponse
+//   500: errorResponse
+
+// swagger:route GET /chains/{name}/status Chains getChainStatus
+// Get status of a chain.
+// responses:
+//   200: chainStatusRes
+//   400: errorResponse
+
+// swagger:response chainStatusRes
+type chainStatusResWrapper struct {
+	// in:body
+	Status chainStatusResponse
 }
