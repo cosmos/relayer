@@ -564,15 +564,16 @@ func (c *Config) ValidatePathEnd(pe *relayer.PathEnd) error {
 		return err
 	}
 
+	chain, err := c.Chains.Get(pe.ChainID)
+	if err != nil {
+		return err
+	}
+
 	// if the identifiers are empty, don't do any validation
 	if pe.ClientID == "" && pe.ConnectionID == "" && pe.ChannelID == "" {
 		return nil
 	}
 
-	chain, err := c.Chains.Get(pe.ChainID)
-	if err != nil {
-		return err
-	}
 	// NOTE: this is just to do validation, the path
 	// is not written to the config file
 	if err = chain.SetPath(pe); err != nil {

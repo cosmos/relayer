@@ -98,3 +98,10 @@ build-wasmd:
 delete-chains: 
 	@echo "Removing the ./chain-code/ directory..."
 	@rm -rf ./chain-code
+
+check-swagger:
+	which swagger || (GO111MODULE=off go get -u github.com/go-swagger/go-swagger/cmd/swagger)
+
+update-swagger-docs: check-swagger
+	swagger generate spec -o ./docs/swagger-ui/swagger.yaml
+

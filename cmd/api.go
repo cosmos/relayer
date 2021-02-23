@@ -168,7 +168,7 @@ func getAPICmd() *cobra.Command {
 			// Data for this should be stored in the ServicesManager struct
 			r.HandleFunc("/listen/{path}/{strategy}/{name}", PostRelayerListenHandler(sm)).Methods("POST")
 
-			fs := http.FileServer(http.Dir("./swagger-ui"))
+			fs := http.FileServer(http.Dir("./docs/swagger-ui"))
 			r.PathPrefix("/").Handler(fs)
 
 			fmt.Println("listening on", config.Global.APIListenPort)

@@ -706,11 +706,9 @@ func GetPathStatusHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type postPathRequest struct {
-	FilePath   string          `json:"file"`
-	SrcChainID string          `json:"src-chain-id"`
-	DstChainID string          `json:"dst-chain-id"`
-	Src        relayer.PathEnd `json:"src"`
-	Dst        relayer.PathEnd `json:"dst"`
+	FilePath string          `json:"file"`
+	Src      relayer.PathEnd `json:"src"`
+	Dst      relayer.PathEnd `json:"dst"`
 }
 
 // PostPathHandler handles the route
@@ -719,28 +717,9 @@ func PostPathHandler(w http.ResponseWriter, r *http.Request) {
 	pathName := vars["name"]
 
 	var request postPathRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-
-	if request.SrcChainID == "" {
-		helpers.WriteErrorResponse(http.StatusBadRequest, fmt.Errorf("src-chain-id is required"), w)
-		return
-	}
-
-	if request.DstChainID == "" {
-		helpers.WriteErrorResponse(http.StatusBadRequest, fmt.Errorf("dst-chain-id is required"), w)
-		return
-	}
-
-	_, err := config.Chains.Gets(request.SrcChainID, request.DstChainID)
+	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		helpers.WriteErrorResponse(
-			http.StatusBadRequest,
-			fmt.Errorf("chains need to be configured before paths to them can be added: %w", err),
-			w,
-		)
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
 		return
 	}
 
@@ -773,8 +752,9 @@ func addPathByRequest(req postPathRequest, pathName string) (*Config, error) {
 		}
 	)
 
-	path.Src.ChainID = req.SrcChainID
-	path.Dst.ChainID = req.DstChainID
+	if err := config.ValidatePath(path); err != nil {
+		return nil, err
+	}
 
 	if err := config.Paths.Add(pathName, path); err != nil {
 		return nil, err
