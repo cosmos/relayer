@@ -420,16 +420,12 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 	// add messages for sequences on src
 	for _, seq := range sp.Src {
 		// SRC wrote ack, so we query packet and send to DST
-		pkt, err := acknowledgementFromSequence(src, dst, seq)
+		msgs, err := acknowledgementFromSequence(src, dst, seq)
 		if err != nil {
 			return err
 		}
 
-		msg, err := pkt.Msg(dst, src)
-		if err != nil {
-			return err
-		}
-		msgs.Dst = append(msgs.Dst, msg)
+		msgs.Dst = append(msgs.Dst, msgs)
 	}
 
 	// add messages for sequences on dst
@@ -630,7 +626,8 @@ func relayPacketFromSequence(src, dst *Chain, seq uint64) (relayPacket, error) {
 	return nil, fmt.Errorf("should have errored before here")
 }
 
-func acknowledgementFromSequence(src, dst *Chain, seq uint64) (relayPacket, error) {
+// source is the sending chain, destination is the receiving chain
+func acknowledgementFromSequence(src, dst *Chain, seq uint64) ([]sdk.Msg, error) {
 	txs, err := src.QueryTxs(src.MustGetLatestLightHeight(), 1, 1000, ackPacketQuery(src.PathEnd.ChannelID, int(seq)))
 	switch {
 	case err != nil:
@@ -655,10 +652,12 @@ func acknowledgementFromSequence(src, dst *Chain, seq uint64) (relayPacket, erro
 	if seq != pkt.Seq() {
 		return nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
 	}
-	if err = pkt.FetchCommitResponse(dst, src); err != nil {
+
+	msgs, err := src.MsgRelayAcknowledgement(dst, pkt)
+	if err != nil {
 		return nil, err
 	}
-	return pkt, nil
+	return msgs, nil
 }
 
 // relayPacketsFromResultTx looks through the events in a *ctypes.ResultTx

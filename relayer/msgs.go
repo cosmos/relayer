@@ -1,6 +1,9 @@
 package relayer
 
 import (
+	"fmt"
+
+	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/cosmos-sdk/x/ibc/applications/transfer/types"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
@@ -319,4 +322,64 @@ func (c *Chain) MsgTransfer(dst *PathEnd, amount sdk.Coin, dstAddr string,
 		clienttypes.NewHeight(version, timeoutHeight),
 		timeoutTimestamp,
 	)
+}
+
+// MsgRelayAcknowledgement
+func (c *Chain) MsgRelayAcknowledgement(counterparty *Chain, packet *relayMsgPacketAck) (msgs []sdk.Msg, err error) {
+
+	// TODO: try commenting out retries to reduce complexity
+	// retry getting commit response until it succeeds
+	if err = retry.Do(func() error {
+		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
+		ackRes, err := counterparty.QueryPacketAcknowledgement(int64(counterparty.MustGetLatestLightHeight())-1, packet.seq)
+		if err != nil {
+			return err
+		}
+
+		if ackRes.Proof == nil || ackRes.Acknowledgement == nil {
+			return fmt.Errorf("ack packet acknowledgement query seq(%d) is nil", packet.seq)
+		}
+
+		return nil
+	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+		// clear messages
+		msgs = []sdk.Msg{}
+
+		// OnRetry we want to update the light clients and then debug log
+		updateMsg, err := c.UpdateClient(counterparty)
+		if err != nil {
+			return
+		}
+
+		msgs = append(msgs, updateMsg)
+
+		if counterparty.debug {
+			counterparty.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgement: %s",
+				counterparty.ChainID, counterparty.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
+		}
+
+	})); err != nil {
+		counterparty.Error(err)
+		return
+	}
+
+	version := clienttypes.ParseChainID(counterparty.ChainID)
+	msg := chantypes.NewMsgAcknowledgement(
+		chantypes.NewPacket(
+			packet.packetData,
+			packet.seq,
+			c.PathEnd.PortID,
+			c.PathEnd.ChannelID,
+			counterparty.PathEnd.PortID,
+			counterparty.PathEnd.ChannelID,
+			clienttypes.NewHeight(version, packet.timeout),
+			packet.timeoutStamp,
+		),
+		packet.ack,
+		packet.dstComRes.Proof,
+		packet.dstComRes.ProofHeight,
+		c.MustGetAddress(),
+	)
+
+	return append(msgs, msg), nil
 }
