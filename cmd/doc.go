@@ -15,6 +15,7 @@
 //
 //
 // swagger:meta
+// nolint: deadcode
 package cmd
 
 import (
