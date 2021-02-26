@@ -324,14 +324,142 @@ func (c *Chain) MsgTransfer(dst *PathEnd, amount sdk.Coin, dstAddr string,
 	)
 }
 
-// MsgRelayAcknowledgement
-func (c *Chain) MsgRelayAcknowledgement(counterparty *Chain, packet *relayMsgPacketAck) (msgs []sdk.Msg, err error) {
+// MsgRelayTimeout
+func (c *Chain) MsgRelayTimeout(counterparty *Chain, packet *relayMsgTimeout) (msgs []sdk.Msg, err error) {
+	var recvRes *chantypes.QueryPacketReceiptResponse
+	// TODO: try commenting out retries to reduce complexity
+	// retry getting commit response until it succeeds
+	if err = retry.Do(func() error {
+		// NOTE: Timeouts currently only work with ORDERED channels for nwo
+		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
+		recvRes, err = counterparty.QueryPacketReceipt(int64(counterparty.MustGetLatestLightHeight())-1, packet.seq)
+		if err != nil {
+			return err
+		}
 
+		if recvRes.Proof == nil {
+			return fmt.Errorf("timeout packet receipt proof seq(%d) is nil", packet.seq)
+		}
+
+		return nil
+	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+		// clear messages
+		msgs = []sdk.Msg{}
+
+		// OnRetry we want to update the light clients and then debug log
+		updateMsg, err := c.UpdateClient(counterparty)
+		if err != nil {
+			return
+		}
+
+		msgs = append(msgs, updateMsg)
+
+		if counterparty.debug {
+			counterparty.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet receipt: %s",
+				counterparty.ChainID, counterparty.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
+		}
+
+	})); err != nil {
+		counterparty.Error(err)
+		return
+	}
+
+	if recvRes == nil {
+		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", c.ChainID, packet.seq)
+	}
+
+	version := clienttypes.ParseChainID(counterparty.ChainID)
+	msg := chantypes.NewMsgTimeout(
+		chantypes.NewPacket(
+			packet.packetData,
+			packet.seq,
+			c.PathEnd.PortID,
+			c.PathEnd.ChannelID,
+			counterparty.PathEnd.PortID,
+			counterparty.PathEnd.ChannelID,
+			clienttypes.NewHeight(version, packet.timeout),
+			packet.timeoutStamp,
+		),
+		packet.seq,
+		recvRes.Proof,
+		recvRes.ProofHeight,
+		c.MustGetAddress(),
+	)
+
+	return append(msgs, msg), nil
+}
+
+// MsgRelayRecvPacket
+func (c *Chain) MsgRelayRecvPacket(counterparty *Chain, packet *relayMsgRecvPacket) (msgs []sdk.Msg, err error) {
+	var comRes *chantypes.QueryPacketCommitmentResponse
 	// TODO: try commenting out retries to reduce complexity
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
 		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-		ackRes, err := counterparty.QueryPacketAcknowledgement(int64(counterparty.MustGetLatestLightHeight())-1, packet.seq)
+		comRes, err = counterparty.QueryPacketCommitment(int64(counterparty.MustGetLatestLightHeight())-1, packet.seq)
+		if err != nil {
+			return err
+		}
+
+		if comRes.Proof == nil || comRes.Commitment == nil {
+			return fmt.Errorf("recv packet commitment query seq(%d) is nil", packet.seq)
+		}
+
+		return nil
+	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+		// clear messages
+		msgs = []sdk.Msg{}
+
+		// OnRetry we want to update the light clients and then debug log
+		updateMsg, err := c.UpdateClient(counterparty)
+		if err != nil {
+			return
+		}
+
+		msgs = append(msgs, updateMsg)
+
+		if counterparty.debug {
+			counterparty.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitment: %s",
+				counterparty.ChainID, counterparty.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
+		}
+
+	})); err != nil {
+		counterparty.Error(err)
+		return
+	}
+
+	if comRes == nil {
+		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", c.ChainID, packet.seq)
+	}
+
+	version := clienttypes.ParseChainID(counterparty.ChainID)
+	msg := chantypes.NewMsgRecvPacket(
+		chantypes.NewPacket(
+			packet.packetData,
+			packet.seq,
+			counterparty.PathEnd.PortID,
+			counterparty.PathEnd.ChannelID,
+			c.PathEnd.PortID,
+			c.PathEnd.ChannelID,
+			clienttypes.NewHeight(version, packet.timeout),
+			packet.timeoutStamp,
+		),
+		comRes.Proof,
+		comRes.ProofHeight,
+		c.MustGetAddress(),
+	)
+
+	return append(msgs, msg), nil
+}
+
+// MsgRelayAcknowledgement
+func (c *Chain) MsgRelayAcknowledgement(counterparty *Chain, packet *relayMsgPacketAck) (msgs []sdk.Msg, err error) {
+	var ackRes *chantypes.QueryPacketAcknowledgementResponse
+	// TODO: try commenting out retries to reduce complexity
+	// retry getting commit response until it succeeds
+	if err = retry.Do(func() error {
+		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
+		ackRes, err = counterparty.QueryPacketAcknowledgement(int64(counterparty.MustGetLatestLightHeight())-1, packet.seq)
 		if err != nil {
 			return err
 		}
@@ -363,22 +491,26 @@ func (c *Chain) MsgRelayAcknowledgement(counterparty *Chain, packet *relayMsgPac
 		return
 	}
 
-	version := clienttypes.ParseChainID(counterparty.ChainID)
+	if ackRes == nil {
+		return nil, fmt.Errorf("ack packet [%s]seq{%d} has no associated proofs", counterparty.ChainID, packet.seq)
+	}
+
+	version := clienttypes.ParseChainID(c.ChainID)
 	msg := chantypes.NewMsgAcknowledgement(
 		chantypes.NewPacket(
 			packet.packetData,
 			packet.seq,
-			c.PathEnd.PortID,
-			c.PathEnd.ChannelID,
 			counterparty.PathEnd.PortID,
 			counterparty.PathEnd.ChannelID,
+			c.PathEnd.PortID,
+			c.PathEnd.ChannelID,
 			clienttypes.NewHeight(version, packet.timeout),
 			packet.timeoutStamp,
 		),
 		packet.ack,
-		packet.dstComRes.Proof,
-		packet.dstComRes.ProofHeight,
-		c.MustGetAddress(),
+		ackRes.Proof,
+		ackRes.ProofHeight,
+		counterparty.MustGetAddress(),
 	)
 
 	return append(msgs, msg), nil

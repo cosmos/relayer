@@ -420,27 +420,23 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 	// add messages for sequences on src
 	for _, seq := range sp.Src {
 		// SRC wrote ack, so we query packet and send to DST
-		msgs, err := acknowledgementFromSequence(src, dst, seq)
+		relayAckMsgs, err := acknowledgementFromSequence(src, dst, seq)
 		if err != nil {
 			return err
 		}
 
-		msgs.Dst = append(msgs.Dst, msgs)
+		msgs.Dst = append(msgs.Dst, relayAckMsgs...)
 	}
 
 	// add messages for sequences on dst
 	for _, seq := range sp.Dst {
 		// DST wrote ack, so we query packet and send to SRC
-		pkt, err := acknowledgementFromSequence(dst, src, seq)
+		relayAckMsgs, err := acknowledgementFromSequence(dst, src, seq)
 		if err != nil {
 			return err
 		}
 
-		msg, err := pkt.Msg(src, dst)
-		if err != nil {
-			return err
-		}
-		msgs.Src = append(msgs.Src, msg)
+		msgs.Src = append(msgs.Src, relayAckMsgs...)
 	}
 
 	if !msgs.Ready() {
@@ -488,56 +484,38 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) erro
 	// add messages for sequences on src
 	for _, seq := range sp.Src {
 		// Query src for the sequence number to get type of packet
-		pkt, err := relayPacketFromSequence(src, dst, seq)
+		recvMsgs, timeoutMsgs, err := relayPacketFromSequence(src, dst, seq)
 		if err != nil {
 			return err
 		}
 
 		// depending on the type of message to be relayed, we need to
 		// send to different chains
-		switch pkt.(type) {
-		case *relayMsgRecvPacket:
-			msg, err := pkt.Msg(dst, src)
-			if err != nil {
-				return err
-			}
-			msgs.Dst = append(msgs.Dst, msg)
-		case *relayMsgTimeout:
-			msg, err := pkt.Msg(src, dst)
-			if err != nil {
-				return err
-			}
-			msgs.Src = append(msgs.Src, msg)
-		default:
-			return fmt.Errorf("%T packet types not supported", pkt)
+		if recvMsgs != nil {
+			msgs.Dst = append(msgs.Dst, recvMsgs...)
+		}
+
+		if timeoutMsgs != nil {
+			msgs.Src = append(msgs.Src, timeoutMsgs...)
 		}
 	}
 
 	// add messages for sequences on dst
 	for _, seq := range sp.Dst {
 		// Query dst for the sequence number to get type of packet
-		pkt, err := relayPacketFromSequence(dst, src, seq)
+		recvMsgs, timeoutMsgs, err := relayPacketFromSequence(dst, src, seq)
 		if err != nil {
 			return err
 		}
 
 		// depending on the type of message to be relayed, we need to
 		// send to different chains
-		switch pkt.(type) {
-		case *relayMsgRecvPacket:
-			msg, err := pkt.Msg(src, dst)
-			if err != nil {
-				return err
-			}
-			msgs.Src = append(msgs.Src, msg)
-		case *relayMsgTimeout:
-			msg, err := pkt.Msg(dst, src)
-			if err != nil {
-				return err
-			}
-			msgs.Dst = append(msgs.Dst, msg)
-		default:
-			return fmt.Errorf("%T packet types not supported", pkt)
+		if recvMsgs != nil {
+			msgs.Src = append(msgs.Src, recvMsgs...)
+		}
+
+		if timeoutMsgs != nil {
+			msgs.Dst = append(msgs.Dst, timeoutMsgs...)
 		}
 	}
 
@@ -579,51 +557,55 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) erro
 	return nil
 }
 
-// relayPacketFromSequence returns a sdk.Msg to relay a packet with a given seq on src
-func relayPacketFromSequence(src, dst *Chain, seq uint64) (relayPacket, error) {
+// relayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
+func relayPacketFromSequence(src, dst *Chain, seq uint64) ([]sdk.Msg, []sdk.Msg, error) {
 	txs, err := src.QueryTxs(src.MustGetLatestLightHeight(), 1, 1000, rcvPacketQuery(src.PathEnd.ChannelID, int(seq)))
 	switch {
 	case err != nil:
-		return nil, err
+		return nil, nil, err
 	case len(txs) == 0:
-		return nil, fmt.Errorf("no transactions returned with query")
+		return nil, nil, fmt.Errorf("no transactions returned with query")
 	case len(txs) > 1:
-		return nil, fmt.Errorf("more than one transaction returned with query")
+		return nil, nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
 	rcvPackets, timeoutPackets, err := relayPacketsFromResultTx(src, dst, txs[0])
 	switch {
 	case err != nil:
-		return nil, err
+		return nil, nil, err
 	case len(rcvPackets) == 0 && len(timeoutPackets) == 0:
-		return nil, fmt.Errorf("no relay msgs created from query response")
+		return nil, nil, fmt.Errorf("no relay msgs created from query response")
 	case len(rcvPackets)+len(timeoutPackets) > 1:
-		return nil, fmt.Errorf("more than one relay msg found in tx query")
+		return nil, nil, fmt.Errorf("more than one relay msg found in tx query")
 	}
 
 	if len(rcvPackets) == 1 {
 		pkt := rcvPackets[0]
 		if seq != pkt.Seq() {
-			return nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
+			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
 		}
-		if err = pkt.FetchCommitResponse(dst, src); err != nil {
-			return nil, err
+
+		msgs, err := dst.MsgRelayRecvPacket(src, pkt.(*relayMsgRecvPacket))
+		if err != nil {
+			return nil, nil, err
 		}
-		return pkt, nil
+		return msgs, nil, nil
 	}
 
 	if len(timeoutPackets) == 1 {
 		pkt := timeoutPackets[0]
 		if seq != pkt.Seq() {
-			return nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
+			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
 		}
-		if err = pkt.FetchCommitResponse(src, dst); err != nil {
-			return nil, err
+
+		msgs, err := src.MsgRelayTimeout(dst, pkt.(*relayMsgTimeout))
+		if err != nil {
+			return nil, nil, err
 		}
-		return pkt, nil
+		return nil, msgs, nil
 	}
 
-	return nil, fmt.Errorf("should have errored before here")
+	return nil, nil, fmt.Errorf("should have errored before here")
 }
 
 // source is the sending chain, destination is the receiving chain
@@ -653,7 +635,7 @@ func acknowledgementFromSequence(src, dst *Chain, seq uint64) ([]sdk.Msg, error)
 		return nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
 	}
 
-	msgs, err := src.MsgRelayAcknowledgement(dst, pkt)
+	msgs, err := dst.MsgRelayAcknowledgement(src, pkt)
 	if err != nil {
 		return nil, err
 	}
