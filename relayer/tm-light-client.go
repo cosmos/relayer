@@ -128,7 +128,9 @@ func (c *Chain) LightClientWithoutTrust(db dbm.DB) (*light.Client, error) {
 		// NOTE: This requires adding them to the chain config
 		[]lightp.Provider{prov},
 		dbs.New(db, ""),
-		logger)
+		logger,
+		light.PruningSize(0),
+	)
 }
 
 // LightClientWithTrust takes a header from the chain and attempts to add that header to the light
@@ -144,7 +146,9 @@ func (c *Chain) LightClientWithTrust(db dbm.DB, to light.TrustOptions) (*light.C
 		// NOTE: This requires adding them to the chain config
 		[]lightp.Provider{prov},
 		dbs.New(db, ""),
-		logger)
+		logger,
+		light.PruningSize(0),
+	)
 }
 
 // LightClient initializes the light client for a given chain from the trusted store in the database
