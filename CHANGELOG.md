@@ -18,7 +18,7 @@
 
 ### Dependencies 
 
-* [#\429](https://github.com/cosmos/relayer/pull/429) Bump SDK version to v0.41.1
+* [\#429](https://github.com/cosmos/relayer/pull/429) Bump SDK version to v0.41.1
 
 ### Relayer 
 
