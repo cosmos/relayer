@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.8.1
+
+**2021/02/26**
+
+### Dependencies
+
+* [#\430](https://github.com/cosmos/relayer/pull/430) Bump SDK version to v0.41.3
+
+### Relayer
+
+* [#\437](https://github.com/cosmos/relayer/pull/437) Off-chain Tendermint light client will no longer prune light blocks. The default pruning strategy broke the relayer after it wasn't used for 1000 blocks. 
+
 ## v0.8.0
 
 **2021/02/17**
