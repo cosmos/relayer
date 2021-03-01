@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -27,7 +26,7 @@ import (
 // it would be nice if we could add a setting the chain or otherwise
 // that allowed users to enable light client logging. (maybe as a hidden prop
 // on the Chain struct that users could pass in the config??)
-var logger = light.Logger(log.NewTMLogger(log.NewSyncWriter(ioutil.Discard)))
+var logger = light.Logger(log.NewTMLogger(log.NewSyncWriter(os.Stdout)))
 
 func lightError(err error) error { return fmt.Errorf("light client: %w", err) }
 
