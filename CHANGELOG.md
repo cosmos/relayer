@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.8.2
+
+**2021/03/01**
+
+### Relayer
+
+* [\#441](https://github.com/cosmos/relayer/pull/441) Disable tendermint light client light block pruning. 1 instance initialization was missed in #437. 
+* [\#438](https://github.com/cosmos/relayer/pull/438) Typo fixes
+
 ## v0.8.1
 
 **2021/02/26**
