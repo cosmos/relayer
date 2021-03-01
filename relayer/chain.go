@@ -67,7 +67,7 @@ type Chain struct {
 	timeout time.Duration
 	debug   bool
 
-	// stores facuet addresses that have been used reciently
+	// stores faucet addresses that have been used reciently
 	faucetAddrs map[string]time.Time
 }
 
@@ -412,7 +412,7 @@ func lightDir(home string) string {
 	return path.Join(home, "light")
 }
 
-// GetAddress returns the sdk.AccAddress associated with the configred key
+// GetAddress returns the sdk.AccAddress associated with the configured key
 func (c *Chain) GetAddress() (sdk.AccAddress, error) {
 	defer c.UseSDKContext()()
 	if c.address != nil {
