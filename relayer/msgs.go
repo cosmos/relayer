@@ -329,7 +329,7 @@ func (c *Chain) MsgRelayTimeout(counterparty *Chain, packet *relayMsgTimeout) (m
 	var recvRes *chantypes.QueryPacketReceiptResponse
 	// TODO: try commenting out retries to reduce complexity
 	// retry getting commit response until it succeeds
-	if err = retry.Do(func() error {
+	if err = retry.Do(func() (err error) {
 		// NOTE: Timeouts currently only work with ORDERED channels for nwo
 		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 		recvRes, err = counterparty.QueryPacketReceipt(int64(counterparty.MustGetLatestLightHeight())-1, packet.seq)
@@ -394,7 +394,7 @@ func (c *Chain) MsgRelayRecvPacket(counterparty *Chain, packet *relayMsgRecvPack
 	var comRes *chantypes.QueryPacketCommitmentResponse
 	// TODO: try commenting out retries to reduce complexity
 	// retry getting commit response until it succeeds
-	if err = retry.Do(func() error {
+	if err = retry.Do(func() (err error) {
 		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 		comRes, err = counterparty.QueryPacketCommitment(int64(counterparty.MustGetLatestLightHeight())-1, packet.seq)
 		if err != nil {
@@ -432,7 +432,7 @@ func (c *Chain) MsgRelayRecvPacket(counterparty *Chain, packet *relayMsgRecvPack
 		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", c.ChainID, packet.seq)
 	}
 
-	version := clienttypes.ParseChainID(counterparty.ChainID)
+	version := clienttypes.ParseChainID(c.ChainID)
 	msg := chantypes.NewMsgRecvPacket(
 		chantypes.NewPacket(
 			packet.packetData,
@@ -457,7 +457,7 @@ func (c *Chain) MsgRelayAcknowledgement(counterparty *Chain, packet *relayMsgPac
 	var ackRes *chantypes.QueryPacketAcknowledgementResponse
 	// TODO: try commenting out retries to reduce complexity
 	// retry getting commit response until it succeeds
-	if err = retry.Do(func() error {
+	if err = retry.Do(func() (err error) {
 		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 		ackRes, err = counterparty.QueryPacketAcknowledgement(int64(counterparty.MustGetLatestLightHeight())-1, packet.seq)
 		if err != nil {
@@ -495,22 +495,22 @@ func (c *Chain) MsgRelayAcknowledgement(counterparty *Chain, packet *relayMsgPac
 		return nil, fmt.Errorf("ack packet [%s]seq{%d} has no associated proofs", counterparty.ChainID, packet.seq)
 	}
 
-	version := clienttypes.ParseChainID(c.ChainID)
+	version := clienttypes.ParseChainID(counterparty.ChainID)
 	msg := chantypes.NewMsgAcknowledgement(
 		chantypes.NewPacket(
 			packet.packetData,
 			packet.seq,
-			counterparty.PathEnd.PortID,
-			counterparty.PathEnd.ChannelID,
 			c.PathEnd.PortID,
 			c.PathEnd.ChannelID,
+			counterparty.PathEnd.PortID,
+			counterparty.PathEnd.ChannelID,
 			clienttypes.NewHeight(version, packet.timeout),
 			packet.timeoutStamp,
 		),
 		packet.ack,
 		ackRes.Proof,
 		ackRes.ProofHeight,
-		counterparty.MustGetAddress(),
+		c.MustGetAddress(),
 	)
 
 	return append(msgs, msg), nil

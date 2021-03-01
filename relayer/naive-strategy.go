@@ -557,7 +557,8 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) erro
 	return nil
 }
 
-// relayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
+// relayPacketFromSequence relays a packet with a given seq on src
+// and returns recvPacket msgs, timeoutPacketmsgs and error
 func relayPacketFromSequence(src, dst *Chain, seq uint64) ([]sdk.Msg, []sdk.Msg, error) {
 	txs, err := src.QueryTxs(src.MustGetLatestLightHeight(), 1, 1000, rcvPacketQuery(src.PathEnd.ChannelID, int(seq)))
 	switch {
@@ -635,7 +636,7 @@ func acknowledgementFromSequence(src, dst *Chain, seq uint64) ([]sdk.Msg, error)
 		return nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
 	}
 
-	msgs, err := dst.MsgRelayAcknowledgement(src, pkt)
+	msgs, err := src.MsgRelayAcknowledgement(dst, pkt)
 	if err != nil {
 		return nil, err
 	}
