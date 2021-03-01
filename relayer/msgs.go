@@ -342,13 +342,13 @@ func (c *Chain) MsgRelayTimeout(counterparty *Chain, packet *relayMsgTimeout) (m
 		}
 
 		return nil
-	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, onRtyErr error) {
 		// clear messages
 		msgs = []sdk.Msg{}
 
 		// OnRetry we want to update the light clients and then debug log
-		updateMsg, err := c.UpdateClient(counterparty)
-		if err != nil {
+		updateMsg, onRtyErr := c.UpdateClient(counterparty)
+		if onRtyErr != nil {
 			return
 		}
 
@@ -356,7 +356,7 @@ func (c *Chain) MsgRelayTimeout(counterparty *Chain, packet *relayMsgTimeout) (m
 
 		if counterparty.debug {
 			counterparty.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet receipt: %s",
-				counterparty.ChainID, counterparty.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
+				counterparty.ChainID, counterparty.MustGetLatestLightHeight()-1, n+1, rtyAttNum, onRtyErr))
 		}
 
 	})); err != nil {
@@ -406,13 +406,13 @@ func (c *Chain) MsgRelayRecvPacket(counterparty *Chain, packet *relayMsgRecvPack
 		}
 
 		return nil
-	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, onRtyErr error) {
 		// clear messages
 		msgs = []sdk.Msg{}
 
 		// OnRetry we want to update the light clients and then debug log
-		updateMsg, err := c.UpdateClient(counterparty)
-		if err != nil {
+		updateMsg, onRtyErr := c.UpdateClient(counterparty)
+		if onRtyErr != nil {
 			return
 		}
 
@@ -420,7 +420,7 @@ func (c *Chain) MsgRelayRecvPacket(counterparty *Chain, packet *relayMsgRecvPack
 
 		if counterparty.debug {
 			counterparty.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitment: %s",
-				counterparty.ChainID, counterparty.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
+				counterparty.ChainID, counterparty.MustGetLatestLightHeight()-1, n+1, rtyAttNum, onRtyErr))
 		}
 
 	})); err != nil {
@@ -469,13 +469,13 @@ func (c *Chain) MsgRelayAcknowledgement(counterparty *Chain, packet *relayMsgPac
 		}
 
 		return nil
-	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, onRtyErr error) {
 		// clear messages
 		msgs = []sdk.Msg{}
 
 		// OnRetry we want to update the light clients and then debug log
-		updateMsg, err := c.UpdateClient(counterparty)
-		if err != nil {
+		updateMsg, onRtyErr := c.UpdateClient(counterparty)
+		if onRtyErr != nil {
 			return
 		}
 
@@ -483,7 +483,7 @@ func (c *Chain) MsgRelayAcknowledgement(counterparty *Chain, packet *relayMsgPac
 
 		if counterparty.debug {
 			counterparty.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgement: %s",
-				counterparty.ChainID, counterparty.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
+				counterparty.ChainID, counterparty.MustGetLatestLightHeight()-1, n+1, rtyAttNum, onRtyErr))
 		}
 
 	})); err != nil {
