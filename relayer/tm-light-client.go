@@ -164,6 +164,7 @@ func (c *Chain) LightClient(db dbm.DB) (*light.Client, error) {
 		[]lightp.Provider{prov},
 		dbs.New(db, ""),
 		logger,
+		light.PruningSize(0),
 	)
 }
 
