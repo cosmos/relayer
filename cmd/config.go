@@ -363,6 +363,9 @@ func newDefaultGlobalConfig() GlobalConfig {
 
 // AddChain adds an additional chain to the config
 func (c *Config) AddChain(chain *relayer.Chain) (err error) {
+	if chain.ChainID == "" {
+		return fmt.Errorf("chain ID cannot be empty")
+	}
 	chn, err := c.Chains.Get(chain.ChainID)
 	if chn == nil || err == nil {
 		return fmt.Errorf("chain with ID %s already exists in config", chain.ChainID)
