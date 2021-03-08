@@ -316,11 +316,11 @@ func (c *Chain) ForceInitLight() error {
 	if err != nil {
 		return err
 	}
+	defer df()
 	_, err = c.LightClientWithoutTrust(db)
 	if err != nil {
 		return err
 	}
-	df()
 	return nil
 }
 
