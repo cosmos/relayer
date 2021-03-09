@@ -546,8 +546,10 @@ type addChainRequest struct {
 	GasAdjustment  string `json:"gas-adjustment"`
 	GasPrices      string `json:"gas-prices"`
 	TrustingPeriod string `json:"trusting-period"`
-	FilePath       string `json:"file"`
-	URL            string `json:"url"`
+	// required: false
+	FilePath string `json:"file"`
+	// required: false
+	URL string `json:"url"`
 }
 
 // PostChainHandler handles the route
@@ -678,6 +680,11 @@ func PutChainHandler(w http.ResponseWriter, r *http.Request) {
 // DeleteChainHandler handles the route
 func DeleteChainHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	_, err := config.Chains.Get(vars["name"])
+	if err != nil {
+		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
+		return
+	}
 	if err := overWriteConfig(config.DeleteChain(vars["name"])); err != nil {
 		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return
