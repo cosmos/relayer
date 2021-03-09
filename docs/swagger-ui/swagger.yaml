@@ -1,0 +1,2156 @@
+basePath: /
+consumes:
+- application/json
+definitions:
+  Any:
+    properties:
+      type_url:
+        description: nolint
+        type: string
+        x-go-name: TypeUrl
+      value:
+        description: Must be a valid serialized protocol buffer of the above specified
+          type.
+        items:
+          format: uint8
+          type: integer
+        type: array
+        x-go-name: Value
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/codec/types
+  BaseAccount:
+    description: |-
+      BaseAccount defines a base account type. It contains all the necessary fields
+      for basic account functionality. Any custom account type should extend this
+      type for additional functionality (e.g. vesting).
+    properties:
+      account_number:
+        format: uint64
+        type: integer
+        x-go-name: AccountNumber
+      address:
+        type: string
+        x-go-name: Address
+      public_key:
+        $ref: '#/definitions/Any'
+      sequence:
+        format: uint64
+        type: integer
+        x-go-name: Sequence
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/auth/types
+  BlockID:
+    description: BlockID
+    properties:
+      hash:
+        items:
+          format: uint8
+          type: integer
+        type: array
+        x-go-name: Hash
+      part_set_header:
+        $ref: '#/definitions/PartSetHeader'
+    type: object
+    x-go-package: github.com/tendermint/tendermint/proto/tendermint/types
+  BlockIDFlag:
+    description: BlockIdFlag indicates which BlcokID the signature is for
+    format: int32
+    type: integer
+    x-go-package: github.com/tendermint/tendermint/proto/tendermint/types
+  Chain:
+    description: Chain represents the necessary data for connecting to and indentifying
+      a chain and its counterparites
+    properties:
+      account-prefix:
+        type: string
+        x-go-name: AccountPrefix
+      chain-id:
+        type: string
+        x-go-name: ChainID
+      gas-adjustment:
+        format: double
+        type: number
+        x-go-name: GasAdjustment
+      gas-prices:
+        type: string
+        x-go-name: GasPrices
+      key:
+        type: string
+        x-go-name: Key
+      rpc-addr:
+        type: string
+        x-go-name: RPCAddr
+      trusting-period:
+        type: string
+        x-go-name: TrustingPeriod
+    type: object
+    x-go-package: github.com/cosmos/relayer/relayer
+  Chains:
+    description: Chains is a collection of Chain
+    items:
+      $ref: '#/definitions/Chain'
+    type: array
+    x-go-package: github.com/cosmos/relayer/relayer
+  Channel:
+    description: |-
+      Channel defines pipeline for exactly-once packet delivery between specific
+      modules on separate blockchains, which has at least one end capable of
+      sending packets and one end capable of receiving packets.
+    properties:
+      connection_hops:
+        description: |-
+          list of connection identifiers, in order, along which packets sent on
+          this channel will travel
+        items:
+          type: string
+        type: array
+        x-go-name: ConnectionHops
+      counterparty:
+        $ref: '#/definitions/Counterparty'
+      ordering:
+        $ref: '#/definitions/Order'
+      state:
+        $ref: '#/definitions/State'
+      version:
+        description: opaque channel version, which is agreed upon during the handshake
+        type: string
+        x-go-name: Version
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types
+  Coin:
+    description: |-
+      NOTE: The amount field is an Int which implements the custom method
+      signatures required by gogoproto.
+    properties:
+      amount:
+        $ref: '#/definitions/Int'
+      denom:
+        type: string
+        x-go-name: Denom
+    title: Coin defines a token with a denomination and an amount.
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/types
+  Coins:
+    description: Coins is a set of Coin, one per currency
+    items:
+      $ref: '#/definitions/Coin'
+    type: array
+    x-go-package: github.com/cosmos/cosmos-sdk/types
+  Commit:
+    properties:
+      block_id:
+        $ref: '#/definitions/BlockID'
+      height:
+        format: int64
+        type: integer
+        x-go-name: Height
+      round:
+        format: int32
+        type: integer
+        x-go-name: Round
+      signatures:
+        items:
+          $ref: '#/definitions/CommitSig'
+        type: array
+        x-go-name: Signatures
+    title: Commit contains the evidence that a block was committed by a set of validators.
+    type: object
+    x-go-package: github.com/tendermint/tendermint/proto/tendermint/types
+  CommitSig:
+    properties:
+      block_id_flag:
+        $ref: '#/definitions/BlockIDFlag'
+      signature:
+        items:
+          format: uint8
+          type: integer
+        type: array
+        x-go-name: Signature
+      timestamp:
+        format: date-time
+        type: string
+        x-go-name: Timestamp
+      validator_address:
+        items:
+          format: uint8
+          type: integer
+        type: array
+        x-go-name: ValidatorAddress
+    title: CommitSig is a part of the Vote included in a Commit.
+    type: object
+    x-go-package: github.com/tendermint/tendermint/proto/tendermint/types
+  Config:
+    description: Config represents the config file for the relayer
+    properties:
+      chains:
+        $ref: '#/definitions/Chains'
+      global:
+        $ref: '#/definitions/GlobalConfig'
+      paths:
+        $ref: '#/definitions/Paths'
+    type: object
+    x-go-package: github.com/cosmos/relayer/cmd
+  ConnectionEnd:
+    description: |-
+      ConnectionEnd defines a stateful object on a chain connected to another
+      separate one.
+      NOTE: there must only be 2 defined ConnectionEnds to establish
+      a connection between two chains.
+    properties:
+      client_id:
+        description: client associated with this connection.
+        type: string
+        x-go-name: ClientId
+      counterparty:
+        $ref: '#/definitions/Counterparty'
+      delay_period:
+        description: |-
+          delay period that must pass before a consensus state can be used for packet-verification
+          NOTE: delay period logic is only implemented by some clients.
+        format: uint64
+        type: integer
+        x-go-name: DelayPeriod
+      state:
+        $ref: '#/definitions/State'
+      versions:
+        description: |-
+          IBC version which can be utilised to determine encodings or protocols for
+          channels or packets utilising this connection.
+        items:
+          $ref: '#/definitions/Version'
+        type: array
+        x-go-name: Versions
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types
+  ConsensusState:
+    properties:
+      next_validators_hash:
+        $ref: '#/definitions/HexBytes'
+      root:
+        $ref: '#/definitions/MerkleRoot'
+      timestamp:
+        description: |-
+          timestamp that corresponds to the block height in which the ConsensusState
+          was stored.
+        format: date-time
+        type: string
+        x-go-name: Timestamp
+    title: ConsensusState defines the consensus state from Tendermint.
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types
+  Counterparty:
+    description: Counterparty defines a channel end counterparty
+    properties:
+      channel_id:
+        description: channel end on the counterparty chain
+        type: string
+        x-go-name: ChannelId
+      port_id:
+        description: port on the counterparty chain which owns the other end of the
+          channel.
+        type: string
+        x-go-name: PortId
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types
+  DenomTrace:
+    description: |-
+      DenomTrace contains the base denomination for ICS20 fungible tokens and the
+      source tracing information path.
+    properties:
+      base_denom:
+        description: base denomination of the relayed fungible token.
+        type: string
+        x-go-name: BaseDenom
+      path:
+        description: |-
+          path defines the chain of port/channel identifiers used for tracing the
+          source of the fungible token.
+        type: string
+        x-go-name: Path
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/applications/transfer/types
+  Event:
+    description: |-
+      Event allows application developers to attach additional information to
+      ResponseBeginBlock, ResponseEndBlock, ResponseCheckTx and ResponseDeliverTx.
+      Later, transactions may be queried using these events.
+    properties:
+      attributes:
+        items:
+          $ref: '#/definitions/EventAttribute'
+        type: array
+        x-go-name: Attributes
+      type:
+        type: string
+        x-go-name: Type
+    type: object
+    x-go-package: github.com/tendermint/tendermint/abci/types
+  EventAttribute:
+    properties:
+      index:
+        type: boolean
+        x-go-name: Index
+      key:
+        items:
+          format: uint8
+          type: integer
+        type: array
+        x-go-name: Key
+      value:
+        items:
+          format: uint8
+          type: integer
+        type: array
+        x-go-name: Value
+    title: EventAttribute is a single key-value pair, associated with an event.
+    type: object
+    x-go-package: github.com/tendermint/tendermint/abci/types
+  GlobalConfig:
+    description: GlobalConfig describes any global relayer settings
+    properties:
+      api-listen-addr:
+        type: string
+        x-go-name: APIListenPort
+      light-cache-size:
+        format: int64
+        type: integer
+        x-go-name: LightCacheSize
+      timeout:
+        type: string
+        x-go-name: Timeout
+    type: object
+    x-go-package: github.com/cosmos/relayer/cmd
+  Header:
+    description: |-
+      It encapsulates all the information necessary to update from a trusted
+      Tendermint ConsensusState. The inclusion of TrustedHeight and
+      TrustedValidators allows this update to process correctly, so long as the
+      ConsensusState for the TrustedHeight exists, this removes race conditions
+      among relayers The SignedHeader and ValidatorSet are the new untrusted update
+      fields for the client. The TrustedHeight is the height of a stored
+      ConsensusState on the client that will be used to verify the new untrusted
+      header. The Trusted ConsensusState must be within the unbonding period of
+      current time in order to correctly verify, and the TrustedValidators must
+      hash to TrustedConsensusState.NextValidatorsHash since that is the last
+      trusted validator set at the TrustedHeight.
+    properties:
+      commit:
+        $ref: '#/definitions/Commit'
+      header:
+        $ref: '#/definitions/Header'
+      trusted_height:
+        $ref: '#/definitions/Height'
+      trusted_validators:
+        $ref: '#/definitions/ValidatorSet'
+      validator_set:
+        $ref: '#/definitions/ValidatorSet'
+    title: Header defines the Tendermint client consensus Header.
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types
+  Height:
+    description: |-
+      Normally the RevisionHeight is incremented at each height while keeping RevisionNumber
+      the same. However some consensus algorithms may choose to reset the
+      height in certain conditions e.g. hard forks, state-machine breaking changes
+      In these cases, the RevisionNumber is incremented so that height continues to
+      be monitonically increasing even as the RevisionHeight gets reset
+    properties:
+      revision_height:
+        description: the height within the given revision
+        format: uint64
+        type: integer
+        x-go-name: RevisionHeight
+      revision_number:
+        description: the revision that the client is currently on
+        format: uint64
+        type: integer
+        x-go-name: RevisionNumber
+    title: |-
+      Height is a monotonically increasing data type
+      that can be compared against another Height for the purposes of updating and
+      freezing clients
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types
+  HexBytes:
+    items:
+      format: uint8
+      type: integer
+    title: The main purpose of HexBytes is to enable HEX-encoding for json/encoding.
+    type: array
+    x-go-package: github.com/tendermint/tendermint/libs/bytes
+  IdentifiedChannel:
+    description: |-
+      IdentifiedChannel defines a channel with additional port and channel
+      identifier fields.
+    properties:
+      channel_id:
+        description: channel identifier
+        type: string
+        x-go-name: ChannelId
+      connection_hops:
+        description: |-
+          list of connection identifiers, in order, along which packets sent on
+          this channel will travel
+        items:
+          type: string
+        type: array
+        x-go-name: ConnectionHops
+      counterparty:
+        $ref: '#/definitions/Counterparty'
+      ordering:
+        $ref: '#/definitions/Order'
+      port_id:
+        description: port identifier
+        type: string
+        x-go-name: PortId
+      state:
+        $ref: '#/definitions/State'
+      version:
+        description: opaque channel version, which is agreed upon during the handshake
+        type: string
+        x-go-name: Version
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types
+  IdentifiedClientState:
+    description: |-
+      IdentifiedClientState defines a client state with an additional client
+      identifier field.
+    properties:
+      client_id:
+        description: client identifier
+        type: string
+        x-go-name: ClientId
+      client_state:
+        $ref: '#/definitions/Any'
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types
+  IdentifiedClientStates:
+    description: IdentifiedClientStates defines a slice of ClientConsensusStates that
+      supports the sort interface
+    items:
+      $ref: '#/definitions/IdentifiedClientState'
+    type: array
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types
+  IdentifiedConnection:
+    description: |-
+      IdentifiedConnection defines a connection with additional connection
+      identifier field.
+    properties:
+      client_id:
+        description: client associated with this connection.
+        type: string
+        x-go-name: ClientId
+      counterparty:
+        $ref: '#/definitions/Counterparty'
+      delay_period:
+        description: delay period associated with this connection.
+        format: uint64
+        type: integer
+        x-go-name: DelayPeriod
+      id:
+        description: connection identifier.
+        type: string
+        x-go-name: Id
+      state:
+        $ref: '#/definitions/State'
+      versions:
+        description: |-
+          IBC version which can be utilised to determine encodings or protocols for
+          channels or packets utilising this connection
+        items:
+          $ref: '#/definitions/Version'
+        type: array
+        x-go-name: Versions
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types
+  Int:
+    description: |-
+      Int wraps integer with 256 bit range bound
+      Checks overflow, underflow and division by zero
+      Exists in range from -(2^maxBitLen-1) to 2^maxBitLen-1
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/types
+  KeyOutput:
+    description: KeyOutput contains mnemonic and address of key
+    properties:
+      address:
+        type: string
+        x-go-name: Address
+      mnemonic:
+        type: string
+        x-go-name: Mnemonic
+    type: object
+    x-go-package: github.com/cosmos/relayer/helpers
+  MerklePrefix:
+    description: |-
+      The constructed key from the Path and the key will be append(Path.KeyPath,
+      append(Path.KeyPrefix, key...))
+    properties:
+      key_prefix:
+        items:
+          format: uint8
+          type: integer
+        type: array
+        x-go-name: KeyPrefix
+    title: MerklePrefix is merkle path prefixed to the key.
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types
+  MerkleRoot:
+    description: In the Cosmos SDK, the AppHash of a block header becomes the root.
+    properties:
+      hash:
+        items:
+          format: uint8
+          type: integer
+        type: array
+        x-go-name: Hash
+    title: MerkleRoot defines a merkle root hash.
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types
+  Order:
+    description: Order defines if a channel is ORDERED or UNORDERED
+    format: int32
+    type: integer
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types
+  PageResponse:
+    description: |-
+      message SomeResponse {
+      repeated Bar results = 1;
+      PageResponse page = 2;
+      }
+    properties:
+      next_key:
+        description: |-
+          next_key is the key to be passed to PageRequest.key to
+          query the next page most efficiently
+        items:
+          format: uint8
+          type: integer
+        type: array
+        x-go-name: NextKey
+      total:
+        description: |-
+          total is total number of results available if PageRequest.count_total
+          was set, its value is undefined otherwise
+        format: uint64
+        type: integer
+        x-go-name: Total
+    title: |-
+      PageResponse is to be embedded in gRPC response messages where the
+      corresponding request message has used PageRequest.
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/types/query
+  PartSetHeader:
+    description: PartsetHeader
+    properties:
+      hash:
+        items:
+          format: uint8
+          type: integer
+        type: array
+        x-go-name: Hash
+      total:
+        format: uint32
+        type: integer
+        x-go-name: Total
+    type: object
+    x-go-package: github.com/tendermint/tendermint/proto/tendermint/types
+  Path:
+    description: |-
+      Path represents a pair of chains and the identifiers needed to
+      relay over them
+    properties:
+      dst:
+        $ref: '#/definitions/PathEnd'
+      src:
+        $ref: '#/definitions/PathEnd'
+      strategy:
+        $ref: '#/definitions/StrategyCfg'
+    type: object
+    x-go-package: github.com/cosmos/relayer/relayer
+  PathEnd:
+    description: |-
+      PathEnd represents the local connection identifers for a relay path
+      The path is set on the chain before performing operations
+    properties:
+      chain-id:
+        type: string
+        x-go-name: ChainID
+      channel-id:
+        type: string
+        x-go-name: ChannelID
+      client-id:
+        type: string
+        x-go-name: ClientID
+      connection-id:
+        type: string
+        x-go-name: ConnectionID
+      order:
+        type: string
+        x-go-name: Order
+      port-id:
+        type: string
+        x-go-name: PortID
+      version:
+        type: string
+        x-go-name: Version
+    type: object
+    x-go-package: github.com/cosmos/relayer/relayer
+  PathStatus:
+    description: PathStatus holds the status of the primitives in the path
+    properties:
+      chains:
+        type: boolean
+        x-go-name: Chains
+      channel:
+        type: boolean
+        x-go-name: Channel
+      clients:
+        type: boolean
+        x-go-name: Clients
+      connection:
+        type: boolean
+        x-go-name: Connection
+    type: object
+    x-go-package: github.com/cosmos/relayer/relayer
+  PathWithStatus:
+    description: PathWithStatus is used for showing the status of the path
+    properties:
+      chains:
+        $ref: '#/definitions/Path'
+      status:
+        $ref: '#/definitions/PathStatus'
+    type: object
+    x-go-package: github.com/cosmos/relayer/relayer
+  Paths:
+    additionalProperties:
+      $ref: '#/definitions/Path'
+    description: Paths represent connection paths between chains
+    type: object
+    x-go-package: github.com/cosmos/relayer/relayer
+  Proof:
+    description: |-
+      NOTE: The convention for proofs is to include leaf hashes but to
+      exclude the root hash.
+      This convention is implemented across IAVL range proofs as well.
+      Keep this consistent unless there's a very good reason to change
+      everything.  This also affects the generalized proof system as
+      well.
+    properties:
+      aunts:
+        items:
+          items:
+            format: uint8
+            type: integer
+          type: array
+        type: array
+        x-go-name: Aunts
+      index:
+        format: int64
+        type: integer
+        x-go-name: Index
+      leaf_hash:
+        items:
+          format: uint8
+          type: integer
+        type: array
+        x-go-name: LeafHash
+      total:
+        format: int64
+        type: integer
+        x-go-name: Total
+    title: Proof represents a Merkle proof.
+    type: object
+    x-go-package: github.com/tendermint/tendermint/crypto/merkle
+  PublicKey:
+    description: PublicKey defines the keys available for use with Tendermint Validators
+    properties:
+      Sum:
+        $ref: '#/definitions/isPublicKey_Sum'
+    type: object
+    x-go-package: github.com/tendermint/tendermint/proto/tendermint/crypto
+  QueryChannelResponse:
+    description: |-
+      Besides the Channel end, it includes a proof and the height from which the
+      proof was retrieved.
+    properties:
+      channel:
+        $ref: '#/definitions/Channel'
+      proof:
+        description: merkle proof of existence
+        items:
+          format: uint8
+          type: integer
+        type: array
+        x-go-name: Proof
+      proof_height:
+        $ref: '#/definitions/Height'
+    title: QueryChannelResponse is the response type for the Query/Channel RPC method.
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types
+  QueryChannelsResponse:
+    properties:
+      channels:
+        description: list of stored channels of the chain.
+        items:
+          $ref: '#/definitions/IdentifiedChannel'
+        type: array
+        x-go-name: Channels
+      height:
+        $ref: '#/definitions/Height'
+      pagination:
+        $ref: '#/definitions/PageResponse'
+    title: QueryChannelsResponse is the response type for the Query/Channels RPC method.
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types
+  QueryClientConnectionsResponse:
+    description: |-
+      QueryClientConnectionsResponse is the response type for the
+      Query/ClientConnections RPC method
+    properties:
+      connection_paths:
+        description: slice of all the connection paths associated with a client.
+        items:
+          type: string
+        type: array
+        x-go-name: ConnectionPaths
+      proof:
+        description: merkle proof of existence
+        items:
+          format: uint8
+          type: integer
+        type: array
+        x-go-name: Proof
+      proof_height:
+        $ref: '#/definitions/Height'
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types
+  QueryClientStateResponse:
+    description: |-
+      QueryClientStateResponse is the response type for the Query/ClientState RPC
+      method. Besides the client state, it includes a proof and the height from
+      which the proof was retrieved.
+    properties:
+      client_state:
+        $ref: '#/definitions/Any'
+      proof:
+        description: merkle proof of existence
+        items:
+          format: uint8
+          type: integer
+        type: array
+        x-go-name: Proof
+      proof_height:
+        $ref: '#/definitions/Height'
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types
+  QueryClientStatesResponse:
+    description: |-
+      QueryClientStatesResponse is the response type for the Query/ClientStates RPC
+      method.
+    properties:
+      client_states:
+        $ref: '#/definitions/IdentifiedClientStates'
+      pagination:
+        $ref: '#/definitions/PageResponse'
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types
+  QueryConnectionChannelsResponse:
+    description: |-
+      QueryConnectionChannelsResponse is the Response type for the
+      Query/QueryConnectionChannels RPC method
+    properties:
+      channels:
+        description: list of channels associated with a connection.
+        items:
+          $ref: '#/definitions/IdentifiedChannel'
+        type: array
+        x-go-name: Channels
+      height:
+        $ref: '#/definitions/Height'
+      pagination:
+        $ref: '#/definitions/PageResponse'
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types
+  QueryConnectionResponse:
+    description: |-
+      QueryConnectionResponse is the response type for the Query/Connection RPC
+      method. Besides the connection end, it includes a proof and the height from
+      which the proof was retrieved.
+    properties:
+      connection:
+        $ref: '#/definitions/ConnectionEnd'
+      proof:
+        description: merkle proof of existence
+        items:
+          format: uint8
+          type: integer
+        type: array
+        x-go-name: Proof
+      proof_height:
+        $ref: '#/definitions/Height'
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types
+  QueryConnectionsResponse:
+    description: |-
+      QueryConnectionsResponse is the response type for the Query/Connections RPC
+      method.
+    properties:
+      connections:
+        description: list of stored connections of the chain.
+        items:
+          $ref: '#/definitions/IdentifiedConnection'
+        type: array
+        x-go-name: Connections
+      height:
+        $ref: '#/definitions/Height'
+      pagination:
+        $ref: '#/definitions/PageResponse'
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types
+  QueryDenomTracesResponse:
+    description: |-
+      QueryConnectionsResponse is the response type for the Query/DenomTraces RPC
+      method.
+    properties:
+      denom_traces:
+        $ref: '#/definitions/Traces'
+      pagination:
+        $ref: '#/definitions/PageResponse'
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/applications/transfer/types
+  ResponseDeliverTx:
+    properties:
+      code:
+        format: uint32
+        type: integer
+        x-go-name: Code
+      codespace:
+        type: string
+        x-go-name: Codespace
+      data:
+        items:
+          format: uint8
+          type: integer
+        type: array
+        x-go-name: Data
+      events:
+        items:
+          $ref: '#/definitions/Event'
+        type: array
+        x-go-name: Events
+      gas_used:
+        format: int64
+        type: integer
+        x-go-name: GasUsed
+      gas_wanted:
+        format: int64
+        type: integer
+        x-go-name: GasWanted
+      info:
+        type: string
+        x-go-name: Info
+      log:
+        type: string
+        x-go-name: Log
+    type: object
+    x-go-package: github.com/tendermint/tendermint/abci/types
+  ResultTx:
+    description: Result of querying for a tx
+    properties:
+      hash:
+        $ref: '#/definitions/HexBytes'
+      height:
+        format: int64
+        type: integer
+        x-go-name: Height
+      index:
+        format: uint32
+        type: integer
+        x-go-name: Index
+      proof:
+        $ref: '#/definitions/TxProof'
+      tx:
+        $ref: '#/definitions/Tx'
+      tx_result:
+        $ref: '#/definitions/ResponseDeliverTx'
+    type: object
+    x-go-package: github.com/tendermint/tendermint/rpc/core/types
+  State:
+    description: CLOSED, INIT, TRYOPEN, OPEN or UNINITIALIZED.
+    format: int32
+    title: 'State defines if a channel is in one of the following states:'
+    type: integer
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types
+  StrategyCfg:
+    description: StrategyCfg defines which relaying strategy to take for a given path
+    properties:
+      type:
+        type: string
+        x-go-name: Type
+    type: object
+    x-go-package: github.com/cosmos/relayer/relayer
+  Traces:
+    items:
+      $ref: '#/definitions/DenomTrace'
+    title: Traces defines a wrapper type for a slice of DenomTrace.
+    type: array
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/applications/transfer/types
+  Tx:
+    description: |-
+      NOTE: Tx has no types at this level, so when wire encoded it's just length-prefixed.
+      Might we want types here ?
+    items:
+      format: uint8
+      type: integer
+    title: Tx is an arbitrary byte array.
+    type: array
+    x-go-package: github.com/tendermint/tendermint/types
+  TxProof:
+    properties:
+      data:
+        $ref: '#/definitions/Tx'
+      proof:
+        $ref: '#/definitions/Proof'
+      root_hash:
+        $ref: '#/definitions/HexBytes'
+    title: TxProof represents a Merkle proof of the presence of a transaction in the
+      Merkle tree.
+    type: object
+    x-go-package: github.com/tendermint/tendermint/types
+  Validator:
+    properties:
+      address:
+        items:
+          format: uint8
+          type: integer
+        type: array
+        x-go-name: Address
+      proposer_priority:
+        format: int64
+        type: integer
+        x-go-name: ProposerPriority
+      pub_key:
+        $ref: '#/definitions/PublicKey'
+      voting_power:
+        format: int64
+        type: integer
+        x-go-name: VotingPower
+    type: object
+    x-go-package: github.com/tendermint/tendermint/proto/tendermint/types
+  ValidatorSet:
+    properties:
+      proposer:
+        $ref: '#/definitions/Validator'
+      total_voting_power:
+        format: int64
+        type: integer
+        x-go-name: TotalVotingPower
+      validators:
+        items:
+          $ref: '#/definitions/Validator'
+        type: array
+        x-go-name: Validators
+    type: object
+    x-go-package: github.com/tendermint/tendermint/proto/tendermint/types
+  Version:
+    description: |-
+      Version defines the versioning scheme used to negotiate the IBC verison in
+      the connection handshake.
+    properties:
+      features:
+        description: list of features compatible with the specified identifier
+        items:
+          type: string
+        type: array
+        x-go-name: Features
+      identifier:
+        description: unique version identifier
+        type: string
+        x-go-name: Identifier
+    type: object
+    x-go-package: github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types
+  addChainRequest:
+    properties:
+      account-prefix:
+        type: string
+        x-go-name: AccountPrefix
+      file:
+        type: string
+        x-go-name: FilePath
+      gas-adjustment:
+        type: string
+        x-go-name: GasAdjustment
+      gas-prices:
+        type: string
+        x-go-name: GasPrices
+      key:
+        type: string
+        x-go-name: Key
+      rpc-addr:
+        type: string
+        x-go-name: RPCAddr
+      trusting-period:
+        type: string
+        x-go-name: TrustingPeriod
+      url:
+        type: string
+        x-go-name: URL
+    type: object
+    x-go-package: github.com/cosmos/relayer/cmd
+  chainStatusResponse:
+    properties:
+      balance:
+        type: boolean
+        x-go-name: Balance
+      key:
+        type: boolean
+        x-go-name: Key
+      light:
+        type: boolean
+        x-go-name: Light
+      path:
+        type: boolean
+        x-go-name: Path
+    type: object
+    x-go-package: github.com/cosmos/relayer/cmd
+  editChainRequest:
+    properties:
+      key:
+        type: string
+        x-go-name: Key
+      value:
+        type: string
+        x-go-name: Value
+    type: object
+    x-go-package: github.com/cosmos/relayer/cmd
+  isPublicKey_Sum:
+    properties:
+      Size:
+        format: int64
+        type: integer
+    type: object
+    x-go-package: github.com/tendermint/tendermint/proto/tendermint/crypto
+  keyResponse:
+    properties:
+      address:
+        type: string
+        x-go-name: Address
+      name:
+        type: string
+        x-go-name: Name
+    type: object
+    x-go-package: github.com/cosmos/relayer/cmd
+  postLightRequest:
+    properties:
+      force:
+        type: boolean
+        x-go-name: Force
+      hash:
+        type: string
+        x-go-name: Hash
+      height:
+        format: int64
+        type: integer
+        x-go-name: Height
+    type: object
+    x-go-package: github.com/cosmos/relayer/cmd
+  postPathRequest:
+    properties:
+      dst:
+        $ref: '#/definitions/PathEnd'
+      file:
+        type: string
+        x-go-name: FilePath
+      src:
+        $ref: '#/definitions/PathEnd'
+    type: object
+    x-go-package: github.com/cosmos/relayer/cmd
+  restoreKeyRequest:
+    properties:
+      mnemonic:
+        type: string
+        x-go-name: Mnemonic
+    type: object
+    x-go-package: github.com/cosmos/relayer/cmd
+  txsRequest:
+    properties:
+      events:
+        items:
+          type: string
+        type: array
+        x-go-name: Events
+    type: object
+    x-go-package: github.com/cosmos/relayer/cmd
+  versionInfo:
+    properties:
+      commit:
+        type: string
+        x-go-name: Commit
+      cosmos-sdk:
+        type: string
+        x-go-name: CosmosSDK
+      go:
+        type: string
+        x-go-name: Go
+      version:
+        type: string
+        x-go-name: Version
+    type: object
+    x-go-package: github.com/cosmos/relayer/cmd
+host: localhost:5183
+info:
+  description: A REST interface for state queries.
+  title: Relayer Rest Server.
+  version: 1.0.0
+paths:
+  /chains:
+    get:
+      operationId: getChains
+      responses:
+        "200":
+          $ref: '#/responses/getChainsResponse'
+      summary: Get chains list.
+      tags:
+      - Chains
+  /chains/{name}:
+    delete:
+      operationId: deleteChain
+      parameters:
+      - in: path
+        name: name
+        required: true
+        type: string
+        x-go-name: Name
+      responses:
+        "200":
+          description: Returns success string
+          schema:
+            $ref: '#/definitions/stringSuccessResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Delete Chain.
+      tags:
+      - Chains
+    get:
+      operationId: getChain
+      parameters:
+      - in: path
+        name: name
+        required: true
+        type: string
+        x-go-name: Name
+      responses:
+        "200":
+          description: Returns chain details
+          schema:
+            $ref: '#/definitions/getChainResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+      summary: Get single chain details.
+      tags:
+      - Chains
+    post:
+      description: file and url parameters in body are optional and can't use both
+        at once.
+      operationId: addChain
+      parameters:
+      - in: path
+        name: name
+        required: true
+        type: string
+        x-go-name: Name
+      - in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/addChainRequest'
+        x-go-name: Body
+      responses:
+        "201":
+          description: Returns success string
+          schema:
+            $ref: '#/definitions/stringSuccessResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Add a chain.
+      tags:
+      - Chains
+    put:
+      operationId: updateChain
+      parameters:
+      - in: path
+        name: name
+        required: true
+        type: string
+        x-go-name: Name
+      - in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/editChainRequest'
+        x-go-name: Body
+      responses:
+        "200":
+          description: Returns success string
+          schema:
+            $ref: '#/definitions/stringSuccessResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Update chain config values.
+      tags:
+      - Chains
+  /chains/{name}/status:
+    get:
+      operationId: getChainStatus
+      parameters:
+      - in: path
+        name: name
+        required: true
+        type: string
+        x-go-name: Name
+      responses:
+        "200":
+          $ref: '#/responses/chainStatusRes'
+        "400":
+          $ref: '#/responses/errorResponse'
+      summary: Get status of a chain.
+      tags:
+      - Chains
+  /config:
+    get:
+      operationId: config
+      responses:
+        "200":
+          $ref: '#/responses/configResponse'
+      summary: Get config.
+      tags:
+      - Config
+  /keys/{chain-id}:
+    get:
+      operationId: getKeys
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      responses:
+        "200":
+          $ref: '#/responses/getKeysResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Get keys list of a chain.
+      tags:
+      - Keys
+  /keys/{chain-id}/{name}:
+    delete:
+      operationId: deleteKey
+      parameters:
+      - in: path
+        name: name
+        required: true
+        type: string
+        x-go-name: Name
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      responses:
+        "200":
+          description: Returns success string
+          schema:
+            $ref: '#/definitions/stringSuccessResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "404":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Delete key in a chain.
+      tags:
+      - Keys
+    get:
+      operationId: getKey
+      parameters:
+      - in: path
+        name: name
+        required: true
+        type: string
+        x-go-name: Name
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      responses:
+        "200":
+          $ref: '#/responses/getKeyResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "404":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Get details of a key in a chain.
+      tags:
+      - Keys
+    post:
+      description: coin-type is a query parameter (optional)
+      operationId: addKey
+      parameters:
+      - in: path
+        name: name
+        required: true
+        type: string
+        x-go-name: Name
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - format: int64
+        in: query
+        name: coin-type
+        type: integer
+        x-go-name: CoinType
+      responses:
+        "201":
+          $ref: '#/responses/keyCreatedResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Add a key in a chain.
+      tags:
+      - Keys
+  /keys/{chain-id}/{name}/restore:
+    post:
+      description: coin-type is a query parameter (optional)
+      operationId: restoreKey
+      parameters:
+      - in: path
+        name: name
+        required: true
+        type: string
+        x-go-name: Name
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - format: int64
+        in: query
+        name: coin-type
+        type: integer
+        x-go-name: CoinType
+      - in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/restoreKeyRequest'
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/keyCreatedResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Restore a key using mnemonic.
+      tags:
+      - Keys
+  /light/{chain-id}:
+    delete:
+      operationId: deleteLight
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      responses:
+        "200":
+          description: Returns success string
+          schema:
+            $ref: '#/definitions/stringSuccessResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Delete light header of a chain.
+      tags:
+      - Light
+    post:
+      description: |-
+        force is optional and if given, it will be considered first,
+        height and hash can be used instead of force and need to send both values.
+      operationId: initLight
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/postLightRequest'
+        x-go-name: Body
+      responses:
+        "201":
+          description: Returns success string
+          schema:
+            $ref: '#/definitions/stringSuccessResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Init light header for a chain.
+      tags:
+      - Light
+    put:
+      operationId: updateLight
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      responses:
+        "200":
+          description: Returns success string
+          schema:
+            $ref: '#/definitions/stringSuccessResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Update light header of a chain.
+      tags:
+      - Light
+  /light/{chain-id}/header:
+    get:
+      operationId: getLightHeader
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - format: int64
+        in: query
+        name: height
+        type: integer
+        x-go-name: Height
+      responses:
+        "200":
+          $ref: '#/responses/headerResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Get light header of a chain.
+      tags:
+      - Light
+  /light/{chain-id}/height:
+    get:
+      operationId: getLightHeight
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      responses:
+        "200":
+          description: Returns light height
+          schema:
+            $ref: '#/definitions/getLightHeightResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Get light height of a chain.
+      tags:
+      - Light
+  /paths:
+    get:
+      operationId: getPaths
+      responses:
+        "200":
+          $ref: '#/responses/getPathsResponse'
+      summary: Get paths list.
+      tags:
+      - Paths
+  /paths/{name}:
+    delete:
+      operationId: deletePath
+      parameters:
+      - in: path
+        name: name
+        required: true
+        type: string
+        x-go-name: Name
+      responses:
+        "200":
+          description: Returns success string
+          schema:
+            $ref: '#/definitions/stringSuccessResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Delete Path.
+      tags:
+      - Paths
+    get:
+      operationId: getPath
+      parameters:
+      - in: path
+        name: name
+        required: true
+        type: string
+        x-go-name: Name
+      responses:
+        "200":
+          $ref: '#/responses/getPathResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+      summary: Get single path details.
+      tags:
+      - Paths
+    post:
+      description: file parameter in body is optional and if given, it will considered
+        first.
+      operationId: addPath
+      parameters:
+      - in: path
+        name: name
+        required: true
+        type: string
+        x-go-name: Name
+      - in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/postPathRequest'
+        x-go-name: Body
+      responses:
+        "201":
+          description: Returns success string
+          schema:
+            $ref: '#/definitions/stringSuccessResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Add a path.
+      tags:
+      - Paths
+  /paths/{name}/status:
+    get:
+      operationId: getPathStatus
+      parameters:
+      - in: path
+        name: name
+        required: true
+        type: string
+        x-go-name: Name
+      responses:
+        "200":
+          $ref: '#/responses/pathStatusRes'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Get status of a path.
+      tags:
+      - Paths
+  /query/{chain-id}/account/{address}:
+    get:
+      operationId: queryAccount
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - in: path
+        name: address
+        required: true
+        type: string
+        x-go-name: Address
+      responses:
+        "200":
+          description: Output format might change if address queried is Module Account
+          schema:
+            $ref: '#/definitions/queryAccountResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Query account of a chain.
+      tags:
+      - Query
+  /query/{chain-id}/balance/{address}:
+    get:
+      operationId: queryBalance
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - in: path
+        name: address
+        required: true
+        type: string
+        x-go-name: Address
+      - in: query
+        name: ibc-denoms
+        type: boolean
+        x-go-name: IBCDenoms
+      responses:
+        "200":
+          $ref: '#/responses/queryBalanceResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Query balance of a chain.
+      tags:
+      - Query
+  /query/{chain-id}/channels:
+    get:
+      operationId: queryChans
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - format: uint64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - format: uint64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      responses:
+        "200":
+          $ref: '#/responses/queryChansResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Query channels of a chain.
+      tags:
+      - Query
+  /query/{chain-id}/channels/{chan-id}/{port-id}:
+    get:
+      operationId: queryChan
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - format: int64
+        in: query
+        name: height
+        type: integer
+        x-go-name: Height
+      - in: path
+        name: chan-id
+        required: true
+        type: string
+        x-go-name: ChannelID
+      - in: path
+        name: port-id
+        required: true
+        type: string
+        x-go-name: PortID
+      responses:
+        "200":
+          $ref: '#/responses/queryChanResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Query channel by channelID and portID.
+      tags:
+      - Query
+  /query/{chain-id}/channels/connection/{conn-id}:
+    get:
+      operationId: queryConnChans
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - format: uint64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - format: uint64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      - in: path
+        name: conn-id
+        required: true
+        type: string
+        x-go-name: ConnectionID
+      responses:
+        "200":
+          $ref: '#/responses/queryConnChansResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Query channels of a connection in a chain.
+      tags:
+      - Query
+  /query/{chain-id}/clients:
+    get:
+      operationId: queryClients
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - format: uint64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - format: uint64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      responses:
+        "200":
+          $ref: '#/responses/queryClientsResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Query clients of a chain.
+      tags:
+      - Query
+  /query/{chain-id}/clients/{client-id}:
+    get:
+      operationId: queryClient
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - format: int64
+        in: query
+        name: height
+        type: integer
+        x-go-name: Height
+      - in: path
+        name: client-id
+        required: true
+        type: string
+        x-go-name: ClientID
+      responses:
+        "200":
+          $ref: '#/responses/queryClientResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Query client by clientID.
+      tags:
+      - Query
+  /query/{chain-id}/connections:
+    get:
+      operationId: queryConns
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - format: uint64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - format: uint64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      responses:
+        "200":
+          $ref: '#/responses/queryConnsResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Query connections of a chain.
+      tags:
+      - Query
+  /query/{chain-id}/connections/{conn-id}:
+    get:
+      operationId: queryConn
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - format: int64
+        in: query
+        name: height
+        type: integer
+        x-go-name: Height
+      - in: path
+        name: conn-id
+        required: true
+        type: string
+        x-go-name: ConnectionID
+      responses:
+        "200":
+          $ref: '#/responses/queryConnResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Query connection by connectionID.
+      tags:
+      - Query
+  /query/{chain-id}/connections/client/{client-id}:
+    get:
+      operationId: queryClientConns
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - format: int64
+        in: query
+        name: height
+        type: integer
+        x-go-name: Height
+      responses:
+        "200":
+          $ref: '#/responses/queryClientConnsResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Query connections of a client in a chain.
+      tags:
+      - Query
+  /query/{chain-id}/header:
+    get:
+      operationId: queryHeader
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - format: int64
+        in: query
+        name: height
+        type: integer
+        x-go-name: Height
+      responses:
+        "200":
+          $ref: '#/responses/headerResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Query header of a chain.
+      tags:
+      - Query
+  /query/{chain-id}/ibc-denoms:
+    get:
+      operationId: queryIBCDenoms
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      responses:
+        "200":
+          $ref: '#/responses/queryIBCDenomsResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Query ibc-denoms of a chain.
+      tags:
+      - Query
+  /query/{chain-id}/node-state:
+    get:
+      operationId: queryNodeState
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      responses:
+        "200":
+          $ref: '#/responses/nodeStateResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Query node state of a chain.
+      tags:
+      - Query
+  /query/{chain-id}/tx/{hash}:
+    get:
+      operationId: queryTx
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - in: path
+        name: hash
+        required: true
+        type: string
+        x-go-name: Hash
+      responses:
+        "200":
+          $ref: '#/responses/txResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Query Tx details by hash.
+      tags:
+      - Query
+  /query/{chain-id}/txs:
+    post:
+      operationId: queryTxs
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - format: uint64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - format: uint64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      - in: body
+        name: body
+        schema:
+          $ref: '#/definitions/txsRequest'
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/txsResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Query Txs using events.
+      tags:
+      - Query
+  /query/{chain-id}/valset:
+    get:
+      operationId: queryValSet
+      parameters:
+      - in: path
+        name: chain-id
+        required: true
+        type: string
+        x-go-name: ChainID
+      - format: int64
+        in: query
+        name: height
+        type: integer
+        x-go-name: Height
+      responses:
+        "200":
+          $ref: '#/responses/valSetResponse'
+        "400":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      summary: Query node state of a chain.
+      tags:
+      - Query
+  /version:
+    get:
+      operationId: version
+      responses:
+        "200":
+          $ref: '#/responses/versionResponse'
+      summary: Get version.
+      tags:
+      - Version
+produces:
+- application/json
+responses:
+  chainStatusRes:
+    description: ""
+    schema:
+      $ref: '#/definitions/chainStatusResponse'
+  configResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/Config'
+  errorResponse:
+    description: ""
+    schema:
+      properties:
+        err:
+          type: string
+          x-go-name: Err
+      type: object
+  getChainResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/Chain'
+  getChainsResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/Chains'
+  getKeyResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/keyResponse'
+  getKeysResponse:
+    description: ""
+    schema:
+      items:
+        $ref: '#/definitions/keyResponse'
+      type: array
+  getLightHeightResponse:
+    description: ""
+  getPathResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/Path'
+  getPathsResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/Paths'
+  headerResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/Header'
+  keyCreatedResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/KeyOutput'
+  nodeStateResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/ConsensusState'
+  pathStatusRes:
+    description: ""
+    schema:
+      $ref: '#/definitions/PathWithStatus'
+  queryAccountResponse:
+    description: ""
+    schema:
+      properties:
+        account:
+          $ref: '#/definitions/BaseAccount'
+      type: object
+  queryBalanceResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/Coins'
+  queryChanResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/QueryChannelResponse'
+  queryChansResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/QueryChannelsResponse'
+  queryClientConnsResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/QueryClientConnectionsResponse'
+  queryClientResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/QueryClientStateResponse'
+  queryClientsResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/QueryClientStatesResponse'
+  queryConnChansResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/QueryConnectionChannelsResponse'
+  queryConnResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/QueryConnectionResponse'
+  queryConnsResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/QueryConnectionsResponse'
+  queryIBCDenomsResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/QueryDenomTracesResponse'
+  stringSuccessResponse:
+    description: ""
+  txResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/ResultTx'
+  txsResponse:
+    description: ""
+    schema:
+      items:
+        $ref: '#/definitions/ResultTx'
+      type: array
+  valSetResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/ValidatorSet'
+  versionResponse:
+    description: ""
+    schema:
+      $ref: '#/definitions/versionInfo'
+schemes:
+- http
+swagger: "2.0"

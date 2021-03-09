@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	retry "github.com/avast/retry-go"
@@ -23,11 +24,17 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// NOTE: currently we are discarding the very noisy light client logs
-// it would be nice if we could add a setting the chain or otherwise
-// that allowed users to enable light client logging. (maybe as a hidden prop
-// on the Chain struct that users could pass in the config??)
-var logger = light.Logger(log.NewTMLogger(log.NewSyncWriter(ioutil.Discard)))
+var (
+	// NOTE: currently we are discarding the very noisy light client logs
+	// it would be nice if we could add a setting the chain or otherwise
+	// that allowed users to enable light client logging. (maybe as a hidden prop
+	// on the Chain struct that users could pass in the config??)
+	logger = light.Logger(log.NewTMLogger(log.NewSyncWriter(ioutil.Discard)))
+
+	// a lock to prevent two processes from trying to access the light client
+	// database at the same time resulting in errors and panics.
+	lightDBMutex sync.Mutex
+)
 
 func lightError(err error) error { return fmt.Errorf("light client: %w", err) }
 
@@ -128,7 +135,9 @@ func (c *Chain) LightClientWithoutTrust(db dbm.DB) (*light.Client, error) {
 		// NOTE: This requires adding them to the chain config
 		[]lightp.Provider{prov},
 		dbs.New(db, ""),
-		logger)
+		logger,
+		light.PruningSize(0),
+	)
 }
 
 // LightClientWithTrust takes a header from the chain and attempts to add that header to the light
@@ -144,7 +153,9 @@ func (c *Chain) LightClientWithTrust(db dbm.DB, to light.TrustOptions) (*light.C
 		// NOTE: This requires adding them to the chain config
 		[]lightp.Provider{prov},
 		dbs.New(db, ""),
-		logger)
+		logger,
+		light.PruningSize(0),
+	)
 }
 
 // LightClient initializes the light client for a given chain from the trusted store in the database
@@ -160,24 +171,26 @@ func (c *Chain) LightClient(db dbm.DB) (*light.Client, error) {
 		[]lightp.Provider{prov},
 		dbs.New(db, ""),
 		logger,
+		light.PruningSize(0),
 	)
 }
 
 // NewLightDB returns a new instance of the lightclient database connection
 // CONTRACT: must close the database connection when done with it (defer df())
 func (c *Chain) NewLightDB() (db *dbm.GoLevelDB, df func(), err error) {
-	if err := retry.Do(func() error {
-		db, err = dbm.NewGoLevelDB(c.ChainID, lightDir(c.HomePath))
-		if err != nil {
-			return fmt.Errorf("can't open light client database: %w", err)
-		}
-		return nil
-	}, rtyAtt, rtyDel, rtyErr); err != nil {
-		return nil, nil, err
+	// a lock is used to prevent error messages or panics from two processes
+	// trying to simultanenously use the light client
+	lightDBMutex.Lock()
+
+	db, err = dbm.NewGoLevelDB(c.ChainID, lightDir(c.HomePath))
+	if err != nil {
+		lightDBMutex.Unlock()
+		return nil, nil, fmt.Errorf("can't open light client database: %w", err)
 	}
 
 	df = func() {
 		err := db.Close()
+		lightDBMutex.Unlock()
 		if err != nil {
 			panic(err)
 		}
@@ -303,11 +316,11 @@ func (c *Chain) ForceInitLight() error {
 	if err != nil {
 		return err
 	}
+	defer df()
 	_, err = c.LightClientWithoutTrust(db)
 	if err != nil {
 		return err
 	}
-	df()
 	return nil
 }
 

@@ -426,7 +426,7 @@ func RestoreKeyHandler(w http.ResponseWriter, r *http.Request) {
 
 	keyName := vars["name"]
 	if chain.KeyExists(keyName) {
-		helpers.WriteErrorResponse(http.StatusNotFound, errKeyExists(keyName), w)
+		helpers.WriteErrorResponse(http.StatusBadRequest, errKeyExists(keyName), w)
 		return
 	}
 

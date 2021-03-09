@@ -45,12 +45,10 @@ $ curl -d '{"key":"testkey3","rpc-addr":"http://localhost:26657","account-prefix
 "chain ibc-2 added successfully"
 
 # Add new path to relay over
-$ curl -d '{"src-chain-id":"ibc-0","dst-chain-id":"ibc-1","src":{"client-id":"","connection-id":"","channel-id":"","port-id":"transfer","order":"unordered","version":"ics20-1"},"dst":{"client-id":"","connection-id":"","channel-id":"","port-id":"transfer","order":"unordered","version":"ics20-1"}}' -H 'Content-Type: application/json' http://localhost:5183/paths/demo-path
+$ curl -d '{"src":{"chain-id":"ibc-0","client-id":"","connection-id":"","channel-id":"","port-id":"transfer","order":"unordered","version":"ics20-1"},"dst":{"chain-id":"ibc-1","client-id":"","connection-id":"","channel-id":"","port-id":"transfer","order":"unordered","version":"ics20-1"}}' -H 'Content-Type: application/json' http://localhost:5183/paths/demo-path
 
 # Here we are creating path by sending data in format 
 {
-    src-chain-id  string
-    dst-chain-id  string
     src           PathEnd
     dst           PathEnd
 }
@@ -58,11 +56,9 @@ $ curl -d '{"src-chain-id":"ibc-0","dst-chain-id":"ibc-1","src":{"client-id":"",
 # We can also create path by sending file path instead of src and dst data in below format
 {
     file          string
-    src-chain-id  string
-    dst-chain-id  string
 }
 
-$ curl -d '{"file":"/root/go/src/github.com/cosmos/relayer/configs/akash/demo.json","src-chain-id":"ibc-0","dst-chain-id":"ibc-1"}' -H 'Content-Type: application/json' http://localhost:5183/paths/demo2
+$ curl -d '{"file":"/root/go/src/github.com/cosmos/relayer/configs/akash/demo.json"}' -H 'Content-Type: application/json' http://localhost:5183/paths/demo2
 
 "path demo2 added successfully"
 
