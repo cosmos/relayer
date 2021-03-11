@@ -294,7 +294,9 @@ func (c *Chain) GetLightSignedHeaderAtHeight(height int64) (*tmclient.Header, er
 		return nil, err
 	}
 
-	sh, err := client.TrustedLightBlock(height)
+	// VerifyLightBlock will return the header at provided height if it already exists in store,
+	// otherwise it retrieves from primary and verifies against trusted store before returning.
+	sh, err := client.VerifyLightBlockAtHeight(context.Background(), height, time.Now())
 	if err != nil {
 		return nil, err
 	}
