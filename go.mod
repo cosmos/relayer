@@ -7,7 +7,7 @@ require (
 	github.com/avast/retry-go v2.6.0+incompatible
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
 	github.com/containerd/continuity v0.0.0-20200928162600-f2cc35102c2a // indirect
-	github.com/cosmos/cosmos-sdk v0.41.3
+	github.com/cosmos/cosmos-sdk v0.42.0
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/gogo/protobuf v1.3.3
 	github.com/google/go-cmp v0.5.4 // indirect
@@ -26,7 +26,7 @@ require (
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/objx v0.3.0 // indirect
 	github.com/stretchr/testify v1.7.0
-	github.com/tendermint/tendermint v0.34.7
+	github.com/tendermint/tendermint v0.34.8
 	github.com/tendermint/tm-db v0.6.4
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c // indirect
