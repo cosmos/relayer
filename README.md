@@ -80,7 +80,7 @@ Here are the settings used to configure SDK based nodes:
 --pruning=custom --pruning-keep-recent=362880 --pruning-keep-every=0 --pruning-interval=100
 ```
 
-362880 (3*7*24*60*60 / 5 = 362880) represents a 3 week unbodning period (assuming 5 seconds per block). 
+`362880 (3*7*24*60*60 / 5 = 362880)` represents a 3 week unbonding period (assuming 5 seconds per block). 
 
 Note: 
 ```
