@@ -69,6 +69,28 @@ connection, and channel. The relayer will automatically reuse any existing clien
 configurations since clients, connections, and channels are public goods (no one has control over 
 them). 
 
+## Recommended Pruning Settings
+
+The relayer relies on old headers and proofs constructed at past block heights to facilitate IBC. 
+For this reason, connected full nodes are recommended to prune old blocks once they have passed
+the unbonding period of the chain. 
+
+Here are the settings used to configure SDK based nodes:
+```
+--pruning=custom --pruning-keep-recent=362880 --pruning-keep-every=0 --pruning-interval=100
+```
+
+`362880 (3*7*24*60*60 / 5 = 362880)` represents a 3 week unbonding period (assuming 5 seconds per block). 
+
+Note: 
+```
+--pruning-keep-every=0 --pruning-interval=100
+```
+
+can be modified to your desired settings. 
+
+Pruning nothing is not necessary for a fully functional relayer. Pruning everything will lead to many issues. 
+
 ## Demoing the Relayer
 
 ![Demo](./docs/images/demo.gif)
