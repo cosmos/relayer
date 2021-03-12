@@ -111,7 +111,10 @@ func (c *Chain) InjectTrustedFields(dst *Chain, header *tmclient.Header) (*tmcli
 	// query TrustedValidators at Trusted Height from srcChain
 	trustedHeader, err := c.GetLightSignedHeaderAtHeight(int64(h.TrustedHeight.RevisionHeight))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get trusted header, please ensure the connected node is pruning nothing: %w", err)
+		return nil, fmt.Errorf(
+			"failed to get trusted header, please ensure header at the height %d has not been pruned by the connected node: %w",
+			h.TrustedHeight.RevisionHeight, err,
+		)
 	}
 
 	// inject TrustedValidators into header
