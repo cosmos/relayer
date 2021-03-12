@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.8.3
+
+**2021/03/12**
+
+### Relayer
+
+* [\#453](https://github.com/cosmos/relayer/pull/453) Fix light block not found error on missing header
+* [\#449](https://github.com/cosmos/relayer/pull/449) Close database connection even if error occurs on initialization
+* [\#447](https://github.com/cosmos/relayer/pull/447) Add a light client database lock to prevent concurrency panics
+* [\#434](https://github.com/cosmos/relayer/pull/434) Implement swagger docs and fix path validation
+* [\#448](https://github.com/cosmos/relayer/pull/448) update pruning error message
+
+### Dependencies
+
+* [\#451](https://github.com/cosmos/relayer/pull/451) bump SDK to version 0.42.0
+
+
 ## v0.8.2
 
 **2021/03/01**
