@@ -6,6 +6,7 @@
 
 ### Relayer
 
+* [\#450](https://github.com/cosmos/relayer/pull/450) Add pruning recommendations to README
 * [\#453](https://github.com/cosmos/relayer/pull/453) Fix light block not found error on missing header
 * [\#449](https://github.com/cosmos/relayer/pull/449) Close database connection even if error occurs on initialization
 * [\#447](https://github.com/cosmos/relayer/pull/447) Add a light client database lock to prevent concurrency panics
