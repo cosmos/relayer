@@ -117,8 +117,8 @@ $ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 				dstHeader.GetHeight().(clienttypes.Height),
 				commitmenttypes.GetSDKSpecs(),
 				relayer.DefaultUpgradePath,
-				false,
-				false,
+				relayer.AllowUpdateAfterExpiry,
+				relayer.AllowUpdateAfterMisbehaviour,
 			)
 
 			return sendAndPrint([]sdk.Msg{chains[src].CreateClient(

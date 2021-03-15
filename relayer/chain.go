@@ -43,6 +43,9 @@ var (
 	rtyAtt    = retry.Attempts(rtyAttNum)
 	rtyDel    = retry.Delay(time.Millisecond * 400)
 	rtyErr    = retry.LastErrorOnly(true)
+
+	AllowUpdateAfterExpiry       = true
+	AllowUpdateAfterMisbehaviour = true
 )
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
