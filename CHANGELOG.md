@@ -11,6 +11,14 @@
 ### Relayer
 ### Relayer
 
+* [\#455](https://github.com/cosmos/relayer/pull/455) Set default client parameter to allow governance to update the client if expiry or misbehaviour freezing occurs. 
+
+## v0.8.3
+
+**2021/03/12**
+
+### Relayer
+
 * [\#453](https://github.com/cosmos/relayer/pull/453) Fix light block not found error on missing header
 * [\#449](https://github.com/cosmos/relayer/pull/449) Close database connection even if error occurs on initialization
 * [\#447](https://github.com/cosmos/relayer/pull/447) Add a light client database lock to prevent concurrency panics
