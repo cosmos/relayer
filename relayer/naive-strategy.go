@@ -1,7 +1,9 @@
 package relayer
 
 import (
+	"encoding/hex"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -9,6 +11,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	"golang.org/x/sync/errgroup"
 )
@@ -18,17 +21,20 @@ var (
 	_ Strategy = &NaiveStrategy{}
 
 	// Strings for parsing events
-	spTag       = "send_packet"
-	waTag       = "write_acknowledgement"
-	srcChanTag  = "packet_src_channel"
-	dstChanTag  = "packet_dst_channel"
-	srcPortTag  = "packet_src_port"
-	dstPortTag  = "packet_dst_port"
-	dataTag     = "packet_data"
-	ackTag      = "packet_ack"
-	toHeightTag = "packet_timeout_height"
-	toTSTag     = "packet_timeout_timestamp"
-	seqTag      = "packet_sequence"
+	spTag        = "send_packet"
+	waTag        = "write_acknowledgement"
+	srcChanTag   = "packet_src_channel"
+	dstChanTag   = "packet_dst_channel"
+	srcPortTag   = "packet_src_port"
+	dstPortTag   = "packet_dst_port"
+	dataTag      = "packet_data"
+	ackTag       = "packet_ack"
+	toHeightTag  = "packet_timeout_height"
+	toTSTag      = "packet_timeout_timestamp"
+	seqTag       = "packet_sequence"
+	updateCliTag = "update_client"
+	headerTag    = "header"
+	clientIDTag  = "client_id"
 )
 
 // NewNaiveStrategy returns the proper config for the NaiveStrategy
@@ -232,6 +238,36 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 
 // HandleEvents defines how the relayer will handle block and transaction events as they are emitted
 func (nrs *NaiveStrategy) HandleEvents(src, dst *Chain, events map[string][]string) {
+	// check for misbehaviour
+	if hdrs, ok := events[fmt.Sprintf("%s.%s", updateCliTag, headerTag)]; ok {
+		for i, hdr := range hdrs {
+			clientIDs := events[fmt.Sprintf("%s.%s", updateCliTag, clientIDTag)]
+
+			if src.PathEnd.ClientID == clientIDs[i] && dst.PathEnd.ClientID == clientIDs[i] {
+				hdrBytes, err := hex.DecodeString(hdr)
+				if err == nil {
+					exportedHeader, err := clienttypes.UnmarshalHeader(src.Encoding.Marshaler, hdrBytes)
+					if err == nil {
+						gotHeader, ok := exportedHeader.(*tmclient.Header)
+						if ok {
+							trustedHeader, err := src.GetLatestLightHeader()
+							if err == nil && !reflect.DeepEqual(gotHeader, trustedHeader) {
+								misbehaviour := tmclient.NewMisbehaviour(clientIDs[i], gotHeader, trustedHeader)
+								msg, err := clienttypes.NewMsgSubmitMisbehaviour(clientIDs[i], misbehaviour, src.MustGetAddress())
+								if err == nil {
+									_, _, _ = src.SendMsg(msg)
+								}
+							}
+						}
+					}
+
+				} else {
+					src.Error(err)
+				}
+			}
+		}
+	}
+
 	rlyPackets, err := relayPacketsFromEventListener(src.PathEnd, dst.PathEnd, events)
 	if len(rlyPackets) > 0 && err == nil {
 		nrs.sendTxFromEventPackets(src, dst, rlyPackets)
