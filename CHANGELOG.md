@@ -4,6 +4,7 @@
 
 ### Relayer
 
+* [\#456](https://github.com/cosmos/relayer/pull/456) Fix bug which incorrectly set the timeout on a transfer.
 * [\#455](https://github.com/cosmos/relayer/pull/455) Set default client parameter to allow governance to update the client if expiry or misbehaviour freezing occurs. 
 
 ## v0.8.3
