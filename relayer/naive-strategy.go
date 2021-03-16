@@ -3,7 +3,6 @@ package relayer
 import (
 	"encoding/hex"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -238,40 +237,66 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 
 // HandleEvents defines how the relayer will handle block and transaction events as they are emitted
 func (nrs *NaiveStrategy) HandleEvents(src, dst *Chain, events map[string][]string) {
-	// check for misbehaviour
-	if hdrs, ok := events[fmt.Sprintf("%s.%s", updateCliTag, headerTag)]; ok {
-		for i, hdr := range hdrs {
-			clientIDs := events[fmt.Sprintf("%s.%s", updateCliTag, clientIDTag)]
-
-			if src.PathEnd.ClientID == clientIDs[i] && dst.PathEnd.ClientID == clientIDs[i] {
-				hdrBytes, err := hex.DecodeString(hdr)
-				if err == nil {
-					exportedHeader, err := clienttypes.UnmarshalHeader(src.Encoding.Marshaler, hdrBytes)
-					if err == nil {
-						gotHeader, ok := exportedHeader.(*tmclient.Header)
-						if ok {
-							trustedHeader, err := src.GetLatestLightHeader()
-							if err == nil && !reflect.DeepEqual(gotHeader, trustedHeader) {
-								misbehaviour := tmclient.NewMisbehaviour(clientIDs[i], gotHeader, trustedHeader)
-								msg, err := clienttypes.NewMsgSubmitMisbehaviour(clientIDs[i], misbehaviour, src.MustGetAddress())
-								if err == nil {
-									_, _, _ = src.SendMsg(msg)
-								}
-							}
-						}
-					}
-
-				} else {
-					src.Error(err)
-				}
-			}
-		}
+	// check for misbehaviour and submit if found
+	err := checkAndSubmitMisbehaviour(src, events)
+	if err != nil {
+		src.Error(err)
 	}
 
 	rlyPackets, err := relayPacketsFromEventListener(src.PathEnd, dst.PathEnd, events)
 	if len(rlyPackets) > 0 && err == nil {
 		nrs.sendTxFromEventPackets(src, dst, rlyPackets)
 	}
+}
+
+func checkAndSubmitMisbehaviour(src *Chain, events map[string][]string) error {
+	if hdrs, ok := events[fmt.Sprintf("%s.%s", updateCliTag, headerTag)]; ok {
+		for i, hdr := range hdrs {
+			clientIDs := events[fmt.Sprintf("%s.%s", updateCliTag, clientIDTag)]
+			emittedClientID := clientIDs[i]
+
+			if src.PathEnd.ClientID == emittedClientID {
+				hdrBytes, err := hex.DecodeString(hdr)
+				if err != nil {
+					return err
+				}
+
+				exportedHeader, err := clienttypes.UnmarshalHeader(src.Encoding.Marshaler, hdrBytes)
+				if err != nil {
+					return err
+				}
+
+				emittedHeader, ok := exportedHeader.(*tmclient.Header)
+				if !ok {
+					return fmt.Errorf("emitted header is not tendermint type")
+				}
+
+				trustedHeader, err := src.GetLightSignedHeaderAtHeight(emittedHeader.Header.Height)
+				if err != nil {
+					return err
+				}
+
+				if !IsMatchingConsensusState(emittedHeader.ConsensusState(), trustedHeader.ConsensusState()) {
+					misbehaviour := tmclient.NewMisbehaviour(emittedClientID, emittedHeader, trustedHeader)
+					msg, err := clienttypes.NewMsgSubmitMisbehaviour(emittedClientID, misbehaviour, src.MustGetAddress())
+					if err != nil {
+						return err
+					}
+					res, success, err := src.SendMsg(msg)
+					if err != nil {
+						return err
+					}
+					if !success {
+						return fmt.Errorf("submit misbehaviour tx failed: %s", res.RawLog)
+					}
+					src.Log(fmt.Sprintf("Submitted misbehaviour for emitted header with height: %d",
+						emittedHeader.Header.Height))
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string) (rlyPkts []relayPacket, err error) {
