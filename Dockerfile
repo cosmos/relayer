@@ -7,10 +7,10 @@ COPY . .
 
 # Update and install needed deps prioir to installing the binary.
 RUN apk update && \
-    apk --no-cache add make=4.2.1-r2 git=2.24.3-r0 && \
+    apk --no-cache add make git && \
     make install
 
-FROM alpine:edge
+FROM alpine:latest
 
 ENV RELAYER /relayer
 
@@ -26,6 +26,3 @@ WORKDIR $RELAYER
 COPY --from=BUILD /go/bin/rly /usr/bin/rly
 
 ENTRYPOINT ["/usr/bin/rly"]
-
-# Make config available ofr mutaitons
-VOLUME [ $RELAYER ]

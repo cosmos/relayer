@@ -12,17 +12,13 @@ import (
 )
 
 var (
-	// Chains built using SDK v0.41.0
-
-	// GAIA BLOCK TIMEOUTS are located in the single node setup script on gaia
-	// https://github.com/cosmos/gaia/blob/main/contrib/single-node.sh
+	// GAIA BLOCK TIMEOUTS are located in the gaia setup script in the
+	// setup directory.
 	// timeout_commit = "1000ms"
 	// timeout_propose = "1000ms"
 	// 3 second relayer timeout works well with these block times
 	gaiaTestConfig = testChainConfig{
-		// This is built from contrib/Dockerfile.test from the gaia repository:
-		dockerImage:    "colinaxner/gaiatest",
-		dockerTag:      "v4.0.0",
+		// This is built from Dockerfile.gaiatest in setup dir
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "cosmos",
@@ -57,6 +53,7 @@ type (
 	testChainConfig struct {
 		dockerImage    string
 		dockerTag      string
+		entrypoint     string
 		rpcPort        string
 		timeout        time.Duration
 		accountPrefix  string
