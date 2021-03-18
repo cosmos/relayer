@@ -145,7 +145,7 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 	require.NoError(t, removeTestContainer(pool, containerName))
 
 	// create the proper docker image with port forwarding setup
-	resource, err = pool.BuildAndRunWithOptions("./setup/Dockerfile.gaiatest", dockerOpts)
+	resource, err = pool.BuildAndRunWithOptions(tc.t.dockerfile, dockerOpts)
 	require.NoError(t, err)
 
 	c.Log(fmt.Sprintf("- [%s] SPUN UP IN CONTAINER %s from %s", c.ChainID,

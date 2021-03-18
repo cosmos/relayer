@@ -1,4 +1,5 @@
-FROM tendermint/gaia:v4.1.0 
+# https://hub.docker.com/r/ovrclk/akash/tags?page=1&ordering=last_updated
+FROM ovrclk/akash:0.10.0
 
 # Set up dependencies
 ENV PACKAGES curl make git libc-dev bash gcc linux-headers eudev-dev python3
@@ -6,15 +7,15 @@ ENV PACKAGES curl make git libc-dev bash gcc linux-headers eudev-dev python3
 USER root
 
 # Install minimum necessary dependencies, build Cosmos SDK, remove packages
-RUN apk add --no-cache $PACKAGES 
+#RUN apk add --no-cache $PACKAGES 
 
-USER gaia
+#USER akash
 
-WORKDIR /gaia
+#WORKDIR /akash
 
-COPY ./gaia-setup.sh .
+COPY ./akash-setup.sh .
 
 EXPOSE 26657
 
-ENTRYPOINT [ "./gaia-setup.sh" ]
+ENTRYPOINT [ "./akash-setup.sh" ]
 # NOTE: to run this image, docker run -d -p 26657:26657 ./single-node.sh {{chain_id}} {{genesis_account}}
