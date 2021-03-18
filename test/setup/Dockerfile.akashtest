@@ -6,13 +6,6 @@ ENV PACKAGES curl make git libc-dev bash gcc linux-headers eudev-dev python3
 
 USER root
 
-# Install minimum necessary dependencies, build Cosmos SDK, remove packages
-#RUN apk add --no-cache $PACKAGES 
-
-#USER akash
-
-#WORKDIR /akash
-
 COPY ./akash-setup.sh .
 
 EXPOSE 26657
