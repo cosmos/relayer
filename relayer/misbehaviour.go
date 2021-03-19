@@ -16,7 +16,9 @@ var (
 )
 
 // checkAndSubmitMisbehaviour check headers from update_client tx events
-// and submit misbehaviour if found any
+// against the associated light client. If the headers do not match, the emitted
+// header and a reconstructed header are used in misbehaviour submission to
+// the IBC client on the source chain.
 func checkAndSubmitMisbehaviour(src *Chain, events map[string][]string) error {
 	if hdrs, ok := events[fmt.Sprintf("%s.%s", updateCliTag, headerTag)]; ok {
 		for i, hdr := range hdrs {
@@ -44,10 +46,10 @@ func checkAndSubmitMisbehaviour(src *Chain, events map[string][]string) error {
 					return err
 				}
 
-				trustedHeader.TrustedValidators = emittedHeader.TrustedValidators
-				trustedHeader.TrustedHeight = emittedHeader.TrustedHeight
-
 				if !IsMatchingConsensusState(emittedHeader.ConsensusState(), trustedHeader.ConsensusState()) {
+					trustedHeader.TrustedValidators = emittedHeader.TrustedValidators
+					trustedHeader.TrustedHeight = emittedHeader.TrustedHeight
+
 					misbehaviour := tmclient.NewMisbehaviour(emittedClientID, emittedHeader, trustedHeader)
 					msg, err := clienttypes.NewMsgSubmitMisbehaviour(emittedClientID, misbehaviour, src.MustGetAddress())
 					if err != nil {
