@@ -38,12 +38,17 @@ func QueryBalance(chain *relayer.Chain, address string, showDenoms bool) (sdk.Co
 
 	var out sdk.Coins
 	for _, c := range coins {
-		for _, d := range dts.DenomTraces {
-			switch {
-			case c.Amount.Equal(sdk.NewInt(0)):
-			case c.Denom == d.IBCDenom():
-				out = append(out, sdk.NewCoin(d.IBCDenom(), c.Amount))
-			default:
+		if c.Amount.Equal(sdk.NewInt(0)) {
+			continue
+		}
+
+		for i, d := range dts.DenomTraces {
+			if c.Denom == d.IBCDenom() {
+				out = append(out, sdk.Coin{Denom: d.GetFullDenomPath(), Amount: c.Amount})
+				break
+			}
+
+			if i == len(dts.DenomTraces)-1 {
 				out = append(out, c)
 			}
 		}
