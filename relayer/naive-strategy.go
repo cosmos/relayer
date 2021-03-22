@@ -232,6 +232,12 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 
 // HandleEvents defines how the relayer will handle block and transaction events as they are emitted
 func (nrs *NaiveStrategy) HandleEvents(src, dst *Chain, events map[string][]string) {
+	// check for misbehaviour and submit if found
+	err := checkAndSubmitMisbehaviour(src, events)
+	if err != nil {
+		src.Error(err)
+	}
+
 	rlyPackets, err := relayPacketsFromEventListener(src.PathEnd, dst.PathEnd, events)
 	if len(rlyPackets) > 0 && err == nil {
 		nrs.sendTxFromEventPackets(src, dst, rlyPackets)
