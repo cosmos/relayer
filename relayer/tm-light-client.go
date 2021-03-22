@@ -280,7 +280,7 @@ func (c *Chain) MustGetLatestLightHeight() uint64 {
 	return uint64(height)
 }
 
-// GetLightSignedHeaderAtHeight returns a signed header at a particular height.
+// GetLightSignedHeaderAtHeight returns a signed header at a particular height (0 - the latest).
 func (c *Chain) GetLightSignedHeaderAtHeight(height int64) (*tmclient.Header, error) {
 	// create database connection
 	db, df, err := c.NewLightDB()
@@ -292,6 +292,13 @@ func (c *Chain) GetLightSignedHeaderAtHeight(height int64) (*tmclient.Header, er
 	client, err := c.LightClient(db)
 	if err != nil {
 		return nil, err
+	}
+
+	if height == 0 {
+		height, err = client.LastTrustedHeight()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// VerifyLightBlock will return the header at provided height if it already exists in store,
