@@ -1,0 +1,14 @@
+# https://hub.docker.com/r/ovrclk/akash/tags?page=1&ordering=last_updated
+FROM ovrclk/akash:0.10.0
+
+# Set up dependencies
+ENV PACKAGES curl make git libc-dev bash gcc linux-headers eudev-dev python3
+
+USER root
+
+COPY ./akash-setup.sh .
+
+EXPOSE 26657
+
+ENTRYPOINT [ "./akash-setup.sh" ]
+# NOTE: to run this image, docker run -d -p 26657:26657 ./single-node.sh {{chain_id}} {{genesis_account}}
