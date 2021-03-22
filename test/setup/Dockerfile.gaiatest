@@ -1,0 +1,20 @@
+FROM tendermint/gaia:v4.1.0 
+
+# Set up dependencies
+ENV PACKAGES curl make git libc-dev bash gcc linux-headers eudev-dev python3
+
+USER root
+
+# Install minimum necessary dependencies, build Cosmos SDK, remove packages
+RUN apk add --no-cache $PACKAGES 
+
+USER gaia
+
+WORKDIR /gaia
+
+COPY ./gaia-setup.sh .
+
+EXPOSE 26657
+
+ENTRYPOINT [ "./gaia-setup.sh" ]
+# NOTE: to run this image, docker run -d -p 26657:26657 ./single-node.sh {{chain_id}} {{genesis_account}}

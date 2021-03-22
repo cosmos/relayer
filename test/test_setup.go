@@ -78,8 +78,7 @@ func removeTestContainer(pool *dockertest.Pool, containerName string) error {
 	containers, err := pool.Client.ListContainers(dc.ListContainersOptions{
 		All: true,
 		Filters: map[string][]string{
-			"name":  {containerName},
-			"label": {"io.iqlusion.relayer.test=true"},
+			"name": {containerName},
 		},
 	})
 	if err != nil {
@@ -103,6 +102,8 @@ func removeTestContainer(pool *dockertest.Pool, containerName string) error {
 }
 
 // spinUpTestContainer spins up a test container with the given configuration
+// A docker image is built for each chain using its provided configuration.
+// This image is then ran using the options set below.
 func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 	pool *dockertest.Pool, c *ry.Chain, dir string, wg *sync.WaitGroup, tc testChain) {
 	defer wg.Done()
@@ -126,16 +127,15 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 	// create the test key
 	require.NoError(t, c.CreateTestKey())
 
-	containerName := fmt.Sprintf("%s-%s", c.ChainID, t.Name())
+	containerName := c.ChainID
 
 	// setup docker options
 	dockerOpts := &dockertest.RunOptions{
 		Name:         containerName,
-		Repository:   tc.t.dockerImage,
-		Tag:          tc.t.dockerTag,
+		Repository:   containerName, // Name must match Repository
+		Tag:          "latest",      // Must match docker default build tag
 		ExposedPorts: []string{tc.t.rpcPort, c.GetRPCPort()},
 		Cmd:          []string{c.ChainID, c.MustGetAddress().String()},
-		Labels:       map[string]string{"io.iqlusion.relayer.test": "true"},
 		PortBindings: map[dc.Port][]dc.PortBinding{
 			dc.Port(tc.t.rpcPort): {{HostPort: c.GetRPCPort()}},
 		},
@@ -145,7 +145,7 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 	require.NoError(t, removeTestContainer(pool, containerName))
 
 	// create the proper docker image with port forwarding setup
-	resource, err = pool.RunWithOptions(dockerOpts)
+	resource, err = pool.BuildAndRunWithOptions(tc.t.dockerfile, dockerOpts)
 	require.NoError(t, err)
 
 	c.Log(fmt.Sprintf("- [%s] SPUN UP IN CONTAINER %s from %s", c.ChainID,

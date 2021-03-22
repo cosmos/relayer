@@ -23,4 +23,4 @@ checksum:
   algorithm: sha256
 
 release:
-  name_template: "{{ .Version }} - Relayer Release"
+  name_template: "{{ .Version }} - (WARNING: ALPHA SOFTWARE)"
