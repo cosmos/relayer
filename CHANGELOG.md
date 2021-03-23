@@ -1,7 +1,5 @@
 # Changelog
 
-## [Unreleased]
-
 ## v0.9.0
 
 **2021/03/23**
