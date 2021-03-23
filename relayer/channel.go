@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 )
 
@@ -79,26 +78,14 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 // file. The booleans return indicate if the message was successfully
 // executed and if this was the last handshake step.
 func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err error) {
-	// variables needed to determine the current handshake step
-	var (
-		srcChan, dstChan *chantypes.QueryChannelResponse
-		msgs             []sdk.Msg
-	)
-
-	srcUpdateMsg, err := src.UpdateClient(dst)
-	if err != nil {
-		return false, false, false, err
-	}
-
-	dstUpdateMsg, err := dst.UpdateClient(src)
-	if err != nil {
+	if _, _, err := UpdateLightClients(src, dst); err != nil {
 		return false, false, false, err
 	}
 
 	// if either identifier is missing, an existing channel that matches the required fields
 	// is chosen or a new channel is created.
 	if src.PathEnd.ChannelID == "" || dst.PathEnd.ChannelID == "" {
-		success, modified, err := InitializeChannel(src, dst, srcUpdateMsg, dstUpdateMsg)
+		success, modified, err := InitializeChannel(src, dst)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -107,7 +94,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 	}
 
 	// Query Channel data from src and dst
-	srcChan, dstChan, err = QueryChannelPair(src, dst, int64(src.MustGetLatestLightHeight())-1,
+	srcChan, dstChan, err := QueryChannelPair(src, dst, int64(src.MustGetLatestLightHeight())-1,
 		int64(dst.MustGetLatestLightHeight()-1))
 	if err != nil {
 		return false, false, false, err
@@ -123,14 +110,9 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
 
-		openTry, err := src.ChanTry(dst)
+		msgs, err := src.ChanTry(dst)
 		if err != nil {
 			return false, false, false, err
-		}
-
-		msgs = []sdk.Msg{
-			srcUpdateMsg,
-			openTry,
 		}
 
 		_, success, err = src.SendMsgs(msgs)
@@ -147,14 +129,9 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
 
-		openAck, err := src.ChanAck(dst)
+		msgs, err := src.ChanAck(dst)
 		if err != nil {
 			return false, false, false, err
-		}
-
-		msgs = []sdk.Msg{
-			srcUpdateMsg,
-			openAck,
 		}
 
 		_, success, err = src.SendMsgs(msgs)
@@ -170,14 +147,9 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(dst, src, dstChan, srcChan)
 		}
 
-		openAck, err := dst.ChanAck(src)
+		msgs, err := dst.ChanAck(src)
 		if err != nil {
 			return false, false, false, err
-		}
-
-		msgs = []sdk.Msg{
-			dstUpdateMsg,
-			openAck,
 		}
 
 		_, success, err = dst.SendMsgs(msgs)
@@ -191,10 +163,11 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
 
-		msgs = []sdk.Msg{
-			srcUpdateMsg,
-			src.ChanConfirm(dstChan),
+		msgs, err := src.ChanConfirm(dst)
+		if err != nil {
+			return false, false, false, err
 		}
+
 		last = true
 
 		_, success, err = src.SendMsgs(msgs)
@@ -208,16 +181,17 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(dst, src, dstChan, srcChan)
 		}
 
-		msgs = []sdk.Msg{
-			dstUpdateMsg,
-			dst.ChanConfirm(srcChan),
+		msgs, err := dst.ChanConfirm(src)
+		if err != nil {
+			return false, false, false, err
 		}
-		last = true
 
 		_, success, err = dst.SendMsgs(msgs)
 		if !success {
 			return false, false, false, err
 		}
+
+		last = true
 
 	case srcChan.Channel.State == chantypes.OPEN && dstChan.Channel.State == chantypes.OPEN:
 		last = true
@@ -231,9 +205,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 // The identifiers set in the PathEnd's are used to determine which channel ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither channel exists.
-func InitializeChannel(
-	src, dst *Chain, srcUpdateMsg, dstUpdateMsg sdk.Msg,
-) (success, modified bool, err error) {
+func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 	switch {
 
 	// OpenInit on source
@@ -246,10 +218,9 @@ func InitializeChannel(
 
 		channelID, found := FindMatchingChannel(src, dst)
 		if !found {
-			// construct OpenInit message to be submitted on source chain
-			msgs := []sdk.Msg{
-				srcUpdateMsg,
-				src.ChanInit(dst.PathEnd),
+			msgs, err := src.ChanInit(dst)
+			if err != nil {
+				return false, false, err
 			}
 
 			res, success, err := src.SendMsgs(msgs)
@@ -279,15 +250,11 @@ func InitializeChannel(
 		channelID, found := FindMatchingChannel(src, dst)
 		if !found {
 			// open try on source chain
-			openTry, err := src.ChanTry(dst)
+			msgs, err := src.ChanTry(dst)
 			if err != nil {
 				return false, false, err
 			}
 
-			msgs := []sdk.Msg{
-				srcUpdateMsg,
-				openTry,
-			}
 			res, success, err := src.SendMsgs(msgs)
 			if !success {
 				return false, false, err
@@ -315,15 +282,11 @@ func InitializeChannel(
 		channelID, found := FindMatchingChannel(dst, src)
 		if !found {
 			// open try on destination chain
-			openTry, err := dst.ChanTry(src)
+			msgs, err := dst.ChanTry(src)
 			if err != nil {
 				return false, false, err
 			}
 
-			msgs := []sdk.Msg{
-				dstUpdateMsg,
-				openTry,
-			}
 			res, success, err := dst.SendMsgs(msgs)
 			if !success {
 				return false, false, err

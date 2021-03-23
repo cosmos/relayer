@@ -1,8 +1,8 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
 SDKCOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/cosmos-sdk)
-GAIA_VERSION := v4.0.0
-AKASH_VERSION := jack/update-sdk
+GAIA_VERSION := v4.1.0
+AKASH_VERSION := v0.10.2
 WASMD_VERSION := v0.14.1
 
 GOPATH := $(shell go env GOPATH)
@@ -104,4 +104,3 @@ check-swagger:
 
 update-swagger-docs: check-swagger
 	swagger generate spec -o ./docs/swagger-ui/swagger.yaml
-

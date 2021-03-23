@@ -76,7 +76,7 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) (sdk.Msg, error) {
 	if rp.dstRecvRes == nil {
 		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
 	}
-	version := clienttypes.ParseChainID(dst.PathEnd.ChainID)
+	version := clienttypes.ParseChainID(dst.ChainID)
 	msg := chantypes.NewMsgTimeout(
 		chantypes.NewPacket(
 			rp.packetData,
@@ -166,7 +166,7 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) (sdk.Msg, error) {
 	if rp.dstComRes == nil {
 		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
 	}
-	version := clienttypes.ParseChainID(src.PathEnd.ChainID)
+	version := clienttypes.ParseChainID(src.ChainID)
 	packet := chantypes.NewPacket(
 		rp.packetData,
 		rp.seq,
@@ -211,7 +211,7 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) (sdk.Msg, error) {
 	if rp.dstComRes == nil {
 		return nil, fmt.Errorf("ack packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
 	}
-	version := clienttypes.ParseChainID(dst.PathEnd.ChainID)
+	version := clienttypes.ParseChainID(dst.ChainID)
 	msg := chantypes.NewMsgAcknowledgement(
 		chantypes.NewPacket(
 			rp.packetData,

@@ -50,8 +50,8 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			dstUpdateHeader.GetHeight().(clienttypes.Height),
 			commitmenttypes.GetSDKSpecs(),
 			DefaultUpgradePath,
-			false,
-			false,
+			AllowUpdateAfterExpiry,
+			AllowUpdateAfterMisbehaviour,
 		)
 
 		// Check if an identical light client already exists
@@ -113,8 +113,8 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			srcUpdateHeader.GetHeight().(clienttypes.Height),
 			commitmenttypes.GetSDKSpecs(),
 			DefaultUpgradePath,
-			false,
-			false,
+			AllowUpdateAfterExpiry,
+			AllowUpdateAfterMisbehaviour,
 		)
 
 		// Check if an identical light client already exists

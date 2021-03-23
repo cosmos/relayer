@@ -117,8 +117,8 @@ $ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 				dstHeader.GetHeight().(clienttypes.Height),
 				commitmenttypes.GetSDKSpecs(),
 				relayer.DefaultUpgradePath,
-				false,
-				false,
+				relayer.AllowUpdateAfterExpiry,
+				relayer.AllowUpdateAfterMisbehaviour,
 			)
 
 			return sendAndPrint([]sdk.Msg{chains[src].CreateClient(
@@ -152,7 +152,12 @@ $ %s tx raw conn-init ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`,
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{chains[src].ConnInit(chains[dst].PathEnd)},
+			msgs, err := chains[src].ConnInit(chains[dst])
+			if err != nil {
+				return err
+			}
+
+			return sendAndPrint(msgs,
 				chains[src], cmd)
 		},
 	}
@@ -182,22 +187,12 @@ $ %s tx raw conn-try ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`, 
 				return err
 			}
 
-			updateMsg, err := chains[src].UpdateClient(chains[dst])
+			msgs, err := chains[src].ConnTry(chains[dst])
 			if err != nil {
 				return err
 			}
 
-			openTry, err := chains[src].ConnTry(chains[dst])
-			if err != nil {
-				return err
-			}
-
-			txs := []sdk.Msg{
-				updateMsg,
-				openTry,
-			}
-
-			return sendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(msgs, chains[src], cmd)
 		},
 	}
 	return cmd
@@ -226,22 +221,12 @@ $ %s tx raw conn-ack ibc-0 ibc-1 ibconeclient ibczeroclient ibcconn1 ibcconn2`, 
 				return err
 			}
 
-			updateMsg, err := chains[src].UpdateClient(chains[dst])
+			msgs, err := chains[src].ConnAck(chains[dst])
 			if err != nil {
 				return err
 			}
 
-			openAck, err := chains[src].ConnAck(chains[dst])
-			if err != nil {
-				return err
-			}
-
-			txs := []sdk.Msg{
-				updateMsg,
-				openAck,
-			}
-
-			return sendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(msgs, chains[src], cmd)
 		},
 	}
 	return cmd
@@ -270,24 +255,12 @@ $ %s tx raw conn-confirm ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn
 				return err
 			}
 
-			updateMsg, err := chains[src].UpdateClient(chains[dst])
+			msgs, err := chains[src].ConnConfirm(chains[dst])
 			if err != nil {
 				return err
 			}
 
-			// NOTE: We query connection at height - 1 because of the way tendermint returns
-			// proofs the commit for height n is contained in the header of height n + 1
-			dstState, err := chains[dst].QueryConnection(int64(chains[dst].MustGetLatestLightHeight()) - 1)
-			if err != nil {
-				return err
-			}
-
-			txs := []sdk.Msg{
-				updateMsg,
-				chains[src].ConnConfirm(dstState),
-			}
-
-			return sendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(msgs, chains[src], cmd)
 		},
 	}
 	return cmd
@@ -360,7 +333,12 @@ ibcconn1 ibcconn2 ibcchan1 ibcchan2 transfer transfer ordered`, appName)),
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{chains[src].ChanInit(chains[dst].PathEnd)},
+			msgs, err := chains[src].ChanInit(chains[dst])
+			if err != nil {
+				return err
+			}
+
+			return sendAndPrint(msgs,
 				chains[src], cmd)
 		},
 	}
@@ -391,22 +369,12 @@ $ %s tx raw chan-try ibc-0 ibc-1 ibczeroclient ibcconn0 ibcchan1 ibcchan2 transf
 				return err
 			}
 
-			updateMsg, err := chains[src].UpdateClient(chains[dst])
+			msgs, err := chains[src].ChanTry(chains[dst])
 			if err != nil {
 				return err
 			}
 
-			openTry, err := chains[src].ChanTry(chains[dst])
-			if err != nil {
-				return err
-			}
-
-			txs := []sdk.Msg{
-				updateMsg,
-				openTry,
-			}
-
-			return sendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(msgs, chains[src], cmd)
 		},
 	}
 	return cmd
@@ -437,22 +405,12 @@ $ %s tx raw chan-ack ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer transf
 				return err
 			}
 
-			updateMsg, err := chains[src].UpdateClient(chains[dst])
+			msgs, err := chains[src].ChanAck(chains[dst])
 			if err != nil {
 				return err
 			}
 
-			openAck, err := chains[src].ChanAck(chains[dst])
-			if err != nil {
-				return err
-			}
-
-			txs := []sdk.Msg{
-				updateMsg,
-				openAck,
-			}
-
-			return sendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(msgs, chains[src], cmd)
 		},
 	}
 	return cmd
@@ -482,22 +440,12 @@ $ %s tx raw chan-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer tr
 				return err
 			}
 
-			updateMsg, err := chains[src].UpdateClient(chains[dst])
+			msgs, err := chains[src].ChanConfirm(chains[dst])
 			if err != nil {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(int64(chains[dst].MustGetLatestLightHeight()) - 1)
-			if err != nil {
-				return err
-			}
-
-			txs := []sdk.Msg{
-				updateMsg,
-				chains[src].ChanConfirm(dstChanState),
-			}
-
-			return sendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(msgs, chains[src], cmd)
 		},
 	}
 	return cmd
