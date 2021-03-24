@@ -332,8 +332,9 @@ $ %s tx connect demo-path`,
 
 func linkThenStartCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "link-then-start [path-name]",
-		Short: "a shorthand command to execute 'link' followed by 'start'",
+		Use:     "link-then-start [path-name]",
+		Aliases: []string{"connect-then-start"},
+		Short:   "a shorthand command to execute 'link' followed by 'start'",
 		Long: strings.TrimSpace(`Create IBC clients, connection, and channel between two configured IBC
 networks with a configured path and then start the relayer on that path.`,
 		),
