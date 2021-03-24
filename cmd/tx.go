@@ -333,7 +333,7 @@ $ %s tx connect demo-path`,
 func linkThenStartCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "link-then-start [path-name]",
-		Short: "a shorthand command for 'link' and 'start'",
+		Short: "a shorthand command to execute 'link' followed by 'start'",
 		Long: strings.TrimSpace(`Create IBC clients, connection, and channel between two configured IBC
 networks with a configured path and then start the relayer on that path.`,
 		),
@@ -360,14 +360,14 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 func relayMsgsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "relay-packets [path-name]",
-		Aliases: []string{"rly", "pkts", "relay"},
-		Short:   "relay any packets that remain to be relayed on a given path, in both directions",
+		Aliases: []string{"relay"},
+		Short:   "relay any remaining non-relayed packets on a given path, in both directions",
 		Args:    cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact relay-packets demo-path
-$ %s tx rly demo-path -l 3
-$ %s tx pkts demo-path -s 5
-$ %s tx relay demo-path`, appName, appName, appName, appName)),
+$ %s tx relay demo-path`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
@@ -501,12 +501,14 @@ func upgradeChainCmd() *cobra.Command {
 	return cmd
 }
 
-// Returns an error if a configured key for a given chain doesn't exist
-func ensureKeysExist(chains map[string]*relayer.Chain) (err error) {
+// ensureKeysExist returns an error if a configured key for a given chain does
+// not exist.
+func ensureKeysExist(chains map[string]*relayer.Chain) error {
 	for _, v := range chains {
-		if _, err = v.GetAddress(); err != nil {
-			return
+		if _, err := v.GetAddress(); err != nil {
+			return err
 		}
 	}
+
 	return nil
 }
