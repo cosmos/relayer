@@ -445,9 +445,12 @@ $ %s tx acks demo-path -l 3 -s 6`,
 
 func upgradeChainCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "upgrade-chain [path-name] [chain-id] [new-unbonding-period] [deposit] [path/to/upgradePlan.json]",
-		Short: "upgrade a chain by providing the chain-id of the chain being upgraded, the new unbonding period," +
-			"the proposal deposit and the json file of the upgrade plan without the upgrade client state",
+		Use:   "upgrade-chain [path-name] [chain-id] [new-unbonding-period] [deposit] [path/to/upgradePlan.json]",
+		Short: "upgrade an IBC-enabled network with a given upgrade plan",
+		Long: strings.TrimSpace(`Upgrade an IBC-enabled network by providing the chain-id of the
+network being upgraded, the new unbonding period, the proposal deposit and the JSN file of the
+upgrade plan without the upgrade client state.`,
+		),
 		Args: cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
@@ -500,6 +503,7 @@ func upgradeChainCmd() *cobra.Command {
 			return c[dst].UpgradeChain(c[src], plan, deposit, unbondingPeriod)
 		},
 	}
+
 	return cmd
 }
 
