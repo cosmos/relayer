@@ -158,8 +158,10 @@ func createConnectionCmd() *cobra.Command {
 		Use:     "connection [path-name]",
 		Aliases: []string{"conn"},
 		Short:   "create a connection between two configured chains with a configured path",
-		Long:    strings.TrimSpace("Create or repair a connection between two IBC-connected networks along a specific path."),
-		Args:    cobra.ExactArgs(1),
+		Long: strings.TrimSpace(`Create or repair a connection between two IBC-connected networks
+along a specific path.`,
+		),
+		Args: cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact connection demo-path
 $ %s tx conn demo-path --timeout 5s`,
@@ -331,21 +333,27 @@ $ %s tx connect demo-path`,
 func linkThenStartCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "link-then-start [path-name]",
-		Short: "wait for a link to come up, then start relaying packets",
-		Args:  cobra.ExactArgs(1),
+		Short: "a shorthand command for 'link' and 'start'",
+		Long: strings.TrimSpace(`Create IBC clients, connection, and channel between two configured IBC
+networks with a configured path and then start the relayer on that path.`,
+		),
+		Args: cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact link-then-start demo-path
 $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lCmd := linkCmd()
+
 			for err := lCmd.RunE(cmd, args); err != nil; err = lCmd.RunE(cmd, args) {
 				fmt.Printf("retrying link: %s\n", err)
 				time.Sleep(1 * time.Second)
 			}
+
 			sCmd := startCmd()
 			return sCmd.RunE(cmd, args)
 		},
 	}
+
 	return strategyFlag(retryFlag(timeoutFlag(cmd)))
 }
 
