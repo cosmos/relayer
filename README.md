@@ -151,24 +151,26 @@ $ rly paths list
 $ rly tx link demo -d -o 3s
 
 # Check the token balances on both chains
-$ rly q balance ibc-0
-$ rly q bal ibc-1
+$ rly query balance ibc-0
+$ rly query bal ibc-1
 
 # Then send some tokens between the chains
 $ rly tx transfer ibc-0 ibc-1 1000000samoleans $(rly chains address ibc-1)
 $ rly tx relay demo -d
+$ rly tx acks demo -d
 
 # See that the transfer has completed
-$ rly q bal ibc-0
-$ rly q bal ibc-1
+$ rly query bal ibc-0
+$ rly query bal ibc-1
 
 # Send the tokens back to the account on ibc-0
-$ rly tx xfer ibc-1 ibc-0 1000000ibc/27A6394C3F9FF9C9DCF5DFFADF9BB5FE9A37C7E92B006199894CF1824DF9AC7C $(rly ch addr ibc-0)
-$ rly tx rly demo -d
+$ rly tx transfer ibc-1 ibc-0 1000000ibc/27A6394C3F9FF9C9DCF5DFFADF9BB5FE9A37C7E92B006199894CF1824DF9AC7C $(rly chains addr ibc-0)
+$ rly tx relay demo -d
+$ rly tx acks demo -d
 
 # See that the return trip has completed
-$ rly q bal ibc-0
-$ rly q bal ibc-1
+$ rly query bal ibc-0
+$ rly query bal ibc-1
 
 # NOTE: you will see the stake balances decreasing on each chain. This is to pay for fees
 # You can change the amount of fees you are paying on each chain in the configuration.
