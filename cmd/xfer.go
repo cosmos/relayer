@@ -5,9 +5,8 @@ import (
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/spf13/cobra"
-
 	"github.com/cosmos/relayer/relayer"
+	"github.com/spf13/cobra"
 )
 
 type stringStringer struct {
