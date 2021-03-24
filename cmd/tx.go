@@ -216,16 +216,16 @@ $ %s tx conn demo-path --timeout 5s`,
 
 func closeChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "channel-close [path-name]",
-		Aliases: []string{"chan-cl", "close", "cl"},
-		Short:   "close a channel between two configured chains with a configured path",
-		Long:    "This command is meant to close a channel",
-		Args:    cobra.ExactArgs(1),
+		Use:   "channel-close [path-name]",
+		Short: "close a channel between two configured chains with a configured path",
+		Args:  cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact channel-close demo-path
-$ %s tx chan-cl demo-path --timeout 5s
-$ %s tx cl demo-path
-$ %s tx close demo-path -o 3s`, appName, appName, appName, appName)),
+$ %s tx channel-close demo-path --timeout 5s
+$ %s tx channel-close demo-path
+$ %s tx channel-close demo-path -o 3s`,
+			appName, appName, appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
