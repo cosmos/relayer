@@ -255,16 +255,18 @@ $ %s tx channel-close demo-path -o 3s`,
 func linkCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "link [path-name]",
-		Aliases: []string{"full-path", "connect", "path", "pth", "channel"},
+		Aliases: []string{"connect"},
 		Short:   "create clients, connection, and channel between two configured chains with a configured path",
-		Args:    cobra.ExactArgs(1),
+		Long: strings.TrimSpace(`Create an IBC client between two IBC-enabled networks, in addition
+to creating a connection and a channel between the two networks on a configured path.`,
+		),
+		Args: cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact link demo-path
-$ %s tx full-path demo-path --timeout 5s
-$ %s tx connect demo-path
-$ %s tx path demo-path -o 3s
-$ %s tx channel demo-path
-$ %s tx pth demo-path`, appName, appName, appName, appName, appName, appName)),
+$ %s tx link demo-path
+$ %s tx connect demo-path`,
+			appName, appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
