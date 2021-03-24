@@ -403,11 +403,13 @@ func relayAcksCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "relay-acknowledgements [path-name]",
 		Aliases: []string{"acks"},
-		Short:   "relay any acknowledgements that remain to be relayed on a given path, in both directions",
+		Short:   "relay any remaining non-relayed acknowledgements on a given path, in both directions",
 		Args:    cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact relay-acknowledgements demo-path
-$ %s tx acks demo-path -l 3 -s 6`, appName, appName)),
+$ %s tx acks demo-path -l 3 -s 6`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
