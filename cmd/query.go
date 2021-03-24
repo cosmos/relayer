@@ -20,7 +20,7 @@ func queryCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "query",
 		Aliases: []string{"q"},
-		Short:   "IBC Query Commands",
+		Short:   "IBC query commands",
 		Long:    "Commands to query IBC primitives, and other useful data on configured chains.",
 	}
 
