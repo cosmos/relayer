@@ -36,7 +36,7 @@ wanting to build their [IBC](https://ibcprotocol.org/)-compliant relayer.
   - [Features](#features)
   - [Relayer Terminology](#relayer-terminology)
   - [Recommended Pruning Settings](#recommended-pruning-settings)
-  - [Demoing the Relayer](#demoing-the-relayer)
+  - [Demo](#demo)
   - [Setting up Developer Environment](#setting-up-developer-environment)
 
 ## Security Notice
@@ -114,7 +114,7 @@ Here are the settings used to configure SDK-based full nodes (assuming 3 week un
 Note, operators can tweak `--pruning-keep-every` and `--pruning-interval` to their
 liking.
 
-## Demoing the Relayer
+## Demo
 
 ![Demo](./docs/images/demo.gif)
 
