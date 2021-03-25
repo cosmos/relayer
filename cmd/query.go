@@ -567,19 +567,20 @@ $ %s q conn ibc-1 ibconeconn`,
 
 func queryConnectionChannels() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "connection-channels [chain-id] [connection-id]",
-		Aliases: []string{"conn-chans"},
-		Short:   "Query any channels associated with a given connection",
-		Args:    cobra.ExactArgs(2),
+		Use:   "connection-channels [chain-id] [connection-id]",
+		Short: "query all channels associated with a given connection on a network by chain ID",
+		Args:  cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query connection-channels ibc-0 ibcconnection1
-$ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30
-$ %s q conn-chans ibc-0 ibcconnection1`, appName, appName, appName)),
+$ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
+
 			if err = chain.AddPath(dcli, args[1], dcha, dpor, dord); err != nil {
 				return err
 			}
@@ -602,6 +603,7 @@ $ %s q conn-chans ibc-0 ibcconnection1`, appName, appName, appName)),
 			return chain.Print(chans, false, false)
 		},
 	}
+
 	return paginationFlags(cmd)
 }
 
