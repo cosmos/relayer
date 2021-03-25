@@ -35,6 +35,7 @@ import (
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	libclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
+	tmtypes "github.com/tendermint/tendermint/types"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -131,25 +132,18 @@ func ValidateChannelParams(src, dst *Chain) error {
 }
 
 // ListenRPCEmitJSON listens for tx and block events from a chain and outputs them as JSON to stdout
-func (c *Chain) ListenRPCEmitJSON(tx, block, data bool) func() {
+func (c *Chain) ListenRPCEmitJSON(ubdtime time.Time) func() {
 	doneChan := make(chan struct{})
-	go c.listenLoop(doneChan, tx, block, data)
+	go c.listenLoop(doneChan, ubdtime)
 	return func() { doneChan <- struct{}{} }
 }
 
-func (c *Chain) listenLoop(doneChan chan struct{}, tx, block, data bool) {
+func (c *Chain) listenLoop(doneChan chan struct{}, ubdtime time.Time) {
 	// Subscribe to source chain
 	if err := c.Start(); err != nil {
 		c.Error(err)
 		return
 	}
-
-	srcTxEvents, srcTxCancel, err := c.Subscribe(txEvents)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	defer srcTxCancel()
 
 	srcBlockEvents, srcBlockCancel, err := c.Subscribe(blEvents)
 	if err != nil {
@@ -159,36 +153,19 @@ func (c *Chain) listenLoop(doneChan chan struct{}, tx, block, data bool) {
 	defer srcBlockCancel()
 
 	// Listen to channels and take appropriate action
-	var byt []byte
-	var mar interface{}
 	for {
 		select {
-		case srcMsg := <-srcTxEvents:
-			switch {
-			case tx:
-				continue
-			case data:
-				mar = srcMsg
-			default:
-				mar = srcMsg.Events
-			}
-			if byt, err = json.Marshal(mar); err != nil {
-				c.Error(err)
-			}
-			fmt.Println(string(byt))
 		case srcMsg := <-srcBlockEvents:
-			switch {
-			case block:
-				continue
-			case data:
-				mar = srcMsg
-			default:
-				mar = srcMsg.Events
+			bl, ok := srcMsg.Data.(tmtypes.EventDataNewBlock)
+			if !ok {
+				fmt.Println("malformed block returned from listen...")
+				os.Exit(1)
 			}
-			if byt, err = json.Marshal(mar); err != nil {
-				c.Error(err)
+			if ubdtime.After(bl.Block.Time) {
+				c.Log(fmt.Sprintf("%s{%d} - %s remaining until unbonding completes", c.ChainID, bl.Block.Height, ubdtime.Sub(bl.Block.Time)))
+			} else if ubdtime.Before(bl.Block.Time) {
+				// send transaction to recovery address
 			}
-			fmt.Println(string(byt))
 		case <-doneChan:
 			close(doneChan)
 			return

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
@@ -21,7 +22,7 @@ func devCommand() *cobra.Command {
 		gaiaServiceCmd(),
 		faucetService(),
 		rlyService(),
-		listenCmd(),
+		recoverCmd(),
 		genesisCmd(),
 	)
 	return cmd
@@ -60,13 +61,13 @@ $ %s development genesis ibc-2`, appName, appName, appName)),
 	return cmd
 }
 
-// listenCmd represents the listen command
-func listenCmd() *cobra.Command {
+// recoverCmd represents the listen command
+func recoverCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "listen [chain-id]",
+		Use:     "recover-funds [chain-id] [time]",
 		Aliases: []string{"l"},
-		Short:   "listen to all transaction and block events from a given chain and output them to stdout",
-		Args:    cobra.ExactArgs(1),
+		Short:   "attempt to recover funds from a key that is also controlled by an attacker",
+		Args:    cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s dev listen ibc-0 --data --no-tx
 $ %s dev l ibc-1 --no-block
@@ -77,31 +78,25 @@ $ %s development listen ibc-2 --no-tx`, appName, appName, appName)),
 				return err
 			}
 
-			tx, err := cmd.Flags().GetBool(flagTx)
-			if err != nil {
-				return err
-			}
-			block, err := cmd.Flags().GetBool(flagBlock)
-			if err != nil {
-				return err
-			}
-			data, err := cmd.Flags().GetBool(flagData)
+			ubdtime, err := time.Parse(time.RFC3339, args[1])
 			if err != nil {
 				return err
 			}
 
-			if block && tx {
-				return fmt.Errorf("must output block and/or tx")
+			addr, err := c.GetAddress()
+			if err != nil || addr == nil {
+				return fmt.Errorf("key not configured")
 			}
 
-			done := c.ListenRPCEmitJSON(tx, block, data)
+			fmt.Printf("Attempting to recover funds from address(%s)...\n", addr.String())
 
+			done := c.ListenRPCEmitJSON(ubdtime)
 			trapSignal(done)
 
 			return nil
 		},
 	}
-	return listenFlags(cmd)
+	return cmd
 }
 
 func gaiaServiceCmd() *cobra.Command {
