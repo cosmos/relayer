@@ -410,13 +410,14 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 
 func queryValSetAtHeightCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "valset [chain-id]",
-		Aliases: []string{"vs"},
-		Short:   "Query validator set at particular height",
-		Args:    cobra.ExactArgs(1),
+		Use:   "valset [chain-id]",
+		Short: "query the validator set at particular height for a network by chain ID",
+		Args:  cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query valset ibc-0
-$ %s q vs ibc-1`, appName, appName)),
+$ %s q valset ibc-1`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -446,12 +447,14 @@ func queryConnections() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "connections [chain-id]",
 		Aliases: []string{"conns"},
-		Short:   "Query for all connections on a chain",
+		Short:   "query for all connections on a network by chain ID",
 		Args:    cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query connections ibc-0
 $ %s query connections ibc-2 --offset 2 --limit 30
-$ %s q conns ibc-1`, appName, appName, appName)),
+$ %s q conns ibc-1`,
+			appName, appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -482,14 +485,14 @@ $ %s q conns ibc-1`, appName, appName, appName)),
 
 func queryConnectionsUsingClient() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "client-connections [chain-id] [client-id]",
-		Aliases: []string{"clnt-conns"},
-		Short:   "Query for all connections on a given client",
-		Args:    cobra.ExactArgs(2),
+		Use:   "client-connections [chain-id] [client-id]",
+		Short: "query for all connections for a given client on a network by chain ID",
+		Args:  cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query client-connections ibc-0 ibczeroclient
-$ %s query client-connections ibc-0 ibczeroclient --height 1205
-$ %s q clnt-conns ibc-1 ibconeclient`, appName, appName, appName)),
+$ %s query client-connections ibc-0 ibczeroclient --height 1205`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
