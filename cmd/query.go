@@ -21,7 +21,7 @@ func queryCmd() *cobra.Command {
 		Use:     "query",
 		Aliases: []string{"q"},
 		Short:   "IBC query commands",
-		Long:    "Commands to query IBC primitives, and other useful data on configured chains.",
+		Long:    "Commands to query IBC primitives and other useful data on configured chains.",
 	}
 
 	cmd.AddCommand(
@@ -54,27 +54,33 @@ func queryCmd() *cobra.Command {
 func queryIBCDenoms() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ibc-denoms [chain-id]",
-		Short: "Query transaction by transaction hash",
+		Short: "query denomination traces for a given network by chain ID",
 		Args:  cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query ibc-denoms ibc-0
-$ %s q ibc-denoms ibc-0`, appName, appName)),
+$ %s q ibc-denoms ibc-0`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
+
 			h, err := chain.QueryLatestHeight()
 			if err != nil {
 				return err
 			}
+
 			res, err := chain.QueryDenomTraces(0, 1000, h)
 			if err != nil {
 				return err
 			}
+
 			return chain.Print(res, false, false)
 		},
 	}
+
 	return cmd
 }
 
