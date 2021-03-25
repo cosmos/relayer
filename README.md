@@ -29,36 +29,101 @@ wanting to build their [IBC](https://ibcprotocol.org/)-compliant relayer.
 > download or a GPG signature.
 
 - [Relayer](#relayer)
-  - [Security Notice](#security-notice)
-  - [Code of Conduct](#code-of-conduct)
-  - [Testnet](#testnet)
-  - [Compatibility Table](#compatibility-table)
+  - [Basic Usage](#basic-usage)
   - [Features](#features)
   - [Relayer Terminology](#relayer-terminology)
   - [Recommended Pruning Settings](#recommended-pruning-settings)
+  - [Compatibility Table](#compatibility-table)
+  - [Testnet](#testnet)
   - [Demo](#demo)
   - [Setting up Developer Environment](#setting-up-developer-environment)
+  - [Security Notice](#security-notice)
+  - [Code of Conduct](#code-of-conduct)
 
-## Security Notice
+## Basic Usage
 
-If you would like to report a security critical bug related to the relayer repo,
-please send an email to [`security@cosmosnetwork.dev`](mailto:security@cosmosnetwork.dev)
+To setup and start the IBC relayer between two IBC-enabled networks, the following
+steps are typically performed:
 
-## Code of Conduct
+1. Install the latest release.
+2. Initialize the relayer's configuration.
 
-The Cosmos community is dedicated to providing an inclusive and harassment free
-experience for contributors. Please visit [Code of Conduct](CODE_OF_CONDUCT.md) for more information.
+   ```shell
+   $ rly config init
+   ```
 
-## Testnet
+3. Add relevant chain configurations to the relayer's configuration. See the
+   [Chain](https://pkg.go.dev/github.com/cosmos/relayer/relayer#Chain) type for
+   more information.
 
-If you would like to join a relayer testnet, please [check out the instructions](./testnets/README.md).
+   e.g. chain configuration:
 
-## Compatibility Table
+   ```shell
+   # chain_a_config.json
+   {
+     "chain-id": "chain-a",
+     "rpc-addr": "http://127.0.0.1:26657",
+     "account-prefix": "cosmos",
+     "gas-adjustment": 1.5,
+     "gas-prices": "0.001umuon",
+     "trusting-period": "10m"
+   }
+   ```
 
-| chain                                    | build                                                                                                                                                   | supported ports |
-|------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------|
-| [gaia](https://github.com/cosmos/gaia)   | ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/cosmos/relayer/TESTING%20-%20gaia%20to%20gaia%20integration?style=flat-square)  | transfer        |
-| [akash](https://github.com/ovrclk/akash) | ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/cosmos/relayer/TESTING%20-%20akash%20to%20gaia%20integration?style=flat-square) | transfer        |
+   ```shell
+   $ rly chains add -f chain_a_config.json
+   $ rly chains add -f chain_b_config.json
+   ```
+
+4. Either import or create new keys for the relayer to use when signing and
+   relaying transactions.
+
+   ```shell
+   $ rly keys add relayer-chain-a # relayer key for chain_a
+   $ rly keys add relayer-chain-b # relayer key for chain_b
+   ```
+
+5. Assign the relayer chain-specific keys created or imported above to the
+   specific chain's configuration. Note, `key` from step (3).
+
+   ```shell
+   $ rly chains edit chain-a key relayer-chain-a
+   $ rly chains edit chain-b key relayer-chain-b
+   ```
+
+6. Both relayer accounts, e.g. `relayer-chain-a` and `relayer-chain-b`, need to
+   funded with tokens in order to successfully sign and relay transactions
+   between the IBC-connected networks. How this occurs depends on the network,
+   context and environment, e.g. local or test networks can use a faucet.
+7. Ensure both relayer accounts are funded by querying each.
+
+   ```shell
+   $ rly q balance chain-a
+   $ rly q balance chain-b
+   ```
+
+8. Now we are ready to initialize the light clients on each network. The relayer
+   will used the configured RPC endpoints from each network to fetch header
+   information and initialize the light clients.
+
+   ```shell
+   $ rly lite init chain-a -f
+   $ rly lite init chain-b -f
+   ```
+
+9. Next, we generate a new path representing a client, connection, channel and a
+   specific port between the two networks.
+
+   ```shell
+   $ rly paths generate chain-a chain-b transfer --port=transfer
+   ```
+
+10. Finally, we start the relayer on the path created in step (9). The relayer
+    will periodically update the clients and listen for IBC messages to relay.
+
+    ```shell
+    $ rly start transfer
+    ```
 
 ## Features
 
@@ -124,6 +189,17 @@ Here are the settings used to configure SDK-based full nodes (assuming 3 week un
 
 Note, operators can tweak `--pruning-keep-every` and `--pruning-interval` to their
 liking.
+
+## Compatibility Table
+
+| chain                                    | build                                                                                                                                                   | supported ports |
+|------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------|
+| [gaia](https://github.com/cosmos/gaia)   | ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/cosmos/relayer/TESTING%20-%20gaia%20to%20gaia%20integration?style=flat-square)  | transfer        |
+| [akash](https://github.com/ovrclk/akash) | ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/cosmos/relayer/TESTING%20-%20akash%20to%20gaia%20integration?style=flat-square) | transfer        |
+
+## Testnet
+
+If you would like to join a relayer testnet, please [check out the instructions](./testnets/README.md).
 
 ## Demo
 
@@ -207,3 +283,13 @@ the amount of time in your read-eval-print loops try the following:
    be sure to re-run `./two-chainz`.
 4. If you need to work off of a `gaia` branch other than `master`, change the
    branch name at the top of the `./two-chainz` script.
+
+## Security Notice
+
+If you would like to report a security critical bug related to the relayer repo,
+please send an email to [`security@cosmosnetwork.dev`](mailto:security@cosmosnetwork.dev)
+
+## Code of Conduct
+
+The Cosmos community is dedicated to providing an inclusive and harassment free
+experience for contributors. Please visit [Code of Conduct](CODE_OF_CONDUCT.md) for more information.
