@@ -653,14 +653,14 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 
 func queryChannels() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "channels [chain-id]",
-		Aliases: []string{"chans"},
-		Short:   "Query for all channels on a chain",
-		Args:    cobra.ExactArgs(1),
+		Use:   "channels [chain-id]",
+		Short: "query for all channels on a network by chain ID",
+		Args:  cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query channels ibc-0
-$ %s query channels ibc-2 --offset 2 --limit 30
-$ %s q chans ibc-1`, appName, appName, appName)),
+$ %s query channels ibc-2 --offset 2 --limit 30`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -692,11 +692,13 @@ $ %s q chans ibc-1`, appName, appName, appName)),
 func queryPacketCommitment() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "packet-commit [chain-id] [channel-id] [port-id] [seq]",
-		Short: "Query for the packet commitment given it's sequence and channel ids",
+		Short: "query for the packet commitment given a sequence and channel ID on a network by chain ID",
 		Args:  cobra.ExactArgs(4),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query packet-commit ibc-0 ibczerochannel transfer 32
-$ %s q packet-commit ibc-1 ibconechannel transfer 31`, appName, appName)),
+$ %s q packet-commit ibc-1 ibconechannel transfer 31`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -726,19 +728,20 @@ $ %s q packet-commit ibc-1 ibconechannel transfer 31`, appName, appName)),
 
 func queryUnrelayedPackets() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "unrelayed-packets [path]",
-		Aliases: []string{"unrelayed", "pkts"},
-		Short:   "Query for the packet sequence numbers that remain to be relayed on a given path",
-		Args:    cobra.ExactArgs(1),
+		Use:   "unrelayed-packets [path]",
+		Short: "query for the packet sequence numbers that remain to be relayed on a given path",
+		Args:  cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s query unrelayed-packets demo-path
-$ %s query unrelayed demo-path
-$ %s q pkts demo-path`, appName, appName, appName)),
+$ %s q unrelayed-packets demo-path
+$ %s query unrelayed-packets demo-path`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, err := config.Paths.Get(args[0])
 			if err != nil {
 				return err
 			}
+
 			src, dst := path.Src.ChainID, path.Dst.ChainID
 
 			c, err := config.Chains.Gets(src, dst)
