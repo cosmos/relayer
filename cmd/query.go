@@ -728,13 +728,15 @@ $ %s q packet-commit ibc-1 ibconechannel transfer 31`,
 
 func queryUnrelayedPackets() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "unrelayed-packets [path]",
-		Short: "query for the packet sequence numbers that remain to be relayed on a given path",
-		Args:  cobra.ExactArgs(1),
+		Use:     "unrelayed-packets [path]",
+		Aliases: []string{"unrelayed-pkts"},
+		Short:   "query for the packet sequence numbers that remain to be relayed on a given path",
+		Args:    cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s q unrelayed-packets demo-path
-$ %s query unrelayed-packets demo-path`,
-			appName, appName,
+$ %s query unrelayed-packets demo-path
+$ %s query unrelayed-pkts demo-path`,
+			appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, err := config.Paths.Get(args[0])
@@ -782,12 +784,15 @@ $ %s query unrelayed-packets demo-path`,
 func queryUnrelayedAcknowledgements() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "unrelayed-acknowledgements [path]",
-		Aliases: []string{"acks"},
-		Short:   "Query for the packet sequence numbers that remain to be relayed on a given path",
+		Aliases: []string{"unrelayed-acks"},
+		Short:   "query for unrelayed acknowledgement sequence numbers that remain to be relayed on a given path",
 		Args:    cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s q unrelayed-acknowledgements demo-path
 $ %s query unrelayed-acknowledgements demo-path
-$ %s q acks demo-path`, appName, appName)),
+$ %s query unrelayed-acks demo-path`,
+			appName, appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, err := config.Paths.Get(args[0])
 			if err != nil {
