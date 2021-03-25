@@ -361,12 +361,12 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 func relayMsgsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "relay-packets [path-name]",
-		Aliases: []string{"relay"},
+		Aliases: []string{"relay-pkts"},
 		Short:   "relay any remaining non-relayed packets on a given path, in both directions",
 		Args:    cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact relay-packets demo-path
-$ %s tx relay demo-path`,
+$ %s tx relay-pkts demo-path`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -403,12 +403,12 @@ $ %s tx relay demo-path`,
 func relayAcksCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "relay-acknowledgements [path-name]",
-		Aliases: []string{"acks"},
+		Aliases: []string{"relay-acks"},
 		Short:   "relay any remaining non-relayed acknowledgements on a given path, in both directions",
 		Args:    cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact relay-acknowledgements demo-path
-$ %s tx acks demo-path -l 3 -s 6`,
+$ %s tx relay-acks demo-path -l 3 -s 6`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
