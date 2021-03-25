@@ -26,6 +26,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
@@ -58,7 +59,54 @@ func transactionCmd() *cobra.Command {
 		closeChannelCmd(),
 		flags.LineBreak,
 		rawTransactionCmd(),
+		flags.LineBreak,
+		sendCmd(),
 	)
+
+	return cmd
+}
+
+func sendCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "send [chain-id] [from-key] [to-address] [amount]",
+		Short:   "send funds to a different address on the same chain",
+		Args:    cobra.ExactArgs(4),
+		Example: strings.TrimSpace(fmt.Sprintf(`$ %s tx send testkey cosmos10yft4nc8tacpngwlpyq3u4t88y7qzc9xv0q4y8 10000uatom`, appName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			key, err := c.Keybase.Key(args[1])
+			if err != nil {
+				return err
+			}
+
+			to, err := sdk.AccAddressFromBech32(args[2])
+			if err != nil {
+				return err
+			}
+
+			amt, err := sdk.ParseCoinsNormalized(args[3])
+			if err != nil {
+				return err
+			}
+
+			msg := banktypes.NewMsgSend(key.GetAddress(), to, amt)
+			if err := msg.ValidateBasic(); err != nil {
+				return err
+			}
+
+			res, _, err := c.SendMsg(msg)
+			if err != nil {
+				return err
+			}
+
+			return c.Print(res, false, true)
+		},
+	}
 
 	return cmd
 }
