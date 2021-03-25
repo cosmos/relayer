@@ -210,14 +210,14 @@ $ %s q acc ibc-1`,
 
 func queryBalanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "balance [chain-id] [[key-name]]",
-		Aliases: []string{"bal"},
-		Short:   "Query the account balances",
-		Args:    cobra.RangeArgs(1, 2),
+		Use:   "balance [chain-id] [[key-name]]",
+		Short: "query the relayer's account balance on a given network by chain-ID",
+		Args:  cobra.RangeArgs(1, 2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query balance ibc-0
-$ %s query balance ibc-0 testkey
-$ %s q bal ibc-1 --ibc-denoms`, appName, appName, appName)),
+$ %s query balance ibc-0 testkey`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -252,19 +252,20 @@ $ %s q bal ibc-1 --ibc-denoms`, appName, appName, appName)),
 			return nil
 		},
 	}
+
 	return ibcDenomFlags(cmd)
 }
 
 func queryHeaderCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "header [chain-id] [[height]]",
-		Aliases: []string{"hdr"},
-		Short:   "Query the header of a chain at a given height",
-		Args:    cobra.RangeArgs(1, 2),
+		Use:   "header [chain-id] [[height]]",
+		Short: "query the header of a network by chain ID at a given height or the latest height",
+		Args:  cobra.RangeArgs(1, 2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query header ibc-0
-$ %s query header ibc-0 1400
-$ %s q hdr ibc-1`, appName, appName, appName)),
+$ %s query header ibc-0 1400`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -279,6 +280,7 @@ $ %s q hdr ibc-1`, appName, appName, appName)),
 				if err != nil {
 					return err
 				}
+
 			case 2:
 				header, err = helpers.QueryHeader(chain, args[1])
 				if err != nil {
@@ -298,11 +300,13 @@ $ %s q hdr ibc-1`, appName, appName, appName)),
 func queryNodeStateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "node-state [chain-id]",
-		Short: "Query the consensus state of a node",
+		Short: "query the consensus state of a network by chain ID",
 		Args:  cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query node-state ibc-0
-$ %s q node-state ibc-1`, appName, appName)),
+$ %s q node-state ibc-1`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
