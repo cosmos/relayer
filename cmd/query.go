@@ -173,11 +173,13 @@ func queryAccountCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "account [chain-id]",
 		Aliases: []string{"acc"},
-		Short:   "Query the account data",
+		Short:   "query the relayer's account on a given network by chain ID",
 		Args:    cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query account ibc-0
-$ %s q acc ibc-1`, appName, appName)),
+$ %s q acc ibc-1`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -193,7 +195,8 @@ $ %s q acc ibc-1`, appName, appName)),
 				context.Background(),
 				&types.QueryAccountRequest{
 					Address: addr.String(),
-				})
+				},
+			)
 			if err != nil {
 				return err
 			}
@@ -201,6 +204,7 @@ $ %s q acc ibc-1`, appName, appName)),
 			return chain.Print(res, false, false)
 		},
 	}
+
 	return cmd
 }
 
