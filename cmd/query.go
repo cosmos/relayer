@@ -327,14 +327,14 @@ $ %s q node-state ibc-1`,
 
 func queryClientCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "client [chain-id] [client-id]",
-		Aliases: []string{"clnt"},
-		Short:   "Query the state of a client given it's client-id",
-		Args:    cobra.ExactArgs(2),
+		Use:   "client [chain-id] [client-id]",
+		Short: "query the state of a light client on a network by chain ID",
+		Args:  cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query client ibc-0 ibczeroclient
-$ %s query client ibc-0 ibczeroclient --height 1205
-$ %s q clnt ibc-1 ibconeclient`, appName, appName, appName)),
+$ %s query client ibc-0 ibczeroclient --height 1205`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
