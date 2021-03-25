@@ -609,14 +609,14 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 
 func queryChannel() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "channel [chain-id] [channel-id] [port-id]",
-		Aliases: []string{"chan"},
-		Short:   "Query a channel given it's channel and port ids",
-		Args:    cobra.ExactArgs(3),
+		Use:   "channel [chain-id] [channel-id] [port-id]",
+		Short: "query a channel by channel and port ID on a network by chain ID",
+		Args:  cobra.ExactArgs(3),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query channel ibc-0 ibczerochannel transfer
-$ %s query channel ibc-2 ibctwochannel transfer --height 1205
-$ %s q chan ibc-1 ibconechannel transfer`, appName, appName, appName)),
+$ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
