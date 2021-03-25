@@ -531,11 +531,13 @@ func queryConnection() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "connection [chain-id] [connection-id]",
 		Aliases: []string{"conn"},
-		Short:   "Query the connection state for the given connection id",
+		Short:   "query the connection state for a given connection id on a network by chain ID",
 		Args:    cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query connection ibc-0 ibconnection0
-$ %s q conn ibc-1 ibconeconn`, appName, appName)),
+$ %s q conn ibc-1 ibconeconn`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
