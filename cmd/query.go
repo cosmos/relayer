@@ -87,11 +87,13 @@ $ %s q ibc-denoms ibc-0`,
 func queryTx() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tx [chain-id] [tx-hash]",
-		Short: "Query transaction by transaction hash",
+		Short: "Query for a transaction on a given network by transaction hash and chain ID",
 		Args:  cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query tx ibc-0 [tx-hash]
-$ %s q tx ibc-0 A5DF8D272F1C451CFF92BA6C41942C4D29B5CF180279439ED6AB038282F956BE`, appName, appName)),
+$ %s q tx ibc-0 A5DF8D272F1C451CFF92BA6C41942C4D29B5CF180279439ED6AB038282F956BE`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -112,6 +114,7 @@ $ %s q tx ibc-0 A5DF8D272F1C451CFF92BA6C41942C4D29B5CF180279439ED6AB038282F956BE
 			return nil
 		},
 	}
+
 	return cmd
 }
 
