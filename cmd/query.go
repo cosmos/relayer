@@ -87,7 +87,7 @@ $ %s q ibc-denoms ibc-0`,
 func queryTx() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tx [chain-id] [tx-hash]",
-		Short: "Query for a transaction on a given network by transaction hash and chain ID",
+		Short: "query for a transaction on a given network by transaction hash and chain ID",
 		Args:  cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query tx ibc-0 [tx-hash]
@@ -121,16 +121,20 @@ $ %s q tx ibc-0 A5DF8D272F1C451CFF92BA6C41942C4D29B5CF180279439ED6AB038282F956BE
 func queryTxs() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "txs [chain-id] [events]",
-		Short: "Query transactions by the events they produce",
-		Long: strings.TrimSpace(
-			`Search for transactions that match the exact given events where results are paginated. Each event 
-takes the form of '{eventType}.{eventAttribute}={value}' with multiple events separated by '&'. 
+		Short: "query for transactions on a given network by chain ID and a set of transaction events",
+		Long: strings.TrimSpace(`Search for a paginated list of transactions that match the given set of
+events. Each event takes the form of '{eventType}.{eventAttribute}={value}' with multiple events
+separated by '&'.
+
 Please refer to each module's documentation for the full set of events to query for. Each module
-documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.`),
+documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.`,
+		),
 		Args: cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query txs ibc-0 "message.action=transfer" --offset 1 --limit 10
-$ %s q txs ibc-0 "message.action=transfer"`, appName, appName)),
+$ %s q txs ibc-0 "message.action=transfer"`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -161,6 +165,7 @@ $ %s q txs ibc-0 "message.action=transfer"`, appName, appName)),
 			return nil
 		},
 	}
+
 	return paginationFlags(cmd)
 }
 
