@@ -108,8 +108,10 @@ func (c *Chain) InjectTrustedFields(dst *Chain, header *tmclient.Header) (*tmcli
 	// inject TrustedHeight as latest height stored on counterparty client
 	h.TrustedHeight = cs.GetLatestHeight().(clienttypes.Height)
 
-	// query TrustedValidators at Trusted Height from srcChain
-	trustedHeader, err := c.GetLightSignedHeaderAtHeight(int64(h.TrustedHeight.RevisionHeight))
+	// NOTE: We need to get validators from the source chain at height: trustedHeight+1
+	// since the last trusted validators for a header at height h is the NextValidators
+	// at h+1 committed to in header h by NextValidatorsHash
+	trustedHeader, err := c.GetLightSignedHeaderAtHeight(int64(h.TrustedHeight.RevisionHeight) + 1)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to get trusted header, please ensure header at the height %d has not been pruned by the connected node: %w",
