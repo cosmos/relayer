@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.9.1
+
+**2021/03/26**
+
+### Relayer
+
+* [\#474](https://github.com/cosmos/relayer/pull/474) Fix validator set mismatch when updating IBC client.
+
+
 ## v0.9.0
 
 **2021/03/23**
