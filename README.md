@@ -36,7 +36,6 @@ wanting to build their [IBC](https://ibcprotocol.org/)-compliant relayer.
   - [Compatibility Table](#compatibility-table)
   - [Testnet](#testnet)
   - [Demo](#demo)
-  - [Setting up Developer Environment](#setting-up-developer-environment)
   - [Security Notice](#security-notice)
   - [Code of Conduct](#code-of-conduct)
 
@@ -262,27 +261,6 @@ $ rly q bal ibc-1
 # NOTE: you will see the stake balances decreasing on each chain. This is to pay for fees
 # You can change the amount of fees you are paying on each chain in the configuration.
 ```
-
-## Setting up Developer Environment
-
-Working with the relayer can frequently involve working with local development
-branches of your desired applications/networks, e.g. `gaia`, `akash`, in addition
-to `cosmos-sdk` and the `relayer`.
-
-To setup your environment to point at the local versions of the code and reduce
-the amount of time in your read-eval-print loops try the following:
-
-1. Set `replace github.com/cosmos/cosmos-sdk => /path/to/local/github.com/comsos/cosmos-sdk`
-   at the end of the `go.mod` files for the `relayer` and your network/application,
-   e.g. `gaia`. This will force building from the local version of the `cosmos-sdk`
-   when running the `./dev-env` script.
-2. After `./dev-env` has run, you can use `go run main.go` for any relayer
-   commands you are working on. This allows you make changes and immediately test
-   them as long as there are no server side changes.
-3. If you make changes in `cosmos-sdk` that need to be reflected server-side,
-   be sure to re-run `./two-chainz`.
-4. If you need to work off of a `gaia` branch other than `master`, change the
-   branch name at the top of the `./two-chainz` script.
 
 ## Security Notice
 

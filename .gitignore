@@ -7,3 +7,4 @@ nchainz/
 .idea/
 .csv
 chain-code/
+.docker/
