@@ -7,4 +7,5 @@ nchainz/
 .idea/
 .csv
 chain-code/
-.docker/
+two-chains/ibc-*
+two-chains/.relayer
