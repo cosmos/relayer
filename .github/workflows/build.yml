@@ -36,13 +36,17 @@ jobs:
         uses: actions/checkout@v2
       - name: Test liveness
         run: |
-          make two-chains
-      - name: Coverage
-        uses: codecov/codecov-action@v1
-        with:
-          file: ./profile.cov
-          name: codecov-umbrella # optional
-          fail_ci_if_error: true # optional (default = false)
+          docker-compose -f ./two-chains/docker-compose.yaml down
+          rm -fr ./two-chains/ibc-* ./two-chains/.relayer ./two-chains/rly.log
+          docker-compose -f ./two-chains/docker-compose.yaml up -d
+          docker logs two-chains_ibc-0_1
+          docker ps -a
+      # - name: Coverage
+      #   uses: codecov/codecov-action@v1
+      #   with:
+      #     file: ./profile.cov
+      #     name: codecov-umbrella # optional
+      #     fail_ci_if_error: true # optional (default = false)
 
 # jobs:
 #   build:
