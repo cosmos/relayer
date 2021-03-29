@@ -1,41 +1,127 @@
 # Relayer
 ![Relayer](./docs/images/github-repo-banner.gif)
 
-![Relayer Build](https://github.com/cosmos/relayer/workflows/Build%20then%20run%20CI%20Chains/badge.svg)
+[![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](https://img.shields.io/badge/repo%20status-WIP-yellow.svg?style=flat-square)](https://www.repostatus.org/#wip)
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/cosmos/relayer/BUILD%20-%20build%20and%20binary%20upload?style=flat-square)
+[![GoDoc](https://img.shields.io/badge/godoc-reference-blue?style=flat-square&logo=go)](https://godoc.org/github.com/cosmos/relayer)
+[![Go Report Card](https://goreportcard.com/badge/github.com/cosmos/relayer?style=flat-square)](https://goreportcard.com/report/github.com/cosmos/relayer)
+[![License: Apache-2.0](https://img.shields.io/github/license/cosmos/relayer.svg?style=flat-square)](https://github.com/cosmos/relayer/blob/master/LICENSE)
+[![Lines Of Code](https://img.shields.io/tokei/lines/github/cosmos/relayer?style=flat-square)](https://github.com/cosmos/relayer)
+[![Version](https://img.shields.io/github/tag/cosmos/relayer.svg?style=flat-square)](https://github.com/umee-network/cosmos/relayer/latest)
 
-The Cosmos IBC `relayer` package contains a basic relayer implementation that is
-meant for users wishing to relay packets/data between sets of IBC enabled chains.
-In addition, it is intended as an example where anyone who is interested in building 
-their own relayer can come for complete, working, examples.
+This repository contains a Golang implementation of a Cosmos [IBC](https://ibcprotocol.org/)
+relayer. The `relayer` package contains a basic relayer implementation that is
+meant for users wanting to relay packets/data between sets of
+[IBC](https://ibcprotocol.org/)-enabled chains.
 
-**NOTE:** The relayer is in alpha and is not production ready. If it is used in production, 
-it should always be run in a secure environment and only with just enough funds to 
-relay transactions. Security critical operations **should** manually verify that the
-client identifier used in the configuration file corresponds to the correct initial 
-consensus state of the counterparty chain. This can be done by querying the initial 
-consensus state and the header of the counterparty and verifying that the root and
-hash of the next validator set match. This can be considered equivalent to checking
-the sha hash of a download or a GPG signature. 
+The relayer implementation also acts as a base reference implementation for those
+wanting to build their [IBC](https://ibcprotocol.org/)-compliant relayer.
+  
+> **NOTE:** The relayer is currently in alpha and is not production ready. If it
+> is used in production, it should always be run in a secure environment and
+> only with just enough funds to relay transactions. Security critical operations
+> **should** manually verify that the client identifier used in the configuration
+> file corresponds to the correct initial consensus state of the counter-party
+> chain. This can be done by querying the initial consensus state and the header
+> of the counter-party and verifying that the root and hash of the next validator
+> set match. This can be considered equivalent to checking the sha hash of a
+> download or a GPG signature.
 
-### Security Notice
+- [Relayer](#relayer)
+  - [Basic Usage](#basic-usage)
+  - [Features](#features)
+  - [Relayer Terminology](#relayer-terminology)
+  - [Recommended Pruning Settings](#recommended-pruning-settings)
+  - [Compatibility Table](#compatibility-table)
+  - [Testnet](#testnet)
+  - [Demo](#demo)
+  - [Security Notice](#security-notice)
+  - [Code of Conduct](#code-of-conduct)
 
-If you would like to report a security critical bug related to the relayer repo, please send an email to [`security@cosmosnetwork.dev`](mailto:security@cosmosnetwork.dev)
+## Basic Usage
 
-## Code of Conduct
+To setup and start the IBC relayer between two IBC-enabled networks, the following
+steps are typically performed:
 
-The Cosmos community is dedicated to providing an inclusive and harassment free experience for contributors. Please visit [Code of Conduct](CODE_OF_CONDUCT.md) for more information.
+1. Install the latest release.
+2. Initialize the relayer's configuration.
 
-## Testnet
+   ```shell
+   $ rly config init
+   ```
 
-If you would like to join a relayer testnet, please [check out the instructions](./testnets/README.md).
+3. Add relevant chain configurations to the relayer's configuration. See the
+   [Chain](https://pkg.go.dev/github.com/cosmos/relayer/relayer#Chain) type for
+   more information.
 
-### Compatibility Table:
+   e.g. chain configuration:
 
-> NOTE: 
+   ```shell
+   # chain_a_config.json
+   {
+     "chain-id": "chain-a",
+     "rpc-addr": "http://127.0.0.1:26657",
+     "account-prefix": "cosmos",
+     "gas-adjustment": 1.5,
+     "gas-prices": "0.001umuon",
+     "trusting-period": "10m"
+   }
+   ```
 
-| chain | tests | supported ports |
-|-------|--------|----------------|
-| [`gaia`](https://github.com/cosmos/gaia) | ![gaia](https://github.com/cosmos/relayer/workflows/TESTING%20-%20gaia%20to%20gaia%20integration/badge.svg) | `transfer` |
+   ```shell
+   $ rly chains add -f chain_a_config.json
+   $ rly chains add -f chain_b_config.json
+   ```
+
+4. Either import or create new keys for the relayer to use when signing and
+   relaying transactions.
+
+   ```shell
+   $ rly keys add relayer-chain-a # relayer key for chain_a
+   $ rly keys add relayer-chain-b # relayer key for chain_b
+   ```
+
+5. Assign the relayer chain-specific keys created or imported above to the
+   specific chain's configuration. Note, `key` from step (3).
+
+   ```shell
+   $ rly chains edit chain-a key relayer-chain-a
+   $ rly chains edit chain-b key relayer-chain-b
+   ```
+
+6. Both relayer accounts, e.g. `relayer-chain-a` and `relayer-chain-b`, need to
+   funded with tokens in order to successfully sign and relay transactions
+   between the IBC-connected networks. How this occurs depends on the network,
+   context and environment, e.g. local or test networks can use a faucet.
+7. Ensure both relayer accounts are funded by querying each.
+
+   ```shell
+   $ rly q balance chain-a
+   $ rly q balance chain-b
+   ```
+
+8. Now we are ready to initialize the light clients on each network. The relayer
+   will used the configured RPC endpoints from each network to fetch header
+   information and initialize the light clients.
+
+   ```shell
+   $ rly lite init chain-a -f
+   $ rly lite init chain-b -f
+   ```
+
+9. Next, we generate a new path representing a client, connection, channel and a
+   specific port between the two networks.
+
+   ```shell
+   $ rly paths generate chain-a chain-b transfer --port=transfer
+   ```
+
+10. Finally, we start the relayer on the path created in step (9). The relayer
+    will periodically update the clients and listen for IBC messages to relay.
+
+    ```shell
+    $ rly start transfer
+    ```
 
 ## Features
 
@@ -148,11 +234,11 @@ $ rly q bal ibc-1
 # You can change the amount of fees you are paying on each chain in the configuration.
 ```
 
-## Setting up Developer Environment
+## Security Notice
 
-Working with the relayer can frequently involve working with local development branches of `gaia`, `akash`, `cosmos-sdk` and the `relayer`. To setup your environment to point at the local versions of the code and reduce the amount of time in your read-eval-print loops try the following:
+If you would like to report a security critical bug related to the relayer repo,
+please send an email to [`security@cosmosnetwork.dev`](mailto:security@cosmosnetwork.dev)
 
-1. Set `replace github.com/cosmos/cosmos-sdk => /path/to/local/github.com/comsos/cosmos-sdk` at the end of the `go.mod` files for the `relayer` and `gaia`. This will force building from the local version of the `cosmos-sdk` when running the `./dev-env` script.
-2. After `./dev-env` has run, you can use `go run main.go` for any relayer commands you are working on. This allows you make changes and immediately test them as long as there are no server side changes.
-3. If you make changes in `cosmos-sdk` that need to be reflected server-side, be sure to re-run `./two-chainz`.
-4. If you need to work off of a `gaia` branch other than `master`, change the branch name at the top of the `./two-chainz` script.
+## Code of Conduct
+
+The Cosmos community is dedicated to providing an inclusive and harassment free experience for contributors. Please visit Code of Conduct for more information.

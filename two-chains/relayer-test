@@ -1,0 +1,53 @@
+#!/bin/bash
+
+relayer_dir=./.relayer
+
+# start relayer on the transfer path
+echo "--> starting the relayer..."
+rm -fr rly.log
+rly start transfer --home $relayer_dir --time-threshold=1m > rly.log 2>&1 &
+rly_pid=$!
+
+sleep 5
+
+declare -a transfer_pids
+
+for i in {0..19}
+do
+  # send transfer and store PID
+  echo "--> ($((i+1))/20) sending transfer..."
+  rly tx transfer ibc-0 ibc-1 1000uatom cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path=transfer --home $relayer_dir &
+  transfer_pids+=($!)
+
+  sleep 1
+done
+
+# wait for all transfer processes to exit
+successful_transfers=0
+for pid in "${transfer_pids[@]}"
+do
+  wait $pid
+  result=$?
+  if [ $result -eq 0 ]; then
+    ((successful_transfers++))
+  fi
+done
+
+echo "--> successful transfers: $successful_transfers"
+
+if [ $successful_transfers -eq 0 ]; then
+  echo "--> all transfers failed"
+  exit 1
+fi
+
+# ensure the relayer is still running and kill it afterwards
+if ps -p $rly_pid > /dev/null
+then
+  echo "--> stopping relayer..."
+  kill $rly_pid
+else
+  echo "--> relayer is not running!"
+  exit 1
+fi
+
+echo "--> finished 🎉"

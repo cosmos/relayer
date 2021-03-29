@@ -1,0 +1,31 @@
+#!/bin/bash
+
+relayer_dir=./.relayer
+
+echo "--> removing old relayer test directory"
+rm -fr $relayer_dir
+
+echo "--> creating new relayer test directory"
+mkdir $relayer_dir
+
+echo "--> generating relayer configuration..."
+rly config init --home $relayer_dir
+rly config add-chains ./chains --home $relayer_dir
+
+echo "--> importing relayer keys..."
+seed_ibc0=$(jq -r '.mnemonic' ./ibc-0/key_seed.json)
+seed_ibc1=$(jq -r '.mnemonic' ./ibc-1/key_seed.json)
+echo "--> key $(rly keys restore --home $relayer_dir ibc-0 ibc-0-relayer-key "$seed_ibc0") imported from ibc-0 to relayer"
+echo "--> key $(rly keys restore --home $relayer_dir ibc-1 ibc-1-relayer-key "$seed_ibc1") imported from ibc-1 to relayer"
+
+echo "--> adding transfer path to relayer..."
+rly config add-paths ./paths --home $relayer_dir
+
+echo "--> creating light clients..."
+rly light init ibc-0 -f --home $relayer_dir
+rly light init ibc-1 -f --home $relayer_dir
+
+echo "--> linking transfer path..."
+rly tx link transfer --home $relayer_dir -r 10 -o 20s
+
+echo "--> relayer ready to use 🎉"

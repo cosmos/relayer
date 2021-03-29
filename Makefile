@@ -48,6 +48,15 @@ install: go.sum
 ###############################################################################
 # Tests / CI
 ###############################################################################
+
+two-chains:
+	@docker-compose -f ./two-chains/docker-compose.yaml down
+	@rm -fr ./two-chains/ibc-* ./two-chains/.relayer ./two-chains/rly.log
+	@docker-compose -f ./two-chains/docker-compose.yaml up -d
+	@while ! curl localhost:26657 &> /dev/null; do sleep 1; done
+	@while ! curl localhost:26667 &> /dev/null; do sleep 1; done
+	@cd ./two-chains && sh relayer-setup && cd ..
+
 test:
 	@TEST_DEBUG=true go test -mod=readonly -v ./test/...
 
@@ -65,8 +74,6 @@ lint:
 	@golangci-lint run
 	@find . -name '*.go' -type f -not -path "*.git*" | xargs gofmt -d -s
 	@go mod verify
-
-.PHONY: install build lint coverage clean
 
 ###############################################################################
 # Chain Code Downloads
@@ -104,3 +111,5 @@ check-swagger:
 
 update-swagger-docs: check-swagger
 	swagger generate spec -o ./docs/swagger-ui/swagger.yaml
+
+.PHONY: two-chains test install build lint coverage clean
