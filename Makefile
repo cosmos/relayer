@@ -51,7 +51,7 @@ install: go.sum
 
 two-chains:
 	@docker-compose -f ./two-chains/docker-compose.yaml down
-	@rm -fr ./two-chains/ibc-* ./two-chains/.relayer
+	@rm -fr ./two-chains/ibc-* ./two-chains/.relayer ./two-chains/rly.log
 	@docker-compose -f ./two-chains/docker-compose.yaml up -d
 	@while ! curl localhost:26657 &> /dev/null; do sleep 1; done
 	@while ! curl localhost:26667 &> /dev/null; do sleep 1; done

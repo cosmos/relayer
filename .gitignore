@@ -9,3 +9,4 @@ nchainz/
 chain-code/
 two-chains/ibc-*
 two-chains/.relayer
+two-chains/*.log
