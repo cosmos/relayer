@@ -54,10 +54,13 @@ Most of these commands take a [path] argument. Make sure:
 
 func sendCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "send [chain-id] [from-key] [to-address] [amount]",
-		Short:   "send funds to a different address on the same chain",
-		Args:    cobra.ExactArgs(4),
-		Example: strings.TrimSpace(fmt.Sprintf(`$ %s tx send testkey cosmos10yft4nc8tacpngwlpyq3u4t88y7qzc9xv0q4y8 10000uatom`, appName)),
+		Use:   "send [chain-id] [from-key] [to-address] [amount]",
+		Short: "send funds to a different address on the same chain",
+		Args:  cobra.ExactArgs(4),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s tx send testkey cosmos10yft4nc8tacpngwlpyq3u4t88y7qzc9xv0q4y8 10000uatom`,
+			appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := config.Chains.Get(args[0])
 			if err != nil {
