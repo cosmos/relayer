@@ -9,7 +9,7 @@ services:
         volumes:
             - ./ibc-0:/gaia/.gaia
         command: >
-            sh -c "gaiad --chain-id=ibc-0 init ibc-0
+            sh -c "sudo gaiad --chain-id=ibc-0 init ibc-0
             && gaiad keys add validator --keyring-backend='test' --output json > $$HOME/.gaia/validator_seed.json 2> /dev/null
             && gaiad keys add user --keyring-backend='test' --output json > $$HOME/.gaia/key_seed.json 2> /dev/null
             && gaiad add-genesis-account $$(gaiad keys --keyring-backend='test' show user -a) 100000000000stake,100000000000uatom
