@@ -57,13 +57,6 @@ two-chains:
 	@while ! curl localhost:26667 &> /dev/null; do sleep 1; done
 	@cd ./two-chains && sh relayer-setup && cd ..
 
-two-chains-ci:
-	@docker-compose -f ./two-chains/docker-compose.ci.yaml down
-	@rm -fr ./two-chains/ibc-* ./two-chains/.relayer ./two-chains/rly.log
-	@docker-compose -f ./two-chains/docker-compose.ci.yaml up -d
-	@sleep 5 
-	@cd ./two-chains && sh relayer-setup && cd ..
-
 test:
 	@TEST_DEBUG=true go test -mod=readonly -v ./test/...
 
@@ -119,4 +112,4 @@ check-swagger:
 update-swagger-docs: check-swagger
 	swagger generate spec -o ./docs/swagger-ui/swagger.yaml
 
-.PHONY: two-chains two-chains-ci test install build lint coverage clean
+.PHONY: two-chains test install build lint coverage clean

@@ -1,101 +1,59 @@
-name: Build, Test, and Cover
+name: BUILD - build and binary upload
 
 on:
   pull_request:
   push:
     branches:
       - master
-  schedule:
-    - cron: "0 0 * * 0" # weekly
 
 jobs:
-  lint:
-    name: lint
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      # Install and setup go
+      - name: Set up Go 1.15
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.15
+
+      # setup gopath
+      - name: Set PATH
+        run: |
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+        shell: bash
+
+      # checkout relayer
+      - name: checkout relayer
+        uses: actions/checkout@v2
+
+      # setup cache
+      - uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      # build binary
+      - name: build binary and move to upload location
+        run: make build
+
+      # upload resulting binaries
+      - name: upload binaries
+        uses: actions/upload-artifact@v1
+        with:
+          name: rly
+          path: ./build/rly
+
+  golangci:
+    name: golangci-lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v2
+      - uses: golangci/golangci-lint-action@master
         with:
-          version: v1.29
+          # Required: the version of golangci-lint is required and must be specified without patch version: we always use the latest patch version.
+          version: v1.28
+          args: --timeout 10m
           github-token: ${{ secrets.github_token }}
-
-  test-and-cover:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        go: ["1.15", "1.16"]
-    steps:
-      - name: Setup
-        uses: actions/setup-go@v2
-        with:
-          go-version: ${{ matrix.go }}
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Test liveness
-        run: |
-          docker-compose -f ./two-chains/docker-compose.ci.yaml down
-          rm -fr ./two-chains/ibc-* ./two-chains/.relayer ./two-chains/rly.log
-          docker-compose -f ./two-chains/docker-compose.ci.yaml up -d
-          docker logs two-chains_ibc-0_1
-          docker ps -a
-      - name: Coverage
-        uses: codecov/codecov-action@v1
-        with:
-          file: ./profile.cov
-          name: codecov-umbrella # optional
-          fail_ci_if_error: true # optional (default = false)
-
-# jobs:
-#   build:
-#     name: build
-#     runs-on: ubuntu-latest
-#     steps:
-#       # Install and setup go
-#       - name: Set up Go 1.15
-#         uses: actions/setup-go@v2
-#         with:
-#           go-version: 1.15
-
-#       # setup gopath
-#       - name: Set PATH
-#         run: |
-#           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-#         shell: bash
-
-#       # checkout relayer
-#       - name: checkout relayer
-#         uses: actions/checkout@v2
-
-#       # setup cache
-#       - uses: actions/cache@v1
-#         with:
-#           path: ~/go/pkg/mod
-#           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-#           restore-keys: |
-#             ${{ runner.os }}-go-
-
-#       # build binary
-#       - name: build binary and move to upload location
-#         run: make build
-
-#       # upload resulting binaries
-#       - name: upload binaries
-#         uses: actions/upload-artifact@v1
-#         with:
-#           name: rly
-#           path: ./build/rly
-
-#   golangci:
-#     name: golangci-lint
-#     runs-on: ubuntu-latest
-#     steps:
-#       - uses: actions/checkout@v2
-#       - uses: golangci/golangci-lint-action@master
-#         with:
-#           # Required: the version of golangci-lint is required and must be specified without patch version: we always use the latest patch version.
-#           version: v1.28
-#           args: --timeout 10m
-#           github-token: ${{ secrets.github_token }}
