@@ -7,7 +7,7 @@ services:
             - "1317:1317"
             - "9090:9090"
         volumes:
-            - ./ibc-0:/gaia/.gaia
+            - ./ibc-0:/gaia/.gaia:Z
         command: >
             sh -c "gaiad --chain-id=ibc-0 init ibc-0
             && gaiad keys add validator --keyring-backend='test' --output json > $$HOME/.gaia/validator_seed.json 2> /dev/null
@@ -25,7 +25,7 @@ services:
             - "1318:1317"
             - "9091:9090"
         volumes:
-            - ./ibc-1:/gaia/.gaia
+            - ./ibc-1:/gaia/.gaia:Z
         command: >
             sh -c "gaiad --chain-id=ibc-1 init ibc-1
             && gaiad keys add validator --keyring-backend='test' --output json > $$HOME/.gaia/validator_seed.json 2> /dev/null
