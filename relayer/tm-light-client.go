@@ -34,6 +34,9 @@ var (
 	// a lock to prevent two processes from trying to access the light client
 	// database at the same time resulting in errors and panics.
 	lightDBMutex sync.Mutex
+
+	// ErrDatabase defines a sentinel database general error type.
+	ErrDatabase = errors.New("database failure")
 )
 
 func lightError(err error) error { return fmt.Errorf("light client: %w", err) }
@@ -175,28 +178,29 @@ func (c *Chain) LightClient(db dbm.DB) (*light.Client, error) {
 	)
 }
 
-// NewLightDB returns a new instance of the lightclient database connection
-// CONTRACT: must close the database connection when done with it (defer df())
-func (c *Chain) NewLightDB() (db *dbm.GoLevelDB, df func(), err error) {
-	// a lock is used to prevent error messages or panics from two processes
-	// trying to simultanenously use the light client
+// NewLightDB returns a new instance of the lightclient database connection. The
+// caller MUST close the database connection through a deferred execution of the
+// returned cleanup function.
+func (c *Chain) NewLightDB() (db *dbm.GoLevelDB, cleanup func(), err error) {
+	// XXX: A lock is used to prevent error messages or panics from two processes
+	// trying to simultaneously use the light client.
 	lightDBMutex.Lock()
 
 	db, err = dbm.NewGoLevelDB(c.ChainID, lightDir(c.HomePath))
 	if err != nil {
 		lightDBMutex.Unlock()
-		return nil, nil, fmt.Errorf("can't open light client database: %w", err)
+		return nil, nil, fmt.Errorf("%s: %w", err, ErrDatabase)
 	}
 
-	df = func() {
+	cleanup = func() {
 		err := db.Close()
 		lightDBMutex.Unlock()
 		if err != nil {
-			panic(err)
+			panic(fmt.Sprintf("failed to close light client database: %s", err))
 		}
 	}
 
-	return
+	return db, cleanup, nil
 }
 
 // DeleteLightDB removes the light client database on disk, forcing re-initialization
@@ -269,12 +273,25 @@ func (c *Chain) GetLatestLightHeight() (int64, error) {
 	return client.LastTrustedHeight()
 }
 
-// MustGetLatestLightHeight returns the latest height of the light client
-// and panics if an error occurs.
+// MustGetLatestLightHeight returns the latest height of the light client. If
+// an error occurs due to a database failure, we keep trying with a delayed
+// re-attempt. Otherwise, we panic.
 func (c *Chain) MustGetLatestLightHeight() uint64 {
 	height, err := c.GetLatestLightHeight()
 	if err != nil {
-		panic(err)
+		if errors.Is(err, ErrDatabase) {
+			// XXX: Sleep and try again if the database is unavailable. This can easily
+			// happen if two distinct resources try to access the database at the same
+			// time. To avoid causing a corrupted or lost packet, we keep trying as to
+			// not halt the relayer.
+			//
+			// ref: https://github.com/cosmos/relayer/issues/444
+			c.logger.Error("failed to get latest height due to a database failure; trying again...", "err", err)
+			time.Sleep(time.Second)
+			c.MustGetLatestLightHeight()
+		} else {
+			panic(err)
+		}
 	}
 
 	return uint64(height)

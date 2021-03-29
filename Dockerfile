@@ -7,15 +7,14 @@ COPY . .
 
 # Update and install needed deps prioir to installing the binary.
 RUN apk update && \
-    apk --no-cache add make git && \
-    make install
+  apk --no-cache add make git && \
+  make install
 
 FROM alpine:latest
 
 ENV RELAYER /relayer
 
-RUN addgroup rlyuser && \
-    adduser -S -G rlyuser rlyuser -h "$RELAYER"
+RUN addgroup rlyuser && adduser -S -G rlyuser rlyuser -h "$RELAYER"
 
 USER rlyuser
 

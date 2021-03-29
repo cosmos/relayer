@@ -1,0 +1,9 @@
+{
+  "key": "ibc-1-relayer-key",
+  "chain-id": "ibc-1",
+  "rpc-addr": "http://localhost:26667",
+  "account-prefix": "cosmos",
+  "gas-adjustment": 1.5,
+  "gas-prices": "0.025uatom",
+  "trusting-period": "336h"
+}
