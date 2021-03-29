@@ -61,8 +61,7 @@ two-chains-ci:
 	@docker-compose -f ./two-chains/docker-compose.ci.yaml down
 	@rm -fr ./two-chains/ibc-* ./two-chains/.relayer ./two-chains/rly.log
 	@docker-compose -f ./two-chains/docker-compose.ci.yaml up -d
-	@while ! curl localhost:26657 &> /dev/null; do sleep 1; done
-	@while ! curl localhost:26667 &> /dev/null; do sleep 1; done
+	@sleep 5 
 	@cd ./two-chains && sh relayer-setup && cd ..
 
 test:
