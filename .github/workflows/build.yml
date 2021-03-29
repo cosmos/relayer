@@ -39,6 +39,7 @@ jobs:
           docker-compose -f ./two-chains/docker-compose.yaml down
           rm -fr ./two-chains/ibc-* ./two-chains/.relayer ./two-chains/rly.log
           docker-compose -f ./two-chains/docker-compose.yaml up -d
+          docker logs two-chains_ibc-0_1
           docker ps -a
       - name: Coverage
         uses: codecov/codecov-action@v1
