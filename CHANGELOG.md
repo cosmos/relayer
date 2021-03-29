@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.9.2
+
+**2021/03/29**
+
+### Relayer
+
+* [\#478](https://github.com/cosmos/relayer/pull/478) Retry on DB failure due to concurrent access.
+* [\#471](https://github.com/cosmos/relayer/pull/471) Add a send command to send to a different address on the same chain.
+
+
 ## v0.9.1
 
 **2021/03/26**
