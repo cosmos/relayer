@@ -112,4 +112,4 @@ check-swagger:
 update-swagger-docs: check-swagger
 	swagger generate spec -o ./docs/swagger-ui/swagger.yaml
 
-.PHONY: two-chains install build lint coverage clean
+.PHONY: two-chains test install build lint coverage clean
