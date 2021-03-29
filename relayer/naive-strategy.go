@@ -3,7 +3,6 @@ package relayer
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -693,7 +692,11 @@ func relayPacketsFromResultTx(src, dst *Chain, res *ctypes.ResultTx) ([]relayPac
 					rp.packetData = p.Value
 				}
 				if string(p.Key) == toHeightTag {
-					timeout, _ := strconv.ParseUint(strings.Split(string(p.Value), "-")[1], 10, 64)
+					timeout, err := clienttypes.ParseHeight(string(p.Value))
+					if err != nil {
+						return nil, nil, err
+					}
+
 					rp.timeout = timeout
 				}
 				if string(p.Key) == toTSTag {
@@ -714,7 +717,7 @@ func relayPacketsFromResultTx(src, dst *Chain, res *ctypes.ResultTx) ([]relayPac
 
 			switch {
 			// If the packet has a timeout height, and it has been reached, return a timeout packet
-			case rp.timeout != 0 && block.GetHeight().GetRevisionHeight() >= rp.timeout:
+			case rp.timeout.RevisionHeight != 0 && block.GetHeight().GetRevisionHeight() >= rp.timeout.RevisionHeight:
 				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
 			// If the packet has a timeout timestamp and it has been reached, return a timeout packet
 			case rp.timeoutStamp != 0 && block.GetTime().UnixNano() >= int64(rp.timeoutStamp):
@@ -775,7 +778,10 @@ func acknowledgementsFromResultTx(src, dst *PathEnd,
 					rp.packetData = p.Value
 				}
 				if string(p.Key) == toHeightTag {
-					timeout, _ := strconv.ParseUint(strings.Split(string(p.Value), "-")[1], 10, 64)
+					timeout, err := clienttypes.ParseHeight(string(p.Value))
+					if err != nil {
+						return nil, err
+					}
 					rp.timeout = timeout
 				}
 				if string(p.Key) == toTSTag {
