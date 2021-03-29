@@ -55,7 +55,7 @@ two-chains:
 	@docker-compose -f ./two-chains/docker-compose.yaml up -d
 	@while ! curl localhost:26657 &> /dev/null; do sleep 1; done
 	@while ! curl localhost:26667 &> /dev/null; do sleep 1; done
-	@cd ./two-chains && sh relayer-setup* && cd ..
+	@cd ./two-chains && sh relayer-setup && cd ..
 
 test:
 	@TEST_DEBUG=true go test -mod=readonly -v ./test/...
