@@ -41,12 +41,12 @@ jobs:
           docker-compose -f ./two-chains/docker-compose.yaml up -d
           docker logs two-chains_ibc-0_1
           docker ps -a
-      # - name: Coverage
-      #   uses: codecov/codecov-action@v1
-      #   with:
-      #     file: ./profile.cov
-      #     name: codecov-umbrella # optional
-      #     fail_ci_if_error: true # optional (default = false)
+      - name: Coverage
+        uses: codecov/codecov-action@v1
+        with:
+          file: ./profile.cov
+          name: codecov-umbrella # optional
+          fail_ci_if_error: true # optional (default = false)
 
 # jobs:
 #   build:
