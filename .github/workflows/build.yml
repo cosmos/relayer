@@ -36,11 +36,7 @@ jobs:
         uses: actions/checkout@v2
       - name: Test liveness
         run: |
-          docker-compose -f ./two-chains/docker-compose.ci.yaml down
-          rm -fr ./two-chains/ibc-* ./two-chains/.relayer ./two-chains/rly.log
-          docker-compose -f ./two-chains/docker-compose.ci.yaml up -d
-          docker logs two-chains_ibc-0_1
-          docker ps -a
+          make two-chains-ci
       - name: Coverage
         uses: codecov/codecov-action@v1
         with:
