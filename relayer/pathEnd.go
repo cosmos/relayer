@@ -67,8 +67,7 @@ func UnmarshalChain(pe PathEnd) *Chain {
 
 // NewPacket returns a new packet from src to dist w
 func (pe *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte,
-	timeoutHeight, timeoutStamp uint64) chantypes.Packet {
-	version := clienttypes.ParseChainID(dst.ChainID)
+	timeoutHeight clienttypes.Height, timeoutStamp uint64) chantypes.Packet {
 	return chantypes.NewPacket(
 		packetData,
 		sequence,
@@ -76,7 +75,7 @@ func (pe *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte,
 		pe.ChannelID,
 		dst.PortID,
 		dst.ChannelID,
-		clienttypes.NewHeight(version, timeoutHeight),
+		timeoutHeight,
 		timeoutStamp,
 	)
 }

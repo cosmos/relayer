@@ -125,10 +125,10 @@ func (c *Chain) InjectTrustedFields(dst *Chain, header *tmclient.Header) (*tmcli
 }
 
 // MustGetHeight takes the height inteface and returns the actual height
-func MustGetHeight(h ibcexported.Height) uint64 {
+func MustGetHeight(h ibcexported.Height) clienttypes.Height {
 	height, ok := h.(clienttypes.Height)
 	if !ok {
-		panic("height is not an instance of height! wtf")
+		panic("height is not an instance of height!")
 	}
-	return height.GetRevisionHeight()
+	return height
 }
