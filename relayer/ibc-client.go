@@ -128,7 +128,7 @@ func (c *Chain) InjectTrustedFields(dst *Chain, header *tmclient.Header) (*tmcli
 func MustGetHeight(h ibcexported.Height) clienttypes.Height {
 	height, ok := h.(clienttypes.Height)
 	if !ok {
-		panic("height is not an instance of height! wtf")
+		panic("height is not an instance of height!")
 	}
 	return height
 }
