@@ -311,7 +311,6 @@ func (c *Chain) ChanCloseConfirm(dstChanState *chantypes.QueryChannelResponse) s
 // MsgTransfer creates a new transfer message
 func (c *Chain) MsgTransfer(dst *PathEnd, amount sdk.Coin, dstAddr string,
 	timeoutHeight, timeoutTimestamp uint64) sdk.Msg {
-
 	version := clienttypes.ParseChainID(dst.ChainID)
 	return transfertypes.NewMsgTransfer(
 		c.PathEnd.PortID,
@@ -366,7 +365,6 @@ func (c *Chain) MsgRelayRecvPacket(counterparty *Chain, packet *relayMsgRecvPack
 		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", c.ChainID, packet.seq)
 	}
 
-	version := clienttypes.ParseChainID(c.ChainID)
 	msg := chantypes.NewMsgRecvPacket(
 		chantypes.NewPacket(
 			packet.packetData,
@@ -375,7 +373,7 @@ func (c *Chain) MsgRelayRecvPacket(counterparty *Chain, packet *relayMsgRecvPack
 			counterparty.PathEnd.ChannelID,
 			c.PathEnd.PortID,
 			c.PathEnd.ChannelID,
-			clienttypes.NewHeight(version, packet.timeout),
+			packet.timeout,
 			packet.timeoutStamp,
 		),
 		comRes.Proof,
@@ -428,7 +426,6 @@ func (c *Chain) MsgRelayAcknowledgement(counterparty *Chain, packet *relayMsgPac
 		return nil, fmt.Errorf("ack packet [%s]seq{%d} has no associated proofs", counterparty.ChainID, packet.seq)
 	}
 
-	version := clienttypes.ParseChainID(counterparty.ChainID)
 	msg := chantypes.NewMsgAcknowledgement(
 		chantypes.NewPacket(
 			packet.packetData,
@@ -437,7 +434,7 @@ func (c *Chain) MsgRelayAcknowledgement(counterparty *Chain, packet *relayMsgPac
 			c.PathEnd.ChannelID,
 			counterparty.PathEnd.PortID,
 			counterparty.PathEnd.ChannelID,
-			clienttypes.NewHeight(version, packet.timeout),
+			packet.timeout,
 			packet.timeoutStamp,
 		),
 		packet.ack,
@@ -493,7 +490,6 @@ func (c *Chain) MsgRelayTimeout(counterparty *Chain, packet *relayMsgTimeout) (m
 		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", c.ChainID, packet.seq)
 	}
 
-	version := clienttypes.ParseChainID(counterparty.ChainID)
 	msg := chantypes.NewMsgTimeout(
 		chantypes.NewPacket(
 			packet.packetData,
@@ -502,7 +498,7 @@ func (c *Chain) MsgRelayTimeout(counterparty *Chain, packet *relayMsgTimeout) (m
 			c.PathEnd.ChannelID,
 			counterparty.PathEnd.PortID,
 			counterparty.PathEnd.ChannelID,
-			clienttypes.NewHeight(version, packet.timeout),
+			packet.timeout,
 			packet.timeoutStamp,
 		),
 		packet.seq,

@@ -14,13 +14,13 @@ type relayPacket interface {
 	FetchCommitResponse(src, dst *Chain) error
 	Data() []byte
 	Seq() uint64
-	Timeout() uint64
+	Timeout() clienttypes.Height
 }
 
 type relayMsgTimeout struct {
 	packetData   []byte
 	seq          uint64
-	timeout      uint64
+	timeout      clienttypes.Height
 	timeoutStamp uint64
 	dstRecvRes   *chantypes.QueryPacketReceiptResponse
 
@@ -35,7 +35,7 @@ func (rp *relayMsgTimeout) Seq() uint64 {
 	return rp.seq
 }
 
-func (rp *relayMsgTimeout) Timeout() uint64 {
+func (rp *relayMsgTimeout) Timeout() clienttypes.Height {
 	return rp.timeout
 }
 
@@ -76,7 +76,6 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) (sdk.Msg, error) {
 	if rp.dstRecvRes == nil {
 		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
 	}
-	version := clienttypes.ParseChainID(dst.ChainID)
 	msg := chantypes.NewMsgTimeout(
 		chantypes.NewPacket(
 			rp.packetData,
@@ -85,7 +84,7 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) (sdk.Msg, error) {
 			src.PathEnd.ChannelID,
 			dst.PathEnd.PortID,
 			dst.PathEnd.ChannelID,
-			clienttypes.NewHeight(version, rp.timeout),
+			rp.timeout,
 			rp.timeoutStamp,
 		),
 		rp.seq,
@@ -99,7 +98,7 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) (sdk.Msg, error) {
 type relayMsgRecvPacket struct {
 	packetData   []byte
 	seq          uint64
-	timeout      uint64
+	timeout      clienttypes.Height
 	timeoutStamp uint64
 	dstComRes    *chantypes.QueryPacketCommitmentResponse
 
@@ -125,7 +124,7 @@ func (rp *relayMsgRecvPacket) Seq() uint64 {
 	return rp.seq
 }
 
-func (rp *relayMsgRecvPacket) Timeout() uint64 {
+func (rp *relayMsgRecvPacket) Timeout() clienttypes.Height {
 	return rp.timeout
 }
 
@@ -166,7 +165,6 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) (sdk.Msg, error) {
 	if rp.dstComRes == nil {
 		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
 	}
-	version := clienttypes.ParseChainID(src.ChainID)
 	packet := chantypes.NewPacket(
 		rp.packetData,
 		rp.seq,
@@ -174,7 +172,7 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) (sdk.Msg, error) {
 		dst.PathEnd.ChannelID,
 		src.PathEnd.PortID,
 		src.PathEnd.ChannelID,
-		clienttypes.NewHeight(version, rp.timeout),
+		rp.timeout,
 		rp.timeoutStamp,
 	)
 	msg := chantypes.NewMsgRecvPacket(
@@ -190,7 +188,7 @@ type relayMsgPacketAck struct {
 	packetData   []byte
 	ack          []byte
 	seq          uint64
-	timeout      uint64
+	timeout      clienttypes.Height
 	timeoutStamp uint64
 	dstComRes    *chantypes.QueryPacketAcknowledgementResponse
 
@@ -203,7 +201,7 @@ func (rp *relayMsgPacketAck) Data() []byte {
 func (rp *relayMsgPacketAck) Seq() uint64 {
 	return rp.seq
 }
-func (rp *relayMsgPacketAck) Timeout() uint64 {
+func (rp *relayMsgPacketAck) Timeout() clienttypes.Height {
 	return rp.timeout
 }
 
@@ -211,7 +209,6 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) (sdk.Msg, error) {
 	if rp.dstComRes == nil {
 		return nil, fmt.Errorf("ack packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
 	}
-	version := clienttypes.ParseChainID(dst.ChainID)
 	msg := chantypes.NewMsgAcknowledgement(
 		chantypes.NewPacket(
 			rp.packetData,
@@ -220,7 +217,7 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) (sdk.Msg, error) {
 			src.PathEnd.ChannelID,
 			dst.PathEnd.PortID,
 			dst.PathEnd.ChannelID,
-			clienttypes.NewHeight(version, rp.timeout),
+			rp.timeout,
 			rp.timeoutStamp,
 		),
 		rp.ack,
