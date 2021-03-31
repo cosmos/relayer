@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
@@ -42,16 +43,18 @@ func QueryBalance(chain *relayer.Chain, address string, showDenoms bool) (sdk.Co
 			continue
 		}
 
-		for i, d := range dts.DenomTraces {
-			if c.Denom == d.IBCDenom() {
-				out = append(out, sdk.Coin{Denom: d.GetFullDenomPath(), Amount: c.Amount})
-				break
-			}
+		// splitting denom to get hash
+		denomSplit := strings.Split(c.Denom, "/")
 
-			if i == len(dts.DenomTraces)-1 {
-				out = append(out, c)
+		if len(denomSplit) > 1 {
+			dt, err := chain.QueryDenomTrace(denomSplit[1])
+			if err == nil {
+				out = append(out, sdk.Coin{Denom: dt.DenomTrace.GetFullDenomPath(), Amount: c.Amount})
+				continue
 			}
 		}
+
+		out = append(out, c)
 	}
 	return out, nil
 }
