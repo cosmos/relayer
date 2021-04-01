@@ -8,10 +8,6 @@ USER root
 # Install minimum necessary dependencies, build Cosmos SDK, remove packages
 RUN apk add --no-cache $PACKAGES 
 
-USER gaia
-
-WORKDIR /gaia
-
 COPY ./gaia-setup.sh .
 
 COPY ./valkeys ./setup/valkeys
@@ -19,4 +15,4 @@ COPY ./valkeys ./setup/valkeys
 EXPOSE 26657
 
 ENTRYPOINT [ "./gaia-setup.sh" ]
-# NOTE: to run this image, docker run -d -p 26657:26657 ./single-node.sh {{chain_id}} {{genesis_account}} {{seeds}} {{priv_validator_key_path}}
+# NOTE: to run this image, docker run -d -p 26657:26657 ./gaia-setup.sh {{chain_id}} {{genesis_account}} {{seeds}} {{priv_validator_key_path}}
