@@ -11,6 +11,13 @@ import (
 	ry "github.com/cosmos/relayer/relayer"
 )
 
+const (
+	// SEED1 is a mnenomic
+	SEED1 = "cake blossom buzz suspect image view round utility meat muffin humble club model latin similar glow draw useless kiwi snow laugh gossip roof public"
+	// SEED2 is a mnemonic
+	SEED2 = "near little movie lady moon fuel abandon gasp click element muscle elbow taste indoor soft soccer like occur legend coin near random normal adapt"
+)
+
 var (
 	// GAIA BLOCK TIMEOUTS are located in the gaia setup script in the
 	// setup directory.
@@ -37,6 +44,8 @@ var (
 		accountPrefix:  "akash",
 		trustingPeriod: "330h",
 	}
+
+	seeds = []string{SEED1, SEED2}
 )
 
 type (
@@ -44,6 +53,7 @@ type (
 	// cosmos-sdk based blockchain
 	testChain struct {
 		chainID string
+		seed    int
 		t       testChainConfig
 	}
 

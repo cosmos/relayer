@@ -10,8 +10,8 @@ import (
 
 var (
 	gaiaChains = []testChain{
-		{"ibc-0", gaiaTestConfig},
-		{"ibc-1", gaiaTestConfig},
+		{"ibc-0", 0, gaiaTestConfig},
+		{"ibc-1", 0, gaiaTestConfig},
 	}
 )
 
@@ -147,4 +147,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 
 	require.Equal(t, expectedSrc, src)
 	require.Equal(t, expectedDst, dst)
+}
+
+func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 }
