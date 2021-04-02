@@ -11,7 +11,7 @@ import (
 var (
 	akashChains = []testChain{
 		{"ibc-0", 0, gaiaTestConfig},
-		{"ibc-1", 0, akashTestConfig},
+		{"ibc-1", 1, akashTestConfig},
 	}
 )
 

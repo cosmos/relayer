@@ -142,7 +142,6 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 		Cmd: []string{
 			c.ChainID,
 			c.MustGetAddress().String(),
-			fmt.Sprintf("%q", seeds[tc.seed]),
 			getPrivValFileName(tc.seed),
 		},
 		PortBindings: map[dc.Port][]dc.PortBinding{
@@ -218,9 +217,17 @@ func genTestPathAndSet(src, dst *ry.Chain, srcPort, dstPort string) (*ry.Path, e
 }
 
 func genPrivValKeyJSON(seedNumber int) {
-	privKey := tmed25519.GenPrivKeyFromSecret([]byte(seeds[seedNumber]))
-	filePV := privval.NewFilePV(privKey, getPrivValFileName(seedNumber), "/")
+	privKey := getPrivKey(seedNumber)
+	filePV := getFilePV(privKey, seedNumber)
 	filePV.Key.Save()
+}
+
+func getPrivKey(seedNumber int) tmed25519.PrivKey {
+	return tmed25519.GenPrivKeyFromSecret([]byte(seeds[seedNumber]))
+}
+
+func getFilePV(privKey tmed25519.PrivKey, seedNumber int) *privval.FilePV {
+	return privval.NewFilePV(privKey, getPrivValFileName(seedNumber), "/")
 }
 
 func getPrivValFileName(seedNumber int) string {

@@ -4,8 +4,7 @@ set -o errexit -o nounset
 
 CHAINID=$1
 GENACCT=$2
-SEEDS=$3
-PRIVPATH=$4
+PRIVPATH=$3
 
 if [ -z "$1" ]; then
   echo "Need to input chain id..."
@@ -18,11 +17,6 @@ if [ -z "$2" ]; then
 fi
 
 if [ -z "$3" ]; then
-  echo "Need to input seeds of validator key..."
-  exit 1
-fi
-
-if [ -z "$4" ]; then
   echo "Need to input path of priv_validator_key json file"
   exit 1
 fi
@@ -30,7 +24,7 @@ fi
 # Build genesis file incl account for passed address
 coins="10000000000stake,100000000000samoleans"
 gaiad init --chain-id $CHAINID $CHAINID
-echo $SEEDS | gaiad keys add validator --keyring-backend="test" --recover
+gaiad keys add validator --keyring-backend="test"
 gaiad add-genesis-account $(gaiad keys show validator -a --keyring-backend="test") $coins
 gaiad add-genesis-account $GENACCT $coins
 cp $PRIVPATH ~/.gaia/config/priv_validator_key.json
