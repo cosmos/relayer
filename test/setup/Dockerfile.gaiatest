@@ -8,9 +8,19 @@ USER root
 # Install minimum necessary dependencies, build Cosmos SDK, remove packages
 RUN apk add --no-cache $PACKAGES 
 
+USER gaia
+
+WORKDIR /gaia
+
 COPY ./gaia-setup.sh .
 
 COPY ./valkeys ./setup/valkeys
+
+USER root
+
+chmod -R 777 ./setup
+
+USER gaia
 
 EXPOSE 26657
 
