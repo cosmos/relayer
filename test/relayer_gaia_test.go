@@ -236,8 +236,9 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	require.True(t, clientState.IsFrozen())
 }
 
-func createTMClientHeader(t *testing.T, chainID string, blockHeight int64, trustedHeight clienttypes.Height, timestamp time.Time,
-	tmValSet, tmTrustedVals *tmtypes.ValidatorSet, signers []tmtypes.PrivValidator, oldHeader *ibctmtypes.Header) *ibctmtypes.Header {
+func createTMClientHeader(t *testing.T, chainID string, blockHeight int64, trustedHeight clienttypes.Height,
+	timestamp time.Time, tmValSet, tmTrustedVals *tmtypes.ValidatorSet, signers []tmtypes.PrivValidator,
+	oldHeader *ibctmtypes.Header) *ibctmtypes.Header {
 	var (
 		valSet      *tmproto.ValidatorSet
 		trustedVals *tmproto.ValidatorSet
