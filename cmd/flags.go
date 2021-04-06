@@ -33,6 +33,7 @@ var (
 	flagTimeoutTimeOffset   = "timeout-time-offset"
 	flagMaxRetries          = "max-retries"
 	flagThresholdTime       = "time-threshold"
+	flagOverride            = "override"
 )
 
 func ibcDenomFlags(cmd *cobra.Command) *cobra.Command {
@@ -264,6 +265,14 @@ func retryFlag(cmd *cobra.Command) *cobra.Command {
 func updateTimeFlags(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Duration(flagThresholdTime, 6*time.Hour, "time before to expiry time to update client")
 	if err := viper.BindPFlag(flagThresholdTime, cmd.Flags().Lookup(flagThresholdTime)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func overrideFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Bool(flagOverride, false, "option to not reuse existing client")
+	if err := viper.BindPFlag(flagOverride, cmd.Flags().Lookup(flagOverride)); err != nil {
 		panic(err)
 	}
 	return cmd

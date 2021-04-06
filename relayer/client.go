@@ -15,7 +15,7 @@ import (
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
 // TODO: de-duplicate code
-func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
+func (c *Chain) CreateClients(dst *Chain, override bool) (modified bool, err error) {
 	// Handle off chain light clients
 	if err := c.ValidateLightInitialized(); err != nil {
 		return false, err
@@ -54,9 +54,13 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			AllowUpdateAfterMisbehaviour,
 		)
 
-		// Check if an identical light client already exists
-		clientID, found := FindMatchingClient(c, dst, clientState)
-		if !found {
+		clientID, found := "", false
+		// Will not reuse same client if override is true
+		if !override {
+			// Check if an identical light client already exists
+			clientID, found = FindMatchingClient(c, dst, clientState)
+		}
+		if !found || override {
 			msgs := []sdk.Msg{
 				c.CreateClient(
 					clientState,
@@ -117,11 +121,15 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			AllowUpdateAfterMisbehaviour,
 		)
 
-		// Check if an identical light client already exists
-		// NOTE: we pass in 'dst' as the source and 'c' as the
-		// counterparty.
-		clientID, found := FindMatchingClient(dst, c, clientState)
-		if !found {
+		clientID, found := "", false
+		// Will not reuse same client if override is true
+		if !override {
+			// Check if an identical light client already exists
+			// NOTE: we pass in 'dst' as the source and 'c' as the
+			// counterparty.
+			clientID, found = FindMatchingClient(dst, c, clientState)
+		}
+		if !found || override {
 			msgs := []sdk.Msg{
 				dst.CreateClient(
 					clientState,
