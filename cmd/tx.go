@@ -477,8 +477,8 @@ $ %s tx relay-acks demo-path -l 3 -s 6`,
 				return err
 			}
 
-			// sp.Src contains all sequences acked on DST but acknowledgement not processed on SRC
-			// sp.Dst contains all sequences acked on SRC but acknowledgement not processed on DST
+			// sp.Src contains all sequences acked on SRC but acknowledgement not processed on DST
+			// sp.Dst contains all sequences acked on DST but acknowledgement not processed on SRC
 			sp, err := strategy.UnrelayedAcknowledgements(c[src], c[dst])
 			if err != nil {
 				return err
