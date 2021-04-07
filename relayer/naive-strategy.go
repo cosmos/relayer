@@ -422,8 +422,8 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 		return err
 	}
 
-	// add messages for sequences on src
-	for _, seq := range sp.Src {
+	// add messages for received packets on dst
+	for _, seq := range sp.Dst {
 		// dst wrote the ack. acknowledgementFromSequence will query the acknowledgement
 		// from the counterparty chain (second chain provided in the arguments). The message
 		// should be sent to src.
@@ -435,8 +435,8 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 		msgs.Src = append(msgs.Src, relayAckMsgs...)
 	}
 
-	// add messages for sequences on dst
-	for _, seq := range sp.Dst {
+	// add messages for received packets on src
+	for _, seq := range sp.Src {
 		// src wrote the ack. acknowledgementFromSequence will query the acknowledgement
 		// from the counterparty chain (second chain provided in the arguments). The message
 		// should be sent to dst.
@@ -620,7 +620,7 @@ func relayPacketFromSequence(src, dst *Chain, seq uint64) ([]sdk.Msg, []sdk.Msg,
 
 // source is the sending chain, destination is the receiving chain
 func acknowledgementFromSequence(src, dst *Chain, seq uint64) ([]sdk.Msg, error) {
-	txs, err := src.QueryTxs(src.MustGetLatestLightHeight(), 1, 1000, ackPacketQuery(src.PathEnd.ChannelID, int(seq)))
+	txs, err := dst.QueryTxs(dst.MustGetLatestLightHeight(), 1, 1000, ackPacketQuery(dst.PathEnd.ChannelID, int(seq)))
 	switch {
 	case err != nil:
 		return nil, err
@@ -630,7 +630,7 @@ func acknowledgementFromSequence(src, dst *Chain, seq uint64) ([]sdk.Msg, error)
 		return nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	acks, err := acknowledgementsFromResultTx(dst.PathEnd, src.PathEnd, txs[0])
+	acks, err := acknowledgementsFromResultTx(src.PathEnd, dst.PathEnd, txs[0])
 	switch {
 	case err != nil:
 		return nil, err
@@ -742,7 +742,7 @@ func relayPacketsFromResultTx(src, dst *Chain, res *ctypes.ResultTx) ([]relayPac
 }
 
 // acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
-//relayPackets with the appropriate data
+// relayPackets with the appropriate data
 func acknowledgementsFromResultTx(src, dst *PathEnd,
 	res *ctypes.ResultTx) ([]*relayMsgPacketAck, error) {
 	var ackPackets []*relayMsgPacketAck
