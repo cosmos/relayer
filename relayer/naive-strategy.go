@@ -424,24 +424,28 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 
 	// add messages for sequences on src
 	for _, seq := range sp.Src {
-		// SRC wrote ack, so we query packet and send to DST
+		// dst wrote the ack. acknowledgementFromSequence will query the acknowledgement
+		// from the counterparty chain (second chain provided in the arguments). The message
+		// should be sent to src.
 		relayAckMsgs, err := acknowledgementFromSequence(src, dst, seq)
 		if err != nil {
 			return err
 		}
 
-		msgs.Dst = append(msgs.Dst, relayAckMsgs...)
+		msgs.Src = append(msgs.Src, relayAckMsgs...)
 	}
 
 	// add messages for sequences on dst
 	for _, seq := range sp.Dst {
-		// DST wrote ack, so we query packet and send to SRC
+		// src wrote the ack. acknowledgementFromSequence will query the acknowledgement
+		// from the counterparty chain (second chain provided in the arguments). The message
+		// should be sent to dst.
 		relayAckMsgs, err := acknowledgementFromSequence(dst, src, seq)
 		if err != nil {
 			return err
 		}
 
-		msgs.Src = append(msgs.Src, relayAckMsgs...)
+		msgs.Dst = append(msgs.Dst, relayAckMsgs...)
 	}
 
 	if !msgs.Ready() {
