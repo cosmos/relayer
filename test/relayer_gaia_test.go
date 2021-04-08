@@ -230,6 +230,8 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	updateMsg, err := clienttypes.NewMsgUpdateClient(src.PathEnd.ClientID, newHeader, src.MustGetAddress())
 	require.NoError(t, err)
 
+	t.Log("Heights...", newHeader.TrustedHeight.RevisionHeight, newHeader.Header.Height)
+
 	res, success, err := src.SendMsg(updateMsg)
 	require.NoError(t, err)
 	require.True(t, success)
