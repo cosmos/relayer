@@ -209,8 +209,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	require.True(t, ok, "error when casting exported clientstate")
 
 	height := clientState.GetLatestHeight().(clienttypes.Height)
-	height.RevisionNumber = 0
-	heightPlus1 := clienttypes.NewHeight(height.RevisionNumber+1, height.RevisionHeight+1)
+	heightPlus1 := clienttypes.NewHeight(height.RevisionNumber, height.RevisionHeight+1)
 
 	// setup validator for signing duplicate header
 	privKey := getSDKPrivKey(0)
