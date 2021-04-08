@@ -191,10 +191,10 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	require.NoError(t, src.WaitForNBlocks(1))
 	require.NoError(t, dst.WaitForNBlocks(1))
 
-	latestHeight, err := src.QueryLatestHeight()
+	latestHeight, err := dst.QueryLatestHeight()
 	require.NoError(t, err)
 
-	header, err := src.QueryHeaderAtHeight(latestHeight)
+	header, err := dst.QueryHeaderAtHeight(latestHeight)
 	require.NoError(t, err)
 
 	clientStateRes, err := src.QueryClientState(latestHeight)
