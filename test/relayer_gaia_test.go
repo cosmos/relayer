@@ -242,7 +242,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	// kill relayer routine
 	rlyDone()
 
-	clientStateRes, err = src.QueryClientState(int64(heightPlus1.RevisionHeight))
+	clientStateRes, err = src.QueryClientState(0)
 	require.NoError(t, err)
 
 	// unpack any into ibc tendermint client state

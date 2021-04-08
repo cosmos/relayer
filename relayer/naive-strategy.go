@@ -232,7 +232,9 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 // HandleEvents defines how the relayer will handle block and transaction events as they are emitted
 func (nrs *NaiveStrategy) HandleEvents(src, dst *Chain, events map[string][]string) {
 	// check for misbehaviour and submit if found
-	err := checkAndSubmitMisbehaviour(src, events)
+	// events came from dst chain, use that chain as the source
+	// the chain messages are submitted to
+	err := checkAndSubmitMisbehaviour(dst, src, events)
 	if err != nil {
 		src.Error(err)
 	}
