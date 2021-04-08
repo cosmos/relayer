@@ -8,6 +8,7 @@ import (
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	ibctesting "github.com/cosmos/cosmos-sdk/x/ibc/testing"
+	ibctestingmock "github.com/cosmos/cosmos-sdk/x/ibc/testing/mock"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/crypto/tmhash"
@@ -199,11 +200,16 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	height := header.GetHeight().(clienttypes.Height)
 	heightMinus1 := clienttypes.NewHeight(height.RevisionNumber, height.RevisionHeight-1)
 
-	privVal := getPrivKey(0)
-	pubKey := privVal.PubKey()
+	// setup validator for signing duplicate header
+	privKey := getSDKPrivKey(0)
+	privVal := ibctestingmock.PV{
+		PrivKey: privKey,
+	}
+	pubKey, err := privVal.GetPubKey()
+	require.NoError(t, err)
 	validator := tmtypes.NewValidator(pubKey, header.ValidatorSet.Proposer.VotingPower)
 	valSet := tmtypes.NewValidatorSet([]*tmtypes.Validator{validator})
-	signers := []tmtypes.PrivValidator{getFilePV(privVal, 0)}
+	signers := []tmtypes.PrivValidator{privVal}
 
 	// creating duplicate header
 	newHeader := createTMClientHeader(t, src.ChainID, int64(heightMinus1.RevisionHeight), heightMinus1,

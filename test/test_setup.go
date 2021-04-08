@@ -15,6 +15,8 @@ import (
 
 	ry "github.com/cosmos/relayer/relayer"
 
+	sdked25519 "github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	sdkcryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	tmed25519 "github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/privval"
 )
@@ -224,6 +226,10 @@ func genPrivValKeyJSON(seedNumber int) {
 
 func getPrivKey(seedNumber int) tmed25519.PrivKey {
 	return tmed25519.GenPrivKeyFromSecret([]byte(seeds[seedNumber]))
+}
+
+func getSDKPrivKey(seedNumber int) sdkcryptotypes.PrivKey {
+	return sdked25519.GenPrivKeyFromSecret([]byte(seeds[seedNumber]))
 }
 
 func getFilePV(privKey tmed25519.PrivKey, seedNumber int) *privval.FilePV {
