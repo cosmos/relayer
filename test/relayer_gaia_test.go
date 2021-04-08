@@ -209,7 +209,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	require.True(t, ok, "error when casting exported clientstate")
 
 	height := clientState.GetLatestHeight().(clienttypes.Height)
-	heightMinus1 := clienttypes.NewHeight(height.RevisionNumber, height.RevisionHeight-1)
+	heightPlus1 := clienttypes.NewHeight(height.RevisionNumber, height.RevisionHeight+1)
 
 	// setup validator for signing duplicate header
 	privKey := getSDKPrivKey(0)
@@ -223,7 +223,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	signers := []tmtypes.PrivValidator{privVal}
 
 	// creating duplicate header
-	newHeader := createTMClientHeader(t, src.ChainID, int64(height.RevisionHeight), heightMinus1,
+	newHeader := createTMClientHeader(t, src.ChainID, int64(height.RevisionHeight), heightPlus1,
 		header.GetTime().Add(time.Minute), valSet, valSet, signers, header)
 
 	// update client with duplicate header
@@ -241,7 +241,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	// kill relayer routine
 	rlyDone()
 
-	clientStateRes, err = src.QueryClientState(int64(heightMinus1.RevisionHeight))
+	clientStateRes, err = src.QueryClientState(int64(heightPlus1.RevisionHeight))
 	require.NoError(t, err)
 
 	// unpack any into ibc tendermint client state
