@@ -212,7 +212,8 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	heightPlus1 := clienttypes.NewHeight(height.RevisionNumber, height.RevisionHeight+1)
 
 	// setup validator for signing duplicate header
-	privKey := getSDKPrivKey(0)
+	// use key for dst
+	privKey := getSDKPrivKey(1)
 	privVal := ibctestingmock.PV{
 		PrivKey: privKey,
 	}
@@ -223,7 +224,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	signers := []tmtypes.PrivValidator{privVal}
 
 	// creating duplicate header
-	newHeader := createTMClientHeader(t, src.ChainID, int64(heightPlus1.RevisionHeight), height,
+	newHeader := createTMClientHeader(t, dst.ChainID, int64(heightPlus1.RevisionHeight), height,
 		header.GetTime().Add(time.Minute), valSet, valSet, signers, header)
 
 	// update client with duplicate header
