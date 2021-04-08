@@ -234,7 +234,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	res, success, err := src.SendMsg(updateMsg)
 	require.NoError(t, err)
 	require.True(t, success)
-	require.Equal(t, 0, res.Code)
+	require.Equal(t, uint32(0), res.Code)
 
 	// wait for packet processing
 	require.NoError(t, dst.WaitForNBlocks(6))
