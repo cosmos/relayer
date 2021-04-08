@@ -56,18 +56,6 @@ func (p Paths) Add(name string, path *Path) error {
 	return nil
 }
 
-// AddForce ignores existing paths and overwrites an existing path with that name
-func (p Paths) AddForce(name string, path *Path) error {
-	if err := path.Validate(); err != nil {
-		return err
-	}
-	if _, found := p[name]; found {
-		fmt.Printf("overwriting path %s with new path...\n", name)
-	}
-	p[name] = path
-	return nil
-}
-
 // MustYAML returns the yaml string representation of the Path
 func (p *Path) MustYAML() string {
 	out, err := yaml.Marshal(p)
@@ -106,50 +94,9 @@ type Path struct {
 	Strategy *StrategyCfg `yaml:"strategy" json:"strategy"`
 }
 
-// TODO: remove gen functions
-
-// GenSrcClientID generates the specififed identifier
-func (p *Path) GenSrcClientID() { p.Src.ClientID = "" }
-
-// GenDstClientID generates the specififed identifier
-func (p *Path) GenDstClientID() { p.Dst.ClientID = "" }
-
-// GenSrcConnID generates the specififed identifier
-func (p *Path) GenSrcConnID() { p.Src.ConnectionID = "" }
-
-// GenDstConnID generates the specififed identifier
-func (p *Path) GenDstConnID() { p.Dst.ConnectionID = "" }
-
-// GenSrcChanID generates the specififed identifier
-func (p *Path) GenSrcChanID() { p.Src.ChannelID = "" }
-
-// GenDstChanID generates the specififed identifier
-func (p *Path) GenDstChanID() { p.Dst.ChannelID = "" }
-
 // Ordered returns true if the path is ordered and false if otherwise
 func (p *Path) Ordered() bool {
 	return p.Src.GetOrder() == chantypes.ORDERED
-}
-
-// Validate checks that a path is valid
-func (p *Path) Validate() (err error) {
-	if err = p.Src.ValidateFull(); err != nil {
-		return err
-	}
-	if p.Src.Version == "" {
-		return fmt.Errorf("source must specify a version")
-	}
-	if err = p.Dst.ValidateFull(); err != nil {
-		return err
-	}
-	if _, err = p.GetStrategy(); err != nil {
-		return err
-	}
-	if p.Src.Order != p.Dst.Order {
-		return fmt.Errorf("both sides must have same order ('ORDERED' or 'UNORDERED'), got src(%s) and dst(%s)",
-			p.Src.Order, p.Dst.Order)
-	}
-	return nil
 }
 
 // End returns the proper end given a chainID

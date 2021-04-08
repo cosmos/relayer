@@ -46,10 +46,10 @@ func pathsGenCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "generate [src-chain-id] [dst-chain-id] [name]",
 		Aliases: []string{"gen"},
-		Short:   "generate identifiers for a new path between src and dst, reusing any that exist",
+		Short:   "generate a new path between src and dst, reusing any identifiers that exist",
 		Args:    cobra.ExactArgs(3),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s paths generate ibc-0 ibc-1 demo-path --force
+$ %s paths generate ibc-0 ibc-1 demo-path
 $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var (
@@ -60,7 +60,6 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				srcConns, dstConns     *conntypes.QueryConnectionsResponse
 				srcCon, dstCon         *conntypes.IdentifiedConnection
 				srcChans, dstChans     *chantypes.QueryChannelsResponse
-				srcChan, dstChan       *chantypes.IdentifiedChannel
 			)
 			if c, err = config.Chains.Gets(src, dst); err != nil {
 				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
@@ -81,23 +80,6 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 			} else {
 				path.Src.Order = ORDERED
 				path.Dst.Order = ORDERED
-			}
-
-			// if -f is passed, generate a random path between the two chains
-			if force, _ := cmd.Flags().GetBool(flagForce); force {
-				path.GenSrcClientID()
-				path.GenDstClientID()
-				path.GenSrcConnID()
-				path.GenDstConnID()
-				path.GenSrcChanID()
-				path.GenDstChanID()
-				// validate it...
-				if err = config.Paths.AddForce(pth, path); err != nil {
-					return err
-				}
-				logPathGen(pth)
-				// ...then add it to the config file
-				return overWriteConfig(config)
 			}
 
 			// see if there are existing clients that can be reused
@@ -149,51 +131,8 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				}
 			}
 
-			switch {
-			// If there aren't any matching clients between chains, generate
-			case path.Src.ClientID == "" && path.Dst.ClientID == "":
-				path.GenSrcClientID()
-				path.GenDstClientID()
-				path.GenSrcConnID()
-				path.GenSrcConnID()
-				path.GenSrcChanID()
-				path.GenDstChanID()
-				if err = config.ValidatePath(path); err != nil {
-					return err
-				}
-				if err = config.Paths.Add(pth, path); err != nil {
-					return err
-				}
-				logPathGen(pth)
-				return overWriteConfig(config)
-			case path.Src.ClientID == "" && path.Dst.ClientID != "":
-				path.GenSrcClientID()
-				path.GenSrcConnID()
-				path.GenSrcConnID()
-				path.GenSrcChanID()
-				path.GenDstChanID()
-				if err = config.ValidatePath(path); err != nil {
-					return err
-				}
-				if err = config.Paths.Add(pth, path); err != nil {
-					return err
-				}
-				logPathGen(pth)
-				return overWriteConfig(config)
-			case path.Dst.ClientID == "" && path.Src.ClientID != "":
-				path.GenDstClientID()
-				path.GenSrcConnID()
-				path.GenSrcConnID()
-				path.GenSrcChanID()
-				path.GenDstChanID()
-				if err = config.ValidatePath(path); err != nil {
-					return err
-				}
-				if err = config.Paths.Add(pth, path); err != nil {
-					return err
-				}
-				logPathGen(pth)
-				return overWriteConfig(config)
+			if path.Src.ClientID == "" || path.Dst.ClientID == "" {
+				return valPathAndUpdateConfig(pth, path)
 			}
 
 			// see if there are existing connections that can be reused
@@ -233,32 +172,10 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				srcOpen := srcCon.State == conntypes.OPEN
 				dstOpen := dstCon.State == conntypes.OPEN
 				if !(dstCpForSrc && srcCpForDst && srcOpen && dstOpen) {
-					path.GenSrcConnID()
-					path.GenDstConnID()
-					path.GenSrcChanID()
-					path.GenDstChanID()
-					if err = config.ValidatePath(path); err != nil {
-						return err
-					}
-					if err = config.Paths.Add(pth, path); err != nil {
-						return err
-					}
-					logPathGen(pth)
-					return overWriteConfig(config)
+					return valPathAndUpdateConfig(pth, path)
 				}
 			default:
-				path.GenSrcConnID()
-				path.GenDstConnID()
-				path.GenSrcChanID()
-				path.GenDstChanID()
-				if err = config.ValidatePath(path); err != nil {
-					return err
-				}
-				if err = config.Paths.Add(pth, path); err != nil {
-					return err
-				}
-				logPathGen(pth)
-				return overWriteConfig(config)
+				return valPathAndUpdateConfig(pth, path)
 			}
 
 			eg.Go(func() error {
@@ -275,65 +192,31 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 
 			for _, c := range srcChans.Channels {
 				if c.ConnectionHops[0] == path.Src.ConnectionID {
-					srcChan = c
 					path.Src.ChannelID = c.ChannelId
 				}
 			}
 
 			for _, c := range dstChans.Channels {
 				if c.ConnectionHops[0] == path.Dst.ConnectionID {
-					dstChan = c
 					path.Dst.ChannelID = c.ChannelId
 				}
 			}
 
-			switch {
-			case path.Src.ChannelID != "" && path.Dst.ChannelID != "":
-				// If we have identified a channel, make sure that each end is the
-				// other's counterparty and that the channel is open. In the failure case
-				// we should generate a new channel identifier
-				dstCpForSrc := srcChan.Counterparty.ChannelId == dstChan.ChannelId
-				srcCpForDst := dstChan.Counterparty.ChannelId == srcChan.ChannelId
-				srcOpen := srcChan.State == chantypes.OPEN
-				dstOpen := dstChan.State == chantypes.OPEN
-				srcPort := srcChan.PortId == path.Src.PortID
-				dstPort := dstChan.PortId == path.Dst.PortID
-				srcOrder := srcChan.Ordering == path.Src.GetOrder()
-				dstOrder := dstChan.Ordering == path.Dst.GetOrder()
-				srcVersion := srcChan.Version == path.Src.Version
-				dstVersion := dstChan.Version == path.Dst.Version
-				if !(dstCpForSrc && srcCpForDst && srcOpen && dstOpen && srcPort && dstPort &&
-					srcOrder && dstOrder && srcVersion && dstVersion) {
-					path.GenSrcChanID()
-					path.GenDstChanID()
-				}
-				if err = config.ValidatePath(path); err != nil {
-					return err
-				}
-				if err = config.Paths.Add(pth, path); err != nil {
-					return err
-				}
-				logPathGen(pth)
-				return overWriteConfig(config)
-			default:
-				path.GenSrcChanID()
-				path.GenDstChanID()
-				if err = config.ValidatePath(path); err != nil {
-					return err
-				}
-				if err = config.Paths.Add(pth, path); err != nil {
-					return err
-				}
-				logPathGen(pth)
-				return overWriteConfig(config)
-			}
+			return valPathAndUpdateConfig(pth, path)
 		},
 	}
-	return forceFlag(orderFlag(versionFlag(pathStrategy(portFlag(cmd)))))
+	return orderFlag(versionFlag(pathStrategy(portFlag(cmd))))
 }
 
-func logPathGen(pth string) {
+func valPathAndUpdateConfig(pth string, path *relayer.Path) (err error) {
+	if err = config.ValidatePath(path); err != nil {
+		return err
+	}
+	if err = config.Paths.Add(pth, path); err != nil {
+		return err
+	}
 	fmt.Printf("Generated path(%s), run 'rly paths show %s --yaml' to see details\n", pth, pth)
+	return overWriteConfig(config)
 }
 
 func pathsDeleteCmd() *cobra.Command {
