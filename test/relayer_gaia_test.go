@@ -223,7 +223,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	signers := []tmtypes.PrivValidator{privVal}
 
 	// creating duplicate header
-	newHeader := createTMClientHeader(t, src.ChainID, int64(height.RevisionHeight), heightPlus1,
+	newHeader := createTMClientHeader(t, src.ChainID, int64(heightPlus1.RevisionHeight), height,
 		header.GetTime().Add(time.Minute), valSet, valSet, signers, header)
 
 	// update client with duplicate header
