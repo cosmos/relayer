@@ -46,7 +46,7 @@ func pathsGenCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "generate [src-chain-id] [dst-chain-id] [name]",
 		Aliases: []string{"gen"},
-		Short:   "generate identifiers for a new path between src and dst, reusing any that exist",
+		Short:   "generate a new path between src and dst, reusing any identifiers that exist",
 		Args:    cobra.ExactArgs(3),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths generate ibc-0 ibc-1 demo-path
