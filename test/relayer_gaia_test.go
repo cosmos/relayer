@@ -197,7 +197,18 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	header, err := src.QueryHeaderAtHeight(latestHeight)
 	require.NoError(t, err)
 
-	height := header.GetHeight().(clienttypes.Height)
+	clientStateRes, err := src.QueryClientState(latestHeight)
+	require.NoError(t, err)
+
+	// unpack any into ibc tendermint client state
+	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
+	require.NoError(t, err)
+
+	// cast from interface to concrete type
+	clientState, ok := clientStateExported.(*ibctmtypes.ClientState)
+	require.True(t, ok, "error when casting exported clientstate")
+
+	height := clientState.GetLatestHeight().(clienttypes.Height)
 	heightMinus1 := clienttypes.NewHeight(height.RevisionNumber, height.RevisionHeight-1)
 
 	// setup validator for signing duplicate header
@@ -230,15 +241,15 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	// kill relayer routine
 	rlyDone()
 
-	clientStateRes, err := src.QueryClientState(int64(heightMinus1.RevisionHeight))
+	clientStateRes, err = src.QueryClientState(int64(heightMinus1.RevisionHeight))
 	require.NoError(t, err)
 
 	// unpack any into ibc tendermint client state
-	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
+	clientStateExported, err = clienttypes.UnpackClientState(clientStateRes.ClientState)
 	require.NoError(t, err)
 
 	// cast from interface to concrete type
-	clientState, ok := clientStateExported.(*ibctmtypes.ClientState)
+	clientState, ok = clientStateExported.(*ibctmtypes.ClientState)
 	require.True(t, ok, "error when casting exported clientstate")
 
 	// clientstate should be frozen
