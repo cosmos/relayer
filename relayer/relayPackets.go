@@ -11,7 +11,7 @@ import (
 
 type relayPacket interface {
 	Msg(src, dst *Chain) (sdk.Msg, error)
-	FetchCommitResponse(src, dst *Chain) error
+	FetchCommitResponse(src, dst *Chain, queryHeight uint64) error
 	Data() []byte
 	Seq() uint64
 	Timeout() clienttypes.Height
@@ -39,14 +39,13 @@ func (rp *relayMsgTimeout) Timeout() clienttypes.Height {
 	return rp.timeout
 }
 
-func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain) (err error) {
+func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, queryHeight uint64) (err error) {
 	var dstRecvRes *chantypes.QueryPacketReceiptResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
 		// NOTE: Timeouts currently only work with ORDERED channels for nwo
 		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-		queryHeight := dst.MustGetLatestLightHeight() - 1
-		dstRecvRes, err = dst.QueryPacketReceipt(int64(queryHeight), rp.seq)
+		dstRecvRes, err = dst.QueryPacketReceipt(int64(queryHeight)-1, rp.seq)
 		switch {
 		case err != nil:
 			return err
@@ -128,12 +127,12 @@ func (rp *relayMsgRecvPacket) Timeout() clienttypes.Height {
 	return rp.timeout
 }
 
-func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain) (err error) {
+func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, queryHeight uint64) (err error) {
 	var dstCommitRes *chantypes.QueryPacketCommitmentResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
 		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-		dstCommitRes, err = dst.QueryPacketCommitment(int64(dst.MustGetLatestLightHeight()-1), rp.seq)
+		dstCommitRes, err = dst.QueryPacketCommitment(int64(queryHeight)-1, rp.seq)
 		switch {
 		case err != nil:
 			return err
@@ -228,12 +227,12 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) (sdk.Msg, error) {
 	return msg, nil
 }
 
-func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain) (err error) {
+func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, queryHeight uint64) (err error) {
 	var dstCommitRes *chantypes.QueryPacketAcknowledgementResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
 		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-		dstCommitRes, err = dst.QueryPacketAcknowledgement(int64(dst.MustGetLatestLightHeight())-1, rp.seq)
+		dstCommitRes, err = dst.QueryPacketAcknowledgement(int64(queryHeight)-1, rp.seq)
 		switch {
 		case err != nil:
 			return err
