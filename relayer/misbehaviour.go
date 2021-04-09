@@ -20,7 +20,7 @@ var (
 // against the associated light client. If the headers do not match, the emitted
 // header and a reconstructed header are used in misbehaviour submission to
 // the IBC client on the source chain.
-func checkAndSubmitMisbehaviour(src *Chain, events map[string][]string) error {
+func checkAndSubmitMisbehaviour(src, counterparty *Chain, events map[string][]string) error {
 	hdrs, ok := events[fmt.Sprintf("%s.%s", updateCliTag, headerTag)]
 	if !ok {
 		return nil
@@ -52,7 +52,7 @@ func checkAndSubmitMisbehaviour(src *Chain, events map[string][]string) error {
 			return fmt.Errorf("emitted header is not tendermint type")
 		}
 
-		trustedHeader, err := src.GetLightSignedHeaderAtHeight(emittedHeader.Header.Height)
+		trustedHeader, err := counterparty.GetLightSignedHeaderAtHeight(emittedHeader.Header.Height)
 		if err != nil {
 			return err
 		}
