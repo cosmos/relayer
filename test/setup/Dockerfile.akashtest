@@ -8,7 +8,9 @@ USER root
 
 COPY ./akash-setup.sh .
 
+COPY ./valkeys ./setup/valkeys
+
 EXPOSE 26657
 
 ENTRYPOINT [ "./akash-setup.sh" ]
-# NOTE: to run this image, docker run -d -p 26657:26657 ./single-node.sh {{chain_id}} {{genesis_account}}
+# NOTE: to run this image, docker run -d -p 26657:26657 ./akash-setup.sh {{chain_id}} {{genesis_account}} {{seeds}} {{priv_validator_key_path}}

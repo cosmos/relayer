@@ -14,6 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	ry "github.com/cosmos/relayer/relayer"
+
+	sdked25519 "github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	sdkcryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	tmed25519 "github.com/tendermint/tendermint/crypto/ed25519"
+	"github.com/tendermint/tendermint/privval"
 )
 
 // spinUpTestChains is to be passed any number of test chains with given configuration options
@@ -46,6 +51,7 @@ func spinUpTestChains(t *testing.T, testChains ...testChain) ry.Chains {
 		c := newTestChain(t, tc)
 		chains[i] = c
 		wg.Add(1)
+		genPrivValKeyJSON(tc.seed)
 		go spinUpTestContainer(t, rchan, pool, c, dir, &wg, tc)
 	}
 
@@ -135,7 +141,11 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 		Repository:   containerName, // Name must match Repository
 		Tag:          "latest",      // Must match docker default build tag
 		ExposedPorts: []string{tc.t.rpcPort, c.GetRPCPort()},
-		Cmd:          []string{c.ChainID, c.MustGetAddress().String()},
+		Cmd: []string{
+			c.ChainID,
+			c.MustGetAddress().String(),
+			getPrivValFileName(tc.seed),
+		},
 		PortBindings: map[dc.Port][]dc.PortBinding{
 			dc.Port(tc.t.rpcPort): {{HostPort: c.GetRPCPort()}},
 		},
@@ -206,4 +216,26 @@ func genTestPathAndSet(src, dst *ry.Chain, srcPort, dstPort string) (*ry.Path, e
 	src.PathEnd = path.Src
 	dst.PathEnd = path.Dst
 	return path, nil
+}
+
+func genPrivValKeyJSON(seedNumber int) {
+	privKey := getPrivKey(seedNumber)
+	filePV := getFilePV(privKey, seedNumber)
+	filePV.Key.Save()
+}
+
+func getPrivKey(seedNumber int) tmed25519.PrivKey {
+	return tmed25519.GenPrivKeyFromSecret([]byte(seeds[seedNumber]))
+}
+
+func getSDKPrivKey(seedNumber int) sdkcryptotypes.PrivKey {
+	return sdked25519.GenPrivKeyFromSecret([]byte(seeds[seedNumber]))
+}
+
+func getFilePV(privKey tmed25519.PrivKey, seedNumber int) *privval.FilePV {
+	return privval.NewFilePV(privKey, getPrivValFileName(seedNumber), "/")
+}
+
+func getPrivValFileName(seedNumber int) string {
+	return fmt.Sprintf("./setup/valkeys/priv_val%d.json", seedNumber)
 }

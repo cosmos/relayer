@@ -232,7 +232,9 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 // HandleEvents defines how the relayer will handle block and transaction events as they are emitted
 func (nrs *NaiveStrategy) HandleEvents(src, dst *Chain, events map[string][]string) {
 	// check for misbehaviour and submit if found
-	err := checkAndSubmitMisbehaviour(src, events)
+	// events came from dst chain, use that chain as the source
+	// the chain messages are submitted to
+	err := checkAndSubmitMisbehaviour(dst, src, events)
 	if err != nil {
 		src.Error(err)
 	}
@@ -344,16 +346,6 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 }
 
 func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []relayPacket) {
-
-	// fetch the proofs for the relayPackets
-	for _, rp := range rlyPackets {
-		if err := rp.FetchCommitResponse(src, dst); err != nil {
-			// we don't expect many errors here because of the retry
-			// in FetchCommitResponse
-			src.Error(err)
-		}
-	}
-
 	// send the transaction, retrying if not successful
 	// TODO: have separate retries for different pieces here
 	if err := retry.Do(func() error {
@@ -367,6 +359,11 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 			return err
 		}
 
+		header, err := clienttypes.UnpackHeader(updateMsg.(*clienttypes.MsgUpdateClient).Header)
+		if err != nil {
+			return err
+		}
+
 		txs := &RelayMsgs{
 			Src:          []sdk.Msg{updateMsg},
 			Dst:          []sdk.Msg{},
@@ -376,6 +373,10 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 
 		// add the packet msgs to RelayPackets
 		for _, rp := range rlyPackets {
+			// fetch the proof for the relayPacket
+			if err := rp.FetchCommitResponse(src, dst, header.GetHeight().GetRevisionHeight()); err != nil {
+				return err
+			}
 			msg, err := rp.Msg(src, dst)
 			if err != nil {
 				if src.debug {
