@@ -16,6 +16,7 @@
 
 ### Relayer
 
+* [\#488](https://github.com/cosmos/relayer/pull/488) Fix state based relaying for acknowledgements.
 * [\#474](https://github.com/cosmos/relayer/pull/474) Fix validator set mismatch when updating IBC client.
 
 
