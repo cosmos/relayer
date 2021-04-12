@@ -15,7 +15,8 @@ import (
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
 // TODO: de-duplicate code
-func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
+func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
+	allowUpdateAfterMisbehaviour bool) (modified bool, err error) {
 	// Handle off chain light clients
 	if err := c.ValidateLightInitialized(); err != nil {
 		return false, err
@@ -50,8 +51,8 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			dstUpdateHeader.GetHeight().(clienttypes.Height),
 			commitmenttypes.GetSDKSpecs(),
 			DefaultUpgradePath,
-			AllowUpdateAfterExpiry,
-			AllowUpdateAfterMisbehaviour,
+			allowUpdateAfterExpiry,
+			allowUpdateAfterMisbehaviour,
 		)
 
 		// Check if an identical light client already exists
@@ -113,8 +114,8 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			srcUpdateHeader.GetHeight().(clienttypes.Height),
 			commitmenttypes.GetSDKSpecs(),
 			DefaultUpgradePath,
-			AllowUpdateAfterExpiry,
-			AllowUpdateAfterMisbehaviour,
+			allowUpdateAfterExpiry,
+			allowUpdateAfterMisbehaviour,
 		)
 
 		// Check if an identical light client already exists
