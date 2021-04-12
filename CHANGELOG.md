@@ -4,6 +4,7 @@
 
 ### Relayer
 
+* [\#491](https://github.com/cosmos/relayer/pull/491) Add client parameter flags to allow governance to update the client if expiry or misbehaviour freezing occurs. 
 * [\#488](https://github.com/cosmos/relayer/pull/488) Fix state based relaying for acknowledgements.
 * [\#474](https://github.com/cosmos/relayer/pull/474) Fix validator set mismatch when updating IBC client.
 * [\#456](https://github.com/cosmos/relayer/pull/456) Fix bug which incorrectly set the timeout on a transfer.
