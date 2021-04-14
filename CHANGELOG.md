@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.9.3
+
+**2021/04/14**
+
+### Dependencies
+
+* [\#492](https://github.com/cosmos/relayer/pull/492) Update SDK and Tendermint versions
+
+### Relayer
+
+* [\#488](https://github.com/cosmos/relayer/pull/488) Fix state based relaying for acknowledgements.
+* [\#483](https://github.com/cosmos/relayer/pull/483) Fix timeout to correctly set revision number
+* [\#485](https://github.com/cosmos/relayer/pull/485) Fix misbehaviour monitoring
+* [\#490](https://github.com/cosmos/relayer/pull/490) Fix relay acknowledgement bug for streaming relays
+
 ## v0.9.2
 
 **2021/03/29**
