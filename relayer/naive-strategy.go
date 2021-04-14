@@ -232,7 +232,9 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 // HandleEvents defines how the relayer will handle block and transaction events as they are emitted
 func (nrs *NaiveStrategy) HandleEvents(src, dst *Chain, events map[string][]string) {
 	// check for misbehaviour and submit if found
-	err := checkAndSubmitMisbehaviour(src, events)
+	// events came from dst chain, use that chain as the source
+	// the chain messages are submitted to
+	err := checkAndSubmitMisbehaviour(dst, src, events)
 	if err != nil {
 		src.Error(err)
 	}
@@ -344,16 +346,6 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 }
 
 func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []relayPacket) {
-
-	// fetch the proofs for the relayPackets
-	for _, rp := range rlyPackets {
-		if err := rp.FetchCommitResponse(src, dst); err != nil {
-			// we don't expect many errors here because of the retry
-			// in FetchCommitResponse
-			src.Error(err)
-		}
-	}
-
 	// send the transaction, retrying if not successful
 	// TODO: have separate retries for different pieces here
 	if err := retry.Do(func() error {
@@ -367,6 +359,11 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 			return err
 		}
 
+		header, err := clienttypes.UnpackHeader(updateMsg.(*clienttypes.MsgUpdateClient).Header)
+		if err != nil {
+			return err
+		}
+
 		txs := &RelayMsgs{
 			Src:          []sdk.Msg{updateMsg},
 			Dst:          []sdk.Msg{},
@@ -376,6 +373,10 @@ func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, rlyPackets []r
 
 		// add the packet msgs to RelayPackets
 		for _, rp := range rlyPackets {
+			// fetch the proof for the relayPacket
+			if err := rp.FetchCommitResponse(src, dst, header.GetHeight().GetRevisionHeight()); err != nil {
+				return err
+			}
 			msg, err := rp.Msg(src, dst)
 			if err != nil {
 				if src.debug {
@@ -422,26 +423,30 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 		return err
 	}
 
-	// add messages for sequences on src
-	for _, seq := range sp.Src {
-		// SRC wrote ack, so we query packet and send to DST
+	// add messages for received packets on dst
+	for _, seq := range sp.Dst {
+		// dst wrote the ack. acknowledgementFromSequence will query the acknowledgement
+		// from the counterparty chain (second chain provided in the arguments). The message
+		// should be sent to src.
 		relayAckMsgs, err := acknowledgementFromSequence(src, dst, seq)
 		if err != nil {
 			return err
 		}
 
-		msgs.Dst = append(msgs.Dst, relayAckMsgs...)
+		msgs.Src = append(msgs.Src, relayAckMsgs...)
 	}
 
-	// add messages for sequences on dst
-	for _, seq := range sp.Dst {
-		// DST wrote ack, so we query packet and send to SRC
+	// add messages for received packets on src
+	for _, seq := range sp.Src {
+		// src wrote the ack. acknowledgementFromSequence will query the acknowledgement
+		// from the counterparty chain (second chain provided in the arguments). The message
+		// should be sent to dst.
 		relayAckMsgs, err := acknowledgementFromSequence(dst, src, seq)
 		if err != nil {
 			return err
 		}
 
-		msgs.Src = append(msgs.Src, relayAckMsgs...)
+		msgs.Dst = append(msgs.Dst, relayAckMsgs...)
 	}
 
 	if !msgs.Ready() {
@@ -616,7 +621,7 @@ func relayPacketFromSequence(src, dst *Chain, seq uint64) ([]sdk.Msg, []sdk.Msg,
 
 // source is the sending chain, destination is the receiving chain
 func acknowledgementFromSequence(src, dst *Chain, seq uint64) ([]sdk.Msg, error) {
-	txs, err := src.QueryTxs(src.MustGetLatestLightHeight(), 1, 1000, ackPacketQuery(src.PathEnd.ChannelID, int(seq)))
+	txs, err := dst.QueryTxs(dst.MustGetLatestLightHeight(), 1, 1000, ackPacketQuery(dst.PathEnd.ChannelID, int(seq)))
 	switch {
 	case err != nil:
 		return nil, err
@@ -626,7 +631,7 @@ func acknowledgementFromSequence(src, dst *Chain, seq uint64) ([]sdk.Msg, error)
 		return nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	acks, err := acknowledgementsFromResultTx(dst.PathEnd, src.PathEnd, txs[0])
+	acks, err := acknowledgementsFromResultTx(src.PathEnd, dst.PathEnd, txs[0])
 	switch {
 	case err != nil:
 		return nil, err
@@ -738,7 +743,7 @@ func relayPacketsFromResultTx(src, dst *Chain, res *ctypes.ResultTx) ([]relayPac
 }
 
 // acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
-//relayPackets with the appropriate data
+// relayPackets with the appropriate data
 func acknowledgementsFromResultTx(src, dst *PathEnd,
 	res *ctypes.ResultTx) ([]*relayMsgPacketAck, error) {
 	var ackPackets []*relayMsgPacketAck

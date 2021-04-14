@@ -109,6 +109,21 @@ func createClientsCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`$ %s transact clients demo-path`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			allowUpdateAfterExpiry, err := cmd.Flags().GetBool(flagUpdateAfterExpiry)
+			if err != nil {
+				return err
+			}
+
+			allowUpdateAfterMisbehaviour, err := cmd.Flags().GetBool(flagUpdateAfterMisbehaviour)
+			if err != nil {
+				return err
+			}
+
+			override, err := cmd.Flags().GetBool(flagOverride)
+			if err != nil {
+				return err
+			}
+
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
@@ -122,12 +137,8 @@ func createClientsCmd() *cobra.Command {
 				return err
 			}
 
-			override, err := cmd.Flags().GetBool(flagOverride)
-			if err != nil {
-				return err
-			}
-
-			modified, err := c[src].CreateClients(c[dst], override)
+			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry,
+				allowUpdateAfterMisbehaviour, override)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err
@@ -138,7 +149,7 @@ func createClientsCmd() *cobra.Command {
 		},
 	}
 
-	return overrideFlag(cmd)
+	return overrideFlag(clientParameterFlags(cmd))
 }
 
 func updateClientsCmd() *cobra.Command {
@@ -224,6 +235,16 @@ $ %s tx conn demo-path --timeout 5s`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			allowUpdateAfterExpiry, err := cmd.Flags().GetBool(flagUpdateAfterExpiry)
+			if err != nil {
+				return err
+			}
+
+			allowUpdateAfterMisbehaviour, err := cmd.Flags().GetBool(flagUpdateAfterMisbehaviour)
+			if err != nil {
+				return err
+			}
+
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
@@ -253,7 +274,8 @@ $ %s tx conn demo-path --timeout 5s`,
 			}
 
 			// ensure that the clients exist
-			modified, err := c[src].CreateClients(c[dst], override)
+			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry,
+				allowUpdateAfterMisbehaviour, override)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err
@@ -274,7 +296,7 @@ $ %s tx conn demo-path --timeout 5s`,
 		},
 	}
 
-	return overrideFlag(retryFlag(timeoutFlag(cmd)))
+	return overrideFlag(clientParameterFlags(retryFlag(timeoutFlag(cmd))))
 }
 
 func closeChannelCmd() *cobra.Command {
@@ -331,6 +353,16 @@ $ %s tx connect demo-path`,
 			appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			allowUpdateAfterExpiry, err := cmd.Flags().GetBool(flagUpdateAfterExpiry)
+			if err != nil {
+				return err
+			}
+
+			allowUpdateAfterMisbehaviour, err := cmd.Flags().GetBool(flagUpdateAfterMisbehaviour)
+			if err != nil {
+				return err
+			}
+
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
@@ -360,7 +392,8 @@ $ %s tx connect demo-path`,
 			}
 
 			// create clients if they aren't already created
-			modified, err := c[src].CreateClients(c[dst], override)
+			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry,
+				allowUpdateAfterMisbehaviour, override)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err
@@ -393,7 +426,7 @@ $ %s tx connect demo-path`,
 		},
 	}
 
-	return overrideFlag(retryFlag(timeoutFlag(cmd)))
+	return overrideFlag(clientParameterFlags(retryFlag(timeoutFlag(cmd))))
 }
 
 func linkThenStartCmd() *cobra.Command {
