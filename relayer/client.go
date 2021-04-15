@@ -264,14 +264,8 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 
 	for _, identifiedClientState := range clientsResp.ClientStates {
 		// unpack any into ibc tendermint client state
-		clientStateExported, err := clienttypes.UnpackClientState(identifiedClientState.ClientState)
+		existingClientState, err := CastClientStateToTMType(identifiedClientState.ClientState)
 		if err != nil {
-			return "", false
-		}
-
-		// cast from interface to concrete type
-		existingClientState, ok := clientStateExported.(*ibctmtypes.ClientState)
-		if !ok {
 			return "", false
 		}
 
@@ -358,22 +352,9 @@ func AutoUpdateClient(src, dst *Chain, thresholdTime time.Duration) (time.Durati
 		return 0, err
 	}
 
-	clientStateRes, err := src.QueryClientState(height)
+	clientState, err := src.QueryTMClientState(height)
 	if err != nil {
 		return 0, err
-	}
-
-	// unpack any into ibc tendermint client state
-	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
-	if err != nil {
-		return 0, err
-	}
-
-	// cast from interface to concrete type
-	clientState, ok := clientStateExported.(*ibctmtypes.ClientState)
-	if !ok {
-		return 0, fmt.Errorf("error when casting exported clientstate with clientID %s on chain: %s",
-			src.PathEnd.ClientID, src.PathEnd.ChainID)
 	}
 
 	if clientState.TrustingPeriod <= thresholdTime {

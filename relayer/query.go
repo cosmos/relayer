@@ -25,6 +25,7 @@ import (
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 	committypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
 	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
+	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
@@ -128,6 +129,50 @@ func QueryClientConsensusStatePair(
 // QueryClientState retrevies the latest consensus state for a client in state at a given height
 func (c *Chain) QueryClientState(height int64) (*clienttypes.QueryClientStateResponse, error) {
 	return clientutils.QueryClientStateABCI(c.CLIContext(height), c.PathEnd.ClientID)
+}
+
+// QueryUnpackedClientState retrevies the latest consensus state for a client in state at a given height
+// and unpacks it to exported client state interface
+func (c *Chain) QueryUnpackedClientState(height int64) (ibcexported.ClientState, error) {
+	clientStateRes, err := c.QueryClientState(height)
+	if err != nil {
+		return nil, err
+	}
+
+	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
+	if err != nil {
+		return nil, err
+	}
+
+	return clientStateExported, nil
+}
+
+// QueryTMClientState retrevies the latest consensus state for a client in state at a given height
+// and unpacks/cast it to tendermint clientstate
+func (c *Chain) QueryTMClientState(height int64) (*ibctmtypes.ClientState, error) {
+	clientStateRes, err := c.QueryClientState(height)
+	if err != nil {
+		return &ibctmtypes.ClientState{}, err
+	}
+
+	return CastClientStateToTMType(clientStateRes.ClientState)
+}
+
+// CastClientStateToTMType casts client state to tendermint type
+func CastClientStateToTMType(cs *codectypes.Any) (*ibctmtypes.ClientState, error) {
+	clientStateExported, err := clienttypes.UnpackClientState(cs)
+	if err != nil {
+		return &ibctmtypes.ClientState{}, err
+	}
+
+	// cast from interface to concrete type
+	clientState, ok := clientStateExported.(*ibctmtypes.ClientState)
+	if !ok {
+		return &ibctmtypes.ClientState{},
+			fmt.Errorf("error when casting exported clientstate to tendermint type")
+	}
+
+	return clientState, nil
 }
 
 // QueryClientStatePair returns a pair of connection responses
