@@ -36,7 +36,7 @@ func TestAkashToGaiaStreamingRelayer(t *testing.T) {
 	require.NoError(t, err)
 
 	// create path
-	_, err = src.CreateClients(dst, true, true)
+	_, err = src.CreateClients(dst, true, true, false)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
