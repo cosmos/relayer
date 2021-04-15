@@ -35,6 +35,7 @@ var (
 	flagThresholdTime           = "time-threshold"
 	flagUpdateAfterExpiry       = "update-after-expiry"
 	flagUpdateAfterMisbehaviour = "update-after-misbehaviour"
+	flagOverride                = "override"
 )
 
 func ibcDenomFlags(cmd *cobra.Command) *cobra.Command {
@@ -280,6 +281,14 @@ func clientParameterFlags(cmd *cobra.Command) *cobra.Command {
 		panic(err)
 	}
 	if err := viper.BindPFlag(flagUpdateAfterMisbehaviour, cmd.Flags().Lookup(flagUpdateAfterMisbehaviour)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func overrideFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Bool(flagOverride, false, "option to not reuse existing client")
+	if err := viper.BindPFlag(flagOverride, cmd.Flags().Lookup(flagOverride)); err != nil {
 		panic(err)
 	}
 	return cmd
