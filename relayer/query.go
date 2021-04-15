@@ -25,7 +25,6 @@ import (
 	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 	committypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
 	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
-	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
@@ -149,26 +148,26 @@ func (c *Chain) QueryUnpackedClientState(height int64) (ibcexported.ClientState,
 
 // QueryTMClientState retrevies the latest consensus state for a client in state at a given height
 // and unpacks/cast it to tendermint clientstate
-func (c *Chain) QueryTMClientState(height int64) (*ibctmtypes.ClientState, error) {
+func (c *Chain) QueryTMClientState(height int64) (*tmclient.ClientState, error) {
 	clientStateRes, err := c.QueryClientState(height)
 	if err != nil {
-		return &ibctmtypes.ClientState{}, err
+		return &tmclient.ClientState{}, err
 	}
 
 	return CastClientStateToTMType(clientStateRes.ClientState)
 }
 
 // CastClientStateToTMType casts client state to tendermint type
-func CastClientStateToTMType(cs *codectypes.Any) (*ibctmtypes.ClientState, error) {
+func CastClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) {
 	clientStateExported, err := clienttypes.UnpackClientState(cs)
 	if err != nil {
-		return &ibctmtypes.ClientState{}, err
+		return &tmclient.ClientState{}, err
 	}
 
 	// cast from interface to concrete type
-	clientState, ok := clientStateExported.(*ibctmtypes.ClientState)
+	clientState, ok := clientStateExported.(*tmclient.ClientState)
 	if !ok {
-		return &ibctmtypes.ClientState{},
+		return &tmclient.ClientState{},
 			fmt.Errorf("error when casting exported clientstate to tendermint type")
 	}
 
