@@ -653,7 +653,12 @@ func (c *Chain) GenerateConnHandshakeProof(height uint64) (clientState ibcexport
 	)
 
 	// query for the client state for the proof and get the height to query the consensus state at.
-	clientState, err = c.QueryUnpackedClientState(int64(height))
+	clientStateRes, err = c.QueryClientState(int64(height))
+	if err != nil {
+		return nil, nil, nil, nil, clienttypes.Height{}, err
+	}
+
+	clientState, err = clienttypes.UnpackClientState(clientStateRes.ClientState)
 	if err != nil {
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
