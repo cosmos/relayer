@@ -125,15 +125,15 @@ func QueryClientConsensusStatePair(
 	return
 }
 
-// QueryClientState retrevies the latest consensus state for a client in state at a given height
-func (c *Chain) QueryClientState(height int64) (*clienttypes.QueryClientStateResponse, error) {
+// QueryClientStateResponse retrevies the latest consensus state for a client in state at a given height
+func (c *Chain) QueryClientStateResponse(height int64) (*clienttypes.QueryClientStateResponse, error) {
 	return clientutils.QueryClientStateABCI(c.CLIContext(height), c.PathEnd.ClientID)
 }
 
-// QueryUnpackedClientState retrevies the latest consensus state for a client in state at a given height
+// QueryClientState retrevies the latest consensus state for a client in state at a given height
 // and unpacks it to exported client state interface
-func (c *Chain) QueryUnpackedClientState(height int64) (ibcexported.ClientState, error) {
-	clientStateRes, err := c.QueryClientState(height)
+func (c *Chain) QueryClientState(height int64) (ibcexported.ClientState, error) {
+	clientStateRes, err := c.QueryClientStateResponse(height)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (c *Chain) QueryUnpackedClientState(height int64) (ibcexported.ClientState,
 // QueryTMClientState retrevies the latest consensus state for a client in state at a given height
 // and unpacks/cast it to tendermint clientstate
 func (c *Chain) QueryTMClientState(height int64) (*tmclient.ClientState, error) {
-	clientStateRes, err := c.QueryClientState(height)
+	clientStateRes, err := c.QueryClientStateResponse(height)
 	if err != nil {
 		return &tmclient.ClientState{}, err
 	}
@@ -180,11 +180,11 @@ func QueryClientStatePair(
 	srch, dsth int64) (srcCsRes, dstCsRes *clienttypes.QueryClientStateResponse, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
-		srcCsRes, err = src.QueryClientState(srch)
+		srcCsRes, err = src.QueryClientStateResponse(srch)
 		return err
 	})
 	eg.Go(func() error {
-		dstCsRes, err = dst.QueryClientState(dsth)
+		dstCsRes, err = dst.QueryClientStateResponse(dsth)
 		return err
 	})
 	err = eg.Wait()

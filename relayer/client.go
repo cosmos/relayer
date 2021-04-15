@@ -95,7 +95,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
 	} else {
 		// Ensure client exists in the event of user inputted identifiers
 		// TODO: check client is not expired
-		_, err := c.QueryClientState(srcUpdateHeader.Header.Height)
+		_, err := c.QueryClientStateResponse(srcUpdateHeader.Header.Height)
 		if err != nil {
 			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
 				c.PathEnd.ClientID, c.ChainID, err)
@@ -165,7 +165,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
 	} else {
 		// Ensure client exists in the event of user inputted identifiers
 		// TODO: check client is not expired
-		_, err := dst.QueryClientState(dstUpdateHeader.Header.Height)
+		_, err := dst.QueryClientStateResponse(dstUpdateHeader.Header.Height)
 		if err != nil {
 			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
 				dst.PathEnd.ClientID, dst.ChainID, err)

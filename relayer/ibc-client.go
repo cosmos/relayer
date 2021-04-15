@@ -96,7 +96,7 @@ func (c *Chain) InjectTrustedFields(dst *Chain, header *tmclient.Header) (*tmcli
 
 	// retrieve counterparty client from src chain
 	// this is the client that will updated
-	cs, err := dst.QueryUnpackedClientState(0)
+	cs, err := dst.QueryClientState(0)
 	if err != nil {
 		return nil, err
 	}
