@@ -55,7 +55,10 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
 			allowUpdateAfterMisbehaviour,
 		)
 
-		clientID, found := "", false
+		var (
+			clientID string
+			found    bool
+		)
 		// Will not reuse same client if override is true
 		if !override {
 			// Check if an identical light client already exists
@@ -122,7 +125,10 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
 			allowUpdateAfterMisbehaviour,
 		)
 
-		clientID, found := "", false
+		var (
+			clientID string
+			found    bool
+		)
 		// Will not reuse same client if override is true
 		if !override {
 			// Check if an identical light client already exists
