@@ -211,7 +211,6 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 	// OpenInit on source
 	// Neither connection has been initialized
 	case src.PathEnd.ConnectionID == "" && dst.PathEnd.ConnectionID == "":
-		//nolint:staticcheck
 		if src.debug {
 			src.logOpenInit(dst, "connection")
 		}
@@ -235,10 +234,8 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 			if err != nil {
 				return false, false, err
 			}
-		} else {
-			if src.debug {
-				src.logIdentifierExists(dst, "connection end", connectionID)
-			}
+		} else if src.debug {
+			src.logIdentifierExists(dst, "connection end", connectionID)
 		}
 
 		src.PathEnd.ConnectionID = connectionID
@@ -248,7 +245,6 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 	// OpenTry on source
 	// source connection does not exist, but counterparty connection exists
 	case src.PathEnd.ConnectionID == "" && dst.PathEnd.ConnectionID != "":
-		//nolint:staticcheck
 		if src.debug {
 			src.logOpenTry(dst, "connection")
 		}
@@ -271,10 +267,8 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 			if err != nil {
 				return false, false, err
 			}
-		} else {
-			if src.debug {
-				src.logIdentifierExists(dst, "connection end", connectionID)
-			}
+		} else if src.debug {
+			src.logIdentifierExists(dst, "connection end", connectionID)
 		}
 
 		src.PathEnd.ConnectionID = connectionID
@@ -284,7 +278,6 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 	// OpenTry on counterparty
 	// source connection exists, but counterparty connection does not exist
 	case src.PathEnd.ConnectionID != "" && dst.PathEnd.ConnectionID == "":
-		//nolint:staticcheck
 		if dst.debug {
 			dst.logOpenTry(src, "connection")
 		}
@@ -307,10 +300,8 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 			if err != nil {
 				return false, false, err
 			}
-		} else {
-			if dst.debug {
-				dst.logIdentifierExists(src, "connection end", connectionID)
-			}
+		} else if dst.debug {
+			dst.logIdentifierExists(src, "connection end", connectionID)
 		}
 
 		dst.PathEnd.ConnectionID = connectionID
