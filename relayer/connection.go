@@ -213,7 +213,7 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 	case src.PathEnd.ConnectionID == "" && dst.PathEnd.ConnectionID == "":
 		//nolint:staticcheck
 		if src.debug {
-			// TODO: log that we are attempting to create new connection ends
+			src.logOpenInit(dst, "connection")
 		}
 
 		connectionID, found := FindMatchingConnection(src, dst)
@@ -235,7 +235,12 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 			if err != nil {
 				return false, false, err
 			}
+		} else {
+			if src.debug {
+				src.logIdentifierExists(dst, "connection end", connectionID)
+			}
 		}
+
 		src.PathEnd.ConnectionID = connectionID
 
 		return true, true, nil
@@ -245,7 +250,7 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 	case src.PathEnd.ConnectionID == "" && dst.PathEnd.ConnectionID != "":
 		//nolint:staticcheck
 		if src.debug {
-			// TODO: update logging
+			src.logOpenTry(dst, "connection")
 		}
 
 		connectionID, found := FindMatchingConnection(src, dst)
@@ -266,7 +271,12 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 			if err != nil {
 				return false, false, err
 			}
+		} else {
+			if src.debug {
+				src.logIdentifierExists(dst, "connection end", connectionID)
+			}
 		}
+
 		src.PathEnd.ConnectionID = connectionID
 
 		return true, true, nil
@@ -276,7 +286,7 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 	case src.PathEnd.ConnectionID != "" && dst.PathEnd.ConnectionID == "":
 		//nolint:staticcheck
 		if dst.debug {
-			// TODO: update logging
+			dst.logOpenTry(src, "connection")
 		}
 
 		connectionID, found := FindMatchingConnection(dst, src)
@@ -297,7 +307,12 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 			if err != nil {
 				return false, false, err
 			}
+		} else {
+			if dst.debug {
+				dst.logIdentifierExists(src, "connection end", connectionID)
+			}
 		}
+
 		dst.PathEnd.ConnectionID = connectionID
 
 		return true, true, nil
