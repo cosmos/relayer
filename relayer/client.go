@@ -65,12 +65,12 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
 			clientID, found = FindMatchingClient(c, dst, clientState)
 		}
 		if !found || override {
-			msgs := []sdk.Msg{
-				c.CreateClient(
-					clientState,
-					dstUpdateHeader,
-				),
+			createMsg, err := c.CreateClient(clientState, dstUpdateHeader)
+			if err != nil {
+				return modified, err
 			}
+
+			msgs := []sdk.Msg{createMsg}
 
 			// if a matching client does not exist, create one
 			res, success, err := c.SendMsgs(msgs)
@@ -137,12 +137,12 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
 			clientID, found = FindMatchingClient(dst, c, clientState)
 		}
 		if !found || override {
-			msgs := []sdk.Msg{
-				dst.CreateClient(
-					clientState,
-					srcUpdateHeader,
-				),
+			createMsg, err := dst.CreateClient(clientState, srcUpdateHeader)
+			if err != nil {
+				return modified, err
 			}
+
+			msgs := []sdk.Msg{createMsg}
 
 			// if a matching client does not exist, create one
 			res, success, err := dst.SendMsgs(msgs)
