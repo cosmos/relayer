@@ -106,8 +106,8 @@ steps are typically performed:
    information and initialize the light clients.
 
    ```shell
-   $ rly lite init chain-a -f
-   $ rly lite init chain-b -f
+   $ rly light init chain-a -f
+   $ rly light init chain-b -f
    ```
 
 9. Next, we generate a new path representing a client, connection, channel and a
