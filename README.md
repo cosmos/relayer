@@ -44,8 +44,15 @@ wanting to build their [IBC](https://ibcprotocol.org/)-compliant relayer.
 To setup and start the IBC relayer between two IBC-enabled networks, the following
 steps are typically performed:
 
-1. Install the latest release.
-2. Initialize the relayer's configuration.
+1. Install the latest release via github as follows or by downloding built binaries on the [releases page](https://github.com/cosmos/relayer/releases).
+
+  ```
+  $ git clone git@github.com:cosmos/relayer.git
+  $ git checkout v0.9.3
+  $ cd relayer && Make install
+  ```
+
+3. Initialize the relayer's configuration.
 
    ```shell
    $ rly config init
