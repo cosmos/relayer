@@ -78,6 +78,21 @@ func (c *Chain) logCreateClient(dst *Chain, dstH int64) {
 		c.ChainID, c.ChainID, dst.ChainID, dstH, dst.GetTrustingPeriod()))
 }
 
+func (c *Chain) logOpenInit(dst *Chain, connOrChan string) {
+	c.Log(fmt.Sprintf("- attempting to create new %s ends from chain[%s] with chain[%s]",
+		connOrChan, c.ChainID, dst.ChainID))
+}
+
+func (c *Chain) logOpenTry(dst *Chain, connOrChan string) {
+	c.Log(fmt.Sprintf("- chain[%s] trying to open %s end on chain[%s]",
+		c.ChainID, connOrChan, dst.ChainID))
+}
+
+func (c *Chain) logIdentifierExists(dst *Chain, identifierType string, id string) {
+	c.Log(fmt.Sprintf("- identical %s(%s) on %s with %s already exists",
+		identifierType, id, c.ChainID, dst.ChainID))
+}
+
 func (c *Chain) logTx(events map[string][]string) {
 	hash := ""
 	if len(events["tx.hash"]) > 0 {
@@ -112,6 +127,10 @@ func (c *Chain) logRetryQueryPacketAcknowledgements(height uint64, n uint, err e
 		c.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgements: %s",
 			c.ChainID, height, n+1, rtyAttNum, err))
 	}
+}
+
+func (c *Chain) logUnreceivedPackets(dst *Chain, packetType string, log string) {
+	c.Log(fmt.Sprintf("- unrelayed packet %s sent by %s to %s: %s", packetType, c.ChainID, dst.ChainID, log))
 }
 
 func (c *Chain) errQueryUnrelayedPacketAcks() error {
