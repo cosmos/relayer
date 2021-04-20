@@ -49,7 +49,7 @@ steps are typically performed:
   ```
   $ git clone git@github.com:cosmos/relayer.git
   $ git checkout v0.9.3
-  $ cd relayer && Make install
+  $ cd relayer && make install
   ```
 
 3. Initialize the relayer's configuration.
