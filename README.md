@@ -52,7 +52,7 @@ steps are typically performed:
   $ cd relayer && make install
   ```
 
-3. Initialize the relayer's configuration.
+2. Initialize the relayer's configuration.
 
    ```shell
    $ rly config init
