@@ -242,7 +242,8 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 		header.GetTime().Add(time.Minute), valSet, valSet, signers, header)
 
 	// update client with duplicate header
-	updateMsg, err := clienttypes.NewMsgUpdateClient(src.PathEnd.ClientID, newHeader, src.MustGetAddress())
+	updateMsg, err := clienttypes.NewMsgUpdateClient(src.PathEnd.ClientID, newHeader,
+		src.MustGetAddress().String())
 	require.NoError(t, err)
 
 	res, success, err := src.SendMsg(updateMsg)
