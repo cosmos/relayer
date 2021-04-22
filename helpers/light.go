@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	tmclient "github.com/cosmos/ibc-go/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer"
 )
 

@@ -5,8 +5,8 @@ import (
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/modules/core/02-client/types"
+	chantypes "github.com/cosmos/ibc-go/modules/core/04-channel/types"
 )
 
 type relayPacket interface {
@@ -89,7 +89,7 @@ func (rp *relayMsgTimeout) Msg(src, dst *Chain) (sdk.Msg, error) {
 		rp.seq,
 		rp.dstRecvRes.Proof,
 		rp.dstRecvRes.ProofHeight,
-		src.MustGetAddress(),
+		src.MustGetAddress().String(),
 	)
 	return msg, nil
 }
@@ -178,7 +178,7 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) (sdk.Msg, error) {
 		packet,
 		rp.dstComRes.Proof,
 		rp.dstComRes.ProofHeight,
-		src.MustGetAddress(),
+		src.MustGetAddress().String(),
 	)
 	return msg, nil
 }
@@ -222,7 +222,7 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) (sdk.Msg, error) {
 		rp.ack,
 		rp.dstComRes.Proof,
 		rp.dstComRes.ProofHeight,
-		src.MustGetAddress(),
+		src.MustGetAddress().String(),
 	)
 	return msg, nil
 }

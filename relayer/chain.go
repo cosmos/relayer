@@ -23,12 +23,12 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	connectiontypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
-	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
-	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	"github.com/cosmos/go-bip39"
+	clienttypes "github.com/cosmos/ibc-go/modules/core/02-client/types"
+	connectiontypes "github.com/cosmos/ibc-go/modules/core/03-connection/types"
+	ibcexported "github.com/cosmos/ibc-go/modules/core/exported"
+	ibctmtypes "github.com/cosmos/ibc-go/modules/light-clients/07-tendermint/types"
 	"github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/libs/log"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
@@ -289,13 +289,13 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (*sdk.TxResponse, bool, error) {
 	ctx := c.CLIContext(0)
 
 	// Query account details
-	txf, err := tx.PrepareFactory(ctx, c.TxFactory(0))
+	txf, err := prepareFactory(ctx, c.TxFactory(0))
 	if err != nil {
 		return nil, false, err
 	}
 
 	// If users pass gas adjustment, then calculate gas
-	_, adjusted, err := tx.CalculateGas(ctx.QueryWithData, txf, msgs...)
+	_, adjusted, err := tx.CalculateGas(ctx, txf, msgs...)
 	if err != nil {
 		return nil, false, err
 	}
@@ -337,6 +337,32 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (*sdk.TxResponse, bool, error) {
 
 	c.LogSuccessTx(res, msgs)
 	return res, true, nil
+}
+
+func prepareFactory(clientCtx sdkCtx.Context, txf tx.Factory) (tx.Factory, error) {
+	from := clientCtx.GetFromAddress()
+
+	if err := txf.AccountRetriever().EnsureExists(clientCtx, from); err != nil {
+		return txf, err
+	}
+
+	initNum, initSeq := txf.AccountNumber(), txf.Sequence()
+	if initNum == 0 || initSeq == 0 {
+		num, seq, err := txf.AccountRetriever().GetAccountNumberSequence(clientCtx, from)
+		if err != nil {
+			return txf, err
+		}
+
+		if initNum == 0 {
+			txf = txf.WithAccountNumber(num)
+		}
+
+		if initSeq == 0 {
+			txf = txf.WithSequence(seq)
+		}
+	}
+
+	return txf, nil
 }
 
 // CLIContext returns an instance of client.Context derived from Chain
@@ -701,16 +727,14 @@ func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Co
 	upgradedClientState := clientState.ZeroCustomFields().(*ibctmtypes.ClientState)
 	upgradedClientState.LatestHeight.RevisionHeight = uint64(plan.Height + 1)
 	upgradedClientState.UnbondingPeriod = unbondingPeriod
-	upgradedAny, err := clienttypes.PackClientState(upgradedClientState)
+
+	// TODO: make cli args for title and description
+	upgradeProposal, err := clienttypes.NewUpgradeProposal("upgrade",
+		"upgrade the chain's software and unbonding period", *plan, upgradedClientState)
 	if err != nil {
 		return err
 	}
 
-	plan.UpgradedClientState = upgradedAny
-
-	// TODO: make cli args for title and description
-	upgradeProposal := upgradetypes.NewSoftwareUpgradeProposal("upgrade",
-		"upgrade the chain's software and unbonding period", *plan)
 	msg, err := govtypes.NewMsgSubmitProposal(upgradeProposal, sdk.NewCoins(deposit), c.MustGetAddress())
 	if err != nil {
 		return err

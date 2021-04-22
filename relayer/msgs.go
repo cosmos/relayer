@@ -5,11 +5,11 @@ import (
 
 	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	transfertypes "github.com/cosmos/cosmos-sdk/x/ibc/applications/transfer/types"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
-	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	transfertypes "github.com/cosmos/ibc-go/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/modules/core/04-channel/types"
+	tmclient "github.com/cosmos/ibc-go/modules/light-clients/07-tendermint/types"
 )
 
 // NOTE: we explicitly call 'MustGetAddress' before 'NewMsg...'
@@ -35,7 +35,7 @@ func (c *Chain) CreateClient(
 	msg, err := clienttypes.NewMsgCreateClient(
 		clientState,
 		dstHeader.ConsensusState(),
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
 	if err != nil {
@@ -61,7 +61,7 @@ func (c *Chain) UpdateClient(dst *Chain) (sdk.Msg, error) {
 	msg, err := clienttypes.NewMsgUpdateClient(
 		c.PathEnd.ClientID,
 		header,
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func (c *Chain) ConnInit(counterparty *Chain) ([]sdk.Msg, error) {
 		defaultChainPrefix,
 		version,
 		defaultDelayPeriod,
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
 	return []sdk.Msg{updateMsg, msg}, nil
@@ -121,7 +121,7 @@ func (c *Chain) ConnTry(
 		consensusStateProof,
 		proofHeight,
 		clientState.GetLatestHeight().(clienttypes.Height),
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 	if err := msg.ValidateBasic(); err != nil {
 		return nil, err
@@ -156,7 +156,7 @@ func (c *Chain) ConnAck(
 		proofHeight,
 		clientState.GetLatestHeight().(clienttypes.Height),
 		conntypes.DefaultIBCVersion,
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
 	return []sdk.Msg{updateMsg, msg}, nil
@@ -178,7 +178,7 @@ func (c *Chain) ConnConfirm(counterparty *Chain) ([]sdk.Msg, error) {
 		c.PathEnd.ConnectionID,
 		counterpartyConnState.Proof,
 		counterpartyConnState.ProofHeight,
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
 	return []sdk.Msg{updateMsg, msg}, nil
@@ -197,7 +197,7 @@ func (c *Chain) ChanInit(counterparty *Chain) ([]sdk.Msg, error) {
 		c.PathEnd.GetOrder(),
 		[]string{c.PathEnd.ConnectionID},
 		counterparty.PathEnd.PortID,
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
 	return []sdk.Msg{updateMsg, msg}, nil
@@ -229,7 +229,7 @@ func (c *Chain) ChanTry(
 		counterpartyChannelRes.Channel.Version,
 		counterpartyChannelRes.Proof,
 		counterpartyChannelRes.ProofHeight,
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 
 	)
 
@@ -258,7 +258,7 @@ func (c *Chain) ChanAck(
 		counterpartyChannelRes.Channel.Version,
 		counterpartyChannelRes.Proof,
 		counterpartyChannelRes.ProofHeight,
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
 	return []sdk.Msg{updateMsg, msg}, nil
@@ -282,7 +282,7 @@ func (c *Chain) ChanConfirm(counterparty *Chain) ([]sdk.Msg, error) {
 		c.PathEnd.ChannelID,
 		counterpartyChanState.Proof,
 		counterpartyChanState.ProofHeight,
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
 	return []sdk.Msg{updateMsg, msg}, nil
@@ -293,7 +293,7 @@ func (c *Chain) ChanCloseInit() sdk.Msg {
 	return chantypes.NewMsgChannelCloseInit(
 		c.PathEnd.PortID,
 		c.PathEnd.ChannelID,
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 }
 
@@ -304,7 +304,7 @@ func (c *Chain) ChanCloseConfirm(dstChanState *chantypes.QueryChannelResponse) s
 		c.PathEnd.ChannelID,
 		dstChanState.Proof,
 		dstChanState.ProofHeight,
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 }
 
@@ -316,7 +316,7 @@ func (c *Chain) MsgTransfer(dst *PathEnd, amount sdk.Coin, dstAddr string,
 		c.PathEnd.PortID,
 		c.PathEnd.ChannelID,
 		amount,
-		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 		dstAddr,
 		clienttypes.NewHeight(version, timeoutHeight),
 		timeoutTimestamp,
@@ -378,7 +378,7 @@ func (c *Chain) MsgRelayRecvPacket(counterparty *Chain, packet *relayMsgRecvPack
 		),
 		comRes.Proof,
 		comRes.ProofHeight,
-		c.MustGetAddress(),
+		c.MustGetAddress().String(),
 	)
 
 	return append(msgs, msg), nil
@@ -440,7 +440,7 @@ func (c *Chain) MsgRelayAcknowledgement(counterparty *Chain, packet *relayMsgPac
 		packet.ack,
 		ackRes.Proof,
 		ackRes.ProofHeight,
-		c.MustGetAddress(),
+		c.MustGetAddress().String(),
 	)
 
 	return append(msgs, msg), nil
@@ -504,7 +504,7 @@ func (c *Chain) MsgRelayTimeout(counterparty *Chain, packet *relayMsgTimeout) (m
 		packet.seq,
 		recvRes.Proof,
 		recvRes.ProofHeight,
-		c.MustGetAddress(),
+		c.MustGetAddress().String(),
 	)
 
 	return append(msgs, msg), nil

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
+	conntypes "github.com/cosmos/ibc-go/modules/core/03-connection/types"
 )
 
 // CreateOpenConnections runs the connection creation messages on timeout until they pass.

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	retry "github.com/avast/retry-go"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	tmclient "github.com/cosmos/ibc-go/modules/light-clients/07-tendermint/types"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
 	light "github.com/tendermint/tendermint/light"

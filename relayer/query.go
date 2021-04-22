@@ -16,18 +16,18 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	transfertypes "github.com/cosmos/cosmos-sdk/x/ibc/applications/transfer/types"
-	clientutils "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/client/utils"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	connutils "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/client/utils"
-	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
-	chanutils "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/client/utils"
-	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
-	committypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
-	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
+	transfertypes "github.com/cosmos/ibc-go/modules/apps/transfer/types"
+	clientutils "github.com/cosmos/ibc-go/modules/core/02-client/client/utils"
+	clienttypes "github.com/cosmos/ibc-go/modules/core/02-client/types"
+	connutils "github.com/cosmos/ibc-go/modules/core/03-connection/client/utils"
+	conntypes "github.com/cosmos/ibc-go/modules/core/03-connection/types"
+	chanutils "github.com/cosmos/ibc-go/modules/core/04-channel/client/utils"
+	chantypes "github.com/cosmos/ibc-go/modules/core/04-channel/types"
+	committypes "github.com/cosmos/ibc-go/modules/core/23-commitment/types"
+	ibcexported "github.com/cosmos/ibc-go/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/modules/light-clients/07-tendermint/types"
 	abci "github.com/tendermint/tendermint/abci/types"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
@@ -395,7 +395,7 @@ func (c *Chain) toTmValidator(val stakingtypes.Validator) (*tmtypes.Validator, e
 	if err != nil {
 		return nil, fmt.Errorf("pubkey not a tendermint pub key %s", err)
 	}
-	return tmtypes.NewValidator(tmkey, val.ConsensusPower()), nil
+	return tmtypes.NewValidator(tmkey, val.ConsensusPower(sdk.DefaultPowerReduction)), nil
 }
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
@@ -414,20 +414,20 @@ func (c *Chain) QueryUnbondingPeriod() (time.Duration, error) {
 
 // QueryUpgradedClient returns upgraded client info
 func (c *Chain) QueryUpgradedClient(height int64) (*codectypes.Any, []byte, clienttypes.Height, error) {
-	req := upgradetypes.QueryCurrentPlanRequest{}
+	req := clienttypes.QueryUpgradedClientStateRequest{}
 
-	queryClient := upgradetypes.NewQueryClient(c.CLIContext(0))
+	queryClient := clienttypes.NewQueryClient(c.CLIContext(0))
 
-	res, err := queryClient.CurrentPlan(context.Background(), &req)
+	res, err := queryClient.UpgradedClientState(context.Background(), &req)
 	if err != nil {
 		return nil, nil, clienttypes.Height{}, err
 	}
 
-	if res == nil || res.Plan == nil || res.Plan.UpgradedClientState == nil {
+	if res == nil || res.UpgradedClientState == nil {
 		return nil, nil, clienttypes.Height{},
 			fmt.Errorf("upgraded client state plan does not exist at height %d", height)
 	}
-	client := res.Plan.UpgradedClientState
+	client := res.UpgradedClientState
 
 	proof, proofHeight, err := c.QueryUpgradeProof(upgradetypes.UpgradedClientKey(height), uint64(height))
 	if err != nil {
@@ -439,11 +439,9 @@ func (c *Chain) QueryUpgradedClient(height int64) (*codectypes.Any, []byte, clie
 
 // QueryUpgradedConsState returns upgraded consensus state and height of client
 func (c *Chain) QueryUpgradedConsState(height int64) (*codectypes.Any, []byte, clienttypes.Height, error) {
-	req := upgradetypes.QueryUpgradedConsensusStateRequest{
-		LastHeight: height,
-	}
+	req := clienttypes.QueryUpgradedConsensusStateRequest{}
 
-	queryClient := upgradetypes.NewQueryClient(c.CLIContext(0))
+	queryClient := clienttypes.NewQueryClient(c.CLIContext(height))
 
 	res, err := queryClient.UpgradedConsensusState(context.Background(), &req)
 	if err != nil {

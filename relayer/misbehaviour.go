@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	clienttypes "github.com/cosmos/ibc-go/modules/core/02-client/types"
+	tmclient "github.com/cosmos/ibc-go/modules/light-clients/07-tendermint/types"
 )
 
 var (
@@ -65,7 +65,7 @@ func checkAndSubmitMisbehaviour(src, counterparty *Chain, events map[string][]st
 		trustedHeader.TrustedHeight = emittedHeader.TrustedHeight
 
 		misbehaviour := tmclient.NewMisbehaviour(emittedClientID, emittedHeader, trustedHeader)
-		msg, err := clienttypes.NewMsgSubmitMisbehaviour(emittedClientID, misbehaviour, src.MustGetAddress())
+		msg, err := clienttypes.NewMsgSubmitMisbehaviour(emittedClientID, misbehaviour, src.MustGetAddress().String())
 		if err != nil {
 			return err
 		}
