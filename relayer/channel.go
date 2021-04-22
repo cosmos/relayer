@@ -211,9 +211,8 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 	// OpenInit on source
 	// Neither channel has been initialized
 	case src.PathEnd.ChannelID == "" && dst.PathEnd.ChannelID == "":
-		//nolint:staticcheck
 		if src.debug {
-			// TODO: log that we are attempting to create new channel ends
+			src.logOpenInit(dst, "channel")
 		}
 
 		channelID, found := FindMatchingChannel(src, dst)
@@ -234,7 +233,10 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 			if err != nil {
 				return false, false, err
 			}
+		} else if src.debug {
+			src.logIdentifierExists(dst, "channel end", channelID)
 		}
+
 		src.PathEnd.ChannelID = channelID
 
 		return true, true, nil
@@ -242,9 +244,8 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 	// OpenTry on source
 	// source channel does not exist, but counterparty channel exists
 	case src.PathEnd.ChannelID == "" && dst.PathEnd.ChannelID != "":
-		//nolint:staticcheck
 		if src.debug {
-			// TODO: update logging
+			src.logOpenTry(dst, "channel")
 		}
 
 		channelID, found := FindMatchingChannel(src, dst)
@@ -266,7 +267,10 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 			if err != nil {
 				return false, false, err
 			}
+		} else if src.debug {
+			src.logIdentifierExists(dst, "channel end", channelID)
 		}
+
 		src.PathEnd.ChannelID = channelID
 
 		return true, true, nil
@@ -274,9 +278,8 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 	// OpenTry on counterparty
 	// source channel exists, but counterparty channel does not exist
 	case src.PathEnd.ChannelID != "" && dst.PathEnd.ChannelID == "":
-		//nolint:staticcheck
 		if dst.debug {
-			// TODO: update logging
+			dst.logOpenTry(src, "channel")
 		}
 
 		channelID, found := FindMatchingChannel(dst, src)
@@ -298,7 +301,10 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 			if err != nil {
 				return false, false, err
 			}
+		} else if dst.debug {
+			dst.logIdentifierExists(src, "channel end", channelID)
 		}
+
 		dst.PathEnd.ChannelID = channelID
 
 		return true, true, nil
