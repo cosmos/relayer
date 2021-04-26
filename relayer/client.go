@@ -87,6 +87,8 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
 			if err != nil {
 				return modified, err
 			}
+		} else if c.debug {
+			c.logIdentifierExists(dst, "client", clientID)
 		}
 
 		c.PathEnd.ClientID = clientID
@@ -158,7 +160,10 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
 			if err != nil {
 				return modified, err
 			}
+		} else if c.debug {
+			c.logIdentifierExists(dst, "client", clientID)
 		}
+
 		dst.PathEnd.ClientID = clientID
 		modified = true
 
