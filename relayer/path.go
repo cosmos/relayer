@@ -189,11 +189,11 @@ func (p *Path) QueryPathStatus(src, dst *Chain) *PathWithStatus {
 	}
 
 	eg.Go(func() error {
-		srcCs, err = src.QueryClientState(srch)
+		srcCs, err = src.QueryClientStateResponse(srch)
 		return err
 	})
 	eg.Go(func() error {
-		dstCs, err = dst.QueryClientState(dsth)
+		dstCs, err = dst.QueryClientStateResponse(dsth)
 		return err
 	})
 	if err = eg.Wait(); err != nil || srcCs == nil || dstCs == nil {

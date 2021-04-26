@@ -623,7 +623,7 @@ func (c *Config) ValidateClient(chain *relayer.Chain, height int64, pe *relayer.
 		return err
 	}
 
-	_, err := chain.QueryClientState(height)
+	_, err := chain.QueryClientStateResponse(height)
 	if err != nil {
 		return err
 	}
