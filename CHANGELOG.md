@@ -4,10 +4,59 @@
 
 ### Relayer
 
-* [\#491](https://github.com/cosmos/relayer/pull/491) Add client parameter flags to allow governance to update the client if expiry or misbehaviour freezing occurs. 
-* [\#488](https://github.com/cosmos/relayer/pull/488) Fix state based relaying for acknowledgements.
 * [\#487](https://github.com/cosmos/relayer/pull/487) Add override flag for client reuse.
+* [\#491](https://github.com/cosmos/relayer/pull/491) Add flag for client parameters which allow or disallow governance to update frozen/expired clients
+* [\#486](https://github.com/cosmos/relayer/pull/486) Refactor fly path generate command
+* [\#475](https://github.com/cosmos/relayer/pull/475) remove cmd docs file
+* [\#468](https://github.com/cosmos/relayer/pull/468) cli: UX cleanup for query commands
+* [\#467](https://github.com/cosmos/relayer/pull/467) cli: UX cleanup for tx commands
+* [\#466](https://github.com/cosmos/relayer/pull/466) Docs cleanup. 
+
+## v0.9.3
+
+**2021/04/14**
+
+### Dependencies
+
+* [\#492](https://github.com/cosmos/relayer/pull/492) Update SDK and Tendermint versions
+
+### Relayer
+
+* [\#488](https://github.com/cosmos/relayer/pull/488) Fix state based relaying for acknowledgements.
+* [\#483](https://github.com/cosmos/relayer/pull/483) Fix timeout to correctly set revision number
+* [\#485](https://github.com/cosmos/relayer/pull/485) Fix misbehaviour monitoring
+* [\#490](https://github.com/cosmos/relayer/pull/490) Fix relay acknowledgement bug for streaming relays
+
+## v0.9.2
+
+**2021/03/29**
+
+### Relayer
+
+* [\#478](https://github.com/cosmos/relayer/pull/478) Retry on DB failure due to concurrent access.
+* [\#471](https://github.com/cosmos/relayer/pull/471) Add a send command to send to a different address on the same chain.
+
+
+## v0.9.1
+
+**2021/03/26**
+
+### Relayer
+
 * [\#474](https://github.com/cosmos/relayer/pull/474) Fix validator set mismatch when updating IBC client.
+
+
+## v0.9.0
+
+**2021/03/23**
+
+### Relayer
+
+* [\#465](https://github.com/cosmos/relayer/pull/465) Fix light client error when getting the latest light header
+* [\#462](https://github.com/cosmos/relayer/pull/462) Refactor integration test setup to allow support for misbehaviour tests
+* [\#457](https://github.com/cosmos/relayer/pull/457) Simple misbehaviour monitoring
+* [\#464](https://github.com/cosmos/relayer/pull/464) Fix query balance response
+* [\#431](https://github.com/cosmos/relayer/pull/431) Refactor state based relaying to correctly construct the UpdateClient Msg on retries.
 * [\#456](https://github.com/cosmos/relayer/pull/456) Fix bug which incorrectly set the timeout on a transfer.
 * [\#455](https://github.com/cosmos/relayer/pull/455) Set default client parameter to allow governance to update the client if expiry or misbehaviour freezing occurs. 
 
