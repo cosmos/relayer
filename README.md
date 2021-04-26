@@ -10,6 +10,12 @@
 [![Lines Of Code](https://img.shields.io/tokei/lines/github/cosmos/relayer?style=flat-square)](https://github.com/cosmos/relayer)
 [![Version](https://img.shields.io/github/tag/cosmos/relayer.svg?style=flat-square)](https://github.com/umee-network/cosmos/relayer/latest)
 
+**NOTE**
+
+Interchain Gmbh's backstop of the Golang Relayer is coming to an end. Once this [issue](https://github.com/cosmos/relayer/issues/500)
+is closed, there will be no support, maintenance or bug fixing for this relayer. 
+All users are encouraged to try out [Hermes](https://hermes.informal.systems/index.html) or the [TypeScript](https://github.com/confio/ts-relayer) relayer. 
+
 This repository contains a Golang implementation of a Cosmos [IBC](https://ibcprotocol.org/)
 relayer. The `relayer` package contains a basic relayer implementation that is
 meant for users wanting to relay packets/data between sets of
