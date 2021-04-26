@@ -97,7 +97,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
 	} else {
 		// Ensure client exists in the event of user inputted identifiers
 		// TODO: check client is not expired
-		_, err := c.QueryClientState(srcUpdateHeader.Header.Height)
+		_, err := c.QueryClientStateResponse(srcUpdateHeader.Header.Height)
 		if err != nil {
 			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
 				c.PathEnd.ClientID, c.ChainID, err)
@@ -170,7 +170,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
 	} else {
 		// Ensure client exists in the event of user inputted identifiers
 		// TODO: check client is not expired
-		_, err := dst.QueryClientState(dstUpdateHeader.Header.Height)
+		_, err := dst.QueryClientStateResponse(dstUpdateHeader.Header.Height)
 		if err != nil {
 			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
 				dst.PathEnd.ClientID, dst.ChainID, err)
@@ -283,14 +283,8 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 
 	for _, identifiedClientState := range clientsResp.ClientStates {
 		// unpack any into ibc tendermint client state
-		clientStateExported, err := clienttypes.UnpackClientState(identifiedClientState.ClientState)
+		existingClientState, err := CastClientStateToTMType(identifiedClientState.ClientState)
 		if err != nil {
-			return "", false
-		}
-
-		// cast from interface to concrete type
-		existingClientState, ok := clientStateExported.(*ibctmtypes.ClientState)
-		if !ok {
 			return "", false
 		}
 
@@ -377,22 +371,9 @@ func AutoUpdateClient(src, dst *Chain, thresholdTime time.Duration) (time.Durati
 		return 0, err
 	}
 
-	clientStateRes, err := src.QueryClientState(height)
+	clientState, err := src.QueryTMClientState(height)
 	if err != nil {
 		return 0, err
-	}
-
-	// unpack any into ibc tendermint client state
-	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
-	if err != nil {
-		return 0, err
-	}
-
-	// cast from interface to concrete type
-	clientState, ok := clientStateExported.(*ibctmtypes.ClientState)
-	if !ok {
-		return 0, fmt.Errorf("error when casting exported clientstate with clientID %s on chain: %s",
-			src.PathEnd.ClientID, src.PathEnd.ChainID)
 	}
 
 	if clientState.TrustingPeriod <= thresholdTime {
