@@ -26,10 +26,10 @@ import (
 func (c *Chain) CreateClient(
 	//nolint:interfacer
 	clientState *tmclient.ClientState,
-	dstHeader *tmclient.Header) sdk.Msg {
+	dstHeader *tmclient.Header) (sdk.Msg, error) {
 
 	if err := dstHeader.ValidateBasic(); err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	msg, err := clienttypes.NewMsgCreateClient(
@@ -39,12 +39,12 @@ func (c *Chain) CreateClient(
 	)
 
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	if err = msg.ValidateBasic(); err != nil {
-		panic(err)
+		return nil, err
 	}
-	return msg
+	return msg, nil
 }
 
 // UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst
