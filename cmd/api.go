@@ -393,7 +393,7 @@ func QueryClientHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := chain.QueryClientState(height)
+	res, err := chain.QueryClientStateResponse(height)
 	if err != nil {
 		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return

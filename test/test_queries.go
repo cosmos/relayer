@@ -25,7 +25,7 @@ func testClient(t *testing.T, src, dst *ry.Chain) {
 		client *clientypes.QueryClientStateResponse
 	)
 	if err = retry.Do(func() error {
-		client, err = src.QueryClientState(srch)
+		client, err = src.QueryClientStateResponse(srch)
 		if err != nil {
 			srch, _ = src.QueryLatestHeight()
 		}
