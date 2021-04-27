@@ -79,7 +79,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 			if src.debug {
-				src.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitments: %s", src.ChainID,
+				src.Log(fmt.Sprintf("UNRELAYED SRC- [%s]@{%d} - try(%d/%d) query packet commitments: %s", src.ChainID,
 					src.MustGetLatestLightHeight(), n+1, rtyAttNum, err))
 			}
 		})); err != nil {
@@ -105,7 +105,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 			if dst.debug {
-				dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitments: %s",
+				dst.Log(fmt.Sprintf("UNRELAYED DST- [%s]@{%d} - try(%d/%d) query packet commitments: %s",
 					dst.ChainID, dst.MustGetLatestLightHeight(), n+1, rtyAttNum, err))
 			}
 		})); err != nil {
@@ -279,6 +279,8 @@ func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string
 			// NOTE: Src and Dst are switched here
 			if dst.PortID == srcPort[i] && dst.ChannelID == srcChan[i] &&
 				src.PortID == dstPort[i] && src.ChannelID == dstChan[i] {
+				fmt.Println("packet data string", pd)
+				fmt.Printf("packet data recovered: %X\n", []byte(pd))
 				rp := &relayMsgRecvPacket{packetData: []byte(pd)}
 
 				// next, get and parse the sequence

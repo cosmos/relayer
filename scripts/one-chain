@@ -109,4 +109,5 @@ else
 fi
 
 # Start the gaia
-redirect $BINARY --home $CHAINDIR/$CHAINID start --pruning=nothing --grpc.address="0.0.0.0:$GRPCPORT" > $CHAINDIR/$CHAINID.log 2>&1 &
+echo $CHAINDIR/$CHAINID.log
+$BINARY --home $CHAINDIR/$CHAINID start --pruning=nothing --grpc.address="0.0.0.0:$GRPCPORT" > $CHAINDIR/$CHAINID.log 2>&1 &

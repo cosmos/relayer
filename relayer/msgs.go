@@ -352,7 +352,7 @@ func (c *Chain) MsgRelayRecvPacket(counterparty *Chain, packet *relayMsgRecvPack
 		msgs = append(msgs, updateMsg)
 
 		if counterparty.debug {
-			counterparty.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitment: %s",
+			counterparty.Log(fmt.Sprintf("MSG - [%s]@{%d} - try(%d/%d) query packet commitment: %s",
 				counterparty.ChainID, counterparty.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
 		}
 

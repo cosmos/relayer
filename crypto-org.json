@@ -1,0 +1,8 @@
+{
+  "chain-id": "crypto-org-chain-mainnet-1",
+  "rpc-addr": "http://crypto.technofractal.com:26657",
+  "account-prefix": "cro",
+  "gas-adjustment": 1.5,
+  "gas-prices": "0.001basecro",
+  "trusting-period": "504h"
+}

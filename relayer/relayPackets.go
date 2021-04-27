@@ -60,7 +60,7 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, queryHeight uint
 			return
 		}
 		if dst.debug {
-			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet receipt: %s", dst.ChainID,
+			dst.Log(fmt.Sprintf("FCP - [%s]@{%d} - try(%d/%d) query packet receipt: %s", dst.ChainID,
 				dst.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
 		}
 	})); err != nil {
@@ -133,6 +133,12 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, queryHeight u
 	if err = retry.Do(func() error {
 		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 		dstCommitRes, err = dst.QueryPacketCommitment(int64(queryHeight)-1, rp.seq)
+		fmt.Println("QCP")
+		fmt.Printf("%#v\n", dstCommitRes)
+		fmt.Println(err)
+		if err != nil {
+		}
+		fmt.Println("end")
 		switch {
 		case err != nil:
 			return err
@@ -149,13 +155,14 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, queryHeight u
 			return
 		}
 		if dst.debug {
-			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitment: %s", dst.ChainID,
+			dst.Log(fmt.Sprintf("FCP- [%s]@{%d} - try(%d/%d) query packet commitment: %s", dst.ChainID,
 				dst.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
 		}
 	})); err != nil {
 		dst.Error(err)
 		return
 	}
+	fmt.Println("FINISHED!!!")
 	rp.dstComRes = dstCommitRes
 	return nil
 }
@@ -174,6 +181,11 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) (sdk.Msg, error) {
 		rp.timeout,
 		rp.timeoutStamp,
 	)
+	fmt.Printf("packet data: %X\n", rp.packetData)
+	fmt.Printf("packet commitment: %X\n", chantypes.CommitPacket(src.Encoding.Marshaler, packet))
+	fmt.Printf("packet: %#v\n", packet)
+	fmt.Println("Sequence", rp.seq)
+
 	msg := chantypes.NewMsgRecvPacket(
 		packet,
 		rp.dstComRes.Proof,
