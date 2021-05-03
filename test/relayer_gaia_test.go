@@ -211,16 +211,8 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	header, err := dst.QueryHeaderAtHeight(latestHeight)
 	require.NoError(t, err)
 
-	clientStateRes, err := src.QueryClientState(latestHeight)
+	clientState, err := src.QueryTMClientState(latestHeight)
 	require.NoError(t, err)
-
-	// unpack any into ibc tendermint client state
-	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
-	require.NoError(t, err)
-
-	// cast from interface to concrete type
-	clientState, ok := clientStateExported.(*ibctmtypes.ClientState)
-	require.True(t, ok, "error when casting exported clientstate")
 
 	height := clientState.GetLatestHeight().(clienttypes.Height)
 	heightPlus1 := clienttypes.NewHeight(height.RevisionNumber, height.RevisionHeight+1)
@@ -257,16 +249,8 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	// kill relayer routine
 	rlyDone()
 
-	clientStateRes, err = src.QueryClientState(0)
+	clientState, err = src.QueryTMClientState(0)
 	require.NoError(t, err)
-
-	// unpack any into ibc tendermint client state
-	clientStateExported, err = clienttypes.UnpackClientState(clientStateRes.ClientState)
-	require.NoError(t, err)
-
-	// cast from interface to concrete type
-	clientState, ok = clientStateExported.(*ibctmtypes.ClientState)
-	require.True(t, ok, "error when casting exported clientstate")
 
 	// clientstate should be frozen
 	require.True(t, clientState.IsFrozen())

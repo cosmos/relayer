@@ -679,7 +679,7 @@ func (c *Chain) GenerateConnHandshakeProof(height uint64) (clientState ibcexport
 	)
 
 	// query for the client state for the proof and get the height to query the consensus state at.
-	clientStateRes, err = c.QueryClientState(int64(height))
+	clientStateRes, err = c.QueryClientStateResponse(int64(height))
 	if err != nil {
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
@@ -715,11 +715,7 @@ func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Co
 	}
 	height := int64(dst.MustGetLatestLightHeight())
 
-	clientStateRes, err := dst.QueryClientState(height)
-	if err != nil {
-		return err
-	}
-	clientState, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
+	clientState, err := dst.QueryClientState(height)
 	if err != nil {
 		return err
 	}

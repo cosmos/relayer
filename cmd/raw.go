@@ -131,9 +131,12 @@ $ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 				allowUpdateAfterMisbehaviour,
 			)
 
-			return sendAndPrint([]sdk.Msg{chains[src].CreateClient(
-				clientState, dstHeader)},
-				chains[src], cmd)
+			createMsg, err := chains[src].CreateClient(clientState, dstHeader)
+			if err != nil {
+				return err
+			}
+
+			return sendAndPrint([]sdk.Msg{createMsg}, chains[src], cmd)
 		},
 	}
 	return clientParameterFlags(cmd)

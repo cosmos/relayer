@@ -357,7 +357,7 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 				return err
 			}
 
-			res, err := chain.QueryClientState(height)
+			res, err := chain.QueryClientStateResponse(height)
 			if err != nil {
 				return err
 			}
