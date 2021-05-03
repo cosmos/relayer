@@ -7,9 +7,9 @@ require (
 	github.com/avast/retry-go v2.6.0+incompatible
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
 	github.com/containerd/continuity v0.0.0-20200928162600-f2cc35102c2a // indirect
-	github.com/cosmos/cosmos-sdk v0.42.4
+	github.com/cosmos/cosmos-sdk v0.43.0-alpha1
 	github.com/cosmos/go-bip39 v1.0.0
-	github.com/cosmos/ibc-go v0.0.0-20210421162303-ca1fe48a3f57
+	github.com/cosmos/ibc-go v1.0.0-alpha1
 	github.com/gogo/protobuf v1.3.3
 	github.com/gorilla/mux v1.8.0
 	github.com/kr/text v0.2.0 // indirect
@@ -38,5 +38,3 @@ require (
 replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
 
 replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.2-alpha.regen.4
-
-replace github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.42.0-alpha1.0.20210421132932-045c45f55073
