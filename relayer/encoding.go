@@ -12,6 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/simapp/params"
 	"github.com/cosmos/cosmos-sdk/std"
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
+	transfer "github.com/cosmos/ibc-go/modules/apps/transfer"
 	ibc "github.com/cosmos/ibc-go/modules/core"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -36,11 +37,13 @@ func (c *Chain) MakeEncodingConfig() params.EncodingConfig {
 	simapp.ModuleBasics.RegisterLegacyAminoCodec(encodingConfig.Amino)
 	simapp.ModuleBasics.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 	ibc.AppModuleBasic{}.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+	transfer.AppModuleBasic{}.RegisterLegacyAminoCodec(encodingConfig.Amino)
+	transfer.AppModuleBasic{}.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 
 	return encodingConfig
 }
 
-// ProtoCodec defines a codec that utilizes Protobuf for both binary and JSON
+// ProtoCodec defines a codec that utilizes Protobuf for both binary and JSONs
 // encoding.
 type ProtoCodec struct {
 	interfaceRegistry types.InterfaceRegistry
