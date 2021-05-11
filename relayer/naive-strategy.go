@@ -736,7 +736,7 @@ func relayPacketsFromResultTx(src, dst *Chain, res *ctypes.ResultTx) ([]relayPac
 			}
 
 			// fetch the header which represents a block produced on destination
-			block, err := src.GetIBCUpdateHeader(dst)
+			block, err := dst.GetIBCUpdateHeader(src)
 			if err != nil {
 				return nil, nil, err
 			}

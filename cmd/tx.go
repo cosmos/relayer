@@ -454,7 +454,7 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 		},
 	}
 
-	return overrideFlag(strategyFlag(retryFlag(timeoutFlag(cmd))))
+	return overrideFlag(clientParameterFlags(strategyFlag(retryFlag(timeoutFlag(cmd)))))
 }
 
 func relayMsgsCmd() *cobra.Command {

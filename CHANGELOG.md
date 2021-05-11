@@ -11,6 +11,7 @@
 * [\#468](https://github.com/cosmos/relayer/pull/468) cli: UX cleanup for query commands
 * [\#467](https://github.com/cosmos/relayer/pull/467) cli: UX cleanup for tx commands
 * [\#466](https://github.com/cosmos/relayer/pull/466) Docs cleanup. 
+* [\#506](https://github.com/cosmos/relayer/pull/506) Fix Timeout Handling on Relayer restart
 
 ## v0.9.3
 
