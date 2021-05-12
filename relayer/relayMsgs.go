@@ -205,7 +205,7 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 func getMsgAction(msgs []sdk.Msg) string {
 	var out string
 	for i, msg := range msgs {
-		out += fmt.Sprintf("%d:%s,", i, msg.Type())
+		out += fmt.Sprintf("%d:%s,", i, sdk.MsgTypeURL(msg))
 	}
 	return strings.TrimSuffix(out, ",")
 }

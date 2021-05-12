@@ -434,7 +434,7 @@ func CalculateGas(
 func (c *Chain) CLIContext(height int64) sdkCtx.Context {
 	return sdkCtx.Context{}.
 		WithChainID(c.ChainID).
-		WithJSONMarshaler(newContextualStdCodec(c.Encoding.Marshaler, c.UseSDKContext)).
+		WithJSONCodec(newContextualStdCodec(c.Encoding.Marshaler, c.UseSDKContext)).
 		WithInterfaceRegistry(c.Encoding.InterfaceRegistry).
 		WithTxConfig(c.Encoding.TxConfig).
 		WithLegacyAmino(c.Encoding.Amino).

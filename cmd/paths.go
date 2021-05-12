@@ -106,7 +106,7 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				switch cs := clnt.(type) {
 				case *tmclient.ClientState:
 					// if the client is an active tendermint client for the counterparty chain then we reuse it
-					if cs.ChainId == c[dst].ChainID && !cs.IsFrozen() {
+					if cs.ChainId == c[dst].ChainID && cs.FrozenHeight.IsZero() {
 						path.Src.ClientID = idCs.ClientId
 					}
 				default:
@@ -124,7 +124,7 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				switch cs := clnt.(type) {
 				case *tmclient.ClientState:
 					// if the client is an active tendermint client for the counterparty chain then we reuse it
-					if cs.ChainId == c[src].ChainID && !cs.IsFrozen() {
+					if cs.ChainId == c[src].ChainID && cs.FrozenHeight.IsZero() {
 						path.Dst.ClientID = idCs.ClientId
 					}
 				default:

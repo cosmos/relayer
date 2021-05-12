@@ -6,16 +6,16 @@ import (
 )
 
 type contextualStdCodec struct {
-	codec.Marshaler
+	codec.Codec
 	useContext func() func()
 }
 
-var _ codec.Marshaler = &contextualStdCodec{}
+var _ codec.Codec = &contextualStdCodec{}
 
 // newContextualStdCodec creates a codec that sets and resets context
-func newContextualStdCodec(cdc codec.Marshaler, useContext func() func()) *contextualStdCodec {
+func newContextualStdCodec(cdc codec.Codec, useContext func() func()) *contextualStdCodec {
 	return &contextualStdCodec{
-		Marshaler:  cdc,
+		Codec:      cdc,
 		useContext: useContext,
 	}
 }
@@ -25,7 +25,7 @@ func (cdc *contextualStdCodec) MarshalJSON(ptr proto.Message) ([]byte, error) {
 	done := cdc.useContext()
 	defer done()
 
-	return cdc.Marshaler.MarshalJSON(ptr)
+	return cdc.Codec.MarshalJSON(ptr)
 }
 
 func (cdc *contextualStdCodec) MustMarshalJSON(ptr proto.Message) []byte {
@@ -41,7 +41,7 @@ func (cdc *contextualStdCodec) UnmarshalJSON(bz []byte, ptr proto.Message) error
 	done := cdc.useContext()
 	defer done()
 
-	return cdc.Marshaler.UnmarshalJSON(bz, ptr)
+	return cdc.Codec.UnmarshalJSON(bz, ptr)
 }
 
 func (cdc *contextualStdCodec) MustUnmarshalJSON(bz []byte, ptr proto.Message) {
@@ -50,30 +50,30 @@ func (cdc *contextualStdCodec) MustUnmarshalJSON(bz []byte, ptr proto.Message) {
 	}
 }
 
-func (cdc *contextualStdCodec) MarshalBinaryBare(ptr codec.ProtoMarshaler) ([]byte, error) {
+func (cdc *contextualStdCodec) Marshal(ptr codec.ProtoMarshaler) ([]byte, error) {
 	done := cdc.useContext()
 	defer done()
 
-	return cdc.Marshaler.MarshalBinaryBare(ptr)
+	return cdc.Codec.Marshal(ptr)
 }
 
-func (cdc *contextualStdCodec) MustMarshalBinaryBare(ptr codec.ProtoMarshaler) []byte {
-	out, err := cdc.MarshalBinaryBare(ptr)
+func (cdc *contextualStdCodec) MustMarshal(ptr codec.ProtoMarshaler) []byte {
+	out, err := cdc.Marshal(ptr)
 	if err != nil {
 		panic(err)
 	}
 	return out
 }
 
-func (cdc *contextualStdCodec) UnmarshalBinaryBare(bz []byte, ptr codec.ProtoMarshaler) error {
+func (cdc *contextualStdCodec) Unmarshal(bz []byte, ptr codec.ProtoMarshaler) error {
 	done := cdc.useContext()
 	defer done()
 
-	return cdc.Marshaler.UnmarshalBinaryBare(bz, ptr)
+	return cdc.Codec.Unmarshal(bz, ptr)
 }
 
-func (cdc *contextualStdCodec) MustUnmarshalBinaryBare(bz []byte, ptr codec.ProtoMarshaler) {
-	if err := cdc.UnmarshalBinaryBare(bz, ptr); err != nil {
+func (cdc *contextualStdCodec) MustUnmarshal(bz []byte, ptr codec.ProtoMarshaler) {
+	if err := cdc.Unmarshal(bz, ptr); err != nil {
 		panic(err)
 	}
 }

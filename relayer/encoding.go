@@ -50,7 +50,7 @@ type ProtoCodec struct {
 	useContext        func() func()
 }
 
-var _ codec.Marshaler = &ProtoCodec{}
+var _ codec.Codec = &ProtoCodec{}
 var _ codec.ProtoCodecMarshaler = &ProtoCodec{}
 
 // NewProtoCodec returns a reference to a new ProtoCodec
@@ -58,15 +58,15 @@ func (c *Chain) NewProtoCodec(interfaceRegistry types.InterfaceRegistry, account
 	return &ProtoCodec{interfaceRegistry: interfaceRegistry, useContext: c.UseSDKContext}
 }
 
-// MarshalBinaryBare implements BinaryMarshaler.MarshalBinaryBare method.
-func (pc *ProtoCodec) MarshalBinaryBare(o codec.ProtoMarshaler) ([]byte, error) {
+// Marshal implements BinaryCodec.Marshal method.
+func (pc *ProtoCodec) Marshal(o codec.ProtoMarshaler) ([]byte, error) {
 	defer pc.useContext()()
 	return o.Marshal()
 }
 
-// MustMarshalBinaryBare implements BinaryMarshaler.MustMarshalBinaryBare method.
-func (pc *ProtoCodec) MustMarshalBinaryBare(o codec.ProtoMarshaler) []byte {
-	bz, err := pc.MarshalBinaryBare(o)
+// MustMarshal implements BinaryCodec.MustMarshal method.
+func (pc *ProtoCodec) MustMarshal(o codec.ProtoMarshaler) []byte {
+	bz, err := pc.Marshal(o)
 	if err != nil {
 		panic(err)
 	}
@@ -74,10 +74,10 @@ func (pc *ProtoCodec) MustMarshalBinaryBare(o codec.ProtoMarshaler) []byte {
 	return bz
 }
 
-// MarshalBinaryLengthPrefixed implements BinaryMarshaler.MarshalBinaryLengthPrefixed method.
-func (pc *ProtoCodec) MarshalBinaryLengthPrefixed(o codec.ProtoMarshaler) ([]byte, error) {
+// MarshalLengthPrefixed implements BinaryCodec.MarshalLengthPrefixed method.
+func (pc *ProtoCodec) MarshalLengthPrefixed(o codec.ProtoMarshaler) ([]byte, error) {
 	defer pc.useContext()()
-	bz, err := pc.MarshalBinaryBare(o)
+	bz, err := pc.Marshal(o)
 	if err != nil {
 		return nil, err
 	}
@@ -87,9 +87,9 @@ func (pc *ProtoCodec) MarshalBinaryLengthPrefixed(o codec.ProtoMarshaler) ([]byt
 	return append(sizeBuf[:n], bz...), nil
 }
 
-// MustMarshalBinaryLengthPrefixed implements BinaryMarshaler.MustMarshalBinaryLengthPrefixed method.
-func (pc *ProtoCodec) MustMarshalBinaryLengthPrefixed(o codec.ProtoMarshaler) []byte {
-	bz, err := pc.MarshalBinaryLengthPrefixed(o)
+// MustMarshalLengthPrefixed implements BinaryCodec.MustMarshalLengthPrefixed method.
+func (pc *ProtoCodec) MustMarshalLengthPrefixed(o codec.ProtoMarshaler) []byte {
+	bz, err := pc.MarshalLengthPrefixed(o)
 	if err != nil {
 		panic(err)
 	}
@@ -97,8 +97,8 @@ func (pc *ProtoCodec) MustMarshalBinaryLengthPrefixed(o codec.ProtoMarshaler) []
 	return bz
 }
 
-// UnmarshalBinaryBare implements BinaryMarshaler.UnmarshalBinaryBare method.
-func (pc *ProtoCodec) UnmarshalBinaryBare(bz []byte, ptr codec.ProtoMarshaler) error {
+// Unmarshal implements BinaryMarshaler.Unmarshal method.
+func (pc *ProtoCodec) Unmarshal(bz []byte, ptr codec.ProtoMarshaler) error {
 	defer pc.useContext()()
 	err := ptr.Unmarshal(bz)
 	if err != nil {
@@ -111,15 +111,15 @@ func (pc *ProtoCodec) UnmarshalBinaryBare(bz []byte, ptr codec.ProtoMarshaler) e
 	return nil
 }
 
-// MustUnmarshalBinaryBare implements BinaryMarshaler.MustUnmarshalBinaryBare method.
-func (pc *ProtoCodec) MustUnmarshalBinaryBare(bz []byte, ptr codec.ProtoMarshaler) {
-	if err := pc.UnmarshalBinaryBare(bz, ptr); err != nil {
+// MustUnmarshal implements BinaryCodec.MustUnmarshal method.
+func (pc *ProtoCodec) MustUnmarshal(bz []byte, ptr codec.ProtoMarshaler) {
+	if err := pc.Unmarshal(bz, ptr); err != nil {
 		panic(err)
 	}
 }
 
-// UnmarshalBinaryLengthPrefixed implements BinaryMarshaler.UnmarshalBinaryLengthPrefixed method.
-func (pc *ProtoCodec) UnmarshalBinaryLengthPrefixed(bz []byte, ptr codec.ProtoMarshaler) error {
+// UnmarshalLengthPrefixed implements BinaryCodec.UnmarshalLengthPrefixed method.
+func (pc *ProtoCodec) UnmarshalLengthPrefixed(bz []byte, ptr codec.ProtoMarshaler) error {
 	defer pc.useContext()()
 	size, n := binary.Uvarint(bz)
 	if n < 0 {
@@ -133,17 +133,17 @@ func (pc *ProtoCodec) UnmarshalBinaryLengthPrefixed(bz []byte, ptr codec.ProtoMa
 	}
 
 	bz = bz[n:]
-	return pc.UnmarshalBinaryBare(bz, ptr)
+	return pc.Unmarshal(bz, ptr)
 }
 
-// MustUnmarshalBinaryLengthPrefixed implements BinaryMarshaler.MustUnmarshalBinaryLengthPrefixed method.
-func (pc *ProtoCodec) MustUnmarshalBinaryLengthPrefixed(bz []byte, ptr codec.ProtoMarshaler) {
-	if err := pc.UnmarshalBinaryLengthPrefixed(bz, ptr); err != nil {
+// MustUnmarshalLengthPrefixed implements BinaryCodec.MustUnmarshalLengthPrefixed method.
+func (pc *ProtoCodec) MustUnmarshalLengthPrefixed(bz []byte, ptr codec.ProtoMarshaler) {
+	if err := pc.UnmarshalLengthPrefixed(bz, ptr); err != nil {
 		panic(err)
 	}
 }
 
-// MarshalJSON implements JSONMarshaler.MarshalJSON method,
+// MarshalJSON implements JSONCodec.MarshalJSON method,
 // it marshals to JSON using proto codec.
 func (pc *ProtoCodec) MarshalJSON(o proto.Message) ([]byte, error) {
 	done := pc.useContext()
@@ -160,7 +160,7 @@ func (pc *ProtoCodec) MarshalJSON(o proto.Message) ([]byte, error) {
 	return bz, nil
 }
 
-// MustMarshalJSON implements JSONMarshaler.MustMarshalJSON method,
+// MustMarshalJSON implements JSONCodec.MustMarshalJSON method,
 // it executes MarshalJSON except it panics upon failure.
 func (pc *ProtoCodec) MustMarshalJSON(o proto.Message) []byte {
 	bz, err := pc.MarshalJSON(o)
@@ -171,7 +171,7 @@ func (pc *ProtoCodec) MustMarshalJSON(o proto.Message) []byte {
 	return bz
 }
 
-// UnmarshalJSON implements JSONMarshaler.UnmarshalJSON method,
+// UnmarshalJSON implements JSONCodec.UnmarshalJSON method,
 // it unmarshals from JSON using proto codec.
 func (pc *ProtoCodec) UnmarshalJSON(bz []byte, ptr proto.Message) error {
 	defer pc.useContext()()
@@ -188,7 +188,7 @@ func (pc *ProtoCodec) UnmarshalJSON(bz []byte, ptr proto.Message) error {
 	return types.UnpackInterfaces(ptr, pc)
 }
 
-// MustUnmarshalJSON implements JSONMarshaler.MustUnmarshalJSON method,
+// MustUnmarshalJSON implements JSONCodec.MustUnmarshalJSON method,
 // it executes UnmarshalJSON except it panics upon failure.
 func (pc *ProtoCodec) MustUnmarshalJSON(bz []byte, ptr proto.Message) {
 	if err := pc.UnmarshalJSON(bz, ptr); err != nil {
@@ -198,7 +198,7 @@ func (pc *ProtoCodec) MustUnmarshalJSON(bz []byte, ptr proto.Message) {
 
 // MarshalInterface is a convenience function for proto marshalling interfaces. It packs
 // the provided value, which must be an interface, in an Any and then marshals it to bytes.
-// NOTE: to marshal a concrete type, you should use MarshalBinaryBare instead
+// NOTE: to marshal a concrete type, you should use Marshal instead
 func (pc *ProtoCodec) MarshalInterface(i proto.Message) ([]byte, error) {
 	defer pc.useContext()()
 	if err := assertNotNil(i); err != nil {
@@ -209,20 +209,20 @@ func (pc *ProtoCodec) MarshalInterface(i proto.Message) ([]byte, error) {
 		return nil, err
 	}
 
-	return pc.MarshalBinaryBare(any)
+	return pc.Marshal(any)
 }
 
 // UnmarshalInterface is a convenience function for proto unmarshaling interfaces. It
 // unmarshals an Any from bz bytes and then unpacks it to the `ptr`, which must
 // be a pointer to a non empty interface with registered implementations.
-// NOTE: to unmarshal a concrete type, you should use UnmarshalBinaryBare instead
+// NOTE: to unmarshal a concrete type, you should use Unmarshal instead
 //
 // Example:
 //    var x MyInterface
 //    err := cdc.UnmarshalInterface(bz, &x)
 func (pc *ProtoCodec) UnmarshalInterface(bz []byte, ptr interface{}) error {
 	any := &types.Any{}
-	err := pc.UnmarshalBinaryBare(bz, any)
+	err := pc.Unmarshal(bz, any)
 	if err != nil {
 		return err
 	}

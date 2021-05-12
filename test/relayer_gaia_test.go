@@ -252,8 +252,8 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	clientState, err = src.QueryTMClientState(0)
 	require.NoError(t, err)
 
-	// clientstate should be frozen
-	require.True(t, clientState.IsFrozen())
+	// clientstate should be frozen i.e., clientstate frozenheight should not be zero
+	require.False(t, clientState.FrozenHeight.IsZero())
 }
 
 func createTMClientHeader(t *testing.T, chainID string, blockHeight int64, trustedHeight clienttypes.Height,

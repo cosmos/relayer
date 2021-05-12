@@ -524,7 +524,7 @@ func (c *Chain) QueryUpgradeProof(key []byte, height uint64) ([]byte, clienttype
 		return nil, clienttypes.Height{}, err
 	}
 
-	proof, err := c.Encoding.Marshaler.MarshalBinaryBare(&merkleProof)
+	proof, err := c.Encoding.Marshaler.Marshal(&merkleProof)
 	if err != nil {
 		return nil, clienttypes.Height{}, err
 	}
