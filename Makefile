@@ -8,7 +8,7 @@ WASMD_VERSION := v0.14.1
 GOPATH := $(shell go env GOPATH)
 GOBIN := $(GOPATH)/bin
 
-all: ci-lint install
+all: lint install
 
 ###############################################################################
 # Build / Install
