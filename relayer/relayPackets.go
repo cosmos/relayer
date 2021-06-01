@@ -44,8 +44,7 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, queryHeight uint
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
 		// NOTE: Timeouts currently only work with ORDERED channels for nwo
-		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-		dstRecvRes, err = dst.QueryPacketReceipt(int64(queryHeight)-1, rp.seq)
+		dstRecvRes, err = dst.QueryPacketReceipt(int64(queryHeight), rp.seq)
 		switch {
 		case err != nil:
 			return err
@@ -61,7 +60,7 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, queryHeight uint
 		}
 		if dst.debug {
 			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet receipt: %s", dst.ChainID,
-				dst.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
+				dst.MustGetLatestLightHeight(), n+1, rtyAttNum, err))
 		}
 	})); err != nil {
 		dst.Error(err)
@@ -131,8 +130,7 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, queryHeight u
 	var dstCommitRes *chantypes.QueryPacketCommitmentResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
-		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-		dstCommitRes, err = dst.QueryPacketCommitment(int64(queryHeight)-1, rp.seq)
+		dstCommitRes, err = dst.QueryPacketCommitment(int64(queryHeight), rp.seq)
 		switch {
 		case err != nil:
 			return err
@@ -150,7 +148,7 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, queryHeight u
 		}
 		if dst.debug {
 			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitment: %s", dst.ChainID,
-				dst.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
+				dst.MustGetLatestLightHeight(), n+1, rtyAttNum, err))
 		}
 	})); err != nil {
 		dst.Error(err)
@@ -231,8 +229,7 @@ func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, queryHeight ui
 	var dstCommitRes *chantypes.QueryPacketAcknowledgementResponse
 	// retry getting commit response until it succeeds
 	if err = retry.Do(func() error {
-		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-		dstCommitRes, err = dst.QueryPacketAcknowledgement(int64(queryHeight)-1, rp.seq)
+		dstCommitRes, err = dst.QueryPacketAcknowledgement(int64(queryHeight), rp.seq)
 		switch {
 		case err != nil:
 			return err
@@ -250,7 +247,7 @@ func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, queryHeight ui
 		}
 		if dst.debug {
 			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgement: %s",
-				dst.ChainID, dst.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
+				dst.ChainID, dst.MustGetLatestLightHeight(), n+1, rtyAttNum, err))
 		}
 	})); err != nil {
 		dst.Error(err)

@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/avast/retry-go"
@@ -57,15 +56,12 @@ func testConnection(t *testing.T, src, dst *ry.Chain) {
 	require.Equal(t, conns.Connections[0].Counterparty.GetConnectionID(), dst.PathEnd.ConnectionID)
 	require.Equal(t, conns.Connections[0].State.String(), "STATE_OPEN")
 
-	h, err := src.Client.Status(context.Background())
-	require.NoError(t, err)
-
-	conn, err := src.QueryConnection(h.SyncInfo.LatestBlockHeight)
+	conn, err := src.QueryConnection(0)
 	require.NoError(t, err)
 	require.Equal(t, conn.Connection.ClientId, src.PathEnd.ClientID)
 	require.Equal(t, conn.Connection.GetCounterparty().GetClientID(), dst.PathEnd.ClientID)
 	require.Equal(t, conn.Connection.GetCounterparty().GetConnectionID(), dst.PathEnd.ConnectionID)
-	require.Equal(t, conn.Connection.State.String(), "STATE_OPEN")
+	require.Equal(t, "STATE_OPEN", conn.Connection.State.String())
 }
 
 // testChannelPair tests that the only channel on src and dst is between the two chains
@@ -84,13 +80,10 @@ func testChannel(t *testing.T, src, dst *ry.Chain) {
 	require.Equal(t, chans.Channels[0].Counterparty.ChannelId, dst.PathEnd.ChannelID)
 	require.Equal(t, chans.Channels[0].Counterparty.GetPortID(), dst.PathEnd.PortID)
 
-	h, err := src.Client.Status(context.Background())
-	require.NoError(t, err)
-
-	ch, err := src.QueryChannel(h.SyncInfo.LatestBlockHeight)
+	ch, err := src.QueryChannel(0)
 	require.NoError(t, err)
 	require.Equal(t, ch.Channel.Ordering.String(), "ORDER_UNORDERED")
-	require.Equal(t, ch.Channel.State.String(), "STATE_OPEN")
+	require.Equal(t, "STATE_OPEN", ch.Channel.State.String())
 	require.Equal(t, ch.Channel.Counterparty.ChannelId, dst.PathEnd.ChannelID)
 	require.Equal(t, ch.Channel.Counterparty.GetPortID(), dst.PathEnd.PortID)
 }
