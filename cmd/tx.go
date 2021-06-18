@@ -119,6 +119,11 @@ func createClientsCmd() *cobra.Command {
 				return err
 			}
 
+			maxClockDrift, err := cmd.Flags().GetDuration(flagMaxClockDrift)
+			if err != nil {
+				return err
+			}
+
 			override, err := cmd.Flags().GetBool(flagOverride)
 			if err != nil {
 				return err
@@ -138,7 +143,7 @@ func createClientsCmd() *cobra.Command {
 			}
 
 			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry,
-				allowUpdateAfterMisbehaviour, override)
+				allowUpdateAfterMisbehaviour, override, maxClockDrift)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err
@@ -245,6 +250,11 @@ $ %s tx conn demo-path --timeout 5s`,
 				return err
 			}
 
+			maxClockDrift, err := cmd.Flags().GetDuration(flagMaxClockDrift)
+			if err != nil {
+				return err
+			}
+
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
@@ -275,7 +285,7 @@ $ %s tx conn demo-path --timeout 5s`,
 
 			// ensure that the clients exist
 			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry,
-				allowUpdateAfterMisbehaviour, override)
+				allowUpdateAfterMisbehaviour, override, maxClockDrift)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err
@@ -363,6 +373,11 @@ $ %s tx connect demo-path`,
 				return err
 			}
 
+			maxClockDrift, err := cmd.Flags().GetDuration(flagMaxClockDrift)
+			if err != nil {
+				return err
+			}
+
 			c, src, dst, err := config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
@@ -393,7 +408,7 @@ $ %s tx connect demo-path`,
 
 			// create clients if they aren't already created
 			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry,
-				allowUpdateAfterMisbehaviour, override)
+				allowUpdateAfterMisbehaviour, override, maxClockDrift)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err

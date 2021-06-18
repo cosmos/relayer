@@ -16,7 +16,7 @@ import (
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
 // TODO: de-duplicate code
 func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
-	allowUpdateAfterMisbehaviour, override bool) (modified bool, err error) {
+	allowUpdateAfterMisbehaviour, override bool, maxClockDrift time.Duration) (modified bool, err error) {
 	// Handle off chain light clients
 	if err := c.ValidateLightInitialized(); err != nil {
 		return false, err
@@ -47,7 +47,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
 			ibctmtypes.NewFractionFromTm(light.DefaultTrustLevel),
 			dst.GetTrustingPeriod(),
 			ubdPeriod,
-			time.Minute*10,
+			maxClockDrift,
 			dstUpdateHeader.GetHeight().(clienttypes.Height),
 			commitmenttypes.GetSDKSpecs(),
 			DefaultUpgradePath,
@@ -119,7 +119,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
 			ibctmtypes.NewFractionFromTm(light.DefaultTrustLevel),
 			c.GetTrustingPeriod(),
 			ubdPeriod,
-			time.Minute*10,
+			maxClockDrift,
 			srcUpdateHeader.GetHeight().(clienttypes.Height),
 			commitmenttypes.GetSDKSpecs(),
 			DefaultUpgradePath,

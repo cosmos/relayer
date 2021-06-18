@@ -2,6 +2,7 @@ package test
 
 import (
 	"testing"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/relayer"
@@ -36,7 +37,7 @@ func TestAkashToGaiaStreamingRelayer(t *testing.T) {
 	require.NoError(t, err)
 
 	// create path
-	_, err = src.CreateClients(dst, true, true, false)
+	_, err = src.CreateClients(dst, true, true, false, 10*time.Minute)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 

@@ -46,7 +46,7 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 	require.NoError(t, err)
 
 	// create path
-	_, err = src.CreateClients(dst, true, true, false)
+	_, err = src.CreateClients(dst, true, true, false, 10*time.Minute)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
@@ -120,7 +120,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 
 	// create path
-	_, err = src.CreateClients(dst, true, true, false)
+	_, err = src.CreateClients(dst, true, true, false, 10*time.Minute)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
@@ -143,7 +143,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	dst.PathEnd.ConnectionID = ""
 	dst.PathEnd.ChannelID = ""
 
-	_, err = src.CreateClients(dst, true, true, false)
+	_, err = src.CreateClients(dst, true, true, false, 10*time.Minute)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
@@ -165,7 +165,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	src.PathEnd.ClientID = ""
 	dst.PathEnd.ClientID = ""
 
-	_, err = src.CreateClients(dst, true, true, true)
+	_, err = src.CreateClients(dst, true, true, true, 10*time.Minute)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
@@ -185,7 +185,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	require.NoError(t, err)
 
 	// create path
-	_, err = src.CreateClients(dst, true, true, false)
+	_, err = src.CreateClients(dst, true, true, false, 10*time.Minute)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 

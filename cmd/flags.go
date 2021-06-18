@@ -35,6 +35,7 @@ var (
 	flagThresholdTime           = "time-threshold"
 	flagUpdateAfterExpiry       = "update-after-expiry"
 	flagUpdateAfterMisbehaviour = "update-after-misbehaviour"
+	flagMaxClockDrift           = "max-clock-drift"
 	flagOverride                = "override"
 )
 
@@ -277,10 +278,14 @@ func clientParameterFlags(cmd *cobra.Command) *cobra.Command {
 		"allow governance to update the client if expiry occurs")
 	cmd.Flags().BoolP(flagUpdateAfterMisbehaviour, "m", true,
 		"allow governance to update the client if misbehaviour freezing occurs")
+	cmd.Flags().Duration(flagMaxClockDrift, 2*time.Hour, "set max-clock-drift time for client")
 	if err := viper.BindPFlag(flagUpdateAfterExpiry, cmd.Flags().Lookup(flagUpdateAfterExpiry)); err != nil {
 		panic(err)
 	}
 	if err := viper.BindPFlag(flagUpdateAfterMisbehaviour, cmd.Flags().Lookup(flagUpdateAfterMisbehaviour)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flagMaxClockDrift, cmd.Flags().Lookup(flagMaxClockDrift)); err != nil {
 		panic(err)
 	}
 	return cmd

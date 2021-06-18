@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
@@ -98,6 +97,11 @@ $ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 				return err
 			}
 
+			maxClockDrift, err := cmd.Flags().GetDuration(flagMaxClockDrift)
+			if err != nil {
+				return err
+			}
+
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
@@ -123,7 +127,7 @@ $ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 				ibctmtypes.NewFractionFromTm(light.DefaultTrustLevel),
 				chains[dst].GetTrustingPeriod(),
 				ubdPeriod,
-				time.Minute*10,
+				maxClockDrift,
 				dstHeader.GetHeight().(clienttypes.Height),
 				commitmenttypes.GetSDKSpecs(),
 				relayer.DefaultUpgradePath,
