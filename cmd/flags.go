@@ -9,30 +9,33 @@ import (
 )
 
 var (
-	flagHash                = "hash"
-	flagURL                 = "url"
-	flagForce               = "force"
-	flagVersion             = "version"
-	flagSkip                = "skip"
-	flagStrategy            = "strategy"
-	flagTimeout             = "timeout"
-	flagJSON                = "json"
-	flagYAML                = "yaml"
-	flagFile                = "file"
-	flagPort                = "port"
-	flagPath                = "path"
-	flagListenAddr          = "listen"
-	flagTx                  = "no-tx"
-	flagBlock               = "no-block"
-	flagData                = "data"
-	flagOrder               = "unordered"
-	flagMaxTxSize           = "max-tx-size"
-	flagMaxMsgLength        = "max-msgs"
-	flagIBCDenoms           = "ibc-denoms"
-	flagTimeoutHeightOffset = "timeout-height-offset"
-	flagTimeoutTimeOffset   = "timeout-time-offset"
-	flagMaxRetries          = "max-retries"
-	flagThresholdTime       = "time-threshold"
+	flagHash                    = "hash"
+	flagURL                     = "url"
+	flagForce                   = "force"
+	flagVersion                 = "version"
+	flagSkip                    = "skip"
+	flagStrategy                = "strategy"
+	flagTimeout                 = "timeout"
+	flagJSON                    = "json"
+	flagYAML                    = "yaml"
+	flagFile                    = "file"
+	flagPort                    = "port"
+	flagPath                    = "path"
+	flagListenAddr              = "listen"
+	flagTx                      = "no-tx"
+	flagBlock                   = "no-block"
+	flagData                    = "data"
+	flagOrder                   = "unordered"
+	flagMaxTxSize               = "max-tx-size"
+	flagMaxMsgLength            = "max-msgs"
+	flagIBCDenoms               = "ibc-denoms"
+	flagTimeoutHeightOffset     = "timeout-height-offset"
+	flagTimeoutTimeOffset       = "timeout-time-offset"
+	flagMaxRetries              = "max-retries"
+	flagThresholdTime           = "time-threshold"
+	flagUpdateAfterExpiry       = "update-after-expiry"
+	flagUpdateAfterMisbehaviour = "update-after-misbehaviour"
+	flagOverride                = "override"
 )
 
 func ibcDenomFlags(cmd *cobra.Command) *cobra.Command {
@@ -264,6 +267,28 @@ func retryFlag(cmd *cobra.Command) *cobra.Command {
 func updateTimeFlags(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Duration(flagThresholdTime, 6*time.Hour, "time before to expiry time to update client")
 	if err := viper.BindPFlag(flagThresholdTime, cmd.Flags().Lookup(flagThresholdTime)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func clientParameterFlags(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP(flagUpdateAfterExpiry, "e", true,
+		"allow governance to update the client if expiry occurs")
+	cmd.Flags().BoolP(flagUpdateAfterMisbehaviour, "m", true,
+		"allow governance to update the client if misbehaviour freezing occurs")
+	if err := viper.BindPFlag(flagUpdateAfterExpiry, cmd.Flags().Lookup(flagUpdateAfterExpiry)); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag(flagUpdateAfterMisbehaviour, cmd.Flags().Lookup(flagUpdateAfterMisbehaviour)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func overrideFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Bool(flagOverride, false, "option to not reuse existing client")
+	if err := viper.BindPFlag(flagOverride, cmd.Flags().Lookup(flagOverride)); err != nil {
 		panic(err)
 	}
 	return cmd

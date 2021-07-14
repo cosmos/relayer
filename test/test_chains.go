@@ -11,18 +11,23 @@ import (
 	ry "github.com/cosmos/relayer/relayer"
 )
 
-var (
-	// Chains built using SDK v0.41.0
+const (
+	// SEED1 is a mnenomic
+	//nolint:lll
+	SEED1 = "cake blossom buzz suspect image view round utility meat muffin humble club model latin similar glow draw useless kiwi snow laugh gossip roof public"
+	// SEED2 is a mnemonic
+	//nolint:lll
+	SEED2 = "near little movie lady moon fuel abandon gasp click element muscle elbow taste indoor soft soccer like occur legend coin near random normal adapt"
+)
 
-	// GAIA BLOCK TIMEOUTS are located in the single node setup script on gaia
-	// https://github.com/cosmos/gaia/blob/main/contrib/single-node.sh
+var (
+	// GAIA BLOCK TIMEOUTS are located in the gaia setup script in the
+	// setup directory.
 	// timeout_commit = "1000ms"
 	// timeout_propose = "1000ms"
 	// 3 second relayer timeout works well with these block times
 	gaiaTestConfig = testChainConfig{
-		// This is built from contrib/Dockerfile.test from the gaia repository:
-		dockerImage:    "colinaxner/gaiatest",
-		dockerTag:      "v4.0.0",
+		dockerfile:     "./setup/Dockerfile.gaiatest",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "cosmos",
@@ -35,13 +40,14 @@ var (
 	// 3 second relayer timeout works well with these block times
 	// This is built from contrib/Dockerfile.test from the akash repository:
 	akashTestConfig = testChainConfig{
-		dockerImage:    "colinaxner/akashtest",
-		dockerTag:      "latest",
+		dockerfile:     "./setup/Dockerfile.akashtest",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "akash",
 		trustingPeriod: "330h",
 	}
+
+	seeds = []string{SEED1, SEED2}
 )
 
 type (
@@ -49,14 +55,14 @@ type (
 	// cosmos-sdk based blockchain
 	testChain struct {
 		chainID string
+		seed    int
 		t       testChainConfig
 	}
 
 	// testChainConfig represents the chain specific docker and codec configurations
 	// required.
 	testChainConfig struct {
-		dockerImage    string
-		dockerTag      string
+		dockerfile     string
 		rpcPort        string
 		timeout        time.Duration
 		accountPrefix  string

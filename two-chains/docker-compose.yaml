@@ -1,0 +1,38 @@
+version: "3.9"
+services:
+    ibc-0:
+        image: "tendermint/gaia:v4.2.0"
+        ports:
+            - "26656-26657:26656-26657"
+            - "1317:1317"
+            - "9090:9090"
+        volumes:
+            - ./ibc-0:/gaia/.gaia:Z
+        command: >
+            sh -c "gaiad --chain-id=ibc-0 init ibc-0
+            && gaiad keys add validator --keyring-backend='test' --output json > $$HOME/.gaia/validator_seed.json 2> /dev/null
+            && gaiad keys add user --keyring-backend='test' --output json > $$HOME/.gaia/key_seed.json 2> /dev/null
+            && gaiad add-genesis-account $$(gaiad keys --keyring-backend='test' show user -a) 100000000000stake,100000000000uatom
+            && gaiad add-genesis-account $$(gaiad keys --keyring-backend='test' show validator -a) 100000000000stake,100000000000uatom
+            && gaiad gentx validator 100000000000stake --keyring-backend='test' --chain-id ibc-0
+            && gaiad collect-gentxs
+            && sed -i'.bak' -e 's#tcp://127.0.0.1:26657#tcp://0.0.0.0:26657#g' $$HOME/.gaia/config/config.toml
+            && gaiad start --pruning=nothing"
+    ibc-1:
+        image: "tendermint/gaia:v4.2.0"
+        ports:
+            - "26666-26667:26656-26657"
+            - "1318:1317"
+            - "9091:9090"
+        volumes:
+            - ./ibc-1:/gaia/.gaia:Z
+        command: >
+            sh -c "gaiad --chain-id=ibc-1 init ibc-1
+            && gaiad keys add validator --keyring-backend='test' --output json > $$HOME/.gaia/validator_seed.json 2> /dev/null
+            && gaiad keys add user --keyring-backend='test' --output json > $$HOME/.gaia/key_seed.json 2> /dev/null
+            && gaiad add-genesis-account $$(gaiad keys --keyring-backend='test' show user -a) 100000000000stake,100000000000uatom
+            && gaiad add-genesis-account $$(gaiad keys --keyring-backend='test' show validator -a) 100000000000stake,100000000000uatom
+            && gaiad gentx validator 100000000000stake --keyring-backend='test' --chain-id ibc-1
+            && gaiad collect-gentxs
+            && sed -i'.bak' -e 's#tcp://127.0.0.1:26657#tcp://0.0.0.0:26657#g' $$HOME/.gaia/config/config.toml
+            && gaiad start --pruning=nothing"

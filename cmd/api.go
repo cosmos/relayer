@@ -168,11 +168,15 @@ func getAPICmd() *cobra.Command {
 			// Data for this should be stored in the ServicesManager struct
 			r.HandleFunc("/listen/{path}/{strategy}/{name}", PostRelayerListenHandler(sm)).Methods("POST")
 
+			fs := http.FileServer(http.Dir("./docs/swagger-ui"))
+			r.PathPrefix("/").Handler(fs)
+
+			fmt.Println("listening on", config.Global.APIListenPort)
+
 			if err := http.ListenAndServe(config.Global.APIListenPort, r); err != nil {
 				return err
 			}
 
-			fmt.Println("listening on", config.Global.APIListenPort)
 			return nil
 		},
 	}
@@ -389,7 +393,7 @@ func QueryClientHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := chain.QueryClientState(height)
+	res, err := chain.QueryClientStateResponse(height)
 	if err != nil {
 		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
 		return

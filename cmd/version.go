@@ -30,10 +30,12 @@ func getVersionCmd() *cobra.Command {
 	versionCmd := &cobra.Command{
 		Use:     "version",
 		Aliases: []string{"v"},
-		Short:   "Print relayer version info",
+		Short:   "Print the relayer version info",
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s version --json
-$ %s v`, appName, appName)),
+$ %s v`,
+			appName, appName,
+		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsn, err := cmd.Flags().GetBool(flagJSON)
 			if err != nil {
@@ -58,5 +60,6 @@ $ %s v`, appName, appName)),
 			return err
 		},
 	}
+
 	return jsonFlag(versionCmd)
 }

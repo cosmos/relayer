@@ -10,8 +10,8 @@ import (
 
 var (
 	akashChains = []testChain{
-		{"ibc-0", gaiaTestConfig},
-		{"ibc-1", akashTestConfig},
+		{"ibc-0", 0, gaiaTestConfig},
+		{"ibc-1", 1, akashTestConfig},
 	}
 )
 
@@ -36,7 +36,7 @@ func TestAkashToGaiaStreamingRelayer(t *testing.T) {
 	require.NoError(t, err)
 
 	// create path
-	_, err = src.CreateClients(dst)
+	_, err = src.CreateClients(dst, true, true, false)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 

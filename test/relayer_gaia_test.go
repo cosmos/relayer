@@ -2,16 +2,26 @@ package test
 
 import (
 	"testing"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	ibctesting "github.com/cosmos/cosmos-sdk/x/ibc/testing"
+	ibctestingmock "github.com/cosmos/cosmos-sdk/x/ibc/testing/mock"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/stretchr/testify/require"
+	"github.com/tendermint/tendermint/crypto/tmhash"
+	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
+	tmprotoversion "github.com/tendermint/tendermint/proto/tendermint/version"
+	tmtypes "github.com/tendermint/tendermint/types"
+	tmversion "github.com/tendermint/tendermint/version"
 )
 
 var (
 	gaiaChains = []testChain{
-		{"ibc-0", gaiaTestConfig},
-		{"ibc-1", gaiaTestConfig},
+		{"ibc-0", 0, gaiaTestConfig},
+		{"ibc-1", 1, gaiaTestConfig},
 	}
 )
 
@@ -36,7 +46,7 @@ func TestGaiaToGaiaStreamingRelayer(t *testing.T) {
 	require.NoError(t, err)
 
 	// create path
-	_, err = src.CreateClients(dst)
+	_, err = src.CreateClients(dst, true, true, false)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
@@ -110,7 +120,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 
 	// create path
-	_, err = src.CreateClients(dst)
+	_, err = src.CreateClients(dst, true, true, false)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
@@ -133,7 +143,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	dst.PathEnd.ConnectionID = ""
 	dst.PathEnd.ChannelID = ""
 
-	_, err = src.CreateClients(dst)
+	_, err = src.CreateClients(dst, true, true, false)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
@@ -147,4 +157,163 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 
 	require.Equal(t, expectedSrc, src)
 	require.Equal(t, expectedDst, dst)
+
+	expectedSrcClient := src.PathEnd.ClientID
+	expectedDstClient := dst.PathEnd.ClientID
+
+	// test client creation with override
+	src.PathEnd.ClientID = ""
+	dst.PathEnd.ClientID = ""
+
+	_, err = src.CreateClients(dst, true, true, true)
+	require.NoError(t, err)
+	testClientPair(t, src, dst)
+
+	require.NotEqual(t, expectedSrcClient, src.PathEnd.ClientID)
+	require.NotEqual(t, expectedDstClient, dst.PathEnd.ClientID)
+}
+
+func TestGaiaMisbehaviourMonitoring(t *testing.T) {
+	chains := spinUpTestChains(t, gaiaChains...)
+
+	var (
+		src = chains.MustGet("ibc-0")
+		dst = chains.MustGet("ibc-1")
+	)
+
+	path, err := genTestPathAndSet(src, dst, "transfer", "transfer")
+	require.NoError(t, err)
+
+	// create path
+	_, err = src.CreateClients(dst, true, true, false)
+	require.NoError(t, err)
+	testClientPair(t, src, dst)
+
+	_, err = src.CreateOpenConnections(dst, 3, src.GetTimeout())
+	require.NoError(t, err)
+	testConnectionPair(t, src, dst)
+
+	_, err = src.CreateOpenChannels(dst, 3, src.GetTimeout())
+	require.NoError(t, err)
+	testChannelPair(t, src, dst)
+
+	// start the relayer process in it's own goroutine
+	rlyDone, err := relayer.RunStrategy(src, dst, path.MustGetStrategy())
+	require.NoError(t, err)
+
+	// Wait for relay message inclusion in both chains
+	require.NoError(t, src.WaitForNBlocks(1))
+	require.NoError(t, dst.WaitForNBlocks(1))
+
+	latestHeight, err := dst.QueryLatestHeight()
+	require.NoError(t, err)
+
+	header, err := dst.QueryHeaderAtHeight(latestHeight)
+	require.NoError(t, err)
+
+	clientState, err := src.QueryTMClientState(latestHeight)
+	require.NoError(t, err)
+
+	height := clientState.GetLatestHeight().(clienttypes.Height)
+	heightPlus1 := clienttypes.NewHeight(height.RevisionNumber, height.RevisionHeight+1)
+
+	// setup validator for signing duplicate header
+	// use key for dst
+	privKey := getSDKPrivKey(1)
+	privVal := ibctestingmock.PV{
+		PrivKey: privKey,
+	}
+	pubKey, err := privVal.GetPubKey()
+	require.NoError(t, err)
+	validator := tmtypes.NewValidator(pubKey, header.ValidatorSet.Proposer.VotingPower)
+	valSet := tmtypes.NewValidatorSet([]*tmtypes.Validator{validator})
+	signers := []tmtypes.PrivValidator{privVal}
+
+	// creating duplicate header
+	newHeader := createTMClientHeader(t, dst.ChainID, int64(heightPlus1.RevisionHeight), height,
+		header.GetTime().Add(time.Minute), valSet, valSet, signers, header)
+
+	// update client with duplicate header
+	updateMsg, err := clienttypes.NewMsgUpdateClient(src.PathEnd.ClientID, newHeader, src.MustGetAddress())
+	require.NoError(t, err)
+
+	res, success, err := src.SendMsg(updateMsg)
+	require.NoError(t, err)
+	require.True(t, success)
+	require.Equal(t, uint32(0), res.Code)
+
+	// wait for packet processing
+	require.NoError(t, dst.WaitForNBlocks(6))
+
+	// kill relayer routine
+	rlyDone()
+
+	clientState, err = src.QueryTMClientState(0)
+	require.NoError(t, err)
+
+	// clientstate should be frozen
+	require.True(t, clientState.IsFrozen())
+}
+
+func createTMClientHeader(t *testing.T, chainID string, blockHeight int64, trustedHeight clienttypes.Height,
+	timestamp time.Time, tmValSet, tmTrustedVals *tmtypes.ValidatorSet, signers []tmtypes.PrivValidator,
+	oldHeader *ibctmtypes.Header) *ibctmtypes.Header {
+	var (
+		valSet      *tmproto.ValidatorSet
+		trustedVals *tmproto.ValidatorSet
+	)
+	require.NotNil(t, tmValSet)
+
+	vsetHash := tmValSet.Hash()
+
+	tmHeader := tmtypes.Header{
+		Version:            tmprotoversion.Consensus{Block: tmversion.BlockProtocol, App: 2},
+		ChainID:            chainID,
+		Height:             blockHeight,
+		Time:               timestamp,
+		LastBlockID:        ibctesting.MakeBlockID(make([]byte, tmhash.Size), 10_000, make([]byte, tmhash.Size)),
+		LastCommitHash:     oldHeader.Header.LastCommitHash,
+		DataHash:           tmhash.Sum([]byte("data_hash")),
+		ValidatorsHash:     vsetHash,
+		NextValidatorsHash: vsetHash,
+		ConsensusHash:      tmhash.Sum([]byte("consensus_hash")),
+		AppHash:            tmhash.Sum([]byte("app_hash")),
+		LastResultsHash:    tmhash.Sum([]byte("last_results_hash")),
+		EvidenceHash:       tmhash.Sum([]byte("evidence_hash")),
+		ProposerAddress:    tmValSet.Proposer.Address, //nolint:staticcheck
+	}
+	hhash := tmHeader.Hash()
+	blockID := ibctesting.MakeBlockID(hhash, 3, tmhash.Sum([]byte("part_set")))
+	voteSet := tmtypes.NewVoteSet(chainID, blockHeight, 1, tmproto.PrecommitType, tmValSet)
+
+	commit, err := tmtypes.MakeCommit(blockID, blockHeight, 1, voteSet, signers, timestamp)
+	require.NoError(t, err)
+
+	signedHeader := &tmproto.SignedHeader{
+		Header: tmHeader.ToProto(),
+		Commit: commit.ToProto(),
+	}
+
+	if tmValSet != nil {
+		valSet, err = tmValSet.ToProto()
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	if tmTrustedVals != nil {
+		trustedVals, err = tmTrustedVals.ToProto()
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	// The trusted fields may be nil. They may be filled before relaying messages to a client.
+	// The relayer is responsible for querying client and injecting appropriate trusted fields.
+	return &ibctmtypes.Header{
+		SignedHeader:      signedHeader,
+		ValidatorSet:      valSet,
+		TrustedHeight:     trustedHeight,
+		TrustedValidators: trustedVals,
+	}
 }
