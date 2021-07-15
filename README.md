@@ -158,7 +158,7 @@ The relayer currently cannot:
 
 A `path` represents an abstraction between two IBC-connected networks. Specifically,
 the `path` abstraction contains metadata about a source chain, a destination
-chain and a relaying strategy between thw two networks. The metadata for both
+chain and a relaying strategy between the two networks. The metadata for both
 the source and destination networks contains the following:
 
 - `chain-id`: The chain ID of the network.
