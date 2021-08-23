@@ -1,4 +1,4 @@
-FROM tendermint/gaia:v4.2.1
+FROM tendermint/gaia:v5.0.4
 
 # Set up dependencies
 ENV PACKAGES curl make git libc-dev bash gcc linux-headers eudev-dev python3

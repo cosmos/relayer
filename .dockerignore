@@ -1,0 +1,9 @@
+.github/
+build/
+chain-code/
+clib/
+docs/
+data/
+scripts/
+testnets/
+two-chains/

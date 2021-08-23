@@ -1,9 +1,9 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
 SDKCOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/cosmos-sdk)
-GAIA_VERSION := v4.1.0
-AKASH_VERSION := v0.10.2
-WASMD_VERSION := v0.14.1
+GAIA_VERSION := v5.0.4
+AKASH_VERSION := v0.12.1
+WASMD_VERSION := v0.16.0
 
 GOPATH := $(shell go env GOPATH)
 GOBIN := $(GOPATH)/bin
@@ -45,6 +45,11 @@ install: go.sum
 	@echo "installing rly binary..."
 	@go build -mod=readonly $(BUILD_FLAGS) -o $(GOBIN)/rly main.go
 
+build-gaia-docker:
+	docker build -t cosmos/gaia:$(GAIA_VERSION) --build-arg VERSION=$(GAIA_VERSION) -f ./docker/gaiad/Dockerfile .
+
+build-akash-docker:
+	docker build -t ovrclk/akash:$(AKASH_VERSION) --build-arg VERSION=$(AKASH_VERSION) -f ./docker/akash/Dockerfile .
 ###############################################################################
 # Tests / CI
 ###############################################################################
@@ -101,6 +106,8 @@ get-wasmd:
 
 build-wasmd:
 	@./scripts/build-wasmd
+
+build-chains: build-akash build-gaia build-wasmd
 
 delete-chains: 
 	@echo "Removing the ./chain-code/ directory..."
