@@ -41,10 +41,10 @@ wanting to build their [IBC](https://ibcprotocol.org/)-compliant relayer.
 
 ## Basic Usage
 
-To setup and start the IBC relayer between two IBC-enabled networks, the following
+To set up and start the IBC relayer between two IBC-enabled networks, the following
 steps are typically performed:
 
-1. Install the latest release via github as follows or by downloding built binaries on the [releases page](https://github.com/cosmos/relayer/releases).
+1. Install the latest release by using github as follows or by downloading built binaries on the [releases page](https://github.com/cosmos/relayer/releases).
 
   ```
   $ git clone git@github.com:cosmos/relayer.git
@@ -62,7 +62,7 @@ steps are typically performed:
    [Chain](https://pkg.go.dev/github.com/cosmos/relayer/relayer#Chain) type for
    more information.
 
-   e.g. chain configuration:
+   For example, chain configuration:
 
    ```shell
    # chain_a_config.json
@@ -97,10 +97,11 @@ steps are typically performed:
    $ rly chains edit chain-b key relayer-chain-b
    ```
 
-6. Both relayer accounts, e.g. `relayer-chain-a` and `relayer-chain-b`, need to
+6. Both relayer accounts, for example `relayer-chain-a` and `relayer-chain-b`, need to
    funded with tokens in order to successfully sign and relay transactions
    between the IBC-connected networks. How this occurs depends on the network,
-   context and environment, e.g. local or test networks can use a faucet.
+   context and environment, for example local or test networks can use a faucet.
+
 7. Ensure both relayer accounts are funded by querying each.
 
    ```shell
@@ -108,8 +109,8 @@ steps are typically performed:
    $ rly q balance chain-b
    ```
 
-8. Now we are ready to initialize the light clients on each network. The relayer
-   will used the configured RPC endpoints from each network to fetch header
+8. Now you are ready to initialize the light clients on each network. The relayer
+   uses the configured RPC endpoints from each network to fetch header
    information and initialize the light clients.
 
    ```shell
@@ -117,14 +118,14 @@ steps are typically performed:
    $ rly light init chain-b -f
    ```
 
-9. Next, we generate a new path representing a client, connection, channel and a
+9. Next, generate a new path representing a client, connection, channel, and a
    specific port between the two networks.
 
    ```shell
    $ rly paths generate chain-a chain-b transfer --port=transfer
    ```
 
-10. Finally, we start the relayer on the path created in step (9). The relayer
+10. Finally, start the relayer on the path created in step (9). The relayer
     will periodically update the clients and listen for IBC messages to relay.
 
     ```shell
@@ -180,8 +181,8 @@ connections, and channels are public goods (no one has control over them).
 ## Recommended Pruning Settings
 
 The relayer relies on old headers and proofs constructed at past block heights
-to facilitate correct[IBC](https://ibcprotocol.org/) behavior. For this reason,
-connected full nodes may prune old blocks once they have passed the unbonding
+to facilitate correct [IBC](https://ibcprotocol.org/) behavior. For this reason,
+connected full nodes can prune old blocks after they have passed the unbonding
 period of the chain but not before. Not pruning at all is not necessary for a
 fully functional relayer, however, pruning everything will lead to many issues!
 
@@ -205,15 +206,14 @@ liking.
 
 ## Testnet
 
-If you would like to join a relayer testnet, please [check out the instructions](./testnets/README.md).
+If you would like to join a relayer testnet, please [check out the testnets instructions](./testnets/README.md).
 
 ## Demo
 
 ![Demo](./docs/images/demo.gif)
 
 While the relayer is under active development, it is meant primarily as a learning
-tool to better understand the Inter-Blockchain Communication (IBC) protocol. In
-that vein, the following demo demonstrates the core functionality which will
+tool to better understand the Inter-Blockchain Communication (IBC) protocol. The following demo demonstrates the core functionality which will
 remain even after the changes:
 
 ```bash
@@ -265,16 +265,15 @@ $ rly tx acks demo -d
 $ rly q bal ibc-0
 $ rly q bal ibc-1
 
-# NOTE: you will see the stake balances decreasing on each chain. This is to pay for fees
+# NOTE: You will see the stake balances decreasing on each chain. This balance decrease is to pay for fees. 
 # You can change the amount of fees you are paying on each chain in the configuration.
 ```
 
 ## Security Notice
 
-If you would like to report a security critical bug related to the relayer repo,
-please send an email to [`security@cosmosnetwork.dev`](mailto:security@cosmosnetwork.dev)
+To report a security critical bug related to the relayer repo, send an email to [`security@cosmosnetwork.dev`](mailto:security@cosmosnetwork.dev).
 
 ## Code of Conduct
 
 The Cosmos community is dedicated to providing an inclusive and harassment free
-experience for contributors. Please visit [Code of Conduct](CODE_OF_CONDUCT.md) for more information.
+experience for contributors. Visit [Code of Conduct](CODE_OF_CONDUCT.md) for more information.
