@@ -56,12 +56,9 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, queryHeight uint
 		}
 	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 		// OnRetry we want to update the light clients and then debug log
-		if _, _, err := UpdateLightClients(src, dst); err != nil {
-			return
-		}
 		if dst.debug {
 			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet receipt: %s", dst.ChainID,
-				dst.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
+				queryHeight-1, n+1, rtyAttNum, err))
 		}
 	})); err != nil {
 		dst.Error(err)
@@ -145,12 +142,9 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, queryHeight u
 		}
 	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 		// OnRetry we want to update the light clients and then debug log
-		if _, _, err := UpdateLightClients(src, dst); err != nil {
-			return
-		}
 		if dst.debug {
 			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitment: %s", dst.ChainID,
-				dst.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
+				queryHeight-1, n+1, rtyAttNum, err))
 		}
 	})); err != nil {
 		dst.Error(err)
@@ -245,12 +239,9 @@ func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, queryHeight ui
 		}
 	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 		// OnRetry we want to update the light clients and then debug log
-		if _, _, err := UpdateLightClients(src, dst); err != nil {
-			return
-		}
 		if dst.debug {
 			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgement: %s",
-				dst.ChainID, dst.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
+				dst.ChainID, queryHeight-1, n+1, rtyAttNum, err))
 		}
 	})); err != nil {
 		dst.Error(err)

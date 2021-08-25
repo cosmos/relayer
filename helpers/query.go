@@ -72,12 +72,11 @@ func QueryHeader(chain *relayer.Chain, opts ...string) (*tmclient.Header, error)
 
 // QueryTxs is a helper function for query txs
 func QueryTxs(chain *relayer.Chain, eventsStr string, offset uint64, limit uint64) ([]*ctypes.ResultTx, error) {
-	events, err := relayer.ParseEvents(eventsStr)
+	ch, err := chain.QueryLatestHeight()
 	if err != nil {
 		return nil, err
 	}
-
-	_, err = chain.UpdateLightClient()
+	events, err := relayer.ParseEvents(eventsStr)
 	if err != nil {
 		return nil, err
 	}
@@ -90,5 +89,5 @@ func QueryTxs(chain *relayer.Chain, eventsStr string, offset uint64, limit uint6
 		return nil, fmt.Errorf("limit (%d) value is greater than max int value", limit)
 	}
 
-	return chain.QueryTxs(chain.MustGetLatestLightHeight(), int(offset), int(limit), events)
+	return chain.QueryTxs(uint64(ch), int(offset), int(limit), events)
 }

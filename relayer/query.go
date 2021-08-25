@@ -703,9 +703,7 @@ func (c *Chain) QueryABCI(req abci.RequestQuery) (res abci.ResponseQuery, err er
 		return result.Response, nil
 	}
 
-	if err = c.VerifyProof(req.Path, result.Response); err != nil {
-		return res, err
-	}
+	// TODO: figure out how to verify queries?
 
 	return result.Response, nil
 }

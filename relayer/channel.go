@@ -35,7 +35,7 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 		case success && lastStep:
 
 			if c.debug {
-				srch, dsth, err := GetLatestLightHeights(c, dst)
+				srch, dsth, err := QueryLatestHeights(c, dst)
 				if err != nil {
 					return modified, err
 				}
@@ -78,7 +78,8 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 // file. The booleans return indicate if the message was successfully
 // executed and if this was the last handshake step.
 func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err error) {
-	if _, _, err := UpdateLightClients(src, dst); err != nil {
+	srch, dsth, err := QueryLatestHeights(src, dst)
+	if err != nil {
 		return false, false, false, err
 	}
 
@@ -94,8 +95,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 	}
 
 	// Query Channel data from src and dst
-	srcChan, dstChan, err := QueryChannelPair(src, dst, int64(src.MustGetLatestLightHeight())-1,
-		int64(dst.MustGetLatestLightHeight()-1))
+	srcChan, dstChan, err := QueryChannelPair(src, dst, srch-1, dsth-1)
 	if err != nil {
 		return false, false, false, err
 	}
@@ -350,7 +350,8 @@ func (c *Chain) CloseChannel(dst *Chain, to time.Duration) error {
 // identifiers between chains src and dst. If the closing handshake hasn't started, then CloseChannelStep
 // will begin the handshake on the src chain
 func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
-	if _, _, err := UpdateLightClients(c, dst); err != nil {
+	srch, dsth, err := QueryLatestHeights(c, dst)
+	if err != nil {
 		return nil, err
 	}
 
@@ -359,9 +360,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 		return nil, err
 	}
 
-	srcChan, dstChan, err := QueryChannelPair(c, dst,
-		int64(c.MustGetLatestLightHeight())-1,
-		int64(dst.MustGetLatestLightHeight())-1)
+	srcChan, dstChan, err := QueryChannelPair(c, dst, srch-1, dsth-1)
 	if err != nil {
 		return nil, err
 	}

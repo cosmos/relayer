@@ -31,6 +31,8 @@ import (
 	"github.com/cosmos/go-bip39"
 	"github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/libs/log"
+	provtypes "github.com/tendermint/tendermint/light/provider"
+	prov "github.com/tendermint/tendermint/light/provider/http"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
@@ -61,6 +63,7 @@ type Chain struct {
 	Keybase  keys.Keyring          `yaml:"-" json:"-"`
 	Client   rpcclient.Client      `yaml:"-" json:"-"`
 	Encoding params.EncodingConfig `yaml:"-" json:"-"`
+	Provider provtypes.Provider    `yaml:"-" json:"-"`
 
 	address sdk.AccAddress
 	logger  log.Logger
@@ -206,6 +209,11 @@ func (c *Chain) Init(homePath string, timeout time.Duration, logger log.Logger, 
 		return err
 	}
 
+	liteprovider, err := prov.New(c.ChainID, c.RPCAddr)
+	if err != nil {
+		return err
+	}
+
 	_, err = time.ParseDuration(c.TrustingPeriod)
 	if err != nil {
 		return fmt.Errorf("failed to parse trusting period (%s) for chain %s", c.TrustingPeriod, c.ChainID)
@@ -225,6 +233,7 @@ func (c *Chain) Init(homePath string, timeout time.Duration, logger log.Logger, 
 	c.logger = logger
 	c.timeout = timeout
 	c.debug = debug
+	c.Provider = liteprovider
 	c.faucetAddrs = make(map[string]time.Time)
 
 	if c.logger == nil {
@@ -684,10 +693,10 @@ func (c *Chain) GenerateConnHandshakeProof(height uint64) (clientState ibcexport
 // UpgradeChain submits and upgrade proposal using a zero'd out client state with an updated unbonding period.
 func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Coin,
 	unbondingPeriod time.Duration) error {
-	if _, _, err := UpdateLightClients(c, dst); err != nil {
+	height, err := dst.QueryLatestHeight()
+	if err != nil {
 		return err
 	}
-	height := int64(dst.MustGetLatestLightHeight())
 
 	clientState, err := dst.QueryClientState(height)
 	if err != nil {

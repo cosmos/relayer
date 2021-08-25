@@ -559,7 +559,11 @@ $ %s tx raw chan-close-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 trans
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(int64(chains[dst].MustGetLatestLightHeight()) - 1)
+			dsth, err := chains[dst].QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+			dstChanState, err := chains[dst].QueryChannel(dsth - 1)
 			if err != nil {
 				return err
 			}
