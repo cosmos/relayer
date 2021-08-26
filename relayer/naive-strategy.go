@@ -72,7 +72,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 		var res *chantypes.QueryPacketCommitmentsResponse
 		if err = retry.Do(func() error {
 			// Query the packet commitment
-			res, err = src.QueryPacketCommitments(0, 1000, uint64(srch))
+			res, err = src.QueryPacketCommitments(DefaultPageRequest(), uint64(srch))
 			switch {
 			case err != nil:
 				return err
@@ -98,7 +98,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 	eg.Go(func() error {
 		var res *chantypes.QueryPacketCommitmentsResponse
 		if err = retry.Do(func() error {
-			res, err = dst.QueryPacketCommitments(0, 1000, uint64(dsth))
+			res, err = dst.QueryPacketCommitments(DefaultPageRequest(), uint64(dsth))
 			switch {
 			case err != nil:
 				return err
@@ -172,7 +172,7 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 		var res *chantypes.QueryPacketAcknowledgementsResponse
 		if err = retry.Do(func() error {
 			// Query the packet commitment
-			res, err = src.QueryPacketAcknowledgements(0, 1000, uint64(srch))
+			res, err = src.QueryPacketAcknowledgements(DefaultPageRequest(), uint64(srch))
 			switch {
 			case err != nil:
 				return err
@@ -198,7 +198,7 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 	eg.Go(func() error {
 		var res *chantypes.QueryPacketAcknowledgementsResponse
 		if err = retry.Do(func() error {
-			res, err = dst.QueryPacketAcknowledgements(0, 1000, uint64(dsth))
+			res, err = dst.QueryPacketAcknowledgements(DefaultPageRequest(), uint64(dsth))
 			switch {
 			case err != nil:
 				return err

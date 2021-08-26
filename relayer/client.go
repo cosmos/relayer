@@ -268,7 +268,7 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 // state that will be created if there exist no matches.
 func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.ClientState) (string, bool) {
 	// TODO: add appropriate offset and limits, along with retries
-	clientsResp, err := source.QueryClients(0, 1000)
+	clientsResp, err := source.QueryClients(DefaultPageRequest())
 	if err != nil {
 		if source.debug {
 			source.Log(fmt.Sprintf("Error: querying clients on %s failed: %v", source.PathEnd.ChainID, err))

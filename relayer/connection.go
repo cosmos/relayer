@@ -316,7 +316,7 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 // that matches the parameters set in the relayer config.
 func FindMatchingConnection(source, counterparty *Chain) (string, bool) {
 	// TODO: add appropriate offset and limits, along with retries
-	connectionsResp, err := source.QueryConnections(0, 1000)
+	connectionsResp, err := source.QueryConnections(DefaultPageRequest())
 	if err != nil {
 		if source.debug {
 			source.Log(fmt.Sprintf("Error: querying connections on %s failed: %v", source.PathEnd.ChainID, err))

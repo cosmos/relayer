@@ -84,11 +84,11 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 
 			// see if there are existing clients that can be reused
 			eg.Go(func() error {
-				srcClients, err = c[src].QueryClients(0, 1000)
+				srcClients, err = c[src].QueryClients(relayer.DefaultPageRequest())
 				return err
 			})
 			eg.Go(func() error {
-				dstClients, err = c[dst].QueryClients(0, 1000)
+				dstClients, err = c[dst].QueryClients(relayer.DefaultPageRequest())
 				return err
 			})
 			if err := eg.Wait(); err != nil {
@@ -137,11 +137,11 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 
 			// see if there are existing connections that can be reused
 			eg.Go(func() error {
-				srcConns, err = c[src].QueryConnections(0, 1000)
+				srcConns, err = c[src].QueryConnections(relayer.DefaultPageRequest())
 				return err
 			})
 			eg.Go(func() error {
-				dstConns, err = c[dst].QueryConnections(0, 1000)
+				dstConns, err = c[dst].QueryConnections(relayer.DefaultPageRequest())
 				return err
 			})
 			if err = eg.Wait(); err != nil {
@@ -179,11 +179,11 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 			}
 
 			eg.Go(func() error {
-				srcChans, err = c[src].QueryChannels(0, 1000)
+				srcChans, err = c[src].QueryChannels(relayer.DefaultPageRequest())
 				return err
 			})
 			eg.Go(func() error {
-				dstChans, err = c[dst].QueryChannels(0, 1000)
+				dstChans, err = c[dst].QueryChannels(relayer.DefaultPageRequest())
 				return err
 			})
 			if err = eg.Wait(); err != nil {

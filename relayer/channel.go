@@ -446,7 +446,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 // that matches the parameters set in the relayer config.
 func FindMatchingChannel(source, counterparty *Chain) (string, bool) {
 	// TODO: add appropriate offset and limits, along with retries
-	channelsResp, err := source.QueryChannels(0, 1000)
+	channelsResp, err := source.QueryChannels(DefaultPageRequest())
 	if err != nil {
 		if source.debug {
 			source.Log(fmt.Sprintf("Error: querying channels on %s failed: %v", source.PathEnd.ChainID, err))

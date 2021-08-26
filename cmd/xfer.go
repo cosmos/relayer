@@ -56,7 +56,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 				return err
 			}
 
-			dts, err := c[src].QueryDenomTraces(0, 1000, srch)
+			dts, err := c[src].QueryDenomTraces(relayer.DefaultPageRequest(), srch)
 			if err != nil {
 				return err
 			}

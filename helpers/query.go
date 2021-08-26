@@ -27,7 +27,7 @@ func QueryBalance(chain *relayer.Chain, address string, showDenoms bool) (sdk.Co
 		return nil, err
 	}
 
-	dts, err := chain.QueryDenomTraces(0, 1000, h)
+	dts, err := chain.QueryDenomTraces(relayer.DefaultPageRequest(), h)
 	if err != nil {
 		return nil, err
 	}
