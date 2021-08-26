@@ -32,7 +32,7 @@ func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Dur
 		// debug logging, log created connection and break
 		case success && lastStep:
 			if c.debug {
-				srcH, dstH, err := GetLatestLightHeights(c, dst)
+				srcH, dstH, err := QueryLatestHeights(c, dst)
 				if err != nil {
 					return modified, err
 				}
@@ -75,10 +75,10 @@ func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Dur
 // file. The booleans return indicate if the message was successfully
 // executed and if this was the last handshake step.
 func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err error) {
-	if _, _, err := UpdateLightClients(src, dst); err != nil {
+	srch, dsth, err := QueryLatestHeights(src, dst)
+	if err != nil {
 		return false, false, false, err
 	}
-
 	// TODO: add back retries due to commit delay/update
 	// get headers to update light clients on chain
 	// if either identifier is missing, an existing connection that matches the required fields
@@ -94,8 +94,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	}
 
 	// Query Connection data from src and dst
-	srcConn, dstConn, err := QueryConnectionPair(src, dst, int64(src.MustGetLatestLightHeight())-1,
-		int64(dst.MustGetLatestLightHeight()-1))
+	srcConn, dstConn, err := QueryConnectionPair(src, dst, srch-1, dsth-1)
 	if err != nil {
 		return false, false, false, err
 	}
@@ -317,7 +316,7 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 // that matches the parameters set in the relayer config.
 func FindMatchingConnection(source, counterparty *Chain) (string, bool) {
 	// TODO: add appropriate offset and limits, along with retries
-	connectionsResp, err := source.QueryConnections(0, 1000)
+	connectionsResp, err := source.QueryConnections(DefaultPageRequest())
 	if err != nil {
 		if source.debug {
 			source.Log(fmt.Sprintf("Error: querying connections on %s failed: %v", source.PathEnd.ChainID, err))

@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"context"
 	"fmt"
 
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
@@ -14,11 +15,18 @@ import (
 // and returns an IBC Update Header which can be used to create an on-chain
 // light client on counterparty chain.
 func (c *Chain) GetIBCCreateClientHeader() (*tmclient.Header, error) {
-	lightBlock, err := c.UpdateLightClient()
+	h, err := c.QueryLatestHeight()
 	if err != nil {
 		return nil, err
 	}
+	return c.GetLightSignedHeaderAtHeight(h)
+}
 
+func (c *Chain) GetLightSignedHeaderAtHeight(h int64) (*tmclient.Header, error) {
+	lightBlock, err := c.Provider.LightBlock(context.Background(), h)
+	if err != nil {
+		return nil, err
+	}
 	protoVal, err := tmtypes.NewValidatorSet(lightBlock.ValidatorSet.Validators).ToProto()
 	if err != nil {
 		return nil, err

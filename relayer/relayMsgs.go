@@ -139,9 +139,9 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 		if r.IsMaxTx(msgLen, txSize) {
 			// Submit the transactions to src chain and update its status
-			_, success, err := src.SendMsgs(msgs)
-			if err != nil && src.debug {
-				fmt.Println(err)
+			res, success, err := src.SendMsgs(msgs)
+			if err != nil {
+				src.LogFailedTx(res, err, msgs)
 			}
 			r.Succeeded = r.Succeeded && success
 
@@ -154,9 +154,9 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 	// submit leftover msgs
 	if len(msgs) > 0 {
-		_, success, err := src.SendMsgs(msgs)
-		if err != nil && src.debug {
-			fmt.Println(err)
+		res, success, err := src.SendMsgs(msgs)
+		if err != nil {
+			src.LogFailedTx(res, err, msgs)
 		}
 
 		r.Succeeded = success
@@ -177,9 +177,9 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 		if r.IsMaxTx(msgLen, txSize) {
 			// Submit the transaction to dst chain and update its status
-			_, success, err := dst.SendMsgs(msgs)
-			if err != nil && dst.debug {
-				fmt.Println(err)
+			res, success, err := dst.SendMsgs(msgs)
+			if err != nil {
+				dst.LogFailedTx(res, err, msgs)
 			}
 
 			r.Succeeded = r.Succeeded && success
@@ -193,9 +193,9 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 	// submit leftover msgs
 	if len(msgs) > 0 {
-		_, success, err := dst.SendMsgs(msgs)
-		if err != nil && dst.debug {
-			fmt.Println(err)
+		res, success, err := dst.SendMsgs(msgs)
+		if err != nil {
+			dst.LogFailedTx(res, err, msgs)
 		}
 
 		r.Succeeded = success
