@@ -13,7 +13,7 @@ import (
 // LogFailedTx takes the transaction and the messages to create it and logs the appropriate data
 func (c *Chain) LogFailedTx(res *sdk.TxResponse, err error, msgs []sdk.Msg) {
 	if c.debug {
-		c.Log(fmt.Sprintf("- [%s] -> sending transaction:", c.ChainID))
+		c.Log(fmt.Sprintf("- [%s] -> failed sending transaction:", c.ChainID))
 		for _, msg := range msgs {
 			c.Print(msg, false, false)
 		}

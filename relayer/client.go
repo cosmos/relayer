@@ -17,14 +17,6 @@ import (
 // TODO: de-duplicate code
 func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour, override bool) (modified bool, err error) {
-	// Handle off chain light clients
-	if err := c.ValidateLightInitialized(); err != nil {
-		return false, err
-	}
-
-	if err = dst.ValidateLightInitialized(); err != nil {
-		return false, err
-	}
 
 	srcUpdateHeader, dstUpdateHeader, err := GetIBCCreateClientHeaders(c, dst)
 	if err != nil {
@@ -234,7 +226,10 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 	}
 
 	if height == 0 {
-		height = int64(dst.MustGetLatestLightHeight())
+		height, err = dst.QueryLatestHeight()
+		if err != nil {
+			return err
+		}
 	}
 
 	// query proofs on counterparty
@@ -273,7 +268,7 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 // state that will be created if there exist no matches.
 func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.ClientState) (string, bool) {
 	// TODO: add appropriate offset and limits, along with retries
-	clientsResp, err := source.QueryClients(0, 1000)
+	clientsResp, err := source.QueryClients(DefaultPageRequest())
 	if err != nil {
 		if source.debug {
 			source.Log(fmt.Sprintf("Error: querying clients on %s failed: %v", source.PathEnd.ChainID, err))

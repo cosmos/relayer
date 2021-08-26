@@ -20,10 +20,10 @@ bash scripts/two-chainz "skip"
 echo "waiting for blocks..."
 sleep 3
 
-rly tx link demo -d -o 3s
-rly tx transfer ibc-0 ibc-1 100000samoleans $(rly ch addr ibc-1)
-rly tx transfer ibc-1 ibc-0 100000samoleans $(rly ch addr ibc-0)
-sleep 1
-rly tx relay-packets demo -d
-sleep 1
-rly tx relay-acknowledgements demo -d
+go run main.go tx link demo -d -o 3s
+go run main.go tx transfer ibc-0 ibc-1 100000samoleans $(go run main.go ch addr ibc-1)
+go run main.go tx transfer ibc-1 ibc-0 100000samoleans $(go run main.go ch addr ibc-0)
+sleep 2
+go run main.go tx relay-packets demo -d
+sleep 2
+go run main.go tx relay-acknowledgements demo -d

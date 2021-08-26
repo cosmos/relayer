@@ -53,10 +53,10 @@ func RunStrategy(src, dst *Chain, strategy Strategy) (func(), error) {
 	doneChan := make(chan struct{})
 
 	// Fetch latest headers for each chain and store them in sync headers
-	_, _, err := UpdateLightClients(src, dst)
-	if err != nil {
-		return nil, err
-	}
+	// _, _, err := UpdateLightClients(src, dst)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	// Next start the goroutine that listens to each chain for block and tx events
 	go relayerListenLoop(src, dst, doneChan, strategy)
@@ -141,15 +141,11 @@ func relayerListenLoop(src, dst *Chain, doneChan chan struct{}, strategy Strateg
 			go strategy.HandleEvents(src, dst, dstMsg.Events)
 		case srcMsg := <-srcBlockEvents:
 			// TODO: Add debug block logging here
-			if _, err = src.UpdateLightClient(); err != nil {
-				src.Error(err)
-			}
+			// TODO: maybe track height on the Chain with this?
 			go strategy.HandleEvents(dst, src, srcMsg.Events)
 		case dstMsg := <-dstBlockEvents:
 			// TODO: Add debug block logging here
-			if _, err = dst.UpdateLightClient(); err != nil {
-				dst.Error(err)
-			}
+			// TODO: maybe track height on the Chain with this?
 			go strategy.HandleEvents(src, dst, dstMsg.Events)
 		case <-doneChan:
 			src.Log(fmt.Sprintf("- [%s]:{%s} <-> [%s]:{%s} relayer shutting down",
