@@ -71,8 +71,7 @@ $ %s tx raw uc ibc-0 ibc-1 ibconeclient`, appName, appName)),
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{updateMsg},
-				chains[src], cmd)
+			return sendAndPrint([]sdk.Msg{updateMsg}, chains[src])
 		},
 	}
 	return cmd
@@ -136,7 +135,7 @@ $ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{createMsg}, chains[src], cmd)
+			return sendAndPrint([]sdk.Msg{createMsg}, chains[src])
 		},
 	}
 	return clientParameterFlags(cmd)
@@ -170,8 +169,7 @@ $ %s tx raw conn-init ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`,
 				return err
 			}
 
-			return sendAndPrint(msgs,
-				chains[src], cmd)
+			return sendAndPrint(msgs, chains[src])
 		},
 	}
 	return cmd
@@ -205,7 +203,7 @@ $ %s tx raw conn-try ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`, 
 				return err
 			}
 
-			return sendAndPrint(msgs, chains[src], cmd)
+			return sendAndPrint(msgs, chains[src])
 		},
 	}
 	return cmd
@@ -239,7 +237,7 @@ $ %s tx raw conn-ack ibc-0 ibc-1 ibconeclient ibczeroclient ibcconn1 ibcconn2`, 
 				return err
 			}
 
-			return sendAndPrint(msgs, chains[src], cmd)
+			return sendAndPrint(msgs, chains[src])
 		},
 	}
 	return cmd
@@ -273,7 +271,7 @@ $ %s tx raw conn-confirm ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn
 				return err
 			}
 
-			return sendAndPrint(msgs, chains[src], cmd)
+			return sendAndPrint(msgs, chains[src])
 		},
 	}
 	return cmd
@@ -351,8 +349,7 @@ ibcconn1 ibcconn2 ibcchan1 ibcchan2 transfer transfer ordered`, appName)),
 				return err
 			}
 
-			return sendAndPrint(msgs,
-				chains[src], cmd)
+			return sendAndPrint(msgs, chains[src])
 		},
 	}
 	return cmd
@@ -387,7 +384,7 @@ $ %s tx raw chan-try ibc-0 ibc-1 ibczeroclient ibcconn0 ibcchan1 ibcchan2 transf
 				return err
 			}
 
-			return sendAndPrint(msgs, chains[src], cmd)
+			return sendAndPrint(msgs, chains[src])
 		},
 	}
 	return cmd
@@ -423,7 +420,7 @@ $ %s tx raw chan-ack ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer transf
 				return err
 			}
 
-			return sendAndPrint(msgs, chains[src], cmd)
+			return sendAndPrint(msgs, chains[src])
 		},
 	}
 	return cmd
@@ -458,7 +455,7 @@ $ %s tx raw chan-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer tr
 				return err
 			}
 
-			return sendAndPrint(msgs, chains[src], cmd)
+			return sendAndPrint(msgs, chains[src])
 		},
 	}
 	return cmd
@@ -525,7 +522,7 @@ $ %s tx raw chan-close-init ibc-0 ibcchan1 transfer`, appName, appName)),
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{src.ChanCloseInit()}, src, cmd)
+			return sendAndPrint([]sdk.Msg{src.ChanCloseInit()}, src)
 		},
 	}
 	return cmd
@@ -573,7 +570,7 @@ $ %s tx raw chan-close-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 trans
 				chains[src].ChanCloseConfirm(dstChanState),
 			}
 
-			return sendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(txs, chains[src])
 		},
 	}
 	return cmd
@@ -609,11 +606,11 @@ ibcconn2 ibcchan1 ibcchan2 transfer transfer`, appName)),
 			}
 
 			if len(msgs.Src) > 0 {
-				if err = sendAndPrint(msgs.Src, chains[src], cmd); err != nil {
+				if err = sendAndPrint(msgs.Src, chains[src]); err != nil {
 					return err
 				}
 			} else if len(msgs.Dst) > 0 {
-				if err = sendAndPrint(msgs.Dst, chains[dst], cmd); err != nil {
+				if err = sendAndPrint(msgs.Dst, chains[dst]); err != nil {
 					return err
 				}
 			}
@@ -624,6 +621,6 @@ ibcconn2 ibcchan1 ibcchan2 transfer transfer`, appName)),
 	return cmd
 }
 
-func sendAndPrint(txs []sdk.Msg, c *relayer.Chain, cmd *cobra.Command) error {
+func sendAndPrint(txs []sdk.Msg, c *relayer.Chain) error {
 	return c.SendAndPrint(txs, false, false)
 }

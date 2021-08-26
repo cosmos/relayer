@@ -107,24 +107,6 @@ func (c *Chain) QueryClientConsensusState(
 	)
 }
 
-// QueryClientConsensusStatePair allows for the querying of multiple client states at the same time
-func QueryClientConsensusStatePair(
-	src, dst *Chain,
-	srch, dsth int64, srcClientConsH,
-	dstClientConsH ibcexported.Height) (srcCsRes, dstCsRes *clienttypes.QueryConsensusStateResponse, err error) {
-	var eg = new(errgroup.Group)
-	eg.Go(func() error {
-		srcCsRes, err = src.QueryClientConsensusState(srch, srcClientConsH)
-		return err
-	})
-	eg.Go(func() error {
-		dstCsRes, err = dst.QueryClientConsensusState(dsth, dstClientConsH)
-		return err
-	})
-	err = eg.Wait()
-	return
-}
-
 // QueryClientStateResponse retrevies the latest consensus state for a client in state at a given height
 func (c *Chain) QueryClientStateResponse(height int64) (*clienttypes.QueryClientStateResponse, error) {
 	return clientutils.QueryClientStateABCI(c.CLIContext(height), c.PathEnd.ClientID)
@@ -172,23 +154,6 @@ func CastClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) 
 	}
 
 	return clientState, nil
-}
-
-// QueryClientStatePair returns a pair of connection responses
-func QueryClientStatePair(
-	src, dst *Chain,
-	srch, dsth int64) (srcCsRes, dstCsRes *clienttypes.QueryClientStateResponse, err error) {
-	var eg = new(errgroup.Group)
-	eg.Go(func() error {
-		srcCsRes, err = src.QueryClientStateResponse(srch)
-		return err
-	})
-	eg.Go(func() error {
-		dstCsRes, err = dst.QueryClientStateResponse(dsth)
-		return err
-	})
-	err = eg.Wait()
-	return
 }
 
 // QueryClients queries all the clients!

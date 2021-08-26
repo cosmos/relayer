@@ -51,7 +51,6 @@ func testConnection(t *testing.T, src, dst *relayer.Chain) {
 	conns, err := src.QueryConnections(relayer.DefaultPageRequest())
 	require.NoError(t, err)
 	require.Equal(t, len(conns.Connections), 1)
-	// conns.Connections[0].
 	require.Equal(t, conns.Connections[0].ClientId, src.PathEnd.ClientID)
 	require.Equal(t, conns.Connections[0].Counterparty.GetClientID(), dst.PathEnd.ClientID)
 	require.Equal(t, conns.Connections[0].Counterparty.GetConnectionID(), dst.PathEnd.ConnectionID)

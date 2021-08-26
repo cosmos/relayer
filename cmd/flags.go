@@ -9,9 +9,7 @@ import (
 )
 
 var (
-	flagHash                    = "hash"
 	flagURL                     = "url"
-	flagForce                   = "force"
 	flagVersion                 = "version"
 	flagSkip                    = "skip"
 	flagStrategy                = "strategy"
@@ -41,18 +39,6 @@ var (
 func ibcDenomFlags(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagIBCDenoms, "i", false, "Display IBC denominations for sending tokens back to other chains")
 	if err := viper.BindPFlag(flagIBCDenoms, cmd.Flags().Lookup(flagIBCDenoms)); err != nil {
-		panic(err)
-	}
-	return cmd
-}
-
-func lightFlags(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().Int64(flags.FlagHeight, -1, "Trusted header's height")
-	cmd.Flags().BytesHexP(flagHash, "x", []byte{}, "Trusted header's hash")
-	if err := viper.BindPFlag(flags.FlagHeight, cmd.Flags().Lookup(flags.FlagHeight)); err != nil {
-		panic(err)
-	}
-	if err := viper.BindPFlag(flagHash, cmd.Flags().Lookup(flagHash)); err != nil {
 		panic(err)
 	}
 	return cmd
@@ -195,16 +181,6 @@ func timeoutFlag(cmd *cobra.Command) *cobra.Command {
 func versionFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagVersion, "v", "ics20-1", "version of channel to create")
 	if err := viper.BindPFlag(flagVersion, cmd.Flags().Lookup(flagVersion)); err != nil {
-		panic(err)
-	}
-	return cmd
-}
-
-func forceFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP(flagForce, "f", false,
-		"option to force non-standard behavior such as initialization of light client from"+
-			"configured chain or generation of new path")
-	if err := viper.BindPFlag(flagForce, cmd.Flags().Lookup(flagForce)); err != nil {
 		panic(err)
 	}
 	return cmd

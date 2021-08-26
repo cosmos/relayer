@@ -417,10 +417,6 @@ func keysDir(home, chainID string) string {
 	return path.Join(home, "keys", chainID)
 }
 
-func lightDir(home string) string {
-	return path.Join(home, "light")
-}
-
 // GetAddress returns the sdk.AccAddress associated with the configured key
 func (c *Chain) GetAddress() (sdk.AccAddress, error) {
 	defer c.UseSDKContext()()

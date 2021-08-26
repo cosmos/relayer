@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/relayer/relayer"
 	"strconv"
 	"strings"
+
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/relayer/relayer"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"

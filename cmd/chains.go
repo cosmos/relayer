@@ -212,7 +212,7 @@ $ %s ch l`, appName, appName)),
 					var (
 						light = xIcon
 						key   = xIcon
-						path  = xIcon
+						p     = xIcon
 						bal   = xIcon
 					)
 					_, err := c.GetAddress()
@@ -227,10 +227,10 @@ $ %s ch l`, appName, appName)),
 
 					for _, pth := range config.Paths {
 						if pth.Src.ChainID == c.ChainID || pth.Dst.ChainID == c.ChainID {
-							path = check
+							p = check
 						}
 					}
-					fmt.Printf("%2d: %-20s -> key(%s) bal(%s) light(%s) path(%s)\n", i, c.ChainID, key, bal, light, path)
+					fmt.Printf("%2d: %-20s -> key(%s) bal(%s) light(%s) path(%s)\n", i, c.ChainID, key, bal, light, p)
 				}
 				return nil
 			}
