@@ -5,10 +5,10 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
-	ibctesting "github.com/cosmos/cosmos-sdk/x/ibc/testing"
-	ibctestingmock "github.com/cosmos/cosmos-sdk/x/ibc/testing/mock"
+	clienttypes "github.com/cosmos/ibc-go/modules/core/02-client/types"
+	ibctmtypes "github.com/cosmos/ibc-go/modules/light-clients/07-tendermint/types"
+	ibctesting "github.com/cosmos/ibc-go/testing"
+	ibctestingmock "github.com/cosmos/ibc-go/testing/mock"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/crypto/tmhash"
@@ -234,7 +234,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 		header.GetTime().Add(time.Minute), valSet, valSet, signers, header)
 
 	// update client with duplicate header
-	updateMsg, err := clienttypes.NewMsgUpdateClient(src.PathEnd.ClientID, newHeader, src.MustGetAddress())
+	updateMsg, err := clienttypes.NewMsgUpdateClient(src.PathEnd.ClientID, newHeader, src.MustGetAddress().String())
 	require.NoError(t, err)
 
 	res, success, err := src.SendMsg(updateMsg)
@@ -251,8 +251,8 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	clientState, err = src.QueryTMClientState(0)
 	require.NoError(t, err)
 
-	// clientstate should be frozen
-	require.True(t, clientState.IsFrozen())
+	// clientstate should be frozen i.e., clientstate frozenheight should not be zero
+	require.False(t, clientState.FrozenHeight.IsZero())
 }
 
 func createTMClientHeader(t *testing.T, chainID string, blockHeight int64, trustedHeight clienttypes.Height,

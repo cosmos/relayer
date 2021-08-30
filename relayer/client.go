@@ -6,10 +6,10 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clientutils "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/client/utils"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
-	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	clientutils "github.com/cosmos/ibc-go/modules/core/02-client/client/utils"
+	clienttypes "github.com/cosmos/ibc-go/modules/core/02-client/types"
+	commitmenttypes "github.com/cosmos/ibc-go/modules/core/23-commitment/types"
+	ibctmtypes "github.com/cosmos/ibc-go/modules/light-clients/07-tendermint/types"
 	"github.com/tendermint/tendermint/light"
 )
 
@@ -284,9 +284,9 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 		}
 
 		// check if the client states match
-		// NOTE: IsFrozen is a sanity check, the client to be created should always
+		// NOTE: FrozenHeight.IsZero() is a sanity check, the client to be created should always
 		// have a zero frozen height and therefore should never match with a frozen client
-		if IsMatchingClient(*clientState, *existingClientState) && !existingClientState.IsFrozen() {
+		if IsMatchingClient(*clientState, *existingClientState) && existingClientState.FrozenHeight.IsZero() {
 
 			// query the latest consensus state of the potential matching client
 			consensusStateResp, err := clientutils.QueryConsensusStateABCI(source.CLIContext(0),

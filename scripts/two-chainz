@@ -68,8 +68,3 @@ echo "Key $(rly keys restore ibc-0 testkey "$SEED0") imported from ibc-0 to rela
 echo "Key $(rly keys restore ibc-1 testkey "$SEED1") imported from ibc-1 to relayer..."
 
 rly config add-paths configs/demo/paths
-
-echo "Creating light clients..."
-sleep 3
-rly light init ibc-0 -f
-rly light init ibc-1 -f

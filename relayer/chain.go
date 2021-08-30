@@ -18,17 +18,19 @@ import (
 	tx "github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/simapp/params"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	connectiontypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
-	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
-	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	"github.com/cosmos/go-bip39"
+	clienttypes "github.com/cosmos/ibc-go/modules/core/02-client/types"
+	connectiontypes "github.com/cosmos/ibc-go/modules/core/03-connection/types"
+	ibcexported "github.com/cosmos/ibc-go/modules/core/exported"
+	ibctmtypes "github.com/cosmos/ibc-go/modules/light-clients/07-tendermint/types"
 	"github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/libs/log"
 	provtypes "github.com/tendermint/tendermint/light/provider"
@@ -298,13 +300,15 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (*sdk.TxResponse, bool, error) {
 	ctx := c.CLIContext(0)
 
 	// Query account details
-	txf, err := tx.PrepareFactory(ctx, c.TxFactory(0))
+	txf, err := prepareFactory(ctx, c.TxFactory(0))
 	if err != nil {
 		return nil, false, err
 	}
 
+	// TODO: Make this work with new CalculateGas method
+	// https://github.com/cosmos/cosmos-sdk/blob/5725659684fc93790a63981c653feee33ecf3225/client/tx/tx.go#L297
 	// If users pass gas adjustment, then calculate gas
-	_, adjusted, err := tx.CalculateGas(ctx.QueryWithData, txf, msgs...)
+	_, adjusted, err := CalculateGas(ctx.QueryWithData, txf, msgs...)
 	if err != nil {
 		return nil, false, err
 	}
@@ -348,11 +352,98 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (*sdk.TxResponse, bool, error) {
 	return res, true, nil
 }
 
+func prepareFactory(clientCtx sdkCtx.Context, txf tx.Factory) (tx.Factory, error) {
+	from := clientCtx.GetFromAddress()
+
+	if err := txf.AccountRetriever().EnsureExists(clientCtx, from); err != nil {
+		return txf, err
+	}
+
+	initNum, initSeq := txf.AccountNumber(), txf.Sequence()
+	if initNum == 0 || initSeq == 0 {
+		num, seq, err := txf.AccountRetriever().GetAccountNumberSequence(clientCtx, from)
+		if err != nil {
+			return txf, err
+		}
+
+		if initNum == 0 {
+			txf = txf.WithAccountNumber(num)
+		}
+
+		if initSeq == 0 {
+			txf = txf.WithSequence(seq)
+		}
+	}
+
+	return txf, nil
+}
+
+// protoTxProvider is a type which can provide a proto transaction. It is a
+// workaround to get access to the wrapper TxBuilder's method GetProtoTx().
+type protoTxProvider interface {
+	GetProtoTx() *txtypes.Tx
+}
+
+// BuildSimTx creates an unsigned tx with an empty single signature and returns
+// the encoded transaction or an error if the unsigned transaction cannot be
+// built.
+func BuildSimTx(txf tx.Factory, msgs ...sdk.Msg) ([]byte, error) {
+	txb, err := tx.BuildUnsignedTx(txf, msgs...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create an empty signature literal as the ante handler will populate with a
+	// sentinel pubkey.
+	sig := signing.SignatureV2{
+		PubKey: &secp256k1.PubKey{},
+		Data: &signing.SingleSignatureData{
+			SignMode: txf.SignMode(),
+		},
+		Sequence: txf.Sequence(),
+	}
+	if err := txb.SetSignatures(sig); err != nil {
+		return nil, err
+	}
+
+	protoProvider, ok := txb.(protoTxProvider)
+	if !ok {
+		return nil, fmt.Errorf("cannot simulate amino tx")
+	}
+	simReq := txtypes.SimulateRequest{Tx: protoProvider.GetProtoTx()}
+
+	return simReq.Marshal()
+}
+
+// CalculateGas simulates the execution of a transaction and returns the
+// simulation response obtained by the query and the adjusted gas amount.
+func CalculateGas(
+	queryFunc func(string, []byte) ([]byte, int64, error), txf tx.Factory, msgs ...sdk.Msg,
+) (txtypes.SimulateResponse, uint64, error) {
+	txBytes, err := BuildSimTx(txf, msgs...)
+	if err != nil {
+		return txtypes.SimulateResponse{}, 0, err
+	}
+
+	bz, _, err := queryFunc("/cosmos.tx.v1beta1.Service/Simulate", txBytes)
+	if err != nil {
+		return txtypes.SimulateResponse{}, 0, err
+	}
+
+	var simRes txtypes.SimulateResponse
+
+	if err := simRes.Unmarshal(bz); err != nil {
+		return txtypes.SimulateResponse{}, 0, err
+	}
+
+	return simRes, uint64(txf.GasAdjustment() * float64(simRes.GasInfo.GasUsed)), nil
+}
+
 // CLIContext returns an instance of client.Context derived from Chain
 func (c *Chain) CLIContext(height int64) sdkCtx.Context {
 	return sdkCtx.Context{}.
 		WithChainID(c.ChainID).
-		WithJSONMarshaler(newContextualStdCodec(c.Encoding.Marshaler, c.UseSDKContext)).
+		WithCodec(newContextualStdCodec(c.Encoding.Marshaler, c.UseSDKContext)).
 		WithInterfaceRegistry(c.Encoding.InterfaceRegistry).
 		WithTxConfig(c.Encoding.TxConfig).
 		WithLegacyAmino(c.Encoding.Amino).
@@ -702,16 +793,14 @@ func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Co
 	upgradedClientState := clientState.ZeroCustomFields().(*ibctmtypes.ClientState)
 	upgradedClientState.LatestHeight.RevisionHeight = uint64(plan.Height + 1)
 	upgradedClientState.UnbondingPeriod = unbondingPeriod
-	upgradedAny, err := clienttypes.PackClientState(upgradedClientState)
+
+	// TODO: make cli args for title and description
+	upgradeProposal, err := clienttypes.NewUpgradeProposal("upgrade",
+		"upgrade the chain's software and unbonding period", *plan, upgradedClientState)
 	if err != nil {
 		return err
 	}
 
-	plan.UpgradedClientState = upgradedAny
-
-	// TODO: make cli args for title and description
-	upgradeProposal := upgradetypes.NewSoftwareUpgradeProposal("upgrade",
-		"upgrade the chain's software and unbonding period", *plan)
 	msg, err := govtypes.NewMsgSubmitProposal(upgradeProposal, sdk.NewCoins(deposit), c.MustGetAddress())
 	if err != nil {
 		return err
