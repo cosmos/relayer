@@ -6,9 +6,9 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
 
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
-	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/modules/core/04-channel/types"
 )
 
 const (

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/avast/retry-go"
-	clientypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	clientypes "github.com/cosmos/ibc-go/modules/core/02-client/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/relayer/relayer"
