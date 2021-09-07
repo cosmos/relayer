@@ -512,10 +512,14 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) erro
 		MaxMsgLength: nrs.MaxMsgLength,
 	}
 
+	srch, dsth, err := QueryLatestHeights(src, dst)
+	if err != nil {
+		return err
+	}
 	// add messages for sequences on src
 	for _, seq := range sp.Src {
 		// Query src for the sequence number to get type of packet
-		recvMsgs, timeoutMsgs, err := relayPacketFromSequence(src, dst, seq)
+		recvMsgs, timeoutMsgs, err := relayPacketFromSequence(src, dst, uint64(srch), seq)
 		if err != nil {
 			return err
 		}
@@ -534,7 +538,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) erro
 	// add messages for sequences on dst
 	for _, seq := range sp.Dst {
 		// Query dst for the sequence number to get type of packet
-		recvMsgs, timeoutMsgs, err := relayPacketFromSequence(dst, src, seq)
+		recvMsgs, timeoutMsgs, err := relayPacketFromSequence(dst, src, uint64(dsth), seq)
 		if err != nil {
 			return err
 		}
@@ -558,7 +562,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) erro
 
 	// Prepend non-empty msg lists with UpdateClient
 	if len(msgs.Dst) != 0 {
-		updateMsg, err := dst.UpdateClient(src)
+		updateMsg, err := dst.UpdateClientAtHeight(src, srch)
 		if err != nil {
 			return err
 		}
@@ -567,7 +571,7 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) erro
 	}
 
 	if len(msgs.Src) != 0 {
-		updateMsg, err := src.UpdateClient(dst)
+		updateMsg, err := src.UpdateClientAtHeight(dst, dsth)
 		if err != nil {
 			return err
 		}
@@ -590,11 +594,11 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) erro
 
 // relayPacketFromSequence relays a packet with a given seq on src
 // and returns recvPacket msgs, timeoutPacketmsgs and error
-func relayPacketFromSequence(src, dst *Chain, seq uint64) ([]sdk.Msg, []sdk.Msg, error) {
-	srch, err := src.QueryLatestHeight()
-	if err != nil {
-		return nil, nil, err
-	}
+func relayPacketFromSequence(src, dst *Chain, srch, seq uint64) ([]sdk.Msg, []sdk.Msg, error) {
+	// srch, err := src.QueryLatestHeight()
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
 	txs, err := src.QueryTxs(uint64(srch), 1, 1000, rcvPacketQuery(src.PathEnd.ChannelID, int(seq)))
 	switch {
 	case err != nil:

@@ -73,6 +73,14 @@ func (c *Chain) GetIBCUpdateHeader(dst *Chain) (*tmclient.Header, error) {
 	return c.InjectTrustedFields(dst, h)
 }
 
+func (c *Chain) GetIBCUpdateHeaderAtHeight(dst *Chain, srch int64) (*tmclient.Header, error) {
+	h, err := c.GetLightSignedHeaderAtHeight(srch)
+	if err != nil {
+		return nil, err
+	}
+	return c.InjectTrustedFields(dst, h)
+}
+
 // GetIBCUpdateHeaders return the IBC TM Header which will update an on-chain
 // light client. A header for the source and destination chain is returned.
 func GetIBCUpdateHeaders(src, dst *Chain) (srcHeader, dstHeader *tmclient.Header, err error) {

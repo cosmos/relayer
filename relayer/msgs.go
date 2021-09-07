@@ -69,6 +69,26 @@ func (c *Chain) UpdateClient(dst *Chain) (sdk.Msg, error) {
 	return msg, nil
 }
 
+func (c *Chain) UpdateClientAtHeight(dst *Chain, dsth int64) (sdk.Msg, error) {
+	header, err := dst.GetIBCUpdateHeaderAtHeight(c, dsth)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := header.ValidateBasic(); err != nil {
+		return nil, err
+	}
+	msg, err := clienttypes.NewMsgUpdateClient(
+		c.PathEnd.ClientID,
+		header,
+		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+	if err != nil {
+		return nil, err
+	}
+	return msg, nil
+}
+
 // ConnInit creates a MsgConnectionOpenInit
 func (c *Chain) ConnInit(counterparty *Chain) ([]sdk.Msg, error) {
 	updateMsg, err := c.UpdateClient(counterparty)
