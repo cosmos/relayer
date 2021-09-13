@@ -519,8 +519,8 @@ func keysDir(home, chainID string) string {
 
 // GetAddress returns the sdk.AccAddress associated with the configured key
 func (c *Chain) GetAddress() (sdk.AccAddress, error) {
-	// done := c.UseSDKContext()
-	// defer done()
+	done := c.UseSDKContext()
+	defer done()
 	if c.address != nil {
 		return c.address, nil
 	}
