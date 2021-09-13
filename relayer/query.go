@@ -46,7 +46,7 @@ var eventFormat = "{eventType}.{eventAttribute}={value}"
 
 // QueryBalance returns the amount of coins in the relayer account
 func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
-	var addr sdk.AccAddress
+	var addr string
 	if keyName == "" {
 		addr = c.MustGetAddress()
 	} else {
@@ -55,10 +55,10 @@ func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
 			return nil, err
 		}
 		done := c.UseSDKContext()
-		addr = info.GetAddress()
+		addr = info.GetAddress().String()
 		done()
 	}
-	return c.QueryBalanceWithAddress(addr.String())
+	return c.QueryBalanceWithAddress(addr)
 }
 
 // QueryBalanceWithAddress returns the amount of coins in the relayer account with address as input

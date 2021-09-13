@@ -6,6 +6,7 @@ import (
 
 	tmservice "github.com/tendermint/tendermint/libs/service"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	tmtypes "github.com/tendermint/tendermint/types"
 )
 
 var (
@@ -16,7 +17,7 @@ var (
 // Strategy defines
 type Strategy interface {
 	GetType() string
-	HandleEvents(src, dst *Chain, events map[string][]string)
+	HandleEvents(src, dst *Chain, srch, dsth int64, events map[string][]string)
 	UnrelayedSequences(src, dst *Chain) (*RelaySequences, error)
 	UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequences, error)
 	RelayPackets(src, dst *Chain, sp *RelaySequences) error
@@ -131,22 +132,23 @@ func relayerListenLoop(src, dst *Chain, doneChan chan struct{}, strategy Strateg
 	dst.Log(fmt.Sprintf("- listening to block events from %s...", dst.ChainID))
 
 	// Listen to channels and take appropriate action
+	var srch, dsth int64
 	for {
 		select {
 		case srcMsg := <-srcTxEvents:
 			src.logTx(srcMsg.Events)
-			go strategy.HandleEvents(dst, src, srcMsg.Events)
+			go strategy.HandleEvents(dst, src, dsth, srch, srcMsg.Events)
 		case dstMsg := <-dstTxEvents:
 			dst.logTx(dstMsg.Events)
-			go strategy.HandleEvents(src, dst, dstMsg.Events)
+			go strategy.HandleEvents(src, dst, srch, dsth, dstMsg.Events)
 		case srcMsg := <-srcBlockEvents:
-			// TODO: Add debug block logging here
-			// TODO: maybe track height on the Chain with this?
-			go strategy.HandleEvents(dst, src, srcMsg.Events)
+			bl, _ := srcMsg.Data.(tmtypes.EventDataNewBlock)
+			srch = bl.Block.Height
+			go strategy.HandleEvents(dst, src, dsth, srch, srcMsg.Events)
 		case dstMsg := <-dstBlockEvents:
-			// TODO: Add debug block logging here
-			// TODO: maybe track height on the Chain with this?
-			go strategy.HandleEvents(src, dst, dstMsg.Events)
+			bl, _ := dstMsg.Data.(tmtypes.EventDataNewBlock)
+			dsth = bl.Block.Height
+			go strategy.HandleEvents(src, dst, srch, dsth, dstMsg.Events)
 		case <-doneChan:
 			src.Log(fmt.Sprintf("- [%s]:{%s} <-> [%s]:{%s} relayer shutting down",
 				src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))

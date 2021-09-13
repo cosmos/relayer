@@ -10,17 +10,34 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/modules/core/02-client/types"
 	commitmenttypes "github.com/cosmos/ibc-go/modules/core/23-commitment/types"
 	ibctmtypes "github.com/cosmos/ibc-go/modules/light-clients/07-tendermint/types"
+	tmclient "github.com/cosmos/ibc-go/modules/light-clients/07-tendermint/types"
 	"github.com/tendermint/tendermint/light"
+	"golang.org/x/sync/errgroup"
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
 // TODO: de-duplicate code
-func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
-	allowUpdateAfterMisbehaviour, override bool) (modified bool, err error) {
+func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (modified bool, err error) {
+	var (
+		eg                               = new(errgroup.Group)
+		srcUpdateHeader, dstUpdateHeader *tmclient.Header
+	)
 
-	srcUpdateHeader, dstUpdateHeader, err := GetIBCCreateClientHeaders(c, dst)
+	srch, dsth, err := QueryLatestHeights(c, dst)
 	if err != nil {
 		return false, err
+	}
+
+	eg.Go(func() error {
+		srcUpdateHeader, err = c.GetLightSignedHeaderAtHeight(srch)
+		return err
+	})
+	eg.Go(func() error {
+		dstUpdateHeader, err = dst.GetLightSignedHeaderAtHeight(dsth)
+		return err
+	})
+	if err = eg.Wait(); err != nil {
+		return
 	}
 
 	// Create client for the destination chain on the source chain if client id is unspecified
@@ -67,9 +84,11 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
 			// if a matching client does not exist, create one
 			res, success, err := c.SendMsgs(msgs)
 			if err != nil {
+				c.LogFailedTx(res, err, msgs)
 				return modified, err
 			}
 			if !success {
+				c.LogFailedTx(res, err, msgs)
 				return modified, fmt.Errorf("tx failed: %s", res.RawLog)
 			}
 
@@ -141,9 +160,11 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
 			// if a matching client does not exist, create one
 			res, success, err := dst.SendMsgs(msgs)
 			if err != nil {
+				dst.LogFailedTx(res, err, msgs)
 				return modified, err
 			}
 			if !success {
+				dst.LogFailedTx(res, err, msgs)
 				return modified, fmt.Errorf("tx failed: %s", res.RawLog)
 			}
 
@@ -178,18 +199,34 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry,
 
 // UpdateClients updates clients for src on dst and dst on src given the configured paths
 func (c *Chain) UpdateClients(dst *Chain) (err error) {
-	clients := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
+	var (
+		clients                          = &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
+		eg                               = new(errgroup.Group)
+		srcUpdateHeader, dstUpdateHeader *tmclient.Header
+	)
 
-	srcUpdateHeader, dstUpdateHeader, err := GetIBCUpdateHeaders(c, dst)
+	srch, dsth, err := QueryLatestHeights(c, dst)
 	if err != nil {
 		return err
 	}
 
-	srcUpdateMsg, err := c.UpdateClient(dst)
+	eg.Go(func() error {
+		srcUpdateHeader, err = c.GetLightSignedHeaderAtHeight(srch)
+		return err
+	})
+	eg.Go(func() error {
+		dstUpdateHeader, err = dst.GetLightSignedHeaderAtHeight(dsth)
+		return err
+	})
+	if err = eg.Wait(); err != nil {
+		return
+	}
+
+	srcUpdateMsg, err := c.UpdateClient(dst, dstUpdateHeader)
 	if err != nil {
 		return err
 	}
-	dstUpdateMsg, err := dst.UpdateClient(c)
+	dstUpdateMsg, err := dst.UpdateClient(c, srcUpdateHeader)
 	if err != nil {
 		return err
 	}
@@ -219,8 +256,13 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 
 // UpgradeClients upgrades the client on src after dst chain has undergone an upgrade.
 func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
+	dstHeader, err := dst.GetLightSignedHeaderAtHeight(height)
+	if err != nil {
+		return err
+	}
+
 	// updates off-chain light client
-	updateMsg, err := c.UpdateClient(dst)
+	updateMsg, err := c.UpdateClient(dst, dstHeader)
 	if err != nil {
 		return err
 	}
@@ -245,7 +287,7 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 
 	upgradeMsg := &clienttypes.MsgUpgradeClient{ClientId: c.PathEnd.ClientID, ClientState: clientState,
 		ConsensusState: consensusState, ProofUpgradeClient: proofUpgradeClient,
-		ProofUpgradeConsensusState: proofUpgradeConsensusState, Signer: c.MustGetAddress().String()}
+		ProofUpgradeConsensusState: proofUpgradeConsensusState, Signer: c.MustGetAddress()}
 
 	msgs := []sdk.Msg{
 		updateMsg,
@@ -361,12 +403,12 @@ func IsMatchingConsensusState(consensusStateA, consensusStateB *ibctmtypes.Conse
 
 // AutoUpdateClient update client automatically to prevent expiry
 func AutoUpdateClient(src, dst *Chain, thresholdTime time.Duration) (time.Duration, error) {
-	height, err := src.QueryLatestHeight()
+	srch, dsth, err := QueryLatestHeights(src, dst)
 	if err != nil {
 		return 0, err
 	}
 
-	clientState, err := src.QueryTMClientState(height)
+	clientState, err := src.QueryTMClientState(srch)
 	if err != nil {
 		return 0, err
 	}
@@ -406,12 +448,17 @@ func AutoUpdateClient(src, dst *Chain, thresholdTime time.Duration) (time.Durati
 		return 0, fmt.Errorf("client (%s) is already expired on chain: %s", src.PathEnd.ClientID, src.ChainID)
 	}
 
-	srcUpdateHeader, err := src.GetIBCUpdateHeader(dst)
+	srcUpdateHeader, err := src.GetIBCUpdateHeader(dst, srch)
 	if err != nil {
 		return 0, err
 	}
 
-	updateMsg, err := src.UpdateClient(dst)
+	dstUpdateHeader, err := dst.GetIBCUpdateHeader(src, dsth)
+	if err != nil {
+		return 0, err
+	}
+
+	updateMsg, err := src.UpdateClient(dst, dstUpdateHeader)
 	if err != nil {
 		return 0, err
 	}

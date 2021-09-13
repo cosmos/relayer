@@ -66,7 +66,17 @@ $ %s tx raw uc ibc-0 ibc-1 ibconeclient`, appName, appName)),
 				return err
 			}
 
-			updateMsg, err := chains[src].UpdateClient(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			updateMsg, err := chains[src].UpdateClient(chains[dst], dstHeader)
 			if err != nil {
 				return err
 			}
@@ -103,7 +113,12 @@ $ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 				return err
 			}
 
-			dstHeader, err := chains[src].GetIBCCreateClientHeader()
+			h, err := chains[src].QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			dstHeader, err := chains[src].GetLightSignedHeaderAtHeight(h)
 			if err != nil {
 				return err
 			}
@@ -164,7 +179,17 @@ $ %s tx raw conn-init ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`,
 				return err
 			}
 
-			msgs, err := chains[src].ConnInit(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].ConnInit(chains[dst], dstHeader)
 			if err != nil {
 				return err
 			}
@@ -198,7 +223,17 @@ $ %s tx raw conn-try ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`, 
 				return err
 			}
 
-			msgs, err := chains[src].ConnTry(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].ConnTry(chains[dst], dstHeader)
 			if err != nil {
 				return err
 			}
@@ -232,7 +267,17 @@ $ %s tx raw conn-ack ibc-0 ibc-1 ibconeclient ibczeroclient ibcconn1 ibcconn2`, 
 				return err
 			}
 
-			msgs, err := chains[src].ConnAck(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].ConnAck(chains[dst], dstHeader)
 			if err != nil {
 				return err
 			}
@@ -266,7 +311,17 @@ $ %s tx raw conn-confirm ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn
 				return err
 			}
 
-			msgs, err := chains[src].ConnConfirm(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].ConnConfirm(chains[dst], dstHeader)
 			if err != nil {
 				return err
 			}
@@ -344,7 +399,17 @@ ibcconn1 ibcconn2 ibcchan1 ibcchan2 transfer transfer ordered`, appName)),
 				return err
 			}
 
-			msgs, err := chains[src].ChanInit(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].ChanInit(chains[dst], dstHeader)
 			if err != nil {
 				return err
 			}
@@ -379,7 +444,17 @@ $ %s tx raw chan-try ibc-0 ibc-1 ibczeroclient ibcconn0 ibcchan1 ibcchan2 transf
 				return err
 			}
 
-			msgs, err := chains[src].ChanTry(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].ChanTry(chains[dst], dstHeader)
 			if err != nil {
 				return err
 			}
@@ -415,7 +490,17 @@ $ %s tx raw chan-ack ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer transf
 				return err
 			}
 
-			msgs, err := chains[src].ChanAck(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].ChanAck(chains[dst], dstHeader)
 			if err != nil {
 				return err
 			}
@@ -450,7 +535,17 @@ $ %s tx raw chan-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer tr
 				return err
 			}
 
-			msgs, err := chains[src].ChanConfirm(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].ChanConfirm(chains[dst], dstHeader)
 			if err != nil {
 				return err
 			}
@@ -551,15 +646,21 @@ $ %s tx raw chan-close-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 trans
 				return err
 			}
 
-			updateMsg, err := chains[src].UpdateClient(chains[dst])
-			if err != nil {
-				return err
-			}
-
 			dsth, err := chains[dst].QueryLatestHeight()
 			if err != nil {
 				return err
 			}
+
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			updateMsg, err := chains[src].UpdateClient(chains[dst], dstHeader)
+			if err != nil {
+				return err
+			}
+
 			dstChanState, err := chains[dst].QueryChannel(dsth - 1)
 			if err != nil {
 				return err

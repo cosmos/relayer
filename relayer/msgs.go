@@ -3,7 +3,6 @@ package relayer
 import (
 	"fmt"
 
-	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/ibc-go/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/modules/core/02-client/types"
@@ -35,7 +34,7 @@ func (c *Chain) CreateClient(
 	msg, err := clienttypes.NewMsgCreateClient(
 		clientState,
 		dstHeader.ConsensusState(),
-		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
 	if err != nil {
@@ -49,19 +48,14 @@ func (c *Chain) CreateClient(
 
 // UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst
 // at the request height..
-func (c *Chain) UpdateClient(dst *Chain) (sdk.Msg, error) {
-	header, err := dst.GetIBCUpdateHeader(c)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := header.ValidateBasic(); err != nil {
+func (c *Chain) UpdateClient(dst *Chain, dsth *tmclient.Header) (sdk.Msg, error) {
+	if err := dsth.ValidateBasic(); err != nil {
 		return nil, err
 	}
 	msg, err := clienttypes.NewMsgUpdateClient(
 		c.PathEnd.ClientID,
-		header,
-		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		dsth,
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 	if err != nil {
 		return nil, err
@@ -70,8 +64,8 @@ func (c *Chain) UpdateClient(dst *Chain) (sdk.Msg, error) {
 }
 
 // ConnInit creates a MsgConnectionOpenInit
-func (c *Chain) ConnInit(counterparty *Chain) ([]sdk.Msg, error) {
-	updateMsg, err := c.UpdateClient(counterparty)
+func (c *Chain) ConnInit(counterparty *Chain, counterpartyHeader *tmclient.Header) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty, counterpartyHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +77,7 @@ func (c *Chain) ConnInit(counterparty *Chain) ([]sdk.Msg, error) {
 		defaultChainPrefix,
 		version,
 		defaultDelayPeriod,
-		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
 	return []sdk.Msg{updateMsg, msg}, nil
@@ -91,10 +85,8 @@ func (c *Chain) ConnInit(counterparty *Chain) ([]sdk.Msg, error) {
 }
 
 // ConnTry creates a MsgConnectionOpenTry
-func (c *Chain) ConnTry(
-	counterparty *Chain,
-) ([]sdk.Msg, error) {
-	updateMsg, err := c.UpdateClient(counterparty)
+func (c *Chain) ConnTry(counterparty *Chain, counterpartyHeader *tmclient.Header) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty, counterpartyHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +117,7 @@ func (c *Chain) ConnTry(
 		consensusStateProof,
 		proofHeight,
 		clientState.GetLatestHeight().(clienttypes.Height),
-		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 	if err := msg.ValidateBasic(); err != nil {
 		return nil, err
@@ -135,10 +127,8 @@ func (c *Chain) ConnTry(
 }
 
 // ConnAck creates a MsgConnectionOpenAck
-func (c *Chain) ConnAck(
-	counterparty *Chain,
-) ([]sdk.Msg, error) {
-	updateMsg, err := c.UpdateClient(counterparty)
+func (c *Chain) ConnAck(counterparty *Chain, counterpartyHeader *tmclient.Header) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty, counterpartyHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -164,15 +154,15 @@ func (c *Chain) ConnAck(
 		proofHeight,
 		clientState.GetLatestHeight().(clienttypes.Height),
 		conntypes.DefaultIBCVersion,
-		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
 	return []sdk.Msg{updateMsg, msg}, nil
 }
 
 // ConnConfirm creates a MsgConnectionOpenConfirm
-func (c *Chain) ConnConfirm(counterparty *Chain) ([]sdk.Msg, error) {
-	updateMsg, err := c.UpdateClient(counterparty)
+func (c *Chain) ConnConfirm(counterparty *Chain, counterpartyHeader *tmclient.Header) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty, counterpartyHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -190,15 +180,15 @@ func (c *Chain) ConnConfirm(counterparty *Chain) ([]sdk.Msg, error) {
 		c.PathEnd.ConnectionID,
 		counterpartyConnState.Proof,
 		counterpartyConnState.ProofHeight,
-		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
 	return []sdk.Msg{updateMsg, msg}, nil
 }
 
 // ChanInit creates a MsgChannelOpenInit
-func (c *Chain) ChanInit(counterparty *Chain) ([]sdk.Msg, error) {
-	updateMsg, err := c.UpdateClient(counterparty)
+func (c *Chain) ChanInit(counterparty *Chain, counterpartyHeader *tmclient.Header) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty, counterpartyHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -209,17 +199,15 @@ func (c *Chain) ChanInit(counterparty *Chain) ([]sdk.Msg, error) {
 		c.PathEnd.GetOrder(),
 		[]string{c.PathEnd.ConnectionID},
 		counterparty.PathEnd.PortID,
-		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
 	return []sdk.Msg{updateMsg, msg}, nil
 }
 
 // ChanTry creates a MsgChannelOpenTry
-func (c *Chain) ChanTry(
-	counterparty *Chain,
-) ([]sdk.Msg, error) {
-	updateMsg, err := c.UpdateClient(counterparty)
+func (c *Chain) ChanTry(counterparty *Chain, counterpartyHeader *tmclient.Header) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty, counterpartyHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +233,7 @@ func (c *Chain) ChanTry(
 		counterpartyChannelRes.Channel.Version,
 		counterpartyChannelRes.Proof,
 		counterpartyChannelRes.ProofHeight,
-		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 
 	)
 
@@ -253,10 +241,8 @@ func (c *Chain) ChanTry(
 }
 
 // ChanAck creates a MsgChannelOpenAck
-func (c *Chain) ChanAck(
-	counterparty *Chain,
-) ([]sdk.Msg, error) {
-	updateMsg, err := c.UpdateClient(counterparty)
+func (c *Chain) ChanAck(counterparty *Chain, counterpartyHeader *tmclient.Header) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty, counterpartyHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -279,15 +265,15 @@ func (c *Chain) ChanAck(
 		counterpartyChannelRes.Channel.Version,
 		counterpartyChannelRes.Proof,
 		counterpartyChannelRes.ProofHeight,
-		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
 	return []sdk.Msg{updateMsg, msg}, nil
 }
 
 // ChanConfirm creates a MsgChannelOpenConfirm
-func (c *Chain) ChanConfirm(counterparty *Chain) ([]sdk.Msg, error) {
-	updateMsg, err := c.UpdateClient(counterparty)
+func (c *Chain) ChanConfirm(counterparty *Chain, counterpartyHeader *tmclient.Header) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty, counterpartyHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +293,7 @@ func (c *Chain) ChanConfirm(counterparty *Chain) ([]sdk.Msg, error) {
 		c.PathEnd.ChannelID,
 		counterpartyChanState.Proof,
 		counterpartyChanState.ProofHeight,
-		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
 	return []sdk.Msg{updateMsg, msg}, nil
@@ -318,7 +304,7 @@ func (c *Chain) ChanCloseInit() sdk.Msg {
 	return chantypes.NewMsgChannelCloseInit(
 		c.PathEnd.PortID,
 		c.PathEnd.ChannelID,
-		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 }
 
@@ -329,7 +315,7 @@ func (c *Chain) ChanCloseConfirm(dstChanState *chantypes.QueryChannelResponse) s
 		c.PathEnd.ChannelID,
 		dstChanState.Proof,
 		dstChanState.ProofHeight,
-		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 }
 
@@ -341,7 +327,7 @@ func (c *Chain) MsgTransfer(dst *PathEnd, amount sdk.Coin, dstAddr string,
 		c.PathEnd.PortID,
 		c.PathEnd.ChannelID,
 		amount,
-		c.MustGetAddress().String(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 		dstAddr,
 		clienttypes.NewHeight(version, timeoutHeight),
 		timeoutTimestamp,
@@ -350,199 +336,92 @@ func (c *Chain) MsgTransfer(dst *PathEnd, amount sdk.Coin, dstAddr string,
 
 // MsgRelayRecvPacket constructs the MsgRecvPacket which is to be sent to the receiving chain.
 // The counterparty represents the sending chain where the packet commitment would be stored.
-func (c *Chain) MsgRelayRecvPacket(counterparty *Chain, packet *relayMsgRecvPacket) (msgs []sdk.Msg, err error) {
-	var comRes *chantypes.QueryPacketCommitmentResponse
-	cph, err := counterparty.QueryLatestHeight()
-	if err != nil {
+func (c *Chain) MsgRelayRecvPacket(counterparty *Chain, counterpartyHeight int64, packet *relayMsgRecvPacket) (sdk.Msg, error) {
+	comRes, err := counterparty.QueryPacketCommitment(counterpartyHeight-1, packet.seq)
+	switch {
+	case err != nil:
 		return nil, err
-	}
-	if err = retry.Do(func() (err error) {
-		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-		comRes, err = counterparty.QueryPacketCommitment(cph-1, packet.seq)
-		if err != nil {
-			return err
-		}
-
-		if comRes.Proof == nil || comRes.Commitment == nil {
-			return fmt.Errorf("recv packet commitment query seq(%d) is nil", packet.seq)
-		}
-
-		return nil
-	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, _ error) {
-		// clear messages
-		msgs = []sdk.Msg{}
-
-		// OnRetry we want to update the light clients and then debug log
-		updateMsg, err := c.UpdateClient(counterparty)
-		if err != nil {
-			return
-		}
-
-		msgs = append(msgs, updateMsg)
-
-		if counterparty.debug {
-			counterparty.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitment: %s",
-				counterparty.ChainID, cph-1, n+1, rtyAttNum, err))
-		}
-
-	})); err != nil {
-		counterparty.Error(err)
-		return
-	}
-
-	if comRes == nil {
+	case comRes.Proof == nil || comRes.Commitment == nil:
+		return nil, fmt.Errorf("recv packet commitment query seq(%d) is nil", packet.seq)
+	case comRes == nil:
 		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", c.ChainID, packet.seq)
+	default:
+		return chantypes.NewMsgRecvPacket(
+			chantypes.NewPacket(
+				packet.packetData,
+				packet.seq,
+				counterparty.PathEnd.PortID,
+				counterparty.PathEnd.ChannelID,
+				c.PathEnd.PortID,
+				c.PathEnd.ChannelID,
+				packet.timeout,
+				packet.timeoutStamp,
+			),
+			comRes.Proof,
+			comRes.ProofHeight,
+			c.MustGetAddress(),
+		), nil
 	}
-
-	msg := chantypes.NewMsgRecvPacket(
-		chantypes.NewPacket(
-			packet.packetData,
-			packet.seq,
-			counterparty.PathEnd.PortID,
-			counterparty.PathEnd.ChannelID,
-			c.PathEnd.PortID,
-			c.PathEnd.ChannelID,
-			packet.timeout,
-			packet.timeoutStamp,
-		),
-		comRes.Proof,
-		comRes.ProofHeight,
-		c.MustGetAddress().String(),
-	)
-
-	return append(msgs, msg), nil
 }
 
 // MsgRelayAcknowledgement constructs the MsgAcknowledgement which is to be sent to the sending chain.
 // The counterparty represents the receiving chain where the acknowledgement would be stored.
-func (c *Chain) MsgRelayAcknowledgement(counterparty *Chain, packet *relayMsgPacketAck) (msgs []sdk.Msg, err error) {
-	var ackRes *chantypes.QueryPacketAcknowledgementResponse
-	cph, err := counterparty.QueryLatestHeight()
-	if err != nil {
+func (c *Chain) MsgRelayAcknowledgement(counterparty *Chain, counterpartyHeight int64, packet *relayMsgPacketAck) (sdk.Msg, error) {
+	ackRes, err := counterparty.QueryPacketAcknowledgement(counterpartyHeight-1, packet.seq)
+	switch {
+	case err != nil:
 		return nil, err
-	}
-	if err = retry.Do(func() (err error) {
-		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-		ackRes, err = counterparty.QueryPacketAcknowledgement(cph-1, packet.seq)
-		if err != nil {
-			return err
-		}
-
-		if ackRes.Proof == nil || ackRes.Acknowledgement == nil {
-			return fmt.Errorf("ack packet acknowledgement query seq(%d) is nil", packet.seq)
-		}
-
-		return nil
-	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, _ error) {
-		// clear messages
-		msgs = []sdk.Msg{}
-
-		// OnRetry we want to update the light clients and then debug log
-		updateMsg, err := c.UpdateClient(counterparty)
-		if err != nil {
-			return
-		}
-
-		msgs = append(msgs, updateMsg)
-
-		if counterparty.debug {
-			counterparty.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgement: %s",
-				counterparty.ChainID, cph-1, n+1, rtyAttNum, err))
-		}
-
-	})); err != nil {
-		counterparty.Error(err)
-		return
-	}
-
-	if ackRes == nil {
+	case ackRes.Proof == nil || ackRes.Acknowledgement == nil:
+		return nil, fmt.Errorf("ack packet acknowledgement query seq(%d) is nil", packet.seq)
+	case ackRes == nil:
 		return nil, fmt.Errorf("ack packet [%s]seq{%d} has no associated proofs", counterparty.ChainID, packet.seq)
+	default:
+		return chantypes.NewMsgAcknowledgement(
+			chantypes.NewPacket(
+				packet.packetData,
+				packet.seq,
+				c.PathEnd.PortID,
+				c.PathEnd.ChannelID,
+				counterparty.PathEnd.PortID,
+				counterparty.PathEnd.ChannelID,
+				packet.timeout,
+				packet.timeoutStamp,
+			),
+			packet.ack,
+			ackRes.Proof,
+			ackRes.ProofHeight,
+			c.MustGetAddress()), nil
 	}
-
-	msg := chantypes.NewMsgAcknowledgement(
-		chantypes.NewPacket(
-			packet.packetData,
-			packet.seq,
-			c.PathEnd.PortID,
-			c.PathEnd.ChannelID,
-			counterparty.PathEnd.PortID,
-			counterparty.PathEnd.ChannelID,
-			packet.timeout,
-			packet.timeoutStamp,
-		),
-		packet.ack,
-		ackRes.Proof,
-		ackRes.ProofHeight,
-		c.MustGetAddress().String(),
-	)
-
-	return append(msgs, msg), nil
 }
 
 // MsgRelayTimeout constructs the MsgTimeout which is to be sent to the sending chain.
 // The counterparty represents the receiving chain where the receipts would have been
 // stored.
-func (c *Chain) MsgRelayTimeout(counterparty *Chain, packet *relayMsgTimeout) (msgs []sdk.Msg, err error) {
-	var recvRes *chantypes.QueryPacketReceiptResponse
-	cph, err := counterparty.QueryLatestHeight()
-	if err != nil {
+func (c *Chain) MsgRelayTimeout(counterparty *Chain, counterpartyHeight int64, packet *relayMsgTimeout) (sdk.Msg, error) {
+	recvRes, err := counterparty.QueryPacketReceipt(counterpartyHeight-1, packet.seq)
+	switch {
+	case err != nil:
 		return nil, err
-	}
-	if err = retry.Do(func() (err error) {
-		// NOTE: Timeouts currently only work with ORDERED channels for nwo
-		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-		recvRes, err = counterparty.QueryPacketReceipt(cph-1, packet.seq)
-		if err != nil {
-			return err
-		}
-
-		if recvRes.Proof == nil {
-			return fmt.Errorf("timeout packet receipt proof seq(%d) is nil", packet.seq)
-		}
-
-		return nil
-	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, _ error) {
-		// clear messages
-		msgs = []sdk.Msg{}
-
-		// OnRetry we want to update the light clients and then debug log
-		updateMsg, err := c.UpdateClient(counterparty)
-		if err != nil {
-			return
-		}
-
-		msgs = append(msgs, updateMsg)
-
-		if counterparty.debug {
-			counterparty.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet receipt: %s",
-				counterparty.ChainID, cph-1, n+1, rtyAttNum, err))
-		}
-
-	})); err != nil {
-		counterparty.Error(err)
-		return
-	}
-
-	if recvRes == nil {
+	case recvRes.Proof == nil:
+		return nil, fmt.Errorf("timeout packet receipt proof seq(%d) is nil", packet.seq)
+	case recvRes == nil:
 		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", c.ChainID, packet.seq)
-	}
-
-	msg := chantypes.NewMsgTimeout(
-		chantypes.NewPacket(
-			packet.packetData,
+	default:
+		return chantypes.NewMsgTimeout(
+			chantypes.NewPacket(
+				packet.packetData,
+				packet.seq,
+				c.PathEnd.PortID,
+				c.PathEnd.ChannelID,
+				counterparty.PathEnd.PortID,
+				counterparty.PathEnd.ChannelID,
+				packet.timeout,
+				packet.timeoutStamp,
+			),
 			packet.seq,
-			c.PathEnd.PortID,
-			c.PathEnd.ChannelID,
-			counterparty.PathEnd.PortID,
-			counterparty.PathEnd.ChannelID,
-			packet.timeout,
-			packet.timeoutStamp,
-		),
-		packet.seq,
-		recvRes.Proof,
-		recvRes.ProofHeight,
-		c.MustGetAddress().String(),
-	)
-
-	return append(msgs, msg), nil
+			recvRes.Proof,
+			recvRes.ProofHeight,
+			c.MustGetAddress(),
+		), nil
+	}
 }

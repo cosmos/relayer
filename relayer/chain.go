@@ -323,6 +323,11 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) (*sdk.TxResponse, bool, error) {
 	}
 
 	// Attach the signature to the transaction
+	// c.LogFailedTx(nil, err, msgs)
+	// Force encoding in the chain specific address
+	for _, msg := range msgs {
+		c.Encoding.Marshaler.MustMarshalJSON(msg)
+	}
 	err = tx.Sign(txf, c.Key, txb, false)
 	if err != nil {
 		return nil, false, err
@@ -441,6 +446,10 @@ func CalculateGas(
 
 // CLIContext returns an instance of client.Context derived from Chain
 func (c *Chain) CLIContext(height int64) sdkCtx.Context {
+	addr, err := c.GetAddress()
+	if err != nil {
+		panic(err)
+	}
 	return sdkCtx.Context{}.
 		WithChainID(c.ChainID).
 		WithCodec(newContextualStdCodec(c.Encoding.Marshaler, c.UseSDKContext)).
@@ -456,7 +465,7 @@ func (c *Chain) CLIContext(height int64) sdkCtx.Context {
 		WithOutputFormat("json").
 		WithFrom(c.Key).
 		WithFromName(c.Key).
-		WithFromAddress(c.MustGetAddress()).
+		WithFromAddress(addr).
 		WithSkipConfirmation(true).
 		WithNodeURI(c.RPCAddr).
 		WithHeight(height)
@@ -510,7 +519,8 @@ func keysDir(home, chainID string) string {
 
 // GetAddress returns the sdk.AccAddress associated with the configured key
 func (c *Chain) GetAddress() (sdk.AccAddress, error) {
-	defer c.UseSDKContext()()
+	// done := c.UseSDKContext()
+	// defer done()
 	if c.address != nil {
 		return c.address, nil
 	}
@@ -525,13 +535,14 @@ func (c *Chain) GetAddress() (sdk.AccAddress, error) {
 }
 
 // MustGetAddress used for brevity
-func (c *Chain) MustGetAddress() sdk.AccAddress {
+func (c *Chain) MustGetAddress() string {
 	srcAddr, err := c.GetAddress()
 	if err != nil {
 		panic(err)
 	}
-
-	return srcAddr
+	done := c.UseSDKContext()
+	defer done()
+	return srcAddr.String()
 }
 
 var sdkContextMutex sync.Mutex
@@ -801,7 +812,12 @@ func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Co
 		return err
 	}
 
-	msg, err := govtypes.NewMsgSubmitProposal(upgradeProposal, sdk.NewCoins(deposit), c.MustGetAddress())
+	addr, err := c.GetAddress()
+	if err != nil {
+		return err
+	}
+
+	msg, err := govtypes.NewMsgSubmitProposal(upgradeProposal, sdk.NewCoins(deposit), addr)
 	if err != nil {
 		return err
 	}
