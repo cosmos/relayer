@@ -271,7 +271,9 @@ $ %s k s ibc-2 testkey`, appName, appName, appName)),
 				return err
 			}
 
+			done := chain.UseSDKContext()
 			fmt.Println(info.GetAddress().String())
+			done()
 			return nil
 		},
 	}

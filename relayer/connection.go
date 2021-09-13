@@ -79,6 +79,16 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 	if err != nil {
 		return false, false, false, err
 	}
+
+	srcHeader, err := src.GetIBCUpdateHeader(dst, srch)
+	if err != nil {
+		return false, false, false, err
+	}
+
+	dstHeader, err := dst.GetIBCUpdateHeader(src, dsth)
+	if err != nil {
+		return false, false, false, err
+	}
 	// TODO: add back retries due to commit delay/update
 	// get headers to update light clients on chain
 	// if either identifier is missing, an existing connection that matches the required fields
@@ -109,7 +119,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
 
-		msgs, err := src.ConnTry(dst)
+		msgs, err := src.ConnTry(dst, dstHeader)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -128,7 +138,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
 
-		msgs, err := src.ConnAck(dst)
+		msgs, err := src.ConnAck(dst, dstHeader)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -146,7 +156,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(dst, src, dstConn, srcConn)
 		}
 
-		msgs, err := dst.ConnAck(src)
+		msgs, err := dst.ConnAck(src, srcHeader)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -162,7 +172,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
 
-		msgs, err := src.ConnConfirm(dst)
+		msgs, err := src.ConnConfirm(dst, dstHeader)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -180,7 +190,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(dst, src, dstConn, srcConn)
 		}
 
-		msgs, err := dst.ConnConfirm(src)
+		msgs, err := dst.ConnConfirm(src, srcHeader)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -205,6 +215,21 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither connection exists.
 func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
+	srch, dsth, err := QueryLatestHeights(src, dst)
+	if err != nil {
+		return false, false, err
+	}
+
+	srcHeader, err := src.GetIBCUpdateHeader(dst, srch)
+	if err != nil {
+		return false, false, err
+	}
+
+	dstHeader, err := dst.GetIBCUpdateHeader(src, dsth)
+	if err != nil {
+		return false, false, err
+	}
+
 	switch {
 
 	// OpenInit on source
@@ -217,7 +242,7 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 		connectionID, found := FindMatchingConnection(src, dst)
 		if !found {
 			// construct OpenInit message to be submitted on source chain
-			msgs, err := src.ConnInit(dst)
+			msgs, err := src.ConnInit(dst, dstHeader)
 			if err != nil {
 				return false, false, err
 			}
@@ -250,7 +275,7 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 
 		connectionID, found := FindMatchingConnection(src, dst)
 		if !found {
-			msgs, err := src.ConnTry(dst)
+			msgs, err := src.ConnTry(dst, dstHeader)
 			if err != nil {
 				return false, false, err
 			}
@@ -283,7 +308,7 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 
 		connectionID, found := FindMatchingConnection(dst, src)
 		if !found {
-			msgs, err := dst.ConnTry(src)
+			msgs, err := dst.ConnTry(src, srcHeader)
 			if err != nil {
 				return false, false, err
 			}

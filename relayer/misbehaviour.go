@@ -65,7 +65,7 @@ func checkAndSubmitMisbehaviour(src, counterparty *Chain, events map[string][]st
 		trustedHeader.TrustedHeight = emittedHeader.TrustedHeight
 
 		misbehaviour := tmclient.NewMisbehaviour(emittedClientID, emittedHeader, trustedHeader)
-		msg, err := clienttypes.NewMsgSubmitMisbehaviour(emittedClientID, misbehaviour, src.MustGetAddress().String())
+		msg, err := clienttypes.NewMsgSubmitMisbehaviour(emittedClientID, misbehaviour, src.MustGetAddress())
 		if err != nil {
 			return err
 		}

@@ -57,12 +57,7 @@ $ %s ch addr ibc-0`, appName, appName)),
 				return err
 			}
 
-			addr, err := chain.GetAddress()
-			if err != nil {
-				return err
-			}
-
-			fmt.Println(addr.String())
+			fmt.Println(chain.MustGetAddress())
 			return nil
 		},
 	}
