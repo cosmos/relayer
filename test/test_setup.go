@@ -144,7 +144,7 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 		ExposedPorts: []string{tc.t.rpcPort, c.GetRPCPort()},
 		Cmd: []string{
 			c.ChainID,
-			c.MustGetAddress().String(),
+			c.MustGetAddress(),
 			getPrivValFileName(tc.seed),
 		},
 		PortBindings: map[dc.Port][]dc.PortBinding{
