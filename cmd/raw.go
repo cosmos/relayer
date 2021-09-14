@@ -104,7 +104,7 @@ $ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 				return err
 			}
 
-			dstHeader, err := chains[src].GetIBCCreateClientHeader()
+			dstHeader, err := chains[dst].GetIBCCreateClientHeader()
 			if err != nil {
 				return err
 			}
