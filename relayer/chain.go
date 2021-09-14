@@ -452,7 +452,7 @@ func (c *Chain) CLIContext(height int64) sdkCtx.Context {
 	}
 	return sdkCtx.Context{}.
 		WithChainID(c.ChainID).
-		WithCodec(newContextualStdCodec(c.Encoding.Marshaler, c.UseSDKContext)).
+		WithCodec(c.Encoding.Marshaler).
 		WithInterfaceRegistry(c.Encoding.InterfaceRegistry).
 		WithTxConfig(c.Encoding.TxConfig).
 		WithLegacyAmino(c.Encoding.Amino).

@@ -60,11 +60,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 		rs           = &RelaySequences{Src: []uint64{}, Dst: []uint64{}}
 	)
 
-	srch, err := src.QueryLatestHeight()
-	if err != nil {
-		return nil, err
-	}
-	dsth, err := dst.QueryLatestHeight()
+	srch, dsth, err := QueryLatestHeights(src, dst)
 	if err != nil {
 		return nil, err
 	}
@@ -83,10 +79,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 				return nil
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-			if src.debug {
-				src.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitments: %s", src.ChainID,
-					srch, n+1, rtyAttNum, err))
-			}
+			srch, _ = src.QueryLatestHeight()
 		})); err != nil {
 			return err
 		}
@@ -109,10 +102,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 				return nil
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-			if dst.debug {
-				dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitments: %s",
-					dst.ChainID, dsth, n+1, rtyAttNum, err))
-			}
+			dsth, _ = dst.QueryLatestHeight()
 		})); err != nil {
 			return err
 		}
@@ -128,24 +118,22 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 
 	eg.Go(func() error {
 		// Query all packets sent by src that have been received by dst
-		rs.Src, err = dst.QueryUnreceivedPackets(uint64(dsth), srcPacketSeq)
-		if src.debug {
-			if out, err := json.Marshal(rs.Src); err != nil {
-				src.logUnreceivedPackets(dst, "commitments", string(out))
-			}
-		}
-		return err
+		return retry.Do(func() error {
+			rs.Src, err = dst.QueryUnreceivedPackets(uint64(dsth), srcPacketSeq)
+			return err
+		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+			dsth, _ = dst.QueryLatestHeight()
+		}))
 	})
 
 	eg.Go(func() error {
 		// Query all packets sent by dst that have been received by src
-		rs.Dst, err = src.QueryUnreceivedPackets(uint64(srch), dstPacketSeq)
-		if dst.debug {
-			if out, err := json.Marshal(rs.Dst); err != nil {
-				dst.logUnreceivedPackets(src, "commitments", string(out))
-			}
-		}
-		return err
+		return retry.Do(func() error {
+			rs.Dst, err = src.QueryUnreceivedPackets(uint64(srch), dstPacketSeq)
+			return err
+		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+			dsth, _ = dst.QueryLatestHeight()
+		}))
 	})
 
 	if err := eg.Wait(); err != nil {
@@ -534,38 +522,48 @@ func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) erro
 	// add messages for sequences on src
 	for _, seq := range sp.Src {
 		// Query src for the sequence number to get type of packet
-		recvMsgs, timeoutMsgs, err := relayPacketFromSequence(src, dst, uint64(srch), uint64(dsth), seq)
-		if err != nil {
+		var recvMsg, timeoutMsg sdk.Msg
+		if err = retry.Do(func() error {
+			recvMsg, timeoutMsg, err = relayPacketFromSequence(src, dst, uint64(srch), uint64(dsth), seq)
+			return err
+		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+			srch, dsth, _ = QueryLatestHeights(src, dst)
+		})); err != nil {
 			return err
 		}
 
 		// depending on the type of message to be relayed, we need to
 		// send to different chains
-		if recvMsgs != nil {
-			msgs.Dst = append(msgs.Dst, recvMsgs)
+		if recvMsg != nil {
+			msgs.Dst = append(msgs.Dst, recvMsg)
 		}
 
-		if timeoutMsgs != nil {
-			msgs.Src = append(msgs.Src, timeoutMsgs)
+		if timeoutMsg != nil {
+			msgs.Src = append(msgs.Src, timeoutMsg)
 		}
 	}
 
 	// add messages for sequences on dst
 	for _, seq := range sp.Dst {
 		// Query dst for the sequence number to get type of packet
-		recvMsgs, timeoutMsgs, err := relayPacketFromSequence(dst, src, uint64(dsth), uint64(srch), seq)
-		if err != nil {
+		var recvMsg, timeoutMsg sdk.Msg
+		if err = retry.Do(func() error {
+			recvMsg, timeoutMsg, err = relayPacketFromSequence(dst, src, uint64(dsth), uint64(srch), seq)
+			return nil
+		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+			srch, dsth, _ = QueryLatestHeights(src, dst)
+		})); err != nil {
 			return err
 		}
 
 		// depending on the type of message to be relayed, we need to
 		// send to different chains
-		if recvMsgs != nil {
-			msgs.Src = append(msgs.Src, recvMsgs)
+		if recvMsg != nil {
+			msgs.Src = append(msgs.Src, recvMsg)
 		}
 
-		if timeoutMsgs != nil {
-			msgs.Dst = append(msgs.Dst, timeoutMsgs)
+		if timeoutMsg != nil {
+			msgs.Dst = append(msgs.Dst, timeoutMsg)
 		}
 	}
 
