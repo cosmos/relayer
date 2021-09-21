@@ -1,0 +1,8 @@
+{
+  "chain-id": "comdexdevnet-3",
+  "rpc-addr": "http://13.127.198.49:26657",
+  "account-prefix": "comdex",
+  "gas-adjustment": 0.1,
+  "gas-prices": "0.001cmdx",
+  "trusting-period": "330h"
+}
