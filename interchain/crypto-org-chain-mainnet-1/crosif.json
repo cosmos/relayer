@@ -1,0 +1,23 @@
+{
+  "src": {
+    "chain-id": "crypto-org-chain-mainnet-1",
+    "client-id": "",
+    "connection-id": "",
+    "channel-id": "channel-33",
+    "port-id": "transfer",
+    "order": "unordered",
+    "version": "ics20-1"
+  },
+  "dst": {
+    "chain-id": "sifchain-1",
+    "client-id": "",
+    "connection-id": "",
+    "channel-id": "channel-9",
+    "port-id": "transfer",
+    "order": "unordered",
+    "version": "ics20-1"
+  },
+  "strategy": {
+    "type": "naive"
+  }
+}

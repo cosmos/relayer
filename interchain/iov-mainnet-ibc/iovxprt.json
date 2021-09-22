@@ -1,0 +1,23 @@
+{
+  "src": {
+    "chain-id": "iov-mainnet-ibc",
+    "client-id": "",
+    "connection-id": "",
+    "channel-id": "channel-13",
+    "port-id": "transfer",
+    "order": "unordered",
+    "version": "ics20-1"
+  },
+  "dst": {
+    "chain-id": "core-1",
+    "client-id": "",
+    "connection-id": "",
+    "channel-id": "channel-27",
+    "port-id": "transfer",
+    "order": "unordered",
+    "version": "ics20-1"
+  },
+  "strategy": {
+    "type": "naive"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "src": {
+    "chain-id": "sentinelhub-2",
+    "client-id": "",
+    "connection-id": "",
+    "channel-id": "channel-7",
+    "port-id": "transfer",
+    "order": "unordered",
+    "version": "ics20-1"
+  },
+  "dst": {
+    "chain-id": "crypto-org-chain-mainnet-1",
+    "client-id": "",
+    "connection-id": "",
+    "channel-id": "channel-19",
+    "port-id": "transfer",
+    "order": "unordered",
+    "version": "ics20-1"
+  },
+  "strategy": {
+    "type": "naive"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "src": {
+    "chain-id": "regen-1",
+    "client-id": "",
+    "connection-id": "",
+    "channel-id": "channel-29",
+    "port-id": "transfer",
+    "order": "unordered",
+    "version": "ics20-1"
+  },
+  "dst": {
+    "chain-id": "iov-mainnet-ibc",
+    "client-id": "",
+    "connection-id": "",
+    "channel-id": "channel-14",
+    "port-id": "transfer",
+    "order": "unordered",
+    "version": "ics20-1"
+  },
+  "strategy": {
+    "type": "naive"
+  }
+}
