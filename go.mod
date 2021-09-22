@@ -3,16 +3,15 @@ module github.com/cosmos/relayer
 go 1.15
 
 require (
-	github.com/Microsoft/go-winio v0.4.15 // indirect
 	github.com/avast/retry-go v2.6.0+incompatible
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
 	github.com/containerd/continuity v0.0.0-20200928162600-f2cc35102c2a // indirect
 	github.com/cosmos/cosmos-sdk v0.43.0
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/ibc-go v1.0.1
+	github.com/go-git/go-git/v5 v5.4.2
 	github.com/gogo/protobuf v1.3.3
 	github.com/gorilla/mux v1.8.0
-	github.com/kr/text v0.2.0 // indirect
 	github.com/lib/pq v1.9.0 // indirect
 	github.com/moby/term v0.0.0-20201101162038-25d840ce174a // indirect
 	github.com/onsi/ginkgo v1.14.2 // indirect

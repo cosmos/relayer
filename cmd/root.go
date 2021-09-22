@@ -93,6 +93,7 @@ func NewRootCmd() *cobra.Command {
 		devCommand(),
 		testnetsCmd(),
 		getVersionCmd(),
+		fetchCmd(),
 	)
 
 	// This is a bit of a cheat :shushing_face:

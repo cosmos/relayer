@@ -1,0 +1,23 @@
+{
+  "src": {
+    "chain-id": "crypto-org-chain-mainnet-1",
+    "client-id": "",
+    "connection-id": "",
+    "channel-id": "channel-22",
+    "port-id": "transfer",
+    "order": "unordered",
+    "version": "ics20-1"
+  },
+  "dst": {
+    "chain-id": "iov-mainnet-ibc",
+    "client-id": "",
+    "connection-id": "",
+    "channel-id": "channel-3",
+    "port-id": "transfer",
+    "order": "unordered",
+    "version": "ics20-1"
+  },
+  "strategy": {
+    "type": "naive"
+  }
+}
