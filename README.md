@@ -180,7 +180,7 @@ connections, and channels are public goods (no one has control over them).
 ## Recommended Pruning Settings
 
 The relayer relies on old headers and proofs constructed at past block heights
-to facilitate correct[IBC](https://ibcprotocol.org/) behavior. For this reason,
+to facilitate correct [IBC](https://ibcprotocol.org/) behavior. For this reason,
 connected full nodes may prune old blocks once they have passed the unbonding
 period of the chain but not before. Not pruning at all is not necessary for a
 fully functional relayer, however, pruning everything will lead to many issues!
