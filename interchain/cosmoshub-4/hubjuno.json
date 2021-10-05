@@ -1,0 +1,23 @@
+{
+  "src": {
+    "chain-id": "cosmoshub-4",
+    "client-id": "",
+    "connection-id": "",
+    "channel-id": "channel-207",
+    "port-id": "transfer",
+    "order": "unordered",
+    "version": "ics20-1"
+  },
+  "dst": {
+    "chain-id": "juno-1",
+    "client-id": "",
+    "connection-id": "",
+    "channel-id": "channel-1",
+    "port-id": "transfer",
+    "order": "unordered",
+    "version": "ics20-1"
+  },
+  "strategy": {
+    "type": "naive"
+  }
+}
