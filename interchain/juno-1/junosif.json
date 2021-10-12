@@ -1,18 +1,18 @@
 {
   "src": {
-    "chain-id": "irishub-1",
-    "client-id": "07-tendermint-42",
-    "connection-id": "connection-30",
-    "channel-id": "channel-19",
+    "chain-id": "juno-1",
+    "client-id": "07-tendermint-9",
+    "connection-id": "connection-8",
+    "channel-id": "channel-5",
     "port-id": "transfer",
     "order": "unordered",
     "version": "ics20-1"
   },
   "dst": {
     "chain-id": "sifchain-1",
-    "client-id": "07-tendermint-19",
-    "connection-id": "connection-9",
-    "channel-id": "channel-8",
+    "client-id": "07-tendermint-37",
+    "connection-id": "connection-17",
+    "channel-id": "channel-14",
     "port-id": "transfer",
     "order": "unordered",
     "version": "ics20-1"

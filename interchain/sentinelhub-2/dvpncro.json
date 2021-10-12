@@ -1,8 +1,8 @@
 {
   "src": {
     "chain-id": "sentinelhub-2",
-    "client-id": "",
-    "connection-id": "",
+    "client-id": "07-tendermint-43",
+    "connection-id": "connection-28",
     "channel-id": "channel-7",
     "port-id": "transfer",
     "order": "unordered",
@@ -10,8 +10,8 @@
   },
   "dst": {
     "chain-id": "crypto-org-chain-mainnet-1",
-    "client-id": "",
-    "connection-id": "",
+    "client-id": "07-tendermint-63",
+    "connection-id": "connection-36",
     "channel-id": "channel-19",
     "port-id": "transfer",
     "order": "unordered",
