@@ -1,8 +1,8 @@
 {
   "src": {
     "chain-id": "core-1",
-    "client-id": "",
-    "connection-id": "",
+    "client-id": "07-tendermint-36",
+    "connection-id": "connection-30",
     "channel-id": "channel-24",
     "port-id": "transfer",
     "order": "unordered",
@@ -10,8 +10,8 @@
   },
   "dst": {
     "chain-id": "cosmoshub-4",
-    "client-id": "",
-    "connection-id": "",
+    "client-id": "07-tendermint-391",
+    "connection-id": "connection-344",
     "channel-id": "channel-190",
     "port-id": "transfer",
     "order": "unordered",

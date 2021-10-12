@@ -1,8 +1,8 @@
 {
   "src": {
     "chain-id": "regen-1",
-    "client-id": "",
-    "connection-id": "",
+    "client-id": "07-tendermint-25",
+    "connection-id": "connection-22",
     "channel-id": "channel-9",
     "port-id": "transfer",
     "order": "unordered",
@@ -10,8 +10,8 @@
   },
   "dst": {
     "chain-id": "irishub-1",
-    "client-id": "",
-    "connection-id": "",
+    "client-id": "07-tendermint-35",
+    "connection-id": "connection-26",
     "channel-id": "channel-16",
     "port-id": "transfer",
     "order": "unordered",

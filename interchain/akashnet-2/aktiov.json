@@ -1,8 +1,8 @@
 {
   "src": {
     "chain-id": "akashnet-2",
-    "client-id": "",
-    "connection-id": "",
+    "client-id": "07-tendermint-59",
+    "connection-id": "connection-35",
     "channel-id": "channel-23",
     "port-id": "transfer",
     "order": "unordered",
@@ -10,8 +10,8 @@
   },
   "dst": {
     "chain-id": "iov-mainnet-ibc",
-    "client-id": "",
-    "connection-id": "",
+    "client-id": "07-tendermint-29",
+    "connection-id": "connection-18",
     "channel-id": "channel-6",
     "port-id": "transfer",
     "order": "unordered",

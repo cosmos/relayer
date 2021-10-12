@@ -1,8 +1,8 @@
 {
   "src": {
     "chain-id": "juno-1",
-    "client-id": "",
-    "connection-id": "",
+    "client-id": "07-tendermint-0",
+    "connection-id": "connection-0",
     "channel-id": "channel-0",
     "port-id": "transfer",
     "order": "unordered",
@@ -10,7 +10,7 @@
   },
   "dst": {
     "chain-id": "osmosis-1",
-    "client-id": "",
+    "client-id": "07-tendermint-1457",
     "connection-id": "",
     "channel-id": "channel-42",
     "port-id": "transfer",
