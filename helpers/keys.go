@@ -30,8 +30,9 @@ func KeyAddOrRestore(chain *relayer.Chain, keyName string, coinType uint32, mnem
 		return KeyOutput{}, err
 	}
 
-	defer chain.UseSDKContext()()
+	done := chain.UseSDKContext()
 	ko := KeyOutput{Mnemonic: mnemonicStr, Address: info.GetAddress().String()}
+	done()
 
 	return ko, nil
 }

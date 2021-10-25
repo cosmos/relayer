@@ -6,9 +6,9 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
-	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
+	ibctmtypes "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/tendermint/tendermint/light"
@@ -66,13 +66,22 @@ $ %s tx raw uc ibc-0 ibc-1 ibconeclient`, appName, appName)),
 				return err
 			}
 
-			updateMsg, err := chains[src].UpdateClient(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
 			if err != nil {
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{updateMsg},
-				chains[src], cmd)
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			updateMsg, err := chains[src].UpdateClient(chains[dst], dstHeader)
+			if err != nil {
+				return err
+			}
+
+			return sendAndPrint([]sdk.Msg{updateMsg}, chains[src])
 		},
 	}
 	return cmd
@@ -88,13 +97,28 @@ func createClientCmd() *cobra.Command {
 $ %s transact raw client ibc-0 ibc-1 ibczeroclient
 $ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			allowUpdateAfterExpiry, err := cmd.Flags().GetBool(flagUpdateAfterExpiry)
+			if err != nil {
+				return err
+			}
+
+			allowUpdateAfterMisbehaviour, err := cmd.Flags().GetBool(flagUpdateAfterMisbehaviour)
+			if err != nil {
+				return err
+			}
+
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
 
-			dstHeader, err := chains[src].GetIBCCreateClientHeader()
+			h, err := chains[src].QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			dstHeader, err := chains[src].GetLightSignedHeaderAtHeight(h)
 			if err != nil {
 				return err
 			}
@@ -117,16 +141,19 @@ $ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 				dstHeader.GetHeight().(clienttypes.Height),
 				commitmenttypes.GetSDKSpecs(),
 				relayer.DefaultUpgradePath,
-				relayer.AllowUpdateAfterExpiry,
-				relayer.AllowUpdateAfterMisbehaviour,
+				allowUpdateAfterExpiry,
+				allowUpdateAfterMisbehaviour,
 			)
 
-			return sendAndPrint([]sdk.Msg{chains[src].CreateClient(
-				clientState, dstHeader)},
-				chains[src], cmd)
+			createMsg, err := chains[src].CreateClient(clientState, dstHeader)
+			if err != nil {
+				return err
+			}
+
+			return sendAndPrint([]sdk.Msg{createMsg}, chains[src])
 		},
 	}
-	return cmd
+	return clientParameterFlags(cmd)
 }
 
 func connInit() *cobra.Command {
@@ -152,13 +179,22 @@ $ %s tx raw conn-init ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`,
 				return err
 			}
 
-			msgs, err := chains[src].ConnInit(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
 			if err != nil {
 				return err
 			}
 
-			return sendAndPrint(msgs,
-				chains[src], cmd)
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].ConnInit(chains[dst], dstHeader)
+			if err != nil {
+				return err
+			}
+
+			return sendAndPrint(msgs, chains[src])
 		},
 	}
 	return cmd
@@ -187,12 +223,22 @@ $ %s tx raw conn-try ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn2`, 
 				return err
 			}
 
-			msgs, err := chains[src].ConnTry(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
 			if err != nil {
 				return err
 			}
 
-			return sendAndPrint(msgs, chains[src], cmd)
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].ConnTry(chains[dst], dstHeader)
+			if err != nil {
+				return err
+			}
+
+			return sendAndPrint(msgs, chains[src])
 		},
 	}
 	return cmd
@@ -221,12 +267,22 @@ $ %s tx raw conn-ack ibc-0 ibc-1 ibconeclient ibczeroclient ibcconn1 ibcconn2`, 
 				return err
 			}
 
-			msgs, err := chains[src].ConnAck(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
 			if err != nil {
 				return err
 			}
 
-			return sendAndPrint(msgs, chains[src], cmd)
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].ConnAck(chains[dst], dstHeader)
+			if err != nil {
+				return err
+			}
+
+			return sendAndPrint(msgs, chains[src])
 		},
 	}
 	return cmd
@@ -255,12 +311,22 @@ $ %s tx raw conn-confirm ibc-0 ibc-1 ibczeroclient ibconeclient ibcconn1 ibcconn
 				return err
 			}
 
-			msgs, err := chains[src].ConnConfirm(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
 			if err != nil {
 				return err
 			}
 
-			return sendAndPrint(msgs, chains[src], cmd)
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].ConnConfirm(chains[dst], dstHeader)
+			if err != nil {
+				return err
+			}
+
+			return sendAndPrint(msgs, chains[src])
 		},
 	}
 	return cmd
@@ -333,13 +399,22 @@ ibcconn1 ibcconn2 ibcchan1 ibcchan2 transfer transfer ordered`, appName)),
 				return err
 			}
 
-			msgs, err := chains[src].ChanInit(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
 			if err != nil {
 				return err
 			}
 
-			return sendAndPrint(msgs,
-				chains[src], cmd)
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].ChanInit(chains[dst], dstHeader)
+			if err != nil {
+				return err
+			}
+
+			return sendAndPrint(msgs, chains[src])
 		},
 	}
 	return cmd
@@ -369,12 +444,22 @@ $ %s tx raw chan-try ibc-0 ibc-1 ibczeroclient ibcconn0 ibcchan1 ibcchan2 transf
 				return err
 			}
 
-			msgs, err := chains[src].ChanTry(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
 			if err != nil {
 				return err
 			}
 
-			return sendAndPrint(msgs, chains[src], cmd)
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].ChanTry(chains[dst], dstHeader)
+			if err != nil {
+				return err
+			}
+
+			return sendAndPrint(msgs, chains[src])
 		},
 	}
 	return cmd
@@ -405,12 +490,22 @@ $ %s tx raw chan-ack ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer transf
 				return err
 			}
 
-			msgs, err := chains[src].ChanAck(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
 			if err != nil {
 				return err
 			}
 
-			return sendAndPrint(msgs, chains[src], cmd)
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].ChanAck(chains[dst], dstHeader)
+			if err != nil {
+				return err
+			}
+
+			return sendAndPrint(msgs, chains[src])
 		},
 	}
 	return cmd
@@ -440,12 +535,22 @@ $ %s tx raw chan-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 transfer tr
 				return err
 			}
 
-			msgs, err := chains[src].ChanConfirm(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
 			if err != nil {
 				return err
 			}
 
-			return sendAndPrint(msgs, chains[src], cmd)
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			msgs, err := chains[src].ChanConfirm(chains[dst], dstHeader)
+			if err != nil {
+				return err
+			}
+
+			return sendAndPrint(msgs, chains[src])
 		},
 	}
 	return cmd
@@ -512,7 +617,7 @@ $ %s tx raw chan-close-init ibc-0 ibcchan1 transfer`, appName, appName)),
 				return err
 			}
 
-			return sendAndPrint([]sdk.Msg{src.ChanCloseInit()}, src, cmd)
+			return sendAndPrint([]sdk.Msg{src.ChanCloseInit()}, src)
 		},
 	}
 	return cmd
@@ -541,12 +646,22 @@ $ %s tx raw chan-close-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 trans
 				return err
 			}
 
-			updateMsg, err := chains[src].UpdateClient(chains[dst])
+			dsth, err := chains[dst].QueryLatestHeight()
 			if err != nil {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(int64(chains[dst].MustGetLatestLightHeight()) - 1)
+			dstHeader, err := chains[dst].GetIBCUpdateHeader(chains[src], dsth)
+			if err != nil {
+				return err
+			}
+
+			updateMsg, err := chains[src].UpdateClient(chains[dst], dstHeader)
+			if err != nil {
+				return err
+			}
+
+			dstChanState, err := chains[dst].QueryChannel(dsth - 1)
 			if err != nil {
 				return err
 			}
@@ -556,7 +671,7 @@ $ %s tx raw chan-close-confirm ibc-0 ibc-1 ibczeroclient ibcchan1 ibcchan2 trans
 				chains[src].ChanCloseConfirm(dstChanState),
 			}
 
-			return sendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(txs, chains[src])
 		},
 	}
 	return cmd
@@ -592,11 +707,11 @@ ibcconn2 ibcchan1 ibcchan2 transfer transfer`, appName)),
 			}
 
 			if len(msgs.Src) > 0 {
-				if err = sendAndPrint(msgs.Src, chains[src], cmd); err != nil {
+				if err = sendAndPrint(msgs.Src, chains[src]); err != nil {
 					return err
 				}
 			} else if len(msgs.Dst) > 0 {
-				if err = sendAndPrint(msgs.Dst, chains[dst], cmd); err != nil {
+				if err = sendAndPrint(msgs.Dst, chains[dst]); err != nil {
 					return err
 				}
 			}
@@ -607,6 +722,6 @@ ibcconn2 ibcchan1 ibcchan2 transfer transfer`, appName)),
 	return cmd
 }
 
-func sendAndPrint(txs []sdk.Msg, c *relayer.Chain, cmd *cobra.Command) error {
+func sendAndPrint(txs []sdk.Msg, c *relayer.Chain) error {
 	return c.SendAndPrint(txs, false, false)
 }

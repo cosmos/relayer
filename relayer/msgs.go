@@ -3,13 +3,12 @@ package relayer
 import (
 	"fmt"
 
-	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	transfertypes "github.com/cosmos/cosmos-sdk/x/ibc/applications/transfer/types"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
-	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	transfertypes "github.com/cosmos/ibc-go/v2/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
+	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
 )
 
 // NOTE: we explicitly call 'MustGetAddress' before 'NewMsg...'
@@ -26,10 +25,10 @@ import (
 func (c *Chain) CreateClient(
 	//nolint:interfacer
 	clientState *tmclient.ClientState,
-	dstHeader *tmclient.Header) sdk.Msg {
+	dstHeader *tmclient.Header) (sdk.Msg, error) {
 
 	if err := dstHeader.ValidateBasic(); err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	msg, err := clienttypes.NewMsgCreateClient(
@@ -39,28 +38,23 @@ func (c *Chain) CreateClient(
 	)
 
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	if err = msg.ValidateBasic(); err != nil {
-		panic(err)
+		return nil, err
 	}
-	return msg
+	return msg, nil
 }
 
 // UpdateClient creates an sdk.Msg to update the client on src with data pulled from dst
 // at the request height..
-func (c *Chain) UpdateClient(dst *Chain) (sdk.Msg, error) {
-	header, err := dst.GetIBCUpdateHeader(c)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := header.ValidateBasic(); err != nil {
+func (c *Chain) UpdateClient(dst *Chain, dsth *tmclient.Header) (sdk.Msg, error) {
+	if err := dsth.ValidateBasic(); err != nil {
 		return nil, err
 	}
 	msg, err := clienttypes.NewMsgUpdateClient(
 		c.PathEnd.ClientID,
-		header,
+		dsth,
 		c.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 	if err != nil {
@@ -70,8 +64,8 @@ func (c *Chain) UpdateClient(dst *Chain) (sdk.Msg, error) {
 }
 
 // ConnInit creates a MsgConnectionOpenInit
-func (c *Chain) ConnInit(counterparty *Chain) ([]sdk.Msg, error) {
-	updateMsg, err := c.UpdateClient(counterparty)
+func (c *Chain) ConnInit(counterparty *Chain, counterpartyHeader *tmclient.Header) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty, counterpartyHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -91,17 +85,19 @@ func (c *Chain) ConnInit(counterparty *Chain) ([]sdk.Msg, error) {
 }
 
 // ConnTry creates a MsgConnectionOpenTry
-func (c *Chain) ConnTry(
-	counterparty *Chain,
-) ([]sdk.Msg, error) {
-	updateMsg, err := c.UpdateClient(counterparty)
+func (c *Chain) ConnTry(counterparty *Chain, counterpartyHeader *tmclient.Header) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty, counterpartyHeader)
 	if err != nil {
 		return nil, err
 	}
 
-	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
+	cph, err := counterparty.QueryLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+
 	clientState, clientStateProof, consensusStateProof, connStateProof,
-		proofHeight, err := counterparty.GenerateConnHandshakeProof(counterparty.MustGetLatestLightHeight() - 1)
+		proofHeight, err := counterparty.GenerateConnHandshakeProof(uint64(cph))
 	if err != nil {
 		return nil, err
 	}
@@ -131,17 +127,18 @@ func (c *Chain) ConnTry(
 }
 
 // ConnAck creates a MsgConnectionOpenAck
-func (c *Chain) ConnAck(
-	counterparty *Chain,
-) ([]sdk.Msg, error) {
-	updateMsg, err := c.UpdateClient(counterparty)
+func (c *Chain) ConnAck(counterparty *Chain, counterpartyHeader *tmclient.Header) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty, counterpartyHeader)
+	if err != nil {
+		return nil, err
+	}
+	cph, err := counterparty.QueryLatestHeight()
 	if err != nil {
 		return nil, err
 	}
 
-	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 	clientState, clientStateProof, consensusStateProof, connStateProof,
-		proofHeight, err := counterparty.GenerateConnHandshakeProof(counterparty.MustGetLatestLightHeight() - 1)
+		proofHeight, err := counterparty.GenerateConnHandshakeProof(uint64(cph))
 	if err != nil {
 		return nil, err
 	}
@@ -163,13 +160,17 @@ func (c *Chain) ConnAck(
 }
 
 // ConnConfirm creates a MsgConnectionOpenConfirm
-func (c *Chain) ConnConfirm(counterparty *Chain) ([]sdk.Msg, error) {
-	updateMsg, err := c.UpdateClient(counterparty)
+func (c *Chain) ConnConfirm(counterparty *Chain, counterpartyHeader *tmclient.Header) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty, counterpartyHeader)
 	if err != nil {
 		return nil, err
 	}
 
-	counterpartyConnState, err := counterparty.QueryConnection(int64(counterparty.MustGetLatestLightHeight()) - 1)
+	cph, err := counterparty.QueryLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+	counterpartyConnState, err := counterparty.QueryConnection(cph)
 	if err != nil {
 		return nil, err
 	}
@@ -185,8 +186,8 @@ func (c *Chain) ConnConfirm(counterparty *Chain) ([]sdk.Msg, error) {
 }
 
 // ChanInit creates a MsgChannelOpenInit
-func (c *Chain) ChanInit(counterparty *Chain) ([]sdk.Msg, error) {
-	updateMsg, err := c.UpdateClient(counterparty)
+func (c *Chain) ChanInit(counterparty *Chain, counterpartyHeader *tmclient.Header) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty, counterpartyHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -204,16 +205,17 @@ func (c *Chain) ChanInit(counterparty *Chain) ([]sdk.Msg, error) {
 }
 
 // ChanTry creates a MsgChannelOpenTry
-func (c *Chain) ChanTry(
-	counterparty *Chain,
-) ([]sdk.Msg, error) {
-	updateMsg, err := c.UpdateClient(counterparty)
+func (c *Chain) ChanTry(counterparty *Chain, counterpartyHeader *tmclient.Header) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty, counterpartyHeader)
+	if err != nil {
+		return nil, err
+	}
+	cph, err := counterparty.QueryLatestHeight()
 	if err != nil {
 		return nil, err
 	}
 
-	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-	counterpartyChannelRes, err := counterparty.QueryChannel(int64(counterparty.MustGetLatestLightHeight()) - 1)
+	counterpartyChannelRes, err := counterparty.QueryChannel(cph)
 	if err != nil {
 		return nil, err
 	}
@@ -237,16 +239,18 @@ func (c *Chain) ChanTry(
 }
 
 // ChanAck creates a MsgChannelOpenAck
-func (c *Chain) ChanAck(
-	counterparty *Chain,
-) ([]sdk.Msg, error) {
-	updateMsg, err := c.UpdateClient(counterparty)
+func (c *Chain) ChanAck(counterparty *Chain, counterpartyHeader *tmclient.Header) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty, counterpartyHeader)
 	if err != nil {
 		return nil, err
 	}
 
-	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-	counterpartyChannelRes, err := counterparty.QueryChannel(int64(counterparty.MustGetLatestLightHeight()) - 1)
+	cph, err := counterparty.QueryLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+
+	counterpartyChannelRes, err := counterparty.QueryChannel(cph)
 	if err != nil {
 		return nil, err
 	}
@@ -265,14 +269,17 @@ func (c *Chain) ChanAck(
 }
 
 // ChanConfirm creates a MsgChannelOpenConfirm
-func (c *Chain) ChanConfirm(counterparty *Chain) ([]sdk.Msg, error) {
-	updateMsg, err := c.UpdateClient(counterparty)
+func (c *Chain) ChanConfirm(counterparty *Chain, counterpartyHeader *tmclient.Header) ([]sdk.Msg, error) {
+	updateMsg, err := c.UpdateClient(counterparty, counterpartyHeader)
+	if err != nil {
+		return nil, err
+	}
+	cph, err := counterparty.QueryLatestHeight()
 	if err != nil {
 		return nil, err
 	}
 
-	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-	counterpartyChanState, err := counterparty.QueryChannel(int64(counterparty.MustGetLatestLightHeight()) - 1)
+	counterpartyChanState, err := counterparty.QueryChannel(cph)
 	if err != nil {
 		return nil, err
 	}
@@ -325,187 +332,92 @@ func (c *Chain) MsgTransfer(dst *PathEnd, amount sdk.Coin, dstAddr string,
 
 // MsgRelayRecvPacket constructs the MsgRecvPacket which is to be sent to the receiving chain.
 // The counterparty represents the sending chain where the packet commitment would be stored.
-func (c *Chain) MsgRelayRecvPacket(counterparty *Chain, packet *relayMsgRecvPacket) (msgs []sdk.Msg, err error) {
-	var comRes *chantypes.QueryPacketCommitmentResponse
-	if err = retry.Do(func() (err error) {
-		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-		comRes, err = counterparty.QueryPacketCommitment(int64(counterparty.MustGetLatestLightHeight())-1, packet.seq)
-		if err != nil {
-			return err
-		}
-
-		if comRes.Proof == nil || comRes.Commitment == nil {
-			return fmt.Errorf("recv packet commitment query seq(%d) is nil", packet.seq)
-		}
-
-		return nil
-	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, _ error) {
-		// clear messages
-		msgs = []sdk.Msg{}
-
-		// OnRetry we want to update the light clients and then debug log
-		updateMsg, err := c.UpdateClient(counterparty)
-		if err != nil {
-			return
-		}
-
-		msgs = append(msgs, updateMsg)
-
-		if counterparty.debug {
-			counterparty.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitment: %s",
-				counterparty.ChainID, counterparty.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
-		}
-
-	})); err != nil {
-		counterparty.Error(err)
-		return
-	}
-
-	if comRes == nil {
+func (c *Chain) MsgRelayRecvPacket(counterparty *Chain, counterpartyHeight int64, packet *relayMsgRecvPacket) (sdk.Msg, error) {
+	comRes, err := counterparty.QueryPacketCommitment(counterpartyHeight, packet.seq)
+	switch {
+	case err != nil:
+		return nil, err
+	case comRes.Proof == nil || comRes.Commitment == nil:
+		return nil, fmt.Errorf("recv packet commitment query seq(%d) is nil", packet.seq)
+	case comRes == nil:
 		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", c.ChainID, packet.seq)
+	default:
+		return chantypes.NewMsgRecvPacket(
+			chantypes.NewPacket(
+				packet.packetData,
+				packet.seq,
+				counterparty.PathEnd.PortID,
+				counterparty.PathEnd.ChannelID,
+				c.PathEnd.PortID,
+				c.PathEnd.ChannelID,
+				packet.timeout,
+				packet.timeoutStamp,
+			),
+			comRes.Proof,
+			comRes.ProofHeight,
+			c.MustGetAddress(),
+		), nil
 	}
-
-	msg := chantypes.NewMsgRecvPacket(
-		chantypes.NewPacket(
-			packet.packetData,
-			packet.seq,
-			counterparty.PathEnd.PortID,
-			counterparty.PathEnd.ChannelID,
-			c.PathEnd.PortID,
-			c.PathEnd.ChannelID,
-			packet.timeout,
-			packet.timeoutStamp,
-		),
-		comRes.Proof,
-		comRes.ProofHeight,
-		c.MustGetAddress(),
-	)
-
-	return append(msgs, msg), nil
 }
 
 // MsgRelayAcknowledgement constructs the MsgAcknowledgement which is to be sent to the sending chain.
 // The counterparty represents the receiving chain where the acknowledgement would be stored.
-func (c *Chain) MsgRelayAcknowledgement(counterparty *Chain, packet *relayMsgPacketAck) (msgs []sdk.Msg, err error) {
-	var ackRes *chantypes.QueryPacketAcknowledgementResponse
-	if err = retry.Do(func() (err error) {
-		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-		ackRes, err = counterparty.QueryPacketAcknowledgement(int64(counterparty.MustGetLatestLightHeight())-1, packet.seq)
-		if err != nil {
-			return err
-		}
-
-		if ackRes.Proof == nil || ackRes.Acknowledgement == nil {
-			return fmt.Errorf("ack packet acknowledgement query seq(%d) is nil", packet.seq)
-		}
-
-		return nil
-	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, _ error) {
-		// clear messages
-		msgs = []sdk.Msg{}
-
-		// OnRetry we want to update the light clients and then debug log
-		updateMsg, err := c.UpdateClient(counterparty)
-		if err != nil {
-			return
-		}
-
-		msgs = append(msgs, updateMsg)
-
-		if counterparty.debug {
-			counterparty.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgement: %s",
-				counterparty.ChainID, counterparty.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
-		}
-
-	})); err != nil {
-		counterparty.Error(err)
-		return
-	}
-
-	if ackRes == nil {
+func (c *Chain) MsgRelayAcknowledgement(counterparty *Chain, counterpartyHeight int64, packet *relayMsgPacketAck) (sdk.Msg, error) {
+	ackRes, err := counterparty.QueryPacketAcknowledgement(counterpartyHeight, packet.seq)
+	switch {
+	case err != nil:
+		return nil, err
+	case ackRes.Proof == nil || ackRes.Acknowledgement == nil:
+		return nil, fmt.Errorf("ack packet acknowledgement query seq(%d) is nil", packet.seq)
+	case ackRes == nil:
 		return nil, fmt.Errorf("ack packet [%s]seq{%d} has no associated proofs", counterparty.ChainID, packet.seq)
+	default:
+		return chantypes.NewMsgAcknowledgement(
+			chantypes.NewPacket(
+				packet.packetData,
+				packet.seq,
+				c.PathEnd.PortID,
+				c.PathEnd.ChannelID,
+				counterparty.PathEnd.PortID,
+				counterparty.PathEnd.ChannelID,
+				packet.timeout,
+				packet.timeoutStamp,
+			),
+			packet.ack,
+			ackRes.Proof,
+			ackRes.ProofHeight,
+			c.MustGetAddress()), nil
 	}
-
-	msg := chantypes.NewMsgAcknowledgement(
-		chantypes.NewPacket(
-			packet.packetData,
-			packet.seq,
-			c.PathEnd.PortID,
-			c.PathEnd.ChannelID,
-			counterparty.PathEnd.PortID,
-			counterparty.PathEnd.ChannelID,
-			packet.timeout,
-			packet.timeoutStamp,
-		),
-		packet.ack,
-		ackRes.Proof,
-		ackRes.ProofHeight,
-		c.MustGetAddress(),
-	)
-
-	return append(msgs, msg), nil
 }
 
 // MsgRelayTimeout constructs the MsgTimeout which is to be sent to the sending chain.
 // The counterparty represents the receiving chain where the receipts would have been
 // stored.
-func (c *Chain) MsgRelayTimeout(counterparty *Chain, packet *relayMsgTimeout) (msgs []sdk.Msg, err error) {
-	var recvRes *chantypes.QueryPacketReceiptResponse
-	if err = retry.Do(func() (err error) {
-		// NOTE: Timeouts currently only work with ORDERED channels for nwo
-		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-		recvRes, err = counterparty.QueryPacketReceipt(int64(counterparty.MustGetLatestLightHeight())-1, packet.seq)
-		if err != nil {
-			return err
-		}
-
-		if recvRes.Proof == nil {
-			return fmt.Errorf("timeout packet receipt proof seq(%d) is nil", packet.seq)
-		}
-
-		return nil
-	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, _ error) {
-		// clear messages
-		msgs = []sdk.Msg{}
-
-		// OnRetry we want to update the light clients and then debug log
-		updateMsg, err := c.UpdateClient(counterparty)
-		if err != nil {
-			return
-		}
-
-		msgs = append(msgs, updateMsg)
-
-		if counterparty.debug {
-			counterparty.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet receipt: %s",
-				counterparty.ChainID, counterparty.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
-		}
-
-	})); err != nil {
-		counterparty.Error(err)
-		return
-	}
-
-	if recvRes == nil {
+func (c *Chain) MsgRelayTimeout(counterparty *Chain, counterpartyHeight int64, packet *relayMsgTimeout) (sdk.Msg, error) {
+	recvRes, err := counterparty.QueryPacketReceipt(counterpartyHeight, packet.seq)
+	switch {
+	case err != nil:
+		return nil, err
+	case recvRes.Proof == nil:
+		return nil, fmt.Errorf("timeout packet receipt proof seq(%d) is nil", packet.seq)
+	case recvRes == nil:
 		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", c.ChainID, packet.seq)
-	}
-
-	msg := chantypes.NewMsgTimeout(
-		chantypes.NewPacket(
-			packet.packetData,
+	default:
+		return chantypes.NewMsgTimeout(
+			chantypes.NewPacket(
+				packet.packetData,
+				packet.seq,
+				c.PathEnd.PortID,
+				c.PathEnd.ChannelID,
+				counterparty.PathEnd.PortID,
+				counterparty.PathEnd.ChannelID,
+				packet.timeout,
+				packet.timeoutStamp,
+			),
 			packet.seq,
-			c.PathEnd.PortID,
-			c.PathEnd.ChannelID,
-			counterparty.PathEnd.PortID,
-			counterparty.PathEnd.ChannelID,
-			packet.timeout,
-			packet.timeoutStamp,
-		),
-		packet.seq,
-		recvRes.Proof,
-		recvRes.ProofHeight,
-		c.MustGetAddress(),
-	)
-
-	return append(msgs, msg), nil
+			recvRes.Proof,
+			recvRes.ProofHeight,
+			c.MustGetAddress(),
+		), nil
+	}
 }

@@ -6,28 +6,38 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clientutils "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/client/utils"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
-	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	clientutils "github.com/cosmos/ibc-go/v2/modules/core/02-client/client/utils"
+	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
+	ibctmtypes "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
+	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
 	"github.com/tendermint/tendermint/light"
+	"golang.org/x/sync/errgroup"
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
 // TODO: de-duplicate code
-func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
-	// Handle off chain light clients
-	if err := c.ValidateLightInitialized(); err != nil {
-		return false, err
-	}
+func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (modified bool, err error) {
+	var (
+		eg                               = new(errgroup.Group)
+		srcUpdateHeader, dstUpdateHeader *tmclient.Header
+	)
 
-	if err = dst.ValidateLightInitialized(); err != nil {
-		return false, err
-	}
-
-	srcUpdateHeader, dstUpdateHeader, err := GetIBCCreateClientHeaders(c, dst)
+	srch, dsth, err := QueryLatestHeights(c, dst)
 	if err != nil {
 		return false, err
+	}
+
+	eg.Go(func() error {
+		srcUpdateHeader, err = c.GetLightSignedHeaderAtHeight(srch)
+		return err
+	})
+	eg.Go(func() error {
+		dstUpdateHeader, err = dst.GetLightSignedHeaderAtHeight(dsth)
+		return err
+	})
+	if err = eg.Wait(); err != nil {
+		return
 	}
 
 	// Create client for the destination chain on the source chain if client id is unspecified
@@ -50,26 +60,35 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			dstUpdateHeader.GetHeight().(clienttypes.Height),
 			commitmenttypes.GetSDKSpecs(),
 			DefaultUpgradePath,
-			AllowUpdateAfterExpiry,
-			AllowUpdateAfterMisbehaviour,
+			allowUpdateAfterExpiry,
+			allowUpdateAfterMisbehaviour,
 		)
 
-		// Check if an identical light client already exists
-		clientID, found := FindMatchingClient(c, dst, clientState)
-		if !found {
-			msgs := []sdk.Msg{
-				c.CreateClient(
-					clientState,
-					dstUpdateHeader,
-				),
+		var (
+			clientID string
+			found    bool
+		)
+		// Will not reuse same client if override is true
+		if !override {
+			// Check if an identical light client already exists
+			clientID, found = FindMatchingClient(c, dst, clientState)
+		}
+		if !found || override {
+			createMsg, err := c.CreateClient(clientState, dstUpdateHeader)
+			if err != nil {
+				return modified, err
 			}
+
+			msgs := []sdk.Msg{createMsg}
 
 			// if a matching client does not exist, create one
 			res, success, err := c.SendMsgs(msgs)
 			if err != nil {
+				c.LogFailedTx(res, err, msgs)
 				return modified, err
 			}
 			if !success {
+				c.LogFailedTx(res, err, msgs)
 				return modified, fmt.Errorf("tx failed: %s", res.RawLog)
 			}
 
@@ -79,6 +98,8 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			if err != nil {
 				return modified, err
 			}
+		} else if c.debug {
+			c.logIdentifierExists(dst, "client", clientID)
 		}
 
 		c.PathEnd.ClientID = clientID
@@ -87,7 +108,7 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 	} else {
 		// Ensure client exists in the event of user inputted identifiers
 		// TODO: check client is not expired
-		_, err := c.QueryClientState(srcUpdateHeader.Header.Height)
+		_, err := c.QueryClientStateResponse(srcUpdateHeader.Header.Height)
 		if err != nil {
 			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
 				c.PathEnd.ClientID, c.ChainID, err)
@@ -113,28 +134,37 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			srcUpdateHeader.GetHeight().(clienttypes.Height),
 			commitmenttypes.GetSDKSpecs(),
 			DefaultUpgradePath,
-			AllowUpdateAfterExpiry,
-			AllowUpdateAfterMisbehaviour,
+			allowUpdateAfterExpiry,
+			allowUpdateAfterMisbehaviour,
 		)
 
-		// Check if an identical light client already exists
-		// NOTE: we pass in 'dst' as the source and 'c' as the
-		// counterparty.
-		clientID, found := FindMatchingClient(dst, c, clientState)
-		if !found {
-			msgs := []sdk.Msg{
-				dst.CreateClient(
-					clientState,
-					srcUpdateHeader,
-				),
+		var (
+			clientID string
+			found    bool
+		)
+		// Will not reuse same client if override is true
+		if !override {
+			// Check if an identical light client already exists
+			// NOTE: we pass in 'dst' as the source and 'c' as the
+			// counterparty.
+			clientID, found = FindMatchingClient(dst, c, clientState)
+		}
+		if !found || override {
+			createMsg, err := dst.CreateClient(clientState, srcUpdateHeader)
+			if err != nil {
+				return modified, err
 			}
+
+			msgs := []sdk.Msg{createMsg}
 
 			// if a matching client does not exist, create one
 			res, success, err := dst.SendMsgs(msgs)
 			if err != nil {
+				dst.LogFailedTx(res, err, msgs)
 				return modified, err
 			}
 			if !success {
+				dst.LogFailedTx(res, err, msgs)
 				return modified, fmt.Errorf("tx failed: %s", res.RawLog)
 			}
 
@@ -143,14 +173,17 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 			if err != nil {
 				return modified, err
 			}
+		} else if c.debug {
+			c.logIdentifierExists(dst, "client", clientID)
 		}
+
 		dst.PathEnd.ClientID = clientID
 		modified = true
 
 	} else {
 		// Ensure client exists in the event of user inputted identifiers
 		// TODO: check client is not expired
-		_, err := dst.QueryClientState(dstUpdateHeader.Header.Height)
+		_, err := dst.QueryClientStateResponse(dstUpdateHeader.Header.Height)
 		if err != nil {
 			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
 				dst.PathEnd.ClientID, dst.ChainID, err)
@@ -166,18 +199,34 @@ func (c *Chain) CreateClients(dst *Chain) (modified bool, err error) {
 
 // UpdateClients updates clients for src on dst and dst on src given the configured paths
 func (c *Chain) UpdateClients(dst *Chain) (err error) {
-	clients := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
+	var (
+		clients                          = &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
+		eg                               = new(errgroup.Group)
+		srcUpdateHeader, dstUpdateHeader *tmclient.Header
+	)
 
-	srcUpdateHeader, dstUpdateHeader, err := GetIBCUpdateHeaders(c, dst)
+	srch, dsth, err := QueryLatestHeights(c, dst)
 	if err != nil {
 		return err
 	}
 
-	srcUpdateMsg, err := c.UpdateClient(dst)
+	eg.Go(func() error {
+		srcUpdateHeader, err = c.GetLightSignedHeaderAtHeight(srch)
+		return err
+	})
+	eg.Go(func() error {
+		dstUpdateHeader, err = dst.GetLightSignedHeaderAtHeight(dsth)
+		return err
+	})
+	if err = eg.Wait(); err != nil {
+		return
+	}
+
+	srcUpdateMsg, err := c.UpdateClient(dst, dstUpdateHeader)
 	if err != nil {
 		return err
 	}
-	dstUpdateMsg, err := dst.UpdateClient(c)
+	dstUpdateMsg, err := dst.UpdateClient(c, srcUpdateHeader)
 	if err != nil {
 		return err
 	}
@@ -207,14 +256,22 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 
 // UpgradeClients upgrades the client on src after dst chain has undergone an upgrade.
 func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
+	dstHeader, err := dst.GetLightSignedHeaderAtHeight(height)
+	if err != nil {
+		return err
+	}
+
 	// updates off-chain light client
-	updateMsg, err := c.UpdateClient(dst)
+	updateMsg, err := c.UpdateClient(dst, dstHeader)
 	if err != nil {
 		return err
 	}
 
 	if height == 0 {
-		height = int64(dst.MustGetLatestLightHeight())
+		height, err = dst.QueryLatestHeight()
+		if err != nil {
+			return err
+		}
 	}
 
 	// query proofs on counterparty
@@ -230,7 +287,7 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 
 	upgradeMsg := &clienttypes.MsgUpgradeClient{ClientId: c.PathEnd.ClientID, ClientState: clientState,
 		ConsensusState: consensusState, ProofUpgradeClient: proofUpgradeClient,
-		ProofUpgradeConsensusState: proofUpgradeConsensusState, Signer: c.MustGetAddress().String()}
+		ProofUpgradeConsensusState: proofUpgradeConsensusState, Signer: c.MustGetAddress()}
 
 	msgs := []sdk.Msg{
 		updateMsg,
@@ -253,7 +310,7 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 // state that will be created if there exist no matches.
 func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.ClientState) (string, bool) {
 	// TODO: add appropriate offset and limits, along with retries
-	clientsResp, err := source.QueryClients(0, 1000)
+	clientsResp, err := source.QueryClients(DefaultPageRequest())
 	if err != nil {
 		if source.debug {
 			source.Log(fmt.Sprintf("Error: querying clients on %s failed: %v", source.PathEnd.ChainID, err))
@@ -263,21 +320,15 @@ func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.Cli
 
 	for _, identifiedClientState := range clientsResp.ClientStates {
 		// unpack any into ibc tendermint client state
-		clientStateExported, err := clienttypes.UnpackClientState(identifiedClientState.ClientState)
+		existingClientState, err := CastClientStateToTMType(identifiedClientState.ClientState)
 		if err != nil {
 			return "", false
 		}
 
-		// cast from interface to concrete type
-		existingClientState, ok := clientStateExported.(*ibctmtypes.ClientState)
-		if !ok {
-			return "", false
-		}
-
 		// check if the client states match
-		// NOTE: IsFrozen is a sanity check, the client to be created should always
+		// NOTE: FrozenHeight.IsZero() is a sanity check, the client to be created should always
 		// have a zero frozen height and therefore should never match with a frozen client
-		if IsMatchingClient(*clientState, *existingClientState) && !existingClientState.IsFrozen() {
+		if IsMatchingClient(*clientState, *existingClientState) && existingClientState.FrozenHeight.IsZero() {
 
 			// query the latest consensus state of the potential matching client
 			consensusStateResp, err := clientutils.QueryConsensusStateABCI(source.CLIContext(0),
@@ -352,27 +403,14 @@ func IsMatchingConsensusState(consensusStateA, consensusStateB *ibctmtypes.Conse
 
 // AutoUpdateClient update client automatically to prevent expiry
 func AutoUpdateClient(src, dst *Chain, thresholdTime time.Duration) (time.Duration, error) {
-	height, err := src.QueryLatestHeight()
+	srch, dsth, err := QueryLatestHeights(src, dst)
 	if err != nil {
 		return 0, err
 	}
 
-	clientStateRes, err := src.QueryClientState(height)
+	clientState, err := src.QueryTMClientState(srch)
 	if err != nil {
 		return 0, err
-	}
-
-	// unpack any into ibc tendermint client state
-	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
-	if err != nil {
-		return 0, err
-	}
-
-	// cast from interface to concrete type
-	clientState, ok := clientStateExported.(*ibctmtypes.ClientState)
-	if !ok {
-		return 0, fmt.Errorf("error when casting exported clientstate with clientID %s on chain: %s",
-			src.PathEnd.ClientID, src.PathEnd.ChainID)
 	}
 
 	if clientState.TrustingPeriod <= thresholdTime {
@@ -410,12 +448,17 @@ func AutoUpdateClient(src, dst *Chain, thresholdTime time.Duration) (time.Durati
 		return 0, fmt.Errorf("client (%s) is already expired on chain: %s", src.PathEnd.ClientID, src.ChainID)
 	}
 
-	srcUpdateHeader, err := src.GetIBCUpdateHeader(dst)
+	srcUpdateHeader, err := src.GetIBCUpdateHeader(dst, srch)
 	if err != nil {
 		return 0, err
 	}
 
-	updateMsg, err := src.UpdateClient(dst)
+	dstUpdateHeader, err := dst.GetIBCUpdateHeader(src, dsth)
+	if err != nil {
+		return 0, err
+	}
+
+	updateMsg, err := src.UpdateClient(dst, dstUpdateHeader)
 	if err != nil {
 		return 0, err
 	}

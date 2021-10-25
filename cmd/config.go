@@ -292,7 +292,7 @@ func cfgFilesAddPaths(dir string) (cfg *Config, err error) {
 			return nil, fmt.Errorf("failed to add path %s: %w", pth, err)
 		}
 
-		fmt.Printf("added path %s...\n", pthName)
+		fmt.Printf("added path %s...\n\n", pthName)
 	}
 
 	return cfg, nil
@@ -569,11 +569,13 @@ func (c *Config) ValidatePathEnd(pe *relayer.PathEnd) error {
 
 	chain, err := c.Chains.Get(pe.ChainID)
 	if err != nil {
-		return err
+		fmt.Printf("Chain %s is not currently configured. \n"+
+			"Run `rly fetch chain %s` if you plan to relay to/from this chain. \n", pe.ChainID, pe.ChainID)
+		return nil
 	}
 
 	// if the identifiers are empty, don't do any validation
-	if pe.ClientID == "" && pe.ConnectionID == "" && pe.ChannelID == "" {
+	if pe.ClientID == "" && pe.ConnectionID == "" {
 		return nil
 	}
 
@@ -623,7 +625,7 @@ func (c *Config) ValidateClient(chain *relayer.Chain, height int64, pe *relayer.
 		return err
 	}
 
-	_, err := chain.QueryClientState(height)
+	_, err := chain.QueryClientStateResponse(height)
 	if err != nil {
 		return err
 	}

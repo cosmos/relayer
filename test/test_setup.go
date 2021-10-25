@@ -4,25 +4,31 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 
+	"github.com/cosmos/relayer/relayer"
+
 	"github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
 
-	ry "github.com/cosmos/relayer/relayer"
+	sdked25519 "github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	sdkcryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	tmed25519 "github.com/tendermint/tendermint/crypto/ed25519"
+	"github.com/tendermint/tendermint/privval"
 )
 
 // spinUpTestChains is to be passed any number of test chains with given configuration options
 // to be created as individual docker containers at the beginning of a test. It is safe to run
 // in parallel tests as all created resources are independent of eachother
-func spinUpTestChains(t *testing.T, testChains ...testChain) ry.Chains {
+func spinUpTestChains(t *testing.T, testChains ...testChain) relayer.Chains {
 	var (
 		resources []*dockertest.Resource
-		chains    = make([]*ry.Chain, len(testChains))
+		chains    = make([]*relayer.Chain, len(testChains))
 
 		wg    sync.WaitGroup
 		rchan = make(chan *dockertest.Resource, len(testChains))
@@ -46,6 +52,7 @@ func spinUpTestChains(t *testing.T, testChains ...testChain) ry.Chains {
 		c := newTestChain(t, tc)
 		chains[i] = c
 		wg.Add(1)
+		genPrivValKeyJSON(tc.seed)
 		go spinUpTestContainer(t, rchan, pool, c, dir, &wg, tc)
 	}
 
@@ -105,7 +112,7 @@ func removeTestContainer(pool *dockertest.Pool, containerName string) error {
 // A docker image is built for each chain using its provided configuration.
 // This image is then ran using the options set below.
 func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
-	pool *dockertest.Pool, c *ry.Chain, dir string, wg *sync.WaitGroup, tc testChain) {
+	pool *dockertest.Pool, c *relayer.Chain, dir string, wg *sync.WaitGroup, tc testChain) {
 	defer wg.Done()
 	var (
 		err      error
@@ -135,7 +142,11 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 		Repository:   containerName, // Name must match Repository
 		Tag:          "latest",      // Must match docker default build tag
 		ExposedPorts: []string{tc.t.rpcPort, c.GetRPCPort()},
-		Cmd:          []string{c.ChainID, c.MustGetAddress().String()},
+		Cmd: []string{
+			c.ChainID,
+			c.MustGetAddress(),
+			getPrivValFileName(tc.seed),
+		},
 		PortBindings: map[dc.Port][]dc.PortBinding{
 			dc.Port(tc.t.rpcPort): {{HostPort: c.GetRPCPort()}},
 		},
@@ -145,7 +156,14 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 	require.NoError(t, removeTestContainer(pool, containerName))
 
 	// create the proper docker image with port forwarding setup
-	resource, err = pool.BuildAndRunWithOptions(tc.t.dockerfile, dockerOpts)
+	d, err := os.Getwd()
+	require.NoError(t, err)
+
+	buildOpts := &dockertest.BuildOptions{
+		Dockerfile: tc.t.dockerfile,
+		ContextDir: path.Dir(d),
+	}
+	resource, err = pool.BuildAndRunWithBuildOptions(buildOpts, dockerOpts)
 	require.NoError(t, err)
 
 	c.Log(fmt.Sprintf("- [%s] SPUN UP IN CONTAINER %s from %s", c.ChainID,
@@ -158,16 +176,13 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 
 	c.Log(fmt.Sprintf("- [%s] CONTAINER AVAILABLE AT PORT %s", c.ChainID, c.RPCAddr))
 
-	// initialize the light client
-	require.NoError(t, c.ForceInitLight())
-
 	rchan <- resource
 }
 
 // cleanUpTest is called as a goroutine to wait until the tests have completed and
 // cleans up the docker containers and relayer config
 func cleanUpTest(t *testing.T, testsDone <-chan struct{}, contDone chan<- struct{},
-	resources []*dockertest.Resource, pool *dockertest.Pool, dir string, chains []*ry.Chain) {
+	resources []*dockertest.Resource, pool *dockertest.Pool, dir string, chains []*relayer.Chain) {
 	// block here until tests are complete
 	<-testsDone
 
@@ -191,7 +206,7 @@ func cleanUpTest(t *testing.T, testsDone <-chan struct{}, contDone chan<- struct
 }
 
 // for the love of logs https://www.youtube.com/watch?v=DtsKcHmceqY
-func getLoggingChain(chns []*ry.Chain, rsr *dockertest.Resource) *ry.Chain {
+func getLoggingChain(chns []*relayer.Chain, rsr *dockertest.Resource) *relayer.Chain {
 	for _, c := range chns {
 		if strings.Contains(rsr.Container.Name, c.ChainID) {
 			return c
@@ -200,10 +215,32 @@ func getLoggingChain(chns []*ry.Chain, rsr *dockertest.Resource) *ry.Chain {
 	return nil
 }
 
-func genTestPathAndSet(src, dst *ry.Chain, srcPort, dstPort string) (*ry.Path, error) {
-	path := ry.GenPath(src.ChainID, dst.ChainID, srcPort, dstPort, "UNORDERED", "ics20-1")
+func genTestPathAndSet(src, dst *relayer.Chain, srcPort, dstPort string) (*relayer.Path, error) {
+	p := relayer.GenPath(src.ChainID, dst.ChainID, srcPort, dstPort, "UNORDERED", "ics20-1")
 
-	src.PathEnd = path.Src
-	dst.PathEnd = path.Dst
-	return path, nil
+	src.PathEnd = p.Src
+	dst.PathEnd = p.Dst
+	return p, nil
+}
+
+func genPrivValKeyJSON(seedNumber int) {
+	privKey := getPrivKey(seedNumber)
+	filePV := getFilePV(privKey, seedNumber)
+	filePV.Key.Save()
+}
+
+func getPrivKey(seedNumber int) tmed25519.PrivKey {
+	return tmed25519.GenPrivKeyFromSecret([]byte(seeds[seedNumber]))
+}
+
+func getSDKPrivKey(seedNumber int) sdkcryptotypes.PrivKey {
+	return sdked25519.GenPrivKeyFromSecret([]byte(seeds[seedNumber]))
+}
+
+func getFilePV(privKey tmed25519.PrivKey, seedNumber int) *privval.FilePV {
+	return privval.NewFilePV(privKey, getPrivValFileName(seedNumber), "/")
+}
+
+func getPrivValFileName(seedNumber int) string {
+	return fmt.Sprintf("./setup/valkeys/priv_val%d.json", seedNumber)
 }

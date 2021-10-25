@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 )
@@ -28,7 +28,7 @@ func QueryBalance(chain *relayer.Chain, address string, showDenoms bool) (sdk.Co
 		return nil, err
 	}
 
-	dts, err := chain.QueryDenomTraces(0, 1000, h)
+	dts, err := chain.QueryDenomTraces(relayer.DefaultPageRequest(), h)
 	if err != nil {
 		return nil, err
 	}
@@ -75,12 +75,11 @@ func QueryHeader(chain *relayer.Chain, opts ...string) (*tmclient.Header, error)
 
 // QueryTxs is a helper function for query txs
 func QueryTxs(chain *relayer.Chain, eventsStr string, offset uint64, limit uint64) ([]*ctypes.ResultTx, error) {
-	events, err := relayer.ParseEvents(eventsStr)
+	ch, err := chain.QueryLatestHeight()
 	if err != nil {
 		return nil, err
 	}
-
-	_, err = chain.UpdateLightClient()
+	events, err := relayer.ParseEvents(eventsStr)
 	if err != nil {
 		return nil, err
 	}
@@ -93,5 +92,5 @@ func QueryTxs(chain *relayer.Chain, eventsStr string, offset uint64, limit uint6
 		return nil, fmt.Errorf("limit (%d) value is greater than max int value", limit)
 	}
 
-	return chain.QueryTxs(chain.MustGetLatestLightHeight(), int(offset), int(limit), events)
+	return chain.QueryTxs(uint64(ch), int(offset), int(limit), events)
 }

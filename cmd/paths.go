@@ -4,18 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"strings"
 
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
-	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
-	"github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
-	"github.com/cosmos/relayer/helpers"
+	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
+	"github.com/cosmos/ibc-go/v2/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer"
-	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
@@ -46,10 +43,10 @@ func pathsGenCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "generate [src-chain-id] [dst-chain-id] [name]",
 		Aliases: []string{"gen"},
-		Short:   "generate identifiers for a new path between src and dst, reusing any that exist",
+		Short:   "generate a new path between src and dst, reusing any identifiers that exist",
 		Args:    cobra.ExactArgs(3),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s paths generate ibc-0 ibc-1 demo-path --force
+$ %s paths generate ibc-0 ibc-1 demo-path
 $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var (
@@ -60,7 +57,6 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				srcConns, dstConns     *conntypes.QueryConnectionsResponse
 				srcCon, dstCon         *conntypes.IdentifiedConnection
 				srcChans, dstChans     *chantypes.QueryChannelsResponse
-				srcChan, dstChan       *chantypes.IdentifiedChannel
 			)
 			if c, err = config.Chains.Gets(src, dst); err != nil {
 				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
@@ -83,30 +79,13 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				path.Dst.Order = ORDERED
 			}
 
-			// if -f is passed, generate a random path between the two chains
-			if force, _ := cmd.Flags().GetBool(flagForce); force {
-				path.GenSrcClientID()
-				path.GenDstClientID()
-				path.GenSrcConnID()
-				path.GenDstConnID()
-				path.GenSrcChanID()
-				path.GenDstChanID()
-				// validate it...
-				if err = config.Paths.AddForce(pth, path); err != nil {
-					return err
-				}
-				logPathGen(pth)
-				// ...then add it to the config file
-				return overWriteConfig(config)
-			}
-
 			// see if there are existing clients that can be reused
 			eg.Go(func() error {
-				srcClients, err = c[src].QueryClients(0, 1000)
+				srcClients, err = c[src].QueryClients(relayer.DefaultPageRequest())
 				return err
 			})
 			eg.Go(func() error {
-				dstClients, err = c[dst].QueryClients(0, 1000)
+				dstClients, err = c[dst].QueryClients(relayer.DefaultPageRequest())
 				return err
 			})
 			if err := eg.Wait(); err != nil {
@@ -124,7 +103,7 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				switch cs := clnt.(type) {
 				case *tmclient.ClientState:
 					// if the client is an active tendermint client for the counterparty chain then we reuse it
-					if cs.ChainId == c[dst].ChainID && !cs.IsFrozen() {
+					if cs.ChainId == c[dst].ChainID && cs.FrozenHeight.IsZero() {
 						path.Src.ClientID = idCs.ClientId
 					}
 				default:
@@ -142,67 +121,24 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				switch cs := clnt.(type) {
 				case *tmclient.ClientState:
 					// if the client is an active tendermint client for the counterparty chain then we reuse it
-					if cs.ChainId == c[src].ChainID && !cs.IsFrozen() {
+					if cs.ChainId == c[src].ChainID && cs.FrozenHeight.IsZero() {
 						path.Dst.ClientID = idCs.ClientId
 					}
 				default:
 				}
 			}
 
-			switch {
-			// If there aren't any matching clients between chains, generate
-			case path.Src.ClientID == "" && path.Dst.ClientID == "":
-				path.GenSrcClientID()
-				path.GenDstClientID()
-				path.GenSrcConnID()
-				path.GenSrcConnID()
-				path.GenSrcChanID()
-				path.GenDstChanID()
-				if err = config.ValidatePath(path); err != nil {
-					return err
-				}
-				if err = config.Paths.Add(pth, path); err != nil {
-					return err
-				}
-				logPathGen(pth)
-				return overWriteConfig(config)
-			case path.Src.ClientID == "" && path.Dst.ClientID != "":
-				path.GenSrcClientID()
-				path.GenSrcConnID()
-				path.GenSrcConnID()
-				path.GenSrcChanID()
-				path.GenDstChanID()
-				if err = config.ValidatePath(path); err != nil {
-					return err
-				}
-				if err = config.Paths.Add(pth, path); err != nil {
-					return err
-				}
-				logPathGen(pth)
-				return overWriteConfig(config)
-			case path.Dst.ClientID == "" && path.Src.ClientID != "":
-				path.GenDstClientID()
-				path.GenSrcConnID()
-				path.GenSrcConnID()
-				path.GenSrcChanID()
-				path.GenDstChanID()
-				if err = config.ValidatePath(path); err != nil {
-					return err
-				}
-				if err = config.Paths.Add(pth, path); err != nil {
-					return err
-				}
-				logPathGen(pth)
-				return overWriteConfig(config)
+			if path.Src.ClientID == "" || path.Dst.ClientID == "" {
+				return valPathAndUpdateConfig(pth, path)
 			}
 
 			// see if there are existing connections that can be reused
 			eg.Go(func() error {
-				srcConns, err = c[src].QueryConnections(0, 1000)
+				srcConns, err = c[src].QueryConnections(relayer.DefaultPageRequest())
 				return err
 			})
 			eg.Go(func() error {
-				dstConns, err = c[dst].QueryConnections(0, 1000)
+				dstConns, err = c[dst].QueryConnections(relayer.DefaultPageRequest())
 				return err
 			})
 			if err = eg.Wait(); err != nil {
@@ -233,40 +169,18 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				srcOpen := srcCon.State == conntypes.OPEN
 				dstOpen := dstCon.State == conntypes.OPEN
 				if !(dstCpForSrc && srcCpForDst && srcOpen && dstOpen) {
-					path.GenSrcConnID()
-					path.GenDstConnID()
-					path.GenSrcChanID()
-					path.GenDstChanID()
-					if err = config.ValidatePath(path); err != nil {
-						return err
-					}
-					if err = config.Paths.Add(pth, path); err != nil {
-						return err
-					}
-					logPathGen(pth)
-					return overWriteConfig(config)
+					return valPathAndUpdateConfig(pth, path)
 				}
 			default:
-				path.GenSrcConnID()
-				path.GenDstConnID()
-				path.GenSrcChanID()
-				path.GenDstChanID()
-				if err = config.ValidatePath(path); err != nil {
-					return err
-				}
-				if err = config.Paths.Add(pth, path); err != nil {
-					return err
-				}
-				logPathGen(pth)
-				return overWriteConfig(config)
+				return valPathAndUpdateConfig(pth, path)
 			}
 
 			eg.Go(func() error {
-				srcChans, err = c[src].QueryChannels(0, 1000)
+				srcChans, err = c[src].QueryChannels(relayer.DefaultPageRequest())
 				return err
 			})
 			eg.Go(func() error {
-				dstChans, err = c[dst].QueryChannels(0, 1000)
+				dstChans, err = c[dst].QueryChannels(relayer.DefaultPageRequest())
 				return err
 			})
 			if err = eg.Wait(); err != nil {
@@ -275,65 +189,31 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 
 			for _, c := range srcChans.Channels {
 				if c.ConnectionHops[0] == path.Src.ConnectionID {
-					srcChan = c
 					path.Src.ChannelID = c.ChannelId
 				}
 			}
 
 			for _, c := range dstChans.Channels {
 				if c.ConnectionHops[0] == path.Dst.ConnectionID {
-					dstChan = c
 					path.Dst.ChannelID = c.ChannelId
 				}
 			}
 
-			switch {
-			case path.Src.ChannelID != "" && path.Dst.ChannelID != "":
-				// If we have identified a channel, make sure that each end is the
-				// other's counterparty and that the channel is open. In the failure case
-				// we should generate a new channel identifier
-				dstCpForSrc := srcChan.Counterparty.ChannelId == dstChan.ChannelId
-				srcCpForDst := dstChan.Counterparty.ChannelId == srcChan.ChannelId
-				srcOpen := srcChan.State == chantypes.OPEN
-				dstOpen := dstChan.State == chantypes.OPEN
-				srcPort := srcChan.PortId == path.Src.PortID
-				dstPort := dstChan.PortId == path.Dst.PortID
-				srcOrder := srcChan.Ordering == path.Src.GetOrder()
-				dstOrder := dstChan.Ordering == path.Dst.GetOrder()
-				srcVersion := srcChan.Version == path.Src.Version
-				dstVersion := dstChan.Version == path.Dst.Version
-				if !(dstCpForSrc && srcCpForDst && srcOpen && dstOpen && srcPort && dstPort &&
-					srcOrder && dstOrder && srcVersion && dstVersion) {
-					path.GenSrcChanID()
-					path.GenDstChanID()
-				}
-				if err = config.ValidatePath(path); err != nil {
-					return err
-				}
-				if err = config.Paths.Add(pth, path); err != nil {
-					return err
-				}
-				logPathGen(pth)
-				return overWriteConfig(config)
-			default:
-				path.GenSrcChanID()
-				path.GenDstChanID()
-				if err = config.ValidatePath(path); err != nil {
-					return err
-				}
-				if err = config.Paths.Add(pth, path); err != nil {
-					return err
-				}
-				logPathGen(pth)
-				return overWriteConfig(config)
-			}
+			return valPathAndUpdateConfig(pth, path)
 		},
 	}
-	return forceFlag(orderFlag(versionFlag(pathStrategy(portFlag(cmd)))))
+	return orderFlag(versionFlag(pathStrategy(portFlag(cmd))))
 }
 
-func logPathGen(pth string) {
+func valPathAndUpdateConfig(pth string, path *relayer.Path) (err error) {
+	if err = config.ValidatePath(path); err != nil {
+		return err
+	}
+	if err = config.Paths.Add(pth, path); err != nil {
+		return err
+	}
 	fmt.Printf("Generated path(%s), run 'rly paths show %s --yaml' to see details\n", pth, pth)
+	return overWriteConfig(config)
 }
 
 func pathsDeleteCmd() *cobra.Command {
@@ -668,116 +548,4 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 	}
 
 	return config, nil
-}
-
-// API Handlers
-
-// GetPathsHandler returns the configured chains in json format
-func GetPathsHandler(w http.ResponseWriter, r *http.Request) {
-	helpers.SuccessJSONResponse(http.StatusOK, config.Paths, w)
-}
-
-// GetPathHandler returns the configured chains in json format
-func GetPathHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	pth, err := config.Paths.Get(vars["name"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-	helpers.SuccessJSONResponse(http.StatusOK, pth, w)
-}
-
-// GetPathStatusHandler returns the configured chains in json format
-func GetPathStatusHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	pth, err := config.Paths.Get(vars["name"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-	c, src, dst, err := config.ChainsFromPath(vars["name"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-		return
-	}
-	ps := pth.QueryPathStatus(c[src], c[dst])
-	helpers.SuccessJSONResponse(http.StatusOK, ps, w)
-}
-
-type postPathRequest struct {
-	FilePath string          `json:"file"`
-	Src      relayer.PathEnd `json:"src"`
-	Dst      relayer.PathEnd `json:"dst"`
-}
-
-// PostPathHandler handles the route
-func PostPathHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	pathName := vars["name"]
-
-	var request postPathRequest
-	err := json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-
-	var out *Config
-	if request.FilePath != "" {
-		if out, err = fileInputPathAdd(request.FilePath, pathName); err != nil {
-			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-			return
-		}
-	} else {
-		if out, err = addPathByRequest(request, pathName); err != nil {
-			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-			return
-		}
-	}
-
-	if err = overWriteConfig(out); err != nil {
-		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-		return
-	}
-	helpers.SuccessJSONResponse(http.StatusCreated, fmt.Sprintf("path %s added successfully", pathName), w)
-}
-
-func addPathByRequest(req postPathRequest, pathName string) (*Config, error) {
-	var (
-		path = &relayer.Path{
-			Strategy: relayer.NewNaiveStrategy(),
-			Src:      &req.Src,
-			Dst:      &req.Dst,
-		}
-	)
-
-	if err := config.ValidatePath(path); err != nil {
-		return nil, err
-	}
-
-	if err := config.Paths.Add(pathName, path); err != nil {
-		return nil, err
-	}
-
-	return config, nil
-}
-
-// DeletePathHandler handles the route
-func DeletePathHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	_, err := config.Paths.Get(vars["name"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-
-	cfg := config
-	delete(cfg.Paths, vars["name"])
-
-	if err = overWriteConfig(cfg); err != nil {
-		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-		return
-	}
-	helpers.SuccessJSONResponse(http.StatusOK, fmt.Sprintf("path %s deleted", vars["name"]), w)
 }

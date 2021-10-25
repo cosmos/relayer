@@ -3,15 +3,14 @@ package relayer
 import (
 	"fmt"
 
-	retry "github.com/avast/retry-go"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
 )
 
 type relayPacket interface {
 	Msg(src, dst *Chain) (sdk.Msg, error)
-	FetchCommitResponse(src, dst *Chain) error
+	FetchCommitResponse(src, dst *Chain, queryHeight uint64) error
 	Data() []byte
 	Seq() uint64
 	Timeout() clienttypes.Height
@@ -39,37 +38,17 @@ func (rp *relayMsgTimeout) Timeout() clienttypes.Height {
 	return rp.timeout
 }
 
-func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain) (err error) {
-	var dstRecvRes *chantypes.QueryPacketReceiptResponse
-	// retry getting commit response until it succeeds
-	if err = retry.Do(func() error {
-		// NOTE: Timeouts currently only work with ORDERED channels for nwo
-		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-		queryHeight := dst.MustGetLatestLightHeight() - 1
-		dstRecvRes, err = dst.QueryPacketReceipt(int64(queryHeight), rp.seq)
-		switch {
-		case err != nil:
-			return err
-		case dstRecvRes.Proof == nil:
-			return fmt.Errorf("timeout packet receipt proof seq(%d) is nil", rp.seq)
-		default:
-			return nil
-		}
-	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-		// OnRetry we want to update the light clients and then debug log
-		if _, _, err := UpdateLightClients(src, dst); err != nil {
-			return
-		}
-		if dst.debug {
-			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet receipt: %s", dst.ChainID,
-				dst.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
-		}
-	})); err != nil {
-		dst.Error(err)
-		return
+func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, queryHeight uint64) (err error) {
+	dstRecvRes, err := dst.QueryPacketReceipt(int64(queryHeight)-1, rp.seq)
+	switch {
+	case err != nil:
+		return err
+	case dstRecvRes.Proof == nil:
+		return fmt.Errorf("timeout packet receipt proof seq(%d) is nil", rp.seq)
+	default:
+		rp.dstRecvRes = dstRecvRes
+		return nil
 	}
-	rp.dstRecvRes = dstRecvRes
-	return nil
 }
 
 func (rp *relayMsgTimeout) Msg(src, dst *Chain) (sdk.Msg, error) {
@@ -128,37 +107,19 @@ func (rp *relayMsgRecvPacket) Timeout() clienttypes.Height {
 	return rp.timeout
 }
 
-func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain) (err error) {
-	var dstCommitRes *chantypes.QueryPacketCommitmentResponse
-	// retry getting commit response until it succeeds
-	if err = retry.Do(func() error {
-		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-		dstCommitRes, err = dst.QueryPacketCommitment(int64(dst.MustGetLatestLightHeight()-1), rp.seq)
-		switch {
-		case err != nil:
-			return err
-		case dstCommitRes.Proof == nil:
-			return fmt.Errorf("recv packet commitment proof seq(%d) is nil", rp.seq)
-		case dstCommitRes.Commitment == nil:
-			return fmt.Errorf("recv packet commitment query seq(%d) is nil", rp.seq)
-		default:
-			return nil
-		}
-	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-		// OnRetry we want to update the light clients and then debug log
-		if _, _, err := UpdateLightClients(src, dst); err != nil {
-			return
-		}
-		if dst.debug {
-			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet commitment: %s", dst.ChainID,
-				dst.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
-		}
-	})); err != nil {
-		dst.Error(err)
-		return
+func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, queryHeight uint64) (err error) {
+	dstCommitRes, err := dst.QueryPacketCommitment(int64(queryHeight)-1, rp.seq)
+	switch {
+	case err != nil:
+		return err
+	case dstCommitRes.Proof == nil:
+		return fmt.Errorf("recv packet commitment proof seq(%d) is nil", rp.seq)
+	case dstCommitRes.Commitment == nil:
+		return fmt.Errorf("recv packet commitment query seq(%d) is nil", rp.seq)
+	default:
+		rp.dstComRes = dstCommitRes
+		return nil
 	}
-	rp.dstComRes = dstCommitRes
-	return nil
 }
 
 func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) (sdk.Msg, error) {
@@ -228,35 +189,17 @@ func (rp *relayMsgPacketAck) Msg(src, dst *Chain) (sdk.Msg, error) {
 	return msg, nil
 }
 
-func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain) (err error) {
-	var dstCommitRes *chantypes.QueryPacketAcknowledgementResponse
-	// retry getting commit response until it succeeds
-	if err = retry.Do(func() error {
-		// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-		dstCommitRes, err = dst.QueryPacketAcknowledgement(int64(dst.MustGetLatestLightHeight())-1, rp.seq)
-		switch {
-		case err != nil:
-			return err
-		case dstCommitRes.Proof == nil:
-			return fmt.Errorf("ack packet acknowledgement proof seq(%d) is nil", rp.seq)
-		case dstCommitRes.Acknowledgement == nil:
-			return fmt.Errorf("ack packet acknowledgement query seq(%d) is nil", rp.seq)
-		default:
-			return nil
-		}
-	}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-		// OnRetry we want to update the light clients and then debug log
-		if _, _, err := UpdateLightClients(src, dst); err != nil {
-			return
-		}
-		if dst.debug {
-			dst.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgement: %s",
-				dst.ChainID, dst.MustGetLatestLightHeight()-1, n+1, rtyAttNum, err))
-		}
-	})); err != nil {
-		dst.Error(err)
-		return
+func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, queryHeight uint64) (err error) {
+	dstCommitRes, err := dst.QueryPacketAcknowledgement(int64(queryHeight)-1, rp.seq)
+	switch {
+	case err != nil:
+		return err
+	case dstCommitRes.Proof == nil:
+		return fmt.Errorf("ack packet acknowledgement proof seq(%d) is nil", rp.seq)
+	case dstCommitRes.Acknowledgement == nil:
+		return fmt.Errorf("ack packet acknowledgement query seq(%d) is nil", rp.seq)
+	default:
+		rp.dstComRes = dstCommitRes
+		return nil
 	}
-	rp.dstComRes = dstCommitRes
-	return nil
 }
