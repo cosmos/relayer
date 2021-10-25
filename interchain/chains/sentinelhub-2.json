@@ -1,9 +1,9 @@
 {
   "key": "test-key",
   "chain-id": "sentinelhub-2",
-  "rpc-addr": "https://dvpn.technofractal.com:443",
+  "rpc-addr": "https://sentinelhub-2.technofractal.com:443",
   "account-prefix": "sent",
   "gas-adjustment": 1.3,
-  "gas-prices": "0.025udvpn",
+  "gas-prices": "0.01udvpn",
   "trusting-period": "336h"
 }

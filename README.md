@@ -1,14 +1,14 @@
 # Relayer
 
-![Relayer](./docs/images/github-repo-banner.gif)
+![Relayer](./docs/images/comp.gif)
 
-[![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](https://img.shields.io/badge/repo%20status-WIP-yellow.svg?style=flat-square)](https://www.repostatus.org/#wip)
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/cosmos/relayer/BUILD%20-%20build%20and%20binary%20upload?style=flat-square)
-[![GoDoc](https://img.shields.io/badge/godoc-reference-blue?style=flat-square&logo=go)](https://godoc.org/github.com/cosmos/relayer)
-[![Go Report Card](https://goreportcard.com/badge/github.com/cosmos/relayer?style=flat-square)](https://goreportcard.com/report/github.com/cosmos/relayer)
-[![License: Apache-2.0](https://img.shields.io/github/license/cosmos/relayer.svg?style=flat-square)](https://github.com/cosmos/relayer/blob/master/LICENSE)
-[![Lines Of Code](https://img.shields.io/tokei/lines/github/cosmos/relayer?style=flat-square)](https://github.com/cosmos/relayer)
-[![Version](https://img.shields.io/github/tag/cosmos/relayer.svg?style=flat-square)](https://github.com/umee-network/cosmos/relayer/latest)
+[![Project Status: Initial Release]](https://img.shields.io/badge/repo%20status-active-green.svg?style=flat-square)](https://www.repostatus.org/#active)
+![GitHub Workflow Status](https://github.com/strangelove-ventures/relayer/actions/workflows/build.yml/badge.svg)
+[![GoDoc](https://img.shields.io/badge/godoc-reference-blue?style=flat-square&logo=go)](https://godoc.org/github.com/strangelove-ventures/relayer)
+[![Go Report Card](https://goreportcard.com/badge/github.com/strangelove-ventures/relayer)](https://goreportcard.com/report/github.com/strangelove-ventures/relayer)
+[![License: Apache-2.0](https://img.shields.io/github/license/strangelove-ventures/relayer.svg?style=flat-square)](https://github.com/strangelove-ventures/relayer/blob/main/LICENSE)
+[![Lines Of Code](https://img.shields.io/tokei/lines/github/strangelove-ventures/relayer?style=flat-square)](https://github.com/strangelove-ventures/relayer)
+[![Version](https://img.shields.io/github/tag/strangelove-ventures/relayer.svg?style=flat-square)](https://github.com/strangelove-ventures/relayer/latest)
 
 This repository contains a Golang implementation of a Cosmos [IBC](https://ibcprotocol.org/)
 relayer. The `relayer` package contains a basic relayer implementation that is
@@ -17,40 +17,108 @@ meant for users wanting to relay packets/data between sets of
 
 The relayer implementation also acts as a base reference implementation for those
 wanting to build their [IBC](https://ibcprotocol.org/)-compliant relayer.
-  
-> **NOTE:** The relayer is currently in alpha and is not production ready. If it
-> is used in production, it should always be run in a secure environment and
-> only with just enough funds to relay transactions. Security critical operations
-> **should** manually verify that the client identifier used in the configuration
-> file corresponds to the correct initial consensus state of the counter-party
-> chain. This can be done by querying the initial consensus state and the header
-> of the counter-party and verifying that the root and hash of the next validator
-> set match. This can be considered equivalent to checking the sha hash of a
-> download or a GPG signature.
+
+> **NOTE:** IBC is currently early in its lifecycle. This relayer is as well. Expect minor non critical errors when used in production. `rly` should always be run in a secure environment and only with just enough funds to relay transactions.
 
 - [Relayer](#relayer)
-  - [Basic Usage](#basic-usage)
-  - [Features](#features)
-  - [Relayer Terminology](#relayer-terminology)
-  - [Recommended Pruning Settings](#recommended-pruning-settings)
-  - [Compatibility Table](#compatibility-table)
-  - [Testnet](#testnet)
-  - [Demo](#demo)
-  - [Security Notice](#security-notice)
-  - [Code of Conduct](#code-of-conduct)
+    - [Quickstart Guide](#quickstart-guide)
+    - [General Usage](#general-usage)
+    - [Features](#features)
+    - [Relayer Terminology](#relayer-terminology)
+    - [Recommended Pruning Settings](#recommended-pruning-settings)
+    - [Compatibility Table](#compatibility-table)
+    - [Testnet](#testnet)
+    - [Demo](#demo)
+    - [Security Notice](#security-notice)
+    - [Code of Conduct](#code-of-conduct)
 
-## Basic Usage
+## Quickstart Guide
+
+To quickly setup the IBC relayer on a canonical path (i.e. path being actively used) between two IBC-enabled networks, the following steps should be performed:
+
+1. Install the latest release via GitHub as follows or by downloading built binaries on the [releases page](https://github.com/strangelove-ventures/relayer/releases).
+
+    ```
+    $ git clone git@github.com:strangelove-ventures/relayer.git
+    $ git checkout v1.0.0
+    $ cd relayer && make install
+    ```
+
+2. Initialize the relayer's configuration.
+
+   ```shell
+   $ rly config init
+   ```
+
+3. Ensure the chains you want to configure have the pertinent config files [here](https://github.com/strangelove-ventures/relayer/tree/main/interchain/chains). Don't see the chain you want to relay on? Please open a PR to add this metadata to the GitHub repo!
+
+4. In our example we will configure the relayer to operate between the Cosmos Hub & Osmosis. The fetch cmd will retrieve the relevant chain configurations from [GitHub](https://github.com/strangelove-ventures/relayer/tree/main/interchain/chains) & add them to the relayers config file.
+
+   ```shell
+   $ rly fetch chain cosmoshub-4  
+   $ rly fetch chain osmosis-1
+   ```  
+
+5.  Fetch and configure the relevant path configuration files for the two chains.
+
+    ```shell
+    $ rly fetch paths
+    ```
+
+6. The relayer connects to a node on the respective networks, via the configured RPC endpoints for each chain. Ensure the `rpc-addr` field for both chains in `config.yaml` points to a valid RPC endpoint.
+
+> **NOTE:** Strangelove maintains archive nodes for a number of networks and provides them for public usage. Chains that we maintain endpoints for are preconfigured.
+
+7. Either import or create new keys for the relayer to use when signing and
+   relaying transactions.   
+   `key-name` is an identifier of your choosing.  
+   
+    ```shell
+    $ rly keys add cosmoshub-4 [key-name]  
+    $ rly keys add osmosis-1 [key-name]  
+    ```
+
+8. Assign the relayer chain-specific keys created or imported above to the
+   specific chain's configuration.  
+   `key-name` is the same as Step 7.  
+   
+    ```shell
+    $ rly chains edit cosmoshub-4 key [key-name]  
+    $ rly chains edit osmosis-1 key [key-name]  
+    ```
+
+9. Both relayer accounts, i.e. the two keys we just added or imported, need to be
+   funded with tokens on the appropriate network in order to successfully relay transactions
+   between the IBC-connected networks. How this occurs depends on the network,
+   context and environment, e.g. local or test networks can use a faucet.
+
+10. Ensure both relayer accounts are funded by querying each.
+
+    ```shell
+    $ rly q balance cosmoshub-4
+    $ rly q balance osmosis-1
+    ```
+
+11. Finally, we start the relayer on the path. The relayer will periodically update 
+    the clients and listen for IBC messages to relay.
+
+    ```shell
+    $ rly paths list
+    $ rly start {path}
+    ```
+
+## General Usage
 
 To setup and start the IBC relayer between two IBC-enabled networks, the following
 steps are typically performed:
 
-1. Install the latest release via github as follows or by downloding built binaries on the [releases page](https://github.com/cosmos/relayer/releases).
+1. Install the latest release via GitHub as follows or by downloading built binaries on the [releases page](https://github.com/strangelove-ventures/relayer/releases).
 
-  ```
-  $ git clone git@github.com:cosmos/relayer.git
-  $ git checkout v0.9.3
-  $ cd relayer && make install
-  ```
+    ```
+    $ git clone git@github.com:strangelove-ventures/relayer.git
+    $ git checkout v1.0.0-rc2
+    $ cd relayer && make install
+    ```
 
 2. Initialize the relayer's configuration.
 
@@ -59,7 +127,7 @@ steps are typically performed:
    ```
 
 3. Add relevant chain configurations to the relayer's configuration. See the
-   [Chain](https://pkg.go.dev/github.com/cosmos/relayer/relayer#Chain) type for
+   [Chain](https://pkg.go.dev/github.com/strangelove-ventures/relayer/relayer#Chain) type for
    more information.
 
    e.g. chain configuration:
@@ -81,40 +149,36 @@ steps are typically performed:
    $ rly chains add -f chain_b_config.json
    ```
 
-4. Either import or create new keys for the relayer to use when signing and
+4. The relayer connects to a node on the respective networks, via the configured RPC endpoints for each chain.
+   Ensure the `rpc-addr` field for both chains in `config.yaml` points to a valid RPC endpoint.
+
+
+5. Either import or create new keys for the relayer to use when signing and
    relaying transactions.
 
    ```shell
-   $ rly keys add relayer-chain-a # relayer key for chain_a
-   $ rly keys add relayer-chain-b # relayer key for chain_b
+   $ rly keys add chain-a test-key-a # relayer key for chain-a
+   $ rly keys add chain-b test-key-b # relayer key for chain-b
    ```
 
-5. Assign the relayer chain-specific keys created or imported above to the
-   specific chain's configuration. Note, `key` from step (3).
+6. Assign the relayer chain-specific keys created or imported above to the
+   specific chain's configuration. Note, `key` from step (5).
 
    ```shell
-   $ rly chains edit chain-a key relayer-chain-a
-   $ rly chains edit chain-b key relayer-chain-b
+   $ rly chains edit chain-a key test-key-a
+   $ rly chains edit chain-b key test-key-b
    ```
 
-6. Both relayer accounts, e.g. `relayer-chain-a` and `relayer-chain-b`, need to
+7. Both relayer accounts, e.g. `relayer-chain-a` and `relayer-chain-b`, need to
    funded with tokens in order to successfully sign and relay transactions
    between the IBC-connected networks. How this occurs depends on the network,
    context and environment, e.g. local or test networks can use a faucet.
-7. Ensure both relayer accounts are funded by querying each.
+
+8. Ensure both relayer accounts are funded by querying each.
 
    ```shell
    $ rly q balance chain-a
    $ rly q balance chain-b
-   ```
-
-8. Now we are ready to initialize the light clients on each network. The relayer
-   will used the configured RPC endpoints from each network to fetch header
-   information and initialize the light clients.
-
-   ```shell
-   $ rly light init chain-a -f
-   $ rly light init chain-b -f
    ```
 
 9. Next, we generate a new path representing a client, connection, channel and a
@@ -124,7 +188,7 @@ steps are typically performed:
    $ rly paths generate chain-a chain-b transfer --port=transfer
    ```
 
-10. Finally, we start the relayer on the path created in step (9). The relayer
+10. Finally, we start the relayer on the path created in Step 9. The relayer
     will periodically update the clients and listen for IBC messages to relay.
 
     ```shell
@@ -135,7 +199,6 @@ steps are typically performed:
 
 The relayer supports the following:
 
-- creating/updating IBC Tendermint light clients
 - creating IBC connections
 - creating IBC transfer channels.
 - initiating a cross chain transfer
@@ -144,6 +207,7 @@ The relayer supports the following:
 - relaying from streaming events
 - sending an UpgradePlan proposal for an IBC breaking upgrade
 - upgrading clients after a counter-party chain has performed an upgrade for IBC breaking changes
+- fetching canonical chain and path metadata from the GitHub repo to quickly bootstrap a relayer instance
 
 The relayer currently cannot:
 
@@ -195,17 +259,6 @@ Here are the settings used to configure SDK-based full nodes (assuming 3 week un
 
 Note, operators can tweak `--pruning-keep-every` and `--pruning-interval` to their
 liking.
-
-## Compatibility Table
-
-| chain                                    | build                                                                                                                                                   | supported ports |
-|------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------|
-| [gaia](https://github.com/cosmos/gaia)   | ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/cosmos/relayer/TESTING%20-%20gaia%20to%20gaia%20integration?style=flat-square)  | transfer        |
-| [akash](https://github.com/ovrclk/akash) | ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/cosmos/relayer/TESTING%20-%20akash%20to%20gaia%20integration?style=flat-square) | transfer        |
-
-## Testnet
-
-If you would like to join a relayer testnet, please [check out the instructions](./testnets/README.md).
 
 ## Demo
 
@@ -272,7 +325,7 @@ $ rly q bal ibc-1
 ## Security Notice
 
 If you would like to report a security critical bug related to the relayer repo,
-please send an email to [`security@cosmosnetwork.dev`](mailto:security@cosmosnetwork.dev)
+please reach out @jackzampolin or @Ethereal0ne on telegram.
 
 ## Code of Conduct
 
