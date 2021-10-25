@@ -4,15 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/cosmos/relayer/relayer"
-	"github.com/go-git/go-git/v5"
-	"github.com/spf13/cobra"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"strings"
+
+	"github.com/cosmos/relayer/relayer"
+	"github.com/go-git/go-git/v5"
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -57,7 +58,7 @@ $ %s fch chn cosmoshub-4`, appName, defaultHome, appName)),
 			// Fetch the json file via HTTP request
 			resp, err := http.Get(u.String())
 			if err != nil {
-				return fmt.Errorf("Error fetching data for %s be sure it's data is in %s. err: %s \n", chainID, repoURL, err)
+				return fmt.Errorf("error fetching data for %s be sure it's data is in %s. Err: %s \n", chainID, repoURL, err)
 			}
 			defer resp.Body.Close()
 
@@ -75,16 +76,16 @@ $ %s fch chn cosmoshub-4`, appName, defaultHome, appName)),
 			d.DisallowUnknownFields()
 
 			if err = d.Decode(c); err != nil {
-				return fmt.Errorf("Error fetching data for %s be sure it's data is in %s. err: %s \n", chainID, repoURL, err)
+				return fmt.Errorf("error fetching data for %s be sure it's data is in %s. err: %s \n", chainID, repoURL, err)
 			}
 
 			if err = config.AddChain(c); err != nil {
-				return fmt.Errorf("Error fetching data for %s be sure it's data is in %s. err: %s \n", chainID, repoURL, err)
+				return fmt.Errorf("error fetching data for %s be sure it's data is in %s. err: %s \n", chainID, repoURL, err)
 			}
 
 			err = overWriteConfig(config)
 			if err != nil {
-				return fmt.Errorf("Be sure you have initialized the relayer config with `rly config init` err: %s \n", err)
+				return fmt.Errorf("be sure you have initialized the relayer config with `rly config init` err: %s \n", err)
 			}
 
 			fmt.Printf("Successfully added %s to the relayer configuration. \n", chainID)

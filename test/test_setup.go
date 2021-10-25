@@ -10,11 +10,11 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cosmos/relayer/relayer"
+
 	"github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
-
-	ry "github.com/cosmos/relayer/relayer"
 
 	sdked25519 "github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	sdkcryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
@@ -25,10 +25,10 @@ import (
 // spinUpTestChains is to be passed any number of test chains with given configuration options
 // to be created as individual docker containers at the beginning of a test. It is safe to run
 // in parallel tests as all created resources are independent of eachother
-func spinUpTestChains(t *testing.T, testChains ...testChain) ry.Chains {
+func spinUpTestChains(t *testing.T, testChains ...testChain) relayer.Chains {
 	var (
 		resources []*dockertest.Resource
-		chains    = make([]*ry.Chain, len(testChains))
+		chains    = make([]*relayer.Chain, len(testChains))
 
 		wg    sync.WaitGroup
 		rchan = make(chan *dockertest.Resource, len(testChains))
@@ -112,7 +112,7 @@ func removeTestContainer(pool *dockertest.Pool, containerName string) error {
 // A docker image is built for each chain using its provided configuration.
 // This image is then ran using the options set below.
 func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
-	pool *dockertest.Pool, c *ry.Chain, dir string, wg *sync.WaitGroup, tc testChain) {
+	pool *dockertest.Pool, c *relayer.Chain, dir string, wg *sync.WaitGroup, tc testChain) {
 	defer wg.Done()
 	var (
 		err      error
@@ -182,7 +182,7 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 // cleanUpTest is called as a goroutine to wait until the tests have completed and
 // cleans up the docker containers and relayer config
 func cleanUpTest(t *testing.T, testsDone <-chan struct{}, contDone chan<- struct{},
-	resources []*dockertest.Resource, pool *dockertest.Pool, dir string, chains []*ry.Chain) {
+	resources []*dockertest.Resource, pool *dockertest.Pool, dir string, chains []*relayer.Chain) {
 	// block here until tests are complete
 	<-testsDone
 
@@ -206,7 +206,7 @@ func cleanUpTest(t *testing.T, testsDone <-chan struct{}, contDone chan<- struct
 }
 
 // for the love of logs https://www.youtube.com/watch?v=DtsKcHmceqY
-func getLoggingChain(chns []*ry.Chain, rsr *dockertest.Resource) *ry.Chain {
+func getLoggingChain(chns []*relayer.Chain, rsr *dockertest.Resource) *relayer.Chain {
 	for _, c := range chns {
 		if strings.Contains(rsr.Container.Name, c.ChainID) {
 			return c
@@ -215,8 +215,8 @@ func getLoggingChain(chns []*ry.Chain, rsr *dockertest.Resource) *ry.Chain {
 	return nil
 }
 
-func genTestPathAndSet(src, dst *ry.Chain, srcPort, dstPort string) (*ry.Path, error) {
-	p := ry.GenPath(src.ChainID, dst.ChainID, srcPort, dstPort, "UNORDERED", "ics20-1")
+func genTestPathAndSet(src, dst *relayer.Chain, srcPort, dstPort string) (*relayer.Path, error) {
+	p := relayer.GenPath(src.ChainID, dst.ChainID, srcPort, dstPort, "UNORDERED", "ics20-1")
 
 	src.PathEnd = p.Src
 	dst.PathEnd = p.Dst
