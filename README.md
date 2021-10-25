@@ -2,7 +2,7 @@
 
 ![Relayer](./docs/images/comp.gif)
 
-[![Project Status: Initial Release]](https://img.shields.io/badge/repo%20status-active-green.svg?style=flat-square)](https://www.repostatus.org/#active)
+[![Project Status: Initial Release](https://img.shields.io/badge/repo%20status-active-green.svg?style=flat-square)](https://www.repostatus.org/#active)
 ![GitHub Workflow Status](https://github.com/strangelove-ventures/relayer/actions/workflows/build.yml/badge.svg)
 [![GoDoc](https://img.shields.io/badge/godoc-reference-blue?style=flat-square&logo=go)](https://godoc.org/github.com/strangelove-ventures/relayer)
 [![Go Report Card](https://goreportcard.com/badge/github.com/strangelove-ventures/relayer)](https://goreportcard.com/report/github.com/strangelove-ventures/relayer)
