@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/relayer/relayer"
+
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/stretchr/testify/require"
-
-	ry "github.com/cosmos/relayer/relayer"
 )
 
 const (
@@ -71,10 +71,10 @@ type (
 )
 
 // newTestChain generates a new instance of *Chain with a free TCP port configured as the RPC port
-func newTestChain(t *testing.T, tc testChain) *ry.Chain {
+func newTestChain(t *testing.T, tc testChain) *relayer.Chain {
 	_, port, err := server.FreeTCPAddr()
 	require.NoError(t, err)
-	return &ry.Chain{
+	return &relayer.Chain{
 		Key:            "testkey",
 		ChainID:        tc.chainID,
 		RPCAddr:        fmt.Sprintf("http://localhost:%s", port),

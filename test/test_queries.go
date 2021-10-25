@@ -3,12 +3,13 @@ package test
 import (
 	"context"
 	"testing"
-
-	"github.com/avast/retry-go"
-	clientypes "github.com/cosmos/ibc-go/modules/core/02-client/types"
-	"github.com/stretchr/testify/require"
+	"time"
 
 	"github.com/cosmos/relayer/relayer"
+
+	"github.com/avast/retry-go"
+	clientypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	"github.com/stretchr/testify/require"
 )
 
 // testClientPair tests that the client for src on dst and dst on src are the only clients on those chains
@@ -59,6 +60,7 @@ func testConnection(t *testing.T, src, dst *relayer.Chain) {
 	h, err := src.Client.Status(context.Background())
 	require.NoError(t, err)
 
+	time.Sleep(time.Second * 5)
 	conn, err := src.QueryConnection(h.SyncInfo.LatestBlockHeight)
 	require.NoError(t, err)
 	require.Equal(t, conn.Connection.ClientId, src.PathEnd.ClientID)
@@ -86,6 +88,7 @@ func testChannel(t *testing.T, src, dst *relayer.Chain) {
 	h, err := src.Client.Status(context.Background())
 	require.NoError(t, err)
 
+	time.Sleep(time.Second * 5)
 	ch, err := src.QueryChannel(h.SyncInfo.LatestBlockHeight)
 	require.NoError(t, err)
 	require.Equal(t, ch.Channel.Ordering.String(), "ORDER_UNORDERED")

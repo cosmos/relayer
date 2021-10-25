@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	transfertypes "github.com/cosmos/ibc-go/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/modules/core/04-channel/types"
-	tmclient "github.com/cosmos/ibc-go/modules/light-clients/07-tendermint/types"
+	transfertypes "github.com/cosmos/ibc-go/v2/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
+	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
 )
 
 // NOTE: we explicitly call 'MustGetAddress' before 'NewMsg...'
@@ -95,9 +95,9 @@ func (c *Chain) ConnTry(counterparty *Chain, counterpartyHeader *tmclient.Header
 	if err != nil {
 		return nil, err
 	}
-	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
+
 	clientState, clientStateProof, consensusStateProof, connStateProof,
-		proofHeight, err := counterparty.GenerateConnHandshakeProof(uint64(cph) - 1)
+		proofHeight, err := counterparty.GenerateConnHandshakeProof(uint64(cph))
 	if err != nil {
 		return nil, err
 	}
@@ -137,9 +137,8 @@ func (c *Chain) ConnAck(counterparty *Chain, counterpartyHeader *tmclient.Header
 		return nil, err
 	}
 
-	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
 	clientState, clientStateProof, consensusStateProof, connStateProof,
-		proofHeight, err := counterparty.GenerateConnHandshakeProof(uint64(cph) - 1)
+		proofHeight, err := counterparty.GenerateConnHandshakeProof(uint64(cph))
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +170,7 @@ func (c *Chain) ConnConfirm(counterparty *Chain, counterpartyHeader *tmclient.He
 	if err != nil {
 		return nil, err
 	}
-	counterpartyConnState, err := counterparty.QueryConnection(cph - 1)
+	counterpartyConnState, err := counterparty.QueryConnection(cph)
 	if err != nil {
 		return nil, err
 	}
@@ -216,8 +215,7 @@ func (c *Chain) ChanTry(counterparty *Chain, counterpartyHeader *tmclient.Header
 		return nil, err
 	}
 
-	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-	counterpartyChannelRes, err := counterparty.QueryChannel(cph - 1)
+	counterpartyChannelRes, err := counterparty.QueryChannel(cph)
 	if err != nil {
 		return nil, err
 	}
@@ -252,8 +250,7 @@ func (c *Chain) ChanAck(counterparty *Chain, counterpartyHeader *tmclient.Header
 		return nil, err
 	}
 
-	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-	counterpartyChannelRes, err := counterparty.QueryChannel(cph - 1)
+	counterpartyChannelRes, err := counterparty.QueryChannel(cph)
 	if err != nil {
 		return nil, err
 	}
@@ -282,8 +279,7 @@ func (c *Chain) ChanConfirm(counterparty *Chain, counterpartyHeader *tmclient.He
 		return nil, err
 	}
 
-	// NOTE: the proof height uses - 1 due to tendermint's delayed execution model
-	counterpartyChanState, err := counterparty.QueryChannel(cph - 1)
+	counterpartyChanState, err := counterparty.QueryChannel(cph)
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +333,7 @@ func (c *Chain) MsgTransfer(dst *PathEnd, amount sdk.Coin, dstAddr string,
 // MsgRelayRecvPacket constructs the MsgRecvPacket which is to be sent to the receiving chain.
 // The counterparty represents the sending chain where the packet commitment would be stored.
 func (c *Chain) MsgRelayRecvPacket(counterparty *Chain, counterpartyHeight int64, packet *relayMsgRecvPacket) (sdk.Msg, error) {
-	comRes, err := counterparty.QueryPacketCommitment(counterpartyHeight-1, packet.seq)
+	comRes, err := counterparty.QueryPacketCommitment(counterpartyHeight, packet.seq)
 	switch {
 	case err != nil:
 		return nil, err
@@ -367,7 +363,7 @@ func (c *Chain) MsgRelayRecvPacket(counterparty *Chain, counterpartyHeight int64
 // MsgRelayAcknowledgement constructs the MsgAcknowledgement which is to be sent to the sending chain.
 // The counterparty represents the receiving chain where the acknowledgement would be stored.
 func (c *Chain) MsgRelayAcknowledgement(counterparty *Chain, counterpartyHeight int64, packet *relayMsgPacketAck) (sdk.Msg, error) {
-	ackRes, err := counterparty.QueryPacketAcknowledgement(counterpartyHeight-1, packet.seq)
+	ackRes, err := counterparty.QueryPacketAcknowledgement(counterpartyHeight, packet.seq)
 	switch {
 	case err != nil:
 		return nil, err
@@ -398,7 +394,7 @@ func (c *Chain) MsgRelayAcknowledgement(counterparty *Chain, counterpartyHeight 
 // The counterparty represents the receiving chain where the receipts would have been
 // stored.
 func (c *Chain) MsgRelayTimeout(counterparty *Chain, counterpartyHeight int64, packet *relayMsgTimeout) (sdk.Msg, error) {
-	recvRes, err := counterparty.QueryPacketReceipt(counterpartyHeight-1, packet.seq)
+	recvRes, err := counterparty.QueryPacketReceipt(counterpartyHeight, packet.seq)
 	switch {
 	case err != nil:
 		return nil, err
