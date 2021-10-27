@@ -17,10 +17,11 @@ import (
 )
 
 const (
-	jsonURL = "https://raw.githubusercontent.com/strangelove-ventures/relayer/main/interchain/chains/"
-	repoURL = "https://github.com/strangelove-ventures/relayer"
+	jsonURL = "https://raw.githubusercontent.com/cosmos/relayer/master/interchain/chains/"
+	repoURL = "https://github.com/cosmos/relayer"
 )
 
+// fetchCmd bootstraps the necessary commands for fetching canonical chain and path metadata from GitHub
 func fetchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "fetch",
@@ -36,6 +37,8 @@ func fetchCmd() *cobra.Command {
 	return cmd
 }
 
+// fetchChainCmd takes a chain-id as input and attempts to fetch the json file containing the specified chains
+// metadata from GitHub
 func fetchChainCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "chain [chain-id]",
@@ -97,6 +100,7 @@ $ %s fch chn cosmoshub-4`, appName, defaultHome, appName)),
 	return cmd
 }
 
+// fetchPathsCmd attempts to fetch the json files containing the path metadata, for each configured chain, from GitHub
 func fetchPathsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "paths",
@@ -115,41 +119,86 @@ $ %s fch pths`, appName, defaultHome, appName)),
 			if _, err = git.PlainClone(localRepo, false, &git.CloneOptions{
 				URL:           repoURL,
 				Progress:      ioutil.Discard,
-				ReferenceName: "refs/heads/main",
+				ReferenceName: "refs/heads/master",
 			}); err != nil {
 				return err
 			}
 
-			// Try to fetch path info for each configured chain that has canonical chain/path info in GH localRepo
-			for _, c := range config.Chains {
-				fName := fmt.Sprintf("%s.json", c.ChainID)
+			// Try to fetch path info for each configured chain that has canonical chain/path info in the GH repo
+			for _, srcChain := range config.Chains {
+				for _, dstChain := range config.Chains {
+					fName := fmt.Sprintf("%s.json", srcChain.ChainID)
 
-				// Check that the constructed URL is valid
-				u, err := url.Parse(fmt.Sprintf("%s%s", jsonURL, fName))
-				if err != nil || u.Scheme == "" || u.Host == "" {
-					cleanupDir(localRepo)
-					return errors.New("invalid URL")
-				}
+					// Check that the constructed URL is valid
+					u, err := url.Parse(fmt.Sprintf("%s%s", jsonURL, fName))
+					if err != nil || u.Scheme == "" || u.Host == "" {
+						cleanupDir(localRepo)
+						return errors.New("invalid URL")
+					}
 
-				// Check that the chain c, has provided canonical chain/path info in GH localRepo
-				resp, err := http.Get(u.String())
-				if err != nil || resp.StatusCode == 404 {
-					fmt.Printf("Chain %s is not currently supported by fetch. Consider adding it's info to %s \n", c.ChainID, repoURL)
-					continue
-				}
+					// Check that the chain srcChain, has provided canonical chain/path info in GH repo
+					resp, err := http.Get(u.String())
+					if err != nil || resp.StatusCode == 404 {
+						fmt.Printf("Chain %s is not currently supported by fetch. Consider adding it's info to %s \n", srcChain.ChainID, repoURL)
+						continue
+					}
 
-				// Add paths to rly config from {localRepo}/interchain/chaind-id
-				pathsDir := path.Join(localRepo, "interchain", c.ChainID)
+					// Add paths to rly config from {localRepo}/interchain/chaind-id/
+					pathsDir := path.Join(localRepo, "interchain", srcChain.ChainID)
 
-				var cfg *Config
-				if cfg, err = cfgFilesAddPaths(pathsDir); err != nil {
-					fmt.Printf("Failed to add files from %s for chain %s. \n", pathsDir, c.ChainID)
-					continue
-				}
+					dir := path.Clean(pathsDir)
+					files, err := ioutil.ReadDir(dir)
+					if err != nil {
+						return err
+					}
+					cfg := config
 
-				err = overWriteConfig(cfg)
-				if err != nil {
-					return err
+					// For each path file, check that the dst is also a configured chain in the relayers config
+					for _, f := range files {
+						pth := fmt.Sprintf("%s/%s", dir, f.Name())
+						if f.IsDir() {
+							fmt.Printf("directory at %s, skipping...\n", pth)
+							continue
+						}
+
+						byt, err := ioutil.ReadFile(pth)
+						if err != nil {
+							return fmt.Errorf("failed to read file %s: %w", pth, err)
+						}
+
+						p := &relayer.Path{}
+						if err = json.Unmarshal(byt, p); err != nil {
+							return fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
+						}
+
+						if p.Dst.ChainID == dstChain.ChainID {
+							// In the case that order isn't added to the path, add it manually
+							if p.Src.Order == "" || p.Dst.Order == "" {
+								p.Src.Order = defaultOrder
+								p.Dst.Order = defaultOrder
+							}
+
+							// If the version isn't added to the path, add it manually
+							if p.Src.Version == "" {
+								p.Src.Version = defaultVersion
+							}
+							if p.Dst.Version == "" {
+								p.Dst.Version = defaultVersion
+							}
+
+							pthName := strings.Split(f.Name(), ".")[0]
+							if err = cfg.AddPath(pthName, p); err != nil {
+								return fmt.Errorf("failed to add path %s: %w", pth, err)
+							}
+
+							fmt.Printf("added path %s...\n", pthName)
+						}
+					}
+
+					err = overWriteConfig(cfg)
+					if err != nil {
+						return err
+					}
 				}
 			}
 
