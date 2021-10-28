@@ -294,8 +294,9 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 		upgradeMsg,
 	}
 
-	_, _, err = c.SendMsgs(msgs)
+	res, _, err := c.SendMsgs(msgs)
 	if err != nil {
+		c.LogFailedTx(res, err, msgs)
 		return err
 	}
 
@@ -467,6 +468,7 @@ func AutoUpdateClient(src, dst *Chain, thresholdTime time.Duration) (time.Durati
 
 	res, success, err := src.SendMsgs(msgs)
 	if err != nil {
+		src.LogFailedTx(res, err, msgs)
 		return 0, err
 	}
 	if !success {

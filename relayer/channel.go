@@ -125,7 +125,10 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			return false, false, false, err
 		}
 
-		_, success, err = src.SendMsgs(msgs)
+		res, success, err := src.SendMsgs(msgs)
+		if err != nil {
+			src.LogFailedTx(res, err, msgs)
+		}
 		if !success {
 			return false, false, false, err
 		}
@@ -154,7 +157,10 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			return false, false, false, err
 		}
 
-		_, success, err = src.SendMsgs(msgs)
+		res, success, err := src.SendMsgs(msgs)
+		if err != nil {
+			src.LogFailedTx(res, err, msgs)
+		}
 		if !success {
 			return false, false, false, err
 		}
@@ -182,7 +188,10 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			return false, false, false, err
 		}
 
-		_, success, err = dst.SendMsgs(msgs)
+		res, success, err := dst.SendMsgs(msgs)
+		if err != nil {
+			dst.LogFailedTx(res, err, msgs)
+		}
 		if !success {
 			return false, false, false, err
 		}
@@ -210,7 +219,10 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 
 		last = true
 
-		_, success, err = src.SendMsgs(msgs)
+		res, success, err := src.SendMsgs(msgs)
+		if err != nil {
+			src.LogFailedTx(res, err, msgs)
+		}
 		if !success {
 			return false, false, false, err
 		}
@@ -236,7 +248,10 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			return false, false, false, err
 		}
 
-		_, success, err = dst.SendMsgs(msgs)
+		res, success, err := dst.SendMsgs(msgs)
+		if err != nil {
+			dst.LogFailedTx(res, err, msgs)
+		}
 		if !success {
 			return false, false, false, err
 		}
@@ -284,6 +299,9 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 			}
 
 			res, success, err := src.SendMsgs(msgs)
+			if err != nil {
+				src.LogFailedTx(res, err, msgs)
+			}
 			if !success {
 				return false, false, err
 			}
@@ -328,6 +346,9 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 			}
 
 			res, success, err := src.SendMsgs(msgs)
+			if err != nil {
+				src.LogFailedTx(res, err, msgs)
+			}
 			if !success {
 				return false, false, err
 			}
@@ -373,6 +394,9 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 			}
 
 			res, success, err := dst.SendMsgs(msgs)
+			if err != nil {
+				dst.LogFailedTx(res, err, msgs)
+			}
 			if !success {
 				return false, false, err
 			}
