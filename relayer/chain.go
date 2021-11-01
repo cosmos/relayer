@@ -771,10 +771,12 @@ func (c *Chain) GenerateConnHandshakeProof(height uint64) (clientState ibcexport
 	}
 
 	eg.Go(func() error {
+		var err error
 		consensusStateRes, err = c.QueryClientConsensusState(int64(height), clientState.GetLatestHeight())
 		return err
 	})
 	eg.Go(func() error {
+		var err error
 		connectionStateRes, err = c.QueryConnection(int64(height))
 		return err
 	})

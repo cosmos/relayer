@@ -226,6 +226,7 @@ func QueryConnectionPair(
 	srcH, dstH int64) (srcConn, dstConn *conntypes.QueryConnectionResponse, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
+		var err error
 		srcConn, err = src.QueryConnection(srcH)
 		return err
 	})
@@ -674,10 +675,12 @@ func (c *Chain) QueryLatestHeight() (int64, error) {
 func QueryLatestHeights(src, dst *Chain) (srch, dsth int64, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
+		var err error
 		srch, err = src.QueryLatestHeight()
 		return err
 	})
 	eg.Go(func() error {
+		var err error
 		dsth, err = dst.QueryLatestHeight()
 		return err
 	})
