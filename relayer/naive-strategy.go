@@ -66,7 +66,10 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 	}
 
 	eg.Go(func() error {
-		var res *chantypes.QueryPacketCommitmentsResponse
+		var (
+			res *chantypes.QueryPacketCommitmentsResponse
+			err error
+		)
 		if err = retry.Do(func() error {
 			// Query the packet commitment
 			res, err = src.QueryPacketCommitments(DefaultPageRequest(), uint64(srch))
@@ -90,7 +93,10 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 	})
 
 	eg.Go(func() error {
-		var res *chantypes.QueryPacketCommitmentsResponse
+		var (
+			res *chantypes.QueryPacketCommitmentsResponse
+			err error
+		)
 		if err = retry.Do(func() error {
 			res, err = dst.QueryPacketCommitments(DefaultPageRequest(), uint64(dsth))
 			switch {
@@ -119,6 +125,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 	eg.Go(func() error {
 		// Query all packets sent by src that have been received by dst
 		return retry.Do(func() error {
+			var err error
 			rs.Src, err = dst.QueryUnreceivedPackets(uint64(dsth), srcPacketSeq)
 			return err
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
@@ -129,6 +136,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 	eg.Go(func() error {
 		// Query all packets sent by dst that have been received by src
 		return retry.Do(func() error {
+			var err error
 			rs.Dst, err = src.QueryUnreceivedPackets(uint64(srch), dstPacketSeq)
 			return err
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {

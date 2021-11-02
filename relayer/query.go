@@ -283,10 +283,12 @@ var emptyChannelRes = chantypes.NewQueryChannelResponse(
 func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (srcChan, dstChan *chantypes.QueryChannelResponse, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
+		var err error
 		srcChan, err = src.QueryChannel(srcH)
 		return err
 	})
 	eg.Go(func() error {
+		var err error
 		dstChan, err = dst.QueryChannel(dstH)
 		return err
 	})
