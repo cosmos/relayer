@@ -21,6 +21,7 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 	ticker := time.NewTicker(to)
 	failures := uint64(0)
 	for ; true; <-ticker.C {
+		var err error
 		success, lastStep, recentlyModified, err := ExecuteChannelStep(c, dst)
 		if err != nil {
 			c.Log(err.Error())

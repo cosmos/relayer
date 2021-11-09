@@ -29,10 +29,12 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 	}
 
 	eg.Go(func() error {
+		var err error
 		srcUpdateHeader, err = c.GetLightSignedHeaderAtHeight(srch)
 		return err
 	})
 	eg.Go(func() error {
+		var err error
 		dstUpdateHeader, err = dst.GetLightSignedHeaderAtHeight(dsth)
 		return err
 	})
