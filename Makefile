@@ -69,7 +69,7 @@ test-gaia:
 	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestGaia*
 
 test-akash:
-	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestAkash* -race
+	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestAkash*
 
 coverage:
 	@echo "viewing test coverage..."
