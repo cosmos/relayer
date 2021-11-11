@@ -201,7 +201,7 @@ func (c *Chain) listenLoop(doneChan chan struct{}, tx, block, data bool) {
 // Init initializes the pieces of a chain that aren't set when it parses a config
 // NOTE: All validation of the chain should happen here.
 func (c *Chain) Init(homePath string, timeout time.Duration, logger log.Logger, debug bool) error {
-	keybase, err := keys.New(c.ChainID, "test", keysDir(homePath, c.ChainID), nil)
+	keybase, err := keys.New(c.ChainID, "test", KeysDir(homePath, c.ChainID), nil)
 	if err != nil {
 		return err
 	}
@@ -513,7 +513,7 @@ func (c *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, context.Canc
 }
 
 // KeysDir returns the path to the keys for this chain
-func keysDir(home, chainID string) string {
+func KeysDir(home, chainID string) string {
 	return path.Join(home, "keys", chainID)
 }
 
