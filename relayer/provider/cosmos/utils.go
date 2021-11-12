@@ -1,11 +1,16 @@
 package cosmos
 
 import (
+	"fmt"
+	"os"
 	"path"
+	"strings"
 	"time"
 
+	sdkCtx "github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-
+	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
 	libclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
 )
@@ -27,6 +32,14 @@ func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
 	}
 
 	return rpcClient, nil
+}
+
+func getMsgAction(msgs []sdk.Msg) string {
+	var out string
+	for i, msg := range msgs {
+		out += fmt.Sprintf("%d:%s,", i, sdk.MsgTypeURL(msg))
+	}
+	return strings.TrimSuffix(out, ",")
 }
 
 // GetAddress returns the sdk.AccAddress associated with the configured key
@@ -55,4 +68,31 @@ func (cp *CosmosProvider) MustGetAddress() string {
 	done := cp.UseSDKContext()
 	defer done()
 	return srcAddr.String()
+}
+
+// CLIContext returns an instance of client.Context derived from Chain
+func (cp *CosmosProvider) CLIContext(height int64) sdkCtx.Context {
+	addr, err := cp.GetAddress()
+	if err != nil {
+		panic(err)
+	}
+	return sdkCtx.Context{}.
+		WithChainID(cp.Config.ChainID).
+		WithCodec(cp.Encoding.Marshaler).
+		WithInterfaceRegistry(cp.Encoding.InterfaceRegistry).
+		WithTxConfig(cp.Encoding.TxConfig).
+		WithLegacyAmino(cp.Encoding.Amino).
+		WithInput(os.Stdin).
+		WithNodeURI(cp.Config.RPCAddr).
+		WithClient(cp.Client).
+		WithAccountRetriever(authTypes.AccountRetriever{}).
+		WithBroadcastMode(flags.BroadcastBlock).
+		WithKeyring(cp.Keybase).
+		WithOutputFormat("json").
+		WithFrom(cp.Config.Key).
+		WithFromName(cp.Config.Key).
+		WithFromAddress(addr).
+		WithSkipConfirmation(true).
+		WithNodeURI(cp.Config.RPCAddr).
+		WithHeight(height)
 }

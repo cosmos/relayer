@@ -12,17 +12,9 @@ import (
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 )
 
-type ChainType int
+type RelayerMessage interface{}
 
-const (
-	Cosmos    ChainType = iota // 0
-	Substrate                  // 1
-)
-
-type RelayerMessage interface {
-	//Type() ChainType
-}
-
+// TODO Finish adding fields here. Possibly need most data that is in TxResponse?
 type RelayerTxResponse struct {
 	Code  int
 	Error string
@@ -45,18 +37,17 @@ type TxProvider interface {
 	ConnectionOpenTry(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]RelayerMessage, error)
 	ConnectionOpenAck(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstConnId string) ([]RelayerMessage, error)
 	ConnectionOpenConfirm(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]RelayerMessage, error)
-	ChannelOpenInit(srcPortId, srcVersion string, order chantypes.Order, dstHeader ibcexported.Header) (RelayerMessage, error)
-	ChannelOpenTry(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId string) (RelayerMessage, error)
-	ChannelOpenAck(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, srcChanId, dstChanId string) (RelayerMessage, error)
-	ChannelOpenConfirm(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, srcChanId string) (RelayerMessage, error)
-	ChannelCloseInit(srcPortId, srcChanId string) (RelayerMessage, error)
-	ChannelCloseConfirm(dstQueryProvider QueryProvider, srcPortId, srcChanId string) (RelayerMessage, error)
-	SendMessage(*RelayerMessage) (*RelayerTxResponse, error)
-	SendMessages([]*RelayerMessage) (*RelayerTxResponse, error)
+	ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.Header) ([]RelayerMessage, error)
+	ChannelOpenTry(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]RelayerMessage, error)
+	ChannelOpenAck(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]RelayerMessage, error)
+	ChannelOpenConfirm(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChannId string) ([]RelayerMessage, error)
+	ChannelCloseInit(srcPortId, srcChanId string) RelayerMessage
+	ChannelCloseConfirm(dstQueryProvider QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (RelayerMessage, error)
+	SendMessage(msg RelayerMessage) (*RelayerTxResponse, bool, error)
+	SendMessages(msgs []RelayerMessage) (*RelayerTxResponse, bool, error)
 }
 
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?
-//
 type QueryProvider interface {
 	// chain
 	QueryTx(hashHex string) (*ctypes.ResultTx, error)

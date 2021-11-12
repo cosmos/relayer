@@ -5,8 +5,7 @@ import (
 	"os"
 	"time"
 
-	commitmenttypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
-
+	sdkTx "github.com/cosmos/cosmos-sdk/client/tx"
 	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/simapp/params"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -14,8 +13,9 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v2/modules/core/exported"
-	relayer "github.com/cosmos/relayer/relayer/provider"
+	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/tendermint/tendermint/libs/log"
 	provtypes "github.com/tendermint/tendermint/light/provider"
 	prov "github.com/tendermint/tendermint/light/provider/http"
@@ -24,10 +24,11 @@ import (
 )
 
 var (
-	_                  relayer.QueryProvider = &CosmosProvider{}
-	_                  relayer.TxProvider    = &CosmosProvider{}
-	defaultChainPrefix                       = commitmenttypes.NewMerklePrefix([]byte("ibc"))
-	defaultDelayPeriod                       = uint64(0)
+	_                  provider.QueryProvider  = &CosmosProvider{}
+	_                  provider.TxProvider     = &CosmosProvider{}
+	_                  provider.RelayerMessage = CosmosMessage{}
+	defaultChainPrefix                         = commitmenttypes.NewMerklePrefix([]byte("ibc"))
+	defaultDelayPeriod                         = uint64(0)
 )
 
 type CosmosProviderConfig struct {
@@ -39,6 +40,37 @@ type CosmosProviderConfig struct {
 	GasPrices      string  `yaml:"gas-prices" json:"gas-prices"`
 	TrustingPeriod string  `yaml:"trusting-period" json:"trusting-period"`
 	Timeout        string  `yaml:"timeout" json:"timeout"`
+}
+
+type CosmosMessage struct {
+	Msg sdk.Msg
+}
+
+func NewCosmosMessage(msg sdk.Msg) provider.RelayerMessage {
+	return CosmosMessage{
+		Msg: msg,
+	}
+}
+
+func CosmosMsg(rm provider.RelayerMessage) sdk.Msg {
+	if val, ok := rm.(CosmosMessage); !ok {
+		// add warning output later to tell invalid msg type
+		return nil
+	} else {
+		return val.Msg
+	}
+}
+
+func CosmosMsgs(rm ...provider.RelayerMessage) []sdk.Msg {
+	sdkMsgs := make([]sdk.Msg, 0)
+	for _, rMsg := range rm {
+		if val, ok := rMsg.(CosmosMessage); !ok {
+			// add warning output later to tell invalid msg type
+		} else {
+			sdkMsgs = append(sdkMsgs, val.Msg)
+		}
+	}
+	return sdkMsgs
 }
 
 func (cp CosmosProvider) Validate() error {
@@ -109,32 +141,36 @@ func (cp *CosmosProvider) Init() error {
 	return nil
 }
 
-func (cp *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header) (relayer.RelayerMessage, error) {
+func (cp *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
 	if err := dstHeader.ValidateBasic(); err != nil {
 		return nil, err
 	}
 
 	cs, _, err := cp.QueryConsensusState(int64(dstHeader.GetHeight().GetRevisionHeight()))
+	if err != nil {
+		return nil, err
+	}
+
 	msg, err := clienttypes.NewMsgCreateClient(
 		clientState,
 		cs,
 		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
-
 	if err != nil {
 		return nil, err
 	}
+
 	if err = msg.ValidateBasic(); err != nil {
 		return nil, err
 	}
-	return msg, nil
+	return NewCosmosMessage(msg), nil
 }
 
-func (cp *CosmosProvider) SubmitMisbehavior( /*TBD*/ ) (relayer.RelayerMessage, error) {
+func (cp *CosmosProvider) SubmitMisbehavior( /*TBD*/ ) (provider.RelayerMessage, error) {
 	return nil, nil
 }
 
-func (cp *CosmosProvider) UpdateClient(srcClientId string, dstHeader ibcexported.Header) (relayer.RelayerMessage, error) {
+func (cp *CosmosProvider) UpdateClient(srcClientId string, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
 	if err := dstHeader.ValidateBasic(); err != nil {
 		return nil, err
 	}
@@ -146,10 +182,10 @@ func (cp *CosmosProvider) UpdateClient(srcClientId string, dstHeader ibcexported
 	if err != nil {
 		return nil, err
 	}
-	return msg, nil
+	return NewCosmosMessage(msg), nil
 }
 
-func (cp *CosmosProvider) ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) ([]relayer.RelayerMessage, error) {
+func (cp *CosmosProvider) ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) ([]provider.RelayerMessage, error) {
 	updateMsg, err := cp.UpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
@@ -165,10 +201,10 @@ func (cp *CosmosProvider) ConnectionOpenInit(srcClientId, dstClientId string, ds
 		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
-	return []relayer.RelayerMessage{updateMsg, msg}, nil
+	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cp *CosmosProvider) ConnectionOpenTry(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]relayer.RelayerMessage, error) {
+func (cp *CosmosProvider) ConnectionOpenTry(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
 	updateMsg, err := cp.UpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
@@ -206,10 +242,10 @@ func (cp *CosmosProvider) ConnectionOpenTry(dstQueryProvider relayer.QueryProvid
 		return nil, err
 	}
 
-	return []relayer.RelayerMessage{updateMsg, msg}, nil
+	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cp *CosmosProvider) ConnectionOpenAck(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstConnId string) ([]relayer.RelayerMessage, error) {
+func (cp *CosmosProvider) ConnectionOpenAck(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
 	updateMsg, err := cp.UpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
@@ -238,10 +274,10 @@ func (cp *CosmosProvider) ConnectionOpenAck(dstQueryProvider relayer.QueryProvid
 		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
-	return []relayer.RelayerMessage{updateMsg, msg}, nil
+	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cp *CosmosProvider) ConnectionOpenConfirm(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]relayer.RelayerMessage, error) {
+func (cp *CosmosProvider) ConnectionOpenConfirm(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]provider.RelayerMessage, error) {
 	updateMsg, err := cp.UpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
@@ -263,39 +299,208 @@ func (cp *CosmosProvider) ConnectionOpenConfirm(dstQueryProvider relayer.QueryPr
 		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
-	return []relayer.RelayerMessage{updateMsg, msg}, nil
+	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cp *CosmosProvider) ChannelOpenInit(srcPortId, srcVersion string, order chantypes.Order, dstHeader ibcexported.Header) (relayer.RelayerMessage, error) {
-	return nil, nil
+func (cp *CosmosProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.Header) ([]provider.RelayerMessage, error) {
+	updateMsg, err := cp.UpdateClient(srcClientId, dstHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := chantypes.NewMsgChannelOpenInit(
+		srcPortId,
+		srcVersion,
+		order,
+		[]string{srcConnId},
+		dstPortId,
+		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+
+	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cp *CosmosProvider) ChannelOpenTry(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId string) (relayer.RelayerMessage, error) {
-	return nil, nil
+func (cp *CosmosProvider) ChannelOpenTry(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
+	updateMsg, err := cp.UpdateClient(srcClientId, dstHeader)
+	if err != nil {
+		return nil, err
+	}
+	cph, err := dstQueryProvider.QueryLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+
+	counterpartyChannelRes, err := dstQueryProvider.QueryChannel(cph, dstChanId, dstPortId)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := chantypes.NewMsgChannelOpenTry(
+		srcPortId,
+		srcChanId,
+		srcVersion,
+		counterpartyChannelRes.Channel.Ordering,
+		[]string{srcConnectionId},
+		dstPortId,
+		dstChanId,
+		counterpartyChannelRes.Channel.Version,
+		counterpartyChannelRes.Proof,
+		counterpartyChannelRes.ProofHeight,
+		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+
+	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cp *CosmosProvider) ChannelOpenAck(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, srcPortId, srcChanId, dstChanId string) (relayer.RelayerMessage, error) {
-	return nil, nil
+func (cp *CosmosProvider) ChannelOpenAck(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]provider.RelayerMessage, error) {
+	updateMsg, err := cp.UpdateClient(srcClientId, dstHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	cph, err := dstQueryProvider.QueryLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+
+	counterpartyChannelRes, err := dstQueryProvider.QueryChannel(cph, dstChanId, dstPortId)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := chantypes.NewMsgChannelOpenAck(
+		srcPortId,
+		srcChanId,
+		dstChanId,
+		counterpartyChannelRes.Channel.Version,
+		counterpartyChannelRes.Proof,
+		counterpartyChannelRes.ProofHeight,
+		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+
+	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cp *CosmosProvider) ChannelOpenConfirm(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, srcPortId, srcChanId string) (relayer.RelayerMessage, error) {
-	return nil, nil
+func (cp *CosmosProvider) ChannelOpenConfirm(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChanId string) ([]provider.RelayerMessage, error) {
+	updateMsg, err := cp.UpdateClient(srcClientId, dstHeader)
+	if err != nil {
+		return nil, err
+	}
+	cph, err := dstQueryProvider.QueryLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+
+	counterpartyChanState, err := dstQueryProvider.QueryChannel(cph, dstChanId, dstPortId)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := chantypes.NewMsgChannelOpenConfirm(
+		srcPortId,
+		srcChanId,
+		counterpartyChanState.Proof,
+		counterpartyChanState.ProofHeight,
+		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+
+	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cp *CosmosProvider) ChannelCloseInit(srcPortId, srcChanId string) (relayer.RelayerMessage, error) {
-	return nil, nil
+func (cp *CosmosProvider) ChannelCloseInit(srcPortId, srcChanId string) provider.RelayerMessage {
+	return NewCosmosMessage(chantypes.NewMsgChannelCloseInit(
+		srcPortId,
+		srcChanId,
+		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	))
 }
 
-func (cp *CosmosProvider) ChannelCloseConfirm(dstQueryProvider relayer.QueryProvider, srcPortId, srcChanId string) (relayer.RelayerMessage, error) {
-	return nil, nil
+func (cp *CosmosProvider) ChannelCloseConfirm(dstQueryProvider provider.QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (provider.RelayerMessage, error) {
+	dstChanResp, err := dstQueryProvider.QueryChannel(dsth, dstChanId, dstPortId)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewCosmosMessage(chantypes.NewMsgChannelCloseConfirm(
+		srcPortId,
+		srcChanId,
+		dstChanResp.Proof,
+		dstChanResp.ProofHeight,
+		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)), nil
 }
 
-func (cp *CosmosProvider) SendMessage(*relayer.RelayerMessage) (*relayer.RelayerTxResponse, error) {
-	return nil, nil
+func (cp *CosmosProvider) SendMessage(msg provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+	return cp.SendMessages([]provider.RelayerMessage{msg})
 }
 
-func (cp *CosmosProvider) SendMessages([]*relayer.RelayerMessage) (*relayer.RelayerTxResponse, error) {
-	return nil, nil
+func (cp *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+	// Instantiate the client context
+	ctx := cp.CLIContext(0)
+
+	// Query account details
+	txFactory, txConfig := cp.TxFactory(0)
+	txf, err := prepareFactory(ctx, txFactory)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// TODO: Make this work with new CalculateGas method
+	// https://github.com/cosmos/cosmos-sdk/blob/5725659684fc93790a63981c653feee33ecf3225/client/tx/tx.go#L297
+	// If users pass gas adjustment, then calculate gas
+	_, adjusted, err := CalculateGas(ctx.QueryWithData, txf, txConfig, msgs...)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// Set the gas amount on the transaction factory
+	txf = txf.WithGas(adjusted)
+
+	// Build the transaction builder
+	txb, err := BuildUnsignedTx(txf, txConfig, msgs...)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// Attach the signature to the transaction
+	// c.LogFailedTx(nil, err, msgs)
+	// Force encoding in the chain specific address
+	for _, msg := range msgs {
+		cp.Encoding.Marshaler.MustMarshalJSON(CosmosMsg(msg))
+	}
+	err = sdkTx.Sign(txf, cp.Config.Key, txb, false)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// Generate the transaction bytes
+	txBytes, err := ctx.TxConfig.TxEncoder()(txb.GetTx())
+	if err != nil {
+		return nil, false, err
+	}
+
+	// Broadcast those bytes
+	res, err := ctx.BroadcastTx(txBytes)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// TODO helper/wrapper function for TxResponse->RelayerTxResponse
+	rlyRes := &provider.RelayerTxResponse{
+		Code:  int(res.Code),
+		Error: "", // do we need errors in RlyTxRes?
+	}
+
+	// transaction was executed, log the success or failure using the tx response code
+	// NOTE: error is nil, logic should use the returned error to determine if the
+	// transaction was successfully executed.
+	if rlyRes.Code != 0 {
+		cp.LogFailedTx(res, err, CosmosMsgs(msgs))
+		return rlyRes, false, nil
+	}
+
+	cp.LogSuccessTx(res, CosmosMsgs(msgs))
+	return rlyRes, true, nil
 }
 
 func (cp *CosmosProvider) QueryTx(hashHex string) (*ctypes.ResultTx, error) { return nil, nil }
