@@ -2,6 +2,7 @@ package cosmos
 
 import (
 	"fmt"
+	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	"os"
 	"path"
 	"strings"
@@ -95,4 +96,13 @@ func (cp *CosmosProvider) CLIContext(height int64) sdkCtx.Context {
 		WithSkipConfirmation(true).
 		WithNodeURI(cp.Config.RPCAddr).
 		WithHeight(height)
+}
+
+func DefaultPageRequest() *querytypes.PageRequest {
+	return &querytypes.PageRequest{
+		Key:        []byte(""),
+		Offset:     0,
+		Limit:      1000,
+		CountTotal: true,
+	}
 }

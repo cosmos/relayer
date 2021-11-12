@@ -1,19 +1,30 @@
 package cosmos
 
 import (
+	"context"
+	"encoding/hex"
+	"errors"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"os"
+	"strings"
 	"time"
 
 	sdkTx "github.com/cosmos/cosmos-sdk/client/tx"
 	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/simapp/params"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	querytypes "github.com/cosmos/cosmos-sdk/types/query"
+	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	transfertypes "github.com/cosmos/ibc-go/v2/modules/apps/transfer/types"
+	clientutils "github.com/cosmos/ibc-go/v2/modules/core/02-client/client/utils"
 	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	connutils "github.com/cosmos/ibc-go/v2/modules/core/03-connection/client/utils"
 	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
+	committypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v2/modules/core/exported"
 	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/tendermint/tendermint/libs/log"
@@ -216,7 +227,7 @@ func (cp *CosmosProvider) ConnectionOpenTry(dstQueryProvider provider.QueryProvi
 	}
 
 	clientState, clientStateProof, consensusStateProof, connStateProof,
-		proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(cph)
+		proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(cph, dstClientId, dstConnId)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +256,7 @@ func (cp *CosmosProvider) ConnectionOpenTry(dstQueryProvider provider.QueryProvi
 	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cp *CosmosProvider) ConnectionOpenAck(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
+func (cp *CosmosProvider) ConnectionOpenAck(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]provider.RelayerMessage, error) {
 	updateMsg, err := cp.UpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
@@ -256,7 +267,7 @@ func (cp *CosmosProvider) ConnectionOpenAck(dstQueryProvider provider.QueryProvi
 	}
 
 	clientState, clientStateProof, consensusStateProof, connStateProof,
-		proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(cph)
+		proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(cph, dstClientId, dstConnId)
 	if err != nil {
 		return nil, err
 	}
@@ -503,56 +514,236 @@ func (cp *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provide
 	return rlyRes, true, nil
 }
 
-func (cp *CosmosProvider) QueryTx(hashHex string) (*ctypes.ResultTx, error) { return nil, nil }
+// QueryTx takes a transaction hash and returns the transaction
+func (cp *CosmosProvider) QueryTx(hashHex string) (*ctypes.ResultTx, error) {
+	hash, err := hex.DecodeString(hashHex)
+	if err != nil {
+		return &ctypes.ResultTx{}, err
+	}
 
-func (cp *CosmosProvider) QueryTxs(height uint64, events []string) ([]*ctypes.ResultTx, error) {
-	return nil, nil
+	return cp.Client.Tx(context.Background(), hash, true)
 }
 
-func (cp *CosmosProvider) QueryLatestHeight() (int64, error) { return 0, nil }
+// QueryTxs returns an array of transactions given a tag
+func (cp *CosmosProvider) QueryTxs(page, limit int, events []string) ([]*ctypes.ResultTx, error) {
+	if len(events) == 0 {
+		return nil, errors.New("must declare at least one event to search")
+	}
 
-func (cp *CosmosProvider) QueryBalances(addr string) (sdk.Coins, error) { return nil, nil }
+	if page <= 0 {
+		return nil, errors.New("page must greater than 0")
+	}
 
-func (cp *CosmosProvider) QueryUnbondingPeriod() (time.Duration, error) { return 0, nil }
+	if limit <= 0 {
+		return nil, errors.New("limit must greater than 0")
+	}
 
-func (cp *CosmosProvider) QueryClientState(height int64, clientid string) (*clienttypes.QueryClientStateResponse, error) {
-	return nil, nil
+	res, err := cp.Client.TxSearch(context.Background(), strings.Join(events, " AND "), true, &page, &limit, "")
+	if err != nil {
+		return nil, err
+	}
+	return res.Txs, nil
 }
 
+// QueryLatestHeight queries the chain for the latest height and returns it
+func (cp *CosmosProvider) QueryLatestHeight() (int64, error) {
+	res, err := cp.Client.Status(context.Background())
+	if err != nil {
+		return -1, err
+	} else if res.SyncInfo.CatchingUp {
+		return -1, fmt.Errorf("node at %s running chain %s not caught up", cp.Config.RPCAddr, cp.Config.ChainID)
+	}
+
+	return res.SyncInfo.LatestBlockHeight, nil
+}
+
+// QueryBalance returns the amount of coins in the relayer account
+func (cp *CosmosProvider) QueryBalance(keyName string) (sdk.Coins, error) {
+	var addr string
+	if keyName == "" {
+		addr = cp.MustGetAddress()
+	} else {
+		info, err := cp.Keybase.Key(keyName)
+		if err != nil {
+			return nil, err
+		}
+		done := cp.UseSDKContext()
+		addr = info.GetAddress().String()
+		done()
+	}
+	return cp.QueryBalanceWithAddress(addr)
+}
+
+// QueryBalanceWithAddress returns the amount of coins in the relayer account with address as input
+func (cp *CosmosProvider) QueryBalanceWithAddress(address string) (sdk.Coins, error) {
+	done := cp.UseSDKContext()
+	addr, err := sdk.AccAddressFromBech32(address)
+	done()
+	if err != nil {
+		return nil, err
+	}
+
+	p := bankTypes.NewQueryAllBalancesRequest(addr, &querytypes.PageRequest{
+		Key:        []byte(""),
+		Offset:     0,
+		Limit:      1000,
+		CountTotal: true,
+	})
+
+	queryClient := bankTypes.NewQueryClient(cp.CLIContext(0))
+
+	res, err := queryClient.AllBalances(context.Background(), p)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Balances, nil
+}
+
+// QueryUnbondingPeriod returns the unbonding period of the chain
+func (cp *CosmosProvider) QueryUnbondingPeriod() (time.Duration, error) {
+	req := stakingtypes.QueryParamsRequest{}
+
+	queryClient := stakingtypes.NewQueryClient(cp.CLIContext(0))
+
+	res, err := queryClient.Params(context.Background(), &req)
+	if err != nil {
+		return 0, err
+	}
+
+	return res.Params.UnbondingTime, nil
+}
+
+// QueryClientStateResponse retrevies the latest consensus state for a client in state at a given height
+func (cp *CosmosProvider) QueryClientStateResponse(height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
+	return clientutils.QueryClientStateABCI(cp.CLIContext(height), srcClientId)
+}
+
+// QueryClientState retrevies the latest consensus state for a client in state at a given height
+// and unpacks it to exported client state interface
+func (cp *CosmosProvider) QueryClientState(height int64, clientid string) (ibcexported.ClientState, error) {
+	clientStateRes, err := cp.QueryClientStateResponse(height, clientid)
+	if err != nil {
+		return nil, err
+	}
+
+	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
+	if err != nil {
+		return nil, err
+	}
+
+	return clientStateExported, nil
+}
+
+// QueryClientConsensusState retrieves the latest consensus state for a client in state at a given height
 func (cp *CosmosProvider) QueryClientConsensusState(chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
-	return nil, nil
+	return clientutils.QueryConsensusStateABCI(
+		cp.CLIContext(chainHeight),
+		clientid,
+		clientHeight,
+	)
 }
 
+// QueryUpgradedClient returns upgraded client info
 func (cp *CosmosProvider) QueryUpgradedClient(height int64) (*clienttypes.QueryClientStateResponse, error) {
 	return nil, nil
 }
 
+// QueryUpgradedConsState returns upgraded consensus state and height of client
 func (cp *CosmosProvider) QueryUpgradedConsState(height int64) (*clienttypes.QueryConsensusStateResponse, error) {
 	return nil, nil
 }
 
+// QueryConsensusState returns a consensus state for a given chain to be used as a
+// client in another chain, fetches latest height when passed 0 as arg
 func (cp *CosmosProvider) QueryConsensusState(height int64) (ibcexported.ConsensusState, int64, error) {
-	return nil, 0, nil
+	return clientutils.QuerySelfConsensusState(cp.CLIContext(height))
 }
 
+// QueryClients queries all the clients!
 func (cp *CosmosProvider) QueryClients() ([]*clienttypes.IdentifiedClientState, error) {
 	return nil, nil
 }
 
+// QueryConnection returns the remote end of a given connection
 func (cp *CosmosProvider) QueryConnection(height int64, connectionid string) (*conntypes.QueryConnectionResponse, error) {
-	return nil, nil
+	res, err := connutils.QueryConnection(cp.CLIContext(height), connectionid, true)
+	if err != nil && strings.Contains(err.Error(), "not found") {
+		return conntypes.NewQueryConnectionResponse(
+			conntypes.NewConnectionEnd(
+				conntypes.UNINITIALIZED,
+				"client",
+				conntypes.NewCounterparty(
+					"client",
+					"connection",
+					committypes.NewMerklePrefix([]byte{}),
+				),
+				[]*conntypes.Version{},
+				0,
+			), []byte{}, clienttypes.NewHeight(0, 0)), nil
+	} else if err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
+// QueryConnections gets any connections on a chain
+// TODO add pagination support
 func (cp *CosmosProvider) QueryConnections() (conns []*conntypes.IdentifiedConnection, err error) {
-	return nil, nil
+	qc := conntypes.NewQueryClient(cp.CLIContext(0))
+	res, err := qc.Connections(context.Background(), &conntypes.QueryConnectionsRequest{
+		Pagination: DefaultPageRequest(),
+	})
+	return res.Connections, err
 }
 
-func (cp *CosmosProvider) QueryConnectionsUsingClient(height int64, clientid string) (clientConns []string, err error) {
-	return nil, nil
+// QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
+// TODO add pagination support
+func (cp *CosmosProvider) QueryConnectionsUsingClient(height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
+	qc := conntypes.NewQueryClient(cp.CLIContext(0))
+	res, err := qc.Connections(context.Background(), &conntypes.QueryConnectionsRequest{
+		Pagination: DefaultPageRequest(),
+	})
+	return res, err
 }
 
-func (cp *CosmosProvider) GenerateConnHandshakeProof(height int64) (clientState ibcexported.ClientState, clientStateProof []byte, consensusProof []byte, connectionProof []byte, connectionProofHeight ibcexported.Height, err error) {
-	return nil, nil, nil, nil, nil, nil
+// GenerateConnHandshakeProof generates all the proofs needed to prove the existence of the
+// connection state on this chain. A counterparty should use these generated proofs.
+func (cp *CosmosProvider) GenerateConnHandshakeProof(height int64, clientId, connId string) (clientState ibcexported.ClientState, clientStateProof []byte, consensusProof []byte, connectionProof []byte, connectionProofHeight ibcexported.Height, err error) {
+	var (
+		clientStateRes     *clienttypes.QueryClientStateResponse
+		consensusStateRes  *clienttypes.QueryConsensusStateResponse
+		connectionStateRes *conntypes.QueryConnectionResponse
+		eg                 = new(errgroup.Group)
+	)
+
+	// query for the client state for the proof and get the height to query the consensus state at.
+	clientStateRes, err = cp.QueryClientStateResponse(height, clientId)
+	if err != nil {
+		return nil, nil, nil, nil, clienttypes.Height{}, err
+	}
+
+	clientState, err = clienttypes.UnpackClientState(clientStateRes.ClientState)
+	if err != nil {
+		return nil, nil, nil, nil, clienttypes.Height{}, err
+	}
+
+	eg.Go(func() error {
+		var err error
+		consensusStateRes, err = cp.QueryClientConsensusState(height, clientId, clientState.GetLatestHeight())
+		return err
+	})
+	eg.Go(func() error {
+		var err error
+		connectionStateRes, err = cp.QueryConnection(height, connId)
+		return err
+	})
+
+	if err := eg.Wait(); err != nil {
+		return nil, nil, nil, nil, clienttypes.Height{}, err
+	}
+
+	return clientState, clientStateRes.Proof, consensusStateRes.Proof, connectionStateRes.Proof, connectionStateRes.ProofHeight, nil
 }
 
 func (cp *CosmosProvider) QueryChannel(height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {

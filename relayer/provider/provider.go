@@ -35,7 +35,7 @@ type TxProvider interface {
 	UpdateClient(srcClientId string, dstHeader ibcexported.Header) (RelayerMessage, error)
 	ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) ([]RelayerMessage, error)
 	ConnectionOpenTry(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]RelayerMessage, error)
-	ConnectionOpenAck(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstConnId string) ([]RelayerMessage, error)
+	ConnectionOpenAck(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]RelayerMessage, error)
 	ConnectionOpenConfirm(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]RelayerMessage, error)
 	ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.Header) ([]RelayerMessage, error)
 	ChannelOpenTry(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]RelayerMessage, error)
@@ -51,17 +51,19 @@ type TxProvider interface {
 type QueryProvider interface {
 	// chain
 	QueryTx(hashHex string) (*ctypes.ResultTx, error)
-	QueryTxs(height uint64, events []string) ([]*ctypes.ResultTx, error)
+	QueryTxs(page, limit int, events []string) ([]*ctypes.ResultTx, error)
 	QueryLatestHeight() (int64, error)
 
 	// bank
-	QueryBalances(addr string) (sdk.Coins, error)
+	QueryBalance(keyName string) (sdk.Coins, error)
+	QueryBalanceWithAddress(addr string) (sdk.Coins, error)
 
 	// staking
 	QueryUnbondingPeriod() (time.Duration, error)
 
 	// ics 02 - client
-	QueryClientState(height int64, clientid string) (*clienttypes.QueryClientStateResponse, error)
+	QueryClientState(height int64, clientid string) (ibcexported.ClientState, error)
+	QueryClientStateResponse(height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error)
 	QueryClientConsensusState(chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error)
 	QueryUpgradedClient(height int64) (*clienttypes.QueryClientStateResponse, error)
 	QueryUpgradedConsState(height int64) (*clienttypes.QueryConsensusStateResponse, error)
@@ -71,8 +73,8 @@ type QueryProvider interface {
 	// ics 03 - connection
 	QueryConnection(height int64, connectionid string) (*conntypes.QueryConnectionResponse, error)
 	QueryConnections() (conns []*conntypes.IdentifiedConnection, err error)
-	QueryConnectionsUsingClient(height int64, clientid string) (clientConns []string, err error)
-	GenerateConnHandshakeProof(height int64) (clientState ibcexported.ClientState,
+	QueryConnectionsUsingClient(height int64, clientid string) (*conntypes.QueryConnectionsResponse, error)
+	GenerateConnHandshakeProof(height int64, clientId, connId string) (clientState ibcexported.ClientState,
 		clientStateProof []byte, consensusProof []byte, connectionProof []byte,
 		connectionProofHeight ibcexported.Height, err error)
 
