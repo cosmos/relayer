@@ -71,3 +71,8 @@ func (cp *CosmosProvider) LogFailedTx(res *sdk.TxResponse, err error, msgs []sdk
 func (cp *CosmosProvider) LogSuccessTx(res *sdk.TxResponse, msgs []sdk.Msg) {
 	cp.logger.Info(fmt.Sprintf("✔ [%s]@{%d} - msg(%s) hash(%s)", cp.Config.ChainID, res.Height, getMsgAction(msgs), res.TxHash))
 }
+
+// Error takes an error, wraps it in the chainID and logs the error
+func (cp *CosmosProvider) Error(err error) {
+	cp.logger.Error(fmt.Sprintf("%s: err(%s)", cp.Config.ChainID, err.Error()))
+}

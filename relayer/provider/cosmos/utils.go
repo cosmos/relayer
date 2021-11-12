@@ -1,8 +1,15 @@
 package cosmos
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
+	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	committypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
+	abci "github.com/tendermint/tendermint/abci/types"
+	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	"os"
 	"path"
 	"strings"
@@ -96,6 +103,91 @@ func (cp *CosmosProvider) CLIContext(height int64) sdkCtx.Context {
 		WithSkipConfirmation(true).
 		WithNodeURI(cp.Config.RPCAddr).
 		WithHeight(height)
+}
+
+// isQueryStoreWithProof expects a format like /<queryType>/<storeName>/<subpath>
+// queryType must be "store" and subpath must be "key" to require a proof.
+func isQueryStoreWithProof(path string) bool {
+	if !strings.HasPrefix(path, "/") {
+		return false
+	}
+
+	paths := strings.SplitN(path[1:], "/", 3)
+	switch {
+	case len(paths) != 3:
+		return false
+	case paths[0] != "store":
+		return false
+	case rootmulti.RequireProof("/" + paths[2]):
+		return true
+	}
+
+	return false
+}
+
+// QueryABCI is an affordance for querying the ABCI server associated with a chain
+// Similar to cliCtx.QueryABCI
+func (cp *CosmosProvider) QueryABCI(req abci.RequestQuery) (res abci.ResponseQuery, err error) {
+	opts := rpcclient.ABCIQueryOptions{
+		Height: req.GetHeight(),
+		Prove:  req.Prove,
+	}
+
+	result, err := cp.Client.ABCIQueryWithOptions(context.Background(), req.Path, req.Data, opts)
+	if err != nil {
+		// retry queries on EOF
+		if strings.Contains(err.Error(), "EOF") {
+			if cp.debug {
+				cp.Error(err)
+			}
+			return cp.QueryABCI(req)
+		}
+		return res, err
+	}
+
+	if !result.Response.IsOK() {
+		return res, errors.New(result.Response.Log)
+	}
+
+	// data from trusted node or subspace query doesn't need verification
+	if !isQueryStoreWithProof(req.Path) {
+		return result.Response, nil
+	}
+
+	// TODO: figure out how to verify queries?
+
+	return result.Response, nil
+}
+
+// QueryUpgradeProof performs an abci query with the given key and returns the proto encoded merkle proof
+// for the query and the height at which the proof will succeed on a tendermint verifier.
+func (cp *CosmosProvider) QueryUpgradeProof(key []byte, height uint64) ([]byte, clienttypes.Height, error) {
+	res, err := cp.QueryABCI(abci.RequestQuery{
+		Path:   "store/upgrade/key",
+		Height: int64(height - 1),
+		Data:   key,
+		Prove:  true,
+	})
+	if err != nil {
+		return nil, clienttypes.Height{}, err
+	}
+
+	merkleProof, err := committypes.ConvertProofs(res.ProofOps)
+	if err != nil {
+		return nil, clienttypes.Height{}, err
+	}
+
+	proof, err := cp.Encoding.Marshaler.Marshal(&merkleProof)
+	if err != nil {
+		return nil, clienttypes.Height{}, err
+	}
+
+	revision := clienttypes.ParseChainID(cp.Config.ChainID)
+
+	// proof height + 1 is returned as the proof created corresponds to the height the proof
+	// was created in the IAVL tree. Tendermint and subsequently the clients that rely on it
+	// have heights 1 above the IAVL tree. Thus we return proof height + 1
+	return proof, clienttypes.NewHeight(revision, uint64(res.Height+1)), nil
 }
 
 func DefaultPageRequest() *querytypes.PageRequest {

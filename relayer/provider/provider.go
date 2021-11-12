@@ -14,10 +14,11 @@ import (
 
 type RelayerMessage interface{}
 
-// TODO Finish adding fields here. Possibly need most data that is in TxResponse?
 type RelayerTxResponse struct {
-	Code  int
-	Error string
+	Height int64
+	TxHash string
+	Code   uint32
+	Data   string
 }
 
 type KeyProvider interface {
@@ -68,7 +69,7 @@ type QueryProvider interface {
 	QueryUpgradedClient(height int64) (*clienttypes.QueryClientStateResponse, error)
 	QueryUpgradedConsState(height int64) (*clienttypes.QueryConsensusStateResponse, error)
 	QueryConsensusState(height int64) (ibcexported.ConsensusState, int64, error)
-	QueryClients() ([]*clienttypes.IdentifiedClientState, error)
+	QueryClients() ([]clienttypes.IdentifiedClientState, error)
 
 	// ics 03 - connection
 	QueryConnection(height int64, connectionid string) (*conntypes.QueryConnectionResponse, error)
@@ -94,5 +95,5 @@ type QueryProvider interface {
 
 	// ics 20 - transfer
 	QueryDenomTrace(denom string) (*transfertypes.DenomTrace, error)
-	QueryDenomTraces(offset, limit uint64, height int64) ([]*transfertypes.DenomTrace, error)
+	QueryDenomTraces(offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error)
 }

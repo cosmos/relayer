@@ -5,16 +5,18 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"os"
 	"strings"
 	"time"
+
+	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
+	chanutils "github.com/cosmos/ibc-go/v2/modules/core/04-channel/client/utils"
+	"golang.org/x/sync/errgroup"
 
 	sdkTx "github.com/cosmos/cosmos-sdk/client/tx"
 	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/simapp/params"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	transfertypes "github.com/cosmos/ibc-go/v2/modules/apps/transfer/types"
@@ -474,7 +476,6 @@ func (cp *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provide
 	}
 
 	// Attach the signature to the transaction
-	// c.LogFailedTx(nil, err, msgs)
 	// Force encoding in the chain specific address
 	for _, msg := range msgs {
 		cp.Encoding.Marshaler.MustMarshalJSON(CosmosMsg(msg))
@@ -496,10 +497,12 @@ func (cp *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provide
 		return nil, false, err
 	}
 
-	// TODO helper/wrapper function for TxResponse->RelayerTxResponse
+	// helper/wrapper function for TxResponse->RelayerTxResponse?
 	rlyRes := &provider.RelayerTxResponse{
-		Code:  int(res.Code),
-		Error: "", // do we need errors in RlyTxRes?
+		Height: res.Height,
+		TxHash: res.TxHash,
+		Code:   res.Code,
+		Data:   res.Data,
 	}
 
 	// transaction was executed, log the success or failure using the tx response code
@@ -575,6 +578,7 @@ func (cp *CosmosProvider) QueryBalance(keyName string) (sdk.Coins, error) {
 }
 
 // QueryBalanceWithAddress returns the amount of coins in the relayer account with address as input
+// TODO add pagination support
 func (cp *CosmosProvider) QueryBalanceWithAddress(address string) (sdk.Coins, error) {
 	done := cp.UseSDKContext()
 	addr, err := sdk.AccAddressFromBech32(address)
@@ -583,12 +587,7 @@ func (cp *CosmosProvider) QueryBalanceWithAddress(address string) (sdk.Coins, er
 		return nil, err
 	}
 
-	p := bankTypes.NewQueryAllBalancesRequest(addr, &querytypes.PageRequest{
-		Key:        []byte(""),
-		Offset:     0,
-		Limit:      1000,
-		CountTotal: true,
-	})
+	p := bankTypes.NewQueryAllBalancesRequest(addr, DefaultPageRequest())
 
 	queryClient := bankTypes.NewQueryClient(cp.CLIContext(0))
 
@@ -646,12 +645,56 @@ func (cp *CosmosProvider) QueryClientConsensusState(chainHeight int64, clientid 
 
 // QueryUpgradedClient returns upgraded client info
 func (cp *CosmosProvider) QueryUpgradedClient(height int64) (*clienttypes.QueryClientStateResponse, error) {
-	return nil, nil
+	req := clienttypes.QueryUpgradedClientStateRequest{}
+
+	queryClient := clienttypes.NewQueryClient(cp.CLIContext(0))
+
+	res, err := queryClient.UpgradedClientState(context.Background(), &req)
+	if err != nil {
+		return nil, err
+	}
+
+	if res == nil || res.UpgradedClientState == nil {
+		return nil, fmt.Errorf("upgraded client state plan does not exist at height %d", height)
+	}
+
+	proof, proofHeight, err := cp.QueryUpgradeProof(upgradetypes.UpgradedClientKey(height), uint64(height))
+	if err != nil {
+		return nil, err
+	}
+
+	return &clienttypes.QueryClientStateResponse{
+		ClientState: res.UpgradedClientState,
+		Proof:       proof,
+		ProofHeight: proofHeight,
+	}, nil
 }
 
 // QueryUpgradedConsState returns upgraded consensus state and height of client
 func (cp *CosmosProvider) QueryUpgradedConsState(height int64) (*clienttypes.QueryConsensusStateResponse, error) {
-	return nil, nil
+	req := clienttypes.QueryUpgradedConsensusStateRequest{}
+
+	queryClient := clienttypes.NewQueryClient(cp.CLIContext(height))
+
+	res, err := queryClient.UpgradedConsensusState(context.Background(), &req)
+	if err != nil {
+		return nil, err
+	}
+
+	if res == nil || res.UpgradedConsensusState == nil {
+		return nil, fmt.Errorf("upgraded consensus state plan does not exist at height %d", height)
+	}
+
+	proof, proofHeight, err := cp.QueryUpgradeProof(upgradetypes.UpgradedConsStateKey(height), uint64(height))
+	if err != nil {
+		return nil, err
+	}
+
+	return &clienttypes.QueryConsensusStateResponse{
+		ConsensusState: res.UpgradedConsensusState,
+		Proof:          proof,
+		ProofHeight:    proofHeight,
+	}, nil
 }
 
 // QueryConsensusState returns a consensus state for a given chain to be used as a
@@ -661,8 +704,16 @@ func (cp *CosmosProvider) QueryConsensusState(height int64) (ibcexported.Consens
 }
 
 // QueryClients queries all the clients!
-func (cp *CosmosProvider) QueryClients() ([]*clienttypes.IdentifiedClientState, error) {
-	return nil, nil
+// TODO add pagination support
+func (cp *CosmosProvider) QueryClients() ([]clienttypes.IdentifiedClientState, error) {
+	qc := clienttypes.NewQueryClient(cp.CLIContext(0))
+	state, err := qc.ClientStates(context.Background(), &clienttypes.QueryClientStatesRequest{
+		Pagination: DefaultPageRequest(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return state.ClientStates, nil
 }
 
 // QueryConnection returns the remote end of a given connection
@@ -746,56 +797,167 @@ func (cp *CosmosProvider) GenerateConnHandshakeProof(height int64, clientId, con
 	return clientState, clientStateRes.Proof, consensusStateRes.Proof, connectionStateRes.Proof, connectionStateRes.ProofHeight, nil
 }
 
+// QueryChannel returns the channel associated with a channelID
 func (cp *CosmosProvider) QueryChannel(height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
-	return nil, nil
+	res, err := chanutils.QueryChannel(cp.CLIContext(height), portid, channelid, true)
+	if err != nil && strings.Contains(err.Error(), "not found") {
+		return chantypes.NewQueryChannelResponse(
+			chantypes.NewChannel(
+				chantypes.UNINITIALIZED,
+				chantypes.UNORDERED,
+				chantypes.NewCounterparty(
+					"port",
+					"channel",
+				),
+				[]string{},
+				"version",
+			),
+			[]byte{},
+			clienttypes.NewHeight(0, 0)), nil
+	} else if err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
+// QueryChannelClient returns the client state of the client supporting a given channel
 func (cp *CosmosProvider) QueryChannelClient(height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
-	return nil, nil
+	qc := chantypes.NewQueryClient(cp.CLIContext(height))
+	cState, err := qc.ChannelClientState(context.Background(), &chantypes.QueryChannelClientStateRequest{
+		PortId:    portid,
+		ChannelId: channelid,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return cState.IdentifiedClientState, nil
 }
 
+// QueryConnectionChannels queries the channels associated with a connection
 func (cp *CosmosProvider) QueryConnectionChannels(height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
-	return nil, nil
+	qc := chantypes.NewQueryClient(cp.CLIContext(0))
+	chans, err := qc.ConnectionChannels(context.Background(), &chantypes.QueryConnectionChannelsRequest{
+		Connection: connectionid,
+		Pagination: DefaultPageRequest(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return chans.Channels, nil
 }
 
-func (cp *CosmosProvider) QueryChannels() ([]*chantypes.IdentifiedChannel, error) { return nil, nil }
+// QueryChannels returns all the channels that are registered on a chain
+// TODO add pagination support
+func (cp *CosmosProvider) QueryChannels() ([]*chantypes.IdentifiedChannel, error) {
+	qc := chantypes.NewQueryClient(cp.CLIContext(0))
+	res, err := qc.Channels(context.Background(), &chantypes.QueryChannelsRequest{
+		Pagination: DefaultPageRequest(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res.Channels, err
+}
 
+// QueryPacketCommitments returns an array of packet commitments
+// TODO add pagination support
 func (cp *CosmosProvider) QueryPacketCommitments(height uint64, channelid, portid string) (commitments []*chantypes.PacketState, err error) {
-	return nil, nil
+	qc := chantypes.NewQueryClient(cp.CLIContext(int64(height)))
+	c, err := qc.PacketCommitments(context.Background(), &chantypes.QueryPacketCommitmentsRequest{
+		PortId:     portid,
+		ChannelId:  channelid,
+		Pagination: DefaultPageRequest(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return c.Commitments, nil
 }
 
+// QueryPacketAcknowledgements returns an array of packet acks
+// TODO add pagination support
 func (cp *CosmosProvider) QueryPacketAcknowledgements(height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
-	return nil, nil
+	qc := chantypes.NewQueryClient(cp.CLIContext(int64(height)))
+	acks, err := qc.PacketAcknowledgements(context.Background(), &chantypes.QueryPacketAcknowledgementsRequest{
+		PortId:     portid,
+		ChannelId:  channelid,
+		Pagination: DefaultPageRequest(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return acks.Acknowledgements, nil
 }
 
+// QueryUnreceivedPackets returns a list of unrelayed packet commitments
 func (cp *CosmosProvider) QueryUnreceivedPackets(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
-	return nil, nil
+	qc := chantypes.NewQueryClient(cp.CLIContext(int64(height)))
+	res, err := qc.UnreceivedPackets(context.Background(), &chantypes.QueryUnreceivedPacketsRequest{
+		PortId:                    portid,
+		ChannelId:                 channelid,
+		PacketCommitmentSequences: seqs,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res.Sequences, nil
 }
 
+// QueryUnreceivedAcknowledgements returns a list of unrelayed packet acks
 func (cp *CosmosProvider) QueryUnreceivedAcknowledgements(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
-	return nil, nil
+	qc := chantypes.NewQueryClient(cp.CLIContext(int64(height)))
+	res, err := qc.UnreceivedAcks(context.Background(), &chantypes.QueryUnreceivedAcksRequest{
+		PortId:             portid,
+		ChannelId:          channelid,
+		PacketAckSequences: seqs,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res.Sequences, nil
 }
 
+// QueryNextSeqRecv returns the next seqRecv for a configured channel
 func (cp *CosmosProvider) QueryNextSeqRecv(height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
-	return nil, nil
+	return chanutils.QueryNextSequenceReceive(cp.CLIContext(height), portid, channelid, true)
 }
 
+// QueryPacketCommitment returns the packet commitment proof at a given height
 func (cp *CosmosProvider) QueryPacketCommitment(height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error) {
-	return nil, nil
+	return chanutils.QueryPacketCommitment(cp.CLIContext(height), portid, channelid, seq, true)
 }
 
+// QueryPacketAcknowledgement returns the packet ack proof at a given height
 func (cp *CosmosProvider) QueryPacketAcknowledgement(height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
-	return nil, nil
+	return chanutils.QueryPacketAcknowledgement(cp.CLIContext(height), portid, channelid, seq, true)
 }
 
+// QueryPacketReceipt returns the packet receipt proof at a given height
 func (cp *CosmosProvider) QueryPacketReceipt(height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
-	return nil, nil
+	return chanutils.QueryPacketReceipt(cp.CLIContext(height), portid, channelid, seq, true)
 }
 
+// QueryDenomTrace takes a denom from IBC and queries the information about it
 func (cp *CosmosProvider) QueryDenomTrace(denom string) (*transfertypes.DenomTrace, error) {
-	return nil, nil
+	transfers, err := transfertypes.NewQueryClient(cp.CLIContext(0)).DenomTrace(context.Background(),
+		&transfertypes.QueryDenomTraceRequest{
+			Hash: denom,
+		})
+	if err != nil {
+		return nil, err
+	}
+	return transfers.DenomTrace, nil
 }
 
-func (cp *CosmosProvider) QueryDenomTraces(offset, limit uint64, height int64) ([]*transfertypes.DenomTrace, error) {
-	return nil, nil
+// QueryDenomTraces returns all the denom traces from a given chain
+// TODO add pagination support
+func (cp *CosmosProvider) QueryDenomTraces(offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
+	transfers, err := transfertypes.NewQueryClient(cp.CLIContext(height)).DenomTraces(context.Background(),
+		&transfertypes.QueryDenomTracesRequest{
+			Pagination: DefaultPageRequest(),
+		})
+	if err != nil {
+		return nil, err
+	}
+	return transfers.DenomTraces, nil
 }
