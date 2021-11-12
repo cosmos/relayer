@@ -20,7 +20,7 @@ const (
 )
 
 type RelayerMessage interface {
-	Type() ChainType
+	//Type() ChainType
 }
 
 type RelayerTxResponse struct {
@@ -38,19 +38,19 @@ type TxProvider interface {
 	KeyProvider
 
 	Init() error
-	CreateClient(dstHeader ibcexported.Header) (*RelayerMessage, error)
-	SubmitMisbehavior( /*TBD*/ ) (*RelayerMessage, error)
-	UpdateClient(dstHeader ibcexported.Header) (*RelayerMessage, error)
-	ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) (*RelayerMessage, error)
-	ConnectionOpenTry(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) (*RelayerMessage, error)
-	ConnectionOpenAck(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcConnId, dstConnId string) (*RelayerMessage, error)
-	ConnectionOpenConfirm(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcConnId string) (*RelayerMessage, error)
-	ChannelOpenInit(srcPortId, srcVersion string, order chantypes.Order, dstHeader ibcexported.Header) (*RelayerMessage, error)
-	ChannelOpenTry(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId string) (*RelayerMessage, error)
-	ChannelOpenAck(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, srcChanId, dstChanId string) (*RelayerMessage, error)
-	ChannelOpenConfirm(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, srcChanId string) (*RelayerMessage, error)
-	ChannelCloseInit(srcPortId, srcChanId string) (*RelayerMessage, error)
-	ChannelCloseConfirm(dstQueryProvider QueryProvider, srcPortId, srcChanId string) (*RelayerMessage, error)
+	CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header) (RelayerMessage, error)
+	SubmitMisbehavior( /*TBD*/ ) (RelayerMessage, error)
+	UpdateClient(srcClientId string, dstHeader ibcexported.Header) (RelayerMessage, error)
+	ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) ([]RelayerMessage, error)
+	ConnectionOpenTry(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]RelayerMessage, error)
+	ConnectionOpenAck(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstConnId string) ([]RelayerMessage, error)
+	ConnectionOpenConfirm(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]RelayerMessage, error)
+	ChannelOpenInit(srcPortId, srcVersion string, order chantypes.Order, dstHeader ibcexported.Header) (RelayerMessage, error)
+	ChannelOpenTry(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId string) (RelayerMessage, error)
+	ChannelOpenAck(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, srcChanId, dstChanId string) (RelayerMessage, error)
+	ChannelOpenConfirm(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, srcChanId string) (RelayerMessage, error)
+	ChannelCloseInit(srcPortId, srcChanId string) (RelayerMessage, error)
+	ChannelCloseConfirm(dstQueryProvider QueryProvider, srcPortId, srcChanId string) (RelayerMessage, error)
 	SendMessage(*RelayerMessage) (*RelayerTxResponse, error)
 	SendMessages([]*RelayerMessage) (*RelayerTxResponse, error)
 }

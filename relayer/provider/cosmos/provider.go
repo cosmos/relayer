@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	commitmenttypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
+
 	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/simapp/params"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -22,8 +24,10 @@ import (
 )
 
 var (
-	_ relayer.QueryProvider = &CosmosProvider{}
-	_ relayer.TxProvider    = &CosmosProvider{}
+	_                  relayer.QueryProvider = &CosmosProvider{}
+	_                  relayer.TxProvider    = &CosmosProvider{}
+	defaultChainPrefix                       = commitmenttypes.NewMerklePrefix([]byte("ibc"))
+	defaultDelayPeriod                       = uint64(0)
 )
 
 type CosmosProviderConfig struct {
@@ -37,7 +41,7 @@ type CosmosProviderConfig struct {
 	Timeout        string  `yaml:"timeout" json:"timeout"`
 }
 
-func (cpc CosmosProvider) Validate() error {
+func (cp CosmosProvider) Validate() error {
 	// TODO: validate all config fields, optionally add unexported config fields to hold parsed results
 	return nil
 }
@@ -105,55 +109,184 @@ func (cp *CosmosProvider) Init() error {
 	return nil
 }
 
-func (cp *CosmosProvider) CreateClient(dstHeader ibcexported.Header) (*relayer.RelayerMessage, error) {
+func (cp *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header) (relayer.RelayerMessage, error) {
+	if err := dstHeader.ValidateBasic(); err != nil {
+		return nil, err
+	}
+
+	cs, _, err := cp.QueryConsensusState(int64(dstHeader.GetHeight().GetRevisionHeight()))
+	msg, err := clienttypes.NewMsgCreateClient(
+		clientState,
+		cs,
+		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+
+	if err != nil {
+		return nil, err
+	}
+	if err = msg.ValidateBasic(); err != nil {
+		return nil, err
+	}
+	return msg, nil
+}
+
+func (cp *CosmosProvider) SubmitMisbehavior( /*TBD*/ ) (relayer.RelayerMessage, error) {
 	return nil, nil
 }
 
-func (cp *CosmosProvider) SubmitMisbehavior( /*TBD*/ ) (*relayer.RelayerMessage, error) {
+func (cp *CosmosProvider) UpdateClient(srcClientId string, dstHeader ibcexported.Header) (relayer.RelayerMessage, error) {
+	if err := dstHeader.ValidateBasic(); err != nil {
+		return nil, err
+	}
+	msg, err := clienttypes.NewMsgUpdateClient(
+		srcClientId,
+		dstHeader,
+		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+	if err != nil {
+		return nil, err
+	}
+	return msg, nil
+}
+
+func (cp *CosmosProvider) ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) ([]relayer.RelayerMessage, error) {
+	updateMsg, err := cp.UpdateClient(srcClientId, dstHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	var version *conntypes.Version
+	msg := conntypes.NewMsgConnectionOpenInit(
+		srcClientId,
+		dstClientId,
+		defaultChainPrefix,
+		version,
+		defaultDelayPeriod,
+		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+
+	return []relayer.RelayerMessage{updateMsg, msg}, nil
+}
+
+func (cp *CosmosProvider) ConnectionOpenTry(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]relayer.RelayerMessage, error) {
+	updateMsg, err := cp.UpdateClient(srcClientId, dstHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	cph, err := dstQueryProvider.QueryLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+
+	clientState, clientStateProof, consensusStateProof, connStateProof,
+		proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(cph)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Get DelayPeriod from counterparty connection rather than using default value
+	msg := conntypes.NewMsgConnectionOpenTry(
+		srcConnId,
+		srcClientId,
+		dstConnId,
+		dstClientId,
+		clientState,
+		defaultChainPrefix,
+		conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
+		defaultDelayPeriod,
+		connStateProof,
+		clientStateProof,
+		consensusStateProof,
+		clienttypes.NewHeight(proofHeight.GetRevisionNumber(), proofHeight.GetRevisionHeight()),
+		clientState.GetLatestHeight().(clienttypes.Height),
+		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+	if err := msg.ValidateBasic(); err != nil {
+		return nil, err
+	}
+
+	return []relayer.RelayerMessage{updateMsg, msg}, nil
+}
+
+func (cp *CosmosProvider) ConnectionOpenAck(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstConnId string) ([]relayer.RelayerMessage, error) {
+	updateMsg, err := cp.UpdateClient(srcClientId, dstHeader)
+	if err != nil {
+		return nil, err
+	}
+	cph, err := dstQueryProvider.QueryLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+
+	clientState, clientStateProof, consensusStateProof, connStateProof,
+		proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(cph)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := conntypes.NewMsgConnectionOpenAck(
+		srcConnId,
+		dstConnId,
+		clientState,
+		connStateProof,
+		clientStateProof,
+		consensusStateProof,
+		clienttypes.NewHeight(proofHeight.GetRevisionNumber(), proofHeight.GetRevisionHeight()),
+		clientState.GetLatestHeight().(clienttypes.Height),
+		conntypes.DefaultIBCVersion,
+		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+
+	return []relayer.RelayerMessage{updateMsg, msg}, nil
+}
+
+func (cp *CosmosProvider) ConnectionOpenConfirm(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]relayer.RelayerMessage, error) {
+	updateMsg, err := cp.UpdateClient(srcClientId, dstHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	cph, err := dstQueryProvider.QueryLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+	counterpartyConnState, err := dstQueryProvider.QueryConnection(cph, dstConnId)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := conntypes.NewMsgConnectionOpenConfirm(
+		srcConnId,
+		counterpartyConnState.Proof,
+		counterpartyConnState.ProofHeight,
+		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
+	)
+
+	return []relayer.RelayerMessage{updateMsg, msg}, nil
+}
+
+func (cp *CosmosProvider) ChannelOpenInit(srcPortId, srcVersion string, order chantypes.Order, dstHeader ibcexported.Header) (relayer.RelayerMessage, error) {
 	return nil, nil
 }
 
-func (cp *CosmosProvider) UpdateClient(dstHeader ibcexported.Header) (*relayer.RelayerMessage, error) {
+func (cp *CosmosProvider) ChannelOpenTry(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId string) (relayer.RelayerMessage, error) {
 	return nil, nil
 }
 
-func (cp *CosmosProvider) ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) (*relayer.RelayerMessage, error) {
+func (cp *CosmosProvider) ChannelOpenAck(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, srcPortId, srcChanId, dstChanId string) (relayer.RelayerMessage, error) {
 	return nil, nil
 }
 
-func (cp *CosmosProvider) ConnectionOpenTry(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) (*relayer.RelayerMessage, error) {
+func (cp *CosmosProvider) ChannelOpenConfirm(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, srcPortId, srcChanId string) (relayer.RelayerMessage, error) {
 	return nil, nil
 }
 
-func (cp *CosmosProvider) ConnectionOpenAck(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, srcConnId, dstConnId string) (*relayer.RelayerMessage, error) {
+func (cp *CosmosProvider) ChannelCloseInit(srcPortId, srcChanId string) (relayer.RelayerMessage, error) {
 	return nil, nil
 }
 
-func (cp *CosmosProvider) ConnectionOpenConfirm(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, srcConnId string) (*relayer.RelayerMessage, error) {
-	return nil, nil
-}
-
-func (cp *CosmosProvider) ChannelOpenInit(srcPortId, srcVersion string, order chantypes.Order, dstHeader ibcexported.Header) (*relayer.RelayerMessage, error) {
-	return nil, nil
-}
-
-func (cp *CosmosProvider) ChannelOpenTry(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId string) (*relayer.RelayerMessage, error) {
-	return nil, nil
-}
-
-func (cp *CosmosProvider) ChannelOpenAck(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, srcPortId, srcChanId, dstChanId string) (*relayer.RelayerMessage, error) {
-	return nil, nil
-}
-
-func (cp *CosmosProvider) ChannelOpenConfirm(dstQueryProvider relayer.QueryProvider, dstHeader ibcexported.Header, srcPortId, srcChanId string) (*relayer.RelayerMessage, error) {
-	return nil, nil
-}
-
-func (cp *CosmosProvider) ChannelCloseInit(srcPortId, srcChanId string) (*relayer.RelayerMessage, error) {
-	return nil, nil
-}
-
-func (cp *CosmosProvider) ChannelCloseConfirm(dstQueryProvider relayer.QueryProvider, srcPortId, srcChanId string) (*relayer.RelayerMessage, error) {
+func (cp *CosmosProvider) ChannelCloseConfirm(dstQueryProvider relayer.QueryProvider, srcPortId, srcChanId string) (relayer.RelayerMessage, error) {
 	return nil, nil
 }
 
