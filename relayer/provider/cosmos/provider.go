@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -39,6 +40,7 @@ import (
 var (
 	_                  provider.QueryProvider  = &CosmosProvider{}
 	_                  provider.TxProvider     = &CosmosProvider{}
+	_                  provider.KeyProvider    = &CosmosProvider{}
 	_                  provider.RelayerMessage = CosmosMessage{}
 	defaultChainPrefix                         = commitmenttypes.NewMerklePrefix([]byte("ibc"))
 	defaultDelayPeriod                         = uint64(0)
@@ -53,6 +55,31 @@ type CosmosProviderConfig struct {
 	GasPrices      string  `yaml:"gas-prices" json:"gas-prices"`
 	TrustingPeriod string  `yaml:"trusting-period" json:"trusting-period"`
 	Timeout        string  `yaml:"timeout" json:"timeout"`
+}
+
+func (cp *CosmosProviderConfig) Validate() error {
+	if cp.Key == "" {
+		return fmt.Errorf("must set default key in the comsos provider config")
+	}
+	if cp.ChainID == "" {
+		return fmt.Errorf("must set chain id in the cosmos provider config")
+	}
+	if cp.AccountPrefix == "" {
+		return fmt.Errorf("must set account prefix in the cosmos provider config")
+	}
+	if _, err := sdk.ParseDecCoins(cp.GasPrices); err != nil {
+		return err
+	}
+	if _, err := time.ParseDuration(cp.TrustingPeriod); err != nil {
+		return err
+	}
+	if _, err := time.ParseDuration(cp.Timeout); err != nil {
+		return err
+	}
+	if _, err := url.ParseRequestURI(cp.RPCAddr); err != nil {
+		return err
+	}
+	return nil
 }
 
 type CosmosMessage struct {
@@ -86,11 +113,6 @@ func CosmosMsgs(rm ...provider.RelayerMessage) []sdk.Msg {
 	return sdkMsgs
 }
 
-func (cp CosmosProvider) Validate() error {
-	// TODO: validate all config fields, optionally add unexported config fields to hold parsed results
-	return nil
-}
-
 func NewCosmosProvider(config *CosmosProviderConfig, homePath string, debug bool) (*CosmosProvider, error) {
 	cp := &CosmosProvider{Config: config, HomePath: homePath, debug: debug}
 	if err := cp.Init(); err != nil {
@@ -114,8 +136,11 @@ type CosmosProvider struct {
 }
 
 func (cp *CosmosProvider) Init() error {
-	keybase, err := keys.New(cp.Config.ChainID, "test", KeysDir(cp.HomePath, cp.Config.ChainID), nil)
-	if err != nil {
+	if err := cp.Config.Validate(); err != nil {
+		return err
+	}
+
+	if err := cp.CreateKeystore(cp.HomePath); err != nil {
 		return err
 	}
 
@@ -146,7 +171,6 @@ func (cp *CosmosProvider) Init() error {
 
 	encodingConfig := cp.MakeEncodingConfig()
 
-	cp.Keybase = keybase
 	cp.Client = client
 	cp.Encoding = encodingConfig
 	cp.logger = log.NewTMLogger(log.NewSyncWriter(os.Stdout)) // switch to json logging? add option for json logging?
@@ -173,10 +197,7 @@ func (cp *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstH
 		return nil, err
 	}
 
-	if err = msg.ValidateBasic(); err != nil {
-		return nil, err
-	}
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg), msg.ValidateBasic()
 }
 
 func (cp *CosmosProvider) SubmitMisbehavior( /*TBD*/ ) (provider.RelayerMessage, error) {
@@ -195,7 +216,7 @@ func (cp *CosmosProvider) UpdateClient(srcClientId string, dstHeader ibcexported
 	if err != nil {
 		return nil, err
 	}
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg), msg.ValidateBasic()
 }
 
 func (cp *CosmosProvider) ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) ([]provider.RelayerMessage, error) {
@@ -214,7 +235,7 @@ func (cp *CosmosProvider) ConnectionOpenInit(srcClientId, dstClientId string, ds
 		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
-	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, msg.ValidateBasic()
 }
 
 func (cp *CosmosProvider) ConnectionOpenTry(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
@@ -251,11 +272,8 @@ func (cp *CosmosProvider) ConnectionOpenTry(dstQueryProvider provider.QueryProvi
 		clientState.GetLatestHeight().(clienttypes.Height),
 		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
-	if err := msg.ValidateBasic(); err != nil {
-		return nil, err
-	}
 
-	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, msg.ValidateBasic()
 }
 
 func (cp *CosmosProvider) ConnectionOpenAck(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]provider.RelayerMessage, error) {
@@ -287,7 +305,7 @@ func (cp *CosmosProvider) ConnectionOpenAck(dstQueryProvider provider.QueryProvi
 		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
-	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, msg.ValidateBasic()
 }
 
 func (cp *CosmosProvider) ConnectionOpenConfirm(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]provider.RelayerMessage, error) {
@@ -312,7 +330,7 @@ func (cp *CosmosProvider) ConnectionOpenConfirm(dstQueryProvider provider.QueryP
 		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
-	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, msg.ValidateBasic()
 }
 
 func (cp *CosmosProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.Header) ([]provider.RelayerMessage, error) {
@@ -330,7 +348,7 @@ func (cp *CosmosProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, src
 		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
-	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, msg.ValidateBasic()
 }
 
 func (cp *CosmosProvider) ChannelOpenTry(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
@@ -362,7 +380,7 @@ func (cp *CosmosProvider) ChannelOpenTry(dstQueryProvider provider.QueryProvider
 		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
-	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, msg.ValidateBasic()
 }
 
 func (cp *CosmosProvider) ChannelOpenAck(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]provider.RelayerMessage, error) {
@@ -391,7 +409,7 @@ func (cp *CosmosProvider) ChannelOpenAck(dstQueryProvider provider.QueryProvider
 		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
-	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, msg.ValidateBasic()
 }
 
 func (cp *CosmosProvider) ChannelOpenConfirm(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChanId string) ([]provider.RelayerMessage, error) {
@@ -417,7 +435,7 @@ func (cp *CosmosProvider) ChannelOpenConfirm(dstQueryProvider provider.QueryProv
 		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 
-	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, msg.ValidateBasic()
 }
 
 func (cp *CosmosProvider) ChannelCloseInit(srcPortId, srcChanId string) provider.RelayerMessage {
@@ -960,4 +978,77 @@ func (cp *CosmosProvider) QueryDenomTraces(offset, limit uint64, height int64) (
 		return nil, err
 	}
 	return transfers.DenomTraces, nil
+}
+
+// Creates the on disk file for the keystore and attaches it to the provider object
+func (cp *CosmosProvider) CreateKeystore(homePath string) error {
+	kb, err := keys.New(cp.Config.ChainID, "test", KeysDir(homePath, cp.Config.ChainID), nil)
+	if err != nil {
+		return err
+	}
+	cp.Keybase = kb
+	return nil
+}
+
+// Returns false if either files aren't on disk as expected or the keystore isn't set on the provider
+func (cp *CosmosProvider) KeystoreCreated(homePath string) bool {
+	if _, err := os.Stat(KeysDir(homePath, cp.Config.ChainID)); errors.Is(err, os.ErrNotExist) {
+		return false
+	} else if cp.Keybase == nil {
+		return false
+	}
+	return true
+}
+
+// Add a key to the keystore and generate and return a mnemonic for it
+func (cp *CosmosProvider) AddKey(name string) (string, string, error) {
+	ko, err := cp.KeyAddOrRestore(name, 118)
+	if err != nil {
+		return "", "", err
+	}
+	return ko.Address, ko.Mnemonic, nil
+}
+
+// Restore a key from a mnemonic to the keystore at ta given name
+func (cp *CosmosProvider) RestoreKey(name, mnemonic string) (string, error) {
+	ko, err := cp.KeyAddOrRestore(name, 118, mnemonic)
+	if err != nil {
+		return "", err
+	}
+	return ko.Address, nil
+}
+
+// Show the address for a key from the store
+func (cp *CosmosProvider) ShowAddress(name string) (address string, err error) {
+	info, err := cp.Keybase.Key(name)
+	if err != nil {
+		return "", err
+	}
+	done := cp.UseSDKContext()
+	address = info.GetAddress().String()
+	done()
+	return address, nil
+}
+
+// List the addresses in the keystore and their assoicated names
+func (cp *CosmosProvider) ListAddresses() (map[string]string, error) {
+	out := map[string]string{}
+	info, err := cp.Keybase.List()
+	if err != nil {
+		return nil, err
+	}
+	done := cp.UseSDKContext()
+	for _, k := range info {
+		out[k.GetName()] = k.GetAddress().String()
+	}
+	done()
+	return out, nil
+}
+
+// Delete a key tracked by the store
+func (cp *CosmosProvider) DeleteKey(name string) error {
+	if err := cp.Keybase.Delete(name); err != nil {
+		return err
+	}
+	return nil
 }

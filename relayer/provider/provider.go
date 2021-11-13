@@ -22,8 +22,13 @@ type RelayerTxResponse struct {
 }
 
 type KeyProvider interface {
-	// TODO: figure out what is needed for key provider interface
-	// to offer same CLI UX to users of each chain. Is this practical?
+	CreateKeystore(path string) error
+	KeystoreCreated(path string) bool
+	AddKey(name string) (address, mnemonic string, err error)
+	RestoreKey(name, mnemonic string) (address string, err error)
+	ShowAddress(name string) (address string, err error)
+	ListAddresses() (map[string]string, error)
+	DeleteKey(name string) error
 }
 
 type TxProvider interface {

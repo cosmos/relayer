@@ -4,16 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/cosmos/cosmos-sdk/store/rootmulti"
-	querytypes "github.com/cosmos/cosmos-sdk/types/query"
-	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
-	committypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
-	abci "github.com/tendermint/tendermint/abci/types"
-	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	"os"
 	"path"
 	"strings"
 	"time"
+
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
+	"github.com/cosmos/cosmos-sdk/store/rootmulti"
+	querytypes "github.com/cosmos/cosmos-sdk/types/query"
+	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	committypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
+	"github.com/cosmos/relayer/relayer"
+	abci "github.com/tendermint/tendermint/abci/types"
+	rpcclient "github.com/tendermint/tendermint/rpc/client"
 
 	sdkCtx "github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -197,4 +200,36 @@ func DefaultPageRequest() *querytypes.PageRequest {
 		Limit:      1000,
 		CountTotal: true,
 	}
+}
+
+// KeyOutput contains mnemonic and address of key
+type KeyOutput struct {
+	Mnemonic string `json:"mnemonic" yaml:"mnemonic"`
+	Address  string `json:"address" yaml:"address"`
+}
+
+// KeyAddOrRestore is a helper function for add key and restores key when mnemonic is passed
+func (cp *CosmosProvider) KeyAddOrRestore(keyName string, coinType uint32, mnemonic ...string) (KeyOutput, error) {
+	var mnemonicStr string
+	var err error
+
+	if len(mnemonic) > 0 {
+		mnemonicStr = mnemonic[0]
+	} else {
+		mnemonicStr, err = relayer.CreateMnemonic()
+		if err != nil {
+			return KeyOutput{}, err
+		}
+	}
+
+	info, err := cp.Keybase.NewAccount(keyName, mnemonicStr, "", hd.CreateHDPath(coinType, 0, 0).String(), hd.Secp256k1)
+	if err != nil {
+		return KeyOutput{}, err
+	}
+
+	done := cp.UseSDKContext()
+	ko := KeyOutput{Mnemonic: mnemonicStr, Address: info.GetAddress().String()}
+	done()
+
+	return ko, nil
 }
