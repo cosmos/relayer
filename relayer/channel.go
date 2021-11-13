@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
+	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
 )
 
 // CreateOpenChannels runs the channel creation messages on timeout until they pass
@@ -21,6 +21,7 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 	ticker := time.NewTicker(to)
 	failures := uint64(0)
 	for ; true; <-ticker.C {
+		var err error
 		success, lastStep, recentlyModified, err := ExecuteChannelStep(c, dst)
 		if err != nil {
 			c.Log(err.Error())
@@ -35,7 +36,7 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 		case success && lastStep:
 
 			if c.debug {
-				srch, dsth, err := GetLatestLightHeights(c, dst)
+				srch, dsth, err := QueryLatestHeights(c, dst)
 				if err != nil {
 					return modified, err
 				}
@@ -78,7 +79,8 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 // file. The booleans return indicate if the message was successfully
 // executed and if this was the last handshake step.
 func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err error) {
-	if _, _, err := UpdateLightClients(src, dst); err != nil {
+	srch, dsth, err := QueryLatestHeights(src, dst)
+	if err != nil {
 		return false, false, false, err
 	}
 
@@ -94,8 +96,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 	}
 
 	// Query Channel data from src and dst
-	srcChan, dstChan, err := QueryChannelPair(src, dst, int64(src.MustGetLatestLightHeight())-1,
-		int64(dst.MustGetLatestLightHeight()-1))
+	srcChan, dstChan, err := QueryChannelPair(src, dst, srch-1, dsth-1)
 	if err != nil {
 		return false, false, false, err
 	}
@@ -110,12 +111,25 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
 
-		msgs, err := src.ChanTry(dst)
+		dsth, err := dst.QueryLatestHeight()
 		if err != nil {
 			return false, false, false, err
 		}
 
-		_, success, err = src.SendMsgs(msgs)
+		dstHeader, err := dst.GetIBCUpdateHeader(src, dsth)
+		if err != nil {
+			return false, false, false, err
+		}
+
+		msgs, err := src.ChanTry(dst, dstHeader)
+		if err != nil {
+			return false, false, false, err
+		}
+
+		res, success, err := src.SendMsgs(msgs)
+		if err != nil {
+			src.LogFailedTx(res, err, msgs)
+		}
 		if !success {
 			return false, false, false, err
 		}
@@ -129,12 +143,25 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
 
-		msgs, err := src.ChanAck(dst)
+		dsth, err := dst.QueryLatestHeight()
 		if err != nil {
 			return false, false, false, err
 		}
 
-		_, success, err = src.SendMsgs(msgs)
+		dstHeader, err := dst.GetIBCUpdateHeader(src, dsth)
+		if err != nil {
+			return false, false, false, err
+		}
+
+		msgs, err := src.ChanAck(dst, dstHeader)
+		if err != nil {
+			return false, false, false, err
+		}
+
+		res, success, err := src.SendMsgs(msgs)
+		if err != nil {
+			src.LogFailedTx(res, err, msgs)
+		}
 		if !success {
 			return false, false, false, err
 		}
@@ -147,12 +174,25 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(dst, src, dstChan, srcChan)
 		}
 
-		msgs, err := dst.ChanAck(src)
+		srch, err := src.QueryLatestHeight()
 		if err != nil {
 			return false, false, false, err
 		}
 
-		_, success, err = dst.SendMsgs(msgs)
+		srcHeader, err := src.GetIBCUpdateHeader(dst, srch)
+		if err != nil {
+			return false, false, false, err
+		}
+
+		msgs, err := dst.ChanAck(src, srcHeader)
+		if err != nil {
+			return false, false, false, err
+		}
+
+		res, success, err := dst.SendMsgs(msgs)
+		if err != nil {
+			dst.LogFailedTx(res, err, msgs)
+		}
 		if !success {
 			return false, false, false, err
 		}
@@ -163,14 +203,27 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
 
-		msgs, err := src.ChanConfirm(dst)
+		dsth, err := dst.QueryLatestHeight()
+		if err != nil {
+			return false, false, false, err
+		}
+
+		dstHeader, err := dst.GetIBCUpdateHeader(src, dsth)
+		if err != nil {
+			return false, false, false, err
+		}
+
+		msgs, err := src.ChanConfirm(dst, dstHeader)
 		if err != nil {
 			return false, false, false, err
 		}
 
 		last = true
 
-		_, success, err = src.SendMsgs(msgs)
+		res, success, err := src.SendMsgs(msgs)
+		if err != nil {
+			src.LogFailedTx(res, err, msgs)
+		}
 		if !success {
 			return false, false, false, err
 		}
@@ -181,12 +234,25 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(dst, src, dstChan, srcChan)
 		}
 
-		msgs, err := dst.ChanConfirm(src)
+		srch, err := src.QueryLatestHeight()
 		if err != nil {
 			return false, false, false, err
 		}
 
-		_, success, err = dst.SendMsgs(msgs)
+		srcHeader, err := src.GetIBCUpdateHeader(dst, srch)
+		if err != nil {
+			return false, false, false, err
+		}
+
+		msgs, err := dst.ChanConfirm(src, srcHeader)
+		if err != nil {
+			return false, false, false, err
+		}
+
+		res, success, err := dst.SendMsgs(msgs)
+		if err != nil {
+			dst.LogFailedTx(res, err, msgs)
+		}
 		if !success {
 			return false, false, false, err
 		}
@@ -217,12 +283,26 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 
 		channelID, found := FindMatchingChannel(src, dst)
 		if !found {
-			msgs, err := src.ChanInit(dst)
+
+			dsth, err := dst.QueryLatestHeight()
+			if err != nil {
+				return false, false, err
+			}
+
+			dstHeader, err := dst.GetIBCUpdateHeader(src, dsth)
+			if err != nil {
+				return false, false, err
+			}
+
+			msgs, err := src.ChanInit(dst, dstHeader)
 			if err != nil {
 				return false, false, err
 			}
 
 			res, success, err := src.SendMsgs(msgs)
+			if err != nil {
+				src.LogFailedTx(res, err, msgs)
+			}
 			if !success {
 				return false, false, err
 			}
@@ -250,13 +330,26 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 
 		channelID, found := FindMatchingChannel(src, dst)
 		if !found {
+			dsth, err := dst.QueryLatestHeight()
+			if err != nil {
+				return false, false, err
+			}
+
+			dstHeader, err := dst.GetIBCUpdateHeader(src, dsth)
+			if err != nil {
+				return false, false, err
+			}
+
 			// open try on source chain
-			msgs, err := src.ChanTry(dst)
+			msgs, err := src.ChanTry(dst, dstHeader)
 			if err != nil {
 				return false, false, err
 			}
 
 			res, success, err := src.SendMsgs(msgs)
+			if err != nil {
+				src.LogFailedTx(res, err, msgs)
+			}
 			if !success {
 				return false, false, err
 			}
@@ -284,13 +377,27 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 
 		channelID, found := FindMatchingChannel(dst, src)
 		if !found {
+
+			srch, err := src.QueryLatestHeight()
+			if err != nil {
+				return false, false, err
+			}
+
+			srcHeader, err := src.GetIBCUpdateHeader(dst, srch)
+			if err != nil {
+				return false, false, err
+			}
+
 			// open try on destination chain
-			msgs, err := dst.ChanTry(src)
+			msgs, err := dst.ChanTry(src, srcHeader)
 			if err != nil {
 				return false, false, err
 			}
 
 			res, success, err := dst.SendMsgs(msgs)
+			if err != nil {
+				dst.LogFailedTx(res, err, msgs)
+			}
 			if !success {
 				return false, false, err
 			}
@@ -350,7 +457,8 @@ func (c *Chain) CloseChannel(dst *Chain, to time.Duration) error {
 // identifiers between chains src and dst. If the closing handshake hasn't started, then CloseChannelStep
 // will begin the handshake on the src chain
 func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
-	if _, _, err := UpdateLightClients(c, dst); err != nil {
+	srch, dsth, err := QueryLatestHeights(c, dst)
+	if err != nil {
 		return nil, err
 	}
 
@@ -359,9 +467,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 		return nil, err
 	}
 
-	srcChan, dstChan, err := QueryChannelPair(c, dst,
-		int64(c.MustGetLatestLightHeight())-1,
-		int64(dst.MustGetLatestLightHeight())-1)
+	srcChan, dstChan, err := QueryChannelPair(c, dst, srch-1, dsth-1)
 	if err != nil {
 		return nil, err
 	}
@@ -377,7 +483,17 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				logChannelStates(c, dst, srcChan, dstChan)
 			}
 
-			updateMsg, err := c.UpdateClient(dst)
+			dsth, err := dst.QueryLatestHeight()
+			if err != nil {
+				return nil, err
+			}
+
+			dstHeader, err := dst.GetIBCUpdateHeader(c, dsth)
+			if err != nil {
+				return nil, err
+			}
+
+			updateMsg, err := c.UpdateClient(dst, dstHeader)
 			if err != nil {
 				return nil, err
 			}
@@ -391,7 +507,17 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				logChannelStates(dst, c, dstChan, srcChan)
 			}
 
-			updateMsg, err := dst.UpdateClient(c)
+			srch, err := c.QueryLatestHeight()
+			if err != nil {
+				return nil, err
+			}
+
+			srcHeader, err := c.GetIBCUpdateHeader(dst, srch)
+			if err != nil {
+				return nil, err
+			}
+
+			updateMsg, err := dst.UpdateClient(c, srcHeader)
 			if err != nil {
 				return nil, err
 			}
@@ -409,7 +535,17 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				logChannelStates(dst, c, dstChan, srcChan)
 			}
 
-			updateMsg, err := dst.UpdateClient(c)
+			srch, err := c.QueryLatestHeight()
+			if err != nil {
+				return nil, err
+			}
+
+			srcHeader, err := c.GetIBCUpdateHeader(dst, srch)
+			if err != nil {
+				return nil, err
+			}
+
+			updateMsg, err := dst.UpdateClient(c, srcHeader)
 			if err != nil {
 				return nil, err
 			}
@@ -428,7 +564,17 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				logChannelStates(c, dst, srcChan, dstChan)
 			}
 
-			updateMsg, err := c.UpdateClient(dst)
+			dsth, err := dst.QueryLatestHeight()
+			if err != nil {
+				return nil, err
+			}
+
+			dstHeader, err := dst.GetIBCUpdateHeader(c, dsth)
+			if err != nil {
+				return nil, err
+			}
+
+			updateMsg, err := c.UpdateClient(dst, dstHeader)
 			if err != nil {
 				return nil, err
 			}
@@ -447,7 +593,7 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 // that matches the parameters set in the relayer config.
 func FindMatchingChannel(source, counterparty *Chain) (string, bool) {
 	// TODO: add appropriate offset and limits, along with retries
-	channelsResp, err := source.QueryChannels(0, 1000)
+	channelsResp, err := source.QueryChannels(DefaultPageRequest())
 	if err != nil {
 		if source.debug {
 			source.Log(fmt.Sprintf("Error: querying channels on %s failed: %v", source.PathEnd.ChainID, err))

@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/relayer/relayer"
+
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/stretchr/testify/require"
-
-	ry "github.com/cosmos/relayer/relayer"
 )
 
 const (
@@ -27,7 +27,7 @@ var (
 	// timeout_propose = "1000ms"
 	// 3 second relayer timeout works well with these block times
 	gaiaTestConfig = testChainConfig{
-		dockerfile:     "./setup/Dockerfile.gaiatest",
+		dockerfile:     "docker/gaiad/Dockerfile",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "cosmos",
@@ -40,7 +40,7 @@ var (
 	// 3 second relayer timeout works well with these block times
 	// This is built from contrib/Dockerfile.test from the akash repository:
 	akashTestConfig = testChainConfig{
-		dockerfile:     "./setup/Dockerfile.akashtest",
+		dockerfile:     "docker/akash/Dockerfile",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "akash",
@@ -71,10 +71,10 @@ type (
 )
 
 // newTestChain generates a new instance of *Chain with a free TCP port configured as the RPC port
-func newTestChain(t *testing.T, tc testChain) *ry.Chain {
+func newTestChain(t *testing.T, tc testChain) *relayer.Chain {
 	_, port, err := server.FreeTCPAddr()
 	require.NoError(t, err)
-	return &ry.Chain{
+	return &relayer.Chain{
 		Key:            "testkey",
 		ChainID:        tc.chainID,
 		RPCAddr:        fmt.Sprintf("http://localhost:%s", port),

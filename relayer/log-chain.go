@@ -6,14 +6,14 @@ import (
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
-	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
+	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
 )
 
 // LogFailedTx takes the transaction and the messages to create it and logs the appropriate data
 func (c *Chain) LogFailedTx(res *sdk.TxResponse, err error, msgs []sdk.Msg) {
 	if c.debug {
-		c.Log(fmt.Sprintf("- [%s] -> sending transaction:", c.ChainID))
+		c.Log(fmt.Sprintf("- [%s] -> failed sending transaction:", c.ChainID))
 		for _, msg := range msgs {
 			c.Print(msg, false, false)
 		}

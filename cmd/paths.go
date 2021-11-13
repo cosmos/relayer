@@ -4,18 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"strings"
 
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
-	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
-	"github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
-	"github.com/cosmos/relayer/helpers"
+	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
+	"github.com/cosmos/ibc-go/v2/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer"
-	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
@@ -84,11 +81,11 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 
 			// see if there are existing clients that can be reused
 			eg.Go(func() error {
-				srcClients, err = c[src].QueryClients(0, 1000)
+				srcClients, err = c[src].QueryClients(relayer.DefaultPageRequest())
 				return err
 			})
 			eg.Go(func() error {
-				dstClients, err = c[dst].QueryClients(0, 1000)
+				dstClients, err = c[dst].QueryClients(relayer.DefaultPageRequest())
 				return err
 			})
 			if err := eg.Wait(); err != nil {
@@ -106,7 +103,7 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				switch cs := clnt.(type) {
 				case *tmclient.ClientState:
 					// if the client is an active tendermint client for the counterparty chain then we reuse it
-					if cs.ChainId == c[dst].ChainID && !cs.IsFrozen() {
+					if cs.ChainId == c[dst].ChainID && cs.FrozenHeight.IsZero() {
 						path.Src.ClientID = idCs.ClientId
 					}
 				default:
@@ -124,7 +121,7 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				switch cs := clnt.(type) {
 				case *tmclient.ClientState:
 					// if the client is an active tendermint client for the counterparty chain then we reuse it
-					if cs.ChainId == c[src].ChainID && !cs.IsFrozen() {
+					if cs.ChainId == c[src].ChainID && cs.FrozenHeight.IsZero() {
 						path.Dst.ClientID = idCs.ClientId
 					}
 				default:
@@ -137,11 +134,11 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 
 			// see if there are existing connections that can be reused
 			eg.Go(func() error {
-				srcConns, err = c[src].QueryConnections(0, 1000)
+				srcConns, err = c[src].QueryConnections(relayer.DefaultPageRequest())
 				return err
 			})
 			eg.Go(func() error {
-				dstConns, err = c[dst].QueryConnections(0, 1000)
+				dstConns, err = c[dst].QueryConnections(relayer.DefaultPageRequest())
 				return err
 			})
 			if err = eg.Wait(); err != nil {
@@ -179,11 +176,11 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 			}
 
 			eg.Go(func() error {
-				srcChans, err = c[src].QueryChannels(0, 1000)
+				srcChans, err = c[src].QueryChannels(relayer.DefaultPageRequest())
 				return err
 			})
 			eg.Go(func() error {
-				dstChans, err = c[dst].QueryChannels(0, 1000)
+				dstChans, err = c[dst].QueryChannels(relayer.DefaultPageRequest())
 				return err
 			})
 			if err = eg.Wait(); err != nil {
@@ -551,116 +548,4 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 	}
 
 	return config, nil
-}
-
-// API Handlers
-
-// GetPathsHandler returns the configured chains in json format
-func GetPathsHandler(w http.ResponseWriter, r *http.Request) {
-	helpers.SuccessJSONResponse(http.StatusOK, config.Paths, w)
-}
-
-// GetPathHandler returns the configured chains in json format
-func GetPathHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	pth, err := config.Paths.Get(vars["name"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-	helpers.SuccessJSONResponse(http.StatusOK, pth, w)
-}
-
-// GetPathStatusHandler returns the configured chains in json format
-func GetPathStatusHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	pth, err := config.Paths.Get(vars["name"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-	c, src, dst, err := config.ChainsFromPath(vars["name"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-		return
-	}
-	ps := pth.QueryPathStatus(c[src], c[dst])
-	helpers.SuccessJSONResponse(http.StatusOK, ps, w)
-}
-
-type postPathRequest struct {
-	FilePath string          `json:"file"`
-	Src      relayer.PathEnd `json:"src"`
-	Dst      relayer.PathEnd `json:"dst"`
-}
-
-// PostPathHandler handles the route
-func PostPathHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	pathName := vars["name"]
-
-	var request postPathRequest
-	err := json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-
-	var out *Config
-	if request.FilePath != "" {
-		if out, err = fileInputPathAdd(request.FilePath, pathName); err != nil {
-			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-			return
-		}
-	} else {
-		if out, err = addPathByRequest(request, pathName); err != nil {
-			helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-			return
-		}
-	}
-
-	if err = overWriteConfig(out); err != nil {
-		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-		return
-	}
-	helpers.SuccessJSONResponse(http.StatusCreated, fmt.Sprintf("path %s added successfully", pathName), w)
-}
-
-func addPathByRequest(req postPathRequest, pathName string) (*Config, error) {
-	var (
-		path = &relayer.Path{
-			Strategy: relayer.NewNaiveStrategy(),
-			Src:      &req.Src,
-			Dst:      &req.Dst,
-		}
-	)
-
-	if err := config.ValidatePath(path); err != nil {
-		return nil, err
-	}
-
-	if err := config.Paths.Add(pathName, path); err != nil {
-		return nil, err
-	}
-
-	return config, nil
-}
-
-// DeletePathHandler handles the route
-func DeletePathHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	_, err := config.Paths.Get(vars["name"])
-	if err != nil {
-		helpers.WriteErrorResponse(http.StatusBadRequest, err, w)
-		return
-	}
-
-	cfg := config
-	delete(cfg.Paths, vars["name"])
-
-	if err = overWriteConfig(cfg); err != nil {
-		helpers.WriteErrorResponse(http.StatusInternalServerError, err, w)
-		return
-	}
-	helpers.SuccessJSONResponse(http.StatusOK, fmt.Sprintf("path %s deleted", vars["name"]), w)
 }

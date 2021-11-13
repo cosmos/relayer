@@ -56,7 +56,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 				return err
 			}
 
-			dts, err := c[src].QueryDenomTraces(0, 1000, srch)
+			dts, err := c[src].QueryDenomTraces(relayer.DefaultPageRequest(), srch)
 			if err != nil {
 				return err
 			}
@@ -79,23 +79,23 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 
 			// If the argument begins with "raw:" then use the suffix directly.
 			rawDstAddr := strings.TrimPrefix(args[3], "raw:")
-			var dstAddr fmt.Stringer
+			var dstAddr string
 			if rawDstAddr == args[3] {
 				// not "raw:", so we treat the dstAddr as bech32
 				done := c[dst].UseSDKContext()
-
-				dstAddr, err = sdk.AccAddressFromBech32(args[3])
+				dst, err := sdk.AccAddressFromBech32(args[3])
 				if err != nil {
 					return err
 				}
-
+				dstAddr = dst.String()
 				done()
 			} else {
 				// Don't parse the rest of the dstAddr... it's raw.
-				dstAddr = stringStringer{str: rawDstAddr}
+				dstAddr = rawDstAddr
+
 			}
 
-			return c[src].SendTransferMsg(c[dst], amount, dstAddr.String(), toHeightOffset, toTimeOffset)
+			return c[src].SendTransferMsg(c[dst], amount, dstAddr, toHeightOffset, toTimeOffset)
 		},
 	}
 

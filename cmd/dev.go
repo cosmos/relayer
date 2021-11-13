@@ -232,14 +232,6 @@ $ %s development relayer path-test`, appName, appName)),
 					dst, chains[dst].MustGetAddress())
 			}
 
-			// ensure light clients are initialized
-			if _, err = chains[src].GetLatestLightHeight(); err != nil {
-				return fmt.Errorf("no light client on %s, ensure it is initialized before continuing: %w", src, err)
-			}
-			if _, err = chains[dst].GetLatestLightHeight(); err != nil {
-				return fmt.Errorf("no light client on %s, ensure it is initialized before continuing: %w", dst, err)
-			}
-
 			fmt.Printf(`[Unit]
 Description=%s
 After=network.target

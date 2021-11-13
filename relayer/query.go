@@ -16,18 +16,18 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	transfertypes "github.com/cosmos/cosmos-sdk/x/ibc/applications/transfer/types"
-	clientutils "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/client/utils"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	connutils "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/client/utils"
-	conntypes "github.com/cosmos/cosmos-sdk/x/ibc/core/03-connection/types"
-	chanutils "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/client/utils"
-	chantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
-	committypes "github.com/cosmos/cosmos-sdk/x/ibc/core/23-commitment/types"
-	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
+	transfertypes "github.com/cosmos/ibc-go/v2/modules/apps/transfer/types"
+	clientutils "github.com/cosmos/ibc-go/v2/modules/core/02-client/client/utils"
+	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	connutils "github.com/cosmos/ibc-go/v2/modules/core/03-connection/client/utils"
+	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
+	chanutils "github.com/cosmos/ibc-go/v2/modules/core/04-channel/client/utils"
+	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
+	committypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
+	ibcexported "github.com/cosmos/ibc-go/v2/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
 	abci "github.com/tendermint/tendermint/abci/types"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
@@ -46,7 +46,7 @@ var eventFormat = "{eventType}.{eventAttribute}={value}"
 
 // QueryBalance returns the amount of coins in the relayer account
 func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
-	var addr sdk.AccAddress
+	var addr string
 	if keyName == "" {
 		addr = c.MustGetAddress()
 	} else {
@@ -55,10 +55,10 @@ func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
 			return nil, err
 		}
 		done := c.UseSDKContext()
-		addr = info.GetAddress()
+		addr = info.GetAddress().String()
 		done()
 	}
-	return c.QueryBalanceWithAddress(addr.String())
+	return c.QueryBalanceWithAddress(addr)
 }
 
 // QueryBalanceWithAddress returns the amount of coins in the relayer account with address as input
@@ -94,7 +94,7 @@ func (c *Chain) QueryBalanceWithAddress(address string) (sdk.Coins, error) {
 // QueryConsensusState returns a consensus state for a given chain to be used as a
 // client in another chain, fetches latest height when passed 0 as arg
 func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, int64, error) {
-	return clientutils.QueryNodeConsensusState(c.CLIContext(height))
+	return clientutils.QuerySelfConsensusState(c.CLIContext(height))
 }
 
 // QueryClientConsensusState retrevies the latest consensus state for a client in state at a given height
@@ -105,24 +105,6 @@ func (c *Chain) QueryClientConsensusState(
 		c.PathEnd.ClientID,
 		dstClientConsHeight,
 	)
-}
-
-// QueryClientConsensusStatePair allows for the querying of multiple client states at the same time
-func QueryClientConsensusStatePair(
-	src, dst *Chain,
-	srch, dsth int64, srcClientConsH,
-	dstClientConsH ibcexported.Height) (srcCsRes, dstCsRes *clienttypes.QueryConsensusStateResponse, err error) {
-	var eg = new(errgroup.Group)
-	eg.Go(func() error {
-		srcCsRes, err = src.QueryClientConsensusState(srch, srcClientConsH)
-		return err
-	})
-	eg.Go(func() error {
-		dstCsRes, err = dst.QueryClientConsensusState(dsth, dstClientConsH)
-		return err
-	})
-	err = eg.Wait()
-	return
 }
 
 // QueryClientStateResponse retrevies the latest consensus state for a client in state at a given height
@@ -174,34 +156,21 @@ func CastClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) 
 	return clientState, nil
 }
 
-// QueryClientStatePair returns a pair of connection responses
-func QueryClientStatePair(
-	src, dst *Chain,
-	srch, dsth int64) (srcCsRes, dstCsRes *clienttypes.QueryClientStateResponse, err error) {
-	var eg = new(errgroup.Group)
-	eg.Go(func() error {
-		srcCsRes, err = src.QueryClientStateResponse(srch)
-		return err
-	})
-	eg.Go(func() error {
-		dstCsRes, err = dst.QueryClientStateResponse(dsth)
-		return err
-	})
-	err = eg.Wait()
-	return
-}
-
 // QueryClients queries all the clients!
-func (c *Chain) QueryClients(offset, limit uint64) (*clienttypes.QueryClientStatesResponse, error) {
+func (c *Chain) QueryClients(pagereq *querytypes.PageRequest) (*clienttypes.QueryClientStatesResponse, error) {
 	qc := clienttypes.NewQueryClient(c.CLIContext(0))
 	return qc.ClientStates(context.Background(), &clienttypes.QueryClientStatesRequest{
-		Pagination: &querytypes.PageRequest{
-			Key:        []byte(""),
-			Offset:     offset,
-			Limit:      limit,
-			CountTotal: true,
-		},
+		Pagination: pagereq,
 	})
+}
+
+func DefaultPageRequest() *querytypes.PageRequest {
+	return &querytypes.PageRequest{
+		Key:        []byte(""),
+		Offset:     0,
+		Limit:      1000,
+		CountTotal: true,
+	}
 }
 
 // ////////////////////////////
@@ -210,15 +179,10 @@ func (c *Chain) QueryClients(offset, limit uint64) (*clienttypes.QueryClientStat
 
 // QueryConnections gets any connections on a chain
 func (c *Chain) QueryConnections(
-	offset, limit uint64) (conns *conntypes.QueryConnectionsResponse, err error) {
+	pagereq *querytypes.PageRequest) (conns *conntypes.QueryConnectionsResponse, err error) {
 	qc := conntypes.NewQueryClient(c.CLIContext(0))
 	res, err := qc.Connections(context.Background(), &conntypes.QueryConnectionsRequest{
-		Pagination: &querytypes.PageRequest{
-			Key:        []byte(""),
-			Offset:     offset,
-			Limit:      limit,
-			CountTotal: true,
-		},
+		Pagination: pagereq,
 	})
 	return res, err
 }
@@ -262,6 +226,7 @@ func QueryConnectionPair(
 	srcH, dstH int64) (srcConn, dstConn *conntypes.QueryConnectionResponse, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
+		var err error
 		srcConn, err = src.QueryConnection(srcH)
 		return err
 	})
@@ -280,16 +245,11 @@ func QueryConnectionPair(
 // QueryConnectionChannels queries the channels associated with a connection
 func (c *Chain) QueryConnectionChannels(
 	connectionID string,
-	offset, limit uint64) (*chantypes.QueryConnectionChannelsResponse, error) {
+	pagereq *querytypes.PageRequest) (*chantypes.QueryConnectionChannelsResponse, error) {
 	qc := chantypes.NewQueryClient(c.CLIContext(0))
 	return qc.ConnectionChannels(context.Background(), &chantypes.QueryConnectionChannelsRequest{
 		Connection: connectionID,
-		Pagination: &querytypes.PageRequest{
-			Key:        []byte(""),
-			Offset:     offset,
-			Limit:      limit,
-			CountTotal: true,
-		},
+		Pagination: pagereq,
 	})
 }
 
@@ -323,10 +283,12 @@ var emptyChannelRes = chantypes.NewQueryChannelResponse(
 func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (srcChan, dstChan *chantypes.QueryChannelResponse, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
+		var err error
 		srcChan, err = src.QueryChannel(srcH)
 		return err
 	})
 	eg.Go(func() error {
+		var err error
 		dstChan, err = dst.QueryChannel(dstH)
 		return err
 	})
@@ -335,15 +297,10 @@ func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (srcChan, dstChan *chan
 }
 
 // QueryChannels returns all the channels that are registered on a chain
-func (c *Chain) QueryChannels(offset, limit uint64) (*chantypes.QueryChannelsResponse, error) {
+func (c *Chain) QueryChannels(pagereq *querytypes.PageRequest) (*chantypes.QueryChannelsResponse, error) {
 	qc := chantypes.NewQueryClient(c.CLIContext(0))
 	res, err := qc.Channels(context.Background(), &chantypes.QueryChannelsRequest{
-		Pagination: &querytypes.PageRequest{
-			Key:        []byte(""),
-			Offset:     offset,
-			Limit:      limit,
-			CountTotal: true,
-		},
+		Pagination: pagereq,
 	})
 	return res, err
 }
@@ -370,15 +327,11 @@ func (c *Chain) QueryDenomTrace(denom string) (*transfertypes.QueryDenomTraceRes
 }
 
 // QueryDenomTraces returns all the denom traces from a given chain
-func (c *Chain) QueryDenomTraces(offset, limit uint64, height int64) (*transfertypes.QueryDenomTracesResponse, error) {
+func (c *Chain) QueryDenomTraces(pagereq *querytypes.PageRequest,
+	height int64) (*transfertypes.QueryDenomTracesResponse, error) {
 	return transfertypes.NewQueryClient(c.CLIContext(height)).DenomTraces(context.Background(),
 		&transfertypes.QueryDenomTracesRequest{
-			Pagination: &querytypes.PageRequest{
-				Key:        []byte(""),
-				Offset:     offset,
-				Limit:      limit,
-				CountTotal: true,
-			},
+			Pagination: pagereq,
 		})
 }
 
@@ -439,7 +392,7 @@ func (c *Chain) toTmValidator(val stakingtypes.Validator) (*tmtypes.Validator, e
 	if err != nil {
 		return nil, fmt.Errorf("pubkey not a tendermint pub key %s", err)
 	}
-	return tmtypes.NewValidator(tmkey, val.ConsensusPower()), nil
+	return tmtypes.NewValidator(tmkey, val.ConsensusPower(sdk.DefaultPowerReduction)), nil
 }
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
@@ -458,20 +411,20 @@ func (c *Chain) QueryUnbondingPeriod() (time.Duration, error) {
 
 // QueryUpgradedClient returns upgraded client info
 func (c *Chain) QueryUpgradedClient(height int64) (*codectypes.Any, []byte, clienttypes.Height, error) {
-	req := upgradetypes.QueryCurrentPlanRequest{}
+	req := clienttypes.QueryUpgradedClientStateRequest{}
 
-	queryClient := upgradetypes.NewQueryClient(c.CLIContext(0))
+	queryClient := clienttypes.NewQueryClient(c.CLIContext(0))
 
-	res, err := queryClient.CurrentPlan(context.Background(), &req)
+	res, err := queryClient.UpgradedClientState(context.Background(), &req)
 	if err != nil {
 		return nil, nil, clienttypes.Height{}, err
 	}
 
-	if res == nil || res.Plan == nil || res.Plan.UpgradedClientState == nil {
+	if res == nil || res.UpgradedClientState == nil {
 		return nil, nil, clienttypes.Height{},
 			fmt.Errorf("upgraded client state plan does not exist at height %d", height)
 	}
-	client := res.Plan.UpgradedClientState
+	client := res.UpgradedClientState
 
 	proof, proofHeight, err := c.QueryUpgradeProof(upgradetypes.UpgradedClientKey(height), uint64(height))
 	if err != nil {
@@ -483,11 +436,9 @@ func (c *Chain) QueryUpgradedClient(height int64) (*codectypes.Any, []byte, clie
 
 // QueryUpgradedConsState returns upgraded consensus state and height of client
 func (c *Chain) QueryUpgradedConsState(height int64) (*codectypes.Any, []byte, clienttypes.Height, error) {
-	req := upgradetypes.QueryUpgradedConsensusStateRequest{
-		LastHeight: height,
-	}
+	req := clienttypes.QueryUpgradedConsensusStateRequest{}
 
-	queryClient := upgradetypes.NewQueryClient(c.CLIContext(0))
+	queryClient := clienttypes.NewQueryClient(c.CLIContext(height))
 
 	res, err := queryClient.UpgradedConsensusState(context.Background(), &req)
 	if err != nil {
@@ -526,7 +477,7 @@ func (c *Chain) QueryUpgradeProof(key []byte, height uint64) ([]byte, clienttype
 		return nil, clienttypes.Height{}, err
 	}
 
-	proof, err := c.Encoding.Marshaler.MarshalBinaryBare(&merkleProof)
+	proof, err := c.Encoding.Marshaler.Marshal(&merkleProof)
 	if err != nil {
 		return nil, clienttypes.Height{}, err
 	}
@@ -586,32 +537,24 @@ func (c *Chain) QueryPacketReceipt(height int64, seq uint64) (recRes *chantypes.
 }
 
 // QueryPacketCommitments returns an array of packet commitments
-func (c *Chain) QueryPacketCommitments(
-	offset, limit, height uint64) (comRes *chantypes.QueryPacketCommitmentsResponse, err error) {
+func (c *Chain) QueryPacketCommitments(pagereq *querytypes.PageRequest,
+	height uint64) (comRes *chantypes.QueryPacketCommitmentsResponse, err error) {
 	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
 	return qc.PacketCommitments(context.Background(), &chantypes.QueryPacketCommitmentsRequest{
-		PortId:    c.PathEnd.PortID,
-		ChannelId: c.PathEnd.ChannelID,
-		Pagination: &querytypes.PageRequest{
-			Offset:     offset,
-			Limit:      limit,
-			CountTotal: true,
-		},
+		PortId:     c.PathEnd.PortID,
+		ChannelId:  c.PathEnd.ChannelID,
+		Pagination: pagereq,
 	})
 }
 
 // QueryPacketAcknowledgements returns an array of packet acks
-func (c *Chain) QueryPacketAcknowledgements(offset, limit,
+func (c *Chain) QueryPacketAcknowledgements(pagereq *querytypes.PageRequest,
 	height uint64) (comRes *chantypes.QueryPacketAcknowledgementsResponse, err error) {
 	qc := chantypes.NewQueryClient(c.CLIContext(int64(height)))
 	return qc.PacketAcknowledgements(context.Background(), &chantypes.QueryPacketAcknowledgementsRequest{
-		PortId:    c.PathEnd.PortID,
-		ChannelId: c.PathEnd.ChannelID,
-		Pagination: &querytypes.PageRequest{
-			Offset:     offset,
-			Limit:      limit,
-			CountTotal: true,
-		},
+		PortId:     c.PathEnd.PortID,
+		ChannelId:  c.PathEnd.ChannelID,
+		Pagination: pagereq,
 	})
 }
 
@@ -703,9 +646,7 @@ func (c *Chain) QueryABCI(req abci.RequestQuery) (res abci.ResponseQuery, err er
 		return result.Response, nil
 	}
 
-	if err = c.VerifyProof(req.Path, result.Response); err != nil {
-		return res, err
-	}
+	// TODO: figure out how to verify queries?
 
 	return result.Response, nil
 }
@@ -736,10 +677,12 @@ func (c *Chain) QueryLatestHeight() (int64, error) {
 func QueryLatestHeights(src, dst *Chain) (srch, dsth int64, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
+		var err error
 		srch, err = src.QueryLatestHeight()
 		return err
 	})
 	eg.Go(func() error {
+		var err error
 		dsth, err = dst.QueryLatestHeight()
 		return err
 	})

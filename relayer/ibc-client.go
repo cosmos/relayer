@@ -1,24 +1,20 @@
 package relayer
 
 import (
+	"context"
 	"fmt"
 
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	ibcexported "github.com/cosmos/cosmos-sdk/x/ibc/core/exported"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
+	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	ibcexported "github.com/cosmos/ibc-go/v2/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
 	tmtypes "github.com/tendermint/tendermint/types"
-	"golang.org/x/sync/errgroup"
 )
 
-// GetIBCCreateClientHeader updates the off chain tendermint light client on source
-// and returns an IBC Update Header which can be used to create an on-chain
-// light client on counterparty chain.
-func (c *Chain) GetIBCCreateClientHeader() (*tmclient.Header, error) {
-	lightBlock, err := c.UpdateLightClient()
+func (c *Chain) GetLightSignedHeaderAtHeight(h int64) (*tmclient.Header, error) {
+	lightBlock, err := c.Provider.LightBlock(context.Background(), h)
 	if err != nil {
 		return nil, err
 	}
-
 	protoVal, err := tmtypes.NewValidatorSet(lightBlock.ValidatorSet.Validators).ToProto()
 	if err != nil {
 		return nil, err
@@ -30,58 +26,19 @@ func (c *Chain) GetIBCCreateClientHeader() (*tmclient.Header, error) {
 	}, nil
 }
 
-// GetIBCCreateClientHeaders returns the IBC TM header which will create an on-chain
-// light client. The headers do not have trusted headers (ie trusted validators
-// and trusted height)
-func GetIBCCreateClientHeaders(src, dst *Chain) (srcHeader, dstHeader *tmclient.Header, err error) {
-	var eg = new(errgroup.Group)
-	eg.Go(func() error {
-		srcHeader, err = src.GetIBCCreateClientHeader()
-		return err
-	})
-	eg.Go(func() error {
-		dstHeader, err = dst.GetIBCCreateClientHeader()
-		return err
-	})
-	if err = eg.Wait(); err != nil {
-		return
-	}
-	return
-
-}
-
 // GetIBCUpdateHeader updates the off chain tendermint light client and
 // returns an IBC Update Header which can be used to update an on chain
 // light client on the destination chain. The source is used to construct
 // the header data.
-func (c *Chain) GetIBCUpdateHeader(dst *Chain) (*tmclient.Header, error) {
+func (c *Chain) GetIBCUpdateHeader(dst *Chain, srch int64) (*tmclient.Header, error) {
 	// Construct header data from light client representing source.
-	h, err := c.GetIBCCreateClientHeader()
+	h, err := c.GetLightSignedHeaderAtHeight(srch)
 	if err != nil {
 		return nil, err
 	}
 
 	// Inject trusted fields based on previous header data from source
 	return c.InjectTrustedFields(dst, h)
-}
-
-// GetIBCUpdateHeaders return the IBC TM Header which will update an on-chain
-// light client. A header for the source and destination chain is returned.
-func GetIBCUpdateHeaders(src, dst *Chain) (srcHeader, dstHeader *tmclient.Header, err error) {
-	var eg = new(errgroup.Group)
-	eg.Go(func() error {
-		srcHeader, err = src.GetIBCUpdateHeader(dst)
-		return err
-	})
-	eg.Go(func() error {
-		dstHeader, err = dst.GetIBCUpdateHeader(src)
-		return err
-	})
-	if err = eg.Wait(); err != nil {
-		return
-	}
-	return
-
 }
 
 // InjectTrustedFields injects the necessary trusted fields for a header to update a light
@@ -107,6 +64,9 @@ func (c *Chain) InjectTrustedFields(dst *Chain, header *tmclient.Header) (*tmcli
 	// NOTE: We need to get validators from the source chain at height: trustedHeight+1
 	// since the last trusted validators for a header at height h is the NextValidators
 	// at h+1 committed to in header h by NextValidatorsHash
+
+	// TODO: this is likely a source of off by 1 errors but may be impossible to change? Maybe this is the
+	// place where we need to fix the upstream query proof issue?
 	trustedHeader, err := c.GetLightSignedHeaderAtHeight(int64(h.TrustedHeight.RevisionHeight) + 1)
 	if err != nil {
 		return nil, fmt.Errorf(
