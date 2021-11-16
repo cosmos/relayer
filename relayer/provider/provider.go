@@ -12,6 +12,10 @@ import (
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 )
 
+type ProviderConfig interface {
+	// Provider() ChainProvider
+}
+
 type RelayerMessage interface{}
 
 type RelayerTxResponse struct {
@@ -31,7 +35,7 @@ type KeyProvider interface {
 	DeleteKey(name string) error
 }
 
-type TxProvider interface {
+type ChainProvider interface {
 	QueryProvider
 	KeyProvider
 

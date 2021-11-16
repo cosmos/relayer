@@ -39,7 +39,7 @@ import (
 
 var (
 	_                  provider.QueryProvider  = &CosmosProvider{}
-	_                  provider.TxProvider     = &CosmosProvider{}
+	_                  provider.ChainProvider  = &CosmosProvider{}
 	_                  provider.KeyProvider    = &CosmosProvider{}
 	_                  provider.RelayerMessage = CosmosMessage{}
 	defaultChainPrefix                         = commitmenttypes.NewMerklePrefix([]byte("ibc"))

@@ -31,6 +31,7 @@ import (
 	connectiontypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
 	ibcexported "github.com/cosmos/ibc-go/v2/modules/core/exported"
 	ibctmtypes "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
+	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/libs/log"
 	provtypes "github.com/tendermint/tendermint/light/provider"
@@ -51,6 +52,7 @@ var (
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
 type Chain struct {
+	ChainProvider  provider.ChainProvider
 	Key            string  `yaml:"key" json:"key"`
 	ChainID        string  `yaml:"chain-id" json:"chain-id"`
 	RPCAddr        string  `yaml:"rpc-addr" json:"rpc-addr"`
@@ -669,7 +671,7 @@ func (c Chains) Get(chainID string) (*Chain, error) {
 			return chain, nil
 		}
 	}
-	return &Chain{}, fmt.Errorf("chain with ID %s is not configured", chainID)
+	return nil, fmt.Errorf("chain with ID %s is not configured", chainID)
 }
 
 // MustGet returns the chain and panics on any error

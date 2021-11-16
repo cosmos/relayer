@@ -19,9 +19,12 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/cosmos/relayer/relayer/provider"
+	"github.com/cosmos/relayer/relayer/provider/cosmos"
 	"io/ioutil"
 	"os"
 	"path"
+	"reflect"
 	"strings"
 	"time"
 
@@ -222,6 +225,7 @@ func cfgFilesAddChains(dir string) (cfg *Config, err error) {
 	cfg = config
 	for _, f := range files {
 		c := &relayer.Chain{}
+		var pcw ProviderConfigWrapper
 		pth := fmt.Sprintf("%s/%s", dir, f.Name())
 		if f.IsDir() {
 			fmt.Printf("directory at %s, skipping...\n", pth)
@@ -233,9 +237,12 @@ func cfgFilesAddChains(dir string) (cfg *Config, err error) {
 			return nil, fmt.Errorf("failed to read file %s: %w", pth, err)
 		}
 
-		if err = json.Unmarshal(byt, c); err != nil {
+		if err = json.Unmarshal(byt, &pcw); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
 		}
+
+		fmt.Printf("container=%+v\n", pcw)
+		fmt.Printf("value=%#v\n", pcw.Value)
 
 		if err = cfg.AddChain(c); err != nil {
 			return nil, fmt.Errorf("failed to add chain%s: %w", pth, err)
@@ -303,6 +310,57 @@ type Config struct {
 	Global GlobalConfig   `yaml:"global" json:"global"`
 	Chains relayer.Chains `yaml:"chains" json:"chains"`
 	Paths  relayer.Paths  `yaml:"paths" json:"paths"`
+}
+
+// ConfigInput is used to unmarshal the config file for the relayer from disk
+type ConfigInput struct {
+	Global          GlobalConfig    `yaml:"global" json:"global"`
+	ProviderConfigs ProviderConfigs `yaml:"chains" json:"chains"`
+	Paths           relayer.Paths   `yaml:"paths" json:"paths"`
+}
+
+type ProviderConfigs []ProviderConfigWrapper
+
+type ProviderConfigWrapper struct {
+	Type  string                  `json:"type" yaml:"type"`
+	Value provider.ProviderConfig `json:"value" yaml:"value"`
+}
+
+func (pcw ProviderConfigWrapper) UnmarshalJSON(data []byte) error {
+	customTypes := map[string]reflect.Type{
+		"cosmos": reflect.TypeOf(cosmos.CosmosProviderConfig{}),
+	}
+	val, err := UnmarshalProviderConfig(data, customTypes)
+	if err != nil {
+		return err
+	}
+	pcw.Value = val
+	return nil
+}
+
+func UnmarshalProviderConfig(data []byte, customTypes map[string]reflect.Type) (interface{}, error) {
+	m := map[string]interface{}{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, err
+	}
+
+	typeName := m["type"].(string)
+	fmt.Println(typeName)
+	var provCfg provider.ProviderConfig
+	if ty, found := customTypes[typeName]; found {
+		provCfg = reflect.New(ty).Interface().(provider.ProviderConfig)
+	}
+
+	valueBytes, err := json.Marshal(m["value"])
+	if err != nil {
+		return nil, err
+	}
+
+	if err = json.Unmarshal(valueBytes, &provCfg); err != nil {
+		return nil, err
+	}
+
+	return provCfg, nil
 }
 
 // ChainsFromPath takes the path name and returns the properly configured chains
