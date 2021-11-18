@@ -15,7 +15,7 @@ import (
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 func pathsCmd() *cobra.Command {

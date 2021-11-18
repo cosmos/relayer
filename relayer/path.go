@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
