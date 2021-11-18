@@ -666,8 +666,6 @@ type Chains []*Chain
 func (c Chains) Get(chainID string) (*Chain, error) {
 	for _, chain := range c {
 		if chainID == chain.ChainID {
-			addr, _ := chain.GetAddress()
-			chain.address = addr
 			return chain, nil
 		}
 	}

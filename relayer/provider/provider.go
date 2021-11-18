@@ -13,7 +13,8 @@ import (
 )
 
 type ProviderConfig interface {
-	// Provider() ChainProvider
+	NewProvider(homepath string, debug bool) (ChainProvider, error)
+	Validate() error
 }
 
 type RelayerMessage interface{}
@@ -55,6 +56,10 @@ type ChainProvider interface {
 	ChannelCloseConfirm(dstQueryProvider QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (RelayerMessage, error)
 	SendMessage(msg RelayerMessage) (*RelayerTxResponse, bool, error)
 	SendMessages(msgs []RelayerMessage) (*RelayerTxResponse, bool, error)
+
+	ChainId() string
+	Type() string
+	ProviderConfig() ProviderConfig
 }
 
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?
