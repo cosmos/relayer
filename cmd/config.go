@@ -225,7 +225,7 @@ func cfgFilesAddChains(dir string) (cfg *Config, err error) {
 	cfg = config
 	for _, f := range files {
 		var (
-			pcw ProviderConfigJSONWrapper
+			pcw ProviderConfigWrapper
 			c   *relayer.Chain
 		)
 		pth := fmt.Sprintf("%s/%s", dir, f.Name())
@@ -318,9 +318,9 @@ func cfgFilesAddPaths(dir string) (cfg *Config, err error) {
 // ConfigToWrapper converts the Config struct into a ConfigOutputWrapper struct
 func ConfigToWrapper(config *Config) *ConfigOutputWrapper {
 	cfgw := &ConfigOutputWrapper{Global: config.Global, Paths: config.Paths}
-	var providers []*ProviderConfigJSONWrapper
+	var providers []*ProviderConfigWrapper
 	for _, chain := range config.Chains {
-		pcfgw := &ProviderConfigJSONWrapper{
+		pcfgw := &ProviderConfigWrapper{
 			Type:  chain.ChainProvider.Type(),
 			Value: chain.ChainProvider.ProviderConfig(),
 		}
@@ -351,15 +351,15 @@ type ConfigInputWrapper struct {
 	Paths           relayer.Paths                `yaml:"paths"`
 }
 
-type ProviderConfigs []*ProviderConfigJSONWrapper
+type ProviderConfigs []*ProviderConfigWrapper
 
-// ProviderConfigJSONWrapper is used to parse arbitrary ProviderConfigs from json files
-type ProviderConfigJSONWrapper struct {
-	Type  string                  `json:"type"`
-	Value provider.ProviderConfig `json:"value"`
+// ProviderConfigWrapper is an intermediary type for parsing arbitrary ProviderConfigs from json files and writing to json/yaml files
+type ProviderConfigWrapper struct {
+	Type  string                  `yaml:"type"  json:"type"`
+	Value provider.ProviderConfig `yaml:"value" json:"value"`
 }
 
-// ProviderConfigYAMLWrapper is used to parse arbitrary ProviderConfigs from yaml files
+// ProviderConfigYAMLWrapper is an intermediary type for parsing arbitrary ProviderConfigs from yaml files
 type ProviderConfigYAMLWrapper struct {
 	Type  string      `yaml:"type"`
 	Value interface{} `yaml:"-"`
@@ -367,7 +367,7 @@ type ProviderConfigYAMLWrapper struct {
 
 // UnmarshalJSON adds support for unmarshalling data from an arbitrary ProviderConfig
 // NOTE: Add new ProviderConfig types in the map here with the key set equal to the type of ChainProvider (e.g. cosmos, substrate, etc.)
-func (pcw *ProviderConfigJSONWrapper) UnmarshalJSON(data []byte) error {
+func (pcw *ProviderConfigWrapper) UnmarshalJSON(data []byte) error {
 	customTypes := map[string]reflect.Type{
 		"cosmos": reflect.TypeOf(cosmos.CosmosProviderConfig{}),
 	}
@@ -406,7 +406,7 @@ func UnmarshalJSONProviderConfig(data []byte, customTypes map[string]reflect.Typ
 }
 
 // UnmarshalYAML adds support for unmarshalling data from arbitrary ProviderConfig entries found in the config file
-// NOTE: Add new ProviderConfig types in a switch case here
+// NOTE: Add logic for new ProviderConfig types in a switch case here
 func (iw *ProviderConfigYAMLWrapper) UnmarshalYAML(n *yaml.Node) error {
 	type inputWrapper ProviderConfigYAMLWrapper
 	type T struct {
