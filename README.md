@@ -3,12 +3,12 @@
 ![Relayer](./docs/images/comp.gif)
 
 [![Project Status: Initial Release](https://img.shields.io/badge/repo%20status-active-green.svg?style=flat-square)](https://www.repostatus.org/#active)
-![GitHub Workflow Status](https://github.com/strangelove-ventures/relayer/actions/workflows/build.yml/badge.svg)
-[![GoDoc](https://img.shields.io/badge/godoc-reference-blue?style=flat-square&logo=go)](https://godoc.org/github.com/strangelove-ventures/relayer)
-[![Go Report Card](https://goreportcard.com/badge/github.com/strangelove-ventures/relayer)](https://goreportcard.com/report/github.com/strangelove-ventures/relayer)
-[![License: Apache-2.0](https://img.shields.io/github/license/strangelove-ventures/relayer.svg?style=flat-square)](https://github.com/strangelove-ventures/relayer/blob/main/LICENSE)
-[![Lines Of Code](https://img.shields.io/tokei/lines/github/strangelove-ventures/relayer?style=flat-square)](https://github.com/strangelove-ventures/relayer)
-[![Version](https://img.shields.io/github/tag/strangelove-ventures/relayer.svg?style=flat-square)](https://github.com/strangelove-ventures/relayer/latest)
+![GitHub Workflow Status](https://github.com/cosmos/relayer/actions/workflows/build.yml/badge.svg)
+[![GoDoc](https://img.shields.io/badge/godoc-reference-blue?style=flat-square&logo=go)](https://godoc.org/github.com/cosmos/relayer)
+[![Go Report Card](https://goreportcard.com/badge/github.com/cosmos/relayer)](https://goreportcard.com/report/github.com/cosmos/relayer)
+[![License: Apache-2.0](https://img.shields.io/github/license/cosmos/relayer.svg?style=flat-square)](https://github.com/cosmos/relayer/blob/main/LICENSE)
+[![Lines Of Code](https://img.shields.io/tokei/lines/github/cosmos/relayer?style=flat-square)](https://github.com/cosmos/relayer)
+[![Version](https://img.shields.io/github/tag/cosmos/relayer.svg?style=flat-square)](https://github.com/cosmos/relayer/latest)
 
 This repository contains a Golang implementation of a Cosmos [IBC](https://ibcprotocol.org/)
 relayer. The `relayer` package contains a basic relayer implementation that is
@@ -36,10 +36,10 @@ wanting to build their [IBC](https://ibcprotocol.org/)-compliant relayer.
 
 To quickly setup the IBC relayer on a canonical path (i.e. path being actively used) between two IBC-enabled networks, the following steps should be performed:
 
-1. Install the latest release via GitHub as follows or by downloading built binaries on the [releases page](https://github.com/strangelove-ventures/relayer/releases).
+1. Install the latest release via GitHub as follows or by downloading built binaries on the [releases page](https://github.com/cosmos/relayer/releases).
 
     ```
-    $ git clone git@github.com:strangelove-ventures/relayer.git
+    $ git clone git@github.com:cosmos/relayer.git
     $ git checkout v1.0.0
     $ cd relayer && make install
     ```
@@ -50,9 +50,9 @@ To quickly setup the IBC relayer on a canonical path (i.e. path being actively u
    $ rly config init
    ```
 
-3. Ensure the chains you want to configure have the pertinent config files [here](https://github.com/strangelove-ventures/relayer/tree/main/interchain/chains). Don't see the chain you want to relay on? Please open a PR to add this metadata to the GitHub repo!
+3. Ensure the chains you want to configure have the pertinent config files [here](https://github.com/cosmos/relayer/tree/main/interchain/chains). Don't see the chain you want to relay on? Please open a PR to add this metadata to the GitHub repo!
 
-4. In our example we will configure the relayer to operate between the Cosmos Hub & Osmosis. The fetch cmd will retrieve the relevant chain configurations from [GitHub](https://github.com/strangelove-ventures/relayer/tree/main/interchain/chains) & add them to the relayers config file.
+4. In our example we will configure the relayer to operate between the Cosmos Hub & Osmosis. The fetch cmd will retrieve the relevant chain configurations from [GitHub](https://github.com/cosmos/relayer/tree/main/interchain/chains) & add them to the relayers config file.
 
    ```shell
    $ rly fetch chain cosmoshub-4  
@@ -112,10 +112,10 @@ To quickly setup the IBC relayer on a canonical path (i.e. path being actively u
 To setup and start the IBC relayer between two IBC-enabled networks, the following
 steps are typically performed:
 
-1. Install the latest release via GitHub as follows or by downloading built binaries on the [releases page](https://github.com/strangelove-ventures/relayer/releases).
+1. Install the latest release via GitHub as follows or by downloading built binaries on the [releases page](https://github.com/cosmos/relayer/releases).
 
     ```
-    $ git clone git@github.com:strangelove-ventures/relayer.git
+    $ git clone git@github.com:cosmos/relayer.git
     $ git checkout v1.0.0-rc2
     $ cd relayer && make install
     ```
@@ -127,7 +127,7 @@ steps are typically performed:
    ```
 
 3. Add relevant chain configurations to the relayer's configuration. See the
-   [Chain](https://pkg.go.dev/github.com/strangelove-ventures/relayer/relayer#Chain) type for
+   [Chain](https://pkg.go.dev/github.com/cosmos/relayer/relayer#Chain) type for
    more information.
 
    e.g. chain configuration:
