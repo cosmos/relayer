@@ -213,10 +213,10 @@ $ %s q acc ibc-1`,
 
 func queryBalanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "balance [chain-id] [[key-name]]",
+		Use:     "balance [chain-id] [[key-name]]",
 		Aliases: []string{"bal"},
-		Short: "query the relayer's account balance on a given network by chain-ID",
-		Args:  cobra.RangeArgs(1, 2),
+		Short:   "query the relayer's account balance on a given network by chain-ID",
+		Args:    cobra.RangeArgs(1, 2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query balance ibc-0
 $ %s query balance ibc-0 testkey`,

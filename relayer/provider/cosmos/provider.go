@@ -10,21 +10,19 @@ import (
 	"strings"
 	"time"
 
-	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
-	chanutils "github.com/cosmos/ibc-go/v2/modules/core/04-channel/client/utils"
-	"golang.org/x/sync/errgroup"
-
 	sdkTx "github.com/cosmos/cosmos-sdk/client/tx"
 	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/simapp/params"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	transfertypes "github.com/cosmos/ibc-go/v2/modules/apps/transfer/types"
 	clientutils "github.com/cosmos/ibc-go/v2/modules/core/02-client/client/utils"
 	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
 	connutils "github.com/cosmos/ibc-go/v2/modules/core/03-connection/client/utils"
 	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
+	chanutils "github.com/cosmos/ibc-go/v2/modules/core/04-channel/client/utils"
 	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
 	committypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
@@ -35,11 +33,12 @@ import (
 	prov "github.com/tendermint/tendermint/light/provider/http"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
 	_                  provider.QueryProvider  = &CosmosProvider{}
-	_                  provider.TxProvider     = &CosmosProvider{}
+	_                  provider.ChainProvider  = &CosmosProvider{}
 	_                  provider.KeyProvider    = &CosmosProvider{}
 	_                  provider.RelayerMessage = CosmosMessage{}
 	defaultChainPrefix                         = commitmenttypes.NewMerklePrefix([]byte("ibc"))
@@ -55,6 +54,18 @@ type CosmosProviderConfig struct {
 	GasPrices      string  `yaml:"gas-prices" json:"gas-prices"`
 	TrustingPeriod string  `yaml:"trusting-period" json:"trusting-period"`
 	Timeout        string  `yaml:"timeout" json:"timeout"`
+}
+
+func (cp *CosmosProviderConfig) NewProvider(homepath string, debug bool) (provider.ChainProvider, error) {
+	err := cp.Validate()
+	if err != nil {
+		return nil, err
+	}
+	p, err := NewCosmosProvider(cp, homepath, debug)
+	if err != nil {
+		return nil, err
+	}
+	return p, err
 }
 
 func (cp *CosmosProviderConfig) Validate() error {
@@ -135,11 +146,19 @@ type CosmosProvider struct {
 	debug   bool
 }
 
-func (cp *CosmosProvider) Init() error {
-	if err := cp.Config.Validate(); err != nil {
-		return err
-	}
+func (cp *CosmosProvider) ProviderConfig() provider.ProviderConfig {
+	return cp.Config
+}
 
+func (cp *CosmosProvider) ChainId() string {
+	return cp.Config.ChainID
+}
+
+func (cp *CosmosProvider) Type() string {
+	return "cosmos"
+}
+
+func (cp *CosmosProvider) Init() error {
 	if err := cp.CreateKeystore(cp.HomePath); err != nil {
 		return err
 	}

@@ -22,15 +22,18 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"reflect"
 	"strings"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/relayer/relayer"
+	"github.com/cosmos/relayer/relayer/provider"
+	"github.com/cosmos/relayer/relayer/provider/cosmos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -94,14 +97,14 @@ $ %s cfg list`, appName, defaultHome, appName)),
 			case yml && jsn:
 				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
 			case jsn:
-				out, err := json.Marshal(config)
+				out, err := json.Marshal(ConfigToWrapper(config))
 				if err != nil {
 					return err
 				}
 				fmt.Println(string(out))
 				return nil
 			default:
-				out, err := yaml.Marshal(config)
+				out, err := yaml.Marshal(ConfigToWrapper(config))
 				if err != nil {
 					return err
 				}
@@ -221,7 +224,10 @@ func cfgFilesAddChains(dir string) (cfg *Config, err error) {
 	}
 	cfg = config
 	for _, f := range files {
-		c := &relayer.Chain{}
+		var (
+			pcw ProviderConfigWrapper
+			c   *relayer.Chain
+		)
 		pth := fmt.Sprintf("%s/%s", dir, f.Name())
 		if f.IsDir() {
 			fmt.Printf("directory at %s, skipping...\n", pth)
@@ -233,12 +239,23 @@ func cfgFilesAddChains(dir string) (cfg *Config, err error) {
 			return nil, fmt.Errorf("failed to read file %s: %w", pth, err)
 		}
 
-		if err = json.Unmarshal(byt, c); err != nil {
+		if err = json.Unmarshal(byt, &pcw); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
 		}
 
+		prov, err := pcw.Value.NewProvider(homePath, debug)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build ChainProvider for %s. Err: %w", pth, err)
+		}
+
+		c = &relayer.Chain{ChainProvider: prov, ChainID: prov.ChainId()}
+
 		if err = cfg.AddChain(c); err != nil {
-			return nil, fmt.Errorf("failed to add chain%s: %w", pth, err)
+			return nil, fmt.Errorf("failed to add chain %s: %w", pth, err)
+		}
+
+		if err = overWriteConfig(cfg); err != nil {
+			return nil, err
 		}
 		fmt.Printf("added chain %s...\n", c.ChainID)
 	}
@@ -298,11 +315,118 @@ func cfgFilesAddPaths(dir string) (cfg *Config, err error) {
 	return cfg, nil
 }
 
+// ConfigToWrapper converts the Config struct into a ConfigOutputWrapper struct
+func ConfigToWrapper(config *Config) *ConfigOutputWrapper {
+	cfgw := &ConfigOutputWrapper{Global: config.Global, Paths: config.Paths}
+	var providers []*ProviderConfigWrapper
+	for _, chain := range config.Chains {
+		pcfgw := &ProviderConfigWrapper{
+			Type:  chain.ChainProvider.Type(),
+			Value: chain.ChainProvider.ProviderConfig(),
+		}
+		providers = append(providers, pcfgw)
+	}
+	cfgw.ProviderConfigs = providers
+	return cfgw
+}
+
 // Config represents the config file for the relayer
 type Config struct {
 	Global GlobalConfig   `yaml:"global" json:"global"`
 	Chains relayer.Chains `yaml:"chains" json:"chains"`
 	Paths  relayer.Paths  `yaml:"paths" json:"paths"`
+}
+
+// ConfigOutputWrapper is an intermediary type for writing the config to disk and stdout
+type ConfigOutputWrapper struct {
+	Global          GlobalConfig    `yaml:"global" json:"global"`
+	ProviderConfigs ProviderConfigs `yaml:"chains" json:"chains"`
+	Paths           relayer.Paths   `yaml:"paths" json:"paths"`
+}
+
+// ConfigInputWrapper is an intermediary type for parsing the config.yaml file
+type ConfigInputWrapper struct {
+	Global          GlobalConfig                 `yaml:"global"`
+	ProviderConfigs []*ProviderConfigYAMLWrapper `yaml:"chains"`
+	Paths           relayer.Paths                `yaml:"paths"`
+}
+
+type ProviderConfigs []*ProviderConfigWrapper
+
+// ProviderConfigWrapper is an intermediary type for parsing arbitrary ProviderConfigs from json files and writing to json/yaml files
+type ProviderConfigWrapper struct {
+	Type  string                  `yaml:"type"  json:"type"`
+	Value provider.ProviderConfig `yaml:"value" json:"value"`
+}
+
+// ProviderConfigYAMLWrapper is an intermediary type for parsing arbitrary ProviderConfigs from yaml files
+type ProviderConfigYAMLWrapper struct {
+	Type  string      `yaml:"type"`
+	Value interface{} `yaml:"-"`
+}
+
+// UnmarshalJSON adds support for unmarshalling data from an arbitrary ProviderConfig
+// NOTE: Add new ProviderConfig types in the map here with the key set equal to the type of ChainProvider (e.g. cosmos, substrate, etc.)
+func (pcw *ProviderConfigWrapper) UnmarshalJSON(data []byte) error {
+	customTypes := map[string]reflect.Type{
+		"cosmos": reflect.TypeOf(cosmos.CosmosProviderConfig{}),
+	}
+	val, err := UnmarshalJSONProviderConfig(data, customTypes)
+	if err != nil {
+		return err
+	}
+	pc := val.(provider.ProviderConfig)
+	pcw.Value = pc
+	return nil
+}
+
+// UnmarshalJSONProviderConfig contains the custom unmarshalling logic for ProviderConfig structs
+func UnmarshalJSONProviderConfig(data []byte, customTypes map[string]reflect.Type) (interface{}, error) {
+	m := map[string]interface{}{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, err
+	}
+
+	typeName := m["type"].(string)
+	var provCfg provider.ProviderConfig
+	if ty, found := customTypes[typeName]; found {
+		provCfg = reflect.New(ty).Interface().(provider.ProviderConfig)
+	}
+
+	valueBytes, err := json.Marshal(m["value"])
+	if err != nil {
+		return nil, err
+	}
+
+	if err = json.Unmarshal(valueBytes, &provCfg); err != nil {
+		return nil, err
+	}
+
+	return provCfg, nil
+}
+
+// UnmarshalYAML adds support for unmarshalling data from arbitrary ProviderConfig entries found in the config file
+// NOTE: Add logic for new ProviderConfig types in a switch case here
+func (iw *ProviderConfigYAMLWrapper) UnmarshalYAML(n *yaml.Node) error {
+	type inputWrapper ProviderConfigYAMLWrapper
+	type T struct {
+		*inputWrapper `yaml:",inline"`
+		Wrapper       yaml.Node `yaml:"value"`
+	}
+
+	obj := &T{inputWrapper: (*inputWrapper)(iw)}
+	if err := n.Decode(obj); err != nil {
+		return err
+	}
+
+	switch iw.Type {
+	case "cosmos":
+		iw.Value = new(cosmos.CosmosProviderConfig)
+	default:
+		return fmt.Errorf("%s is an invalid chain type, check your config file", iw.Type)
+	}
+
+	return obj.Wrapper.Decode(iw.Value)
 }
 
 // ChainsFromPath takes the path name and returns the properly configured chains
@@ -363,12 +487,13 @@ func newDefaultGlobalConfig() GlobalConfig {
 
 // AddChain adds an additional chain to the config
 func (c *Config) AddChain(chain *relayer.Chain) (err error) {
-	if chain.ChainID == "" {
+	chainId := chain.ChainID
+	if chainId == "" {
 		return fmt.Errorf("chain ID cannot be empty")
 	}
-	chn, err := c.Chains.Get(chain.ChainID)
-	if chn == nil || err == nil {
-		return fmt.Errorf("chain with ID %s already exists in config", chain.ChainID)
+	chn, err := c.Chains.Get(chainId)
+	if chn != nil || err == nil {
+		return fmt.Errorf("chain with ID %s already exists in config", chainId)
 	}
 	c.Chains = append(c.Chains, chain)
 	return nil
@@ -449,7 +574,7 @@ func (c *Config) AddPath(name string, path *relayer.Path) (err error) {
 func (c *Config) DeleteChain(chain string) *Config {
 	var set relayer.Chains
 	for _, ch := range c.Chains {
-		if ch.ChainID != chain {
+		if ch.Provider.ChainID() != chain {
 			set = append(set, ch)
 		}
 	}
@@ -457,17 +582,11 @@ func (c *Config) DeleteChain(chain string) *Config {
 	return c
 }
 
-// Called to initialize the relayer.Chain types on Config
+// validateConfig is used to validate the GlobalConfig values
 func validateConfig(c *Config) error {
-	to, err := time.ParseDuration(config.Global.Timeout)
+	_, err := time.ParseDuration(c.Global.Timeout)
 	if err != nil {
 		return fmt.Errorf("did you remember to run 'rly config init' error:%w", err)
-	}
-
-	for _, i := range c.Chains {
-		if err := i.Init(homePath, to, nil, debug); err != nil {
-			return fmt.Errorf("did you remember to run 'rly config init' error:%w", err)
-		}
 	}
 
 	return nil
@@ -480,7 +599,6 @@ func initConfig(cmd *cobra.Command) error {
 		return err
 	}
 
-	config = &Config{}
 	cfgPath := path.Join(home, "config", "config.yaml")
 	if _, err := os.Stat(cfgPath); err == nil {
 		viper.SetConfigFile(cfgPath)
@@ -492,11 +610,28 @@ func initConfig(cmd *cobra.Command) error {
 				os.Exit(1)
 			}
 
-			// unmarshall them into the struct
-			err = yaml.Unmarshal(file, config)
+			// unmarshall them into the wrapper struct
+			cfgWrapper := &ConfigInputWrapper{}
+			err = yaml.Unmarshal(file, cfgWrapper)
 			if err != nil {
 				fmt.Println("Error unmarshalling config:", err)
 				os.Exit(1)
+			}
+
+			// build the config struct
+			var chains relayer.Chains
+			for _, pcfg := range cfgWrapper.ProviderConfigs {
+				prov, err := pcfg.Value.(provider.ProviderConfig).NewProvider(homePath, debug)
+				if err != nil {
+					return fmt.Errorf("Error while building ChainProviders. Err: %s\n", err.Error())
+				}
+				chains = append(chains, &relayer.Chain{ChainProvider: prov, ChainID: prov.ChainId()})
+			}
+
+			config = &Config{
+				Global: cfgWrapper.Global,
+				Chains: chains,
+				Paths:  cfgWrapper.Paths,
 			}
 
 			// ensure config has []*relayer.Chain used for all chain operations
@@ -522,7 +657,7 @@ func overWriteConfig(cfg *Config) (err error) {
 			}
 
 			// marshal the new config
-			out, err := yaml.Marshal(cfg)
+			out, err := yaml.Marshal(ConfigToWrapper(config))
 			if err != nil {
 				return err
 			}
