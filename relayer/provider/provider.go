@@ -29,11 +29,13 @@ type RelayerTxResponse struct {
 type KeyProvider interface {
 	CreateKeystore(path string) error
 	KeystoreCreated(path string) bool
-	AddKey(name string) (address, mnemonic string, err error)
+	AddKey(name string) (output *KeyOutput, err error)
 	RestoreKey(name, mnemonic string) (address string, err error)
 	ShowAddress(name string) (address string, err error)
 	ListAddresses() (map[string]string, error)
 	DeleteKey(name string) error
+	KeyExists(name string) bool
+	ExportPrivKeyArmor(keyName string) (armor string, err error)
 }
 
 type ChainProvider interface {
@@ -42,7 +44,7 @@ type ChainProvider interface {
 
 	Init() error
 	CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header) (RelayerMessage, error)
-	SubmitMisbehavior( /*TBD*/ ) (RelayerMessage, error)
+	SubmitMisbehavior( /*TODO TBD*/ ) (RelayerMessage, error)
 	UpdateClient(srcClientId string, dstHeader ibcexported.Header) (RelayerMessage, error)
 	ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) ([]RelayerMessage, error)
 	ConnectionOpenTry(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]RelayerMessage, error)

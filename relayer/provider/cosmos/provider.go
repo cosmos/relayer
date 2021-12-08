@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	sdkTx "github.com/cosmos/cosmos-sdk/client/tx"
 	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/simapp/params"
@@ -999,7 +1000,7 @@ func (cp *CosmosProvider) QueryDenomTraces(offset, limit uint64, height int64) (
 	return transfers.DenomTraces, nil
 }
 
-// Creates the on disk file for the keystore and attaches it to the provider object
+// CreateKeystore creates the on disk file for the keystore and attaches it to the provider object
 func (cp *CosmosProvider) CreateKeystore(homePath string) error {
 	kb, err := keys.New(cp.Config.ChainID, "test", KeysDir(homePath, cp.Config.ChainID), nil)
 	if err != nil {
@@ -1009,7 +1010,7 @@ func (cp *CosmosProvider) CreateKeystore(homePath string) error {
 	return nil
 }
 
-// Returns false if either files aren't on disk as expected or the keystore isn't set on the provider
+// KeystoreCreated returns false if either files aren't on disk as expected or the keystore isn't set on the provider
 func (cp *CosmosProvider) KeystoreCreated(homePath string) bool {
 	if _, err := os.Stat(KeysDir(homePath, cp.Config.ChainID)); errors.Is(err, os.ErrNotExist) {
 		return false
@@ -1019,16 +1020,16 @@ func (cp *CosmosProvider) KeystoreCreated(homePath string) bool {
 	return true
 }
 
-// Add a key to the keystore and generate and return a mnemonic for it
-func (cp *CosmosProvider) AddKey(name string) (string, string, error) {
+// AddKey adds a key to the keystore and generate and return a mnemonic for it
+func (cp *CosmosProvider) AddKey(name string) (*provider.KeyOutput, error) {
 	ko, err := cp.KeyAddOrRestore(name, 118)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
-	return ko.Address, ko.Mnemonic, nil
+	return ko, nil
 }
 
-// Restore a key from a mnemonic to the keystore at ta given name
+// RestoreKey restores a key from a mnemonic to the keystore at ta given name
 func (cp *CosmosProvider) RestoreKey(name, mnemonic string) (string, error) {
 	ko, err := cp.KeyAddOrRestore(name, 118, mnemonic)
 	if err != nil {
@@ -1037,7 +1038,17 @@ func (cp *CosmosProvider) RestoreKey(name, mnemonic string) (string, error) {
 	return ko.Address, nil
 }
 
-// Show the address for a key from the store
+// KeyExists returns true if there is a specified key in provider's keybase
+func (cp *CosmosProvider) KeyExists(name string) bool {
+	k, err := cp.Keybase.Key(name)
+	if err != nil {
+		return false
+	}
+
+	return k.GetName() == name
+}
+
+// ShowAddress shows the address for a key from the store
 func (cp *CosmosProvider) ShowAddress(name string) (address string, err error) {
 	info, err := cp.Keybase.Key(name)
 	if err != nil {
@@ -1049,7 +1060,7 @@ func (cp *CosmosProvider) ShowAddress(name string) (address string, err error) {
 	return address, nil
 }
 
-// List the addresses in the keystore and their assoicated names
+// ListAddresses lists the addresses in the keystore and their assoicated names
 func (cp *CosmosProvider) ListAddresses() (map[string]string, error) {
 	out := map[string]string{}
 	info, err := cp.Keybase.List()
@@ -1064,10 +1075,15 @@ func (cp *CosmosProvider) ListAddresses() (map[string]string, error) {
 	return out, nil
 }
 
-// Delete a key tracked by the store
+// DeleteKey deletes a key tracked by the store
 func (cp *CosmosProvider) DeleteKey(name string) error {
 	if err := cp.Keybase.Delete(name); err != nil {
 		return err
 	}
 	return nil
+}
+
+// ExportPrivKeyArmor exports a privkey from the keychain associated with a particular keyName
+func (cp *CosmosProvider) ExportPrivKeyArmor(keyName string) (armor string, err error) {
+	return cp.Keybase.ExportPrivKeyArmor(keyName, ckeys.DefaultKeyPass)
 }

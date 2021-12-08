@@ -22,9 +22,7 @@ import (
 	"log"
 	"strings"
 
-	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/relayer/helpers"
 	"github.com/spf13/cobra"
 )
 
@@ -54,10 +52,10 @@ func keysCmd() *cobra.Command {
 // keysAddCmd respresents the `keys add` command
 func keysAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "add [chain-id] [[name]]",
+		Use:     "add [chain-id] [name]",
 		Aliases: []string{"a"},
 		Short:   "adds a key to the keychain associated with a particular chain",
-		Args:    cobra.RangeArgs(1, 2),
+		Args:    cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys add ibc-0
 $ %s keys add ibc-1 key2
@@ -68,21 +66,12 @@ $ %s k a ibc-2 testkey`, appName, appName, appName)),
 				return err
 			}
 
-			var keyName string
-			if len(args) == 2 {
-				keyName = args[1]
-			} else {
-				keyName = chain.Key
-			}
-
-			if chain.KeyExists(keyName) {
+			keyName := args[1]
+			if chain.ChainProvider.KeyExists(keyName) {
 				return errKeyExists(keyName)
 			}
 
-			coinType, _ := cmd.Flags().GetUint32(flagCoinType)
-
-			// Adding key with key add helper
-			ko, err := helpers.KeyAddOrRestore(chain, keyName, coinType)
+			ko, err := chain.ChainProvider.AddKey(keyName)
 			if err != nil {
 				return err
 			}
@@ -118,19 +107,16 @@ $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 				return err
 			}
 
-			if chain.KeyExists(keyName) {
+			if chain.ChainProvider.KeyExists(keyName) {
 				return errKeyExists(keyName)
 			}
 
-			coinType, _ := cmd.Flags().GetUint32(flagCoinType)
-
-			// Restoring key with passing mnemonic
-			ko, err := helpers.KeyAddOrRestore(chain, keyName, coinType, args[2])
+			address, err := chain.ChainProvider.RestoreKey(keyName, args[2])
 			if err != nil {
 				return err
 			}
 
-			fmt.Println(ko.Address)
+			fmt.Println(address)
 			return nil
 		},
 	}
@@ -142,10 +128,10 @@ $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 // keysDeleteCmd respresents the `keys delete` command
 func keysDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [chain-id] [[name]]",
+		Use:     "delete [chain-id] [name]",
 		Aliases: []string{"d"},
 		Short:   "deletes a key from the keychain associated with a particular chain",
-		Args:    cobra.RangeArgs(1, 2),
+		Args:    cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys delete ibc-0 -y
 $ %s keys delete ibc-1 key2 -y
@@ -156,14 +142,8 @@ $ %s k d ibc-2 testkey`, appName, appName, appName)),
 				return err
 			}
 
-			var keyName string
-			if len(args) == 2 {
-				keyName = args[1]
-			} else {
-				keyName = chain.Key
-			}
-
-			if !chain.KeyExists(keyName) {
+			keyName := args[1]
+			if !chain.ChainProvider.KeyExists(keyName) {
 				return errKeyDoesntExist(keyName)
 			}
 
@@ -174,7 +154,7 @@ $ %s k d ibc-2 testkey`, appName, appName, appName)),
 				}
 			}
 
-			err = chain.Keybase.Delete(keyName)
+			err = chain.ChainProvider.DeleteKey(keyName)
 			if err != nil {
 				panic(err)
 			}
@@ -222,13 +202,13 @@ $ %s k l ibc-1`, appName, appName)),
 				return err
 			}
 
-			info, err := chain.Keybase.List()
+			info, err := chain.ChainProvider.ListAddresses()
 			if err != nil {
 				return err
 			}
 
-			for d, i := range info {
-				fmt.Printf("key(%d): %s -> %s\n", d, i.GetName(), i.GetAddress().String())
+			for key, val := range info {
+				fmt.Printf("key(%s) -> %s\n", key, val)
 			}
 
 			return nil
@@ -241,10 +221,10 @@ $ %s k l ibc-1`, appName, appName)),
 // keysShowCmd respresents the `keys show` command
 func keysShowCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "show [chain-id] [[name]]",
+		Use:     "show [chain-id] [name]",
 		Aliases: []string{"s"},
 		Short:   "shows a key from the keychain associated with a particular chain",
-		Args:    cobra.RangeArgs(1, 2),
+		Args:    cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys show ibc-0
 $ %s keys show ibc-1 key2
@@ -255,25 +235,17 @@ $ %s k s ibc-2 testkey`, appName, appName, appName)),
 				return err
 			}
 
-			var keyName string
-			if len(args) == 2 {
-				keyName = args[1]
-			} else {
-				keyName = chain.Key
-			}
-
-			if !chain.KeyExists(keyName) {
+			keyName := args[1]
+			if !chain.ChainProvider.KeyExists(keyName) {
 				return errKeyDoesntExist(keyName)
 			}
 
-			info, err := chain.Keybase.Key(keyName)
+			address, err := chain.ChainProvider.ShowAddress(keyName)
 			if err != nil {
 				return err
 			}
 
-			done := chain.UseSDKContext()
-			fmt.Println(info.GetAddress().String())
-			done()
+			fmt.Println(address)
 			return nil
 		},
 	}
@@ -298,11 +270,11 @@ $ %s k e ibc-2 testkey`, appName, appName)),
 				return err
 			}
 
-			if !chain.KeyExists(keyName) {
+			if !chain.ChainProvider.KeyExists(keyName) {
 				return errKeyDoesntExist(keyName)
 			}
 
-			info, err := chain.Keybase.ExportPrivKeyArmor(keyName, ckeys.DefaultKeyPass)
+			info, err := chain.ChainProvider.ExportPrivKeyArmor(keyName)
 			if err != nil {
 				return err
 			}
