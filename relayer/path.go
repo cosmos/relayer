@@ -170,11 +170,11 @@ func (p *Path) QueryPathStatus(src, dst *Chain) *PathWithStatus {
 		out = &PathWithStatus{Path: p, Status: PathStatus{false, false, false, false}}
 	)
 	eg.Go(func() error {
-		srch, err = src.QueryLatestHeight()
+		srch, err = src.ChainProvider.QueryLatestHeight()
 		return err
 	})
 	eg.Go(func() error {
-		dsth, err = dst.QueryLatestHeight()
+		dsth, err = dst.ChainProvider.QueryLatestHeight()
 		return err
 	})
 	if err = eg.Wait(); err != nil {
@@ -189,11 +189,11 @@ func (p *Path) QueryPathStatus(src, dst *Chain) *PathWithStatus {
 	}
 
 	eg.Go(func() error {
-		srcCs, err = src.QueryClientStateResponse(srch)
+		srcCs, err = src.ChainProvider.QueryClientStateResponse(srch, src.PathEnd.ClientID)
 		return err
 	})
 	eg.Go(func() error {
-		dstCs, err = dst.QueryClientStateResponse(dsth)
+		dstCs, err = dst.ChainProvider.QueryClientStateResponse(dsth, dst.PathEnd.ClientID)
 		return err
 	})
 	if err = eg.Wait(); err != nil || srcCs == nil || dstCs == nil {
@@ -202,11 +202,11 @@ func (p *Path) QueryPathStatus(src, dst *Chain) *PathWithStatus {
 	out.Status.Clients = true
 
 	eg.Go(func() error {
-		srcConn, err = src.QueryConnection(srch)
+		srcConn, err = src.ChainProvider.QueryConnection(srch, src.PathEnd.ConnectionID)
 		return err
 	})
 	eg.Go(func() error {
-		dstConn, err = dst.QueryConnection(dsth)
+		dstConn, err = dst.ChainProvider.QueryConnection(dsth, dst.PathEnd.ConnectionID)
 		return err
 	})
 	if err = eg.Wait(); err != nil || srcConn.Connection.State != conntypes.OPEN ||
@@ -216,11 +216,11 @@ func (p *Path) QueryPathStatus(src, dst *Chain) *PathWithStatus {
 	out.Status.Connection = true
 
 	eg.Go(func() error {
-		srcChan, err = src.QueryChannel(srch)
+		srcChan, err = src.ChainProvider.QueryChannel(srch, src.PathEnd.ChannelID, src.PathEnd.PortID)
 		return err
 	})
 	eg.Go(func() error {
-		dstChan, err = dst.QueryChannel(dsth)
+		dstChan, err = dst.ChainProvider.QueryChannel(dsth, dst.PathEnd.ChannelID, dst.PathEnd.PortID)
 		return err
 	})
 	if err = eg.Wait(); err != nil || srcChan.Channel.State != chantypes.OPEN ||

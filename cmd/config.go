@@ -720,7 +720,7 @@ func (c *Config) ValidatePathEnd(pe *relayer.PathEnd) error {
 		return err
 	}
 
-	height, err := chain.QueryLatestHeight()
+	height, err := chain.ChainProvider.QueryLatestHeight()
 	if err != nil {
 		return err
 	}
@@ -760,7 +760,7 @@ func (c *Config) ValidateClient(chain *relayer.Chain, height int64, pe *relayer.
 		return err
 	}
 
-	_, err := chain.QueryClientStateResponse(height)
+	_, err := chain.ChainProvider.QueryClientStateResponse(height, pe.ClientID)
 	if err != nil {
 		return err
 	}
@@ -774,7 +774,7 @@ func (c *Config) ValidateConnection(chain *relayer.Chain, height int64, pe *rela
 		return err
 	}
 
-	connection, err := chain.QueryConnection(height)
+	connection, err := chain.ChainProvider.QueryConnection(height, pe.ConnectionID)
 	if err != nil {
 		return err
 	}
@@ -792,7 +792,7 @@ func (c *Config) ValidateChannel(chain *relayer.Chain, height int64, pe *relayer
 		return err
 	}
 
-	channel, err := chain.QueryChannel(height)
+	channel, err := chain.ChainProvider.QueryChannel(height, pe.ChannelID, pe.PortID)
 	if err != nil {
 		return err
 	}

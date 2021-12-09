@@ -85,7 +85,7 @@ type QueryProvider interface {
 	QueryUpgradedClient(height int64) (*clienttypes.QueryClientStateResponse, error)
 	QueryUpgradedConsState(height int64) (*clienttypes.QueryConsensusStateResponse, error)
 	QueryConsensusState(height int64) (ibcexported.ConsensusState, int64, error)
-	QueryClients() ([]clienttypes.IdentifiedClientState, error)
+	QueryClients() (clienttypes.IdentifiedClientStates, error)
 
 	// ics 03 - connection
 	QueryConnection(height int64, connectionid string) (*conntypes.QueryConnectionResponse, error)

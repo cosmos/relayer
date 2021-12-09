@@ -53,10 +53,10 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				src, dst, pth          = args[0], args[1], args[2]
 				c                      map[string]*relayer.Chain
 				eg                     errgroup.Group
-				srcClients, dstClients *clienttypes.QueryClientStatesResponse
-				srcConns, dstConns     *conntypes.QueryConnectionsResponse
+				srcClients, dstClients clienttypes.IdentifiedClientStates
+				srcConns, dstConns     []*conntypes.IdentifiedConnection
 				srcCon, dstCon         *conntypes.IdentifiedConnection
-				srcChans, dstChans     *chantypes.QueryChannelsResponse
+				srcChans, dstChans     []*chantypes.IdentifiedChannel
 			)
 			if c, err = config.Chains.Gets(src, dst); err != nil {
 				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
@@ -81,19 +81,20 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 
 			// see if there are existing clients that can be reused
 			eg.Go(func() error {
-				srcClients, err = c[src].QueryClients(relayer.DefaultPageRequest())
+				srcClients, err = c[src].ChainProvider.QueryClients()
 				return err
 			})
 			eg.Go(func() error {
-				dstClients, err = c[dst].QueryClients(relayer.DefaultPageRequest())
+				dstClients, err = c[dst].ChainProvider.QueryClients()
 				return err
 			})
 			if err := eg.Wait(); err != nil {
 				return err
 			}
 
-			for _, idCs := range srcClients.ClientStates {
+			for _, idCs := range srcClients {
 				var clnt exported.ClientState
+				// TODO not immediately clear what we can assume about encoding/how to expose this
 				if err = idCs.UnpackInterfaces(c[src].Encoding.Marshaler); err != nil {
 					return err
 				}
@@ -101,6 +102,7 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 					return err
 				}
 				switch cs := clnt.(type) {
+				// TODO need to extend this beyond tendermint clients
 				case *tmclient.ClientState:
 					// if the client is an active tendermint client for the counterparty chain then we reuse it
 					if cs.ChainId == c[dst].ChainID && cs.FrozenHeight.IsZero() {
@@ -110,8 +112,9 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				}
 			}
 
-			for _, idCs := range dstClients.ClientStates {
+			for _, idCs := range dstClients {
 				var clnt exported.ClientState
+				// TODO not immediately clear what we can assume about encoding/how to expose this
 				if err = idCs.UnpackInterfaces(c[dst].Encoding.Marshaler); err != nil {
 					return err
 				}
@@ -119,6 +122,7 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 					return err
 				}
 				switch cs := clnt.(type) {
+				// TODO need to extend this beyond tendermint clients
 				case *tmclient.ClientState:
 					// if the client is an active tendermint client for the counterparty chain then we reuse it
 					if cs.ChainId == c[src].ChainID && cs.FrozenHeight.IsZero() {
@@ -134,11 +138,11 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 
 			// see if there are existing connections that can be reused
 			eg.Go(func() error {
-				srcConns, err = c[src].QueryConnections(relayer.DefaultPageRequest())
+				srcConns, err = c[src].ChainProvider.QueryConnections()
 				return err
 			})
 			eg.Go(func() error {
-				dstConns, err = c[dst].QueryConnections(relayer.DefaultPageRequest())
+				dstConns, err = c[dst].ChainProvider.QueryConnections()
 				return err
 			})
 			if err = eg.Wait(); err != nil {
@@ -146,13 +150,13 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 			}
 
 			// find connections with the appropriate client id
-			for _, c := range srcConns.Connections {
+			for _, c := range srcConns {
 				if c.ClientId == path.Src.ClientID {
 					srcCon = c
 					path.Src.ConnectionID = c.Id
 				}
 			}
-			for _, c := range dstConns.Connections {
+			for _, c := range dstConns {
 				if c.ClientId == path.Dst.ClientID {
 					dstCon = c
 					path.Dst.ConnectionID = c.Id
@@ -176,24 +180,24 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 			}
 
 			eg.Go(func() error {
-				srcChans, err = c[src].QueryChannels(relayer.DefaultPageRequest())
+				srcChans, err = c[src].ChainProvider.QueryChannels()
 				return err
 			})
 			eg.Go(func() error {
-				dstChans, err = c[dst].QueryChannels(relayer.DefaultPageRequest())
+				dstChans, err = c[dst].ChainProvider.QueryChannels()
 				return err
 			})
 			if err = eg.Wait(); err != nil {
 				return err
 			}
 
-			for _, c := range srcChans.Channels {
+			for _, c := range srcChans {
 				if c.ConnectionHops[0] == path.Src.ConnectionID {
 					path.Src.ChannelID = c.ChannelId
 				}
 			}
 
-			for _, c := range dstChans.Channels {
+			for _, c := range dstChans {
 				if c.ConnectionHops[0] == path.Dst.ConnectionID {
 					path.Dst.ChannelID = c.ChannelId
 				}

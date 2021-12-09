@@ -743,7 +743,7 @@ func (cp *CosmosProvider) QueryConsensusState(height int64) (ibcexported.Consens
 
 // QueryClients queries all the clients!
 // TODO add pagination support
-func (cp *CosmosProvider) QueryClients() ([]clienttypes.IdentifiedClientState, error) {
+func (cp *CosmosProvider) QueryClients() (clienttypes.IdentifiedClientStates, error) {
 	qc := clienttypes.NewQueryClient(cp.CLIContext(0))
 	state, err := qc.ClientStates(context.Background(), &clienttypes.QueryClientStatesRequest{
 		Pagination: DefaultPageRequest(),
