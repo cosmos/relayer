@@ -159,6 +159,10 @@ func (cp *CosmosProvider) Type() string {
 	return "cosmos"
 }
 
+func (cp *CosmosProvider) Key() string {
+	return cp.Config.Key
+}
+
 func (cp *CosmosProvider) Init() error {
 	if err := cp.CreateKeystore(cp.HomePath); err != nil {
 		return err

@@ -224,10 +224,6 @@ func cfgFilesAddChains(dir string) (cfg *Config, err error) {
 	}
 	cfg = config
 	for _, f := range files {
-		var (
-			pcw ProviderConfigWrapper
-			c   *relayer.Chain
-		)
 		pth := fmt.Sprintf("%s/%s", dir, f.Name())
 		if f.IsDir() {
 			fmt.Printf("directory at %s, skipping...\n", pth)
@@ -236,26 +232,27 @@ func cfgFilesAddChains(dir string) (cfg *Config, err error) {
 
 		byt, err := ioutil.ReadFile(pth)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read file %s: %w", pth, err)
+			fmt.Printf("failed to read file %s. Err: %v skipping...\n", pth, err)
+			continue
 		}
 
+		var pcw ProviderConfigWrapper
 		if err = json.Unmarshal(byt, &pcw); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
+			fmt.Printf("failed to unmarshal file %s. Err: %v skipping...\n", pth, err)
+			continue
 		}
 
 		prov, err := pcw.Value.NewProvider(homePath, debug)
 		if err != nil {
-			return nil, fmt.Errorf("failed to build ChainProvider for %s. Err: %w", pth, err)
+			fmt.Printf("failed to build ChainProvider for %s. Err: %v \n", pth, err)
+			continue
 		}
 
-		c = &relayer.Chain{ChainProvider: prov, ChainID: prov.ChainId()}
+		c := &relayer.Chain{ChainProvider: prov, ChainID: prov.ChainId()}
 
 		if err = cfg.AddChain(c); err != nil {
-			return nil, fmt.Errorf("failed to add chain %s: %w", pth, err)
-		}
-
-		if err = overWriteConfig(cfg); err != nil {
-			return nil, err
+			fmt.Printf("failed to add chain %s: %v \n", pth, err)
+			continue
 		}
 		fmt.Printf("added chain %s...\n", c.ChainID)
 	}
@@ -487,7 +484,7 @@ func newDefaultGlobalConfig() GlobalConfig {
 
 // AddChain adds an additional chain to the config
 func (c *Config) AddChain(chain *relayer.Chain) (err error) {
-	chainId := chain.ChainID
+	chainId := chain.ChainProvider.ChainId()
 	if chainId == "" {
 		return fmt.Errorf("chain ID cannot be empty")
 	}
@@ -574,7 +571,7 @@ func (c *Config) AddPath(name string, path *relayer.Path) (err error) {
 func (c *Config) DeleteChain(chain string) *Config {
 	var set relayer.Chains
 	for _, ch := range c.Chains {
-		if ch.Provider.ChainID() != chain {
+		if ch.ChainID != chain {
 			set = append(set, ch)
 		}
 	}

@@ -62,6 +62,7 @@ type ChainProvider interface {
 	ChainId() string
 	Type() string
 	ProviderConfig() ProviderConfig
+	Key() string
 }
 
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?

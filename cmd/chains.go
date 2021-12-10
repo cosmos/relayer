@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -57,7 +56,11 @@ $ %s ch addr ibc-0`, appName, appName)),
 				return err
 			}
 
-			fmt.Println(chain.MustGetAddress())
+			address, err := chain.ChainProvider.ShowAddress(chain.ChainProvider.Key())
+			if err != nil {
+				return err
+			}
+			fmt.Println(address)
 			return nil
 		},
 	}
@@ -93,20 +96,29 @@ $ %s ch s ibc-0 --yaml`, appName, appName, appName, appName)),
 			case yml && jsn:
 				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
 			case yml:
-				out, err := yaml.Marshal(c)
+				pcfgw := &ProviderConfigWrapper{
+					Type:  c.ChainProvider.Type(),
+					Value: c.ChainProvider.ProviderConfig(),
+				}
+				out, err := yaml.Marshal(pcfgw)
 				if err != nil {
 					return err
 				}
 				fmt.Println(string(out))
 				return nil
 			case jsn:
-				out, err := json.Marshal(c)
+				pcfgw := &ProviderConfigWrapper{
+					Type:  c.ChainProvider.Type(),
+					Value: c.ChainProvider.ProviderConfig(),
+				}
+				out, err := json.Marshal(pcfgw)
 				if err != nil {
 					return err
 				}
 				fmt.Println(string(out))
 				return nil
 			default:
+				// TODO still need to tweak this for new config
 				fmt.Printf(`chain-id:        %s
 rpc-addr:        %s
 trusting-period: %s
@@ -120,6 +132,7 @@ account-prefix:  %s
 	return yamlFlag(jsonFlag(cmd))
 }
 
+// TODO still needs to be tweaked for new config
 func chainsEditCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "edit [chain-id] [key] [value]",
@@ -189,14 +202,14 @@ $ %s ch l`, appName, appName)),
 			case yml && jsn:
 				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
 			case yml:
-				out, err := yaml.Marshal(config.Chains)
+				out, err := yaml.Marshal(ConfigToWrapper(config).ProviderConfigs)
 				if err != nil {
 					return err
 				}
 				fmt.Println(string(out))
 				return nil
 			case jsn:
-				out, err := json.Marshal(config.Chains)
+				out, err := json.Marshal(ConfigToWrapper(config).ProviderConfigs)
 				if err != nil {
 					return err
 				}
@@ -205,17 +218,16 @@ $ %s ch l`, appName, appName)),
 			default:
 				for i, c := range config.Chains {
 					var (
-						light = xIcon
-						key   = xIcon
-						p     = xIcon
-						bal   = xIcon
+						key = xIcon
+						p   = xIcon
+						bal = xIcon
 					)
-					_, err := c.GetAddress()
-					if err == nil {
+					// check that the key from config.yaml is set in keychain
+					if c.ChainProvider.KeyExists(c.ChainProvider.Key()) {
 						key = check
 					}
 
-					coins, err := c.QueryBalance(c.Key)
+					coins, err := c.ChainProvider.QueryBalance(c.ChainProvider.Key())
 					if err == nil && !coins.Empty() {
 						bal = check
 					}
@@ -225,7 +237,7 @@ $ %s ch l`, appName, appName)),
 							p = check
 						}
 					}
-					fmt.Printf("%2d: %-20s -> key(%s) bal(%s) light(%s) path(%s)\n", i, c.ChainID, key, bal, light, p)
+					fmt.Printf("%2d: %-20s -> key(%s) bal(%s) path(%s)\n", i, c.ChainID, key, bal, p)
 				}
 				return nil
 			}
@@ -263,7 +275,7 @@ $ %s chains add --url http://relayer.com/ibc0.json
 					return err
 				}
 			default:
-				if out, err = userInputAdd(cmd); err != nil {
+				if out, err = userInputAdd(); err != nil {
 					return err
 				}
 			}
@@ -291,7 +303,7 @@ $ %s chains add-dir testnet/chains/
 $ %s ch ad testnet/chains/`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var out *Config
-			if out, err = filesAdd(args[0]); err != nil {
+			if out, err = cfgFilesAddChains(args[0]); err != nil {
 				return err
 			}
 			return overWriteConfig(out)
@@ -301,50 +313,9 @@ $ %s ch ad testnet/chains/`, appName, appName)),
 	return cmd
 }
 
-func filesAdd(dir string) (cfg *Config, err error) {
-	dir = path.Clean(dir)
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	cfg = config
-	for _, f := range files {
-		c := &relayer.Chain{}
-		pth := fmt.Sprintf("%s/%s", dir, f.Name())
-		if f.IsDir() {
-			fmt.Printf("directory at %s, skipping...\n", pth)
-			continue
-		}
-		byt, err := ioutil.ReadFile(pth)
-		if err != nil {
-			fmt.Printf("failed to read file %s, skipping...\n", pth)
-			continue
-		}
-		if err = json.Unmarshal(byt, c); err != nil {
-			fmt.Printf("failed to unmarshal file %s, skipping...\n", pth)
-			continue
-		}
-		if c.ChainID == "" && c.Key == "" && c.RPCAddr == "" {
-			p := &relayer.Path{}
-			if err = json.Unmarshal(byt, p); err == nil {
-				fmt.Printf("%s is a path file, try adding it with 'rly pth add -f %s'...\n", f.Name(), pth)
-				continue
-			}
-			fmt.Printf("%s did not contain valid chain config, skipping...\n", pth)
-			continue
-
-		}
-		if err = cfg.AddChain(c); err != nil {
-			fmt.Printf("%s: %s\n", pth, err.Error())
-			continue
-		}
-		fmt.Printf("added %s...\n", c.ChainID)
-	}
-	return cfg, nil
-}
-
 func fileInputAdd(file string) (cfg *Config, err error) {
 	// If the user passes in a file, attempt to read the chain config from that file
+	var pcw ProviderConfigWrapper
 	c := &relayer.Chain{}
 	if _, err := os.Stat(file); err != nil {
 		return nil, err
@@ -355,9 +326,16 @@ func fileInputAdd(file string) (cfg *Config, err error) {
 		return nil, err
 	}
 
-	if err = json.Unmarshal(byt, c); err != nil {
+	if err = json.Unmarshal(byt, &pcw); err != nil {
 		return nil, err
 	}
+
+	prov, err := pcw.Value.NewProvider(homePath, debug)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build ChainProvider for %s. Err: %w", file, err)
+	}
+
+	c = &relayer.Chain{ChainProvider: prov, ChainID: prov.ChainId()}
 
 	if err = config.AddChain(c); err != nil {
 		return nil, err
@@ -366,7 +344,8 @@ func fileInputAdd(file string) (cfg *Config, err error) {
 	return config, nil
 }
 
-func userInputAdd(cmd *cobra.Command) (cfg *Config, err error) {
+// TODO this still needs to be changed for new config structure
+func userInputAdd() (cfg *Config, err error) {
 	c := &relayer.Chain{}
 
 	var value string
@@ -453,13 +432,21 @@ func urlInputAdd(rawurl string) (cfg *Config, err error) {
 	}
 	defer resp.Body.Close()
 
-	var c *relayer.Chain
+	var pcw ProviderConfigWrapper
 	d := json.NewDecoder(resp.Body)
 	d.DisallowUnknownFields()
-	err = d.Decode(c)
+	err = d.Decode(&pcw)
 	if err != nil {
 		return cfg, err
 	}
+
+	// build the ChainProvider before initializing the chain
+	prov, err := pcw.Value.NewProvider(homePath, debug)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build ChainProvider for %s. Err: %w", rawurl, err)
+	}
+
+	c := &relayer.Chain{ChainProvider: prov, ChainID: prov.ChainId()}
 
 	if err = config.AddChain(c); err != nil {
 		return nil, err
