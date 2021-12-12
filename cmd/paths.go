@@ -62,12 +62,10 @@ $ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName
 				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
 			}
 			version, _ := cmd.Flags().GetString(flagVersion)
-			strategy, _ := cmd.Flags().GetString(flagStrategy)
 			port, _ := cmd.Flags().GetString(flagPort)
 			path := &relayer.Path{
-				Src:      &relayer.PathEnd{ChainID: src, PortID: port, Version: version},
-				Dst:      &relayer.PathEnd{ChainID: dst, PortID: port, Version: version},
-				Strategy: &relayer.StrategyCfg{Type: strategy},
+				Src: &relayer.PathEnd{ChainID: src, PortID: port, Version: version},
+				Dst: &relayer.PathEnd{ChainID: dst, PortID: port, Version: version},
 			}
 
 			// get desired order of the channel
@@ -421,7 +419,6 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		value string
 		err   error
 		path  = &relayer.Path{
-			Strategy: relayer.NewNaiveStrategy(),
 			Src: &relayer.PathEnd{
 				ChainID: src,
 				Order:   "ORDERED",

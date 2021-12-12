@@ -14,9 +14,6 @@ import (
 )
 
 var (
-	// Ensure that NaiveStrategy satisfies the Strategy interface
-	_ Strategy = &NaiveStrategy{}
-
 	// Strings for parsing events
 	spTag       = "send_packet"
 	waTag       = "write_acknowledgement"
@@ -31,27 +28,8 @@ var (
 	seqTag      = "packet_sequence"
 )
 
-// NewNaiveStrategy returns the proper config for the NaiveStrategy
-func NewNaiveStrategy() *StrategyCfg {
-	return &StrategyCfg{
-		Type: (&NaiveStrategy{}).GetType(),
-	}
-}
-
-// NaiveStrategy is an implementation of Strategy.
-type NaiveStrategy struct {
-	Ordered      bool
-	MaxTxSize    uint64 // maximum permitted size of the msgs in a bundled relay transaction
-	MaxMsgLength uint64 // maximum amount of messages in a bundled relay transaction
-}
-
-// GetType implements Strategy
-func (nrs *NaiveStrategy) GetType() string {
-	return "naive"
-}
-
 // UnrelayedSequences returns the unrelayed sequence numbers between two chains
-func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, error) {
+func UnrelayedSequences(src, dst *Chain) (*RelaySequences, error) {
 	var (
 		eg           = new(errgroup.Group)
 		srcPacketSeq = []uint64{}
@@ -151,7 +129,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 }
 
 // UnrelayedAcknowledgements returns the unrelayed sequence numbers between two chains
-func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequences, error) {
+func UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequences, error) {
 	var (
 		eg           = new(errgroup.Group)
 		srcPacketSeq = []uint64{}
@@ -256,13 +234,13 @@ func (rs *RelaySequences) Empty() bool {
 }
 
 // RelayAcknowledgements creates transactions to relay acknowledgements from src to dst and from dst to src
-func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequences) error {
+func RelayAcknowledgements(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength uint64) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []sdk.Msg{},
 		Dst:          []sdk.Msg{},
-		MaxTxSize:    nrs.MaxTxSize,
-		MaxMsgLength: nrs.MaxMsgLength,
+		MaxTxSize:    maxTxSize,
+		MaxMsgLength: maxMsgLength,
 	}
 
 	srch, dsth, err := QueryLatestHeights(src, dst)
@@ -350,13 +328,13 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 }
 
 // RelayPackets creates transactions to relay packets from src to dst and from dst to src
-func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) error {
+func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength uint64) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []sdk.Msg{},
 		Dst:          []sdk.Msg{},
-		MaxTxSize:    nrs.MaxTxSize,
-		MaxMsgLength: nrs.MaxMsgLength,
+		MaxTxSize:    maxTxSize,
+		MaxMsgLength: maxMsgLength,
 	}
 
 	srch, dsth, err := QueryLatestHeights(src, dst)
@@ -532,20 +510,20 @@ func acknowledgementFromSequence(src, dst *Chain, dsth, seq uint64) (sdk.Msg, er
 		return nil, err
 	case len(acks) == 0:
 		return nil, fmt.Errorf("no ack msgs created from query response")
-	case len(acks) > 1:
-		return nil, fmt.Errorf("more than one ack msg found in tx query")
 	}
 
-	pkt := acks[0]
-	if seq != pkt.Seq() {
-		return nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
+	var out sdk.Msg
+	for _, ack := range acks {
+		if seq != ack.Seq() {
+			continue
+		}
+		msg, err := src.MsgRelayAcknowledgement(dst, int64(dsth), ack)
+		if err != nil {
+			return nil, err
+		}
+		out = msg
 	}
-
-	msg, err := src.MsgRelayAcknowledgement(dst, int64(dsth), pkt)
-	if err != nil {
-		return nil, err
-	}
-	return msg, nil
+	return out, nil
 }
 
 // relayPacketsFromResultTx looks through the events in a *ctypes.ResultTx

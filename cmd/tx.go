@@ -478,17 +478,17 @@ $ %s tx relay-pkts demo-path`,
 				return err
 			}
 
-			strategy, err := GetStrategyWithOptions(cmd, config.Paths.MustGet(args[0]).MustGetStrategy())
+			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
 			if err != nil {
 				return err
 			}
 
-			sp, err := strategy.UnrelayedSequences(c[src], c[dst])
+			sp, err := relayer.UnrelayedSequences(c[src], c[dst])
 			if err != nil {
 				return err
 			}
 
-			if err = strategy.RelayPackets(c[src], c[dst], sp); err != nil {
+			if err = relayer.RelayPackets(c[src], c[dst], sp, maxTxSize, maxMsgLength); err != nil {
 				return err
 			}
 
@@ -520,19 +520,19 @@ $ %s tx relay-acks demo-path -l 3 -s 6`,
 				return err
 			}
 
-			strategy, err := GetStrategyWithOptions(cmd, config.Paths.MustGet(args[0]).MustGetStrategy())
+			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
 			if err != nil {
 				return err
 			}
 
 			// sp.Src contains all sequences acked on SRC but acknowledgement not processed on DST
 			// sp.Dst contains all sequences acked on DST but acknowledgement not processed on SRC
-			sp, err := strategy.UnrelayedAcknowledgements(c[src], c[dst])
+			sp, err := relayer.UnrelayedAcknowledgements(c[src], c[dst])
 			if err != nil {
 				return err
 			}
 
-			if err = strategy.RelayAcknowledgements(c[src], c[dst], sp); err != nil {
+			if err = relayer.RelayAcknowledgements(c[src], c[dst], sp, maxTxSize, maxMsgLength); err != nil {
 				return err
 			}
 

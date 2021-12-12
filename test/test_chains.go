@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cosmos/relayer/relayer"
+	dc "github.com/ory/dockertest/v3/docker"
 
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/stretchr/testify/require"
@@ -32,6 +33,9 @@ var (
 		rpcPort:        "26657",
 		accountPrefix:  "cosmos",
 		trustingPeriod: "330h",
+		buildArgs: []dc.BuildArg{
+			{Name: "VERSION", Value: "v5.0.8"},
+		},
 	}
 
 	// AKASH BLOCK TIMEOUTS on jackzampolin/akashtest:master
@@ -45,6 +49,9 @@ var (
 		rpcPort:        "26657",
 		accountPrefix:  "akash",
 		trustingPeriod: "330h",
+		buildArgs: []dc.BuildArg{
+			{Name: "VERSION", Value: "v0.12.1"},
+		},
 	}
 
 	seeds = []string{SEED1, SEED2}
@@ -67,6 +74,7 @@ type (
 		timeout        time.Duration
 		accountPrefix  string
 		trustingPeriod string
+		buildArgs      []dc.BuildArg
 	}
 )
 

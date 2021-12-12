@@ -746,12 +746,7 @@ $ %s query unrelayed-pkts demo-path`,
 				return err
 			}
 
-			strategy, err := path.GetStrategy()
-			if err != nil {
-				return err
-			}
-
-			sp, err := strategy.UnrelayedSequences(c[src], c[dst])
+			sp, err := relayer.UnrelayedSequences(c[src], c[dst])
 			if err != nil {
 				return err
 			}
@@ -800,12 +795,7 @@ $ %s query unrelayed-acks demo-path`,
 				return err
 			}
 
-			strategy, err := path.GetStrategy()
-			if err != nil {
-				return err
-			}
-
-			sp, err := strategy.UnrelayedAcknowledgements(c[src], c[dst])
+			sp, err := relayer.UnrelayedAcknowledgements(c[src], c[dst])
 			if err != nil {
 				return err
 			}
