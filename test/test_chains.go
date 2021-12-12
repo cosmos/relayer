@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cosmos/relayer/relayer"
+	dc "github.com/ory/dockertest/v3/docker"
 
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/stretchr/testify/require"
@@ -21,30 +22,37 @@ const (
 )
 
 var (
-	// GAIA BLOCK TIMEOUTS are located in the gaia setup script in the
-	// setup directory.
-	// timeout_commit = "1000ms"
-	// timeout_propose = "1000ms"
-	// 3 second relayer timeout works well with these block times
 	gaiaTestConfig = testChainConfig{
 		dockerfile:     "docker/gaiad/Dockerfile",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "cosmos",
 		trustingPeriod: "330h",
+		buildArgs: []dc.BuildArg{
+			{Name: "VERSION", Value: "v5.0.8"},
+		},
 	}
 
-	// AKASH BLOCK TIMEOUTS on jackzampolin/akashtest:master
-	// timeout_commit = "1000ms"
-	// timeout_propose = "1000ms"
-	// 3 second relayer timeout works well with these block times
-	// This is built from contrib/Dockerfile.test from the akash repository:
 	akashTestConfig = testChainConfig{
 		dockerfile:     "docker/akash/Dockerfile",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "akash",
 		trustingPeriod: "330h",
+		buildArgs: []dc.BuildArg{
+			{Name: "VERSION", Value: "v0.12.1"},
+		},
+	}
+
+	osmosisTestConfig = testChainConfig{
+		dockerfile:     "docker/osmosis/Dockerfile",
+		timeout:        3 * time.Second,
+		rpcPort:        "26657",
+		accountPrefix:  "osmo",
+		trustingPeriod: "330h",
+		buildArgs: []dc.BuildArg{
+			{Name: "VERSION", Value: "v4.2.0"},
+		},
 	}
 
 	seeds = []string{SEED1, SEED2}
@@ -67,6 +75,7 @@ type (
 		timeout        time.Duration
 		accountPrefix  string
 		trustingPeriod string
+		buildArgs      []dc.BuildArg
 	}
 )
 

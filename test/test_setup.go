@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/cosmos/relayer/relayer"
+	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
@@ -47,17 +49,21 @@ func spinUpTestChains(t *testing.T, testChains ...testChain) relayer.Chains {
 		require.NoError(t, fmt.Errorf("could not connect to docker at %s: %w", pool.Client.Endpoint(), err))
 	}
 
+	var eg errgroup.Group
 	// make each container and initialize the chains
 	for i, tc := range testChains {
+		tc := tc
 		c := newTestChain(t, tc)
 		chains[i] = c
 		wg.Add(1)
 		genPrivValKeyJSON(tc.seed)
-		go spinUpTestContainer(t, rchan, pool, c, dir, &wg, tc)
+		eg.Go(func() error {
+			return spinUpTestContainer(rchan, pool, c, dir, tc)
+		})
 	}
 
 	// wait for all containers to be created
-	wg.Wait()
+	eg.Wait()
 
 	// read all the containers out of the channel
 	for i := 0; i < len(chains); i++ {
@@ -111,9 +117,7 @@ func removeTestContainer(pool *dockertest.Pool, containerName string) error {
 // spinUpTestContainer spins up a test container with the given configuration
 // A docker image is built for each chain using its provided configuration.
 // This image is then ran using the options set below.
-func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
-	pool *dockertest.Pool, c *relayer.Chain, dir string, wg *sync.WaitGroup, tc testChain) {
-	defer wg.Done()
+func spinUpTestContainer(rchan chan<- *dockertest.Resource, pool *dockertest.Pool, c *relayer.Chain, dir string, tc testChain) error {
 	var (
 		err      error
 		debug    bool
@@ -129,10 +133,14 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 	}
 
 	// initialize the chain
-	require.NoError(t, c.Init(dir, tc.t.timeout, nil, debug))
+	if err := c.Init(dir, tc.t.timeout, nil, debug); err != nil {
+		return err
+	}
 
 	// create the test key
-	require.NoError(t, c.CreateTestKey())
+	if err := c.CreateTestKey(); err != nil {
+		return err
+	}
 
 	containerName := c.ChainID
 
@@ -153,30 +161,41 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource,
 	}
 
 	// err = removeTestContainer(pool, containerName)
-	require.NoError(t, removeTestContainer(pool, containerName))
+	if err := removeTestContainer(pool, containerName); err != nil {
+		return err
+	}
 
 	// create the proper docker image with port forwarding setup
 	d, err := os.Getwd()
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
 
-	buildOpts := &dockertest.BuildOptions{
+	buildOpts := &BuildOptions{
 		Dockerfile: tc.t.dockerfile,
 		ContextDir: path.Dir(d),
+		BuildArgs:  tc.t.buildArgs,
 	}
-	resource, err = pool.BuildAndRunWithBuildOptions(buildOpts, dockerOpts)
-	require.NoError(t, err)
+	hcOpt := func(hc *dc.HostConfig) {
+		hc.LogConfig.Type = "json-file"
+	}
+	resource, err = BuildAndRunWithBuildOptions(pool, buildOpts, dockerOpts, hcOpt)
+	if err != nil {
+		return err
+	}
 
 	c.Log(fmt.Sprintf("- [%s] SPUN UP IN CONTAINER %s from %s", c.ChainID,
 		resource.Container.Name, resource.Container.Config.Image))
 
 	// retry polling the container until status doesn't error
 	if err = pool.Retry(c.StatusErr); err != nil {
-		require.NoError(t, fmt.Errorf("could not connect to container at %s: %s", c.RPCAddr, err))
+		return fmt.Errorf("could not connect to container at %s: %s", c.RPCAddr, err)
 	}
 
 	c.Log(fmt.Sprintf("- [%s] CONTAINER AVAILABLE AT PORT %s", c.ChainID, c.RPCAddr))
 
 	rchan <- resource
+	return nil
 }
 
 // cleanUpTest is called as a goroutine to wait until the tests have completed and
@@ -243,4 +262,30 @@ func getFilePV(privKey tmed25519.PrivKey, seedNumber int) *privval.FilePV {
 
 func getPrivValFileName(seedNumber int) string {
 	return fmt.Sprintf("./setup/valkeys/priv_val%d.json", seedNumber)
+}
+
+type BuildOptions struct {
+	Dockerfile string
+	ContextDir string
+	BuildArgs  []dc.BuildArg
+}
+
+// BuildAndRunWithBuildOptions builds and starts a docker container.
+// Optional modifier functions can be passed in order to change the hostconfig values not covered in RunOptions
+func BuildAndRunWithBuildOptions(pool *dockertest.Pool, buildOpts *BuildOptions, runOpts *dockertest.RunOptions, hcOpts ...func(*dc.HostConfig)) (*dockertest.Resource, error) {
+	err := pool.Client.BuildImage(dc.BuildImageOptions{
+		Name:         runOpts.Name,
+		Dockerfile:   buildOpts.Dockerfile,
+		OutputStream: ioutil.Discard,
+		ContextDir:   buildOpts.ContextDir,
+		BuildArgs:    buildOpts.BuildArgs,
+	})
+
+	if err != nil {
+		return nil, errors.Wrap(err, "")
+	}
+
+	runOpts.Repository = runOpts.Name
+
+	return pool.RunWithOptions(runOpts, hcOpts...)
 }

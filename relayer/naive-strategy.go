@@ -1,7 +1,6 @@
 package relayer
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -15,9 +14,6 @@ import (
 )
 
 var (
-	// Ensure that NaiveStrategy satisfies the Strategy interface
-	_ Strategy = &NaiveStrategy{}
-
 	// Strings for parsing events
 	spTag       = "send_packet"
 	waTag       = "write_acknowledgement"
@@ -32,27 +28,8 @@ var (
 	seqTag      = "packet_sequence"
 )
 
-// NewNaiveStrategy returns the proper config for the NaiveStrategy
-func NewNaiveStrategy() *StrategyCfg {
-	return &StrategyCfg{
-		Type: (&NaiveStrategy{}).GetType(),
-	}
-}
-
-// NaiveStrategy is an implementation of Strategy.
-type NaiveStrategy struct {
-	Ordered      bool
-	MaxTxSize    uint64 // maximum permitted size of the msgs in a bundled relay transaction
-	MaxMsgLength uint64 // maximum amount of messages in a bundled relay transaction
-}
-
-// GetType implements Strategy
-func (nrs *NaiveStrategy) GetType() string {
-	return "naive"
-}
-
 // UnrelayedSequences returns the unrelayed sequence numbers between two chains
-func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, error) {
+func UnrelayedSequences(src, dst *Chain) (*RelaySequences, error) {
 	var (
 		eg           = new(errgroup.Group)
 		srcPacketSeq = []uint64{}
@@ -152,7 +129,7 @@ func (nrs *NaiveStrategy) UnrelayedSequences(src, dst *Chain) (*RelaySequences, 
 }
 
 // UnrelayedAcknowledgements returns the unrelayed sequence numbers between two chains
-func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequences, error) {
+func UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequences, error) {
 	var (
 		eg           = new(errgroup.Group)
 		srcPacketSeq = []uint64{}
@@ -179,10 +156,7 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 				return nil
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-			src.logRetryQueryPacketAcknowledgements(uint64(srch), n, err)
-			if srch, err = src.QueryLatestHeight(); err != nil {
-				return
-			}
+			srch, _ = src.QueryLatestHeight()
 		})); err != nil {
 			return err
 		}
@@ -205,10 +179,7 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 				return nil
 			}
 		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-			dst.logRetryQueryPacketAcknowledgements(uint64(dsth), n, err)
-			if dsth, err = dst.QueryLatestHeight(); err != nil {
-				return
-			}
+			dsth, _ = dst.QueryLatestHeight()
 		})); err != nil {
 			return err
 		}
@@ -224,24 +195,22 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 
 	eg.Go(func() error {
 		// Query all packets sent by src that have been received by dst
-		rs.Src, err = dst.QueryUnreceivedAcknowledgements(uint64(dsth), srcPacketSeq)
-		if src.debug {
-			if out, err := json.Marshal(rs.Src); err != nil {
-				src.logUnreceivedPackets(dst, "acks", string(out))
-			}
-		}
-		return err
+		return retry.Do(func() error {
+			rs.Src, err = dst.QueryUnreceivedAcknowledgements(uint64(dsth), srcPacketSeq)
+			return err
+		}, rtyErr, rtyAtt, rtyDel, retry.OnRetry(func(n uint, err error) {
+			dsth, _ = dst.QueryLatestHeight()
+		}))
 	})
 
 	eg.Go(func() error {
 		// Query all packets sent by dst that have been received by src
-		rs.Dst, err = src.QueryUnreceivedAcknowledgements(uint64(srch), dstPacketSeq)
-		if dst.debug {
-			if out, err := json.Marshal(rs.Dst); err != nil {
-				dst.logUnreceivedPackets(src, "acks", string(out))
-			}
-		}
-		return err
+		return retry.Do(func() error {
+			rs.Dst, err = src.QueryUnreceivedAcknowledgements(uint64(srch), dstPacketSeq)
+			return err
+		}, rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+			srch, _ = src.QueryLatestHeight()
+		}))
 	})
 
 	if err := eg.Wait(); err != nil {
@@ -251,181 +220,27 @@ func (nrs *NaiveStrategy) UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequ
 	return rs, nil
 }
 
-// HandleEvents defines how the relayer will handle block and transaction events as they are emitted
-func (nrs *NaiveStrategy) HandleEvents(src, dst *Chain, srch, dsth int64, events map[string][]string) {
-	// check for misbehaviour and submit if found
-	// events came from dst chain, use that chain as the source
-	// the chain messages are submitted to
-	if err := checkAndSubmitMisbehaviour(dst, src, events); err != nil {
-		src.Error(err)
-	}
-
-	rlyPackets, err := relayPacketsFromEventListener(src.PathEnd, dst.PathEnd, events)
-	if len(rlyPackets) > 0 && err == nil {
-		// TODO: handle errors here by retrying the whole thing. Maybe try
-		// updating the heights on the retry?
-		retry.Do(func() error { return nrs.sendTxFromEventPackets(src, dst, srch, dsth, rlyPackets) }, retry.OnRetry(func(n uint, err error) {
-			err = nil
-			srch, dsth, err = QueryLatestHeights(src, dst)
-			return
-		}))
-
-	}
-}
-
-func relayPacketsFromEventListener(src, dst *PathEnd, events map[string][]string) (rlyPkts []relayPacket, err error) {
-	// check for send packets
-	if pdval, ok := events[fmt.Sprintf("%s.%s", spTag, dataTag)]; ok {
-		for i, pd := range pdval {
-			// Ensure that we only relay over the channel and port specified
-			// OPTIONAL FEATURE: add additional filtering options
-			// Example Events - "transfer.amount(sdk.Coin)", "message.sender(sdk.AccAddress)"
-			srcChan, srcPort := events[fmt.Sprintf("%s.%s", spTag, srcChanTag)], events[fmt.Sprintf("%s.%s", spTag, srcPortTag)]
-			dstChan, dstPort := events[fmt.Sprintf("%s.%s", spTag, dstChanTag)], events[fmt.Sprintf("%s.%s", spTag, dstPortTag)]
-
-			// NOTE: Src and Dst are switched here
-			if dst.PortID == srcPort[i] && dst.ChannelID == srcChan[i] &&
-				src.PortID == dstPort[i] && src.ChannelID == dstChan[i] {
-				rp := &relayMsgRecvPacket{packetData: []byte(pd)}
-
-				// next, get and parse the sequence
-				if sval, ok := events[fmt.Sprintf("%s.%s", spTag, seqTag)]; ok {
-					seq, err := strconv.ParseUint(sval[i], 10, 64)
-					if err != nil {
-						return nil, err
-					}
-					rp.seq = seq
-				}
-
-				// finally, get and parse the timeout
-				if sval, ok := events[fmt.Sprintf("%s.%s", spTag, toHeightTag)]; ok {
-					timeout, err := clienttypes.ParseHeight(sval[i])
-					if err != nil {
-						return nil, err
-					}
-					rp.timeout = MustGetHeight(timeout)
-				}
-
-				// finally, get and parse the timeout
-				if sval, ok := events[fmt.Sprintf("%s.%s", spTag, toTSTag)]; ok {
-					timeout, err := strconv.ParseUint(sval[i], 10, 64)
-					if err != nil {
-						return nil, err
-					}
-					rp.timeoutStamp = timeout
-				}
-
-				// queue the packet for return
-				rlyPkts = append(rlyPkts, rp)
-			}
-		}
-	}
-
-	// then, check for packet acks
-	if pdval, ok := events[fmt.Sprintf("%s.%s", waTag, dataTag)]; ok {
-		for i, pd := range pdval {
-			// Ensure that we only relay over the channel and port specified
-			// OPTIONAL FEATURE: add additional filtering options
-			srcChan, srcPort := events[fmt.Sprintf("%s.%s", waTag, srcChanTag)], events[fmt.Sprintf("%s.%s", waTag, srcPortTag)]
-			dstChan, dstPort := events[fmt.Sprintf("%s.%s", waTag, dstChanTag)], events[fmt.Sprintf("%s.%s", waTag, dstPortTag)]
-
-			// NOTE: Src and Dst are not switched here
-			if src.PortID == srcPort[i] && src.ChannelID == srcChan[i] &&
-				dst.PortID == dstPort[i] && dst.ChannelID == dstChan[i] {
-				rp := &relayMsgPacketAck{packetData: []byte(pd)}
-
-				// first get the ack
-				if ack, ok := events[fmt.Sprintf("%s.%s", waTag, ackTag)]; ok {
-					rp.ack = []byte(ack[i])
-				}
-				// next, get and parse the sequence
-				if sval, ok := events[fmt.Sprintf("%s.%s", waTag, seqTag)]; ok {
-					seq, err := strconv.ParseUint(sval[i], 10, 64)
-					if err != nil {
-						return nil, err
-					}
-					rp.seq = seq
-				}
-
-				// finally, get and parse the timeout
-				if sval, ok := events[fmt.Sprintf("%s.%s", waTag, toHeightTag)]; ok {
-					timeout, err := clienttypes.ParseHeight(sval[i])
-					if err != nil {
-						return nil, err
-					}
-					rp.timeout = MustGetHeight(timeout)
-				}
-
-				// finally, get and parse the timeout
-				if sval, ok := events[fmt.Sprintf("%s.%s", waTag, toTSTag)]; ok {
-					timeout, err := strconv.ParseUint(sval[i], 10, 64)
-					if err != nil {
-						return nil, err
-					}
-					rp.timeoutStamp = timeout
-				}
-
-				// queue the packet for return
-				rlyPkts = append(rlyPkts, rp)
-			}
-		}
-	}
-	return rlyPkts, nil
-}
-
-func (nrs *NaiveStrategy) sendTxFromEventPackets(src, dst *Chain, srch, dsth int64, rlyPackets []relayPacket) error {
-	// send the transaction, retrying if not successful
-
-	dstHeader, err := dst.GetIBCUpdateHeader(src, dsth)
-	if err != nil {
-		return err
-	}
-	updateMsg, err := src.UpdateClient(dst, dstHeader)
-	if err != nil {
-		return err
-	}
-
-	txs := &RelayMsgs{
-		Src:          []sdk.Msg{updateMsg},
-		Dst:          []sdk.Msg{},
-		MaxTxSize:    nrs.MaxTxSize,
-		MaxMsgLength: nrs.MaxMsgLength,
-	}
-
-	// add the packet msgs to RelayPackets
-	for _, rp := range rlyPackets {
-		// fetch the proof for the relayPacket
-		if err := rp.FetchCommitResponse(src, dst, dstHeader.GetHeight().GetRevisionHeight()); err != nil {
-			return err
-		}
-		msg, err := rp.Msg(src, dst)
-		if err != nil {
-			return err
-		}
-		txs.Src = append(txs.Src, msg)
-	}
-
-	if txs.Send(src, dst); !txs.Success() {
-		return fmt.Errorf("failed to send packets, see above logs for details")
-	}
-
-	return nil
-}
-
 // RelaySequences represents unrelayed packets on src and dst
 type RelaySequences struct {
 	Src []uint64 `json:"src"`
 	Dst []uint64 `json:"dst"`
 }
 
+func (rs *RelaySequences) Empty() bool {
+	if len(rs.Src) == 0 && len(rs.Dst) == 0 {
+		return true
+	}
+	return false
+}
+
 // RelayAcknowledgements creates transactions to relay acknowledgements from src to dst and from dst to src
-func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequences) error {
+func RelayAcknowledgements(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength uint64) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []sdk.Msg{},
 		Dst:          []sdk.Msg{},
-		MaxTxSize:    nrs.MaxTxSize,
-		MaxMsgLength: nrs.MaxMsgLength,
+		MaxTxSize:    maxTxSize,
+		MaxMsgLength: maxMsgLength,
 	}
 
 	srch, dsth, err := QueryLatestHeights(src, dst)
@@ -513,13 +328,13 @@ func (nrs *NaiveStrategy) RelayAcknowledgements(src, dst *Chain, sp *RelaySequen
 }
 
 // RelayPackets creates transactions to relay packets from src to dst and from dst to src
-func (nrs *NaiveStrategy) RelayPackets(src, dst *Chain, sp *RelaySequences) error {
+func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength uint64) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []sdk.Msg{},
 		Dst:          []sdk.Msg{},
-		MaxTxSize:    nrs.MaxTxSize,
-		MaxMsgLength: nrs.MaxMsgLength,
+		MaxTxSize:    maxTxSize,
+		MaxMsgLength: maxMsgLength,
 	}
 
 	srch, dsth, err := QueryLatestHeights(src, dst)
@@ -695,20 +510,20 @@ func acknowledgementFromSequence(src, dst *Chain, dsth, seq uint64) (sdk.Msg, er
 		return nil, err
 	case len(acks) == 0:
 		return nil, fmt.Errorf("no ack msgs created from query response")
-	case len(acks) > 1:
-		return nil, fmt.Errorf("more than one ack msg found in tx query")
 	}
 
-	pkt := acks[0]
-	if seq != pkt.Seq() {
-		return nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
+	var out sdk.Msg
+	for _, ack := range acks {
+		if seq != ack.Seq() {
+			continue
+		}
+		msg, err := src.MsgRelayAcknowledgement(dst, int64(dsth), ack)
+		if err != nil {
+			return nil, err
+		}
+		out = msg
 	}
-
-	msg, err := src.MsgRelayAcknowledgement(dst, int64(dsth), pkt)
-	if err != nil {
-		return nil, err
-	}
-	return msg, nil
+	return out, nil
 }
 
 // relayPacketsFromResultTx looks through the events in a *ctypes.ResultTx

@@ -89,9 +89,8 @@ type PathAction struct {
 // Path represents a pair of chains and the identifiers needed to
 // relay over them
 type Path struct {
-	Src      *PathEnd     `yaml:"src" json:"src"`
-	Dst      *PathEnd     `yaml:"dst" json:"dst"`
-	Strategy *StrategyCfg `yaml:"strategy" json:"strategy"`
+	Src *PathEnd `yaml:"src" json:"src"`
+	Dst *PathEnd `yaml:"dst" json:"dst"`
 }
 
 // Ordered returns true if the path is ordered and false if otherwise
@@ -135,9 +134,6 @@ func GenPath(srcChainID, dstChainID, srcPortID, dstPortID, order string, version
 			PortID:       dstPortID,
 			Order:        order,
 			Version:      version,
-		},
-		Strategy: &StrategyCfg{
-			Type: "naive",
 		},
 	}
 }
@@ -234,7 +230,7 @@ func (p *Path) QueryPathStatus(src, dst *Chain) *PathWithStatus {
 // PrintString prints a string representations of the path status
 func (ps *PathWithStatus) PrintString(name string) string {
 	pth := ps.Path
-	return fmt.Sprintf(`Path "%s" strategy(%s):
+	return fmt.Sprintf(`Path "%s":
   SRC(%s)
     ClientID:     %s
     ConnectionID: %s
@@ -249,7 +245,7 @@ func (ps *PathWithStatus) PrintString(name string) string {
     Chains:       %s
     Clients:      %s
     Connection:   %s
-    Channel:      %s`, name, pth.Strategy.Type, pth.Src.ChainID,
+    Channel:      %s`, name, pth.Src.ChainID,
 		pth.Src.ClientID, pth.Src.ConnectionID, pth.Src.ChannelID, pth.Src.PortID,
 		pth.Dst.ChainID, pth.Dst.ClientID, pth.Dst.ConnectionID, pth.Dst.ChannelID, pth.Dst.PortID,
 		checkmark(ps.Status.Chains), checkmark(ps.Status.Clients), checkmark(ps.Status.Connection),
