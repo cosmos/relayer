@@ -559,9 +559,6 @@ func (c *Config) AddPath(name string, path *relayer.Path) (err error) {
 	if err = checkPathEndConflict(name, "destination", oldPath.Dst, path.Dst); err != nil {
 		return err
 	}
-	if err = checkPathConflict(name, "strategy type", oldPath.Strategy.Type, path.Strategy.Type); err != nil {
-		return err
-	}
 	// Update the existing path.
 	*oldPath = *path
 	return nil
@@ -682,9 +679,6 @@ func (c *Config) ValidatePath(p *relayer.Path) (err error) {
 	}
 	if err = c.ValidatePathEnd(p.Dst); err != nil {
 		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Dst.ChainID)
-	}
-	if _, err = p.GetStrategy(); err != nil {
-		return err
 	}
 	if p.Src.Order != p.Dst.Order {
 		return fmt.Errorf("both sides must have same order ('ORDERED' or 'UNORDERED'), got src(%s) and dst(%s)",

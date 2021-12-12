@@ -63,13 +63,13 @@ two-chains:
 	@cd ./two-chains && sh relayer-setup && cd ..
 
 test:
-	@TEST_DEBUG=true go test -mod=readonly -v ./test/...
+	@go test -mod=readonly -v ./test/...
 
 test-gaia:
-	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestGaia*
+	@go test -mod=readonly -v ./test/... -run TestGaia*
 
 test-akash:
-	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestAkash*
+	@go test -mod=readonly -v ./test/... -run TestAkash*
 
 coverage:
 	@echo "viewing test coverage..."

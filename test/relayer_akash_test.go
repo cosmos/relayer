@@ -3,6 +3,7 @@ package test
 import (
 	"testing"
 
+	"github.com/cosmos/relayer/cmd"
 	"github.com/cosmos/relayer/relayer"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -16,7 +17,7 @@ var (
 	}
 )
 
-func TestAkashToGaiaStreamingRelayer(t *testing.T) {
+func TestAkashToGaiaRelaying(t *testing.T) {
 	chains := spinUpTestChains(t, akashChains...)
 
 	var (
@@ -27,7 +28,7 @@ func TestAkashToGaiaStreamingRelayer(t *testing.T) {
 		twoTestCoin = sdk.NewCoin(testDenom, sdk.NewInt(2000))
 	)
 
-	path, err := genTestPathAndSet(src, dst, "transfer", "transfer")
+	_, err := genTestPathAndSet(src, dst, "transfer", "transfer")
 	require.NoError(t, err)
 
 	// query initial balances to compare against at the end
@@ -61,7 +62,7 @@ func TestAkashToGaiaStreamingRelayer(t *testing.T) {
 	require.NoError(t, dst.WaitForNBlocks(1))
 
 	// start the relayer process in it's own goroutine
-	rlyDone, err := relayer.RunStrategy(src, dst, path.MustGetStrategy())
+	rlyDone, err := relayer.StartRelayer(src, dst, 2*cmd.MB, 5)
 	require.NoError(t, err)
 
 	// Wait for relay message inclusion in both chains

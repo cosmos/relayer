@@ -54,7 +54,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 			}
 
 			path := config.Paths.MustGet(args[0])
-			strategy, err := GetStrategyWithOptions(cmd, path.MustGetStrategy())
+			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
 			if err != nil {
 				return err
 			}
@@ -70,7 +70,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				}
 			}
 
-			done, err := relayer.RunStrategy(c[src], c[dst], strategy)
+			done, err := relayer.StartRelayer(c[src], c[dst], maxTxSize, maxMsgLength)
 			if err != nil {
 				return err
 			}
