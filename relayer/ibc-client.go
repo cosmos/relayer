@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	retry "github.com/avast/retry-go"
 	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v2/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
@@ -67,8 +68,11 @@ func (c *Chain) InjectTrustedFields(dst *Chain, header *tmclient.Header) (*tmcli
 
 	// TODO: this is likely a source of off by 1 errors but may be impossible to change? Maybe this is the
 	// place where we need to fix the upstream query proof issue?
-	trustedHeader, err := c.GetLightSignedHeaderAtHeight(int64(h.TrustedHeight.RevisionHeight) + 1)
-	if err != nil {
+	var trustedHeader *tmclient.Header
+	if err := retry.Do(func() error {
+		trustedHeader, err = c.GetLightSignedHeaderAtHeight(int64(h.TrustedHeight.RevisionHeight) + 1)
+		return err
+	}, rtyAtt, rtyDel, rtyErr); err != nil {
 		return nil, fmt.Errorf(
 			"failed to get trusted header, please ensure header at the height %d has not been pruned by the connected node: %w",
 			h.TrustedHeight.RevisionHeight, err,

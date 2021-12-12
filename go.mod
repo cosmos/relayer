@@ -11,7 +11,7 @@ require (
 	github.com/gin-gonic/gin v1.7.0 // indirect
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/gogo/protobuf v1.3.3
-	github.com/gorilla/mux v1.8.0
+	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/moby/term v0.0.0-20201101162038-25d840ce174a // indirect
 	github.com/ory/dockertest/v3 v3.6.2
 	github.com/spf13/cobra v1.2.1
