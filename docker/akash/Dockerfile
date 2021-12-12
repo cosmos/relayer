@@ -22,8 +22,6 @@ WORKDIR /root
 # Copy over binaries from the build-env
 COPY --from=build-env /go/bin/akash /usr/bin/akash
 
-#USER akash
-
 WORKDIR /akash
 
 COPY ./test/setup/akash-setup.sh .
@@ -33,8 +31,6 @@ COPY ./test/setup/valkeys ./setup/valkeys
 USER root
 
 RUN chmod -R 777 ./setup
-
-#USER akash
 
 EXPOSE 26657
 

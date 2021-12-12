@@ -54,22 +54,11 @@ build-akash-docker:
 # Tests / CI
 ###############################################################################
 
-two-chains:
-	@docker-compose -f ./two-chains/docker-compose.yaml down
-	@rm -fr ./two-chains/ibc-* ./two-chains/.relayer ./two-chains/rly.log
-	@docker-compose -f ./two-chains/docker-compose.yaml up -d
-	@while ! curl localhost:26657 &> /dev/null; do sleep 1; done
-	@while ! curl localhost:26667 &> /dev/null; do sleep 1; done
-	@cd ./two-chains && sh relayer-setup && cd ..
-
 test:
 	@go test -mod=readonly -v ./test/...
 
-test-gaia:
-	@go test -mod=readonly -v ./test/... -run TestGaia*
-
-test-akash:
-	@go test -mod=readonly -v ./test/... -run TestAkash*
+test-short:
+	@go test -mod=readonly -v ./test/... -run TestOsmoToGaiaRelaying
 
 coverage:
 	@echo "viewing test coverage..."
