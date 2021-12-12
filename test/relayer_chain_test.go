@@ -19,19 +19,12 @@ import (
 	tmversion "github.com/tendermint/tendermint/version"
 )
 
-var (
-	gaiaChains = []testChain{
-		{"ibc-0", 0, gaiaTestConfig},
-		{"ibc-1", 1, gaiaTestConfig},
-	}
-)
-
-func TestGaiaToGaiaRelaying(t *testing.T) {
-	chains := spinUpTestChains(t, gaiaChains...)
+func chainTest(t *testing.T, tcs []testChain) {
+	chains := spinUpTestChains(t, tcs...)
 
 	var (
-		src         = chains.MustGet("ibc-0")
-		dst         = chains.MustGet("ibc-1")
+		src         = chains.MustGet(tcs[0].chainID)
+		dst         = chains.MustGet(tcs[1].chainID)
 		testDenom   = "samoleans"
 		testCoin    = sdk.NewCoin(testDenom, sdk.NewInt(1000))
 		twoTestCoin = sdk.NewCoin(testDenom, sdk.NewInt(2000))
@@ -110,7 +103,10 @@ func TestGaiaToGaiaRelaying(t *testing.T) {
 }
 
 func TestGaiaReuseIdentifiers(t *testing.T) {
-	chains := spinUpTestChains(t, gaiaChains...)
+	chains := spinUpTestChains(t, []testChain{
+		{"ibc-0", 0, gaiaTestConfig},
+		{"ibc-1", 1, gaiaTestConfig},
+	}...)
 
 	var (
 		src = chains.MustGet("ibc-0")
@@ -178,7 +174,10 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	// TODO: fix and re-enable this test
 	// need to figure out what this feature is supposed to do
 	t.Skip()
-	chains := spinUpTestChains(t, gaiaChains...)
+	chains := spinUpTestChains(t, []testChain{
+		{"ibc-0", 0, gaiaTestConfig},
+		{"ibc-1", 1, gaiaTestConfig},
+	}...)
 
 	var (
 		src = chains.MustGet("ibc-0")
