@@ -128,11 +128,11 @@ func createClientsCmd() *cobra.Command {
 			}
 
 			// ensure that keys exist
-			if _, err = c[src].GetAddress(); err != nil {
-				return err
+			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
-			if _, err = c[dst].GetAddress(); err != nil {
-				return err
+			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry,
@@ -166,11 +166,11 @@ corresponding update-client messages.`,
 			}
 
 			// ensure that keys exist
-			if _, err = c[src].GetAddress(); err != nil {
-				return err
+			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
-			if _, err = c[dst].GetAddress(); err != nil {
-				return err
+			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			return c[src].UpdateClients(c[dst])
@@ -197,11 +197,11 @@ func upgradeClientsCmd() *cobra.Command {
 			}
 
 			// ensure that keys exist
-			if _, err = c[src].GetAddress(); err != nil {
-				return err
+			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
-			if _, err = c[dst].GetAddress(); err != nil {
-				return err
+			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			targetChainID := args[1]
@@ -264,11 +264,11 @@ $ %s tx conn demo-path --timeout 5s`,
 			}
 
 			// ensure that keys exist
-			if _, err = c[src].GetAddress(); err != nil {
-				return err
+			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
-			if _, err = c[dst].GetAddress(); err != nil {
-				return err
+			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			// ensure that the clients exist
@@ -321,11 +321,11 @@ $ %s tx channel-close demo-path -o 3s`,
 			}
 
 			// ensure that keys exist
-			if _, err = c[src].GetAddress(); err != nil {
-				return err
+			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
-			if _, err = c[dst].GetAddress(); err != nil {
-				return err
+			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			return c[src].CloseChannel(c[dst], to)
@@ -382,11 +382,11 @@ $ %s tx connect demo-path`,
 			}
 
 			// ensure that keys exist
-			if _, err = c[src].GetAddress(); err != nil {
-				return err
+			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
-			if _, err = c[dst].GetAddress(); err != nil {
-				return err
+			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			// create clients if they aren't already created
@@ -564,11 +564,11 @@ upgrade plan without the upgrade client state.`,
 			}
 
 			// ensure that keys exist
-			if _, err = c[src].GetAddress(); err != nil {
-				return err
+			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
-			if _, err = c[dst].GetAddress(); err != nil {
-				return err
+			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			// parse deposit
@@ -693,7 +693,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 
 func setPathsFromArgs(src, dst *relayer.Chain, name string) (*relayer.Path, error) {
 	// find any configured paths between the chains
-	paths, err := config.Paths.PathsFromChains(src.ChainID, dst.ChainID)
+	paths, err := config.Paths.PathsFromChains(src.ChainID(), dst.ChainID())
 	if err != nil {
 		return nil, err
 	}
@@ -713,7 +713,7 @@ func setPathsFromArgs(src, dst *relayer.Chain, name string) (*relayer.Path, erro
 		}
 
 	case name == "" && len(paths) > 1:
-		return nil, fmt.Errorf("more than one path between %s and %s exists, pass in path name", src.ChainID, dst.ChainID)
+		return nil, fmt.Errorf("more than one path between %s and %s exists, pass in path name", src.ChainID(), dst.ChainID())
 
 	case name == "" && len(paths) == 1:
 		for _, v := range paths {
@@ -721,25 +721,24 @@ func setPathsFromArgs(src, dst *relayer.Chain, name string) (*relayer.Path, erro
 		}
 	}
 
-	if err = src.SetPath(path.End(src.ChainID)); err != nil {
+	if err = src.SetPath(path.End(src.ChainID())); err != nil {
 		return nil, err
 	}
 
-	if err = dst.SetPath(path.End(dst.ChainID)); err != nil {
+	if err = dst.SetPath(path.End(dst.ChainID())); err != nil {
 		return nil, err
 	}
 
 	return path, nil
 }
 
-// ensureKeysExist returns an error if a configured key for a given chain does
-// not exist.
+// ensureKeysExist returns an error if a configured key for a given chain does not exist.
 func ensureKeysExist(chains map[string]*relayer.Chain) error {
 	for _, v := range chains {
-		if _, err := v.GetAddress(); err != nil {
-			return err
+		if exists := v.ChainProvider.KeyExists(v.ChainProvider.Key()); !exists {
+			return fmt.Errorf("key %s not found on chain %s \n", v.ChainProvider.Key(), v.ChainID())
 		}
-	}
 
+	}
 	return nil
 }
