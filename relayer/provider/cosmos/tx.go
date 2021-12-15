@@ -3,7 +3,6 @@ package cosmos
 import (
 	"errors"
 	"fmt"
-
 	sdkCtx "github.com/cosmos/cosmos-sdk/client"
 	sdkTx "github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
@@ -87,7 +86,7 @@ func BuildUnsignedTx(txf sdkTx.Factory, txConfig sdkCtx.TxConfig, msgs ...relaye
 
 	tx := txConfig.NewTxBuilder()
 
-	if err := tx.SetMsgs(CosmosMsgs(msgs)...); err != nil {
+	if err := tx.SetMsgs(CosmosMsgs(msgs...)...); err != nil {
 		return nil, err
 	}
 
@@ -150,3 +149,37 @@ func CalculateGas(queryFunc func(string, []byte) ([]byte, int64, error), txf sdk
 
 	return simRes, uint64(txf.GasAdjustment() * float64(simRes.GasInfo.GasUsed)), nil
 }
+
+//func (cp *CosmosProvider) NewUpgradeProp(clientid string) error {
+//	var plan *upgradetypes.Plan
+//	height, err := cp.QueryLatestHeight()
+//	if err != nil {
+//		return err
+//	}
+//
+//	clientState, err := cp.QueryClientState(height, clientid)
+//	if err != nil {
+//		return err
+//	}
+//
+//	upgradedClientState := clientState.ZeroCustomFields().(*ibctmtypes.ClientState)
+//	upgradedClientState.LatestHeight.RevisionHeight = uint64(plan.Height + 1)
+//	upgradedClientState.UnbondingPeriod = unbondingPeriod
+//
+//	// TODO: make cli args for title and description
+//	upgradeProposal, err := clienttypes.NewUpgradeProposal("upgrade",
+//		"upgrade the chain's software and unbonding period", *plan, upgradedClientState)
+//	if err != nil {
+//		return err
+//	}
+//
+//	addr, err := c.ChainProvider.ShowAddress(c.ChainProvider.Key())
+//	if err != nil {
+//		return err
+//	}
+//
+//	msg, err := govtypes.NewMsgSubmitProposal(upgradeProposal, sdk.NewCoins(deposit), addr)
+//	if err != nil {
+//		return err
+//	}
+//}

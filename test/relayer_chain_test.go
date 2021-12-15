@@ -34,9 +34,9 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, err)
 
 	// query initial balances to compare against at the end
-	srcExpected, err := src.QueryBalance(src.Key)
+	srcExpected, err := src.ChainProvider.QueryBalance(src.ChainProvider.Key())
 	require.NoError(t, err)
-	dstExpected, err := dst.QueryBalance(dst.Key)
+	dstExpected, err := dst.ChainProvider.QueryBalance(dst.ChainProvider.Key())
 	require.NoError(t, err)
 
 	// create path
@@ -53,12 +53,12 @@ func chainTest(t *testing.T, tcs []testChain) {
 	testChannelPair(t, src, dst)
 
 	// send a couple of transfers to the queue on src
-	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.MustGetAddress(), 0, 0))
-	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.MustGetAddress(), 0, 0))
+	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.ChainProvider.Address(), 0, 0))
+	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.ChainProvider.Address(), 0, 0))
 
 	// send a couple of transfers to the queue on dst
-	require.NoError(t, dst.SendTransferMsg(src, testCoin, src.MustGetAddress(), 0, 0))
-	require.NoError(t, dst.SendTransferMsg(src, testCoin, src.MustGetAddress(), 0, 0))
+	require.NoError(t, dst.SendTransferMsg(src, testCoin, src.ChainProvider.Address(), 0, 0))
+	require.NoError(t, dst.SendTransferMsg(src, testCoin, src.ChainProvider.Address(), 0, 0))
 
 	// Wait for message inclusion in both chains
 	require.NoError(t, dst.WaitForNBlocks(1))
@@ -72,8 +72,8 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, dst.WaitForNBlocks(1))
 
 	// send those tokens from dst back to dst and src back to src
-	require.NoError(t, src.SendTransferMsg(dst, twoTestCoin, dst.MustGetAddress(), 0, 0))
-	require.NoError(t, dst.SendTransferMsg(src, twoTestCoin, src.MustGetAddress(), 0, 0))
+	require.NoError(t, src.SendTransferMsg(dst, twoTestCoin, dst.ChainProvider.Address(), 0, 0))
+	require.NoError(t, dst.SendTransferMsg(src, twoTestCoin, src.ChainProvider.Address(), 0, 0))
 
 	// wait for packet processing
 	require.NoError(t, dst.WaitForNBlocks(6))
@@ -82,22 +82,22 @@ func chainTest(t *testing.T, tcs []testChain) {
 	rlyDone()
 
 	// check balance on src against expected
-	srcGot, err := src.QueryBalance(src.Key)
+	srcGot, err := src.ChainProvider.QueryBalance(src.ChainProvider.Key())
 	require.NoError(t, err)
 	require.Equal(t, srcExpected.AmountOf(testDenom).Int64()-4000, srcGot.AmountOf(testDenom).Int64())
 
 	// check balance on dst against expected
-	dstGot, err := dst.QueryBalance(dst.Key)
+	dstGot, err := dst.ChainProvider.QueryBalance(dst.ChainProvider.Key())
 	require.NoError(t, err)
 	require.Equal(t, dstExpected.AmountOf(testDenom).Int64()-4000, dstGot.AmountOf(testDenom).Int64())
 
 	// check balance on src against expected
-	srcGot, err = src.QueryBalance(src.Key)
+	srcGot, err = src.ChainProvider.QueryBalance(src.ChainProvider.Key())
 	require.NoError(t, err)
 	require.Equal(t, srcExpected.AmountOf(testDenom).Int64()-4000, srcGot.AmountOf(testDenom).Int64())
 
 	// check balance on dst against expected
-	dstGot, err = dst.QueryBalance(dst.Key)
+	dstGot, err = dst.ChainProvider.QueryBalance(dst.ChainProvider.Key())
 	require.NoError(t, err)
 	require.Equal(t, dstExpected.AmountOf(testDenom).Int64()-4000, dstGot.AmountOf(testDenom).Int64())
 }
@@ -208,10 +208,10 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	require.NoError(t, src.WaitForNBlocks(1))
 	require.NoError(t, dst.WaitForNBlocks(1))
 
-	latestHeight, err := dst.QueryLatestHeight()
+	latestHeight, err := dst.ChainProvider.QueryLatestHeight()
 	require.NoError(t, err)
 
-	header, err := dst.QueryHeaderAtHeight(latestHeight)
+	header, err := dst.ChainProvider.QueryHeaderAtHeight(latestHeight)
 	require.NoError(t, err)
 
 	clientState, err := src.QueryTMClientState(latestHeight)
@@ -233,14 +233,14 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	signers := []tmtypes.PrivValidator{privVal}
 
 	// creating duplicate header
-	newHeader := createTMClientHeader(t, dst.ChainID, int64(heightPlus1.RevisionHeight), height,
+	newHeader := createTMClientHeader(t, dst.ChainID(), int64(heightPlus1.RevisionHeight), height,
 		header.GetTime().Add(time.Minute), valSet, valSet, signers, header)
 
 	// update client with duplicate header
-	updateMsg, err := clienttypes.NewMsgUpdateClient(src.PathEnd.ClientID, newHeader, src.MustGetAddress())
+	updateMsg, err := src.ChainProvider.UpdateClient(src.PathEnd.ClientID, newHeader)
 	require.NoError(t, err)
 
-	res, success, err := src.SendMsg(updateMsg)
+	res, success, err := src.ChainProvider.SendMessage(updateMsg)
 	require.NoError(t, err)
 	require.True(t, success)
 	require.Equal(t, uint32(0), res.Code)

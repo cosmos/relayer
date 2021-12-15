@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"fmt"
+	"github.com/cosmos/relayer/relayer/provider"
 	"strconv"
 	"strings"
 
@@ -11,12 +12,12 @@ import (
 )
 
 // LogFailedTx takes the transaction and the messages to create it and logs the appropriate data
-func (c *Chain) LogFailedTx(res *sdk.TxResponse, err error, msgs []sdk.Msg) {
+func (c *Chain) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
 	if c.debug {
 		c.Log(fmt.Sprintf("- [%s] -> failed sending transaction:", c.ChainID))
-		for _, msg := range msgs {
-			c.Print(msg, false, false)
-		}
+		//for _, msg := range msgs {
+		//	//c.Print(msg, false, false)
+		//}
 	}
 
 	if err != nil {
@@ -26,20 +27,20 @@ func (c *Chain) LogFailedTx(res *sdk.TxResponse, err error, msgs []sdk.Msg) {
 		}
 	}
 
-	if res.Code != 0 && res.Codespace != "" {
-		c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%s:%d:%s)",
-			c.ChainID, res.Height, getMsgAction(msgs), res.Codespace, res.Code, res.RawLog))
+	if res.Code != 0 && res.Data != "" {
+		c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%d:%s)",
+			c.ChainID, res.Height, getMsgTypes(msgs), res.Code, res.Data))
 	}
 
-	if c.debug && !res.Empty() {
-		c.Log("- transaction response:")
-		c.Print(res, false, false)
-	}
+	//if c.debug && !res.Empty() {
+	//	c.Log("- transaction response:")
+	//	c.Print(res, false, false)
+	//}
 }
 
 // LogSuccessTx take the transaction and the messages to create it and logs the appropriate data
-func (c *Chain) LogSuccessTx(res *sdk.TxResponse, msgs []sdk.Msg) {
-	c.logger.Info(fmt.Sprintf("✔ [%s]@{%d} - msg(%s) hash(%s)", c.ChainID, res.Height, getMsgAction(msgs), res.TxHash))
+func (c *Chain) LogSuccessTx(res *sdk.TxResponse, msgs []provider.RelayerMessage) {
+	c.logger.Info(fmt.Sprintf("✔ [%s]@{%d} - msg(%s) hash(%s)", c.ChainID, res.Height, getMsgTypes(msgs), res.TxHash))
 }
 
 func (c *Chain) logPacketsRelayed(dst *Chain, num int) {
@@ -73,7 +74,7 @@ func logConnectionStates(src, dst *Chain, srcConn, dstConn *conntypes.QueryConne
 	))
 }
 
-func (c *Chain) logCreateClient(dst *Chain, dstH int64) {
+func (c *Chain) logCreateClient(dst *Chain, dstH uint64) {
 	c.Log(fmt.Sprintf("- [%s] -> creating client on %s for %s header-height{%d} trust-period(%s)",
 		c.ChainID, c.ChainID, dst.ChainID, dstH, dst.GetTrustingPeriod()))
 }
@@ -125,7 +126,7 @@ func getTxActions(act []string) string {
 func (c *Chain) logRetryQueryPacketAcknowledgements(height uint64, n uint, err error) {
 	if c.debug {
 		c.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgements: %s",
-			c.ChainID, height, n+1, rtyAttNum, err))
+			c.ChainID, height, n+1, provider.RtyAttNum, err))
 	}
 }
 

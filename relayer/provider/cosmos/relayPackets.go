@@ -1,20 +1,17 @@
-package relayer
+package cosmos
 
 import (
 	"fmt"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/relayer/provider"
 )
 
-type relayPacket interface {
-	Msg(src, dst *Chain) (sdk.Msg, error)
-	FetchCommitResponse(src, dst *Chain, queryHeight uint64) error
-	Data() []byte
-	Seq() uint64
-	Timeout() clienttypes.Height
-}
+var (
+	_ provider.RelayPacket = relayMsgTimeout{}
+	_ provider.RelayPacket = relayMsgRecvPacket{}
+	_ provider.RelayPacket = relayMsgPacketAck{}
+)
 
 type relayMsgTimeout struct {
 	packetData   []byte
@@ -26,20 +23,24 @@ type relayMsgTimeout struct {
 	pass bool
 }
 
-func (rp *relayMsgTimeout) Data() []byte {
+func (rp relayMsgTimeout) Data() []byte {
 	return rp.packetData
 }
 
-func (rp *relayMsgTimeout) Seq() uint64 {
+func (rp relayMsgTimeout) Seq() uint64 {
 	return rp.seq
 }
 
-func (rp *relayMsgTimeout) Timeout() clienttypes.Height {
+func (rp relayMsgTimeout) Timeout() clienttypes.Height {
 	return rp.timeout
 }
 
-func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, queryHeight uint64) (err error) {
-	dstRecvRes, err := dst.QueryPacketReceipt(int64(queryHeight)-1, rp.seq)
+func (rp relayMsgTimeout) TimeoutStamp() uint64 {
+	return rp.timeoutStamp
+}
+
+func (rp relayMsgTimeout) FetchCommitResponse(dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
+	dstRecvRes, err := dst.QueryPacketReceipt(int64(queryHeight)-1, dstChanId, dstPortId, rp.seq)
 	switch {
 	case err != nil:
 		return err
@@ -51,27 +52,27 @@ func (rp *relayMsgTimeout) FetchCommitResponse(src, dst *Chain, queryHeight uint
 	}
 }
 
-func (rp *relayMsgTimeout) Msg(src, dst *Chain) (sdk.Msg, error) {
+func (rp relayMsgTimeout) Msg(src provider.ChainProvider, srcPortId, srcChanId, dstPortId, dstChanId string) (provider.RelayerMessage, error) {
 	if rp.dstRecvRes == nil {
-		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
+		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", src.ChainId(), rp.seq)
 	}
 	msg := chantypes.NewMsgTimeout(
 		chantypes.NewPacket(
 			rp.packetData,
 			rp.seq,
-			src.PathEnd.PortID,
-			src.PathEnd.ChannelID,
-			dst.PathEnd.PortID,
-			dst.PathEnd.ChannelID,
+			srcPortId,
+			srcChanId,
+			dstPortId,
+			dstChanId,
 			rp.timeout,
 			rp.timeoutStamp,
 		),
 		rp.seq,
 		rp.dstRecvRes.Proof,
 		rp.dstRecvRes.ProofHeight,
-		src.MustGetAddress(),
+		src.Address(),
 	)
-	return msg, nil
+	return NewCosmosMessage(msg), nil
 }
 
 type relayMsgRecvPacket struct {
@@ -84,7 +85,7 @@ type relayMsgRecvPacket struct {
 	pass bool
 }
 
-func (rp *relayMsgRecvPacket) timeoutPacket() *relayMsgTimeout {
+func (rp relayMsgRecvPacket) timeoutPacket() *relayMsgTimeout {
 	return &relayMsgTimeout{
 		packetData:   rp.packetData,
 		seq:          rp.seq,
@@ -95,20 +96,24 @@ func (rp *relayMsgRecvPacket) timeoutPacket() *relayMsgTimeout {
 	}
 }
 
-func (rp *relayMsgRecvPacket) Data() []byte {
+func (rp relayMsgRecvPacket) Data() []byte {
 	return rp.packetData
 }
 
-func (rp *relayMsgRecvPacket) Seq() uint64 {
+func (rp relayMsgRecvPacket) Seq() uint64 {
 	return rp.seq
 }
 
-func (rp *relayMsgRecvPacket) Timeout() clienttypes.Height {
+func (rp relayMsgRecvPacket) Timeout() clienttypes.Height {
 	return rp.timeout
 }
 
-func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, queryHeight uint64) (err error) {
-	dstCommitRes, err := dst.QueryPacketCommitment(int64(queryHeight)-1, rp.seq)
+func (rp relayMsgRecvPacket) TimeoutStamp() uint64 {
+	return rp.timeoutStamp
+}
+
+func (rp relayMsgRecvPacket) FetchCommitResponse(dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
+	dstCommitRes, err := dst.QueryPacketCommitment(int64(queryHeight)-1, dstChanId, dstPortId, rp.seq)
 	switch {
 	case err != nil:
 		return err
@@ -122,17 +127,17 @@ func (rp *relayMsgRecvPacket) FetchCommitResponse(src, dst *Chain, queryHeight u
 	}
 }
 
-func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) (sdk.Msg, error) {
+func (rp relayMsgRecvPacket) Msg(src provider.ChainProvider, srcPortId, srcChanId, dstPortId, dstChanId string) (provider.RelayerMessage, error) {
 	if rp.dstComRes == nil {
-		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
+		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", src.ChainId(), rp.seq)
 	}
 	packet := chantypes.NewPacket(
 		rp.packetData,
 		rp.seq,
-		dst.PathEnd.PortID,
-		dst.PathEnd.ChannelID,
-		src.PathEnd.PortID,
-		src.PathEnd.ChannelID,
+		dstPortId,
+		dstChanId,
+		srcPortId,
+		srcChanId,
 		rp.timeout,
 		rp.timeoutStamp,
 	)
@@ -140,9 +145,9 @@ func (rp *relayMsgRecvPacket) Msg(src, dst *Chain) (sdk.Msg, error) {
 		packet,
 		rp.dstComRes.Proof,
 		rp.dstComRes.ProofHeight,
-		src.MustGetAddress(),
+		src.Address(),
 	)
-	return msg, nil
+	return NewCosmosMessage(msg), nil
 }
 
 type relayMsgPacketAck struct {
@@ -156,41 +161,45 @@ type relayMsgPacketAck struct {
 	pass bool
 }
 
-func (rp *relayMsgPacketAck) Data() []byte {
+func (rp relayMsgPacketAck) Data() []byte {
 	return rp.packetData
 }
-func (rp *relayMsgPacketAck) Seq() uint64 {
+func (rp relayMsgPacketAck) Seq() uint64 {
 	return rp.seq
 }
-func (rp *relayMsgPacketAck) Timeout() clienttypes.Height {
+func (rp relayMsgPacketAck) Timeout() clienttypes.Height {
 	return rp.timeout
 }
 
-func (rp *relayMsgPacketAck) Msg(src, dst *Chain) (sdk.Msg, error) {
+func (rp relayMsgPacketAck) TimeoutStamp() uint64 {
+	return rp.timeoutStamp
+}
+
+func (rp relayMsgPacketAck) Msg(src provider.ChainProvider, srcPortId, srcChanId, dstPortId, dstChanId string) (provider.RelayerMessage, error) {
 	if rp.dstComRes == nil {
-		return nil, fmt.Errorf("ack packet [%s]seq{%d} has no associated proofs", src.ChainID, rp.seq)
+		return nil, fmt.Errorf("ack packet [%s]seq{%d} has no associated proofs", src.ChainId(), rp.seq)
 	}
 	msg := chantypes.NewMsgAcknowledgement(
 		chantypes.NewPacket(
 			rp.packetData,
 			rp.seq,
-			src.PathEnd.PortID,
-			src.PathEnd.ChannelID,
-			dst.PathEnd.PortID,
-			dst.PathEnd.ChannelID,
+			srcPortId,
+			srcChanId,
+			dstPortId,
+			dstChanId,
 			rp.timeout,
 			rp.timeoutStamp,
 		),
 		rp.ack,
 		rp.dstComRes.Proof,
 		rp.dstComRes.ProofHeight,
-		src.MustGetAddress(),
+		src.Address(),
 	)
-	return msg, nil
+	return NewCosmosMessage(msg), nil
 }
 
-func (rp *relayMsgPacketAck) FetchCommitResponse(src, dst *Chain, queryHeight uint64) (err error) {
-	dstCommitRes, err := dst.QueryPacketAcknowledgement(int64(queryHeight)-1, rp.seq)
+func (rp relayMsgPacketAck) FetchCommitResponse(dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
+	dstCommitRes, err := dst.QueryPacketAcknowledgement(int64(queryHeight)-1, dstChanId, dstPortId, rp.seq)
 	switch {
 	case err != nil:
 		return err

@@ -21,6 +21,7 @@ import (
 	"math"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -141,15 +142,40 @@ func UpdateClientsFromChains(src, dst *relayer.Chain, thresholdTime time.Duratio
 
 	if srcTimeExpiry <= 0 {
 		return 0, fmt.Errorf("client (%s) of chain: %s is expired",
-			src.PathEnd.ClientID, src.ChainID)
+			src.PathEnd.ClientID, src.ChainID())
 	}
 
 	if dstTimeExpiry <= 0 {
 		return 0, fmt.Errorf("client (%s) of chain: %s is expired",
-			dst.PathEnd.ClientID, dst.ChainID)
+			dst.PathEnd.ClientID, dst.ChainID())
 	}
 
 	minTimeExpiry := math.Min(float64(srcTimeExpiry), float64(dstTimeExpiry))
 
 	return time.Duration(int64(minTimeExpiry)), nil
+}
+
+// GetStartOptions sets strategy specific fields.
+func GetStartOptions(cmd *cobra.Command) (uint64, uint64, error) {
+	maxTxSize, err := cmd.Flags().GetString(flagMaxTxSize)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	txSize, err := strconv.ParseUint(maxTxSize, 10, 64)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	maxMsgLength, err := cmd.Flags().GetString(flagMaxMsgLength)
+	if err != nil {
+		return txSize * MB, 0, err
+	}
+
+	msgLen, err := strconv.ParseUint(maxMsgLength, 10, 64)
+	if err != nil {
+		return txSize * MB, 0, err
+	}
+
+	return txSize * MB, msgLen, nil
 }

@@ -7,14 +7,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/relayer/relayer"
-
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
 	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
-	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
+	ibcexported "github.com/cosmos/ibc-go/v2/modules/core/exported"
 	"github.com/cosmos/relayer/helpers"
+	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -70,17 +68,20 @@ $ %s q ibc-denoms ibc-0`,
 				return err
 			}
 
-			h, err := chain.QueryLatestHeight()
+			h, err := chain.ChainProvider.QueryLatestHeight()
 			if err != nil {
 				return err
 			}
 
-			res, err := chain.QueryDenomTraces(relayer.DefaultPageRequest(), h)
+			res, err := chain.ChainProvider.QueryDenomTraces(0, 100, h)
 			if err != nil {
 				return err
 			}
 
-			return chain.Print(res, false, false)
+			for _, d := range res {
+				fmt.Println(d)
+			}
+			return nil
 		},
 	}
 
@@ -103,7 +104,7 @@ $ %s q tx ibc-0 A5DF8D272F1C451CFF92BA6C41942C4D29B5CF180279439ED6AB038282F956BE
 				return err
 			}
 
-			txs, err := chain.QueryTx(args[1])
+			txs, err := chain.ChainProvider.QueryTx(args[1])
 			if err != nil {
 				return err
 			}
@@ -154,7 +155,8 @@ $ %s q txs ibc-0 "message.action=transfer"`,
 				return err
 			}
 
-			txs, err := helpers.QueryTxs(chain, args[1], offset, limit)
+			txs, err := chain.ChainProvider.QueryTxs(int(offset), int(limit), []string{args[1]})
+			//txs, err := helpers.QueryTxs(chain, args[1], offset, limit)
 			if err != nil {
 				return err
 			}
@@ -189,15 +191,16 @@ $ %s q acc ibc-1`,
 				return err
 			}
 
-			addr, err := chain.GetAddress()
-			if err != nil {
-				return err
+			addr := chain.ChainProvider.Address()
+			if addr == "" || len(addr) == 0 {
+				return fmt.Errorf("failed to retrieve address or address is invalid on chain %s \n", chain.ChainID())
 			}
 
+			// TODO circle back to this after clearing up errors
 			res, err := types.NewQueryClient(chain.CLIContext(0)).Account(
 				context.Background(),
 				&types.QueryAccountRequest{
-					Address: addr.String(),
+					Address: addr,
 				},
 			)
 			if err != nil {
@@ -233,21 +236,16 @@ $ %s query balance ibc-0 testkey`,
 				return err
 			}
 
-			keyName := chain.Key
+			keyName := chain.ChainProvider.Key()
 			if len(args) == 2 {
 				keyName = args[1]
 			}
 
-			if !chain.KeyExists(keyName) {
+			if !chain.ChainProvider.KeyExists(keyName) {
 				return errKeyDoesntExist(keyName)
 			}
 
-			info, err := chain.Keybase.Key(keyName)
-			if err != nil {
-				return err
-			}
-
-			coins, err := helpers.QueryBalance(chain, info.GetAddress().String(), showDenoms)
+			coins, err := helpers.QueryBalance(chain, chain.ChainProvider.Address(), showDenoms)
 			if err != nil {
 				return err
 			}
@@ -276,11 +274,10 @@ $ %s query header ibc-0 1400`,
 				return err
 			}
 
-			var header *tmclient.Header
-
+			var header ibcexported.Header
 			switch len(args) {
 			case 1:
-				header, err = chain.GetLightSignedHeaderAtHeight(0)
+				header, err = chain.ChainProvider.GetLightSignedHeaderAtHeight(0)
 				if err != nil {
 					return err
 				}
@@ -317,7 +314,7 @@ $ %s q node-state ibc-1`,
 				return err
 			}
 
-			csRes, _, err := chain.QueryConsensusState(0)
+			csRes, _, err := chain.ChainProvider.QueryConsensusState(0)
 			if err != nil {
 				return err
 			}
@@ -351,7 +348,7 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 			}
 
 			if height == 0 {
-				height, err = chain.QueryLatestHeight()
+				height, err = chain.ChainProvider.QueryLatestHeight()
 				if err != nil {
 					return err
 				}
@@ -361,7 +358,7 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 				return err
 			}
 
-			res, err := chain.QueryClientStateResponse(height)
+			res, err := chain.ChainProvider.QueryClientStateResponse(height, chain.ClientID())
 			if err != nil {
 				return err
 			}
@@ -390,12 +387,13 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 				return err
 			}
 
-			pagereq, err := client.ReadPageRequest(cmd.Flags())
-			if err != nil {
-				return err
-			}
+			// TODO fix pagination
+			//pagereq, err := client.ReadPageRequest(cmd.Flags())
+			//if err != nil {
+			//	return err
+			//}
 
-			res, err := chain.QueryClients(pagereq)
+			res, err := chain.ChainProvider.QueryClients()
 			if err != nil {
 				return err
 			}
@@ -424,7 +422,7 @@ $ %s q valset ibc-1`,
 				return err
 			}
 
-			h, err := chain.QueryLatestHeight()
+			h, err := chain.ChainProvider.QueryLatestHeight()
 			if err != nil {
 				return err
 			}
@@ -461,12 +459,13 @@ $ %s q conns ibc-1`,
 				return err
 			}
 
-			pagereq, err := client.ReadPageRequest(cmd.Flags())
-			if err != nil {
-				return err
-			}
+			// TODO fix pagination
+			//pagereq, err := client.ReadPageRequest(cmd.Flags())
+			//if err != nil {
+			//	return err
+			//}
 
-			res, err := chain.QueryConnections(pagereq)
+			res, err := chain.ChainProvider.QueryConnections()
 			if err != nil {
 				return err
 			}
@@ -505,13 +504,13 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 			}
 
 			if height == 0 {
-				height, err = chain.QueryLatestHeight()
+				height, err = chain.ChainProvider.QueryLatestHeight()
 				if err != nil {
 					return err
 				}
 			}
 
-			res, err := chain.QueryConnectionsUsingClient(height)
+			res, err := chain.ChainProvider.QueryConnectionsUsingClient(height, chain.ClientID())
 			if err != nil {
 				return err
 			}
@@ -544,12 +543,12 @@ $ %s q conn ibc-1 ibconeconn`,
 				return err
 			}
 
-			height, err := chain.QueryLatestHeight()
+			height, err := chain.ChainProvider.QueryLatestHeight()
 			if err != nil {
 				return err
 			}
 
-			res, err := chain.QueryConnection(height)
+			res, err := chain.ChainProvider.QueryConnection(height, chain.ConnectionID())
 			if err != nil {
 				return err
 			}
@@ -581,12 +580,13 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 				return err
 			}
 
-			pagereq, err := client.ReadPageRequest(cmd.Flags())
-			if err != nil {
-				return err
-			}
+			// TODO fix pagination
+			//pagereq, err := client.ReadPageRequest(cmd.Flags())
+			//if err != nil {
+			//	return err
+			//}
 
-			chans, err := chain.QueryConnectionChannels(args[1], pagereq)
+			chans, err := chain.ChainProvider.QueryConnectionChannels(0, args[1])
 			if err != nil {
 				return err
 			}
@@ -625,13 +625,13 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 			}
 
 			if height == 0 {
-				height, err = chain.QueryLatestHeight()
+				height, err = chain.ChainProvider.QueryLatestHeight()
 				if err != nil {
 					return err
 				}
 			}
 
-			res, err := chain.QueryChannel(height)
+			res, err := chain.ChainProvider.QueryChannel(height, chain.PathEnd.ChannelID, chain.PathEnd.PortID)
 			if err != nil {
 				return err
 			}
@@ -659,12 +659,13 @@ $ %s query channels ibc-2 --offset 2 --limit 30`,
 				return err
 			}
 
-			pagereq, err := client.ReadPageRequest(cmd.Flags())
-			if err != nil {
-				return err
-			}
+			// TODO fix pagination
+			//pagereq, err := client.ReadPageRequest(cmd.Flags())
+			//if err != nil {
+			//	return err
+			//}
 
-			res, err := chain.QueryChannels(pagereq)
+			res, err := chain.ChainProvider.QueryChannels()
 			if err != nil {
 				return err
 			}
@@ -702,7 +703,7 @@ $ %s q packet-commit ibc-1 ibconechannel transfer 31`,
 				return err
 			}
 
-			res, err := chain.QueryPacketCommitment(0, seq)
+			res, err := chain.ChainProvider.QueryPacketCommitment(0, chain.ChannelID(), chain.PortID(), seq)
 			if err != nil {
 				return err
 			}

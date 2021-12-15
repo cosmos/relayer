@@ -10,6 +10,7 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
 )
 
+// TODO double check that these are okay
 var (
 	defaultChainPrefix = commitmenttypes.NewMerklePrefix([]byte("ibc"))
 	defaultDelayPeriod = uint64(0)

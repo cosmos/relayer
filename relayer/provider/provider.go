@@ -17,7 +17,9 @@ type ProviderConfig interface {
 	Validate() error
 }
 
-type RelayerMessage interface{}
+type RelayerMessage interface {
+	Type() string
+}
 
 type RelayerTxResponse struct {
 	Height int64
@@ -56,13 +58,25 @@ type ChainProvider interface {
 	ChannelOpenConfirm(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChannId string) ([]RelayerMessage, error)
 	ChannelCloseInit(srcPortId, srcChanId string) RelayerMessage
 	ChannelCloseConfirm(dstQueryProvider QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (RelayerMessage, error)
+
+	MsgRelayAcknowledgement(dst ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet RelayPacket) (RelayerMessage, error)
+	MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanId string, timeoutHeight, timeoutTimestamp uint64) RelayerMessage
+	MsgRelayTimeout(dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
+	MsgRelayRecvPacket(dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
+	RelayPacketFromSequence(src, dst ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) (RelayerMessage, RelayerMessage, error)
+	AcknowledgementFromSequence(dst ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
+
 	SendMessage(msg RelayerMessage) (*RelayerTxResponse, bool, error)
 	SendMessages(msgs []RelayerMessage) (*RelayerTxResponse, bool, error)
+
+	GetLightSignedHeaderAtHeight(h int64) (ibcexported.Header, error)
+	GetIBCUpdateHeader(srch int64, dst ChainProvider, dstClientId string) (ibcexported.Header, error)
 
 	ChainId() string
 	Type() string
 	ProviderConfig() ProviderConfig
 	Key() string
+	Address() string
 }
 
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?
@@ -71,6 +85,7 @@ type QueryProvider interface {
 	QueryTx(hashHex string) (*ctypes.ResultTx, error)
 	QueryTxs(page, limit int, events []string) ([]*ctypes.ResultTx, error)
 	QueryLatestHeight() (int64, error)
+	QueryHeaderAtHeight(height int64) (ibcexported.Header, error)
 
 	// bank
 	QueryBalance(keyName string) (sdk.Coins, error)
@@ -95,13 +110,14 @@ type QueryProvider interface {
 	GenerateConnHandshakeProof(height int64, clientId, connId string) (clientState ibcexported.ClientState,
 		clientStateProof []byte, consensusProof []byte, connectionProof []byte,
 		connectionProofHeight ibcexported.Height, err error)
+	NewClientState(dstUpdateHeader ibcexported.Header, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
 
 	// ics 04 - channel
 	QueryChannel(height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error)
 	QueryChannelClient(height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error)
 	QueryConnectionChannels(height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error)
 	QueryChannels() ([]*chantypes.IdentifiedChannel, error)
-	QueryPacketCommitments(height uint64, channelid, portid string) (commitments []*chantypes.PacketState, err error)
+	QueryPacketCommitments(height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error)
 	QueryPacketAcknowledgements(height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error)
 	QueryUnreceivedPackets(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error)
 	QueryUnreceivedAcknowledgements(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error)
@@ -113,4 +129,13 @@ type QueryProvider interface {
 	// ics 20 - transfer
 	QueryDenomTrace(denom string) (*transfertypes.DenomTrace, error)
 	QueryDenomTraces(offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error)
+}
+
+type RelayPacket interface {
+	Msg(src ChainProvider, srcPortId, srcChanId, dstPortId, dstChanId string) (RelayerMessage, error)
+	FetchCommitResponse(dst ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error
+	Data() []byte
+	Seq() uint64
+	Timeout() clienttypes.Height
+	TimeoutStamp() uint64
 }

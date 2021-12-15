@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cosmos/relayer/relayer/provider"
+	"github.com/cosmos/relayer/relayer/provider/cosmos"
 	"github.com/gogo/protobuf/proto"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // DeliverMsgsAction is struct
@@ -24,10 +24,10 @@ type DeliverMsgsAction struct {
 // after a given relay round. MaxTxSize and MaxMsgLength are ignored if they are
 // set to zero.
 type RelayMsgs struct {
-	Src          []sdk.Msg `json:"src"`
-	Dst          []sdk.Msg `json:"dst"`
-	MaxTxSize    uint64    `json:"max_tx_size"`    // maximum permitted size of the msgs in a bundled relay transaction
-	MaxMsgLength uint64    `json:"max_msg_length"` // maximum amount of messages in a bundled relay transaction
+	Src          []provider.RelayerMessage `json:"src"`
+	Dst          []provider.RelayerMessage `json:"dst"`
+	MaxTxSize    uint64                    `json:"max_tx_size"`    // maximum permitted size of the msgs in a bundled relay transaction
+	MaxMsgLength uint64                    `json:"max_msg_length"` // maximum amount of messages in a bundled relay transaction
 
 	Last      bool `json:"last"`
 	Succeeded bool `json:"success"`
@@ -35,7 +35,7 @@ type RelayMsgs struct {
 
 // NewRelayMsgs returns an initialized version of relay messages
 func NewRelayMsgs() *RelayMsgs {
-	return &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}, Last: false, Succeeded: false}
+	return &RelayMsgs{Src: []provider.RelayerMessage{}, Dst: []provider.RelayerMessage{}, Last: false, Succeeded: false}
 }
 
 // Ready returns true if there are messages to relay
@@ -66,7 +66,7 @@ func (r *RelayMsgs) Send(src, dst *Chain) {
 	r.SendWithController(src, dst, true)
 }
 
-func EncodeMsgs(c *Chain, msgs []sdk.Msg) []string {
+func EncodeMsgs(c *Chain, msgs []provider.RelayerMessage) []string {
 	outMsgs := make([]string, 0, len(msgs))
 	for _, msg := range msgs {
 		bz, err := c.Encoding.Amino.MarshalJSON(msg)
@@ -79,10 +79,10 @@ func EncodeMsgs(c *Chain, msgs []sdk.Msg) []string {
 	return outMsgs
 }
 
-func DecodeMsgs(c *Chain, msgs []string) []sdk.Msg {
-	outMsgs := make([]sdk.Msg, 0, len(msgs))
+func DecodeMsgs(c *Chain, msgs []string) []provider.RelayerMessage {
+	outMsgs := make([]provider.RelayerMessage, 0, len(msgs))
 	for _, msg := range msgs {
-		var sm sdk.Msg
+		var sm provider.RelayerMessage
 		err := c.Encoding.Amino.UnmarshalJSON([]byte(msg), &sm)
 		if err != nil {
 			fmt.Println("Cannot unmarshal message", err)
@@ -122,14 +122,14 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 	//nolint:prealloc // can not be pre allocated
 	var (
 		msgLen, txSize uint64
-		msgs           []sdk.Msg
+		msgs           []provider.RelayerMessage
 	)
 
 	r.Succeeded = true
 
 	// submit batches of relay transactions
 	for _, msg := range r.Src {
-		bz, err := proto.Marshal(msg)
+		bz, err := proto.Marshal(cosmos.SdkMsgFromRelayerMessage(msg)) // TODO this still needs to be addressed
 		if err != nil {
 			panic(err)
 		}
@@ -139,7 +139,7 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 		if r.IsMaxTx(msgLen, txSize) {
 			// Submit the transactions to src chain and update its status
-			res, success, err := src.SendMsgs(msgs)
+			res, success, err := src.ChainProvider.SendMessages(msgs)
 			if err != nil {
 				src.LogFailedTx(res, err, msgs)
 			}
@@ -147,14 +147,14 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 			// clear the current batch and reset variables
 			msgLen, txSize = 1, uint64(len(bz))
-			msgs = []sdk.Msg{}
+			msgs = []provider.RelayerMessage{}
 		}
 		msgs = append(msgs, msg)
 	}
 
 	// submit leftover msgs
 	if len(msgs) > 0 {
-		res, success, err := src.SendMsgs(msgs)
+		res, success, err := src.ChainProvider.SendMessages(msgs)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
 		}
@@ -164,10 +164,10 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 	// reset variables
 	msgLen, txSize = 0, 0
-	msgs = []sdk.Msg{}
+	msgs = []provider.RelayerMessage{}
 
 	for _, msg := range r.Dst {
-		bz, err := proto.Marshal(msg)
+		bz, err := proto.Marshal(cosmos.SdkMsgFromRelayerMessage(msg)) // TODO this still needs to be addressed
 		if err != nil {
 			panic(err)
 		}
@@ -177,7 +177,7 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 		if r.IsMaxTx(msgLen, txSize) {
 			// Submit the transaction to dst chain and update its status
-			res, success, err := dst.SendMsgs(msgs)
+			res, success, err := dst.ChainProvider.SendMessages(msgs)
 			if err != nil {
 				dst.LogFailedTx(res, err, msgs)
 			}
@@ -186,14 +186,14 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 			// clear the current batch and reset variables
 			msgLen, txSize = 1, uint64(len(bz))
-			msgs = []sdk.Msg{}
+			msgs = []provider.RelayerMessage{}
 		}
 		msgs = append(msgs, msg)
 	}
 
 	// submit leftover msgs
 	if len(msgs) > 0 {
-		res, success, err := dst.SendMsgs(msgs)
+		res, success, err := dst.ChainProvider.SendMessages(msgs)
 		if err != nil {
 			dst.LogFailedTx(res, err, msgs)
 		}
@@ -202,10 +202,10 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 	}
 }
 
-func getMsgAction(msgs []sdk.Msg) string {
+func getMsgTypes(msgs []provider.RelayerMessage) string {
 	var out string
 	for i, msg := range msgs {
-		out += fmt.Sprintf("%d:%s,", i, sdk.MsgTypeURL(msg))
+		out += fmt.Sprintf("%d:%s,", i, msg.Type())
 	}
 	return strings.TrimSuffix(out, ",")
 }

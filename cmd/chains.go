@@ -32,7 +32,6 @@ func chainsCmd() *cobra.Command {
 		chainsListCmd(),
 		chainsDeleteCmd(),
 		chainsAddCmd(),
-		chainsEditCmd(),
 		chainsShowCmd(),
 		chainsAddrCmd(),
 		chainsAddDirCmd(),
@@ -88,24 +87,7 @@ $ %s ch s ibc-0 --yaml`, appName, appName, appName, appName)),
 			if err != nil {
 				return err
 			}
-			yml, err := cmd.Flags().GetBool(flagYAML)
-			if err != nil {
-				return err
-			}
 			switch {
-			case yml && jsn:
-				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
-			case yml:
-				pcfgw := &ProviderConfigWrapper{
-					Type:  c.ChainProvider.Type(),
-					Value: c.ChainProvider.ProviderConfig(),
-				}
-				out, err := yaml.Marshal(pcfgw)
-				if err != nil {
-					return err
-				}
-				fmt.Println(string(out))
-				return nil
 			case jsn:
 				pcfgw := &ProviderConfigWrapper{
 					Type:  c.ChainProvider.Type(),
@@ -118,49 +100,20 @@ $ %s ch s ibc-0 --yaml`, appName, appName, appName, appName)),
 				fmt.Println(string(out))
 				return nil
 			default:
-				// TODO still need to tweak this for new config
-				fmt.Printf(`chain-id:        %s
-rpc-addr:        %s
-trusting-period: %s
-key:             %s
-account-prefix:  %s
-`, c.ChainID, c.RPCAddr, c.TrustingPeriod, c.Key, c.AccountPrefix)
+				pcfgw := &ProviderConfigWrapper{
+					Type:  c.ChainProvider.Type(),
+					Value: c.ChainProvider.ProviderConfig(),
+				}
+				out, err := yaml.Marshal(pcfgw)
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(out))
 				return nil
 			}
 		},
 	}
-	return yamlFlag(jsonFlag(cmd))
-}
-
-// TODO still needs to be tweaked for new config
-func chainsEditCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "edit [chain-id] [key] [value]",
-		Aliases: []string{"e"},
-		Short:   "Returns chain configuration data",
-		Args:    cobra.ExactArgs(3),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s chains edit ibc-0 trusting-period 32h
-$ %s ch e ibc-0 trusting-period 32h`, appName, appName)),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.Chains.Get(args[0])
-			if err != nil {
-				return err
-			}
-
-			c, err := chain.Update(args[1], args[2])
-			if err != nil {
-				return err
-			}
-
-			if err = config.DeleteChain(args[0]).AddChain(c); err != nil {
-				return err
-			}
-
-			return overWriteConfig(config)
-		},
-	}
-	return cmd
+	return jsonFlag(cmd)
 }
 
 func chainsDeleteCmd() *cobra.Command {
@@ -233,11 +186,11 @@ $ %s ch l`, appName, appName)),
 					}
 
 					for _, pth := range config.Paths {
-						if pth.Src.ChainID == c.ChainID || pth.Dst.ChainID == c.ChainID {
+						if pth.Src.ChainID == c.ChainID() || pth.Dst.ChainID == c.ChainID() {
 							p = check
 						}
 					}
-					fmt.Printf("%2d: %-20s -> key(%s) bal(%s) path(%s)\n", i, c.ChainID, key, bal, p)
+					fmt.Printf("%2d: %-20s -> type(%s) key(%s) bal(%s) path(%s)\n", i, c.ChainID(), c.ChainProvider.Type(), key, bal, p)
 				}
 				return nil
 			}
@@ -252,11 +205,11 @@ func chainsAddCmd() *cobra.Command {
 		Aliases: []string{"a"},
 		Short:   "Add a new chain to the configuration file by passing a file (-f) or url (-u), or user input",
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s chains add
-$ %s ch a
-$ %s chains add --file chains/ibc0.json
-$ %s chains add --url http://relayer.com/ibc0.json
-`, appName, appName, appName, appName)),
+		$ %s chains add
+		$ %s ch a
+		$ %s chains add --file chains/ibc0.json
+		$ %s chains add --url https://relayer.com/ibc0.json
+		`, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var out *Config
 
@@ -266,16 +219,12 @@ $ %s chains add --url http://relayer.com/ibc0.json
 			}
 
 			switch {
-			case file != "":
-				if out, err = fileInputAdd(file); err != nil {
-					return err
-				}
 			case url != "":
 				if out, err = urlInputAdd(url); err != nil {
 					return err
 				}
 			default:
-				if out, err = userInputAdd(); err != nil {
+				if out, err = fileInputAdd(file); err != nil {
 					return err
 				}
 			}
@@ -335,82 +284,7 @@ func fileInputAdd(file string) (cfg *Config, err error) {
 		return nil, fmt.Errorf("failed to build ChainProvider for %s. Err: %w", file, err)
 	}
 
-	c = &relayer.Chain{ChainProvider: prov, ChainID: prov.ChainId()}
-
-	if err = config.AddChain(c); err != nil {
-		return nil, err
-	}
-
-	return config, nil
-}
-
-// TODO this still needs to be changed for new config structure
-func userInputAdd() (cfg *Config, err error) {
-	c := &relayer.Chain{}
-
-	var value string
-	fmt.Println("ChainID (i.e. cosmoshub2):")
-	if value, err = readStdin(); err != nil {
-		return nil, err
-	}
-
-	if c, err = c.Update("chain-id", value); err != nil {
-		return nil, err
-	}
-
-	fmt.Println("Default Key (i.e. testkey):")
-	if value, err = readStdin(); err != nil {
-		return nil, err
-	}
-
-	if c, err = c.Update("key", value); err != nil {
-		return nil, err
-	}
-
-	fmt.Println("RPC Address (i.e. http://localhost:26657):")
-	if value, err = readStdin(); err != nil {
-		return nil, err
-	}
-
-	if c, err = c.Update("rpc-addr", value); err != nil {
-		return nil, err
-	}
-
-	fmt.Println("Account Prefix (i.e. cosmos):")
-	if value, err = readStdin(); err != nil {
-		return nil, err
-	}
-
-	if c, err = c.Update("account-prefix", value); err != nil {
-		return nil, err
-	}
-
-	fmt.Println("Gas Adjustment (i.e. 1.3):")
-	if value, err = readStdin(); err != nil {
-		return nil, err
-	}
-
-	if c, err = c.Update("gas-adjustment", value); err != nil {
-		return nil, err
-	}
-
-	fmt.Println("Gas Prices (i.e. 0.025stake):")
-	if value, err = readStdin(); err != nil {
-		return nil, err
-	}
-
-	if c, err = c.Update("gas-prices", value); err != nil {
-		return nil, err
-	}
-
-	fmt.Println("Trusting Period (i.e. 336h)")
-	if value, err = readStdin(); err != nil {
-		return nil, err
-	}
-
-	if c, err = c.Update("trusting-period", value); err != nil {
-		return nil, err
-	}
+	c = &relayer.Chain{ChainProvider: prov}
 
 	if err = config.AddChain(c); err != nil {
 		return nil, err
@@ -446,7 +320,7 @@ func urlInputAdd(rawurl string) (cfg *Config, err error) {
 		return nil, fmt.Errorf("failed to build ChainProvider for %s. Err: %w", rawurl, err)
 	}
 
-	c := &relayer.Chain{ChainProvider: prov, ChainID: prov.ChainId()}
+	c := &relayer.Chain{ChainProvider: prov}
 
 	if err = config.AddChain(c); err != nil {
 		return nil, err

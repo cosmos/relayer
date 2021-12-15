@@ -13,7 +13,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/std"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
-	transfer "github.com/cosmos/ibc-go/v2/modules/apps/transfer"
+	"github.com/cosmos/ibc-go/v2/modules/apps/transfer"
 	ibc "github.com/cosmos/ibc-go/v2/modules/core"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"

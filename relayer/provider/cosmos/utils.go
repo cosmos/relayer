@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/cosmos/relayer/relayer/provider"
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +24,21 @@ import (
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
 	libclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
+)
+
+var (
+	// Strings for parsing events
+	spTag       = "send_packet"
+	waTag       = "write_acknowledgement"
+	srcChanTag  = "packet_src_channel"
+	dstChanTag  = "packet_dst_channel"
+	srcPortTag  = "packet_src_port"
+	dstPortTag  = "packet_dst_port"
+	dataTag     = "packet_data"
+	ackTag      = "packet_ack"
+	toHeightTag = "packet_timeout_height"
+	toTSTag     = "packet_timeout_timestamp"
+	seqTag      = "packet_sequence"
 )
 
 func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
@@ -193,4 +211,166 @@ func DefaultPageRequest() *querytypes.PageRequest {
 		Limit:      1000,
 		CountTotal: true,
 	}
+}
+
+func rcvPacketQuery(channelID string, seq int) []string {
+	return []string{fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
+		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq)}
+}
+
+func ackPacketQuery(channelID string, seq int) []string {
+	return []string{fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
+		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq)}
+}
+
+// relayPacketsFromResultTx looks through the events in a *ctypes.ResultTx
+// and returns relayPackets with the appropriate data
+func relayPacketsFromResultTx(src, dst provider.ChainProvider, dsth int64, res *ctypes.ResultTx, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
+	var (
+		rcvPackets     []provider.RelayPacket
+		timeoutPackets []provider.RelayPacket
+	)
+
+	for _, e := range res.TxResult.Events {
+		if e.Type == spTag {
+			// NOTE: Src and Dst are switched here
+			rp := &relayMsgRecvPacket{pass: false}
+			for _, p := range e.Attributes {
+				if string(p.Key) == srcChanTag {
+					if string(p.Value) != srcChanId {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == dstChanTag {
+					if string(p.Value) != dstChanId {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == srcPortTag {
+					if string(p.Value) != srcPortId {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == dstPortTag {
+					if string(p.Value) != dstPortId {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == dataTag {
+					rp.packetData = p.Value
+				}
+				if string(p.Key) == toHeightTag {
+					timeout, err := clienttypes.ParseHeight(string(p.Value))
+					if err != nil {
+						return nil, nil, err
+					}
+
+					rp.timeout = timeout
+				}
+				if string(p.Key) == toTSTag {
+					timeout, _ := strconv.ParseUint(string(p.Value), 10, 64)
+					rp.timeoutStamp = timeout
+				}
+				if string(p.Key) == seqTag {
+					seq, _ := strconv.ParseUint(string(p.Value), 10, 64)
+					rp.seq = seq
+				}
+			}
+
+			// fetch the header which represents a block produced on destination
+			block, err := dst.GetIBCUpdateHeader(dsth, src, srcClientId)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			switch {
+			// If the packet has a timeout height, and it has been reached, return a timeout packet
+			case !rp.timeout.IsZero() && block.GetHeight().GTE(rp.timeout):
+				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
+			// If the packet matches the relay constraints relay it as a MsgReceivePacket
+			case !rp.pass:
+				rcvPackets = append(rcvPackets, rp)
+			}
+		}
+	}
+
+	// If there is a relayPacket, return it
+	if len(rcvPackets)+len(timeoutPackets) > 0 {
+		return rcvPackets, timeoutPackets, nil
+	}
+
+	return nil, nil, fmt.Errorf("no packet data found")
+}
+
+// acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
+// relayPackets with the appropriate data
+func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId string, res *ctypes.ResultTx) ([]provider.RelayPacket, error) {
+	var ackPackets []provider.RelayPacket
+	for _, e := range res.TxResult.Events {
+		if e.Type == waTag {
+			// NOTE: Src and Dst are switched here
+			rp := &relayMsgPacketAck{pass: false}
+			for _, p := range e.Attributes {
+				if string(p.Key) == srcChanTag {
+					if string(p.Value) != srcChanId {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == dstChanTag {
+					if string(p.Value) != dstChanId {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == srcPortTag {
+					if string(p.Value) != srcPortId {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == dstPortTag {
+					if string(p.Value) != dstPortId {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == ackTag {
+					rp.ack = p.Value
+				}
+				if string(p.Key) == dataTag {
+					rp.packetData = p.Value
+				}
+				if string(p.Key) == toHeightTag {
+					timeout, err := clienttypes.ParseHeight(string(p.Value))
+					if err != nil {
+						return nil, err
+					}
+					rp.timeout = timeout
+				}
+				if string(p.Key) == toTSTag {
+					timeout, _ := strconv.ParseUint(string(p.Value), 10, 64)
+					rp.timeoutStamp = timeout
+				}
+				if string(p.Key) == seqTag {
+					seq, _ := strconv.ParseUint(string(p.Value), 10, 64)
+					rp.seq = seq
+				}
+			}
+			if !rp.pass {
+				ackPackets = append(ackPackets, rp)
+			}
+		}
+	}
+
+	// If there is a relayPacket, return it
+	if len(ackPackets) > 0 {
+		return ackPackets, nil
+	}
+
+	return nil, fmt.Errorf("no packet data found")
 }

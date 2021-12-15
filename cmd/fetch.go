@@ -68,7 +68,7 @@ $ %s fch chn cosmoshub-4`, appName, defaultHome, appName)),
 			// Decode the HTTP response and attempt to add chain to the config file
 			var c = &relayer.Chain{
 				Key:            "",
-				ChainID:        "",
+				Chainid:        "",
 				RPCAddr:        "",
 				AccountPrefix:  "",
 				GasAdjustment:  0,

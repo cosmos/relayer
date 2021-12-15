@@ -248,13 +248,13 @@ func cfgFilesAddChains(dir string) (cfg *Config, err error) {
 			continue
 		}
 
-		c := &relayer.Chain{ChainProvider: prov, ChainID: prov.ChainId()}
+		c := &relayer.Chain{ChainProvider: prov}
 
 		if err = cfg.AddChain(c); err != nil {
 			fmt.Printf("failed to add chain %s: %v \n", pth, err)
 			continue
 		}
-		fmt.Printf("added chain %s...\n", c.ChainID)
+		fmt.Printf("added chain %s...\n", c.ChainID())
 	}
 	return cfg, nil
 }
@@ -568,7 +568,7 @@ func (c *Config) AddPath(name string, path *relayer.Path) (err error) {
 func (c *Config) DeleteChain(chain string) *Config {
 	var set relayer.Chains
 	for _, ch := range c.Chains {
-		if ch.ChainID != chain {
+		if ch.ChainID() != chain {
 			set = append(set, ch)
 		}
 	}
@@ -619,7 +619,7 @@ func initConfig(cmd *cobra.Command) error {
 				if err != nil {
 					return fmt.Errorf("Error while building ChainProviders. Err: %s\n", err.Error())
 				}
-				chains = append(chains, &relayer.Chain{ChainProvider: prov, ChainID: prov.ChainId()})
+				chains = append(chains, &relayer.Chain{ChainProvider: prov})
 			}
 
 			config = &Config{

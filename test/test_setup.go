@@ -63,7 +63,7 @@ func spinUpTestChains(t *testing.T, testChains ...testChain) relayer.Chains {
 	}
 
 	// wait for all containers to be created
-	eg.Wait()
+	require.NoError(t, eg.Wait())
 
 	// read all the containers out of the channel
 	for i := 0; i < len(chains); i++ {
@@ -142,7 +142,7 @@ func spinUpTestContainer(rchan chan<- *dockertest.Resource, pool *dockertest.Poo
 		return err
 	}
 
-	containerName := c.ChainID
+	containerName := c.ChainID()
 
 	// setup docker options
 	dockerOpts := &dockertest.RunOptions{
@@ -151,8 +151,8 @@ func spinUpTestContainer(rchan chan<- *dockertest.Resource, pool *dockertest.Poo
 		Tag:          "latest",      // Must match docker default build tag
 		ExposedPorts: []string{tc.t.rpcPort, c.GetRPCPort()},
 		Cmd: []string{
-			c.ChainID,
-			c.MustGetAddress(),
+			c.ChainID(),
+			c.ChainProvider.Address(),
 			getPrivValFileName(tc.seed),
 		},
 		PortBindings: map[dc.Port][]dc.PortBinding{
@@ -160,7 +160,6 @@ func spinUpTestContainer(rchan chan<- *dockertest.Resource, pool *dockertest.Poo
 		},
 	}
 
-	// err = removeTestContainer(pool, containerName)
 	if err := removeTestContainer(pool, containerName); err != nil {
 		return err
 	}
@@ -184,7 +183,7 @@ func spinUpTestContainer(rchan chan<- *dockertest.Resource, pool *dockertest.Poo
 		return err
 	}
 
-	c.Log(fmt.Sprintf("- [%s] SPUN UP IN CONTAINER %s from %s", c.ChainID,
+	c.Log(fmt.Sprintf("- [%s] SPUN UP IN CONTAINER %s from %s", c.ChainID(),
 		resource.Container.Name, resource.Container.Config.Image))
 
 	// retry polling the container until status doesn't error
@@ -192,7 +191,7 @@ func spinUpTestContainer(rchan chan<- *dockertest.Resource, pool *dockertest.Poo
 		return fmt.Errorf("could not connect to container at %s: %s", c.RPCAddr, err)
 	}
 
-	c.Log(fmt.Sprintf("- [%s] CONTAINER AVAILABLE AT PORT %s", c.ChainID, c.RPCAddr))
+	c.Log(fmt.Sprintf("- [%s] CONTAINER AVAILABLE AT PORT %s", c.ChainID(), c.RPCAddr))
 
 	rchan <- resource
 	return nil
@@ -216,7 +215,7 @@ func cleanUpTest(t *testing.T, testsDone <-chan struct{}, contDone chan<- struct
 			require.NoError(t, fmt.Errorf("could not purge container %s: %w", r.Container.Name, err))
 		}
 		c := getLoggingChain(chains, r)
-		chains[i].Log(fmt.Sprintf("- [%s] SPUN DOWN CONTAINER %s from %s", c.ChainID, r.Container.Name,
+		chains[i].Log(fmt.Sprintf("- [%s] SPUN DOWN CONTAINER %s from %s", c.ChainID(), r.Container.Name,
 			r.Container.Config.Image))
 	}
 
@@ -227,7 +226,7 @@ func cleanUpTest(t *testing.T, testsDone <-chan struct{}, contDone chan<- struct
 // for the love of logs https://www.youtube.com/watch?v=DtsKcHmceqY
 func getLoggingChain(chns []*relayer.Chain, rsr *dockertest.Resource) *relayer.Chain {
 	for _, c := range chns {
-		if strings.Contains(rsr.Container.Name, c.ChainID) {
+		if strings.Contains(rsr.Container.Name, c.ChainID()) {
 			return c
 		}
 	}
@@ -235,7 +234,7 @@ func getLoggingChain(chns []*relayer.Chain, rsr *dockertest.Resource) *relayer.C
 }
 
 func genTestPathAndSet(src, dst *relayer.Chain, srcPort, dstPort string) (*relayer.Path, error) {
-	p := relayer.GenPath(src.ChainID, dst.ChainID, srcPort, dstPort, "UNORDERED", "ics20-1")
+	p := relayer.GenPath(src.ChainID(), dst.ChainID(), srcPort, dstPort, "UNORDERED", "ics20-1")
 
 	src.PathEnd = p.Src
 	dst.PathEnd = p.Dst

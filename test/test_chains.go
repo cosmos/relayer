@@ -85,7 +85,7 @@ func newTestChain(t *testing.T, tc testChain) *relayer.Chain {
 	require.NoError(t, err)
 	return &relayer.Chain{
 		Key:            "testkey",
-		ChainID:        tc.chainID,
+		Chainid:        tc.chainID,
 		RPCAddr:        fmt.Sprintf("http://localhost:%s", port),
 		AccountPrefix:  tc.t.accountPrefix,
 		GasAdjustment:  1.3,

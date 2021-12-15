@@ -64,7 +64,7 @@ func (c *Chain) SetPath(p *PathEnd) error {
 
 // AddPath takes the elements of a path and validates then, setting that path to the chain
 func (c *Chain) AddPath(clientID, connectionID, channelID, port, order string) error {
-	return c.SetPath(&PathEnd{ChainID: c.ChainID, ClientID: clientID,
+	return c.SetPath(&PathEnd{ChainID: c.ChainID(), ClientID: clientID,
 		ConnectionID: connectionID, ChannelID: channelID, PortID: port, Order: order})
 }
 
