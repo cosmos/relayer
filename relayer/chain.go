@@ -25,6 +25,7 @@ import (
 )
 
 // Chain represents the necessary data for connecting to and identifying a chain and its counterparties
+// TODO revise Chain struct
 type Chain struct {
 	ChainProvider  provider.ChainProvider
 	Key            string  `yaml:"key" json:"key"`
@@ -35,7 +36,6 @@ type Chain struct {
 	GasPrices      string  `yaml:"gas-prices" json:"gas-prices"`
 	TrustingPeriod string  `yaml:"trusting-period" json:"trusting-period"`
 
-	// TODO: make these private
 	HomePath string                `yaml:"-" json:"-"`
 	PathEnd  *PathEnd              `yaml:"-" json:"-"`
 	Keybase  keys.Keyring          `yaml:"-" json:"-"`
@@ -47,7 +47,7 @@ type Chain struct {
 	timeout time.Duration
 	debug   bool
 
-	// stores faucet addresses that have been used reciently
+	// stores faucet addresses that have been used recently
 	faucetAddrs map[string]time.Time
 }
 
@@ -136,12 +136,9 @@ func (c *Chain) Init(homePath string, timeout time.Duration, logger log.Logger, 
 		return fmt.Errorf("failed to parse gas prices (%s) for chain %s", c.GasPrices, c.ChainID())
 	}
 
-	encodingConfig := c.MakeEncodingConfig()
-
 	c.Keybase = keybase
 	c.Client = client
 	c.HomePath = homePath
-	c.Encoding = encodingConfig
 	c.logger = logger
 	c.timeout = timeout
 	c.debug = debug
@@ -332,8 +329,12 @@ func (c *Chain) CreateTestKey() error {
 }
 
 // GetTimeout returns the chain's configured timeout
-func (c *Chain) GetTimeout() time.Duration {
-	return c.timeout
+func (c *Chain) GetTimeout() (time.Duration, error) {
+	timeout, err := time.ParseDuration(c.ChainProvider.Timeout())
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse timeout (%s) for chain %s. Err: %w", c.ChainProvider.Timeout(), c.ChainID(), err)
+	}
+	return timeout, nil
 }
 
 // StatusErr returns err unless the chain is ready to go
@@ -346,29 +347,6 @@ func (c *Chain) StatusErr() error {
 		return fmt.Errorf("haven't produced any blocks yet")
 	default:
 		return nil
-	}
-}
-
-// WaitForNBlocks blocks until the next block on a given chain
-func (c *Chain) WaitForNBlocks(n int64) error {
-	var initial int64
-	h, err := c.Client.Status(context.Background())
-	if err != nil {
-		return err
-	}
-	if h.SyncInfo.CatchingUp {
-		return fmt.Errorf("chain catching up")
-	}
-	initial = h.SyncInfo.LatestBlockHeight
-	for {
-		h, err = c.Client.Status(context.Background())
-		if err != nil {
-			return err
-		}
-		if h.SyncInfo.LatestBlockHeight > initial+n {
-			return nil
-		}
-		time.Sleep(10 * time.Millisecond)
 	}
 }
 

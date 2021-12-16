@@ -2,14 +2,8 @@ package relayer
 
 import (
 	"fmt"
-	"reflect"
-	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	clientutils "github.com/cosmos/ibc-go/v2/modules/core/02-client/client/utils"
-	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v2/modules/core/exported"
-	ibctmtypes "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer/provider"
 )
 
@@ -51,7 +45,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 		// Will not reuse same client if override is true
 		if !override {
 			// Check if an identical light client already exists
-			clientID, found = FindMatchingClient(c, dst, clientState)
+			clientID, found = c.ChainProvider.FindMatchingClient(dst.ChainProvider, clientState)
 		}
 		if !found || override {
 			createMsg, err := c.ChainProvider.CreateClient(clientState, dstUpdateHeader)
@@ -118,7 +112,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 			// Check if an identical light client already exists
 			// NOTE: we pass in 'dst' as the source and 'c' as the
 			// counterparty.
-			clientID, found = FindMatchingClient(dst, c, clientState)
+			clientID, found = dst.ChainProvider.FindMatchingClient(c.ChainProvider, clientState)
 		}
 		if !found || override {
 			createMsg, err := dst.ChainProvider.CreateClient(clientState, srcUpdateHeader)
@@ -203,11 +197,11 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 			c.Log(fmt.Sprintf("★ Clients updated: [%s]client(%s) {%d}->{%d} and [%s]client(%s) {%d}->{%d}",
 				c.ChainID(),
 				c.PathEnd.ClientID,
-				MustGetHeight(srcUpdateHeader.GetHeight()),
+				provider.MustGetHeight(srcUpdateHeader.GetHeight()),
 				srcUpdateHeader.GetHeight().GetRevisionHeight(),
 				dst.ChainID(),
 				dst.PathEnd.ClientID,
-				MustGetHeight(dstUpdateHeader.GetHeight()),
+				provider.MustGetHeight(dstUpdateHeader.GetHeight()),
 				dstUpdateHeader.GetHeight().GetRevisionHeight(),
 			),
 			)
@@ -238,211 +232,28 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 	}
 
 	// query proofs on counterparty
-	clientState, proofUpgradeClient, _, err := dst.QueryUpgradedClient(height)
+	clientRes, err := dst.ChainProvider.QueryUpgradedClient(height)
 	if err != nil {
 		return err
 	}
 
-	consensusState, proofUpgradeConsensusState, _, err := dst.QueryUpgradedConsState(height)
+	consRes, err := dst.ChainProvider.QueryUpgradedConsState(height)
 	if err != nil {
 		return err
 	}
 
-	upgradeMsg := &clienttypes.MsgUpgradeClient{ClientId: c.PathEnd.ClientID, ClientState: clientState,
-		ConsensusState: consensusState, ProofUpgradeClient: proofUpgradeClient,
-		ProofUpgradeConsensusState: proofUpgradeConsensusState, Signer: c.ChainProvider.Address()}
+	upgradeMsg := c.ChainProvider.MsgUpgradeClient(c.ClientID(), consRes, clientRes)
 
-	msgs := []sdk.Msg{
+	msgs := []provider.RelayerMessage{
 		updateMsg,
 		upgradeMsg,
 	}
 
-	res, _, err := c.SendMsgs(msgs)
+	res, _, err := c.ChainProvider.SendMessages(msgs)
 	if err != nil {
 		c.LogFailedTx(res, err, msgs)
 		return err
 	}
 
 	return nil
-}
-
-// FindMatchingClient will determine if there exists a client with identical client and consensus states
-// to the client which would have been created. Source is the chain that would be adding a client
-// which would track the counterparty. Therefore we query source for the existing clients
-// and check if any match the counterparty. The counterparty must have a matching consensus state
-// to the latest consensus state of a potential match. The provided client state is the client
-// state that will be created if there exist no matches.
-func FindMatchingClient(source, counterparty *Chain, clientState *ibctmtypes.ClientState) (string, bool) {
-	// TODO: add appropriate offset and limits, along with retries
-	clientsResp, err := source.ChainProvider.QueryClients()
-	if err != nil {
-		if source.debug {
-			source.Log(fmt.Sprintf("Error: querying clients on %s failed: %v", source.PathEnd.ChainID, err))
-		}
-		return "", false
-	}
-
-	for _, identifiedClientState := range clientsResp {
-		// unpack any into ibc tendermint client state
-		existingClientState, err := CastClientStateToTMType(identifiedClientState.ClientState)
-		if err != nil {
-			return "", false
-		}
-
-		// check if the client states match
-		// NOTE: FrozenHeight.IsZero() is a sanity check, the client to be created should always
-		// have a zero frozen height and therefore should never match with a frozen client
-		if IsMatchingClient(*clientState, *existingClientState) && existingClientState.FrozenHeight.IsZero() {
-
-			// query the latest consensus state of the potential matching client
-			consensusStateResp, err := clientutils.QueryConsensusStateABCI(source.CLIContext(0),
-				identifiedClientState.ClientId, existingClientState.GetLatestHeight())
-			if err != nil {
-				if source.debug {
-					source.Log(fmt.Sprintf("Error: failed to query latest consensus state for existing client on chain %s: %v",
-						source.PathEnd.ChainID, err))
-				}
-				continue
-			}
-
-			//nolint:lll
-			header, err := counterparty.ChainProvider.GetLightSignedHeaderAtHeight(int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
-			if err != nil {
-				if source.debug {
-					source.Log(fmt.Sprintf("Error: failed to query header for chain %s at height %d: %v",
-						counterparty.PathEnd.ChainID, existingClientState.GetLatestHeight().GetRevisionHeight(), err))
-				}
-				continue
-			}
-
-			exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
-			if err != nil {
-				if source.debug {
-					source.Log(fmt.Sprintf("Error: failed to consensus state on chain %s: %v", counterparty.PathEnd.ChainID, err))
-				}
-				continue
-			}
-			existingConsensusState, ok := exportedConsState.(*ibctmtypes.ConsensusState)
-			if !ok {
-				if source.debug {
-					source.Log(fmt.Sprintf("Error:consensus state is not tendermint type on chain %s", counterparty.PathEnd.ChainID))
-				}
-				continue
-			}
-
-			if existingClientState.IsExpired(existingConsensusState.Timestamp, time.Now()) {
-				continue
-			}
-
-			if IsMatchingConsensusState(existingConsensusState, header.ConsensusState()) {
-				// found matching client
-				return identifiedClientState.ClientId, true
-			}
-		}
-	}
-
-	return "", false
-}
-
-// IsMatchingClient determines if the two provided clients match in all fields
-// except latest height. They are assumed to be IBC tendermint light clients.
-// NOTE: we don't pass in a pointer so upstream references don't have a modified
-// latest height set to zero.
-func IsMatchingClient(clientStateA, clientStateB ibctmtypes.ClientState) bool {
-	// zero out latest client height since this is determined and incremented
-	// by on-chain updates. Changing the latest height does not fundamentally
-	// change the client. The associated consensus state at the latest height
-	// determines this last check
-	clientStateA.LatestHeight = clienttypes.ZeroHeight()
-	clientStateB.LatestHeight = clienttypes.ZeroHeight()
-
-	return reflect.DeepEqual(clientStateA, clientStateB)
-}
-
-// IsMatchingConsensusState determines if the two provided consensus states are
-// identical. They are assumed to be IBC tendermint light clients.
-func IsMatchingConsensusState(consensusStateA, consensusStateB *ibctmtypes.ConsensusState) bool {
-	return reflect.DeepEqual(*consensusStateA, *consensusStateB)
-}
-
-// AutoUpdateClient update client automatically to prevent expiry
-func AutoUpdateClient(src, dst *Chain, thresholdTime time.Duration) (time.Duration, error) {
-	srch, dsth, err := QueryLatestHeights(src, dst)
-	if err != nil {
-		return 0, err
-	}
-
-	clientState, err := src.QueryTMClientState(srch)
-	if err != nil {
-		return 0, err
-	}
-
-	if clientState.TrustingPeriod <= thresholdTime {
-		return 0, fmt.Errorf("client (%s) trusting period time is less than or equal to threshold time",
-			src.PathEnd.ClientID)
-	}
-
-	// query the latest consensus state of the potential matching client
-	consensusStateResp, err := clientutils.QueryConsensusStateABCI(src.CLIContext(0),
-		src.PathEnd.ClientID, clientState.GetLatestHeight())
-	if err != nil {
-		return 0, err
-	}
-
-	exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
-	if err != nil {
-		return 0, err
-	}
-
-	consensusState, ok := exportedConsState.(*ibctmtypes.ConsensusState)
-	if !ok {
-		return 0, fmt.Errorf("consensus state with clientID %s from chain %s is not IBC tendermint type",
-			src.PathEnd.ClientID, src.PathEnd.ChainID)
-	}
-
-	expirationTime := consensusState.Timestamp.Add(clientState.TrustingPeriod)
-
-	timeToExpiry := time.Until(expirationTime)
-
-	if timeToExpiry > thresholdTime {
-		return timeToExpiry, nil
-	}
-
-	if clientState.IsExpired(consensusState.Timestamp, time.Now()) {
-		return 0, fmt.Errorf("client (%s) is already expired on chain: %s", src.PathEnd.ClientID, src.ChainID())
-	}
-
-	srcUpdateHeader, err := src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
-	if err != nil {
-		return 0, err
-	}
-
-	dstUpdateHeader, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
-	if err != nil {
-		return 0, err
-	}
-
-	updateMsg, err := src.ChainProvider.UpdateClient(src.ClientID(), dstUpdateHeader)
-	if err != nil {
-		return 0, err
-	}
-
-	msgs := []provider.RelayerMessage{updateMsg}
-
-	res, success, err := src.ChainProvider.SendMessages(msgs)
-	if err != nil {
-		src.LogFailedTx(res, err, msgs)
-		return 0, err
-	}
-	if !success {
-		return 0, fmt.Errorf("tx failed: %s", res.Data)
-	}
-	src.Log(fmt.Sprintf("★ Client updated: [%s]client(%s) {%d}->{%d}",
-		src.ChainID(),
-		src.PathEnd.ClientID,
-		MustGetHeight(srcUpdateHeader.TrustedHeight),
-		srcUpdateHeader.Header.Height,
-	))
-
-	return clientState.TrustingPeriod, nil
 }

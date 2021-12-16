@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/tendermint/tendermint/light"
+	clientutils "github.com/cosmos/ibc-go/v2/modules/core/02-client/client/utils"
 	"net/url"
 	"os"
 	"time"
@@ -107,7 +107,7 @@ func SdkMsgFromRelayerMessage(p provider.RelayerMessage) sdk.Msg {
 
 func CosmosMsg(rm provider.RelayerMessage) sdk.Msg {
 	if val, ok := rm.(CosmosMessage); !ok {
-		// add warning output later to tell invalid msg type
+		// TODO add warning output later to tell invalid msg type
 		return nil
 	} else {
 		return val.Msg
@@ -118,7 +118,7 @@ func CosmosMsgs(rm ...provider.RelayerMessage) []sdk.Msg {
 	sdkMsgs := make([]sdk.Msg, 0)
 	for _, rMsg := range rm {
 		if val, ok := rMsg.(CosmosMessage); !ok {
-			// add warning output later to tell invalid msg type
+			// TODO add warning output later to tell invalid msg type
 		} else {
 			sdkMsgs = append(sdkMsgs, val.Msg)
 		}
@@ -164,6 +164,10 @@ func (cp *CosmosProvider) Key() string {
 	return cp.Config.Key
 }
 
+func (cp *CosmosProvider) Timeout() string {
+	return cp.Config.Timeout
+}
+
 // Address returns the address of the configured ChainProvider as a string
 func (cp *CosmosProvider) Address() string {
 	return cp.MustGetAddress()
@@ -176,7 +180,7 @@ func (cp *CosmosProvider) Init() error {
 
 	timeout, err := time.ParseDuration(cp.Config.Timeout)
 	if err != nil {
-		return fmt.Errorf("failed to parse timeout (%s) for chain %s", cp.Config.Timeout, cp.Config.ChainID)
+		return fmt.Errorf("failed to parse timeout (%s) for chain %s. Err: %w", cp.Config.Timeout, cp.Config.ChainID, err)
 	}
 
 	client, err := newRPCClient(cp.Config.RPCAddr, timeout)
@@ -853,26 +857,209 @@ func (cp *CosmosProvider) AcknowledgementFromSequence(dst provider.ChainProvider
 	return out, nil
 }
 
-// TODO revisit this and ensure this works
-// DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
-var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
+func (cp *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) provider.RelayerMessage {
+	return NewCosmosMessage(&clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
+		ConsensusState: consRes.ConsensusState, ProofUpgradeClient: consRes.GetProof(),
+		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: cp.Address()})
+}
 
-func (cp *CosmosProvider) NewClientState(dstUpdateHeader ibcexported.Header, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
-	dstTmHeader, ok := dstUpdateHeader.(*tmclient.Header)
-	if !ok {
-		return nil, fmt.Errorf("got data of type %T but wanted  tmclient.Header \n", dstUpdateHeader)
+// AutoUpdateClient update client automatically to prevent expiry
+func (cp *CosmosProvider) AutoUpdateClient(dst provider.ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error) {
+	srch, err := cp.QueryLatestHeight()
+	if err != nil {
+		return 0, err
 	}
-	// Create the ClientState we want on 'c' tracking 'dst'
-	return tmclient.NewClientState(
-		dstTmHeader.GetHeader().GetChainID(),
-		tmclient.NewFractionFromTm(light.DefaultTrustLevel),
-		dstTrustingPeriod,
-		dstUbdPeriod,
-		time.Minute*10,
-		dstUpdateHeader.GetHeight().(clienttypes.Height),
-		commitmenttypes.GetSDKSpecs(),
-		defaultUpgradePath,
-		allowUpdateAfterExpiry,
-		allowUpdateAfterMisbehaviour,
-	), nil
+	dsth, err := dst.QueryLatestHeight()
+	if err != nil {
+		return 0, err
+	}
+
+	clientState, err := cp.queryTMClientState(srch, srcClientId)
+	if err != nil {
+		return 0, err
+	}
+
+	if clientState.TrustingPeriod <= thresholdTime {
+		return 0, fmt.Errorf("client (%s) trusting period time is less than or equal to threshold time", srcClientId)
+	}
+
+	// query the latest consensus state of the potential matching client
+	consensusStateResp, err := clientutils.QueryConsensusStateABCI(cp.CLIContext(0),
+		srcClientId, clientState.GetLatestHeight())
+	if err != nil {
+		return 0, err
+	}
+
+	exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
+	if err != nil {
+		return 0, err
+	}
+
+	consensusState, ok := exportedConsState.(*tmclient.ConsensusState)
+	if !ok {
+		return 0, fmt.Errorf("consensus state with clientID %s from chain %s is not IBC tendermint type",
+			srcClientId, cp.ChainId())
+	}
+
+	expirationTime := consensusState.Timestamp.Add(clientState.TrustingPeriod)
+
+	timeToExpiry := time.Until(expirationTime)
+
+	if timeToExpiry > thresholdTime {
+		return timeToExpiry, nil
+	}
+
+	if clientState.IsExpired(consensusState.Timestamp, time.Now()) {
+		return 0, fmt.Errorf("client (%s) is already expired on chain: %s", srcClientId, cp.ChainId())
+	}
+
+	srcUpdateHeader, err := cp.GetIBCUpdateHeader(srch, dst, dstClientId)
+	if err != nil {
+		return 0, err
+	}
+
+	dstUpdateHeader, err := dst.GetIBCUpdateHeader(dsth, cp, srcClientId)
+	if err != nil {
+		return 0, err
+	}
+
+	updateMsg, err := cp.UpdateClient(srcClientId, dstUpdateHeader)
+	if err != nil {
+		return 0, err
+	}
+
+	msgs := []provider.RelayerMessage{updateMsg}
+
+	res, success, err := cp.SendMessages(msgs)
+	if err != nil {
+		// cp.LogFailedTx(res, err, CosmosMsgs(msgs...)) TODO logging needs thought out better, fix this after
+		return 0, err
+	}
+	if !success {
+		return 0, fmt.Errorf("tx failed: %s", res.Data)
+	}
+	cp.Log(fmt.Sprintf("★ Client updated: [%s]client(%s) {%d}->{%d}",
+		cp.ChainId(),
+		srcClientId,
+		provider.MustGetHeight(srcUpdateHeader.GetHeight()),
+		srcUpdateHeader.GetHeight().GetRevisionHeight(),
+	))
+
+	return clientState.TrustingPeriod, nil
+}
+
+// FindMatchingClient will determine if there exists a client with identical client and consensus states
+// to the client which would have been created. Source is the chain that would be adding a client
+// which would track the counterparty. Therefore we query source for the existing clients
+// and check if any match the counterparty. The counterparty must have a matching consensus state
+// to the latest consensus state of a potential match. The provided client state is the client
+// state that will be created if there exist no matches.
+func (cp *CosmosProvider) FindMatchingClient(counterparty provider.ChainProvider, clientState ibcexported.ClientState) (string, bool) {
+	// TODO: add appropriate offset and limits, along with retries
+	clientsResp, err := cp.QueryClients()
+	if err != nil {
+		if cp.debug {
+			cp.Log(fmt.Sprintf("Error: querying clients on %s failed: %v", cp.ChainId(), err))
+		}
+		return "", false
+	}
+
+	for _, identifiedClientState := range clientsResp {
+		// unpack any into ibc tendermint client state
+		existingClientState, err := castClientStateToTMType(identifiedClientState.ClientState)
+		if err != nil {
+			return "", false
+		}
+
+		tmClientState, ok := clientState.(*tmclient.ClientState)
+		if !ok {
+			if cp.debug {
+				fmt.Printf("got data of type %T but wanted tmclient.ClientState \n", clientState)
+			}
+			return "", false
+		}
+
+		// check if the client states match
+		// NOTE: FrozenHeight.IsZero() is a sanity check, the client to be created should always
+		// have a zero frozen height and therefore should never match with a frozen client
+		if isMatchingClient(tmClientState, existingClientState) && existingClientState.FrozenHeight.IsZero() {
+
+			// query the latest consensus state of the potential matching client
+			consensusStateResp, err := clientutils.QueryConsensusStateABCI(cp.CLIContext(0),
+				identifiedClientState.ClientId, existingClientState.GetLatestHeight())
+			if err != nil {
+				if cp.debug {
+					cp.Log(fmt.Sprintf("Error: failed to query latest consensus state for existing client on chain %s: %v",
+						cp.ChainId(), err))
+				}
+				continue
+			}
+
+			//nolint:lll
+			header, err := counterparty.GetLightSignedHeaderAtHeight(int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
+			if err != nil {
+				if cp.debug {
+					cp.Log(fmt.Sprintf("Error: failed to query header for chain %s at height %d: %v",
+						counterparty.ChainId(), existingClientState.GetLatestHeight().GetRevisionHeight(), err))
+				}
+				continue
+			}
+
+			exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
+			if err != nil {
+				if cp.debug {
+					cp.Log(fmt.Sprintf("Error: failed to consensus state on chain %s: %v", counterparty.ChainId(), err))
+				}
+				continue
+			}
+			existingConsensusState, ok := exportedConsState.(*tmclient.ConsensusState)
+			if !ok {
+				if cp.debug {
+					cp.Log(fmt.Sprintf("Error: consensus state is not tendermint type on chain %s", counterparty.ChainId()))
+				}
+				continue
+			}
+
+			if existingClientState.IsExpired(existingConsensusState.Timestamp, time.Now()) {
+				continue
+			}
+
+			tmHeader, ok := header.(*tmclient.Header)
+			if !ok {
+				if cp.debug {
+					fmt.Printf("got data of type %T but wanted tmclient.Header \n", header)
+				}
+				return "", false
+			}
+
+			if isMatchingConsensusState(existingConsensusState, tmHeader.ConsensusState()) {
+				// found matching client
+				return identifiedClientState.ClientId, true
+			}
+		}
+	}
+	return "", false
+}
+
+// WaitForNBlocks blocks until the next block on a given chain
+func (cp *CosmosProvider) WaitForNBlocks(n int64) error {
+	var initial int64
+	h, err := cp.Client.Status(context.Background())
+	if err != nil {
+		return err
+	}
+	if h.SyncInfo.CatchingUp {
+		return fmt.Errorf("chain catching up")
+	}
+	initial = h.SyncInfo.LatestBlockHeight
+	for {
+		h, err = cp.Client.Status(context.Background())
+		if err != nil {
+			return err
+		}
+		if h.SyncInfo.LatestBlockHeight > initial+n {
+			return nil
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }

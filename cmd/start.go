@@ -34,7 +34,7 @@ import (
 )
 
 // startCmd represents the start command
-// NOTE: This is basically psuedocode
+// NOTE: This is basically pseudocode
 func startCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "start [path-name]",
@@ -129,11 +129,11 @@ func UpdateClientsFromChains(src, dst *relayer.Chain, thresholdTime time.Duratio
 
 	eg := new(errgroup.Group)
 	eg.Go(func() error {
-		srcTimeExpiry, err = relayer.AutoUpdateClient(src, dst, thresholdTime)
+		srcTimeExpiry, err = src.ChainProvider.AutoUpdateClient(dst.ChainProvider, thresholdTime, src.ClientID(), dst.ClientID())
 		return err
 	})
 	eg.Go(func() error {
-		dstTimeExpiry, err = relayer.AutoUpdateClient(dst, src, thresholdTime)
+		dstTimeExpiry, err = dst.ChainProvider.AutoUpdateClient(src.ChainProvider, thresholdTime, dst.ClientID(), src.ClientID())
 		return err
 	})
 	if err := eg.Wait(); err != nil {

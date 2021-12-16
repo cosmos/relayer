@@ -63,6 +63,7 @@ type ChainProvider interface {
 	MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanId string, timeoutHeight, timeoutTimestamp uint64) RelayerMessage
 	MsgRelayTimeout(dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
 	MsgRelayRecvPacket(dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
+	MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) RelayerMessage
 	RelayPacketFromSequence(src, dst ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) (RelayerMessage, RelayerMessage, error)
 	AcknowledgementFromSequence(dst ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
 
@@ -77,6 +78,8 @@ type ChainProvider interface {
 	ProviderConfig() ProviderConfig
 	Key() string
 	Address() string
+	Timeout() string
+	WaitForNBlocks(n int64) error
 }
 
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?
@@ -102,6 +105,8 @@ type QueryProvider interface {
 	QueryUpgradedConsState(height int64) (*clienttypes.QueryConsensusStateResponse, error)
 	QueryConsensusState(height int64) (ibcexported.ConsensusState, int64, error)
 	QueryClients() (clienttypes.IdentifiedClientStates, error)
+	AutoUpdateClient(dst ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error)
+	FindMatchingClient(counterparty ChainProvider, clientState ibcexported.ClientState) (string, bool)
 
 	// ics 03 - connection
 	QueryConnection(height int64, connectionid string) (*conntypes.QueryConnectionResponse, error)

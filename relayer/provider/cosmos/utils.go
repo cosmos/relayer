@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer/provider"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -373,4 +376,42 @@ func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId str
 	}
 
 	return nil, fmt.Errorf("no packet data found")
+}
+
+// castClientStateToTMType casts client state to tendermint type
+func castClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) {
+	clientStateExported, err := clienttypes.UnpackClientState(cs)
+	if err != nil {
+		return &tmclient.ClientState{}, err
+	}
+
+	// cast from interface to concrete type
+	clientState, ok := clientStateExported.(*tmclient.ClientState)
+	if !ok {
+		return &tmclient.ClientState{},
+			fmt.Errorf("error when casting exported clientstate to tendermint type")
+	}
+
+	return clientState, nil
+}
+
+// isMatchingClient determines if the two provided clients match in all fields
+// except latest height. They are assumed to be IBC tendermint light clients.
+// NOTE: we don't pass in a pointer so upstream references don't have a modified
+// latest height set to zero.
+func isMatchingClient(clientStateA, clientStateB *tmclient.ClientState) bool {
+	// zero out latest client height since this is determined and incremented
+	// by on-chain updates. Changing the latest height does not fundamentally
+	// change the client. The associated consensus state at the latest height
+	// determines this last check
+	clientStateA.LatestHeight = clienttypes.ZeroHeight()
+	clientStateB.LatestHeight = clienttypes.ZeroHeight()
+
+	return reflect.DeepEqual(clientStateA, clientStateB)
+}
+
+// isMatchingConsensusState determines if the two provided consensus states are
+// identical. They are assumed to be IBC tendermint light clients.
+func isMatchingConsensusState(consensusStateA, consensusStateB *tmclient.ConsensusState) bool {
+	return reflect.DeepEqual(*consensusStateA, *consensusStateB)
 }

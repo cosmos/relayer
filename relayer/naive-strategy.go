@@ -36,7 +36,7 @@ func UnrelayedSequences(src, dst *Chain) (*RelaySequences, error) {
 			case err != nil:
 				return err
 			case res == nil:
-				return fmt.Errorf("no error on QueryPacketCommitments for %s, however response is nil", src.ChainID)
+				return fmt.Errorf("no error on QueryPacketCommitments for %s, however response is nil", src.ChainID())
 			default:
 				return nil
 			}
@@ -62,7 +62,7 @@ func UnrelayedSequences(src, dst *Chain) (*RelaySequences, error) {
 			case err != nil:
 				return err
 			case res == nil:
-				return fmt.Errorf("no error on QueryPacketCommitments for %s, however response is nil", dst.ChainID)
+				return fmt.Errorf("no error on QueryPacketCommitments for %s, however response is nil", dst.ChainID())
 			default:
 				return nil
 			}
@@ -283,7 +283,7 @@ func RelayAcknowledgements(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMs
 
 	if !msgs.Ready() {
 		src.Log(fmt.Sprintf("- No acknowledgements to relay between [%s]port{%s} and [%s]port{%s}",
-			src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))
+			src.ChainID(), src.PathEnd.PortID, dst.ChainID(), dst.PathEnd.PortID))
 		return nil
 	}
 
@@ -374,7 +374,7 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 
 	if !msgs.Ready() {
 		src.Log(fmt.Sprintf("- No packets to relay between [%s]port{%s} and [%s]port{%s}",
-			src.ChainID, src.PathEnd.PortID, dst.ChainID, dst.PathEnd.PortID))
+			src.ChainID(), src.PathEnd.PortID, dst.ChainID(), dst.PathEnd.PortID))
 		return nil
 	}
 

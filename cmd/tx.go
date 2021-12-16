@@ -50,6 +50,7 @@ Most of these commands take a [path] argument. Make sure:
 	return cmd
 }
 
+// TODO send needs revised still
 func sendCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "send [chain-id] [from-key] [to-address] [amount]",
@@ -66,6 +67,7 @@ $ %s tx send testkey cosmos10yft4nc8tacpngwlpyq3u4t88y7qzc9xv0q4y8 10000uatom`,
 			}
 
 			// ensure that keys exist
+
 			key, err := c.Keybase.Key(args[1])
 			if err != nil {
 				return err
@@ -135,8 +137,7 @@ func createClientsCmd() *cobra.Command {
 				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
-			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry,
-				allowUpdateAfterMisbehaviour, override)
+			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err
@@ -272,8 +273,7 @@ $ %s tx conn demo-path --timeout 5s`,
 			}
 
 			// ensure that the clients exist
-			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry,
-				allowUpdateAfterMisbehaviour, override)
+			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err
@@ -390,8 +390,7 @@ $ %s tx connect demo-path`,
 			}
 
 			// create clients if they aren't already created
-			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry,
-				allowUpdateAfterMisbehaviour, override)
+			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err

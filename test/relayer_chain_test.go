@@ -1,6 +1,8 @@
 package test
 
 import (
+	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -44,11 +46,14 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
-	_, err = src.CreateOpenConnections(dst, 3, src.GetTimeout())
+	timeout, err := src.GetTimeout()
+	require.NoError(t, err)
+
+	_, err = src.CreateOpenConnections(dst, 3, timeout)
 	require.NoError(t, err)
 	testConnectionPair(t, src, dst)
 
-	_, err = src.CreateOpenChannels(dst, 3, src.GetTimeout())
+	_, err = src.CreateOpenChannels(dst, 3, timeout)
 	require.NoError(t, err)
 	testChannelPair(t, src, dst)
 
@@ -61,22 +66,22 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, dst.SendTransferMsg(src, testCoin, src.ChainProvider.Address(), 0, 0))
 
 	// Wait for message inclusion in both chains
-	require.NoError(t, dst.WaitForNBlocks(1))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(1))
 
 	// start the relayer process in it's own goroutine
 	rlyDone, err := relayer.StartRelayer(src, dst, 2*cmd.MB, 5)
 	require.NoError(t, err)
 
 	// Wait for relay message inclusion in both chains
-	require.NoError(t, src.WaitForNBlocks(1))
-	require.NoError(t, dst.WaitForNBlocks(1))
+	require.NoError(t, src.ChainProvider.WaitForNBlocks(1))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(1))
 
 	// send those tokens from dst back to dst and src back to src
 	require.NoError(t, src.SendTransferMsg(dst, twoTestCoin, dst.ChainProvider.Address(), 0, 0))
 	require.NoError(t, dst.SendTransferMsg(src, twoTestCoin, src.ChainProvider.Address(), 0, 0))
 
 	// wait for packet processing
-	require.NoError(t, dst.WaitForNBlocks(6))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(6))
 
 	// kill relayer routine
 	rlyDone()
@@ -121,11 +126,14 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
-	_, err = src.CreateOpenConnections(dst, 3, src.GetTimeout())
+	timeout, err := src.GetTimeout()
+	require.NoError(t, err)
+
+	_, err = src.CreateOpenConnections(dst, 3, timeout)
 	require.NoError(t, err)
 	testConnectionPair(t, src, dst)
 
-	_, err = src.CreateOpenChannels(dst, 3, src.GetTimeout())
+	_, err = src.CreateOpenChannels(dst, 3, timeout)
 	require.NoError(t, err)
 	testChannelPair(t, src, dst)
 
@@ -144,11 +152,11 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
-	_, err = src.CreateOpenConnections(dst, 3, src.GetTimeout())
+	_, err = src.CreateOpenConnections(dst, 3, timeout)
 	require.NoError(t, err)
 	testConnectionPair(t, src, dst)
 
-	_, err = src.CreateOpenChannels(dst, 3, src.GetTimeout())
+	_, err = src.CreateOpenChannels(dst, 3, timeout)
 	require.NoError(t, err)
 	testChannelPair(t, src, dst)
 
@@ -192,11 +200,14 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
-	_, err = src.CreateOpenConnections(dst, 3, src.GetTimeout())
+	timeout, err := src.GetTimeout()
+	require.NoError(t, err)
+
+	_, err = src.CreateOpenConnections(dst, 3, timeout)
 	require.NoError(t, err)
 	testConnectionPair(t, src, dst)
 
-	_, err = src.CreateOpenChannels(dst, 3, src.GetTimeout())
+	_, err = src.CreateOpenChannels(dst, 3, timeout)
 	require.NoError(t, err)
 	testChannelPair(t, src, dst)
 
@@ -205,8 +216,8 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for relay message inclusion in both chains
-	require.NoError(t, src.WaitForNBlocks(1))
-	require.NoError(t, dst.WaitForNBlocks(1))
+	require.NoError(t, src.ChainProvider.WaitForNBlocks(1))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(1))
 
 	latestHeight, err := dst.ChainProvider.QueryLatestHeight()
 	require.NoError(t, err)
@@ -228,13 +239,19 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	}
 	pubKey, err := privVal.GetPubKey()
 	require.NoError(t, err)
-	validator := tmtypes.NewValidator(pubKey, header.ValidatorSet.Proposer.VotingPower)
+
+	tmHeader, ok := header.(*ibctmtypes.Header)
+	if !ok {
+		fmt.Printf("got data of type %T but wanted tmclient.Header \n", header)
+		os.Exit(1)
+	}
+	validator := tmtypes.NewValidator(pubKey, tmHeader.ValidatorSet.Proposer.VotingPower)
 	valSet := tmtypes.NewValidatorSet([]*tmtypes.Validator{validator})
 	signers := []tmtypes.PrivValidator{privVal}
 
 	// creating duplicate header
 	newHeader := createTMClientHeader(t, dst.ChainID(), int64(heightPlus1.RevisionHeight), height,
-		header.GetTime().Add(time.Minute), valSet, valSet, signers, header)
+		tmHeader.GetTime().Add(time.Minute), valSet, valSet, signers, tmHeader)
 
 	// update client with duplicate header
 	updateMsg, err := src.ChainProvider.UpdateClient(src.PathEnd.ClientID, newHeader)
@@ -246,7 +263,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	require.Equal(t, uint32(0), res.Code)
 
 	// wait for packet processing
-	require.NoError(t, dst.WaitForNBlocks(6))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(6))
 
 	// kill relayer routine
 	rlyDone()

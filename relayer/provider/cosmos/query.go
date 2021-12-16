@@ -5,6 +5,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -19,12 +22,17 @@ import (
 	committypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v2/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
+	"github.com/tendermint/tendermint/light"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"golang.org/x/sync/errgroup"
-	"strings"
-	"time"
 )
+
+// NOTE: This file contains logic for querying the Tendermint RPC port of a configured chain
+// All the operations here hit the network and data coming back may be untrusted.
+// These functions by convention are named Query*
+
+// TODO: Validate all info coming back from these queries using the verifier
 
 // QueryTx takes a transaction hash and returns the transaction
 func (cp *CosmosProvider) QueryTx(hashHex string) (*ctypes.ResultTx, error) {
@@ -183,6 +191,30 @@ func (cp *CosmosProvider) QueryClientConsensusState(chainHeight int64, clientid 
 		clientid,
 		clientHeight,
 	)
+}
+
+// TODO revisit this and ensure this works
+// DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
+var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
+
+func (cp *CosmosProvider) NewClientState(dstUpdateHeader ibcexported.Header, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
+	dstTmHeader, ok := dstUpdateHeader.(*tmclient.Header)
+	if !ok {
+		return nil, fmt.Errorf("got data of type %T but wanted  tmclient.Header \n", dstUpdateHeader)
+	}
+	// Create the ClientState we want on 'c' tracking 'dst'
+	return tmclient.NewClientState(
+		dstTmHeader.GetHeader().GetChainID(),
+		tmclient.NewFractionFromTm(light.DefaultTrustLevel),
+		dstTrustingPeriod,
+		dstUbdPeriod,
+		time.Minute*10,
+		dstUpdateHeader.GetHeight().(clienttypes.Height),
+		committypes.GetSDKSpecs(),
+		defaultUpgradePath,
+		allowUpdateAfterExpiry,
+		allowUpdateAfterMisbehaviour,
+	), nil
 }
 
 // QueryUpgradedClient returns upgraded client info
@@ -502,4 +534,15 @@ func (cp *CosmosProvider) QueryDenomTraces(offset, limit uint64, height int64) (
 		return nil, err
 	}
 	return transfers.DenomTraces, nil
+}
+
+// queryTMClientState retrieves the latest consensus state for a client in state at a given height
+// and unpacks/cast it to tendermint clientstate
+func (cp *CosmosProvider) queryTMClientState(srch int64, srcClientId string) (*tmclient.ClientState, error) {
+	clientStateRes, err := cp.QueryClientStateResponse(srch, srcClientId)
+	if err != nil {
+		return &tmclient.ClientState{}, err
+	}
+
+	return castClientStateToTMType(clientStateRes.ClientState)
 }

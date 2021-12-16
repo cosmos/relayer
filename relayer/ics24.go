@@ -100,10 +100,10 @@ func (pe *PathEnd) ValidateBasic() error {
 
 // ErrPathNotSet returns information what identifiers are needed to relay
 func (c *Chain) ErrPathNotSet() error {
-	return fmt.Errorf("path on chain %s not set", c.ChainID)
+	return fmt.Errorf("path on chain %s not set", c.ChainID())
 }
 
 // ErrCantSetPath returns an error if the path doesn't set properly
 func (c *Chain) ErrCantSetPath(err error) error {
-	return fmt.Errorf("path on chain %s failed to set: %w", c.ChainID, err)
+	return fmt.Errorf("path on chain %s failed to set: %w", c.ChainID(), err)
 }
