@@ -35,6 +35,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 		// Create the ClientState we want on 'c' tracking 'dst'
 		clientState, err := c.ChainProvider.NewClientState(dstUpdateHeader, dst.GetTrustingPeriod(), ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
 		if err != nil {
+			fmt.Println("HEEEEEEEEEEEEREEEEEE")
 			return modified, err
 		}
 
@@ -68,7 +69,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 
 			// update the client identifier
 			// use index 0, the transaction only has one message
-			clientID, err = ParseClientIDFromEvents(res.Logs[0].Events)
+			clientID, err = ParseClientIDFromEvents(res.Events)
 			if err != nil {
 				return modified, err
 			}
@@ -134,7 +135,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 			}
 
 			// update client identifier
-			clientID, err = ParseClientIDFromEvents(res.Logs[0].Events)
+			clientID, err = ParseClientIDFromEvents(res.Events)
 			if err != nil {
 				return modified, err
 			}

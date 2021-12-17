@@ -560,12 +560,22 @@ func (cp *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provide
 		return nil, false, err
 	}
 
+	// Parse events and build a map where the key is event.Type+"."+attribute.Key
+	events := make(map[string]string, 1)
+	for _, ev := range res.Logs[1].Events {
+		for _, attr := range ev.Attributes {
+			key := ev.Type + "." + attr.Key
+			events[key] = attr.Value
+		}
+	}
+
 	// helper/wrapper function for TxResponse->RelayerTxResponse?
 	rlyRes := &provider.RelayerTxResponse{
 		Height: res.Height,
 		TxHash: res.TxHash,
 		Code:   res.Code,
 		Data:   res.Data,
+		Events: events,
 	}
 
 	// transaction was executed, log the success or failure using the tx response code

@@ -310,7 +310,7 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 			// update channel identifier in PathEnd
 			// use index 1, channel open init is the second message in the transaction
 			// TODO circle back around to this
-			channelID, err = ParseChannelIDFromEvents(res.Logs[1].Events)
+			channelID, err = ParseChannelIDFromEvents(res.Events)
 			if err != nil {
 				return false, false, err
 			}
@@ -358,7 +358,7 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 			// update channel identifier in PathEnd
 			// use index 1, channel open try is the second message in the transaction
 			// TODO circle back around to this
-			channelID, err = ParseChannelIDFromEvents(res.Logs[1].Events)
+			channelID, err = ParseChannelIDFromEvents(res.Events)
 			if err != nil {
 				return false, false, err
 			}
@@ -407,7 +407,7 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 			// update channel identifier in PathEnd
 			// use index 1, channel open try is the second message in the transaction
 			// TODO circle back around to this
-			channelID, err = ParseChannelIDFromEvents(res.Logs[1].Events)
+			channelID, err = ParseChannelIDFromEvents(res.Events)
 			if err != nil {
 				return false, false, err
 			}

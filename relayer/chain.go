@@ -157,7 +157,7 @@ func defaultChainLogger() log.Logger {
 }
 
 func (c *Chain) ChainID() string {
-	return c.PathEnd.ChainID
+	return c.ChainProvider.ChainId()
 }
 
 func (c *Chain) ChannelID() string {
@@ -283,7 +283,7 @@ type Chains []*Chain
 // Get returns the configuration for a given chain
 func (c Chains) Get(chainID string) (*Chain, error) {
 	for _, chain := range c {
-		if chainID == chain.ChainID() {
+		if chainID == chain.ChainProvider.ChainId() {
 			return chain, nil
 		}
 	}

@@ -1,15 +1,12 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/cosmos-sdk/x/auth/types"
-	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v2/modules/core/exported"
 	"github.com/cosmos/relayer/helpers"
 	"github.com/cosmos/relayer/relayer"
@@ -29,11 +26,11 @@ func queryCmd() *cobra.Command {
 		queryUnrelayedPackets(),
 		queryUnrelayedAcknowledgements(),
 		flags.LineBreak,
-		queryAccountCmd(),
+		//queryAccountCmd(),
 		queryBalanceCmd(),
 		queryHeaderCmd(),
 		queryNodeStateCmd(),
-		queryValSetAtHeightCmd(),
+		//queryValSetAtHeightCmd(),
 		queryTxs(),
 		queryTx(),
 		flags.LineBreak,
@@ -174,45 +171,58 @@ $ %s q txs ibc-0 "message.action=transfer"`,
 	return paginationFlags(cmd)
 }
 
-func queryAccountCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "account [chain-id]",
-		Aliases: []string{"acc"},
-		Short:   "query the relayer's account on a given network by chain ID",
-		Args:    cobra.ExactArgs(1),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s query account ibc-0
-$ %s q acc ibc-1`,
-			appName, appName,
-		)),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.Chains.Get(args[0])
-			if err != nil {
-				return err
-			}
-
-			addr := chain.ChainProvider.Address()
-			if addr == "" || len(addr) == 0 {
-				return fmt.Errorf("failed to retrieve address or address is invalid on chain %s \n", chain.ChainID())
-			}
-
-			// TODO circle back to this after clearing up errors
-			res, err := types.NewQueryClient(chain.CLIContext(0)).Account(
-				context.Background(),
-				&types.QueryAccountRequest{
-					Address: addr,
-				},
-			)
-			if err != nil {
-				return err
-			}
-
-			return chain.Print(res, false, false)
-		},
-	}
-
-	return cmd
-}
+//func queryAccountCmd() *cobra.Command {
+//	cmd := &cobra.Command{
+//		Use:     "account [chain-id]",
+//		Aliases: []string{"acc"},
+//		Short:   "query the relayer's account on a given network by chain ID",
+//		Args:    cobra.ExactArgs(1),
+//		Example: strings.TrimSpace(fmt.Sprintf(`
+//$ %s query account ibc-0
+//$ %s q acc ibc-1`,
+//			appName, appName,
+//		)),
+//		RunE: func(cmd *cobra.Command, args []string) error {
+//			chain, err := config.Chains.Get(args[0])
+//			if err != nil {
+//				return err
+//			}
+//
+//			addr := chain.ChainProvider.Address()
+//			if addr == "" || len(addr) == 0 {
+//				return fmt.Errorf("failed to retrieve address or address is invalid on chain %s \n", chain.ChainID())
+//			}
+//
+//			// TODO circle back to this after clearing up errors
+//			//{
+//			//	"account":
+//			//		{
+//			//		"@type":"/cosmos.auth.v1beta1.BaseAccount",
+//			//		"address":"cosmos1kn4tkqezr3c7zc43lsu5r4p2l2qqf4mp3hnjax",
+//			//		"pub_key":{"@type":"/cosmos.crypto.secp256k1.PubKey",
+//			//			"key":"A/YSSeVUdSJjogfcuhaR0rCUCMREOEdFTZR2cTTC7TPC"
+//			//		},
+//			//		"account_number":"380320",
+//			//		"sequence":"2336"
+//			//	}
+//			//}
+//
+//			res, err := types.NewQueryClient(chain.CLIContext(0)).Account(
+//				context.Background(),
+//				&types.QueryAccountRequest{
+//					Address: addr,
+//				},
+//			)
+//			if err != nil {
+//				return err
+//			}
+//
+//			return chain.Print(res, false, false)
+//		},
+//	}
+//
+//	return cmd
+//}
 
 func queryBalanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -363,7 +373,8 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 				return err
 			}
 
-			return chain.CLIContext(height).PrintProto(res)
+			return chain.Print(res, false, false)
+			//return chain.CLIContext(height).PrintProto(res)
 		},
 	}
 
@@ -398,7 +409,15 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 				return err
 			}
 
-			return chain.Print(res, false, false)
+			for _, client := range res {
+				err = chain.Print(&client, false, false)
+				if err != nil {
+					return err
+				}
+			}
+
+			return nil
+			//return chain.Print(res, false, false)
 		},
 	}
 
@@ -406,40 +425,40 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 	return cmd
 }
 
-func queryValSetAtHeightCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "valset [chain-id]",
-		Short: "query the validator set at particular height for a network by chain ID",
-		Args:  cobra.ExactArgs(1),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s query valset ibc-0
-$ %s q valset ibc-1`,
-			appName, appName,
-		)),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.Chains.Get(args[0])
-			if err != nil {
-				return err
-			}
-
-			h, err := chain.ChainProvider.QueryLatestHeight()
-			if err != nil {
-				return err
-			}
-
-			version := clienttypes.ParseChainID(args[0])
-
-			res, err := chain.QueryValsetAtHeight(clienttypes.NewHeight(version, uint64(h)))
-			if err != nil {
-				return err
-			}
-
-			return chain.Print(res, false, false)
-		},
-	}
-
-	return cmd
-}
+//func queryValSetAtHeightCmd() *cobra.Command {
+//	cmd := &cobra.Command{
+//		Use:   "valset [chain-id]",
+//		Short: "query the validator set at particular height for a network by chain ID",
+//		Args:  cobra.ExactArgs(1),
+//		Example: strings.TrimSpace(fmt.Sprintf(`
+//$ %s query valset ibc-0
+//$ %s q valset ibc-1`,
+//			appName, appName,
+//		)),
+//		RunE: func(cmd *cobra.Command, args []string) error {
+//			chain, err := config.Chains.Get(args[0])
+//			if err != nil {
+//				return err
+//			}
+//
+//			h, err := chain.ChainProvider.QueryLatestHeight()
+//			if err != nil {
+//				return err
+//			}
+//
+//			version := clienttypes.ParseChainID(args[0])
+//
+//			res, err := chain.QueryValsetAtHeight(clienttypes.NewHeight(version, uint64(h)))
+//			if err != nil {
+//				return err
+//			}
+//
+//			return chain.Print(res, false, false)
+//		},
+//	}
+//
+//	return cmd
+//}
 
 func queryConnections() *cobra.Command {
 	cmd := &cobra.Command{
@@ -470,7 +489,15 @@ $ %s q conns ibc-1`,
 				return err
 			}
 
-			return chain.Print(res, false, false)
+			for _, connection := range res {
+				err = chain.Print(connection, false, false)
+				if err != nil {
+					return err
+				}
+			}
+
+			return nil
+			//return chain.Print(res, false, false)
 		},
 	}
 
@@ -515,7 +542,8 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 				return err
 			}
 
-			return chain.CLIContext(height).PrintProto(res)
+			return chain.Print(res, false, false)
+			//return chain.CLIContext(height).PrintProto(res)
 		},
 	}
 
@@ -553,7 +581,8 @@ $ %s q conn ibc-1 ibconeconn`,
 				return err
 			}
 
-			return chain.CLIContext(height).PrintProto(res)
+			return chain.Print(res, false, false)
+			//return chain.CLIContext(height).PrintProto(res)
 		},
 	}
 
@@ -591,7 +620,15 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 				return err
 			}
 
-			return chain.Print(chans, false, false)
+			for _, channel := range chans {
+				err = chain.Print(channel, false, false)
+				if err != nil {
+					return err
+				}
+			}
+
+			return nil
+			//return chain.Print(chans, false, false)
 		},
 	}
 
@@ -636,7 +673,8 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 				return err
 			}
 
-			return chain.CLIContext(height).PrintProto(res)
+			return chain.Print(res, false, false)
+			//return chain.CLIContext(height).PrintProto(res)
 		},
 	}
 
@@ -670,7 +708,14 @@ $ %s query channels ibc-2 --offset 2 --limit 30`,
 				return err
 			}
 
-			return chain.Print(res, false, false)
+			for _, channel := range res {
+				err = chain.Print(channel, false, false)
+				if err != nil {
+					return err
+				}
+			}
+
+			return nil
 		},
 	}
 

@@ -273,7 +273,7 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 
 			// update connection identifier in PathEnd
 			// use index 1, connection open init is the second message in the transaction
-			connectionID, err = ParseConnectionIDFromEvents(res.Logs[1].Events)
+			connectionID, err = ParseConnectionIDFromEvents(res.Events)
 			if err != nil {
 				return false, false, err
 			}
@@ -309,7 +309,7 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 
 			// update connection identifier in PathEnd
 			// use index 1, connection open try is the second message in the transaction
-			connectionID, err = ParseConnectionIDFromEvents(res.Logs[1].Events)
+			connectionID, err = ParseConnectionIDFromEvents(res.Events)
 			if err != nil {
 				return false, false, err
 			}
@@ -345,7 +345,7 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 
 			// update connection identifier in PathEnd
 			// use index 1, connection open try is the second message in the transaction
-			connectionID, err = ParseConnectionIDFromEvents(res.Logs[1].Events)
+			connectionID, err = ParseConnectionIDFromEvents(res.Events)
 			if err != nil {
 				return false, false, err
 			}

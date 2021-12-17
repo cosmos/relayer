@@ -225,6 +225,16 @@ func fileInputPathAdd(file, name string) (cfg *Config, err error) {
 		return nil, err
 	}
 
+	//srcEnd := p.Src
+	//dstEnd := p.Dst
+	//
+	//// This
+	//src := config.Chains.MustGet(srcEnd.ChainID)
+	//dst := config.Chains.MustGet(dstEnd.ChainID)
+	//
+	//src.PathEnd = srcEnd
+	//dst.PathEnd = dstEnd
+
 	return config, nil
 }
 

@@ -254,7 +254,7 @@ func cfgFilesAddChains(dir string) (cfg *Config, err error) {
 			fmt.Printf("failed to add chain %s: %v \n", pth, err)
 			continue
 		}
-		fmt.Printf("added chain %s...\n", c.ChainID())
+		fmt.Printf("added chain %s...\n", c.ChainProvider.ChainId())
 	}
 	return cfg, nil
 }

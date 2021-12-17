@@ -1,17 +1,17 @@
 package cmd
 
 import (
-	"encoding/json"
+	//"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os"
+	//"io/ioutil"
+	//"os"
 	"strings"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
+	//banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	//upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -40,65 +40,65 @@ Most of these commands take a [path] argument. Make sure:
 		createClientsCmd(),
 		updateClientsCmd(),
 		upgradeClientsCmd(),
-		upgradeChainCmd(),
+		//upgradeChainCmd(),
 		createConnectionCmd(),
 		closeChannelCmd(),
 		flags.LineBreak,
-		sendCmd(),
+		//sendCmd(),
 	)
 
 	return cmd
 }
 
 // TODO send needs revised still
-func sendCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "send [chain-id] [from-key] [to-address] [amount]",
-		Short: "send funds to a different address on the same chain",
-		Args:  cobra.ExactArgs(4),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s tx send testkey cosmos10yft4nc8tacpngwlpyq3u4t88y7qzc9xv0q4y8 10000uatom`,
-			appName,
-		)),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := config.Chains.Get(args[0])
-			if err != nil {
-				return err
-			}
-
-			// ensure that keys exist
-
-			key, err := c.Keybase.Key(args[1])
-			if err != nil {
-				return err
-			}
-
-			to, err := sdk.AccAddressFromBech32(args[2])
-			if err != nil {
-				return err
-			}
-
-			amt, err := sdk.ParseCoinsNormalized(args[3])
-			if err != nil {
-				return err
-			}
-
-			msg := banktypes.NewMsgSend(key.GetAddress(), to, amt)
-			if err := msg.ValidateBasic(); err != nil {
-				return err
-			}
-
-			res, _, err := c.ChainProvider.SendMessage(msg)
-			if err != nil {
-				return err
-			}
-
-			return c.Print(res, false, true)
-		},
-	}
-
-	return cmd
-}
+//func sendCmd() *cobra.Command {
+//	cmd := &cobra.Command{
+//		Use:   "send [chain-id] [from-key] [to-address] [amount]",
+//		Short: "send funds to a different address on the same chain",
+//		Args:  cobra.ExactArgs(4),
+//		Example: strings.TrimSpace(fmt.Sprintf(`
+//$ %s tx send testkey cosmos10yft4nc8tacpngwlpyq3u4t88y7qzc9xv0q4y8 10000uatom`,
+//			appName,
+//		)),
+//		RunE: func(cmd *cobra.Command, args []string) error {
+//			c, err := config.Chains.Get(args[0])
+//			if err != nil {
+//				return err
+//			}
+//
+//			// ensure that keys exist
+//
+//			key, err := c.Keybase.Key(args[1])
+//			if err != nil {
+//				return err
+//			}
+//
+//			to, err := sdk.AccAddressFromBech32(args[2])
+//			if err != nil {
+//				return err
+//			}
+//
+//			amt, err := sdk.ParseCoinsNormalized(args[3])
+//			if err != nil {
+//				return err
+//			}
+//
+//			msg := banktypes.NewMsgSend(key.GetAddress(), to, amt)
+//			if err := msg.ValidateBasic(); err != nil {
+//				return err
+//			}
+//
+//			res, _, err := c.ChainProvider.SendMessage(msg)
+//			if err != nil {
+//				return err
+//			}
+//
+//			return c.Print(res, false, true)
+//		},
+//	}
+//
+//	return cmd
+//}
 
 func createClientsCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -398,7 +398,7 @@ $ %s tx connect demo-path`,
 			}
 
 			if err != nil {
-				return err
+				return fmt.Errorf("error creating clients. Err: %w\n", err)
 			}
 
 			// create connection if it isn't already created
@@ -409,7 +409,7 @@ $ %s tx connect demo-path`,
 				}
 			}
 			if err != nil {
-				return err
+				return fmt.Errorf("error creating connections. Err: %w\n", err)
 			}
 
 			// create channel if it isn't already created
@@ -419,7 +419,7 @@ $ %s tx connect demo-path`,
 					return err
 				}
 			}
-			return err
+			return fmt.Errorf("error creating channels. Err: %w\n", err)
 		},
 	}
 
@@ -540,69 +540,70 @@ $ %s tx relay-acks demo-path -l 3 -s 6`,
 	return strategyFlag(cmd)
 }
 
-func upgradeChainCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "upgrade-chain [path-name] [chain-id] [new-unbonding-period] [deposit] [path/to/upgradePlan.json]",
-		Short: "upgrade an IBC-enabled network with a given upgrade plan",
-		Long: strings.TrimSpace(`Upgrade an IBC-enabled network by providing the chain-id of the
-network being upgraded, the new unbonding period, the proposal deposit and the JSN file of the
-upgrade plan without the upgrade client state.`,
-		),
-		Args: cobra.ExactArgs(5),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := config.ChainsFromPath(args[0])
-			if err != nil {
-				return err
-			}
-
-			targetChainID := args[1]
-
-			unbondingPeriod, err := time.ParseDuration(args[2])
-			if err != nil {
-				return err
-			}
-
-			// ensure that keys exist
-			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
-			}
-			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
-			}
-
-			// parse deposit
-			deposit, err := sdk.ParseCoinNormalized(args[3])
-			if err != nil {
-				return err
-			}
-
-			// parse plan
-			plan := &upgradetypes.Plan{}
-			path := args[4]
-			if _, err := os.Stat(path); err != nil {
-				return err
-			}
-
-			byt, err := ioutil.ReadFile(path)
-			if err != nil {
-				return err
-			}
-
-			if err = json.Unmarshal(byt, plan); err != nil {
-				return err
-			}
-
-			// send the upgrade message on the targetChainID
-			if src == targetChainID {
-				return c[src].UpgradeChain(c[dst], plan, deposit, unbondingPeriod)
-			}
-
-			return c[dst].UpgradeChain(c[src], plan, deposit, unbondingPeriod)
-		},
-	}
-
-	return cmd
-}
+// TODO still needs a revisit
+//func upgradeChainCmd() *cobra.Command {
+//	cmd := &cobra.Command{
+//		Use:   "upgrade-chain [path-name] [chain-id] [new-unbonding-period] [deposit] [path/to/upgradePlan.json]",
+//		Short: "upgrade an IBC-enabled network with a given upgrade plan",
+//		Long: strings.TrimSpace(`Upgrade an IBC-enabled network by providing the chain-id of the
+//network being upgraded, the new unbonding period, the proposal deposit and the JSN file of the
+//upgrade plan without the upgrade client state.`,
+//		),
+//		Args: cobra.ExactArgs(5),
+//		RunE: func(cmd *cobra.Command, args []string) error {
+//			c, src, dst, err := config.ChainsFromPath(args[0])
+//			if err != nil {
+//				return err
+//			}
+//
+//			targetChainID := args[1]
+//
+//			unbondingPeriod, err := time.ParseDuration(args[2])
+//			if err != nil {
+//				return err
+//			}
+//
+//			// ensure that keys exist
+//			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+//				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
+//			}
+//			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+//				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
+//			}
+//
+//			// parse deposit
+//			deposit, err := sdk.ParseCoinNormalized(args[3])
+//			if err != nil {
+//				return err
+//			}
+//
+//			// parse plan
+//			plan := &upgradetypes.Plan{}
+//			path := args[4]
+//			if _, err := os.Stat(path); err != nil {
+//				return err
+//			}
+//
+//			byt, err := ioutil.ReadFile(path)
+//			if err != nil {
+//				return err
+//			}
+//
+//			if err = json.Unmarshal(byt, plan); err != nil {
+//				return err
+//			}
+//
+//			// send the upgrade message on the targetChainID
+//			if src == targetChainID {
+//				return c[src].UpgradeChain(c[dst], plan, deposit, unbondingPeriod)
+//			}
+//
+//			return c[dst].UpgradeChain(c[src], plan, deposit, unbondingPeriod)
+//		},
+//	}
+//
+//	return cmd
+//}
 
 func xfersend() *cobra.Command {
 	cmd := &cobra.Command{
@@ -664,7 +665,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 				return err
 			}
 
-			// TODO this needs to be rewritten
+			// TODO this needs to be rewritten?
 			// If the argument begins with "raw:" then use the suffix directly.
 			rawDstAddr := strings.TrimPrefix(args[3], "raw:")
 			var dstAddr string

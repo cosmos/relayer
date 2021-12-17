@@ -186,7 +186,7 @@ $ %s ch l`, appName, appName)),
 					}
 
 					for _, pth := range config.Paths {
-						if pth.Src.ChainID == c.ChainID() || pth.Dst.ChainID == c.ChainID() {
+						if pth.Src.ChainID == c.ChainProvider.ChainId() || pth.Dst.ChainID == c.ChainID() {
 							p = check
 						}
 					}

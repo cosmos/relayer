@@ -26,6 +26,7 @@ type RelayerTxResponse struct {
 	TxHash string
 	Code   uint32
 	Data   string
+	Events map[string]string
 }
 
 type KeyProvider interface {
