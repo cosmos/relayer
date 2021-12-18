@@ -419,7 +419,11 @@ $ %s tx connect demo-path`,
 					return err
 				}
 			}
-			return fmt.Errorf("error creating channels. Err: %w\n", err)
+			if err != nil {
+				return fmt.Errorf("error creating channels. Err: %w\n", err)
+			}
+
+			return nil
 		},
 	}
 
@@ -677,6 +681,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 					return err
 				}
 				dstAddr = dst.String()
+				fmt.Println(dstAddr)
 				//done()
 			} else {
 				// Don't parse the rest of the dstAddr... it's raw.

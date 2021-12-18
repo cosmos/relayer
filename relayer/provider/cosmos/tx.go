@@ -9,11 +9,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
-	relayer "github.com/cosmos/relayer/relayer/provider"
+	"github.com/cosmos/relayer/relayer/provider"
 )
 
 // TxFactory returns an instance of tx.Factory derived from
-func (cp *CosmosProvider) TxFactory(height int64) (sdkTx.Factory, sdkCtx.TxConfig) {
+func (cp *CosmosProvider) TxFactory(height int64) sdkTx.Factory {
 	ctx := cp.CLIContext(height)
 	return sdkTx.Factory{}.
 		WithAccountRetriever(ctx.AccountRetriever).
@@ -22,7 +22,7 @@ func (cp *CosmosProvider) TxFactory(height int64) (sdkTx.Factory, sdkCtx.TxConfi
 		WithGasAdjustment(cp.Config.GasAdjustment).
 		WithGasPrices(cp.Config.GasPrices).
 		WithKeybase(cp.Keybase).
-		WithSignMode(signing.SignMode_SIGN_MODE_DIRECT), ctx.TxConfig
+		WithSignMode(signing.SignMode_SIGN_MODE_DIRECT)
 }
 
 func prepareFactory(clientCtx sdkCtx.Context, txf sdkTx.Factory) (sdkTx.Factory, error) {
@@ -60,7 +60,7 @@ type protoTxProvider interface {
 // BuildUnsignedTx builds a transaction to be signed given a set of messages. The
 // transaction is initially created via the provided factory's generator. Once
 // created, the fee, memo, and messages are set.
-func BuildUnsignedTx(txf sdkTx.Factory, txConfig sdkCtx.TxConfig, msgs ...relayer.RelayerMessage) (sdkCtx.TxBuilder, error) {
+func BuildUnsignedTx(txf sdkTx.Factory, txConfig sdkCtx.TxConfig, msgs ...provider.RelayerMessage) (sdkCtx.TxBuilder, error) {
 	if txf.ChainID() == "" {
 		return nil, fmt.Errorf("chain ID required but not specified")
 	}
@@ -100,8 +100,8 @@ func BuildUnsignedTx(txf sdkTx.Factory, txConfig sdkCtx.TxConfig, msgs ...relaye
 
 // BuildSimTx creates an unsigned tx with an empty single signature and returns
 // the encoded transaction or an error if the unsigned transaction cannot be built.
-func BuildSimTx(txf sdkTx.Factory, txConfig sdkCtx.TxConfig, msgs ...relayer.RelayerMessage) ([]byte, error) {
-	txb, err := BuildUnsignedTx(txf, txConfig, msgs...)
+func BuildSimTx(txf sdkTx.Factory, msgs ...provider.RelayerMessage) ([]byte, error) {
+	txb, err := sdkTx.BuildUnsignedTx(txf, CosmosMsgs(msgs...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -130,8 +130,8 @@ func BuildSimTx(txf sdkTx.Factory, txConfig sdkCtx.TxConfig, msgs ...relayer.Rel
 
 // CalculateGas simulates the execution of a transaction and returns the
 // simulation response obtained by the query and the adjusted gas amount.
-func CalculateGas(queryFunc func(string, []byte) ([]byte, int64, error), txf sdkTx.Factory, txConfig sdkCtx.TxConfig, msgs ...relayer.RelayerMessage) (txtypes.SimulateResponse, uint64, error) {
-	txBytes, err := BuildSimTx(txf, txConfig, msgs...)
+func CalculateGas(queryFunc func(string, []byte) ([]byte, int64, error), txf sdkTx.Factory, msgs ...provider.RelayerMessage) (txtypes.SimulateResponse, uint64, error) {
+	txBytes, err := BuildSimTx(txf, msgs...)
 	if err != nil {
 		return txtypes.SimulateResponse{}, 0, err
 	}

@@ -35,7 +35,6 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 		// Create the ClientState we want on 'c' tracking 'dst'
 		clientState, err := c.ChainProvider.NewClientState(dstUpdateHeader, dst.GetTrustingPeriod(), ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
 		if err != nil {
-			fmt.Println("HEEEEEEEEEEEEREEEEEE")
 			return modified, err
 		}
 
@@ -47,6 +46,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 		if !override {
 			// Check if an identical light client already exists
 			clientID, found = c.ChainProvider.FindMatchingClient(dst.ChainProvider, clientState)
+			fmt.Println(found)
 		}
 		if !found || override {
 			createMsg, err := c.ChainProvider.CreateClient(clientState, dstUpdateHeader)

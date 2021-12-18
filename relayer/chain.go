@@ -1,7 +1,6 @@
 package relayer
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -10,16 +9,11 @@ import (
 	"strings"
 	"time"
 
-	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/simapp/params"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
 	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/libs/log"
-	provtypes "github.com/tendermint/tendermint/light/provider"
-	prov "github.com/tendermint/tendermint/light/provider/http"
-	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
 	libclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
 )
@@ -27,28 +21,15 @@ import (
 // Chain represents the necessary data for connecting to and identifying a chain and its counterparties
 // TODO revise Chain struct
 type Chain struct {
-	ChainProvider  provider.ChainProvider
-	Key            string  `yaml:"key" json:"key"`
-	Chainid        string  `yaml:"chain-id" json:"chain-id"`
-	RPCAddr        string  `yaml:"rpc-addr" json:"rpc-addr"`
-	AccountPrefix  string  `yaml:"account-prefix" json:"account-prefix"`
-	GasAdjustment  float64 `yaml:"gas-adjustment" json:"gas-adjustment"`
-	GasPrices      string  `yaml:"gas-prices" json:"gas-prices"`
-	TrustingPeriod string  `yaml:"trusting-period" json:"trusting-period"`
+	ChainProvider provider.ChainProvider
+	Chainid       string `yaml:"chain-id" json:"chain-id"`
+	RPCAddr       string `yaml:"rpc-addr" json:"rpc-addr"`
 
-	HomePath string                `yaml:"-" json:"-"`
 	PathEnd  *PathEnd              `yaml:"-" json:"-"`
-	Keybase  keys.Keyring          `yaml:"-" json:"-"`
-	Client   rpcclient.Client      `yaml:"-" json:"-"`
 	Encoding params.EncodingConfig `yaml:"-" json:"-"`
-	Provider provtypes.Provider    `yaml:"-" json:"-"`
 
-	logger  log.Logger
-	timeout time.Duration
-	debug   bool
-
-	// stores faucet addresses that have been used recently
-	faucetAddrs map[string]time.Time
+	logger log.Logger
+	debug  bool
 }
 
 // ValidatePaths takes two chains and validates their paths
@@ -110,46 +91,12 @@ func ValidateChannelParams(src, dst *Chain) error {
 // Init initializes the pieces of a chain that aren't set when it parses a config
 // NOTE: All validation of the chain should happen here.
 // TODO chain init needs revised to account for Provider abstraction
-func (c *Chain) Init(homePath string, timeout time.Duration, logger log.Logger, debug bool) error {
-	keybase, err := keys.New(c.ChannelID(), "test", KeysDir(homePath, c.ChainID()), nil)
-	if err != nil {
-		return err
-	}
-
-	client, err := newRPCClient(c.RPCAddr, timeout)
-	if err != nil {
-		return err
-	}
-
-	liteprovider, err := prov.New(c.ChainID(), c.RPCAddr)
-	if err != nil {
-		return err
-	}
-
-	_, err = time.ParseDuration(c.TrustingPeriod)
-	if err != nil {
-		return fmt.Errorf("failed to parse trusting period (%s) for chain %s", c.TrustingPeriod, c.ChainID())
-	}
-
-	_, err = sdk.ParseDecCoins(c.GasPrices)
-	if err != nil {
-		return fmt.Errorf("failed to parse gas prices (%s) for chain %s", c.GasPrices, c.ChainID())
-	}
-
-	c.Keybase = keybase
-	c.Client = client
-	c.HomePath = homePath
+func (c *Chain) Init(logger log.Logger, debug bool) {
 	c.logger = logger
-	c.timeout = timeout
 	c.debug = debug
-	c.Provider = liteprovider
-	c.faucetAddrs = make(map[string]time.Time)
-
 	if c.logger == nil {
 		c.logger = defaultChainLogger()
 	}
-
-	return nil
 }
 
 func defaultChainLogger() log.Logger {
@@ -191,7 +138,7 @@ func (c *Chain) GetSelfVersion() uint64 {
 
 // GetTrustingPeriod returns the trusting period for the chain
 func (c *Chain) GetTrustingPeriod() time.Duration {
-	tp, _ := time.ParseDuration(c.TrustingPeriod)
+	tp, _ := time.ParseDuration(c.ChainProvider.TrustingPeriod())
 	return tp
 }
 
@@ -335,19 +282,6 @@ func (c *Chain) GetTimeout() (time.Duration, error) {
 		return 0, fmt.Errorf("failed to parse timeout (%s) for chain %s. Err: %w", c.ChainProvider.Timeout(), c.ChainID(), err)
 	}
 	return timeout, nil
-}
-
-// StatusErr returns err unless the chain is ready to go
-func (c *Chain) StatusErr() error {
-	stat, err := c.Client.Status(context.Background())
-	switch {
-	case err != nil:
-		return err
-	case stat.SyncInfo.LatestBlockHeight < 3:
-		return fmt.Errorf("haven't produced any blocks yet")
-	default:
-		return nil
-	}
 }
 
 //// UpgradeChain submits and upgrade proposal using a zero'd out client state with an updated unbonding period.

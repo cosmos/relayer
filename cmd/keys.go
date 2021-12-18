@@ -221,10 +221,10 @@ $ %s k l ibc-1`, appName, appName)),
 // keysShowCmd respresents the `keys show` command
 func keysShowCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "show [chain-id] [name]",
+		Use:     "show [chain-id] [[name]]",
 		Aliases: []string{"s"},
 		Short:   "shows a key from the keychain associated with a particular chain",
-		Args:    cobra.ExactArgs(2),
+		Args:    cobra.RangeArgs(1, 2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys show ibc-0
 $ %s keys show ibc-1 key2
@@ -235,7 +235,13 @@ $ %s k s ibc-2 testkey`, appName, appName, appName)),
 				return err
 			}
 
-			keyName := args[1]
+			var keyName string
+			if len(args) == 2 {
+				keyName = args[1]
+			} else {
+				keyName = chain.ChainProvider.Key()
+			}
+
 			if !chain.ChainProvider.KeyExists(keyName) {
 				return errKeyDoesntExist(keyName)
 			}

@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"github.com/cosmos/relayer/relayer/provider/cosmos"
 	"testing"
 	"time"
 
@@ -22,6 +23,16 @@ const (
 )
 
 var (
+	gaiaProviderCfg = cosmos.CosmosProviderConfig{
+		Key:            "testkey",
+		ChainID:        "",
+		RPCAddr:        "",
+		AccountPrefix:  "cosmos",
+		GasAdjustment:  1.3,
+		GasPrices:      "0.00samoleans",
+		TrustingPeriod: "330h",
+		Timeout:        "10s",
+	}
 	gaiaTestConfig = testChainConfig{
 		dockerfile:     "docker/gaiad/Dockerfile",
 		timeout:        3 * time.Second,
@@ -33,6 +44,16 @@ var (
 		},
 	}
 
+	akashProviderCfg = cosmos.CosmosProviderConfig{
+		Key:            "testkey",
+		ChainID:        "",
+		RPCAddr:        "",
+		AccountPrefix:  "akash",
+		GasAdjustment:  1.3,
+		GasPrices:      "0.00samoleans",
+		TrustingPeriod: "330h",
+		Timeout:        "10s",
+	}
 	akashTestConfig = testChainConfig{
 		dockerfile:     "docker/akash/Dockerfile",
 		timeout:        3 * time.Second,
@@ -44,6 +65,16 @@ var (
 		},
 	}
 
+	osmosisProviderCfg = cosmos.CosmosProviderConfig{
+		Key:            "testkey",
+		ChainID:        "",
+		RPCAddr:        "",
+		AccountPrefix:  "osmo",
+		GasAdjustment:  1.3,
+		GasPrices:      "0.00samoleans",
+		TrustingPeriod: "330h",
+		Timeout:        "10s",
+	}
 	osmosisTestConfig = testChainConfig{
 		dockerfile:     "docker/osmosis/Dockerfile",
 		timeout:        3 * time.Second,
@@ -65,6 +96,7 @@ type (
 		chainID string
 		seed    int
 		t       testChainConfig
+		pcfg    cosmos.CosmosProviderConfig
 	}
 
 	// testChainConfig represents the chain specific docker and codec configurations
@@ -83,12 +115,16 @@ type (
 func newTestChain(t *testing.T, tc testChain) *relayer.Chain {
 	_, port, err := server.FreeTCPAddr()
 	require.NoError(t, err)
+
+	tc.pcfg.Key = "testkey-" + port
+	tc.pcfg.RPCAddr = fmt.Sprintf("http://localhost:%s", port)
+	tc.pcfg.ChainID = tc.chainID
+	prov, err := tc.pcfg.NewProvider("", true)
+	require.NoError(t, err)
+
 	return &relayer.Chain{
-		Key:            "testkey",
-		Chainid:        tc.chainID,
-		RPCAddr:        fmt.Sprintf("http://localhost:%s", port),
-		AccountPrefix:  tc.t.accountPrefix,
-		GasAdjustment:  1.3,
-		TrustingPeriod: tc.t.trustingPeriod,
+		Chainid:       tc.chainID,
+		RPCAddr:       fmt.Sprintf("http://localhost:%s", port),
+		ChainProvider: prov,
 	}
 }

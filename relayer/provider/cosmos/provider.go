@@ -173,6 +173,10 @@ func (cp *CosmosProvider) Address() string {
 	return cp.MustGetAddress()
 }
 
+func (cp *CosmosProvider) TrustingPeriod() string {
+	return cp.Config.TrustingPeriod
+}
+
 func (cp *CosmosProvider) Init() error {
 	if err := cp.CreateKeystore(cp.HomePath); err != nil {
 		return err
@@ -228,14 +232,14 @@ func (cp *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstH
 		return nil, err
 	}
 
-	cs, _, err := cp.QueryConsensusState(int64(dstHeader.GetHeight().GetRevisionHeight()))
-	if err != nil {
-		return nil, err
+	tmHeader, ok := dstHeader.(*tmclient.Header)
+	if !ok {
+		return nil, fmt.Errorf("got data of type %T but wanted tmclient.Header \n", dstHeader)
 	}
 
 	msg, err := clienttypes.NewMsgCreateClient(
 		clientState,
-		cs,
+		tmHeader.ConsensusState(),
 		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 	if err != nil {
@@ -515,7 +519,7 @@ func (cp *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provide
 	ctx := cp.CLIContext(0)
 
 	// Query account details
-	txFactory, txConfig := cp.TxFactory(0)
+	txFactory := cp.TxFactory(0)
 	txf, err := prepareFactory(ctx, txFactory)
 	if err != nil {
 		return nil, false, err
@@ -524,7 +528,8 @@ func (cp *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provide
 	// TODO: Make this work with new CalculateGas method
 	// https://github.com/cosmos/cosmos-sdk/blob/5725659684fc93790a63981c653feee33ecf3225/client/tx/tx.go#L297
 	// If users pass gas adjustment, then calculate gas
-	_, adjusted, err := CalculateGas(ctx.QueryWithData, txf, txConfig, msgs...)
+	//_, adjusted, err := sdkTx.CalculateGas(ctx, txFactory, CosmosMsgs(msgs...)...)
+	_, adjusted, err := CalculateGas(ctx.QueryWithData, txf, msgs...)
 	if err != nil {
 		return nil, false, err
 	}
@@ -533,7 +538,7 @@ func (cp *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provide
 	txf = txf.WithGas(adjusted)
 
 	// Build the transaction builder
-	txb, err := BuildUnsignedTx(txf, txConfig, msgs...)
+	txb, err := sdkTx.BuildUnsignedTx(txf, CosmosMsgs(msgs...)...)
 	if err != nil {
 		return nil, false, err
 	}
@@ -562,14 +567,15 @@ func (cp *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provide
 
 	// Parse events and build a map where the key is event.Type+"."+attribute.Key
 	events := make(map[string]string, 1)
-	for _, ev := range res.Logs[1].Events {
-		for _, attr := range ev.Attributes {
-			key := ev.Type + "." + attr.Key
-			events[key] = attr.Value
+	for _, logs := range res.Logs {
+		for _, ev := range logs.Events {
+			for _, attr := range ev.Attributes {
+				key := ev.Type + "." + attr.Key
+				events[key] = attr.Value
+			}
 		}
 	}
 
-	// helper/wrapper function for TxResponse->RelayerTxResponse?
 	rlyRes := &provider.RelayerTxResponse{
 		Height: res.Height,
 		TxHash: res.TxHash,
@@ -701,7 +707,7 @@ func (cp *CosmosProvider) MsgRelayAcknowledgement(dst provider.ChainProvider, ds
 			msgPacketAck.ack,
 			ackRes.Proof,
 			ackRes.ProofHeight,
-			cp.address.String())), nil
+			cp.MustGetAddress())), nil
 	}
 }
 
@@ -712,7 +718,7 @@ func (cp *CosmosProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcP
 		srcPortId,
 		srcChanId,
 		amount,
-		cp.address.String(),
+		cp.MustGetAddress(),
 		dstAddr,
 		clienttypes.NewHeight(version, timeoutHeight),
 		timeoutTimestamp,
@@ -746,7 +752,7 @@ func (cp *CosmosProvider) MsgRelayTimeout(dst provider.ChainProvider, dsth int64
 			packet.Seq(),
 			recvRes.Proof,
 			recvRes.ProofHeight,
-			cp.address.String(),
+			cp.MustGetAddress(),
 		)), nil
 	}
 }
@@ -776,7 +782,7 @@ func (cp *CosmosProvider) MsgRelayRecvPacket(dst provider.ChainProvider, dsth in
 			),
 			comRes.Proof,
 			comRes.ProofHeight,
-			cp.address.String(),
+			cp.MustGetAddress(),
 		)), nil
 	}
 }

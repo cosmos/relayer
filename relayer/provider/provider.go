@@ -80,6 +80,7 @@ type ChainProvider interface {
 	Key() string
 	Address() string
 	Timeout() string
+	TrustingPeriod() string
 	WaitForNBlocks(n int64) error
 }
 

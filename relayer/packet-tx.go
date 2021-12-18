@@ -22,7 +22,7 @@ func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr string, toH
 	if err != nil {
 		return err
 	}
-	h, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, c.ChainProvider, dst.PathEnd.ClientID)
+	h, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, c.ChainProvider, c.PathEnd.ClientID)
 	if err != nil {
 		return err
 	}

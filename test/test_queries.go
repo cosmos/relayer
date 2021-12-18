@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -57,11 +56,11 @@ func testConnection(t *testing.T, src, dst *relayer.Chain) {
 	require.Equal(t, conns[0].Counterparty.GetConnectionID(), dst.PathEnd.ConnectionID)
 	require.Equal(t, conns[0].State.String(), "STATE_OPEN")
 
-	h, err := src.Client.Status(context.Background()) // TODO this needs addressed
+	h, err := src.ChainProvider.QueryLatestHeight()
 	require.NoError(t, err)
 
 	time.Sleep(time.Second * 5)
-	conn, err := src.ChainProvider.QueryConnection(h.SyncInfo.LatestBlockHeight, src.ConnectionID())
+	conn, err := src.ChainProvider.QueryConnection(h, src.ConnectionID())
 	require.NoError(t, err)
 	require.Equal(t, conn.Connection.ClientId, src.PathEnd.ClientID)
 	require.Equal(t, conn.Connection.GetCounterparty().GetClientID(), dst.PathEnd.ClientID)
@@ -85,11 +84,11 @@ func testChannel(t *testing.T, src, dst *relayer.Chain) {
 	require.Equal(t, chans[0].Counterparty.ChannelId, dst.PathEnd.ChannelID)
 	require.Equal(t, chans[0].Counterparty.GetPortID(), dst.PathEnd.PortID)
 
-	h, err := src.Client.Status(context.Background()) // TODO this needs addressed
+	h, err := src.ChainProvider.QueryLatestHeight()
 	require.NoError(t, err)
 
 	time.Sleep(time.Second * 5)
-	ch, err := src.ChainProvider.QueryChannel(h.SyncInfo.LatestBlockHeight, src.ChannelID(), src.PortID())
+	ch, err := src.ChainProvider.QueryChannel(h, src.ChannelID(), src.PortID())
 	require.NoError(t, err)
 	require.Equal(t, ch.Channel.Ordering.String(), "ORDER_UNORDERED")
 	require.Equal(t, ch.Channel.State.String(), "STATE_OPEN")

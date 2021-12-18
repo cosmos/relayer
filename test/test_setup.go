@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/cosmos/relayer/relayer"
 	"github.com/pkg/errors"
@@ -58,7 +59,7 @@ func spinUpTestChains(t *testing.T, testChains ...testChain) relayer.Chains {
 		wg.Add(1)
 		genPrivValKeyJSON(tc.seed)
 		eg.Go(func() error {
-			return spinUpTestContainer(rchan, pool, c, dir, tc)
+			return spinUpTestContainer(rchan, pool, c, tc)
 		})
 	}
 
@@ -117,7 +118,7 @@ func removeTestContainer(pool *dockertest.Pool, containerName string) error {
 // spinUpTestContainer spins up a test container with the given configuration
 // A docker image is built for each chain using its provided configuration.
 // This image is then ran using the options set below.
-func spinUpTestContainer(rchan chan<- *dockertest.Resource, pool *dockertest.Pool, c *relayer.Chain, dir string, tc testChain) error {
+func spinUpTestContainer(rchan chan<- *dockertest.Resource, pool *dockertest.Pool, c *relayer.Chain, tc testChain) error {
 	var (
 		err      error
 		debug    bool
@@ -133,9 +134,7 @@ func spinUpTestContainer(rchan chan<- *dockertest.Resource, pool *dockertest.Poo
 	}
 
 	// initialize the chain
-	if err := c.Init(dir, tc.t.timeout, nil, debug); err != nil {
-		return err
-	}
+	c.Init(nil, debug)
 
 	// create the test key
 	if err := c.CreateTestKey(); err != nil {
@@ -187,9 +186,12 @@ func spinUpTestContainer(rchan chan<- *dockertest.Resource, pool *dockertest.Poo
 		resource.Container.Name, resource.Container.Config.Image))
 
 	// retry polling the container until status doesn't error
-	if err = pool.Retry(c.StatusErr); err != nil {
-		return fmt.Errorf("could not connect to container at %s: %s", c.RPCAddr, err)
-	}
+	//if err = pool.Retry(c.StatusErr); err != nil {
+	//	return fmt.Errorf("could not connect to container at %s: %s", c.RPCAddr, err)
+	//}
+
+	// TODO maybe this works?
+	time.Sleep(time.Second * 5)
 
 	c.Log(fmt.Sprintf("- [%s] CONTAINER AVAILABLE AT PORT %s", c.ChainID(), c.RPCAddr))
 

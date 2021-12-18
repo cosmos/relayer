@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
@@ -294,7 +295,7 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 				return false, false, err
 			}
 
-			msgs, err := src.ChainProvider.ChannelOpenInit(src.ClientID(), src.ConnectionID(), src.PortID(), src.Version(), dst.PortID(), OrderFromString(src.Order()), dstHeader)
+			msgs, err := src.ChainProvider.ChannelOpenInit(src.ClientID(), src.ConnectionID(), src.PortID(), src.Version(), dst.PortID(), OrderFromString(strings.ToUpper(src.Order())), dstHeader)
 			if err != nil {
 				return false, false, err
 			}

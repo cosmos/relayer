@@ -619,7 +619,9 @@ func initConfig(cmd *cobra.Command) error {
 				if err != nil {
 					return fmt.Errorf("Error while building ChainProviders. Err: %s\n", err.Error())
 				}
-				chains = append(chains, &relayer.Chain{ChainProvider: prov})
+				chain := &relayer.Chain{ChainProvider: prov}
+				chain.Init(nil, debug)
+				chains = append(chains, chain)
 			}
 
 			config = &Config{
