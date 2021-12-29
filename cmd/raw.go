@@ -113,12 +113,12 @@ $ %s tx raw clnt ibc-1 ibc-0 ibconeclient`, appName, appName)),
 				return err
 			}
 
-			h, err := chains[src].QueryLatestHeight()
+			h, err := chains[dst].QueryLatestHeight()
 			if err != nil {
 				return err
 			}
 
-			dstHeader, err := chains[src].GetLightSignedHeaderAtHeight(h)
+			dstHeader, err := chains[dst].GetLightSignedHeaderAtHeight(h)
 			if err != nil {
 				return err
 			}
