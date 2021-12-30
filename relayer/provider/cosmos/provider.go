@@ -2,38 +2,31 @@ package cosmos
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
+	clientutils "github.com/cosmos/ibc-go/v2/modules/core/02-client/client/utils"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
+	"github.com/avast/retry-go"
 	sdkTx "github.com/cosmos/cosmos-sdk/client/tx"
 	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/simapp/params"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	transfertypes "github.com/cosmos/ibc-go/v2/modules/apps/transfer/types"
-	clientutils "github.com/cosmos/ibc-go/v2/modules/core/02-client/client/utils"
 	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
-	connutils "github.com/cosmos/ibc-go/v2/modules/core/03-connection/client/utils"
 	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
-	chanutils "github.com/cosmos/ibc-go/v2/modules/core/04-channel/client/utils"
 	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
-	committypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v2/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/tendermint/tendermint/libs/log"
 	provtypes "github.com/tendermint/tendermint/light/provider"
 	prov "github.com/tendermint/tendermint/light/provider/http"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
-	"golang.org/x/sync/errgroup"
+	tmtypes "github.com/tendermint/tendermint/types"
 )
 
 var (
@@ -103,9 +96,18 @@ func NewCosmosMessage(msg sdk.Msg) provider.RelayerMessage {
 	}
 }
 
+func (cm CosmosMessage) Type() string {
+	return sdk.MsgTypeURL(cm.Msg)
+}
+
+func SdkMsgFromRelayerMessage(p provider.RelayerMessage) sdk.Msg {
+	msg, _ := p.(CosmosMessage)
+	return msg.Msg
+}
+
 func CosmosMsg(rm provider.RelayerMessage) sdk.Msg {
 	if val, ok := rm.(CosmosMessage); !ok {
-		// add warning output later to tell invalid msg type
+		// TODO add warning output later to tell invalid msg type
 		return nil
 	} else {
 		return val.Msg
@@ -116,7 +118,7 @@ func CosmosMsgs(rm ...provider.RelayerMessage) []sdk.Msg {
 	sdkMsgs := make([]sdk.Msg, 0)
 	for _, rMsg := range rm {
 		if val, ok := rMsg.(CosmosMessage); !ok {
-			// add warning output later to tell invalid msg type
+			// TODO add warning output later to tell invalid msg type
 		} else {
 			sdkMsgs = append(sdkMsgs, val.Msg)
 		}
@@ -158,6 +160,23 @@ func (cp *CosmosProvider) Type() string {
 	return "cosmos"
 }
 
+func (cp *CosmosProvider) Key() string {
+	return cp.Config.Key
+}
+
+func (cp *CosmosProvider) Timeout() string {
+	return cp.Config.Timeout
+}
+
+// Address returns the address of the configured ChainProvider as a string
+func (cp *CosmosProvider) Address() string {
+	return cp.MustGetAddress()
+}
+
+func (cp *CosmosProvider) TrustingPeriod() string {
+	return cp.Config.TrustingPeriod
+}
+
 func (cp *CosmosProvider) Init() error {
 	if err := cp.CreateKeystore(cp.HomePath); err != nil {
 		return err
@@ -165,7 +184,7 @@ func (cp *CosmosProvider) Init() error {
 
 	timeout, err := time.ParseDuration(cp.Config.Timeout)
 	if err != nil {
-		return fmt.Errorf("failed to parse timeout (%s) for chain %s", cp.Config.Timeout, cp.Config.ChainID)
+		return fmt.Errorf("failed to parse timeout (%s) for chain %s. Err: %w", cp.Config.Timeout, cp.Config.ChainID, err)
 	}
 
 	client, err := newRPCClient(cp.Config.RPCAddr, timeout)
@@ -197,19 +216,30 @@ func (cp *CosmosProvider) Init() error {
 	return nil
 }
 
+// NOTE: we explicitly call 'MustGetAddress' before 'NewMsg...'
+// to ensure the correct config file is being used to generate
+// the account prefix. 'NewMsg...' functions take an AccAddress
+// rather than a string. The 'address.String()' function uses
+// the currently set config file. Querying a counterparty would
+// swap the config file. 'MustGetAddress' sets the config file
+// correctly. Do not change this ordering until the SDK config
+// file handling has been refactored.
+// https://github.com/cosmos/cosmos-sdk/issues/8332
+
+// CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
 func (cp *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
 	if err := dstHeader.ValidateBasic(); err != nil {
 		return nil, err
 	}
 
-	cs, _, err := cp.QueryConsensusState(int64(dstHeader.GetHeight().GetRevisionHeight()))
-	if err != nil {
-		return nil, err
+	tmHeader, ok := dstHeader.(*tmclient.Header)
+	if !ok {
+		return nil, fmt.Errorf("got data of type %T but wanted tmclient.Header \n", dstHeader)
 	}
 
 	msg, err := clienttypes.NewMsgCreateClient(
 		clientState,
-		cs,
+		tmHeader.ConsensusState(),
 		cp.MustGetAddress(), // 'MustGetAddress' must be called directly before calling 'NewMsg...'
 	)
 	if err != nil {
@@ -489,7 +519,7 @@ func (cp *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provide
 	ctx := cp.CLIContext(0)
 
 	// Query account details
-	txFactory, txConfig := cp.TxFactory(0)
+	txFactory := cp.TxFactory(0)
 	txf, err := prepareFactory(ctx, txFactory)
 	if err != nil {
 		return nil, false, err
@@ -498,7 +528,8 @@ func (cp *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provide
 	// TODO: Make this work with new CalculateGas method
 	// https://github.com/cosmos/cosmos-sdk/blob/5725659684fc93790a63981c653feee33ecf3225/client/tx/tx.go#L297
 	// If users pass gas adjustment, then calculate gas
-	_, adjusted, err := CalculateGas(ctx.QueryWithData, txf, txConfig, msgs...)
+	//_, adjusted, err := sdkTx.CalculateGas(ctx, txFactory, CosmosMsgs(msgs...)...)
+	_, adjusted, err := CalculateGas(ctx.QueryWithData, txf, msgs...)
 	if err != nil {
 		return nil, false, err
 	}
@@ -507,7 +538,7 @@ func (cp *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provide
 	txf = txf.WithGas(adjusted)
 
 	// Build the transaction builder
-	txb, err := BuildUnsignedTx(txf, txConfig, msgs...)
+	txb, err := sdkTx.BuildUnsignedTx(txf, CosmosMsgs(msgs...)...)
 	if err != nil {
 		return nil, false, err
 	}
@@ -534,540 +565,517 @@ func (cp *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provide
 		return nil, false, err
 	}
 
-	// helper/wrapper function for TxResponse->RelayerTxResponse?
+	// Parse events and build a map where the key is event.Type+"."+attribute.Key
+	events := make(map[string]string, 1)
+	for _, logs := range res.Logs {
+		for _, ev := range logs.Events {
+			for _, attr := range ev.Attributes {
+				key := ev.Type + "." + attr.Key
+				events[key] = attr.Value
+			}
+		}
+	}
+
 	rlyRes := &provider.RelayerTxResponse{
 		Height: res.Height,
 		TxHash: res.TxHash,
 		Code:   res.Code,
 		Data:   res.Data,
+		Events: events,
 	}
 
 	// transaction was executed, log the success or failure using the tx response code
 	// NOTE: error is nil, logic should use the returned error to determine if the
 	// transaction was successfully executed.
 	if rlyRes.Code != 0 {
-		cp.LogFailedTx(res, err, CosmosMsgs(msgs))
+		cp.LogFailedTx(res, err, CosmosMsgs(msgs...))
 		return rlyRes, false, nil
 	}
 
-	cp.LogSuccessTx(res, CosmosMsgs(msgs))
+	cp.LogSuccessTx(res, CosmosMsgs(msgs...))
 	return rlyRes, true, nil
 }
 
-// QueryTx takes a transaction hash and returns the transaction
-func (cp *CosmosProvider) QueryTx(hashHex string) (*ctypes.ResultTx, error) {
-	hash, err := hex.DecodeString(hashHex)
-	if err != nil {
-		return &ctypes.ResultTx{}, err
-	}
-
-	return cp.Client.Tx(context.Background(), hash, true)
-}
-
-// QueryTxs returns an array of transactions given a tag
-func (cp *CosmosProvider) QueryTxs(page, limit int, events []string) ([]*ctypes.ResultTx, error) {
-	if len(events) == 0 {
-		return nil, errors.New("must declare at least one event to search")
-	}
-
-	if page <= 0 {
-		return nil, errors.New("page must greater than 0")
-	}
-
-	if limit <= 0 {
-		return nil, errors.New("limit must greater than 0")
-	}
-
-	res, err := cp.Client.TxSearch(context.Background(), strings.Join(events, " AND "), true, &page, &limit, "")
+func (cp *CosmosProvider) GetLightSignedHeaderAtHeight(h int64) (ibcexported.Header, error) {
+	lightBlock, err := cp.Provider.LightBlock(context.Background(), h)
 	if err != nil {
 		return nil, err
 	}
-	return res.Txs, nil
-}
-
-// QueryLatestHeight queries the chain for the latest height and returns it
-func (cp *CosmosProvider) QueryLatestHeight() (int64, error) {
-	res, err := cp.Client.Status(context.Background())
+	protoVal, err := tmtypes.NewValidatorSet(lightBlock.ValidatorSet.Validators).ToProto()
 	if err != nil {
-		return -1, err
-	} else if res.SyncInfo.CatchingUp {
-		return -1, fmt.Errorf("node at %s running chain %s not caught up", cp.Config.RPCAddr, cp.Config.ChainID)
+		return nil, err
 	}
 
-	return res.SyncInfo.LatestBlockHeight, nil
+	return &tmclient.Header{
+		SignedHeader: lightBlock.SignedHeader.ToProto(),
+		ValidatorSet: protoVal,
+	}, nil
 }
 
-// QueryBalance returns the amount of coins in the relayer account
-func (cp *CosmosProvider) QueryBalance(keyName string) (sdk.Coins, error) {
-	var addr string
-	if keyName == "" {
-		addr = cp.MustGetAddress()
-	} else {
-		info, err := cp.Keybase.Key(keyName)
+// GetIBCUpdateHeader updates the off chain tendermint light client and
+// returns an IBC Update Header which can be used to update an on chain
+// light client on the destination chain. The source is used to construct
+// the header data.
+func (cp *CosmosProvider) GetIBCUpdateHeader(srch int64, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
+	// Construct header data from light client representing source.
+	h, err := cp.GetLightSignedHeaderAtHeight(srch)
+	if err != nil {
+		return nil, err
+	}
+
+	// Inject trusted fields based on previous header data from source
+	return cp.InjectTrustedFields(h, dst, dstClientId)
+}
+
+// InjectTrustedFields injects the necessary trusted fields for a header to update a light
+// client stored on the destination chain, using the information provided by the source
+// chain.
+// TrustedHeight is the latest height of the IBC client on dst
+// TrustedValidators is the validator set of srcChain at the TrustedHeight
+// InjectTrustedFields returns a copy of the header with TrustedFields modified
+func (cp *CosmosProvider) InjectTrustedFields(header ibcexported.Header, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
+	// make copy of header stored in mop
+	h, ok := header.(*tmclient.Header)
+	if !ok {
+		return nil, fmt.Errorf("trying to inject fields into non-tendermint headers")
+	}
+
+	// retrieve dst client from src chain
+	// this is the client that will updated
+	cs, err := dst.QueryClientState(0, dstClientId)
+	if err != nil {
+		return nil, err
+	}
+
+	// inject TrustedHeight as latest height stored on dst client
+	h.TrustedHeight = cs.GetLatestHeight().(clienttypes.Height)
+
+	// NOTE: We need to get validators from the source chain at height: trustedHeight+1
+	// since the last trusted validators for a header at height h is the NextValidators
+	// at h+1 committed to in header h by NextValidatorsHash
+
+	// TODO: this is likely a source of off by 1 errors but may be impossible to change? Maybe this is the
+	// place where we need to fix the upstream query proof issue?
+	var trustedHeader *tmclient.Header
+	if err := retry.Do(func() error {
+		tmpHeader, err := cp.GetLightSignedHeaderAtHeight(int64(h.TrustedHeight.RevisionHeight) + 1)
+		th, ok := tmpHeader.(*tmclient.Header)
+		if !ok {
+			err = errors.New("non-tm client header")
+		}
+		trustedHeader = th
+		return err
+	}, provider.RtyAtt, provider.RtyDel, provider.RtyErr); err != nil {
+		return nil, fmt.Errorf(
+			"failed to get trusted header, please ensure header at the height %d has not been pruned by the connected node: %w",
+			h.TrustedHeight.RevisionHeight, err,
+		)
+	}
+
+	// inject TrustedValidators into header
+	h.TrustedValidators = trustedHeader.ValidatorSet
+	return h, nil
+}
+
+// MsgRelayAcknowledgement constructs the MsgAcknowledgement which is to be sent to the sending chain.
+// The counterparty represents the receiving chain where the acknowledgement would be stored.
+func (cp *CosmosProvider) MsgRelayAcknowledgement(dst provider.ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet provider.RelayPacket) (provider.RelayerMessage, error) {
+	msgPacketAck, ok := packet.(*relayMsgPacketAck)
+	if !ok {
+		return nil, fmt.Errorf("got data of type %T but wanted relayMsgPacketAck \n", packet)
+	}
+	ackRes, err := dst.QueryPacketAcknowledgement(dsth, dstChanId, dstPortId, packet.Seq())
+	switch {
+	case err != nil:
+		return nil, err
+	case ackRes.Proof == nil || ackRes.Acknowledgement == nil:
+		return nil, fmt.Errorf("ack packet acknowledgement query seq(%d) is nil", packet.Seq())
+	case ackRes == nil:
+		return nil, fmt.Errorf("ack packet [%s]seq{%d} has no associated proofs", dst.ChainId(), packet.Seq())
+	default:
+		return NewCosmosMessage(chantypes.NewMsgAcknowledgement(
+			chantypes.NewPacket(
+				packet.Data(),
+				packet.Seq(),
+				srcPortId,
+				srcChanId,
+				dstPortId,
+				dstChanId,
+				packet.Timeout(),
+				packet.TimeoutStamp(),
+			),
+			msgPacketAck.ack,
+			ackRes.Proof,
+			ackRes.ProofHeight,
+			cp.MustGetAddress())), nil
+	}
+}
+
+// MsgTransfer creates a new transfer message
+func (cp *CosmosProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanId string, timeoutHeight, timeoutTimestamp uint64) provider.RelayerMessage {
+	version := clienttypes.ParseChainID(dstChainId)
+	return NewCosmosMessage(transfertypes.NewMsgTransfer(
+		srcPortId,
+		srcChanId,
+		amount,
+		cp.MustGetAddress(),
+		dstAddr,
+		clienttypes.NewHeight(version, timeoutHeight),
+		timeoutTimestamp,
+	))
+}
+
+// MsgRelayTimeout constructs the MsgTimeout which is to be sent to the sending chain.
+// The counterparty represents the receiving chain where the receipts would have been
+// stored.
+func (cp *CosmosProvider) MsgRelayTimeout(dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
+	recvRes, err := dst.QueryPacketReceipt(dsth, dstChanId, dstPortId, packet.Seq())
+	switch {
+	case err != nil:
+		return nil, err
+	case recvRes.Proof == nil:
+		return nil, fmt.Errorf("timeout packet receipt proof seq(%d) is nil", packet.Seq())
+	case recvRes == nil:
+		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", cp.Config.ChainID, packet.Seq())
+	default:
+		return NewCosmosMessage(chantypes.NewMsgTimeout(
+			chantypes.NewPacket(
+				packet.Data(),
+				packet.Seq(),
+				srcPortId,
+				srcChanId,
+				dstPortId,
+				dstChanId,
+				packet.Timeout(),
+				packet.TimeoutStamp(),
+			),
+			packet.Seq(),
+			recvRes.Proof,
+			recvRes.ProofHeight,
+			cp.MustGetAddress(),
+		)), nil
+	}
+}
+
+// MsgRelayRecvPacket constructs the MsgRecvPacket which is to be sent to the receiving chain.
+// The counterparty represents the sending chain where the packet commitment would be stored.
+func (cp *CosmosProvider) MsgRelayRecvPacket(dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
+	comRes, err := dst.QueryPacketCommitment(dsth, dstChanId, dstPortId, packet.Seq())
+	switch {
+	case err != nil:
+		return nil, err
+	case comRes.Proof == nil || comRes.Commitment == nil:
+		return nil, fmt.Errorf("recv packet commitment query seq(%d) is nil", packet.Seq())
+	case comRes == nil:
+		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", cp.Config.ChainID, packet.Seq())
+	default:
+		return NewCosmosMessage(chantypes.NewMsgRecvPacket(
+			chantypes.NewPacket(
+				packet.Data(),
+				packet.Seq(),
+				dstPortId,
+				dstChanId,
+				srcPortId,
+				srcChanId,
+				packet.Timeout(),
+				packet.TimeoutStamp(),
+			),
+			comRes.Proof,
+			comRes.ProofHeight,
+			cp.MustGetAddress(),
+		)), nil
+	}
+}
+
+// RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
+func (cp *CosmosProvider) RelayPacketFromSequence(src, dst provider.ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) (provider.RelayerMessage, provider.RelayerMessage, error) {
+	txs, err := cp.QueryTxs(1, 1000, rcvPacketQuery(srcChanId, int(seq)))
+	switch {
+	case err != nil:
+		return nil, nil, err
+	case len(txs) == 0:
+		return nil, nil, fmt.Errorf("no transactions returned with query")
+	case len(txs) > 1:
+		return nil, nil, fmt.Errorf("more than one transaction returned with query")
+	}
+
+	rcvPackets, timeoutPackets, err := relayPacketsFromResultTx(src, dst, int64(dsth), txs[0], dstChanId, dstPortId, srcChanId, srcPortId, srcClientId)
+	switch {
+	case err != nil:
+		return nil, nil, err
+	case len(rcvPackets) == 0 && len(timeoutPackets) == 0:
+		return nil, nil, fmt.Errorf("no relay msgs created from query response")
+	case len(rcvPackets)+len(timeoutPackets) > 1:
+		return nil, nil, fmt.Errorf("more than one relay msg found in tx query")
+	}
+
+	if len(rcvPackets) == 1 {
+		pkt := rcvPackets[0]
+		if seq != pkt.Seq() {
+			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
+		}
+
+		packet, err := dst.MsgRelayRecvPacket(src, int64(srch), pkt, srcChanId, srcPortId, dstChanId, dstPortId)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return packet, nil, nil
+	}
+
+	if len(timeoutPackets) == 1 {
+		pkt := timeoutPackets[0]
+		if seq != pkt.Seq() {
+			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
+		}
+
+		timeout, err := src.MsgRelayTimeout(dst, int64(dsth), pkt, dstChanId, dstPortId, srcChanId, srcPortId)
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, timeout, nil
+	}
+
+	return nil, nil, fmt.Errorf("should have errored before here")
+}
+
+// AcknowledgementFromSequence relays an acknowledgement with a given seq on src, source is the sending chain, destination is the receiving chain
+func (cp *CosmosProvider) AcknowledgementFromSequence(dst provider.ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
+	txs, err := dst.QueryTxs(1, 1000, ackPacketQuery(dstChanId, int(seq)))
+	switch {
+	case err != nil:
+		return nil, err
+	case len(txs) == 0:
+		return nil, fmt.Errorf("no transactions returned with query")
+	case len(txs) > 1:
+		return nil, fmt.Errorf("more than one transaction returned with query")
+	}
+
+	acks, err := acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId, txs[0])
+	switch {
+	case err != nil:
+		return nil, err
+	case len(acks) == 0:
+		return nil, fmt.Errorf("no ack msgs created from query response")
+	}
+
+	var out provider.RelayerMessage
+	for _, ack := range acks {
+		if seq != ack.Seq() {
+			continue
+		}
+		msg, err := cp.MsgRelayAcknowledgement(dst, dstChanId, dstPortId, srcChanId, srcPortId, int64(dsth), ack)
 		if err != nil {
 			return nil, err
 		}
-		done := cp.UseSDKContext()
-		addr = info.GetAddress().String()
-		done()
+		out = msg
 	}
-	return cp.QueryBalanceWithAddress(addr)
+	return out, nil
 }
 
-// QueryBalanceWithAddress returns the amount of coins in the relayer account with address as input
-// TODO add pagination support
-func (cp *CosmosProvider) QueryBalanceWithAddress(address string) (sdk.Coins, error) {
-	done := cp.UseSDKContext()
-	addr, err := sdk.AccAddressFromBech32(address)
-	done()
-	if err != nil {
-		return nil, err
-	}
-
-	p := bankTypes.NewQueryAllBalancesRequest(addr, DefaultPageRequest())
-
-	queryClient := bankTypes.NewQueryClient(cp.CLIContext(0))
-
-	res, err := queryClient.AllBalances(context.Background(), p)
-	if err != nil {
-		return nil, err
-	}
-
-	return res.Balances, nil
+func (cp *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) provider.RelayerMessage {
+	return NewCosmosMessage(&clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
+		ConsensusState: consRes.ConsensusState, ProofUpgradeClient: consRes.GetProof(),
+		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: cp.Address()})
 }
 
-// QueryUnbondingPeriod returns the unbonding period of the chain
-func (cp *CosmosProvider) QueryUnbondingPeriod() (time.Duration, error) {
-	req := stakingtypes.QueryParamsRequest{}
-
-	queryClient := stakingtypes.NewQueryClient(cp.CLIContext(0))
-
-	res, err := queryClient.Params(context.Background(), &req)
+// AutoUpdateClient update client automatically to prevent expiry
+func (cp *CosmosProvider) AutoUpdateClient(dst provider.ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error) {
+	srch, err := cp.QueryLatestHeight()
+	if err != nil {
+		return 0, err
+	}
+	dsth, err := dst.QueryLatestHeight()
 	if err != nil {
 		return 0, err
 	}
 
-	return res.Params.UnbondingTime, nil
-}
-
-// QueryClientStateResponse retrevies the latest consensus state for a client in state at a given height
-func (cp *CosmosProvider) QueryClientStateResponse(height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
-	return clientutils.QueryClientStateABCI(cp.CLIContext(height), srcClientId)
-}
-
-// QueryClientState retrevies the latest consensus state for a client in state at a given height
-// and unpacks it to exported client state interface
-func (cp *CosmosProvider) QueryClientState(height int64, clientid string) (ibcexported.ClientState, error) {
-	clientStateRes, err := cp.QueryClientStateResponse(height, clientid)
+	clientState, err := cp.queryTMClientState(srch, srcClientId)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
+	if clientState.TrustingPeriod <= thresholdTime {
+		return 0, fmt.Errorf("client (%s) trusting period time is less than or equal to threshold time", srcClientId)
+	}
+
+	// query the latest consensus state of the potential matching client
+	consensusStateResp, err := clientutils.QueryConsensusStateABCI(cp.CLIContext(0),
+		srcClientId, clientState.GetLatestHeight())
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	return clientStateExported, nil
-}
-
-// QueryClientConsensusState retrieves the latest consensus state for a client in state at a given height
-func (cp *CosmosProvider) QueryClientConsensusState(chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
-	return clientutils.QueryConsensusStateABCI(
-		cp.CLIContext(chainHeight),
-		clientid,
-		clientHeight,
-	)
-}
-
-// QueryUpgradedClient returns upgraded client info
-func (cp *CosmosProvider) QueryUpgradedClient(height int64) (*clienttypes.QueryClientStateResponse, error) {
-	req := clienttypes.QueryUpgradedClientStateRequest{}
-
-	queryClient := clienttypes.NewQueryClient(cp.CLIContext(0))
-
-	res, err := queryClient.UpgradedClientState(context.Background(), &req)
+	exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	if res == nil || res.UpgradedClientState == nil {
-		return nil, fmt.Errorf("upgraded client state plan does not exist at height %d", height)
+	consensusState, ok := exportedConsState.(*tmclient.ConsensusState)
+	if !ok {
+		return 0, fmt.Errorf("consensus state with clientID %s from chain %s is not IBC tendermint type",
+			srcClientId, cp.ChainId())
 	}
 
-	proof, proofHeight, err := cp.QueryUpgradeProof(upgradetypes.UpgradedClientKey(height), uint64(height))
+	expirationTime := consensusState.Timestamp.Add(clientState.TrustingPeriod)
+
+	timeToExpiry := time.Until(expirationTime)
+
+	if timeToExpiry > thresholdTime {
+		return timeToExpiry, nil
+	}
+
+	if clientState.IsExpired(consensusState.Timestamp, time.Now()) {
+		return 0, fmt.Errorf("client (%s) is already expired on chain: %s", srcClientId, cp.ChainId())
+	}
+
+	srcUpdateHeader, err := cp.GetIBCUpdateHeader(srch, dst, dstClientId)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	return &clienttypes.QueryClientStateResponse{
-		ClientState: res.UpgradedClientState,
-		Proof:       proof,
-		ProofHeight: proofHeight,
-	}, nil
-}
-
-// QueryUpgradedConsState returns upgraded consensus state and height of client
-func (cp *CosmosProvider) QueryUpgradedConsState(height int64) (*clienttypes.QueryConsensusStateResponse, error) {
-	req := clienttypes.QueryUpgradedConsensusStateRequest{}
-
-	queryClient := clienttypes.NewQueryClient(cp.CLIContext(height))
-
-	res, err := queryClient.UpgradedConsensusState(context.Background(), &req)
+	dstUpdateHeader, err := dst.GetIBCUpdateHeader(dsth, cp, srcClientId)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	if res == nil || res.UpgradedConsensusState == nil {
-		return nil, fmt.Errorf("upgraded consensus state plan does not exist at height %d", height)
-	}
-
-	proof, proofHeight, err := cp.QueryUpgradeProof(upgradetypes.UpgradedConsStateKey(height), uint64(height))
+	updateMsg, err := cp.UpdateClient(srcClientId, dstUpdateHeader)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	return &clienttypes.QueryConsensusStateResponse{
-		ConsensusState: res.UpgradedConsensusState,
-		Proof:          proof,
-		ProofHeight:    proofHeight,
-	}, nil
-}
+	msgs := []provider.RelayerMessage{updateMsg}
 
-// QueryConsensusState returns a consensus state for a given chain to be used as a
-// client in another chain, fetches latest height when passed 0 as arg
-func (cp *CosmosProvider) QueryConsensusState(height int64) (ibcexported.ConsensusState, int64, error) {
-	return clientutils.QuerySelfConsensusState(cp.CLIContext(height))
-}
-
-// QueryClients queries all the clients!
-// TODO add pagination support
-func (cp *CosmosProvider) QueryClients() ([]clienttypes.IdentifiedClientState, error) {
-	qc := clienttypes.NewQueryClient(cp.CLIContext(0))
-	state, err := qc.ClientStates(context.Background(), &clienttypes.QueryClientStatesRequest{
-		Pagination: DefaultPageRequest(),
-	})
+	res, success, err := cp.SendMessages(msgs)
 	if err != nil {
-		return nil, err
+		// cp.LogFailedTx(res, err, CosmosMsgs(msgs...)) TODO logging needs thought out better, fix this after
+		return 0, err
 	}
-	return state.ClientStates, nil
-}
-
-// QueryConnection returns the remote end of a given connection
-func (cp *CosmosProvider) QueryConnection(height int64, connectionid string) (*conntypes.QueryConnectionResponse, error) {
-	res, err := connutils.QueryConnection(cp.CLIContext(height), connectionid, true)
-	if err != nil && strings.Contains(err.Error(), "not found") {
-		return conntypes.NewQueryConnectionResponse(
-			conntypes.NewConnectionEnd(
-				conntypes.UNINITIALIZED,
-				"client",
-				conntypes.NewCounterparty(
-					"client",
-					"connection",
-					committypes.NewMerklePrefix([]byte{}),
-				),
-				[]*conntypes.Version{},
-				0,
-			), []byte{}, clienttypes.NewHeight(0, 0)), nil
-	} else if err != nil {
-		return nil, err
+	if !success {
+		return 0, fmt.Errorf("tx failed: %s", res.Data)
 	}
-	return res, nil
+	cp.Log(fmt.Sprintf("★ Client updated: [%s]client(%s) {%d}->{%d}",
+		cp.ChainId(),
+		srcClientId,
+		provider.MustGetHeight(srcUpdateHeader.GetHeight()),
+		srcUpdateHeader.GetHeight().GetRevisionHeight(),
+	))
+
+	return clientState.TrustingPeriod, nil
 }
 
-// QueryConnections gets any connections on a chain
-// TODO add pagination support
-func (cp *CosmosProvider) QueryConnections() (conns []*conntypes.IdentifiedConnection, err error) {
-	qc := conntypes.NewQueryClient(cp.CLIContext(0))
-	res, err := qc.Connections(context.Background(), &conntypes.QueryConnectionsRequest{
-		Pagination: DefaultPageRequest(),
-	})
-	return res.Connections, err
-}
-
-// QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
-// TODO add pagination support
-func (cp *CosmosProvider) QueryConnectionsUsingClient(height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
-	qc := conntypes.NewQueryClient(cp.CLIContext(0))
-	res, err := qc.Connections(context.Background(), &conntypes.QueryConnectionsRequest{
-		Pagination: DefaultPageRequest(),
-	})
-	return res, err
-}
-
-// GenerateConnHandshakeProof generates all the proofs needed to prove the existence of the
-// connection state on this chain. A counterparty should use these generated proofs.
-func (cp *CosmosProvider) GenerateConnHandshakeProof(height int64, clientId, connId string) (clientState ibcexported.ClientState, clientStateProof []byte, consensusProof []byte, connectionProof []byte, connectionProofHeight ibcexported.Height, err error) {
-	var (
-		clientStateRes     *clienttypes.QueryClientStateResponse
-		consensusStateRes  *clienttypes.QueryConsensusStateResponse
-		connectionStateRes *conntypes.QueryConnectionResponse
-		eg                 = new(errgroup.Group)
-	)
-
-	// query for the client state for the proof and get the height to query the consensus state at.
-	clientStateRes, err = cp.QueryClientStateResponse(height, clientId)
+// FindMatchingClient will determine if there exists a client with identical client and consensus states
+// to the client which would have been created. Source is the chain that would be adding a client
+// which would track the counterparty. Therefore we query source for the existing clients
+// and check if any match the counterparty. The counterparty must have a matching consensus state
+// to the latest consensus state of a potential match. The provided client state is the client
+// state that will be created if there exist no matches.
+func (cp *CosmosProvider) FindMatchingClient(counterparty provider.ChainProvider, clientState ibcexported.ClientState) (string, bool) {
+	// TODO: add appropriate offset and limits, along with retries
+	clientsResp, err := cp.QueryClients()
 	if err != nil {
-		return nil, nil, nil, nil, clienttypes.Height{}, err
+		if cp.debug {
+			cp.Log(fmt.Sprintf("Error: querying clients on %s failed: %v", cp.ChainId(), err))
+		}
+		return "", false
 	}
 
-	clientState, err = clienttypes.UnpackClientState(clientStateRes.ClientState)
-	if err != nil {
-		return nil, nil, nil, nil, clienttypes.Height{}, err
+	for _, identifiedClientState := range clientsResp {
+		// unpack any into ibc tendermint client state
+		existingClientState, err := castClientStateToTMType(identifiedClientState.ClientState)
+		if err != nil {
+			return "", false
+		}
+
+		tmClientState, ok := clientState.(*tmclient.ClientState)
+		if !ok {
+			if cp.debug {
+				fmt.Printf("got data of type %T but wanted tmclient.ClientState \n", clientState)
+			}
+			return "", false
+		}
+
+		// check if the client states match
+		// NOTE: FrozenHeight.IsZero() is a sanity check, the client to be created should always
+		// have a zero frozen height and therefore should never match with a frozen client
+		if isMatchingClient(tmClientState, existingClientState) && existingClientState.FrozenHeight.IsZero() {
+
+			// query the latest consensus state of the potential matching client
+			consensusStateResp, err := clientutils.QueryConsensusStateABCI(cp.CLIContext(0),
+				identifiedClientState.ClientId, existingClientState.GetLatestHeight())
+			if err != nil {
+				if cp.debug {
+					cp.Log(fmt.Sprintf("Error: failed to query latest consensus state for existing client on chain %s: %v",
+						cp.ChainId(), err))
+				}
+				continue
+			}
+
+			//nolint:lll
+			header, err := counterparty.GetLightSignedHeaderAtHeight(int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
+			if err != nil {
+				if cp.debug {
+					cp.Log(fmt.Sprintf("Error: failed to query header for chain %s at height %d: %v",
+						counterparty.ChainId(), existingClientState.GetLatestHeight().GetRevisionHeight(), err))
+				}
+				continue
+			}
+
+			exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
+			if err != nil {
+				if cp.debug {
+					cp.Log(fmt.Sprintf("Error: failed to consensus state on chain %s: %v", counterparty.ChainId(), err))
+				}
+				continue
+			}
+			existingConsensusState, ok := exportedConsState.(*tmclient.ConsensusState)
+			if !ok {
+				if cp.debug {
+					cp.Log(fmt.Sprintf("Error: consensus state is not tendermint type on chain %s", counterparty.ChainId()))
+				}
+				continue
+			}
+
+			if existingClientState.IsExpired(existingConsensusState.Timestamp, time.Now()) {
+				continue
+			}
+
+			tmHeader, ok := header.(*tmclient.Header)
+			if !ok {
+				if cp.debug {
+					fmt.Printf("got data of type %T but wanted tmclient.Header \n", header)
+				}
+				return "", false
+			}
+
+			if isMatchingConsensusState(existingConsensusState, tmHeader.ConsensusState()) {
+				// found matching client
+				return identifiedClientState.ClientId, true
+			}
+		}
 	}
-
-	eg.Go(func() error {
-		var err error
-		consensusStateRes, err = cp.QueryClientConsensusState(height, clientId, clientState.GetLatestHeight())
-		return err
-	})
-	eg.Go(func() error {
-		var err error
-		connectionStateRes, err = cp.QueryConnection(height, connId)
-		return err
-	})
-
-	if err := eg.Wait(); err != nil {
-		return nil, nil, nil, nil, clienttypes.Height{}, err
-	}
-
-	return clientState, clientStateRes.Proof, consensusStateRes.Proof, connectionStateRes.Proof, connectionStateRes.ProofHeight, nil
+	return "", false
 }
 
-// QueryChannel returns the channel associated with a channelID
-func (cp *CosmosProvider) QueryChannel(height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
-	res, err := chanutils.QueryChannel(cp.CLIContext(height), portid, channelid, true)
-	if err != nil && strings.Contains(err.Error(), "not found") {
-		return chantypes.NewQueryChannelResponse(
-			chantypes.NewChannel(
-				chantypes.UNINITIALIZED,
-				chantypes.UNORDERED,
-				chantypes.NewCounterparty(
-					"port",
-					"channel",
-				),
-				[]string{},
-				"version",
-			),
-			[]byte{},
-			clienttypes.NewHeight(0, 0)), nil
-	} else if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-// QueryChannelClient returns the client state of the client supporting a given channel
-func (cp *CosmosProvider) QueryChannelClient(height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
-	qc := chantypes.NewQueryClient(cp.CLIContext(height))
-	cState, err := qc.ChannelClientState(context.Background(), &chantypes.QueryChannelClientStateRequest{
-		PortId:    portid,
-		ChannelId: channelid,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return cState.IdentifiedClientState, nil
-}
-
-// QueryConnectionChannels queries the channels associated with a connection
-func (cp *CosmosProvider) QueryConnectionChannels(height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
-	qc := chantypes.NewQueryClient(cp.CLIContext(0))
-	chans, err := qc.ConnectionChannels(context.Background(), &chantypes.QueryConnectionChannelsRequest{
-		Connection: connectionid,
-		Pagination: DefaultPageRequest(),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return chans.Channels, nil
-}
-
-// QueryChannels returns all the channels that are registered on a chain
-// TODO add pagination support
-func (cp *CosmosProvider) QueryChannels() ([]*chantypes.IdentifiedChannel, error) {
-	qc := chantypes.NewQueryClient(cp.CLIContext(0))
-	res, err := qc.Channels(context.Background(), &chantypes.QueryChannelsRequest{
-		Pagination: DefaultPageRequest(),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return res.Channels, err
-}
-
-// QueryPacketCommitments returns an array of packet commitments
-// TODO add pagination support
-func (cp *CosmosProvider) QueryPacketCommitments(height uint64, channelid, portid string) (commitments []*chantypes.PacketState, err error) {
-	qc := chantypes.NewQueryClient(cp.CLIContext(int64(height)))
-	c, err := qc.PacketCommitments(context.Background(), &chantypes.QueryPacketCommitmentsRequest{
-		PortId:     portid,
-		ChannelId:  channelid,
-		Pagination: DefaultPageRequest(),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return c.Commitments, nil
-}
-
-// QueryPacketAcknowledgements returns an array of packet acks
-// TODO add pagination support
-func (cp *CosmosProvider) QueryPacketAcknowledgements(height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
-	qc := chantypes.NewQueryClient(cp.CLIContext(int64(height)))
-	acks, err := qc.PacketAcknowledgements(context.Background(), &chantypes.QueryPacketAcknowledgementsRequest{
-		PortId:     portid,
-		ChannelId:  channelid,
-		Pagination: DefaultPageRequest(),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return acks.Acknowledgements, nil
-}
-
-// QueryUnreceivedPackets returns a list of unrelayed packet commitments
-func (cp *CosmosProvider) QueryUnreceivedPackets(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
-	qc := chantypes.NewQueryClient(cp.CLIContext(int64(height)))
-	res, err := qc.UnreceivedPackets(context.Background(), &chantypes.QueryUnreceivedPacketsRequest{
-		PortId:                    portid,
-		ChannelId:                 channelid,
-		PacketCommitmentSequences: seqs,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return res.Sequences, nil
-}
-
-// QueryUnreceivedAcknowledgements returns a list of unrelayed packet acks
-func (cp *CosmosProvider) QueryUnreceivedAcknowledgements(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
-	qc := chantypes.NewQueryClient(cp.CLIContext(int64(height)))
-	res, err := qc.UnreceivedAcks(context.Background(), &chantypes.QueryUnreceivedAcksRequest{
-		PortId:             portid,
-		ChannelId:          channelid,
-		PacketAckSequences: seqs,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return res.Sequences, nil
-}
-
-// QueryNextSeqRecv returns the next seqRecv for a configured channel
-func (cp *CosmosProvider) QueryNextSeqRecv(height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
-	return chanutils.QueryNextSequenceReceive(cp.CLIContext(height), portid, channelid, true)
-}
-
-// QueryPacketCommitment returns the packet commitment proof at a given height
-func (cp *CosmosProvider) QueryPacketCommitment(height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error) {
-	return chanutils.QueryPacketCommitment(cp.CLIContext(height), portid, channelid, seq, true)
-}
-
-// QueryPacketAcknowledgement returns the packet ack proof at a given height
-func (cp *CosmosProvider) QueryPacketAcknowledgement(height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
-	return chanutils.QueryPacketAcknowledgement(cp.CLIContext(height), portid, channelid, seq, true)
-}
-
-// QueryPacketReceipt returns the packet receipt proof at a given height
-func (cp *CosmosProvider) QueryPacketReceipt(height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
-	return chanutils.QueryPacketReceipt(cp.CLIContext(height), portid, channelid, seq, true)
-}
-
-// QueryDenomTrace takes a denom from IBC and queries the information about it
-func (cp *CosmosProvider) QueryDenomTrace(denom string) (*transfertypes.DenomTrace, error) {
-	transfers, err := transfertypes.NewQueryClient(cp.CLIContext(0)).DenomTrace(context.Background(),
-		&transfertypes.QueryDenomTraceRequest{
-			Hash: denom,
-		})
-	if err != nil {
-		return nil, err
-	}
-	return transfers.DenomTrace, nil
-}
-
-// QueryDenomTraces returns all the denom traces from a given chain
-// TODO add pagination support
-func (cp *CosmosProvider) QueryDenomTraces(offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
-	transfers, err := transfertypes.NewQueryClient(cp.CLIContext(height)).DenomTraces(context.Background(),
-		&transfertypes.QueryDenomTracesRequest{
-			Pagination: DefaultPageRequest(),
-		})
-	if err != nil {
-		return nil, err
-	}
-	return transfers.DenomTraces, nil
-}
-
-// Creates the on disk file for the keystore and attaches it to the provider object
-func (cp *CosmosProvider) CreateKeystore(homePath string) error {
-	kb, err := keys.New(cp.Config.ChainID, "test", KeysDir(homePath, cp.Config.ChainID), nil)
+// WaitForNBlocks blocks until the next block on a given chain
+func (cp *CosmosProvider) WaitForNBlocks(n int64) error {
+	var initial int64
+	h, err := cp.Client.Status(context.Background())
 	if err != nil {
 		return err
 	}
-	cp.Keybase = kb
-	return nil
-}
-
-// Returns false if either files aren't on disk as expected or the keystore isn't set on the provider
-func (cp *CosmosProvider) KeystoreCreated(homePath string) bool {
-	if _, err := os.Stat(KeysDir(homePath, cp.Config.ChainID)); errors.Is(err, os.ErrNotExist) {
-		return false
-	} else if cp.Keybase == nil {
-		return false
+	if h.SyncInfo.CatchingUp {
+		return fmt.Errorf("chain catching up")
 	}
-	return true
-}
-
-// Add a key to the keystore and generate and return a mnemonic for it
-func (cp *CosmosProvider) AddKey(name string) (string, string, error) {
-	ko, err := cp.KeyAddOrRestore(name, 118)
-	if err != nil {
-		return "", "", err
+	initial = h.SyncInfo.LatestBlockHeight
+	for {
+		h, err = cp.Client.Status(context.Background())
+		if err != nil {
+			return err
+		}
+		if h.SyncInfo.LatestBlockHeight > initial+n {
+			return nil
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
-	return ko.Address, ko.Mnemonic, nil
-}
-
-// Restore a key from a mnemonic to the keystore at ta given name
-func (cp *CosmosProvider) RestoreKey(name, mnemonic string) (string, error) {
-	ko, err := cp.KeyAddOrRestore(name, 118, mnemonic)
-	if err != nil {
-		return "", err
-	}
-	return ko.Address, nil
-}
-
-// Show the address for a key from the store
-func (cp *CosmosProvider) ShowAddress(name string) (address string, err error) {
-	info, err := cp.Keybase.Key(name)
-	if err != nil {
-		return "", err
-	}
-	done := cp.UseSDKContext()
-	address = info.GetAddress().String()
-	done()
-	return address, nil
-}
-
-// List the addresses in the keystore and their assoicated names
-func (cp *CosmosProvider) ListAddresses() (map[string]string, error) {
-	out := map[string]string{}
-	info, err := cp.Keybase.List()
-	if err != nil {
-		return nil, err
-	}
-	done := cp.UseSDKContext()
-	for _, k := range info {
-		out[k.GetName()] = k.GetAddress().String()
-	}
-	done()
-	return out, nil
-}
-
-// Delete a key tracked by the store
-func (cp *CosmosProvider) DeleteKey(name string) error {
-	if err := cp.Keybase.Delete(name); err != nil {
-		return err
-	}
-	return nil
 }

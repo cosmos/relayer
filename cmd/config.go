@@ -224,10 +224,6 @@ func cfgFilesAddChains(dir string) (cfg *Config, err error) {
 	}
 	cfg = config
 	for _, f := range files {
-		var (
-			pcw ProviderConfigWrapper
-			c   *relayer.Chain
-		)
 		pth := fmt.Sprintf("%s/%s", dir, f.Name())
 		if f.IsDir() {
 			fmt.Printf("directory at %s, skipping...\n", pth)
@@ -236,28 +232,29 @@ func cfgFilesAddChains(dir string) (cfg *Config, err error) {
 
 		byt, err := ioutil.ReadFile(pth)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read file %s: %w", pth, err)
+			fmt.Printf("failed to read file %s. Err: %v skipping...\n", pth, err)
+			continue
 		}
 
+		var pcw ProviderConfigWrapper
 		if err = json.Unmarshal(byt, &pcw); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
+			fmt.Printf("failed to unmarshal file %s. Err: %v skipping...\n", pth, err)
+			continue
 		}
 
 		prov, err := pcw.Value.NewProvider(homePath, debug)
 		if err != nil {
-			return nil, fmt.Errorf("failed to build ChainProvider for %s. Err: %w", pth, err)
+			fmt.Printf("failed to build ChainProvider for %s. Err: %v \n", pth, err)
+			continue
 		}
 
-		c = &relayer.Chain{ChainProvider: prov, ChainID: prov.ChainId()}
+		c := &relayer.Chain{ChainProvider: prov}
 
 		if err = cfg.AddChain(c); err != nil {
-			return nil, fmt.Errorf("failed to add chain %s: %w", pth, err)
+			fmt.Printf("failed to add chain %s: %v \n", pth, err)
+			continue
 		}
-
-		if err = overWriteConfig(cfg); err != nil {
-			return nil, err
-		}
-		fmt.Printf("added chain %s...\n", c.ChainID)
+		fmt.Printf("added chain %s...\n", c.ChainProvider.ChainId())
 	}
 	return cfg, nil
 }
@@ -487,7 +484,7 @@ func newDefaultGlobalConfig() GlobalConfig {
 
 // AddChain adds an additional chain to the config
 func (c *Config) AddChain(chain *relayer.Chain) (err error) {
-	chainId := chain.ChainID
+	chainId := chain.ChainProvider.ChainId()
 	if chainId == "" {
 		return fmt.Errorf("chain ID cannot be empty")
 	}
@@ -562,9 +559,6 @@ func (c *Config) AddPath(name string, path *relayer.Path) (err error) {
 	if err = checkPathEndConflict(name, "destination", oldPath.Dst, path.Dst); err != nil {
 		return err
 	}
-	if err = checkPathConflict(name, "strategy type", oldPath.Strategy.Type, path.Strategy.Type); err != nil {
-		return err
-	}
 	// Update the existing path.
 	*oldPath = *path
 	return nil
@@ -574,7 +568,7 @@ func (c *Config) AddPath(name string, path *relayer.Path) (err error) {
 func (c *Config) DeleteChain(chain string) *Config {
 	var set relayer.Chains
 	for _, ch := range c.Chains {
-		if ch.Provider.ChainID() != chain {
+		if ch.ChainID() != chain {
 			set = append(set, ch)
 		}
 	}
@@ -625,7 +619,9 @@ func initConfig(cmd *cobra.Command) error {
 				if err != nil {
 					return fmt.Errorf("Error while building ChainProviders. Err: %s\n", err.Error())
 				}
-				chains = append(chains, &relayer.Chain{ChainProvider: prov, ChainID: prov.ChainId()})
+				chain := &relayer.Chain{ChainProvider: prov}
+				chain.Init(nil, debug)
+				chains = append(chains, chain)
 			}
 
 			config = &Config{
@@ -686,9 +682,6 @@ func (c *Config) ValidatePath(p *relayer.Path) (err error) {
 	if err = c.ValidatePathEnd(p.Dst); err != nil {
 		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Dst.ChainID)
 	}
-	if _, err = p.GetStrategy(); err != nil {
-		return err
-	}
 	if p.Src.Order != p.Dst.Order {
 		return fmt.Errorf("both sides must have same order ('ORDERED' or 'UNORDERED'), got src(%s) and dst(%s)",
 			p.Src.Order, p.Dst.Order)
@@ -720,7 +713,7 @@ func (c *Config) ValidatePathEnd(pe *relayer.PathEnd) error {
 		return err
 	}
 
-	height, err := chain.QueryLatestHeight()
+	height, err := chain.ChainProvider.QueryLatestHeight()
 	if err != nil {
 		return err
 	}
@@ -760,7 +753,7 @@ func (c *Config) ValidateClient(chain *relayer.Chain, height int64, pe *relayer.
 		return err
 	}
 
-	_, err := chain.QueryClientStateResponse(height)
+	_, err := chain.ChainProvider.QueryClientStateResponse(height, pe.ClientID)
 	if err != nil {
 		return err
 	}
@@ -774,7 +767,7 @@ func (c *Config) ValidateConnection(chain *relayer.Chain, height int64, pe *rela
 		return err
 	}
 
-	connection, err := chain.QueryConnection(height)
+	connection, err := chain.ChainProvider.QueryConnection(height, pe.ConnectionID)
 	if err != nil {
 		return err
 	}
@@ -792,7 +785,7 @@ func (c *Config) ValidateChannel(chain *relayer.Chain, height int64, pe *relayer
 		return err
 	}
 
-	channel, err := chain.QueryChannel(height)
+	channel, err := chain.ChainProvider.QueryChannel(height, pe.ChannelID, pe.PortID)
 	if err != nil {
 		return err
 	}

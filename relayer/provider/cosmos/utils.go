@@ -4,17 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
+	"github.com/cosmos/relayer/relayer/provider"
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	"os"
-	"path"
+	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
 	committypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
-	"github.com/cosmos/relayer/relayer"
 	abci "github.com/tendermint/tendermint/abci/types"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 
@@ -26,9 +29,20 @@ import (
 	libclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
 )
 
-func KeysDir(home, chainID string) string {
-	return path.Join(home, "keys", chainID)
-}
+var (
+	// Strings for parsing events
+	spTag       = "send_packet"
+	waTag       = "write_acknowledgement"
+	srcChanTag  = "packet_src_channel"
+	dstChanTag  = "packet_dst_channel"
+	srcPortTag  = "packet_src_port"
+	dstPortTag  = "packet_dst_port"
+	dataTag     = "packet_data"
+	ackTag      = "packet_ack"
+	toHeightTag = "packet_timeout_height"
+	toTSTag     = "packet_timeout_timestamp"
+	seqTag      = "packet_sequence"
+)
 
 func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
 	httpClient, err := libclient.DefaultHTTPClient(addr)
@@ -202,34 +216,202 @@ func DefaultPageRequest() *querytypes.PageRequest {
 	}
 }
 
-// KeyOutput contains mnemonic and address of key
-type KeyOutput struct {
-	Mnemonic string `json:"mnemonic" yaml:"mnemonic"`
-	Address  string `json:"address" yaml:"address"`
+func rcvPacketQuery(channelID string, seq int) []string {
+	return []string{fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
+		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq)}
 }
 
-// KeyAddOrRestore is a helper function for add key and restores key when mnemonic is passed
-func (cp *CosmosProvider) KeyAddOrRestore(keyName string, coinType uint32, mnemonic ...string) (KeyOutput, error) {
-	var mnemonicStr string
-	var err error
+func ackPacketQuery(channelID string, seq int) []string {
+	return []string{fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
+		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq)}
+}
 
-	if len(mnemonic) > 0 {
-		mnemonicStr = mnemonic[0]
-	} else {
-		mnemonicStr, err = relayer.CreateMnemonic()
-		if err != nil {
-			return KeyOutput{}, err
+// relayPacketsFromResultTx looks through the events in a *ctypes.ResultTx
+// and returns relayPackets with the appropriate data
+func relayPacketsFromResultTx(src, dst provider.ChainProvider, dsth int64, res *ctypes.ResultTx, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
+	var (
+		rcvPackets     []provider.RelayPacket
+		timeoutPackets []provider.RelayPacket
+	)
+
+	for _, e := range res.TxResult.Events {
+		if e.Type == spTag {
+			// NOTE: Src and Dst are switched here
+			rp := &relayMsgRecvPacket{pass: false}
+			for _, p := range e.Attributes {
+				if string(p.Key) == srcChanTag {
+					if string(p.Value) != srcChanId {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == dstChanTag {
+					if string(p.Value) != dstChanId {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == srcPortTag {
+					if string(p.Value) != srcPortId {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == dstPortTag {
+					if string(p.Value) != dstPortId {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == dataTag {
+					rp.packetData = p.Value
+				}
+				if string(p.Key) == toHeightTag {
+					timeout, err := clienttypes.ParseHeight(string(p.Value))
+					if err != nil {
+						return nil, nil, err
+					}
+
+					rp.timeout = timeout
+				}
+				if string(p.Key) == toTSTag {
+					timeout, _ := strconv.ParseUint(string(p.Value), 10, 64)
+					rp.timeoutStamp = timeout
+				}
+				if string(p.Key) == seqTag {
+					seq, _ := strconv.ParseUint(string(p.Value), 10, 64)
+					rp.seq = seq
+				}
+			}
+
+			// fetch the header which represents a block produced on destination
+			block, err := dst.GetIBCUpdateHeader(dsth, src, srcClientId)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			switch {
+			// If the packet has a timeout height, and it has been reached, return a timeout packet
+			case !rp.timeout.IsZero() && block.GetHeight().GTE(rp.timeout):
+				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
+			// If the packet matches the relay constraints relay it as a MsgReceivePacket
+			case !rp.pass:
+				rcvPackets = append(rcvPackets, rp)
+			}
 		}
 	}
 
-	info, err := cp.Keybase.NewAccount(keyName, mnemonicStr, "", hd.CreateHDPath(coinType, 0, 0).String(), hd.Secp256k1)
-	if err != nil {
-		return KeyOutput{}, err
+	// If there is a relayPacket, return it
+	if len(rcvPackets)+len(timeoutPackets) > 0 {
+		return rcvPackets, timeoutPackets, nil
 	}
 
-	done := cp.UseSDKContext()
-	ko := KeyOutput{Mnemonic: mnemonicStr, Address: info.GetAddress().String()}
-	done()
+	return nil, nil, fmt.Errorf("no packet data found")
+}
 
-	return ko, nil
+// acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
+// relayPackets with the appropriate data
+func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId string, res *ctypes.ResultTx) ([]provider.RelayPacket, error) {
+	var ackPackets []provider.RelayPacket
+	for _, e := range res.TxResult.Events {
+		if e.Type == waTag {
+			// NOTE: Src and Dst are switched here
+			rp := &relayMsgPacketAck{pass: false}
+			for _, p := range e.Attributes {
+				if string(p.Key) == srcChanTag {
+					if string(p.Value) != srcChanId {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == dstChanTag {
+					if string(p.Value) != dstChanId {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == srcPortTag {
+					if string(p.Value) != srcPortId {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == dstPortTag {
+					if string(p.Value) != dstPortId {
+						rp.pass = true
+						continue
+					}
+				}
+				if string(p.Key) == ackTag {
+					rp.ack = p.Value
+				}
+				if string(p.Key) == dataTag {
+					rp.packetData = p.Value
+				}
+				if string(p.Key) == toHeightTag {
+					timeout, err := clienttypes.ParseHeight(string(p.Value))
+					if err != nil {
+						return nil, err
+					}
+					rp.timeout = timeout
+				}
+				if string(p.Key) == toTSTag {
+					timeout, _ := strconv.ParseUint(string(p.Value), 10, 64)
+					rp.timeoutStamp = timeout
+				}
+				if string(p.Key) == seqTag {
+					seq, _ := strconv.ParseUint(string(p.Value), 10, 64)
+					rp.seq = seq
+				}
+			}
+			if !rp.pass {
+				ackPackets = append(ackPackets, rp)
+			}
+		}
+	}
+
+	// If there is a relayPacket, return it
+	if len(ackPackets) > 0 {
+		return ackPackets, nil
+	}
+
+	return nil, fmt.Errorf("no packet data found")
+}
+
+// castClientStateToTMType casts client state to tendermint type
+func castClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) {
+	clientStateExported, err := clienttypes.UnpackClientState(cs)
+	if err != nil {
+		return &tmclient.ClientState{}, err
+	}
+
+	// cast from interface to concrete type
+	clientState, ok := clientStateExported.(*tmclient.ClientState)
+	if !ok {
+		return &tmclient.ClientState{},
+			fmt.Errorf("error when casting exported clientstate to tendermint type")
+	}
+
+	return clientState, nil
+}
+
+// isMatchingClient determines if the two provided clients match in all fields
+// except latest height. They are assumed to be IBC tendermint light clients.
+// NOTE: we don't pass in a pointer so upstream references don't have a modified
+// latest height set to zero.
+func isMatchingClient(clientStateA, clientStateB *tmclient.ClientState) bool {
+	// zero out latest client height since this is determined and incremented
+	// by on-chain updates. Changing the latest height does not fundamentally
+	// change the client. The associated consensus state at the latest height
+	// determines this last check
+	clientStateA.LatestHeight = clienttypes.ZeroHeight()
+	clientStateB.LatestHeight = clienttypes.ZeroHeight()
+
+	return reflect.DeepEqual(clientStateA, clientStateB)
+}
+
+// isMatchingConsensusState determines if the two provided consensus states are
+// identical. They are assumed to be IBC tendermint light clients.
+func isMatchingConsensusState(consensusStateA, consensusStateB *tmclient.ConsensusState) bool {
+	return reflect.DeepEqual(*consensusStateA, *consensusStateB)
 }
