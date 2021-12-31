@@ -62,8 +62,14 @@ build-osmosis-docker:
 test:
 	@go test -mod=readonly -v ./test/...
 
+test-gaia:
+	@go test -mod=readonly -v -run TestGaiaToGaiaRelaying ./test/...
+
+test-akash:
+	@go test -mod=readonly -v -run TestAkashToGaiaRelaying ./test/...
+
 test-short:
-	@go test -mod=readonly -v ./test/... -run TestOsmoToGaiaRelaying
+	@go test -mod=readonly -v -run TestOsmoToGaiaRelaying ./test/... 
 
 coverage:
 	@echo "viewing test coverage..."
