@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	clientutils "github.com/cosmos/ibc-go/v2/modules/core/02-client/client/utils"
 	"net/url"
 	"os"
 	"time"
+
+	clientutils "github.com/cosmos/ibc-go/v2/modules/core/02-client/client/utils"
 
 	"github.com/avast/retry-go"
 	sdkTx "github.com/cosmos/cosmos-sdk/client/tx"
@@ -597,6 +598,9 @@ func (cp *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provide
 }
 
 func (cp *CosmosProvider) GetLightSignedHeaderAtHeight(h int64) (ibcexported.Header, error) {
+	if h == 0 {
+		return nil, errors.New("height cannot be 0")
+	}
 	lightBlock, err := cp.Provider.LightBlock(context.Background(), h)
 	if err != nil {
 		return nil, err

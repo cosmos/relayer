@@ -3,6 +3,7 @@ package relayer
 import (
 	"fmt"
 
+	"github.com/avast/retry-go"
 	ibcexported "github.com/cosmos/ibc-go/v2/modules/core/exported"
 	"github.com/cosmos/relayer/relayer/provider"
 )
@@ -12,8 +13,14 @@ import (
 func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (modified bool, err error) {
 	var srcUpdateHeader, dstUpdateHeader ibcexported.Header
 
-	srch, dsth, err := QueryLatestHeights(c, dst)
-	if err != nil {
+	var srch, dsth int64
+	if err = retry.Do(func() error {
+		srch, dsth, err = QueryLatestHeights(c, dst)
+		if srch == 0 || dsth == 0 {
+			return fmt.Errorf("failed to query latest heights")
+		}
+		return err
+	}); err != nil {
 		return false, err
 	}
 

@@ -11,3 +11,4 @@ two-chains/ibc-*
 two-chains/.relayer
 two-chains/*.log
 test/setup/valkeys/*.json
+test/keys/
