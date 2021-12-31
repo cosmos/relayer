@@ -7,15 +7,9 @@ import (
 	"os"
 	"strings"
 
-	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
-	"github.com/cosmos/ibc-go/v2/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
-	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 func pathsCmd() *cobra.Command {
@@ -32,188 +26,10 @@ connection, and channel ids from both the source and destination chains as well 
 		pathsListCmd(),
 		pathsShowCmd(),
 		pathsAddCmd(),
-		pathsGenCmd(),
 		pathsDeleteCmd(),
 	)
 
 	return cmd
-}
-
-func pathsGenCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "generate [src-chain-id] [dst-chain-id] [name]",
-		Aliases: []string{"gen"},
-		Short:   "generate a new path between src and dst, reusing any identifiers that exist",
-		Args:    cobra.ExactArgs(3),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s paths generate ibc-0 ibc-1 demo-path
-$ %s pth gen ibc-0 ibc-1 demo-path --unordered false --version ics20-2`, appName, appName)),
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			var (
-				src, dst, pth          = args[0], args[1], args[2]
-				c                      map[string]*relayer.Chain
-				eg                     errgroup.Group
-				srcClients, dstClients *clienttypes.QueryClientStatesResponse
-				srcConns, dstConns     *conntypes.QueryConnectionsResponse
-				srcCon, dstCon         *conntypes.IdentifiedConnection
-				srcChans, dstChans     *chantypes.QueryChannelsResponse
-			)
-			if c, err = config.Chains.Gets(src, dst); err != nil {
-				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
-			}
-			version, _ := cmd.Flags().GetString(flagVersion)
-			strategy, _ := cmd.Flags().GetString(flagStrategy)
-			port, _ := cmd.Flags().GetString(flagPort)
-			path := &relayer.Path{
-				Src:      &relayer.PathEnd{ChainID: src, PortID: port, Version: version},
-				Dst:      &relayer.PathEnd{ChainID: dst, PortID: port, Version: version},
-				Strategy: &relayer.StrategyCfg{Type: strategy},
-			}
-
-			// get desired order of the channel
-			if unordered, _ := cmd.Flags().GetBool(flagOrder); unordered {
-				path.Src.Order = UNORDERED
-				path.Dst.Order = UNORDERED
-			} else {
-				path.Src.Order = ORDERED
-				path.Dst.Order = ORDERED
-			}
-
-			// see if there are existing clients that can be reused
-			eg.Go(func() error {
-				srcClients, err = c[src].QueryClients(relayer.DefaultPageRequest())
-				return err
-			})
-			eg.Go(func() error {
-				dstClients, err = c[dst].QueryClients(relayer.DefaultPageRequest())
-				return err
-			})
-			if err := eg.Wait(); err != nil {
-				return err
-			}
-
-			for _, idCs := range srcClients.ClientStates {
-				var clnt exported.ClientState
-				if err = idCs.UnpackInterfaces(c[src].Encoding.Marshaler); err != nil {
-					return err
-				}
-				if clnt, err = clienttypes.UnpackClientState(idCs.ClientState); err != nil {
-					return err
-				}
-				switch cs := clnt.(type) {
-				case *tmclient.ClientState:
-					// if the client is an active tendermint client for the counterparty chain then we reuse it
-					if cs.ChainId == c[dst].ChainID && cs.FrozenHeight.IsZero() {
-						path.Src.ClientID = idCs.ClientId
-					}
-				default:
-				}
-			}
-
-			for _, idCs := range dstClients.ClientStates {
-				var clnt exported.ClientState
-				if err = idCs.UnpackInterfaces(c[dst].Encoding.Marshaler); err != nil {
-					return err
-				}
-				if clnt, err = clienttypes.UnpackClientState(idCs.ClientState); err != nil {
-					return err
-				}
-				switch cs := clnt.(type) {
-				case *tmclient.ClientState:
-					// if the client is an active tendermint client for the counterparty chain then we reuse it
-					if cs.ChainId == c[src].ChainID && cs.FrozenHeight.IsZero() {
-						path.Dst.ClientID = idCs.ClientId
-					}
-				default:
-				}
-			}
-
-			if path.Src.ClientID == "" || path.Dst.ClientID == "" {
-				return valPathAndUpdateConfig(pth, path)
-			}
-
-			// see if there are existing connections that can be reused
-			eg.Go(func() error {
-				srcConns, err = c[src].QueryConnections(relayer.DefaultPageRequest())
-				return err
-			})
-			eg.Go(func() error {
-				dstConns, err = c[dst].QueryConnections(relayer.DefaultPageRequest())
-				return err
-			})
-			if err = eg.Wait(); err != nil {
-				return err
-			}
-
-			// find connections with the appropriate client id
-			for _, c := range srcConns.Connections {
-				if c.ClientId == path.Src.ClientID {
-					srcCon = c
-					path.Src.ConnectionID = c.Id
-				}
-			}
-			for _, c := range dstConns.Connections {
-				if c.ClientId == path.Dst.ClientID {
-					dstCon = c
-					path.Dst.ConnectionID = c.Id
-				}
-			}
-
-			switch {
-			case path.Src.ConnectionID != "" && path.Dst.ConnectionID != "":
-				// If we have identified a connection, make sure that each end is the
-				// other's counterparty and that the connection is open. In the failure case
-				// we should generate a new connection identifier
-				dstCpForSrc := srcCon.Counterparty.ConnectionId == dstCon.Id
-				srcCpForDst := dstCon.Counterparty.ConnectionId == srcCon.Id
-				srcOpen := srcCon.State == conntypes.OPEN
-				dstOpen := dstCon.State == conntypes.OPEN
-				if !(dstCpForSrc && srcCpForDst && srcOpen && dstOpen) {
-					return valPathAndUpdateConfig(pth, path)
-				}
-			default:
-				return valPathAndUpdateConfig(pth, path)
-			}
-
-			eg.Go(func() error {
-				srcChans, err = c[src].QueryChannels(relayer.DefaultPageRequest())
-				return err
-			})
-			eg.Go(func() error {
-				dstChans, err = c[dst].QueryChannels(relayer.DefaultPageRequest())
-				return err
-			})
-			if err = eg.Wait(); err != nil {
-				return err
-			}
-
-			for _, c := range srcChans.Channels {
-				if c.ConnectionHops[0] == path.Src.ConnectionID {
-					path.Src.ChannelID = c.ChannelId
-				}
-			}
-
-			for _, c := range dstChans.Channels {
-				if c.ConnectionHops[0] == path.Dst.ConnectionID {
-					path.Dst.ChannelID = c.ChannelId
-				}
-			}
-
-			return valPathAndUpdateConfig(pth, path)
-		},
-	}
-	return orderFlag(versionFlag(pathStrategy(portFlag(cmd))))
-}
-
-func valPathAndUpdateConfig(pth string, path *relayer.Path) (err error) {
-	if err = config.ValidatePath(path); err != nil {
-		return err
-	}
-	if err = config.Paths.Add(pth, path); err != nil {
-		return err
-	}
-	fmt.Printf("Generated path(%s), run 'rly paths show %s --yaml' to see details\n", pth, pth)
-	return overWriteConfig(config)
 }
 
 func pathsDeleteCmd() *cobra.Command {
@@ -409,6 +225,16 @@ func fileInputPathAdd(file, name string) (cfg *Config, err error) {
 		return nil, err
 	}
 
+	//srcEnd := p.Src
+	//dstEnd := p.Dst
+	//
+	//// This
+	//src := config.Chains.MustGet(srcEnd.ChainID)
+	//dst := config.Chains.MustGet(dstEnd.ChainID)
+	//
+	//src.PathEnd = srcEnd
+	//dst.PathEnd = dstEnd
+
 	return config, nil
 }
 
@@ -417,7 +243,6 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		value string
 		err   error
 		path  = &relayer.Path{
-			Strategy: relayer.NewNaiveStrategy(),
 			Src: &relayer.PathEnd{
 				ChainID: src,
 				Order:   "ORDERED",

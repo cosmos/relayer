@@ -21,6 +21,7 @@ import (
 	"math"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -33,7 +34,7 @@ import (
 )
 
 // startCmd represents the start command
-// NOTE: This is basically psuedocode
+// NOTE: This is basically pseudocode
 func startCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "start [path-name]",
@@ -54,7 +55,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 			}
 
 			path := config.Paths.MustGet(args[0])
-			strategy, err := GetStrategyWithOptions(cmd, path.MustGetStrategy())
+			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
 			if err != nil {
 				return err
 			}
@@ -70,7 +71,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				}
 			}
 
-			done, err := relayer.RunStrategy(c[src], c[dst], strategy)
+			done, err := relayer.StartRelayer(c[src], c[dst], maxTxSize, maxMsgLength)
 			if err != nil {
 				return err
 			}
@@ -128,11 +129,11 @@ func UpdateClientsFromChains(src, dst *relayer.Chain, thresholdTime time.Duratio
 
 	eg := new(errgroup.Group)
 	eg.Go(func() error {
-		srcTimeExpiry, err = relayer.AutoUpdateClient(src, dst, thresholdTime)
+		srcTimeExpiry, err = src.ChainProvider.AutoUpdateClient(dst.ChainProvider, thresholdTime, src.ClientID(), dst.ClientID())
 		return err
 	})
 	eg.Go(func() error {
-		dstTimeExpiry, err = relayer.AutoUpdateClient(dst, src, thresholdTime)
+		dstTimeExpiry, err = dst.ChainProvider.AutoUpdateClient(src.ChainProvider, thresholdTime, dst.ClientID(), src.ClientID())
 		return err
 	})
 	if err := eg.Wait(); err != nil {
@@ -141,15 +142,40 @@ func UpdateClientsFromChains(src, dst *relayer.Chain, thresholdTime time.Duratio
 
 	if srcTimeExpiry <= 0 {
 		return 0, fmt.Errorf("client (%s) of chain: %s is expired",
-			src.PathEnd.ClientID, src.ChainID)
+			src.PathEnd.ClientID, src.ChainID())
 	}
 
 	if dstTimeExpiry <= 0 {
 		return 0, fmt.Errorf("client (%s) of chain: %s is expired",
-			dst.PathEnd.ClientID, dst.ChainID)
+			dst.PathEnd.ClientID, dst.ChainID())
 	}
 
 	minTimeExpiry := math.Min(float64(srcTimeExpiry), float64(dstTimeExpiry))
 
 	return time.Duration(int64(minTimeExpiry)), nil
+}
+
+// GetStartOptions sets strategy specific fields.
+func GetStartOptions(cmd *cobra.Command) (uint64, uint64, error) {
+	maxTxSize, err := cmd.Flags().GetString(flagMaxTxSize)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	txSize, err := strconv.ParseUint(maxTxSize, 10, 64)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	maxMsgLength, err := cmd.Flags().GetString(flagMaxMsgLength)
+	if err != nil {
+		return txSize * MB, 0, err
+	}
+
+	msgLen, err := strconv.ParseUint(maxMsgLength, 10, 64)
+	if err != nil {
+		return txSize * MB, 0, err
+	}
+
+	return txSize * MB, msgLen, nil
 }

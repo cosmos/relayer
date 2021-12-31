@@ -64,7 +64,7 @@ func (c *Chain) SetPath(p *PathEnd) error {
 
 // AddPath takes the elements of a path and validates then, setting that path to the chain
 func (c *Chain) AddPath(clientID, connectionID, channelID, port, order string) error {
-	return c.SetPath(&PathEnd{ChainID: c.ChainID, ClientID: clientID,
+	return c.SetPath(&PathEnd{ChainID: c.ChainID(), ClientID: clientID,
 		ConnectionID: connectionID, ChannelID: channelID, PortID: port, Order: order})
 }
 
@@ -100,10 +100,10 @@ func (pe *PathEnd) ValidateBasic() error {
 
 // ErrPathNotSet returns information what identifiers are needed to relay
 func (c *Chain) ErrPathNotSet() error {
-	return fmt.Errorf("path on chain %s not set", c.ChainID)
+	return fmt.Errorf("path on chain %s not set", c.ChainID())
 }
 
 // ErrCantSetPath returns an error if the path doesn't set properly
 func (c *Chain) ErrCantSetPath(err error) error {
-	return fmt.Errorf("path on chain %s failed to set: %w", c.ChainID, err)
+	return fmt.Errorf("path on chain %s failed to set: %w", c.ChainID(), err)
 }

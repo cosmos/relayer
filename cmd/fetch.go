@@ -52,41 +52,8 @@ $ %s fch chn cosmoshub-4`, appName, defaultHome, appName)),
 			chainID := args[0]
 			fName := fmt.Sprintf("%s.json", chainID)
 
-			// Check that the constructed URL is valid
-			u, err := url.Parse(fmt.Sprintf("%s%s", jsonURL, fName))
-			if err != nil || u.Scheme == "" || u.Host == "" {
-				return errors.New("invalid URL")
-			}
-
-			// Fetch the json file via HTTP request
-			resp, err := http.Get(u.String())
-			if err != nil {
-				return fmt.Errorf("error fetching data for %s be sure it's data is in %s. Err: %s \n", chainID, repoURL, err)
-			}
-			defer resp.Body.Close()
-
-			// Decode the HTTP response and attempt to add chain to the config file
-			var c = &relayer.Chain{
-				Key:            "",
-				ChainID:        "",
-				RPCAddr:        "",
-				AccountPrefix:  "",
-				GasAdjustment:  0,
-				GasPrices:      "",
-				TrustingPeriod: "",
-			}
-			d := json.NewDecoder(resp.Body)
-			d.DisallowUnknownFields()
-
-			if err = d.Decode(c); err != nil {
-				return fmt.Errorf("error fetching data for %s be sure it's data is in %s. err: %s \n", chainID, repoURL, err)
-			}
-
-			if err = config.AddChain(c); err != nil {
-				return fmt.Errorf("error fetching data for %s be sure it's data is in %s. err: %s \n", chainID, repoURL, err)
-			}
-
-			err = overWriteConfig(config)
+			cfg, err := urlInputAdd(fmt.Sprintf("%s%s", jsonURL, fName))
+			err = overWriteConfig(cfg)
 			if err != nil {
 				return fmt.Errorf("be sure you have initialized the relayer config with `rly config init` err: %s \n", err)
 			}
@@ -127,7 +94,7 @@ $ %s fch pths`, appName, defaultHome, appName)),
 			// Try to fetch path info for each configured chain that has canonical chain/path info in the GH repo
 			for _, srcChain := range config.Chains {
 				for _, dstChain := range config.Chains {
-					fName := fmt.Sprintf("%s.json", srcChain.ChainID)
+					fName := fmt.Sprintf("%s.json", srcChain.ChainID())
 
 					// Check that the constructed URL is valid
 					u, err := url.Parse(fmt.Sprintf("%s%s", jsonURL, fName))
@@ -139,12 +106,12 @@ $ %s fch pths`, appName, defaultHome, appName)),
 					// Check that the chain srcChain, has provided canonical chain/path info in GH repo
 					resp, err := http.Get(u.String())
 					if err != nil || resp.StatusCode == 404 {
-						fmt.Printf("Chain %s is not currently supported by fetch. Consider adding it's info to %s \n", srcChain.ChainID, repoURL)
+						fmt.Printf("Chain %s is not currently supported by fetch. Consider adding it's info to %s \n", srcChain.ChainID(), repoURL)
 						continue
 					}
 
 					// Add paths to rly config from {localRepo}/interchain/chaind-id/
-					pathsDir := path.Join(localRepo, "interchain", srcChain.ChainID)
+					pathsDir := path.Join(localRepo, "interchain", srcChain.ChainID())
 
 					dir := path.Clean(pathsDir)
 					files, err := ioutil.ReadDir(dir)
@@ -171,7 +138,7 @@ $ %s fch pths`, appName, defaultHome, appName)),
 							return fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
 						}
 
-						if p.Dst.ChainID == dstChain.ChainID {
+						if p.Dst.ChainID == dstChain.ChainID() {
 							// In the case that order isn't added to the path, add it manually
 							if p.Src.Order == "" || p.Dst.Order == "" {
 								p.Src.Order = defaultOrder

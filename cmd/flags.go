@@ -10,20 +10,12 @@ import (
 
 var (
 	flagURL                     = "url"
-	flagVersion                 = "version"
 	flagSkip                    = "skip"
-	flagStrategy                = "strategy"
 	flagTimeout                 = "timeout"
 	flagJSON                    = "json"
 	flagYAML                    = "yaml"
 	flagFile                    = "file"
-	flagPort                    = "port"
 	flagPath                    = "path"
-	flagListenAddr              = "listen"
-	flagTx                      = "no-tx"
-	flagBlock                   = "no-block"
-	flagData                    = "data"
-	flagOrder                   = "unordered"
 	flagMaxTxSize               = "max-tx-size"
 	flagMaxMsgLength            = "max-msgs"
 	flagIBCDenoms               = "ibc-denoms"
@@ -80,63 +72,14 @@ func skipConfirm(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
-func portFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagPort, "p", "transfer", "port to use when generating path")
-	if err := viper.BindPFlag(flagPort, cmd.Flags().Lookup(flagPort)); err != nil {
-		panic(err)
-	}
-	return cmd
-}
-
-func orderFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP(flagOrder, "o", true, "create an unordered channel")
-	if err := viper.BindPFlag(flagOrder, cmd.Flags().Lookup(flagOrder)); err != nil {
-		panic(err)
-	}
-	return cmd
-}
-
-func listenFlags(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP(flagTx, "t", false, "don't output transaction events")
-	cmd.Flags().BoolP(flagBlock, "b", false, "don't output block events")
-	cmd.Flags().Bool(flagData, false, "output full event data")
-	if err := viper.BindPFlag(flagTx, cmd.Flags().Lookup(flagTx)); err != nil {
-		panic(err)
-	}
-	if err := viper.BindPFlag(flagBlock, cmd.Flags().Lookup(flagBlock)); err != nil {
-		panic(err)
-	}
-	if err := viper.BindPFlag(flagData, cmd.Flags().Lookup(flagData)); err != nil {
-		panic(err)
-	}
-	return cmd
-}
-
 func chainsAddFlags(cmd *cobra.Command) *cobra.Command {
-	fileFlag(cmd)
 	urlFlag(cmd)
-	return cmd
-}
-
-func listenFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagListenAddr, "l", "0.0.0.0:8000", "sets the faucet listener addresss")
-	if err := viper.BindPFlag(flagListenAddr, cmd.Flags().Lookup(flagListenAddr)); err != nil {
-		panic(err)
-	}
 	return cmd
 }
 
 func pathFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagPath, "p", "", "specify the path to relay over")
 	if err := viper.BindPFlag(flagPath, cmd.Flags().Lookup(flagPath)); err != nil {
-		panic(err)
-	}
-	return cmd
-}
-
-func pathStrategy(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagStrategy, "s", "naive", "specify strategy of path to generate")
-	if err := viper.BindPFlag(flagStrategy, cmd.Flags().Lookup(flagStrategy)); err != nil {
 		panic(err)
 	}
 	return cmd
@@ -173,14 +116,6 @@ func fileFlag(cmd *cobra.Command) *cobra.Command {
 func timeoutFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagTimeout, "o", "10s", "timeout between relayer runs")
 	if err := viper.BindPFlag(flagTimeout, cmd.Flags().Lookup(flagTimeout)); err != nil {
-		panic(err)
-	}
-	return cmd
-}
-
-func versionFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagVersion, "v", "ics20-1", "version of channel to create")
-	if err := viper.BindPFlag(flagVersion, cmd.Flags().Lookup(flagVersion)); err != nil {
 		panic(err)
 	}
 	return cmd

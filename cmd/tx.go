@@ -1,17 +1,17 @@
 package cmd
 
 import (
-	"encoding/json"
+	//"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os"
+	//"io/ioutil"
+	//"os"
 	"strings"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
+	//banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	//upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -40,65 +40,65 @@ Most of these commands take a [path] argument. Make sure:
 		createClientsCmd(),
 		updateClientsCmd(),
 		upgradeClientsCmd(),
-		upgradeChainCmd(),
+		//upgradeChainCmd(),
 		createConnectionCmd(),
 		closeChannelCmd(),
 		flags.LineBreak,
-		rawTransactionCmd(),
-		flags.LineBreak,
-		sendCmd(),
+		//sendCmd(),
 	)
 
 	return cmd
 }
 
-func sendCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "send [chain-id] [from-key] [to-address] [amount]",
-		Short: "send funds to a different address on the same chain",
-		Args:  cobra.ExactArgs(4),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s tx send testkey cosmos10yft4nc8tacpngwlpyq3u4t88y7qzc9xv0q4y8 10000uatom`,
-			appName,
-		)),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := config.Chains.Get(args[0])
-			if err != nil {
-				return err
-			}
-
-			// ensure that keys exist
-			key, err := c.Keybase.Key(args[1])
-			if err != nil {
-				return err
-			}
-
-			to, err := sdk.AccAddressFromBech32(args[2])
-			if err != nil {
-				return err
-			}
-
-			amt, err := sdk.ParseCoinsNormalized(args[3])
-			if err != nil {
-				return err
-			}
-
-			msg := banktypes.NewMsgSend(key.GetAddress(), to, amt)
-			if err := msg.ValidateBasic(); err != nil {
-				return err
-			}
-
-			res, _, err := c.SendMsg(msg)
-			if err != nil {
-				return err
-			}
-
-			return c.Print(res, false, true)
-		},
-	}
-
-	return cmd
-}
+// TODO send needs revised still
+//func sendCmd() *cobra.Command {
+//	cmd := &cobra.Command{
+//		Use:   "send [chain-id] [from-key] [to-address] [amount]",
+//		Short: "send funds to a different address on the same chain",
+//		Args:  cobra.ExactArgs(4),
+//		Example: strings.TrimSpace(fmt.Sprintf(`
+//$ %s tx send testkey cosmos10yft4nc8tacpngwlpyq3u4t88y7qzc9xv0q4y8 10000uatom`,
+//			appName,
+//		)),
+//		RunE: func(cmd *cobra.Command, args []string) error {
+//			c, err := config.Chains.Get(args[0])
+//			if err != nil {
+//				return err
+//			}
+//
+//			// ensure that keys exist
+//
+//			key, err := c.Keybase.Key(args[1])
+//			if err != nil {
+//				return err
+//			}
+//
+//			to, err := sdk.AccAddressFromBech32(args[2])
+//			if err != nil {
+//				return err
+//			}
+//
+//			amt, err := sdk.ParseCoinsNormalized(args[3])
+//			if err != nil {
+//				return err
+//			}
+//
+//			msg := banktypes.NewMsgSend(key.GetAddress(), to, amt)
+//			if err := msg.ValidateBasic(); err != nil {
+//				return err
+//			}
+//
+//			res, _, err := c.ChainProvider.SendMessage(msg)
+//			if err != nil {
+//				return err
+//			}
+//
+//			return c.Print(res, false, true)
+//		},
+//	}
+//
+//	return cmd
+//}
 
 func createClientsCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -130,15 +130,14 @@ func createClientsCmd() *cobra.Command {
 			}
 
 			// ensure that keys exist
-			if _, err = c[src].GetAddress(); err != nil {
-				return err
+			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
-			if _, err = c[dst].GetAddress(); err != nil {
-				return err
+			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
-			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry,
-				allowUpdateAfterMisbehaviour, override)
+			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err
@@ -168,11 +167,11 @@ corresponding update-client messages.`,
 			}
 
 			// ensure that keys exist
-			if _, err = c[src].GetAddress(); err != nil {
-				return err
+			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
-			if _, err = c[dst].GetAddress(); err != nil {
-				return err
+			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			return c[src].UpdateClients(c[dst])
@@ -199,11 +198,11 @@ func upgradeClientsCmd() *cobra.Command {
 			}
 
 			// ensure that keys exist
-			if _, err = c[src].GetAddress(); err != nil {
-				return err
+			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
-			if _, err = c[dst].GetAddress(); err != nil {
-				return err
+			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			targetChainID := args[1]
@@ -266,16 +265,15 @@ $ %s tx conn demo-path --timeout 5s`,
 			}
 
 			// ensure that keys exist
-			if _, err = c[src].GetAddress(); err != nil {
-				return err
+			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
-			if _, err = c[dst].GetAddress(); err != nil {
-				return err
+			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			// ensure that the clients exist
-			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry,
-				allowUpdateAfterMisbehaviour, override)
+			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err
@@ -323,11 +321,11 @@ $ %s tx channel-close demo-path -o 3s`,
 			}
 
 			// ensure that keys exist
-			if _, err = c[src].GetAddress(); err != nil {
-				return err
+			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
-			if _, err = c[dst].GetAddress(); err != nil {
-				return err
+			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			return c[src].CloseChannel(c[dst], to)
@@ -384,16 +382,15 @@ $ %s tx connect demo-path`,
 			}
 
 			// ensure that keys exist
-			if _, err = c[src].GetAddress(); err != nil {
-				return err
+			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
-			if _, err = c[dst].GetAddress(); err != nil {
-				return err
+			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			// create clients if they aren't already created
-			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry,
-				allowUpdateAfterMisbehaviour, override)
+			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err
@@ -401,7 +398,7 @@ $ %s tx connect demo-path`,
 			}
 
 			if err != nil {
-				return err
+				return fmt.Errorf("error creating clients. Err: %w\n", err)
 			}
 
 			// create connection if it isn't already created
@@ -412,7 +409,7 @@ $ %s tx connect demo-path`,
 				}
 			}
 			if err != nil {
-				return err
+				return fmt.Errorf("error creating connections. Err: %w\n", err)
 			}
 
 			// create channel if it isn't already created
@@ -422,7 +419,11 @@ $ %s tx connect demo-path`,
 					return err
 				}
 			}
-			return err
+			if err != nil {
+				return fmt.Errorf("error creating channels. Err: %w\n", err)
+			}
+
+			return nil
 		},
 	}
 
@@ -478,17 +479,17 @@ $ %s tx relay-pkts demo-path`,
 				return err
 			}
 
-			strategy, err := GetStrategyWithOptions(cmd, config.Paths.MustGet(args[0]).MustGetStrategy())
+			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
 			if err != nil {
 				return err
 			}
 
-			sp, err := strategy.UnrelayedSequences(c[src], c[dst])
+			sp, err := relayer.UnrelayedSequences(c[src], c[dst])
 			if err != nil {
 				return err
 			}
 
-			if err = strategy.RelayPackets(c[src], c[dst], sp); err != nil {
+			if err = relayer.RelayPackets(c[src], c[dst], sp, maxTxSize, maxMsgLength); err != nil {
 				return err
 			}
 
@@ -520,19 +521,19 @@ $ %s tx relay-acks demo-path -l 3 -s 6`,
 				return err
 			}
 
-			strategy, err := GetStrategyWithOptions(cmd, config.Paths.MustGet(args[0]).MustGetStrategy())
+			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
 			if err != nil {
 				return err
 			}
 
 			// sp.Src contains all sequences acked on SRC but acknowledgement not processed on DST
 			// sp.Dst contains all sequences acked on DST but acknowledgement not processed on SRC
-			sp, err := strategy.UnrelayedAcknowledgements(c[src], c[dst])
+			sp, err := relayer.UnrelayedAcknowledgements(c[src], c[dst])
 			if err != nil {
 				return err
 			}
 
-			if err = strategy.RelayAcknowledgements(c[src], c[dst], sp); err != nil {
+			if err = relayer.RelayAcknowledgements(c[src], c[dst], sp, maxTxSize, maxMsgLength); err != nil {
 				return err
 			}
 
@@ -543,78 +544,206 @@ $ %s tx relay-acks demo-path -l 3 -s 6`,
 	return strategyFlag(cmd)
 }
 
-func upgradeChainCmd() *cobra.Command {
+// TODO still needs a revisit
+//func upgradeChainCmd() *cobra.Command {
+//	cmd := &cobra.Command{
+//		Use:   "upgrade-chain [path-name] [chain-id] [new-unbonding-period] [deposit] [path/to/upgradePlan.json]",
+//		Short: "upgrade an IBC-enabled network with a given upgrade plan",
+//		Long: strings.TrimSpace(`Upgrade an IBC-enabled network by providing the chain-id of the
+//network being upgraded, the new unbonding period, the proposal deposit and the JSN file of the
+//upgrade plan without the upgrade client state.`,
+//		),
+//		Args: cobra.ExactArgs(5),
+//		RunE: func(cmd *cobra.Command, args []string) error {
+//			c, src, dst, err := config.ChainsFromPath(args[0])
+//			if err != nil {
+//				return err
+//			}
+//
+//			targetChainID := args[1]
+//
+//			unbondingPeriod, err := time.ParseDuration(args[2])
+//			if err != nil {
+//				return err
+//			}
+//
+//			// ensure that keys exist
+//			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+//				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
+//			}
+//			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+//				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
+//			}
+//
+//			// parse deposit
+//			deposit, err := sdk.ParseCoinNormalized(args[3])
+//			if err != nil {
+//				return err
+//			}
+//
+//			// parse plan
+//			plan := &upgradetypes.Plan{}
+//			path := args[4]
+//			if _, err := os.Stat(path); err != nil {
+//				return err
+//			}
+//
+//			byt, err := ioutil.ReadFile(path)
+//			if err != nil {
+//				return err
+//			}
+//
+//			if err = json.Unmarshal(byt, plan); err != nil {
+//				return err
+//			}
+//
+//			// send the upgrade message on the targetChainID
+//			if src == targetChainID {
+//				return c[src].UpgradeChain(c[dst], plan, deposit, unbondingPeriod)
+//			}
+//
+//			return c[dst].UpgradeChain(c[src], plan, deposit, unbondingPeriod)
+//		},
+//	}
+//
+//	return cmd
+//}
+
+func xfersend() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "upgrade-chain [path-name] [chain-id] [new-unbonding-period] [deposit] [path/to/upgradePlan.json]",
-		Short: "upgrade an IBC-enabled network with a given upgrade plan",
-		Long: strings.TrimSpace(`Upgrade an IBC-enabled network by providing the chain-id of the
-network being upgraded, the new unbonding period, the proposal deposit and the JSN file of the
-upgrade plan without the upgrade client state.`,
-		),
-		Args: cobra.ExactArgs(5),
+		Use:   "transfer [src-chain-id] [dst-chain-id] [amount] [dst-addr]",
+		Short: "initiate a transfer from one network to another",
+		Long: `Initiate a token transfer via IBC between two networks. The created packet
+must be relayed to the destination chain.`,
+		Args: cobra.ExactArgs(4),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s tx transfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo-path
+$ %s tx transfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo -y 2 -c 10
+$ %s tx transfer ibc-0 ibc-1 100000stake raw:non-bech32-address --path demo
+$ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo -c 5
+`, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := config.ChainsFromPath(args[0])
+			src, dst := args[0], args[1]
+			c, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
 
-			targetChainID := args[1]
-
-			unbondingPeriod, err := time.ParseDuration(args[2])
+			pth, err := cmd.Flags().GetString(flagPath)
 			if err != nil {
 				return err
 			}
 
-			// ensure that keys exist
-			if _, err = c[src].GetAddress(); err != nil {
-				return err
-			}
-			if _, err = c[dst].GetAddress(); err != nil {
+			if _, err = setPathsFromArgs(c[src], c[dst], pth); err != nil {
 				return err
 			}
 
-			// parse deposit
-			deposit, err := sdk.ParseCoinNormalized(args[3])
+			amount, err := sdk.ParseCoinNormalized(args[2])
 			if err != nil {
 				return err
 			}
 
-			// parse plan
-			plan := &upgradetypes.Plan{}
-			path := args[4]
-			if _, err := os.Stat(path); err != nil {
-				return err
-			}
-
-			byt, err := ioutil.ReadFile(path)
+			srch, err := c[src].ChainProvider.QueryLatestHeight()
 			if err != nil {
 				return err
 			}
 
-			if err = json.Unmarshal(byt, plan); err != nil {
+			dts, err := c[src].ChainProvider.QueryDenomTraces(0, 100, srch)
+			if err != nil {
 				return err
 			}
 
-			// send the upgrade message on the targetChainID
-			if src == targetChainID {
-				return c[src].UpgradeChain(c[dst], plan, deposit, unbondingPeriod)
+			for _, d := range dts {
+				if amount.Denom == d.GetFullDenomPath() {
+					amount = sdk.NewCoin(d.IBCDenom(), amount.Amount)
+				}
 			}
 
-			return c[dst].UpgradeChain(c[src], plan, deposit, unbondingPeriod)
+			toHeightOffset, err := cmd.Flags().GetUint64(flagTimeoutHeightOffset)
+			if err != nil {
+				return err
+			}
+
+			toTimeOffset, err := cmd.Flags().GetDuration(flagTimeoutTimeOffset)
+			if err != nil {
+				return err
+			}
+
+			// TODO this needs to be rewritten?
+			// If the argument begins with "raw:" then use the suffix directly.
+			rawDstAddr := strings.TrimPrefix(args[3], "raw:")
+			var dstAddr string
+			if rawDstAddr == args[3] {
+				// not "raw:", so we treat the dstAddr as bech32
+				//done := c[dst].UseSDKContext()
+				dst, err := sdk.AccAddressFromBech32(args[3])
+				if err != nil {
+					return err
+				}
+				dstAddr = dst.String()
+				fmt.Println(dstAddr)
+				//done()
+			} else {
+				// Don't parse the rest of the dstAddr... it's raw.
+				dstAddr = rawDstAddr
+
+			}
+
+			return c[src].SendTransferMsg(c[dst], amount, dstAddr, toHeightOffset, toTimeOffset)
 		},
 	}
 
-	return cmd
+	return timeoutFlags(pathFlag(cmd))
 }
 
-// ensureKeysExist returns an error if a configured key for a given chain does
-// not exist.
-func ensureKeysExist(chains map[string]*relayer.Chain) error {
-	for _, v := range chains {
-		if _, err := v.GetAddress(); err != nil {
-			return err
+func setPathsFromArgs(src, dst *relayer.Chain, name string) (*relayer.Path, error) {
+	// find any configured paths between the chains
+	paths, err := config.Paths.PathsFromChains(src.ChainID(), dst.ChainID())
+	if err != nil {
+		return nil, err
+	}
+
+	// Given the number of args and the number of paths, work on the appropriate
+	// path.
+	var path *relayer.Path
+	switch {
+	case name != "" && len(paths) > 1:
+		if path, err = paths.Get(name); err != nil {
+			return path, err
+		}
+
+	case name != "" && len(paths) == 1:
+		if path, err = paths.Get(name); err != nil {
+			return path, err
+		}
+
+	case name == "" && len(paths) > 1:
+		return nil, fmt.Errorf("more than one path between %s and %s exists, pass in path name", src.ChainID(), dst.ChainID())
+
+	case name == "" && len(paths) == 1:
+		for _, v := range paths {
+			path = v
 		}
 	}
 
+	if err = src.SetPath(path.End(src.ChainID())); err != nil {
+		return nil, err
+	}
+
+	if err = dst.SetPath(path.End(dst.ChainID())); err != nil {
+		return nil, err
+	}
+
+	return path, nil
+}
+
+// ensureKeysExist returns an error if a configured key for a given chain does not exist.
+func ensureKeysExist(chains map[string]*relayer.Chain) error {
+	for _, v := range chains {
+		if exists := v.ChainProvider.KeyExists(v.ChainProvider.Key()); !exists {
+			return fmt.Errorf("key %s not found on chain %s \n", v.ChainProvider.Key(), v.ChainID())
+		}
+
+	}
 	return nil
 }

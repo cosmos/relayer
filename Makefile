@@ -3,6 +3,7 @@ COMMIT  := $(shell git log -1 --format='%H')
 SDKCOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/cosmos-sdk)
 GAIA_VERSION := v5.0.4
 AKASH_VERSION := v0.12.1
+OSMOSIS_VERSION := v4.2.0
 WASMD_VERSION := v0.16.0
 
 GOPATH := $(shell go env GOPATH)
@@ -50,26 +51,25 @@ build-gaia-docker:
 
 build-akash-docker:
 	docker build -t ovrclk/akash:$(AKASH_VERSION) --build-arg VERSION=$(AKASH_VERSION) -f ./docker/akash/Dockerfile .
+
+build-osmosis-docker:
+	docker build -t ovrclk/akash:$(OSMOSIS_VERSION) --build-arg VERSION=$(OSMOSIS_VERSION) -f ./docker/akash/Dockerfile .
+
 ###############################################################################
 # Tests / CI
 ###############################################################################
 
-two-chains:
-	@docker-compose -f ./two-chains/docker-compose.yaml down
-	@rm -fr ./two-chains/ibc-* ./two-chains/.relayer ./two-chains/rly.log
-	@docker-compose -f ./two-chains/docker-compose.yaml up -d
-	@while ! curl localhost:26657 &> /dev/null; do sleep 1; done
-	@while ! curl localhost:26667 &> /dev/null; do sleep 1; done
-	@cd ./two-chains && sh relayer-setup && cd ..
-
 test:
-	@TEST_DEBUG=true go test -mod=readonly -v ./test/...
+	@go test -mod=readonly -v ./test/...
 
 test-gaia:
-	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestGaia*
+	@go test -mod=readonly -v -run TestGaiaToGaiaRelaying ./test/...
 
 test-akash:
-	@TEST_DEBUG=true go test -mod=readonly -v ./test/... -run TestAkash*
+	@go test -mod=readonly -v -run TestAkashToGaiaRelaying ./test/...
+
+test-short:
+	@go test -mod=readonly -v -run TestOsmoToGaiaRelaying ./test/... 
 
 coverage:
 	@echo "viewing test coverage..."

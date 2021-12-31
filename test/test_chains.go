@@ -2,10 +2,12 @@ package test
 
 import (
 	"fmt"
+	"github.com/cosmos/relayer/relayer/provider/cosmos"
 	"testing"
 	"time"
 
 	"github.com/cosmos/relayer/relayer"
+	dc "github.com/ory/dockertest/v3/docker"
 
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/stretchr/testify/require"
@@ -21,30 +23,67 @@ const (
 )
 
 var (
-	// GAIA BLOCK TIMEOUTS are located in the gaia setup script in the
-	// setup directory.
-	// timeout_commit = "1000ms"
-	// timeout_propose = "1000ms"
-	// 3 second relayer timeout works well with these block times
+	gaiaProviderCfg = cosmos.CosmosProviderConfig{
+		Key:            "testkey",
+		ChainID:        "",
+		RPCAddr:        "",
+		AccountPrefix:  "cosmos",
+		GasAdjustment:  1.3,
+		GasPrices:      "0.00samoleans",
+		TrustingPeriod: "330h",
+		Timeout:        "10s",
+	}
 	gaiaTestConfig = testChainConfig{
 		dockerfile:     "docker/gaiad/Dockerfile",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "cosmos",
 		trustingPeriod: "330h",
+		buildArgs: []dc.BuildArg{
+			{Name: "VERSION", Value: "v5.0.8"},
+		},
 	}
 
-	// AKASH BLOCK TIMEOUTS on jackzampolin/akashtest:master
-	// timeout_commit = "1000ms"
-	// timeout_propose = "1000ms"
-	// 3 second relayer timeout works well with these block times
-	// This is built from contrib/Dockerfile.test from the akash repository:
+	akashProviderCfg = cosmos.CosmosProviderConfig{
+		Key:            "testkey",
+		ChainID:        "",
+		RPCAddr:        "",
+		AccountPrefix:  "akash",
+		GasAdjustment:  1.3,
+		GasPrices:      "0.00samoleans",
+		TrustingPeriod: "330h",
+		Timeout:        "10s",
+	}
 	akashTestConfig = testChainConfig{
 		dockerfile:     "docker/akash/Dockerfile",
 		timeout:        3 * time.Second,
 		rpcPort:        "26657",
 		accountPrefix:  "akash",
 		trustingPeriod: "330h",
+		buildArgs: []dc.BuildArg{
+			{Name: "VERSION", Value: "v0.12.1"},
+		},
+	}
+
+	osmosisProviderCfg = cosmos.CosmosProviderConfig{
+		Key:            "testkey",
+		ChainID:        "",
+		RPCAddr:        "",
+		AccountPrefix:  "osmo",
+		GasAdjustment:  1.3,
+		GasPrices:      "0.00samoleans",
+		TrustingPeriod: "330h",
+		Timeout:        "10s",
+	}
+	osmosisTestConfig = testChainConfig{
+		dockerfile:     "docker/osmosis/Dockerfile",
+		timeout:        3 * time.Second,
+		rpcPort:        "26657",
+		accountPrefix:  "osmo",
+		trustingPeriod: "330h",
+		buildArgs: []dc.BuildArg{
+			{Name: "VERSION", Value: "v4.2.0"},
+		},
 	}
 
 	seeds = []string{SEED1, SEED2}
@@ -57,6 +96,7 @@ type (
 		chainID string
 		seed    int
 		t       testChainConfig
+		pcfg    cosmos.CosmosProviderConfig
 	}
 
 	// testChainConfig represents the chain specific docker and codec configurations
@@ -67,6 +107,7 @@ type (
 		timeout        time.Duration
 		accountPrefix  string
 		trustingPeriod string
+		buildArgs      []dc.BuildArg
 	}
 )
 
@@ -74,12 +115,16 @@ type (
 func newTestChain(t *testing.T, tc testChain) *relayer.Chain {
 	_, port, err := server.FreeTCPAddr()
 	require.NoError(t, err)
+
+	tc.pcfg.Key = "testkey-" + port
+	tc.pcfg.RPCAddr = fmt.Sprintf("http://localhost:%s", port)
+	tc.pcfg.ChainID = tc.chainID
+	prov, err := tc.pcfg.NewProvider("", true)
+	require.NoError(t, err)
+
 	return &relayer.Chain{
-		Key:            "testkey",
-		ChainID:        tc.chainID,
-		RPCAddr:        fmt.Sprintf("http://localhost:%s", port),
-		AccountPrefix:  tc.t.accountPrefix,
-		GasAdjustment:  1.3,
-		TrustingPeriod: tc.t.trustingPeriod,
+		Chainid:       tc.chainID,
+		RPCAddr:       fmt.Sprintf("http://localhost:%s", port),
+		ChainProvider: prov,
 	}
 }

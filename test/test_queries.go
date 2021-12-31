@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -14,21 +13,21 @@ import (
 
 // testClientPair tests that the client for src on dst and dst on src are the only clients on those chains
 func testClientPair(t *testing.T, src, dst *relayer.Chain) {
-	testClient(t, src, dst)
-	testClient(t, dst, src)
+	testClient(t, src)
+	testClient(t, dst)
 }
 
 // testClient queries client for existence of dst on src
-func testClient(t *testing.T, src, dst *relayer.Chain) {
-	srch, err := src.QueryLatestHeight()
+func testClient(t *testing.T, src *relayer.Chain) {
+	srch, err := src.ChainProvider.QueryLatestHeight()
 	require.NoError(t, err)
 	var (
 		client *clientypes.QueryClientStateResponse
 	)
 	if err = retry.Do(func() error {
-		client, err = src.QueryClientStateResponse(srch)
+		client, err = src.ChainProvider.QueryClientStateResponse(srch, src.ClientID())
 		if err != nil {
-			srch, _ = src.QueryLatestHeight()
+			srch, _ = src.ChainProvider.QueryLatestHeight()
 		}
 		return err
 	}); err != nil {
@@ -49,19 +48,19 @@ func testConnectionPair(t *testing.T, src, dst *relayer.Chain) {
 
 // testConnection tests that the only connection on src has a counterparty that is the connection on dst
 func testConnection(t *testing.T, src, dst *relayer.Chain) {
-	conns, err := src.QueryConnections(relayer.DefaultPageRequest())
+	conns, err := src.ChainProvider.QueryConnections()
 	require.NoError(t, err)
-	require.Equal(t, len(conns.Connections), 1)
-	require.Equal(t, conns.Connections[0].ClientId, src.PathEnd.ClientID)
-	require.Equal(t, conns.Connections[0].Counterparty.GetClientID(), dst.PathEnd.ClientID)
-	require.Equal(t, conns.Connections[0].Counterparty.GetConnectionID(), dst.PathEnd.ConnectionID)
-	require.Equal(t, conns.Connections[0].State.String(), "STATE_OPEN")
+	require.Equal(t, len(conns), 1)
+	require.Equal(t, conns[0].ClientId, src.PathEnd.ClientID)
+	require.Equal(t, conns[0].Counterparty.GetClientID(), dst.PathEnd.ClientID)
+	require.Equal(t, conns[0].Counterparty.GetConnectionID(), dst.PathEnd.ConnectionID)
+	require.Equal(t, conns[0].State.String(), "STATE_OPEN")
 
-	h, err := src.Client.Status(context.Background())
+	h, err := src.ChainProvider.QueryLatestHeight()
 	require.NoError(t, err)
 
 	time.Sleep(time.Second * 5)
-	conn, err := src.QueryConnection(h.SyncInfo.LatestBlockHeight)
+	conn, err := src.ChainProvider.QueryConnection(h, src.ConnectionID())
 	require.NoError(t, err)
 	require.Equal(t, conn.Connection.ClientId, src.PathEnd.ClientID)
 	require.Equal(t, conn.Connection.GetCounterparty().GetClientID(), dst.PathEnd.ClientID)
@@ -77,19 +76,19 @@ func testChannelPair(t *testing.T, src, dst *relayer.Chain) {
 
 // testChannel tests that the only channel on src is a counterparty of dst
 func testChannel(t *testing.T, src, dst *relayer.Chain) {
-	chans, err := src.QueryChannels(relayer.DefaultPageRequest())
+	chans, err := src.ChainProvider.QueryChannels()
 	require.NoError(t, err)
-	require.Equal(t, 1, len(chans.Channels))
-	require.Equal(t, chans.Channels[0].Ordering.String(), "ORDER_UNORDERED")
-	require.Equal(t, chans.Channels[0].State.String(), "STATE_OPEN")
-	require.Equal(t, chans.Channels[0].Counterparty.ChannelId, dst.PathEnd.ChannelID)
-	require.Equal(t, chans.Channels[0].Counterparty.GetPortID(), dst.PathEnd.PortID)
+	require.Equal(t, 1, len(chans))
+	require.Equal(t, chans[0].Ordering.String(), "ORDER_UNORDERED")
+	require.Equal(t, chans[0].State.String(), "STATE_OPEN")
+	require.Equal(t, chans[0].Counterparty.ChannelId, dst.PathEnd.ChannelID)
+	require.Equal(t, chans[0].Counterparty.GetPortID(), dst.PathEnd.PortID)
 
-	h, err := src.Client.Status(context.Background())
+	h, err := src.ChainProvider.QueryLatestHeight()
 	require.NoError(t, err)
 
 	time.Sleep(time.Second * 5)
-	ch, err := src.QueryChannel(h.SyncInfo.LatestBlockHeight)
+	ch, err := src.ChainProvider.QueryChannel(h, src.ChannelID(), src.PortID())
 	require.NoError(t, err)
 	require.Equal(t, ch.Channel.Ordering.String(), "ORDER_UNORDERED")
 	require.Equal(t, ch.Channel.State.String(), "STATE_OPEN")
