@@ -82,15 +82,14 @@ func NewRootCmd() *cobra.Command {
 		configCmd(),
 		chainsCmd(),
 		pathsCmd(),
-		flags.LineBreak,
 		keysCmd(),
 		flags.LineBreak,
+		fetchCmd(),
 		transactionCmd(),
 		queryCmd(),
 		startCmd(),
 		flags.LineBreak,
 		getVersionCmd(),
-		fetchCmd(),
 	)
 
 	return rootCmd
