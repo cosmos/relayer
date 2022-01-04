@@ -57,19 +57,13 @@ To quickly setup the IBC relayer on a canonical path (i.e. path being actively u
    ```shell
    $ rly fetch chain cosmoshub-4  
    $ rly fetch chain osmosis-1
-   ```  
+   ```
 
-5.  Fetch and configure the relevant path configuration files for the two chains.
-
-    ```shell
-    $ rly fetch paths
-    ```
-
-6. The relayer connects to a node on the respective networks, via the configured RPC endpoints for each chain. Ensure the `rpc-addr` field for both chains in `config.yaml` points to a valid RPC endpoint.
+5. The relayer connects to a node on the respective networks, via the configured RPC endpoints for each chain. Ensure the `rpc-addr` field for both chains in `config.yaml` points to a valid RPC endpoint.
 
 > **NOTE:** Strangelove maintains archive nodes for a number of networks and provides them for public usage. Chains that we maintain endpoints for are preconfigured.
 
-7. Either import or create new keys for the relayer to use when signing and
+6. Either import or create new keys for the relayer to use when signing and
    relaying transactions.   
    `key-name` is an identifier of your choosing.  
    
@@ -78,26 +72,27 @@ To quickly setup the IBC relayer on a canonical path (i.e. path being actively u
     $ rly keys add osmosis-1 [key-name]  
     ```
 
-8. Assign the relayer chain-specific keys created or imported above to the
-   specific chain's configuration.  
-   `key-name` is the same as Step 7.  
-   
-    ```shell
-    $ rly chains edit cosmoshub-4 key [key-name]  
-    $ rly chains edit osmosis-1 key [key-name]  
-    ```
+7. Edit the relayer's config file to assign the chain-specific keys created or imported above to the
+   specific chain's configuration. Default file location is `~/.relayer/config/config.yaml`
+   `key-name` is the same as Step 7.
 
-9. Both relayer accounts, i.e. the two keys we just added or imported, need to be
+8. Both relayer accounts, i.e. the two keys we just added or imported, need to be
    funded with tokens on the appropriate network in order to successfully relay transactions
    between the IBC-connected networks. How this occurs depends on the network,
    context and environment, e.g. local or test networks can use a faucet.
 
-10. Ensure both relayer accounts are funded by querying each.
+9. Ensure both relayer accounts are funded by querying each.
 
-    ```shell
-    $ rly q balance cosmoshub-4
-    $ rly q balance osmosis-1
-    ```
+   ```shell
+   $ rly q balance cosmoshub-4
+   $ rly q balance osmosis-1
+   ```
+
+10. Fetch and configure the relevant path configuration files for the two chains.
+
+     ```shell
+     $ rly fetch paths
+     ```
 
 11. Finally, we start the relayer on the path. The relayer will periodically update 
     the clients and listen for IBC messages to relay.
