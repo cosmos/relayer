@@ -53,7 +53,6 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 		if !override {
 			// Check if an identical light client already exists
 			clientID, found = c.ChainProvider.FindMatchingClient(dst.ChainProvider, clientState)
-			fmt.Println(found)
 		}
 		if !found || override {
 			createMsg, err := c.ChainProvider.CreateClient(clientState, dstUpdateHeader)

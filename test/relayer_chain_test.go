@@ -130,7 +130,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 
 func TestGaiaReuseIdentifiers(t *testing.T) {
 	// TODO: fix and re-enable this test
-	t.Skip()
+	//t.Skip()
 	chains := spinUpTestChains(t, []testChain{
 		{"ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
 		{"ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
