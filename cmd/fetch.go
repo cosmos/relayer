@@ -57,8 +57,8 @@ $ %s fch chn cosmoshub-4`, appName, defaultHome, appName)),
 			if err != nil {
 				return err
 			}
-			err = overWriteConfig(cfg)
-			if err != nil {
+
+			if err = overWriteConfig(cfg); err != nil {
 				return fmt.Errorf("be sure you have initialized the relayer config with `rly config init` err: %s \n", err)
 			}
 
