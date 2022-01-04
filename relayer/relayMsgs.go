@@ -5,8 +5,6 @@ import (
 	"strings"
 
 	"github.com/cosmos/relayer/relayer/provider"
-	"github.com/cosmos/relayer/relayer/provider/cosmos"
-	"github.com/gogo/protobuf/proto"
 )
 
 // DeliverMsgsAction is struct
@@ -129,7 +127,7 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 	// submit batches of relay transactions
 	for _, msg := range r.Src {
-		bz, err := proto.Marshal(cosmos.SdkMsgFromRelayerMessage(msg)) // TODO this still needs to be addressed
+		bz, err := msg.MsgBytes()
 		if err != nil {
 			panic(err)
 		}
@@ -167,7 +165,7 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 	msgs = []provider.RelayerMessage{}
 
 	for _, msg := range r.Dst {
-		bz, err := proto.Marshal(cosmos.SdkMsgFromRelayerMessage(msg)) // TODO this still needs to be addressed
+		bz, err := msg.MsgBytes()
 		if err != nil {
 			panic(err)
 		}

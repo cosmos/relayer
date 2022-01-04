@@ -19,6 +19,7 @@ type ProviderConfig interface {
 
 type RelayerMessage interface {
 	Type() string
+	MsgBytes() ([]byte, error)
 }
 
 type RelayerTxResponse struct {

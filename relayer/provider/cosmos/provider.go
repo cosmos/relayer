@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/gogo/protobuf/proto"
 	"net/url"
 	"os"
 	"time"
@@ -99,6 +100,10 @@ func NewCosmosMessage(msg sdk.Msg) provider.RelayerMessage {
 
 func (cm CosmosMessage) Type() string {
 	return sdk.MsgTypeURL(cm.Msg)
+}
+
+func (cm CosmosMessage) MsgBytes() ([]byte, error) {
+	return proto.Marshal(cm.Msg)
 }
 
 func SdkMsgFromRelayerMessage(p provider.RelayerMessage) sdk.Msg {
