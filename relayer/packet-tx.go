@@ -43,11 +43,13 @@ func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr string, toH
 	}
 
 	// MsgTransfer will call SendPacket on src chain
+	msg, err := c.ChainProvider.MsgTransfer(amount, dst.PathEnd.ChainID, dstAddr, c.PathEnd.PortID, c.PathEnd.ChannelID, timeoutHeight, timeoutTimestamp)
+	if err != nil {
+		return err
+	}
+
 	txs := RelayMsgs{
-		Src: []provider.RelayerMessage{
-			c.ChainProvider.MsgTransfer(
-				amount, dst.PathEnd.ChainID, dstAddr, c.PathEnd.PortID, c.PathEnd.ChannelID, timeoutHeight, timeoutTimestamp,
-			)},
+		Src: []provider.RelayerMessage{msg},
 		Dst: []provider.RelayerMessage{},
 	}
 

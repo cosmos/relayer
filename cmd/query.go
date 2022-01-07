@@ -255,7 +255,12 @@ $ %s query balance ibc-0 testkey`,
 				return errKeyDoesntExist(keyName)
 			}
 
-			coins, err := helpers.QueryBalance(chain, chain.ChainProvider.Address(), showDenoms)
+			addr, err := chain.ChainProvider.Address()
+			if err != nil {
+				return err
+			}
+
+			coins, err := helpers.QueryBalance(chain, addr, showDenoms)
 			if err != nil {
 				return err
 			}
