@@ -134,9 +134,13 @@ func (c *Chain) GetSelfVersion() uint64 {
 }
 
 // GetTrustingPeriod returns the trusting period for the chain
-func (c *Chain) GetTrustingPeriod() time.Duration {
-	tp, _ := time.ParseDuration(c.ChainProvider.TrustingPeriod())
-	return tp
+func (c *Chain) GetTrustingPeriod() (time.Duration, error) {
+	trustStr, err := c.ChainProvider.TrustingPeriod()
+	if err != nil {
+		return 0, err
+	}
+	tp, _ := time.ParseDuration(trustStr)
+	return tp, nil
 }
 
 // Log takes a string and logs the data

@@ -40,7 +40,11 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 		}
 
 		// Create the ClientState we want on 'c' tracking 'dst'
-		clientState, err := c.ChainProvider.NewClientState(dstUpdateHeader, dst.GetTrustingPeriod(), ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
+		tp, err := dst.GetTrustingPeriod()
+		if err != nil {
+			return modified, err
+		}
+		clientState, err := c.ChainProvider.NewClientState(dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
 		if err != nil {
 			return modified, err
 		}
@@ -104,8 +108,13 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 		if err != nil {
 			return modified, err
 		}
+
 		// Create the ClientState we want on 'dst' tracking 'c'
-		clientState, err := dst.ChainProvider.NewClientState(srcUpdateHeader, c.GetTrustingPeriod(), ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
+		tp, err := c.GetTrustingPeriod()
+		if err != nil {
+			return modified, err
+		}
+		clientState, err := dst.ChainProvider.NewClientState(srcUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
 		if err != nil {
 			return modified, err
 		}
@@ -249,7 +258,10 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 		return err
 	}
 
-	upgradeMsg := c.ChainProvider.MsgUpgradeClient(c.ClientID(), consRes, clientRes)
+	upgradeMsg, err := c.ChainProvider.MsgUpgradeClient(c.ClientID(), consRes, clientRes)
+	if err != nil {
+		return err
+	}
 
 	msgs := []provider.RelayerMessage{
 		updateMsg,

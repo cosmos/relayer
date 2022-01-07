@@ -75,8 +75,13 @@ func logConnectionStates(src, dst *Chain, srcConn, dstConn *conntypes.QueryConne
 }
 
 func (c *Chain) logCreateClient(dst *Chain, dstH uint64) {
+	tp, err := dst.GetTrustingPeriod()
+	if err != nil {
+		c.Log(fmt.Sprintf("- [%s] -> failed to get trusting period from %s's Provider while creating client on %s for %s header-height{%d}",
+			c.ChainID(), dst.ChainID(), c.ChainID(), dst.ChainID(), dstH))
+	}
 	c.Log(fmt.Sprintf("- [%s] -> creating client on %s for %s header-height{%d} trust-period(%s)",
-		c.ChainID(), c.ChainID(), dst.ChainID(), dstH, dst.GetTrustingPeriod()))
+		c.ChainID(), c.ChainID(), dst.ChainID(), dstH, tp))
 }
 
 func (c *Chain) logOpenInit(dst *Chain, connOrChan string) {
