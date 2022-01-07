@@ -1,0 +1,9 @@
+{
+  "key": "test-key",
+  "chain-id": "stargaze-1",
+  "rpc-addr": "http://localhost:26657",
+  "account-prefix": "stars",
+  "gas-adjustment": 1.5,
+  "gas-prices": "0.025ustarx",
+  "trusting-period": "336h"
+}
