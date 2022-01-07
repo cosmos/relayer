@@ -51,10 +51,14 @@ $ %s fch chn cosmoshub-4`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainID := args[0]
 			fName := fmt.Sprintf("%s.json", chainID)
+			uri := fmt.Sprintf("%s%s", jsonURL, fName)
 
-			cfg, err := urlInputAdd(fmt.Sprintf("%s%s", jsonURL, fName))
-			err = overWriteConfig(cfg)
+			cfg, err := urlInputAdd(uri)
 			if err != nil {
+				return err
+			}
+
+			if err = overWriteConfig(cfg); err != nil {
 				return fmt.Errorf("be sure you have initialized the relayer config with `rly config init` err: %s \n", err)
 			}
 

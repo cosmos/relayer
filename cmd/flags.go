@@ -73,6 +73,7 @@ func skipConfirm(cmd *cobra.Command) *cobra.Command {
 }
 
 func chainsAddFlags(cmd *cobra.Command) *cobra.Command {
+	fileFlag(cmd)
 	urlFlag(cmd)
 	return cmd
 }

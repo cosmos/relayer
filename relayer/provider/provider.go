@@ -19,6 +19,7 @@ type ProviderConfig interface {
 
 type RelayerMessage interface {
 	Type() string
+	MsgBytes() ([]byte, error)
 }
 
 type RelayerTxResponse struct {
@@ -57,14 +58,14 @@ type ChainProvider interface {
 	ChannelOpenTry(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]RelayerMessage, error)
 	ChannelOpenAck(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]RelayerMessage, error)
 	ChannelOpenConfirm(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChannId string) ([]RelayerMessage, error)
-	ChannelCloseInit(srcPortId, srcChanId string) RelayerMessage
+	ChannelCloseInit(srcPortId, srcChanId string) (RelayerMessage, error)
 	ChannelCloseConfirm(dstQueryProvider QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (RelayerMessage, error)
 
 	MsgRelayAcknowledgement(dst ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet RelayPacket) (RelayerMessage, error)
-	MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanId string, timeoutHeight, timeoutTimestamp uint64) RelayerMessage
+	MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanId string, timeoutHeight, timeoutTimestamp uint64) (RelayerMessage, error)
 	MsgRelayTimeout(dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
 	MsgRelayRecvPacket(dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
-	MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) RelayerMessage
+	MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (RelayerMessage, error)
 	RelayPacketFromSequence(src, dst ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) (RelayerMessage, RelayerMessage, error)
 	AcknowledgementFromSequence(dst ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
 
@@ -78,9 +79,9 @@ type ChainProvider interface {
 	Type() string
 	ProviderConfig() ProviderConfig
 	Key() string
-	Address() string
+	Address() (string, error)
 	Timeout() string
-	TrustingPeriod() string
+	TrustingPeriod() (string, error)
 	WaitForNBlocks(n int64) error
 }
 

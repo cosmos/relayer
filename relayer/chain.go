@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path"
 	"strings"
 	"time"
 
@@ -14,8 +13,6 @@ import (
 	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/libs/log"
-	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
-	libclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
 )
 
 // Chain represents the necessary data for connecting to and identifying a chain and its counterparties
@@ -137,24 +134,13 @@ func (c *Chain) GetSelfVersion() uint64 {
 }
 
 // GetTrustingPeriod returns the trusting period for the chain
-func (c *Chain) GetTrustingPeriod() time.Duration {
-	tp, _ := time.ParseDuration(c.ChainProvider.TrustingPeriod())
-	return tp
-}
-
-func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
-	httpClient, err := libclient.DefaultHTTPClient(addr)
+func (c *Chain) GetTrustingPeriod() (time.Duration, error) {
+	trustStr, err := c.ChainProvider.TrustingPeriod()
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-
-	httpClient.Timeout = timeout
-	rpcClient, err := rpchttp.NewWithClient(addr, "/websocket", httpClient)
-	if err != nil {
-		return nil, err
-	}
-
-	return rpcClient, nil
+	tp, _ := time.ParseDuration(trustStr)
+	return tp, nil
 }
 
 // Log takes a string and logs the data
@@ -165,11 +151,6 @@ func (c *Chain) Log(s string) {
 // Error takes an error, wraps it in the chainID and logs the error
 func (c *Chain) Error(err error) {
 	c.logger.Error(fmt.Sprintf("%s: err(%s)", c.ChainID(), err.Error()))
-}
-
-// KeysDir returns the path to the keys for this chain
-func KeysDir(home, chainID string) string {
-	return path.Join(home, "keys", chainID)
 }
 
 func (c *Chain) String() string {

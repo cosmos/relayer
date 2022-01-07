@@ -204,9 +204,10 @@ func chainsAddCmd() *cobra.Command {
 		Use:     "add",
 		Aliases: []string{"a"},
 		Short:   "Add a new chain to the configuration file by passing a file (-f) or url (-u), or user input",
+		Args:    cobra.RangeArgs(0, 1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 		$ %s chains add
-		$ %s ch a
+		$ %s ch a [filename]
 		$ %s chains add --file chains/ibc0.json
 		$ %s chains add --url https://relayer.com/ibc0.json
 		`, appName, appName, appName, appName)),
@@ -219,12 +220,16 @@ func chainsAddCmd() *cobra.Command {
 			}
 
 			switch {
+			case file != "":
+				if out, err = fileInputAdd(file); err != nil {
+					return err
+				}
 			case url != "":
 				if out, err = urlInputAdd(url); err != nil {
 					return err
 				}
 			default:
-				if out, err = fileInputAdd(file); err != nil {
+				if out, err = fileInputAdd(args[0]); err != nil {
 					return err
 				}
 			}
@@ -302,7 +307,7 @@ func urlInputAdd(rawurl string) (cfg *Config, err error) {
 
 	resp, err := http.Get(u.String())
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer resp.Body.Close()
 
