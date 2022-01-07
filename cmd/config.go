@@ -32,7 +32,6 @@ import (
 	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	lens "github.com/strangelove-ventures/lens/client"
 	"gopkg.in/yaml.v3"
 )
 
@@ -366,7 +365,7 @@ type ProviderConfigYAMLWrapper struct {
 // NOTE: Add new ProviderConfig types in the map here with the key set equal to the type of ChainProvider (e.g. cosmos, substrate, etc.)
 func (pcw *ProviderConfigWrapper) UnmarshalJSON(data []byte) error {
 	customTypes := map[string]reflect.Type{
-		"cosmos": reflect.TypeOf(lens.ChainClientConfig{}),
+		//"cosmos": reflect.TypeOf(lens.ChainClientConfig{}),
 	}
 	val, err := UnmarshalJSONProviderConfig(data, customTypes)
 	if err != nil {
@@ -418,7 +417,7 @@ func (iw *ProviderConfigYAMLWrapper) UnmarshalYAML(n *yaml.Node) error {
 
 	switch iw.Type {
 	case "cosmos":
-		iw.Value = new(lens.ChainClientConfig)
+		//iw.Value = new(lens.ChainClientConfig)
 	default:
 		return fmt.Errorf("%s is an invalid chain type, check your config file", iw.Type)
 	}
