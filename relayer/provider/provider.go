@@ -81,7 +81,7 @@ type ChainProvider interface {
 	Key() string
 	Address() (string, error)
 	Timeout() string
-	TrustingPeriod() (string, error)
+	TrustingPeriod() (time.Duration, error)
 	WaitForNBlocks(n int64) error
 }
 
