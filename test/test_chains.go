@@ -2,14 +2,13 @@ package test
 
 import (
 	"fmt"
-	"github.com/cosmos/relayer/relayer/provider/cosmos"
 	"testing"
 	"time"
 
+	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/relayer/relayer"
 	dc "github.com/ory/dockertest/v3/docker"
-
-	"github.com/cosmos/cosmos-sdk/server"
+	lens "github.com/strangelove-ventures/lens/client"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,64 +22,70 @@ const (
 )
 
 var (
-	gaiaProviderCfg = cosmos.CosmosProviderConfig{
-		Key:            "testkey",
+	gaiaProviderCfg = lens.ChainClientConfig{
+		Key:            "",
 		ChainID:        "",
 		RPCAddr:        "",
+		GRPCAddr:       "",
 		AccountPrefix:  "cosmos",
+		KeyringBackend: "test",
 		GasAdjustment:  1.3,
 		GasPrices:      "0.00samoleans",
-		TrustingPeriod: "330h",
+		KeyDirectory:   "",
+		Debug:          true,
 		Timeout:        "10s",
+		OutputFormat:   "json",
+		SignModeStr:    "direct",
 	}
 	gaiaTestConfig = testChainConfig{
-		dockerfile:     "docker/gaiad/Dockerfile",
-		timeout:        3 * time.Second,
-		rpcPort:        "26657",
-		accountPrefix:  "cosmos",
-		trustingPeriod: "330h",
+		dockerfile: "docker/gaiad/Dockerfile",
+		rpcPort:    "26657",
 		buildArgs: []dc.BuildArg{
 			{Name: "VERSION", Value: "v5.0.8"},
 		},
 	}
 
-	akashProviderCfg = cosmos.CosmosProviderConfig{
-		Key:            "testkey",
+	akashProviderCfg = lens.ChainClientConfig{
+		Key:            "",
 		ChainID:        "",
 		RPCAddr:        "",
+		GRPCAddr:       "",
 		AccountPrefix:  "akash",
+		KeyringBackend: "test",
 		GasAdjustment:  1.3,
 		GasPrices:      "0.00samoleans",
-		TrustingPeriod: "330h",
+		KeyDirectory:   "",
+		Debug:          true,
 		Timeout:        "10s",
+		OutputFormat:   "json",
+		SignModeStr:    "direct",
 	}
 	akashTestConfig = testChainConfig{
-		dockerfile:     "docker/akash/Dockerfile",
-		timeout:        3 * time.Second,
-		rpcPort:        "26657",
-		accountPrefix:  "akash",
-		trustingPeriod: "330h",
+		dockerfile: "docker/akash/Dockerfile",
+		rpcPort:    "26657",
 		buildArgs: []dc.BuildArg{
 			{Name: "VERSION", Value: "v0.12.1"},
 		},
 	}
 
-	osmosisProviderCfg = cosmos.CosmosProviderConfig{
-		Key:            "testkey",
+	osmosisProviderCfg = lens.ChainClientConfig{
+		Key:            "",
 		ChainID:        "",
 		RPCAddr:        "",
+		GRPCAddr:       "",
 		AccountPrefix:  "osmo",
+		KeyringBackend: "test",
 		GasAdjustment:  1.3,
 		GasPrices:      "0.00samoleans",
-		TrustingPeriod: "330h",
+		KeyDirectory:   "",
+		Debug:          true,
 		Timeout:        "10s",
+		OutputFormat:   "json",
+		SignModeStr:    "direct",
 	}
 	osmosisTestConfig = testChainConfig{
-		dockerfile:     "docker/osmosis/Dockerfile",
-		timeout:        3 * time.Second,
-		rpcPort:        "26657",
-		accountPrefix:  "osmo",
-		trustingPeriod: "330h",
+		dockerfile: "docker/osmosis/Dockerfile",
+		rpcPort:    "26657",
 		buildArgs: []dc.BuildArg{
 			{Name: "VERSION", Value: "v4.2.0"},
 		},
@@ -96,7 +101,7 @@ type (
 		chainID string
 		seed    int
 		t       testChainConfig
-		pcfg    cosmos.CosmosProviderConfig
+		pcfg    lens.ChainClientConfig
 	}
 
 	// testChainConfig represents the chain specific docker and codec configurations
@@ -119,7 +124,7 @@ func newTestChain(t *testing.T, tc testChain) *relayer.Chain {
 	tc.pcfg.Key = "testkey-" + port
 	tc.pcfg.RPCAddr = fmt.Sprintf("http://localhost:%s", port)
 	tc.pcfg.ChainID = tc.chainID
-	prov, err := tc.pcfg.NewProvider("", true)
+	prov, err := tc.pcfg.NewProvider("/tmp", true)
 	require.NoError(t, err)
 
 	return &relayer.Chain{

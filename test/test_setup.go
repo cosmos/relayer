@@ -144,6 +144,11 @@ func spinUpTestContainer(rchan chan<- *dockertest.Resource, pool *dockertest.Poo
 	containerName := c.ChainID()
 
 	// setup docker options
+	addr, err := c.ChainProvider.Address()
+	if err != nil {
+		return err
+	}
+
 	dockerOpts := &dockertest.RunOptions{
 		Name:         containerName,
 		Repository:   containerName, // Name must match Repository
@@ -151,7 +156,7 @@ func spinUpTestContainer(rchan chan<- *dockertest.Resource, pool *dockertest.Poo
 		ExposedPorts: []string{tc.t.rpcPort, c.GetRPCPort()},
 		Cmd: []string{
 			c.ChainID(),
-			c.ChainProvider.Address(),
+			addr,
 			getPrivValFileName(tc.seed),
 		},
 		PortBindings: map[dc.Port][]dc.PortBinding{
