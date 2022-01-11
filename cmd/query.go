@@ -265,7 +265,7 @@ $ %s query balance ibc-0 testkey`,
 				return err
 			}
 
-			fmt.Println(coins)
+			fmt.Printf("address {%s} balance {%s} \n", addr, coins)
 			return nil
 		},
 	}
