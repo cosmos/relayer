@@ -249,10 +249,8 @@ $ %s query balance ibc-0 testkey`,
 			keyName := chain.ChainProvider.Key()
 			if len(args) == 2 {
 				keyName = args[1]
-				fmt.Println(keyName)
 			}
 
-			fmt.Println(keyName)
 			if !chain.ChainProvider.KeyExists(keyName) {
 				return errKeyDoesntExist(keyName)
 			}
@@ -378,7 +376,6 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 			}
 
 			return chain.Print(res, false, false)
-			//return chain.CLIContext(height).PrintProto(res)
 		},
 	}
 
