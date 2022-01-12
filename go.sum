@@ -960,6 +960,8 @@ github.com/strangelove-ventures/lens v0.1.4-0.20220111212138-a8fa1959aa60 h1:g+K
 github.com/strangelove-ventures/lens v0.1.4-0.20220111212138-a8fa1959aa60/go.mod h1:qvlhWQMo+0AHSSFixUA8lq+OMj/pbCGgu3zF27RxTUM=
 github.com/strangelove-ventures/lens v0.1.4-0.20220111213300-fa2e2fa38d0e h1:IThjWdMDuS/F+29bHBZ6EOowgCX5+Oids7X1LA8pRes=
 github.com/strangelove-ventures/lens v0.1.4-0.20220111213300-fa2e2fa38d0e/go.mod h1:qvlhWQMo+0AHSSFixUA8lq+OMj/pbCGgu3zF27RxTUM=
+github.com/strangelove-ventures/lens v0.1.4-0.20220112205309-1530b227aec0 h1:xULLxQdMEZeJMBeU4LRDLcBIDSjWqzMOvH/hrgf0XA8=
+github.com/strangelove-ventures/lens v0.1.4-0.20220112205309-1530b227aec0/go.mod h1:qvlhWQMo+0AHSSFixUA8lq+OMj/pbCGgu3zF27RxTUM=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/handy v0.0.0-20190108123426-d5acb3125c2a/go.mod h1:qNTQ5P5JnDBl6z3cMAg/SywNDC5ABu5ApDIw6lUbRmI=
