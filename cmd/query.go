@@ -256,6 +256,9 @@ $ %s query balance ibc-0 testkey`,
 			}
 
 			addr, err := chain.ChainProvider.ShowAddress(keyName)
+			if err != nil {
+				return err
+			}
 
 			coins, err := helpers.QueryBalance(chain, addr, showDenoms)
 			if err != nil {
