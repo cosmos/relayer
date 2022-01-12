@@ -249,16 +249,15 @@ $ %s query balance ibc-0 testkey`,
 			keyName := chain.ChainProvider.Key()
 			if len(args) == 2 {
 				keyName = args[1]
+				fmt.Println(keyName)
 			}
 
+			fmt.Println(keyName)
 			if !chain.ChainProvider.KeyExists(keyName) {
 				return errKeyDoesntExist(keyName)
 			}
 
-			addr, err := chain.ChainProvider.Address()
-			if err != nil {
-				return err
-			}
+			addr, err := chain.ChainProvider.ShowAddress(keyName)
 
 			coins, err := helpers.QueryBalance(chain, addr, showDenoms)
 			if err != nil {
