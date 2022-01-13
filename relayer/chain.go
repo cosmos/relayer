@@ -87,7 +87,6 @@ func ValidateChannelParams(src, dst *Chain) error {
 
 // Init initializes the pieces of a chain that aren't set when it parses a config
 // NOTE: All validation of the chain should happen here.
-// TODO chain init needs revised to account for Provider abstraction
 func (c *Chain) Init(logger log.Logger, debug bool) {
 	c.logger = logger
 	c.debug = debug
