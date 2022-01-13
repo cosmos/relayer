@@ -46,7 +46,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 		return retry.Do(func() error {
 			srcExpected, err = src.ChainProvider.QueryBalance(src.ChainProvider.Key())
 			if srcExpected.IsZero() {
-				return fmt.Errorf("expected non-zero balance")
+				return fmt.Errorf("expected non-zero balance. Err: %w", err)
 			}
 			return err
 		})
@@ -55,7 +55,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 		return retry.Do(func() error {
 			dstExpected, err = dst.ChainProvider.QueryBalance(dst.ChainProvider.Key())
 			if dstExpected.IsZero() {
-				return fmt.Errorf("expected non-zero balance")
+				return fmt.Errorf("expected non-zero balance. Err: %w", err)
 			}
 			return err
 		})
@@ -79,12 +79,18 @@ func chainTest(t *testing.T, tcs []testChain) {
 	testChannelPair(t, src, dst)
 
 	// send a couple of transfers to the queue on src
-	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.ChainProvider.Address(), 0, 0))
-	require.NoError(t, src.SendTransferMsg(dst, testCoin, dst.ChainProvider.Address(), 0, 0))
+	dstAddr, err := dst.ChainProvider.Address()
+	require.NoError(t, err)
+
+	srcAddr, err := src.ChainProvider.Address()
+	require.NoError(t, err)
+
+	require.NoError(t, src.SendTransferMsg(dst, testCoin, dstAddr, 0, 0))
+	require.NoError(t, src.SendTransferMsg(dst, testCoin, dstAddr, 0, 0))
 
 	// send a couple of transfers to the queue on dst
-	require.NoError(t, dst.SendTransferMsg(src, testCoin, src.ChainProvider.Address(), 0, 0))
-	require.NoError(t, dst.SendTransferMsg(src, testCoin, src.ChainProvider.Address(), 0, 0))
+	require.NoError(t, dst.SendTransferMsg(src, testCoin, srcAddr, 0, 0))
+	require.NoError(t, dst.SendTransferMsg(src, testCoin, srcAddr, 0, 0))
 
 	// Wait for message inclusion in both chains
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(1))
@@ -98,8 +104,8 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(1))
 
 	// send those tokens from dst back to dst and src back to src
-	require.NoError(t, src.SendTransferMsg(dst, twoTestCoin, dst.ChainProvider.Address(), 0, 0))
-	require.NoError(t, dst.SendTransferMsg(src, twoTestCoin, src.ChainProvider.Address(), 0, 0))
+	require.NoError(t, src.SendTransferMsg(dst, twoTestCoin, dstAddr, 0, 0))
+	require.NoError(t, dst.SendTransferMsg(src, twoTestCoin, srcAddr, 0, 0))
 
 	// wait for packet processing
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(6))

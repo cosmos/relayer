@@ -1,9 +1,9 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
 SDKCOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/cosmos-sdk)
-GAIA_VERSION := v5.0.4
+GAIA_VERSION := v6.0.0
 AKASH_VERSION := v0.12.1
-OSMOSIS_VERSION := v4.2.0
+OSMOSIS_VERSION := v6.0.0
 WASMD_VERSION := v0.16.0
 
 GOPATH := $(shell go env GOPATH)

@@ -255,12 +255,17 @@ $ %s query balance ibc-0 testkey`,
 				return errKeyDoesntExist(keyName)
 			}
 
-			coins, err := helpers.QueryBalance(chain, chain.ChainProvider.Address(), showDenoms)
+			addr, err := chain.ChainProvider.ShowAddress(keyName)
 			if err != nil {
 				return err
 			}
 
-			fmt.Println(coins)
+			coins, err := helpers.QueryBalance(chain, addr, showDenoms)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("address {%s} balance {%s} \n", addr, coins)
 			return nil
 		},
 	}
@@ -374,7 +379,6 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 			}
 
 			return chain.Print(res, false, false)
-			//return chain.CLIContext(height).PrintProto(res)
 		},
 	}
 

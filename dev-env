@@ -21,8 +21,6 @@ echo "waiting for blocks..."
 sleep 3
 
 rly tx link demo -d -o 3s
-echo "ibc-1 addr $(rly keys show ibc-1)"
-echo "ibc-0 addr $(rly keys show ibc-0)"
 rly tx transfer ibc-0 ibc-1 100000samoleans "$(rly keys show ibc-1)" -d
 rly tx transfer ibc-1 ibc-0 100000samoleans "$(rly keys show ibc-0)" -d
 sleep 2

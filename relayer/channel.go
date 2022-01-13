@@ -499,10 +499,11 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				return nil, err
 			}
 
-			out.Src = append(out.Src,
-				updateMsg,
-				c.ChainProvider.ChannelCloseInit(c.PortID(), c.ChannelID()),
-			)
+			msg, err := c.ChainProvider.ChannelCloseInit(c.PortID(), c.ChannelID())
+			if err != nil {
+				return nil, err
+			}
+			out.Src = append(out.Src, updateMsg, msg)
 		} else if dstChan.Channel.State != chantypes.UNINITIALIZED {
 			if dst.debug {
 				logChannelStates(dst, c, dstChan, srcChan)
@@ -523,10 +524,11 @@ func (c *Chain) CloseChannelStep(dst *Chain) (*RelayMsgs, error) {
 				return nil, err
 			}
 
-			out.Dst = append(out.Dst,
-				updateMsg,
-				dst.ChainProvider.ChannelCloseInit(dst.PortID(), dst.ChannelID()),
-			)
+			msg, err := dst.ChainProvider.ChannelCloseInit(dst.PortID(), dst.ChannelID())
+			if err != nil {
+				return nil, err
+			}
+			out.Dst = append(out.Dst, updateMsg, msg)
 		}
 
 	// Closing handshake has started on src, relay `updateClient` and `chanCloseConfirm` to dst

@@ -14,8 +14,6 @@ import (
 var (
 	defaultChainPrefix = commitmenttypes.NewMerklePrefix([]byte("ibc"))
 	defaultDelayPeriod = uint64(0)
-	// DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
-	DefaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 )
 
 // PathEnd represents the local connection identifers for a relay path
