@@ -22,7 +22,7 @@ require (
 
 require (
 	github.com/pkg/errors v0.9.1
-	github.com/strangelove-ventures/lens v0.2.0
+	github.com/strangelove-ventures/lens v0.2.1-0.20220114191416-56c3ffa305ba
 )
 
 require (
@@ -75,6 +75,8 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/btree v1.0.0 // indirect
+	github.com/google/go-github v17.0.0+incompatible // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/orderedcode v0.0.1 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/gorilla/handlers v1.5.1 // indirect

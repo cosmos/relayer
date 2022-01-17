@@ -16,10 +16,10 @@ func pathsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "paths",
 		Aliases: []string{"pth"},
-		Short:   "manage path configurations",
+		Short:   "Manage path configurations",
 		Long: `
-A path represents the "full path" or "link" for communication between two chains. This includes the client, 
-connection, and channel ids from both the source and destination chains as well as the strategy to use when relaying`,
+A path represents the "full path" or "link" for communication between two chains. 
+This includes the client, connection, and channel ids from both the source and destination chains as well as the strategy to use when relaying`,
 	}
 
 	cmd.AddCommand(
@@ -36,7 +36,7 @@ func pathsDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "delete [index]",
 		Aliases: []string{"d"},
-		Short:   "delete a path with a given index",
+		Short:   "Delete a path with a given index",
 		Args:    cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths delete demo-path
@@ -57,7 +57,7 @@ func pathsListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"l"},
-		Short:   "print out configured paths",
+		Short:   "Print out configured paths",
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths list --yaml
 $ %s paths list --json
@@ -117,7 +117,7 @@ func pathsShowCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "show [path-name]",
 		Aliases: []string{"s"},
-		Short:   "show a path given its name",
+		Short:   "Show a path given its name",
 		Args:    cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths show demo-path --yaml
@@ -166,7 +166,7 @@ func pathsAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "add [src-chain-id] [dst-chain-id] [path-name]",
 		Aliases: []string{"a"},
-		Short:   "add a path to the list of paths",
+		Short:   "Add a path to the list of paths",
 		Args:    cobra.ExactArgs(3),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths add ibc-0 ibc-1 demo-path
@@ -224,16 +224,6 @@ func fileInputPathAdd(file, name string) (cfg *Config, err error) {
 	if err = config.Paths.Add(name, p); err != nil {
 		return nil, err
 	}
-
-	//srcEnd := p.Src
-	//dstEnd := p.Dst
-	//
-	//// This
-	//src := config.Chains.MustGet(srcEnd.ChainID)
-	//dst := config.Chains.MustGet(dstEnd.ChainID)
-	//
-	//src.PathEnd = srcEnd
-	//dst.PathEnd = dstEnd
 
 	return config, nil
 }

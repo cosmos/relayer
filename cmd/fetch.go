@@ -26,48 +26,13 @@ func fetchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "fetch",
 		Aliases: []string{"fch"},
-		Short:   "Fetch canonical chain and path info for bootstrapping the relayer",
+		Short:   "Fetch canonical path info for configured chains",
 	}
 
 	cmd.AddCommand(
-		fetchChainCmd(),
 		fetchPathsCmd(),
 	)
 
-	return cmd
-}
-
-// fetchChainCmd takes a chain-id as input and attempts to fetch the json file containing the specified chains
-// metadata from GitHub
-func fetchChainCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "chain [chain-id]",
-		Args:    cobra.ExactArgs(1),
-		Aliases: []string{"chn", "c"},
-		Short:   "Fetches the json file necessary to configure the specified chain",
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s fetch chain osmosis-1 --home %s
-$ %s fch chn cosmoshub-4`, appName, defaultHome, appName)),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			chainID := args[0]
-			fName := fmt.Sprintf("%s.json", chainID)
-			uri := fmt.Sprintf("%s%s", jsonURL, fName)
-
-			cfg, err := urlInputAdd(uri)
-			if err != nil {
-				return err
-			}
-
-			if err = overWriteConfig(cfg); err != nil {
-				return fmt.Errorf("be sure you have initialized the relayer config with `rly config init` err: %s \n", err)
-			}
-
-			fmt.Printf("Successfully added %s to the relayer configuration. \n", chainID)
-			fmt.Printf("Be sure to change default key & rpc-addr values in %s. \n", homePath)
-
-			return nil
-		},
-	}
 	return cmd
 }
 

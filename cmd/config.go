@@ -49,7 +49,7 @@ func configCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "config",
 		Aliases: []string{"cfg"},
-		Short:   "manage configuration file",
+		Short:   "Manage configuration file",
 	}
 
 	cmd.AddCommand(
@@ -179,8 +179,8 @@ func configAddChainsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:  "add-chains [/path/to/chains/]",
 		Args: cobra.ExactArgs(1),
-		Short: `Add new chains to the configuration file from a
-		 directory full of chain configurations, useful for adding testnet configurations`,
+		Short: `Add new chains to the configuration file from a directory full of chain 
+              configurations, useful for adding testnet configurations`,
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s config add-chains configs/chains`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
@@ -200,8 +200,9 @@ func configAddPathsCmd() *cobra.Command {
 		Use:  "add-paths [/path/to/paths/]",
 		Args: cobra.ExactArgs(1),
 		//nolint:lll
-		Short: `Add new paths to the configuration file from a directory full of path configurations, useful for adding testnet configurations. 
-		Chain configuration files must be added before calling this command.`,
+		Short: `Add new paths to the configuration file from a directory full of path 
+              configurations, useful for adding testnet configurations. 
+              NOTE: Chain configuration files must be added before calling this command.`,
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s config add-paths configs/paths`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
