@@ -54,7 +54,7 @@ To quickly setup the IBC relayer on a canonical path (i.e. path being actively u
 
    > **NOTE:** Don't see the chain you want to relay on? Please open a PR to add this metadata to the GitHub repo!
 
-4. In our example we will configure the relayer to operate between the Cosmos Hub & Osmosis. 
+4. In our example we will configure the relayer to operate between the Cosmos Hub & Osmosis.   
    The `chains add` cmd will retrieve the relevant chain configurations from [chain-registry](https://github.com/cosmos/chain-registry) & add them to the relayers config file.
 
    ```shell
@@ -66,7 +66,8 @@ To quickly setup the IBC relayer on a canonical path (i.e. path being actively u
    > **NOTE:** Strangelove maintains archive nodes for a number of networks and provides them for public usage. Chains that we maintain endpoints for are preconfigured.
 
 6. Either import or create new keys for the relayer to use when signing and relaying transactions.   
-   `key-name` is an identifier of your choosing.  
+   
+   > **NOTE:** `key-name` is an identifier of your choosing.  
    
     ```shell
     $ rly keys add cosmoshub-4 [key-name]  
@@ -74,8 +75,8 @@ To quickly setup the IBC relayer on a canonical path (i.e. path being actively u
     ```
 
 7. Edit the relayer's config file to assign the chain-specific keys created or imported above to the specific chain's configuration. 
-   Default file location is `~/.relayer/config/config.yaml`
-   `key-name` is the same as Step 7.
+
+   > **NOTE:** Default file location is `~/.relayer/config/config.yaml` & `key-name` is the same as Step 6.
 
 8. Both relayer accounts, i.e. the two keys we just added or imported, need to be
    funded with tokens on the appropriate network in order to successfully relay transactions
@@ -89,7 +90,7 @@ To quickly setup the IBC relayer on a canonical path (i.e. path being actively u
    $ rly q balance osmosis-1
    ```
 
-10. Fetch and configure the relevant path configuration files for the two chains.
+10. Fetch and configure the relevant path configuration files for the two chains.  
     `paths fetch` will check for the relevant `path.json` files for all configured chains in the [interchain](https://github.com/cosmos/relayer/tree/main/interchain) directory
 
     > **NOTE:** Don't see the path metadata for paths you want to relay on? Please open a PR to add this metadata to the GitHub repo!
