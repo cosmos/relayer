@@ -36,35 +36,36 @@ wanting to build their [IBC](https://ibcprotocol.org/)-compliant relayer.
 
 To quickly setup the IBC relayer on a canonical path (i.e. path being actively used) between two IBC-enabled networks, the following steps should be performed:
 
-1. Install the latest release via GitHub as follows or by downloading built binaries on the [releases page](https://github.com/strangelove-ventures/relayer/releases).
+1. Install the latest release via GitHub as follows or by downloading built binaries on the [releases page](https://github.com/cosmos/relayer/releases).
 
     ```
-    $ git clone git@github.com:strangelove-ventures/relayer.git
-    $ git checkout v1.0.0
+    $ git clone git@github.com:cosmos/relayer.git
+    $ git checkout v2.0.0
     $ cd relayer && make install
     ```
 
-2. Initialize the relayer's configuration.
+2. Initialize the relayer's configuration directory/file
 
    ```shell
    $ rly config init
    ```
 
-3. Ensure the chains you want to configure have the pertinent config files [here](https://github.com/strangelove-ventures/relayer/tree/main/interchain/chains). Don't see the chain you want to relay on? Please open a PR to add this metadata to the GitHub repo!
+3. Ensure the chains you want to configure have the pertinent config files [here](https://github.com/cosmos/chain-registry). 
 
-4. In our example we will configure the relayer to operate between the Cosmos Hub & Osmosis. The fetch cmd will retrieve the relevant chain configurations from [GitHub](https://github.com/strangelove-ventures/relayer/tree/main/interchain/chains) & add them to the relayers config file.
+   > **NOTE:** Don't see the chain you want to relay on? Please open a PR to add this metadata to the GitHub repo!
+
+4. In our example we will configure the relayer to operate between the Cosmos Hub & Osmosis. 
+   The `chains add` cmd will retrieve the relevant chain configurations from [chain-registry](https://github.com/cosmos/chain-registry) & add them to the relayers config file.
 
    ```shell
-   $ rly fetch chain cosmoshub-4  
-   $ rly fetch chain osmosis-1
+   $ rly chains add cosmoshub osmosis
    ```
 
 5. The relayer connects to a node on the respective networks, via the configured RPC endpoints for each chain. Ensure the `rpc-addr` field for both chains in `config.yaml` points to a valid RPC endpoint.
 
-> **NOTE:** Strangelove maintains archive nodes for a number of networks and provides them for public usage. Chains that we maintain endpoints for are preconfigured.
+   > **NOTE:** Strangelove maintains archive nodes for a number of networks and provides them for public usage. Chains that we maintain endpoints for are preconfigured.
 
-6. Either import or create new keys for the relayer to use when signing and
-   relaying transactions.   
+6. Either import or create new keys for the relayer to use when signing and relaying transactions.   
    `key-name` is an identifier of your choosing.  
    
     ```shell
@@ -72,14 +73,14 @@ To quickly setup the IBC relayer on a canonical path (i.e. path being actively u
     $ rly keys add osmosis-1 [key-name]  
     ```
 
-7. Edit the relayer's config file to assign the chain-specific keys created or imported above to the
-   specific chain's configuration. Default file location is `~/.relayer/config/config.yaml`
+7. Edit the relayer's config file to assign the chain-specific keys created or imported above to the specific chain's configuration. 
+   Default file location is `~/.relayer/config/config.yaml`
    `key-name` is the same as Step 7.
 
 8. Both relayer accounts, i.e. the two keys we just added or imported, need to be
    funded with tokens on the appropriate network in order to successfully relay transactions
-   between the IBC-connected networks. How this occurs depends on the network,
-   context and environment, e.g. local or test networks can use a faucet.
+   between the IBC-connected networks. 
+   How this occurs depends on the network, context and environment, e.g. local or test networks can use a faucet.
 
 9. Ensure both relayer accounts are funded by querying each.
 
@@ -89,13 +90,16 @@ To quickly setup the IBC relayer on a canonical path (i.e. path being actively u
    ```
 
 10. Fetch and configure the relevant path configuration files for the two chains.
+    `paths fetch` will check for the relevant `path.json` files for all configured chains in the [interchain](https://github.com/cosmos/relayer/tree/main/interchain) directory
+
+    > **NOTE:** Don't see the path metadata for paths you want to relay on? Please open a PR to add this metadata to the GitHub repo!
 
      ```shell
-     $ rly fetch paths
+     $ rly paths fetch
      ```
 
-11. Finally, we start the relayer on the path. The relayer will periodically update 
-    the clients and listen for IBC messages to relay.
+11. Finally, we start the relayer on the path. 
+    The relayer will periodically update the clients and listen for IBC messages to relay.
 
     ```shell
     $ rly paths list
@@ -107,11 +111,11 @@ To quickly setup the IBC relayer on a canonical path (i.e. path being actively u
 To setup and start the IBC relayer between two IBC-enabled networks, the following
 steps are typically performed:
 
-1. Install the latest release via GitHub as follows or by downloading built binaries on the [releases page](https://github.com/strangelove-ventures/relayer/releases).
+1. Install the latest release via GitHub as follows or by downloading built binaries on the [releases page](https://github.com/cosmos/relayer/releases).
 
     ```
-    $ git clone git@github.com:strangelove-ventures/relayer.git
-    $ git checkout v1.0.0-rc2
+    $ git clone git@github.com:cosmos/relayer.git
+    $ git checkout v2.0.0
     $ cd relayer && make install
     ```
 
@@ -121,26 +125,34 @@ steps are typically performed:
    $ rly config init
    ```
 
-3. Add relevant chain configurations to the relayer's configuration. See the
-   [Chain](https://pkg.go.dev/github.com/strangelove-ventures/relayer/relayer#Chain) type for
-   more information.
+3. Add relevant chain configurations to the relayer's configuration. 
+   See the [Chain](https://pkg.go.dev/github.com/strangelove-ventures/relayer/relayer#Chain) type for more information.
 
    e.g. chain configuration:
 
    ```shell
-   # chain_a_config.json
+   # cosmoshub-4.json
    {
-     "chain-id": "chain-a",
-     "rpc-addr": "http://127.0.0.1:26657",
-     "account-prefix": "cosmos",
-     "gas-adjustment": 1.5,
-     "gas-prices": "0.001umuon",
-     "trusting-period": "10m"
+     "type": "cosmos",
+     "value": {
+         "key": "test-key",
+         "chain-id": "cosmoshub-4",
+         "rpc-addr": "https://cosmoshub-4.technofractal.com:443",
+         "grpc-addr": "https://gprc.cosmoshub-4.technofractal.com:443",
+         "account-prefix": "cosmos",
+         "keyring-backend": "test",
+         "gas-adjustment": 1.3,
+         "gas-prices": "0.025uatom",
+         "debug": true,
+         "timeout": "10s",
+         "output-format": "json",
+         "sign-mode": "direct"
+    }
    }
    ```
 
    ```shell
-   $ rly chains add -f chain_a_config.json
+   $ rly chains add -f cosmoshub-4.json
    $ rly chains add -f chain_b_config.json
    ```
 
