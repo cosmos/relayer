@@ -85,7 +85,6 @@ func NewRootCmd() *cobra.Command {
 		chainsCmd(),
 		pathsCmd(),
 		keysCmd(),
-		fetchCmd(),
 		flags.LineBreak,
 		transactionCmd(),
 		queryCmd(),
