@@ -53,7 +53,7 @@ To quickly setup the IBC relayer on a canonical path (i.e. path being actively u
 3. Ensure the chains you want to configure have the pertinent config files [here](https://github.com/cosmos/chain-registry). 
 
    > **NOTE:** Don't see the chain you want to relay on?   
-             > Please open a PR to add this metadata to the GitHub repo!
+   > Please open a PR to add this metadata to the GitHub repo!
 
 4. In our example we will configure the relayer to operate between the Cosmos Hub & Osmosis.   
    The `chains add` cmd will retrieve the relevant chain configurations from [chain-registry](https://github.com/cosmos/chain-registry) & add them to the relayers config file.
@@ -95,7 +95,7 @@ To quickly setup the IBC relayer on a canonical path (i.e. path being actively u
     `paths fetch` will check for the relevant `path.json` files for all configured chains in the [interchain](https://github.com/cosmos/relayer/tree/main/interchain) directory
 
     > **NOTE:** Don't see the path metadata for paths you want to relay on?   
-              > Please open a PR to add this metadata to the GitHub repo!
+    > Please open a PR to add this metadata to the GitHub repo!
 
      ```shell
      $ rly paths fetch
