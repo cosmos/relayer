@@ -36,6 +36,7 @@ This includes the client, connection, and channel ids from both the source and d
 		pathsListCmd(),
 		pathsShowCmd(),
 		pathsAddCmd(),
+		pathsNewCmd(),
 		pathsFetchCmd(),
 		pathsDeleteCmd(),
 	)
@@ -135,17 +136,17 @@ $ %s paths show demo-path --yaml
 $ %s paths show demo-path --json
 $ %s pth s path-name`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			path, err := config.Paths.Get(args[0])
+			p, err := config.Paths.Get(args[0])
 			if err != nil {
 				return err
 			}
-			chains, err := config.Chains.Gets(path.Src.ChainID, path.Dst.ChainID)
+			chains, err := config.Chains.Gets(p.Src.ChainID, p.Dst.ChainID)
 			if err != nil {
 				return err
 			}
 			jsn, _ := cmd.Flags().GetBool(flagJSON)
 			yml, _ := cmd.Flags().GetBool(flagYAML)
-			pathWithStatus := path.QueryPathStatus(chains[path.Src.ChainID], chains[path.Dst.ChainID])
+			pathWithStatus := p.QueryPathStatus(chains[p.Src.ChainID], chains[p.Dst.ChainID])
 			switch {
 			case yml && jsn:
 				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
@@ -210,6 +211,50 @@ $ %s pth a ibc-0 ibc-1 demo-path`, appName, appName, appName)),
 		},
 	}
 	return fileFlag(cmd)
+}
+
+func pathsNewCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "new [src-chain-id] [dst-chain-id] [path-name]",
+		Aliases: []string{"n"},
+		Short:   "Create a new blank path to be used in generating a new path (connection, client & channel) between two chains",
+		Args:    cobra.ExactArgs(3),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s paths new ibc-0 ibc-1 demo-path
+$ %s paths new ibc-0 ibc-1 demo-path --unordered false --version ics20-2 --port transfer
+$ %s pth n ibc-0 ibc-1 demo-path`, appName, appName, appName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			_, err := config.Chains.Gets(src, dst)
+			if err != nil {
+				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
+			}
+
+			version, _ := cmd.Flags().GetString(flagVersion)
+			port, _ := cmd.Flags().GetString(flagPort)
+			p := &relayer.Path{
+				Src: &relayer.PathEnd{ChainID: src, PortID: port, Version: version},
+				Dst: &relayer.PathEnd{ChainID: dst, PortID: port, Version: version},
+			}
+
+			// get desired order of the channel
+			if unordered, _ := cmd.Flags().GetBool(flagOrder); unordered {
+				p.Src.Order = UNORDERED
+				p.Dst.Order = UNORDERED
+			} else {
+				p.Src.Order = ORDERED
+				p.Dst.Order = ORDERED
+			}
+
+			name := args[2]
+			if err = config.Paths.Add(name, p); err != nil {
+				return err
+			}
+
+			return overWriteConfig(config)
+		},
+	}
+	return orderFlag(versionFlag(portFlag(cmd)))
 }
 
 // pathsFetchCmd attempts to fetch the json files containing the path metadata, for each configured chain, from GitHub

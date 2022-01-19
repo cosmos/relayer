@@ -38,9 +38,9 @@ import (
 
 const (
 	// ORDERED is exported channel type constant
-	ORDERED = "ORDERED"
+	ORDERED = "ordered"
 	// UNORDERED is exported channel type constant
-	UNORDERED      = "UNORDERED"
+	UNORDERED      = "unordered"
 	defaultOrder   = ORDERED
 	defaultVersion = "ics20-1"
 )
@@ -699,8 +699,7 @@ func (c *Config) ValidatePathEnd(pe *relayer.PathEnd) error {
 
 	chain, err := c.Chains.Get(pe.ChainID)
 	if err != nil {
-		fmt.Printf("Chain %s is not currently configured. \n"+
-			"Run `rly fetch chain %s` if you plan to relay to/from this chain. \n", pe.ChainID, pe.ChainID)
+		fmt.Printf("Chain %s is not currently configured. \n", pe.ChainID)
 		return nil
 	}
 
