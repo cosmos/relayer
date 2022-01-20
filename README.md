@@ -68,16 +68,25 @@ To quickly setup the IBC relayer on a canonical path (i.e. path being actively u
 
 6. Either import or create new keys for the relayer to use when signing and relaying transactions.   
    
-   > **NOTE:** `key-name` is an identifier of your choosing.  
+   > **NOTE:** `key-name` is an identifier of your choosing.    
+
+   **Create**(add):
    
     ```shell
     $ rly keys add cosmoshub-4 [key-name]  
     $ rly keys add osmosis-1 [key-name]  
     ```
+      OR
 
-7. Edit the relayer's config file to assign the chain-specific keys created or imported above to the specific chain's configuration. 
+   **Import**(restore):
+   ```shell
+   $ rly keys restore cosmoshub-4 [key-name] "mnemonic words here"
+   $ rly keys restore osmosis-1 [key-name] "mnemonic words here"
+   ```
 
-   > **NOTE:** Default file location is `~/.relayer/config/config.yaml` & `key-name` is the same as Step 6.
+7. Edit the relayer's "key:" values in the config file to match the `key-name`'s chosen above. This step is necessary if you chose a `key-name` other than "default" 
+
+   > **NOTE:** Default file location is `~/.relayer/config/config.yaml`.
 
 8. Both relayer accounts, i.e. the two keys we just added or imported, need to be
    funded with tokens on the appropriate network in order to successfully relay transactions
