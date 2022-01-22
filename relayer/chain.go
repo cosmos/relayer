@@ -3,6 +3,7 @@ package relayer
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/avast/retry-go"
 	"net/url"
 	"os"
 	"strings"
@@ -13,6 +14,13 @@ import (
 	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/libs/log"
+)
+
+var (
+	RtyAttNum = uint(5)
+	RtyAtt    = retry.Attempts(RtyAttNum)
+	RtyDel    = retry.Delay(time.Millisecond * 400)
+	RtyErr    = retry.LastErrorOnly(true)
 )
 
 // Chain represents the necessary data for connecting to and identifying a chain and its counterparties

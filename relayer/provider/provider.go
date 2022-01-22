@@ -147,3 +147,9 @@ type RelayPacket interface {
 	Timeout() clienttypes.Height
 	TimeoutStamp() uint64
 }
+
+// KeyOutput contains mnemonic and address of key
+type KeyOutput struct {
+	Mnemonic string `json:"mnemonic" yaml:"mnemonic"`
+	Address  string `json:"address" yaml:"address"`
+}
