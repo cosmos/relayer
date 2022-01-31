@@ -1,8 +1,10 @@
 package relayer
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/cosmos/relayer/relayer/provider"
+	"github.com/strangelove-ventures/lens/client"
 	"strconv"
 	"strings"
 	"time"
@@ -16,9 +18,9 @@ import (
 func (c *Chain) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
 	if c.debug {
 		c.Log(fmt.Sprintf("- [%s] -> failed sending transaction:", c.ChainID()))
-		//for _, msg := range msgs {
-		//	//c.Print(msg, false, false)
-		//}
+		for _, msg := range msgs {
+			_ = c.Print(client.CosmosMsg(msg), false, false)
+		}
 	}
 
 	if err != nil {
@@ -28,15 +30,41 @@ func (c *Chain) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []p
 		}
 	}
 
-	if res.Code != 0 && res.Data != "" {
-		c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%d:%s)",
-			c.ChainID(), res.Height, getMsgTypes(msgs), res.Code, res.Data))
+	if res != nil {
+		if res.Code != 0 && res.Data != "" {
+			c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%d:%s)",
+				c.ChainID(), res.Height, getMsgTypes(msgs), res.Code, res.Data))
+		}
 	}
 
-	//if c.debug && !res.Empty() {
-	//	c.Log("- transaction response:")
-	//	c.Print(res, false, false)
-	//}
+	if c.debug && res != nil {
+		c.Log("- transaction response:")
+		_ = c.PrintRelayerTxResponse(res, false, false)
+	}
+}
+
+func (c *Chain) PrintRelayerTxResponse(res *provider.RelayerTxResponse, text, indent bool) error {
+	var (
+		out []byte
+		err error
+	)
+
+	switch {
+	case indent && text:
+		return fmt.Errorf("must pass either indent or text, not both")
+	case text:
+		// TODO: This isn't really a good option,
+		out = []byte(fmt.Sprintf("%v", res))
+	default:
+		out, err = json.Marshal(res)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(string(out))
+	return nil
 }
 
 // LogSuccessTx take the transaction and the messages to create it and logs the appropriate data
