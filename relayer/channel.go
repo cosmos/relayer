@@ -5,6 +5,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/avast/retry-go"
+	"github.com/cosmos/ibc-go/v2/modules/core/exported"
+	"github.com/cosmos/relayer/relayer/provider"
+
 	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
 )
 
@@ -80,15 +84,27 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 // file. The booleans return indicate if the message was successfully
 // executed and if this was the last handshake step.
 func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err error) {
-	srch, dsth, err := QueryLatestHeights(src, dst)
-	if err != nil {
-		return false, false, false, err
+	var (
+		srch, dsth           int64
+		srcHeader, dstHeader exported.Header
+		msgs                 []provider.RelayerMessage
+		res                  *provider.RelayerTxResponse
+	)
+
+	if err = retry.Do(func() error {
+		srch, dsth, err = QueryLatestHeights(src, dst)
+		if err != nil || srch == 0 || dsth == 0 {
+			return fmt.Errorf("failed to query latest heights. Err: %w", err)
+		}
+		return err
+	}, RtyAtt, RtyDel, RtyErr); err != nil {
+		return success, last, modified, err
 	}
 
 	// if either identifier is missing, an existing channel that matches the required fields
 	// is chosen or a new channel is created.
 	if src.PathEnd.ChannelID == "" || dst.PathEnd.ChannelID == "" {
-		success, modified, err := InitializeChannel(src, dst)
+		success, modified, err = InitializeChannel(src, dst)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -112,22 +128,34 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
 
-		dsth, err := dst.ChainProvider.QueryLatestHeight()
+		if err = retry.Do(func() error {
+			dsth, err = dst.ChainProvider.QueryLatestHeight()
+			if err != nil || dsth == 0 {
+				return fmt.Errorf("failed to query latest heights. Err: %w", err)
+			}
+			return err
+		}, RtyAtt, RtyDel, RtyErr); err != nil {
+			return success, last, modified, err
+		}
+
+		if err = retry.Do(func() error {
+			dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
+			if err != nil || srch == 0 || dsth == 0 {
+				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
+			}
+			return err
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			dsth, err = dst.ChainProvider.QueryLatestHeight()
+		})); err != nil {
+			return success, last, modified, err
+		}
+
+		msgs, err = src.ChainProvider.ChannelOpenTry(dst.ChainProvider, dstHeader, src.PortID(), dst.PortID(), src.ChannelID(), dst.ChannelID(), src.Version(), src.ConnectionID(), src.ClientID())
 		if err != nil {
 			return false, false, false, err
 		}
 
-		dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
-		if err != nil {
-			return false, false, false, err
-		}
-
-		msgs, err := src.ChainProvider.ChannelOpenTry(dst.ChainProvider, dstHeader, src.PortID(), dst.PortID(), src.ChannelID(), dst.ChannelID(), src.Version(), src.ConnectionID(), src.ClientID())
-		if err != nil {
-			return false, false, false, err
-		}
-
-		res, success, err := src.ChainProvider.SendMessages(msgs)
+		res, success, err = src.ChainProvider.SendMessages(msgs)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
 		}
@@ -144,22 +172,34 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
 
-		dsth, err := dst.ChainProvider.QueryLatestHeight()
+		if err = retry.Do(func() error {
+			dsth, err = dst.ChainProvider.QueryLatestHeight()
+			if err != nil || dsth == 0 {
+				return fmt.Errorf("failed to query latest heights. Err: %w", err)
+			}
+			return err
+		}, RtyAtt, RtyDel, RtyErr); err != nil {
+			return success, last, modified, err
+		}
+
+		if err = retry.Do(func() error {
+			dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
+			if err != nil || srch == 0 || dsth == 0 {
+				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
+			}
+			return err
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			dsth, err = dst.ChainProvider.QueryLatestHeight()
+		})); err != nil {
+			return success, last, modified, err
+		}
+
+		msgs, err = src.ChainProvider.ChannelOpenAck(dst.ChainProvider, dstHeader, src.ClientID(), src.PortID(), src.ChannelID(), dst.ChannelID(), dst.PortID())
 		if err != nil {
 			return false, false, false, err
 		}
 
-		dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
-		if err != nil {
-			return false, false, false, err
-		}
-
-		msgs, err := src.ChainProvider.ChannelOpenAck(dst.ChainProvider, dstHeader, src.ClientID(), src.PortID(), src.ChannelID(), dst.ChannelID(), dst.PortID())
-		if err != nil {
-			return false, false, false, err
-		}
-
-		res, success, err := src.ChainProvider.SendMessages(msgs)
+		res, success, err = src.ChainProvider.SendMessages(msgs)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
 		}
@@ -175,22 +215,34 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(dst, src, dstChan, srcChan)
 		}
 
-		srch, err := src.ChainProvider.QueryLatestHeight()
+		if err = retry.Do(func() error {
+			srch, err = src.ChainProvider.QueryLatestHeight()
+			if err != nil || srch == 0 {
+				return fmt.Errorf("failed to query latest heights. Err: %w", err)
+			}
+			return err
+		}, RtyAtt, RtyDel, RtyErr); err != nil {
+			return success, last, modified, err
+		}
+
+		if err = retry.Do(func() error {
+			srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
+			if err != nil || srch == 0 || dsth == 0 {
+				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
+			}
+			return err
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			dsth, err = dst.ChainProvider.QueryLatestHeight()
+		})); err != nil {
+			return success, last, modified, err
+		}
+
+		msgs, err = dst.ChainProvider.ChannelOpenAck(src.ChainProvider, srcHeader, dst.ClientID(), dst.PortID(), dst.ChannelID(), src.ChannelID(), src.PortID())
 		if err != nil {
 			return false, false, false, err
 		}
 
-		srcHeader, err := src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
-		if err != nil {
-			return false, false, false, err
-		}
-
-		msgs, err := dst.ChainProvider.ChannelOpenAck(src.ChainProvider, srcHeader, dst.ClientID(), dst.PortID(), dst.ChannelID(), src.ChannelID(), src.PortID())
-		if err != nil {
-			return false, false, false, err
-		}
-
-		res, success, err := dst.ChainProvider.SendMessages(msgs)
+		res, success, err = dst.ChainProvider.SendMessages(msgs)
 		if err != nil {
 			dst.LogFailedTx(res, err, msgs)
 		}
@@ -204,24 +256,36 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(src, dst, srcChan, dstChan)
 		}
 
-		dsth, err := dst.ChainProvider.QueryLatestHeight()
-		if err != nil {
-			return false, false, false, err
+		if err = retry.Do(func() error {
+			dsth, err = dst.ChainProvider.QueryLatestHeight()
+			if err != nil || dsth == 0 {
+				return fmt.Errorf("failed to query latest heights. Err: %w", err)
+			}
+			return err
+		}, RtyAtt, RtyDel, RtyErr); err != nil {
+			return success, last, modified, err
 		}
 
-		dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
-		if err != nil {
-			return false, false, false, err
+		if err = retry.Do(func() error {
+			dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
+			if err != nil || srch == 0 || dsth == 0 {
+				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
+			}
+			return err
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			dsth, err = dst.ChainProvider.QueryLatestHeight()
+		})); err != nil {
+			return success, last, modified, err
 		}
 
-		msgs, err := src.ChainProvider.ChannelOpenConfirm(dst.ChainProvider, dstHeader, src.ClientID(), src.PortID(), src.ChannelID(), dst.PortID(), dst.ChannelID())
+		msgs, err = src.ChainProvider.ChannelOpenConfirm(dst.ChainProvider, dstHeader, src.ClientID(), src.PortID(), src.ChannelID(), dst.PortID(), dst.ChannelID())
 		if err != nil {
 			return false, false, false, err
 		}
 
 		last = true
 
-		res, success, err := src.ChainProvider.SendMessages(msgs)
+		res, success, err = src.ChainProvider.SendMessages(msgs)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
 		}
@@ -235,22 +299,34 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			logChannelStates(dst, src, dstChan, srcChan)
 		}
 
-		srch, err := src.ChainProvider.QueryLatestHeight()
+		if err = retry.Do(func() error {
+			srch, err = src.ChainProvider.QueryLatestHeight()
+			if err != nil || srch == 0 {
+				return fmt.Errorf("failed to query latest heights. Err: %w", err)
+			}
+			return err
+		}, RtyAtt, RtyDel, RtyErr); err != nil {
+			return success, last, modified, err
+		}
+
+		if err = retry.Do(func() error {
+			srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
+			if err != nil || srch == 0 || dsth == 0 {
+				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
+			}
+			return err
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			dsth, err = dst.ChainProvider.QueryLatestHeight()
+		})); err != nil {
+			return success, last, modified, err
+		}
+
+		msgs, err = dst.ChainProvider.ChannelOpenConfirm(src.ChainProvider, srcHeader, dst.ClientID(), dst.PortID(), dst.ChannelID(), src.PortID(), src.ChannelID())
 		if err != nil {
 			return false, false, false, err
 		}
 
-		srcHeader, err := src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
-		if err != nil {
-			return false, false, false, err
-		}
-
-		msgs, err := dst.ChainProvider.ChannelOpenConfirm(src.ChainProvider, srcHeader, dst.ClientID(), dst.PortID(), dst.ChannelID(), src.PortID(), src.ChannelID())
-		if err != nil {
-			return false, false, false, err
-		}
-
-		res, success, err := dst.ChainProvider.SendMessages(msgs)
+		res, success, err = dst.ChainProvider.SendMessages(msgs)
 		if err != nil {
 			dst.LogFailedTx(res, err, msgs)
 		}
@@ -273,6 +349,13 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither channel exists.
 func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
+	var (
+		srch, dsth           int64
+		srcHeader, dstHeader exported.Header
+		msgs                 []provider.RelayerMessage
+		res                  *provider.RelayerTxResponse
+	)
+
 	switch {
 
 	// OpenInit on source
@@ -285,22 +368,34 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 		channelID, found := FindMatchingChannel(src, dst)
 		if !found {
 
-			dsth, err := dst.ChainProvider.QueryLatestHeight()
+			if err = retry.Do(func() error {
+				dsth, err = dst.ChainProvider.QueryLatestHeight()
+				if err != nil || dsth == 0 {
+					return fmt.Errorf("failed to query latest heights. Err: %w", err)
+				}
+				return err
+			}, RtyAtt, RtyDel, RtyErr); err != nil {
+				return false, false, err
+			}
+
+			if err = retry.Do(func() error {
+				dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
+				if err != nil || srch == 0 || dsth == 0 {
+					return fmt.Errorf("failed to get IBC update header. Err: %w", err)
+				}
+				return err
+			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+				dsth, err = dst.ChainProvider.QueryLatestHeight()
+			})); err != nil {
+				return false, false, err
+			}
+
+			msgs, err = src.ChainProvider.ChannelOpenInit(src.ClientID(), src.ConnectionID(), src.PortID(), src.Version(), dst.PortID(), OrderFromString(strings.ToUpper(src.Order())), dstHeader)
 			if err != nil {
 				return false, false, err
 			}
 
-			dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
-			if err != nil {
-				return false, false, err
-			}
-
-			msgs, err := src.ChainProvider.ChannelOpenInit(src.ClientID(), src.ConnectionID(), src.PortID(), src.Version(), dst.PortID(), OrderFromString(strings.ToUpper(src.Order())), dstHeader)
-			if err != nil {
-				return false, false, err
-			}
-
-			res, success, err := src.ChainProvider.SendMessages(msgs)
+			res, success, err = src.ChainProvider.SendMessages(msgs)
 			if err != nil {
 				src.LogFailedTx(res, err, msgs)
 			}
@@ -331,23 +426,36 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 
 		channelID, found := FindMatchingChannel(src, dst)
 		if !found {
-			dsth, err := dst.ChainProvider.QueryLatestHeight()
-			if err != nil {
+
+			if err = retry.Do(func() error {
+				dsth, err = dst.ChainProvider.QueryLatestHeight()
+				if err != nil || dsth == 0 {
+					return fmt.Errorf("failed to query latest heights. Err: %w", err)
+				}
+				return err
+			}, RtyAtt, RtyDel, RtyErr); err != nil {
 				return false, false, err
 			}
 
-			dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
-			if err != nil {
+			if err = retry.Do(func() error {
+				dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
+				if err != nil || srch == 0 || dsth == 0 {
+					return fmt.Errorf("failed to get IBC update header. Err: %w", err)
+				}
+				return err
+			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+				dsth, err = dst.ChainProvider.QueryLatestHeight()
+			})); err != nil {
 				return false, false, err
 			}
 
 			// open try on source chain
-			msgs, err := src.ChainProvider.ChannelOpenTry(dst.ChainProvider, dstHeader, src.PortID(), dst.PortID(), src.ChannelID(), dst.ChannelID(), src.Version(), src.ConnectionID(), src.ClientID())
+			msgs, err = src.ChainProvider.ChannelOpenTry(dst.ChainProvider, dstHeader, src.PortID(), dst.PortID(), src.ChannelID(), dst.ChannelID(), src.Version(), src.ConnectionID(), src.ClientID())
 			if err != nil {
 				return false, false, err
 			}
 
-			res, success, err := src.ChainProvider.SendMessages(msgs)
+			res, success, err = src.ChainProvider.SendMessages(msgs)
 			if err != nil {
 				src.LogFailedTx(res, err, msgs)
 			}
@@ -379,23 +487,35 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 		channelID, found := FindMatchingChannel(dst, src)
 		if !found {
 
-			srch, err := src.ChainProvider.QueryLatestHeight()
-			if err != nil {
+			if err = retry.Do(func() error {
+				srch, err = src.ChainProvider.QueryLatestHeight()
+				if err != nil || srch == 0 {
+					return fmt.Errorf("failed to query latest heights. Err: %w", err)
+				}
+				return err
+			}, RtyAtt, RtyDel, RtyErr); err != nil {
 				return false, false, err
 			}
 
-			srcHeader, err := src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
-			if err != nil {
+			if err = retry.Do(func() error {
+				srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
+				if err != nil || srch == 0 || dsth == 0 {
+					return fmt.Errorf("failed to get IBC update header. Err: %w", err)
+				}
+				return err
+			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+				dsth, err = dst.ChainProvider.QueryLatestHeight()
+			})); err != nil {
 				return false, false, err
 			}
 
 			// open try on destination chain
-			msgs, err := dst.ChainProvider.ChannelOpenTry(src.ChainProvider, srcHeader, dst.PortID(), src.PortID(), dst.ChannelID(), src.ChannelID(), dst.Version(), dst.ConnectionID(), dst.ClientID())
+			msgs, err = dst.ChainProvider.ChannelOpenTry(src.ChainProvider, srcHeader, dst.PortID(), src.PortID(), dst.ChannelID(), src.ChannelID(), dst.Version(), dst.ConnectionID(), dst.ClientID())
 			if err != nil {
 				return false, false, err
 			}
 
-			res, success, err := dst.ChainProvider.SendMessages(msgs)
+			res, success, err = dst.ChainProvider.SendMessages(msgs)
 			if err != nil {
 				dst.LogFailedTx(res, err, msgs)
 			}
