@@ -22,7 +22,7 @@ require (
 
 require (
 	github.com/pkg/errors v0.9.1
-	github.com/strangelove-ventures/lens v0.2.1
+	github.com/strangelove-ventures/lens v0.2.2-0.20220128163830-0f63f3a94653
 )
 
 require (
