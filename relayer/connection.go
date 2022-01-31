@@ -105,6 +105,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 		srcHeader, dstHeader, err = GetIBCUpdateHeaders(srch, dsth, src.ChainProvider, dst.ChainProvider, src.ClientID(), dst.ClientID())
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		src.Log(fmt.Sprintf("failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
 		srch, dsth, _ = QueryLatestHeights(src, dst)
 	})); err != nil {
 		return success, last, modified, err
@@ -269,6 +270,7 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 		srcHeader, dstHeader, err = GetIBCUpdateHeaders(srch, dsth, src.ChainProvider, dst.ChainProvider, src.ClientID(), dst.ClientID())
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		src.Log(fmt.Sprintf("failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
 		srch, dsth, _ = QueryLatestHeights(src, dst)
 	})); err != nil {
 		return false, false, err

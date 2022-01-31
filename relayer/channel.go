@@ -140,11 +140,12 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 
 		if err = retry.Do(func() error {
 			dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
-			if err != nil || srch == 0 || dsth == 0 {
+			if err != nil || dsth == 0 {
 				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 			}
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			dst.LogRetryGetIBCUpdateHeader(n, err)
 			dsth, _ = dst.ChainProvider.QueryLatestHeight()
 		})); err != nil {
 			return success, last, modified, err
@@ -184,11 +185,12 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 
 		if err = retry.Do(func() error {
 			dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
-			if err != nil || srch == 0 || dsth == 0 {
+			if err != nil || dsth == 0 {
 				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 			}
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			dst.LogRetryGetIBCUpdateHeader(n, err)
 			dsth, _ = dst.ChainProvider.QueryLatestHeight()
 		})); err != nil {
 			return success, last, modified, err
@@ -227,12 +229,13 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 
 		if err = retry.Do(func() error {
 			srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
-			if err != nil || srch == 0 || dsth == 0 {
+			if err != nil || srch == 0 {
 				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 			}
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			dsth, _ = dst.ChainProvider.QueryLatestHeight()
+			src.LogRetryGetIBCUpdateHeader(n, err)
+			srch, _ = src.ChainProvider.QueryLatestHeight()
 		})); err != nil {
 			return success, last, modified, err
 		}
@@ -268,11 +271,12 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 
 		if err = retry.Do(func() error {
 			dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
-			if err != nil || srch == 0 || dsth == 0 {
+			if err != nil || dsth == 0 {
 				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 			}
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			dst.LogRetryGetIBCUpdateHeader(n, err)
 			dsth, _ = dst.ChainProvider.QueryLatestHeight()
 		})); err != nil {
 			return success, last, modified, err
@@ -311,12 +315,13 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 
 		if err = retry.Do(func() error {
 			srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
-			if err != nil || srch == 0 || dsth == 0 {
+			if err != nil || srch == 0 {
 				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 			}
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			dsth, _ = dst.ChainProvider.QueryLatestHeight()
+			src.LogRetryGetIBCUpdateHeader(n, err)
+			srch, _ = src.ChainProvider.QueryLatestHeight()
 		})); err != nil {
 			return success, last, modified, err
 		}
@@ -380,11 +385,12 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 
 			if err = retry.Do(func() error {
 				dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
-				if err != nil || srch == 0 || dsth == 0 {
+				if err != nil || dsth == 0 {
 					return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 				}
 				return err
 			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+				dst.LogRetryGetIBCUpdateHeader(n, err)
 				dsth, _ = dst.ChainProvider.QueryLatestHeight()
 			})); err != nil {
 				return false, false, err
@@ -439,11 +445,12 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 
 			if err = retry.Do(func() error {
 				dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
-				if err != nil || srch == 0 || dsth == 0 {
+				if err != nil || dsth == 0 {
 					return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 				}
 				return err
 			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+				dst.LogRetryGetIBCUpdateHeader(n, err)
 				dsth, _ = dst.ChainProvider.QueryLatestHeight()
 			})); err != nil {
 				return false, false, err
@@ -499,12 +506,13 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 
 			if err = retry.Do(func() error {
 				srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
-				if err != nil || srch == 0 || dsth == 0 {
+				if err != nil || srch == 0 {
 					return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 				}
 				return err
 			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-				dsth, _ = dst.ChainProvider.QueryLatestHeight()
+				src.LogRetryGetIBCUpdateHeader(n, err)
+				srch, _ = src.ChainProvider.QueryLatestHeight()
 			})); err != nil {
 				return false, false, err
 			}

@@ -215,12 +215,13 @@ func createClientCmd() *cobra.Command {
 			// Query the light signed headers for src & dst at the heights srch & dsth, retry if the query fails
 			var srcUpdateHeader, dstUpdateHeader exported.Header
 			if err = retry.Do(func() error {
-				srcUpdateHeader, dstUpdateHeader, err = relayer.GetIBCUpdateHeaders(srch, dsth, c[src].ChainProvider, c[dst].ChainProvider, c[src].ClientID(), c[dst].ClientID())
+				srcUpdateHeader, dstUpdateHeader, err = relayer.GetLightSignedHeadersAtHeights(c[src], c[dst], srch, dsth)
 				if err != nil {
-					return fmt.Errorf("failed to query IBC update headers. Err: %w", err)
+					return fmt.Errorf("failed to query light signed headers. Err: %w", err)
 				}
 				return err
 			}, relayer.RtyAtt, relayer.RtyDel, relayer.RtyErr, retry.OnRetry(func(n uint, err error) {
+				c[src].LogRetryGetLightSignedHeader(n, err)
 				srch, dsth, _ = relayer.QueryLatestHeights(c[src], c[dst])
 			})); err != nil {
 				return err

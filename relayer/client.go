@@ -33,13 +33,13 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 
 	// Query the light signed headers for src & dst at the heights srch & dsth, retry if the query fails
 	if err = retry.Do(func() error {
-		srcUpdateHeader, dstUpdateHeader, err = GetIBCUpdateHeaders(srch, dsth, c.ChainProvider, dst.ChainProvider, c.ClientID(), dst.ClientID())
+		srcUpdateHeader, dstUpdateHeader, err = GetLightSignedHeadersAtHeights(c, dst, srch, dsth)
 		if err != nil {
 			return fmt.Errorf("failed to query light signed headers. Err: %w", err)
 		}
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		c.Log(fmt.Sprintf("failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
+		c.LogRetryGetLightSignedHeader(n, err)
 		srch, dsth, _ = QueryLatestHeights(c, dst)
 	})); err != nil {
 		return false, err
@@ -193,6 +193,7 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 		}
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		c.Log(fmt.Sprintf("failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
 		srch, dsth, _ = QueryLatestHeights(c, dst)
 	})); err != nil {
 		return err

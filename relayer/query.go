@@ -85,6 +85,26 @@ func GetIBCUpdateHeaders(srch, dsth int64, src, dst provider.ChainProvider, srcC
 	return
 }
 
+func GetLightSignedHeadersAtHeights(src, dst *Chain, srch, dsth int64) (srcUpdateHeader, dstUpdateHeader ibcexported.Header, err error) {
+	var (
+		eg = new(errgroup.Group)
+	)
+	eg.Go(func() error {
+		var err error
+		srcUpdateHeader, err = src.ChainProvider.GetLightSignedHeaderAtHeight(srch)
+		return err
+	})
+	eg.Go(func() error {
+		var err error
+		dstUpdateHeader, err = dst.ChainProvider.GetLightSignedHeaderAtHeight(dsth)
+		return err
+	})
+	if err := eg.Wait(); err != nil {
+		return nil, nil, err
+	}
+	return
+}
+
 // QueryTMClientState retrieves the latest consensus state for a client in state at a given height
 // and unpacks/cast it to tendermint clientstate
 func (c *Chain) QueryTMClientState(height int64) (*tmclient.ClientState, error) {
