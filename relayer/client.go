@@ -39,7 +39,8 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 		}
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		srch, dsth, err = QueryLatestHeights(c, dst)
+		c.Log(fmt.Sprintf("failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
+		srch, dsth, _ = QueryLatestHeights(c, dst)
 	})); err != nil {
 		return false, err
 	}
@@ -192,7 +193,7 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 		}
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		srch, dsth, err = QueryLatestHeights(c, dst)
+		srch, dsth, _ = QueryLatestHeights(c, dst)
 	})); err != nil {
 		return err
 	}

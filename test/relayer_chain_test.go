@@ -65,6 +65,8 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, eg.Wait())
 
 	// create path
+	fmt.Printf("%v \n", src)
+	fmt.Printf("%v \n", dst)
 	_, err = src.CreateClients(dst, true, true, false)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)

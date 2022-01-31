@@ -221,7 +221,7 @@ func createClientCmd() *cobra.Command {
 				}
 				return err
 			}, relayer.RtyAtt, relayer.RtyDel, relayer.RtyErr, retry.OnRetry(func(n uint, err error) {
-				srch, dsth, err = relayer.QueryLatestHeights(c[src], c[dst])
+				srch, dsth, _ = relayer.QueryLatestHeights(c[src], c[dst])
 			})); err != nil {
 				return err
 			}

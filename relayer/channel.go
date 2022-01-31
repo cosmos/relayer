@@ -145,7 +145,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			}
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			dsth, err = dst.ChainProvider.QueryLatestHeight()
+			dsth, _ = dst.ChainProvider.QueryLatestHeight()
 		})); err != nil {
 			return success, last, modified, err
 		}
@@ -189,7 +189,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			}
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			dsth, err = dst.ChainProvider.QueryLatestHeight()
+			dsth, _ = dst.ChainProvider.QueryLatestHeight()
 		})); err != nil {
 			return success, last, modified, err
 		}
@@ -232,7 +232,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			}
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			dsth, err = dst.ChainProvider.QueryLatestHeight()
+			dsth, _ = dst.ChainProvider.QueryLatestHeight()
 		})); err != nil {
 			return success, last, modified, err
 		}
@@ -273,7 +273,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			}
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			dsth, err = dst.ChainProvider.QueryLatestHeight()
+			dsth, _ = dst.ChainProvider.QueryLatestHeight()
 		})); err != nil {
 			return success, last, modified, err
 		}
@@ -316,7 +316,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 			}
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			dsth, err = dst.ChainProvider.QueryLatestHeight()
+			dsth, _ = dst.ChainProvider.QueryLatestHeight()
 		})); err != nil {
 			return success, last, modified, err
 		}
@@ -385,7 +385,7 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 				}
 				return err
 			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-				dsth, err = dst.ChainProvider.QueryLatestHeight()
+				dsth, _ = dst.ChainProvider.QueryLatestHeight()
 			})); err != nil {
 				return false, false, err
 			}
@@ -444,7 +444,7 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 				}
 				return err
 			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-				dsth, err = dst.ChainProvider.QueryLatestHeight()
+				dsth, _ = dst.ChainProvider.QueryLatestHeight()
 			})); err != nil {
 				return false, false, err
 			}
@@ -504,7 +504,7 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 				}
 				return err
 			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-				dsth, err = dst.ChainProvider.QueryLatestHeight()
+				dsth, _ = dst.ChainProvider.QueryLatestHeight()
 			})); err != nil {
 				return false, false, err
 			}

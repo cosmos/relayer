@@ -105,7 +105,7 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 		srcHeader, dstHeader, err = GetIBCUpdateHeaders(srch, dsth, src.ChainProvider, dst.ChainProvider, src.ClientID(), dst.ClientID())
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		srch, dsth, err = QueryLatestHeights(src, dst)
+		srch, dsth, _ = QueryLatestHeights(src, dst)
 	})); err != nil {
 		return success, last, modified, err
 	}
@@ -269,7 +269,7 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 		srcHeader, dstHeader, err = GetIBCUpdateHeaders(srch, dsth, src.ChainProvider, dst.ChainProvider, src.ClientID(), dst.ClientID())
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		srch, dsth, err = QueryLatestHeights(src, dst)
+		srch, dsth, _ = QueryLatestHeights(src, dst)
 	})); err != nil {
 		return false, false, err
 	}
