@@ -2,11 +2,14 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/avast/retry-go"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/ibc-go/v2/modules/core/exported"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -29,16 +32,19 @@ Most of these commands take a [path] argument. Make sure:
 		linkCmd(),
 		linkThenStartCmd(),
 		relayMsgsCmd(),
+		relayMsgCmd(),
 		relayAcksCmd(),
 		xfersend(),
 		flags.LineBreak,
 		createClientsCmd(),
+		createClientCmd(),
 		updateClientsCmd(),
 		upgradeClientsCmd(),
 		//upgradeChainCmd(),
 		createConnectionCmd(),
 		closeChannelCmd(),
 		flags.LineBreak,
+
 		//sendCmd(),
 	)
 
@@ -140,6 +146,94 @@ func createClientsCmd() *cobra.Command {
 			}
 
 			return err
+		},
+	}
+
+	return overrideFlag(clientParameterFlags(cmd))
+}
+
+func createClientCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "client [src-chain-id] [dst-chain-id] [path-name]",
+		Short: "create a client between two configured chains with a configured path",
+		Long: "Creates a working ibc client for chain configured on each end of the" +
+			" path by querying headers from each chain and then sending the corresponding create-client messages",
+		Args:    cobra.ExactArgs(3),
+		Example: strings.TrimSpace(fmt.Sprintf(`$ %s transact clients demo-path`, appName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			allowUpdateAfterExpiry, err := cmd.Flags().GetBool(flagUpdateAfterExpiry)
+			if err != nil {
+				return err
+			}
+
+			allowUpdateAfterMisbehaviour, err := cmd.Flags().GetBool(flagUpdateAfterMisbehaviour)
+			if err != nil {
+				return err
+			}
+
+			override, err := cmd.Flags().GetBool(flagOverride)
+			if err != nil {
+				return err
+			}
+
+			src := args[0]
+			dst := args[1]
+			c, err := config.Chains.Gets(src, dst)
+			if err != nil {
+				return err
+			}
+
+			pathName := args[2]
+			path, err := config.Paths.Get(pathName)
+			if err != nil {
+				return err
+			}
+
+			c[src].PathEnd = path.End(c[src].ChainID())
+			c[dst].PathEnd = path.End(c[dst].ChainID())
+
+			// ensure that keys exist
+			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
+			}
+			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
+			}
+
+			// Query the latest heights on src and dst and retry if the query fails
+			var srch, dsth int64
+			if err = retry.Do(func() error {
+				srch, dsth, err = relayer.QueryLatestHeights(c[src], c[dst])
+				if srch == 0 || dsth == 0 || err != nil {
+					return fmt.Errorf("failed to query latest heights. Err: %w", err)
+				}
+				return err
+			}, relayer.RtyAtt, relayer.RtyDel, relayer.RtyErr); err != nil {
+				return err
+			}
+
+			// Query the light signed headers for src & dst at the heights srch & dsth, retry if the query fails
+			var srcUpdateHeader, dstUpdateHeader exported.Header
+			if err = retry.Do(func() error {
+				srcUpdateHeader, dstUpdateHeader, err = relayer.GetIBCUpdateHeaders(srch, dsth, c[src].ChainProvider, c[dst].ChainProvider, c[src].ClientID(), c[dst].ClientID())
+				if err != nil {
+					return fmt.Errorf("failed to query IBC update headers. Err: %w", err)
+				}
+				return err
+			}, relayer.RtyAtt, relayer.RtyDel, relayer.RtyErr, retry.OnRetry(func(n uint, err error) {
+				srch, dsth, err = relayer.QueryLatestHeights(c[src], c[dst])
+			})); err != nil {
+				return err
+			}
+
+			modified, err := relayer.CreateClient(c[src], c[dst], srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+			if modified {
+				if err = overWriteConfig(config); err != nil {
+					return err
+				}
+			}
+
+			return nil
 		},
 	}
 
@@ -407,7 +501,7 @@ $ %s tx connect demo-path`,
 			}
 
 			// create channel if it isn't already created
-			modified, err = c[src].CreateOpenChannels(c[dst], 3, to)
+			modified, err = c[src].CreateOpenChannels(c[dst], retries, to)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err
@@ -450,6 +544,49 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 	}
 
 	return overrideFlag(clientParameterFlags(strategyFlag(retryFlag(timeoutFlag(cmd)))))
+}
+
+func relayMsgCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "relay-packet [path-name] [seq-num]",
+		Aliases: []string{"relay-pkt"},
+		Short:   "relay a non-relayed packet with a specific sequence number, in both directions",
+		Args:    cobra.ExactArgs(2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact relay-packet demo-path 1
+$ %s tx relay-pkt demo-path 1`,
+			appName, appName,
+		)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, src, dst, err := config.ChainsFromPath(args[0])
+			if err != nil {
+				return err
+			}
+
+			if err = ensureKeysExist(c); err != nil {
+				return err
+			}
+
+			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
+			if err != nil {
+				return err
+			}
+
+			seqNum, err := strconv.Atoi(args[1])
+			if err != nil {
+				return err
+			}
+
+			sp, err := relayer.UnrelayedSequences(c[src], c[dst])
+			if err != nil {
+				return err
+			}
+
+			return relayer.RelayPacket(c[src], c[dst], sp, maxTxSize, maxMsgLength, uint64(seqNum))
+		},
+	}
+
+	return strategyFlag(cmd)
 }
 
 func relayMsgsCmd() *cobra.Command {
