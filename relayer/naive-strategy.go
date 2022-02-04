@@ -40,7 +40,7 @@ func UnrelayedSequences(src, dst *Chain) (*RelaySequences, error) {
 			default:
 				return nil
 			}
-		}, provider.RtyAtt, provider.RtyDel, provider.RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			srch, _ = src.ChainProvider.QueryLatestHeight()
 		})); err != nil {
 			return err
@@ -66,7 +66,7 @@ func UnrelayedSequences(src, dst *Chain) (*RelaySequences, error) {
 			default:
 				return nil
 			}
-		}, provider.RtyAtt, provider.RtyDel, provider.RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dsth, _ = dst.ChainProvider.QueryLatestHeight()
 		})); err != nil {
 			return err
@@ -87,7 +87,7 @@ func UnrelayedSequences(src, dst *Chain) (*RelaySequences, error) {
 			var err error
 			rs.Src, err = dst.ChainProvider.QueryUnreceivedPackets(uint64(dsth), dst.PathEnd.ChannelID, dst.PathEnd.PortID, srcPacketSeq)
 			return err
-		}, provider.RtyAtt, provider.RtyDel, provider.RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dsth, _ = dst.ChainProvider.QueryLatestHeight()
 		}))
 	})
@@ -98,7 +98,7 @@ func UnrelayedSequences(src, dst *Chain) (*RelaySequences, error) {
 			var err error
 			rs.Dst, err = src.ChainProvider.QueryUnreceivedPackets(uint64(srch), src.PathEnd.ChannelID, src.PathEnd.PortID, dstPacketSeq)
 			return err
-		}, provider.RtyAtt, provider.RtyDel, provider.RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dsth, _ = dst.ChainProvider.QueryLatestHeight()
 		}))
 	})
@@ -137,7 +137,7 @@ func UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequences, error) {
 			default:
 				return nil
 			}
-		}, provider.RtyAtt, provider.RtyDel, provider.RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			srch, _ = src.ChainProvider.QueryLatestHeight()
 		})); err != nil {
 			return err
@@ -160,7 +160,7 @@ func UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequences, error) {
 			default:
 				return nil
 			}
-		}, provider.RtyAtt, provider.RtyDel, provider.RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dsth, _ = dst.ChainProvider.QueryLatestHeight()
 		})); err != nil {
 			return err
@@ -180,7 +180,7 @@ func UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequences, error) {
 		return retry.Do(func() error {
 			rs.Src, err = dst.ChainProvider.QueryUnreceivedAcknowledgements(uint64(dsth), dst.PathEnd.ChannelID, dst.PathEnd.PortID, srcPacketSeq)
 			return err
-		}, provider.RtyErr, provider.RtyAtt, provider.RtyDel, retry.OnRetry(func(n uint, err error) {
+		}, RtyErr, RtyAtt, RtyDel, retry.OnRetry(func(n uint, err error) {
 			dsth, _ = dst.ChainProvider.QueryLatestHeight()
 		}))
 	})
@@ -190,7 +190,7 @@ func UnrelayedAcknowledgements(src, dst *Chain) (*RelaySequences, error) {
 		return retry.Do(func() error {
 			rs.Dst, err = src.ChainProvider.QueryUnreceivedAcknowledgements(uint64(srch), src.PathEnd.ChannelID, src.PathEnd.PortID, dstPacketSeq)
 			return err
-		}, provider.RtyAtt, provider.RtyDel, provider.RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			srch, _ = src.ChainProvider.QueryLatestHeight()
 		}))
 	})
@@ -331,7 +331,7 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 		if err = retry.Do(func() error {
 			recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(src.ChainProvider, dst.ChainProvider, uint64(srch), uint64(dsth), seq, dst.PathEnd.ChannelID, dst.PathEnd.PortID, src.PathEnd.ChannelID, src.PathEnd.PortID, src.PathEnd.ClientID)
 			return err
-		}, provider.RtyAtt, provider.RtyDel, provider.RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			srch, dsth, _ = QueryLatestHeights(src, dst)
 		})); err != nil {
 			return err
@@ -355,7 +355,7 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 		if err = retry.Do(func() error {
 			recvMsg, timeoutMsg, err = dst.ChainProvider.RelayPacketFromSequence(dst.ChainProvider, src.ChainProvider, uint64(dsth), uint64(srch), seq, src.PathEnd.ChannelID, src.PathEnd.PortID, dst.PathEnd.ChannelID, dst.PathEnd.PortID, dst.PathEnd.ClientID)
 			return nil
-		}, provider.RtyAtt, provider.RtyDel, provider.RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			srch, dsth, _ = QueryLatestHeights(src, dst)
 		})); err != nil {
 			return err

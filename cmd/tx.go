@@ -1,17 +1,12 @@
 package cmd
 
 import (
-	//"encoding/json"
 	"fmt"
-	//"io/ioutil"
-	//"os"
 	"strings"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	//banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	//upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -396,7 +391,6 @@ $ %s tx connect demo-path`,
 					return err
 				}
 			}
-
 			if err != nil {
 				return fmt.Errorf("error creating clients. Err: %w\n", err)
 			}
