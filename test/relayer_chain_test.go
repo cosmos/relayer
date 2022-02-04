@@ -44,6 +44,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	)
 	eg.Go(func() error {
 		return retry.Do(func() error {
+			var err error
 			srcExpected, err = src.ChainProvider.QueryBalance(src.ChainProvider.Key())
 			if srcExpected.IsZero() {
 				return fmt.Errorf("expected non-zero balance. Err: %w", err)
@@ -53,6 +54,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	})
 	eg.Go(func() error {
 		return retry.Do(func() error {
+			var err error
 			dstExpected, err = dst.ChainProvider.QueryBalance(dst.ChainProvider.Key())
 			if dstExpected.IsZero() {
 				return fmt.Errorf("expected non-zero balance. Err: %w", err)

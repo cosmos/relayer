@@ -2,8 +2,9 @@ package relayer
 
 import (
 	"fmt"
-	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
 	"time"
+
+	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
 
 	"github.com/avast/retry-go"
 	ibcexported "github.com/cosmos/ibc-go/v2/modules/core/exported"
@@ -22,7 +23,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 	// Query the latest heights on src and dst and retry if the query fails
 	if err = retry.Do(func() error {
 		srch, dsth, err = QueryLatestHeights(c, dst)
-		if srch == 0 || dsth == 0 {
+		if srch == 0 || dsth == 0 || err != nil {
 			return fmt.Errorf("failed to query latest heights. Err: %w", err)
 		}
 		return err
@@ -37,7 +38,10 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 			return fmt.Errorf("failed to query light signed headers. Err: %w", err)
 		}
 		return err
-	}, RtyAtt, RtyDel, RtyErr); err != nil {
+	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		c.LogRetryGetLightSignedHeader(n, err)
+		srch, dsth, _ = QueryLatestHeights(c, dst)
+	})); err != nil {
 		return false, err
 	}
 
@@ -110,6 +114,10 @@ func CreateClient(src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.
 		}
 
 		if !found || override {
+			if src.debug {
+				src.Log(fmt.Sprintf("No client found on src chain {%s} tracking the state of counterparty chain {%s}", src.ChainID(), dst.ChainID()))
+			}
+
 			createMsg, err := src.ChainProvider.CreateClient(clientState, dstUpdateHeader)
 			if err != nil {
 				return modified, fmt.Errorf("failed to compose CreateClient msg for chain{%s}. Err: %w \n", src.ChainID(), err)
@@ -155,7 +163,7 @@ func CreateClient(src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.
 		}
 	}
 
-	return modified, err
+	return modified, nil
 }
 
 // UpdateClients updates clients for src on dst and dst on src given the configured paths
@@ -163,24 +171,47 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 	var (
 		clients                          = &RelayMsgs{Src: []provider.RelayerMessage{}, Dst: []provider.RelayerMessage{}}
 		srcUpdateHeader, dstUpdateHeader ibcexported.Header
+		srch, dsth                       int64
 	)
 
-	srch, dsth, err := QueryLatestHeights(c, dst)
-	if err != nil {
+	if err = retry.Do(func() error {
+		srch, dsth, err = QueryLatestHeights(c, dst)
+		if srch == 0 || dsth == 0 || err != nil {
+			c.Log(fmt.Sprintf("failed to query latest heights. Err: %v", err))
+			return err
+		}
+		return err
+	}, RtyAtt, RtyDel, RtyErr); err != nil {
 		return err
 	}
 
-	srcUpdateHeader, dstUpdateHeader, err = GetLightSignedHeadersAtHeights(c, dst, srch, dsth)
-	if err != nil {
+	if err = retry.Do(func() error {
+		srcUpdateHeader, dstUpdateHeader, err = GetIBCUpdateHeaders(srch, dsth, c.ChainProvider, dst.ChainProvider, c.ClientID(), dst.ClientID())
+		if err != nil {
+			c.Log(fmt.Sprintf("failed to query light signed headers. Err: %v", err))
+			return err
+		}
+		return err
+	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		c.Log(fmt.Sprintf("failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
+		srch, dsth, _ = QueryLatestHeights(c, dst)
+	})); err != nil {
 		return err
 	}
 
 	srcUpdateMsg, err := c.ChainProvider.UpdateClient(c.ClientID(), dstUpdateHeader)
 	if err != nil {
+		if c.debug {
+			c.Log(fmt.Sprintf("failed to update client on chain{%s} \n", c.ChainID()))
+		}
 		return err
 	}
+
 	dstUpdateMsg, err := dst.ChainProvider.UpdateClient(dst.ClientID(), srcUpdateHeader)
 	if err != nil {
+		if dst.debug {
+			dst.Log(fmt.Sprintf("failed to update client on chain{%s} \n", dst.ChainID()))
+		}
 		return err
 	}
 
@@ -198,9 +229,7 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 				dst.ChainID(),
 				dst.PathEnd.ClientID,
 				MustGetHeight(dstUpdateHeader.GetHeight()),
-				dstUpdateHeader.GetHeight().GetRevisionHeight(),
-			),
-			)
+				dstUpdateHeader.GetHeight().GetRevisionHeight()))
 		}
 	}
 

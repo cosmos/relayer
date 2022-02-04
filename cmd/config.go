@@ -618,7 +618,7 @@ func initConfig(cmd *cobra.Command) error {
 			for _, pcfg := range cfgWrapper.ProviderConfigs {
 				prov, err := pcfg.Value.(provider.ProviderConfig).NewProvider(homePath, debug)
 				if err != nil {
-					return fmt.Errorf("Error while building ChainProviders. Err: %s\n", err.Error())
+					return fmt.Errorf("Error while building ChainProviders. Err: %w\n", err)
 				}
 
 				chain := &relayer.Chain{ChainProvider: prov}
