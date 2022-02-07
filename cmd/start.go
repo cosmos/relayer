@@ -73,7 +73,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 
 			done, err := relayer.StartRelayer(c[src], c[dst], maxTxSize, maxMsgLength)
 			if err != nil {
-				return err
+				c[src].Log(fmt.Sprintf("relayer start error. Err: %v", err))
 			}
 
 			thresholdTime := viper.GetDuration(flagThresholdTime)
@@ -95,7 +95,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				}
 			})
 			if err = eg.Wait(); err != nil {
-				return err
+				c[src].Log(fmt.Sprintf("update clients error. Err: %v", err))
 			}
 
 			trapSignal(done)
