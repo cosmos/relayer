@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"fmt"
+	"github.com/cosmos/relayer/relayer/provider"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
@@ -38,6 +39,7 @@ func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (srcConn, dstConn *c
 		return err
 	})
 	eg.Go(func() error {
+		var err error
 		dstConn, err = dst.ChainProvider.QueryConnection(dstH, dst.ConnectionID())
 		return err
 	})
@@ -55,17 +57,37 @@ func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (srcChan, dstChan *chan
 	})
 	eg.Go(func() error {
 		var err error
-		dstChan, err = dst.ChainProvider.QueryChannel(dstH, src.PathEnd.ChannelID, src.PathEnd.PortID)
+		dstChan, err = dst.ChainProvider.QueryChannel(dstH, dst.PathEnd.ChannelID, dst.PathEnd.PortID)
 		return err
 	})
-	err = eg.Wait()
+	if err = eg.Wait(); err != nil {
+		return nil, nil, err
+	}
 	return
 }
 
-func GetLightSignedHeadersAtHeights(src, dst *Chain, srch, dsth int64) (ibcexported.Header, ibcexported.Header, error) {
+// GetIBCUpdateHeaders returns a pair of IBC update headers which can be used to update an on chain light client
+func GetIBCUpdateHeaders(srch, dsth int64, src, dst provider.ChainProvider, srcClientID, dstClientID string) (srcHeader, dstHeader ibcexported.Header, err error) {
+	var eg = new(errgroup.Group)
+	eg.Go(func() error {
+		var err error
+		srcHeader, err = src.GetIBCUpdateHeader(srch, dst, dstClientID)
+		return err
+	})
+	eg.Go(func() error {
+		var err error
+		dstHeader, err = dst.GetIBCUpdateHeader(dsth, src, srcClientID)
+		return err
+	})
+	if err = eg.Wait(); err != nil {
+		return nil, nil, err
+	}
+	return
+}
+
+func GetLightSignedHeadersAtHeights(src, dst *Chain, srch, dsth int64) (srcUpdateHeader, dstUpdateHeader ibcexported.Header, err error) {
 	var (
-		eg                               = new(errgroup.Group)
-		srcUpdateHeader, dstUpdateHeader ibcexported.Header
+		eg = new(errgroup.Group)
 	)
 	eg.Go(func() error {
 		var err error
@@ -80,10 +102,10 @@ func GetLightSignedHeadersAtHeights(src, dst *Chain, srch, dsth int64) (ibcexpor
 	if err := eg.Wait(); err != nil {
 		return nil, nil, err
 	}
-	return srcUpdateHeader, dstUpdateHeader, nil
+	return
 }
 
-// QueryTMClientState retrevies the latest consensus state for a client in state at a given height
+// QueryTMClientState retrieves the latest consensus state for a client in state at a given height
 // and unpacks/cast it to tendermint clientstate
 func (c *Chain) QueryTMClientState(height int64) (*tmclient.ClientState, error) {
 	clientStateRes, err := c.ChainProvider.QueryClientStateResponse(height, c.ClientID())

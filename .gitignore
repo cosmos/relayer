@@ -12,3 +12,4 @@ two-chains/.relayer
 two-chains/*.log
 test/setup/valkeys/*.json
 test/keys/
+.DS_Store

@@ -26,6 +26,9 @@ var (
 	flagUpdateAfterExpiry       = "update-after-expiry"
 	flagUpdateAfterMisbehaviour = "update-after-misbehaviour"
 	flagOverride                = "override"
+	flagPort                    = "port"
+	flagOrder                   = "unordered"
+	flagVersion                 = "version"
 )
 
 func ibcDenomFlags(cmd *cobra.Command) *cobra.Command {
@@ -201,6 +204,30 @@ func clientParameterFlags(cmd *cobra.Command) *cobra.Command {
 func overrideFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Bool(flagOverride, false, "option to not reuse existing client")
 	if err := viper.BindPFlag(flagOverride, cmd.Flags().Lookup(flagOverride)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func orderFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP(flagOrder, "o", true, "create an unordered channel")
+	if err := viper.BindPFlag(flagOrder, cmd.Flags().Lookup(flagOrder)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func versionFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagVersion, "v", "ics20-1", "version of channel to create")
+	if err := viper.BindPFlag(flagVersion, cmd.Flags().Lookup(flagVersion)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func portFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagPort, "p", "transfer", "port to use when generating path")
+	if err := viper.BindPFlag(flagPort, cmd.Flags().Lookup(flagPort)); err != nil {
 		panic(err)
 	}
 	return cmd

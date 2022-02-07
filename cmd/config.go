@@ -38,9 +38,9 @@ import (
 
 const (
 	// ORDERED is exported channel type constant
-	ORDERED = "ORDERED"
+	ORDERED = "ordered"
 	// UNORDERED is exported channel type constant
-	UNORDERED      = "UNORDERED"
+	UNORDERED      = "unordered"
 	defaultOrder   = ORDERED
 	defaultVersion = "ics20-1"
 )
@@ -49,7 +49,7 @@ func configCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "config",
 		Aliases: []string{"cfg"},
-		Short:   "manage configuration file",
+		Short:   "Manage configuration file",
 	}
 
 	cmd.AddCommand(
@@ -179,8 +179,8 @@ func configAddChainsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:  "add-chains [/path/to/chains/]",
 		Args: cobra.ExactArgs(1),
-		Short: `Add new chains to the configuration file from a
-		 directory full of chain configurations, useful for adding testnet configurations`,
+		Short: `Add new chains to the configuration file from a directory full of chain 
+              configurations, useful for adding testnet configurations`,
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s config add-chains configs/chains`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
@@ -200,8 +200,9 @@ func configAddPathsCmd() *cobra.Command {
 		Use:  "add-paths [/path/to/paths/]",
 		Args: cobra.ExactArgs(1),
 		//nolint:lll
-		Short: `Add new paths to the configuration file from a directory full of path configurations, useful for adding testnet configurations. 
-		Chain configuration files must be added before calling this command.`,
+		Short: `Add new paths to the configuration file from a directory full of path 
+              configurations, useful for adding testnet configurations. 
+              NOTE: Chain configuration files must be added before calling this command.`,
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s config add-paths configs/paths`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
@@ -617,7 +618,7 @@ func initConfig(cmd *cobra.Command) error {
 			for _, pcfg := range cfgWrapper.ProviderConfigs {
 				prov, err := pcfg.Value.(provider.ProviderConfig).NewProvider(homePath, debug)
 				if err != nil {
-					return fmt.Errorf("Error while building ChainProviders. Err: %s\n", err.Error())
+					return fmt.Errorf("Error while building ChainProviders. Err: %w\n", err)
 				}
 
 				chain := &relayer.Chain{ChainProvider: prov}
@@ -698,8 +699,7 @@ func (c *Config) ValidatePathEnd(pe *relayer.PathEnd) error {
 
 	chain, err := c.Chains.Get(pe.ChainID)
 	if err != nil {
-		fmt.Printf("Chain %s is not currently configured. \n"+
-			"Run `rly fetch chain %s` if you plan to relay to/from this chain. \n", pe.ChainID, pe.ChainID)
+		fmt.Printf("Chain %s is not currently configured. \n", pe.ChainID)
 		return nil
 	}
 

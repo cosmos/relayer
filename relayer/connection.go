@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/avast/retry-go"
+	"github.com/cosmos/ibc-go/v2/modules/core/exported"
+	"github.com/cosmos/relayer/relayer/provider"
+
 	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
 )
 
@@ -11,7 +15,7 @@ import (
 // The returned boolean indicates that the path end has been modified.
 func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Duration) (modified bool, err error) {
 	// client identifiers must be filled in
-	if err := ValidateClientPaths(c, dst); err != nil {
+	if err = ValidateClientPaths(c, dst); err != nil {
 		return modified, err
 	}
 
@@ -75,33 +79,45 @@ func (c *Chain) CreateOpenConnections(dst *Chain, maxRetries uint64, to time.Dur
 // file. The booleans return indicate if the message was successfully
 // executed and if this was the last handshake step.
 func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err error) {
-	srch, dsth, err := QueryLatestHeights(src, dst)
-	if err != nil {
-		return false, false, false, err
+	var (
+		msgs                 []provider.RelayerMessage
+		res                  *provider.RelayerTxResponse
+		srcHeader, dstHeader exported.Header
+		srch, dsth           int64
+	)
+
+	// Query the latest heights on src and dst and retry if the query fails
+	if err = retry.Do(func() error {
+		srch, dsth, err = QueryLatestHeights(src, dst)
+		if err != nil || srch == 0 || dsth == 0 {
+			return fmt.Errorf("failed to query latest heights. Err: %w", err)
+		}
+		return err
+	}, RtyAtt, RtyDel, RtyErr); err != nil {
+		return success, last, modified, err
 	}
 
-	srcHeader, err := src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
-	if err != nil {
-		return false, false, false, err
-	}
-
-	dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
-	if err != nil {
-		return false, false, false, err
-	}
-
-	// TODO: add back retries due to commit delay/update
 	// get headers to update light clients on chain
 	// if either identifier is missing, an existing connection that matches the required fields
 	// is chosen or a new connection is created.
 	// This will perform either an OpenInit or OpenTry step and return
+	if err = retry.Do(func() error {
+		srcHeader, dstHeader, err = GetIBCUpdateHeaders(srch, dsth, src.ChainProvider, dst.ChainProvider, src.ClientID(), dst.ClientID())
+		return err
+	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		src.Log(fmt.Sprintf("failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
+		srch, dsth, _ = QueryLatestHeights(src, dst)
+	})); err != nil {
+		return success, last, modified, err
+	}
+
 	if src.ConnectionID() == "" || dst.ConnectionID() == "" {
-		success, modified, err := InitializeConnection(src, dst)
+		success, modified, err = InitializeConnection(src, dst)
 		if err != nil {
 			return false, false, false, err
 		}
 
-		return success, false, modified, nil
+		return success, last, modified, nil
 	}
 
 	// Query Connection data from src and dst
@@ -120,12 +136,12 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
 
-		msgs, err := src.ChainProvider.ConnectionOpenTry(dst.ChainProvider, dstHeader, src.ClientID(), dst.ClientID(), src.ConnectionID(), dst.ConnectionID())
+		msgs, err = src.ChainProvider.ConnectionOpenTry(dst.ChainProvider, dstHeader, src.ClientID(), dst.ClientID(), src.ConnectionID(), dst.ConnectionID())
 		if err != nil {
 			return false, false, false, err
 		}
 
-		res, success, err := src.ChainProvider.SendMessages(msgs)
+		res, success, err = src.ChainProvider.SendMessages(msgs)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
 		}
@@ -142,12 +158,12 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
 
-		msgs, err := src.ChainProvider.ConnectionOpenAck(dst.ChainProvider, dstHeader, src.ClientID(), src.ConnectionID(), dst.ClientID(), dst.ConnectionID())
+		msgs, err = src.ChainProvider.ConnectionOpenAck(dst.ChainProvider, dstHeader, src.ClientID(), src.ConnectionID(), dst.ClientID(), dst.ConnectionID())
 		if err != nil {
 			return false, false, false, err
 		}
 
-		res, success, err := src.ChainProvider.SendMessages(msgs)
+		res, success, err = src.ChainProvider.SendMessages(msgs)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
 		}
@@ -163,12 +179,12 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(dst, src, dstConn, srcConn)
 		}
 
-		msgs, err := dst.ChainProvider.ConnectionOpenAck(src.ChainProvider, srcHeader, dst.ClientID(), dst.ConnectionID(), src.ClientID(), src.ConnectionID())
+		msgs, err = dst.ChainProvider.ConnectionOpenAck(src.ChainProvider, srcHeader, dst.ClientID(), dst.ConnectionID(), src.ClientID(), src.ConnectionID())
 		if err != nil {
 			return false, false, false, err
 		}
 
-		res, success, err := dst.ChainProvider.SendMessages(msgs)
+		res, success, err = dst.ChainProvider.SendMessages(msgs)
 		if err != nil {
 			dst.LogFailedTx(res, err, msgs)
 		}
@@ -182,12 +198,12 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(src, dst, srcConn, dstConn)
 		}
 
-		msgs, err := src.ChainProvider.ConnectionOpenConfirm(dst.ChainProvider, dstHeader, dst.ConnectionID(), src.ClientID(), src.ConnectionID())
+		msgs, err = src.ChainProvider.ConnectionOpenConfirm(dst.ChainProvider, dstHeader, dst.ConnectionID(), src.ClientID(), src.ConnectionID())
 		if err != nil {
 			return false, false, false, err
 		}
 
-		res, success, err := src.ChainProvider.SendMessages(msgs)
+		res, success, err = src.ChainProvider.SendMessages(msgs)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
 		}
@@ -203,12 +219,12 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 			logConnectionStates(dst, src, dstConn, srcConn)
 		}
 
-		msgs, err := dst.ChainProvider.ConnectionOpenConfirm(src.ChainProvider, srcHeader, src.ConnectionID(), dst.ClientID(), dst.ConnectionID())
+		msgs, err = dst.ChainProvider.ConnectionOpenConfirm(src.ChainProvider, srcHeader, src.ConnectionID(), dst.ClientID(), dst.ConnectionID())
 		if err != nil {
 			return false, false, false, err
 		}
 
-		res, success, err := dst.ChainProvider.SendMessages(msgs)
+		res, success, err = dst.ChainProvider.SendMessages(msgs)
 		if err != nil {
 			dst.LogFailedTx(res, err, msgs)
 		}
@@ -231,18 +247,32 @@ func ExecuteConnectionStep(src, dst *Chain) (success, last, modified bool, err e
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither connection exists.
 func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
-	srch, dsth, err := QueryLatestHeights(src, dst)
-	if err != nil {
+	var (
+		srcHeader, dstHeader exported.Header
+		srch, dsth           int64
+		msgs                 []provider.RelayerMessage
+		res                  *provider.RelayerTxResponse
+	)
+
+	// Query the latest heights on src and dst and retry if the query fails
+	if err = retry.Do(func() error {
+		srch, dsth, err = QueryLatestHeights(src, dst)
+		if srch == 0 || dsth == 0 || err != nil {
+			return fmt.Errorf("failed to query latest heights. Err: %w", err)
+		}
+		return err
+	}, RtyAtt, RtyDel, RtyErr); err != nil {
 		return false, false, err
 	}
 
-	srcHeader, err := src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
-	if err != nil {
-		return false, false, err
-	}
-
-	dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
-	if err != nil {
+	// Get IBC Update Headers for src and dst which can be used to update an on chain light client on the counterparty
+	if err = retry.Do(func() error {
+		srcHeader, dstHeader, err = GetIBCUpdateHeaders(srch, dsth, src.ChainProvider, dst.ChainProvider, src.ClientID(), dst.ClientID())
+		return err
+	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		src.Log(fmt.Sprintf("failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
+		srch, dsth, _ = QueryLatestHeights(src, dst)
+	})); err != nil {
 		return false, false, err
 	}
 
@@ -258,12 +288,12 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 		connectionID, found := FindMatchingConnection(src, dst)
 		if !found {
 			// construct OpenInit message to be submitted on source chain
-			msgs, err := src.ChainProvider.ConnectionOpenInit(src.ClientID(), dst.ClientID(), dstHeader)
+			msgs, err = src.ChainProvider.ConnectionOpenInit(src.ClientID(), dst.ClientID(), dstHeader)
 			if err != nil {
 				return false, false, err
 			}
 
-			res, success, err := src.ChainProvider.SendMessages(msgs)
+			res, success, err = src.ChainProvider.SendMessages(msgs)
 			if err != nil {
 				src.LogFailedTx(res, err, msgs)
 			}
@@ -294,12 +324,12 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 
 		connectionID, found := FindMatchingConnection(src, dst)
 		if !found {
-			msgs, err := src.ChainProvider.ConnectionOpenTry(dst.ChainProvider, dstHeader, src.ClientID(), dst.ClientID(), src.ConnectionID(), dst.ConnectionID())
+			msgs, err = src.ChainProvider.ConnectionOpenTry(dst.ChainProvider, dstHeader, src.ClientID(), dst.ClientID(), src.ConnectionID(), dst.ConnectionID())
 			if err != nil {
 				return false, false, err
 			}
 
-			res, success, err := src.ChainProvider.SendMessages(msgs)
+			res, success, err = src.ChainProvider.SendMessages(msgs)
 			if err != nil {
 				src.LogFailedTx(res, err, msgs)
 			}
@@ -330,12 +360,12 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 
 		connectionID, found := FindMatchingConnection(dst, src)
 		if !found {
-			msgs, err := dst.ChainProvider.ConnectionOpenTry(src.ChainProvider, srcHeader, dst.ClientID(), src.ClientID(), dst.ConnectionID(), src.ConnectionID())
+			msgs, err = dst.ChainProvider.ConnectionOpenTry(src.ChainProvider, srcHeader, dst.ClientID(), src.ClientID(), dst.ConnectionID(), src.ConnectionID())
 			if err != nil {
 				return false, false, err
 			}
 
-			res, success, err := dst.ChainProvider.SendMessages(msgs)
+			res, success, err = dst.ChainProvider.SendMessages(msgs)
 			if err != nil {
 				dst.LogFailedTx(res, err, msgs)
 			}
@@ -365,12 +395,27 @@ func InitializeConnection(src, dst *Chain) (success, modified bool, err error) {
 // FindMatchingConnection will determine if there already exists a connection between source and counterparty
 // that matches the parameters set in the relayer config.
 func FindMatchingConnection(source, counterparty *Chain) (string, bool) {
-	// TODO: add appropriate offset and limits, along with retries
-	connectionsResp, err := source.ChainProvider.QueryConnections()
-	if err != nil {
+	// TODO: add appropriate offset and limits
+	var (
+		err             error
+		connectionsResp []*conntypes.IdentifiedConnection
+	)
+
+	if err = retry.Do(func() error {
+		connectionsResp, err = source.ChainProvider.QueryConnections()
+		if err != nil {
+			if source.debug {
+				source.Log(fmt.Sprintf("Error: querying connections on %s failed: %v", source.ChainID(), err))
+			}
+			return err
+		}
+
+		return err
+	}, RtyAtt, RtyDel, RtyErr); err != nil {
 		if source.debug {
 			source.Log(fmt.Sprintf("Error: querying connections on %s failed: %v", source.ChainID(), err))
 		}
+
 		return "", false
 	}
 

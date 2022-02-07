@@ -1,10 +1,13 @@
 package relayer
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/cosmos/relayer/relayer/provider"
+	"github.com/strangelove-ventures/lens/client"
 	"strconv"
 	"strings"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
@@ -15,9 +18,9 @@ import (
 func (c *Chain) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
 	if c.debug {
 		c.Log(fmt.Sprintf("- [%s] -> failed sending transaction:", c.ChainID()))
-		//for _, msg := range msgs {
-		//	//c.Print(msg, false, false)
-		//}
+		for _, msg := range msgs {
+			_ = c.Print(client.CosmosMsg(msg), false, false)
+		}
 	}
 
 	if err != nil {
@@ -27,15 +30,41 @@ func (c *Chain) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []p
 		}
 	}
 
-	if res.Code != 0 && res.Data != "" {
-		c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%d:%s)",
-			c.ChainID(), res.Height, getMsgTypes(msgs), res.Code, res.Data))
+	if res != nil {
+		if res.Code != 0 && res.Data != "" {
+			c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%d:%s)",
+				c.ChainID(), res.Height, getMsgTypes(msgs), res.Code, res.Data))
+		}
 	}
 
-	//if c.debug && !res.Empty() {
-	//	c.Log("- transaction response:")
-	//	c.Print(res, false, false)
-	//}
+	if c.debug && res != nil {
+		c.Log("- transaction response:")
+		_ = c.PrintRelayerTxResponse(res, false, false)
+	}
+}
+
+func (c *Chain) PrintRelayerTxResponse(res *provider.RelayerTxResponse, text, indent bool) error {
+	var (
+		out []byte
+		err error
+	)
+
+	switch {
+	case indent && text:
+		return fmt.Errorf("must pass either indent or text, not both")
+	case text:
+		// TODO: This isn't really a good option,
+		out = []byte(fmt.Sprintf("%v", res))
+	default:
+		out, err = json.Marshal(res)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(string(out))
+	return nil
 }
 
 // LogSuccessTx take the transaction and the messages to create it and logs the appropriate data
@@ -51,11 +80,11 @@ func (c *Chain) logPacketsRelayed(dst *Chain, num int) {
 func logChannelStates(src, dst *Chain, srcChan, dstChan *chantypes.QueryChannelResponse) {
 	src.Log(fmt.Sprintf("- [%s]@{%d}chan(%s)-{%s} : [%s]@{%d}chan(%s)-{%s}",
 		src.ChainID(),
-		provider.MustGetHeight(srcChan.ProofHeight),
+		MustGetHeight(srcChan.ProofHeight),
 		src.PathEnd.ChannelID,
 		srcChan.Channel.State,
 		dst.ChainID(),
-		provider.MustGetHeight(dstChan.ProofHeight),
+		MustGetHeight(dstChan.ProofHeight),
 		dst.PathEnd.ChannelID,
 		dstChan.Channel.State,
 	))
@@ -64,22 +93,17 @@ func logChannelStates(src, dst *Chain, srcChan, dstChan *chantypes.QueryChannelR
 func logConnectionStates(src, dst *Chain, srcConn, dstConn *conntypes.QueryConnectionResponse) {
 	src.Log(fmt.Sprintf("- [%s]@{%d}conn(%s)-{%s} : [%s]@{%d}conn(%s)-{%s}",
 		src.ChainID(),
-		provider.MustGetHeight(srcConn.ProofHeight),
+		MustGetHeight(srcConn.ProofHeight),
 		src.PathEnd.ConnectionID,
 		srcConn.Connection.State,
 		dst.ChainID(),
-		provider.MustGetHeight(dstConn.ProofHeight),
+		MustGetHeight(dstConn.ProofHeight),
 		dst.PathEnd.ConnectionID,
 		dstConn.Connection.State,
 	))
 }
 
-func (c *Chain) logCreateClient(dst *Chain, dstH uint64) {
-	tp, err := dst.GetTrustingPeriod()
-	if err != nil {
-		c.Log(fmt.Sprintf("- [%s] -> failed to get trusting period from %s's Provider while creating client on %s for %s header-height{%d}",
-			c.ChainID(), dst.ChainID(), c.ChainID(), dst.ChainID(), dstH))
-	}
+func (c *Chain) logCreateClient(dst *Chain, dstH uint64, tp *time.Duration) {
 	c.Log(fmt.Sprintf("- [%s] -> creating client on %s for %s header-height{%d} trust-period(%s)",
 		c.ChainID(), c.ChainID(), dst.ChainID(), dstH, tp))
 }
@@ -131,7 +155,7 @@ func getTxActions(act []string) string {
 func (c *Chain) logRetryQueryPacketAcknowledgements(height uint64, n uint, err error) {
 	if c.debug {
 		c.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgements: %s",
-			c.ChainID(), height, n+1, provider.RtyAttNum, err))
+			c.ChainID(), height, n+1, RtyAttNum, err))
 	}
 }
 
@@ -141,4 +165,16 @@ func (c *Chain) logUnreceivedPackets(dst *Chain, packetType string, log string) 
 
 func (c *Chain) errQueryUnrelayedPacketAcks() error {
 	return fmt.Errorf("no error on QueryPacketUnrelayedAcknowledgements for %s, however response is nil", c.ChainID())
+}
+
+func (c *Chain) LogRetryGetIBCUpdateHeader(n uint, err error) {
+	if c.debug {
+		c.Log(fmt.Sprintf("failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
+	}
+}
+
+func (c *Chain) LogRetryGetLightSignedHeader(n uint, err error) {
+	if c.debug {
+		c.Log(fmt.Sprintf("failed to get light signed header, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
+	}
 }
