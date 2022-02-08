@@ -390,12 +390,24 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 
 	// Prepend non-empty msg lists with UpdateClient
 	if len(msgs.Dst) != 0 {
-		srcHeader, err := src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.PathEnd.ClientID)
-		if err != nil {
+		var (
+			srcHeader ibcexported.Header
+			updateMsg provider.RelayerMessage
+		)
+
+		if err = retry.Do(func() error {
+			srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.PathEnd.ClientID)
+			return err
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			srch, _, _ = QueryLatestHeights(src, dst)
+		})); err != nil {
 			return err
 		}
-		updateMsg, err := dst.ChainProvider.UpdateClient(dst.PathEnd.ClientID, srcHeader)
-		if err != nil {
+
+		if err = retry.Do(func() error {
+			updateMsg, err = dst.ChainProvider.UpdateClient(dst.PathEnd.ClientID, srcHeader)
+			return nil
+		}, RtyAtt, RtyDel, RtyErr); err != nil {
 			return err
 		}
 
@@ -403,12 +415,33 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 	}
 
 	if len(msgs.Src) != 0 {
-		dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.PathEnd.ClientID)
-		if err != nil {
+		//dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.PathEnd.ClientID)
+		//if err != nil {
+		//	return err
+		//}
+		//updateMsg, err := src.ChainProvider.UpdateClient(src.PathEnd.ClientID, dstHeader)
+		//if err != nil {
+		//	return err
+		//}
+
+		var (
+			dstHeader ibcexported.Header
+			updateMsg provider.RelayerMessage
+		)
+
+		if err = retry.Do(func() error {
+			dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.PathEnd.ClientID)
+			return err
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			_, dsth, _ = QueryLatestHeights(src, dst)
+		})); err != nil {
 			return err
 		}
-		updateMsg, err := src.ChainProvider.UpdateClient(src.PathEnd.ClientID, dstHeader)
-		if err != nil {
+
+		if err = retry.Do(func() error {
+			updateMsg, err = src.ChainProvider.UpdateClient(src.PathEnd.ClientID, dstHeader)
+			return nil
+		}, RtyAtt, RtyDel, RtyErr); err != nil {
 			return err
 		}
 
