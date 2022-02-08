@@ -415,15 +415,6 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 	}
 
 	if len(msgs.Src) != 0 {
-		//dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.PathEnd.ClientID)
-		//if err != nil {
-		//	return err
-		//}
-		//updateMsg, err := src.ChainProvider.UpdateClient(src.PathEnd.ClientID, dstHeader)
-		//if err != nil {
-		//	return err
-		//}
-
 		var (
 			dstHeader ibcexported.Header
 			updateMsg provider.RelayerMessage
