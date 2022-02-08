@@ -3,13 +3,37 @@ package relayer
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/avast/retry-go"
 	"net/url"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/simapp/params"
+	"github.com/avast/retry-go"
+	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/std"
+	"github.com/cosmos/cosmos-sdk/types/module"
+	"github.com/cosmos/cosmos-sdk/x/auth"
+	"github.com/cosmos/cosmos-sdk/x/auth/tx"
+	authz "github.com/cosmos/cosmos-sdk/x/authz/module"
+	"github.com/cosmos/cosmos-sdk/x/bank"
+	"github.com/cosmos/cosmos-sdk/x/capability"
+	"github.com/cosmos/cosmos-sdk/x/crisis"
+	"github.com/cosmos/cosmos-sdk/x/distribution"
+	"github.com/cosmos/cosmos-sdk/x/gov"
+	"github.com/cosmos/cosmos-sdk/x/mint"
+	"github.com/cosmos/cosmos-sdk/x/slashing"
+	"github.com/cosmos/cosmos-sdk/x/staking"
+	"github.com/cosmos/cosmos-sdk/x/upgrade"
+	"github.com/cosmos/ibc-go/v2/modules/apps/transfer"
+	ibc "github.com/cosmos/ibc-go/v2/modules/core"
+
+	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
+	simparams "github.com/cosmos/cosmos-sdk/simapp/params"
+	distrclient "github.com/cosmos/cosmos-sdk/x/distribution/client"
+	feegrant "github.com/cosmos/cosmos-sdk/x/feegrant/module"
+	"github.com/cosmos/cosmos-sdk/x/params"
+	paramsclient "github.com/cosmos/cosmos-sdk/x/params/client"
+	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
 	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
 	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/gogo/protobuf/proto"
@@ -21,6 +45,26 @@ var (
 	RtyAtt    = retry.Attempts(RtyAttNum)
 	RtyDel    = retry.Delay(time.Millisecond * 400)
 	RtyErr    = retry.LastErrorOnly(true)
+
+	ModuleBasics = []module.AppModuleBasic{
+		auth.AppModuleBasic{},
+		authz.AppModuleBasic{},
+		bank.AppModuleBasic{},
+		capability.AppModuleBasic{},
+		gov.NewAppModuleBasic(
+			paramsclient.ProposalHandler, distrclient.ProposalHandler, upgradeclient.ProposalHandler, upgradeclient.CancelProposalHandler,
+		),
+		crisis.AppModuleBasic{},
+		distribution.AppModuleBasic{},
+		feegrant.AppModuleBasic{},
+		mint.AppModuleBasic{},
+		params.AppModuleBasic{},
+		slashing.AppModuleBasic{},
+		staking.AppModuleBasic{},
+		upgrade.AppModuleBasic{},
+		transfer.AppModuleBasic{},
+		ibc.AppModuleBasic{},
+	}
 )
 
 // Chain represents the necessary data for connecting to and identifying a chain and its counterparties
@@ -30,11 +74,32 @@ type Chain struct {
 	Chainid       string `yaml:"chain-id" json:"chain-id"`
 	RPCAddr       string `yaml:"rpc-addr" json:"rpc-addr"`
 
-	PathEnd  *PathEnd              `yaml:"-" json:"-"`
-	Encoding params.EncodingConfig `yaml:"-" json:"-"`
+	PathEnd  *PathEnd                 `yaml:"-" json:"-"`
+	Encoding simparams.EncodingConfig `yaml:"-" json:"-"`
 
 	logger log.Logger
 	debug  bool
+}
+
+func MakeCodec(moduleBasics []module.AppModuleBasic) simparams.EncodingConfig {
+	modBasic := module.NewBasicManager(moduleBasics...)
+	encodingConfig := MakeCodecConfig()
+	std.RegisterLegacyAminoCodec(encodingConfig.Amino)
+	std.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+	modBasic.RegisterLegacyAminoCodec(encodingConfig.Amino)
+	modBasic.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+	return encodingConfig
+}
+
+func MakeCodecConfig() simparams.EncodingConfig {
+	interfaceRegistry := cdctypes.NewInterfaceRegistry()
+	marshaler := codec.NewProtoCodec(interfaceRegistry)
+	return simparams.EncodingConfig{
+		InterfaceRegistry: interfaceRegistry,
+		Marshaler:         marshaler,
+		TxConfig:          tx.NewTxConfig(marshaler, tx.DefaultSignModes),
+		Amino:             codec.NewLegacyAmino(),
+	}
 }
 
 // ValidatePaths takes two chains and validates their paths
@@ -101,6 +166,9 @@ func (c *Chain) Init(logger log.Logger, debug bool) {
 	if c.logger == nil {
 		c.logger = defaultChainLogger()
 	}
+
+	// TODO logging/encoding needs refactored
+	c.Encoding = MakeCodec(ModuleBasics)
 }
 
 func defaultChainLogger() log.Logger {
