@@ -389,54 +389,18 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 	}
 
 	// Prepend non-empty msg lists with UpdateClient
-	if len(msgs.Dst) != 0 {
-		var (
-			srcHeader ibcexported.Header
-			updateMsg provider.RelayerMessage
-		)
+	eg := new(errgroup.Group)
 
-		if err = retry.Do(func() error {
-			srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.PathEnd.ClientID)
-			return err
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			srch, _, _ = QueryLatestHeights(src, dst)
-		})); err != nil {
-			return err
-		}
+	eg.Go(func() error {
+		return PrependUpdateClientMsg(&msgs.Dst, src, dst, srch)
+	})
 
-		if err = retry.Do(func() error {
-			updateMsg, err = dst.ChainProvider.UpdateClient(dst.PathEnd.ClientID, srcHeader)
-			return nil
-		}, RtyAtt, RtyDel, RtyErr); err != nil {
-			return err
-		}
+	eg.Go(func() error {
+		return PrependUpdateClientMsg(&msgs.Src, dst, src, dsth)
+	})
 
-		msgs.Dst = append([]provider.RelayerMessage{updateMsg}, msgs.Dst...)
-	}
-
-	if len(msgs.Src) != 0 {
-		var (
-			dstHeader ibcexported.Header
-			updateMsg provider.RelayerMessage
-		)
-
-		if err = retry.Do(func() error {
-			dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.PathEnd.ClientID)
-			return err
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			_, dsth, _ = QueryLatestHeights(src, dst)
-		})); err != nil {
-			return err
-		}
-
-		if err = retry.Do(func() error {
-			updateMsg, err = src.ChainProvider.UpdateClient(src.PathEnd.ClientID, dstHeader)
-			return nil
-		}, RtyAtt, RtyDel, RtyErr); err != nil {
-			return err
-		}
-
-		msgs.Src = append([]provider.RelayerMessage{updateMsg}, msgs.Src...)
+	if err := eg.Wait(); err != nil {
+		return err
 	}
 
 	// send messages to their respective chains
@@ -447,10 +411,41 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 		if len(msgs.Src) > 1 {
 			src.logPacketsRelayed(dst, len(msgs.Src)-1)
 		}
-	} else {
-		fmt.Println()
 	}
 
+	return nil
+}
+
+// PrependUpdateClientMsg adds an UpdateClient msg to the front of non-empty msg lists
+func PrependUpdateClientMsg(msgs *[]provider.RelayerMessage, src, dst *Chain, srch int64) error {
+	if len(*msgs) != 0 {
+		var (
+			srcHeader ibcexported.Header
+			updateMsg provider.RelayerMessage
+			err       error
+		)
+
+		// Query IBC Update Header
+		if err = retry.Do(func() error {
+			srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.PathEnd.ClientID)
+			return err
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			srch, _, _ = QueryLatestHeights(src, dst)
+		})); err != nil {
+			return err
+		}
+
+		// Construct UpdateClient msg
+		if err = retry.Do(func() error {
+			updateMsg, err = dst.ChainProvider.UpdateClient(dst.PathEnd.ClientID, srcHeader)
+			return nil
+		}, RtyAtt, RtyDel, RtyErr); err != nil {
+			return err
+		}
+
+		// Prepend UpdateClient msg to the slice of msgs
+		*msgs = append([]provider.RelayerMessage{updateMsg}, *msgs...)
+	}
 	return nil
 }
 
