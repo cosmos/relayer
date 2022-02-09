@@ -335,51 +335,13 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 	}
 
 	// add messages for sequences on src
-	for _, seq := range sp.Src {
-		// Query src for the sequence number to get type of packet
-		var recvMsg, timeoutMsg provider.RelayerMessage
-		if err = retry.Do(func() error {
-			recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(src.ChainProvider, dst.ChainProvider, uint64(srch), uint64(dsth), seq, dst.PathEnd.ChannelID, dst.PathEnd.PortID, src.PathEnd.ChannelID, src.PathEnd.PortID, src.PathEnd.ClientID)
-			return err
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			srch, dsth, _ = QueryLatestHeights(src, dst)
-		})); err != nil {
-			return err
-		}
-
-		// depending on the type of message to be relayed, we need to
-		// send to different chains
-		if recvMsg != nil {
-			msgs.Dst = append(msgs.Dst, recvMsg)
-		}
-
-		if timeoutMsg != nil {
-			msgs.Src = append(msgs.Src, timeoutMsg)
-		}
+	if err = AddMessagesForSequences(sp.Src, src, dst, srch, dsth, &msgs.Src, &msgs.Dst); err != nil {
+		return err
 	}
 
 	// add messages for sequences on dst
-	for _, seq := range sp.Dst {
-		// Query dst for the sequence number to get type of packet
-		var recvMsg, timeoutMsg provider.RelayerMessage
-		if err = retry.Do(func() error {
-			recvMsg, timeoutMsg, err = dst.ChainProvider.RelayPacketFromSequence(dst.ChainProvider, src.ChainProvider, uint64(dsth), uint64(srch), seq, src.PathEnd.ChannelID, src.PathEnd.PortID, dst.PathEnd.ChannelID, dst.PathEnd.PortID, dst.PathEnd.ClientID)
-			return nil
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			srch, dsth, _ = QueryLatestHeights(src, dst)
-		})); err != nil {
-			return err
-		}
-
-		// depending on the type of message to be relayed, we need to
-		// send to different chains
-		if recvMsg != nil {
-			msgs.Src = append(msgs.Src, recvMsg)
-		}
-
-		if timeoutMsg != nil {
-			msgs.Dst = append(msgs.Dst, timeoutMsg)
-		}
+	if err = AddMessagesForSequences(sp.Dst, dst, src, dsth, srch, &msgs.Dst, &msgs.Src); err != nil {
+		return err
 	}
 
 	if !msgs.Ready() {
@@ -399,7 +361,7 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 		return PrependUpdateClientMsg(&msgs.Src, dst, src, dsth)
 	})
 
-	if err := eg.Wait(); err != nil {
+	if err = eg.Wait(); err != nil {
 		return err
 	}
 
@@ -410,6 +372,39 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 		}
 		if len(msgs.Src) > 1 {
 			src.logPacketsRelayed(dst, len(msgs.Src)-1)
+		}
+	}
+
+	return nil
+}
+
+// AddMessagesForSequences constructs RecvMsgs and TimeoutMsgs from sequence numbers on a src chain
+// and adds them to the appropriate queue of msgs for both src and dst
+func AddMessagesForSequences(sequences []uint64, src, dst *Chain, srch, dsth int64, srcMsgs, dstMsgs *[]provider.RelayerMessage) error {
+	for _, seq := range sequences {
+
+		var (
+			recvMsg, timeoutMsg provider.RelayerMessage
+			err                 error
+		)
+
+		// Query src for the sequence number to get type of packet
+		if err = retry.Do(func() error {
+			recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(src.ChainProvider, dst.ChainProvider, uint64(srch), uint64(dsth), seq, dst.PathEnd.ChannelID, dst.PathEnd.PortID, src.PathEnd.ChannelID, src.PathEnd.PortID, src.PathEnd.ClientID)
+			return err
+		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			srch, dsth, _ = QueryLatestHeights(src, dst)
+		})); err != nil {
+			return err
+		}
+
+		// Depending on the type of message to be relayed, we need to send to different chains
+		if recvMsg != nil {
+			*dstMsgs = append(*dstMsgs, recvMsg)
+		}
+
+		if timeoutMsg != nil {
+			*srcMsgs = append(*srcMsgs, timeoutMsg)
 		}
 	}
 
