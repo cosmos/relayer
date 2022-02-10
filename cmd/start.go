@@ -27,9 +27,10 @@ import (
 	"time"
 
 	"github.com/avast/retry-go"
+	"github.com/spf13/viper"
+
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
 )
 

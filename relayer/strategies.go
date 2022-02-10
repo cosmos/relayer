@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"fmt"
+	"time"
 )
 
 // StartRelayer starts the main relaying loop
@@ -49,7 +50,7 @@ func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), erro
 					}
 				}
 
-				//time.Sleep(100 * time.Millisecond)
+				time.Sleep(100 * time.Millisecond)
 			}
 		}
 	}()
