@@ -3,11 +3,12 @@ package relayer
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cosmos/relayer/relayer/provider"
-	"github.com/strangelove-ventures/lens/client"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/cosmos/relayer/relayer/provider"
+	"github.com/cosmos/relayer/relayer/provider/cosmos"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
@@ -19,7 +20,7 @@ func (c *Chain) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []p
 	if c.debug {
 		c.Log(fmt.Sprintf("- [%s] -> failed sending transaction:", c.ChainID()))
 		for _, msg := range msgs {
-			_ = c.Print(client.CosmosMsg(msg), false, false)
+			_ = c.Print(cosmos.CosmosMsg(msg), false, false)
 		}
 	}
 
