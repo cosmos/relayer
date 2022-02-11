@@ -11,11 +11,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/cosmos/cosmos-sdk/types/query"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	distTypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	transfertypes "github.com/cosmos/ibc-go/v2/modules/apps/transfer/types"
@@ -76,7 +73,7 @@ func (cc *CosmosProvider) QueryBalance(keyName string) (sdk.Coins, error) {
 	if keyName == "" {
 		addr, err = cc.Address()
 	} else {
-		cc.Config.Key = keyName
+		cc.PCfg.Key = keyName
 		addr, err = cc.Address()
 	}
 
@@ -161,7 +158,7 @@ func (cc *CosmosProvider) QueryTendermintProof(height int64, key []byte) ([]byte
 		return nil, nil, clienttypes.Height{}, err
 	}
 
-	revision := clienttypes.ParseChainID(cc.Config.ChainID)
+	revision := clienttypes.ParseChainID(cc.PCfg.ChainID)
 	return res.Value, proofBz, clienttypes.NewHeight(revision, uint64(res.Height)+1), nil
 }
 
@@ -295,7 +292,7 @@ func (cc *CosmosProvider) QueryUpgradeProof(key []byte, height uint64) ([]byte, 
 		return nil, clienttypes.Height{}, err
 	}
 
-	revision := clienttypes.ParseChainID(cc.Config.ChainID)
+	revision := clienttypes.ParseChainID(cc.PCfg.ChainID)
 
 	// proof height + 1 is returned as the proof created corresponds to the height the proof
 	// was created in the IAVL tree. Tendermint and subsequently the clients that rely on it
@@ -750,7 +747,7 @@ func (cc *CosmosProvider) QueryLatestHeight() (int64, error) {
 	if err != nil {
 		return -1, err
 	} else if stat.SyncInfo.CatchingUp {
-		return -1, fmt.Errorf("node at %s running chain %s not caught up", cc.Config.RPCAddr, cc.Config.ChainID)
+		return -1, fmt.Errorf("node at %s running chain %s not caught up", cc.PCfg.RPCAddr, cc.PCfg.ChainID)
 	}
 	return stat.SyncInfo.LatestBlockHeight, nil
 }
@@ -811,177 +808,6 @@ func (cc *CosmosProvider) QueryDenomTraces(offset, limit uint64, height int64) (
 		return nil, err
 	}
 	return transfers.DenomTraces, nil
-}
-
-// QueryDenomTraces returns all the denom traces from a given chain
-//func (cc *CosmosProvider) QueryDenomTraces(pageReq *querytypes.PageRequest, height int64) (*transfertypes.QueryDenomTracesResponse, error) {
-//	ctx := SetHeightOnContext(context.Background(), height)
-//	return transfertypes.NewQueryClient(cc).DenomTraces(ctx, &transfertypes.QueryDenomTracesRequest{
-//		Pagination: pageReq,
-//	})
-//}
-
-func (cc *CosmosProvider) QueryAccount(address sdk.AccAddress) (authtypes.AccountI, error) {
-	addr, err := cc.EncodeBech32AccAddr(address)
-	if err != nil {
-		return nil, err
-	}
-	res, err := authtypes.NewQueryClient(cc).Account(context.Background(), &authtypes.QueryAccountRequest{Address: addr})
-	if err != nil {
-		return nil, err
-	}
-	var acc authtypes.AccountI
-	if err := cc.Codec.InterfaceRegistry.UnpackAny(res.Account, &acc); err != nil {
-		return nil, err
-	}
-	return acc, nil
-}
-
-// QueryBalanceWithDenomTraces is a helper function for query balance
-func (cc *CosmosProvider) QueryBalanceWithDenomTraces(ctx context.Context, address sdk.AccAddress, pageReq *query.PageRequest) (sdk.Coins, error) {
-	coins, err := cc.QueryBalanceWithAddress(cc.MustEncodeAccAddr(address))
-	if err != nil {
-		return nil, err
-	}
-
-	h, err := cc.QueryLatestHeight()
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: figure out how to handle this
-	// we don't want to expose user to this
-	// so maybe we need a QueryAllDenomTraces function
-	// that will paginate the responses automatically
-	// TODO fix pagination here later
-	dts, err := cc.QueryDenomTraces(0, 1000, h)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(dts) == 0 {
-		return coins, nil
-	}
-
-	var out sdk.Coins
-	for _, c := range coins {
-		if c.Amount.Equal(sdk.NewInt(0)) {
-			continue
-		}
-
-		for i, d := range dts {
-			if c.Denom == d.IBCDenom() {
-				out = append(out, sdk.Coin{Denom: d.GetFullDenomPath(), Amount: c.Amount})
-				break
-			}
-
-			if i == len(dts)-1 {
-				out = append(out, c)
-			}
-		}
-	}
-	return out, nil
-}
-
-func (cc *CosmosProvider) QueryDelegatorValidators(ctx context.Context, address sdk.AccAddress) ([]string, error) {
-	res, err := distTypes.NewQueryClient(cc).DelegatorValidators(ctx, &distTypes.QueryDelegatorValidatorsRequest{
-		DelegatorAddress: cc.MustEncodeAccAddr(address),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return res.Validators, nil
-}
-
-func (cc *CosmosProvider) QueryDistributionCommission(ctx context.Context, address sdk.ValAddress) (sdk.DecCoins, error) {
-	valAddr, err := cc.EncodeBech32ValAddr(address)
-	if err != nil {
-		return nil, err
-	}
-	request := distTypes.QueryValidatorCommissionRequest{
-		ValidatorAddress: valAddr,
-	}
-	res, err := distTypes.NewQueryClient(cc).ValidatorCommission(ctx, &request)
-	if err != nil {
-		return nil, err
-	}
-	return res.Commission.Commission, nil
-}
-
-func (cc *CosmosProvider) QueryDistributionCommunityPool(ctx context.Context) (sdk.DecCoins, error) {
-	res, err := distTypes.NewQueryClient(cc).CommunityPool(ctx, &distTypes.QueryCommunityPoolRequest{})
-	if err != nil {
-		return nil, err
-	}
-	return res.Pool, err
-}
-
-func (cc *CosmosProvider) QueryDistributionParams(ctx context.Context) (*distTypes.Params, error) {
-	res, err := distTypes.NewQueryClient(cc).Params(ctx, &distTypes.QueryParamsRequest{})
-	if err != nil {
-		return nil, err
-	}
-	return &res.Params, nil
-}
-
-func (cc *CosmosProvider) QueryDistributionRewards(ctx context.Context, delegatorAddress sdk.AccAddress, validatorAddress sdk.ValAddress) (sdk.DecCoins, error) {
-	delAddr, err := cc.EncodeBech32AccAddr(delegatorAddress)
-	if err != nil {
-		return nil, err
-	}
-	valAddr, err := cc.EncodeBech32ValAddr(validatorAddress)
-	if err != nil {
-		return nil, err
-	}
-	request := distTypes.QueryDelegationRewardsRequest{
-		DelegatorAddress: delAddr,
-		ValidatorAddress: valAddr,
-	}
-	res, err := distTypes.NewQueryClient(cc).DelegationRewards(ctx, &request)
-	if err != nil {
-		return nil, err
-	}
-	return res.Rewards, nil
-}
-
-// QueryDistributionSlashes returns all slashes of a validator, optionally pass the start and end height
-func (cc *CosmosProvider) QueryDistributionSlashes(ctx context.Context, validatorAddress sdk.ValAddress, startHeight, endHeight uint64, pageReq *querytypes.PageRequest) (*distTypes.QueryValidatorSlashesResponse, error) {
-	valAddr, err := cc.EncodeBech32ValAddr(validatorAddress)
-	if err != nil {
-		return nil, err
-	}
-	request := distTypes.QueryValidatorSlashesRequest{
-		ValidatorAddress: valAddr,
-		StartingHeight:   startHeight,
-		EndingHeight:     endHeight,
-		Pagination:       pageReq,
-	}
-	return distTypes.NewQueryClient(cc).ValidatorSlashes(ctx, &request)
-}
-
-// QueryDistributionValidatorRewards returns all the validator distribution rewards from a given height
-func (cc *CosmosProvider) QueryDistributionValidatorRewards(ctx context.Context, validatorAddress sdk.ValAddress) (sdk.DecCoins, error) {
-	valAddr, err := cc.EncodeBech32ValAddr(validatorAddress)
-	if err != nil {
-		return nil, err
-	}
-	request := distTypes.QueryValidatorOutstandingRewardsRequest{
-		ValidatorAddress: valAddr,
-	}
-	res, err := distTypes.NewQueryClient(cc).ValidatorOutstandingRewards(ctx, &request)
-	if err != nil {
-		return nil, err
-	}
-	return res.Rewards.Rewards, nil
-}
-
-// QueryTotalSupply returns the total supply of coins on a chain
-func (cc *CosmosProvider) QueryTotalSupply(ctx context.Context, pageReq *query.PageRequest) (*bankTypes.QueryTotalSupplyResponse, error) {
-	return bankTypes.NewQueryClient(cc).TotalSupply(ctx, &bankTypes.QueryTotalSupplyRequest{Pagination: pageReq})
-}
-
-func (cc *CosmosProvider) QueryDenomsMetadata(ctx context.Context, pageReq *query.PageRequest) (*bankTypes.QueryDenomsMetadataResponse, error) {
-	return bankTypes.NewQueryClient(cc).DenomsMetadata(ctx, &bankTypes.QueryDenomsMetadataRequest{Pagination: pageReq})
 }
 
 func (cc *CosmosProvider) QueryStakingParams(ctx context.Context) (*stakingtypes.Params, error) {

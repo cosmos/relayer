@@ -3,12 +3,15 @@ package cosmos
 import (
 	"context"
 	"fmt"
-	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/client/tx"
+	"github.com/cosmos/cosmos-sdk/types/module"
 	"math"
+	"os"
 	"reflect"
 	"strconv"
 	"time"
+
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/tx"
 
 	"github.com/avast/retry-go"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -101,16 +104,69 @@ func (cm CosmosMessage) MsgBytes() ([]byte, error) {
 	return proto.Marshal(cm.Msg)
 }
 
+type CosmosProviderConfig struct {
+	Key            string  `json:"key" yaml:"key"`
+	ChainID        string  `json:"chain-id" yaml:"chain-id"`
+	RPCAddr        string  `json:"rpc-addr" yaml:"rpc-addr"`
+	AccountPrefix  string  `json:"account-prefix" yaml:"account-prefix"`
+	KeyringBackend string  `json:"keyring-backend" yaml:"keyring-backend"`
+	GasAdjustment  float64 `json:"gas-adjustment" yaml:"gas-adjustment"`
+	GasPrices      string  `json:"gas-prices" yaml:"gas-prices"`
+	Debug          bool    `json:"debug" yaml:"debug"`
+	Timeout        string  `json:"timeout" yaml:"timeout"`
+	OutputFormat   string  `json:"output-format" yaml:"output-format"`
+	SignModeStr    string  `json:"sign-mode" yaml:"sign-mode"`
+}
+
+func (pc CosmosProviderConfig) Validate() error {
+	if _, err := time.ParseDuration(pc.Timeout); err != nil {
+		return err
+	}
+	return nil
+}
+
+// NewProvider validates the ChainClientConfig, instantiates a ChainClient and instantiates a CosmosProvider
+func (pc CosmosProviderConfig) NewProvider(homepath string, debug bool) (provider.ChainProvider, error) {
+	if err := pc.Validate(); err != nil {
+		return nil, err
+	}
+	cc, err := lens.NewChainClient(ChainClientConfig(&pc), homepath, os.Stdin, os.Stdout)
+	if err != nil {
+		return nil, err
+	}
+	return &CosmosProvider{ChainClient: *cc, PCfg: pc}, nil
+}
+
+// ChainClientConfig builds a ChainClientConfig struct from a CosmosProviderConfig, this is used
+// to instantiate and instance of ChainClient from lens which is how we build the CosmosProvider
+func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
+	return &lens.ChainClientConfig{
+		Key:            pcfg.Key,
+		ChainID:        pcfg.ChainID,
+		RPCAddr:        pcfg.RPCAddr,
+		AccountPrefix:  pcfg.AccountPrefix,
+		KeyringBackend: pcfg.KeyringBackend,
+		GasAdjustment:  pcfg.GasAdjustment,
+		GasPrices:      pcfg.GasPrices,
+		Debug:          pcfg.Debug,
+		Timeout:        pcfg.Timeout,
+		OutputFormat:   pcfg.OutputFormat,
+		SignModeStr:    pcfg.SignModeStr,
+		Modules:        append([]module.AppModuleBasic{}, lens.ModuleBasics...),
+	}
+}
+
 type CosmosProvider struct {
 	lens.ChainClient
+	PCfg CosmosProviderConfig
 }
 
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {
-	return cc.Config
+	return cc.PCfg
 }
 
 func (cc *CosmosProvider) ChainId() string {
-	return cc.Config.ChainID
+	return cc.PCfg.ChainID
 }
 
 func (cc *CosmosProvider) Type() string {
@@ -118,11 +174,11 @@ func (cc *CosmosProvider) Type() string {
 }
 
 func (cc *CosmosProvider) Key() string {
-	return cc.Config.Key
+	return cc.PCfg.Key
 }
 
 func (cc *CosmosProvider) Timeout() string {
-	return cc.Config.Timeout
+	return cc.PCfg.Timeout
 }
 
 // Address returns the chains configured address as a string
@@ -131,7 +187,7 @@ func (cc *CosmosProvider) Address() (string, error) {
 		err  error
 		info keyring.Info
 	)
-	info, err = cc.Keybase.Key(cc.Config.Key)
+	info, err = cc.Keybase.Key(cc.PCfg.Key)
 	if err != nil {
 		return "", err
 	}
@@ -773,7 +829,7 @@ func (cc *CosmosProvider) MsgRelayTimeout(dst provider.ChainProvider, dsth int64
 	case recvRes.Proof == nil:
 		return nil, fmt.Errorf("timeout packet receipt proof seq(%d) is nil", packet.Seq())
 	case recvRes == nil:
-		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", cc.Config.ChainID, packet.Seq())
+		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", cc.PCfg.ChainID, packet.Seq())
 	default:
 		msg := &chantypes.MsgTimeout{
 			Packet: chantypes.Packet{
@@ -814,7 +870,7 @@ func (cc *CosmosProvider) MsgRelayRecvPacket(dst provider.ChainProvider, dsth in
 	case comRes.Proof == nil || comRes.Commitment == nil:
 		return nil, fmt.Errorf("recv packet commitment query seq(%d) is nil", packet.Seq())
 	case comRes == nil:
-		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", cc.Config.ChainID, packet.Seq())
+		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", cc.PCfg.ChainID, packet.Seq())
 	default:
 		msg := &chantypes.MsgRecvPacket{
 			Packet: chantypes.Packet{
@@ -1131,7 +1187,7 @@ func (cc *CosmosProvider) AutoUpdateClient(dst provider.ChainProvider, threshold
 	consensusState, ok := exportedConsState.(*tmclient.ConsensusState)
 	if !ok {
 		return 0, fmt.Errorf("consensus state with clientID %s from chain %s is not IBC tendermint type",
-			srcClientId, cc.Config.ChainID)
+			srcClientId, cc.PCfg.ChainID)
 	}
 
 	expirationTime := consensusState.Timestamp.Add(clientState.TrustingPeriod)
@@ -1143,7 +1199,7 @@ func (cc *CosmosProvider) AutoUpdateClient(dst provider.ChainProvider, threshold
 	}
 
 	if clientState.IsExpired(consensusState.Timestamp, time.Now()) {
-		return 0, fmt.Errorf("client (%s) is already expired on chain: %s", srcClientId, cc.Config.ChainID)
+		return 0, fmt.Errorf("client (%s) is already expired on chain: %s", srcClientId, cc.PCfg.ChainID)
 	}
 
 	srcUpdateHeader, err := cc.GetIBCUpdateHeader(srch, dst, dstClientId)
@@ -1172,7 +1228,7 @@ func (cc *CosmosProvider) AutoUpdateClient(dst provider.ChainProvider, threshold
 		return 0, fmt.Errorf("tx failed: %s", res.Data)
 	}
 	cc.Log(fmt.Sprintf("★ Client updated: [%s]client(%s) {%d}->{%d}",
-		cc.Config.ChainID,
+		cc.PCfg.ChainID,
 		srcClientId,
 		MustGetHeight(srcUpdateHeader.GetHeight()),
 		srcUpdateHeader.GetHeight().GetRevisionHeight(),
@@ -1197,15 +1253,15 @@ func (cc *CosmosProvider) FindMatchingClient(counterparty provider.ChainProvider
 	if err = retry.Do(func() error {
 		clientsResp, err = cc.QueryClients()
 		if err != nil {
-			if cc.Config.Debug {
-				cc.Log(fmt.Sprintf("Error: querying clients on %s failed: %v", cc.Config.ChainID, err))
+			if cc.PCfg.Debug {
+				cc.Log(fmt.Sprintf("Error: querying clients on %s failed: %v", cc.PCfg.ChainID, err))
 			}
 			return err
 		}
 		return err
 	}, RtyAtt, RtyDel, RtyErr); err != nil {
-		if cc.Config.Debug {
-			cc.Log(fmt.Sprintf("Error: querying clients on %s failed: %v", cc.Config.ChainID, err))
+		if cc.PCfg.Debug {
+			cc.Log(fmt.Sprintf("Error: querying clients on %s failed: %v", cc.PCfg.ChainID, err))
 		}
 		return "", false
 	}
@@ -1219,7 +1275,7 @@ func (cc *CosmosProvider) FindMatchingClient(counterparty provider.ChainProvider
 
 		tmClientState, ok := clientState.(*tmclient.ClientState)
 		if !ok {
-			if cc.Config.Debug {
+			if cc.PCfg.Debug {
 				fmt.Printf("got data of type %T but wanted tmclient.ClientState \n", clientState)
 			}
 			return "", false
@@ -1233,9 +1289,9 @@ func (cc *CosmosProvider) FindMatchingClient(counterparty provider.ChainProvider
 			// query the latest consensus state of the potential matching client
 			consensusStateResp, err := cc.QueryConsensusStateABCI(identifiedClientState.ClientId, existingClientState.GetLatestHeight())
 			if err != nil {
-				if cc.Config.Debug {
+				if cc.PCfg.Debug {
 					cc.Log(fmt.Sprintf("Error: failed to query latest consensus state for existing client on chain %s: %v",
-						cc.Config.ChainID, err))
+						cc.PCfg.ChainID, err))
 				}
 				continue
 			}
@@ -1243,7 +1299,7 @@ func (cc *CosmosProvider) FindMatchingClient(counterparty provider.ChainProvider
 			//nolint:lll
 			header, err := counterparty.GetLightSignedHeaderAtHeight(int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
 			if err != nil {
-				if cc.Config.Debug {
+				if cc.PCfg.Debug {
 					cc.Log(fmt.Sprintf("Error: failed to query header for chain %s at height %d: %v",
 						counterparty.ChainId(), existingClientState.GetLatestHeight().GetRevisionHeight(), err))
 				}
@@ -1252,14 +1308,14 @@ func (cc *CosmosProvider) FindMatchingClient(counterparty provider.ChainProvider
 
 			exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
 			if err != nil {
-				if cc.Config.Debug {
+				if cc.PCfg.Debug {
 					cc.Log(fmt.Sprintf("Error: failed to consensus state on chain %s: %v", counterparty.ChainId(), err))
 				}
 				continue
 			}
 			existingConsensusState, ok := exportedConsState.(*tmclient.ConsensusState)
 			if !ok {
-				if cc.Config.Debug {
+				if cc.PCfg.Debug {
 					cc.Log(fmt.Sprintf("Error: consensus state is not tendermint type on chain %s", counterparty.ChainId()))
 				}
 				continue
@@ -1271,7 +1327,7 @@ func (cc *CosmosProvider) FindMatchingClient(counterparty provider.ChainProvider
 
 			tmHeader, ok := header.(*tmclient.Header)
 			if !ok {
-				if cc.Config.Debug {
+				if cc.PCfg.Debug {
 					fmt.Printf("got data of type %T but wanted tmclient.Header \n", header)
 				}
 				return "", false
@@ -1458,7 +1514,7 @@ func (cc *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provide
 	done := cc.SetSDKContext()
 
 	if err = retry.Do(func() error {
-		if err = tx.Sign(txf, cc.Config.Key, txb, false); err != nil {
+		if err = tx.Sign(txf, cc.PCfg.Key, txb, false); err != nil {
 			return err
 		}
 		return err
