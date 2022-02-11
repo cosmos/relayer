@@ -259,6 +259,8 @@ github.com/cosmos/cosmos-sdk v0.44.3/go.mod h1:bA3+VenaR/l/vDiYzaiwbWvRPWHMBX2jG
 github.com/cosmos/cosmos-sdk v0.44.5/go.mod h1:maUA6m2TBxOJZkbwl0eRtEBgTX37kcaiOWU5t1HEGaY=
 github.com/cosmos/cosmos-sdk v0.45.0 h1:DHD+CIRZ+cYgiLXuTEUL/aprnfPsWSwaww/fIZEsZlk=
 github.com/cosmos/cosmos-sdk v0.45.0/go.mod h1:XXS/asyCqWNWkx2rW6pSuen+EVcpAFxq6khrhnZgHaQ=
+github.com/cosmos/cosmos-sdk v0.45.1 h1:PY79YxPea5qlRLExRnzg8/rT1Scc8GGgRs22p7DX99Q=
+github.com/cosmos/cosmos-sdk v0.45.1/go.mod h1:XXS/asyCqWNWkx2rW6pSuen+EVcpAFxq6khrhnZgHaQ=
 github.com/cosmos/go-bip39 v0.0.0-20180819234021-555e2067c45d/go.mod h1:tSxLoYXyBmiFeKpvmq4dzayMdCjCnu8uqmCysIGBT2Y=
 github.com/cosmos/go-bip39 v1.0.0 h1:pcomnQdrdH22njcAatO0yWojsUnCO3y2tNoV1cb6hHY=
 github.com/cosmos/go-bip39 v1.0.0/go.mod h1:RNJv0H/pOIVgxw6KS7QeX2a0Uo0aKUlfhZ4xuwvCdJw=
@@ -271,6 +273,8 @@ github.com/cosmos/iavl v0.17.3/go.mod h1:prJoErZFABYZGDHka1R6Oay4z9PrNeFFiMKHDAM
 github.com/cosmos/ibc-go/v2 v2.0.0-rc0/go.mod h1:z1LmpWwZF8YBeA3w2ibYG53R4HkhQGWjdUew/EfTSDw=
 github.com/cosmos/ibc-go/v2 v2.0.2 h1:y7eUgggMEVe43wHLw9XrGbeaTWtfkJYMoL3m6YW4fIY=
 github.com/cosmos/ibc-go/v2 v2.0.2/go.mod h1:XUmW7wmubCRhIEAGtMGS+5IjiSSmcAwihoN/yPGd6Kk=
+github.com/cosmos/ibc-go/v2 v2.0.3 h1:kZ6SAj7hyxoixsLEUBx431bVGiBW22PCHwkWHafWhXs=
+github.com/cosmos/ibc-go/v2 v2.0.3/go.mod h1:XUmW7wmubCRhIEAGtMGS+5IjiSSmcAwihoN/yPGd6Kk=
 github.com/cosmos/ledger-cosmos-go v0.11.1 h1:9JIYsGnXP613pb2vPjFeMMjBI5lEDsEaF6oYorTy6J4=
 github.com/cosmos/ledger-cosmos-go v0.11.1/go.mod h1:J8//BsAGTo3OC/vDLjMRFLW6q0WAaXvHnVc7ZmE8iUY=
 github.com/cosmos/ledger-go v0.9.2 h1:Nnao/dLwaVTk1Q5U9THldpUMMXU94BOTWPddSmVB6pI=
@@ -1149,6 +1153,8 @@ github.com/strangelove-ventures/lens v0.2.2-0.20220131191229-2c7ba13ad8c8 h1:M5m
 github.com/strangelove-ventures/lens v0.2.2-0.20220131191229-2c7ba13ad8c8/go.mod h1:QSKpnL9bDirjJsMApJoHmVU3ZBujFnbXsvY9d5JG8M8=
 github.com/strangelove-ventures/lens v0.2.2-0.20220131192754-f2a69f2e3fd7 h1:3vwNTIh39q4Vl8tkmV02lAS37SZ6WrkKX/GlsjdVqqg=
 github.com/strangelove-ventures/lens v0.2.2-0.20220131192754-f2a69f2e3fd7/go.mod h1:QSKpnL9bDirjJsMApJoHmVU3ZBujFnbXsvY9d5JG8M8=
+github.com/strangelove-ventures/lens v0.2.2-0.20220211175529-5448f80144aa h1:FQn08E51NxPrr63H92v7p4K884hCeKto6Li62/dEy30=
+github.com/strangelove-ventures/lens v0.2.2-0.20220211175529-5448f80144aa/go.mod h1:3z9i7FTh9xk8uJQ+de0+f2XbZ1PP2spEV3pXcKZl2b8=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/handy v0.0.0-20190108123426-d5acb3125c2a/go.mod h1:qNTQ5P5JnDBl6z3cMAg/SywNDC5ABu5ApDIw6lUbRmI=
