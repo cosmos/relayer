@@ -125,7 +125,7 @@ func (pc CosmosProviderConfig) Validate() error {
 	return nil
 }
 
-// NewProvider validates the ChainClientConfig, instantiates a ChainClient and instantiates a CosmosProvider
+// NewProvider validates the CosmosProviderConfig, instantiates a ChainClient and then instantiates a CosmosProvider
 func (pc CosmosProviderConfig) NewProvider(homepath string, debug bool) (provider.ChainProvider, error) {
 	if err := pc.Validate(); err != nil {
 		return nil, err
@@ -138,7 +138,7 @@ func (pc CosmosProviderConfig) NewProvider(homepath string, debug bool) (provide
 }
 
 // ChainClientConfig builds a ChainClientConfig struct from a CosmosProviderConfig, this is used
-// to instantiate and instance of ChainClient from lens which is how we build the CosmosProvider
+// to instantiate an instance of ChainClient from lens which is how we build the CosmosProvider
 func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
 	return &lens.ChainClientConfig{
 		Key:            pcfg.Key,
