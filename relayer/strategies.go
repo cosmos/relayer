@@ -18,16 +18,17 @@ func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), erro
 				sp, err := UnrelayedSequences(src, dst)
 				if err != nil {
 					src.Log(fmt.Sprintf("unrelayed sequences error: %s", err))
-				}
-				if len(sp.Src) > 0 && src.debug {
-					src.Log(fmt.Sprintf("[%s] unrelayed-packets-> %v", src.ChainID(), sp.Src))
-				}
-				if len(sp.Dst) > 0 && dst.debug {
-					dst.Log(fmt.Sprintf("[%s] unrelayed-packets-> %v", dst.ChainID(), sp.Dst))
-				}
-				if !sp.Empty() {
-					if err = RelayPackets(src, dst, sp, maxTxSize, maxMsgLength); err != nil {
-						src.Log(fmt.Sprintf("relay packets error: %s", err))
+				} else {
+					if len(sp.Src) > 0 && src.debug {
+						src.Log(fmt.Sprintf("[%s] unrelayed-packets-> %v", src.ChainID(), sp.Src))
+					}
+					if len(sp.Dst) > 0 && dst.debug {
+						dst.Log(fmt.Sprintf("[%s] unrelayed-packets-> %v", dst.ChainID(), sp.Dst))
+					}
+					if !sp.Empty() {
+						if err = RelayPackets(src, dst, sp, maxTxSize, maxMsgLength); err != nil {
+							src.Log(fmt.Sprintf("relay packets error: %s", err))
+						}
 					}
 				}
 
@@ -35,18 +36,20 @@ func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), erro
 				ap, err := UnrelayedAcknowledgements(src, dst)
 				if err != nil {
 					src.Log(fmt.Sprintf("unrelayed acks error: %s", err))
-				}
-				if len(ap.Src) > 0 && src.debug {
-					src.Log(fmt.Sprintf("[%s] unrelayed-acks-> %v", src.ChainID(), ap.Src))
-				}
-				if len(ap.Dst) > 0 && dst.debug {
-					dst.Log(fmt.Sprintf("[%s] unrelayed-acks-> %v", dst.ChainID(), ap.Dst))
-				}
-				if !ap.Empty() {
-					if err = RelayAcknowledgements(src, dst, ap, maxTxSize, maxMsgLength); err != nil && src.debug {
-						src.Log(fmt.Sprintf("relay acks error: %s", err))
+				} else {
+					if len(ap.Src) > 0 && src.debug {
+						src.Log(fmt.Sprintf("[%s] unrelayed-acks-> %v", src.ChainID(), ap.Src))
+					}
+					if len(ap.Dst) > 0 && dst.debug {
+						dst.Log(fmt.Sprintf("[%s] unrelayed-acks-> %v", dst.ChainID(), ap.Dst))
+					}
+					if !ap.Empty() {
+						if err = RelayAcknowledgements(src, dst, ap, maxTxSize, maxMsgLength); err != nil && src.debug {
+							src.Log(fmt.Sprintf("relay acks error: %s", err))
+						}
 					}
 				}
+
 				time.Sleep(100 * time.Millisecond)
 			}
 		}
