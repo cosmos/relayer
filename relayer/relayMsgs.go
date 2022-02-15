@@ -127,27 +127,29 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 	// submit batches of relay transactions
 	for _, msg := range r.Src {
-		bz, err := msg.MsgBytes()
-		if err != nil {
-			panic(err)
-		}
-
-		msgLen++
-		txSize += uint64(len(bz))
-
-		if r.IsMaxTx(msgLen, txSize) {
-			// Submit the transactions to src chain and update its status
-			res, success, err := src.ChainProvider.SendMessages(msgs)
+		if msg != nil {
+			bz, err := msg.MsgBytes()
 			if err != nil {
-				src.LogFailedTx(res, err, msgs)
+				panic(err)
 			}
-			r.Succeeded = r.Succeeded && success
 
-			// clear the current batch and reset variables
-			msgLen, txSize = 1, uint64(len(bz))
-			msgs = []provider.RelayerMessage{}
+			msgLen++
+			txSize += uint64(len(bz))
+
+			if r.IsMaxTx(msgLen, txSize) {
+				// Submit the transactions to src chain and update its status
+				res, success, err := src.ChainProvider.SendMessages(msgs)
+				if err != nil {
+					src.LogFailedTx(res, err, msgs)
+				}
+				r.Succeeded = r.Succeeded && success
+
+				// clear the current batch and reset variables
+				msgLen, txSize = 1, uint64(len(bz))
+				msgs = []provider.RelayerMessage{}
+			}
+			msgs = append(msgs, msg)
 		}
-		msgs = append(msgs, msg)
 	}
 
 	// submit leftover msgs
@@ -165,28 +167,30 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 	msgs = []provider.RelayerMessage{}
 
 	for _, msg := range r.Dst {
-		bz, err := msg.MsgBytes()
-		if err != nil {
-			panic(err)
-		}
-
-		msgLen++
-		txSize += uint64(len(bz))
-
-		if r.IsMaxTx(msgLen, txSize) {
-			// Submit the transaction to dst chain and update its status
-			res, success, err := dst.ChainProvider.SendMessages(msgs)
+		if msg != nil {
+			bz, err := msg.MsgBytes()
 			if err != nil {
-				dst.LogFailedTx(res, err, msgs)
+				panic(err)
 			}
 
-			r.Succeeded = r.Succeeded && success
+			msgLen++
+			txSize += uint64(len(bz))
 
-			// clear the current batch and reset variables
-			msgLen, txSize = 1, uint64(len(bz))
-			msgs = []provider.RelayerMessage{}
+			if r.IsMaxTx(msgLen, txSize) {
+				// Submit the transaction to dst chain and update its status
+				res, success, err := dst.ChainProvider.SendMessages(msgs)
+				if err != nil {
+					dst.LogFailedTx(res, err, msgs)
+				}
+
+				r.Succeeded = r.Succeeded && success
+
+				// clear the current batch and reset variables
+				msgLen, txSize = 1, uint64(len(bz))
+				msgs = []provider.RelayerMessage{}
+			}
+			msgs = append(msgs, msg)
 		}
-		msgs = append(msgs, msg)
 	}
 
 	// submit leftover msgs
