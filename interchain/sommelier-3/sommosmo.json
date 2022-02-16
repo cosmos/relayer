@@ -1,6 +1,6 @@
 {
   "src": {
-    "chain-id": "sentinelhub-2",
+    "chain-id": "sommelier-3",
     "client-id": "07-tendermint-0",
     "connection-id": "connection-0",
     "channel-id": "channel-0",
@@ -10,9 +10,9 @@
   },
   "dst": {
     "chain-id": "osmosis-1",
-    "client-id": "07-tendermint-2",
-    "connection-id": "connection-3",
-    "channel-id": "channel-2",
+    "client-id": "07-tendermint-1745",
+    "connection-id": "connection-1348",
+    "channel-id": "channel-165",
     "port-id": "transfer",
     "order": "unordered",
     "version": "ics20-1"
