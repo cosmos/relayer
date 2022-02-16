@@ -7,8 +7,8 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/relayer/relayer"
+	"github.com/cosmos/relayer/relayer/provider/cosmos"
 	dc "github.com/ory/dockertest/v3/docker"
-	lens "github.com/strangelove-ventures/lens/client"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,16 +22,14 @@ const (
 )
 
 var (
-	gaiaProviderCfg = lens.ChainClientConfig{
+	gaiaProviderCfg = cosmos.CosmosProviderConfig{
 		Key:            "",
 		ChainID:        "",
 		RPCAddr:        "",
-		GRPCAddr:       "",
 		AccountPrefix:  "cosmos",
 		KeyringBackend: "test",
 		GasAdjustment:  1.3,
 		GasPrices:      "0.00samoleans",
-		KeyDirectory:   "",
 		Debug:          true,
 		Timeout:        "10s",
 		OutputFormat:   "json",
@@ -45,16 +43,14 @@ var (
 		},
 	}
 
-	akashProviderCfg = lens.ChainClientConfig{
+	akashProviderCfg = cosmos.CosmosProviderConfig{
 		Key:            "",
 		ChainID:        "",
 		RPCAddr:        "",
-		GRPCAddr:       "",
 		AccountPrefix:  "akash",
 		KeyringBackend: "test",
 		GasAdjustment:  1.3,
 		GasPrices:      "0.00samoleans",
-		KeyDirectory:   "",
 		Debug:          true,
 		Timeout:        "10s",
 		OutputFormat:   "json",
@@ -68,16 +64,14 @@ var (
 		},
 	}
 
-	osmosisProviderCfg = lens.ChainClientConfig{
+	osmosisProviderCfg = cosmos.CosmosProviderConfig{
 		Key:            "",
 		ChainID:        "",
 		RPCAddr:        "",
-		GRPCAddr:       "",
 		AccountPrefix:  "osmo",
 		KeyringBackend: "test",
 		GasAdjustment:  1.3,
 		GasPrices:      "0.00samoleans",
-		KeyDirectory:   "",
 		Debug:          true,
 		Timeout:        "10s",
 		OutputFormat:   "json",
@@ -101,7 +95,7 @@ type (
 		chainID string
 		seed    int
 		t       testChainConfig
-		pcfg    lens.ChainClientConfig
+		pcfg    cosmos.CosmosProviderConfig
 	}
 
 	// testChainConfig represents the chain specific docker and codec configurations

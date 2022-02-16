@@ -4,8 +4,8 @@ go 1.17
 
 require (
 	github.com/avast/retry-go v2.6.0+incompatible
-	github.com/cosmos/cosmos-sdk v0.45.0
-	github.com/cosmos/ibc-go/v2 v2.0.2
+	github.com/cosmos/cosmos-sdk v0.45.1
+	github.com/cosmos/ibc-go/v2 v2.0.3
 	github.com/gin-gonic/gin v1.7.0 // indirect
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/gogo/protobuf v1.3.3
@@ -22,7 +22,7 @@ require (
 
 require (
 	github.com/pkg/errors v0.9.1
-	github.com/strangelove-ventures/lens v0.2.2-0.20220131192754-f2a69f2e3fd7
+	github.com/strangelove-ventures/lens v0.3.0
 )
 
 require (

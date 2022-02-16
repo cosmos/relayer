@@ -11,11 +11,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
-
 	"github.com/cosmos/relayer/relayer"
+	"github.com/cosmos/relayer/relayer/provider/cosmos"
+	"github.com/spf13/cobra"
 	registry "github.com/strangelove-ventures/lens/client/chain_registry"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -419,7 +419,21 @@ func chainRegistryAdd(chains []string) (*Config, error) {
 			}
 
 			// build the ChainProvider
-			prov, err := chainConfig.NewProvider(homePath, debug)
+			pcfg := &cosmos.CosmosProviderConfig{
+				Key:            chainConfig.Key,
+				ChainID:        chainConfig.ChainID,
+				RPCAddr:        chainConfig.RPCAddr,
+				AccountPrefix:  chainConfig.AccountPrefix,
+				KeyringBackend: chainConfig.KeyringBackend,
+				GasAdjustment:  chainConfig.GasAdjustment,
+				GasPrices:      chainConfig.GasPrices,
+				Debug:          chainConfig.Debug,
+				Timeout:        chainConfig.Timeout,
+				OutputFormat:   chainConfig.OutputFormat,
+				SignModeStr:    chainConfig.SignModeStr,
+			}
+
+			prov, err := pcfg.NewProvider(homePath, debug)
 			if err != nil {
 				log.Printf("failed to build ChainProvider for %s. Err: %v", chainConfig.ChainID, err)
 				continue
