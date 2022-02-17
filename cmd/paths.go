@@ -2,23 +2,19 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"github.com/go-git/go-git/v5"
 	"io/ioutil"
-	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"strings"
 
 	"github.com/cosmos/relayer/relayer"
+	"github.com/go-git/go-git/v5"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
 const (
-	jsonURL = "https://raw.githubusercontent.com/cosmos/relayer/main/interchain/chains/"
 	repoURL = "https://github.com/cosmos/relayer"
 )
 
@@ -284,21 +280,6 @@ $ %s pth fch`, appName, defaultHome, appName)),
 			// Try to fetch path info for each configured chain that has canonical chain/path info in the GH repo
 			for _, srcChain := range config.Chains {
 				for _, dstChain := range config.Chains {
-					fName := fmt.Sprintf("%s.json", srcChain.ChainID())
-
-					// Check that the constructed URL is valid
-					u, err := url.Parse(fmt.Sprintf("%s%s", jsonURL, fName))
-					if err != nil || u.Scheme == "" || u.Host == "" {
-						cleanupDir(localRepo)
-						return errors.New("invalid URL")
-					}
-
-					// Check that the chain srcChain, has provided canonical chain/path info in GH repo
-					resp, err := http.Get(u.String())
-					if err != nil || resp.StatusCode == 404 {
-						fmt.Printf("Chain %s is not currently supported by fetch. Consider adding it's info to %s \n", srcChain.ChainID(), repoURL)
-						continue
-					}
 
 					// Add paths to rly config from {localRepo}/interchain/chaind-id/
 					pathsDir := path.Join(localRepo, "interchain", srcChain.ChainID())
@@ -306,7 +287,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					dir := path.Clean(pathsDir)
 					files, err := ioutil.ReadDir(dir)
 					if err != nil {
-						return err
+						return fmt.Errorf("path info does not exhist for chain: %s. Consider adding it's info to %s. Error: %w", srcChain.ChainID(), path.Join(repoURL, "interchain"), err)
 					}
 					cfg := config
 
