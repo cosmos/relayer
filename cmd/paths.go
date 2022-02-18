@@ -288,14 +288,15 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					dir := path.Clean(localPathsDir)
 					files, err := ioutil.ReadDir(dir)
 					if err != nil {
-						fmt.Printf("path info does not exist for chain: %s. Consider adding it's info to %s. Error: %v", srcChain.ChainID(), path.Join(PATHSURL, "interchain"), err)
-						continue
+						fmt.Printf("path info does not exist for chain: %s. Consider adding it's info to %s. Error: %v \n", srcChain.ChainID(), path.Join(PATHSURL, "interchain"), err)
+						break
 					}
 					cfg := config
 
 					// For each path file, check that the dst is also a configured chain in the relayers config
 					for _, f := range files {
 						pth := fmt.Sprintf("%s/%s", dir, f.Name())
+						fmt.Println(pth)
 						if f.IsDir() {
 							fmt.Printf("directory at %s, skipping...\n", pth)
 							continue
@@ -341,7 +342,6 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					}
 				}
 			}
-
 			cleanupDir(localRepo)
 			return nil
 		},
