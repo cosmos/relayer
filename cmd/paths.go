@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -284,28 +282,14 @@ $ %s pth fch`, appName, defaultHome, appName)),
 			for _, srcChain := range config.Chains {
 				for _, dstChain := range config.Chains {
 
-					// Check that the constructed URL is valid
-					// ex. https://github.com/cosmos/relayer/tree/main/interchain/{chain-id}
-					u, err := url.Parse(fmt.Sprintf("%s/%s", PATHSURL, srcChain.Chainid))
-					if err != nil || u.Scheme == "" || u.Host == "" {
-						cleanupDir(localRepo)
-						return fmt.Errorf("invalid URL. Err: %w", err)
-					}
-
-					// Check that the chain srcChain, has provided canonical path info in GH repo
-					resp, err := http.Get(u.String())
-					if err != nil || resp.StatusCode == 404 {
-						fmt.Printf("Chain %s is not currently supported by fetch. Consider adding it's info to %s \n", srcChain.ChainID(), PATHSURL)
-						continue
-					}
-
 					// Add paths to rly config from {localRepo}/interchain/chaind-id/
 					localPathsDir := path.Join(localRepo, "interchain", srcChain.ChainID())
 
 					dir := path.Clean(localPathsDir)
 					files, err := ioutil.ReadDir(dir)
 					if err != nil {
-						return fmt.Errorf("path info does not exist for chain: %s. Consider adding it's info to %s. Error: %w", srcChain.ChainID(), path.Join(REPOURL, "interchain"), err)
+						fmt.Printf("path info does not exist for chain: %s. Consider adding it's info to %s. Error: %v", srcChain.ChainID(), path.Join(PATHSURL, "interchain"), err)
+						continue
 					}
 					cfg := config
 
