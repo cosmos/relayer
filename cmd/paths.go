@@ -304,11 +304,13 @@ $ %s pth fch`, appName, defaultHome, appName)),
 
 						byt, err := ioutil.ReadFile(pth)
 						if err != nil {
+							cleanupDir(localRepo)
 							return fmt.Errorf("failed to read file %s: %w", pth, err)
 						}
 
 						p := &relayer.Path{}
 						if err = json.Unmarshal(byt, p); err != nil {
+							cleanupDir(localRepo)
 							return fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
 						}
 
