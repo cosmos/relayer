@@ -1,9 +1,0 @@
-{
-  "key": "test-key",
-  "chain-id": "emoney-3",
-  "rpc-addr": "http://localhost:26657",
-  "account-prefix": "emoney",
-  "gas-adjustment": 1.3,
-  "gas-prices": "0.02ungm",
-  "trusting-period": "336h"
-}
