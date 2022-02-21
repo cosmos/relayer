@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
-	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 )
 
 type relayPacket interface {

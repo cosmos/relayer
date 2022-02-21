@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	transfertypes "github.com/cosmos/ibc-go/v2/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
-	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
+	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
 )
 
 // NOTE: we explicitly call 'MustGetAddress' before 'NewMsg...'
