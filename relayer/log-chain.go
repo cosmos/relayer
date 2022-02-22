@@ -11,8 +11,8 @@ import (
 	"github.com/cosmos/relayer/relayer/provider/cosmos"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
+	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 )
 
 // LogFailedTx takes the transaction and the messages to create it and logs the appropriate data

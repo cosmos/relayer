@@ -19,14 +19,14 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	transfertypes "github.com/cosmos/ibc-go/v2/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v2/modules/core/24-host"
-	ibcexported "github.com/cosmos/ibc-go/v2/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
+	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v3/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
@@ -1174,10 +1174,21 @@ func (cc *CosmosProvider) AutoUpdateClient(dst provider.ChainProvider, threshold
 	}
 
 	// query the latest consensus state of the potential matching client
-	consensusStateResp, err := cc.QueryConsensusStateABCI(srcClientId, clientState.GetLatestHeight())
-	if err != nil {
+
+	var consensusStateResp *clienttypes.QueryConsensusStateResponse
+	if err = retry.Do(func() error {
+		consensusStateResp, err = cc.QueryConsensusStateABCI(srcClientId, clientState.GetLatestHeight())
+		return err
+	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		clientState, _ = cc.queryTMClientState(srch, srcClientId)
+	})); err != nil {
 		return 0, err
 	}
+
+	//consensusStateResp, err := cc.QueryConsensusStateABCI(srcClientId, clientState.GetLatestHeight())
+	//if err != nil {
+	//	return 0, err
+	//}
 
 	exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
 	if err != nil {
@@ -1347,6 +1358,7 @@ func (cc *CosmosProvider) QueryConsensusStateABCI(clientID string, height ibcexp
 
 	value, proofBz, proofHeight, err := cc.QueryTendermintProof(int64(height.GetRevisionHeight()), key)
 	if err != nil {
+		fmt.Println("NOT FOUND")
 		return nil, err
 	}
 
