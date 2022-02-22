@@ -1,9 +1,0 @@
-{
-  "key": "test-key",
-  "chain-id": "core-1",
-  "rpc-addr": "http://localhost:26657",
-  "account-prefix": "persistence",
-  "gas-adjustment": 1.3,
-  "gas-prices": "0.025uxprt",
-  "trusting-period": "336h"
-}

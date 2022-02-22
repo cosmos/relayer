@@ -2,24 +2,21 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"github.com/go-git/go-git/v5"
 	"io/ioutil"
-	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"strings"
 
 	"github.com/cosmos/relayer/relayer"
+	"github.com/go-git/go-git/v5"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
 const (
-	jsonURL = "https://raw.githubusercontent.com/cosmos/relayer/main/interchain/chains/"
-	repoURL = "https://github.com/cosmos/relayer"
+	REPOURL  = "https://github.com/cosmos/relayer"
+	PATHSURL = "https://github.com/cosmos/relayer/tree/main/interchain"
 )
 
 func pathsCmd() *cobra.Command {
@@ -274,7 +271,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 			}
 
 			if _, err = git.PlainClone(localRepo, false, &git.CloneOptions{
-				URL:           repoURL,
+				URL:           REPOURL,
 				Progress:      ioutil.Discard,
 				ReferenceName: "refs/heads/main",
 			}); err != nil {
@@ -284,35 +281,22 @@ $ %s pth fch`, appName, defaultHome, appName)),
 			// Try to fetch path info for each configured chain that has canonical chain/path info in the GH repo
 			for _, srcChain := range config.Chains {
 				for _, dstChain := range config.Chains {
-					fName := fmt.Sprintf("%s.json", srcChain.ChainID())
-
-					// Check that the constructed URL is valid
-					u, err := url.Parse(fmt.Sprintf("%s%s", jsonURL, fName))
-					if err != nil || u.Scheme == "" || u.Host == "" {
-						cleanupDir(localRepo)
-						return errors.New("invalid URL")
-					}
-
-					// Check that the chain srcChain, has provided canonical chain/path info in GH repo
-					resp, err := http.Get(u.String())
-					if err != nil || resp.StatusCode == 404 {
-						fmt.Printf("Chain %s is not currently supported by fetch. Consider adding it's info to %s \n", srcChain.ChainID(), repoURL)
-						continue
-					}
 
 					// Add paths to rly config from {localRepo}/interchain/chaind-id/
-					pathsDir := path.Join(localRepo, "interchain", srcChain.ChainID())
+					localPathsDir := path.Join(localRepo, "interchain", srcChain.ChainID())
 
-					dir := path.Clean(pathsDir)
+					dir := path.Clean(localPathsDir)
 					files, err := ioutil.ReadDir(dir)
 					if err != nil {
-						return err
+						fmt.Printf("path info does not exist for chain: %s. Consider adding it's info to %s. Error: %v \n", srcChain.ChainID(), path.Join(PATHSURL, "interchain"), err)
+						break
 					}
 					cfg := config
 
 					// For each path file, check that the dst is also a configured chain in the relayers config
 					for _, f := range files {
 						pth := fmt.Sprintf("%s/%s", dir, f.Name())
+						fmt.Println(pth)
 						if f.IsDir() {
 							fmt.Printf("directory at %s, skipping...\n", pth)
 							continue
@@ -320,11 +304,13 @@ $ %s pth fch`, appName, defaultHome, appName)),
 
 						byt, err := ioutil.ReadFile(pth)
 						if err != nil {
+							cleanupDir(localRepo)
 							return fmt.Errorf("failed to read file %s: %w", pth, err)
 						}
 
 						p := &relayer.Path{}
 						if err = json.Unmarshal(byt, p); err != nil {
+							cleanupDir(localRepo)
 							return fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
 						}
 
@@ -358,7 +344,6 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					}
 				}
 			}
-
 			cleanupDir(localRepo)
 			return nil
 		},

@@ -1,9 +1,0 @@
-{
-  "key": "test-key",
-  "chain-id": "crypto-org-chain-mainnet-1",
-  "rpc-addr": "http://localhost:26657",
-  "account-prefix": "cro",
-  "gas-adjustment": 1.3,
-  "gas-prices": "0.025ucro",
-  "trusting-period": "336h"
-}
