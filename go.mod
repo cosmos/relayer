@@ -21,7 +21,7 @@ require (
 require (
 	github.com/cosmos/ibc-go/v3 v3.0.0-rc0
 	github.com/pkg/errors v0.9.1
-	github.com/strangelove-ventures/lens v0.3.1-0.20220222181424-3cbbc5a9a264
+	github.com/strangelove-ventures/lens v0.3.1-0.20220222182620-10a90e9eca45
 )
 
 require (
