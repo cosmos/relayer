@@ -1,21 +1,74 @@
 package substrate
 
 import (
+	"fmt"
+	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
+	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
+
 	"time"
 
+	beefyclient "github.com/cosmos/ibc-go/v3/modules/light-clients/11-beefy/types"
+
+	rpcClient "github.com/ComposableFi/go-substrate-rpc-client"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
-	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
-	ibcexported "github.com/cosmos/ibc-go/v2/modules/core/exported"
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/relayer/provider"
 )
 
+var (
+	defaultChainPrefix                        = commitmenttypes.NewMerklePrefix([]byte("ibc"))
+	defaultDelayPeriod                        = uint64(0)
+)
+
+
 func (sp *SubstrateProvider) Init() error {
+	client, err := rpcClient.NewSubstrateAPI(sp.Config.RPCAddr)
+	if err != nil {
+		return err
+	}
+
+	sp.RPCClient = client
 	return nil
 }
 
 func (sp *SubstrateProvider) CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
-	return nil, nil
+	var (
+		acc string
+		err error
+	)
+	if err := dstHeader.ValidateBasic(); err != nil {
+		return nil, err
+	}
+
+	tmHeader, ok := dstHeader.(*beefyclient.Header)
+	if !ok {
+		return nil, fmt.Errorf("got data of type %T but wanted tmclient.Header \n", dstHeader)
+	}
+
+	if acc, err = sp.Address(); err != nil {
+		return nil, err
+	}
+
+	anyClientState, err := clienttypes.PackClientState(clientState)
+	if err != nil {
+		return nil, err
+	}
+
+	anyConsensusState, err := clienttypes.PackConsensusState(tmHeader.ConsensusState())
+	if err != nil {
+		return nil, err
+	}
+
+	msg := &clienttypes.MsgCreateClient{
+		ClientState:    anyClientState,
+		ConsensusState: anyConsensusState,
+		Signer:         acc,
+	}
+
+	return NewSubstrateRelayerMessage(msg), nil
 }
 
 func (sp *SubstrateProvider) SubmitMisbehavior( /*TODO TBD*/ ) (provider.RelayerMessage, error) {
@@ -23,71 +76,602 @@ func (sp *SubstrateProvider) SubmitMisbehavior( /*TODO TBD*/ ) (provider.Relayer
 }
 
 func (sp *SubstrateProvider) UpdateClient(srcClientId string, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
-	return nil, nil
+	var (
+		acc string
+		err error
+	)
+	if err := dstHeader.ValidateBasic(); err != nil {
+		return nil, err
+	}
+	if acc, err = sp.Address(); err != nil {
+		return nil, err
+	}
+
+	anyHeader, err := clienttypes.PackHeader(dstHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := &clienttypes.MsgUpdateClient{
+		ClientId: srcClientId,
+		Header:   anyHeader,
+		Signer:   acc,
+	}
+
+	return NewSubstrateRelayerMessage(msg), nil
 }
 
 func (sp *SubstrateProvider) ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) ([]provider.RelayerMessage, error) {
-	return nil, nil
+	var (
+		acc     string
+		err     error
+		version *conntypes.Version
+	)
+	updateMsg, err := sp.UpdateClient(srcClientId, dstHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	if acc, err = sp.Address(); err != nil {
+		return nil, err
+	}
+
+	counterparty := conntypes.Counterparty{
+		ClientId:     dstClientId,
+		ConnectionId: "",
+		Prefix:       defaultChainPrefix,
+	}
+	msg := &conntypes.MsgConnectionOpenInit{
+		ClientId:     srcClientId,
+		Counterparty: counterparty,
+		Version:      version,
+		DelayPeriod:  defaultDelayPeriod,
+		Signer:       acc,
+	}
+
+	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
 func (sp *SubstrateProvider) ConnectionOpenTry(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
-	return nil, nil
+	var (
+		acc string
+		err error
+	)
+	updateMsg, err := sp.UpdateClient(srcClientId, dstHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	cph, err := dstQueryProvider.QueryLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+
+	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(cph, dstClientId, dstConnId)
+	if err != nil {
+		return nil, err
+	}
+
+	if acc, err = sp.Address(); err != nil {
+		return nil, err
+	}
+
+	csAny, err := clienttypes.PackClientState(clientState)
+	if err != nil {
+		return nil, err
+	}
+
+	counterparty := conntypes.Counterparty{
+		ClientId:     dstClientId,
+		ConnectionId: dstConnId,
+		Prefix:       defaultChainPrefix,
+	}
+
+	// TODO: Get DelayPeriod from counterparty connection rather than using default value
+	msg := &conntypes.MsgConnectionOpenTry{
+		ClientId:             srcClientId,
+		PreviousConnectionId: srcConnId,
+		ClientState:          csAny,
+		Counterparty:         counterparty,
+		DelayPeriod:          defaultDelayPeriod,
+		CounterpartyVersions: conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
+		ProofHeight: clienttypes.Height{
+			RevisionNumber: proofHeight.GetRevisionNumber(),
+			RevisionHeight: proofHeight.GetRevisionHeight(),
+		},
+		ProofInit:       connStateProof,
+		ProofClient:     clientStateProof,
+		ProofConsensus:  consensusStateProof,
+		ConsensusHeight: clientState.GetLatestHeight().(clienttypes.Height),
+		Signer:          acc,
+	}
+
+	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
 func (sp *SubstrateProvider) ConnectionOpenAck(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]provider.RelayerMessage, error) {
-	return nil, nil
+	var (
+		acc string
+		err error
+	)
+
+	updateMsg, err := sp.UpdateClient(srcClientId, dstHeader)
+	if err != nil {
+		return nil, err
+	}
+	cph, err := dstQueryProvider.QueryLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+
+	clientState, clientStateProof, consensusStateProof, connStateProof,
+	proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(cph, dstClientId, dstConnId)
+	if err != nil {
+		return nil, err
+	}
+
+	if acc, err = sp.Address(); err != nil {
+		return nil, err
+	}
+
+	csAny, err := clienttypes.PackClientState(clientState)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := &conntypes.MsgConnectionOpenAck{
+		ConnectionId:             srcConnId,
+		CounterpartyConnectionId: dstConnId,
+		Version:                  conntypes.DefaultIBCVersion,
+		ClientState:              csAny,
+		ProofHeight: clienttypes.Height{
+			RevisionNumber: proofHeight.GetRevisionNumber(),
+			RevisionHeight: proofHeight.GetRevisionHeight(),
+		},
+		ProofTry:        connStateProof,
+		ProofClient:     clientStateProof,
+		ProofConsensus:  consensusStateProof,
+		ConsensusHeight: clientState.GetLatestHeight().(clienttypes.Height),
+		Signer:          acc,
+	}
+
+	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
 func (sp *SubstrateProvider) ConnectionOpenConfirm(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]provider.RelayerMessage, error) {
-	return nil, nil
+	var (
+		acc string
+		err error
+	)
+	updateMsg, err := sp.UpdateClient(srcClientId, dstHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	cph, err := dstQueryProvider.QueryLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+	counterpartyConnState, err := dstQueryProvider.QueryConnection(cph, dstConnId)
+	if err != nil {
+		return nil, err
+	}
+
+	if acc, err = sp.Address(); err != nil {
+		return nil, err
+	}
+
+	msg := &conntypes.MsgConnectionOpenConfirm{
+		ConnectionId: srcConnId,
+		ProofAck:     counterpartyConnState.Proof,
+		ProofHeight:  counterpartyConnState.ProofHeight,
+		Signer:       acc,
+	}
+
+	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
 func (sp *SubstrateProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.Header) ([]provider.RelayerMessage, error) {
-	return nil, nil
+	var (
+		acc string
+		err error
+	)
+	updateMsg, err := sp.UpdateClient(srcClientId, dstHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	if acc, err = sp.Address(); err != nil {
+		return nil, err
+	}
+
+	msg := &chantypes.MsgChannelOpenInit{
+		PortId: srcPortId,
+		Channel: chantypes.Channel{
+			State:    chantypes.INIT,
+			Ordering: order,
+			Counterparty: chantypes.Counterparty{
+				PortId:    dstPortId,
+				ChannelId: "",
+			},
+			ConnectionHops: []string{srcConnId},
+			Version:        srcVersion,
+		},
+		Signer: acc,
+	}
+
+	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
 func (sp *SubstrateProvider) ChannelOpenTry(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
-	return nil, nil
+	var (
+		acc string
+		err error
+	)
+	updateMsg, err := sp.UpdateClient(srcClientId, dstHeader)
+	if err != nil {
+		return nil, err
+	}
+	cph, err := dstQueryProvider.QueryLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+
+	counterpartyChannelRes, err := dstQueryProvider.QueryChannel(cph, dstChanId, dstPortId)
+	if err != nil {
+		return nil, err
+	}
+
+	if acc, err = sp.Address(); err != nil {
+		return nil, err
+	}
+
+	msg := &chantypes.MsgChannelOpenTry{
+		PortId:            srcPortId,
+		PreviousChannelId: srcChanId,
+		Channel: chantypes.Channel{
+			State:    chantypes.TRYOPEN,
+			Ordering: counterpartyChannelRes.Channel.Ordering,
+			Counterparty: chantypes.Counterparty{
+				PortId:    dstPortId,
+				ChannelId: dstChanId,
+			},
+			ConnectionHops: []string{srcConnectionId},
+			Version:        srcVersion,
+		},
+		CounterpartyVersion: counterpartyChannelRes.Channel.Version,
+		ProofInit:           counterpartyChannelRes.Proof,
+		ProofHeight:         counterpartyChannelRes.ProofHeight,
+		Signer:              acc,
+	}
+
+	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
 func (sp *SubstrateProvider) ChannelOpenAck(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]provider.RelayerMessage, error) {
-	return nil, nil
+	var (
+		acc string
+		err error
+	)
+	updateMsg, err := sp.UpdateClient(srcClientId, dstHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	cph, err := dstQueryProvider.QueryLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+
+	counterpartyChannelRes, err := dstQueryProvider.QueryChannel(cph, dstChanId, dstPortId)
+	if err != nil {
+		return nil, err
+	}
+
+	if acc, err = sp.Address(); err != nil {
+		return nil, err
+	}
+
+	msg := &chantypes.MsgChannelOpenAck{
+		PortId:                srcPortId,
+		ChannelId:             srcChanId,
+		CounterpartyChannelId: dstChanId,
+		CounterpartyVersion:   counterpartyChannelRes.Channel.Version,
+		ProofTry:              counterpartyChannelRes.Proof,
+		ProofHeight:           counterpartyChannelRes.ProofHeight,
+		Signer:                acc,
+	}
+
+	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
-func (sp *SubstrateProvider) ChannelOpenConfirm(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChannId string) ([]provider.RelayerMessage, error) {
-	return nil, nil
+func (sp *SubstrateProvider) ChannelOpenConfirm(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChanId string) ([]provider.RelayerMessage, error) {
+	var (
+		acc string
+		err error
+	)
+	updateMsg, err := sp.UpdateClient(srcClientId, dstHeader)
+	if err != nil {
+		return nil, err
+	}
+	cph, err := dstQueryProvider.QueryLatestHeight()
+	if err != nil {
+		return nil, err
+	}
+
+	counterpartyChanState, err := dstQueryProvider.QueryChannel(cph, dstChanId, dstPortId)
+	if err != nil {
+		return nil, err
+	}
+
+	if acc, err = sp.Address(); err != nil {
+		return nil, err
+	}
+
+	msg := &chantypes.MsgChannelOpenConfirm{
+		PortId:      srcPortId,
+		ChannelId:   srcChanId,
+		ProofAck:    counterpartyChanState.Proof,
+		ProofHeight: counterpartyChanState.ProofHeight,
+		Signer:      acc,
+	}
+
+	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
 func (sp *SubstrateProvider) ChannelCloseInit(srcPortId, srcChanId string) (provider.RelayerMessage, error) {
-	return nil, nil
+	var (
+		acc string
+		err error
+	)
+	if acc, err = sp.Address(); err != nil {
+		return nil, err
+	}
+
+	msg := &chantypes.MsgChannelCloseInit{
+		PortId:    srcPortId,
+		ChannelId: srcChanId,
+		Signer:    acc,
+	}
+
+	return NewSubstrateRelayerMessage(msg), nil
 }
 
 func (sp *SubstrateProvider) ChannelCloseConfirm(dstQueryProvider provider.QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (provider.RelayerMessage, error) {
-	return nil, nil
+	var (
+		acc string
+		err error
+	)
+	dstChanResp, err := dstQueryProvider.QueryChannel(dsth, dstChanId, dstPortId)
+	if err != nil {
+		return nil, err
+	}
+
+	if acc, err = sp.Address(); err != nil {
+		return nil, err
+	}
+
+	msg := &chantypes.MsgChannelCloseConfirm{
+		PortId:      srcPortId,
+		ChannelId:   srcChanId,
+		ProofInit:   dstChanResp.Proof,
+		ProofHeight: dstChanResp.ProofHeight,
+		Signer:      acc,
+	}
+
+	return NewSubstrateRelayerMessage(msg), nil
 }
 
 func (sp *SubstrateProvider) MsgRelayAcknowledgement(dst provider.ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet provider.RelayPacket) (provider.RelayerMessage, error) {
-	return nil, nil
+	var (
+		acc string
+		err error
+	)
+	msgPacketAck, ok := packet.(*relayMsgPacketAck)
+	if !ok {
+		return nil, fmt.Errorf("got data of type %T but wanted relayMsgPacketAck \n", packet)
+	}
+
+	if acc, err = sp.Address(); err != nil {
+		return nil, err
+	}
+
+	ackRes, err := dst.QueryPacketAcknowledgement(dsth, dstChanId, dstPortId, packet.Seq())
+	switch {
+	case err != nil:
+		return nil, err
+	case ackRes.Proof == nil || ackRes.Acknowledgement == nil:
+		return nil, fmt.Errorf("ack packet acknowledgement query seq(%d) is nil", packet.Seq())
+	case ackRes == nil:
+		return nil, fmt.Errorf("ack packet [%s]seq{%d} has no associated proofs", dst.ChainId(), packet.Seq())
+	default:
+		msg := &chantypes.MsgAcknowledgement{
+			Packet: chantypes.Packet{
+				Sequence:           packet.Seq(),
+				SourcePort:         srcPortId,
+				SourceChannel:      srcChanId,
+				DestinationPort:    dstPortId,
+				DestinationChannel: dstChanId,
+				Data:               packet.Data(),
+				TimeoutHeight:      packet.Timeout(),
+				TimeoutTimestamp:   packet.TimeoutStamp(),
+			},
+			Acknowledgement: msgPacketAck.ack,
+			ProofAcked:      ackRes.Proof,
+			ProofHeight:     ackRes.ProofHeight,
+			Signer:          acc,
+		}
+
+		return NewSubstrateRelayerMessage(msg), nil
+	}
 }
 
 func (sp *SubstrateProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanId string, timeoutHeight, timeoutTimestamp uint64) (provider.RelayerMessage, error) {
-	return nil, nil
+	var (
+		acc string
+		err error
+	)
+	if acc, err = sp.Address(); err != nil {
+		return nil, err
+	}
+
+	version := clienttypes.ParseChainID(dstChainId)
+
+	msg := &transfertypes.MsgTransfer{
+		SourcePort:    srcPortId,
+		SourceChannel: srcChanId,
+		Token:         amount,
+		Sender:        acc,
+		Receiver:      dstAddr,
+		TimeoutHeight: clienttypes.Height{
+			RevisionNumber: version,
+			RevisionHeight: timeoutHeight,
+		},
+		TimeoutTimestamp: timeoutTimestamp,
+	}
+
+	return NewSubstrateRelayerMessage(msg), nil
 }
 
 func (sp *SubstrateProvider) MsgRelayTimeout(dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
-	return nil, nil
+	var (
+		acc string
+		err error
+	)
+	if acc, err = sp.Address(); err != nil {
+		return nil, err
+	}
+
+	recvRes, err := dst.QueryPacketReceipt(dsth, dstChanId, dstPortId, packet.Seq())
+	switch {
+	case err != nil:
+		return nil, err
+	case recvRes.Proof == nil:
+		return nil, fmt.Errorf("timeout packet receipt proof seq(%d) is nil", packet.Seq())
+	case recvRes == nil:
+		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", sp.Config.ChainID, packet.Seq())
+	default:
+		msg := &chantypes.MsgTimeout{
+			Packet: chantypes.Packet{
+				Sequence:           packet.Seq(),
+				SourcePort:         srcPortId,
+				SourceChannel:      srcChanId,
+				DestinationPort:    dstPortId,
+				DestinationChannel: dstChanId,
+				Data:               packet.Data(),
+				TimeoutHeight:      packet.Timeout(),
+				TimeoutTimestamp:   packet.TimeoutStamp(),
+			},
+			ProofUnreceived:  recvRes.Proof,
+			ProofHeight:      recvRes.ProofHeight,
+			NextSequenceRecv: packet.Seq(),
+			Signer:           acc,
+		}
+
+		return NewSubstrateRelayerMessage(msg), nil
+	}
 }
 
 func (sp *SubstrateProvider) MsgRelayRecvPacket(dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
-	return nil, nil
+	var (
+		acc string
+		err error
+	)
+	if acc, err = sp.Address(); err != nil {
+		return nil, err
+	}
+
+	comRes, err := dst.QueryPacketCommitment(dsth, dstChanId, dstPortId, packet.Seq())
+	switch {
+	case err != nil:
+		return nil, err
+	case comRes.Proof == nil || comRes.Commitment == nil:
+		return nil, fmt.Errorf("recv packet commitment query seq(%d) is nil", packet.Seq())
+	case comRes == nil:
+		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", cc.Config.ChainID, packet.Seq())
+	default:
+		msg := &chantypes.MsgRecvPacket{
+			Packet: chantypes.Packet{
+				Sequence:           packet.Seq(),
+				SourcePort:         dstPortId,
+				SourceChannel:      dstChanId,
+				DestinationPort:    srcPortId,
+				DestinationChannel: srcChanId,
+				Data:               packet.Data(),
+				TimeoutHeight:      packet.Timeout(),
+				TimeoutTimestamp:   packet.TimeoutStamp(),
+			},
+			ProofCommitment: comRes.Proof,
+			ProofHeight:     comRes.ProofHeight,
+			Signer:          acc,
+		}
+
+		return NewSubstrateRelayerMessage(msg), nil
+	}
 }
 
 func (sp *SubstrateProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
-	return nil, nil
+	var (
+		acc string
+		err error
+	)
+	if acc, err = sp.Address(); err != nil {
+		return nil, err
+	}
+	return NewSubstrateRelayerMessage(&clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
+		ConsensusState: consRes.ConsensusState, ProofUpgradeClient: consRes.GetProof(),
+		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}), nil
 }
 
 func (sp *SubstrateProvider) RelayPacketFromSequence(src, dst provider.ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) (provider.RelayerMessage, provider.RelayerMessage, error) {
-	return nil, nil, nil
+	txs, err := sp.QueryTxs(1, 1000, rcvPacketQuery(srcChanId, int(seq)))
+	switch {
+	case err != nil:
+		return nil, nil, err
+	case len(txs) == 0:
+		return nil, nil, fmt.Errorf("no transactions returned with query")
+	case len(txs) > 1:
+		return nil, nil, fmt.Errorf("more than one transaction returned with query")
+	}
+
+	rcvPackets, timeoutPackets, err := relayPacketsFromResultTx(src, dst, int64(dsth), txs[0], dstChanId, dstPortId, srcChanId, srcPortId, srcClientId)
+	switch {
+	case err != nil:
+		return nil, nil, err
+	case len(rcvPackets) == 0 && len(timeoutPackets) == 0:
+		return nil, nil, fmt.Errorf("no relay msgs created from query response")
+	case len(rcvPackets)+len(timeoutPackets) > 1:
+		return nil, nil, fmt.Errorf("more than one relay msg found in tx query")
+	}
+
+	if len(rcvPackets) == 1 {
+		pkt := rcvPackets[0]
+		if seq != pkt.Seq() {
+			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
+		}
+
+		packet, err := dst.MsgRelayRecvPacket(src, int64(srch), pkt, srcChanId, srcPortId, dstChanId, dstPortId)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return packet, nil, nil
+	}
+
+	if len(timeoutPackets) == 1 {
+		pkt := timeoutPackets[0]
+		if seq != pkt.Seq() {
+			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
+		}
+
+		timeout, err := src.MsgRelayTimeout(dst, int64(dsth), pkt, dstChanId, dstPortId, srcChanId, srcPortId)
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, timeout, nil
+	}
+
+	return nil, nil, fmt.Errorf("should have errored before here")
 }
 
 func (sp *SubstrateProvider) AcknowledgementFromSequence(dst provider.ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
@@ -106,24 +690,38 @@ func (sp *SubstrateProvider) GetLightSignedHeaderAtHeight(h int64) (ibcexported.
 	return nil, nil
 }
 
+// TODO: ask question: why do we need an off chain beefy light client?
+// GetIBCUpdateHeader updates the off chain beefy light client and
+// returns an IBC Update Header which can be used to update an on chain
+// light client on the destination chain. The source is used to construct
+// the header data.
 func (sp *SubstrateProvider) GetIBCUpdateHeader(srch int64, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
+	// Construct header data from light client representing source.
+	h, err := sp.GetLightSignedHeaderAtHeight(srch)
+	if err != nil {
+		return nil, err
+	}
+
+	// Inject trusted fields based on previous header data from source
+	// TODO: implement InjectTrustedFields, make findings on getting validator set from beefy header
+	// return sp.InjectTrustedFields(h, dst, dstClientId)
 	return nil, nil
 }
 
 func (sp *SubstrateProvider) ChainId() string {
-	return ""
+	return sp.Config.ChainID
 }
 
 func (sp *SubstrateProvider) Type() string {
-	return ""
+	return "substrate"
 }
 
 func (sp *SubstrateProvider) ProviderConfig() provider.ProviderConfig {
-	return nil
+	return sp.Config
 }
 
 func (sp *SubstrateProvider) Key() string {
-	return ""
+	return sp.Config.Key
 }
 
 func (sp *SubstrateProvider) Address() (string, error) {
@@ -131,7 +729,7 @@ func (sp *SubstrateProvider) Address() (string, error) {
 }
 
 func (sp *SubstrateProvider) Timeout() string {
-	return ""
+	return sp.Config.Timeout
 }
 
 func (sp *SubstrateProvider) TrustingPeriod() (time.Duration, error) {

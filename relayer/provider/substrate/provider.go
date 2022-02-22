@@ -1,8 +1,14 @@
 package substrate
 
 import (
-	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	"bytes"
+	"fmt"
+	"github.com/ComposableFi/go-substrate-rpc-client/scale"
+	rpcClient "github.com/ComposableFi/go-substrate-rpc-client"
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/relayer/provider"
+	"time"
 )
 
 var (
@@ -13,57 +19,127 @@ var (
 )
 
 type SubstrateProvider struct {
-	// TODO: add properties here that are needed to implement interface definition
+	Config         *SubstrateProviderConfig
+	RPCClient      *rpcClient.SubstrateAPI
+}
+
+// (ccc *ChainClientConfig, homepath string, input io.Reader, output io.Writer, kro ...keyring.Option) (*ChainClient, error) {
+func NewSubstrateProvider(spc *SubstrateProviderConfig, homepath string) (*SubstrateProvider, error) {
+	sp := &SubstrateProvider{
+		Config: spc,
+	}
+	err := sp.Init()
+	if err != nil {
+		return nil, err
+	}
+
+	return sp, nil
 }
 
 type SubstrateProviderConfig struct {
-	// TODO: config stuffs for substrate provider
+	Timeout        string                  `json:"timeout" yaml:"timeout"`
+	RPCAddr        string                  `json:"rpc-addr" yaml:"rpc-addr"`
+	ChainID        string                  `json:"chain-id" yaml:"chain-id"`
+	Key            string                  `json:"key" yaml:"key"`
 }
 
 func (spc *SubstrateProviderConfig) NewProvider(homepath string, debug bool) (provider.ChainProvider, error) {
-	return nil, nil
+	return NewSubstrateProvider(spc, "")
 }
 
 func (spc *SubstrateProviderConfig) Validate() error {
+	if _, err := time.ParseDuration(spc.Timeout); err != nil {
+		return err
+	}
 	return nil
 }
 
 type SubstrateRelayPacket struct {
-	// TODO: things for relay Extrensics
+	packetData         []byte
+	seq                uint64
+	sourcePort         string
+	destinationPort    string
+	destinationChannel string
+	timeout            clienttypes.Height
+	timeoutStamp       uint64
+	dstRecvRes         *chantypes.QueryPacketReceiptResponse
 }
 
-func (srp *SubstrateRelayPacket) Msg(src provider.ChainProvider, srcPortId, srcChanId, dstPortId, dstChanId string) (provider.RelayerMessage, error) {
-	return nil, nil
+func (srp *SubstrateRelayPacket) Msg(
+	src provider.ChainProvider,
+	srcPortId,
+	srcChanId,
+	dstPortId,
+	dstChanId string,
+	) (provider.RelayerMessage, error) {
+	if srp.dstRecvRes == nil {
+		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", src.ChainId(), srp.seq)
+	}
+	addr, err := src.Address()
+	if err != nil {
+		return nil, err
+	}
+
+	msg := &chantypes.MsgTimeout{
+		Packet: chantypes.Packet{
+			Sequence:           srp.seq,
+			SourcePort:         srcPortId,
+			SourceChannel:      srcChanId,
+			DestinationPort:    dstPortId,
+			DestinationChannel: dstChanId,
+			Data:               srp.packetData,
+			TimeoutHeight:      srp.timeout,
+			TimeoutTimestamp:   srp.timeoutStamp,
+		},
+		ProofUnreceived:  srp.dstRecvRes.Proof,
+		ProofHeight:      srp.dstRecvRes.ProofHeight,
+		NextSequenceRecv: srp.seq,
+		Signer:           addr,
+	}
+
+	return NewSubstrateRelayerMessage(msg), nil
 }
 
+// TODO: find out what FetchCommitResponse does
 func (srp *SubstrateRelayPacket) FetchCommitResponse(dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
-	return nil
+	dstRecvRes, err := dst.QueryPacketReceipt(int64(queryHeight)-1, dstChanId, dstPortId, srp.seq)
+	switch {
+	case err != nil:
+		return err
+	case dstRecvRes.Proof == nil:
+		return fmt.Errorf("timeout packet receipt proof seq(%d) is nil", srp.seq)
+	default:
+		srp.dstRecvRes = dstRecvRes
+		return nil
+	}
 }
 
 func (srp *SubstrateRelayPacket) Data() []byte {
-	return nil
+	return srp.packetData
 }
 
 func (srp *SubstrateRelayPacket) Seq() uint64 {
-	return 0
+	return srp.seq
 }
 
 func (srp *SubstrateRelayPacket) Timeout() clienttypes.Height {
-	return clienttypes.Height{}
+	return srp.timeout
 }
 
 func (srp *SubstrateRelayPacket) TimeoutStamp() uint64 {
-	return 0
+	return srp.timeoutStamp
 }
 
-type SubstrateRelayerMessage struct {
-	// Substrate relayer message stuff
+func (srm SubstrateRelayerMessage) Type() string {
+	return "substrate"
 }
 
-func (srm *SubstrateRelayerMessage) Type() string {
-	return ""
-}
-
-func (srm *SubstrateRelayerMessage) MsgBytes() ([]byte, error) {
-	return nil, nil
+func (srm SubstrateRelayerMessage) MsgBytes() ([]byte, error) {
+	var buf bytes.Buffer
+	enc := scale.NewEncoder(&buf)
+	err := enc.Encode(srm.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
