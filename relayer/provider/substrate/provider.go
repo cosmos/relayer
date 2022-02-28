@@ -3,6 +3,7 @@ package substrate
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/ComposableFi/go-substrate-rpc-client/scale"
@@ -10,6 +11,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/relayer/provider"
+	"github.com/cosmos/relayer/relayer/provider/substrate/keystore"
 )
 
 var (
@@ -22,6 +24,8 @@ var (
 type SubstrateProvider struct {
 	Config    *SubstrateProviderConfig
 	RPCClient *rpcClient.SubstrateAPI
+	Keybase   keystore.Keyring
+	Input     io.Reader
 }
 
 // (ccc *ChainClientConfig, homepath string, input io.Reader, output io.Writer, kro ...keyring.Option) (*ChainClient, error) {
@@ -38,10 +42,12 @@ func NewSubstrateProvider(spc *SubstrateProviderConfig, homepath string) (*Subst
 }
 
 type SubstrateProviderConfig struct {
-	Timeout string `json:"timeout" yaml:"timeout"`
-	RPCAddr string `json:"rpc-addr" yaml:"rpc-addr"`
-	ChainID string `json:"chain-id" yaml:"chain-id"`
-	Key     string `json:"key" yaml:"key"`
+	Timeout        string `json:"timeout" yaml:"timeout"`
+	RPCAddr        string `json:"rpc-addr" yaml:"rpc-addr"`
+	ChainID        string `json:"chain-id" yaml:"chain-id"`
+	Key            string `json:"key" yaml:"key"`
+	KeyringBackend string `json:"keyring-backend" yaml:"keyring-backend"`
+	KeyDirectory   string `json:"key-directory" yaml:"key-directory"`
 }
 
 func (spc *SubstrateProviderConfig) NewProvider(homepath string, debug bool) (provider.ChainProvider, error) {
