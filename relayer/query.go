@@ -2,14 +2,16 @@ package relayer
 
 import (
 	"fmt"
-	"github.com/cosmos/relayer/relayer/provider"
 
+	"github.com/avast/retry-go"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
+	"github.com/cosmos/relayer/relayer/provider"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -64,6 +66,42 @@ func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (srcChan, dstChan *chan
 		return nil, nil, err
 	}
 	return
+}
+
+func QueryChannel(src *Chain, channelID string) (*chantypes.IdentifiedChannel, error) {
+	var (
+		srch        int64
+		err         error
+		srcChannels []*chantypes.IdentifiedChannel
+	)
+
+	// Query the latest height
+	if err = retry.Do(func() error {
+		var err error
+		srch, err = src.ChainProvider.QueryLatestHeight()
+		return err
+	}, RtyAtt, RtyDel, RtyErr); err != nil {
+		return nil, err
+	}
+
+	// Query all channels for the given connection
+	if err = retry.Do(func() error {
+		srcChannels, err = src.ChainProvider.QueryConnectionChannels(srch, src.ConnectionID())
+		return err
+	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		src.LogRetryQueryConnectionChannels(n, err, src.ConnectionID())
+	})); err != nil {
+		return nil, err
+	}
+
+	// Find the specified channel in the slice of all channels
+	for _, channel := range srcChannels {
+		if channel.ChannelId == channelID {
+			return channel, nil
+		}
+	}
+
+	return nil, errors.New(fmt.Sprintf("channel{%s} not found for chain{%s}@client{%s}", channelID, src.ChainID(), src.ClientID()))
 }
 
 // GetIBCUpdateHeaders returns a pair of IBC update headers which can be used to update an on chain light client

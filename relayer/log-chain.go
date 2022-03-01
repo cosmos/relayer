@@ -179,3 +179,9 @@ func (c *Chain) LogRetryGetLightSignedHeader(n uint, err error) {
 		c.Log(fmt.Sprintf("failed to get light signed header, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
 	}
 }
+
+func (c *Chain) LogRetryQueryConnectionChannels(n uint, err error, connectionID string) {
+	if c.debug {
+		c.Log(fmt.Sprintf("failed to query connection channels for connection{%s}, try(%d/%d). Err: %v", connectionID, n+1, RtyAttNum, err))
+	}
+}

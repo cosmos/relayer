@@ -766,14 +766,14 @@ $ %s q packet-commit ibc-1 ibconechannel transfer 31`,
 
 func queryUnrelayedPackets() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "unrelayed-packets [path]",
+		Use:     "unrelayed-packets [path] [src-channel-id]",
 		Aliases: []string{"unrelayed-pkts"},
 		Short:   "query for the packet sequence numbers that remain to be relayed on a given path",
-		Args:    cobra.ExactArgs(1),
+		Args:    cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s q unrelayed-packets demo-path
-$ %s query unrelayed-packets demo-path
-$ %s query unrelayed-pkts demo-path`,
+$ %s q unrelayed-packets demo-path channel-0
+$ %s query unrelayed-packets demo-path channel-0
+$ %s query unrelayed-pkts demo-path channel-0`,
 			appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -796,7 +796,13 @@ $ %s query unrelayed-pkts demo-path`,
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(c[src], c[dst])
+			channelID := args[1]
+			channel, err := relayer.QueryChannel(c[src], channelID)
+			if err != nil {
+				return err
+			}
+
+			sp, err := relayer.UnrelayedSequences(c[src], c[dst], channel)
 			if err != nil {
 				return err
 			}
@@ -816,14 +822,14 @@ $ %s query unrelayed-pkts demo-path`,
 
 func queryUnrelayedAcknowledgements() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "unrelayed-acknowledgements [path]",
+		Use:     "unrelayed-acknowledgements [path] [src-channel-id]",
 		Aliases: []string{"unrelayed-acks"},
 		Short:   "query for unrelayed acknowledgement sequence numbers that remain to be relayed on a given path",
-		Args:    cobra.ExactArgs(1),
+		Args:    cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s q unrelayed-acknowledgements demo-path
-$ %s query unrelayed-acknowledgements demo-path
-$ %s query unrelayed-acks demo-path`,
+$ %s q unrelayed-acknowledgements demo-path channel-0
+$ %s query unrelayed-acknowledgements demo-path channel-0
+$ %s query unrelayed-acks demo-path channel-0`,
 			appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -845,7 +851,13 @@ $ %s query unrelayed-acks demo-path`,
 				return err
 			}
 
-			sp, err := relayer.UnrelayedAcknowledgements(c[src], c[dst])
+			channelID := args[1]
+			channel, err := relayer.QueryChannel(c[src], channelID)
+			if err != nil {
+				return err
+			}
+
+			sp, err := relayer.UnrelayedAcknowledgements(c[src], c[dst], channel)
 			if err != nil {
 				return err
 			}

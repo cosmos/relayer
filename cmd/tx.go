@@ -42,6 +42,7 @@ Most of these commands take a [path] argument. Make sure:
 		upgradeClientsCmd(),
 		//upgradeChainCmd(),
 		createConnectionCmd(),
+		createChannelCmd(),
 		closeChannelCmd(),
 		flags.LineBreak,
 
@@ -159,7 +160,7 @@ func createClientCmd() *cobra.Command {
 		Long: "Creates a working ibc client for chain configured on each end of the" +
 			" path by querying headers from each chain and then sending the corresponding create-client messages",
 		Args:    cobra.ExactArgs(3),
-		Example: strings.TrimSpace(fmt.Sprintf(`$ %s transact clients demo-path`, appName)),
+		Example: strings.TrimSpace(fmt.Sprintf(`$ %s transact client demo-path`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			allowUpdateAfterExpiry, err := cmd.Flags().GetBool(flagUpdateAfterExpiry)
 			if err != nil {
@@ -387,6 +388,62 @@ $ %s tx conn demo-path --timeout 5s`,
 	return overrideFlag(clientParameterFlags(retryFlag(timeoutFlag(cmd))))
 }
 
+func createChannelCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "channel [path-name]",
+		Aliases: []string{"chan"},
+		Short:   "create a channel between two configured chains with a configured path",
+		Long: strings.TrimSpace(`Create or repair a channel between two IBC-connected networks
+along a specific path.`,
+		),
+		Args: cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact channel demo-path
+$ %s tx chan demo-path --timeout 5s`,
+			appName, appName,
+		)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, src, dst, err := config.ChainsFromPath(args[0])
+			if err != nil {
+				return err
+			}
+
+			to, err := getTimeout(cmd)
+			if err != nil {
+				return err
+			}
+
+			retries, err := cmd.Flags().GetUint64(flagMaxRetries)
+			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
+			}
+			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
+			}
+
+			// create channel if it isn't already created
+			modified, err := c[src].CreateOpenChannels(c[dst], retries, to)
+			if modified {
+				if err := overWriteConfig(config); err != nil {
+					return err
+				}
+			}
+			if err != nil {
+				return fmt.Errorf("error creating channels. Err: %w\n", err)
+			}
+
+			return err
+		},
+	}
+
+	return overrideFlag(clientParameterFlags(retryFlag(timeoutFlag(cmd))))
+}
+
 func closeChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "channel-close [path-name]",
@@ -549,13 +606,13 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 
 func relayMsgCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "relay-packet [path-name] [seq-num]",
+		Use:     "relay-packet [path-name] [src-channel-id] [seq-num]",
 		Aliases: []string{"relay-pkt"},
 		Short:   "relay a non-relayed packet with a specific sequence number, in both directions",
-		Args:    cobra.ExactArgs(2),
+		Args:    cobra.ExactArgs(3),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s transact relay-packet demo-path 1
-$ %s tx relay-pkt demo-path 1`,
+$ %s transact relay-packet demo-path channel-1 1
+$ %s tx relay-pkt demo-path channel-1 1`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -573,12 +630,18 @@ $ %s tx relay-pkt demo-path 1`,
 				return err
 			}
 
-			seqNum, err := strconv.Atoi(args[1])
+			seqNum, err := strconv.Atoi(args[2])
 			if err != nil {
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(c[src], c[dst])
+			channelID := args[1]
+			channel, err := relayer.QueryChannel(c[src], channelID)
+			if err != nil {
+				return err
+			}
+
+			sp, err := relayer.UnrelayedSequences(c[src], c[dst], channel)
 			if err != nil {
 				return err
 			}
@@ -592,13 +655,13 @@ $ %s tx relay-pkt demo-path 1`,
 
 func relayMsgsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "relay-packets [path-name]",
+		Use:     "relay-packets [path-name] [src-channel-id]",
 		Aliases: []string{"relay-pkts"},
 		Short:   "relay any remaining non-relayed packets on a given path, in both directions",
-		Args:    cobra.ExactArgs(1),
+		Args:    cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s transact relay-packets demo-path
-$ %s tx relay-pkts demo-path`,
+$ %s transact relay-packets demo-path channel-0
+$ %s tx relay-pkts demo-path channel-0`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -616,12 +679,18 @@ $ %s tx relay-pkts demo-path`,
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(c[src], c[dst])
+			channelID := args[1]
+			channel, err := relayer.QueryChannel(c[src], channelID)
 			if err != nil {
 				return err
 			}
 
-			if err = relayer.RelayPackets(c[src], c[dst], sp, maxTxSize, maxMsgLength); err != nil {
+			sp, err := relayer.UnrelayedSequences(c[src], c[dst], channel)
+			if err != nil {
+				return err
+			}
+
+			if err = relayer.RelayPackets(c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
 				return err
 			}
 
@@ -634,13 +703,13 @@ $ %s tx relay-pkts demo-path`,
 
 func relayAcksCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "relay-acknowledgements [path-name]",
+		Use:     "relay-acknowledgements [path-name] [src-channel-id]",
 		Aliases: []string{"relay-acks"},
 		Short:   "relay any remaining non-relayed acknowledgements on a given path, in both directions",
-		Args:    cobra.ExactArgs(1),
+		Args:    cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s transact relay-acknowledgements demo-path
-$ %s tx relay-acks demo-path -l 3 -s 6`,
+$ %s transact relay-acknowledgements demo-path channel-0
+$ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -658,14 +727,20 @@ $ %s tx relay-acks demo-path -l 3 -s 6`,
 				return err
 			}
 
-			// sp.Src contains all sequences acked on SRC but acknowledgement not processed on DST
-			// sp.Dst contains all sequences acked on DST but acknowledgement not processed on SRC
-			sp, err := relayer.UnrelayedAcknowledgements(c[src], c[dst])
+			channelID := args[1]
+			channel, err := relayer.QueryChannel(c[src], channelID)
 			if err != nil {
 				return err
 			}
 
-			if err = relayer.RelayAcknowledgements(c[src], c[dst], sp, maxTxSize, maxMsgLength); err != nil {
+			// sp.Src contains all sequences acked on SRC but acknowledgement not processed on DST
+			// sp.Dst contains all sequences acked on DST but acknowledgement not processed on SRC
+			sp, err := relayer.UnrelayedAcknowledgements(c[src], c[dst], channel)
+			if err != nil {
+				return err
+			}
+
+			if err = relayer.RelayAcknowledgements(c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
 				return err
 			}
 
