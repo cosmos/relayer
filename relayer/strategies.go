@@ -17,6 +17,8 @@ type ActiveChannel struct {
 // StartRelayer starts the main relaying loop
 func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), error) {
 	doneChan := make(chan struct{})
+	var srcOpenChannels []*ActiveChannel
+
 	go func() {
 		for {
 			select {
@@ -31,18 +33,17 @@ func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), erro
 
 				// Filter for open channels that are not already in our slices of open channels
 				// TODO implement a filter list of channels we want to relay against or a list of channels to ignore
-				var srcOpenChannels []*ActiveChannel
 				srcOpenChannels = FilterOpenChannels(srcChannels, srcOpenChannels)
 
 				// Spin up a goroutine to relay packets & acks for each channel that isn't already being relayed against
 				for _, channel := range srcOpenChannels {
 					if !channel.active {
 						channel.active = true
-						go RelayUnrelayedPacketsAndAcks(src, dst, maxTxSize, maxMsgLength, channel.channel)
+						go RelayUnrelayedPacketsAndAcks(src, dst, maxTxSize, maxMsgLength, channel)
 					}
 				}
 
-				time.Sleep(3 * time.Second)
+				time.Sleep(1 * time.Second)
 
 			}
 		}
@@ -106,9 +107,10 @@ func FilterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*Act
 }
 
 // RelayUnrelayedPacketsAndAcks will relay all the pending packets and acknowledgements on both the src and dst chains
-func RelayUnrelayedPacketsAndAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) {
-	RelayUnrelayedPackets(src, dst, maxTxSize, maxMsgLength, srcChannel)
-	RelayUnrelayedAcks(src, dst, maxTxSize, maxMsgLength, srcChannel)
+func RelayUnrelayedPacketsAndAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *ActiveChannel) {
+	RelayUnrelayedPackets(src, dst, maxTxSize, maxMsgLength, srcChannel.channel)
+	RelayUnrelayedAcks(src, dst, maxTxSize, maxMsgLength, srcChannel.channel)
+	srcChannel.active = false
 }
 
 // RelayUnrelayedPackets fetches unrelayed packet sequence numbers and attempts to relay the associated packets
