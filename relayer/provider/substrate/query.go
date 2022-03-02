@@ -4,15 +4,16 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	transfertypes "github.com/cosmos/ibc-go/v2/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
-	ibcexported "github.com/cosmos/ibc-go/v2/modules/core/exported"
+	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/relayer/provider"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 )
 
+// QueryTx takes a transaction hash and returns the transaction
 func (sp *SubstrateProvider) QueryTx(hashHex string) (*ctypes.ResultTx, error) {
 	return nil, nil
 }
@@ -22,11 +23,21 @@ func (sp *SubstrateProvider) QueryTxs(page, limit int, events []string) ([]*ctyp
 }
 
 func (sp *SubstrateProvider) QueryLatestHeight() (int64, error) {
-	return 0, nil
+	signedBlock, err := sp.RPCClient.RPC.Chain.GetBlockLatest()
+	if err != nil {
+		return 0, err
+	}
+
+	return int64(signedBlock.Block.Header.Number), nil
 }
 
 func (sp *SubstrateProvider) QueryHeaderAtHeight(height int64) (ibcexported.Header, error) {
-	return nil, nil
+	blockHash, err := sp.RPCClient.RPC.Chain.GetBlockHash(uint64(height))
+	if err != nil {
+		return nil, err
+	}
+
+	return constructBeefyHeader(sp.RPCClient, blockHash)
 }
 
 func (sp *SubstrateProvider) QueryBalance(keyName string) (sdk.Coins, error) {

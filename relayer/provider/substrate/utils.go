@@ -1,0 +1,29 @@
+package substrate
+
+import (
+	"bytes"
+
+	"github.com/ComposableFi/go-substrate-rpc-client/v4/scale"
+)
+
+// Encode scale encodes a data type and returns the scale encoded data as a byte type.
+func Encode(data interface{}) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := scale.NewEncoder(&buf)
+	err := enc.Encode(data)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// Decode decodes an encoded type to a target type. It takes encoded bytes and target interface as arguments and
+// returns decoded data as the target type.
+func Decode(source []byte, target interface{}) (interface{}, error) {
+	dec := scale.NewDecoder(bytes.NewReader(source))
+	err := dec.Decode(target)
+	if err != nil {
+		return nil, err
+	}
+	return target, nil
+}
