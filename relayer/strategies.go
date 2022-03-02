@@ -23,17 +23,16 @@ func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), erro
 			case <-doneChan:
 				return
 			default:
-				// Query the list of channels on the src & dst connections
-				srcChannels, dstChannels, err := QueryChannelsOnBothConnections(src, dst)
+				// Query the list of channels on the src connection
+				srcChannels, err := QueryChannelsOnConnection(src)
 				if err != nil {
 					return
 				}
 
 				// Filter for open channels that are not already in our slices of open channels
 				// TODO implement a filter list of channels we want to relay against or a list of channels to ignore
-				var srcOpenChannels, dstOpenChannels []*ActiveChannel
-				FilterOpenChannels(srcChannels, srcOpenChannels)
-				FilterOpenChannels(dstChannels, dstOpenChannels)
+				var srcOpenChannels []*ActiveChannel
+				srcOpenChannels = FilterOpenChannels(srcChannels, srcOpenChannels)
 
 				// Spin up a goroutine to relay packets & acks for each channel that isn't already being relayed against
 				for _, channel := range srcOpenChannels {
@@ -43,32 +42,24 @@ func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), erro
 					}
 				}
 
-				for _, channel := range dstOpenChannels {
-					if !channel.active {
-						channel.active = true
-						go RelayUnrelayedPacketsAndAcks(dst, src, maxTxSize, maxMsgLength, channel.channel)
-					}
-				}
+				time.Sleep(3 * time.Second)
 
-				// Rerun the entire loop every 2 mins to check for new open channels
-				// Ensures we aren't spamming the underlying nodes with `QueryConnectionChannels`
-				time.Sleep(120 * time.Second)
 			}
 		}
 	}()
 	return func() { doneChan <- struct{}{} }, nil
 }
 
-// QueryChannelsOnBothConnections queries all the channels associated with a connection on both the src and dst chains
-func QueryChannelsOnBothConnections(src, dst *Chain) ([]*types.IdentifiedChannel, []*types.IdentifiedChannel, error) {
+// QueryChannelsOnConnection queries all the channels associated with a connection on the src chain
+func QueryChannelsOnConnection(src *Chain) ([]*types.IdentifiedChannel, error) {
 	// Query the latest heights on src & dst
-	srch, dsth, err := QueryLatestHeights(src, dst)
+	srch, err := src.ChainProvider.QueryLatestHeight()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Query the list of channels for the connection on src
-	var srcChannels, dstChannels []*types.IdentifiedChannel
+	var srcChannels []*types.IdentifiedChannel
 
 	if err = retry.Do(func() error {
 		srcChannels, err = src.ChainProvider.QueryConnectionChannels(srch, src.ConnectionID())
@@ -76,25 +67,15 @@ func QueryChannelsOnBothConnections(src, dst *Chain) ([]*types.IdentifiedChannel
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		src.LogRetryQueryConnectionChannels(n, err, src.ConnectionID())
 	})); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	// Query the list of channels for the connection on dst
-	if err = retry.Do(func() error {
-		dstChannels, err = dst.ChainProvider.QueryConnectionChannels(dsth, dst.ConnectionID())
-		return err
-	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		dst.LogRetryQueryConnectionChannels(n, err, dst.ConnectionID())
-	})); err != nil {
-		return nil, nil, err
-	}
-
-	return srcChannels, dstChannels, nil
+	return srcChannels, nil
 }
 
 // FilterOpenChannels takes a slice of channels and adds all of the channels with OPEN state to a new slice of channels
 // NOTE: channels will not be added to the slice of open channels more than once
-func FilterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*ActiveChannel) {
+func FilterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*ActiveChannel) []*ActiveChannel {
 	inSlice := false
 
 	// Filter for open channels
@@ -120,13 +101,14 @@ func FilterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*Act
 			inSlice = false
 		}
 	}
+
+	return openChannels
 }
 
 // RelayUnrelayedPacketsAndAcks will relay all the pending packets and acknowledgements on both the src and dst chains
 func RelayUnrelayedPacketsAndAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) {
 	RelayUnrelayedPackets(src, dst, maxTxSize, maxMsgLength, srcChannel)
 	RelayUnrelayedAcks(src, dst, maxTxSize, maxMsgLength, srcChannel)
-	time.Sleep(100 * time.Millisecond)
 }
 
 // RelayUnrelayedPackets fetches unrelayed packet sequence numbers and attempts to relay the associated packets
@@ -147,6 +129,9 @@ func RelayUnrelayedPackets(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcC
 			if err = RelayPackets(src, dst, sp, maxTxSize, maxMsgLength, srcChannel); err != nil {
 				src.Log(fmt.Sprintf("relay packets error: %s", err))
 			}
+		} else {
+			src.Log(fmt.Sprintf("- No packets in the queue between [%s]port{%s} and [%s]port{%s}",
+				src.ChainID(), srcChannel.PortId, dst.ChainID(), srcChannel.Counterparty.PortId))
 		}
 	}
 }
@@ -169,6 +154,9 @@ func RelayUnrelayedAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChan
 			if err = RelayAcknowledgements(src, dst, ap, maxTxSize, maxMsgLength, srcChannel); err != nil && src.debug {
 				src.Log(fmt.Sprintf("relay acks error: %s", err))
 			}
+		} else {
+			src.Log(fmt.Sprintf("- No acks in the queue between [%s]port{%s} and [%s]port{%s}",
+				src.ChainID(), srcChannel.PortId, dst.ChainID(), srcChannel.Counterparty.PortId))
 		}
 	}
 }
