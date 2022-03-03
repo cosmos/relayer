@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -17,6 +18,7 @@ type ActiveChannel struct {
 // StartRelayer starts the main relaying loop
 func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), error) {
 	doneChan := make(chan struct{})
+	activeChan := make(chan *ActiveChannel, 10)
 	var srcOpenChannels []*ActiveChannel
 
 	go func() {
@@ -39,12 +41,26 @@ func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), erro
 				for _, channel := range srcOpenChannels {
 					if !channel.active {
 						channel.active = true
-						go RelayUnrelayedPacketsAndAcks(src, dst, maxTxSize, maxMsgLength, channel)
+						fmt.Printf("STARTING GOROUTINE FOR CHANNEL ----- %s \n", channel.channel.ChannelId)
+						go RelayUnrelayedPacketsAndAcks(src, dst, maxTxSize, maxMsgLength, channel, activeChan)
 					}
 				}
 
-				time.Sleep(1 * time.Second)
+				for channel := range activeChan {
+					// when a goroutine exits we need to see if that channel is still OPEN
+					// we need to ensure the slice of open channels is maintained
+					fmt.Printf("STOPPING GOROUTINE FOR CHANNEL ----- %s \n", channel.channel.ChannelId)
+					channel.active = false
+					break
+				}
 
+				// Make sure we are removing channels no longer in open state from the slice of open channels
+				for i, channel := range srcOpenChannels {
+					if channel.channel.State != types.OPEN {
+						srcOpenChannels[i] = srcOpenChannels[len(srcOpenChannels)-1]
+						srcOpenChannels = srcOpenChannels[:len(srcOpenChannels)-1]
+					}
+				}
 			}
 		}
 	}()
@@ -107,19 +123,34 @@ func FilterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*Act
 }
 
 // RelayUnrelayedPacketsAndAcks will relay all the pending packets and acknowledgements on both the src and dst chains
-func RelayUnrelayedPacketsAndAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *ActiveChannel) {
-	RelayUnrelayedPackets(src, dst, maxTxSize, maxMsgLength, srcChannel.channel)
-	RelayUnrelayedAcks(src, dst, maxTxSize, maxMsgLength, srcChannel.channel)
-	srcChannel.active = false
+func RelayUnrelayedPacketsAndAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *ActiveChannel, activeChan chan<- *ActiveChannel) {
+	// make goroutine signal its death, whether it's a panic or a return
+	defer func() {
+		activeChan <- srcChannel
+	}()
+
+	for {
+		if err := RelayUnrelayedPackets(src, dst, maxTxSize, maxMsgLength, srcChannel.channel); err != nil {
+			return
+		}
+		if err := RelayUnrelayedAcks(src, dst, maxTxSize, maxMsgLength, srcChannel.channel); err != nil {
+			return
+		}
+
+		time.Sleep(1000 * time.Millisecond)
+	}
 }
 
 // RelayUnrelayedPackets fetches unrelayed packet sequence numbers and attempts to relay the associated packets
-func RelayUnrelayedPackets(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) {
+func RelayUnrelayedPackets(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// Fetch any unrelayed sequences depending on the channel order
 	sp, err := UnrelayedSequences(src, dst, srcChannel)
 	if err != nil {
 		src.Log(fmt.Sprintf("unrelayed sequences error: %s", err))
+		return err
 	} else {
 		if len(sp.Src) > 0 && src.debug {
 			src.Log(fmt.Sprintf("[%s] unrelayed-packets-> %v", src.ChainID(), sp.Src))
@@ -128,23 +159,33 @@ func RelayUnrelayedPackets(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcC
 			dst.Log(fmt.Sprintf("[%s] unrelayed-packets-> %v", dst.ChainID(), sp.Dst))
 		}
 		if !sp.Empty() {
-			if err = RelayPackets(src, dst, sp, maxTxSize, maxMsgLength, srcChannel); err != nil {
-				src.Log(fmt.Sprintf("relay packets error: %s", err))
+			go RelayPackets(src, dst, sp, maxTxSize, maxMsgLength, srcChannel, ctx)
+
+			select {
+			case <-ctx.Done():
+				src.Log(fmt.Sprintf("relay packets error: %s", ctx.Err()))
+				return ctx.Err()
 			}
+
 		} else {
 			src.Log(fmt.Sprintf("- No packets in the queue between [%s]port{%s} and [%s]port{%s}",
 				src.ChainID(), srcChannel.PortId, dst.ChainID(), srcChannel.Counterparty.PortId))
 		}
 	}
+
+	return nil
 }
 
 // RelayUnrelayedAcks fetches unrelayed acknowledgements and attempts to relay them
-func RelayUnrelayedAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) {
+func RelayUnrelayedAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// Fetch any unrelayed acks depending on the channel order
 	ap, err := UnrelayedAcknowledgements(src, dst, srcChannel)
 	if err != nil {
 		src.Log(fmt.Sprintf("unrelayed acks error: %s", err))
+		return err
 	} else {
 		if len(ap.Src) > 0 && src.debug {
 			src.Log(fmt.Sprintf("[%s] unrelayed-acks-> %v", src.ChainID(), ap.Src))
@@ -153,12 +194,19 @@ func RelayUnrelayedAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChan
 			dst.Log(fmt.Sprintf("[%s] unrelayed-acks-> %v", dst.ChainID(), ap.Dst))
 		}
 		if !ap.Empty() {
-			if err = RelayAcknowledgements(src, dst, ap, maxTxSize, maxMsgLength, srcChannel); err != nil && src.debug {
-				src.Log(fmt.Sprintf("relay acks error: %s", err))
+			go RelayAcknowledgements(src, dst, ap, maxTxSize, maxMsgLength, srcChannel, ctx)
+
+			select {
+			case <-ctx.Done():
+				src.Log(fmt.Sprintf("relay acks error: %s", ctx.Err()))
+				return ctx.Err()
 			}
+
 		} else {
 			src.Log(fmt.Sprintf("- No acks in the queue between [%s]port{%s} and [%s]port{%s}",
 				src.ChainID(), srcChannel.PortId, dst.ChainID(), srcChannel.Counterparty.PortId))
 		}
 	}
+
+	return nil
 }
