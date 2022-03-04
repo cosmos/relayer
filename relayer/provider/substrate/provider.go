@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"reflect"
 	"time"
 
+	rpcClient "github.com/ComposableFi/go-substrate-rpc-client"
 	"github.com/ComposableFi/go-substrate-rpc-client/scale"
-	rpcClient "github.com/ComposableFi/go-substrate-rpc-client/v4"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	beefyclient "github.com/cosmos/ibc-go/v3/modules/light-clients/11-beefy/types"
 	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/cosmos/relayer/relayer/provider/substrate/keystore"
 )
@@ -41,6 +44,11 @@ func NewSubstrateProvider(spc *SubstrateProviderConfig, homepath string) (*Subst
 	return sp, nil
 }
 
+// Log takes a string and logs the data
+func (sp *SubstrateProvider) Log(s string) {
+	// TODO: implement logger
+}
+
 type SubstrateProviderConfig struct {
 	Timeout        string `json:"timeout" yaml:"timeout"`
 	RPCAddr        string `json:"rpc-addr" yaml:"rpc-addr"`
@@ -48,6 +56,7 @@ type SubstrateProviderConfig struct {
 	Key            string `json:"key" yaml:"key"`
 	KeyringBackend string `json:"keyring-backend" yaml:"keyring-backend"`
 	KeyDirectory   string `json:"key-directory" yaml:"key-directory"`
+	Debug          bool   `json:"debug" yaml:"debug"`
 }
 
 func (spc *SubstrateProviderConfig) NewProvider(homepath string, debug bool) (provider.ChainProvider, error) {
@@ -149,4 +158,36 @@ func (srm SubstrateRelayerMessage) MsgBytes() ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// castClientStateToTMType casts client state to tendermint type
+func castClientStateToBeefyType(cs *codectypes.Any) (*beefyclient.ClientState, error) {
+	clientStateExported, err := clienttypes.UnpackClientState(cs)
+	if err != nil {
+		return &beefyclient.ClientState{}, err
+	}
+
+	// cast from interface to concrete type
+	clientState, ok := clientStateExported.(*beefyclient.ClientState)
+	if !ok {
+		return &beefyclient.ClientState{},
+			fmt.Errorf("error when casting exported clientstate to tendermint type")
+	}
+
+	return clientState, nil
+}
+
+// isMatchingClient determines if the two provided clients match in all fields
+// except latest height. They are assumed to be IBC tendermint light clients.
+// NOTE: we don't pass in a pointer so upstream references don't have a modified
+// latest height set to zero.
+func isMatchingClient(clientStateA, clientStateB *beefyclient.ClientState) bool {
+	// zero out latest client height since this is determined and incremented
+	// by on-chain updates. Changing the latest height does not fundamentally
+	// change the client. The associated consensus state at the latest height
+	// determines this last check
+	clientStateA.LatestBeefyHeight = 0
+	clientStateB.LatestBeefyHeight = 0
+
+	return reflect.DeepEqual(clientStateA, clientStateB)
 }

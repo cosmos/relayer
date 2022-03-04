@@ -1,9 +1,11 @@
 package substrate
 
 import (
+	"context"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
@@ -41,7 +43,21 @@ func (sp *SubstrateProvider) QueryHeaderAtHeight(height int64) (ibcexported.Head
 }
 
 func (sp *SubstrateProvider) QueryBalance(keyName string) (sdk.Coins, error) {
-	return nil, nil
+	var (
+		addr string
+		err  error
+	)
+	if keyName == "" {
+		addr, err = sp.Address()
+	} else {
+		sp.Config.Key = keyName
+		addr, err = sp.Address()
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return sp.QueryBalanceWithAddress(addr)
 }
 
 func (sp *SubstrateProvider) QueryBalanceWithAddress(addr string) (sdk.Coins, error) {
@@ -141,19 +157,55 @@ func (sp *SubstrateProvider) QueryChannels() ([]*chantypes.IdentifiedChannel, er
 }
 
 func (sp *SubstrateProvider) QueryPacketCommitments(height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
-	return nil, nil
+	qc := chantypes.NewQueryClient(sp)
+	c, err := qc.PacketCommitments(context.Background(), &chantypes.QueryPacketCommitmentsRequest{
+		PortId:     portid,
+		ChannelId:  channelid,
+		Pagination: DefaultPageRequest(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func (sp *SubstrateProvider) QueryPacketAcknowledgements(height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
-	return nil, nil
+	qc := chantypes.NewQueryClient(sp)
+	acks, err := qc.PacketAcknowledgements(context.Background(), &chantypes.QueryPacketAcknowledgementsRequest{
+		PortId:     portid,
+		ChannelId:  channelid,
+		Pagination: DefaultPageRequest(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return acks.Acknowledgements, nil
 }
 
 func (sp *SubstrateProvider) QueryUnreceivedPackets(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
-	return nil, nil
+	qc := chantypes.NewQueryClient(sp)
+	res, err := qc.UnreceivedPackets(context.Background(), &chantypes.QueryUnreceivedPacketsRequest{
+		PortId:                    portid,
+		ChannelId:                 channelid,
+		PacketCommitmentSequences: seqs,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res.Sequences, nil
 }
 
 func (sp *SubstrateProvider) QueryUnreceivedAcknowledgements(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
-	return nil, nil
+	qc := chantypes.NewQueryClient(sp)
+	res, err := qc.UnreceivedAcks(context.Background(), &chantypes.QueryUnreceivedAcksRequest{
+		PortId:             portid,
+		ChannelId:          channelid,
+		PacketAckSequences: seqs,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res.Sequences, nil
 }
 
 func (sp *SubstrateProvider) QueryNextSeqRecv(height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
@@ -173,9 +225,32 @@ func (sp *SubstrateProvider) QueryPacketReceipt(height int64, channelid, portid 
 }
 
 func (sp *SubstrateProvider) QueryDenomTrace(denom string) (*transfertypes.DenomTrace, error) {
-	return nil, nil
+	transfers, err := transfertypes.NewQueryClient(sp).DenomTrace(context.Background(),
+		&transfertypes.QueryDenomTraceRequest{
+			Hash: denom,
+		})
+	if err != nil {
+		return nil, err
+	}
+	return transfers.DenomTrace, nil
 }
 
 func (sp *SubstrateProvider) QueryDenomTraces(offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
-	return nil, nil
+	transfers, err := transfertypes.NewQueryClient(sp).DenomTraces(context.Background(),
+		&transfertypes.QueryDenomTracesRequest{
+			Pagination: DefaultPageRequest(),
+		})
+	if err != nil {
+		return nil, err
+	}
+	return transfers.DenomTraces, nil
+}
+
+func DefaultPageRequest() *querytypes.PageRequest {
+	return &querytypes.PageRequest{
+		Key:        []byte(""),
+		Offset:     0,
+		Limit:      1000,
+		CountTotal: true,
+	}
 }
