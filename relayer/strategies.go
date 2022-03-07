@@ -33,7 +33,7 @@ func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), erro
 					return
 				}
 
-				// Filter for open channels that are not already in our slices of open channels
+				// Filter for open channels that are not already in our slice of open channels
 				// TODO implement a filter list of channels we want to relay against or a list of channels to ignore
 				srcOpenChannels = FilterOpenChannels(srcChannels, srcOpenChannels)
 
@@ -47,14 +47,12 @@ func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), erro
 				}
 
 				for channel := range activeChan {
-					// when a goroutine exits we need to see if that channel is still OPEN
-					// we need to ensure the slice of open channels is maintained
 					fmt.Printf("STOPPING GOROUTINE FOR CHANNEL ----- %s \n", channel.channel.ChannelId)
 					channel.active = false
 					break
 				}
 
-				// Make sure we are removing channels no longer in open state from the slice of open channels
+				// Make sure we are removing channels no longer in OPEN state from the slice of open channels
 				for i, channel := range srcOpenChannels {
 					if channel.channel.State != types.OPEN {
 						srcOpenChannels[i] = srcOpenChannels[len(srcOpenChannels)-1]
@@ -90,7 +88,7 @@ func QueryChannelsOnConnection(src *Chain) ([]*types.IdentifiedChannel, error) {
 	return srcChannels, nil
 }
 
-// FilterOpenChannels takes a slice of channels and adds all of the channels with OPEN state to a new slice of channels
+// FilterOpenChannels takes a slice of channels and adds all the channels with OPEN state to a new slice of channels
 // NOTE: channels will not be added to the slice of open channels more than once
 func FilterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*ActiveChannel) []*ActiveChannel {
 	inSlice := false
@@ -143,7 +141,7 @@ func RelayUnrelayedPacketsAndAcks(src, dst *Chain, maxTxSize, maxMsgLength uint6
 
 // RelayUnrelayedPackets fetches unrelayed packet sequence numbers and attempts to relay the associated packets
 func RelayUnrelayedPackets(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 
 	// Fetch any unrelayed sequences depending on the channel order
@@ -155,12 +153,21 @@ func RelayUnrelayedPackets(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcC
 		if len(sp.Src) > 0 && src.debug {
 			src.Log(fmt.Sprintf("[%s] unrelayed-packets-> %v", src.ChainID(), sp.Src))
 		}
+
 		if len(sp.Dst) > 0 && dst.debug {
 			dst.Log(fmt.Sprintf("[%s] unrelayed-packets-> %v", dst.ChainID(), sp.Dst))
 		}
-		if !sp.Empty() {
-			go RelayPackets(src, dst, sp, maxTxSize, maxMsgLength, srcChannel, ctx)
 
+		if !sp.Empty() {
+			go func() {
+				err := RelayPackets(src, dst, sp, maxTxSize, maxMsgLength, srcChannel, ctx)
+				if err != nil {
+					src.Log(fmt.Sprintf("relay packets error: %s", err))
+				}
+				cancel()
+			}()
+
+			// Wait until the context is cancelled (i.e. RelayPackets() finishes) or the context times out
 			select {
 			case <-ctx.Done():
 				src.Log(fmt.Sprintf("relay packets error: %s", ctx.Err()))
@@ -178,7 +185,7 @@ func RelayUnrelayedPackets(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcC
 
 // RelayUnrelayedAcks fetches unrelayed acknowledgements and attempts to relay them
 func RelayUnrelayedAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 
 	// Fetch any unrelayed acks depending on the channel order
@@ -190,12 +197,21 @@ func RelayUnrelayedAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChan
 		if len(ap.Src) > 0 && src.debug {
 			src.Log(fmt.Sprintf("[%s] unrelayed-acks-> %v", src.ChainID(), ap.Src))
 		}
+
 		if len(ap.Dst) > 0 && dst.debug {
 			dst.Log(fmt.Sprintf("[%s] unrelayed-acks-> %v", dst.ChainID(), ap.Dst))
 		}
-		if !ap.Empty() {
-			go RelayAcknowledgements(src, dst, ap, maxTxSize, maxMsgLength, srcChannel, ctx)
 
+		if !ap.Empty() {
+			go func() {
+				err := RelayAcknowledgements(src, dst, ap, maxTxSize, maxMsgLength, srcChannel, ctx)
+				if err != nil {
+					src.Log(fmt.Sprintf("relay acks error: %s", err))
+				}
+				cancel()
+			}()
+
+			// Wait until the context is cancelled (i.e. RelayAcknowledgements() finishes) or the context times out
 			select {
 			case <-ctx.Done():
 				src.Log(fmt.Sprintf("relay acks error: %s", ctx.Err()))
