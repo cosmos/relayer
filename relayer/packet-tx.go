@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cosmos/relayer/relayer/provider"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/relayer/provider"
 )
 
 //nolint:lll
 // SendTransferMsg initiates an ics20 transfer from src to dst with the specified args
-func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr string, toHeightOffset uint64, toTimeOffset time.Duration) error {
+func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr string, toHeightOffset uint64, toTimeOffset time.Duration, srcChannel *chantypes.IdentifiedChannel) error {
 	var (
 		timeoutHeight    uint64
 		timeoutTimestamp uint64
@@ -43,7 +43,7 @@ func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr string, toH
 	}
 
 	// MsgTransfer will call SendPacket on src chain
-	msg, err := c.ChainProvider.MsgTransfer(amount, dst.PathEnd.ChainID, dstAddr, c.PathEnd.PortID, c.PathEnd.ChannelID, timeoutHeight, timeoutTimestamp)
+	msg, err := c.ChainProvider.MsgTransfer(amount, dst.PathEnd.ChainID, dstAddr, srcChannel.PortId, srcChannel.ChannelId, timeoutHeight, timeoutTimestamp)
 	if err != nil {
 		return err
 	}

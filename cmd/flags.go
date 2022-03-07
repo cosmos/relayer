@@ -202,7 +202,7 @@ func clientParameterFlags(cmd *cobra.Command) *cobra.Command {
 }
 
 func overrideFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().Bool(flagOverride, false, "option to not reuse existing client")
+	cmd.Flags().Bool(flagOverride, false, "option to not reuse existing client or channel")
 	if err := viper.BindPFlag(flagOverride, cmd.Flags().Lookup(flagOverride)); err != nil {
 		panic(err)
 	}

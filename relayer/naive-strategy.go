@@ -348,8 +348,6 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 			return err
 		}
 
-		fmt.Println("BEFORE ADD MSGS FOR SEQS")
-
 		eg := new(errgroup.Group)
 		//// add messages for sequences on src
 		//if err = AddMessagesForSequences(sp.Src, src, dst, srch, dsth, &msgs.Src, &msgs.Dst, srcChannel.ChannelId, srcChannel.PortId, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId); err != nil {
@@ -373,8 +371,6 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 			return err
 		}
 
-		fmt.Println("AFTER ADD MSGS FOR SEQS")
-
 		if !msgs.Ready() {
 			src.Log(fmt.Sprintf("- No packets to relay between [%s]port{%s} and [%s]port{%s}",
 				src.ChainID(), srcChannel.PortId, dst.ChainID(), srcChannel.Counterparty.PortId))
@@ -391,15 +387,12 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 			return PrependUpdateClientMsg(&msgs.Src, dst, src, dsth)
 		})
 
-		fmt.Println("AFTER PREPEND UPDATE CLIENT MSG")
-
 		if err = eg.Wait(); err != nil {
 			return err
 		}
 
 		// send messages to their respective chains
 		if msgs.Send(src, dst); msgs.Success() {
-			fmt.Println("INSIDE MSGS.SUCCESS IF STATEMENT")
 			if len(msgs.Dst) > 1 {
 				dst.logPacketsRelayed(src, len(msgs.Dst)-1)
 			}

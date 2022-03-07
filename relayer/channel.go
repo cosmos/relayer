@@ -13,7 +13,7 @@ import (
 )
 
 // CreateOpenChannels runs the channel creation messages on timeout until they pass
-func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Duration) (modified bool, err error) {
+func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Duration, override bool) (modified bool, err error) {
 	// client and connection identifiers must be filled in
 	if err := ValidateConnectionPaths(c, dst); err != nil {
 		return modified, err
@@ -27,7 +27,7 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 	failures := uint64(0)
 	for ; true; <-ticker.C {
 		var err error
-		success, lastStep, recentlyModified, err := ExecuteChannelStep(c, dst)
+		success, lastStep, recentlyModified, err := ExecuteChannelStep(c, dst, override)
 		if err != nil {
 			c.Log(err.Error())
 		}
@@ -83,7 +83,7 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 // states of two channel ends specified by the relayer configuration
 // file. The booleans return indicate if the message was successfully
 // executed and if this was the last handshake step.
-func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err error) {
+func ExecuteChannelStep(src, dst *Chain, override bool) (success, last, modified bool, err error) {
 	var (
 		srch, dsth           int64
 		srcHeader, dstHeader exported.Header
@@ -104,7 +104,7 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 	// if either identifier is missing, an existing channel that matches the required fields
 	// is chosen or a new channel is created.
 	if src.PathEnd.ChannelID == "" || dst.PathEnd.ChannelID == "" {
-		success, modified, err = InitializeChannel(src, dst)
+		success, modified, err = InitializeChannel(src, dst, override)
 		if err != nil {
 			return false, false, false, err
 		}
@@ -353,12 +353,14 @@ func ExecuteChannelStep(src, dst *Chain) (success, last, modified bool, err erro
 // The identifiers set in the PathEnd's are used to determine which channel ends need to be
 // initialized. The PathEnds are updated upon a successful transaction.
 // NOTE: This function may need to be called twice if neither channel exists.
-func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
+func InitializeChannel(src, dst *Chain, override bool) (success, modified bool, err error) {
 	var (
 		srch, dsth           int64
 		srcHeader, dstHeader exported.Header
 		msgs                 []provider.RelayerMessage
 		res                  *provider.RelayerTxResponse
+		channelID            string
+		found                bool
 	)
 
 	switch {
@@ -370,8 +372,11 @@ func InitializeChannel(src, dst *Chain) (success, modified bool, err error) {
 			src.logOpenInit(dst, "channel")
 		}
 
-		channelID, found := FindMatchingChannel(src, dst)
-		if !found {
+		if !override {
+			channelID, found = FindMatchingChannel(src, dst)
+		}
+
+		if !found || override {
 
 			if err = retry.Do(func() error {
 				dsth, err = dst.ChainProvider.QueryLatestHeight()

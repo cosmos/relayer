@@ -10,8 +10,10 @@ import (
 	"github.com/avast/retry-go"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/relayer"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -414,6 +416,11 @@ $ %s tx chan demo-path --timeout 5s`,
 				return err
 			}
 
+			override, err := cmd.Flags().GetBool(flagOverride)
+			if err != nil {
+				return err
+			}
+
 			retries, err := cmd.Flags().GetUint64(flagMaxRetries)
 			if err != nil {
 				return err
@@ -428,7 +435,7 @@ $ %s tx chan demo-path --timeout 5s`,
 			}
 
 			// create channel if it isn't already created
-			modified, err := c[src].CreateOpenChannels(c[dst], retries, to)
+			modified, err := c[src].CreateOpenChannels(c[dst], retries, to, override)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err
@@ -442,7 +449,7 @@ $ %s tx chan demo-path --timeout 5s`,
 		},
 	}
 
-	return overrideFlag(clientParameterFlags(retryFlag(timeoutFlag(cmd))))
+	return overrideFlag(retryFlag(timeoutFlag(cmd)))
 }
 
 func closeChannelCmd() *cobra.Command {
@@ -560,7 +567,7 @@ $ %s tx connect demo-path`,
 			}
 
 			// create channel if it isn't already created
-			modified, err = c[src].CreateOpenChannels(c[dst], retries, to)
+			modified, err = c[src].CreateOpenChannels(c[dst], retries, to, override)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err
@@ -819,16 +826,16 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 
 func xfersend() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "transfer [src-chain-id] [dst-chain-id] [amount] [dst-addr]",
+		Use:   "transfer [src-chain-id] [dst-chain-id] [amount] [dst-addr] [src-channel-id]",
 		Short: "initiate a transfer from one network to another",
 		Long: `Initiate a token transfer via IBC between two networks. The created packet
 must be relayed to the destination chain.`,
-		Args: cobra.ExactArgs(4),
+		Args: cobra.ExactArgs(5),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s tx transfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo-path
-$ %s tx transfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo -y 2 -c 10
-$ %s tx transfer ibc-0 ibc-1 100000stake raw:non-bech32-address --path demo
-$ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo -c 5
+$ %s tx transfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk channel-0 --path demo-path
+$ %s tx transfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk channel-0 --path demo -y 2 -c 10
+$ %s tx transfer ibc-0 ibc-1 100000stake raw:non-bech32-address channel-0 --path demo
+$ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk channel-0 --path demo -c 5
 `, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
@@ -837,12 +844,13 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 				return err
 			}
 
-			pth, err := cmd.Flags().GetString(flagPath)
+			pathString, err := cmd.Flags().GetString(flagPath)
 			if err != nil {
 				return err
 			}
 
-			if _, err = setPathsFromArgs(c[src], c[dst], pth); err != nil {
+			var path *relayer.Path
+			if path, err = setPathsFromArgs(c[src], c[dst], pathString); err != nil {
 				return err
 			}
 
@@ -854,6 +862,26 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 			srch, err := c[src].ChainProvider.QueryLatestHeight()
 			if err != nil {
 				return err
+			}
+
+			// Query all channels for the configured connection on the src chain
+			srcChannelID := args[4]
+			channels, err := c[src].ChainProvider.QueryConnectionChannels(srch, path.Src.ConnectionID)
+			if err != nil {
+				return err
+			}
+
+			// Ensure the specified channel exists for the given path
+			var srcChannel *chantypes.IdentifiedChannel
+			for _, channel := range channels {
+				if channel.ChannelId == srcChannelID {
+					srcChannel = channel
+					break
+				}
+			}
+
+			if srcChannel == nil {
+				return errors.New(fmt.Sprintf("could not find channel{%s} for chain{%s}@connection{%s}", srcChannelID, c[src], path.Src.ConnectionID))
 			}
 
 			dts, err := c[src].ChainProvider.QueryDenomTraces(0, 100, srch)
@@ -896,7 +924,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 
 			}
 
-			return c[src].SendTransferMsg(c[dst], amount, dstAddr, toHeightOffset, toTimeOffset)
+			return c[src].SendTransferMsg(c[dst], amount, dstAddr, toHeightOffset, toTimeOffset, srcChannel)
 		},
 	}
 
