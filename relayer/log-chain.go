@@ -199,3 +199,10 @@ func (c *Chain) LogRetryQueryUnreceivedPackets(n uint, err error, channelID, por
 			channelID, portID, n+1, RtyAttNum, err))
 	}
 }
+
+func (c *Chain) LogRetryRelayPacketFromSequence(n uint, err error, srcChannelID, srcPortID, dstChannelID, dstPortID string, dst *Chain) {
+	if c.debug {
+		c.Log(fmt.Sprintf("failed to relay packet from sequence for [%s - %s]port{%s} -> [%s - %s]port{%s}, try(%d/%d). Err: %v",
+			c.ChainID(), srcChannelID, srcPortID, dst.ChainID(), dstChannelID, dstPortID, n+1, RtyAttNum, err))
+	}
+}

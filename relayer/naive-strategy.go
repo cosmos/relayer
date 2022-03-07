@@ -348,15 +348,32 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 			return err
 		}
 
-		// add messages for sequences on src
-		if err = AddMessagesForSequences(sp.Src, src, dst, srch, dsth, &msgs.Src, &msgs.Dst, srcChannel.ChannelId, srcChannel.PortId, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId); err != nil {
+		fmt.Println("BEFORE ADD MSGS FOR SEQS")
+
+		eg := new(errgroup.Group)
+		//// add messages for sequences on src
+		//if err = AddMessagesForSequences(sp.Src, src, dst, srch, dsth, &msgs.Src, &msgs.Dst, srcChannel.ChannelId, srcChannel.PortId, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId); err != nil {
+		//	return err
+		//}
+		//
+		//// add messages for sequences on dst
+		//if err = AddMessagesForSequences(sp.Dst, dst, src, dsth, srch, &msgs.Dst, &msgs.Src, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcChannel.ChannelId, srcChannel.PortId); err != nil {
+		//	return err
+		//}
+
+		eg.Go(func() error {
+			return AddMessagesForSequences(sp.Src, src, dst, srch, dsth, &msgs.Src, &msgs.Dst, srcChannel.ChannelId, srcChannel.PortId, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
+		})
+
+		eg.Go(func() error {
+			return AddMessagesForSequences(sp.Dst, dst, src, dsth, srch, &msgs.Dst, &msgs.Src, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcChannel.ChannelId, srcChannel.PortId)
+		})
+
+		if err = eg.Wait(); err != nil {
 			return err
 		}
 
-		// add messages for sequences on dst
-		if err = AddMessagesForSequences(sp.Dst, dst, src, dsth, srch, &msgs.Dst, &msgs.Src, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcChannel.ChannelId, srcChannel.PortId); err != nil {
-			return err
-		}
+		fmt.Println("AFTER ADD MSGS FOR SEQS")
 
 		if !msgs.Ready() {
 			src.Log(fmt.Sprintf("- No packets to relay between [%s]port{%s} and [%s]port{%s}",
@@ -365,7 +382,6 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 		}
 
 		// Prepend non-empty msg lists with UpdateClient
-		eg := new(errgroup.Group)
 
 		eg.Go(func() error {
 			return PrependUpdateClientMsg(&msgs.Dst, src, dst, srch)
@@ -375,12 +391,15 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 			return PrependUpdateClientMsg(&msgs.Src, dst, src, dsth)
 		})
 
+		fmt.Println("AFTER PREPEND UPDATE CLIENT MSG")
+
 		if err = eg.Wait(); err != nil {
 			return err
 		}
 
 		// send messages to their respective chains
 		if msgs.Send(src, dst); msgs.Success() {
+			fmt.Println("INSIDE MSGS.SUCCESS IF STATEMENT")
 			if len(msgs.Dst) > 1 {
 				dst.logPacketsRelayed(src, len(msgs.Dst)-1)
 			}
@@ -388,9 +407,9 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 				src.logPacketsRelayed(dst, len(msgs.Src)-1)
 			}
 		}
-	}
 
-	return nil
+		return nil
+	}
 }
 
 // AddMessagesForSequences constructs RecvMsgs and TimeoutMsgs from sequence numbers on a src chain
@@ -408,6 +427,7 @@ func AddMessagesForSequences(sequences []uint64, src, dst *Chain, srch, dsth int
 			recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(src.ChainProvider, dst.ChainProvider, uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, srcChanID, srcPortID, src.PathEnd.ClientID)
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			src.LogRetryRelayPacketFromSequence(n, err, srcChanID, srcPortID, dstChanID, dstPortID, dst)
 			srch, dsth, _ = QueryLatestHeights(src, dst)
 		})); err != nil {
 			return err
