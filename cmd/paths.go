@@ -296,7 +296,6 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					// For each path file, check that the dst is also a configured chain in the relayers config
 					for _, f := range files {
 						pth := fmt.Sprintf("%s/%s", dir, f.Name())
-						fmt.Println(pth)
 						if f.IsDir() {
 							fmt.Printf("directory at %s, skipping...\n", pth)
 							continue
