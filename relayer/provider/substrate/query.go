@@ -53,7 +53,23 @@ func (sp *SubstrateProvider) QueryUnbondingPeriod() (time.Duration, error) {
 }
 
 func (sp *SubstrateProvider) QueryClientState(height int64, clientid string) (ibcexported.ClientState, error) {
-	return nil, nil
+	blockHash, err := sp.RPCClient.RPC.Chain.GetBlockHash(uint64(height))
+	if err != nil {
+		return nil, err
+	}
+
+	commitment, err := signedCommitment(sp.RPCClient, blockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	cs, err := clientState(sp.RPCClient, commitment)
+	if err != nil {
+		return nil, err
+	}
+
+	return cs, nil
+
 }
 
 func (sp *SubstrateProvider) QueryClientStateResponse(height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
