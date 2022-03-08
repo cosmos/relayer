@@ -250,7 +250,7 @@ var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 func (cc *CosmosProvider) NewClientState(dstUpdateHeader ibcexported.Header, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
 	dstTmHeader, ok := dstUpdateHeader.(*tmclient.Header)
 	if !ok {
-		return nil, fmt.Errorf("got data of type %T but wanted  tmclient.Header \n", dstUpdateHeader)
+		return nil, fmt.Errorf("got data of type %T but wanted tmclient.Header", dstUpdateHeader)
 	}
 
 	// Create the ClientState we want on 'c' tracking 'dst'
