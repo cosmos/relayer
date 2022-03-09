@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/avast/retry-go"
@@ -138,22 +137,6 @@ func ValidateConnectionPaths(src, dst *Chain) error {
 	}
 	if err := dst.PathEnd.Vconn(); err != nil {
 		return err
-	}
-	return nil
-}
-
-// ValidateChannelParams takes two chains and validates their respective channel params
-func ValidateChannelParams(src, dst *Chain) error {
-	if err := src.PathEnd.ValidateBasic(); err != nil {
-		return err
-	}
-	if err := dst.PathEnd.ValidateBasic(); err != nil {
-		return err
-	}
-	//nolint:staticcheck
-	if strings.ToUpper(src.PathEnd.Order) != strings.ToUpper(dst.PathEnd.Order) {
-		return fmt.Errorf("src and dst path ends must have same ORDER. got src: %s, dst: %s",
-			src.PathEnd.Order, dst.PathEnd.Order)
 	}
 	return nil
 }

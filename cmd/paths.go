@@ -228,7 +228,7 @@ $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName, appName)),
 			}
 
 			version, _ := cmd.Flags().GetString(flagVersion)
-			port, _ := cmd.Flags().GetString(flagPort)
+			port, _ := cmd.Flags().GetString(flagSrcPort)
 			p := &relayer.Path{
 				Src: &relayer.PathEnd{ChainID: src, PortID: port, Version: version},
 				Dst: &relayer.PathEnd{ChainID: dst, PortID: port, Version: version},
@@ -251,7 +251,7 @@ $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName, appName)),
 			return overWriteConfig(config)
 		},
 	}
-	return orderFlag(versionFlag(portFlag(cmd)))
+	return channelParameterFlags(cmd)
 }
 
 // pathsFetchCmd attempts to fetch the json files containing the path metadata, for each configured chain, from GitHub

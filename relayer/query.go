@@ -50,16 +50,16 @@ func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (srcConn, dstConn *c
 }
 
 // QueryChannelPair returns a pair of channel responses
-func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (srcChan, dstChan *chantypes.QueryChannelResponse, err error) {
+func QueryChannelPair(src, dst *Chain, srcH, dstH int64, srcChanID, dstChanID, srcPortID, dstPortID string) (srcChan, dstChan *chantypes.QueryChannelResponse, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
 		var err error
-		srcChan, err = src.ChainProvider.QueryChannel(srcH, src.PathEnd.ChannelID, src.PathEnd.PortID)
+		srcChan, err = src.ChainProvider.QueryChannel(srcH, srcChanID, srcPortID)
 		return err
 	})
 	eg.Go(func() error {
 		var err error
-		dstChan, err = dst.ChainProvider.QueryChannel(dstH, dst.PathEnd.ChannelID, dst.PathEnd.PortID)
+		dstChan, err = dst.ChainProvider.QueryChannel(dstH, dstChanID, dstPortID)
 		return err
 	})
 	if err = eg.Wait(); err != nil {
@@ -101,7 +101,8 @@ func QueryChannel(src *Chain, channelID string) (*chantypes.IdentifiedChannel, e
 		}
 	}
 
-	return nil, errors.New(fmt.Sprintf("channel{%s} not found for chain{%s}@client{%s}", channelID, src.ChainID(), src.ClientID()))
+	return nil, errors.New(fmt.Sprintf("channel{%s} not found for [%s] -> client{%s}@connection{%s}",
+		channelID, src.ChainID(), src.ClientID(), src.ConnectionID()))
 }
 
 // GetIBCUpdateHeaders returns a pair of IBC update headers which can be used to update an on chain light client

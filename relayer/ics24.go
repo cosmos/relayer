@@ -2,7 +2,6 @@ package relayer
 
 import (
 	"fmt"
-	"strings"
 
 	host "github.com/cosmos/ibc-go/v3/modules/core/24-host"
 )
@@ -54,7 +53,7 @@ func PathsSet(chains ...*Chain) bool {
 
 // SetPath sets the path and validates the identifiers
 func (c *Chain) SetPath(p *PathEnd) error {
-	err := p.ValidateBasic()
+	err := p.ValidateFull()
 	if err != nil {
 		return c.ErrCantSetPath(err)
 	}
@@ -63,37 +62,17 @@ func (c *Chain) SetPath(p *PathEnd) error {
 }
 
 // AddPath takes the elements of a path and validates then, setting that path to the chain
-func (c *Chain) AddPath(clientID, connectionID, channelID, port, order string) error {
-	return c.SetPath(&PathEnd{ChainID: c.ChainID(), ClientID: clientID,
-		ConnectionID: connectionID, ChannelID: channelID, PortID: port, Order: order})
+func (c *Chain) AddPath(clientID, connectionID string) error {
+	return c.SetPath(&PathEnd{ChainID: c.ChainID(), ClientID: clientID, ConnectionID: connectionID})
 }
 
-// ValidateFull returns errors about invalid identifiers as well as
-// unset path variables for the appropriate type
+// ValidateFull returns errors about invalid identifiers as well as unset path variables for the appropriate type
 func (pe *PathEnd) ValidateFull() error {
-	if err := pe.ValidateBasic(); err != nil {
-		return err
-	}
 	if err := pe.Vclient(); err != nil {
 		return err
 	}
 	if err := pe.Vconn(); err != nil {
 		return err
-	}
-	if err := pe.Vchan(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// ValidateBasic validates fields that cannot be empty such as the
-// port and channel order.
-func (pe *PathEnd) ValidateBasic() error {
-	if err := pe.Vport(); err != nil {
-		return err
-	}
-	if !(strings.ToUpper(pe.Order) == "ORDERED" || strings.ToUpper(pe.Order) == "UNORDERED") {
-		return fmt.Errorf("channel must be either 'ORDERED' or 'UNORDERED' is '%s'", pe.Order)
 	}
 	return nil
 }

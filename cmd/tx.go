@@ -395,14 +395,14 @@ func createChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "channel [path-name]",
 		Aliases: []string{"chan"},
-		Short:   "create a channel between two configured chains with a configured path",
+		Short:   "create a channel between two configured chains with a configured path using specified or default channel identifiers",
 		Long: strings.TrimSpace(`Create or repair a channel between two IBC-connected networks
 along a specific path.`,
 		),
 		Args: cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s transact channel demo-path
-$ %s tx chan demo-path --timeout 5s`,
+$ %s transact channel demo-path --src-port transfer --dst-port transfer --order unordered --version ics20-1
+$ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -411,12 +411,32 @@ $ %s tx chan demo-path --timeout 5s`,
 				return err
 			}
 
-			to, err := getTimeout(cmd)
+			override, err := cmd.Flags().GetBool(flagOverride)
 			if err != nil {
 				return err
 			}
 
-			override, err := cmd.Flags().GetBool(flagOverride)
+			srcPort, err := cmd.Flags().GetString(flagSrcPort)
+			if err != nil {
+				return err
+			}
+
+			dstPort, err := cmd.Flags().GetString(flagDstPort)
+			if err != nil {
+				return err
+			}
+
+			order, err := cmd.Flags().GetString(flagOrder)
+			if err != nil {
+				return err
+			}
+
+			version, err := cmd.Flags().GetString(flagVersion)
+			if err != nil {
+				return err
+			}
+
+			to, err := getTimeout(cmd)
 			if err != nil {
 				return err
 			}
@@ -435,7 +455,7 @@ $ %s tx chan demo-path --timeout 5s`,
 			}
 
 			// create channel if it isn't already created
-			modified, err := c[src].CreateOpenChannels(c[dst], retries, to, override)
+			modified, err := c[src].CreateOpenChannels(c[dst], retries, to, srcPort, dstPort, order, version, override)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err
@@ -449,19 +469,19 @@ $ %s tx chan demo-path --timeout 5s`,
 		},
 	}
 
-	return overrideFlag(retryFlag(timeoutFlag(cmd)))
+	return channelParameterFlags(overrideFlag(retryFlag(timeoutFlag(cmd))))
 }
 
 func closeChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "channel-close [path-name]",
+		Use:   "channel-close [path-name] [src-channel-id] [src-port-id]",
 		Short: "close a channel between two configured chains with a configured path",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(3),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s transact channel-close demo-path
-$ %s tx channel-close demo-path --timeout 5s
-$ %s tx channel-close demo-path
-$ %s tx channel-close demo-path -o 3s`,
+$ %s transact channel-close demo-path channel-0 transfer
+$ %s tx channel-close demo-path channel-0 transfer --timeout 5s
+$ %s tx channel-close demo-path channel-0 transfer
+$ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 			appName, appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -475,6 +495,9 @@ $ %s tx channel-close demo-path -o 3s`,
 				return err
 			}
 
+			channelID := args[1]
+			portID := args[2]
+
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
@@ -483,7 +506,17 @@ $ %s tx channel-close demo-path -o 3s`,
 				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
-			return c[src].CloseChannel(c[dst], to)
+			srch, err := c[src].ChainProvider.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			channel, err := c[src].ChainProvider.QueryChannel(srch, channelID, portID)
+			if err != nil {
+				return err
+			}
+
+			return c[src].CloseChannel(c[dst], to, channelID, portID, channel)
 		},
 	}
 
@@ -500,9 +533,9 @@ to creating a connection and a channel between the two networks on a configured 
 		),
 		Args: cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s transact link demo-path
+$ %s transact link demo-path --src-port transfer --dst-port transfer
 $ %s tx link demo-path
-$ %s tx connect demo-path`,
+$ %s tx connect demo-path --src-port transfer --dst-port transfer --order unordered --version ics20-1`,
 			appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -517,6 +550,26 @@ $ %s tx connect demo-path`,
 			}
 
 			c, src, dst, err := config.ChainsFromPath(args[0])
+			if err != nil {
+				return err
+			}
+
+			srcPort, err := cmd.Flags().GetString(flagSrcPort)
+			if err != nil {
+				return err
+			}
+
+			dstPort, err := cmd.Flags().GetString(flagDstPort)
+			if err != nil {
+				return err
+			}
+
+			order, err := cmd.Flags().GetString(flagOrder)
+			if err != nil {
+				return err
+			}
+
+			version, err := cmd.Flags().GetString(flagVersion)
 			if err != nil {
 				return err
 			}
@@ -567,7 +620,7 @@ $ %s tx connect demo-path`,
 			}
 
 			// create channel if it isn't already created
-			modified, err = c[src].CreateOpenChannels(c[dst], retries, to, override)
+			modified, err = c[src].CreateOpenChannels(c[dst], retries, to, srcPort, dstPort, order, version, override)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err
@@ -581,7 +634,7 @@ $ %s tx connect demo-path`,
 		},
 	}
 
-	return overrideFlag(clientParameterFlags(retryFlag(timeoutFlag(cmd))))
+	return overrideFlag(channelParameterFlags(clientParameterFlags(retryFlag(timeoutFlag(cmd)))))
 }
 
 func linkThenStartCmd() *cobra.Command {

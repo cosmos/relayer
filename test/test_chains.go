@@ -39,7 +39,7 @@ var (
 		dockerfile: "docker/gaiad/Dockerfile",
 		rpcPort:    "26657",
 		buildArgs: []dc.BuildArg{
-			{Name: "VERSION", Value: "v5.0.8"},
+			{Name: "DefaultVersion", Value: "v5.0.8"},
 		},
 	}
 
@@ -60,7 +60,7 @@ var (
 		dockerfile: "docker/akash/Dockerfile",
 		rpcPort:    "26657",
 		buildArgs: []dc.BuildArg{
-			{Name: "VERSION", Value: "v0.12.1"},
+			{Name: "DefaultVersion", Value: "v0.12.1"},
 		},
 	}
 
@@ -81,7 +81,7 @@ var (
 		dockerfile: "docker/osmosis/Dockerfile",
 		rpcPort:    "26657",
 		buildArgs: []dc.BuildArg{
-			{Name: "VERSION", Value: "v4.2.0"},
+			{Name: "DefaultVersion", Value: "v6.4.0"},
 		},
 	}
 

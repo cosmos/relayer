@@ -284,20 +284,6 @@ func cfgFilesAddPaths(dir string) (cfg *Config, err error) {
 			return nil, fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
 		}
 
-		// In the case that order isn't added to the path, add it manually
-		if p.Src.Order == "" || p.Dst.Order == "" {
-			p.Src.Order = defaultOrder
-			p.Dst.Order = defaultOrder
-		}
-
-		// If the version isn't added to the path, add it manually
-		if p.Src.Version == "" {
-			p.Src.Version = defaultVersion
-		}
-		if p.Dst.Version == "" {
-			p.Dst.Version = defaultVersion
-		}
-
 		pthName := strings.Split(f.Name(), ".")[0]
 		if err = config.ValidatePath(p); err != nil {
 			return nil, fmt.Errorf("failed to validate path %s: %w", pth, err)
@@ -675,9 +661,6 @@ func overWriteConfig(cfg *Config) (err error) {
 
 // ValidatePath checks that a path is valid
 func (c *Config) ValidatePath(p *relayer.Path) (err error) {
-	if p.Src.Version == "" {
-		return fmt.Errorf("source must specify a version")
-	}
 	if err = c.ValidatePathEnd(p.Src); err != nil {
 		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Src.ChainID)
 	}
@@ -693,10 +676,6 @@ func (c *Config) ValidatePath(p *relayer.Path) (err error) {
 
 // ValidatePathEnd validates provided pathend and returns error for invalid identifiers
 func (c *Config) ValidatePathEnd(pe *relayer.PathEnd) error {
-	if err := pe.ValidateBasic(); err != nil {
-		return err
-	}
-
 	chain, err := c.Chains.Get(pe.ChainID)
 	if err != nil {
 		fmt.Printf("Chain %s is not currently configured. \n", pe.ChainID)
@@ -728,16 +707,6 @@ func (c *Config) ValidatePathEnd(pe *relayer.PathEnd) error {
 			if err := c.ValidateConnection(chain, height, pe); err != nil {
 				return err
 			}
-
-			if pe.ChannelID != "" {
-				if err := c.ValidateChannel(chain, height, pe); err != nil {
-					return err
-				}
-			}
-		}
-
-		if pe.ConnectionID == "" && pe.ChannelID != "" {
-			return fmt.Errorf("connectionID is not configured for the channel: %s", pe.ChannelID)
 		}
 	}
 

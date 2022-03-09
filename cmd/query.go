@@ -369,7 +369,7 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 				}
 			}
 
-			if err = chain.AddPath(args[1], dcon, dcha, dpor, dord); err != nil {
+			if err = chain.AddPath(args[1], dcon); err != nil {
 				return err
 			}
 
@@ -525,7 +525,7 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 				return err
 			}
 
-			if err := chain.AddPath(args[1], dcon, dcha, dpor, dord); err != nil {
+			if err := chain.AddPath(args[1], dcon); err != nil {
 				return err
 			}
 
@@ -571,7 +571,7 @@ $ %s q conn ibc-1 ibconeconn`,
 				return err
 			}
 
-			if err := chain.AddPath(dcli, args[1], dcon, dpor, dord); err != nil {
+			if err := chain.AddPath(dcli, args[1]); err != nil {
 				return err
 			}
 
@@ -609,7 +609,7 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 				return err
 			}
 
-			if err = chain.AddPath(dcli, args[1], dcha, dpor, dord); err != nil {
+			if err = chain.AddPath(dcli, args[1]); err != nil {
 				return err
 			}
 
@@ -656,7 +656,9 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 				return err
 			}
 
-			if err = chain.AddPath(dcli, dcon, args[1], args[2], dord); err != nil {
+			channelID := args[1]
+			portID := args[2]
+			if err = chain.AddPath(dcli, dcon); err != nil {
 				return err
 			}
 
@@ -672,7 +674,7 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 				}
 			}
 
-			res, err := chain.ChainProvider.QueryChannel(height, chain.PathEnd.ChannelID, chain.PathEnd.PortID)
+			res, err := chain.ChainProvider.QueryChannel(height, channelID, portID)
 			if err != nil {
 				return err
 			}
@@ -743,16 +745,15 @@ $ %s q packet-commit ibc-1 ibconechannel transfer 31`,
 				return err
 			}
 
-			if err = chain.AddPath(dcli, dcon, args[1], args[2], dord); err != nil {
-				return err
-			}
+			channelID := args[1]
+			portID := args[2]
 
 			seq, err := strconv.ParseUint(args[3], 10, 64)
 			if err != nil {
 				return err
 			}
 
-			res, err := chain.ChainProvider.QueryPacketCommitment(0, chain.ChannelID(), chain.PortID(), seq)
+			res, err := chain.ChainProvider.QueryPacketCommitment(0, channelID, portID, seq)
 			if err != nil {
 				return err
 			}
