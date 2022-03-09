@@ -3,7 +3,7 @@ COMMIT  := $(shell git log -1 --format='%H')
 SDKCOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/cosmos-sdk)
 GAIA_VERSION := v6.0.0
 AKASH_VERSION := v0.12.1
-OSMOSIS_VERSION := v6.0.0
+OSMOSIS_VERSION := v6.4.0
 WASMD_VERSION := v0.16.0
 
 GOPATH := $(shell go env GOPATH)
@@ -53,7 +53,7 @@ build-akash-docker:
 	docker build -t ovrclk/akash:$(AKASH_VERSION) --build-arg VERSION=$(AKASH_VERSION) -f ./docker/akash/Dockerfile .
 
 build-osmosis-docker:
-	docker build -t ovrclk/akash:$(OSMOSIS_VERSION) --build-arg VERSION=$(OSMOSIS_VERSION) -f ./docker/akash/Dockerfile .
+	docker build -t osmosis-labs/osmosis:$(OSMOSIS_VERSION) --build-arg VERSION=$(OSMOSIS_VERSION) -f ./docker/osmosis/Dockerfile .
 
 ###############################################################################
 # Tests / CI
