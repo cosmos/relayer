@@ -31,6 +31,7 @@ import (
 	"github.com/cosmos/relayer/relayer"
 	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/cosmos/relayer/relayer/provider/cosmos"
+	"github.com/cosmos/relayer/relayer/provider/thorchain"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
@@ -367,7 +368,8 @@ type ProviderConfigYAMLWrapper struct {
 // NOTE: Add new ProviderConfig types in the map here with the key set equal to the type of ChainProvider (e.g. cosmos, substrate, etc.)
 func (pcw *ProviderConfigWrapper) UnmarshalJSON(data []byte) error {
 	customTypes := map[string]reflect.Type{
-		"cosmos": reflect.TypeOf(cosmos.CosmosProviderConfig{}),
+		"cosmos":    reflect.TypeOf(cosmos.CosmosProviderConfig{}),
+		"thorchain": reflect.TypeOf(thorchain.CosmosProviderConfig{}),
 	}
 	val, err := UnmarshalJSONProviderConfig(data, customTypes)
 	if err != nil {
@@ -420,6 +422,8 @@ func (iw *ProviderConfigYAMLWrapper) UnmarshalYAML(n *yaml.Node) error {
 	switch iw.Type {
 	case "cosmos":
 		iw.Value = new(cosmos.CosmosProviderConfig)
+	case "thorchain":
+		iw.Value = new(thorchain.CosmosProviderConfig)
 	default:
 		return fmt.Errorf("%s is an invalid chain type, check your config file", iw.Type)
 	}
