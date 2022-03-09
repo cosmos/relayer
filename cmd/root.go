@@ -18,7 +18,6 @@ package cmd
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"strings"
 
@@ -53,13 +52,13 @@ func NewRootCmd() *cobra.Command {
 	var rootCmd = &cobra.Command{
 		Use:   appName,
 		Short: "This application makes data relay between IBC enabled chains easy!",
-		Long: strings.TrimSpace(fmt.Sprintf(`rly has:
+		Long: strings.TrimSpace(`rly has:
    1. Configuration management for Chains and Paths
    2. Key management for managing multiple keys for multiple chains
    3. Query and transaction functionality for IBC
 
    NOTE: Most of the commands have aliases that make typing them much quicker 
-         (i.e. 'rly tx', 'rly q', etc...)`)),
+         (i.e. 'rly tx', 'rly q', etc...)`),
 	}
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
