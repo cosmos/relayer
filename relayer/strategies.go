@@ -168,8 +168,8 @@ func RelayUnrelayedPackets(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcC
 			}()
 
 			// Wait until the context is cancelled (i.e. RelayPackets() finishes) or the context times out
-			select {
-			case <-ctx.Done():
+			<-ctx.Done()
+			if ctx.Err() != nil {
 				src.Log(fmt.Sprintf("relay packets error: %s", ctx.Err()))
 				return ctx.Err()
 			}
@@ -212,8 +212,8 @@ func RelayUnrelayedAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChan
 			}()
 
 			// Wait until the context is cancelled (i.e. RelayAcknowledgements() finishes) or the context times out
-			select {
-			case <-ctx.Done():
+			<-ctx.Done()
+			if ctx.Err() != nil {
 				src.Log(fmt.Sprintf("relay acks error: %s", ctx.Err()))
 				return ctx.Err()
 			}
