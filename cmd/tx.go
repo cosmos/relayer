@@ -720,7 +720,7 @@ $ %s tx relay-acks demo-path -l 3 -s 6`,
 //				return err
 //			}
 //
-//			byt, err := ioutil.ReadFile(path)
+//			byt, err := os.ReadFile(path)
 //			if err != nil {
 //				return err
 //			}
