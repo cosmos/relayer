@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -328,7 +327,7 @@ func fileInputAdd(file string) (cfg *Config, err error) {
 		return nil, err
 	}
 
-	byt, err := ioutil.ReadFile(file)
+	byt, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
