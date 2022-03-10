@@ -3,6 +3,7 @@ package relayer
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/avast/retry-go"
@@ -41,13 +42,11 @@ func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), erro
 				for _, channel := range srcOpenChannels {
 					if !channel.active {
 						channel.active = true
-						fmt.Printf("STARTING GOROUTINE FOR CHANNEL ----- %s \n", channel.channel.ChannelId)
 						go RelayUnrelayedPacketsAndAcks(src, dst, maxTxSize, maxMsgLength, channel, activeChan)
 					}
 				}
 
 				for channel := range activeChan {
-					fmt.Printf("STOPPING GOROUTINE FOR CHANNEL ----- %s \n", channel.channel.ChannelId)
 					channel.active = false
 					break
 				}
@@ -168,10 +167,18 @@ func RelayUnrelayedPackets(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcC
 			}()
 
 			// Wait until the context is cancelled (i.e. RelayPackets() finishes) or the context times out
-			<-ctx.Done()
-			if ctx.Err() != nil {
-				src.Log(fmt.Sprintf("relay packets error: %s", ctx.Err()))
-				return ctx.Err()
+			//<-ctx.Done()
+			//if ctx.Err() != nil {
+			//	src.Log(fmt.Sprintf("relay packets error: %s", ctx.Err()))
+			//	return ctx.Err()
+			//}
+
+			select {
+			case <-ctx.Done():
+				if !strings.Contains(ctx.Err().Error(), "context canceled") {
+					src.Log(fmt.Sprintf("relay packets error: %s", ctx.Err()))
+					return ctx.Err()
+				}
 			}
 
 		} else {
@@ -212,10 +219,17 @@ func RelayUnrelayedAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChan
 			}()
 
 			// Wait until the context is cancelled (i.e. RelayAcknowledgements() finishes) or the context times out
-			<-ctx.Done()
-			if ctx.Err() != nil {
-				src.Log(fmt.Sprintf("relay acks error: %s", ctx.Err()))
-				return ctx.Err()
+			//<-ctx.Done()
+			//if ctx.Err() != nil {
+			//	src.Log(fmt.Sprintf("relay acks error: %s", ctx.Err()))
+			//	return ctx.Err()
+			//}
+			select {
+			case <-ctx.Done():
+				if !strings.Contains(ctx.Err().Error(), "context canceled") {
+					src.Log(fmt.Sprintf("relay acks error: %s", ctx.Err()))
+					return ctx.Err()
+				}
 			}
 
 		} else {
