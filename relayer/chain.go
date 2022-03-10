@@ -162,28 +162,12 @@ func (c *Chain) ChainID() string {
 	return c.ChainProvider.ChainId()
 }
 
-func (c *Chain) ChannelID() string {
-	return c.PathEnd.ChannelID
-}
-
 func (c *Chain) ConnectionID() string {
 	return c.PathEnd.ConnectionID
 }
 
 func (c *Chain) ClientID() string {
 	return c.PathEnd.ClientID
-}
-
-func (c *Chain) PortID() string {
-	return c.PathEnd.PortID
-}
-
-func (c *Chain) Version() string {
-	return c.PathEnd.Version
-}
-
-func (c *Chain) Order() string {
-	return c.PathEnd.Order
 }
 
 // GetSelfVersion returns the version of the given chain

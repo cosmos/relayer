@@ -69,29 +69,29 @@ func testConnection(t *testing.T, src, dst *relayer.Chain) {
 }
 
 // testChannelPair tests that the only channel on src and dst is between the two chains
-func testChannelPair(t *testing.T, src, dst *relayer.Chain) {
-	testChannel(t, src, dst)
-	testChannel(t, dst, src)
+func testChannelPair(t *testing.T, src, dst *relayer.Chain, channelID, portID string) {
+	testChannel(t, src, dst, channelID, portID)
+	testChannel(t, dst, src, channelID, portID)
 }
 
 // testChannel tests that the only channel on src is a counterparty of dst
-func testChannel(t *testing.T, src, dst *relayer.Chain) {
+func testChannel(t *testing.T, src, dst *relayer.Chain, channelID, portID string) {
 	chans, err := src.ChainProvider.QueryChannels()
 	require.NoError(t, err)
 	require.Equal(t, 1, len(chans))
 	require.Equal(t, chans[0].Ordering.String(), "ORDER_UNORDERED")
 	require.Equal(t, chans[0].State.String(), "STATE_OPEN")
-	//require.Equal(t, chans[0].Counterparty.ChannelId, dst.PathEnd.ChannelID)
-	//require.Equal(t, chans[0].Counterparty.GetPortID(), dst.PathEnd.PortID)
+	require.Equal(t, chans[0].Counterparty.ChannelId, channelID)
+	require.Equal(t, chans[0].Counterparty.GetPortID(), portID)
 
 	h, err := src.ChainProvider.QueryLatestHeight()
 	require.NoError(t, err)
 
 	time.Sleep(time.Second * 5)
-	ch, err := src.ChainProvider.QueryChannel(h, src.ChannelID(), src.PortID())
+	ch, err := src.ChainProvider.QueryChannel(h, channelID, portID)
 	require.NoError(t, err)
 	require.Equal(t, ch.Channel.Ordering.String(), "ORDER_UNORDERED")
 	require.Equal(t, ch.Channel.State.String(), "STATE_OPEN")
-	//require.Equal(t, ch.Channel.Counterparty.ChannelId, dst.PathEnd.ChannelID)
-	//require.Equal(t, ch.Channel.Counterparty.GetPortID(), dst.PathEnd.PortID)
+	require.Equal(t, ch.Channel.Counterparty.ChannelId, channelID)
+	require.Equal(t, ch.Channel.Counterparty.GetPortID(), portID)
 }
