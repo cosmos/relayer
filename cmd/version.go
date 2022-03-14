@@ -56,7 +56,7 @@ $ %s v`,
 				bz, err = yaml.Marshal(&verInfo)
 			}
 
-			fmt.Println(string(bz))
+			fmt.Fprintln(cmd.OutOrStdout(), string(bz))
 			return err
 		},
 	}

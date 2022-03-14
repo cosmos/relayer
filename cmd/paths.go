@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/cosmos/relayer/relayer"
@@ -83,14 +84,14 @@ $ %s pth l`, appName, appName, appName)),
 				if err != nil {
 					return err
 				}
-				fmt.Println(string(out))
+				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			case jsn:
 				out, err := json.Marshal(config.Paths)
 				if err != nil {
 					return err
 				}
-				fmt.Println(string(out))
+				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			default:
 				i := 0
@@ -100,7 +101,7 @@ $ %s pth l`, appName, appName, appName)),
 						return err
 					}
 					stat := pth.QueryPathStatus(chains[pth.Src.ChainID], chains[pth.Dst.ChainID]).Status
-					printPath(i, k, pth, checkmark(stat.Chains), checkmark(stat.Clients),
+					printPath(cmd.OutOrStdout(), i, k, pth, checkmark(stat.Chains), checkmark(stat.Clients),
 						checkmark(stat.Connection), checkmark(stat.Channel))
 					i++
 				}
@@ -111,8 +112,8 @@ $ %s pth l`, appName, appName, appName)),
 	return yamlFlag(jsonFlag(cmd))
 }
 
-func printPath(i int, k string, pth *relayer.Path, chains, clients, connection, channel string) {
-	fmt.Printf("%2d: %-20s -> chns(%s) clnts(%s) conn(%s) chan(%s) (%s:%s<>%s:%s)\n",
+func printPath(stdout io.Writer, i int, k string, pth *relayer.Path, chains, clients, connection, channel string) {
+	fmt.Fprintf(stdout, "%2d: %-20s -> chns(%s) clnts(%s) conn(%s) chan(%s) (%s:%s<>%s:%s)\n",
 		i, k, chains, clients, connection, channel, pth.Src.ChainID, pth.Src.PortID, pth.Dst.ChainID, pth.Dst.PortID)
 }
 
@@ -153,17 +154,17 @@ $ %s pth s path-name`, appName, appName, appName)),
 				if err != nil {
 					return err
 				}
-				fmt.Println(string(out))
+				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			case jsn:
 				out, err := json.Marshal(pathWithStatus)
 				if err != nil {
 					return err
 				}
-				fmt.Println(string(out))
+				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			default:
-				fmt.Println(pathWithStatus.PrintString(args[0]))
+				fmt.Fprintln(cmd.OutOrStdout(), pathWithStatus.PrintString(args[0]))
 			}
 
 			return nil
@@ -196,11 +197,11 @@ $ %s pth a ibc-0 ibc-1 demo-path`, appName, appName, appName)),
 			}
 
 			if file != "" {
-				if out, err = fileInputPathAdd(file, args[2]); err != nil {
+				if out, err = fileInputPathAdd(cmd.ErrOrStderr(), file, args[2]); err != nil {
 					return err
 				}
 			} else {
-				if out, err = userInputPathAdd(src, dst, args[2]); err != nil {
+				if out, err = userInputPathAdd(cmd.InOrStdin(), cmd.ErrOrStderr(), src, dst, args[2]); err != nil {
 					return err
 				}
 			}
@@ -289,17 +290,16 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					dir := path.Clean(localPathsDir)
 					files, err := ioutil.ReadDir(dir)
 					if err != nil {
-						fmt.Printf("path info does not exist for chain: %s. Consider adding it's info to %s. Error: %v \n", srcChain.ChainID(), path.Join(PATHSURL, "interchain"), err)
+						fmt.Fprintf(cmd.ErrOrStderr(), "path info does not exist for chain: %s. Consider adding its info to %s. Error: %v\n", srcChain.ChainID(), path.Join(PATHSURL, "interchain"), err)
 						break
 					}
 					cfg := config
 
 					// For each path file, check that the dst is also a configured chain in the relayers config
 					for _, f := range files {
-						pth := fmt.Sprintf("%s/%s", dir, f.Name())
-						fmt.Println(pth)
+						pth := filepath.Join(dir, f.Name())
 						if f.IsDir() {
-							fmt.Printf("directory at %s, skipping...\n", pth)
+							fmt.Fprintf(cmd.ErrOrStderr(), "directory at %s, skipping...\n", pth)
 							continue
 						}
 
@@ -335,7 +335,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 								return fmt.Errorf("failed to add path %s: %w", pth, err)
 							}
 
-							fmt.Printf("added path %s...\n", pthName)
+							fmt.Fprintf(cmd.ErrOrStderr(), "added path %s...\n", pthName)
 						}
 					}
 
@@ -356,7 +356,7 @@ func cleanupDir(dir string) {
 	_ = os.RemoveAll(dir)
 }
 
-func fileInputPathAdd(file, name string) (cfg *Config, err error) {
+func fileInputPathAdd(stderr io.Writer, file, name string) (cfg *Config, err error) {
 	// If the user passes in a file, attempt to read the chain config from that file
 	p := &relayer.Path{}
 	if _, err := os.Stat(file); err != nil {
@@ -372,7 +372,7 @@ func fileInputPathAdd(file, name string) (cfg *Config, err error) {
 		return nil, err
 	}
 
-	if err = config.ValidatePath(p); err != nil {
+	if err = config.ValidatePath(stderr, p); err != nil {
 		return nil, err
 	}
 
@@ -383,7 +383,7 @@ func fileInputPathAdd(file, name string) (cfg *Config, err error) {
 	return config, nil
 }
 
-func userInputPathAdd(src, dst, name string) (*Config, error) {
+func userInputPathAdd(stdin io.Reader, stderr io.Writer, src, dst, name string) (*Config, error) {
 	var (
 		value string
 		err   error
@@ -399,8 +399,8 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		}
 	)
 
-	fmt.Printf("enter src(%s) client-id...\n", src)
-	if value, err = readStdin(); err != nil {
+	fmt.Fprintf(stderr, "enter src(%s) client-id...\n", src)
+	if value, err = readLine(stdin); err != nil {
 		return nil, err
 	}
 
@@ -410,8 +410,8 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		return nil, err
 	}
 
-	fmt.Printf("enter src(%s) connection-id...\n", src)
-	if value, err = readStdin(); err != nil {
+	fmt.Fprintf(stderr, "enter src(%s) connection-id...\n", src)
+	if value, err = readLine(stdin); err != nil {
 		return nil, err
 	}
 
@@ -421,8 +421,8 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		return nil, err
 	}
 
-	fmt.Printf("enter src(%s) channel-id...\n", src)
-	if value, err = readStdin(); err != nil {
+	fmt.Fprintf(stderr, "enter src(%s) channel-id...\n", src)
+	if value, err = readLine(stdin); err != nil {
 		return nil, err
 	}
 
@@ -432,8 +432,8 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		return nil, err
 	}
 
-	fmt.Printf("enter src(%s) port-id...\n", src)
-	if value, err = readStdin(); err != nil {
+	fmt.Fprintf(stderr, "enter src(%s) port-id...\n", src)
+	if value, err = readLine(stdin); err != nil {
 		return nil, err
 	}
 
@@ -443,8 +443,8 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		return nil, err
 	}
 
-	fmt.Printf("enter src(%s) version...\n", src)
-	if value, err = readStdin(); err != nil {
+	fmt.Fprintf(stderr, "enter src(%s) version...\n", src)
+	if value, err = readLine(stdin); err != nil {
 		return nil, err
 	}
 
@@ -454,8 +454,8 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		return nil, err
 	}
 
-	fmt.Printf("enter dst(%s) client-id...\n", dst)
-	if value, err = readStdin(); err != nil {
+	fmt.Fprintf(stderr, "enter dst(%s) client-id...\n", dst)
+	if value, err = readLine(stdin); err != nil {
 		return nil, err
 	}
 
@@ -465,8 +465,8 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		return nil, err
 	}
 
-	fmt.Printf("enter dst(%s) connection-id...\n", dst)
-	if value, err = readStdin(); err != nil {
+	fmt.Fprintf(stderr, "enter dst(%s) connection-id...\n", dst)
+	if value, err = readLine(stdin); err != nil {
 		return nil, err
 	}
 
@@ -476,8 +476,8 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		return nil, err
 	}
 
-	fmt.Printf("enter dst(%s) channel-id...\n", dst)
-	if value, err = readStdin(); err != nil {
+	fmt.Fprintf(stderr, "enter dst(%s) channel-id...\n", dst)
+	if value, err = readLine(stdin); err != nil {
 		return nil, err
 	}
 
@@ -487,8 +487,8 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		return nil, err
 	}
 
-	fmt.Printf("enter dst(%s) port-id...\n", dst)
-	if value, err = readStdin(); err != nil {
+	fmt.Fprintf(stderr, "enter dst(%s) port-id...\n", dst)
+	if value, err = readLine(stdin); err != nil {
 		return nil, err
 	}
 
@@ -498,8 +498,8 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		return nil, err
 	}
 
-	fmt.Printf("enter dst(%s) version...\n", dst)
-	if value, err = readStdin(); err != nil {
+	fmt.Fprintf(stderr, "enter dst(%s) version...\n", dst)
+	if value, err = readLine(stdin); err != nil {
 		return nil, err
 	}
 
@@ -509,7 +509,7 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		return nil, err
 	}
 
-	if err = config.ValidatePath(path); err != nil {
+	if err = config.ValidatePath(stderr, path); err != nil {
 		return nil, err
 	}
 
