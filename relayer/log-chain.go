@@ -73,20 +73,20 @@ func (c *Chain) LogSuccessTx(res *sdk.TxResponse, msgs []provider.RelayerMessage
 	c.logger.Info(fmt.Sprintf("✔ [%s]@{%d} - msg(%s) hash(%s)", c.ChainID(), res.Height, getMsgTypes(msgs), res.TxHash))
 }
 
-func (c *Chain) logPacketsRelayed(dst *Chain, num int) {
+func (c *Chain) logPacketsRelayed(dst *Chain, num int, srcChannel *chantypes.IdentifiedChannel) {
 	dst.Log(fmt.Sprintf("★ Relayed %d packets: [%s]port{%s}->[%s]port{%s}",
-		num, dst.ChainID(), dst.PathEnd.PortID, c.ChainID(), c.PathEnd.PortID))
+		num, dst.ChainID(), srcChannel.Counterparty.PortId, c.ChainID(), srcChannel.PortId))
 }
 
 func logChannelStates(src, dst *Chain, srcChan, dstChan *chantypes.QueryChannelResponse) {
 	src.Log(fmt.Sprintf("- [%s]@{%d}chan(%s)-{%s} : [%s]@{%d}chan(%s)-{%s}",
 		src.ChainID(),
 		MustGetHeight(srcChan.ProofHeight),
-		src.PathEnd.ChannelID,
+		dstChan.Channel.Counterparty.ChannelId,
 		srcChan.Channel.State,
 		dst.ChainID(),
 		MustGetHeight(dstChan.ProofHeight),
-		dst.PathEnd.ChannelID,
+		srcChan.Channel.Counterparty.ChannelId,
 		dstChan.Channel.State,
 	))
 }

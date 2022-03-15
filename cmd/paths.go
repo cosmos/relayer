@@ -99,8 +99,7 @@ $ %s pth l`, appName, appName, appName)),
 						return err
 					}
 					stat := pth.QueryPathStatus(chains[pth.Src.ChainID], chains[pth.Dst.ChainID]).Status
-					printPath(i, k, pth, checkmark(stat.Chains), checkmark(stat.Clients),
-						checkmark(stat.Connection), checkmark(stat.Channel))
+					printPath(i, k, pth, checkmark(stat.Chains), checkmark(stat.Clients), checkmark(stat.Connection))
 					i++
 				}
 				return nil
@@ -110,9 +109,9 @@ $ %s pth l`, appName, appName, appName)),
 	return yamlFlag(jsonFlag(cmd))
 }
 
-func printPath(i int, k string, pth *relayer.Path, chains, clients, connection, channel string) {
-	fmt.Printf("%2d: %-20s -> chns(%s) clnts(%s) conn(%s) chan(%s) (%s:%s<>%s:%s)\n",
-		i, k, chains, clients, connection, channel, pth.Src.ChainID, pth.Src.PortID, pth.Dst.ChainID, pth.Dst.PortID)
+func printPath(i int, k string, pth *relayer.Path, chains, clients, connection string) {
+	fmt.Printf("%2d: %-20s -> chns(%s) clnts(%s) conn(%s) (%s<>%s)\n",
+		i, k, chains, clients, connection, pth.Src.ChainID, pth.Dst.ChainID)
 }
 
 func checkmark(status bool) string {
@@ -214,11 +213,11 @@ func pathsNewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "new [src-chain-id] [dst-chain-id] [path-name]",
 		Aliases: []string{"n"},
-		Short:   "Create a new blank path to be used in generating a new path (connection, client & channel) between two chains",
+		Short:   "Create a new blank path to be used in generating a new path (connection & client) between two chains",
 		Args:    cobra.ExactArgs(3),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths new ibc-0 ibc-1 demo-path
-$ %s paths new ibc-0 ibc-1 demo-path --unordered false --version ics20-2 --port transfer
+$ %s paths new ibc-0 ibc-1 demo-path
 $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
@@ -227,20 +226,9 @@ $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName, appName)),
 				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
 			}
 
-			version, _ := cmd.Flags().GetString(flagVersion)
-			port, _ := cmd.Flags().GetString(flagSrcPort)
 			p := &relayer.Path{
-				Src: &relayer.PathEnd{ChainID: src, PortID: port, Version: version},
-				Dst: &relayer.PathEnd{ChainID: dst, PortID: port, Version: version},
-			}
-
-			// get desired order of the channel
-			if unordered, _ := cmd.Flags().GetBool(flagOrder); unordered {
-				p.Src.Order = UNORDERED
-				p.Dst.Order = UNORDERED
-			} else {
-				p.Src.Order = ORDERED
-				p.Dst.Order = ORDERED
+				Src: &relayer.PathEnd{ChainID: src},
+				Dst: &relayer.PathEnd{ChainID: dst},
 			}
 
 			name := args[2]
@@ -314,20 +302,6 @@ $ %s pth fch`, appName, defaultHome, appName)),
 						}
 
 						if p.Dst.ChainID == dstChain.ChainID() {
-							// In the case that order isn't added to the path, add it manually
-							if p.Src.Order == "" || p.Dst.Order == "" {
-								p.Src.Order = defaultOrder
-								p.Dst.Order = defaultOrder
-							}
-
-							// If the version isn't added to the path, add it manually
-							if p.Src.Version == "" {
-								p.Src.Version = defaultVersion
-							}
-							if p.Dst.Version == "" {
-								p.Dst.Version = defaultVersion
-							}
-
 							pthName := strings.Split(f.Name(), ".")[0]
 							if err = cfg.AddPath(pthName, p); err != nil {
 								return fmt.Errorf("failed to add path %s: %w", pth, err)
@@ -388,11 +362,9 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		path  = &relayer.Path{
 			Src: &relayer.PathEnd{
 				ChainID: src,
-				Order:   "ORDERED",
 			},
 			Dst: &relayer.PathEnd{
 				ChainID: dst,
-				Order:   "ORDERED",
 			},
 		}
 	)
@@ -419,39 +391,6 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		return nil, err
 	}
 
-	fmt.Printf("enter src(%s) channel-id...\n", src)
-	if value, err = readStdin(); err != nil {
-		return nil, err
-	}
-
-	path.Src.ChannelID = value
-
-	if err = path.Src.Vchan(); err != nil {
-		return nil, err
-	}
-
-	fmt.Printf("enter src(%s) port-id...\n", src)
-	if value, err = readStdin(); err != nil {
-		return nil, err
-	}
-
-	path.Src.PortID = value
-
-	if err = path.Src.Vport(); err != nil {
-		return nil, err
-	}
-
-	fmt.Printf("enter src(%s) version...\n", src)
-	if value, err = readStdin(); err != nil {
-		return nil, err
-	}
-
-	path.Src.Version = value
-
-	if err = path.Src.Vversion(); err != nil {
-		return nil, err
-	}
-
 	fmt.Printf("enter dst(%s) client-id...\n", dst)
 	if value, err = readStdin(); err != nil {
 		return nil, err
@@ -471,39 +410,6 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 	path.Dst.ConnectionID = value
 
 	if err = path.Dst.Vconn(); err != nil {
-		return nil, err
-	}
-
-	fmt.Printf("enter dst(%s) channel-id...\n", dst)
-	if value, err = readStdin(); err != nil {
-		return nil, err
-	}
-
-	path.Dst.ChannelID = value
-
-	if err = path.Dst.Vchan(); err != nil {
-		return nil, err
-	}
-
-	fmt.Printf("enter dst(%s) port-id...\n", dst)
-	if value, err = readStdin(); err != nil {
-		return nil, err
-	}
-
-	path.Dst.PortID = value
-
-	if err = path.Dst.Vport(); err != nil {
-		return nil, err
-	}
-
-	fmt.Printf("enter dst(%s) version...\n", dst)
-	if value, err = readStdin(); err != nil {
-		return nil, err
-	}
-
-	path.Dst.Version = value
-
-	if err = path.Dst.Vversion(); err != nil {
 		return nil, err
 	}
 

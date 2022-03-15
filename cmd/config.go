@@ -36,15 +36,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const (
-	// ORDERED is exported channel type constant
-	ORDERED = "ordered"
-	// UNORDERED is exported channel type constant
-	UNORDERED      = "unordered"
-	defaultOrder   = ORDERED
-	defaultVersion = "ics20-1"
-)
-
 func configCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "config",
@@ -509,26 +500,7 @@ func checkPathEndConflict(pathID, direction string, oldPe, newPe *relayer.PathEn
 		oldPe.ConnectionID, newPe.ConnectionID); err != nil {
 		return err
 	}
-	if err = checkPathConflict(
-		pathID, direction+" port ID",
-		oldPe.PortID, newPe.PortID); err != nil {
-		return err
-	}
-	if err = checkPathConflict(
-		pathID, direction+" order",
-		strings.ToLower(oldPe.Order), strings.ToLower(newPe.Order)); err != nil {
-		return err
-	}
-	if err = checkPathConflict(
-		pathID, direction+" version",
-		oldPe.Version, newPe.Version); err != nil {
-		return err
-	}
-	if err = checkPathConflict(
-		pathID, direction+" channel ID",
-		oldPe.ChannelID, newPe.ChannelID); err != nil {
-		return err
-	}
+
 	return nil
 }
 
@@ -667,10 +639,6 @@ func (c *Config) ValidatePath(p *relayer.Path) (err error) {
 	if err = c.ValidatePathEnd(p.Dst); err != nil {
 		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Dst.ChainID)
 	}
-	if p.Src.Order != p.Dst.Order {
-		return fmt.Errorf("both sides must have same order ('ORDERED' or 'UNORDERED'), got src(%s) and dst(%s)",
-			p.Src.Order, p.Dst.Order)
-	}
 	return nil
 }
 
@@ -747,24 +715,4 @@ func (c *Config) ValidateConnection(chain *relayer.Chain, height int64, pe *rela
 	}
 
 	return nil
-}
-
-// ValidateChannel validates channel id in provided pathend
-func (c *Config) ValidateChannel(chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
-	if err := pe.Vchan(); err != nil {
-		return err
-	}
-
-	channel, err := chain.ChainProvider.QueryChannel(height, pe.ChannelID, pe.PortID)
-	if err != nil {
-		return err
-	}
-
-	for _, connection := range channel.Channel.ConnectionHops {
-		if connection == pe.ConnectionID {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("connectionID of channel: %s didn't match with provided ConnectionID", pe.ChannelID)
 }

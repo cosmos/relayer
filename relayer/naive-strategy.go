@@ -318,10 +318,10 @@ func RelayAcknowledgements(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMs
 		// send messages to their respective chains
 		if msgs.Send(src, dst); msgs.Success() {
 			if len(msgs.Dst) > 1 {
-				dst.logPacketsRelayed(src, len(msgs.Dst)-1)
+				dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
 			}
 			if len(msgs.Src) > 1 {
-				src.logPacketsRelayed(dst, len(msgs.Src)-1)
+				src.logPacketsRelayed(dst, len(msgs.Src)-1, srcChannel)
 			}
 		}
 	}
@@ -394,10 +394,10 @@ func RelayPackets(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength u
 		// send messages to their respective chains
 		if msgs.Send(src, dst); msgs.Success() {
 			if len(msgs.Dst) > 1 {
-				dst.logPacketsRelayed(src, len(msgs.Dst)-1)
+				dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
 			}
 			if len(msgs.Src) > 1 {
-				src.logPacketsRelayed(dst, len(msgs.Src)-1)
+				src.logPacketsRelayed(dst, len(msgs.Src)-1, srcChannel)
 			}
 		}
 
@@ -473,7 +473,7 @@ func PrependUpdateClientMsg(msgs *[]provider.RelayerMessage, src, dst *Chain, sr
 }
 
 // RelayPacket creates transactions to relay packets from src to dst and from dst to src
-func RelayPacket(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength, seqNum uint64) error {
+func RelayPacket(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength, seqNum uint64, srcChannel *chantypes.IdentifiedChannel) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []provider.RelayerMessage{},
@@ -487,13 +487,18 @@ func RelayPacket(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength, s
 		return err
 	}
 
+	srcChanID := srcChannel.ChannelId
+	srcPortID := srcChannel.PortId
+	dstChanID := srcChannel.Counterparty.ChannelId
+	dstPortID := srcChannel.Counterparty.PortId
+
 	// add messages for sequences on src
 	for _, seq := range sp.Src {
 		if seq == seqNum {
 			// Query src for the sequence number to get type of packet
 			var recvMsg, timeoutMsg provider.RelayerMessage
 			if err = retry.Do(func() error {
-				recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(src.ChainProvider, dst.ChainProvider, uint64(srch), uint64(dsth), seq, dst.PathEnd.ChannelID, dst.PathEnd.PortID, src.PathEnd.ChannelID, src.PathEnd.PortID, src.PathEnd.ClientID)
+				recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(src.ChainProvider, dst.ChainProvider, uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, srcChanID, srcPortID, src.ClientID())
 				if err != nil {
 					fmt.Println("Failing to relay packet from seq on src")
 				}
@@ -522,7 +527,7 @@ func RelayPacket(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength, s
 			// Query dst for the sequence number to get type of packet
 			var recvMsg, timeoutMsg provider.RelayerMessage
 			if err = retry.Do(func() error {
-				recvMsg, timeoutMsg, err = dst.ChainProvider.RelayPacketFromSequence(dst.ChainProvider, src.ChainProvider, uint64(dsth), uint64(srch), seq, src.PathEnd.ChannelID, src.PathEnd.PortID, dst.PathEnd.ChannelID, dst.PathEnd.PortID, dst.PathEnd.ClientID)
+				recvMsg, timeoutMsg, err = dst.ChainProvider.RelayPacketFromSequence(dst.ChainProvider, src.ChainProvider, uint64(dsth), uint64(srch), seq, srcChanID, srcPortID, dstChanID, dstPortID, dst.ClientID())
 				if err != nil {
 					fmt.Println("Failing to relay packet from seq on dst")
 				}
@@ -547,17 +552,17 @@ func RelayPacket(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength, s
 
 	if !msgs.Ready() {
 		src.Log(fmt.Sprintf("- No packets to relay between [%s]port{%s} and [%s]port{%s}",
-			src.ChainID(), src.PathEnd.PortID, dst.ChainID(), dst.PathEnd.PortID))
+			src.ChainID(), srcPortID, dst.ChainID(), dstPortID))
 		return nil
 	}
 
 	// Prepend non-empty msg lists with UpdateClient
 	if len(msgs.Dst) != 0 {
-		srcHeader, err := src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.PathEnd.ClientID)
+		srcHeader, err := src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
 		if err != nil {
 			return err
 		}
-		updateMsg, err := dst.ChainProvider.UpdateClient(dst.PathEnd.ClientID, srcHeader)
+		updateMsg, err := dst.ChainProvider.UpdateClient(dst.ClientID(), srcHeader)
 		if err != nil {
 			return err
 		}
@@ -566,11 +571,11 @@ func RelayPacket(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength, s
 	}
 
 	if len(msgs.Src) != 0 {
-		dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.PathEnd.ClientID)
+		dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
 		if err != nil {
 			return err
 		}
-		updateMsg, err := src.ChainProvider.UpdateClient(src.PathEnd.ClientID, dstHeader)
+		updateMsg, err := src.ChainProvider.UpdateClient(src.ClientID(), dstHeader)
 		if err != nil {
 			return err
 		}
@@ -581,10 +586,10 @@ func RelayPacket(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength, s
 	// send messages to their respective chains
 	if msgs.Send(src, dst); msgs.Success() {
 		if len(msgs.Dst) > 1 {
-			dst.logPacketsRelayed(src, len(msgs.Dst)-1)
+			dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
 		}
 		if len(msgs.Src) > 1 {
-			src.logPacketsRelayed(dst, len(msgs.Src)-1)
+			src.logPacketsRelayed(dst, len(msgs.Src)-1, srcChannel)
 		}
 	} else {
 		fmt.Println()

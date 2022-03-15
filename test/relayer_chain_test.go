@@ -183,10 +183,8 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	// clear old config
 	src.PathEnd.ClientID = ""
 	src.PathEnd.ConnectionID = ""
-	src.PathEnd.ChannelID = ""
 	dst.PathEnd.ClientID = ""
 	dst.PathEnd.ConnectionID = ""
-	dst.PathEnd.ChannelID = ""
 
 	_, err = src.CreateClients(dst, true, true, false)
 	require.NoError(t, err)
@@ -379,10 +377,6 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 
 	_, err = src.CreateOpenChannels(dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
 	require.NoError(t, err)
-
-	// create a second channel
-	src.PathEnd.ChannelID = ""
-	dst.PathEnd.ChannelID = ""
 
 	_, err = src.CreateOpenChannels(dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, true)
 	require.NoError(t, err)

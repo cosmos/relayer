@@ -19,10 +19,6 @@ type PathEnd struct {
 	ChainID      string `yaml:"chain-id,omitempty" json:"chain-id,omitempty"`
 	ClientID     string `yaml:"client-id,omitempty" json:"client-id,omitempty"`
 	ConnectionID string `yaml:"connection-id,omitempty" json:"connection-id,omitempty"`
-	ChannelID    string `yaml:"channel-id,omitempty" json:"channel-id,omitempty"`
-	PortID       string `yaml:"port-id,omitempty" json:"port-id,omitempty"`
-	Order        string `yaml:"order,omitempty" json:"order,omitempty"`
-	Version      string `yaml:"version,omitempty" json:"version,omitempty"`
 }
 
 // OrderFromString parses a string into a channel order byte

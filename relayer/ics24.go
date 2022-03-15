@@ -16,22 +16,6 @@ func (pe *PathEnd) Vconn() error {
 	return host.ConnectionIdentifierValidator(pe.ConnectionID)
 }
 
-// Vchan validates the channel identifier in the path
-func (pe *PathEnd) Vchan() error {
-	return host.ChannelIdentifierValidator(pe.ChannelID)
-}
-
-// Vport validates the port identifier in the path
-func (pe *PathEnd) Vport() error {
-	return host.PortIdentifierValidator(pe.PortID)
-}
-
-// Vversion validates the version identifier in the path
-func (pe *PathEnd) Vversion() error {
-	// TODO: version validation
-	return nil
-}
-
 func (pe PathEnd) String() string {
 	return fmt.Sprintf("%s:cl(%s):co(%s)", pe.ChainID, pe.ClientID, pe.ConnectionID)
 }
