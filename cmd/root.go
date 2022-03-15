@@ -88,11 +88,11 @@ func NewRootCmd() *cobra.Command {
 		chainsCmd(a),
 		pathsCmd(a),
 		keysCmd(a),
-		flags.LineBreak,
+		lineBreakCommand(),
 		transactionCmd(a),
 		queryCmd(a),
 		startCmd(a),
-		flags.LineBreak,
+		lineBreakCommand(),
 		getVersionCmd(a),
 	)
 
@@ -116,4 +116,15 @@ func Execute() {
 func readLine(in io.Reader) (string, error) {
 	str, err := bufio.NewReader(in).ReadString('\n')
 	return strings.TrimSpace(str), err
+}
+
+// lineBreakCommand returns a new instance of a command to be used as a line break
+// in a command's help output.
+//
+// This is not a plain reference to flags.LineBreak,
+// because that is a global value that will be modified by concurrent tests,
+// causing a data race.
+func lineBreakCommand() *cobra.Command {
+	var cmd cobra.Command = *flags.LineBreak
+	return &cmd
 }

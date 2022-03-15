@@ -25,7 +25,7 @@ func queryCmd(a *appState) *cobra.Command {
 	cmd.AddCommand(
 		queryUnrelayedPackets(a),
 		queryUnrelayedAcknowledgements(a),
-		flags.LineBreak,
+		lineBreakCommand(),
 		//queryAccountCmd(),
 		queryBalanceCmd(a),
 		queryHeaderCmd(a),
@@ -33,7 +33,7 @@ func queryCmd(a *appState) *cobra.Command {
 		//queryValSetAtHeightCmd(),
 		queryTxs(a),
 		queryTx(a),
-		flags.LineBreak,
+		lineBreakCommand(),
 		queryClientCmd(a),
 		queryClientsCmd(a),
 		queryConnection(a),
