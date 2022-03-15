@@ -95,11 +95,11 @@ func logConnectionStates(src, dst *Chain, srcConn, dstConn *conntypes.QueryConne
 	src.Log(fmt.Sprintf("- [%s]@{%d}conn(%s)-{%s} : [%s]@{%d}conn(%s)-{%s}",
 		src.ChainID(),
 		MustGetHeight(srcConn.ProofHeight),
-		src.PathEnd.ConnectionID,
+		src.ConnectionID(),
 		srcConn.Connection.State,
 		dst.ChainID(),
 		MustGetHeight(dstConn.ProofHeight),
-		dst.PathEnd.ConnectionID,
+		dst.ConnectionID(),
 		dstConn.Connection.State,
 	))
 }

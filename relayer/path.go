@@ -93,11 +93,6 @@ type Path struct {
 	Dst *PathEnd `yaml:"dst" json:"dst"`
 }
 
-// Ordered returns true if the path is ordered and false if otherwise
-func (p *Path) Ordered() bool {
-	return p.Src.GetOrder() == chantypes.ORDERED
-}
-
 // End returns the proper end given a chainID
 func (p *Path) End(chainID string) *PathEnd {
 	if p.Dst.ChainID == chainID {
@@ -115,25 +110,17 @@ func (p *Path) String() string {
 
 // GenPath generates a path with unspecified client, connection and channel identifiers
 // given chainIDs and portIDs.
-func GenPath(srcChainID, dstChainID, srcPortID, dstPortID, order string, version string) *Path {
+func GenPath(srcChainID, dstChainID string) *Path {
 	return &Path{
 		Src: &PathEnd{
 			ChainID:      srcChainID,
 			ClientID:     "",
 			ConnectionID: "",
-			ChannelID:    "",
-			PortID:       srcPortID,
-			Order:        order,
-			Version:      version,
 		},
 		Dst: &PathEnd{
 			ChainID:      dstChainID,
 			ClientID:     "",
 			ConnectionID: "",
-			ChannelID:    "",
-			PortID:       dstPortID,
-			Order:        order,
-			Version:      version,
 		},
 	}
 }

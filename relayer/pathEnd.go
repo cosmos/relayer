@@ -3,9 +3,6 @@ package relayer
 import (
 	"strings"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
 )
@@ -40,11 +37,6 @@ func OrderFromString(order string) chantypes.Order {
 	}
 }
 
-// GetOrder returns the channel order for the path end
-func (pe *PathEnd) GetOrder() chantypes.Order {
-	return OrderFromString(strings.ToUpper(pe.Order))
-}
-
 var marshalledChains = map[PathEnd]*Chain{}
 
 // MarshalChain is PathEnd
@@ -62,29 +54,4 @@ func UnmarshalChain(pe PathEnd) *Chain {
 		return c
 	}
 	return nil
-}
-
-// NewPacket returns a new packet from src to dist w
-func (pe *PathEnd) NewPacket(dst *PathEnd, sequence uint64, packetData []byte,
-	timeoutHeight clienttypes.Height, timeoutStamp uint64) chantypes.Packet {
-	return chantypes.NewPacket(
-		packetData,
-		sequence,
-		pe.PortID,
-		pe.ChannelID,
-		dst.PortID,
-		dst.ChannelID,
-		timeoutHeight,
-		timeoutStamp,
-	)
-}
-
-// XferPacket creates a new transfer packet
-func (pe *PathEnd) XferPacket(amount sdk.Coin, sender, receiver string) []byte {
-	return transfertypes.NewFungibleTokenPacketData(
-		amount.Denom,
-		amount.Amount.BigInt().String(),
-		sender,
-		receiver,
-	).GetBytes()
 }

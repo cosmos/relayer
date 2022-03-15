@@ -33,7 +33,7 @@ func (pe *PathEnd) Vversion() error {
 }
 
 func (pe PathEnd) String() string {
-	return fmt.Sprintf("%s:cl(%s):co(%s):ch(%s):pt(%s)", pe.ChainID, pe.ClientID, pe.ConnectionID, pe.ChannelID, pe.PortID)
+	return fmt.Sprintf("%s:cl(%s):co(%s)", pe.ChainID, pe.ClientID, pe.ConnectionID)
 }
 
 // PathSet check if the chain has a path set

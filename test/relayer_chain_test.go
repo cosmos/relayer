@@ -41,7 +41,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 		twoTestCoin = sdk.NewCoin(testDenom, sdk.NewInt(2000))
 	)
 
-	_, err := genTestPathAndSet(src, dst, "transfer", "transfer")
+	_, err := genTestPathAndSet(src, dst)
 	require.NoError(t, err)
 
 	// query initial balances to compare against at the end
@@ -152,7 +152,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 		dst = chains.MustGet("ibc-1")
 	)
 
-	_, err := genTestPathAndSet(src, dst, "transfer", "transfer")
+	_, err := genTestPathAndSet(src, dst)
 	require.NoError(t, err)
 
 	// create path
@@ -232,7 +232,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 		dst = chains.MustGet("ibc-1")
 	)
 
-	_, err := genTestPathAndSet(src, dst, "transfer", "transfer")
+	_, err := genTestPathAndSet(src, dst)
 	require.NoError(t, err)
 
 	// create path
@@ -335,7 +335,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 		twoTestCoin = sdk.NewCoin(testDenom, sdk.NewInt(2000))
 	)
 
-	_, err := genTestPathAndSet(src, dst, "transfer", "transfer")
+	_, err := genTestPathAndSet(src, dst)
 	require.NoError(t, err)
 
 	// query initial balances to compare against at the end

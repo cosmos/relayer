@@ -241,8 +241,8 @@ func getLoggingChain(chns []*relayer.Chain, rsr *dockertest.Resource) *relayer.C
 	return nil
 }
 
-func genTestPathAndSet(src, dst *relayer.Chain, srcPort, dstPort string) (*relayer.Path, error) {
-	p := relayer.GenPath(src.ChainID(), dst.ChainID(), srcPort, dstPort, "UNORDERED", "ics20-1")
+func genTestPathAndSet(src, dst *relayer.Chain) (*relayer.Path, error) {
+	p := relayer.GenPath(src.ChainID(), dst.ChainID())
 
 	src.PathEnd = p.Src
 	dst.PathEnd = p.Dst
