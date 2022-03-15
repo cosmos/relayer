@@ -3,6 +3,7 @@ package relayer
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -19,7 +20,7 @@ type ActiveChannel struct {
 // StartRelayer starts the main relaying loop
 func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), error) {
 	doneChan := make(chan struct{})
-	activeChan := make(chan *ActiveChannel, 10)
+	channels := make(chan *ActiveChannel, 10)
 	var srcOpenChannels []*ActiveChannel
 
 	go func() {
@@ -31,7 +32,10 @@ func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), erro
 				// Query the list of channels on the src connection
 				srcChannels, err := QueryChannelsOnConnection(src)
 				if err != nil {
-					return
+					fmt.Printf("error querying all channels on chain{%s}@connection{%s}: %v \n",
+						src.ChainID(), src.ConnectionID(), err)
+
+					os.Exit(1)
 				}
 
 				// Filter for open channels that are not already in our slice of open channels
@@ -42,11 +46,11 @@ func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), erro
 				for _, channel := range srcOpenChannels {
 					if !channel.active {
 						channel.active = true
-						go RelayUnrelayedPacketsAndAcks(src, dst, maxTxSize, maxMsgLength, channel, activeChan)
+						go RelayUnrelayedPacketsAndAcks(src, dst, maxTxSize, maxMsgLength, channel, channels, doneChan)
 					}
 				}
 
-				for channel := range activeChan {
+				for channel := range channels {
 					channel.active = false
 					break
 				}
@@ -120,21 +124,27 @@ func FilterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*Act
 }
 
 // RelayUnrelayedPacketsAndAcks will relay all the pending packets and acknowledgements on both the src and dst chains
-func RelayUnrelayedPacketsAndAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *ActiveChannel, activeChan chan<- *ActiveChannel) {
+func RelayUnrelayedPacketsAndAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *ActiveChannel, channels chan<- *ActiveChannel, doneChan chan struct{}) {
 	// make goroutine signal its death, whether it's a panic or a return
 	defer func() {
-		activeChan <- srcChannel
+		channels <- srcChannel
 	}()
 
 	for {
-		if err := RelayUnrelayedPackets(src, dst, maxTxSize, maxMsgLength, srcChannel.channel); err != nil {
+		select {
+		case <-doneChan:
+			doneChan <- struct{}{}
 			return
-		}
-		if err := RelayUnrelayedAcks(src, dst, maxTxSize, maxMsgLength, srcChannel.channel); err != nil {
-			return
-		}
+		default:
+			if err := RelayUnrelayedPackets(src, dst, maxTxSize, maxMsgLength, srcChannel.channel); err != nil {
+				return
+			}
+			if err := RelayUnrelayedAcks(src, dst, maxTxSize, maxMsgLength, srcChannel.channel); err != nil {
+				return
+			}
 
-		time.Sleep(1000 * time.Millisecond)
+			time.Sleep(1000 * time.Millisecond)
+		}
 	}
 }
 
