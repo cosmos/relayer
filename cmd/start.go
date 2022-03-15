@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/avast/retry-go"
-	"github.com/spf13/viper"
 
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
@@ -38,7 +37,7 @@ import (
 
 // startCmd represents the start command
 // NOTE: This is basically pseudocode
-func startCmd() *cobra.Command {
+func startCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "start [path-name]",
 		Aliases: []string{"st"},
@@ -48,7 +47,7 @@ func startCmd() *cobra.Command {
 $ %s start demo-path --max-msgs 3
 $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := config.ChainsFromPath(args[0])
+			c, src, dst, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -57,7 +56,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				return err
 			}
 
-			path := config.Paths.MustGet(args[0])
+			path := a.Config.Paths.MustGet(args[0])
 			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
 			if err != nil {
 				return err
@@ -83,7 +82,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 			// when there are no packets flowing across the channels. It is currently a source of errors that have been
 			// hard to rectify, so we are just avoiding this code path for now
 			if false {
-				thresholdTime := viper.GetDuration(flagThresholdTime)
+				thresholdTime := a.Viper.GetDuration(flagThresholdTime)
 				eg := new(errgroup.Group)
 
 				eg.Go(func() error {
@@ -93,7 +92,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 							timeToExpiry, err = UpdateClientsFromChains(c[src], c[dst], thresholdTime)
 							return err
 						}, retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
-							if debug {
+							if a.Debug {
 								c[src].Log(fmt.Sprintf("- [%s]<->[%s] - try(%d/%d) updating clients from chains: %s",
 									c[src].ChainID(), c[dst].ChainID(), n+1, relayer.RtyAttNum, err))
 							}
@@ -112,7 +111,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 			return nil
 		},
 	}
-	return strategyFlag(updateTimeFlags(cmd))
+	return strategyFlag(a.Viper, updateTimeFlags(a.Viper, cmd))
 }
 
 // trap signal waits for a SIGINT or SIGTERM and then sends down the done channel
