@@ -227,7 +227,7 @@ func (cc *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstH
 
 	tmHeader, ok := dstHeader.(*tmclient.Header)
 	if !ok {
-		return nil, fmt.Errorf("got data of type %T but wanted tmclient.Header \n", dstHeader)
+		return nil, fmt.Errorf("got data of type %T but wanted tmclient.Header", dstHeader)
 	}
 
 	if acc, err = cc.Address(); err != nil {
@@ -745,7 +745,7 @@ func (cc *CosmosProvider) MsgRelayAcknowledgement(dst provider.ChainProvider, ds
 	)
 	msgPacketAck, ok := packet.(*relayMsgPacketAck)
 	if !ok {
-		return nil, fmt.Errorf("got data of type %T but wanted relayMsgPacketAck \n", packet)
+		return nil, fmt.Errorf("got data of type %T but wanted relayMsgPacketAck", packet)
 	}
 
 	if acc, err = cc.Address(); err != nil {

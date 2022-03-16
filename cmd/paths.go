@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -253,14 +254,14 @@ $ %s paths fetch --home %s
 $ %s pth fch`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Clone the GH repo to tmp dir, we will extract the path files from here
-			localRepo, err := ioutil.TempDir("", "")
+			localRepo, err := os.MkdirTemp("", "")
 			if err != nil {
 				return err
 			}
 
 			if _, err = git.PlainClone(localRepo, false, &git.CloneOptions{
 				URL:           REPOURL,
-				Progress:      ioutil.Discard,
+				Progress:      io.Discard,
 				ReferenceName: "refs/heads/main",
 			}); err != nil {
 				return err
@@ -289,7 +290,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 							continue
 						}
 
-						byt, err := ioutil.ReadFile(pth)
+						byt, err := os.ReadFile(pth)
 						if err != nil {
 							cleanupDir(localRepo)
 							return fmt.Errorf("failed to read file %s: %w", pth, err)
@@ -335,7 +336,7 @@ func fileInputPathAdd(file, name string) (cfg *Config, err error) {
 		return nil, err
 	}
 
-	byt, err := ioutil.ReadFile(file)
+	byt, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}

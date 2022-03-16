@@ -2,7 +2,7 @@ package test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path"
 	"strconv"
@@ -41,8 +41,7 @@ func spinUpTestChains(t *testing.T, testChains ...testChain) relayer.Chains {
 	)
 
 	// Create temporary relayer test directory
-	dir, err := ioutil.TempDir("", "relayer-test")
-	require.NoError(t, err)
+	dir := t.TempDir()
 
 	// uses a sensible default on windows (tcp/http) and linux/osx (socket)
 	pool, err := dockertest.NewPool("")
@@ -96,7 +95,7 @@ func removeTestContainer(pool *dockertest.Pool, containerName string) error {
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("error while listing containers with name %s %w", containerName, err)
+		return fmt.Errorf("error while listing containers with name %s: %w", containerName, err)
 	}
 
 	if len(containers) == 0 {
@@ -109,7 +108,7 @@ func removeTestContainer(pool *dockertest.Pool, containerName string) error {
 		RemoveVolumes: true,
 	})
 	if err != nil {
-		return fmt.Errorf("error while removing container with name %s %w", containerName, err)
+		return fmt.Errorf("error while removing container with name %s: %w", containerName, err)
 	}
 
 	return nil
@@ -288,7 +287,7 @@ func BuildAndRunWithBuildOptions(pool *dockertest.Pool, buildOpts *BuildOptions,
 	err := pool.Client.BuildImage(dc.BuildImageOptions{
 		Name:         runOpts.Name,
 		Dockerfile:   buildOpts.Dockerfile,
-		OutputStream: ioutil.Discard,
+		OutputStream: io.Discard,
 		ContextDir:   buildOpts.ContextDir,
 		BuildArgs:    buildOpts.BuildArgs,
 	})

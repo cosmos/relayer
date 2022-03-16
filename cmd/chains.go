@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -324,12 +323,11 @@ $ %s ch ad testnet/chains/`, appName, appName)),
 func fileInputAdd(file string) (cfg *Config, err error) {
 	// If the user passes in a file, attempt to read the chain config from that file
 	var pcw ProviderConfigWrapper
-	c := &relayer.Chain{}
 	if _, err := os.Stat(file); err != nil {
 		return nil, err
 	}
 
-	byt, err := ioutil.ReadFile(file)
+	byt, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
@@ -340,10 +338,10 @@ func fileInputAdd(file string) (cfg *Config, err error) {
 
 	prov, err := pcw.Value.NewProvider(homePath, debug)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build ChainProvider for %s. Err: %w", file, err)
+		return nil, fmt.Errorf("failed to build ChainProvider for %s: %w", file, err)
 	}
 
-	c = &relayer.Chain{ChainProvider: prov}
+	c := &relayer.Chain{ChainProvider: prov}
 
 	if err = config.AddChain(c); err != nil {
 		return nil, err
@@ -376,7 +374,7 @@ func urlInputAdd(rawurl string) (cfg *Config, err error) {
 	// build the ChainProvider before initializing the chain
 	prov, err := pcw.Value.NewProvider(homePath, debug)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build ChainProvider for %s. Err: %w", rawurl, err)
+		return nil, fmt.Errorf("failed to build ChainProvider for %s: %w", rawurl, err)
 	}
 
 	c := &relayer.Chain{ChainProvider: prov}

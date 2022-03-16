@@ -222,7 +222,7 @@ func cfgFilesAddChains(dir string) (cfg *Config, err error) {
 			continue
 		}
 
-		byt, err := ioutil.ReadFile(pth)
+		byt, err := os.ReadFile(pth)
 		if err != nil {
 			fmt.Printf("failed to read file %s. Err: %v skipping...\n", pth, err)
 			continue
@@ -265,7 +265,7 @@ func cfgFilesAddPaths(dir string) (cfg *Config, err error) {
 			continue
 		}
 
-		byt, err := ioutil.ReadFile(pth)
+		byt, err := os.ReadFile(pth)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read file %s: %w", pth, err)
 		}
@@ -557,7 +557,7 @@ func initConfig(cmd *cobra.Command) error {
 		viper.SetConfigFile(cfgPath)
 		if err := viper.ReadInConfig(); err == nil {
 			// read the config file bytes
-			file, err := ioutil.ReadFile(viper.ConfigFileUsed())
+			file, err := os.ReadFile(viper.ConfigFileUsed())
 			if err != nil {
 				fmt.Println("Error reading file:", err)
 				os.Exit(1)
@@ -576,7 +576,7 @@ func initConfig(cmd *cobra.Command) error {
 			for _, pcfg := range cfgWrapper.ProviderConfigs {
 				prov, err := pcfg.Value.(provider.ProviderConfig).NewProvider(homePath, debug)
 				if err != nil {
-					return fmt.Errorf("Error while building ChainProviders. Err: %w\n", err)
+					return fmt.Errorf("failed to build ChainProviders: %w", err)
 				}
 
 				chain := &relayer.Chain{ChainProvider: prov}
@@ -619,7 +619,7 @@ func overWriteConfig(cfg *Config) (err error) {
 			}
 
 			// overwrite the config file
-			err = ioutil.WriteFile(viper.ConfigFileUsed(), out, 0600)
+			err = os.WriteFile(viper.ConfigFileUsed(), out, 0600)
 			if err != nil {
 				return err
 			}

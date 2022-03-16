@@ -24,7 +24,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 	if err = retry.Do(func() error {
 		srch, dsth, err = QueryLatestHeights(c, dst)
 		if srch == 0 || dsth == 0 || err != nil {
-			return fmt.Errorf("failed to query latest heights. Err: %w", err)
+			return fmt.Errorf("failed to query latest heights: %w", err)
 		}
 		return err
 	}, RtyAtt, RtyDel, RtyErr); err != nil {
@@ -35,7 +35,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 	if err = retry.Do(func() error {
 		srcUpdateHeader, dstUpdateHeader, err = GetLightSignedHeadersAtHeights(c, dst, srch, dsth)
 		if err != nil {
-			return fmt.Errorf("failed to query light signed headers. Err: %w", err)
+			return fmt.Errorf("failed to query light signed headers: %w", err)
 		}
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
@@ -48,13 +48,13 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 	// Create client on src for dst if the client id is unspecified
 	modified, err = CreateClient(c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 	if err != nil {
-		return modified, fmt.Errorf("failed to create client on src chain{%s}. Err: %w", c.ChainID(), err)
+		return modified, fmt.Errorf("failed to create client on src chain{%s}: %w", c.ChainID(), err)
 	}
 
 	// Create client on dst for src if the client id is unspecified
 	modified, err = CreateClient(dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 	if err != nil {
-		return modified, fmt.Errorf("failed to create client on dst chain{%s}. Err: %w", dst.ChainID(), err)
+		return modified, fmt.Errorf("failed to create client on dst chain{%s}: %w", dst.ChainID(), err)
 	}
 
 	c.Log(fmt.Sprintf("★ Clients created: client(%s) on chain[%s] and client(%s) on chain[%s]",
@@ -79,7 +79,7 @@ func CreateClient(src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.
 		if err = retry.Do(func() error {
 			tp, err = dst.GetTrustingPeriod()
 			if err != nil || tp.String() == "0s" {
-				return fmt.Errorf("failed to get trusting period for chain{%s}. Err: %w", dst.ChainID(), err)
+				return fmt.Errorf("failed to get trusting period for chain{%s}: %w", dst.ChainID(), err)
 			}
 			return err
 		}, RtyAtt, RtyDel, RtyErr); err != nil {
@@ -94,7 +94,7 @@ func CreateClient(src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.
 		if err = retry.Do(func() error {
 			ubdPeriod, err = dst.ChainProvider.QueryUnbondingPeriod()
 			if err != nil {
-				return fmt.Errorf("failed to query unbonding period for chain{%s}. Err: %w \n", dst.ChainID(), err)
+				return fmt.Errorf("failed to query unbonding period for chain{%s}: %w", dst.ChainID(), err)
 			}
 			return err
 		}, RtyAtt, RtyDel, RtyErr); err != nil {
@@ -104,7 +104,7 @@ func CreateClient(src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.
 		// Create the ClientState we want on 'src' tracking 'dst'
 		clientState, err := src.ChainProvider.NewClientState(dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
 		if err != nil {
-			return modified, fmt.Errorf("failed to create new client state for chain{%s} tracking chain{%s}. Err: %w \n", src.ChainID(), dst.ChainID(), err)
+			return modified, fmt.Errorf("failed to create new client state for chain{%s} tracking chain{%s}: %w", src.ChainID(), dst.ChainID(), err)
 		}
 
 		// Will not reuse same client if override is true
@@ -120,7 +120,7 @@ func CreateClient(src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.
 
 			createMsg, err := src.ChainProvider.CreateClient(clientState, dstUpdateHeader)
 			if err != nil {
-				return modified, fmt.Errorf("failed to compose CreateClient msg for chain{%s}. Err: %w \n", src.ChainID(), err)
+				return modified, fmt.Errorf("failed to compose CreateClient msg for chain{%s}: %w", src.ChainID(), err)
 			}
 
 			msgs := []provider.RelayerMessage{createMsg}
@@ -130,7 +130,7 @@ func CreateClient(src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.
 				res, success, err = src.ChainProvider.SendMessages(msgs)
 				if err != nil {
 					src.LogFailedTx(res, err, msgs)
-					return fmt.Errorf("failed to send messages on chain{%s}. Err: %w \n", src.ChainID(), err)
+					return fmt.Errorf("failed to send messages on chain{%s}: %w", src.ChainID(), err)
 				}
 
 				if !success {
@@ -177,7 +177,7 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 	if err = retry.Do(func() error {
 		srch, dsth, err = QueryLatestHeights(c, dst)
 		if srch == 0 || dsth == 0 || err != nil {
-			c.Log(fmt.Sprintf("failed to query latest heights. Err: %v", err))
+			c.Log(fmt.Sprintf("Failed to query latest heights. Err: %v", err))
 			return err
 		}
 		return err
@@ -188,12 +188,12 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 	if err = retry.Do(func() error {
 		srcUpdateHeader, dstUpdateHeader, err = GetIBCUpdateHeaders(srch, dsth, c.ChainProvider, dst.ChainProvider, c.ClientID(), dst.ClientID())
 		if err != nil {
-			c.Log(fmt.Sprintf("failed to query light signed headers. Err: %v", err))
+			c.Log(fmt.Sprintf("Failed to query light signed headers. Err: %v", err))
 			return err
 		}
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		c.Log(fmt.Sprintf("failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
+		c.Log(fmt.Sprintf("Failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
 		srch, dsth, _ = QueryLatestHeights(c, dst)
 	})); err != nil {
 		return err
@@ -202,7 +202,7 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 	srcUpdateMsg, err := c.ChainProvider.UpdateClient(c.ClientID(), dstUpdateHeader)
 	if err != nil {
 		if c.debug {
-			c.Log(fmt.Sprintf("failed to update client on chain{%s} \n", c.ChainID()))
+			c.Log(fmt.Sprintf("Failed to update client on chain{%s} \n", c.ChainID()))
 		}
 		return err
 	}
@@ -210,7 +210,7 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 	dstUpdateMsg, err := dst.ChainProvider.UpdateClient(dst.ClientID(), srcUpdateHeader)
 	if err != nil {
 		if dst.debug {
-			dst.Log(fmt.Sprintf("failed to update client on chain{%s} \n", dst.ChainID()))
+			dst.Log(fmt.Sprintf("Failed to update client on chain{%s} \n", dst.ChainID()))
 		}
 		return err
 	}
