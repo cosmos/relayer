@@ -108,3 +108,9 @@ func (s *System) MustAddChain(t *testing.T, pcw cmd.ProviderConfigWrapper) {
 	require.Empty(t, res.Stdout.String())
 	require.Empty(t, res.Stderr.String())
 }
+
+// A fixed mnemonic and its resulting cosmos address, helpful for tests that need a mnemonic.
+const (
+	ZeroMnemonic   = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art"
+	ZeroCosmosAddr = "cosmos1r5v5srda7xfth3hn2s26txvrcrntldjumt8mhl"
+)
