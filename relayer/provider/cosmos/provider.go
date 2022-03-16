@@ -3,7 +3,6 @@ package cosmos
 import (
 	"context"
 	"fmt"
-	"github.com/cosmos/cosmos-sdk/types/module"
 	"math"
 	"os"
 	"reflect"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
+	"github.com/cosmos/cosmos-sdk/types/module"
 
 	"github.com/avast/retry-go"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -120,7 +120,7 @@ type CosmosProviderConfig struct {
 
 func (pc CosmosProviderConfig) Validate() error {
 	if _, err := time.ParseDuration(pc.Timeout); err != nil {
-		return err
+		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 	return nil
 }
