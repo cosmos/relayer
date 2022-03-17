@@ -455,16 +455,17 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 
 			// create channel if it isn't already created
 			modified, err := c[src].CreateOpenChannels(c[dst], retries, to, srcPort, dstPort, order, version, override)
+			if err != nil {
+				return fmt.Errorf("error creating channels: %w", err)
+			}
+
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err
 				}
 			}
-			if err != nil {
-				return fmt.Errorf("error creating channels. Err: %w\n", err)
-			}
 
-			return err
+			return nil
 		},
 	}
 
