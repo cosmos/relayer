@@ -20,7 +20,13 @@ func (c *Chain) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []p
 	if c.debug {
 		c.Log(fmt.Sprintf("- [%s] -> failed sending transaction:", c.ChainID()))
 		for _, msg := range msgs {
-			_ = c.Print(cosmos.CosmosMsg(msg), false, false)
+			s, err := c.Sprint(cosmos.CosmosMsg(msg), false, false)
+			if err != nil {
+				c.Log(fmt.Sprintf("Error formatting message: %v", err))
+			}
+			if s != "" {
+				c.Log("Failed value: " + s)
+			}
 		}
 	}
 

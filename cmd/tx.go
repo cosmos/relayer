@@ -535,7 +535,7 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 			lCmd := linkCmd()
 
 			for err := lCmd.RunE(cmd, args); err != nil; err = lCmd.RunE(cmd, args) {
-				fmt.Printf("retrying link: %s\n", err)
+				fmt.Fprintf(cmd.ErrOrStderr(), "retrying link: %s\n", err)
 				time.Sleep(1 * time.Second)
 			}
 

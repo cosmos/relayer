@@ -76,7 +76,7 @@ $ %s q ibc-denoms ibc-0`,
 			}
 
 			for _, d := range res {
-				fmt.Println(d)
+				fmt.Fprintln(cmd.OutOrStdout(), d)
 			}
 			return nil
 		},
@@ -111,7 +111,7 @@ $ %s q tx ibc-0 A5DF8D272F1C451CFF92BA6C41942C4D29B5CF180279439ED6AB038282F956BE
 				return err
 			}
 
-			fmt.Println(string(out))
+			fmt.Fprintln(cmd.OutOrStdout(), string(out))
 			return nil
 		},
 	}
@@ -163,7 +163,7 @@ $ %s q txs ibc-0 "message.action=transfer"`,
 				return err
 			}
 
-			fmt.Println(string(out))
+			fmt.Fprintln(cmd.OutOrStdout(), string(out))
 			return nil
 		},
 	}
@@ -265,7 +265,7 @@ $ %s query balance ibc-0 testkey`,
 				return err
 			}
 
-			fmt.Printf("address {%s} balance {%s} \n", addr, coins)
+			fmt.Fprintf(cmd.OutOrStdout(), "address {%s} balance {%s} \n", addr, coins)
 			return nil
 		},
 	}
@@ -304,7 +304,14 @@ $ %s query header ibc-0 1400`,
 				}
 			}
 
-			return chain.Print(header, false, false)
+			s, err := chain.Sprint(header, false, false)
+			if err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal header: %v\n", err)
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), s)
+			return nil
 		},
 	}
 
@@ -334,7 +341,14 @@ $ %s q node-state ibc-1`,
 				return err
 			}
 
-			return chain.Print(csRes, false, false)
+			s, err := chain.Sprint(csRes, false, false)
+			if err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal consensus state: %v\n", err)
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), s)
+			return nil
 		},
 	}
 
@@ -378,7 +392,14 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 				return err
 			}
 
-			return chain.Print(res, false, false)
+			s, err := chain.Sprint(res, false, false)
+			if err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal state: %v\n", err)
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), s)
+			return nil
 		},
 	}
 
@@ -414,14 +435,16 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 			}
 
 			for _, client := range res {
-				err = chain.Print(&client, false, false)
+				s, err := chain.Sprint(&client, false, false)
 				if err != nil {
-					return err
+					fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal state: %v\n", err)
+					continue
 				}
+
+				fmt.Fprintln(cmd.OutOrStdout(), s)
 			}
 
 			return nil
-			//return chain.Print(res, false, false)
 		},
 	}
 
@@ -494,14 +517,16 @@ $ %s q conns ibc-1`,
 			}
 
 			for _, connection := range res {
-				err = chain.Print(connection, false, false)
+				s, err := chain.Sprint(connection, false, false)
 				if err != nil {
-					return err
+					fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal connection: %v\n", err)
+					continue
 				}
+
+				fmt.Fprintln(cmd.OutOrStdout(), s)
 			}
 
 			return nil
-			//return chain.Print(res, false, false)
 		},
 	}
 
@@ -546,8 +571,14 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 				return err
 			}
 
-			return chain.Print(res, false, false)
-			//return chain.CLIContext(height).PrintProto(res)
+			s, err := chain.Sprint(res, false, false)
+			if err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal client connection state: %v\n", err)
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), s)
+			return nil
 		},
 	}
 
@@ -585,8 +616,14 @@ $ %s q conn ibc-1 ibconeconn`,
 				return err
 			}
 
-			return chain.Print(res, false, false)
-			//return chain.CLIContext(height).PrintProto(res)
+			s, err := chain.Sprint(res, false, false)
+			if err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal connection state: %v\n", err)
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), s)
+			return nil
 		},
 	}
 
@@ -625,14 +662,16 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 			}
 
 			for _, channel := range chans {
-				err = chain.Print(channel, false, false)
+				s, err := chain.Sprint(channel, false, false)
 				if err != nil {
-					return err
+					fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal channel: %v\n", err)
+					continue
 				}
+
+				fmt.Fprintln(cmd.OutOrStdout(), s)
 			}
 
 			return nil
-			//return chain.Print(chans, false, false)
 		},
 	}
 
@@ -677,8 +716,14 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 				return err
 			}
 
-			return chain.Print(res, false, false)
-			//return chain.CLIContext(height).PrintProto(res)
+			s, err := chain.Sprint(res, false, false)
+			if err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal channel state: %v\n", err)
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), s)
+			return nil
 		},
 	}
 
@@ -713,10 +758,13 @@ $ %s query channels ibc-2 --offset 2 --limit 30`,
 			}
 
 			for _, channel := range res {
-				err = chain.Print(channel, false, false)
+				s, err := chain.Sprint(channel, false, false)
 				if err != nil {
-					return err
+					fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal channel: %v\n", err)
+					continue
 				}
+
+				fmt.Fprintln(cmd.OutOrStdout(), s)
 			}
 
 			return nil
@@ -757,7 +805,14 @@ $ %s q packet-commit ibc-1 ibconechannel transfer 31`,
 				return err
 			}
 
-			return chain.Print(res, false, false)
+			s, err := chain.Sprint(res, false, false)
+			if err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal packet-commit state: %v\n", err)
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), s)
+			return nil
 		},
 	}
 
@@ -806,7 +861,7 @@ $ %s query unrelayed-pkts demo-path`,
 				return err
 			}
 
-			fmt.Println(string(out))
+			fmt.Fprintln(cmd.OutOrStdout(), string(out))
 			return nil
 		},
 	}
@@ -855,7 +910,7 @@ $ %s query unrelayed-acks demo-path`,
 				return err
 			}
 
-			fmt.Println(string(out))
+			fmt.Fprintln(cmd.OutOrStdout(), string(out))
 			return nil
 		},
 	}
