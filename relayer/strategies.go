@@ -11,13 +11,13 @@ import (
 	"github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 )
 
-// ActiveChannel represents an IBC channel and whether there is an active goroutine relaying packets against it
+// ActiveChannel represents an IBC channel and whether there is an active goroutine relaying packets against it.
 type ActiveChannel struct {
 	channel *types.IdentifiedChannel
 	active  bool
 }
 
-// StartRelayer starts the main relaying loop
+// StartRelayer starts the main relaying loop.
 func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), error) {
 	doneChan := make(chan struct{})
 	channels := make(chan *ActiveChannel, 10)
@@ -68,7 +68,7 @@ func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), erro
 	return func() { doneChan <- struct{}{} }, nil
 }
 
-// QueryChannelsOnConnection queries all the channels associated with a connection on the src chain
+// QueryChannelsOnConnection queries all the channels associated with a connection on the src chain.
 func QueryChannelsOnConnection(src *Chain) ([]*types.IdentifiedChannel, error) {
 	// Query the latest heights on src & dst
 	srch, err := src.ChainProvider.QueryLatestHeight()
@@ -91,8 +91,8 @@ func QueryChannelsOnConnection(src *Chain) ([]*types.IdentifiedChannel, error) {
 	return srcChannels, nil
 }
 
-// FilterOpenChannels takes a slice of channels and adds all the channels with OPEN state to a new slice of channels
-// NOTE: channels will not be added to the slice of open channels more than once
+// FilterOpenChannels takes a slice of channels and adds all the channels with OPEN state to a new slice of channels.
+// NOTE: channels will not be added to the slice of open channels more than once.
 func FilterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*ActiveChannel) []*ActiveChannel {
 	inSlice := false
 
@@ -123,7 +123,7 @@ func FilterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*Act
 	return openChannels
 }
 
-// RelayUnrelayedPacketsAndAcks will relay all the pending packets and acknowledgements on both the src and dst chains
+// RelayUnrelayedPacketsAndAcks will relay all the pending packets and acknowledgements on both the src and dst chains.
 func RelayUnrelayedPacketsAndAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *ActiveChannel, channels chan<- *ActiveChannel, doneChan chan struct{}) {
 	// make goroutine signal its death, whether it's a panic or a return
 	defer func() {
@@ -148,7 +148,7 @@ func RelayUnrelayedPacketsAndAcks(src, dst *Chain, maxTxSize, maxMsgLength uint6
 	}
 }
 
-// RelayUnrelayedPackets fetches unrelayed packet sequence numbers and attempts to relay the associated packets
+// RelayUnrelayedPackets fetches unrelayed packet sequence numbers and attempts to relay the associated packets.
 func RelayUnrelayedPackets(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
@@ -169,7 +169,7 @@ func RelayUnrelayedPackets(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcC
 
 		if !sp.Empty() {
 			go func() {
-				err := RelayPackets(src, dst, sp, maxTxSize, maxMsgLength, srcChannel, ctx)
+				err := RelayPackets(ctx, src, dst, sp, maxTxSize, maxMsgLength, srcChannel)
 				if err != nil {
 					src.Log(fmt.Sprintf("relay packets error: %s", err))
 				}
@@ -177,12 +177,6 @@ func RelayUnrelayedPackets(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcC
 			}()
 
 			// Wait until the context is cancelled (i.e. RelayPackets() finishes) or the context times out
-			//<-ctx.Done()
-			//if ctx.Err() != nil {
-			//	src.Log(fmt.Sprintf("relay packets error: %s", ctx.Err()))
-			//	return ctx.Err()
-			//}
-
 			select {
 			case <-ctx.Done():
 				if !strings.Contains(ctx.Err().Error(), "context canceled") {
@@ -200,7 +194,7 @@ func RelayUnrelayedPackets(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcC
 	return nil
 }
 
-// RelayUnrelayedAcks fetches unrelayed acknowledgements and attempts to relay them
+// RelayUnrelayedAcks fetches unrelayed acknowledgements and attempts to relay them.
 func RelayUnrelayedAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
@@ -221,7 +215,7 @@ func RelayUnrelayedAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChan
 
 		if !ap.Empty() {
 			go func() {
-				err := RelayAcknowledgements(src, dst, ap, maxTxSize, maxMsgLength, srcChannel, ctx)
+				err := RelayAcknowledgements(ctx, src, dst, ap, maxTxSize, maxMsgLength, srcChannel)
 				if err != nil {
 					src.Log(fmt.Sprintf("relay acks error: %s", err))
 				}
@@ -229,11 +223,6 @@ func RelayUnrelayedAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChan
 			}()
 
 			// Wait until the context is cancelled (i.e. RelayAcknowledgements() finishes) or the context times out
-			//<-ctx.Done()
-			//if ctx.Err() != nil {
-			//	src.Log(fmt.Sprintf("relay acks error: %s", ctx.Err()))
-			//	return ctx.Err()
-			//}
 			select {
 			case <-ctx.Done():
 				if !strings.Contains(ctx.Err().Error(), "context canceled") {

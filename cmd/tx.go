@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -751,7 +750,7 @@ $ %s tx relay-pkts demo-path channel-0`,
 				return err
 			}
 
-			if err = relayer.RelayPackets(c[src], c[dst], sp, maxTxSize, maxMsgLength, channel, context.Background()); err != nil {
+			if err = relayer.RelayPackets(cmd.Context(), c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
 				return err
 			}
 
@@ -801,7 +800,7 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 				return err
 			}
 
-			if err = relayer.RelayAcknowledgements(c[src], c[dst], sp, maxTxSize, maxMsgLength, channel, context.Background()); err != nil {
+			if err = relayer.RelayAcknowledgements(cmd.Context(), c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
 				return err
 			}
 
