@@ -636,9 +636,6 @@ func overWriteConfig(cfg *Config) (err error) {
 
 // ValidatePath checks that a path is valid
 func (c *Config) ValidatePath(stderr io.Writer, p *relayer.Path) (err error) {
-	if p.Src.Version == "" {
-		return fmt.Errorf("source must specify a version")
-	}
 	if err = c.ValidatePathEnd(stderr, p.Src); err != nil {
 		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Src.ChainID)
 	}
@@ -650,10 +647,6 @@ func (c *Config) ValidatePath(stderr io.Writer, p *relayer.Path) (err error) {
 
 // ValidatePathEnd validates provided pathend and returns error for invalid identifiers
 func (c *Config) ValidatePathEnd(stderr io.Writer, pe *relayer.PathEnd) error {
-	if err := pe.ValidateBasic(); err != nil {
-		return err
-	}
-
 	chain, err := c.Chains.Get(pe.ChainID)
 	if err != nil {
 		fmt.Fprintf(stderr, "Chain %s is not currently configured.\n", pe.ChainID)
