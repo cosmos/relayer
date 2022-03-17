@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"os/signal"
@@ -99,7 +100,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				c[src].Log(fmt.Sprintf("update clients error. Err: %v", err))
 			}
 
-			trapSignal(done)
+			trapSignal(cmd.ErrOrStderr(), done)
 			return nil
 		},
 	}
@@ -107,14 +108,14 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 }
 
 // trap signal waits for a SIGINT or SIGTERM and then sends down the done channel
-func trapSignal(done func()) {
+func trapSignal(stderr io.Writer, done func()) {
 	sigCh := make(chan os.Signal, 1)
 
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 	// wait for a signal
 	sig := <-sigCh
-	fmt.Println("Signal Received", sig.String())
+	fmt.Fprintln(stderr, "Signal Received", sig.String())
 	close(sigCh)
 
 	// call the cleanup func

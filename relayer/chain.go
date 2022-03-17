@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -161,18 +160,16 @@ func ValidateChannelParams(src, dst *Chain) error {
 // Init initializes the pieces of a chain that aren't set when it parses a config
 // NOTE: All validation of the chain should happen here.
 func (c *Chain) Init(logger log.Logger, debug bool) {
+	if logger == nil {
+		// If no logger is provided, that is a programmer error.
+		panic(fmt.Errorf("chain incorrectly initialized without logger"))
+	}
+
 	c.logger = logger
 	c.debug = debug
-	if c.logger == nil {
-		c.logger = defaultChainLogger()
-	}
 
 	// TODO logging/encoding needs refactored
 	c.Encoding = MakeCodec(ModuleBasics)
-}
-
-func defaultChainLogger() log.Logger {
-	return log.NewTMLogger(log.NewSyncWriter(os.Stdout))
 }
 
 func (c *Chain) ChainID() string {
@@ -228,32 +225,24 @@ func (c *Chain) String() string {
 	return string(out)
 }
 
-// Print fmt.Printlns the json or yaml representation of whatever is passed in
+// Sprint returns the json or yaml representation of whatever is passed in.
 // CONTRACT: The cmd calling this function needs to have the "json" and "indent" flags set
 // TODO: better "text" printing here would be a nice to have
 // TODO: fix indenting all over the code base
-func (c *Chain) Print(toPrint proto.Message, text, indent bool) error {
-	var (
-		out []byte
-		err error
-	)
-
+func (c *Chain) Sprint(toPrint proto.Message, text, indent bool) (string, error) {
 	switch {
 	case indent && text:
-		return fmt.Errorf("must pass either indent or text, not both")
+		return "", fmt.Errorf("must pass either indent or text, not both")
 	case text:
 		// TODO: This isn't really a good option,
-		out = []byte(fmt.Sprintf("%v", toPrint))
+		return fmt.Sprintf("%v", toPrint), nil
 	default:
-		out, err = c.Encoding.Marshaler.MarshalJSON(toPrint)
+		out, err := c.Encoding.Marshaler.MarshalJSON(toPrint)
+		if err != nil {
+			return "", err
+		}
+		return string(out), nil
 	}
-
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(string(out))
-	return nil
 }
 
 //// SendAndPrint sends a transaction and prints according to the passed args

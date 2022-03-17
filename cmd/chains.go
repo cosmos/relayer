@@ -61,7 +61,7 @@ $ %s ch addr ibc-0`, appName, appName)),
 			if err != nil {
 				return err
 			}
-			fmt.Println(address)
+			fmt.Fprintln(cmd.OutOrStdout(), address)
 			return nil
 		},
 	}
@@ -99,7 +99,7 @@ $ %s ch s ibc-0 --yaml`, appName, appName, appName, appName)),
 				if err != nil {
 					return err
 				}
-				fmt.Println(string(out))
+				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			default:
 				pcfgw := &ProviderConfigWrapper{
@@ -110,7 +110,7 @@ $ %s ch s ibc-0 --yaml`, appName, appName, appName, appName)),
 				if err != nil {
 					return err
 				}
-				fmt.Println(string(out))
+				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			}
 		},
@@ -164,18 +164,18 @@ func chainsRegistryList() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Println(string(out))
+				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			case jsn:
 				out, err := json.Marshal(chains)
 				if err != nil {
 					return err
 				}
-				fmt.Println(string(out))
+				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			default:
 				for _, chain := range chains {
-					fmt.Println(chain)
+					fmt.Fprintln(cmd.OutOrStdout(), chain)
 				}
 			}
 			return nil
@@ -203,22 +203,27 @@ $ %s ch l`, appName, appName)),
 				return err
 			}
 
+			configs := ConfigToWrapper(config).ProviderConfigs
+			if len(configs) == 0 {
+				fmt.Fprintln(cmd.ErrOrStderr(), "warning: no chains found (do you need to run 'rly chains add'?)")
+			}
+
 			switch {
 			case yml && jsn:
 				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
 			case yml:
-				out, err := yaml.Marshal(ConfigToWrapper(config).ProviderConfigs)
+				out, err := yaml.Marshal(configs)
 				if err != nil {
 					return err
 				}
-				fmt.Println(string(out))
+				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			case jsn:
-				out, err := json.Marshal(ConfigToWrapper(config).ProviderConfigs)
+				out, err := json.Marshal(configs)
 				if err != nil {
 					return err
 				}
-				fmt.Println(string(out))
+				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			default:
 				for i, c := range config.Chains {
@@ -242,7 +247,7 @@ $ %s ch l`, appName, appName)),
 							p = check
 						}
 					}
-					fmt.Printf("%2d: %-20s -> type(%s) key(%s) bal(%s) path(%s)\n", i, c.ChainID(), c.ChainProvider.Type(), key, bal, p)
+					fmt.Fprintf(cmd.OutOrStdout(), "%2d: %-20s -> type(%s) key(%s) bal(%s) path(%s)\n", i, c.ChainID(), c.ChainProvider.Type(), key, bal, p)
 				}
 				return nil
 			}
@@ -310,7 +315,7 @@ $ %s chains add-dir testnet/chains/
 $ %s ch ad testnet/chains/`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var out *Config
-			if out, err = cfgFilesAddChains(args[0]); err != nil {
+			if out, err = cfgFilesAddChains(cmd, args[0]); err != nil {
 				return err
 			}
 			return overWriteConfig(out)

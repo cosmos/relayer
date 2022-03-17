@@ -19,9 +19,11 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -33,6 +35,7 @@ import (
 	"github.com/cosmos/relayer/relayer/provider/cosmos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/tendermint/tendermint/libs/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -101,14 +104,14 @@ $ %s cfg list`, appName, defaultHome, appName)),
 				if err != nil {
 					return err
 				}
-				fmt.Println(string(out))
+				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			default:
 				out, err := yaml.Marshal(ConfigToWrapper(config))
 				if err != nil {
 					return err
 				}
-				fmt.Println(string(out))
+				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			}
 		},
@@ -185,7 +188,7 @@ func configAddChainsCmd() *cobra.Command {
 $ %s config add-chains configs/chains`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var out *Config
-			if out, err = cfgFilesAddChains(args[0]); err != nil {
+			if out, err = cfgFilesAddChains(cmd, args[0]); err != nil {
 				return err
 			}
 			return overWriteConfig(out)
@@ -207,7 +210,7 @@ func configAddPathsCmd() *cobra.Command {
 $ %s config add-paths configs/paths`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var out *Config
-			if out, err = cfgFilesAddPaths(args[0]); err != nil {
+			if out, err = cfgFilesAddPaths(cmd, args[0]); err != nil {
 				return err
 			}
 			return overWriteConfig(out)
@@ -217,7 +220,7 @@ $ %s config add-paths configs/paths`, appName)),
 	return cmd
 }
 
-func cfgFilesAddChains(dir string) (cfg *Config, err error) {
+func cfgFilesAddChains(cmd *cobra.Command, dir string) (cfg *Config, err error) {
 	dir = path.Clean(dir)
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -225,42 +228,42 @@ func cfgFilesAddChains(dir string) (cfg *Config, err error) {
 	}
 	cfg = config
 	for _, f := range files {
-		pth := fmt.Sprintf("%s/%s", dir, f.Name())
+		pth := filepath.Join(dir, f.Name())
 		if f.IsDir() {
-			fmt.Printf("directory at %s, skipping...\n", pth)
+			fmt.Fprintf(cmd.ErrOrStderr(), "directory at %s, skipping...\n", pth)
 			continue
 		}
 
 		byt, err := os.ReadFile(pth)
 		if err != nil {
-			fmt.Printf("failed to read file %s. Err: %v skipping...\n", pth, err)
+			fmt.Fprintf(cmd.ErrOrStderr(), "failed to read file %s. Err: %v skipping...\n", pth, err)
 			continue
 		}
 
 		var pcw ProviderConfigWrapper
 		if err = json.Unmarshal(byt, &pcw); err != nil {
-			fmt.Printf("failed to unmarshal file %s. Err: %v skipping...\n", pth, err)
+			fmt.Fprintf(cmd.ErrOrStderr(), "failed to unmarshal file %s. Err: %v skipping...\n", pth, err)
 			continue
 		}
 
 		prov, err := pcw.Value.NewProvider(homePath, debug)
 		if err != nil {
-			fmt.Printf("failed to build ChainProvider for %s. Err: %v \n", pth, err)
+			fmt.Fprintf(cmd.ErrOrStderr(), "failed to build ChainProvider for %s. Err: %v \n", pth, err)
 			continue
 		}
 
 		c := &relayer.Chain{ChainProvider: prov}
 
 		if err = cfg.AddChain(c); err != nil {
-			fmt.Printf("failed to add chain %s: %v \n", pth, err)
+			fmt.Fprintf(cmd.ErrOrStderr(), "failed to add chain %s: %v \n", pth, err)
 			continue
 		}
-		fmt.Printf("added chain %s...\n", c.ChainProvider.ChainId())
+		fmt.Fprintf(cmd.ErrOrStderr(), "added chain %s...\n", c.ChainProvider.ChainId())
 	}
 	return cfg, nil
 }
 
-func cfgFilesAddPaths(dir string) (cfg *Config, err error) {
+func cfgFilesAddPaths(cmd *cobra.Command, dir string) (cfg *Config, err error) {
 	dir = path.Clean(dir)
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -270,7 +273,7 @@ func cfgFilesAddPaths(dir string) (cfg *Config, err error) {
 	for _, f := range files {
 		pth := fmt.Sprintf("%s/%s", dir, f.Name())
 		if f.IsDir() {
-			fmt.Printf("directory at %s, skipping...\n", pth)
+			fmt.Fprintf(cmd.ErrOrStderr(), "directory at %s, skipping...\n", pth)
 			continue
 		}
 
@@ -299,7 +302,7 @@ func cfgFilesAddPaths(dir string) (cfg *Config, err error) {
 		}
 
 		pthName := strings.Split(f.Name(), ".")[0]
-		if err = config.ValidatePath(p); err != nil {
+		if err = config.ValidatePath(cmd.ErrOrStderr(), p); err != nil {
 			return nil, fmt.Errorf("failed to validate path %s: %w", pth, err)
 		}
 
@@ -307,7 +310,7 @@ func cfgFilesAddPaths(dir string) (cfg *Config, err error) {
 			return nil, fmt.Errorf("failed to add path %s: %w", pth, err)
 		}
 
-		fmt.Printf("added path %s...\n\n", pthName)
+		fmt.Fprintf(cmd.ErrOrStderr(), "added path %s...\n\n", pthName)
 	}
 
 	return cfg, nil
@@ -601,16 +604,16 @@ func initConfig(cmd *cobra.Command) error {
 			// read the config file bytes
 			file, err := os.ReadFile(viper.ConfigFileUsed())
 			if err != nil {
-				fmt.Println("Error reading file:", err)
-				os.Exit(1)
+				fmt.Fprintln(cmd.ErrOrStderr(), "Error reading file:", err)
+				return err
 			}
 
 			// unmarshall them into the wrapper struct
 			cfgWrapper := &ConfigInputWrapper{}
 			err = yaml.Unmarshal(file, cfgWrapper)
 			if err != nil {
-				fmt.Println("Error unmarshalling config:", err)
-				os.Exit(1)
+				fmt.Fprintln(cmd.ErrOrStderr(), "Error unmarshalling config:", err)
+				return err
 			}
 
 			// build the config struct
@@ -622,7 +625,7 @@ func initConfig(cmd *cobra.Command) error {
 				}
 
 				chain := &relayer.Chain{ChainProvider: prov}
-				chain.Init(nil, debug)
+				chain.Init(log.NewTMLogger(log.NewSyncWriter(cmd.ErrOrStderr())), debug)
 				chains = append(chains, chain)
 			}
 
@@ -635,8 +638,8 @@ func initConfig(cmd *cobra.Command) error {
 			// ensure config has []*relayer.Chain used for all chain operations
 			err = validateConfig(config)
 			if err != nil {
-				fmt.Println("Error parsing chain config:", err)
-				os.Exit(1)
+				fmt.Fprintln(cmd.ErrOrStderr(), "Error parsing chain config:", err)
+				return err
 			}
 		}
 	}
@@ -674,14 +677,14 @@ func overWriteConfig(cfg *Config) (err error) {
 }
 
 // ValidatePath checks that a path is valid
-func (c *Config) ValidatePath(p *relayer.Path) (err error) {
+func (c *Config) ValidatePath(stderr io.Writer, p *relayer.Path) (err error) {
 	if p.Src.Version == "" {
 		return fmt.Errorf("source must specify a version")
 	}
-	if err = c.ValidatePathEnd(p.Src); err != nil {
+	if err = c.ValidatePathEnd(stderr, p.Src); err != nil {
 		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Src.ChainID)
 	}
-	if err = c.ValidatePathEnd(p.Dst); err != nil {
+	if err = c.ValidatePathEnd(stderr, p.Dst); err != nil {
 		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Dst.ChainID)
 	}
 	if p.Src.Order != p.Dst.Order {
@@ -692,14 +695,14 @@ func (c *Config) ValidatePath(p *relayer.Path) (err error) {
 }
 
 // ValidatePathEnd validates provided pathend and returns error for invalid identifiers
-func (c *Config) ValidatePathEnd(pe *relayer.PathEnd) error {
+func (c *Config) ValidatePathEnd(stderr io.Writer, pe *relayer.PathEnd) error {
 	if err := pe.ValidateBasic(); err != nil {
 		return err
 	}
 
 	chain, err := c.Chains.Get(pe.ChainID)
 	if err != nil {
-		fmt.Printf("Chain %s is not currently configured. \n", pe.ChainID)
+		fmt.Fprintf(stderr, "Chain %s is not currently configured.\n", pe.ChainID)
 		return nil
 	}
 
