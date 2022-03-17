@@ -13,3 +13,6 @@ two-chains/*.log
 test/setup/valkeys/*.json
 test/keys/
 .DS_Store
+
+# Don't commit the vendor directory if anyone runs 'go mod vendor'.
+/vendor
