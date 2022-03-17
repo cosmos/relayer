@@ -12,7 +12,7 @@ import (
 	"github.com/cosmos/relayer/relayer/provider"
 )
 
-// CreateOpenChannels runs the channel creation messages on timeout until they pass,
+// CreateOpenChannels runs the channel creation messages on timeout until they pass.
 func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Duration, srcPortID, dstPortID, order, version string, override bool) (modified bool, err error) {
 	// client and connection identifiers must be filled in
 	if err := ValidateConnectionPaths(c, dst); err != nil {
@@ -90,9 +90,8 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 }
 
 // ExecuteChannelStep executes the next channel step based on the
-// states of two channel ends specified by the relayer configuration
-// file. The booleans return indicate if the message was successfully
-// executed and if this was the last handshake step.
+// states of two channel ends specified by the provided channel identifiers passed in as arguments.
+// The booleans returned indicate if the message was successfully executed and if this was the last handshake step.
 func ExecuteChannelStep(src, dst *Chain, srcChanID, dstChanID, srcPortID, dstPortID, order, version string, override bool) (
 	newSrcChanID, newDstChanID string, success, last, modified bool, err error) {
 
@@ -569,7 +568,7 @@ func InitializeChannel(src, dst *Chain, srcChanID, dstChanID, srcPortID, dstPort
 	}
 }
 
-// CloseChannel runs the channel closing messages on timeout until they pass
+// CloseChannel runs the channel closing messages on timeout until they pass.
 // TODO: add max retries or something to this function
 func (c *Chain) CloseChannel(dst *Chain, to time.Duration, srcChanID, srcPortID string, srcChan *chantypes.QueryChannelResponse) error {
 	ticker := time.NewTicker(to)
@@ -613,7 +612,7 @@ func (c *Chain) CloseChannel(dst *Chain, to time.Duration, srcChanID, srcPortID 
 
 // CloseChannelStep returns the next set of messages for closing a channel with given
 // identifiers between chains src and dst. If the closing handshake hasn't started, then CloseChannelStep
-// will begin the handshake on the src chain
+// will begin the handshake on the src chain.
 func (c *Chain) CloseChannelStep(dst *Chain, srcChanID, srcPortID string, srcChan *chantypes.QueryChannelResponse) (*RelayMsgs, error) {
 	dsth, err := dst.ChainProvider.QueryLatestHeight()
 	if err != nil {
@@ -758,7 +757,7 @@ func (c *Chain) CloseChannelStep(dst *Chain, srcChanID, srcPortID string, srcCha
 }
 
 // FindMatchingChannel will determine if there already exists a channel between source and counterparty
-// that matches the parameters set in the relayer config.
+// that matches the channel identifiers being passed in as arguments.
 func FindMatchingChannel(source *Chain, srcPortID, dstPortID, order, version string) (string, bool) {
 	// TODO: add appropriate offset and limits, along with retries
 	channelsResp, err := source.ChainProvider.QueryChannels()
@@ -779,7 +778,7 @@ func FindMatchingChannel(source *Chain, srcPortID, dstPortID, order, version str
 	return "", false
 }
 
-// IsMatchingChannel determines if given channel matches required conditions
+// IsMatchingChannel determines if given channel matches required conditions.
 func IsMatchingChannel(source *Chain, channel *chantypes.IdentifiedChannel, srcPortID, dstPortID, order, version string) bool {
 	return channel.Ordering == OrderFromString(order) &&
 		IsConnectionFound(channel.ConnectionHops, source.ConnectionID()) &&
@@ -790,7 +789,7 @@ func IsMatchingChannel(source *Chain, channel *chantypes.IdentifiedChannel, srcP
 			(channel.State == chantypes.OPEN && (channel.Counterparty.ChannelId == "" || channel.Counterparty.PortId == dstPortID)))
 }
 
-// IsConnectionFound determines if given connectionId is present in channel connectionHops list
+// IsConnectionFound determines if given connectionId is present in channel connectionHops list.
 func IsConnectionFound(connectionHops []string, connectionID string) bool {
 	for _, id := range connectionHops {
 		if id == connectionID {
@@ -800,7 +799,7 @@ func IsConnectionFound(connectionHops []string, connectionID string) bool {
 	return false
 }
 
-// ValidateChannelParams validates a set of port-ids as well as the order
+// ValidateChannelParams validates a set of port-ids as well as the order.
 func ValidateChannelParams(srcPortID, dstPortID, order string) error {
 	if err := host.PortIdentifierValidator(srcPortID); err != nil {
 		return err

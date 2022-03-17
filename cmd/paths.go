@@ -114,7 +114,6 @@ $ %s pth l`, appName, appName, appName)),
 	return yamlFlag(jsonFlag(cmd))
 }
 
-
 func printPath(stdout io.Writer, i int, k string, pth *relayer.Path, chains, clients, connection string) {
 	fmt.Fprintf(stdout, "%2d: %-20s -> chns(%s) clnts(%s) conn(%s) (%s<>%s)\n",
 		i, k, chains, clients, connection, pth.Src.ChainID, pth.Dst.ChainID)
@@ -223,8 +222,7 @@ func pathsNewCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(3),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths new ibc-0 ibc-1 demo-path
-$ %s paths new ibc-0 ibc-1 demo-path
-$ %s pth n ibc-0 ibc-1 demo-path`, appName, appName, appName)),
+$ %s pth n ibc-0 ibc-1 demo-path`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			_, err := config.Chains.Gets(src, dst)
@@ -290,7 +288,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					// For each path file, check that the dst is also a configured chain in the relayers config
 					for _, f := range files {
 						pth := filepath.Join(dir, f.Name())
-            
+
 						if f.IsDir() {
 							fmt.Fprintf(cmd.ErrOrStderr(), "directory at %s, skipping...\n", pth)
 							continue

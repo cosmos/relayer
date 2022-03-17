@@ -13,7 +13,6 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/relayer"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -136,10 +135,10 @@ func createClientsCmd() *cobra.Command {
 
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
+				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
+				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
@@ -198,10 +197,10 @@ func createClientCmd() *cobra.Command {
 
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
+				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
+				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			// Query the latest heights on src and dst and retry if the query fails
@@ -262,10 +261,10 @@ corresponding update-client messages.`,
 
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
+				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
+				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			return c[src].UpdateClients(c[dst])
@@ -293,10 +292,10 @@ func upgradeClientsCmd() *cobra.Command {
 
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
+				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
+				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			targetChainID := args[1]
@@ -360,10 +359,10 @@ $ %s tx conn demo-path --timeout 5s`,
 
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
+				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
+				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			// ensure that the clients exist
@@ -448,10 +447,10 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
+				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
+				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			// create channel if it isn't already created
@@ -500,10 +499,10 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
+				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
+				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			srch, err := c[src].ChainProvider.QueryLatestHeight()
@@ -591,10 +590,10 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
+				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
+				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			// create clients if they aren't already created
@@ -934,7 +933,8 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 			}
 
 			if srcChannel == nil {
-				return errors.New(fmt.Sprintf("could not find channel{%s} for chain{%s}@connection{%s}", srcChannelID, c[src], path.Src.ConnectionID))
+				return fmt.Errorf("could not find channel{%s} for chain{%s}@connection{%s}",
+					srcChannelID, c[src], path.Src.ConnectionID)
 			}
 
 			dts, err := c[src].ChainProvider.QueryDenomTraces(0, 100, srch)
