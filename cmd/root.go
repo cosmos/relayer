@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"bufio"
+	"io"
 	"os"
 	"strings"
 
@@ -108,8 +109,8 @@ func Execute() {
 	}
 }
 
-// readLineFromBuf reads one line from stdin.
-func readStdin() (string, error) {
-	str, err := bufio.NewReader(os.Stdin).ReadString('\n')
+// readLine reads one line from the given reader.
+func readLine(in io.Reader) (string, error) {
+	str, err := bufio.NewReader(in).ReadString('\n')
 	return strings.TrimSpace(str), err
 }

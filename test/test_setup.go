@@ -22,6 +22,7 @@ import (
 	sdked25519 "github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	sdkcryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	tmed25519 "github.com/tendermint/tendermint/crypto/ed25519"
+	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/privval"
 )
 
@@ -133,7 +134,8 @@ func spinUpTestContainer(rchan chan<- *dockertest.Resource, pool *dockertest.Poo
 	}
 
 	// initialize the chain
-	c.Init(nil, debug)
+	// TODO: is there a better logger we can use for tests?
+	c.Init(log.NewTMLogger(log.NewSyncWriter(os.Stderr)), debug)
 
 	// create the test key
 	if err := c.CreateTestKey(); err != nil {

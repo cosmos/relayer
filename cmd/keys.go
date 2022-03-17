@@ -19,6 +19,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"strings"
 
@@ -81,7 +82,7 @@ $ %s k a ibc-2 testkey`, appName, appName, appName)),
 				return err
 			}
 
-			fmt.Println(string(out))
+			fmt.Fprintln(cmd.OutOrStdout(), string(out))
 			return nil
 		},
 	}
@@ -116,7 +117,7 @@ $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 				return err
 			}
 
-			fmt.Println(address)
+			fmt.Fprintln(cmd.OutOrStdout(), address)
 			return nil
 		},
 	}
@@ -148,18 +149,18 @@ $ %s k d ibc-2 testkey`, appName, appName, appName)),
 			}
 
 			if skip, _ := cmd.Flags().GetBool(flagSkip); !skip {
-				fmt.Printf("Are you sure you want to delete key(%s) from chain(%s)? (Y/n)\n", keyName, args[0])
-				if !askForConfirmation() {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Are you sure you want to delete key(%s) from chain(%s)? (Y/n)\n", keyName, args[0])
+				if !askForConfirmation(cmd.InOrStdin(), cmd.ErrOrStderr()) {
 					return nil
 				}
 			}
 
 			err = chain.ChainProvider.DeleteKey(keyName)
 			if err != nil {
-				panic(err)
+				return err
 			}
 
-			fmt.Printf("key %s deleted\n", keyName)
+			fmt.Fprintf(cmd.ErrOrStderr(), "key %s deleted\n", keyName)
 			return nil
 		},
 	}
@@ -167,10 +168,10 @@ $ %s k d ibc-2 testkey`, appName, appName, appName)),
 	return skipConfirm(cmd)
 }
 
-func askForConfirmation() bool {
+func askForConfirmation(stdin io.Reader, stderr io.Writer) bool {
 	var response string
 
-	_, err := fmt.Scanln(&response)
+	_, err := fmt.Fscanln(stdin, &response)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -181,8 +182,8 @@ func askForConfirmation() bool {
 	case "n", "no":
 		return false
 	default:
-		fmt.Println("please type (y)es or (n)o and then press enter")
-		return askForConfirmation()
+		fmt.Fprintln(stderr, "please type (y)es or (n)o and then press enter")
+		return askForConfirmation(stdin, stderr)
 	}
 }
 
