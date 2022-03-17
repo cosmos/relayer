@@ -30,6 +30,8 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 	)
 
 	ticker := time.NewTicker(to)
+	defer ticker.Stop()
+
 	failures := uint64(0)
 	for ; true; <-ticker.C {
 		var err error
@@ -571,6 +573,8 @@ func InitializeChannel(src, dst *Chain, srcChanID, dstChanID, srcPortID, dstPort
 // TODO: add max retries or something to this function
 func (c *Chain) CloseChannel(dst *Chain, to time.Duration, srcChanID, srcPortID string, srcChan *chantypes.QueryChannelResponse) error {
 	ticker := time.NewTicker(to)
+	defer ticker.Stop()
+
 	dstChanID := srcChan.Channel.Counterparty.ChannelId
 	dstPortID := srcChan.Channel.Counterparty.PortId
 
