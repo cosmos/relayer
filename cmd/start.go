@@ -27,6 +27,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/avast/retry-go"
+	"github.com/spf13/viper"
+
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -75,29 +78,34 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				c[src].Log(fmt.Sprintf("relayer start error. Err: %v", err))
 			}
 
-			//thresholdTime := viper.GetDuration(flagThresholdTime)
+			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire
+			// when there are no packets flowing across the channels. It is currently a source of errors that have been
+			// hard to rectify, so we are just avoiding this code path for now
+			if false {
+				thresholdTime := viper.GetDuration(flagThresholdTime)
+				eg := new(errgroup.Group)
 
-			//eg := new(errgroup.Group)
-			//eg.Go(func() error {
-			//	for {
-			//		var timeToExpiry time.Duration
-			//		if err = retry.Do(func() error {
-			//			timeToExpiry, err = UpdateClientsFromChains(c[src], c[dst], thresholdTime)
-			//			return err
-			//		}, retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
-			//			if debug {
-			//				c[src].Log(fmt.Sprintf("- [%s]<->[%s] - try(%d/%d) updating clients from chains: %s",
-			//					c[src].ChainID(), c[dst].ChainID(), n+1, relayer.RtyAttNum, err))
-			//			}
-			//		})); err != nil {
-			//			return err
-			//		}
-			//		time.Sleep(timeToExpiry - thresholdTime)
-			//	}
-			//})
-			//if err = eg.Wait(); err != nil {
-			//	c[src].Log(fmt.Sprintf("update clients error. Err: %v", err))
-			//}
+				eg.Go(func() error {
+					for {
+						var timeToExpiry time.Duration
+						if err = retry.Do(func() error {
+							timeToExpiry, err = UpdateClientsFromChains(c[src], c[dst], thresholdTime)
+							return err
+						}, retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
+							if debug {
+								c[src].Log(fmt.Sprintf("- [%s]<->[%s] - try(%d/%d) updating clients from chains: %s",
+									c[src].ChainID(), c[dst].ChainID(), n+1, relayer.RtyAttNum, err))
+							}
+						})); err != nil {
+							return err
+						}
+						time.Sleep(timeToExpiry - thresholdTime)
+					}
+				})
+				if err = eg.Wait(); err != nil {
+					c[src].Log(fmt.Sprintf("update clients error. Err: %v", err))
+				}
+			}
 
 			trapSignal(cmd.ErrOrStderr(), done)
 			return nil
