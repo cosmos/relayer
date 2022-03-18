@@ -1176,10 +1176,16 @@ func (cc *CosmosProvider) AutoUpdateClient(dst provider.ChainProvider, threshold
 	// query the latest consensus state of the potential matching client
 	var consensusStateResp *clienttypes.QueryConsensusStateResponse
 	if err = retry.Do(func() error {
+		if clientState == nil {
+			return fmt.Errorf("client state for chain (%s) at height (%d) cannot be nil", cc.ChainId(), srch)
+		}
 		consensusStateResp, err = cc.QueryConsensusStateABCI(srcClientId, clientState.GetLatestHeight())
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		clientState, _ = cc.queryTMClientState(srch, srcClientId)
+		clientState, err = cc.queryTMClientState(srch, srcClientId)
+		if err != nil {
+			clientState = nil
+		}
 	})); err != nil {
 		return 0, err
 	}
