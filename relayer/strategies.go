@@ -3,8 +3,8 @@ package relayer
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/avast/retry-go"
@@ -177,7 +177,7 @@ func RelayUnrelayedPackets(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcC
 
 		// Wait until the context is cancelled (i.e. RelayPackets() finishes) or the context times out
 		<-ctx.Done()
-		if !strings.Contains(ctx.Err().Error(), "context canceled") {
+		if !errors.Is(ctx.Err(), context.Canceled) {
 			src.Log(fmt.Sprintf("relay packets error: %s", ctx.Err()))
 			return ctx.Err()
 		}
@@ -221,7 +221,7 @@ func RelayUnrelayedAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChan
 
 		// Wait until the context is cancelled (i.e. RelayAcknowledgements() finishes) or the context times out
 		<-ctx.Done()
-		if !strings.Contains(ctx.Err().Error(), "context canceled") {
+		if !errors.Is(ctx.Err(), context.Canceled) {
 			src.Log(fmt.Sprintf("relay acks error: %s", ctx.Err()))
 			return ctx.Err()
 		}
