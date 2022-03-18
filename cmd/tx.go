@@ -548,10 +548,16 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				return err
 			}
 
-			c, src, dst, err := config.ChainsFromPath(args[0])
+			pth, err := config.Paths.Get(args[0])
 			if err != nil {
 				return err
 			}
+
+			src, dst := pth.Src.ChainID, pth.Dst.ChainID
+			c, err := config.Chains.Gets(src, dst)
+
+			c[src].PathEnd = pth.Src
+			c[dst].PathEnd = pth.Dst
 
 			srcPort, err := cmd.Flags().GetString(flagSrcPort)
 			if err != nil {
