@@ -156,37 +156,37 @@ func RelayUnrelayedPackets(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcC
 	if err != nil {
 		src.Log(fmt.Sprintf("unrelayed sequences error: %s", err))
 		return err
-	} else {
-		if len(sp.Src) > 0 && src.debug {
-			src.Log(fmt.Sprintf("[%s] unrelayed-packets-> %v", src.ChainID(), sp.Src))
-		}
+	}
 
-		if len(sp.Dst) > 0 && dst.debug {
-			dst.Log(fmt.Sprintf("[%s] unrelayed-packets-> %v", dst.ChainID(), sp.Dst))
-		}
+	if len(sp.Src) > 0 && src.debug {
+		src.Log(fmt.Sprintf("[%s] unrelayed-packets-> %v", src.ChainID(), sp.Src))
+	}
 
-		if !sp.Empty() {
-			go func() {
-				err := RelayPackets(ctx, src, dst, sp, maxTxSize, maxMsgLength, srcChannel)
-				if err != nil {
-					src.Log(fmt.Sprintf("relay packets error: %s", err))
-				}
-				cancel()
-			}()
+	if len(sp.Dst) > 0 && dst.debug {
+		dst.Log(fmt.Sprintf("[%s] unrelayed-packets-> %v", dst.ChainID(), sp.Dst))
+	}
 
-			// Wait until the context is cancelled (i.e. RelayPackets() finishes) or the context times out
-			select {
-			case <-ctx.Done():
-				if !strings.Contains(ctx.Err().Error(), "context canceled") {
-					src.Log(fmt.Sprintf("relay packets error: %s", ctx.Err()))
-					return ctx.Err()
-				}
+	if !sp.Empty() {
+		go func() {
+			err := RelayPackets(ctx, src, dst, sp, maxTxSize, maxMsgLength, srcChannel)
+			if err != nil {
+				src.Log(fmt.Sprintf("relay packets error: %s", err))
 			}
+			cancel()
+		}()
 
-		} else {
-			src.Log(fmt.Sprintf("- No packets in the queue between [%s]port{%s} and [%s]port{%s}",
-				src.ChainID(), srcChannel.PortId, dst.ChainID(), srcChannel.Counterparty.PortId))
+		// Wait until the context is cancelled (i.e. RelayPackets() finishes) or the context times out
+		select {
+		case <-ctx.Done():
+			if !strings.Contains(ctx.Err().Error(), "context canceled") {
+				src.Log(fmt.Sprintf("relay packets error: %s", ctx.Err()))
+				return ctx.Err()
+			}
 		}
+
+	} else {
+		src.Log(fmt.Sprintf("- No packets in the queue between [%s]port{%s} and [%s]port{%s}",
+			src.ChainID(), srcChannel.PortId, dst.ChainID(), srcChannel.Counterparty.PortId))
 	}
 
 	return nil
@@ -202,37 +202,37 @@ func RelayUnrelayedAcks(src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChan
 	if err != nil {
 		src.Log(fmt.Sprintf("unrelayed acks error: %s", err))
 		return err
-	} else {
-		if len(ap.Src) > 0 && src.debug {
-			src.Log(fmt.Sprintf("[%s] unrelayed-acks-> %v", src.ChainID(), ap.Src))
-		}
+	}
 
-		if len(ap.Dst) > 0 && dst.debug {
-			dst.Log(fmt.Sprintf("[%s] unrelayed-acks-> %v", dst.ChainID(), ap.Dst))
-		}
+	if len(ap.Src) > 0 && src.debug {
+		src.Log(fmt.Sprintf("[%s] unrelayed-acks-> %v", src.ChainID(), ap.Src))
+	}
 
-		if !ap.Empty() {
-			go func() {
-				err := RelayAcknowledgements(ctx, src, dst, ap, maxTxSize, maxMsgLength, srcChannel)
-				if err != nil {
-					src.Log(fmt.Sprintf("relay acks error: %s", err))
-				}
-				cancel()
-			}()
+	if len(ap.Dst) > 0 && dst.debug {
+		dst.Log(fmt.Sprintf("[%s] unrelayed-acks-> %v", dst.ChainID(), ap.Dst))
+	}
 
-			// Wait until the context is cancelled (i.e. RelayAcknowledgements() finishes) or the context times out
-			select {
-			case <-ctx.Done():
-				if !strings.Contains(ctx.Err().Error(), "context canceled") {
-					src.Log(fmt.Sprintf("relay acks error: %s", ctx.Err()))
-					return ctx.Err()
-				}
+	if !ap.Empty() {
+		go func() {
+			err := RelayAcknowledgements(ctx, src, dst, ap, maxTxSize, maxMsgLength, srcChannel)
+			if err != nil {
+				src.Log(fmt.Sprintf("relay acks error: %s", err))
 			}
+			cancel()
+		}()
 
-		} else {
-			src.Log(fmt.Sprintf("- No acks in the queue between [%s]port{%s} and [%s]port{%s}",
-				src.ChainID(), srcChannel.PortId, dst.ChainID(), srcChannel.Counterparty.PortId))
+		// Wait until the context is cancelled (i.e. RelayAcknowledgements() finishes) or the context times out
+		select {
+		case <-ctx.Done():
+			if !strings.Contains(ctx.Err().Error(), "context canceled") {
+				src.Log(fmt.Sprintf("relay acks error: %s", ctx.Err()))
+				return ctx.Err()
+			}
 		}
+
+	} else {
+		src.Log(fmt.Sprintf("- No acks in the queue between [%s]port{%s} and [%s]port{%s}",
+			src.ChainID(), srcChannel.PortId, dst.ChainID(), srcChannel.Counterparty.PortId))
 	}
 
 	return nil
