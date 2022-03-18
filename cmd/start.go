@@ -17,6 +17,7 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math"
@@ -73,10 +74,10 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				}
 			}
 
-			done, err := relayer.StartRelayer(c[src], c[dst], maxTxSize, maxMsgLength)
-			if err != nil {
-				c[src].Log(fmt.Sprintf("relayer start error. Err: %v", err))
-			}
+			ctx, cancel := context.WithCancel(cmd.Context())
+			defer cancel()
+
+			errorChan := relayer.StartRelayer(ctx, c[src], c[dst], maxTxSize, maxMsgLength)
 
 			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire
 			// when there are no packets flowing across the channels. It is currently a source of errors that have been
@@ -107,7 +108,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				}
 			}
 
-			trapSignal(cmd.ErrOrStderr(), done)
+			trapSignal(ctx, cmd.ErrOrStderr(), cancel, errorChan, c[src])
 			return nil
 		},
 	}
@@ -115,18 +116,24 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 }
 
 // trap signal waits for a SIGINT or SIGTERM and then sends down the done channel
-func trapSignal(stderr io.Writer, done func()) {
+func trapSignal(ctx context.Context, stderr io.Writer, cancel func(), errorChan chan error, src *relayer.Chain) {
 	sigCh := make(chan os.Signal, 1)
 
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	// wait for a signal
-	sig := <-sigCh
-	fmt.Fprintln(stderr, "Signal Received", sig.String())
-	close(sigCh)
-
-	// call the cleanup func
-	done()
+	// wait for the context to be closed, a signal, or an error to be read
+	select {
+	case <-ctx.Done():
+		close(sigCh)
+	case sig := <-sigCh:
+		fmt.Fprintln(stderr, "Signal Received", sig.String())
+		close(sigCh)
+		cancel()
+	case err := <-errorChan:
+		src.Log(fmt.Sprintf("relayer start error. Err: %v", err))
+		close(sigCh)
+		cancel()
+	}
 }
 
 // UpdateClientsFromChains takes src, dst chains, threshold time and update clients based on expiry time

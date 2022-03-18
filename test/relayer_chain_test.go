@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -111,7 +112,10 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(1))
 
 	// start the relayer process in it's own goroutine
-	rlyDone, err := relayer.StartRelayer(src, dst, 2*cmd.MB, 5)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	_ = relayer.StartRelayer(ctx, src, dst, 2*cmd.MB, 5)
 	require.NoError(t, err)
 
 	// Wait for relay message inclusion in both chains
@@ -126,7 +130,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(6))
 
 	// kill relayer routine
-	rlyDone()
+	cancel()
 
 	// check balance on src against expected
 	srcGot, err := src.ChainProvider.QueryBalance(src.ChainProvider.Key())
@@ -256,7 +260,10 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	testChannelPair(t, src, dst, channel.ChannelId, channel.PortId)
 
 	// start the relayer process in it's own goroutine
-	rlyDone, err := relayer.StartRelayer(src, dst, 2*cmd.MB, 5)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	_ = relayer.StartRelayer(ctx, src, dst, 2*cmd.MB, 5)
 	require.NoError(t, err)
 
 	// Wait for relay message inclusion in both chains
@@ -310,7 +317,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(6))
 
 	// kill relayer routine
-	rlyDone()
+	cancel()
 
 	clientState, err = src.QueryTMClientState(0)
 	require.NoError(t, err)
@@ -425,7 +432,10 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(1))
 
 	// start the relayer process in it's own goroutine
-	rlyDone, err := relayer.StartRelayer(src, dst, 2*cmd.MB, 5)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	_ = relayer.StartRelayer(ctx, src, dst, 2*cmd.MB, 5)
 	require.NoError(t, err)
 
 	// Wait for relay message inclusion in both chains
@@ -444,7 +454,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(6))
 
 	// kill relayer routine
-	rlyDone()
+	cancel()
 
 	// check balance on src against expected
 	srcGot, err := src.ChainProvider.QueryBalance(src.ChainProvider.Key())
