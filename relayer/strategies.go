@@ -32,8 +32,8 @@ func StartRelayer(src, dst *Chain, maxTxSize, maxMsgLength uint64) (func(), erro
 				// Query the list of channels on the src connection
 				srcChannels, err := QueryChannelsOnConnection(src)
 				if err != nil {
-					fmt.Printf("error querying all channels on chain{%s}@connection{%s}: %v \n",
-						src.ChainID(), src.ConnectionID(), err)
+					src.Log(fmt.Sprintf("error querying all channels on chain{%s}@connection{%s}: %v \n",
+						src.ChainID(), src.ConnectionID(), err))
 
 					os.Exit(1)
 				}
