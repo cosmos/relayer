@@ -13,12 +13,15 @@ import (
 
 // testClientPair tests that the client for src on dst and dst on src are the only clients on those chains
 func testClientPair(t *testing.T, src, dst *relayer.Chain) {
+	t.Helper()
 	testClient(t, src)
 	testClient(t, dst)
 }
 
 // testClient queries client for existence of dst on src
 func testClient(t *testing.T, src *relayer.Chain) {
+	t.Helper()
+
 	srch, err := src.ChainProvider.QueryLatestHeight()
 	require.NoError(t, err)
 	var (
@@ -42,12 +45,15 @@ func testClient(t *testing.T, src *relayer.Chain) {
 
 // testConnectionPair tests that the only connection on src and dst is between the two chains
 func testConnectionPair(t *testing.T, src, dst *relayer.Chain) {
+	t.Helper()
 	testConnection(t, src, dst)
 	testConnection(t, dst, src)
 }
 
 // testConnection tests that the only connection on src has a counterparty that is the connection on dst
 func testConnection(t *testing.T, src, dst *relayer.Chain) {
+	t.Helper()
+
 	conns, err := src.ChainProvider.QueryConnections()
 	require.NoError(t, err)
 	require.Equal(t, len(conns), 1)
@@ -70,12 +76,15 @@ func testConnection(t *testing.T, src, dst *relayer.Chain) {
 
 // testChannelPair tests that the only channel on src and dst is between the two chains
 func testChannelPair(t *testing.T, src, dst *relayer.Chain, channelID, portID string) {
+	t.Helper()
 	testChannel(t, src, dst, channelID, portID)
 	testChannel(t, dst, src, channelID, portID)
 }
 
 // testChannel tests that the only channel on src is a counterparty of dst
 func testChannel(t *testing.T, src, dst *relayer.Chain, channelID, portID string) {
+	t.Helper()
+
 	chans, err := src.ChainProvider.QueryChannels()
 	require.NoError(t, err)
 	require.Equal(t, 1, len(chans))
