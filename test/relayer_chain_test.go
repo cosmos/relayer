@@ -112,6 +112,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 
 	// start the relayer process in it's own goroutine
 	rlyDone, err := relayer.StartRelayer(src, dst, 2*cmd.MB, 5)
+	defer rlyDone()
 	require.NoError(t, err)
 
 	// Wait for relay message inclusion in both chains
@@ -257,6 +258,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 
 	// start the relayer process in it's own goroutine
 	rlyDone, err := relayer.StartRelayer(src, dst, 2*cmd.MB, 5)
+	defer rlyDone()
 	require.NoError(t, err)
 
 	// Wait for relay message inclusion in both chains
@@ -345,20 +347,30 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 		return retry.Do(func() error {
 			var err error
 			srcExpected, err = src.ChainProvider.QueryBalance(src.ChainProvider.Key())
+			if err != nil {
+				return err
+			}
+
 			if srcExpected.IsZero() {
 				return fmt.Errorf("expected non-zero balance. Err: %w", err)
 			}
-			return err
+
+			return nil
 		})
 	})
 	eg.Go(func() error {
 		return retry.Do(func() error {
 			var err error
 			dstExpected, err = dst.ChainProvider.QueryBalance(dst.ChainProvider.Key())
+			if err != nil {
+				return err
+			}
+
 			if dstExpected.IsZero() {
 				return fmt.Errorf("expected non-zero balance. Err: %w", err)
 			}
-			return err
+
+			return nil
 		})
 	})
 	require.NoError(t, eg.Wait())
@@ -416,6 +428,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 
 	// start the relayer process in it's own goroutine
 	rlyDone, err := relayer.StartRelayer(src, dst, 2*cmd.MB, 5)
+	defer rlyDone()
 	require.NoError(t, err)
 
 	// Wait for relay message inclusion in both chains
