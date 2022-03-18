@@ -1174,7 +1174,6 @@ func (cc *CosmosProvider) AutoUpdateClient(dst provider.ChainProvider, threshold
 	}
 
 	// query the latest consensus state of the potential matching client
-
 	var consensusStateResp *clienttypes.QueryConsensusStateResponse
 	if err = retry.Do(func() error {
 		consensusStateResp, err = cc.QueryConsensusStateABCI(srcClientId, clientState.GetLatestHeight())
@@ -1184,11 +1183,6 @@ func (cc *CosmosProvider) AutoUpdateClient(dst provider.ChainProvider, threshold
 	})); err != nil {
 		return 0, err
 	}
-
-	//consensusStateResp, err := cc.QueryConsensusStateABCI(srcClientId, clientState.GetLatestHeight())
-	//if err != nil {
-	//	return 0, err
-	//}
 
 	exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
 	if err != nil {
@@ -1358,7 +1352,6 @@ func (cc *CosmosProvider) QueryConsensusStateABCI(clientID string, height ibcexp
 
 	value, proofBz, proofHeight, err := cc.QueryTendermintProof(int64(height.GetRevisionHeight()), key)
 	if err != nil {
-		fmt.Println("NOT FOUND")
 		return nil, err
 	}
 
