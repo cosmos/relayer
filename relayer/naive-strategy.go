@@ -349,20 +349,12 @@ func RelayPackets(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxT
 		}
 
 		eg := new(errgroup.Group)
-		//// add messages for sequences on src
-		//if err = AddMessagesForSequences(sp.Src, src, dst, srch, dsth, &msgs.Src, &msgs.Dst, srcChannel.ChannelId, srcChannel.PortId, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId); err != nil {
-		//	return err
-		//}
-		//
-		//// add messages for sequences on dst
-		//if err = AddMessagesForSequences(sp.Dst, dst, src, dsth, srch, &msgs.Dst, &msgs.Src, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcChannel.ChannelId, srcChannel.PortId); err != nil {
-		//	return err
-		//}
-
+		// add messages for sequences on src
 		eg.Go(func() error {
 			return AddMessagesForSequences(sp.Src, src, dst, srch, dsth, &msgs.Src, &msgs.Dst, srcChannel.ChannelId, srcChannel.PortId, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
 		})
 
+		// add messages for sequences on dst
 		eg.Go(func() error {
 			return AddMessagesForSequences(sp.Dst, dst, src, dsth, srch, &msgs.Dst, &msgs.Src, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcChannel.ChannelId, srcChannel.PortId)
 		})
