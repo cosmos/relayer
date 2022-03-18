@@ -94,11 +94,11 @@ func QueryChannelsOnConnection(src *Chain) ([]*types.IdentifiedChannel, error) {
 // FilterOpenChannels takes a slice of channels and adds all the channels with OPEN state to a new slice of channels.
 // NOTE: channels will not be added to the slice of open channels more than once.
 func FilterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*ActiveChannel) []*ActiveChannel {
-	inSlice := false
 
 	// Filter for open channels
 	for _, channel := range channels {
 		if channel.State == types.OPEN {
+			inSlice := false
 
 			// Check if we have already added this channel to the slice of open channels
 			for _, openChannel := range openChannels {
@@ -115,8 +115,6 @@ func FilterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*Act
 					active:  false,
 				})
 			}
-
-			inSlice = false
 		}
 	}
 
