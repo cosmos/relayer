@@ -11,7 +11,6 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer/provider"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -101,8 +100,8 @@ func QueryChannel(src *Chain, channelID string) (*chantypes.IdentifiedChannel, e
 		}
 	}
 
-	return nil, errors.New(fmt.Sprintf("channel{%s} not found for [%s] -> client{%s}@connection{%s}",
-		channelID, src.ChainID(), src.ClientID(), src.ConnectionID()))
+	return nil, fmt.Errorf("channel{%s} not found for [%s] -> client{%s}@connection{%s}",
+		channelID, src.ChainID(), src.ClientID(), src.ConnectionID())
 }
 
 // GetIBCUpdateHeaders returns a pair of IBC update headers which can be used to update an on chain light client
