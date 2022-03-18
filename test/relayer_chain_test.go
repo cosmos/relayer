@@ -112,7 +112,6 @@ func chainTest(t *testing.T, tcs []testChain) {
 
 	// start the relayer process in it's own goroutine
 	rlyDone, err := relayer.StartRelayer(src, dst, 2*cmd.MB, 5)
-	defer rlyDone()
 	require.NoError(t, err)
 
 	// Wait for relay message inclusion in both chains
@@ -258,7 +257,6 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 
 	// start the relayer process in it's own goroutine
 	rlyDone, err := relayer.StartRelayer(src, dst, 2*cmd.MB, 5)
-	defer rlyDone()
 	require.NoError(t, err)
 
 	// Wait for relay message inclusion in both chains
@@ -428,7 +426,6 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 
 	// start the relayer process in it's own goroutine
 	rlyDone, err := relayer.StartRelayer(src, dst, 2*cmd.MB, 5)
-	defer rlyDone()
 	require.NoError(t, err)
 
 	// Wait for relay message inclusion in both chains
