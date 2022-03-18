@@ -278,14 +278,14 @@ type BuildOptions struct {
 	BuildArgs  []dc.BuildArg
 }
 
-var mu sync.Mutex
+var muDockerBuild sync.Mutex
 
 // BuildAndRunWithBuildOptions builds and starts a docker container.
 // Optional modifier functions can be passed in order to change the hostconfig values not covered in RunOptions
 func BuildAndRunWithBuildOptions(pool *dockertest.Pool, buildOpts *BuildOptions, runOpts *dockertest.RunOptions, hcOpts ...func(*dc.HostConfig)) (*dockertest.Resource, error) {
 
-	mu.Lock()
-	defer mu.Unlock()
+	muDockerBuild.Lock()
+	defer muDockerBuild.Unlock()
 	err := pool.Client.BuildImage(dc.BuildImageOptions{
 		Name:         runOpts.Name,
 		Dockerfile:   buildOpts.Dockerfile,
