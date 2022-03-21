@@ -574,6 +574,13 @@ func initConfig(cmd *cobra.Command) error {
 				return err
 			}
 
+			// verify that the channel filter rule is valid for every path in the config
+			for _, p := range cfgWrapper.Paths {
+				if err := p.ValidateChannelFilterRule(); err != nil {
+					return err
+				}
+			}
+
 			// build the config struct
 			var chains relayer.Chains
 			for _, pcfg := range cfgWrapper.ProviderConfigs {
