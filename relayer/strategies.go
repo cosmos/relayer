@@ -41,9 +41,9 @@ func StartRelayer(ctx context.Context, src, dst *Chain, filter *ChannelFilter, m
 				srcOpenChannels = FilterOpenChannels(srcChannels, srcOpenChannels)
 
 				switch filter.Rule {
-				case whiteList:
+				case allowList:
 					//do stuff
-				case blackList:
+				case denyList:
 					//do stuff
 				default:
 					// handle all channels on connection

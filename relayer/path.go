@@ -13,8 +13,8 @@ import (
 const (
 	check     = "✔"
 	xIcon     = "✘"
-	whiteList = "whitelist"
-	blackList = "blacklist"
+	allowList = "allowList"
+	denyList  = "denyList"
 )
 
 // Paths represent connection paths between chains
@@ -94,18 +94,18 @@ type Path struct {
 	Filter *ChannelFilter `yaml:"src-channel-filter" json:"src-channel-filter"`
 }
 
-// ChannelFilter provides the means for either creating a whitelist or a blacklist of channels on the src chain
+// ChannelFilter provides the means for either creating an allowlist or a denylist of channels on the src chain
 // which will be used to narrow down the list of channels a user wants to relay on.
 type ChannelFilter struct {
 	Rule        string   `yaml:"rule" json:"rule"`
 	ChannelList []string `yaml:"channel-list" json:"channel-list"`
 }
 
-// ValidateChannelFilterRule verifies that the configured ChannelFilter rule is set to an appropriate value
+// ValidateChannelFilterRule verifies that the configured ChannelFilter rule is set to an appropriate value.
 func (p *Path) ValidateChannelFilterRule() error {
-	if p.Filter.Rule != whiteList && p.Filter.Rule != blackList && p.Filter.Rule != "" {
+	if p.Filter.Rule != allowList && p.Filter.Rule != denyList && p.Filter.Rule != "" {
 		return fmt.Errorf("error initializing the relayer config. %s is not a valid channel filter rule, please "+
-			"ensure your channel filter rule is `whitelist` or 'blacklist'", p.Filter.Rule)
+			"ensure your channel filter rule is `allowlist` or 'denylist'", p.Filter.Rule)
 	}
 	return nil
 }
