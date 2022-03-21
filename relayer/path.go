@@ -104,7 +104,7 @@ type ChannelFilter struct {
 // ValidateChannelFilterRule verifies that the configured ChannelFilter rule is set to an appropriate value.
 func (p *Path) ValidateChannelFilterRule() error {
 	if p.Filter.Rule != allowList && p.Filter.Rule != denyList && p.Filter.Rule != "" {
-		return fmt.Errorf("error initializing the relayer config. %s is not a valid channel filter rule, please "+
+		return fmt.Errorf("%s is not a valid channel filter rule, please "+
 			"ensure your channel filter rule is `allowlist` or 'denylist'", p.Filter.Rule)
 	}
 	return nil
@@ -122,7 +122,7 @@ func (p *Path) End(chainID string) *PathEnd {
 }
 
 func (p *Path) String() string {
-	return fmt.Sprintf("[ ] %s ->\n %s", p.Src.String(), p.Dst.String())
+	return fmt.Sprintf("%s -> %s", p.Src.String(), p.Dst.String())
 }
 
 // GenPath generates a path with unspecified client, connection and channel identifiers

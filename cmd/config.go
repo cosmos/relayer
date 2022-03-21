@@ -577,7 +577,7 @@ func initConfig(cmd *cobra.Command) error {
 			// verify that the channel filter rule is valid for every path in the config
 			for _, p := range cfgWrapper.Paths {
 				if err := p.ValidateChannelFilterRule(); err != nil {
-					return err
+					return fmt.Errorf("error initializing the relayer config for path %s: %w", p.String(), err)
 				}
 			}
 
