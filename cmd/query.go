@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	ibcexported "github.com/cosmos/ibc-go/v2/modules/core/exported"
+	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/helpers"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
@@ -383,7 +383,7 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 				}
 			}
 
-			if err = chain.AddPath(args[1], dcon, dcha, dpor, dord); err != nil {
+			if err = chain.AddPath(args[1], dcon); err != nil {
 				return err
 			}
 
@@ -550,7 +550,7 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 				return err
 			}
 
-			if err := chain.AddPath(args[1], dcon, dcha, dpor, dord); err != nil {
+			if err := chain.AddPath(args[1], dcon); err != nil {
 				return err
 			}
 
@@ -602,7 +602,7 @@ $ %s q conn ibc-1 ibconeconn`,
 				return err
 			}
 
-			if err := chain.AddPath(dcli, args[1], dcon, dpor, dord); err != nil {
+			if err := chain.AddPath(dcli, args[1]); err != nil {
 				return err
 			}
 
@@ -646,7 +646,7 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 				return err
 			}
 
-			if err = chain.AddPath(dcli, args[1], dcha, dpor, dord); err != nil {
+			if err = chain.AddPath(dcli, args[1]); err != nil {
 				return err
 			}
 
@@ -695,7 +695,9 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 				return err
 			}
 
-			if err = chain.AddPath(dcli, dcon, args[1], args[2], dord); err != nil {
+			channelID := args[1]
+			portID := args[2]
+			if err = chain.AddPath(dcli, dcon); err != nil {
 				return err
 			}
 
@@ -711,7 +713,7 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 				}
 			}
 
-			res, err := chain.ChainProvider.QueryChannel(height, chain.PathEnd.ChannelID, chain.PathEnd.PortID)
+			res, err := chain.ChainProvider.QueryChannel(height, channelID, portID)
 			if err != nil {
 				return err
 			}
@@ -791,16 +793,15 @@ $ %s q packet-commit ibc-1 ibconechannel transfer 31`,
 				return err
 			}
 
-			if err = chain.AddPath(dcli, dcon, args[1], args[2], dord); err != nil {
-				return err
-			}
+			channelID := args[1]
+			portID := args[2]
 
 			seq, err := strconv.ParseUint(args[3], 10, 64)
 			if err != nil {
 				return err
 			}
 
-			res, err := chain.ChainProvider.QueryPacketCommitment(0, chain.ChannelID(), chain.PortID(), seq)
+			res, err := chain.ChainProvider.QueryPacketCommitment(0, channelID, portID, seq)
 			if err != nil {
 				return err
 			}
@@ -821,14 +822,14 @@ $ %s q packet-commit ibc-1 ibconechannel transfer 31`,
 
 func queryUnrelayedPackets() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "unrelayed-packets [path]",
+		Use:     "unrelayed-packets [path] [src-channel-id]",
 		Aliases: []string{"unrelayed-pkts"},
 		Short:   "query for the packet sequence numbers that remain to be relayed on a given path",
-		Args:    cobra.ExactArgs(1),
+		Args:    cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s q unrelayed-packets demo-path
-$ %s query unrelayed-packets demo-path
-$ %s query unrelayed-pkts demo-path`,
+$ %s q unrelayed-packets demo-path channel-0
+$ %s query unrelayed-packets demo-path channel-0
+$ %s query unrelayed-pkts demo-path channel-0`,
 			appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -851,7 +852,13 @@ $ %s query unrelayed-pkts demo-path`,
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(c[src], c[dst])
+			channelID := args[1]
+			channel, err := relayer.QueryChannel(c[src], channelID)
+			if err != nil {
+				return err
+			}
+
+			sp, err := relayer.UnrelayedSequences(c[src], c[dst], channel)
 			if err != nil {
 				return err
 			}
@@ -871,14 +878,14 @@ $ %s query unrelayed-pkts demo-path`,
 
 func queryUnrelayedAcknowledgements() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "unrelayed-acknowledgements [path]",
+		Use:     "unrelayed-acknowledgements [path] [src-channel-id]",
 		Aliases: []string{"unrelayed-acks"},
 		Short:   "query for unrelayed acknowledgement sequence numbers that remain to be relayed on a given path",
-		Args:    cobra.ExactArgs(1),
+		Args:    cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s q unrelayed-acknowledgements demo-path
-$ %s query unrelayed-acknowledgements demo-path
-$ %s query unrelayed-acks demo-path`,
+$ %s q unrelayed-acknowledgements demo-path channel-0
+$ %s query unrelayed-acknowledgements demo-path channel-0
+$ %s query unrelayed-acks demo-path channel-0`,
 			appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -900,7 +907,13 @@ $ %s query unrelayed-acks demo-path`,
 				return err
 			}
 
-			sp, err := relayer.UnrelayedAcknowledgements(c[src], c[dst])
+			channelID := args[1]
+			channel, err := relayer.QueryChannel(c[src], channelID)
+			if err != nil {
+				return err
+			}
+
+			sp, err := relayer.UnrelayedAcknowledgements(c[src], c[dst], channel)
 			if err != nil {
 				return err
 			}

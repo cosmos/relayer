@@ -9,7 +9,8 @@ import (
 	"github.com/avast/retry-go"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/ibc-go/v2/modules/core/exported"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	"github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -42,6 +43,7 @@ Most of these commands take a [path] argument. Make sure:
 		upgradeClientsCmd(),
 		//upgradeChainCmd(),
 		createConnectionCmd(),
+		createChannelCmd(),
 		closeChannelCmd(),
 		flags.LineBreak,
 
@@ -132,10 +134,10 @@ func createClientsCmd() *cobra.Command {
 
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
+				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
+				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
@@ -159,7 +161,7 @@ func createClientCmd() *cobra.Command {
 		Long: "Creates a working ibc client for chain configured on each end of the" +
 			" path by querying headers from each chain and then sending the corresponding create-client messages",
 		Args:    cobra.ExactArgs(3),
-		Example: strings.TrimSpace(fmt.Sprintf(`$ %s transact clients demo-path`, appName)),
+		Example: strings.TrimSpace(fmt.Sprintf(`$ %s transact client demo-path`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			allowUpdateAfterExpiry, err := cmd.Flags().GetBool(flagUpdateAfterExpiry)
 			if err != nil {
@@ -194,10 +196,10 @@ func createClientCmd() *cobra.Command {
 
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
+				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
+				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			// Query the latest heights on src and dst and retry if the query fails
@@ -258,10 +260,10 @@ corresponding update-client messages.`,
 
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
+				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
+				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			return c[src].UpdateClients(c[dst])
@@ -289,10 +291,10 @@ func upgradeClientsCmd() *cobra.Command {
 
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
+				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
+				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			targetChainID := args[1]
@@ -356,10 +358,10 @@ $ %s tx conn demo-path --timeout 5s`,
 
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
+				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
+				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			// ensure that the clients exist
@@ -387,16 +389,98 @@ $ %s tx conn demo-path --timeout 5s`,
 	return overrideFlag(clientParameterFlags(retryFlag(timeoutFlag(cmd))))
 }
 
+func createChannelCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "channel [path-name]",
+		Aliases: []string{"chan"},
+		Short:   "create a channel between two configured chains with a configured path using specified or default channel identifiers",
+		Long: strings.TrimSpace(`Create or repair a channel between two IBC-connected networks
+along a specific path.`,
+		),
+		Args: cobra.ExactArgs(1),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s transact channel demo-path --src-port transfer --dst-port transfer --order unordered --version ics20-1
+$ %s tx chan demo-path --timeout 5s --max-retries 10`,
+			appName, appName,
+		)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, src, dst, err := config.ChainsFromPath(args[0])
+			if err != nil {
+				return err
+			}
+
+			override, err := cmd.Flags().GetBool(flagOverride)
+			if err != nil {
+				return err
+			}
+
+			srcPort, err := cmd.Flags().GetString(flagSrcPort)
+			if err != nil {
+				return err
+			}
+
+			dstPort, err := cmd.Flags().GetString(flagDstPort)
+			if err != nil {
+				return err
+			}
+
+			order, err := cmd.Flags().GetString(flagOrder)
+			if err != nil {
+				return err
+			}
+
+			version, err := cmd.Flags().GetString(flagVersion)
+			if err != nil {
+				return err
+			}
+
+			to, err := getTimeout(cmd)
+			if err != nil {
+				return err
+			}
+
+			retries, err := cmd.Flags().GetUint64(flagMaxRetries)
+			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
+			}
+			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
+			}
+
+			// create channel if it isn't already created
+			modified, err := c[src].CreateOpenChannels(c[dst], retries, to, srcPort, dstPort, order, version, override)
+			if err != nil {
+				return fmt.Errorf("error creating channels: %w", err)
+			}
+
+			if modified {
+				if err := overWriteConfig(config); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		},
+	}
+
+	return channelParameterFlags(overrideFlag(retryFlag(timeoutFlag(cmd))))
+}
+
 func closeChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "channel-close [path-name]",
+		Use:   "channel-close [path-name] [src-channel-id] [src-port-id]",
 		Short: "close a channel between two configured chains with a configured path",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(3),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s transact channel-close demo-path
-$ %s tx channel-close demo-path --timeout 5s
-$ %s tx channel-close demo-path
-$ %s tx channel-close demo-path -o 3s`,
+$ %s transact channel-close demo-path channel-0 transfer
+$ %s tx channel-close demo-path channel-0 transfer --timeout 5s
+$ %s tx channel-close demo-path channel-0 transfer
+$ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 			appName, appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -410,15 +494,28 @@ $ %s tx channel-close demo-path -o 3s`,
 				return err
 			}
 
+			channelID := args[1]
+			portID := args[2]
+
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
+				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
+				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
-			return c[src].CloseChannel(c[dst], to)
+			srch, err := c[src].ChainProvider.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			channel, err := c[src].ChainProvider.QueryChannel(srch, channelID, portID)
+			if err != nil {
+				return err
+			}
+
+			return c[src].CloseChannel(c[dst], to, channelID, portID, channel)
 		},
 	}
 
@@ -435,9 +532,9 @@ to creating a connection and a channel between the two networks on a configured 
 		),
 		Args: cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s transact link demo-path
+$ %s transact link demo-path --src-port transfer --dst-port transfer
 $ %s tx link demo-path
-$ %s tx connect demo-path`,
+$ %s tx connect demo-path --src-port transfer --dst-port transfer --order unordered --version ics20-1`,
 			appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -451,7 +548,33 @@ $ %s tx connect demo-path`,
 				return err
 			}
 
-			c, src, dst, err := config.ChainsFromPath(args[0])
+			pth, err := config.Paths.Get(args[0])
+			if err != nil {
+				return err
+			}
+
+			src, dst := pth.Src.ChainID, pth.Dst.ChainID
+			c, err := config.Chains.Gets(src, dst)
+
+			c[src].PathEnd = pth.Src
+			c[dst].PathEnd = pth.Dst
+
+			srcPort, err := cmd.Flags().GetString(flagSrcPort)
+			if err != nil {
+				return err
+			}
+
+			dstPort, err := cmd.Flags().GetString(flagDstPort)
+			if err != nil {
+				return err
+			}
+
+			order, err := cmd.Flags().GetString(flagOrder)
+			if err != nil {
+				return err
+			}
+
+			version, err := cmd.Flags().GetString(flagVersion)
 			if err != nil {
 				return err
 			}
@@ -473,10 +596,10 @@ $ %s tx connect demo-path`,
 
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
+				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
+				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			// create clients if they aren't already created
@@ -502,7 +625,7 @@ $ %s tx connect demo-path`,
 			}
 
 			// create channel if it isn't already created
-			modified, err = c[src].CreateOpenChannels(c[dst], retries, to)
+			modified, err = c[src].CreateOpenChannels(c[dst], retries, to, srcPort, dstPort, order, version, override)
 			if modified {
 				if err := overWriteConfig(config); err != nil {
 					return err
@@ -516,7 +639,7 @@ $ %s tx connect demo-path`,
 		},
 	}
 
-	return overrideFlag(clientParameterFlags(retryFlag(timeoutFlag(cmd))))
+	return overrideFlag(channelParameterFlags(clientParameterFlags(retryFlag(timeoutFlag(cmd)))))
 }
 
 func linkThenStartCmd() *cobra.Command {
@@ -549,13 +672,13 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 
 func relayMsgCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "relay-packet [path-name] [seq-num]",
+		Use:     "relay-packet [path-name] [src-channel-id] [seq-num]",
 		Aliases: []string{"relay-pkt"},
 		Short:   "relay a non-relayed packet with a specific sequence number, in both directions",
-		Args:    cobra.ExactArgs(2),
+		Args:    cobra.ExactArgs(3),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s transact relay-packet demo-path 1
-$ %s tx relay-pkt demo-path 1`,
+$ %s transact relay-packet demo-path channel-1 1
+$ %s tx relay-pkt demo-path channel-1 1`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -573,17 +696,23 @@ $ %s tx relay-pkt demo-path 1`,
 				return err
 			}
 
-			seqNum, err := strconv.Atoi(args[1])
+			seqNum, err := strconv.Atoi(args[2])
 			if err != nil {
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(c[src], c[dst])
+			channelID := args[1]
+			channel, err := relayer.QueryChannel(c[src], channelID)
 			if err != nil {
 				return err
 			}
 
-			return relayer.RelayPacket(c[src], c[dst], sp, maxTxSize, maxMsgLength, uint64(seqNum))
+			sp, err := relayer.UnrelayedSequences(c[src], c[dst], channel)
+			if err != nil {
+				return err
+			}
+
+			return relayer.RelayPacket(c[src], c[dst], sp, maxTxSize, maxMsgLength, uint64(seqNum), channel)
 		},
 	}
 
@@ -592,13 +721,13 @@ $ %s tx relay-pkt demo-path 1`,
 
 func relayMsgsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "relay-packets [path-name]",
+		Use:     "relay-packets [path-name] [src-channel-id]",
 		Aliases: []string{"relay-pkts"},
 		Short:   "relay any remaining non-relayed packets on a given path, in both directions",
-		Args:    cobra.ExactArgs(1),
+		Args:    cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s transact relay-packets demo-path
-$ %s tx relay-pkts demo-path`,
+$ %s transact relay-packets demo-path channel-0
+$ %s tx relay-pkts demo-path channel-0`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -616,12 +745,18 @@ $ %s tx relay-pkts demo-path`,
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(c[src], c[dst])
+			channelID := args[1]
+			channel, err := relayer.QueryChannel(c[src], channelID)
 			if err != nil {
 				return err
 			}
 
-			if err = relayer.RelayPackets(c[src], c[dst], sp, maxTxSize, maxMsgLength); err != nil {
+			sp, err := relayer.UnrelayedSequences(c[src], c[dst], channel)
+			if err != nil {
+				return err
+			}
+
+			if err = relayer.RelayPackets(cmd.Context(), c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
 				return err
 			}
 
@@ -634,13 +769,13 @@ $ %s tx relay-pkts demo-path`,
 
 func relayAcksCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "relay-acknowledgements [path-name]",
+		Use:     "relay-acknowledgements [path-name] [src-channel-id]",
 		Aliases: []string{"relay-acks"},
 		Short:   "relay any remaining non-relayed acknowledgements on a given path, in both directions",
-		Args:    cobra.ExactArgs(1),
+		Args:    cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s transact relay-acknowledgements demo-path
-$ %s tx relay-acks demo-path -l 3 -s 6`,
+$ %s transact relay-acknowledgements demo-path channel-0
+$ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -658,14 +793,20 @@ $ %s tx relay-acks demo-path -l 3 -s 6`,
 				return err
 			}
 
-			// sp.Src contains all sequences acked on SRC but acknowledgement not processed on DST
-			// sp.Dst contains all sequences acked on DST but acknowledgement not processed on SRC
-			sp, err := relayer.UnrelayedAcknowledgements(c[src], c[dst])
+			channelID := args[1]
+			channel, err := relayer.QueryChannel(c[src], channelID)
 			if err != nil {
 				return err
 			}
 
-			if err = relayer.RelayAcknowledgements(c[src], c[dst], sp, maxTxSize, maxMsgLength); err != nil {
+			// sp.Src contains all sequences acked on SRC but acknowledgement not processed on DST
+			// sp.Dst contains all sequences acked on DST but acknowledgement not processed on SRC
+			sp, err := relayer.UnrelayedAcknowledgements(c[src], c[dst], channel)
+			if err != nil {
+				return err
+			}
+
+			if err = relayer.RelayAcknowledgements(cmd.Context(), c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
 				return err
 			}
 
@@ -743,16 +884,16 @@ $ %s tx relay-acks demo-path -l 3 -s 6`,
 
 func xfersend() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "transfer [src-chain-id] [dst-chain-id] [amount] [dst-addr]",
+		Use:   "transfer [src-chain-id] [dst-chain-id] [amount] [dst-addr] [src-channel-id]",
 		Short: "initiate a transfer from one network to another",
 		Long: `Initiate a token transfer via IBC between two networks. The created packet
 must be relayed to the destination chain.`,
-		Args: cobra.ExactArgs(4),
+		Args: cobra.ExactArgs(5),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s tx transfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo-path
-$ %s tx transfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo -y 2 -c 10
-$ %s tx transfer ibc-0 ibc-1 100000stake raw:non-bech32-address --path demo
-$ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk --path demo -c 5
+$ %s tx transfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk channel-0 --path demo-path
+$ %s tx transfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk channel-0 --path demo -y 2 -c 10
+$ %s tx transfer ibc-0 ibc-1 100000stake raw:non-bech32-address channel-0 --path demo
+$ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk channel-0 --path demo -c 5
 `, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
@@ -761,12 +902,13 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 				return err
 			}
 
-			pth, err := cmd.Flags().GetString(flagPath)
+			pathString, err := cmd.Flags().GetString(flagPath)
 			if err != nil {
 				return err
 			}
 
-			if _, err = setPathsFromArgs(c[src], c[dst], pth); err != nil {
+			var path *relayer.Path
+			if path, err = setPathsFromArgs(c[src], c[dst], pathString); err != nil {
 				return err
 			}
 
@@ -778,6 +920,27 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 			srch, err := c[src].ChainProvider.QueryLatestHeight()
 			if err != nil {
 				return err
+			}
+
+			// Query all channels for the configured connection on the src chain
+			srcChannelID := args[4]
+			channels, err := c[src].ChainProvider.QueryConnectionChannels(srch, path.Src.ConnectionID)
+			if err != nil {
+				return err
+			}
+
+			// Ensure the specified channel exists for the given path
+			var srcChannel *chantypes.IdentifiedChannel
+			for _, channel := range channels {
+				if channel.ChannelId == srcChannelID {
+					srcChannel = channel
+					break
+				}
+			}
+
+			if srcChannel == nil {
+				return fmt.Errorf("could not find channel{%s} for chain{%s}@connection{%s}",
+					srcChannelID, c[src], path.Src.ConnectionID)
 			}
 
 			dts, err := c[src].ChainProvider.QueryDenomTraces(0, 100, srch)
@@ -820,7 +983,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 
 			}
 
-			return c[src].SendTransferMsg(c[dst], amount, dstAddr, toHeightOffset, toTimeOffset)
+			return c[src].SendTransferMsg(c[dst], amount, dstAddr, toHeightOffset, toTimeOffset, srcChannel)
 		},
 	}
 

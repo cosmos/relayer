@@ -17,6 +17,7 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math"
@@ -73,34 +74,41 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				}
 			}
 
-			done, err := relayer.StartRelayer(c[src], c[dst], maxTxSize, maxMsgLength)
-			if err != nil {
-				c[src].Log(fmt.Sprintf("relayer start error. Err: %v", err))
-			}
+			ctx, cancel := context.WithCancel(cmd.Context())
+			defer cancel()
 
-			thresholdTime := viper.GetDuration(flagThresholdTime)
+			errorChan := relayer.StartRelayer(ctx, c[src], c[dst], maxTxSize, maxMsgLength)
 
-			eg := new(errgroup.Group)
-			eg.Go(func() error {
-				for {
-					var timeToExpiry time.Duration
-					if err := retry.Do(func() error {
-						timeToExpiry, err = UpdateClientsFromChains(c[src], c[dst], thresholdTime)
-						if err != nil {
+			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire
+			// when there are no packets flowing across the channels. It is currently a source of errors that have been
+			// hard to rectify, so we are just avoiding this code path for now
+			if false {
+				thresholdTime := viper.GetDuration(flagThresholdTime)
+				eg := new(errgroup.Group)
+
+				eg.Go(func() error {
+					for {
+						var timeToExpiry time.Duration
+						if err = retry.Do(func() error {
+							timeToExpiry, err = UpdateClientsFromChains(c[src], c[dst], thresholdTime)
+							return err
+						}, retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
+							if debug {
+								c[src].Log(fmt.Sprintf("- [%s]<->[%s] - try(%d/%d) updating clients from chains: %s",
+									c[src].ChainID(), c[dst].ChainID(), n+1, relayer.RtyAttNum, err))
+							}
+						})); err != nil {
 							return err
 						}
-						return nil
-					}, retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true)); err != nil {
-						return err
+						time.Sleep(timeToExpiry - thresholdTime)
 					}
-					time.Sleep(timeToExpiry - thresholdTime)
+				})
+				if err = eg.Wait(); err != nil {
+					c[src].Log(fmt.Sprintf("update clients error. Err: %v", err))
 				}
-			})
-			if err = eg.Wait(); err != nil {
-				c[src].Log(fmt.Sprintf("update clients error. Err: %v", err))
 			}
 
-			trapSignal(cmd.ErrOrStderr(), done)
+			trapSignal(ctx, cmd.ErrOrStderr(), errorChan, c[src])
 			return nil
 		},
 	}
@@ -108,18 +116,22 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 }
 
 // trap signal waits for a SIGINT or SIGTERM and then sends down the done channel
-func trapSignal(stderr io.Writer, done func()) {
+func trapSignal(ctx context.Context, stderr io.Writer, errorChan chan error, src *relayer.Chain) {
 	sigCh := make(chan os.Signal, 1)
 
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	// wait for a signal
-	sig := <-sigCh
-	fmt.Fprintln(stderr, "Signal Received", sig.String())
-	close(sigCh)
-
-	// call the cleanup func
-	done()
+	// wait for the context to be closed, a signal, or an error to be read
+	select {
+	case <-ctx.Done():
+		close(sigCh)
+	case sig := <-sigCh:
+		fmt.Fprintln(stderr, "Signal Received", sig.String())
+		close(sigCh)
+	case err := <-errorChan:
+		src.Log(fmt.Sprintf("relayer start error. Err: %v", err))
+		close(sigCh)
+	}
 }
 
 // UpdateClientsFromChains takes src, dst chains, threshold time and update clients based on expiry time
@@ -131,14 +143,16 @@ func UpdateClientsFromChains(src, dst *relayer.Chain, thresholdTime time.Duratio
 
 	eg := new(errgroup.Group)
 	eg.Go(func() error {
+		var err error
 		srcTimeExpiry, err = src.ChainProvider.AutoUpdateClient(dst.ChainProvider, thresholdTime, src.ClientID(), dst.ClientID())
 		return err
 	})
 	eg.Go(func() error {
+		var err error
 		dstTimeExpiry, err = dst.ChainProvider.AutoUpdateClient(src.ChainProvider, thresholdTime, dst.ClientID(), src.ClientID())
 		return err
 	})
-	if err := eg.Wait(); err != nil {
+	if err = eg.Wait(); err != nil {
 		return 0, err
 	}
 

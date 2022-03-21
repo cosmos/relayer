@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/avast/retry-go"
-	"github.com/cosmos/ibc-go/v2/modules/core/exported"
+	"github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/relayer/provider"
 
-	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
+	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 )
 
 // CreateOpenConnections runs the connection creation messages on timeout until they pass.

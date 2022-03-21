@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/avast/retry-go"
@@ -23,8 +22,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/slashing"
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	"github.com/cosmos/cosmos-sdk/x/upgrade"
-	"github.com/cosmos/ibc-go/v2/modules/apps/transfer"
-	ibc "github.com/cosmos/ibc-go/v2/modules/core"
+	"github.com/cosmos/ibc-go/v3/modules/apps/transfer"
+	ibc "github.com/cosmos/ibc-go/v3/modules/core"
 
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	simparams "github.com/cosmos/cosmos-sdk/simapp/params"
@@ -33,7 +32,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/params"
 	paramsclient "github.com/cosmos/cosmos-sdk/x/params/client"
 	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
-	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/libs/log"
@@ -141,22 +140,6 @@ func ValidateConnectionPaths(src, dst *Chain) error {
 	return nil
 }
 
-// ValidateChannelParams takes two chains and validates their respective channel params
-func ValidateChannelParams(src, dst *Chain) error {
-	if err := src.PathEnd.ValidateBasic(); err != nil {
-		return err
-	}
-	if err := dst.PathEnd.ValidateBasic(); err != nil {
-		return err
-	}
-	//nolint:staticcheck
-	if strings.ToUpper(src.PathEnd.Order) != strings.ToUpper(dst.PathEnd.Order) {
-		return fmt.Errorf("src and dst path ends must have same ORDER. got src: %s, dst: %s",
-			src.PathEnd.Order, dst.PathEnd.Order)
-	}
-	return nil
-}
-
 // Init initializes the pieces of a chain that aren't set when it parses a config
 // NOTE: All validation of the chain should happen here.
 func (c *Chain) Init(logger log.Logger, debug bool) {
@@ -176,28 +159,12 @@ func (c *Chain) ChainID() string {
 	return c.ChainProvider.ChainId()
 }
 
-func (c *Chain) ChannelID() string {
-	return c.PathEnd.ChannelID
-}
-
 func (c *Chain) ConnectionID() string {
 	return c.PathEnd.ConnectionID
 }
 
 func (c *Chain) ClientID() string {
 	return c.PathEnd.ClientID
-}
-
-func (c *Chain) PortID() string {
-	return c.PathEnd.PortID
-}
-
-func (c *Chain) Version() string {
-	return c.PathEnd.Version
-}
-
-func (c *Chain) Order() string {
-	return c.PathEnd.Order
 }
 
 // GetSelfVersion returns the version of the given chain

@@ -11,8 +11,8 @@ import (
 	"github.com/cosmos/relayer/relayer/provider/cosmos"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
+	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 )
 
 // LogFailedTx takes the transaction and the messages to create it and logs the appropriate data
@@ -79,20 +79,20 @@ func (c *Chain) LogSuccessTx(res *sdk.TxResponse, msgs []provider.RelayerMessage
 	c.logger.Info(fmt.Sprintf("✔ [%s]@{%d} - msg(%s) hash(%s)", c.ChainID(), res.Height, getMsgTypes(msgs), res.TxHash))
 }
 
-func (c *Chain) logPacketsRelayed(dst *Chain, num int) {
+func (c *Chain) logPacketsRelayed(dst *Chain, num int, srcChannel *chantypes.IdentifiedChannel) {
 	dst.Log(fmt.Sprintf("★ Relayed %d packets: [%s]port{%s}->[%s]port{%s}",
-		num, dst.ChainID(), dst.PathEnd.PortID, c.ChainID(), c.PathEnd.PortID))
+		num, dst.ChainID(), srcChannel.Counterparty.PortId, c.ChainID(), srcChannel.PortId))
 }
 
 func logChannelStates(src, dst *Chain, srcChan, dstChan *chantypes.QueryChannelResponse) {
 	src.Log(fmt.Sprintf("- [%s]@{%d}chan(%s)-{%s} : [%s]@{%d}chan(%s)-{%s}",
 		src.ChainID(),
 		MustGetHeight(srcChan.ProofHeight),
-		src.PathEnd.ChannelID,
+		dstChan.Channel.Counterparty.ChannelId,
 		srcChan.Channel.State,
 		dst.ChainID(),
 		MustGetHeight(dstChan.ProofHeight),
-		dst.PathEnd.ChannelID,
+		srcChan.Channel.Counterparty.ChannelId,
 		dstChan.Channel.State,
 	))
 }
@@ -101,11 +101,11 @@ func logConnectionStates(src, dst *Chain, srcConn, dstConn *conntypes.QueryConne
 	src.Log(fmt.Sprintf("- [%s]@{%d}conn(%s)-{%s} : [%s]@{%d}conn(%s)-{%s}",
 		src.ChainID(),
 		MustGetHeight(srcConn.ProofHeight),
-		src.PathEnd.ConnectionID,
+		src.ConnectionID(),
 		srcConn.Connection.State,
 		dst.ChainID(),
 		MustGetHeight(dstConn.ProofHeight),
-		dst.PathEnd.ConnectionID,
+		dst.ConnectionID(),
 		dstConn.Connection.State,
 	))
 }
@@ -183,5 +183,32 @@ func (c *Chain) LogRetryGetIBCUpdateHeader(n uint, err error) {
 func (c *Chain) LogRetryGetLightSignedHeader(n uint, err error) {
 	if c.debug {
 		c.Log(fmt.Sprintf("failed to get light signed header, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
+	}
+}
+
+func (c *Chain) LogRetryQueryConnectionChannels(n uint, err error, connectionID string) {
+	if c.debug {
+		c.Log(fmt.Sprintf("failed to query connection channels for connection{%s}, try(%d/%d). Err: %v", connectionID, n+1, RtyAttNum, err))
+	}
+}
+
+func (c *Chain) LogRetryQueryPacketCommitments(n uint, err error, channelID, portID string) {
+	if c.debug {
+		c.Log(fmt.Sprintf("failed to query packet commitments for {%s}@{%s}, try(%d/%d). Err: %v",
+			channelID, portID, n+1, RtyAttNum, err))
+	}
+}
+
+func (c *Chain) LogRetryQueryUnreceivedPackets(n uint, err error, channelID, portID string) {
+	if c.debug {
+		c.Log(fmt.Sprintf("failed to query unreceived packets for {%s}@{%s}, try(%d/%d). Err: %v",
+			channelID, portID, n+1, RtyAttNum, err))
+	}
+}
+
+func (c *Chain) LogRetryRelayPacketFromSequence(n uint, err error, srcChannelID, srcPortID, dstChannelID, dstPortID string, dst *Chain) {
+	if c.debug {
+		c.Log(fmt.Sprintf("failed to relay packet from sequence for [%s - %s]port{%s} -> [%s - %s]port{%s}, try(%d/%d). Err: %v",
+			c.ChainID(), srcChannelID, srcPortID, dst.ChainID(), dstChannelID, dstPortID, n+1, RtyAttNum, err))
 	}
 }

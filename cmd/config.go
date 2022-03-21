@@ -39,15 +39,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const (
-	// ORDERED is exported channel type constant
-	ORDERED = "ordered"
-	// UNORDERED is exported channel type constant
-	UNORDERED      = "unordered"
-	defaultOrder   = ORDERED
-	defaultVersion = "ics20-1"
-)
-
 func configCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "config",
@@ -287,20 +278,6 @@ func cfgFilesAddPaths(cmd *cobra.Command, dir string) (cfg *Config, err error) {
 			return nil, fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
 		}
 
-		// In the case that order isn't added to the path, add it manually
-		if p.Src.Order == "" || p.Dst.Order == "" {
-			p.Src.Order = defaultOrder
-			p.Dst.Order = defaultOrder
-		}
-
-		// If the version isn't added to the path, add it manually
-		if p.Src.Version == "" {
-			p.Src.Version = defaultVersion
-		}
-		if p.Dst.Version == "" {
-			p.Dst.Version = defaultVersion
-		}
-
 		pthName := strings.Split(f.Name(), ".")[0]
 		if err = config.ValidatePath(cmd.ErrOrStderr(), p); err != nil {
 			return nil, fmt.Errorf("failed to validate path %s: %w", pth, err)
@@ -526,26 +503,7 @@ func checkPathEndConflict(pathID, direction string, oldPe, newPe *relayer.PathEn
 		oldPe.ConnectionID, newPe.ConnectionID); err != nil {
 		return err
 	}
-	if err = checkPathConflict(
-		pathID, direction+" port ID",
-		oldPe.PortID, newPe.PortID); err != nil {
-		return err
-	}
-	if err = checkPathConflict(
-		pathID, direction+" order",
-		strings.ToLower(oldPe.Order), strings.ToLower(newPe.Order)); err != nil {
-		return err
-	}
-	if err = checkPathConflict(
-		pathID, direction+" version",
-		oldPe.Version, newPe.Version); err != nil {
-		return err
-	}
-	if err = checkPathConflict(
-		pathID, direction+" channel ID",
-		oldPe.ChannelID, newPe.ChannelID); err != nil {
-		return err
-	}
+
 	return nil
 }
 
@@ -678,28 +636,17 @@ func overWriteConfig(cfg *Config) (err error) {
 
 // ValidatePath checks that a path is valid
 func (c *Config) ValidatePath(stderr io.Writer, p *relayer.Path) (err error) {
-	if p.Src.Version == "" {
-		return fmt.Errorf("source must specify a version")
-	}
 	if err = c.ValidatePathEnd(stderr, p.Src); err != nil {
 		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Src.ChainID)
 	}
 	if err = c.ValidatePathEnd(stderr, p.Dst); err != nil {
 		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Dst.ChainID)
 	}
-	if p.Src.Order != p.Dst.Order {
-		return fmt.Errorf("both sides must have same order ('ORDERED' or 'UNORDERED'), got src(%s) and dst(%s)",
-			p.Src.Order, p.Dst.Order)
-	}
 	return nil
 }
 
 // ValidatePathEnd validates provided pathend and returns error for invalid identifiers
 func (c *Config) ValidatePathEnd(stderr io.Writer, pe *relayer.PathEnd) error {
-	if err := pe.ValidateBasic(); err != nil {
-		return err
-	}
-
 	chain, err := c.Chains.Get(pe.ChainID)
 	if err != nil {
 		fmt.Fprintf(stderr, "Chain %s is not currently configured.\n", pe.ChainID)
@@ -731,16 +678,6 @@ func (c *Config) ValidatePathEnd(stderr io.Writer, pe *relayer.PathEnd) error {
 			if err := c.ValidateConnection(chain, height, pe); err != nil {
 				return err
 			}
-
-			if pe.ChannelID != "" {
-				if err := c.ValidateChannel(chain, height, pe); err != nil {
-					return err
-				}
-			}
-		}
-
-		if pe.ConnectionID == "" && pe.ChannelID != "" {
-			return fmt.Errorf("connectionID is not configured for the channel: %s", pe.ChannelID)
 		}
 	}
 
@@ -781,24 +718,4 @@ func (c *Config) ValidateConnection(chain *relayer.Chain, height int64, pe *rela
 	}
 
 	return nil
-}
-
-// ValidateChannel validates channel id in provided pathend
-func (c *Config) ValidateChannel(chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
-	if err := pe.Vchan(); err != nil {
-		return err
-	}
-
-	channel, err := chain.ChainProvider.QueryChannel(height, pe.ChannelID, pe.PortID)
-	if err != nil {
-		return err
-	}
-
-	for _, connection := range channel.Channel.ConnectionHops {
-		if connection == pe.ConnectionID {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("connectionID of channel: %s didn't match with provided ConnectionID", pe.ChannelID)
 }

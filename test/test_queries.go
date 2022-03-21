@@ -7,18 +7,21 @@ import (
 	"github.com/cosmos/relayer/relayer"
 
 	"github.com/avast/retry-go"
-	clientypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	clientypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	"github.com/stretchr/testify/require"
 )
 
 // testClientPair tests that the client for src on dst and dst on src are the only clients on those chains
 func testClientPair(t *testing.T, src, dst *relayer.Chain) {
+	t.Helper()
 	testClient(t, src)
 	testClient(t, dst)
 }
 
 // testClient queries client for existence of dst on src
 func testClient(t *testing.T, src *relayer.Chain) {
+	t.Helper()
+
 	srch, err := src.ChainProvider.QueryLatestHeight()
 	require.NoError(t, err)
 	var (
@@ -42,12 +45,15 @@ func testClient(t *testing.T, src *relayer.Chain) {
 
 // testConnectionPair tests that the only connection on src and dst is between the two chains
 func testConnectionPair(t *testing.T, src, dst *relayer.Chain) {
+	t.Helper()
 	testConnection(t, src, dst)
 	testConnection(t, dst, src)
 }
 
 // testConnection tests that the only connection on src has a counterparty that is the connection on dst
 func testConnection(t *testing.T, src, dst *relayer.Chain) {
+	t.Helper()
+
 	conns, err := src.ChainProvider.QueryConnections()
 	require.NoError(t, err)
 	require.Equal(t, len(conns), 1)
@@ -69,29 +75,32 @@ func testConnection(t *testing.T, src, dst *relayer.Chain) {
 }
 
 // testChannelPair tests that the only channel on src and dst is between the two chains
-func testChannelPair(t *testing.T, src, dst *relayer.Chain) {
-	testChannel(t, src, dst)
-	testChannel(t, dst, src)
+func testChannelPair(t *testing.T, src, dst *relayer.Chain, channelID, portID string) {
+	t.Helper()
+	testChannel(t, src, dst, channelID, portID)
+	testChannel(t, dst, src, channelID, portID)
 }
 
 // testChannel tests that the only channel on src is a counterparty of dst
-func testChannel(t *testing.T, src, dst *relayer.Chain) {
+func testChannel(t *testing.T, src, dst *relayer.Chain, channelID, portID string) {
+	t.Helper()
+
 	chans, err := src.ChainProvider.QueryChannels()
 	require.NoError(t, err)
 	require.Equal(t, 1, len(chans))
 	require.Equal(t, chans[0].Ordering.String(), "ORDER_UNORDERED")
 	require.Equal(t, chans[0].State.String(), "STATE_OPEN")
-	require.Equal(t, chans[0].Counterparty.ChannelId, dst.PathEnd.ChannelID)
-	require.Equal(t, chans[0].Counterparty.GetPortID(), dst.PathEnd.PortID)
+	require.Equal(t, chans[0].Counterparty.ChannelId, channelID)
+	require.Equal(t, chans[0].Counterparty.GetPortID(), portID)
 
 	h, err := src.ChainProvider.QueryLatestHeight()
 	require.NoError(t, err)
 
 	time.Sleep(time.Second * 5)
-	ch, err := src.ChainProvider.QueryChannel(h, src.ChannelID(), src.PortID())
+	ch, err := src.ChainProvider.QueryChannel(h, channelID, portID)
 	require.NoError(t, err)
 	require.Equal(t, ch.Channel.Ordering.String(), "ORDER_UNORDERED")
 	require.Equal(t, ch.Channel.State.String(), "STATE_OPEN")
-	require.Equal(t, ch.Channel.Counterparty.ChannelId, dst.PathEnd.ChannelID)
-	require.Equal(t, ch.Channel.Counterparty.GetPortID(), dst.PathEnd.PortID)
+	require.Equal(t, ch.Channel.Counterparty.ChannelId, channelID)
+	require.Equal(t, ch.Channel.Counterparty.GetPortID(), portID)
 }

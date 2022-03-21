@@ -26,8 +26,9 @@ var (
 	flagUpdateAfterExpiry       = "update-after-expiry"
 	flagUpdateAfterMisbehaviour = "update-after-misbehaviour"
 	flagOverride                = "override"
-	flagPort                    = "port"
-	flagOrder                   = "unordered"
+	flagSrcPort                 = "src-port"
+	flagDstPort                 = "dst-port"
+	flagOrder                   = "order"
 	flagVersion                 = "version"
 )
 
@@ -118,7 +119,7 @@ func fileFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func timeoutFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagTimeout, "o", "10s", "timeout between relayer runs")
+	cmd.Flags().StringP(flagTimeout, "t", "10s", "timeout between relayer runs")
 	if err := viper.BindPFlag(flagTimeout, cmd.Flags().Lookup(flagTimeout)); err != nil {
 		panic(err)
 	}
@@ -201,8 +202,12 @@ func clientParameterFlags(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
+func channelParameterFlags(cmd *cobra.Command) *cobra.Command {
+	return srcPortFlag(dstPortFlag(versionFlag(orderFlag(cmd))))
+}
+
 func overrideFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().Bool(flagOverride, false, "option to not reuse existing client")
+	cmd.Flags().Bool(flagOverride, false, "option to not reuse existing client or channel")
 	if err := viper.BindPFlag(flagOverride, cmd.Flags().Lookup(flagOverride)); err != nil {
 		panic(err)
 	}
@@ -210,7 +215,7 @@ func overrideFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func orderFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP(flagOrder, "o", true, "create an unordered channel")
+	cmd.Flags().StringP(flagOrder, "o", "unordered", "order of channel to create (ordered or unordered)")
 	if err := viper.BindPFlag(flagOrder, cmd.Flags().Lookup(flagOrder)); err != nil {
 		panic(err)
 	}
@@ -225,9 +230,17 @@ func versionFlag(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
-func portFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagPort, "p", "transfer", "port to use when generating path")
-	if err := viper.BindPFlag(flagPort, cmd.Flags().Lookup(flagPort)); err != nil {
+func srcPortFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().String(flagSrcPort, "transfer", "port on src chain to use when generating path")
+	if err := viper.BindPFlag(flagSrcPort, cmd.Flags().Lookup(flagSrcPort)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func dstPortFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().String(flagDstPort, "transfer", "port on dst chain to use when generating path")
+	if err := viper.BindPFlag(flagDstPort, cmd.Flags().Lookup(flagDstPort)); err != nil {
 		panic(err)
 	}
 	return cmd

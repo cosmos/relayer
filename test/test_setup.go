@@ -183,6 +183,7 @@ func spinUpTestContainer(rchan chan<- *dockertest.Resource, pool *dockertest.Poo
 	hcOpt := func(hc *dc.HostConfig) {
 		hc.LogConfig.Type = "json-file"
 	}
+
 	resource, err = BuildAndRunWithBuildOptions(pool, buildOpts, dockerOpts, hcOpt)
 	if err != nil {
 		return err
@@ -241,8 +242,8 @@ func getLoggingChain(chns []*relayer.Chain, rsr *dockertest.Resource) *relayer.C
 	return nil
 }
 
-func genTestPathAndSet(src, dst *relayer.Chain, srcPort, dstPort string) (*relayer.Path, error) {
-	p := relayer.GenPath(src.ChainID(), dst.ChainID(), srcPort, dstPort, "UNORDERED", "ics20-1")
+func genTestPathAndSet(src, dst *relayer.Chain) (*relayer.Path, error) {
+	p := relayer.GenPath(src.ChainID(), dst.ChainID())
 
 	src.PathEnd = p.Src
 	dst.PathEnd = p.Dst
@@ -277,9 +278,14 @@ type BuildOptions struct {
 	BuildArgs  []dc.BuildArg
 }
 
+var muDockerBuild sync.Mutex
+
 // BuildAndRunWithBuildOptions builds and starts a docker container.
 // Optional modifier functions can be passed in order to change the hostconfig values not covered in RunOptions
 func BuildAndRunWithBuildOptions(pool *dockertest.Pool, buildOpts *BuildOptions, runOpts *dockertest.RunOptions, hcOpts ...func(*dc.HostConfig)) (*dockertest.Resource, error) {
+
+	muDockerBuild.Lock()
+	defer muDockerBuild.Unlock()
 	err := pool.Client.BuildImage(dc.BuildImageOptions{
 		Name:         runOpts.Name,
 		Dockerfile:   buildOpts.Dockerfile,
