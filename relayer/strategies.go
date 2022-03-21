@@ -36,18 +36,11 @@ func StartRelayer(ctx context.Context, src, dst *Chain, filter *ChannelFilter, m
 					return
 				}
 
-				// Filter for open channels that are not already in our slice of open channels
-				// TODO implement a filter list of channels we want to relay against or a list of channels to ignore
-				srcOpenChannels = FilterOpenChannels(srcChannels, srcOpenChannels)
+				// Apply the channel filter rule (i.e. build allowlist, denylist or relay on all channels available)
+				srcChannels = ApplyChannelFilterRule(filter, srcChannels)
 
-				switch filter.Rule {
-				case allowList:
-					//do stuff
-				case denyList:
-					//do stuff
-				default:
-					// handle all channels on connection
-				}
+				// Filter for open channels that are not already in our slice of open channels
+				srcOpenChannels = FilterOpenChannels(srcChannels, srcOpenChannels)
 
 				// Spin up a goroutine to relay packets & acks for each channel that isn't already being relayed against
 				for _, channel := range srcOpenChannels {
@@ -126,6 +119,33 @@ func FilterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*Act
 	}
 
 	return openChannels
+}
+
+// ApplyChannelFilterRule will use the given ChannelFilter's rule and channel list to build the appropriate list of
+// channels to relay on.
+func ApplyChannelFilterRule(filter *ChannelFilter, channels []*types.IdentifiedChannel) []*types.IdentifiedChannel {
+	switch filter.Rule {
+	case allowList:
+		var filteredChans []*types.IdentifiedChannel
+		for _, c := range channels {
+			if filter.InChannelList(c.ChannelId) {
+				filteredChans = append(filteredChans, c)
+			}
+		}
+		return filteredChans
+	case denyList:
+		var filteredChans []*types.IdentifiedChannel
+		for _, c := range channels {
+			if filter.InChannelList(c.ChannelId) {
+				continue
+			}
+			filteredChans = append(filteredChans, c)
+		}
+		return filteredChans
+	default:
+		// handle all channels on connection
+		return channels
+	}
 }
 
 // RelayUnrelayedPacketsAndAcks will relay all the pending packets and acknowledgements on both the src and dst chains.
