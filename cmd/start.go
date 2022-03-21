@@ -48,7 +48,8 @@ func startCmd() *cobra.Command {
 $ %s start demo-path --max-msgs 3
 $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := config.ChainsFromPath(args[0])
+			pathName := args[0]
+			c, src, dst, err := config.ChainsFromPath(pathName)
 			if err != nil {
 				return err
 			}
@@ -57,11 +58,13 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				return err
 			}
 
-			path := config.Paths.MustGet(args[0])
+			path := config.Paths.MustGet(pathName)
 			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
 			if err != nil {
 				return err
 			}
+
+			filter := path.Filter
 
 			if relayer.SendToController != nil {
 				action := relayer.PathAction{
@@ -77,7 +80,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 			ctx, cancel := context.WithCancel(cmd.Context())
 			defer cancel()
 
-			errorChan := relayer.StartRelayer(ctx, c[src], c[dst], maxTxSize, maxMsgLength)
+			errorChan := relayer.StartRelayer(ctx, c[src], c[dst], filter, maxTxSize, maxMsgLength)
 
 			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire
 			// when there are no packets flowing across the channels. It is currently a source of errors that have been

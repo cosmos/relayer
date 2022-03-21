@@ -17,7 +17,7 @@ type ActiveChannel struct {
 }
 
 // StartRelayer starts the main relaying loop.
-func StartRelayer(ctx context.Context, src, dst *Chain, maxTxSize, maxMsgLength uint64) chan error {
+func StartRelayer(ctx context.Context, src, dst *Chain, filter *ChannelFilter, maxTxSize, maxMsgLength uint64) chan error {
 	errorChan := make(chan error)
 	channels := make(chan *ActiveChannel, 10)
 	var srcOpenChannels []*ActiveChannel
@@ -39,6 +39,15 @@ func StartRelayer(ctx context.Context, src, dst *Chain, maxTxSize, maxMsgLength 
 				// Filter for open channels that are not already in our slice of open channels
 				// TODO implement a filter list of channels we want to relay against or a list of channels to ignore
 				srcOpenChannels = FilterOpenChannels(srcChannels, srcOpenChannels)
+
+				switch filter.Rule {
+				case whiteList:
+					//do stuff
+				case blackList:
+					//do stuff
+				default:
+					// handle all channels on connection
+				}
 
 				// Spin up a goroutine to relay packets & acks for each channel that isn't already being relayed against
 				for _, channel := range srcOpenChannels {
