@@ -108,7 +108,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				}
 			}
 
-			trapSignal(ctx, cmd.ErrOrStderr(), cancel, errorChan, c[src])
+			trapSignal(ctx, cmd.ErrOrStderr(), errorChan, c[src])
 			return nil
 		},
 	}
@@ -116,7 +116,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 }
 
 // trap signal waits for a SIGINT or SIGTERM and then sends down the done channel
-func trapSignal(ctx context.Context, stderr io.Writer, cancel func(), errorChan chan error, src *relayer.Chain) {
+func trapSignal(ctx context.Context, stderr io.Writer, errorChan chan error, src *relayer.Chain) {
 	sigCh := make(chan os.Signal, 1)
 
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -128,11 +128,9 @@ func trapSignal(ctx context.Context, stderr io.Writer, cancel func(), errorChan 
 	case sig := <-sigCh:
 		fmt.Fprintln(stderr, "Signal Received", sig.String())
 		close(sigCh)
-		cancel()
 	case err := <-errorChan:
 		src.Log(fmt.Sprintf("relayer start error. Err: %v", err))
 		close(sigCh)
-		cancel()
 	}
 }
 
