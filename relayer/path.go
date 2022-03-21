@@ -13,8 +13,8 @@ import (
 const (
 	check     = "✔"
 	xIcon     = "✘"
-	allowList = "allowList"
-	denyList  = "denyList"
+	allowList = "allowlist"
+	denyList  = "denylist"
 )
 
 // Paths represent connection paths between chains
@@ -105,9 +105,19 @@ type ChannelFilter struct {
 func (p *Path) ValidateChannelFilterRule() error {
 	if p.Filter.Rule != allowList && p.Filter.Rule != denyList && p.Filter.Rule != "" {
 		return fmt.Errorf("%s is not a valid channel filter rule, please "+
-			"ensure your channel filter rule is `allowlist` or 'denylist'", p.Filter.Rule)
+			"ensure your channel filter rule is `%s` or '%s'", p.Filter.Rule, allowList, denyList)
 	}
 	return nil
+}
+
+// InChannelList returns true if the channelID argument is in the ChannelFilter's ChannelList or false otherwise.
+func (cf *ChannelFilter) InChannelList(channelID string) bool {
+	for _, channel := range cf.ChannelList {
+		if channel == channelID {
+			return true
+		}
+	}
+	return false
 }
 
 // End returns the proper end given a chainID.
