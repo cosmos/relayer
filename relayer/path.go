@@ -11,8 +11,10 @@ import (
 )
 
 const (
-	check = "✔"
-	xIcon = "✘"
+	check     = "✔"
+	xIcon     = "✘"
+	whiteList = "whitelist"
+	blackList = "blacklist"
 )
 
 // Paths represent connection paths between chains
@@ -85,14 +87,30 @@ type PathAction struct {
 	Type string `json:"type"`
 }
 
-// Path represents a pair of chains and the identifiers needed to
-// relay over them
+// Path represents a pair of chains and the identifiers needed to relay over them along with a channel filter list.
 type Path struct {
-	Src *PathEnd `yaml:"src" json:"src"`
-	Dst *PathEnd `yaml:"dst" json:"dst"`
+	Src    *PathEnd       `yaml:"src" json:"src"`
+	Dst    *PathEnd       `yaml:"dst" json:"dst"`
+	Filter *ChannelFilter `yaml:"src-channel-filter" json:"src-channel-filter"`
 }
 
-// End returns the proper end given a chainID
+// ChannelFilter provides the means for either creating a whitelist or a blacklist of channels on the src chain
+// which will be used to narrow down the list of channels a user wants to relay on.
+type ChannelFilter struct {
+	Rule        string   `yaml:"rule" json:"rule"`
+	ChannelList []string `yaml:"channel-list" json:"channel-list"`
+}
+
+// ValidateChannelFilterRule verifies that the configured ChannelFilter rule is set to an appropriate value
+func (p *Path) ValidateChannelFilterRule() error {
+	if p.Filter.Rule != whiteList && p.Filter.Rule != blackList && p.Filter.Rule != "" {
+		return fmt.Errorf("error initializing the relayer config. %s is not a valid channel filter rule, please "+
+			"ensure your channel filter rule is `whitelist` or 'blacklist'", p.Filter.Rule)
+	}
+	return nil
+}
+
+// End returns the proper end given a chainID.
 func (p *Path) End(chainID string) *PathEnd {
 	if p.Dst.ChainID == chainID {
 		return p.Dst
