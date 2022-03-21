@@ -2,10 +2,9 @@ package relayer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/avast/retry-go"
 	"github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
@@ -34,6 +33,7 @@ func StartRelayer(ctx context.Context, src, dst *Chain, maxTxSize, maxMsgLength 
 				if err != nil {
 					errorChan <- fmt.Errorf("error querying all channels on chain{%s}@connection{%s}: %v \n",
 						src.ChainID(), src.ConnectionID(), err)
+					return
 				}
 
 				// Filter for open channels that are not already in our slice of open channels
