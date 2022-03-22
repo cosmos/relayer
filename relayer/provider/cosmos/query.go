@@ -629,9 +629,9 @@ func (cc *CosmosProvider) QueryPacketAcknowledgements(ctx context.Context, heigh
 }
 
 // QueryUnreceivedPackets returns a list of unrelayed packet commitments
-func (cc *CosmosProvider) QueryUnreceivedPackets(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
+func (cc *CosmosProvider) QueryUnreceivedPackets(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
 	qc := chantypes.NewQueryClient(cc)
-	res, err := qc.UnreceivedPackets(context.Background(), &chantypes.QueryUnreceivedPacketsRequest{
+	res, err := qc.UnreceivedPackets(ctx, &chantypes.QueryUnreceivedPacketsRequest{
 		PortId:                    portid,
 		ChannelId:                 channelid,
 		PacketCommitmentSequences: seqs,

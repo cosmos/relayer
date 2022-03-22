@@ -88,7 +88,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 		// Query all packets sent by src that have been received by dst
 		return retry.Do(func() error {
 			var err error
-			rs.Src, err = dst.ChainProvider.QueryUnreceivedPackets(uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
+			rs.Src, err = dst.ChainProvider.QueryUnreceivedPackets(ctx, uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dst.LogRetryQueryUnreceivedPackets(n, err, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
@@ -100,7 +100,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 		// Query all packets sent by dst that have been received by src
 		return retry.Do(func() error {
 			var err error
-			rs.Dst, err = src.ChainProvider.QueryUnreceivedPackets(uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
+			rs.Dst, err = src.ChainProvider.QueryUnreceivedPackets(ctx, uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.LogRetryQueryUnreceivedPackets(n, err, srcChannel.ChannelId, srcChannel.PortId)
