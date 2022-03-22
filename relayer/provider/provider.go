@@ -95,8 +95,8 @@ type QueryProvider interface {
 	QueryHeaderAtHeight(height int64) (ibcexported.Header, error)
 
 	// bank
-	QueryBalance(keyName string) (sdk.Coins, error)
-	QueryBalanceWithAddress(addr string) (sdk.Coins, error)
+	QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error)
+	QueryBalanceWithAddress(ctx context.Context, addr string) (sdk.Coins, error)
 
 	// staking
 	QueryUnbondingPeriod() (time.Duration, error)

@@ -259,7 +259,7 @@ $ %s query balance ibc-0 testkey`,
 				return err
 			}
 
-			coins, err := helpers.QueryBalance(chain, addr, showDenoms)
+			coins, err := helpers.QueryBalance(cmd.Context(), chain, addr, showDenoms)
 			if err != nil {
 				return err
 			}

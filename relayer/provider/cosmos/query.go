@@ -65,31 +65,25 @@ func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events 
 }
 
 // QueryBalance returns the amount of coins in the relayer account
-func (cc *CosmosProvider) QueryBalance(keyName string) (sdk.Coins, error) {
-	var (
-		addr string
-		err  error
-	)
-	if keyName == "" {
-		addr, err = cc.Address()
-	} else {
+func (cc *CosmosProvider) QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error) {
+	if keyName != "" {
 		cc.PCfg.Key = keyName
-		addr, err = cc.Address()
 	}
-
+	addr, err := cc.Address()
 	if err != nil {
 		return nil, err
 	}
-	return cc.QueryBalanceWithAddress(addr)
+
+	return cc.QueryBalanceWithAddress(ctx, addr)
 }
 
 // QueryBalanceWithAddress returns the amount of coins in the relayer account with address as input
 // TODO add pagination support
-func (cc *CosmosProvider) QueryBalanceWithAddress(address string) (sdk.Coins, error) {
+func (cc *CosmosProvider) QueryBalanceWithAddress(ctx context.Context, address string) (sdk.Coins, error) {
 	p := &bankTypes.QueryAllBalancesRequest{Address: address, Pagination: DefaultPageRequest()}
 	queryClient := bankTypes.NewQueryClient(cc)
 
-	res, err := queryClient.AllBalances(context.Background(), p)
+	res, err := queryClient.AllBalances(ctx, p)
 	if err != nil {
 		return nil, err
 	}

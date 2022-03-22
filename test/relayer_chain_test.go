@@ -53,7 +53,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	eg.Go(func() error {
 		return retry.Do(func() error {
 			var err error
-			srcExpected, err = src.ChainProvider.QueryBalance(src.ChainProvider.Key())
+			srcExpected, err = src.ChainProvider.QueryBalance(context.Background(), src.ChainProvider.Key())
 			if srcExpected.IsZero() {
 				return fmt.Errorf("expected non-zero balance. Err: %w", err)
 			}
@@ -63,7 +63,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	eg.Go(func() error {
 		return retry.Do(func() error {
 			var err error
-			dstExpected, err = dst.ChainProvider.QueryBalance(dst.ChainProvider.Key())
+			dstExpected, err = dst.ChainProvider.QueryBalance(context.Background(), dst.ChainProvider.Key())
 			if dstExpected.IsZero() {
 				return fmt.Errorf("expected non-zero balance. Err: %w", err)
 			}
@@ -133,12 +133,12 @@ func chainTest(t *testing.T, tcs []testChain) {
 	cancel()
 
 	// check balance on src against expected
-	srcGot, err := src.ChainProvider.QueryBalance(src.ChainProvider.Key())
+	srcGot, err := src.ChainProvider.QueryBalance(context.Background(), src.ChainProvider.Key())
 	require.NoError(t, err)
 	require.Equal(t, srcExpected.AmountOf(testDenom).Int64()-4000, srcGot.AmountOf(testDenom).Int64())
 
 	// check balance on dst against expected
-	dstGot, err := dst.ChainProvider.QueryBalance(dst.ChainProvider.Key())
+	dstGot, err := dst.ChainProvider.QueryBalance(context.Background(), dst.ChainProvider.Key())
 	require.NoError(t, err)
 	require.Equal(t, dstExpected.AmountOf(testDenom).Int64()-4000, dstGot.AmountOf(testDenom).Int64())
 }
@@ -351,7 +351,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	eg.Go(func() error {
 		return retry.Do(func() error {
 			var err error
-			srcExpected, err = src.ChainProvider.QueryBalance(src.ChainProvider.Key())
+			srcExpected, err = src.ChainProvider.QueryBalance(context.Background(), src.ChainProvider.Key())
 			if err != nil {
 				return err
 			}
@@ -366,7 +366,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	eg.Go(func() error {
 		return retry.Do(func() error {
 			var err error
-			dstExpected, err = dst.ChainProvider.QueryBalance(dst.ChainProvider.Key())
+			dstExpected, err = dst.ChainProvider.QueryBalance(context.Background(), dst.ChainProvider.Key())
 			if err != nil {
 				return err
 			}
@@ -457,12 +457,12 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	cancel()
 
 	// check balance on src against expected
-	srcGot, err := src.ChainProvider.QueryBalance(src.ChainProvider.Key())
+	srcGot, err := src.ChainProvider.QueryBalance(context.Background(), src.ChainProvider.Key())
 	require.NoError(t, err)
 	require.Equal(t, srcExpected.AmountOf(testDenom).Int64()-8000, srcGot.AmountOf(testDenom).Int64())
 
 	// check balance on dst against expected
-	dstGot, err := dst.ChainProvider.QueryBalance(dst.ChainProvider.Key())
+	dstGot, err := dst.ChainProvider.QueryBalance(context.Background(), dst.ChainProvider.Key())
 	require.NoError(t, err)
 	require.Equal(t, dstExpected.AmountOf(testDenom).Int64()-8000, dstGot.AmountOf(testDenom).Int64())
 }

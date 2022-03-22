@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"context"
 	"strconv"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -9,8 +10,8 @@ import (
 )
 
 // QueryBalance is a helper function for query balance
-func QueryBalance(chain *relayer.Chain, address string, showDenoms bool) (sdk.Coins, error) {
-	coins, err := chain.ChainProvider.QueryBalanceWithAddress(address)
+func QueryBalance(ctx context.Context, chain *relayer.Chain, address string, showDenoms bool) (sdk.Coins, error) {
+	coins, err := chain.ChainProvider.QueryBalanceWithAddress(ctx, address)
 	if err != nil {
 		return nil, err
 	}
