@@ -52,7 +52,7 @@ func (c *Chain) CreateOpenChannels(ctx context.Context, dst *Chain, maxRetries u
 		case success && lastStep:
 
 			if c.debug {
-				srch, dsth, err := QueryLatestHeights(c, dst)
+				srch, dsth, err := QueryLatestHeights(ctx, c, dst)
 				if err != nil {
 					return modified, err
 				}
@@ -104,7 +104,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 	)
 
 	if err = retry.Do(func() error {
-		srch, dsth, err = QueryLatestHeights(src, dst)
+		srch, dsth, err = QueryLatestHeights(ctx, src, dst)
 		if err != nil || srch == 0 || dsth == 0 {
 			return fmt.Errorf("failed to query latest heights. Err: %w", err)
 		}
@@ -143,7 +143,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 		}
 
 		if err = retry.Do(func() error {
-			dsth, err = dst.ChainProvider.QueryLatestHeight()
+			dsth, err = dst.ChainProvider.QueryLatestHeight(ctx)
 			if err != nil || dsth == 0 {
 				return fmt.Errorf("failed to query latest heights. Err: %w", err)
 			}
@@ -160,12 +160,12 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dst.LogRetryGetIBCUpdateHeader(n, err)
-			dsth, _ = dst.ChainProvider.QueryLatestHeight()
+			dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
 		})); err != nil {
 			return srcChanID, dstChanID, success, last, modified, err
 		}
 
-		msgs, err = src.ChainProvider.ChannelOpenTry(dst.ChainProvider, dstHeader, srcPortID, dstPortID,
+		msgs, err = src.ChainProvider.ChannelOpenTry(ctx, dst.ChainProvider, dstHeader, srcPortID, dstPortID,
 			srcChanID, dstChanID, version, src.ConnectionID(), src.ClientID())
 
 		if err != nil {
@@ -191,7 +191,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 		}
 
 		if err = retry.Do(func() error {
-			dsth, err = dst.ChainProvider.QueryLatestHeight()
+			dsth, err = dst.ChainProvider.QueryLatestHeight(ctx)
 			if err != nil || dsth == 0 {
 				return fmt.Errorf("failed to query latest heights. Err: %w", err)
 			}
@@ -208,12 +208,12 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dst.LogRetryGetIBCUpdateHeader(n, err)
-			dsth, _ = dst.ChainProvider.QueryLatestHeight()
+			dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
 		})); err != nil {
 			return srcChanID, dstChanID, success, last, modified, err
 		}
 
-		msgs, err = src.ChainProvider.ChannelOpenAck(dst.ChainProvider, dstHeader, src.ClientID(), srcPortID, srcChanID, dstChanID, dstPortID)
+		msgs, err = src.ChainProvider.ChannelOpenAck(ctx, dst.ChainProvider, dstHeader, src.ClientID(), srcPortID, srcChanID, dstChanID, dstPortID)
 		if err != nil {
 			return srcChanID, dstChanID, false, false, false, err
 		}
@@ -235,7 +235,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 		}
 
 		if err = retry.Do(func() error {
-			srch, err = src.ChainProvider.QueryLatestHeight()
+			srch, err = src.ChainProvider.QueryLatestHeight(ctx)
 			if err != nil || srch == 0 {
 				return fmt.Errorf("failed to query latest heights. Err: %w", err)
 			}
@@ -252,12 +252,12 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.LogRetryGetIBCUpdateHeader(n, err)
-			srch, _ = src.ChainProvider.QueryLatestHeight()
+			srch, _ = src.ChainProvider.QueryLatestHeight(ctx)
 		})); err != nil {
 			return srcChanID, dstChanID, success, last, modified, err
 		}
 
-		msgs, err = dst.ChainProvider.ChannelOpenAck(src.ChainProvider, srcHeader, dst.ClientID(), dstPortID, dstChanID, srcChanID, srcPortID)
+		msgs, err = dst.ChainProvider.ChannelOpenAck(ctx, src.ChainProvider, srcHeader, dst.ClientID(), dstPortID, dstChanID, srcChanID, srcPortID)
 		if err != nil {
 			return srcChanID, dstChanID, false, false, false, err
 		}
@@ -277,7 +277,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 		}
 
 		if err = retry.Do(func() error {
-			dsth, err = dst.ChainProvider.QueryLatestHeight()
+			dsth, err = dst.ChainProvider.QueryLatestHeight(ctx)
 			if err != nil || dsth == 0 {
 				return fmt.Errorf("failed to query latest heights. Err: %w", err)
 			}
@@ -294,12 +294,12 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dst.LogRetryGetIBCUpdateHeader(n, err)
-			dsth, _ = dst.ChainProvider.QueryLatestHeight()
+			dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
 		})); err != nil {
 			return srcChanID, dstChanID, success, last, modified, err
 		}
 
-		msgs, err = src.ChainProvider.ChannelOpenConfirm(dst.ChainProvider, dstHeader, src.ClientID(), srcPortID, srcChanID, dstPortID, dstChanID)
+		msgs, err = src.ChainProvider.ChannelOpenConfirm(ctx, dst.ChainProvider, dstHeader, src.ClientID(), srcPortID, srcChanID, dstPortID, dstChanID)
 		if err != nil {
 			return srcChanID, dstChanID, false, false, false, err
 		}
@@ -321,7 +321,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 		}
 
 		if err = retry.Do(func() error {
-			srch, err = src.ChainProvider.QueryLatestHeight()
+			srch, err = src.ChainProvider.QueryLatestHeight(ctx)
 			if err != nil || srch == 0 {
 				return fmt.Errorf("failed to query latest heights. Err: %w", err)
 			}
@@ -338,12 +338,12 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.LogRetryGetIBCUpdateHeader(n, err)
-			srch, _ = src.ChainProvider.QueryLatestHeight()
+			srch, _ = src.ChainProvider.QueryLatestHeight(ctx)
 		})); err != nil {
 			return srcChanID, dstChanID, success, last, modified, err
 		}
 
-		msgs, err = dst.ChainProvider.ChannelOpenConfirm(src.ChainProvider, srcHeader, dst.ClientID(), dstPortID, dstChanID, srcPortID, srcChanID)
+		msgs, err = dst.ChainProvider.ChannelOpenConfirm(ctx, src.ChainProvider, srcHeader, dst.ClientID(), dstPortID, dstChanID, srcPortID, srcChanID)
 		if err != nil {
 			return srcChanID, dstChanID, false, false, false, err
 		}
@@ -396,7 +396,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 		if !found || override {
 
 			if err = retry.Do(func() error {
-				dsth, err = dst.ChainProvider.QueryLatestHeight()
+				dsth, err = dst.ChainProvider.QueryLatestHeight(ctx)
 				if err != nil || dsth == 0 {
 					return fmt.Errorf("failed to query latest heights. Err: %w", err)
 				}
@@ -413,7 +413,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 				return err
 			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 				dst.LogRetryGetIBCUpdateHeader(n, err)
-				dsth, _ = dst.ChainProvider.QueryLatestHeight()
+				dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
 			})); err != nil {
 				return srcChanID, dstChanID, false, false, err
 			}
@@ -456,7 +456,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 		if !found || override {
 
 			if err = retry.Do(func() error {
-				dsth, err = dst.ChainProvider.QueryLatestHeight()
+				dsth, err = dst.ChainProvider.QueryLatestHeight(ctx)
 				if err != nil || dsth == 0 {
 					return fmt.Errorf("failed to query latest heights. Err: %w", err)
 				}
@@ -473,13 +473,13 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 				return err
 			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 				dst.LogRetryGetIBCUpdateHeader(n, err)
-				dsth, _ = dst.ChainProvider.QueryLatestHeight()
+				dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
 			})); err != nil {
 				return srcChanID, dstChanID, false, false, err
 			}
 
 			// open try on source chain
-			msgs, err = src.ChainProvider.ChannelOpenTry(dst.ChainProvider, dstHeader, srcPortID, dstPortID, srcChanID, dstChanID, version, src.ConnectionID(), src.ClientID())
+			msgs, err = src.ChainProvider.ChannelOpenTry(ctx, dst.ChainProvider, dstHeader, srcPortID, dstPortID, srcChanID, dstChanID, version, src.ConnectionID(), src.ClientID())
 			if err != nil {
 				return srcChanID, dstChanID, false, false, err
 			}
@@ -517,7 +517,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 		if !found || override {
 
 			if err = retry.Do(func() error {
-				srch, err = src.ChainProvider.QueryLatestHeight()
+				srch, err = src.ChainProvider.QueryLatestHeight(ctx)
 				if err != nil || srch == 0 {
 					return fmt.Errorf("failed to query latest heights. Err: %w", err)
 				}
@@ -534,13 +534,13 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 				return err
 			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 				src.LogRetryGetIBCUpdateHeader(n, err)
-				srch, _ = src.ChainProvider.QueryLatestHeight()
+				srch, _ = src.ChainProvider.QueryLatestHeight(ctx)
 			})); err != nil {
 				return srcChanID, dstChanID, false, false, err
 			}
 
 			// open try on destination chain
-			msgs, err = dst.ChainProvider.ChannelOpenTry(src.ChainProvider, srcHeader, dstPortID, srcPortID, dstChanID, srcChanID, version, dst.ConnectionID(), dst.ClientID())
+			msgs, err = dst.ChainProvider.ChannelOpenTry(ctx, src.ChainProvider, srcHeader, dstPortID, srcPortID, dstChanID, srcChanID, version, dst.ConnectionID(), dst.ClientID())
 			if err != nil {
 				return srcChanID, dstChanID, false, false, err
 			}
@@ -571,7 +571,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 
 // CloseChannel runs the channel closing messages on timeout until they pass.
 // TODO: add max retries or something to this function
-func (c *Chain) CloseChannel(dst *Chain, to time.Duration, srcChanID, srcPortID string, srcChan *chantypes.QueryChannelResponse) error {
+func (c *Chain) CloseChannel(ctx context.Context, dst *Chain, to time.Duration, srcChanID, srcPortID string, srcChan *chantypes.QueryChannelResponse) error {
 	ticker := time.NewTicker(to)
 	defer ticker.Stop()
 
@@ -579,7 +579,7 @@ func (c *Chain) CloseChannel(dst *Chain, to time.Duration, srcChanID, srcPortID 
 	dstPortID := srcChan.Channel.Counterparty.PortId
 
 	for ; true; <-ticker.C {
-		closeSteps, err := c.CloseChannelStep(dst, srcChanID, srcPortID, srcChan)
+		closeSteps, err := c.CloseChannelStep(ctx, dst, srcChanID, srcPortID, srcChan)
 		if err != nil {
 			return err
 		}
@@ -589,7 +589,7 @@ func (c *Chain) CloseChannel(dst *Chain, to time.Duration, srcChanID, srcPortID 
 		}
 
 		if closeSteps.Send(c, dst); closeSteps.Success() && closeSteps.Last {
-			srch, dsth, err := QueryLatestHeights(c, dst)
+			srch, dsth, err := QueryLatestHeights(ctx, c, dst)
 			if err != nil {
 				return err
 			}
@@ -614,8 +614,8 @@ func (c *Chain) CloseChannel(dst *Chain, to time.Duration, srcChanID, srcPortID 
 // CloseChannelStep returns the next set of messages for closing a channel with given
 // identifiers between chains src and dst. If the closing handshake hasn't started, then CloseChannelStep
 // will begin the handshake on the src chain.
-func (c *Chain) CloseChannelStep(dst *Chain, srcChanID, srcPortID string, srcChan *chantypes.QueryChannelResponse) (*RelayMsgs, error) {
-	dsth, err := dst.ChainProvider.QueryLatestHeight()
+func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, srcPortID string, srcChan *chantypes.QueryChannelResponse) (*RelayMsgs, error) {
+	dsth, err := dst.ChainProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -664,7 +664,7 @@ func (c *Chain) CloseChannelStep(dst *Chain, srcChanID, srcPortID string, srcCha
 				logChannelStates(dst, c, dstChan, srcChan)
 			}
 
-			srch, err := c.ChainProvider.QueryLatestHeight()
+			srch, err := c.ChainProvider.QueryLatestHeight(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -693,7 +693,7 @@ func (c *Chain) CloseChannelStep(dst *Chain, srcChanID, srcPortID string, srcCha
 				logChannelStates(dst, c, dstChan, srcChan)
 			}
 
-			srch, err := c.ChainProvider.QueryLatestHeight()
+			srch, err := c.ChainProvider.QueryLatestHeight(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -727,7 +727,7 @@ func (c *Chain) CloseChannelStep(dst *Chain, srcChanID, srcPortID string, srcCha
 				logChannelStates(c, dst, srcChan, dstChan)
 			}
 
-			dsth, err := dst.ChainProvider.QueryLatestHeight()
+			dsth, err := dst.ChainProvider.QueryLatestHeight(ctx)
 			if err != nil {
 				return nil, err
 			}

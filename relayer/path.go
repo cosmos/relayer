@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"context"
 	"fmt"
 
 	"golang.org/x/sync/errgroup"
@@ -167,7 +168,7 @@ type PathWithStatus struct {
 
 // QueryPathStatus returns an instance of the path struct with some attached data about
 // the current status of the path
-func (p *Path) QueryPathStatus(src, dst *Chain) *PathWithStatus {
+func (p *Path) QueryPathStatus(ctx context.Context, src, dst *Chain) *PathWithStatus {
 	var (
 		err              error
 		eg               errgroup.Group
@@ -178,11 +179,11 @@ func (p *Path) QueryPathStatus(src, dst *Chain) *PathWithStatus {
 		out = &PathWithStatus{Path: p, Status: PathStatus{false, false, false}}
 	)
 	eg.Go(func() error {
-		srch, err = src.ChainProvider.QueryLatestHeight()
+		srch, err = src.ChainProvider.QueryLatestHeight(ctx)
 		return err
 	})
 	eg.Go(func() error {
-		dsth, err = dst.ChainProvider.QueryLatestHeight()
+		dsth, err = dst.ChainProvider.QueryLatestHeight(ctx)
 		return err
 	})
 	if err = eg.Wait(); err != nil {

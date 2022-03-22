@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,7 +24,7 @@ type appState struct {
 
 // AddPathFromFile modifies a.config.Paths to include the content stored in the given file.
 // If a non-nil error is returned, a.config.Paths is not modified.
-func (a *appState) AddPathFromFile(stderr io.Writer, file, name string) error {
+func (a *appState) AddPathFromFile(ctx context.Context, stderr io.Writer, file, name string) error {
 	if _, err := os.Stat(file); err != nil {
 		return err
 	}
@@ -38,7 +39,7 @@ func (a *appState) AddPathFromFile(stderr io.Writer, file, name string) error {
 		return err
 	}
 
-	if err = a.Config.ValidatePath(stderr, p); err != nil {
+	if err = a.Config.ValidatePath(ctx, stderr, p); err != nil {
 		return err
 	}
 
@@ -48,7 +49,7 @@ func (a *appState) AddPathFromFile(stderr io.Writer, file, name string) error {
 // AddPathFromUserInput manually prompts the user to specify all the path details.
 // It returns any input or validation errors.
 // If the path was successfully added, it returns nil.
-func (a *appState) AddPathFromUserInput(stdin io.Reader, stderr io.Writer, src, dst, name string) error {
+func (a *appState) AddPathFromUserInput(ctx context.Context, stdin io.Reader, stderr io.Writer, src, dst, name string) error {
 	// TODO: confirm name is available before going through input.
 
 	var (
@@ -108,7 +109,7 @@ func (a *appState) AddPathFromUserInput(stdin io.Reader, stderr io.Writer, src, 
 		return err
 	}
 
-	if err := a.Config.ValidatePath(stderr, path); err != nil {
+	if err := a.Config.ValidatePath(ctx, stderr, path); err != nil {
 		return err
 	}
 

@@ -65,7 +65,7 @@ $ %s q ibc-denoms ibc-0`,
 				return err
 			}
 
-			h, err := chain.ChainProvider.QueryLatestHeight()
+			h, err := chain.ChainProvider.QueryLatestHeight(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -376,7 +376,7 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 			}
 
 			if height == 0 {
-				height, err = chain.ChainProvider.QueryLatestHeight()
+				height, err = chain.ChainProvider.QueryLatestHeight(cmd.Context())
 				if err != nil {
 					return err
 				}
@@ -559,7 +559,7 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 			}
 
 			if height == 0 {
-				height, err = chain.ChainProvider.QueryLatestHeight()
+				height, err = chain.ChainProvider.QueryLatestHeight(cmd.Context())
 				if err != nil {
 					return err
 				}
@@ -605,7 +605,7 @@ $ %s q conn ibc-1 ibconeconn`,
 				return err
 			}
 
-			height, err := chain.ChainProvider.QueryLatestHeight()
+			height, err := chain.ChainProvider.QueryLatestHeight(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -706,7 +706,7 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 			}
 
 			if height == 0 {
-				height, err = chain.ChainProvider.QueryLatestHeight()
+				height, err = chain.ChainProvider.QueryLatestHeight(cmd.Context())
 				if err != nil {
 					return err
 				}

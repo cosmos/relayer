@@ -101,12 +101,12 @@ func chainTest(t *testing.T, tcs []testChain) {
 	srcAddr, err := src.ChainProvider.Address()
 	require.NoError(t, err)
 
-	require.NoError(t, src.SendTransferMsg(dst, testCoin, dstAddr, 0, 0, channel))
-	require.NoError(t, src.SendTransferMsg(dst, testCoin, dstAddr, 0, 0, channel))
+	require.NoError(t, src.SendTransferMsg(context.Background(), dst, testCoin, dstAddr, 0, 0, channel))
+	require.NoError(t, src.SendTransferMsg(context.Background(), dst, testCoin, dstAddr, 0, 0, channel))
 
 	// send a couple of transfers to the queue on dst
-	require.NoError(t, dst.SendTransferMsg(src, testCoin, srcAddr, 0, 0, channel))
-	require.NoError(t, dst.SendTransferMsg(src, testCoin, srcAddr, 0, 0, channel))
+	require.NoError(t, dst.SendTransferMsg(context.Background(), src, testCoin, srcAddr, 0, 0, channel))
+	require.NoError(t, dst.SendTransferMsg(context.Background(), src, testCoin, srcAddr, 0, 0, channel))
 
 	// Wait for message inclusion in both chains
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(1))
@@ -123,8 +123,8 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(2))
 
 	// send those tokens from dst back to dst and src back to src
-	require.NoError(t, src.SendTransferMsg(dst, twoTestCoin, dstAddr, 0, 0, channel))
-	require.NoError(t, dst.SendTransferMsg(src, twoTestCoin, srcAddr, 0, 0, channel))
+	require.NoError(t, src.SendTransferMsg(context.Background(), dst, twoTestCoin, dstAddr, 0, 0, channel))
+	require.NoError(t, dst.SendTransferMsg(context.Background(), src, twoTestCoin, srcAddr, 0, 0, channel))
 
 	// wait for packet processing
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(6))
@@ -270,7 +270,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(1))
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(1))
 
-	latestHeight, err := dst.ChainProvider.QueryLatestHeight()
+	latestHeight, err := dst.ChainProvider.QueryLatestHeight(context.Background())
 	require.NoError(t, err)
 
 	header, err := dst.ChainProvider.QueryHeaderAtHeight(latestHeight)
@@ -413,20 +413,20 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	srcAddr, err := src.ChainProvider.Address()
 	require.NoError(t, err)
 
-	require.NoError(t, src.SendTransferMsg(dst, testCoin, dstAddr, 0, 0, channelOne))
-	require.NoError(t, src.SendTransferMsg(dst, testCoin, dstAddr, 0, 0, channelOne))
+	require.NoError(t, src.SendTransferMsg(context.Background(), dst, testCoin, dstAddr, 0, 0, channelOne))
+	require.NoError(t, src.SendTransferMsg(context.Background(), dst, testCoin, dstAddr, 0, 0, channelOne))
 
 	// send a couple of transfers to the queue on dst for first channel
-	require.NoError(t, dst.SendTransferMsg(src, testCoin, srcAddr, 0, 0, channelOne))
-	require.NoError(t, dst.SendTransferMsg(src, testCoin, srcAddr, 0, 0, channelOne))
+	require.NoError(t, dst.SendTransferMsg(context.Background(), src, testCoin, srcAddr, 0, 0, channelOne))
+	require.NoError(t, dst.SendTransferMsg(context.Background(), src, testCoin, srcAddr, 0, 0, channelOne))
 
 	// send a couple of transfers to the queue on src for second channel
-	require.NoError(t, src.SendTransferMsg(dst, testCoin, dstAddr, 0, 0, channelTwo))
-	require.NoError(t, src.SendTransferMsg(dst, testCoin, dstAddr, 0, 0, channelTwo))
+	require.NoError(t, src.SendTransferMsg(context.Background(), dst, testCoin, dstAddr, 0, 0, channelTwo))
+	require.NoError(t, src.SendTransferMsg(context.Background(), dst, testCoin, dstAddr, 0, 0, channelTwo))
 
 	// send a couple of transfers to the queue on dst for second channel
-	require.NoError(t, dst.SendTransferMsg(src, testCoin, srcAddr, 0, 0, channelTwo))
-	require.NoError(t, dst.SendTransferMsg(src, testCoin, srcAddr, 0, 0, channelTwo))
+	require.NoError(t, dst.SendTransferMsg(context.Background(), src, testCoin, srcAddr, 0, 0, channelTwo))
+	require.NoError(t, dst.SendTransferMsg(context.Background(), src, testCoin, srcAddr, 0, 0, channelTwo))
 
 	// Wait for message inclusion in both chains
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(1))
@@ -443,12 +443,12 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(1))
 
 	// send those tokens from dst back to dst and src back to src for first channel
-	require.NoError(t, src.SendTransferMsg(dst, twoTestCoin, dstAddr, 0, 0, channelOne))
-	require.NoError(t, dst.SendTransferMsg(src, twoTestCoin, srcAddr, 0, 0, channelOne))
+	require.NoError(t, src.SendTransferMsg(context.Background(), dst, twoTestCoin, dstAddr, 0, 0, channelOne))
+	require.NoError(t, dst.SendTransferMsg(context.Background(), src, twoTestCoin, srcAddr, 0, 0, channelOne))
 
 	// send those tokens from dst back to dst and src back to src for second channel
-	require.NoError(t, src.SendTransferMsg(dst, twoTestCoin, dstAddr, 0, 0, channelTwo))
-	require.NoError(t, dst.SendTransferMsg(src, twoTestCoin, srcAddr, 0, 0, channelTwo))
+	require.NoError(t, src.SendTransferMsg(context.Background(), dst, twoTestCoin, dstAddr, 0, 0, channelTwo))
+	require.NoError(t, dst.SendTransferMsg(context.Background(), src, twoTestCoin, srcAddr, 0, 0, channelTwo))
 
 	// wait for packet processing
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(6))

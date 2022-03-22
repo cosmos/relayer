@@ -205,7 +205,7 @@ func createClientCmd(a *appState) *cobra.Command {
 			// Query the latest heights on src and dst and retry if the query fails
 			var srch, dsth int64
 			if err = retry.Do(func() error {
-				srch, dsth, err = relayer.QueryLatestHeights(c[src], c[dst])
+				srch, dsth, err = relayer.QueryLatestHeights(cmd.Context(), c[src], c[dst])
 				if srch == 0 || dsth == 0 || err != nil {
 					return fmt.Errorf("failed to query latest heights: %w", err)
 				}
@@ -224,7 +224,7 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}, relayer.RtyAtt, relayer.RtyDel, relayer.RtyErr, retry.OnRetry(func(n uint, err error) {
 				c[src].LogRetryGetLightSignedHeader(n, err)
-				srch, dsth, _ = relayer.QueryLatestHeights(c[src], c[dst])
+				srch, dsth, _ = relayer.QueryLatestHeights(cmd.Context(), c[src], c[dst])
 			})); err != nil {
 				return err
 			}
@@ -266,7 +266,7 @@ corresponding update-client messages.`,
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
-			return c[src].UpdateClients(c[dst])
+			return c[src].UpdateClients(cmd.Context(), c[dst])
 		},
 	}
 
@@ -505,7 +505,7 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
-			srch, err := c[src].ChainProvider.QueryLatestHeight()
+			srch, err := c[src].ChainProvider.QueryLatestHeight(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -515,7 +515,7 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 				return err
 			}
 
-			return c[src].CloseChannel(c[dst], to, channelID, portID, channel)
+			return c[src].CloseChannel(cmd.Context(), c[dst], to, channelID, portID, channel)
 		},
 	}
 
@@ -920,7 +920,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 				return err
 			}
 
-			srch, err := c[src].ChainProvider.QueryLatestHeight()
+			srch, err := c[src].ChainProvider.QueryLatestHeight(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -986,7 +986,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 
 			}
 
-			return c[src].SendTransferMsg(c[dst], amount, dstAddr, toHeightOffset, toTimeOffset, srcChannel)
+			return c[src].SendTransferMsg(cmd.Context(), c[dst], amount, dstAddr, toHeightOffset, toTimeOffset, srcChannel)
 		},
 	}
 

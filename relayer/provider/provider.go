@@ -52,13 +52,13 @@ type ChainProvider interface {
 	SubmitMisbehavior( /*TODO TBD*/ ) (RelayerMessage, error)
 	UpdateClient(srcClientId string, dstHeader ibcexported.Header) (RelayerMessage, error)
 	ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) ([]RelayerMessage, error)
-	ConnectionOpenTry(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]RelayerMessage, error)
-	ConnectionOpenAck(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]RelayerMessage, error)
-	ConnectionOpenConfirm(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]RelayerMessage, error)
+	ConnectionOpenTry(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]RelayerMessage, error)
+	ConnectionOpenAck(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]RelayerMessage, error)
+	ConnectionOpenConfirm(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]RelayerMessage, error)
 	ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.Header) ([]RelayerMessage, error)
-	ChannelOpenTry(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]RelayerMessage, error)
-	ChannelOpenAck(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]RelayerMessage, error)
-	ChannelOpenConfirm(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChannId string) ([]RelayerMessage, error)
+	ChannelOpenTry(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]RelayerMessage, error)
+	ChannelOpenAck(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]RelayerMessage, error)
+	ChannelOpenConfirm(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChannId string) ([]RelayerMessage, error)
 	ChannelCloseInit(srcPortId, srcChanId string) (RelayerMessage, error)
 	ChannelCloseConfirm(dstQueryProvider QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (RelayerMessage, error)
 
@@ -91,7 +91,7 @@ type QueryProvider interface {
 	// chain
 	QueryTx(ctx context.Context, hashHex string) (*ctypes.ResultTx, error)
 	QueryTxs(ctx context.Context, page, limit int, events []string) ([]*ctypes.ResultTx, error)
-	QueryLatestHeight() (int64, error)
+	QueryLatestHeight(ctx context.Context) (int64, error)
 	QueryHeaderAtHeight(height int64) (ibcexported.Header, error)
 
 	// bank
@@ -109,7 +109,7 @@ type QueryProvider interface {
 	QueryUpgradedConsState(ctx context.Context, height int64) (*clienttypes.QueryConsensusStateResponse, error)
 	QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error)
 	QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error)
-	AutoUpdateClient(dst ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error)
+	AutoUpdateClient(ctx context.Context, dst ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error)
 	FindMatchingClient(ctx context.Context, counterparty ChainProvider, clientState ibcexported.ClientState) (string, bool)
 
 	// ics 03 - connection

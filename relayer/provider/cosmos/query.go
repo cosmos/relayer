@@ -736,8 +736,8 @@ func (cc *CosmosProvider) QueryPacketReceipt(height int64, channelid, portid str
 	}, nil
 }
 
-func (cc *CosmosProvider) QueryLatestHeight() (int64, error) {
-	stat, err := cc.RPCClient.Status(context.Background())
+func (cc *CosmosProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
+	stat, err := cc.RPCClient.Status(ctx)
 	if err != nil {
 		return -1, err
 	} else if stat.SyncInfo.CatchingUp {

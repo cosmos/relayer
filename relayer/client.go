@@ -23,7 +23,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 
 	// Query the latest heights on src and dst and retry if the query fails
 	if err = retry.Do(func() error {
-		srch, dsth, err = QueryLatestHeights(c, dst)
+		srch, dsth, err = QueryLatestHeights(ctx, c, dst)
 		if srch == 0 || dsth == 0 || err != nil {
 			return fmt.Errorf("failed to query latest heights: %w", err)
 		}
@@ -41,7 +41,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		c.LogRetryGetLightSignedHeader(n, err)
-		srch, dsth, _ = QueryLatestHeights(c, dst)
+		srch, dsth, _ = QueryLatestHeights(ctx, c, dst)
 	})); err != nil {
 		return false, err
 	}
@@ -168,7 +168,7 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 }
 
 // UpdateClients updates clients for src on dst and dst on src given the configured paths
-func (c *Chain) UpdateClients(dst *Chain) (err error) {
+func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 	var (
 		clients                          = &RelayMsgs{Src: []provider.RelayerMessage{}, Dst: []provider.RelayerMessage{}}
 		srcUpdateHeader, dstUpdateHeader ibcexported.Header
@@ -176,7 +176,7 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 	)
 
 	if err = retry.Do(func() error {
-		srch, dsth, err = QueryLatestHeights(c, dst)
+		srch, dsth, err = QueryLatestHeights(ctx, c, dst)
 		if srch == 0 || dsth == 0 || err != nil {
 			c.Log(fmt.Sprintf("Failed to query latest heights. Err: %v", err))
 			return err
@@ -195,7 +195,7 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		c.Log(fmt.Sprintf("Failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
-		srch, dsth, _ = QueryLatestHeights(c, dst)
+		srch, dsth, _ = QueryLatestHeights(ctx, c, dst)
 	})); err != nil {
 		return err
 	}
@@ -251,7 +251,7 @@ func (c *Chain) UpgradeClients(ctx context.Context, dst *Chain, height int64) er
 	}
 
 	if height == 0 {
-		height, err = dst.ChainProvider.QueryLatestHeight()
+		height, err = dst.ChainProvider.QueryLatestHeight(ctx)
 		if err != nil {
 			return err
 		}

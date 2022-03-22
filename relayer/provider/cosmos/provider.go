@@ -319,7 +319,7 @@ func (cc *CosmosProvider) ConnectionOpenInit(srcClientId, dstClientId string, ds
 	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ConnectionOpenTry(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -329,7 +329,7 @@ func (cc *CosmosProvider) ConnectionOpenTry(dstQueryProvider provider.QueryProvi
 		return nil, err
 	}
 
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -376,7 +376,7 @@ func (cc *CosmosProvider) ConnectionOpenTry(dstQueryProvider provider.QueryProvi
 	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ConnectionOpenAck(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -386,7 +386,7 @@ func (cc *CosmosProvider) ConnectionOpenAck(dstQueryProvider provider.QueryProvi
 	if err != nil {
 		return nil, err
 	}
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -425,7 +425,7 @@ func (cc *CosmosProvider) ConnectionOpenAck(dstQueryProvider provider.QueryProvi
 	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ConnectionOpenConfirm(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ConnectionOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -435,7 +435,7 @@ func (cc *CosmosProvider) ConnectionOpenConfirm(dstQueryProvider provider.QueryP
 		return nil, err
 	}
 
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -490,7 +490,7 @@ func (cc *CosmosProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, src
 	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ChannelOpenTry(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -499,7 +499,7 @@ func (cc *CosmosProvider) ChannelOpenTry(dstQueryProvider provider.QueryProvider
 	if err != nil {
 		return nil, err
 	}
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -535,7 +535,7 @@ func (cc *CosmosProvider) ChannelOpenTry(dstQueryProvider provider.QueryProvider
 	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ChannelOpenAck(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -545,7 +545,7 @@ func (cc *CosmosProvider) ChannelOpenAck(dstQueryProvider provider.QueryProvider
 		return nil, err
 	}
 
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -572,7 +572,7 @@ func (cc *CosmosProvider) ChannelOpenAck(dstQueryProvider provider.QueryProvider
 	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ChannelOpenConfirm(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChanId string) ([]provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChanId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -581,7 +581,7 @@ func (cc *CosmosProvider) ChannelOpenConfirm(dstQueryProvider provider.QueryProv
 	if err != nil {
 		return nil, err
 	}
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1153,12 +1153,12 @@ func (cc *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clientty
 }
 
 // AutoUpdateClient update client automatically to prevent expiry
-func (cc *CosmosProvider) AutoUpdateClient(dst provider.ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error) {
-	srch, err := cc.QueryLatestHeight()
+func (cc *CosmosProvider) AutoUpdateClient(ctx context.Context, dst provider.ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error) {
+	srch, err := cc.QueryLatestHeight(ctx)
 	if err != nil {
 		return 0, err
 	}
-	dsth, err := dst.QueryLatestHeight()
+	dsth, err := dst.QueryLatestHeight(ctx)
 	if err != nil {
 		return 0, err
 	}

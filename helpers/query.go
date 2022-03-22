@@ -20,7 +20,7 @@ func QueryBalance(ctx context.Context, chain *relayer.Chain, address string, sho
 		return coins, nil
 	}
 
-	h, err := chain.ChainProvider.QueryLatestHeight()
+	h, err := chain.ChainProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}

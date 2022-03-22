@@ -16,16 +16,16 @@ import (
 )
 
 // QueryLatestHeights returns the heights of multiple chains at once
-func QueryLatestHeights(src, dst *Chain) (srch, dsth int64, err error) {
+func QueryLatestHeights(ctx context.Context, src, dst *Chain) (srch, dsth int64, err error) {
 	var eg = new(errgroup.Group)
 	eg.Go(func() error {
 		var err error
-		srch, err = src.ChainProvider.QueryLatestHeight()
+		srch, err = src.ChainProvider.QueryLatestHeight(ctx)
 		return err
 	})
 	eg.Go(func() error {
 		var err error
-		dsth, err = dst.ChainProvider.QueryLatestHeight()
+		dsth, err = dst.ChainProvider.QueryLatestHeight(ctx)
 		return err
 	})
 	err = eg.Wait()
@@ -78,7 +78,7 @@ func QueryChannel(ctx context.Context, src *Chain, channelID string) (*chantypes
 	// Query the latest height
 	if err = retry.Do(func() error {
 		var err error
-		srch, err = src.ChainProvider.QueryLatestHeight()
+		srch, err = src.ChainProvider.QueryLatestHeight(ctx)
 		return err
 	}, RtyAtt, RtyDel, RtyErr); err != nil {
 		return nil, err

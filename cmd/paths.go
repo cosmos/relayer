@@ -99,7 +99,7 @@ $ %s pth l`, appName, appName, appName)),
 					if err != nil {
 						return err
 					}
-					stat := pth.QueryPathStatus(chains[pth.Src.ChainID], chains[pth.Dst.ChainID]).Status
+					stat := pth.QueryPathStatus(cmd.Context(), chains[pth.Src.ChainID], chains[pth.Dst.ChainID]).Status
 
 					printPath(cmd.OutOrStdout(), i, k, pth, checkmark(stat.Chains), checkmark(stat.Clients),
 						checkmark(stat.Connection))
@@ -146,7 +146,7 @@ $ %s pth s path-name`, appName, appName, appName)),
 			}
 			jsn, _ := cmd.Flags().GetBool(flagJSON)
 			yml, _ := cmd.Flags().GetBool(flagYAML)
-			pathWithStatus := p.QueryPathStatus(chains[p.Src.ChainID], chains[p.Dst.ChainID])
+			pathWithStatus := p.QueryPathStatus(cmd.Context(), chains[p.Src.ChainID], chains[p.Dst.ChainID])
 			switch {
 			case yml && jsn:
 				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
@@ -197,11 +197,11 @@ $ %s pth a ibc-0 ibc-1 demo-path`, appName, appName, appName)),
 			}
 
 			if file != "" {
-				if err := a.AddPathFromFile(cmd.ErrOrStderr(), file, args[2]); err != nil {
+				if err := a.AddPathFromFile(cmd.Context(), cmd.ErrOrStderr(), file, args[2]); err != nil {
 					return err
 				}
 			} else {
-				if err := a.AddPathFromUserInput(cmd.InOrStdin(), cmd.ErrOrStderr(), src, dst, args[2]); err != nil {
+				if err := a.AddPathFromUserInput(cmd.Context(), cmd.InOrStdin(), cmd.ErrOrStderr(), src, dst, args[2]); err != nil {
 					return err
 				}
 			}

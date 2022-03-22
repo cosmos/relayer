@@ -71,7 +71,7 @@ func StartRelayer(ctx context.Context, src, dst *Chain, filter *ChannelFilter, m
 // queryChannelsOnConnection queries all the channels associated with a connection on the src chain.
 func queryChannelsOnConnection(ctx context.Context, src *Chain) ([]*types.IdentifiedChannel, error) {
 	// Query the latest heights on src & dst
-	srch, err := src.ChainProvider.QueryLatestHeight()
+	srch, err := src.ChainProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
