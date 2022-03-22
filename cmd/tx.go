@@ -715,7 +715,7 @@ $ %s tx relay-pkt demo-path channel-1 1`,
 				return err
 			}
 
-			return relayer.RelayPacket(c[src], c[dst], sp, maxTxSize, maxMsgLength, uint64(seqNum), channel)
+			return relayer.RelayPacket(cmd.Context(), c[src], c[dst], sp, maxTxSize, maxMsgLength, uint64(seqNum), channel)
 		},
 	}
 

@@ -34,17 +34,17 @@ import (
 )
 
 // QueryTx takes a transaction hash and returns the transaction
-func (cc *CosmosProvider) QueryTx(hashHex string) (*ctypes.ResultTx, error) {
+func (cc *CosmosProvider) QueryTx(ctx context.Context, hashHex string) (*ctypes.ResultTx, error) {
 	hash, err := hex.DecodeString(hashHex)
 	if err != nil {
-		return &ctypes.ResultTx{}, err
+		return nil, err
 	}
 
-	return cc.RPCClient.Tx(context.Background(), hash, true)
+	return cc.RPCClient.Tx(ctx, hash, true)
 }
 
 // QueryTxs returns an array of transactions given a tag
-func (cc *CosmosProvider) QueryTxs(page, limit int, events []string) ([]*ctypes.ResultTx, error) {
+func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events []string) ([]*ctypes.ResultTx, error) {
 	if len(events) == 0 {
 		return nil, errors.New("must declare at least one event to search")
 	}
@@ -57,7 +57,7 @@ func (cc *CosmosProvider) QueryTxs(page, limit int, events []string) ([]*ctypes.
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	res, err := cc.RPCClient.TxSearch(context.Background(), strings.Join(events, " AND "), true, &page, &limit, "")
+	res, err := cc.RPCClient.TxSearch(ctx, strings.Join(events, " AND "), true, &page, &limit, "")
 	if err != nil {
 		return nil, err
 	}

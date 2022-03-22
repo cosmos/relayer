@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -66,8 +67,8 @@ type ChainProvider interface {
 	MsgRelayTimeout(dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
 	MsgRelayRecvPacket(dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
 	MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (RelayerMessage, error)
-	RelayPacketFromSequence(src, dst ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) (RelayerMessage, RelayerMessage, error)
-	AcknowledgementFromSequence(dst ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
+	RelayPacketFromSequence(ctx context.Context, src, dst ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) (RelayerMessage, RelayerMessage, error)
+	AcknowledgementFromSequence(ctx context.Context, dst ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
 
 	SendMessage(msg RelayerMessage) (*RelayerTxResponse, bool, error)
 	SendMessages(msgs []RelayerMessage) (*RelayerTxResponse, bool, error)
@@ -88,8 +89,8 @@ type ChainProvider interface {
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?
 type QueryProvider interface {
 	// chain
-	QueryTx(hashHex string) (*ctypes.ResultTx, error)
-	QueryTxs(page, limit int, events []string) ([]*ctypes.ResultTx, error)
+	QueryTx(ctx context.Context, hashHex string) (*ctypes.ResultTx, error)
+	QueryTxs(ctx context.Context, page, limit int, events []string) ([]*ctypes.ResultTx, error)
 	QueryLatestHeight() (int64, error)
 	QueryHeaderAtHeight(height int64) (ibcexported.Header, error)
 

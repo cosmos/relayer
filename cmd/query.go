@@ -101,7 +101,7 @@ $ %s q tx ibc-0 A5DF8D272F1C451CFF92BA6C41942C4D29B5CF180279439ED6AB038282F956BE
 				return err
 			}
 
-			txs, err := chain.ChainProvider.QueryTx(args[1])
+			txs, err := chain.ChainProvider.QueryTx(cmd.Context(), args[1])
 			if err != nil {
 				return err
 			}
@@ -152,8 +152,7 @@ $ %s q txs ibc-0 "message.action=transfer"`,
 				return err
 			}
 
-			txs, err := chain.ChainProvider.QueryTxs(int(offset), int(limit), []string{args[1]})
-			//txs, err := helpers.QueryTxs(chain, args[1], offset, limit)
+			txs, err := chain.ChainProvider.QueryTxs(cmd.Context(), int(offset), int(limit), []string{args[1]})
 			if err != nil {
 				return err
 			}
