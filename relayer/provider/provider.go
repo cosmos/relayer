@@ -123,7 +123,7 @@ type QueryProvider interface {
 
 	// ics 04 - channel
 	QueryChannel(height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error)
-	QueryChannelClient(height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error)
+	QueryChannelClient(ctx context.Context, height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error)
 	QueryConnectionChannels(height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error)
 	QueryChannels() ([]*chantypes.IdentifiedChannel, error)
 	QueryPacketCommitments(height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error)

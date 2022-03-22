@@ -560,9 +560,9 @@ func (cc *CosmosProvider) queryChannelABCI(height int64, portID, channelID strin
 }
 
 // QueryChannelClient returns the client state of the client supporting a given channel
-func (cc *CosmosProvider) QueryChannelClient(height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
+func (cc *CosmosProvider) QueryChannelClient(ctx context.Context, height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
 	qc := chantypes.NewQueryClient(cc)
-	cState, err := qc.ChannelClientState(context.Background(), &chantypes.QueryChannelClientStateRequest{
+	cState, err := qc.ChannelClientState(ctx, &chantypes.QueryChannelClientStateRequest{
 		PortId:    portid,
 		ChannelId: channelid,
 	})
