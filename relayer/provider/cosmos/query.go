@@ -747,7 +747,7 @@ func (cc *CosmosProvider) QueryLatestHeight(ctx context.Context) (int64, error) 
 }
 
 // QueryHeaderAtHeight returns the header at a given height
-func (cc *CosmosProvider) QueryHeaderAtHeight(height int64) (ibcexported.Header, error) {
+func (cc *CosmosProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.Header, error) {
 	var (
 		page    = 1
 		perPage = 100000
@@ -756,12 +756,12 @@ func (cc *CosmosProvider) QueryHeaderAtHeight(height int64) (ibcexported.Header,
 		return nil, fmt.Errorf("must pass in valid height, %d not valid", height)
 	}
 
-	res, err := cc.RPCClient.Commit(context.Background(), &height)
+	res, err := cc.RPCClient.Commit(ctx, &height)
 	if err != nil {
 		return nil, err
 	}
 
-	val, err := cc.RPCClient.Validators(context.Background(), &height, &page, &perPage)
+	val, err := cc.RPCClient.Validators(ctx, &height, &page, &perPage)
 	if err != nil {
 		return nil, err
 	}

@@ -55,14 +55,14 @@ func QueryBalance(ctx context.Context, chain *relayer.Chain, address string, sho
 }
 
 // QueryHeader is a helper function for query header
-func QueryHeader(chain *relayer.Chain, opts ...string) (ibcexported.Header, error) {
+func QueryHeader(ctx context.Context, chain *relayer.Chain, opts ...string) (ibcexported.Header, error) {
 	if len(opts) > 0 {
 		height, err := strconv.ParseInt(opts[0], 10, 64) //convert to int64
 		if err != nil {
 			return nil, err
 		}
 
-		return chain.ChainProvider.QueryHeaderAtHeight(height)
+		return chain.ChainProvider.QueryHeaderAtHeight(ctx, height)
 	}
 
 	return chain.ChainProvider.GetLightSignedHeaderAtHeight(0)

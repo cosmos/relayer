@@ -273,7 +273,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	latestHeight, err := dst.ChainProvider.QueryLatestHeight(context.Background())
 	require.NoError(t, err)
 
-	header, err := dst.ChainProvider.QueryHeaderAtHeight(latestHeight)
+	header, err := dst.ChainProvider.QueryHeaderAtHeight(context.Background(), latestHeight)
 	require.NoError(t, err)
 
 	clientState, err := src.QueryTMClientState(latestHeight)

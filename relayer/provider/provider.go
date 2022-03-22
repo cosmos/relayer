@@ -92,7 +92,7 @@ type QueryProvider interface {
 	QueryTx(ctx context.Context, hashHex string) (*ctypes.ResultTx, error)
 	QueryTxs(ctx context.Context, page, limit int, events []string) ([]*ctypes.ResultTx, error)
 	QueryLatestHeight(ctx context.Context) (int64, error)
-	QueryHeaderAtHeight(height int64) (ibcexported.Header, error)
+	QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.Header, error)
 
 	// bank
 	QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error)

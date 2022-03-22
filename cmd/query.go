@@ -297,7 +297,7 @@ $ %s query header ibc-0 1400`,
 				}
 
 			case 2:
-				header, err = helpers.QueryHeader(chain, args[1])
+				header, err = helpers.QueryHeader(cmd.Context(), chain, args[1])
 				if err != nil {
 					return err
 				}
