@@ -34,12 +34,11 @@ import (
 	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/cosmos/relayer/relayer/provider/cosmos"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"github.com/tendermint/tendermint/libs/log"
 	"gopkg.in/yaml.v3"
 )
 
-func configCmd() *cobra.Command {
+func configCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "config",
 		Aliases: []string{"cfg"},
@@ -47,17 +46,17 @@ func configCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		configShowCmd(),
+		configShowCmd(a),
 		configInitCmd(),
-		configAddChainsCmd(),
-		configAddPathsCmd(),
+		configAddChainsCmd(a),
+		configAddPathsCmd(a),
 	)
 
 	return cmd
 }
 
 // Command for printing current configuration
-func configShowCmd() *cobra.Command {
+func configShowCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "show",
 		Aliases: []string{"s", "list", "l"},
@@ -91,14 +90,14 @@ $ %s cfg list`, appName, defaultHome, appName)),
 			case yml && jsn:
 				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
 			case jsn:
-				out, err := json.Marshal(ConfigToWrapper(config))
+				out, err := json.Marshal(ConfigToWrapper(a.Config))
 				if err != nil {
 					return err
 				}
 				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			default:
-				out, err := yaml.Marshal(ConfigToWrapper(config))
+				out, err := yaml.Marshal(ConfigToWrapper(a.Config))
 				if err != nil {
 					return err
 				}
@@ -108,7 +107,7 @@ $ %s cfg list`, appName, defaultHome, appName)),
 		},
 	}
 
-	return yamlFlag(jsonFlag(cmd))
+	return yamlFlag(a.Viper, jsonFlag(a.Viper, cmd))
 }
 
 // Command for inititalizing an empty config at the --home location
@@ -169,7 +168,7 @@ $ %s cfg i`, appName, defaultHome, appName)),
 	return cmd
 }
 
-func configAddChainsCmd() *cobra.Command {
+func configAddChainsCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:  "add-chains [/path/to/chains/]",
 		Args: cobra.ExactArgs(1),
@@ -178,18 +177,17 @@ func configAddChainsCmd() *cobra.Command {
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s config add-chains configs/chains`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			var out *Config
-			if out, err = cfgFilesAddChains(cmd, args[0]); err != nil {
+			if err := addChainsFromDirectory(cmd.ErrOrStderr(), a, args[0]); err != nil {
 				return err
 			}
-			return overWriteConfig(out)
+			return a.OverwriteConfig(a.Config)
 		},
 	}
 
 	return cmd
 }
 
-func configAddPathsCmd() *cobra.Command {
+func configAddPathsCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:  "add-paths [/path/to/paths/]",
 		Args: cobra.ExactArgs(1),
@@ -200,97 +198,105 @@ func configAddPathsCmd() *cobra.Command {
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s config add-paths configs/paths`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			var out *Config
-			if out, err = cfgFilesAddPaths(cmd, args[0]); err != nil {
+			if err := addPathsFromDirectory(cmd.ErrOrStderr(), a, args[0]); err != nil {
 				return err
 			}
-			return overWriteConfig(out)
+			return a.OverwriteConfig(a.Config)
 		},
 	}
 
 	return cmd
 }
 
-func cfgFilesAddChains(cmd *cobra.Command, dir string) (cfg *Config, err error) {
+// addChainsFromDirectory finds all JSON-encoded config files in dir,
+// and optimistically adds them to a's chains.
+//
+// If any files fail to parse or otherwise are not able to be added to a's chains,
+// the error is logged.
+// An error is only returned if the directory cannot be read at all.
+func addChainsFromDirectory(stderr io.Writer, a *appState, dir string) error {
 	dir = path.Clean(dir)
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	cfg = config
 	for _, f := range files {
 		pth := filepath.Join(dir, f.Name())
 		if f.IsDir() {
-			fmt.Fprintf(cmd.ErrOrStderr(), "directory at %s, skipping...\n", pth)
+			fmt.Fprintf(stderr, "directory at %s, skipping...\n", pth)
 			continue
 		}
 
 		byt, err := os.ReadFile(pth)
 		if err != nil {
-			fmt.Fprintf(cmd.ErrOrStderr(), "failed to read file %s. Err: %v skipping...\n", pth, err)
+			fmt.Fprintf(stderr, "failed to read file %s. Err: %v skipping...\n", pth, err)
 			continue
 		}
 
 		var pcw ProviderConfigWrapper
 		if err = json.Unmarshal(byt, &pcw); err != nil {
-			fmt.Fprintf(cmd.ErrOrStderr(), "failed to unmarshal file %s. Err: %v skipping...\n", pth, err)
+			fmt.Fprintf(stderr, "failed to unmarshal file %s. Err: %v skipping...\n", pth, err)
 			continue
 		}
 
-		prov, err := pcw.Value.NewProvider(homePath, debug)
+		prov, err := pcw.Value.NewProvider(a.HomePath, a.Debug)
 		if err != nil {
-			fmt.Fprintf(cmd.ErrOrStderr(), "failed to build ChainProvider for %s. Err: %v \n", pth, err)
+			fmt.Fprintf(stderr, "failed to build ChainProvider for %s. Err: %v \n", pth, err)
 			continue
 		}
 
 		c := &relayer.Chain{ChainProvider: prov}
 
-		if err = cfg.AddChain(c); err != nil {
-			fmt.Fprintf(cmd.ErrOrStderr(), "failed to add chain %s: %v \n", pth, err)
+		if err = a.Config.AddChain(c); err != nil {
+			fmt.Fprintf(stderr, "failed to add chain %s: %v \n", pth, err)
 			continue
 		}
-		fmt.Fprintf(cmd.ErrOrStderr(), "added chain %s...\n", c.ChainProvider.ChainId())
+		fmt.Fprintf(stderr, "added chain %s...\n", c.ChainProvider.ChainId())
 	}
-	return cfg, nil
+	return nil
 }
 
-func cfgFilesAddPaths(cmd *cobra.Command, dir string) (cfg *Config, err error) {
+// addPathsFromDirectory parses all the files containing JSON-encoded paths in dir,
+// and it adds them to a's paths.
+//
+// addPathsFromDirectory returns the first error encountered,
+// which means a's paths may include a subset of the path files in dir.
+func addPathsFromDirectory(stderr io.Writer, a *appState, dir string) error {
 	dir = path.Clean(dir)
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	cfg = config
 	for _, f := range files {
-		pth := fmt.Sprintf("%s/%s", dir, f.Name())
+		pth := filepath.Join(dir, f.Name())
 		if f.IsDir() {
-			fmt.Fprintf(cmd.ErrOrStderr(), "directory at %s, skipping...\n", pth)
+			fmt.Fprintf(stderr, "directory at %s, skipping...\n", pth)
 			continue
 		}
 
 		byt, err := os.ReadFile(pth)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read file %s: %w", pth, err)
+			return fmt.Errorf("failed to read file %s: %w", pth, err)
 		}
 
 		p := &relayer.Path{}
 		if err = json.Unmarshal(byt, p); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
+			return fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
 		}
 
 		pthName := strings.Split(f.Name(), ".")[0]
-		if err = config.ValidatePath(cmd.ErrOrStderr(), p); err != nil {
-			return nil, fmt.Errorf("failed to validate path %s: %w", pth, err)
+		if err := a.Config.ValidatePath(stderr, p); err != nil {
+			return fmt.Errorf("failed to validate path %s: %w", pth, err)
 		}
 
-		if err = cfg.AddPath(pthName, p); err != nil {
-			return nil, fmt.Errorf("failed to add path %s: %w", pth, err)
+		if err := a.Config.AddPath(pthName, p); err != nil {
+			return fmt.Errorf("failed to add path %s: %w", pth, err)
 		}
 
-		fmt.Fprintf(cmd.ErrOrStderr(), "added path %s...\n\n", pthName)
+		fmt.Fprintf(stderr, "added path %s...\n\n", pthName)
 	}
 
-	return cfg, nil
+	return nil
 }
 
 // ConfigToWrapper converts the Config struct into a ConfigOutputWrapper struct
@@ -415,7 +421,7 @@ func (c *Config) ChainsFromPath(path string) (map[string]*relayer.Chain, string,
 	}
 
 	src, dst := pth.Src.ChainID, pth.Dst.ChainID
-	chains, err := config.Chains.Gets(src, dst)
+	chains, err := c.Chains.Gets(src, dst)
 	if err != nil {
 		return nil, "", "", err
 	}
@@ -526,8 +532,8 @@ func (c *Config) AddPath(name string, path *relayer.Path) (err error) {
 	return nil
 }
 
-// DeleteChain removes a chain from the config
-func (c *Config) DeleteChain(chain string) *Config {
+// DeleteChain modifies c in-place to remove any chains that have the given name.
+func (c *Config) DeleteChain(chain string) {
 	var set relayer.Chains
 	for _, ch := range c.Chains {
 		if ch.ChainID() != chain {
@@ -535,7 +541,6 @@ func (c *Config) DeleteChain(chain string) *Config {
 		}
 	}
 	c.Chains = set
-	return c
 }
 
 // validateConfig is used to validate the GlobalConfig values
@@ -549,7 +554,7 @@ func validateConfig(c *Config) error {
 }
 
 // initConfig reads in config file and ENV variables if set.
-func initConfig(cmd *cobra.Command) error {
+func initConfig(cmd *cobra.Command, a *appState) error {
 	home, err := cmd.PersistentFlags().GetString(flags.FlagHome)
 	if err != nil {
 		return err
@@ -557,10 +562,10 @@ func initConfig(cmd *cobra.Command) error {
 
 	cfgPath := path.Join(home, "config", "config.yaml")
 	if _, err := os.Stat(cfgPath); err == nil {
-		viper.SetConfigFile(cfgPath)
-		if err := viper.ReadInConfig(); err == nil {
+		a.Viper.SetConfigFile(cfgPath)
+		if err := a.Viper.ReadInConfig(); err == nil {
 			// read the config file bytes
-			file, err := os.ReadFile(viper.ConfigFileUsed())
+			file, err := os.ReadFile(a.Viper.ConfigFileUsed())
 			if err != nil {
 				fmt.Fprintln(cmd.ErrOrStderr(), "Error reading file:", err)
 				return err
@@ -577,61 +582,30 @@ func initConfig(cmd *cobra.Command) error {
 			// build the config struct
 			var chains relayer.Chains
 			for _, pcfg := range cfgWrapper.ProviderConfigs {
-				prov, err := pcfg.Value.(provider.ProviderConfig).NewProvider(homePath, debug)
+				prov, err := pcfg.Value.(provider.ProviderConfig).NewProvider(a.HomePath, a.Debug)
 				if err != nil {
 					return fmt.Errorf("failed to build ChainProviders: %w", err)
 				}
 
 				chain := &relayer.Chain{ChainProvider: prov}
-				chain.Init(log.NewTMLogger(log.NewSyncWriter(cmd.ErrOrStderr())), debug)
+				chain.Init(log.NewTMLogger(log.NewSyncWriter(cmd.ErrOrStderr())), a.Debug)
 				chains = append(chains, chain)
 			}
 
-			config = &Config{
+			a.Config = &Config{
 				Global: cfgWrapper.Global,
 				Chains: chains,
 				Paths:  cfgWrapper.Paths,
 			}
 
 			// ensure config has []*relayer.Chain used for all chain operations
-			err = validateConfig(config)
-			if err != nil {
+			if err := validateConfig(a.Config); err != nil {
 				fmt.Fprintln(cmd.ErrOrStderr(), "Error parsing chain config:", err)
 				return err
 			}
 		}
 	}
 	return nil
-}
-
-func overWriteConfig(cfg *Config) (err error) {
-	cfgPath := path.Join(homePath, "config", "config.yaml")
-	if _, err = os.Stat(cfgPath); err == nil {
-		viper.SetConfigFile(cfgPath)
-		if err = viper.ReadInConfig(); err == nil {
-			// ensure validateConfig runs properly
-			err = validateConfig(config)
-			if err != nil {
-				return err
-			}
-
-			// marshal the new config
-			out, err := yaml.Marshal(ConfigToWrapper(config))
-			if err != nil {
-				return err
-			}
-
-			// overwrite the config file
-			err = os.WriteFile(viper.ConfigFileUsed(), out, 0600)
-			if err != nil {
-				return err
-			}
-
-			// set the global variable
-			config = cfg
-		}
-	}
-	return err
 }
 
 // ValidatePath checks that a path is valid

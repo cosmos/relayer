@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -27,18 +28,14 @@ import (
 	"github.com/spf13/viper"
 )
 
-// MB is a megabyte
 const (
-	MB = 1048576 // in bytes
+	MB      = 1024 * 1024 // in bytes
+	appName = "rly"
 )
 
-var (
-	homePath    string
-	debug       bool
-	config      *Config
-	defaultHome = os.ExpandEnv("$HOME/.relayer")
-	appName     = "rly"
+var defaultHome = filepath.Join(os.Getenv("HOME"), ".relayer")
 
+const (
 	// Default identifiers for dummy usage
 	dcli = "defaultclientid"
 	dcon = "defaultconnectionid"
@@ -49,6 +46,12 @@ var (
 
 // NewRootCmd returns the root command for relayer.
 func NewRootCmd() *cobra.Command {
+	// Use a local app state instance scoped to the new root command,
+	// so that tests don't concurrently access the state.
+	a := &appState{
+		Viper: viper.New(),
+	}
+
 	// RootCmd represents the base command when called without any subcommands
 	var rootCmd = &cobra.Command{
 		Use:   appName,
@@ -63,34 +66,34 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
-		// reads `homeDir/config/config.yaml` into `var config *Config`
-		return initConfig(rootCmd)
+		// reads `homeDir/config/config.yaml` into `a.Config`
+		return initConfig(rootCmd, a)
 	}
 
 	// Register --home flag
-	rootCmd.PersistentFlags().StringVar(&homePath, flags.FlagHome, defaultHome, "set home directory")
-	if err := viper.BindPFlag(flags.FlagHome, rootCmd.PersistentFlags().Lookup(flags.FlagHome)); err != nil {
+	rootCmd.PersistentFlags().StringVar(&a.HomePath, flags.FlagHome, defaultHome, "set home directory")
+	if err := a.Viper.BindPFlag(flags.FlagHome, rootCmd.PersistentFlags().Lookup(flags.FlagHome)); err != nil {
 		panic(err)
 	}
 
 	// Register --debug flag
-	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug output")
-	if err := viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug")); err != nil {
+	rootCmd.PersistentFlags().BoolVarP(&a.Debug, "debug", "d", false, "debug output")
+	if err := a.Viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug")); err != nil {
 		panic(err)
 	}
 
 	// Register subcommands
 	rootCmd.AddCommand(
-		configCmd(),
-		chainsCmd(),
-		pathsCmd(),
-		keysCmd(),
-		flags.LineBreak,
-		transactionCmd(),
-		queryCmd(),
-		startCmd(),
-		flags.LineBreak,
-		getVersionCmd(),
+		configCmd(a),
+		chainsCmd(a),
+		pathsCmd(a),
+		keysCmd(a),
+		lineBreakCommand(),
+		transactionCmd(a),
+		queryCmd(a),
+		startCmd(a),
+		lineBreakCommand(),
+		getVersionCmd(a),
 	)
 
 	return rootCmd
@@ -113,4 +116,15 @@ func Execute() {
 func readLine(in io.Reader) (string, error) {
 	str, err := bufio.NewReader(in).ReadString('\n')
 	return strings.TrimSpace(str), err
+}
+
+// lineBreakCommand returns a new instance of a command to be used as a line break
+// in a command's help output.
+//
+// This is not a plain reference to flags.LineBreak,
+// because that is a global value that will be modified by concurrent tests,
+// causing a data race.
+func lineBreakCommand() *cobra.Command {
+	var cmd cobra.Command = *flags.LineBreak
+	return &cmd
 }

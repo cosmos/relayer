@@ -17,7 +17,7 @@ import (
 
 // transactionCmd returns a parent transaction command handler, where all child
 // commands can submit transactions on IBC-connected networks.
-func transactionCmd() *cobra.Command {
+func transactionCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "transact",
 		Aliases: []string{"tx"},
@@ -30,22 +30,22 @@ Most of these commands take a [path] argument. Make sure:
 	}
 
 	cmd.AddCommand(
-		linkCmd(),
-		linkThenStartCmd(),
-		relayMsgsCmd(),
-		relayMsgCmd(),
-		relayAcksCmd(),
-		xfersend(),
-		flags.LineBreak,
-		createClientsCmd(),
-		createClientCmd(),
-		updateClientsCmd(),
-		upgradeClientsCmd(),
+		linkCmd(a),
+		linkThenStartCmd(a),
+		relayMsgsCmd(a),
+		relayMsgCmd(a),
+		relayAcksCmd(a),
+		xfersend(a),
+		lineBreakCommand(),
+		createClientsCmd(a),
+		createClientCmd(a),
+		updateClientsCmd(a),
+		upgradeClientsCmd(a),
 		//upgradeChainCmd(),
-		createConnectionCmd(),
-		createChannelCmd(),
-		closeChannelCmd(),
-		flags.LineBreak,
+		createConnectionCmd(a),
+		createChannelCmd(a),
+		closeChannelCmd(a),
+		lineBreakCommand(),
 
 		//sendCmd(),
 	)
@@ -103,7 +103,7 @@ Most of these commands take a [path] argument. Make sure:
 //	return cmd
 //}
 
-func createClientsCmd() *cobra.Command {
+func createClientsCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "clients [path-name]",
 		Short: "create a clients between two configured chains with a configured path",
@@ -127,7 +127,7 @@ func createClientsCmd() *cobra.Command {
 				return err
 			}
 
-			c, src, dst, err := config.ChainsFromPath(args[0])
+			c, src, dst, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -142,7 +142,7 @@ func createClientsCmd() *cobra.Command {
 
 			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 			if modified {
-				if err := overWriteConfig(config); err != nil {
+				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err
 				}
 			}
@@ -151,10 +151,10 @@ func createClientsCmd() *cobra.Command {
 		},
 	}
 
-	return overrideFlag(clientParameterFlags(cmd))
+	return overrideFlag(a.Viper, clientParameterFlags(a.Viper, cmd))
 }
 
-func createClientCmd() *cobra.Command {
+func createClientCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "client [src-chain-id] [dst-chain-id] [path-name]",
 		Short: "create a client between two configured chains with a configured path",
@@ -180,13 +180,13 @@ func createClientCmd() *cobra.Command {
 
 			src := args[0]
 			dst := args[1]
-			c, err := config.Chains.Gets(src, dst)
+			c, err := a.Config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
 
 			pathName := args[2]
-			path, err := config.Paths.Get(pathName)
+			path, err := a.Config.Paths.Get(pathName)
 			if err != nil {
 				return err
 			}
@@ -231,7 +231,7 @@ func createClientCmd() *cobra.Command {
 
 			modified, err := relayer.CreateClient(c[src], c[dst], srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 			if modified {
-				if err = overWriteConfig(config); err != nil {
+				if err = a.OverwriteConfig(a.Config); err != nil {
 					return err
 				}
 			}
@@ -240,10 +240,10 @@ func createClientCmd() *cobra.Command {
 		},
 	}
 
-	return overrideFlag(clientParameterFlags(cmd))
+	return overrideFlag(a.Viper, clientParameterFlags(a.Viper, cmd))
 }
 
-func updateClientsCmd() *cobra.Command {
+func updateClientsCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update-clients [path-name]",
 		Short: "update IBC clients between two configured chains with a configured path",
@@ -253,7 +253,7 @@ corresponding update-client messages.`,
 		Args:    cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`$ %s transact update-clients demo-path`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := config.ChainsFromPath(args[0])
+			c, src, dst, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -273,13 +273,13 @@ corresponding update-client messages.`,
 	return cmd
 }
 
-func upgradeClientsCmd() *cobra.Command {
+func upgradeClientsCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upgrade-clients [path-name] [chain-id]",
 		Short: "upgrades IBC clients between two configured chains with a configured path and chain-id",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := config.ChainsFromPath(args[0])
+			c, src, dst, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -308,10 +308,10 @@ func upgradeClientsCmd() *cobra.Command {
 		},
 	}
 
-	return heightFlag(cmd)
+	return heightFlag(a.Viper, cmd)
 }
 
-func createConnectionCmd() *cobra.Command {
+func createConnectionCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "connection [path-name]",
 		Aliases: []string{"conn"},
@@ -336,7 +336,7 @@ $ %s tx conn demo-path --timeout 5s`,
 				return err
 			}
 
-			c, src, dst, err := config.ChainsFromPath(args[0])
+			c, src, dst, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -367,7 +367,7 @@ $ %s tx conn demo-path --timeout 5s`,
 			// ensure that the clients exist
 			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 			if modified {
-				if err := overWriteConfig(config); err != nil {
+				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err
 				}
 			}
@@ -377,7 +377,7 @@ $ %s tx conn demo-path --timeout 5s`,
 
 			modified, err = c[src].CreateOpenConnections(c[dst], retries, to)
 			if modified {
-				if err := overWriteConfig(config); err != nil {
+				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err
 				}
 			}
@@ -386,10 +386,10 @@ $ %s tx conn demo-path --timeout 5s`,
 		},
 	}
 
-	return overrideFlag(clientParameterFlags(retryFlag(timeoutFlag(cmd))))
+	return overrideFlag(a.Viper, clientParameterFlags(a.Viper, retryFlag(a.Viper, timeoutFlag(a.Viper, cmd))))
 }
 
-func createChannelCmd() *cobra.Command {
+func createChannelCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "channel [path-name]",
 		Aliases: []string{"chan"},
@@ -404,7 +404,7 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := config.ChainsFromPath(args[0])
+			c, src, dst, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -459,7 +459,7 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			}
 
 			if modified {
-				if err := overWriteConfig(config); err != nil {
+				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err
 				}
 			}
@@ -468,10 +468,10 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 		},
 	}
 
-	return channelParameterFlags(overrideFlag(retryFlag(timeoutFlag(cmd))))
+	return channelParameterFlags(a.Viper, overrideFlag(a.Viper, retryFlag(a.Viper, timeoutFlag(a.Viper, cmd))))
 }
 
-func closeChannelCmd() *cobra.Command {
+func closeChannelCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "channel-close [path-name] [src-channel-id] [src-port-id]",
 		Short: "close a channel between two configured chains with a configured path",
@@ -484,7 +484,7 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 			appName, appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := config.ChainsFromPath(args[0])
+			c, src, dst, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -519,10 +519,10 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 		},
 	}
 
-	return timeoutFlag(cmd)
+	return timeoutFlag(a.Viper, cmd)
 }
 
-func linkCmd() *cobra.Command {
+func linkCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "link [path-name]",
 		Aliases: []string{"connect"},
@@ -548,13 +548,16 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				return err
 			}
 
-			pth, err := config.Paths.Get(args[0])
+			pth, err := a.Config.Paths.Get(args[0])
 			if err != nil {
 				return err
 			}
 
 			src, dst := pth.Src.ChainID, pth.Dst.ChainID
-			c, err := config.Chains.Gets(src, dst)
+			c, err := a.Config.Chains.Gets(src, dst)
+			if err != nil {
+				return err
+			}
 
 			c[src].PathEnd = pth.Src
 			c[dst].PathEnd = pth.Dst
@@ -605,7 +608,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			// create clients if they aren't already created
 			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 			if modified {
-				if err := overWriteConfig(config); err != nil {
+				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err
 				}
 			}
@@ -616,7 +619,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			// create connection if it isn't already created
 			modified, err = c[src].CreateOpenConnections(c[dst], retries, to)
 			if modified {
-				if err := overWriteConfig(config); err != nil {
+				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err
 				}
 			}
@@ -627,7 +630,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			// create channel if it isn't already created
 			modified, err = c[src].CreateOpenChannels(c[dst], retries, to, srcPort, dstPort, order, version, override)
 			if modified {
-				if err := overWriteConfig(config); err != nil {
+				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err
 				}
 			}
@@ -639,10 +642,10 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 		},
 	}
 
-	return overrideFlag(channelParameterFlags(clientParameterFlags(retryFlag(timeoutFlag(cmd)))))
+	return overrideFlag(a.Viper, channelParameterFlags(a.Viper, clientParameterFlags(a.Viper, retryFlag(a.Viper, timeoutFlag(a.Viper, cmd)))))
 }
 
-func linkThenStartCmd() *cobra.Command {
+func linkThenStartCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "link-then-start [path-name]",
 		Aliases: []string{"connect-then-start"},
@@ -655,22 +658,22 @@ networks with a configured path and then start the relayer on that path.`,
 $ %s transact link-then-start demo-path
 $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			lCmd := linkCmd()
+			lCmd := linkCmd(a)
 
 			for err := lCmd.RunE(cmd, args); err != nil; err = lCmd.RunE(cmd, args) {
 				fmt.Fprintf(cmd.ErrOrStderr(), "retrying link: %s\n", err)
 				time.Sleep(1 * time.Second)
 			}
 
-			sCmd := startCmd()
+			sCmd := startCmd(a)
 			return sCmd.RunE(cmd, args)
 		},
 	}
 
-	return overrideFlag(clientParameterFlags(strategyFlag(retryFlag(timeoutFlag(cmd)))))
+	return overrideFlag(a.Viper, clientParameterFlags(a.Viper, strategyFlag(a.Viper, retryFlag(a.Viper, timeoutFlag(a.Viper, cmd)))))
 }
 
-func relayMsgCmd() *cobra.Command {
+func relayMsgCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "relay-packet [path-name] [src-channel-id] [seq-num]",
 		Aliases: []string{"relay-pkt"},
@@ -682,7 +685,7 @@ $ %s tx relay-pkt demo-path channel-1 1`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := config.ChainsFromPath(args[0])
+			c, src, dst, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -716,10 +719,10 @@ $ %s tx relay-pkt demo-path channel-1 1`,
 		},
 	}
 
-	return strategyFlag(cmd)
+	return strategyFlag(a.Viper, cmd)
 }
 
-func relayMsgsCmd() *cobra.Command {
+func relayMsgsCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "relay-packets [path-name] [src-channel-id]",
 		Aliases: []string{"relay-pkts"},
@@ -731,7 +734,7 @@ $ %s tx relay-pkts demo-path channel-0`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := config.ChainsFromPath(args[0])
+			c, src, dst, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -764,10 +767,10 @@ $ %s tx relay-pkts demo-path channel-0`,
 		},
 	}
 
-	return strategyFlag(cmd)
+	return strategyFlag(a.Viper, cmd)
 }
 
-func relayAcksCmd() *cobra.Command {
+func relayAcksCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "relay-acknowledgements [path-name] [src-channel-id]",
 		Aliases: []string{"relay-acks"},
@@ -779,7 +782,7 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := config.ChainsFromPath(args[0])
+			c, src, dst, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -814,7 +817,7 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 		},
 	}
 
-	return strategyFlag(cmd)
+	return strategyFlag(a.Viper, cmd)
 }
 
 // TODO still needs a revisit
@@ -882,7 +885,7 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 //	return cmd
 //}
 
-func xfersend() *cobra.Command {
+func xfersend(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "transfer [src-chain-id] [dst-chain-id] [amount] [dst-addr] [src-channel-id]",
 		Short: "initiate a transfer from one network to another",
@@ -897,7 +900,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 `, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			c, err := config.Chains.Gets(src, dst)
+			c, err := a.Config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -908,7 +911,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 			}
 
 			var path *relayer.Path
-			if path, err = setPathsFromArgs(c[src], c[dst], pathString); err != nil {
+			if path, err = setPathsFromArgs(a, c[src], c[dst], pathString); err != nil {
 				return err
 			}
 
@@ -987,12 +990,12 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 		},
 	}
 
-	return timeoutFlags(pathFlag(cmd))
+	return timeoutFlags(a.Viper, pathFlag(a.Viper, cmd))
 }
 
-func setPathsFromArgs(src, dst *relayer.Chain, name string) (*relayer.Path, error) {
+func setPathsFromArgs(a *appState, src, dst *relayer.Chain, name string) (*relayer.Path, error) {
 	// find any configured paths between the chains
-	paths, err := config.Paths.PathsFromChains(src.ChainID(), dst.ChainID())
+	paths, err := a.Config.Paths.PathsFromChains(src.ChainID(), dst.ChainID())
 	if err != nil {
 		return nil, err
 	}
@@ -1003,12 +1006,12 @@ func setPathsFromArgs(src, dst *relayer.Chain, name string) (*relayer.Path, erro
 	switch {
 	case name != "" && len(paths) > 1:
 		if path, err = paths.Get(name); err != nil {
-			return path, err
+			return nil, err
 		}
 
 	case name != "" && len(paths) == 1:
 		if path, err = paths.Get(name); err != nil {
-			return path, err
+			return nil, err
 		}
 
 	case name == "" && len(paths) > 1:
@@ -1020,11 +1023,11 @@ func setPathsFromArgs(src, dst *relayer.Chain, name string) (*relayer.Path, erro
 		}
 	}
 
-	if err = src.SetPath(path.End(src.ChainID())); err != nil {
+	if err := src.SetPath(path.End(src.ChainID())); err != nil {
 		return nil, err
 	}
 
-	if err = dst.SetPath(path.End(dst.ChainID())); err != nil {
+	if err := dst.SetPath(path.End(dst.ChainID())); err != nil {
 		return nil, err
 	}
 
