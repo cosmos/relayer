@@ -190,7 +190,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 		// Query all packets sent by src that have been received by dst
 		var err error
 		return retry.Do(func() error {
-			rs.Src, err = dst.ChainProvider.QueryUnreceivedAcknowledgements(uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
+			rs.Src, err = dst.ChainProvider.QueryUnreceivedAcknowledgements(ctx, uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
 			return err
 		}, RtyErr, RtyAtt, RtyDel, retry.OnRetry(func(n uint, err error) {
 			dsth, _ = dst.ChainProvider.QueryLatestHeight()
@@ -201,7 +201,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 		// Query all packets sent by dst that have been received by src
 		var err error
 		return retry.Do(func() error {
-			rs.Dst, err = src.ChainProvider.QueryUnreceivedAcknowledgements(uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
+			rs.Dst, err = src.ChainProvider.QueryUnreceivedAcknowledgements(ctx, uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			srch, _ = src.ChainProvider.QueryLatestHeight()

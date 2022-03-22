@@ -643,9 +643,9 @@ func (cc *CosmosProvider) QueryUnreceivedPackets(ctx context.Context, height uin
 }
 
 // QueryUnreceivedAcknowledgements returns a list of unrelayed packet acks
-func (cc *CosmosProvider) QueryUnreceivedAcknowledgements(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
+func (cc *CosmosProvider) QueryUnreceivedAcknowledgements(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
 	qc := chantypes.NewQueryClient(cc)
-	res, err := qc.UnreceivedAcks(context.Background(), &chantypes.QueryUnreceivedAcksRequest{
+	res, err := qc.UnreceivedAcks(ctx, &chantypes.QueryUnreceivedAcksRequest{
 		PortId:             portid,
 		ChannelId:          channelid,
 		PacketAckSequences: seqs,
