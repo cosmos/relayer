@@ -19,13 +19,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io"
 	"math"
-	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/avast/retry-go"
@@ -76,10 +72,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				}
 			}
 
-			ctx, cancel := context.WithCancel(cmd.Context())
-			defer cancel()
-
-			errorChan := relayer.StartRelayer(ctx, c[src], c[dst], filter, maxTxSize, maxMsgLength)
+			errorChan := relayer.StartRelayer(cmd.Context(), c[src], c[dst], filter, maxTxSize, maxMsgLength)
 
 			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire
 			// when there are no packets flowing across the channels. It is currently a source of errors that have been
@@ -92,7 +85,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 					for {
 						var timeToExpiry time.Duration
 						if err = retry.Do(func() error {
-							timeToExpiry, err = UpdateClientsFromChains(ctx, c[src], c[dst], thresholdTime)
+							timeToExpiry, err = UpdateClientsFromChains(cmd.Context(), c[src], c[dst], thresholdTime)
 							return err
 						}, retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
 							if a.Debug {
@@ -110,30 +103,18 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				}
 			}
 
-			trapSignal(ctx, cmd.ErrOrStderr(), errorChan, c[src])
+			// Block until the error channel sends a message.
+			// The context being canceled will cause the relayer to stop,
+			// so we don't want to separately monitor the ctx.Done channel,
+			// because we would risk returning before the relayer cleans up.
+			if err := <-errorChan; err != nil {
+				c[src].Log(fmt.Sprintf("relayer start error. Err: %v", err))
+				return err
+			}
 			return nil
 		},
 	}
 	return strategyFlag(a.Viper, updateTimeFlags(a.Viper, cmd))
-}
-
-// trap signal waits for a SIGINT or SIGTERM and then sends down the done channel
-func trapSignal(ctx context.Context, stderr io.Writer, errorChan chan error, src *relayer.Chain) {
-	sigCh := make(chan os.Signal, 1)
-
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	// wait for the context to be closed, a signal, or an error to be read
-	select {
-	case <-ctx.Done():
-		close(sigCh)
-	case sig := <-sigCh:
-		fmt.Fprintln(stderr, "Signal Received", sig.String())
-		close(sigCh)
-	case err := <-errorChan:
-		src.Log(fmt.Sprintf("relayer start error. Err: %v", err))
-		close(sigCh)
-	}
 }
 
 // UpdateClientsFromChains takes src, dst chains, threshold time and update clients based on expiry time
