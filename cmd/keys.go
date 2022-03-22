@@ -76,7 +76,7 @@ $ %s k a ibc-2 testkey`, appName, appName, appName)),
 
 			ko, err := chain.ChainProvider.AddKey(keyName)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to add key: %w", err)
 			}
 
 			out, err := json.Marshal(&ko)
@@ -200,7 +200,9 @@ func keysListCmd(a *appState) *cobra.Command {
 $ %s keys list ibc-0
 $ %s k l ibc-1`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
+			chainID := args[0]
+
+			chain, err := a.Config.Chains.Get(chainID)
 			if err != nil {
 				return err
 			}
@@ -210,8 +212,12 @@ $ %s k l ibc-1`, appName, appName)),
 				return err
 			}
 
+			if len(info) == 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: no keys found for chain %s (do you need to run 'rly keys add %s'?)\n", chainID, chainID)
+			}
+
 			for key, val := range info {
-				fmt.Printf("key(%s) -> %s\n", key, val)
+				fmt.Fprintf(cmd.OutOrStdout(), "key(%s) -> %s\n", key, val)
 			}
 
 			return nil
@@ -288,7 +294,7 @@ $ %s k e ibc-2 testkey`, appName, appName)),
 				return err
 			}
 
-			fmt.Println(info)
+			fmt.Fprintln(cmd.OutOrStdout(), info)
 			return nil
 		},
 	}
