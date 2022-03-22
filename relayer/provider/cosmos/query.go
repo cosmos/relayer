@@ -600,9 +600,9 @@ func (cc *CosmosProvider) QueryChannels(ctx context.Context) ([]*chantypes.Ident
 
 // QueryPacketCommitments returns an array of packet commitments
 // TODO add pagination support
-func (cc *CosmosProvider) QueryPacketCommitments(height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
+func (cc *CosmosProvider) QueryPacketCommitments(ctx context.Context, height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
 	qc := chantypes.NewQueryClient(cc)
-	c, err := qc.PacketCommitments(context.Background(), &chantypes.QueryPacketCommitmentsRequest{
+	c, err := qc.PacketCommitments(ctx, &chantypes.QueryPacketCommitmentsRequest{
 		PortId:     portid,
 		ChannelId:  channelid,
 		Pagination: DefaultPageRequest(),

@@ -12,7 +12,7 @@ import (
 )
 
 // UnrelayedSequences returns the unrelayed sequence numbers between two chains
-func UnrelayedSequences(src, dst *Chain, srcChannel *chantypes.IdentifiedChannel) (*RelaySequences, error) {
+func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chantypes.IdentifiedChannel) (*RelaySequences, error) {
 	var (
 		eg           = new(errgroup.Group)
 		srcPacketSeq = []uint64{}
@@ -32,7 +32,7 @@ func UnrelayedSequences(src, dst *Chain, srcChannel *chantypes.IdentifiedChannel
 		)
 		if err = retry.Do(func() error {
 			// Query the packet commitment
-			res, err = src.ChainProvider.QueryPacketCommitments(uint64(srch), srcChannel.ChannelId, srcChannel.PortId)
+			res, err = src.ChainProvider.QueryPacketCommitments(ctx, uint64(srch), srcChannel.ChannelId, srcChannel.PortId)
 			switch {
 			case err != nil:
 				return err
@@ -59,7 +59,7 @@ func UnrelayedSequences(src, dst *Chain, srcChannel *chantypes.IdentifiedChannel
 			err error
 		)
 		if err = retry.Do(func() error {
-			res, err = dst.ChainProvider.QueryPacketCommitments(uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
+			res, err = dst.ChainProvider.QueryPacketCommitments(ctx, uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
 			switch {
 			case err != nil:
 				return err

@@ -857,7 +857,7 @@ $ %s query unrelayed-pkts demo-path channel-0`,
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(c[src], c[dst], channel)
+			sp, err := relayer.UnrelayedSequences(cmd.Context(), c[src], c[dst], channel)
 			if err != nil {
 				return err
 			}

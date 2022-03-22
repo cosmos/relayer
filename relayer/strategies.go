@@ -178,7 +178,7 @@ func relayUnrelayedPackets(ctx context.Context, src, dst *Chain, maxTxSize, maxM
 	defer cancel()
 
 	// Fetch any unrelayed sequences depending on the channel order
-	sp, err := UnrelayedSequences(src, dst, srcChannel)
+	sp, err := UnrelayedSequences(ctx, src, dst, srcChannel)
 	if err != nil {
 		src.Log(fmt.Sprintf("unrelayed sequences error: %s", err))
 		return err
