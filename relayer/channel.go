@@ -153,7 +153,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 		}
 
 		if err = retry.Do(func() error {
-			dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
+			dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(ctx, dsth, src.ChainProvider, src.ClientID())
 			if err != nil || dsth == 0 {
 				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 			}
@@ -201,7 +201,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 		}
 
 		if err = retry.Do(func() error {
-			dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
+			dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(ctx, dsth, src.ChainProvider, src.ClientID())
 			if err != nil || dsth == 0 {
 				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 			}
@@ -245,7 +245,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 		}
 
 		if err = retry.Do(func() error {
-			srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
+			srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(ctx, srch, dst.ChainProvider, dst.ClientID())
 			if err != nil || srch == 0 {
 				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 			}
@@ -287,7 +287,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 		}
 
 		if err = retry.Do(func() error {
-			dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
+			dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(ctx, dsth, src.ChainProvider, src.ClientID())
 			if err != nil || dsth == 0 {
 				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 			}
@@ -331,7 +331,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 		}
 
 		if err = retry.Do(func() error {
-			srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
+			srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(ctx, srch, dst.ChainProvider, dst.ClientID())
 			if err != nil || srch == 0 {
 				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 			}
@@ -406,7 +406,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 			}
 
 			if err = retry.Do(func() error {
-				dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
+				dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(ctx, dsth, src.ChainProvider, src.ClientID())
 				if err != nil || dsth == 0 {
 					return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 				}
@@ -466,7 +466,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 			}
 
 			if err = retry.Do(func() error {
-				dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
+				dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(ctx, dsth, src.ChainProvider, src.ClientID())
 				if err != nil || dsth == 0 {
 					return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 				}
@@ -527,7 +527,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 			}
 
 			if err = retry.Do(func() error {
-				srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
+				srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(ctx, srch, dst.ChainProvider, dst.ClientID())
 				if err != nil || srch == 0 {
 					return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 				}
@@ -644,7 +644,7 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 				logChannelStates(c, dst, srcChan, dstChan)
 			}
 
-			dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, c.ChainProvider, c.ClientID())
+			dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(ctx, dsth, c.ChainProvider, c.ClientID())
 			if err != nil {
 				return nil, err
 			}
@@ -669,7 +669,7 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 				return nil, err
 			}
 
-			srcHeader, err := c.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
+			srcHeader, err := c.ChainProvider.GetIBCUpdateHeader(ctx, srch, dst.ChainProvider, dst.ClientID())
 			if err != nil {
 				return nil, err
 			}
@@ -698,7 +698,7 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 				return nil, err
 			}
 
-			srcHeader, err := c.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
+			srcHeader, err := c.ChainProvider.GetIBCUpdateHeader(ctx, srch, dst.ChainProvider, dst.ClientID())
 			if err != nil {
 				return nil, err
 			}
@@ -732,7 +732,7 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 				return nil, err
 			}
 
-			dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, c.ChainProvider, c.ClientID())
+			dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(ctx, dsth, c.ChainProvider, c.ClientID())
 			if err != nil {
 				return nil, err
 			}

@@ -105,7 +105,7 @@ func ExecuteConnectionStep(ctx context.Context, src, dst *Chain) (success, last,
 	// is chosen or a new connection is created.
 	// This will perform either an OpenInit or OpenTry step and return
 	if err = retry.Do(func() error {
-		srcHeader, dstHeader, err = GetIBCUpdateHeaders(srch, dsth, src.ChainProvider, dst.ChainProvider, src.ClientID(), dst.ClientID())
+		srcHeader, dstHeader, err = GetIBCUpdateHeaders(ctx, srch, dsth, src.ChainProvider, dst.ChainProvider, src.ClientID(), dst.ClientID())
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		src.Log(fmt.Sprintf("failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
@@ -270,7 +270,7 @@ func InitializeConnection(ctx context.Context, src, dst *Chain) (success, modifi
 
 	// Get IBC Update Headers for src and dst which can be used to update an on chain light client on the counterparty
 	if err = retry.Do(func() error {
-		srcHeader, dstHeader, err = GetIBCUpdateHeaders(srch, dsth, src.ChainProvider, dst.ChainProvider, src.ClientID(), dst.ClientID())
+		srcHeader, dstHeader, err = GetIBCUpdateHeaders(ctx, srch, dsth, src.ChainProvider, dst.ChainProvider, src.ClientID(), dst.ClientID())
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		src.Log(fmt.Sprintf("failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))

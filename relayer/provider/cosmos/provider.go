@@ -653,23 +653,23 @@ func (cc *CosmosProvider) ChannelCloseConfirm(dstQueryProvider provider.QueryPro
 // returns an IBC Update Header which can be used to update an on chain
 // light client on the destination chain. The source is used to construct
 // the header data.
-func (cc *CosmosProvider) GetIBCUpdateHeader(srch int64, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
+func (cc *CosmosProvider) GetIBCUpdateHeader(ctx context.Context, srch int64, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
 	// Construct header data from light client representing source.
-	h, err := cc.GetLightSignedHeaderAtHeight(srch)
+	h, err := cc.GetLightSignedHeaderAtHeight(ctx, srch)
 	if err != nil {
 		return nil, err
 	}
 
 	// Inject trusted fields based on previous header data from source
-	return cc.InjectTrustedFields(h, dst, dstClientId)
+	return cc.InjectTrustedFields(ctx, h, dst, dstClientId)
 }
 
-func (cc *CosmosProvider) GetLightSignedHeaderAtHeight(h int64) (ibcexported.Header, error) {
+func (cc *CosmosProvider) GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error) {
 	if h == 0 {
 		return nil, errors.New("height cannot be 0")
 	}
 
-	lightBlock, err := cc.LightProvider.LightBlock(context.Background(), h)
+	lightBlock, err := cc.LightProvider.LightBlock(ctx, h)
 	if err != nil {
 		return nil, err
 	}
@@ -691,7 +691,7 @@ func (cc *CosmosProvider) GetLightSignedHeaderAtHeight(h int64) (ibcexported.Hea
 // TrustedHeight is the latest height of the IBC client on dst
 // TrustedValidators is the validator set of srcChain at the TrustedHeight
 // InjectTrustedFields returns a copy of the header with TrustedFields modified
-func (cc *CosmosProvider) InjectTrustedFields(header ibcexported.Header, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
+func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexported.Header, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
 	// make copy of header stored in mop
 	h, ok := header.(*tmclient.Header)
 	if !ok {
@@ -716,7 +716,7 @@ func (cc *CosmosProvider) InjectTrustedFields(header ibcexported.Header, dst pro
 	// place where we need to fix the upstream query proof issue?
 	var trustedHeader *tmclient.Header
 	if err := retry.Do(func() error {
-		tmpHeader, err := cc.GetLightSignedHeaderAtHeight(int64(h.TrustedHeight.RevisionHeight + 1))
+		tmpHeader, err := cc.GetLightSignedHeaderAtHeight(ctx, int64(h.TrustedHeight.RevisionHeight+1))
 		th, ok := tmpHeader.(*tmclient.Header)
 		if !ok {
 			err = errors.New("non-tm client header")
@@ -903,7 +903,7 @@ func (cc *CosmosProvider) RelayPacketFromSequence(ctx context.Context, src, dst 
 		return nil, nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	rcvPackets, timeoutPackets, err := relayPacketsFromResultTx(src, dst, int64(dsth), txs[0], dstChanId, dstPortId, srcChanId, srcPortId, srcClientId)
+	rcvPackets, timeoutPackets, err := relayPacketsFromResultTx(ctx, src, dst, int64(dsth), txs[0], dstChanId, dstPortId, srcChanId, srcPortId, srcClientId)
 	switch {
 	case err != nil:
 		return nil, nil, err
@@ -989,7 +989,7 @@ func ackPacketQuery(channelID string, seq int) []string {
 
 // relayPacketsFromResultTx looks through the events in a *ctypes.ResultTx
 // and returns relayPackets with the appropriate data
-func relayPacketsFromResultTx(src, dst provider.ChainProvider, dsth int64, res *ctypes.ResultTx, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
+func relayPacketsFromResultTx(ctx context.Context, src, dst provider.ChainProvider, dsth int64, res *ctypes.ResultTx, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
 	var (
 		rcvPackets     []provider.RelayPacket
 		timeoutPackets []provider.RelayPacket
@@ -1046,7 +1046,7 @@ func relayPacketsFromResultTx(src, dst provider.ChainProvider, dsth int64, res *
 			}
 
 			// fetch the header which represents a block produced on destination
-			block, err := dst.GetIBCUpdateHeader(dsth, src, srcClientId)
+			block, err := dst.GetIBCUpdateHeader(ctx, dsth, src, srcClientId)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -1212,12 +1212,12 @@ func (cc *CosmosProvider) AutoUpdateClient(ctx context.Context, dst provider.Cha
 		return 0, fmt.Errorf("client (%s) is already expired on chain: %s", srcClientId, cc.PCfg.ChainID)
 	}
 
-	srcUpdateHeader, err := cc.GetIBCUpdateHeader(srch, dst, dstClientId)
+	srcUpdateHeader, err := cc.GetIBCUpdateHeader(ctx, srch, dst, dstClientId)
 	if err != nil {
 		return 0, err
 	}
 
-	dstUpdateHeader, err := dst.GetIBCUpdateHeader(dsth, cc, srcClientId)
+	dstUpdateHeader, err := dst.GetIBCUpdateHeader(ctx, dsth, cc, srcClientId)
 	if err != nil {
 		return 0, err
 	}
@@ -1307,7 +1307,7 @@ func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty p
 			}
 
 			//nolint:lll
-			header, err := counterparty.GetLightSignedHeaderAtHeight(int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
+			header, err := counterparty.GetLightSignedHeaderAtHeight(ctx, int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
 			if err != nil {
 				if cc.PCfg.Debug {
 					cc.Log(fmt.Sprintf("Error: failed to query header for chain %s at height %d: %v",

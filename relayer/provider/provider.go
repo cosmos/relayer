@@ -73,8 +73,8 @@ type ChainProvider interface {
 	SendMessage(msg RelayerMessage) (*RelayerTxResponse, bool, error)
 	SendMessages(msgs []RelayerMessage) (*RelayerTxResponse, bool, error)
 
-	GetLightSignedHeaderAtHeight(h int64) (ibcexported.Header, error)
-	GetIBCUpdateHeader(srch int64, dst ChainProvider, dstClientId string) (ibcexported.Header, error)
+	GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error)
+	GetIBCUpdateHeader(ctx context.Context, srch int64, dst ChainProvider, dstClientId string) (ibcexported.Header, error)
 
 	ChainId() string
 	Type() string

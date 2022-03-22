@@ -291,7 +291,7 @@ $ %s query header ibc-0 1400`,
 			var header ibcexported.Header
 			switch len(args) {
 			case 1:
-				header, err = chain.ChainProvider.GetLightSignedHeaderAtHeight(0)
+				header, err = chain.ChainProvider.GetLightSignedHeaderAtHeight(cmd.Context(), 0)
 				if err != nil {
 					return err
 				}

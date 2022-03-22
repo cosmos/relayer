@@ -65,5 +65,5 @@ func QueryHeader(ctx context.Context, chain *relayer.Chain, opts ...string) (ibc
 		return chain.ChainProvider.QueryHeaderAtHeight(ctx, height)
 	}
 
-	return chain.ChainProvider.GetLightSignedHeaderAtHeight(0)
+	return chain.ChainProvider.GetLightSignedHeaderAtHeight(ctx, 0)
 }

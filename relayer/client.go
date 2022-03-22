@@ -34,7 +34,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 
 	// Query the light signed headers for src & dst at the heights srch & dsth, retry if the query fails
 	if err = retry.Do(func() error {
-		srcUpdateHeader, dstUpdateHeader, err = GetLightSignedHeadersAtHeights(c, dst, srch, dsth)
+		srcUpdateHeader, dstUpdateHeader, err = GetLightSignedHeadersAtHeights(ctx, c, dst, srch, dsth)
 		if err != nil {
 			return fmt.Errorf("failed to query light signed headers: %w", err)
 		}
@@ -187,7 +187,7 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 	}
 
 	if err = retry.Do(func() error {
-		srcUpdateHeader, dstUpdateHeader, err = GetIBCUpdateHeaders(srch, dsth, c.ChainProvider, dst.ChainProvider, c.ClientID(), dst.ClientID())
+		srcUpdateHeader, dstUpdateHeader, err = GetIBCUpdateHeaders(ctx, srch, dsth, c.ChainProvider, dst.ChainProvider, c.ClientID(), dst.ClientID())
 		if err != nil {
 			c.Log(fmt.Sprintf("Failed to query light signed headers. Err: %v", err))
 			return err
@@ -239,7 +239,7 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 
 // UpgradeClients upgrades the client on src after dst chain has undergone an upgrade.
 func (c *Chain) UpgradeClients(ctx context.Context, dst *Chain, height int64) error {
-	dstHeader, err := dst.ChainProvider.GetLightSignedHeaderAtHeight(height)
+	dstHeader, err := dst.ChainProvider.GetLightSignedHeaderAtHeight(ctx, height)
 	if err != nil {
 		return err
 	}
