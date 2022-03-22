@@ -25,7 +25,7 @@ func QueryBalance(ctx context.Context, chain *relayer.Chain, address string, sho
 		return nil, err
 	}
 
-	dts, err := chain.ChainProvider.QueryDenomTraces(0, 1000, h)
+	dts, err := chain.ChainProvider.QueryDenomTraces(ctx, 0, 1000, h)
 	if err != nil {
 		return nil, err
 	}

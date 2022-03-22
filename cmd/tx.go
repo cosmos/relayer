@@ -946,7 +946,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 					srcChannelID, c[src], path.Src.ConnectionID)
 			}
 
-			dts, err := c[src].ChainProvider.QueryDenomTraces(0, 100, srch)
+			dts, err := c[src].ChainProvider.QueryDenomTraces(cmd.Context(), 0, 100, srch)
 			if err != nil {
 				return err
 			}

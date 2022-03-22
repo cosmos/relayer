@@ -70,7 +70,7 @@ $ %s q ibc-denoms ibc-0`,
 				return err
 			}
 
-			res, err := chain.ChainProvider.QueryDenomTraces(0, 100, h)
+			res, err := chain.ChainProvider.QueryDenomTraces(cmd.Context(), 0, 100, h)
 			if err != nil {
 				return err
 			}

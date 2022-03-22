@@ -780,8 +780,8 @@ func (cc *CosmosProvider) QueryHeaderAtHeight(ctx context.Context, height int64)
 }
 
 // QueryDenomTrace takes a denom from IBC and queries the information about it
-func (cc *CosmosProvider) QueryDenomTrace(denom string) (*transfertypes.DenomTrace, error) {
-	transfers, err := transfertypes.NewQueryClient(cc).DenomTrace(context.Background(),
+func (cc *CosmosProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
+	transfers, err := transfertypes.NewQueryClient(cc).DenomTrace(ctx,
 		&transfertypes.QueryDenomTraceRequest{
 			Hash: denom,
 		})
@@ -793,8 +793,8 @@ func (cc *CosmosProvider) QueryDenomTrace(denom string) (*transfertypes.DenomTra
 
 // QueryDenomTraces returns all the denom traces from a given chain
 // TODO add pagination support
-func (cc *CosmosProvider) QueryDenomTraces(offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
-	transfers, err := transfertypes.NewQueryClient(cc).DenomTraces(context.Background(),
+func (cc *CosmosProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
+	transfers, err := transfertypes.NewQueryClient(cc).DenomTraces(ctx,
 		&transfertypes.QueryDenomTracesRequest{
 			Pagination: DefaultPageRequest(),
 		})
