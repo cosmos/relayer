@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v3"
-
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
+	"golang.org/x/sync/errgroup"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -171,19 +170,19 @@ type PathWithStatus struct {
 func (p *Path) QueryPathStatus(ctx context.Context, src, dst *Chain) *PathWithStatus {
 	var (
 		err              error
-		eg               errgroup.Group
 		srch, dsth       int64
 		srcCs, dstCs     *clienttypes.QueryClientStateResponse
 		srcConn, dstConn *conntypes.QueryConnectionResponse
 
 		out = &PathWithStatus{Path: p, Status: PathStatus{false, false, false}}
 	)
+	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		srch, err = src.ChainProvider.QueryLatestHeight(ctx)
+		srch, err = src.ChainProvider.QueryLatestHeight(egCtx)
 		return err
 	})
 	eg.Go(func() error {
-		dsth, err = dst.ChainProvider.QueryLatestHeight(ctx)
+		dsth, err = dst.ChainProvider.QueryLatestHeight(egCtx)
 		return err
 	})
 	if err = eg.Wait(); err != nil {
@@ -197,6 +196,7 @@ func (p *Path) QueryPathStatus(ctx context.Context, src, dst *Chain) *PathWithSt
 		return out
 	}
 
+	eg = new(errgroup.Group)
 	eg.Go(func() error {
 		srcCs, err = src.ChainProvider.QueryClientStateResponse(srch, src.ClientID())
 		return err

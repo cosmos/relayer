@@ -86,7 +86,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 			// hard to rectify, so we are just avoiding this code path for now
 			if false {
 				thresholdTime := a.Viper.GetDuration(flagThresholdTime)
-				eg := new(errgroup.Group)
+				eg, ctx := errgroup.WithContext(ctx)
 
 				eg.Go(func() error {
 					for {
@@ -143,15 +143,15 @@ func UpdateClientsFromChains(ctx context.Context, src, dst *relayer.Chain, thres
 		err                          error
 	)
 
-	eg := new(errgroup.Group)
+	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		var err error
-		srcTimeExpiry, err = src.ChainProvider.AutoUpdateClient(ctx, dst.ChainProvider, thresholdTime, src.ClientID(), dst.ClientID())
+		srcTimeExpiry, err = src.ChainProvider.AutoUpdateClient(egCtx, dst.ChainProvider, thresholdTime, src.ClientID(), dst.ClientID())
 		return err
 	})
 	eg.Go(func() error {
 		var err error
-		dstTimeExpiry, err = dst.ChainProvider.AutoUpdateClient(ctx, src.ChainProvider, thresholdTime, dst.ClientID(), src.ClientID())
+		dstTimeExpiry, err = dst.ChainProvider.AutoUpdateClient(egCtx, src.ChainProvider, thresholdTime, dst.ClientID(), src.ClientID())
 		return err
 	})
 	if err = eg.Wait(); err != nil {
