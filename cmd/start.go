@@ -92,7 +92,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 					for {
 						var timeToExpiry time.Duration
 						if err = retry.Do(func() error {
-							timeToExpiry, err = UpdateClientsFromChains(c[src], c[dst], thresholdTime)
+							timeToExpiry, err = UpdateClientsFromChains(ctx, c[src], c[dst], thresholdTime)
 							return err
 						}, retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
 							if a.Debug {
@@ -137,7 +137,7 @@ func trapSignal(ctx context.Context, stderr io.Writer, errorChan chan error, src
 }
 
 // UpdateClientsFromChains takes src, dst chains, threshold time and update clients based on expiry time
-func UpdateClientsFromChains(src, dst *relayer.Chain, thresholdTime time.Duration) (time.Duration, error) {
+func UpdateClientsFromChains(ctx context.Context, src, dst *relayer.Chain, thresholdTime time.Duration) (time.Duration, error) {
 	var (
 		srcTimeExpiry, dstTimeExpiry time.Duration
 		err                          error
@@ -146,12 +146,12 @@ func UpdateClientsFromChains(src, dst *relayer.Chain, thresholdTime time.Duratio
 	eg := new(errgroup.Group)
 	eg.Go(func() error {
 		var err error
-		srcTimeExpiry, err = src.ChainProvider.AutoUpdateClient(dst.ChainProvider, thresholdTime, src.ClientID(), dst.ClientID())
+		srcTimeExpiry, err = src.ChainProvider.AutoUpdateClient(ctx, dst.ChainProvider, thresholdTime, src.ClientID(), dst.ClientID())
 		return err
 	})
 	eg.Go(func() error {
 		var err error
-		dstTimeExpiry, err = dst.ChainProvider.AutoUpdateClient(src.ChainProvider, thresholdTime, dst.ClientID(), src.ClientID())
+		dstTimeExpiry, err = dst.ChainProvider.AutoUpdateClient(ctx, src.ChainProvider, thresholdTime, dst.ClientID(), src.ClientID())
 		return err
 	})
 	if err = eg.Wait(); err != nil {

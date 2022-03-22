@@ -65,12 +65,12 @@ $ %s q ibc-denoms ibc-0`,
 				return err
 			}
 
-			h, err := chain.ChainProvider.QueryLatestHeight()
+			h, err := chain.ChainProvider.QueryLatestHeight(cmd.Context())
 			if err != nil {
 				return err
 			}
 
-			res, err := chain.ChainProvider.QueryDenomTraces(0, 100, h)
+			res, err := chain.ChainProvider.QueryDenomTraces(cmd.Context(), 0, 100, h)
 			if err != nil {
 				return err
 			}
@@ -101,7 +101,7 @@ $ %s q tx ibc-0 A5DF8D272F1C451CFF92BA6C41942C4D29B5CF180279439ED6AB038282F956BE
 				return err
 			}
 
-			txs, err := chain.ChainProvider.QueryTx(args[1])
+			txs, err := chain.ChainProvider.QueryTx(cmd.Context(), args[1])
 			if err != nil {
 				return err
 			}
@@ -152,8 +152,7 @@ $ %s q txs ibc-0 "message.action=transfer"`,
 				return err
 			}
 
-			txs, err := chain.ChainProvider.QueryTxs(int(offset), int(limit), []string{args[1]})
-			//txs, err := helpers.QueryTxs(chain, args[1], offset, limit)
+			txs, err := chain.ChainProvider.QueryTxs(cmd.Context(), int(offset), int(limit), []string{args[1]})
 			if err != nil {
 				return err
 			}
@@ -260,7 +259,7 @@ $ %s query balance ibc-0 testkey`,
 				return err
 			}
 
-			coins, err := helpers.QueryBalance(chain, addr, showDenoms)
+			coins, err := helpers.QueryBalance(cmd.Context(), chain, addr, showDenoms)
 			if err != nil {
 				return err
 			}
@@ -292,13 +291,13 @@ $ %s query header ibc-0 1400`,
 			var header ibcexported.Header
 			switch len(args) {
 			case 1:
-				header, err = chain.ChainProvider.GetLightSignedHeaderAtHeight(0)
+				header, err = chain.ChainProvider.GetLightSignedHeaderAtHeight(cmd.Context(), 0)
 				if err != nil {
 					return err
 				}
 
 			case 2:
-				header, err = helpers.QueryHeader(chain, args[1])
+				header, err = helpers.QueryHeader(cmd.Context(), chain, args[1])
 				if err != nil {
 					return err
 				}
@@ -336,7 +335,7 @@ $ %s q node-state ibc-1`,
 				return err
 			}
 
-			csRes, _, err := chain.ChainProvider.QueryConsensusState(0)
+			csRes, _, err := chain.ChainProvider.QueryConsensusState(cmd.Context(), 0)
 			if err != nil {
 				return err
 			}
@@ -377,7 +376,7 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 			}
 
 			if height == 0 {
-				height, err = chain.ChainProvider.QueryLatestHeight()
+				height, err = chain.ChainProvider.QueryLatestHeight(cmd.Context())
 				if err != nil {
 					return err
 				}
@@ -429,7 +428,7 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 			//	return err
 			//}
 
-			res, err := chain.ChainProvider.QueryClients()
+			res, err := chain.ChainProvider.QueryClients(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -511,7 +510,7 @@ $ %s q conns ibc-1`,
 			//	return err
 			//}
 
-			res, err := chain.ChainProvider.QueryConnections()
+			res, err := chain.ChainProvider.QueryConnections(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -560,13 +559,13 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 			}
 
 			if height == 0 {
-				height, err = chain.ChainProvider.QueryLatestHeight()
+				height, err = chain.ChainProvider.QueryLatestHeight(cmd.Context())
 				if err != nil {
 					return err
 				}
 			}
 
-			res, err := chain.ChainProvider.QueryConnectionsUsingClient(height, chain.ClientID())
+			res, err := chain.ChainProvider.QueryConnectionsUsingClient(cmd.Context(), height, chain.ClientID())
 			if err != nil {
 				return err
 			}
@@ -606,7 +605,7 @@ $ %s q conn ibc-1 ibconeconn`,
 				return err
 			}
 
-			height, err := chain.ChainProvider.QueryLatestHeight()
+			height, err := chain.ChainProvider.QueryLatestHeight(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -656,7 +655,7 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 			//	return err
 			//}
 
-			chans, err := chain.ChainProvider.QueryConnectionChannels(0, args[1])
+			chans, err := chain.ChainProvider.QueryConnectionChannels(cmd.Context(), 0, args[1])
 			if err != nil {
 				return err
 			}
@@ -707,7 +706,7 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 			}
 
 			if height == 0 {
-				height, err = chain.ChainProvider.QueryLatestHeight()
+				height, err = chain.ChainProvider.QueryLatestHeight(cmd.Context())
 				if err != nil {
 					return err
 				}
@@ -754,7 +753,7 @@ $ %s query channels ibc-2 --offset 2 --limit 30`,
 			//	return err
 			//}
 
-			res, err := chain.ChainProvider.QueryChannels()
+			res, err := chain.ChainProvider.QueryChannels(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -853,12 +852,12 @@ $ %s query unrelayed-pkts demo-path channel-0`,
 			}
 
 			channelID := args[1]
-			channel, err := relayer.QueryChannel(c[src], channelID)
+			channel, err := relayer.QueryChannel(cmd.Context(), c[src], channelID)
 			if err != nil {
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(c[src], c[dst], channel)
+			sp, err := relayer.UnrelayedSequences(cmd.Context(), c[src], c[dst], channel)
 			if err != nil {
 				return err
 			}
@@ -908,12 +907,12 @@ $ %s query unrelayed-acks demo-path channel-0`,
 			}
 
 			channelID := args[1]
-			channel, err := relayer.QueryChannel(c[src], channelID)
+			channel, err := relayer.QueryChannel(cmd.Context(), c[src], channelID)
 			if err != nil {
 				return err
 			}
 
-			sp, err := relayer.UnrelayedAcknowledgements(c[src], c[dst], channel)
+			sp, err := relayer.UnrelayedAcknowledgements(cmd.Context(), c[src], c[dst], channel)
 			if err != nil {
 				return err
 			}

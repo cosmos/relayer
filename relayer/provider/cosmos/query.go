@@ -34,17 +34,17 @@ import (
 )
 
 // QueryTx takes a transaction hash and returns the transaction
-func (cc *CosmosProvider) QueryTx(hashHex string) (*ctypes.ResultTx, error) {
+func (cc *CosmosProvider) QueryTx(ctx context.Context, hashHex string) (*ctypes.ResultTx, error) {
 	hash, err := hex.DecodeString(hashHex)
 	if err != nil {
-		return &ctypes.ResultTx{}, err
+		return nil, err
 	}
 
-	return cc.RPCClient.Tx(context.Background(), hash, true)
+	return cc.RPCClient.Tx(ctx, hash, true)
 }
 
 // QueryTxs returns an array of transactions given a tag
-func (cc *CosmosProvider) QueryTxs(page, limit int, events []string) ([]*ctypes.ResultTx, error) {
+func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events []string) ([]*ctypes.ResultTx, error) {
 	if len(events) == 0 {
 		return nil, errors.New("must declare at least one event to search")
 	}
@@ -57,7 +57,7 @@ func (cc *CosmosProvider) QueryTxs(page, limit int, events []string) ([]*ctypes.
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	res, err := cc.RPCClient.TxSearch(context.Background(), strings.Join(events, " AND "), true, &page, &limit, "")
+	res, err := cc.RPCClient.TxSearch(ctx, strings.Join(events, " AND "), true, &page, &limit, "")
 	if err != nil {
 		return nil, err
 	}
@@ -65,31 +65,25 @@ func (cc *CosmosProvider) QueryTxs(page, limit int, events []string) ([]*ctypes.
 }
 
 // QueryBalance returns the amount of coins in the relayer account
-func (cc *CosmosProvider) QueryBalance(keyName string) (sdk.Coins, error) {
-	var (
-		addr string
-		err  error
-	)
-	if keyName == "" {
-		addr, err = cc.Address()
-	} else {
+func (cc *CosmosProvider) QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error) {
+	if keyName != "" {
 		cc.PCfg.Key = keyName
-		addr, err = cc.Address()
 	}
-
+	addr, err := cc.Address()
 	if err != nil {
 		return nil, err
 	}
-	return cc.QueryBalanceWithAddress(addr)
+
+	return cc.QueryBalanceWithAddress(ctx, addr)
 }
 
 // QueryBalanceWithAddress returns the amount of coins in the relayer account with address as input
 // TODO add pagination support
-func (cc *CosmosProvider) QueryBalanceWithAddress(address string) (sdk.Coins, error) {
+func (cc *CosmosProvider) QueryBalanceWithAddress(ctx context.Context, address string) (sdk.Coins, error) {
 	p := &bankTypes.QueryAllBalancesRequest{Address: address, Pagination: DefaultPageRequest()}
 	queryClient := bankTypes.NewQueryClient(cc)
 
-	res, err := queryClient.AllBalances(context.Background(), p)
+	res, err := queryClient.AllBalances(ctx, p)
 	if err != nil {
 		return nil, err
 	}
@@ -98,11 +92,11 @@ func (cc *CosmosProvider) QueryBalanceWithAddress(address string) (sdk.Coins, er
 }
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
-func (cc *CosmosProvider) QueryUnbondingPeriod() (time.Duration, error) {
+func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
 	req := stakingtypes.QueryParamsRequest{}
 	queryClient := stakingtypes.NewQueryClient(cc)
 
-	res, err := queryClient.Params(context.Background(), &req)
+	res, err := queryClient.Params(ctx, &req)
 	if err != nil {
 		return 0, err
 	}
@@ -304,12 +298,12 @@ func (cc *CosmosProvider) QueryUpgradeProof(key []byte, height uint64) ([]byte, 
 }
 
 // QueryUpgradedClient returns upgraded client info
-func (cc *CosmosProvider) QueryUpgradedClient(height int64) (*clienttypes.QueryClientStateResponse, error) {
+func (cc *CosmosProvider) QueryUpgradedClient(ctx context.Context, height int64) (*clienttypes.QueryClientStateResponse, error) {
 	req := clienttypes.QueryUpgradedClientStateRequest{}
 
 	queryClient := clienttypes.NewQueryClient(cc)
 
-	res, err := queryClient.UpgradedClientState(context.Background(), &req)
+	res, err := queryClient.UpgradedClientState(ctx, &req)
 	if err != nil {
 		return nil, err
 	}
@@ -331,12 +325,12 @@ func (cc *CosmosProvider) QueryUpgradedClient(height int64) (*clienttypes.QueryC
 }
 
 // QueryUpgradedConsState returns upgraded consensus state and height of client
-func (cc *CosmosProvider) QueryUpgradedConsState(height int64) (*clienttypes.QueryConsensusStateResponse, error) {
+func (cc *CosmosProvider) QueryUpgradedConsState(ctx context.Context, height int64) (*clienttypes.QueryConsensusStateResponse, error) {
 	req := clienttypes.QueryUpgradedConsensusStateRequest{}
 
 	queryClient := clienttypes.NewQueryClient(cc)
 
-	res, err := queryClient.UpgradedConsensusState(context.Background(), &req)
+	res, err := queryClient.UpgradedConsensusState(ctx, &req)
 	if err != nil {
 		return nil, err
 	}
@@ -359,8 +353,8 @@ func (cc *CosmosProvider) QueryUpgradedConsState(height int64) (*clienttypes.Que
 
 // QueryConsensusState returns a consensus state for a given chain to be used as a
 // client in another chain, fetches latest height when passed 0 as arg
-func (cc *CosmosProvider) QueryConsensusState(height int64) (ibcexported.ConsensusState, int64, error) {
-	commit, err := cc.RPCClient.Commit(context.Background(), &height)
+func (cc *CosmosProvider) QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error) {
+	commit, err := cc.RPCClient.Commit(ctx, &height)
 	if err != nil {
 		return &ibctmtypes.ConsensusState{}, 0, err
 	}
@@ -369,7 +363,7 @@ func (cc *CosmosProvider) QueryConsensusState(height int64) (ibcexported.Consens
 	count := 10_000
 
 	nextHeight := height + 1
-	nextVals, err := cc.RPCClient.Validators(context.Background(), &nextHeight, &page, &count)
+	nextVals, err := cc.RPCClient.Validators(ctx, &nextHeight, &page, &count)
 	if err != nil {
 		return &ibctmtypes.ConsensusState{}, 0, err
 	}
@@ -385,9 +379,9 @@ func (cc *CosmosProvider) QueryConsensusState(height int64) (ibcexported.Consens
 
 // QueryClients queries all the clients!
 // TODO add pagination support
-func (cc *CosmosProvider) QueryClients() (clienttypes.IdentifiedClientStates, error) {
+func (cc *CosmosProvider) QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error) {
 	qc := clienttypes.NewQueryClient(cc)
-	state, err := qc.ClientStates(context.Background(), &clienttypes.QueryClientStatesRequest{
+	state, err := qc.ClientStates(ctx, &clienttypes.QueryClientStatesRequest{
 		Pagination: DefaultPageRequest(),
 	})
 	if err != nil {
@@ -450,9 +444,9 @@ func (cc *CosmosProvider) queryConnectionABCI(height int64, connectionID string)
 
 // QueryConnections gets any connections on a chain
 // TODO add pagination support
-func (cc *CosmosProvider) QueryConnections() (conns []*conntypes.IdentifiedConnection, err error) {
+func (cc *CosmosProvider) QueryConnections(ctx context.Context) (conns []*conntypes.IdentifiedConnection, err error) {
 	qc := conntypes.NewQueryClient(cc)
-	res, err := qc.Connections(context.Background(), &conntypes.QueryConnectionsRequest{
+	res, err := qc.Connections(ctx, &conntypes.QueryConnectionsRequest{
 		Pagination: DefaultPageRequest(),
 	})
 	if err != nil || res == nil {
@@ -463,9 +457,9 @@ func (cc *CosmosProvider) QueryConnections() (conns []*conntypes.IdentifiedConne
 
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
 // TODO add pagination support
-func (cc *CosmosProvider) QueryConnectionsUsingClient(height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
+func (cc *CosmosProvider) QueryConnectionsUsingClient(ctx context.Context, height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
 	qc := conntypes.NewQueryClient(cc)
-	res, err := qc.Connections(context.Background(), &conntypes.QueryConnectionsRequest{
+	res, err := qc.Connections(ctx, &conntypes.QueryConnectionsRequest{
 		Pagination: DefaultPageRequest(),
 	})
 	return res, err
@@ -566,9 +560,9 @@ func (cc *CosmosProvider) queryChannelABCI(height int64, portID, channelID strin
 }
 
 // QueryChannelClient returns the client state of the client supporting a given channel
-func (cc *CosmosProvider) QueryChannelClient(height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
+func (cc *CosmosProvider) QueryChannelClient(ctx context.Context, height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
 	qc := chantypes.NewQueryClient(cc)
-	cState, err := qc.ChannelClientState(context.Background(), &chantypes.QueryChannelClientStateRequest{
+	cState, err := qc.ChannelClientState(ctx, &chantypes.QueryChannelClientStateRequest{
 		PortId:    portid,
 		ChannelId: channelid,
 	})
@@ -579,9 +573,9 @@ func (cc *CosmosProvider) QueryChannelClient(height int64, channelid, portid str
 }
 
 // QueryConnectionChannels queries the channels associated with a connection
-func (cc *CosmosProvider) QueryConnectionChannels(height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
+func (cc *CosmosProvider) QueryConnectionChannels(ctx context.Context, height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
 	qc := chantypes.NewQueryClient(cc)
-	chans, err := qc.ConnectionChannels(context.Background(), &chantypes.QueryConnectionChannelsRequest{
+	chans, err := qc.ConnectionChannels(ctx, &chantypes.QueryConnectionChannelsRequest{
 		Connection: connectionid,
 		Pagination: DefaultPageRequest(),
 	})
@@ -593,22 +587,22 @@ func (cc *CosmosProvider) QueryConnectionChannels(height int64, connectionid str
 
 // QueryChannels returns all the channels that are registered on a chain
 // TODO add pagination support
-func (cc *CosmosProvider) QueryChannels() ([]*chantypes.IdentifiedChannel, error) {
+func (cc *CosmosProvider) QueryChannels(ctx context.Context) ([]*chantypes.IdentifiedChannel, error) {
 	qc := chantypes.NewQueryClient(cc)
-	res, err := qc.Channels(context.Background(), &chantypes.QueryChannelsRequest{
+	res, err := qc.Channels(ctx, &chantypes.QueryChannelsRequest{
 		Pagination: DefaultPageRequest(),
 	})
 	if err != nil {
 		return nil, err
 	}
-	return res.Channels, err
+	return res.Channels, nil
 }
 
 // QueryPacketCommitments returns an array of packet commitments
 // TODO add pagination support
-func (cc *CosmosProvider) QueryPacketCommitments(height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
+func (cc *CosmosProvider) QueryPacketCommitments(ctx context.Context, height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
 	qc := chantypes.NewQueryClient(cc)
-	c, err := qc.PacketCommitments(context.Background(), &chantypes.QueryPacketCommitmentsRequest{
+	c, err := qc.PacketCommitments(ctx, &chantypes.QueryPacketCommitmentsRequest{
 		PortId:     portid,
 		ChannelId:  channelid,
 		Pagination: DefaultPageRequest(),
@@ -621,9 +615,9 @@ func (cc *CosmosProvider) QueryPacketCommitments(height uint64, channelid, porti
 
 // QueryPacketAcknowledgements returns an array of packet acks
 // TODO add pagination support
-func (cc *CosmosProvider) QueryPacketAcknowledgements(height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
+func (cc *CosmosProvider) QueryPacketAcknowledgements(ctx context.Context, height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
 	qc := chantypes.NewQueryClient(cc)
-	acks, err := qc.PacketAcknowledgements(context.Background(), &chantypes.QueryPacketAcknowledgementsRequest{
+	acks, err := qc.PacketAcknowledgements(ctx, &chantypes.QueryPacketAcknowledgementsRequest{
 		PortId:     portid,
 		ChannelId:  channelid,
 		Pagination: DefaultPageRequest(),
@@ -635,9 +629,9 @@ func (cc *CosmosProvider) QueryPacketAcknowledgements(height uint64, channelid, 
 }
 
 // QueryUnreceivedPackets returns a list of unrelayed packet commitments
-func (cc *CosmosProvider) QueryUnreceivedPackets(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
+func (cc *CosmosProvider) QueryUnreceivedPackets(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
 	qc := chantypes.NewQueryClient(cc)
-	res, err := qc.UnreceivedPackets(context.Background(), &chantypes.QueryUnreceivedPacketsRequest{
+	res, err := qc.UnreceivedPackets(ctx, &chantypes.QueryUnreceivedPacketsRequest{
 		PortId:                    portid,
 		ChannelId:                 channelid,
 		PacketCommitmentSequences: seqs,
@@ -649,9 +643,9 @@ func (cc *CosmosProvider) QueryUnreceivedPackets(height uint64, channelid, porti
 }
 
 // QueryUnreceivedAcknowledgements returns a list of unrelayed packet acks
-func (cc *CosmosProvider) QueryUnreceivedAcknowledgements(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
+func (cc *CosmosProvider) QueryUnreceivedAcknowledgements(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
 	qc := chantypes.NewQueryClient(cc)
-	res, err := qc.UnreceivedAcks(context.Background(), &chantypes.QueryUnreceivedAcksRequest{
+	res, err := qc.UnreceivedAcks(ctx, &chantypes.QueryUnreceivedAcksRequest{
 		PortId:             portid,
 		ChannelId:          channelid,
 		PacketAckSequences: seqs,
@@ -742,8 +736,8 @@ func (cc *CosmosProvider) QueryPacketReceipt(height int64, channelid, portid str
 	}, nil
 }
 
-func (cc *CosmosProvider) QueryLatestHeight() (int64, error) {
-	stat, err := cc.RPCClient.Status(context.Background())
+func (cc *CosmosProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
+	stat, err := cc.RPCClient.Status(ctx)
 	if err != nil {
 		return -1, err
 	} else if stat.SyncInfo.CatchingUp {
@@ -753,7 +747,7 @@ func (cc *CosmosProvider) QueryLatestHeight() (int64, error) {
 }
 
 // QueryHeaderAtHeight returns the header at a given height
-func (cc *CosmosProvider) QueryHeaderAtHeight(height int64) (ibcexported.Header, error) {
+func (cc *CosmosProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.Header, error) {
 	var (
 		page    = 1
 		perPage = 100000
@@ -762,12 +756,12 @@ func (cc *CosmosProvider) QueryHeaderAtHeight(height int64) (ibcexported.Header,
 		return nil, fmt.Errorf("must pass in valid height, %d not valid", height)
 	}
 
-	res, err := cc.RPCClient.Commit(context.Background(), &height)
+	res, err := cc.RPCClient.Commit(ctx, &height)
 	if err != nil {
 		return nil, err
 	}
 
-	val, err := cc.RPCClient.Validators(context.Background(), &height, &page, &perPage)
+	val, err := cc.RPCClient.Validators(ctx, &height, &page, &perPage)
 	if err != nil {
 		return nil, err
 	}
@@ -786,8 +780,8 @@ func (cc *CosmosProvider) QueryHeaderAtHeight(height int64) (ibcexported.Header,
 }
 
 // QueryDenomTrace takes a denom from IBC and queries the information about it
-func (cc *CosmosProvider) QueryDenomTrace(denom string) (*transfertypes.DenomTrace, error) {
-	transfers, err := transfertypes.NewQueryClient(cc).DenomTrace(context.Background(),
+func (cc *CosmosProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
+	transfers, err := transfertypes.NewQueryClient(cc).DenomTrace(ctx,
 		&transfertypes.QueryDenomTraceRequest{
 			Hash: denom,
 		})
@@ -799,8 +793,8 @@ func (cc *CosmosProvider) QueryDenomTrace(denom string) (*transfertypes.DenomTra
 
 // QueryDenomTraces returns all the denom traces from a given chain
 // TODO add pagination support
-func (cc *CosmosProvider) QueryDenomTraces(offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
-	transfers, err := transfertypes.NewQueryClient(cc).DenomTraces(context.Background(),
+func (cc *CosmosProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
+	transfers, err := transfertypes.NewQueryClient(cc).DenomTraces(ctx,
 		&transfertypes.QueryDenomTracesRequest{
 			Pagination: DefaultPageRequest(),
 		})

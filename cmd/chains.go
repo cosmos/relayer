@@ -237,7 +237,7 @@ $ %s ch l`, appName, appName)),
 						key = check
 					}
 
-					coins, err := c.ChainProvider.QueryBalance(c.ChainProvider.Key())
+					coins, err := c.ChainProvider.QueryBalance(cmd.Context(), c.ChainProvider.Key())
 					if err == nil && !coins.Empty() {
 						bal = check
 					}

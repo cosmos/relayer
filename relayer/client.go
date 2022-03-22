@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
-func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (bool, error) {
+func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (bool, error) {
 	var (
 		srcUpdateHeader, dstUpdateHeader ibcexported.Header
 		srch, dsth                       int64
@@ -22,7 +23,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 
 	// Query the latest heights on src and dst and retry if the query fails
 	if err = retry.Do(func() error {
-		srch, dsth, err = QueryLatestHeights(c, dst)
+		srch, dsth, err = QueryLatestHeights(ctx, c, dst)
 		if srch == 0 || dsth == 0 || err != nil {
 			return fmt.Errorf("failed to query latest heights: %w", err)
 		}
@@ -33,26 +34,26 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 
 	// Query the light signed headers for src & dst at the heights srch & dsth, retry if the query fails
 	if err = retry.Do(func() error {
-		srcUpdateHeader, dstUpdateHeader, err = GetLightSignedHeadersAtHeights(c, dst, srch, dsth)
+		srcUpdateHeader, dstUpdateHeader, err = GetLightSignedHeadersAtHeights(ctx, c, dst, srch, dsth)
 		if err != nil {
 			return fmt.Errorf("failed to query light signed headers: %w", err)
 		}
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		c.LogRetryGetLightSignedHeader(n, err)
-		srch, dsth, _ = QueryLatestHeights(c, dst)
+		srch, dsth, _ = QueryLatestHeights(ctx, c, dst)
 	})); err != nil {
 		return false, err
 	}
 
 	// Create client on src for dst if the client id is unspecified
-	modified, err = CreateClient(c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+	modified, err = CreateClient(ctx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 	if err != nil {
 		return modified, fmt.Errorf("failed to create client on src chain{%s}: %w", c.ChainID(), err)
 	}
 
 	// Create client on dst for src if the client id is unspecified
-	modified, err = CreateClient(dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+	modified, err = CreateClient(ctx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 	if err != nil {
 		return modified, fmt.Errorf("failed to create client on dst chain{%s}: %w", dst.ChainID(), err)
 	}
@@ -63,7 +64,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 	return modified, nil
 }
 
-func CreateClient(src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.Header, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (bool, error) {
+func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.Header, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (bool, error) {
 	var (
 		modified, found, success bool
 		err                      error
@@ -77,7 +78,7 @@ func CreateClient(src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.
 
 		// Query the trusting period for dst and retry if the query fails
 		if err = retry.Do(func() error {
-			tp, err = dst.GetTrustingPeriod()
+			tp, err = dst.GetTrustingPeriod(ctx)
 			if err != nil || tp.String() == "0s" {
 				return fmt.Errorf("failed to get trusting period for chain{%s}: %w", dst.ChainID(), err)
 			}
@@ -92,7 +93,7 @@ func CreateClient(src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.
 
 		// Query the unbonding period for dst and retry if the query fails
 		if err = retry.Do(func() error {
-			ubdPeriod, err = dst.ChainProvider.QueryUnbondingPeriod()
+			ubdPeriod, err = dst.ChainProvider.QueryUnbondingPeriod(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to query unbonding period for chain{%s}: %w", dst.ChainID(), err)
 			}
@@ -110,7 +111,7 @@ func CreateClient(src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.
 		// Will not reuse same client if override is true
 		if !override {
 			// Check if an identical light client already exists
-			clientID, found = src.ChainProvider.FindMatchingClient(dst.ChainProvider, clientState)
+			clientID, found = src.ChainProvider.FindMatchingClient(ctx, dst.ChainProvider, clientState)
 		}
 
 		if !found || override {
@@ -127,7 +128,7 @@ func CreateClient(src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.
 
 			// if a matching client does not exist, create one
 			if err = retry.Do(func() error {
-				res, success, err = src.ChainProvider.SendMessages(msgs)
+				res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
 				if err != nil {
 					src.LogFailedTx(res, err, msgs)
 					return fmt.Errorf("failed to send messages on chain{%s}: %w", src.ChainID(), err)
@@ -167,7 +168,7 @@ func CreateClient(src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.
 }
 
 // UpdateClients updates clients for src on dst and dst on src given the configured paths
-func (c *Chain) UpdateClients(dst *Chain) (err error) {
+func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 	var (
 		clients                          = &RelayMsgs{Src: []provider.RelayerMessage{}, Dst: []provider.RelayerMessage{}}
 		srcUpdateHeader, dstUpdateHeader ibcexported.Header
@@ -175,7 +176,7 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 	)
 
 	if err = retry.Do(func() error {
-		srch, dsth, err = QueryLatestHeights(c, dst)
+		srch, dsth, err = QueryLatestHeights(ctx, c, dst)
 		if srch == 0 || dsth == 0 || err != nil {
 			c.Log(fmt.Sprintf("Failed to query latest heights. Err: %v", err))
 			return err
@@ -186,7 +187,7 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 	}
 
 	if err = retry.Do(func() error {
-		srcUpdateHeader, dstUpdateHeader, err = GetIBCUpdateHeaders(srch, dsth, c.ChainProvider, dst.ChainProvider, c.ClientID(), dst.ClientID())
+		srcUpdateHeader, dstUpdateHeader, err = GetIBCUpdateHeaders(ctx, srch, dsth, c.ChainProvider, dst.ChainProvider, c.ClientID(), dst.ClientID())
 		if err != nil {
 			c.Log(fmt.Sprintf("Failed to query light signed headers. Err: %v", err))
 			return err
@@ -194,7 +195,7 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		c.Log(fmt.Sprintf("Failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
-		srch, dsth, _ = QueryLatestHeights(c, dst)
+		srch, dsth, _ = QueryLatestHeights(ctx, c, dst)
 	})); err != nil {
 		return err
 	}
@@ -220,7 +221,7 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 
 	// Send msgs to both chains
 	if clients.Ready() {
-		if clients.Send(c, dst); clients.Success() {
+		if clients.Send(ctx, c, dst); clients.Success() {
 			c.Log(fmt.Sprintf("★ Clients updated: [%s]client(%s) {%d}->{%d} and [%s]client(%s) {%d}->{%d}",
 				c.ChainID(),
 				c.PathEnd.ClientID,
@@ -237,8 +238,8 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 }
 
 // UpgradeClients upgrades the client on src after dst chain has undergone an upgrade.
-func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
-	dstHeader, err := dst.ChainProvider.GetLightSignedHeaderAtHeight(height)
+func (c *Chain) UpgradeClients(ctx context.Context, dst *Chain, height int64) error {
+	dstHeader, err := dst.ChainProvider.GetLightSignedHeaderAtHeight(ctx, height)
 	if err != nil {
 		return err
 	}
@@ -250,19 +251,19 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 	}
 
 	if height == 0 {
-		height, err = dst.ChainProvider.QueryLatestHeight()
+		height, err = dst.ChainProvider.QueryLatestHeight(ctx)
 		if err != nil {
 			return err
 		}
 	}
 
 	// query proofs on counterparty
-	clientRes, err := dst.ChainProvider.QueryUpgradedClient(height)
+	clientRes, err := dst.ChainProvider.QueryUpgradedClient(ctx, height)
 	if err != nil {
 		return err
 	}
 
-	consRes, err := dst.ChainProvider.QueryUpgradedConsState(height)
+	consRes, err := dst.ChainProvider.QueryUpgradedConsState(ctx, height)
 	if err != nil {
 		return err
 	}
@@ -277,7 +278,7 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 		upgradeMsg,
 	}
 
-	res, _, err := c.ChainProvider.SendMessages(msgs)
+	res, _, err := c.ChainProvider.SendMessages(ctx, msgs)
 	if err != nil {
 		c.LogFailedTx(res, err, msgs)
 		return err

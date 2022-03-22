@@ -29,7 +29,7 @@ func StartRelayer(ctx context.Context, src, dst *Chain, filter *ChannelFilter, m
 				return
 			default:
 				// Query the list of channels on the src connection
-				srcChannels, err := queryChannelsOnConnection(src)
+				srcChannels, err := queryChannelsOnConnection(ctx, src)
 				if err != nil {
 					errorChan <- fmt.Errorf("error querying all channels on chain{%s}@connection{%s}: %v \n",
 						src.ChainID(), src.ConnectionID(), err)
@@ -69,9 +69,9 @@ func StartRelayer(ctx context.Context, src, dst *Chain, filter *ChannelFilter, m
 }
 
 // queryChannelsOnConnection queries all the channels associated with a connection on the src chain.
-func queryChannelsOnConnection(src *Chain) ([]*types.IdentifiedChannel, error) {
+func queryChannelsOnConnection(ctx context.Context, src *Chain) ([]*types.IdentifiedChannel, error) {
 	// Query the latest heights on src & dst
-	srch, err := src.ChainProvider.QueryLatestHeight()
+	srch, err := src.ChainProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func queryChannelsOnConnection(src *Chain) ([]*types.IdentifiedChannel, error) {
 	var srcChannels []*types.IdentifiedChannel
 
 	if err = retry.Do(func() error {
-		srcChannels, err = src.ChainProvider.QueryConnectionChannels(srch, src.ConnectionID())
+		srcChannels, err = src.ChainProvider.QueryConnectionChannels(ctx, srch, src.ConnectionID())
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		src.LogRetryQueryConnectionChannels(n, err, src.ConnectionID())
@@ -178,7 +178,7 @@ func relayUnrelayedPackets(ctx context.Context, src, dst *Chain, maxTxSize, maxM
 	defer cancel()
 
 	// Fetch any unrelayed sequences depending on the channel order
-	sp, err := UnrelayedSequences(src, dst, srcChannel)
+	sp, err := UnrelayedSequences(ctx, src, dst, srcChannel)
 	if err != nil {
 		src.Log(fmt.Sprintf("unrelayed sequences error: %s", err))
 		return err
@@ -222,7 +222,7 @@ func relayUnrelayedAcks(ctx context.Context, src, dst *Chain, maxTxSize, maxMsgL
 	defer cancel()
 
 	// Fetch any unrelayed acks depending on the channel order
-	ap, err := UnrelayedAcknowledgements(src, dst, srcChannel)
+	ap, err := UnrelayedAcknowledgements(ctx, src, dst, srcChannel)
 	if err != nil {
 		src.Log(fmt.Sprintf("unrelayed acks error: %s", err))
 		return err

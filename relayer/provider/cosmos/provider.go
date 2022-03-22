@@ -9,16 +9,15 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/avast/retry-go"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
-	"github.com/cosmos/cosmos-sdk/types/module"
-
-	"github.com/avast/retry-go"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	"github.com/cosmos/cosmos-sdk/types/module"
 	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
@@ -199,8 +198,8 @@ func (cc *CosmosProvider) Address() (string, error) {
 	return out, err
 }
 
-func (cc *CosmosProvider) TrustingPeriod() (time.Duration, error) {
-	res, err := cc.QueryStakingParams(context.Background())
+func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
+	res, err := cc.QueryStakingParams(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -320,7 +319,7 @@ func (cc *CosmosProvider) ConnectionOpenInit(srcClientId, dstClientId string, ds
 	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ConnectionOpenTry(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -330,7 +329,7 @@ func (cc *CosmosProvider) ConnectionOpenTry(dstQueryProvider provider.QueryProvi
 		return nil, err
 	}
 
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -377,7 +376,7 @@ func (cc *CosmosProvider) ConnectionOpenTry(dstQueryProvider provider.QueryProvi
 	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ConnectionOpenAck(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -387,7 +386,7 @@ func (cc *CosmosProvider) ConnectionOpenAck(dstQueryProvider provider.QueryProvi
 	if err != nil {
 		return nil, err
 	}
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -426,7 +425,7 @@ func (cc *CosmosProvider) ConnectionOpenAck(dstQueryProvider provider.QueryProvi
 	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ConnectionOpenConfirm(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ConnectionOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -436,7 +435,7 @@ func (cc *CosmosProvider) ConnectionOpenConfirm(dstQueryProvider provider.QueryP
 		return nil, err
 	}
 
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -491,7 +490,7 @@ func (cc *CosmosProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, src
 	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ChannelOpenTry(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -500,7 +499,7 @@ func (cc *CosmosProvider) ChannelOpenTry(dstQueryProvider provider.QueryProvider
 	if err != nil {
 		return nil, err
 	}
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -536,7 +535,7 @@ func (cc *CosmosProvider) ChannelOpenTry(dstQueryProvider provider.QueryProvider
 	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ChannelOpenAck(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -546,7 +545,7 @@ func (cc *CosmosProvider) ChannelOpenAck(dstQueryProvider provider.QueryProvider
 		return nil, err
 	}
 
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -573,7 +572,7 @@ func (cc *CosmosProvider) ChannelOpenAck(dstQueryProvider provider.QueryProvider
 	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ChannelOpenConfirm(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChanId string) ([]provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChanId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -582,7 +581,7 @@ func (cc *CosmosProvider) ChannelOpenConfirm(dstQueryProvider provider.QueryProv
 	if err != nil {
 		return nil, err
 	}
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -654,23 +653,23 @@ func (cc *CosmosProvider) ChannelCloseConfirm(dstQueryProvider provider.QueryPro
 // returns an IBC Update Header which can be used to update an on chain
 // light client on the destination chain. The source is used to construct
 // the header data.
-func (cc *CosmosProvider) GetIBCUpdateHeader(srch int64, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
+func (cc *CosmosProvider) GetIBCUpdateHeader(ctx context.Context, srch int64, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
 	// Construct header data from light client representing source.
-	h, err := cc.GetLightSignedHeaderAtHeight(srch)
+	h, err := cc.GetLightSignedHeaderAtHeight(ctx, srch)
 	if err != nil {
 		return nil, err
 	}
 
 	// Inject trusted fields based on previous header data from source
-	return cc.InjectTrustedFields(h, dst, dstClientId)
+	return cc.InjectTrustedFields(ctx, h, dst, dstClientId)
 }
 
-func (cc *CosmosProvider) GetLightSignedHeaderAtHeight(h int64) (ibcexported.Header, error) {
+func (cc *CosmosProvider) GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error) {
 	if h == 0 {
 		return nil, errors.New("height cannot be 0")
 	}
 
-	lightBlock, err := cc.LightProvider.LightBlock(context.Background(), h)
+	lightBlock, err := cc.LightProvider.LightBlock(ctx, h)
 	if err != nil {
 		return nil, err
 	}
@@ -692,7 +691,7 @@ func (cc *CosmosProvider) GetLightSignedHeaderAtHeight(h int64) (ibcexported.Hea
 // TrustedHeight is the latest height of the IBC client on dst
 // TrustedValidators is the validator set of srcChain at the TrustedHeight
 // InjectTrustedFields returns a copy of the header with TrustedFields modified
-func (cc *CosmosProvider) InjectTrustedFields(header ibcexported.Header, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
+func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexported.Header, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
 	// make copy of header stored in mop
 	h, ok := header.(*tmclient.Header)
 	if !ok {
@@ -717,7 +716,7 @@ func (cc *CosmosProvider) InjectTrustedFields(header ibcexported.Header, dst pro
 	// place where we need to fix the upstream query proof issue?
 	var trustedHeader *tmclient.Header
 	if err := retry.Do(func() error {
-		tmpHeader, err := cc.GetLightSignedHeaderAtHeight(int64(h.TrustedHeight.RevisionHeight + 1))
+		tmpHeader, err := cc.GetLightSignedHeaderAtHeight(ctx, int64(h.TrustedHeight.RevisionHeight+1))
 		th, ok := tmpHeader.(*tmclient.Header)
 		if !ok {
 			err = errors.New("non-tm client header")
@@ -893,8 +892,8 @@ func (cc *CosmosProvider) MsgRelayRecvPacket(dst provider.ChainProvider, dsth in
 }
 
 // RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
-func (cc *CosmosProvider) RelayPacketFromSequence(src, dst provider.ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) (provider.RelayerMessage, provider.RelayerMessage, error) {
-	txs, err := cc.QueryTxs(1, 1000, rcvPacketQuery(srcChanId, int(seq)))
+func (cc *CosmosProvider) RelayPacketFromSequence(ctx context.Context, src, dst provider.ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) (provider.RelayerMessage, provider.RelayerMessage, error) {
+	txs, err := cc.QueryTxs(ctx, 1, 1000, rcvPacketQuery(srcChanId, int(seq)))
 	switch {
 	case err != nil:
 		return nil, nil, err
@@ -904,7 +903,7 @@ func (cc *CosmosProvider) RelayPacketFromSequence(src, dst provider.ChainProvide
 		return nil, nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	rcvPackets, timeoutPackets, err := relayPacketsFromResultTx(src, dst, int64(dsth), txs[0], dstChanId, dstPortId, srcChanId, srcPortId, srcClientId)
+	rcvPackets, timeoutPackets, err := relayPacketsFromResultTx(ctx, src, dst, int64(dsth), txs[0], dstChanId, dstPortId, srcChanId, srcPortId, srcClientId)
 	switch {
 	case err != nil:
 		return nil, nil, err
@@ -945,8 +944,8 @@ func (cc *CosmosProvider) RelayPacketFromSequence(src, dst provider.ChainProvide
 }
 
 // AcknowledgementFromSequence relays an acknowledgement with a given seq on src, source is the sending chain, destination is the receiving chain
-func (cc *CosmosProvider) AcknowledgementFromSequence(dst provider.ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
-	txs, err := dst.QueryTxs(1, 1000, ackPacketQuery(dstChanId, int(seq)))
+func (cc *CosmosProvider) AcknowledgementFromSequence(ctx context.Context, dst provider.ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
+	txs, err := dst.QueryTxs(ctx, 1, 1000, ackPacketQuery(dstChanId, int(seq)))
 	switch {
 	case err != nil:
 		return nil, err
@@ -990,7 +989,7 @@ func ackPacketQuery(channelID string, seq int) []string {
 
 // relayPacketsFromResultTx looks through the events in a *ctypes.ResultTx
 // and returns relayPackets with the appropriate data
-func relayPacketsFromResultTx(src, dst provider.ChainProvider, dsth int64, res *ctypes.ResultTx, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
+func relayPacketsFromResultTx(ctx context.Context, src, dst provider.ChainProvider, dsth int64, res *ctypes.ResultTx, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
 	var (
 		rcvPackets     []provider.RelayPacket
 		timeoutPackets []provider.RelayPacket
@@ -1047,7 +1046,7 @@ func relayPacketsFromResultTx(src, dst provider.ChainProvider, dsth int64, res *
 			}
 
 			// fetch the header which represents a block produced on destination
-			block, err := dst.GetIBCUpdateHeader(dsth, src, srcClientId)
+			block, err := dst.GetIBCUpdateHeader(ctx, dsth, src, srcClientId)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -1154,12 +1153,12 @@ func (cc *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clientty
 }
 
 // AutoUpdateClient update client automatically to prevent expiry
-func (cc *CosmosProvider) AutoUpdateClient(dst provider.ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error) {
-	srch, err := cc.QueryLatestHeight()
+func (cc *CosmosProvider) AutoUpdateClient(ctx context.Context, dst provider.ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error) {
+	srch, err := cc.QueryLatestHeight(ctx)
 	if err != nil {
 		return 0, err
 	}
-	dsth, err := dst.QueryLatestHeight()
+	dsth, err := dst.QueryLatestHeight(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -1213,12 +1212,12 @@ func (cc *CosmosProvider) AutoUpdateClient(dst provider.ChainProvider, threshold
 		return 0, fmt.Errorf("client (%s) is already expired on chain: %s", srcClientId, cc.PCfg.ChainID)
 	}
 
-	srcUpdateHeader, err := cc.GetIBCUpdateHeader(srch, dst, dstClientId)
+	srcUpdateHeader, err := cc.GetIBCUpdateHeader(ctx, srch, dst, dstClientId)
 	if err != nil {
 		return 0, err
 	}
 
-	dstUpdateHeader, err := dst.GetIBCUpdateHeader(dsth, cc, srcClientId)
+	dstUpdateHeader, err := dst.GetIBCUpdateHeader(ctx, dsth, cc, srcClientId)
 	if err != nil {
 		return 0, err
 	}
@@ -1230,7 +1229,7 @@ func (cc *CosmosProvider) AutoUpdateClient(dst provider.ChainProvider, threshold
 
 	msgs := []provider.RelayerMessage{updateMsg}
 
-	res, success, err := cc.SendMessages(msgs)
+	res, success, err := cc.SendMessages(ctx, msgs)
 	if err != nil {
 		// cp.LogFailedTx(res, err, CosmosMsgs(msgs...))
 		return 0, err
@@ -1254,7 +1253,7 @@ func (cc *CosmosProvider) AutoUpdateClient(dst provider.ChainProvider, threshold
 // and check if any match the counterparty. The counterparty must have a matching consensus state
 // to the latest consensus state of a potential match. The provided client state is the client
 // state that will be created if there exist no matches.
-func (cc *CosmosProvider) FindMatchingClient(counterparty provider.ChainProvider, clientState ibcexported.ClientState) (string, bool) {
+func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty provider.ChainProvider, clientState ibcexported.ClientState) (string, bool) {
 	// TODO: add appropriate offset and limits
 	var (
 		clientsResp clienttypes.IdentifiedClientStates
@@ -1262,7 +1261,7 @@ func (cc *CosmosProvider) FindMatchingClient(counterparty provider.ChainProvider
 	)
 
 	if err = retry.Do(func() error {
-		clientsResp, err = cc.QueryClients()
+		clientsResp, err = cc.QueryClients(ctx)
 		if err != nil {
 			if cc.PCfg.Debug {
 				cc.Log(fmt.Sprintf("Error: querying clients on %s failed: %v", cc.PCfg.ChainID, err))
@@ -1308,7 +1307,7 @@ func (cc *CosmosProvider) FindMatchingClient(counterparty provider.ChainProvider
 			}
 
 			//nolint:lll
-			header, err := counterparty.GetLightSignedHeaderAtHeight(int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
+			header, err := counterparty.GetLightSignedHeaderAtHeight(ctx, int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
 			if err != nil {
 				if cc.PCfg.Debug {
 					cc.Log(fmt.Sprintf("Error: failed to query header for chain %s at height %d: %v",
@@ -1436,9 +1435,9 @@ func castClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) 
 }
 
 // WaitForNBlocks blocks until the next block on a given chain
-func (cc *CosmosProvider) WaitForNBlocks(n int64) error {
+func (cc *CosmosProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	var initial int64
-	h, err := cc.RPCClient.Status(context.Background())
+	h, err := cc.RPCClient.Status(ctx)
 	if err != nil {
 		return err
 	}
@@ -1447,7 +1446,7 @@ func (cc *CosmosProvider) WaitForNBlocks(n int64) error {
 	}
 	initial = h.SyncInfo.LatestBlockHeight
 	for {
-		h, err = cc.RPCClient.Status(context.Background())
+		h, err = cc.RPCClient.Status(ctx)
 		if err != nil {
 			return err
 		}
@@ -1469,8 +1468,8 @@ func MustGetHeight(h ibcexported.Height) clienttypes.Height {
 
 // SendMessage attempts to sign, encode & send a RelayerMessage
 // This is used extensively in the relayer as an extension of the Provider interface
-func (cc *CosmosProvider) SendMessage(msg provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
-	return cc.SendMessages([]provider.RelayerMessage{msg})
+func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+	return cc.SendMessages(ctx, []provider.RelayerMessage{msg})
 }
 
 // SendMessages attempts to sign, encode, & send a slice of RelayerMessages
@@ -1480,7 +1479,7 @@ func (cc *CosmosProvider) SendMessage(msg provider.RelayerMessage) (*provider.Re
 // transaction will not return an error. If a transaction is successfully sent, the result of the execution
 // of that transaction will be logged. A boolean indicating if a transaction was successfully
 // sent and executed successfully is returned.
-func (cc *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
 	var (
 		txb     client.TxBuilder
 		txBytes []byte
@@ -1546,7 +1545,7 @@ func (cc *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provide
 		return nil, false, err
 	}
 
-	res, err = cc.BroadcastTx(context.Background(), txBytes)
+	res, err = cc.BroadcastTx(ctx, txBytes)
 	if err != nil || res == nil {
 		return nil, false, err
 	}

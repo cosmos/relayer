@@ -12,7 +12,7 @@ import (
 )
 
 // UnrelayedSequences returns the unrelayed sequence numbers between two chains
-func UnrelayedSequences(src, dst *Chain, srcChannel *chantypes.IdentifiedChannel) (*RelaySequences, error) {
+func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chantypes.IdentifiedChannel) (*RelaySequences, error) {
 	var (
 		eg           = new(errgroup.Group)
 		srcPacketSeq = []uint64{}
@@ -20,7 +20,7 @@ func UnrelayedSequences(src, dst *Chain, srcChannel *chantypes.IdentifiedChannel
 		rs           = &RelaySequences{Src: []uint64{}, Dst: []uint64{}}
 	)
 
-	srch, dsth, err := QueryLatestHeights(src, dst)
+	srch, dsth, err := QueryLatestHeights(ctx, src, dst)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +32,7 @@ func UnrelayedSequences(src, dst *Chain, srcChannel *chantypes.IdentifiedChannel
 		)
 		if err = retry.Do(func() error {
 			// Query the packet commitment
-			res, err = src.ChainProvider.QueryPacketCommitments(uint64(srch), srcChannel.ChannelId, srcChannel.PortId)
+			res, err = src.ChainProvider.QueryPacketCommitments(ctx, uint64(srch), srcChannel.ChannelId, srcChannel.PortId)
 			switch {
 			case err != nil:
 				return err
@@ -43,7 +43,7 @@ func UnrelayedSequences(src, dst *Chain, srcChannel *chantypes.IdentifiedChannel
 			}
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.LogRetryQueryPacketCommitments(n, err, srcChannel.ChannelId, srcChannel.PortId)
-			srch, _ = src.ChainProvider.QueryLatestHeight()
+			srch, _ = src.ChainProvider.QueryLatestHeight(ctx)
 		})); err != nil {
 			return err
 		}
@@ -59,7 +59,7 @@ func UnrelayedSequences(src, dst *Chain, srcChannel *chantypes.IdentifiedChannel
 			err error
 		)
 		if err = retry.Do(func() error {
-			res, err = dst.ChainProvider.QueryPacketCommitments(uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
+			res, err = dst.ChainProvider.QueryPacketCommitments(ctx, uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
 			switch {
 			case err != nil:
 				return err
@@ -70,7 +70,7 @@ func UnrelayedSequences(src, dst *Chain, srcChannel *chantypes.IdentifiedChannel
 			}
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dst.LogRetryQueryPacketCommitments(n, err, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
-			dsth, _ = dst.ChainProvider.QueryLatestHeight()
+			dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
 		})); err != nil {
 			return err
 		}
@@ -88,11 +88,11 @@ func UnrelayedSequences(src, dst *Chain, srcChannel *chantypes.IdentifiedChannel
 		// Query all packets sent by src that have been received by dst
 		return retry.Do(func() error {
 			var err error
-			rs.Src, err = dst.ChainProvider.QueryUnreceivedPackets(uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
+			rs.Src, err = dst.ChainProvider.QueryUnreceivedPackets(ctx, uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dst.LogRetryQueryUnreceivedPackets(n, err, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
-			dsth, _ = dst.ChainProvider.QueryLatestHeight()
+			dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
 		}))
 	})
 
@@ -100,11 +100,11 @@ func UnrelayedSequences(src, dst *Chain, srcChannel *chantypes.IdentifiedChannel
 		// Query all packets sent by dst that have been received by src
 		return retry.Do(func() error {
 			var err error
-			rs.Dst, err = src.ChainProvider.QueryUnreceivedPackets(uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
+			rs.Dst, err = src.ChainProvider.QueryUnreceivedPackets(ctx, uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.LogRetryQueryUnreceivedPackets(n, err, srcChannel.ChannelId, srcChannel.PortId)
-			srch, _ = src.ChainProvider.QueryLatestHeight()
+			srch, _ = src.ChainProvider.QueryLatestHeight(ctx)
 		}))
 	})
 
@@ -116,7 +116,7 @@ func UnrelayedSequences(src, dst *Chain, srcChannel *chantypes.IdentifiedChannel
 }
 
 // UnrelayedAcknowledgements returns the unrelayed sequence numbers between two chains
-func UnrelayedAcknowledgements(src, dst *Chain, srcChannel *chantypes.IdentifiedChannel) (*RelaySequences, error) {
+func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel *chantypes.IdentifiedChannel) (*RelaySequences, error) {
 	var (
 		eg           = new(errgroup.Group)
 		srcPacketSeq = []uint64{}
@@ -124,7 +124,7 @@ func UnrelayedAcknowledgements(src, dst *Chain, srcChannel *chantypes.Identified
 		rs           = &RelaySequences{Src: []uint64{}, Dst: []uint64{}}
 	)
 
-	srch, dsth, err := QueryLatestHeights(src, dst)
+	srch, dsth, err := QueryLatestHeights(ctx, src, dst)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func UnrelayedAcknowledgements(src, dst *Chain, srcChannel *chantypes.Identified
 		)
 		if err = retry.Do(func() error {
 			// Query the packet commitment
-			res, err = src.ChainProvider.QueryPacketAcknowledgements(uint64(srch), srcChannel.ChannelId, srcChannel.PortId)
+			res, err = src.ChainProvider.QueryPacketAcknowledgements(ctx, uint64(srch), srcChannel.ChannelId, srcChannel.PortId)
 			switch {
 			case err != nil:
 				return err
@@ -146,7 +146,7 @@ func UnrelayedAcknowledgements(src, dst *Chain, srcChannel *chantypes.Identified
 				return nil
 			}
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			srch, _ = src.ChainProvider.QueryLatestHeight()
+			srch, _ = src.ChainProvider.QueryLatestHeight(ctx)
 		})); err != nil {
 			return err
 		}
@@ -162,7 +162,7 @@ func UnrelayedAcknowledgements(src, dst *Chain, srcChannel *chantypes.Identified
 			err error
 		)
 		if err = retry.Do(func() error {
-			res, err = dst.ChainProvider.QueryPacketAcknowledgements(uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
+			res, err = dst.ChainProvider.QueryPacketAcknowledgements(ctx, uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
 			switch {
 			case err != nil:
 				return err
@@ -172,7 +172,7 @@ func UnrelayedAcknowledgements(src, dst *Chain, srcChannel *chantypes.Identified
 				return nil
 			}
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			dsth, _ = dst.ChainProvider.QueryLatestHeight()
+			dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
 		})); err != nil {
 			return err
 		}
@@ -190,10 +190,10 @@ func UnrelayedAcknowledgements(src, dst *Chain, srcChannel *chantypes.Identified
 		// Query all packets sent by src that have been received by dst
 		var err error
 		return retry.Do(func() error {
-			rs.Src, err = dst.ChainProvider.QueryUnreceivedAcknowledgements(uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
+			rs.Src, err = dst.ChainProvider.QueryUnreceivedAcknowledgements(ctx, uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
 			return err
 		}, RtyErr, RtyAtt, RtyDel, retry.OnRetry(func(n uint, err error) {
-			dsth, _ = dst.ChainProvider.QueryLatestHeight()
+			dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
 		}))
 	})
 
@@ -201,10 +201,10 @@ func UnrelayedAcknowledgements(src, dst *Chain, srcChannel *chantypes.Identified
 		// Query all packets sent by dst that have been received by src
 		var err error
 		return retry.Do(func() error {
-			rs.Dst, err = src.ChainProvider.QueryUnreceivedAcknowledgements(uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
+			rs.Dst, err = src.ChainProvider.QueryUnreceivedAcknowledgements(ctx, uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			srch, _ = src.ChainProvider.QueryLatestHeight()
+			srch, _ = src.ChainProvider.QueryLatestHeight(ctx)
 		}))
 	})
 
@@ -242,7 +242,7 @@ func RelayAcknowledgements(ctx context.Context, src, dst *Chain, sp *RelaySequen
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
-		srch, dsth, err := QueryLatestHeights(src, dst)
+		srch, dsth, err := QueryLatestHeights(ctx, src, dst)
 		if err != nil {
 			return err
 		}
@@ -253,12 +253,12 @@ func RelayAcknowledgements(ctx context.Context, src, dst *Chain, sp *RelaySequen
 		)
 		eg.Go(func() error {
 			var err error
-			srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.PathEnd.ClientID)
+			srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(ctx, srch, dst.ChainProvider, dst.PathEnd.ClientID)
 			return err
 		})
 		eg.Go(func() error {
 			var err error
-			dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.PathEnd.ClientID)
+			dstHeader, err = dst.ChainProvider.GetIBCUpdateHeader(ctx, dsth, src.ChainProvider, src.PathEnd.ClientID)
 			return err
 		})
 		if err := eg.Wait(); err != nil {
@@ -279,7 +279,7 @@ func RelayAcknowledgements(ctx context.Context, src, dst *Chain, sp *RelaySequen
 			// dst wrote the ack. acknowledgementFromSequence will query the acknowledgement
 			// from the counterparty chain (second chain provided in the arguments). The message
 			// should be sent to src.
-			relayAckMsgs, err := src.ChainProvider.AcknowledgementFromSequence(dst.ChainProvider, uint64(dsth), seq, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcChannel.ChannelId, srcChannel.PortId)
+			relayAckMsgs, err := src.ChainProvider.AcknowledgementFromSequence(ctx, dst.ChainProvider, uint64(dsth), seq, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcChannel.ChannelId, srcChannel.PortId)
 			if err != nil {
 				return err
 			}
@@ -292,7 +292,7 @@ func RelayAcknowledgements(ctx context.Context, src, dst *Chain, sp *RelaySequen
 			// src wrote the ack. acknowledgementFromSequence will query the acknowledgement
 			// from the counterparty chain (second chain provided in the arguments). The message
 			// should be sent to dst.
-			relayAckMsgs, err := dst.ChainProvider.AcknowledgementFromSequence(src.ChainProvider, uint64(srch), seq, srcChannel.ChannelId, srcChannel.PortId, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
+			relayAckMsgs, err := dst.ChainProvider.AcknowledgementFromSequence(ctx, src.ChainProvider, uint64(srch), seq, srcChannel.ChannelId, srcChannel.PortId, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
 			if err != nil {
 				return err
 			}
@@ -316,7 +316,7 @@ func RelayAcknowledgements(ctx context.Context, src, dst *Chain, sp *RelaySequen
 		}
 
 		// send messages to their respective chains
-		if msgs.Send(src, dst); msgs.Success() {
+		if msgs.Send(ctx, src, dst); msgs.Success() {
 			if len(msgs.Dst) > 1 {
 				dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
 			}
@@ -343,7 +343,7 @@ func RelayPackets(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxT
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
-		srch, dsth, err := QueryLatestHeights(src, dst)
+		srch, dsth, err := QueryLatestHeights(ctx, src, dst)
 		if err != nil {
 			return err
 		}
@@ -351,12 +351,12 @@ func RelayPackets(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxT
 		eg := new(errgroup.Group)
 		// add messages for sequences on src
 		eg.Go(func() error {
-			return AddMessagesForSequences(sp.Src, src, dst, srch, dsth, &msgs.Src, &msgs.Dst, srcChannel.ChannelId, srcChannel.PortId, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
+			return AddMessagesForSequences(ctx, sp.Src, src, dst, srch, dsth, &msgs.Src, &msgs.Dst, srcChannel.ChannelId, srcChannel.PortId, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
 		})
 
 		// add messages for sequences on dst
 		eg.Go(func() error {
-			return AddMessagesForSequences(sp.Dst, dst, src, dsth, srch, &msgs.Dst, &msgs.Src, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcChannel.ChannelId, srcChannel.PortId)
+			return AddMessagesForSequences(ctx, sp.Dst, dst, src, dsth, srch, &msgs.Dst, &msgs.Src, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcChannel.ChannelId, srcChannel.PortId)
 		})
 
 		if err = eg.Wait(); err != nil {
@@ -372,11 +372,11 @@ func RelayPackets(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxT
 		// Prepend non-empty msg lists with UpdateClient
 
 		eg.Go(func() error {
-			return PrependUpdateClientMsg(&msgs.Dst, src, dst, srch)
+			return PrependUpdateClientMsg(ctx, &msgs.Dst, src, dst, srch)
 		})
 
 		eg.Go(func() error {
-			return PrependUpdateClientMsg(&msgs.Src, dst, src, dsth)
+			return PrependUpdateClientMsg(ctx, &msgs.Src, dst, src, dsth)
 		})
 
 		if err = eg.Wait(); err != nil {
@@ -384,7 +384,7 @@ func RelayPackets(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxT
 		}
 
 		// send messages to their respective chains
-		if msgs.Send(src, dst); msgs.Success() {
+		if msgs.Send(ctx, src, dst); msgs.Success() {
 			if len(msgs.Dst) > 1 {
 				dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
 			}
@@ -399,7 +399,7 @@ func RelayPackets(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxT
 
 // AddMessagesForSequences constructs RecvMsgs and TimeoutMsgs from sequence numbers on a src chain
 // and adds them to the appropriate queue of msgs for both src and dst
-func AddMessagesForSequences(sequences []uint64, src, dst *Chain, srch, dsth int64, srcMsgs, dstMsgs *[]provider.RelayerMessage, srcChanID, srcPortID, dstChanID, dstPortID string) error {
+func AddMessagesForSequences(ctx context.Context, sequences []uint64, src, dst *Chain, srch, dsth int64, srcMsgs, dstMsgs *[]provider.RelayerMessage, srcChanID, srcPortID, dstChanID, dstPortID string) error {
 	for _, seq := range sequences {
 
 		var (
@@ -409,11 +409,11 @@ func AddMessagesForSequences(sequences []uint64, src, dst *Chain, srch, dsth int
 
 		// Query src for the sequence number to get type of packet
 		if err = retry.Do(func() error {
-			recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(src.ChainProvider, dst.ChainProvider, uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, srcChanID, srcPortID, src.PathEnd.ClientID)
+			recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(ctx, src.ChainProvider, dst.ChainProvider, uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, srcChanID, srcPortID, src.PathEnd.ClientID)
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.LogRetryRelayPacketFromSequence(n, err, srcChanID, srcPortID, dstChanID, dstPortID, dst)
-			srch, dsth, _ = QueryLatestHeights(src, dst)
+			srch, dsth, _ = QueryLatestHeights(ctx, src, dst)
 		})); err != nil {
 			return err
 		}
@@ -432,7 +432,7 @@ func AddMessagesForSequences(sequences []uint64, src, dst *Chain, srch, dsth int
 }
 
 // PrependUpdateClientMsg adds an UpdateClient msg to the front of non-empty msg lists
-func PrependUpdateClientMsg(msgs *[]provider.RelayerMessage, src, dst *Chain, srch int64) error {
+func PrependUpdateClientMsg(ctx context.Context, msgs *[]provider.RelayerMessage, src, dst *Chain, srch int64) error {
 	if len(*msgs) != 0 {
 		var (
 			srcHeader ibcexported.Header
@@ -442,10 +442,10 @@ func PrependUpdateClientMsg(msgs *[]provider.RelayerMessage, src, dst *Chain, sr
 
 		// Query IBC Update Header
 		if err = retry.Do(func() error {
-			srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.PathEnd.ClientID)
+			srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(ctx, srch, dst.ChainProvider, dst.PathEnd.ClientID)
 			return err
 		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			srch, _, _ = QueryLatestHeights(src, dst)
+			srch, _, _ = QueryLatestHeights(ctx, src, dst)
 		})); err != nil {
 			return err
 		}
@@ -465,7 +465,7 @@ func PrependUpdateClientMsg(msgs *[]provider.RelayerMessage, src, dst *Chain, sr
 }
 
 // RelayPacket creates transactions to relay packets from src to dst and from dst to src
-func RelayPacket(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength, seqNum uint64, srcChannel *chantypes.IdentifiedChannel) error {
+func RelayPacket(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength, seqNum uint64, srcChannel *chantypes.IdentifiedChannel) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []provider.RelayerMessage{},
@@ -474,7 +474,7 @@ func RelayPacket(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength, s
 		MaxMsgLength: maxMsgLength,
 	}
 
-	srch, dsth, err := QueryLatestHeights(src, dst)
+	srch, dsth, err := QueryLatestHeights(ctx, src, dst)
 	if err != nil {
 		return err
 	}
@@ -490,13 +490,13 @@ func RelayPacket(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength, s
 			// Query src for the sequence number to get type of packet
 			var recvMsg, timeoutMsg provider.RelayerMessage
 			if err = retry.Do(func() error {
-				recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(src.ChainProvider, dst.ChainProvider, uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, srcChanID, srcPortID, src.ClientID())
+				recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(ctx, src.ChainProvider, dst.ChainProvider, uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, srcChanID, srcPortID, src.ClientID())
 				if err != nil {
 					fmt.Println("Failing to relay packet from seq on src")
 				}
 				return err
 			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-				srch, dsth, _ = QueryLatestHeights(src, dst)
+				srch, dsth, _ = QueryLatestHeights(ctx, src, dst)
 			})); err != nil {
 				return err
 			}
@@ -519,13 +519,13 @@ func RelayPacket(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength, s
 			// Query dst for the sequence number to get type of packet
 			var recvMsg, timeoutMsg provider.RelayerMessage
 			if err = retry.Do(func() error {
-				recvMsg, timeoutMsg, err = dst.ChainProvider.RelayPacketFromSequence(dst.ChainProvider, src.ChainProvider, uint64(dsth), uint64(srch), seq, srcChanID, srcPortID, dstChanID, dstPortID, dst.ClientID())
+				recvMsg, timeoutMsg, err = dst.ChainProvider.RelayPacketFromSequence(ctx, dst.ChainProvider, src.ChainProvider, uint64(dsth), uint64(srch), seq, srcChanID, srcPortID, dstChanID, dstPortID, dst.ClientID())
 				if err != nil {
 					fmt.Println("Failing to relay packet from seq on dst")
 				}
 				return nil
 			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-				srch, dsth, _ = QueryLatestHeights(src, dst)
+				srch, dsth, _ = QueryLatestHeights(ctx, src, dst)
 			})); err != nil {
 				return err
 			}
@@ -550,7 +550,7 @@ func RelayPacket(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength, s
 
 	// Prepend non-empty msg lists with UpdateClient
 	if len(msgs.Dst) != 0 {
-		srcHeader, err := src.ChainProvider.GetIBCUpdateHeader(srch, dst.ChainProvider, dst.ClientID())
+		srcHeader, err := src.ChainProvider.GetIBCUpdateHeader(ctx, srch, dst.ChainProvider, dst.ClientID())
 		if err != nil {
 			return err
 		}
@@ -563,7 +563,7 @@ func RelayPacket(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength, s
 	}
 
 	if len(msgs.Src) != 0 {
-		dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, src.ChainProvider, src.ClientID())
+		dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(ctx, dsth, src.ChainProvider, src.ClientID())
 		if err != nil {
 			return err
 		}
@@ -576,7 +576,7 @@ func RelayPacket(src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength, s
 	}
 
 	// send messages to their respective chains
-	if msgs.Send(src, dst); msgs.Success() {
+	if msgs.Send(ctx, src, dst); msgs.Success() {
 		if len(msgs.Dst) > 1 {
 			dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
 		}

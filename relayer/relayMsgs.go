@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -60,8 +61,8 @@ func (r *RelayMsgs) IsMaxTx(msgLen, txSize uint64) bool {
 
 // Send sends the messages with appropriate output
 // TODO: Parallelize? Maybe?
-func (r *RelayMsgs) Send(src, dst *Chain) {
-	r.SendWithController(src, dst, true)
+func (r *RelayMsgs) Send(ctx context.Context, src, dst *Chain) {
+	r.SendWithController(ctx, src, dst, true)
 }
 
 func EncodeMsgs(c *Chain, msgs []provider.RelayerMessage) []string {
@@ -91,7 +92,7 @@ func DecodeMsgs(c *Chain, msgs []string) []provider.RelayerMessage {
 	return outMsgs
 }
 
-func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
+func (r *RelayMsgs) SendWithController(ctx context.Context, src, dst *Chain, useController bool) {
 	if useController && SendToController != nil {
 		action := &DeliverMsgsAction{
 			Src:       MarshalChain(src),
@@ -138,7 +139,7 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 			if r.IsMaxTx(msgLen, txSize) {
 				// Submit the transactions to src chain and update its status
-				res, success, err := src.ChainProvider.SendMessages(msgs)
+				res, success, err := src.ChainProvider.SendMessages(ctx, msgs)
 				if err != nil {
 					src.LogFailedTx(res, err, msgs)
 				}
@@ -154,7 +155,7 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 	// submit leftover msgs
 	if len(msgs) > 0 {
-		res, success, err := src.ChainProvider.SendMessages(msgs)
+		res, success, err := src.ChainProvider.SendMessages(ctx, msgs)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
 		}
@@ -178,7 +179,7 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 			if r.IsMaxTx(msgLen, txSize) {
 				// Submit the transaction to dst chain and update its status
-				res, success, err := dst.ChainProvider.SendMessages(msgs)
+				res, success, err := dst.ChainProvider.SendMessages(ctx, msgs)
 				if err != nil {
 					dst.LogFailedTx(res, err, msgs)
 				}
@@ -195,7 +196,7 @@ func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
 
 	// submit leftover msgs
 	if len(msgs) > 0 {
-		res, success, err := dst.ChainProvider.SendMessages(msgs)
+		res, success, err := dst.ChainProvider.SendMessages(ctx, msgs)
 		if err != nil {
 			dst.LogFailedTx(res, err, msgs)
 		}

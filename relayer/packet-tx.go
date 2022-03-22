@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -11,18 +12,18 @@ import (
 
 //nolint:lll
 // SendTransferMsg initiates an ics20 transfer from src to dst with the specified args
-func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr string, toHeightOffset uint64, toTimeOffset time.Duration, srcChannel *chantypes.IdentifiedChannel) error {
+func (c *Chain) SendTransferMsg(ctx context.Context, dst *Chain, amount sdk.Coin, dstAddr string, toHeightOffset uint64, toTimeOffset time.Duration, srcChannel *chantypes.IdentifiedChannel) error {
 	var (
 		timeoutHeight    uint64
 		timeoutTimestamp uint64
 	)
 
 	// get header representing dst to check timeouts
-	dsth, err := dst.ChainProvider.QueryLatestHeight()
+	dsth, err := dst.ChainProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return err
 	}
-	h, err := dst.ChainProvider.GetIBCUpdateHeader(dsth, c.ChainProvider, c.PathEnd.ClientID)
+	h, err := dst.ChainProvider.GetIBCUpdateHeader(ctx, dsth, c.ChainProvider, c.PathEnd.ClientID)
 	if err != nil {
 		return err
 	}
@@ -53,7 +54,7 @@ func (c *Chain) SendTransferMsg(dst *Chain, amount sdk.Coin, dstAddr string, toH
 		Dst: []provider.RelayerMessage{},
 	}
 
-	if txs.Send(c, dst); !txs.Success() {
+	if txs.Send(ctx, c, dst); !txs.Success() {
 		return fmt.Errorf("failed to send transfer message")
 	}
 	return nil
