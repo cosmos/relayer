@@ -109,7 +109,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, dst.SendTransferMsg(context.Background(), src, testCoin, srcAddr, 0, 0, channel))
 
 	// Wait for message inclusion in both chains
-	require.NoError(t, dst.ChainProvider.WaitForNBlocks(1))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(context.Background(), 1))
 
 	// start the relayer process in it's own goroutine
 	ctx, cancel := context.WithCancel(context.Background())
@@ -119,15 +119,15 @@ func chainTest(t *testing.T, tcs []testChain) {
 	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
 
 	// Wait for relay message inclusion in both chains
-	require.NoError(t, src.ChainProvider.WaitForNBlocks(2))
-	require.NoError(t, dst.ChainProvider.WaitForNBlocks(2))
+	require.NoError(t, src.ChainProvider.WaitForNBlocks(context.Background(), 2))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(context.Background(), 2))
 
 	// send those tokens from dst back to dst and src back to src
 	require.NoError(t, src.SendTransferMsg(context.Background(), dst, twoTestCoin, dstAddr, 0, 0, channel))
 	require.NoError(t, dst.SendTransferMsg(context.Background(), src, twoTestCoin, srcAddr, 0, 0, channel))
 
 	// wait for packet processing
-	require.NoError(t, dst.ChainProvider.WaitForNBlocks(6))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(context.Background(), 6))
 
 	// kill relayer routine
 	cancel()
@@ -267,8 +267,8 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
 
 	// Wait for relay message inclusion in both chains
-	require.NoError(t, src.ChainProvider.WaitForNBlocks(1))
-	require.NoError(t, dst.ChainProvider.WaitForNBlocks(1))
+	require.NoError(t, src.ChainProvider.WaitForNBlocks(context.Background(), 1))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(context.Background(), 1))
 
 	latestHeight, err := dst.ChainProvider.QueryLatestHeight(context.Background())
 	require.NoError(t, err)
@@ -314,7 +314,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	require.Equal(t, uint32(0), res.Code)
 
 	// wait for packet processing
-	require.NoError(t, dst.ChainProvider.WaitForNBlocks(6))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(context.Background(), 6))
 
 	// kill relayer routine
 	cancel()
@@ -429,7 +429,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.NoError(t, dst.SendTransferMsg(context.Background(), src, testCoin, srcAddr, 0, 0, channelTwo))
 
 	// Wait for message inclusion in both chains
-	require.NoError(t, dst.ChainProvider.WaitForNBlocks(1))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(context.Background(), 1))
 
 	// start the relayer process in it's own goroutine
 	ctx, cancel := context.WithCancel(context.Background())
@@ -439,8 +439,8 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
 
 	// Wait for relay message inclusion in both chains
-	require.NoError(t, src.ChainProvider.WaitForNBlocks(1))
-	require.NoError(t, dst.ChainProvider.WaitForNBlocks(1))
+	require.NoError(t, src.ChainProvider.WaitForNBlocks(context.Background(), 1))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(context.Background(), 1))
 
 	// send those tokens from dst back to dst and src back to src for first channel
 	require.NoError(t, src.SendTransferMsg(context.Background(), dst, twoTestCoin, dstAddr, 0, 0, channelOne))
@@ -451,7 +451,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.NoError(t, dst.SendTransferMsg(context.Background(), src, twoTestCoin, srcAddr, 0, 0, channelTwo))
 
 	// wait for packet processing
-	require.NoError(t, dst.ChainProvider.WaitForNBlocks(6))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(context.Background(), 6))
 
 	// kill relayer routine
 	cancel()

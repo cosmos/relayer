@@ -1435,9 +1435,9 @@ func castClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) 
 }
 
 // WaitForNBlocks blocks until the next block on a given chain
-func (cc *CosmosProvider) WaitForNBlocks(n int64) error {
+func (cc *CosmosProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	var initial int64
-	h, err := cc.RPCClient.Status(context.Background())
+	h, err := cc.RPCClient.Status(ctx)
 	if err != nil {
 		return err
 	}
@@ -1446,7 +1446,7 @@ func (cc *CosmosProvider) WaitForNBlocks(n int64) error {
 	}
 	initial = h.SyncInfo.LatestBlockHeight
 	for {
-		h, err = cc.RPCClient.Status(context.Background())
+		h, err = cc.RPCClient.Status(ctx)
 		if err != nil {
 			return err
 		}

@@ -83,7 +83,7 @@ type ChainProvider interface {
 	Address() (string, error)
 	Timeout() string
 	TrustingPeriod(ctx context.Context) (time.Duration, error)
-	WaitForNBlocks(n int64) error
+	WaitForNBlocks(ctx context.Context, n int64) error
 }
 
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?
