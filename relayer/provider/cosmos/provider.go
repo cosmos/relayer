@@ -119,7 +119,7 @@ type CosmosProviderConfig struct {
 
 func (pc CosmosProviderConfig) Validate() error {
 	if _, err := time.ParseDuration(pc.Timeout); err != nil {
-		return err
+		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 	return nil
 }

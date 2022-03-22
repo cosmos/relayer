@@ -2,10 +2,13 @@ package cmd_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
+	"os"
 	"testing"
 
 	"github.com/cosmos/relayer/cmd"
+	"github.com/stretchr/testify/require"
 )
 
 // System is a system under test.
@@ -85,3 +88,29 @@ func (s *System) MustRunWithInput(t *testing.T, in io.Reader, args ...string) Ru
 
 	return res
 }
+
+// MustAddChain serializes pcw to disk and calls "chains add --file".
+func (s *System) MustAddChain(t *testing.T, pcw cmd.ProviderConfigWrapper) {
+	t.Helper()
+
+	// Temporary file for the new chain.
+	tmpdir := t.TempDir()
+	f, err := os.CreateTemp(tmpdir, "chain*.json")
+	require.NoError(t, err)
+	defer f.Close() // Defer close in case the test fails before we explicitly close.
+
+	enc := json.NewEncoder(f)
+	require.NoError(t, enc.Encode(pcw))
+	f.Close() // Now that the content has been written, close the file so it is readable by the 'chains add' call.
+
+	// Add the chain. Output is expected to be silent.
+	res := s.MustRun(t, "chains", "add", "--file", f.Name())
+	require.Empty(t, res.Stdout.String())
+	require.Empty(t, res.Stderr.String())
+}
+
+// A fixed mnemonic and its resulting cosmos address, helpful for tests that need a mnemonic.
+const (
+	ZeroMnemonic   = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art"
+	ZeroCosmosAddr = "cosmos1r5v5srda7xfth3hn2s26txvrcrntldjumt8mhl"
+)
