@@ -222,7 +222,7 @@ func relayUnrelayedAcks(ctx context.Context, src, dst *Chain, maxTxSize, maxMsgL
 	defer cancel()
 
 	// Fetch any unrelayed acks depending on the channel order
-	ap, err := UnrelayedAcknowledgements(src, dst, srcChannel)
+	ap, err := UnrelayedAcknowledgements(ctx, src, dst, srcChannel)
 	if err != nil {
 		src.Log(fmt.Sprintf("unrelayed acks error: %s", err))
 		return err

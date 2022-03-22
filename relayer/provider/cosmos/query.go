@@ -615,9 +615,9 @@ func (cc *CosmosProvider) QueryPacketCommitments(ctx context.Context, height uin
 
 // QueryPacketAcknowledgements returns an array of packet acks
 // TODO add pagination support
-func (cc *CosmosProvider) QueryPacketAcknowledgements(height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
+func (cc *CosmosProvider) QueryPacketAcknowledgements(ctx context.Context, height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
 	qc := chantypes.NewQueryClient(cc)
-	acks, err := qc.PacketAcknowledgements(context.Background(), &chantypes.QueryPacketAcknowledgementsRequest{
+	acks, err := qc.PacketAcknowledgements(ctx, &chantypes.QueryPacketAcknowledgementsRequest{
 		PortId:     portid,
 		ChannelId:  channelid,
 		Pagination: DefaultPageRequest(),

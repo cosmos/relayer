@@ -804,7 +804,7 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 
 			// sp.Src contains all sequences acked on SRC but acknowledgement not processed on DST
 			// sp.Dst contains all sequences acked on DST but acknowledgement not processed on SRC
-			sp, err := relayer.UnrelayedAcknowledgements(c[src], c[dst], channel)
+			sp, err := relayer.UnrelayedAcknowledgements(cmd.Context(), c[src], c[dst], channel)
 			if err != nil {
 				return err
 			}

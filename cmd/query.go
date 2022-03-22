@@ -912,7 +912,7 @@ $ %s query unrelayed-acks demo-path channel-0`,
 				return err
 			}
 
-			sp, err := relayer.UnrelayedAcknowledgements(c[src], c[dst], channel)
+			sp, err := relayer.UnrelayedAcknowledgements(cmd.Context(), c[src], c[dst], channel)
 			if err != nil {
 				return err
 			}
