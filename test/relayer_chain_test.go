@@ -84,7 +84,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, err)
 	testConnectionPair(t, src, dst)
 
-	_, err = src.CreateOpenChannels(dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	_, err = src.CreateOpenChannels(context.Background(), dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
 	require.NoError(t, err)
 
 	// query open channels and ensure there is no error
@@ -171,7 +171,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 	testConnectionPair(t, src, dst)
 
-	_, err = src.CreateOpenChannels(dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	_, err = src.CreateOpenChannels(context.Background(), dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
 	require.NoError(t, err)
 
 	// query open channels and ensure there is no error
@@ -198,7 +198,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 	testConnectionPair(t, src, dst)
 
-	_, err = src.CreateOpenChannels(dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	_, err = src.CreateOpenChannels(context.Background(), dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
 	require.NoError(t, err)
 	testChannelPair(t, src, dst, channel.ChannelId, channel.PortId)
 
@@ -249,7 +249,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	require.NoError(t, err)
 	testConnectionPair(t, src, dst)
 
-	_, err = src.CreateOpenChannels(dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	_, err = src.CreateOpenChannels(context.Background(), dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
 	require.NoError(t, err)
 
 	// query open channels and ensure there is no error
@@ -392,10 +392,10 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.NoError(t, err)
 	testConnectionPair(t, src, dst)
 
-	_, err = src.CreateOpenChannels(dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	_, err = src.CreateOpenChannels(context.Background(), dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenChannels(dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, true)
+	_, err = src.CreateOpenChannels(context.Background(), dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, true)
 	require.NoError(t, err)
 
 	// query open channels and ensure there are two

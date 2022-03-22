@@ -587,15 +587,15 @@ func (cc *CosmosProvider) QueryConnectionChannels(ctx context.Context, height in
 
 // QueryChannels returns all the channels that are registered on a chain
 // TODO add pagination support
-func (cc *CosmosProvider) QueryChannels() ([]*chantypes.IdentifiedChannel, error) {
+func (cc *CosmosProvider) QueryChannels(ctx context.Context) ([]*chantypes.IdentifiedChannel, error) {
 	qc := chantypes.NewQueryClient(cc)
-	res, err := qc.Channels(context.Background(), &chantypes.QueryChannelsRequest{
+	res, err := qc.Channels(ctx, &chantypes.QueryChannelsRequest{
 		Pagination: DefaultPageRequest(),
 	})
 	if err != nil {
 		return nil, err
 	}
-	return res.Channels, err
+	return res.Channels, nil
 }
 
 // QueryPacketCommitments returns an array of packet commitments

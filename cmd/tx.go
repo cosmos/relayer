@@ -453,7 +453,7 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			}
 
 			// create channel if it isn't already created
-			modified, err := c[src].CreateOpenChannels(c[dst], retries, to, srcPort, dstPort, order, version, override)
+			modified, err := c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override)
 			if err != nil {
 				return fmt.Errorf("error creating channels: %w", err)
 			}
@@ -628,7 +628,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			// create channel if it isn't already created
-			modified, err = c[src].CreateOpenChannels(c[dst], retries, to, srcPort, dstPort, order, version, override)
+			modified, err = c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override)
 			if modified {
 				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err

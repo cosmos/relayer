@@ -86,7 +86,7 @@ func testChannelPair(t *testing.T, src, dst *relayer.Chain, channelID, portID st
 func testChannel(t *testing.T, src, dst *relayer.Chain, channelID, portID string) {
 	t.Helper()
 
-	chans, err := src.ChainProvider.QueryChannels()
+	chans, err := src.ChainProvider.QueryChannels(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, 1, len(chans))
 	require.Equal(t, chans[0].Ordering.String(), "ORDER_UNORDERED")

@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -13,7 +14,7 @@ import (
 )
 
 // CreateOpenChannels runs the channel creation messages on timeout until they pass.
-func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Duration, srcPortID, dstPortID, order, version string, override bool) (modified bool, err error) {
+func (c *Chain) CreateOpenChannels(ctx context.Context, dst *Chain, maxRetries uint64, to time.Duration, srcPortID, dstPortID, order, version string, override bool) (modified bool, err error) {
 	// client and connection identifiers must be filled in
 	if err := ValidateConnectionPaths(c, dst); err != nil {
 		return modified, err
@@ -35,7 +36,7 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 	failures := uint64(0)
 	for ; true; <-ticker.C {
 		var err error
-		srcChannelID, dstChannelID, success, lastStep, recentlyModified, err = ExecuteChannelStep(c, dst, srcChannelID,
+		srcChannelID, dstChannelID, success, lastStep, recentlyModified, err = ExecuteChannelStep(ctx, c, dst, srcChannelID,
 			dstChannelID, srcPortID, dstPortID, order, version, override)
 
 		if err != nil {
@@ -92,7 +93,7 @@ func (c *Chain) CreateOpenChannels(dst *Chain, maxRetries uint64, to time.Durati
 // ExecuteChannelStep executes the next channel step based on the
 // states of two channel ends specified by the provided channel identifiers passed in as arguments.
 // The booleans returned indicate if the message was successfully executed and if this was the last handshake step.
-func ExecuteChannelStep(src, dst *Chain, srcChanID, dstChanID, srcPortID, dstPortID, order, version string, override bool) (
+func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChanID, srcPortID, dstPortID, order, version string, override bool) (
 	newSrcChanID, newDstChanID string, success, last, modified bool, err error) {
 
 	var (
@@ -115,7 +116,7 @@ func ExecuteChannelStep(src, dst *Chain, srcChanID, dstChanID, srcPortID, dstPor
 	// if either identifier is missing, an existing channel that matches the required fields is chosen
 	// or a new channel is created.
 	if srcChanID == "" || dstChanID == "" {
-		newSrcChanID, newDstChanID, success, modified, err = InitializeChannel(src, dst, srcChanID, dstChanID, srcPortID,
+		newSrcChanID, newDstChanID, success, modified, err = InitializeChannel(ctx, src, dst, srcChanID, dstChanID, srcPortID,
 			dstPortID, order, version, override)
 
 		if err != nil {
@@ -367,7 +368,7 @@ func ExecuteChannelStep(src, dst *Chain, srcChanID, dstChanID, srcPortID, dstPor
 
 // InitializeChannel creates a new channel on either the source or destination chain.
 // NOTE: This function may need to be called twice if neither channel exists.
-func InitializeChannel(src, dst *Chain, srcChanID, dstChanID, srcPortID, dstPortID, order, version string, override bool) (
+func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanID, srcPortID, dstPortID, order, version string, override bool) (
 	newSrcChanID, newDstChanID string, success, modified bool, err error) {
 
 	var (
@@ -389,7 +390,7 @@ func InitializeChannel(src, dst *Chain, srcChanID, dstChanID, srcPortID, dstPort
 		}
 
 		if !override {
-			existingChanID, found = FindMatchingChannel(src, srcPortID, dstPortID, order, version)
+			existingChanID, found = FindMatchingChannel(ctx, src, srcPortID, dstPortID, order, version)
 		}
 
 		if !found || override {
@@ -449,7 +450,7 @@ func InitializeChannel(src, dst *Chain, srcChanID, dstChanID, srcPortID, dstPort
 		}
 
 		if !override {
-			existingChanID, found = FindMatchingChannel(src, srcPortID, dstPortID, order, version)
+			existingChanID, found = FindMatchingChannel(ctx, src, srcPortID, dstPortID, order, version)
 		}
 
 		if !found || override {
@@ -510,7 +511,7 @@ func InitializeChannel(src, dst *Chain, srcChanID, dstChanID, srcPortID, dstPort
 		}
 
 		if !override {
-			existingChanID, found = FindMatchingChannel(dst, dstPortID, srcPortID, order, version)
+			existingChanID, found = FindMatchingChannel(ctx, dst, dstPortID, srcPortID, order, version)
 		}
 
 		if !found || override {
@@ -758,9 +759,9 @@ func (c *Chain) CloseChannelStep(dst *Chain, srcChanID, srcPortID string, srcCha
 
 // FindMatchingChannel will determine if there already exists a channel between source and counterparty
 // that matches the channel identifiers being passed in as arguments.
-func FindMatchingChannel(source *Chain, srcPortID, dstPortID, order, version string) (string, bool) {
+func FindMatchingChannel(ctx context.Context, source *Chain, srcPortID, dstPortID, order, version string) (string, bool) {
 	// TODO: add appropriate offset and limits, along with retries
-	channelsResp, err := source.ChainProvider.QueryChannels()
+	channelsResp, err := source.ChainProvider.QueryChannels(ctx)
 	if err != nil {
 		if source.debug {
 			source.Log(fmt.Sprintf("Error: querying channels on %s failed: %v", source.ChainID(), err))

@@ -753,7 +753,7 @@ $ %s query channels ibc-2 --offset 2 --limit 30`,
 			//	return err
 			//}
 
-			res, err := chain.ChainProvider.QueryChannels()
+			res, err := chain.ChainProvider.QueryChannels(cmd.Context())
 			if err != nil {
 				return err
 			}
