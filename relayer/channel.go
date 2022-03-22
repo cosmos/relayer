@@ -172,7 +172,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 			return srcChanID, dstChanID, false, false, false, err
 		}
 
-		res, success, err = src.ChainProvider.SendMessages(msgs)
+		res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
 		}
@@ -218,7 +218,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 			return srcChanID, dstChanID, false, false, false, err
 		}
 
-		res, success, err = src.ChainProvider.SendMessages(msgs)
+		res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
 		}
@@ -262,7 +262,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 			return srcChanID, dstChanID, false, false, false, err
 		}
 
-		res, success, err = dst.ChainProvider.SendMessages(msgs)
+		res, success, err = dst.ChainProvider.SendMessages(ctx, msgs)
 		if err != nil {
 			dst.LogFailedTx(res, err, msgs)
 		}
@@ -306,7 +306,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 
 		last = true
 
-		res, success, err = src.ChainProvider.SendMessages(msgs)
+		res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
 		}
@@ -348,7 +348,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 			return srcChanID, dstChanID, false, false, false, err
 		}
 
-		res, success, err = dst.ChainProvider.SendMessages(msgs)
+		res, success, err = dst.ChainProvider.SendMessages(ctx, msgs)
 		if err != nil {
 			dst.LogFailedTx(res, err, msgs)
 		}
@@ -423,7 +423,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 				return srcChanID, dstChanID, false, false, err
 			}
 
-			res, success, err = src.ChainProvider.SendMessages(msgs)
+			res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
 			if err != nil {
 				src.LogFailedTx(res, err, msgs)
 			}
@@ -484,7 +484,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 				return srcChanID, dstChanID, false, false, err
 			}
 
-			res, success, err = src.ChainProvider.SendMessages(msgs)
+			res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
 			if err != nil {
 				src.LogFailedTx(res, err, msgs)
 			}
@@ -545,7 +545,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 				return srcChanID, dstChanID, false, false, err
 			}
 
-			res, success, err = dst.ChainProvider.SendMessages(msgs)
+			res, success, err = dst.ChainProvider.SendMessages(ctx, msgs)
 			if err != nil {
 				dst.LogFailedTx(res, err, msgs)
 			}
@@ -588,7 +588,7 @@ func (c *Chain) CloseChannel(ctx context.Context, dst *Chain, to time.Duration, 
 			break
 		}
 
-		if closeSteps.Send(c, dst); closeSteps.Success() && closeSteps.Last {
+		if closeSteps.Send(ctx, c, dst); closeSteps.Success() && closeSteps.Last {
 			srch, dsth, err := QueryLatestHeights(ctx, c, dst)
 			if err != nil {
 				return err

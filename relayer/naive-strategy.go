@@ -316,7 +316,7 @@ func RelayAcknowledgements(ctx context.Context, src, dst *Chain, sp *RelaySequen
 		}
 
 		// send messages to their respective chains
-		if msgs.Send(src, dst); msgs.Success() {
+		if msgs.Send(ctx, src, dst); msgs.Success() {
 			if len(msgs.Dst) > 1 {
 				dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
 			}
@@ -384,7 +384,7 @@ func RelayPackets(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxT
 		}
 
 		// send messages to their respective chains
-		if msgs.Send(src, dst); msgs.Success() {
+		if msgs.Send(ctx, src, dst); msgs.Success() {
 			if len(msgs.Dst) > 1 {
 				dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
 			}
@@ -576,7 +576,7 @@ func RelayPacket(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxTx
 	}
 
 	// send messages to their respective chains
-	if msgs.Send(src, dst); msgs.Success() {
+	if msgs.Send(ctx, src, dst); msgs.Success() {
 		if len(msgs.Dst) > 1 {
 			dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
 		}

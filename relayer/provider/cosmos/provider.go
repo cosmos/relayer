@@ -1229,7 +1229,7 @@ func (cc *CosmosProvider) AutoUpdateClient(ctx context.Context, dst provider.Cha
 
 	msgs := []provider.RelayerMessage{updateMsg}
 
-	res, success, err := cc.SendMessages(msgs)
+	res, success, err := cc.SendMessages(ctx, msgs)
 	if err != nil {
 		// cp.LogFailedTx(res, err, CosmosMsgs(msgs...))
 		return 0, err
@@ -1468,8 +1468,8 @@ func MustGetHeight(h ibcexported.Height) clienttypes.Height {
 
 // SendMessage attempts to sign, encode & send a RelayerMessage
 // This is used extensively in the relayer as an extension of the Provider interface
-func (cc *CosmosProvider) SendMessage(msg provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
-	return cc.SendMessages([]provider.RelayerMessage{msg})
+func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+	return cc.SendMessages(ctx, []provider.RelayerMessage{msg})
 }
 
 // SendMessages attempts to sign, encode, & send a slice of RelayerMessages
@@ -1479,7 +1479,7 @@ func (cc *CosmosProvider) SendMessage(msg provider.RelayerMessage) (*provider.Re
 // transaction will not return an error. If a transaction is successfully sent, the result of the execution
 // of that transaction will be logged. A boolean indicating if a transaction was successfully
 // sent and executed successfully is returned.
-func (cc *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
 	var (
 		txb     client.TxBuilder
 		txBytes []byte
@@ -1545,7 +1545,7 @@ func (cc *CosmosProvider) SendMessages(msgs []provider.RelayerMessage) (*provide
 		return nil, false, err
 	}
 
-	res, err = cc.BroadcastTx(context.Background(), txBytes)
+	res, err = cc.BroadcastTx(ctx, txBytes)
 	if err != nil || res == nil {
 		return nil, false, err
 	}

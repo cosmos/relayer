@@ -144,7 +144,7 @@ func ExecuteConnectionStep(ctx context.Context, src, dst *Chain) (success, last,
 			return false, false, false, err
 		}
 
-		res, success, err = src.ChainProvider.SendMessages(msgs)
+		res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
 		}
@@ -166,7 +166,7 @@ func ExecuteConnectionStep(ctx context.Context, src, dst *Chain) (success, last,
 			return false, false, false, err
 		}
 
-		res, success, err = src.ChainProvider.SendMessages(msgs)
+		res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
 		}
@@ -187,7 +187,7 @@ func ExecuteConnectionStep(ctx context.Context, src, dst *Chain) (success, last,
 			return false, false, false, err
 		}
 
-		res, success, err = dst.ChainProvider.SendMessages(msgs)
+		res, success, err = dst.ChainProvider.SendMessages(ctx, msgs)
 		if err != nil {
 			dst.LogFailedTx(res, err, msgs)
 		}
@@ -206,7 +206,7 @@ func ExecuteConnectionStep(ctx context.Context, src, dst *Chain) (success, last,
 			return false, false, false, err
 		}
 
-		res, success, err = src.ChainProvider.SendMessages(msgs)
+		res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
 		}
@@ -227,7 +227,7 @@ func ExecuteConnectionStep(ctx context.Context, src, dst *Chain) (success, last,
 			return false, false, false, err
 		}
 
-		res, success, err = dst.ChainProvider.SendMessages(msgs)
+		res, success, err = dst.ChainProvider.SendMessages(ctx, msgs)
 		if err != nil {
 			dst.LogFailedTx(res, err, msgs)
 		}
@@ -296,7 +296,7 @@ func InitializeConnection(ctx context.Context, src, dst *Chain) (success, modifi
 				return false, false, err
 			}
 
-			res, success, err = src.ChainProvider.SendMessages(msgs)
+			res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
 			if err != nil {
 				src.LogFailedTx(res, err, msgs)
 			}
@@ -332,7 +332,7 @@ func InitializeConnection(ctx context.Context, src, dst *Chain) (success, modifi
 				return false, false, err
 			}
 
-			res, success, err = src.ChainProvider.SendMessages(msgs)
+			res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
 			if err != nil {
 				src.LogFailedTx(res, err, msgs)
 			}
@@ -368,7 +368,7 @@ func InitializeConnection(ctx context.Context, src, dst *Chain) (success, modifi
 				return false, false, err
 			}
 
-			res, success, err = dst.ChainProvider.SendMessages(msgs)
+			res, success, err = dst.ChainProvider.SendMessages(ctx, msgs)
 			if err != nil {
 				dst.LogFailedTx(res, err, msgs)
 			}

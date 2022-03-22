@@ -308,7 +308,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	updateMsg, err := src.ChainProvider.UpdateClient(src.PathEnd.ClientID, newHeader)
 	require.NoError(t, err)
 
-	res, success, err := src.ChainProvider.SendMessage(updateMsg)
+	res, success, err := src.ChainProvider.SendMessage(context.Background(), updateMsg)
 	require.NoError(t, err)
 	require.True(t, success)
 	require.Equal(t, uint32(0), res.Code)

@@ -70,8 +70,8 @@ type ChainProvider interface {
 	RelayPacketFromSequence(ctx context.Context, src, dst ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) (RelayerMessage, RelayerMessage, error)
 	AcknowledgementFromSequence(ctx context.Context, dst ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
 
-	SendMessage(msg RelayerMessage) (*RelayerTxResponse, bool, error)
-	SendMessages(msgs []RelayerMessage) (*RelayerTxResponse, bool, error)
+	SendMessage(ctx context.Context, msg RelayerMessage) (*RelayerTxResponse, bool, error)
+	SendMessages(ctx context.Context, msgs []RelayerMessage) (*RelayerTxResponse, bool, error)
 
 	GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error)
 	GetIBCUpdateHeader(ctx context.Context, srch int64, dst ChainProvider, dstClientId string) (ibcexported.Header, error)

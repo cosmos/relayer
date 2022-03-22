@@ -54,7 +54,7 @@ func (c *Chain) SendTransferMsg(ctx context.Context, dst *Chain, amount sdk.Coin
 		Dst: []provider.RelayerMessage{},
 	}
 
-	if txs.Send(c, dst); !txs.Success() {
+	if txs.Send(ctx, c, dst); !txs.Success() {
 		return fmt.Errorf("failed to send transfer message")
 	}
 	return nil

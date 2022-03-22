@@ -128,7 +128,7 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 
 			// if a matching client does not exist, create one
 			if err = retry.Do(func() error {
-				res, success, err = src.ChainProvider.SendMessages(msgs)
+				res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
 				if err != nil {
 					src.LogFailedTx(res, err, msgs)
 					return fmt.Errorf("failed to send messages on chain{%s}: %w", src.ChainID(), err)
@@ -221,7 +221,7 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 
 	// Send msgs to both chains
 	if clients.Ready() {
-		if clients.Send(c, dst); clients.Success() {
+		if clients.Send(ctx, c, dst); clients.Success() {
 			c.Log(fmt.Sprintf("★ Clients updated: [%s]client(%s) {%d}->{%d} and [%s]client(%s) {%d}->{%d}",
 				c.ChainID(),
 				c.PathEnd.ClientID,
@@ -278,7 +278,7 @@ func (c *Chain) UpgradeClients(ctx context.Context, dst *Chain, height int64) er
 		upgradeMsg,
 	}
 
-	res, _, err := c.ChainProvider.SendMessages(msgs)
+	res, _, err := c.ChainProvider.SendMessages(ctx, msgs)
 	if err != nil {
 		c.LogFailedTx(res, err, msgs)
 		return err
