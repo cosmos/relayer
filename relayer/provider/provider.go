@@ -108,9 +108,9 @@ type QueryProvider interface {
 	QueryUpgradedClient(ctx context.Context, height int64) (*clienttypes.QueryClientStateResponse, error)
 	QueryUpgradedConsState(ctx context.Context, height int64) (*clienttypes.QueryConsensusStateResponse, error)
 	QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error)
-	QueryClients() (clienttypes.IdentifiedClientStates, error)
+	QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error)
 	AutoUpdateClient(dst ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error)
-	FindMatchingClient(counterparty ChainProvider, clientState ibcexported.ClientState) (string, bool)
+	FindMatchingClient(ctx context.Context, counterparty ChainProvider, clientState ibcexported.ClientState) (string, bool)
 
 	// ics 03 - connection
 	QueryConnection(height int64, connectionid string) (*conntypes.QueryConnectionResponse, error)

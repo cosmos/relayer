@@ -1253,7 +1253,7 @@ func (cc *CosmosProvider) AutoUpdateClient(dst provider.ChainProvider, threshold
 // and check if any match the counterparty. The counterparty must have a matching consensus state
 // to the latest consensus state of a potential match. The provided client state is the client
 // state that will be created if there exist no matches.
-func (cc *CosmosProvider) FindMatchingClient(counterparty provider.ChainProvider, clientState ibcexported.ClientState) (string, bool) {
+func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty provider.ChainProvider, clientState ibcexported.ClientState) (string, bool) {
 	// TODO: add appropriate offset and limits
 	var (
 		clientsResp clienttypes.IdentifiedClientStates
@@ -1261,7 +1261,7 @@ func (cc *CosmosProvider) FindMatchingClient(counterparty provider.ChainProvider
 	)
 
 	if err = retry.Do(func() error {
-		clientsResp, err = cc.QueryClients()
+		clientsResp, err = cc.QueryClients(ctx)
 		if err != nil {
 			if cc.PCfg.Debug {
 				cc.Log(fmt.Sprintf("Error: querying clients on %s failed: %v", cc.PCfg.ChainID, err))

@@ -111,7 +111,7 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 		// Will not reuse same client if override is true
 		if !override {
 			// Check if an identical light client already exists
-			clientID, found = src.ChainProvider.FindMatchingClient(dst.ChainProvider, clientState)
+			clientID, found = src.ChainProvider.FindMatchingClient(ctx, dst.ChainProvider, clientState)
 		}
 
 		if !found || override {

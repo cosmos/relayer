@@ -428,7 +428,7 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 			//	return err
 			//}
 
-			res, err := chain.ChainProvider.QueryClients()
+			res, err := chain.ChainProvider.QueryClients(cmd.Context())
 			if err != nil {
 				return err
 			}
