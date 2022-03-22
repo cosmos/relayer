@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -54,7 +55,7 @@ func testConnectionPair(t *testing.T, src, dst *relayer.Chain) {
 func testConnection(t *testing.T, src, dst *relayer.Chain) {
 	t.Helper()
 
-	conns, err := src.ChainProvider.QueryConnections()
+	conns, err := src.ChainProvider.QueryConnections(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, len(conns), 1)
 	require.Equal(t, conns[0].ClientId, src.PathEnd.ClientID)

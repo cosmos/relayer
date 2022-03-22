@@ -510,7 +510,7 @@ $ %s q conns ibc-1`,
 			//	return err
 			//}
 
-			res, err := chain.ChainProvider.QueryConnections()
+			res, err := chain.ChainProvider.QueryConnections(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -565,7 +565,7 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 				}
 			}
 
-			res, err := chain.ChainProvider.QueryConnectionsUsingClient(height, chain.ClientID())
+			res, err := chain.ChainProvider.QueryConnectionsUsingClient(cmd.Context(), height, chain.ClientID())
 			if err != nil {
 				return err
 			}

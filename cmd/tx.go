@@ -375,7 +375,7 @@ $ %s tx conn demo-path --timeout 5s`,
 				return err
 			}
 
-			modified, err = c[src].CreateOpenConnections(c[dst], retries, to)
+			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to)
 			if modified {
 				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err
@@ -617,7 +617,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			// create connection if it isn't already created
-			modified, err = c[src].CreateOpenConnections(c[dst], retries, to)
+			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to)
 			if modified {
 				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err

@@ -114,8 +114,8 @@ type QueryProvider interface {
 
 	// ics 03 - connection
 	QueryConnection(height int64, connectionid string) (*conntypes.QueryConnectionResponse, error)
-	QueryConnections() (conns []*conntypes.IdentifiedConnection, err error)
-	QueryConnectionsUsingClient(height int64, clientid string) (*conntypes.QueryConnectionsResponse, error)
+	QueryConnections(ctx context.Context) (conns []*conntypes.IdentifiedConnection, err error)
+	QueryConnectionsUsingClient(ctx context.Context, height int64, clientid string) (*conntypes.QueryConnectionsResponse, error)
 	GenerateConnHandshakeProof(height int64, clientId, connId string) (clientState ibcexported.ClientState,
 		clientStateProof []byte, consensusProof []byte, connectionProof []byte,
 		connectionProofHeight ibcexported.Height, err error)

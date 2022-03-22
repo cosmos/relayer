@@ -80,7 +80,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(dst, 3, timeout)
+	_, err = src.CreateOpenConnections(context.Background(), dst, 3, timeout)
 	require.NoError(t, err)
 	testConnectionPair(t, src, dst)
 
@@ -167,7 +167,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(dst, 3, timeout)
+	_, err = src.CreateOpenConnections(context.Background(), dst, 3, timeout)
 	require.NoError(t, err)
 	testConnectionPair(t, src, dst)
 
@@ -194,7 +194,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
-	_, err = src.CreateOpenConnections(dst, 3, timeout)
+	_, err = src.CreateOpenConnections(context.Background(), dst, 3, timeout)
 	require.NoError(t, err)
 	testConnectionPair(t, src, dst)
 
@@ -245,7 +245,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(dst, 3, timeout)
+	_, err = src.CreateOpenConnections(context.Background(), dst, 3, timeout)
 	require.NoError(t, err)
 	testConnectionPair(t, src, dst)
 
@@ -388,7 +388,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(dst, 3, timeout)
+	_, err = src.CreateOpenConnections(context.Background(), dst, 3, timeout)
 	require.NoError(t, err)
 	testConnectionPair(t, src, dst)
 

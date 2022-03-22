@@ -444,9 +444,9 @@ func (cc *CosmosProvider) queryConnectionABCI(height int64, connectionID string)
 
 // QueryConnections gets any connections on a chain
 // TODO add pagination support
-func (cc *CosmosProvider) QueryConnections() (conns []*conntypes.IdentifiedConnection, err error) {
+func (cc *CosmosProvider) QueryConnections(ctx context.Context) (conns []*conntypes.IdentifiedConnection, err error) {
 	qc := conntypes.NewQueryClient(cc)
-	res, err := qc.Connections(context.Background(), &conntypes.QueryConnectionsRequest{
+	res, err := qc.Connections(ctx, &conntypes.QueryConnectionsRequest{
 		Pagination: DefaultPageRequest(),
 	})
 	if err != nil || res == nil {
@@ -457,9 +457,9 @@ func (cc *CosmosProvider) QueryConnections() (conns []*conntypes.IdentifiedConne
 
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
 // TODO add pagination support
-func (cc *CosmosProvider) QueryConnectionsUsingClient(height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
+func (cc *CosmosProvider) QueryConnectionsUsingClient(ctx context.Context, height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
 	qc := conntypes.NewQueryClient(cc)
-	res, err := qc.Connections(context.Background(), &conntypes.QueryConnectionsRequest{
+	res, err := qc.Connections(ctx, &conntypes.QueryConnectionsRequest{
 		Pagination: DefaultPageRequest(),
 	})
 	return res, err
