@@ -298,12 +298,12 @@ func (cc *CosmosProvider) QueryUpgradeProof(key []byte, height uint64) ([]byte, 
 }
 
 // QueryUpgradedClient returns upgraded client info
-func (cc *CosmosProvider) QueryUpgradedClient(height int64) (*clienttypes.QueryClientStateResponse, error) {
+func (cc *CosmosProvider) QueryUpgradedClient(ctx context.Context, height int64) (*clienttypes.QueryClientStateResponse, error) {
 	req := clienttypes.QueryUpgradedClientStateRequest{}
 
 	queryClient := clienttypes.NewQueryClient(cc)
 
-	res, err := queryClient.UpgradedClientState(context.Background(), &req)
+	res, err := queryClient.UpgradedClientState(ctx, &req)
 	if err != nil {
 		return nil, err
 	}

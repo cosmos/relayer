@@ -301,10 +301,10 @@ func upgradeClientsCmd(a *appState) *cobra.Command {
 
 			// send the upgrade message on the targetChainID
 			if src == targetChainID {
-				return c[src].UpgradeClients(c[dst], height)
+				return c[src].UpgradeClients(cmd.Context(), c[dst], height)
 			}
 
-			return c[dst].UpgradeClients(c[src], height)
+			return c[dst].UpgradeClients(cmd.Context(), c[src], height)
 		},
 	}
 

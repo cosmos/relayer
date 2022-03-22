@@ -105,7 +105,7 @@ type QueryProvider interface {
 	QueryClientState(height int64, clientid string) (ibcexported.ClientState, error)
 	QueryClientStateResponse(height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error)
 	QueryClientConsensusState(chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error)
-	QueryUpgradedClient(height int64) (*clienttypes.QueryClientStateResponse, error)
+	QueryUpgradedClient(ctx context.Context, height int64) (*clienttypes.QueryClientStateResponse, error)
 	QueryUpgradedConsState(height int64) (*clienttypes.QueryConsensusStateResponse, error)
 	QueryConsensusState(height int64) (ibcexported.ConsensusState, int64, error)
 	QueryClients() (clienttypes.IdentifiedClientStates, error)

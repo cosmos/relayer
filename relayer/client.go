@@ -238,7 +238,7 @@ func (c *Chain) UpdateClients(dst *Chain) (err error) {
 }
 
 // UpgradeClients upgrades the client on src after dst chain has undergone an upgrade.
-func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
+func (c *Chain) UpgradeClients(ctx context.Context, dst *Chain, height int64) error {
 	dstHeader, err := dst.ChainProvider.GetLightSignedHeaderAtHeight(height)
 	if err != nil {
 		return err
@@ -258,7 +258,7 @@ func (c *Chain) UpgradeClients(dst *Chain, height int64) error {
 	}
 
 	// query proofs on counterparty
-	clientRes, err := dst.ChainProvider.QueryUpgradedClient(height)
+	clientRes, err := dst.ChainProvider.QueryUpgradedClient(ctx, height)
 	if err != nil {
 		return err
 	}
