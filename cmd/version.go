@@ -26,7 +26,7 @@ type versionInfo struct {
 	Go        string `json:"go" yaml:"go"`
 }
 
-func getVersionCmd() *cobra.Command {
+func getVersionCmd(a *appState) *cobra.Command {
 	versionCmd := &cobra.Command{
 		Use:     "version",
 		Aliases: []string{"v"},
@@ -61,5 +61,5 @@ $ %s v`,
 		},
 	}
 
-	return jsonFlag(versionCmd)
+	return jsonFlag(a.Viper, versionCmd)
 }

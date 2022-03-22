@@ -33,25 +33,27 @@ const (
 )
 
 // keysCmd represents the keys command
-func keysCmd() *cobra.Command {
+func keysCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "keys",
 		Aliases: []string{"k"},
 		Short:   "Manage keys held by the relayer for each chain",
 	}
 
-	cmd.AddCommand(keysAddCmd())
-	cmd.AddCommand(keysRestoreCmd())
-	cmd.AddCommand(keysDeleteCmd())
-	cmd.AddCommand(keysListCmd())
-	cmd.AddCommand(keysShowCmd())
-	cmd.AddCommand(keysExportCmd())
+	cmd.AddCommand(
+		keysAddCmd(a),
+		keysRestoreCmd(a),
+		keysDeleteCmd(a),
+		keysListCmd(a),
+		keysShowCmd(a),
+		keysExportCmd(a),
+	)
 
 	return cmd
 }
 
 // keysAddCmd respresents the `keys add` command
-func keysAddCmd() *cobra.Command {
+func keysAddCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "add [chain-id] [name]",
 		Aliases: []string{"a"},
@@ -62,7 +64,7 @@ $ %s keys add ibc-0
 $ %s keys add ibc-1 key2
 $ %s k a ibc-2 testkey`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.Chains.Get(args[0])
+			chain, err := a.Config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -92,7 +94,7 @@ $ %s k a ibc-2 testkey`, appName, appName, appName)),
 }
 
 // keysRestoreCmd respresents the `keys add` command
-func keysRestoreCmd() *cobra.Command {
+func keysRestoreCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "restore [chain-id] [name] [mnemonic]",
 		Aliases: []string{"r"},
@@ -103,7 +105,7 @@ $ %s keys restore ibc-0 testkey "[mnemonic-words]"
 $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
-			chain, err := config.Chains.Get(args[0])
+			chain, err := a.Config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -127,7 +129,7 @@ $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 }
 
 // keysDeleteCmd respresents the `keys delete` command
-func keysDeleteCmd() *cobra.Command {
+func keysDeleteCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "delete [chain-id] [name]",
 		Aliases: []string{"d"},
@@ -138,7 +140,7 @@ $ %s keys delete ibc-0 -y
 $ %s keys delete ibc-1 key2 -y
 $ %s k d ibc-2 testkey`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.Chains.Get(args[0])
+			chain, err := a.Config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -165,7 +167,7 @@ $ %s k d ibc-2 testkey`, appName, appName, appName)),
 		},
 	}
 
-	return skipConfirm(cmd)
+	return skipConfirm(a.Viper, cmd)
 }
 
 func askForConfirmation(stdin io.Reader, stderr io.Writer) bool {
@@ -188,7 +190,7 @@ func askForConfirmation(stdin io.Reader, stderr io.Writer) bool {
 }
 
 // keysListCmd respresents the `keys list` command
-func keysListCmd() *cobra.Command {
+func keysListCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list [chain-id]",
 		Aliases: []string{"l"},
@@ -198,7 +200,7 @@ func keysListCmd() *cobra.Command {
 $ %s keys list ibc-0
 $ %s k l ibc-1`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.Chains.Get(args[0])
+			chain, err := a.Config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -220,7 +222,7 @@ $ %s k l ibc-1`, appName, appName)),
 }
 
 // keysShowCmd respresents the `keys show` command
-func keysShowCmd() *cobra.Command {
+func keysShowCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "show [chain-id] [[name]]",
 		Aliases: []string{"s"},
@@ -231,7 +233,7 @@ $ %s keys show ibc-0
 $ %s keys show ibc-1 key2
 $ %s k s ibc-2 testkey`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.Chains.Get(args[0])
+			chain, err := a.Config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -252,7 +254,7 @@ $ %s k s ibc-2 testkey`, appName, appName, appName)),
 				return err
 			}
 
-			fmt.Println(address)
+			fmt.Fprintln(cmd.OutOrStdout(), address)
 			return nil
 		},
 	}
@@ -261,7 +263,7 @@ $ %s k s ibc-2 testkey`, appName, appName, appName)),
 }
 
 // keysExportCmd respresents the `keys export` command
-func keysExportCmd() *cobra.Command {
+func keysExportCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "export [chain-id] [name]",
 		Aliases: []string{"e"},
@@ -272,7 +274,7 @@ $ %s keys export ibc-0 testkey
 $ %s k e ibc-2 testkey`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
-			chain, err := config.Chains.Get(args[0])
+			chain, err := a.Config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
