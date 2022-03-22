@@ -92,11 +92,11 @@ func (cc *CosmosProvider) QueryBalanceWithAddress(ctx context.Context, address s
 }
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
-func (cc *CosmosProvider) QueryUnbondingPeriod() (time.Duration, error) {
+func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
 	req := stakingtypes.QueryParamsRequest{}
 	queryClient := stakingtypes.NewQueryClient(cc)
 
-	res, err := queryClient.Params(context.Background(), &req)
+	res, err := queryClient.Params(ctx, &req)
 	if err != nil {
 		return 0, err
 	}

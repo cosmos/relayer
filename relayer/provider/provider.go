@@ -99,7 +99,7 @@ type QueryProvider interface {
 	QueryBalanceWithAddress(ctx context.Context, addr string) (sdk.Coins, error)
 
 	// staking
-	QueryUnbondingPeriod() (time.Duration, error)
+	QueryUnbondingPeriod(context.Context) (time.Duration, error)
 
 	// ics 02 - client
 	QueryClientState(height int64, clientid string) (ibcexported.ClientState, error)

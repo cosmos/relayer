@@ -73,7 +73,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, eg.Wait())
 
 	// create path
-	_, err = src.CreateClients(dst, true, true, false)
+	_, err = src.CreateClients(context.Background(), dst, true, true, false)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
@@ -160,7 +160,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 
 	// create path
-	_, err = src.CreateClients(dst, true, true, false)
+	_, err = src.CreateClients(context.Background(), dst, true, true, false)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
@@ -190,7 +190,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	dst.PathEnd.ClientID = ""
 	dst.PathEnd.ConnectionID = ""
 
-	_, err = src.CreateClients(dst, true, true, false)
+	_, err = src.CreateClients(context.Background(), dst, true, true, false)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
@@ -212,7 +212,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	src.PathEnd.ClientID = ""
 	dst.PathEnd.ClientID = ""
 
-	_, err = src.CreateClients(dst, true, true, true)
+	_, err = src.CreateClients(context.Background(), dst, true, true, true)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
@@ -238,7 +238,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	require.NoError(t, err)
 
 	// create path
-	_, err = src.CreateClients(dst, true, true, false)
+	_, err = src.CreateClients(context.Background(), dst, true, true, false)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 
@@ -381,7 +381,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.NoError(t, eg.Wait())
 
 	// create path
-	_, err = src.CreateClients(dst, true, true, false)
+	_, err = src.CreateClients(context.Background(), dst, true, true, false)
 	require.NoError(t, err)
 	testClientPair(t, src, dst)
 

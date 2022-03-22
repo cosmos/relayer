@@ -140,7 +140,7 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
-			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 			if modified {
 				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err
@@ -229,7 +229,7 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			modified, err := relayer.CreateClient(c[src], c[dst], srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+			modified, err := relayer.CreateClient(cmd.Context(), c[src], c[dst], srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 			if modified {
 				if err = a.OverwriteConfig(a.Config); err != nil {
 					return err
@@ -365,7 +365,7 @@ $ %s tx conn demo-path --timeout 5s`,
 			}
 
 			// ensure that the clients exist
-			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 			if modified {
 				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err
@@ -606,7 +606,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			// create clients if they aren't already created
-			modified, err := c[src].CreateClients(c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 			if modified {
 				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err

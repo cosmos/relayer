@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
-func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (bool, error) {
+func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (bool, error) {
 	var (
 		srcUpdateHeader, dstUpdateHeader ibcexported.Header
 		srch, dsth                       int64
@@ -46,13 +47,13 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 	}
 
 	// Create client on src for dst if the client id is unspecified
-	modified, err = CreateClient(c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+	modified, err = CreateClient(ctx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 	if err != nil {
 		return modified, fmt.Errorf("failed to create client on src chain{%s}: %w", c.ChainID(), err)
 	}
 
 	// Create client on dst for src if the client id is unspecified
-	modified, err = CreateClient(dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+	modified, err = CreateClient(ctx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 	if err != nil {
 		return modified, fmt.Errorf("failed to create client on dst chain{%s}: %w", dst.ChainID(), err)
 	}
@@ -63,7 +64,7 @@ func (c *Chain) CreateClients(dst *Chain, allowUpdateAfterExpiry, allowUpdateAft
 	return modified, nil
 }
 
-func CreateClient(src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.Header, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (bool, error) {
+func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.Header, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (bool, error) {
 	var (
 		modified, found, success bool
 		err                      error
@@ -92,7 +93,7 @@ func CreateClient(src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.
 
 		// Query the unbonding period for dst and retry if the query fails
 		if err = retry.Do(func() error {
-			ubdPeriod, err = dst.ChainProvider.QueryUnbondingPeriod()
+			ubdPeriod, err = dst.ChainProvider.QueryUnbondingPeriod(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to query unbonding period for chain{%s}: %w", dst.ChainID(), err)
 			}
