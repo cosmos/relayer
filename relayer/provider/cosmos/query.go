@@ -325,12 +325,12 @@ func (cc *CosmosProvider) QueryUpgradedClient(ctx context.Context, height int64)
 }
 
 // QueryUpgradedConsState returns upgraded consensus state and height of client
-func (cc *CosmosProvider) QueryUpgradedConsState(height int64) (*clienttypes.QueryConsensusStateResponse, error) {
+func (cc *CosmosProvider) QueryUpgradedConsState(ctx context.Context, height int64) (*clienttypes.QueryConsensusStateResponse, error) {
 	req := clienttypes.QueryUpgradedConsensusStateRequest{}
 
 	queryClient := clienttypes.NewQueryClient(cc)
 
-	res, err := queryClient.UpgradedConsensusState(context.Background(), &req)
+	res, err := queryClient.UpgradedConsensusState(ctx, &req)
 	if err != nil {
 		return nil, err
 	}

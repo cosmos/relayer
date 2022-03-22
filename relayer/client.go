@@ -263,7 +263,7 @@ func (c *Chain) UpgradeClients(ctx context.Context, dst *Chain, height int64) er
 		return err
 	}
 
-	consRes, err := dst.ChainProvider.QueryUpgradedConsState(height)
+	consRes, err := dst.ChainProvider.QueryUpgradedConsState(ctx, height)
 	if err != nil {
 		return err
 	}
