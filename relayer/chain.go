@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -173,8 +174,8 @@ func (c *Chain) GetSelfVersion() uint64 {
 }
 
 // GetTrustingPeriod returns the trusting period for the chain
-func (c *Chain) GetTrustingPeriod() (time.Duration, error) {
-	return c.ChainProvider.TrustingPeriod()
+func (c *Chain) GetTrustingPeriod(ctx context.Context) (time.Duration, error) {
+	return c.ChainProvider.TrustingPeriod(ctx)
 }
 
 // Log takes a string and logs the data

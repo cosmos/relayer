@@ -78,7 +78,7 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 
 		// Query the trusting period for dst and retry if the query fails
 		if err = retry.Do(func() error {
-			tp, err = dst.GetTrustingPeriod()
+			tp, err = dst.GetTrustingPeriod(ctx)
 			if err != nil || tp.String() == "0s" {
 				return fmt.Errorf("failed to get trusting period for chain{%s}: %w", dst.ChainID(), err)
 			}

@@ -198,8 +198,8 @@ func (cc *CosmosProvider) Address() (string, error) {
 	return out, err
 }
 
-func (cc *CosmosProvider) TrustingPeriod() (time.Duration, error) {
-	res, err := cc.QueryStakingParams(context.Background())
+func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
+	res, err := cc.QueryStakingParams(ctx)
 	if err != nil {
 		return 0, err
 	}
