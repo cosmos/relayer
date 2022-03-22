@@ -107,7 +107,7 @@ type QueryProvider interface {
 	QueryClientConsensusState(chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error)
 	QueryUpgradedClient(ctx context.Context, height int64) (*clienttypes.QueryClientStateResponse, error)
 	QueryUpgradedConsState(ctx context.Context, height int64) (*clienttypes.QueryConsensusStateResponse, error)
-	QueryConsensusState(height int64) (ibcexported.ConsensusState, int64, error)
+	QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error)
 	QueryClients() (clienttypes.IdentifiedClientStates, error)
 	AutoUpdateClient(dst ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error)
 	FindMatchingClient(counterparty ChainProvider, clientState ibcexported.ClientState) (string, bool)

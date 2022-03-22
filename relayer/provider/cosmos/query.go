@@ -353,8 +353,8 @@ func (cc *CosmosProvider) QueryUpgradedConsState(ctx context.Context, height int
 
 // QueryConsensusState returns a consensus state for a given chain to be used as a
 // client in another chain, fetches latest height when passed 0 as arg
-func (cc *CosmosProvider) QueryConsensusState(height int64) (ibcexported.ConsensusState, int64, error) {
-	commit, err := cc.RPCClient.Commit(context.Background(), &height)
+func (cc *CosmosProvider) QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error) {
+	commit, err := cc.RPCClient.Commit(ctx, &height)
 	if err != nil {
 		return &ibctmtypes.ConsensusState{}, 0, err
 	}
@@ -363,7 +363,7 @@ func (cc *CosmosProvider) QueryConsensusState(height int64) (ibcexported.Consens
 	count := 10_000
 
 	nextHeight := height + 1
-	nextVals, err := cc.RPCClient.Validators(context.Background(), &nextHeight, &page, &count)
+	nextVals, err := cc.RPCClient.Validators(ctx, &nextHeight, &page, &count)
 	if err != nil {
 		return &ibctmtypes.ConsensusState{}, 0, err
 	}

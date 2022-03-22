@@ -335,7 +335,7 @@ $ %s q node-state ibc-1`,
 				return err
 			}
 
-			csRes, _, err := chain.ChainProvider.QueryConsensusState(0)
+			csRes, _, err := chain.ChainProvider.QueryConsensusState(cmd.Context(), 0)
 			if err != nil {
 				return err
 			}
