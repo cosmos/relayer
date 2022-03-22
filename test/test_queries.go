@@ -5,10 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/relayer/relayer"
-
-	"github.com/avast/retry-go"
+	"github.com/avast/retry-go/v4"
 	clientypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	"github.com/cosmos/relayer/relayer"
 	"github.com/stretchr/testify/require"
 )
 

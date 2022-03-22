@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-
-	"github.com/avast/retry-go"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/relayer/provider"
 )
@@ -28,7 +27,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 			return fmt.Errorf("failed to query latest heights: %w", err)
 		}
 		return err
-	}, RtyAtt, RtyDel, RtyErr); err != nil {
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 		return false, err
 	}
 
@@ -39,7 +38,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 			return fmt.Errorf("failed to query light signed headers: %w", err)
 		}
 		return err
-	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		c.LogRetryGetLightSignedHeader(n, err)
 		srch, dsth, _ = QueryLatestHeights(ctx, c, dst)
 	})); err != nil {
@@ -83,7 +82,7 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 				return fmt.Errorf("failed to get trusting period for chain{%s}: %w", dst.ChainID(), err)
 			}
 			return err
-		}, RtyAtt, RtyDel, RtyErr); err != nil {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 			return modified, err
 		}
 
@@ -98,7 +97,7 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 				return fmt.Errorf("failed to query unbonding period for chain{%s}: %w", dst.ChainID(), err)
 			}
 			return err
-		}, RtyAtt, RtyDel, RtyErr); err != nil {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 			return modified, err
 		}
 
@@ -139,7 +138,7 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 					return fmt.Errorf("tx failed on chain{%s}: %s", src.ChainID(), res.Data)
 				}
 				return err
-			}, RtyAtt, RtyDel, RtyErr); err != nil {
+			}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 				return modified, err
 			}
 
@@ -182,7 +181,7 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 			return err
 		}
 		return err
-	}, RtyAtt, RtyDel, RtyErr); err != nil {
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 		return err
 	}
 
@@ -193,7 +192,7 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 			return err
 		}
 		return err
-	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		c.Log(fmt.Sprintf("Failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
 		srch, dsth, _ = QueryLatestHeights(ctx, c, dst)
 	})); err != nil {

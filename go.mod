@@ -3,7 +3,7 @@ module github.com/cosmos/relayer
 go 1.17
 
 require (
-	github.com/avast/retry-go v2.6.0+incompatible
+	github.com/avast/retry-go v2.6.0+incompatible // indirect
 	github.com/cosmos/cosmos-sdk v0.45.1
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/gogo/protobuf v1.3.3
@@ -19,6 +19,7 @@ require (
 )
 
 require (
+	github.com/avast/retry-go/v4 v4.0.3
 	github.com/cosmos/ibc-go/v3 v3.0.0-rc0
 	github.com/pkg/errors v0.9.1
 	github.com/strangelove-ventures/lens v0.3.1-0.20220222182620-10a90e9eca45
