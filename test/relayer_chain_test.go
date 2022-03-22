@@ -115,8 +115,8 @@ func chainTest(t *testing.T, tcs []testChain) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_ = relayer.StartRelayer(ctx, src, dst, 2*cmd.MB, 5)
-	require.NoError(t, err)
+	filter := &relayer.ChannelFilter{}
+	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
 
 	// Wait for relay message inclusion in both chains
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(2))
@@ -263,8 +263,8 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_ = relayer.StartRelayer(ctx, src, dst, 2*cmd.MB, 5)
-	require.NoError(t, err)
+	filter := &relayer.ChannelFilter{}
+	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
 
 	// Wait for relay message inclusion in both chains
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(1))
@@ -435,8 +435,8 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_ = relayer.StartRelayer(ctx, src, dst, 2*cmd.MB, 5)
-	require.NoError(t, err)
+	filter := &relayer.ChannelFilter{}
+	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
 
 	// Wait for relay message inclusion in both chains
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(1))

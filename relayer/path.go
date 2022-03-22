@@ -11,8 +11,10 @@ import (
 )
 
 const (
-	check = "✔"
-	xIcon = "✘"
+	check     = "✔"
+	xIcon     = "✘"
+	allowList = "allowlist"
+	denyList  = "denylist"
 )
 
 // Paths represent connection paths between chains
@@ -85,14 +87,40 @@ type PathAction struct {
 	Type string `json:"type"`
 }
 
-// Path represents a pair of chains and the identifiers needed to
-// relay over them
+// Path represents a pair of chains and the identifiers needed to relay over them along with a channel filter list.
 type Path struct {
-	Src *PathEnd `yaml:"src" json:"src"`
-	Dst *PathEnd `yaml:"dst" json:"dst"`
+	Src    *PathEnd       `yaml:"src" json:"src"`
+	Dst    *PathEnd       `yaml:"dst" json:"dst"`
+	Filter *ChannelFilter `yaml:"src-channel-filter" json:"src-channel-filter"`
 }
 
-// End returns the proper end given a chainID
+// ChannelFilter provides the means for either creating an allowlist or a denylist of channels on the src chain
+// which will be used to narrow down the list of channels a user wants to relay on.
+type ChannelFilter struct {
+	Rule        string   `yaml:"rule" json:"rule"`
+	ChannelList []string `yaml:"channel-list" json:"channel-list"`
+}
+
+// ValidateChannelFilterRule verifies that the configured ChannelFilter rule is set to an appropriate value.
+func (p *Path) ValidateChannelFilterRule() error {
+	if p.Filter.Rule != allowList && p.Filter.Rule != denyList && p.Filter.Rule != "" {
+		return fmt.Errorf("%s is not a valid channel filter rule, please "+
+			"ensure your channel filter rule is `%s` or '%s'", p.Filter.Rule, allowList, denyList)
+	}
+	return nil
+}
+
+// InChannelList returns true if the channelID argument is in the ChannelFilter's ChannelList or false otherwise.
+func (cf *ChannelFilter) InChannelList(channelID string) bool {
+	for _, channel := range cf.ChannelList {
+		if channel == channelID {
+			return true
+		}
+	}
+	return false
+}
+
+// End returns the proper end given a chainID.
 func (p *Path) End(chainID string) *PathEnd {
 	if p.Dst.ChainID == chainID {
 		return p.Dst
@@ -104,7 +132,7 @@ func (p *Path) End(chainID string) *PathEnd {
 }
 
 func (p *Path) String() string {
-	return fmt.Sprintf("[ ] %s ->\n %s", p.Src.String(), p.Dst.String())
+	return fmt.Sprintf("%s -> %s", p.Src.String(), p.Dst.String())
 }
 
 // GenPath generates a path with unspecified client, connection and channel identifiers
