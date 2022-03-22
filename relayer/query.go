@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/avast/retry-go"
@@ -67,7 +68,7 @@ func QueryChannelPair(src, dst *Chain, srcH, dstH int64, srcChanID, dstChanID, s
 	return
 }
 
-func QueryChannel(src *Chain, channelID string) (*chantypes.IdentifiedChannel, error) {
+func QueryChannel(ctx context.Context, src *Chain, channelID string) (*chantypes.IdentifiedChannel, error) {
 	var (
 		srch        int64
 		err         error
@@ -85,7 +86,7 @@ func QueryChannel(src *Chain, channelID string) (*chantypes.IdentifiedChannel, e
 
 	// Query all channels for the given connection
 	if err = retry.Do(func() error {
-		srcChannels, err = src.ChainProvider.QueryConnectionChannels(srch, src.ConnectionID())
+		srcChannels, err = src.ChainProvider.QueryConnectionChannels(ctx, srch, src.ConnectionID())
 		return err
 	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		src.LogRetryQueryConnectionChannels(n, err, src.ConnectionID())

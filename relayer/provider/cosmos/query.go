@@ -573,9 +573,9 @@ func (cc *CosmosProvider) QueryChannelClient(ctx context.Context, height int64, 
 }
 
 // QueryConnectionChannels queries the channels associated with a connection
-func (cc *CosmosProvider) QueryConnectionChannels(height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
+func (cc *CosmosProvider) QueryConnectionChannels(ctx context.Context, height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
 	qc := chantypes.NewQueryClient(cc)
-	chans, err := qc.ConnectionChannels(context.Background(), &chantypes.QueryConnectionChannelsRequest{
+	chans, err := qc.ConnectionChannels(ctx, &chantypes.QueryConnectionChannelsRequest{
 		Connection: connectionid,
 		Pagination: DefaultPageRequest(),
 	})

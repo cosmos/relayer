@@ -705,7 +705,7 @@ $ %s tx relay-pkt demo-path channel-1 1`,
 			}
 
 			channelID := args[1]
-			channel, err := relayer.QueryChannel(c[src], channelID)
+			channel, err := relayer.QueryChannel(cmd.Context(), c[src], channelID)
 			if err != nil {
 				return err
 			}
@@ -749,7 +749,7 @@ $ %s tx relay-pkts demo-path channel-0`,
 			}
 
 			channelID := args[1]
-			channel, err := relayer.QueryChannel(c[src], channelID)
+			channel, err := relayer.QueryChannel(cmd.Context(), c[src], channelID)
 			if err != nil {
 				return err
 			}
@@ -797,7 +797,7 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 			}
 
 			channelID := args[1]
-			channel, err := relayer.QueryChannel(c[src], channelID)
+			channel, err := relayer.QueryChannel(cmd.Context(), c[src], channelID)
 			if err != nil {
 				return err
 			}
@@ -927,7 +927,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 
 			// Query all channels for the configured connection on the src chain
 			srcChannelID := args[4]
-			channels, err := c[src].ChainProvider.QueryConnectionChannels(srch, path.Src.ConnectionID)
+			channels, err := c[src].ChainProvider.QueryConnectionChannels(cmd.Context(), srch, path.Src.ConnectionID)
 			if err != nil {
 				return err
 			}

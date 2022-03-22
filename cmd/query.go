@@ -655,7 +655,7 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 			//	return err
 			//}
 
-			chans, err := chain.ChainProvider.QueryConnectionChannels(0, args[1])
+			chans, err := chain.ChainProvider.QueryConnectionChannels(cmd.Context(), 0, args[1])
 			if err != nil {
 				return err
 			}
@@ -852,7 +852,7 @@ $ %s query unrelayed-pkts demo-path channel-0`,
 			}
 
 			channelID := args[1]
-			channel, err := relayer.QueryChannel(c[src], channelID)
+			channel, err := relayer.QueryChannel(cmd.Context(), c[src], channelID)
 			if err != nil {
 				return err
 			}
@@ -907,7 +907,7 @@ $ %s query unrelayed-acks demo-path channel-0`,
 			}
 
 			channelID := args[1]
-			channel, err := relayer.QueryChannel(c[src], channelID)
+			channel, err := relayer.QueryChannel(cmd.Context(), c[src], channelID)
 			if err != nil {
 				return err
 			}

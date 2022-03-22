@@ -88,7 +88,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, err)
 
 	// query open channels and ensure there is no error
-	channels, err := src.ChainProvider.QueryConnectionChannels(0, src.ConnectionID())
+	channels, err := src.ChainProvider.QueryConnectionChannels(context.Background(), 0, src.ConnectionID())
 	require.NoError(t, err)
 
 	channel := channels[0]
@@ -175,7 +175,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 
 	// query open channels and ensure there is no error
-	channels, err := src.ChainProvider.QueryConnectionChannels(0, src.ConnectionID())
+	channels, err := src.ChainProvider.QueryConnectionChannels(context.Background(), 0, src.ConnectionID())
 	require.NoError(t, err)
 
 	channel := channels[0]
@@ -253,7 +253,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	require.NoError(t, err)
 
 	// query open channels and ensure there is no error
-	channels, err := src.ChainProvider.QueryConnectionChannels(0, src.ConnectionID())
+	channels, err := src.ChainProvider.QueryConnectionChannels(context.Background(), 0, src.ConnectionID())
 	require.NoError(t, err)
 
 	channel := channels[0]
@@ -399,7 +399,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.NoError(t, err)
 
 	// query open channels and ensure there are two
-	channels, err := src.ChainProvider.QueryConnectionChannels(0, src.ConnectionID())
+	channels, err := src.ChainProvider.QueryConnectionChannels(context.Background(), 0, src.ConnectionID())
 	require.NoError(t, err)
 	require.Equal(t, 2, len(channels))
 
