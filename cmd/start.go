@@ -24,8 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/avast/retry-go"
-
+	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -79,15 +78,15 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 			// hard to rectify, so we are just avoiding this code path for now
 			if false {
 				thresholdTime := a.Viper.GetDuration(flagThresholdTime)
-				eg := new(errgroup.Group)
+				eg, egCtx := errgroup.WithContext(cmd.Context())
 
 				eg.Go(func() error {
 					for {
 						var timeToExpiry time.Duration
 						if err = retry.Do(func() error {
-							timeToExpiry, err = UpdateClientsFromChains(cmd.Context(), c[src], c[dst], thresholdTime)
+							timeToExpiry, err = UpdateClientsFromChains(egCtx, c[src], c[dst], thresholdTime)
 							return err
-						}, retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
+						}, retry.Context(egCtx), retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
 							if a.Debug {
 								c[src].Log(fmt.Sprintf("- [%s]<->[%s] - try(%d/%d) updating clients from chains: %s",
 									c[src].ChainID(), c[dst].ChainID(), n+1, relayer.RtyAttNum, err))
@@ -124,15 +123,15 @@ func UpdateClientsFromChains(ctx context.Context, src, dst *relayer.Chain, thres
 		err                          error
 	)
 
-	eg := new(errgroup.Group)
+	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		var err error
-		srcTimeExpiry, err = src.ChainProvider.AutoUpdateClient(ctx, dst.ChainProvider, thresholdTime, src.ClientID(), dst.ClientID())
+		srcTimeExpiry, err = src.ChainProvider.AutoUpdateClient(egCtx, dst.ChainProvider, thresholdTime, src.ClientID(), dst.ClientID())
 		return err
 	})
 	eg.Go(func() error {
 		var err error
-		dstTimeExpiry, err = dst.ChainProvider.AutoUpdateClient(ctx, src.ChainProvider, thresholdTime, dst.ClientID(), src.ClientID())
+		dstTimeExpiry, err = dst.ChainProvider.AutoUpdateClient(egCtx, src.ChainProvider, thresholdTime, dst.ClientID(), src.ClientID())
 		return err
 	})
 	if err = eg.Wait(); err != nil {
