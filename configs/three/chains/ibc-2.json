@@ -2,7 +2,7 @@
     "type": "cosmos",
     "value": {
       "key": "testkey",
-      "chain-id": "ibc-1",
+      "chain-id": "ibc-2",
       "rpc-addr": "http://localhost:25557",
       "grpc-addr": "",
       "account-prefix": "cosmos",
