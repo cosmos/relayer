@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/avast/retry-go"
+	"github.com/avast/retry-go/v4"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	host "github.com/cosmos/ibc-go/v3/modules/core/24-host"
 	"github.com/cosmos/ibc-go/v3/modules/core/exported"
@@ -109,7 +109,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 			return fmt.Errorf("failed to query latest heights. Err: %w", err)
 		}
 		return err
-	}, RtyAtt, RtyDel, RtyErr); err != nil {
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 		return srcChanID, dstChanID, success, last, modified, err
 	}
 
@@ -148,7 +148,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 				return fmt.Errorf("failed to query latest heights. Err: %w", err)
 			}
 			return err
-		}, RtyAtt, RtyDel, RtyErr); err != nil {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 			return srcChanID, dstChanID, success, last, modified, err
 		}
 
@@ -158,7 +158,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 			}
 			return err
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dst.LogRetryGetIBCUpdateHeader(n, err)
 			dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
 		})); err != nil {
@@ -196,7 +196,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 				return fmt.Errorf("failed to query latest heights. Err: %w", err)
 			}
 			return err
-		}, RtyAtt, RtyDel, RtyErr); err != nil {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 			return srcChanID, dstChanID, success, last, modified, err
 		}
 
@@ -206,7 +206,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 			}
 			return err
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dst.LogRetryGetIBCUpdateHeader(n, err)
 			dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
 		})); err != nil {
@@ -240,7 +240,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 				return fmt.Errorf("failed to query latest heights. Err: %w", err)
 			}
 			return err
-		}, RtyAtt, RtyDel, RtyErr); err != nil {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 			return srcChanID, dstChanID, success, last, modified, err
 		}
 
@@ -250,7 +250,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 			}
 			return err
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.LogRetryGetIBCUpdateHeader(n, err)
 			srch, _ = src.ChainProvider.QueryLatestHeight(ctx)
 		})); err != nil {
@@ -282,7 +282,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 				return fmt.Errorf("failed to query latest heights. Err: %w", err)
 			}
 			return err
-		}, RtyAtt, RtyDel, RtyErr); err != nil {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 			return srcChanID, dstChanID, success, last, modified, err
 		}
 
@@ -292,7 +292,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 			}
 			return err
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dst.LogRetryGetIBCUpdateHeader(n, err)
 			dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
 		})); err != nil {
@@ -326,7 +326,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 				return fmt.Errorf("failed to query latest heights. Err: %w", err)
 			}
 			return err
-		}, RtyAtt, RtyDel, RtyErr); err != nil {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 			return srcChanID, dstChanID, success, last, modified, err
 		}
 
@@ -336,7 +336,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 				return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 			}
 			return err
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.LogRetryGetIBCUpdateHeader(n, err)
 			srch, _ = src.ChainProvider.QueryLatestHeight(ctx)
 		})); err != nil {
@@ -401,7 +401,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 					return fmt.Errorf("failed to query latest heights. Err: %w", err)
 				}
 				return err
-			}, RtyAtt, RtyDel, RtyErr); err != nil {
+			}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 				return srcChanID, dstChanID, false, false, err
 			}
 
@@ -411,7 +411,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 					return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 				}
 				return err
-			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 				dst.LogRetryGetIBCUpdateHeader(n, err)
 				dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
 			})); err != nil {
@@ -461,7 +461,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 					return fmt.Errorf("failed to query latest heights. Err: %w", err)
 				}
 				return err
-			}, RtyAtt, RtyDel, RtyErr); err != nil {
+			}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 				return srcChanID, dstChanID, false, false, err
 			}
 
@@ -471,7 +471,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 					return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 				}
 				return err
-			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 				dst.LogRetryGetIBCUpdateHeader(n, err)
 				dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
 			})); err != nil {
@@ -522,7 +522,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 					return fmt.Errorf("failed to query latest heights. Err: %w", err)
 				}
 				return err
-			}, RtyAtt, RtyDel, RtyErr); err != nil {
+			}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 				return srcChanID, dstChanID, false, false, err
 			}
 
@@ -532,7 +532,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 					return fmt.Errorf("failed to get IBC update header. Err: %w", err)
 				}
 				return err
-			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 				src.LogRetryGetIBCUpdateHeader(n, err)
 				srch, _ = src.ChainProvider.QueryLatestHeight(ctx)
 			})); err != nil {

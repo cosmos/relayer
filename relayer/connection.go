@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/avast/retry-go"
+	"github.com/avast/retry-go/v4"
+	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	"github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/relayer/provider"
-
-	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 )
 
 // CreateOpenConnections runs the connection creation messages on timeout until they pass.
@@ -96,7 +95,7 @@ func ExecuteConnectionStep(ctx context.Context, src, dst *Chain) (success, last,
 			return fmt.Errorf("failed to query latest heights. Err: %w", err)
 		}
 		return err
-	}, RtyAtt, RtyDel, RtyErr); err != nil {
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 		return success, last, modified, err
 	}
 
@@ -107,7 +106,7 @@ func ExecuteConnectionStep(ctx context.Context, src, dst *Chain) (success, last,
 	if err = retry.Do(func() error {
 		srcHeader, dstHeader, err = GetIBCUpdateHeaders(ctx, srch, dsth, src.ChainProvider, dst.ChainProvider, src.ClientID(), dst.ClientID())
 		return err
-	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		src.Log(fmt.Sprintf("failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
 		srch, dsth, _ = QueryLatestHeights(ctx, src, dst)
 	})); err != nil {
@@ -264,7 +263,7 @@ func InitializeConnection(ctx context.Context, src, dst *Chain) (success, modifi
 			return fmt.Errorf("failed to query latest heights. Err: %w", err)
 		}
 		return err
-	}, RtyAtt, RtyDel, RtyErr); err != nil {
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 		return false, false, err
 	}
 
@@ -272,7 +271,7 @@ func InitializeConnection(ctx context.Context, src, dst *Chain) (success, modifi
 	if err = retry.Do(func() error {
 		srcHeader, dstHeader, err = GetIBCUpdateHeaders(ctx, srch, dsth, src.ChainProvider, dst.ChainProvider, src.ClientID(), dst.ClientID())
 		return err
-	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		src.Log(fmt.Sprintf("failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
 		srch, dsth, _ = QueryLatestHeights(ctx, src, dst)
 	})); err != nil {
@@ -414,7 +413,7 @@ func FindMatchingConnection(ctx context.Context, source, counterparty *Chain) (s
 		}
 
 		return err
-	}, RtyAtt, RtyDel, RtyErr); err != nil {
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 		if source.debug {
 			source.Log(fmt.Sprintf("Error: querying connections on %s failed: %v", source.ChainID(), err))
 		}

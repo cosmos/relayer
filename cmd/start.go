@@ -24,8 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/avast/retry-go"
-
+	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -87,7 +86,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 						if err = retry.Do(func() error {
 							timeToExpiry, err = UpdateClientsFromChains(cmd.Context(), c[src], c[dst], thresholdTime)
 							return err
-						}, retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
+						}, retry.Context(cmd.Context()), retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
 							if a.Debug {
 								c[src].Log(fmt.Sprintf("- [%s]<->[%s] - try(%d/%d) updating clients from chains: %s",
 									c[src].ChainID(), c[dst].ChainID(), n+1, relayer.RtyAttNum, err))
