@@ -18,10 +18,15 @@ package cmd
 
 import (
 	"bufio"
+	"context"
+	"errors"
+	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/spf13/cobra"
@@ -107,7 +112,36 @@ func Execute() {
 	rootCmd := NewRootCmd()
 	rootCmd.SilenceUsage = true
 
-	if err := rootCmd.Execute(); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt) // Using signal.Notify, instead of signal.NotifyContext, in order to see details of signal.
+	go func() {
+		// Wait for interrupt signal.
+		sig := <-sigCh
+
+		// Cancel context on root command.
+		// If the invoked command respects this quickly, the main goroutine will quit right away.
+		cancel()
+
+		// Short delay before printing the received signal message.
+		// This should result in cleaner output from non-interactive commands that stop quickly.
+		time.Sleep(250 * time.Millisecond)
+		fmt.Fprintf(os.Stderr, "Received signal %v. Attempting clean shutdown. Send interrupt again to force hard shutdown.\n", sig)
+
+		// Block waiting for a second interrupt or a timeout.
+		// The main goroutine ought to finish before either case is reached.
+		// But if a case is reached, panic so that we get a non-zero exit and a dump of remaining goroutines.
+		select {
+		case <-time.After(time.Minute):
+			panic(errors.New("rly did not shut down within one minute of interrupt"))
+		case sig := <-sigCh:
+			panic(fmt.Errorf("received signal %v; forcing quit", sig))
+		}
+	}()
+
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		os.Exit(1)
 	}
 }
