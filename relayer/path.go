@@ -169,7 +169,6 @@ type PathWithStatus struct {
 // the current status of the path
 func (p *Path) QueryPathStatus(ctx context.Context, src, dst *Chain) *PathWithStatus {
 	var (
-		err              error
 		srch, dsth       int64
 		srcCs, dstCs     *clienttypes.QueryClientStateResponse
 		srcConn, dstConn *conntypes.QueryConnectionResponse
@@ -178,47 +177,53 @@ func (p *Path) QueryPathStatus(ctx context.Context, src, dst *Chain) *PathWithSt
 	)
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
+		var err error
 		srch, err = src.ChainProvider.QueryLatestHeight(egCtx)
 		return err
 	})
 	eg.Go(func() error {
+		var err error
 		dsth, err = dst.ChainProvider.QueryLatestHeight(egCtx)
 		return err
 	})
-	if err = eg.Wait(); err != nil {
+	if err := eg.Wait(); err != nil {
 		return out
 	}
 	out.Status.Chains = true
-	if err = src.SetPath(p.Src); err != nil {
+	if err := src.SetPath(p.Src); err != nil {
 		return out
 	}
-	if err = dst.SetPath(p.Dst); err != nil {
+	if err := dst.SetPath(p.Dst); err != nil {
 		return out
 	}
 
 	eg = new(errgroup.Group)
 	eg.Go(func() error {
+		var err error
 		srcCs, err = src.ChainProvider.QueryClientStateResponse(srch, src.ClientID())
 		return err
 	})
 	eg.Go(func() error {
+		var err error
 		dstCs, err = dst.ChainProvider.QueryClientStateResponse(dsth, dst.ClientID())
 		return err
 	})
-	if err = eg.Wait(); err != nil || srcCs == nil || dstCs == nil {
+	if err := eg.Wait(); err != nil || srcCs == nil || dstCs == nil {
 		return out
 	}
 	out.Status.Clients = true
 
 	eg.Go(func() error {
+		var err error
 		srcConn, err = src.ChainProvider.QueryConnection(srch, src.ConnectionID())
 		return err
 	})
 	eg.Go(func() error {
+		var err error
 		dstConn, err = dst.ChainProvider.QueryConnection(dsth, dst.ConnectionID())
 		return err
 	})
-	if err = eg.Wait(); err != nil || srcConn.Connection.State != conntypes.OPEN ||
+	if err := eg.Wait(); err != nil || srcConn.Connection.State != conntypes.OPEN ||
 		dstConn.Connection.State != conntypes.OPEN {
 		return out
 	}

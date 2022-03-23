@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/avast/retry-go"
+	"github.com/avast/retry-go/v4"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/relayer/provider"
@@ -41,7 +41,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 			default:
 				return nil
 			}
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.LogRetryQueryPacketCommitments(n, err, srcChannel.ChannelId, srcChannel.PortId)
 			srch, _ = src.ChainProvider.QueryLatestHeight(egCtx)
 		})); err != nil {
@@ -68,7 +68,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 			default:
 				return nil
 			}
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dst.LogRetryQueryPacketCommitments(n, err, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
 			dsth, _ = dst.ChainProvider.QueryLatestHeight(egCtx)
 		})); err != nil {
@@ -91,7 +91,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 			var err error
 			rs.Src, err = dst.ChainProvider.QueryUnreceivedPackets(egCtx, uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
 			return err
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dst.LogRetryQueryUnreceivedPackets(n, err, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
 			dsth, _ = dst.ChainProvider.QueryLatestHeight(egCtx)
 		}))
@@ -103,7 +103,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 			var err error
 			rs.Dst, err = src.ChainProvider.QueryUnreceivedPackets(egCtx, uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
 			return err
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.LogRetryQueryUnreceivedPackets(n, err, srcChannel.ChannelId, srcChannel.PortId)
 			srch, _ = src.ChainProvider.QueryLatestHeight(egCtx)
 		}))
@@ -146,7 +146,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 			default:
 				return nil
 			}
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			srch, _ = src.ChainProvider.QueryLatestHeight(egCtx)
 		})); err != nil {
 			return err
@@ -172,7 +172,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 			default:
 				return nil
 			}
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dsth, _ = dst.ChainProvider.QueryLatestHeight(egCtx)
 		})); err != nil {
 			return err
@@ -194,7 +194,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 		return retry.Do(func() error {
 			rs.Src, err = dst.ChainProvider.QueryUnreceivedAcknowledgements(egCtx, uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
 			return err
-		}, RtyErr, RtyAtt, RtyDel, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(egCtx), RtyErr, RtyAtt, RtyDel, retry.OnRetry(func(n uint, err error) {
 			dsth, _ = dst.ChainProvider.QueryLatestHeight(egCtx)
 		}))
 	})
@@ -205,7 +205,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 		return retry.Do(func() error {
 			rs.Dst, err = src.ChainProvider.QueryUnreceivedAcknowledgements(egCtx, uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
 			return err
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			srch, _ = src.ChainProvider.QueryLatestHeight(egCtx)
 		}))
 	})
@@ -414,7 +414,7 @@ func AddMessagesForSequences(ctx context.Context, sequences []uint64, src, dst *
 		if err = retry.Do(func() error {
 			recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(ctx, src.ChainProvider, dst.ChainProvider, uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, srcChanID, srcPortID, src.PathEnd.ClientID)
 			return err
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.LogRetryRelayPacketFromSequence(n, err, srcChanID, srcPortID, dstChanID, dstPortID, dst)
 			srch, dsth, _ = QueryLatestHeights(ctx, src, dst)
 		})); err != nil {
@@ -447,7 +447,7 @@ func PrependUpdateClientMsg(ctx context.Context, msgs *[]provider.RelayerMessage
 		if err = retry.Do(func() error {
 			srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(ctx, srch, dst.ChainProvider, dst.PathEnd.ClientID)
 			return err
-		}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			srch, _, _ = QueryLatestHeights(ctx, src, dst)
 		})); err != nil {
 			return err
@@ -457,7 +457,7 @@ func PrependUpdateClientMsg(ctx context.Context, msgs *[]provider.RelayerMessage
 		if err = retry.Do(func() error {
 			updateMsg, err = dst.ChainProvider.UpdateClient(dst.PathEnd.ClientID, srcHeader)
 			return nil
-		}, RtyAtt, RtyDel, RtyErr); err != nil {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 			return err
 		}
 
@@ -498,7 +498,7 @@ func RelayPacket(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxTx
 					fmt.Println("Failing to relay packet from seq on src")
 				}
 				return err
-			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 				srch, dsth, _ = QueryLatestHeights(ctx, src, dst)
 			})); err != nil {
 				return err
@@ -527,7 +527,7 @@ func RelayPacket(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxTx
 					fmt.Println("Failing to relay packet from seq on dst")
 				}
 				return nil
-			}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 				srch, dsth, _ = QueryLatestHeights(ctx, src, dst)
 			})); err != nil {
 				return err
