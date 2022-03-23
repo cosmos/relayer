@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/avast/retry-go"
+	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
@@ -210,7 +210,7 @@ func createClientCmd(a *appState) *cobra.Command {
 					return fmt.Errorf("failed to query latest heights: %w", err)
 				}
 				return err
-			}, relayer.RtyAtt, relayer.RtyDel, relayer.RtyErr); err != nil {
+			}, retry.Context(cmd.Context()), relayer.RtyAtt, relayer.RtyDel, relayer.RtyErr); err != nil {
 				return err
 			}
 
@@ -222,7 +222,7 @@ func createClientCmd(a *appState) *cobra.Command {
 					return fmt.Errorf("failed to query light signed headers: %w", err)
 				}
 				return err
-			}, relayer.RtyAtt, relayer.RtyDel, relayer.RtyErr, retry.OnRetry(func(n uint, err error) {
+			}, retry.Context(cmd.Context()), relayer.RtyAtt, relayer.RtyDel, relayer.RtyErr, retry.OnRetry(func(n uint, err error) {
 				c[src].LogRetryGetLightSignedHeader(n, err)
 				srch, dsth, _ = relayer.QueryLatestHeights(cmd.Context(), c[src], c[dst])
 			})); err != nil {
