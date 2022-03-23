@@ -17,7 +17,7 @@ type ActiveChannel struct {
 }
 
 // StartRelayer starts the main relaying loop.
-func StartRelayer(ctx context.Context, src, dst *Chain, filter *ChannelFilter, maxTxSize, maxMsgLength uint64) chan error {
+func StartRelayer(ctx context.Context, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64) chan error {
 	errorChan := make(chan error)
 	channels := make(chan *ActiveChannel, 10)
 	var srcOpenChannels []*ActiveChannel
@@ -123,7 +123,7 @@ func filterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*Act
 
 // applyChannelFilterRule will use the given ChannelFilter's rule and channel list to build the appropriate list of
 // channels to relay on.
-func applyChannelFilterRule(filter *ChannelFilter, channels []*types.IdentifiedChannel) []*types.IdentifiedChannel {
+func applyChannelFilterRule(filter ChannelFilter, channels []*types.IdentifiedChannel) []*types.IdentifiedChannel {
 	switch filter.Rule {
 	case allowList:
 		var filteredChans []*types.IdentifiedChannel
