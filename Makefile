@@ -1,6 +1,5 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
-SDKCOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/cosmos-sdk)
 GAIA_VERSION := v6.0.0
 AKASH_VERSION := v0.12.1
 OSMOSIS_VERSION := v6.4.0
@@ -16,9 +15,7 @@ all: lint install
 ###############################################################################
 
 LD_FLAGS = -X github.com/cosmos/relayer/cmd.Version=$(VERSION) \
-	-X github.com/cosmos/relayer/cmd.Commit=$(COMMIT) \
-	-X github.com/cosmos/relayer/cmd.SDKCommit=$(SDKCOMMIT) \
-	-X github.com/cosmos/relayer/cmd.GaiaCommit=$(GAIACOMMIT)
+	-X github.com/cosmos/relayer/cmd.Commit=$(COMMIT)
 
 BUILD_FLAGS := -ldflags '$(LD_FLAGS)'
 
@@ -87,7 +84,7 @@ lint:
 
 get-gaia:
 	@mkdir -p ./chain-code/
-	@git clone --branch $(GAIA_VERSION) git@github.com:cosmos/gaia.git ./chain-code/gaia
+	@git clone --branch $(GAIA_VERSION) --depth=1 https://github.com/cosmos/gaia.git ./chain-code/gaia
 
 build-gaia:
 	@./scripts/build-gaia

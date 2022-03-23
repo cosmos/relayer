@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -51,13 +52,13 @@ type ChainProvider interface {
 	SubmitMisbehavior( /*TODO TBD*/ ) (RelayerMessage, error)
 	UpdateClient(srcClientId string, dstHeader ibcexported.Header) (RelayerMessage, error)
 	ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) ([]RelayerMessage, error)
-	ConnectionOpenTry(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]RelayerMessage, error)
-	ConnectionOpenAck(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]RelayerMessage, error)
-	ConnectionOpenConfirm(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]RelayerMessage, error)
+	ConnectionOpenTry(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]RelayerMessage, error)
+	ConnectionOpenAck(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]RelayerMessage, error)
+	ConnectionOpenConfirm(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]RelayerMessage, error)
 	ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.Header) ([]RelayerMessage, error)
-	ChannelOpenTry(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]RelayerMessage, error)
-	ChannelOpenAck(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]RelayerMessage, error)
-	ChannelOpenConfirm(dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChannId string) ([]RelayerMessage, error)
+	ChannelOpenTry(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]RelayerMessage, error)
+	ChannelOpenAck(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]RelayerMessage, error)
+	ChannelOpenConfirm(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChannId string) ([]RelayerMessage, error)
 	ChannelCloseInit(srcPortId, srcChanId string) (RelayerMessage, error)
 	ChannelCloseConfirm(dstQueryProvider QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (RelayerMessage, error)
 
@@ -66,14 +67,14 @@ type ChainProvider interface {
 	MsgRelayTimeout(dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
 	MsgRelayRecvPacket(dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
 	MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (RelayerMessage, error)
-	RelayPacketFromSequence(src, dst ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) (RelayerMessage, RelayerMessage, error)
-	AcknowledgementFromSequence(dst ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
+	RelayPacketFromSequence(ctx context.Context, src, dst ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) (RelayerMessage, RelayerMessage, error)
+	AcknowledgementFromSequence(ctx context.Context, dst ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
 
-	SendMessage(msg RelayerMessage) (*RelayerTxResponse, bool, error)
-	SendMessages(msgs []RelayerMessage) (*RelayerTxResponse, bool, error)
+	SendMessage(ctx context.Context, msg RelayerMessage) (*RelayerTxResponse, bool, error)
+	SendMessages(ctx context.Context, msgs []RelayerMessage) (*RelayerTxResponse, bool, error)
 
-	GetLightSignedHeaderAtHeight(h int64) (ibcexported.Header, error)
-	GetIBCUpdateHeader(srch int64, dst ChainProvider, dstClientId string) (ibcexported.Header, error)
+	GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error)
+	GetIBCUpdateHeader(ctx context.Context, srch int64, dst ChainProvider, dstClientId string) (ibcexported.Header, error)
 
 	ChainId() string
 	Type() string
@@ -81,40 +82,40 @@ type ChainProvider interface {
 	Key() string
 	Address() (string, error)
 	Timeout() string
-	TrustingPeriod() (time.Duration, error)
-	WaitForNBlocks(n int64) error
+	TrustingPeriod(ctx context.Context) (time.Duration, error)
+	WaitForNBlocks(ctx context.Context, n int64) error
 }
 
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?
 type QueryProvider interface {
 	// chain
-	QueryTx(hashHex string) (*ctypes.ResultTx, error)
-	QueryTxs(page, limit int, events []string) ([]*ctypes.ResultTx, error)
-	QueryLatestHeight() (int64, error)
-	QueryHeaderAtHeight(height int64) (ibcexported.Header, error)
+	QueryTx(ctx context.Context, hashHex string) (*ctypes.ResultTx, error)
+	QueryTxs(ctx context.Context, page, limit int, events []string) ([]*ctypes.ResultTx, error)
+	QueryLatestHeight(ctx context.Context) (int64, error)
+	QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.Header, error)
 
 	// bank
-	QueryBalance(keyName string) (sdk.Coins, error)
-	QueryBalanceWithAddress(addr string) (sdk.Coins, error)
+	QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error)
+	QueryBalanceWithAddress(ctx context.Context, addr string) (sdk.Coins, error)
 
 	// staking
-	QueryUnbondingPeriod() (time.Duration, error)
+	QueryUnbondingPeriod(context.Context) (time.Duration, error)
 
 	// ics 02 - client
 	QueryClientState(height int64, clientid string) (ibcexported.ClientState, error)
 	QueryClientStateResponse(height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error)
 	QueryClientConsensusState(chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error)
-	QueryUpgradedClient(height int64) (*clienttypes.QueryClientStateResponse, error)
-	QueryUpgradedConsState(height int64) (*clienttypes.QueryConsensusStateResponse, error)
-	QueryConsensusState(height int64) (ibcexported.ConsensusState, int64, error)
-	QueryClients() (clienttypes.IdentifiedClientStates, error)
-	AutoUpdateClient(dst ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error)
-	FindMatchingClient(counterparty ChainProvider, clientState ibcexported.ClientState) (string, bool)
+	QueryUpgradedClient(ctx context.Context, height int64) (*clienttypes.QueryClientStateResponse, error)
+	QueryUpgradedConsState(ctx context.Context, height int64) (*clienttypes.QueryConsensusStateResponse, error)
+	QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error)
+	QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error)
+	AutoUpdateClient(ctx context.Context, dst ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error)
+	FindMatchingClient(ctx context.Context, counterparty ChainProvider, clientState ibcexported.ClientState) (string, bool)
 
 	// ics 03 - connection
 	QueryConnection(height int64, connectionid string) (*conntypes.QueryConnectionResponse, error)
-	QueryConnections() (conns []*conntypes.IdentifiedConnection, err error)
-	QueryConnectionsUsingClient(height int64, clientid string) (*conntypes.QueryConnectionsResponse, error)
+	QueryConnections(ctx context.Context) (conns []*conntypes.IdentifiedConnection, err error)
+	QueryConnectionsUsingClient(ctx context.Context, height int64, clientid string) (*conntypes.QueryConnectionsResponse, error)
 	GenerateConnHandshakeProof(height int64, clientId, connId string) (clientState ibcexported.ClientState,
 		clientStateProof []byte, consensusProof []byte, connectionProof []byte,
 		connectionProofHeight ibcexported.Height, err error)
@@ -122,21 +123,21 @@ type QueryProvider interface {
 
 	// ics 04 - channel
 	QueryChannel(height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error)
-	QueryChannelClient(height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error)
-	QueryConnectionChannels(height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error)
-	QueryChannels() ([]*chantypes.IdentifiedChannel, error)
-	QueryPacketCommitments(height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error)
-	QueryPacketAcknowledgements(height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error)
-	QueryUnreceivedPackets(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error)
-	QueryUnreceivedAcknowledgements(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error)
+	QueryChannelClient(ctx context.Context, height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error)
+	QueryConnectionChannels(ctx context.Context, height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error)
+	QueryChannels(ctx context.Context) ([]*chantypes.IdentifiedChannel, error)
+	QueryPacketCommitments(ctx context.Context, height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error)
+	QueryPacketAcknowledgements(ctx context.Context, height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error)
+	QueryUnreceivedPackets(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error)
+	QueryUnreceivedAcknowledgements(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error)
 	QueryNextSeqRecv(height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error)
 	QueryPacketCommitment(height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error)
 	QueryPacketAcknowledgement(height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error)
 	QueryPacketReceipt(height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error)
 
 	// ics 20 - transfer
-	QueryDenomTrace(denom string) (*transfertypes.DenomTrace, error)
-	QueryDenomTraces(offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error)
+	QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error)
+	QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error)
 }
 
 type RelayPacket interface {

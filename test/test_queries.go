@@ -1,13 +1,13 @@
 package test
 
 import (
+	"context"
 	"testing"
 	"time"
 
-	"github.com/cosmos/relayer/relayer"
-
-	"github.com/avast/retry-go"
+	"github.com/avast/retry-go/v4"
 	clientypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	"github.com/cosmos/relayer/relayer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,7 +22,7 @@ func testClientPair(t *testing.T, src, dst *relayer.Chain) {
 func testClient(t *testing.T, src *relayer.Chain) {
 	t.Helper()
 
-	srch, err := src.ChainProvider.QueryLatestHeight()
+	srch, err := src.ChainProvider.QueryLatestHeight(context.Background())
 	require.NoError(t, err)
 	var (
 		client *clientypes.QueryClientStateResponse
@@ -30,7 +30,7 @@ func testClient(t *testing.T, src *relayer.Chain) {
 	if err = retry.Do(func() error {
 		client, err = src.ChainProvider.QueryClientStateResponse(srch, src.ClientID())
 		if err != nil {
-			srch, _ = src.ChainProvider.QueryLatestHeight()
+			srch, _ = src.ChainProvider.QueryLatestHeight(context.Background())
 		}
 		return err
 	}); err != nil {
@@ -54,7 +54,7 @@ func testConnectionPair(t *testing.T, src, dst *relayer.Chain) {
 func testConnection(t *testing.T, src, dst *relayer.Chain) {
 	t.Helper()
 
-	conns, err := src.ChainProvider.QueryConnections()
+	conns, err := src.ChainProvider.QueryConnections(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, len(conns), 1)
 	require.Equal(t, conns[0].ClientId, src.PathEnd.ClientID)
@@ -62,7 +62,7 @@ func testConnection(t *testing.T, src, dst *relayer.Chain) {
 	require.Equal(t, conns[0].Counterparty.GetConnectionID(), dst.PathEnd.ConnectionID)
 	require.Equal(t, conns[0].State.String(), "STATE_OPEN")
 
-	h, err := src.ChainProvider.QueryLatestHeight()
+	h, err := src.ChainProvider.QueryLatestHeight(context.Background())
 	require.NoError(t, err)
 
 	time.Sleep(time.Second * 5)
@@ -85,7 +85,7 @@ func testChannelPair(t *testing.T, src, dst *relayer.Chain, channelID, portID st
 func testChannel(t *testing.T, src, dst *relayer.Chain, channelID, portID string) {
 	t.Helper()
 
-	chans, err := src.ChainProvider.QueryChannels()
+	chans, err := src.ChainProvider.QueryChannels(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, 1, len(chans))
 	require.Equal(t, chans[0].Ordering.String(), "ORDER_UNORDERED")
@@ -93,7 +93,7 @@ func testChannel(t *testing.T, src, dst *relayer.Chain, channelID, portID string
 	require.Equal(t, chans[0].Counterparty.ChannelId, channelID)
 	require.Equal(t, chans[0].Counterparty.GetPortID(), portID)
 
-	h, err := src.ChainProvider.QueryLatestHeight()
+	h, err := src.ChainProvider.QueryLatestHeight(context.Background())
 	require.NoError(t, err)
 
 	time.Sleep(time.Second * 5)

@@ -17,6 +17,7 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -198,7 +199,7 @@ func configAddPathsCmd(a *appState) *cobra.Command {
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s config add-paths configs/paths`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			if err := addPathsFromDirectory(cmd.ErrOrStderr(), a, args[0]); err != nil {
+			if err := addPathsFromDirectory(cmd.Context(), cmd.ErrOrStderr(), a, args[0]); err != nil {
 				return err
 			}
 			return a.OverwriteConfig(a.Config)
@@ -261,7 +262,7 @@ func addChainsFromDirectory(stderr io.Writer, a *appState, dir string) error {
 //
 // addPathsFromDirectory returns the first error encountered,
 // which means a's paths may include a subset of the path files in dir.
-func addPathsFromDirectory(stderr io.Writer, a *appState, dir string) error {
+func addPathsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, dir string) error {
 	dir = path.Clean(dir)
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -285,7 +286,7 @@ func addPathsFromDirectory(stderr io.Writer, a *appState, dir string) error {
 		}
 
 		pthName := strings.Split(f.Name(), ".")[0]
-		if err := a.Config.ValidatePath(stderr, p); err != nil {
+		if err := a.Config.ValidatePath(ctx, stderr, p); err != nil {
 			return fmt.Errorf("failed to validate path %s: %w", pth, err)
 		}
 
@@ -579,6 +580,13 @@ func initConfig(cmd *cobra.Command, a *appState) error {
 				return err
 			}
 
+			// verify that the channel filter rule is valid for every path in the config
+			for _, p := range cfgWrapper.Paths {
+				if err := p.ValidateChannelFilterRule(); err != nil {
+					return fmt.Errorf("error initializing the relayer config for path %s: %w", p.String(), err)
+				}
+			}
+
 			// build the config struct
 			var chains relayer.Chains
 			for _, pcfg := range cfgWrapper.ProviderConfigs {
@@ -609,18 +617,18 @@ func initConfig(cmd *cobra.Command, a *appState) error {
 }
 
 // ValidatePath checks that a path is valid
-func (c *Config) ValidatePath(stderr io.Writer, p *relayer.Path) (err error) {
-	if err = c.ValidatePathEnd(stderr, p.Src); err != nil {
+func (c *Config) ValidatePath(ctx context.Context, stderr io.Writer, p *relayer.Path) (err error) {
+	if err = c.ValidatePathEnd(ctx, stderr, p.Src); err != nil {
 		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Src.ChainID)
 	}
-	if err = c.ValidatePathEnd(stderr, p.Dst); err != nil {
+	if err = c.ValidatePathEnd(ctx, stderr, p.Dst); err != nil {
 		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Dst.ChainID)
 	}
 	return nil
 }
 
 // ValidatePathEnd validates provided pathend and returns error for invalid identifiers
-func (c *Config) ValidatePathEnd(stderr io.Writer, pe *relayer.PathEnd) error {
+func (c *Config) ValidatePathEnd(ctx context.Context, stderr io.Writer, pe *relayer.PathEnd) error {
 	chain, err := c.Chains.Get(pe.ChainID)
 	if err != nil {
 		fmt.Fprintf(stderr, "Chain %s is not currently configured.\n", pe.ChainID)
@@ -638,7 +646,7 @@ func (c *Config) ValidatePathEnd(stderr io.Writer, pe *relayer.PathEnd) error {
 		return err
 	}
 
-	height, err := chain.ChainProvider.QueryLatestHeight()
+	height, err := chain.ChainProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return err
 	}

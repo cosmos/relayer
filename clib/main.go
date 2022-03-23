@@ -15,6 +15,7 @@ package main
 // }
 import "C"
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -115,7 +116,7 @@ func SendToClib(port C.int, str C.Body) C.Body {
 			rm.Src = relayer.DecodeMsgs(src, action.SrcMsgs)
 			rm.Dst = relayer.DecodeMsgs(dst, action.DstMsgs)
 
-			rm.SendWithController(src, dst, false)
+			rm.SendWithController(context.Background(), src, dst, false) // TODO: should SendToClib accept a Context instead?
 			if !rm.Succeeded {
 				return C.CString("0")
 			}
