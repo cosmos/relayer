@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/avast/retry-go"
+	"github.com/avast/retry-go/v4"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
@@ -80,7 +80,7 @@ func QueryChannel(ctx context.Context, src *Chain, channelID string) (*chantypes
 		var err error
 		srch, err = src.ChainProvider.QueryLatestHeight(ctx)
 		return err
-	}, RtyAtt, RtyDel, RtyErr); err != nil {
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 		return nil, err
 	}
 
@@ -88,7 +88,7 @@ func QueryChannel(ctx context.Context, src *Chain, channelID string) (*chantypes
 	if err = retry.Do(func() error {
 		srcChannels, err = src.ChainProvider.QueryConnectionChannels(ctx, srch, src.ConnectionID())
 		return err
-	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		src.LogRetryQueryConnectionChannels(n, err, src.ConnectionID())
 	})); err != nil {
 		return nil, err
