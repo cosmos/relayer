@@ -3,12 +3,19 @@ package keystore
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/ComposableFi/go-substrate-rpc-client/v4/signature"
 
 	"github.com/vedhavyas/go-subkey"
 )
 
 func newLocalInfo(name string, keypair subkey.KeyPair, address string) Info {
+	// reason for using network argument as 42
+	// https://github.com/ComposableFi/go-substrate-rpc-client/blob/master/signature/signature.go#L126
+	// TODO: handle error from KeyringPairFromSecret method
+	kp, _ := signature.KeyringPairFromSecret(string(keypair.Seed()), 42)
+
 	return &localInfo{
+		KeyPair:   kp,
 		Name:      name,
 		PubKey:    keypair.Public(),
 		AccountID: keypair.AccountID(),
@@ -24,6 +31,14 @@ func (i localInfo) GetAddress() string {
 // GetType implements Info interface
 func (i localInfo) GetName() string {
 	return i.Name
+}
+
+func (i localInfo) GetPublicKey() []byte {
+	return i.PubKey
+}
+
+func (i localInfo) GetKeyringPair() signature.KeyringPair {
+	return i.KeyPair
 }
 
 // encoding info

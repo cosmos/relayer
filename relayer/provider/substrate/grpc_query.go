@@ -19,6 +19,7 @@ var _ gogogrpc.ClientConn = &SubstrateProvider{}
 
 var protoCodec = encoding.GetCodec(proto.Name)
 
+// TODO: This looks like it's implemented for tendermint and we'll have to implement a substrate equivalent.
 // Invoke implements the grpc ClientConn.Invoke method
 func (sp *SubstrateProvider) Invoke(ctx context.Context, method string, req, reply interface{}, opts ...grpc.CallOption) (err error) {
 	// Two things can happen here:

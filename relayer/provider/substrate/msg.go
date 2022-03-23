@@ -1,16 +1,35 @@
 package substrate
 
-import "github.com/cosmos/relayer/relayer/provider"
+import (
+	"fmt"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/relayer/relayer/provider"
+)
 
-// TODO: define methods that are required for a substrate message
-type SubstrateMsg interface{}
 
-type SubstrateRelayerMessage struct {
-	Msg SubstrateMsg
-}
-
-func NewSubstrateRelayerMessage(msg SubstrateMsg) provider.RelayerMessage {
+func NewSubstrateRelayerMessage(msg sdk.Msg) provider.RelayerMessage {
 	return SubstrateRelayerMessage{
 		msg,
 	}
+}
+
+func SubstrateMsg(rm provider.RelayerMessage) sdk.Msg {
+	if val, ok := rm.(SubstrateRelayerMessage); !ok {
+		fmt.Printf("got data of type %T but wanted provider.SubstrateMessage \n", val)
+		return nil
+	} else {
+		return val.Msg
+	}
+}
+
+func SubstrateMsgs(rm ...provider.RelayerMessage) []sdk.Msg {
+	sdkMsgs := make([]sdk.Msg, 0)
+	for _, rMsg := range rm {
+		msg := SubstrateMsg(rMsg)
+		if msg == nil {
+			return nil
+		}
+		sdkMsgs = append(sdkMsgs, msg)
+	}
+	return sdkMsgs
 }

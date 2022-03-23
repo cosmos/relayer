@@ -2,6 +2,7 @@ package substrate
 
 import (
 	"fmt"
+
 	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
@@ -10,7 +11,8 @@ import (
 
 	beefyclient "github.com/cosmos/ibc-go/v3/modules/light-clients/11-beefy/types"
 
-	rpcClient "github.com/ComposableFi/go-substrate-rpc-client"
+	rpcClient "github.com/ComposableFi/go-substrate-rpc-client/v4"
+	rpcClientTypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
@@ -19,10 +21,9 @@ import (
 )
 
 var (
-	defaultChainPrefix                        = commitmenttypes.NewMerklePrefix([]byte("ibc"))
-	defaultDelayPeriod                        = uint64(0)
+	defaultChainPrefix = commitmenttypes.NewMerklePrefix([]byte("ibc"))
+	defaultDelayPeriod = uint64(0)
 )
-
 
 func (sp *SubstrateProvider) Init() error {
 	client, err := rpcClient.NewSubstrateAPI(sp.Config.RPCAddr)
@@ -205,7 +206,7 @@ func (sp *SubstrateProvider) ConnectionOpenAck(dstQueryProvider provider.QueryPr
 	}
 
 	clientState, clientStateProof, consensusStateProof, connStateProof,
-	proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(cph, dstClientId, dstConnId)
+		proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(cph, dstClientId, dstConnId)
 	if err != nil {
 		return nil, err
 	}
@@ -507,7 +508,6 @@ func (sp *SubstrateProvider) MsgRelayAcknowledgement(dst provider.ChainProvider,
 }
 
 func (sp *SubstrateProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanId string, timeoutHeight, timeoutTimestamp uint64) (provider.RelayerMessage, error) {
-	var (
 		acc string
 		err error
 	)
@@ -588,7 +588,7 @@ func (sp *SubstrateProvider) MsgRelayRecvPacket(dst provider.ChainProvider, dsth
 	case comRes.Proof == nil || comRes.Commitment == nil:
 		return nil, fmt.Errorf("recv packet commitment query seq(%d) is nil", packet.Seq())
 	case comRes == nil:
-		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", cc.Config.ChainID, packet.Seq())
+		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", sp.Config.ChainID, packet.Seq())
 	default:
 		msg := &chantypes.MsgRecvPacket{
 			Packet: chantypes.Packet{
@@ -679,18 +679,84 @@ func (sp *SubstrateProvider) AcknowledgementFromSequence(dst provider.ChainProvi
 }
 
 func (sp *SubstrateProvider) SendMessage(msg provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
-	return nil, false, nil
+	return sp.SendMessages([]provider.RelayerMessage{msg})
 }
 
 func (sp *SubstrateProvider) SendMessages(msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
-	return nil, false, nil
+	meta, err := sp.RPCClient.RPC.State.GetMetadataLatest()
+	if err != nil {
+		return nil, false, err
+	}
+
+	c, err := rpcClientTypes.NewCall(meta, "IBC.deliver", msgs)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// Create the extrinsic
+	ext := rpcClientTypes.NewExtrinsic(c)
+
+	genesisHash, err := sp.RPCClient.RPC.Chain.GetBlockHash(0)
+	if err != nil {
+		return nil, false, err
+	}
+
+	rv, err := sp.RPCClient.RPC.State.GetRuntimeVersionLatest()
+	if err != nil {
+		return nil, false, err
+	}
+
+	info, err := sp.Keybase.Key(sp.Key())
+	if err != nil {
+		return nil, false, err
+	}
+
+	key, err := rpcClientTypes.CreateStorageKey(meta, "System", "Account", info.GetPublicKey(), nil)
+	if err != nil {
+		return nil, false, err
+	}
+
+	var accountInfo rpcClientTypes.AccountInfo
+	ok, err := sp.RPCClient.RPC.State.GetStorageLatest(key, &accountInfo)
+	if err != nil || !ok {
+		return nil, false, err
+	}
+
+	nonce := uint32(accountInfo.Nonce)
+
+	o := rpcClientTypes.SignatureOptions{
+		BlockHash:   genesisHash,
+		Era:         rpcClientTypes.ExtrinsicEra{IsMortalEra: false},
+		GenesisHash: genesisHash,
+		Nonce:       rpcClientTypes.NewUCompactFromUInt(uint64(nonce)),
+		SpecVersion: rv.SpecVersion,
+		Tip:         rpcClientTypes.NewUCompactFromUInt(0),
+	}
+
+	err = ext.Sign(info.GetKeyringPair(), o)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// Send the extrinsic
+	hash, err := sp.RPCClient.RPC.Author.SubmitExtrinsic(ext)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// TODO: check if there's a go substrate rpc method to wait for finalization
+	rlyRes := &provider.RelayerTxResponse{
+		// TODO: What height is the height field in this struct? Is the transaction added to the blockchain right away?
+		TxHash: hash.Hex(),
+	}
+
+	return rlyRes, false, nil
 }
 
 func (sp *SubstrateProvider) GetLightSignedHeaderAtHeight(h int64) (ibcexported.Header, error) {
 	return nil, nil
 }
 
-// TODO: ask question: why do we need an off chain beefy light client?
 // GetIBCUpdateHeader updates the off chain beefy light client and
 // returns an IBC Update Header which can be used to update an on chain
 // light client on the destination chain. The source is used to construct

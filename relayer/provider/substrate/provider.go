@@ -3,6 +3,7 @@ package substrate
 import (
 	"bytes"
 	"fmt"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"io"
 	"reflect"
 	"time"
@@ -29,6 +30,10 @@ type SubstrateProvider struct {
 	RPCClient *rpcClient.SubstrateAPI
 	Keybase   keystore.Keyring
 	Input     io.Reader
+}
+
+type SubstrateRelayerMessage struct {
+	Msg sdk.Msg
 }
 
 // (ccc *ChainClientConfig, homepath string, input io.Reader, output io.Writer, kro ...keyring.Option) (*ChainClient, error) {
@@ -160,7 +165,7 @@ func (srm SubstrateRelayerMessage) MsgBytes() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// castClientStateToTMType casts client state to tendermint type
+// castClientStateToBeefyType casts client state to tendermint type
 func castClientStateToBeefyType(cs *codectypes.Any) (*beefyclient.ClientState, error) {
 	clientStateExported, err := clienttypes.UnpackClientState(cs)
 	if err != nil {

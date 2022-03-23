@@ -2,10 +2,17 @@ package substrate
 
 import (
 	"context"
+	"fmt"
+	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
+	"strings"
 	"time"
+
+	rpcClientTypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
+	beefyClientTypes "github.com/cosmos/ibc-go/v3/modules/light-clients/11-beefy/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
+	committypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
 	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
@@ -13,6 +20,8 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/relayer/provider"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // QueryTx takes a transaction hash and returns the transaction
@@ -34,6 +43,20 @@ func (sp *SubstrateProvider) QueryLatestHeight() (int64, error) {
 }
 
 func (sp *SubstrateProvider) QueryHeaderAtHeight(height int64) (ibcexported.Header, error) {
+	latestBlockHash, err := sp.RPCClient.RPC.Chain.GetBlockHashLatest()
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := signedCommitment(sp.RPCClient, latestBlockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	if int64(c.Commitment.BlockNumber) < height {
+		return nil, fmt.Errorf("queried block is not finalized")
+	}
+
 	blockHash, err := sp.RPCClient.RPC.Chain.GetBlockHash(uint64(height))
 	if err != nil {
 		return nil, err
@@ -85,7 +108,6 @@ func (sp *SubstrateProvider) QueryClientState(height int64, clientid string) (ib
 	}
 
 	return cs, nil
-
 }
 
 func (sp *SubstrateProvider) QueryClientStateResponse(height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
@@ -108,52 +130,292 @@ func (sp *SubstrateProvider) QueryConsensusState(height int64) (ibcexported.Cons
 	return nil, 0, nil
 }
 
+// QueryClients queries all the clients!
+// TODO add pagination support
 func (sp *SubstrateProvider) QueryClients() (clienttypes.IdentifiedClientStates, error) {
-	return nil, nil
+	qc := clienttypes.NewQueryClient(sp)
+	state, err := qc.ClientStates(context.Background(), &clienttypes.QueryClientStatesRequest{
+		Pagination: DefaultPageRequest(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return state.ClientStates, nil
 }
 
 func (sp *SubstrateProvider) AutoUpdateClient(dst provider.ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error) {
-	return 0, nil
+	srch, err := sp.QueryLatestHeight()
+	if err != nil {
+		return 0, err
+	}
+	dsth, err := dst.QueryLatestHeight()
+	if err != nil {
+		return 0, err
+	}
+
+	clientState, err := cc.queryTMClientState(srch, srcClientId)
+	if err != nil {
+		return 0, err
+	}
+
+	if clientState.TrustingPeriod <= thresholdTime {
+		return 0, fmt.Errorf("client (%s) trusting period time is less than or equal to threshold time", srcClientId)
+	}
+
+	// query the latest consensus state of the potential matching client
+	consensusStateResp, err := cc.QueryConsensusStateABCI(srcClientId, clientState.GetLatestHeight())
+	if err != nil {
+		return 0, err
+	}
+
+	exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
+	if err != nil {
+		return 0, err
+	}
+
+	consensusState, ok := exportedConsState.(*tmclient.ConsensusState)
+	if !ok {
+		return 0, fmt.Errorf("consensus state with clientID %s from chain %s is not IBC tendermint type",
+			srcClientId, cc.Config.ChainID)
+	}
+
+	expirationTime := consensusState.Timestamp.Add(clientState.TrustingPeriod)
+
+	timeToExpiry := time.Until(expirationTime)
+
+	if timeToExpiry > thresholdTime {
+		return timeToExpiry, nil
+	}
+
+	if clientState.IsExpired(consensusState.Timestamp, time.Now()) {
+		return 0, fmt.Errorf("client (%s) is already expired on chain: %s", srcClientId, cc.Config.ChainID)
+	}
+
+	srcUpdateHeader, err := cc.GetIBCUpdateHeader(srch, dst, dstClientId)
+	if err != nil {
+		return 0, err
+	}
+
+	dstUpdateHeader, err := dst.GetIBCUpdateHeader(dsth, cc, srcClientId)
+	if err != nil {
+		return 0, err
+	}
+
+	updateMsg, err := cc.UpdateClient(srcClientId, dstUpdateHeader)
+	if err != nil {
+		return 0, err
+	}
+
+	msgs := []provider.RelayerMessage{updateMsg}
+
+	res, success, err := cc.SendMessages(msgs)
+	if err != nil {
+		// cp.LogFailedTx(res, err, CosmosMsgs(msgs...))
+		return 0, err
+	}
+	if !success {
+		return 0, fmt.Errorf("tx failed: %s", res.Data)
+	}
+	cc.Log(fmt.Sprintf("★ Client updated: [%s]client(%s) {%d}->{%d}",
+		cc.Config.ChainID,
+		srcClientId,
+		MustGetHeight(srcUpdateHeader.GetHeight()),
+		srcUpdateHeader.GetHeight().GetRevisionHeight(),
+	))
+
+	return clientState.TrustingPeriod, nil
 }
 
 func (sp *SubstrateProvider) FindMatchingClient(counterparty provider.ChainProvider, clientState ibcexported.ClientState) (string, bool) {
-	return "", false
+	return "", false //no
 }
 
 func (sp *SubstrateProvider) QueryConnection(height int64, connectionid string) (*conntypes.QueryConnectionResponse, error) {
-	return nil, nil
+	res, err := sp.queryConnection(height, connectionid)
+	if err != nil && strings.Contains(err.Error(), "not found") {
+		return &conntypes.QueryConnectionResponse{
+			Connection: &conntypes.ConnectionEnd{
+				ClientId: "client",
+				Versions: []*conntypes.Version{},
+				State:    conntypes.UNINITIALIZED,
+				Counterparty: conntypes.Counterparty{
+					ClientId:     "client",
+					ConnectionId: "connection",
+					Prefix:       committypes.MerklePrefix{KeyPrefix: []byte{}},
+				},
+				DelayPeriod: 0,
+			},
+			Proof:       []byte{},
+			ProofHeight: clienttypes.Height{RevisionNumber: 0, RevisionHeight: 0},
+		}, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
+// TODO: query connection using rpc methods
+func (sp *SubstrateProvider) queryConnection(height int64, connectionID string) (*conntypes.QueryConnectionResponse, error) {
+	return &conntypes.QueryConnectionResponse{}, nil
+}
+
+// QueryConnections gets any connections on a chain
+// TODO add pagination support
 func (sp *SubstrateProvider) QueryConnections() (conns []*conntypes.IdentifiedConnection, err error) {
-	return nil, nil
+	qc := conntypes.NewQueryClient(sp)
+	res, err := qc.Connections(context.Background(), &conntypes.QueryConnectionsRequest{
+		Pagination: DefaultPageRequest(),
+	})
+	return res.Connections, err
 }
 
+// QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
+// TODO add pagination support
 func (sp *SubstrateProvider) QueryConnectionsUsingClient(height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
-	return nil, nil
+	qc := conntypes.NewQueryClient(sp)
+	res, err := qc.Connections(context.Background(), &conntypes.QueryConnectionsRequest{
+		Pagination: DefaultPageRequest(),
+	})
+	return res, err
 }
 
 func (sp *SubstrateProvider) GenerateConnHandshakeProof(height int64, clientId, connId string) (clientState ibcexported.ClientState, clientStateProof []byte, consensusProof []byte, connectionProof []byte, connectionProofHeight ibcexported.Height, err error) {
-	return nil, nil, nil, nil, nil, nil
+	var (
+		clientStateRes     *clienttypes.QueryClientStateResponse
+		consensusStateRes  *clienttypes.QueryConsensusStateResponse
+		connectionStateRes *conntypes.QueryConnectionResponse
+		eg                 = new(errgroup.Group)
+	)
+
+	// query for the client state for the proof and get the height to query the consensus state at.
+	clientStateRes, err = sp.QueryClientStateResponse(height, clientId)
+	if err != nil {
+		return nil, nil, nil, nil, clienttypes.Height{}, err
+	}
+
+	clientState, err = clienttypes.UnpackClientState(clientStateRes.ClientState)
+	if err != nil {
+		return nil, nil, nil, nil, clienttypes.Height{}, err
+	}
+
+	eg.Go(func() error {
+		var err error
+		consensusStateRes, err = sp.QueryClientConsensusState(height, clientId, clientState.GetLatestHeight())
+		return err
+	})
+	eg.Go(func() error {
+		var err error
+		connectionStateRes, err = sp.QueryConnection(height, connId)
+		return err
+	})
+
+	if err := eg.Wait(); err != nil {
+		return nil, nil, nil, nil, clienttypes.Height{}, err
+	}
+
+	return clientState, clientStateRes.Proof, consensusStateRes.Proof, connectionStateRes.Proof, connectionStateRes.ProofHeight, nil
 }
 
-func (sp *SubstrateProvider) NewClientState(dstUpdateHeader ibcexported.Header, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
-	return nil, nil
+func (sp *SubstrateProvider) NewClientState(
+	dstUpdateHeader ibcexported.Header,
+	_, _ time.Duration,
+	_, _ bool,
+) (ibcexported.ClientState, error) {
+	dstBeefyHeader, ok := dstUpdateHeader.(*beefyClientTypes.Header)
+	if !ok {
+		return nil, fmt.Errorf("got data of type %T but wanted  beefyClientType.Header \n", dstUpdateHeader)
+	}
+
+	parachainHeader := dstBeefyHeader.ParachainHeaders[0].ParachainHeader
+	substrateHeader := &rpcClientTypes.Header{}
+	err := Decode(parachainHeader, substrateHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	blockHash, err := sp.RPCClient.RPC.Chain.GetBlockHash(uint64(substrateHeader.Number))
+	if err != nil {
+		return nil, err
+	}
+
+	commitment, err := signedCommitment(sp.RPCClient, blockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	cs, err := clientState(sp.RPCClient, commitment)
+	if err != nil {
+		return nil, err
+	}
+
+	return cs, nil
 }
 
 func (sp *SubstrateProvider) QueryChannel(height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
-	return nil, nil
+	res, err := sp.queryChannel(height, portid, channelid)
+	if err != nil && strings.Contains(err.Error(), "not found") {
+
+		return &chantypes.QueryChannelResponse{
+			Channel: &chantypes.Channel{
+				State:    chantypes.UNINITIALIZED,
+				Ordering: chantypes.UNORDERED,
+				Counterparty: chantypes.Counterparty{
+					PortId:    "port",
+					ChannelId: "channel",
+				},
+				ConnectionHops: []string{},
+				Version:        "version",
+			},
+			Proof: []byte{},
+			ProofHeight: clienttypes.Height{
+				RevisionNumber: 0,
+				RevisionHeight: 0,
+			},
+		}, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// TODO: query channel using rpc methods
+func (sp *SubstrateProvider) queryChannel(height int64, portID, channelID string) (*chantypes.QueryChannelResponse, error) {
+	return &chantypes.QueryChannelResponse{}, nil
 }
 
 func (sp *SubstrateProvider) QueryChannelClient(height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
-	return nil, nil
+	qc := chantypes.NewQueryClient(sp)
+	cState, err := qc.ChannelClientState(context.Background(), &chantypes.QueryChannelClientStateRequest{
+		PortId:    portid,
+		ChannelId: channelid,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return cState.IdentifiedClientState, nil
 }
 
 func (sp *SubstrateProvider) QueryConnectionChannels(height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
-	return nil, nil
+	qc := chantypes.NewQueryClient(sp)
+	chans, err := qc.ConnectionChannels(context.Background(), &chantypes.QueryConnectionChannelsRequest{
+		Connection: connectionid,
+		Pagination: DefaultPageRequest(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return chans.Channels, nil
 }
 
 func (sp *SubstrateProvider) QueryChannels() ([]*chantypes.IdentifiedChannel, error) {
-	return nil, nil
+	qc := chantypes.NewQueryClient(sp)
+	res, err := qc.Channels(context.Background(), &chantypes.QueryChannelsRequest{
+		Pagination: DefaultPageRequest(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res.Channels, err
 }
 
 func (sp *SubstrateProvider) QueryPacketCommitments(height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
