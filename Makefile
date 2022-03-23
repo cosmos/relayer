@@ -87,7 +87,7 @@ lint:
 
 get-gaia:
 	@mkdir -p ./chain-code/
-	@git clone --branch $(GAIA_VERSION) git@github.com:cosmos/gaia.git ./chain-code/gaia
+	@git clone --branch $(GAIA_VERSION) --depth=1 https://github.com/cosmos/gaia.git ./chain-code/gaia
 
 build-gaia:
 	@./scripts/build-gaia
