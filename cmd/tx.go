@@ -670,7 +670,7 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 		},
 	}
 
-	return overrideFlag(a.Viper, clientParameterFlags(a.Viper, strategyFlag(a.Viper, retryFlag(a.Viper, timeoutFlag(a.Viper, cmd)))))
+	return overrideFlag(a.Viper, channelParameterFlags(a.Viper, clientParameterFlags(a.Viper, strategyFlag(a.Viper, retryFlag(a.Viper, timeoutFlag(a.Viper, cmd))))))
 }
 
 func relayMsgCmd(a *appState) *cobra.Command {
