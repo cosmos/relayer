@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/avast/retry-go"
+	"github.com/avast/retry-go/v4"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
@@ -17,15 +17,15 @@ import (
 
 // QueryLatestHeights returns the heights of multiple chains at once
 func QueryLatestHeights(ctx context.Context, src, dst *Chain) (srch, dsth int64, err error) {
-	var eg = new(errgroup.Group)
+	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		var err error
-		srch, err = src.ChainProvider.QueryLatestHeight(ctx)
+		srch, err = src.ChainProvider.QueryLatestHeight(egCtx)
 		return err
 	})
 	eg.Go(func() error {
 		var err error
-		dsth, err = dst.ChainProvider.QueryLatestHeight(ctx)
+		dsth, err = dst.ChainProvider.QueryLatestHeight(egCtx)
 		return err
 	})
 	err = eg.Wait()
@@ -80,7 +80,7 @@ func QueryChannel(ctx context.Context, src *Chain, channelID string) (*chantypes
 		var err error
 		srch, err = src.ChainProvider.QueryLatestHeight(ctx)
 		return err
-	}, RtyAtt, RtyDel, RtyErr); err != nil {
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 		return nil, err
 	}
 
@@ -88,7 +88,7 @@ func QueryChannel(ctx context.Context, src *Chain, channelID string) (*chantypes
 	if err = retry.Do(func() error {
 		srcChannels, err = src.ChainProvider.QueryConnectionChannels(ctx, srch, src.ConnectionID())
 		return err
-	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		src.LogRetryQueryConnectionChannels(n, err, src.ConnectionID())
 	})); err != nil {
 		return nil, err
@@ -107,15 +107,15 @@ func QueryChannel(ctx context.Context, src *Chain, channelID string) (*chantypes
 
 // GetIBCUpdateHeaders returns a pair of IBC update headers which can be used to update an on chain light client
 func GetIBCUpdateHeaders(ctx context.Context, srch, dsth int64, src, dst provider.ChainProvider, srcClientID, dstClientID string) (srcHeader, dstHeader ibcexported.Header, err error) {
-	var eg = new(errgroup.Group)
+	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		var err error
-		srcHeader, err = src.GetIBCUpdateHeader(ctx, srch, dst, dstClientID)
+		srcHeader, err = src.GetIBCUpdateHeader(egCtx, srch, dst, dstClientID)
 		return err
 	})
 	eg.Go(func() error {
 		var err error
-		dstHeader, err = dst.GetIBCUpdateHeader(ctx, dsth, src, srcClientID)
+		dstHeader, err = dst.GetIBCUpdateHeader(egCtx, dsth, src, srcClientID)
 		return err
 	})
 	if err = eg.Wait(); err != nil {
@@ -125,17 +125,15 @@ func GetIBCUpdateHeaders(ctx context.Context, srch, dsth int64, src, dst provide
 }
 
 func GetLightSignedHeadersAtHeights(ctx context.Context, src, dst *Chain, srch, dsth int64) (srcUpdateHeader, dstUpdateHeader ibcexported.Header, err error) {
-	var (
-		eg = new(errgroup.Group)
-	)
+	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		var err error
-		srcUpdateHeader, err = src.ChainProvider.GetLightSignedHeaderAtHeight(ctx, srch)
+		srcUpdateHeader, err = src.ChainProvider.GetLightSignedHeaderAtHeight(egCtx, srch)
 		return err
 	})
 	eg.Go(func() error {
 		var err error
-		dstUpdateHeader, err = dst.ChainProvider.GetLightSignedHeaderAtHeight(ctx, dsth)
+		dstUpdateHeader, err = dst.ChainProvider.GetLightSignedHeaderAtHeight(egCtx, dsth)
 		return err
 	})
 	if err := eg.Wait(); err != nil {

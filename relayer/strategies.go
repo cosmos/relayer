@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/avast/retry-go"
+	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 )
 
@@ -17,7 +17,7 @@ type ActiveChannel struct {
 }
 
 // StartRelayer starts the main relaying loop.
-func StartRelayer(ctx context.Context, src, dst *Chain, filter *ChannelFilter, maxTxSize, maxMsgLength uint64) chan error {
+func StartRelayer(ctx context.Context, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64) chan error {
 	errorChan := make(chan error)
 	channels := make(chan *ActiveChannel, 10)
 	var srcOpenChannels []*ActiveChannel
@@ -82,7 +82,7 @@ func queryChannelsOnConnection(ctx context.Context, src *Chain) ([]*types.Identi
 	if err = retry.Do(func() error {
 		srcChannels, err = src.ChainProvider.QueryConnectionChannels(ctx, srch, src.ConnectionID())
 		return err
-	}, RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		src.LogRetryQueryConnectionChannels(n, err, src.ConnectionID())
 	})); err != nil {
 		return nil, err
@@ -123,7 +123,7 @@ func filterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*Act
 
 // applyChannelFilterRule will use the given ChannelFilter's rule and channel list to build the appropriate list of
 // channels to relay on.
-func applyChannelFilterRule(filter *ChannelFilter, channels []*types.IdentifiedChannel) []*types.IdentifiedChannel {
+func applyChannelFilterRule(filter ChannelFilter, channels []*types.IdentifiedChannel) []*types.IdentifiedChannel {
 	switch filter.Rule {
 	case allowList:
 		var filteredChans []*types.IdentifiedChannel

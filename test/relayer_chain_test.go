@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/avast/retry-go"
+	"github.com/avast/retry-go/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	ibctmtypes "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
@@ -115,7 +115,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	filter := &relayer.ChannelFilter{}
+	filter := relayer.ChannelFilter{}
 	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
 
 	// Wait for relay message inclusion in both chains
@@ -263,7 +263,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	filter := &relayer.ChannelFilter{}
+	filter := relayer.ChannelFilter{}
 	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
 
 	// Wait for relay message inclusion in both chains
@@ -435,7 +435,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	filter := &relayer.ChannelFilter{}
+	filter := relayer.ChannelFilter{}
 	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
 
 	// Wait for relay message inclusion in both chains
