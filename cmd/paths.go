@@ -229,9 +229,8 @@ $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName)),
 			}
 
 			p := &relayer.Path{
-				Src:    &relayer.PathEnd{ChainID: src},
-				Dst:    &relayer.PathEnd{ChainID: dst},
-				Filter: &relayer.ChannelFilter{},
+				Src: &relayer.PathEnd{ChainID: src},
+				Dst: &relayer.PathEnd{ChainID: dst},
 			}
 
 			name := args[2]
