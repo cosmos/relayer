@@ -17,7 +17,7 @@ type ActiveChannel struct {
 }
 
 // StartRelayer starts the main relaying loop.
-func StartRelayer(ctx context.Context, src, dst *Chain, filter *ChannelFilter, maxTxSize, maxMsgLength uint64) chan error {
+func StartRelayer(ctx context.Context, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64) chan error {
 	errorChan := make(chan error)
 	channels := make(chan *ActiveChannel, 10)
 	var srcOpenChannels []*ActiveChannel
@@ -123,7 +123,7 @@ func filterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*Act
 
 // applyChannelFilterRule will use the given ChannelFilter's rule and channel list to build the appropriate list of
 // channels to relay on.
-func applyChannelFilterRule(filter *ChannelFilter, channels []*types.IdentifiedChannel) []*types.IdentifiedChannel {
+func applyChannelFilterRule(filter ChannelFilter, channels []*types.IdentifiedChannel) []*types.IdentifiedChannel {
 	switch filter.Rule {
 	case allowList:
 		var filteredChans []*types.IdentifiedChannel
@@ -180,23 +180,24 @@ func relayUnrelayedPackets(ctx context.Context, src, dst *Chain, maxTxSize, maxM
 	// Fetch any unrelayed sequences depending on the channel order
 	sp, err := UnrelayedSequences(ctx, src, dst, srcChannel)
 	if err != nil {
-		src.Log(fmt.Sprintf("unrelayed sequences error: %s", err))
+		src.Log(fmt.Sprintf("[%s]chan(%s) unrelayed sequences error: %s", src.ChainID(), srcChannel.ChannelId, err))
 		return err
 	}
 
 	if len(sp.Src) > 0 && src.debug {
-		src.Log(fmt.Sprintf("[%s] unrelayed-packets-> %v", src.ChainID(), sp.Src))
+		src.Log(fmt.Sprintf("[%s]chan(%s) unrelayed-packets-> %v", src.ChainID(), srcChannel.ChannelId, sp.Src))
 	}
 
 	if len(sp.Dst) > 0 && dst.debug {
-		dst.Log(fmt.Sprintf("[%s] unrelayed-packets-> %v", dst.ChainID(), sp.Dst))
+		dst.Log(fmt.Sprintf("[%s]chan(%s) unrelayed-packets-> %v", dst.ChainID(), srcChannel.Counterparty.ChannelId, sp.Dst))
 	}
 
 	if !sp.Empty() {
 		go func() {
 			err := RelayPackets(childCtx, src, dst, sp, maxTxSize, maxMsgLength, srcChannel)
 			if err != nil {
-				src.Log(fmt.Sprintf("relay packets error: %s", err))
+				src.Log(fmt.Sprintf("[%s]chan(%s)->[%s]chan(%s) relay packets error: %s",
+					src.ChainID(), srcChannel.ChannelId, dst.ChainID(), srcChannel.Counterparty.ChannelId, err))
 			}
 			cancel()
 		}()
@@ -204,13 +205,16 @@ func relayUnrelayedPackets(ctx context.Context, src, dst *Chain, maxTxSize, maxM
 		// Wait until the context is cancelled (i.e. RelayPackets() finishes) or the context times out
 		<-childCtx.Done()
 		if !errors.Is(childCtx.Err(), context.Canceled) {
-			src.Log(fmt.Sprintf("relay packets error: %s", childCtx.Err()))
+			src.Log(fmt.Sprintf("[%s]chan(%s)->[%s]chan(%s) relay packets error: %s",
+				src.ChainID(), srcChannel.ChannelId, dst.ChainID(), srcChannel.Counterparty.ChannelId, childCtx.Err()))
+
 			return childCtx.Err()
 		}
 
 	} else {
-		src.Log(fmt.Sprintf("- No packets in the queue between [%s]port{%s} and [%s]port{%s}",
-			src.ChainID(), srcChannel.PortId, dst.ChainID(), srcChannel.Counterparty.PortId))
+		src.Log(fmt.Sprintf("- No packets in the queue between [%s]chan(%s)port{%s} and [%s]chan(%s)port{%s}",
+			src.ChainID(), srcChannel.ChannelId, srcChannel.PortId,
+			dst.ChainID(), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId))
 	}
 
 	return nil
@@ -224,23 +228,24 @@ func relayUnrelayedAcks(ctx context.Context, src, dst *Chain, maxTxSize, maxMsgL
 	// Fetch any unrelayed acks depending on the channel order
 	ap, err := UnrelayedAcknowledgements(ctx, src, dst, srcChannel)
 	if err != nil {
-		src.Log(fmt.Sprintf("unrelayed acks error: %s", err))
+		src.Log(fmt.Sprintf("[%s]chan(%s) unrelayed acks error: %s", src.ChainID(), srcChannel.ChannelId, err))
 		return err
 	}
 
 	if len(ap.Src) > 0 && src.debug {
-		src.Log(fmt.Sprintf("[%s] unrelayed-acks-> %v", src.ChainID(), ap.Src))
+		src.Log(fmt.Sprintf("[%s]chan(%s) unrelayed-acks-> %v", src.ChainID(), srcChannel.ChannelId, ap.Src))
 	}
 
 	if len(ap.Dst) > 0 && dst.debug {
-		dst.Log(fmt.Sprintf("[%s] unrelayed-acks-> %v", dst.ChainID(), ap.Dst))
+		dst.Log(fmt.Sprintf("[%s]chan(%s) unrelayed-acks-> %v", dst.ChainID(), srcChannel.Counterparty.ChannelId, ap.Dst))
 	}
 
 	if !ap.Empty() {
 		go func() {
 			err := RelayAcknowledgements(childCtx, src, dst, ap, maxTxSize, maxMsgLength, srcChannel)
 			if err != nil {
-				src.Log(fmt.Sprintf("relay acks error: %s", err))
+				src.Log(fmt.Sprintf("[%s]chan(%s)->[%s]chan(%s) relay acks error: %s",
+					src.ChainID(), srcChannel.ChannelId, dst.ChainID(), srcChannel.Counterparty.ChannelId, err))
 			}
 			cancel()
 		}()
@@ -248,13 +253,15 @@ func relayUnrelayedAcks(ctx context.Context, src, dst *Chain, maxTxSize, maxMsgL
 		// Wait until the context is cancelled (i.e. RelayAcknowledgements() finishes) or the context times out
 		<-childCtx.Done()
 		if !errors.Is(childCtx.Err(), context.Canceled) {
-			src.Log(fmt.Sprintf("relay acks error: %s", childCtx.Err()))
+			src.Log(fmt.Sprintf("[%s]chan(%s)->[%s]chan(%s) relay acks error: %s",
+				src.ChainID(), srcChannel.ChannelId, dst.ChainID(), srcChannel.Counterparty.ChannelId, childCtx.Err()))
 			return childCtx.Err()
 		}
 
 	} else {
-		src.Log(fmt.Sprintf("- No acks in the queue between [%s]port{%s} and [%s]port{%s}",
-			src.ChainID(), srcChannel.PortId, dst.ChainID(), srcChannel.Counterparty.PortId))
+		src.Log(fmt.Sprintf("- No acks in the queue between [%s]chan(%s)port{%s} and [%s]chan(%s)port{%s}",
+			src.ChainID(), srcChannel.ChannelId, srcChannel.PortId,
+			dst.ChainID(), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId))
 	}
 
 	return nil
