@@ -1,6 +1,7 @@
-# Relayer
+<div align="center">
+  <h1>Relayer</h1>
 
-![Relayer](./docs/images/comp.gif)
+![banner](./docs/images/comp.gif)
 
 [![Project Status: Initial Release](https://img.shields.io/badge/repo%20status-active-green.svg?style=flat-square)](https://www.repostatus.org/#active)
 ![GitHub Workflow Status](https://github.com/cosmos/relayer/actions/workflows/build.yml/badge.svg)
@@ -9,34 +10,41 @@
 [![License: Apache-2.0](https://img.shields.io/github/license/cosmos/relayer.svg?style=flat-square)](https://github.com/cosmos/relayer/blob/main/LICENSE)
 [![Lines Of Code](https://img.shields.io/tokei/lines/github/cosmos/relayer?style=flat-square)](https://github.com/cosmos/relayer)
 [![Version](https://img.shields.io/github/tag/cosmos/relayer.svg?style=flat-square)](https://github.com/cosmos/relayer/latest)
+</div>
 
-This repository contains a Golang implementation of a Cosmos [IBC](https://ibcprotocol.org/)
-relayer. The `relayer` package contains a basic relayer implementation that is
-meant for users wanting to relay packets/data between sets of
-[IBC](https://ibcprotocol.org/)-enabled chains.
+In IBC, blockchains do not directly pass messages to each other over the network. This is where `relayer` comes in. 
+A relayer process monitors for updates on opens paths between sets of [IBC](https://ibcprotocol.org/)-enabled chains.
+The relayer submits these updates in the form of specific message types to the counterparty chain. Clients are then used to 
+track and verify the concnesus state.
 
-The relayer implementation also acts as a base reference implementation for those
-wanting to build their [IBC](https://ibcprotocol.org/)-compliant relayer.
+In addtion to relaying packets, this relayer can open paths across chains, thus creating clients, connections and channels.
 
-> **NOTE:** IBC is currently early in its lifecycle. This relayer is as well. Expect minor non critical errors when used in production. `rly` should always be run in a secure environment and only with just enough funds to relay transactions.
+Additional information on how IBC works can be found [here]().
 
-- [Relayer](#relayer)
-    - [Quickstart Guide](#quickstart-guide)
-    - [General Usage](#general-usage)
-    - [Features](#features)
-    - [Relayer Terminology](#relayer-terminology)
-    - [Recommended Pruning Settings](#recommended-pruning-settings)
-    - [Compatibility Table](#compatibility-table)
-    - [Testnet](#testnet)
-    - [Demo](#demo)
-    - [Security Notice](#security-notice)
-    - [Code of Conduct](#code-of-conduct)
+---
 
-## Quickstart Guide
+## Table Of Contents
+- [Basic Usage - Relaying Across Chains](#Basic-Usage-Relaying-Packets-Across-Chains)
+- [Create Path Across Chains](docs/create-path-across-chain.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Features](docs/features.md)
+- [Relayer Terminology](#relayer-terminology)
+- [Recommended Pruning Settings](docs/node_pruning.md)
+- [Demo](docs/demo.md)
+- [Security Notice](docs/sec-and_code-of-conduct.md#security-notice)
+- [Code of Conduct](docs/sec-and_code-of-conduct.md#code-of-conduct)
 
-To quickly setup the IBC relayer on a canonical path (i.e. path being actively used) between two IBC-enabled networks, the following steps should be performed:
+---
 
-1. Install the latest release via GitHub as follows or by downloading built binaries on the [releases page](https://github.com/cosmos/relayer/releases).
+## Basic Usage - Relaying Packets Across Chains
+
+>The `-h` (help) flag tailing any `rly` command will be your best friend. USE THIS IN YOUR RELAYING JOURNEY.
+
+To setup the IBC relayer on an active path between two IBC-enabled networks:
+
+1. Clone, checkout and install the latest releases ([releases page](https://github.com/cosmos/relayer/releases)).
+
+   *[Go](https://go.dev/doc/install) needs to be installed and a proper Go environment needs to be configured*
 
     ```
     $ git clone git@github.com:cosmos/relayer.git
@@ -44,31 +52,34 @@ To quickly setup the IBC relayer on a canonical path (i.e. path being actively u
     $ cd relayer && make install
     ```
 
-2. Initialize the relayer's configuration directory/file
-
+2. Initialize the relayer's configuration directory/file.
+   
    ```shell
    $ rly config init
    ```
+   **Config file location: `~/.relayer/config.yaml`**
 
-3. Ensure the chains you want to configure have the pertinent config files [here](https://github.com/cosmos/chain-registry). 
 
-   > **NOTE:** Don't see the chain you want to relay on?   
-   > Please open a PR to add this metadata to the GitHub repo!
-
-4. In our example we will configure the relayer to operate between the Cosmos Hub & Osmosis.   
-   The `chains add` cmd will retrieve the relevant chain configurations from [chain-registry](https://github.com/cosmos/chain-registry) & add them to the relayers config file.
-
+3. Configure the relayer to operate on desired chains.
+   
+   In our example, we will configure between the Cosmos Hub and Osmosis.
+   
    ```shell
    $ rly chains add cosmoshub osmosis
    ```
-
-5. The relayer connects to a node on the respective networks, via the configured RPC endpoints for each chain. Ensure the `rpc-addr` field for both chains in `config.yaml` points to a valid RPC endpoint.
-
-   > **NOTE:** Strangelove maintains archive nodes for a number of networks and provides them for public usage. Chains that we maintain endpoints for are preconfigured.
-
-6. Either import or create new keys for the relayer to use when signing and relaying transactions.   
+   The `rly chains add` command fetches chain meta-data from the [chain-registry](https://github.com/cosmos/chain-registry) and adds it to your config file.
+   > **NOTE:** Don't see the chain you want to relay on?   
+   > Please open a PR to add this metadata to the GitHub repo!
    
-   > **NOTE:** `key-name` is an identifier of your choosing.    
+   Adding from the chain-registry randomly selects an RPC address. If you are running your own node, manually go into config and adjust setting.
+   
+   You also have the option to add chain from a [file](configs/demo/chains/ibc-0.json) or url using flags.
+
+4. Import OR create new keys for the relayer to use when signing and relaying transactions.
+
+   >These keys will need funds in order to relay (Step 6)
+   
+   `key-name` is an identifier of your choosing.    
 
    **Create**(add):
    
@@ -84,24 +95,31 @@ To quickly setup the IBC relayer on a canonical path (i.e. path being actively u
    $ rly keys restore osmosis-1 [key-name] "mnemonic words here"
    ```
 
-7. Edit the relayer's "key:" values in the config file to match the `key-name`'s chosen above. This step is necessary if you chose a `key-name` other than "default" 
+5. Edit the relayer's "key:" values in the config file to match the `key-name`'s chosen above. This step is necessary if you chose a `key-name` other than "default" 
 
-   > **NOTE:** Default file location is `~/.relayer/config/config.yaml`.
+   Example:
+      ```yaml
+      - type: cosmos
+         value:
+         key: YOUR-KEY-NAME-HERE
+         chain-id: ibc-0
+         rpc-addr: http://localhost:26657
+      ```
 
-8. Both relayer accounts, i.e. the two keys we just added or imported, need to be
-   funded with tokens on the appropriate network in order to successfully relay transactions
-   between the IBC-connected networks.   
-   How this occurs depends on the network, context and environment, e.g. local or test networks can use a faucet.
-
-9. Ensure both relayer accounts are funded by querying each.
+6. The keys associated with the configured chains will need to be funded. This is necessary to relay.
+   
+   You can query the balance of each configured key by running:
 
    ```shell
    $ rly q balance cosmoshub-4
    $ rly q balance osmosis-1
    ```
 
-10. Fetch and configure the relevant path configuration files for the two chains.  
-    `paths fetch` will check for the relevant `path.json` files for all configured chains in the [interchain](https://github.com/cosmos/relayer/tree/main/interchain) directory
+7. Configure path meta-data in config file. 
+
+   We have the chain-meta data configured, now we need path meta data. Educate yourself on `path` terminology [here](docs/troubleshooting.md).
+
+   `rly paths fetch` will check for the relevant `path.json` files for ALL configured chains in your config file. The path meta-data is queriered from the [interchain](https://github.com/cosmos/relayer/tree/main/interchain) directory.
 
     > **NOTE:** Don't see the path metadata for paths you want to relay on?   
     > Please open a PR to add this metadata to the GitHub repo!
@@ -110,243 +128,45 @@ To quickly setup the IBC relayer on a canonical path (i.e. path being actively u
      $ rly paths fetch
      ```
 
-11. Finally, we start the relayer on the path. 
+   At minimum, this command will add two paths, in our case, one path from cosmoshub to osmosis and another path from osmosis to cosmoshub. 
+
+   By default, the relayer will relay on all channels on a given connection. 
+   
+   You have the option to add a channel filter. You can do so by manually adding a `src-channel-filter:` item to your config.
+
+   The `rule` can either be "allowlist", "denylist" or left blank.
+
+   Example:
+
+   ```yaml
+   hubosmo:
+        src:
+            chain-id: cosmoshub-4
+            client-id: 07-tendermint-259
+            connection-id: connection-257
+        dst:
+            chain-id: osmosis-1
+            client-id: 07-tendermint-1
+            connection-id: connection-1
+        src-channel-filter:
+                rule: allowlist
+                channel-list: [channel-207, channel-192, channel-184]  
+   ```
+
+8. Finally, we start the relayer on the desired path. 
     The relayer will periodically update the clients and listen for IBC messages to relay.
 
     ```shell
     $ rly paths list
     $ rly start {path}
     ```
+   
+   You will need to start a seperate shell inscance for each path you wish to relay over. 
 
-## General Usage
+   ---
+   
+   [[TROUBLESHOOTING](docs/troubleshooting.md)]
 
-To setup and start the IBC relayer between two IBC-enabled networks, the following
-steps are typically performed:
+---
 
-1. Install the latest release via GitHub as follows or by downloading built binaries on the [releases page](https://github.com/cosmos/relayer/releases).
-
-    ```
-    $ git clone git@github.com:cosmos/relayer.git
-    $ git checkout v2.0.0
-    $ cd relayer && make install
-    ```
-
-2. Initialize the relayer's configuration.
-
-   ```shell
-   $ rly config init
-   ```
-
-3. Add relevant chain configurations to the relayer's configuration. 
-   See the [Chain](https://pkg.go.dev/github.com/strangelove-ventures/relayer/relayer#Chain) type for more information.
-
-   e.g. chain configuration:
-
-   ```shell
-   # cosmoshub-4.json
-   {
-     "type": "cosmos",
-     "value": {
-         "key": "test-key",
-         "chain-id": "cosmoshub-4",
-         "rpc-addr": "https://cosmoshub-4.technofractal.com:443",
-         "grpc-addr": "https://gprc.cosmoshub-4.technofractal.com:443",
-         "account-prefix": "cosmos",
-         "keyring-backend": "test",
-         "gas-adjustment": 1.3,
-         "gas-prices": "0.025uatom",
-         "debug": true,
-         "timeout": "10s",
-         "output-format": "json",
-         "sign-mode": "direct"
-    }
-   }
-   ```
-
-   ```shell
-   $ rly chains add -f cosmoshub-4.json
-   $ rly chains add -f chain_b_config.json
-   ```
-
-4. The relayer connects to a node on the respective networks, via the configured RPC endpoints for each chain.
-   Ensure the `rpc-addr` field for both chains in `config.yaml` points to a valid RPC endpoint.
-
-
-5. Either import or create new keys for the relayer to use when signing and
-   relaying transactions.
-
-   ```shell
-   $ rly keys add chain-a test-key-a # relayer key for chain-a
-   $ rly keys add chain-b test-key-b # relayer key for chain-b
-   ```
-
-6. Assign the relayer chain-specific keys created or imported above to the
-   specific chain's configuration. Note, `key` from step (5).
-
-   ```shell
-   $ rly chains edit chain-a key test-key-a
-   $ rly chains edit chain-b key test-key-b
-   ```
-
-7. Both relayer accounts, e.g. `relayer-chain-a` and `relayer-chain-b`, need to
-   funded with tokens in order to successfully sign and relay transactions
-   between the IBC-connected networks. How this occurs depends on the network,
-   context and environment, e.g. local or test networks can use a faucet.
-
-8. Ensure both relayer accounts are funded by querying each.
-
-   ```shell
-   $ rly q balance chain-a
-   $ rly q balance chain-b
-   ```
-
-9. Next, we generate a new path representing a client, connection, channel and a
-   specific port between the two networks.
-
-   ```shell
-   $ rly paths generate chain-a chain-b transfer --port=transfer
-   ```
-
-10. Finally, we start the relayer on the path created in Step 9. The relayer
-    will periodically update the clients and listen for IBC messages to relay.
-
-    ```shell
-    $ rly start transfer
-    ```
-
-## Features
-
-The relayer supports the following:
-
-- creating IBC connections
-- creating IBC transfer channels.
-- initiating a cross chain transfer
-- relaying a cross chain transfer transaction, its acknowledgement, and timeouts
-- relaying from state
-- relaying from streaming events
-- sending an UpgradePlan proposal for an IBC breaking upgrade
-- upgrading clients after a counter-party chain has performed an upgrade for IBC breaking changes
-- fetching canonical chain and path metadata from the GitHub repo to quickly bootstrap a relayer instance
-
-The relayer currently cannot:
-
-- create clients with user chosen parameters (such as UpgradePath)
-- submit IBC client unfreezing proposals
-- monitor and submit misbehavior for clients
-- use IBC light clients other than Tendermint such as Solo Machine
-- connect to chains which don't implement/enable IBC
-- connect to chains using a different IBC implementation (chains not using SDK's `x/ibc` module)
-
-## Relayer Terminology
-
-A `path` represents an abstraction between two IBC-connected networks. Specifically,
-the `path` abstraction contains metadata about a source chain, a destination
-chain and a relaying strategy between the two networks. The metadata for both
-the source and destination networks contains the following:
-
-- `chain-id`: The chain ID of the network.
-- `client-id`: The client ID on the corresponding chain representing the other chain's light client.
-- `connection-id`: The connection ID on the corresponding chain representing a connection to the other chain.
-- `channel-id`: The channel ID on the corresponding chain's connection representing a channel on the other chain.
-- `port-id`: The IBC port ID which a relevant module binds to on the corresponding chain.
-- `order`: Determines if packets from a sending module must be `ORDERED` or `UNORDERED`.
-- `version`: IBC version.
-
-Two chains may have many different paths between them. Any path with different
-clients, connections, or channels are considered uniquely different and non-fungible.
-
-When using with live networks, it is advised to pre-select your desired parameters
-for your clients, connections, and channels. The relayer will automatically
-reuse any existing clients that match your configurations since clients,
-connections, and channels are public goods (no one has control over them).
-
-## Recommended Pruning Settings
-
-The relayer relies on old headers and proofs constructed at past block heights
-to facilitate correct [IBC](https://ibcprotocol.org/) behavior. For this reason,
-connected full nodes may prune old blocks once they have passed the unbonding
-period of the chain but not before. Not pruning at all is not necessary for a
-fully functional relayer, however, pruning everything will lead to many issues!
-
-Here are the settings used to configure SDK-based full nodes (assuming 3 week unbonding period):
-
-```shell
-... --pruning=custom --pruning-keep-recent=362880 --pruning-keep-every=0 --pruning-interval=100
-```
-
-`362880 (3*7*24*60*60 / 5 = 362880)` represents a 3 week unbonding period (assuming 5 seconds per block).
-
-Note, operators can tweak `--pruning-keep-every` and `--pruning-interval` to their
-liking.
-
-## Demo
-
-![Demo](./docs/images/demo.gif)
-
-While the relayer is under active development, it is meant primarily as a learning
-tool to better understand the Inter-Blockchain Communication (IBC) protocol. In
-that vein, the following demo demonstrates the core functionality which will
-remain even after the changes:
-
-```bash
-# ensure go and jq are installed 
-# Go Documentation: https://golang.org/doc/install
-# jq Documentation: https://stedolan.github.io/jq/download
-
-# First, download and build the gaia source code so we have a working blockchain to test against
-$ make get-gaia build-gaia
-
-# two-chainz creates two gaia-based chains with data directories in this repo
-# it also builds and configures the relayer for operations with those chains
-$ ./scripts/two-chainz
-# NOTE: If you want to stop the two gaia-based chains running in the background use `killall gaiad`
-
-# At this point the relayer --home directory is ready for normal operations between
-# ibc-0 and ibc-1. Looking at the folder structure of the relayer at this point is helpful
-# NOTE: to install tree try `brew install tree` on mac or `apt install tree` on linux
-$ tree ~/.relayer
-
-# See if the chains are ready to relay over
-$ rly chains list
-
-# See the current status of the path you will relay over
-$ rly paths list
-
-# Now you can connect the two chains with one command:
-$ rly tx link demo -d -o 3s
-
-# Check the token balances on both chains
-$ rly q balance ibc-0
-$ rly q bal ibc-1
-
-# Then send some tokens between the chains
-$ rly tx transfer ibc-0 ibc-1 1000000samoleans $(rly chains address ibc-1)
-$ rly tx relay-pkts demo -d
-$ rly tx relay-acks demo -d
-
-# See that the transfer has completed
-$ rly q bal ibc-0
-$ rly q bal ibc-1
-
-# Send the tokens back to the account on ibc-0
-$ rly tx transfer ibc-1 ibc-0 1000000ibc/27A6394C3F9FF9C9DCF5DFFADF9BB5FE9A37C7E92B006199894CF1824DF9AC7C $(rly chains addr ibc-0)
-$ rly tx relay-pkts demo -d
-$ rly tx relay-acks demo -d
-
-# See that the return trip has completed
-$ rly q bal ibc-0
-$ rly q bal ibc-1
-
-# NOTE: you will see the stake balances decreasing on each chain. This is to pay for fees
-# You can change the amount of fees you are paying on each chain in the configuration.
-```
-
-## Security Notice
-
-If you would like to report a security critical bug related to the relayer repo,
-please reach out @jackzampolin or @Ethereal0ne on telegram.
-
-## Code of Conduct
-
-The Cosmos community is dedicated to providing an inclusive and harassment free
-experience for contributors. Please visit [Code of Conduct](CODE_OF_CONDUCT.md) for more information.
+<div style="text-align: right"> <a href="./docs/create-path-across-chain.md">Create Path Across Chaines --></a> </div>
