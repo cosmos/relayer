@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
+	"runtime/debug"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -15,8 +16,6 @@ var (
 	Version = ""
 	// Commit defines the application commit hash (defined at compile time)
 	Commit = ""
-	// SDKCommit defines the CosmosSDK commit hash (defined at compile time)
-	SDKCommit = ""
 )
 
 type versionInfo struct {
@@ -42,10 +41,20 @@ $ %s v`,
 				return err
 			}
 
+			cosmosSDK := "(unable to determine)"
+			if bi, ok := debug.ReadBuildInfo(); ok {
+				for _, dep := range bi.Deps {
+					if dep.Path == "github.com/cosmos/cosmos-sdk" {
+						cosmosSDK = dep.Version
+						break
+					}
+				}
+			}
+
 			verInfo := versionInfo{
 				Version:   Version,
 				Commit:    Commit,
-				CosmosSDK: SDKCommit,
+				CosmosSDK: cosmosSDK,
 				Go:        fmt.Sprintf("%s %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH),
 			}
 
