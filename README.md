@@ -144,7 +144,8 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    
    By default, the relayer will relay packets over all channels on a given connection.  
    <br>
-   Each path has a `src-channel-filter` which you can utilize to specifiy which channels you would like to relay on.  
+   Each path has a `src-channel-filter` which you can utilize to specifiy which channels you would like to relay on.   
+   <br>
    The `rule` can be one of three values:  
    - `allowlist` which tells the relayer to relay on _ONLY_ the channels in `channel-list`
    - `denylist` which tells the relayer to relay on all channels _BESIDES_ the channels in `channel-list`
@@ -171,19 +172,19 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    
    >Because two channels between chains are tightly coupled, there is no need to specifiy the dst channels.
 
-9. **Finally, we start the relayer on the desired path.**
+10. **Finally, we start the relayer on the desired path.**
 
-    The relayer will periodically update the clients and listen for IBC messages to relay.
+     The relayer will periodically update the clients and listen for IBC messages to relay.
 
-    ```shell
-    $ rly paths list
-    $ rly start [path]
-    ```
+     ```shell
+     $ rly paths list
+     $ rly start [path]
+     ```
    
-   You will need to start a separate shell instance for each path you wish to relay over or setup . 
+    You will need to start a separate shell instance for each path you wish to relay over or setup . 
 
-   ---
-   [[TROUBLESHOOTING](docs/troubleshooting.md)]
+    ---
+    [[TROUBLESHOOTING](docs/troubleshooting.md)]
 ---
 
 [Create Path Across Chains -->](docs/create-path-across-chain.md)
