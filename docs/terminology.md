@@ -21,4 +21,4 @@ for your clients, connections, and channels. The relayer will automatically
 reuse any existing clients that match your configurations since clients,
 connections, and channels are public goods (no one has control over them).
 
-[<-- Features  ](./features.md)[  Pruning Settings -->](./node_pruning.md)
+[<-- Features](./features.md) - [Pruning Settings -->](./node_pruning.md)

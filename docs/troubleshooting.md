@@ -44,4 +44,4 @@ Your client is the culprit here. Your client may be invalid or expired.
 
 ---
 
-[<-- Create Path Across Chaines](create-path-across-chain.md) [Features -->](./features.md)
+[<-- Create Path Across Chanes](create-path-across-chain.md) - [Features -->](./features.md)
