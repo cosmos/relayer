@@ -35,11 +35,9 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 - [Code of Conduct](./docs/sec-and_code-of-conduct.md#code-of-conduct)
 
 ---
-## Basic Usage - Relaying Packets Across Chains    
+## Basic Usage - Relaying Packets Across Chains
 
----
-
-The `-h` (help) flag tailing any `rly` command will be your best friend. USE THIS IN YOUR RELAYING JOURNEY.
+> The `-h` (help) flag tailing any `rly` command will be your best friend. USE THIS IN YOUR RELAYING JOURNEY.
 
 ---
 
@@ -103,8 +101,9 @@ The `-h` (help) flag tailing any `rly` command will be your best friend. USE THI
 
 5. **Edit the relayer's `key` values in the config file to match the `key-name`'s chosen above.**
 
-   This step is necessary if you chose a `key-name` other than "default"   
+   >This step is necessary if you chose a `key-name` other than "default"
    <br>
+   
    Example:
       ```yaml
       - type: cosmos
@@ -116,7 +115,8 @@ The `-h` (help) flag tailing any `rly` command will be your best friend. USE THI
 
 6. **Ensure the keys associated with the configured chains are funded.**
 
-   Your configured addresses will need to contain some of the respective native tokens for paying relayer fees.  
+   >Your configured addresses will need to contain some of the respective native tokens for paying relayer fees.  
+   
    <br>
    You can query the balance of each configured key by running:
 
