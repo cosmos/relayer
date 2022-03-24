@@ -30,8 +30,12 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	zaplogfmt "github.com/jsternberg/zap-logfmt"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"golang.org/x/term"
 )
 
 const (
@@ -51,11 +55,13 @@ const (
 )
 
 // NewRootCmd returns the root command for relayer.
-func NewRootCmd() *cobra.Command {
+func NewRootCmd(log *zap.Logger, atom zap.AtomicLevel) *cobra.Command {
 	// Use a local app state instance scoped to the new root command,
 	// so that tests don't concurrently access the state.
 	a := &appState{
 		Viper: viper.New(),
+
+		Log: log,
 	}
 
 	// RootCmd represents the base command when called without any subcommands
@@ -72,6 +78,11 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		// Inside persistent pre-run because this takes effect after flags are parsed.
+		if a.Viper.GetBool("debug") {
+			atom.SetLevel(zapcore.DebugLevel)
+		}
+
 		// reads `homeDir/config/config.yaml` into `a.Config`
 		return initConfig(rootCmd, a)
 	}
@@ -110,7 +121,10 @@ func NewRootCmd() *cobra.Command {
 func Execute() {
 	cobra.EnableCommandSorting = false
 
-	rootCmd := NewRootCmd()
+	log, atom := rootLogger()
+	defer log.Sync()
+
+	rootCmd := NewRootCmd(log, atom)
 	rootCmd.SilenceUsage = true
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -146,8 +160,35 @@ func Execute() {
 	}()
 
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
+		// Flush any remaining logs.
+		log.Sync()
+
 		os.Exit(1)
 	}
+}
+
+func rootLogger() (*zap.Logger, zap.AtomicLevel) {
+	config := zap.NewProductionEncoderConfig()
+	config.EncodeTime = func(ts time.Time, encoder zapcore.PrimitiveArrayEncoder) {
+		encoder.AppendString(ts.UTC().Format("2006-01-02T15:04:05.000000Z07:00"))
+	}
+	config.LevelKey = "lvl"
+
+	var enc zapcore.Encoder
+	if term.IsTerminal(int(os.Stderr.Fd())) {
+		// When a user runs relayer in the foreground, use easier to read output.
+		enc = zapcore.NewConsoleEncoder(config)
+	} else {
+		// Otherwise, use consistent logfmt format for simplistic machine processing.
+		enc = zaplogfmt.NewEncoder(config)
+	}
+
+	atom := zap.NewAtomicLevel()
+	return zap.New(zapcore.NewCore(
+		enc,
+		os.Stderr,
+		atom,
+	)), atom
 }
 
 // readLine reads one line from the given reader.
