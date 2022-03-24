@@ -140,7 +140,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    At minimum, this command will add two paths, in our case it will add one path from cosmoshub to osmosis and another path from osmosis to cosmoshub.
 
 
-8. **Configure the channel filter.**
+8. #### **Configure the channel filter.**
    
    By default, the relayer will relay packets over all channels on a given connection.  
    <br>

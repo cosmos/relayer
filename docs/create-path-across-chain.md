@@ -24,7 +24,7 @@ In our "Relaying Packets Across Chains" example, we set up the relayer to relay 
     $ rly transact link my_demo_path
     ```
 
-    This is a triplewammy, it creates a `client`, `connection`, and `channel` between the two chains. 
+    This is a triplewammy, it creates a `client`, `connection`, and `channel` all in one command. 
 
     If you would like more control, you can run each command individually:
 
@@ -34,11 +34,18 @@ In our "Relaying Packets Across Chains" example, we set up the relayer to relay 
 
     <br>
 
-    >Remember: `connections` are built on top of `client`s and `channels` are built on top of `connections`.
-    
-    If you get a `InvalidArgument desc = latest height revision number must match chain id revision number` error, there is likely already a client or channel setup between these chains, please check the relevant path.json file on the [chain-registry](https://github.com/cosmos/chain-registry). Path creation might not be necessary. You can use the `--override` flag if you with to force the creation of a new client/connection.
+    All the above commands will update your config with the new path meta-data EXCEPT the new channel-id. 
 
-    All the above commands will update your config with the new path meta-data. 
+    It's reccomended to make note of this channel. If desired, add it to your ["allowlist"](../README.md#8--configure-the-channel-filter) in your config file. This would be `channel-1` from the print out below.
+
+    ```log
+    I[2022-03-24|13:59:27.425] ★ Channel created: [ibc-1]chan{channel-1}port{transfer} -> [ibc-0]chan{channel-1}port{transfer} 
+    ```
+
+    >Note: `connections` are built on top of `clients` and `channels` are built on top of `connections`.
+
+    >As new `clients`, `connections` and `channels` are created on mainnet, consider adding and tagging them on the relevant paths.json file on the [chain-registry](https://github.com/cosmos/chain-registry) 
+
     
     You can now start relaying over the configured path! [Relaying Packets Across Chains Step 4](../README.md#basic-usage---relaying-packets-across-chains)
 
