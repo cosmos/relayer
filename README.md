@@ -117,7 +117,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    >Your configured addresses will need to contain some of the respective native tokens for paying relayer fees.  
    
    <br>
-   You can query the balance of each configured key by running:
+   You can query the balance of each configured key by running:  
 
    ```shell
    $ rly q balance cosmoshub-4
