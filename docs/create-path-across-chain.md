@@ -1,8 +1,8 @@
 # Create Path Across Chains
 
-In our "Relaying Packets Across Chains" example, we set up the relayer to relay between Cosmoshub and Osmois. Since those two chains already have a path opened between them, we will use two mock chains: ibc-0 and ibc-1.
+In our "Relaying Packets Across Chains" example, we set up the relayer to relay between Cosmoshub and Osmosis. Since those two chains already have a path opened between them, we will use two mock chains: ibc-0 and ibc-1.
 
-1. Add basic path info to config.
+1. **Add basic path info to config.**
 
     ```shell
     # rly paths new [src-chain-id] [dst-chain-id] [path-name]
@@ -10,9 +10,11 @@ In our "Relaying Packets Across Chains" example, we set up the relayer to relay 
     & rly paths new ibc-0 ibc-1 my_demo_path
     ```
 
-2. Next we need to create a channel, client, and connection.
+2. **Next we need to create a channel, client, and connection.**
 
-    The most effecient way to use this is to use the `rly transaction link` command.
+    The most efficient way to use this is to use the `rly transaction link` command.
+
+    This is a triplewammy, it creates a `client`, `connection`, and `channel` between the two chains. 
 
     IF YOU GET: 
     ```
@@ -27,4 +29,4 @@ In our "Relaying Packets Across Chains" example, we set up the relayer to relay 
 ![banner](./images/github-repo-banner.gif)
  </div>
 
- <div style="text-align: right"> <a href="./README.md"><-- Home  </a> <a href="./docs/troubleshooting.md">  Troubleshooting --></a> </div>
+[<-- Home  ](../README.md)[  Troubleshooting -->](./terminology.md)

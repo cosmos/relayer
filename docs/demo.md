@@ -59,3 +59,7 @@ $ rly q bal ibc-1
 # NOTE: you will see the stake balances decreasing on each chain. This is to pay for fees
 # You can change the amount of fees you are paying on each chain in the configuration.
 ```
+
+---
+
+[[<-- Pruning Settings  ](./node_pruning.md))[  Security Notice -->](./sec-and_code-of-conduct.md#security-notice)

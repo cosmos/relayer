@@ -1,6 +1,6 @@
 # Troubleshooting
 
-- Ensure you have the `rly` package porperly installed.
+- Ensure you have the `rly` package properly installed.
 
    Run: 
    ```shell
@@ -38,3 +38,6 @@ If output:
 -> chns(✘) clnts(✘) conn(✘)
 ```
 Verify that you have a healthy RPC address. 
+
+
+[[<-- Create Path Across Chaines  ](create-path-across-chain.md)[  Features -->](./features.md)

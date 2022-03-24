@@ -16,3 +16,5 @@ Here are the settings used to configure SDK-based full nodes (assuming 3 week un
 
 Note, operators can tweak `--pruning-keep-every` and `--pruning-interval` to their
 liking.
+
+[[<-- Relayer Terminology  ](./terminology.md)[  Features -->](./demo.md)

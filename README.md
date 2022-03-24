@@ -25,24 +25,30 @@ Additional information on how IBC works can be found [here]().
 
 ## Table Of Contents
 - [Basic Usage - Relaying Across Chains](#Basic-Usage-Relaying-Packets-Across-Chains)
-- [Create Path Across Chains](docs/create-path-across-chain.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Features](docs/features.md)
-- [Relayer Terminology](#relayer-terminology)
-- [Recommended Pruning Settings](docs/node_pruning.md)
-- [Demo](docs/demo.md)
-- [Security Notice](docs/sec-and_code-of-conduct.md#security-notice)
-- [Code of Conduct](docs/sec-and_code-of-conduct.md#code-of-conduct)
+- [Create Path Across Chains](./docs/create-path-across-chain.md)
+- [Troubleshooting](./docs/troubleshooting.md)
+- [Features](./docs/features.md)
+- [Relayer Terminology](./docs/terminology.md)
+- [Recommended Pruning Settings](./docs/node_pruning.md)
+- [Demo](./docs/demo.md)
+- [Security Notice](./docs/sec-and_code-of-conduct.md#security-notice)
+- [Code of Conduct](./docs/sec-and_code-of-conduct.md#code-of-conduct)
 
 ---
 
 ## Basic Usage - Relaying Packets Across Chains
 
->The `-h` (help) flag tailing any `rly` command will be your best friend. USE THIS IN YOUR RELAYING JOURNEY.
+---
+
+\*\*The `-h` (help) flag tailing any `rly` command will be your best friend. USE THIS IN YOUR RELAYING JOURNEY.\*\*
+
+---
 
 To setup the IBC relayer on an active path between two IBC-enabled networks:
 
-1. Clone, checkout and install the latest releases ([releases page](https://github.com/cosmos/relayer/releases)).
+---
+
+1. **Clone, checkout and install the latest releases ([releases page](https://github.com/cosmos/relayer/releases)).**
 
    *[Go](https://go.dev/doc/install) needs to be installed and a proper Go environment needs to be configured*
 
@@ -52,7 +58,7 @@ To setup the IBC relayer on an active path between two IBC-enabled networks:
     $ cd relayer && make install
     ```
 
-2. Initialize the relayer's configuration directory/file.
+2. **Initialize the relayer's configuration directory/file.**
    
    ```shell
    $ rly config init
@@ -60,7 +66,7 @@ To setup the IBC relayer on an active path between two IBC-enabled networks:
    **Config file location: `~/.relayer/config.yaml`**
 
 
-3. Configure the relayer to operate on desired chains.
+3. **Configure the relayer to operate on desired chains.**
    
    In our example, we will configure between the Cosmos Hub and Osmosis.
    
@@ -75,7 +81,7 @@ To setup the IBC relayer on an active path between two IBC-enabled networks:
    
    You also have the option to add chain from a [file](configs/demo/chains/ibc-0.json) or url using flags.
 
-4. Import OR create new keys for the relayer to use when signing and relaying transactions.
+4. **Import OR create new keys for the relayer to use when signing and relaying transactions.**
 
    >These keys will need funds in order to relay (Step 6)
    
@@ -95,7 +101,9 @@ To setup the IBC relayer on an active path between two IBC-enabled networks:
    $ rly keys restore osmosis-1 [key-name] "mnemonic words here"
    ```
 
-5. Edit the relayer's "key:" values in the config file to match the `key-name`'s chosen above. This step is necessary if you chose a `key-name` other than "default" 
+5. **Edit the relayer's "key:" values in the config file to match the `key-name`'s chosen above.**
+
+   This step is necessary if you chose a `key-name` other than "default" 
 
    Example:
       ```yaml
@@ -106,7 +114,9 @@ To setup the IBC relayer on an active path between two IBC-enabled networks:
          rpc-addr: http://localhost:26657
       ```
 
-6. The keys associated with the configured chains will need to be funded. This is necessary to relay.
+6. **Ensure the keys associated with the configured chains are funded.**
+
+   This is necessary to relay.
    
    You can query the balance of each configured key by running:
 
@@ -115,7 +125,7 @@ To setup the IBC relayer on an active path between two IBC-enabled networks:
    $ rly q balance osmosis-1
    ```
 
-7. Configure path meta-data in config file. 
+7. **Configure path meta-data in config file.**
 
    We have the chain-meta data configured, now we need path meta data. Educate yourself on `path` terminology [here](docs/troubleshooting.md).
 
@@ -153,7 +163,8 @@ To setup the IBC relayer on an active path between two IBC-enabled networks:
                 channel-list: [channel-207, channel-192, channel-184]  
    ```
 
-8. Finally, we start the relayer on the desired path. 
+8. **Finally, we start the relayer on the desired path.**
+
     The relayer will periodically update the clients and listen for IBC messages to relay.
 
     ```shell
@@ -161,7 +172,7 @@ To setup the IBC relayer on an active path between two IBC-enabled networks:
     $ rly start {path}
     ```
    
-   You will need to start a seperate shell inscance for each path you wish to relay over. 
+   You will need to start a separate shell instance for each path you wish to relay over. 
 
    ---
    
@@ -169,4 +180,4 @@ To setup the IBC relayer on an active path between two IBC-enabled networks:
 
 ---
 
-<div style="text-align: right"> <a href="./docs/create-path-across-chain.md">Create Path Across Chaines --></a> </div>
+[Create Path Across Chaines -->](docs/create-path-across-chain.md)
