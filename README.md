@@ -102,7 +102,6 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 5. **Edit the relayer's `key` values in the config file to match the `key-name`'s chosen above.**
 
    >This step is necessary if you chose a `key-name` other than "default"
-   <br>
    
    Example:
       ```yaml
