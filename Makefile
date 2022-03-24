@@ -60,17 +60,17 @@ test:
 	@go test -mod=readonly -race ./...
 
 test-integration:
-	@go test -mod=readonly -v -timeout 20m ./_test/...
+	@go test -mod=readonly -v -timeout 20m ./_test/
 
 test-gaia:
-	@go test -mod=readonly -v -run TestGaiaToGaiaRelaying ./_test/...
-	@go test -mod=readonly -v -run TestRelayAllChannelsOnConnection ./_test/...
+	@go test -mod=readonly -v -run TestGaiaToGaiaRelaying ./_test/
+	@go test -mod=readonly -v -run TestRelayAllChannelsOnConnection ./_test/
 
 test-akash:
-	@go test -mod=readonly -v -run TestAkashToGaiaRelaying ./_test/...
+	@go test -mod=readonly -v -run TestAkashToGaiaRelaying ./_test/
 
 test-short:
-	@go test -mod=readonly -v -run TestOsmoToGaiaRelaying ./_test/...
+	@go test -mod=readonly -v -run TestOsmoToGaiaRelaying ./_test/
 
 coverage:
 	@echo "viewing test coverage..."
