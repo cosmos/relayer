@@ -48,7 +48,7 @@ To setup the IBC relayer on an active path between two IBC-enabled networks:
 
 ---
 
-1. **Clone, checkout and install the latest releases ([releases page](https://github.com/cosmos/relayer/releases)).**
+1. **Clone, checkout and install the latest release ([releases page](https://github.com/cosmos/relayer/releases)).**
 
    *[Go](https://go.dev/doc/install) needs to be installed and a proper Go environment needs to be configured*
 
