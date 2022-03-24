@@ -35,7 +35,7 @@ func PathsSet(chains ...*Chain) bool {
 	return true
 }
 
-// SetPath sets the path and validates the identifiers
+// SetPath sets the path and validates the identifiers if they are initialized.
 func (c *Chain) SetPath(p *PathEnd) error {
 	err := p.ValidateFull()
 	if err != nil {
@@ -45,12 +45,14 @@ func (c *Chain) SetPath(p *PathEnd) error {
 	return nil
 }
 
-// AddPath takes the elements of a path and validates then, setting that path to the chain
+// AddPath takes the client and connection identifiers for a Path,
+// and if they are initialized, validates them before setting the PathEnd on the Chain.
+// NOTE: if the Path is blank (i.e. the identifiers are not set) validation is skipped.
 func (c *Chain) AddPath(clientID, connectionID string) error {
 	return c.SetPath(&PathEnd{ChainID: c.ChainID(), ClientID: clientID, ConnectionID: connectionID})
 }
 
-// ValidateFull returns errors about invalid identifiers as well as unset path variables for the appropriate type
+// ValidateFull returns errors about invalid client and connection identifiers.
 func (pe *PathEnd) ValidateFull() error {
 	if pe.ClientID != "" {
 		if err := pe.Vclient(); err != nil {
