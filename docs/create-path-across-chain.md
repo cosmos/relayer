@@ -33,7 +33,7 @@ In our "Relaying Packets Across Chains" example, we set up the relayer to relay 
     - `rly transact channel`
 
     <br>
-    
+
     >Remember: `connections` are built on top of `client`s and `channels` are built on top of `connections`.
     
     If you get a `InvalidArgument desc = latest height revision number must match chain id revision number` error, there is likely already a client or channel setup between these chains, please check the relevant path.json file on the [chain-registry](https://github.com/cosmos/chain-registry). Path creation might not be necessary. You can use the `--override` flag if you with to force the creation of a new client/connection.
@@ -42,8 +42,9 @@ In our "Relaying Packets Across Chains" example, we set up the relayer to relay 
     
     You can now start relaying over the configured path! [Relaying Packets Across Chains Step 4](../README.md#basic-usage---relaying-packets-across-chains)
 
+---
 
-    [[TROUBLESHOOTING](./troubleshooting.md)]
+[[TROUBLESHOOTING](./troubleshooting.md)]
 
 ---
 
@@ -52,4 +53,4 @@ In our "Relaying Packets Across Chains" example, we set up the relayer to relay 
 ![banner](./images/github-repo-banner.gif)
  </div>
 
-[<-- Home](../README.md) [Troubleshooting -->](./terminology.md)
+[<-- Home](../README.md) [Troubleshooting -->](./troubleshooting.md)
