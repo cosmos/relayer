@@ -52,11 +52,16 @@ func (c *Chain) AddPath(clientID, connectionID string) error {
 
 // ValidateFull returns errors about invalid identifiers as well as unset path variables for the appropriate type
 func (pe *PathEnd) ValidateFull() error {
-	if err := pe.Vclient(); err != nil {
-		return err
+	if pe.ClientID != "" {
+		if err := pe.Vclient(); err != nil {
+			return err
+		}
 	}
-	if err := pe.Vconn(); err != nil {
-		return err
+
+	if pe.ConnectionID != "" {
+		if err := pe.Vconn(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
