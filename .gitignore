@@ -12,6 +12,8 @@ two-chains/.relayer
 two-chains/*.log
 test/setup/valkeys/*.json
 test/keys/
+_test/setup/valkeys/*.json
+_test/keys/
 .DS_Store
 
 # Don't commit the vendor directory if anyone runs 'go mod vendor'.
