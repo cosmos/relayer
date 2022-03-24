@@ -22,4 +22,4 @@ The relayer currently cannot:
 - connect to chains using a different IBC implementation (chains not using SDK's `x/ibc` module)
 
 
-[[<-- Troubleshooting](./troubleshooting.md) - [Relayer Terminology -->](./terminology.md)
+[<-- Troubleshooting](./troubleshooting.md) - [Relayer Terminology -->](./terminology.md)

@@ -62,4 +62,4 @@ $ rly q bal ibc-1
 
 ---
 
-[<-- Pruning Settings](./node_pruning.md) - [Security Notice -->](./sec-and_code-of-conduct.md#security-notice)
+[<-- Pruning Settings](./node_pruning.md) - [Security Notice/Code of Conduct -->](./sec-and_code-of-conduct.md#security-notice)
