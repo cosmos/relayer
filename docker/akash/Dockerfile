@@ -24,9 +24,9 @@ COPY --from=build-env /go/bin/akash /usr/bin/akash
 
 WORKDIR /akash
 
-COPY ./test/setup/akash-setup.sh .
+COPY ./_test/setup/akash-setup.sh .
 
-COPY ./test/setup/valkeys ./setup/valkeys
+COPY ./_test/setup/valkeys ./setup/valkeys
 
 USER root
 

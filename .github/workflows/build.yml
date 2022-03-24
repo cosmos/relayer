@@ -35,6 +35,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
+      # unit tests
+      - name: run unit tests
+        run: make test
       # build binary
       - name: build binary and move to upload location
         run: make build
