@@ -20,7 +20,7 @@ func TestApplyChannelFilterAllowRule(t *testing.T) {
 		},
 	}
 
-	filter := &ChannelFilter{
+	filter := ChannelFilter{
 		Rule:        "allowlist",
 		ChannelList: []string{"channel-0", "channel-2"},
 	}
@@ -43,7 +43,7 @@ func TestApplyChannelFilterDenyRule(t *testing.T) {
 		},
 	}
 
-	filter := &ChannelFilter{
+	filter := ChannelFilter{
 		Rule:        "denylist",
 		ChannelList: []string{"channel-0", "channel-2"},
 	}
@@ -66,7 +66,7 @@ func TestApplyChannelFilterNoRule(t *testing.T) {
 		},
 	}
 
-	filter := &ChannelFilter{}
+	filter := ChannelFilter{}
 
 	filteredChans := applyChannelFilterRule(filter, channels)
 
@@ -75,24 +75,24 @@ func TestApplyChannelFilterNoRule(t *testing.T) {
 
 func TestValidateChannelFilterRule(t *testing.T) {
 	p := &Path{
-		Filter: &ChannelFilter{
+		Filter: ChannelFilter{
 			Rule: "allowlist",
 		},
 	}
 	require.NoError(t, p.ValidateChannelFilterRule())
 
 	p = &Path{
-		Filter: &ChannelFilter{
+		Filter: ChannelFilter{
 			Rule: "denylist",
 		},
 	}
 	require.NoError(t, p.ValidateChannelFilterRule())
 
-	p = &Path{Filter: &ChannelFilter{}}
+	p = &Path{Filter: ChannelFilter{}}
 	require.NoError(t, p.ValidateChannelFilterRule())
 
 	p = &Path{
-		Filter: &ChannelFilter{
+		Filter: ChannelFilter{
 			Rule: "invalid",
 		},
 	}
