@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/helpers"
 	"github.com/cosmos/relayer/relayer"
@@ -44,6 +45,7 @@ func queryCmd(a *appState) *cobra.Command {
 		queryConnectionChannels(a),
 		queryPacketCommitment(a),
 		queryIBCDenoms(a),
+		queryBasefromIBC(a),
 	)
 
 	return cmd
@@ -78,6 +80,31 @@ $ %s q ibc-denoms ibc-0`,
 			for _, d := range res {
 				fmt.Fprintln(cmd.OutOrStdout(), d)
 			}
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func queryBasefromIBC(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "denom-trace [part1] [denom-hash]",
+		Short: "query that take the base denominaton from the IBC denomination trace",
+		Args:  cobra.ExactArgs(2),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query denom-trace osmosis-0 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118D904BFE0F5F5E
+$ %s q denom-trace osmosis-0 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118D904BFE0F5F5E`,
+			appName, appName,
+		)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			res, err := chain.ChainProvider.QueryDenomTrace(cmd.Context(), args[1])
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), res)
 			return nil
 		},
 	}
