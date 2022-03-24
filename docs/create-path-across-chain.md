@@ -34,7 +34,7 @@ In our "Relaying Packets Across Chains" example, we set up the relayer to relay 
 
     <br>
 
-    All the above commands will update your config with the new path meta-data EXCEPT the new channel-id. 
+    All the above commands will update your config with the new path meta-data EXCEPT the new channel-id, which will be printed in stdout. 
 
     It's reccomended to make note of this channel. If desired, add it to your ["allowlist"](../README.md#8--configure-the-channel-filter) in your config file. This would be `channel-1` from the print out below.
 
@@ -47,7 +47,7 @@ In our "Relaying Packets Across Chains" example, we set up the relayer to relay 
     >As new `clients`, `connections` and `channels` are created on mainnet, consider adding and tagging them on the relevant paths.json file on the [chain-registry](https://github.com/cosmos/chain-registry) 
 
     
-    You can now start relaying over the configured path! [Relaying Packets Across Chains Step 4](../README.md#basic-usage---relaying-packets-across-chains)
+    CONGRATS! You can now start relaying over the new path!
 
 ---
 
