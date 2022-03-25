@@ -3,7 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -293,8 +292,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 
 	tmHeader, ok := header.(*ibctmtypes.Header)
 	if !ok {
-		fmt.Printf("got data of type %T but wanted tmclient.Header \n", header)
-		os.Exit(1)
+		t.Fatalf("got data of type %T but wanted tmclient.Header \n", header)
 	}
 	validator := tmtypes.NewValidator(pubKey, tmHeader.ValidatorSet.Proposer.VotingPower)
 	valSet := tmtypes.NewValidatorSet([]*tmtypes.Validator{validator})
