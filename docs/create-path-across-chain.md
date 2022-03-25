@@ -36,10 +36,10 @@ In our "Relaying Packets Across Chains" example, we set up the relayer to relay 
 
     All the above commands will update your config with the new path meta-data EXCEPT the new channel-id, which will be printed in stdout. 
 
-    It's reccomended to make note of this channel. If desired, add it to your ["allowlist"](../README.md#8--configure-the-channel-filter) in your config file. This would be `channel-1` from the print out below.
+    It's recommended to make note of this channel. If desired, add it to your ["allowlist"](../README.md#8--configure-the-channel-filter) in your config file. This would be `channel-0` from the print out below.
 
     ```log
-    I[2022-03-24|13:59:27.425] ★ Channel created: [ibc-1]chan{channel-1}port{transfer} -> [ibc-0]chan{channel-1}port{transfer} 
+    2022-03-25T20:09:33.997921Z	info	Channel created	{"src_chain_id": "ibc-0", "src_channel_id": "channel-0", "src_port_id": "transfer", "dst_chain_id": "ibc-1", "dst_channel_id": "channel-0", "dst_port_id": "transfer"}
     ```
 
     >Note: `connections` are built on top of `clients` and `channels` are built on top of `connections`.
