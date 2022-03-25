@@ -15,9 +15,9 @@
 In IBC, blockchains do not directly pass messages to each other over the network. This is where `relayer` comes in. 
 A relayer process monitors for updates on opens paths between sets of [IBC](https://ibcprotocol.org/) enabled chains.
 The relayer submits these updates in the form of specific message types to the counterparty chain. Clients are then used to 
-track and verify the concnesus state.
+track and verify the consensus state.
 
-In addtion to relaying packets, this relayer can open paths across chains, thus creating clients, connections and channels.
+In addition to relaying packets, this relayer can open paths across chains, thus creating clients, connections and channels.
 
 Additional information on how IBC works can be found [here](https://ibc.cosmos.network/).
 
@@ -144,7 +144,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    
    By default, the relayer will relay packets over all channels on a given connection.  
    <br>
-   Each path has a `src-channel-filter` which you can utilize to specifiy which channels you would like to relay on.   
+   Each path has a `src-channel-filter` which you can utilize to specify which channels you would like to relay on.   
    <br>
    The `rule` can be one of three values:  
    - `allowlist` which tells the relayer to relay on _ONLY_ the channels in `channel-list`
@@ -170,7 +170,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
               channel-list: [channel-141]  
    ```
    
-   >Because two channels between chains are tightly coupled, there is no need to specifiy the dst channels.
+   >Because two channels between chains are tightly coupled, there is no need to specify the dst channels.
 
 10. **Finally, we start the relayer on the desired path.**
 
