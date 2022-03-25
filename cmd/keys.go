@@ -20,11 +20,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 const (
@@ -152,7 +152,7 @@ $ %s k d ibc-2 testkey`, appName, appName, appName)),
 
 			if skip, _ := cmd.Flags().GetBool(flagSkip); !skip {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Are you sure you want to delete key(%s) from chain(%s)? (Y/n)\n", keyName, args[0])
-				if !askForConfirmation(cmd.InOrStdin(), cmd.ErrOrStderr()) {
+				if !askForConfirmation(a, cmd.InOrStdin(), cmd.ErrOrStderr()) {
 					return nil
 				}
 			}
@@ -170,12 +170,12 @@ $ %s k d ibc-2 testkey`, appName, appName, appName)),
 	return skipConfirm(a.Viper, cmd)
 }
 
-func askForConfirmation(stdin io.Reader, stderr io.Writer) bool {
+func askForConfirmation(a *appState, stdin io.Reader, stderr io.Writer) bool {
 	var response string
 
 	_, err := fmt.Fscanln(stdin, &response)
 	if err != nil {
-		log.Fatal(err)
+		a.Log.Fatal("Failed to read input", zap.Error(err))
 	}
 
 	switch strings.ToLower(response) {
@@ -185,7 +185,7 @@ func askForConfirmation(stdin io.Reader, stderr io.Writer) bool {
 		return false
 	default:
 		fmt.Fprintln(stderr, "please type (y)es or (n)o and then press enter")
-		return askForConfirmation(stdin, stderr)
+		return askForConfirmation(a, stdin, stderr)
 	}
 }
 

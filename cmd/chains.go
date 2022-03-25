@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"github.com/cosmos/relayer/relayer/provider/cosmos"
 	"github.com/spf13/cobra"
 	registry "github.com/strangelove-ventures/lens/client/chain_registry"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
@@ -406,19 +406,31 @@ func addChainsFromRegistry(a *appState, chains []string) error {
 			}
 
 			if !found {
-				log.Printf("unable to find chain %s in %s", chain, chainRegistry.SourceLink())
+				a.Log.Warn(
+					"Unable to find chain",
+					zap.String("chain", chain),
+					zap.String("source_link", chainRegistry.SourceLink()),
+				)
 				continue
 			}
 
 			chainInfo, err := chainRegistry.GetChain(chain)
 			if err != nil {
-				log.Printf("error getting chain: %s", err)
+				a.Log.Warn(
+					"Error retrieving chain",
+					zap.String("chain", chain),
+					zap.Error(err),
+				)
 				continue
 			}
 
 			chainConfig, err := chainInfo.GetChainConfig()
 			if err != nil {
-				log.Printf("error generating chain config: %s", err)
+				a.Log.Warn(
+					"Error generating chain config",
+					zap.String("chain", chain),
+					zap.Error(err),
+				)
 				continue
 			}
 
@@ -439,7 +451,11 @@ func addChainsFromRegistry(a *appState, chains []string) error {
 
 			prov, err := pcfg.NewProvider(a.HomePath, a.Debug)
 			if err != nil {
-				log.Printf("failed to build ChainProvider for %s. Err: %v", chainConfig.ChainID, err)
+				a.Log.Warn(
+					"Failed to build ChainProvider",
+					zap.String("chain_id", chainConfig.ChainID),
+					zap.Error(err),
+				)
 				continue
 			}
 
@@ -448,7 +464,11 @@ func addChainsFromRegistry(a *appState, chains []string) error {
 
 			// add to config
 			if err = a.Config.AddChain(c); err != nil {
-				log.Printf("failed to add chain %s to config. Err: %v", chain, err)
+				a.Log.Warn(
+					"Failed to add chain to config",
+					zap.String("chain", chain),
+					zap.Error(err),
+				)
 				return err
 			}
 
