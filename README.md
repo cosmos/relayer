@@ -187,4 +187,16 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
     [[TROUBLESHOOTING](docs/troubleshooting.md)]
 ---
 
+## Security Notice
+
+If you would like to report a security critical bug related to the relayer repo,
+please reach out @jackzampolin or @Ethereal0ne on telegram.
+
+## Code of Conduct
+
+The Cosmos community is dedicated to providing an inclusive and harassment free
+experience for contributors. Please visit [Code of Conduct](CODE_OF_CONDUCT.md) for more information.
+
+---
+
 [Create Path Across Chains -->](docs/create-path-across-chain.md)
