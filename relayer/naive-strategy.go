@@ -543,7 +543,12 @@ func RelayPacket(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxTx
 			if err = retry.Do(func() error {
 				recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(ctx, src.ChainProvider, dst.ChainProvider, uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, srcChanID, srcPortID, src.ClientID())
 				if err != nil {
-					fmt.Println("Failing to relay packet from seq on src")
+					src.log.Warn(
+						"Failed to relay packet from seq on src",
+						zap.String("src_chain_id", src.ChainID()),
+						zap.String("dst_chain_id", dst.ChainID()),
+						zap.Error(err),
+					)
 				}
 				return err
 			}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
@@ -639,8 +644,6 @@ func RelayPacket(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxTx
 		if len(msgs.Src) > 1 {
 			src.logPacketsRelayed(dst, len(msgs.Src)-1, srcChannel)
 		}
-	} else {
-		fmt.Println()
 	}
 
 	return nil
