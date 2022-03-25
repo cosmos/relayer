@@ -19,7 +19,16 @@ track and verify the consensus state.
 
 In addition to relaying packets, this relayer can open paths across chains, thus creating clients, connections and channels.
 
-Additional information on how IBC works can be found [here](https://ibc.cosmos.network/).
+Additional information compatibility  on how IBC works can be found [here](https://ibc.cosmos.network/).
+
+<div align="center">
+
+   | Relayer |        IBC-Go        |
+   |:-------:|:--------------------:|
+   | v1.0.0  | ibc-go v1, ibc-go v2 |
+   | v2.0.0  | ibc-go v3            |
+
+</div>
 
 ---
 
@@ -31,8 +40,6 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 - [Relayer Terminology](./docs/terminology.md)
 - [Recommended Pruning Settings](./docs/node_pruning.md)
 - [Demo](./docs/demo.md)
-- [Security Notice](#security-notice)
-- [Code of Conduct](#code-of-conduct)
 
 ---
 ## Basic Usage - Relaying Packets Across Chains
