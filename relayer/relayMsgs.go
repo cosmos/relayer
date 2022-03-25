@@ -96,7 +96,7 @@ func DecodeMsgs(c *Chain, msgs []string) []provider.RelayerMessage {
 		if err != nil {
 			c.log.Warn(
 				"Failed to unmarshal amino JSON message",
-				zap.Binary("msg", msg),
+				zap.Binary("msg", []byte(msg)), // Although presented as a string, this is a binary blob.
 				zap.Error(err),
 			)
 		} else {

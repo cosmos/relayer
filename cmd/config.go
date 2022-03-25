@@ -35,6 +35,7 @@ import (
 	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/cosmos/relayer/relayer/provider/cosmos"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
@@ -239,14 +240,16 @@ func addChainsFromDirectory(stderr io.Writer, a *appState, dir string) error {
 			continue
 		}
 
-		prov, err := pcw.Value.NewProvider(a.HomePath, a.Debug)
+		prov, err := pcw.Value.NewProvider(
+			a.Log.With(zap.String("provider_type", pcw.Type)),
+			a.HomePath, a.Debug,
+		)
 		if err != nil {
 			fmt.Fprintf(stderr, "failed to build ChainProvider for %s. Err: %v \n", pth, err)
 			continue
 		}
 
-		c := &relayer.Chain{ChainProvider: prov}
-
+		c := relayer.NewChain(a.Log, prov, a.Debug)
 		if err = a.Config.AddChain(c); err != nil {
 			fmt.Fprintf(stderr, "failed to add chain %s: %v \n", pth, err)
 			continue
@@ -589,7 +592,10 @@ func initConfig(cmd *cobra.Command, a *appState) error {
 			// build the config struct
 			var chains relayer.Chains
 			for _, pcfg := range cfgWrapper.ProviderConfigs {
-				prov, err := pcfg.Value.(provider.ProviderConfig).NewProvider(a.HomePath, a.Debug)
+				prov, err := pcfg.Value.(provider.ProviderConfig).NewProvider(
+					a.Log.With(zap.String("provider_type", pcfg.Type)),
+					a.HomePath, a.Debug,
+				)
 				if err != nil {
 					return fmt.Errorf("failed to build ChainProviders: %w", err)
 				}

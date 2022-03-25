@@ -32,6 +32,7 @@ import (
 	lens "github.com/strangelove-ventures/lens/client"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -133,7 +134,7 @@ func (pc CosmosProviderConfig) Validate() error {
 }
 
 // NewProvider validates the CosmosProviderConfig, instantiates a ChainClient and then instantiates a CosmosProvider
-func (pc CosmosProviderConfig) NewProvider(homepath string, debug bool) (provider.ChainProvider, error) {
+func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool) (provider.ChainProvider, error) {
 	if err := pc.Validate(); err != nil {
 		return nil, err
 	}
@@ -164,6 +165,8 @@ func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
 }
 
 type CosmosProvider struct {
+	log *zap.Logger
+
 	lens.ChainClient
 	PCfg CosmosProviderConfig
 }
@@ -1293,9 +1296,10 @@ func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty p
 
 		tmClientState, ok := clientState.(*tmclient.ClientState)
 		if !ok {
-			if cc.PCfg.Debug {
-				fmt.Printf("got data of type %T but wanted tmclient.ClientState \n", clientState)
-			}
+			cc.log.Debug(
+				"Failed to convert value to *tmclient.ClientState",
+				zap.Stringer("client_state_type", reflect.TypeOf(clientState)),
+			)
 			return "", false
 		}
 
@@ -1345,9 +1349,10 @@ func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty p
 
 			tmHeader, ok := header.(*tmclient.Header)
 			if !ok {
-				if cc.PCfg.Debug {
-					fmt.Printf("got data of type %T but wanted tmclient.Header \n", header)
-				}
+				cc.log.Debug(
+					"Failed to convert value to *tmclient.Header",
+					zap.Stringer("header_type", reflect.TypeOf(header)),
+				)
 				return "", false
 			}
 

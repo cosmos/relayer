@@ -340,13 +340,15 @@ func addChainFromFile(a *appState, file string) error {
 		return err
 	}
 
-	prov, err := pcw.Value.NewProvider(a.HomePath, a.Debug)
+	prov, err := pcw.Value.NewProvider(
+		a.Log.With(zap.String("provider_type", pcw.Type)),
+		a.HomePath, a.Debug,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to build ChainProvider for %s: %w", file, err)
 	}
 
-	c := &relayer.Chain{ChainProvider: prov}
-
+	c := relayer.NewChain(a.Log, prov, a.Debug)
 	if err = a.Config.AddChain(c); err != nil {
 		return err
 	}
@@ -378,13 +380,15 @@ func addChainFromURL(a *appState, rawurl string) error {
 	}
 
 	// build the ChainProvider before initializing the chain
-	prov, err := pcw.Value.NewProvider(a.HomePath, a.Debug)
+	prov, err := pcw.Value.NewProvider(
+		a.Log.With(zap.String("provider_type", pcw.Type)),
+		a.HomePath, a.Debug,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to build ChainProvider for %s: %w", rawurl, err)
 	}
 
-	c := &relayer.Chain{ChainProvider: prov}
-
+	c := relayer.NewChain(a.Log, prov, a.Debug)
 	if err := a.Config.AddChain(c); err != nil {
 		return err
 	}
@@ -449,7 +453,10 @@ func addChainsFromRegistry(a *appState, chains []string) error {
 				SignModeStr:    chainConfig.SignModeStr,
 			}
 
-			prov, err := pcfg.NewProvider(a.HomePath, a.Debug)
+			prov, err := pcfg.NewProvider(
+				a.Log.With(zap.String("provider_type", "cosmos")),
+				a.HomePath, a.Debug,
+			)
 			if err != nil {
 				a.Log.Warn(
 					"Failed to build ChainProvider",
@@ -459,10 +466,8 @@ func addChainsFromRegistry(a *appState, chains []string) error {
 				continue
 			}
 
-			// build the chain
-			c := &relayer.Chain{ChainProvider: prov}
-
 			// add to config
+			c := relayer.NewChain(a.Log, prov, a.Debug)
 			if err = a.Config.AddChain(c); err != nil {
 				a.Log.Warn(
 					"Failed to add chain to config",

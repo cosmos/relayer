@@ -11,11 +11,12 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 type ProviderConfig interface {
-	NewProvider(homepath string, debug bool) (ChainProvider, error)
+	NewProvider(log *zap.Logger, homepath string, debug bool) (ChainProvider, error)
 	Validate() error
 }
 
