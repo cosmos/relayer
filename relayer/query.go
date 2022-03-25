@@ -12,6 +12,7 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer/provider"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -89,7 +90,13 @@ func QueryChannel(ctx context.Context, src *Chain, channelID string) (*chantypes
 		srcChannels, err = src.ChainProvider.QueryConnectionChannels(ctx, srch, src.ConnectionID())
 		return err
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		src.LogRetryQueryConnectionChannels(n, err, src.ConnectionID())
+		src.log.Debug(
+			"Failed to query connection channels",
+			zap.String("conn_id", src.ConnectionID()),
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", RtyAttNum),
+			zap.Error(err),
+		)
 	})); err != nil {
 		return nil, err
 	}

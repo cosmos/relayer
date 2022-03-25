@@ -11,6 +11,7 @@ import (
 	host "github.com/cosmos/ibc-go/v3/modules/core/24-host"
 	"github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/relayer/provider"
+	"go.uber.org/zap"
 )
 
 // CreateOpenChannels runs the channel creation messages on timeout until they pass.
@@ -40,7 +41,8 @@ func (c *Chain) CreateOpenChannels(ctx context.Context, dst *Chain, maxRetries u
 			dstChannelID, srcPortID, dstPortID, order, version, override)
 
 		if err != nil {
-			c.Log(err.Error())
+			c.log.Warn("Error executing channel step", zap.Error(err))
+			// TODO: should this continue at the start of the loop?
 		}
 		if recentlyModified {
 			modified = true
@@ -63,8 +65,15 @@ func (c *Chain) CreateOpenChannels(ctx context.Context, dst *Chain, maxRetries u
 				logChannelStates(c, dst, srcChan, dstChan)
 			}
 
-			c.Log(fmt.Sprintf("★ Channel created: [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
-				c.ChainID(), srcChannelID, srcPortID, dst.ChainID(), dstChannelID, dstPortID))
+			c.log.Info(
+				"Channel created",
+				zap.String("src_chain_id", c.ChainID()),
+				zap.String("src_channel_id", srcChannelID),
+				zap.String("src_port_id", srcPortID),
+				zap.String("dst_chain_id", dst.ChainID()),
+				zap.String("dst_channel_id", dstChannelID),
+				zap.String("dst_port_id", dstPortID),
+			)
 
 			return modified, nil
 
@@ -76,7 +85,7 @@ func (c *Chain) CreateOpenChannels(ctx context.Context, dst *Chain, maxRetries u
 		// In the case of failure, increment the failures counter and exit if this is the 3rd failure
 		case !success:
 			failures++
-			c.Log("retrying transaction...")
+			c.log.Info("Retrying transaction...")
 			time.Sleep(5 * time.Second)
 
 			if failures > maxRetries {
@@ -385,9 +394,11 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 	// OpenInit on source
 	// Neither channel has been initialized
 	case srcChanID == "" && dstChanID == "":
-		if src.debug {
-			src.logOpenInit(dst, "channel")
-		}
+		src.log.Debug(
+			"Attempting to create new channel ends",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("dst_chain_id", dst.ChainID()),
+		)
 
 		if !override {
 			existingChanID, found = FindMatchingChannel(ctx, src, srcPortID, dstPortID, order, version)
@@ -436,8 +447,13 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 			if err != nil {
 				return srcChanID, dstChanID, false, false, err
 			}
-		} else if src.debug {
-			src.logIdentifierExists(dst, "channel end", existingChanID)
+		} else {
+			src.log.Debug(
+				"Channel end already exists",
+				zap.String("channel_id", existingChanID),
+				zap.String("src_chain_id", src.ChainID()),
+				zap.String("dst_chain_id", dst.ChainID()),
+			)
 		}
 
 		return existingChanID, dstChanID, true, true, nil
@@ -445,9 +461,11 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 	// OpenTry on source
 	// source channel does not exist, but counterparty channel exists
 	case srcChanID == "" && dstChanID != "":
-		if src.debug {
-			src.logOpenTry(dst, "channel")
-		}
+		src.log.Debug(
+			"Attempting to open channel end",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("dst_chain_id", dst.ChainID()),
+		)
 
 		if !override {
 			existingChanID, found = FindMatchingChannel(ctx, src, srcPortID, dstPortID, order, version)
@@ -497,8 +515,13 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 			if err != nil {
 				return srcChanID, dstChanID, false, false, err
 			}
-		} else if src.debug {
-			src.logIdentifierExists(dst, "channel end", existingChanID)
+		} else {
+			src.log.Debug(
+				"Channel end already exists",
+				zap.String("channel_id", existingChanID),
+				zap.String("src_chain_id", src.ChainID()),
+				zap.String("dst_chain_id", dst.ChainID()),
+			)
 		}
 
 		return existingChanID, dstChanID, true, true, nil
@@ -506,9 +529,11 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 	// OpenTry on counterparty
 	// source channel exists, but counterparty channel does not exist
 	case srcChanID != "" && dstChanID == "":
-		if dst.debug {
-			dst.logOpenTry(src, "channel")
-		}
+		dst.log.Debug(
+			"Attempting to open channel end",
+			zap.String("src_chain_id", dst.ChainID()),
+			zap.String("dst_chain_id", src.ChainID()),
+		)
 
 		if !override {
 			existingChanID, found = FindMatchingChannel(ctx, dst, dstPortID, srcPortID, order, version)
@@ -558,8 +583,13 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 			if err != nil {
 				return srcChanID, dstChanID, false, false, err
 			}
-		} else if dst.debug {
-			dst.logIdentifierExists(src, "channel end", existingChanID)
+		} else {
+			dst.log.Debug(
+				"Channel end already exists",
+				zap.String("channel_id", existingChanID),
+				zap.String("src_chain_id", dst.ChainID()),
+				zap.String("dst_chain_id", src.ChainID()),
+			)
 		}
 
 		return srcChanID, existingChanID, true, true, nil
@@ -602,9 +632,15 @@ func (c *Chain) CloseChannel(ctx context.Context, dst *Chain, to time.Duration, 
 			if c.debug {
 				logChannelStates(c, dst, srcChan, dstChan)
 			}
-			c.Log(fmt.Sprintf("★ Closed srcChan between [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
-				c.ChainID(), srcChanID, srcPortID,
-				dst.ChainID(), dstChanID, dstPortID))
+			c.log.Info(
+				"Closed source channel",
+				zap.String("src_chain_id", c.ChainID()),
+				zap.String("src_channel_id", srcChanID),
+				zap.String("src_port_id", srcPortID),
+				zap.String("dst_chain_id", dst.ChainID()),
+				zap.String("dst_channel_id", dstChanID),
+				zap.String("dst_port_id", dstPortID),
+			)
 			break
 		}
 	}
@@ -763,9 +799,11 @@ func FindMatchingChannel(ctx context.Context, source *Chain, srcPortID, dstPortI
 	// TODO: add appropriate offset and limits, along with retries
 	channelsResp, err := source.ChainProvider.QueryChannels(ctx)
 	if err != nil {
-		if source.debug {
-			source.Log(fmt.Sprintf("Error: querying channels on %s failed: %v", source.ChainID(), err))
-		}
+		source.log.Info(
+			"Querying channels failed",
+			zap.String("src_chain_id", source.ChainID()),
+			zap.Error(err),
+		)
 		return "", false
 	}
 

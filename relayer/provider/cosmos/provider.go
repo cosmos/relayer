@@ -32,6 +32,7 @@ import (
 	lens "github.com/strangelove-ventures/lens/client"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
+	"go.uber.org/zap/zapcore"
 )
 
 var (
@@ -101,6 +102,13 @@ func (cm CosmosMessage) Type() string {
 
 func (cm CosmosMessage) MsgBytes() ([]byte, error) {
 	return proto.Marshal(cm.Msg)
+}
+
+// MarshalLogObject is used to encode cm to a zap logger with the zap.Object field type.
+func (cm CosmosMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	// TODO: inspect message to dynamically determine what fields to encode?
+	enc.AddString("msg_proto_string", cm.Msg.String())
+	return nil
 }
 
 type CosmosProviderConfig struct {

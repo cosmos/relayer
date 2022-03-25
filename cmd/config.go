@@ -35,7 +35,6 @@ import (
 	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/cosmos/relayer/relayer/provider/cosmos"
 	"github.com/spf13/cobra"
-	"github.com/tendermint/tendermint/libs/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -595,8 +594,7 @@ func initConfig(cmd *cobra.Command, a *appState) error {
 					return fmt.Errorf("failed to build ChainProviders: %w", err)
 				}
 
-				chain := &relayer.Chain{ChainProvider: prov}
-				chain.Init(log.NewTMLogger(log.NewSyncWriter(cmd.ErrOrStderr())), a.Debug)
+				chain := relayer.NewChain(a.Log, prov, a.Debug)
 				chains = append(chains, chain)
 			}
 
