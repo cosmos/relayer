@@ -121,7 +121,7 @@ func newTestChain(t *testing.T, tc testChain) *relayer.Chain {
 	tc.pcfg.Key = "testkey-" + port
 	tc.pcfg.RPCAddr = fmt.Sprintf("http://localhost:%s", port)
 	tc.pcfg.ChainID = tc.chainID
-	prov, err := tc.pcfg.NewProvider("/tmp", true)
+	prov, err := tc.pcfg.NewProvider(zaptest.NewLogger(t), "/tmp", true)
 	require.NoError(t, err)
 
 	var debug bool
