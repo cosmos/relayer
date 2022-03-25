@@ -107,8 +107,13 @@ func (cm CosmosMessage) MsgBytes() ([]byte, error) {
 
 // MarshalLogObject is used to encode cm to a zap logger with the zap.Object field type.
 func (cm CosmosMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	// TODO: inspect message to dynamically determine what fields to encode?
-	enc.AddString("msg_proto_string", cm.Msg.String())
+	// Using plain json.Marshal or calling cm.Msg.String() both fail miserably here.
+	// There is probably a better way to encode the message than this.
+	j, err := codec.NewLegacyAmino().MarshalJSON(cm.Msg)
+	if err != nil {
+		return err
+	}
+	enc.AddByteString("msg_json", j)
 	return nil
 }
 
@@ -142,7 +147,12 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 	if err != nil {
 		return nil, err
 	}
-	return &CosmosProvider{ChainClient: *cc, PCfg: pc}, nil
+	return &CosmosProvider{
+		log: log,
+
+		ChainClient: *cc,
+		PCfg:        pc,
+	}, nil
 }
 
 // ChainClientConfig builds a ChainClientConfig struct from a CosmosProviderConfig, this is used
@@ -1248,12 +1258,13 @@ func (cc *CosmosProvider) AutoUpdateClient(ctx context.Context, dst provider.Cha
 	if !success {
 		return 0, fmt.Errorf("tx failed: %s", res.Data)
 	}
-	cc.Log(fmt.Sprintf("★ Client updated: [%s]client(%s) {%d}->{%d}",
-		cc.PCfg.ChainID,
-		srcClientId,
-		MustGetHeight(srcUpdateHeader.GetHeight()),
-		srcUpdateHeader.GetHeight().GetRevisionHeight(),
-	))
+	cc.log.Info(
+		"Client updated",
+		zap.String("provider_chain_id", cc.PCfg.ChainID),
+		zap.String("src_client_id", srcClientId),
+		zap.Uint64("prev_height", MustGetHeight(srcUpdateHeader.GetHeight()).GetRevisionHeight()),
+		zap.Uint64("cur_height", srcUpdateHeader.GetHeight().GetRevisionHeight()),
+	)
 
 	return clientState.TrustingPeriod, nil
 }
@@ -1274,16 +1285,15 @@ func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty p
 	if err = retry.Do(func() error {
 		clientsResp, err = cc.QueryClients(ctx)
 		if err != nil {
-			if cc.PCfg.Debug {
-				cc.Log(fmt.Sprintf("Error: querying clients on %s failed: %v", cc.PCfg.ChainID, err))
-			}
+			cc.log.Debug(
+				"Failed to query clients",
+				zap.String("chain_id", cc.PCfg.ChainID),
+				zap.Error(err),
+			)
 			return err
 		}
 		return err
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
-		if cc.PCfg.Debug {
-			cc.Log(fmt.Sprintf("Error: querying clients on %s failed: %v", cc.PCfg.ChainID, err))
-		}
 		return "", false
 	}
 
@@ -1311,35 +1321,42 @@ func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty p
 			// query the latest consensus state of the potential matching client
 			consensusStateResp, err := cc.QueryConsensusStateABCI(identifiedClientState.ClientId, existingClientState.GetLatestHeight())
 			if err != nil {
-				if cc.PCfg.Debug {
-					cc.Log(fmt.Sprintf("Error: failed to query latest consensus state for existing client on chain %s: %v",
-						cc.PCfg.ChainID, err))
-				}
+				cc.log.Debug(
+					"Failed to query latest consensus state for existing client on chain",
+					zap.String("chain_id", cc.PCfg.ChainID),
+					zap.Error(err),
+				)
 				continue
 			}
 
 			//nolint:lll
 			header, err := counterparty.GetLightSignedHeaderAtHeight(ctx, int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
 			if err != nil {
-				if cc.PCfg.Debug {
-					cc.Log(fmt.Sprintf("Error: failed to query header for chain %s at height %d: %v",
-						counterparty.ChainId(), existingClientState.GetLatestHeight().GetRevisionHeight(), err))
-				}
+				cc.log.Debug(
+					"Failed to query header",
+					zap.String("chain_id", counterparty.ChainId()),
+					zap.Uint64("height", existingClientState.GetLatestHeight().GetRevisionHeight()),
+					zap.Error(err),
+				)
 				continue
 			}
 
 			exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
 			if err != nil {
-				if cc.PCfg.Debug {
-					cc.Log(fmt.Sprintf("Error: failed to consensus state on chain %s: %v", counterparty.ChainId(), err))
-				}
+				cc.log.Debug(
+					"Failed to unpack consensus state",
+					zap.String("chain", counterparty.ChainId()),
+					zap.Error(err),
+				)
 				continue
 			}
 			existingConsensusState, ok := exportedConsState.(*tmclient.ConsensusState)
 			if !ok {
-				if cc.PCfg.Debug {
-					cc.Log(fmt.Sprintf("Error: consensus state is not tendermint type on chain %s", counterparty.ChainId()))
-				}
+				cc.log.Debug(
+					"Cannot convert consensus state to *tmclient.ConsensusState",
+					zap.String("chain_id", counterparty.ChainId()),
+					zap.Stringer("consensus_state_type", reflect.TypeOf(exportedConsState)),
+				)
 				continue
 			}
 
