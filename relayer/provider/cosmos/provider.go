@@ -1294,7 +1294,7 @@ func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty p
 		// check if the client states match
 		// NOTE: FrozenHeight.IsZero() is a sanity check, the client to be created should always
 		// have a zero frozen height and therefore should never match with a frozen client
-		if isMatchingClient(tmClientState, existingClientState) && existingClientState.FrozenHeight.IsZero() {
+		if isMatchingClient(*tmClientState, *existingClientState) && existingClientState.FrozenHeight.IsZero() {
 
 			// query the latest consensus state of the potential matching client
 			consensusStateResp, err := cc.QueryConsensusStateABCI(identifiedClientState.ClientId, existingClientState.GetLatestHeight())
@@ -1389,7 +1389,7 @@ func (cc *CosmosProvider) QueryConsensusStateABCI(clientID string, height ibcexp
 // except latest height. They are assumed to be IBC tendermint light clients.
 // NOTE: we don't pass in a pointer so upstream references don't have a modified
 // latest height set to zero.
-func isMatchingClient(clientStateA, clientStateB *tmclient.ClientState) bool {
+func isMatchingClient(clientStateA, clientStateB tmclient.ClientState) bool {
 	// zero out latest client height since this is determined and incremented
 	// by on-chain updates. Changing the latest height does not fundamentally
 	// change the client. The associated consensus state at the latest height
