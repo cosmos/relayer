@@ -2,6 +2,8 @@
 
 ![Demo](./images/demo.gif)
 
+>logging in Relayer has changed since this gifs creation
+
 While the relayer is under active development, it is meant primarily as a learning
 tool to better understand the Inter-Blockchain Communication (IBC) protocol. In
 that vein, the following demo demonstrates the core functionality which will
@@ -40,6 +42,9 @@ $ rly q bal ibc-1
 
 # Then send some tokens between the chains
 $ rly tx transfer ibc-0 ibc-1 1000000samoleans $(rly chains address ibc-1) channel-0
+
+# Relay packets/acknowledgments. 
+# Running `rly start demo` essentially loops these two commands
 $ rly tx relay-pkts demo channel-0 -d
 $ rly tx relay-acks demo channel-0 -d
 
