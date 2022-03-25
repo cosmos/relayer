@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/cosmos/relayer/relayer/provider"
+	"github.com/cosmos/relayer/relayer/provider/cosmos"
+	"go.uber.org/zap"
 )
 
 // DeliverMsgsAction is struct
@@ -70,7 +72,15 @@ func EncodeMsgs(c *Chain, msgs []provider.RelayerMessage) []string {
 	for _, msg := range msgs {
 		bz, err := c.Encoding.Amino.MarshalJSON(msg)
 		if err != nil {
-			fmt.Println("Cannot marshal message", msg, err)
+			msgField := zap.Skip()
+			if cm, ok := msg.(cosmos.CosmosMessage); ok {
+				msgField = zap.Object("msg", cm)
+			}
+			c.log.Warn(
+				"Failed to marshal message to amino JSON",
+				msgField,
+				zap.Error(err),
+			)
 		} else {
 			outMsgs = append(outMsgs, string(bz))
 		}
@@ -84,7 +94,11 @@ func DecodeMsgs(c *Chain, msgs []string) []provider.RelayerMessage {
 		var sm provider.RelayerMessage
 		err := c.Encoding.Amino.UnmarshalJSON([]byte(msg), &sm)
 		if err != nil {
-			fmt.Println("Cannot unmarshal message", err)
+			c.log.Warn(
+				"Failed to unmarshal amino JSON message",
+				zap.Binary("msg", []byte(msg)), // Although presented as a string, this is a binary blob.
+				zap.Error(err),
+			)
 		} else {
 			outMsgs = append(outMsgs, sm)
 		}
@@ -109,7 +123,7 @@ func (r *RelayMsgs) SendWithController(ctx context.Context, src, dst *Chain, use
 		cont, err := ControllerUpcall(&action)
 		if !cont {
 			if err != nil {
-				fmt.Println("Error calling controller", err)
+				src.log.Warn("Error calling controller", zap.Error(err))
 				r.Succeeded = false
 			} else {
 				r.Succeeded = true

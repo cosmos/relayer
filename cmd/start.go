@@ -28,6 +28,7 @@ import (
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -88,10 +89,14 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 							timeToExpiry, err = UpdateClientsFromChains(egCtx, c[src], c[dst], thresholdTime)
 							return err
 						}, retry.Context(egCtx), retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
-							if a.Debug {
-								c[src].Log(fmt.Sprintf("- [%s]<->[%s] - try(%d/%d) updating clients from chains: %s",
-									c[src].ChainID(), c[dst].ChainID(), n+1, relayer.RtyAttNum, err))
-							}
+							a.Log.Debug(
+								"Updating clients from chains",
+								zap.String("src_chain_id", c[src].ChainID()),
+								zap.String("dst_chain_id", c[dst].ChainID()),
+								zap.Uint("attempt", n+1),
+								zap.Uint("max_attempts", relayer.RtyAttNum),
+								zap.Error(err),
+							)
 						})); err != nil {
 							return err
 						}
@@ -99,7 +104,10 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 					}
 				})
 				if err = eg.Wait(); err != nil {
-					c[src].Log(fmt.Sprintf("update clients error. Err: %v", err))
+					a.Log.Warn(
+						"Error updating clients",
+						zap.Error(err),
+					)
 				}
 			}
 
@@ -108,7 +116,10 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 			// so we don't want to separately monitor the ctx.Done channel,
 			// because we would risk returning before the relayer cleans up.
 			if err := <-errorChan; err != nil && !errors.Is(err, context.Canceled) {
-				c[src].Log(fmt.Sprintf("relayer start error. Err: %v", err))
+				a.Log.Warn(
+					"Relayer start error",
+					zap.Error(err),
+				)
 				return err
 			}
 			return nil

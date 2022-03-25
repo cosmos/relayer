@@ -10,11 +10,17 @@ import (
 
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
 // appState is the modifiable state of the application.
 type appState struct {
+	// Log is the root logger of the application.
+	// Consumers are expected to store and use local copies of the logger
+	// after modifying with the .With method.
+	Log *zap.Logger
+
 	Viper *viper.Viper
 
 	HomePath string

@@ -11,10 +11,12 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type ProviderConfig interface {
-	NewProvider(homepath string, debug bool) (ChainProvider, error)
+	NewProvider(log *zap.Logger, homepath string, debug bool) (ChainProvider, error)
 	Validate() error
 }
 
@@ -29,6 +31,17 @@ type RelayerTxResponse struct {
 	Code   uint32
 	Data   string
 	Events map[string]string
+}
+
+func (r RelayerTxResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddInt64("height", r.Height)
+	enc.AddString("tx_hash", r.TxHash)
+	enc.AddUint32("code", r.Code)
+	enc.AddString("data", r.Data)
+	for k, v := range r.Events {
+		enc.AddString("event:"+k, v)
+	}
+	return nil
 }
 
 type KeyProvider interface {

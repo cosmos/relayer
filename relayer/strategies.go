@@ -8,6 +8,7 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	"go.uber.org/zap"
 )
 
 // ActiveChannel represents an IBC channel and whether there is an active goroutine relaying packets against it.
@@ -88,7 +89,13 @@ func queryChannelsOnConnection(ctx context.Context, src *Chain) ([]*types.Identi
 		srcChannels, err = src.ChainProvider.QueryConnectionChannels(ctx, srch, src.ConnectionID())
 		return err
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		src.LogRetryQueryConnectionChannels(n, err, src.ConnectionID())
+		src.log.Debug(
+			"Failed to query connection channels",
+			zap.String("conn_id", src.ConnectionID()),
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", RtyAttNum),
+			zap.Error(err),
+		)
 	})); err != nil {
 		return nil, err
 	}
@@ -185,24 +192,45 @@ func relayUnrelayedPackets(ctx context.Context, src, dst *Chain, maxTxSize, maxM
 	// Fetch any unrelayed sequences depending on the channel order
 	sp, err := UnrelayedSequences(ctx, src, dst, srcChannel)
 	if err != nil {
-		src.Log(fmt.Sprintf("[%s]chan(%s) unrelayed sequences error: %s", src.ChainID(), srcChannel.ChannelId, err))
+		src.log.Warn(
+			"Error retrieving unrelayed sequences",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("src_channel_id", srcChannel.ChannelId),
+			zap.Error(err),
+		)
 		return err
 	}
 
-	if len(sp.Src) > 0 && src.debug {
-		src.Log(fmt.Sprintf("[%s]chan(%s) unrelayed-packets-> %v", src.ChainID(), srcChannel.ChannelId, sp.Src))
+	if len(sp.Src) > 0 {
+		src.log.Debug(
+			"Unrelayed source packets",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("src_channel_id", srcChannel.ChannelId),
+			zap.Uint64s("seqs", sp.Src),
+		)
 	}
 
-	if len(sp.Dst) > 0 && dst.debug {
-		dst.Log(fmt.Sprintf("[%s]chan(%s) unrelayed-packets-> %v", dst.ChainID(), srcChannel.Counterparty.ChannelId, sp.Dst))
+	if len(sp.Dst) > 0 {
+		src.log.Debug(
+			"Unrelayed destination packets",
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
+			zap.Uint64s("seqs", sp.Dst),
+		)
 	}
 
 	if !sp.Empty() {
 		go func() {
 			err := RelayPackets(childCtx, src, dst, sp, maxTxSize, maxMsgLength, srcChannel)
 			if err != nil {
-				src.Log(fmt.Sprintf("[%s]chan(%s)->[%s]chan(%s) relay packets error: %s",
-					src.ChainID(), srcChannel.ChannelId, dst.ChainID(), srcChannel.Counterparty.ChannelId, err))
+				src.log.Warn(
+					"Relay packets error",
+					zap.String("src_chain_id", src.ChainID()),
+					zap.String("src_channel_id", srcChannel.ChannelId),
+					zap.String("dst_chain_id", dst.ChainID()),
+					zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
+					zap.Error(err),
+				)
 			}
 			cancel()
 		}()
@@ -210,16 +238,28 @@ func relayUnrelayedPackets(ctx context.Context, src, dst *Chain, maxTxSize, maxM
 		// Wait until the context is cancelled (i.e. RelayPackets() finishes) or the context times out
 		<-childCtx.Done()
 		if !errors.Is(childCtx.Err(), context.Canceled) {
-			src.Log(fmt.Sprintf("[%s]chan(%s)->[%s]chan(%s) relay packets error: %s",
-				src.ChainID(), srcChannel.ChannelId, dst.ChainID(), srcChannel.Counterparty.ChannelId, childCtx.Err()))
+			src.log.Warn(
+				"Relay packets error",
+				zap.String("src_chain_id", src.ChainID()),
+				zap.String("src_channel_id", srcChannel.ChannelId),
+				zap.String("dst_chain_id", dst.ChainID()),
+				zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
+				zap.Error(childCtx.Err()),
+			)
 
 			return childCtx.Err()
 		}
 
 	} else {
-		src.Log(fmt.Sprintf("- No packets in the queue between [%s]chan(%s)port{%s} and [%s]chan(%s)port{%s}",
-			src.ChainID(), srcChannel.ChannelId, srcChannel.PortId,
-			dst.ChainID(), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId))
+		src.log.Info(
+			"No packets in queue",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("src_channel_id", srcChannel.ChannelId),
+			zap.String("src_port_id", srcChannel.PortId),
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
+			zap.String("dst_port_id", srcChannel.Counterparty.PortId),
+		)
 	}
 
 	return nil
@@ -233,24 +273,45 @@ func relayUnrelayedAcks(ctx context.Context, src, dst *Chain, maxTxSize, maxMsgL
 	// Fetch any unrelayed acks depending on the channel order
 	ap, err := UnrelayedAcknowledgements(ctx, src, dst, srcChannel)
 	if err != nil {
-		src.Log(fmt.Sprintf("[%s]chan(%s) unrelayed acks error: %s", src.ChainID(), srcChannel.ChannelId, err))
+		src.log.Warn(
+			"Error retrieving unrelayed acknowledgements",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("src_channel_id", srcChannel.ChannelId),
+			zap.Error(err),
+		)
 		return err
 	}
 
-	if len(ap.Src) > 0 && src.debug {
-		src.Log(fmt.Sprintf("[%s]chan(%s) unrelayed-acks-> %v", src.ChainID(), srcChannel.ChannelId, ap.Src))
+	if len(ap.Src) > 0 {
+		src.log.Debug(
+			"Unrelayed acknowledgements",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("src_channel_id", srcChannel.ChannelId),
+			zap.Uint64s("acks", ap.Src),
+		)
 	}
 
-	if len(ap.Dst) > 0 && dst.debug {
-		dst.Log(fmt.Sprintf("[%s]chan(%s) unrelayed-acks-> %v", dst.ChainID(), srcChannel.Counterparty.ChannelId, ap.Dst))
+	if len(ap.Dst) > 0 {
+		src.log.Debug(
+			"Unrelayed acknowledgements",
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
+			zap.Uint64s("acks", ap.Dst),
+		)
 	}
 
 	if !ap.Empty() {
 		go func() {
 			err := RelayAcknowledgements(childCtx, src, dst, ap, maxTxSize, maxMsgLength, srcChannel)
 			if err != nil {
-				src.Log(fmt.Sprintf("[%s]chan(%s)->[%s]chan(%s) relay acks error: %s",
-					src.ChainID(), srcChannel.ChannelId, dst.ChainID(), srcChannel.Counterparty.ChannelId, err))
+				src.log.Warn(
+					"Relay acknowledgements error",
+					zap.String("src_chain_id", src.ChainID()),
+					zap.String("src_channel_id", srcChannel.ChannelId),
+					zap.String("dst_chain_id", dst.ChainID()),
+					zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
+					zap.Error(err),
+				)
 			}
 			cancel()
 		}()
@@ -258,15 +319,27 @@ func relayUnrelayedAcks(ctx context.Context, src, dst *Chain, maxTxSize, maxMsgL
 		// Wait until the context is cancelled (i.e. RelayAcknowledgements() finishes) or the context times out
 		<-childCtx.Done()
 		if !errors.Is(childCtx.Err(), context.Canceled) {
-			src.Log(fmt.Sprintf("[%s]chan(%s)->[%s]chan(%s) relay acks error: %s",
-				src.ChainID(), srcChannel.ChannelId, dst.ChainID(), srcChannel.Counterparty.ChannelId, childCtx.Err()))
+			src.log.Warn(
+				"Relay acknowledgements error",
+				zap.String("src_chain_id", src.ChainID()),
+				zap.String("src_channel_id", srcChannel.ChannelId),
+				zap.String("dst_chain_id", dst.ChainID()),
+				zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
+				zap.Error(childCtx.Err()),
+			)
 			return childCtx.Err()
 		}
 
 	} else {
-		src.Log(fmt.Sprintf("- No acks in the queue between [%s]chan(%s)port{%s} and [%s]chan(%s)port{%s}",
-			src.ChainID(), srcChannel.ChannelId, srcChannel.PortId,
-			dst.ChainID(), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId))
+		src.log.Info(
+			"No acknowledgements in queue",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("src_channel_id", srcChannel.ChannelId),
+			zap.String("src_port_id", srcChannel.PortId),
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
+			zap.String("dst_port_id", srcChannel.Counterparty.PortId),
+		)
 	}
 
 	return nil
