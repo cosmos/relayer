@@ -45,7 +45,7 @@ func queryCmd(a *appState) *cobra.Command {
 		queryConnectionChannels(a),
 		queryPacketCommitment(a),
 		queryIBCDenoms(a),
-		queryBasefromIBC(a),
+		queryBaseDenomFromIBCDenom(a),
 	)
 
 	return cmd
@@ -87,9 +87,9 @@ $ %s q ibc-denoms ibc-0`,
 	return cmd
 }
 
-func queryBasefromIBC(a *appState) *cobra.Command {
+func queryBaseDenomFromIBCDenom(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "denom-trace [part1] [denom-hash]",
+		Use:   "denom-trace [chain-id] [denom-hash]",
 		Short: "query that take the base denominaton from the IBC denomination trace",
 		Args:  cobra.ExactArgs(2),
 		Example: strings.TrimSpace(fmt.Sprintf(`
@@ -98,8 +98,11 @@ $ %s q denom-trace osmosis-0 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-
-			res, err := chain.ChainProvider.QueryDenomTrace(cmd.Context(), args[1])
+			c, err := a.Config.Chains.Get(args[0])
+			if err != nil {
+ 		    return err
+			}
+			res, err := c.ChainProvider.QueryDenomTrace(cmd.Context(), args[1])
 			if err != nil {
 				return err
 			}
