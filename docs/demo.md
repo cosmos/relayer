@@ -32,25 +32,25 @@ $ rly chains list
 $ rly paths list
 
 # Now you can connect the two chains with one command:
-$ rly tx link demo -d -o 3s
+$ rly tx link demo -d -t 3s
 
 # Check the token balances on both chains
 $ rly q balance ibc-0
 $ rly q bal ibc-1
 
 # Then send some tokens between the chains
-$ rly tx transfer ibc-0 ibc-1 1000000samoleans $(rly chains address ibc-1)
-$ rly tx relay-pkts demo -d
-$ rly tx relay-acks demo -d
+$ rly tx transfer ibc-0 ibc-1 1000000samoleans $(rly chains address ibc-1) channel-0
+$ rly tx relay-pkts demo channel-0 -d
+$ rly tx relay-acks demo channel-0 -d
 
 # See that the transfer has completed
 $ rly q bal ibc-0
 $ rly q bal ibc-1
 
 # Send the tokens back to the account on ibc-0
-$ rly tx transfer ibc-1 ibc-0 1000000ibc/27A6394C3F9FF9C9DCF5DFFADF9BB5FE9A37C7E92B006199894CF1824DF9AC7C $(rly chains addr ibc-0)
-$ rly tx relay-pkts demo -d
-$ rly tx relay-acks demo -d
+$ rly tx transfer ibc-1 ibc-0 1000000ibc/27A6394C3F9FF9C9DCF5DFFADF9BB5FE9A37C7E92B006199894CF1824DF9AC7C $(rly chains addr ibc-0) channel-0
+$ rly tx relay-pkts demo channel-0 -d
+$ rly tx relay-acks demo channel-0 -d
 
 # See that the return trip has completed
 $ rly q bal ibc-0
