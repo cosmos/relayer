@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -129,6 +130,9 @@ func Execute() {
 		// This should result in cleaner output from non-interactive commands that stop quickly.
 		time.Sleep(250 * time.Millisecond)
 		fmt.Fprintf(os.Stderr, "Received signal %v. Attempting clean shutdown. Send interrupt again to force hard shutdown.\n", sig)
+
+		// Dump all goroutines on panic, not just the current one.
+		debug.SetTraceback("all")
 
 		// Block waiting for a second interrupt or a timeout.
 		// The main goroutine ought to finish before either case is reached.

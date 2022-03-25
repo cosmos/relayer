@@ -16,56 +16,61 @@ type ActiveChannel struct {
 	active  bool
 }
 
-// StartRelayer starts the main relaying loop.
+// StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
 func StartRelayer(ctx context.Context, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64) chan error {
-	errorChan := make(chan error)
+	errorChan := make(chan error, 1)
+
+	go relayerMainLoop(ctx, src, dst, filter, maxTxSize, maxMsgLength, errorChan)
+	return errorChan
+}
+
+// relayerMainLoop is the main loop of the relayer.
+func relayerMainLoop(ctx context.Context, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64, errCh chan<- error) {
+	defer close(errCh)
+
 	channels := make(chan *ActiveChannel, 10)
 	var srcOpenChannels []*ActiveChannel
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				// Query the list of channels on the src connection
-				srcChannels, err := queryChannelsOnConnection(ctx, src)
-				if err != nil {
-					errorChan <- fmt.Errorf("error querying all channels on chain{%s}@connection{%s}: %v \n",
-						src.ChainID(), src.ConnectionID(), err)
-					return
-				}
+	for {
+		// Query the list of channels on the src connection
+		srcChannels, err := queryChannelsOnConnection(ctx, src)
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				errCh <- err
+			} else {
+				errCh <- fmt.Errorf("error querying all channels on chain{%s}@connection{%s}: %v\n",
+					src.ChainID(), src.ConnectionID(), err)
+			}
+			return
+		}
 
-				// Apply the channel filter rule (i.e. build allowlist, denylist or relay on all channels available)
-				srcChannels = applyChannelFilterRule(filter, srcChannels)
+		// Apply the channel filter rule (i.e. build allowlist, denylist or relay on all channels available)
+		srcChannels = applyChannelFilterRule(filter, srcChannels)
 
-				// Filter for open channels that are not already in our slice of open channels
-				srcOpenChannels = filterOpenChannels(srcChannels, srcOpenChannels)
+		// Filter for open channels that are not already in our slice of open channels
+		srcOpenChannels = filterOpenChannels(srcChannels, srcOpenChannels)
 
-				// Spin up a goroutine to relay packets & acks for each channel that isn't already being relayed against
-				for _, channel := range srcOpenChannels {
-					if !channel.active {
-						channel.active = true
-						go relayUnrelayedPacketsAndAcks(ctx, src, dst, maxTxSize, maxMsgLength, channel, channels)
-					}
-				}
-
-				for channel := range channels {
-					channel.active = false
-					break
-				}
-
-				// Make sure we are removing channels no longer in OPEN state from the slice of open channels
-				for i, channel := range srcOpenChannels {
-					if channel.channel.State != types.OPEN {
-						srcOpenChannels[i] = srcOpenChannels[len(srcOpenChannels)-1]
-						srcOpenChannels = srcOpenChannels[:len(srcOpenChannels)-1]
-					}
-				}
+		// Spin up a goroutine to relay packets & acks for each channel that isn't already being relayed against
+		for _, channel := range srcOpenChannels {
+			if !channel.active {
+				channel.active = true
+				go relayUnrelayedPacketsAndAcks(ctx, src, dst, maxTxSize, maxMsgLength, channel, channels)
 			}
 		}
-	}()
-	return errorChan
+
+		for channel := range channels {
+			channel.active = false
+			break
+		}
+
+		// Make sure we are removing channels no longer in OPEN state from the slice of open channels
+		for i, channel := range srcOpenChannels {
+			if channel.channel.State != types.OPEN {
+				srcOpenChannels[i] = srcOpenChannels[len(srcOpenChannels)-1]
+				srcOpenChannels = srcOpenChannels[:len(srcOpenChannels)-1]
+			}
+		}
+	}
 }
 
 // queryChannelsOnConnection queries all the channels associated with a connection on the src chain.
