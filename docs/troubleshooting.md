@@ -15,10 +15,12 @@
  **Healthy relayer log with no packets to relay should look like:**
 
    ```log
-   I[2022-03-22|19:26:00.822] - No packets in the queue between [ibc-0]port{transfer} and [ibc-1]port{transfer} 
-   I[2022-03-22|19:26:00.823] - No acks in the queue between [ibc-0]port{transfer} and [ibc-1]port{transfer} 
-   I[2022-03-22|19:26:01.828] - No packets in the queue between [ibc-0]port{transfer} and [ibc-1]port{transfer} 
-   I[2022-03-22|19:26:01.830] - No acks in the queue between [ibc-0]port{transfer} and [ibc-1]port{transfer} 
+I[2022-03-25|09:34:28.328] - No packets in the queue between [ibc-0]chan(channel-0)port{transfer} and [ibc-1]chan(channel-0)port{transfer} 
+I[2022-03-25|09:34:34.546] [ibc-0]chan(channel-0) unrelayed acks error: no error on QueryPacketUnrelayedAcknowledgements for ibc-0, however response is nil 
+I[2022-03-25|09:34:34.554] - No packets in the queue between [ibc-0]chan(channel-0)port{transfer} and [ibc-1]chan(channel-0)port{transfer} 
+I[2022-03-25|09:34:40.745] [ibc-0]chan(channel-0) unrelayed acks error: no error on QueryPacketUnrelayedAcknowledgements for ibc-1, however response is nil 
+I[2022-03-25|09:34:40.753] - No packets in the queue between [ibc-0]chan(channel-0)port{transfer} and [ibc-1]chan(channel-0)port{transfer} 
+I[2022-03-25|09:34:46.946] [ibc-0]chan(channel-0) unrelayed acks error: no error on QueryPacketUnrelayedAcknowledgements for ibc-1, however response is nil 
    ```
 
 ---
