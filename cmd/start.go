@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -106,7 +107,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 			// The context being canceled will cause the relayer to stop,
 			// so we don't want to separately monitor the ctx.Done channel,
 			// because we would risk returning before the relayer cleans up.
-			if err := <-errorChan; err != nil {
+			if err := <-errorChan; err != nil && !errors.Is(err, context.Canceled) {
 				c[src].Log(fmt.Sprintf("relayer start error. Err: %v", err))
 				return err
 			}
