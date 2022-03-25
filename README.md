@@ -19,7 +19,7 @@ track and verify the consensus state.
 
 In addition to relaying packets, this relayer can open paths across chains, thus creating clients, connections and channels.
 
-Additional information compatibility  on how IBC works can be found [here](https://ibc.cosmos.network/).
+Additional information on how IBC works can be found [here](https://ibc.cosmos.network/).
 
 <div align="center">
 
