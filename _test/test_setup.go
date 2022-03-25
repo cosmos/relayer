@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -22,7 +21,6 @@ import (
 	sdked25519 "github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	sdkcryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	tmed25519 "github.com/tendermint/tendermint/crypto/ed25519"
-	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/privval"
 )
 
@@ -59,7 +57,7 @@ func spinUpTestChains(t *testing.T, testChains ...testChain) relayer.Chains {
 		wg.Add(1)
 		genPrivValKeyJSON(tc.seed)
 		eg.Go(func() error {
-			return spinUpTestContainer(rchan, pool, c, tc)
+			return spinUpTestContainer(t, rchan, pool, c, tc)
 		})
 	}
 
@@ -118,24 +116,13 @@ func removeTestContainer(pool *dockertest.Pool, containerName string) error {
 // spinUpTestContainer spins up a test container with the given configuration
 // A docker image is built for each chain using its provided configuration.
 // This image is then ran using the options set below.
-func spinUpTestContainer(rchan chan<- *dockertest.Resource, pool *dockertest.Pool, c *relayer.Chain, tc testChain) error {
+func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *dockertest.Pool, c *relayer.Chain, tc testChain) error {
+	t.Helper()
+
 	var (
 		err      error
-		debug    bool
 		resource *dockertest.Resource
 	)
-
-	// add extra logging if TEST_DEBUG=true
-	if val, ok := os.LookupEnv("TEST_DEBUG"); ok {
-		debug, err = strconv.ParseBool(val)
-		if err != nil {
-			debug = false
-		}
-	}
-
-	// initialize the chain
-	// TODO: is there a better logger we can use for tests?
-	c.Init(log.NewTMLogger(log.NewSyncWriter(os.Stderr)), debug)
 
 	// create the test key
 	if err := c.CreateTestKey(); err != nil {
@@ -189,8 +176,7 @@ func spinUpTestContainer(rchan chan<- *dockertest.Resource, pool *dockertest.Poo
 		return err
 	}
 
-	c.Log(fmt.Sprintf("- [%s] SPUN UP IN CONTAINER %s from %s", c.ChainID(),
-		resource.Container.Name, resource.Container.Config.Image))
+	t.Logf("Chain ID %s spun up in container %s from %s", c.ChainID(), resource.Container.Name, resource.Container.Config.Image)
 
 	// retry polling the container until status doesn't error
 	//if err = pool.Retry(c.StatusErr); err != nil {
@@ -200,7 +186,7 @@ func spinUpTestContainer(rchan chan<- *dockertest.Resource, pool *dockertest.Poo
 	// TODO maybe this works?
 	time.Sleep(time.Second * 5)
 
-	c.Log(fmt.Sprintf("- [%s] CONTAINER AVAILABLE AT PORT %s", c.ChainID(), c.RPCAddr))
+	t.Logf("Chain ID %s's container at port %s", c.ChainID(), c.RPCAddr)
 
 	rchan <- resource
 	return nil
@@ -219,13 +205,12 @@ func cleanUpTest(t *testing.T, testsDone <-chan struct{}, contDone chan<- struct
 	}
 
 	// remove all the docker containers
-	for i, r := range resources {
+	for _, r := range resources {
 		if err := pool.Purge(r); err != nil {
 			require.NoError(t, fmt.Errorf("could not purge container %s: %w", r.Container.Name, err))
 		}
 		c := getLoggingChain(chains, r)
-		chains[i].Log(fmt.Sprintf("- [%s] SPUN DOWN CONTAINER %s from %s", c.ChainID(), r.Container.Name,
-			r.Container.Config.Image))
+		t.Logf("Spun down %s's container %s from %s", c.ChainID(), r.Container.Name, r.Container.Config.Image)
 	}
 
 	// Notify the other side that we have deleted the docker containers

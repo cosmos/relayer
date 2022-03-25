@@ -9,6 +9,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/relayer/provider"
+	"go.uber.org/zap"
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
@@ -39,7 +40,16 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 		}
 		return err
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		c.LogRetryGetLightSignedHeader(n, err)
+		c.log.Debug(
+			"Failed to get light signed header",
+			zap.String("src_chain_id", c.ChainID()),
+			zap.Int64("src_height", srch),
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.Int64("dst_height", dsth),
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", RtyAttNum),
+			zap.Error(err),
+		)
 		srch, dsth, _ = QueryLatestHeights(ctx, c, dst)
 	})); err != nil {
 		return false, err
@@ -57,8 +67,13 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 		return modified, fmt.Errorf("failed to create client on dst chain{%s}: %w", dst.ChainID(), err)
 	}
 
-	c.Log(fmt.Sprintf("★ Clients created: client(%s) on chain[%s] and client(%s) on chain[%s]",
-		c.PathEnd.ClientID, c.ChainID(), dst.PathEnd.ClientID, dst.ChainID()))
+	c.log.Info(
+		"Clients created",
+		zap.String("src_client_id", c.PathEnd.ClientID),
+		zap.String("src_chain_id", c.ChainID()),
+		zap.String("dst_client_id", dst.PathEnd.ClientID),
+		zap.String("dst_chain_id", dst.ChainID()),
+	)
 
 	return modified, nil
 }
@@ -86,9 +101,13 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 			return modified, err
 		}
 
-		if src.debug {
-			src.logCreateClient(dst, dstUpdateHeader.GetHeight().GetRevisionHeight(), &tp)
-		}
+		src.log.Debug(
+			"Creating client",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.Uint64("dst_header_height", dstUpdateHeader.GetHeight().GetRevisionHeight()),
+			zap.Duration("trust_period", tp),
+		)
 
 		// Query the unbonding period for dst and retry if the query fails
 		if err = retry.Do(func() error {
@@ -114,9 +133,11 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 		}
 
 		if !found || override {
-			if src.debug {
-				src.Log(fmt.Sprintf("No client found on src chain {%s} tracking the state of counterparty chain {%s}", src.ChainID(), dst.ChainID()))
-			}
+			src.log.Debug(
+				"No client found on source chain tracking the state of counterparty chain",
+				zap.String("src_chain_id", src.ChainID()),
+				zap.String("dst_chain_id", dst.ChainID()),
+			)
 
 			createMsg, err := src.ChainProvider.CreateClient(clientState, dstUpdateHeader)
 			if err != nil {
@@ -147,8 +168,13 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 			if clientID, err = ParseClientIDFromEvents(res.Events); err != nil {
 				return modified, err
 			}
-		} else if src.debug {
-			src.logIdentifierExists(dst, "client", clientID)
+		} else {
+			src.log.Debug(
+				"Client already exists",
+				zap.String("client_id", clientID),
+				zap.String("src_chain_id", src.ChainID()),
+				zap.String("dst_chain_id", dst.ChainID()),
+			)
 		}
 
 		src.PathEnd.ClientID = clientID
@@ -177,7 +203,7 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 	if err = retry.Do(func() error {
 		srch, dsth, err = QueryLatestHeights(ctx, c, dst)
 		if srch == 0 || dsth == 0 || err != nil {
-			c.Log(fmt.Sprintf("Failed to query latest heights. Err: %v", err))
+			c.log.Info("Failed to query latest heights", zap.Error(err))
 			return err
 		}
 		return err
@@ -188,12 +214,20 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 	if err = retry.Do(func() error {
 		srcUpdateHeader, dstUpdateHeader, err = GetIBCUpdateHeaders(ctx, srch, dsth, c.ChainProvider, dst.ChainProvider, c.ClientID(), dst.ClientID())
 		if err != nil {
-			c.Log(fmt.Sprintf("Failed to query light signed headers. Err: %v", err))
+			c.log.Info(
+				"Failed to query light signed headers",
+				zap.Error(err),
+			)
 			return err
 		}
-		return err
+		return nil
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		c.Log(fmt.Sprintf("Failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
+		c.log.Info(
+			"Failed to get IBC update headers",
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", RtyAttNum),
+			zap.Error(err),
+		)
 		srch, dsth, _ = QueryLatestHeights(ctx, c, dst)
 	})); err != nil {
 		return err
@@ -201,17 +235,21 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 
 	srcUpdateMsg, err := c.ChainProvider.UpdateClient(c.ClientID(), dstUpdateHeader)
 	if err != nil {
-		if c.debug {
-			c.Log(fmt.Sprintf("Failed to update client on chain{%s} \n", c.ChainID()))
-		}
+		c.log.Debug(
+			"Failed to update source client",
+			zap.String("src_chain", c.ChainID()),
+			zap.Error(err),
+		)
 		return err
 	}
 
 	dstUpdateMsg, err := dst.ChainProvider.UpdateClient(dst.ClientID(), srcUpdateHeader)
 	if err != nil {
-		if dst.debug {
-			dst.Log(fmt.Sprintf("Failed to update client on chain{%s} \n", dst.ChainID()))
-		}
+		dst.log.Debug(
+			"Failed to update destination client",
+			zap.String("dst_chain", dst.ChainID()),
+			zap.Error(err),
+		)
 		return err
 	}
 
@@ -221,15 +259,18 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 	// Send msgs to both chains
 	if clients.Ready() {
 		if clients.Send(ctx, c, dst); clients.Success() {
-			c.Log(fmt.Sprintf("★ Clients updated: [%s]client(%s) {%d}->{%d} and [%s]client(%s) {%d}->{%d}",
-				c.ChainID(),
-				c.PathEnd.ClientID,
-				MustGetHeight(srcUpdateHeader.GetHeight()),
-				srcUpdateHeader.GetHeight().GetRevisionHeight(),
-				dst.ChainID(),
-				dst.PathEnd.ClientID,
-				MustGetHeight(dstUpdateHeader.GetHeight()),
-				dstUpdateHeader.GetHeight().GetRevisionHeight()))
+			c.log.Info(
+				"Clients updated",
+				zap.String("src_chain_id", c.ChainID()),
+				zap.String("src_client", c.PathEnd.ClientID),
+				zap.Stringer("src_height", MustGetHeight(srcUpdateHeader.GetHeight())),
+				zap.Uint64("src_revision_height", srcUpdateHeader.GetHeight().GetRevisionHeight()),
+
+				zap.String("dst_chain_id", dst.ChainID()),
+				zap.String("dst_client", dst.PathEnd.ClientID),
+				zap.Stringer("dst_height", MustGetHeight(dstUpdateHeader.GetHeight())),
+				zap.Uint64("dst_revision_height", dstUpdateHeader.GetHeight().GetRevisionHeight()),
+			)
 		}
 	}
 
