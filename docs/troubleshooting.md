@@ -15,13 +15,15 @@
  **Healthy relayer log with no packets to relay should look like:**
 
    ```log
-I[2022-03-25|09:34:28.328] - No packets in the queue between [ibc-0]chan(channel-0)port{transfer} and [ibc-1]chan(channel-0)port{transfer} 
-I[2022-03-25|09:34:34.546] [ibc-0]chan(channel-0) unrelayed acks error: no error on QueryPacketUnrelayedAcknowledgements for ibc-0, however response is nil 
-I[2022-03-25|09:34:34.554] - No packets in the queue between [ibc-0]chan(channel-0)port{transfer} and [ibc-1]chan(channel-0)port{transfer} 
-I[2022-03-25|09:34:40.745] [ibc-0]chan(channel-0) unrelayed acks error: no error on QueryPacketUnrelayedAcknowledgements for ibc-1, however response is nil 
-I[2022-03-25|09:34:40.753] - No packets in the queue between [ibc-0]chan(channel-0)port{transfer} and [ibc-1]chan(channel-0)port{transfer} 
-I[2022-03-25|09:34:46.946] [ibc-0]chan(channel-0) unrelayed acks error: no error on QueryPacketUnrelayedAcknowledgements for ibc-1, however response is nil 
-   ```
+2022-03-25T20:11:19.511489Z	info	No packets in queue	{"src_chain_id": "ibc-0", "src_channel_id": "channel-0", "src_port_id": "transfer", "dst_chain_id": "ibc-1", "dst_channel_id": "channel-0", "dst_port_id": "transfer"}
+2022-03-25T20:11:19.514370Z	info	No acknowledgements in queue	{"src_chain_id": "ibc-0", "src_channel_id": "channel-0", "src_port_id": "transfer", "dst_chain_id": "ibc-1", "dst_channel_id": "channel-0", "dst_port_id": "transfer"}
+2022-03-25T20:11:20.517184Z	info	No packets in queue	{"src_chain_id": "ibc-0", "src_channel_id": "channel-0", "src_port_id": "transfer", "dst_chain_id": "ibc-1", "dst_channel_id": "channel-0", "dst_port_id": "transfer"}
+2022-03-25T20:11:20.523035Z	info	No acknowledgements in queue	{"src_chain_id": "ibc-0", "src_channel_id": "channel-0", "src_port_id": "transfer", "dst_chain_id": "ibc-1", "dst_channel_id": "channel-0", "dst_port_id": "transfer"}
+2022-03-25T20:11:21.528712Z	info	No packets in queue	{"src_chain_id": "ibc-0", "src_channel_id": "channel-0", "src_port_id": "transfer", "dst_chain_id": "ibc-1", "dst_channel_id": "channel-0", "dst_port_id": "transfer"}
+2022-03-25T20:11:21.532996Z	info	No acknowledgements in queue	{"src_chain_id": "ibc-0", "src_channel_id": "channel-0", "src_port_id": "transfer", "dst_chain_id": "ibc-1", "dst_channel_id": "channel-0", "dst_port_id": "transfer"}
+2022-03-25T20:11:22.539200Z	info	No packets in queue	{"src_chain_id": "ibc-0", "src_channel_id": "channel-0", "src_port_id": "transfer", "dst_chain_id": "ibc-1", "dst_channel_id": "channel-0", "dst_port_id": "transfer"}
+2022-03-25T20:11:22.543539Z	info	No acknowledgements in queue	{"src_chain_id": "ibc-0", "src_channel_id": "channel-0", "src_port_id": "transfer", "dst_chain_id": "ibc-1", "dst_channel_id": "channel-0", "dst_port_id": "transfer"}
+```
 
 ---
 
