@@ -520,7 +520,7 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 				return err
 			}
 
-			channel, err := c[src].ChainProvider.QueryChannel(srch, channelID, portID)
+			channel, err := c[src].ChainProvider.QueryChannel(cmd.Context(), srch, channelID, portID)
 			if err != nil {
 				return err
 			}

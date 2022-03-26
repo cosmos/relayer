@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -151,7 +152,7 @@ func chainsRegistryList(a *appState) *cobra.Command {
 				return err
 			}
 
-			chains, err := registry.DefaultChainRegistry().ListChains()
+			chains, err := registry.DefaultChainRegistry(a.Log).ListChains(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -285,7 +286,7 @@ func chainsAddCmd(a *appState) *cobra.Command {
 					return err
 				}
 			default:
-				if err := addChainsFromRegistry(a, args); err != nil {
+				if err := addChainsFromRegistry(cmd.Context(), a, args); err != nil {
 					return err
 				}
 			}
@@ -395,9 +396,9 @@ func addChainFromURL(a *appState, rawurl string) error {
 	return nil
 }
 
-func addChainsFromRegistry(a *appState, chains []string) error {
-	chainRegistry := registry.DefaultChainRegistry()
-	allChains, err := chainRegistry.ListChains()
+func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) error {
+	chainRegistry := registry.DefaultChainRegistry(a.Log)
+	allChains, err := chainRegistry.ListChains(ctx)
 	if err != nil {
 		return err
 	}
@@ -418,7 +419,7 @@ func addChainsFromRegistry(a *appState, chains []string) error {
 				continue
 			}
 
-			chainInfo, err := chainRegistry.GetChain(chain)
+			chainInfo, err := chainRegistry.GetChain(ctx, chain)
 			if err != nil {
 				a.Log.Warn(
 					"Error retrieving chain",
@@ -428,7 +429,7 @@ func addChainsFromRegistry(a *appState, chains []string) error {
 				continue
 			}
 
-			chainConfig, err := chainInfo.GetChainConfig()
+			chainConfig, err := chainInfo.GetChainConfig(ctx)
 			if err != nil {
 				a.Log.Warn(
 					"Error generating chain config",

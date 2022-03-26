@@ -200,12 +200,12 @@ func (p *Path) QueryPathStatus(ctx context.Context, src, dst *Chain) *PathWithSt
 	eg = new(errgroup.Group)
 	eg.Go(func() error {
 		var err error
-		srcCs, err = src.ChainProvider.QueryClientStateResponse(srch, src.ClientID())
+		srcCs, err = src.ChainProvider.QueryClientStateResponse(ctx, srch, src.ClientID())
 		return err
 	})
 	eg.Go(func() error {
 		var err error
-		dstCs, err = dst.ChainProvider.QueryClientStateResponse(dsth, dst.ClientID())
+		dstCs, err = dst.ChainProvider.QueryClientStateResponse(ctx, dsth, dst.ClientID())
 		return err
 	})
 	if err := eg.Wait(); err != nil || srcCs == nil || dstCs == nil {
@@ -215,12 +215,12 @@ func (p *Path) QueryPathStatus(ctx context.Context, src, dst *Chain) *PathWithSt
 
 	eg.Go(func() error {
 		var err error
-		srcConn, err = src.ChainProvider.QueryConnection(srch, src.ConnectionID())
+		srcConn, err = src.ChainProvider.QueryConnection(ctx, srch, src.ConnectionID())
 		return err
 	})
 	eg.Go(func() error {
 		var err error
-		dstConn, err = dst.ChainProvider.QueryConnection(dsth, dst.ConnectionID())
+		dstConn, err = dst.ChainProvider.QueryConnection(ctx, dsth, dst.ConnectionID())
 		return err
 	})
 	if err := eg.Wait(); err != nil || srcConn.Connection.State != conntypes.OPEN ||

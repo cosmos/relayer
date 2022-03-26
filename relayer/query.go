@@ -34,16 +34,16 @@ func QueryLatestHeights(ctx context.Context, src, dst *Chain) (srch, dsth int64,
 }
 
 // QueryConnectionPair returns a pair of connection responses
-func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (srcConn, dstConn *conntypes.QueryConnectionResponse, err error) {
-	var eg = new(errgroup.Group)
+func QueryConnectionPair(ctx context.Context, src, dst *Chain, srcH, dstH int64) (srcConn, dstConn *conntypes.QueryConnectionResponse, err error) {
+	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		var err error
-		srcConn, err = src.ChainProvider.QueryConnection(srcH, src.ConnectionID())
+		srcConn, err = src.ChainProvider.QueryConnection(egCtx, srcH, src.ConnectionID())
 		return err
 	})
 	eg.Go(func() error {
 		var err error
-		dstConn, err = dst.ChainProvider.QueryConnection(dstH, dst.ConnectionID())
+		dstConn, err = dst.ChainProvider.QueryConnection(egCtx, dstH, dst.ConnectionID())
 		return err
 	})
 	err = eg.Wait()
@@ -51,16 +51,16 @@ func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (srcConn, dstConn *c
 }
 
 // QueryChannelPair returns a pair of channel responses
-func QueryChannelPair(src, dst *Chain, srcH, dstH int64, srcChanID, dstChanID, srcPortID, dstPortID string) (srcChan, dstChan *chantypes.QueryChannelResponse, err error) {
-	var eg = new(errgroup.Group)
+func QueryChannelPair(ctx context.Context, src, dst *Chain, srcH, dstH int64, srcChanID, dstChanID, srcPortID, dstPortID string) (srcChan, dstChan *chantypes.QueryChannelResponse, err error) {
+	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		var err error
-		srcChan, err = src.ChainProvider.QueryChannel(srcH, srcChanID, srcPortID)
+		srcChan, err = src.ChainProvider.QueryChannel(egCtx, srcH, srcChanID, srcPortID)
 		return err
 	})
 	eg.Go(func() error {
 		var err error
-		dstChan, err = dst.ChainProvider.QueryChannel(dstH, dstChanID, dstPortID)
+		dstChan, err = dst.ChainProvider.QueryChannel(egCtx, dstH, dstChanID, dstPortID)
 		return err
 	})
 	if err = eg.Wait(); err != nil {
@@ -151,8 +151,8 @@ func GetLightSignedHeadersAtHeights(ctx context.Context, src, dst *Chain, srch, 
 
 // QueryTMClientState retrieves the latest consensus state for a client in state at a given height
 // and unpacks/cast it to tendermint clientstate
-func (c *Chain) QueryTMClientState(height int64) (*tmclient.ClientState, error) {
-	clientStateRes, err := c.ChainProvider.QueryClientStateResponse(height, c.ClientID())
+func (c *Chain) QueryTMClientState(ctx context.Context, height int64) (*tmclient.ClientState, error) {
+	clientStateRes, err := c.ChainProvider.QueryClientStateResponse(ctx, height, c.ClientID())
 	if err != nil {
 		return &tmclient.ClientState{}, err
 	}
