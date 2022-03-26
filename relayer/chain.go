@@ -9,6 +9,8 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/cosmos-sdk/codec"
+	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
+	simparams "github.com/cosmos/cosmos-sdk/simapp/params"
 	"github.com/cosmos/cosmos-sdk/std"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/x/auth"
@@ -18,25 +20,22 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/capability"
 	"github.com/cosmos/cosmos-sdk/x/crisis"
 	"github.com/cosmos/cosmos-sdk/x/distribution"
+	distrclient "github.com/cosmos/cosmos-sdk/x/distribution/client"
+	feegrant "github.com/cosmos/cosmos-sdk/x/feegrant/module"
 	"github.com/cosmos/cosmos-sdk/x/gov"
 	"github.com/cosmos/cosmos-sdk/x/mint"
+	"github.com/cosmos/cosmos-sdk/x/params"
+	paramsclient "github.com/cosmos/cosmos-sdk/x/params/client"
 	"github.com/cosmos/cosmos-sdk/x/slashing"
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	"github.com/cosmos/cosmos-sdk/x/upgrade"
+	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
 	"github.com/cosmos/ibc-go/v3/modules/apps/transfer"
 	ibc "github.com/cosmos/ibc-go/v3/modules/core"
-
-	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
-	simparams "github.com/cosmos/cosmos-sdk/simapp/params"
-	distrclient "github.com/cosmos/cosmos-sdk/x/distribution/client"
-	feegrant "github.com/cosmos/cosmos-sdk/x/feegrant/module"
-	"github.com/cosmos/cosmos-sdk/x/params"
-	paramsclient "github.com/cosmos/cosmos-sdk/x/params/client"
-	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/gogo/protobuf/proto"
-	"github.com/tendermint/tendermint/libs/log"
+	"go.uber.org/zap"
 )
 
 var (
@@ -69,6 +68,8 @@ var (
 // Chain represents the necessary data for connecting to and identifying a chain and its counterparties
 // TODO revise Chain struct
 type Chain struct {
+	log *zap.Logger
+
 	ChainProvider provider.ChainProvider
 	Chainid       string `yaml:"chain-id" json:"chain-id"`
 	RPCAddr       string `yaml:"rpc-addr" json:"rpc-addr"`
@@ -76,8 +77,7 @@ type Chain struct {
 	PathEnd  *PathEnd                 `yaml:"-" json:"-"`
 	Encoding simparams.EncodingConfig `yaml:"-" json:"-"`
 
-	logger log.Logger
-	debug  bool
+	debug bool
 }
 
 func MakeCodec(moduleBasics []module.AppModuleBasic) simparams.EncodingConfig {
@@ -141,19 +141,16 @@ func ValidateConnectionPaths(src, dst *Chain) error {
 	return nil
 }
 
-// Init initializes the pieces of a chain that aren't set when it parses a config
-// NOTE: All validation of the chain should happen here.
-func (c *Chain) Init(logger log.Logger, debug bool) {
-	if logger == nil {
-		// If no logger is provided, that is a programmer error.
-		panic(fmt.Errorf("chain incorrectly initialized without logger"))
+func NewChain(log *zap.Logger, prov provider.ChainProvider, debug bool) *Chain {
+	return &Chain{
+		log: log,
+
+		ChainProvider: prov,
+
+		Encoding: MakeCodec(ModuleBasics),
+
+		debug: debug,
 	}
-
-	c.logger = logger
-	c.debug = debug
-
-	// TODO logging/encoding needs refactored
-	c.Encoding = MakeCodec(ModuleBasics)
 }
 
 func (c *Chain) ChainID() string {
@@ -176,16 +173,6 @@ func (c *Chain) GetSelfVersion() uint64 {
 // GetTrustingPeriod returns the trusting period for the chain
 func (c *Chain) GetTrustingPeriod(ctx context.Context) (time.Duration, error) {
 	return c.ChainProvider.TrustingPeriod(ctx)
-}
-
-// Log takes a string and logs the data
-func (c *Chain) Log(s string) {
-	c.logger.Info(s)
-}
-
-// Error takes an error, wraps it in the chainID and logs the error
-func (c *Chain) Error(err error) {
-	c.logger.Error(fmt.Sprintf("%s: err(%s)", c.ChainID(), err.Error()))
 }
 
 func (c *Chain) String() string {
