@@ -143,7 +143,13 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 	if err := pc.Validate(); err != nil {
 		return nil, err
 	}
-	cc, err := lens.NewChainClient(log, ChainClientConfig(&pc), homepath, os.Stdin, os.Stdout)
+	cc, err := lens.NewChainClient(
+		log.With(zap.String("sys", "chain_client")),
+		ChainClientConfig(&pc),
+		homepath,
+		os.Stdin,
+		os.Stdout,
+	)
 	if err != nil {
 		return nil, err
 	}
