@@ -142,7 +142,7 @@ func TestGaiaToGaiaBasicTransfer(t *testing.T) {
 
 ### Step 4: Get your badge on the README
 
-The [README](../README.md) contains a compatabilty matrix that is populated with
+The [README](../README.md) contains a compatibility matrix that is populated with
 status badges from Github Actions that shows the current status of different
 implementations. If you would like to add yours to this list
 (and if you have gotten this far, YOU SHOULD!!) do the following:
