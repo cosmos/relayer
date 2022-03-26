@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	lens "github.com/strangelove-ventures/lens/client"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
@@ -49,7 +47,7 @@ func (r RelayerTxResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 type KeyProvider interface {
 	CreateKeystore(path string) error
 	KeystoreCreated(path string) bool
-	AddKey(name string, coinType uint32) (output *lens.KeyOutput, err error)
+	AddKey(name string, coinType uint32) (output *KeyOutput, err error)
 	RestoreKey(name, mnemonic string, coinType uint32) (address string, err error)
 	ShowAddress(name string) (address string, err error)
 	ListAddresses() (map[string]string, error)
@@ -162,4 +160,10 @@ type RelayPacket interface {
 	Seq() uint64
 	Timeout() clienttypes.Height
 	TimeoutStamp() uint64
+}
+
+// KeyOutput contains mnemonic and address of key
+type KeyOutput struct {
+	Mnemonic string `json:"mnemonic" yaml:"mnemonic"`
+	Address  string `json:"address" yaml:"address"`
 }

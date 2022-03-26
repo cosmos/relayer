@@ -207,6 +207,23 @@ func (cc *CosmosProvider) Timeout() string {
 	return cc.PCfg.Timeout
 }
 
+func (cc *CosmosProvider) AddKey(name string, coinType uint32) (*provider.KeyOutput, error) {
+	// The lens client returns an equivalent KeyOutput type,
+	// but that type is declared in the lens module,
+	// and relayer's KeyProvider interface references the relayer KeyOutput.
+	//
+	// Translate the lens KeyOutput to a relayer KeyOutput here to satisfy the interface.
+
+	ko, err := cc.ChainClient.AddKey(name, coinType)
+	if err != nil {
+		return nil, err
+	}
+	return &provider.KeyOutput{
+		Mnemonic: ko.Mnemonic,
+		Address:  ko.Address,
+	}, nil
+}
+
 // Address returns the chains configured address as a string
 func (cc *CosmosProvider) Address() (string, error) {
 	var (
