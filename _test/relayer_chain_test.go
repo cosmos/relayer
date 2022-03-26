@@ -45,14 +45,16 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, err)
 
 	// query initial balances to compare against at the end
-	var (
-		eg                       errgroup.Group
-		srcExpected, dstExpected sdk.Coins
-	)
+	var srcExpected, dstExpected sdk.Coins
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		return retry.Do(func() error {
 			var err error
-			srcExpected, err = src.ChainProvider.QueryBalance(context.Background(), src.ChainProvider.Key())
+			srcExpected, err = src.ChainProvider.QueryBalance(egCtx, src.ChainProvider.Key())
 			if srcExpected.IsZero() {
 				return fmt.Errorf("expected non-zero balance. Err: %w", err)
 			}
@@ -62,7 +64,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	eg.Go(func() error {
 		return retry.Do(func() error {
 			var err error
-			dstExpected, err = dst.ChainProvider.QueryBalance(context.Background(), dst.ChainProvider.Key())
+			dstExpected, err = dst.ChainProvider.QueryBalance(egCtx, dst.ChainProvider.Key())
 			if dstExpected.IsZero() {
 				return fmt.Errorf("expected non-zero balance. Err: %w", err)
 			}
@@ -72,26 +74,26 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, eg.Wait())
 
 	// create path
-	_, err = src.CreateClients(context.Background(), dst, true, true, false)
+	_, err = src.CreateClients(ctx, dst, true, true, false)
 	require.NoError(t, err)
-	testClientPair(t, src, dst)
+	testClientPair(ctx, t, src, dst)
 
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(context.Background(), dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
 	require.NoError(t, err)
-	testConnectionPair(t, src, dst)
+	testConnectionPair(ctx, t, src, dst)
 
-	_, err = src.CreateOpenChannels(context.Background(), dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	_, err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
 	require.NoError(t, err)
 
 	// query open channels and ensure there is no error
-	channels, err := src.ChainProvider.QueryConnectionChannels(context.Background(), 0, src.ConnectionID())
+	channels, err := src.ChainProvider.QueryConnectionChannels(ctx, 0, src.ConnectionID())
 	require.NoError(t, err)
 
 	channel := channels[0]
-	testChannelPair(t, src, dst, channel.ChannelId, channel.PortId)
+	testChannelPair(ctx, t, src, dst, channel.ChannelId, channel.PortId)
 
 	// send a couple of transfers to the queue on src
 	dstAddr, err := dst.ChainProvider.Address()
@@ -100,44 +102,39 @@ func chainTest(t *testing.T, tcs []testChain) {
 	srcAddr, err := src.ChainProvider.Address()
 	require.NoError(t, err)
 
-	require.NoError(t, src.SendTransferMsg(context.Background(), dst, testCoin, dstAddr, 0, 0, channel))
-	require.NoError(t, src.SendTransferMsg(context.Background(), dst, testCoin, dstAddr, 0, 0, channel))
+	require.NoError(t, src.SendTransferMsg(ctx, dst, testCoin, dstAddr, 0, 0, channel))
+	require.NoError(t, src.SendTransferMsg(ctx, dst, testCoin, dstAddr, 0, 0, channel))
 
 	// send a couple of transfers to the queue on dst
-	require.NoError(t, dst.SendTransferMsg(context.Background(), src, testCoin, srcAddr, 0, 0, channel))
-	require.NoError(t, dst.SendTransferMsg(context.Background(), src, testCoin, srcAddr, 0, 0, channel))
+	require.NoError(t, dst.SendTransferMsg(ctx, src, testCoin, srcAddr, 0, 0, channel))
+	require.NoError(t, dst.SendTransferMsg(ctx, src, testCoin, srcAddr, 0, 0, channel))
 
 	// Wait for message inclusion in both chains
-	require.NoError(t, dst.ChainProvider.WaitForNBlocks(context.Background(), 1))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(ctx, 1))
 
 	// start the relayer process in it's own goroutine
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	filter := relayer.ChannelFilter{}
 	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
 
 	// Wait for relay message inclusion in both chains
-	require.NoError(t, src.ChainProvider.WaitForNBlocks(context.Background(), 2))
-	require.NoError(t, dst.ChainProvider.WaitForNBlocks(context.Background(), 2))
+	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 2))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(ctx, 2))
 
 	// send those tokens from dst back to dst and src back to src
-	require.NoError(t, src.SendTransferMsg(context.Background(), dst, twoTestCoin, dstAddr, 0, 0, channel))
-	require.NoError(t, dst.SendTransferMsg(context.Background(), src, twoTestCoin, srcAddr, 0, 0, channel))
+	require.NoError(t, src.SendTransferMsg(ctx, dst, twoTestCoin, dstAddr, 0, 0, channel))
+	require.NoError(t, dst.SendTransferMsg(ctx, src, twoTestCoin, srcAddr, 0, 0, channel))
 
 	// wait for packet processing
-	require.NoError(t, dst.ChainProvider.WaitForNBlocks(context.Background(), 6))
-
-	// kill relayer routine
-	cancel()
+	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 6))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(ctx, 6))
 
 	// check balance on src against expected
-	srcGot, err := src.ChainProvider.QueryBalance(context.Background(), src.ChainProvider.Key())
+	srcGot, err := src.ChainProvider.QueryBalance(ctx, src.ChainProvider.Key())
 	require.NoError(t, err)
 	require.Equal(t, srcExpected.AmountOf(testDenom).Int64()-4000, srcGot.AmountOf(testDenom).Int64())
 
 	// check balance on dst against expected
-	dstGot, err := dst.ChainProvider.QueryBalance(context.Background(), dst.ChainProvider.Key())
+	dstGot, err := dst.ChainProvider.QueryBalance(ctx, dst.ChainProvider.Key())
 	require.NoError(t, err)
 	require.Equal(t, dstExpected.AmountOf(testDenom).Int64()-4000, dstGot.AmountOf(testDenom).Int64())
 }
@@ -159,26 +156,29 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 
 	// create path
-	_, err = src.CreateClients(context.Background(), dst, true, true, false)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	_, err = src.CreateClients(ctx, dst, true, true, false)
 	require.NoError(t, err)
-	testClientPair(t, src, dst)
+	testClientPair(ctx, t, src, dst)
 
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(context.Background(), dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
 	require.NoError(t, err)
-	testConnectionPair(t, src, dst)
+	testConnectionPair(ctx, t, src, dst)
 
-	_, err = src.CreateOpenChannels(context.Background(), dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	_, err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
 	require.NoError(t, err)
 
 	// query open channels and ensure there is no error
-	channels, err := src.ChainProvider.QueryConnectionChannels(context.Background(), 0, src.ConnectionID())
+	channels, err := src.ChainProvider.QueryConnectionChannels(ctx, 0, src.ConnectionID())
 	require.NoError(t, err)
 
 	channel := channels[0]
-	testChannelPair(t, src, dst, channel.ChannelId, channel.PortId)
+	testChannelPair(ctx, t, src, dst, channel.ChannelId, channel.PortId)
 
 	expectedSrc := src
 	expectedDst := dst
@@ -189,17 +189,17 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	dst.PathEnd.ClientID = ""
 	dst.PathEnd.ConnectionID = ""
 
-	_, err = src.CreateClients(context.Background(), dst, true, true, false)
+	_, err = src.CreateClients(ctx, dst, true, true, false)
 	require.NoError(t, err)
-	testClientPair(t, src, dst)
+	testClientPair(ctx, t, src, dst)
 
-	_, err = src.CreateOpenConnections(context.Background(), dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
 	require.NoError(t, err)
-	testConnectionPair(t, src, dst)
+	testConnectionPair(ctx, t, src, dst)
 
-	_, err = src.CreateOpenChannels(context.Background(), dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	_, err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
 	require.NoError(t, err)
-	testChannelPair(t, src, dst, channel.ChannelId, channel.PortId)
+	testChannelPair(ctx, t, src, dst, channel.ChannelId, channel.PortId)
 
 	require.Equal(t, expectedSrc, src)
 	require.Equal(t, expectedDst, dst)
@@ -211,9 +211,9 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	src.PathEnd.ClientID = ""
 	dst.PathEnd.ClientID = ""
 
-	_, err = src.CreateClients(context.Background(), dst, true, true, true)
+	_, err = src.CreateClients(ctx, dst, true, true, true)
 	require.NoError(t, err)
-	testClientPair(t, src, dst)
+	testClientPair(ctx, t, src, dst)
 
 	require.NotEqual(t, expectedSrcClient, src.PathEnd.ClientID)
 	require.NotEqual(t, expectedDstClient, dst.PathEnd.ClientID)
@@ -237,45 +237,45 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	require.NoError(t, err)
 
 	// create path
-	_, err = src.CreateClients(context.Background(), dst, true, true, false)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	_, err = src.CreateClients(ctx, dst, true, true, false)
 	require.NoError(t, err)
-	testClientPair(t, src, dst)
+	testClientPair(ctx, t, src, dst)
 
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(context.Background(), dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
 	require.NoError(t, err)
-	testConnectionPair(t, src, dst)
+	testConnectionPair(ctx, t, src, dst)
 
-	_, err = src.CreateOpenChannels(context.Background(), dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	_, err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
 	require.NoError(t, err)
 
 	// query open channels and ensure there is no error
-	channels, err := src.ChainProvider.QueryConnectionChannels(context.Background(), 0, src.ConnectionID())
+	channels, err := src.ChainProvider.QueryConnectionChannels(ctx, 0, src.ConnectionID())
 	require.NoError(t, err)
 
 	channel := channels[0]
-	testChannelPair(t, src, dst, channel.ChannelId, channel.PortId)
+	testChannelPair(ctx, t, src, dst, channel.ChannelId, channel.PortId)
 
 	// start the relayer process in it's own goroutine
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	filter := relayer.ChannelFilter{}
 	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
 
 	// Wait for relay message inclusion in both chains
-	require.NoError(t, src.ChainProvider.WaitForNBlocks(context.Background(), 1))
-	require.NoError(t, dst.ChainProvider.WaitForNBlocks(context.Background(), 1))
+	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 1))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(ctx, 1))
 
-	latestHeight, err := dst.ChainProvider.QueryLatestHeight(context.Background())
+	latestHeight, err := dst.ChainProvider.QueryLatestHeight(ctx)
 	require.NoError(t, err)
 
-	header, err := dst.ChainProvider.QueryHeaderAtHeight(context.Background(), latestHeight)
+	header, err := dst.ChainProvider.QueryHeaderAtHeight(ctx, latestHeight)
 	require.NoError(t, err)
 
-	clientState, err := src.QueryTMClientState(latestHeight)
+	clientState, err := src.QueryTMClientState(ctx, latestHeight)
 	require.NoError(t, err)
 
 	height := clientState.GetLatestHeight().(clienttypes.Height)
@@ -306,18 +306,16 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	updateMsg, err := src.ChainProvider.UpdateClient(src.PathEnd.ClientID, newHeader)
 	require.NoError(t, err)
 
-	res, success, err := src.ChainProvider.SendMessage(context.Background(), updateMsg)
+	res, success, err := src.ChainProvider.SendMessage(ctx, updateMsg)
 	require.NoError(t, err)
 	require.True(t, success)
 	require.Equal(t, uint32(0), res.Code)
 
 	// wait for packet processing
-	require.NoError(t, dst.ChainProvider.WaitForNBlocks(context.Background(), 6))
+	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 6))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(ctx, 6))
 
-	// kill relayer routine
-	cancel()
-
-	clientState, err = src.QueryTMClientState(0)
+	clientState, err = src.QueryTMClientState(ctx, 0)
 	require.NoError(t, err)
 
 	// clientstate should be frozen i.e., clientstate frozenheight should not be zero
@@ -342,14 +340,16 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.NoError(t, err)
 
 	// query initial balances to compare against at the end
-	var (
-		eg                       errgroup.Group
-		srcExpected, dstExpected sdk.Coins
-	)
+	var srcExpected, dstExpected sdk.Coins
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		return retry.Do(func() error {
 			var err error
-			srcExpected, err = src.ChainProvider.QueryBalance(context.Background(), src.ChainProvider.Key())
+			srcExpected, err = src.ChainProvider.QueryBalance(egCtx, src.ChainProvider.Key())
 			if err != nil {
 				return err
 			}
@@ -364,7 +364,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	eg.Go(func() error {
 		return retry.Do(func() error {
 			var err error
-			dstExpected, err = dst.ChainProvider.QueryBalance(context.Background(), dst.ChainProvider.Key())
+			dstExpected, err = dst.ChainProvider.QueryBalance(egCtx, dst.ChainProvider.Key())
 			if err != nil {
 				return err
 			}
@@ -379,25 +379,25 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.NoError(t, eg.Wait())
 
 	// create path
-	_, err = src.CreateClients(context.Background(), dst, true, true, false)
+	_, err = src.CreateClients(ctx, dst, true, true, false)
 	require.NoError(t, err)
-	testClientPair(t, src, dst)
+	testClientPair(ctx, t, src, dst)
 
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(context.Background(), dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
 	require.NoError(t, err)
-	testConnectionPair(t, src, dst)
+	testConnectionPair(ctx, t, src, dst)
 
-	_, err = src.CreateOpenChannels(context.Background(), dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	_, err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenChannels(context.Background(), dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, true)
+	_, err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, true)
 	require.NoError(t, err)
 
 	// query open channels and ensure there are two
-	channels, err := src.ChainProvider.QueryConnectionChannels(context.Background(), 0, src.ConnectionID())
+	channels, err := src.ChainProvider.QueryConnectionChannels(ctx, 0, src.ConnectionID())
 	require.NoError(t, err)
 	require.Equal(t, 2, len(channels))
 
@@ -411,56 +411,51 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	srcAddr, err := src.ChainProvider.Address()
 	require.NoError(t, err)
 
-	require.NoError(t, src.SendTransferMsg(context.Background(), dst, testCoin, dstAddr, 0, 0, channelOne))
-	require.NoError(t, src.SendTransferMsg(context.Background(), dst, testCoin, dstAddr, 0, 0, channelOne))
+	require.NoError(t, src.SendTransferMsg(ctx, dst, testCoin, dstAddr, 0, 0, channelOne))
+	require.NoError(t, src.SendTransferMsg(ctx, dst, testCoin, dstAddr, 0, 0, channelOne))
 
 	// send a couple of transfers to the queue on dst for first channel
-	require.NoError(t, dst.SendTransferMsg(context.Background(), src, testCoin, srcAddr, 0, 0, channelOne))
-	require.NoError(t, dst.SendTransferMsg(context.Background(), src, testCoin, srcAddr, 0, 0, channelOne))
+	require.NoError(t, dst.SendTransferMsg(ctx, src, testCoin, srcAddr, 0, 0, channelOne))
+	require.NoError(t, dst.SendTransferMsg(ctx, src, testCoin, srcAddr, 0, 0, channelOne))
 
 	// send a couple of transfers to the queue on src for second channel
-	require.NoError(t, src.SendTransferMsg(context.Background(), dst, testCoin, dstAddr, 0, 0, channelTwo))
-	require.NoError(t, src.SendTransferMsg(context.Background(), dst, testCoin, dstAddr, 0, 0, channelTwo))
+	require.NoError(t, src.SendTransferMsg(ctx, dst, testCoin, dstAddr, 0, 0, channelTwo))
+	require.NoError(t, src.SendTransferMsg(ctx, dst, testCoin, dstAddr, 0, 0, channelTwo))
 
 	// send a couple of transfers to the queue on dst for second channel
-	require.NoError(t, dst.SendTransferMsg(context.Background(), src, testCoin, srcAddr, 0, 0, channelTwo))
-	require.NoError(t, dst.SendTransferMsg(context.Background(), src, testCoin, srcAddr, 0, 0, channelTwo))
+	require.NoError(t, dst.SendTransferMsg(ctx, src, testCoin, srcAddr, 0, 0, channelTwo))
+	require.NoError(t, dst.SendTransferMsg(ctx, src, testCoin, srcAddr, 0, 0, channelTwo))
 
 	// Wait for message inclusion in both chains
-	require.NoError(t, dst.ChainProvider.WaitForNBlocks(context.Background(), 1))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(ctx, 1))
 
 	// start the relayer process in it's own goroutine
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	filter := relayer.ChannelFilter{}
 	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
 
 	// Wait for relay message inclusion in both chains
-	require.NoError(t, src.ChainProvider.WaitForNBlocks(context.Background(), 1))
-	require.NoError(t, dst.ChainProvider.WaitForNBlocks(context.Background(), 1))
+	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 1))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(ctx, 1))
 
 	// send those tokens from dst back to dst and src back to src for first channel
-	require.NoError(t, src.SendTransferMsg(context.Background(), dst, twoTestCoin, dstAddr, 0, 0, channelOne))
-	require.NoError(t, dst.SendTransferMsg(context.Background(), src, twoTestCoin, srcAddr, 0, 0, channelOne))
+	require.NoError(t, src.SendTransferMsg(ctx, dst, twoTestCoin, dstAddr, 0, 0, channelOne))
+	require.NoError(t, dst.SendTransferMsg(ctx, src, twoTestCoin, srcAddr, 0, 0, channelOne))
 
 	// send those tokens from dst back to dst and src back to src for second channel
-	require.NoError(t, src.SendTransferMsg(context.Background(), dst, twoTestCoin, dstAddr, 0, 0, channelTwo))
-	require.NoError(t, dst.SendTransferMsg(context.Background(), src, twoTestCoin, srcAddr, 0, 0, channelTwo))
+	require.NoError(t, src.SendTransferMsg(ctx, dst, twoTestCoin, dstAddr, 0, 0, channelTwo))
+	require.NoError(t, dst.SendTransferMsg(ctx, src, twoTestCoin, srcAddr, 0, 0, channelTwo))
 
 	// wait for packet processing
-	require.NoError(t, dst.ChainProvider.WaitForNBlocks(context.Background(), 6))
-
-	// kill relayer routine
-	cancel()
+	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 6))
+	require.NoError(t, dst.ChainProvider.WaitForNBlocks(ctx, 6))
 
 	// check balance on src against expected
-	srcGot, err := src.ChainProvider.QueryBalance(context.Background(), src.ChainProvider.Key())
+	srcGot, err := src.ChainProvider.QueryBalance(ctx, src.ChainProvider.Key())
 	require.NoError(t, err)
 	require.Equal(t, srcExpected.AmountOf(testDenom).Int64()-8000, srcGot.AmountOf(testDenom).Int64())
 
 	// check balance on dst against expected
-	dstGot, err := dst.ChainProvider.QueryBalance(context.Background(), dst.ChainProvider.Key())
+	dstGot, err := dst.ChainProvider.QueryBalance(ctx, dst.ChainProvider.Key())
 	require.NoError(t, err)
 	require.Equal(t, dstExpected.AmountOf(testDenom).Int64()-8000, dstGot.AmountOf(testDenom).Int64())
 }

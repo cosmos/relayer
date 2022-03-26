@@ -113,7 +113,7 @@ func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Durati
 // not supported. Queries with a client context height of 0 will perform a query
 // at the lastest state available.
 // Issue: https://github.com/cosmos/cosmos-sdk/issues/6567
-func (cc *CosmosProvider) QueryTendermintProof(height int64, key []byte) ([]byte, []byte, clienttypes.Height, error) {
+func (cc *CosmosProvider) QueryTendermintProof(ctx context.Context, height int64, key []byte) ([]byte, []byte, clienttypes.Height, error) {
 	// ABCI queries at heights 1, 2 or less than or equal to 0 are not supported.
 	// Base app does not support queries for height less than or equal to 1.
 	// Therefore, a query at height 2 would be equivalent to a query at height 3.
@@ -135,7 +135,7 @@ func (cc *CosmosProvider) QueryTendermintProof(height int64, key []byte) ([]byte
 		Prove:  true,
 	}
 
-	res, err := cc.QueryABCI(req)
+	res, err := cc.QueryABCI(ctx, req)
 	if err != nil {
 		return nil, nil, clienttypes.Height{}, err
 	}
@@ -157,10 +157,10 @@ func (cc *CosmosProvider) QueryTendermintProof(height int64, key []byte) ([]byte
 }
 
 // QueryClientStateResponse retrieves the latest consensus state for a client in state at a given height
-func (cc *CosmosProvider) QueryClientStateResponse(height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
+func (cc *CosmosProvider) QueryClientStateResponse(ctx context.Context, height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
 	key := host.FullClientStateKey(srcClientId)
 
-	value, proofBz, proofHeight, err := cc.QueryTendermintProof(height, key)
+	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
 	if err != nil {
 		return nil, err
 	}
@@ -191,8 +191,8 @@ func (cc *CosmosProvider) QueryClientStateResponse(height int64, srcClientId str
 
 // QueryClientState retrieves the latest consensus state for a client in state at a given height
 // and unpacks it to exported client state interface
-func (cc *CosmosProvider) QueryClientState(height int64, clientid string) (ibcexported.ClientState, error) {
-	clientStateRes, err := cc.QueryClientStateResponse(height, clientid)
+func (cc *CosmosProvider) QueryClientState(ctx context.Context, height int64, clientid string) (ibcexported.ClientState, error) {
+	clientStateRes, err := cc.QueryClientStateResponse(ctx, height, clientid)
 	if err != nil {
 		return nil, err
 	}
@@ -206,10 +206,10 @@ func (cc *CosmosProvider) QueryClientState(height int64, clientid string) (ibcex
 }
 
 // QueryClientConsensusState retrieves the latest consensus state for a client in state at a given height
-func (cc *CosmosProvider) QueryClientConsensusState(chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
+func (cc *CosmosProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
 	key := host.FullConsensusStateKey(clientid, clientHeight)
 
-	value, proofBz, proofHeight, err := cc.QueryTendermintProof(chainHeight, key)
+	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, chainHeight, key)
 	if err != nil {
 		return nil, err
 	}
@@ -265,8 +265,8 @@ func (cc *CosmosProvider) NewClientState(dstUpdateHeader ibcexported.Header, dst
 
 // QueryUpgradeProof performs an abci query with the given key and returns the proto encoded merkle proof
 // for the query and the height at which the proof will succeed on a tendermint verifier.
-func (cc *CosmosProvider) QueryUpgradeProof(key []byte, height uint64) ([]byte, clienttypes.Height, error) {
-	res, err := cc.QueryABCI(abci.RequestQuery{
+func (cc *CosmosProvider) QueryUpgradeProof(ctx context.Context, key []byte, height uint64) ([]byte, clienttypes.Height, error) {
+	res, err := cc.QueryABCI(ctx, abci.RequestQuery{
 		Path:   "store/upgrade/key",
 		Height: int64(height - 1),
 		Data:   key,
@@ -312,7 +312,7 @@ func (cc *CosmosProvider) QueryUpgradedClient(ctx context.Context, height int64)
 		return nil, fmt.Errorf("upgraded client state plan does not exist at height %d", height)
 	}
 
-	proof, proofHeight, err := cc.QueryUpgradeProof(upgradetypes.UpgradedClientKey(height), uint64(height))
+	proof, proofHeight, err := cc.QueryUpgradeProof(ctx, upgradetypes.UpgradedClientKey(height), uint64(height))
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +339,7 @@ func (cc *CosmosProvider) QueryUpgradedConsState(ctx context.Context, height int
 		return nil, fmt.Errorf("upgraded consensus state plan does not exist at height %d", height)
 	}
 
-	proof, proofHeight, err := cc.QueryUpgradeProof(upgradetypes.UpgradedConsStateKey(height), uint64(height))
+	proof, proofHeight, err := cc.QueryUpgradeProof(ctx, upgradetypes.UpgradedConsStateKey(height), uint64(height))
 	if err != nil {
 		return nil, err
 	}
@@ -391,8 +391,8 @@ func (cc *CosmosProvider) QueryClients(ctx context.Context) (clienttypes.Identif
 }
 
 // QueryConnection returns the remote end of a given connection
-func (cc *CosmosProvider) QueryConnection(height int64, connectionid string) (*conntypes.QueryConnectionResponse, error) {
-	res, err := cc.queryConnectionABCI(height, connectionid)
+func (cc *CosmosProvider) QueryConnection(ctx context.Context, height int64, connectionid string) (*conntypes.QueryConnectionResponse, error) {
+	res, err := cc.queryConnectionABCI(ctx, height, connectionid)
 	if err != nil && strings.Contains(err.Error(), "not found") {
 		return &conntypes.QueryConnectionResponse{
 			Connection: &conntypes.ConnectionEnd{
@@ -415,10 +415,10 @@ func (cc *CosmosProvider) QueryConnection(height int64, connectionid string) (*c
 	return res, nil
 }
 
-func (cc *CosmosProvider) queryConnectionABCI(height int64, connectionID string) (*conntypes.QueryConnectionResponse, error) {
+func (cc *CosmosProvider) queryConnectionABCI(ctx context.Context, height int64, connectionID string) (*conntypes.QueryConnectionResponse, error) {
 	key := host.ConnectionKey(connectionID)
 
-	value, proofBz, proofHeight, err := cc.QueryTendermintProof(height, key)
+	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
 	if err != nil {
 		return nil, err
 	}
@@ -467,7 +467,7 @@ func (cc *CosmosProvider) QueryConnectionsUsingClient(ctx context.Context, heigh
 
 // GenerateConnHandshakeProof generates all the proofs needed to prove the existence of the
 // connection state on this chain. A counterparty should use these generated proofs.
-func (cc *CosmosProvider) GenerateConnHandshakeProof(height int64, clientId, connId string) (clientState ibcexported.ClientState, clientStateProof []byte, consensusProof []byte, connectionProof []byte, connectionProofHeight ibcexported.Height, err error) {
+func (cc *CosmosProvider) GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string) (clientState ibcexported.ClientState, clientStateProof []byte, consensusProof []byte, connectionProof []byte, connectionProofHeight ibcexported.Height, err error) {
 	var (
 		clientStateRes     *clienttypes.QueryClientStateResponse
 		consensusStateRes  *clienttypes.QueryConsensusStateResponse
@@ -476,7 +476,7 @@ func (cc *CosmosProvider) GenerateConnHandshakeProof(height int64, clientId, con
 	)
 
 	// query for the client state for the proof and get the height to query the consensus state at.
-	clientStateRes, err = cc.QueryClientStateResponse(height, clientId)
+	clientStateRes, err = cc.QueryClientStateResponse(ctx, height, clientId)
 	if err != nil {
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
@@ -488,12 +488,12 @@ func (cc *CosmosProvider) GenerateConnHandshakeProof(height int64, clientId, con
 
 	eg.Go(func() error {
 		var err error
-		consensusStateRes, err = cc.QueryClientConsensusState(height, clientId, clientState.GetLatestHeight())
+		consensusStateRes, err = cc.QueryClientConsensusState(ctx, height, clientId, clientState.GetLatestHeight())
 		return err
 	})
 	eg.Go(func() error {
 		var err error
-		connectionStateRes, err = cc.QueryConnection(height, connId)
+		connectionStateRes, err = cc.QueryConnection(ctx, height, connId)
 		return err
 	})
 
@@ -505,8 +505,8 @@ func (cc *CosmosProvider) GenerateConnHandshakeProof(height int64, clientId, con
 }
 
 // QueryChannel returns the channel associated with a channelID
-func (cc *CosmosProvider) QueryChannel(height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
-	res, err := cc.queryChannelABCI(height, portid, channelid)
+func (cc *CosmosProvider) QueryChannel(ctx context.Context, height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
+	res, err := cc.queryChannelABCI(ctx, height, portid, channelid)
 	if err != nil && strings.Contains(err.Error(), "not found") {
 
 		return &chantypes.QueryChannelResponse{
@@ -532,10 +532,10 @@ func (cc *CosmosProvider) QueryChannel(height int64, channelid, portid string) (
 	return res, nil
 }
 
-func (cc *CosmosProvider) queryChannelABCI(height int64, portID, channelID string) (*chantypes.QueryChannelResponse, error) {
+func (cc *CosmosProvider) queryChannelABCI(ctx context.Context, height int64, portID, channelID string) (*chantypes.QueryChannelResponse, error) {
 	key := host.ChannelKey(portID, channelID)
 
-	value, proofBz, proofHeight, err := cc.QueryTendermintProof(height, key)
+	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
 	if err != nil {
 		return nil, err
 	}
@@ -657,10 +657,10 @@ func (cc *CosmosProvider) QueryUnreceivedAcknowledgements(ctx context.Context, h
 }
 
 // QueryNextSeqRecv returns the next seqRecv for a configured channel
-func (cc *CosmosProvider) QueryNextSeqRecv(height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
+func (cc *CosmosProvider) QueryNextSeqRecv(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
 	key := host.NextSequenceRecvKey(portid, channelid)
 
-	value, proofBz, proofHeight, err := cc.QueryTendermintProof(height, key)
+	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
 	if err != nil {
 		return nil, err
 	}
@@ -680,10 +680,10 @@ func (cc *CosmosProvider) QueryNextSeqRecv(height int64, channelid, portid strin
 }
 
 // QueryPacketCommitment returns the packet commitment proof at a given height
-func (cc *CosmosProvider) QueryPacketCommitment(height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error) {
+func (cc *CosmosProvider) QueryPacketCommitment(ctx context.Context, height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error) {
 	key := host.PacketCommitmentKey(portid, channelid, seq)
 
-	value, proofBz, proofHeight, err := cc.QueryTendermintProof(height, key)
+	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
 	if err != nil {
 		return nil, err
 	}
@@ -701,10 +701,10 @@ func (cc *CosmosProvider) QueryPacketCommitment(height int64, channelid, portid 
 }
 
 // QueryPacketAcknowledgement returns the packet ack proof at a given height
-func (cc *CosmosProvider) QueryPacketAcknowledgement(height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
+func (cc *CosmosProvider) QueryPacketAcknowledgement(ctx context.Context, height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
 	key := host.PacketAcknowledgementKey(portid, channelid, seq)
 
-	value, proofBz, proofHeight, err := cc.QueryTendermintProof(height, key)
+	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
 	if err != nil {
 		return nil, err
 	}
@@ -721,10 +721,10 @@ func (cc *CosmosProvider) QueryPacketAcknowledgement(height int64, channelid, po
 }
 
 // QueryPacketReceipt returns the packet receipt proof at a given height
-func (cc *CosmosProvider) QueryPacketReceipt(height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
+func (cc *CosmosProvider) QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
 	key := host.PacketReceiptKey(portid, channelid, seq)
 
-	value, proofBz, proofHeight, err := cc.QueryTendermintProof(height, key)
+	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
 	if err != nil {
 		return nil, err
 	}

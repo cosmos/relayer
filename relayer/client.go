@@ -182,7 +182,7 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 	} else {
 		// Ensure client exists in the event of user inputted identifiers
 		// TODO: check client is not expired
-		_, err := src.ChainProvider.QueryClientStateResponse(int64(srcUpdateHeader.GetHeight().GetRevisionHeight()), src.ClientID())
+		_, err := src.ChainProvider.QueryClientStateResponse(ctx, int64(srcUpdateHeader.GetHeight().GetRevisionHeight()), src.ClientID())
 		if err != nil {
 			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
 				src.PathEnd.ClientID, src.ChainID(), err)

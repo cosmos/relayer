@@ -58,7 +58,7 @@ func (c *Chain) CreateOpenChannels(ctx context.Context, dst *Chain, maxRetries u
 				if err != nil {
 					return modified, err
 				}
-				srcChan, dstChan, err := QueryChannelPair(c, dst, srch, dsth, srcChannelID, dstChannelID, srcPortID, dstPortID)
+				srcChan, dstChan, err := QueryChannelPair(ctx, c, dst, srch, dsth, srcChannelID, dstChannelID, srcPortID, dstPortID)
 				if err != nil {
 					return modified, err
 				}
@@ -136,7 +136,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 	}
 
 	// Query Channel data from src and dst
-	srcChan, dstChan, err := QueryChannelPair(src, dst, srch-1, dsth-1, srcChanID, dstChanID, srcPortID, dstPortID)
+	srcChan, dstChan, err := QueryChannelPair(ctx, src, dst, srch-1, dsth-1, srcChanID, dstChanID, srcPortID, dstPortID)
 	if err != nil {
 		return srcChanID, dstChanID, false, false, false, err
 	}
@@ -624,7 +624,7 @@ func (c *Chain) CloseChannel(ctx context.Context, dst *Chain, to time.Duration, 
 				return err
 			}
 
-			srcChan, dstChan, err := QueryChannelPair(c, dst, srch, dsth, srcChanID, dstChanID, srcPortID, dstPortID)
+			srcChan, dstChan, err := QueryChannelPair(ctx, c, dst, srch, dsth, srcChanID, dstChanID, srcPortID, dstPortID)
 			if err != nil {
 				return err
 			}
@@ -664,7 +664,7 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 	dstChanID := srcChan.Channel.Counterparty.ChannelId
 	dstPortID := srcChan.Channel.Counterparty.PortId
 
-	dstChan, err := dst.ChainProvider.QueryChannel(dsth, dstChanID, dstPortID)
+	dstChan, err := dst.ChainProvider.QueryChannel(ctx, dsth, dstChanID, dstPortID)
 	if err != nil {
 		return nil, err
 	}
@@ -744,7 +744,7 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 				return nil, err
 			}
 
-			chanCloseConfirm, err := dst.ChainProvider.ChannelCloseConfirm(c.ChainProvider, srch, srcChanID, srcPortID, dstPortID, dstChanID)
+			chanCloseConfirm, err := dst.ChainProvider.ChannelCloseConfirm(ctx, c.ChainProvider, srch, srcChanID, srcPortID, dstPortID, dstChanID)
 			if err != nil {
 				return nil, err
 			}
@@ -778,7 +778,7 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 				return nil, err
 			}
 
-			chanCloseConfirm, err := c.ChainProvider.ChannelCloseConfirm(dst.ChainProvider, dsth, dstChanID, dstPortID, srcPortID, srcChanID)
+			chanCloseConfirm, err := c.ChainProvider.ChannelCloseConfirm(ctx, dst.ChainProvider, dsth, dstChanID, dstPortID, srcPortID, srcChanID)
 			if err != nil {
 				return nil, err
 			}

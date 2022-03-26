@@ -656,12 +656,12 @@ func (c *Config) ValidatePathEnd(ctx context.Context, stderr io.Writer, pe *rela
 	}
 
 	if pe.ClientID != "" {
-		if err := c.ValidateClient(chain, height, pe); err != nil {
+		if err := c.ValidateClient(ctx, chain, height, pe); err != nil {
 			return err
 		}
 
 		if pe.ConnectionID != "" {
-			if err := c.ValidateConnection(chain, height, pe); err != nil {
+			if err := c.ValidateConnection(ctx, chain, height, pe); err != nil {
 				return err
 			}
 		}
@@ -675,12 +675,12 @@ func (c *Config) ValidatePathEnd(ctx context.Context, stderr io.Writer, pe *rela
 }
 
 // ValidateClient validates client id in provided pathend
-func (c *Config) ValidateClient(chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
+func (c *Config) ValidateClient(ctx context.Context, chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
 	if err := pe.Vclient(); err != nil {
 		return err
 	}
 
-	_, err := chain.ChainProvider.QueryClientStateResponse(height, pe.ClientID)
+	_, err := chain.ChainProvider.QueryClientStateResponse(ctx, height, pe.ClientID)
 	if err != nil {
 		return err
 	}
@@ -689,12 +689,12 @@ func (c *Config) ValidateClient(chain *relayer.Chain, height int64, pe *relayer.
 }
 
 // ValidateConnection validates connection id in provided pathend
-func (c *Config) ValidateConnection(chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
+func (c *Config) ValidateConnection(ctx context.Context, chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
 	if err := pe.Vconn(); err != nil {
 		return err
 	}
 
-	connection, err := chain.ChainProvider.QueryConnection(height, pe.ConnectionID)
+	connection, err := chain.ChainProvider.QueryConnection(ctx, height, pe.ConnectionID)
 	if err != nil {
 		return err
 	}
