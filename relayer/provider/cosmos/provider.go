@@ -143,7 +143,13 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 	if err := pc.Validate(); err != nil {
 		return nil, err
 	}
-	cc, err := lens.NewChainClient(ChainClientConfig(&pc), homepath, os.Stdin, os.Stdout)
+	cc, err := lens.NewChainClient(
+		log.With(zap.String("sys", "chain_client")),
+		ChainClientConfig(&pc),
+		homepath,
+		os.Stdin,
+		os.Stdout,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -199,6 +205,23 @@ func (cc *CosmosProvider) Key() string {
 
 func (cc *CosmosProvider) Timeout() string {
 	return cc.PCfg.Timeout
+}
+
+func (cc *CosmosProvider) AddKey(name string, coinType uint32) (*provider.KeyOutput, error) {
+	// The lens client returns an equivalent KeyOutput type,
+	// but that type is declared in the lens module,
+	// and relayer's KeyProvider interface references the relayer KeyOutput.
+	//
+	// Translate the lens KeyOutput to a relayer KeyOutput here to satisfy the interface.
+
+	ko, err := cc.ChainClient.AddKey(name, coinType)
+	if err != nil {
+		return nil, err
+	}
+	return &provider.KeyOutput{
+		Mnemonic: ko.Mnemonic,
+		Address:  ko.Address,
+	}, nil
 }
 
 // Address returns the chains configured address as a string
@@ -355,7 +378,7 @@ func (cc *CosmosProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvide
 		return nil, err
 	}
 
-	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(cph, dstClientId, dstConnId)
+	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(ctx, cph, dstClientId, dstConnId)
 	if err != nil {
 		return nil, err
 	}
@@ -413,7 +436,7 @@ func (cc *CosmosProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvide
 	}
 
 	clientState, clientStateProof, consensusStateProof, connStateProof,
-		proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(cph, dstClientId, dstConnId)
+		proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(ctx, cph, dstClientId, dstConnId)
 	if err != nil {
 		return nil, err
 	}
@@ -460,7 +483,7 @@ func (cc *CosmosProvider) ConnectionOpenConfirm(ctx context.Context, dstQueryPro
 	if err != nil {
 		return nil, err
 	}
-	counterpartyConnState, err := dstQueryProvider.QueryConnection(cph, dstConnId)
+	counterpartyConnState, err := dstQueryProvider.QueryConnection(ctx, cph, dstConnId)
 	if err != nil {
 		return nil, err
 	}
@@ -525,7 +548,7 @@ func (cc *CosmosProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider p
 		return nil, err
 	}
 
-	counterpartyChannelRes, err := dstQueryProvider.QueryChannel(cph, dstChanId, dstPortId)
+	counterpartyChannelRes, err := dstQueryProvider.QueryChannel(ctx, cph, dstChanId, dstPortId)
 	if err != nil {
 		return nil, err
 	}
@@ -571,7 +594,7 @@ func (cc *CosmosProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider p
 		return nil, err
 	}
 
-	counterpartyChannelRes, err := dstQueryProvider.QueryChannel(cph, dstChanId, dstPortId)
+	counterpartyChannelRes, err := dstQueryProvider.QueryChannel(ctx, cph, dstChanId, dstPortId)
 	if err != nil {
 		return nil, err
 	}
@@ -607,7 +630,7 @@ func (cc *CosmosProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvid
 		return nil, err
 	}
 
-	counterpartyChanState, err := dstQueryProvider.QueryChannel(cph, dstChanId, dstPortId)
+	counterpartyChanState, err := dstQueryProvider.QueryChannel(ctx, cph, dstChanId, dstPortId)
 	if err != nil {
 		return nil, err
 	}
@@ -645,12 +668,12 @@ func (cc *CosmosProvider) ChannelCloseInit(srcPortId, srcChanId string) (provide
 	return NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) ChannelCloseConfirm(dstQueryProvider provider.QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ChannelCloseConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
 	)
-	dstChanResp, err := dstQueryProvider.QueryChannel(dsth, dstChanId, dstPortId)
+	dstChanResp, err := dstQueryProvider.QueryChannel(ctx, dsth, dstChanId, dstPortId)
 	if err != nil {
 		return nil, err
 	}
@@ -721,7 +744,7 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 
 	// retrieve dst client from src chain
 	// this is the client that will be updated
-	cs, err := dst.QueryClientState(int64(h.TrustedHeight.RevisionHeight), dstClientId)
+	cs, err := dst.QueryClientState(ctx, int64(h.TrustedHeight.RevisionHeight), dstClientId)
 	if err != nil {
 		return nil, err
 	}
@@ -758,7 +781,7 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 
 // MsgRelayAcknowledgement constructs the MsgAcknowledgement which is to be sent to the sending chain.
 // The counterparty represents the receiving chain where the acknowledgement would be stored.
-func (cc *CosmosProvider) MsgRelayAcknowledgement(dst provider.ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet provider.RelayPacket) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) MsgRelayAcknowledgement(ctx context.Context, dst provider.ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet provider.RelayPacket) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -772,7 +795,7 @@ func (cc *CosmosProvider) MsgRelayAcknowledgement(dst provider.ChainProvider, ds
 		return nil, err
 	}
 
-	ackRes, err := dst.QueryPacketAcknowledgement(dsth, dstChanId, dstPortId, packet.Seq())
+	ackRes, err := dst.QueryPacketAcknowledgement(ctx, dsth, dstChanId, dstPortId, packet.Seq())
 	switch {
 	case err != nil:
 		return nil, err
@@ -833,7 +856,7 @@ func (cc *CosmosProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcP
 // MsgRelayTimeout constructs the MsgTimeout which is to be sent to the sending chain.
 // The counterparty represents the receiving chain where the receipts would have been
 // stored.
-func (cc *CosmosProvider) MsgRelayTimeout(dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) MsgRelayTimeout(ctx context.Context, dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -842,7 +865,7 @@ func (cc *CosmosProvider) MsgRelayTimeout(dst provider.ChainProvider, dsth int64
 		return nil, err
 	}
 
-	recvRes, err := dst.QueryPacketReceipt(dsth, dstChanId, dstPortId, packet.Seq())
+	recvRes, err := dst.QueryPacketReceipt(ctx, dsth, dstChanId, dstPortId, packet.Seq())
 	switch {
 	case err != nil:
 		return nil, err
@@ -874,7 +897,7 @@ func (cc *CosmosProvider) MsgRelayTimeout(dst provider.ChainProvider, dsth int64
 
 // MsgRelayRecvPacket constructs the MsgRecvPacket which is to be sent to the receiving chain.
 // The counterparty represents the sending chain where the packet commitment would be stored.
-func (cc *CosmosProvider) MsgRelayRecvPacket(dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -883,7 +906,7 @@ func (cc *CosmosProvider) MsgRelayRecvPacket(dst provider.ChainProvider, dsth in
 		return nil, err
 	}
 
-	comRes, err := dst.QueryPacketCommitment(dsth, dstChanId, dstPortId, packet.Seq())
+	comRes, err := dst.QueryPacketCommitment(ctx, dsth, dstChanId, dstPortId, packet.Seq())
 	switch {
 	case err != nil:
 		return nil, err
@@ -940,7 +963,7 @@ func (cc *CosmosProvider) RelayPacketFromSequence(ctx context.Context, src, dst 
 			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
 		}
 
-		packet, err := dst.MsgRelayRecvPacket(src, int64(srch), pkt, srcChanId, srcPortId, dstChanId, dstPortId)
+		packet, err := dst.MsgRelayRecvPacket(ctx, src, int64(srch), pkt, srcChanId, srcPortId, dstChanId, dstPortId)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -954,7 +977,7 @@ func (cc *CosmosProvider) RelayPacketFromSequence(ctx context.Context, src, dst 
 			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
 		}
 
-		timeout, err := src.MsgRelayTimeout(dst, int64(dsth), pkt, dstChanId, dstPortId, srcChanId, srcPortId)
+		timeout, err := src.MsgRelayTimeout(ctx, dst, int64(dsth), pkt, dstChanId, dstPortId, srcChanId, srcPortId)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -989,7 +1012,7 @@ func (cc *CosmosProvider) AcknowledgementFromSequence(ctx context.Context, dst p
 		if seq != ack.Seq() {
 			continue
 		}
-		msg, err := cc.MsgRelayAcknowledgement(dst, dstChanId, dstPortId, srcChanId, srcPortId, int64(dsth), ack)
+		msg, err := cc.MsgRelayAcknowledgement(ctx, dst, dstChanId, dstPortId, srcChanId, srcPortId, int64(dsth), ack)
 		if err != nil {
 			return nil, err
 		}
@@ -1184,7 +1207,7 @@ func (cc *CosmosProvider) AutoUpdateClient(ctx context.Context, dst provider.Cha
 		return 0, err
 	}
 
-	clientState, err := cc.queryTMClientState(srch, srcClientId)
+	clientState, err := cc.queryTMClientState(ctx, srch, srcClientId)
 	if err != nil {
 		return 0, err
 	}
@@ -1199,10 +1222,10 @@ func (cc *CosmosProvider) AutoUpdateClient(ctx context.Context, dst provider.Cha
 		if clientState == nil {
 			return fmt.Errorf("client state for chain (%s) at height (%d) cannot be nil", cc.ChainId(), srch)
 		}
-		consensusStateResp, err = cc.QueryConsensusStateABCI(srcClientId, clientState.GetLatestHeight())
+		consensusStateResp, err = cc.QueryConsensusStateABCI(ctx, srcClientId, clientState.GetLatestHeight())
 		return err
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		clientState, err = cc.queryTMClientState(srch, srcClientId)
+		clientState, err = cc.queryTMClientState(ctx, srch, srcClientId)
 		if err != nil {
 			clientState = nil
 		}
@@ -1319,7 +1342,7 @@ func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty p
 		if isMatchingClient(*tmClientState, *existingClientState) && existingClientState.FrozenHeight.IsZero() {
 
 			// query the latest consensus state of the potential matching client
-			consensusStateResp, err := cc.QueryConsensusStateABCI(identifiedClientState.ClientId, existingClientState.GetLatestHeight())
+			consensusStateResp, err := cc.QueryConsensusStateABCI(ctx, identifiedClientState.ClientId, existingClientState.GetLatestHeight())
 			if err != nil {
 				cc.log.Debug(
 					"Failed to query latest consensus state for existing client on chain",
@@ -1382,10 +1405,10 @@ func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty p
 	return "", false
 }
 
-func (cc *CosmosProvider) QueryConsensusStateABCI(clientID string, height ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
+func (cc *CosmosProvider) QueryConsensusStateABCI(ctx context.Context, clientID string, height ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
 	key := host.FullConsensusStateKey(clientID, height)
 
-	value, proofBz, proofHeight, err := cc.QueryTendermintProof(int64(height.GetRevisionHeight()), key)
+	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height.GetRevisionHeight()), key)
 	if err != nil {
 		return nil, err
 	}
@@ -1438,8 +1461,8 @@ func isMatchingConsensusState(consensusStateA, consensusStateB *tmclient.Consens
 
 // queryTMClientState retrieves the latest consensus state for a client in state at a given height
 // and unpacks/cast it to tendermint clientstate
-func (cc *CosmosProvider) queryTMClientState(srch int64, srcClientId string) (*tmclient.ClientState, error) {
-	clientStateRes, err := cc.QueryClientStateResponse(srch, srcClientId)
+func (cc *CosmosProvider) queryTMClientState(ctx context.Context, srch int64, srcClientId string) (*tmclient.ClientState, error) {
+	clientStateRes, err := cc.QueryClientStateResponse(ctx, srch, srcClientId)
 	if err != nil {
 		return &tmclient.ClientState{}, err
 	}
@@ -1526,7 +1549,7 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 	// TODO: This is related to GRPC client stuff?
 	// https://github.com/cosmos/cosmos-sdk/blob/5725659684fc93790a63981c653feee33ecf3225/client/tx/tx.go#L297
 	// If users pass gas adjustment, then calculate gas
-	_, adjusted, err := cc.CalculateGas(txf, CosmosMsgs(msgs...)...)
+	_, adjusted, err := cc.CalculateGas(ctx, txf, CosmosMsgs(msgs...)...)
 	if err != nil {
 		return nil, false, err
 	}

@@ -74,7 +74,12 @@ $ %s k a ibc-2 testkey`, appName, appName, appName)),
 				return errKeyExists(keyName)
 			}
 
-			ko, err := chain.ChainProvider.AddKey(keyName)
+			coinType, err := cmd.Flags().GetUint32(flagCoinType)
+			if err != nil {
+				return err
+			}
+
+			ko, err := chain.ChainProvider.AddKey(keyName, coinType)
 			if err != nil {
 				return fmt.Errorf("failed to add key: %w", err)
 			}
@@ -114,7 +119,12 @@ $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 				return errKeyExists(keyName)
 			}
 
-			address, err := chain.ChainProvider.RestoreKey(keyName, args[2])
+			coinType, err := cmd.Flags().GetUint32(flagCoinType)
+			if err != nil {
+				return err
+			}
+
+			address, err := chain.ChainProvider.RestoreKey(keyName, args[2], coinType)
 			if err != nil {
 				return err
 			}

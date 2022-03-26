@@ -44,7 +44,7 @@ func (c *Chain) CreateOpenConnections(ctx context.Context, dst *Chain, maxRetrie
 				if err != nil {
 					return modified, err
 				}
-				srcConn, dstConn, err := QueryConnectionPair(c, dst, srcH, dstH)
+				srcConn, dstConn, err := QueryConnectionPair(ctx, c, dst, srcH, dstH)
 				if err != nil {
 					return modified, err
 				}
@@ -136,7 +136,7 @@ func ExecuteConnectionStep(ctx context.Context, src, dst *Chain) (success, last,
 	}
 
 	// Query Connection data from src and dst
-	srcConn, dstConn, err := QueryConnectionPair(src, dst, srch-1, dsth-1)
+	srcConn, dstConn, err := QueryConnectionPair(ctx, src, dst, srch-1, dsth-1)
 	if err != nil {
 		return false, false, false, err
 	}
