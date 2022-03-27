@@ -84,8 +84,8 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 
    To add the chain config files manually, example config files have been included [here](https://github.com/cosmos/relayer/tree/main/docs/example-configs/)
    ```shell
-   $ rly chains add --url https://github.com/cosmos/relayer/tree/main/docs/example-configs/cosmoshub-4.json
-   $ rly chains add --url https://github.com/cosmos/relayer/tree/main/docs/example-configs/osmosis-1.json
+   $ rly chains add --url https://raw.githubusercontent.com/cosmos/relayer/main/docs/example-configs/cosmoshub-4.json
+   $ rly chains add --url https://raw.githubusercontent.com/cosmos/relayer/main/docs/example-configs/osmosis-1.json
    ```
    
 4. **Import OR create new keys for the relayer to use when signing and relaying transactions.**
