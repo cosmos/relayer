@@ -9,6 +9,8 @@ import (
 
 	"github.com/cosmos/relayer/cmd"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 )
 
 // System is a system under test.
@@ -41,15 +43,15 @@ type RunResult struct {
 }
 
 // Run calls s.RunWithInput with an empty stdin.
-func (s *System) Run(args ...string) RunResult {
-	return s.RunWithInput(bytes.NewReader(nil), args...)
+func (s *System) Run(log *zap.Logger, args ...string) RunResult {
+	return s.RunWithInput(log, bytes.NewReader(nil), args...)
 }
 
 // RunWithInput executes the root command with the given args,
 // providing in as the command's standard input,
 // and returns a RunResult that has its Stdout and Stderr populated.
-func (s *System) RunWithInput(in io.Reader, args ...string) RunResult {
-	rootCmd := cmd.NewRootCmd()
+func (s *System) RunWithInput(log *zap.Logger, in io.Reader, args ...string) RunResult {
+	rootCmd := cmd.NewRootCmd(log, zap.NewAtomicLevel())
 	rootCmd.SetIn(in)
 	// cmd.Execute also sets SilenceUsage,
 	// so match that here for more correct assertions.
@@ -78,7 +80,7 @@ func (s *System) MustRun(t *testing.T, args ...string) RunResult {
 func (s *System) MustRunWithInput(t *testing.T, in io.Reader, args ...string) RunResult {
 	t.Helper()
 
-	res := s.RunWithInput(in, args...)
+	res := s.RunWithInput(zaptest.NewLogger(t), in, args...)
 	if res.Err != nil {
 		t.Logf("Error executing %v: %v", args, res.Err)
 		t.Logf("Stdout: %q", res.Stdout.String())

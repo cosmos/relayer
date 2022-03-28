@@ -13,6 +13,7 @@ import (
 	"github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 // transactionCmd returns a parent transaction command handler, where all child
@@ -223,7 +224,16 @@ func createClientCmd(a *appState) *cobra.Command {
 				}
 				return err
 			}, retry.Context(cmd.Context()), relayer.RtyAtt, relayer.RtyDel, relayer.RtyErr, retry.OnRetry(func(n uint, err error) {
-				c[src].LogRetryGetLightSignedHeader(n, err)
+				a.Log.Debug(
+					"Failed to get light signed header",
+					zap.String("src_chain_id", c[src].ChainID()),
+					zap.Int64("src_height", srch),
+					zap.String("dst_chain_id", c[dst].ChainID()),
+					zap.Int64("dst_height", dsth),
+					zap.Uint("attempt", n+1),
+					zap.Uint("max_attempts", relayer.RtyAttNum),
+					zap.Error(err),
+				)
 				srch, dsth, _ = relayer.QueryLatestHeights(cmd.Context(), c[src], c[dst])
 			})); err != nil {
 				return err

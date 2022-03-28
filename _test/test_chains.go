@@ -2,6 +2,8 @@ package test
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -10,6 +12,7 @@ import (
 	"github.com/cosmos/relayer/relayer/provider/cosmos"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 const (
@@ -118,12 +121,20 @@ func newTestChain(t *testing.T, tc testChain) *relayer.Chain {
 	tc.pcfg.Key = "testkey-" + port
 	tc.pcfg.RPCAddr = fmt.Sprintf("http://localhost:%s", port)
 	tc.pcfg.ChainID = tc.chainID
-	prov, err := tc.pcfg.NewProvider("/tmp", true)
+	prov, err := tc.pcfg.NewProvider(zaptest.NewLogger(t), "/tmp", true)
 	require.NoError(t, err)
 
-	return &relayer.Chain{
-		Chainid:       tc.chainID,
-		RPCAddr:       fmt.Sprintf("http://localhost:%s", port),
-		ChainProvider: prov,
+	var debug bool
+	// add extra logging if TEST_DEBUG=true
+	if val, ok := os.LookupEnv("TEST_DEBUG"); ok {
+		debug, err = strconv.ParseBool(val)
+		if err != nil {
+			debug = false
+		}
 	}
+
+	c := relayer.NewChain(zaptest.NewLogger(t), prov, debug)
+	c.Chainid = tc.chainID
+	c.RPCAddr = fmt.Sprintf("http://localhost:%s", port)
+	return c
 }
