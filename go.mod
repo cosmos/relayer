@@ -1,4 +1,4 @@
-module github.com/cosmos/relayer
+module github.com/cosmos/relayer/v2
 
 go 1.17
 

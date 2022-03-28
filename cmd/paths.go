@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cosmos/relayer/relayer"
+	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/go-git/go-git/v5"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"

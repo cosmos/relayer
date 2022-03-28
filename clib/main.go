@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cosmos/relayer/cmd"
-	"github.com/cosmos/relayer/relayer"
+	"github.com/cosmos/relayer/v2/cmd"
+	"github.com/cosmos/relayer/v2/relayer"
 )
 
 type goReturn = struct {
