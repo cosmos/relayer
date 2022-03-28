@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/server"
-	"github.com/cosmos/relayer/relayer"
-	"github.com/cosmos/relayer/relayer/provider/cosmos"
+	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
