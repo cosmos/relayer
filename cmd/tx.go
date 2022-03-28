@@ -520,7 +520,7 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 				return err
 			}
 
-			channel, err := c[src].ChainProvider.QueryChannel(srch, channelID, portID)
+			channel, err := c[src].ChainProvider.QueryChannel(cmd.Context(), srch, channelID, portID)
 			if err != nil {
 				return err
 			}
@@ -836,7 +836,7 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 //		Use:   "upgrade-chain [path-name] [chain-id] [new-unbonding-period] [deposit] [path/to/upgradePlan.json]",
 //		Short: "upgrade an IBC-enabled network with a given upgrade plan",
 //		Long: strings.TrimSpace(`Upgrade an IBC-enabled network by providing the chain-id of the
-//network being upgraded, the new unbonding period, the proposal deposit and the JSN file of the
+//network being upgraded, the new unbonding period, the proposal deposit and the JSON file of the
 //upgrade plan without the upgrade client state.`,
 //		),
 //		Args: cobra.ExactArgs(5),

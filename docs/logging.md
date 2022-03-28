@@ -24,6 +24,7 @@ foo := NewFoo(log.With(zap.String("path", path)), path)
 
 Log messages should begin with an uppercase letter and should not end with any punctuation.
 Log messages should be constant string literals; dynamic content is to be set as log fields.
+Names of log fields should be all lowercase `snake_case` format.
 
 ```go
 // Do this:

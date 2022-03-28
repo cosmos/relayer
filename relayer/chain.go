@@ -63,6 +63,8 @@ var (
 		transfer.AppModuleBasic{},
 		ibc.AppModuleBasic{},
 	}
+
+	defaultCoinType uint32 = 118
 )
 
 // Chain represents the necessary data for connecting to and identifying a chain and its counterparties
@@ -266,7 +268,7 @@ func (c *Chain) CreateTestKey() error {
 	if c.ChainProvider.KeyExists(c.ChainProvider.Key()) {
 		return fmt.Errorf("key {%s} exists for chain {%s}", c.ChainProvider.Key(), c.ChainID())
 	}
-	_, err := c.ChainProvider.AddKey(c.ChainProvider.Key())
+	_, err := c.ChainProvider.AddKey(c.ChainProvider.Key(), defaultCoinType)
 	return err
 }
 

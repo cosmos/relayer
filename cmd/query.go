@@ -416,7 +416,7 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 				return err
 			}
 
-			res, err := chain.ChainProvider.QueryClientStateResponse(height, chain.ClientID())
+			res, err := chain.ChainProvider.QueryClientStateResponse(cmd.Context(), height, chain.ClientID())
 			if err != nil {
 				return err
 			}
@@ -640,7 +640,7 @@ $ %s q conn ibc-1 ibconeconn`,
 				return err
 			}
 
-			res, err := chain.ChainProvider.QueryConnection(height, chain.ConnectionID())
+			res, err := chain.ChainProvider.QueryConnection(cmd.Context(), height, chain.ConnectionID())
 			if err != nil {
 				return err
 			}
@@ -742,7 +742,7 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 				}
 			}
 
-			res, err := chain.ChainProvider.QueryChannel(height, channelID, portID)
+			res, err := chain.ChainProvider.QueryChannel(cmd.Context(), height, channelID, portID)
 			if err != nil {
 				return err
 			}
@@ -830,7 +830,7 @@ $ %s q packet-commit ibc-1 ibconechannel transfer 31`,
 				return err
 			}
 
-			res, err := chain.ChainProvider.QueryPacketCommitment(0, channelID, portID, seq)
+			res, err := chain.ChainProvider.QueryPacketCommitment(cmd.Context(), 0, channelID, portID, seq)
 			if err != nil {
 				return err
 			}
