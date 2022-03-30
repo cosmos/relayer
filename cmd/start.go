@@ -21,11 +21,13 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	"github.com/cosmos/relayer/v2/internal/relaydebug"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -73,7 +75,23 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				}
 			}
 
-			errorChan := relayer.StartRelayer(cmd.Context(), c[src], c[dst], filter, maxTxSize, maxMsgLength)
+			debugAddr, err := cmd.Flags().GetString(flagDebugAddr)
+			if err != nil {
+				return err
+			}
+			if debugAddr == "" {
+				a.Log.Info("Skipping debug server due to empty debug address flag")
+			} else {
+				ln, err := net.Listen("tcp", debugAddr)
+				if err != nil {
+					return fmt.Errorf("failed to listen on debug address %q: %w", debugAddr, err)
+				}
+				log := a.Log.With(zap.String("sys", "debughttp"))
+				log.Info("Debug server listening", zap.String("addr", debugAddr))
+				relaydebug.StartDebugServer(cmd.Context(), log, ln)
+			}
+
+			rlyErrCh := relayer.StartRelayer(cmd.Context(), c[src], c[dst], filter, maxTxSize, maxMsgLength)
 
 			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire
 			// when there are no packets flowing across the channels. It is currently a source of errors that have been
@@ -115,7 +133,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 			// The context being canceled will cause the relayer to stop,
 			// so we don't want to separately monitor the ctx.Done channel,
 			// because we would risk returning before the relayer cleans up.
-			if err := <-errorChan; err != nil && !errors.Is(err, context.Canceled) {
+			if err := <-rlyErrCh; err != nil && !errors.Is(err, context.Canceled) {
 				a.Log.Warn(
 					"Relayer start error",
 					zap.Error(err),
@@ -125,7 +143,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 			return nil
 		},
 	}
-	return strategyFlag(a.Viper, updateTimeFlags(a.Viper, cmd))
+	return debugServerFlags(a.Viper, strategyFlag(a.Viper, updateTimeFlags(a.Viper, cmd)))
 }
 
 // UpdateClientsFromChains takes src, dst chains, threshold time and update clients based on expiry time

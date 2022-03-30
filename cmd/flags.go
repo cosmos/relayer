@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
+const (
 	flagURL                     = "url"
 	flagSkip                    = "skip"
 	flagTimeout                 = "timeout"
@@ -30,6 +30,13 @@ var (
 	flagDstPort                 = "dst-port"
 	flagOrder                   = "order"
 	flagVersion                 = "version"
+	flagDebugAddr               = "debug-addr"
+)
+
+const (
+	// 7597 is "RLYR" on a telephone keypad.
+	// It also happens to be unassigned in the IANA port list.
+	defaultDebugAddr = "localhost:7597"
 )
 
 func ibcDenomFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
@@ -241,6 +248,14 @@ func srcPortFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 func dstPortFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().String(flagDstPort, "transfer", "port on dst chain to use when generating path")
 	if err := v.BindPFlag(flagDstPort, cmd.Flags().Lookup(flagDstPort)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().String(flagDebugAddr, defaultDebugAddr, "address to use for debug server. Set empty to disable debug server.")
+	if err := v.BindPFlag(flagDebugAddr, cmd.Flags().Lookup(flagDebugAddr)); err != nil {
 		panic(err)
 	}
 	return cmd
