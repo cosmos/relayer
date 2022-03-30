@@ -45,7 +45,14 @@ If:
 ```
 Your client is the culprit here. Your client may be invalid or expired.
 
-
 ---
 
-[<-- Create Path Across Chanes](create-path-across-chain.md) - [Features -->](./features.md)
+**Inspect Go runtime debug data**
+
+If you started `rly` with the default `--debug-addr` argument,
+you can open `http://localhost:7597` in your browser to explore details from the Go runtime.
+
+If you need active assistance from the Relayer development team regarding an unresponsive Relayer instance,
+it will be helpful to provide the output from `http://localhost:7597/debug/pprof/goroutine?debug=2` at a minimum.
+
+[<-- Create Path Across Chains](create-path-across-chain.md) - [Features -->](./features.md)
