@@ -14,8 +14,8 @@ all: lint install
 # Build / Install
 ###############################################################################
 
-LD_FLAGS = -X github.com/cosmos/relayer/cmd.Version=$(VERSION) \
-	-X github.com/cosmos/relayer/cmd.Commit=$(COMMIT)
+LD_FLAGS = -X github.com/cosmos/relayer/v2/cmd.Version=$(VERSION) \
+	-X github.com/cosmos/relayer/v2/cmd.Commit=$(COMMIT)
 
 BUILD_FLAGS := -ldflags '$(LD_FLAGS)'
 
