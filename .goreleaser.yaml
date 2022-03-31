@@ -9,7 +9,6 @@ builds:
     main: ./main.go
     ldflags:
       - -X github.com/cosmos/relayer/v2/cmd.Version={{ .Tag }}
-      - -X github.com/cosmos/relayer/v2/cmd.Commit={{ .FullCommit }}
     goos:
       - darwin
       - linux
