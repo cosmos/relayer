@@ -977,7 +977,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 				return err
 			}
 
-			// TODO this needs to be rewritten?
+			// TODO this needs to be rewritten for non-cosmos chains to be able to use the command
 			// If the argument begins with "raw:" then use the suffix directly.
 			rawDstAddr := strings.TrimPrefix(args[3], "raw:")
 			var dstAddr string
