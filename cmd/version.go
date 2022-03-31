@@ -7,6 +7,7 @@ import (
 	"runtime/debug"
 	"strings"
 
+	"github.com/cosmos/relayer/v2/internal/relaydebug"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -14,8 +15,6 @@ import (
 var (
 	// Version defines the application version (defined at compile time)
 	Version = ""
-	// Commit defines the application commit hash (defined at compile time)
-	Commit = ""
 )
 
 type versionInfo struct {
@@ -53,7 +52,7 @@ $ %s v`,
 
 			verInfo := versionInfo{
 				Version:   Version,
-				Commit:    Commit,
+				Commit:    relaydebug.BuildCommit(),
 				CosmosSDK: cosmosSDK,
 				Go:        fmt.Sprintf("%s %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH),
 			}
