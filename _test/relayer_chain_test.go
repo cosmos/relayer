@@ -597,10 +597,7 @@ func TestUnorderedChannelBlockHeightTimeout(t *testing.T) {
 	require.NoError(t, err)
 
 	// send a packet that should timeout after 10 blocks have passed
-	err = src.SendTransferMsg(ctx, dst, twoTestCoin, dstAddr, uint64(10), 0, channel)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+	require.NoError(t, src.SendTransferMsg(ctx, dst, twoTestCoin, dstAddr, uint64(10), 0, channel))
 
 	// wait for block height timeout offset to be reached
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 11))
