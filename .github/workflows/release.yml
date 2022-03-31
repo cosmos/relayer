@@ -21,9 +21,6 @@ jobs:
 
       - run: echo https://github.com/cosmos/relayer/blob/${GITHUB_REF#refs/tags/}/CHANGELOG.md#${GITHUB_REF#refs/tags/} > ../release_notes.md 
 
-      - name: add env
-        run: |
-          echo "SDK_COMMIT=$(go list -m -u -f '{{.Version}}' github.com/cosmos/cosmos-sdk)" >> $GITHUB_ENV
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v2
         with:
