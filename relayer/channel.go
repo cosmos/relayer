@@ -86,7 +86,12 @@ func (c *Chain) CreateOpenChannels(ctx context.Context, dst *Chain, maxRetries u
 		case !success:
 			failures++
 			c.log.Info("Retrying transaction...")
-			time.Sleep(5 * time.Second)
+			select {
+			case <-time.After(5 * time.Second):
+				// Nothing to do.
+			case <-ctx.Done():
+				return modified, ctx.Err()
+			}
 
 			if failures > maxRetries {
 				return modified, fmt.Errorf("! Channel failed: [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
