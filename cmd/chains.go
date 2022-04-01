@@ -122,7 +122,7 @@ func chainsDeleteCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "delete [chain-id]",
 		Aliases: []string{"d"},
-		Short:   "Returns chain configuration data",
+		Short:   "Removes chain from config based off chain-id",
 		Args:    cobra.ExactArgs(1),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s chains delete ibc-0
