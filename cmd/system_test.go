@@ -51,7 +51,7 @@ func (s *System) Run(log *zap.Logger, args ...string) RunResult {
 // providing in as the command's standard input,
 // and returns a RunResult that has its Stdout and Stderr populated.
 func (s *System) RunWithInput(log *zap.Logger, in io.Reader, args ...string) RunResult {
-	rootCmd := cmd.NewRootCmd(log, zap.NewAtomicLevel())
+	rootCmd := cmd.NewRootCmd(log)
 	rootCmd.SetIn(in)
 	// cmd.Execute also sets SilenceUsage,
 	// so match that here for more correct assertions.
