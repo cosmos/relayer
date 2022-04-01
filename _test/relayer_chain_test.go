@@ -522,3 +522,195 @@ func createTMClientHeader(t *testing.T, chainID string, blockHeight int64, trust
 		TrustedValidators: trustedVals,
 	}
 }
+
+func TestUnorderedChannelBlockHeightTimeout(t *testing.T) {
+	chains := spinUpTestChains(t, []testChain{
+		{"ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
+		{"ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
+	}...)
+
+	var (
+		src         = chains.MustGet("ibc-0")
+		dst         = chains.MustGet("ibc-1")
+		testDenom   = "samoleans"
+		twoTestCoin = sdk.NewCoin(testDenom, sdk.NewInt(2000))
+	)
+
+	_, err := genTestPathAndSet(src, dst)
+	require.NoError(t, err)
+
+	// query initial balances to compare against at the end
+	var srcExpected, dstExpected sdk.Coins
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		return retry.Do(func() error {
+			var err error
+			srcExpected, err = src.ChainProvider.QueryBalance(egCtx, src.ChainProvider.Key())
+			if srcExpected.IsZero() {
+				return fmt.Errorf("expected non-zero balance. Err: %w", err)
+			}
+			return err
+		})
+	})
+	eg.Go(func() error {
+		return retry.Do(func() error {
+			var err error
+			dstExpected, err = dst.ChainProvider.QueryBalance(egCtx, dst.ChainProvider.Key())
+			if dstExpected.IsZero() {
+				return fmt.Errorf("expected non-zero balance. Err: %w", err)
+			}
+			return err
+		})
+	})
+	require.NoError(t, eg.Wait())
+
+	// create path
+	_, err = src.CreateClients(ctx, dst, true, true, false)
+	require.NoError(t, err)
+	testClientPair(ctx, t, src, dst)
+
+	timeout, err := src.GetTimeout()
+	require.NoError(t, err)
+
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
+	require.NoError(t, err)
+	testConnectionPair(ctx, t, src, dst)
+
+	_, err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	require.NoError(t, err)
+
+	// query open channels and ensure there is no error
+	channels, err := src.ChainProvider.QueryConnectionChannels(ctx, 0, src.ConnectionID())
+	require.NoError(t, err)
+
+	channel := channels[0]
+	testChannelPair(ctx, t, src, dst, channel.ChannelId, channel.PortId)
+
+	dstAddr, err := dst.ChainProvider.Address()
+	require.NoError(t, err)
+
+	_, err = src.ChainProvider.Address()
+	require.NoError(t, err)
+
+	// send a packet that should timeout after 10 blocks have passed
+	require.NoError(t, src.SendTransferMsg(ctx, dst, twoTestCoin, dstAddr, uint64(10), 0, channel))
+
+	// wait for block height timeout offset to be reached
+	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 11))
+
+	// start the relayer process in it's own goroutine
+	filter := relayer.ChannelFilter{}
+	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
+
+	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 5))
+
+	// check balance on src against expected
+	srcGot, err := src.ChainProvider.QueryBalance(ctx, src.ChainProvider.Key())
+	require.NoError(t, err)
+	require.Equal(t, srcExpected.AmountOf(testDenom).Int64(), srcGot.AmountOf(testDenom).Int64())
+
+	// check balance on dst against expected
+	dstGot, err := dst.ChainProvider.QueryBalance(ctx, dst.ChainProvider.Key())
+	require.NoError(t, err)
+	require.Equal(t, dstExpected.AmountOf(testDenom).Int64(), dstGot.AmountOf(testDenom).Int64())
+}
+
+func TestUnorderedChannelTimestampTimeout(t *testing.T) {
+	chains := spinUpTestChains(t, []testChain{
+		{"ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
+		{"ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
+	}...)
+
+	var (
+		src         = chains.MustGet("ibc-0")
+		dst         = chains.MustGet("ibc-1")
+		testDenom   = "samoleans"
+		twoTestCoin = sdk.NewCoin(testDenom, sdk.NewInt(2000))
+	)
+
+	_, err := genTestPathAndSet(src, dst)
+	require.NoError(t, err)
+
+	// query initial balances to compare against at the end
+	var srcExpected, dstExpected sdk.Coins
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		return retry.Do(func() error {
+			var err error
+			srcExpected, err = src.ChainProvider.QueryBalance(egCtx, src.ChainProvider.Key())
+			if srcExpected.IsZero() {
+				return fmt.Errorf("expected non-zero balance. Err: %w", err)
+			}
+			return err
+		})
+	})
+	eg.Go(func() error {
+		return retry.Do(func() error {
+			var err error
+			dstExpected, err = dst.ChainProvider.QueryBalance(egCtx, dst.ChainProvider.Key())
+			if dstExpected.IsZero() {
+				return fmt.Errorf("expected non-zero balance. Err: %w", err)
+			}
+			return err
+		})
+	})
+	require.NoError(t, eg.Wait())
+
+	// create path
+	_, err = src.CreateClients(ctx, dst, true, true, false)
+	require.NoError(t, err)
+	testClientPair(ctx, t, src, dst)
+
+	timeout, err := src.GetTimeout()
+	require.NoError(t, err)
+
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
+	require.NoError(t, err)
+	testConnectionPair(ctx, t, src, dst)
+
+	_, err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	require.NoError(t, err)
+
+	// query open channels and ensure there is no error
+	channels, err := src.ChainProvider.QueryConnectionChannels(ctx, 0, src.ConnectionID())
+	require.NoError(t, err)
+
+	channel := channels[0]
+	testChannelPair(ctx, t, src, dst, channel.ChannelId, channel.PortId)
+
+	dstAddr, err := dst.ChainProvider.Address()
+	require.NoError(t, err)
+
+	_, err = src.ChainProvider.Address()
+	require.NoError(t, err)
+
+	// send a packet that should timeout after 45 seconds
+	require.NoError(t, src.SendTransferMsg(ctx, dst, twoTestCoin, dstAddr, 0, time.Second*15, channel))
+
+	// wait for timestamp timeout offset to be reached
+	time.Sleep(time.Second * 20)
+
+	// start the relayer process in it's own goroutine
+	filter := relayer.ChannelFilter{}
+	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
+
+	time.Sleep(time.Second * 5)
+
+	// check balance on src against expected
+	srcGot, err := src.ChainProvider.QueryBalance(ctx, src.ChainProvider.Key())
+	require.NoError(t, err)
+	require.Equal(t, srcExpected.AmountOf(testDenom).Int64(), srcGot.AmountOf(testDenom).Int64())
+
+	// check balance on dst against expected
+	dstGot, err := dst.ChainProvider.QueryBalance(ctx, dst.ChainProvider.Key())
+	require.NoError(t, err)
+	require.Equal(t, dstExpected.AmountOf(testDenom).Int64(), dstGot.AmountOf(testDenom).Int64())
+}

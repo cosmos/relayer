@@ -671,8 +671,13 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 			lCmd := linkCmd(a)
 
 			for err := lCmd.RunE(cmd, args); err != nil; err = lCmd.RunE(cmd, args) {
-				fmt.Fprintf(cmd.ErrOrStderr(), "retrying link: %s\n", err)
-				time.Sleep(1 * time.Second)
+				a.Log.Info("Error running link; retrying", zap.Error(err))
+				select {
+				case <-time.After(time.Second):
+					// Keep going.
+				case <-cmd.Context().Done():
+					return cmd.Context().Err()
+				}
 			}
 
 			sCmd := startCmd(a)
@@ -977,7 +982,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 				return err
 			}
 
-			// TODO this needs to be rewritten?
+			// TODO this needs to be rewritten for non-cosmos chains to be able to use the command
 			// If the argument begins with "raw:" then use the suffix directly.
 			rawDstAddr := strings.TrimPrefix(args[3], "raw:")
 			var dstAddr string

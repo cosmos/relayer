@@ -71,7 +71,12 @@ func (c *Chain) CreateOpenConnections(ctx context.Context, dst *Chain, maxRetrie
 		case !success:
 			failed++
 			c.log.Info("Retrying transaction...")
-			time.Sleep(5 * time.Second)
+			select {
+			case <-time.After(5 * time.Second):
+				// Nothing to do.
+			case <-ctx.Done():
+				return modified, ctx.Err()
+			}
 
 			if failed > maxRetries {
 				return modified, fmt.Errorf("! Connection failed: [%s]client{%s}conn{%s} -> [%s]client{%s}conn{%s}",

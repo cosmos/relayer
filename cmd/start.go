@@ -64,17 +64,6 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 
 			filter := path.Filter
 
-			if relayer.SendToController != nil {
-				action := relayer.PathAction{
-					Path: path,
-					Type: "RELAYER_PATH_START",
-				}
-				cont, err := relayer.ControllerUpcall(&action)
-				if !cont {
-					return err
-				}
-			}
-
 			debugAddr, err := cmd.Flags().GetString(flagDebugAddr)
 			if err != nil {
 				return err
@@ -118,7 +107,12 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 						})); err != nil {
 							return err
 						}
-						time.Sleep(timeToExpiry - thresholdTime)
+						select {
+						case <-time.After(timeToExpiry - thresholdTime):
+							// Nothing to do.
+						case <-egCtx.Done():
+							return egCtx.Err()
+						}
 					}
 				})
 				if err = eg.Wait(); err != nil {
