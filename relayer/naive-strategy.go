@@ -49,6 +49,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 				zap.String("port_id", srcChannel.PortId),
 				zap.Uint("attempt", n+1),
 				zap.Uint("max_attempts", RtyAttNum),
+				zap.Error(err),
 			)
 			srch, _ = src.ChainProvider.QueryLatestHeight(egCtx)
 		})); err != nil {
@@ -82,6 +83,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 				zap.String("port_id", srcChannel.Counterparty.PortId),
 				zap.Uint("attempt", n+1),
 				zap.Uint("max_attempts", RtyAttNum),
+				zap.Error(err),
 			)
 			dsth, _ = dst.ChainProvider.QueryLatestHeight(egCtx)
 		})); err != nil {
