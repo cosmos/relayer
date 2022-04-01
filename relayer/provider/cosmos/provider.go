@@ -1095,9 +1095,20 @@ func relayPacketsFromResultTx(ctx context.Context, src, dst provider.ChainProvid
 				return nil, nil, err
 			}
 
+			// TODO maybe this can be cleaned up?
+			val, ok := src.(*CosmosProvider)
+			if !ok {
+				return nil, nil, fmt.Errorf("FILL THIS IN") // TODO FILL THIS IN
+			}
+			h := block.GetHeight().GetRevisionHeight()
+			blockHeight := int64(h)
+			currentBlock, err := val.RPCClient.Block(ctx, &blockHeight)
+
 			switch {
 			// If the packet has a timeout height, and it has been reached, return a timeout packet
 			case !rp.timeout.IsZero() && block.GetHeight().GTE(rp.timeout):
+				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
+			case rp.timeoutStamp > 0 && currentBlock.Block.Time.After(time.Unix(int64(rp.timeoutStamp), 0)):
 				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
 			// If the packet matches the relay constraints relay it as a MsgReceivePacket
 			case !rp.pass:
