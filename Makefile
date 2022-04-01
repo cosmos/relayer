@@ -1,6 +1,6 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
-GAIA_VERSION := v6.0.0
+GAIA_VERSION := v7.0.0
 AKASH_VERSION := v0.12.1
 OSMOSIS_VERSION := v6.4.0
 WASMD_VERSION := v0.16.0
@@ -60,6 +60,8 @@ test-integration:
 test-gaia:
 	@go test -mod=readonly -v -run TestGaiaToGaiaRelaying ./_test/
 	@go test -mod=readonly -v -run TestRelayAllChannelsOnConnection ./_test/
+	@go test -mod=readonly -v -run TestUnorderedChannelBlockHeightTimeout ./_test/
+	@go test -mod=readonly -v -run TestUnorderedChannelTimestampTimeout ./_test/
 
 test-akash:
 	@go test -mod=readonly -v -run TestAkashToGaiaRelaying ./_test/
