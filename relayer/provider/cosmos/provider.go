@@ -1506,7 +1506,12 @@ func (cc *CosmosProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 		if h.SyncInfo.LatestBlockHeight > initial+n {
 			return nil
 		}
-		time.Sleep(10 * time.Millisecond)
+		select {
+		case <-time.After(10 * time.Millisecond):
+			// Nothing to do.
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 }
 

@@ -118,7 +118,12 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 						})); err != nil {
 							return err
 						}
-						time.Sleep(timeToExpiry - thresholdTime)
+						select {
+						case <-time.After(timeToExpiry - thresholdTime):
+							// Nothing to do.
+						case <-egCtx.Done():
+							return egCtx.Err()
+						}
 					}
 				})
 				if err = eg.Wait(); err != nil {
