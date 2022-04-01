@@ -77,7 +77,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 				return nil
 			}
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			src.log.Debug(
+			dst.log.Debug(
 				"Failed to query packet commitments",
 				zap.String("channel_id", srcChannel.Counterparty.ChannelId),
 				zap.String("port_id", srcChannel.Counterparty.PortId),
@@ -452,7 +452,8 @@ func AddMessagesForSequences(ctx context.Context, sequences []uint64, src, dst *
 
 		// Query src for the sequence number to get type of packet
 		if err = retry.Do(func() error {
-			recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(ctx, src.ChainProvider, dst.ChainProvider, uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, srcChanID, srcPortID, src.PathEnd.ClientID)
+			recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(ctx, src.ChainProvider, dst.ChainProvider,
+				uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, dst.ClientID(), srcChanID, srcPortID, src.ClientID())
 			return err
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.log.Debug(
@@ -545,7 +546,7 @@ func RelayPacket(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxTx
 			// Query src for the sequence number to get type of packet
 			var recvMsg, timeoutMsg provider.RelayerMessage
 			if err = retry.Do(func() error {
-				recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(ctx, src.ChainProvider, dst.ChainProvider, uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, srcChanID, srcPortID, src.ClientID())
+				recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(ctx, src.ChainProvider, dst.ChainProvider, uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, dst.ClientID(), srcChanID, srcPortID, src.ClientID())
 				if err != nil {
 					src.log.Warn(
 						"Failed to relay packet from seq on src",
@@ -579,7 +580,7 @@ func RelayPacket(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxTx
 			// Query dst for the sequence number to get type of packet
 			var recvMsg, timeoutMsg provider.RelayerMessage
 			if err = retry.Do(func() error {
-				recvMsg, timeoutMsg, err = dst.ChainProvider.RelayPacketFromSequence(ctx, dst.ChainProvider, src.ChainProvider, uint64(dsth), uint64(srch), seq, srcChanID, srcPortID, dstChanID, dstPortID, dst.ClientID())
+				recvMsg, timeoutMsg, err = dst.ChainProvider.RelayPacketFromSequence(ctx, dst.ChainProvider, src.ChainProvider, uint64(dsth), uint64(srch), seq, srcChanID, srcPortID, src.ClientID(), dstChanID, dstPortID, dst.ClientID())
 				if err != nil {
 					dst.log.Warn("Failed to relay packet from seq on dst", zap.Error(err))
 				}
