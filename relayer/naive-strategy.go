@@ -388,12 +388,14 @@ func RelayPackets(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxT
 		eg, egCtx := errgroup.WithContext(ctx)
 		// add messages for sequences on src
 		eg.Go(func() error {
-			return AddMessagesForSequences(egCtx, sp.Src, src, dst, srch, dsth, &msgs.Src, &msgs.Dst, srcChannel.ChannelId, srcChannel.PortId, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
+			return AddMessagesForSequences(egCtx, sp.Src, src, dst, srch, dsth, &msgs.Src, &msgs.Dst,
+				srcChannel.ChannelId, srcChannel.PortId, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcChannel.Ordering)
 		})
 
 		// add messages for sequences on dst
 		eg.Go(func() error {
-			return AddMessagesForSequences(egCtx, sp.Dst, dst, src, dsth, srch, &msgs.Dst, &msgs.Src, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcChannel.ChannelId, srcChannel.PortId)
+			return AddMessagesForSequences(egCtx, sp.Dst, dst, src, dsth, srch, &msgs.Dst, &msgs.Src,
+				srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcChannel.ChannelId, srcChannel.PortId, srcChannel.Ordering)
 		})
 
 		if err = eg.Wait(); err != nil {
@@ -443,7 +445,15 @@ func RelayPackets(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxT
 
 // AddMessagesForSequences constructs RecvMsgs and TimeoutMsgs from sequence numbers on a src chain
 // and adds them to the appropriate queue of msgs for both src and dst
-func AddMessagesForSequences(ctx context.Context, sequences []uint64, src, dst *Chain, srch, dsth int64, srcMsgs, dstMsgs *[]provider.RelayerMessage, srcChanID, srcPortID, dstChanID, dstPortID string) error {
+func AddMessagesForSequences(
+	ctx context.Context,
+	sequences []uint64,
+	src, dst *Chain,
+	srch, dsth int64,
+	srcMsgs, dstMsgs *[]provider.RelayerMessage,
+	srcChanID, srcPortID, dstChanID, dstPortID string,
+	order chantypes.Order,
+) error {
 	for _, seq := range sequences {
 		var (
 			recvMsg, timeoutMsg provider.RelayerMessage
@@ -453,7 +463,7 @@ func AddMessagesForSequences(ctx context.Context, sequences []uint64, src, dst *
 		// Query src for the sequence number to get type of packet
 		if err = retry.Do(func() error {
 			recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(ctx, src.ChainProvider, dst.ChainProvider,
-				uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, dst.ClientID(), srcChanID, srcPortID, src.ClientID())
+				uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, dst.ClientID(), srcChanID, srcPortID, src.ClientID(), order)
 			return err
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.log.Debug(
@@ -464,6 +474,7 @@ func AddMessagesForSequences(ctx context.Context, sequences []uint64, src, dst *
 				zap.String("dst_chain_id", dst.ChainID()),
 				zap.String("dst_channel_id", dstChanID),
 				zap.String("dst_port_id", dstPortID),
+				zap.String("channel_order", order.String()),
 				zap.Uint("attempt", n+1),
 				zap.Uint("attempt_limit", RtyAttNum),
 				zap.Error(err),
@@ -546,7 +557,8 @@ func RelayPacket(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxTx
 			// Query src for the sequence number to get type of packet
 			var recvMsg, timeoutMsg provider.RelayerMessage
 			if err = retry.Do(func() error {
-				recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(ctx, src.ChainProvider, dst.ChainProvider, uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, dst.ClientID(), srcChanID, srcPortID, src.ClientID())
+				recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(ctx, src.ChainProvider, dst.ChainProvider,
+					uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, dst.ClientID(), srcChanID, srcPortID, src.ClientID(), srcChannel.Ordering)
 				if err != nil {
 					src.log.Warn(
 						"Failed to relay packet from seq on src",
@@ -580,7 +592,8 @@ func RelayPacket(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxTx
 			// Query dst for the sequence number to get type of packet
 			var recvMsg, timeoutMsg provider.RelayerMessage
 			if err = retry.Do(func() error {
-				recvMsg, timeoutMsg, err = dst.ChainProvider.RelayPacketFromSequence(ctx, dst.ChainProvider, src.ChainProvider, uint64(dsth), uint64(srch), seq, srcChanID, srcPortID, src.ClientID(), dstChanID, dstPortID, dst.ClientID())
+				recvMsg, timeoutMsg, err = dst.ChainProvider.RelayPacketFromSequence(ctx, dst.ChainProvider, src.ChainProvider,
+					uint64(dsth), uint64(srch), seq, srcChanID, srcPortID, src.ClientID(), dstChanID, dstPortID, dst.ClientID(), srcChannel.Ordering)
 				if err != nil {
 					dst.log.Warn("Failed to relay packet from seq on dst", zap.Error(err))
 				}
