@@ -168,24 +168,27 @@ func relayUnrelayedPacketsAndAcks(ctx context.Context, src, dst *Chain, maxTxSiz
 	}()
 
 	for {
+		if ok := relayUnrelayedPackets(ctx, src, dst, maxTxSize, maxMsgLength, srcChannel.channel); !ok {
+			return
+		}
+		if ok := relayUnrelayedAcks(ctx, src, dst, maxTxSize, maxMsgLength, srcChannel.channel); !ok {
+			return
+		}
+
+		// Wait for a second before continuing, but allow context cancellation to break the flow.
 		select {
+		case <-time.After(time.Second):
+			// Nothing to do.
 		case <-ctx.Done():
 			return
-		default:
-			if err := relayUnrelayedPackets(ctx, src, dst, maxTxSize, maxMsgLength, srcChannel.channel); err != nil {
-				return
-			}
-			if err := relayUnrelayedAcks(ctx, src, dst, maxTxSize, maxMsgLength, srcChannel.channel); err != nil {
-				return
-			}
-
-			time.Sleep(1000 * time.Millisecond)
 		}
 	}
 }
 
 // relayUnrelayedPackets fetches unrelayed packet sequence numbers and attempts to relay the associated packets.
-func relayUnrelayedPackets(ctx context.Context, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) error {
+// relayUnrelayedPackets returns true if packets were empty or were successfully relayed.
+// Otherwise, it logs the errors and returns false.
+func relayUnrelayedPackets(ctx context.Context, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) bool {
 	childCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 
@@ -198,7 +201,21 @@ func relayUnrelayedPackets(ctx context.Context, src, dst *Chain, maxTxSize, maxM
 			zap.String("src_channel_id", srcChannel.ChannelId),
 			zap.Error(err),
 		)
-		return err
+		return false
+	}
+
+	// If there are no unrelayed packets, stop early.
+	if sp.Empty() {
+		src.log.Info(
+			"No packets in queue",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("src_channel_id", srcChannel.ChannelId),
+			zap.String("src_port_id", srcChannel.PortId),
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
+			zap.String("dst_port_id", srcChannel.Counterparty.PortId),
+		)
+		return true
 	}
 
 	if len(sp.Src) > 0 {
@@ -219,54 +236,41 @@ func relayUnrelayedPackets(ctx context.Context, src, dst *Chain, maxTxSize, maxM
 		)
 	}
 
-	if !sp.Empty() {
-		go func() {
-			err := RelayPackets(childCtx, src, dst, sp, maxTxSize, maxMsgLength, srcChannel)
-			if err != nil {
-				src.log.Warn(
-					"Relay packets error",
-					zap.String("src_chain_id", src.ChainID()),
-					zap.String("src_channel_id", srcChannel.ChannelId),
-					zap.String("dst_chain_id", dst.ChainID()),
-					zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
-					zap.Error(err),
-				)
-			}
-			cancel()
-		}()
-
-		// Wait until the context is cancelled (i.e. RelayPackets() finishes) or the context times out
-		<-childCtx.Done()
-		if !errors.Is(childCtx.Err(), context.Canceled) {
+	if err := RelayPackets(childCtx, src, dst, sp, maxTxSize, maxMsgLength, srcChannel); err != nil {
+		// If there was a context cancellation or deadline while attempting to relay packets,
+		// log that and indicate failure.
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 			src.log.Warn(
-				"Relay packets error",
+				"Context finished while waiting for RelayPackets to complete",
 				zap.String("src_chain_id", src.ChainID()),
 				zap.String("src_channel_id", srcChannel.ChannelId),
 				zap.String("dst_chain_id", dst.ChainID()),
 				zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
 				zap.Error(childCtx.Err()),
 			)
-
-			return childCtx.Err()
+			return false
 		}
 
-	} else {
-		src.log.Info(
-			"No packets in queue",
+		// Otherwise, not a context error, but an application-level error.
+		src.log.Warn(
+			"Relay packets error",
 			zap.String("src_chain_id", src.ChainID()),
 			zap.String("src_channel_id", srcChannel.ChannelId),
-			zap.String("src_port_id", srcChannel.PortId),
 			zap.String("dst_chain_id", dst.ChainID()),
 			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
-			zap.String("dst_port_id", srcChannel.Counterparty.PortId),
+			zap.Error(err),
 		)
+		// Indicate that we should attempt to keep going.
+		return true
 	}
 
-	return nil
+	return true
 }
 
 // relayUnrelayedAcks fetches unrelayed acknowledgements and attempts to relay them.
-func relayUnrelayedAcks(ctx context.Context, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) error {
+// relayUnrelayedAcks returns true if acknowledgements were empty or were successfully relayed.
+// Otherwise, it logs the errors and returns false.
+func relayUnrelayedAcks(ctx context.Context, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) bool {
 	childCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 
@@ -279,58 +283,11 @@ func relayUnrelayedAcks(ctx context.Context, src, dst *Chain, maxTxSize, maxMsgL
 			zap.String("src_channel_id", srcChannel.ChannelId),
 			zap.Error(err),
 		)
-		return err
+		return false
 	}
 
-	if len(ap.Src) > 0 {
-		src.log.Debug(
-			"Unrelayed acknowledgements",
-			zap.String("src_chain_id", src.ChainID()),
-			zap.String("src_channel_id", srcChannel.ChannelId),
-			zap.Uint64s("acks", ap.Src),
-		)
-	}
-
-	if len(ap.Dst) > 0 {
-		src.log.Debug(
-			"Unrelayed acknowledgements",
-			zap.String("dst_chain_id", dst.ChainID()),
-			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
-			zap.Uint64s("acks", ap.Dst),
-		)
-	}
-
-	if !ap.Empty() {
-		go func() {
-			err := RelayAcknowledgements(childCtx, src, dst, ap, maxTxSize, maxMsgLength, srcChannel)
-			if err != nil {
-				src.log.Warn(
-					"Relay acknowledgements error",
-					zap.String("src_chain_id", src.ChainID()),
-					zap.String("src_channel_id", srcChannel.ChannelId),
-					zap.String("dst_chain_id", dst.ChainID()),
-					zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
-					zap.Error(err),
-				)
-			}
-			cancel()
-		}()
-
-		// Wait until the context is cancelled (i.e. RelayAcknowledgements() finishes) or the context times out
-		<-childCtx.Done()
-		if !errors.Is(childCtx.Err(), context.Canceled) {
-			src.log.Warn(
-				"Relay acknowledgements error",
-				zap.String("src_chain_id", src.ChainID()),
-				zap.String("src_channel_id", srcChannel.ChannelId),
-				zap.String("dst_chain_id", dst.ChainID()),
-				zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
-				zap.Error(childCtx.Err()),
-			)
-			return childCtx.Err()
-		}
-
-	} else {
+	// If there are no unrelayed acks, stop early.
+	if ap.Empty() {
 		src.log.Info(
 			"No acknowledgements in queue",
 			zap.String("src_chain_id", src.ChainID()),
@@ -340,7 +297,53 @@ func relayUnrelayedAcks(ctx context.Context, src, dst *Chain, maxTxSize, maxMsgL
 			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
 			zap.String("dst_port_id", srcChannel.Counterparty.PortId),
 		)
+		return true
 	}
 
-	return nil
+	if len(ap.Src) > 0 {
+		src.log.Debug(
+			"Unrelayed source acknowledgements",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("src_channel_id", srcChannel.ChannelId),
+			zap.Uint64s("acks", ap.Src),
+		)
+	}
+
+	if len(ap.Dst) > 0 {
+		src.log.Debug(
+			"Unrelayed destination acknowledgements",
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
+			zap.Uint64s("acks", ap.Dst),
+		)
+	}
+
+	if err := RelayAcknowledgements(childCtx, src, dst, ap, maxTxSize, maxMsgLength, srcChannel); err != nil {
+		// If there was a context cancellation or deadline while attempting to relay acknowledgements,
+		// log that and indicate failure.
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			src.log.Warn(
+				"Context finished while waiting for RelayAcknowledgements to complete",
+				zap.String("src_chain_id", src.ChainID()),
+				zap.String("src_channel_id", srcChannel.ChannelId),
+				zap.String("dst_chain_id", dst.ChainID()),
+				zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
+				zap.Error(childCtx.Err()),
+			)
+			return false
+		}
+
+		// Otherwise, not a context error, but an application-level error.
+		src.log.Warn(
+			"Relay acknowledgements error",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("src_channel_id", srcChannel.ChannelId),
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
+			zap.Error(err),
+		)
+		return true
+	}
+
+	return true
 }

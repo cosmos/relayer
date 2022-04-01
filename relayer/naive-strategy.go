@@ -360,7 +360,8 @@ func RelayAcknowledgements(ctx context.Context, src, dst *Chain, sp *RelaySequen
 		}
 	}
 
-	return nil
+	// If the context terminated while sending messages, return that error.
+	return ctx.Err()
 }
 
 // RelayPackets creates transactions to relay packets from src to dst and from dst to src
@@ -433,7 +434,8 @@ func RelayPackets(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxT
 			}
 		}
 
-		return nil
+		// If the context terminated while sending messages, return that error.
+		return ctx.Err()
 	}
 }
 
