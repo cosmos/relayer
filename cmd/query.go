@@ -365,7 +365,12 @@ $ %s q node-state ibc-1`,
 				return err
 			}
 
-			csRes, _, err := chain.ChainProvider.QueryConsensusState(cmd.Context(), 0)
+			height, err := chain.ChainProvider.QueryLatestHeight(cmd.Context())
+			if err != nil {
+				return err
+			}
+
+			csRes, _, err := chain.ChainProvider.QueryConsensusState(cmd.Context(), height)
 			if err != nil {
 				return err
 			}
