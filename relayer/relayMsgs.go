@@ -10,17 +10,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// DeliverMsgsAction is struct
-type DeliverMsgsAction struct {
-	SrcMsgs   []string `json:"src_msgs"`
-	Src       PathEnd  `json:"src"`
-	DstMsgs   []string `json:"dst_msgs"`
-	Dst       PathEnd  `json:"dst"`
-	Last      bool     `json:"last"`
-	Succeeded bool     `json:"succeeded"`
-	Type      string   `json:"type"`
-}
-
 // RelayMsgs contains the msgs that need to be sent to both a src and dst chain
 // after a given relay round. MaxTxSize and MaxMsgLength are ignored if they are
 // set to zero.
@@ -59,12 +48,6 @@ func (r *RelayMsgs) Success() bool {
 func (r *RelayMsgs) IsMaxTx(msgLen, txSize uint64) bool {
 	return (r.MaxMsgLength != 0 && msgLen > r.MaxMsgLength) ||
 		(r.MaxTxSize != 0 && txSize > r.MaxTxSize)
-}
-
-// Send sends the messages with appropriate output
-// TODO: Parallelize? Maybe?
-func (r *RelayMsgs) Send(ctx context.Context, src, dst *Chain) {
-	r.SendWithController(ctx, src, dst, true)
 }
 
 func EncodeMsgs(c *Chain, msgs []provider.RelayerMessage) []string {
@@ -106,32 +89,7 @@ func DecodeMsgs(c *Chain, msgs []string) []provider.RelayerMessage {
 	return outMsgs
 }
 
-func (r *RelayMsgs) SendWithController(ctx context.Context, src, dst *Chain, useController bool) {
-	if useController && SendToController != nil {
-		action := &DeliverMsgsAction{
-			Src:       MarshalChain(src),
-			Dst:       MarshalChain(dst),
-			Last:      r.Last,
-			Succeeded: r.Succeeded,
-			Type:      "RELAYER_SEND",
-		}
-
-		action.SrcMsgs = EncodeMsgs(src, r.Src)
-		action.DstMsgs = EncodeMsgs(dst, r.Dst)
-
-		// Get the messages that are actually sent.
-		cont, err := ControllerUpcall(&action)
-		if !cont {
-			if err != nil {
-				src.log.Warn("Error calling controller", zap.Error(err))
-				r.Succeeded = false
-			} else {
-				r.Succeeded = true
-			}
-			return
-		}
-	}
-
+func (r *RelayMsgs) Send(ctx context.Context, src, dst *Chain) {
 	//nolint:prealloc // can not be pre allocated
 	var (
 		msgLen, txSize uint64

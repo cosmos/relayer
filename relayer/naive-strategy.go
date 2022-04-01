@@ -49,6 +49,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 				zap.String("port_id", srcChannel.PortId),
 				zap.Uint("attempt", n+1),
 				zap.Uint("max_attempts", RtyAttNum),
+				zap.Error(err),
 			)
 			srch, _ = src.ChainProvider.QueryLatestHeight(egCtx)
 		})); err != nil {
@@ -82,6 +83,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 				zap.String("port_id", srcChannel.Counterparty.PortId),
 				zap.Uint("attempt", n+1),
 				zap.Uint("max_attempts", RtyAttNum),
+				zap.Error(err),
 			)
 			dsth, _ = dst.ChainProvider.QueryLatestHeight(egCtx)
 		})); err != nil {
@@ -360,7 +362,8 @@ func RelayAcknowledgements(ctx context.Context, src, dst *Chain, sp *RelaySequen
 		}
 	}
 
-	return nil
+	// If the context terminated while sending messages, return that error.
+	return ctx.Err()
 }
 
 // RelayPackets creates transactions to relay packets from src to dst and from dst to src
@@ -433,7 +436,8 @@ func RelayPackets(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxT
 			}
 		}
 
-		return nil
+		// If the context terminated while sending messages, return that error.
+		return ctx.Err()
 	}
 }
 

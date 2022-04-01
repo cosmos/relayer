@@ -671,8 +671,13 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 			lCmd := linkCmd(a)
 
 			for err := lCmd.RunE(cmd, args); err != nil; err = lCmd.RunE(cmd, args) {
-				fmt.Fprintf(cmd.ErrOrStderr(), "retrying link: %s\n", err)
-				time.Sleep(1 * time.Second)
+				a.Log.Info("Error running link; retrying", zap.Error(err))
+				select {
+				case <-time.After(time.Second):
+					// Keep going.
+				case <-cmd.Context().Done():
+					return cmd.Context().Err()
+				}
 			}
 
 			sCmd := startCmd(a)

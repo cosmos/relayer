@@ -55,7 +55,9 @@ const (
 )
 
 // NewRootCmd returns the root command for relayer.
-func NewRootCmd(log *zap.Logger, atom zap.AtomicLevel) *cobra.Command {
+// If log is nil, a new zap.Logger is set on the app state
+// based on the command line flags regarding logging.
+func NewRootCmd(log *zap.Logger) *cobra.Command {
 	// Use a local app state instance scoped to the new root command,
 	// so that tests don't concurrently access the state.
 	a := &appState{
@@ -79,12 +81,22 @@ func NewRootCmd(log *zap.Logger, atom zap.AtomicLevel) *cobra.Command {
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		// Inside persistent pre-run because this takes effect after flags are parsed.
-		if a.Viper.GetBool("debug") {
-			atom.SetLevel(zapcore.DebugLevel)
+		if log == nil {
+			log, err := newRootLogger(a.Viper.GetString("log-format"), a.Viper.GetBool("debug"))
+			if err != nil {
+				return err
+			}
+
+			a.Log = log
 		}
 
 		// reads `homeDir/config/config.yaml` into `a.Config`
 		return initConfig(rootCmd, a)
+	}
+
+	rootCmd.PersistentPostRun = func(cmd *cobra.Command, _ []string) {
+		// Force syncing the logs before exit, if anything is buffered.
+		a.Log.Sync()
 	}
 
 	// Register --home flag
@@ -96,6 +108,11 @@ func NewRootCmd(log *zap.Logger, atom zap.AtomicLevel) *cobra.Command {
 	// Register --debug flag
 	rootCmd.PersistentFlags().BoolVarP(&a.Debug, "debug", "d", false, "debug output")
 	if err := a.Viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug")); err != nil {
+		panic(err)
+	}
+
+	rootCmd.PersistentFlags().String("log-format", "auto", "log output format (auto, logfmt, json, or console)")
+	if err := a.Viper.BindPFlag("log-format", rootCmd.PersistentFlags().Lookup("log-format")); err != nil {
 		panic(err)
 	}
 
@@ -121,10 +138,7 @@ func NewRootCmd(log *zap.Logger, atom zap.AtomicLevel) *cobra.Command {
 func Execute() {
 	cobra.EnableCommandSorting = false
 
-	log, atom := rootLogger()
-	defer log.Sync()
-
-	rootCmd := NewRootCmd(log, atom)
+	rootCmd := NewRootCmd(nil)
 	rootCmd.SilenceUsage = true
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -160,14 +174,11 @@ func Execute() {
 	}()
 
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		// Flush any remaining logs.
-		log.Sync()
-
 		os.Exit(1)
 	}
 }
 
-func rootLogger() (*zap.Logger, zap.AtomicLevel) {
+func newRootLogger(format string, debug bool) (*zap.Logger, error) {
 	config := zap.NewProductionEncoderConfig()
 	config.EncodeTime = func(ts time.Time, encoder zapcore.PrimitiveArrayEncoder) {
 		encoder.AppendString(ts.UTC().Format("2006-01-02T15:04:05.000000Z07:00"))
@@ -175,20 +186,34 @@ func rootLogger() (*zap.Logger, zap.AtomicLevel) {
 	config.LevelKey = "lvl"
 
 	var enc zapcore.Encoder
-	if term.IsTerminal(int(os.Stderr.Fd())) {
-		// When a user runs relayer in the foreground, use easier to read output.
+	switch format {
+	case "json":
+		enc = zapcore.NewJSONEncoder(config)
+	case "console":
 		enc = zapcore.NewConsoleEncoder(config)
-	} else {
-		// Otherwise, use consistent logfmt format for simplistic machine processing.
+	case "logfmt":
 		enc = zaplogfmt.NewEncoder(config)
+	case "auto":
+		if term.IsTerminal(int(os.Stderr.Fd())) {
+			// When a user runs relayer in the foreground, use easier to read output.
+			enc = zapcore.NewConsoleEncoder(config)
+		} else {
+			// Otherwise, use consistent logfmt format for simplistic machine processing.
+			enc = zaplogfmt.NewEncoder(config)
+		}
+	default:
+		return nil, fmt.Errorf("unrecognized log format %q", format)
 	}
 
-	atom := zap.NewAtomicLevel()
+	level := zap.InfoLevel
+	if debug {
+		level = zap.DebugLevel
+	}
 	return zap.New(zapcore.NewCore(
 		enc,
 		os.Stderr,
-		atom,
-	)), atom
+		level,
+	)), nil
 }
 
 // readLine reads one line from the given reader.
