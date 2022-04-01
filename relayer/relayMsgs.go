@@ -10,17 +10,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// DeliverMsgsAction is struct
-type DeliverMsgsAction struct {
-	SrcMsgs   []string `json:"src_msgs"`
-	Src       PathEnd  `json:"src"`
-	DstMsgs   []string `json:"dst_msgs"`
-	Dst       PathEnd  `json:"dst"`
-	Last      bool     `json:"last"`
-	Succeeded bool     `json:"succeeded"`
-	Type      string   `json:"type"`
-}
-
 // RelayMsgs contains the msgs that need to be sent to both a src and dst chain
 // after a given relay round. MaxTxSize and MaxMsgLength are ignored if they are
 // set to zero.
