@@ -1,0 +1,20 @@
+{
+  "src": {
+    "chain-id": "shentu-2.2",
+    "client-id": "07-tendermint-12",
+    "connection-id": "connection-1",
+    "channel-id": "channel-0",
+    "port-id": "transfer",
+    "order": "unordered",
+    "version": "ics20-1"
+  },
+  "dst": {
+    "chain-id": "cosmoshub-4",
+    "client-id": "07-tendermint-657",
+    "connection-id": "connection-502",
+    "channel-id": "channel-308",
+    "port-id": "transfer",
+    "order": "unordered",
+    "version": "ics20-1"
+  }
+}
