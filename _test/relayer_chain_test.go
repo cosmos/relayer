@@ -20,6 +20,7 @@ import (
 	tmprotoversion "github.com/tendermint/tendermint/proto/tendermint/version"
 	tmtypes "github.com/tendermint/tendermint/types"
 	tmversion "github.com/tendermint/tendermint/version"
+	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -102,27 +103,29 @@ func chainTest(t *testing.T, tcs []testChain) {
 	srcAddr, err := src.ChainProvider.Address()
 	require.NoError(t, err)
 
-	require.NoError(t, src.SendTransferMsg(ctx, dst, testCoin, dstAddr, 0, 0, channel))
-	require.NoError(t, src.SendTransferMsg(ctx, dst, testCoin, dstAddr, 0, 0, channel))
+	log := zaptest.NewLogger(t)
+
+	require.NoError(t, src.SendTransferMsg(ctx, log, dst, testCoin, dstAddr, 0, 0, channel))
+	require.NoError(t, src.SendTransferMsg(ctx, log, dst, testCoin, dstAddr, 0, 0, channel))
 
 	// send a couple of transfers to the queue on dst
-	require.NoError(t, dst.SendTransferMsg(ctx, src, testCoin, srcAddr, 0, 0, channel))
-	require.NoError(t, dst.SendTransferMsg(ctx, src, testCoin, srcAddr, 0, 0, channel))
+	require.NoError(t, dst.SendTransferMsg(ctx, log, src, testCoin, srcAddr, 0, 0, channel))
+	require.NoError(t, dst.SendTransferMsg(ctx, log, src, testCoin, srcAddr, 0, 0, channel))
 
 	// Wait for message inclusion in both chains
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(ctx, 1))
 
 	// start the relayer process in it's own goroutine
 	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
+	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5)
 
 	// Wait for relay message inclusion in both chains
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 2))
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(ctx, 2))
 
 	// send those tokens from dst back to dst and src back to src
-	require.NoError(t, src.SendTransferMsg(ctx, dst, twoTestCoin, dstAddr, 0, 0, channel))
-	require.NoError(t, dst.SendTransferMsg(ctx, src, twoTestCoin, srcAddr, 0, 0, channel))
+	require.NoError(t, src.SendTransferMsg(ctx, log, dst, twoTestCoin, dstAddr, 0, 0, channel))
+	require.NoError(t, dst.SendTransferMsg(ctx, log, src, twoTestCoin, srcAddr, 0, 0, channel))
 
 	// wait for packet processing
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 6))
@@ -261,9 +264,10 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	channel := channels[0]
 	testChannelPair(ctx, t, src, dst, channel.ChannelId, channel.PortId)
 
+	log := zaptest.NewLogger(t)
 	// start the relayer process in it's own goroutine
 	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
+	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5)
 
 	// Wait for relay message inclusion in both chains
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 1))
@@ -411,39 +415,41 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	srcAddr, err := src.ChainProvider.Address()
 	require.NoError(t, err)
 
-	require.NoError(t, src.SendTransferMsg(ctx, dst, testCoin, dstAddr, 0, 0, channelOne))
-	require.NoError(t, src.SendTransferMsg(ctx, dst, testCoin, dstAddr, 0, 0, channelOne))
+	log := zaptest.NewLogger(t)
+
+	require.NoError(t, src.SendTransferMsg(ctx, log, dst, testCoin, dstAddr, 0, 0, channelOne))
+	require.NoError(t, src.SendTransferMsg(ctx, log, dst, testCoin, dstAddr, 0, 0, channelOne))
 
 	// send a couple of transfers to the queue on dst for first channel
-	require.NoError(t, dst.SendTransferMsg(ctx, src, testCoin, srcAddr, 0, 0, channelOne))
-	require.NoError(t, dst.SendTransferMsg(ctx, src, testCoin, srcAddr, 0, 0, channelOne))
+	require.NoError(t, dst.SendTransferMsg(ctx, log, src, testCoin, srcAddr, 0, 0, channelOne))
+	require.NoError(t, dst.SendTransferMsg(ctx, log, src, testCoin, srcAddr, 0, 0, channelOne))
 
 	// send a couple of transfers to the queue on src for second channel
-	require.NoError(t, src.SendTransferMsg(ctx, dst, testCoin, dstAddr, 0, 0, channelTwo))
-	require.NoError(t, src.SendTransferMsg(ctx, dst, testCoin, dstAddr, 0, 0, channelTwo))
+	require.NoError(t, src.SendTransferMsg(ctx, log, dst, testCoin, dstAddr, 0, 0, channelTwo))
+	require.NoError(t, src.SendTransferMsg(ctx, log, dst, testCoin, dstAddr, 0, 0, channelTwo))
 
 	// send a couple of transfers to the queue on dst for second channel
-	require.NoError(t, dst.SendTransferMsg(ctx, src, testCoin, srcAddr, 0, 0, channelTwo))
-	require.NoError(t, dst.SendTransferMsg(ctx, src, testCoin, srcAddr, 0, 0, channelTwo))
+	require.NoError(t, dst.SendTransferMsg(ctx, log, src, testCoin, srcAddr, 0, 0, channelTwo))
+	require.NoError(t, dst.SendTransferMsg(ctx, log, src, testCoin, srcAddr, 0, 0, channelTwo))
 
 	// Wait for message inclusion in both chains
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(ctx, 1))
 
 	// start the relayer process in it's own goroutine
 	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
+	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5)
 
 	// Wait for relay message inclusion in both chains
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 1))
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(ctx, 1))
 
 	// send those tokens from dst back to dst and src back to src for first channel
-	require.NoError(t, src.SendTransferMsg(ctx, dst, twoTestCoin, dstAddr, 0, 0, channelOne))
-	require.NoError(t, dst.SendTransferMsg(ctx, src, twoTestCoin, srcAddr, 0, 0, channelOne))
+	require.NoError(t, src.SendTransferMsg(ctx, log, dst, twoTestCoin, dstAddr, 0, 0, channelOne))
+	require.NoError(t, dst.SendTransferMsg(ctx, log, src, twoTestCoin, srcAddr, 0, 0, channelOne))
 
 	// send those tokens from dst back to dst and src back to src for second channel
-	require.NoError(t, src.SendTransferMsg(ctx, dst, twoTestCoin, dstAddr, 0, 0, channelTwo))
-	require.NoError(t, dst.SendTransferMsg(ctx, src, twoTestCoin, srcAddr, 0, 0, channelTwo))
+	require.NoError(t, src.SendTransferMsg(ctx, log, dst, twoTestCoin, dstAddr, 0, 0, channelTwo))
+	require.NoError(t, dst.SendTransferMsg(ctx, log, src, twoTestCoin, srcAddr, 0, 0, channelTwo))
 
 	// wait for packet processing
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 6))
@@ -596,15 +602,17 @@ func TestUnorderedChannelBlockHeightTimeout(t *testing.T) {
 	_, err = src.ChainProvider.Address()
 	require.NoError(t, err)
 
+	log := zaptest.NewLogger(t)
+
 	// send a packet that should timeout after 10 blocks have passed
-	require.NoError(t, src.SendTransferMsg(ctx, dst, twoTestCoin, dstAddr, uint64(10), 0, channel))
+	require.NoError(t, src.SendTransferMsg(ctx, log, dst, twoTestCoin, dstAddr, uint64(10), 0, channel))
 
 	// wait for block height timeout offset to be reached
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 11))
 
 	// start the relayer process in it's own goroutine
 	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
+	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5)
 
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 5))
 
@@ -692,15 +700,17 @@ func TestUnorderedChannelTimestampTimeout(t *testing.T) {
 	_, err = src.ChainProvider.Address()
 	require.NoError(t, err)
 
+	log := zaptest.NewLogger(t)
+
 	// send a packet that should timeout after 45 seconds
-	require.NoError(t, src.SendTransferMsg(ctx, dst, twoTestCoin, dstAddr, 0, time.Second*15, channel))
+	require.NoError(t, src.SendTransferMsg(ctx, log, dst, twoTestCoin, dstAddr, 0, time.Second*15, channel))
 
 	// wait for timestamp timeout offset to be reached
 	time.Sleep(time.Second * 20)
 
 	// start the relayer process in it's own goroutine
 	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, src, dst, filter, 2*cmd.MB, 5)
+	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5)
 
 	time.Sleep(time.Second * 5)
 

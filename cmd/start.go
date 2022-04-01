@@ -80,7 +80,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				relaydebug.StartDebugServer(cmd.Context(), log, ln)
 			}
 
-			rlyErrCh := relayer.StartRelayer(cmd.Context(), c[src], c[dst], filter, maxTxSize, maxMsgLength)
+			rlyErrCh := relayer.StartRelayer(cmd.Context(), a.Log, c[src], c[dst], filter, maxTxSize, maxMsgLength)
 
 			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire
 			// when there are no packets flowing across the channels. It is currently a source of errors that have been

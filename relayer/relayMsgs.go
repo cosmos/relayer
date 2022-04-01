@@ -2,8 +2,6 @@ package relayer
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
@@ -89,7 +87,7 @@ func DecodeMsgs(c *Chain, msgs []string) []provider.RelayerMessage {
 	return outMsgs
 }
 
-func (r *RelayMsgs) Send(ctx context.Context, src, dst *Chain) {
+func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst *Chain) {
 	//nolint:prealloc // can not be pre allocated
 	var (
 		msgLen, txSize uint64
@@ -113,7 +111,7 @@ func (r *RelayMsgs) Send(ctx context.Context, src, dst *Chain) {
 				// Submit the transactions to src chain and update its status
 				res, success, err := src.ChainProvider.SendMessages(ctx, msgs)
 				if err != nil {
-					src.LogFailedTx(res, err, msgs)
+					logFailedTx(log, src.ChainID(), res, err, msgs)
 				}
 				r.Succeeded = r.Succeeded && success
 
@@ -129,7 +127,7 @@ func (r *RelayMsgs) Send(ctx context.Context, src, dst *Chain) {
 	if len(msgs) > 0 {
 		res, success, err := src.ChainProvider.SendMessages(ctx, msgs)
 		if err != nil {
-			src.LogFailedTx(res, err, msgs)
+			logFailedTx(log, src.ChainID(), res, err, msgs)
 		}
 
 		r.Succeeded = success
@@ -153,7 +151,7 @@ func (r *RelayMsgs) Send(ctx context.Context, src, dst *Chain) {
 				// Submit the transaction to dst chain and update its status
 				res, success, err := dst.ChainProvider.SendMessages(ctx, msgs)
 				if err != nil {
-					dst.LogFailedTx(res, err, msgs)
+					logFailedTx(log, dst.ChainID(), res, err, msgs)
 				}
 
 				r.Succeeded = r.Succeeded && success
@@ -170,17 +168,9 @@ func (r *RelayMsgs) Send(ctx context.Context, src, dst *Chain) {
 	if len(msgs) > 0 {
 		res, success, err := dst.ChainProvider.SendMessages(ctx, msgs)
 		if err != nil {
-			dst.LogFailedTx(res, err, msgs)
+			logFailedTx(log, dst.ChainID(), res, err, msgs)
 		}
 
 		r.Succeeded = success
 	}
-}
-
-func getMsgTypes(msgs []provider.RelayerMessage) string {
-	var out string
-	for i, msg := range msgs {
-		out += fmt.Sprintf("%d:%s,", i, msg.Type())
-	}
-	return strings.TrimSuffix(out, ",")
 }
