@@ -34,7 +34,7 @@ type SubstrateProvider struct {
 }
 
 type SubstrateRelayerMessage struct {
-	Msg sdk.Msg
+	Msg Msg
 }
 
 // (ccc *ChainClientConfig, homepath string, input io.Reader, output io.Writer, kro ...keyring.Option) (*ChainClient, error) {
@@ -195,8 +195,8 @@ func (srm SubstrateRelayerMessage) MsgBytes() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// castClientStateToBeefyType casts client state to tendermint type
-func castClientStateToBeefyType(cs *codectypes.Any) (*beefyclientTypes.ClientState, error) {
+// castClientStateToBeefyType casts client state to beefy type
+func castClientStateToBeefyType(cs *codectypes.Any) (*beefyclient.ClientState, error) {
 	clientStateExported, err := clienttypes.UnpackClientState(cs)
 	if err != nil {
 		return &beefyclientTypes.ClientState{}, err
