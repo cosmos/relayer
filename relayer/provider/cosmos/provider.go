@@ -830,24 +830,37 @@ func (cc *CosmosProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcP
 	var (
 		acc string
 		err error
+		msg sdk.Msg
 	)
 	if acc, err = cc.Address(); err != nil {
 		return nil, err
 	}
 
-	version := clienttypes.ParseChainID(dstChainId)
+	// If the timeoutHeight is 0 then we don't need to explicitly set it on the MsgTransfer
+	if timeoutHeight == 0 {
+		msg = &transfertypes.MsgTransfer{
+			SourcePort:       srcPortId,
+			SourceChannel:    srcChanId,
+			Token:            amount,
+			Sender:           acc,
+			Receiver:         dstAddr,
+			TimeoutTimestamp: timeoutTimestamp,
+		}
+	} else {
+		version := clienttypes.ParseChainID(dstChainId)
 
-	msg := &transfertypes.MsgTransfer{
-		SourcePort:    srcPortId,
-		SourceChannel: srcChanId,
-		Token:         amount,
-		Sender:        acc,
-		Receiver:      dstAddr,
-		TimeoutHeight: clienttypes.Height{
-			RevisionNumber: version,
-			RevisionHeight: timeoutHeight,
-		},
-		TimeoutTimestamp: timeoutTimestamp,
+		msg = &transfertypes.MsgTransfer{
+			SourcePort:    srcPortId,
+			SourceChannel: srcChanId,
+			Token:         amount,
+			Sender:        acc,
+			Receiver:      dstAddr,
+			TimeoutHeight: clienttypes.Height{
+				RevisionNumber: version,
+				RevisionHeight: timeoutHeight,
+			},
+			TimeoutTimestamp: timeoutTimestamp,
+		}
 	}
 
 	return NewCosmosMessage(msg), nil

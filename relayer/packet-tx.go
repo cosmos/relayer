@@ -37,7 +37,7 @@ func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain
 		timeoutHeight = h.GetHeight().GetRevisionHeight() + toHeightOffset
 		timeoutTimestamp = 0
 	case toTimeOffset > 0:
-		timeoutHeight = h.GetHeight().GetRevisionHeight() + 1000
+		timeoutHeight = 0
 		timeoutTimestamp = uint64(time.Now().Add(toTimeOffset).UnixNano())
 	case toHeightOffset == 0 && toTimeOffset == 0:
 		timeoutHeight = h.GetHeight().GetRevisionHeight() + 1000
