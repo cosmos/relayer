@@ -258,7 +258,7 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 
 	// Send msgs to both chains
 	if clients.Ready() {
-		if clients.Send(ctx, c.log, c, dst); clients.Success() {
+		if clients.Send(ctx, c.log, AsRelayMsgSender(c), AsRelayMsgSender(dst)); clients.Success() {
 			c.log.Info(
 				"Clients updated",
 				zap.String("src_chain_id", c.ChainID()),

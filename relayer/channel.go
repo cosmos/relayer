@@ -623,7 +623,7 @@ func (c *Chain) CloseChannel(ctx context.Context, dst *Chain, to time.Duration, 
 			break
 		}
 
-		if closeSteps.Send(ctx, c.log, c, dst); closeSteps.Success() && closeSteps.Last {
+		if closeSteps.Send(ctx, c.log, AsRelayMsgSender(c), AsRelayMsgSender(dst)); closeSteps.Success() && closeSteps.Last {
 			srch, dsth, err := QueryLatestHeights(ctx, c, dst)
 			if err != nil {
 				return err
