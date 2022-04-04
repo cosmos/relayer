@@ -48,6 +48,26 @@ func relayerMainLoop(ctx context.Context, src, dst *Chain, filter ChannelFilter,
 		// Apply the channel filter rule (i.e. build allowlist, denylist or relay on all channels available)
 		srcChannels = applyChannelFilterRule(filter, srcChannels)
 
+		// This works but parsing this data from the tx events is a better approach
+		for _, c := range srcChannels {
+			if c.State == types.INIT {
+				_, err := src.CreateOpenChannels(ctx, dst, 10, 5*time.Second, c.PortId, c.Counterparty.PortId, StringFromOrder(c.Ordering), c.Version, false)
+				if err != nil {
+					src.log.Warn("Failed to open channel",
+						zap.String("src-channel-id", c.ChannelId),
+						zap.String("src-port-id", c.PortId),
+						zap.String("dst-channel-id", c.Counterparty.ChannelId),
+						zap.String("dst-port-id", c.Counterparty.ChannelId),
+						zap.String("channel-version", c.Version),
+						zap.String("channel-ordering", c.Ordering.String()),
+						zap.Error(err))
+				} else {
+					src.log.Debug("Opened the channel")
+					src.log.Debug("Channel state after handshake", zap.String("channel-state", c.State.String()))
+				}
+			}
+		}
+
 		// Filter for open channels that are not already in our slice of open channels
 		srcOpenChannels = filterOpenChannels(srcChannels, srcOpenChannels)
 
