@@ -39,7 +39,7 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 			if errors.Is(err, context.Canceled) {
 				errCh <- err
 			} else {
-				errCh <- fmt.Errorf("error querying all channels on chain{%s}@connection{%s}: %v\n",
+				errCh <- fmt.Errorf("error querying all channels on chain{%s}@connection{%s}: %w",
 					src.ChainID(), src.ConnectionID(), err)
 			}
 			return

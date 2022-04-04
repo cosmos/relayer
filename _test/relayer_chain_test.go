@@ -9,7 +9,7 @@ import (
 	"github.com/avast/retry-go/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	ibctmtypes "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
+	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
 	ibctesting "github.com/cosmos/ibc-go/v3/testing"
 	ibctestingmock "github.com/cosmos/ibc-go/v3/testing/mock"
 	"github.com/cosmos/relayer/v2/cmd"
@@ -294,7 +294,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	pubKey, err := privVal.GetPubKey()
 	require.NoError(t, err)
 
-	tmHeader, ok := header.(*ibctmtypes.Header)
+	tmHeader, ok := header.(*tmclient.Header)
 	if !ok {
 		t.Fatalf("got data of type %T but wanted tmclient.Header \n", header)
 	}
@@ -468,7 +468,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 
 func createTMClientHeader(t *testing.T, chainID string, blockHeight int64, trustedHeight clienttypes.Height,
 	timestamp time.Time, tmValSet, tmTrustedVals *tmtypes.ValidatorSet, signers []tmtypes.PrivValidator,
-	oldHeader *ibctmtypes.Header) *ibctmtypes.Header {
+	oldHeader *tmclient.Header) *tmclient.Header {
 	var (
 		valSet      *tmproto.ValidatorSet
 		trustedVals *tmproto.ValidatorSet
@@ -521,7 +521,7 @@ func createTMClientHeader(t *testing.T, chainID string, blockHeight int64, trust
 
 	// The trusted fields may be nil. They may be filled before relaying messages to a client.
 	// The relayer is responsible for querying client and injecting appropriate trusted fields.
-	return &ibctmtypes.Header{
+	return &tmclient.Header{
 		SignedHeader:      signedHeader,
 		ValidatorSet:      valSet,
 		TrustedHeight:     trustedHeight,
