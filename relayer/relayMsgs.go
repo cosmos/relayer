@@ -5,6 +5,7 @@ import (
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 )
 
@@ -107,11 +108,25 @@ func AsRelayMsgSender(c *Chain) RelayMsgSender {
 	}
 }
 
-func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsgSender) {
+type SendMsgsResult struct {
+	// Count of successfully sent batches,
+	// where "successful" means there was no error in sending the batch across the network,
+	// and the remote end sent a response indicating success.
+	SuccessfulSrcBatches, SuccessfulDstBatches int
+
+	// Accumulation of errors encountered when sending to source or destination.
+	// If multiple errors occurred, these will be multierr errors
+	// which are displayed nicely through zap logging.
+	SrcSendError, DstSendError error
+}
+
+func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsgSender) SendMsgsResult {
 	//nolint:prealloc // can not be pre allocated
 	var (
 		msgLen, txSize uint64
 		msgs           []provider.RelayerMessage
+
+		result SendMsgsResult
 	)
 
 	r.Succeeded = true
@@ -129,10 +144,15 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 
 			if r.IsMaxTx(msgLen, txSize) {
 				// Submit the transactions to src chain and update its status
-				res, success, err := src.SendMessages(ctx, msgs)
+				resp, success, err := src.SendMessages(ctx, msgs)
 				if err != nil {
-					logFailedTx(log, src.ChainID, res, err, msgs)
+					logFailedTx(log, src.ChainID, resp, err, msgs)
+					multierr.AppendInto(&result.SrcSendError, err)
 				}
+				if success {
+					result.SuccessfulSrcBatches++
+				}
+
 				r.Succeeded = r.Succeeded && success
 
 				// clear the current batch and reset variables
@@ -145,9 +165,13 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 
 	// submit leftover msgs
 	if len(msgs) > 0 {
-		res, success, err := src.SendMessages(ctx, msgs)
+		resp, success, err := src.SendMessages(ctx, msgs)
 		if err != nil {
-			logFailedTx(log, src.ChainID, res, err, msgs)
+			logFailedTx(log, src.ChainID, resp, err, msgs)
+			multierr.AppendInto(&result.SrcSendError, err)
+		}
+		if success {
+			result.SuccessfulSrcBatches++
 		}
 
 		r.Succeeded = success
@@ -169,9 +193,13 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 
 			if r.IsMaxTx(msgLen, txSize) {
 				// Submit the transaction to dst chain and update its status
-				res, success, err := dst.SendMessages(ctx, msgs)
+				resp, success, err := dst.SendMessages(ctx, msgs)
 				if err != nil {
-					logFailedTx(log, dst.ChainID, res, err, msgs)
+					logFailedTx(log, dst.ChainID, resp, err, msgs)
+					multierr.AppendInto(&result.DstSendError, err)
+				}
+				if success {
+					result.SuccessfulDstBatches++
 				}
 
 				r.Succeeded = r.Succeeded && success
@@ -186,11 +214,17 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 
 	// submit leftover msgs
 	if len(msgs) > 0 {
-		res, success, err := dst.SendMessages(ctx, msgs)
+		resp, success, err := dst.SendMessages(ctx, msgs)
 		if err != nil {
-			logFailedTx(log, dst.ChainID, res, err, msgs)
+			logFailedTx(log, dst.ChainID, resp, err, msgs)
+			multierr.AppendInto(&result.DstSendError, err)
+		}
+		if success {
+			result.SuccessfulDstBatches++
 		}
 
 		r.Succeeded = success
 	}
+
+	return result
 }

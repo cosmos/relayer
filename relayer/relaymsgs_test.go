@@ -2,6 +2,7 @@ package relayer_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/cosmos/relayer/v2/relayer"
@@ -55,7 +56,7 @@ func (m fakeRelayerMessage) MsgBytes() ([]byte, error) {
 	return []byte(m.b), nil
 }
 
-func TestRelayMsgs_Send(t *testing.T) {
+func TestRelayMsgs_Send_Success(t *testing.T) {
 	// Fixtures for test.
 	// src appends to srcSent and dst appends to dstSent.
 	var srcSent []provider.RelayerMessage
@@ -63,7 +64,7 @@ func TestRelayMsgs_Send(t *testing.T) {
 		ChainID: "src",
 		SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
 			srcSent = append(srcSent, msgs...)
-			return nil, false, nil
+			return nil, true, nil
 		},
 	}
 
@@ -72,7 +73,7 @@ func TestRelayMsgs_Send(t *testing.T) {
 		ChainID: "dst",
 		SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
 			dstSent = append(dstSent, msgs...)
-			return nil, false, nil
+			return nil, true, nil
 		},
 	}
 
@@ -89,7 +90,11 @@ func TestRelayMsgs_Send(t *testing.T) {
 			Dst: []provider.RelayerMessage{dstMsg},
 		}
 
-		rm.Send(context.Background(), zaptest.NewLogger(t), src, dst)
+		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst)
+		require.Equal(t, result.SuccessfulSrcBatches, 1)
+		require.Equal(t, result.SuccessfulDstBatches, 1)
+		require.NoError(t, result.SrcSendError)
+		require.NoError(t, result.DstSendError)
 
 		require.Equal(t, []provider.RelayerMessage{srcMsg}, srcSent)
 		require.Equal(t, []provider.RelayerMessage{dstMsg}, dstSent)
@@ -107,7 +112,11 @@ func TestRelayMsgs_Send(t *testing.T) {
 			MaxMsgLength: 2,
 		}
 
-		rm.Send(context.Background(), zaptest.NewLogger(t), src, dst)
+		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst)
+		require.Equal(t, result.SuccessfulSrcBatches, 2)
+		require.Equal(t, result.SuccessfulDstBatches, 2)
+		require.NoError(t, result.SrcSendError)
+		require.NoError(t, result.DstSendError)
 
 		require.Equal(t, []provider.RelayerMessage{srcMsg, srcMsg, srcMsg}, srcSent)
 		require.Equal(t, []provider.RelayerMessage{dstMsg, dstMsg, dstMsg}, dstSent)
@@ -125,9 +134,153 @@ func TestRelayMsgs_Send(t *testing.T) {
 			MaxMsgLength: 2,
 		}
 
-		rm.Send(context.Background(), zaptest.NewLogger(t), src, dst)
+		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst)
+		require.Equal(t, result.SuccessfulSrcBatches, 2)
+		require.Equal(t, result.SuccessfulDstBatches, 2)
+		require.NoError(t, result.SrcSendError)
+		require.NoError(t, result.DstSendError)
 
 		require.Equal(t, []provider.RelayerMessage{srcMsg, srcMsg, srcMsg}, srcSent)
 		require.Equal(t, []provider.RelayerMessage{dstMsg, dstMsg, dstMsg}, dstSent)
+	})
+}
+
+func TestRelayMsgs_Send_Errors(t *testing.T) {
+	t.Run("one batch and one error", func(t *testing.T) {
+		srcErr := fmt.Errorf("source error")
+		src := relayer.RelayMsgSender{
+			ChainID: "src",
+			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+				return nil, false, srcErr
+			},
+		}
+
+		dstErr := fmt.Errorf("dest error")
+		dst := relayer.RelayMsgSender{
+			ChainID: "dst",
+			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+				return nil, false, dstErr
+			},
+		}
+
+		srcMsg := fakeRelayerMessage{t: "srctype", b: "srcdata"}
+		dstMsg := fakeRelayerMessage{t: "dsttype", b: "dstdata"}
+
+		rm := relayer.RelayMsgs{
+			Src: []provider.RelayerMessage{srcMsg},
+			Dst: []provider.RelayerMessage{dstMsg},
+		}
+
+		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst)
+		require.Equal(t, result.SuccessfulSrcBatches, 0)
+		require.Equal(t, result.SuccessfulDstBatches, 0)
+		require.ErrorIs(t, result.SrcSendError, srcErr)
+		require.ErrorIs(t, result.DstSendError, dstErr)
+	})
+
+	t.Run("multiple batches and all errors", func(t *testing.T) {
+		srcErr1, srcErr2 := fmt.Errorf("source error 1"), fmt.Errorf("source error 2")
+		var srcCalls int
+		src := relayer.RelayMsgSender{
+			ChainID: "src",
+			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+				srcCalls++
+				switch srcCalls {
+				case 1:
+					return nil, false, srcErr1
+				case 2:
+					return nil, false, srcErr2
+				default:
+					panic("src.SendMessages called too many times")
+				}
+			},
+		}
+
+		dstErr1, dstErr2 := fmt.Errorf("dest error 1"), fmt.Errorf("dest error 2")
+		var dstCalls int
+		dst := relayer.RelayMsgSender{
+			ChainID: "dst",
+			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+				dstCalls++
+				switch dstCalls {
+				case 1:
+					return nil, false, dstErr1
+				case 2:
+					return nil, false, dstErr2
+				default:
+					panic("dst.SendMessages called too many times")
+				}
+			},
+		}
+
+		srcMsg := fakeRelayerMessage{t: "srctype", b: "srcdata"}
+		dstMsg := fakeRelayerMessage{t: "dsttype", b: "dstdata"}
+
+		rm := relayer.RelayMsgs{
+			Src: []provider.RelayerMessage{srcMsg, srcMsg, srcMsg},
+			Dst: []provider.RelayerMessage{dstMsg, dstMsg, dstMsg},
+
+			MaxMsgLength: 2,
+		}
+
+		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst)
+		require.Equal(t, result.SuccessfulSrcBatches, 0)
+		require.Equal(t, result.SuccessfulDstBatches, 0)
+		require.ErrorIs(t, result.SrcSendError, srcErr1)
+		require.ErrorIs(t, result.SrcSendError, srcErr2)
+		require.ErrorIs(t, result.DstSendError, dstErr1)
+		require.ErrorIs(t, result.DstSendError, dstErr2)
+	})
+
+	t.Run("two batches with success then error", func(t *testing.T) {
+		srcErr := fmt.Errorf("source error")
+		var srcCalls int
+		src := relayer.RelayMsgSender{
+			ChainID: "src",
+			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+				srcCalls++
+				switch srcCalls {
+				case 1:
+					return nil, true, nil
+				case 2:
+					return nil, false, srcErr
+				default:
+					panic("src.SendMessages called too many times")
+				}
+			},
+		}
+
+		dstErr := fmt.Errorf("dest error")
+		var dstCalls int
+		dst := relayer.RelayMsgSender{
+			ChainID: "dst",
+			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+				dstCalls++
+				switch dstCalls {
+				case 1:
+					return nil, true, nil
+				case 2:
+					return nil, false, dstErr
+				default:
+					panic("dst.SendMessages called too many times")
+				}
+			},
+		}
+
+		srcMsg := fakeRelayerMessage{t: "srctype", b: "srcdata"}
+		dstMsg := fakeRelayerMessage{t: "dsttype", b: "dstdata"}
+
+		rm := relayer.RelayMsgs{
+			Src: []provider.RelayerMessage{srcMsg, srcMsg, srcMsg},
+			Dst: []provider.RelayerMessage{dstMsg, dstMsg, dstMsg},
+
+			MaxMsgLength: 2,
+		}
+
+		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst)
+		require.Equal(t, result.SuccessfulSrcBatches, 1)
+		require.Equal(t, result.SuccessfulDstBatches, 1)
+		require.ErrorIs(t, result.SrcSendError, srcErr)
+		require.ErrorIs(t, result.DstSendError, dstErr)
 	})
 }
