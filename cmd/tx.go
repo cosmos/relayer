@@ -220,11 +220,11 @@ func createClientCmd(a *appState) *cobra.Command {
 			if err = retry.Do(func() error {
 				srcUpdateHeader, dstUpdateHeader, err = relayer.GetLightSignedHeadersAtHeights(cmd.Context(), c[src], c[dst], srch, dsth)
 				if err != nil {
-					return fmt.Errorf("failed to query light signed headers: %w", err)
+					return err
 				}
-				return err
+				return nil
 			}, retry.Context(cmd.Context()), relayer.RtyAtt, relayer.RtyDel, relayer.RtyErr, retry.OnRetry(func(n uint, err error) {
-				a.Log.Debug(
+				a.Log.Info(
 					"Failed to get light signed header",
 					zap.String("src_chain_id", c[src].ChainID()),
 					zap.Int64("src_height", srch),
@@ -730,7 +730,7 @@ $ %s tx relay-pkt demo-path channel-1 1`,
 				return err
 			}
 
-			return relayer.RelayPacket(cmd.Context(), c[src], c[dst], sp, maxTxSize, maxMsgLength, uint64(seqNum), channel)
+			return relayer.RelayPacket(cmd.Context(), a.Log, c[src], c[dst], sp, maxTxSize, maxMsgLength, uint64(seqNum), channel)
 		},
 	}
 
@@ -774,7 +774,7 @@ $ %s tx relay-pkts demo-path channel-0`,
 				return err
 			}
 
-			if err = relayer.RelayPackets(cmd.Context(), c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
+			if err = relayer.RelayPackets(cmd.Context(), a.Log, c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
 				return err
 			}
 
@@ -824,7 +824,7 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 				return err
 			}
 
-			if err = relayer.RelayAcknowledgements(cmd.Context(), c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
+			if err = relayer.RelayAcknowledgements(cmd.Context(), a.Log, c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
 				return err
 			}
 
@@ -1001,7 +1001,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 
 			}
 
-			return c[src].SendTransferMsg(cmd.Context(), c[dst], amount, dstAddr, toHeightOffset, toTimeOffset, srcChannel)
+			return c[src].SendTransferMsg(cmd.Context(), a.Log, c[dst], amount, dstAddr, toHeightOffset, toTimeOffset, srcChannel)
 		},
 	}
 

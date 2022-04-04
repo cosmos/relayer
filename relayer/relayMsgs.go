@@ -2,11 +2,10 @@ package relayer
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 )
 
@@ -19,13 +18,12 @@ type RelayMsgs struct {
 	MaxTxSize    uint64                    `json:"max_tx_size"`    // maximum permitted size of the msgs in a bundled relay transaction
 	MaxMsgLength uint64                    `json:"max_msg_length"` // maximum amount of messages in a bundled relay transaction
 
-	Last      bool `json:"last"`
 	Succeeded bool `json:"success"`
 }
 
 // NewRelayMsgs returns an initialized version of relay messages
 func NewRelayMsgs() *RelayMsgs {
-	return &RelayMsgs{Src: []provider.RelayerMessage{}, Dst: []provider.RelayerMessage{}, Last: false, Succeeded: false}
+	return &RelayMsgs{Src: []provider.RelayerMessage{}, Dst: []provider.RelayerMessage{}, Succeeded: false}
 }
 
 // Ready returns true if there are messages to relay
@@ -89,11 +87,45 @@ func DecodeMsgs(c *Chain, msgs []string) []provider.RelayerMessage {
 	return outMsgs
 }
 
-func (r *RelayMsgs) Send(ctx context.Context, src, dst *Chain) {
+// RelayMsgSender is a narrow subset of a Chain,
+// to simplify testing methods on RelayMsgs.
+type RelayMsgSender struct {
+	ChainID string
+
+	// SendMessages is a function matching the signature of the same method
+	// on the ChainProvider interface.
+	//
+	// Accepting this narrow subset of the interface greatly simplifies testing.
+	SendMessages func(context.Context, []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error)
+}
+
+// AsRelayMsgSender converts c to a RelayMsgSender.
+func AsRelayMsgSender(c *Chain) RelayMsgSender {
+	return RelayMsgSender{
+		ChainID:      c.ChainID(),
+		SendMessages: c.ChainProvider.SendMessages,
+	}
+}
+
+type SendMsgsResult struct {
+	// Count of successfully sent batches,
+	// where "successful" means there was no error in sending the batch across the network,
+	// and the remote end sent a response indicating success.
+	SuccessfulSrcBatches, SuccessfulDstBatches int
+
+	// Accumulation of errors encountered when sending to source or destination.
+	// If multiple errors occurred, these will be multierr errors
+	// which are displayed nicely through zap logging.
+	SrcSendError, DstSendError error
+}
+
+func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsgSender) SendMsgsResult {
 	//nolint:prealloc // can not be pre allocated
 	var (
 		msgLen, txSize uint64
 		msgs           []provider.RelayerMessage
+
+		result SendMsgsResult
 	)
 
 	r.Succeeded = true
@@ -111,10 +143,15 @@ func (r *RelayMsgs) Send(ctx context.Context, src, dst *Chain) {
 
 			if r.IsMaxTx(msgLen, txSize) {
 				// Submit the transactions to src chain and update its status
-				res, success, err := src.ChainProvider.SendMessages(ctx, msgs)
+				resp, success, err := src.SendMessages(ctx, msgs)
 				if err != nil {
-					src.LogFailedTx(res, err, msgs)
+					logFailedTx(log, src.ChainID, resp, err, msgs)
+					multierr.AppendInto(&result.SrcSendError, err)
 				}
+				if success {
+					result.SuccessfulSrcBatches++
+				}
+
 				r.Succeeded = r.Succeeded && success
 
 				// clear the current batch and reset variables
@@ -127,9 +164,13 @@ func (r *RelayMsgs) Send(ctx context.Context, src, dst *Chain) {
 
 	// submit leftover msgs
 	if len(msgs) > 0 {
-		res, success, err := src.ChainProvider.SendMessages(ctx, msgs)
+		resp, success, err := src.SendMessages(ctx, msgs)
 		if err != nil {
-			src.LogFailedTx(res, err, msgs)
+			logFailedTx(log, src.ChainID, resp, err, msgs)
+			multierr.AppendInto(&result.SrcSendError, err)
+		}
+		if success {
+			result.SuccessfulSrcBatches++
 		}
 
 		r.Succeeded = success
@@ -151,9 +192,13 @@ func (r *RelayMsgs) Send(ctx context.Context, src, dst *Chain) {
 
 			if r.IsMaxTx(msgLen, txSize) {
 				// Submit the transaction to dst chain and update its status
-				res, success, err := dst.ChainProvider.SendMessages(ctx, msgs)
+				resp, success, err := dst.SendMessages(ctx, msgs)
 				if err != nil {
-					dst.LogFailedTx(res, err, msgs)
+					logFailedTx(log, dst.ChainID, resp, err, msgs)
+					multierr.AppendInto(&result.DstSendError, err)
+				}
+				if success {
+					result.SuccessfulDstBatches++
 				}
 
 				r.Succeeded = r.Succeeded && success
@@ -168,19 +213,17 @@ func (r *RelayMsgs) Send(ctx context.Context, src, dst *Chain) {
 
 	// submit leftover msgs
 	if len(msgs) > 0 {
-		res, success, err := dst.ChainProvider.SendMessages(ctx, msgs)
+		resp, success, err := dst.SendMessages(ctx, msgs)
 		if err != nil {
-			dst.LogFailedTx(res, err, msgs)
+			logFailedTx(log, dst.ChainID, resp, err, msgs)
+			multierr.AppendInto(&result.DstSendError, err)
+		}
+		if success {
+			result.SuccessfulDstBatches++
 		}
 
 		r.Succeeded = success
 	}
-}
 
-func getMsgTypes(msgs []provider.RelayerMessage) string {
-	var out string
-	for i, msg := range msgs {
-		out += fmt.Sprintf("%d:%s,", i, msg.Type())
-	}
-	return strings.TrimSuffix(out, ",")
+	return result
 }

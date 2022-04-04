@@ -8,11 +8,12 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"go.uber.org/zap"
 )
 
 //nolint:lll
 // SendTransferMsg initiates an ics20 transfer from src to dst with the specified args
-func (c *Chain) SendTransferMsg(ctx context.Context, dst *Chain, amount sdk.Coin, dstAddr string, toHeightOffset uint64, toTimeOffset time.Duration, srcChannel *chantypes.IdentifiedChannel) error {
+func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain, amount sdk.Coin, dstAddr string, toHeightOffset uint64, toTimeOffset time.Duration, srcChannel *chantypes.IdentifiedChannel) error {
 	var (
 		timeoutHeight    uint64
 		timeoutTimestamp uint64
@@ -36,7 +37,7 @@ func (c *Chain) SendTransferMsg(ctx context.Context, dst *Chain, amount sdk.Coin
 		timeoutHeight = h.GetHeight().GetRevisionHeight() + toHeightOffset
 		timeoutTimestamp = 0
 	case toTimeOffset > 0:
-		timeoutHeight = h.GetHeight().GetRevisionHeight() + 1000
+		timeoutHeight = 0
 		timeoutTimestamp = uint64(time.Now().Add(toTimeOffset).UnixNano())
 	case toHeightOffset == 0 && toTimeOffset == 0:
 		timeoutHeight = h.GetHeight().GetRevisionHeight() + 1000
@@ -54,7 +55,7 @@ func (c *Chain) SendTransferMsg(ctx context.Context, dst *Chain, amount sdk.Coin
 		Dst: []provider.RelayerMessage{},
 	}
 
-	if txs.Send(ctx, c, dst); !txs.Success() {
+	if txs.Send(ctx, log, AsRelayMsgSender(c), AsRelayMsgSender(dst)); !txs.Success() {
 		return fmt.Errorf("failed to send transfer message")
 	}
 	return nil

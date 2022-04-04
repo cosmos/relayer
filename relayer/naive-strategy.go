@@ -43,7 +43,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 				return nil
 			}
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			src.log.Debug(
+			src.log.Info(
 				"Failed to query packet commitments",
 				zap.String("channel_id", srcChannel.ChannelId),
 				zap.String("port_id", srcChannel.PortId),
@@ -77,7 +77,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 				return nil
 			}
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			dst.log.Debug(
+			dst.log.Info(
 				"Failed to query packet commitments",
 				zap.String("channel_id", srcChannel.Counterparty.ChannelId),
 				zap.String("port_id", srcChannel.Counterparty.PortId),
@@ -107,7 +107,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 			rs.Src, err = dst.ChainProvider.QueryUnreceivedPackets(egCtx, uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
 			return err
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			dst.log.Debug(
+			dst.log.Info(
 				"Failed to query unreceived packets",
 				zap.String("channel_id", srcChannel.Counterparty.ChannelId),
 				zap.String("port_id", srcChannel.Counterparty.PortId),
@@ -126,7 +126,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 			rs.Dst, err = src.ChainProvider.QueryUnreceivedPackets(egCtx, uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
 			return err
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			src.log.Debug(
+			src.log.Info(
 				"Failed to query unreceived packets",
 				zap.String("channel_id", srcChannel.Counterparty.ChannelId),
 				zap.String("port_id", srcChannel.Counterparty.PortId),
@@ -260,7 +260,7 @@ func (rs *RelaySequences) Empty() bool {
 }
 
 // RelayAcknowledgements creates transactions to relay acknowledgements from src to dst and from dst to src
-func RelayAcknowledgements(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength uint64, srcChannel *chantypes.IdentifiedChannel) error {
+func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength uint64, srcChannel *chantypes.IdentifiedChannel) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []provider.RelayerMessage{},
@@ -332,7 +332,7 @@ func RelayAcknowledgements(ctx context.Context, src, dst *Chain, sp *RelaySequen
 		}
 
 		if !msgs.Ready() {
-			src.log.Info(
+			log.Info(
 				"No acknowledgements to relay",
 				zap.String("src_chain_id", src.ChainID()),
 				zap.String("src_port_id", srcChannel.PortId),
@@ -352,7 +352,7 @@ func RelayAcknowledgements(ctx context.Context, src, dst *Chain, sp *RelaySequen
 		}
 
 		// send messages to their respective chains
-		if msgs.Send(ctx, src, dst); msgs.Success() {
+		if msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst)); msgs.Success() {
 			if len(msgs.Dst) > 1 {
 				dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
 			}
@@ -367,7 +367,7 @@ func RelayAcknowledgements(ctx context.Context, src, dst *Chain, sp *RelaySequen
 }
 
 // RelayPackets creates transactions to relay packets from src to dst and from dst to src
-func RelayPackets(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength uint64, srcChannel *chantypes.IdentifiedChannel) error {
+func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength uint64, srcChannel *chantypes.IdentifiedChannel) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []provider.RelayerMessage{},
@@ -403,7 +403,7 @@ func RelayPackets(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxT
 		}
 
 		if !msgs.Ready() {
-			src.log.Info(
+			log.Info(
 				"No packets to relay",
 				zap.String("src_chain_id", src.ChainID()),
 				zap.String("src_port_id", srcChannel.PortId),
@@ -429,7 +429,7 @@ func RelayPackets(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxT
 		}
 
 		// send messages to their respective chains
-		if msgs.Send(ctx, src, dst); msgs.Success() {
+		if msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst)); msgs.Success() {
 			if len(msgs.Dst) > 1 {
 				dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
 			}
@@ -466,7 +466,7 @@ func AddMessagesForSequences(
 				uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, dst.ClientID(), srcChanID, srcPortID, src.ClientID(), order)
 			return err
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			src.log.Debug(
+			src.log.Info(
 				"Failed to relay packet from sequence",
 				zap.String("src_chain_id", src.ChainID()),
 				zap.String("src_channel_id", srcChanID),
@@ -532,7 +532,7 @@ func PrependUpdateClientMsg(ctx context.Context, msgs *[]provider.RelayerMessage
 }
 
 // RelayPacket creates transactions to relay packets from src to dst and from dst to src
-func RelayPacket(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength, seqNum uint64, srcChannel *chantypes.IdentifiedChannel) error {
+func RelayPacket(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength, seqNum uint64, srcChannel *chantypes.IdentifiedChannel) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []provider.RelayerMessage{},
@@ -560,7 +560,7 @@ func RelayPacket(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxTx
 				recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(ctx, src.ChainProvider, dst.ChainProvider,
 					uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, dst.ClientID(), srcChanID, srcPortID, src.ClientID(), srcChannel.Ordering)
 				if err != nil {
-					src.log.Warn(
+					log.Warn(
 						"Failed to relay packet from seq on src",
 						zap.String("src_chain_id", src.ChainID()),
 						zap.String("dst_chain_id", dst.ChainID()),
@@ -595,7 +595,7 @@ func RelayPacket(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxTx
 				recvMsg, timeoutMsg, err = dst.ChainProvider.RelayPacketFromSequence(ctx, dst.ChainProvider, src.ChainProvider,
 					uint64(dsth), uint64(srch), seq, srcChanID, srcPortID, src.ClientID(), dstChanID, dstPortID, dst.ClientID(), srcChannel.Ordering)
 				if err != nil {
-					dst.log.Warn("Failed to relay packet from seq on dst", zap.Error(err))
+					log.Warn("Failed to relay packet from seq on dst", zap.Error(err))
 				}
 				return nil
 			}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
@@ -617,7 +617,7 @@ func RelayPacket(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxTx
 	}
 
 	if !msgs.Ready() {
-		src.log.Info(
+		log.Info(
 			"No packets to relay",
 			zap.String("src_chain_id", src.ChainID()),
 			zap.String("src_port_id", srcPortID),
@@ -655,7 +655,7 @@ func RelayPacket(ctx context.Context, src, dst *Chain, sp *RelaySequences, maxTx
 	}
 
 	// send messages to their respective chains
-	if msgs.Send(ctx, src, dst); msgs.Success() {
+	if msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst)); msgs.Success() {
 		if len(msgs.Dst) > 1 {
 			dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
 		}
