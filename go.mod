@@ -17,6 +17,10 @@ require (
 )
 
 require (
+	github.com/99designs/keyring v1.1.6
+	github.com/ComposableFi/go-merkle-trees v0.0.0-20220119155315-3ce250c9ec59
+	github.com/ComposableFi/go-substrate-rpc-client v2.0.0+incompatible
+	github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.0-00010101000000-000000000000
 	github.com/avast/retry-go/v4 v4.0.3
 	github.com/cosmos/ibc-go/v3 v3.0.0
 	github.com/jsternberg/zap-logfmt v1.2.0
@@ -28,10 +32,12 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.0.0-beta.2 // indirect
-	github.com/99designs/keyring v1.1.6 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
-	github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d // indirect
+	github.com/ChainSafe/chaindb v0.1.5-0.20210608140454-9606fe8c3985 // indirect
+	github.com/ChainSafe/go-schnorrkel v1.0.0 // indirect
 	github.com/DataDog/zstd v1.4.5 // indirect
+	github.com/ChainSafe/gossamer v0.6.1-0.20220114214423-e1f7f96cb8cb // indirect
+	github.com/ChainSafe/log15 v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20210428141323-04723f9f07d7 // indirect
@@ -49,7 +55,6 @@ require (
 	github.com/confio/ics23/go v0.7.0 // indirect
 	github.com/containerd/continuity v0.0.0-20190827140505-75bee3e2ccb6 // indirect
 	github.com/cosmos/btcutil v1.0.4 // indirect
-	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/iavl v0.17.3 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.11.1 // indirect
 	github.com/cosmos/ledger-go v0.9.2 // indirect
@@ -143,6 +148,7 @@ require (
 	github.com/tendermint/crypto v0.0.0-20191022145703-50d29ede1e15 // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
 	github.com/tendermint/tm-db v0.6.4 // indirect
+	github.com/tklauser/go-sysconf v0.3.7 // indirect
 	github.com/xanzy/ssh-agent v0.3.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
@@ -162,6 +168,16 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	nhooyr.io/websocket v1.8.6 // indirect
 )
+
+require (
+	github.com/cosmos/ibc-go/v3 v3.0.0-beta1
+	github.com/rs/cors v1.8.2 // indirect
+	google.golang.org/grpc v1.44.0
+)
+
+replace github.com/cosmos/ibc-go/v3 => ../../ComposableFi/ibc-go
+
+replace github.com/ComposableFi/go-substrate-rpc-client/v4 => ../../ComposableFi/go-substrate-rpc-client
 
 replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
 

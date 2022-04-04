@@ -3,17 +3,18 @@ package substrate
 import (
 	"bytes"
 	"fmt"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"io"
 	"reflect"
 	"time"
 
-	rpcClient "github.com/ComposableFi/go-substrate-rpc-client"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	rpcClient "github.com/ComposableFi/go-substrate-rpc-client/v4"
 	"github.com/ComposableFi/go-substrate-rpc-client/scale"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	beefyclient "github.com/cosmos/ibc-go/v3/modules/light-clients/11-beefy/types"
+	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
+	beefyclientTypes "github.com/cosmos/ibc-go/v3/modules/light-clients/11-beefy/types"
 	"github.com/cosmos/relayer/relayer/provider"
 	"github.com/cosmos/relayer/relayer/provider/substrate/keystore"
 )
@@ -52,6 +53,35 @@ func NewSubstrateProvider(spc *SubstrateProviderConfig, homepath string) (*Subst
 // Log takes a string and logs the data
 func (sp *SubstrateProvider) Log(s string) {
 	// TODO: implement logger
+}
+
+func (sp *SubstrateProvider) QueryConsensusStateABCI(clientID string, height ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
+	res, err := sp.RPCClient.RPC.IBC.QueryConsensusState(height)
+	if err != nil {
+		return nil, err
+	}
+
+	// check if consensus state exists
+	if len(res.Proof) == 0 {
+		return nil, fmt.Errorf(ErrTextConsensusStateNotFound, clientID)
+	}
+
+	return &clienttypes.QueryConsensusStateResponse{
+		ConsensusState: res.ConsensusState,
+		Proof:          res.Proof,
+		ProofHeight:    res.ProofHeight,
+	}, nil
+}
+
+// queryTMClientState retrieves the latest consensus state for a client in state at a given height
+// and unpacks/cast it to tendermint clientstate
+func (sp *SubstrateProvider) queryTMClientState(srch int64, srcClientId string) (*beefyclientTypes.ClientState, error) {
+	clientStateRes, err := sp.QueryClientStateResponse(srch, srcClientId)
+	if err != nil {
+		return &beefyclientTypes.ClientState{}, err
+	}
+
+	return castClientStateToBeefyType(clientStateRes.ClientState)
 }
 
 type SubstrateProviderConfig struct {
@@ -166,16 +196,16 @@ func (srm SubstrateRelayerMessage) MsgBytes() ([]byte, error) {
 }
 
 // castClientStateToBeefyType casts client state to tendermint type
-func castClientStateToBeefyType(cs *codectypes.Any) (*beefyclient.ClientState, error) {
+func castClientStateToBeefyType(cs *codectypes.Any) (*beefyclientTypes.ClientState, error) {
 	clientStateExported, err := clienttypes.UnpackClientState(cs)
 	if err != nil {
-		return &beefyclient.ClientState{}, err
+		return &beefyclientTypes.ClientState{}, err
 	}
 
 	// cast from interface to concrete type
-	clientState, ok := clientStateExported.(*beefyclient.ClientState)
+	clientState, ok := clientStateExported.(*beefyclientTypes.ClientState)
 	if !ok {
-		return &beefyclient.ClientState{},
+		return &beefyclientTypes.ClientState{},
 			fmt.Errorf("error when casting exported clientstate to tendermint type")
 	}
 
@@ -186,7 +216,7 @@ func castClientStateToBeefyType(cs *codectypes.Any) (*beefyclient.ClientState, e
 // except latest height. They are assumed to be IBC tendermint light clients.
 // NOTE: we don't pass in a pointer so upstream references don't have a modified
 // latest height set to zero.
-func isMatchingClient(clientStateA, clientStateB *beefyclient.ClientState) bool {
+func isMatchingClient(clientStateA, clientStateB *beefyclientTypes.ClientState) bool {
 	// zero out latest client height since this is determined and incremented
 	// by on-chain updates. Changing the latest height does not fundamentally
 	// change the client. The associated consensus state at the latest height
@@ -195,4 +225,19 @@ func isMatchingClient(clientStateA, clientStateB *beefyclient.ClientState) bool 
 	clientStateB.LatestBeefyHeight = 0
 
 	return reflect.DeepEqual(clientStateA, clientStateB)
+}
+
+// isMatchingConsensusState determines if the two provided consensus states are
+// identical. They are assumed to be IBC tendermint light clients.
+func isMatchingConsensusState(consensusStateA, consensusStateB *beefyclientTypes.ConsensusState) bool {
+	return reflect.DeepEqual(*consensusStateA, *consensusStateB)
+}
+
+// MustGetHeight takes the height inteface and returns the actual height
+func MustGetHeight(h ibcexported.Height) clienttypes.Height {
+	height, ok := h.(clienttypes.Height)
+	if !ok {
+		panic("height is not an instance of height!")
+	}
+	return height
 }

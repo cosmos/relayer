@@ -508,6 +508,7 @@ func (sp *SubstrateProvider) MsgRelayAcknowledgement(dst provider.ChainProvider,
 }
 
 func (sp *SubstrateProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanId string, timeoutHeight, timeoutTimestamp uint64) (provider.RelayerMessage, error) {
+	var (
 		acc string
 		err error
 	)
@@ -804,4 +805,25 @@ func (sp *SubstrateProvider) TrustingPeriod() (time.Duration, error) {
 
 func (sp *SubstrateProvider) WaitForNBlocks(n int64) error {
 	return nil
+}
+
+// QueryABCI gets path and input data then makes a call to the RPC server and returns response
+func (sp *SubstrateProvider) QueryABCI(path string, data []byte) ([]byte, error) {
+
+	target := path
+	result, err := sp.RPCClient.Client.Call(target, "")
+	if err != nil {
+		return abci.ResponseQuery{}, err
+	}
+
+	if !result.Response.IsOK() {
+		return abci.ResponseQuery{}, sdkErrorToGRPCError(result.Response)
+	}
+
+	// data from trusted node or subspace query doesn't need verification
+	if !opts.Prove || !isQueryStoreWithProof(req.Path) {
+		return result.Response, nil
+	}
+
+	return result.Response, nil
 }

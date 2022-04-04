@@ -3,21 +3,19 @@ package substrate
 import (
 	"context"
 	"fmt"
-	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
 	"strings"
 	"time"
 
 	rpcClientTypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
-	beefyClientTypes "github.com/cosmos/ibc-go/v3/modules/light-clients/11-beefy/types"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
-	committypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
 	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	committypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
+	beefyClientTypes "github.com/cosmos/ibc-go/v3/modules/light-clients/11-beefy/types"
 	"github.com/cosmos/relayer/relayer/provider"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 
@@ -115,6 +113,7 @@ func (sp *SubstrateProvider) QueryClientStateResponse(height int64, srcClientId 
 }
 
 func (sp *SubstrateProvider) QueryClientConsensusState(chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
+
 	return nil, nil
 }
 
@@ -143,7 +142,7 @@ func (sp *SubstrateProvider) QueryClients() (clienttypes.IdentifiedClientStates,
 	return state.ClientStates, nil
 }
 
-func (sp *SubstrateProvider) AutoUpdateClient(dst provider.ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error) {
+func (sp *SubstrateProvider) AutoUpdateClient(dst provider.ChainProvider, _ time.Duration, srcClientId, dstClientId string) (time.Duration, error) {
 	srch, err := sp.QueryLatestHeight()
 	if err != nil {
 		return 0, err
@@ -153,17 +152,13 @@ func (sp *SubstrateProvider) AutoUpdateClient(dst provider.ChainProvider, thresh
 		return 0, err
 	}
 
-	clientState, err := cc.queryTMClientState(srch, srcClientId)
+	clientState, err := sp.queryTMClientState(srch, srcClientId)
 	if err != nil {
 		return 0, err
 	}
 
-	if clientState.TrustingPeriod <= thresholdTime {
-		return 0, fmt.Errorf("client (%s) trusting period time is less than or equal to threshold time", srcClientId)
-	}
-
 	// query the latest consensus state of the potential matching client
-	consensusStateResp, err := cc.QueryConsensusStateABCI(srcClientId, clientState.GetLatestHeight())
+	consensusStateResp, err := sp.QueryConsensusStateABCI(srcClientId, clientState.GetLatestHeight())
 	if err != nil {
 		return 0, err
 	}
@@ -173,42 +168,30 @@ func (sp *SubstrateProvider) AutoUpdateClient(dst provider.ChainProvider, thresh
 		return 0, err
 	}
 
-	consensusState, ok := exportedConsState.(*tmclient.ConsensusState)
+	_, ok := exportedConsState.(*beefyClientTypes.ConsensusState)
 	if !ok {
 		return 0, fmt.Errorf("consensus state with clientID %s from chain %s is not IBC tendermint type",
-			srcClientId, cc.Config.ChainID)
+			srcClientId, sp.Config.ChainID)
 	}
 
-	expirationTime := consensusState.Timestamp.Add(clientState.TrustingPeriod)
-
-	timeToExpiry := time.Until(expirationTime)
-
-	if timeToExpiry > thresholdTime {
-		return timeToExpiry, nil
-	}
-
-	if clientState.IsExpired(consensusState.Timestamp, time.Now()) {
-		return 0, fmt.Errorf("client (%s) is already expired on chain: %s", srcClientId, cc.Config.ChainID)
-	}
-
-	srcUpdateHeader, err := cc.GetIBCUpdateHeader(srch, dst, dstClientId)
+	srcUpdateHeader, err := sp.GetIBCUpdateHeader(srch, dst, dstClientId)
 	if err != nil {
 		return 0, err
 	}
 
-	dstUpdateHeader, err := dst.GetIBCUpdateHeader(dsth, cc, srcClientId)
+	dstUpdateHeader, err := dst.GetIBCUpdateHeader(dsth, sp, srcClientId)
 	if err != nil {
 		return 0, err
 	}
 
-	updateMsg, err := cc.UpdateClient(srcClientId, dstUpdateHeader)
+	updateMsg, err := sp.UpdateClient(srcClientId, dstUpdateHeader)
 	if err != nil {
 		return 0, err
 	}
 
 	msgs := []provider.RelayerMessage{updateMsg}
 
-	res, success, err := cc.SendMessages(msgs)
+	res, success, err := sp.SendMessages(msgs)
 	if err != nil {
 		// cp.LogFailedTx(res, err, CosmosMsgs(msgs...))
 		return 0, err
@@ -216,18 +199,99 @@ func (sp *SubstrateProvider) AutoUpdateClient(dst provider.ChainProvider, thresh
 	if !success {
 		return 0, fmt.Errorf("tx failed: %s", res.Data)
 	}
-	cc.Log(fmt.Sprintf("★ Client updated: [%s]client(%s) {%d}->{%d}",
-		cc.Config.ChainID,
+	sp.Log(fmt.Sprintf("★ Client updated: [%s]client(%s) {%d}->{%d}",
+		sp.Config.ChainID,
 		srcClientId,
 		MustGetHeight(srcUpdateHeader.GetHeight()),
 		srcUpdateHeader.GetHeight().GetRevisionHeight(),
 	))
 
-	return clientState.TrustingPeriod, nil
+	return maxDuration(), nil
+}
+
+func maxDuration() time.Duration {
+	return 1<<63 - 1
 }
 
 func (sp *SubstrateProvider) FindMatchingClient(counterparty provider.ChainProvider, clientState ibcexported.ClientState) (string, bool) {
-	return "", false //no
+	clientsResp, err := sp.QueryClients()
+	if err != nil {
+		if sp.Config.Debug {
+			sp.Log(fmt.Sprintf("Error: querying clients on %s failed: %v", sp.Config.ChainID, err))
+		}
+		return "", false
+	}
+
+	for _, identifiedClientState := range clientsResp {
+		// unpack any into ibc tendermint client state
+		existingClientState, err := castClientStateToBeefyType(identifiedClientState.ClientState)
+		if err != nil {
+			return "", false
+		}
+
+		tmClientState, ok := clientState.(*beefyClientTypes.ClientState)
+		if !ok {
+			if sp.Config.Debug {
+				fmt.Printf("got data of type %T but wanted tmclient.ClientState \n", clientState)
+			}
+			return "", false
+		}
+
+		// check if the client states match
+		// NOTE: FrozenHeight.IsZero() is a sanity check, the client to be created should always
+		// have a zero frozen height and therefore should never match with a frozen client
+		if isMatchingClient(tmClientState, existingClientState) && existingClientState.FrozenHeight == 0 {
+
+			// query the latest consensus state of the potential matching client
+			consensusStateResp, err := sp.QueryConsensusStateABCI(identifiedClientState.ClientId, existingClientState.GetLatestHeight())
+			if err != nil {
+				if sp.Config.Debug {
+					sp.Log(fmt.Sprintf("Error: failed to query latest consensus state for existing client on chain %s: %v",
+						sp.Config.ChainID, err))
+				}
+				continue
+			}
+
+			//nolint:lll
+			header, err := counterparty.GetLightSignedHeaderAtHeight(int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
+			if err != nil {
+				if sp.Config.Debug {
+					sp.Log(fmt.Sprintf("Error: failed to query header for chain %s at height %d: %v",
+						counterparty.ChainId(), existingClientState.GetLatestHeight().GetRevisionHeight(), err))
+				}
+				continue
+			}
+
+			exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
+			if err != nil {
+				if sp.Config.Debug {
+					sp.Log(fmt.Sprintf("Error: failed to consensus state on chain %s: %v", counterparty.ChainId(), err))
+				}
+				continue
+			}
+			existingConsensusState, ok := exportedConsState.(*beefyClientTypes.ConsensusState)
+			if !ok {
+				if sp.Config.Debug {
+					sp.Log(fmt.Sprintf("Error: consensus state is not tendermint type on chain %s", counterparty.ChainId()))
+				}
+				continue
+			}
+
+			tmHeader, ok := header.(*beefyClientTypes.Header)
+			if !ok {
+				if sp.Config.Debug {
+					fmt.Printf("got data of type %T but wanted tmclient.Header \n", header)
+				}
+				return "", false
+			}
+
+			if isMatchingConsensusState(existingConsensusState, tmHeader.ConsensusState()) {
+				// found matching client
+				return identifiedClientState.ClientId, true
+			}
+		}
+	}
+	return "", false
 }
 
 func (sp *SubstrateProvider) QueryConnection(height int64, connectionid string) (*conntypes.QueryConnectionResponse, error) {
