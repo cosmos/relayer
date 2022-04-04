@@ -87,7 +87,27 @@ func DecodeMsgs(c *Chain, msgs []string) []provider.RelayerMessage {
 	return outMsgs
 }
 
-func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst *Chain) {
+// RelayMsgSender is a narrow subset of a Chain,
+// to simplify testing methods on RelayMsgs.
+type RelayMsgSender struct {
+	ChainID string
+
+	// SendMessages is a function matching the signature of the same method
+	// on the ChainProvider interface.
+	//
+	// Accepting this narrow subset of the interface greatly simplifies testing.
+	SendMessages func(context.Context, []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error)
+}
+
+// AsRelayMsgSender converts c to a RelayMsgSender.
+func AsRelayMsgSender(c *Chain) RelayMsgSender {
+	return RelayMsgSender{
+		ChainID:      c.ChainID(),
+		SendMessages: c.ChainProvider.SendMessages,
+	}
+}
+
+func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsgSender) {
 	//nolint:prealloc // can not be pre allocated
 	var (
 		msgLen, txSize uint64
@@ -109,9 +129,9 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst *Chain) 
 
 			if r.IsMaxTx(msgLen, txSize) {
 				// Submit the transactions to src chain and update its status
-				res, success, err := src.ChainProvider.SendMessages(ctx, msgs)
+				res, success, err := src.SendMessages(ctx, msgs)
 				if err != nil {
-					logFailedTx(log, src.ChainID(), res, err, msgs)
+					logFailedTx(log, src.ChainID, res, err, msgs)
 				}
 				r.Succeeded = r.Succeeded && success
 
@@ -125,9 +145,9 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst *Chain) 
 
 	// submit leftover msgs
 	if len(msgs) > 0 {
-		res, success, err := src.ChainProvider.SendMessages(ctx, msgs)
+		res, success, err := src.SendMessages(ctx, msgs)
 		if err != nil {
-			logFailedTx(log, src.ChainID(), res, err, msgs)
+			logFailedTx(log, src.ChainID, res, err, msgs)
 		}
 
 		r.Succeeded = success
@@ -149,9 +169,9 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst *Chain) 
 
 			if r.IsMaxTx(msgLen, txSize) {
 				// Submit the transaction to dst chain and update its status
-				res, success, err := dst.ChainProvider.SendMessages(ctx, msgs)
+				res, success, err := dst.SendMessages(ctx, msgs)
 				if err != nil {
-					logFailedTx(log, dst.ChainID(), res, err, msgs)
+					logFailedTx(log, dst.ChainID, res, err, msgs)
 				}
 
 				r.Succeeded = r.Succeeded && success
@@ -166,9 +186,9 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst *Chain) 
 
 	// submit leftover msgs
 	if len(msgs) > 0 {
-		res, success, err := dst.ChainProvider.SendMessages(ctx, msgs)
+		res, success, err := dst.SendMessages(ctx, msgs)
 		if err != nil {
-			logFailedTx(log, dst.ChainID(), res, err, msgs)
+			logFailedTx(log, dst.ChainID, res, err, msgs)
 		}
 
 		r.Succeeded = success
