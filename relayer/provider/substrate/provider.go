@@ -56,7 +56,7 @@ func (sp *SubstrateProvider) Log(s string) {
 }
 
 func (sp *SubstrateProvider) QueryConsensusStateABCI(clientID string, height ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
-	res, err := sp.RPCClient.RPC.IBC.QueryConsensusState(height)
+	res, err := sp.RPCClient.RPC.IBC.QueryConsensusState(height.GetRevisionHeight())
 	if err != nil {
 		return nil, err
 	}

@@ -83,14 +83,13 @@ func (sp *SubstrateProvider) QueryBalance(keyName string) (sdk.Coins, error) {
 }
 
 func (sp *SubstrateProvider) QueryBalanceWithAddress(addr string) (sdk.Coins, error) {
-	var res *clienttypes.QueryClientStateResponse
 	// TODO: addr might need to be passed as byte not string
-	err := sp.RPCClient.Client.Call(&res, "ibc.queryBalanceWithAddress", addr)
+	res, err := sp.RPCClient.RPC.IBC.QueryBalanceWithAddress([]byte(addr))
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	return res, nil
 }
 
 func (sp *SubstrateProvider) QueryUnbondingPeriod() (time.Duration, error) {
@@ -128,52 +127,47 @@ func (sp *SubstrateProvider) QueryClientState(height int64, clientid string) (ib
 }
 
 func (sp *SubstrateProvider) QueryClientStateResponse(height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
-	var res *clienttypes.QueryClientStateResponse
-	err := sp.RPCClient.Client.Call(&res, "ibc.queryClientState", height, srcClientId)
+	res, err := sp.RPCClient.RPC.IBC.QueryClientStateResponse(height, srcClientId)
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	return res, nil
 }
 
 func (sp *SubstrateProvider) QueryClientConsensusState(chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
-	var res *clienttypes.QueryConsensusStateResponse
-	err := sp.RPCClient.Client.Call(&res, "ibc.queryClientConsensusState", clientid,
+	res, err := sp.RPCClient.RPC.IBC.QueryClientConsensusState(clientid,
 		clientHeight.GetRevisionHeight(), clientHeight.GetRevisionNumber(), false)
-	if err != nil  {
+	if err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
 func (sp *SubstrateProvider) QueryUpgradedClient(height int64) (*clienttypes.QueryClientStateResponse, error) {
-	var res *clienttypes.QueryClientStateResponse
-	err := sp.RPCClient.Client.Call(&res, "ibc.queryUpgradedClient", height)
-	if err != nil  {
+	res, err := sp.RPCClient.RPC.IBC.QueryUpgradedClient(height)
+	if err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
 func (sp *SubstrateProvider) QueryUpgradedConsState(height int64) (*clienttypes.QueryConsensusStateResponse, error) {
-	var res *clienttypes.QueryConsensusStateResponse
-	err := sp.RPCClient.Client.Call(&res, "ibc.queryUpgradedConnectionState", height)
-	if err != nil  {
+	res, err := sp.RPCClient.RPC.IBC.QueryUpgradedConsState(height)
+	if err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
 func (sp *SubstrateProvider) QueryConsensusState(height int64) (ibcexported.ConsensusState, int64, error) {
-	var res *clienttypes.QueryConsensusStateResponse
-	err := sp.RPCClient.Client.Call(&res, "ibc.queryConsensusState", height)
-	if err != nil  {
+	res, err := sp.RPCClient.RPC.IBC.QueryConsensusState(height)
+	if err != nil {
 		return nil, 0, err
 	}
 
 	consensusStateExported, err := clienttypes.UnpackConsensusState(res.ConsensusState)
-	if err != nil  {
+	if err != nil {
 		return nil, 0, err
 	}
 
@@ -183,9 +177,8 @@ func (sp *SubstrateProvider) QueryConsensusState(height int64) (ibcexported.Cons
 // QueryClients queries all the clients!
 // TODO add pagination support
 func (sp *SubstrateProvider) QueryClients() (clienttypes.IdentifiedClientStates, error) {
-	var res clienttypes.IdentifiedClientStates
-	err := sp.RPCClient.Client.Call(&res, "ibc.queryClients")
-	if err != nil  {
+	res, err := sp.RPCClient.RPC.IBC.QueryClients()
+	if err != nil {
 		return nil, err
 	}
 
@@ -369,9 +362,8 @@ func (sp *SubstrateProvider) QueryConnection(height int64, connectionid string) 
 }
 
 func (sp *SubstrateProvider) queryConnection(height int64, connectionID string) (*conntypes.QueryConnectionResponse, error) {
-	var res *conntypes.QueryConnectionResponse
-	err := sp.RPCClient.Client.Call(&res, "ibc.queryConnection", height, connectionID)
-	if err != nil  {
+	res, err := sp.RPCClient.RPC.IBC.QueryConnection(height, connectionID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -381,9 +373,8 @@ func (sp *SubstrateProvider) queryConnection(height int64, connectionID string) 
 // QueryConnections gets any connections on a chain
 // TODO add pagination support
 func (sp *SubstrateProvider) QueryConnections() (conns []*conntypes.IdentifiedConnection, err error) {
-	var res *conntypes.QueryConnectionsResponse
-	err = sp.RPCClient.Client.Call(&res, "ibc.queryConnections")
-	if err != nil  {
+	res, err := sp.RPCClient.RPC.IBC.QueryConnections()
+	if err != nil {
 		return nil, err
 	}
 
@@ -393,9 +384,8 @@ func (sp *SubstrateProvider) QueryConnections() (conns []*conntypes.IdentifiedCo
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
 // TODO add pagination support
 func (sp *SubstrateProvider) QueryConnectionsUsingClient(height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
-	var res *conntypes.QueryConnectionsResponse
-	err := sp.RPCClient.Client.Call(&res, "ibc_queryConnectionUsingClient")
-	if err != nil  {
+	res, err := sp.RPCClient.RPC.IBC.QueryConnectionsUsingClient(height, clientid)
+	if err != nil {
 		return nil, err
 	}
 
@@ -507,9 +497,8 @@ func (sp *SubstrateProvider) queryChannel(height int64, portID, channelID string
 }
 
 func (sp *SubstrateProvider) QueryChannelClient(height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
-	var res *clienttypes.IdentifiedClientState
-	err := sp.RPCClient.Client.Call(&res, "ibc.queryChannelClient", height, channelid, portid)
-	if err != nil  {
+	res, err := sp.RPCClient.RPC.IBC.QueryChannelClient(height, channelid, portid)
+	if err != nil {
 		return nil, err
 	}
 
@@ -517,9 +506,8 @@ func (sp *SubstrateProvider) QueryChannelClient(height int64, channelid, portid 
 }
 
 func (sp *SubstrateProvider) QueryConnectionChannels(height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
-	var res *chantypes.QueryConnectionChannelsResponse
-	err := sp.RPCClient.Client.Call(&res, "ibc.queryConnectionChannels", height, connectionid)
-	if err != nil  {
+	res, err := sp.RPCClient.RPC.IBC.QueryConnectionChannels(height, connectionid)
+	if err != nil {
 		return nil, err
 	}
 
@@ -527,9 +515,8 @@ func (sp *SubstrateProvider) QueryConnectionChannels(height int64, connectionid 
 }
 
 func (sp *SubstrateProvider) QueryChannels() ([]*chantypes.IdentifiedChannel, error) {
-	var res *chantypes.QueryChannelsResponse
-	err := sp.RPCClient.Client.Call(&res, "ibc.queryChannels")
-	if err != nil  {
+	res, err := sp.RPCClient.RPC.IBC.QueryChannels()
+	if err != nil {
 		return nil, err
 	}
 
@@ -537,9 +524,8 @@ func (sp *SubstrateProvider) QueryChannels() ([]*chantypes.IdentifiedChannel, er
 }
 
 func (sp *SubstrateProvider) QueryPacketCommitments(height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
-	var res *chantypes.QueryPacketCommitmentsResponse
-	err = sp.RPCClient.Client.Call(&res, "ibc.queryPacketCommitments", height, channelid, portid)
-	if err != nil  {
+	res, err := sp.RPCClient.RPC.IBC.QueryPacketCommitments(height, channelid, portid)
+	if err != nil {
 		return nil, err
 	}
 
@@ -547,9 +533,8 @@ func (sp *SubstrateProvider) QueryPacketCommitments(height uint64, channelid, po
 }
 
 func (sp *SubstrateProvider) QueryPacketAcknowledgements(height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
-	var res *chantypes.QueryPacketAcknowledgementsResponse
-	err = sp.RPCClient.Client.Call(&res, "ibc.queryPacketAcknowledgements", height, channelid, portid)
-	if err != nil  {
+	res, err := sp.RPCClient.RPC.IBC.QueryPacketAcknowledgements(height, channelid, portid)
+	if err != nil {
 		return nil, err
 	}
 
@@ -557,9 +542,8 @@ func (sp *SubstrateProvider) QueryPacketAcknowledgements(height uint64, channeli
 }
 
 func (sp *SubstrateProvider) QueryUnreceivedPackets(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
-	var packets []uint64
-	err := sp.RPCClient.Client.Call(&packets, "ibc.queryUnreceivedPackets", height, channelid, portid, seqs)
-	if err != nil  {
+	packets, err := sp.RPCClient.RPC.IBC.QueryUnreceivedPackets(height, channelid, portid, seqs)
+	if err != nil {
 		return nil, err
 	}
 
@@ -568,8 +552,8 @@ func (sp *SubstrateProvider) QueryUnreceivedPackets(height uint64, channelid, po
 
 func (sp *SubstrateProvider) QueryUnreceivedAcknowledgements(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
 	var ack []uint64
-	err := sp.RPCClient.Client.Call(&ack, "ibc.queryUnreceivedAcknowledgement", height, channelid, portid, seqs)
-	if err != nil  {
+	ack, err := sp.RPCClient.RPC.IBC.QueryUnreceivedAcknowledgements(height, channelid, portid, seqs)
+	if err != nil {
 		return nil, err
 	}
 
@@ -577,41 +561,40 @@ func (sp *SubstrateProvider) QueryUnreceivedAcknowledgements(height uint64, chan
 }
 
 func (sp *SubstrateProvider) QueryNextSeqRecv(height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
-	err = sp.RPCClient.Client.Call(&recvRes, "ibc.queryNextSeqRecv", height, channelid, portid)
-	if err != nil  {
+	recvRes, err = sp.RPCClient.RPC.IBC.QueryNextSeqRecv(height, channelid, portid)
+	if err != nil {
 		return nil, err
 	}
 	return
 }
 
 func (sp *SubstrateProvider) QueryPacketCommitment(height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error) {
-	err = sp.RPCClient.Client.Call(&comRes, "ibc.queryPacketCommitment", height, channelid, portid)
-	if err != nil  {
+	comRes, err = sp.RPCClient.RPC.IBC.QueryPacketCommitment(height, channelid, portid)
+	if err != nil {
 		return nil, err
 	}
 	return
 }
 
 func (sp *SubstrateProvider) QueryPacketAcknowledgement(height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
-	err = sp.RPCClient.Client.Call(&ackRes, "ibc.queryPacketAcknowledgement", height, channelid, portid, seq)
-	if err != nil  {
+	ackRes, err = sp.RPCClient.RPC.IBC.QueryPacketAcknowledgement(height, channelid, portid, seq)
+	if err != nil {
 		return nil, err
 	}
 	return
 }
 
 func (sp *SubstrateProvider) QueryPacketReceipt(height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
-	err = sp.RPCClient.Client.Call(&recRes, "ibc.queryPacketReceipt", height, channelid, portid, seq)
-	if err != nil  {
+	recRes, err = sp.RPCClient.RPC.IBC.QueryPacketReceipt(height, channelid, portid, seq)
+	if err != nil {
 		return nil, err
 	}
 	return
 }
 
 func (sp *SubstrateProvider) QueryDenomTrace(denom string) (*transfertypes.DenomTrace, error) {
-	var res *transfertypes.QueryDenomTraceResponse
-	err := sp.RPCClient.Client.Call(&res, "ibc.queryDenomTrace", denom)
-	if err != nil  {
+	res, err := sp.RPCClient.RPC.IBC.QueryDenomTrace(denom)
+	if err != nil {
 		return nil, err
 	}
 
@@ -619,9 +602,8 @@ func (sp *SubstrateProvider) QueryDenomTrace(denom string) (*transfertypes.Denom
 }
 
 func (sp *SubstrateProvider) QueryDenomTraces(offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
-	var res *transfertypes.QueryDenomTracesResponse
-	err := sp.RPCClient.Client.Call(&res, "ibc.queryDenomTraces", offset, limit, height)
-	if err != nil  {
+	res, err := sp.RPCClient.RPC.IBC.QueryDenomTraces(offset, limit, height)
+	if err != nil {
 		return nil, err
 	}
 

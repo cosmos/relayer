@@ -2,6 +2,7 @@ package substrate
 
 import (
 	"fmt"
+
 	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
@@ -624,6 +625,53 @@ func (sp *SubstrateProvider) MsgUpgradeClient(srcClientId string, consRes *clien
 }
 
 func (sp *SubstrateProvider) RelayPacketFromSequence(src, dst provider.ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) (provider.RelayerMessage, provider.RelayerMessage, error) {
+	txs, err := sp.QueryTxs(1, 1000, rcvPacketQuery(srcChanId, int(seq)))
+	switch {
+	case err != nil:
+		return nil, nil, err
+	case len(txs) == 0:
+		return nil, nil, fmt.Errorf("no transactions returned with query")
+	case len(txs) > 1:
+		return nil, nil, fmt.Errorf("more than one transaction returned with query")
+	}
+
+	rcvPackets, timeoutPackets, err := relayPacketsFromResultTx(src, dst, int64(dsth), txs[0], dstChanId, dstPortId, srcChanId, srcPortId, srcClientId)
+	switch {
+	case err != nil:
+		return nil, nil, err
+	case len(rcvPackets) == 0 && len(timeoutPackets) == 0:
+		return nil, nil, fmt.Errorf("no relay msgs created from query response")
+	case len(rcvPackets)+len(timeoutPackets) > 1:
+		return nil, nil, fmt.Errorf("more than one relay msg found in tx query")
+	}
+
+	if len(rcvPackets) == 1 {
+		pkt := rcvPackets[0]
+		if seq != pkt.Seq() {
+			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
+		}
+
+		packet, err := dst.MsgRelayRecvPacket(src, int64(srch), pkt, srcChanId, srcPortId, dstChanId, dstPortId)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return packet, nil, nil
+	}
+
+	if len(timeoutPackets) == 1 {
+		pkt := timeoutPackets[0]
+		if seq != pkt.Seq() {
+			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
+		}
+
+		timeout, err := src.MsgRelayTimeout(dst, int64(dsth), pkt, dstChanId, dstPortId, srcChanId, srcPortId)
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, timeout, nil
+	}
+
 	return nil, nil, fmt.Errorf("should have errored before here")
 }
 
@@ -707,10 +755,9 @@ func (sp *SubstrateProvider) SendMessages(msgs []provider.RelayerMessage) (*prov
 }
 
 func (sp *SubstrateProvider) GetLightSignedHeaderAtHeight(h int64) (ibcexported.Header, error) {
-	return sp.QueryHeaderAtHeight(h)
+	return nil, nil
 }
 
-// TODO: we might not need this method in substrate. Why does the off chain client need to update the onchain light client on the destination chain?
 // GetIBCUpdateHeader updates the off chain beefy light client and
 // returns an IBC Update Header which can be used to update an on chain
 // light client on the destination chain. The source is used to construct
@@ -723,7 +770,8 @@ func (sp *SubstrateProvider) GetIBCUpdateHeader(srch int64, dst provider.ChainPr
 	}
 
 	// Inject trusted fields based on previous header data from source
-	// return sp.InjectTrustedFields(ctx, h, dst, dstClientId)
+	// TODO: implement InjectTrustedFields, make findings on getting validator set from beefy header
+	// return sp.InjectTrustedFields(h, dst, dstClientId)
 	return h, nil
 }
 
@@ -762,25 +810,4 @@ func (sp *SubstrateProvider) TrustingPeriod() (time.Duration, error) {
 
 func (sp *SubstrateProvider) WaitForNBlocks(n int64) error {
 	return nil
-}
-
-// QueryABCI gets path and input data then makes a call to the RPC server and returns response
-func (sp *SubstrateProvider) QueryABCI(path string, data []byte) ([]byte, error) {
-
-	target := path
-	result, err := sp.RPCClient.Client.Call(target, "")
-	if err != nil {
-		return abci.ResponseQuery{}, err
-	}
-
-	if !result.Response.IsOK() {
-		return abci.ResponseQuery{}, sdkErrorToGRPCError(result.Response)
-	}
-
-	// data from trusted node or subspace query doesn't need verification
-	if !opts.Prove || !isQueryStoreWithProof(req.Path) {
-		return result.Response, nil
-	}
-
-	return result.Response, nil
 }
