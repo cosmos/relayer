@@ -730,7 +730,7 @@ $ %s tx relay-pkt demo-path channel-1 1`,
 				return err
 			}
 
-			return relayer.RelayPacket(cmd.Context(), c[src], c[dst], sp, maxTxSize, maxMsgLength, uint64(seqNum), channel)
+			return relayer.RelayPacket(cmd.Context(), a.Log, c[src], c[dst], sp, maxTxSize, maxMsgLength, uint64(seqNum), channel)
 		},
 	}
 
@@ -774,7 +774,7 @@ $ %s tx relay-pkts demo-path channel-0`,
 				return err
 			}
 
-			if err = relayer.RelayPackets(cmd.Context(), c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
+			if err = relayer.RelayPackets(cmd.Context(), a.Log, c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
 				return err
 			}
 
@@ -824,7 +824,7 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 				return err
 			}
 
-			if err = relayer.RelayAcknowledgements(cmd.Context(), c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
+			if err = relayer.RelayAcknowledgements(cmd.Context(), a.Log, c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
 				return err
 			}
 
@@ -1001,7 +1001,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 
 			}
 
-			return c[src].SendTransferMsg(cmd.Context(), c[dst], amount, dstAddr, toHeightOffset, toTimeOffset, srcChannel)
+			return c[src].SendTransferMsg(cmd.Context(), a.Log, c[dst], amount, dstAddr, toHeightOffset, toTimeOffset, srcChannel)
 		},
 	}
 
