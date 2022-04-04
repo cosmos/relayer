@@ -1333,15 +1333,18 @@ func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty p
 	if err = retry.Do(func() error {
 		clientsResp, err = cc.QueryClients(ctx)
 		if err != nil {
-			cc.log.Debug(
-				"Failed to query clients",
-				zap.String("chain_id", cc.PCfg.ChainID),
-				zap.Error(err),
-			)
 			return err
 		}
-		return err
-	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
+		return nil
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		cc.log.Info(
+			"Failed to query clients",
+			zap.String("chain_id", cc.PCfg.ChainID),
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", RtyAttNum),
+			zap.Error(err),
+		)
+	})); err != nil {
 		return "", false
 	}
 
@@ -1354,7 +1357,7 @@ func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty p
 
 		tmClientState, ok := clientState.(*tmclient.ClientState)
 		if !ok {
-			cc.log.Debug(
+			cc.log.Info(
 				"Failed to convert value to *tmclient.ClientState",
 				zap.Stringer("client_state_type", reflect.TypeOf(clientState)),
 			)
@@ -1369,7 +1372,7 @@ func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty p
 			// query the latest consensus state of the potential matching client
 			consensusStateResp, err := cc.QueryConsensusStateABCI(ctx, identifiedClientState.ClientId, existingClientState.GetLatestHeight())
 			if err != nil {
-				cc.log.Debug(
+				cc.log.Info(
 					"Failed to query latest consensus state for existing client on chain",
 					zap.String("chain_id", cc.PCfg.ChainID),
 					zap.Error(err),
@@ -1380,7 +1383,7 @@ func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty p
 			//nolint:lll
 			header, err := counterparty.GetLightSignedHeaderAtHeight(ctx, int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
 			if err != nil {
-				cc.log.Debug(
+				cc.log.Info(
 					"Failed to query header",
 					zap.String("chain_id", counterparty.ChainId()),
 					zap.Uint64("height", existingClientState.GetLatestHeight().GetRevisionHeight()),
@@ -1391,7 +1394,7 @@ func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty p
 
 			exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
 			if err != nil {
-				cc.log.Debug(
+				cc.log.Info(
 					"Failed to unpack consensus state",
 					zap.String("chain", counterparty.ChainId()),
 					zap.Error(err),
@@ -1400,7 +1403,7 @@ func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty p
 			}
 			existingConsensusState, ok := exportedConsState.(*tmclient.ConsensusState)
 			if !ok {
-				cc.log.Debug(
+				cc.log.Info(
 					"Cannot convert consensus state to *tmclient.ConsensusState",
 					zap.String("chain_id", counterparty.ChainId()),
 					zap.Stringer("consensus_state_type", reflect.TypeOf(exportedConsState)),
@@ -1414,7 +1417,7 @@ func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty p
 
 			tmHeader, ok := header.(*tmclient.Header)
 			if !ok {
-				cc.log.Debug(
+				cc.log.Info(
 					"Failed to convert value to *tmclient.Header",
 					zap.Stringer("header_type", reflect.TypeOf(header)),
 				)

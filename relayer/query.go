@@ -90,7 +90,7 @@ func QueryChannel(ctx context.Context, src *Chain, channelID string) (*chantypes
 		srcChannels, err = src.ChainProvider.QueryConnectionChannels(ctx, srch, src.ConnectionID())
 		return err
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		src.log.Debug(
+		src.log.Info(
 			"Failed to query connection channels",
 			zap.String("conn_id", src.ConnectionID()),
 			zap.Uint("attempt", n+1),

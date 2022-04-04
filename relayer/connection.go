@@ -450,22 +450,19 @@ func FindMatchingConnection(ctx context.Context, source, counterparty *Chain) (s
 	if err = retry.Do(func() error {
 		connectionsResp, err = source.ChainProvider.QueryConnections(ctx)
 		if err != nil {
-			source.log.Debug(
-				"Querying connections failed",
-				zap.String("src_chain_id", source.ChainID()),
-				zap.Error(err),
-			)
 			return err
 		}
 
-		return err
-	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
-		source.log.Debug(
+		return nil
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		source.log.Info(
 			"Querying connections failed",
 			zap.String("src_chain_id", source.ChainID()),
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", RtyAttNum),
 			zap.Error(err),
 		)
-
+	})); err != nil {
 		return "", false
 	}
 
