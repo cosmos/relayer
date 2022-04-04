@@ -18,13 +18,12 @@ type RelayMsgs struct {
 	MaxTxSize    uint64                    `json:"max_tx_size"`    // maximum permitted size of the msgs in a bundled relay transaction
 	MaxMsgLength uint64                    `json:"max_msg_length"` // maximum amount of messages in a bundled relay transaction
 
-	Last      bool `json:"last"`
 	Succeeded bool `json:"success"`
 }
 
 // NewRelayMsgs returns an initialized version of relay messages
 func NewRelayMsgs() *RelayMsgs {
-	return &RelayMsgs{Src: []provider.RelayerMessage{}, Dst: []provider.RelayerMessage{}, Last: false, Succeeded: false}
+	return &RelayMsgs{Src: []provider.RelayerMessage{}, Dst: []provider.RelayerMessage{}, Succeeded: false}
 }
 
 // Ready returns true if there are messages to relay

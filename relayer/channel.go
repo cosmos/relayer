@@ -613,7 +613,7 @@ func (c *Chain) CloseChannel(ctx context.Context, dst *Chain, to time.Duration, 
 	dstPortID := srcChan.Channel.Counterparty.PortId
 
 	for ; true; <-ticker.C {
-		closeSteps, err := c.CloseChannelStep(ctx, dst, srcChanID, srcPortID, srcChan)
+		closeSteps, isLast, err := c.CloseChannelStep(ctx, dst, srcChanID, srcPortID, srcChan)
 		if err != nil {
 			return err
 		}
@@ -622,7 +622,7 @@ func (c *Chain) CloseChannel(ctx context.Context, dst *Chain, to time.Duration, 
 			break
 		}
 
-		if closeSteps.Send(ctx, c.log, AsRelayMsgSender(c), AsRelayMsgSender(dst)); closeSteps.Success() && closeSteps.Last {
+		if closeSteps.Send(ctx, c.log, AsRelayMsgSender(c), AsRelayMsgSender(dst)); closeSteps.Success() && isLast {
 			srch, dsth, err := QueryLatestHeights(ctx, c, dst)
 			if err != nil {
 				return err
@@ -654,15 +654,18 @@ func (c *Chain) CloseChannel(ctx context.Context, dst *Chain, to time.Duration, 
 // CloseChannelStep returns the next set of messages for closing a channel with given
 // identifiers between chains src and dst. If the closing handshake hasn't started, then CloseChannelStep
 // will begin the handshake on the src chain.
-func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, srcPortID string, srcChan *chantypes.QueryChannelResponse) (*RelayMsgs, error) {
+//
+// CloseChannelStep returns a set of messages to send,
+// and a bool reporting whether the closing handshake has started.
+func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, srcPortID string, srcChan *chantypes.QueryChannelResponse) (*RelayMsgs, bool, error) {
 	dsth, err := dst.ChainProvider.QueryLatestHeight(ctx)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	out := NewRelayMsgs()
 	if err := ValidatePaths(c, dst); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	dstChanID := srcChan.Channel.Counterparty.ChannelId
@@ -670,11 +673,12 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 
 	dstChan, err := dst.ChainProvider.QueryChannel(ctx, dsth, dstChanID, dstPortID)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	logChannelStates(c, dst, srcChan, dstChan)
 
+	isLast := false
 	switch {
 	// Closing handshake has not started, relay `updateClient` and `chanCloseInit` to src or dst according
 	// to the srcChan state
@@ -686,17 +690,17 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 
 			dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(ctx, dsth, c.ChainProvider, c.ClientID())
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 
 			updateMsg, err := c.ChainProvider.UpdateClient(c.ClientID(), dstHeader)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 
 			msg, err := c.ChainProvider.ChannelCloseInit(srcPortID, srcChanID)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			out.Src = append(out.Src, updateMsg, msg)
 		} else if dstChan.Channel.State != chantypes.UNINITIALIZED {
@@ -706,22 +710,22 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 
 			srch, err := c.ChainProvider.QueryLatestHeight(ctx)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 
 			srcHeader, err := c.ChainProvider.GetIBCUpdateHeader(ctx, srch, dst.ChainProvider, dst.ClientID())
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 
 			updateMsg, err := dst.ChainProvider.UpdateClient(dst.ClientID(), srcHeader)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 
 			msg, err := dst.ChainProvider.ChannelCloseInit(dstPortID, dstChanID)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			out.Dst = append(out.Dst, updateMsg, msg)
 		}
@@ -735,29 +739,29 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 
 			srch, err := c.ChainProvider.QueryLatestHeight(ctx)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 
 			srcHeader, err := c.ChainProvider.GetIBCUpdateHeader(ctx, srch, dst.ChainProvider, dst.ClientID())
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 
 			updateMsg, err := dst.ChainProvider.UpdateClient(dst.ClientID(), srcHeader)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 
 			chanCloseConfirm, err := dst.ChainProvider.ChannelCloseConfirm(ctx, c.ChainProvider, srch, srcChanID, srcPortID, dstPortID, dstChanID)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 
 			out.Dst = append(out.Dst,
 				updateMsg,
 				chanCloseConfirm,
 			)
-			out.Last = true
+			isLast = true
 		}
 
 	// Closing handshake has started on dst, relay `updateClient` and `chanCloseConfirm` to src
@@ -769,32 +773,32 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 
 			dsth, err := dst.ChainProvider.QueryLatestHeight(ctx)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 
 			dstHeader, err := dst.ChainProvider.GetIBCUpdateHeader(ctx, dsth, c.ChainProvider, c.ClientID())
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 
 			updateMsg, err := c.ChainProvider.UpdateClient(c.ClientID(), dstHeader)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 
 			chanCloseConfirm, err := c.ChainProvider.ChannelCloseConfirm(ctx, dst.ChainProvider, dsth, dstChanID, dstPortID, srcPortID, srcChanID)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 
 			out.Src = append(out.Src,
 				updateMsg,
 				chanCloseConfirm,
 			)
-			out.Last = true
+			isLast = true
 		}
 	}
-	return out, nil
+	return out, isLast, nil
 }
 
 // FindMatchingChannel will determine if there already exists a channel between source and counterparty
