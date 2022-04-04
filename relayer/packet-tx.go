@@ -55,7 +55,7 @@ func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain
 		Dst: []provider.RelayerMessage{},
 	}
 
-	if txs.Send(ctx, log, c, dst); !txs.Success() {
+	if txs.Send(ctx, log, AsRelayMsgSender(c), AsRelayMsgSender(dst)); !txs.Success() {
 		return fmt.Errorf("failed to send transfer message")
 	}
 	return nil

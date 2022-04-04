@@ -352,7 +352,7 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 		}
 
 		// send messages to their respective chains
-		if msgs.Send(ctx, log, src, dst); msgs.Success() {
+		if msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst)); msgs.Success() {
 			if len(msgs.Dst) > 1 {
 				dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
 			}
@@ -427,7 +427,7 @@ func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *Rel
 		}
 
 		// send messages to their respective chains
-		if msgs.Send(ctx, log, src, dst); msgs.Success() {
+		if msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst)); msgs.Success() {
 			if len(msgs.Dst) > 1 {
 				dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
 			}
@@ -642,7 +642,7 @@ func RelayPacket(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *Rela
 	}
 
 	// send messages to their respective chains
-	if msgs.Send(ctx, log, src, dst); msgs.Success() {
+	if msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst)); msgs.Success() {
 		if len(msgs.Dst) > 1 {
 			dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
 		}
