@@ -20,10 +20,8 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
-	committypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
 	host "github.com/cosmos/ibc-go/v3/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
-	ibctmtypes "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
 	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
 	"github.com/pkg/errors"
 	abci "github.com/tendermint/tendermint/abci/types"
@@ -256,7 +254,7 @@ func (cc *CosmosProvider) NewClientState(dstUpdateHeader ibcexported.Header, dst
 		MaxClockDrift:                time.Minute * 10,
 		FrozenHeight:                 clienttypes.ZeroHeight(),
 		LatestHeight:                 dstUpdateHeader.GetHeight().(clienttypes.Height),
-		ProofSpecs:                   committypes.GetSDKSpecs(),
+		ProofSpecs:                   commitmenttypes.GetSDKSpecs(),
 		UpgradePath:                  defaultUpgradePath,
 		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
 		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
@@ -276,7 +274,7 @@ func (cc *CosmosProvider) QueryUpgradeProof(ctx context.Context, key []byte, hei
 		return nil, clienttypes.Height{}, err
 	}
 
-	merkleProof, err := committypes.ConvertProofs(res.ProofOps)
+	merkleProof, err := commitmenttypes.ConvertProofs(res.ProofOps)
 	if err != nil {
 		return nil, clienttypes.Height{}, err
 	}
@@ -356,7 +354,7 @@ func (cc *CosmosProvider) QueryUpgradedConsState(ctx context.Context, height int
 func (cc *CosmosProvider) QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error) {
 	commit, err := cc.RPCClient.Commit(ctx, &height)
 	if err != nil {
-		return &ibctmtypes.ConsensusState{}, 0, err
+		return &tmclient.ConsensusState{}, 0, err
 	}
 
 	page := 1
@@ -365,10 +363,10 @@ func (cc *CosmosProvider) QueryConsensusState(ctx context.Context, height int64)
 	nextHeight := height + 1
 	nextVals, err := cc.RPCClient.Validators(ctx, &nextHeight, &page, &count)
 	if err != nil {
-		return &ibctmtypes.ConsensusState{}, 0, err
+		return &tmclient.ConsensusState{}, 0, err
 	}
 
-	state := &ibctmtypes.ConsensusState{
+	state := &tmclient.ConsensusState{
 		Timestamp:          commit.Time,
 		Root:               commitmenttypes.NewMerkleRoot(commit.AppHash),
 		NextValidatorsHash: tmtypes.NewValidatorSet(nextVals.Validators).Hash(),
@@ -402,7 +400,7 @@ func (cc *CosmosProvider) QueryConnection(ctx context.Context, height int64, con
 				Counterparty: conntypes.Counterparty{
 					ClientId:     "client",
 					ConnectionId: "connection",
-					Prefix:       committypes.MerklePrefix{KeyPrefix: []byte{}},
+					Prefix:       commitmenttypes.MerklePrefix{KeyPrefix: []byte{}},
 				},
 				DelayPeriod: 0,
 			},

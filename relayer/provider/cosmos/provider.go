@@ -1250,9 +1250,21 @@ func (cc *CosmosProvider) AutoUpdateClient(ctx context.Context, dst provider.Cha
 		consensusStateResp, err = cc.QueryConsensusStateABCI(ctx, srcClientId, clientState.GetLatestHeight())
 		return err
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		cc.log.Info(
+			"Error querying consensus state ABCI",
+			zap.String("chain_id", cc.PCfg.ChainID),
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", RtyAttNum),
+			zap.Error(err),
+		)
 		clientState, err = cc.queryTMClientState(ctx, srch, srcClientId)
 		if err != nil {
 			clientState = nil
+			cc.log.Info(
+				"Failed to refresh tendermint client state in order to re-query consensus state ABCI",
+				zap.String("chain_id", cc.PCfg.ChainID),
+				zap.Error(err),
+			)
 		}
 	})); err != nil {
 		return 0, err

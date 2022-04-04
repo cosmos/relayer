@@ -98,24 +98,6 @@ func logConnectionStates(src, dst *Chain, srcConn, dstConn *conntypes.QueryConne
 	)
 }
 
-func (c *Chain) logTx(events map[string][]string) {
-	hashField := zap.Skip()
-	if e := events["tx.hash"]; len(e) > 0 {
-		hashField = zap.String("hash", e[0])
-	}
-	heightField := zap.Skip()
-	if e := events["tx.height"]; len(e) > 0 {
-		heightField = zap.String("height", e[0])
-	}
-	c.log.Info(
-		"Transaction",
-		zap.String("chain_id", c.ChainID()),
-		zap.Strings("actions", events["message.action"]),
-		heightField,
-		hashField,
-	)
-}
-
 func (c *Chain) errQueryUnrelayedPacketAcks() error {
 	return fmt.Errorf("no error on QueryPacketUnrelayedAcknowledgements for %s, however response is nil", c.ChainID())
 }
