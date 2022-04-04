@@ -89,7 +89,7 @@ func queryChannelsOnConnection(ctx context.Context, src *Chain) ([]*types.Identi
 		srcChannels, err = src.ChainProvider.QueryConnectionChannels(ctx, srch, src.ConnectionID())
 		return err
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		src.log.Debug(
+		src.log.Info(
 			"Failed to query connection channels",
 			zap.String("conn_id", src.ConnectionID()),
 			zap.Uint("attempt", n+1),
@@ -106,7 +106,6 @@ func queryChannelsOnConnection(ctx context.Context, src *Chain) ([]*types.Identi
 // filterOpenChannels takes a slice of channels and adds all the channels with OPEN state to a new slice of channels.
 // NOTE: channels will not be added to the slice of open channels more than once.
 func filterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*ActiveChannel) []*ActiveChannel {
-
 	// Filter for open channels
 	for _, channel := range channels {
 		if channel.State == types.OPEN {

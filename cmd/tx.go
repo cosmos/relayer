@@ -220,11 +220,11 @@ func createClientCmd(a *appState) *cobra.Command {
 			if err = retry.Do(func() error {
 				srcUpdateHeader, dstUpdateHeader, err = relayer.GetLightSignedHeadersAtHeights(cmd.Context(), c[src], c[dst], srch, dsth)
 				if err != nil {
-					return fmt.Errorf("failed to query light signed headers: %w", err)
+					return err
 				}
-				return err
+				return nil
 			}, retry.Context(cmd.Context()), relayer.RtyAtt, relayer.RtyDel, relayer.RtyErr, retry.OnRetry(func(n uint, err error) {
-				a.Log.Debug(
+				a.Log.Info(
 					"Failed to get light signed header",
 					zap.String("src_chain_id", c[src].ChainID()),
 					zap.Int64("src_height", srch),

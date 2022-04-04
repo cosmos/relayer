@@ -96,8 +96,8 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 							timeToExpiry, err = UpdateClientsFromChains(egCtx, c[src], c[dst], thresholdTime)
 							return err
 						}, retry.Context(egCtx), retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
-							a.Log.Debug(
-								"Updating clients from chains",
+							a.Log.Info(
+								"Failed to update clients from chains",
 								zap.String("src_chain_id", c[src].ChainID()),
 								zap.String("dst_chain_id", c[dst].ChainID()),
 								zap.Uint("attempt", n+1),

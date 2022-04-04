@@ -36,12 +36,12 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	if err = retry.Do(func() error {
 		srcUpdateHeader, dstUpdateHeader, err = GetLightSignedHeadersAtHeights(ctx, c, dst, srch, dsth)
 		if err != nil {
-			return fmt.Errorf("failed to query light signed headers: %w", err)
+			return err
 		}
-		return err
+		return nil
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		c.log.Debug(
-			"Failed to get light signed header",
+		c.log.Info(
+			"Failed to get light signed headers",
 			zap.String("src_chain_id", c.ChainID()),
 			zap.Int64("src_height", srch),
 			zap.String("dst_chain_id", dst.ChainID()),
