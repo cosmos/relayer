@@ -410,7 +410,6 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 		}
 
 		if !found || override {
-
 			if err = retry.Do(func() error {
 				dsth, err = dst.ChainProvider.QueryLatestHeight(ctx)
 				if err != nil || dsth == 0 {

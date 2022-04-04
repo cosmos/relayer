@@ -121,7 +121,7 @@ func (c *Chain) errQueryUnrelayedPacketAcks() error {
 }
 
 func (c *Chain) LogRetryGetIBCUpdateHeader(n uint, err error) {
-	c.log.Debug(
+	c.log.Info(
 		"Failed to get IBC update headers",
 		zap.String("chain_id", c.ChainID()),
 		zap.Uint("attempt", n+1),

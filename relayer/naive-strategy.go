@@ -43,7 +43,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 				return nil
 			}
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			src.log.Debug(
+			src.log.Info(
 				"Failed to query packet commitments",
 				zap.String("channel_id", srcChannel.ChannelId),
 				zap.String("port_id", srcChannel.PortId),
@@ -77,7 +77,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 				return nil
 			}
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			dst.log.Debug(
+			dst.log.Info(
 				"Failed to query packet commitments",
 				zap.String("channel_id", srcChannel.Counterparty.ChannelId),
 				zap.String("port_id", srcChannel.Counterparty.PortId),
@@ -107,7 +107,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 			rs.Src, err = dst.ChainProvider.QueryUnreceivedPackets(egCtx, uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
 			return err
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			dst.log.Debug(
+			dst.log.Info(
 				"Failed to query unreceived packets",
 				zap.String("channel_id", srcChannel.Counterparty.ChannelId),
 				zap.String("port_id", srcChannel.Counterparty.PortId),
@@ -126,7 +126,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 			rs.Dst, err = src.ChainProvider.QueryUnreceivedPackets(egCtx, uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
 			return err
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			src.log.Debug(
+			src.log.Info(
 				"Failed to query unreceived packets",
 				zap.String("channel_id", srcChannel.Counterparty.ChannelId),
 				zap.String("port_id", srcChannel.Counterparty.PortId),
@@ -456,7 +456,7 @@ func AddMessagesForSequences(ctx context.Context, sequences []uint64, src, dst *
 				uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, dst.ClientID(), srcChanID, srcPortID, src.ClientID())
 			return err
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			src.log.Debug(
+			src.log.Info(
 				"Failed to relay packet from sequence",
 				zap.String("src_chain_id", src.ChainID()),
 				zap.String("src_channel_id", srcChanID),
