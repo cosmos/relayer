@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ory/dockertest/v3"
@@ -268,7 +267,6 @@ var muDockerBuild sync.Mutex
 // BuildAndRunWithBuildOptions builds and starts a docker container.
 // Optional modifier functions can be passed in order to change the hostconfig values not covered in RunOptions
 func BuildAndRunWithBuildOptions(pool *dockertest.Pool, buildOpts *BuildOptions, runOpts *dockertest.RunOptions, hcOpts ...func(*dc.HostConfig)) (*dockertest.Resource, error) {
-
 	muDockerBuild.Lock()
 	defer muDockerBuild.Unlock()
 	err := pool.Client.BuildImage(dc.BuildImageOptions{
@@ -280,7 +278,7 @@ func BuildAndRunWithBuildOptions(pool *dockertest.Pool, buildOpts *BuildOptions,
 	})
 
 	if err != nil {
-		return nil, errors.Wrap(err, "")
+		return nil, err
 	}
 
 	runOpts.Repository = runOpts.Name
