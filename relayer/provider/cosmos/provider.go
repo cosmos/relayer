@@ -304,14 +304,12 @@ func (cc *CosmosProvider) SubmitMisbehavior( /*TBD*/ ) (provider.RelayerMessage,
 }
 
 func (cc *CosmosProvider) UpdateClient(srcClientId string, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
-	var (
-		acc string
-		err error
-	)
 	if err := dstHeader.ValidateBasic(); err != nil {
 		return nil, err
 	}
-	if acc, err = cc.Address(); err != nil {
+
+	acc, err := cc.Address()
+	if err != nil {
 		return nil, err
 	}
 
@@ -326,9 +324,6 @@ func (cc *CosmosProvider) UpdateClient(srcClientId string, dstHeader ibcexported
 		Signer:   acc,
 	}
 
-	if err != nil {
-		return nil, err
-	}
 	return NewCosmosMessage(msg), nil
 }
 
