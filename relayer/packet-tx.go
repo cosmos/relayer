@@ -2,7 +2,6 @@ package relayer
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -14,11 +13,6 @@ import (
 //nolint:lll
 // SendTransferMsg initiates an ics20 transfer from src to dst with the specified args
 func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain, amount sdk.Coin, dstAddr string, toHeightOffset uint64, toTimeOffset time.Duration, srcChannel *chantypes.IdentifiedChannel) error {
-	var (
-		timeoutHeight    uint64
-		timeoutTimestamp uint64
-	)
-
 	// get header representing dst to check timeouts
 	dsth, err := dst.ChainProvider.QueryLatestHeight(ctx)
 	if err != nil {
@@ -28,6 +22,11 @@ func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain
 	if err != nil {
 		return err
 	}
+
+	var (
+		timeoutHeight    uint64
+		timeoutTimestamp uint64
+	)
 
 	switch {
 	case toHeightOffset > 0 && toTimeOffset > 0:
@@ -52,11 +51,20 @@ func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain
 
 	txs := RelayMsgs{
 		Src: []provider.RelayerMessage{msg},
-		Dst: []provider.RelayerMessage{},
 	}
 
-	if txs.Send(ctx, log, AsRelayMsgSender(c), AsRelayMsgSender(dst)); !txs.Success() {
-		return fmt.Errorf("failed to send transfer message")
+	result := txs.Send(ctx, log, AsRelayMsgSender(c), AsRelayMsgSender(dst))
+	if err := result.Error(); err != nil {
+		if result.PartiallySent() {
+			c.log.Info(
+				"Partial success when sending transfer",
+				zap.String("src_chain_id", c.ChainID()),
+				zap.String("dst_chain_id", dst.ChainID()),
+				zap.Object("send_result", result),
+			)
+		}
+		return err
 	}
+
 	return nil
 }

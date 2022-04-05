@@ -7,6 +7,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // RelayMsgs contains the msgs that need to be sent to both a src and dst chain
@@ -107,6 +108,9 @@ func AsRelayMsgSender(c *Chain) RelayMsgSender {
 	}
 }
 
+// SendMsgsResult is returned by (*RelayMsgs).Send.
+// It contains details about the distinct results
+// of sending messages to the corresponding chains.
 type SendMsgsResult struct {
 	// Count of successfully sent batches,
 	// where "successful" means there was no error in sending the batch across the network,
@@ -117,6 +121,38 @@ type SendMsgsResult struct {
 	// If multiple errors occurred, these will be multierr errors
 	// which are displayed nicely through zap logging.
 	SrcSendError, DstSendError error
+}
+
+// PartiallySent reports the presence of both some successfully sent batches
+// and some errors.
+func (r SendMsgsResult) PartiallySent() bool {
+	return (r.SuccessfulSrcBatches > 0 || r.SuccessfulDstBatches > 0) &&
+		(r.SrcSendError != nil || r.DstSendError != nil)
+}
+
+// Error returns any accumulated erors that occurred while sending messages.
+func (r SendMsgsResult) Error() error {
+	return multierr.Append(r.SrcSendError, r.DstSendError)
+}
+
+// MarshalLogObject satisfies the zapcore.ObjectMarshaler interface
+// so that you can use zap.Object("send_result", r) when logging.
+// This is typically useful when logging details about a partially sent result.
+func (r SendMsgsResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddInt("successful_src_batches", r.SuccessfulSrcBatches)
+	enc.AddInt("successful_dst_batches", r.SuccessfulDstBatches)
+	if r.SrcSendError == nil {
+		enc.AddString("src_send_errors", "<nil>")
+	} else {
+		enc.AddString("src_send_errors", r.SrcSendError.Error())
+	}
+	if r.DstSendError == nil {
+		enc.AddString("dst_send_errors", "<nil>")
+	} else {
+		enc.AddString("dst_send_errors", r.DstSendError.Error())
+	}
+
+	return nil
 }
 
 func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsgSender) SendMsgsResult {

@@ -195,29 +195,32 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 // UpdateClients updates clients for src on dst and dst on src given the configured paths
 func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 	var (
-		clients                          = &RelayMsgs{Src: []provider.RelayerMessage{}, Dst: []provider.RelayerMessage{}}
 		srcUpdateHeader, dstUpdateHeader ibcexported.Header
 		srch, dsth                       int64
 	)
 
 	if err = retry.Do(func() error {
 		srch, dsth, err = QueryLatestHeights(ctx, c, dst)
-		if srch == 0 || dsth == 0 || err != nil {
-			c.log.Info("Failed to query latest heights", zap.Error(err))
+		if err != nil {
 			return err
 		}
-		return err
-	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
+		return nil
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		c.log.Info(
+			"Failed to get query latest heights when updating clients",
+			zap.String("src_chain_id", c.ChainID()),
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", RtyAttNum),
+			zap.Error(err),
+		)
+	})); err != nil {
 		return err
 	}
 
 	if err = retry.Do(func() error {
 		srcUpdateHeader, dstUpdateHeader, err = GetIBCUpdateHeaders(ctx, srch, dsth, c.ChainProvider, dst.ChainProvider, c.ClientID(), dst.ClientID())
 		if err != nil {
-			c.log.Info(
-				"Failed to query light signed headers",
-				zap.Error(err),
-			)
 			return err
 		}
 		return nil
@@ -253,26 +256,37 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 		return err
 	}
 
-	clients.Src = append(clients.Src, srcUpdateMsg)
-	clients.Dst = append(clients.Dst, dstUpdateMsg)
+	clients := &RelayMsgs{
+		Src: []provider.RelayerMessage{srcUpdateMsg},
+		Dst: []provider.RelayerMessage{dstUpdateMsg},
+	}
 
 	// Send msgs to both chains
-	if clients.Ready() {
-		if clients.Send(ctx, c.log, AsRelayMsgSender(c), AsRelayMsgSender(dst)); clients.Success() {
+	result := clients.Send(ctx, c.log, AsRelayMsgSender(c), AsRelayMsgSender(dst))
+	if err := result.Error(); err != nil {
+		if result.PartiallySent() {
 			c.log.Info(
-				"Clients updated",
+				"Partial success when updating clients",
 				zap.String("src_chain_id", c.ChainID()),
-				zap.String("src_client", c.PathEnd.ClientID),
-				zap.Stringer("src_height", MustGetHeight(srcUpdateHeader.GetHeight())),
-				zap.Uint64("src_revision_height", srcUpdateHeader.GetHeight().GetRevisionHeight()),
-
 				zap.String("dst_chain_id", dst.ChainID()),
-				zap.String("dst_client", dst.PathEnd.ClientID),
-				zap.Stringer("dst_height", MustGetHeight(dstUpdateHeader.GetHeight())),
-				zap.Uint64("dst_revision_height", dstUpdateHeader.GetHeight().GetRevisionHeight()),
+				zap.Object("send_result", result),
 			)
 		}
+		return err
 	}
+
+	c.log.Info(
+		"Clients updated",
+		zap.String("src_chain_id", c.ChainID()),
+		zap.String("src_client", c.PathEnd.ClientID),
+		zap.Stringer("src_height", MustGetHeight(srcUpdateHeader.GetHeight())),
+		zap.Uint64("src_revision_height", srcUpdateHeader.GetHeight().GetRevisionHeight()),
+
+		zap.String("dst_chain_id", dst.ChainID()),
+		zap.String("dst_client", dst.PathEnd.ClientID),
+		zap.Stringer("dst_height", MustGetHeight(dstUpdateHeader.GetHeight())),
+		zap.Uint64("dst_revision_height", dstUpdateHeader.GetHeight().GetRevisionHeight()),
+	)
 
 	return nil
 }
