@@ -2,6 +2,7 @@ package cosmos
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -28,7 +29,6 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
-	"github.com/pkg/errors"
 	lens "github.com/strangelove-ventures/lens/client"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
