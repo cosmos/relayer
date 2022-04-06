@@ -2,6 +2,8 @@ package relayer
 
 import (
 	"context"
+	"fmt"
+	"sync"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
@@ -148,101 +150,88 @@ func (r SendMsgsResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+// Send concurrently sends out r's messages to the corresponding RelayMsgSenders.
 func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsgSender) SendMsgsResult {
-	//nolint:prealloc // can not be pre allocated
 	var (
-		msgLen, txSize uint64
-		msgs           []provider.RelayerMessage
-
+		wg     sync.WaitGroup
 		result SendMsgsResult
 	)
 
-	// submit batches of relay transactions
-	for _, msg := range r.Src {
-		if msg != nil {
-			bz, err := msg.MsgBytes()
-			if err != nil {
-				panic(err)
-			}
-
-			msgLen++
-			txSize += uint64(len(bz))
-
-			if r.IsMaxTx(msgLen, txSize) {
-				// Submit the transactions to src chain and update its status
-				resp, success, err := src.SendMessages(ctx, msgs)
-				if err != nil {
-					logFailedTx(log, src.ChainID, resp, err, msgs)
-					multierr.AppendInto(&result.SrcSendError, err)
-				}
-				if success {
-					result.SuccessfulSrcBatches++
-				}
-
-				// clear the current batch and reset variables
-				msgLen, txSize = 1, uint64(len(bz))
-				msgs = []provider.RelayerMessage{}
-			}
-			msgs = append(msgs, msg)
-		}
+	if len(r.Src) > 0 {
+		wg.Add(1)
+		go r.send(ctx, log, &wg, src, r.Src, &result.SuccessfulSrcBatches, &result.SrcSendError)
+	}
+	if len(r.Dst) > 0 {
+		wg.Add(1)
+		go r.send(ctx, log, &wg, dst, r.Dst, &result.SuccessfulDstBatches, &result.DstSendError)
 	}
 
-	// submit leftover msgs
-	if len(msgs) > 0 {
-		resp, success, err := src.SendMessages(ctx, msgs)
-		if err != nil {
-			logFailedTx(log, src.ChainID, resp, err, msgs)
-			multierr.AppendInto(&result.SrcSendError, err)
-		}
-		if success {
-			result.SuccessfulSrcBatches++
-		}
-	}
-
-	// reset variables
-	msgLen, txSize = 0, 0
-	msgs = []provider.RelayerMessage{}
-
-	for _, msg := range r.Dst {
-		if msg != nil {
-			bz, err := msg.MsgBytes()
-			if err != nil {
-				panic(err)
-			}
-
-			msgLen++
-			txSize += uint64(len(bz))
-
-			if r.IsMaxTx(msgLen, txSize) {
-				// Submit the transaction to dst chain and update its status
-				resp, success, err := dst.SendMessages(ctx, msgs)
-				if err != nil {
-					logFailedTx(log, dst.ChainID, resp, err, msgs)
-					multierr.AppendInto(&result.DstSendError, err)
-				}
-				if success {
-					result.SuccessfulDstBatches++
-				}
-
-				// clear the current batch and reset variables
-				msgLen, txSize = 1, uint64(len(bz))
-				msgs = []provider.RelayerMessage{}
-			}
-			msgs = append(msgs, msg)
-		}
-	}
-
-	// submit leftover msgs
-	if len(msgs) > 0 {
-		resp, success, err := dst.SendMessages(ctx, msgs)
-		if err != nil {
-			logFailedTx(log, dst.ChainID, resp, err, msgs)
-			multierr.AppendInto(&result.DstSendError, err)
-		}
-		if success {
-			result.SuccessfulDstBatches++
-		}
-	}
-
+	wg.Wait()
 	return result
+}
+
+func (r *RelayMsgs) send(
+	ctx context.Context,
+	log *zap.Logger,
+	wg *sync.WaitGroup,
+	s RelayMsgSender,
+	msgs []provider.RelayerMessage,
+	successes *int,
+	errors *error,
+) {
+	defer wg.Done()
+
+	var txSize, batchStartIdx uint64
+
+	for i, msg := range msgs {
+		// The previous version of this was skipping nil messages;
+		// instead, we should not allow code to include nil messages.
+		if msg == nil {
+			panic(fmt.Errorf("send: invalid nil message at index %d", i))
+		}
+
+		bz, err := msg.MsgBytes()
+		if err != nil {
+			panic(err)
+		}
+
+		if !r.IsMaxTx(uint64(i)+1-batchStartIdx, txSize+uint64(len(bz))) {
+			// We can add another transaction, so increase the transaction size counter
+			// and proceed to the next message.
+			txSize += uint64(len(bz))
+			continue
+		}
+
+		// Otherwise, we have reached the message count limit or the byte size limit.
+		// Send out this batch now.
+		batchMsgs := msgs[batchStartIdx:i]
+		resp, success, err := s.SendMessages(ctx, batchMsgs)
+		if err != nil {
+			logFailedTx(log, s.ChainID, resp, err, batchMsgs)
+			multierr.AppendInto(errors, err)
+			// TODO: check chain ordering.
+			// If chain is unordered, we can keep sending;
+			// otherwise we need to stop now.
+		}
+		if success {
+			*successes++
+		}
+
+		// Reset counters.
+		batchStartIdx = uint64(i)
+		txSize = uint64(len(bz))
+	}
+
+	// If there are any messages left over, send those out too.
+	if batchStartIdx < uint64(len(msgs)) {
+		batchMsgs := msgs[batchStartIdx:]
+		resp, success, err := s.SendMessages(ctx, batchMsgs)
+		if err != nil {
+			logFailedTx(log, s.ChainID, resp, err, batchMsgs)
+			multierr.AppendInto(errors, err)
+		}
+		if success {
+			*successes++
+		}
+	}
 }
