@@ -6,7 +6,9 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
@@ -29,16 +31,52 @@ func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain
 		return err
 	}
 
+	// if the timestamp offset is set we need to query the dst chains consensus state to get the current time
+	var consensusState ibcexported.ConsensusState
+	if toTimeOffset > 0 {
+		clientStateRes, err := dst.ChainProvider.QueryClientStateResponse(ctx, dsth, dst.ClientID())
+		if err != nil {
+			return fmt.Errorf("failed to query the client state response: %w", err)
+		}
+		clientState, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
+		if err != nil {
+			return fmt.Errorf("failed to unpack client state: %w", err)
+		}
+		consensusStateRes, err := dst.ChainProvider.QueryClientConsensusState(ctx, dsth, dst.ClientID(), clientState.GetLatestHeight())
+		if err != nil {
+			return fmt.Errorf("failed to query client consensus state: %w", err)
+		}
+		consensusState, err = clienttypes.UnpackConsensusState(consensusStateRes.ConsensusState)
+		if err != nil {
+			return fmt.Errorf("failed to unpack consensus state: %w", err)
+		}
+
+		// use local clock time as reference time if it is later than the
+		// consensus state timestamp of the counter party chain, otherwise
+		// still use consensus state timestamp as reference.
+		// see https://github.com/cosmos/ibc-go/blob/main/modules/apps/transfer/client/cli/tx.go#L94-L110
+		now := time.Now().UnixNano()
+		consensusTimestamp := consensusState.GetTimestamp()
+		if now > 0 {
+			now := uint64(now)
+			if now > consensusTimestamp {
+				timeoutTimestamp = now + uint64(toTimeOffset)
+			} else {
+				timeoutTimestamp = consensusTimestamp + uint64(toTimeOffset)
+			}
+		} else {
+			return fmt.Errorf("local clock time is not greater than Jan 1st, 1970 12:00 AM")
+		}
+	}
+
 	switch {
 	case toHeightOffset > 0 && toTimeOffset > 0:
 		timeoutHeight = h.GetHeight().GetRevisionHeight() + toHeightOffset
-		timeoutTimestamp = uint64(time.Now().Add(toTimeOffset).UnixNano())
 	case toHeightOffset > 0:
 		timeoutHeight = h.GetHeight().GetRevisionHeight() + toHeightOffset
 		timeoutTimestamp = 0
 	case toTimeOffset > 0:
 		timeoutHeight = 0
-		timeoutTimestamp = uint64(time.Now().Add(toTimeOffset).UnixNano())
 	case toHeightOffset == 0 && toTimeOffset == 0:
 		timeoutHeight = h.GetHeight().GetRevisionHeight() + 1000
 		timeoutTimestamp = 0
