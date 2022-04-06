@@ -54,18 +54,14 @@ func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain
 		// use local clock time as reference time if it is later than the
 		// consensus state timestamp of the counter party chain, otherwise
 		// still use consensus state timestamp as reference.
-		// see https://github.com/cosmos/ibc-go/blob/main/modules/apps/transfer/client/cli/tx.go#L94-L110
-		now := time.Now().UnixNano()
+		// see https://github.com/cosmos/ibc-go/blob/ccc4cb804843f1a80acfb0d4dbf106d1ff2178bb/modules/apps/transfer/client/cli/tx.go#L94-L110
+		tmpNow := time.Now().UnixNano()
 		consensusTimestamp := consensusState.GetTimestamp()
-		if now > 0 {
-			now := uint64(now)
-			if now > consensusTimestamp {
-				timeoutTimestamp = now + uint64(toTimeOffset)
-			} else {
-				timeoutTimestamp = consensusTimestamp + uint64(toTimeOffset)
-			}
+		now := uint64(tmpNow)
+		if now > consensusTimestamp {
+			timeoutTimestamp = now + uint64(toTimeOffset)
 		} else {
-			return fmt.Errorf("local clock time is not greater than Jan 1st, 1970 12:00 AM")
+			timeoutTimestamp = consensusTimestamp + uint64(toTimeOffset)
 		}
 	}
 
