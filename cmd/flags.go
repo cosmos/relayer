@@ -98,8 +98,8 @@ func pathFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func timeoutFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().Uint64P(flagTimeoutHeightOffset, "y", 0, "set timeout height offset for ")
-	cmd.Flags().DurationP(flagTimeoutTimeOffset, "c", time.Duration(0), "specify the path to relay over")
+	cmd.Flags().Uint64P(flagTimeoutHeightOffset, "y", 0, "set timeout height offset")
+	cmd.Flags().DurationP(flagTimeoutTimeOffset, "c", time.Duration(0), "set timeout time offset")
 	if err := v.BindPFlag(flagTimeoutHeightOffset, cmd.Flags().Lookup(flagTimeoutHeightOffset)); err != nil {
 		panic(err)
 	}

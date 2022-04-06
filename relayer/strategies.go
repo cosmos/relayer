@@ -360,7 +360,7 @@ func relayUnrelayedAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, m
 			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
 			zap.Error(err),
 		)
-		return true
+		return false
 	}
 
 	return true

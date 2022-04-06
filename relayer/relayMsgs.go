@@ -7,6 +7,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // RelayMsgs contains the msgs that need to be sent to both a src and dst chain
@@ -17,13 +18,11 @@ type RelayMsgs struct {
 	Dst          []provider.RelayerMessage `json:"dst"`
 	MaxTxSize    uint64                    `json:"max_tx_size"`    // maximum permitted size of the msgs in a bundled relay transaction
 	MaxMsgLength uint64                    `json:"max_msg_length"` // maximum amount of messages in a bundled relay transaction
-
-	Succeeded bool `json:"success"`
 }
 
 // NewRelayMsgs returns an initialized version of relay messages
 func NewRelayMsgs() *RelayMsgs {
-	return &RelayMsgs{Src: []provider.RelayerMessage{}, Dst: []provider.RelayerMessage{}, Succeeded: false}
+	return &RelayMsgs{Src: []provider.RelayerMessage{}, Dst: []provider.RelayerMessage{}}
 }
 
 // Ready returns true if there are messages to relay
@@ -36,11 +35,6 @@ func (r *RelayMsgs) Ready() bool {
 		return false
 	}
 	return true
-}
-
-// Success returns the success var
-func (r *RelayMsgs) Success() bool {
-	return r.Succeeded
 }
 
 func (r *RelayMsgs) IsMaxTx(msgLen, txSize uint64) bool {
@@ -107,6 +101,9 @@ func AsRelayMsgSender(c *Chain) RelayMsgSender {
 	}
 }
 
+// SendMsgsResult is returned by (*RelayMsgs).Send.
+// It contains details about the distinct results
+// of sending messages to the corresponding chains.
 type SendMsgsResult struct {
 	// Count of successfully sent batches,
 	// where "successful" means there was no error in sending the batch across the network,
@@ -119,6 +116,38 @@ type SendMsgsResult struct {
 	SrcSendError, DstSendError error
 }
 
+// PartiallySent reports the presence of both some successfully sent batches
+// and some errors.
+func (r SendMsgsResult) PartiallySent() bool {
+	return (r.SuccessfulSrcBatches > 0 || r.SuccessfulDstBatches > 0) &&
+		(r.SrcSendError != nil || r.DstSendError != nil)
+}
+
+// Error returns any accumulated erors that occurred while sending messages.
+func (r SendMsgsResult) Error() error {
+	return multierr.Append(r.SrcSendError, r.DstSendError)
+}
+
+// MarshalLogObject satisfies the zapcore.ObjectMarshaler interface
+// so that you can use zap.Object("send_result", r) when logging.
+// This is typically useful when logging details about a partially sent result.
+func (r SendMsgsResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddInt("successful_src_batches", r.SuccessfulSrcBatches)
+	enc.AddInt("successful_dst_batches", r.SuccessfulDstBatches)
+	if r.SrcSendError == nil {
+		enc.AddString("src_send_errors", "<nil>")
+	} else {
+		enc.AddString("src_send_errors", r.SrcSendError.Error())
+	}
+	if r.DstSendError == nil {
+		enc.AddString("dst_send_errors", "<nil>")
+	} else {
+		enc.AddString("dst_send_errors", r.DstSendError.Error())
+	}
+
+	return nil
+}
+
 func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsgSender) SendMsgsResult {
 	//nolint:prealloc // can not be pre allocated
 	var (
@@ -127,8 +156,6 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 
 		result SendMsgsResult
 	)
-
-	r.Succeeded = true
 
 	// submit batches of relay transactions
 	for _, msg := range r.Src {
@@ -152,8 +179,6 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 					result.SuccessfulSrcBatches++
 				}
 
-				r.Succeeded = r.Succeeded && success
-
 				// clear the current batch and reset variables
 				msgLen, txSize = 1, uint64(len(bz))
 				msgs = []provider.RelayerMessage{}
@@ -172,8 +197,6 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 		if success {
 			result.SuccessfulSrcBatches++
 		}
-
-		r.Succeeded = success
 	}
 
 	// reset variables
@@ -201,8 +224,6 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 					result.SuccessfulDstBatches++
 				}
 
-				r.Succeeded = r.Succeeded && success
-
 				// clear the current batch and reset variables
 				msgLen, txSize = 1, uint64(len(bz))
 				msgs = []provider.RelayerMessage{}
@@ -221,8 +242,6 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 		if success {
 			result.SuccessfulDstBatches++
 		}
-
-		r.Succeeded = success
 	}
 
 	return result

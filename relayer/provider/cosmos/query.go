@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -23,7 +24,6 @@ import (
 	host "github.com/cosmos/ibc-go/v3/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
-	"github.com/pkg/errors"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/light"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
@@ -64,10 +64,7 @@ func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events 
 
 // QueryBalance returns the amount of coins in the relayer account
 func (cc *CosmosProvider) QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error) {
-	if keyName != "" {
-		cc.PCfg.Key = keyName
-	}
-	addr, err := cc.Address()
+	addr, err := cc.ShowAddress(keyName)
 	if err != nil {
 		return nil, err
 	}
