@@ -622,31 +622,48 @@ func (c *Chain) CloseChannel(ctx context.Context, dst *Chain, to time.Duration, 
 			break
 		}
 
-		if closeSteps.Send(ctx, c.log, AsRelayMsgSender(c), AsRelayMsgSender(dst)); closeSteps.Success() && isLast {
-			srch, dsth, err := QueryLatestHeights(ctx, c, dst)
-			if err != nil {
-				return err
-			}
-
-			srcChan, dstChan, err := QueryChannelPair(ctx, c, dst, srch, dsth, srcChanID, dstChanID, srcPortID, dstPortID)
-			if err != nil {
-				return err
-			}
-
-			if c.debug {
-				logChannelStates(c, dst, srcChan, dstChan)
-			}
+		result := closeSteps.Send(ctx, c.log, AsRelayMsgSender(c), AsRelayMsgSender(dst))
+		if err := result.Error(); err != nil {
 			c.log.Info(
-				"Closed source channel",
+				"Error when attempting to close channel",
 				zap.String("src_chain_id", c.ChainID()),
 				zap.String("src_channel_id", srcChanID),
 				zap.String("src_port_id", srcPortID),
 				zap.String("dst_chain_id", dst.ChainID()),
 				zap.String("dst_channel_id", dstChanID),
 				zap.String("dst_port_id", dstPortID),
+				zap.Error(err),
 			)
-			break
+			continue
 		}
+
+		if !isLast {
+			continue
+		}
+
+		srch, dsth, err := QueryLatestHeights(ctx, c, dst)
+		if err != nil {
+			return err
+		}
+
+		srcChan, dstChan, err := QueryChannelPair(ctx, c, dst, srch, dsth, srcChanID, dstChanID, srcPortID, dstPortID)
+		if err != nil {
+			return err
+		}
+
+		if c.debug {
+			logChannelStates(c, dst, srcChan, dstChan)
+		}
+		c.log.Info(
+			"Closed source channel",
+			zap.String("src_chain_id", c.ChainID()),
+			zap.String("src_channel_id", srcChanID),
+			zap.String("src_port_id", srcPortID),
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.String("dst_channel_id", dstChanID),
+			zap.String("dst_port_id", dstPortID),
+		)
+		break
 	}
 	return nil
 }

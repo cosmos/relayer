@@ -352,18 +352,30 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 		}
 
 		// send messages to their respective chains
-		if msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst)); msgs.Success() {
-			if len(msgs.Dst) > 1 {
-				dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
+		result := msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst))
+		if err := result.Error(); err != nil {
+			if result.PartiallySent() {
+				log.Info(
+					"Partial success when relaying acknowledgements",
+					zap.String("src_chain_id", src.ChainID()),
+					zap.String("src_port_id", srcChannel.PortId),
+					zap.String("dst_chain_id", dst.ChainID()),
+					zap.String("dst_port_id", srcChannel.Counterparty.PortId),
+					zap.Error(err),
+				)
 			}
-			if len(msgs.Src) > 1 {
-				src.logPacketsRelayed(dst, len(msgs.Src)-1, srcChannel)
-			}
+			return err
+		}
+
+		if len(msgs.Dst) > 1 {
+			dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
+		}
+		if len(msgs.Src) > 1 {
+			src.logPacketsRelayed(dst, len(msgs.Src)-1, srcChannel)
 		}
 	}
 
-	// If the context terminated while sending messages, return that error.
-	return ctx.Err()
+	return nil
 }
 
 // RelayPackets creates transactions to relay packets from src to dst and from dst to src
@@ -427,17 +439,29 @@ func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *Rel
 		}
 
 		// send messages to their respective chains
-		if msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst)); msgs.Success() {
-			if len(msgs.Dst) > 1 {
-				dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
+		result := msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst))
+		if err := result.Error(); err != nil {
+			if result.PartiallySent() {
+				log.Info(
+					"Partial success when relaying packets",
+					zap.String("src_chain_id", src.ChainID()),
+					zap.String("src_port_id", srcChannel.PortId),
+					zap.String("dst_chain_id", dst.ChainID()),
+					zap.String("dst_port_id", srcChannel.Counterparty.PortId),
+					zap.Error(err),
+				)
 			}
-			if len(msgs.Src) > 1 {
-				src.logPacketsRelayed(dst, len(msgs.Src)-1, srcChannel)
-			}
+			return err
 		}
 
-		// If the context terminated while sending messages, return that error.
-		return ctx.Err()
+		if len(msgs.Dst) > 1 {
+			dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
+		}
+		if len(msgs.Src) > 1 {
+			src.logPacketsRelayed(dst, len(msgs.Src)-1, srcChannel)
+		}
+
+		return nil
 	}
 }
 
@@ -642,13 +666,26 @@ func RelayPacket(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *Rela
 	}
 
 	// send messages to their respective chains
-	if msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst)); msgs.Success() {
-		if len(msgs.Dst) > 1 {
-			dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
+	result := msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst))
+	if err := result.Error(); err != nil {
+		if result.PartiallySent() {
+			log.Info(
+				"Partial success when relaying packet",
+				zap.String("src_chain_id", src.ChainID()),
+				zap.String("src_port_id", srcPortID),
+				zap.String("dst_chain_id", dst.ChainID()),
+				zap.String("dst_port_id", dstPortID),
+				zap.Error(err),
+			)
 		}
-		if len(msgs.Src) > 1 {
-			src.logPacketsRelayed(dst, len(msgs.Src)-1, srcChannel)
-		}
+		return err
+	}
+
+	if len(msgs.Dst) > 1 {
+		dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
+	}
+	if len(msgs.Src) > 1 {
+		src.logPacketsRelayed(dst, len(msgs.Src)-1, srcChannel)
 	}
 
 	return nil
