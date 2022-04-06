@@ -64,10 +64,7 @@ func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events 
 
 // QueryBalance returns the amount of coins in the relayer account
 func (cc *CosmosProvider) QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error) {
-	if keyName != "" {
-		cc.PCfg.Key = keyName
-	}
-	addr, err := cc.Address()
+	addr, err := cc.ShowAddress(keyName)
 	if err != nil {
 		return nil, err
 	}
