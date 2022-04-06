@@ -1038,7 +1038,7 @@ func (cc *CosmosProvider) RelayPacketFromSequence(
 		return nil, nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	rcvPackets, timeoutPackets, err := relayPacketsFromResultTx(ctx, src, dst, int64(dsth), txs[0], dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId)
+	rcvPackets, timeoutPackets, err := cc.relayPacketsFromResultTx(ctx, src, dst, int64(dsth), txs[0], dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId)
 	switch {
 	case err != nil:
 		return nil, nil, err
@@ -1124,7 +1124,7 @@ func ackPacketQuery(channelID string, seq int) []string {
 
 // relayPacketsFromResultTx looks through the events in a *ctypes.ResultTx
 // and returns relayPackets with the appropriate data
-func relayPacketsFromResultTx(ctx context.Context, src, dst provider.ChainProvider, dsth int64, res *ctypes.ResultTx, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
+func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst provider.ChainProvider, dsth int64, res *ctypes.ResultTx, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
 	var (
 		rcvPackets     []provider.RelayPacket
 		timeoutPackets []provider.RelayPacket
@@ -1186,31 +1186,18 @@ func relayPacketsFromResultTx(ctx context.Context, src, dst provider.ChainProvid
 				return nil, nil, err
 			}
 
-			// TODO maybe there is a better way to get the timestamp from the chains consensus state?
-			// If the timestamp is set on the packet, we need to retrieve the current timestamp from dst's consensus state
-			var consensusState ibcexported.ConsensusState
+			// if the timestamp is set on the packet, we need to retrieve the current block time from dst
+			var b *ctypes.ResultBlock
 			if rp.timeoutStamp > 0 {
-				clientStateRes, err := dst.QueryClientStateResponse(ctx, dsth, dstClientId)
+				b, err = cc.RPCClient.Block(ctx, &dsth)
 				if err != nil {
-					return nil, nil, fmt.Errorf("failed to query the client state response: %w", err)
-				}
-				clientState, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
-				if err != nil {
-					return nil, nil, fmt.Errorf("failed to unpack client state: %w", err)
-				}
-				consensusStateRes, err := dst.QueryClientConsensusState(ctx, dsth, dstClientId, clientState.GetLatestHeight())
-				if err != nil {
-					return nil, nil, fmt.Errorf("failed to query client consensus state: %w", err)
-				}
-				consensusState, err = clienttypes.UnpackConsensusState(consensusStateRes.ConsensusState)
-				if err != nil {
-					return nil, nil, fmt.Errorf("failed to unpack consensus state: %w", err)
+					return nil, nil, err
 				}
 			}
 
 			switch {
 			// If the packet has a timeout time, and it has been reached, return a timeout packet
-			case consensusState != nil && rp.timeoutStamp > 0 && rp.timeoutStamp > consensusState.GetTimestamp():
+			case b != nil && rp.timeoutStamp > 0 && uint64(b.Block.Time.UnixNano()) > rp.timeoutStamp:
 				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
 			// If the packet has a timeout height, and it has been reached, return a timeout packet
 			case !rp.timeout.IsZero() && block.GetHeight().GTE(rp.timeout):
