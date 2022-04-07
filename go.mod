@@ -21,7 +21,7 @@ require (
 	github.com/cosmos/ibc-go/v3 v3.0.0
 	github.com/jsternberg/zap-logfmt v1.2.0
 	github.com/ory/dockertest/v3 v3.8.1
-	github.com/strangelove-ventures/lens v0.3.1-0.20220326181038-f6d1dde7392d
+	github.com/strangelove-ventures/lens v0.3.1-0.20220407203447-bcb1fa2e7b3a
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
@@ -79,6 +79,7 @@ require (
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/btree v1.0.0 // indirect
 	github.com/google/go-github v17.0.0+incompatible // indirect
+	github.com/google/go-github/v43 v43.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/orderedcode v0.0.1 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
