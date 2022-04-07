@@ -8,6 +8,160 @@ import (
 	"github.com/cosmos/relayer/relayer/provider"
 )
 
+var (
+	_ provider.RelayPacket = relayMsgTimeout{}
+	_ provider.RelayPacket = relayMsgRecvPacket{}
+	_ provider.RelayPacket = relayMsgPacketAck{}
+)
+
+type relayMsgTimeout struct {
+	packetData   []byte
+	seq          uint64
+	timeout      clienttypes.Height
+	timeoutStamp uint64
+	dstRecvRes   *chantypes.QueryPacketReceiptResponse
+
+	pass bool
+}
+
+func (rp relayMsgTimeout) Data() []byte {
+	return rp.packetData
+}
+
+func (rp relayMsgTimeout) Seq() uint64 {
+	return rp.seq
+}
+
+func (rp relayMsgTimeout) Timeout() clienttypes.Height {
+	return rp.timeout
+}
+
+func (rp relayMsgTimeout) TimeoutStamp() uint64 {
+	return rp.timeoutStamp
+}
+
+func (rp relayMsgTimeout) FetchCommitResponse(dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
+	dstRecvRes, err := dst.QueryPacketReceipt(int64(queryHeight)-1, dstChanId, dstPortId, rp.seq)
+	switch {
+	case err != nil:
+		return err
+	case dstRecvRes.Proof == nil:
+		return fmt.Errorf("timeout packet receipt proof seq(%d) is nil", rp.seq)
+	default:
+		rp.dstRecvRes = dstRecvRes
+		return nil
+	}
+}
+
+func (rp relayMsgTimeout) Msg(src provider.ChainProvider, srcPortId, srcChanId, dstPortId, dstChanId string) (provider.RelayerMessage, error) {
+	if rp.dstRecvRes == nil {
+		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", src.ChainId(), rp.seq)
+	}
+	addr, err := src.Address()
+	if err != nil {
+		return nil, err
+	}
+
+	msg := &chantypes.MsgTimeout{
+		Packet: chantypes.Packet{
+			Sequence:           rp.seq,
+			SourcePort:         srcPortId,
+			SourceChannel:      srcChanId,
+			DestinationPort:    dstPortId,
+			DestinationChannel: dstChanId,
+			Data:               rp.packetData,
+			TimeoutHeight:      rp.timeout,
+			TimeoutTimestamp:   rp.timeoutStamp,
+		},
+		ProofUnreceived:  rp.dstRecvRes.Proof,
+		ProofHeight:      rp.dstRecvRes.ProofHeight,
+		NextSequenceRecv: rp.seq,
+		Signer:           addr,
+	}
+
+	return NewSubstrateRelayerMessage(msg), nil
+}
+
+type relayMsgRecvPacket struct {
+	packetData   []byte
+	seq          uint64
+	timeout      clienttypes.Height
+	timeoutStamp uint64
+	dstComRes    *chantypes.QueryPacketCommitmentResponse
+
+	pass bool
+}
+
+func (rp relayMsgRecvPacket) timeoutPacket() *relayMsgTimeout {
+	return &relayMsgTimeout{
+		packetData:   rp.packetData,
+		seq:          rp.seq,
+		timeout:      rp.timeout,
+		timeoutStamp: rp.timeoutStamp,
+		dstRecvRes:   nil,
+		pass:         false,
+	}
+}
+
+func (rp relayMsgRecvPacket) Data() []byte {
+	return rp.packetData
+}
+
+func (rp relayMsgRecvPacket) Seq() uint64 {
+	return rp.seq
+}
+
+func (rp relayMsgRecvPacket) Timeout() clienttypes.Height {
+	return rp.timeout
+}
+
+func (rp relayMsgRecvPacket) TimeoutStamp() uint64 {
+	return rp.timeoutStamp
+}
+
+func (rp relayMsgRecvPacket) FetchCommitResponse(dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
+	dstCommitRes, err := dst.QueryPacketCommitment(int64(queryHeight)-1, dstChanId, dstPortId, rp.seq)
+	switch {
+	case err != nil:
+		return err
+	case dstCommitRes.Proof == nil:
+		return fmt.Errorf("recv packet commitment proof seq(%d) is nil", rp.seq)
+	case dstCommitRes.Commitment == nil:
+		return fmt.Errorf("recv packet commitment query seq(%d) is nil", rp.seq)
+	default:
+		rp.dstComRes = dstCommitRes
+		return nil
+	}
+}
+
+func (rp relayMsgRecvPacket) Msg(src provider.ChainProvider, srcPortId, srcChanId, dstPortId, dstChanId string) (provider.RelayerMessage, error) {
+	if rp.dstComRes == nil {
+		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", src.ChainId(), rp.seq)
+	}
+	addr, err := src.Address()
+	if err != nil {
+		return nil, err
+	}
+
+	msg := &chantypes.MsgRecvPacket{
+		Packet: chantypes.Packet{
+			Sequence:           rp.seq,
+			SourcePort:         dstPortId,
+			SourceChannel:      dstChanId,
+			DestinationPort:    srcPortId,
+			DestinationChannel: srcChanId,
+			Data:               rp.packetData,
+			TimeoutHeight:      rp.timeout,
+			TimeoutTimestamp:   rp.timeoutStamp,
+		},
+		ProofCommitment: rp.dstComRes.Proof,
+		ProofHeight:     rp.dstComRes.ProofHeight,
+		Signer:          addr,
+	}
+
+	return NewSubstrateRelayerMessage(msg), nil
+}
+
 type relayMsgPacketAck struct {
 	packetData   []byte
 	ack          []byte

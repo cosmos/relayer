@@ -241,3 +241,70 @@ func MustGetHeight(h ibcexported.Height) clienttypes.Height {
 	}
 	return height
 }
+
+// relayPacketsFromPacket looks through the events in a *ctypes.ResultTx
+// and returns relayPackets with the appropriate data
+func relayPacketsFromPacket(src, dst provider.ChainProvider, dsth int64, allPackets []chantypes.Packet, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
+	var (
+		rcvPackets     []provider.RelayPacket
+		timeoutPackets []provider.RelayPacket
+	)
+
+	for _, e := range allPackets {
+		// NOTE: Src and Dst are switched here
+		rp := &relayMsgRecvPacket{pass: false}
+
+		if e.SourceChannel != srcChanId {
+			rp.pass = true
+			continue
+		}
+
+		if e.DestinationChannel != dstChanId {
+			rp.pass = true
+			continue
+		}
+
+		if e.SourcePort != srcPortId {
+			rp.pass = true
+			continue
+		}
+
+		if e.DestinationPort != dstPortId {
+			rp.pass = true
+			continue
+		}
+
+		rp.packetData = e.Data
+		timeout, err := clienttypes.ParseHeight(e.TimeoutHeight.String())
+		if err != nil {
+			return nil, nil, err
+		}
+
+		rp.timeout = timeout
+		rp.timeoutStamp = e.TimeoutTimestamp
+		rp.seq = e.Sequence
+
+		// fetch the header which represents a block produced on destination
+		block, err := dst.GetIBCUpdateHeader(dsth, src, srcClientId)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		switch {
+		// If the packet has a timeout height, and it has been reached, return a timeout packet
+		case !rp.timeout.IsZero() && block.GetHeight().GTE(rp.timeout):
+			timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
+		// If the packet matches the relay constraints relay it as a MsgReceivePacket
+		case !rp.pass:
+			rcvPackets = append(rcvPackets, rp)
+		}
+
+	}
+
+	// If there is a relayPacket, return it
+	if len(rcvPackets)+len(timeoutPackets) > 0 {
+		return rcvPackets, timeoutPackets, nil
+	}
+
+	return nil, nil, fmt.Errorf("no packet data found")
+}

@@ -625,17 +625,18 @@ func (sp *SubstrateProvider) MsgUpgradeClient(srcClientId string, consRes *clien
 }
 
 func (sp *SubstrateProvider) RelayPacketFromSequence(src, dst provider.ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) (provider.RelayerMessage, provider.RelayerMessage, error) {
-	txs, err := sp.QueryTxs(1, 1000, rcvPacketQuery(srcChanId, int(seq)))
+
+	allPackets, err := sp.RPCClient.RPC.IBC.QueryPackets(srcClientId, dstPortId, []uint64{seq})
 	switch {
 	case err != nil:
 		return nil, nil, err
-	case len(txs) == 0:
+	case len(allPackets) == 0:
 		return nil, nil, fmt.Errorf("no transactions returned with query")
-	case len(txs) > 1:
+	case len(allPackets) > 1:
 		return nil, nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	rcvPackets, timeoutPackets, err := relayPacketsFromResultTx(src, dst, int64(dsth), txs[0], dstChanId, dstPortId, srcChanId, srcPortId, srcClientId)
+	rcvPackets, timeoutPackets, err := relayPacketsFromPacket(src, dst, int64(dsth), allPackets, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId)
 	switch {
 	case err != nil:
 		return nil, nil, err
@@ -645,6 +646,9 @@ func (sp *SubstrateProvider) RelayPacketFromSequence(src, dst provider.ChainProv
 		return nil, nil, fmt.Errorf("more than one relay msg found in tx query")
 	}
 
+	if err != nil {
+		return nil, nil, err
+	}
 	if len(rcvPackets) == 1 {
 		pkt := rcvPackets[0]
 		if seq != pkt.Seq() {
