@@ -756,10 +756,15 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 	var trustedHeader *tmclient.Header
 	if err := retry.Do(func() error {
 		tmpHeader, err := cc.GetLightSignedHeaderAtHeight(ctx, int64(h.TrustedHeight.RevisionHeight+1))
+		if err != nil {
+			return err
+		}
+
 		th, ok := tmpHeader.(*tmclient.Header)
 		if !ok {
 			err = errors.New("non-tm client header")
 		}
+
 		trustedHeader = th
 		return err
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
