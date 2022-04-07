@@ -10,7 +10,7 @@ import (
 func (cc *CosmosProvider) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
 	if err != nil {
 		cc.log.Error(
-			"Failed sending transaction",
+			"Failed sending cosmos transaction",
 			zap.String("chain_id", cc.ChainId()),
 			msgTypesField(msgs),
 			zap.Error(err),

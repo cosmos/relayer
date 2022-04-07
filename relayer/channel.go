@@ -15,7 +15,14 @@ import (
 )
 
 // CreateOpenChannels runs the channel creation messages on timeout until they pass.
-func (c *Chain) CreateOpenChannels(ctx context.Context, dst *Chain, maxRetries uint64, to time.Duration, srcPortID, dstPortID, order, version string, override bool) (modified bool, err error) {
+func (c *Chain) CreateOpenChannels(
+	ctx context.Context,
+	dst *Chain,
+	maxRetries uint64,
+	to time.Duration,
+	srcPortID, dstPortID, order, version string,
+	override bool,
+) (modified bool, err error) {
 	// client and connection identifiers must be filled in
 	if err := ValidateConnectionPaths(c, dst); err != nil {
 		return modified, err
@@ -85,7 +92,7 @@ func (c *Chain) CreateOpenChannels(ctx context.Context, dst *Chain, maxRetries u
 		// In the case of failure, increment the failures counter and exit if this is the 3rd failure
 		case !success:
 			failures++
-			c.log.Info("Retrying transaction...")
+			c.log.Info("Delaying before retrying channel open transaction...")
 			select {
 			case <-time.After(5 * time.Second):
 				// Nothing to do.
