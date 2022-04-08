@@ -1707,10 +1707,9 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 		return nil, false, err
 	}
 
-	if cc.ChainId() == "juno-1" {
-		jsonBytes, _ := cc.Codec.TxConfig.TxJSONEncoder()(txb.GetTx())
-		ioutil.WriteFile("./signed-tx.json", jsonBytes, 0644)
-	}
+	// write signed tx to disk in case it needs to be sent manually
+	jsonBytes, _ := cc.Codec.TxConfig.TxJSONEncoder()(txb.GetTx())
+	ioutil.WriteFile("./signed-tx.json", jsonBytes, 0644)
 
 	cc.log.Info("After encode tx")
 
