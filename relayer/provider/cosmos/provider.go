@@ -1578,73 +1578,36 @@ func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerM
 // of that transaction will be logged. A boolean indicating if a transaction was successfully
 // sent and executed successfully is returned.
 func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
-	var (
-		txb     client.TxBuilder
-		txBytes []byte
-		res     *sdk.TxResponse
-	)
+	var res *sdk.TxResponse
 
-	// Query account details
-	txf, err := cc.PrepareFactory(cc.TxFactory())
-	if err != nil {
-		return nil, false, err
-	}
-
-	// TODO: Make this work with new CalculateGas method
-	// TODO: This is related to GRPC client stuff?
-	// https://github.com/cosmos/cosmos-sdk/blob/5725659684fc93790a63981c653feee33ecf3225/client/tx/tx.go#L297
-	// If users pass gas adjustment, then calculate gas
-	_, adjusted, err := cc.CalculateGas(ctx, txf, CosmosMsgs(msgs...)...)
-	if err != nil {
-		return nil, false, err
-	}
-
-	// Set the gas amount on the transaction factory
-	txf = txf.WithGas(adjusted)
-
-	// Build the transaction builder & retry on failures
-	if err = retry.Do(func() error {
-		txb, err = tx.BuildUnsignedTx(txf, CosmosMsgs(msgs...)...)
+	if err := retry.Do(func() error {
+		txBytes, err := cc.buildMessages(ctx, msgs)
 		if err != nil {
 			return err
 		}
-		return err
-	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
-		return nil, false, err
-	}
 
-	// Attach the signature to the transaction
-	// Force encoding in the chain specific address
-	for _, msg := range msgs {
-		cc.Codec.Marshaler.MustMarshalJSON(CosmosMsg(msg))
-	}
-
-	done := cc.SetSDKContext()
-
-	if err = retry.Do(func() error {
-		if err = tx.Sign(txf, cc.PCfg.Key, txb, false); err != nil {
-			return err
-		}
-		return err
-	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
-		return nil, false, err
-	}
-
-	done()
-
-	// Generate the transaction bytes
-	if err = retry.Do(func() error {
-		txBytes, err = cc.Codec.TxConfig.TxEncoder()(txb.GetTx())
+		res, err = cc.BroadcastTx(ctx, txBytes)
 		if err != nil {
-			return err
-		}
-		return err
-	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
-		return nil, false, err
-	}
+			if err == sdkerrors.ErrWrongSequence {
+				// Allow retrying if we got an invalid sequence error when attempting to broadcast this tx.
+				return err
+			}
 
-	res, err = cc.BroadcastTx(ctx, txBytes)
-	if err != nil || res == nil {
+			// Don't retry if BroadcastTx resulted in any other error.
+			// (This was the previous behavior. Unclear if that is still desired.)
+			return retry.Unrecoverable(err)
+		}
+
+		return nil
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		cc.log.Info(
+			"Error building or broadcasting transaction",
+			zap.String("chain_id", cc.PCfg.ChainID),
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", RtyAttNum),
+			zap.Error(err),
+		)
+	})); err != nil || res == nil {
 		return nil, false, err
 	}
 
@@ -1671,10 +1634,76 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 	// NOTE: error is nil, logic should use the returned error to determine if the
 	// transaction was successfully executed.
 	if rlyRes.Code != 0 {
-		cc.LogFailedTx(rlyRes, err, msgs)
+		cc.LogFailedTx(rlyRes, nil, msgs)
 		return rlyRes, false, fmt.Errorf("transaction failed with code: %d", res.Code)
 	}
 
 	cc.LogSuccessTx(res, msgs)
 	return rlyRes, true, nil
+}
+
+func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.RelayerMessage) ([]byte, error) {
+	// Query account details
+	txf, err := cc.PrepareFactory(cc.TxFactory())
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Make this work with new CalculateGas method
+	// TODO: This is related to GRPC client stuff?
+	// https://github.com/cosmos/cosmos-sdk/blob/5725659684fc93790a63981c653feee33ecf3225/client/tx/tx.go#L297
+	// If users pass gas adjustment, then calculate gas
+	_, adjusted, err := cc.CalculateGas(ctx, txf, CosmosMsgs(msgs...)...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the gas amount on the transaction factory
+	txf = txf.WithGas(adjusted)
+
+	var txb client.TxBuilder
+	// Build the transaction builder & retry on failures
+	if err := retry.Do(func() error {
+		txb, err = tx.BuildUnsignedTx(txf, CosmosMsgs(msgs...)...)
+		if err != nil {
+			return err
+		}
+		return nil
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
+		return nil, err
+	}
+
+	// Attach the signature to the transaction
+	// Force encoding in the chain specific address
+	for _, msg := range msgs {
+		cc.Codec.Marshaler.MustMarshalJSON(CosmosMsg(msg))
+	}
+
+	done := cc.SetSDKContext()
+
+	if err := retry.Do(func() error {
+		if err := tx.Sign(txf, cc.PCfg.Key, txb, false); err != nil {
+			return err
+		}
+		return nil
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
+		return nil, err
+	}
+
+	done()
+
+	var txBytes []byte
+	// Generate the transaction bytes
+	if err := retry.Do(func() error {
+		var err error
+		txBytes, err = cc.Codec.TxConfig.TxEncoder()(txb.GetTx())
+		if err != nil {
+			return err
+		}
+		return nil
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
+		return nil, err
+	}
+
+	return txBytes, nil
 }
