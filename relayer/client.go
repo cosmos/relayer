@@ -255,6 +255,15 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 		)
 		return err
 	}
+	if dstUpdateMsg == nil {
+		dst.log.Info("Dst update msg nil", zap.String("chain_id", dst.ChainID()))
+	} else {
+		//msgbz, err := dstUpdateMsg.MsgBytes()
+		//if err != nil {
+		//	return err
+		//}
+		//dst.log.Info("MSg", zap.ByteString("Dst Update Msg", msgbz))
+	}
 
 	clients := &RelayMsgs{
 		Src: []provider.RelayerMessage{srcUpdateMsg},

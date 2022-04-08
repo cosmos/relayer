@@ -206,7 +206,15 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 	msgLen, txSize = 0, 0
 	msgs = []provider.RelayerMessage{}
 
+	//msgbz, err := r.Dst[0].MsgBytes()
+	//if err != nil {
+	//	log.Info("Failed to read msg bytes")
+	//	return result
+	//}
+	//log.Info("MSg", zap.ByteString("Dst Update Msg", msgbz))
+
 	for _, msg := range r.Dst {
+		log.Info("Inside ranging on Dst Msgs")
 		if msg != nil {
 			bz, err := msg.MsgBytes()
 			if err != nil {
@@ -216,6 +224,7 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 			msgLen++
 			txSize += uint64(len(bz))
 
+			log.Info("Dst Msg Not Nil")
 			if r.IsMaxTx(msgLen, txSize) {
 				// Submit the transaction to dst chain and update its status
 				log.Info("Before sending dst msgs")
@@ -236,9 +245,11 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 			msgs = append(msgs, msg)
 		}
 	}
+	log.Info("Before submit dst leftover msgs")
 
 	// submit leftover msgs
 	if len(msgs) > 0 {
+		log.Info("Submitting leftover msgs on Dst")
 		resp, success, err := dst.SendMessages(ctx, msgs)
 		if err != nil {
 			logFailedTx(log, dst.ChainID, resp, err, msgs)
@@ -247,6 +258,7 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 		if success {
 			result.SuccessfulDstBatches++
 		}
+		log.Info("After submitting leftover msgs on Dst")
 	}
 
 	return result

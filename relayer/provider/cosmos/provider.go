@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"os"
 	"reflect"
@@ -778,7 +779,7 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 			return nil, err
 		}
 	}
-	cc.log.Info("after test cases")
+	cc.log.Info("after test cases", zap.String("chain_id", dst.ChainId()))
 
 	// inject TrustedHeight as latest height stored on dst client
 	h.TrustedHeight = cs.GetLatestHeight().(clienttypes.Height)
@@ -807,6 +808,8 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 				return err
 			}
 		}
+
+		cc.log.Info("after ALL test cases", zap.String("chain_id", cc.ChainId()))
 
 		th, ok := tmpHeader.(*tmclient.Header)
 		if !ok {
@@ -1638,6 +1641,8 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 		return nil, false, err
 	}
 
+	cc.log.Info("AFter Prepare Factory")
+
 	// TODO: Make this work with new CalculateGas method
 	// TODO: This is related to GRPC client stuff?
 	// https://github.com/cosmos/cosmos-sdk/blob/5725659684fc93790a63981c653feee33ecf3225/client/tx/tx.go#L297
@@ -1647,8 +1652,12 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 		return nil, false, err
 	}
 
+	cc.log.Info("After Calculate Gas")
+
 	// Set the gas amount on the transaction factory
 	txf = txf.WithGas(adjusted)
+
+	cc.log.Info("After With Gas")
 
 	// Build the transaction builder & retry on failures
 	if err = retry.Do(func() error {
@@ -1661,11 +1670,16 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 		return nil, false, err
 	}
 
+	cc.log.Info("After Build Unsigned Tx")
+
 	// Attach the signature to the transaction
 	// Force encoding in the chain specific address
 	for _, msg := range msgs {
-		cc.Codec.Marshaler.MustMarshalJSON(CosmosMsg(msg))
+		msgJson := cc.Codec.Marshaler.MustMarshalJSON(CosmosMsg(msg))
+		ioutil.WriteFile("./update-msg.json", msgJson, 0644)
 	}
+
+	cc.log.Info("After Must Marshall JSON")
 
 	done := cc.SetSDKContext()
 
@@ -1680,6 +1694,8 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 
 	done()
 
+	cc.log.Info("After tx sign")
+
 	// Generate the transaction bytes
 	if err = retry.Do(func() error {
 		txBytes, err = cc.Codec.TxConfig.TxEncoder()(txb.GetTx())
@@ -1691,10 +1707,19 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 		return nil, false, err
 	}
 
+	if cc.ChainId() == "juno-1" {
+		jsonBytes, _ := cc.Codec.TxConfig.TxJSONEncoder()(txb.GetTx())
+		ioutil.WriteFile("./signed-tx.json", jsonBytes, 0644)
+	}
+
+	cc.log.Info("After encode tx")
+
 	res, err = cc.BroadcastTx(ctx, txBytes)
 	if err != nil || res == nil {
 		return nil, false, err
 	}
+
+	cc.log.Info("After broadcast tx")
 
 	// Parse events and build a map where the key is event.Type+"."+attribute.Key
 	events := make(map[string]string, 1)
