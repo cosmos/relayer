@@ -158,6 +158,7 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 	)
 
 	// submit batches of relay transactions
+	log.Info("Sending Src")
 	for _, msg := range r.Src {
 		if msg != nil {
 			bz, err := msg.MsgBytes()
@@ -200,6 +201,8 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 	}
 
 	// reset variables
+
+	log.Info("Sending Dst")
 	msgLen, txSize = 0, 0
 	msgs = []provider.RelayerMessage{}
 
@@ -215,6 +218,7 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 
 			if r.IsMaxTx(msgLen, txSize) {
 				// Submit the transaction to dst chain and update its status
+				log.Info("Before sending dst msgs")
 				resp, success, err := dst.SendMessages(ctx, msgs)
 				if err != nil {
 					logFailedTx(log, dst.ChainID, resp, err, msgs)
@@ -223,6 +227,7 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 				if success {
 					result.SuccessfulDstBatches++
 				}
+				log.Info("AFter sending dst msgs")
 
 				// clear the current batch and reset variables
 				msgLen, txSize = 1, uint64(len(bz))

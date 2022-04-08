@@ -737,12 +737,48 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 		return nil, fmt.Errorf("trying to inject fields into non-tendermint headers")
 	}
 
-	// retrieve dst client from src chain
-	// this is the client that will be updated
-	cs, err := dst.QueryClientState(ctx, int64(h.TrustedHeight.RevisionHeight), dstClientId)
+	srcCfg := CosmosProviderConfig{
+		Key:            cc.Key(),
+		ChainID:        cc.ChainId(),
+		RPCAddr:        "http://141.94.253.173:26657",
+		AccountPrefix:  "juno",
+		KeyringBackend: "test",
+		GasAdjustment:  1.2,
+		GasPrices:      "0.0025",
+		Debug:          true,
+		Timeout:        "10s",
+		OutputFormat:   "json",
+		SignModeStr:    "direct",
+	}
+
+	src, err := srcCfg.NewProvider(cc.log, "~/.relayer/", true)
 	if err != nil {
 		return nil, err
 	}
+
+	err = src.Init()
+	if err != nil {
+		return nil, err
+	}
+
+	// retrieve dst client from src chain
+	// this is the client that will be updated
+	var cs ibcexported.ClientState
+
+	if h.TrustedHeight.RevisionHeight <= 2578097 && dst.ChainId() == "juno-1" {
+		cc.log.Info("Inside First Test Case", zap.String("chain_id", cc.ChainId()))
+		cs, err = src.QueryClientState(ctx, int64(h.TrustedHeight.RevisionHeight), dstClientId)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		cc.log.Info("Inside Second Test Case", zap.String("chain_id", cc.ChainId()))
+		cs, err = dst.QueryClientState(ctx, int64(h.TrustedHeight.RevisionHeight), dstClientId)
+		if err != nil {
+			return nil, err
+		}
+	}
+	cc.log.Info("after test cases")
 
 	// inject TrustedHeight as latest height stored on dst client
 	h.TrustedHeight = cs.GetLatestHeight().(clienttypes.Height)
@@ -753,11 +789,23 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 
 	// TODO: this is likely a source of off by 1 errors but may be impossible to change? Maybe this is the
 	// place where we need to fix the upstream query proof issue?
+
 	var trustedHeader *tmclient.Header
 	if err := retry.Do(func() error {
-		tmpHeader, err := cc.GetLightSignedHeaderAtHeight(ctx, int64(h.TrustedHeight.RevisionHeight+1))
-		if err != nil {
-			return err
+		var tmpHeader ibcexported.Header
+
+		if h.TrustedHeight.RevisionHeight <= 2578097 && cc.ChainId() == "juno-1" {
+			cc.log.Info("Inside Third Test Case", zap.String("chain_id", src.ChainId()))
+			tmpHeader, err = src.GetLightSignedHeaderAtHeight(ctx, int64(h.TrustedHeight.RevisionHeight+1))
+			if err != nil {
+				return err
+			}
+		} else {
+			cc.log.Info("Inside Fourth Test Case", zap.String("chain_id", cc.ChainId()))
+			tmpHeader, err = cc.GetLightSignedHeaderAtHeight(ctx, int64(h.TrustedHeight.RevisionHeight+1))
+			if err != nil {
+				return err
+			}
 		}
 
 		th, ok := tmpHeader.(*tmclient.Header)
