@@ -11,7 +11,7 @@
   "dst": {
     "chain-id": "osmosis-1",
     "client-id": "07-tendermint-1457",
-    "connection-id": "",
+    "connection-id": "connection-1142",
     "channel-id": "channel-42",
     "port-id": "transfer",
     "order": "unordered",
