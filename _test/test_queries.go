@@ -24,20 +24,21 @@ func testClient(ctx context.Context, t *testing.T, src *relayer.Chain) {
 
 	srch, err := src.ChainProvider.QueryLatestHeight(ctx)
 	require.NoError(t, err)
-	var (
-		client *clientypes.QueryClientStateResponse
-	)
-	if err = retry.Do(func() error {
+
+	var client *clientypes.QueryClientStateResponse
+	require.NoError(t, retry.Do(func() error {
+		var err error
 		client, err = src.ChainProvider.QueryClientStateResponse(ctx, srch, src.ClientID())
 		if err != nil {
 			srch, _ = src.ChainProvider.QueryLatestHeight(ctx)
+			return err
 		}
-		return err
-	}); err != nil {
-		return
-	}
-	require.NoError(t, err)
+
+		return nil
+	}))
+
 	require.NotNil(t, client)
+
 	cs, err := clientypes.UnpackClientState(client.ClientState)
 	require.NoError(t, err)
 	require.Equal(t, cs.ClientType(), "07-tendermint")
