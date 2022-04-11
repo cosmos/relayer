@@ -73,6 +73,8 @@ func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events 
 		return nil, err
 	}
 
+	// Currently, we only call QueryTxs() in two spots and in both of them we are expecting there to only be,
+	// at most, one tx in the response. Because of this we don't want to initialize the slice with an initial size.
 	var txResps []*provider.RelayerTxResponse
 	for _, tx := range res.Txs {
 		events := parseEventsFromResponseDeliverTx(tx.TxResult)
@@ -90,7 +92,7 @@ func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events 
 // parseEventsFromResponseDeliverTx parses the events from a ResponseDeliverTx and builds a map
 // where the keys are equal to event.Type+"."+attribute.Key and the values are the attribute.Value.
 func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) (events map[string]string) {
-	events = make(map[string]string, 1)
+	events = make(map[string]string, len(resp.Events))
 	for _, event := range resp.Events {
 		for _, attribute := range event.Attributes {
 			key := event.Type + "." + string(attribute.Key)
