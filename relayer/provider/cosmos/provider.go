@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -1046,60 +1047,68 @@ func ackPacketQuery(channelID string, seq int) []string {
 
 // relayPacketsFromResultTx looks through the events in a *ctypes.ResultTx
 // and returns relayPackets with the appropriate data
-func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst provider.ChainProvider, dsth int64, res *ctypes.ResultTx, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
+func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst provider.ChainProvider, dsth int64, resp *provider.RelayerTxResponse, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
 	var (
 		rcvPackets     []provider.RelayPacket
 		timeoutPackets []provider.RelayPacket
 	)
 
-	for _, e := range res.TxResult.Events {
-		if e.Type == spTag {
-			// NOTE: Src and Dst are switched here
-			rp := &relayMsgRecvPacket{pass: false}
-			for _, p := range e.Attributes {
-				if string(p.Key) == srcChanTag {
-					if string(p.Value) != srcChanId {
-						rp.pass = true
-						continue
-					}
-				}
-				if string(p.Key) == dstChanTag {
-					if string(p.Value) != dstChanId {
-						rp.pass = true
-						continue
-					}
-				}
-				if string(p.Key) == srcPortTag {
-					if string(p.Value) != srcPortId {
-						rp.pass = true
-						continue
-					}
-				}
-				if string(p.Key) == dstPortTag {
-					if string(p.Value) != dstPortId {
-						rp.pass = true
-						continue
-					}
-				}
-				if string(p.Key) == dataTag {
-					rp.packetData = p.Value
-				}
-				if string(p.Key) == toHeightTag {
-					timeout, err := clienttypes.ParseHeight(string(p.Value))
-					if err != nil {
-						return nil, nil, err
-					}
+	rp := &relayMsgRecvPacket{pass: false}
 
-					rp.timeout = timeout
+	for key, attrVal := range resp.Events {
+		rp.pass = false
+		eventType, attrKey := splitEventKey(key)
+
+		if eventType == spTag {
+			// NOTE: Src and Dst are switched here
+			if attrKey == srcChanTag {
+				if attrVal != srcChanId {
+					rp.pass = true
+					continue
 				}
-				if string(p.Key) == toTSTag {
-					timeout, _ := strconv.ParseUint(string(p.Value), 10, 64)
-					rp.timeoutStamp = timeout
+			}
+			if attrKey == dstChanTag {
+				if attrVal != dstChanId {
+					rp.pass = true
+					continue
 				}
-				if string(p.Key) == seqTag {
-					seq, _ := strconv.ParseUint(string(p.Value), 10, 64)
-					rp.seq = seq
+			}
+			if attrKey == srcPortTag {
+				if attrVal != srcPortId {
+					rp.pass = true
+					continue
 				}
+			}
+			if attrKey == dstPortTag {
+				if attrVal != dstPortId {
+					rp.pass = true
+					continue
+				}
+			}
+			if attrKey == dataTag {
+				rp.packetData = []byte(attrVal)
+			}
+			if attrKey == toHeightTag {
+				timeout, err := clienttypes.ParseHeight(attrVal)
+				if err != nil {
+					return nil, nil, err
+				}
+
+				rp.timeout = timeout
+			}
+			if attrKey == toTSTag {
+				timeout, _ := strconv.ParseUint(attrVal, 10, 64)
+				rp.timeoutStamp = timeout
+			}
+			if attrKey == seqTag {
+				seq, _ := strconv.ParseUint(attrVal, 10, 64)
+				rp.seq = seq
+			}
+
+			// If packet data is nil or sequence number is 0 keep parsing events,
+			// also check that at least the block height or timestamp is set.
+			if rp.packetData == nil || rp.seq == 0 || (rp.timeout.IsZero() && rp.timeoutStamp == 0) {
+				continue
 			}
 
 			// fetch the header which represents a block produced on destination
@@ -1128,12 +1137,12 @@ func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst
 			case !rp.pass:
 				rcvPackets = append(rcvPackets, rp)
 			}
-		}
-	}
 
-	// If there is a relayPacket, return it
-	if len(rcvPackets)+len(timeoutPackets) > 0 {
-		return rcvPackets, timeoutPackets, nil
+			// If there is a relayPacket, return it
+			if len(rcvPackets)+len(timeoutPackets) > 0 {
+				return rcvPackets, timeoutPackets, nil
+			}
+		}
 	}
 
 	return nil, nil, fmt.Errorf("no packet data found")
@@ -1141,59 +1150,68 @@ func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst
 
 // acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
 // relayPackets with the appropriate data
-func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId string, res *ctypes.ResultTx) ([]provider.RelayPacket, error) {
+func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId string, resp *provider.RelayerTxResponse) ([]provider.RelayPacket, error) {
 	var ackPackets []provider.RelayPacket
-	for _, e := range res.TxResult.Events {
-		if e.Type == waTag {
+
+	rp := &relayMsgPacketAck{pass: false}
+	for key, attrVal := range resp.Events {
+		rp.pass = false
+		eventType, attrKey := splitEventKey(key)
+
+		if eventType == waTag {
 			// NOTE: Src and Dst are switched here
-			rp := &relayMsgPacketAck{pass: false}
-			for _, p := range e.Attributes {
-				if string(p.Key) == srcChanTag {
-					if string(p.Value) != srcChanId {
-						rp.pass = true
-						continue
-					}
-				}
-				if string(p.Key) == dstChanTag {
-					if string(p.Value) != dstChanId {
-						rp.pass = true
-						continue
-					}
-				}
-				if string(p.Key) == srcPortTag {
-					if string(p.Value) != srcPortId {
-						rp.pass = true
-						continue
-					}
-				}
-				if string(p.Key) == dstPortTag {
-					if string(p.Value) != dstPortId {
-						rp.pass = true
-						continue
-					}
-				}
-				if string(p.Key) == ackTag {
-					rp.ack = p.Value
-				}
-				if string(p.Key) == dataTag {
-					rp.packetData = p.Value
-				}
-				if string(p.Key) == toHeightTag {
-					timeout, err := clienttypes.ParseHeight(string(p.Value))
-					if err != nil {
-						return nil, err
-					}
-					rp.timeout = timeout
-				}
-				if string(p.Key) == toTSTag {
-					timeout, _ := strconv.ParseUint(string(p.Value), 10, 64)
-					rp.timeoutStamp = timeout
-				}
-				if string(p.Key) == seqTag {
-					seq, _ := strconv.ParseUint(string(p.Value), 10, 64)
-					rp.seq = seq
+			if attrKey == srcChanTag {
+				if attrVal != srcChanId {
+					rp.pass = true
+					continue
 				}
 			}
+			if attrKey == dstChanTag {
+				if attrVal != dstChanId {
+					rp.pass = true
+					continue
+				}
+			}
+			if attrKey == srcPortTag {
+				if attrVal != srcPortId {
+					rp.pass = true
+					continue
+				}
+			}
+			if attrKey == dstPortTag {
+				if attrVal != dstPortId {
+					rp.pass = true
+					continue
+				}
+			}
+			if attrKey == ackTag {
+				rp.ack = []byte(attrVal)
+			}
+			if attrKey == dataTag {
+				rp.packetData = []byte(attrVal)
+			}
+			if attrKey == toHeightTag {
+				timeout, err := clienttypes.ParseHeight(attrVal)
+				if err != nil {
+					return nil, err
+				}
+				rp.timeout = timeout
+			}
+			if attrKey == toTSTag {
+				timeout, _ := strconv.ParseUint(attrVal, 10, 64)
+				rp.timeoutStamp = timeout
+			}
+			if attrKey == seqTag {
+				seq, _ := strconv.ParseUint(attrVal, 10, 64)
+				rp.seq = seq
+			}
+
+			// If packet data is nil or sequence number is 0 keep parsing events,
+			// also check that at least the block height or timestamp is set.
+			if rp.ack == nil || rp.packetData == nil || rp.seq == 0 || (rp.timeout.IsZero() && rp.timeoutStamp == 0) {
+				continue
+			}
+
 			if !rp.pass {
 				ackPackets = append(ackPackets, rp)
 			}
@@ -1206,6 +1224,15 @@ func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId str
 	}
 
 	return nil, fmt.Errorf("no packet data found")
+}
+
+// splitEventKey splits the keys from a map of events where the keys are event.Type+"."+attribute.Key
+// and returns both the event.Type and attribute.Key.
+func splitEventKey(key string) (string, string) {
+	stuff := strings.Split(key, ".")
+	eventType := stuff[0]
+	attrKey := stuff[1]
+	return eventType, attrKey
 }
 
 func (cc *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {

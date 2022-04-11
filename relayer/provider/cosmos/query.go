@@ -24,25 +24,38 @@ import (
 	host "github.com/cosmos/ibc-go/v3/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/light"
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"golang.org/x/sync/errgroup"
 )
 
 // QueryTx takes a transaction hash and returns the transaction
-func (cc *CosmosProvider) QueryTx(ctx context.Context, hashHex string) (*ctypes.ResultTx, error) {
+func (cc *CosmosProvider) QueryTx(ctx context.Context, hashHex string) (*provider.RelayerTxResponse, error) {
 	hash, err := hex.DecodeString(hashHex)
 	if err != nil {
 		return nil, err
 	}
 
-	return cc.RPCClient.Tx(ctx, hash, true)
+	resp, err := cc.RPCClient.Tx(ctx, hash, true)
+	if err != nil {
+		return nil, err
+	}
+
+	events := parseEventsFromResponseDeliverTx(resp.TxResult)
+
+	return &provider.RelayerTxResponse{
+		Height: resp.Height,
+		TxHash: string(hash),
+		Code:   resp.TxResult.Code,
+		Data:   string(resp.TxResult.Data),
+		Events: events,
+	}, nil
 }
 
 // QueryTxs returns an array of transactions given a tag
-func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events []string) ([]*ctypes.ResultTx, error) {
+func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events []string) ([]*provider.RelayerTxResponse, error) {
 	if len(events) == 0 {
 		return nil, errors.New("must declare at least one event to search")
 	}
@@ -59,7 +72,32 @@ func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events 
 	if err != nil {
 		return nil, err
 	}
-	return res.Txs, nil
+
+	var txResps []*provider.RelayerTxResponse
+	for _, tx := range res.Txs {
+		events := parseEventsFromResponseDeliverTx(tx.TxResult)
+		txResps = append(txResps, &provider.RelayerTxResponse{
+			Height: tx.Height,
+			TxHash: string(tx.Hash),
+			Code:   tx.TxResult.Code,
+			Data:   string(tx.TxResult.Data),
+			Events: events,
+		})
+	}
+	return txResps, nil
+}
+
+// parseEventsFromResponseDeliverTx parses the events from a ResponseDeliverTx and builds a map
+// where the keys are equal to event.Type+"."+attribute.Key and the values are the attribute.Value.
+func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) (events map[string]string) {
+	events = make(map[string]string, 1)
+	for _, event := range resp.Events {
+		for _, attribute := range event.Attributes {
+			key := event.Type + "." + string(attribute.Key)
+			events[key] = string(attribute.Value)
+		}
+	}
+	return
 }
 
 // QueryBalance returns the amount of coins in the relayer account
