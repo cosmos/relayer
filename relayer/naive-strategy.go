@@ -315,7 +315,10 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 				return err
 			}
 
-			msgs.Src = append(msgs.Src, relayAckMsgs)
+			// Do not allow nil messages to the queued, or else we will panic in send()
+			if relayAckMsgs != nil {
+				msgs.Src = append(msgs.Src, relayAckMsgs)
+			}
 		}
 
 		// add messages for received packets on src
@@ -328,7 +331,10 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 				return err
 			}
 
-			msgs.Dst = append(msgs.Dst, relayAckMsgs)
+			// Do not allow nil messages to the queued, or else we will panic in send()
+			if relayAckMsgs != nil {
+				msgs.Dst = append(msgs.Dst, relayAckMsgs)
+			}
 		}
 
 		if !msgs.Ready() {
@@ -533,7 +539,6 @@ func PrependUpdateClientMsg(ctx context.Context, msgs *[]provider.RelayerMessage
 			zap.Error(err),
 		)
 
-		srch, _, _ = QueryLatestHeights(ctx, src, dst)
 	})); err != nil {
 		return err
 	}
