@@ -6,6 +6,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	typestx "github.com/cosmos/cosmos-sdk/types/tx"
+	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
@@ -90,6 +91,12 @@ func getFeePayer(tx *typestx.Tx) string {
 	}
 
 	switch firstMsg := tx.GetMsgs()[0].(type) {
+	case *transfertypes.MsgTransfer:
+		// There is a possible data race around concurrent map access
+		// in the cosmos sdk when it converts the address from bech32.
+		// We don't need the address conversion; just the sender is all that
+		// GetSigners is doing under the hood anyway.
+		return firstMsg.Sender
 	case *clienttypes.MsgUpdateClient:
 		// Without this particular special case, there is a panic in ibc-go
 		// due to the sdk config singleton expecting one bech32 prefix but seeing another.
