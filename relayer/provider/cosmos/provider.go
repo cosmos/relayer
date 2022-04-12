@@ -1610,6 +1610,27 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 	if err := retry.Do(func() error {
 		txBytes, err := cc.buildMessages(ctx, msgs)
 		if err != nil {
+			// Occasionally the client will be out of date,
+			// and we will receive an RPC error like:
+			//     rpc error: code = InvalidArgument desc = failed to execute message; message index: 1: channel handshake open try failed: failed channel state verification for client (07-tendermint-0): client state height < proof height ({0 58} < {0 59}), please ensure the client has been updated: invalid height: invalid request
+			// or
+			//     rpc error: code = InvalidArgument desc = failed to execute message; message index: 1: receive packet verification failed: couldn't verify counterparty packet commitment: failed packet commitment verification for client (07-tendermint-0): client state height < proof height ({0 142} < {0 143}), please ensure the client has been updated: invalid height: invalid request
+			//
+			// No amount of retrying will fix this. The client needs to be updated.
+			// Unfortunately, the entirety of that error message originates on the server,
+			// so there is not an obvious way to access a more structured error value.
+			//
+			// If this logic should ever fail due to the string values of the error messages on the server
+			// changing from the client's version of the library,
+			// at worst this will run more unnecessary retries.
+			if strings.Contains(err.Error(), sdkerrors.ErrInvalidHeight.Error()) {
+				cc.log.Info(
+					"Skipping retry due to invalid height error",
+					zap.Error(err),
+				)
+				return retry.Unrecoverable(err)
+			}
+
 			return err
 		}
 
