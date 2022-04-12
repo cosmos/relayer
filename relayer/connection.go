@@ -14,7 +14,12 @@ import (
 
 // CreateOpenConnections runs the connection creation messages on timeout until they pass.
 // The returned boolean indicates that the path end has been modified.
-func (c *Chain) CreateOpenConnections(ctx context.Context, dst *Chain, maxRetries uint64, to time.Duration) (modified bool, err error) {
+func (c *Chain) CreateOpenConnections(
+	ctx context.Context,
+	dst *Chain,
+	maxRetries uint64,
+	to time.Duration,
+) (modified bool, err error) {
 	// client identifiers must be filled in
 	if err = ValidateClientPaths(c, dst); err != nil {
 		return modified, err
@@ -70,7 +75,7 @@ func (c *Chain) CreateOpenConnections(ctx context.Context, dst *Chain, maxRetrie
 		// increment the failures counter and exit if we used all retry attempts
 		case !success:
 			failed++
-			c.log.Info("Retrying transaction...")
+			c.log.Info("Delaying before retrying connection open transaction...")
 			select {
 			case <-time.After(5 * time.Second):
 				// Nothing to do.

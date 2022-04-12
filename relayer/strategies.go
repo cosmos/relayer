@@ -224,7 +224,7 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 
 	// If there are no unrelayed packets, stop early.
 	if sp.Empty() {
-		src.log.Info(
+		src.log.Debug(
 			"No packets in queue",
 			zap.String("src_chain_id", src.ChainID()),
 			zap.String("src_channel_id", srcChannel.ChannelId),
@@ -237,7 +237,7 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 	}
 
 	if len(sp.Src) > 0 {
-		src.log.Debug(
+		src.log.Info(
 			"Unrelayed source packets",
 			zap.String("src_chain_id", src.ChainID()),
 			zap.String("src_channel_id", srcChannel.ChannelId),
@@ -246,7 +246,7 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 	}
 
 	if len(sp.Dst) > 0 {
-		src.log.Debug(
+		src.log.Info(
 			"Unrelayed destination packets",
 			zap.String("dst_chain_id", dst.ChainID()),
 			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
@@ -306,7 +306,7 @@ func relayUnrelayedAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, m
 
 	// If there are no unrelayed acks, stop early.
 	if ap.Empty() {
-		log.Info(
+		log.Debug(
 			"No acknowledgements in queue",
 			zap.String("src_chain_id", src.ChainID()),
 			zap.String("src_channel_id", srcChannel.ChannelId),
@@ -319,7 +319,7 @@ func relayUnrelayedAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, m
 	}
 
 	if len(ap.Src) > 0 {
-		log.Debug(
+		log.Info(
 			"Unrelayed source acknowledgements",
 			zap.String("src_chain_id", src.ChainID()),
 			zap.String("src_channel_id", srcChannel.ChannelId),
@@ -328,7 +328,7 @@ func relayUnrelayedAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, m
 	}
 
 	if len(ap.Dst) > 0 {
-		log.Debug(
+		log.Info(
 			"Unrelayed destination acknowledgements",
 			zap.String("dst_chain_id", dst.ChainID()),
 			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),

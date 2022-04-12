@@ -315,7 +315,10 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 				return err
 			}
 
-			msgs.Src = append(msgs.Src, relayAckMsgs)
+			// Do not allow nil messages to the queued, or else we will panic in send()
+			if relayAckMsgs != nil {
+				msgs.Src = append(msgs.Src, relayAckMsgs)
+			}
 		}
 
 		// add messages for received packets on src
@@ -328,7 +331,10 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 				return err
 			}
 
-			msgs.Dst = append(msgs.Dst, relayAckMsgs)
+			// Do not allow nil messages to the queued, or else we will panic in send()
+			if relayAckMsgs != nil {
+				msgs.Dst = append(msgs.Dst, relayAckMsgs)
+			}
 		}
 
 		if !msgs.Ready() {
@@ -524,34 +530,51 @@ func AddMessagesForSequences(
 
 // PrependUpdateClientMsg adds an UpdateClient msg to the front of non-empty msg lists
 func PrependUpdateClientMsg(ctx context.Context, msgs *[]provider.RelayerMessage, src, dst *Chain, srch int64) error {
-	if len(*msgs) != 0 {
-		var (
-			srcHeader ibcexported.Header
-			updateMsg provider.RelayerMessage
-			err       error
+	if len(*msgs) == 0 {
+		return nil
+	}
+
+	// Query IBC Update Header
+	var srcHeader ibcexported.Header
+	if err := retry.Do(func() error {
+		var err error
+		srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(ctx, srch, dst.ChainProvider, dst.PathEnd.ClientID)
+		return err
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		src.log.Info(
+			"PrependUpdateClientMsg: failed to get IBC update header",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.Uint("attempt", n+1),
+			zap.Uint("attempt_limit", RtyAttNum),
+			zap.Error(err),
 		)
 
-		// Query IBC Update Header
-		if err = retry.Do(func() error {
-			srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(ctx, srch, dst.ChainProvider, dst.PathEnd.ClientID)
-			return err
-		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			srch, _, _ = QueryLatestHeights(ctx, src, dst)
-		})); err != nil {
-			return err
-		}
-
-		// Construct UpdateClient msg
-		if err = retry.Do(func() error {
-			updateMsg, err = dst.ChainProvider.UpdateClient(dst.PathEnd.ClientID, srcHeader)
-			return nil
-		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
-			return err
-		}
-
-		// Prepend UpdateClient msg to the slice of msgs
-		*msgs = append([]provider.RelayerMessage{updateMsg}, *msgs...)
+	})); err != nil {
+		return err
 	}
+
+	// Construct UpdateClient msg
+	var updateMsg provider.RelayerMessage
+	if err := retry.Do(func() error {
+		var err error
+		updateMsg, err = dst.ChainProvider.UpdateClient(dst.PathEnd.ClientID, srcHeader)
+		return err
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		dst.log.Info(
+			"PrependUpdateClientMsg: failed to build message",
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.Uint("attempt", n+1),
+			zap.Uint("attempt_limit", RtyAttNum),
+			zap.Error(err),
+		)
+	})); err != nil {
+		return err
+	}
+
+	// Prepend UpdateClient msg to the slice of msgs
+	*msgs = append([]provider.RelayerMessage{updateMsg}, *msgs...)
+
 	return nil
 }
 
