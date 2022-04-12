@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -1046,94 +1047,102 @@ func ackPacketQuery(channelID string, seq int) []string {
 
 // relayPacketsFromResultTx looks through the events in a *ctypes.ResultTx
 // and returns relayPackets with the appropriate data
-func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst provider.ChainProvider, dsth int64, res *ctypes.ResultTx, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
+func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst provider.ChainProvider, dsth int64, resp *provider.RelayerTxResponse, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
 	var (
 		rcvPackets     []provider.RelayPacket
 		timeoutPackets []provider.RelayPacket
 	)
 
-	for _, e := range res.TxResult.Events {
-		if e.Type == spTag {
-			// NOTE: Src and Dst are switched here
-			rp := &relayMsgRecvPacket{pass: false}
-			for _, p := range e.Attributes {
-				if string(p.Key) == srcChanTag {
-					if string(p.Value) != srcChanId {
-						rp.pass = true
-						continue
-					}
-				}
-				if string(p.Key) == dstChanTag {
-					if string(p.Value) != dstChanId {
-						rp.pass = true
-						continue
-					}
-				}
-				if string(p.Key) == srcPortTag {
-					if string(p.Value) != srcPortId {
-						rp.pass = true
-						continue
-					}
-				}
-				if string(p.Key) == dstPortTag {
-					if string(p.Value) != dstPortId {
-						rp.pass = true
-						continue
-					}
-				}
-				if string(p.Key) == dataTag {
-					rp.packetData = p.Value
-				}
-				if string(p.Key) == toHeightTag {
-					timeout, err := clienttypes.ParseHeight(string(p.Value))
-					if err != nil {
-						return nil, nil, err
-					}
+	rp := &relayMsgRecvPacket{pass: false}
 
-					rp.timeout = timeout
-				}
-				if string(p.Key) == toTSTag {
-					timeout, _ := strconv.ParseUint(string(p.Value), 10, 64)
-					rp.timeoutStamp = timeout
-				}
-				if string(p.Key) == seqTag {
-					seq, _ := strconv.ParseUint(string(p.Value), 10, 64)
-					rp.seq = seq
-				}
+	for key, attrVal := range resp.Events {
+		rp.pass = false
+		eventType, attrKey := splitEventKey(key)
+
+		if eventType != spTag {
+			continue
+		}
+
+		switch attrKey {
+		case srcChanTag:
+			if attrVal != srcChanId {
+				rp.pass = true
+				continue
 			}
-
-			// fetch the header which represents a block produced on destination
-			block, err := dst.GetIBCUpdateHeader(ctx, dsth, src, srcClientId)
+		case dstChanTag:
+			if attrVal != dstChanId {
+				rp.pass = true
+				continue
+			}
+		case srcPortTag:
+			if attrVal != srcPortId {
+				rp.pass = true
+				continue
+			}
+		case dstPortTag:
+			if attrVal != dstPortId {
+				rp.pass = true
+				continue
+			}
+		case dataTag:
+			rp.packetData = []byte(attrVal)
+		case toHeightTag:
+			timeout, err := clienttypes.ParseHeight(attrVal)
 			if err != nil {
 				return nil, nil, err
 			}
-
-			// if the timestamp is set on the packet, we need to retrieve the current block time from dst
-			var b *ctypes.ResultBlock
-			if rp.timeoutStamp > 0 {
-				b, err = cc.RPCClient.Block(ctx, &dsth)
-				if err != nil {
-					return nil, nil, err
-				}
+			rp.timeout = timeout
+		case toTSTag:
+			timeout, err := strconv.ParseUint(attrVal, 10, 64)
+			if err != nil {
+				return nil, nil, err
 			}
+			rp.timeoutStamp = timeout
+		case seqTag:
+			seq, err := strconv.ParseUint(attrVal, 10, 64)
+			if err != nil {
+				return nil, nil, err
+			}
+			rp.seq = seq
+		}
 
-			switch {
-			// If the packet has a timeout time, and it has been reached, return a timeout packet
-			case b != nil && rp.timeoutStamp > 0 && uint64(b.Block.Time.UnixNano()) > rp.timeoutStamp:
-				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
-			// If the packet has a timeout height, and it has been reached, return a timeout packet
-			case !rp.timeout.IsZero() && block.GetHeight().GTE(rp.timeout):
-				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
-			// If the packet matches the relay constraints relay it as a MsgReceivePacket
-			case !rp.pass:
-				rcvPackets = append(rcvPackets, rp)
+		// If packet data is nil or sequence number is 0 keep parsing events,
+		// also check that at least the block height or timestamp is set.
+		if rp.packetData == nil || rp.seq == 0 || (rp.timeout.IsZero() && rp.timeoutStamp == 0) {
+			continue
+		}
+
+		// fetch the header which represents a block produced on destination
+		block, err := dst.GetIBCUpdateHeader(ctx, dsth, src, srcClientId)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		// if the timestamp is set on the packet, we need to retrieve the current block time from dst
+		var b *ctypes.ResultBlock
+		if rp.timeoutStamp > 0 {
+			b, err = cc.RPCClient.Block(ctx, &dsth)
+			if err != nil {
+				return nil, nil, err
 			}
 		}
-	}
 
-	// If there is a relayPacket, return it
-	if len(rcvPackets)+len(timeoutPackets) > 0 {
-		return rcvPackets, timeoutPackets, nil
+		switch {
+		// If the packet has a timeout time, and it has been reached, return a timeout packet
+		case b != nil && rp.timeoutStamp > 0 && uint64(b.Block.Time.UnixNano()) > rp.timeoutStamp:
+			timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
+		// If the packet has a timeout height, and it has been reached, return a timeout packet
+		case !rp.timeout.IsZero() && block.GetHeight().GTE(rp.timeout):
+			timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
+		// If the packet matches the relay constraints relay it as a MsgReceivePacket
+		case !rp.pass:
+			rcvPackets = append(rcvPackets, rp)
+		}
+
+		// If there is a relayPacket, return it
+		if len(rcvPackets) > 0 || len(timeoutPackets) > 0 {
+			return rcvPackets, timeoutPackets, nil
+		}
 	}
 
 	return nil, nil, fmt.Errorf("no packet data found")
@@ -1141,62 +1150,71 @@ func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst
 
 // acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
 // relayPackets with the appropriate data
-func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId string, res *ctypes.ResultTx) ([]provider.RelayPacket, error) {
+func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId string, resp *provider.RelayerTxResponse) ([]provider.RelayPacket, error) {
 	var ackPackets []provider.RelayPacket
-	for _, e := range res.TxResult.Events {
-		if e.Type == waTag {
-			// NOTE: Src and Dst are switched here
-			rp := &relayMsgPacketAck{pass: false}
-			for _, p := range e.Attributes {
-				if string(p.Key) == srcChanTag {
-					if string(p.Value) != srcChanId {
-						rp.pass = true
-						continue
-					}
-				}
-				if string(p.Key) == dstChanTag {
-					if string(p.Value) != dstChanId {
-						rp.pass = true
-						continue
-					}
-				}
-				if string(p.Key) == srcPortTag {
-					if string(p.Value) != srcPortId {
-						rp.pass = true
-						continue
-					}
-				}
-				if string(p.Key) == dstPortTag {
-					if string(p.Value) != dstPortId {
-						rp.pass = true
-						continue
-					}
-				}
-				if string(p.Key) == ackTag {
-					rp.ack = p.Value
-				}
-				if string(p.Key) == dataTag {
-					rp.packetData = p.Value
-				}
-				if string(p.Key) == toHeightTag {
-					timeout, err := clienttypes.ParseHeight(string(p.Value))
-					if err != nil {
-						return nil, err
-					}
-					rp.timeout = timeout
-				}
-				if string(p.Key) == toTSTag {
-					timeout, _ := strconv.ParseUint(string(p.Value), 10, 64)
-					rp.timeoutStamp = timeout
-				}
-				if string(p.Key) == seqTag {
-					seq, _ := strconv.ParseUint(string(p.Value), 10, 64)
-					rp.seq = seq
-				}
+
+	rp := &relayMsgPacketAck{pass: false}
+	for key, attrVal := range resp.Events {
+		rp.pass = false
+		eventType, attrKey := splitEventKey(key)
+
+		if eventType != waTag {
+			continue
+		}
+
+		switch attrKey {
+		case srcChanTag:
+			if attrVal != srcChanId {
+				rp.pass = true
+				continue
 			}
-			if !rp.pass {
-				ackPackets = append(ackPackets, rp)
+		case dstChanTag:
+			if attrVal != dstChanId {
+				rp.pass = true
+				continue
 			}
+		case srcPortTag:
+			if attrVal != srcPortId {
+				rp.pass = true
+				continue
+			}
+		case dstPortTag:
+			if attrVal != dstPortId {
+				rp.pass = true
+				continue
+			}
+		case ackTag:
+			rp.ack = []byte(attrVal)
+		case dataTag:
+			rp.packetData = []byte(attrVal)
+		case toHeightTag:
+			timeout, err := clienttypes.ParseHeight(attrVal)
+			if err != nil {
+				return nil, err
+			}
+			rp.timeout = timeout
+		case toTSTag:
+			timeout, err := strconv.ParseUint(attrVal, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			rp.timeoutStamp = timeout
+		case seqTag:
+			seq, err := strconv.ParseUint(attrVal, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			rp.seq = seq
+		}
+
+		// If packet data is nil or sequence number is 0 keep parsing events,
+		// also check that at least the block height or timestamp is set.
+		if rp.ack == nil || rp.packetData == nil || rp.seq == 0 || (rp.timeout.IsZero() && rp.timeoutStamp == 0) {
+			continue
+		}
+
+		if !rp.pass {
+			ackPackets = append(ackPackets, rp)
 		}
 	}
 
@@ -1206,6 +1224,15 @@ func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId str
 	}
 
 	return nil, fmt.Errorf("no packet data found")
+}
+
+// splitEventKey splits the keys from a map of events where the keys are event.Type+"."+attribute.Key
+// and returns both the event.Type and attribute.Key.
+func splitEventKey(key string) (string, string) {
+	parts := strings.SplitN(key, ".", 2)
+	eventType := parts[0]
+	attrKey := parts[1]
+	return eventType, attrKey
 }
 
 func (cc *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
