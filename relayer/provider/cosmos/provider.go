@@ -265,9 +265,6 @@ func (cc *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstH
 		acc string
 		err error
 	)
-	if err := dstHeader.ValidateBasic(); err != nil {
-		return nil, err
-	}
 
 	tmHeader, ok := dstHeader.(*tmclient.Header)
 	if !ok {
@@ -305,10 +302,6 @@ func (cc *CosmosProvider) SubmitMisbehavior( /*TBD*/ ) (provider.RelayerMessage,
 }
 
 func (cc *CosmosProvider) UpdateClient(srcClientId string, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
-	if err := dstHeader.ValidateBasic(); err != nil {
-		return nil, err
-	}
-
 	acc, err := cc.Address()
 	if err != nil {
 		return nil, err
