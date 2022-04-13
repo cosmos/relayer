@@ -41,7 +41,7 @@ func testClient(ctx context.Context, t *testing.T, src *relayer.Chain) {
 
 	cs, err := clientypes.UnpackClientState(client.ClientState)
 	require.NoError(t, err)
-	require.Equal(t, cs.ClientType(), "07-tendermint")
+	require.Equal(t, cs.ClientType(), "07-tendermint") // TODO remove this check or create separate test for substrate
 }
 
 // testConnectionPair tests that the only connection on src and dst is between the two chains
