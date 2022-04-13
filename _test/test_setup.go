@@ -144,6 +144,8 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *
 		Cmd: []string{
 			c.ChainID(),
 			addr,
+			// TODO getPrivValFileName() is not going to work with substrate.
+			// it's not immediately clear to me what we need to do here so will need to circle back on this.
 			getPrivValFileName(tc.seed),
 		},
 		PortBindings: map[dc.Port][]dc.PortBinding{
@@ -177,12 +179,9 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *
 
 	t.Logf("Chain ID %s spun up in container %s from %s", c.ChainID(), resource.Container.Name, resource.Container.Config.Image)
 
-	// retry polling the container until status doesn't error
-	//if err = pool.Retry(c.StatusErr); err != nil {
-	//	return fmt.Errorf("could not connect to container at %s: %s", c.RPCAddr, err)
-	//}
-
-	// TODO maybe this works?
+	// we used to poll here until the container is running without status errors but,
+	// we no longer expose the status error on the relayer.Chain struct.
+	// this sleep statement seems to
 	time.Sleep(time.Second * 5)
 
 	t.Logf("Chain ID %s's container at port %s", c.ChainID(), c.RPCAddr)
