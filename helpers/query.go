@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
+	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 )

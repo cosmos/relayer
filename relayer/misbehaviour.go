@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
-	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
 )
 
 var (

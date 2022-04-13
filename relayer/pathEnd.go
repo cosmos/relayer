@@ -4,10 +4,10 @@ import (
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	transfertypes "github.com/cosmos/ibc-go/v2/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
-	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
+	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
 )
 
 var (

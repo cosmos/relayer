@@ -12,8 +12,8 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
-	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
-	tmclient "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/helpers"
 	"github.com/spf13/cobra"
 )
