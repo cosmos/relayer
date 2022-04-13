@@ -687,7 +687,7 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 		return nil, false, err
 	}
 
-	out := NewRelayMsgs()
+	out := new(RelayMsgs)
 	if err := ValidatePaths(c, dst); err != nil {
 		return nil, false, err
 	}
