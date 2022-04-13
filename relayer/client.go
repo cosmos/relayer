@@ -10,30 +10,28 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
 func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (bool, error) {
-	var (
-		srcUpdateHeader, dstUpdateHeader ibcexported.Header
-		srch, dsth                       int64
-		modified                         bool
-		err                              error
-	)
-
 	// Query the latest heights on src and dst and retry if the query fails
-	if err = retry.Do(func() error {
+	var srch, dsth int64
+	if err := retry.Do(func() error {
+		var err error
 		srch, dsth, err = QueryLatestHeights(ctx, c, dst)
 		if srch == 0 || dsth == 0 || err != nil {
 			return fmt.Errorf("failed to query latest heights: %w", err)
 		}
-		return err
+		return nil
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 		return false, err
 	}
 
 	// Query the light signed headers for src & dst at the heights srch & dsth, retry if the query fails
-	if err = retry.Do(func() error {
+	var srcUpdateHeader, dstUpdateHeader ibcexported.Header
+	if err := retry.Do(func() error {
+		var err error
 		srcUpdateHeader, dstUpdateHeader, err = GetLightSignedHeadersAtHeights(ctx, c, dst, srch, dsth)
 		if err != nil {
 			return err
@@ -55,16 +53,31 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 		return false, err
 	}
 
-	// Create client on src for dst if the client id is unspecified
-	modified, err = CreateClient(ctx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
-	if err != nil {
-		return modified, fmt.Errorf("failed to create client on src chain{%s}: %w", c.ChainID(), err)
-	}
+	var modifiedSrc, modifiedDst bool
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		var err error
+		// Create client on src for dst if the client id is unspecified
+		modifiedSrc, err = CreateClient(egCtx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+		if err != nil {
+			return fmt.Errorf("failed to create client on src chain{%s}: %w", c.ChainID(), err)
+		}
+		return nil
+	})
 
-	// Create client on dst for src if the client id is unspecified
-	modified, err = CreateClient(ctx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
-	if err != nil {
-		return modified, fmt.Errorf("failed to create client on dst chain{%s}: %w", dst.ChainID(), err)
+	eg.Go(func() error {
+		var err error
+		// Create client on dst for src if the client id is unspecified
+		modifiedDst, err = CreateClient(egCtx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+		if err != nil {
+			return fmt.Errorf("failed to create client on dst chain{%s}: %w", dst.ChainID(), err)
+		}
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
+		// If one completed successfully and the other didn't, we can still report modified.
+		return modifiedSrc || modifiedDst, err
 	}
 
 	c.log.Info(
@@ -75,7 +88,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 		zap.String("dst_chain_id", dst.ChainID()),
 	)
 
-	return modified, nil
+	return modifiedSrc || modifiedDst, nil
 }
 
 func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.Header, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (bool, error) {

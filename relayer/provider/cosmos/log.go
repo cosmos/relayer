@@ -97,9 +97,12 @@ func getFeePayer(tx *typestx.Tx) string {
 		// We don't need the address conversion; just the sender is all that
 		// GetSigners is doing under the hood anyway.
 		return firstMsg.Sender
-	case *clienttypes.MsgUpdateClient:
+	case *clienttypes.MsgCreateClient:
 		// Without this particular special case, there is a panic in ibc-go
 		// due to the sdk config singleton expecting one bech32 prefix but seeing another.
+		return firstMsg.Signer
+	case *clienttypes.MsgUpdateClient:
+		// Same failure mode as MsgCreateClient.
 		return firstMsg.Signer
 	default:
 		return firstMsg.GetSigners()[0].String()
