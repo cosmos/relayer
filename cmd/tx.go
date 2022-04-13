@@ -142,13 +142,16 @@ func createClientsCmd(a *appState) *cobra.Command {
 			}
 
 			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+			if err != nil {
+				return err
+			}
 			if modified {
 				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err
 				}
 			}
 
-			return err
+			return nil
 		},
 	}
 
@@ -240,6 +243,9 @@ func createClientCmd(a *appState) *cobra.Command {
 			}
 
 			modified, err := relayer.CreateClient(cmd.Context(), c[src], c[dst], srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+			if err != nil {
+				return err
+			}
 			if modified {
 				if err = a.OverwriteConfig(a.Config); err != nil {
 					return err
@@ -376,23 +382,26 @@ $ %s tx conn demo-path --timeout 5s`,
 
 			// ensure that the clients exist
 			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
-			if modified {
-				if err := a.OverwriteConfig(a.Config); err != nil {
-					return err
-				}
-			}
 			if err != nil {
 				return err
 			}
-
-			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to)
 			if modified {
 				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err
 				}
 			}
 
-			return err
+			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to)
+			if err != nil {
+				return err
+			}
+			if modified {
+				if err := a.OverwriteConfig(a.Config); err != nil {
+					return err
+				}
+			}
+
+			return nil
 		},
 	}
 
@@ -617,35 +626,35 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 
 			// create clients if they aren't already created
 			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+			if err != nil {
+				return fmt.Errorf("error creating clients: %w", err)
+			}
 			if modified {
 				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err
 				}
-			}
-			if err != nil {
-				return fmt.Errorf("error creating clients: %w", err)
 			}
 
 			// create connection if it isn't already created
 			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to)
+			if err != nil {
+				return fmt.Errorf("error creating connections: %w", err)
+			}
 			if modified {
 				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err
 				}
-			}
-			if err != nil {
-				return fmt.Errorf("error creating connections: %w", err)
 			}
 
 			// create channel if it isn't already created
 			modified, err = c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override)
+			if err != nil {
+				return fmt.Errorf("error creating channels: %w", err)
+			}
 			if modified {
 				if err := a.OverwriteConfig(a.Config); err != nil {
 					return err
 				}
-			}
-			if err != nil {
-				return fmt.Errorf("error creating channels: %w", err)
 			}
 
 			return nil
