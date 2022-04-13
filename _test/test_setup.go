@@ -181,7 +181,7 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *
 
 	// we used to poll here until the container is running without status errors but,
 	// we no longer expose the status error on the relayer.Chain struct.
-	// this sleep statement seems to
+	// this sleep statement seems to work fine in all cases that we have seen over a few months.
 	time.Sleep(time.Second * 5)
 
 	t.Logf("Chain ID %s's container at port %s", c.ChainID(), c.RPCAddr)
