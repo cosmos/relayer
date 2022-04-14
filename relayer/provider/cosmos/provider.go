@@ -372,6 +372,14 @@ func (cc *CosmosProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvide
 		return nil, err
 	}
 
+	if len(connStateProof) == 0 {
+		// It is possible that we have asked for a proof too early.
+		// If the connection state proof is empty, there is no point in returning the MsgConnectionOpenTry.
+		// We are not using (*conntypes.MsgConnectionOpenTry).ValidateBasic here because
+		// that chokes on cross-chain bech32 details in ibc-go.
+		return nil, fmt.Errorf("received invalid zero-length connection state proof")
+	}
+
 	if acc, err = cc.Address(); err != nil {
 		return nil, err
 	}
@@ -1619,6 +1627,17 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 			if strings.Contains(err.Error(), sdkerrors.ErrInvalidHeight.Error()) {
 				cc.log.Info(
 					"Skipping retry due to invalid height error",
+					zap.Error(err),
+				)
+				return retry.Unrecoverable(err)
+			}
+
+			// On a fast retry, it is possible to have an invalid connection state.
+			// Retrying that message also won't fix the underlying state mismatch,
+			// so log it and mark it as unrecoverable.
+			if strings.Contains(err.Error(), conntypes.ErrInvalidConnectionState.Error()) {
+				cc.log.Info(
+					"Skipping retry due to invalid connection state",
 					zap.Error(err),
 				)
 				return retry.Unrecoverable(err)
