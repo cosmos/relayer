@@ -53,9 +53,9 @@ func queryCmd(a *appState) *cobra.Command {
 
 func queryIBCDenoms(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ibc-denoms [chain-id]",
+		Use:   "ibc-denoms chain_id",
 		Short: "query denomination traces for a given network by chain ID",
-		Args:  cobra.ExactArgs(1),
+		Args:  withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query ibc-denoms ibc-0
 $ %s q ibc-denoms ibc-0`,
@@ -89,9 +89,9 @@ $ %s q ibc-denoms ibc-0`,
 
 func queryBaseDenomFromIBCDenom(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "denom-trace [chain-id] [denom-hash]",
+		Use:   "denom-trace chain_id denom_hash",
 		Short: "query that retrieves the base denom from the IBC denomination trace",
-		Args:  cobra.ExactArgs(2),
+		Args:  withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query denom-trace osmosis-1 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118D904BFE0F5F5E
 $ %s q denom-trace osmosis-1 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118D904BFE0F5F5E`,
@@ -117,9 +117,9 @@ $ %s q denom-trace osmosis-1 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118
 
 func queryTx(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "tx [chain-id] [tx-hash]",
+		Use:   "tx chain_id tx_hash",
 		Short: "query for a transaction on a given network by transaction hash and chain ID",
-		Args:  cobra.ExactArgs(2),
+		Args:  withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query tx ibc-0 [tx-hash]
 $ %s q tx ibc-0 A5DF8D272F1C451CFF92BA6C41942C4D29B5CF180279439ED6AB038282F956BE`,
@@ -151,7 +151,7 @@ $ %s q tx ibc-0 A5DF8D272F1C451CFF92BA6C41942C4D29B5CF180279439ED6AB038282F956BE
 
 func queryTxs(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "txs [chain-id] [events]",
+		Use:   "txs chain_id events",
 		Short: "query for transactions on a given network by chain ID and a set of transaction events",
 		Long: strings.TrimSpace(`Search for a paginated list of transactions that match the given set of
 events. Each event takes the form of '{eventType}.{eventAttribute}={value}' with multiple events
@@ -160,7 +160,7 @@ separated by '&'.
 Please refer to each module's documentation for the full set of events to query for. Each module
 documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.`,
 		),
-		Args: cobra.ExactArgs(2),
+		Args: withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query txs ibc-0 "message.action=transfer" --offset 1 --limit 10
 $ %s q txs ibc-0 "message.action=transfer"`,
@@ -255,10 +255,10 @@ $ %s q txs ibc-0 "message.action=transfer"`,
 
 func queryBalanceCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "balance [chain-id] [[key-name]]",
+		Use:     "balance chain_id [key_name]",
 		Aliases: []string{"bal"},
 		Short:   "query the relayer's account balance on a given network by chain-ID",
-		Args:    cobra.RangeArgs(1, 2),
+		Args:    withUsage(cobra.RangeArgs(1, 2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query balance ibc-0
 $ %s query balance ibc-0 testkey`,
@@ -304,9 +304,9 @@ $ %s query balance ibc-0 testkey`,
 
 func queryHeaderCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "header [chain-id] [[height]]",
+		Use:   "header chain_id [height]",
 		Short: "query the header of a network by chain ID at a given height or the latest height",
-		Args:  cobra.RangeArgs(1, 2),
+		Args:  withUsage(cobra.RangeArgs(1, 2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query header ibc-0
 $ %s query header ibc-0 1400`,
@@ -351,9 +351,9 @@ $ %s query header ibc-0 1400`,
 // the chain as defined in https://github.com/cosmos/ics/tree/master/spec/ics-002-client-semantics#query
 func queryNodeStateCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "node-state [chain-id]",
+		Use:   "node-state chain_id",
 		Short: "query the consensus state of a network by chain ID",
-		Args:  cobra.ExactArgs(1),
+		Args:  withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query node-state ibc-0
 $ %s q node-state ibc-1`,
@@ -391,9 +391,9 @@ $ %s q node-state ibc-1`,
 
 func queryClientCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "client [chain-id] [client-id]",
+		Use:   "client chain_id client_id",
 		Short: "query the state of a light client on a network by chain ID",
-		Args:  cobra.ExactArgs(2),
+		Args:  withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query client ibc-0 ibczeroclient
 $ %s query client ibc-0 ibczeroclient --height 1205`,
@@ -442,10 +442,10 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 
 func queryClientsCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "clients [chain-id]",
+		Use:     "clients chain_id",
 		Aliases: []string{"clnts"},
 		Short:   "query for all light client states on a network by chain ID",
-		Args:    cobra.ExactArgs(1),
+		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query clients ibc-0
 $ %s query clients ibc-2 --offset 2 --limit 30`,
@@ -523,10 +523,10 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 
 func queryConnections(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "connections [chain-id]",
+		Use:     "connections chain_id",
 		Aliases: []string{"conns"},
 		Short:   "query for all connections on a network by chain ID",
-		Args:    cobra.ExactArgs(1),
+		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query connections ibc-0
 $ %s query connections ibc-2 --offset 2 --limit 30
@@ -570,9 +570,9 @@ $ %s q conns ibc-1`,
 
 func queryConnectionsUsingClient(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "client-connections [chain-id] [client-id]",
+		Use:   "client-connections chain_id client_id",
 		Short: "query for all connections for a given client on a network by chain ID",
-		Args:  cobra.ExactArgs(2),
+		Args:  withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query client-connections ibc-0 ibczeroclient
 $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
@@ -621,10 +621,10 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 
 func queryConnection(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "connection [chain-id] [connection-id]",
+		Use:     "connection chain_id connection_id",
 		Aliases: []string{"conn"},
 		Short:   "query the connection state for a given connection id on a network by chain ID",
-		Args:    cobra.ExactArgs(2),
+		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query connection ibc-0 ibconnection0
 $ %s q conn ibc-1 ibconeconn`,
@@ -666,9 +666,9 @@ $ %s q conn ibc-1 ibconeconn`,
 
 func queryConnectionChannels(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "connection-channels [chain-id] [connection-id]",
+		Use:   "connection-channels chain_id connection_id",
 		Short: "query all channels associated with a given connection on a network by chain ID",
-		Args:  cobra.ExactArgs(2),
+		Args:  withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query connection-channels ibc-0 ibcconnection1
 $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
@@ -715,9 +715,9 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 
 func queryChannel(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "channel [chain-id] [channel-id] [port-id]",
+		Use:   "channel chain_id channel_id port_id",
 		Short: "query a channel by channel and port ID on a network by chain ID",
-		Args:  cobra.ExactArgs(3),
+		Args:  withUsage(cobra.ExactArgs(3)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query channel ibc-0 ibczerochannel transfer
 $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
@@ -768,9 +768,9 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 
 func queryChannels(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "channels [chain-id]",
+		Use:   "channels chain_id",
 		Short: "query for all channels on a network by chain ID",
-		Args:  cobra.ExactArgs(1),
+		Args:  withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query channels ibc-0
 $ %s query channels ibc-2 --offset 2 --limit 30`,
@@ -813,9 +813,9 @@ $ %s query channels ibc-2 --offset 2 --limit 30`,
 
 func queryPacketCommitment(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "packet-commit [chain-id] [channel-id] [port-id] [seq]",
+		Use:   "packet-commit chain_id channel_id port_id seq",
 		Short: "query for the packet commitment given a sequence and channel ID on a network by chain ID",
-		Args:  cobra.ExactArgs(4),
+		Args:  withUsage(cobra.ExactArgs(4)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query packet-commit ibc-0 ibczerochannel transfer 32
 $ %s q packet-commit ibc-1 ibconechannel transfer 31`,
@@ -856,10 +856,10 @@ $ %s q packet-commit ibc-1 ibconechannel transfer 31`,
 
 func queryUnrelayedPackets(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "unrelayed-packets [path] [src-channel-id]",
+		Use:     "unrelayed-packets path src_channel_id",
 		Aliases: []string{"unrelayed-pkts"},
 		Short:   "query for the packet sequence numbers that remain to be relayed on a given path",
-		Args:    cobra.ExactArgs(2),
+		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s q unrelayed-packets demo-path channel-0
 $ %s query unrelayed-packets demo-path channel-0
@@ -912,10 +912,10 @@ $ %s query unrelayed-pkts demo-path channel-0`,
 
 func queryUnrelayedAcknowledgements(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "unrelayed-acknowledgements [path] [src-channel-id]",
+		Use:     "unrelayed-acknowledgements path src_channel_id",
 		Aliases: []string{"unrelayed-acks"},
 		Short:   "query for unrelayed acknowledgement sequence numbers that remain to be relayed on a given path",
-		Args:    cobra.ExactArgs(2),
+		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s q unrelayed-acknowledgements demo-path channel-0
 $ %s query unrelayed-acknowledgements demo-path channel-0

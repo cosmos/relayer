@@ -62,6 +62,7 @@ func configShowCmd(a *appState) *cobra.Command {
 		Use:     "show",
 		Aliases: []string{"s", "list", "l"},
 		Short:   "Prints current configuration",
+		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s config show --home %s
 $ %s cfg list`, appName, defaultHome, appName)),
@@ -117,6 +118,7 @@ func configInitCmd() *cobra.Command {
 		Use:     "init",
 		Aliases: []string{"i"},
 		Short:   "Creates a default home directory at path defined by --home",
+		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s config init --home %s
 $ %s cfg i`, appName, defaultHome, appName)),
@@ -171,8 +173,8 @@ $ %s cfg i`, appName, defaultHome, appName)),
 
 func configAddChainsCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:  "add-chains [/path/to/chains/]",
-		Args: cobra.ExactArgs(1),
+		Use:  "add-chains path_to_chains",
+		Args: withUsage(cobra.ExactArgs(1)),
 		Short: `Add new chains to the configuration file from a directory full of chain 
               configurations, useful for adding testnet configurations`,
 		Example: strings.TrimSpace(fmt.Sprintf(`
@@ -190,8 +192,8 @@ $ %s config add-chains configs/chains`, appName)),
 
 func configAddPathsCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:  "add-paths [/path/to/paths/]",
-		Args: cobra.ExactArgs(1),
+		Use:  "add-paths path_to_paths",
+		Args: withUsage(cobra.ExactArgs(1)),
 		//nolint:lll
 		Short: `Add new paths to the configuration file from a directory full of path 
               configurations, useful for adding testnet configurations. 

@@ -38,10 +38,10 @@ import (
 // NOTE: This is basically pseudocode
 func startCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "start [path-name]",
+		Use:     "start path_name",
 		Aliases: []string{"st"},
 		Short:   "Start the listening relayer on a given path",
-		Args:    cobra.ExactArgs(1),
+		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s start demo-path --max-msgs 3
 $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
