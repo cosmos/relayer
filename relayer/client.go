@@ -169,7 +169,10 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 
 				if !success {
 					src.LogFailedTx(res, err, msgs)
-					return fmt.Errorf("tx failed on chain{%s}: %s", src.ChainID(), res.Data)
+					if res != nil {
+						return fmt.Errorf("tx failed on chain{%s}: %s", src.ChainID(), res.Data)
+					}
+
 				}
 				return err
 			}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
