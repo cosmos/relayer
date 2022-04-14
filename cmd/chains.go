@@ -44,10 +44,10 @@ func chainsCmd(a *appState) *cobra.Command {
 
 func chainsAddrCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "address [chain-id]",
+		Use:     "address chain_id",
 		Aliases: []string{"addr"},
 		Short:   "Returns a chain's configured key's address",
-		Args:    cobra.ExactArgs(1),
+		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s chains address ibc-0
 $ %s ch addr ibc-0`, appName, appName)),
@@ -71,10 +71,10 @@ $ %s ch addr ibc-0`, appName, appName)),
 
 func chainsShowCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "show [chain-id]",
+		Use:     "show chain_id",
 		Aliases: []string{"s"},
 		Short:   "Returns a chain's configuration data",
-		Args:    cobra.ExactArgs(1),
+		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s chains show ibc-0 --json
 $ %s chains show ibc-0 --yaml
@@ -120,10 +120,10 @@ $ %s ch s ibc-0 --yaml`, appName, appName, appName, appName)),
 
 func chainsDeleteCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [chain-id]",
+		Use:     "delete chain_id",
 		Aliases: []string{"d"},
 		Short:   "Removes chain from config based off chain-id",
-		Args:    cobra.ExactArgs(1),
+		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s chains delete ibc-0
 $ %s ch d ibc-0`, appName, appName)),
@@ -138,7 +138,7 @@ $ %s ch d ibc-0`, appName, appName)),
 func chainsRegistryList(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "registry-list",
-		Args:    cobra.NoArgs,
+		Args:    withUsage(cobra.NoArgs),
 		Aliases: []string{"rl"},
 		Short:   "List chains available for configuration from the registry",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -190,6 +190,7 @@ func chainsListCmd(a *appState) *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"l"},
 		Short:   "Returns chain configuration data",
+		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s chains list
 $ %s ch l`, appName, appName)),
@@ -259,11 +260,11 @@ $ %s ch l`, appName, appName)),
 
 func chainsAddCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "add [[chain-name]]",
+		Use:     "add [chain-name...]",
 		Aliases: []string{"a"},
 		Short: "Add a new chain to the configuration file by fetching chain metadata from \n" +
 			"                the chain-registry or passing a file (-f) or url (-u)",
-		Args: cobra.MinimumNArgs(0),
+		Args: withUsage(cobra.MinimumNArgs(0)),
 		Example: fmt.Sprintf(` $ %s chains add cosmoshub
  $ %s chains add cosmoshub osmosis
  $ %s chains add --file chains/ibc0.json
@@ -304,9 +305,9 @@ func chainsAddCmd(a *appState) *cobra.Command {
 
 func chainsAddDirCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "add-dir [dir]",
+		Use:     "add-dir dir",
 		Aliases: []string{"ad"},
-		Args:    cobra.ExactArgs(1),
+		Args:    withUsage(cobra.ExactArgs(1)),
 		Short: `Add new chains to the configuration file from a directory 
 		full of chain configuration, useful for adding testnet configurations`,
 		Example: strings.TrimSpace(fmt.Sprintf(`

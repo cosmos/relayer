@@ -106,11 +106,11 @@ Most of these commands take a [path] argument. Make sure:
 
 func createClientsCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "clients [path-name]",
+		Use:   "clients path_name",
 		Short: "create a clients between two configured chains with a configured path",
 		Long: "Creates a working ibc client for chain configured on each end of the" +
 			" path by querying headers from each chain and then sending the corresponding create-client messages",
-		Args:    cobra.ExactArgs(1),
+		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`$ %s transact clients demo-path`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			allowUpdateAfterExpiry, err := cmd.Flags().GetBool(flagUpdateAfterExpiry)
@@ -160,11 +160,11 @@ func createClientsCmd(a *appState) *cobra.Command {
 
 func createClientCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "client [src-chain-id] [dst-chain-id] [path-name]",
+		Use:   "client src_chain_id dst_chain_id path_name",
 		Short: "create a client between two configured chains with a configured path",
 		Long: "Creates a working ibc client for chain configured on each end of the" +
 			" path by querying headers from each chain and then sending the corresponding create-client messages",
-		Args:    cobra.ExactArgs(3),
+		Args:    withUsage(cobra.ExactArgs(3)),
 		Example: strings.TrimSpace(fmt.Sprintf(`$ %s transact client demo-path`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			allowUpdateAfterExpiry, err := cmd.Flags().GetBool(flagUpdateAfterExpiry)
@@ -261,12 +261,12 @@ func createClientCmd(a *appState) *cobra.Command {
 
 func updateClientsCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update-clients [path-name]",
+		Use:   "update-clients path_name",
 		Short: "update IBC clients between two configured chains with a configured path",
 		Long: `Updates IBC client for chain configured on each end of the supplied path.
 Clients are updated by querying headers from each chain and then sending the
 corresponding update-client messages.`,
-		Args:    cobra.ExactArgs(1),
+		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`$ %s transact update-clients demo-path`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := a.Config.ChainsFromPath(args[0])
@@ -291,9 +291,9 @@ corresponding update-client messages.`,
 
 func upgradeClientsCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "upgrade-clients [path-name] [chain-id]",
+		Use:   "upgrade-clients path_name chain_id",
 		Short: "upgrades IBC clients between two configured chains with a configured path and chain-id",
-		Args:  cobra.ExactArgs(2),
+		Args:  withUsage(cobra.ExactArgs(2)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
@@ -329,13 +329,13 @@ func upgradeClientsCmd(a *appState) *cobra.Command {
 
 func createConnectionCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "connection [path-name]",
+		Use:     "connection path_name",
 		Aliases: []string{"conn"},
 		Short:   "create a connection between two configured chains with a configured path",
 		Long: strings.TrimSpace(`Create or repair a connection between two IBC-connected networks
 along a specific path.`,
 		),
-		Args: cobra.ExactArgs(1),
+		Args: withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact connection demo-path
 $ %s tx conn demo-path --timeout 5s`,
@@ -410,13 +410,13 @@ $ %s tx conn demo-path --timeout 5s`,
 
 func createChannelCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "channel [path-name]",
+		Use:     "channel path_name",
 		Aliases: []string{"chan"},
 		Short:   "create a channel between two configured chains with a configured path using specified or default channel identifiers",
 		Long: strings.TrimSpace(`Create or repair a channel between two IBC-connected networks
 along a specific path.`,
 		),
-		Args: cobra.ExactArgs(1),
+		Args: withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact channel demo-path --src-port transfer --dst-port transfer --order unordered --version ics20-1
 $ %s tx chan demo-path --timeout 5s --max-retries 10`,
@@ -492,9 +492,9 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 
 func closeChannelCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "channel-close [path-name] [src-channel-id] [src-port-id]",
+		Use:   "channel-close path_name src_channel_id src_port_id",
 		Short: "close a channel between two configured chains with a configured path",
-		Args:  cobra.ExactArgs(3),
+		Args:  withUsage(cobra.ExactArgs(3)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact channel-close demo-path channel-0 transfer
 $ %s tx channel-close demo-path channel-0 transfer --timeout 5s
@@ -543,13 +543,13 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 
 func linkCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "link [path-name]",
+		Use:     "link path_name",
 		Aliases: []string{"connect"},
 		Short:   "create clients, connection, and channel between two configured chains with a configured path",
 		Long: strings.TrimSpace(`Create an IBC client between two IBC-enabled networks, in addition
 to creating a connection and a channel between the two networks on a configured path.`,
 		),
-		Args: cobra.ExactArgs(1),
+		Args: withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact link demo-path --src-port transfer --dst-port transfer
 $ %s tx link demo-path
@@ -666,13 +666,13 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 
 func linkThenStartCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "link-then-start [path-name]",
+		Use:     "link-then-start path_name",
 		Aliases: []string{"connect-then-start"},
 		Short:   "a shorthand command to execute 'link' followed by 'start'",
 		Long: strings.TrimSpace(`Create IBC clients, connection, and channel between two configured IBC
 networks with a configured path and then start the relayer on that path.`,
 		),
-		Args: cobra.ExactArgs(1),
+		Args: withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact link-then-start demo-path
 $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
@@ -699,10 +699,10 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 
 func relayMsgCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "relay-packet [path-name] [src-channel-id] [seq-num]",
+		Use:     "relay-packet path_name src_channel_id seq_num",
 		Aliases: []string{"relay-pkt"},
 		Short:   "relay a non-relayed packet with a specific sequence number, in both directions",
-		Args:    cobra.ExactArgs(3),
+		Args:    withUsage(cobra.ExactArgs(3)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact relay-packet demo-path channel-1 1
 $ %s tx relay-pkt demo-path channel-1 1`,
@@ -748,10 +748,10 @@ $ %s tx relay-pkt demo-path channel-1 1`,
 
 func relayMsgsCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "relay-packets [path-name] [src-channel-id]",
+		Use:     "relay-packets path_name src_channel_id",
 		Aliases: []string{"relay-pkts"},
 		Short:   "relay any remaining non-relayed packets on a given path, in both directions",
-		Args:    cobra.ExactArgs(2),
+		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact relay-packets demo-path channel-0
 $ %s tx relay-pkts demo-path channel-0`,
@@ -796,10 +796,10 @@ $ %s tx relay-pkts demo-path channel-0`,
 
 func relayAcksCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "relay-acknowledgements [path-name] [src-channel-id]",
+		Use:     "relay-acknowledgements path_name src_channel_id",
 		Aliases: []string{"relay-acks"},
 		Short:   "relay any remaining non-relayed acknowledgements on a given path, in both directions",
-		Args:    cobra.ExactArgs(2),
+		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact relay-acknowledgements demo-path channel-0
 $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
@@ -911,11 +911,11 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 
 func xfersend(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "transfer [src-chain-id] [dst-chain-id] [amount] [dst-addr] [src-channel-id]",
+		Use:   "transfer src_chain_id dst_chain_id amount dst_addr src_channel_id",
 		Short: "initiate a transfer from one network to another",
 		Long: `Initiate a token transfer via IBC between two networks. The created packet
 must be relayed to the destination chain.`,
-		Args: cobra.ExactArgs(5),
+		Args: withUsage(cobra.ExactArgs(5)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s tx transfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk channel-0 --path demo-path
 $ %s tx transfer ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk channel-0 --path demo -y 2 -c 10

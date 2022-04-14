@@ -45,10 +45,10 @@ This includes the client, connection, and channel ids from both the source and d
 
 func pathsDeleteCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [index]",
+		Use:     "delete index",
 		Aliases: []string{"d"},
 		Short:   "Delete a path with a given index",
-		Args:    cobra.ExactArgs(1),
+		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths delete demo-path
 $ %s pth d path-name`, appName, appName)),
@@ -68,6 +68,7 @@ func pathsListCmd(a *appState) *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"l"},
 		Short:   "Print out configured paths",
+		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths list --yaml
 $ %s paths list --json
@@ -127,10 +128,10 @@ func checkmark(status bool) string {
 
 func pathsShowCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "show [path-name]",
+		Use:     "show path_name",
 		Aliases: []string{"s"},
 		Short:   "Show a path given its name",
-		Args:    cobra.ExactArgs(1),
+		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths show demo-path --yaml
 $ %s paths show demo-path --json
@@ -176,10 +177,10 @@ $ %s pth s path-name`, appName, appName, appName)),
 
 func pathsAddCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "add [src-chain-id] [dst-chain-id] [path-name]",
+		Use:     "add src_chain_id dst_chain_id path_name",
 		Aliases: []string{"a"},
 		Short:   "Add a path to the list of paths",
-		Args:    cobra.ExactArgs(3),
+		Args:    withUsage(cobra.ExactArgs(3)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths add ibc-0 ibc-1 demo-path
 $ %s paths add ibc-0 ibc-1 demo-path --file paths/demo.json
@@ -214,10 +215,10 @@ $ %s pth a ibc-0 ibc-1 demo-path`, appName, appName, appName)),
 
 func pathsNewCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "new [src-chain-id] [dst-chain-id] [path-name]",
+		Use:     "new src_chain_id dst_chain_id path_name",
 		Aliases: []string{"n"},
 		Short:   "Create a new blank path to be used in generating a new path (connection & client) between two chains",
-		Args:    cobra.ExactArgs(3),
+		Args:    withUsage(cobra.ExactArgs(3)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths new ibc-0 ibc-1 demo-path
 $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName)),
@@ -250,6 +251,7 @@ func pathsFetchCmd(a *appState) *cobra.Command {
 		Use:     "fetch",
 		Aliases: []string{"fch"},
 		Short:   "Fetches the json files necessary to setup the paths for the configured chains",
+		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths fetch --home %s
 $ %s pth fch`, appName, defaultHome, appName)),
