@@ -18,22 +18,34 @@ func (c *Chain) CreateOpenConnections(
 	ctx context.Context,
 	dst *Chain,
 	maxRetries uint64,
-	to time.Duration,
+	timeout time.Duration,
 ) (modified bool, err error) {
 	// client identifiers must be filled in
 	if err = ValidateClientPaths(c, dst); err != nil {
 		return modified, err
 	}
 
-	ticker := time.NewTicker(to)
+	ticker := time.NewTicker(timeout)
 	defer ticker.Stop()
 
-	failed := uint64(0)
-	for ; true; <-ticker.C {
+	// Populate the immediate channel so we begin processing right away.
+	immediate := make(chan struct{}, 1)
+	immediate <- struct{}{}
+
+	var failed uint64
+	for {
+		// Block until the immediate signal or the ticker fires.
+		select {
+		case <-immediate:
+			// Keep going.
+		case <-ticker.C:
+			// Keep going.
+		case <-ctx.Done():
+			return modified, ctx.Err()
+		}
 		success, lastStep, recentlyModified, err := ExecuteConnectionStep(ctx, c, dst)
 		if err != nil {
-			c.log.Warn("Error executing connection step", zap.Error(err))
-			// TODO: should this continue at the start of the loop?
+			c.log.Info("Error executing connection step", zap.Error(err))
 		}
 
 		if recentlyModified {
@@ -70,28 +82,46 @@ func (c *Chain) CreateOpenConnections(
 		// reset the failures counter
 		case success:
 			failed = 0
+
+			if !recentlyModified {
+				c.log.Debug("Short delay before retrying connection open transaction, because the last check was a no-op...")
+				select {
+				case <-time.After(timeout / 8):
+					// Nothing to do.
+				case <-ctx.Done():
+					return false, ctx.Err()
+				}
+			}
+
+			select {
+			case immediate <- struct{}{}:
+				// Proceed immediately to the next step if possible.
+			default:
+				// If can't write to ch -- could that ever happen? -- that's fine, don't block here.
+			}
+
 			continue
 
 		// increment the failures counter and exit if we used all retry attempts
 		case !success:
 			failed++
-			c.log.Info("Delaying before retrying connection open transaction...")
+			if failed > maxRetries {
+				return modified, fmt.Errorf("! Connection failed: [%s]client{%s}conn{%s} -> [%s]client{%s}conn{%s}",
+					c.ChainID(), c.ClientID(), c.ConnectionID(),
+					dst.ChainID(), dst.ClientID(), dst.ConnectionID())
+			}
+
+			c.log.Debug("Delaying before retrying connection open transaction...")
 			select {
 			case <-time.After(5 * time.Second):
 				// Nothing to do.
 			case <-ctx.Done():
 				return modified, ctx.Err()
 			}
-
-			if failed > maxRetries {
-				return modified, fmt.Errorf("! Connection failed: [%s]client{%s}conn{%s} -> [%s]client{%s}conn{%s}",
-					c.ChainID(), c.ClientID(), c.ConnectionID(),
-					dst.ChainID(), dst.ClientID(), dst.ConnectionID())
-			}
 		}
 	}
 
-	return modified, nil // lgtm [go/unreachable-statement]
+	panic("unreachable")
 }
 
 // ExecuteConnectionStep executes the next connection step based on the
@@ -137,6 +167,14 @@ func ExecuteConnectionStep(ctx context.Context, src, dst *Chain) (success, last,
 	}
 
 	if src.ConnectionID() == "" || dst.ConnectionID() == "" {
+		src.log.Debug(
+			"Initializing connection",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("src_client_id", src.ClientID()),
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.String("dst_client_id", dst.ClientID()),
+		)
+
 		success, modified, err = InitializeConnection(ctx, src, dst)
 		if err != nil {
 			return false, false, false, err

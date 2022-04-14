@@ -74,7 +74,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	})
 	require.NoError(t, eg.Wait())
 
-	t.Log("Creating path between chains")
+	t.Log("Creating clients")
 	_, err = src.CreateClients(ctx, dst, true, true, false)
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
@@ -82,10 +82,12 @@ func chainTest(t *testing.T, tcs []testChain) {
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
+	t.Log("Creating connections")
 	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
+	t.Log("Creating channels")
 	_, err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
 	require.NoError(t, err)
 
