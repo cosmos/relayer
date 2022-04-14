@@ -991,23 +991,13 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 				return err
 			}
 
-			// TODO this needs to be rewritten for non-cosmos chains to be able to use the command
 			// If the argument begins with "raw:" then use the suffix directly.
 			rawDstAddr := strings.TrimPrefix(args[3], "raw:")
 			var dstAddr string
-			if rawDstAddr == args[3] {
-				// not "raw:", so we treat the dstAddr as bech32
-				//done := c[dst].UseSDKContext()
-				dst, err := sdk.AccAddressFromBech32(args[3])
-				if err != nil {
-					return err
-				}
-				dstAddr = dst.String()
-				//done()
-			} else {
+			dstAddr = args[3]
+			if rawDstAddr != args[3] {
 				// Don't parse the rest of the dstAddr... it's raw.
 				dstAddr = rawDstAddr
-
 			}
 
 			return c[src].SendTransferMsg(cmd.Context(), a.Log, c[dst], amount, dstAddr, toHeightOffset, toTimeOffset, srcChannel)
