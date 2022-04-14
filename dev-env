@@ -15,7 +15,7 @@ fi
 cd $RELAYER_DIR
 rm -rf $RELAYER_CONF &> /dev/null
 pwd
-bash scripts/two-chainz "skip"
+bash scripts/two-chainz-wasmd "skip"
 
 echo "waiting for blocks..."
 sleep 3

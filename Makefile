@@ -3,7 +3,7 @@ COMMIT  := $(shell git log -1 --format='%H')
 GAIA_VERSION := v6.0.0
 AKASH_VERSION := v0.12.1
 OSMOSIS_VERSION := v6.4.0
-WASMD_VERSION := v0.16.0
+WASMD_VERSION := v0.25.0
 
 GOPATH := $(shell go env GOPATH)
 GOBIN := $(GOPATH)/bin
