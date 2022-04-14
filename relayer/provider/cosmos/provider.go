@@ -550,6 +550,14 @@ func (cc *CosmosProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider p
 		return nil, err
 	}
 
+	if len(counterpartyChannelRes.Proof) == 0 {
+		// It is possible that we have asked for a proof too early.
+		// If the connection state proof is empty, there is no point in returning the MsgChannelOpenTry.
+		// We are not using (*conntypes.MsgChannelOpenTry).ValidateBasic here because
+		// that chokes on cross-chain bech32 details in ibc-go.
+		return nil, fmt.Errorf("received invalid zero-length channel state proof")
+	}
+
 	if acc, err = cc.Address(); err != nil {
 		return nil, err
 	}
@@ -1638,6 +1646,15 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 			if strings.Contains(err.Error(), conntypes.ErrInvalidConnectionState.Error()) {
 				cc.log.Info(
 					"Skipping retry due to invalid connection state",
+					zap.Error(err),
+				)
+				return retry.Unrecoverable(err)
+			}
+
+			// Also possible to have an invalid channel state on a fast retry.
+			if strings.Contains(err.Error(), chantypes.ErrInvalidChannelState.Error()) {
+				cc.log.Info(
+					"Skipping retry due to invalid channel state",
 					zap.Error(err),
 				)
 				return retry.Unrecoverable(err)
