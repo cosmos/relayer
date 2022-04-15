@@ -6,6 +6,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/relayer/v2/cmd"
+	"github.com/cosmos/relayer/v2/internal/relayertest"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"github.com/stretchr/testify/require"
 )
@@ -13,7 +14,7 @@ import (
 func TestKeysList_Empty(t *testing.T) {
 	t.Parallel()
 
-	sys := NewSystem(t)
+	sys := relayertest.NewSystem(t)
 
 	_ = sys.MustRun(t, "config", "init")
 
@@ -34,7 +35,7 @@ func TestKeysList_Empty(t *testing.T) {
 func TestKeysRestore_Delete(t *testing.T) {
 	t.Parallel()
 
-	sys := NewSystem(t)
+	sys := relayertest.NewSystem(t)
 
 	_ = sys.MustRun(t, "config", "init")
 
@@ -49,13 +50,13 @@ func TestKeysRestore_Delete(t *testing.T) {
 	})
 
 	// Restore a key with mnemonic to the chain.
-	res := sys.MustRun(t, "keys", "restore", "testcosmos", "default", ZeroMnemonic)
-	require.Equal(t, res.Stdout.String(), ZeroCosmosAddr+"\n")
+	res := sys.MustRun(t, "keys", "restore", "testcosmos", "default", relayertest.ZeroMnemonic)
+	require.Equal(t, res.Stdout.String(), relayertest.ZeroCosmosAddr+"\n")
 	require.Empty(t, res.Stderr.String())
 
 	// Restored key must show up in list.
 	res = sys.MustRun(t, "keys", "list", "testcosmos")
-	require.Equal(t, res.Stdout.String(), "key(default) -> "+ZeroCosmosAddr+"\n")
+	require.Equal(t, res.Stdout.String(), "key(default) -> "+relayertest.ZeroCosmosAddr+"\n")
 	require.Empty(t, res.Stderr.String())
 
 	// Deleting the key must succeed.
@@ -72,7 +73,7 @@ func TestKeysRestore_Delete(t *testing.T) {
 func TestKeysExport(t *testing.T) {
 	t.Parallel()
 
-	sys := NewSystem(t)
+	sys := relayertest.NewSystem(t)
 
 	_ = sys.MustRun(t, "config", "init")
 
@@ -87,8 +88,8 @@ func TestKeysExport(t *testing.T) {
 	})
 
 	// Restore a key with mnemonic to the chain.
-	res := sys.MustRun(t, "keys", "restore", "testcosmos", "default", ZeroMnemonic)
-	require.Equal(t, res.Stdout.String(), ZeroCosmosAddr+"\n")
+	res := sys.MustRun(t, "keys", "restore", "testcosmos", "default", relayertest.ZeroMnemonic)
+	require.Equal(t, res.Stdout.String(), relayertest.ZeroCosmosAddr+"\n")
 	require.Empty(t, res.Stderr.String())
 
 	// Export the key.
