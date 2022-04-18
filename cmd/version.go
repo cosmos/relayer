@@ -29,6 +29,7 @@ func getVersionCmd(a *appState) *cobra.Command {
 		Use:     "version",
 		Aliases: []string{"v"},
 		Short:   "Print the relayer version info",
+		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s version --json
 $ %s v`,

@@ -1,4 +1,6 @@
-package cmd_test
+// Package relayertest enables testing the relayer command-line interface
+// from within Go unit tests.
+package relayertest
 
 import (
 	"bytes"

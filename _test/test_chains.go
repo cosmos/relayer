@@ -9,6 +9,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
@@ -98,7 +99,7 @@ type (
 		chainID string
 		seed    int
 		t       testChainConfig
-		pcfg    cosmos.CosmosProviderConfig
+		pcfg    provider.ProviderConfig
 	}
 
 	// testChainConfig represents the chain specific docker and codec configurations
@@ -118,9 +119,20 @@ func newTestChain(t *testing.T, tc testChain) *relayer.Chain {
 	_, port, err := server.FreeTCPAddr()
 	require.NoError(t, err)
 
-	tc.pcfg.Key = "testkey-" + port
-	tc.pcfg.RPCAddr = fmt.Sprintf("http://localhost:%s", port)
-	tc.pcfg.ChainID = tc.chainID
+	switch tc.pcfg.(type) {
+	case cosmos.CosmosProviderConfig:
+		cosmosCfg, _ := tc.pcfg.(cosmos.CosmosProviderConfig)
+
+		cosmosCfg.Key = "testkey-" + port
+		cosmosCfg.RPCAddr = fmt.Sprintf("http://localhost:%s", port)
+		cosmosCfg.ChainID = tc.chainID
+
+		tc.pcfg = cosmosCfg
+		// TODO add case for substrate provider configType here
+	default:
+		panic(fmt.Errorf("no case for type %T when trying to edit ProviderConfig", tc.pcfg))
+	}
+
 	prov, err := tc.pcfg.NewProvider(zaptest.NewLogger(t), "/tmp", true)
 	require.NoError(t, err)
 

@@ -3,7 +3,7 @@ name: "Release"
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+' # Push to tags that look like a semantic version
+      - '*' # Run release on any tag. Will be marked as draft by default anyway.
 
 jobs:
   goreleaser:

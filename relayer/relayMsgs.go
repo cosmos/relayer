@@ -22,11 +22,6 @@ type RelayMsgs struct {
 	MaxMsgLength uint64                    `json:"max_msg_length"` // maximum amount of messages in a bundled relay transaction
 }
 
-// NewRelayMsgs returns an initialized version of relay messages
-func NewRelayMsgs() *RelayMsgs {
-	return &RelayMsgs{Src: []provider.RelayerMessage{}, Dst: []provider.RelayerMessage{}}
-}
-
 // Ready returns true if there are messages to relay
 func (r *RelayMsgs) Ready() bool {
 	if r == nil {

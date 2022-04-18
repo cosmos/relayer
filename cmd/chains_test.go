@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cosmos/relayer/v2/cmd"
+	"github.com/cosmos/relayer/v2/internal/relayertest"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"github.com/stretchr/testify/require"
 )
@@ -15,7 +16,7 @@ import (
 func TestChainsList_Empty(t *testing.T) {
 	t.Parallel()
 
-	sys := NewSystem(t)
+	sys := relayertest.NewSystem(t)
 
 	_ = sys.MustRun(t, "config", "init")
 
@@ -29,7 +30,7 @@ func TestChainsList_Empty(t *testing.T) {
 func TestChainsAdd_File(t *testing.T) {
 	t.Parallel()
 
-	sys := NewSystem(t)
+	sys := relayertest.NewSystem(t)
 
 	_ = sys.MustRun(t, "config", "init")
 
@@ -51,7 +52,7 @@ func TestChainsAdd_File(t *testing.T) {
 func TestChainsAdd_URL(t *testing.T) {
 	t.Parallel()
 
-	sys := NewSystem(t)
+	sys := relayertest.NewSystem(t)
 
 	_ = sys.MustRun(t, "config", "init")
 
@@ -91,7 +92,7 @@ func TestChainsAdd_URL(t *testing.T) {
 func TestChainsAdd_Delete(t *testing.T) {
 	t.Parallel()
 
-	sys := NewSystem(t)
+	sys := relayertest.NewSystem(t)
 
 	_ = sys.MustRun(t, "config", "init")
 

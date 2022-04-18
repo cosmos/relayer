@@ -19,7 +19,7 @@ func (c *Chain) CreateOpenChannels(
 	ctx context.Context,
 	dst *Chain,
 	maxRetries uint64,
-	to time.Duration,
+	timeout time.Duration,
 	srcPortID, dstPortID, order, version string,
 	override bool,
 ) (modified bool, err error) {
@@ -33,23 +33,34 @@ func (c *Chain) CreateOpenChannels(
 		return modified, err
 	}
 
-	var (
-		srcChannelID, dstChannelID          string
-		success, lastStep, recentlyModified bool
-	)
-
-	ticker := time.NewTicker(to)
+	ticker := time.NewTicker(timeout)
 	defer ticker.Stop()
 
-	failures := uint64(0)
-	for ; true; <-ticker.C {
+	// Populate the immediate channel so we begin processing right away.
+	immediate := make(chan struct{}, 1)
+	immediate <- struct{}{}
+
+	var (
+		srcChannelID, dstChannelID string
+		failures                   uint64
+	)
+	for {
+		// Block until the immediate signal or the ticker fires.
+		select {
+		case <-immediate:
+			// Keep going.
+		case <-ticker.C:
+			// Keep going.
+		case <-ctx.Done():
+			return modified, ctx.Err()
+		}
+
+		var success, lastStep, recentlyModified bool
 		var err error
 		srcChannelID, dstChannelID, success, lastStep, recentlyModified, err = ExecuteChannelStep(ctx, c, dst, srcChannelID,
 			dstChannelID, srcPortID, dstPortID, order, version, override)
-
 		if err != nil {
-			c.log.Warn("Error executing channel step", zap.Error(err))
-			// TODO: should this continue at the start of the loop?
+			c.log.Info("Error executing channel step", zap.Error(err))
 		}
 		if recentlyModified {
 			modified = true
@@ -87,28 +98,46 @@ func (c *Chain) CreateOpenChannels(
 		// In the case of success, reset the failures counter
 		case success:
 			failures = 0
+
+			if !recentlyModified {
+				c.log.Debug("Short delay before retrying channel open transaction, because the last check was a no-op...")
+				select {
+				case <-time.After(timeout / 8):
+					// Nothing to do.
+				case <-ctx.Done():
+					return false, ctx.Err()
+				}
+			}
+
+			select {
+			case immediate <- struct{}{}:
+				// Proceed immediately to the next step if possible.
+			default:
+				// If can't write to ch -- could that ever happen? -- that's fine, don't block here.
+			}
+
 			continue
 
 		// In the case of failure, increment the failures counter and exit if this is the 3rd failure
 		case !success:
 			failures++
-			c.log.Info("Delaying before retrying channel open transaction...")
+			if failures > maxRetries {
+				return modified, fmt.Errorf("! Channel failed: [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
+					c.ChainID(), srcChannelID, srcPortID,
+					dst.ChainID(), dstChannelID, dstPortID)
+			}
+
+			c.log.Debug("Delaying before retrying channel open transaction...")
 			select {
 			case <-time.After(5 * time.Second):
 				// Nothing to do.
 			case <-ctx.Done():
 				return modified, ctx.Err()
 			}
-
-			if failures > maxRetries {
-				return modified, fmt.Errorf("! Channel failed: [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
-					c.ChainID(), srcChannelID, srcPortID,
-					dst.ChainID(), dstChannelID, dstPortID)
-			}
 		}
 	}
 
-	return modified, nil // lgtm [go/unreachable-statement]
+	panic("unreachable")
 }
 
 // ExecuteChannelStep executes the next channel step based on the
@@ -127,9 +156,9 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 	if err = retry.Do(func() error {
 		srch, dsth, err = QueryLatestHeights(ctx, src, dst)
 		if err != nil || srch == 0 || dsth == 0 {
-			return fmt.Errorf("failed to query latest heights. Err: %w", err)
+			return fmt.Errorf("failed to query latest heights: %w", err)
 		}
-		return err
+		return nil
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 		return srcChanID, dstChanID, success, last, modified, err
 	}
@@ -687,7 +716,7 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 		return nil, false, err
 	}
 
-	out := NewRelayMsgs()
+	out := new(RelayMsgs)
 	if err := ValidatePaths(c, dst); err != nil {
 		return nil, false, err
 	}

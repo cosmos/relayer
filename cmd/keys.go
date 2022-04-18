@@ -55,10 +55,10 @@ func keysCmd(a *appState) *cobra.Command {
 // keysAddCmd respresents the `keys add` command
 func keysAddCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "add [chain-id] [name]",
+		Use:     "add chain_id name",
 		Aliases: []string{"a"},
 		Short:   "Adds a key to the keychain associated with a particular chain",
-		Args:    cobra.ExactArgs(2),
+		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys add ibc-0
 $ %s keys add ibc-1 key2
@@ -101,10 +101,10 @@ $ %s k a ibc-2 testkey`, appName, appName, appName)),
 // keysRestoreCmd respresents the `keys add` command
 func keysRestoreCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "restore [chain-id] [name] [mnemonic]",
+		Use:     "restore chain_id name mnemonic",
 		Aliases: []string{"r"},
 		Short:   "Restores a mnemonic to the keychain associated with a particular chain",
-		Args:    cobra.ExactArgs(3),
+		Args:    withUsage(cobra.ExactArgs(3)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys restore ibc-0 testkey "[mnemonic-words]"
 $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
@@ -141,10 +141,10 @@ $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 // keysDeleteCmd respresents the `keys delete` command
 func keysDeleteCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [chain-id] [name]",
+		Use:     "delete chain_id name",
 		Aliases: []string{"d"},
 		Short:   "Deletes a key from the keychain associated with a particular chain",
-		Args:    cobra.ExactArgs(2),
+		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys delete ibc-0 -y
 $ %s keys delete ibc-1 key2 -y
@@ -202,10 +202,10 @@ func askForConfirmation(a *appState, stdin io.Reader, stderr io.Writer) bool {
 // keysListCmd respresents the `keys list` command
 func keysListCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list [chain-id]",
+		Use:     "list chain_id",
 		Aliases: []string{"l"},
 		Short:   "Lists keys from the keychain associated with a particular chain",
-		Args:    cobra.ExactArgs(1),
+		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys list ibc-0
 $ %s k l ibc-1`, appName, appName)),
@@ -240,10 +240,10 @@ $ %s k l ibc-1`, appName, appName)),
 // keysShowCmd respresents the `keys show` command
 func keysShowCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "show [chain-id] [[name]]",
+		Use:     "show chain_id [name]",
 		Aliases: []string{"s"},
 		Short:   "Shows a key from the keychain associated with a particular chain",
-		Args:    cobra.RangeArgs(1, 2),
+		Args:    withUsage(cobra.RangeArgs(1, 2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys show ibc-0
 $ %s keys show ibc-1 key2
@@ -281,10 +281,10 @@ $ %s k s ibc-2 testkey`, appName, appName, appName)),
 // keysExportCmd respresents the `keys export` command
 func keysExportCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "export [chain-id] [name]",
+		Use:     "export chain_id name",
 		Aliases: []string{"e"},
 		Short:   "Exports a privkey from the keychain associated with a particular chain",
-		Args:    cobra.ExactArgs(2),
+		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys export ibc-0 testkey
 $ %s k e ibc-2 testkey`, appName, appName)),
