@@ -10,6 +10,7 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -101,6 +102,7 @@ type ChainProvider interface {
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?
 type QueryProvider interface {
 	// chain
+	Block(ctx context.Context, height *int64) (*ctypes.ResultBlock, error)
 	QueryTx(ctx context.Context, hashHex string) (*RelayerTxResponse, error)
 	QueryTxs(ctx context.Context, page, limit int, events []string) ([]*RelayerTxResponse, error)
 	QueryLatestHeight(ctx context.Context) (int64, error)

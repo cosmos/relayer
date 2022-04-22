@@ -1130,7 +1130,7 @@ func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst
 		// if the timestamp is set on the packet, we need to retrieve the current block time from dst
 		var b *ctypes.ResultBlock
 		if rp.timeoutStamp > 0 {
-			b, err = cc.RPCClient.Block(ctx, &dsth)
+			b, err = dst.Block(ctx, &dsth)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -1783,4 +1783,8 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 	}
 
 	return txBytes, nil
+}
+
+func (cc *CosmosProvider) Block(ctx context.Context, height *int64) (*ctypes.ResultBlock, error) {
+	return cc.RPCClient.Block(ctx, height)
 }
