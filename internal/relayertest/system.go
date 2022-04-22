@@ -4,6 +4,7 @@ package relayertest
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -44,15 +45,25 @@ type RunResult struct {
 	Err error
 }
 
-// Run calls s.RunWithInput with an empty stdin.
+// Run calls s.RunC with context.Background().
 func (s *System) Run(log *zap.Logger, args ...string) RunResult {
-	return s.RunWithInput(log, bytes.NewReader(nil), args...)
+	return s.RunC(context.Background(), log, args...)
 }
 
-// RunWithInput executes the root command with the given args,
+// RunC calls s.RunWithInputC with an empty stdin.
+func (s *System) RunC(ctx context.Context, log *zap.Logger, args ...string) RunResult {
+	return s.RunWithInputC(ctx, log, bytes.NewReader(nil), args...)
+}
+
+// RunWithInput is shorthand for RunWithInputC(context.Background(), ...).
+func (s *System) RunWithInput(log *zap.Logger, in io.Reader, args ...string) RunResult {
+	return s.RunWithInputC(context.Background(), log, in, args...)
+}
+
+// RunWithInputC executes the root command with the given context and args,
 // providing in as the command's standard input,
 // and returns a RunResult that has its Stdout and Stderr populated.
-func (s *System) RunWithInput(log *zap.Logger, in io.Reader, args ...string) RunResult {
+func (s *System) RunWithInputC(ctx context.Context, log *zap.Logger, in io.Reader, args ...string) RunResult {
 	rootCmd := cmd.NewRootCmd(log)
 	rootCmd.SetIn(in)
 	// cmd.Execute also sets SilenceUsage,
@@ -67,7 +78,7 @@ func (s *System) RunWithInput(log *zap.Logger, in io.Reader, args ...string) Run
 	args = append([]string{"--home", s.HomeDir}, args...)
 	rootCmd.SetArgs(args)
 
-	res.Err = rootCmd.Execute()
+	res.Err = rootCmd.ExecuteContext(ctx)
 	return res
 }
 
