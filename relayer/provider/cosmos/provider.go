@@ -31,7 +31,6 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	lens "github.com/strangelove-ventures/lens/client"
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -1128,9 +1127,9 @@ func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst
 		}
 
 		// if the timestamp is set on the packet, we need to retrieve the current block time from dst
-		var b *ctypes.ResultBlock
+		var dstBlockTime int64
 		if rp.timeoutStamp > 0 {
-			b, err = cc.RPCClient.Block(ctx, &dsth)
+			dstBlockTime, err = dst.BlockTime(ctx, dsth)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -1138,7 +1137,7 @@ func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst
 
 		switch {
 		// If the packet has a timeout time, and it has been reached, return a timeout packet
-		case b != nil && rp.timeoutStamp > 0 && uint64(b.Block.Time.UnixNano()) > rp.timeoutStamp:
+		case rp.timeoutStamp > 0 && uint64(dstBlockTime) > rp.timeoutStamp:
 			timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
 		// If the packet has a timeout height, and it has been reached, return a timeout packet
 		case !rp.timeout.IsZero() && block.GetHeight().GTE(rp.timeout):
@@ -1796,4 +1795,12 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 	}
 
 	return txBytes, nil
+}
+
+func (cc *CosmosProvider) BlockTime(ctx context.Context, height int64) (int64, error) {
+	resultBlock, err := cc.RPCClient.Block(ctx, &height)
+	if err != nil {
+		return 0, err
+	}
+	return resultBlock.Block.Time.UnixNano(), nil
 }
