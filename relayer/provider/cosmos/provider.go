@@ -1619,6 +1619,8 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 	if err := retry.Do(func() error {
 		txBytes, err := cc.buildMessages(ctx, msgs)
 		if err != nil {
+			errMsg := err.Error()
+
 			// Occasionally the client will be out of date,
 			// and we will receive an RPC error like:
 			//     rpc error: code = InvalidArgument desc = failed to execute message; message index: 1: channel handshake open try failed: failed channel state verification for client (07-tendermint-0): client state height < proof height ({0 58} < {0 59}), please ensure the client has been updated: invalid height: invalid request
@@ -1632,7 +1634,7 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 			// If this logic should ever fail due to the string values of the error messages on the server
 			// changing from the client's version of the library,
 			// at worst this will run more unnecessary retries.
-			if strings.Contains(err.Error(), sdkerrors.ErrInvalidHeight.Error()) {
+			if strings.Contains(errMsg, sdkerrors.ErrInvalidHeight.Error()) {
 				cc.log.Info(
 					"Skipping retry due to invalid height error",
 					zap.Error(err),
@@ -1643,7 +1645,7 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 			// On a fast retry, it is possible to have an invalid connection state.
 			// Retrying that message also won't fix the underlying state mismatch,
 			// so log it and mark it as unrecoverable.
-			if strings.Contains(err.Error(), conntypes.ErrInvalidConnectionState.Error()) {
+			if strings.Contains(errMsg, conntypes.ErrInvalidConnectionState.Error()) {
 				cc.log.Info(
 					"Skipping retry due to invalid connection state",
 					zap.Error(err),
@@ -1652,9 +1654,20 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 			}
 
 			// Also possible to have an invalid channel state on a fast retry.
-			if strings.Contains(err.Error(), chantypes.ErrInvalidChannelState.Error()) {
+			if strings.Contains(errMsg, chantypes.ErrInvalidChannelState.Error()) {
 				cc.log.Info(
 					"Skipping retry due to invalid channel state",
+					zap.Error(err),
+				)
+				return retry.Unrecoverable(err)
+			}
+
+			// If the message reported an invalid proof, back off.
+			// NOTE: this error string ("invalid proof") will match other errors too,
+			// but presumably it is safe to stop retrying in those cases as well.
+			if strings.Contains(errMsg, commitmenttypes.ErrInvalidProof.Error()) {
+				cc.log.Info(
+					"Skipping retry due to invalid proof",
 					zap.Error(err),
 				)
 				return retry.Unrecoverable(err)
