@@ -1062,52 +1062,50 @@ func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst
 	)
 
 	rp := &relayMsgRecvPacket{pass: false}
-
-	for key, attrVal := range resp.Events {
+	for _, event := range resp.Events {
 		rp.pass = false
-		eventType, attrKey := splitEventKey(key)
 
-		if eventType != spTag {
+		if event.EventType != spTag {
 			continue
 		}
 
-		switch attrKey {
+		switch event.AttributeKey {
 		case srcChanTag:
-			if attrVal != srcChanId {
+			if event.AttributeValue != srcChanId {
 				rp.pass = true
 				continue
 			}
 		case dstChanTag:
-			if attrVal != dstChanId {
+			if event.AttributeValue != dstChanId {
 				rp.pass = true
 				continue
 			}
 		case srcPortTag:
-			if attrVal != srcPortId {
+			if event.AttributeValue != srcPortId {
 				rp.pass = true
 				continue
 			}
 		case dstPortTag:
-			if attrVal != dstPortId {
+			if event.AttributeValue != dstPortId {
 				rp.pass = true
 				continue
 			}
 		case dataTag:
-			rp.packetData = []byte(attrVal)
+			rp.packetData = []byte(event.AttributeValue)
 		case toHeightTag:
-			timeout, err := clienttypes.ParseHeight(attrVal)
+			timeout, err := clienttypes.ParseHeight(event.AttributeValue)
 			if err != nil {
 				return nil, nil, err
 			}
 			rp.timeout = timeout
 		case toTSTag:
-			timeout, err := strconv.ParseUint(attrVal, 10, 64)
+			timeout, err := strconv.ParseUint(event.AttributeValue, 10, 64)
 			if err != nil {
 				return nil, nil, err
 			}
 			rp.timeoutStamp = timeout
 		case seqTag:
-			seq, err := strconv.ParseUint(attrVal, 10, 64)
+			seq, err := strconv.ParseUint(event.AttributeValue, 10, 64)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -1162,53 +1160,52 @@ func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId str
 	var ackPackets []provider.RelayPacket
 
 	rp := &relayMsgPacketAck{pass: false}
-	for key, attrVal := range resp.Events {
+	for _, event := range resp.Events {
 		rp.pass = false
-		eventType, attrKey := splitEventKey(key)
 
-		if eventType != waTag {
+		if event.EventType != waTag {
 			continue
 		}
 
-		switch attrKey {
+		switch event.AttributeKey {
 		case srcChanTag:
-			if attrVal != srcChanId {
+			if event.AttributeValue != srcChanId {
 				rp.pass = true
 				continue
 			}
 		case dstChanTag:
-			if attrVal != dstChanId {
+			if event.AttributeValue != dstChanId {
 				rp.pass = true
 				continue
 			}
 		case srcPortTag:
-			if attrVal != srcPortId {
+			if event.AttributeValue != srcPortId {
 				rp.pass = true
 				continue
 			}
 		case dstPortTag:
-			if attrVal != dstPortId {
+			if event.AttributeValue != dstPortId {
 				rp.pass = true
 				continue
 			}
 		case ackTag:
-			rp.ack = []byte(attrVal)
+			rp.ack = []byte(event.AttributeValue)
 		case dataTag:
-			rp.packetData = []byte(attrVal)
+			rp.packetData = []byte(event.AttributeValue)
 		case toHeightTag:
-			timeout, err := clienttypes.ParseHeight(attrVal)
+			timeout, err := clienttypes.ParseHeight(event.AttributeValue)
 			if err != nil {
 				return nil, err
 			}
 			rp.timeout = timeout
 		case toTSTag:
-			timeout, err := strconv.ParseUint(attrVal, 10, 64)
+			timeout, err := strconv.ParseUint(event.AttributeValue, 10, 64)
 			if err != nil {
 				return nil, err
 			}
 			rp.timeoutStamp = timeout
 		case seqTag:
-			seq, err := strconv.ParseUint(attrVal, 10, 64)
+			seq, err := strconv.ParseUint(event.AttributeValue, 10, 64)
 			if err != nil {
 				return nil, err
 			}
@@ -1232,15 +1229,6 @@ func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId str
 	}
 
 	return nil, fmt.Errorf("no packet data found")
-}
-
-// splitEventKey splits the keys from a map of events where the keys are event.Type+"."+attribute.Key
-// and returns both the event.Type and attribute.Key.
-func splitEventKey(key string) (string, string) {
-	parts := strings.SplitN(key, ".", 2)
-	eventType := parts[0]
-	attrKey := parts[1]
-	return eventType, attrKey
 }
 
 func (cc *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
@@ -1700,13 +1688,16 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 		return nil, false, err
 	}
 
-	// Parse events and build a map where the key is event.Type+"."+attribute.Key
-	events := make(map[string]string, 1)
+	// Parse events from the tx response.
+	var events []*provider.RelayerEvent
 	for _, logs := range res.Logs {
-		for _, ev := range logs.Events {
-			for _, attr := range ev.Attributes {
-				key := ev.Type + "." + attr.Key
-				events[key] = attr.Value
+		for _, event := range logs.Events {
+			for _, attr := range event.Attributes {
+				events = append(events, &provider.RelayerEvent{
+					EventType:      event.Type,
+					AttributeKey:   attr.Key,
+					AttributeValue: attr.Value,
+				})
 			}
 		}
 	}

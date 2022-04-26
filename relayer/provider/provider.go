@@ -29,7 +29,13 @@ type RelayerTxResponse struct {
 	TxHash string
 	Code   uint32
 	Data   string
-	Events map[string]string
+	Events []*RelayerEvent
+}
+
+type RelayerEvent struct {
+	EventType      string
+	AttributeKey   string
+	AttributeValue string
 }
 
 func (r RelayerTxResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
@@ -37,8 +43,8 @@ func (r RelayerTxResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("tx_hash", r.TxHash)
 	enc.AddUint32("code", r.Code)
 	enc.AddString("data", r.Data)
-	for k, v := range r.Events {
-		enc.AddString("event:"+k, v)
+	for _, event := range r.Events {
+		enc.AddString("event:"+event.EventType, event.AttributeKey+"="+event.AttributeValue)
 	}
 	return nil
 }
