@@ -1672,6 +1672,15 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 				return retry.Unrecoverable(err)
 			}
 
+			// Invalid packets should not be retried either.
+			if strings.Contains(errMsg, chantypes.ErrInvalidPacket.Error()) {
+				cc.log.Info(
+					"Skipping retry due to invalid packet",
+					zap.Error(err),
+				)
+				return retry.Unrecoverable(err)
+			}
+
 			return err
 		}
 
