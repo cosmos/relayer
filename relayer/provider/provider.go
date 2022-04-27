@@ -29,7 +29,7 @@ type RelayerTxResponse struct {
 	TxHash string
 	Code   uint32
 	Data   string
-	Events []*RelayerEvent
+	Events []RelayerEvent
 }
 
 type RelayerEvent struct {
@@ -38,14 +38,33 @@ type RelayerEvent struct {
 	AttributeValue string
 }
 
+// loggableEvents is an unexported wrapper type for a slice of RelayerEvent,
+// to satisfy the zapcore.ArrayMarshaler interface.
+type loggableEvents []RelayerEvent
+
+// MarshalLogObject satisfies the zapcore.ObjectMarshaler interface.
+func (e RelayerEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("event_type", e.EventType)
+	enc.AddString("attr_key", e.AttributeKey)
+	enc.AddString("attr_value", e.AttributeValue)
+	return nil
+}
+
+// MarshalLogArray satisfies the zapcore.ArrayMarshaler interface.
+func (es loggableEvents) MarshalLogArray(enc zapcore.ArrayEncoder) error {
+	for _, e := range es {
+		enc.AppendObject(e)
+	}
+	return nil
+}
+
+// MarshalLogObject satisfies the zapcore.ObjectMarshaler interface.
 func (r RelayerTxResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddInt64("height", r.Height)
 	enc.AddString("tx_hash", r.TxHash)
 	enc.AddUint32("code", r.Code)
 	enc.AddString("data", r.Data)
-	for _, event := range r.Events {
-		enc.AddString("event:"+event.EventType, event.AttributeKey+"="+event.AttributeValue)
-	}
+	enc.AddArray("events", loggableEvents(r.Events))
 	return nil
 }
 

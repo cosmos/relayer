@@ -91,17 +91,19 @@ func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events 
 
 // parseEventsFromResponseDeliverTx parses the events from a ResponseDeliverTx and builds a slice
 // of provider.RelayerEvent's.
-func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) (events []*provider.RelayerEvent) {
+func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) []provider.RelayerEvent {
+	var events []provider.RelayerEvent
+
 	for _, event := range resp.Events {
 		for _, attribute := range event.Attributes {
-			events = append(events, &provider.RelayerEvent{
+			events = append(events, provider.RelayerEvent{
 				EventType:      event.Type,
 				AttributeKey:   string(attribute.Key),
 				AttributeValue: string(attribute.Value),
 			})
 		}
 	}
-	return
+	return events
 }
 
 // QueryBalance returns the amount of coins in the relayer account

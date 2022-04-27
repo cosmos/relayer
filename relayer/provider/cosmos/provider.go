@@ -1601,7 +1601,7 @@ func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerM
 // of that transaction will be logged. A boolean indicating if a transaction was successfully
 // sent and executed successfully is returned.
 func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
-	var res *sdk.TxResponse
+	var resp *sdk.TxResponse
 
 	if err := retry.Do(func() error {
 		txBytes, err := cc.buildMessages(ctx, msgs)
@@ -1672,7 +1672,7 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 			return err
 		}
 
-		res, err = cc.BroadcastTx(ctx, txBytes)
+		resp, err = cc.BroadcastTx(ctx, txBytes)
 		if err != nil {
 			if err == sdkerrors.ErrWrongSequence {
 				// Allow retrying if we got an invalid sequence error when attempting to broadcast this tx.
@@ -1693,16 +1693,36 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 			zap.Uint("max_attempts", RtyAttNum),
 			zap.Error(err),
 		)
-	})); err != nil || res == nil {
+	})); err != nil || resp == nil {
 		return nil, false, err
 	}
 
-	// Parse events from the tx response.
-	var events []*provider.RelayerEvent
-	for _, logs := range res.Logs {
+	rlyResp := &provider.RelayerTxResponse{
+		Height: resp.Height,
+		TxHash: resp.TxHash,
+		Code:   resp.Code,
+		Data:   resp.Data,
+		Events: parseEventsFromTxResponse(resp),
+	}
+
+	// transaction was executed, log the success or failure using the tx response code
+	// NOTE: error is nil, logic should use the returned error to determine if the
+	// transaction was successfully executed.
+	if rlyResp.Code != 0 {
+		cc.LogFailedTx(rlyResp, nil, msgs)
+		return rlyResp, false, fmt.Errorf("transaction failed with code: %d", resp.Code)
+	}
+
+	cc.LogSuccessTx(resp, msgs)
+	return rlyResp, true, nil
+}
+
+func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
+	var events []provider.RelayerEvent
+	for _, logs := range resp.Logs {
 		for _, event := range logs.Events {
 			for _, attr := range event.Attributes {
-				events = append(events, &provider.RelayerEvent{
+				events = append(events, provider.RelayerEvent{
 					EventType:      event.Type,
 					AttributeKey:   attr.Key,
 					AttributeValue: attr.Value,
@@ -1710,25 +1730,7 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 			}
 		}
 	}
-
-	rlyRes := &provider.RelayerTxResponse{
-		Height: res.Height,
-		TxHash: res.TxHash,
-		Code:   res.Code,
-		Data:   res.Data,
-		Events: events,
-	}
-
-	// transaction was executed, log the success or failure using the tx response code
-	// NOTE: error is nil, logic should use the returned error to determine if the
-	// transaction was successfully executed.
-	if rlyRes.Code != 0 {
-		cc.LogFailedTx(rlyRes, nil, msgs)
-		return rlyRes, false, fmt.Errorf("transaction failed with code: %d", res.Code)
-	}
-
-	cc.LogSuccessTx(res, msgs)
-	return rlyRes, true, nil
+	return events
 }
 
 func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.RelayerMessage) ([]byte, error) {

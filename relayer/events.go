@@ -11,7 +11,7 @@ import (
 
 // ParseClientIDFromEvents parses events emitted from a MsgCreateClient and returns the
 // client identifier.
-func ParseClientIDFromEvents(events []*provider.RelayerEvent) (string, error) {
+func ParseClientIDFromEvents(events []provider.RelayerEvent) (string, error) {
 	for _, event := range events {
 		if event.EventType == clienttypes.EventTypeCreateClient {
 			if event.AttributeKey == clienttypes.AttributeKeyClientID {
@@ -24,7 +24,7 @@ func ParseClientIDFromEvents(events []*provider.RelayerEvent) (string, error) {
 
 // ParseConnectionIDFromEvents parses events emitted from a MsgConnectionOpenInit or
 // MsgConnectionOpenTry and returns the connection identifier.
-func ParseConnectionIDFromEvents(events []*provider.RelayerEvent) (string, error) {
+func ParseConnectionIDFromEvents(events []provider.RelayerEvent) (string, error) {
 	for _, event := range events {
 		if event.EventType == connectiontypes.EventTypeConnectionOpenInit || event.EventType == connectiontypes.EventTypeConnectionOpenTry {
 			if event.AttributeKey == connectiontypes.AttributeKeyConnectionID {
@@ -37,7 +37,7 @@ func ParseConnectionIDFromEvents(events []*provider.RelayerEvent) (string, error
 
 // ParseChannelIDFromEvents parses events emitted from a MsgChannelOpenInit or
 // MsgChannelOpenTry and returns the channel identifier.
-func ParseChannelIDFromEvents(events []*provider.RelayerEvent) (string, error) {
+func ParseChannelIDFromEvents(events []provider.RelayerEvent) (string, error) {
 	for _, event := range events {
 		if event.EventType == channeltypes.EventTypeChannelOpenInit || event.EventType == channeltypes.EventTypeChannelOpenTry {
 			if event.AttributeKey == channeltypes.AttributeKeyChannelID {
