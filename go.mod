@@ -20,7 +20,6 @@ require (
 	github.com/avast/retry-go/v4 v4.0.3
 	github.com/cosmos/ibc-go/v3 v3.0.0
 	github.com/jsternberg/zap-logfmt v1.2.0
-	github.com/ory/dockertest/v3 v3.8.1
 	github.com/strangelove-ventures/lens v0.3.1-0.20220407203447-bcb1fa2e7b3a
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.21.0
@@ -116,6 +115,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/opencontainers/runc v1.0.3 // indirect
+	github.com/ory/dockertest/v3 v3.8.1 // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
