@@ -182,44 +182,14 @@ func (c *Chain) String() string {
 	return string(out)
 }
 
-// Sprint returns the json or yaml representation of whatever is passed in.
-// CONTRACT: The cmd calling this function needs to have the "json" and "indent" flags set
-// TODO: better "text" printing here would be a nice to have
-// TODO: fix indenting all over the code base
-func (c *Chain) Sprint(toPrint proto.Message, text, indent bool) (string, error) {
-	switch {
-	case indent && text:
-		return "", fmt.Errorf("must pass either indent or text, not both")
-	case text:
-		// TODO: This isn't really a good option,
-		return fmt.Sprintf("%v", toPrint), nil
-	default:
-		out, err := c.Encoding.Marshaler.MarshalJSON(toPrint)
-		if err != nil {
-			return "", err
-		}
-		return string(out), nil
+// Sprint returns the json representation of whatever is passed in.
+func (c *Chain) Sprint(toPrint proto.Message) (string, error) {
+	out, err := c.Encoding.Marshaler.MarshalJSON(toPrint)
+	if err != nil {
+		return "", err
 	}
+	return string(out), nil
 }
-
-//// SendAndPrint sends a transaction and prints according to the passed args
-//func (c *Chain) SendAndPrint(txs []sdk.Msg, text, indent bool) (err error) {
-//	if c.debug {
-//		for _, msg := range txs {
-//			if err = c.Print(msg, text, indent); err != nil {
-//				return err
-//			}
-//		}
-//	}
-//	// SendAndPrint sends the transaction with printing options from the CLI
-//	res, _, err := c.SendMsgs(txs)
-//	if err != nil {
-//		return err
-//	}
-//
-//	return c.Print(res, text, indent)
-//
-//}
 
 // Chains is a collection of Chain
 type Chains []*Chain
