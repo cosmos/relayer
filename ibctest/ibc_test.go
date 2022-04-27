@@ -11,9 +11,10 @@ import (
 	"github.com/cosmos/relayer/v2/cmd"
 	"github.com/cosmos/relayer/v2/internal/relayertest"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
-	"github.com/ory/dockertest"
+	"github.com/ory/dockertest/v3"
 	"github.com/strangelove-ventures/ibc-test-framework/ibc"
 	"github.com/strangelove-ventures/ibc-test-framework/ibctest"
+	itfrelayer "github.com/strangelove-ventures/ibc-test-framework/relayer"
 	itfrelayertest "github.com/strangelove-ventures/ibc-test-framework/relayertest"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -61,6 +62,14 @@ func (relayerFactory) Build(
 }
 
 func (relayerFactory) UseDockerNetwork() bool { return false }
+
+func (relayerFactory) Capabilities() map[itfrelayer.Capability]bool {
+	// As of the current version of ibc-testing-framework's relayer tests,
+	// this version of the relayer can support everything but the timestamp timeout.
+	m := itfrelayer.FullCapabilities()
+	m[itfrelayer.TimestampTimeout] = false
+	return m
+}
 
 type relayer struct {
 	t *testing.T
