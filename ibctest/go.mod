@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/cosmos/cosmos-sdk v0.45.1
 	github.com/cosmos/relayer/v2 v2.0.0
-	github.com/ory/dockertest v3.3.5+incompatible
+	github.com/ory/dockertest/v3 v3.8.1
 	github.com/strangelove-ventures/ibc-test-framework v0.0.0-20220426102241-ab203122a01b
 	go.uber.org/zap v1.21.0
 )
@@ -98,7 +98,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/opencontainers/runc v1.0.3 // indirect
-	github.com/ory/dockertest/v3 v3.8.1 // indirect
+	github.com/ory/dockertest v3.3.5+incompatible // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

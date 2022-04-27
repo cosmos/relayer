@@ -92,117 +92,125 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 }
 
 func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.Header, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (bool, error) {
-	var (
-		modified, found, success bool
-		err                      error
-		ubdPeriod, tp            time.Duration
-		clientID                 string
-		res                      *provider.RelayerTxResponse
-	)
-
-	// Create client for the destination chain on the source chain if client id is unspecified
-	if src.PathEnd.ClientID == "" {
-
-		// Query the trusting period for dst and retry if the query fails
-		if err = retry.Do(func() error {
-			tp, err = dst.GetTrustingPeriod(ctx)
-			if err != nil || tp.String() == "0s" {
-				return fmt.Errorf("failed to get trusting period for chain{%s}: %w", dst.ChainID(), err)
-			}
-			return err
-		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
-			return modified, err
-		}
-
-		src.log.Debug(
-			"Creating client",
-			zap.String("src_chain_id", src.ChainID()),
-			zap.String("dst_chain_id", dst.ChainID()),
-			zap.Uint64("dst_header_height", dstUpdateHeader.GetHeight().GetRevisionHeight()),
-			zap.Duration("trust_period", tp),
-		)
-
-		// Query the unbonding period for dst and retry if the query fails
-		if err = retry.Do(func() error {
-			ubdPeriod, err = dst.ChainProvider.QueryUnbondingPeriod(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to query unbonding period for chain{%s}: %w", dst.ChainID(), err)
-			}
-			return err
-		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
-			return modified, err
-		}
-
-		// Create the ClientState we want on 'src' tracking 'dst'
-		clientState, err := src.ChainProvider.NewClientState(dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
-		if err != nil {
-			return modified, fmt.Errorf("failed to create new client state for chain{%s} tracking chain{%s}: %w", src.ChainID(), dst.ChainID(), err)
-		}
-
-		// Will not reuse same client if override is true
-		if !override {
-			// Check if an identical light client already exists
-			clientID, found = src.ChainProvider.FindMatchingClient(ctx, dst.ChainProvider, clientState)
-		}
-
-		if !found || override {
-			src.log.Debug(
-				"No client found on source chain tracking the state of counterparty chain",
-				zap.String("src_chain_id", src.ChainID()),
-				zap.String("dst_chain_id", dst.ChainID()),
-			)
-
-			createMsg, err := src.ChainProvider.CreateClient(clientState, dstUpdateHeader)
-			if err != nil {
-				return modified, fmt.Errorf("failed to compose CreateClient msg for chain{%s}: %w", src.ChainID(), err)
-			}
-
-			msgs := []provider.RelayerMessage{createMsg}
-
-			// if a matching client does not exist, create one
-			if err = retry.Do(func() error {
-				res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
-				if err != nil {
-					src.LogFailedTx(res, err, msgs)
-					return fmt.Errorf("failed to send messages on chain{%s}: %w", src.ChainID(), err)
-				}
-
-				if !success {
-					src.LogFailedTx(res, err, msgs)
-					return fmt.Errorf("tx failed on chain{%s}: %s", src.ChainID(), res.Data)
-				}
-				return err
-			}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
-				return modified, err
-			}
-
-			// update the client identifier
-			// use index 0, the transaction only has one message
-			if clientID, err = ParseClientIDFromEvents(res.Events); err != nil {
-				return modified, err
-			}
-		} else {
-			src.log.Debug(
-				"Client already exists",
-				zap.String("client_id", clientID),
-				zap.String("src_chain_id", src.ChainID()),
-				zap.String("dst_chain_id", dst.ChainID()),
-			)
-		}
-
-		src.PathEnd.ClientID = clientID
-		modified = true
-	} else {
-		// Ensure client exists in the event of user inputted identifiers
+	// If a client ID was specified in the path, ensure it exists.
+	if src.PathEnd.ClientID != "" {
 		// TODO: check client is not expired
 		_, err := src.ChainProvider.QueryClientStateResponse(ctx, int64(srcUpdateHeader.GetHeight().GetRevisionHeight()), src.ClientID())
 		if err != nil {
 			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
 				src.PathEnd.ClientID, src.ChainID(), err)
 		}
+
+		return false, nil
 	}
 
-	return modified, nil
+	// Otherwise, create client for the destination chain on the source chain.
+
+	// Query the trusting period for dst and retry if the query fails
+	var tp time.Duration
+	if err := retry.Do(func() error {
+		var err error
+		tp, err = dst.GetTrustingPeriod(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get trusting period for chain{%s}: %w", dst.ChainID(), err)
+		}
+		if tp == 0 {
+			return fmt.Errorf("chain %s reported invalid zero trusting period", dst.ChainID())
+		}
+		return nil
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
+		return false, err
+	}
+
+	src.log.Debug(
+		"Creating client",
+		zap.String("src_chain_id", src.ChainID()),
+		zap.String("dst_chain_id", dst.ChainID()),
+		zap.Uint64("dst_header_height", dstUpdateHeader.GetHeight().GetRevisionHeight()),
+		zap.Duration("trust_period", tp),
+	)
+
+	// Query the unbonding period for dst and retry if the query fails
+	var ubdPeriod time.Duration
+	if err := retry.Do(func() error {
+		var err error
+		ubdPeriod, err = dst.ChainProvider.QueryUnbondingPeriod(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to query unbonding period for chain{%s}: %w", dst.ChainID(), err)
+		}
+		return nil
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
+		return false, err
+	}
+
+	// Create the ClientState we want on 'src' tracking 'dst'
+	clientState, err := src.ChainProvider.NewClientState(dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
+	if err != nil {
+		return false, fmt.Errorf("failed to create new client state for chain{%s} tracking chain{%s}: %w", src.ChainID(), dst.ChainID(), err)
+	}
+
+	var clientID string
+	var found bool
+	// Will not reuse same client if override is true
+	if !override {
+		// Check if an identical light client already exists
+		clientID, found = src.ChainProvider.FindMatchingClient(ctx, dst.ChainProvider, clientState)
+	}
+
+	if found && !override {
+		src.log.Debug(
+			"Client already exists",
+			zap.String("client_id", clientID),
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("dst_chain_id", dst.ChainID()),
+		)
+		src.PathEnd.ClientID = clientID
+		return true, nil
+	}
+
+	src.log.Debug(
+		"No client found on source chain tracking the state of counterparty chain; creating client",
+		zap.String("src_chain_id", src.ChainID()),
+		zap.String("dst_chain_id", dst.ChainID()),
+	)
+
+	createMsg, err := src.ChainProvider.CreateClient(clientState, dstUpdateHeader)
+	if err != nil {
+		return false, fmt.Errorf("failed to compose CreateClient msg for chain{%s}: %w", src.ChainID(), err)
+	}
+
+	msgs := []provider.RelayerMessage{createMsg}
+
+	// if a matching client does not exist, create one
+	var res *provider.RelayerTxResponse
+	if err := retry.Do(func() error {
+		var success bool
+		var err error
+		res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
+		if err != nil {
+			src.LogFailedTx(res, err, msgs)
+			return fmt.Errorf("failed to send messages on chain{%s}: %w", src.ChainID(), err)
+		}
+
+		if !success {
+			src.LogFailedTx(res, nil, msgs)
+			return fmt.Errorf("tx failed on chain{%s}: %s", src.ChainID(), res.Data)
+		}
+
+		return nil
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
+		return false, err
+	}
+
+	// update the client identifier
+	// use index 0, the transaction only has one message
+	if clientID, err = ParseClientIDFromEvents(res.Events); err != nil {
+		return false, err
+	}
+
+	src.PathEnd.ClientID = clientID
+
+	return true, nil
 }
 
 // UpdateClients updates clients for src on dst and dst on src given the configured paths
