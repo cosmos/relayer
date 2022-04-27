@@ -373,11 +373,11 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 			return err
 		}
 
-		if len(msgs.Dst) > 1 {
-			dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
+		if result.SuccessfulSrcBatches > 0 {
+			src.logPacketsRelayed(dst, result.SuccessfulSrcBatches, srcChannel)
 		}
-		if len(msgs.Src) > 1 {
-			src.logPacketsRelayed(dst, len(msgs.Src)-1, srcChannel)
+		if result.SuccessfulDstBatches > 0 {
+			dst.logPacketsRelayed(src, result.SuccessfulDstBatches, srcChannel)
 		}
 	}
 
@@ -460,11 +460,11 @@ func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *Rel
 			return err
 		}
 
-		if len(msgs.Dst) > 1 {
-			dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
+		if result.SuccessfulSrcBatches > 0 {
+			src.logPacketsRelayed(dst, result.SuccessfulSrcBatches, srcChannel)
 		}
-		if len(msgs.Src) > 1 {
-			src.logPacketsRelayed(dst, len(msgs.Src)-1, srcChannel)
+		if result.SuccessfulDstBatches > 0 {
+			dst.logPacketsRelayed(src, result.SuccessfulDstBatches, srcChannel)
 		}
 
 		return nil
@@ -704,11 +704,11 @@ func RelayPacket(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *Rela
 		return err
 	}
 
-	if len(msgs.Dst) > 1 {
-		dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
+	if result.SuccessfulSrcBatches > 0 {
+		src.logPacketsRelayed(dst, result.SuccessfulSrcBatches, srcChannel)
 	}
-	if len(msgs.Src) > 1 {
-		src.logPacketsRelayed(dst, len(msgs.Src)-1, srcChannel)
+	if result.SuccessfulDstBatches > 0 {
+		dst.logPacketsRelayed(src, result.SuccessfulDstBatches, srcChannel)
 	}
 
 	return nil
