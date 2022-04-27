@@ -26,7 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/relayer/v2/internal/relaydebug"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/spf13/cobra"
@@ -38,31 +37,18 @@ import (
 // NOTE: This is basically pseudocode
 func startCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "start path_name",
+		Use:     "start path_name [path_name...]",
 		Aliases: []string{"st"},
 		Short:   "Start the listening relayer on a given path",
-		Args:    withUsage(cobra.ExactArgs(1)),
+		Args:    withUsage(cobra.MinimumNArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s start demo-path --max-msgs 3
 $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
-			if err != nil {
-				return err
-			}
-
-			if err = ensureKeysExist(c); err != nil {
-				return err
-			}
-
-			path := a.Config.Paths.MustGet(args[0])
-
 			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
 			if err != nil {
 				return err
 			}
-
-			filter := path.Filter
 
 			debugAddr, err := cmd.Flags().GetString(flagDebugAddr)
 			if err != nil {
@@ -81,54 +67,30 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				relaydebug.StartDebugServer(cmd.Context(), log, ln)
 			}
 
-			rlyErrCh := relayer.StartRelayer(cmd.Context(), a.Log, c[src], c[dst], filter, maxTxSize, maxMsgLength)
+			eg, egCtx := errgroup.WithContext(cmd.Context())
+			for _, arg := range args {
+				c, src, dst, err := a.Config.ChainsFromPath(arg)
+				if err != nil {
+					return fmt.Errorf("failed to get chain from path %q: %w", arg, err)
+				}
 
-			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire
-			// when there are no packets flowing across the channels. It is currently a source of errors that have been
-			// hard to rectify, so we are just avoiding this code path for now
-			if false {
-				thresholdTime := a.Viper.GetDuration(flagThresholdTime)
-				eg, egCtx := errgroup.WithContext(cmd.Context())
+				if err := ensureKeysExist(c); err != nil {
+					return fmt.Errorf("failed to get keys for path %q: %w", arg, err)
+				}
+
+				path := a.Config.Paths.MustGet(arg)
 
 				eg.Go(func() error {
-					for {
-						var timeToExpiry time.Duration
-						if err = retry.Do(func() error {
-							timeToExpiry, err = UpdateClientsFromChains(egCtx, c[src], c[dst], thresholdTime)
-							return err
-						}, retry.Context(egCtx), retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
-							a.Log.Info(
-								"Failed to update clients from chains",
-								zap.String("src_chain_id", c[src].ChainID()),
-								zap.String("dst_chain_id", c[dst].ChainID()),
-								zap.Uint("attempt", n+1),
-								zap.Uint("max_attempts", relayer.RtyAttNum),
-								zap.Error(err),
-							)
-						})); err != nil {
-							return err
-						}
-						select {
-						case <-time.After(timeToExpiry - thresholdTime):
-							// Nothing to do.
-						case <-egCtx.Done():
-							return egCtx.Err()
-						}
-					}
+					rlyErrCh := relayer.StartRelayer(egCtx, a.Log, c[src], c[dst], path.Filter, maxTxSize, maxMsgLength)
+					return <-rlyErrCh
 				})
-				if err = eg.Wait(); err != nil {
-					a.Log.Warn(
-						"Error updating clients",
-						zap.Error(err),
-					)
-				}
 			}
 
 			// Block until the error channel sends a message.
 			// The context being canceled will cause the relayer to stop,
 			// so we don't want to separately monitor the ctx.Done channel,
 			// because we would risk returning before the relayer cleans up.
-			if err := <-rlyErrCh; err != nil && !errors.Is(err, context.Canceled) {
+			if err := eg.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 				a.Log.Warn(
 					"Relayer start error",
 					zap.Error(err),
