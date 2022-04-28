@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"reflect"
 	"strconv"
@@ -248,14 +247,16 @@ func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, er
 		return 0, err
 	}
 
-	integer, _ := math.Modf(res.UnbondingTime.Hours() * 0.85)
-	trustingStr := fmt.Sprintf("%vh", integer)
-	tp, err := time.ParseDuration(trustingStr)
-	if err != nil {
-		return 0, nil
-	}
+	// We want the trusting period to be 85% of the unbonding time.
+	// Go mentions that the time.Duration type can track approximately 290 years.
+	// We don't want to lose precision if the duration is a very long duration
+	// by converting int64 to float64.
+	// Use integer math the whole time, first reducing by a factor of 100
+	// and then re-growing by 85x.
+	tp := res.UnbondingTime / 100 * 85
 
-	return tp, nil
+	// And we only want the trusting period to be whole hours.
+	return tp.Truncate(time.Hour), nil
 }
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
