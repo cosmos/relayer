@@ -258,6 +258,15 @@ func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, er
 	return tp, nil
 }
 
+// Sprint returns the json representation of the specified proto message.
+func (cc *CosmosProvider) Sprint(toPrint proto.Message) (string, error) {
+	out, err := cc.Codec.Marshaler.MarshalJSON(toPrint)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
 func (cc *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
 	var (

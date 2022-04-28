@@ -10,6 +10,7 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
+	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -96,6 +97,7 @@ type ChainProvider interface {
 	Timeout() string
 	TrustingPeriod(ctx context.Context) (time.Duration, error)
 	WaitForNBlocks(ctx context.Context, n int64) error
+	Sprint(toPrint proto.Message) (string, error)
 }
 
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?

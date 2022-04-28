@@ -8,33 +8,8 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	"github.com/cosmos/cosmos-sdk/codec"
-	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
-	simparams "github.com/cosmos/cosmos-sdk/simapp/params"
-	"github.com/cosmos/cosmos-sdk/std"
-	"github.com/cosmos/cosmos-sdk/types/module"
-	"github.com/cosmos/cosmos-sdk/x/auth"
-	"github.com/cosmos/cosmos-sdk/x/auth/tx"
-	authz "github.com/cosmos/cosmos-sdk/x/authz/module"
-	"github.com/cosmos/cosmos-sdk/x/bank"
-	"github.com/cosmos/cosmos-sdk/x/capability"
-	"github.com/cosmos/cosmos-sdk/x/crisis"
-	"github.com/cosmos/cosmos-sdk/x/distribution"
-	distrclient "github.com/cosmos/cosmos-sdk/x/distribution/client"
-	feegrant "github.com/cosmos/cosmos-sdk/x/feegrant/module"
-	"github.com/cosmos/cosmos-sdk/x/gov"
-	"github.com/cosmos/cosmos-sdk/x/mint"
-	"github.com/cosmos/cosmos-sdk/x/params"
-	paramsclient "github.com/cosmos/cosmos-sdk/x/params/client"
-	"github.com/cosmos/cosmos-sdk/x/slashing"
-	"github.com/cosmos/cosmos-sdk/x/staking"
-	"github.com/cosmos/cosmos-sdk/x/upgrade"
-	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
-	"github.com/cosmos/ibc-go/v3/modules/apps/transfer"
-	ibc "github.com/cosmos/ibc-go/v3/modules/core"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
 )
 
@@ -43,26 +18,6 @@ var (
 	RtyAtt    = retry.Attempts(RtyAttNum)
 	RtyDel    = retry.Delay(time.Millisecond * 400)
 	RtyErr    = retry.LastErrorOnly(true)
-
-	ModuleBasics = []module.AppModuleBasic{
-		auth.AppModuleBasic{},
-		authz.AppModuleBasic{},
-		bank.AppModuleBasic{},
-		capability.AppModuleBasic{},
-		gov.NewAppModuleBasic(
-			paramsclient.ProposalHandler, distrclient.ProposalHandler, upgradeclient.ProposalHandler, upgradeclient.CancelProposalHandler,
-		),
-		crisis.AppModuleBasic{},
-		distribution.AppModuleBasic{},
-		feegrant.AppModuleBasic{},
-		mint.AppModuleBasic{},
-		params.AppModuleBasic{},
-		slashing.AppModuleBasic{},
-		staking.AppModuleBasic{},
-		upgrade.AppModuleBasic{},
-		transfer.AppModuleBasic{},
-		ibc.AppModuleBasic{},
-	}
 
 	defaultCoinType uint32 = 118
 )
@@ -76,31 +31,9 @@ type Chain struct {
 	Chainid       string `yaml:"chain-id" json:"chain-id"`
 	RPCAddr       string `yaml:"rpc-addr" json:"rpc-addr"`
 
-	PathEnd  *PathEnd                 `yaml:"-" json:"-"`
-	Encoding simparams.EncodingConfig `yaml:"-" json:"-"`
+	PathEnd *PathEnd `yaml:"-" json:"-"`
 
 	debug bool
-}
-
-func MakeCodec(moduleBasics []module.AppModuleBasic) simparams.EncodingConfig {
-	modBasic := module.NewBasicManager(moduleBasics...)
-	encodingConfig := MakeCodecConfig()
-	std.RegisterLegacyAminoCodec(encodingConfig.Amino)
-	std.RegisterInterfaces(encodingConfig.InterfaceRegistry)
-	modBasic.RegisterLegacyAminoCodec(encodingConfig.Amino)
-	modBasic.RegisterInterfaces(encodingConfig.InterfaceRegistry)
-	return encodingConfig
-}
-
-func MakeCodecConfig() simparams.EncodingConfig {
-	interfaceRegistry := cdctypes.NewInterfaceRegistry()
-	marshaler := codec.NewProtoCodec(interfaceRegistry)
-	return simparams.EncodingConfig{
-		InterfaceRegistry: interfaceRegistry,
-		Marshaler:         marshaler,
-		TxConfig:          tx.NewTxConfig(marshaler, tx.DefaultSignModes),
-		Amino:             codec.NewLegacyAmino(),
-	}
 }
 
 // ValidatePaths takes two chains and validates their paths
@@ -145,13 +78,9 @@ func ValidateConnectionPaths(src, dst *Chain) error {
 
 func NewChain(log *zap.Logger, prov provider.ChainProvider, debug bool) *Chain {
 	return &Chain{
-		log: log,
-
+		log:           log,
 		ChainProvider: prov,
-
-		Encoding: MakeCodec(ModuleBasics),
-
-		debug: debug,
+		debug:         debug,
 	}
 }
 
@@ -180,15 +109,6 @@ func (c *Chain) GetTrustingPeriod(ctx context.Context) (time.Duration, error) {
 func (c *Chain) String() string {
 	out, _ := json.Marshal(c)
 	return string(out)
-}
-
-// Sprint returns the json representation of whatever is passed in.
-func (c *Chain) Sprint(toPrint proto.Message) (string, error) {
-	out, err := c.Encoding.Marshaler.MarshalJSON(toPrint)
-	if err != nil {
-		return "", err
-	}
-	return string(out), nil
 }
 
 // Chains is a collection of Chain
@@ -227,7 +147,6 @@ func (c Chains) Gets(chainIDs ...string) (map[string]*Chain, error) {
 }
 
 // GetRPCPort returns the port configured for the chain
-// TODO this needs to be exposed on the ChainProvider or rpc-addr needs to be persisted on the Chain struct still
 func (c *Chain) GetRPCPort() string {
 	u, _ := url.Parse(c.RPCAddr)
 	return u.Port()
@@ -246,7 +165,7 @@ func (c *Chain) CreateTestKey() error {
 func (c *Chain) GetTimeout() (time.Duration, error) {
 	timeout, err := time.ParseDuration(c.ChainProvider.Timeout())
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse timeout (%s) for chain %s. Err: %w", c.ChainProvider.Timeout(), c.ChainID(), err)
+		return 0, fmt.Errorf("failed to parse timeout (%s) for chain %s: %w", c.ChainProvider.Timeout(), c.ChainID(), err)
 	}
 	return timeout, nil
 }
