@@ -51,10 +51,10 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 				zap.Uint("max_attempts", RtyAttNum),
 				zap.Error(err),
 			)
-			srch, _ = src.ChainProvider.QueryLatestHeight(egCtx)
 		})); err != nil {
 			return err
 		}
+
 		for _, pc := range res.Commitments {
 			srcPacketSeq = append(srcPacketSeq, pc.Sequence)
 		}
@@ -85,10 +85,10 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 				zap.Uint("max_attempts", RtyAttNum),
 				zap.Error(err),
 			)
-			dsth, _ = dst.ChainProvider.QueryLatestHeight(egCtx)
 		})); err != nil {
 			return err
 		}
+
 		for _, pc := range res.Commitments {
 			dstPacketSeq = append(dstPacketSeq, pc.Sequence)
 		}
@@ -115,7 +115,6 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 				zap.Uint("max_attempts", RtyAttNum),
 				zap.Error(err),
 			)
-			dsth, _ = dst.ChainProvider.QueryLatestHeight(egCtx)
 		}))
 	})
 
@@ -134,7 +133,6 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 				zap.Uint("max_attempts", RtyAttNum),
 				zap.Error(err),
 			)
-			srch, _ = src.ChainProvider.QueryLatestHeight(egCtx)
 		}))
 	})
 
@@ -480,12 +478,9 @@ func AddMessagesForSequences(ctx context.Context, sequences []uint64, src, dst *
 			err                 error
 		)
 
-		// Query src for the sequence number to get type of packet
-		if err = retry.Do(func() error {
-			recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(ctx, src.ChainProvider, dst.ChainProvider,
-				uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, dst.ClientID(), srcChanID, srcPortID, src.ClientID())
-			return err
-		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(ctx, src.ChainProvider, dst.ChainProvider,
+			uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, dst.ClientID(), srcChanID, srcPortID, src.ClientID())
+		if err != nil {
 			src.log.Info(
 				"Failed to relay packet from sequence",
 				zap.String("src_chain_id", src.ChainID()),
@@ -494,13 +489,8 @@ func AddMessagesForSequences(ctx context.Context, sequences []uint64, src, dst *
 				zap.String("dst_chain_id", dst.ChainID()),
 				zap.String("dst_channel_id", dstChanID),
 				zap.String("dst_port_id", dstPortID),
-				zap.Uint("attempt", n+1),
-				zap.Uint("attempt_limit", RtyAttNum),
 				zap.Error(err),
 			)
-
-			srch, dsth, _ = QueryLatestHeights(ctx, src, dst)
-		})); err != nil {
 			return err
 		}
 
