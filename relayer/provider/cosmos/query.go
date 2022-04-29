@@ -77,29 +77,33 @@ func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events 
 	// at most, one tx in the response. Because of this we don't want to initialize the slice with an initial size.
 	var txResps []*provider.RelayerTxResponse
 	for _, tx := range res.Txs {
-		events := parseEventsFromResponseDeliverTx(tx.TxResult)
+		relayerEvents := parseEventsFromResponseDeliverTx(tx.TxResult)
 		txResps = append(txResps, &provider.RelayerTxResponse{
 			Height: tx.Height,
 			TxHash: string(tx.Hash),
 			Code:   tx.TxResult.Code,
 			Data:   string(tx.TxResult.Data),
-			Events: events,
+			Events: relayerEvents,
 		})
 	}
 	return txResps, nil
 }
 
-// parseEventsFromResponseDeliverTx parses the events from a ResponseDeliverTx and builds a map
-// where the keys are equal to event.Type+"."+attribute.Key and the values are the attribute.Value.
-func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) (events map[string]string) {
-	events = make(map[string]string, len(resp.Events))
+// parseEventsFromResponseDeliverTx parses the events from a ResponseDeliverTx and builds a slice
+// of provider.RelayerEvent's.
+func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) []provider.RelayerEvent {
+	var events []provider.RelayerEvent
+
 	for _, event := range resp.Events {
 		for _, attribute := range event.Attributes {
-			key := event.Type + "." + string(attribute.Key)
-			events[key] = string(attribute.Value)
+			events = append(events, provider.RelayerEvent{
+				EventType:      event.Type,
+				AttributeKey:   string(attribute.Key),
+				AttributeValue: string(attribute.Value),
+			})
 		}
 	}
-	return
+	return events
 }
 
 // QueryBalance returns the amount of coins in the relayer account
@@ -146,7 +150,7 @@ func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Durati
 // performed at one below this height (at the IAVL version) in order to obtain
 // the correct merkle proof. Proof queries at height less than or equal to 2 are
 // not supported. Queries with a client context height of 0 will perform a query
-// at the lastest state available.
+// at the latest state available.
 // Issue: https://github.com/cosmos/cosmos-sdk/issues/6567
 func (cc *CosmosProvider) QueryTendermintProof(ctx context.Context, height int64, key []byte) ([]byte, []byte, clienttypes.Height, error) {
 	// ABCI queries at heights 1, 2 or less than or equal to 0 are not supported.

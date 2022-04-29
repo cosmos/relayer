@@ -69,6 +69,9 @@ test-akash:
 test-short:
 	@go test -mod=readonly -v -run TestOsmoToGaiaRelaying ./_test/
 
+ibctest:
+	cd ibctest && go test -race -v .
+
 coverage:
 	@echo "viewing test coverage..."
 	@go tool cover --html=coverage.out
@@ -111,4 +114,4 @@ delete-chains:
 	@echo "Removing the ./chain-code/ directory..."
 	@rm -rf ./chain-code
 
-.PHONY: two-chains test test-integration install build lint coverage clean
+.PHONY: two-chains test test-integration ibctest install build lint coverage clean

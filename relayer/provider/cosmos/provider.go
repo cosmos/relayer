@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"reflect"
 	"strconv"
@@ -31,7 +30,6 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	lens "github.com/strangelove-ventures/lens/client"
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -249,14 +247,16 @@ func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, er
 		return 0, err
 	}
 
-	integer, _ := math.Modf(res.UnbondingTime.Hours() * 0.85)
-	trustingStr := fmt.Sprintf("%vh", integer)
-	tp, err := time.ParseDuration(trustingStr)
-	if err != nil {
-		return 0, nil
-	}
+	// We want the trusting period to be 85% of the unbonding time.
+	// Go mentions that the time.Duration type can track approximately 290 years.
+	// We don't want to lose precision if the duration is a very long duration
+	// by converting int64 to float64.
+	// Use integer math the whole time, first reducing by a factor of 100
+	// and then re-growing by 85x.
+	tp := res.UnbondingTime / 100 * 85
 
-	return tp, nil
+	// And we only want the trusting period to be whole hours.
+	return tp.Truncate(time.Hour), nil
 }
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
@@ -1141,52 +1141,50 @@ func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst
 	)
 
 	rp := &relayMsgRecvPacket{pass: false}
-
-	for key, attrVal := range resp.Events {
+	for _, event := range resp.Events {
 		rp.pass = false
-		eventType, attrKey := splitEventKey(key)
 
-		if eventType != spTag {
+		if event.EventType != spTag {
 			continue
 		}
 
-		switch attrKey {
+		switch event.AttributeKey {
 		case srcChanTag:
-			if attrVal != srcChanId {
+			if event.AttributeValue != srcChanId {
 				rp.pass = true
 				continue
 			}
 		case dstChanTag:
-			if attrVal != dstChanId {
+			if event.AttributeValue != dstChanId {
 				rp.pass = true
 				continue
 			}
 		case srcPortTag:
-			if attrVal != srcPortId {
+			if event.AttributeValue != srcPortId {
 				rp.pass = true
 				continue
 			}
 		case dstPortTag:
-			if attrVal != dstPortId {
+			if event.AttributeValue != dstPortId {
 				rp.pass = true
 				continue
 			}
 		case dataTag:
-			rp.packetData = []byte(attrVal)
+			rp.packetData = []byte(event.AttributeValue)
 		case toHeightTag:
-			timeout, err := clienttypes.ParseHeight(attrVal)
+			timeout, err := clienttypes.ParseHeight(event.AttributeValue)
 			if err != nil {
 				return nil, nil, err
 			}
 			rp.timeout = timeout
 		case toTSTag:
-			timeout, err := strconv.ParseUint(attrVal, 10, 64)
+			timeout, err := strconv.ParseUint(event.AttributeValue, 10, 64)
 			if err != nil {
 				return nil, nil, err
 			}
 			rp.timeoutStamp = timeout
 		case seqTag:
-			seq, err := strconv.ParseUint(attrVal, 10, 64)
+			seq, err := strconv.ParseUint(event.AttributeValue, 10, 64)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -1206,9 +1204,9 @@ func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst
 		}
 
 		// if the timestamp is set on the packet, we need to retrieve the current block time from dst
-		var b *ctypes.ResultBlock
+		var dstBlockTime int64
 		if rp.timeoutStamp > 0 {
-			b, err = cc.RPCClient.Block(ctx, &dsth)
+			dstBlockTime, err = dst.BlockTime(ctx, dsth)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -1216,7 +1214,7 @@ func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst
 
 		switch {
 		// If the packet has a timeout time, and it has been reached, return a timeout packet
-		case b != nil && rp.timeoutStamp > 0 && uint64(b.Block.Time.UnixNano()) > rp.timeoutStamp:
+		case rp.timeoutStamp > 0 && uint64(dstBlockTime) > rp.timeoutStamp:
 			timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
 		// If the packet has a timeout height, and it has been reached, return a timeout packet
 		case !rp.timeout.IsZero() && block.GetHeight().GTE(rp.timeout):
@@ -1241,53 +1239,52 @@ func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId str
 	var ackPackets []provider.RelayPacket
 
 	rp := &relayMsgPacketAck{pass: false}
-	for key, attrVal := range resp.Events {
+	for _, event := range resp.Events {
 		rp.pass = false
-		eventType, attrKey := splitEventKey(key)
 
-		if eventType != waTag {
+		if event.EventType != waTag {
 			continue
 		}
 
-		switch attrKey {
+		switch event.AttributeKey {
 		case srcChanTag:
-			if attrVal != srcChanId {
+			if event.AttributeValue != srcChanId {
 				rp.pass = true
 				continue
 			}
 		case dstChanTag:
-			if attrVal != dstChanId {
+			if event.AttributeValue != dstChanId {
 				rp.pass = true
 				continue
 			}
 		case srcPortTag:
-			if attrVal != srcPortId {
+			if event.AttributeValue != srcPortId {
 				rp.pass = true
 				continue
 			}
 		case dstPortTag:
-			if attrVal != dstPortId {
+			if event.AttributeValue != dstPortId {
 				rp.pass = true
 				continue
 			}
 		case ackTag:
-			rp.ack = []byte(attrVal)
+			rp.ack = []byte(event.AttributeValue)
 		case dataTag:
-			rp.packetData = []byte(attrVal)
+			rp.packetData = []byte(event.AttributeValue)
 		case toHeightTag:
-			timeout, err := clienttypes.ParseHeight(attrVal)
+			timeout, err := clienttypes.ParseHeight(event.AttributeValue)
 			if err != nil {
 				return nil, err
 			}
 			rp.timeout = timeout
 		case toTSTag:
-			timeout, err := strconv.ParseUint(attrVal, 10, 64)
+			timeout, err := strconv.ParseUint(event.AttributeValue, 10, 64)
 			if err != nil {
 				return nil, err
 			}
 			rp.timeoutStamp = timeout
 		case seqTag:
-			seq, err := strconv.ParseUint(attrVal, 10, 64)
+			seq, err := strconv.ParseUint(event.AttributeValue, 10, 64)
 			if err != nil {
 				return nil, err
 			}
@@ -1311,15 +1308,6 @@ func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId str
 	}
 
 	return nil, fmt.Errorf("no packet data found")
-}
-
-// splitEventKey splits the keys from a map of events where the keys are event.Type+"."+attribute.Key
-// and returns both the event.Type and attribute.Key.
-func splitEventKey(key string) (string, string) {
-	parts := strings.SplitN(key, ".", 2)
-	eventType := parts[0]
-	attrKey := parts[1]
-	return eventType, attrKey
 }
 
 func (cc *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
@@ -1692,11 +1680,13 @@ func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerM
 // of that transaction will be logged. A boolean indicating if a transaction was successfully
 // sent and executed successfully is returned.
 func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
-	var res *sdk.TxResponse
+	var resp *sdk.TxResponse
 
 	if err := retry.Do(func() error {
 		txBytes, err := cc.buildMessages(ctx, msgs)
 		if err != nil {
+			errMsg := err.Error()
+
 			// Occasionally the client will be out of date,
 			// and we will receive an RPC error like:
 			//     rpc error: code = InvalidArgument desc = failed to execute message; message index: 1: channel handshake open try failed: failed channel state verification for client (07-tendermint-0): client state height < proof height ({0 58} < {0 59}), please ensure the client has been updated: invalid height: invalid request
@@ -1710,7 +1700,7 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 			// If this logic should ever fail due to the string values of the error messages on the server
 			// changing from the client's version of the library,
 			// at worst this will run more unnecessary retries.
-			if strings.Contains(err.Error(), sdkerrors.ErrInvalidHeight.Error()) {
+			if strings.Contains(errMsg, sdkerrors.ErrInvalidHeight.Error()) {
 				cc.log.Info(
 					"Skipping retry due to invalid height error",
 					zap.Error(err),
@@ -1721,7 +1711,7 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 			// On a fast retry, it is possible to have an invalid connection state.
 			// Retrying that message also won't fix the underlying state mismatch,
 			// so log it and mark it as unrecoverable.
-			if strings.Contains(err.Error(), conntypes.ErrInvalidConnectionState.Error()) {
+			if strings.Contains(errMsg, conntypes.ErrInvalidConnectionState.Error()) {
 				cc.log.Info(
 					"Skipping retry due to invalid connection state",
 					zap.Error(err),
@@ -1730,9 +1720,29 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 			}
 
 			// Also possible to have an invalid channel state on a fast retry.
-			if strings.Contains(err.Error(), chantypes.ErrInvalidChannelState.Error()) {
+			if strings.Contains(errMsg, chantypes.ErrInvalidChannelState.Error()) {
 				cc.log.Info(
 					"Skipping retry due to invalid channel state",
+					zap.Error(err),
+				)
+				return retry.Unrecoverable(err)
+			}
+
+			// If the message reported an invalid proof, back off.
+			// NOTE: this error string ("invalid proof") will match other errors too,
+			// but presumably it is safe to stop retrying in those cases as well.
+			if strings.Contains(errMsg, commitmenttypes.ErrInvalidProof.Error()) {
+				cc.log.Info(
+					"Skipping retry due to invalid proof",
+					zap.Error(err),
+				)
+				return retry.Unrecoverable(err)
+			}
+
+			// Invalid packets should not be retried either.
+			if strings.Contains(errMsg, chantypes.ErrInvalidPacket.Error()) {
+				cc.log.Info(
+					"Skipping retry due to invalid packet",
 					zap.Error(err),
 				)
 				return retry.Unrecoverable(err)
@@ -1741,7 +1751,7 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 			return err
 		}
 
-		res, err = cc.BroadcastTx(ctx, txBytes)
+		resp, err = cc.BroadcastTx(ctx, txBytes)
 		if err != nil {
 			if err == sdkerrors.ErrWrongSequence {
 				// Allow retrying if we got an invalid sequence error when attempting to broadcast this tx.
@@ -1762,39 +1772,44 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 			zap.Uint("max_attempts", RtyAttNum),
 			zap.Error(err),
 		)
-	})); err != nil || res == nil {
+	})); err != nil || resp == nil {
 		return nil, false, err
 	}
 
-	// Parse events and build a map where the key is event.Type+"."+attribute.Key
-	events := make(map[string]string, 1)
-	for _, logs := range res.Logs {
-		for _, ev := range logs.Events {
-			for _, attr := range ev.Attributes {
-				key := ev.Type + "." + attr.Key
-				events[key] = attr.Value
-			}
-		}
-	}
-
-	rlyRes := &provider.RelayerTxResponse{
-		Height: res.Height,
-		TxHash: res.TxHash,
-		Code:   res.Code,
-		Data:   res.Data,
-		Events: events,
+	rlyResp := &provider.RelayerTxResponse{
+		Height: resp.Height,
+		TxHash: resp.TxHash,
+		Code:   resp.Code,
+		Data:   resp.Data,
+		Events: parseEventsFromTxResponse(resp),
 	}
 
 	// transaction was executed, log the success or failure using the tx response code
 	// NOTE: error is nil, logic should use the returned error to determine if the
 	// transaction was successfully executed.
-	if rlyRes.Code != 0 {
-		cc.LogFailedTx(rlyRes, nil, msgs)
-		return rlyRes, false, fmt.Errorf("transaction failed with code: %d", res.Code)
+	if rlyResp.Code != 0 {
+		cc.LogFailedTx(rlyResp, nil, msgs)
+		return rlyResp, false, fmt.Errorf("transaction failed with code: %d", resp.Code)
 	}
 
-	cc.LogSuccessTx(res, msgs)
-	return rlyRes, true, nil
+	cc.LogSuccessTx(resp, msgs)
+	return rlyResp, true, nil
+}
+
+func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
+	var events []provider.RelayerEvent
+	for _, logs := range resp.Logs {
+		for _, event := range logs.Events {
+			for _, attr := range event.Attributes {
+				events = append(events, provider.RelayerEvent{
+					EventType:      event.Type,
+					AttributeKey:   attr.Key,
+					AttributeValue: attr.Value,
+				})
+			}
+		}
+	}
+	return events
 }
 
 func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.RelayerMessage) ([]byte, error) {
@@ -1861,4 +1876,12 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 	}
 
 	return txBytes, nil
+}
+
+func (cc *CosmosProvider) BlockTime(ctx context.Context, height int64) (int64, error) {
+	resultBlock, err := cc.RPCClient.Block(ctx, &height)
+	if err != nil {
+		return 0, err
+	}
+	return resultBlock.Block.Time.UnixNano(), nil
 }

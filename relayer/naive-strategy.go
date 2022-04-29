@@ -51,10 +51,10 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 				zap.Uint("max_attempts", RtyAttNum),
 				zap.Error(err),
 			)
-			srch, _ = src.ChainProvider.QueryLatestHeight(egCtx)
 		})); err != nil {
 			return err
 		}
+
 		for _, pc := range res.Commitments {
 			srcPacketSeq = append(srcPacketSeq, pc.Sequence)
 		}
@@ -85,10 +85,10 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 				zap.Uint("max_attempts", RtyAttNum),
 				zap.Error(err),
 			)
-			dsth, _ = dst.ChainProvider.QueryLatestHeight(egCtx)
 		})); err != nil {
 			return err
 		}
+
 		for _, pc := range res.Commitments {
 			dstPacketSeq = append(dstPacketSeq, pc.Sequence)
 		}
@@ -115,7 +115,6 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 				zap.Uint("max_attempts", RtyAttNum),
 				zap.Error(err),
 			)
-			dsth, _ = dst.ChainProvider.QueryLatestHeight(egCtx)
 		}))
 	})
 
@@ -134,7 +133,6 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 				zap.Uint("max_attempts", RtyAttNum),
 				zap.Error(err),
 			)
-			srch, _ = src.ChainProvider.QueryLatestHeight(egCtx)
 		}))
 	})
 
@@ -373,11 +371,11 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 			return err
 		}
 
-		if len(msgs.Dst) > 1 {
-			dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
+		if result.SuccessfulSrcBatches > 0 {
+			src.logPacketsRelayed(dst, result.SuccessfulSrcBatches, srcChannel)
 		}
-		if len(msgs.Src) > 1 {
-			src.logPacketsRelayed(dst, len(msgs.Src)-1, srcChannel)
+		if result.SuccessfulDstBatches > 0 {
+			dst.logPacketsRelayed(src, result.SuccessfulDstBatches, srcChannel)
 		}
 	}
 
@@ -462,11 +460,11 @@ func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *Rel
 			return err
 		}
 
-		if len(msgs.Dst) > 1 {
-			dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
+		if result.SuccessfulSrcBatches > 0 {
+			src.logPacketsRelayed(dst, result.SuccessfulSrcBatches, srcChannel)
 		}
-		if len(msgs.Src) > 1 {
-			src.logPacketsRelayed(dst, len(msgs.Src)-1, srcChannel)
+		if result.SuccessfulDstBatches > 0 {
+			dst.logPacketsRelayed(src, result.SuccessfulDstBatches, srcChannel)
 		}
 
 		return nil
@@ -490,12 +488,9 @@ func AddMessagesForSequences(
 			err                 error
 		)
 
-		// Query src for the sequence number to get type of packet
-		if err = retry.Do(func() error {
-			recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(ctx, src.ChainProvider, dst.ChainProvider,
-				uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, dst.ClientID(), srcChanID, srcPortID, src.ClientID(), order)
-			return err
-		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		recvMsg, timeoutMsg, err = src.ChainProvider.RelayPacketFromSequence(ctx, src.ChainProvider, dst.ChainProvider,
+			uint64(srch), uint64(dsth), seq, dstChanID, dstPortID, dst.ClientID(), srcChanID, srcPortID, src.ClientID())
+		if err != nil {
 			src.log.Info(
 				"Failed to relay packet from sequence",
 				zap.String("src_chain_id", src.ChainID()),
@@ -505,13 +500,8 @@ func AddMessagesForSequences(
 				zap.String("dst_channel_id", dstChanID),
 				zap.String("dst_port_id", dstPortID),
 				zap.String("channel_order", order.String()),
-				zap.Uint("attempt", n+1),
-				zap.Uint("attempt_limit", RtyAttNum),
 				zap.Error(err),
 			)
-
-			srch, dsth, _ = QueryLatestHeights(ctx, src, dst)
-		})); err != nil {
 			return err
 		}
 
@@ -717,11 +707,11 @@ func RelayPacket(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *Rela
 		return err
 	}
 
-	if len(msgs.Dst) > 1 {
-		dst.logPacketsRelayed(src, len(msgs.Dst)-1, srcChannel)
+	if result.SuccessfulSrcBatches > 0 {
+		src.logPacketsRelayed(dst, result.SuccessfulSrcBatches, srcChannel)
 	}
-	if len(msgs.Src) > 1 {
-		src.logPacketsRelayed(dst, len(msgs.Src)-1, srcChannel)
+	if result.SuccessfulDstBatches > 0 {
+		dst.logPacketsRelayed(src, result.SuccessfulDstBatches, srcChannel)
 	}
 
 	return nil

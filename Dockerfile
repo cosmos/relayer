@@ -1,13 +1,17 @@
-FROM golang:alpine as BUILD
+FROM --platform=$BUILDPLATFORM golang:alpine as BUILD
 
 WORKDIR /relayer
 
 # Copy the files from host
 COPY . .
 
+ARG TARGETARCH
+ARG TARGETOS
+
 # Update and install needed deps prioir to installing the binary.
 RUN apk update && \
   apk --no-cache add make git && \
+  export GOOS=${TARGETOS} GOARCH=${TARGETARCH} && \
   make install
 
 FROM alpine:latest
