@@ -928,7 +928,7 @@ func (cc *CosmosProvider) orderedChannelTimeoutMsg(
 	case err != nil:
 		return nil, err
 	case seqRes.Proof == nil:
-		return nil, fmt.Errorf("timeout packet receipt proof seq(%d) is nil", packet.Seq())
+		return nil, fmt.Errorf("timeout packet next sequence received proof seq(%d) is nil", packet.Seq())
 	case seqRes == nil:
 		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", cc.PCfg.ChainID, packet.Seq())
 	default:
