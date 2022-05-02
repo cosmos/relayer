@@ -2,8 +2,8 @@ package substrate
 
 import (
 	"github.com/cosmos/go-bip39"
-	"github.com/cosmos/relayer/relayer/provider"
-	"github.com/cosmos/relayer/relayer/provider/substrate/keystore"
+	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/cosmos/relayer/v2/relayer/provider/substrate/keystore"
 )
 
 func (sp *SubstrateProvider) CreateKeystore(path string) error {
@@ -22,16 +22,17 @@ func (sp *SubstrateProvider) KeystoreCreated(path string) bool {
 	return true
 }
 
-func (sp *SubstrateProvider) AddKey(name string) (output *provider.KeyOutput, err error) {
-	ko, err := sp.KeyAddOrRestore(name, 118)
+func (sp *SubstrateProvider) AddKey(name string, coinType uint32) (output *provider.KeyOutput, err error) {
+	ko, err := sp.KeyAddOrRestore(name, coinType)
 	if err != nil {
 		return nil, err
 	}
+
 	return ko, nil
 }
 
-func (sp *SubstrateProvider) RestoreKey(name, mnemonic string) (address string, err error) {
-	ko, err := sp.KeyAddOrRestore(name, 118, mnemonic)
+func (sp *SubstrateProvider) RestoreKey(name, mnemonic string, coinType uint32) (address string, err error) {
+	ko, err := sp.KeyAddOrRestore(name, coinType, mnemonic)
 	if err != nil {
 		return "", err
 	}

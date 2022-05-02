@@ -1,8 +1,9 @@
 package substrate_test
 
 import (
-	"github.com/cosmos/relayer/relayer/provider/substrate"
 	"testing"
+
+	"github.com/cosmos/relayer/v2/relayer/provider/substrate"
 )
 
 func initProvider() *substrate.SubstrateProvider {

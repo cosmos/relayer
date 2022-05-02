@@ -10,7 +10,6 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )

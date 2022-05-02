@@ -2,21 +2,23 @@ package substrate
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"go.uber.org/zap"
 	"io"
 	"reflect"
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	rpcClient "github.com/ComposableFi/go-substrate-rpc-client/v4"
 	"github.com/ComposableFi/go-substrate-rpc-client/scale"
+	rpcClient "github.com/ComposableFi/go-substrate-rpc-client/v4"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
+	beefyclient "github.com/cosmos/ibc-go/v3/modules/light-clients/11-beefy/types"
 	beefyclientTypes "github.com/cosmos/ibc-go/v3/modules/light-clients/11-beefy/types"
-	"github.com/cosmos/relayer/relayer/provider"
-	"github.com/cosmos/relayer/relayer/provider/substrate/keystore"
+	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/cosmos/relayer/v2/relayer/provider/substrate/keystore"
 )
 
 var (
@@ -75,13 +77,18 @@ func (sp *SubstrateProvider) QueryConsensusStateABCI(clientID string, height ibc
 
 // queryTMClientState retrieves the latest consensus state for a client in state at a given height
 // and unpacks/cast it to tendermint clientstate
-func (sp *SubstrateProvider) queryTMClientState(srch int64, srcClientId string) (*beefyclientTypes.ClientState, error) {
-	clientStateRes, err := sp.QueryClientStateResponse(srch, srcClientId)
+func (sp *SubstrateProvider) queryTMClientState(ctx context.Context, srch int64, srcClientId string) (*beefyclientTypes.ClientState, error) {
+	clientStateRes, err := sp.QueryClientStateResponse(ctx, srch, srcClientId)
 	if err != nil {
 		return &beefyclientTypes.ClientState{}, err
 	}
 
 	return castClientStateToBeefyType(clientStateRes.ClientState)
+}
+
+// TODO
+func (sp *SubstrateProvider) BlockTime(ctx context.Context, height int64) (int64, error) {
+	return 0, nil
 }
 
 type SubstrateProviderConfig struct {
@@ -94,7 +101,7 @@ type SubstrateProviderConfig struct {
 	Debug          bool   `json:"debug" yaml:"debug"`
 }
 
-func (spc *SubstrateProviderConfig) NewProvider(homepath string, debug bool) (provider.ChainProvider, error) {
+func (spc *SubstrateProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool) (provider.ChainProvider, error) {
 	return NewSubstrateProvider(spc, "")
 }
 
@@ -152,8 +159,8 @@ func (srp *SubstrateRelayPacket) Msg(
 }
 
 // TODO: find out what FetchCommitResponse does
-func (srp *SubstrateRelayPacket) FetchCommitResponse(dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
-	dstRecvRes, err := dst.QueryPacketReceipt(int64(queryHeight)-1, dstChanId, dstPortId, srp.seq)
+func (srp *SubstrateRelayPacket) FetchCommitResponse(ctx context.Context, dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
+	dstRecvRes, err := dst.QueryPacketReceipt(ctx, int64(queryHeight)-1, dstChanId, dstPortId, srp.seq)
 	switch {
 	case err != nil:
 		return err
@@ -244,7 +251,7 @@ func MustGetHeight(h ibcexported.Height) clienttypes.Height {
 
 // relayPacketsFromPacket looks through the events in a *ctypes.ResultTx
 // and returns relayPackets with the appropriate data
-func relayPacketsFromPacket(src, dst provider.ChainProvider, dsth int64, allPackets []chantypes.Packet, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
+func relayPacketsFromPacket(ctx context.Context, src, dst provider.ChainProvider, dsth int64, allPackets []chantypes.Packet, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
 	var (
 		rcvPackets     []provider.RelayPacket
 		timeoutPackets []provider.RelayPacket
@@ -285,7 +292,7 @@ func relayPacketsFromPacket(src, dst provider.ChainProvider, dsth int64, allPack
 		rp.seq = e.Sequence
 
 		// fetch the header which represents a block produced on destination
-		block, err := dst.GetIBCUpdateHeader(dsth, src, srcClientId)
+		block, err := dst.GetIBCUpdateHeader(ctx, dsth, src, srcClientId)
 		if err != nil {
 			return nil, nil, err
 		}

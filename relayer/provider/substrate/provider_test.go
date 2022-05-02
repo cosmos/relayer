@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cosmos/relayer/relayer/provider/substrate"
-	"github.com/cosmos/relayer/relayer/provider/substrate/keystore"
+	"github.com/cosmos/relayer/v2/relayer/provider/substrate"
+	"github.com/cosmos/relayer/v2/relayer/provider/substrate/keystore"
 	"github.com/stretchr/testify/require"
 )
 

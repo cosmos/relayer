@@ -1,11 +1,12 @@
 package substrate
 
 import (
+	"context"
 	"fmt"
 
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/relayer/provider"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 var (
@@ -40,8 +41,8 @@ func (rp relayMsgTimeout) TimeoutStamp() uint64 {
 	return rp.timeoutStamp
 }
 
-func (rp relayMsgTimeout) FetchCommitResponse(dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
-	dstRecvRes, err := dst.QueryPacketReceipt(int64(queryHeight)-1, dstChanId, dstPortId, rp.seq)
+func (rp relayMsgTimeout) FetchCommitResponse(ctx context.Context, dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
+	dstRecvRes, err := dst.QueryPacketReceipt(ctx, int64(queryHeight)-1, dstChanId, dstPortId, rp.seq)
 	switch {
 	case err != nil:
 		return err
@@ -119,8 +120,8 @@ func (rp relayMsgRecvPacket) TimeoutStamp() uint64 {
 	return rp.timeoutStamp
 }
 
-func (rp relayMsgRecvPacket) FetchCommitResponse(dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
-	dstCommitRes, err := dst.QueryPacketCommitment(int64(queryHeight)-1, dstChanId, dstPortId, rp.seq)
+func (rp relayMsgRecvPacket) FetchCommitResponse(ctx context.Context, dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
+	dstCommitRes, err := dst.QueryPacketCommitment(ctx, int64(queryHeight)-1, dstChanId, dstPortId, rp.seq)
 	switch {
 	case err != nil:
 		return err
@@ -217,8 +218,8 @@ func (rp relayMsgPacketAck) Msg(src provider.ChainProvider, srcPortId, srcChanId
 	return NewSubstrateRelayerMessage(msg), nil
 }
 
-func (rp relayMsgPacketAck) FetchCommitResponse(dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
-	dstCommitRes, err := dst.QueryPacketAcknowledgement(int64(queryHeight)-1, dstChanId, dstPortId, rp.seq)
+func (rp relayMsgPacketAck) FetchCommitResponse(ctx context.Context, dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
+	dstCommitRes, err := dst.QueryPacketAcknowledgement(ctx, int64(queryHeight)-1, dstChanId, dstPortId, rp.seq)
 	switch {
 	case err != nil:
 		return err

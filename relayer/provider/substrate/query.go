@@ -10,29 +10,28 @@ import (
 	beefyClientTypes "github.com/cosmos/ibc-go/v3/modules/light-clients/11-beefy/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	committypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
-	"github.com/cosmos/relayer/relayer/provider"
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 
 	"golang.org/x/sync/errgroup"
 )
 
 // QueryTx takes a transaction hash and returns the transaction
-func (sp *SubstrateProvider) QueryTx(hashHex string) (*ctypes.ResultTx, error) {
+func (sp *SubstrateProvider) QueryTx(ctx context.Context, hashHex string) (*provider.RelayerTxResponse, error) {
 	return nil, nil
 }
 
-func (sp *SubstrateProvider) QueryTxs(page, limit int, events []string) ([]*ctypes.ResultTx, error) {
+// QueryTxs returns an array of transactions given a tag
+func (cc *SubstrateProvider) QueryTxs(ctx context.Context, page, limit int, events []string) ([]*provider.RelayerTxResponse, error) {
 	return nil, nil
 }
 
-func (sp *SubstrateProvider) QueryLatestHeight() (int64, error) {
+func (sp *SubstrateProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
 	signedBlock, err := sp.RPCClient.RPC.Chain.GetBlockLatest()
 	if err != nil {
 		return 0, err
@@ -41,7 +40,7 @@ func (sp *SubstrateProvider) QueryLatestHeight() (int64, error) {
 	return int64(signedBlock.Block.Header.Number), nil
 }
 
-func (sp *SubstrateProvider) QueryHeaderAtHeight(height int64) (ibcexported.Header, error) {
+func (sp *SubstrateProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.Header, error) {
 	latestBlockHash, err := sp.RPCClient.RPC.Chain.GetBlockHashLatest()
 	if err != nil {
 		return nil, err
@@ -64,7 +63,7 @@ func (sp *SubstrateProvider) QueryHeaderAtHeight(height int64) (ibcexported.Head
 	return constructBeefyHeader(sp.RPCClient, blockHash)
 }
 
-func (sp *SubstrateProvider) QueryBalance(keyName string) (sdk.Coins, error) {
+func (sp *SubstrateProvider) QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error) {
 	var (
 		addr string
 		err  error
@@ -79,10 +78,10 @@ func (sp *SubstrateProvider) QueryBalance(keyName string) (sdk.Coins, error) {
 	if err != nil {
 		return nil, err
 	}
-	return sp.QueryBalanceWithAddress(addr)
+	return sp.QueryBalanceWithAddress(ctx, addr)
 }
 
-func (sp *SubstrateProvider) QueryBalanceWithAddress(addr string) (sdk.Coins, error) {
+func (sp *SubstrateProvider) QueryBalanceWithAddress(ctx context.Context, addr string) (sdk.Coins, error) {
 	// TODO: addr might need to be passed as byte not string
 	res, err := sp.RPCClient.RPC.IBC.QueryBalanceWithAddress([]byte(addr))
 	if err != nil {
@@ -92,12 +91,12 @@ func (sp *SubstrateProvider) QueryBalanceWithAddress(addr string) (sdk.Coins, er
 	return res, nil
 }
 
-func (sp *SubstrateProvider) QueryUnbondingPeriod() (time.Duration, error) {
+func (sp *SubstrateProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
 	return 0, nil
 }
 
-func (sp *SubstrateProvider) QueryClientState(height int64, clientid string) (ibcexported.ClientState, error) {
-	res, err := sp.QueryClientStateResponse(height, clientid)
+func (sp *SubstrateProvider) QueryClientState(ctx context.Context, height int64, clientid string) (ibcexported.ClientState, error) {
+	res, err := sp.QueryClientStateResponse(ctx, height, clientid)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +125,7 @@ func (sp *SubstrateProvider) QueryClientState(height int64, clientid string) (ib
 	//return cs, nil
 }
 
-func (sp *SubstrateProvider) QueryClientStateResponse(height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
+func (sp *SubstrateProvider) QueryClientStateResponse(ctx context.Context, height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
 	res, err := sp.RPCClient.RPC.IBC.QueryClientStateResponse(height, srcClientId)
 	if err != nil {
 		return nil, err
@@ -135,7 +134,7 @@ func (sp *SubstrateProvider) QueryClientStateResponse(height int64, srcClientId 
 	return res, nil
 }
 
-func (sp *SubstrateProvider) QueryClientConsensusState(chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
+func (sp *SubstrateProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
 	res, err := sp.RPCClient.RPC.IBC.QueryClientConsensusState(clientid,
 		clientHeight.GetRevisionHeight(), clientHeight.GetRevisionNumber(), false)
 	if err != nil {
@@ -144,7 +143,7 @@ func (sp *SubstrateProvider) QueryClientConsensusState(chainHeight int64, client
 	return res, nil
 }
 
-func (sp *SubstrateProvider) QueryUpgradedClient(height int64) (*clienttypes.QueryClientStateResponse, error) {
+func (sp *SubstrateProvider) QueryUpgradedClient(ctx context.Context, height int64) (*clienttypes.QueryClientStateResponse, error) {
 	res, err := sp.RPCClient.RPC.IBC.QueryUpgradedClient(height)
 	if err != nil {
 		return nil, err
@@ -152,7 +151,7 @@ func (sp *SubstrateProvider) QueryUpgradedClient(height int64) (*clienttypes.Que
 	return res, nil
 }
 
-func (sp *SubstrateProvider) QueryUpgradedConsState(height int64) (*clienttypes.QueryConsensusStateResponse, error) {
+func (sp *SubstrateProvider) QueryUpgradedConsState(ctx context.Context, height int64) (*clienttypes.QueryConsensusStateResponse, error) {
 	res, err := sp.RPCClient.RPC.IBC.QueryUpgradedConsState(height)
 	if err != nil {
 		return nil, err
@@ -160,7 +159,7 @@ func (sp *SubstrateProvider) QueryUpgradedConsState(height int64) (*clienttypes.
 	return res, nil
 }
 
-func (sp *SubstrateProvider) QueryConsensusState(height int64) (ibcexported.ConsensusState, int64, error) {
+func (sp *SubstrateProvider) QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error) {
 	res, err := sp.RPCClient.RPC.IBC.QueryConsensusState(uint32(height))
 	if err != nil {
 		return nil, 0, err
@@ -176,7 +175,7 @@ func (sp *SubstrateProvider) QueryConsensusState(height int64) (ibcexported.Cons
 
 // QueryClients queries all the clients!
 // TODO add pagination support
-func (sp *SubstrateProvider) QueryClients() (clienttypes.IdentifiedClientStates, error) {
+func (sp *SubstrateProvider) QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error) {
 	res, err := sp.RPCClient.RPC.IBC.QueryClients()
 	if err != nil {
 		return nil, err
@@ -185,17 +184,17 @@ func (sp *SubstrateProvider) QueryClients() (clienttypes.IdentifiedClientStates,
 	return res, nil
 }
 
-func (sp *SubstrateProvider) AutoUpdateClient(dst provider.ChainProvider, _ time.Duration, srcClientId, dstClientId string) (time.Duration, error) {
-	srch, err := sp.QueryLatestHeight()
+func (sp *SubstrateProvider) AutoUpdateClient(ctx context.Context, dst provider.ChainProvider, _ time.Duration, srcClientId, dstClientId string) (time.Duration, error) {
+	srch, err := sp.QueryLatestHeight(ctx)
 	if err != nil {
 		return 0, err
 	}
-	dsth, err := dst.QueryLatestHeight()
+	dsth, err := dst.QueryLatestHeight(ctx)
 	if err != nil {
 		return 0, err
 	}
 
-	clientState, err := sp.queryTMClientState(srch, srcClientId)
+	clientState, err := sp.queryTMClientState(ctx, srch, srcClientId)
 	if err != nil {
 		return 0, err
 	}
@@ -217,12 +216,12 @@ func (sp *SubstrateProvider) AutoUpdateClient(dst provider.ChainProvider, _ time
 			srcClientId, sp.Config.ChainID)
 	}
 
-	srcUpdateHeader, err := sp.GetIBCUpdateHeader(srch, dst, dstClientId)
+	srcUpdateHeader, err := sp.GetIBCUpdateHeader(ctx, srch, dst, dstClientId)
 	if err != nil {
 		return 0, err
 	}
 
-	dstUpdateHeader, err := dst.GetIBCUpdateHeader(dsth, sp, srcClientId)
+	dstUpdateHeader, err := dst.GetIBCUpdateHeader(ctx, dsth, sp, srcClientId)
 	if err != nil {
 		return 0, err
 	}
@@ -234,7 +233,7 @@ func (sp *SubstrateProvider) AutoUpdateClient(dst provider.ChainProvider, _ time
 
 	msgs := []provider.RelayerMessage{updateMsg}
 
-	res, success, err := sp.SendMessages(msgs)
+	res, success, err := sp.SendMessages(ctx, msgs)
 	if err != nil {
 		// cp.LogFailedTx(res, err, CosmosMsgs(msgs...))
 		return 0, err
@@ -256,8 +255,8 @@ func maxDuration() time.Duration {
 	return 1<<63 - 1
 }
 
-func (sp *SubstrateProvider) FindMatchingClient(counterparty provider.ChainProvider, clientState ibcexported.ClientState) (string, bool) {
-	clientsResp, err := sp.QueryClients()
+func (sp *SubstrateProvider) FindMatchingClient(ctx context.Context, counterparty provider.ChainProvider, clientState ibcexported.ClientState) (string, bool) {
+	clientsResp, err := sp.QueryClients(ctx)
 	if err != nil {
 		if sp.Config.Debug {
 			sp.Log(fmt.Sprintf("Error: querying clients on %s failed: %v", sp.Config.ChainID, err))
@@ -296,7 +295,7 @@ func (sp *SubstrateProvider) FindMatchingClient(counterparty provider.ChainProvi
 			}
 
 			//nolint:lll
-			header, err := counterparty.GetLightSignedHeaderAtHeight(int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
+			header, err := counterparty.GetLightSignedHeaderAtHeight(ctx, int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
 			if err != nil {
 				if sp.Config.Debug {
 					sp.Log(fmt.Sprintf("Error: failed to query header for chain %s at height %d: %v",
@@ -337,8 +336,8 @@ func (sp *SubstrateProvider) FindMatchingClient(counterparty provider.ChainProvi
 	return "", false
 }
 
-func (sp *SubstrateProvider) QueryConnection(height int64, connectionid string) (*conntypes.QueryConnectionResponse, error) {
-	res, err := sp.queryConnection(height, connectionid)
+func (sp *SubstrateProvider) QueryConnection(ctx context.Context, height int64, connectionid string) (*conntypes.QueryConnectionResponse, error) {
+	res, err := sp.queryConnection(ctx, height, connectionid)
 	if err != nil && strings.Contains(err.Error(), "not found") {
 		return &conntypes.QueryConnectionResponse{
 			Connection: &conntypes.ConnectionEnd{
@@ -361,7 +360,7 @@ func (sp *SubstrateProvider) QueryConnection(height int64, connectionid string) 
 	return res, nil
 }
 
-func (sp *SubstrateProvider) queryConnection(height int64, connectionID string) (*conntypes.QueryConnectionResponse, error) {
+func (sp *SubstrateProvider) queryConnection(ctx context.Context, height int64, connectionID string) (*conntypes.QueryConnectionResponse, error) {
 	res, err := sp.RPCClient.RPC.IBC.QueryConnection(height, connectionID)
 	if err != nil {
 		return nil, err
@@ -372,7 +371,7 @@ func (sp *SubstrateProvider) queryConnection(height int64, connectionID string) 
 
 // QueryConnections gets any connections on a chain
 // TODO add pagination support
-func (sp *SubstrateProvider) QueryConnections() (conns []*conntypes.IdentifiedConnection, err error) {
+func (sp *SubstrateProvider) QueryConnections(ctx context.Context) (conns []*conntypes.IdentifiedConnection, err error) {
 	res, err := sp.RPCClient.RPC.IBC.QueryConnections()
 	if err != nil {
 		return nil, err
@@ -383,7 +382,7 @@ func (sp *SubstrateProvider) QueryConnections() (conns []*conntypes.IdentifiedCo
 
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
 // TODO add pagination support
-func (sp *SubstrateProvider) QueryConnectionsUsingClient(height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
+func (sp *SubstrateProvider) QueryConnectionsUsingClient(ctx context.Context, height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
 	res, err := sp.RPCClient.RPC.IBC.QueryConnectionsUsingClient(height, clientid)
 	if err != nil {
 		return nil, err
@@ -392,7 +391,7 @@ func (sp *SubstrateProvider) QueryConnectionsUsingClient(height int64, clientid 
 	return res, nil
 }
 
-func (sp *SubstrateProvider) GenerateConnHandshakeProof(height int64, clientId, connId string) (clientState ibcexported.ClientState, clientStateProof []byte, consensusProof []byte, connectionProof []byte, connectionProofHeight ibcexported.Height, err error) {
+func (sp *SubstrateProvider) GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string) (clientState ibcexported.ClientState, clientStateProof []byte, consensusProof []byte, connectionProof []byte, connectionProofHeight ibcexported.Height, err error) {
 	var (
 		clientStateRes     *clienttypes.QueryClientStateResponse
 		consensusStateRes  *clienttypes.QueryConsensusStateResponse
@@ -401,7 +400,7 @@ func (sp *SubstrateProvider) GenerateConnHandshakeProof(height int64, clientId, 
 	)
 
 	// query for the client state for the proof and get the height to query the consensus state at.
-	clientStateRes, err = sp.QueryClientStateResponse(height, clientId)
+	clientStateRes, err = sp.QueryClientStateResponse(ctx, height, clientId)
 	if err != nil {
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
@@ -413,12 +412,12 @@ func (sp *SubstrateProvider) GenerateConnHandshakeProof(height int64, clientId, 
 
 	eg.Go(func() error {
 		var err error
-		consensusStateRes, err = sp.QueryClientConsensusState(height, clientId, clientState.GetLatestHeight())
+		consensusStateRes, err = sp.QueryClientConsensusState(ctx, height, clientId, clientState.GetLatestHeight())
 		return err
 	})
 	eg.Go(func() error {
 		var err error
-		connectionStateRes, err = sp.QueryConnection(height, connId)
+		connectionStateRes, err = sp.QueryConnection(ctx, height, connId)
 		return err
 	})
 
@@ -464,8 +463,8 @@ func (sp *SubstrateProvider) NewClientState(
 	return cs, nil
 }
 
-func (sp *SubstrateProvider) QueryChannel(height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
-	res, err := sp.queryChannel(height, portid, channelid)
+func (sp *SubstrateProvider) QueryChannel(ctx context.Context, height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
+	res, err := sp.queryChannel(ctx, height, portid, channelid)
 	if err != nil && strings.Contains(err.Error(), "not found") {
 
 		return &chantypes.QueryChannelResponse{
@@ -492,11 +491,11 @@ func (sp *SubstrateProvider) QueryChannel(height int64, channelid, portid string
 }
 
 // TODO: query channel using rpc methods
-func (sp *SubstrateProvider) queryChannel(height int64, portID, channelID string) (*chantypes.QueryChannelResponse, error) {
+func (sp *SubstrateProvider) queryChannel(ctx context.Context, height int64, portID, channelID string) (*chantypes.QueryChannelResponse, error) {
 	return &chantypes.QueryChannelResponse{}, nil
 }
 
-func (sp *SubstrateProvider) QueryChannelClient(height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
+func (sp *SubstrateProvider) QueryChannelClient(ctx context.Context, height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
 	res, err := sp.RPCClient.RPC.IBC.QueryChannelClient(uint32(height), channelid, portid)
 	if err != nil {
 		return nil, err
@@ -505,7 +504,7 @@ func (sp *SubstrateProvider) QueryChannelClient(height int64, channelid, portid 
 	return res, nil
 }
 
-func (sp *SubstrateProvider) QueryConnectionChannels(height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
+func (sp *SubstrateProvider) QueryConnectionChannels(ctx context.Context, height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
 	res, err := sp.RPCClient.RPC.IBC.QueryConnectionChannels(uint32(height), connectionid)
 	if err != nil {
 		return nil, err
@@ -514,7 +513,7 @@ func (sp *SubstrateProvider) QueryConnectionChannels(height int64, connectionid 
 	return res.Channels, nil
 }
 
-func (sp *SubstrateProvider) QueryChannels() ([]*chantypes.IdentifiedChannel, error) {
+func (sp *SubstrateProvider) QueryChannels(ctx context.Context) ([]*chantypes.IdentifiedChannel, error) {
 	res, err := sp.RPCClient.RPC.IBC.QueryChannels()
 	if err != nil {
 		return nil, err
@@ -523,7 +522,7 @@ func (sp *SubstrateProvider) QueryChannels() ([]*chantypes.IdentifiedChannel, er
 	return res.Channels, err
 }
 
-func (sp *SubstrateProvider) QueryPacketCommitments(height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
+func (sp *SubstrateProvider) QueryPacketCommitments(ctx context.Context, height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
 	res, err := sp.RPCClient.RPC.IBC.QueryPacketCommitments(height, channelid, portid)
 	if err != nil {
 		return nil, err
@@ -532,7 +531,7 @@ func (sp *SubstrateProvider) QueryPacketCommitments(height uint64, channelid, po
 	return res, err
 }
 
-func (sp *SubstrateProvider) QueryPacketAcknowledgements(height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
+func (sp *SubstrateProvider) QueryPacketAcknowledgements(ctx context.Context, height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
 	res, err := sp.RPCClient.RPC.IBC.QueryPacketAcknowledgements(uint32(height), channelid, portid)
 	if err != nil {
 		return nil, err
@@ -541,7 +540,7 @@ func (sp *SubstrateProvider) QueryPacketAcknowledgements(height uint64, channeli
 	return res.Acknowledgements, err
 }
 
-func (sp *SubstrateProvider) QueryUnreceivedPackets(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
+func (sp *SubstrateProvider) QueryUnreceivedPackets(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
 	packets, err := sp.RPCClient.RPC.IBC.QueryUnreceivedPackets(uint32(height), channelid, portid, seqs)
 	if err != nil {
 		return nil, err
@@ -550,7 +549,7 @@ func (sp *SubstrateProvider) QueryUnreceivedPackets(height uint64, channelid, po
 	return packets, err
 }
 
-func (sp *SubstrateProvider) QueryUnreceivedAcknowledgements(height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
+func (sp *SubstrateProvider) QueryUnreceivedAcknowledgements(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
 	var ack []uint64
 	ack, err := sp.RPCClient.RPC.IBC.QueryUnreceivedAcknowledgements(uint32(height), channelid, portid, seqs)
 	if err != nil {
@@ -560,7 +559,7 @@ func (sp *SubstrateProvider) QueryUnreceivedAcknowledgements(height uint64, chan
 	return ack, err
 }
 
-func (sp *SubstrateProvider) QueryNextSeqRecv(height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
+func (sp *SubstrateProvider) QueryNextSeqRecv(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
 	recvRes, err = sp.RPCClient.RPC.IBC.QueryNextSeqRecv(uint32(height), channelid, portid)
 	if err != nil {
 		return nil, err
@@ -568,7 +567,7 @@ func (sp *SubstrateProvider) QueryNextSeqRecv(height int64, channelid, portid st
 	return
 }
 
-func (sp *SubstrateProvider) QueryPacketCommitment(height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error) {
+func (sp *SubstrateProvider) QueryPacketCommitment(ctx context.Context, height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error) {
 	comRes, err = sp.RPCClient.RPC.IBC.QueryPacketCommitment(height, channelid, portid)
 	if err != nil {
 		return nil, err
@@ -576,7 +575,7 @@ func (sp *SubstrateProvider) QueryPacketCommitment(height int64, channelid, port
 	return
 }
 
-func (sp *SubstrateProvider) QueryPacketAcknowledgement(height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
+func (sp *SubstrateProvider) QueryPacketAcknowledgement(ctx context.Context, height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
 	ackRes, err = sp.RPCClient.RPC.IBC.QueryPacketAcknowledgement(uint32(height), channelid, portid, seq)
 	if err != nil {
 		return nil, err
@@ -584,7 +583,7 @@ func (sp *SubstrateProvider) QueryPacketAcknowledgement(height int64, channelid,
 	return
 }
 
-func (sp *SubstrateProvider) QueryPacketReceipt(height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
+func (sp *SubstrateProvider) QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
 	recRes, err = sp.RPCClient.RPC.IBC.QueryPacketReceipt(uint32(height), channelid, portid, seq)
 	if err != nil {
 		return nil, err
@@ -592,7 +591,7 @@ func (sp *SubstrateProvider) QueryPacketReceipt(height int64, channelid, portid 
 	return
 }
 
-func (sp *SubstrateProvider) QueryDenomTrace(denom string) (*transfertypes.DenomTrace, error) {
+func (sp *SubstrateProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
 	res, err := sp.RPCClient.RPC.IBC.QueryDenomTrace(denom)
 	if err != nil {
 		return nil, err
@@ -601,7 +600,7 @@ func (sp *SubstrateProvider) QueryDenomTrace(denom string) (*transfertypes.Denom
 	return res.DenomTrace, err
 }
 
-func (sp *SubstrateProvider) QueryDenomTraces(offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
+func (sp *SubstrateProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
 	res, err := sp.RPCClient.RPC.IBC.QueryDenomTraces(offset, limit, uint32(height))
 	if err != nil {
 		return nil, err

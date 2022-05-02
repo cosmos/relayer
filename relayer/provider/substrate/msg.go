@@ -2,10 +2,11 @@ package substrate
 
 import (
 	"fmt"
-	"github.com/cosmos/relayer/relayer/provider"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
-type Msg interface {}
+type Msg interface{}
 
 func NewSubstrateRelayerMessage(msg Msg) provider.RelayerMessage {
 	return SubstrateRelayerMessage{

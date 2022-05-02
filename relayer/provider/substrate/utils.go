@@ -19,11 +19,11 @@ func Encode(data interface{}) ([]byte, error) {
 
 // Decode decodes an encoded type to a target type. It takes encoded bytes and target interface as arguments and
 // returns decoded data as the target type.
-func Decode(source []byte, target interface{}) (interface{}, error) {
+func Decode(source []byte, target interface{}) error {
 	dec := scale.NewDecoder(bytes.NewReader(source))
 	err := dec.Decode(target)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return target, nil
+	return nil
 }

@@ -1,6 +1,7 @@
 package substrate
 
 import (
+	"context"
 	"fmt"
 
 	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
@@ -17,7 +18,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
-	"github.com/cosmos/relayer/relayer/provider"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 var (
@@ -133,7 +134,7 @@ func (sp *SubstrateProvider) ConnectionOpenInit(srcClientId, dstClientId string,
 	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
-func (sp *SubstrateProvider) ConnectionOpenTry(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -143,12 +144,12 @@ func (sp *SubstrateProvider) ConnectionOpenTry(dstQueryProvider provider.QueryPr
 		return nil, err
 	}
 
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(cph, dstClientId, dstConnId)
+	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(ctx, cph, dstClientId, dstConnId)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +191,7 @@ func (sp *SubstrateProvider) ConnectionOpenTry(dstQueryProvider provider.QueryPr
 	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
-func (sp *SubstrateProvider) ConnectionOpenAck(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -200,13 +201,13 @@ func (sp *SubstrateProvider) ConnectionOpenAck(dstQueryProvider provider.QueryPr
 	if err != nil {
 		return nil, err
 	}
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	clientState, clientStateProof, consensusStateProof, connStateProof,
-		proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(cph, dstClientId, dstConnId)
+		proofHeight, err := dstQueryProvider.GenerateConnHandshakeProof(ctx, cph, dstClientId, dstConnId)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +240,7 @@ func (sp *SubstrateProvider) ConnectionOpenAck(dstQueryProvider provider.QueryPr
 	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
-func (sp *SubstrateProvider) ConnectionOpenConfirm(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) ConnectionOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -249,11 +250,11 @@ func (sp *SubstrateProvider) ConnectionOpenConfirm(dstQueryProvider provider.Que
 		return nil, err
 	}
 
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
-	counterpartyConnState, err := dstQueryProvider.QueryConnection(cph, dstConnId)
+	counterpartyConnState, err := dstQueryProvider.QueryConnection(ctx, cph, dstConnId)
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +305,7 @@ func (sp *SubstrateProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, 
 	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
-func (sp *SubstrateProvider) ChannelOpenTry(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -313,12 +314,12 @@ func (sp *SubstrateProvider) ChannelOpenTry(dstQueryProvider provider.QueryProvi
 	if err != nil {
 		return nil, err
 	}
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	counterpartyChannelRes, err := dstQueryProvider.QueryChannel(cph, dstChanId, dstPortId)
+	counterpartyChannelRes, err := dstQueryProvider.QueryChannel(ctx, cph, dstChanId, dstPortId)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +350,7 @@ func (sp *SubstrateProvider) ChannelOpenTry(dstQueryProvider provider.QueryProvi
 	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
-func (sp *SubstrateProvider) ChannelOpenAck(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -359,12 +360,12 @@ func (sp *SubstrateProvider) ChannelOpenAck(dstQueryProvider provider.QueryProvi
 		return nil, err
 	}
 
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	counterpartyChannelRes, err := dstQueryProvider.QueryChannel(cph, dstChanId, dstPortId)
+	counterpartyChannelRes, err := dstQueryProvider.QueryChannel(ctx, cph, dstChanId, dstPortId)
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +387,7 @@ func (sp *SubstrateProvider) ChannelOpenAck(dstQueryProvider provider.QueryProvi
 	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
-func (sp *SubstrateProvider) ChannelOpenConfirm(dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChanId string) ([]provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChanId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -395,12 +396,12 @@ func (sp *SubstrateProvider) ChannelOpenConfirm(dstQueryProvider provider.QueryP
 	if err != nil {
 		return nil, err
 	}
-	cph, err := dstQueryProvider.QueryLatestHeight()
+	cph, err := dstQueryProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	counterpartyChanState, err := dstQueryProvider.QueryChannel(cph, dstChanId, dstPortId)
+	counterpartyChanState, err := dstQueryProvider.QueryChannel(ctx, cph, dstChanId, dstPortId)
 	if err != nil {
 		return nil, err
 	}
@@ -438,12 +439,12 @@ func (sp *SubstrateProvider) ChannelCloseInit(srcPortId, srcChanId string) (prov
 	return NewSubstrateRelayerMessage(msg), nil
 }
 
-func (sp *SubstrateProvider) ChannelCloseConfirm(dstQueryProvider provider.QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) ChannelCloseConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
 	)
-	dstChanResp, err := dstQueryProvider.QueryChannel(dsth, dstChanId, dstPortId)
+	dstChanResp, err := dstQueryProvider.QueryChannel(ctx, dsth, dstChanId, dstPortId)
 	if err != nil {
 		return nil, err
 	}
@@ -463,7 +464,7 @@ func (sp *SubstrateProvider) ChannelCloseConfirm(dstQueryProvider provider.Query
 	return NewSubstrateRelayerMessage(msg), nil
 }
 
-func (sp *SubstrateProvider) MsgRelayAcknowledgement(dst provider.ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet provider.RelayPacket) (provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) MsgRelayAcknowledgement(ctx context.Context, dst provider.ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet provider.RelayPacket) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -477,7 +478,7 @@ func (sp *SubstrateProvider) MsgRelayAcknowledgement(dst provider.ChainProvider,
 		return nil, err
 	}
 
-	ackRes, err := dst.QueryPacketAcknowledgement(dsth, dstChanId, dstPortId, packet.Seq())
+	ackRes, err := dst.QueryPacketAcknowledgement(ctx, dsth, dstChanId, dstPortId, packet.Seq())
 	switch {
 	case err != nil:
 		return nil, err
@@ -534,7 +535,7 @@ func (sp *SubstrateProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, s
 	return NewSubstrateRelayerMessage(msg), nil
 }
 
-func (sp *SubstrateProvider) MsgRelayTimeout(dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) MsgRelayTimeout(ctx context.Context, dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -543,7 +544,7 @@ func (sp *SubstrateProvider) MsgRelayTimeout(dst provider.ChainProvider, dsth in
 		return nil, err
 	}
 
-	recvRes, err := dst.QueryPacketReceipt(dsth, dstChanId, dstPortId, packet.Seq())
+	recvRes, err := dst.QueryPacketReceipt(ctx, dsth, dstChanId, dstPortId, packet.Seq())
 	switch {
 	case err != nil:
 		return nil, err
@@ -573,7 +574,7 @@ func (sp *SubstrateProvider) MsgRelayTimeout(dst provider.ChainProvider, dsth in
 	}
 }
 
-func (sp *SubstrateProvider) MsgRelayRecvPacket(dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -582,7 +583,7 @@ func (sp *SubstrateProvider) MsgRelayRecvPacket(dst provider.ChainProvider, dsth
 		return nil, err
 	}
 
-	comRes, err := dst.QueryPacketCommitment(dsth, dstChanId, dstPortId, packet.Seq())
+	comRes, err := dst.QueryPacketCommitment(ctx, dsth, dstChanId, dstPortId, packet.Seq())
 	switch {
 	case err != nil:
 		return nil, err
@@ -624,7 +625,7 @@ func (sp *SubstrateProvider) MsgUpgradeClient(srcClientId string, consRes *clien
 		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}), nil
 }
 
-func (sp *SubstrateProvider) RelayPacketFromSequence(src, dst provider.ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId string) (provider.RelayerMessage, provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) RelayPacketFromSequence(ctx context.Context, src, dst provider.ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, dstClientId string, srcChanId, srcPortId, srcClientId string) (provider.RelayerMessage, provider.RelayerMessage, error) {
 
 	allPackets, err := sp.RPCClient.RPC.IBC.QueryPackets(srcClientId, dstPortId, []uint64{seq})
 	switch {
@@ -636,7 +637,7 @@ func (sp *SubstrateProvider) RelayPacketFromSequence(src, dst provider.ChainProv
 		return nil, nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	rcvPackets, timeoutPackets, err := relayPacketsFromPacket(src, dst, int64(dsth), allPackets, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId)
+	rcvPackets, timeoutPackets, err := relayPacketsFromPacket(ctx, src, dst, int64(dsth), allPackets, dstChanId, dstPortId, srcChanId, srcPortId, srcClientId)
 	switch {
 	case err != nil:
 		return nil, nil, err
@@ -655,7 +656,7 @@ func (sp *SubstrateProvider) RelayPacketFromSequence(src, dst provider.ChainProv
 			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
 		}
 
-		packet, err := dst.MsgRelayRecvPacket(src, int64(srch), pkt, srcChanId, srcPortId, dstChanId, dstPortId)
+		packet, err := dst.MsgRelayRecvPacket(ctx, src, int64(srch), pkt, srcChanId, srcPortId, dstChanId, dstPortId)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -669,7 +670,7 @@ func (sp *SubstrateProvider) RelayPacketFromSequence(src, dst provider.ChainProv
 			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
 		}
 
-		timeout, err := src.MsgRelayTimeout(dst, int64(dsth), pkt, dstChanId, dstPortId, srcChanId, srcPortId)
+		timeout, err := src.MsgRelayTimeout(ctx, dst, int64(dsth), pkt, dstChanId, dstPortId, srcChanId, srcPortId)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -679,15 +680,15 @@ func (sp *SubstrateProvider) RelayPacketFromSequence(src, dst provider.ChainProv
 	return nil, nil, fmt.Errorf("should have errored before here")
 }
 
-func (sp *SubstrateProvider) AcknowledgementFromSequence(dst provider.ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) AcknowledgementFromSequence(ctx context.Context, dst provider.ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
 	return nil, nil
 }
 
-func (sp *SubstrateProvider) SendMessage(msg provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
-	return sp.SendMessages([]provider.RelayerMessage{msg})
+func (sp *SubstrateProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+	return sp.SendMessages(ctx, []provider.RelayerMessage{msg})
 }
 
-func (sp *SubstrateProvider) SendMessages(msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+func (sp *SubstrateProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
 	meta, err := sp.RPCClient.RPC.State.GetMetadataLatest()
 	if err != nil {
 		return nil, false, err
@@ -758,7 +759,7 @@ func (sp *SubstrateProvider) SendMessages(msgs []provider.RelayerMessage) (*prov
 	return rlyRes, false, nil
 }
 
-func (sp *SubstrateProvider) GetLightSignedHeaderAtHeight(h int64) (ibcexported.Header, error) {
+func (sp *SubstrateProvider) GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error) {
 	return nil, nil
 }
 
@@ -766,9 +767,9 @@ func (sp *SubstrateProvider) GetLightSignedHeaderAtHeight(h int64) (ibcexported.
 // returns an IBC Update Header which can be used to update an on chain
 // light client on the destination chain. The source is used to construct
 // the header data.
-func (sp *SubstrateProvider) GetIBCUpdateHeader(srch int64, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
+func (sp *SubstrateProvider) GetIBCUpdateHeader(ctx context.Context, srch int64, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
 	// Construct header data from light client representing source.
-	h, err := sp.GetLightSignedHeaderAtHeight(srch)
+	h, err := sp.GetLightSignedHeaderAtHeight(ctx, srch)
 	if err != nil {
 		return nil, err
 	}
@@ -808,10 +809,10 @@ func (sp *SubstrateProvider) Timeout() string {
 	return sp.Config.Timeout
 }
 
-func (sp *SubstrateProvider) TrustingPeriod() (time.Duration, error) {
+func (sp *SubstrateProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
 	return 0, nil
 }
 
-func (sp *SubstrateProvider) WaitForNBlocks(n int64) error {
+func (sp *SubstrateProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	return nil
 }
