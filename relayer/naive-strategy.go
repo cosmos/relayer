@@ -55,26 +55,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 			return err
 		}
 
-		// If this is an ORDERED channel query the next expected receive packet sequence on the counterparty chain.
-		var nextSeqResp *chantypes.QueryNextSequenceReceiveResponse
-		if srcChannel.Ordering == chantypes.ORDERED {
-			nextSeqResp, err = dst.ChainProvider.QueryNextSeqRecv(ctx, dsth, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
-			if err != nil {
-				return err
-			}
-		}
-
 		for _, pc := range res.Commitments {
-			// For ordered channels we want to only relay the packet whose sequence number is equal to
-			// the expected next packet receive sequence from the counterparty.
-			if srcChannel.Ordering == chantypes.ORDERED {
-				if pc.Sequence != nextSeqResp.NextSequenceReceive {
-					continue
-				}
-				srcPacketSeq = append(srcPacketSeq, pc.Sequence)
-				break
-			}
-
 			srcPacketSeq = append(srcPacketSeq, pc.Sequence)
 		}
 		return nil
@@ -108,26 +89,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 			return err
 		}
 
-		// If this is an ORDERED channel query the next expected receive packet sequence on the counterparty chain.
-		var nextSeqResp *chantypes.QueryNextSequenceReceiveResponse
-		if srcChannel.Ordering == chantypes.ORDERED {
-			nextSeqResp, err = src.ChainProvider.QueryNextSeqRecv(ctx, srch, srcChannel.ChannelId, srcChannel.PortId)
-			if err != nil {
-				return err
-			}
-		}
-
 		for _, pc := range res.Commitments {
-			// For ordered channels we want to only relay the packet whose sequence number is equal to
-			// the expected next packet receive sequence from the counterparty.
-			if srcChannel.Ordering == chantypes.ORDERED {
-				if pc.Sequence != nextSeqResp.NextSequenceReceive {
-					continue
-				}
-				dstPacketSeq = append(dstPacketSeq, pc.Sequence)
-				break
-			}
-
 			dstPacketSeq = append(dstPacketSeq, pc.Sequence)
 		}
 		return nil
@@ -137,18 +99,16 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 		return nil, err
 	}
 
-	// On ORDERED channels there is a chance that at this point there are no packets to relay,
-	// we want to check if there are any packet commitments and return if there isn't.
-	if len(srcPacketSeq) == 0 && len(dstPacketSeq) == 0 {
-		return rs, nil
-	}
+	var (
+		srcUnreceivedPackets, dstUnreceivedPackets []uint64
+	)
 
 	eg, egCtx = errgroup.WithContext(ctx) // Re-set eg and egCtx after previous Wait.
 	eg.Go(func() error {
-		// Query all packets sent by src that have been received by dst
+		// Query all packets sent by src that have not been received by dst.
 		return retry.Do(func() error {
 			var err error
-			rs.Src, err = dst.ChainProvider.QueryUnreceivedPackets(egCtx, uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
+			srcUnreceivedPackets, err = dst.ChainProvider.QueryUnreceivedPackets(egCtx, uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
 			return err
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dst.log.Info(
@@ -163,10 +123,10 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 	})
 
 	eg.Go(func() error {
-		// Query all packets sent by dst that have been received by src
+		// Query all packets sent by dst that have not been received by src.
 		return retry.Do(func() error {
 			var err error
-			rs.Dst, err = src.ChainProvider.QueryUnreceivedPackets(egCtx, uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
+			dstUnreceivedPackets, err = src.ChainProvider.QueryUnreceivedPackets(egCtx, uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
 			return err
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.log.Info(
@@ -182,6 +142,45 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 
 	if err := eg.Wait(); err != nil {
 		return nil, err
+	}
+
+	// If this is an UNORDERED channel we can return at this point.
+	if srcChannel.Ordering != chantypes.ORDERED {
+		rs.Src = srcUnreceivedPackets
+		rs.Dst = dstUnreceivedPackets
+		return rs, nil
+	}
+
+	// For ordered channels we want to only relay the packet whose sequence number is equal to
+	// the expected next packet receive sequence from the counterparty.
+	if len(srcUnreceivedPackets) > 0 {
+		nextSeqResp, err := dst.ChainProvider.QueryNextSeqRecv(ctx, dsth, srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, seq := range srcUnreceivedPackets {
+			if seq == nextSeqResp.NextSequenceReceive {
+				rs.Src = append(rs.Src, seq)
+				break
+			}
+		}
+	}
+
+	// For ordered channels we want to only relay the packet whose sequence number is equal to
+	// the expected next packet receive sequence from the counterparty.
+	if len(dstUnreceivedPackets) > 0 {
+		nextSeqResp, err := src.ChainProvider.QueryNextSeqRecv(ctx, srch, srcChannel.ChannelId, srcChannel.PortId)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, seq := range dstUnreceivedPackets {
+			if seq == nextSeqResp.NextSequenceReceive {
+				rs.Dst = append(rs.Dst, seq)
+				break
+			}
+		}
 	}
 
 	return rs, nil
