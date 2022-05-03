@@ -19,11 +19,12 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"io"
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 const (
@@ -32,36 +33,38 @@ const (
 )
 
 // keysCmd represents the keys command
-func keysCmd() *cobra.Command {
+func keysCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "keys",
 		Aliases: []string{"k"},
 		Short:   "Manage keys held by the relayer for each chain",
 	}
 
-	cmd.AddCommand(keysAddCmd())
-	cmd.AddCommand(keysRestoreCmd())
-	cmd.AddCommand(keysDeleteCmd())
-	cmd.AddCommand(keysListCmd())
-	cmd.AddCommand(keysShowCmd())
-	cmd.AddCommand(keysExportCmd())
+	cmd.AddCommand(
+		keysAddCmd(a),
+		keysRestoreCmd(a),
+		keysDeleteCmd(a),
+		keysListCmd(a),
+		keysShowCmd(a),
+		keysExportCmd(a),
+	)
 
 	return cmd
 }
 
 // keysAddCmd respresents the `keys add` command
-func keysAddCmd() *cobra.Command {
+func keysAddCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "add [chain-id] [name]",
+		Use:     "add chain_id name",
 		Aliases: []string{"a"},
 		Short:   "Adds a key to the keychain associated with a particular chain",
-		Args:    cobra.ExactArgs(2),
+		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys add ibc-0
 $ %s keys add ibc-1 key2
 $ %s k a ibc-2 testkey`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.Chains.Get(args[0])
+			chain, err := a.Config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -71,9 +74,14 @@ $ %s k a ibc-2 testkey`, appName, appName, appName)),
 				return errKeyExists(keyName)
 			}
 
-			ko, err := chain.ChainProvider.AddKey(keyName)
+			coinType, err := cmd.Flags().GetUint32(flagCoinType)
 			if err != nil {
 				return err
+			}
+
+			ko, err := chain.ChainProvider.AddKey(keyName, coinType)
+			if err != nil {
+				return fmt.Errorf("failed to add key: %w", err)
 			}
 
 			out, err := json.Marshal(&ko)
@@ -81,7 +89,7 @@ $ %s k a ibc-2 testkey`, appName, appName, appName)),
 				return err
 			}
 
-			fmt.Println(string(out))
+			fmt.Fprintln(cmd.OutOrStdout(), string(out))
 			return nil
 		},
 	}
@@ -91,18 +99,18 @@ $ %s k a ibc-2 testkey`, appName, appName, appName)),
 }
 
 // keysRestoreCmd respresents the `keys add` command
-func keysRestoreCmd() *cobra.Command {
+func keysRestoreCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "restore [chain-id] [name] [mnemonic]",
+		Use:     "restore chain_id name mnemonic",
 		Aliases: []string{"r"},
 		Short:   "Restores a mnemonic to the keychain associated with a particular chain",
-		Args:    cobra.ExactArgs(3),
+		Args:    withUsage(cobra.ExactArgs(3)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys restore ibc-0 testkey "[mnemonic-words]"
 $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
-			chain, err := config.Chains.Get(args[0])
+			chain, err := a.Config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -111,12 +119,17 @@ $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 				return errKeyExists(keyName)
 			}
 
-			address, err := chain.ChainProvider.RestoreKey(keyName, args[2])
+			coinType, err := cmd.Flags().GetUint32(flagCoinType)
 			if err != nil {
 				return err
 			}
 
-			fmt.Println(address)
+			address, err := chain.ChainProvider.RestoreKey(keyName, args[2], coinType)
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), address)
 			return nil
 		},
 	}
@@ -126,18 +139,18 @@ $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 }
 
 // keysDeleteCmd respresents the `keys delete` command
-func keysDeleteCmd() *cobra.Command {
+func keysDeleteCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [chain-id] [name]",
+		Use:     "delete chain_id name",
 		Aliases: []string{"d"},
 		Short:   "Deletes a key from the keychain associated with a particular chain",
-		Args:    cobra.ExactArgs(2),
+		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys delete ibc-0 -y
 $ %s keys delete ibc-1 key2 -y
 $ %s k d ibc-2 testkey`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.Chains.Get(args[0])
+			chain, err := a.Config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -148,31 +161,31 @@ $ %s k d ibc-2 testkey`, appName, appName, appName)),
 			}
 
 			if skip, _ := cmd.Flags().GetBool(flagSkip); !skip {
-				fmt.Printf("Are you sure you want to delete key(%s) from chain(%s)? (Y/n)\n", keyName, args[0])
-				if !askForConfirmation() {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Are you sure you want to delete key(%s) from chain(%s)? (Y/n)\n", keyName, args[0])
+				if !askForConfirmation(a, cmd.InOrStdin(), cmd.ErrOrStderr()) {
 					return nil
 				}
 			}
 
 			err = chain.ChainProvider.DeleteKey(keyName)
 			if err != nil {
-				panic(err)
+				return err
 			}
 
-			fmt.Printf("key %s deleted\n", keyName)
+			fmt.Fprintf(cmd.ErrOrStderr(), "key %s deleted\n", keyName)
 			return nil
 		},
 	}
 
-	return skipConfirm(cmd)
+	return skipConfirm(a.Viper, cmd)
 }
 
-func askForConfirmation() bool {
+func askForConfirmation(a *appState, stdin io.Reader, stderr io.Writer) bool {
 	var response string
 
-	_, err := fmt.Scanln(&response)
+	_, err := fmt.Fscanln(stdin, &response)
 	if err != nil {
-		log.Fatal(err)
+		a.Log.Fatal("Failed to read input", zap.Error(err))
 	}
 
 	switch strings.ToLower(response) {
@@ -181,23 +194,25 @@ func askForConfirmation() bool {
 	case "n", "no":
 		return false
 	default:
-		fmt.Println("please type (y)es or (n)o and then press enter")
-		return askForConfirmation()
+		fmt.Fprintln(stderr, "please type (y)es or (n)o and then press enter")
+		return askForConfirmation(a, stdin, stderr)
 	}
 }
 
 // keysListCmd respresents the `keys list` command
-func keysListCmd() *cobra.Command {
+func keysListCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list [chain-id]",
+		Use:     "list chain_id",
 		Aliases: []string{"l"},
 		Short:   "Lists keys from the keychain associated with a particular chain",
-		Args:    cobra.ExactArgs(1),
+		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys list ibc-0
 $ %s k l ibc-1`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.Chains.Get(args[0])
+			chainID := args[0]
+
+			chain, err := a.Config.Chains.Get(chainID)
 			if err != nil {
 				return err
 			}
@@ -207,8 +222,12 @@ $ %s k l ibc-1`, appName, appName)),
 				return err
 			}
 
+			if len(info) == 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: no keys found for chain %s (do you need to run 'rly keys add %s'?)\n", chainID, chainID)
+			}
+
 			for key, val := range info {
-				fmt.Printf("key(%s) -> %s\n", key, val)
+				fmt.Fprintf(cmd.OutOrStdout(), "key(%s) -> %s\n", key, val)
 			}
 
 			return nil
@@ -219,18 +238,18 @@ $ %s k l ibc-1`, appName, appName)),
 }
 
 // keysShowCmd respresents the `keys show` command
-func keysShowCmd() *cobra.Command {
+func keysShowCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "show [chain-id] [[name]]",
+		Use:     "show chain_id [name]",
 		Aliases: []string{"s"},
 		Short:   "Shows a key from the keychain associated with a particular chain",
-		Args:    cobra.RangeArgs(1, 2),
+		Args:    withUsage(cobra.RangeArgs(1, 2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys show ibc-0
 $ %s keys show ibc-1 key2
 $ %s k s ibc-2 testkey`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.Chains.Get(args[0])
+			chain, err := a.Config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -251,7 +270,7 @@ $ %s k s ibc-2 testkey`, appName, appName, appName)),
 				return err
 			}
 
-			fmt.Println(address)
+			fmt.Fprintln(cmd.OutOrStdout(), address)
 			return nil
 		},
 	}
@@ -260,18 +279,18 @@ $ %s k s ibc-2 testkey`, appName, appName, appName)),
 }
 
 // keysExportCmd respresents the `keys export` command
-func keysExportCmd() *cobra.Command {
+func keysExportCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "export [chain-id] [name]",
+		Use:     "export chain_id name",
 		Aliases: []string{"e"},
 		Short:   "Exports a privkey from the keychain associated with a particular chain",
-		Args:    cobra.ExactArgs(2),
+		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys export ibc-0 testkey
 $ %s k e ibc-2 testkey`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
-			chain, err := config.Chains.Get(args[0])
+			chain, err := a.Config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -285,7 +304,7 @@ $ %s k e ibc-2 testkey`, appName, appName)),
 				return err
 			}
 
-			fmt.Println(info)
+			fmt.Fprintln(cmd.OutOrStdout(), info)
 			return nil
 		},
 	}

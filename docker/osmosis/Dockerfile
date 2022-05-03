@@ -22,9 +22,9 @@ COPY --from=build-env /go/src/github.com/osmosis-labs/osmosis/build/osmosisd /us
 
 WORKDIR /osmosis
 
-COPY ./test/setup/osmosis-setup.sh .
+COPY ./_test/setup/osmosis-setup.sh .
 
-COPY ./test/setup/valkeys ./setup/valkeys
+COPY ./_test/setup/valkeys ./setup/valkeys
 
 USER root
 

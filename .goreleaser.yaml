@@ -8,9 +8,7 @@ builds:
   - id: "relayer"
     main: ./main.go
     ldflags:
-      - -X github.com/cosmos/relayer/cmd.Version={{ .Tag }}
-      - -X github.com/cosmos/relayer/cmd.Commit={{ .FullCommit }}
-      - -X github.com/cosmos/relayer/cmd.SDKCommit={{ .Env.SDK_COMMIT }}
+      - -X github.com/cosmos/relayer/v2/cmd.Version={{ .Tag }}
     goos:
       - darwin
       - linux
@@ -23,4 +21,5 @@ checksum:
   algorithm: sha256
 
 release:
-  name_template: "{{ .Version }} - (WARNING: ALPHA SOFTWARE)"
+  prerelease: auto
+  draft: true

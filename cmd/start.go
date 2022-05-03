@@ -17,35 +17,36 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"math"
-	"os"
-	"os/signal"
+	"net"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
-	"github.com/avast/retry-go"
-	"github.com/cosmos/relayer/relayer"
+	"github.com/avast/retry-go/v4"
+	"github.com/cosmos/relayer/v2/internal/relaydebug"
+	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
 // startCmd represents the start command
 // NOTE: This is basically pseudocode
-func startCmd() *cobra.Command {
+func startCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "start [path-name]",
+		Use:     "start path_name",
 		Aliases: []string{"st"},
 		Short:   "Start the listening relayer on a given path",
-		Args:    cobra.ExactArgs(1),
+		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s start demo-path --max-msgs 3
 $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := config.ChainsFromPath(args[0])
+			c, src, dst, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -54,89 +55,111 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				return err
 			}
 
-			path := config.Paths.MustGet(args[0])
+			path := a.Config.Paths.MustGet(args[0])
+
 			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
 			if err != nil {
 				return err
 			}
 
-			if relayer.SendToController != nil {
-				action := relayer.PathAction{
-					Path: path,
-					Type: "RELAYER_PATH_START",
-				}
-				cont, err := relayer.ControllerUpcall(&action)
-				if !cont {
-					return err
-				}
-			}
+			filter := path.Filter
 
-			done, err := relayer.StartRelayer(c[src], c[dst], maxTxSize, maxMsgLength)
+			debugAddr, err := cmd.Flags().GetString(flagDebugAddr)
 			if err != nil {
 				return err
 			}
-
-			thresholdTime := viper.GetDuration(flagThresholdTime)
-
-			eg := new(errgroup.Group)
-			eg.Go(func() error {
-				for {
-					var timeToExpiry time.Duration
-					if err := retry.Do(func() error {
-						timeToExpiry, err = UpdateClientsFromChains(c[src], c[dst], thresholdTime)
-						if err != nil {
-							return err
-						}
-						return nil
-					}, retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true)); err != nil {
-						return err
-					}
-					time.Sleep(timeToExpiry - thresholdTime)
+			if debugAddr == "" {
+				a.Log.Info("Skipping debug server due to empty debug address flag")
+			} else {
+				ln, err := net.Listen("tcp", debugAddr)
+				if err != nil {
+					a.Log.Error("Failed to listen on debug address. If you have another relayer process open, use --" + flagDebugAddr + " to pick a different address.")
+					return fmt.Errorf("failed to listen on debug address %q: %w", debugAddr, err)
 				}
-			})
-			if err = eg.Wait(); err != nil {
-				return err
+				log := a.Log.With(zap.String("sys", "debughttp"))
+				log.Info("Debug server listening", zap.String("addr", debugAddr))
+				relaydebug.StartDebugServer(cmd.Context(), log, ln)
 			}
 
-			trapSignal(done)
+			rlyErrCh := relayer.StartRelayer(cmd.Context(), a.Log, c[src], c[dst], filter, maxTxSize, maxMsgLength)
+
+			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire
+			// when there are no packets flowing across the channels. It is currently a source of errors that have been
+			// hard to rectify, so we are just avoiding this code path for now
+			if false {
+				thresholdTime := a.Viper.GetDuration(flagThresholdTime)
+				eg, egCtx := errgroup.WithContext(cmd.Context())
+
+				eg.Go(func() error {
+					for {
+						var timeToExpiry time.Duration
+						if err = retry.Do(func() error {
+							timeToExpiry, err = UpdateClientsFromChains(egCtx, c[src], c[dst], thresholdTime)
+							return err
+						}, retry.Context(egCtx), retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
+							a.Log.Info(
+								"Failed to update clients from chains",
+								zap.String("src_chain_id", c[src].ChainID()),
+								zap.String("dst_chain_id", c[dst].ChainID()),
+								zap.Uint("attempt", n+1),
+								zap.Uint("max_attempts", relayer.RtyAttNum),
+								zap.Error(err),
+							)
+						})); err != nil {
+							return err
+						}
+						select {
+						case <-time.After(timeToExpiry - thresholdTime):
+							// Nothing to do.
+						case <-egCtx.Done():
+							return egCtx.Err()
+						}
+					}
+				})
+				if err = eg.Wait(); err != nil {
+					a.Log.Warn(
+						"Error updating clients",
+						zap.Error(err),
+					)
+				}
+			}
+
+			// Block until the error channel sends a message.
+			// The context being canceled will cause the relayer to stop,
+			// so we don't want to separately monitor the ctx.Done channel,
+			// because we would risk returning before the relayer cleans up.
+			if err := <-rlyErrCh; err != nil && !errors.Is(err, context.Canceled) {
+				a.Log.Warn(
+					"Relayer start error",
+					zap.Error(err),
+				)
+				return err
+			}
 			return nil
 		},
 	}
-	return strategyFlag(updateTimeFlags(cmd))
-}
-
-// trap signal waits for a SIGINT or SIGTERM and then sends down the done channel
-func trapSignal(done func()) {
-	sigCh := make(chan os.Signal, 1)
-
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	// wait for a signal
-	sig := <-sigCh
-	fmt.Println("Signal Received", sig.String())
-	close(sigCh)
-
-	// call the cleanup func
-	done()
+	return debugServerFlags(a.Viper, strategyFlag(a.Viper, updateTimeFlags(a.Viper, cmd)))
 }
 
 // UpdateClientsFromChains takes src, dst chains, threshold time and update clients based on expiry time
-func UpdateClientsFromChains(src, dst *relayer.Chain, thresholdTime time.Duration) (time.Duration, error) {
+func UpdateClientsFromChains(ctx context.Context, src, dst *relayer.Chain, thresholdTime time.Duration) (time.Duration, error) {
 	var (
 		srcTimeExpiry, dstTimeExpiry time.Duration
 		err                          error
 	)
 
-	eg := new(errgroup.Group)
+	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		srcTimeExpiry, err = src.ChainProvider.AutoUpdateClient(dst.ChainProvider, thresholdTime, src.ClientID(), dst.ClientID())
+		var err error
+		srcTimeExpiry, err = src.ChainProvider.AutoUpdateClient(egCtx, dst.ChainProvider, thresholdTime, src.ClientID(), dst.ClientID())
 		return err
 	})
 	eg.Go(func() error {
-		dstTimeExpiry, err = dst.ChainProvider.AutoUpdateClient(src.ChainProvider, thresholdTime, dst.ClientID(), src.ClientID())
+		var err error
+		dstTimeExpiry, err = dst.ChainProvider.AutoUpdateClient(egCtx, src.ChainProvider, thresholdTime, dst.ClientID(), src.ClientID())
 		return err
 	})
-	if err := eg.Wait(); err != nil {
+	if err = eg.Wait(); err != nil {
 		return 0, err
 	}
 

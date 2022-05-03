@@ -1,166 +1,101 @@
 package relayer
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/cosmos/relayer/relayer/provider"
-	"github.com/strangelove-ventures/lens/client"
-	"strconv"
-	"strings"
-	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
+	"go.uber.org/zap"
+
+	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 )
 
-// LogFailedTx takes the transaction and the messages to create it and logs the appropriate data
-func (c *Chain) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
-	if c.debug {
-		c.Log(fmt.Sprintf("- [%s] -> failed sending transaction:", c.ChainID()))
-		for _, msg := range msgs {
-			_ = c.Print(client.CosmosMsg(msg), false, false)
+func logFailedTx(log *zap.Logger, chainID string, res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
+	fields := make([]zap.Field, 1+len(msgs), 2+len(msgs))
+	fields[0] = zap.String("chain_id", chainID)
+	for i, msg := range msgs {
+		cm, ok := msg.(cosmos.CosmosMessage)
+		if ok {
+			fields[i+1] = zap.Object(
+				fmt.Sprintf("msg-%d", i),
+				cm,
+			)
+		} else {
+			// TODO: choose another encoding instead of skipping?
+			fields[i+1] = zap.Skip()
 		}
 	}
-
 	if err != nil {
-		c.logger.Error(fmt.Errorf("- [%s] -> err(%v)", c.ChainID(), err).Error())
-		if res == nil {
-			return
+		fields = append(fields, zap.Error(err))
+	}
+	log.Info("Failed sending transaction", fields...)
+
+	if res != nil && res.Code != 0 && res.Data != "" {
+		msgTypes := make([]string, len(msgs))
+		for i, msg := range msgs {
+			msgTypes[i] = msg.Type()
 		}
+
+		log.Info(
+			"Sent transaction that resulted in error",
+			zap.String("chain_id", chainID),
+			zap.Int64("height", res.Height),
+			zap.Strings("msg_types", msgTypes),
+			zap.Uint32("error_code", res.Code),
+			zap.String("error_data", res.Data),
+		)
 	}
 
 	if res != nil {
-		if res.Code != 0 && res.Data != "" {
-			c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%d:%s)",
-				c.ChainID(), res.Height, getMsgTypes(msgs), res.Code, res.Data))
-		}
-	}
-
-	if c.debug && res != nil {
-		c.Log("- transaction response:")
-		_ = c.PrintRelayerTxResponse(res, false, false)
+		log.Debug("Transaction response", zap.Object("resp", res))
 	}
 }
 
-func (c *Chain) PrintRelayerTxResponse(res *provider.RelayerTxResponse, text, indent bool) error {
-	var (
-		out []byte
-		err error
+// LogFailedTx takes the transaction and the messages to create it and logs the appropriate data
+func (c *Chain) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
+	logFailedTx(c.log, c.ChainID(), res, err, msgs)
+}
+
+func (c *Chain) logPacketsRelayed(dst *Chain, num int, srcChannel *chantypes.IdentifiedChannel) {
+	c.log.Info(
+		"Relayed packets",
+		zap.Int("count", num),
+		zap.String("from_chain_id", dst.ChainID()),
+		zap.String("from_port_id", srcChannel.Counterparty.PortId),
+		zap.String("to_chain_id", c.ChainID()),
+		zap.String("to_port_id", srcChannel.PortId),
 	)
-
-	switch {
-	case indent && text:
-		return fmt.Errorf("must pass either indent or text, not both")
-	case text:
-		// TODO: This isn't really a good option,
-		out = []byte(fmt.Sprintf("%v", res))
-	default:
-		out, err = json.Marshal(res)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(string(out))
-	return nil
-}
-
-// LogSuccessTx take the transaction and the messages to create it and logs the appropriate data
-func (c *Chain) LogSuccessTx(res *sdk.TxResponse, msgs []provider.RelayerMessage) {
-	c.logger.Info(fmt.Sprintf("✔ [%s]@{%d} - msg(%s) hash(%s)", c.ChainID(), res.Height, getMsgTypes(msgs), res.TxHash))
-}
-
-func (c *Chain) logPacketsRelayed(dst *Chain, num int) {
-	dst.Log(fmt.Sprintf("★ Relayed %d packets: [%s]port{%s}->[%s]port{%s}",
-		num, dst.ChainID(), dst.PathEnd.PortID, c.ChainID(), c.PathEnd.PortID))
 }
 
 func logChannelStates(src, dst *Chain, srcChan, dstChan *chantypes.QueryChannelResponse) {
-	src.Log(fmt.Sprintf("- [%s]@{%d}chan(%s)-{%s} : [%s]@{%d}chan(%s)-{%s}",
-		src.ChainID(),
-		MustGetHeight(srcChan.ProofHeight),
-		src.PathEnd.ChannelID,
-		srcChan.Channel.State,
-		dst.ChainID(),
-		MustGetHeight(dstChan.ProofHeight),
-		dst.PathEnd.ChannelID,
-		dstChan.Channel.State,
-	))
-}
+	src.log.Debug(
+		"Channel states",
+		zap.String("src_chain_id", src.ChainID()),
+		zap.Stringer("src_channel_proof_height", MustGetHeight(srcChan.ProofHeight)),
+		zap.String("src_channel_id", dstChan.Channel.Counterparty.ChannelId),
+		zap.Stringer("src_channel_state", srcChan.Channel.State),
 
-func logConnectionStates(src, dst *Chain, srcConn, dstConn *conntypes.QueryConnectionResponse) {
-	src.Log(fmt.Sprintf("- [%s]@{%d}conn(%s)-{%s} : [%s]@{%d}conn(%s)-{%s}",
-		src.ChainID(),
-		MustGetHeight(srcConn.ProofHeight),
-		src.PathEnd.ConnectionID,
-		srcConn.Connection.State,
-		dst.ChainID(),
-		MustGetHeight(dstConn.ProofHeight),
-		dst.PathEnd.ConnectionID,
-		dstConn.Connection.State,
-	))
-}
-
-func (c *Chain) logCreateClient(dst *Chain, dstH uint64, tp *time.Duration) {
-	c.Log(fmt.Sprintf("- [%s] -> creating client on %s for %s header-height{%d} trust-period(%s)",
-		c.ChainID(), c.ChainID(), dst.ChainID(), dstH, tp))
-}
-
-func (c *Chain) logOpenInit(dst *Chain, connOrChan string) {
-	c.Log(fmt.Sprintf("- attempting to create new %s ends from chain[%s] with chain[%s]",
-		connOrChan, c.ChainID(), dst.ChainID()))
-}
-
-func (c *Chain) logOpenTry(dst *Chain, connOrChan string) {
-	c.Log(fmt.Sprintf("- chain[%s] trying to open %s end on chain[%s]",
-		c.ChainID(), connOrChan, dst.ChainID()))
-}
-
-func (c *Chain) logIdentifierExists(dst *Chain, identifierType string, id string) {
-	c.Log(fmt.Sprintf("- identical %s(%s) on %s with %s already exists",
-		identifierType, id, c.ChainID(), dst.ChainID()))
-}
-
-func (c *Chain) logTx(events map[string][]string) {
-	hash := ""
-	if len(events["tx.hash"]) > 0 {
-		hash = events["tx.hash"][0]
-	}
-	c.Log(fmt.Sprintf("• [%s]@{%d} - actions(%s) hash(%s)",
-		c.ChainID(),
-		getTxEventHeight(events),
-		getTxActions(events["message.action"]),
-		hash),
+		zap.String("dst_chain_id", dst.ChainID()),
+		zap.Stringer("dst_channel_proof_height", MustGetHeight(dstChan.ProofHeight)),
+		zap.String("dst_channel_id", srcChan.Channel.Counterparty.ChannelId),
+		zap.Stringer("dst_channel_state", dstChan.Channel.State),
 	)
 }
 
-func getTxEventHeight(events map[string][]string) int64 {
-	if val, ok := events["tx.height"]; ok {
-		out, _ := strconv.ParseInt(val[0], 10, 64)
-		return out
-	}
-	return -1
-}
+func logConnectionStates(src, dst *Chain, srcConn, dstConn *conntypes.QueryConnectionResponse) {
+	src.log.Debug(
+		"Connection states",
+		zap.String("src_chain_id", src.ChainID()),
+		zap.Stringer("src_conn_proof_height", MustGetHeight(srcConn.ProofHeight)),
+		zap.String("src_conn_id", src.ConnectionID()),
+		zap.Stringer("src_conn_state", srcConn.Connection.State),
 
-func getTxActions(act []string) string {
-	out := ""
-	for i, a := range act {
-		out += fmt.Sprintf("%d:%s,", i, a)
-	}
-	return strings.TrimSuffix(out, ",")
-}
-
-func (c *Chain) logRetryQueryPacketAcknowledgements(height uint64, n uint, err error) {
-	if c.debug {
-		c.Log(fmt.Sprintf("- [%s]@{%d} - try(%d/%d) query packet acknowledgements: %s",
-			c.ChainID(), height, n+1, RtyAttNum, err))
-	}
-}
-
-func (c *Chain) logUnreceivedPackets(dst *Chain, packetType string, log string) {
-	c.Log(fmt.Sprintf("- unrelayed packet %s sent by %s to %s: %s", packetType, c.ChainID(), dst.ChainID(), log))
+		zap.String("dst_chain_id", dst.ChainID()),
+		zap.Stringer("dst_conn_proof_height", MustGetHeight(dstConn.ProofHeight)),
+		zap.String("dst_conn_id", dst.ConnectionID()),
+		zap.Stringer("dst_conn_state", dstConn.Connection.State),
+	)
 }
 
 func (c *Chain) errQueryUnrelayedPacketAcks() error {
@@ -168,13 +103,11 @@ func (c *Chain) errQueryUnrelayedPacketAcks() error {
 }
 
 func (c *Chain) LogRetryGetIBCUpdateHeader(n uint, err error) {
-	if c.debug {
-		c.Log(fmt.Sprintf("failed to get IBC update headers, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
-	}
-}
-
-func (c *Chain) LogRetryGetLightSignedHeader(n uint, err error) {
-	if c.debug {
-		c.Log(fmt.Sprintf("failed to get light signed header, try(%d/%d). Err: %v", n+1, RtyAttNum, err))
-	}
+	c.log.Info(
+		"Failed to get IBC update headers",
+		zap.String("chain_id", c.ChainID()),
+		zap.Uint("attempt", n+1),
+		zap.Uint("max_attempts", RtyAttNum),
+		zap.Error(err),
+	)
 }

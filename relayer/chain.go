@@ -1,15 +1,16 @@
 package relayer
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"os"
-	"strings"
 	"time"
 
-	"github.com/avast/retry-go"
+	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/cosmos-sdk/codec"
+	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
+	simparams "github.com/cosmos/cosmos-sdk/simapp/params"
 	"github.com/cosmos/cosmos-sdk/std"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/x/auth"
@@ -19,25 +20,22 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/capability"
 	"github.com/cosmos/cosmos-sdk/x/crisis"
 	"github.com/cosmos/cosmos-sdk/x/distribution"
+	distrclient "github.com/cosmos/cosmos-sdk/x/distribution/client"
+	feegrant "github.com/cosmos/cosmos-sdk/x/feegrant/module"
 	"github.com/cosmos/cosmos-sdk/x/gov"
 	"github.com/cosmos/cosmos-sdk/x/mint"
+	"github.com/cosmos/cosmos-sdk/x/params"
+	paramsclient "github.com/cosmos/cosmos-sdk/x/params/client"
 	"github.com/cosmos/cosmos-sdk/x/slashing"
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	"github.com/cosmos/cosmos-sdk/x/upgrade"
-	"github.com/cosmos/ibc-go/v2/modules/apps/transfer"
-	ibc "github.com/cosmos/ibc-go/v2/modules/core"
-
-	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
-	simparams "github.com/cosmos/cosmos-sdk/simapp/params"
-	distrclient "github.com/cosmos/cosmos-sdk/x/distribution/client"
-	feegrant "github.com/cosmos/cosmos-sdk/x/feegrant/module"
-	"github.com/cosmos/cosmos-sdk/x/params"
-	paramsclient "github.com/cosmos/cosmos-sdk/x/params/client"
 	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
-	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
-	"github.com/cosmos/relayer/relayer/provider"
+	"github.com/cosmos/ibc-go/v3/modules/apps/transfer"
+	ibc "github.com/cosmos/ibc-go/v3/modules/core"
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
-	"github.com/tendermint/tendermint/libs/log"
+	"go.uber.org/zap"
 )
 
 var (
@@ -65,11 +63,15 @@ var (
 		transfer.AppModuleBasic{},
 		ibc.AppModuleBasic{},
 	}
+
+	defaultCoinType uint32 = 118
 )
 
 // Chain represents the necessary data for connecting to and identifying a chain and its counterparties
 // TODO revise Chain struct
 type Chain struct {
+	log *zap.Logger
+
 	ChainProvider provider.ChainProvider
 	Chainid       string `yaml:"chain-id" json:"chain-id"`
 	RPCAddr       string `yaml:"rpc-addr" json:"rpc-addr"`
@@ -77,8 +79,7 @@ type Chain struct {
 	PathEnd  *PathEnd                 `yaml:"-" json:"-"`
 	Encoding simparams.EncodingConfig `yaml:"-" json:"-"`
 
-	logger log.Logger
-	debug  bool
+	debug bool
 }
 
 func MakeCodec(moduleBasics []module.AppModuleBasic) simparams.EncodingConfig {
@@ -142,45 +143,20 @@ func ValidateConnectionPaths(src, dst *Chain) error {
 	return nil
 }
 
-// ValidateChannelParams takes two chains and validates their respective channel params
-func ValidateChannelParams(src, dst *Chain) error {
-	if err := src.PathEnd.ValidateBasic(); err != nil {
-		return err
-	}
-	if err := dst.PathEnd.ValidateBasic(); err != nil {
-		return err
-	}
-	//nolint:staticcheck
-	if strings.ToUpper(src.PathEnd.Order) != strings.ToUpper(dst.PathEnd.Order) {
-		return fmt.Errorf("src and dst path ends must have same ORDER. got src: %s, dst: %s",
-			src.PathEnd.Order, dst.PathEnd.Order)
-	}
-	return nil
-}
+func NewChain(log *zap.Logger, prov provider.ChainProvider, debug bool) *Chain {
+	return &Chain{
+		log: log,
 
-// Init initializes the pieces of a chain that aren't set when it parses a config
-// NOTE: All validation of the chain should happen here.
-func (c *Chain) Init(logger log.Logger, debug bool) {
-	c.logger = logger
-	c.debug = debug
-	if c.logger == nil {
-		c.logger = defaultChainLogger()
+		ChainProvider: prov,
+
+		Encoding: MakeCodec(ModuleBasics),
+
+		debug: debug,
 	}
-
-	// TODO logging/encoding needs refactored
-	c.Encoding = MakeCodec(ModuleBasics)
-}
-
-func defaultChainLogger() log.Logger {
-	return log.NewTMLogger(log.NewSyncWriter(os.Stdout))
 }
 
 func (c *Chain) ChainID() string {
 	return c.ChainProvider.ChainId()
-}
-
-func (c *Chain) ChannelID() string {
-	return c.PathEnd.ChannelID
 }
 
 func (c *Chain) ConnectionID() string {
@@ -191,36 +167,14 @@ func (c *Chain) ClientID() string {
 	return c.PathEnd.ClientID
 }
 
-func (c *Chain) PortID() string {
-	return c.PathEnd.PortID
-}
-
-func (c *Chain) Version() string {
-	return c.PathEnd.Version
-}
-
-func (c *Chain) Order() string {
-	return c.PathEnd.Order
-}
-
 // GetSelfVersion returns the version of the given chain
 func (c *Chain) GetSelfVersion() uint64 {
 	return clienttypes.ParseChainID(c.ChainID())
 }
 
 // GetTrustingPeriod returns the trusting period for the chain
-func (c *Chain) GetTrustingPeriod() (time.Duration, error) {
-	return c.ChainProvider.TrustingPeriod()
-}
-
-// Log takes a string and logs the data
-func (c *Chain) Log(s string) {
-	c.logger.Info(s)
-}
-
-// Error takes an error, wraps it in the chainID and logs the error
-func (c *Chain) Error(err error) {
-	c.logger.Error(fmt.Sprintf("%s: err(%s)", c.ChainID(), err.Error()))
+func (c *Chain) GetTrustingPeriod(ctx context.Context) (time.Duration, error) {
+	return c.ChainProvider.TrustingPeriod(ctx)
 }
 
 func (c *Chain) String() string {
@@ -228,32 +182,24 @@ func (c *Chain) String() string {
 	return string(out)
 }
 
-// Print fmt.Printlns the json or yaml representation of whatever is passed in
+// Sprint returns the json or yaml representation of whatever is passed in.
 // CONTRACT: The cmd calling this function needs to have the "json" and "indent" flags set
 // TODO: better "text" printing here would be a nice to have
 // TODO: fix indenting all over the code base
-func (c *Chain) Print(toPrint proto.Message, text, indent bool) error {
-	var (
-		out []byte
-		err error
-	)
-
+func (c *Chain) Sprint(toPrint proto.Message, text, indent bool) (string, error) {
 	switch {
 	case indent && text:
-		return fmt.Errorf("must pass either indent or text, not both")
+		return "", fmt.Errorf("must pass either indent or text, not both")
 	case text:
 		// TODO: This isn't really a good option,
-		out = []byte(fmt.Sprintf("%v", toPrint))
+		return fmt.Sprintf("%v", toPrint), nil
 	default:
-		out, err = c.Encoding.Marshaler.MarshalJSON(toPrint)
+		out, err := c.Encoding.Marshaler.MarshalJSON(toPrint)
+		if err != nil {
+			return "", err
+		}
+		return string(out), nil
 	}
-
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(string(out))
-	return nil
 }
 
 //// SendAndPrint sends a transaction and prints according to the passed args
@@ -320,9 +266,9 @@ func (c *Chain) GetRPCPort() string {
 // CreateTestKey creates a key for test chain
 func (c *Chain) CreateTestKey() error {
 	if c.ChainProvider.KeyExists(c.ChainProvider.Key()) {
-		return fmt.Errorf("key %s exists for chain %s", c.ChainID(), c.ChainProvider.Key())
+		return fmt.Errorf("key {%s} exists for chain {%s}", c.ChainProvider.Key(), c.ChainID())
 	}
-	_, err := c.ChainProvider.AddKey(c.ChainProvider.Key())
+	_, err := c.ChainProvider.AddKey(c.ChainProvider.Key(), defaultCoinType)
 	return err
 }
 

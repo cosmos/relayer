@@ -15,15 +15,23 @@ fi
 cd $RELAYER_DIR
 rm -rf $RELAYER_CONF &> /dev/null
 pwd
-bash scripts/two-chainz "skip"
+bash scripts/two-chainz-wasmd "skip"
 
 echo "waiting for blocks..."
 sleep 3
 
-rly tx link demo -d -o 3s
-rly tx transfer ibc-0 ibc-1 100000samoleans "$(rly keys show ibc-1)" -d
-rly tx transfer ibc-1 ibc-0 100000samoleans "$(rly keys show ibc-0)" -d
+rly tx link demo -d -t 3s
 sleep 2
-rly tx relay-packets demo -d
-sleep 2
-rly tx relay-acknowledgements demo -d
+echo "Initial balances"
+echo "balance 0 $(rly q bal ibc-0)"
+echo "balance 1 $(rly q bal ibc-1)"
+rly tx transfer ibc-0 ibc-1 100000samoleans "$(rly keys show ibc-1)" channel-0 -d
+rly tx transfer ibc-1 ibc-0 100000samoleans "$(rly keys show ibc-0)" channel-0 -d
+sleep 5
+rly tx relay-packets demo channel-0 -d
+sleep 5
+rly tx relay-acknowledgements demo channel-0 -d
+sleep 5
+echo "Balances after packets are sent"
+echo "balance 0 $(rly q bal ibc-0)"
+echo "balance 1 $(rly q bal ibc-1)"

@@ -1,19 +1,20 @@
 package relayer
 
 import (
+	"context"
 	"fmt"
 
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
-
-	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v2/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
 )
 
 const (
-	check = "✔"
-	xIcon = "✘"
+	check     = "✔"
+	xIcon     = "✘"
+	allowList = "allowlist"
+	denyList  = "denylist"
 )
 
 // Paths represent connection paths between chains
@@ -86,19 +87,40 @@ type PathAction struct {
 	Type string `json:"type"`
 }
 
-// Path represents a pair of chains and the identifiers needed to
-// relay over them
+// Path represents a pair of chains and the identifiers needed to relay over them along with a channel filter list.
 type Path struct {
-	Src *PathEnd `yaml:"src" json:"src"`
-	Dst *PathEnd `yaml:"dst" json:"dst"`
+	Src    *PathEnd      `yaml:"src" json:"src"`
+	Dst    *PathEnd      `yaml:"dst" json:"dst"`
+	Filter ChannelFilter `yaml:"src-channel-filter" json:"src-channel-filter"`
 }
 
-// Ordered returns true if the path is ordered and false if otherwise
-func (p *Path) Ordered() bool {
-	return p.Src.GetOrder() == chantypes.ORDERED
+// ChannelFilter provides the means for either creating an allowlist or a denylist of channels on the src chain
+// which will be used to narrow down the list of channels a user wants to relay on.
+type ChannelFilter struct {
+	Rule        string   `yaml:"rule" json:"rule"`
+	ChannelList []string `yaml:"channel-list" json:"channel-list"`
 }
 
-// End returns the proper end given a chainID
+// ValidateChannelFilterRule verifies that the configured ChannelFilter rule is set to an appropriate value.
+func (p *Path) ValidateChannelFilterRule() error {
+	if p.Filter.Rule != allowList && p.Filter.Rule != denyList && p.Filter.Rule != "" {
+		return fmt.Errorf("%s is not a valid channel filter rule, please "+
+			"ensure your channel filter rule is `%s` or '%s'", p.Filter.Rule, allowList, denyList)
+	}
+	return nil
+}
+
+// InChannelList returns true if the channelID argument is in the ChannelFilter's ChannelList or false otherwise.
+func (cf *ChannelFilter) InChannelList(channelID string) bool {
+	for _, channel := range cf.ChannelList {
+		if channel == channelID {
+			return true
+		}
+	}
+	return false
+}
+
+// End returns the proper end given a chainID.
 func (p *Path) End(chainID string) *PathEnd {
 	if p.Dst.ChainID == chainID {
 		return p.Dst
@@ -110,30 +132,22 @@ func (p *Path) End(chainID string) *PathEnd {
 }
 
 func (p *Path) String() string {
-	return fmt.Sprintf("[ ] %s ->\n %s", p.Src.String(), p.Dst.String())
+	return fmt.Sprintf("%s -> %s", p.Src.String(), p.Dst.String())
 }
 
 // GenPath generates a path with unspecified client, connection and channel identifiers
 // given chainIDs and portIDs.
-func GenPath(srcChainID, dstChainID, srcPortID, dstPortID, order string, version string) *Path {
+func GenPath(srcChainID, dstChainID string) *Path {
 	return &Path{
 		Src: &PathEnd{
 			ChainID:      srcChainID,
 			ClientID:     "",
 			ConnectionID: "",
-			ChannelID:    "",
-			PortID:       srcPortID,
-			Order:        order,
-			Version:      version,
 		},
 		Dst: &PathEnd{
 			ChainID:      dstChainID,
 			ClientID:     "",
 			ConnectionID: "",
-			ChannelID:    "",
-			PortID:       dstPortID,
-			Order:        order,
-			Version:      version,
 		},
 	}
 }
@@ -143,7 +157,6 @@ type PathStatus struct {
 	Chains     bool `yaml:"chains" json:"chains"`
 	Clients    bool `yaml:"clients" json:"clients"`
 	Connection bool `yaml:"connection" json:"connection"`
-	Channel    bool `yaml:"channel" json:"channel"`
 }
 
 // PathWithStatus is used for showing the status of the path
@@ -154,76 +167,68 @@ type PathWithStatus struct {
 
 // QueryPathStatus returns an instance of the path struct with some attached data about
 // the current status of the path
-func (p *Path) QueryPathStatus(src, dst *Chain) *PathWithStatus {
+func (p *Path) QueryPathStatus(ctx context.Context, src, dst *Chain) *PathWithStatus {
 	var (
-		err              error
-		eg               errgroup.Group
 		srch, dsth       int64
 		srcCs, dstCs     *clienttypes.QueryClientStateResponse
 		srcConn, dstConn *conntypes.QueryConnectionResponse
-		srcChan, dstChan *chantypes.QueryChannelResponse
 
-		out = &PathWithStatus{Path: p, Status: PathStatus{false, false, false, false}}
+		out = &PathWithStatus{Path: p, Status: PathStatus{false, false, false}}
 	)
+	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		srch, err = src.ChainProvider.QueryLatestHeight()
+		var err error
+		srch, err = src.ChainProvider.QueryLatestHeight(egCtx)
 		return err
 	})
 	eg.Go(func() error {
-		dsth, err = dst.ChainProvider.QueryLatestHeight()
+		var err error
+		dsth, err = dst.ChainProvider.QueryLatestHeight(egCtx)
 		return err
 	})
-	if err = eg.Wait(); err != nil {
+	if err := eg.Wait(); err != nil {
 		return out
 	}
 	out.Status.Chains = true
-	if err = src.SetPath(p.Src); err != nil {
+	if err := src.SetPath(p.Src); err != nil {
 		return out
 	}
-	if err = dst.SetPath(p.Dst); err != nil {
+	if err := dst.SetPath(p.Dst); err != nil {
 		return out
 	}
 
+	eg, egCtx = errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		srcCs, err = src.ChainProvider.QueryClientStateResponse(srch, src.PathEnd.ClientID)
+		var err error
+		srcCs, err = src.ChainProvider.QueryClientStateResponse(egCtx, srch, src.ClientID())
 		return err
 	})
 	eg.Go(func() error {
-		dstCs, err = dst.ChainProvider.QueryClientStateResponse(dsth, dst.PathEnd.ClientID)
+		var err error
+		dstCs, err = dst.ChainProvider.QueryClientStateResponse(egCtx, dsth, dst.ClientID())
 		return err
 	})
-	if err = eg.Wait(); err != nil || srcCs == nil || dstCs == nil {
+	if err := eg.Wait(); err != nil || srcCs == nil || dstCs == nil {
 		return out
 	}
 	out.Status.Clients = true
 
+	eg, egCtx = errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		srcConn, err = src.ChainProvider.QueryConnection(srch, src.PathEnd.ConnectionID)
+		var err error
+		srcConn, err = src.ChainProvider.QueryConnection(egCtx, srch, src.ConnectionID())
 		return err
 	})
 	eg.Go(func() error {
-		dstConn, err = dst.ChainProvider.QueryConnection(dsth, dst.PathEnd.ConnectionID)
+		var err error
+		dstConn, err = dst.ChainProvider.QueryConnection(egCtx, dsth, dst.ConnectionID())
 		return err
 	})
-	if err = eg.Wait(); err != nil || srcConn.Connection.State != conntypes.OPEN ||
+	if err := eg.Wait(); err != nil || srcConn.Connection.State != conntypes.OPEN ||
 		dstConn.Connection.State != conntypes.OPEN {
 		return out
 	}
 	out.Status.Connection = true
-
-	eg.Go(func() error {
-		srcChan, err = src.ChainProvider.QueryChannel(srch, src.PathEnd.ChannelID, src.PathEnd.PortID)
-		return err
-	})
-	eg.Go(func() error {
-		dstChan, err = dst.ChainProvider.QueryChannel(dsth, dst.PathEnd.ChannelID, dst.PathEnd.PortID)
-		return err
-	})
-	if err = eg.Wait(); err != nil || srcChan.Channel.State != chantypes.OPEN ||
-		dstChan.Channel.State != chantypes.OPEN {
-		return out
-	}
-	out.Status.Channel = true
 	return out
 }
 
@@ -234,22 +239,14 @@ func (ps *PathWithStatus) PrintString(name string) string {
   SRC(%s)
     ClientID:     %s
     ConnectionID: %s
-    ChannelID:    %s
-    PortID:       %s
   DST(%s)
     ClientID:     %s
     ConnectionID: %s
-    ChannelID:    %s
-    PortID:       %s
   STATUS:
     Chains:       %s
     Clients:      %s
-    Connection:   %s
-    Channel:      %s`, name, pth.Src.ChainID,
-		pth.Src.ClientID, pth.Src.ConnectionID, pth.Src.ChannelID, pth.Src.PortID,
-		pth.Dst.ChainID, pth.Dst.ClientID, pth.Dst.ConnectionID, pth.Dst.ChannelID, pth.Dst.PortID,
-		checkmark(ps.Status.Chains), checkmark(ps.Status.Clients), checkmark(ps.Status.Connection),
-		checkmark(ps.Status.Channel))
+    Connection:   %s`, name, pth.Src.ChainID, pth.Src.ClientID, pth.Src.ConnectionID, pth.Dst.ChainID, pth.Dst.ClientID,
+		pth.Dst.ConnectionID, checkmark(ps.Status.Chains), checkmark(ps.Status.Clients), checkmark(ps.Status.Connection))
 }
 
 func checkmark(status bool) string {

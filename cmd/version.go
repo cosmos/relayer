@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
+	"runtime/debug"
 	"strings"
 
+	"github.com/cosmos/relayer/v2/internal/relaydebug"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -13,10 +15,6 @@ import (
 var (
 	// Version defines the application version (defined at compile time)
 	Version = ""
-	// Commit defines the application commit hash (defined at compile time)
-	Commit = ""
-	// SDKCommit defines the CosmosSDK commit hash (defined at compile time)
-	SDKCommit = ""
 )
 
 type versionInfo struct {
@@ -26,11 +24,12 @@ type versionInfo struct {
 	Go        string `json:"go" yaml:"go"`
 }
 
-func getVersionCmd() *cobra.Command {
+func getVersionCmd(a *appState) *cobra.Command {
 	versionCmd := &cobra.Command{
 		Use:     "version",
 		Aliases: []string{"v"},
 		Short:   "Print the relayer version info",
+		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s version --json
 $ %s v`,
@@ -42,10 +41,20 @@ $ %s v`,
 				return err
 			}
 
+			cosmosSDK := "(unable to determine)"
+			if bi, ok := debug.ReadBuildInfo(); ok {
+				for _, dep := range bi.Deps {
+					if dep.Path == "github.com/cosmos/cosmos-sdk" {
+						cosmosSDK = dep.Version
+						break
+					}
+				}
+			}
+
 			verInfo := versionInfo{
 				Version:   Version,
-				Commit:    Commit,
-				CosmosSDK: SDKCommit,
+				Commit:    relaydebug.BuildCommit(),
+				CosmosSDK: cosmosSDK,
 				Go:        fmt.Sprintf("%s %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH),
 			}
 
@@ -56,10 +65,10 @@ $ %s v`,
 				bz, err = yaml.Marshal(&verInfo)
 			}
 
-			fmt.Println(string(bz))
+			fmt.Fprintln(cmd.OutOrStdout(), string(bz))
 			return err
 		},
 	}
 
-	return jsonFlag(versionCmd)
+	return jsonFlag(a.Viper, versionCmd)
 }

@@ -1,22 +1,16 @@
 package relayer
 
 import (
+	"context"
 	"fmt"
-	"strings"
+	"sync"
 
-	"github.com/cosmos/relayer/relayer/provider"
+	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
+	"go.uber.org/multierr"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
-
-// DeliverMsgsAction is struct
-type DeliverMsgsAction struct {
-	SrcMsgs   []string `json:"src_msgs"`
-	Src       PathEnd  `json:"src"`
-	DstMsgs   []string `json:"dst_msgs"`
-	Dst       PathEnd  `json:"dst"`
-	Last      bool     `json:"last"`
-	Succeeded bool     `json:"succeeded"`
-	Type      string   `json:"type"`
-}
 
 // RelayMsgs contains the msgs that need to be sent to both a src and dst chain
 // after a given relay round. MaxTxSize and MaxMsgLength are ignored if they are
@@ -26,14 +20,6 @@ type RelayMsgs struct {
 	Dst          []provider.RelayerMessage `json:"dst"`
 	MaxTxSize    uint64                    `json:"max_tx_size"`    // maximum permitted size of the msgs in a bundled relay transaction
 	MaxMsgLength uint64                    `json:"max_msg_length"` // maximum amount of messages in a bundled relay transaction
-
-	Last      bool `json:"last"`
-	Succeeded bool `json:"success"`
-}
-
-// NewRelayMsgs returns an initialized version of relay messages
-func NewRelayMsgs() *RelayMsgs {
-	return &RelayMsgs{Src: []provider.RelayerMessage{}, Dst: []provider.RelayerMessage{}, Last: false, Succeeded: false}
 }
 
 // Ready returns true if there are messages to relay
@@ -48,20 +34,9 @@ func (r *RelayMsgs) Ready() bool {
 	return true
 }
 
-// Success returns the success var
-func (r *RelayMsgs) Success() bool {
-	return r.Succeeded
-}
-
 func (r *RelayMsgs) IsMaxTx(msgLen, txSize uint64) bool {
 	return (r.MaxMsgLength != 0 && msgLen > r.MaxMsgLength) ||
 		(r.MaxTxSize != 0 && txSize > r.MaxTxSize)
-}
-
-// Send sends the messages with appropriate output
-// TODO: Parallelize? Maybe?
-func (r *RelayMsgs) Send(src, dst *Chain) {
-	r.SendWithController(src, dst, true)
 }
 
 func EncodeMsgs(c *Chain, msgs []provider.RelayerMessage) []string {
@@ -69,7 +44,15 @@ func EncodeMsgs(c *Chain, msgs []provider.RelayerMessage) []string {
 	for _, msg := range msgs {
 		bz, err := c.Encoding.Amino.MarshalJSON(msg)
 		if err != nil {
-			fmt.Println("Cannot marshal message", msg, err)
+			msgField := zap.Skip()
+			if cm, ok := msg.(cosmos.CosmosMessage); ok {
+				msgField = zap.Object("msg", cm)
+			}
+			c.log.Warn(
+				"Failed to marshal message to amino JSON",
+				msgField,
+				zap.Error(err),
+			)
 		} else {
 			outMsgs = append(outMsgs, string(bz))
 		}
@@ -83,7 +66,11 @@ func DecodeMsgs(c *Chain, msgs []string) []provider.RelayerMessage {
 		var sm provider.RelayerMessage
 		err := c.Encoding.Amino.UnmarshalJSON([]byte(msg), &sm)
 		if err != nil {
-			fmt.Println("Cannot unmarshal message", err)
+			c.log.Warn(
+				"Failed to unmarshal amino JSON message",
+				zap.Binary("msg", []byte(msg)), // Although presented as a string, this is a binary blob.
+				zap.Error(err),
+			)
 		} else {
 			outMsgs = append(outMsgs, sm)
 		}
@@ -91,119 +78,155 @@ func DecodeMsgs(c *Chain, msgs []string) []provider.RelayerMessage {
 	return outMsgs
 }
 
-func (r *RelayMsgs) SendWithController(src, dst *Chain, useController bool) {
-	if useController && SendToController != nil {
-		action := &DeliverMsgsAction{
-			Src:       MarshalChain(src),
-			Dst:       MarshalChain(dst),
-			Last:      r.Last,
-			Succeeded: r.Succeeded,
-			Type:      "RELAYER_SEND",
-		}
+// RelayMsgSender is a narrow subset of a Chain,
+// to simplify testing methods on RelayMsgs.
+type RelayMsgSender struct {
+	ChainID string
 
-		action.SrcMsgs = EncodeMsgs(src, r.Src)
-		action.DstMsgs = EncodeMsgs(dst, r.Dst)
+	// SendMessages is a function matching the signature of the same method
+	// on the ChainProvider interface.
+	//
+	// Accepting this narrow subset of the interface greatly simplifies testing.
+	SendMessages func(context.Context, []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error)
+}
 
-		// Get the messages that are actually sent.
-		cont, err := ControllerUpcall(&action)
-		if !cont {
-			if err != nil {
-				fmt.Println("Error calling controller", err)
-				r.Succeeded = false
-			} else {
-				r.Succeeded = true
-			}
-			return
-		}
-	}
-
-	//nolint:prealloc // can not be pre allocated
-	var (
-		msgLen, txSize uint64
-		msgs           []provider.RelayerMessage
-	)
-
-	r.Succeeded = true
-
-	// submit batches of relay transactions
-	for _, msg := range r.Src {
-		bz, err := msg.MsgBytes()
-		if err != nil {
-			panic(err)
-		}
-
-		msgLen++
-		txSize += uint64(len(bz))
-
-		if r.IsMaxTx(msgLen, txSize) {
-			// Submit the transactions to src chain and update its status
-			res, success, err := src.ChainProvider.SendMessages(msgs)
-			if err != nil {
-				src.LogFailedTx(res, err, msgs)
-			}
-			r.Succeeded = r.Succeeded && success
-
-			// clear the current batch and reset variables
-			msgLen, txSize = 1, uint64(len(bz))
-			msgs = []provider.RelayerMessage{}
-		}
-		msgs = append(msgs, msg)
-	}
-
-	// submit leftover msgs
-	if len(msgs) > 0 {
-		res, success, err := src.ChainProvider.SendMessages(msgs)
-		if err != nil {
-			src.LogFailedTx(res, err, msgs)
-		}
-
-		r.Succeeded = success
-	}
-
-	// reset variables
-	msgLen, txSize = 0, 0
-	msgs = []provider.RelayerMessage{}
-
-	for _, msg := range r.Dst {
-		bz, err := msg.MsgBytes()
-		if err != nil {
-			panic(err)
-		}
-
-		msgLen++
-		txSize += uint64(len(bz))
-
-		if r.IsMaxTx(msgLen, txSize) {
-			// Submit the transaction to dst chain and update its status
-			res, success, err := dst.ChainProvider.SendMessages(msgs)
-			if err != nil {
-				dst.LogFailedTx(res, err, msgs)
-			}
-
-			r.Succeeded = r.Succeeded && success
-
-			// clear the current batch and reset variables
-			msgLen, txSize = 1, uint64(len(bz))
-			msgs = []provider.RelayerMessage{}
-		}
-		msgs = append(msgs, msg)
-	}
-
-	// submit leftover msgs
-	if len(msgs) > 0 {
-		res, success, err := dst.ChainProvider.SendMessages(msgs)
-		if err != nil {
-			dst.LogFailedTx(res, err, msgs)
-		}
-
-		r.Succeeded = success
+// AsRelayMsgSender converts c to a RelayMsgSender.
+func AsRelayMsgSender(c *Chain) RelayMsgSender {
+	return RelayMsgSender{
+		ChainID:      c.ChainID(),
+		SendMessages: c.ChainProvider.SendMessages,
 	}
 }
 
-func getMsgTypes(msgs []provider.RelayerMessage) string {
-	var out string
-	for i, msg := range msgs {
-		out += fmt.Sprintf("%d:%s,", i, msg.Type())
+// SendMsgsResult is returned by (*RelayMsgs).Send.
+// It contains details about the distinct results
+// of sending messages to the corresponding chains.
+type SendMsgsResult struct {
+	// Count of successfully sent batches,
+	// where "successful" means there was no error in sending the batch across the network,
+	// and the remote end sent a response indicating success.
+	SuccessfulSrcBatches, SuccessfulDstBatches int
+
+	// Accumulation of errors encountered when sending to source or destination.
+	// If multiple errors occurred, these will be multierr errors
+	// which are displayed nicely through zap logging.
+	SrcSendError, DstSendError error
+}
+
+// PartiallySent reports the presence of both some successfully sent batches
+// and some errors.
+func (r SendMsgsResult) PartiallySent() bool {
+	return (r.SuccessfulSrcBatches > 0 || r.SuccessfulDstBatches > 0) &&
+		(r.SrcSendError != nil || r.DstSendError != nil)
+}
+
+// Error returns any accumulated erors that occurred while sending messages.
+func (r SendMsgsResult) Error() error {
+	return multierr.Append(r.SrcSendError, r.DstSendError)
+}
+
+// MarshalLogObject satisfies the zapcore.ObjectMarshaler interface
+// so that you can use zap.Object("send_result", r) when logging.
+// This is typically useful when logging details about a partially sent result.
+func (r SendMsgsResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddInt("successful_src_batches", r.SuccessfulSrcBatches)
+	enc.AddInt("successful_dst_batches", r.SuccessfulDstBatches)
+	if r.SrcSendError == nil {
+		enc.AddString("src_send_errors", "<nil>")
+	} else {
+		enc.AddString("src_send_errors", r.SrcSendError.Error())
 	}
-	return strings.TrimSuffix(out, ",")
+	if r.DstSendError == nil {
+		enc.AddString("dst_send_errors", "<nil>")
+	} else {
+		enc.AddString("dst_send_errors", r.DstSendError.Error())
+	}
+
+	return nil
+}
+
+// Send concurrently sends out r's messages to the corresponding RelayMsgSenders.
+func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsgSender) SendMsgsResult {
+	var (
+		wg     sync.WaitGroup
+		result SendMsgsResult
+	)
+
+	if len(r.Src) > 0 {
+		wg.Add(1)
+		go r.send(ctx, log, &wg, src, r.Src, &result.SuccessfulSrcBatches, &result.SrcSendError)
+	}
+	if len(r.Dst) > 0 {
+		wg.Add(1)
+		go r.send(ctx, log, &wg, dst, r.Dst, &result.SuccessfulDstBatches, &result.DstSendError)
+	}
+
+	wg.Wait()
+	return result
+}
+
+func (r *RelayMsgs) send(
+	ctx context.Context,
+	log *zap.Logger,
+	wg *sync.WaitGroup,
+	s RelayMsgSender,
+	msgs []provider.RelayerMessage,
+	successes *int,
+	errors *error,
+) {
+	defer wg.Done()
+
+	var txSize, batchStartIdx uint64
+
+	for i, msg := range msgs {
+		// The previous version of this was skipping nil messages;
+		// instead, we should not allow code to include nil messages.
+		if msg == nil {
+			panic(fmt.Errorf("send: invalid nil message at index %d", i))
+		}
+
+		bz, err := msg.MsgBytes()
+		if err != nil {
+			panic(err)
+		}
+
+		if !r.IsMaxTx(uint64(i)+1-batchStartIdx, txSize+uint64(len(bz))) {
+			// We can add another transaction, so increase the transaction size counter
+			// and proceed to the next message.
+			txSize += uint64(len(bz))
+			continue
+		}
+
+		// Otherwise, we have reached the message count limit or the byte size limit.
+		// Send out this batch now.
+		batchMsgs := msgs[batchStartIdx:i]
+		resp, success, err := s.SendMessages(ctx, batchMsgs)
+		if err != nil {
+			logFailedTx(log, s.ChainID, resp, err, batchMsgs)
+			multierr.AppendInto(errors, err)
+			// TODO: check chain ordering.
+			// If chain is unordered, we can keep sending;
+			// otherwise we need to stop now.
+		}
+		if success {
+			*successes++
+		}
+
+		// Reset counters.
+		batchStartIdx = uint64(i)
+		txSize = uint64(len(bz))
+	}
+
+	// If there are any messages left over, send those out too.
+	if batchStartIdx < uint64(len(msgs)) {
+		batchMsgs := msgs[batchStartIdx:]
+		resp, success, err := s.SendMessages(ctx, batchMsgs)
+		if err != nil {
+			logFailedTx(log, s.ChainID, resp, err, batchMsgs)
+			multierr.AppendInto(errors, err)
+		}
+		if success {
+			*successes++
+		}
+	}
 }

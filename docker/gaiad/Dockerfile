@@ -24,9 +24,9 @@ COPY --from=build-env /go/src/github.com/cosmos/gaia/build/gaiad /usr/bin/gaiad
 
 WORKDIR /gaia
 
-COPY ./test/setup/gaia-setup.sh .
+COPY ./_test/setup/gaia-setup.sh .
 
-COPY ./test/setup/valkeys ./setup/valkeys
+COPY ./_test/setup/valkeys ./setup/valkeys
 
 USER root
 

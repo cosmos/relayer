@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Install and setup go
-      - name: Set up Go 1.15
+      - name: Set up Go 1.18
         uses: actions/setup-go@v2
         with:
-          go-version: 1.15
+          go-version: 1.18
 
       # setup gopath
       - name: Set PATH
@@ -35,6 +35,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
+      # unit tests
+      - name: run unit tests
+        run: make test
       # build binary
       - name: build binary and move to upload location
         run: make build

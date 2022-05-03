@@ -1,10 +1,9 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
-SDKCOMMIT := $(shell go list -m -u -f '{{.Version}}' github.com/cosmos/cosmos-sdk)
 GAIA_VERSION := v6.0.0
 AKASH_VERSION := v0.12.1
-OSMOSIS_VERSION := v6.0.0
-WASMD_VERSION := v0.16.0
+OSMOSIS_VERSION := v6.4.0
+WASMD_VERSION := v0.25.0
 
 GOPATH := $(shell go env GOPATH)
 GOBIN := $(GOPATH)/bin
@@ -15,10 +14,7 @@ all: lint install
 # Build / Install
 ###############################################################################
 
-LD_FLAGS = -X github.com/cosmos/relayer/cmd.Version=$(VERSION) \
-	-X github.com/cosmos/relayer/cmd.Commit=$(COMMIT) \
-	-X github.com/cosmos/relayer/cmd.SDKCommit=$(SDKCOMMIT) \
-	-X github.com/cosmos/relayer/cmd.GaiaCommit=$(GAIACOMMIT)
+LD_FLAGS = -X github.com/cosmos/relayer/v2/cmd.Version=$(VERSION)
 
 BUILD_FLAGS := -ldflags '$(LD_FLAGS)'
 
@@ -38,10 +34,6 @@ build-zip: go.sum
 	@GOOS=windows GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/windows-amd64-rly.exe main.go
 	@tar -czvf release.tar.gz ./build
 
-# Compile the relayer as a shared library to be linked into another program
-compile-clib:
-	go build -v -mod=readonly -buildmode=c-shared -o librelayer.so ./clib
-
 install: go.sum
 	@echo "installing rly binary..."
 	@go build -mod=readonly $(BUILD_FLAGS) -o $(GOBIN)/rly main.go
@@ -53,23 +45,30 @@ build-akash-docker:
 	docker build -t ovrclk/akash:$(AKASH_VERSION) --build-arg VERSION=$(AKASH_VERSION) -f ./docker/akash/Dockerfile .
 
 build-osmosis-docker:
-	docker build -t ovrclk/akash:$(OSMOSIS_VERSION) --build-arg VERSION=$(OSMOSIS_VERSION) -f ./docker/akash/Dockerfile .
+	docker build -t osmosis-labs/osmosis:$(OSMOSIS_VERSION) --build-arg VERSION=$(OSMOSIS_VERSION) -f ./docker/osmosis/Dockerfile .
 
 ###############################################################################
 # Tests / CI
 ###############################################################################
 
 test:
-	@go test -mod=readonly -v ./test/...
+	@go test -mod=readonly -race ./...
+
+test-integration:
+	@go test -mod=readonly -v -timeout 20m ./_test/
 
 test-gaia:
-	@go test -mod=readonly -v -run TestGaiaToGaiaRelaying ./test/...
+	@go test -mod=readonly -v -run TestGaiaToGaiaRelaying ./_test/
+	@go test -mod=readonly -v -run TestRelayAllChannelsOnConnection ./_test/
 
 test-akash:
-	@go test -mod=readonly -v -run TestAkashToGaiaRelaying ./test/...
+	@go test -mod=readonly -v -run TestAkashToGaiaRelaying ./_test/
 
 test-short:
-	@go test -mod=readonly -v -run TestOsmoToGaiaRelaying ./test/...
+	@go test -mod=readonly -v -run TestOsmoToGaiaRelaying ./_test/
+
+ibctest:
+	cd ibctest && go test -race -v .
 
 coverage:
 	@echo "viewing test coverage..."
@@ -86,7 +85,7 @@ lint:
 
 get-gaia:
 	@mkdir -p ./chain-code/
-	@git clone --branch $(GAIA_VERSION) git@github.com:cosmos/gaia.git ./chain-code/gaia
+	@git clone --branch $(GAIA_VERSION) --depth=1 https://github.com/cosmos/gaia.git ./chain-code/gaia
 
 build-gaia:
 	@./scripts/build-gaia
@@ -113,4 +112,4 @@ delete-chains:
 	@echo "Removing the ./chain-code/ directory..."
 	@rm -rf ./chain-code
 
-.PHONY: two-chains test install build lint coverage clean
+.PHONY: two-chains test test-integration ibctest install build lint coverage clean

@@ -1,9 +1,0 @@
-{
-  "key": "test-key",
-  "chain-id": "microtick-1",
-  "rpc-addr": "https://localhost:26657",
-  "account-prefix": "micro",
-  "gas-adjustment": 1.3,
-  "gas-prices": "0.01utick",
-  "trusting-period": "300h"
-}
