@@ -1,0 +1,19 @@
+{
+  "name": "polkadot-launch",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "composable": "rm -rf /tmp/polkadot-launch && polkadot-launch composable.json",
+    "composable_and_basilisk": "polkadot-launch composable_and_basilisk.json"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "^17.0.18",
+    "polkadot-launch": "^1.9.0",
+    "typescript": "^4.5.5"
+  }
+}
