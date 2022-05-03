@@ -48,22 +48,11 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 		// Apply the channel filter rule (i.e. build allowlist, denylist or relay on all channels available)
 		srcChannels = applyChannelFilterRule(filter, srcChannels)
 
-		// This works but parsing this data from the tx events is a better approach
-		for _, c := range srcChannels {
-			if c.State == types.INIT {
-				_, err := src.CreateOpenChannels(ctx, dst, 10, 5*time.Second, c.PortId, c.Counterparty.PortId, StringFromOrder(c.Ordering), c.Version, false)
-				if err != nil {
-					src.log.Warn("Failed to open channel",
-						zap.String("src-channel-id", c.ChannelId),
-						zap.String("src-port-id", c.PortId),
-						zap.String("dst-channel-id", c.Counterparty.ChannelId),
-						zap.String("dst-port-id", c.Counterparty.ChannelId),
-						zap.String("channel-version", c.Version),
-						zap.String("channel-ordering", c.Ordering.String()),
-						zap.Error(err))
-				}
-			}
-		}
+		// TODO once upstream changes are merged for emitting the channel version in ibc-go,
+		// we will want to add back logic for finishing the channel handshake for interchain accounts.
+		// Essentially the interchain accounts module will initiate the handshake and then the relayer finishes it.
+		// So we will occasionally query recent txs and check the events for `ChannelOpenInit`, at which point
+		// we will attempt to finish opening the channel.
 
 		// Filter for open channels that are not already in our slice of open channels
 		srcOpenChannels = filterOpenChannels(srcChannels, srcOpenChannels)
