@@ -280,7 +280,7 @@ func (cc *CosmosProvider) QueryClientConsensusState(ctx context.Context, chainHe
 //DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
 var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 
-func (cc *CosmosProvider) NewClientState(dstUpdateHeader ibcexported.Header, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
+func (cc *CosmosProvider) NewClientState(dstUpdateHeader ibcexported.ClientMessage, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
 	dstTmHeader, ok := dstUpdateHeader.(*tmclient.Header)
 	if !ok {
 		return nil, fmt.Errorf("got data of type %T but wanted tmclient.Header", dstUpdateHeader)
@@ -786,7 +786,7 @@ func (cc *CosmosProvider) QueryLatestHeight(ctx context.Context) (int64, error) 
 }
 
 // QueryHeaderAtHeight returns the header at a given height
-func (cc *CosmosProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.Header, error) {
+func (cc *CosmosProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.ClientMessage, error) {
 	var (
 		page    = 1
 		perPage = 100000

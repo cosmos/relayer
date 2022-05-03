@@ -1,9 +1,9 @@
 {
-  "type": "cosmos",
+  "type": "substrate",
   "value": {
     "key": "testkey",
     "chain-id": "ibc-1",
-    "rpc-addr": "http://localhost:26557",
+    "rpc-addr": "http://localhost:9944",
     "grpc-addr": "",
     "account-prefix": "cosmos",
     "keyring-backend": "test",

@@ -148,7 +148,7 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 
 	var (
 		srch, dsth           int64
-		srcHeader, dstHeader exported.Header
+		srcHeader, dstHeader exported.ClientMessage
 		msgs                 []provider.RelayerMessage
 		res                  *provider.RelayerTxResponse
 	)
@@ -423,7 +423,7 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 
 	var (
 		srch, dsth           int64
-		srcHeader, dstHeader exported.Header
+		srcHeader, dstHeader exported.ClientMessage
 		msgs                 []provider.RelayerMessage
 		res                  *provider.RelayerTxResponse
 		existingChanID       string
