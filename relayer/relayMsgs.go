@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -37,45 +36,6 @@ func (r *RelayMsgs) Ready() bool {
 func (r *RelayMsgs) IsMaxTx(msgLen, txSize uint64) bool {
 	return (r.MaxMsgLength != 0 && msgLen > r.MaxMsgLength) ||
 		(r.MaxTxSize != 0 && txSize > r.MaxTxSize)
-}
-
-func EncodeMsgs(c *Chain, msgs []provider.RelayerMessage) []string {
-	outMsgs := make([]string, 0, len(msgs))
-	for _, msg := range msgs {
-		bz, err := c.Encoding.Amino.MarshalJSON(msg)
-		if err != nil {
-			msgField := zap.Skip()
-			if cm, ok := msg.(cosmos.CosmosMessage); ok {
-				msgField = zap.Object("msg", cm)
-			}
-			c.log.Warn(
-				"Failed to marshal message to amino JSON",
-				msgField,
-				zap.Error(err),
-			)
-		} else {
-			outMsgs = append(outMsgs, string(bz))
-		}
-	}
-	return outMsgs
-}
-
-func DecodeMsgs(c *Chain, msgs []string) []provider.RelayerMessage {
-	outMsgs := make([]provider.RelayerMessage, 0, len(msgs))
-	for _, msg := range msgs {
-		var sm provider.RelayerMessage
-		err := c.Encoding.Amino.UnmarshalJSON([]byte(msg), &sm)
-		if err != nil {
-			c.log.Warn(
-				"Failed to unmarshal amino JSON message",
-				zap.Binary("msg", []byte(msg)), // Although presented as a string, this is a binary blob.
-				zap.Error(err),
-			)
-		} else {
-			outMsgs = append(outMsgs, sm)
-		}
-	}
-	return outMsgs
 }
 
 // RelayMsgSender is a narrow subset of a Chain,

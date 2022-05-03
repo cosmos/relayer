@@ -333,7 +333,7 @@ $ %s query header ibc-0 1400`,
 				}
 			}
 
-			s, err := chain.Sprint(header, false, false)
+			s, err := chain.ChainProvider.Sprint(header)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal header: %v\n", err)
 				return err
@@ -375,7 +375,7 @@ $ %s q node-state ibc-1`,
 				return err
 			}
 
-			s, err := chain.Sprint(csRes, false, false)
+			s, err := chain.ChainProvider.Sprint(csRes)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal consensus state: %v\n", err)
 				return err
@@ -426,7 +426,7 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 				return err
 			}
 
-			s, err := chain.Sprint(res, false, false)
+			s, err := chain.ChainProvider.Sprint(res)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal state: %v\n", err)
 				return err
@@ -469,7 +469,7 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 			}
 
 			for _, client := range res {
-				s, err := chain.Sprint(&client, false, false)
+				s, err := chain.ChainProvider.Sprint(&client)
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal state: %v\n", err)
 					continue
@@ -551,7 +551,7 @@ $ %s q conns ibc-1`,
 			}
 
 			for _, connection := range res {
-				s, err := chain.Sprint(connection, false, false)
+				s, err := chain.ChainProvider.Sprint(connection)
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal connection: %v\n", err)
 					continue
@@ -605,7 +605,7 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 				return err
 			}
 
-			s, err := chain.Sprint(res, false, false)
+			s, err := chain.ChainProvider.Sprint(res)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal client connection state: %v\n", err)
 				return err
@@ -650,7 +650,7 @@ $ %s q conn ibc-1 ibconeconn`,
 				return err
 			}
 
-			s, err := chain.Sprint(res, false, false)
+			s, err := chain.ChainProvider.Sprint(res)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal connection state: %v\n", err)
 				return err
@@ -696,7 +696,7 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 			}
 
 			for _, channel := range chans {
-				s, err := chain.Sprint(channel, false, false)
+				s, err := chain.ChainProvider.Sprint(channel)
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal channel: %v\n", err)
 					continue
@@ -752,7 +752,7 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 				return err
 			}
 
-			s, err := chain.Sprint(res, false, false)
+			s, err := chain.ChainProvider.Sprint(res)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal channel state: %v\n", err)
 				return err
@@ -794,7 +794,7 @@ $ %s query channels ibc-2 --offset 2 --limit 30`,
 			}
 
 			for _, channel := range res {
-				s, err := chain.Sprint(channel, false, false)
+				s, err := chain.ChainProvider.Sprint(channel)
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal channel: %v\n", err)
 					continue
@@ -840,7 +840,7 @@ $ %s q packet-commit ibc-1 ibconechannel transfer 31`,
 				return err
 			}
 
-			s, err := chain.Sprint(res, false, false)
+			s, err := chain.ChainProvider.Sprint(res)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal packet-commit state: %v\n", err)
 				return err
