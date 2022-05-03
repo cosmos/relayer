@@ -15,14 +15,14 @@ func logFailedTx(log *zap.Logger, chainID string, res *provider.RelayerTxRespons
 	fields := make([]zap.Field, 1+len(msgs), 2+len(msgs))
 	fields[0] = zap.String("chain_id", chainID)
 	for i, msg := range msgs {
-		cm, ok := msg.(cosmos.CosmosMessage)
-		if ok {
+		// TODO add case here for other implementations of provider.RelayerMessage
+		switch m := msg.(type) {
+		case cosmos.CosmosMessage:
 			fields[i+1] = zap.Object(
 				fmt.Sprintf("msg-%d", i),
-				cm,
+				m,
 			)
-		} else {
-			// TODO: choose another encoding instead of skipping?
+		default:
 			fields[i+1] = zap.Skip()
 		}
 	}
