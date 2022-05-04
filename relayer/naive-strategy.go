@@ -173,9 +173,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 			default:
 				return nil
 			}
-		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			srch, _ = src.ChainProvider.QueryLatestHeight(egCtx)
-		})); err != nil {
+		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr); err != nil {
 			return err
 		}
 		for _, pc := range res {
@@ -199,9 +197,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 			default:
 				return nil
 			}
-		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			dsth, _ = dst.ChainProvider.QueryLatestHeight(egCtx)
-		})); err != nil {
+		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr); err != nil {
 			return err
 		}
 		for _, pc := range res {
@@ -221,9 +217,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 		return retry.Do(func() error {
 			rs.Src, err = dst.ChainProvider.QueryUnreceivedAcknowledgements(egCtx, uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
 			return err
-		}, retry.Context(egCtx), RtyErr, RtyAtt, RtyDel, retry.OnRetry(func(n uint, err error) {
-			dsth, _ = dst.ChainProvider.QueryLatestHeight(egCtx)
-		}))
+		}, retry.Context(egCtx), RtyErr, RtyAtt, RtyDel)
 	})
 
 	eg.Go(func() error {
@@ -232,9 +226,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 		return retry.Do(func() error {
 			rs.Dst, err = src.ChainProvider.QueryUnreceivedAcknowledgements(egCtx, uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
 			return err
-		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			srch, _ = src.ChainProvider.QueryLatestHeight(egCtx)
-		}))
+		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr)
 	})
 
 	if err := eg.Wait(); err != nil {
