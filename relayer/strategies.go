@@ -43,12 +43,10 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 		return
 	}
 
-	// Apply the channel filter rule (i.e. build allowlist, denylist or relay on all channels available)
+	// Apply the channel filter rule (i.e. build allowlist, denylist or relay on all channels available),
+	// then filter out only the channels in the OPEN state.
 	srcChannels = applyChannelFilterRule(filter, srcChannels)
-
-	// Filter for open channels that are not already in our slice of open channels
-	var srcOpenChannels []*ActiveChannel
-	srcOpenChannels = filterOpenChannels(srcChannels, srcOpenChannels)
+	srcOpenChannels := filterOpenChannels(srcChannels)
 
 	for {
 		// TODO on each iteration we should query recent txs and look for ChannelOpenInit events
@@ -136,29 +134,17 @@ func queryChannelsOnConnection(ctx context.Context, src *Chain) ([]*types.Identi
 	return srcChannels, nil
 }
 
-// filterOpenChannels takes a slice of channels and adds all the channels with OPEN state to a new slice of channels.
-// NOTE: channels will not be added to the slice of open channels more than once.
-func filterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*ActiveChannel) []*ActiveChannel {
-	// Filter for open channels
+// filterOpenChannels takes a slice of channels, searches for the channels in open state,
+// and builds a new slice of ActiveChannel's from those open channels.
+func filterOpenChannels(channels []*types.IdentifiedChannel) []*ActiveChannel {
+	var openChannels []*ActiveChannel
+
 	for _, channel := range channels {
 		if channel.State == types.OPEN {
-			inSlice := false
-
-			// Check if we have already added this channel to the slice of open channels
-			for _, openChannel := range openChannels {
-				if channel.ChannelId == openChannel.channel.ChannelId {
-					inSlice = true
-					break
-				}
-			}
-
-			// We don't want to add channels to the slice of open channels that have already been added
-			if !inSlice {
-				openChannels = append(openChannels, &ActiveChannel{
-					channel: channel,
-					active:  false,
-				})
-			}
+			openChannels = append(openChannels, &ActiveChannel{
+				channel: channel,
+				active:  false,
+			})
 		}
 	}
 
