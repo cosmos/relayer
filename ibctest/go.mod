@@ -27,7 +27,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.0 // indirect
 	github.com/btcsuite/btcd v0.22.0-beta // indirect
-	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.1.2 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
@@ -98,7 +97,6 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/opencontainers/runc v1.0.3 // indirect
-	github.com/ory/dockertest v3.3.5+incompatible // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
