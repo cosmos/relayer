@@ -3,6 +3,7 @@ package keystore
 import (
 	"bufio"
 	"fmt"
+	"github.com/vedhavyas/go-subkey/common"
 	"io"
 	"io/ioutil"
 	"os"
@@ -13,7 +14,6 @@ import (
 	"github.com/99designs/keyring"
 	"github.com/cosmos/cosmos-sdk/client/input"
 	"github.com/pkg/errors"
-	"github.com/vedhavyas/go-subkey"
 	"github.com/vedhavyas/go-subkey/sr25519"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -250,7 +250,7 @@ func (ks keystore) NewAccount(name string, mnemonic string, network uint8) (Info
 	return ks.writeLocalKey(name, keyPair, address)
 }
 
-func (ks keystore) writeLocalKey(name string, keypair subkey.KeyPair, address string) (Info, error) {
+func (ks keystore) writeLocalKey(name string, keypair common.KeyPair, address string) (Info, error) {
 	info := newLocalInfo(name, keypair, address)
 	if err := ks.writeInfo(info); err != nil {
 		return nil, err

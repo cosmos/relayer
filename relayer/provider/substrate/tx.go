@@ -89,7 +89,7 @@ func (sp *SubstrateProvider) UpdateClient(srcClientId string, dstHeader ibcexpor
 		return nil, err
 	}
 
-	anyHeader, err := clienttypes.PackHeader(dstHeader)
+	anyHeader, err := clienttypes.PackClientMessage(dstHeader)
 	if err != nil {
 		return nil, err
 	}

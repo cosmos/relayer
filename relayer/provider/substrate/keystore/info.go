@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ComposableFi/go-substrate-rpc-client/v4/signature"
-
-	"github.com/vedhavyas/go-subkey"
+	"github.com/vedhavyas/go-subkey/common"
 )
 
-func newLocalInfo(name string, keypair subkey.KeyPair, address string) Info {
+func newLocalInfo(name string, keypair common.KeyPair, address string) Info {
 	// reason for using network argument as 42
 	// https://github.com/ComposableFi/go-substrate-rpc-client/blob/master/signature/signature.go#L126
 	// TODO: handle error from KeyringPairFromSecret method
