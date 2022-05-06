@@ -3,9 +3,9 @@
   "value": {
     "key": "testkey",
     "chain-id": "ibc-1",
-    "rpc-addr": "http://localhost:9944",
+    "rpc-addr": "ws://127.0.0.1:9988",
     "grpc-addr": "",
-    "account-prefix": "cosmos",
+    "account-prefix": "",
     "keyring-backend": "test",
     "gas-adjustment": 1.5,
     "gas-prices": "0.025stake",

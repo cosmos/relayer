@@ -55,9 +55,6 @@ func (sp *SubstrateProvider) ListAddresses() (map[string]string, error) {
 	}
 	for _, k := range info {
 		addr := k.GetAddress()
-		if err != nil {
-			return nil, err
-		}
 		out[k.GetName()] = addr
 	}
 	return out, nil

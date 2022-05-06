@@ -1,6 +1,7 @@
 package substrate_test
 
 import (
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -11,12 +12,13 @@ func TestKeyRestore(t *testing.T) {
 	expectedAddress := "5Hn67YZ75F3XrHiJAtiscJMGQ4zFNw9e45CNfLuxL6vEVYz8"
 
 	testProvider, err := getTestProvider()
-	_ = testProvider.DeleteKey(keyName) // Delete if test is being run again
-	address, err := testProvider.RestoreKey(keyName, mnemonic)
-	if err != nil {
-		t.Fatalf("Error while restoring mnemonic: %v", err)
-	}
-	if address != expectedAddress {
-		t.Fatalf("Restored address: %s does not match expected: %s", address, expectedAddress)
-	}
+	require.Nil(t, err)
+
+	err = testProvider.DeleteKey(keyName) // Delete if test is being run again
+	require.Nil(t, err)
+
+	address, err := testProvider.RestoreKey(keyName, mnemonic, 0)
+	require.Nil(t, err)
+
+	require.Equal(t, expectedAddress, address, "Restored address: %s does not match expected: %s", address, expectedAddress)
 }

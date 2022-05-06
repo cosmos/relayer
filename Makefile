@@ -35,6 +35,7 @@ build-zip: go.sum
 	@tar -czvf release.tar.gz ./build
 
 install:
+	@go mod download
 	@go mod tidy -compat=1.17
 	@echo "installing rly binary..."
 	@go build -mod=readonly $(BUILD_FLAGS) -o $(GOBIN)/rly main.go

@@ -1,6 +1,7 @@
 package substrate_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cosmos/relayer/v2/relayer/provider/substrate"
@@ -16,7 +17,7 @@ func initProvider() *substrate.SubstrateProvider {
 
 func TestQueryLatestHeight(t *testing.T) {
 	p := initProvider()
-	height, err := p.QueryLatestHeight()
+	height, err := p.QueryLatestHeight(context.Background())
 	if err != nil {
 		panic(err)
 	}
