@@ -68,6 +68,12 @@ func (sp *SubstrateProvider) DeleteKey(name string) error {
 }
 
 func (sp *SubstrateProvider) KeyExists(name string) bool {
+	if sp.Keybase == nil {
+		err := sp.CreateKeystore("")
+		if err != nil {
+			return false
+		}
+	}
 	k, err := sp.Keybase.Key(name)
 	if err != nil {
 		return false
@@ -88,6 +94,13 @@ func (cc *SubstrateProvider) KeyAddOrRestore(keyName string, coinType uint32, mn
 		mnemonicStr = mnemonic[0]
 	} else {
 		mnemonicStr, err = CreateMnemonic()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if cc.Keybase == nil {
+		err := cc.CreateKeystore("")
 		if err != nil {
 			return nil, err
 		}
