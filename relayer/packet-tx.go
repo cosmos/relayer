@@ -88,7 +88,7 @@ func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain
 		Src: []provider.RelayerMessage{msg},
 	}
 
-	result := txs.Send(ctx, log, AsRelayMsgSender(c), AsRelayMsgSender(dst))
+	result := txs.Send(ctx, log, AsRelayMsgSender(c, srcChannel.ChannelId, ""), AsRelayMsgSender(dst, srcChannel.ChannelId, ""))
 	if err := result.Error(); err != nil {
 		if result.PartiallySent() {
 			c.log.Info(

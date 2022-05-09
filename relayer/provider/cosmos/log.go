@@ -13,11 +13,13 @@ import (
 )
 
 // LogFailedTx takes the transaction and the messages to create it and logs the appropriate data
-func (cc *CosmosProvider) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
+func (cc *CosmosProvider) LogFailedTx(res *provider.RelayerTxResponse, srcChanID, dstChanID string, err error, msgs []provider.RelayerMessage) {
 	if err != nil {
 		cc.log.Error(
 			"Failed sending cosmos transaction",
 			zap.String("chain_id", cc.ChainId()),
+			zap.String("source_channel", srcChanID),
+			zap.String("dest_channel", dstChanID),
 			msgTypesField(msgs),
 			zap.Error(err),
 		)
@@ -31,6 +33,8 @@ func (cc *CosmosProvider) LogFailedTx(res *provider.RelayerTxResponse, err error
 		cc.log.Warn(
 			"Sent transaction but received failure response",
 			zap.String("chain_id", cc.ChainId()),
+			zap.String("source_channel", srcChanID),
+			zap.String("dest_channel", dstChanID),
 			msgTypesField(msgs),
 			zap.Object("response", res),
 		)
@@ -38,7 +42,7 @@ func (cc *CosmosProvider) LogFailedTx(res *provider.RelayerTxResponse, err error
 }
 
 // LogSuccessTx take the transaction and the messages to create it and logs the appropriate data
-func (cc *CosmosProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.RelayerMessage) {
+func (cc *CosmosProvider) LogSuccessTx(res *sdk.TxResponse, srcChanID, dstChanID string, msgs []provider.RelayerMessage) {
 	feesField := zap.Skip()
 	feePayerField := zap.Skip()
 
@@ -64,6 +68,8 @@ func (cc *CosmosProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.Rela
 	cc.log.Info(
 		"Successful transaction",
 		zap.String("chain_id", cc.ChainId()),
+		zap.String("source_channel", srcChanID),
+		zap.String("dest_channel", dstChanID),
 		zap.Int64("gas_used", res.GasUsed),
 		feesField,
 		feePayerField,

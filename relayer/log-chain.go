@@ -11,7 +11,7 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 )
 
-func logFailedTx(log *zap.Logger, chainID string, res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
+func logFailedTx(log *zap.Logger, chainID string, srcChanID, dstChanID string, res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
 	fields := make([]zap.Field, 1+len(msgs), 2+len(msgs))
 	fields[0] = zap.String("chain_id", chainID)
 	for i, msg := range msgs {
@@ -40,6 +40,8 @@ func logFailedTx(log *zap.Logger, chainID string, res *provider.RelayerTxRespons
 		log.Info(
 			"Sent transaction that resulted in error",
 			zap.String("chain_id", chainID),
+			zap.String("source_channel", srcChanID),
+			zap.String("dest_channel", dstChanID),
 			zap.Int64("height", res.Height),
 			zap.Strings("msg_types", msgTypes),
 			zap.Uint32("error_code", res.Code),
@@ -53,8 +55,8 @@ func logFailedTx(log *zap.Logger, chainID string, res *provider.RelayerTxRespons
 }
 
 // LogFailedTx takes the transaction and the messages to create it and logs the appropriate data
-func (c *Chain) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
-	logFailedTx(c.log, c.ChainID(), res, err, msgs)
+func (c *Chain) LogFailedTx(res *provider.RelayerTxResponse, srcChanID, dstChanID string, err error, msgs []provider.RelayerMessage) {
+	logFailedTx(c.log, c.ChainID(), srcChanID, dstChanID, res, err, msgs)
 }
 
 func (c *Chain) logPacketsRelayed(dst *Chain, num int, srcChannel *chantypes.IdentifiedChannel) {

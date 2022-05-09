@@ -94,22 +94,22 @@ type ChainProvider interface {
 	ConnectionOpenAck(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]RelayerMessage, error)
 	ConnectionOpenConfirm(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]RelayerMessage, error)
 	ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.Header) ([]RelayerMessage, error)
-	ChannelOpenTry(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]RelayerMessage, error)
-	ChannelOpenAck(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]RelayerMessage, error)
-	ChannelOpenConfirm(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChannId string) ([]RelayerMessage, error)
-	ChannelCloseInit(srcPortId, srcChanId string) (RelayerMessage, error)
-	ChannelCloseConfirm(ctx context.Context, dstQueryProvider QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (RelayerMessage, error)
+	ChannelOpenTry(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanID, dstChanID, srcVersion, srcConnectionId, srcClientId string) ([]RelayerMessage, error)
+	ChannelOpenAck(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanID, dstChanID, dstPortId string) ([]RelayerMessage, error)
+	ChannelOpenConfirm(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanID, dstPortId, dstChannId string) ([]RelayerMessage, error)
+	ChannelCloseInit(srcPortId, srcChanID string) (RelayerMessage, error)
+	ChannelCloseConfirm(ctx context.Context, dstQueryProvider QueryProvider, dsth int64, dstChanID, dstPortId, srcPortId, srcChanID string) (RelayerMessage, error)
 
-	MsgRelayAcknowledgement(ctx context.Context, dst ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet RelayPacket) (RelayerMessage, error)
-	MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanId string, timeoutHeight, timeoutTimestamp uint64) (RelayerMessage, error)
-	MsgRelayTimeout(ctx context.Context, dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
-	MsgRelayRecvPacket(ctx context.Context, dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
+	MsgRelayAcknowledgement(ctx context.Context, dst ChainProvider, dstChanID, dstPortId, srcChanID, srcPortId string, dsth int64, packet RelayPacket) (RelayerMessage, error)
+	MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanID string, timeoutHeight, timeoutTimestamp uint64) (RelayerMessage, error)
+	MsgRelayTimeout(ctx context.Context, dst ChainProvider, dsth int64, packet RelayPacket, dstChanID, dstPortId, srcChanID, srcPortId string) (RelayerMessage, error)
+	MsgRelayRecvPacket(ctx context.Context, dst ChainProvider, dsth int64, packet RelayPacket, dstChanID, dstPortId, srcChanID, srcPortId string) (RelayerMessage, error)
 	MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (RelayerMessage, error)
-	RelayPacketFromSequence(ctx context.Context, src, dst ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string) (RelayerMessage, RelayerMessage, error)
-	AcknowledgementFromSequence(ctx context.Context, dst ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
+	RelayPacketFromSequence(ctx context.Context, src, dst ChainProvider, srch, dsth, seq uint64, dstChanID, dstPortId, dstClientId, srcChanID, srcPortId, srcClientId string) (RelayerMessage, RelayerMessage, error)
+	AcknowledgementFromSequence(ctx context.Context, dst ChainProvider, dsth, seq uint64, dstChanID, dstPortId, srcChanID, srcPortId string) (RelayerMessage, error)
 
-	SendMessage(ctx context.Context, msg RelayerMessage) (*RelayerTxResponse, bool, error)
-	SendMessages(ctx context.Context, msgs []RelayerMessage) (*RelayerTxResponse, bool, error)
+	SendMessage(ctx context.Context, srcChanID, dstChanID string, msg RelayerMessage) (*RelayerTxResponse, bool, error)
+	SendMessages(ctx context.Context, srcChanID, dstChanID string, msgs []RelayerMessage) (*RelayerTxResponse, bool, error)
 
 	GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error)
 	GetIBCUpdateHeader(ctx context.Context, srch int64, dst ChainProvider, dstClientId string) (ibcexported.Header, error)
@@ -181,8 +181,8 @@ type QueryProvider interface {
 }
 
 type RelayPacket interface {
-	Msg(src ChainProvider, srcPortId, srcChanId, dstPortId, dstChanId string) (RelayerMessage, error)
-	FetchCommitResponse(ctx context.Context, dst ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error
+	Msg(src ChainProvider, srcPortId, srcChanID, dstPortId, dstChanID string) (RelayerMessage, error)
+	FetchCommitResponse(ctx context.Context, dst ChainProvider, queryHeight uint64, dstChanID, dstPortId string) error
 	Data() []byte
 	Seq() uint64
 	Timeout() clienttypes.Height

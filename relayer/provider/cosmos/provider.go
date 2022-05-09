@@ -540,7 +540,7 @@ func (cc *CosmosProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, src
 	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanID, dstChanID, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -554,7 +554,7 @@ func (cc *CosmosProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider p
 		return nil, err
 	}
 
-	counterpartyChannelRes, err := dstQueryProvider.QueryChannel(ctx, cph, dstChanId, dstPortId)
+	counterpartyChannelRes, err := dstQueryProvider.QueryChannel(ctx, cph, dstChanID, dstPortId)
 	if err != nil {
 		return nil, err
 	}
@@ -573,13 +573,13 @@ func (cc *CosmosProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider p
 
 	msg := &chantypes.MsgChannelOpenTry{
 		PortId:            srcPortId,
-		PreviousChannelId: srcChanId,
+		PreviousChannelId: srcChanID,
 		Channel: chantypes.Channel{
 			State:    chantypes.TRYOPEN,
 			Ordering: counterpartyChannelRes.Channel.Ordering,
 			Counterparty: chantypes.Counterparty{
 				PortId:    dstPortId,
-				ChannelId: dstChanId,
+				ChannelId: dstChanID,
 			},
 			ConnectionHops: []string{srcConnectionId},
 			Version:        srcVersion,
@@ -593,7 +593,7 @@ func (cc *CosmosProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider p
 	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanID, dstChanID, dstPortId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -608,7 +608,7 @@ func (cc *CosmosProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider p
 		return nil, err
 	}
 
-	counterpartyChannelRes, err := dstQueryProvider.QueryChannel(ctx, cph, dstChanId, dstPortId)
+	counterpartyChannelRes, err := dstQueryProvider.QueryChannel(ctx, cph, dstChanID, dstPortId)
 	if err != nil {
 		return nil, err
 	}
@@ -619,8 +619,8 @@ func (cc *CosmosProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider p
 
 	msg := &chantypes.MsgChannelOpenAck{
 		PortId:                srcPortId,
-		ChannelId:             srcChanId,
-		CounterpartyChannelId: dstChanId,
+		ChannelId:             srcChanID,
+		CounterpartyChannelId: dstChanID,
 		CounterpartyVersion:   counterpartyChannelRes.Channel.Version,
 		ProofTry:              counterpartyChannelRes.Proof,
 		ProofHeight:           counterpartyChannelRes.ProofHeight,
@@ -630,7 +630,7 @@ func (cc *CosmosProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider p
 	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChanId string) ([]provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanID, dstPortId, dstChanID string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -644,7 +644,7 @@ func (cc *CosmosProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvid
 		return nil, err
 	}
 
-	counterpartyChanState, err := dstQueryProvider.QueryChannel(ctx, cph, dstChanId, dstPortId)
+	counterpartyChanState, err := dstQueryProvider.QueryChannel(ctx, cph, dstChanID, dstPortId)
 	if err != nil {
 		return nil, err
 	}
@@ -655,7 +655,7 @@ func (cc *CosmosProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvid
 
 	msg := &chantypes.MsgChannelOpenConfirm{
 		PortId:      srcPortId,
-		ChannelId:   srcChanId,
+		ChannelId:   srcChanID,
 		ProofAck:    counterpartyChanState.Proof,
 		ProofHeight: counterpartyChanState.ProofHeight,
 		Signer:      acc,
@@ -664,7 +664,7 @@ func (cc *CosmosProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvid
 	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ChannelCloseInit(srcPortId, srcChanId string) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ChannelCloseInit(srcPortId, srcChanID string) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -675,19 +675,19 @@ func (cc *CosmosProvider) ChannelCloseInit(srcPortId, srcChanId string) (provide
 
 	msg := &chantypes.MsgChannelCloseInit{
 		PortId:    srcPortId,
-		ChannelId: srcChanId,
+		ChannelId: srcChanID,
 		Signer:    acc,
 	}
 
 	return NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) ChannelCloseConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) ChannelCloseConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dsth int64, dstChanID, dstPortId, srcPortId, srcChanID string) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
 	)
-	dstChanResp, err := dstQueryProvider.QueryChannel(ctx, dsth, dstChanId, dstPortId)
+	dstChanResp, err := dstQueryProvider.QueryChannel(ctx, dsth, dstChanID, dstPortId)
 	if err != nil {
 		return nil, err
 	}
@@ -698,7 +698,7 @@ func (cc *CosmosProvider) ChannelCloseConfirm(ctx context.Context, dstQueryProvi
 
 	msg := &chantypes.MsgChannelCloseConfirm{
 		PortId:      srcPortId,
-		ChannelId:   srcChanId,
+		ChannelId:   srcChanID,
 		ProofInit:   dstChanResp.Proof,
 		ProofHeight: dstChanResp.ProofHeight,
 		Signer:      acc,
@@ -800,7 +800,7 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 
 // MsgRelayAcknowledgement constructs the MsgAcknowledgement which is to be sent to the sending chain.
 // The counterparty represents the receiving chain where the acknowledgement would be stored.
-func (cc *CosmosProvider) MsgRelayAcknowledgement(ctx context.Context, dst provider.ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet provider.RelayPacket) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) MsgRelayAcknowledgement(ctx context.Context, dst provider.ChainProvider, dstChanID, dstPortId, srcChanID, srcPortId string, dsth int64, packet provider.RelayPacket) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -814,7 +814,7 @@ func (cc *CosmosProvider) MsgRelayAcknowledgement(ctx context.Context, dst provi
 		return nil, err
 	}
 
-	ackRes, err := dst.QueryPacketAcknowledgement(ctx, dsth, dstChanId, dstPortId, packet.Seq())
+	ackRes, err := dst.QueryPacketAcknowledgement(ctx, dsth, dstChanID, dstPortId, packet.Seq())
 	switch {
 	case err != nil:
 		return nil, err
@@ -827,9 +827,9 @@ func (cc *CosmosProvider) MsgRelayAcknowledgement(ctx context.Context, dst provi
 			Packet: chantypes.Packet{
 				Sequence:           packet.Seq(),
 				SourcePort:         srcPortId,
-				SourceChannel:      srcChanId,
+				SourceChannel:      srcChanID,
 				DestinationPort:    dstPortId,
-				DestinationChannel: dstChanId,
+				DestinationChannel: dstChanID,
 				Data:               packet.Data(),
 				TimeoutHeight:      packet.Timeout(),
 				TimeoutTimestamp:   packet.TimeoutStamp(),
@@ -845,7 +845,7 @@ func (cc *CosmosProvider) MsgRelayAcknowledgement(ctx context.Context, dst provi
 }
 
 // MsgTransfer creates a new transfer message
-func (cc *CosmosProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanId string, timeoutHeight, timeoutTimestamp uint64) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanID string, timeoutHeight, timeoutTimestamp uint64) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -859,7 +859,7 @@ func (cc *CosmosProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcP
 	if timeoutHeight == 0 {
 		msg = &transfertypes.MsgTransfer{
 			SourcePort:       srcPortId,
-			SourceChannel:    srcChanId,
+			SourceChannel:    srcChanID,
 			Token:            amount,
 			Sender:           acc,
 			Receiver:         dstAddr,
@@ -870,7 +870,7 @@ func (cc *CosmosProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcP
 
 		msg = &transfertypes.MsgTransfer{
 			SourcePort:    srcPortId,
-			SourceChannel: srcChanId,
+			SourceChannel: srcChanID,
 			Token:         amount,
 			Sender:        acc,
 			Receiver:      dstAddr,
@@ -888,7 +888,7 @@ func (cc *CosmosProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcP
 // MsgRelayTimeout constructs the MsgTimeout which is to be sent to the sending chain.
 // The counterparty represents the receiving chain where the receipts would have been
 // stored.
-func (cc *CosmosProvider) MsgRelayTimeout(ctx context.Context, dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) MsgRelayTimeout(ctx context.Context, dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanID, dstPortId, srcChanID, srcPortId string) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -897,7 +897,7 @@ func (cc *CosmosProvider) MsgRelayTimeout(ctx context.Context, dst provider.Chai
 		return nil, err
 	}
 
-	recvRes, err := dst.QueryPacketReceipt(ctx, dsth, dstChanId, dstPortId, packet.Seq())
+	recvRes, err := dst.QueryPacketReceipt(ctx, dsth, dstChanID, dstPortId, packet.Seq())
 	switch {
 	case err != nil:
 		return nil, err
@@ -910,9 +910,9 @@ func (cc *CosmosProvider) MsgRelayTimeout(ctx context.Context, dst provider.Chai
 			Packet: chantypes.Packet{
 				Sequence:           packet.Seq(),
 				SourcePort:         srcPortId,
-				SourceChannel:      srcChanId,
+				SourceChannel:      srcChanID,
 				DestinationPort:    dstPortId,
-				DestinationChannel: dstChanId,
+				DestinationChannel: dstChanID,
 				Data:               packet.Data(),
 				TimeoutHeight:      packet.Timeout(),
 				TimeoutTimestamp:   packet.TimeoutStamp(),
@@ -929,7 +929,7 @@ func (cc *CosmosProvider) MsgRelayTimeout(ctx context.Context, dst provider.Chai
 
 // MsgRelayRecvPacket constructs the MsgRecvPacket which is to be sent to the receiving chain.
 // The counterparty represents the sending chain where the packet commitment would be stored.
-func (cc *CosmosProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanID, dstPortId, srcChanID, srcPortId string) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -938,7 +938,7 @@ func (cc *CosmosProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.C
 		return nil, err
 	}
 
-	comRes, err := dst.QueryPacketCommitment(ctx, dsth, dstChanId, dstPortId, packet.Seq())
+	comRes, err := dst.QueryPacketCommitment(ctx, dsth, dstChanID, dstPortId, packet.Seq())
 	switch {
 	case err != nil:
 		return nil, err
@@ -951,9 +951,9 @@ func (cc *CosmosProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.C
 			Packet: chantypes.Packet{
 				Sequence:           packet.Seq(),
 				SourcePort:         dstPortId,
-				SourceChannel:      dstChanId,
+				SourceChannel:      dstChanID,
 				DestinationPort:    srcPortId,
-				DestinationChannel: srcChanId,
+				DestinationChannel: srcChanID,
 				Data:               packet.Data(),
 				TimeoutHeight:      packet.Timeout(),
 				TimeoutTimestamp:   packet.TimeoutStamp(),
@@ -968,8 +968,8 @@ func (cc *CosmosProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.C
 }
 
 // RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
-func (cc *CosmosProvider) RelayPacketFromSequence(ctx context.Context, src, dst provider.ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string) (provider.RelayerMessage, provider.RelayerMessage, error) {
-	txs, err := cc.QueryTxs(ctx, 1, 1000, rcvPacketQuery(srcChanId, int(seq)))
+func (cc *CosmosProvider) RelayPacketFromSequence(ctx context.Context, src, dst provider.ChainProvider, srch, dsth, seq uint64, dstChanID, dstPortId, dstClientId, srcChanID, srcPortId, srcClientId string) (provider.RelayerMessage, provider.RelayerMessage, error) {
+	txs, err := cc.QueryTxs(ctx, 1, 1000, rcvPacketQuery(srcChanID, int(seq)))
 	switch {
 	case err != nil:
 		return nil, nil, err
@@ -979,7 +979,7 @@ func (cc *CosmosProvider) RelayPacketFromSequence(ctx context.Context, src, dst 
 		return nil, nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	rcvPackets, timeoutPackets, err := cc.relayPacketsFromResultTx(ctx, src, dst, int64(dsth), txs[0], dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId)
+	rcvPackets, timeoutPackets, err := cc.relayPacketsFromResultTx(ctx, src, dst, int64(dsth), txs[0], dstChanID, dstPortId, dstClientId, srcChanID, srcPortId, srcClientId)
 	switch {
 	case err != nil:
 		return nil, nil, err
@@ -995,7 +995,7 @@ func (cc *CosmosProvider) RelayPacketFromSequence(ctx context.Context, src, dst 
 			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
 		}
 
-		packet, err := dst.MsgRelayRecvPacket(ctx, src, int64(srch), pkt, srcChanId, srcPortId, dstChanId, dstPortId)
+		packet, err := dst.MsgRelayRecvPacket(ctx, src, int64(srch), pkt, srcChanID, srcPortId, dstChanID, dstPortId)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1009,7 +1009,7 @@ func (cc *CosmosProvider) RelayPacketFromSequence(ctx context.Context, src, dst 
 			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
 		}
 
-		timeout, err := src.MsgRelayTimeout(ctx, dst, int64(dsth), pkt, dstChanId, dstPortId, srcChanId, srcPortId)
+		timeout, err := src.MsgRelayTimeout(ctx, dst, int64(dsth), pkt, dstChanID, dstPortId, srcChanID, srcPortId)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1020,8 +1020,8 @@ func (cc *CosmosProvider) RelayPacketFromSequence(ctx context.Context, src, dst 
 }
 
 // AcknowledgementFromSequence relays an acknowledgement with a given seq on src, source is the sending chain, destination is the receiving chain
-func (cc *CosmosProvider) AcknowledgementFromSequence(ctx context.Context, dst provider.ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
-	txs, err := dst.QueryTxs(ctx, 1, 1000, ackPacketQuery(dstChanId, int(seq)))
+func (cc *CosmosProvider) AcknowledgementFromSequence(ctx context.Context, dst provider.ChainProvider, dsth, seq uint64, dstChanID, dstPortId, srcChanID, srcPortId string) (provider.RelayerMessage, error) {
+	txs, err := dst.QueryTxs(ctx, 1, 1000, ackPacketQuery(dstChanID, int(seq)))
 	switch {
 	case err != nil:
 		return nil, err
@@ -1031,7 +1031,7 @@ func (cc *CosmosProvider) AcknowledgementFromSequence(ctx context.Context, dst p
 		return nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	acks, err := acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId, txs[0])
+	acks, err := acknowledgementsFromResultTx(dstChanID, dstPortId, srcChanID, srcPortId, txs[0])
 	switch {
 	case err != nil:
 		return nil, err
@@ -1044,7 +1044,7 @@ func (cc *CosmosProvider) AcknowledgementFromSequence(ctx context.Context, dst p
 		if seq != ack.Seq() {
 			continue
 		}
-		msg, err := cc.MsgRelayAcknowledgement(ctx, dst, dstChanId, dstPortId, srcChanId, srcPortId, int64(dsth), ack)
+		msg, err := cc.MsgRelayAcknowledgement(ctx, dst, dstChanID, dstPortId, srcChanID, srcPortId, int64(dsth), ack)
 		if err != nil {
 			return nil, err
 		}
@@ -1065,7 +1065,7 @@ func ackPacketQuery(channelID string, seq int) []string {
 
 // relayPacketsFromResultTx looks through the events in a *ctypes.ResultTx
 // and returns relayPackets with the appropriate data
-func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst provider.ChainProvider, dsth int64, resp *provider.RelayerTxResponse, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
+func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst provider.ChainProvider, dsth int64, resp *provider.RelayerTxResponse, dstChanID, dstPortId, dstClientId, srcChanID, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
 	var (
 		rcvPackets     []provider.RelayPacket
 		timeoutPackets []provider.RelayPacket
@@ -1081,12 +1081,12 @@ func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst
 
 		switch event.AttributeKey {
 		case srcChanTag:
-			if event.AttributeValue != srcChanId {
+			if event.AttributeValue != srcChanID {
 				rp.pass = true
 				continue
 			}
 		case dstChanTag:
-			if event.AttributeValue != dstChanId {
+			if event.AttributeValue != dstChanID {
 				rp.pass = true
 				continue
 			}
@@ -1166,7 +1166,7 @@ func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst
 
 // acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
 // relayPackets with the appropriate data
-func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId string, resp *provider.RelayerTxResponse) ([]provider.RelayPacket, error) {
+func acknowledgementsFromResultTx(dstChanID, dstPortId, srcChanID, srcPortId string, resp *provider.RelayerTxResponse) ([]provider.RelayPacket, error) {
 	var ackPackets []provider.RelayPacket
 
 	rp := &relayMsgPacketAck{pass: false}
@@ -1179,12 +1179,12 @@ func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId str
 
 		switch event.AttributeKey {
 		case srcChanTag:
-			if event.AttributeValue != srcChanId {
+			if event.AttributeValue != srcChanID {
 				rp.pass = true
 				continue
 			}
 		case dstChanTag:
-			if event.AttributeValue != dstChanId {
+			if event.AttributeValue != dstChanID {
 				rp.pass = true
 				continue
 			}
@@ -1343,9 +1343,9 @@ func (cc *CosmosProvider) AutoUpdateClient(ctx context.Context, dst provider.Cha
 
 	msgs := []provider.RelayerMessage{updateMsg}
 
-	res, success, err := cc.SendMessages(ctx, msgs)
+	res, success, err := cc.SendMessages(ctx, "", "", msgs)
 	if err != nil {
-		// cp.LogFailedTx(res, err, CosmosMsgs(msgs...))
+		// cp.LogFailedTx(res, "", "", err, CosmosMsgs(msgs...))
 		return 0, err
 	}
 	if !success {
@@ -1599,8 +1599,8 @@ func MustGetHeight(h ibcexported.Height) clienttypes.Height {
 
 // SendMessage attempts to sign, encode & send a RelayerMessage
 // This is used extensively in the relayer as an extension of the Provider interface
-func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
-	return cc.SendMessages(ctx, []provider.RelayerMessage{msg})
+func (cc *CosmosProvider) SendMessage(ctx context.Context, srcChanID, dstChanID string, msg provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+	return cc.SendMessages(ctx, srcChanID, dstChanID, []provider.RelayerMessage{msg})
 }
 
 // SendMessages attempts to sign, encode, & send a slice of RelayerMessages
@@ -1610,7 +1610,7 @@ func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerM
 // transaction will not return an error. If a transaction is successfully sent, the result of the execution
 // of that transaction will be logged. A boolean indicating if a transaction was successfully
 // sent and executed successfully is returned.
-func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+func (cc *CosmosProvider) SendMessages(ctx context.Context, srcChanID, dstChanID string, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
 	var resp *sdk.TxResponse
 
 	if err := retry.Do(func() error {
@@ -1719,11 +1719,11 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 	// NOTE: error is nil, logic should use the returned error to determine if the
 	// transaction was successfully executed.
 	if rlyResp.Code != 0 {
-		cc.LogFailedTx(rlyResp, nil, msgs)
+		cc.LogFailedTx(rlyResp, srcChanID, dstChanID, nil, msgs)
 		return rlyResp, false, fmt.Errorf("transaction failed with code: %d", resp.Code)
 	}
 
-	cc.LogSuccessTx(resp, msgs)
+	cc.LogSuccessTx(resp, srcChanID, dstChanID, msgs)
 	return rlyResp, true, nil
 }
 

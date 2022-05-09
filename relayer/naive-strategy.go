@@ -356,7 +356,7 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 		}
 
 		// send messages to their respective chains
-		result := msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst))
+		result := msgs.Send(ctx, log, AsRelayMsgSender(src, "", ""), AsRelayMsgSender(dst, "", ""))
 		if err := result.Error(); err != nil {
 			if result.PartiallySent() {
 				log.Info(
@@ -443,7 +443,7 @@ func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *Rel
 		}
 
 		// send messages to their respective chains
-		result := msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst))
+		result := msgs.Send(ctx, log, AsRelayMsgSender(src, "", ""), AsRelayMsgSender(dst, "", ""))
 		if err := result.Error(); err != nil {
 			if result.PartiallySent() {
 				log.Info(
@@ -679,7 +679,7 @@ func RelayPacket(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *Rela
 	}
 
 	// send messages to their respective chains
-	result := msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst))
+	result := msgs.Send(ctx, log, AsRelayMsgSender(src, "", ""), AsRelayMsgSender(dst, "", ""))
 	if err := result.Error(); err != nil {
 		if result.PartiallySent() {
 			log.Info(

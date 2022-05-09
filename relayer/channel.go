@@ -222,9 +222,9 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 			return srcChanID, dstChanID, false, false, false, err
 		}
 
-		res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
+		res, success, err = src.ChainProvider.SendMessages(ctx, srcChanID, dstChanID, msgs)
 		if err != nil {
-			src.LogFailedTx(res, err, msgs)
+			src.LogFailedTx(res, srcChanID, dstChanID, err, msgs)
 		}
 		if !success {
 			return srcChanID, dstChanID, false, false, false, err
@@ -268,9 +268,9 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 			return srcChanID, dstChanID, false, false, false, err
 		}
 
-		res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
+		res, success, err = src.ChainProvider.SendMessages(ctx, srcChanID, dstChanID, msgs)
 		if err != nil {
-			src.LogFailedTx(res, err, msgs)
+			src.LogFailedTx(res, srcChanID, dstChanID, err, msgs)
 		}
 		if !success {
 			return srcChanID, dstChanID, false, false, false, err
@@ -312,9 +312,9 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 			return srcChanID, dstChanID, false, false, false, err
 		}
 
-		res, success, err = dst.ChainProvider.SendMessages(ctx, msgs)
+		res, success, err = dst.ChainProvider.SendMessages(ctx, srcChanID, dstChanID, msgs)
 		if err != nil {
-			dst.LogFailedTx(res, err, msgs)
+			dst.LogFailedTx(res, srcChanID, dstChanID, err, msgs)
 		}
 		if !success {
 			return srcChanID, dstChanID, false, false, false, err
@@ -356,9 +356,9 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 
 		last = true
 
-		res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
+		res, success, err = src.ChainProvider.SendMessages(ctx, srcChanID, dstChanID, msgs)
 		if err != nil {
-			src.LogFailedTx(res, err, msgs)
+			src.LogFailedTx(res, srcChanID, dstChanID, err, msgs)
 		}
 		if !success {
 			return srcChanID, dstChanID, false, false, false, err
@@ -398,9 +398,9 @@ func ExecuteChannelStep(ctx context.Context, src, dst *Chain, srcChanID, dstChan
 			return srcChanID, dstChanID, false, false, false, err
 		}
 
-		res, success, err = dst.ChainProvider.SendMessages(ctx, msgs)
+		res, success, err = dst.ChainProvider.SendMessages(ctx, srcChanID, dstChanID, msgs)
 		if err != nil {
-			dst.LogFailedTx(res, err, msgs)
+			dst.LogFailedTx(res, srcChanID, dstChanID, err, msgs)
 		}
 		if !success {
 			return srcChanID, dstChanID, false, false, false, err
@@ -474,9 +474,9 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 				return srcChanID, dstChanID, false, false, err
 			}
 
-			res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
+			res, success, err = src.ChainProvider.SendMessages(ctx, srcChanID, dstChanID, msgs)
 			if err != nil {
-				src.LogFailedTx(res, err, msgs)
+				src.LogFailedTx(res, srcChanID, dstChanID, err, msgs)
 			}
 			if !success {
 				return srcChanID, dstChanID, false, false, err
@@ -542,9 +542,9 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 				return srcChanID, dstChanID, false, false, err
 			}
 
-			res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
+			res, success, err = src.ChainProvider.SendMessages(ctx, srcChanID, dstChanID, msgs)
 			if err != nil {
-				src.LogFailedTx(res, err, msgs)
+				src.LogFailedTx(res, srcChanID, dstChanID, err, msgs)
 			}
 			if !success {
 				return srcChanID, dstChanID, false, false, err
@@ -610,9 +610,9 @@ func InitializeChannel(ctx context.Context, src, dst *Chain, srcChanID, dstChanI
 				return srcChanID, dstChanID, false, false, err
 			}
 
-			res, success, err = dst.ChainProvider.SendMessages(ctx, msgs)
+			res, success, err = dst.ChainProvider.SendMessages(ctx, srcChanID, dstChanID, msgs)
 			if err != nil {
-				dst.LogFailedTx(res, err, msgs)
+				dst.LogFailedTx(res, srcChanID, dstChanID, err, msgs)
 			}
 			if !success {
 				return srcChanID, dstChanID, false, false, err
@@ -658,7 +658,7 @@ func (c *Chain) CloseChannel(ctx context.Context, dst *Chain, to time.Duration, 
 			break
 		}
 
-		result := closeSteps.Send(ctx, c.log, AsRelayMsgSender(c), AsRelayMsgSender(dst))
+		result := closeSteps.Send(ctx, c.log, AsRelayMsgSender(c, srcChanID, dstChanID), AsRelayMsgSender(dst, srcChanID, dstChanID))
 		if err := result.Error(); err != nil {
 			c.log.Info(
 				"Error when attempting to close channel",

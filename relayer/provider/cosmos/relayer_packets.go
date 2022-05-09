@@ -41,8 +41,8 @@ func (rp relayMsgTimeout) TimeoutStamp() uint64 {
 	return rp.timeoutStamp
 }
 
-func (rp relayMsgTimeout) FetchCommitResponse(ctx context.Context, dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
-	dstRecvRes, err := dst.QueryPacketReceipt(ctx, int64(queryHeight)-1, dstChanId, dstPortId, rp.seq)
+func (rp relayMsgTimeout) FetchCommitResponse(ctx context.Context, dst provider.ChainProvider, queryHeight uint64, dstChanID, dstPortId string) error {
+	dstRecvRes, err := dst.QueryPacketReceipt(ctx, int64(queryHeight)-1, dstChanID, dstPortId, rp.seq)
 	switch {
 	case err != nil:
 		return err
@@ -54,7 +54,7 @@ func (rp relayMsgTimeout) FetchCommitResponse(ctx context.Context, dst provider.
 	}
 }
 
-func (rp relayMsgTimeout) Msg(src provider.ChainProvider, srcPortId, srcChanId, dstPortId, dstChanId string) (provider.RelayerMessage, error) {
+func (rp relayMsgTimeout) Msg(src provider.ChainProvider, srcPortId, srcChanID, dstPortId, dstChanID string) (provider.RelayerMessage, error) {
 	if rp.dstRecvRes == nil {
 		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", src.ChainId(), rp.seq)
 	}
@@ -67,9 +67,9 @@ func (rp relayMsgTimeout) Msg(src provider.ChainProvider, srcPortId, srcChanId, 
 		Packet: chantypes.Packet{
 			Sequence:           rp.seq,
 			SourcePort:         srcPortId,
-			SourceChannel:      srcChanId,
+			SourceChannel:      srcChanID,
 			DestinationPort:    dstPortId,
-			DestinationChannel: dstChanId,
+			DestinationChannel: dstChanID,
 			Data:               rp.packetData,
 			TimeoutHeight:      rp.timeout,
 			TimeoutTimestamp:   rp.timeoutStamp,
@@ -120,8 +120,8 @@ func (rp relayMsgRecvPacket) TimeoutStamp() uint64 {
 	return rp.timeoutStamp
 }
 
-func (rp relayMsgRecvPacket) FetchCommitResponse(ctx context.Context, dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
-	dstCommitRes, err := dst.QueryPacketCommitment(ctx, int64(queryHeight)-1, dstChanId, dstPortId, rp.seq)
+func (rp relayMsgRecvPacket) FetchCommitResponse(ctx context.Context, dst provider.ChainProvider, queryHeight uint64, dstChanID, dstPortId string) error {
+	dstCommitRes, err := dst.QueryPacketCommitment(ctx, int64(queryHeight)-1, dstChanID, dstPortId, rp.seq)
 	switch {
 	case err != nil:
 		return err
@@ -135,7 +135,7 @@ func (rp relayMsgRecvPacket) FetchCommitResponse(ctx context.Context, dst provid
 	}
 }
 
-func (rp relayMsgRecvPacket) Msg(src provider.ChainProvider, srcPortId, srcChanId, dstPortId, dstChanId string) (provider.RelayerMessage, error) {
+func (rp relayMsgRecvPacket) Msg(src provider.ChainProvider, srcPortId, srcChanID, dstPortId, dstChanID string) (provider.RelayerMessage, error) {
 	if rp.dstComRes == nil {
 		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", src.ChainId(), rp.seq)
 	}
@@ -148,9 +148,9 @@ func (rp relayMsgRecvPacket) Msg(src provider.ChainProvider, srcPortId, srcChanI
 		Packet: chantypes.Packet{
 			Sequence:           rp.seq,
 			SourcePort:         dstPortId,
-			SourceChannel:      dstChanId,
+			SourceChannel:      dstChanID,
 			DestinationPort:    srcPortId,
-			DestinationChannel: srcChanId,
+			DestinationChannel: srcChanID,
 			Data:               rp.packetData,
 			TimeoutHeight:      rp.timeout,
 			TimeoutTimestamp:   rp.timeoutStamp,
@@ -188,7 +188,7 @@ func (rp relayMsgPacketAck) TimeoutStamp() uint64 {
 	return rp.timeoutStamp
 }
 
-func (rp relayMsgPacketAck) Msg(src provider.ChainProvider, srcPortId, srcChanId, dstPortId, dstChanId string) (provider.RelayerMessage, error) {
+func (rp relayMsgPacketAck) Msg(src provider.ChainProvider, srcPortId, srcChanID, dstPortId, dstChanID string) (provider.RelayerMessage, error) {
 	if rp.dstComRes == nil {
 		return nil, fmt.Errorf("ack packet [%s]seq{%d} has no associated proofs", src.ChainId(), rp.seq)
 	}
@@ -202,9 +202,9 @@ func (rp relayMsgPacketAck) Msg(src provider.ChainProvider, srcPortId, srcChanId
 		Packet: chantypes.Packet{
 			Sequence:           rp.seq,
 			SourcePort:         srcPortId,
-			SourceChannel:      srcChanId,
+			SourceChannel:      srcChanID,
 			DestinationPort:    dstPortId,
-			DestinationChannel: dstChanId,
+			DestinationChannel: dstChanID,
 			Data:               rp.packetData,
 			TimeoutHeight:      rp.timeout,
 			TimeoutTimestamp:   rp.timeoutStamp,
@@ -218,8 +218,8 @@ func (rp relayMsgPacketAck) Msg(src provider.ChainProvider, srcPortId, srcChanId
 	return NewCosmosMessage(msg), nil
 }
 
-func (rp relayMsgPacketAck) FetchCommitResponse(ctx context.Context, dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
-	dstCommitRes, err := dst.QueryPacketAcknowledgement(ctx, int64(queryHeight)-1, dstChanId, dstPortId, rp.seq)
+func (rp relayMsgPacketAck) FetchCommitResponse(ctx context.Context, dst provider.ChainProvider, queryHeight uint64, dstChanID, dstPortId string) error {
+	dstCommitRes, err := dst.QueryPacketAcknowledgement(ctx, int64(queryHeight)-1, dstChanID, dstPortId, rp.seq)
 	switch {
 	case err != nil:
 		return err

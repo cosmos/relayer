@@ -41,19 +41,24 @@ func (r *RelayMsgs) IsMaxTx(msgLen, txSize uint64) bool {
 // RelayMsgSender is a narrow subset of a Chain,
 // to simplify testing methods on RelayMsgs.
 type RelayMsgSender struct {
-	ChainID string
+	ChainID   string
+	SrcChanID string
+	DstChanID string
 
 	// SendMessages is a function matching the signature of the same method
 	// on the ChainProvider interface.
 	//
 	// Accepting this narrow subset of the interface greatly simplifies testing.
-	SendMessages func(context.Context, []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error)
+	SendMessages func(context.Context, string, string, []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error)
 }
 
 // AsRelayMsgSender converts c to a RelayMsgSender.
-func AsRelayMsgSender(c *Chain) RelayMsgSender {
+func AsRelayMsgSender(c *Chain, srcChanID, dstChanID string) RelayMsgSender {
 	return RelayMsgSender{
-		ChainID:      c.ChainID(),
+		ChainID:   c.ChainID(),
+		SrcChanID: srcChanID,
+		DstChanID: dstChanID,
+
 		SendMessages: c.ChainProvider.SendMessages,
 	}
 }
@@ -160,9 +165,9 @@ func (r *RelayMsgs) send(
 		// Otherwise, we have reached the message count limit or the byte size limit.
 		// Send out this batch now.
 		batchMsgs := msgs[batchStartIdx:i]
-		resp, success, err := s.SendMessages(ctx, batchMsgs)
+		resp, success, err := s.SendMessages(ctx, s.SrcChanID, s.DstChanID, batchMsgs)
 		if err != nil {
-			logFailedTx(log, s.ChainID, resp, err, batchMsgs)
+			logFailedTx(log, s.ChainID, s.SrcChanID, s.DstChanID, resp, err, batchMsgs)
 			multierr.AppendInto(errors, err)
 			// TODO: check chain ordering.
 			// If chain is unordered, we can keep sending;
@@ -180,9 +185,9 @@ func (r *RelayMsgs) send(
 	// If there are any messages left over, send those out too.
 	if batchStartIdx < uint64(len(msgs)) {
 		batchMsgs := msgs[batchStartIdx:]
-		resp, success, err := s.SendMessages(ctx, batchMsgs)
+		resp, success, err := s.SendMessages(ctx, s.SrcChanID, s.DstChanID, batchMsgs)
 		if err != nil {
-			logFailedTx(log, s.ChainID, resp, err, batchMsgs)
+			logFailedTx(log, s.ChainID, s.SrcChanID, s.DstChanID, resp, err, batchMsgs)
 			multierr.AppendInto(errors, err)
 		}
 		if success {

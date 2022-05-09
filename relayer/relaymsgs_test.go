@@ -62,7 +62,7 @@ func TestRelayMsgs_Send_Success(t *testing.T) {
 	var srcSent []provider.RelayerMessage
 	src := relayer.RelayMsgSender{
 		ChainID: "src",
-		SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+		SendMessages: func(ctx context.Context, srcChanID string, dstChanID string, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
 			srcSent = append(srcSent, msgs...)
 			return nil, true, nil
 		},
@@ -71,7 +71,7 @@ func TestRelayMsgs_Send_Success(t *testing.T) {
 	var dstSent []provider.RelayerMessage
 	dst := relayer.RelayMsgSender{
 		ChainID: "dst",
-		SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+		SendMessages: func(ctx context.Context, srcChanID string, dstChanID string, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
 			dstSent = append(dstSent, msgs...)
 			return nil, true, nil
 		},
@@ -150,7 +150,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 		srcErr := fmt.Errorf("source error")
 		src := relayer.RelayMsgSender{
 			ChainID: "src",
-			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+			SendMessages: func(ctx context.Context, srcChanID string, dstChanID string, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
 				return nil, false, srcErr
 			},
 		}
@@ -158,7 +158,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 		dstErr := fmt.Errorf("dest error")
 		dst := relayer.RelayMsgSender{
 			ChainID: "dst",
-			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+			SendMessages: func(ctx context.Context, srcChanID string, dstChanID string, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
 				return nil, false, dstErr
 			},
 		}
@@ -183,7 +183,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 		var srcCalls int
 		src := relayer.RelayMsgSender{
 			ChainID: "src",
-			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+			SendMessages: func(ctx context.Context, srcChanID string, dstChanID string, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
 				srcCalls++
 				switch srcCalls {
 				case 1:
@@ -200,7 +200,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 		var dstCalls int
 		dst := relayer.RelayMsgSender{
 			ChainID: "dst",
-			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+			SendMessages: func(ctx context.Context, srcChanID string, dstChanID string, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
 				dstCalls++
 				switch dstCalls {
 				case 1:
@@ -237,7 +237,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 		var srcCalls int
 		src := relayer.RelayMsgSender{
 			ChainID: "src",
-			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+			SendMessages: func(ctx context.Context, srcChanID string, dstChanID string, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
 				srcCalls++
 				switch srcCalls {
 				case 1:
@@ -254,7 +254,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 		var dstCalls int
 		dst := relayer.RelayMsgSender{
 			ChainID: "dst",
-			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+			SendMessages: func(ctx context.Context, srcChanID string, dstChanID string, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
 				dstCalls++
 				switch dstCalls {
 				case 1:
