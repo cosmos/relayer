@@ -1,8 +1,9 @@
 package substrate_test
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TestKeyRestore restores a test mnemonic
@@ -14,8 +15,10 @@ func TestKeyRestore(t *testing.T) {
 	testProvider, err := getTestProvider()
 	require.Nil(t, err)
 
-	err = testProvider.DeleteKey(keyName) // Delete if test is being run again
-	require.Nil(t, err)
+	if testProvider.KeyExists(keyName) {
+		err = testProvider.DeleteKey(keyName) // Delete if test is being run again
+		require.Nil(t, err)
+	}
 
 	address, err := testProvider.RestoreKey(keyName, mnemonic, 0)
 	require.Nil(t, err)

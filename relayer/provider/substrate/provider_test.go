@@ -10,6 +10,7 @@ import (
 )
 
 const homePath = "/tmp"
+const rpcAddress = "ws://127.0.0.1:9944"
 
 func TestGetTrustingPeriod(t *testing.T) {
 	testProvider, err := getTestProvider()
@@ -21,10 +22,9 @@ func TestGetTrustingPeriod(t *testing.T) {
 
 func getSubstrateConfig(keyHome string, debug bool) *substrate.SubstrateProviderConfig {
 	return &substrate.SubstrateProviderConfig{
-		Key:     "default",
-		ChainID: "substrate-test",
-		// TODO set RPC address
-		RPCAddr:        "",
+		Key:            "default",
+		ChainID:        "substrate-test",
+		RPCAddr:        rpcAddress,
 		KeyringBackend: keystore.BackendMemory,
 		KeyDirectory:   keyHome,
 		Timeout:        "20s",
