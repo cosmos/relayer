@@ -25,7 +25,7 @@ func getSubstrateConfig(keyHome string, debug bool) *substrate.SubstrateProvider
 		Key:            "default",
 		ChainID:        "substrate-test",
 		RPCAddr:        rpcAddress,
-		KeyringBackend: keystore.BackendMemory,
+		KeyringBackend: keystore.BackendTest,
 		KeyDirectory:   keyHome,
 		Timeout:        "20s",
 	}

@@ -3,13 +3,14 @@ package keystore
 import (
 	"bufio"
 	"fmt"
-	"github.com/vedhavyas/go-subkey/common"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/vedhavyas/go-subkey/common"
 
 	"github.com/99designs/keyring"
 	"github.com/cosmos/cosmos-sdk/client/input"
@@ -20,14 +21,16 @@ import (
 
 // Backend options for Keyring
 const (
-	BackendMemory = "memory"
 	BackendFile   = "file"
+	BackendTest   = "test"
+	BackendMemory = "memory"
 
 	infoSuffix = "info"
 )
 
 const (
 	keyringFileDirName = "keyring-file"
+	keyringTestDirName = "keyring-test"
 )
 
 const (
@@ -45,6 +48,8 @@ func New(
 	switch backend {
 	case BackendMemory:
 		return NewInMemory(), err
+	case BackendTest:
+		db, err = keyring.Open(newTestBackendKeyringConfig(appName, rootDir))
 	case BackendFile:
 		db, err = keyring.Open(newFileBackendKeyringConfig(appName, rootDir, userInput))
 	default:
@@ -63,6 +68,17 @@ func New(
 // Keybase options can be applied when generating this new Keybase.
 func NewInMemory() Keyring {
 	return newKeystore(keyring.NewArrayKeyring(nil))
+}
+
+func newTestBackendKeyringConfig(appName, dir string) keyring.Config {
+	return keyring.Config{
+		AllowedBackends: []keyring.BackendType{keyring.FileBackend},
+		ServiceName:     appName,
+		FileDir:         filepath.Join(dir, keyringTestDirName),
+		FilePasswordFunc: func(_ string) (string, error) {
+			return "test", nil
+		},
+	}
 }
 
 func newFileBackendKeyringConfig(name, dir string, buf io.Reader) keyring.Config {
