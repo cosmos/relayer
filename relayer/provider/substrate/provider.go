@@ -42,7 +42,9 @@ type SubstrateRelayerMessage struct {
 // (ccc *ChainClientConfig, homepath string, input io.Reader, output io.Writer, kro ...keyring.Option) (*ChainClient, error) {
 func NewSubstrateProvider(spc *SubstrateProviderConfig, homepath string) (*SubstrateProvider, error) {
 	sp := &SubstrateProvider{
-		Config: spc,
+		//TODO: create keybase instance ?
+		Keybase: keystore.NewInMemory(),
+		Config:  spc,
 	}
 	err := sp.Init()
 	if err != nil {
