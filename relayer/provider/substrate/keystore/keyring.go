@@ -243,7 +243,8 @@ func (ks keystore) List() ([]Info, error) {
 }
 
 func (ks keystore) Key(uid string) (Info, error) {
-	return ks.key(infoKey(uid))
+	infoKey := infoKey(uid)
+	return ks.key(infoKey)
 }
 
 func (ks keystore) NewAccount(name string, mnemonic string, network uint8) (Info, error) {
@@ -267,7 +268,10 @@ func (ks keystore) NewAccount(name string, mnemonic string, network uint8) (Info
 }
 
 func (ks keystore) writeLocalKey(name string, keypair common.KeyPair, address string) (Info, error) {
-	info := newLocalInfo(name, keypair, address)
+	info, err := newLocalInfo(name, keypair, address)
+	if err != nil {
+		return info, err
+	}
 	if err := ks.writeInfo(info); err != nil {
 		return nil, err
 	}

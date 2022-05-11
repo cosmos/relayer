@@ -41,8 +41,8 @@ type Info interface {
 // Note: Algo must be last field in struct for backwards amino compatibility
 type localInfo struct {
 	KeyPair   signature.KeyringPair `json:"key_pair"`
-	Name      string         `json:"name"`
-	PubKey    []byte         `json:"pubkey"`
-	AccountID []byte         `json:"account_id"`
-	Address   string         `json:"address"`
+	Name      string                `json:"name"`
+	PubKey    []byte                `json:"pubkey"`
+	AccountID []byte                `json:"account_id"`
+	Address   string                `json:"address"`
 }

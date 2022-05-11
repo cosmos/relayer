@@ -1,22 +1,14 @@
 package substrate
 
 import (
+	"errors"
+	"fmt"
+	"os"
+
 	"github.com/cosmos/go-bip39"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/provider/substrate/keystore"
 )
-
-const keyStorePath = ""
-
-func (sp *SubstrateProvider) CreateKeystoreIfNotExists() error {
-	if !sp.KeystoreCreated(keyStorePath) {
-		err := sp.CreateKeystore(keyStorePath)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 func (sp *SubstrateProvider) CreateKeystore(path string) error {
 	keybase, err := keystore.New(sp.Config.ChainID, sp.Config.KeyringBackend, sp.Config.KeyDirectory, sp.Input)
@@ -28,7 +20,12 @@ func (sp *SubstrateProvider) CreateKeystore(path string) error {
 }
 
 func (sp *SubstrateProvider) KeystoreCreated(path string) bool {
-	return sp.Keybase != nil
+	if _, err := os.Stat(sp.Config.KeyDirectory); errors.Is(err, os.ErrNotExist) {
+		return false
+	} else if sp.Keybase == nil {
+		return false
+	}
+	return true
 }
 
 func (sp *SubstrateProvider) AddKey(name string, coinType uint32) (output *provider.KeyOutput, err error) {
@@ -49,10 +46,6 @@ func (sp *SubstrateProvider) RestoreKey(name, mnemonic string, coinType uint32) 
 }
 
 func (sp *SubstrateProvider) ShowAddress(name string) (address string, err error) {
-	err = sp.CreateKeystoreIfNotExists()
-	if err != nil {
-		return "", err
-	}
 
 	info, err := sp.Keybase.Key(name)
 	if err != nil {
@@ -62,10 +55,6 @@ func (sp *SubstrateProvider) ShowAddress(name string) (address string, err error
 }
 
 func (sp *SubstrateProvider) ListAddresses() (map[string]string, error) {
-	err := sp.CreateKeystoreIfNotExists()
-	if err != nil {
-		return make(map[string]string), err
-	}
 
 	out := map[string]string{}
 	info, err := sp.Keybase.List()
@@ -80,10 +69,6 @@ func (sp *SubstrateProvider) ListAddresses() (map[string]string, error) {
 }
 
 func (sp *SubstrateProvider) DeleteKey(name string) error {
-	err := sp.CreateKeystoreIfNotExists()
-	if err != nil {
-		return err
-	}
 
 	if err := sp.Keybase.Delete(name); err != nil {
 		return err
@@ -93,13 +78,13 @@ func (sp *SubstrateProvider) DeleteKey(name string) error {
 }
 
 func (sp *SubstrateProvider) KeyExists(name string) bool {
-	err := sp.CreateKeystoreIfNotExists()
-	if err != nil {
+	if sp.Keybase == nil {
 		return false
 	}
 
 	k, err := sp.Keybase.Key(name)
 	if err != nil {
+		fmt.Println(err)
 		return false
 	}
 	return k.GetName() == name
@@ -122,11 +107,6 @@ func (sp *SubstrateProvider) KeyAddOrRestore(keyName string, coinType uint32, mn
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	err = sp.CreateKeystoreIfNotExists()
-	if err != nil {
-		return nil, err
 	}
 
 	info, err := sp.Keybase.NewAccount(keyName, mnemonicStr, network)

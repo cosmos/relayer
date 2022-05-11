@@ -19,6 +19,7 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/cosmos/relayer/v2/relayer/provider/substrate/keystore"
 )
 
 var (
@@ -27,10 +28,17 @@ var (
 )
 
 func (sp *SubstrateProvider) Init() error {
+	keybase, err := keystore.New(sp.Config.ChainID, sp.Config.KeyringBackend, sp.Config.KeyDirectory, sp.Input)
+	if err != nil {
+		return err
+	}
+
 	client, err := rpcClient.NewSubstrateAPI(sp.Config.RPCAddr)
 	if err != nil {
 		return err
 	}
+
+	sp.Keybase = keybase
 
 	sp.RPCClient = client
 	return nil
