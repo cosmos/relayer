@@ -728,13 +728,16 @@ $ %s tx relay-pkt demo-path channel-1 1`,
 				return err
 			}
 
+			eventBus := relayer.NewChainEventBus([]*relayer.Chain{c[src], c[dst]}, a.Log)
+			eventBus.Start(cmd.Context())
+
 			channelID := args[1]
 			channel, err := relayer.QueryChannel(cmd.Context(), c[src], channelID)
 			if err != nil {
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(cmd.Context(), c[src], c[dst], channel)
+			sp, err := relayer.UnrelayedSequences(cmd.Context(), c[src], c[dst], channel, &eventBus)
 			if err != nil {
 				return err
 			}
@@ -778,12 +781,15 @@ $ %s tx relay-pkts demo-path channel-0`,
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(cmd.Context(), c[src], c[dst], channel)
+			eventBus := relayer.NewChainEventBus([]*relayer.Chain{c[src], c[dst]}, a.Log)
+			eventBus.Start(cmd.Context())
+
+			sp, err := relayer.UnrelayedSequences(cmd.Context(), c[src], c[dst], channel, &eventBus)
 			if err != nil {
 				return err
 			}
 
-			if err = relayer.RelayPackets(cmd.Context(), a.Log, c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
+			if err = relayer.RelayPackets(cmd.Context(), a.Log, c[src], c[dst], sp, maxTxSize, maxMsgLength, channel, &eventBus); err != nil {
 				return err
 			}
 
@@ -826,14 +832,17 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 				return err
 			}
 
+			eventBus := relayer.NewChainEventBus([]*relayer.Chain{c[src], c[dst]}, a.Log)
+			eventBus.Start(cmd.Context())
+
 			// sp.Src contains all sequences acked on SRC but acknowledgement not processed on DST
 			// sp.Dst contains all sequences acked on DST but acknowledgement not processed on SRC
-			sp, err := relayer.UnrelayedAcknowledgements(cmd.Context(), c[src], c[dst], channel)
+			sp, err := relayer.UnrelayedAcknowledgements(cmd.Context(), c[src], c[dst], channel, &eventBus)
 			if err != nil {
 				return err
 			}
 
-			if err = relayer.RelayAcknowledgements(cmd.Context(), a.Log, c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
+			if err = relayer.RelayAcknowledgements(cmd.Context(), a.Log, c[src], c[dst], sp, maxTxSize, maxMsgLength, channel, &eventBus); err != nil {
 				return err
 			}
 

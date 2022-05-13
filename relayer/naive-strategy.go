@@ -13,14 +13,18 @@ import (
 )
 
 // UnrelayedSequences returns the unrelayed sequence numbers between two chains
-func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chantypes.IdentifiedChannel) (*RelaySequences, error) {
+func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chantypes.IdentifiedChannel, eventBus *ChainEventBus) (*RelaySequences, error) {
 	var (
 		srcPacketSeq = []uint64{}
 		dstPacketSeq = []uint64{}
 		rs           = &RelaySequences{Src: []uint64{}, Dst: []uint64{}}
 	)
 
-	srch, dsth, err := QueryLatestHeights(ctx, src, dst)
+	srch, err := eventBus.GetLatestHeight(src.ChainID())
+	if err != nil {
+		return nil, err
+	}
+	dsth, err := eventBus.GetLatestHeight(dst.ChainID())
 	if err != nil {
 		return nil, err
 	}
@@ -144,14 +148,18 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 }
 
 // UnrelayedAcknowledgements returns the unrelayed sequence numbers between two chains
-func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel *chantypes.IdentifiedChannel) (*RelaySequences, error) {
+func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel *chantypes.IdentifiedChannel, eventBus *ChainEventBus) (*RelaySequences, error) {
 	var (
 		srcPacketSeq = []uint64{}
 		dstPacketSeq = []uint64{}
 		rs           = &RelaySequences{Src: []uint64{}, Dst: []uint64{}}
 	)
 
-	srch, dsth, err := QueryLatestHeights(ctx, src, dst)
+	srch, err := eventBus.GetLatestHeight(src.ChainID())
+	if err != nil {
+		return nil, err
+	}
+	dsth, err := eventBus.GetLatestHeight(dst.ChainID())
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +182,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 				return nil
 			}
 		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			srch, _ = src.ChainProvider.QueryLatestHeight(egCtx)
+			srch, _ = eventBus.GetLatestHeight(src.ChainID())
 		})); err != nil {
 			return err
 		}
@@ -200,7 +208,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 				return nil
 			}
 		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			dsth, _ = dst.ChainProvider.QueryLatestHeight(egCtx)
+			dsth, _ = eventBus.GetLatestHeight(dst.ChainID())
 		})); err != nil {
 			return err
 		}
@@ -222,7 +230,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 			rs.Src, err = dst.ChainProvider.QueryUnreceivedAcknowledgements(egCtx, uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
 			return err
 		}, retry.Context(egCtx), RtyErr, RtyAtt, RtyDel, retry.OnRetry(func(n uint, err error) {
-			dsth, _ = dst.ChainProvider.QueryLatestHeight(egCtx)
+			dsth, _ = eventBus.GetLatestHeight(dst.ChainID())
 		}))
 	})
 
@@ -233,7 +241,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 			rs.Dst, err = src.ChainProvider.QueryUnreceivedAcknowledgements(egCtx, uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
 			return err
 		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			srch, _ = src.ChainProvider.QueryLatestHeight(egCtx)
+			srch, _ = eventBus.GetLatestHeight(src.ChainID())
 		}))
 	})
 
@@ -258,7 +266,7 @@ func (rs *RelaySequences) Empty() bool {
 }
 
 // RelayAcknowledgements creates transactions to relay acknowledgements from src to dst and from dst to src
-func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength uint64, srcChannel *chantypes.IdentifiedChannel) error {
+func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength uint64, srcChannel *chantypes.IdentifiedChannel, eventBus *ChainEventBus) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []provider.RelayerMessage{},
@@ -271,7 +279,11 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
-		srch, dsth, err := QueryLatestHeights(ctx, src, dst)
+		srch, err := eventBus.GetLatestHeight(src.ChainID())
+		if err != nil {
+			return err
+		}
+		dsth, err := eventBus.GetLatestHeight(dst.ChainID())
 		if err != nil {
 			return err
 		}
@@ -383,7 +395,7 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 }
 
 // RelayPackets creates transactions to relay packets from src to dst and from dst to src
-func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength uint64, srcChannel *chantypes.IdentifiedChannel) error {
+func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength uint64, srcChannel *chantypes.IdentifiedChannel, eventBus *ChainEventBus) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []provider.RelayerMessage{},
@@ -396,7 +408,11 @@ func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *Rel
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
-		srch, dsth, err := QueryLatestHeights(ctx, src, dst)
+		srch, err := eventBus.GetLatestHeight(src.ChainID())
+		if err != nil {
+			return err
+		}
+		dsth, err := eventBus.GetLatestHeight(dst.ChainID())
 		if err != nil {
 			return err
 		}

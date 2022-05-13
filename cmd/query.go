@@ -886,13 +886,16 @@ $ %s query unrelayed-pkts demo-path channel-0`,
 				return err
 			}
 
+			eventBus := relayer.NewChainEventBus([]*relayer.Chain{c[src], c[dst]}, a.Log)
+			eventBus.Start(cmd.Context())
+
 			channelID := args[1]
 			channel, err := relayer.QueryChannel(cmd.Context(), c[src], channelID)
 			if err != nil {
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(cmd.Context(), c[src], c[dst], channel)
+			sp, err := relayer.UnrelayedSequences(cmd.Context(), c[src], c[dst], channel, &eventBus)
 			if err != nil {
 				return err
 			}
@@ -941,13 +944,16 @@ $ %s query unrelayed-acks demo-path channel-0`,
 				return err
 			}
 
+			eventBus := relayer.NewChainEventBus([]*relayer.Chain{c[src], c[dst]}, a.Log)
+			eventBus.Start(cmd.Context())
+
 			channelID := args[1]
 			channel, err := relayer.QueryChannel(cmd.Context(), c[src], channelID)
 			if err != nil {
 				return err
 			}
 
-			sp, err := relayer.UnrelayedAcknowledgements(cmd.Context(), c[src], c[dst], channel)
+			sp, err := relayer.UnrelayedAcknowledgements(cmd.Context(), c[src], c[dst], channel, &eventBus)
 			if err != nil {
 				return err
 			}
