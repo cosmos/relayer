@@ -16,7 +16,7 @@ import (
 )
 
 type ProviderConfig interface {
-	NewProvider(log *zap.Logger, homepath string, debug bool) (ChainProvider, error)
+	NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (ChainProvider, error)
 	Validate() error
 }
 
@@ -114,6 +114,7 @@ type ChainProvider interface {
 	GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error)
 	GetIBCUpdateHeader(ctx context.Context, srch int64, dst ChainProvider, dstClientId string) (ibcexported.Header, error)
 
+	ChainName() string
 	ChainId() string
 	Type() string
 	ProviderConfig() ProviderConfig

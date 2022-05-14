@@ -3,10 +3,12 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/cosmos/relayer/v2/relayer"
@@ -205,7 +207,7 @@ $ %s ch l`, appName, appName)),
 				return err
 			}
 
-			configs := ConfigToWrapper(a.Config).ProviderConfigs
+			configs := a.Config.ConfigToWrapper().ProviderConfigs
 			if len(configs) == 0 {
 				fmt.Fprintln(cmd.ErrOrStderr(), "warning: no chains found (do you need to run 'rly chains add'?)")
 			}
@@ -228,7 +230,8 @@ $ %s ch l`, appName, appName)),
 				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			default:
-				for i, c := range a.Config.Chains {
+				i := 0
+				for _, c := range a.Config.Chains {
 					var (
 						key = xIcon
 						p   = xIcon
@@ -249,6 +252,7 @@ $ %s ch l`, appName, appName)),
 							p = check
 						}
 					}
+					i++
 					fmt.Fprintf(cmd.OutOrStdout(), "%2d: %-20s -> type(%s) key(%s) bal(%s) path(%s)\n", i, c.ChainID(), c.ChainProvider.Type(), key, bal, p)
 				}
 				return nil
@@ -267,8 +271,8 @@ func chainsAddCmd(a *appState) *cobra.Command {
 		Args: withUsage(cobra.MinimumNArgs(0)),
 		Example: fmt.Sprintf(` $ %s chains add cosmoshub
  $ %s chains add cosmoshub osmosis
- $ %s chains add --file chains/ibc0.json
- $ %s chains add --url https://relayer.com/ibc0.json`, appName, appName, appName, appName),
+ $ %s chains add --file chains/ibc0.json ibc0
+ $ %s chains add --url https://relayer.com/ibc0.json ibc0`, appName, appName, appName, appName),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			file, url, err := getAddInputs(cmd)
 			if err != nil {
@@ -279,11 +283,23 @@ func chainsAddCmd(a *appState) *cobra.Command {
 			// still allow for adding config from url or file
 			switch {
 			case file != "":
-				if err := addChainFromFile(a, file); err != nil {
+				var chainName string
+				switch len(args) {
+				case 0:
+					chainName = strings.Split(filepath.Base(file), ".")[0]
+				case 1:
+					chainName = args[0]
+				default:
+					return errors.New("one chain name is required")
+				}
+				if err := addChainFromFile(a, chainName, file); err != nil {
 					return err
 				}
 			case url != "":
-				if err := addChainFromURL(a, url); err != nil {
+				if len(args) != 1 {
+					return errors.New("one chain name is required")
+				}
+				if err := addChainFromURL(a, args[0], url); err != nil {
 					return err
 				}
 			default:
@@ -326,7 +342,7 @@ $ %s ch ad testnet/chains/`, appName, appName)),
 
 // addChainFromFile reads a JSON-formatted chain from the named file
 // and adds it to a's chains.
-func addChainFromFile(a *appState, file string) error {
+func addChainFromFile(a *appState, chainName string, file string) error {
 	// If the user passes in a file, attempt to read the chain config from that file
 	var pcw ProviderConfigWrapper
 	if _, err := os.Stat(file); err != nil {
@@ -344,7 +360,7 @@ func addChainFromFile(a *appState, file string) error {
 
 	prov, err := pcw.Value.NewProvider(
 		a.Log.With(zap.String("provider_type", pcw.Type)),
-		a.HomePath, a.Debug,
+		a.HomePath, a.Debug, chainName,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to build ChainProvider for %s: %w", file, err)
@@ -360,7 +376,7 @@ func addChainFromFile(a *appState, file string) error {
 
 // addChainFromURL fetches a JSON-encoded chain from the given URL
 // and adds it to a's chains.
-func addChainFromURL(a *appState, rawurl string) error {
+func addChainFromURL(a *appState, chainName string, rawurl string) error {
 	u, err := url.Parse(rawurl)
 	if err != nil || u.Scheme == "" || u.Host == "" {
 		return fmt.Errorf("invalid URL %s", rawurl)
@@ -384,7 +400,7 @@ func addChainFromURL(a *appState, rawurl string) error {
 	// build the ChainProvider before initializing the chain
 	prov, err := pcw.Value.NewProvider(
 		a.Log.With(zap.String("provider_type", pcw.Type)),
-		a.HomePath, a.Debug,
+		a.HomePath, a.Debug, chainName,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to build ChainProvider for %s: %w", rawurl, err)
@@ -403,8 +419,16 @@ func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) er
 	if err != nil {
 		return err
 	}
-
+	foundError := false
 	for _, chain := range chains {
+		if _, ok := a.Config.Chains[chain]; ok {
+			a.Log.Warn(
+				"Chain already exists",
+				zap.String("chain", chain),
+				zap.String("source_link", chainRegistry.SourceLink()),
+			)
+			continue
+		}
 		found := false
 		for _, possibleChain := range allChains {
 			if chain == possibleChain {
@@ -427,6 +451,7 @@ func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) er
 					zap.String("chain", chain),
 					zap.Error(err),
 				)
+				foundError = true
 				continue
 			}
 
@@ -437,12 +462,14 @@ func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) er
 					zap.String("chain", chain),
 					zap.Error(err),
 				)
+				foundError = true
 				continue
 			}
 
 			// build the ChainProvider
 			pcfg := &cosmos.CosmosProviderConfig{
 				Key:            chainConfig.Key,
+				ChainName:      chainInfo.ChainName,
 				ChainID:        chainConfig.ChainID,
 				RPCAddr:        chainConfig.RPCAddr,
 				AccountPrefix:  chainConfig.AccountPrefix,
@@ -457,7 +484,7 @@ func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) er
 
 			prov, err := pcfg.NewProvider(
 				a.Log.With(zap.String("provider_type", "cosmos")),
-				a.HomePath, a.Debug,
+				a.HomePath, a.Debug, chainInfo.ChainName,
 			)
 			if err != nil {
 				a.Log.Warn(
@@ -465,6 +492,7 @@ func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) er
 					zap.String("chain_id", chainConfig.ChainID),
 					zap.Error(err),
 				)
+				foundError = true
 				continue
 			}
 
@@ -476,13 +504,16 @@ func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) er
 					zap.String("chain", chain),
 					zap.Error(err),
 				)
-				return err
+				foundError = true
+				continue
 			}
 
 			// found the correct chain so move on to next chain in chains
 			break
 		}
 	}
-
+	if foundError {
+		return errors.New("some chain(s) failed to be added to config")
+	}
 	return nil
 }

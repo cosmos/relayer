@@ -112,7 +112,7 @@ func (c *Chain) String() string {
 }
 
 // Chains is a collection of Chain
-type Chains []*Chain
+type Chains map[string]*Chain
 
 // Get returns the configuration for a given chain
 func (c Chains) Get(chainID string) (*Chain, error) {
