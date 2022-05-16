@@ -1729,6 +1729,11 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 
 func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
 	var events []provider.RelayerEvent
+
+	if resp == nil {
+		return events
+	}
+
 	for _, logs := range resp.Logs {
 		for _, event := range logs.Events {
 			for _, attr := range event.Attributes {
