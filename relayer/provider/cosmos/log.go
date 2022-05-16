@@ -15,13 +15,22 @@ import (
 
 // getChannelsIfPresent scans the events for channel tags
 func getChannelsIfPresent(events []provider.RelayerEvent) []zapcore.Field {
-
 	channelTags := []string{srcChanTag, dstChanTag}
 	fields := []zap.Field{}
+
+	// While a transaction may have multiple messages, we just need to first
+	// pair of channels
+	foundTag := map[string]struct{}{}
+
 	for _, event := range events {
 		for _, tag := range channelTags {
 			if event.AttributeKey == tag {
-				fields = append(fields, zap.String(tag, event.AttributeValue))
+				// Only append the tag once
+				// TODO: what if they are different?
+				if _, ok := foundTag[tag]; !ok {
+					fields = append(fields, zap.String(tag, event.AttributeValue))
+					foundTag[tag] = struct{}{}
+				}
 			}
 		}
 	}
