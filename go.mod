@@ -28,7 +28,6 @@ require (
 	github.com/jsternberg/zap-logfmt v1.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/strangelove-ventures/lens v0.3.1-0.20220407203447-bcb1fa2e7b3a
-	github.com/vedhavyas/go-subkey v1.0.3
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
@@ -146,6 +145,7 @@ require (
 	github.com/tendermint/go-amino v0.16.0 // indirect
 	github.com/tendermint/tm-db v0.6.6 // indirect
 	github.com/tklauser/go-sysconf v0.3.7 // indirect
+	github.com/vedhavyas/go-subkey v1.0.3 // indirect
 	github.com/xanzy/ssh-agent v0.3.0 // indirect
 	github.com/zondax/hid v0.9.0 // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect

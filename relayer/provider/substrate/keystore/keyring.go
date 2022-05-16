@@ -10,12 +10,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/vedhavyas/go-subkey/common"
+	"github.com/ComposableFi/go-substrate-rpc-client/v4/signature"
 
 	"github.com/99designs/keyring"
 	"github.com/cosmos/cosmos-sdk/client/input"
 	"github.com/pkg/errors"
-	"github.com/vedhavyas/go-subkey/sr25519"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -248,27 +247,23 @@ func (ks keystore) Key(uid string) (Info, error) {
 }
 
 func (ks keystore) NewAccount(name string, mnemonic string, network uint8) (Info, error) {
-	scheme := sr25519.Scheme{}
-	keyPair, err := scheme.FromPhrase(mnemonic, "")
+
+	// reason for using network argument as 42
+	// https://github.com/ComposableFi/go-substrate-rpc-client/blob/master/signature/signature.go#L126
+	kp, err := signature.KeyringPairFromSecret(mnemonic, 42)
 	if err != nil {
-		return nil, err
+		fmt.Println("error while creating keypair: " + err.Error())
 	}
 
-	// check if the a key already exists with the same address and return an error
-	// if found
-	address, err := keyPair.SS58Address(network)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := ks.KeyByAddress(address); err == nil {
-		return nil, fmt.Errorf(ErrTextAddressExists, address)
+	if _, err := ks.KeyByAddress(kp.Address); err == nil {
+		return nil, fmt.Errorf(ErrTextAddressExists, kp.Address)
 	}
 
-	return ks.writeLocalKey(name, keyPair, address)
+	return ks.writeLocalKey(name, kp)
 }
 
-func (ks keystore) writeLocalKey(name string, keypair common.KeyPair, address string) (Info, error) {
-	info, err := newLocalInfo(name, keypair, address)
+func (ks keystore) writeLocalKey(name string, keypair signature.KeyringPair) (Info, error) {
+	info, err := newLocalInfo(name, keypair)
 	if err != nil {
 		return info, err
 	}
@@ -316,6 +311,7 @@ func (ks keystore) writeInfo(info Info) error {
 // existsInDb returns true if key is in DB. Error is returned only when we have error
 // different thant ErrKeyNotFound
 func (ks keystore) existsInDb(info Info) (bool, error) {
+
 	if _, err := ks.db.Get(info.GetAddress()); err == nil {
 		return true, nil // address lookup succeeds - info exists
 	} else if err != keyring.ErrKeyNotFound {
