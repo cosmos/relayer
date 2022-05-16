@@ -92,6 +92,7 @@ func (sp *SubstrateProvider) KeyExists(name string) bool {
 
 func (sp *SubstrateProvider) ExportPrivKeyArmor(keyName string) (armor string, err error) {
 	// TODO
+	panic("implement me -> ExportPrivKeyArmor -> https://github.com/ComposableFi/relayer/issues/6")
 	return "", nil
 }
 
