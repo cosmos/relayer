@@ -99,7 +99,7 @@ $ %s cfg list`, appName, defaultHome, appName)),
 				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			default:
-				out, err := yaml.Marshal(a.Config)
+				out, err := yaml.Marshal(a.Config.ConfigToWrapper())
 				if err != nil {
 					return err
 				}
