@@ -29,7 +29,7 @@ import (
 func spinUpTestChains(t *testing.T, testChains ...testChain) relayer.Chains {
 	var (
 		resources []*dockertest.Resource
-		chains    = make([]*relayer.Chain, len(testChains))
+		chains    = make(relayer.Chains)
 
 		wg    sync.WaitGroup
 		rchan = make(chan *dockertest.Resource, len(testChains))
@@ -49,10 +49,10 @@ func spinUpTestChains(t *testing.T, testChains ...testChain) relayer.Chains {
 
 	var eg errgroup.Group
 	// make each container and initialize the chains
-	for i, tc := range testChains {
+	for _, tc := range testChains {
 		tc := tc
 		c := newTestChain(t, tc)
-		chains[i] = c
+		chains[tc.chainName] = c
 		wg.Add(1)
 		genPrivValKeyJSON(tc.seed)
 		eg.Go(func() error {
@@ -193,7 +193,7 @@ func spinUpTestContainer(t *testing.T, rchan chan<- *dockertest.Resource, pool *
 // cleanUpTest is called as a goroutine to wait until the tests have completed and
 // cleans up the docker containers and relayer config
 func cleanUpTest(t *testing.T, testsDone <-chan struct{}, contDone chan<- struct{},
-	resources []*dockertest.Resource, pool *dockertest.Pool, dir string, chains []*relayer.Chain) {
+	resources []*dockertest.Resource, pool *dockertest.Pool, dir string, chains relayer.Chains) {
 	// block here until tests are complete
 	<-testsDone
 
@@ -216,7 +216,7 @@ func cleanUpTest(t *testing.T, testsDone <-chan struct{}, contDone chan<- struct
 }
 
 // for the love of logs https://www.youtube.com/watch?v=DtsKcHmceqY
-func getLoggingChain(chns []*relayer.Chain, rsr *dockertest.Resource) *relayer.Chain {
+func getLoggingChain(chns relayer.Chains, rsr *dockertest.Resource) *relayer.Chain {
 	for _, c := range chns {
 		if strings.Contains(rsr.Container.Name, c.ChainID()) {
 			return c
