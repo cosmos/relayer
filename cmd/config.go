@@ -537,11 +537,7 @@ func (c *Config) AddPath(name string, path *relayer.Path) (err error) {
 
 // DeleteChain modifies c in-place to remove any chains that have the given name.
 func (c *Config) DeleteChain(chain string) {
-	for chainName, ch := range c.Chains {
-		if ch.ChainID() == chain {
-			delete(c.Chains, chainName)
-		}
-	}
+	delete(c.Chains, chain)
 }
 
 // validateConfig is used to validate the GlobalConfig values

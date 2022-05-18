@@ -122,7 +122,7 @@ $ %s ch s ibc-0 --yaml`, appName, appName, appName, appName)),
 
 func chainsDeleteCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete chain_id",
+		Use:     "delete chain_name",
 		Aliases: []string{"d"},
 		Short:   "Removes chain from config based off chain-id",
 		Args:    withUsage(cobra.ExactArgs(1)),
@@ -130,6 +130,10 @@ func chainsDeleteCmd(a *appState) *cobra.Command {
 $ %s chains delete ibc-0
 $ %s ch d ibc-0`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			_, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
+			}
 			a.Config.DeleteChain(args[0])
 			return a.OverwriteConfig(a.Config)
 		},

@@ -18,7 +18,7 @@ func TestKeysList_Empty(t *testing.T) {
 
 	_ = sys.MustRun(t, "config", "init")
 
-	sys.MustAddChain(t, cmd.ProviderConfigWrapper{
+	sys.MustAddChain(t, "testChain", cmd.ProviderConfigWrapper{
 		Type: "cosmos",
 		Value: cosmos.CosmosProviderConfig{
 			ChainID:        "testcosmos",
@@ -27,9 +27,9 @@ func TestKeysList_Empty(t *testing.T) {
 		},
 	})
 
-	res := sys.MustRun(t, "keys", "list", "testcosmos")
+	res := sys.MustRun(t, "keys", "list", "testChain")
 	require.Empty(t, res.Stdout.String())
-	require.Contains(t, res.Stderr.String(), "no keys found for chain testcosmos")
+	require.Contains(t, res.Stderr.String(), "no keys found for chain testChain")
 }
 
 func TestKeysRestore_Delete(t *testing.T) {
@@ -39,7 +39,7 @@ func TestKeysRestore_Delete(t *testing.T) {
 
 	_ = sys.MustRun(t, "config", "init")
 
-	sys.MustAddChain(t, cmd.ProviderConfigWrapper{
+	sys.MustAddChain(t, "testChain", cmd.ProviderConfigWrapper{
 		Type: "cosmos",
 		Value: cosmos.CosmosProviderConfig{
 			AccountPrefix:  "cosmos",
@@ -50,24 +50,25 @@ func TestKeysRestore_Delete(t *testing.T) {
 	})
 
 	// Restore a key with mnemonic to the chain.
-	res := sys.MustRun(t, "keys", "restore", "testcosmos", "default", relayertest.ZeroMnemonic)
+
+	res := sys.MustRun(t, "keys", "restore", "testChain", "default", relayertest.ZeroMnemonic)
 	require.Equal(t, res.Stdout.String(), relayertest.ZeroCosmosAddr+"\n")
 	require.Empty(t, res.Stderr.String())
 
 	// Restored key must show up in list.
-	res = sys.MustRun(t, "keys", "list", "testcosmos")
+	res = sys.MustRun(t, "keys", "list", "testChain")
 	require.Equal(t, res.Stdout.String(), "key(default) -> "+relayertest.ZeroCosmosAddr+"\n")
 	require.Empty(t, res.Stderr.String())
 
 	// Deleting the key must succeed.
-	res = sys.MustRun(t, "keys", "delete", "testcosmos", "default", "-y")
+	res = sys.MustRun(t, "keys", "delete", "testChain", "default", "-y")
 	require.Empty(t, res.Stdout.String())
 	require.Equal(t, res.Stderr.String(), "key default deleted\n")
 
 	// Listing the keys again gives the no keys warning.
-	res = sys.MustRun(t, "keys", "list", "testcosmos")
+	res = sys.MustRun(t, "keys", "list", "testChain")
 	require.Empty(t, res.Stdout.String())
-	require.Contains(t, res.Stderr.String(), "no keys found for chain testcosmos")
+	require.Contains(t, res.Stderr.String(), "no keys found for chain testChain")
 }
 
 func TestKeysExport(t *testing.T) {
@@ -77,7 +78,7 @@ func TestKeysExport(t *testing.T) {
 
 	_ = sys.MustRun(t, "config", "init")
 
-	sys.MustAddChain(t, cmd.ProviderConfigWrapper{
+	sys.MustAddChain(t, "testChain", cmd.ProviderConfigWrapper{
 		Type: "cosmos",
 		Value: cosmos.CosmosProviderConfig{
 			AccountPrefix:  "cosmos",
@@ -88,12 +89,12 @@ func TestKeysExport(t *testing.T) {
 	})
 
 	// Restore a key with mnemonic to the chain.
-	res := sys.MustRun(t, "keys", "restore", "testcosmos", "default", relayertest.ZeroMnemonic)
+	res := sys.MustRun(t, "keys", "restore", "testChain", "default", relayertest.ZeroMnemonic)
 	require.Equal(t, res.Stdout.String(), relayertest.ZeroCosmosAddr+"\n")
 	require.Empty(t, res.Stderr.String())
 
 	// Export the key.
-	res = sys.MustRun(t, "keys", "export", "testcosmos", "default")
+	res = sys.MustRun(t, "keys", "export", "testChain", "default")
 	armorOut := res.Stdout.String()
 	require.Contains(t, armorOut, "BEGIN TENDERMINT PRIVATE KEY")
 	require.Empty(t, res.Stderr.String())

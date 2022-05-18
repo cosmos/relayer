@@ -105,7 +105,7 @@ func (s *System) MustRunWithInput(t *testing.T, in io.Reader, args ...string) Ru
 }
 
 // MustAddChain serializes pcw to disk and calls "chains add --file".
-func (s *System) MustAddChain(t *testing.T, pcw cmd.ProviderConfigWrapper) {
+func (s *System) MustAddChain(t *testing.T, chainName string, pcw cmd.ProviderConfigWrapper) {
 	t.Helper()
 
 	// Temporary file for the new chain.
@@ -119,7 +119,7 @@ func (s *System) MustAddChain(t *testing.T, pcw cmd.ProviderConfigWrapper) {
 	f.Close() // Now that the content has been written, close the file so it is readable by the 'chains add' call.
 
 	// Add the chain. Output is expected to be silent.
-	res := s.MustRun(t, "chains", "add", "--file", f.Name())
+	res := s.MustRun(t, "chains", "add", "--file", f.Name(), chainName)
 	require.Empty(t, res.Stdout.String())
 	require.Empty(t, res.Stderr.String())
 }
