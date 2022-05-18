@@ -768,8 +768,7 @@ func (sp *SubstrateProvider) SendMessages(ctx context.Context, msgs []provider.R
 }
 
 func (sp *SubstrateProvider) GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.ClientMessage, error) {
-	panic("implement me GetLightSignedHeaderAtHeight")
-	return nil, nil
+	return sp.GetIBCUpdateHeader(ctx, h, nil, "not_used")
 }
 
 // GetIBCUpdateHeader updates the off chain beefy light client and
@@ -778,15 +777,15 @@ func (sp *SubstrateProvider) GetLightSignedHeaderAtHeight(ctx context.Context, h
 // the header data.
 func (sp *SubstrateProvider) GetIBCUpdateHeader(ctx context.Context, srch int64, dst provider.ChainProvider, dstClientId string) (ibcexported.ClientMessage, error) {
 	// Construct header data from light client representing source.
-	h, err := sp.GetLightSignedHeaderAtHeight(ctx, srch)
+	h, err := sp.QueryHeaderAtHeight(ctx, srch)
 	if err != nil {
 		return nil, err
 	}
 
-	// Inject trusted fields based on previous header data from source
-	// TODO: implement InjectTrustedFields, make findings on getting validator set from beefy header
-	// return sp.InjectTrustedFields(h, dst, dstClientId)
-	panic("implement me -> GetIBCUpdateHeader -> https://github.com/ComposableFi/relayer/issues/5")
+	//// Inject trusted fields based on previous header data from source
+	//// TODO: implement InjectTrustedFields, make findings on getting validator set from beefy header
+	//// return sp.InjectTrustedFields(h, dst, dstClientId)
+	//panic("implement me -> GetIBCUpdateHeader -> https://github.com/ComposableFi/relayer/issues/5")
 	return h, nil
 }
 

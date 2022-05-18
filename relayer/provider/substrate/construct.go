@@ -158,6 +158,7 @@ func signedCommitment(conn *rpcclient.SubstrateAPI, blockHash rpcclientTypes.Has
 		return rpcclientTypes.SignedCommitment{}, err
 	}
 
+	//TODO: add test for this -> https://github.com/ComposableFi/relayer/issues/7
 	compactCommitment := &rpcclientTypes.CompactSignedCommitment{}
 	err = rpcclientTypes.DecodeFromHexString(string(signedBlock.Justification), compactCommitment)
 	if err != nil {
