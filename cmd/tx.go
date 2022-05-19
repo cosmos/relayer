@@ -911,7 +911,7 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 
 func xfersend(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "transfer src_chain_id dst_chain_id amount dst_addr src_channel_id",
+		Use:   "transfer src_chain_name dst_chain_name amount dst_addr src_channel_id",
 		Short: "initiate a transfer from one network to another",
 		Long: `Initiate a token transfer via IBC between two networks. The created packet
 must be relayed to the destination chain.`,
@@ -923,10 +923,13 @@ $ %s tx transfer ibc-0 ibc-1 100000stake raw:non-bech32-address channel-0 --path
 $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk channel-0 --path demo -c 5
 `, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			src, dst := args[0], args[1]
-			c, err := a.Config.Chains.Gets(src, dst)
-			if err != nil {
-				return err
+			src, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
+			}
+			dst, ok := a.Config.Chains[args[1]]
+			if !ok {
+				return errChainNotFound(args[1])
 			}
 
 			pathString, err := cmd.Flags().GetString(flagPath)
@@ -935,7 +938,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 			}
 
 			var path *relayer.Path
-			if path, err = setPathsFromArgs(a, c[src], c[dst], pathString); err != nil {
+			if path, err = setPathsFromArgs(a, src, dst, pathString); err != nil {
 				return err
 			}
 
@@ -944,14 +947,14 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 				return err
 			}
 
-			srch, err := c[src].ChainProvider.QueryLatestHeight(cmd.Context())
+			srch, err := src.ChainProvider.QueryLatestHeight(cmd.Context())
 			if err != nil {
 				return err
 			}
 
 			// Query all channels for the configured connection on the src chain
 			srcChannelID := args[4]
-			channels, err := c[src].ChainProvider.QueryConnectionChannels(cmd.Context(), srch, path.Src.ConnectionID)
+			channels, err := src.ChainProvider.QueryConnectionChannels(cmd.Context(), srch, path.Src.ConnectionID)
 			if err != nil {
 				return err
 			}
@@ -967,10 +970,10 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 
 			if srcChannel == nil {
 				return fmt.Errorf("could not find channel{%s} for chain{%s}@connection{%s}",
-					srcChannelID, c[src], path.Src.ConnectionID)
+					srcChannelID, src, path.Src.ConnectionID)
 			}
 
-			dts, err := c[src].ChainProvider.QueryDenomTraces(cmd.Context(), 0, 100, srch)
+			dts, err := src.ChainProvider.QueryDenomTraces(cmd.Context(), 0, 100, srch)
 			if err != nil {
 				return err
 			}
@@ -1000,7 +1003,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 				dstAddr = rawDstAddr
 			}
 
-			return c[src].SendTransferMsg(cmd.Context(), a.Log, c[dst], amount, dstAddr, toHeightOffset, toTimeOffset, srcChannel)
+			return src.SendTransferMsg(cmd.Context(), a.Log, dst, amount, dstAddr, toHeightOffset, toTimeOffset, srcChannel)
 		},
 	}
 
