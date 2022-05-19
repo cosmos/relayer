@@ -53,7 +53,7 @@ func queryCmd(a *appState) *cobra.Command {
 
 func queryIBCDenoms(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ibc-denoms chain_id",
+		Use:   "ibc-denoms chain_name",
 		Short: "query denomination traces for a given network by chain ID",
 		Args:  withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
@@ -62,9 +62,9 @@ $ %s q ibc-denoms ibc-0`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			h, err := chain.ChainProvider.QueryLatestHeight(cmd.Context())
@@ -93,14 +93,14 @@ func queryBaseDenomFromIBCDenom(a *appState) *cobra.Command {
 		Short: "query that retrieves the base denom from the IBC denomination trace",
 		Args:  withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s query denom-trace osmosis-1 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118D904BFE0F5F5E
-$ %s q denom-trace osmosis-1 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118D904BFE0F5F5E`,
+$ %s query denom-trace osmosis 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118D904BFE0F5F5E
+$ %s q denom-trace osmosis 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118D904BFE0F5F5E`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			c, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 			res, err := c.ChainProvider.QueryDenomTrace(cmd.Context(), args[1])
 			if err != nil {
@@ -117,7 +117,7 @@ $ %s q denom-trace osmosis-1 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118
 
 func queryTx(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "tx chain_id tx_hash",
+		Use:   "tx chain_name tx_hash",
 		Short: "query for a transaction on a given network by transaction hash and chain ID",
 		Args:  withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
@@ -126,9 +126,9 @@ $ %s q tx ibc-0 A5DF8D272F1C451CFF92BA6C41942C4D29B5CF180279439ED6AB038282F956BE
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			txs, err := chain.ChainProvider.QueryTx(cmd.Context(), args[1])
@@ -151,7 +151,7 @@ $ %s q tx ibc-0 A5DF8D272F1C451CFF92BA6C41942C4D29B5CF180279439ED6AB038282F956BE
 
 func queryTxs(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "txs chain_id events",
+		Use:   "txs chain_name events",
 		Short: "query for transactions on a given network by chain ID and a set of transaction events",
 		Long: strings.TrimSpace(`Search for a paginated list of transactions that match the given set of
 events. Each event takes the form of '{eventType}.{eventAttribute}={value}' with multiple events
@@ -167,9 +167,9 @@ $ %s q txs ibc-0 "message.action=transfer"`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			offset, err := cmd.Flags().GetUint64(flags.FlagOffset)
