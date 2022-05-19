@@ -181,12 +181,13 @@ func createClientCmd(a *appState) *cobra.Command {
 			if err != nil {
 				return err
 			}
-
-			src := args[0]
-			dst := args[1]
-			c, err := a.Config.Chains.Gets(src, dst)
-			if err != nil {
-				return err
+			src, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
+			}
+			dst, ok := a.Config.Chains[args[1]]
+			if !ok {
+				return errChainNotFound(args[1])
 			}
 
 			pathName := args[2]
@@ -195,21 +196,21 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			c[src].PathEnd = path.End(c[src].ChainID())
-			c[dst].PathEnd = path.End(c[dst].ChainID())
+			src.PathEnd = path.End(src.ChainID())
+			dst.PathEnd = path.End(dst.ChainID())
 
 			// ensure that keys exist
-			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
+			if exists := src.ChainProvider.KeyExists(src.ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on src chain %s", src.ChainProvider.Key(), src.ChainID())
 			}
-			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
+			if exists := dst.ChainProvider.KeyExists(dst.ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on dst chain %s", dst.ChainProvider.Key(), dst.ChainID())
 			}
 
 			// Query the latest heights on src and dst and retry if the query fails
 			var srch, dsth int64
 			if err = retry.Do(func() error {
-				srch, dsth, err = relayer.QueryLatestHeights(cmd.Context(), c[src], c[dst])
+				srch, dsth, err = relayer.QueryLatestHeights(cmd.Context(), src, dst)
 				if srch == 0 || dsth == 0 || err != nil {
 					return fmt.Errorf("failed to query latest heights: %w", err)
 				}
@@ -221,7 +222,7 @@ func createClientCmd(a *appState) *cobra.Command {
 			// Query the light signed headers for src & dst at the heights srch & dsth, retry if the query fails
 			var srcUpdateHeader, dstUpdateHeader exported.Header
 			if err = retry.Do(func() error {
-				srcUpdateHeader, dstUpdateHeader, err = relayer.GetLightSignedHeadersAtHeights(cmd.Context(), c[src], c[dst], srch, dsth)
+				srcUpdateHeader, dstUpdateHeader, err = relayer.GetLightSignedHeadersAtHeights(cmd.Context(), src, dst, srch, dsth)
 				if err != nil {
 					return err
 				}
@@ -229,20 +230,20 @@ func createClientCmd(a *appState) *cobra.Command {
 			}, retry.Context(cmd.Context()), relayer.RtyAtt, relayer.RtyDel, relayer.RtyErr, retry.OnRetry(func(n uint, err error) {
 				a.Log.Info(
 					"Failed to get light signed header",
-					zap.String("src_chain_id", c[src].ChainID()),
+					zap.String("src_chain_id", src.ChainID()),
 					zap.Int64("src_height", srch),
-					zap.String("dst_chain_id", c[dst].ChainID()),
+					zap.String("dst_chain_id", dst.ChainID()),
 					zap.Int64("dst_height", dsth),
 					zap.Uint("attempt", n+1),
 					zap.Uint("max_attempts", relayer.RtyAttNum),
 					zap.Error(err),
 				)
-				srch, dsth, _ = relayer.QueryLatestHeights(cmd.Context(), c[src], c[dst])
+				srch, dsth, _ = relayer.QueryLatestHeights(cmd.Context(), src, dst)
 			})); err != nil {
 				return err
 			}
 
-			modified, err := relayer.CreateClient(cmd.Context(), c[src], c[dst], srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+			modified, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
 			if err != nil {
 				return err
 			}
