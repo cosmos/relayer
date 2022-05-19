@@ -46,7 +46,7 @@ func chainsCmd(a *appState) *cobra.Command {
 
 func chainsAddrCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "address chain_id",
+		Use:     "address chain_name",
 		Aliases: []string{"addr"},
 		Short:   "Returns a chain's configured key's address",
 		Args:    withUsage(cobra.ExactArgs(1)),
@@ -54,9 +54,9 @@ func chainsAddrCmd(a *appState) *cobra.Command {
 $ %s chains address ibc-0
 $ %s ch addr ibc-0`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			address, err := chain.ChainProvider.ShowAddress(chain.ChainProvider.Key())
@@ -73,7 +73,7 @@ $ %s ch addr ibc-0`, appName, appName)),
 
 func chainsShowCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "show chain_id",
+		Use:     "show chain_name",
 		Aliases: []string{"s"},
 		Short:   "Returns a chain's configuration data",
 		Args:    withUsage(cobra.ExactArgs(1)),
@@ -83,9 +83,9 @@ $ %s chains show ibc-0 --yaml
 $ %s ch s ibc-0 --json
 $ %s ch s ibc-0 --yaml`, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			c, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 			jsn, err := cmd.Flags().GetBool(flagJSON)
 			if err != nil {
