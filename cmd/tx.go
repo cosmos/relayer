@@ -160,7 +160,7 @@ func createClientsCmd(a *appState) *cobra.Command {
 
 func createClientCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "client src_chain_id dst_chain_id path_name",
+		Use:   "client src_chain_name dst_chain_name path_name",
 		Short: "create a client between two configured chains with a configured path",
 		Long: "Creates a working ibc client for chain configured on each end of the" +
 			" path by querying headers from each chain and then sending the corresponding create-client messages",
@@ -181,6 +181,7 @@ func createClientCmd(a *appState) *cobra.Command {
 			if err != nil {
 				return err
 			}
+
 			src, ok := a.Config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
