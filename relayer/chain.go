@@ -36,6 +36,9 @@ type Chain struct {
 	debug bool
 }
 
+// Chains is a collection of Chain
+type Chains map[string]*Chain
+
 // ValidatePaths takes two chains and validates their paths
 func ValidatePaths(src, dst *Chain) error {
 	if err := src.PathEnd.ValidateFull(); err != nil {
@@ -110,9 +113,6 @@ func (c *Chain) String() string {
 	out, _ := json.Marshal(c)
 	return string(out)
 }
-
-// Chains is a collection of Chain
-type Chains map[string]*Chain
 
 // Get returns the configuration for a given chain
 func (c Chains) Get(chainID string) (*Chain, error) {
