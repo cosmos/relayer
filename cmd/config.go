@@ -99,7 +99,7 @@ $ %s cfg list`, appName, defaultHome, appName)),
 				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			default:
-				out, err := yaml.Marshal(a.Config.ConfigToWrapper())
+				out, err := yaml.Marshal(a.Config.Wrapped())
 				if err != nil {
 					return err
 				}
@@ -305,7 +305,7 @@ func addPathsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, d
 }
 
 // ConfigToWrapper converts the Config struct into a ConfigOutputWrapper struct
-func (config *Config) ConfigToWrapper() *ConfigOutputWrapper {
+func (config *Config) Wrapped() *ConfigOutputWrapper {
 	providers := make(ProviderConfigs)
 	for _, chain := range config.Chains {
 		pcfgw := &ProviderConfigWrapper{

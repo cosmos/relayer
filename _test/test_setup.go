@@ -29,7 +29,7 @@ import (
 func spinUpTestChains(t *testing.T, testChains ...testChain) relayer.Chains {
 	var (
 		resources []*dockertest.Resource
-		chains    = make(relayer.Chains)
+		chains    = make(relayer.Chains, len(testChains))
 
 		wg    sync.WaitGroup
 		rchan = make(chan *dockertest.Resource, len(testChains))

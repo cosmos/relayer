@@ -36,7 +36,7 @@ type Chain struct {
 	debug bool
 }
 
-// Chains is a collection of Chain
+// Chains is a collection of Chain (mapped by chain_name)
 type Chains map[string]*Chain
 
 // ValidatePaths takes two chains and validates their paths

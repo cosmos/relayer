@@ -211,7 +211,7 @@ $ %s ch l`, appName, appName)),
 				return err
 			}
 
-			configs := a.Config.ConfigToWrapper().ProviderConfigs
+			configs := a.Config.Wrapped().ProviderConfigs
 			if len(configs) == 0 {
 				fmt.Fprintln(cmd.ErrOrStderr(), "warning: no chains found (do you need to run 'rly chains add'?)")
 			}

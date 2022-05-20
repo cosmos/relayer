@@ -145,7 +145,7 @@ func (a *appState) OverwriteConfig(cfg *Config) error {
 	}
 
 	// marshal the new config
-	out, err := yaml.Marshal(cfg.ConfigToWrapper())
+	out, err := yaml.Marshal(cfg.Wrapped())
 	if err != nil {
 		return err
 	}

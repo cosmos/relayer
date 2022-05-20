@@ -352,7 +352,7 @@ $ %s query header ibc-0 1400`,
 // the chain as defined in https://github.com/cosmos/ics/tree/master/spec/ics-002-client-semantics#query
 func queryNodeStateCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "node-state chain_nam",
+		Use:   "node-state chain_name",
 		Short: "query the consensus state of a network by chain ID",
 		Args:  withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
