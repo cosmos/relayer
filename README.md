@@ -84,8 +84,8 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 
    To add the chain config files manually, example config files have been included [here](https://github.com/cosmos/relayer/tree/main/docs/example-configs/)
    ```shell
-   $ rly chains add --url https://raw.githubusercontent.com/cosmos/relayer/main/docs/example-configs/cosmoshub-4.json
-   $ rly chains add --url https://raw.githubusercontent.com/cosmos/relayer/main/docs/example-configs/osmosis-1.json
+   $ rly chains add --url https://raw.githubusercontent.com/cosmos/relayer/main/docs/example-configs/cosmoshub-4.json cosmoshub
+   $ rly chains add --url https://raw.githubusercontent.com/cosmos/relayer/main/docs/example-configs/osmosis-1.json osmosis
    ```
    
 4. **Import OR create new keys for the relayer to use when signing and relaying transactions.**
@@ -95,15 +95,15 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    If you need to generate a new private key you can use the `add` subcommand.
 
     ```shell
-    $ rly keys add cosmoshub-4 [key-name]  
-    $ rly keys add osmosis-1 [key-name]  
+    $ rly keys add cosmoshub [key-name]  
+    $ rly keys add osmosis [key-name]  
     ```
   
    If you already have a private key and want to restore it from your mnemonic you can use the `restore` subcommand.
 
    ```shell
-   $ rly keys restore cosmoshub-4 [key-name] "mnemonic words here"
-   $ rly keys restore osmosis-1 [key-name] "mnemonic words here"
+   $ rly keys restore cosmoshub [key-name] "mnemonic words here"
+   $ rly keys restore osmosis [key-name] "mnemonic words here"
    ```
 
 5. **Edit the relayer's `key` values in the config file to match the `key-name`'s chosen above.**
@@ -127,8 +127,8 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    You can query the balance of each configured key by running:  
 
    ```shell
-   $ rly q balance cosmoshub-4
-   $ rly q balance osmosis-1
+   $ rly q balance cosmoshub
+   $ rly q balance osmosis
    ```
 
 7. **Configure path meta-data in config file.**
