@@ -283,6 +283,10 @@ func chainsAddCmd(a *appState) *cobra.Command {
 				return err
 			}
 
+			if ok := a.Config; ok == nil {
+				return fmt.Errorf("config not initialized, consider running `rly config init`")
+			}
+
 			// default behavior fetch from chain registry
 			// still allow for adding config from url or file
 			switch {
