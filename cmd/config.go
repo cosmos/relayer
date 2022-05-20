@@ -304,7 +304,7 @@ func addPathsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, d
 	return nil
 }
 
-// ConfigToWrapper converts the Config struct into a ConfigOutputWrapper struct
+// Wrapped converts the Config struct into a ConfigOutputWrapper struct
 func (config *Config) Wrapped() *ConfigOutputWrapper {
 	providers := make(ProviderConfigs)
 	for _, chain := range config.Chains {
