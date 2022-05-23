@@ -2,13 +2,13 @@ package relayer
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"sync"
-	"time"
 
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/cosmos/relayer/v2/relayer/chains/processor"
+	"github.com/cosmos/relayer/v2/relayer/ibc"
+	"github.com/cosmos/relayer/v2/relayer/paths"
 	"go.uber.org/zap"
 )
 
@@ -30,77 +30,47 @@ func StartRelayer(ctx context.Context, log *zap.Logger, src, dst *Chain, filter 
 func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64, errCh chan<- error) {
 	defer close(errCh)
 
-	channels := make(chan *ActiveChannel, 10)
-	var srcOpenChannels []*ActiveChannel
-	eventBus := NewChainEventBus([]*Chain{src, dst}, log)
-	srcProcessor := NewChainProcessor(src)
-	dstProcessor := NewChainProcessor(dst)
-	if err := eventBus.Subscribe(src.ChainID(), dst.ChainID(), srcProcessor.EnqueueJob); err != nil {
-		errCh <- fmt.Errorf("error subscribing to event bus for src chain: %w", err)
-		return
-	}
-	if err := eventBus.Subscribe(dst.ChainID(), src.ChainID(), dstProcessor.EnqueueJob); err != nil {
-		errCh <- fmt.Errorf("error subscribing to event bus for dst chain: %w", err)
-		return
-	}
-	eventBus.Start(ctx)
+	allowedChannelsSrc := []ibc.ChannelKey{}
+	allowedChannelsDst := []ibc.ChannelKey{}
+	blockedChannelsSrc := []ibc.ChannelKey{}
+	blockedChannelsDst := []ibc.ChannelKey{}
 
-	// TODO refactor this loop into the EventBus/ChainProcessor
-	for loopCount := 0; true; loopCount++ {
-		// query for channel changes every 20 loops, or if the number of open channels is zero (for quicker startup)
-		if loopCount%20 == 0 || len(srcOpenChannels) == 0 {
-			// Query the list of channels on the src connection
-			srcChannels, err := queryChannelsOnConnection(ctx, src, &eventBus)
-			if err != nil {
-				if errors.Is(err, context.Canceled) {
-					errCh <- err
-				} else {
-					errCh <- fmt.Errorf("error querying all channels on chain{%s}@connection{%s}: %w",
-						src.ChainID(), src.ConnectionID(), err)
-				}
-				return
-			}
-
-			// Apply the channel filter rule (i.e. build allowlist, denylist or relay on all channels available)
-			srcChannels = applyChannelFilterRule(filter, srcChannels)
-
-			// Filter for open channels that are not already in our slice of open channels
-			srcOpenChannels = filterOpenChannels(srcChannels, srcOpenChannels)
-		}
-
-		// Spin up a goroutine to relay packets & acks for each channel that isn't already being relayed against
-		wg := sync.WaitGroup{}
-		for _, channel := range srcOpenChannels {
-			if !channel.active {
-				channel.active = true
-				wg.Add(1)
-				go func() {
-					relayUnrelayedPacketsAndAcks(ctx, log, src, dst, maxTxSize, maxMsgLength, channel, channels, &eventBus)
-					wg.Done()
-				}()
-			}
-		}
-		wg.Wait()
-
-		for channel := range channels {
-			channel.active = false
-			break
-		}
-
-		// Make sure we are removing channels no longer in OPEN state from the slice of open channels
-		for i, channel := range srcOpenChannels {
-			if channel.channel.State != types.OPEN {
-				srcOpenChannels[i] = srcOpenChannels[len(srcOpenChannels)-1]
-				srcOpenChannels = srcOpenChannels[:len(srcOpenChannels)-1]
-			}
+	for _, ch := range filter.ChannelList {
+		channelRuleSrc := ibc.ChannelKey{ChannelID: ch}
+		channelRuleDst := ibc.ChannelKey{CounterpartyChannelID: ch}
+		if filter.Rule == allowList {
+			allowedChannelsSrc = append(allowedChannelsSrc, channelRuleSrc)
+			allowedChannelsDst = append(allowedChannelsDst, channelRuleDst)
+		} else if filter.Rule == denyList {
+			blockedChannelsSrc = append(blockedChannelsSrc, channelRuleSrc)
+			blockedChannelsDst = append(blockedChannelsDst, channelRuleDst)
 		}
 	}
+
+	pathEnd1 := paths.NewPathEnd(src.ChainID(), src.ClientID(), src.ConnectionID(), allowedChannelsSrc, blockedChannelsSrc)
+	pathEnd2 := paths.NewPathEnd(dst.ChainID(), dst.ClientID(), dst.ConnectionID(), allowedChannelsDst, blockedChannelsDst)
+
+	pathProcessor := paths.NewPathProcessor(ctx, log, pathEnd1, pathEnd2)
+
+	chainProcessor1, err := cosmos.NewCosmosChainProcessor(ctx, log, src.RPCAddr, src.ChainProvider, pathProcessor)
+	if err != nil {
+		panic(err)
+	}
+	chainProcessor2, err := cosmos.NewCosmosChainProcessor(ctx, log, dst.RPCAddr, dst.ChainProvider, pathProcessor)
+	if err != nil {
+		panic(err)
+	}
+
+	pathProcessor.SetPathEnd1ChainProcessor(chainProcessor1)
+	pathProcessor.SetPathEnd2ChainProcessor(chainProcessor2)
+
+	processor.ChainProcessors([]processor.ChainProcessor{chainProcessor1, chainProcessor2}).Start(ctx, errCh)
 }
 
 // queryChannelsOnConnection queries all the channels associated with a connection on the src chain.
-func queryChannelsOnConnection(ctx context.Context, src *Chain, eventBus *ChainEventBus) ([]*types.IdentifiedChannel, error) {
+func queryChannelsOnConnection(ctx context.Context, src *Chain) ([]*types.IdentifiedChannel, error) {
 	// Query the latest heights on src & dst
-	srch, err := eventBus.GetLatestHeight(src.ChainID())
+	srch, err := src.ChainProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -180,186 +150,4 @@ func applyChannelFilterRule(filter ChannelFilter, channels []*types.IdentifiedCh
 		// handle all channels on connection
 		return channels
 	}
-}
-
-// relayUnrelayedPacketsAndAcks will relay all the pending packets and acknowledgements on both the src and dst chains.
-func relayUnrelayedPacketsAndAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *ActiveChannel, channels chan<- *ActiveChannel, eventBus *ChainEventBus) {
-	// make goroutine signal its death, whether it's a panic or a return
-	defer func() {
-		channels <- srcChannel
-	}()
-
-	for {
-		if ok := relayUnrelayedPackets(ctx, log, src, dst, maxTxSize, maxMsgLength, srcChannel.channel, eventBus); !ok {
-			return
-		}
-		if ok := relayUnrelayedAcks(ctx, log, src, dst, maxTxSize, maxMsgLength, srcChannel.channel, eventBus); !ok {
-			return
-		}
-
-		// Wait for a second before continuing, but allow context cancellation to break the flow.
-		select {
-		case <-time.After(time.Second):
-			// Nothing to do.
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
-// relayUnrelayedPackets fetches unrelayed packet sequence numbers and attempts to relay the associated packets.
-// relayUnrelayedPackets returns true if packets were empty or were successfully relayed.
-// Otherwise, it logs the errors and returns false.
-func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel, eventBus *ChainEventBus) bool {
-	// Fetch any unrelayed sequences depending on the channel order
-	sp, err := UnrelayedSequences(ctx, src, dst, srcChannel, eventBus)
-	if err != nil {
-		src.log.Warn(
-			"Error retrieving unrelayed sequences",
-			zap.String("src_chain_id", src.ChainID()),
-			zap.String("src_channel_id", srcChannel.ChannelId),
-			zap.Error(err),
-		)
-		return false
-	}
-
-	// If there are no unrelayed packets, stop early.
-	if sp.Empty() {
-		src.log.Debug(
-			"No packets in queue",
-			zap.String("src_chain_id", src.ChainID()),
-			zap.String("src_channel_id", srcChannel.ChannelId),
-			zap.String("src_port_id", srcChannel.PortId),
-			zap.String("dst_chain_id", dst.ChainID()),
-			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
-			zap.String("dst_port_id", srcChannel.Counterparty.PortId),
-		)
-		return true
-	}
-
-	if len(sp.Src) > 0 {
-		src.log.Info(
-			"Unrelayed source packets",
-			zap.String("src_chain_id", src.ChainID()),
-			zap.String("src_channel_id", srcChannel.ChannelId),
-			zap.Uint64s("seqs", sp.Src),
-		)
-	}
-
-	if len(sp.Dst) > 0 {
-		src.log.Info(
-			"Unrelayed destination packets",
-			zap.String("dst_chain_id", dst.ChainID()),
-			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
-			zap.Uint64s("seqs", sp.Dst),
-		)
-	}
-
-	if err := RelayPackets(ctx, log, src, dst, sp, maxTxSize, maxMsgLength, srcChannel, eventBus); err != nil {
-		// If there was a context cancellation or deadline while attempting to relay packets,
-		// log that and indicate failure.
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			log.Warn(
-				"Context finished while waiting for RelayPackets to complete",
-				zap.String("src_chain_id", src.ChainID()),
-				zap.String("src_channel_id", srcChannel.ChannelId),
-				zap.String("dst_chain_id", dst.ChainID()),
-				zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
-				zap.Error(ctx.Err()),
-			)
-			return false
-		}
-
-		// Otherwise, not a context error, but an application-level error.
-		log.Warn(
-			"Relay packets error",
-			zap.String("src_chain_id", src.ChainID()),
-			zap.String("src_channel_id", srcChannel.ChannelId),
-			zap.String("dst_chain_id", dst.ChainID()),
-			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
-			zap.Error(err),
-		)
-		// Indicate that we should attempt to keep going.
-		return true
-	}
-
-	return true
-}
-
-// relayUnrelayedAcks fetches unrelayed acknowledgements and attempts to relay them.
-// relayUnrelayedAcks returns true if acknowledgements were empty or were successfully relayed.
-// Otherwise, it logs the errors and returns false.
-func relayUnrelayedAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel, eventBus *ChainEventBus) bool {
-	// Fetch any unrelayed acks depending on the channel order
-	ap, err := UnrelayedAcknowledgements(ctx, src, dst, srcChannel, eventBus)
-	if err != nil {
-		log.Warn(
-			"Error retrieving unrelayed acknowledgements",
-			zap.String("src_chain_id", src.ChainID()),
-			zap.String("src_channel_id", srcChannel.ChannelId),
-			zap.Error(err),
-		)
-		return false
-	}
-
-	// If there are no unrelayed acks, stop early.
-	if ap.Empty() {
-		log.Debug(
-			"No acknowledgements in queue",
-			zap.String("src_chain_id", src.ChainID()),
-			zap.String("src_channel_id", srcChannel.ChannelId),
-			zap.String("src_port_id", srcChannel.PortId),
-			zap.String("dst_chain_id", dst.ChainID()),
-			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
-			zap.String("dst_port_id", srcChannel.Counterparty.PortId),
-		)
-		return true
-	}
-
-	if len(ap.Src) > 0 {
-		log.Info(
-			"Unrelayed source acknowledgements",
-			zap.String("src_chain_id", src.ChainID()),
-			zap.String("src_channel_id", srcChannel.ChannelId),
-			zap.Uint64s("acks", ap.Src),
-		)
-	}
-
-	if len(ap.Dst) > 0 {
-		log.Info(
-			"Unrelayed destination acknowledgements",
-			zap.String("dst_chain_id", dst.ChainID()),
-			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
-			zap.Uint64s("acks", ap.Dst),
-		)
-	}
-
-	if err := RelayAcknowledgements(ctx, log, src, dst, ap, maxTxSize, maxMsgLength, srcChannel, eventBus); err != nil {
-		// If there was a context cancellation or deadline while attempting to relay acknowledgements,
-		// log that and indicate failure.
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			log.Warn(
-				"Context finished while waiting for RelayAcknowledgements to complete",
-				zap.String("src_chain_id", src.ChainID()),
-				zap.String("src_channel_id", srcChannel.ChannelId),
-				zap.String("dst_chain_id", dst.ChainID()),
-				zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
-				zap.Error(ctx.Err()),
-			)
-			return false
-		}
-
-		// Otherwise, not a context error, but an application-level error.
-		log.Warn(
-			"Relay acknowledgements error",
-			zap.String("src_chain_id", src.ChainID()),
-			zap.String("src_channel_id", srcChannel.ChannelId),
-			zap.String("dst_chain_id", dst.ChainID()),
-			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
-			zap.Error(err),
-		)
-		return false
-	}
-
-	return true
 }
