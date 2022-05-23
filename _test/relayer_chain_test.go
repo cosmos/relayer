@@ -57,7 +57,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 			var err error
 			srcExpected, err = src.ChainProvider.QueryBalance(egCtx, src.ChainProvider.Key())
 			if srcExpected.IsZero() {
-				return fmt.Errorf("expected non-zero balance. Err: %w", err)
+				return fmt.Errorf("(src chain) expected non-zero balance. Err: %w", err)
 			}
 			return err
 		})
@@ -67,7 +67,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 			var err error
 			dstExpected, err = dst.ChainProvider.QueryBalance(egCtx, dst.ChainProvider.Key())
 			if dstExpected.IsZero() {
-				return fmt.Errorf("expected non-zero balance. Err: %w", err)
+				return fmt.Errorf("(dst chain) expected non-zero balance. Err: %w", err)
 			}
 			return err
 		})
