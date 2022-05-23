@@ -65,9 +65,8 @@ func (relayerFactory) UseDockerNetwork() bool { return false }
 
 func (relayerFactory) Capabilities() map[itfrelayer.Capability]bool {
 	// As of the current version of ibc-testing-framework's relayer tests,
-	// this version of the relayer can support everything but the timestamp timeout.
+	// this version of the relayer can support everything
 	m := itfrelayer.FullCapabilities()
-	// m[itfrelayer.TimestampTimeout] = false
 	return m
 }
 

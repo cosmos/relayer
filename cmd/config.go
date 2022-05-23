@@ -603,6 +603,12 @@ func initConfig(cmd *cobra.Command, a *appState) error {
 				}
 
 				chain := relayer.NewChain(a.Log, prov, a.Debug)
+
+				switch typedProv := pcfg.Value.(type) {
+				case *cosmos.CosmosProviderConfig:
+					chain.RPCAddr = typedProv.RPCAddr
+				}
+
 				chains = append(chains, chain)
 			}
 

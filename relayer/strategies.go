@@ -2,13 +2,16 @@ package relayer
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	cosmosProcessor "github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/chains/processor"
 	"github.com/cosmos/relayer/v2/relayer/ibc"
 	"github.com/cosmos/relayer/v2/relayer/paths"
+	cosmosProvider "github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"go.uber.org/zap"
 )
 
@@ -24,6 +27,19 @@ func StartRelayer(ctx context.Context, log *zap.Logger, src, dst *Chain, filter 
 
 	go relayerMainLoop(ctx, log, src, dst, filter, maxTxSize, maxMsgLength, errorChan)
 	return errorChan
+}
+
+func getChainProcessorForProvider(ctx context.Context, log *zap.Logger, chain *Chain, pathProcessor *paths.PathProcessor) processor.ChainProcessor {
+	switch chain.ChainProvider.(type) {
+	case *cosmosProvider.CosmosProvider:
+		chainProcessor, err := cosmosProcessor.NewCosmosChainProcessor(ctx, log, chain.RPCAddr, chain.ChainProvider, pathProcessor)
+		if err != nil {
+			panic(err)
+		}
+		return chainProcessor
+	default:
+		panic(fmt.Errorf("unable to get chain processor, unsupported chain provider type: %s", reflect.TypeOf(chain.ChainProvider)))
+	}
 }
 
 // relayerMainLoop is the main loop of the relayer.
@@ -52,14 +68,8 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 
 	pathProcessor := paths.NewPathProcessor(ctx, log, pathEnd1, pathEnd2)
 
-	chainProcessor1, err := cosmos.NewCosmosChainProcessor(ctx, log, src.RPCAddr, src.ChainProvider, pathProcessor)
-	if err != nil {
-		panic(err)
-	}
-	chainProcessor2, err := cosmos.NewCosmosChainProcessor(ctx, log, dst.RPCAddr, dst.ChainProvider, pathProcessor)
-	if err != nil {
-		panic(err)
-	}
+	chainProcessor1 := getChainProcessorForProvider(ctx, log, src, pathProcessor)
+	chainProcessor2 := getChainProcessorForProvider(ctx, log, dst, pathProcessor)
 
 	pathProcessor.SetPathEnd1ChainProcessor(chainProcessor1)
 	pathProcessor.SetPathEnd2ChainProcessor(chainProcessor2)
