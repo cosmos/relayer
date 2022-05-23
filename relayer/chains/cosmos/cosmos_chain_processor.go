@@ -320,7 +320,6 @@ QueryLoop:
 			for channelKey, messages := range foundMessages {
 				// do not relay on closed channels
 				if !ccp.channelOpenState[channelKey] {
-					ccp.channelOpenStateLock.Unlock()
 					continue
 				}
 				for _, pp := range ccp.pathProcessors {
