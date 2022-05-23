@@ -254,7 +254,7 @@ func handleClientInfo(p MsgHandlerParams) bool {
 		return false
 	}
 	if !p.CCP.IsRelevantClient(p.ClientInfo.ClientID) {
-		p.CCP.log.Debug("irrelevant client", zap.String("clientID", p.ClientInfo.ClientID))
+		// p.CCP.log.Debug("irrelevant client", zap.String("clientID", p.ClientInfo.ClientID))
 		return false
 	}
 	p.CCP.clientHeightLock.Lock()

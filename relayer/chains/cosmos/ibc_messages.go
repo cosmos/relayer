@@ -18,7 +18,7 @@ import (
 )
 
 // does not accept nil. message must be of the specific typedMsg type, or panic will occur
-func getCosmosMsg[T *chantypes.MsgRecvPacket | *chantypes.MsgAcknowledgement](msg provider.RelayerMessage, typedMsg T)  {
+func getCosmosMsg[T *chantypes.MsgRecvPacket | *chantypes.MsgAcknowledgement](msg provider.RelayerMessage) T  {
 	if msg == nil {
 		panic("msg is nil")
 	}
@@ -26,16 +26,15 @@ func getCosmosMsg[T *chantypes.MsgRecvPacket | *chantypes.MsgAcknowledgement](ms
 	if cosmosMsg == nil {
 		panic("cosmosMsg is nil")
 	}
-	var ok bool
-	typedMsg, ok = cosmosMsg.(T)
+	typedMsg, ok := cosmosMsg.(T)
 	if !ok {
 		panic("error casting msg")
 	}
+	return typedMsg
 }
 
 func (ccp *CosmosChainProcessor) GetMsgRecvPacket(signer string, msgRecvPacket provider.RelayerMessage) (provider.RelayerMessage, error) {
-	msg := &chantypes.MsgRecvPacket{}
-	getCosmosMsg(msgRecvPacket, msg)
+	msg := getCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
 
 	key := host.PacketCommitmentKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
 	res, err := ccp.QueryTendermintProof(ccp.latestHeight(), key)
@@ -51,9 +50,7 @@ func (ccp *CosmosChainProcessor) GetMsgRecvPacket(signer string, msgRecvPacket p
 }
 
 func (ccp *CosmosChainProcessor) GetMsgAcknowledgement(signer string, msgAcknowledgement provider.RelayerMessage) (provider.RelayerMessage, error) {
-	msg := &chantypes.MsgAcknowledgement{}
-  getCosmosMsg(msgAcknowledgement, msg)
-
+	msg := getCosmosMsg[*chantypes.MsgAcknowledgement](msgAcknowledgement)
 
 	key := host.PacketAcknowledgementKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
 	res, err := ccp.QueryTendermintProof(ccp.latestHeight(), key)
@@ -69,8 +66,7 @@ func (ccp *CosmosChainProcessor) GetMsgAcknowledgement(signer string, msgAcknowl
 }
 
 func (ccp *CosmosChainProcessor) GetMsgTimeout(signer string, msgRecvPacket provider.RelayerMessage) (provider.RelayerMessage, error) {
-	msg := &chantypes.MsgRecvPacket{}
-	getCosmosMsg(msgRecvPacket, msg)
+	msg := getCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
 
 	key := host.PacketReceiptKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
 	res, err := ccp.QueryTendermintProof(ccp.latestHeight(), key)
@@ -90,8 +86,7 @@ func (ccp *CosmosChainProcessor) GetMsgTimeout(signer string, msgRecvPacket prov
 }
 
 func (ccp *CosmosChainProcessor) GetMsgTimeoutOnClose(signer string, msgRecvPacket provider.RelayerMessage) (provider.RelayerMessage, error) {
-	msg := &chantypes.MsgRecvPacket{}
-	getCosmosMsg(msgRecvPacket, msg)
+	msg := getCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
 
 	key := host.PacketReceiptKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
 	res, err := ccp.QueryTendermintProof(ccp.latestHeight(), key)
@@ -154,9 +149,8 @@ func (ccp *CosmosChainProcessor) latestHeight() int64 {
 
 // makes sure packet is valid to be relayed
 // should return ibc.TimeoutError or ibc.TimeoutOnCloseError if packet is timed out so that Timeout can be written to other chain (already handled by PathProcessor)
-func (ccp *CosmosChainProcessor) ValidatePacket(msgTransfer provider.RelayerMessage) error {
-	msg := &chantypes.MsgRecvPacket{}
-	getCosmosMsg(msgTransfer, msg)
+func (ccp *CosmosChainProcessor) ValidatePacket(msgRecvPacket provider.RelayerMessage) error {
+	msg := getCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
 
 	if msg.Packet.Sequence == 0 {
 		return errors.New("refusing to relay packet with sequence: 0")
