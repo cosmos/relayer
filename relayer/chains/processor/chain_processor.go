@@ -2,7 +2,6 @@ package processor
 
 import (
 	"context"
-	"sync"
 
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
@@ -57,11 +56,8 @@ type ChainProcessors []ChainProcessor
 
 // blocking call that launches all chain processors in parallel (main process)
 func (cp ChainProcessors) Start(ctx context.Context, errCh chan<- error) {
-	infiniteWait := sync.WaitGroup{}
-	// will never be finished
-	infiniteWait.Add(1)
 	for _, chainProcessor := range cp {
 		go chainProcessor.Start(ctx, errCh)
 	}
-	infiniteWait.Wait()
+	<-ctx.Done()
 }

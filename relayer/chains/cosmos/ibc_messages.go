@@ -17,81 +17,76 @@ import (
 	abci "github.com/tendermint/tendermint/abci/types"
 )
 
-func (ccp *CosmosChainProcessor) GetMsgRecvPacket(signer string, msgRecvPacket provider.RelayerMessage) (provider.RelayerMessage, error) {
-	if msgRecvPacket == nil {
-		return nil, errors.New("msg is nil")
+func getCosmosMsg[T *chantypes.MsgRecvPacket | *chantypes.MsgAcknowledgement](msg provider.RelayerMessage, typedMsg T) (error){
+	if msg == nil {
+		return errors.New("msg is nil")
 	}
-	cosmosMsg := cosmos.CosmosMsg(msgRecvPacket)
+	cosmosMsg := cosmos.CosmosMsg(msg)
 	if cosmosMsg == nil {
-		return nil, errors.New("cosmosMsg is nil")
+		return errors.New("cosmosMsg is nil")
 	}
-	msg, ok := cosmosMsg.(*chantypes.MsgRecvPacket)
+	var ok bool
+	typedMsg, ok = cosmosMsg.(T)
 	if !ok {
-		return nil, errors.New("error casting msg to chantypes.MsgRecvPacket")
+		return errors.New("error casting msg")
+	}
+	return nil 
+} 
+
+func (ccp *CosmosChainProcessor) GetMsgRecvPacket(signer string, msgRecvPacket provider.RelayerMessage) (provider.RelayerMessage, error) {
+	msg := &chantypes.MsgRecvPacket{}
+	if err := getCosmosMsg(msgRecvPacket, msg); err != nil {
+		return nil, err 
 	}
 
 	key := host.PacketCommitmentKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
-	_, proof, proofHeight, err := ccp.QueryTendermintProof(ccp.latestHeight(), key)
+	res, err := ccp.QueryTendermintProof(ccp.latestHeight(), key)
 	if err != nil {
 		return nil, fmt.Errorf("error querying tendermint proof for packet: %w", err)
 	}
 
-	msg.ProofCommitment = proof
-	msg.ProofHeight = proofHeight
+	msg.ProofCommitment = res.Proof
+	msg.ProofHeight = res.ProofHeight
 	msg.Signer = signer
 
 	return cosmos.NewCosmosMessage(msg), nil
 }
 
 func (ccp *CosmosChainProcessor) GetMsgAcknowledgement(signer string, msgAcknowledgement provider.RelayerMessage) (provider.RelayerMessage, error) {
-	if msgAcknowledgement == nil {
-		return nil, errors.New("msg is nil")
-	}
-	cosmosMsg := cosmos.CosmosMsg(msgAcknowledgement)
-	if cosmosMsg == nil {
-		return nil, errors.New("cosmosMsg is nil")
-	}
-	msg, ok := cosmosMsg.(*chantypes.MsgAcknowledgement)
-	if !ok {
-		return nil, errors.New("error casting msg to chantypes.MsgAcknowledgement")
+	msg := &chantypes.MsgAcknowledgement{}
+	if err := getCosmosMsg(msgAcknowledgement, msg); err != nil {
+		return nil, err 
 	}
 
 	key := host.PacketAcknowledgementKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
-	_, proof, proofHeight, err := ccp.QueryTendermintProof(ccp.latestHeight(), key)
+	res, err := ccp.QueryTendermintProof(ccp.latestHeight(), key)
 	if err != nil {
 		return nil, fmt.Errorf("error querying tendermint proof for packet: %w", err)
 	}
 
-	msg.ProofAcked = proof
-	msg.ProofHeight = proofHeight
+	msg.ProofAcked = res.Proof
+	msg.ProofHeight = res.ProofHeight
 	msg.Signer = signer
 
 	return cosmos.NewCosmosMessage(msg), nil
 }
 
 func (ccp *CosmosChainProcessor) GetMsgTimeout(signer string, msgRecvPacket provider.RelayerMessage) (provider.RelayerMessage, error) {
-	if msgRecvPacket == nil {
-		return nil, errors.New("msg is nil")
-	}
-	cosmosMsg := cosmos.CosmosMsg(msgRecvPacket)
-	if cosmosMsg == nil {
-		return nil, errors.New("cosmosMsg is nil")
-	}
-	msg, ok := cosmosMsg.(*chantypes.MsgRecvPacket)
-	if !ok {
-		return nil, errors.New("error casting msg to chantypes.MsgRecvPacket")
+	msg := &chantypes.MsgRecvPacket{}
+	if err := getCosmosMsg(msgRecvPacket, msg); err != nil {
+		return nil, err 
 	}
 
 	key := host.PacketReceiptKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
-	_, proof, proofHeight, err := ccp.QueryTendermintProof(ccp.latestHeight(), key)
+	res, err := ccp.QueryTendermintProof(ccp.latestHeight(), key)
 	if err != nil {
 		return nil, fmt.Errorf("error querying tendermint proof for packet: %w", err)
 	}
 
 	msgTimeout := &chantypes.MsgTimeout{
 		Packet:           msg.Packet,
-		ProofUnreceived:  proof,
-		ProofHeight:      proofHeight,
+		ProofUnreceived:  res.Proof,
+		ProofHeight:      res.ProofHeight,
 		NextSequenceRecv: msg.Packet.Sequence,
 		Signer:           signer,
 	}
@@ -100,28 +95,21 @@ func (ccp *CosmosChainProcessor) GetMsgTimeout(signer string, msgRecvPacket prov
 }
 
 func (ccp *CosmosChainProcessor) GetMsgTimeoutOnClose(signer string, msgRecvPacket provider.RelayerMessage) (provider.RelayerMessage, error) {
-	if msgRecvPacket == nil {
-		return nil, errors.New("msg is nil")
-	}
-	cosmosMsg := cosmos.CosmosMsg(msgRecvPacket)
-	if cosmosMsg == nil {
-		return nil, errors.New("cosmosMsg is nil")
-	}
-	msg, ok := cosmosMsg.(*chantypes.MsgRecvPacket)
-	if !ok {
-		return nil, errors.New("error casting msg to chantypes.MsgRecvPacket")
+	msg := &chantypes.MsgRecvPacket{}
+	if err := getCosmosMsg(msgRecvPacket, msg); err != nil {
+		return nil, err 
 	}
 
 	key := host.PacketReceiptKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
-	_, proof, proofHeight, err := ccp.QueryTendermintProof(ccp.latestHeight(), key)
+	res, err := ccp.QueryTendermintProof(ccp.latestHeight(), key)
 	if err != nil {
 		return nil, fmt.Errorf("error querying tendermint proof for packet: %w", err)
 	}
 
 	msgTimeout := &chantypes.MsgTimeoutOnClose{
 		Packet:           msg.Packet,
-		ProofUnreceived:  proof,
-		ProofHeight:      proofHeight,
+		ProofUnreceived:  res.Proof,
+		ProofHeight:      res.ProofHeight,
 		NextSequenceRecv: msg.Packet.Sequence,
 		Signer:           signer,
 	}
@@ -174,16 +162,9 @@ func (ccp *CosmosChainProcessor) latestHeight() int64 {
 // makes sure packet is valid to be relayed
 // should return ibc.TimeoutError or ibc.TimeoutOnCloseError if packet is timed out so that Timeout can be written to other chain (already handled by PathProcessor)
 func (ccp *CosmosChainProcessor) ValidatePacket(msgTransfer provider.RelayerMessage) error {
-	if msgTransfer == nil {
-		return errors.New("msg is nil")
-	}
-	cosmosMsg := cosmos.CosmosMsg(msgTransfer)
-	if cosmosMsg == nil {
-		return errors.New("cosmosMsg is nil")
-	}
-	msg, ok := cosmosMsg.(*chantypes.MsgRecvPacket)
-	if !ok {
-		return errors.New("error casting msg to chantypes.MsgRecvPacket")
+	msg := &chantypes.MsgRecvPacket{}
+	if err := getCosmosMsg(msgTransfer, msg); err != nil {
+		return err
 	}
 
 	if msg.Packet.Sequence == 0 {
@@ -194,7 +175,7 @@ func (ccp *CosmosChainProcessor) ValidatePacket(msgTransfer provider.RelayerMess
 		return errors.New("refusing to relay packet with empty data")
 	}
 
-	// TODO: Are we sure we want to do this? this packet would then never be relayed
+	// This should not be possible, as it violates IBC spec
 	if msg.Packet.TimeoutHeight.IsZero() && msg.Packet.TimeoutTimestamp == 0 {
 		return errors.New("refusing to relay packet without a timeout (height or timestamp must be set)")
 	}
@@ -212,13 +193,19 @@ func (ccp *CosmosChainProcessor) ValidatePacket(msgTransfer provider.RelayerMess
 	return nil
 }
 
-func (ccp *CosmosChainProcessor) QueryTendermintProof(height int64, key []byte) ([]byte, []byte, clienttypes.Height, error) {
+type TendermintProofResult struct {
+	Result      []byte
+	Proof       []byte
+	ProofHeight clienttypes.Height
+}
+
+func (ccp *CosmosChainProcessor) QueryTendermintProof(height int64, key []byte) (*TendermintProofResult, error) {
 	// ABCI queries at heights 1, 2 or less than or equal to 0 are not supported.
 	// Base app does not support queries for height less than or equal to 1.
 	// Therefore, a query at height 2 would be equivalent to a query at height 3.
 	// A height of 0 will query with the lastest state.
 	if height != 0 && height <= 2 {
-		return nil, nil, clienttypes.Height{}, fmt.Errorf("proof queries at height <= 2 are not supported")
+		return nil, fmt.Errorf("proof queries at height <= 2 are not supported")
 	}
 
 	// Use the IAVL height if a valid tendermint height is passed in.
@@ -236,21 +223,21 @@ func (ccp *CosmosChainProcessor) QueryTendermintProof(height int64, key []byte) 
 
 	res, err := ccp.cc.QueryABCI(req)
 	if err != nil {
-		return nil, nil, clienttypes.Height{}, err
+		return nil, err
 	}
 
 	merkleProof, err := commitmenttypes.ConvertProofs(res.ProofOps)
 	if err != nil {
-		return nil, nil, clienttypes.Height{}, err
+		return nil, err
 	}
 
 	cdc := codec.NewProtoCodec(ccp.cc.InterfaceRegistry)
 
 	proofBz, err := cdc.Marshal(&merkleProof)
 	if err != nil {
-		return nil, nil, clienttypes.Height{}, err
+		return nil, err
 	}
 
 	revision := clienttypes.ParseChainID(ccp.ChainProvider.ChainId())
-	return res.Value, proofBz, clienttypes.NewHeight(revision, uint64(res.Height)+1), nil
+	return &TendermintProofResult{Result: res.Value, Proof: proofBz, ProofHeight: clienttypes.NewHeight(revision, uint64(res.Height)+1)}, nil
 }
