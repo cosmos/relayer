@@ -212,6 +212,9 @@ func (ccp *CosmosChainProcessor) Start(ctx context.Context, errCh chan<- error) 
 
 QueryLoop:
 	for {
+		if ccp.ctx.Err() != nil {
+			return
+		}
 		cycleTimeStart := time.Now()
 		doneWithThisCycle := func() {
 			queryDuration := time.Since(cycleTimeStart)
