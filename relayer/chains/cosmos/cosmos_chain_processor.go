@@ -155,6 +155,9 @@ func (ccp *CosmosChainProcessor) LatestHeaderWithTrustedVals(height uint64) (ibc
 	ccp.latestLock.Lock()
 	h := ccp.latest
 	ccp.latestLock.Unlock()
+	if h == nil {
+		return nil, fmt.Errorf("{%s} latest header is nil for height: %d\n", ccp.ChainProvider.ChainId(), height)
+	}
 	ccp.validatorSetsLock.Lock()
 	defer ccp.validatorSetsLock.Unlock()
 	trustedValidators, ok := ccp.validatorSets[int64(height)]
