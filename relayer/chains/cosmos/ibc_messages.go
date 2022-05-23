@@ -17,27 +17,25 @@ import (
 	abci "github.com/tendermint/tendermint/abci/types"
 )
 
-func getCosmosMsg[T *chantypes.MsgRecvPacket | *chantypes.MsgAcknowledgement](msg provider.RelayerMessage, typedMsg T) (error){
+// does not accept nil. message must be of the specific typedMsg type, or panic will occur
+func getCosmosMsg[T *chantypes.MsgRecvPacket | *chantypes.MsgAcknowledgement](msg provider.RelayerMessage, typedMsg T)  {
 	if msg == nil {
-		return errors.New("msg is nil")
+		panic("msg is nil")
 	}
 	cosmosMsg := cosmos.CosmosMsg(msg)
 	if cosmosMsg == nil {
-		return errors.New("cosmosMsg is nil")
+		panic("cosmosMsg is nil")
 	}
 	var ok bool
 	typedMsg, ok = cosmosMsg.(T)
 	if !ok {
-		return errors.New("error casting msg")
+		panic("error casting msg")
 	}
-	return nil 
-} 
+}
 
 func (ccp *CosmosChainProcessor) GetMsgRecvPacket(signer string, msgRecvPacket provider.RelayerMessage) (provider.RelayerMessage, error) {
 	msg := &chantypes.MsgRecvPacket{}
-	if err := getCosmosMsg(msgRecvPacket, msg); err != nil {
-		return nil, err 
-	}
+	getCosmosMsg(msgRecvPacket, msg)
 
 	key := host.PacketCommitmentKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
 	res, err := ccp.QueryTendermintProof(ccp.latestHeight(), key)
@@ -54,9 +52,8 @@ func (ccp *CosmosChainProcessor) GetMsgRecvPacket(signer string, msgRecvPacket p
 
 func (ccp *CosmosChainProcessor) GetMsgAcknowledgement(signer string, msgAcknowledgement provider.RelayerMessage) (provider.RelayerMessage, error) {
 	msg := &chantypes.MsgAcknowledgement{}
-	if err := getCosmosMsg(msgAcknowledgement, msg); err != nil {
-		return nil, err 
-	}
+  getCosmosMsg(msgAcknowledgement, msg)
+
 
 	key := host.PacketAcknowledgementKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
 	res, err := ccp.QueryTendermintProof(ccp.latestHeight(), key)
@@ -73,9 +70,7 @@ func (ccp *CosmosChainProcessor) GetMsgAcknowledgement(signer string, msgAcknowl
 
 func (ccp *CosmosChainProcessor) GetMsgTimeout(signer string, msgRecvPacket provider.RelayerMessage) (provider.RelayerMessage, error) {
 	msg := &chantypes.MsgRecvPacket{}
-	if err := getCosmosMsg(msgRecvPacket, msg); err != nil {
-		return nil, err 
-	}
+	getCosmosMsg(msgRecvPacket, msg)
 
 	key := host.PacketReceiptKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
 	res, err := ccp.QueryTendermintProof(ccp.latestHeight(), key)
@@ -96,9 +91,7 @@ func (ccp *CosmosChainProcessor) GetMsgTimeout(signer string, msgRecvPacket prov
 
 func (ccp *CosmosChainProcessor) GetMsgTimeoutOnClose(signer string, msgRecvPacket provider.RelayerMessage) (provider.RelayerMessage, error) {
 	msg := &chantypes.MsgRecvPacket{}
-	if err := getCosmosMsg(msgRecvPacket, msg); err != nil {
-		return nil, err 
-	}
+	getCosmosMsg(msgRecvPacket, msg)
 
 	key := host.PacketReceiptKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
 	res, err := ccp.QueryTendermintProof(ccp.latestHeight(), key)
@@ -125,7 +118,7 @@ func (ccp *CosmosChainProcessor) GetMsgUpdateClient(clientID string, counterpart
 
 	counterpartyHeader, ok := counterpartyChainLatestHeader.(*tmclient.Header)
 	if !ok {
-		return nil, fmt.Errorf("header is not a tendermint header: %v\n", err)
+		return nil, fmt.Errorf("header is not a tendermint header: %T\n", counterpartyChainLatestHeader)
 	}
 
 	clientHeight, err := ccp.ClientHeight(clientID)
@@ -163,9 +156,7 @@ func (ccp *CosmosChainProcessor) latestHeight() int64 {
 // should return ibc.TimeoutError or ibc.TimeoutOnCloseError if packet is timed out so that Timeout can be written to other chain (already handled by PathProcessor)
 func (ccp *CosmosChainProcessor) ValidatePacket(msgTransfer provider.RelayerMessage) error {
 	msg := &chantypes.MsgRecvPacket{}
-	if err := getCosmosMsg(msgTransfer, msg); err != nil {
-		return err
-	}
+	getCosmosMsg(msgTransfer, msg)
 
 	if msg.Packet.Sequence == 0 {
 		return errors.New("refusing to relay packet with sequence: 0")
@@ -183,11 +174,11 @@ func (ccp *CosmosChainProcessor) ValidatePacket(msgTransfer provider.RelayerMess
 	latest := ccp.Latest()
 	latestClientTypesHeight := clienttypes.Height{RevisionNumber: ccp.revisionNumber, RevisionHeight: latest.Height}
 	if !msg.Packet.TimeoutHeight.IsZero() && latestClientTypesHeight.GTE(msg.Packet.TimeoutHeight) {
-		return ibc.NewTimeoutError(fmt.Sprintf("Latest height %d is greater than expiration height: %d\n", latest.Height, msg.Packet.TimeoutHeight.RevisionHeight))
+		return ibc.NewTimeoutError(fmt.Sprintf("latest height %d is greater than expiration height: %d", latest.Height, msg.Packet.TimeoutHeight.RevisionHeight))
 	}
 	latestTimestamp := uint64(latest.Time.UnixNano())
 	if msg.Packet.TimeoutTimestamp > 0 && latestTimestamp > msg.Packet.TimeoutTimestamp {
-		return ibc.NewTimeoutError(fmt.Sprintf("Latest block timestamp %d is greater than expiration timestamp: %d\n", latestTimestamp, msg.Packet.TimeoutTimestamp))
+		return ibc.NewTimeoutError(fmt.Sprintf("latest block timestamp %d is greater than expiration timestamp: %d", latestTimestamp, msg.Packet.TimeoutTimestamp))
 	}
 
 	return nil

@@ -105,24 +105,16 @@ func NewCosmosChainProcessor(ctx context.Context, log *zap.Logger, rpcAddress st
 		return nil, errors.New("only cosmos providers are supported for cosmos chain processors")
 	}
 	return &CosmosChainProcessor{
-		ctx:             ctx,
-		log:             log,
-		ChainProvider:   cosmosProvider,
-		revisionNumber:  revisionNumber,
-		cc:              cc,
-		pathProcessors:  pathProcessors,
-		lightProvider:   lightProvider,
-		latestLock:      sync.Mutex{},
-		latestBlockLock: sync.Mutex{},
-
-		validatorSets:     make(map[int64]*tmtypes.ValidatorSet),
-		validatorSetsLock: sync.Mutex{},
-
+		ctx:              ctx,
+		log:              log,
+		ChainProvider:    cosmosProvider,
+		revisionNumber:   revisionNumber,
+		cc:               cc,
+		pathProcessors:   pathProcessors,
+		lightProvider:    lightProvider,
+		validatorSets:    make(map[int64]*tmtypes.ValidatorSet),
 		clientHeight:     make(map[string]clienttypes.Height),
-		clientHeightLock: sync.Mutex{},
-
-		channelOpenState:     make(map[ibc.ChannelKey]bool),
-		channelOpenStateLock: sync.Mutex{},
+		channelOpenState: make(map[ibc.ChannelKey]bool),
 	}, nil
 }
 

@@ -1,6 +1,8 @@
 package paths
 
-import "github.com/cosmos/relayer/v2/relayer/ibc"
+import (
+	"github.com/cosmos/relayer/v2/relayer/ibc"
+)
 
 type PathEnd struct {
 	ChainID      string
@@ -26,77 +28,55 @@ func NewPathEnd(chainID string, clientID string, connectionID string, allowList 
 	}
 }
 
-// expanded for readability
+func (pe PathEnd) checkChannelMatch(listChannelID, listPortID string, channelKey ibc.ChannelKey) bool {
+	if listChannelID == "" {
+		return false
+	}
+	if listChannelID == channelKey.ChannelID {
+		if listPortID == "" {
+			return true
+		}
+		if listPortID == channelKey.PortID {
+			return true
+		}
+	}
+	if listChannelID == channelKey.CounterpartyChannelID {
+		if listPortID == "" {
+			return true
+		}
+		if listPortID == channelKey.CounterpartyPortID {
+			return true
+		}
+	}
+	return false
+}
+
+func (pe PathEnd) shouldRelayChannelSingle(channelKey ibc.ChannelKey, listChannel ibc.ChannelKey, allowList bool) bool {
+	if pe.checkChannelMatch(listChannel.ChannelID, listChannel.PortID, channelKey) {
+		return allowList
+	}
+	if pe.checkChannelMatch(listChannel.CounterpartyChannelID, listChannel.CounterpartyPortID, channelKey) {
+		return allowList
+	}
+	return !allowList
+}
+
+// if port ID is empty on allowlist channel, allow all ports
+// if port ID is non-empty on allowlist channel, allow only that specific port
+// if port ID is empty on blocklist channel, block all ports
+// if port ID is non-empty on blocklist channel, block only that specific port
 func (pe PathEnd) ShouldRelayChannel(channelKey ibc.ChannelKey) bool {
 	if len(pe.AllowList) > 0 {
 		for _, allowedChannel := range pe.AllowList {
-			if allowedChannel.ChannelID == channelKey.ChannelID {
-				if allowedChannel.PortID == "" {
-					return true
-				}
-				if allowedChannel.PortID == channelKey.PortID {
-					return true
-				}
-			}
-			if allowedChannel.ChannelID == channelKey.CounterpartyChannelID {
-				if allowedChannel.PortID == "" {
-					return true
-				}
-				if allowedChannel.PortID == channelKey.CounterpartyPortID {
-					return true
-				}
-			}
-			if allowedChannel.CounterpartyChannelID == channelKey.ChannelID {
-				if allowedChannel.CounterpartyPortID == "" {
-					return true
-				}
-				if allowedChannel.CounterpartyPortID == channelKey.PortID {
-					return true
-				}
-			}
-			if allowedChannel.CounterpartyChannelID == channelKey.CounterpartyChannelID {
-				if allowedChannel.CounterpartyPortID == "" {
-					return true
-				}
-				if allowedChannel.CounterpartyPortID == channelKey.CounterpartyPortID {
-					return true
-				}
+			if pe.shouldRelayChannelSingle(channelKey, allowedChannel, true) {
+				return true
 			}
 		}
 		return false
 	} else if len(pe.BlockList) > 0 {
 		for _, blockedChannel := range pe.BlockList {
-			if blockedChannel.ChannelID == channelKey.ChannelID {
-				if blockedChannel.PortID == "" {
-					return false
-				}
-				if blockedChannel.PortID == channelKey.PortID {
-					return false
-				}
-			}
-			if blockedChannel.ChannelID == channelKey.CounterpartyChannelID {
-				if blockedChannel.PortID == "" {
-					return false
-				}
-				if blockedChannel.PortID == channelKey.CounterpartyPortID {
-					return false
-				}
-			}
-			if blockedChannel.CounterpartyChannelID == channelKey.ChannelID {
-				if blockedChannel.CounterpartyPortID == "" {
-					return false
-				}
-				if blockedChannel.CounterpartyPortID == channelKey.PortID {
-					return false
-				}
-			}
-			if blockedChannel.CounterpartyChannelID == channelKey.CounterpartyChannelID {
-				if blockedChannel.CounterpartyPortID == "" {
-					return false
-				}
-				if blockedChannel.CounterpartyPortID == channelKey.CounterpartyPortID {
-					return false
-				}
+			if !pe.shouldRelayChannelSingle(channelKey, blockedChannel, false) {
+				return false
 			}
 		}
 		return true
@@ -104,5 +84,3 @@ func (pe PathEnd) ShouldRelayChannel(channelKey ibc.ChannelKey) bool {
 	// if neither allow list or block list are provided, all channels are okay
 	return true
 }
-
-// store recent block header information (10 blocks?) for each chain so we can dynamically construct update client msgs

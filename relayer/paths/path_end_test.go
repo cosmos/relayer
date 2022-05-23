@@ -1,0 +1,184 @@
+package paths_test
+
+import (
+	"testing"
+
+	"github.com/cosmos/relayer/v2/relayer/ibc"
+	"github.com/cosmos/relayer/v2/relayer/paths"
+	"github.com/stretchr/testify/require"
+)
+
+const (
+	testChannel0 = "test-channel-0"
+	testPort0    = "test-port-0"
+	testChannel1 = "test-channel-1"
+	testPort1    = "test-port-1"
+)
+
+// empty allow list and block list should relay everything
+func TestAllowAllChannels(t *testing.T) {
+	mockAllowList := []ibc.ChannelKey{}
+	mockBlockList := []ibc.ChannelKey{}
+	mockPathEnd := paths.PathEnd{
+		AllowList: mockAllowList,
+		BlockList: mockBlockList,
+	}
+
+	mockAllowedChannel := ibc.ChannelKey{
+		ChannelID: testChannel0,
+		PortID:    testPort0,
+	}
+	require.True(t, mockPathEnd.ShouldRelayChannel(mockAllowedChannel), "does not allow channel to be relayed, even though allow list and block list are empty")
+
+	// test counterparty
+	mockAllowedChannel2 := ibc.ChannelKey{
+		CounterpartyChannelID: testChannel1,
+		CounterpartyPortID:    testPort1,
+	}
+	require.True(t, mockPathEnd.ShouldRelayChannel(mockAllowedChannel2), "does not allow counterparty channel to be relayed, even though allow list and block list are empty")
+}
+
+//
+func TestAllowAllPortsForChannel(t *testing.T) {
+	mockAllowList := []ibc.ChannelKey{
+		{ChannelID: testChannel0},
+	}
+	mockBlockList := []ibc.ChannelKey{}
+	mockPathEnd := paths.PathEnd{
+		AllowList: mockAllowList,
+		BlockList: mockBlockList,
+	}
+
+	mockAllowedChannel := ibc.ChannelKey{
+		ChannelID: testChannel0,
+		PortID:    testPort0,
+	}
+	require.True(t, mockPathEnd.ShouldRelayChannel(mockAllowedChannel), "does not allow channel to be relayed, even though channelID is in allow list")
+
+	// test counterparty
+	mockAllowedChannel2 := ibc.ChannelKey{
+		CounterpartyChannelID: testChannel0,
+		CounterpartyPortID:    testPort0,
+	}
+	require.True(t, mockPathEnd.ShouldRelayChannel(mockAllowedChannel2), "does not allow counterparty channel to be relayed, even though channelID is in allow list")
+
+	mockBlockedChannel := ibc.ChannelKey{
+		ChannelID: testChannel1,
+		PortID:    testPort1,
+	}
+	require.False(t, mockPathEnd.ShouldRelayChannel(mockBlockedChannel), "allows channel to be relayed, even though channelID is not in allow list")
+
+	mockBlockedChannel2 := ibc.ChannelKey{
+		CounterpartyChannelID: testChannel1,
+		CounterpartyPortID:    testPort1,
+	}
+	require.False(t, mockPathEnd.ShouldRelayChannel(mockBlockedChannel2), "allows channel to be relayed, even though channelID is not in allow list")
+}
+
+func TestAllowSpecificPortForChannel(t *testing.T) {
+	mockAllowList := []ibc.ChannelKey{
+		{ChannelID: testChannel0, PortID: testPort0},
+	}
+	mockBlockList := []ibc.ChannelKey{}
+	mockPathEnd := paths.PathEnd{
+		AllowList: mockAllowList,
+		BlockList: mockBlockList,
+	}
+
+	mockAllowedChannel := ibc.ChannelKey{
+		ChannelID: testChannel0,
+		PortID:    testPort0,
+	}
+	require.True(t, mockPathEnd.ShouldRelayChannel(mockAllowedChannel), "does not allow channel to be relayed, even though channelID is in allow list")
+
+	// test counterparty
+	mockAllowedChannel2 := ibc.ChannelKey{
+		CounterpartyChannelID: testChannel0,
+		CounterpartyPortID:    testPort0,
+	}
+	require.True(t, mockPathEnd.ShouldRelayChannel(mockAllowedChannel2), "does not allow counterparty channel to be relayed, even though channelID is in allow list")
+
+	mockBlockedChannel := ibc.ChannelKey{
+		ChannelID: testChannel0,
+		PortID:    testPort1,
+	}
+	require.False(t, mockPathEnd.ShouldRelayChannel(mockBlockedChannel), "allows channel to be relayed, even though portID is not in allow list")
+
+	mockBlockedChannel2 := ibc.ChannelKey{
+		CounterpartyChannelID: testChannel0,
+		CounterpartyPortID:    testPort1,
+	}
+	require.False(t, mockPathEnd.ShouldRelayChannel(mockBlockedChannel2), "allows channel to be relayed, even though portID is not in allow list")
+}
+
+func TestBlockAllPortsForChannel(t *testing.T) {
+	mockAllowList := []ibc.ChannelKey{}
+	mockBlockList := []ibc.ChannelKey{
+		{ChannelID: testChannel0},
+	}
+	mockPathEnd := paths.PathEnd{
+		AllowList: mockAllowList,
+		BlockList: mockBlockList,
+	}
+
+	mockBlockedChannel := ibc.ChannelKey{
+		ChannelID: testChannel0,
+		PortID:    testPort0,
+	}
+	require.False(t, mockPathEnd.ShouldRelayChannel(mockBlockedChannel), "allows channel to be relayed, even though channelID is in block list")
+
+	// test counterparty
+	mockBlockedChannel2 := ibc.ChannelKey{
+		CounterpartyChannelID: testChannel0,
+		CounterpartyPortID:    testPort0,
+	}
+	require.False(t, mockPathEnd.ShouldRelayChannel(mockBlockedChannel2), "allows counterparty channel to be relayed, even though channelID is in block list")
+
+	mockAllowedChannel := ibc.ChannelKey{
+		ChannelID: testChannel1,
+		PortID:    testPort1,
+	}
+	require.True(t, mockPathEnd.ShouldRelayChannel(mockAllowedChannel), "does not allow channel to be relayed, even though channelID is not in block list")
+
+	mockAllowedChannel2 := ibc.ChannelKey{
+		CounterpartyChannelID: testChannel1,
+		CounterpartyPortID:    testPort1,
+	}
+	require.True(t, mockPathEnd.ShouldRelayChannel(mockAllowedChannel2), "does not allow counterparty channel to be relayed, even though channelID is not in block list")
+}
+
+func TestBlockSpecificPortForChannel(t *testing.T) {
+	mockAllowList := []ibc.ChannelKey{}
+	mockBlockList := []ibc.ChannelKey{
+		{ChannelID: testChannel0, PortID: testPort0},
+	}
+	mockPathEnd := paths.PathEnd{
+		AllowList: mockAllowList,
+		BlockList: mockBlockList,
+	}
+
+	mockBlockedChannel := ibc.ChannelKey{
+		ChannelID: testChannel0,
+		PortID:    testPort0,
+	}
+	require.False(t, mockPathEnd.ShouldRelayChannel(mockBlockedChannel), "allows channel to be relayed, even though channelID/portID is in block list")
+
+	// test counterparty
+	mockBlockedChannel2 := ibc.ChannelKey{
+		CounterpartyChannelID: testChannel0,
+		CounterpartyPortID:    testPort0,
+	}
+	require.False(t, mockPathEnd.ShouldRelayChannel(mockBlockedChannel2), "allows counterparty channel to be relayed, even though channelID/portID is in block list")
+
+	mockAllowedChannel := ibc.ChannelKey{
+		ChannelID: testChannel0,
+		PortID:    testPort1,
+	}
+	require.True(t, mockPathEnd.ShouldRelayChannel(mockAllowedChannel), "does not allow channel to be relayed, even though portID is not in block list")
+
+	mockAllowedChannel2 := ibc.ChannelKey{
+		CounterpartyChannelID: testChannel0,
+		CounterpartyPortID:    testPort1,
+	}
+	require.True(t, mockPathEnd.ShouldRelayChannel(mockAllowedChannel2), "does not allow counterparty channel to be relayed, even though portID is not in block list")
+}

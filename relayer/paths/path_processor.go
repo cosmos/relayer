@@ -61,24 +61,15 @@ func NewPathProcessor(ctx context.Context, log *zap.Logger, pathEnd1 PathEnd, pa
 		ctx: ctx,
 		log: log,
 		pathEnd1: &PathEndRuntime{
-			info:                       pathEnd1,
-			messages:                   make(map[string]map[uint64]provider.RelayerMessage),
-			messagesLock:               sync.Mutex{},
-			inProgressMessageSends:     make(map[string]map[uint64]ibc.InProgressSend),
-			inProgressMessageSendsLock: sync.Mutex{},
-			maxSequence:                0,
-			maxSequenceLock:            sync.Mutex{},
+			info:                   pathEnd1,
+			messages:               make(map[string]map[uint64]provider.RelayerMessage),
+			inProgressMessageSends: make(map[string]map[uint64]ibc.InProgressSend),
 		},
 		pathEnd2: &PathEndRuntime{
-			info:                       pathEnd2,
-			messages:                   make(map[string]map[uint64]provider.RelayerMessage),
-			messagesLock:               sync.Mutex{},
-			inProgressMessageSends:     make(map[string]map[uint64]ibc.InProgressSend),
-			inProgressMessageSendsLock: sync.Mutex{},
-			maxSequence:                0,
-			maxSequenceLock:            sync.Mutex{},
+			info:                   pathEnd2,
+			messages:               make(map[string]map[uint64]provider.RelayerMessage),
+			inProgressMessageSends: make(map[string]map[uint64]ibc.InProgressSend),
 		},
-		processLock: sync.Mutex{},
 	}
 }
 
@@ -160,101 +151,166 @@ func (pp *PathProcessor) GetRelevantConnectionID(chainID string) (string, error)
 	return "", errors.New("irrelevant chain processor provided")
 }
 
+func deleteLocked[K comparable, L comparable, T any](messages map[L]map[K]T, message L, sequence K, lock *sync.Mutex) {
+	lock.Lock()
+	defer lock.Unlock()
+	delete(messages[message], sequence)
+}
+
 // gets unrelayed packets and acks and cleans up sequence retention for completed packet flows
 func (pp *PathProcessor) getUnrelayedPacketsAndAcks(srcPathEnd, dstPathEnd *PathEndRuntime) ([]ibc.IBCMessageWithSequence, []ibc.IBCMessageWithSequence) {
-	srcPathEnd.messagesLock.Lock()
-	dstPathEnd.messagesLock.Lock()
-	srcPathEnd.inProgressMessageSendsLock.Lock()
-	dstPathEnd.inProgressMessageSendsLock.Lock()
-	defer srcPathEnd.messagesLock.Unlock()
-	defer dstPathEnd.messagesLock.Unlock()
-	defer srcPathEnd.inProgressMessageSendsLock.Unlock()
-	defer dstPathEnd.inProgressMessageSendsLock.Unlock()
-	unrelayedPackets := []ibc.IBCMessageWithSequence{}
-	unrelayedAcknowledgements := []ibc.IBCMessageWithSequence{}
+	// need to copy maps for reading
+	srcMsgTransferMessages := make(map[uint64]provider.RelayerMessage)
+	srcMsgAcknowledgementMessages := make(map[uint64]provider.RelayerMessage)
+	srcMsgTimeoutMessages := make(map[uint64]provider.RelayerMessage)
+	srcMsgTimeoutOnCloseMessages := make(map[uint64]provider.RelayerMessage)
+	dstMsgRecvPacketMessages := make(map[uint64]provider.RelayerMessage)
 
+	srcPathEnd.messagesLock.Lock()
 	if srcPathEnd.messages[ibc.MsgTransfer] != nil {
-	MsgTransferLoop:
 		for transferSeq, msgTransfer := range srcPathEnd.messages[ibc.MsgTransfer] {
-			if srcPathEnd.messages[ibc.MsgAcknowledgement] != nil {
-				for ackSeq := range srcPathEnd.messages[ibc.MsgAcknowledgement] {
-					if transferSeq == ackSeq {
-						// we have an ack for this packet, so packet flow is complete
-						// remove all retention of this sequence number
-						delete(srcPathEnd.messages[ibc.MsgTransfer], transferSeq)
-						delete(dstPathEnd.messages[ibc.MsgRecvPacket], transferSeq)
-						delete(srcPathEnd.messages[ibc.MsgAcknowledgement], transferSeq)
-						delete(dstPathEnd.inProgressMessageSends[ibc.MsgRecvPacket], ackSeq)
-						delete(srcPathEnd.inProgressMessageSends[ibc.MsgAcknowledgement], ackSeq)
-						continue MsgTransferLoop
-					}
-				}
-			}
-			if srcPathEnd.messages[ibc.MsgTimeout] != nil {
-				for timeoutSeq := range srcPathEnd.messages[ibc.MsgTimeout] {
-					if transferSeq == timeoutSeq {
-						// we have a timeout for this packet, so packet flow is complete
-						// remove all retention of this sequence number
-						delete(srcPathEnd.messages[ibc.MsgTransfer], transferSeq)
-						delete(srcPathEnd.messages[ibc.MsgTimeout], transferSeq)
-						delete(srcPathEnd.inProgressMessageSends[ibc.MsgTimeout], timeoutSeq)
-						continue MsgTransferLoop
-					}
-				}
-			}
-			if srcPathEnd.messages[ibc.MsgTimeoutOnClose] != nil {
-				for timeoutOnCloseSeq := range srcPathEnd.messages[ibc.MsgTimeoutOnClose] {
-					if transferSeq == timeoutOnCloseSeq {
-						// we have a timeout for this packet, so packet flow is complete
-						// remove all retention of this sequence number
-						delete(srcPathEnd.messages[ibc.MsgTransfer], transferSeq)
-						delete(srcPathEnd.messages[ibc.MsgTimeoutOnClose], transferSeq)
-						delete(srcPathEnd.inProgressMessageSends[ibc.MsgTimeoutOnClose], timeoutOnCloseSeq)
-						continue MsgTransferLoop
-					}
-				}
-			}
-			if dstPathEnd.messages[ibc.MsgRecvPacket] != nil {
-				for msgRecvSeq, msgAcknowledgement := range dstPathEnd.messages[ibc.MsgRecvPacket] {
-					if transferSeq == msgRecvSeq {
-						// msg is received by dst chain, but no ack yet. Need to relay ack from dst to src!
-						unrelayedAcknowledgements = append(unrelayedAcknowledgements, ibc.IBCMessageWithSequence{Sequence: msgRecvSeq, Message: msgAcknowledgement})
-						continue MsgTransferLoop
-					}
-				}
-			}
-			// Packet is not yet relayed! need to relay from src to dst
-			unrelayedPackets = append(unrelayedPackets, ibc.IBCMessageWithSequence{Sequence: transferSeq, Message: msgTransfer})
+			srcMsgTransferMessages[transferSeq] = msgTransfer
 		}
 	}
-	// now iterate through packet-flow-complete messages and remove any leftover messages if the MsgTransfer or MsgRecvPacket was in a previous block that we did not query
 	if srcPathEnd.messages[ibc.MsgAcknowledgement] != nil {
-		for ackSeq := range srcPathEnd.messages[ibc.MsgAcknowledgement] {
-			delete(srcPathEnd.messages[ibc.MsgTransfer], ackSeq)
-			delete(dstPathEnd.messages[ibc.MsgRecvPacket], ackSeq)
-			delete(srcPathEnd.messages[ibc.MsgAcknowledgement], ackSeq)
-			delete(dstPathEnd.inProgressMessageSends[ibc.MsgRecvPacket], ackSeq)
-			delete(srcPathEnd.inProgressMessageSends[ibc.MsgAcknowledgement], ackSeq)
+		for ackSeq, msgAcknowledgement := range srcPathEnd.messages[ibc.MsgAcknowledgement] {
+			srcMsgAcknowledgementMessages[ackSeq] = msgAcknowledgement
 		}
 	}
 	if srcPathEnd.messages[ibc.MsgTimeout] != nil {
-		for timeoutSeq := range srcPathEnd.messages[ibc.MsgTimeout] {
-			delete(srcPathEnd.messages[ibc.MsgTransfer], timeoutSeq)
-			delete(srcPathEnd.messages[ibc.MsgTimeout], timeoutSeq)
-			delete(srcPathEnd.inProgressMessageSends[ibc.MsgTimeout], timeoutSeq)
+		for timeoutSeq, msgTimeout := range srcPathEnd.messages[ibc.MsgTimeout] {
+			srcMsgTimeoutMessages[timeoutSeq] = msgTimeout
 		}
 	}
 	if srcPathEnd.messages[ibc.MsgTimeoutOnClose] != nil {
-		for timeoutOnCloseSeq := range srcPathEnd.messages[ibc.MsgTimeoutOnClose] {
-			delete(srcPathEnd.messages[ibc.MsgTransfer], timeoutOnCloseSeq)
-			delete(srcPathEnd.messages[ibc.MsgTimeoutOnClose], timeoutOnCloseSeq)
-			delete(srcPathEnd.inProgressMessageSends[ibc.MsgTimeoutOnClose], timeoutOnCloseSeq)
+		for timeoutSeq, msgTimeout := range srcPathEnd.messages[ibc.MsgTimeoutOnClose] {
+			srcMsgTimeoutOnCloseMessages[timeoutSeq] = msgTimeout
 		}
 	}
+	srcPathEnd.messagesLock.Unlock()
+
+	dstPathEnd.messagesLock.Lock()
+	if dstPathEnd.messages[ibc.MsgRecvPacket] != nil {
+		for msgRecvSeq, msgAcknowledgement := range dstPathEnd.messages[ibc.MsgRecvPacket] {
+			dstMsgRecvPacketMessages[msgRecvSeq] = msgAcknowledgement
+		}
+	}
+	dstPathEnd.messagesLock.Unlock()
+
+	unrelayedPackets := []ibc.IBCMessageWithSequence{}
+	unrelayedAcknowledgements := []ibc.IBCMessageWithSequence{}
+
+	toDeleteSrc := make(map[string][]uint64)
+	toDeleteSrcInProgress := make(map[string][]uint64)
+	toDeleteDst := make(map[string][]uint64)
+	toDeleteDstInProgress := make(map[string][]uint64)
+
+MsgTransferLoop:
+	for transferSeq, msgTransfer := range srcMsgTransferMessages {
+		for ackSeq := range srcMsgAcknowledgementMessages {
+			if transferSeq == ackSeq {
+				// we have an ack for this packet, so packet flow is complete
+				// remove all retention of this sequence number
+				toDeleteSrc[ibc.MsgTransfer] = append(toDeleteSrc[ibc.MsgTransfer], transferSeq)
+				toDeleteDst[ibc.MsgRecvPacket] = append(toDeleteDst[ibc.MsgRecvPacket], transferSeq)
+				toDeleteSrc[ibc.MsgAcknowledgement] = append(toDeleteSrc[ibc.MsgAcknowledgement], transferSeq)
+				toDeleteDstInProgress[ibc.MsgRecvPacket] = append(toDeleteDstInProgress[ibc.MsgRecvPacket], transferSeq)
+				toDeleteSrcInProgress[ibc.MsgAcknowledgement] = append(toDeleteSrcInProgress[ibc.MsgAcknowledgement], transferSeq)
+				continue MsgTransferLoop
+			}
+		}
+		for timeoutSeq := range srcMsgTimeoutMessages {
+			if transferSeq == timeoutSeq {
+				// we have a timeout for this packet, so packet flow is complete
+				// remove all retention of this sequence number
+				toDeleteSrc[ibc.MsgTransfer] = append(toDeleteSrc[ibc.MsgTransfer], transferSeq)
+				toDeleteSrc[ibc.MsgTimeout] = append(toDeleteSrc[ibc.MsgTimeout], transferSeq)
+				toDeleteSrcInProgress[ibc.MsgTimeout] = append(toDeleteSrcInProgress[ibc.MsgTimeout], transferSeq)
+				continue MsgTransferLoop
+			}
+		}
+		for timeoutOnCloseSeq := range srcMsgTimeoutOnCloseMessages {
+			if transferSeq == timeoutOnCloseSeq {
+				// we have a timeout for this packet, so packet flow is complete
+				// remove all retention of this sequence number
+				toDeleteSrc[ibc.MsgTransfer] = append(toDeleteSrc[ibc.MsgTransfer], transferSeq)
+				toDeleteSrc[ibc.MsgTimeoutOnClose] = append(toDeleteSrc[ibc.MsgTimeoutOnClose], transferSeq)
+				toDeleteSrcInProgress[ibc.MsgTimeoutOnClose] = append(toDeleteSrcInProgress[ibc.MsgTimeoutOnClose], transferSeq)
+				continue MsgTransferLoop
+			}
+		}
+		for msgRecvSeq, msgAcknowledgement := range dstMsgRecvPacketMessages {
+			if transferSeq == msgRecvSeq {
+				// msg is received by dst chain, but no ack yet. Need to relay ack from dst to src!
+				unrelayedAcknowledgements = append(unrelayedAcknowledgements, ibc.IBCMessageWithSequence{Sequence: msgRecvSeq, Message: msgAcknowledgement})
+				continue MsgTransferLoop
+			}
+		}
+		// Packet is not yet relayed! need to relay from src to dst
+		unrelayedPackets = append(unrelayedPackets, ibc.IBCMessageWithSequence{Sequence: transferSeq, Message: msgTransfer})
+	}
+
+	// now iterate through packet-flow-complete messages and remove any leftover messages if the MsgTransfer or MsgRecvPacket was in a previous block that we did not query
+	for ackSeq := range srcMsgAcknowledgementMessages {
+		toDeleteSrc[ibc.MsgTransfer] = append(toDeleteSrc[ibc.MsgTransfer], ackSeq)
+		toDeleteDst[ibc.MsgRecvPacket] = append(toDeleteDst[ibc.MsgRecvPacket], ackSeq)
+		toDeleteSrc[ibc.MsgAcknowledgement] = append(toDeleteSrc[ibc.MsgAcknowledgement], ackSeq)
+		toDeleteDstInProgress[ibc.MsgRecvPacket] = append(toDeleteDstInProgress[ibc.MsgRecvPacket], ackSeq)
+		toDeleteSrcInProgress[ibc.MsgAcknowledgement] = append(toDeleteSrcInProgress[ibc.MsgAcknowledgement], ackSeq)
+	}
+
+	for timeoutSeq := range srcMsgTimeoutMessages {
+		toDeleteSrc[ibc.MsgTransfer] = append(toDeleteSrc[ibc.MsgTransfer], timeoutSeq)
+		toDeleteSrc[ibc.MsgTimeout] = append(toDeleteSrc[ibc.MsgTimeout], timeoutSeq)
+		toDeleteSrcInProgress[ibc.MsgTimeout] = append(toDeleteSrcInProgress[ibc.MsgTimeout], timeoutSeq)
+	}
+
+	for timeoutOnCloseSeq := range srcMsgTimeoutOnCloseMessages {
+		toDeleteSrc[ibc.MsgTransfer] = append(toDeleteSrc[ibc.MsgTransfer], timeoutOnCloseSeq)
+		toDeleteSrc[ibc.MsgTimeoutOnClose] = append(toDeleteSrc[ibc.MsgTimeoutOnClose], timeoutOnCloseSeq)
+		toDeleteSrcInProgress[ibc.MsgTimeoutOnClose] = append(toDeleteSrcInProgress[ibc.MsgTimeoutOnClose], timeoutOnCloseSeq)
+	}
+
+	// now delete all toDelete
+
+	srcPathEnd.messagesLock.Lock()
+	for message, messages := range toDeleteSrc {
+		for _, sequence := range messages {
+			delete(srcPathEnd.messages[message], sequence)
+		}
+	}
+	srcPathEnd.messagesLock.Unlock()
+
+	srcPathEnd.inProgressMessageSendsLock.Lock()
+	for message, messages := range toDeleteSrcInProgress {
+		for _, sequence := range messages {
+			delete(srcPathEnd.inProgressMessageSends[message], sequence)
+		}
+	}
+	srcPathEnd.inProgressMessageSendsLock.Unlock()
+
+	dstPathEnd.messagesLock.Lock()
+	for message, messages := range toDeleteDst {
+		for _, sequence := range messages {
+			delete(dstPathEnd.messages[message], sequence)
+		}
+	}
+	dstPathEnd.messagesLock.Unlock()
+
+	dstPathEnd.inProgressMessageSendsLock.Lock()
+	for message, messages := range toDeleteDstInProgress {
+		for _, sequence := range messages {
+			delete(dstPathEnd.inProgressMessageSends[message], sequence)
+		}
+	}
+	dstPathEnd.inProgressMessageSendsLock.Unlock()
+
 	return unrelayedPackets, unrelayedAcknowledgements
 }
 
 // track in progress sends. handle packet retry if necessary. assemble specific messages
+// assumes non-concurrent access for messages
+// TODO optimize inProgressMessageSends lock
 func (pp *PathProcessor) assembleAndTrackMessageState(
 	pathEnd *PathEndRuntime,
 	message string,
@@ -262,7 +318,6 @@ func (pp *PathProcessor) assembleAndTrackMessageState(
 	preIBCMessage provider.RelayerMessage,
 	getMessageFunc func(string, provider.RelayerMessage) (provider.RelayerMessage, error),
 	messages *[]provider.RelayerMessage,
-	messagesLock *sync.Mutex,
 ) error {
 	pathEnd.inProgressMessageSendsLock.Lock()
 	defer pathEnd.inProgressMessageSendsLock.Unlock()
@@ -314,14 +369,13 @@ func (pp *PathProcessor) assembleAndTrackMessageState(
 		}
 		pp.log.Debug("will send message", zap.String("chainID", pathEnd.info.ChainID), zap.String("message", message), zap.Uint64("sequence", messageSequence))
 		pathEnd.inProgressMessageSends[message][messageSequence] = *ibcMessage
-		messagesLock.Lock()
 		*messages = append(*messages, ibcMessage.Message)
-		messagesLock.Unlock()
 	}
 	return nil
 }
 
 // assemble IBC messages in preparation for sending
+// assumes non-concurrent access to srcMessages and dstMessages
 func (pp *PathProcessor) getIBCMessages(
 	pathEndSrc *PathEndRuntime,
 	pathEndDst *PathEndRuntime,
@@ -329,8 +383,6 @@ func (pp *PathProcessor) getIBCMessages(
 	pathEndSrcToDstUnrelayedAcknowledgements []ibc.IBCMessageWithSequence,
 	srcMessages *[]provider.RelayerMessage,
 	dstMessages *[]provider.RelayerMessage,
-	srcMessagesLock *sync.Mutex,
-	dstMessagesLock *sync.Mutex,
 	relayWaitGroup *sync.WaitGroup,
 ) {
 	defer relayWaitGroup.Done()
@@ -339,11 +391,11 @@ func (pp *PathProcessor) getIBCMessages(
 			// if timeouts were detected, need to generate msgs for them for src
 			switch err.(type) {
 			case *ibc.TimeoutError:
-				if err := pp.assembleAndTrackMessageState(pathEndSrc, ibc.MsgTimeout, msgRecvPacket.Sequence, msgRecvPacket.Message, pathEndDst.chainProcessor.GetMsgTimeout, srcMessages, srcMessagesLock); err != nil {
+				if err := pp.assembleAndTrackMessageState(pathEndSrc, ibc.MsgTimeout, msgRecvPacket.Sequence, msgRecvPacket.Message, pathEndDst.chainProcessor.GetMsgTimeout, srcMessages); err != nil {
 					pp.log.Error("error assembling MsgTimeout", zap.Uint64("sequence", msgRecvPacket.Sequence), zap.String("chainID", pathEndSrc.info.ChainID), zap.Error(err))
 				}
 			case *ibc.TimeoutOnCloseError:
-				if err := pp.assembleAndTrackMessageState(pathEndSrc, ibc.MsgTimeoutOnClose, msgRecvPacket.Sequence, msgRecvPacket.Message, pathEndDst.chainProcessor.GetMsgTimeoutOnClose, srcMessages, srcMessagesLock); err != nil {
+				if err := pp.assembleAndTrackMessageState(pathEndSrc, ibc.MsgTimeoutOnClose, msgRecvPacket.Sequence, msgRecvPacket.Message, pathEndDst.chainProcessor.GetMsgTimeoutOnClose, srcMessages); err != nil {
 					pp.log.Error("error assembling MsgTimeoutOnClose", zap.Uint64("sequence", msgRecvPacket.Sequence), zap.String("chainID", pathEndSrc.info.ChainID), zap.Error(err))
 				}
 			default:
@@ -351,12 +403,12 @@ func (pp *PathProcessor) getIBCMessages(
 			}
 			continue
 		}
-		if err := pp.assembleAndTrackMessageState(pathEndDst, ibc.MsgRecvPacket, msgRecvPacket.Sequence, msgRecvPacket.Message, pathEndSrc.chainProcessor.GetMsgRecvPacket, dstMessages, dstMessagesLock); err != nil {
+		if err := pp.assembleAndTrackMessageState(pathEndDst, ibc.MsgRecvPacket, msgRecvPacket.Sequence, msgRecvPacket.Message, pathEndSrc.chainProcessor.GetMsgRecvPacket, dstMessages); err != nil {
 			pp.log.Error("error assembling MsgRecvPacket", zap.Uint64("sequence", msgRecvPacket.Sequence), zap.String("srcChainID", pathEndSrc.info.ChainID), zap.String("dstChainID", pathEndDst.info.ChainID), zap.Error(err))
 		}
 	}
 	for _, msgAcknowledgement := range pathEndSrcToDstUnrelayedAcknowledgements {
-		if err := pp.assembleAndTrackMessageState(pathEndDst, ibc.MsgAcknowledgement, msgAcknowledgement.Sequence, msgAcknowledgement.Message, pathEndSrc.chainProcessor.GetMsgAcknowledgement, dstMessages, dstMessagesLock); err != nil {
+		if err := pp.assembleAndTrackMessageState(pathEndDst, ibc.MsgAcknowledgement, msgAcknowledgement.Sequence, msgAcknowledgement.Message, pathEndSrc.chainProcessor.GetMsgAcknowledgement, dstMessages); err != nil {
 			pp.log.Error("error assembling MsgAcknowledgement", zap.Uint64("sequence", msgAcknowledgement.Sequence), zap.String("srcChainID", pathEndSrc.info.ChainID), zap.String("dstChainID", pathEndDst.info.ChainID), zap.Error(err))
 		}
 	}
@@ -427,10 +479,10 @@ func (pp *PathProcessor) process(fromSelf bool) {
 
 	// relay packets and/or acks if applicable
 	if havePath1PacketsOrAcksToRelay || havePath2PacketsOrAcksToRelay {
-		pathEnd1Messages := []provider.RelayerMessage{}
-		pathEnd2Messages := []provider.RelayerMessage{}
-		pathEnd1MessagesLock := sync.Mutex{}
-		pathEnd2MessagesLock := sync.Mutex{}
+		pathEnd1Messages1 := []provider.RelayerMessage{}
+		pathEnd1Messages2 := []provider.RelayerMessage{}
+		pathEnd2Messages1 := []provider.RelayerMessage{}
+		pathEnd2Messages2 := []provider.RelayerMessage{}
 
 		relayWaitGroup := sync.WaitGroup{}
 		if havePath1PacketsOrAcksToRelay {
@@ -440,10 +492,8 @@ func (pp *PathProcessor) process(fromSelf bool) {
 				pp.pathEnd2,
 				pathEnd1To2UnrelayedPackets,
 				pathEnd1To2UnrelayedAcknowledgements,
-				&pathEnd1Messages,
-				&pathEnd2Messages,
-				&pathEnd1MessagesLock,
-				&pathEnd2MessagesLock,
+				&pathEnd1Messages1,
+				&pathEnd2Messages1,
 				&relayWaitGroup,
 			)
 		}
@@ -454,14 +504,15 @@ func (pp *PathProcessor) process(fromSelf bool) {
 				pp.pathEnd1,
 				pathEnd2To1UnrelayedPackets,
 				pathEnd2To1UnrelayedAcknowledgements,
-				&pathEnd2Messages,
-				&pathEnd1Messages,
-				&pathEnd2MessagesLock,
-				&pathEnd1MessagesLock,
+				&pathEnd2Messages2,
+				&pathEnd1Messages2,
 				&relayWaitGroup,
 			)
 		}
 		relayWaitGroup.Wait()
+
+		pathEnd1Messages := append(pathEnd1Messages1, pathEnd1Messages2...)
+		pathEnd2Messages := append(pathEnd2Messages1, pathEnd2Messages2...)
 
 		// send messages if applicable
 		var eg errgroup.Group
