@@ -1,6 +1,7 @@
 package substrate
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"sort"
@@ -158,14 +159,20 @@ func signedCommitment(conn *rpcclient.SubstrateAPI, blockHash rpcclientTypes.Has
 		return rpcclientTypes.SignedCommitment{}, err
 	}
 
-	//TODO: add test for this -> https://github.com/ComposableFi/relayer/issues/7
-	compactCommitment := &rpcclientTypes.CompactSignedCommitment{}
-	err = rpcclientTypes.DecodeFromHexString(string(signedBlock.Justification), compactCommitment)
-	if err != nil {
-		return rpcclientTypes.SignedCommitment{}, err
+	for _, v := range signedBlock.Justifications {
+		// not every relay chain block has a beefy justification
+		if bytes.Equal(v.ConsensusEngineId[:], []byte("BEEF")) {
+			compactCommitment := &rpcclientTypes.CompactSignedCommitment{}
+
+			err = rpcclientTypes.DecodeFromBytes(v.EncodedJustification, compactCommitment)
+			if err != nil {
+				return rpcclientTypes.SignedCommitment{}, err
+			}
+			return compactCommitment.Unpack(), nil
+		}
 	}
 
-	return compactCommitment.Unpack(), nil
+	return rpcclientTypes.SignedCommitment{}, nil
 }
 
 // finalized block returns the finalized block double map that holds block numbers,
