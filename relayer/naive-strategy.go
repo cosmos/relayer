@@ -167,8 +167,6 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 		}
 	}
 
-	// For ordered channels we want to only relay the packet whose sequence number is equal to
-	// the expected next packet receive sequence from the counterparty.
 	if len(dstUnreceivedPackets) > 0 {
 		nextSeqResp, err := src.ChainProvider.QueryNextSeqRecv(ctx, srch, srcChannel.ChannelId, srcChannel.PortId)
 		if err != nil {
