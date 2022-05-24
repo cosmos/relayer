@@ -918,7 +918,7 @@ func (cc *CosmosProvider) MsgRelayTimeout(
 		}
 	default:
 		return nil, fmt.Errorf("invalid order type %s, order should be %s or %s",
-			order.String(), chantypes.ORDERED.String(), chantypes.UNORDERED.String())
+			order, chantypes.ORDERED, chantypes.UNORDERED)
 	}
 
 	return msg, nil
@@ -932,34 +932,36 @@ func (cc *CosmosProvider) orderedChannelTimeoutMsg(
 	acc, dstChanId, dstPortId, srcChanId, srcPortId string,
 ) (provider.RelayerMessage, error) {
 	seqRes, err := dst.QueryNextSeqRecv(ctx, dsth, dstChanId, dstPortId)
-
-	switch {
-	case err != nil:
+	if err != nil {
 		return nil, err
-	case seqRes.Proof == nil:
-		return nil, fmt.Errorf("timeout packet next sequence received proof seq(%d) is nil", packet.Seq())
-	case seqRes == nil:
-		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", cc.PCfg.ChainID, packet.Seq())
-	default:
-		msg := &chantypes.MsgTimeout{
-			Packet: chantypes.Packet{
-				Sequence:           packet.Seq(),
-				SourcePort:         srcPortId,
-				SourceChannel:      srcChanId,
-				DestinationPort:    dstPortId,
-				DestinationChannel: dstChanId,
-				Data:               packet.Data(),
-				TimeoutHeight:      packet.Timeout(),
-				TimeoutTimestamp:   packet.TimeoutStamp(),
-			},
-			ProofUnreceived:  seqRes.Proof,
-			ProofHeight:      seqRes.ProofHeight,
-			NextSequenceRecv: packet.Seq(),
-			Signer:           acc,
-		}
-
-		return NewCosmosMessage(msg), nil
 	}
+
+	if seqRes == nil {
+		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", cc.PCfg.ChainID, packet.Seq())
+	}
+
+	if seqRes.Proof == nil {
+		return nil, fmt.Errorf("timeout packet next sequence received proof seq(%d) is nil", packet.Seq())
+	}
+
+	msg := &chantypes.MsgTimeout{
+		Packet: chantypes.Packet{
+			Sequence:           packet.Seq(),
+			SourcePort:         srcPortId,
+			SourceChannel:      srcChanId,
+			DestinationPort:    dstPortId,
+			DestinationChannel: dstChanId,
+			Data:               packet.Data(),
+			TimeoutHeight:      packet.Timeout(),
+			TimeoutTimestamp:   packet.TimeoutStamp(),
+		},
+		ProofUnreceived:  seqRes.Proof,
+		ProofHeight:      seqRes.ProofHeight,
+		NextSequenceRecv: packet.Seq(),
+		Signer:           acc,
+	}
+
+	return NewCosmosMessage(msg), nil
 }
 
 func (cc *CosmosProvider) unorderedChannelTimeoutMsg(
@@ -970,33 +972,35 @@ func (cc *CosmosProvider) unorderedChannelTimeoutMsg(
 	acc, dstChanId, dstPortId, srcChanId, srcPortId string,
 ) (provider.RelayerMessage, error) {
 	recvRes, err := dst.QueryPacketReceipt(ctx, dsth, dstChanId, dstPortId, packet.Seq())
-
-	switch {
-	case err != nil:
+	if err != nil {
 		return nil, err
-	case recvRes.Proof == nil:
-		return nil, fmt.Errorf("timeout packet receipt proof seq(%d) is nil", packet.Seq())
-	case recvRes == nil:
-		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", cc.PCfg.ChainID, packet.Seq())
-	default:
-		msg := &chantypes.MsgTimeout{
-			Packet: chantypes.Packet{
-				Sequence:           packet.Seq(),
-				SourcePort:         srcPortId,
-				SourceChannel:      srcChanId,
-				DestinationPort:    dstPortId,
-				DestinationChannel: dstChanId,
-				Data:               packet.Data(),
-				TimeoutHeight:      packet.Timeout(),
-				TimeoutTimestamp:   packet.TimeoutStamp(),
-			},
-			ProofUnreceived:  recvRes.Proof,
-			ProofHeight:      recvRes.ProofHeight,
-			NextSequenceRecv: packet.Seq(),
-			Signer:           acc,
-		}
-		return NewCosmosMessage(msg), nil
 	}
+
+	if recvRes == nil {
+		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", cc.PCfg.ChainID, packet.Seq())
+	}
+
+	if recvRes.Proof == nil {
+		return nil, fmt.Errorf("timeout packet receipt proof seq(%d) is nil", packet.Seq())
+	}
+
+	msg := &chantypes.MsgTimeout{
+		Packet: chantypes.Packet{
+			Sequence:           packet.Seq(),
+			SourcePort:         srcPortId,
+			SourceChannel:      srcChanId,
+			DestinationPort:    dstPortId,
+			DestinationChannel: dstChanId,
+			Data:               packet.Data(),
+			TimeoutHeight:      packet.Timeout(),
+			TimeoutTimestamp:   packet.TimeoutStamp(),
+		},
+		ProofUnreceived:  recvRes.Proof,
+		ProofHeight:      recvRes.ProofHeight,
+		NextSequenceRecv: packet.Seq(),
+		Signer:           acc,
+	}
+	return NewCosmosMessage(msg), nil
 }
 
 // MsgRelayRecvPacket constructs the MsgRecvPacket which is to be sent to the receiving chain.
