@@ -289,8 +289,10 @@ func constructParachainHeaders(
 
 	for i := 0; i < len(mmrBatchProof.Leaves); i++ {
 		v := mmrBatchProof.Leaves[i]
+		leafIndex := mmrBatchProof.Proof.LeafIndex[i]
+
 		paraHeads[i] = v.ParachainHeads[:]
-		var leafBlockNumber = cs.GetBlockNumberForLeaf(uint32(v.Index))
+		var leafBlockNumber = cs.GetBlockNumberForLeaf(uint32(leafIndex))
 		paraHeaders := finalizedBlocks[leafBlockNumber]
 
 		var paraHeadsLeaves [][]byte

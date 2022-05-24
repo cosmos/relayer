@@ -20,7 +20,7 @@ require (
 	github.com/99designs/keyring v1.1.6
 	github.com/ComposableFi/go-merkle-trees v0.0.0-20220119155315-3ce250c9ec59
 	github.com/ComposableFi/go-substrate-rpc-client v2.0.0+incompatible
-	github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220429100113-e4096ab43316
+	github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220520095549-28b7c5a4e212
 	github.com/avast/retry-go/v4 v4.0.3
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/ibc-go/v3 v3.0.0
