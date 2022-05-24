@@ -57,26 +57,28 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 		// Filter for open channels that are not already in our slice of open channels
 		srcOpenChannels = filterOpenChannels(srcChannels, srcOpenChannels)
 
-		if len(srcOpenChannels) > 0 {
-			// Spin up a goroutine to relay packets & acks for each channel that isn't already being relayed against
-			for _, channel := range srcOpenChannels {
-				if !channel.active {
-					channel.active = true
-					go relayUnrelayedPacketsAndAcks(ctx, log, src, dst, maxTxSize, maxMsgLength, channel, channels)
-				}
-			}
+		if len(srcOpenChannels) == 0 {
+			continue
+		}
 
-			for channel := range channels {
-				channel.active = false
-				break
+		// Spin up a goroutine to relay packets & acks for each channel that isn't already being relayed against
+		for _, channel := range srcOpenChannels {
+			if !channel.active {
+				channel.active = true
+				go relayUnrelayedPacketsAndAcks(ctx, log, src, dst, maxTxSize, maxMsgLength, channel, channels)
 			}
+		}
 
-			// Make sure we are removing channels no longer in OPEN state from the slice of open channels
-			for i, channel := range srcOpenChannels {
-				if channel.channel.State != types.OPEN {
-					srcOpenChannels[i] = srcOpenChannels[len(srcOpenChannels)-1]
-					srcOpenChannels = srcOpenChannels[:len(srcOpenChannels)-1]
-				}
+		for channel := range channels {
+			channel.active = false
+			break
+		}
+
+		// Make sure we are removing channels no longer in OPEN state from the slice of open channels
+		for i, channel := range srcOpenChannels {
+			if channel.channel.State != types.OPEN {
+				srcOpenChannels[i] = srcOpenChannels[len(srcOpenChannels)-1]
+				srcOpenChannels = srcOpenChannels[:len(srcOpenChannels)-1]
 			}
 		}
 	}
