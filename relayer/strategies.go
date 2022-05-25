@@ -48,8 +48,18 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 		// Apply the channel filter rule (i.e. build allowlist, denylist or relay on all channels available)
 		srcChannels = applyChannelFilterRule(filter, srcChannels)
 
+		// TODO once upstream changes are merged for emitting the channel version in ibc-go,
+		// we will want to add back logic for finishing the channel handshake for interchain accounts.
+		// Essentially the interchain accounts module will initiate the handshake and then the relayer finishes it.
+		// So we will occasionally query recent txs and check the events for `ChannelOpenInit`, at which point
+		// we will attempt to finish opening the channel.
+
 		// Filter for open channels that are not already in our slice of open channels
 		srcOpenChannels = filterOpenChannels(srcChannels, srcOpenChannels)
+
+		if len(srcOpenChannels) == 0 {
+			continue
+		}
 
 		// Spin up a goroutine to relay packets & acks for each channel that isn't already being relayed against
 		for _, channel := range srcOpenChannels {

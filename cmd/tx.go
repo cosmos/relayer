@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -34,7 +33,6 @@ Most of these commands take a [path] argument. Make sure:
 		linkCmd(a),
 		linkThenStartCmd(a),
 		relayMsgsCmd(a),
-		relayMsgCmd(a),
 		relayAcksCmd(a),
 		xfersend(a),
 		lineBreakCommand(),
@@ -695,55 +693,6 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 	}
 
 	return overrideFlag(a.Viper, channelParameterFlags(a.Viper, clientParameterFlags(a.Viper, strategyFlag(a.Viper, retryFlag(a.Viper, timeoutFlag(a.Viper, cmd))))))
-}
-
-func relayMsgCmd(a *appState) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "relay-packet path_name src_channel_id seq_num",
-		Aliases: []string{"relay-pkt"},
-		Short:   "relay a non-relayed packet with a specific sequence number, in both directions",
-		Args:    withUsage(cobra.ExactArgs(3)),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s transact relay-packet demo-path channel-1 1
-$ %s tx relay-pkt demo-path channel-1 1`,
-			appName, appName,
-		)),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
-			if err != nil {
-				return err
-			}
-
-			if err = ensureKeysExist(c); err != nil {
-				return err
-			}
-
-			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
-			if err != nil {
-				return err
-			}
-
-			seqNum, err := strconv.Atoi(args[2])
-			if err != nil {
-				return err
-			}
-
-			channelID := args[1]
-			channel, err := relayer.QueryChannel(cmd.Context(), c[src], channelID)
-			if err != nil {
-				return err
-			}
-
-			sp, err := relayer.UnrelayedSequences(cmd.Context(), c[src], c[dst], channel)
-			if err != nil {
-				return err
-			}
-
-			return relayer.RelayPacket(cmd.Context(), a.Log, c[src], c[dst], sp, maxTxSize, maxMsgLength, uint64(seqNum), channel)
-		},
-	}
-
-	return strategyFlag(a.Viper, cmd)
 }
 
 func relayMsgsCmd(a *appState) *cobra.Command {
