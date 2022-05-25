@@ -162,7 +162,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
-replace github.com/cosmos/ibc-go/v3 => ../../ComposableFi/ibc-go
+//replace github.com/cosmos/ibc-go/v3 => ../../ComposableFi/ibc-go
+replace github.com/cosmos/ibc-go/v3 => github.com/ComposableFi/ibc-go/v3 v3.0.0-20220519082444-c5d058f389c6
 
 //replace github.com/ComposableFi/go-substrate-rpc-client/v4 => ../../ComposableFi/go-substrate-rpc-client
 

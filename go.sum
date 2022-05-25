@@ -96,6 +96,8 @@ github.com/ComposableFi/go-substrate-rpc-client v2.0.0+incompatible h1:o0SMMu58W
 github.com/ComposableFi/go-substrate-rpc-client v2.0.0+incompatible/go.mod h1:egZUlDCuoIPbxk/FdgO04bN6ZD411Go/6bX9s0CMU3g=
 github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220525093750-464f45bde47e h1:Plh1lDR1PwY3J2VUWXpkYnOju+de1xNL8aPD2MRb3wA=
 github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220525093750-464f45bde47e/go.mod h1:fIKfBNobEf9fM3c+wnEoqByLziCysl3+bvImup9xeQk=
+github.com/ComposableFi/ibc-go/v3 v3.0.0-20220519082444-c5d058f389c6 h1:SCLXGxNslAqyuS28RDciHEhplLCmntXaZE74Bv1NYWc=
+github.com/ComposableFi/ibc-go/v3 v3.0.0-20220519082444-c5d058f389c6/go.mod h1:FQb9PxGjYAYwbVdM4FrWdy4DiTsZzr4DTr1r8dQzBxk=
 github.com/DATA-DOG/go-sqlmock v1.3.3/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=
 github.com/DATA-DOG/go-sqlmock v1.5.0/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=
 github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
