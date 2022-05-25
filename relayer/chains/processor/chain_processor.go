@@ -21,7 +21,7 @@ type ChainProcessor interface {
 
 // Run is a blocking call that launches all provided chain processors in parallel.
 // It will return once all ChainProcessors have stopped running due to context cancellation,
-// or if a critical error has occurred within one of the chain processors
+// or if a critical error has occurred within one of the chain processors.
 func Run(ctx context.Context, initialBlockHistory uint64, cp ...ChainProcessor) error {
 	var eg errgroup.Group
 	runCtx, runCtxCancel := context.WithCancel(ctx)
