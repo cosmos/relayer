@@ -2,6 +2,7 @@ package mock_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -35,12 +36,13 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	mockSequence2 := uint64(0)
 	lastSentMockMsgRecvSequence1 := uint64(0)
 	lastSentMockMsgRecvSequence2 := uint64(0)
+	var mockLock sync.Mutex
 
 	getMockMessages1 := func() []mock.TransactionMessage {
-		return getMockMessages(&mockSequence1, &mockSequence2, &lastSentMockMsgRecvSequence2)
+		return getMockMessages(&mockSequence1, &mockSequence2, &lastSentMockMsgRecvSequence2, &mockLock)
 	}
 	getMockMessages2 := func() []mock.TransactionMessage {
-		return getMockMessages(&mockSequence2, &mockSequence1, &lastSentMockMsgRecvSequence1)
+		return getMockMessages(&mockSequence2, &mockSequence1, &lastSentMockMsgRecvSequence1, &mockLock)
 	}
 
 	chainProcessor1 := mock.NewMockChainProcessor(ctx, log, mockChainID1, getMockMessages1, pathProcessor)
@@ -83,7 +85,9 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 // MsgTransfer
 // MsgRecvPacket for counterparty
 // MsgAcknowledgement
-func getMockMessages(mockSequence, mockSequenceCounterparty, lastSentMockMsgRecvCounterparty *uint64) []mock.TransactionMessage {
+func getMockMessages(mockSequence, mockSequenceCounterparty, lastSentMockMsgRecvCounterparty *uint64, lock *sync.Mutex) []mock.TransactionMessage {
+	lock.Lock()
+	defer lock.Unlock()
 	*mockSequence++
 	mockMessages := []mock.TransactionMessage{
 		{

@@ -1,7 +1,6 @@
 package paths
 
 import (
-	"reflect"
 	"sync"
 	"time"
 
@@ -23,6 +22,7 @@ type PathProcessor struct {
 	pathEnd2 *PathEndRuntime
 
 	processLock                    sync.Mutex
+	isRunning                      bool
 	shouldProcessAgainOnceComplete bool
 	retryTimer                     *time.Timer
 }
@@ -121,7 +121,9 @@ func (pp *PathProcessor) handleNewMessagesForPathEnd(
 // if process is already running, schedule it to run again immediately after it finishes if shouldProcessAgainOnceComplete is true
 func (pp *PathProcessor) ScheduleNextProcess(shouldProcessAgainOnceComplete bool) {
 	if pp.isProcessLocked() {
+		pp.processLock.Lock()
 		pp.shouldProcessAgainOnceComplete = true
+		pp.processLock.Unlock()
 		return
 	}
 	go pp.process(false)
@@ -134,8 +136,9 @@ func (pp *PathProcessor) scheduleProcessRetry() {
 }
 
 func (pp *PathProcessor) isProcessLocked() bool {
-	processLockState := reflect.ValueOf(&pp.processLock).Elem().FieldByName("state")
-	return processLockState.Int()&1 == 1
+	pp.processLock.Lock()
+	defer pp.processLock.Unlock()
+	return pp.isRunning
 }
 
 // this contains MsgRecvPacket from same chain
@@ -331,15 +334,20 @@ func copyMapIfMessageExists(message string, src map[string]map[uint64]provider.R
 func (pp *PathProcessor) process(fromSelf bool) {
 	if !fromSelf {
 		pp.processLock.Lock()
+		pp.isRunning = true
+		pp.processLock.Unlock()
 	}
 
 	err := pp.processLatestMessages()
 
+	pp.processLock.Lock()
 	if pp.shouldProcessAgainOnceComplete {
 		pp.shouldProcessAgainOnceComplete = false
+		pp.processLock.Unlock()
 
 		go pp.process(true)
 	} else {
+		pp.processLock.Unlock()
 		// if errors were found with sending IBC messages, and process is not going to run again right away, schedule retry
 		// helps in case process does not run automatically from new IBC messages for this path within DurationErrorRetry
 		if err != nil {
@@ -350,6 +358,8 @@ func (pp *PathProcessor) process(fromSelf bool) {
 			go pp.scheduleProcessRetry()
 		}
 
+		pp.processLock.Lock()
+		pp.isRunning = false
 		pp.processLock.Unlock()
 	}
 }

@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer/ibc"
@@ -14,8 +15,6 @@ import (
 
 const (
 	minQueryLoopDuration = 1 * time.Second
-	heightQueryTimeout   = 5 * time.Second
-	validatorSetsToCache = 5
 )
 
 type MockChainProcessor struct {
@@ -31,7 +30,8 @@ type MockChainProcessor struct {
 	latestHeight uint64
 
 	// is the query loop up to date with the latest blocks of the chain
-	inSync bool
+	inSync     bool
+	inSyncLock sync.Mutex
 
 	getMockMessages func() []TransactionMessage
 }
@@ -53,6 +53,8 @@ func NewMockChainProcessor(ctx context.Context, log *zap.Logger, chainID string,
 }
 
 func (mcp *MockChainProcessor) InSync() bool {
+	mcp.inSyncLock.Lock()
+	defer mcp.inSyncLock.Unlock()
 	return mcp.inSync
 }
 
@@ -90,6 +92,7 @@ func (mcp *MockChainProcessor) Start(ctx context.Context, initialBlockHistory ui
 		// until in sync, determine if our latest queries are up to date with the current chain height
 		// this will cause the PathProcessors to start processing the backlog of message state (once both chainprocessors are in sync)
 		firstTimeInSync := false
+		mcp.inSyncLock.Lock()
 		if !mcp.inSync {
 			if (mcp.latestHeight - latestQueriedBlock) < 2 {
 				mcp.inSync = true
@@ -103,6 +106,7 @@ func (mcp *MockChainProcessor) Start(ctx context.Context, initialBlockHistory ui
 				)
 			}
 		}
+		mcp.inSyncLock.Unlock()
 
 		mcp.log.Debug("queried latest height",
 			zap.String("chainID", mcp.chainID),
