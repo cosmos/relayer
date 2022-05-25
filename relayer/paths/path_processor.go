@@ -120,10 +120,8 @@ func (pp *PathProcessor) handleNewMessagesForPathEnd(
 // run process if not already running
 // if process is already running, schedule it to run again immediately after it finishes if shouldProcessAgainOnceComplete is true
 func (pp *PathProcessor) ScheduleNextProcess(shouldProcessAgainOnceComplete bool) {
-	if pp.isProcessLocked() {
-		pp.processLock.Lock()
-		pp.shouldProcessAgainOnceComplete = true
-		pp.processLock.Unlock()
+	if pp.isProcessRunning() {
+		pp.getShouldProcessAgainOnceCompleteAndUpdateTo(true)
 		return
 	}
 	go pp.process(false)
@@ -135,7 +133,7 @@ func (pp *PathProcessor) scheduleProcessRetry() {
 	pp.ScheduleNextProcess(false)
 }
 
-func (pp *PathProcessor) isProcessLocked() bool {
+func (pp *PathProcessor) isProcessRunning() bool {
 	pp.processLock.Lock()
 	defer pp.processLock.Unlock()
 	return pp.isRunning
@@ -326,6 +324,20 @@ func copyMapIfMessageExists(message string, src map[string]map[uint64]provider.R
 	}
 }
 
+func (pp *PathProcessor) updateIsRunning(isRunning bool) {
+	pp.processLock.Lock()
+	defer pp.processLock.Unlock()
+	pp.isRunning = isRunning
+}
+
+func (pp *PathProcessor) getShouldProcessAgainOnceCompleteAndUpdateTo(shouldProcessAgainOnceComplete bool) bool {
+	pp.processLock.Lock()
+	defer pp.processLock.Unlock()
+	existing := pp.shouldProcessAgainOnceComplete
+	pp.shouldProcessAgainOnceComplete = shouldProcessAgainOnceComplete
+	return existing
+}
+
 // main path process
 // get unrelayed packets and acks
 // if packets were timed out, construct those timeouts
@@ -333,21 +345,14 @@ func copyMapIfMessageExists(message string, src map[string]map[uint64]provider.R
 // if IBC messages fail to send, schedule retry after DurationErrorRetry
 func (pp *PathProcessor) process(fromSelf bool) {
 	if !fromSelf {
-		pp.processLock.Lock()
-		pp.isRunning = true
-		pp.processLock.Unlock()
+		pp.updateIsRunning(true)
 	}
 
 	err := pp.processLatestMessages()
 
-	pp.processLock.Lock()
-	if pp.shouldProcessAgainOnceComplete {
-		pp.shouldProcessAgainOnceComplete = false
-		pp.processLock.Unlock()
-
+	if pp.getShouldProcessAgainOnceCompleteAndUpdateTo(false) {
 		go pp.process(true)
 	} else {
-		pp.processLock.Unlock()
 		// if errors were found with sending IBC messages, and process is not going to run again right away, schedule retry
 		// helps in case process does not run automatically from new IBC messages for this path within DurationErrorRetry
 		if err != nil {
@@ -358,8 +363,6 @@ func (pp *PathProcessor) process(fromSelf bool) {
 			go pp.scheduleProcessRetry()
 		}
 
-		pp.processLock.Lock()
-		pp.isRunning = false
-		pp.processLock.Unlock()
+		pp.updateIsRunning(false)
 	}
 }
