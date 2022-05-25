@@ -11,7 +11,7 @@ import (
 type ChainProcessor interface {
 	// Run is the function that starts the query loop for the chain which will gather applicable ibc messages and push events out to the relevant PathProcessors.
 	// The initialBlockHistory parameter determines how many historical blocks should be fetched and processed before continuing with current blocks.
-	// ChainProcessors should obey the context and return upon context cancellation
+	// ChainProcessors should obey the context and return upon context cancellation.
 	Run(ctx context.Context, initialBlockHistory uint64) error
 
 	// InSync is the function that indicates whether queries are in sync with latest height of the chain.
@@ -29,7 +29,7 @@ func Run(ctx context.Context, initialBlockHistory uint64, cp ...ChainProcessor) 
 		chainProcessor := chainProcessor
 		eg.Go(func() error {
 			err := chainProcessor.Run(runCtx, initialBlockHistory)
-			// Signal the other chain processors to exit
+			// Signal the other chain processors to exit.
 			runCtxCancel()
 			return err
 		})
