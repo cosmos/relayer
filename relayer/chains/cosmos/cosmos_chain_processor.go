@@ -226,7 +226,7 @@ QueryLoop:
 		latestHeight, err := QueryLatestHeight(latestHeightQueryCtx, ccp.cc)
 		latestHeightQueryCtxCancel()
 		if err != nil {
-			errCh <- fmt.Errorf("{%s} error querying latest height: %w", chainID, err)
+			ccp.log.Error("error querying latest height", zap.String("chainID", chainID), zap.Error(err))
 			doneWithThisCycle()
 			continue
 		}
@@ -256,7 +256,7 @@ QueryLoop:
 		for i := latestQueriedBlock + 1; i <= latestHeight; i++ {
 			lightBlock, err := ccp.lightProvider.LightBlock(ctx, i)
 			if err != nil {
-				errCh <- fmt.Errorf("{%s} error getting light block: %w\n", chainID, err)
+				ccp.log.Error("error getting light block", zap.String("chainID", chainID), zap.Error(err))
 				doneWithThisCycle()
 				continue QueryLoop
 			}
@@ -264,7 +264,7 @@ QueryLoop:
 			if i == latestHeight {
 				validatorSet, err := lightBlock.ValidatorSet.ToProto()
 				if err != nil {
-					errCh <- fmt.Errorf("{%s} error converting validator set to proto: %w\n", chainID, err)
+					ccp.log.Error("error converting validator set to proto", zap.String("chainID", chainID), zap.Error(err))
 				} else {
 					ccp.latestLock.Lock()
 					ccp.latest = &tmclient.Header{
@@ -285,7 +285,7 @@ QueryLoop:
 
 			blockRes, err := ccp.cc.Client.BlockResults(ctx, &i)
 			if err != nil {
-				errCh <- fmt.Errorf("{%s} error getting block results: %w\n", chainID, err)
+				ccp.log.Error("error getting block results", zap.String("chainID", chainID), zap.Error(err))
 				doneWithThisCycle()
 				continue QueryLoop
 			}
@@ -296,7 +296,7 @@ QueryLoop:
 					// tx was not successful
 					continue
 				}
-				messages := ccp.processTransaction(tx, errCh)
+				messages := ccp.processTransaction(tx)
 				for _, m := range messages {
 					if handler, ok := messageHandlers[m.Action]; ok {
 						handler(MsgHandlerParams{
@@ -401,7 +401,7 @@ func (ccp *CosmosChainProcessor) UpdateChannelState(connectionID string) error {
 	return nil
 }
 
-func (ccp *CosmosChainProcessor) processTransaction(tx *abci.ResponseDeliverTx, errCh chan<- error) []TransactionMessage {
+func (ccp *CosmosChainProcessor) processTransaction(tx *abci.ResponseDeliverTx) []TransactionMessage {
 	messages := []TransactionMessage{}
 	parsedLogs, err := sdk.ParseABCILogs(tx.Log)
 	if err != nil {
@@ -428,13 +428,13 @@ func (ccp *CosmosChainProcessor) processTransaction(tx *abci.ResponseDeliverTx, 
 						revisionNumberString := revisionSplit[0]
 						revisionNumber, err := strconv.ParseUint(revisionNumberString, 10, 64)
 						if err != nil {
-							errCh <- fmt.Errorf("error parsing revision number: %w\n", err)
+							ccp.log.Error("error parsing revision number", zap.String("chainID", ccp.ChainProvider.ChainId()), zap.Error(err))
 							continue
 						}
 						revisionHeightString := revisionSplit[1]
 						revisionHeight, err := strconv.ParseUint(revisionHeightString, 10, 64)
 						if err != nil {
-							errCh <- fmt.Errorf("error parsing revision height: %w\n", err)
+							ccp.log.Error("error parsing revision height", zap.String("chainID", ccp.ChainProvider.ChainId()), zap.Error(err))
 							continue
 						}
 						clientInfo.ConsensusHeight = clienttypes.Height{

@@ -151,12 +151,6 @@ func (pp *PathProcessor) GetRelevantConnectionID(chainID string) (string, error)
 	return "", errors.New("irrelevant chain processor provided")
 }
 
-func deleteLocked[K comparable, L comparable, T any](messages map[L]map[K]T, message L, sequence K, lock *sync.Mutex) {
-	lock.Lock()
-	defer lock.Unlock()
-	delete(messages[message], sequence)
-}
-
 // gets unrelayed packets and acks and cleans up sequence retention for completed packet flows
 func (pp *PathProcessor) getUnrelayedPacketsAndAcks(srcPathEnd, dstPathEnd *PathEndRuntime) ([]ibc.IBCMessageWithSequence, []ibc.IBCMessageWithSequence) {
 	// need to copy maps for reading
@@ -440,7 +434,7 @@ func (pp *PathProcessor) sendIBCMessagesWithUpdateClient(messages []provider.Rel
 // if process is already running, schedule it to run again immediately after it finishes if shouldProcessAgainOnceComplete is true
 func (pp *PathProcessor) ScheduleNextProcess(shouldProcessAgainOnceComplete bool) {
 	if pp.isProcessLocked() {
-		if shouldProcessAgainOnceComplete {
+		if !shouldProcessAgainOnceComplete {
 			pp.shouldProcessAgainOnceComplete = true
 		}
 		return

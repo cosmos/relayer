@@ -107,8 +107,8 @@ func handleMsgRecvPacket(p MsgHandlerParams) {
 	channelKey := ibc.ChannelKey{
 		ChannelID:             p.PacketInfo.DestinationChannelID,
 		PortID:                p.PacketInfo.DestinationPortID,
-		CounterpartyChannelID: p.PacketInfo.DestinationChannelID,
-		CounterpartyPortID:    p.PacketInfo.DestinationPortID,
+		CounterpartyChannelID: p.PacketInfo.SourceChannelID,
+		CounterpartyPortID:    p.PacketInfo.SourcePortID,
 	}
 	if !isPacketApplicable(ibc.MsgRecvPacket, p, channelKey) {
 		return
@@ -279,6 +279,7 @@ func handleMsgChannelCloseConfirm(p MsgHandlerParams) {
 	if !handleChannelClose(p) {
 		return
 	}
+	// todo send msgchannelcloseack to counterparty if autocompletechannels is true or passes channelfilter
 	p.CCP.log.Debug("observed MsgChannelCloseConfirm",
 		zap.String("chainID", p.CCP.ChainProvider.ChainId()),
 		zap.String("channelID", p.ChannelInfo.ChannelID),
@@ -293,6 +294,7 @@ func handleMsgChannelCloseInit(p MsgHandlerParams) {
 	if !handleChannelClose(p) {
 		return
 	}
+	// todo send msgchannelclosetry to counterparty if autocompletechannels is true or passes channelfilter
 	p.CCP.log.Debug("observed MsgChannelCloseInit",
 		zap.String("chainID", p.CCP.ChainProvider.ChainId()),
 		zap.String("channelID", p.ChannelInfo.ChannelID),
@@ -321,6 +323,7 @@ func handleMsgChannelOpenConfirm(p MsgHandlerParams) {
 	if !handleChannelOpen(p) {
 		return
 	}
+	// todo send MsgChannelOpenAck to counterparty if autocompletechannels is true or passes channelfilter
 	p.CCP.log.Debug("observed MsgChannelOpenConfirm",
 		zap.String("chainID", p.CCP.ChainProvider.ChainId()),
 		zap.String("channelID", p.ChannelInfo.ChannelID),
@@ -340,6 +343,7 @@ func handleMsgChannelOpenInit(p MsgHandlerParams) {
 	}) {
 		return
 	}
+	// TODO run opentry on counterparty if autocompletechannels is true or passes channelfilter
 	p.CCP.log.Debug("observed MsgChannelOpenInit",
 		zap.String("chainID", p.CCP.ChainProvider.ChainId()),
 		zap.String("channelID", p.ChannelInfo.ChannelID),
@@ -359,6 +363,7 @@ func handleMsgChannelOpenTry(p MsgHandlerParams) {
 	}) {
 		return
 	}
+	// TODO run openconfirm on counterparty if autocompletechannels is true or passes channelfilter
 	p.CCP.log.Debug("observed MsgChannelOpenTry",
 		zap.String("chainID", p.CCP.ChainProvider.ChainId()),
 		zap.String("channelID", p.ChannelInfo.ChannelID),
@@ -404,3 +409,15 @@ func handleChannelOpen(p MsgHandlerParams) bool {
 }
 
 // END channel msg handlers
+
+// BEGIN connection msg handlers
+
+//TODO
+
+// here, don't care about a allow/deny list, will do all
+
+// on connection open init, send connection open try to counterparty
+// on connection open try, send connection open confirm to counterparty
+// on connection open confirm,  send connection ack confirm to counterparty
+
+// END connection msg handlers
