@@ -34,6 +34,7 @@ func Run(ctx context.Context, initialBlockHistory uint64, cp ...ChainProcessor) 
 			return err
 		})
 	}
+	err := eg.Wait()
 	runCtxCancel()
-	return eg.Wait()
+	return err
 }
