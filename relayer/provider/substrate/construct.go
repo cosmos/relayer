@@ -161,7 +161,7 @@ func signedCommitment(conn *rpcclient.SubstrateAPI, blockHash rpcclientTypes.Has
 
 	for _, v := range signedBlock.Justifications {
 		// not every relay chain block has a beefy justification
-		if bytes.Equal(v.ConsensusEngineId[:], []byte("BEEF")) {
+		if bytes.Equal(v.ConsensusEngineID[:], []byte("BEEF")) {
 			compactCommitment := &rpcclientTypes.CompactSignedCommitment{}
 
 			err = rpcclientTypes.DecodeFromBytes(v.EncodedJustification, compactCommitment)
