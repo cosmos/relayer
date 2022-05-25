@@ -1,7 +1,7 @@
 package substrate_test
 
 import (
-	"fmt"
+	"context"
 	"testing"
 
 	"github.com/cosmos/relayer/v2/relayer/provider/substrate"
@@ -10,22 +10,22 @@ import (
 )
 
 const homePath = "/tmp"
+const rpcAddress = "ws://127.0.0.1:9944"
 
 func TestGetTrustingPeriod(t *testing.T) {
 	testProvider, err := getTestProvider()
 	require.NoError(t, err)
-	tp, err := testProvider.TrustingPeriod()
-	fmt.Println(tp)
+	tp, err := testProvider.TrustingPeriod(context.Background())
 	require.NoError(t, err)
+	require.NotNil(t, tp)
 }
 
 func getSubstrateConfig(keyHome string, debug bool) *substrate.SubstrateProviderConfig {
 	return &substrate.SubstrateProviderConfig{
-		Key:     "default",
-		ChainID: "substrate-test",
-		// TODO set RPC address
-		RPCAddr:        "",
-		KeyringBackend: keystore.BackendMemory,
+		Key:            "default",
+		ChainID:        "substrate-test",
+		RPCAddr:        rpcAddress,
+		KeyringBackend: keystore.BackendTest,
 		KeyDirectory:   keyHome,
 		Timeout:        "20s",
 	}

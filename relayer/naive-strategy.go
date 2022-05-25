@@ -277,7 +277,7 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 		}
 
 		var (
-			srcHeader, dstHeader ibcexported.Header
+			srcHeader, dstHeader ibcexported.ClientMessage
 		)
 		eg, egCtx := errgroup.WithContext(ctx)
 		eg.Go(func() error {
@@ -514,7 +514,7 @@ func PrependUpdateClientMsg(ctx context.Context, msgs *[]provider.RelayerMessage
 	}
 
 	// Query IBC Update Header
-	var srcHeader ibcexported.Header
+	var srcHeader ibcexported.ClientMessage
 	if err := retry.Do(func() error {
 		var err error
 		srcHeader, err = src.ChainProvider.GetIBCUpdateHeader(ctx, srch, dst.ChainProvider, dst.PathEnd.ClientID)

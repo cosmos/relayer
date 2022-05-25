@@ -219,7 +219,7 @@ func createClientCmd(a *appState) *cobra.Command {
 			}
 
 			// Query the light signed headers for src & dst at the heights srch & dsth, retry if the query fails
-			var srcUpdateHeader, dstUpdateHeader exported.Header
+			var srcUpdateHeader, dstUpdateHeader exported.ClientMessage
 			if err = retry.Do(func() error {
 				srcUpdateHeader, dstUpdateHeader, err = relayer.GetLightSignedHeadersAtHeights(cmd.Context(), c[src], c[dst], srch, dsth)
 				if err != nil {

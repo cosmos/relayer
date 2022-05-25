@@ -2,6 +2,9 @@
 RELAYER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 RELAYER_CONF="$HOME/.relayer"
 GAIA_CONF="$(pwd)/data"
+GAIA_DATA="$(pwd)/data"
+
+
 
 # Ensure user understands what will be deleted
 if ([[ -d $RELAYER_CONF ]] || [[ -d $GAIA_CONF ]]) && [[ ! "$1" == "skip" ]]; then
@@ -11,11 +14,30 @@ if ([[ -d $RELAYER_CONF ]] || [[ -d $GAIA_CONF ]]) && [[ ! "$1" == "skip" ]]; th
       exit 1
   fi
 fi
+set -exu
 
 cd $RELAYER_DIR
 rm -rf $RELAYER_CONF &> /dev/null
 pwd
-bash scripts/two-chainz-wasmd "skip"
+bash scripts/one-chain gaiad ibc-0 ./data 26657 26656 6060 9090
+
+[ -f $GAIA_DATA/ibc-0.log ] && echo "ibc-0 initialized. Watch file $GAIA_DATA/ibc-0.log to see its execution."
+
+cd $RELAYER_DIR
+
+echo "Building Relayer..."
+make install
+
+echo "Generating rly configurations..."
+rly config init
+rly config add-chains configs/demo/chains
+
+SEED0=$(jq -r '.mnemonic' $GAIA_DATA/ibc-0/key_seed.json)
+#SEED1=$(jq -r '.mnemonic' $GAIA_DATA/ibc-1/key_seed.json)
+echo "Key $(rly keys restore ibc-0 testkey "$SEED0") imported from ibc-0 to relayer..."
+echo "Key $(rly keys restore ibc-1 testkey "best garlic clinic panic spare supply thing various truth thing void cruel") imported from ibc-1 to relayer..."
+
+rly config add-paths configs/demo/paths
 
 echo "waiting for blocks..."
 sleep 3
@@ -35,3 +57,7 @@ sleep 5
 echo "Balances after packets are sent"
 echo "balance 0 $(rly q bal ibc-0)"
 echo "balance 1 $(rly q bal ibc-1)"
+
+
+
+#curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "state_getMetadata", "params":[]}' wss://0.0.0.0:9989\n

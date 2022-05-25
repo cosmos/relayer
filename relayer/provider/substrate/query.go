@@ -40,7 +40,7 @@ func (sp *SubstrateProvider) QueryLatestHeight(ctx context.Context) (int64, erro
 	return int64(signedBlock.Block.Header.Number), nil
 }
 
-func (sp *SubstrateProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.Header, error) {
+func (sp *SubstrateProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.ClientMessage, error) {
 	latestBlockHash, err := sp.RPCClient.RPC.Chain.GetBlockHashLatest()
 	if err != nil {
 		return nil, err
@@ -429,7 +429,7 @@ func (sp *SubstrateProvider) GenerateConnHandshakeProof(ctx context.Context, hei
 }
 
 func (sp *SubstrateProvider) NewClientState(
-	dstUpdateHeader ibcexported.Header,
+	dstUpdateHeader ibcexported.ClientMessage,
 	_, _ time.Duration,
 	_, _ bool,
 ) (ibcexported.ClientState, error) {

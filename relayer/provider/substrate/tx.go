@@ -19,6 +19,7 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/cosmos/relayer/v2/relayer/provider/substrate/keystore"
 )
 
 var (
@@ -27,16 +28,23 @@ var (
 )
 
 func (sp *SubstrateProvider) Init() error {
+	keybase, err := keystore.New(sp.Config.ChainID, sp.Config.KeyringBackend, sp.Config.KeyDirectory, sp.Input)
+	if err != nil {
+		return err
+	}
+
 	client, err := rpcClient.NewSubstrateAPI(sp.Config.RPCAddr)
 	if err != nil {
 		return err
 	}
 
+	sp.Keybase = keybase
+
 	sp.RPCClient = client
 	return nil
 }
 
-func (sp *SubstrateProvider) CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.ClientMessage) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -77,7 +85,7 @@ func (sp *SubstrateProvider) SubmitMisbehavior( /*TODO TBD*/ ) (provider.Relayer
 	return nil, nil
 }
 
-func (sp *SubstrateProvider) UpdateClient(srcClientId string, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) UpdateClient(srcClientId string, dstHeader ibcexported.ClientMessage) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -89,7 +97,7 @@ func (sp *SubstrateProvider) UpdateClient(srcClientId string, dstHeader ibcexpor
 		return nil, err
 	}
 
-	anyHeader, err := clienttypes.PackHeader(dstHeader)
+	anyHeader, err := clienttypes.PackClientMessage(dstHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +111,7 @@ func (sp *SubstrateProvider) UpdateClient(srcClientId string, dstHeader ibcexpor
 	return NewSubstrateRelayerMessage(msg), nil
 }
 
-func (sp *SubstrateProvider) ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) ([]provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.ClientMessage) ([]provider.RelayerMessage, error) {
 	var (
 		acc     string
 		err     error
@@ -134,7 +142,7 @@ func (sp *SubstrateProvider) ConnectionOpenInit(srcClientId, dstClientId string,
 	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
-func (sp *SubstrateProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.ClientMessage, srcClientId, dstClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -191,7 +199,7 @@ func (sp *SubstrateProvider) ConnectionOpenTry(ctx context.Context, dstQueryProv
 	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
-func (sp *SubstrateProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.ClientMessage, srcClientId, srcConnId, dstClientId, dstConnId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -240,7 +248,7 @@ func (sp *SubstrateProvider) ConnectionOpenAck(ctx context.Context, dstQueryProv
 	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
-func (sp *SubstrateProvider) ConnectionOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) ConnectionOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.ClientMessage, dstConnId, srcClientId, srcConnId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -273,7 +281,7 @@ func (sp *SubstrateProvider) ConnectionOpenConfirm(ctx context.Context, dstQuery
 	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
-func (sp *SubstrateProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.Header) ([]provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.ClientMessage) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -305,7 +313,7 @@ func (sp *SubstrateProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, 
 	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
-func (sp *SubstrateProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.ClientMessage, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -350,7 +358,7 @@ func (sp *SubstrateProvider) ChannelOpenTry(ctx context.Context, dstQueryProvide
 	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
-func (sp *SubstrateProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.ClientMessage, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -387,7 +395,7 @@ func (sp *SubstrateProvider) ChannelOpenAck(ctx context.Context, dstQueryProvide
 	return []provider.RelayerMessage{updateMsg, NewSubstrateRelayerMessage(msg)}, nil
 }
 
-func (sp *SubstrateProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChanId string) ([]provider.RelayerMessage, error) {
+func (sp *SubstrateProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.ClientMessage, srcClientId, srcPortId, srcChanId, dstPortId, dstChanId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -759,24 +767,25 @@ func (sp *SubstrateProvider) SendMessages(ctx context.Context, msgs []provider.R
 	return rlyRes, false, nil
 }
 
-func (sp *SubstrateProvider) GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error) {
-	return nil, nil
+func (sp *SubstrateProvider) GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.ClientMessage, error) {
+	return sp.GetIBCUpdateHeader(ctx, h, nil, "not_used")
 }
 
 // GetIBCUpdateHeader updates the off chain beefy light client and
 // returns an IBC Update Header which can be used to update an on chain
 // light client on the destination chain. The source is used to construct
 // the header data.
-func (sp *SubstrateProvider) GetIBCUpdateHeader(ctx context.Context, srch int64, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
+func (sp *SubstrateProvider) GetIBCUpdateHeader(ctx context.Context, srch int64, dst provider.ChainProvider, dstClientId string) (ibcexported.ClientMessage, error) {
 	// Construct header data from light client representing source.
-	h, err := sp.GetLightSignedHeaderAtHeight(ctx, srch)
+	h, err := sp.QueryHeaderAtHeight(ctx, srch)
 	if err != nil {
 		return nil, err
 	}
 
-	// Inject trusted fields based on previous header data from source
-	// TODO: implement InjectTrustedFields, make findings on getting validator set from beefy header
-	// return sp.InjectTrustedFields(h, dst, dstClientId)
+	//// Inject trusted fields based on previous header data from source
+	//// TODO: implement InjectTrustedFields, make findings on getting validator set from beefy header
+	//// return sp.InjectTrustedFields(h, dst, dstClientId)
+	//panic("implement me -> GetIBCUpdateHeader -> https://github.com/ComposableFi/relayer/issues/5")
 	return h, nil
 }
 

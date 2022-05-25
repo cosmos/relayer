@@ -29,7 +29,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	}
 
 	// Query the light signed headers for src & dst at the heights srch & dsth, retry if the query fails
-	var srcUpdateHeader, dstUpdateHeader ibcexported.Header
+	var srcUpdateHeader, dstUpdateHeader ibcexported.ClientMessage
 	if err := retry.Do(func() error {
 		var err error
 		srcUpdateHeader, dstUpdateHeader, err = GetLightSignedHeadersAtHeights(ctx, c, dst, srch, dsth)
@@ -91,7 +91,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	return modifiedSrc || modifiedDst, nil
 }
 
-func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.Header, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (bool, error) {
+func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.ClientMessage, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (bool, error) {
 	// If a client ID was specified in the path, ensure it exists.
 	if src.PathEnd.ClientID != "" {
 		// TODO: check client is not expired
@@ -216,7 +216,7 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 // UpdateClients updates clients for src on dst and dst on src given the configured paths
 func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 	var (
-		srcUpdateHeader, dstUpdateHeader ibcexported.Header
+		srcUpdateHeader, dstUpdateHeader ibcexported.ClientMessage
 		srch, dsth                       int64
 	)
 

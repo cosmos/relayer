@@ -85,17 +85,17 @@ type ChainProvider interface {
 	KeyProvider
 
 	Init() error
-	CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header) (RelayerMessage, error)
+	CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.ClientMessage) (RelayerMessage, error)
 	SubmitMisbehavior( /*TODO TBD*/ ) (RelayerMessage, error)
-	UpdateClient(srcClientId string, dstHeader ibcexported.Header) (RelayerMessage, error)
-	ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) ([]RelayerMessage, error)
-	ConnectionOpenTry(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]RelayerMessage, error)
-	ConnectionOpenAck(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]RelayerMessage, error)
-	ConnectionOpenConfirm(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]RelayerMessage, error)
-	ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.Header) ([]RelayerMessage, error)
-	ChannelOpenTry(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]RelayerMessage, error)
-	ChannelOpenAck(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]RelayerMessage, error)
-	ChannelOpenConfirm(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChannId string) ([]RelayerMessage, error)
+	UpdateClient(srcClientId string, dstHeader ibcexported.ClientMessage) (RelayerMessage, error)
+	ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.ClientMessage) ([]RelayerMessage, error)
+	ConnectionOpenTry(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.ClientMessage, srcClientId, dstClientId, srcConnId, dstConnId string) ([]RelayerMessage, error)
+	ConnectionOpenAck(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.ClientMessage, srcClientId, srcConnId, dstClientId, dstConnId string) ([]RelayerMessage, error)
+	ConnectionOpenConfirm(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.ClientMessage, dstConnId, srcClientId, srcConnId string) ([]RelayerMessage, error)
+	ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.ClientMessage) ([]RelayerMessage, error)
+	ChannelOpenTry(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.ClientMessage, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]RelayerMessage, error)
+	ChannelOpenAck(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.ClientMessage, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]RelayerMessage, error)
+	ChannelOpenConfirm(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.ClientMessage, srcClientId, srcPortId, srcChanId, dstPortId, dstChannId string) ([]RelayerMessage, error)
 	ChannelCloseInit(srcPortId, srcChanId string) (RelayerMessage, error)
 	ChannelCloseConfirm(ctx context.Context, dstQueryProvider QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (RelayerMessage, error)
 
@@ -110,8 +110,8 @@ type ChainProvider interface {
 	SendMessage(ctx context.Context, msg RelayerMessage) (*RelayerTxResponse, bool, error)
 	SendMessages(ctx context.Context, msgs []RelayerMessage) (*RelayerTxResponse, bool, error)
 
-	GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error)
-	GetIBCUpdateHeader(ctx context.Context, srch int64, dst ChainProvider, dstClientId string) (ibcexported.Header, error)
+	GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.ClientMessage, error)
+	GetIBCUpdateHeader(ctx context.Context, srch int64, dst ChainProvider, dstClientId string) (ibcexported.ClientMessage, error)
 
 	ChainId() string
 	Type() string
@@ -130,7 +130,7 @@ type QueryProvider interface {
 	QueryTx(ctx context.Context, hashHex string) (*RelayerTxResponse, error)
 	QueryTxs(ctx context.Context, page, limit int, events []string) ([]*RelayerTxResponse, error)
 	QueryLatestHeight(ctx context.Context) (int64, error)
-	QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.Header, error)
+	QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.ClientMessage, error)
 
 	// bank
 	QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error)
@@ -157,7 +157,7 @@ type QueryProvider interface {
 	GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string) (clientState ibcexported.ClientState,
 		clientStateProof []byte, consensusProof []byte, connectionProof []byte,
 		connectionProofHeight ibcexported.Height, err error)
-	NewClientState(dstUpdateHeader ibcexported.Header, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
+	NewClientState(dstUpdateHeader ibcexported.ClientMessage, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
 
 	// ics 04 - channel
 	QueryChannel(ctx context.Context, height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error)

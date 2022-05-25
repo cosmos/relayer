@@ -113,7 +113,7 @@ func QueryChannel(ctx context.Context, src *Chain, channelID string) (*chantypes
 }
 
 // GetIBCUpdateHeaders returns a pair of IBC update headers which can be used to update an on chain light client
-func GetIBCUpdateHeaders(ctx context.Context, srch, dsth int64, src, dst provider.ChainProvider, srcClientID, dstClientID string) (srcHeader, dstHeader ibcexported.Header, err error) {
+func GetIBCUpdateHeaders(ctx context.Context, srch, dsth int64, src, dst provider.ChainProvider, srcClientID, dstClientID string) (srcHeader, dstHeader ibcexported.ClientMessage, err error) {
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		var err error
@@ -131,7 +131,7 @@ func GetIBCUpdateHeaders(ctx context.Context, srch, dsth int64, src, dst provide
 	return
 }
 
-func GetLightSignedHeadersAtHeights(ctx context.Context, src, dst *Chain, srch, dsth int64) (srcUpdateHeader, dstUpdateHeader ibcexported.Header, err error) {
+func GetLightSignedHeadersAtHeights(ctx context.Context, src, dst *Chain, srch, dsth int64) (srcUpdateHeader, dstUpdateHeader ibcexported.ClientMessage, err error) {
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		var err error

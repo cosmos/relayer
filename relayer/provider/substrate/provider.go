@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
+	"path"
 	"reflect"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/ComposableFi/go-substrate-rpc-client/scale"
 	rpcClient "github.com/ComposableFi/go-substrate-rpc-client/v4"
@@ -39,8 +41,13 @@ type SubstrateRelayerMessage struct {
 	Msg Msg
 }
 
+func keysDir(home, chainID string) string {
+	return path.Join(home, "keys", chainID)
+}
+
 // (ccc *ChainClientConfig, homepath string, input io.Reader, output io.Writer, kro ...keyring.Option) (*ChainClient, error) {
 func NewSubstrateProvider(spc *SubstrateProviderConfig, homepath string) (*SubstrateProvider, error) {
+	spc.KeyDirectory = keysDir(homepath, spc.ChainID)
 	sp := &SubstrateProvider{
 		Config: spc,
 	}
@@ -102,7 +109,7 @@ type SubstrateProviderConfig struct {
 }
 
 func (spc *SubstrateProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool) (provider.ChainProvider, error) {
-	return NewSubstrateProvider(spc, "")
+	return NewSubstrateProvider(spc, homepath)
 }
 
 func (spc *SubstrateProviderConfig) Validate() error {

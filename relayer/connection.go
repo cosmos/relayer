@@ -132,7 +132,7 @@ func ExecuteConnectionStep(ctx context.Context, src, dst *Chain) (success, last,
 	var (
 		msgs                 []provider.RelayerMessage
 		res                  *provider.RelayerTxResponse
-		srcHeader, dstHeader exported.Header
+		srcHeader, dstHeader exported.ClientMessage
 		srch, dsth           int64
 	)
 
@@ -311,7 +311,7 @@ func ExecuteConnectionStep(ctx context.Context, src, dst *Chain) (success, last,
 // NOTE: This function may need to be called twice if neither connection exists.
 func InitializeConnection(ctx context.Context, src, dst *Chain) (success, modified bool, err error) {
 	var (
-		srcHeader, dstHeader exported.Header
+		srcHeader, dstHeader exported.ClientMessage
 		srch, dsth           int64
 		msgs                 []provider.RelayerMessage
 		res                  *provider.RelayerTxResponse
