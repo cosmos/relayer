@@ -21,7 +21,7 @@ type PathProcessor struct {
 	pathEnd1 *PathEndRuntime
 	pathEnd2 *PathEndRuntime
 
-	processLock                    sync.Mutex
+	processLock                    sync.RWMutex
 	isRunning                      bool
 	shouldProcessAgainOnceComplete bool
 	retryTimer                     *time.Timer
@@ -38,7 +38,7 @@ type PathEndRuntime struct {
 	// when packet-flow-complete messages are handled (MsgAcknowledgement, MsgTimeout, or MsgTimeoutOnClose),
 	// the entire packet history for that sequence number will be cleared out, including counterparty pathEnd
 	messages     map[string]map[uint64]provider.RelayerMessage
-	messagesLock sync.Mutex
+	messagesLock sync.RWMutex
 }
 
 type IBCMessageWithSequence struct {
@@ -62,15 +62,15 @@ func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *Path
 
 // TEST USE ONLY
 func (pp *PathProcessor) GetPathEnd1Messages(message string) map[uint64]provider.RelayerMessage {
-	pp.pathEnd1.messagesLock.Lock()
-	defer pp.pathEnd1.messagesLock.Unlock()
+	pp.pathEnd1.messagesLock.RLock()
+	defer pp.pathEnd1.messagesLock.RUnlock()
 	return pp.pathEnd1.messages[message]
 }
 
 // TEST USE ONLY
 func (pp *PathProcessor) GetPathEnd2Messages(message string) map[uint64]provider.RelayerMessage {
-	pp.pathEnd2.messagesLock.Lock()
-	defer pp.pathEnd2.messagesLock.Unlock()
+	pp.pathEnd2.messagesLock.RLock()
+	defer pp.pathEnd2.messagesLock.RUnlock()
 	return pp.pathEnd2.messages[message]
 }
 
@@ -134,8 +134,8 @@ func (pp *PathProcessor) scheduleProcessRetry() {
 }
 
 func (pp *PathProcessor) isProcessRunning() bool {
-	pp.processLock.Lock()
-	defer pp.processLock.Unlock()
+	pp.processLock.RLock()
+	defer pp.processLock.RUnlock()
 	return pp.isRunning
 }
 
@@ -213,7 +213,7 @@ MsgTransferLoop:
 	res.ToDeleteDst = toDeleteDst
 }
 
-func (pp *PathProcessor) deleteCachedMessages(messages map[string]map[uint64]provider.RelayerMessage, messagesLock *sync.Mutex, toDelete ...map[string][]uint64) {
+func (pp *PathProcessor) deleteCachedMessages(messages map[string]map[uint64]provider.RelayerMessage, messagesLock *sync.RWMutex, toDelete ...map[string][]uint64) {
 	messagesLock.Lock()
 	defer messagesLock.Unlock()
 	for _, toDeleteMap := range toDelete {
@@ -305,10 +305,10 @@ func (pp *PathProcessor) getPathEndPacketFlowMessages() (PathEndPacketFlowMessag
 		}
 }
 
-func (pp *PathProcessor) copyPacketMessages(src map[string]map[uint64]provider.RelayerMessage, dst *PathEndMessages, srcLock *sync.Mutex, waitGroup *sync.WaitGroup) {
+func (pp *PathProcessor) copyPacketMessages(src map[string]map[uint64]provider.RelayerMessage, dst *PathEndMessages, srcLock *sync.RWMutex, waitGroup *sync.WaitGroup) {
 	defer waitGroup.Done()
-	srcLock.Lock()
-	defer srcLock.Unlock()
+	srcLock.RLock()
+	defer srcLock.RUnlock()
 	copyMapIfMessageExists(ibc.MsgTransfer, src, dst.MsgTransfer)
 	copyMapIfMessageExists(ibc.MsgRecvPacket, src, dst.MsgRecvPacket)
 	copyMapIfMessageExists(ibc.MsgAcknowledgement, src, dst.MsgAcknowledgement)

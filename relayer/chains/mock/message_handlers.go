@@ -43,12 +43,12 @@ func handleMsgTransfer(p MsgHandlerParams) {
 	}
 	retainMessage(p, channelKey, ibc.MsgTransfer, p.PacketInfo.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgRecvPacket{Packet: *p.PacketInfo}))
 	p.mcp.log.Debug("observed MsgTransfer",
-		zap.String("chainID", p.mcp.chainID),
+		zap.String("chain_id", p.mcp.chainID),
 		zap.Uint64("sequence", p.PacketInfo.Sequence),
-		zap.String("srcChannel", p.PacketInfo.SourceChannel),
-		zap.String("srcPort", p.PacketInfo.SourcePort),
-		zap.String("timeoutHeight", fmt.Sprintf("%d-%d", p.PacketInfo.TimeoutHeight.RevisionNumber, p.PacketInfo.TimeoutHeight.RevisionHeight)),
-		zap.Uint64("timeoutTimestamp", p.PacketInfo.TimeoutTimestamp),
+		zap.String("src_channel", p.PacketInfo.SourceChannel),
+		zap.String("src_port", p.PacketInfo.SourcePort),
+		zap.String("timeout_height", fmt.Sprintf("%d-%d", p.PacketInfo.TimeoutHeight.RevisionNumber, p.PacketInfo.TimeoutHeight.RevisionHeight)),
+		zap.Uint64("timeout_timestamp", p.PacketInfo.TimeoutTimestamp),
 	)
 }
 
@@ -61,12 +61,12 @@ func handleMsgRecvPacket(p MsgHandlerParams) {
 	}
 	retainMessage(p, channelKey, ibc.MsgRecvPacket, p.PacketInfo.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgAcknowledgement{Packet: *p.PacketInfo}))
 	p.mcp.log.Debug("observed MsgRecvPacket",
-		zap.String("chainID", p.mcp.chainID),
+		zap.String("chain_id", p.mcp.chainID),
 		zap.Uint64("sequence", p.PacketInfo.Sequence),
-		zap.String("srcChannel", p.PacketInfo.SourceChannel),
-		zap.String("srcPort", p.PacketInfo.SourcePort),
-		zap.String("dstChannel", p.PacketInfo.DestinationChannel),
-		zap.String("dstPort", p.PacketInfo.DestinationPort),
+		zap.String("src_channel", p.PacketInfo.SourceChannel),
+		zap.String("src_port", p.PacketInfo.SourcePort),
+		zap.String("dst_channel", p.PacketInfo.DestinationChannel),
+		zap.String("dst_port", p.PacketInfo.DestinationPort),
 	)
 }
 
@@ -80,11 +80,11 @@ func handleMsgAcknowlegement(p MsgHandlerParams) {
 	retainMessage(p, channelKey, ibc.MsgAcknowledgement, p.PacketInfo.Sequence, nil)
 
 	p.mcp.log.Debug("observed MsgAcknowledgement",
-		zap.String("chainID", p.mcp.chainID),
+		zap.String("chain_id", p.mcp.chainID),
 		zap.Uint64("sequence", p.PacketInfo.Sequence),
-		zap.String("srcChannel", p.PacketInfo.SourceChannel),
-		zap.String("srcPort", p.PacketInfo.SourcePort),
-		zap.String("dstChannel", p.PacketInfo.DestinationChannel),
-		zap.String("dstPort", p.PacketInfo.DestinationPort),
+		zap.String("src_channel", p.PacketInfo.SourceChannel),
+		zap.String("src_port", p.PacketInfo.SourcePort),
+		zap.String("dst_channel", p.PacketInfo.DestinationChannel),
+		zap.String("dst_port", p.PacketInfo.DestinationPort),
 	)
 }

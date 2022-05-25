@@ -31,7 +31,7 @@ type MockChainProcessor struct {
 
 	// is the query loop up to date with the latest blocks of the chain
 	inSync     bool
-	inSyncLock sync.Mutex
+	inSyncLock sync.RWMutex
 
 	getMockMessages func() []TransactionMessage
 }
@@ -53,8 +53,8 @@ func NewMockChainProcessor(ctx context.Context, log *zap.Logger, chainID string,
 }
 
 func (mcp *MockChainProcessor) InSync() bool {
-	mcp.inSyncLock.Lock()
-	defer mcp.inSyncLock.Unlock()
+	mcp.inSyncLock.RLock()
+	defer mcp.inSyncLock.RUnlock()
 	return mcp.inSync
 }
 
@@ -73,7 +73,7 @@ func (mcp *MockChainProcessor) Start(ctx context.Context, initialBlockHistory ui
 		latestQueriedBlock = uint64(latestQueriedBlockInt64)
 	}
 
-	mcp.log.Info("entering main query loop", zap.String("chainID", mcp.chainID))
+	mcp.log.Info("entering main query loop", zap.String("chain_id", mcp.chainID))
 
 	// QueryLoop:
 	for {
@@ -92,25 +92,29 @@ func (mcp *MockChainProcessor) Start(ctx context.Context, initialBlockHistory ui
 		// until in sync, determine if our latest queries are up to date with the current chain height
 		// this will cause the PathProcessors to start processing the backlog of message state (once both chainprocessors are in sync)
 		firstTimeInSync := false
-		mcp.inSyncLock.Lock()
-		if !mcp.inSync {
+		mcp.inSyncLock.RLock()
+		inSync := mcp.inSync
+		mcp.inSyncLock.RUnlock()
+
+		if !inSync {
 			if (mcp.latestHeight - latestQueriedBlock) < 2 {
+				mcp.inSyncLock.Lock()
 				mcp.inSync = true
+				mcp.inSyncLock.Unlock()
 				firstTimeInSync = true
-				mcp.log.Info("chain is in sync", zap.String("chainID", mcp.chainID))
+				mcp.log.Info("chain is in sync", zap.String("chain_id", mcp.chainID))
 			} else {
 				mcp.log.Warn("chain is not yet in sync",
-					zap.String("chainID", mcp.chainID),
-					zap.Uint64("latestQueriedBlock", latestQueriedBlock),
-					zap.Uint64("latestHeight", mcp.latestHeight),
+					zap.String("chain_id", mcp.chainID),
+					zap.Uint64("latest_queried_block", latestQueriedBlock),
+					zap.Uint64("latest_height", mcp.latestHeight),
 				)
 			}
 		}
-		mcp.inSyncLock.Unlock()
 
 		mcp.log.Debug("queried latest height",
-			zap.String("chainID", mcp.chainID),
-			zap.Uint64("latestHeight", mcp.latestHeight),
+			zap.String("chain_id", mcp.chainID),
+			zap.Uint64("latest_height", mcp.latestHeight),
 		)
 
 		for i := latestQueriedBlock + 1; i <= mcp.latestHeight; i++ {
@@ -153,7 +157,7 @@ func (mcp *MockChainProcessor) Start(ctx context.Context, initialBlockHistory ui
 			for channelKey, messages := range foundMessages {
 				// TODO do not relay on closed channels
 				for _, pp := range mcp.pathProcessors {
-					mcp.log.Info("sending messages to path processor", zap.String("chainID", mcp.chainID))
+					mcp.log.Info("sending messages to path processor", zap.String("chain_id", mcp.chainID))
 					pp.HandleNewMessages(mcp.chainID, channelKey, messages)
 				}
 			}
