@@ -1,6 +1,6 @@
 package ibc
 
-// key used between ChainProcessor and PathProcessor
+// ChannelKey is the key used between ChainProcessor and PathProcessor
 type ChannelKey struct {
 	ChannelID             string
 	PortID                string
@@ -8,7 +8,7 @@ type ChannelKey struct {
 	CounterpartyPortID    string
 }
 
-// IBC message types shared between chain processor and path processor
+// These are IBC message types used as shared message keys between ChainProcessor and PathProcessor
 const (
 	MsgTransfer        = "/ibc.applications.transfer.v1.MsgTransfer"
 	MsgRecvPacket      = "/ibc.core.channel.v1.MsgRecvPacket"
