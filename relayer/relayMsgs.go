@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/multierr"
@@ -20,6 +21,9 @@ type RelayMsgs struct {
 	MaxTxSize    uint64                    `json:"max_tx_size"`    // maximum permitted size of the msgs in a bundled relay transaction
 	MaxMsgLength uint64                    `json:"max_msg_length"` // maximum amount of messages in a bundled relay transaction
 }
+
+// batchSendMessageTimeout is the timeout for sending a single batch of IBC messages to an RPC node.
+const batchSendMessageTimeout = 10 * time.Second
 
 // Ready returns true if there are messages to relay
 func (r *RelayMsgs) Ready() bool {
@@ -160,7 +164,9 @@ func (r *RelayMsgs) send(
 		// Otherwise, we have reached the message count limit or the byte size limit.
 		// Send out this batch now.
 		batchMsgs := msgs[batchStartIdx:i]
-		resp, success, err := s.SendMessages(ctx, batchMsgs)
+		batchCtx, batchCtxCancel := context.WithTimeout(ctx, batchSendMessageTimeout)
+		resp, success, err := s.SendMessages(batchCtx, batchMsgs)
+		batchCtxCancel()
 		if err != nil {
 			logFailedTx(log, s.ChainID, resp, err, batchMsgs)
 			multierr.AppendInto(errors, err)
@@ -180,7 +186,9 @@ func (r *RelayMsgs) send(
 	// If there are any messages left over, send those out too.
 	if batchStartIdx < uint64(len(msgs)) {
 		batchMsgs := msgs[batchStartIdx:]
-		resp, success, err := s.SendMessages(ctx, batchMsgs)
+		batchCtx, batchCtxCancel := context.WithTimeout(ctx, batchSendMessageTimeout)
+		resp, success, err := s.SendMessages(batchCtx, batchMsgs)
+		batchCtxCancel()
 		if err != nil {
 			logFailedTx(log, s.ChainID, resp, err, batchMsgs)
 			multierr.AppendInto(errors, err)
