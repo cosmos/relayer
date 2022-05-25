@@ -92,7 +92,7 @@ $ %s cfg list`, appName, defaultHome, appName)),
 			case yml && jsn:
 				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
 			case jsn:
-				out, err := json.Marshal(a.Config)
+				out, err := json.Marshal(a.Config.Wrapped())
 				if err != nil {
 					return err
 				}
@@ -112,7 +112,7 @@ $ %s cfg list`, appName, defaultHome, appName)),
 	return yamlFlag(a.Viper, jsonFlag(a.Viper, cmd))
 }
 
-// Command for inititalizing an empty config at the --home location
+// Command for initializing an empty config at the --home location
 func configInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "init",
