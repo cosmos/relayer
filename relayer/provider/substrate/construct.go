@@ -1,6 +1,7 @@
 package substrate
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"sort"
@@ -158,14 +159,20 @@ func signedCommitment(conn *rpcclient.SubstrateAPI, blockHash rpcclientTypes.Has
 		return rpcclientTypes.SignedCommitment{}, err
 	}
 
-	//TODO: add test for this -> https://github.com/ComposableFi/relayer/issues/7
-	compactCommitment := &rpcclientTypes.CompactSignedCommitment{}
-	err = rpcclientTypes.DecodeFromHexString(string(signedBlock.Justification), compactCommitment)
-	if err != nil {
-		return rpcclientTypes.SignedCommitment{}, err
+	for _, v := range signedBlock.Justifications {
+		// not every relay chain block has a beefy justification
+		if bytes.Equal(v.ConsensusEngineID[:], []byte("BEEF")) {
+			compactCommitment := &rpcclientTypes.CompactSignedCommitment{}
+
+			err = rpcclientTypes.DecodeFromBytes(v.EncodedJustification, compactCommitment)
+			if err != nil {
+				return rpcclientTypes.SignedCommitment{}, err
+			}
+			return compactCommitment.Unpack(), nil
+		}
 	}
 
-	return compactCommitment.Unpack(), nil
+	return rpcclientTypes.SignedCommitment{}, nil
 }
 
 // finalized block returns the finalized block double map that holds block numbers,
@@ -282,8 +289,10 @@ func constructParachainHeaders(
 
 	for i := 0; i < len(mmrBatchProof.Leaves); i++ {
 		v := mmrBatchProof.Leaves[i]
-		paraHeads[i] = v.Leaf.ParachainHeads[:]
-		var leafBlockNumber = cs.GetBlockNumberForLeaf(uint32(v.Index))
+		leafIndex := mmrBatchProof.Proof.LeafIndex[i]
+
+		paraHeads[i] = v.ParachainHeads[:]
+		var leafBlockNumber = cs.GetBlockNumberForLeaf(uint32(leafIndex))
 		paraHeaders := finalizedBlocks[leafBlockNumber]
 
 		var paraHeadsLeaves [][]byte
@@ -320,18 +329,18 @@ func constructParachainHeaders(
 			panic(err)
 		}
 		paraHeadsProof := tree.Proof([]uint32{index})
-		authorityRoot := bytes32(v.Leaf.BeefyNextAuthoritySet.Root[:])
-		parentHash := bytes32(v.Leaf.ParentNumberAndHash.Hash[:])
+		authorityRoot := bytes32(v.BeefyNextAuthoritySet.Root[:])
+		parentHash := bytes32(v.ParentNumberAndHash.Hash[:])
 
 		header := beefyClientTypes.ParachainHeader{
 			ParachainHeader: paraHeaders[PARA_ID],
 			MmrLeafPartial: &beefyClientTypes.BeefyMmrLeafPartial{
-				Version:      v.Leaf.Version,
-				ParentNumber: v.Leaf.ParentNumberAndHash.ParentNumber,
+				Version:      v.Version,
+				ParentNumber: v.ParentNumberAndHash.ParentNumber,
 				ParentHash:   &parentHash,
 				BeefyNextAuthoritySet: beefyClientTypes.BeefyAuthoritySet{
-					Id:            v.Leaf.BeefyNextAuthoritySet.ID,
-					Len:           v.Leaf.BeefyNextAuthoritySet.Len,
+					Id:            v.BeefyNextAuthoritySet.ID,
+					Len:           v.BeefyNextAuthoritySet.Len,
 					AuthorityRoot: &authorityRoot,
 				},
 			},
@@ -449,7 +458,7 @@ func mmrUpdateProof(
 		MmrProof:     latestLeafMmrProof,
 		SignedCommitment: &beefyClientTypes.SignedCommitment{
 			Commitment: &beefyClientTypes.Commitment{
-				Payload:        []*beefyClientTypes.PayloadItem{{PayloadId: &CommitmentPayload.Id, PayloadData: CommitmentPayload.Value}},
+				Payload:        []*beefyClientTypes.PayloadItem{{PayloadId: &CommitmentPayload.ID, PayloadData: CommitmentPayload.Value}},
 				BlockNumer:     uint32(signedCommitment.Commitment.BlockNumber),
 				ValidatorSetId: uint64(signedCommitment.Commitment.ValidatorSetID),
 			},
