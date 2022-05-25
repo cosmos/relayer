@@ -6,26 +6,27 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
-
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/mock"
 	"github.com/cosmos/relayer/v2/relayer/chains/processor"
 	"github.com/cosmos/relayer/v2/relayer/ibc"
 	"github.com/cosmos/relayer/v2/relayer/paths"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestMockChainAndPathProcessors(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	mockChainID1 := "mock-chain-1"
 	mockChainID2 := "mock-chain-2"
 
 	pathEnd1 := paths.PathEnd{ChainID: mockChainID1}
 	pathEnd2 := paths.PathEnd{ChainID: mockChainID2}
 
-	config := zap.NewDevelopmentConfig()
-	log, err := config.Build()
-	require.NoError(t, err, "error building zap logger")
+	log := zaptest.NewLogger(t)
 
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*20)
 	defer ctxCancel()
@@ -52,22 +53,15 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	pathProcessor.SetPathEnd2ChainProcessor(chainProcessor2)
 
 	initialBlockHistory := uint64(100)
-	errChan := make(chan error, 1)
-	processor.Start(ctx, initialBlockHistory, errChan, chainProcessor1, chainProcessor2)
+	processor.Run(ctx, initialBlockHistory, chainProcessor1, chainProcessor2)
 
-	// wait for context to finish
-	<-ctx.Done()
+	pathEnd1LeftoverMsgTransfer := pathProcessor.PathEnd1Messages(ibc.MsgTransfer)
+	pathEnd1LeftoverMsgRecvPacket := pathProcessor.PathEnd1Messages(ibc.MsgRecvPacket)
+	pathEnd1LeftoverMsgAcknowledgement := pathProcessor.PathEnd1Messages(ibc.MsgAcknowledgement)
 
-	// give path processor time to flush
-	time.Sleep(time.Second * 5)
-
-	pathEnd1LeftoverMsgTransfer := pathProcessor.GetPathEnd1Messages(ibc.MsgTransfer)
-	pathEnd1LeftoverMsgRecvPacket := pathProcessor.GetPathEnd1Messages(ibc.MsgRecvPacket)
-	pathEnd1LeftoverMsgAcknowledgement := pathProcessor.GetPathEnd1Messages(ibc.MsgAcknowledgement)
-
-	pathEnd2LeftoverMsgTransfer := pathProcessor.GetPathEnd2Messages(ibc.MsgTransfer)
-	pathEnd2LeftoverMsgRecvPacket := pathProcessor.GetPathEnd2Messages(ibc.MsgRecvPacket)
-	pathEnd2LeftoverMsgAcknowledgement := pathProcessor.GetPathEnd2Messages(ibc.MsgAcknowledgement)
+	pathEnd2LeftoverMsgTransfer := pathProcessor.PathEnd2Messages(ibc.MsgTransfer)
+	pathEnd2LeftoverMsgRecvPacket := pathProcessor.PathEnd2Messages(ibc.MsgRecvPacket)
+	pathEnd2LeftoverMsgAcknowledgement := pathProcessor.PathEnd2Messages(ibc.MsgAcknowledgement)
 
 	// at most 3 msg transfer could still be stuck in queue since chain processor was shut down, so msgrecvpacket would never be "received" by counterparty
 	require.LessOrEqual(t, len(pathEnd1LeftoverMsgTransfer), 3)

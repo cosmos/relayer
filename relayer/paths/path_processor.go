@@ -37,9 +37,13 @@ type PathEndRuntime struct {
 	// packet message history will be held onto until messages come in that signal the packet flow is complete
 	// when packet-flow-complete messages are handled (MsgAcknowledgement, MsgTimeout, or MsgTimeoutOnClose),
 	// the entire packet history for that sequence number will be cleared out, including counterparty pathEnd
-	messages     map[string]map[uint64]provider.RelayerMessage
+	messages     MessageCache
 	messagesLock sync.RWMutex
 }
+
+type SequenceCache map[uint64]provider.RelayerMessage
+type MessageCache map[string]SequenceCache
+type ChannelMessageCache map[ibc.ChannelKey]MessageCache
 
 type IBCMessageWithSequence struct {
 	Sequence uint64
@@ -51,24 +55,24 @@ func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *Path
 		log: log,
 		pathEnd1: &PathEndRuntime{
 			info:     pathEnd1,
-			messages: make(map[string]map[uint64]provider.RelayerMessage),
+			messages: make(MessageCache),
 		},
 		pathEnd2: &PathEndRuntime{
 			info:     pathEnd2,
-			messages: make(map[string]map[uint64]provider.RelayerMessage),
+			messages: make(MessageCache),
 		},
 	}
 }
 
 // TEST USE ONLY
-func (pp *PathProcessor) GetPathEnd1Messages(message string) map[uint64]provider.RelayerMessage {
+func (pp *PathProcessor) PathEnd1Messages(message string) SequenceCache {
 	pp.pathEnd1.messagesLock.RLock()
 	defer pp.pathEnd1.messagesLock.RUnlock()
 	return pp.pathEnd1.messages[message]
 }
 
 // TEST USE ONLY
-func (pp *PathProcessor) GetPathEnd2Messages(message string) map[uint64]provider.RelayerMessage {
+func (pp *PathProcessor) PathEnd2Messages(message string) SequenceCache {
 	pp.pathEnd2.messagesLock.RLock()
 	defer pp.pathEnd2.messagesLock.RUnlock()
 	return pp.pathEnd2.messages[message]
@@ -84,7 +88,7 @@ func (pp *PathProcessor) SetPathEnd2ChainProcessor(chainProcessor processor.Chai
 }
 
 // ChainProcessors call this method when they have new IBC messages
-func (pp *PathProcessor) HandleNewMessages(chainID string, channelKey ibc.ChannelKey, messages map[string]map[uint64]provider.RelayerMessage) {
+func (pp *PathProcessor) HandleNewMessages(chainID string, channelKey ibc.ChannelKey, messages MessageCache) {
 	if pp.pathEnd1.info.ChainID == chainID {
 		// TODO make sure passes channel filter for pathEnd1 before calling this
 		pp.handleNewMessagesForPathEnd(pp.pathEnd1, messages)
@@ -96,7 +100,7 @@ func (pp *PathProcessor) HandleNewMessages(chainID string, channelKey ibc.Channe
 
 func (pp *PathProcessor) handleNewMessagesForPathEnd(
 	p *PathEndRuntime,
-	newMessages map[string]map[uint64]provider.RelayerMessage,
+	newMessages MessageCache,
 ) {
 	p.messagesLock.Lock()
 	for msg, sequencesMap := range newMessages {
@@ -105,7 +109,7 @@ func (pp *PathProcessor) handleNewMessagesForPathEnd(
 		}
 		for sequence, ibcMsg := range sequencesMap {
 			if _, ok := p.messages[msg]; !ok {
-				p.messages[msg] = make(map[uint64]provider.RelayerMessage)
+				p.messages[msg] = make(SequenceCache)
 			}
 			p.messages[msg][sequence] = ibcMsg
 		}
@@ -142,17 +146,17 @@ func (pp *PathProcessor) isProcessRunning() bool {
 // this contains MsgRecvPacket from same chain
 // needs to be transformed into PathEndPacketFlowMessages once counterparty info is available to complete packet flow state for pathEnd
 type PathEndMessages struct {
-	MsgTransfer        map[uint64]provider.RelayerMessage
-	MsgRecvPacket      map[uint64]provider.RelayerMessage
-	MsgAcknowledgement map[uint64]provider.RelayerMessage
+	MsgTransfer        SequenceCache
+	MsgRecvPacket      SequenceCache
+	MsgAcknowledgement SequenceCache
 }
 
 // contains MsgRecvPacket from counterparty
 // entire packet flow
 type PathEndPacketFlowMessages struct {
-	SrcMsgTransfer        map[uint64]provider.RelayerMessage
-	DstMsgRecvPacket      map[uint64]provider.RelayerMessage
-	SrcMsgAcknowledgement map[uint64]provider.RelayerMessage
+	SrcMsgTransfer        SequenceCache
+	DstMsgRecvPacket      SequenceCache
+	SrcMsgAcknowledgement SequenceCache
 	// TODO SrcTimeout and SrcTimeoutOnClose
 }
 
@@ -213,7 +217,7 @@ MsgTransferLoop:
 	res.ToDeleteDst = toDeleteDst
 }
 
-func (pp *PathProcessor) deleteCachedMessages(messages map[string]map[uint64]provider.RelayerMessage, messagesLock *sync.RWMutex, toDelete ...map[string][]uint64) {
+func (pp *PathProcessor) deleteCachedMessages(messages MessageCache, messagesLock *sync.RWMutex, toDelete ...map[string][]uint64) {
 	messagesLock.Lock()
 	defer messagesLock.Unlock()
 	for _, toDeleteMap := range toDelete {
@@ -278,14 +282,14 @@ func (pp *PathProcessor) processLatestMessages() error {
 // this is done because the messages map is concurrently accessed, so this locks them and copies them
 func (pp *PathProcessor) getPathEndPacketFlowMessages() (PathEndPacketFlowMessages, PathEndPacketFlowMessages) {
 	pathEnd1Msgs := PathEndMessages{
-		MsgTransfer:        make(map[uint64]provider.RelayerMessage),
-		MsgRecvPacket:      make(map[uint64]provider.RelayerMessage),
-		MsgAcknowledgement: make(map[uint64]provider.RelayerMessage),
+		MsgTransfer:        make(SequenceCache),
+		MsgRecvPacket:      make(SequenceCache),
+		MsgAcknowledgement: make(SequenceCache),
 	}
 	pathEnd2Msgs := PathEndMessages{
-		MsgTransfer:        make(map[uint64]provider.RelayerMessage),
-		MsgRecvPacket:      make(map[uint64]provider.RelayerMessage),
-		MsgAcknowledgement: make(map[uint64]provider.RelayerMessage),
+		MsgTransfer:        make(SequenceCache),
+		MsgRecvPacket:      make(SequenceCache),
+		MsgAcknowledgement: make(SequenceCache),
 	}
 
 	var copyMessagesWaitGroup sync.WaitGroup
@@ -305,7 +309,7 @@ func (pp *PathProcessor) getPathEndPacketFlowMessages() (PathEndPacketFlowMessag
 		}
 }
 
-func (pp *PathProcessor) copyPacketMessages(src map[string]map[uint64]provider.RelayerMessage, dst *PathEndMessages, srcLock *sync.RWMutex, waitGroup *sync.WaitGroup) {
+func (pp *PathProcessor) copyPacketMessages(src MessageCache, dst *PathEndMessages, srcLock *sync.RWMutex, waitGroup *sync.WaitGroup) {
 	defer waitGroup.Done()
 	srcLock.RLock()
 	defer srcLock.RUnlock()
@@ -315,7 +319,7 @@ func (pp *PathProcessor) copyPacketMessages(src map[string]map[uint64]provider.R
 	// TODO timeout messages
 }
 
-func copyMapIfMessageExists(message string, src map[string]map[uint64]provider.RelayerMessage, dst map[uint64]provider.RelayerMessage) {
+func copyMapIfMessageExists(message string, src MessageCache, dst SequenceCache) {
 	if src[message] == nil {
 		return
 	}

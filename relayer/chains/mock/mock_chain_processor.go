@@ -5,9 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cosmos/relayer/v2/relayer/ibc"
 	"github.com/cosmos/relayer/v2/relayer/paths"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"go.uber.org/zap"
@@ -58,7 +56,7 @@ func (mcp *MockChainProcessor) InSync() bool {
 	return mcp.inSync
 }
 
-func (mcp *MockChainProcessor) Start(ctx context.Context, initialBlockHistory uint64, errCh chan<- error) {
+func (mcp *MockChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
 
 	// would be query of latest height, mocking 20
 	mcp.latestHeight = 20
@@ -78,7 +76,7 @@ func (mcp *MockChainProcessor) Start(ctx context.Context, initialBlockHistory ui
 	// QueryLoop:
 	for {
 		if mcp.ctx.Err() != nil {
-			return
+			return nil
 		}
 		cycleTimeStart := time.Now()
 		doneWithThisCycle := func() {
@@ -126,7 +124,7 @@ func (mcp *MockChainProcessor) Start(ctx context.Context, initialBlockHistory ui
 			// fetch block
 
 			// used for collecting IBC messages that will be sent to the Path Processors
-			foundMessages := make(map[ibc.ChannelKey]map[string]map[uint64]provider.RelayerMessage)
+			foundMessages := make(paths.ChannelMessageCache)
 
 			// iterate through transactions
 			// iterate through messages in transactions

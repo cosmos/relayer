@@ -5,6 +5,7 @@ import (
 
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/ibc"
+	"github.com/cosmos/relayer/v2/relayer/paths"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"go.uber.org/zap"
@@ -13,7 +14,7 @@ import (
 type MsgHandlerParams struct {
 	mcp           *MockChainProcessor
 	PacketInfo    *chantypes.Packet
-	FoundMessages map[ibc.ChannelKey]map[string]map[uint64]provider.RelayerMessage
+	FoundMessages paths.ChannelMessageCache
 }
 
 var messageHandlers = map[string]func(MsgHandlerParams){
@@ -26,10 +27,10 @@ var messageHandlers = map[string]func(MsgHandlerParams){
 
 func retainMessage(p MsgHandlerParams, channelKey ibc.ChannelKey, message string, sequence uint64, ibcMessage provider.RelayerMessage) {
 	if _, ok := p.FoundMessages[channelKey]; !ok {
-		p.FoundMessages[channelKey] = make(map[string]map[uint64]provider.RelayerMessage)
+		p.FoundMessages[channelKey] = make(paths.MessageCache)
 	}
 	if _, ok := p.FoundMessages[channelKey][message]; !ok {
-		p.FoundMessages[channelKey][message] = make(map[uint64]provider.RelayerMessage)
+		p.FoundMessages[channelKey][message] = make(paths.SequenceCache)
 	}
 	p.FoundMessages[channelKey][message][sequence] = ibcMessage
 }
