@@ -34,9 +34,8 @@ type RelayerTxResponse struct {
 }
 
 type RelayerEvent struct {
-	EventType      string
-	AttributeKey   string
-	AttributeValue string
+	EventType  string
+	Attributes map[string]string
 }
 
 // loggableEvents is an unexported wrapper type for a slice of RelayerEvent,
@@ -46,8 +45,9 @@ type loggableEvents []RelayerEvent
 // MarshalLogObject satisfies the zapcore.ObjectMarshaler interface.
 func (e RelayerEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("event_type", e.EventType)
-	enc.AddString("attr_key", e.AttributeKey)
-	enc.AddString("attr_value", e.AttributeValue)
+	for k, v := range e.Attributes {
+		enc.AddString("event_attr: "+k, v)
+	}
 	return nil
 }
 
