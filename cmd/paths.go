@@ -283,7 +283,6 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					fmt.Printf("not found -- path %s not found on chain-registry\n", pthName)
 					continue
 				}
-				r.Close()
 
 				bytes, err := ioutil.ReadAll(r)
 				if err != nil {
@@ -312,11 +311,12 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					Src: srcPathEnd,
 					Dst: dstPathEnd,
 				}
+				r.Close()
 
 				if err = a.Config.AddPath(pthName, newPath); err != nil {
 					return fmt.Errorf("failed to add path %s: %w", pthName, err)
 				}
-				fmt.Printf("added -- %s", pthName)
+				fmt.Printf("added -- %s\n", pthName)
 
 			}
 
