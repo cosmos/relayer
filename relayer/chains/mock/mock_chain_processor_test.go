@@ -8,7 +8,6 @@ import (
 
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/mock"
-	"github.com/cosmos/relayer/v2/relayer/paths"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -23,8 +22,8 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	mockChainID1 := "mock-chain-1"
 	mockChainID2 := "mock-chain-2"
 
-	pathEnd1 := paths.PathEnd{ChainID: mockChainID1}
-	pathEnd2 := paths.PathEnd{ChainID: mockChainID2}
+	pathEnd1 := processor.PathEnd{ChainID: mockChainID1}
+	pathEnd2 := processor.PathEnd{ChainID: mockChainID2}
 
 	mockSequence1 := uint64(0)
 	mockSequence2 := uint64(0)
@@ -44,7 +43,7 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*20)
 	defer ctxCancel()
 
-	pathProcessor := paths.NewRelayerPathProcessor(log, pathEnd1, pathEnd2)
+	pathProcessor := processor.NewPathProcessor(log, pathEnd1, pathEnd2)
 
 	eventProcessor := processor.NewEventProcessor().
 		WithChainProcessors(

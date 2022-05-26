@@ -21,7 +21,7 @@ type MockChainProcessor struct {
 	chainID string
 
 	// subscribers to this chain processor, where relevant IBC messages will be published
-	pathProcessors []processor.PathProcessor
+	pathProcessors []*processor.PathProcessor
 
 	// cached latest height of the chain
 	latestHeight uint64

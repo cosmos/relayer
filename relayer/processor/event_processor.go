@@ -38,7 +38,7 @@ func (ep EventProcessorBuilder) WithInitialBlockHistory(initialBlockHistory uint
 }
 
 // WithPathProcessors will set the PathProcessors to be used.
-func (ep EventProcessorBuilder) WithPathProcessors(pathProcessors ...PathProcessor) EventProcessorBuilder {
+func (ep EventProcessorBuilder) WithPathProcessors(pathProcessors ...*PathProcessor) EventProcessorBuilder {
 	ep.pathProcessors = pathProcessors
 	return ep
 }

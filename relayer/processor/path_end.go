@@ -1,4 +1,4 @@
-package paths
+package processor
 
 type PathEnd struct {
 	ChainID string
