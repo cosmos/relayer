@@ -95,13 +95,14 @@ func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) []provider.Re
 	var events []provider.RelayerEvent
 
 	for _, event := range resp.Events {
+		attributes := make(map[string]string)
 		for _, attribute := range event.Attributes {
-			events = append(events, provider.RelayerEvent{
-				EventType:      event.Type,
-				AttributeKey:   string(attribute.Key),
-				AttributeValue: string(attribute.Value),
-			})
+			attributes[string(attribute.Key)] = string(attribute.Value)
 		}
+		events = append(events, provider.RelayerEvent{
+			EventType:  event.Type,
+			Attributes: attributes,
+		})
 	}
 	return events
 }

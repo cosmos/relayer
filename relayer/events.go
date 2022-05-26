@@ -14,8 +14,10 @@ import (
 func ParseClientIDFromEvents(events []provider.RelayerEvent) (string, error) {
 	for _, event := range events {
 		if event.EventType == clienttypes.EventTypeCreateClient {
-			if event.AttributeKey == clienttypes.AttributeKeyClientID {
-				return event.AttributeValue, nil
+			for attributeKey, attributeValue := range event.Attributes {
+				if attributeKey == clienttypes.AttributeKeyClientID {
+					return attributeValue, nil
+				}
 			}
 		}
 	}
@@ -27,8 +29,10 @@ func ParseClientIDFromEvents(events []provider.RelayerEvent) (string, error) {
 func ParseConnectionIDFromEvents(events []provider.RelayerEvent) (string, error) {
 	for _, event := range events {
 		if event.EventType == connectiontypes.EventTypeConnectionOpenInit || event.EventType == connectiontypes.EventTypeConnectionOpenTry {
-			if event.AttributeKey == connectiontypes.AttributeKeyConnectionID {
-				return event.AttributeValue, nil
+			for attributeKey, attributeValue := range event.Attributes {
+				if attributeKey == connectiontypes.AttributeKeyConnectionID {
+					return attributeValue, nil
+				}
 			}
 		}
 	}
@@ -40,8 +44,10 @@ func ParseConnectionIDFromEvents(events []provider.RelayerEvent) (string, error)
 func ParseChannelIDFromEvents(events []provider.RelayerEvent) (string, error) {
 	for _, event := range events {
 		if event.EventType == channeltypes.EventTypeChannelOpenInit || event.EventType == channeltypes.EventTypeChannelOpenTry {
-			if event.AttributeKey == channeltypes.AttributeKeyChannelID {
-				return event.AttributeValue, nil
+			for attributeKey, attributeValue := range event.Attributes {
+				if attributeKey == channeltypes.AttributeKeyChannelID {
+					return attributeValue, nil
+				}
 			}
 		}
 	}
