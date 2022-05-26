@@ -1113,7 +1113,7 @@ func (cc *CosmosProvider) AcknowledgementFromSequence(ctx context.Context, dst p
 		return nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	acks, err := acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId, txs[0])
+	acks, err := cc.acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId, txs[0])
 	switch {
 	case err != nil:
 		return nil, err
@@ -1184,18 +1184,32 @@ EventLoop:
 			case toHeightTag:
 				timeout, err := clienttypes.ParseHeight(attributeValue)
 				if err != nil {
+					cc.log.Warn("error parsing height timeout",
+						zap.String("chain_id", cc.ChainId()),
+						zap.Uint64("sequence", rp.seq),
+						zap.Error(err),
+					)
 					continue EventLoop
 				}
 				rp.timeout = timeout
 			case toTSTag:
 				timeout, err := strconv.ParseUint(attributeValue, 10, 64)
 				if err != nil {
+					cc.log.Warn("error parsing timestamp timeout",
+						zap.String("chain_id", cc.ChainId()),
+						zap.Uint64("sequence", rp.seq),
+						zap.Error(err),
+					)
 					continue EventLoop
 				}
 				rp.timeoutStamp = timeout
 			case seqTag:
 				seq, err := strconv.ParseUint(attributeValue, 10, 64)
 				if err != nil {
+					cc.log.Warn("error parsing packet sequence",
+						zap.String("chain_id", cc.ChainId()),
+						zap.Error(err),
+					)
 					continue EventLoop
 				}
 				rp.seq = seq
@@ -1246,7 +1260,7 @@ EventLoop:
 
 // acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
 // relayPackets with the appropriate data
-func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId string, resp *provider.RelayerTxResponse) ([]provider.RelayPacket, error) {
+func (cc *CosmosProvider) acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId string, resp *provider.RelayerTxResponse) ([]provider.RelayPacket, error) {
 	var ackPackets []provider.RelayPacket
 
 EventLoop:
@@ -1283,18 +1297,32 @@ EventLoop:
 			case toHeightTag:
 				timeout, err := clienttypes.ParseHeight(attributeValue)
 				if err != nil {
+					cc.log.Warn("error parsing height timeout",
+						zap.String("chain_id", cc.ChainId()),
+						zap.Uint64("sequence", rp.seq),
+						zap.Error(err),
+					)
 					continue EventLoop
 				}
 				rp.timeout = timeout
 			case toTSTag:
 				timeout, err := strconv.ParseUint(attributeValue, 10, 64)
 				if err != nil {
+					cc.log.Warn("error parsing timestamp timeout",
+						zap.String("chain_id", cc.ChainId()),
+						zap.Uint64("sequence", rp.seq),
+						zap.Error(err),
+					)
 					continue EventLoop
 				}
 				rp.timeoutStamp = timeout
 			case seqTag:
 				seq, err := strconv.ParseUint(attributeValue, 10, 64)
 				if err != nil {
+					cc.log.Warn("error parsing packet sequence",
+						zap.String("chain_id", cc.ChainId()),
+						zap.Error(err),
+					)
 					continue EventLoop
 				}
 				rp.seq = seq
