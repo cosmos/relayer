@@ -1200,45 +1200,45 @@ EventLoop:
 				}
 				rp.seq = seq
 			}
+		}
 
-			// If packet data is nil or sequence number is 0 keep parsing events,
-			// also check that at least the block height or timestamp is set.
-			if rp.packetData == nil || rp.seq == 0 || (rp.timeout.IsZero() && rp.timeoutStamp == 0) {
-				continue
-			}
+		// If packet data is nil or sequence number is 0 keep parsing events,
+		// also check that at least the block height or timestamp is set.
+		if rp.packetData == nil || rp.seq == 0 || (rp.timeout.IsZero() && rp.timeoutStamp == 0) {
+			continue
+		}
 
-			// fetch the header which represents a block produced on destination
-			block, err := dst.GetIBCUpdateHeader(ctx, dsth, src, srcClientId)
+		// fetch the header which represents a block produced on destination
+		block, err := dst.GetIBCUpdateHeader(ctx, dsth, src, srcClientId)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		// if the timestamp is set on the packet, we need to retrieve the current block time from dst
+		var dstBlockTime int64
+		if rp.timeoutStamp > 0 {
+			dstBlockTime, err = dst.BlockTime(ctx, dsth)
 			if err != nil {
 				return nil, nil, err
 			}
-
-			// if the timestamp is set on the packet, we need to retrieve the current block time from dst
-			var dstBlockTime int64
-			if rp.timeoutStamp > 0 {
-				dstBlockTime, err = dst.BlockTime(ctx, dsth)
-				if err != nil {
-					return nil, nil, err
-				}
-			}
-
-			switch {
-			// If the packet has a timeout time, and it has been reached, return a timeout packet
-			case rp.timeoutStamp > 0 && uint64(dstBlockTime) > rp.timeoutStamp:
-				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
-			// If the packet has a timeout height, and it has been reached, return a timeout packet
-			case !rp.timeout.IsZero() && block.GetHeight().GTE(rp.timeout):
-				timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
-			// If the packet matches the relay constraints relay it as a MsgReceivePacket
-			default:
-				rcvPackets = append(rcvPackets, rp)
-			}
 		}
 
-		// If there is a relayPacket, return it
-		if len(rcvPackets) > 0 || len(timeoutPackets) > 0 {
-			return rcvPackets, timeoutPackets, nil
+		switch {
+		// If the packet has a timeout time, and it has been reached, return a timeout packet
+		case rp.timeoutStamp > 0 && uint64(dstBlockTime) > rp.timeoutStamp:
+			timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
+		// If the packet has a timeout height, and it has been reached, return a timeout packet
+		case !rp.timeout.IsZero() && block.GetHeight().GTE(rp.timeout):
+			timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
+		// If the packet matches the relay constraints relay it as a MsgReceivePacket
+		default:
+			rcvPackets = append(rcvPackets, rp)
 		}
+	}
+
+	// If there is a relayPacket, return it
+	if len(rcvPackets) > 0 || len(timeoutPackets) > 0 {
+		return rcvPackets, timeoutPackets, nil
 	}
 
 	return nil, nil, fmt.Errorf("no packet data found")
@@ -1299,15 +1299,16 @@ EventLoop:
 				}
 				rp.seq = seq
 			}
-
-			// If packet data is nil or sequence number is 0 keep parsing events,
-			// also check that at least the block height or timestamp is set.
-			if rp.ack == nil || rp.packetData == nil || rp.seq == 0 || (rp.timeout.IsZero() && rp.timeoutStamp == 0) {
-				continue
-			}
-
-			ackPackets = append(ackPackets, rp)
 		}
+
+		// If packet data is nil or sequence number is 0 keep parsing events,
+		// also check that at least the block height or timestamp is set.
+		if rp.ack == nil || rp.packetData == nil || rp.seq == 0 || (rp.timeout.IsZero() && rp.timeoutStamp == 0) {
+			continue
+		}
+
+		ackPackets = append(ackPackets, rp)
+
 	}
 
 	// If there is a relayPacket, return it
