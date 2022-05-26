@@ -1053,57 +1053,54 @@ func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst
 		timeoutPackets []provider.RelayPacket
 	)
 
-	rp := &relayMsgRecvPacket{pass: false}
+EventLoop:
+	for _, attributes := range resp.Events {
+		rp := &relayMsgRecvPacket{}
+		for key, attrVal := range attributes {
+			eventType, attrKey := splitEventKey(key)
 
-	for key, attrVal := range resp.Events {
-		rp.pass = false
-		eventType, attrKey := splitEventKey(key)
+			if eventType != spTag {
+				continue
+			}
 
-		if eventType != spTag {
-			continue
-		}
-
-		switch attrKey {
-		case srcChanTag:
-			if attrVal != srcChanId {
-				rp.pass = true
-				continue
+			switch attrKey {
+			case srcChanTag:
+				if attrVal != srcChanId {
+					continue EventLoop
+				}
+			case dstChanTag:
+				if attrVal != dstChanId {
+					continue EventLoop
+				}
+			case srcPortTag:
+				if attrVal != srcPortId {
+					continue EventLoop
+				}
+			case dstPortTag:
+				if attrVal != dstPortId {
+					continue EventLoop
+				}
+			case dataTag:
+				rp.packetData = []byte(attrVal)
+			case toHeightTag:
+				timeout, err := clienttypes.ParseHeight(attrVal)
+				if err != nil {
+					continue EventLoop
+				}
+				rp.timeout = timeout
+			case toTSTag:
+				timeout, err := strconv.ParseUint(attrVal, 10, 64)
+				if err != nil {
+					continue EventLoop
+				}
+				rp.timeoutStamp = timeout
+			case seqTag:
+				seq, err := strconv.ParseUint(attrVal, 10, 64)
+				if err != nil {
+					continue EventLoop
+				}
+				rp.seq = seq
 			}
-		case dstChanTag:
-			if attrVal != dstChanId {
-				rp.pass = true
-				continue
-			}
-		case srcPortTag:
-			if attrVal != srcPortId {
-				rp.pass = true
-				continue
-			}
-		case dstPortTag:
-			if attrVal != dstPortId {
-				rp.pass = true
-				continue
-			}
-		case dataTag:
-			rp.packetData = []byte(attrVal)
-		case toHeightTag:
-			timeout, err := clienttypes.ParseHeight(attrVal)
-			if err != nil {
-				return nil, nil, err
-			}
-			rp.timeout = timeout
-		case toTSTag:
-			timeout, err := strconv.ParseUint(attrVal, 10, 64)
-			if err != nil {
-				return nil, nil, err
-			}
-			rp.timeoutStamp = timeout
-		case seqTag:
-			seq, err := strconv.ParseUint(attrVal, 10, 64)
-			if err != nil {
-				return nil, nil, err
-			}
-			rp.seq = seq
 		}
 
 		// If packet data is nil or sequence number is 0 keep parsing events,
@@ -1135,14 +1132,14 @@ func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst
 		case !rp.timeout.IsZero() && block.GetHeight().GTE(rp.timeout):
 			timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
 		// If the packet matches the relay constraints relay it as a MsgReceivePacket
-		case !rp.pass:
+		default:
 			rcvPackets = append(rcvPackets, rp)
 		}
+	}
 
-		// If there is a relayPacket, return it
-		if len(rcvPackets) > 0 || len(timeoutPackets) > 0 {
-			return rcvPackets, timeoutPackets, nil
-		}
+	// If there is a relayPacket, return it
+	if len(rcvPackets) > 0 || len(timeoutPackets) > 0 {
+		return rcvPackets, timeoutPackets, nil
 	}
 
 	return nil, nil, fmt.Errorf("no packet data found")
@@ -1153,58 +1150,56 @@ func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst
 func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId string, resp *provider.RelayerTxResponse) ([]provider.RelayPacket, error) {
 	var ackPackets []provider.RelayPacket
 
-	rp := &relayMsgPacketAck{pass: false}
-	for key, attrVal := range resp.Events {
-		rp.pass = false
-		eventType, attrKey := splitEventKey(key)
+EventLoop:
+	for _, attributes := range resp.Events {
+		rp := &relayMsgPacketAck{}
+		for key, attrVal := range attributes {
+			eventType, attrKey := splitEventKey(key)
 
-		if eventType != waTag {
-			continue
-		}
+			if eventType != waTag {
+				continue
+			}
 
-		switch attrKey {
-		case srcChanTag:
-			if attrVal != srcChanId {
-				rp.pass = true
-				continue
+			switch attrKey {
+			case srcChanTag:
+				if attrVal != srcChanId {
+					continue EventLoop
+				}
+			case dstChanTag:
+				if attrVal != dstChanId {
+					continue EventLoop
+				}
+			case srcPortTag:
+				if attrVal != srcPortId {
+					continue EventLoop
+				}
+			case dstPortTag:
+				if attrVal != dstPortId {
+					continue EventLoop
+				}
+			case ackTag:
+				rp.ack = []byte(attrVal)
+			case dataTag:
+				rp.packetData = []byte(attrVal)
+			case toHeightTag:
+				timeout, err := clienttypes.ParseHeight(attrVal)
+				if err != nil {
+					continue EventLoop
+				}
+				rp.timeout = timeout
+			case toTSTag:
+				timeout, err := strconv.ParseUint(attrVal, 10, 64)
+				if err != nil {
+					continue EventLoop
+				}
+				rp.timeoutStamp = timeout
+			case seqTag:
+				seq, err := strconv.ParseUint(attrVal, 10, 64)
+				if err != nil {
+					continue EventLoop
+				}
+				rp.seq = seq
 			}
-		case dstChanTag:
-			if attrVal != dstChanId {
-				rp.pass = true
-				continue
-			}
-		case srcPortTag:
-			if attrVal != srcPortId {
-				rp.pass = true
-				continue
-			}
-		case dstPortTag:
-			if attrVal != dstPortId {
-				rp.pass = true
-				continue
-			}
-		case ackTag:
-			rp.ack = []byte(attrVal)
-		case dataTag:
-			rp.packetData = []byte(attrVal)
-		case toHeightTag:
-			timeout, err := clienttypes.ParseHeight(attrVal)
-			if err != nil {
-				return nil, err
-			}
-			rp.timeout = timeout
-		case toTSTag:
-			timeout, err := strconv.ParseUint(attrVal, 10, 64)
-			if err != nil {
-				return nil, err
-			}
-			rp.timeoutStamp = timeout
-		case seqTag:
-			seq, err := strconv.ParseUint(attrVal, 10, 64)
-			if err != nil {
-				return nil, err
-			}
-			rp.seq = seq
 		}
 
 		// If packet data is nil or sequence number is 0 keep parsing events,
@@ -1213,9 +1208,7 @@ func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId str
 			continue
 		}
 
-		if !rp.pass {
-			ackPackets = append(ackPackets, rp)
-		}
+		ackPackets = append(ackPackets, rp)
 	}
 
 	// If there is a relayPacket, return it
@@ -1639,13 +1632,15 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 	}
 
 	// Parse events and build a map where the key is event.Type+"."+attribute.Key
-	events := make(map[string]string, 1)
+	events := make([]map[string]string, 1)
 	for _, logs := range res.Logs {
 		for _, ev := range logs.Events {
+			attributes := make(map[string]string)
 			for _, attr := range ev.Attributes {
 				key := ev.Type + "." + attr.Key
-				events[key] = attr.Value
+				attributes[key] = attr.Value
 			}
+			events = append(events, attributes)
 		}
 	}
 

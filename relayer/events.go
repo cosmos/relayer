@@ -11,12 +11,14 @@ import (
 
 // ParseClientIDFromEvents parses events emitted from a MsgCreateClient and returns the
 // client identifier.
-func ParseClientIDFromEvents(events map[string]string) (string, error) {
-	for k, v := range events {
-		eventType, attrKey := splitEventKey(k)
-		if eventType == clienttypes.EventTypeCreateClient {
-			if attrKey == clienttypes.AttributeKeyClientID {
-				return v, nil
+func ParseClientIDFromEvents(events []map[string]string) (string, error) {
+	for _, attributes := range events {
+		for attrKey, attrValue := range attributes {
+			eventType, attrKey := splitEventKey(attrKey)
+			if eventType == clienttypes.EventTypeCreateClient {
+				if attrKey == clienttypes.AttributeKeyClientID {
+					return attrValue, nil
+				}
 			}
 		}
 	}
@@ -25,13 +27,15 @@ func ParseClientIDFromEvents(events map[string]string) (string, error) {
 
 // ParseConnectionIDFromEvents parses events emitted from a MsgConnectionOpenInit or
 // MsgConnectionOpenTry and returns the connection identifier.
-func ParseConnectionIDFromEvents(events map[string]string) (string, error) {
-	for k, v := range events {
-		eventType, attrKey := splitEventKey(k)
-		if eventType == connectiontypes.EventTypeConnectionOpenInit ||
-			eventType == connectiontypes.EventTypeConnectionOpenTry {
-			if attrKey == connectiontypes.AttributeKeyConnectionID {
-				return v, nil
+func ParseConnectionIDFromEvents(events []map[string]string) (string, error) {
+	for _, attributes := range events {
+		for attrKey, attrValue := range attributes {
+			eventType, attrKey := splitEventKey(attrKey)
+			if eventType == connectiontypes.EventTypeConnectionOpenInit ||
+				eventType == connectiontypes.EventTypeConnectionOpenTry {
+				if attrKey == connectiontypes.AttributeKeyConnectionID {
+					return attrValue, nil
+				}
 			}
 		}
 	}
@@ -40,12 +44,14 @@ func ParseConnectionIDFromEvents(events map[string]string) (string, error) {
 
 // ParseChannelIDFromEvents parses events emitted from a MsgChannelOpenInit or
 // MsgChannelOpenTry and returns the channel identifier.
-func ParseChannelIDFromEvents(events map[string]string) (string, error) {
-	for k, v := range events {
-		eventType, attrKey := splitEventKey(k)
-		if eventType == channeltypes.EventTypeChannelOpenInit || eventType == channeltypes.EventTypeChannelOpenTry {
-			if attrKey == channeltypes.AttributeKeyChannelID {
-				return v, nil
+func ParseChannelIDFromEvents(events []map[string]string) (string, error) {
+	for _, attributes := range events {
+		for attrKey, attrValue := range attributes {
+			eventType, attrKey := splitEventKey(attrKey)
+			if eventType == channeltypes.EventTypeChannelOpenInit || eventType == channeltypes.EventTypeChannelOpenTry {
+				if attrKey == channeltypes.AttributeKeyChannelID {
+					return attrValue, nil
+				}
 			}
 		}
 	}

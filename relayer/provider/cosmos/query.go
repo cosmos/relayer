@@ -91,13 +91,15 @@ func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events 
 
 // parseEventsFromResponseDeliverTx parses the events from a ResponseDeliverTx and builds a map
 // where the keys are equal to event.Type+"."+attribute.Key and the values are the attribute.Value.
-func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) (events map[string]string) {
-	events = make(map[string]string, len(resp.Events))
+func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) (events []map[string]string) {
+	events = make([]map[string]string, len(resp.Events))
 	for _, event := range resp.Events {
+		eventAttributes := make(map[string]string, len(event.Attributes))
 		for _, attribute := range event.Attributes {
 			key := event.Type + "." + string(attribute.Key)
-			events[key] = string(attribute.Value)
+			eventAttributes[key] = string(attribute.Value)
 		}
+		events = append(events, eventAttributes)
 	}
 	return
 }

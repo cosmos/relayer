@@ -89,8 +89,6 @@ type relayMsgRecvPacket struct {
 	timeout      clienttypes.Height
 	timeoutStamp uint64
 	dstComRes    *chantypes.QueryPacketCommitmentResponse
-
-	pass bool
 }
 
 func (rp relayMsgRecvPacket) timeoutPacket() *relayMsgTimeout {
@@ -100,7 +98,6 @@ func (rp relayMsgRecvPacket) timeoutPacket() *relayMsgTimeout {
 		timeout:      rp.timeout,
 		timeoutStamp: rp.timeoutStamp,
 		dstRecvRes:   nil,
-		pass:         false,
 	}
 }
 
