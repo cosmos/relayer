@@ -8,10 +8,10 @@ import (
 
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/mock"
-	"github.com/cosmos/relayer/v2/relayer/chains/processor"
-	"github.com/cosmos/relayer/v2/relayer/ibc"
 	"github.com/cosmos/relayer/v2/relayer/paths"
+	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -26,13 +26,6 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	pathEnd1 := paths.PathEnd{ChainID: mockChainID1}
 	pathEnd2 := paths.PathEnd{ChainID: mockChainID2}
 
-	log := zaptest.NewLogger(t)
-
-	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*20)
-	defer ctxCancel()
-
-	pathProcessor := paths.NewPathProcessor(log, pathEnd1, pathEnd2)
-
 	mockSequence1 := uint64(0)
 	mockSequence2 := uint64(0)
 	lastSentMockMsgRecvSequence1 := uint64(0)
@@ -46,22 +39,41 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 		return getMockMessages(&mockSequence2, &mockSequence1, &lastSentMockMsgRecvSequence1, &mockLock)
 	}
 
-	chainProcessor1 := mock.NewMockChainProcessor(ctx, log, mockChainID1, getMockMessages1, pathProcessor)
-	chainProcessor2 := mock.NewMockChainProcessor(ctx, log, mockChainID2, getMockMessages2, pathProcessor)
+	log := zaptest.NewLogger(t)
 
-	pathProcessor.SetPathEnd1ChainProcessor(chainProcessor1)
-	pathProcessor.SetPathEnd2ChainProcessor(chainProcessor2)
+	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*20)
+	defer ctxCancel()
 
-	initialBlockHistory := uint64(100)
-	processor.Run(ctx, initialBlockHistory, chainProcessor1, chainProcessor2)
+	pathProcessor := paths.NewRelayerPathProcessor(log, pathEnd1, pathEnd2)
 
-	pathEnd1LeftoverMsgTransfer := pathProcessor.PathEnd1Messages(ibc.MsgTransfer)
-	pathEnd1LeftoverMsgRecvPacket := pathProcessor.PathEnd1Messages(ibc.MsgRecvPacket)
-	pathEnd1LeftoverMsgAcknowledgement := pathProcessor.PathEnd1Messages(ibc.MsgAcknowledgement)
+	eventProcessor := processor.NewEventProcessor().
+		WithChainProcessors(
+			mock.NewMockChainProcessor(log, mockChainID1, getMockMessages1),
+			mock.NewMockChainProcessor(log, mockChainID2, getMockMessages2),
+		).
+		WithInitialBlockHistory(100).
+		WithPathProcessors(pathProcessor).
+		Build()
 
-	pathEnd2LeftoverMsgTransfer := pathProcessor.PathEnd2Messages(ibc.MsgTransfer)
-	pathEnd2LeftoverMsgRecvPacket := pathProcessor.PathEnd2Messages(ibc.MsgRecvPacket)
-	pathEnd2LeftoverMsgAcknowledgement := pathProcessor.PathEnd2Messages(ibc.MsgAcknowledgement)
+	err := eventProcessor.Run(ctx)
+	require.NoError(t, err, "error running event processor")
+
+	pathEnd1LeftoverMsgTransfer := pathProcessor.PathEnd1Messages(processor.MsgTransfer)
+	pathEnd1LeftoverMsgRecvPacket := pathProcessor.PathEnd1Messages(processor.MsgRecvPacket)
+	pathEnd1LeftoverMsgAcknowledgement := pathProcessor.PathEnd1Messages(processor.MsgAcknowledgement)
+
+	pathEnd2LeftoverMsgTransfer := pathProcessor.PathEnd2Messages(processor.MsgTransfer)
+	pathEnd2LeftoverMsgRecvPacket := pathProcessor.PathEnd2Messages(processor.MsgRecvPacket)
+	pathEnd2LeftoverMsgAcknowledgement := pathProcessor.PathEnd2Messages(processor.MsgAcknowledgement)
+
+	log.Debug("leftover",
+		zap.Int("pathEnd1MsgTransfer", len(pathEnd1LeftoverMsgTransfer)),
+		zap.Int("pathEnd1MsgRecvPacket", len(pathEnd1LeftoverMsgRecvPacket)),
+		zap.Int("pathEnd1MsgAcknowledgement", len(pathEnd1LeftoverMsgAcknowledgement)),
+		zap.Int("pathEnd2MsgTransfer", len(pathEnd2LeftoverMsgTransfer)),
+		zap.Int("pathEnd2MsgRecvPacket", len(pathEnd2LeftoverMsgRecvPacket)),
+		zap.Int("pathEnd2MsgAcknowledgement", len(pathEnd2LeftoverMsgAcknowledgement)),
+	)
 
 	// at most 3 msg transfer could still be stuck in queue since chain processor was shut down, so msgrecvpacket would never be "received" by counterparty
 	require.LessOrEqual(t, len(pathEnd1LeftoverMsgTransfer), 3)
@@ -85,20 +97,20 @@ func getMockMessages(mockSequence, mockSequenceCounterparty, lastSentMockMsgRecv
 	*mockSequence++
 	mockMessages := []mock.TransactionMessage{
 		{
-			Action:     ibc.MsgTransfer,
+			Action:     processor.MsgTransfer,
 			PacketInfo: &chantypes.Packet{Sequence: *mockSequence},
 		},
 	}
 	if *mockSequenceCounterparty > 1 && *lastSentMockMsgRecvCounterparty != *mockSequenceCounterparty {
 		*lastSentMockMsgRecvCounterparty = *mockSequenceCounterparty
 		mockMessages = append(mockMessages, mock.TransactionMessage{
-			Action:     ibc.MsgRecvPacket,
+			Action:     processor.MsgRecvPacket,
 			PacketInfo: &chantypes.Packet{Sequence: *mockSequenceCounterparty - 1},
 		})
 	}
 	if *mockSequence > 2 {
 		mockMessages = append(mockMessages, mock.TransactionMessage{
-			Action:     ibc.MsgAcknowledgement,
+			Action:     processor.MsgAcknowledgement,
 			PacketInfo: &chantypes.Packet{Sequence: *mockSequence - 2},
 		})
 	}

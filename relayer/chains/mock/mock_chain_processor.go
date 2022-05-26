@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cosmos/relayer/v2/relayer/paths"
+	"github.com/cosmos/relayer/v2/relayer/processor"
 
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"go.uber.org/zap"
@@ -16,13 +16,12 @@ const (
 )
 
 type MockChainProcessor struct {
-	ctx context.Context
 	log *zap.Logger
 
 	chainID string
 
 	// subscribers to this chain processor, where relevant IBC messages will be published
-	pathProcessors []*paths.PathProcessor
+	pathProcessors []processor.PathProcessor
 
 	// cached latest height of the chain
 	latestHeight uint64
@@ -40,20 +39,26 @@ type TransactionMessage struct {
 	PacketInfo *chantypes.Packet
 }
 
-func NewMockChainProcessor(ctx context.Context, log *zap.Logger, chainID string, getMockMessages func() []TransactionMessage, pathProcessors ...*paths.PathProcessor) *MockChainProcessor {
+func NewMockChainProcessor(log *zap.Logger, chainID string, getMockMessages func() []TransactionMessage) *MockChainProcessor {
 	return &MockChainProcessor{
-		ctx:             ctx,
 		log:             log,
 		chainID:         chainID,
-		pathProcessors:  pathProcessors,
 		getMockMessages: getMockMessages,
 	}
+}
+
+func (mcp *MockChainProcessor) SetPathProcessors(pathProcessors processor.PathProcessors) {
+	mcp.pathProcessors = pathProcessors
 }
 
 func (mcp *MockChainProcessor) InSync() bool {
 	mcp.inSyncLock.RLock()
 	defer mcp.inSyncLock.RUnlock()
 	return mcp.inSync
+}
+
+func (mcp *MockChainProcessor) ChainID() string {
+	return mcp.chainID
 }
 
 func (mcp *MockChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
@@ -75,7 +80,7 @@ func (mcp *MockChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 
 	// QueryLoop:
 	for {
-		if mcp.ctx.Err() != nil {
+		if ctx.Err() != nil {
 			return nil
 		}
 		cycleTimeStart := time.Now()
@@ -89,7 +94,6 @@ func (mcp *MockChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 		mcp.latestHeight++
 		// until in sync, determine if our latest queries are up to date with the current chain height
 		// this will cause the PathProcessors to start processing the backlog of message state (once both chainprocessors are in sync)
-		firstTimeInSync := false
 		mcp.inSyncLock.RLock()
 		inSync := mcp.inSync
 		mcp.inSyncLock.RUnlock()
@@ -99,7 +103,6 @@ func (mcp *MockChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 				mcp.inSyncLock.Lock()
 				mcp.inSync = true
 				mcp.inSyncLock.Unlock()
-				firstTimeInSync = true
 				mcp.log.Info("chain is in sync", zap.String("chain_id", mcp.chainID))
 			} else {
 				mcp.log.Warn("chain is not yet in sync",
@@ -124,7 +127,7 @@ func (mcp *MockChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 			// fetch block
 
 			// used for collecting IBC messages that will be sent to the Path Processors
-			foundMessages := make(paths.ChannelMessageCache)
+			foundMessages := make(processor.ChannelMessageCache)
 
 			// iterate through transactions
 			// iterate through messages in transactions
@@ -160,12 +163,6 @@ func (mcp *MockChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 				}
 			}
 			latestQueriedBlock = i
-		}
-
-		if firstTimeInSync {
-			for _, pp := range mcp.pathProcessors {
-				go pp.ScheduleNextProcess(true)
-			}
 		}
 
 		doneWithThisCycle()
