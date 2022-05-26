@@ -48,6 +48,7 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 	srcChannels = applyChannelFilterRule(filter, srcChannels)
 	srcOpenChannels := filterOpenChannels(srcChannels)
 
+
 	for {
 		// TODO on each iteration we should query recent txs and look for ChannelOpenInit events
 		// and if we find any we should attempt to finish the channel handshake for that channel.
@@ -55,6 +56,10 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 		//
 		// We may additionally want to look for ChannelOpenConfirm events which indicate a new channel was just created.
 		// As new channels are created/detected we would re-apply the channel filter rule as well.
+
+		if len(srcOpenChannels) == 0 {
+			continue
+		}
 
 		// Spin up a goroutine to relay packets & acks for each channel that isn't already being relayed against
 		for _, channel := range srcOpenChannels {

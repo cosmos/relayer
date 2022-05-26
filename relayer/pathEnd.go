@@ -33,6 +33,18 @@ func OrderFromString(order string) chantypes.Order {
 	}
 }
 
+// StringFromOrder returns the string representation of a channel order.
+func StringFromOrder(order chantypes.Order) string {
+	switch order {
+	case chantypes.UNORDERED:
+		return "unordered"
+	case chantypes.ORDERED:
+		return "ordered"
+	default:
+		return ""
+	}
+}
+
 var marshalledChains = map[PathEnd]*Chain{}
 
 // MarshalChain is PathEnd

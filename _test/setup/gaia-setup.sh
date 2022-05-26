@@ -38,5 +38,5 @@ sed -i 's/timeout_propose = "3s"/timeout_propose = "1s"/g' ~/.gaia/config/config
 sed -i 's/index_all_keys = false/index_all_keys = true/g' ~/.gaia/config/config.toml
 
 # Start the gaia
-gaiad start --pruning=nothing
+gaiad start --pruning=nothing --minimum-gas-prices 0.0uatom;0.0stake
 

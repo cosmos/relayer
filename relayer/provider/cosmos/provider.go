@@ -888,43 +888,119 @@ func (cc *CosmosProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcP
 // MsgRelayTimeout constructs the MsgTimeout which is to be sent to the sending chain.
 // The counterparty represents the receiving chain where the receipts would have been
 // stored.
-func (cc *CosmosProvider) MsgRelayTimeout(ctx context.Context, dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) MsgRelayTimeout(
+	ctx context.Context,
+	dst provider.ChainProvider,
+	dsth int64,
+	packet provider.RelayPacket,
+	dstChanId, dstPortId, srcChanId, srcPortId string,
+	order chantypes.Order,
+) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
+		msg provider.RelayerMessage
 	)
 	if acc, err = cc.Address(); err != nil {
 		return nil, err
 	}
 
-	recvRes, err := dst.QueryPacketReceipt(ctx, dsth, dstChanId, dstPortId, packet.Seq())
-	switch {
-	case err != nil:
-		return nil, err
-	case recvRes.Proof == nil:
-		return nil, fmt.Errorf("timeout packet receipt proof seq(%d) is nil", packet.Seq())
-	case recvRes == nil:
-		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", cc.PCfg.ChainID, packet.Seq())
-	default:
-		msg := &chantypes.MsgTimeout{
-			Packet: chantypes.Packet{
-				Sequence:           packet.Seq(),
-				SourcePort:         srcPortId,
-				SourceChannel:      srcChanId,
-				DestinationPort:    dstPortId,
-				DestinationChannel: dstChanId,
-				Data:               packet.Data(),
-				TimeoutHeight:      packet.Timeout(),
-				TimeoutTimestamp:   packet.TimeoutStamp(),
-			},
-			ProofUnreceived:  recvRes.Proof,
-			ProofHeight:      recvRes.ProofHeight,
-			NextSequenceRecv: packet.Seq(),
-			Signer:           acc,
+	switch order {
+	case chantypes.UNORDERED:
+		msg, err = cc.unorderedChannelTimeoutMsg(ctx, dst, dsth, packet, acc, dstChanId, dstPortId, srcChanId, srcPortId)
+		if err != nil {
+			return nil, err
 		}
-
-		return NewCosmosMessage(msg), nil
+	case chantypes.ORDERED:
+		msg, err = cc.orderedChannelTimeoutMsg(ctx, dst, dsth, packet, acc, dstChanId, dstPortId, srcChanId, srcPortId)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("invalid order type %s, order should be %s or %s",
+			order, chantypes.ORDERED, chantypes.UNORDERED)
 	}
+
+	return msg, nil
+}
+
+func (cc *CosmosProvider) orderedChannelTimeoutMsg(
+	ctx context.Context,
+	dst provider.ChainProvider,
+	dsth int64,
+	packet provider.RelayPacket,
+	acc, dstChanId, dstPortId, srcChanId, srcPortId string,
+) (provider.RelayerMessage, error) {
+	seqRes, err := dst.QueryNextSeqRecv(ctx, dsth, dstChanId, dstPortId)
+	if err != nil {
+		return nil, err
+	}
+
+	if seqRes == nil {
+		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", cc.PCfg.ChainID, packet.Seq())
+	}
+
+	if seqRes.Proof == nil {
+		return nil, fmt.Errorf("timeout packet next sequence received proof seq(%d) is nil", packet.Seq())
+	}
+
+	msg := &chantypes.MsgTimeout{
+		Packet: chantypes.Packet{
+			Sequence:           packet.Seq(),
+			SourcePort:         srcPortId,
+			SourceChannel:      srcChanId,
+			DestinationPort:    dstPortId,
+			DestinationChannel: dstChanId,
+			Data:               packet.Data(),
+			TimeoutHeight:      packet.Timeout(),
+			TimeoutTimestamp:   packet.TimeoutStamp(),
+		},
+		ProofUnreceived:  seqRes.Proof,
+		ProofHeight:      seqRes.ProofHeight,
+		NextSequenceRecv: packet.Seq(),
+		Signer:           acc,
+	}
+
+	return NewCosmosMessage(msg), nil
+}
+
+func (cc *CosmosProvider) unorderedChannelTimeoutMsg(
+	ctx context.Context,
+	dst provider.ChainProvider,
+	dsth int64,
+	packet provider.RelayPacket,
+	acc, dstChanId, dstPortId, srcChanId, srcPortId string,
+) (provider.RelayerMessage, error) {
+	recvRes, err := dst.QueryPacketReceipt(ctx, dsth, dstChanId, dstPortId, packet.Seq())
+	if err != nil {
+		return nil, err
+	}
+
+	if recvRes == nil {
+		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", cc.PCfg.ChainID, packet.Seq())
+	}
+
+	if recvRes.Proof == nil {
+		return nil, fmt.Errorf("timeout packet receipt proof seq(%d) is nil", packet.Seq())
+	}
+
+	msg := &chantypes.MsgTimeout{
+		Packet: chantypes.Packet{
+			Sequence:           packet.Seq(),
+			SourcePort:         srcPortId,
+			SourceChannel:      srcChanId,
+			DestinationPort:    dstPortId,
+			DestinationChannel: dstChanId,
+			Data:               packet.Data(),
+			TimeoutHeight:      packet.Timeout(),
+			TimeoutTimestamp:   packet.TimeoutStamp(),
+		},
+		ProofUnreceived:  recvRes.Proof,
+		ProofHeight:      recvRes.ProofHeight,
+		NextSequenceRecv: packet.Seq(),
+		Signer:           acc,
+	}
+	return NewCosmosMessage(msg), nil
 }
 
 // MsgRelayRecvPacket constructs the MsgRecvPacket which is to be sent to the receiving chain.
@@ -968,7 +1044,13 @@ func (cc *CosmosProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.C
 }
 
 // RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
-func (cc *CosmosProvider) RelayPacketFromSequence(ctx context.Context, src, dst provider.ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string) (provider.RelayerMessage, provider.RelayerMessage, error) {
+func (cc *CosmosProvider) RelayPacketFromSequence(
+	ctx context.Context,
+	src, dst provider.ChainProvider,
+	srch, dsth, seq uint64,
+	dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string,
+	order chantypes.Order,
+) (provider.RelayerMessage, provider.RelayerMessage, error) {
 	txs, err := cc.QueryTxs(ctx, 1, 1000, rcvPacketQuery(srcChanId, int(seq)))
 	switch {
 	case err != nil:
@@ -1009,7 +1091,7 @@ func (cc *CosmosProvider) RelayPacketFromSequence(ctx context.Context, src, dst 
 			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
 		}
 
-		timeout, err := src.MsgRelayTimeout(ctx, dst, int64(dsth), pkt, dstChanId, dstPortId, srcChanId, srcPortId)
+		timeout, err := src.MsgRelayTimeout(ctx, dst, int64(dsth), pkt, dstChanId, dstPortId, srcChanId, srcPortId, order)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1729,6 +1811,11 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 
 func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
 	var events []provider.RelayerEvent
+
+	if resp == nil {
+		return events
+	}
+
 	for _, logs := range resp.Logs {
 		for _, event := range logs.Events {
 			for _, attr := range event.Attributes {

@@ -6,7 +6,7 @@ require (
 	github.com/cosmos/cosmos-sdk v0.45.1
 	github.com/cosmos/relayer/v2 v2.0.0
 	github.com/ory/dockertest/v3 v3.8.1
-	github.com/strangelove-ventures/ibc-test-framework v0.0.0-20220426102241-ab203122a01b
+	github.com/strangelove-ventures/ibctest v0.0.0-20220524122627-7c657bd34983
 	go.uber.org/zap v1.21.0
 )
 
@@ -136,11 +136,14 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/crypto v0.0.0-20220307211146-efcb8507fb70 // indirect
+	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20220422013727-9388b58f7150 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/tools v0.1.10 // indirect
+	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f // indirect
 	google.golang.org/genproto v0.0.0-20220222213610-43724f9ea8cf // indirect
 	google.golang.org/grpc v1.44.0 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
