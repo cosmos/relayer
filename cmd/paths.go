@@ -271,15 +271,20 @@ $ %s pth fch`, appName, defaultHome, appName)),
 			for _, pthName := range combinations {
 
 				_, exist := a.Config.Paths[pthName]
-				if exist && overwrite {
-					fmt.Printf("skipping -- %s already exists in config, use -o to overwrite\n", pthName)
+				if exist && !overwrite {
+					fmt.Printf("skipping -- %s already exists in config, use -o to overwrite (clears filters) \n", pthName)
 					continue
 				}
+
+				// TDOD: download entire chain-registry/_IBC folder and search files that way to scale github client ratelimit
 
 				fileName := pthName + ".json"
 				reg_path := filepath.Join("_IBC", fileName)
 				r, err := client.Repositories.DownloadContents(gh_ctx, "cosmos", "chain-registry", reg_path, nil)
 				if err != nil {
+					if _, ok := err.(*github.RateLimitError); ok {
+						return fmt.Errorf("hit github rate limit ERR: %w", err)
+					}
 					fmt.Printf("not found -- path %s not found on chain-registry\n", pthName)
 					continue
 				}
