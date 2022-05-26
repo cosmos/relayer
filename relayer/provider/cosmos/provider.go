@@ -1153,8 +1153,8 @@ func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst
 		timeoutPackets []provider.RelayPacket
 	)
 
-	rp := &relayMsgRecvPacket{pass: false}
 	for _, event := range resp.Events {
+		rp := &relayMsgRecvPacket{pass: false}
 		rp.pass = false
 
 		if event.EventType != spTag {
@@ -1251,8 +1251,8 @@ func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst
 func acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId string, resp *provider.RelayerTxResponse) ([]provider.RelayPacket, error) {
 	var ackPackets []provider.RelayPacket
 
-	rp := &relayMsgPacketAck{pass: false}
 	for _, event := range resp.Events {
+		rp := &relayMsgPacketAck{pass: false}
 		rp.pass = false
 
 		if event.EventType != waTag {
