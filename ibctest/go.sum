@@ -929,6 +929,8 @@ github.com/steakknife/bloomfilter v0.0.0-20180922174646-6819c0d2a570/go.mod h1:8
 github.com/steakknife/hamming v0.0.0-20180906055917-c99c65617cd3/go.mod h1:hpGUWaI9xL8pRQCTXQgocU38Qw1g0Us7n5PxxTwTCYU=
 github.com/strangelove-ventures/ibctest v0.0.0-20220524122627-7c657bd34983 h1:Z+K3+FvC7b9f6fH4r9xFRXh5ueMgQAeAwTdGh09tbdU=
 github.com/strangelove-ventures/ibctest v0.0.0-20220524122627-7c657bd34983/go.mod h1:WQf13YWKaB2h9uzDSKUIehiOWbAqYTcJWQ2SGj04Ndg=
+github.com/strangelove-ventures/ibctest v0.0.0-20220526210715-7f10563bfe65 h1:Mp9ftARQJ2VduGDJwqVyHY1umoLvW0WHTEgEzvrahmA=
+github.com/strangelove-ventures/ibctest v0.0.0-20220526210715-7f10563bfe65/go.mod h1:KTmqIpN6fxLAmaa6eo/EWTCbQHv5NPmYnD3LLQ8QAds=
 github.com/strangelove-ventures/lens v0.3.1-0.20220407203447-bcb1fa2e7b3a h1:9nwCWqs6BHJomom4TEQXCSQ0I8AKPwXNzSXZRr3i2vk=
 github.com/strangelove-ventures/lens v0.3.1-0.20220407203447-bcb1fa2e7b3a/go.mod h1:17n4M/9F6YWAvmaqJLh0/8dZgUz23grtImvd58gBe28=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
