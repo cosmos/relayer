@@ -31,9 +31,10 @@ before you commit.
 
 If you would like to point to a specific version of `ibctest`, you can do so using a commit hash.
 
-make sure you are in the relayer/ibctest directory
+From the relayer/ibctest directory, run:
 
-run:
-`go get github.com/strangelove-ventures/ibctest@<COMMIT_HASH_HERE>`
+```
+go get github.com/strangelove-ventures/ibctest@<COMMIT_HASH_HERE>
+```
 
-your go.mod file should update respectively
+Your go.mod file should update respectively.
