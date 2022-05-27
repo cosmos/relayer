@@ -184,9 +184,6 @@ MsgTransferLoop:
 	}
 
 	// would iterate timeout messages here also
-
-	res.ToDeleteSrc = res.ToDeleteSrc
-	res.ToDeleteDst = res.ToDeleteDst
 }
 
 func (pp *PathProcessor) sendMessages(pathEnd *PathEndRuntime, messages []IBCMessageWithSequence) error {
