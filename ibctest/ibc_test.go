@@ -23,6 +23,23 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
+var (
+	gaiaFactoryEntry = ibctest.BuiltinChainFactoryEntry{
+		Name: "gaia", Version: "v7.0.1", ChainID: "cosmoshub-1004",
+		NumValidators: 2, NumFullNodes: 1,
+	}
+
+	osmosisFactoryEntry = ibctest.BuiltinChainFactoryEntry{
+		Name: "osmosis", Version: "v7.2.0", ChainID: "osmosis-1001",
+		NumValidators: 2, NumFullNodes: 1,
+	}
+
+	junoFactoryEntry = ibctest.BuiltinChainFactoryEntry{
+		Name: "juno", Version: "v6.0.0", ChainID: "juno-1003",
+		NumValidators: 2, NumFullNodes: 1,
+	}
+)
+
 // TestRelayer runs the ibctest conformance tests against
 // the current state of this relayer implementation.
 //
@@ -31,9 +48,11 @@ import (
 //
 // The canonical set of test chains are defined in the ibctest repository.
 func TestRelayer(t *testing.T) {
+	t.Parallel()
+
 	cf := ibctest.NewBuiltinChainFactory([]ibctest.BuiltinChainFactoryEntry{
-		{Name: "gaia", Version: "v7.0.1", ChainID: "cosmoshub-1004", NumValidators: 2, NumFullNodes: 1},
-		{Name: "osmosis", Version: "v7.2.0", ChainID: "osmosis-1001", NumValidators: 2, NumFullNodes: 1},
+		gaiaFactoryEntry,
+		osmosisFactoryEntry,
 	}, zaptest.NewLogger(t))
 	conformance.Test(
 		t,
@@ -259,6 +278,13 @@ func (r *relayer) UpdateClients(ctx context.Context, _ ibc.RelayerExecReporter, 
 }
 
 func (r *relayer) StartRelayer(ctx context.Context, _ ibc.RelayerExecReporter, pathName string) error {
+	return r.StartRelayerMany(ctx, pathName)
+}
+
+// StartRelayerMany is a nonstandard Relayer method.
+// Our relayer is capable of relaying many paths at once,
+// so expose that functionality for test.
+func (r *relayer) StartRelayerMany(ctx context.Context, pathNames ...string) error {
 	if r.errCh != nil || r.cancel != nil {
 		panic(fmt.Errorf("StartRelayer called multiple times without being stopped"))
 	}
@@ -266,7 +292,7 @@ func (r *relayer) StartRelayer(ctx context.Context, _ ibc.RelayerExecReporter, p
 	r.errCh = make(chan error, 1)
 	ctx, r.cancel = context.WithCancel(ctx)
 
-	go r.start(ctx, pathName)
+	go r.start(ctx, pathNames...)
 	return nil
 }
 
@@ -280,11 +306,12 @@ func (r *relayer) StopRelayer(ctx context.Context, _ ibc.RelayerExecReporter) er
 }
 
 // start runs in its own goroutine, blocking until "rly start" finishes.
-func (r *relayer) start(ctx context.Context, pathName string) {
+func (r *relayer) start(ctx context.Context, pathNames ...string) {
 	// Start the debug server on a random port.
 	// It won't be reachable without introspecting the output,
 	// but this will allow catching any possible data races around the debug server.
-	res := r.sys().RunC(ctx, r.log(), "start", pathName, "--debug-addr", "localhost:0")
+	args := append([]string{"start", "--debug-addr", "localhost:0"}, pathNames...)
+	res := r.sys().RunC(ctx, r.log(), args...)
 	if res.Err != nil {
 		r.errCh <- res.Err
 		return
