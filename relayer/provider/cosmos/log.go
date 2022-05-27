@@ -24,12 +24,14 @@ func getChannelsIfPresent(events []provider.RelayerEvent) []zapcore.Field {
 
 	for _, event := range events {
 		for _, tag := range channelTags {
-			if event.AttributeKey == tag {
-				// Only append the tag once
-				// TODO: what if they are different?
-				if _, ok := foundTag[tag]; !ok {
-					fields = append(fields, zap.String(tag, event.AttributeValue))
-					foundTag[tag] = struct{}{}
+			for attributeKey, attributeValue := range event.Attributes {
+				if attributeKey == tag {
+					// Only append the tag once
+					// TODO: what if they are different?
+					if _, ok := foundTag[tag]; !ok {
+						fields = append(fields, zap.String(tag, attributeValue))
+						foundTag[tag] = struct{}{}
+					}
 				}
 			}
 		}
