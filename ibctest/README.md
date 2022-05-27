@@ -9,17 +9,31 @@ will continue to run only the faster unit tests.
 
 ## Developer notes
 
-If you are developing a new relayer test for `ibc-test-framework`, you may want to run:
+### New Test
+
+If you are developing a new relayer test for `ibctest`, you may want to run:
 
 ```
-go mod edit -replace=github.com/strangelove-ventures/ibc-test-framework=../../../strangelove-ventures/ibc-test-framework
+go mod edit -replace=github.com/strangelove-ventures/ibctest=../../../strangelove-ventures/ibctest
 ```
 
 from this directory.
 Be sure to drop the replace, with:
 
 ```
-go mod edit -dropreplace=github.com/strangelove-ventures/ibc-test-framework
+go mod edit -dropreplace=github.com/strangelove-ventures/ibctest
 ```
 
 before you commit.
+
+
+### Specify ibctest Version
+
+If you would like to point to a specific version of `ibctest`, you can do so using a commit hash.
+
+make sure you are in the relayer/ibctest directory
+
+run:
+`go get github.com/strangelove-ventures/ibctest@<COMMIT_HASH_HERE>`
+
+your go.mod file should update respectively
