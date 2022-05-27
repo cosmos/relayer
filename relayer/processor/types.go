@@ -45,3 +45,13 @@ func (c MessageCache) Clone() MessageCache {
 	}
 	return newMessageCache
 }
+
+func (c MessageCache) DeleteCachedMessages(toDelete ...map[string][]uint64) {
+	for _, toDeleteMap := range toDelete {
+		for message, toDeleteMessages := range toDeleteMap {
+			for _, sequence := range toDeleteMessages {
+				delete(c[message], sequence)
+			}
+		}
+	}
+}
