@@ -23,6 +23,7 @@ func (ccp *CosmosChainProcessor) processTransaction(tx *abci.ResponseDeliverTx) 
 		var packetInfo *PacketInfo
 		var channelInfo *ChannelInfo
 		var clientInfo *ClientInfo
+		var connectionInfo *ConnectionInfo
 		var action string
 		ibcMessageFound := false
 		for _, event := range messageLog.Events {
@@ -42,8 +43,11 @@ func (ccp *CosmosChainProcessor) processTransaction(tx *abci.ResponseDeliverTx) 
 				ibcMessageFound = true
 				packetInfo = ccp.parsePacketInfo(event.Attributes)
 			case "connection_open_init", "connection_open_try", "connection_open_ack",
-				"connection_open_confirm", "channel_open_init", "channel_open_try",
-				"channel_open_ack", "channel_open_confirm", "channel_close_init":
+				"connection_open_confirm":
+				ibcMessageFound = true
+				connectionInfo = ccp.parseConnectionInfo(event.Attributes)
+			case "channel_open_init", "channel_open_try",
+				"channel_open_ack", "channel_open_confirm", "channel_close_init", "channel_close_confirm":
 				ibcMessageFound = true
 				channelInfo = ccp.parseChannelInfo(event.Attributes)
 			}
@@ -52,10 +56,11 @@ func (ccp *CosmosChainProcessor) processTransaction(tx *abci.ResponseDeliverTx) 
 			continue
 		}
 		messages = append(messages, TransactionMessage{
-			Action:      action,
-			PacketInfo:  packetInfo,
-			ChannelInfo: channelInfo,
-			ClientInfo:  clientInfo,
+			Action:         action,
+			PacketInfo:     packetInfo,
+			ChannelInfo:    channelInfo,
+			ClientInfo:     clientInfo,
+			ConnectionInfo: connectionInfo,
 		})
 	}
 
@@ -209,21 +214,30 @@ func (ccp *CosmosChainProcessor) parseChannelInfo(attributes []sdk.Attribute) *C
 		switch attr.Key {
 		case "port_id":
 			channelInfo.PortID = attr.Value
-		case "connection_id":
-			channelInfo.ConnectionID = attr.Value
-		case "client_id":
-			channelInfo.ClientID = attr.Value
 		case "channel_id":
 			channelInfo.ChannelID = attr.Value
 		case "counterparty_port_id":
 			channelInfo.CounterpartyPortID = attr.Value
-		case "counterparty_connection_id":
-			channelInfo.CounterpartyConnectionID = attr.Value
-		case "counterparty_client_id":
-			channelInfo.CounterpartyClientID = attr.Value
 		case "counterparty_channel_id":
 			channelInfo.CounterpartyChannelID = attr.Value
 		}
 	}
 	return &channelInfo
+}
+
+func (ccp *CosmosChainProcessor) parseConnectionInfo(attributes []sdk.Attribute) *ConnectionInfo {
+	connectionInfo := ConnectionInfo{}
+	for _, attr := range attributes {
+		switch attr.Key {
+		case "connection_id":
+			connectionInfo.ConnectionID = attr.Value
+		case "client_id":
+			connectionInfo.ClientID = attr.Value
+		case "counterparty_connection_id":
+			connectionInfo.CounterpartyConnectionID = attr.Value
+		case "counterparty_client_id":
+			connectionInfo.CounterpartyClientID = attr.Value
+		}
+	}
+	return &connectionInfo
 }

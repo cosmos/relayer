@@ -7,23 +7,26 @@ import (
 
 // TransactionMessage is the type used for parsing IBC messages
 type TransactionMessage struct {
-	Action      string
-	PacketInfo  *PacketInfo
-	ChannelInfo *ChannelInfo
-	ClientInfo  *ClientInfo
-	// TODO ConnectionInfo
+	Action         string
+	PacketInfo     *PacketInfo
+	ChannelInfo    *ChannelInfo
+	ClientInfo     *ClientInfo
+	ConnectionInfo *ConnectionInfo
 }
 
 // ChannelInfo contains useful channel information during channel state changes
 type ChannelInfo struct {
+	PortID                string
+	ChannelID             string
+	CounterpartyPortID    string
+	CounterpartyChannelID string
+}
+
+type ConnectionInfo struct {
 	ConnectionID             string
 	ClientID                 string
-	PortID                   string
-	ChannelID                string
 	CounterpartyClientID     string
 	CounterpartyConnectionID string
-	CounterpartyPortID       string
-	CounterpartyChannelID    string
 }
 
 // PacketInfo contains pertinent packet information for constructing IBC messages for the counterparty.
