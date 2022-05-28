@@ -5,41 +5,41 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 )
 
-// TransactionMessage is the type used for parsing IBC messages
-type TransactionMessage struct {
-	Action         string
-	PacketInfo     *PacketInfo
-	ChannelInfo    *ChannelInfo
-	ClientInfo     *ClientInfo
-	ConnectionInfo *ConnectionInfo
+// transactionMessage is the type used for parsing all possible properties of IBC messages
+type transactionMessage struct {
+	messageType    string
+	packetInfo     *packetInfo
+	channelInfo    *channelInfo
+	clientInfo     *clientInfo
+	connectionInfo *connectionInfo
 }
 
-// ChannelInfo contains useful channel information during channel state changes
-type ChannelInfo struct {
-	PortID                string
-	ChannelID             string
-	CounterpartyPortID    string
-	CounterpartyChannelID string
+// channelInfo contains useful channel information during channel state changes
+type channelInfo struct {
+	portID                string
+	channelID             string
+	counterpartyPortID    string
+	counterpartyChannelID string
 }
 
-type ConnectionInfo struct {
-	ConnectionID             string
-	ClientID                 string
-	CounterpartyClientID     string
-	CounterpartyConnectionID string
+type connectionInfo struct {
+	connectionID             string
+	clientID                 string
+	counterpartyClientID     string
+	counterpartyConnectionID string
 }
 
-// PacketInfo contains pertinent packet information for constructing IBC messages for the counterparty.
-type PacketInfo struct {
+// packetInfo contains pertinent packet information for constructing IBC messages for the counterparty.
+type packetInfo struct {
 	// Packet is the IBC conformant Packet.
-	Packet chantypes.Packet
+	packet chantypes.Packet
 
 	// if message is a MsgRecvPacket, this is needed to construct MsgAcknowledgement for counterparty.
-	Ack []byte
+	ack []byte
 }
 
-// ClientInfo contains the consensus height of the counterparty chain for a client.
-type ClientInfo struct {
-	ClientID        string
-	ConsensusHeight clienttypes.Height
+// clientInfo contains the consensus height of the counterparty chain for a client.
+type clientInfo struct {
+	clientID        string
+	consensusHeight clienttypes.Height
 }

@@ -13,18 +13,18 @@ import (
 )
 
 // processTransaction parses all events within a transaction to find IBC messages
-func (ccp *CosmosChainProcessor) processTransaction(tx *abci.ResponseDeliverTx) []TransactionMessage {
-	messages := []TransactionMessage{}
+func (ccp *CosmosChainProcessor) processTransaction(tx *abci.ResponseDeliverTx) []transactionMessage {
+	messages := []transactionMessage{}
 	parsedLogs, err := sdk.ParseABCILogs(tx.Log)
 	if err != nil {
 		return messages
 	}
 	for _, messageLog := range parsedLogs {
-		var packetInfo *PacketInfo
-		var channelInfo *ChannelInfo
-		var clientInfo *ClientInfo
-		var connectionInfo *ConnectionInfo
-		var action string
+		var packet *packetInfo
+		var channel *channelInfo
+		var client *clientInfo
+		var connection *connectionInfo
+		var messageType string
 		ibcMessageFound := false
 		for _, event := range messageLog.Events {
 			switch event.Type {
@@ -32,53 +32,53 @@ func (ccp *CosmosChainProcessor) processTransaction(tx *abci.ResponseDeliverTx) 
 				for _, attr := range event.Attributes {
 					switch attr.Key {
 					case "action":
-						action = attr.Value
+						messageType = attr.Value
 					}
 				}
 			case "create_client", "update_client", "upgrade_client", "submit_misbehaviour":
 				ibcMessageFound = true
-				clientInfo = ccp.parseClientInfo(event.Attributes)
+				client = ccp.parseClientInfo(event.Attributes)
 			case "send_packet", "recv_packet",
 				"acknowledge_packet", "timeout_packet", "write_acknowledgement":
 				ibcMessageFound = true
-				packetInfo = ccp.parsePacketInfo(event.Attributes)
+				packet = ccp.parsePacketInfo(event.Attributes)
 			case "connection_open_init", "connection_open_try", "connection_open_ack",
 				"connection_open_confirm":
 				ibcMessageFound = true
-				connectionInfo = ccp.parseConnectionInfo(event.Attributes)
+				connection = ccp.parseConnectionInfo(event.Attributes)
 			case "channel_open_init", "channel_open_try",
 				"channel_open_ack", "channel_open_confirm", "channel_close_init", "channel_close_confirm":
 				ibcMessageFound = true
-				channelInfo = ccp.parseChannelInfo(event.Attributes)
+				channel = ccp.parseChannelInfo(event.Attributes)
 			}
 		}
 		if !ibcMessageFound {
 			continue
 		}
-		messages = append(messages, TransactionMessage{
-			Action:         action,
-			PacketInfo:     packetInfo,
-			ChannelInfo:    channelInfo,
-			ClientInfo:     clientInfo,
-			ConnectionInfo: connectionInfo,
+		messages = append(messages, transactionMessage{
+			messageType:    messageType,
+			packetInfo:     packet,
+			channelInfo:    channel,
+			clientInfo:     client,
+			connectionInfo: connection,
 		})
 	}
 
 	return messages
 }
 
-func (ccp *CosmosChainProcessor) parseClientInfo(attributes []sdk.Attribute) *ClientInfo {
-	clientInfo := ClientInfo{}
+func (ccp *CosmosChainProcessor) parseClientInfo(attributes []sdk.Attribute) *clientInfo {
+	res := clientInfo{}
 	for _, attr := range attributes {
 		switch attr.Key {
 		case "client_id":
-			clientInfo.ClientID = attr.Value
+			res.clientID = attr.Value
 		case "consensus_height":
 			revisionSplit := strings.Split(attr.Value, "-")
 			if len(revisionSplit) != 2 {
 				ccp.log.Error("error parsing client consensus height",
 					zap.String("chain_id", ccp.ChainProvider.ChainId()),
-					zap.String("client_id", clientInfo.ClientID),
+					zap.String("client_id", res.clientID),
 					zap.String("value", attr.Value),
 				)
 				continue
@@ -101,22 +101,22 @@ func (ccp *CosmosChainProcessor) parseClientInfo(attributes []sdk.Attribute) *Cl
 				)
 				continue
 			}
-			clientInfo.ConsensusHeight = clienttypes.Height{
+			res.consensusHeight = clienttypes.Height{
 				RevisionNumber: revisionNumber,
 				RevisionHeight: revisionHeight,
 			}
 		}
 	}
-	return &clientInfo
+	return &res
 }
 
-func (ccp *CosmosChainProcessor) parsePacketInfo(attributes []sdk.Attribute) *PacketInfo {
-	packetInfo := PacketInfo{Packet: chantypes.Packet{}}
+func (ccp *CosmosChainProcessor) parsePacketInfo(attributes []sdk.Attribute) *packetInfo {
+	res := packetInfo{packet: chantypes.Packet{}}
 	for _, attr := range attributes {
 		var err error
 		switch attr.Key {
 		case "packet_sequence":
-			packetInfo.Packet.Sequence, err = strconv.ParseUint(attr.Value, 10, 64)
+			res.packet.Sequence, err = strconv.ParseUint(attr.Value, 10, 64)
 			if err != nil {
 				ccp.log.Error("error parsing packet sequence",
 					zap.String("chain_id", ccp.ChainProvider.ChainId()),
@@ -126,47 +126,47 @@ func (ccp *CosmosChainProcessor) parsePacketInfo(attributes []sdk.Attribute) *Pa
 				continue
 			}
 		case "packet_timeout_timestamp":
-			packetInfo.Packet.TimeoutTimestamp, err = strconv.ParseUint(attr.Value, 10, 64)
+			res.packet.TimeoutTimestamp, err = strconv.ParseUint(attr.Value, 10, 64)
 			if err != nil {
 				ccp.log.Error("error parsing packet timestamp",
 					zap.String("chain_id", ccp.ChainProvider.ChainId()),
-					zap.Uint64("sequence", packetInfo.Packet.Sequence),
+					zap.Uint64("sequence", res.packet.Sequence),
 					zap.String("value", attr.Value),
 					zap.Error(err),
 				)
 				continue
 			}
 		case "packet_data":
-			packetInfo.Packet.Data = []byte(attr.Value)
+			res.packet.Data = []byte(attr.Value)
 		case "packet_data_hex":
 			data, err := hex.DecodeString(attr.Value)
 			if err == nil {
 				ccp.log.Error("error parsing packet data",
 					zap.String("chain_id", ccp.ChainProvider.ChainId()),
-					zap.Uint64("sequence", packetInfo.Packet.Sequence),
+					zap.Uint64("sequence", res.packet.Sequence),
 					zap.Error(err),
 				)
-				packetInfo.Packet.Data = data
+				res.packet.Data = data
 			}
 		case "packet_ack":
-			packetInfo.Ack = []byte(attr.Value)
+			res.ack = []byte(attr.Value)
 		case "packet_ack_hex":
 			data, err := hex.DecodeString(attr.Value)
 			if err == nil {
 				ccp.log.Error("error parsing packet ack",
 					zap.String("chain_id", ccp.ChainProvider.ChainId()),
-					zap.Uint64("sequence", packetInfo.Packet.Sequence),
+					zap.Uint64("sequence", res.packet.Sequence),
 					zap.String("value", attr.Value),
 					zap.Error(err),
 				)
-				packetInfo.Ack = data
+				res.ack = data
 			}
 		case "packet_timeout_height":
 			timeoutSplit := strings.Split(attr.Value, "-")
 			if len(timeoutSplit) != 2 {
 				ccp.log.Error("error parsing packet height timeout",
 					zap.String("chain_id", ccp.ChainProvider.ChainId()),
-					zap.Uint64("sequence", packetInfo.Packet.Sequence),
+					zap.Uint64("sequence", res.packet.Sequence),
 					zap.String("value", attr.Value),
 				)
 				continue
@@ -175,7 +175,7 @@ func (ccp *CosmosChainProcessor) parsePacketInfo(attributes []sdk.Attribute) *Pa
 			if err != nil {
 				ccp.log.Error("error parsing packet timeout height revision number",
 					zap.String("chain_id", ccp.ChainProvider.ChainId()),
-					zap.Uint64("sequence", packetInfo.Packet.Sequence),
+					zap.Uint64("sequence", res.packet.Sequence),
 					zap.String("value", timeoutSplit[0]),
 					zap.Error(err),
 				)
@@ -185,59 +185,59 @@ func (ccp *CosmosChainProcessor) parsePacketInfo(attributes []sdk.Attribute) *Pa
 			if err != nil {
 				ccp.log.Error("error parsing packet timeout height revision height",
 					zap.String("chain_id", ccp.ChainProvider.ChainId()),
-					zap.Uint64("sequence", packetInfo.Packet.Sequence),
+					zap.Uint64("sequence", res.packet.Sequence),
 					zap.String("value", timeoutSplit[1]),
 					zap.Error(err),
 				)
 				continue
 			}
-			packetInfo.Packet.TimeoutHeight = clienttypes.Height{
+			res.packet.TimeoutHeight = clienttypes.Height{
 				RevisionNumber: revisionNumber,
 				RevisionHeight: revisionHeight,
 			}
 		case "packet_src_port":
-			packetInfo.Packet.SourcePort = attr.Value
+			res.packet.SourcePort = attr.Value
 		case "packet_src_channel":
-			packetInfo.Packet.SourceChannel = attr.Value
+			res.packet.SourceChannel = attr.Value
 		case "packet_dst_port":
-			packetInfo.Packet.DestinationPort = attr.Value
+			res.packet.DestinationPort = attr.Value
 		case "packet_dst_channel":
-			packetInfo.Packet.DestinationChannel = attr.Value
+			res.packet.DestinationChannel = attr.Value
 		}
 	}
-	return &packetInfo
+	return &res
 }
 
-func (ccp *CosmosChainProcessor) parseChannelInfo(attributes []sdk.Attribute) *ChannelInfo {
-	channelInfo := ChannelInfo{}
+func (ccp *CosmosChainProcessor) parseChannelInfo(attributes []sdk.Attribute) *channelInfo {
+	res := channelInfo{}
 	for _, attr := range attributes {
 		switch attr.Key {
 		case "port_id":
-			channelInfo.PortID = attr.Value
+			res.portID = attr.Value
 		case "channel_id":
-			channelInfo.ChannelID = attr.Value
+			res.channelID = attr.Value
 		case "counterparty_port_id":
-			channelInfo.CounterpartyPortID = attr.Value
+			res.counterpartyPortID = attr.Value
 		case "counterparty_channel_id":
-			channelInfo.CounterpartyChannelID = attr.Value
+			res.counterpartyChannelID = attr.Value
 		}
 	}
-	return &channelInfo
+	return &res
 }
 
-func (ccp *CosmosChainProcessor) parseConnectionInfo(attributes []sdk.Attribute) *ConnectionInfo {
-	connectionInfo := ConnectionInfo{}
+func (ccp *CosmosChainProcessor) parseConnectionInfo(attributes []sdk.Attribute) *connectionInfo {
+	res := connectionInfo{}
 	for _, attr := range attributes {
 		switch attr.Key {
 		case "connection_id":
-			connectionInfo.ConnectionID = attr.Value
+			res.connectionID = attr.Value
 		case "client_id":
-			connectionInfo.ClientID = attr.Value
+			res.clientID = attr.Value
 		case "counterparty_connection_id":
-			connectionInfo.CounterpartyConnectionID = attr.Value
+			res.counterpartyConnectionID = attr.Value
 		case "counterparty_client_id":
-			connectionInfo.CounterpartyClientID = attr.Value
+			res.counterpartyClientID = attr.Value
 		}
 	}
-	return &connectionInfo
+	return &res
 }
