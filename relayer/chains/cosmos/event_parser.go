@@ -22,7 +22,6 @@ func (ccp *CosmosChainProcessor) processTransaction(tx *abci.ResponseDeliverTx) 
 	for _, messageLog := range parsedLogs {
 		var messageInfo interface{}
 		var messageType string
-		ibcMessageFound := false
 		for _, event := range messageLog.Events {
 			switch event.Type {
 			case "message":
@@ -33,23 +32,27 @@ func (ccp *CosmosChainProcessor) processTransaction(tx *abci.ResponseDeliverTx) 
 					}
 				}
 			case "create_client", "update_client", "upgrade_client", "submit_misbehaviour":
-				ibcMessageFound = true
 				messageInfo = ccp.parseClientInfo(event.Attributes)
 			case "send_packet", "recv_packet",
 				"acknowledge_packet", "timeout_packet", "write_acknowledgement":
-				ibcMessageFound = true
 				messageInfo = ccp.parsePacketInfo(event.Attributes)
 			case "connection_open_init", "connection_open_try", "connection_open_ack",
 				"connection_open_confirm":
-				ibcMessageFound = true
 				messageInfo = ccp.parseConnectionInfo(event.Attributes)
 			case "channel_open_init", "channel_open_try",
 				"channel_open_ack", "channel_open_confirm", "channel_close_init", "channel_close_confirm":
-				ibcMessageFound = true
 				messageInfo = ccp.parseChannelInfo(event.Attributes)
 			}
 		}
-		if !ibcMessageFound {
+		if messageInfo == nil {
+			// Not an IBC message, don't need to log here
+			continue
+		}
+		if messageType == "" {
+			ccp.log.Error("unexpected ibc message parser state: message info is populated but type is empty",
+				zap.String("chain_id", ccp.ChainProvider.ChainId()),
+				zap.Any("message", messageInfo),
+			)
 			continue
 		}
 		messages = append(messages, ibcMessage{
