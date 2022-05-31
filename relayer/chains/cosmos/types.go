@@ -17,6 +17,7 @@ type channelInfo struct {
 	channelID             string
 	counterpartyPortID    string
 	counterpartyChannelID string
+	connectionID          string
 }
 
 type connectionInfo struct {
@@ -33,10 +34,14 @@ type packetInfo struct {
 
 	// if message is a MsgRecvPacket, this is needed to construct MsgAcknowledgement for counterparty.
 	ack []byte
+
+	channelOrdering string
+	connectionID    string
 }
 
 // clientInfo contains the consensus height of the counterparty chain for a client.
 type clientInfo struct {
 	clientID        string
 	consensusHeight clienttypes.Height
+	header          []byte
 }

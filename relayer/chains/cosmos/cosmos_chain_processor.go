@@ -2,10 +2,8 @@ package cosmos
 
 import (
 	"context"
-	"errors"
 
 	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"go.uber.org/zap"
 )
@@ -18,15 +16,11 @@ type CosmosChainProcessor struct {
 	ChainProvider  *cosmos.CosmosProvider
 }
 
-func NewCosmosChainProcessor(ctx context.Context, log *zap.Logger, rpcAddress string, provider provider.ChainProvider, pathProcessors processor.PathProcessors) (*CosmosChainProcessor, error) {
-	cosmosProvider, ok := provider.(*cosmos.CosmosProvider)
-	if !ok {
-		return nil, errors.New("only cosmos providers are supported for cosmos chain processors")
-	}
+func NewCosmosChainProcessor(ctx context.Context, log *zap.Logger, rpcAddress string, provider *cosmos.CosmosProvider, pathProcessors processor.PathProcessors) (*CosmosChainProcessor, error) {
 	return &CosmosChainProcessor{
 		ctx:            ctx,
 		log:            log,
-		ChainProvider:  cosmosProvider,
+		ChainProvider:  provider,
 		pathProcessors: pathProcessors,
 	}, nil
 }

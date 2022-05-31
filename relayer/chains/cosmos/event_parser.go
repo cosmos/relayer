@@ -7,21 +7,27 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"go.uber.org/zap"
 )
 
-// processTransaction parses all events within a transaction to find IBC messages
-func (ccp *CosmosChainProcessor) processTransaction(tx *abci.ResponseDeliverTx) []ibcMessage {
-	messages := []ibcMessage{}
+// ibcMessagesFromTransaction parses all events within a transaction to find IBC messages
+func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDeliverTx) []ibcMessage {
 	parsedLogs, err := sdk.ParseABCILogs(tx.Log)
 	if err != nil {
-		return messages
+		ccp.log.Info("Failed to parse abci logs", zap.Error(err))
+		return nil
 	}
-	for _, messageLog := range parsedLogs {
+	return parseABCILogs(ccp.log, ccp.ChainProvider.ChainId(), parsedLogs)
+}
+
+func parseABCILogs(log *zap.Logger, chainID string, logs sdk.ABCIMessageLogs) (messages []ibcMessage) {
+	for _, messageLog := range logs {
 		var messageInfo interface{}
 		var messageType string
+		var packetAccumulator *packetInfo
 		for _, event := range messageLog.Events {
 			switch event.Type {
 			case "message":
@@ -31,26 +37,34 @@ func (ccp *CosmosChainProcessor) processTransaction(tx *abci.ResponseDeliverTx) 
 						messageType = attr.Value
 					}
 				}
-			case "create_client", "update_client", "upgrade_client", "submit_misbehaviour":
-				messageInfo = ccp.parseClientInfo(event.Attributes)
-			case "send_packet", "recv_packet",
-				"acknowledge_packet", "timeout_packet", "write_acknowledgement":
-				messageInfo = ccp.parsePacketInfo(event.Attributes)
-			case "connection_open_init", "connection_open_try", "connection_open_ack",
-				"connection_open_confirm":
-				messageInfo = ccp.parseConnectionInfo(event.Attributes)
-			case "channel_open_init", "channel_open_try",
-				"channel_open_ack", "channel_open_confirm", "channel_close_init", "channel_close_confirm":
-				messageInfo = ccp.parseChannelInfo(event.Attributes)
+			case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
+				clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
+				clienttypes.EventTypeUpdateClientProposal:
+				messageInfo = parseClientInfo(log, chainID, event.Attributes)
+			case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
+				chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
+				chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
+				packetAccumulator = packetAccumulator.parsePacketInfo(log, chainID, event.Attributes)
+			case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
+				conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
+				messageInfo = parseConnectionInfo(event.Attributes)
+			case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
+				chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
+				chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
+				messageInfo = parseChannelInfo(event.Attributes)
 			}
 		}
+		if packetAccumulator != nil {
+			messageInfo = *packetAccumulator
+		}
+
 		if messageInfo == nil {
 			// Not an IBC message, don't need to log here
 			continue
 		}
 		if messageType == "" {
-			ccp.log.Error("unexpected ibc message parser state: message info is populated but type is empty",
-				zap.String("chain_id", ccp.ChainProvider.ChainId()),
+			log.Error("Unexpected ibc message parser state: message info is populated but type is empty",
+				zap.String("chain_id", chainID),
 				zap.Any("message", messageInfo),
 			)
 			continue
@@ -64,177 +78,218 @@ func (ccp *CosmosChainProcessor) processTransaction(tx *abci.ResponseDeliverTx) 
 	return messages
 }
 
-func (ccp *CosmosChainProcessor) parseClientInfo(attributes []sdk.Attribute) clientInfo {
-	res := clientInfo{}
+func parseClientInfo(log *zap.Logger, chainID string, attributes []sdk.Attribute) (res clientInfo) {
 	for _, attr := range attributes {
-		switch attr.Key {
-		case "client_id":
-			res.clientID = attr.Value
-		case "consensus_height":
-			revisionSplit := strings.Split(attr.Value, "-")
-			if len(revisionSplit) != 2 {
-				ccp.log.Error("error parsing client consensus height",
-					zap.String("chain_id", ccp.ChainProvider.ChainId()),
-					zap.String("client_id", res.clientID),
-					zap.String("value", attr.Value),
-				)
-				continue
-			}
-			revisionNumberString := revisionSplit[0]
-			revisionNumber, err := strconv.ParseUint(revisionNumberString, 10, 64)
-			if err != nil {
-				ccp.log.Error("error parsing client consensus height revision number",
-					zap.String("chain_id", ccp.ChainProvider.ChainId()),
-					zap.Error(err),
-				)
-				continue
-			}
-			revisionHeightString := revisionSplit[1]
-			revisionHeight, err := strconv.ParseUint(revisionHeightString, 10, 64)
-			if err != nil {
-				ccp.log.Error("error parsing client consensus height revision height",
-					zap.String("chain_id", ccp.ChainProvider.ChainId()),
-					zap.Error(err),
-				)
-				continue
-			}
-			res.consensusHeight = clienttypes.Height{
-				RevisionNumber: revisionNumber,
-				RevisionHeight: revisionHeight,
-			}
-		}
+		res = res.parseClientAttribute(log, chainID, attr)
 	}
 	return res
 }
 
-func (ccp *CosmosChainProcessor) parsePacketInfo(attributes []sdk.Attribute) packetInfo {
-	res := packetInfo{packet: chantypes.Packet{}}
-	for _, attr := range attributes {
-		var err error
-		switch attr.Key {
-		case "packet_sequence":
-			res.packet.Sequence, err = strconv.ParseUint(attr.Value, 10, 64)
-			if err != nil {
-				ccp.log.Error("error parsing packet sequence",
-					zap.String("chain_id", ccp.ChainProvider.ChainId()),
-					zap.String("value", attr.Value),
-					zap.Error(err),
-				)
-				continue
-			}
-		case "packet_timeout_timestamp":
-			res.packet.TimeoutTimestamp, err = strconv.ParseUint(attr.Value, 10, 64)
-			if err != nil {
-				ccp.log.Error("error parsing packet timestamp",
-					zap.String("chain_id", ccp.ChainProvider.ChainId()),
-					zap.Uint64("sequence", res.packet.Sequence),
-					zap.String("value", attr.Value),
-					zap.Error(err),
-				)
-				continue
-			}
-		case "packet_data":
-			res.packet.Data = []byte(attr.Value)
-		case "packet_data_hex":
-			data, err := hex.DecodeString(attr.Value)
-			if err == nil {
-				ccp.log.Error("error parsing packet data",
-					zap.String("chain_id", ccp.ChainProvider.ChainId()),
-					zap.Uint64("sequence", res.packet.Sequence),
-					zap.Error(err),
-				)
-				res.packet.Data = data
-			}
-		case "packet_ack":
-			res.ack = []byte(attr.Value)
-		case "packet_ack_hex":
-			data, err := hex.DecodeString(attr.Value)
-			if err == nil {
-				ccp.log.Error("error parsing packet ack",
-					zap.String("chain_id", ccp.ChainProvider.ChainId()),
-					zap.Uint64("sequence", res.packet.Sequence),
-					zap.String("value", attr.Value),
-					zap.Error(err),
-				)
-				res.ack = data
-			}
-		case "packet_timeout_height":
-			timeoutSplit := strings.Split(attr.Value, "-")
-			if len(timeoutSplit) != 2 {
-				ccp.log.Error("error parsing packet height timeout",
-					zap.String("chain_id", ccp.ChainProvider.ChainId()),
-					zap.Uint64("sequence", res.packet.Sequence),
-					zap.String("value", attr.Value),
-				)
-				continue
-			}
-			revisionNumber, err := strconv.ParseUint(timeoutSplit[0], 10, 64)
-			if err != nil {
-				ccp.log.Error("error parsing packet timeout height revision number",
-					zap.String("chain_id", ccp.ChainProvider.ChainId()),
-					zap.Uint64("sequence", res.packet.Sequence),
-					zap.String("value", timeoutSplit[0]),
-					zap.Error(err),
-				)
-				continue
-			}
-			revisionHeight, err := strconv.ParseUint(timeoutSplit[1], 10, 64)
-			if err != nil {
-				ccp.log.Error("error parsing packet timeout height revision height",
-					zap.String("chain_id", ccp.ChainProvider.ChainId()),
-					zap.Uint64("sequence", res.packet.Sequence),
-					zap.String("value", timeoutSplit[1]),
-					zap.Error(err),
-				)
-				continue
-			}
-			res.packet.TimeoutHeight = clienttypes.Height{
-				RevisionNumber: revisionNumber,
-				RevisionHeight: revisionHeight,
-			}
-		case "packet_src_port":
-			res.packet.SourcePort = attr.Value
-		case "packet_src_channel":
-			res.packet.SourceChannel = attr.Value
-		case "packet_dst_port":
-			res.packet.DestinationPort = attr.Value
-		case "packet_dst_channel":
-			res.packet.DestinationChannel = attr.Value
+func (res clientInfo) parseClientAttribute(log *zap.Logger, chainID string, attr sdk.Attribute) clientInfo {
+	switch attr.Key {
+	case clienttypes.AttributeKeyClientID:
+		res.clientID = attr.Value
+	case clienttypes.AttributeKeyConsensusHeight:
+		revisionSplit := strings.Split(attr.Value, "-")
+		if len(revisionSplit) != 2 {
+			log.Error("Error parsing client consensus height",
+				zap.String("chain_id", chainID),
+				zap.String("client_id", res.clientID),
+				zap.String("value", attr.Value),
+			)
+			return res
 		}
+		revisionNumberString := revisionSplit[0]
+		revisionNumber, err := strconv.ParseUint(revisionNumberString, 10, 64)
+		if err != nil {
+			log.Error("Error parsing client consensus height revision number",
+				zap.String("chain_id", chainID),
+				zap.Error(err),
+			)
+			return res
+		}
+		revisionHeightString := revisionSplit[1]
+		revisionHeight, err := strconv.ParseUint(revisionHeightString, 10, 64)
+		if err != nil {
+			log.Error("Error parsing client consensus height revision height",
+				zap.String("chain_id", chainID),
+				zap.Error(err),
+			)
+			return res
+		}
+		res.consensusHeight = clienttypes.Height{
+			RevisionNumber: revisionNumber,
+			RevisionHeight: revisionHeight,
+		}
+	case clienttypes.AttributeKeyHeader:
+		data, err := hex.DecodeString(attr.Value)
+		if err != nil {
+			log.Error("Error parsing client header",
+				zap.String("chain_id", chainID),
+				zap.String("header", attr.Value),
+				zap.Error(err),
+			)
+			return res
+		}
+		res.header = data
 	}
 	return res
 }
 
-func (ccp *CosmosChainProcessor) parseChannelInfo(attributes []sdk.Attribute) channelInfo {
-	res := channelInfo{}
+// parsePacketInfo is treated differently from the others since it can be constructed from the accumulation of multiple events
+func (res *packetInfo) parsePacketInfo(log *zap.Logger, chainID string, attributes []sdk.Attribute) *packetInfo {
+	if res == nil {
+		res = new(packetInfo)
+	}
 	for _, attr := range attributes {
-		switch attr.Key {
-		case "port_id":
-			res.portID = attr.Value
-		case "channel_id":
-			res.channelID = attr.Value
-		case "counterparty_port_id":
-			res.counterpartyPortID = attr.Value
-		case "counterparty_channel_id":
-			res.counterpartyChannelID = attr.Value
-		}
+		res = res.parsePacketAttribute(log, chainID, attr)
 	}
 	return res
 }
 
-func (ccp *CosmosChainProcessor) parseConnectionInfo(attributes []sdk.Attribute) connectionInfo {
-	res := connectionInfo{}
-	for _, attr := range attributes {
-		switch attr.Key {
-		case "connection_id":
-			res.connectionID = attr.Value
-		case "client_id":
-			res.clientID = attr.Value
-		case "counterparty_connection_id":
-			res.counterpartyConnectionID = attr.Value
-		case "counterparty_client_id":
-			res.counterpartyClientID = attr.Value
+func (res *packetInfo) parsePacketAttribute(log *zap.Logger, chainID string, attr sdk.Attribute) *packetInfo {
+	var err error
+	switch attr.Key {
+	case chantypes.AttributeKeySequence:
+		res.packet.Sequence, err = strconv.ParseUint(attr.Value, 10, 64)
+		if err != nil {
+			log.Error("Error parsing packet sequence",
+				zap.String("chain_id", chainID),
+				zap.String("value", attr.Value),
+				zap.Error(err),
+			)
+			return res
 		}
+	case chantypes.AttributeKeyTimeoutTimestamp:
+		res.packet.TimeoutTimestamp, err = strconv.ParseUint(attr.Value, 10, 64)
+		if err != nil {
+			log.Error("Error parsing packet timestamp",
+				zap.String("chain_id", chainID),
+				zap.Uint64("sequence", res.packet.Sequence),
+				zap.String("value", attr.Value),
+				zap.Error(err),
+			)
+			return res
+		}
+	// NOTE: deprecated per IBC spec
+	case chantypes.AttributeKeyData:
+		res.packet.Data = []byte(attr.Value)
+	case chantypes.AttributeKeyDataHex:
+		data, err := hex.DecodeString(attr.Value)
+		if err != nil {
+			log.Error("Error parsing packet data",
+				zap.String("chain_id", chainID),
+				zap.Uint64("sequence", res.packet.Sequence),
+				zap.Error(err),
+			)
+			return res
+		}
+		res.packet.Data = data
+	// NOTE: deprecated per IBC spec
+	case chantypes.AttributeKeyAck:
+		res.ack = []byte(attr.Value)
+	case chantypes.AttributeKeyAckHex:
+		data, err := hex.DecodeString(attr.Value)
+		if err != nil {
+			log.Error("Error parsing packet ack",
+				zap.String("chain_id", chainID),
+				zap.Uint64("sequence", res.packet.Sequence),
+				zap.String("value", attr.Value),
+				zap.Error(err),
+			)
+			return res
+		}
+		res.ack = data
+	case chantypes.AttributeKeyTimeoutHeight:
+		timeoutSplit := strings.Split(attr.Value, "-")
+		if len(timeoutSplit) != 2 {
+			log.Error("Error parsing packet height timeout",
+				zap.String("chain_id", chainID),
+				zap.Uint64("sequence", res.packet.Sequence),
+				zap.String("value", attr.Value),
+			)
+			return res
+		}
+		revisionNumber, err := strconv.ParseUint(timeoutSplit[0], 10, 64)
+		if err != nil {
+			log.Error("Error parsing packet timeout height revision number",
+				zap.String("chain_id", chainID),
+				zap.Uint64("sequence", res.packet.Sequence),
+				zap.String("value", timeoutSplit[0]),
+				zap.Error(err),
+			)
+			return res
+		}
+		revisionHeight, err := strconv.ParseUint(timeoutSplit[1], 10, 64)
+		if err != nil {
+			log.Error("Error parsing packet timeout height revision height",
+				zap.String("chain_id", chainID),
+				zap.Uint64("sequence", res.packet.Sequence),
+				zap.String("value", timeoutSplit[1]),
+				zap.Error(err),
+			)
+			return res
+		}
+		res.packet.TimeoutHeight = clienttypes.Height{
+			RevisionNumber: revisionNumber,
+			RevisionHeight: revisionHeight,
+		}
+	case chantypes.AttributeKeySrcPort:
+		res.packet.SourcePort = attr.Value
+	case chantypes.AttributeKeySrcChannel:
+		res.packet.SourceChannel = attr.Value
+	case chantypes.AttributeKeyDstPort:
+		res.packet.DestinationPort = attr.Value
+	case chantypes.AttributeKeyDstChannel:
+		res.packet.DestinationChannel = attr.Value
+	case chantypes.AttributeKeyChannelOrdering:
+		res.channelOrdering = attr.Value
+	case chantypes.AttributeKeyConnection:
+		res.connectionID = attr.Value
+	}
+	return res
+}
+
+func parseChannelInfo(attributes []sdk.Attribute) (res channelInfo) {
+	for _, attr := range attributes {
+		res = res.parseChannelAttribute(attr)
+	}
+	return res
+}
+
+func (res channelInfo) parseChannelAttribute(attr sdk.Attribute) channelInfo {
+	switch attr.Key {
+	case chantypes.AttributeKeyPortID:
+		res.portID = attr.Value
+	case chantypes.AttributeKeyChannelID:
+		res.channelID = attr.Value
+	case chantypes.AttributeCounterpartyPortID:
+		res.counterpartyPortID = attr.Value
+	case chantypes.AttributeCounterpartyChannelID:
+		res.counterpartyChannelID = attr.Value
+	case chantypes.AttributeKeyConnectionID:
+		res.connectionID = attr.Value
+	}
+	return res
+}
+
+func parseConnectionInfo(attributes []sdk.Attribute) (res connectionInfo) {
+	for _, attr := range attributes {
+		res = res.parseConnectionAttribute(attr)
+	}
+	return res
+}
+
+func (res connectionInfo) parseConnectionAttribute(attr sdk.Attribute) connectionInfo {
+	switch attr.Key {
+	case conntypes.AttributeKeyConnectionID:
+		res.connectionID = attr.Value
+	case conntypes.AttributeKeyClientID:
+		res.clientID = attr.Value
+	case conntypes.AttributeKeyCounterpartyConnectionID:
+		res.counterpartyConnectionID = attr.Value
+	case conntypes.AttributeKeyCounterpartyClientID:
+		res.counterpartyClientID = attr.Value
 	}
 	return res
 }
