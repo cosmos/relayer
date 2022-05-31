@@ -348,6 +348,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 	}
 
 	if len(dstPacketSeq) > 0 {
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			// Query all packets sent by dst that have been received by src
