@@ -5,16 +5,16 @@ import (
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/types"
+	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
 	"github.com/strangelove-ventures/ibctest"
 	"github.com/strangelove-ventures/ibctest/ibc"
 	"github.com/strangelove-ventures/ibctest/test"
 	"github.com/strangelove-ventures/ibctest/testreporter"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
-	"golang.org/x/sync/errgroup"
 )
 
-func TestRelayMany(t *testing.T) {
+func TestRelayMany_WIP(t *testing.T) {
 	t.Parallel()
 
 	pool, network := ibctest.DockerSetup(t)
@@ -23,50 +23,42 @@ func TestRelayMany(t *testing.T) {
 	cf := ibctest.NewBuiltinChainFactory([]ibctest.BuiltinChainFactoryEntry{
 		gaiaFactoryEntry,
 		osmosisFactoryEntry,
-		junoFactoryEntry,
+		// TODO: include junoFactoryEntry
 	}, zaptest.NewLogger(t))
 
 	chains, err := cf.Chains(t.Name())
 	require.NoError(t, err)
 
-	gaia, osmosis, juno := chains[0], chains[1], chains[2]
-
+	gaia, osmosis := chains[0], chains[1]
 	r := relayerFactory{}.Build(t, pool, network, home).(*relayer)
 
 	ic := ibctest.NewInterchain().
 		AddChain(gaia).
 		AddChain(osmosis).
-		AddChain(juno).
 		AddRelayer(r, "r").
 		AddLink(ibctest.InterchainLink{
 			Chain1:  gaia,
 			Chain2:  osmosis,
 			Relayer: r,
-			Path:    "gaia-osmo",
-		}).
-		AddLink(ibctest.InterchainLink{
-			Chain1:  osmosis,
-			Chain2:  juno,
-			Relayer: r,
-			Path:    "osmo-juno",
+
+			Path: "gaia-osmo",
 		})
 
+	ctx := context.Background()
 	eRep := testreporter.NewReporter(newNopWriteCloser()).RelayerExecReporter(t)
 
-	ctx := context.Background()
-
-	err = ic.Build(ctx, eRep, ibctest.InterchainBuildOptions{
-		TestName: t.Name(),
-		HomeDir:  home,
-
+	require.NoError(t, ic.Build(ctx, eRep, ibctest.InterchainBuildOptions{
+		TestName:  t.Name(),
+		HomeDir:   home,
 		Pool:      pool,
 		NetworkID: network,
-	})
-	require.NoError(t, err)
+	}))
 
-	// Note, StartRelayerMany is a method on *relayer,
-	// not part of the ibc.Relayer interface.
-	r.StartRelayerMany(ctx, "gaia-osmo", "osmo-juno")
+	gaiaChannels, err := r.GetChannels(ctx, eRep, gaia.Config().ChainID)
+	require.NoError(t, err)
+	gaiaChannelID := gaiaChannels[0].ChannelID
+
+	r.StartRelayerMany(ctx, "gaia-osmo")
 	defer r.StopRelayer(ctx, eRep)
 
 	// Gaia and juno faucets will just send IBC to the osmosis faucet,
@@ -76,49 +68,31 @@ func TestRelayMany(t *testing.T) {
 	osmosisFaucetAddr, err := types.Bech32ifyAddressBytes(osmosis.Config().Bech32Prefix, osmosisFaucetAddrBytes)
 	require.NoError(t, err)
 
-	osmosisHeightBeforeTransfers, err := osmosis.Height(ctx)
+	beforeGaiaTxHeight, err := gaia.Height(ctx)
 	require.NoError(t, err)
 
-	var gaiaTx, junoTx ibc.Tx
+	gaiaOsmoIBCDenom := transfertypes.ParseDenomTrace(
+		transfertypes.GetPrefixedDenom(gaiaChannels[0].Counterparty.PortID, gaiaChannels[0].Counterparty.ChannelID, gaia.Config().Denom),
+	).IBCDenom()
 
-	// Concurrently send IBC transfers.
-	// Each one independently takes about 4 seconds,
-	// so it's worth it for a little time saved.
-	eg, egCtx := errgroup.WithContext(ctx)
+	const gaiaOsmoTxAmount = 13579 // Arbitrary amount that is easy to find in logs.
+	gaiaTx, err := gaia.SendIBCTransfer(ctx, gaiaChannelID, ibctest.FaucetAccountKeyName, ibc.WalletAmount{
+		Address: osmosisFaucetAddr,
+		Denom:   gaia.Config().Denom,
+		Amount:  gaiaOsmoTxAmount,
+	}, nil)
+	require.NoError(t, err)
+	require.NoError(t, gaiaTx.Validate())
 
-	// Send the gaia transfer.
-	eg.Go(func() error {
-		gaiaChannels, err := r.GetChannels(egCtx, eRep, gaia.Config().ChainID)
-		require.NoError(t, err)
-		gaiaTx, err = gaia.SendIBCTransfer(egCtx, gaiaChannels[0].ChannelID, ibctest.FaucetAccountKeyName, ibc.WalletAmount{
-			Address: osmosisFaucetAddr,
-			Denom:   gaia.Config().Denom,
-			Amount:  100,
-		}, nil)
-
-		return err
-	})
-
-	// Send the juno transfer.
-	eg.Go(func() error {
-		junoChannels, err := r.GetChannels(egCtx, eRep, juno.Config().ChainID)
-		require.NoError(t, err)
-		junoTx, err = juno.SendIBCTransfer(egCtx, junoChannels[0].ChannelID, ibctest.FaucetAccountKeyName, ibc.WalletAmount{
-			Address: osmosisFaucetAddr,
-			Denom:   juno.Config().Denom,
-			Amount:  100,
-		}, nil)
-		return err
-	})
-
-	require.NoError(t, eg.Wait())
-
-	osmosisHeightAfterTransfers, err := osmosis.Height(ctx)
+	afterGaiaTxHeight, err := gaia.Height(ctx)
 	require.NoError(t, err)
 
-	_, err = test.PollForAck(ctx, osmosis, osmosisHeightBeforeTransfers, osmosisHeightAfterTransfers+15, gaiaTx.Packet)
+	test.WaitForBlocks(ctx, 5, gaia, osmosis)
+	afterOsmoBalance, err := osmosis.GetBalance(ctx, osmosisFaucetAddr, gaiaOsmoIBCDenom)
 	require.NoError(t, err)
+	require.Equal(t, afterOsmoBalance, gaiaOsmoTxAmount)
 
-	_, err = test.PollForAck(ctx, osmosis, osmosisHeightBeforeTransfers, osmosisHeightAfterTransfers+15, junoTx.Packet)
-	require.NoError(t, err)
+	gaiaAck, err := test.PollForAck(ctx, gaia, beforeGaiaTxHeight, afterGaiaTxHeight+15, gaiaTx.Packet)
+	require.NoError(t, err, "failed to get acknowledgement on gaia")
+	require.NoError(t, gaiaAck.Validate(), "invalid acknowledgement on gaia")
 }
