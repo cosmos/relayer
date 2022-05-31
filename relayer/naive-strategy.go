@@ -14,15 +14,16 @@ import (
 )
 
 // UnrelayedSequences returns the unrelayed sequence numbers between two chains
-func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chantypes.IdentifiedChannel) *RelaySequences {
+func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chantypes.IdentifiedChannel) RelaySequences {
 	var (
 		srcPacketSeq = []uint64{}
 		dstPacketSeq = []uint64{}
-		rs           = &RelaySequences{Src: []uint64{}, Dst: []uint64{}}
+		rs           = RelaySequences{Src: []uint64{}, Dst: []uint64{}}
 	)
 
 	srch, dsth, err := QueryLatestHeights(ctx, src, dst)
 	if err != nil {
+		src.log.Error("Error querying latest heights", zap.Error(err))
 		return rs
 	}
 
@@ -241,15 +242,16 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 }
 
 // UnrelayedAcknowledgements returns the unrelayed sequence numbers between two chains
-func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel *chantypes.IdentifiedChannel) *RelaySequences {
+func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel *chantypes.IdentifiedChannel) RelaySequences {
 	var (
 		srcPacketSeq = []uint64{}
 		dstPacketSeq = []uint64{}
-		rs           = &RelaySequences{Src: []uint64{}, Dst: []uint64{}}
+		rs           = RelaySequences{Src: []uint64{}, Dst: []uint64{}}
 	)
 
 	srch, dsth, err := QueryLatestHeights(ctx, src, dst)
 	if err != nil {
+		src.log.Error("Error querying latest heights", zap.Error(err))
 		return rs
 	}
 
@@ -276,7 +278,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 			srch, _ = src.ChainProvider.QueryLatestHeight(ctx)
 		})); err != nil {
 			src.log.Error(
-				"Failed to query packet commitments after max attempts",
+				"Failed to query packet acknowledgement commitments after max attempts",
 				zap.String("channel_id", srcChannel.ChannelId),
 				zap.String("port_id", srcChannel.PortId),
 				zap.Uint("attempts", RtyAttNum),
@@ -309,7 +311,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 			dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
 		})); err != nil {
 			dst.log.Error(
-				"Failed to query packet commitments after max attempts",
+				"Failed to query packet acknowledgement commitments after max attempts",
 				zap.String("channel_id", srcChannel.Counterparty.ChannelId),
 				zap.String("port_id", srcChannel.Counterparty.PortId),
 				zap.Uint("attempts", RtyAttNum),
@@ -389,7 +391,7 @@ func (rs *RelaySequences) Empty() bool {
 }
 
 // RelayAcknowledgements creates transactions to relay acknowledgements from src to dst and from dst to src
-func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength uint64, srcChannel *chantypes.IdentifiedChannel) error {
+func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain, sp RelaySequences, maxTxSize, maxMsgLength uint64, srcChannel *chantypes.IdentifiedChannel) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []provider.RelayerMessage{},
@@ -514,7 +516,7 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 }
 
 // RelayPackets creates transactions to relay packets from src to dst and from dst to src
-func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp *RelaySequences, maxTxSize, maxMsgLength uint64, srcChannel *chantypes.IdentifiedChannel) error {
+func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp RelaySequences, maxTxSize, maxMsgLength uint64, srcChannel *chantypes.IdentifiedChannel) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []provider.RelayerMessage{},
