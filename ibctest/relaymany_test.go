@@ -90,9 +90,9 @@ func TestRelayMany_WIP(t *testing.T) {
 	test.WaitForBlocks(ctx, 5, gaia, osmosis)
 	afterOsmoBalance, err := osmosis.GetBalance(ctx, osmosisFaucetAddr, gaiaOsmoIBCDenom)
 	require.NoError(t, err)
-	require.Equal(t, afterOsmoBalance, gaiaOsmoTxAmount)
+	require.Equal(t, afterOsmoBalance, int64(gaiaOsmoTxAmount))
 
-	gaiaAck, err := test.PollForAck(ctx, gaia, beforeGaiaTxHeight, afterGaiaTxHeight+15, gaiaTx.Packet)
+	gaiaAck, err := test.PollForAck(ctx, gaia, beforeGaiaTxHeight, afterGaiaTxHeight+150, gaiaTx.Packet)
 	require.NoError(t, err, "failed to get acknowledgement on gaia")
 	require.NoError(t, gaiaAck.Validate(), "invalid acknowledgement on gaia")
 }
