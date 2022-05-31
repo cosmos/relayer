@@ -5,13 +5,10 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 )
 
-// transactionMessage is the type used for parsing all possible properties of IBC messages
-type transactionMessage struct {
-	messageType    string
-	packetInfo     *packetInfo
-	channelInfo    *channelInfo
-	clientInfo     *clientInfo
-	connectionInfo *connectionInfo
+// ibcMessage is the type used for parsing all possible properties of IBC messages
+type ibcMessage struct {
+	messageType string
+	messageInfo interface{}
 }
 
 // channelInfo contains useful channel information during channel state changes

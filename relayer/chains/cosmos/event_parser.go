@@ -13,17 +13,14 @@ import (
 )
 
 // processTransaction parses all events within a transaction to find IBC messages
-func (ccp *CosmosChainProcessor) processTransaction(tx *abci.ResponseDeliverTx) []transactionMessage {
-	messages := []transactionMessage{}
+func (ccp *CosmosChainProcessor) processTransaction(tx *abci.ResponseDeliverTx) []ibcMessage {
+	messages := []ibcMessage{}
 	parsedLogs, err := sdk.ParseABCILogs(tx.Log)
 	if err != nil {
 		return messages
 	}
 	for _, messageLog := range parsedLogs {
-		var packet *packetInfo
-		var channel *channelInfo
-		var client *clientInfo
-		var connection *connectionInfo
+		var messageInfo interface{}
 		var messageType string
 		ibcMessageFound := false
 		for _, event := range messageLog.Events {
@@ -37,37 +34,34 @@ func (ccp *CosmosChainProcessor) processTransaction(tx *abci.ResponseDeliverTx) 
 				}
 			case "create_client", "update_client", "upgrade_client", "submit_misbehaviour":
 				ibcMessageFound = true
-				client = ccp.parseClientInfo(event.Attributes)
+				messageInfo = ccp.parseClientInfo(event.Attributes)
 			case "send_packet", "recv_packet",
 				"acknowledge_packet", "timeout_packet", "write_acknowledgement":
 				ibcMessageFound = true
-				packet = ccp.parsePacketInfo(event.Attributes)
+				messageInfo = ccp.parsePacketInfo(event.Attributes)
 			case "connection_open_init", "connection_open_try", "connection_open_ack",
 				"connection_open_confirm":
 				ibcMessageFound = true
-				connection = ccp.parseConnectionInfo(event.Attributes)
+				messageInfo = ccp.parseConnectionInfo(event.Attributes)
 			case "channel_open_init", "channel_open_try",
 				"channel_open_ack", "channel_open_confirm", "channel_close_init", "channel_close_confirm":
 				ibcMessageFound = true
-				channel = ccp.parseChannelInfo(event.Attributes)
+				messageInfo = ccp.parseChannelInfo(event.Attributes)
 			}
 		}
 		if !ibcMessageFound {
 			continue
 		}
-		messages = append(messages, transactionMessage{
-			messageType:    messageType,
-			packetInfo:     packet,
-			channelInfo:    channel,
-			clientInfo:     client,
-			connectionInfo: connection,
+		messages = append(messages, ibcMessage{
+			messageType: messageType,
+			messageInfo: messageInfo,
 		})
 	}
 
 	return messages
 }
 
-func (ccp *CosmosChainProcessor) parseClientInfo(attributes []sdk.Attribute) *clientInfo {
+func (ccp *CosmosChainProcessor) parseClientInfo(attributes []sdk.Attribute) clientInfo {
 	res := clientInfo{}
 	for _, attr := range attributes {
 		switch attr.Key {
@@ -107,10 +101,10 @@ func (ccp *CosmosChainProcessor) parseClientInfo(attributes []sdk.Attribute) *cl
 			}
 		}
 	}
-	return &res
+	return res
 }
 
-func (ccp *CosmosChainProcessor) parsePacketInfo(attributes []sdk.Attribute) *packetInfo {
+func (ccp *CosmosChainProcessor) parsePacketInfo(attributes []sdk.Attribute) packetInfo {
 	res := packetInfo{packet: chantypes.Packet{}}
 	for _, attr := range attributes {
 		var err error
@@ -205,10 +199,10 @@ func (ccp *CosmosChainProcessor) parsePacketInfo(attributes []sdk.Attribute) *pa
 			res.packet.DestinationChannel = attr.Value
 		}
 	}
-	return &res
+	return res
 }
 
-func (ccp *CosmosChainProcessor) parseChannelInfo(attributes []sdk.Attribute) *channelInfo {
+func (ccp *CosmosChainProcessor) parseChannelInfo(attributes []sdk.Attribute) channelInfo {
 	res := channelInfo{}
 	for _, attr := range attributes {
 		switch attr.Key {
@@ -222,10 +216,10 @@ func (ccp *CosmosChainProcessor) parseChannelInfo(attributes []sdk.Attribute) *c
 			res.counterpartyChannelID = attr.Value
 		}
 	}
-	return &res
+	return res
 }
 
-func (ccp *CosmosChainProcessor) parseConnectionInfo(attributes []sdk.Attribute) *connectionInfo {
+func (ccp *CosmosChainProcessor) parseConnectionInfo(attributes []sdk.Attribute) connectionInfo {
 	res := connectionInfo{}
 	for _, attr := range attributes {
 		switch attr.Key {
@@ -239,5 +233,5 @@ func (ccp *CosmosChainProcessor) parseConnectionInfo(attributes []sdk.Attribute)
 			res.counterpartyClientID = attr.Value
 		}
 	}
-	return &res
+	return res
 }
