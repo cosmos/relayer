@@ -69,16 +69,6 @@ func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *Path
 	}
 }
 
-// TEST USE ONLY
-func (pp *PathProcessor) PathEnd1Messages(message string) SequenceCache {
-	return pp.pathEnd1.messageCache[message]
-}
-
-// TEST USE ONLY
-func (pp *PathProcessor) PathEnd2Messages(message string) SequenceCache {
-	return pp.pathEnd2.messageCache[message]
-}
-
 // Path Processors are constructed before ChainProcessors, so reference needs to be added afterwards
 // This can be done inside the ChainProcessor constructor for simplification
 func (pp *PathProcessor) SetChainProcessorIfApplicable(chainID string, chainProcessor ChainProcessor) bool {
@@ -90,6 +80,12 @@ func (pp *PathProcessor) SetChainProcessorIfApplicable(chainID string, chainProc
 		return true
 	}
 	return false
+}
+
+// ProcessBacklogIfReady gives ChainProcessors a way to trigger the path processor process
+// as soon as they are in sync for the first time, even if they do not have new messages.
+func (pp *PathProcessor) ProcessBacklogIfReady() {
+	pp.retryProcess <- struct{}{}
 }
 
 // ChainProcessors call this method when they have new IBC messages
