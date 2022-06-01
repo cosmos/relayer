@@ -9,20 +9,18 @@ import (
 )
 
 type CosmosChainProcessor struct {
-	ctx context.Context
 	log *zap.Logger
 
 	pathProcessors processor.PathProcessors
 	ChainProvider  *cosmos.CosmosProvider
 }
 
-func NewCosmosChainProcessor(ctx context.Context, log *zap.Logger, rpcAddress string, provider *cosmos.CosmosProvider, pathProcessors processor.PathProcessors) (*CosmosChainProcessor, error) {
+func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, pathProcessors processor.PathProcessors) *CosmosChainProcessor {
 	return &CosmosChainProcessor{
-		ctx:            ctx,
 		log:            log,
 		ChainProvider:  provider,
 		pathProcessors: pathProcessors,
-	}, nil
+	}
 }
 
 // InSync indicates whether queries are in sync with latest height of the chain.
