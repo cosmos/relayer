@@ -23,7 +23,7 @@ type RelayMsgs struct {
 }
 
 // batchSendMessageTimeout is the timeout for sending a single batch of IBC messages to an RPC node.
-const batchSendMessageTimeout = 10 * time.Second
+const batchSendMessageTimeout = 30 * time.Second
 
 // Ready returns true if there are messages to relay
 func (r *RelayMsgs) Ready() bool {
