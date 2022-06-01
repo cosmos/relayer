@@ -1,36 +1,44 @@
 package processor
 
-import "github.com/cosmos/relayer/v2/relayer/provider"
+import (
+	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/gogo/protobuf/proto"
+)
 
-// These are IBC message types used as shared message keys between ChainProcessors and PathProcessors.
-const (
+// These are the IBC message types that are the possible message actions when parsing tendermint events.
+// They are also used as shared message keys between ChainProcessors and PathProcessors.
+var (
 	// Packet messages
-	MsgTransfer        = "/ibc.applications.transfer.v1.MsgTransfer"
-	MsgRecvPacket      = "/ibc.core.channel.v1.MsgRecvPacket"
-	MsgAcknowledgement = "/ibc.core.channel.v1.MsgAcknowledgement"
-	MsgTimeout         = "/ibc.core.channel.v1.MsgTimeout"
-	MsgTimeoutOnClose  = "/ibc.core.channel.v1.MsgTimeoutOnClose"
+	MsgTransfer        = "/" + proto.MessageName((*transfertypes.MsgTransfer)(nil))
+	MsgRecvPacket      = "/" + proto.MessageName((*chantypes.MsgRecvPacket)(nil))
+	MsgAcknowledgement = "/" + proto.MessageName((*chantypes.MsgAcknowledgement)(nil))
+	MsgTimeout         = "/" + proto.MessageName((*chantypes.MsgTimeout)(nil))
+	MsgTimeoutOnClose  = "/" + proto.MessageName((*chantypes.MsgTimeoutOnClose)(nil))
 
 	// Connection messages
-	MsgConnectionOpenInit    = "/ibc.core.connection.v1.MsgConnectionOpenInit"
-	MsgConnectionOpenTry     = "/ibc.core.connection.v1.MsgConnectionOpenTry"
-	MsgConnectionOpenAck     = "/ibc.core.connection.v1.MsgConnectionOpenAck"
-	MsgConnectionOpenConfirm = "/ibc.core.connection.v1.MsgConnectionOpenConfirm"
+	MsgConnectionOpenInit    = "/" + proto.MessageName((*conntypes.MsgConnectionOpenInit)(nil))
+	MsgConnectionOpenTry     = "/" + proto.MessageName((*conntypes.MsgConnectionOpenTry)(nil))
+	MsgConnectionOpenAck     = "/" + proto.MessageName((*conntypes.MsgConnectionOpenAck)(nil))
+	MsgConnectionOpenConfirm = "/" + proto.MessageName((*conntypes.MsgConnectionOpenConfirm)(nil))
 
 	// Channel messages
-	MsgChannelOpenInit    = "/ibc.core.channel.v1.MsgChannelOpenInit"
-	MsgChannelOpenTry     = "/ibc.core.channel.v1.MsgChannelOpenTry"
-	MsgChannelOpenAck     = "/ibc.core.channel.v1.MsgChannelOpenAck"
-	MsgChannelOpenConfirm = "/ibc.core.channel.v1.MsgChannelOpenConfirm"
+	MsgChannelOpenInit    = "/" + proto.MessageName((*chantypes.MsgChannelOpenInit)(nil))
+	MsgChannelOpenTry     = "/" + proto.MessageName((*chantypes.MsgChannelOpenTry)(nil))
+	MsgChannelOpenAck     = "/" + proto.MessageName((*chantypes.MsgChannelOpenAck)(nil))
+	MsgChannelOpenConfirm = "/" + proto.MessageName((*chantypes.MsgChannelOpenConfirm)(nil))
 
-	MsgChannelCloseInit    = "/ibc.core.channel.v1.MsgChannelCloseInit"
-	MsgChannelCloseConfirm = "/ibc.core.channel.v1.MsgChannelCloseConfirm"
+	MsgChannelCloseInit    = "/" + proto.MessageName((*chantypes.MsgChannelCloseInit)(nil))
+	MsgChannelCloseConfirm = "/" + proto.MessageName((*chantypes.MsgChannelCloseConfirm)(nil))
 
 	// Client messages
-	MsgCreateClient       = "/ibc.core.client.v1.MsgCreateClient"
-	MsgUpdateClient       = "/ibc.core.client.v1.MsgUpdateClient"
-	MsgUpgradeClient      = "/ibc.core.client.v1.MsgUpgradeClient"
-	MsgSubmitMisbehaviour = "/ibc.core.client.v1.MsgSubmitMisbehaviour"
+	MsgCreateClient       = "/" + proto.MessageName((*clienttypes.MsgCreateClient)(nil))
+	MsgUpdateClient       = "/" + proto.MessageName((*clienttypes.MsgUpdateClient)(nil))
+	MsgUpgradeClient      = "/" + proto.MessageName((*clienttypes.MsgUpgradeClient)(nil))
+	MsgSubmitMisbehaviour = "/" + proto.MessageName((*clienttypes.MsgSubmitMisbehaviour)(nil))
 )
 
 // SequenceCache is used for caching an IBC message for a given packet sequence.
