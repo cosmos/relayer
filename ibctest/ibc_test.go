@@ -191,6 +191,73 @@ func (r *relayer) LinkPath(ctx context.Context, _ ibc.RelayerExecReporter, pathN
 	return nil
 }
 
+func (r *relayer) GetConnections(ctx context.Context, _ ibc.RelayerExecReporter, chainID string) (ibc.ConnectionOutputs, error) {
+	res := r.sys().RunC(ctx, r.log(), "q", "connections", chainID)
+	if res.Err != nil {
+		return nil, res.Err
+	}
+
+	var connections ibc.ConnectionOutputs
+	for _, connection := range strings.Split(res.Stdout.String(), "\n") {
+		if strings.TrimSpace(connection) == "" {
+			continue
+		}
+
+		connectionOutput := ibc.ConnectionOutput{}
+		err := json.Unmarshal([]byte(connection), &connectionOutput)
+		if err != nil {
+			r.log().Error(
+				"Error parsing connection json",
+				zap.Error(err),
+			)
+
+			continue
+		}
+		connections = append(connections, &connectionOutput)
+	}
+
+	return connections, nil
+}
+
+func (r *relayer) CreateChannel(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, opts ibc.CreateChannelOptions) error {
+	res := r.sys().RunC(
+		ctx, r.log(),
+		"tx", "channel", pathName,
+		"--src-port", opts.SourcePortName,
+		"--dst-port", opts.DestPortName,
+		"--order", opts.Order,
+		"--version", opts.Version,
+	)
+	if res.Err != nil {
+		return res.Err
+	}
+	return nil
+}
+
+func (r *relayer) CreateConnections(ctx context.Context, _ ibc.RelayerExecReporter, pathName string) error {
+	res := r.sys().RunC(ctx, r.log(), "tx", "connection", pathName)
+	if res.Err != nil {
+		return res.Err
+	}
+	return nil
+}
+
+func (r *relayer) CreateClients(ctx context.Context, _ ibc.RelayerExecReporter, pathName string) error {
+	res := r.sys().RunC(ctx, r.log(), "tx", "clients", pathName)
+	if res.Err != nil {
+		return res.Err
+	}
+	return nil
+}
+
+func (r *relayer) UpdateClients(ctx context.Context, _ ibc.RelayerExecReporter, pathName string) error {
+	res := r.sys().RunC(ctx, r.log(), "tx", "update-clients", pathName)
+	if res.Err != nil {
+		return res.Err
+	}
+	return nil
+}
+
 func (r *relayer) StartRelayer(ctx context.Context, _ ibc.RelayerExecReporter, pathName string) error {
 	if r.errCh != nil || r.cancel != nil {
 		panic(fmt.Errorf("StartRelayer called multiple times without being stopped"))
@@ -210,10 +277,6 @@ func (r *relayer) StopRelayer(ctx context.Context, _ ibc.RelayerExecReporter) er
 	r.cancel = nil
 	r.errCh = nil
 	return err
-}
-
-func (r *relayer) UpdateClients(ctx context.Context, _ ibc.RelayerExecReporter, pathName string) error {
-	panic("not yet implemented")
 }
 
 // start runs in its own goroutine, blocking until "rly start" finishes.
