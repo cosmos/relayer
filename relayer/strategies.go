@@ -208,16 +208,7 @@ func relayUnrelayedPacketsAndAcks(ctx context.Context, log *zap.Logger, wg *sync
 // Otherwise, it logs the errors and returns false.
 func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) bool {
 	// Fetch any unrelayed sequences depending on the channel order
-	sp, err := UnrelayedSequences(ctx, src, dst, srcChannel)
-	if err != nil {
-		src.log.Warn(
-			"Error retrieving unrelayed sequences",
-			zap.String("src_chain_id", src.ChainID()),
-			zap.String("src_channel_id", srcChannel.ChannelId),
-			zap.Error(err),
-		)
-		return false
-	}
+	sp := UnrelayedSequences(ctx, src, dst, srcChannel)
 
 	// If there are no unrelayed packets, stop early.
 	if sp.Empty() {
@@ -287,16 +278,7 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 // Otherwise, it logs the errors and returns false.
 func relayUnrelayedAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) bool {
 	// Fetch any unrelayed acks depending on the channel order
-	ap, err := UnrelayedAcknowledgements(ctx, src, dst, srcChannel)
-	if err != nil {
-		log.Warn(
-			"Error retrieving unrelayed acknowledgements",
-			zap.String("src_chain_id", src.ChainID()),
-			zap.String("src_channel_id", srcChannel.ChannelId),
-			zap.Error(err),
-		)
-		return false
-	}
+	ap := UnrelayedAcknowledgements(ctx, src, dst, srcChannel)
 
 	// If there are no unrelayed acks, stop early.
 	if ap.Empty() {

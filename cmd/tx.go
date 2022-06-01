@@ -727,10 +727,7 @@ $ %s tx relay-pkts demo-path channel-0`,
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(cmd.Context(), c[src], c[dst], channel)
-			if err != nil {
-				return err
-			}
+			sp := relayer.UnrelayedSequences(cmd.Context(), c[src], c[dst], channel)
 
 			if err = relayer.RelayPackets(cmd.Context(), a.Log, c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
 				return err
@@ -777,10 +774,7 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 
 			// sp.Src contains all sequences acked on SRC but acknowledgement not processed on DST
 			// sp.Dst contains all sequences acked on DST but acknowledgement not processed on SRC
-			sp, err := relayer.UnrelayedAcknowledgements(cmd.Context(), c[src], c[dst], channel)
-			if err != nil {
-				return err
-			}
+			sp := relayer.UnrelayedAcknowledgements(cmd.Context(), c[src], c[dst], channel)
 
 			if err = relayer.RelayAcknowledgements(cmd.Context(), a.Log, c[src], c[dst], sp, maxTxSize, maxMsgLength, channel); err != nil {
 				return err
