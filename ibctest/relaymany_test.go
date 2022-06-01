@@ -23,18 +23,19 @@ func TestRelayMany_WIP(t *testing.T) {
 	cf := ibctest.NewBuiltinChainFactory([]ibctest.BuiltinChainFactoryEntry{
 		gaiaFactoryEntry,
 		osmosisFactoryEntry,
-		// TODO: include junoFactoryEntry
+		junoFactoryEntry,
 	}, zaptest.NewLogger(t))
 
 	chains, err := cf.Chains(t.Name())
 	require.NoError(t, err)
 
-	gaia, osmosis := chains[0], chains[1]
+	gaia, osmosis, juno := chains[0], chains[1], chains[2]
 	r := relayerFactory{}.Build(t, pool, network, home).(*relayer)
 
 	ic := ibctest.NewInterchain().
 		AddChain(gaia).
 		AddChain(osmosis).
+		AddChain(juno).
 		AddRelayer(r, "r").
 		AddLink(ibctest.InterchainLink{
 			Chain1:  gaia,
@@ -87,12 +88,11 @@ func TestRelayMany_WIP(t *testing.T) {
 	afterGaiaTxHeight, err := gaia.Height(ctx)
 	require.NoError(t, err)
 
-	test.WaitForBlocks(ctx, 5, gaia, osmosis)
+	gaiaAck, err := test.PollForAck(ctx, gaia, beforeGaiaTxHeight, afterGaiaTxHeight+10, gaiaTx.Packet)
+	require.NoError(t, err, "failed to get acknowledgement on gaia")
+	require.NoError(t, gaiaAck.Validate(), "invalid acknowledgement on gaia")
+
 	afterOsmoBalance, err := osmosis.GetBalance(ctx, osmosisFaucetAddr, gaiaOsmoIBCDenom)
 	require.NoError(t, err)
 	require.Equal(t, afterOsmoBalance, int64(gaiaOsmoTxAmount))
-
-	gaiaAck, err := test.PollForAck(ctx, gaia, beforeGaiaTxHeight, afterGaiaTxHeight+150, gaiaTx.Packet)
-	require.NoError(t, err, "failed to get acknowledgement on gaia")
-	require.NoError(t, gaiaAck.Validate(), "invalid acknowledgement on gaia")
 }
