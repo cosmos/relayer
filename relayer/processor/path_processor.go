@@ -69,6 +69,16 @@ func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *Path
 	}
 }
 
+// TEST USE ONLY
+func (pp *PathProcessor) PathEnd1Messages(message string) SequenceCache {
+	return pp.pathEnd1.messageCache[message]
+}
+
+// TEST USE ONLY
+func (pp *PathProcessor) PathEnd2Messages(message string) SequenceCache {
+	return pp.pathEnd2.messageCache[message]
+}
+
 // Path Processors are constructed before ChainProcessors, so reference needs to be added afterwards
 // This can be done inside the ChainProcessor constructor for simplification
 func (pp *PathProcessor) SetChainProcessorIfApplicable(chainID string, chainProcessor ChainProcessor) bool {
