@@ -2,7 +2,6 @@ package cosmos
 
 import (
 	"encoding/hex"
-	"strings"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -10,19 +9,22 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
 func TestParsePacket(t *testing.T) {
-	testPacketTimeoutHeight := "1-1245"
-	testPacketTimeoutTimestamp := "1654033235600000000"
-	testPacketSequence := "1"
-	testPacketDataHex := "0123456789ABCDEF"
-	testPacketSrcChannel := "channel-0"
-	testPacketSrcPort := "port-0"
-	testPacketDstChannel := "channel-1"
-	testPacketDstPort := "port-1"
+	const (
+		testPacketTimeoutHeight    = "1-1245"
+		testPacketTimeoutTimestamp = "1654033235600000000"
+		testPacketSequence         = "1"
+		testPacketDataHex          = "0123456789ABCDEF"
+		testPacketSrcChannel       = "channel-0"
+		testPacketSrcPort          = "port-0"
+		testPacketDstChannel       = "channel-1"
+		testPacketDstPort          = "port-1"
+	)
 
 	packetEventAttributes := []sdk.Attribute{
 		{
@@ -62,24 +64,32 @@ func TestParsePacket(t *testing.T) {
 	parsed := new(packetInfo)
 	parsed = parsed.parsePacketInfo(zap.NewNop(), "", packetEventAttributes)
 
-	require.Equal(t, uint64(1), parsed.packet.Sequence, "packet sequence does not match")
-	require.Equal(t, strings.ToUpper(testPacketDataHex), strings.ToUpper(hex.EncodeToString(parsed.packet.Data)), "packet data does not match")
+	packetData, err := hex.DecodeString(testPacketDataHex)
+	require.NoError(t, err, "error decoding test packet data")
 
-	require.Equal(t, uint64(1), parsed.packet.TimeoutHeight.RevisionNumber, "packet timeout height revision number does not match")
-	require.Equal(t, uint64(1245), parsed.packet.TimeoutHeight.RevisionHeight, "packet timeout height revision height does not match")
-
-	require.Equal(t, uint64(1654033235600000000), parsed.packet.TimeoutTimestamp, "packet timeout timestamp does not match")
-
-	require.Equal(t, testPacketSrcChannel, parsed.packet.SourceChannel, "packet source channel does not match")
-	require.Equal(t, testPacketSrcPort, parsed.packet.SourcePort, "packet source port does not match")
-	require.Equal(t, testPacketDstChannel, parsed.packet.DestinationChannel, "packet destination channel does not match")
-	require.Equal(t, testPacketDstPort, parsed.packet.DestinationPort, "packet destination port does not match")
+	require.Empty(t, cmp.Diff(*parsed, packetInfo{
+		packet: chantypes.Packet{
+			Sequence: uint64(1),
+			Data:     packetData,
+			TimeoutHeight: clienttypes.Height{
+				RevisionNumber: uint64(1),
+				RevisionHeight: uint64(1245),
+			},
+			TimeoutTimestamp:   uint64(1654033235600000000),
+			SourceChannel:      testPacketSrcChannel,
+			SourcePort:         testPacketSrcPort,
+			DestinationChannel: testPacketDstChannel,
+			DestinationPort:    testPacketDstPort,
+		},
+	}, cmp.AllowUnexported(packetInfo{}, chantypes.Packet{})), "parsed does not match expected")
 }
 
 func TestParseClient(t *testing.T) {
-	testClientID1 := "test-client-id-1"
-	testClientConsensusHeight := "1-1023"
-	testClientHeader := "0123456789ABCDEF"
+	const (
+		testClientID1             = "test-client-id-1"
+		testClientConsensusHeight = "1-1023"
+		testClientHeader          = "0123456789ABCDEF"
+	)
 
 	clientEventAttributes := []sdk.Attribute{
 		{
@@ -98,18 +108,27 @@ func TestParseClient(t *testing.T) {
 
 	parsed := parseClientInfo(zap.NewNop(), "", clientEventAttributes)
 
-	require.Equal(t, testClientID1, parsed.clientID, "client ID does not match")
-	require.Equal(t, uint64(1), parsed.consensusHeight.RevisionNumber, "client consensus height revision number does not match")
-	require.Equal(t, uint64(1023), parsed.consensusHeight.RevisionHeight, "client consensus height revision height does not match")
-	require.Equal(t, strings.ToUpper(testClientHeader), strings.ToUpper(hex.EncodeToString(parsed.header)), "client header does not match")
+	clientHeader, err := hex.DecodeString(testClientHeader)
+	require.NoError(t, err, "error parsing test client header")
+
+	require.Empty(t, cmp.Diff(parsed, clientInfo{
+		clientID: testClientID1,
+		consensusHeight: clienttypes.Height{
+			RevisionNumber: uint64(1),
+			RevisionHeight: uint64(1023),
+		},
+		header: clientHeader,
+	}, cmp.AllowUnexported(clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
 }
 
 func TestParseChannel(t *testing.T) {
-	testConnectionID1 := "test-connection-id-1"
-	testChannelID1 := "test-channel-id-1"
-	testPortID1 := "test-port-id-1"
-	testChannelID2 := "test-channel-id-2"
-	testPortID2 := "test-port-id-2"
+	const (
+		testConnectionID1 = "test-connection-id-1"
+		testChannelID1    = "test-channel-id-1"
+		testPortID1       = "test-port-id-1"
+		testChannelID2    = "test-channel-id-2"
+		testPortID2       = "test-port-id-2"
+	)
 
 	channelEventAttributes := []sdk.Attribute{
 		{
@@ -136,18 +155,22 @@ func TestParseChannel(t *testing.T) {
 
 	parsed := parseChannelInfo(channelEventAttributes)
 
-	require.Equal(t, testConnectionID1, parsed.connectionID, "connection ID does not match")
-	require.Equal(t, testChannelID1, parsed.channelID, "channel ID does not match")
-	require.Equal(t, testPortID1, parsed.portID, "port ID does not match")
-	require.Equal(t, testChannelID2, parsed.counterpartyChannelID, "counterparty channel ID does not match")
-	require.Equal(t, testPortID2, parsed.counterpartyPortID, "counterparty port ID does not match")
+	require.Empty(t, cmp.Diff(parsed, channelInfo{
+		connectionID:          testConnectionID1,
+		channelID:             testChannelID1,
+		portID:                testPortID1,
+		counterpartyChannelID: testChannelID2,
+		counterpartyPortID:    testPortID2,
+	}, cmp.AllowUnexported(channelInfo{})), "parsed channel info does not match expected")
 }
 
 func TestParseConnection(t *testing.T) {
-	testConnectionID1 := "test-connection-id-1"
-	testClientID1 := "test-client-id-1"
-	testConnectionID2 := "test-connection-id-2"
-	testClientID2 := "test-client-id-2"
+	const (
+		testConnectionID1 = "test-connection-id-1"
+		testClientID1     = "test-client-id-1"
+		testConnectionID2 = "test-connection-id-2"
+		testClientID2     = "test-client-id-2"
+	)
 
 	connectionEventAttributes := []sdk.Attribute{
 		{
@@ -170,25 +193,29 @@ func TestParseConnection(t *testing.T) {
 
 	parsed := parseConnectionInfo(connectionEventAttributes)
 
-	require.Equal(t, testClientID1, parsed.clientID, "client ID does not match")
-	require.Equal(t, testConnectionID1, parsed.connectionID, "connection ID does not match")
-	require.Equal(t, testClientID2, parsed.counterpartyClientID, "counterparty client ID does not match")
-	require.Equal(t, testConnectionID2, parsed.counterpartyConnectionID, "counterparty connection ID does not match")
+	require.Empty(t, cmp.Diff(parsed, connectionInfo{
+		clientID:                 testClientID1,
+		connectionID:             testConnectionID1,
+		counterpartyClientID:     testClientID2,
+		counterpartyConnectionID: testConnectionID2,
+	}, cmp.AllowUnexported(connectionInfo{})), "parsed connection info does not match expected")
 }
 
 func TestParseEventLogs(t *testing.T) {
-	testChainID1 := "test-chain-id-1"
-	testClientID1 := "test-client-id-1"
-	testClientConsensusHeight := "1-1023"
-	testPacketTimeoutHeight := "1-1245"
-	testPacketTimeoutTimestamp := "1654033235600000000"
-	testPacketSequence := "1"
-	testPacketDataHex := "0123456789ABCDEF"
-	testPacketAckHex := "FBDA532947"
-	testPacketSrcChannel := "channel-0"
-	testPacketSrcPort := "port-0"
-	testPacketDstChannel := "channel-1"
-	testPacketDstPort := "port-1"
+	const (
+		testChainID1               = "test-chain-id-1"
+		testClientID1              = "test-client-id-1"
+		testClientConsensusHeight  = "1-1023"
+		testPacketTimeoutHeight    = "1-1245"
+		testPacketTimeoutTimestamp = "1654033235600000000"
+		testPacketSequence         = "1"
+		testPacketDataHex          = "0123456789ABCDEF"
+		testPacketAckHex           = "FBDA532947"
+		testPacketSrcChannel       = "channel-0"
+		testPacketSrcPort          = "port-0"
+		testPacketDstChannel       = "channel-1"
+		testPacketDstPort          = "port-1"
+	)
 	abciLogs := sdk.ABCIMessageLogs{
 		{
 			MsgIndex: 0,
@@ -281,16 +308,21 @@ func TestParseEventLogs(t *testing.T) {
 
 	ibcMessages := parseABCILogs(zap.NewNop(), testChainID1, abciLogs)
 
-	require.Equal(t, len(ibcMessages), 2)
+	require.Len(t, ibcMessages, 2)
 
 	msgUpdateClient := ibcMessages[0]
 	require.Equal(t, processor.MsgUpdateClient, msgUpdateClient.messageType)
 
 	clientInfoParsed, isClientInfo := msgUpdateClient.messageInfo.(clientInfo)
 	require.True(t, isClientInfo, "messageInfo is not clientInfo")
-	require.Equal(t, testClientID1, clientInfoParsed.clientID, "client ID does not match")
-	require.Equal(t, uint64(1), clientInfoParsed.consensusHeight.RevisionNumber, "client consensus height revision number does not match")
-	require.Equal(t, uint64(1023), clientInfoParsed.consensusHeight.RevisionHeight, "client consensus height revision height does not match")
+
+	require.Empty(t, cmp.Diff(clientInfoParsed, clientInfo{
+		clientID: testClientID1,
+		consensusHeight: clienttypes.Height{
+			RevisionNumber: uint64(1),
+			RevisionHeight: uint64(1023),
+		},
+	}, cmp.AllowUnexported(clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
 
 	msgRecvPacket := ibcMessages[1]
 	require.Equal(t, processor.MsgRecvPacket, msgRecvPacket.messageType, "message is not MsgRecvPacket")
@@ -298,18 +330,26 @@ func TestParseEventLogs(t *testing.T) {
 	packetInfoParsed, isPacketInfo := msgRecvPacket.messageInfo.(packetInfo)
 	require.True(t, isPacketInfo, "messageInfo is not packetInfo")
 
-	require.Equal(t, uint64(1), packetInfoParsed.packet.Sequence, "packet sequence does not match")
-	require.Equal(t, strings.ToUpper(testPacketDataHex), strings.ToUpper(hex.EncodeToString(packetInfoParsed.packet.Data)), "packet data does not match")
+	packetAck, err := hex.DecodeString(testPacketAckHex)
+	require.NoError(t, err, "error decoding test packet ack")
 
-	require.Equal(t, uint64(1), packetInfoParsed.packet.TimeoutHeight.RevisionNumber, "packet timeout height revision number does not match")
-	require.Equal(t, uint64(1245), packetInfoParsed.packet.TimeoutHeight.RevisionHeight, "packet timeout height revision height does not match")
+	packetData, err := hex.DecodeString(testPacketDataHex)
+	require.NoError(t, err, "error decoding test packet data")
 
-	require.Equal(t, uint64(1654033235600000000), packetInfoParsed.packet.TimeoutTimestamp, "packet timeout timestamp does not match")
-
-	require.Equal(t, testPacketSrcChannel, packetInfoParsed.packet.SourceChannel, "packet source channel does not match")
-	require.Equal(t, testPacketSrcPort, packetInfoParsed.packet.SourcePort, "packet source port does not match")
-	require.Equal(t, testPacketDstChannel, packetInfoParsed.packet.DestinationChannel, "packet destination channel does not match")
-	require.Equal(t, testPacketDstPort, packetInfoParsed.packet.DestinationPort, "packet destination port does not match")
-
-	require.Equal(t, strings.ToUpper(testPacketAckHex), strings.ToUpper(hex.EncodeToString(packetInfoParsed.ack)), "packet ack does not match")
+	require.Empty(t, cmp.Diff(packetInfoParsed, packetInfo{
+		packet: chantypes.Packet{
+			Sequence: uint64(1),
+			Data:     packetData,
+			TimeoutHeight: clienttypes.Height{
+				RevisionNumber: uint64(1),
+				RevisionHeight: uint64(1245),
+			},
+			TimeoutTimestamp:   uint64(1654033235600000000),
+			SourceChannel:      testPacketSrcChannel,
+			SourcePort:         testPacketSrcPort,
+			DestinationChannel: testPacketDstChannel,
+			DestinationPort:    testPacketDstPort,
+		},
+		ack: packetAck,
+	}, cmp.AllowUnexported(packetInfo{}, chantypes.Packet{})), "parsed packet info does not match expected")
 }
