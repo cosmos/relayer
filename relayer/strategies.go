@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -248,6 +249,19 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 			log.Warn(
 				"Context finished while waiting for RelayPackets to complete",
+				zap.String("src_chain_id", src.ChainID()),
+				zap.String("src_channel_id", srcChannel.ChannelId),
+				zap.String("dst_chain_id", dst.ChainID()),
+				zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
+				zap.Error(ctx.Err()),
+			)
+			return false
+		}
+
+		// If we encounter an error that suggest node configuration issues, log a more insightful error message.
+		if strings.Contains(err.Error(), "Internal error: transaction indexing is disabled") {
+			log.Warn(
+				"Remote server needs reconfigured.",
 				zap.String("src_chain_id", src.ChainID()),
 				zap.String("src_channel_id", srcChannel.ChannelId),
 				zap.String("dst_chain_id", dst.ChainID()),
