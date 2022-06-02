@@ -43,6 +43,13 @@ func TestRelayMany_WIP(t *testing.T) {
 			Relayer: r,
 
 			Path: "gaia-osmo",
+		}).
+		AddLink(ibctest.InterchainLink{
+			Chain1:  osmosis,
+			Chain2:  juno,
+			Relayer: r,
+
+			Path: "osmo-juno",
 		})
 
 	ctx := context.Background()
