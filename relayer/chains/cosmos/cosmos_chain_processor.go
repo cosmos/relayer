@@ -3,12 +3,12 @@ package cosmos
 import (
 	"context"
 	"fmt"
-	"sync/atomic"
 	"time"
 
 	"github.com/avast/retry-go/v4"
 	cosmosClient "github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"go.uber.org/zap"
 )
@@ -16,16 +16,15 @@ import (
 type CosmosChainProcessor struct {
 	log *zap.Logger
 
-	ChainProvider *cosmos.CosmosProvider
+	chainProvider *cosmos.CosmosProvider
 
 	// sdk context
 	cc *cosmosClient.Context
 
 	pathProcessors processor.PathProcessors
 
-	// this variable is only written from a single thread (Run function here),
-	// but is concurrently read by the PathProcessors
-	inSync int32
+	// indicates whether queries are in sync with latest height of the chain
+	inSync bool
 }
 
 func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, rpcAddress string, pathProcessors processor.PathProcessors) (*CosmosChainProcessor, error) {
@@ -35,7 +34,7 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, r
 	}
 	return &CosmosChainProcessor{
 		log:            log,
-		ChainProvider:  provider,
+		chainProvider:  provider,
 		cc:             cc,
 		pathProcessors: pathProcessors,
 	}, nil
@@ -50,19 +49,9 @@ const (
 	inSyncNumBlocksThreshold    = 2
 )
 
-// InSync indicates whether queries are in sync with latest height of the chain.
-// The PathProcessors use this as a signal for determining if the backlog of messaged is ready to be processed and relayed.
-func (ccp *CosmosChainProcessor) InSync() bool {
-	return atomic.LoadInt32(&ccp.inSync) == 1
-}
-
-func (ccp *CosmosChainProcessor) setInSync() {
-	atomic.StoreInt32(&ccp.inSync, 1)
-}
-
-// ChainID returns the identifier of the chain
-func (ccp *CosmosChainProcessor) ChainID() string {
-	return ccp.ChainProvider.ChainId()
+// Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
+func (ccp *CosmosChainProcessor) Provider() provider.ChainProvider {
+	return ccp.chainProvider
 }
 
 // Set the PathProcessors that this ChainProcessor should publish relevant IBC events to.
@@ -78,12 +67,12 @@ func (ccp *CosmosChainProcessor) latestHeightWithRetry(ctx context.Context) (lat
 		latestHeightQueryCtx, cancelLatestHeightQueryCtx := context.WithTimeout(ctx, latestHeightQueryTimeout)
 		defer cancelLatestHeightQueryCtx()
 		var err error
-		latestHeight, err = ccp.ChainProvider.QueryLatestHeight(latestHeightQueryCtx)
+		latestHeight, err = ccp.chainProvider.QueryLatestHeight(latestHeightQueryCtx)
 		return err
 	}, retry.Context(ctx), retry.Attempts(latestHeightQueryRetries), retry.Delay(latestHeightQueryRetryDelay), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
 		ccp.log.Info(
 			"Failed to query latest height",
-			zap.String("chain_id", ccp.ChainProvider.ChainId()),
+			zap.String("chain_id", ccp.chainProvider.ChainId()),
 			zap.Uint("attempt", n+1),
 			zap.Uint("max_attempts", latestHeightQueryRetries),
 			zap.Error(err),
@@ -112,7 +101,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 		if err != nil {
 			ccp.log.Error(
 				"Failed to query latest height after max attempts",
-				zap.String("chain_id", ccp.ChainProvider.ChainId()),
+				zap.String("chain_id", ccp.chainProvider.ChainId()),
 				zap.Uint("attempts", latestHeightQueryRetries),
 				zap.Error(err),
 			)
@@ -131,7 +120,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 
 	persistence.latestQueriedBlock = latestQueriedBlock
 
-	ccp.log.Info("Entering main query loop", zap.String("chain_id", ccp.ChainProvider.ChainId()))
+	ccp.log.Info("Entering main query loop", zap.String("chain_id", ccp.chainProvider.ChainId()))
 
 	ticker := time.NewTicker(persistence.minQueryLoopDuration)
 
@@ -149,7 +138,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 }
 
 func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
-	chainID := ccp.ChainProvider.ChainId()
+	chainID := ccp.chainProvider.ChainId()
 
 	var err error
 	persistence.latestHeight, err = ccp.latestHeightWithRetry(ctx)
@@ -158,7 +147,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	if err != nil {
 		ccp.log.Error(
 			"Failed to query latest height after max attempts",
-			zap.String("chain_id", ccp.ChainProvider.ChainId()),
+			zap.String("chain_id", ccp.chainProvider.ChainId()),
 			zap.Uint("attempts", latestHeightQueryRetries),
 			zap.Error(err),
 		)
@@ -173,9 +162,9 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	// used at the end of the cycle to send signal to path processors to start processing if both chains are in sync and no new messages came in this cycle
 	firstTimeInSync := false
 
-	if !ccp.InSync() {
+	if !ccp.inSync {
 		if (persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold {
-			ccp.setInSync()
+			ccp.inSync = true
 			firstTimeInSync = true
 			ccp.log.Info("chain is in sync", zap.String("chain_id", chainID))
 		} else {

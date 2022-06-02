@@ -2,10 +2,10 @@ package mock
 
 import (
 	"context"
-	"sync/atomic"
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"go.uber.org/zap"
@@ -24,9 +24,8 @@ type MockChainProcessor struct {
 	// subscribers to this chain processor, where relevant IBC messages will be published
 	pathProcessors []*processor.PathProcessor
 
-	// this variable is only written from a single thread (Run function here),
-	// but is concurrently read by the PathProcessors
-	inSync int32
+	// indicates whether queries are in sync with latest height of the chain
+	inSync bool
 
 	getMockMessages func() []TransactionMessage
 }
@@ -49,18 +48,9 @@ func (mcp *MockChainProcessor) SetPathProcessors(pathProcessors processor.PathPr
 	mcp.pathProcessors = pathProcessors
 }
 
-// InSync indicates whether queries are in sync with latest height of the chain.
-// The PathProcessors use this as a signal for determining if the backlog of messaged is ready to be processed and relayed.
-func (mcp *MockChainProcessor) InSync() bool {
-	return atomic.LoadInt32(&mcp.inSync) == 1
-}
-
-func (mcp *MockChainProcessor) setInSync() {
-	atomic.StoreInt32(&mcp.inSync, 1)
-}
-
-func (mcp *MockChainProcessor) ChainID() string {
-	return mcp.chainID
+// Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
+func (mcp *MockChainProcessor) Provider() provider.ChainProvider {
+	return nil
 }
 
 type queryCyclePersistence struct {
@@ -104,9 +94,9 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	// would be query of latest height
 	persistence.latestHeight++
 
-	if !mcp.InSync() {
+	if !mcp.inSync {
 		if (persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold {
-			mcp.setInSync()
+			mcp.inSync = true
 			mcp.log.Info("chain is in sync", zap.String("chain_id", mcp.chainID))
 		} else {
 			mcp.log.Warn("chain is not yet in sync",
@@ -163,7 +153,10 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			// TODO do not relay on closed channels
 			for _, pp := range mcp.pathProcessors {
 				mcp.log.Info("sending messages to path processor", zap.String("chain_id", mcp.chainID))
-				pp.HandleNewMessages(mcp.chainID, channelKey, messages)
+				pp.HandleNewMessages(mcp.chainID, channelKey, processor.ChainProcessorCacheData{
+					NewMessages: messages,
+					InSync:      mcp.inSync,
+				})
 			}
 		}
 		persistence.latestQueriedBlock = i

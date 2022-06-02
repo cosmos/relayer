@@ -20,7 +20,7 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDel
 		ccp.log.Info("Failed to parse abci logs", zap.Error(err))
 		return nil
 	}
-	return parseABCILogs(ccp.log, ccp.ChainProvider.ChainId(), parsedLogs)
+	return parseABCILogs(ccp.log, ccp.chainProvider.ChainId(), parsedLogs)
 }
 
 func parseABCILogs(log *zap.Logger, chainID string, logs sdk.ABCIMessageLogs) (messages []ibcMessage) {
