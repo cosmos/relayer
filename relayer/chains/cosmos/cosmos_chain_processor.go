@@ -91,7 +91,7 @@ func (ccp *CosmosChainProcessor) latestHeightWithRetry(ctx context.Context) (lat
 	}))
 }
 
-type QueryCyclePersistence struct {
+type queryCyclePersistence struct {
 	latestHeight         int64
 	latestQueriedBlock   int64
 	minQueryLoopDuration time.Duration
@@ -102,7 +102,7 @@ type QueryCyclePersistence struct {
 // ChainProcessors should obey the context and return upon context cancellation.
 func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
 	// this will be used for persistence across query cycle loop executions
-	queryCyclePersistence := QueryCyclePersistence{
+	persistence := queryCyclePersistence{
 		minQueryLoopDuration: defaultMinQueryLoopDuration,
 	}
 
@@ -118,35 +118,38 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 			)
 			continue
 		}
-		queryCyclePersistence.latestHeight = latestHeight
+		persistence.latestHeight = latestHeight
 		break
 	}
 
 	// this will make initial QueryLoop iteration look back initialBlockHistory blocks in history
-	latestQueriedBlock := queryCyclePersistence.latestHeight - int64(initialBlockHistory)
+	latestQueriedBlock := persistence.latestHeight - int64(initialBlockHistory)
 
 	if latestQueriedBlock < 0 {
 		latestQueriedBlock = 0
 	}
 
-	queryCyclePersistence.latestQueriedBlock = latestQueriedBlock
+	persistence.latestQueriedBlock = latestQueriedBlock
 
 	ccp.log.Info("Entering main query loop", zap.String("chain_id", ccp.ChainProvider.ChainId()))
 
+	ticker := time.NewTicker(persistence.minQueryLoopDuration)
+
 	for {
-		if ctx.Err() != nil {
-			return nil
-		}
-		if err := ccp.queryCycle(ctx, &queryCyclePersistence); err != nil {
+		if err := ccp.queryCycle(ctx, &persistence); err != nil {
 			return err
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			ticker.Reset(persistence.minQueryLoopDuration)
 		}
 	}
 }
 
-func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *QueryCyclePersistence) error {
+func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
 	chainID := ccp.ChainProvider.ChainId()
-	cycleTimeStart := time.Now()
-	defer ccp.doneWithCycle(cycleTimeStart, persistence.minQueryLoopDuration)
 
 	var err error
 	persistence.latestHeight, err = ccp.latestHeightWithRetry(ctx)
@@ -211,11 +214,4 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *Qu
 	}
 
 	return nil
-}
-
-func (ccp *CosmosChainProcessor) doneWithCycle(cycleTimeStart time.Time, minQueryLoopDuration time.Duration) {
-	queryDuration := time.Since(cycleTimeStart)
-	if queryDuration < minQueryLoopDuration {
-		time.Sleep(minQueryLoopDuration - queryDuration)
-	}
 }
