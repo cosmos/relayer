@@ -1,6 +1,6 @@
 module github.com/cosmos/relayer/v2
 
-go 1.17
+go 1.18
 
 require (
 	github.com/avast/retry-go v2.6.0+incompatible // indirect
