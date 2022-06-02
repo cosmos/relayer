@@ -3,7 +3,7 @@ package cosmos
 import (
 	"context"
 	"fmt"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -23,8 +23,9 @@ type CosmosChainProcessor struct {
 
 	pathProcessors processor.PathProcessors
 
-	inSync     bool
-	inSyncLock sync.RWMutex
+	// this variable is only written from a single thread (Run function here),
+	// but is concurrently read by the PathProcessors
+	inSync int32
 }
 
 func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, rpcAddress string, pathProcessors processor.PathProcessors) (*CosmosChainProcessor, error) {
@@ -52,15 +53,11 @@ const (
 // InSync indicates whether queries are in sync with latest height of the chain.
 // The PathProcessors use this as a signal for determining if the backlog of messaged is ready to be processed and relayed.
 func (ccp *CosmosChainProcessor) InSync() bool {
-	ccp.inSyncLock.RLock()
-	defer ccp.inSyncLock.RUnlock()
-	return ccp.inSync
+	return atomic.LoadInt32(&ccp.inSync) == 1
 }
 
-func (ccp *CosmosChainProcessor) setInSync(inSync bool) {
-	ccp.inSyncLock.Lock()
-	defer ccp.inSyncLock.Unlock()
-	ccp.inSync = inSync
+func (ccp *CosmosChainProcessor) setInSync() {
+	atomic.StoreInt32(&ccp.inSync, 1)
 }
 
 // ChainID returns the identifier of the chain
@@ -175,8 +172,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *Qu
 
 	if !ccp.InSync() {
 		if (persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold {
-			// take write lock to update to true (only happens once)
-			ccp.setInSync(true)
+			ccp.setInSync()
 			firstTimeInSync = true
 			ccp.log.Info("chain is in sync", zap.String("chain_id", chainID))
 		} else {
