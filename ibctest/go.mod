@@ -6,7 +6,7 @@ require (
 	github.com/cosmos/cosmos-sdk v0.45.1
 	github.com/cosmos/relayer/v2 v2.0.0
 	github.com/ory/dockertest/v3 v3.8.1
-	github.com/strangelove-ventures/ibctest v0.0.0-20220531195112-60cd4d1fb280
+	github.com/strangelove-ventures/ibctest v0.0.0-20220602154249-e446a78d4d9b
 	go.uber.org/zap v1.21.0
 )
 
