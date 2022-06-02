@@ -23,6 +23,11 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
+func TestInterchainAccounts(t *testing.T) {
+	r := relayerFactory{}
+	ibctest.TestInterchainAccounts(t, r)
+}
+
 // TestRelayer runs the ibctest conformance tests against
 // the current state of this relayer implementation.
 //

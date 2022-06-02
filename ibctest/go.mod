@@ -157,3 +157,5 @@ replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alp
 
 // For this nested module, you always want to replace the parent reference with the current worktree.
 replace github.com/cosmos/relayer/v2 => ../
+
+replace github.com/strangelove-ventures/ibctest => ../../../strangelove-ventures/ibctest
