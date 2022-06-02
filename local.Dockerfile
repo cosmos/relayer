@@ -1,4 +1,4 @@
-FROM golang:alpine as BUILD
+FROM golang:1.18-alpine as BUILD
 
 WORKDIR /relayer
 

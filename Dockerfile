@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:alpine as BUILD
+FROM --platform=$BUILDPLATFORM golang:1.18-alpine as BUILD
 
 WORKDIR /relayer
 
