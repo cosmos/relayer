@@ -52,9 +52,12 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 			// Apply the channel filter rule (i.e. build allowlist, denylist or relay on all channels available)
 			srcChannels = applyChannelFilterRule(filter, srcChannels)
 
+			src.log.Info("Debug output to check proper relayer version is used")
 			// Ugly way to handle opening a channel for interchain accounts
 			for _, c := range srcChannels {
+				src.log.Info("Inside for loop of channels")
 				if c.State == types.INIT {
+					src.log.Info("Inside test case for channel state == INIT")
 					_, err := src.CreateOpenChannels(ctx, dst, 10, 5*time.Second, c.PortId, c.Counterparty.PortId, StringFromOrder(c.Ordering), c.Version, false)
 					if err != nil {
 						src.log.Warn("Failed to open channel",
