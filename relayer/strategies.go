@@ -261,7 +261,7 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 		// If we encounter an error that suggest node configuration issues, log a more insightful error message.
 		if strings.Contains(err.Error(), "Internal error: transaction indexing is disabled") {
 			log.Warn(
-				"Remote server needs reconfigured.",
+				"Remote server needs to enable transaction indexing",
 				zap.String("src_chain_id", src.ChainID()),
 				zap.String("src_channel_id", srcChannel.ChannelId),
 				zap.String("dst_chain_id", dst.ChainID()),
