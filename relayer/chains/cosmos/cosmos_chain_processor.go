@@ -46,7 +46,7 @@ const (
 	latestHeightQueryRetries    = 5
 
 	defaultMinQueryLoopDuration = 1 * time.Second
-	inSyncThreshold             = 2 //blocks
+	inSyncNumBlocksThreshold    = 2
 )
 
 // InSync indicates whether queries are in sync with latest height of the chain.
@@ -55,6 +55,12 @@ func (ccp *CosmosChainProcessor) InSync() bool {
 	ccp.inSyncLock.RLock()
 	defer ccp.inSyncLock.RUnlock()
 	return ccp.inSync
+}
+
+func (ccp *CosmosChainProcessor) setInSync(inSync bool) {
+	ccp.inSyncLock.Lock()
+	defer ccp.inSyncLock.Unlock()
+	ccp.inSync = inSync
 }
 
 // ChainID returns the identifier of the chain
@@ -106,10 +112,17 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 	// Infinite retry to get initial latest height
 	for {
 		latestHeight, err := ccp.latestHeightWithRetry(ctx)
-		if err == nil {
-			queryCyclePersistence.latestHeight = latestHeight
-			break
+		if err != nil {
+			ccp.log.Error(
+				"Failed to query latest height after max attempts",
+				zap.String("chain_id", ccp.ChainProvider.ChainId()),
+				zap.Uint("attempts", latestHeightQueryRetries),
+				zap.Error(err),
+			)
+			continue
 		}
+		queryCyclePersistence.latestHeight = latestHeight
+		break
 	}
 
 	// this will make initial QueryLoop iteration look back initialBlockHistory blocks in history
@@ -143,6 +156,12 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *Qu
 
 	// don't want to cause CosmosChainProcessor to quit here, can retry again next cycle.
 	if err != nil {
+		ccp.log.Error(
+			"Failed to query latest height after max attempts",
+			zap.String("chain_id", ccp.ChainProvider.ChainId()),
+			zap.Uint("attempts", latestHeightQueryRetries),
+			zap.Error(err),
+		)
 		return nil
 	}
 
@@ -151,21 +170,13 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *Qu
 		zap.Int64("latest_height", persistence.latestHeight),
 	)
 
-	// Only need read lock here
-	ccp.inSyncLock.RLock()
-	inSync := ccp.inSync
-	ccp.inSyncLock.RUnlock()
-
 	// used at the end of the cycle to send signal to path processors to start processing if both chains are in sync and no new messages came in this cycle
 	firstTimeInSync := false
 
-	if !inSync {
-		if (persistence.latestHeight - persistence.latestQueriedBlock) < inSyncThreshold {
+	if !ccp.InSync() {
+		if (persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold {
 			// take write lock to update to true (only happens once)
-			ccp.inSyncLock.Lock()
-			ccp.inSync = true
-			ccp.inSyncLock.Unlock()
-
+			ccp.setInSync(true)
 			firstTimeInSync = true
 			ccp.log.Info("chain is in sync", zap.String("chain_id", chainID))
 		} else {
