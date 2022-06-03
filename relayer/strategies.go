@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -31,7 +32,6 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 	defer close(errCh)
 
 	channels := make(chan *ActiveChannel, 10)
-	defer close(channels)
 
 	// Query the list of channels on the src connection.
 	srcChannels, err := queryChannelsOnConnection(ctx, src)
@@ -50,6 +50,7 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 	srcChannels = applyChannelFilterRule(filter, srcChannels)
 	srcOpenChannels := filterOpenChannels(srcChannels)
 
+	var wg sync.WaitGroup
 	for {
 		// TODO once upstream changes are merged for emitting the channel version in ibc-go,
 		// we will want to add back logic for finishing the channel handshake for interchain accounts.
@@ -62,7 +63,7 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 		// at startup but after some time has passed a channel needs opened and relayed on. At this point we
 		// could choose to loop here until some action is needed.
 		if len(srcOpenChannels) == 0 {
-			errCh <- fmt.Errorf("there are no open channels to relay on, check your config's allow/deny list rules")
+			errCh <- fmt.Errorf("there are no open channels to relay on")
 			return
 		}
 
@@ -70,14 +71,20 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 		for _, channel := range srcOpenChannels {
 			if !channel.active {
 				channel.active = true
-				go relayUnrelayedPacketsAndAcks(ctx, log, src, dst, maxTxSize, maxMsgLength, channel, channels)
+				wg.Add(1)
+				go relayUnrelayedPacketsAndAcks(ctx, log, &wg, src, dst, maxTxSize, maxMsgLength, channel, channels)
 			}
 		}
 
-		// Block here until one of the running goroutines exit.
-		channel, ok := <-channels
-		if !ok {
-			errCh <- fmt.Errorf("the (chan *ActiveChannel) was closed and no more values can be written/read")
+		// Block here until one of the running goroutines exits, while accounting for the case where
+		// the main context is cancelled while we are waiting for a read from the channel.
+		var channel *ActiveChannel
+		select {
+		case channel = <-channels:
+			break
+		case <-ctx.Done():
+			wg.Wait() // Wait here for the running goroutines to finish
+			errCh <- ctx.Err()
 			return
 		}
 
@@ -108,6 +115,12 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 		// If the channel is no longer in OPEN state then we remove it from the map of open channels.
 		if queryChannelResp.Channel.State != types.OPEN {
 			delete(srcOpenChannels, channel.channel.ChannelId)
+			src.log.Info(
+				"Channel is no longer in open state",
+				zap.String("chain_id", src.ChainID()),
+				zap.String("channel_id", channel.channel.ChannelId),
+				zap.String("channel_state", queryChannelResp.Channel.State.String()),
+			)
 		}
 	}
 }
@@ -186,9 +199,10 @@ func applyChannelFilterRule(filter ChannelFilter, channels []*types.IdentifiedCh
 }
 
 // relayUnrelayedPacketsAndAcks will relay all the pending packets and acknowledgements on both the src and dst chains.
-func relayUnrelayedPacketsAndAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *ActiveChannel, channels chan<- *ActiveChannel) {
+func relayUnrelayedPacketsAndAcks(ctx context.Context, log *zap.Logger, wg *sync.WaitGroup, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *ActiveChannel, channels chan<- *ActiveChannel) {
 	// make goroutine signal its death, whether it's a panic or a return
 	defer func() {
+		wg.Done()
 		channels <- srcChannel
 	}()
 
