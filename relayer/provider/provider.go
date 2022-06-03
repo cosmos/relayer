@@ -34,9 +34,8 @@ type RelayerTxResponse struct {
 }
 
 type RelayerEvent struct {
-	EventType      string
-	AttributeKey   string
-	AttributeValue string
+	EventType  string
+	Attributes map[string]string
 }
 
 // loggableEvents is an unexported wrapper type for a slice of RelayerEvent,
@@ -46,8 +45,9 @@ type loggableEvents []RelayerEvent
 // MarshalLogObject satisfies the zapcore.ObjectMarshaler interface.
 func (e RelayerEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("event_type", e.EventType)
-	enc.AddString("attr_key", e.AttributeKey)
-	enc.AddString("attr_value", e.AttributeValue)
+	for k, v := range e.Attributes {
+		enc.AddString("event_attr: "+k, v)
+	}
 	return nil
 }
 
@@ -102,10 +102,10 @@ type ChainProvider interface {
 
 	MsgRelayAcknowledgement(ctx context.Context, dst ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet RelayPacket) (RelayerMessage, error)
 	MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanId string, timeoutHeight, timeoutTimestamp uint64) (RelayerMessage, error)
-	MsgRelayTimeout(ctx context.Context, dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
+	MsgRelayTimeout(ctx context.Context, dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string, order chantypes.Order) (RelayerMessage, error)
 	MsgRelayRecvPacket(ctx context.Context, dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
 	MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (RelayerMessage, error)
-	RelayPacketFromSequence(ctx context.Context, src, dst ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string) (RelayerMessage, RelayerMessage, error)
+	RelayPacketFromSequence(ctx context.Context, src, dst ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string, order chantypes.Order) (RelayerMessage, RelayerMessage, error)
 	AcknowledgementFromSequence(ctx context.Context, dst ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
 
 	SendMessage(ctx context.Context, msg RelayerMessage) (*RelayerTxResponse, bool, error)

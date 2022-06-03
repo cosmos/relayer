@@ -719,7 +719,7 @@ func TestUnorderedChannelTimestampTimeout(t *testing.T) {
 	filter := relayer.ChannelFilter{}
 	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5)
 
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 10)
 
 	// check balance on src against expected
 	srcGot, err := src.ChainProvider.QueryBalance(ctx, src.ChainProvider.Key())

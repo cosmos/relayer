@@ -58,8 +58,7 @@ test-integration:
 	@go test -mod=readonly -v -timeout 20m ./_test/
 
 test-gaia:
-	@go test -mod=readonly -v -run TestGaiaToGaiaRelaying ./_test/
-	@go test -mod=readonly -v -run TestRelayAllChannelsOnConnection ./_test/
+	@go test -mod=readonly -v -run 'TestGaiaToGaiaRelaying|TestGaiaToGaiaRelaying|TestUnorderedChannelBlockHeightTimeout|TestUnorderedChannelTimestampTimeout' ./_test
 
 test-akash:
 	@go test -mod=readonly -v -run TestAkashToGaiaRelaying ./_test/
