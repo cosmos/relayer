@@ -31,8 +31,6 @@ func StartRelayer(ctx context.Context, log *zap.Logger, src, dst *Chain, filter 
 func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64, errCh chan<- error) {
 	defer close(errCh)
 
-	channels := make(chan *ActiveChannel, 10)
-
 	// Query the list of channels on the src connection.
 	srcChannels, err := queryChannelsOnConnection(ctx, src)
 	if err != nil {
@@ -44,6 +42,8 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 		}
 		return
 	}
+
+	channels := make(chan *ActiveChannel, len(srcChannels))
 
 	// Apply the channel filter rule (i.e. build allowlist, denylist or relay on all channels available),
 	// then filter out only the channels in the OPEN state.
