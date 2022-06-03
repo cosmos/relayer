@@ -32,42 +32,42 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 	defer close(errCh)
 
 	channels := make(chan *ActiveChannel, 10)
-	var srcOpenChannels []*ActiveChannel
 
-	for loopCount := 0; true; loopCount++ {
-		// query for channel changes every 20 loops, or if the number of open channels is zero (for quicker startup)
-		if loopCount%20 == 0 || len(srcOpenChannels) == 0 {
-			// Query the list of channels on the src connection
-			srcChannels, err := queryChannelsOnConnection(ctx, src)
-			if err != nil {
-				if errors.Is(err, context.Canceled) {
-					errCh <- err
-				} else {
-					errCh <- fmt.Errorf("error querying all channels on chain{%s}@connection{%s}: %w",
-						src.ChainID(), src.ConnectionID(), err)
-				}
-				return
-			}
-
-			// Apply the channel filter rule (i.e. build allowlist, denylist or relay on all channels available)
-			srcChannels = applyChannelFilterRule(filter, srcChannels)
-
-			// Filter for open channels that are not already in our slice of open channels
-			srcOpenChannels = filterOpenChannels(srcChannels, srcOpenChannels)
+	// Query the list of channels on the src connection.
+	srcChannels, err := queryChannelsOnConnection(ctx, src)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			errCh <- err
+		} else {
+			errCh <- fmt.Errorf("error querying all channels on chain{%s}@connection{%s}: %w",
+				src.ChainID(), src.ConnectionID(), err)
 		}
+		return
+	}
 
+	// Apply the channel filter rule (i.e. build allowlist, denylist or relay on all channels available),
+	// then filter out only the channels in the OPEN state.
+	srcChannels = applyChannelFilterRule(filter, srcChannels)
+	srcOpenChannels := filterOpenChannels(srcChannels)
+
+	var wg sync.WaitGroup
+	for {
 		// TODO once upstream changes are merged for emitting the channel version in ibc-go,
 		// we will want to add back logic for finishing the channel handshake for interchain accounts.
 		// Essentially the interchain accounts module will initiate the handshake and then the relayer finishes it.
 		// So we will occasionally query recent txs and check the events for `ChannelOpenInit`, at which point
 		// we will attempt to finish opening the channel.
 
+		// TODO when we have completed the Chain/Path processor refactor we will be listening for
+		// new channels that are being opened/created so it's possible we have no open channels to relay on
+		// at startup but after some time has passed a channel needs opened and relayed on. At this point we
+		// could choose to loop here until some action is needed.
 		if len(srcOpenChannels) == 0 {
-			continue
+			errCh <- fmt.Errorf("there are no open channels to relay on")
+			return
 		}
 
-		var wg sync.WaitGroup
-		// Spin up a goroutine to relay packets & acks for each channel that isn't already being relayed against
+		// Spin up a goroutine to relay packets & acks for each channel that isn't already being relayed against.
 		for _, channel := range srcOpenChannels {
 			if !channel.active {
 				channel.active = true
@@ -75,19 +75,52 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 				go relayUnrelayedPacketsAndAcks(ctx, log, &wg, src, dst, maxTxSize, maxMsgLength, channel, channels)
 			}
 		}
-		wg.Wait()
 
-		for channel := range channels {
-			channel.active = false
+		// Block here until one of the running goroutines exits, while accounting for the case where
+		// the main context is cancelled while we are waiting for a read from the channel.
+		var channel *ActiveChannel
+		select {
+		case channel = <-channels:
 			break
+		case <-ctx.Done():
+			wg.Wait() // Wait here for the running goroutines to finish
+			errCh <- ctx.Err()
+			return
 		}
 
-		// Make sure we are removing channels no longer in OPEN state from the slice of open channels
-		for i, channel := range srcOpenChannels {
-			if channel.channel.State != types.OPEN {
-				srcOpenChannels[i] = srcOpenChannels[len(srcOpenChannels)-1]
-				srcOpenChannels = srcOpenChannels[:len(srcOpenChannels)-1]
+		channel.active = false
+
+		// When a goroutine exits we need to query the channel and check that it is still in OPEN state.
+		var queryChannelResp *types.QueryChannelResponse
+		if err = retry.Do(func() error {
+			queryChannelResp, err = src.ChainProvider.QueryChannel(ctx, 0, channel.channel.ChannelId, channel.channel.PortId)
+			if err != nil {
+				return err
 			}
+			return nil
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			src.log.Info(
+				"Failed to query channel for updated state",
+				zap.String("src_chain_id", src.ChainID()),
+				zap.String("src_channel_id", channel.channel.ChannelId),
+				zap.Uint("attempt", n+1),
+				zap.Uint("max_attempts", RtyAttNum),
+				zap.Error(err),
+			)
+		})); err != nil {
+			errCh <- err
+			return
+		}
+
+		// If the channel is no longer in OPEN state then we remove it from the map of open channels.
+		if queryChannelResp.Channel.State != types.OPEN {
+			delete(srcOpenChannels, channel.channel.ChannelId)
+			src.log.Info(
+				"Channel is no longer in open state",
+				zap.String("chain_id", src.ChainID()),
+				zap.String("channel_id", channel.channel.ChannelId),
+				zap.String("channel_state", queryChannelResp.Channel.State.String()),
+			)
 		}
 	}
 }
@@ -121,28 +154,16 @@ func queryChannelsOnConnection(ctx context.Context, src *Chain) ([]*types.Identi
 	return srcChannels, nil
 }
 
-// filterOpenChannels takes a slice of channels and adds all the channels with OPEN state to a new slice of channels.
-// NOTE: channels will not be added to the slice of open channels more than once.
-func filterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*ActiveChannel) []*ActiveChannel {
-	// Filter for open channels
+// filterOpenChannels takes a slice of channels, searches for the channels in open state,
+// and builds a map of ActiveChannel's from those open channels.
+func filterOpenChannels(channels []*types.IdentifiedChannel) map[string]*ActiveChannel {
+	openChannels := make(map[string]*ActiveChannel)
+
 	for _, channel := range channels {
 		if channel.State == types.OPEN {
-			inSlice := false
-
-			// Check if we have already added this channel to the slice of open channels
-			for _, openChannel := range openChannels {
-				if channel.ChannelId == openChannel.channel.ChannelId {
-					inSlice = true
-					break
-				}
-			}
-
-			// We don't want to add channels to the slice of open channels that have already been added
-			if !inSlice {
-				openChannels = append(openChannels, &ActiveChannel{
-					channel: channel,
-					active:  false,
-				})
+			openChannels[channel.ChannelId] = &ActiveChannel{
+				channel: channel,
+				active:  false,
 			}
 		}
 	}
@@ -179,10 +200,9 @@ func applyChannelFilterRule(filter ChannelFilter, channels []*types.IdentifiedCh
 
 // relayUnrelayedPacketsAndAcks will relay all the pending packets and acknowledgements on both the src and dst chains.
 func relayUnrelayedPacketsAndAcks(ctx context.Context, log *zap.Logger, wg *sync.WaitGroup, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *ActiveChannel, channels chan<- *ActiveChannel) {
-	defer wg.Done()
-
 	// make goroutine signal its death, whether it's a panic or a return
 	defer func() {
+		wg.Done()
 		channels <- srcChannel
 	}()
 
