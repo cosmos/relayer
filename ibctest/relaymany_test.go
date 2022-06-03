@@ -20,36 +20,54 @@ func TestRelayMany_WIP(t *testing.T) {
 	pool, network := ibctest.DockerSetup(t)
 	home := t.TempDir()
 
+	// Set up factory entries for 4 chains.
+	// All gaia now for simplicity but could be any valid chain.
+	chainAFE := gaiaFactoryEntry
+	chainBFE := gaiaFactoryEntry
+	chainCFE := gaiaFactoryEntry
+	chainDFE := gaiaFactoryEntry
+
+	chainAFE.ChainID = "chain-a"
+	chainBFE.ChainID = "chain-b"
+	chainCFE.ChainID = "chain-c"
+	chainDFE.ChainID = "chain-d"
+
 	cf := ibctest.NewBuiltinChainFactory([]ibctest.BuiltinChainFactoryEntry{
-		gaiaFactoryEntry,
-		osmosisFactoryEntry,
-		junoFactoryEntry,
+		chainAFE, chainBFE, chainCFE, chainDFE,
 	}, zaptest.NewLogger(t))
 
 	chains, err := cf.Chains(t.Name())
 	require.NoError(t, err)
 
-	gaia, osmosis, juno := chains[0], chains[1], chains[2]
+	chainA, chainB, chainC, chainD := chains[0], chains[1], chains[2], chains[3]
 	r := relayerFactory{}.Build(t, pool, network, home).(*relayer)
 
 	ic := ibctest.NewInterchain().
-		AddChain(gaia).
-		AddChain(osmosis).
-		AddChain(juno).
+		AddChain(chainA).
+		AddChain(chainB).
+		AddChain(chainC).
+		AddChain(chainD).
 		AddRelayer(r, "r").
 		AddLink(ibctest.InterchainLink{
-			Chain1:  gaia,
-			Chain2:  osmosis,
+			Chain1:  chainA,
+			Chain2:  chainB,
 			Relayer: r,
 
-			Path: "gaia-osmo",
+			Path: "a-b",
 		}).
 		AddLink(ibctest.InterchainLink{
-			Chain1:  osmosis,
-			Chain2:  juno,
+			Chain1:  chainB,
+			Chain2:  chainC,
 			Relayer: r,
 
-			Path: "osmo-juno",
+			Path: "b-c",
+		}).
+		AddLink(ibctest.InterchainLink{
+			Chain1:  chainC,
+			Chain2:  chainD,
+			Relayer: r,
+
+			Path: "c-d",
 		})
 
 	ctx := context.Background()
@@ -62,44 +80,60 @@ func TestRelayMany_WIP(t *testing.T) {
 		NetworkID: network,
 	}))
 
-	gaiaChannels, err := r.GetChannels(ctx, eRep, gaia.Config().ChainID)
+	aChannels, err := r.GetChannels(ctx, eRep, chainA.Config().ChainID)
 	require.NoError(t, err)
-	gaiaChannelID := gaiaChannels[0].ChannelID
+	aChannelID := aChannels[0].ChannelID
 
-	r.StartRelayerMany(ctx, "gaia-osmo")
+	r.StartRelayerMany(
+		ctx,
+		"a-b",
+
+		// If you enable the path b-c, the test ends up failing to find the acknowledgement,
+		// and this error is logged (json formatted a little for readability):
+		// logger.go:130: 2022-06-03T09:22:21.089-0400	INFO	Error building or broadcasting transaction
+		// {
+		//   "provider_type": "cosmos",
+		//   "chain_id": "chain-b",
+		//   "attempt": 1,
+		//   "max_attempts": 5,
+		//   "error": "rpc error: code = InvalidArgument desc = failed to execute message; message index: 0: cannot update client with ID 07-tendermint-1: trusted validators validators:<address:\"\\220\\327 \\315\\243\\257\\303|\\236\\260\\326\\350-0o\\264\\316\\177!-\" pub_key:<ed25519:\"z\\277h\\032\\377\\272\\325\\351\\3264\\312\\253[\\304\\312\\343e$R\\337GSL\\265q\\301\\014\\271\\377\\0313>\" > voting_power:100000 proposer_priority:-100000 > validators:<address:\"\\346\\005v\\252maz\\260\\326i\\035\\307\\036t\\353\\314\\\\\\322\\215'\" pub_key:<ed25519:\"\\002\\237\\237)k\\325>\\0051M\\270kD#>\\0076\\202\\\\\\230\\003]\\263\\365\\247/2\\240\\301\\260\\014V\" > voting_power:100000 proposer_priority:100000 > proposer:<address:\"\\220\\327 \\315\\243\\257\\303|\\236\\260\\326\\350-0o\\264\\316\\177!-\" pub_key:<ed25519:\"z\\277h\\032\\377\\272\\325\\351\\3264\\312\\253[\\304\\312\\343e$R\\337GSL\\265q\\301\\014\\271\\377\\0313>\" > voting_power:100000 proposer_priority:-100000 > , does not hash to latest trusted validators. Expected: ADE9985348F0D65D7B7745F265F18698DAB0FB2BA86C3FF766D03C4A6F997DCB, got: 1278074F555A801819BC6F5F65E9EACEBAC41A5815BE217605288120FAA508F6: invalid validator set: invalid request"
+		// }
+
+		// "b-c",
+		"c-d",
+	)
 	defer r.StopRelayer(ctx, eRep)
 
-	// Gaia and juno faucets will just send IBC to the osmosis faucet,
-	// so get its bech32 address first.
-	osmosisFaucetAddrBytes, err := osmosis.GetAddress(ctx, ibctest.FaucetAccountKeyName)
+	// A sends to B, so get B's faucet address.
+	bFaucetAddrBytes, err := chainB.GetAddress(ctx, ibctest.FaucetAccountKeyName)
 	require.NoError(t, err)
-	osmosisFaucetAddr, err := types.Bech32ifyAddressBytes(osmosis.Config().Bech32Prefix, osmosisFaucetAddrBytes)
-	require.NoError(t, err)
-
-	beforeGaiaTxHeight, err := gaia.Height(ctx)
+	bFaucetAddr, err := types.Bech32ifyAddressBytes(chainB.Config().Bech32Prefix, bFaucetAddrBytes)
 	require.NoError(t, err)
 
-	gaiaOsmoIBCDenom := transfertypes.ParseDenomTrace(
-		transfertypes.GetPrefixedDenom(gaiaChannels[0].Counterparty.PortID, gaiaChannels[0].Counterparty.ChannelID, gaia.Config().Denom),
+	beforeATxHeight, err := chainA.Height(ctx)
+	require.NoError(t, err)
+
+	abIBCDenom := transfertypes.ParseDenomTrace(
+		transfertypes.GetPrefixedDenom(aChannels[0].Counterparty.PortID, aChannels[0].Counterparty.ChannelID, chainA.Config().Denom),
 	).IBCDenom()
 
-	const gaiaOsmoTxAmount = 13579 // Arbitrary amount that is easy to find in logs.
-	gaiaTx, err := gaia.SendIBCTransfer(ctx, gaiaChannelID, ibctest.FaucetAccountKeyName, ibc.WalletAmount{
-		Address: osmosisFaucetAddr,
-		Denom:   gaia.Config().Denom,
-		Amount:  gaiaOsmoTxAmount,
+	const abTxAmount = 13579 // Arbitrary amount that is easy to find in logs.
+	abTx, err := chainA.SendIBCTransfer(ctx, aChannelID, ibctest.FaucetAccountKeyName, ibc.WalletAmount{
+		Address: bFaucetAddr,
+		Denom:   chainA.Config().Denom,
+		Amount:  abTxAmount,
 	}, nil)
 	require.NoError(t, err)
-	require.NoError(t, gaiaTx.Validate())
+	require.NoError(t, abTx.Validate())
 
-	afterGaiaTxHeight, err := gaia.Height(ctx)
+	afterATxHeight, err := chainA.Height(ctx)
 	require.NoError(t, err)
 
-	gaiaAck, err := test.PollForAck(ctx, gaia, beforeGaiaTxHeight, afterGaiaTxHeight+10, gaiaTx.Packet)
-	require.NoError(t, err, "failed to get acknowledgement on gaia")
-	require.NoError(t, gaiaAck.Validate(), "invalid acknowledgement on gaia")
+	abAck, err := test.PollForAck(ctx, chainA, beforeATxHeight, afterATxHeight+10, abTx.Packet)
+	require.NoError(t, err, "failed to get acknowledgement on chain A")
+	require.NoError(t, abAck.Validate(), "invalid acknowledgement on chain A")
 
-	afterOsmoBalance, err := osmosis.GetBalance(ctx, osmosisFaucetAddr, gaiaOsmoIBCDenom)
+	afterBBalance, err := chainB.GetBalance(ctx, bFaucetAddr, abIBCDenom)
 	require.NoError(t, err)
-	require.Equal(t, afterOsmoBalance, int64(gaiaOsmoTxAmount))
+	require.Equal(t, afterBBalance, int64(abTxAmount))
 }
