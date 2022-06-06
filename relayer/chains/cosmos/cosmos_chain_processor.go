@@ -164,9 +164,9 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		if (persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold {
 			ccp.inSync = true
 			firstTimeInSync = true
-			ccp.log.Info("chain is in sync")
+			ccp.log.Info("Chain is in sync")
 		} else {
-			ccp.log.Info("chain is not yet in sync",
+			ccp.log.Info("Chain is not yet in sync",
 				zap.Int64("latest_queried_block", persistence.latestQueriedBlock),
 				zap.Int64("latest_height", persistence.latestHeight),
 			)
@@ -176,7 +176,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		blockRes, err := ccp.cc.Client.BlockResults(ctx, &i)
 		if err != nil {
-			ccp.log.Error("error getting block results", zap.Error(err))
+			ccp.log.Error("Error getting block results", zap.Error(err))
 			return nil
 		}
 
