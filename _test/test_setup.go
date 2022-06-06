@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/ory/dockertest/v3"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
 

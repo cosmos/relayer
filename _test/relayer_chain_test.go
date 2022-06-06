@@ -301,11 +301,9 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	}
 	validator := tmtypes.NewValidator(pubKey, tmHeader.ValidatorSet.Proposer.VotingPower)
 	valSet := tmtypes.NewValidatorSet([]*tmtypes.Validator{validator})
-	signers := []tmtypes.PrivValidator{privVal}
 
 	// creating duplicate header
-	newHeader := createTMClientHeader(t, dst.ChainID(), int64(heightPlus1.RevisionHeight), height,
-		tmHeader.GetTime().Add(time.Minute), valSet, valSet, signers, tmHeader)
+	newHeader := createTMClientHeader(t, dst.ChainID(), int64(heightPlus1.RevisionHeight), height, tmHeader.GetTime().Add(time.Minute), valSet, valSet, tmHeader)
 
 	// update client with duplicate header
 	updateMsg, err := src.ChainProvider.UpdateClient(src.PathEnd.ClientID, newHeader)
@@ -471,9 +469,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.Equal(t, dstExpected.AmountOf(testDenom).Int64()-8000, dstGot.AmountOf(testDenom).Int64())
 }
 
-func createTMClientHeader(t *testing.T, chainID string, blockHeight int64, trustedHeight clienttypes.Height,
-	timestamp time.Time, tmValSet, tmTrustedVals *tmtypes.ValidatorSet, signers []tmtypes.PrivValidator,
-	oldHeader *tmclient.Header) *tmclient.Header {
+func createTMClientHeader(t *testing.T, chainID string, blockHeight int64, trustedHeight clienttypes.Height, timestamp time.Time, tmValSet, tmTrustedVals *tmtypes.ValidatorSet, oldHeader *tmclient.Header) *tmclient.Header {
 	var (
 		valSet      *tmproto.ValidatorSet
 		trustedVals *tmproto.ValidatorSet
@@ -498,8 +494,6 @@ func createTMClientHeader(t *testing.T, chainID string, blockHeight int64, trust
 		EvidenceHash:       tmhash.Sum([]byte("evidence_hash")),
 		ProposerAddress:    tmValSet.Proposer.Address, //nolint:staticcheck
 	}
-	//hhash := tmHeader.Hash()
-	//blockID := ibctesting.MakeBlockID(hhash, 3, tmhash.Sum([]byte("part_set")))
 	voteSet := tmtypes.NewVoteSet(chainID, blockHeight, 1, tmproto.PrecommitType, tmValSet)
 
 	commit := voteSet.MakeCommit()
