@@ -19,9 +19,8 @@ require (
 	github.com/cosmos/ibc-go/v3 v3.0.0-alpha1.0.20220530074104-c7c115244bad
 	github.com/google/go-cmp v0.5.8
 	github.com/jsternberg/zap-logfmt v1.2.0
-	github.com/ory/dockertest v3.3.5+incompatible
 	github.com/ory/dockertest/v3 v3.9.1
-	github.com/strangelove-ventures/lens v0.4.1-0.20220605224024-597972d56c4a
+	github.com/strangelove-ventures/lens v0.4.1-0.20220606182016-0cd4a95c976c
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
@@ -49,7 +48,6 @@ require (
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/bgentry/speakeasy v0.1.0 // indirect
 	github.com/btcsuite/btcd v0.22.1 // indirect
-	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
