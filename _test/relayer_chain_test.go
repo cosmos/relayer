@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
-	tmprotoversion "github.com/tendermint/tendermint/proto/tendermint/version"
 	tmtypes "github.com/tendermint/tendermint/types"
 	tmversion "github.com/tendermint/tendermint/version"
 	"go.uber.org/zap/zaptest"
@@ -293,7 +292,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	privVal := ibctestingmock.PV{
 		PrivKey: privKey,
 	}
-	pubKey, err := privVal.GetPubKey()
+	pubKey, err := privVal.GetPubKey(ctx)
 	require.NoError(t, err)
 
 	tmHeader, ok := header.(*tmclient.Header)
@@ -484,7 +483,7 @@ func createTMClientHeader(t *testing.T, chainID string, blockHeight int64, trust
 	vsetHash := tmValSet.Hash()
 
 	tmHeader := tmtypes.Header{
-		Version:            tmprotoversion.Consensus{Block: tmversion.BlockProtocol, App: 2},
+		Version:            tmversion.Consensus{Block: tmversion.BlockProtocol, App: 2},
 		ChainID:            chainID,
 		Height:             blockHeight,
 		Time:               timestamp,
@@ -499,18 +498,18 @@ func createTMClientHeader(t *testing.T, chainID string, blockHeight int64, trust
 		EvidenceHash:       tmhash.Sum([]byte("evidence_hash")),
 		ProposerAddress:    tmValSet.Proposer.Address, //nolint:staticcheck
 	}
-	hhash := tmHeader.Hash()
-	blockID := ibctesting.MakeBlockID(hhash, 3, tmhash.Sum([]byte("part_set")))
+	//hhash := tmHeader.Hash()
+	//blockID := ibctesting.MakeBlockID(hhash, 3, tmhash.Sum([]byte("part_set")))
 	voteSet := tmtypes.NewVoteSet(chainID, blockHeight, 1, tmproto.PrecommitType, tmValSet)
 
-	commit, err := tmtypes.MakeCommit(blockID, blockHeight, 1, voteSet, signers, timestamp)
-	require.NoError(t, err)
+	commit := voteSet.MakeCommit()
 
 	signedHeader := &tmproto.SignedHeader{
 		Header: tmHeader.ToProto(),
 		Commit: commit.ToProto(),
 	}
 
+	var err error
 	if tmValSet != nil {
 		valSet, err = tmValSet.ToProto()
 		if err != nil {
