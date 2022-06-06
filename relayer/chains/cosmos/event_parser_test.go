@@ -62,7 +62,7 @@ func TestParsePacket(t *testing.T) {
 	}
 
 	parsed := new(packetInfo)
-	parsed = parsed.parsePacketInfo(zap.NewNop(), "", packetEventAttributes)
+	parsed = parsed.parsePacketInfo(zap.NewNop(), packetEventAttributes)
 
 	packetData, err := hex.DecodeString(testPacketDataHex)
 	require.NoError(t, err, "error decoding test packet data")
@@ -106,7 +106,7 @@ func TestParseClient(t *testing.T) {
 		},
 	}
 
-	parsed := parseClientInfo(zap.NewNop(), "", clientEventAttributes)
+	parsed := parseClientInfo(zap.NewNop(), clientEventAttributes)
 
 	clientHeader, err := hex.DecodeString(testClientHeader)
 	require.NoError(t, err, "error parsing test client header")
@@ -203,7 +203,6 @@ func TestParseConnection(t *testing.T) {
 
 func TestParseEventLogs(t *testing.T) {
 	const (
-		testChainID1               = "test-chain-id-1"
 		testClientID1              = "test-client-id-1"
 		testClientConsensusHeight  = "1-1023"
 		testPacketTimeoutHeight    = "1-1245"
@@ -306,7 +305,7 @@ func TestParseEventLogs(t *testing.T) {
 		},
 	}
 
-	ibcMessages := parseABCILogs(zap.NewNop(), testChainID1, abciLogs)
+	ibcMessages := parseABCILogs(zap.NewNop(), abciLogs)
 
 	require.Len(t, ibcMessages, 2)
 
