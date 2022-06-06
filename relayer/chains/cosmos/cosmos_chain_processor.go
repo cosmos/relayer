@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -28,8 +29,8 @@ type CosmosChainProcessor struct {
 	inSync bool
 }
 
-func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, rpcAddress string, pathProcessors processor.PathProcessors) (*CosmosChainProcessor, error) {
-	cc, err := getCosmosClient(rpcAddress, provider.ChainId())
+func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, rpcAddress string, input io.Reader, output io.Writer, pathProcessors processor.PathProcessors) (*CosmosChainProcessor, error) {
+	cc, err := getCosmosClient(rpcAddress, provider.ChainId(), input, output)
 	if err != nil {
 		return nil, fmt.Errorf("error getting cosmos client: %w", err)
 	}

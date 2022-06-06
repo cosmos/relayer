@@ -1,7 +1,7 @@
 package cosmos
 
 import (
-	"os"
+	"io"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -72,7 +72,7 @@ func newClient(addr string) (rpcclient.Client, error) {
 	return rpcClient, nil
 }
 
-func getCosmosClient(rpcAddress string, chainID string) (*cosmosClient.Context, error) {
+func getCosmosClient(rpcAddress string, chainID string, input io.Reader, output io.Writer) (*cosmosClient.Context, error) {
 	client, err := newClient(rpcAddress)
 	if err != nil {
 		return nil, err
@@ -81,8 +81,8 @@ func getCosmosClient(rpcAddress string, chainID string) (*cosmosClient.Context, 
 	return &cosmosClient.Context{
 		Client:            client,
 		ChainID:           chainID,
-		Input:             os.Stdin,
-		Output:            os.Stdout,
+		Input:             input,
+		Output:            output,
 		TxConfig:          codec.TxConfig,
 		Codec:             codec.Marshaler,
 		InterfaceRegistry: codec.InterfaceRegistry,
