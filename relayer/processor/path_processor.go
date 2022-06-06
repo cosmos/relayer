@@ -101,25 +101,25 @@ func (pp *PathProcessor) SetChainProviderIfApplicable(chainProvider provider.Cha
 // ProcessBacklogIfReady gives ChainProcessors a way to trigger the path processor process
 // as soon as they are in sync for the first time, even if they do not have new messages.
 func (pp *PathProcessor) ProcessBacklogIfReady() {
-	pp.retryProcess <- struct{}{}
+	select {
+	case pp.retryProcess <- struct{}{}:
+		// All good.
+	default:
+		// Log that the channel is saturated;
+		// something is wrong if we are retrying this quickly.
+		pp.log.Info("Failed to enqueue path processor retry")
+	}
 }
 
 // ChainProcessors call this method when they have new IBC messages
 func (pp *PathProcessor) HandleNewMessages(chainID string, channelKey ChannelKey, cacheData ChainProcessorCacheData) {
 	if pp.pathEnd1.info.ChainID == chainID {
 		// TODO make sure passes channel filter for pathEnd1 before calling this
-		pp.handleNewCacheDataForPathEnd(pp.pathEnd1, cacheData)
+		pp.pathEnd1.incomingCacheData <- cacheData
 	} else if pp.pathEnd2.info.ChainID == chainID {
 		// TODO make sure passes channel filter for pathEnd2 before calling this
-		pp.handleNewCacheDataForPathEnd(pp.pathEnd2, cacheData)
+		pp.pathEnd2.incomingCacheData <- cacheData
 	}
-}
-
-func (pp *PathProcessor) handleNewCacheDataForPathEnd(
-	p *PathEndRuntime,
-	cacheData ChainProcessorCacheData,
-) {
-	p.incomingCacheData <- cacheData
 }
 
 // this contains MsgRecvPacket from same chain
@@ -271,9 +271,7 @@ func (pp *PathProcessor) Run(ctx context.Context) {
 		// process latest message cache state from both pathEnds
 		if err := pp.processLatestMessages(); err != nil {
 			// in case of IBC message send errors, schedule retry after DurationErrorRetry
-			time.AfterFunc(DurationErrorRetry, func() {
-				pp.retryProcess <- struct{}{}
-			})
+			time.AfterFunc(DurationErrorRetry, pp.ProcessBacklogIfReady)
 		}
 	}
 }

@@ -20,10 +20,10 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDel
 		ccp.log.Info("Failed to parse abci logs", zap.Error(err))
 		return nil
 	}
-	return parseABCILogs(ccp.log, ccp.chainProvider.ChainId(), parsedLogs)
+	return parseABCILogs(ccp.log, parsedLogs)
 }
 
-func parseABCILogs(log *zap.Logger, chainID string, logs sdk.ABCIMessageLogs) (messages []ibcMessage) {
+func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs) (messages []ibcMessage) {
 	for _, messageLog := range logs {
 		var messageInfo interface{}
 		var messageType string
@@ -40,11 +40,11 @@ func parseABCILogs(log *zap.Logger, chainID string, logs sdk.ABCIMessageLogs) (m
 			case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
 				clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
 				clienttypes.EventTypeUpdateClientProposal:
-				messageInfo = parseClientInfo(log, chainID, event.Attributes)
+				messageInfo = parseClientInfo(log, event.Attributes)
 			case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
 				chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
 				chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
-				packetAccumulator = packetAccumulator.parsePacketInfo(log, chainID, event.Attributes)
+				packetAccumulator = packetAccumulator.parsePacketInfo(log, event.Attributes)
 			case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
 				conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
 				messageInfo = parseConnectionInfo(event.Attributes)
@@ -64,7 +64,6 @@ func parseABCILogs(log *zap.Logger, chainID string, logs sdk.ABCIMessageLogs) (m
 		}
 		if messageType == "" {
 			log.Error("Unexpected ibc message parser state: message info is populated but type is empty",
-				zap.String("chain_id", chainID),
 				zap.Any("message", messageInfo),
 			)
 			continue
@@ -78,14 +77,14 @@ func parseABCILogs(log *zap.Logger, chainID string, logs sdk.ABCIMessageLogs) (m
 	return messages
 }
 
-func parseClientInfo(log *zap.Logger, chainID string, attributes []sdk.Attribute) (res clientInfo) {
+func parseClientInfo(log *zap.Logger, attributes []sdk.Attribute) (res clientInfo) {
 	for _, attr := range attributes {
-		res = res.parseClientAttribute(log, chainID, attr)
+		res = res.parseClientAttribute(log, attr)
 	}
 	return res
 }
 
-func (res clientInfo) parseClientAttribute(log *zap.Logger, chainID string, attr sdk.Attribute) clientInfo {
+func (res clientInfo) parseClientAttribute(log *zap.Logger, attr sdk.Attribute) clientInfo {
 	switch attr.Key {
 	case clienttypes.AttributeKeyClientID:
 		res.clientID = attr.Value
@@ -93,7 +92,6 @@ func (res clientInfo) parseClientAttribute(log *zap.Logger, chainID string, attr
 		revisionSplit := strings.Split(attr.Value, "-")
 		if len(revisionSplit) != 2 {
 			log.Error("Error parsing client consensus height",
-				zap.String("chain_id", chainID),
 				zap.String("client_id", res.clientID),
 				zap.String("value", attr.Value),
 			)
@@ -103,7 +101,6 @@ func (res clientInfo) parseClientAttribute(log *zap.Logger, chainID string, attr
 		revisionNumber, err := strconv.ParseUint(revisionNumberString, 10, 64)
 		if err != nil {
 			log.Error("Error parsing client consensus height revision number",
-				zap.String("chain_id", chainID),
 				zap.Error(err),
 			)
 			return res
@@ -112,7 +109,6 @@ func (res clientInfo) parseClientAttribute(log *zap.Logger, chainID string, attr
 		revisionHeight, err := strconv.ParseUint(revisionHeightString, 10, 64)
 		if err != nil {
 			log.Error("Error parsing client consensus height revision height",
-				zap.String("chain_id", chainID),
 				zap.Error(err),
 			)
 			return res
@@ -125,7 +121,6 @@ func (res clientInfo) parseClientAttribute(log *zap.Logger, chainID string, attr
 		data, err := hex.DecodeString(attr.Value)
 		if err != nil {
 			log.Error("Error parsing client header",
-				zap.String("chain_id", chainID),
 				zap.String("header", attr.Value),
 				zap.Error(err),
 			)
@@ -137,24 +132,23 @@ func (res clientInfo) parseClientAttribute(log *zap.Logger, chainID string, attr
 }
 
 // parsePacketInfo is treated differently from the others since it can be constructed from the accumulation of multiple events
-func (res *packetInfo) parsePacketInfo(log *zap.Logger, chainID string, attributes []sdk.Attribute) *packetInfo {
+func (res *packetInfo) parsePacketInfo(log *zap.Logger, attributes []sdk.Attribute) *packetInfo {
 	if res == nil {
 		res = new(packetInfo)
 	}
 	for _, attr := range attributes {
-		res = res.parsePacketAttribute(log, chainID, attr)
+		res = res.parsePacketAttribute(log, attr)
 	}
 	return res
 }
 
-func (res *packetInfo) parsePacketAttribute(log *zap.Logger, chainID string, attr sdk.Attribute) *packetInfo {
+func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute) *packetInfo {
 	var err error
 	switch attr.Key {
 	case chantypes.AttributeKeySequence:
 		res.packet.Sequence, err = strconv.ParseUint(attr.Value, 10, 64)
 		if err != nil {
 			log.Error("Error parsing packet sequence",
-				zap.String("chain_id", chainID),
 				zap.String("value", attr.Value),
 				zap.Error(err),
 			)
@@ -164,7 +158,6 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, chainID string, att
 		res.packet.TimeoutTimestamp, err = strconv.ParseUint(attr.Value, 10, 64)
 		if err != nil {
 			log.Error("Error parsing packet timestamp",
-				zap.String("chain_id", chainID),
 				zap.Uint64("sequence", res.packet.Sequence),
 				zap.String("value", attr.Value),
 				zap.Error(err),
@@ -178,7 +171,6 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, chainID string, att
 		data, err := hex.DecodeString(attr.Value)
 		if err != nil {
 			log.Error("Error parsing packet data",
-				zap.String("chain_id", chainID),
 				zap.Uint64("sequence", res.packet.Sequence),
 				zap.Error(err),
 			)
@@ -192,7 +184,6 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, chainID string, att
 		data, err := hex.DecodeString(attr.Value)
 		if err != nil {
 			log.Error("Error parsing packet ack",
-				zap.String("chain_id", chainID),
 				zap.Uint64("sequence", res.packet.Sequence),
 				zap.String("value", attr.Value),
 				zap.Error(err),
@@ -204,7 +195,6 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, chainID string, att
 		timeoutSplit := strings.Split(attr.Value, "-")
 		if len(timeoutSplit) != 2 {
 			log.Error("Error parsing packet height timeout",
-				zap.String("chain_id", chainID),
 				zap.Uint64("sequence", res.packet.Sequence),
 				zap.String("value", attr.Value),
 			)
@@ -213,7 +203,6 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, chainID string, att
 		revisionNumber, err := strconv.ParseUint(timeoutSplit[0], 10, 64)
 		if err != nil {
 			log.Error("Error parsing packet timeout height revision number",
-				zap.String("chain_id", chainID),
 				zap.Uint64("sequence", res.packet.Sequence),
 				zap.String("value", timeoutSplit[0]),
 				zap.Error(err),
@@ -223,7 +212,6 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, chainID string, att
 		revisionHeight, err := strconv.ParseUint(timeoutSplit[1], 10, 64)
 		if err != nil {
 			log.Error("Error parsing packet timeout height revision height",
-				zap.String("chain_id", chainID),
 				zap.Uint64("sequence", res.packet.Sequence),
 				zap.String("value", timeoutSplit[1]),
 				zap.Error(err),

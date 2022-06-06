@@ -2,6 +2,7 @@ package cosmos
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -33,7 +34,7 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, r
 		return nil, fmt.Errorf("error getting cosmos client: %w", err)
 	}
 	return &CosmosChainProcessor{
-		log:            log,
+		log:            log.With(zap.String("chain_id", provider.ChainId())),
 		chainProvider:  provider,
 		cc:             cc,
 		pathProcessors: pathProcessors,
@@ -72,7 +73,6 @@ func (ccp *CosmosChainProcessor) latestHeightWithRetry(ctx context.Context) (lat
 	}, retry.Context(ctx), retry.Attempts(latestHeightQueryRetries), retry.Delay(latestHeightQueryRetryDelay), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
 		ccp.log.Info(
 			"Failed to query latest height",
-			zap.String("chain_id", ccp.chainProvider.ChainId()),
 			zap.Uint("attempt", n+1),
 			zap.Uint("max_attempts", latestHeightQueryRetries),
 			zap.Error(err),
@@ -101,10 +101,12 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 		if err != nil {
 			ccp.log.Error(
 				"Failed to query latest height after max attempts",
-				zap.String("chain_id", ccp.chainProvider.ChainId()),
 				zap.Uint("attempts", latestHeightQueryRetries),
 				zap.Error(err),
 			)
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return nil
+			}
 			continue
 		}
 		persistence.latestHeight = latestHeight
@@ -120,7 +122,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 
 	persistence.latestQueriedBlock = latestQueriedBlock
 
-	ccp.log.Info("Entering main query loop", zap.String("chain_id", ccp.chainProvider.ChainId()))
+	ccp.log.Debug("Entering main query loop")
 
 	ticker := time.NewTicker(persistence.minQueryLoopDuration)
 
@@ -138,8 +140,6 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 }
 
 func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
-	chainID := ccp.chainProvider.ChainId()
-
 	var err error
 	persistence.latestHeight, err = ccp.latestHeightWithRetry(ctx)
 
@@ -147,7 +147,6 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	if err != nil {
 		ccp.log.Error(
 			"Failed to query latest height after max attempts",
-			zap.String("chain_id", ccp.chainProvider.ChainId()),
 			zap.Uint("attempts", latestHeightQueryRetries),
 			zap.Error(err),
 		)
@@ -155,7 +154,6 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	}
 
 	ccp.log.Debug("Queried latest height",
-		zap.String("chain_id", chainID),
 		zap.Int64("latest_height", persistence.latestHeight),
 	)
 
@@ -166,10 +164,9 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		if (persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold {
 			ccp.inSync = true
 			firstTimeInSync = true
-			ccp.log.Info("chain is in sync", zap.String("chain_id", chainID))
+			ccp.log.Info("chain is in sync")
 		} else {
 			ccp.log.Info("chain is not yet in sync",
-				zap.String("chain_id", chainID),
 				zap.Int64("latest_queried_block", persistence.latestQueriedBlock),
 				zap.Int64("latest_height", persistence.latestHeight),
 			)
@@ -179,7 +176,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		blockRes, err := ccp.cc.Client.BlockResults(ctx, &i)
 		if err != nil {
-			ccp.log.Error("error getting block results", zap.String("chainID", chainID), zap.Error(err))
+			ccp.log.Error("error getting block results", zap.Error(err))
 			return nil
 		}
 
@@ -190,7 +187,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			}
 			messages := ccp.ibcMessagesFromTransaction(tx)
 
-			ccp.log.Debug("Parsed IBC messages", zap.String("chainID", chainID), zap.Any("messages", messages))
+			ccp.log.Debug("Parsed IBC messages", zap.Any("messages", messages))
 
 			// TODO pass messages to handlers
 		}
