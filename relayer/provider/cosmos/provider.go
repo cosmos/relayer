@@ -15,7 +15,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/types/module"
@@ -225,19 +224,18 @@ func (cc *CosmosProvider) AddKey(name string, coinType uint32) (*provider.KeyOut
 
 // Address returns the chains configured address as a string
 func (cc *CosmosProvider) Address() (string, error) {
-	var (
-		err  error
-		info keyring.Info
-	)
-	info, err = cc.Keybase.Key(cc.PCfg.Key)
+	info, err := cc.Keybase.Key(cc.PCfg.Key)
 	if err != nil {
 		return "", err
 	}
-	out, err := cc.EncodeBech32AccAddr(info.GetAddress())
+	addr, err := info.GetAddress()
 	if err != nil {
 		return "", err
 	}
-
+	out, err := cc.EncodeBech32AccAddr(addr.Bytes())
+	if err != nil {
+		return "", err
+	}
 	return out, err
 }
 
@@ -1877,7 +1875,7 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 	var txb client.TxBuilder
 	// Build the transaction builder & retry on failures
 	if err := retry.Do(func() error {
-		txb, err = tx.BuildUnsignedTx(txf, CosmosMsgs(msgs...)...)
+		txb, err = txf.BuildUnsignedTx(CosmosMsgs(msgs...)...)
 		if err != nil {
 			return err
 		}
