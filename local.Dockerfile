@@ -5,10 +5,10 @@ WORKDIR /relayer
 # Copy the files from host
 COPY . .
 
+ENV PACKAGES make git install build-base
+
 # Update and install needed deps prioir to installing the binary.
-RUN apk update && \
-  apk --no-cache add make git && \
-  make install build-base
+RUN apk update && apk add --no-cache $PACKAGES
 
 FROM alpine:latest
 
