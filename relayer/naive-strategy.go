@@ -274,9 +274,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 			default:
 				return nil
 			}
-		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			srch, _ = src.ChainProvider.QueryLatestHeight(ctx)
-		})); err != nil {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 			src.log.Error(
 				"Failed to query packet acknowledgement commitments after max attempts",
 				zap.String("channel_id", srcChannel.ChannelId),
@@ -307,9 +305,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 			default:
 				return nil
 			}
-		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
-		})); err != nil {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 			dst.log.Error(
 				"Failed to query packet acknowledgement commitments after max attempts",
 				zap.String("channel_id", srcChannel.Counterparty.ChannelId),
@@ -335,9 +331,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 			if err := retry.Do(func() error {
 				rs.Src, err = dst.ChainProvider.QueryUnreceivedAcknowledgements(ctx, uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
 				return err
-			}, retry.Context(ctx), RtyErr, RtyAtt, RtyDel, retry.OnRetry(func(n uint, err error) {
-				dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
-			})); err != nil {
+			}, retry.Context(ctx), RtyErr, RtyAtt, RtyDel); err != nil {
 				dst.log.Error(
 					"Failed to query unreceived acknowledgements after max attempts",
 					zap.String("channel_id", srcChannel.Counterparty.ChannelId),
@@ -358,9 +352,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 			if err := retry.Do(func() error {
 				rs.Dst, err = src.ChainProvider.QueryUnreceivedAcknowledgements(ctx, uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
 				return err
-			}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-				srch, _ = src.ChainProvider.QueryLatestHeight(ctx)
-			})); err != nil {
+			}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 				src.log.Error(
 					"Failed to query unreceived acknowledgements after max attempts",
 					zap.String("channel_id", srcChannel.ChannelId),
