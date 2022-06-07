@@ -58,9 +58,62 @@ type ChannelKey struct {
 	CounterpartyPortID    string
 }
 
+// Counterparty flips a ChannelKey for the perspective of the counterparty chain
+func (channelKey ChannelKey) Counterparty() ChannelKey {
+	return ChannelKey{
+		ChannelID:             channelKey.CounterpartyChannelID,
+		PortID:                channelKey.CounterpartyPortID,
+		CounterpartyChannelID: channelKey.ChannelID,
+		CounterpartyPortID:    channelKey.PortID,
+	}
+}
+
+// ChannelState is used for tracking the most recent state of a channel.
+type ChannelState struct {
+	// Is the channel currently open, i.e. can packets be relayed on this channel now.
+	Open bool
+	// Any new IBC messages relevant to the channel so that the PathProcessor
+	// can take necessary action such as complete the channel handshake.
+	Messages []string
+}
+
+// ChannelStateCache maintains channel state for multiple channels.
+type ChannelStateCache map[ChannelKey]ChannelState
+
+// Flush is used to make a copy of the ChannelStateCache, helpful for the ChainProcessors
+// to clone their local cache so that PathProcessors can have a thread-safe copy.
+// It will also empty the messages for the existing channel state.
+func (c ChannelStateCache) Flush() ChannelStateCache {
+	copy := make(ChannelStateCache)
+	for channelKey, existingState := range c {
+		copy[channelKey] = existingState
+		flushed := existingState
+		flushed.Messages = nil
+		c[channelKey] = flushed
+	}
+	return copy
+}
+
+// Merge will merge another ChannelStateCache into this one, appending messages and updating the Open state.
+func (c ChannelStateCache) Merge(other ChannelStateCache) {
+	for channelKey, newState := range other {
+		existingState, ok := c[channelKey]
+		if !ok {
+			c[channelKey] = newState
+			return
+		}
+		existingState.Messages = append(existingState.Messages, newState.Messages...)
+		existingState.Open = newState.Open
+		c[channelKey] = existingState
+	}
+}
+
+// ChainProcessorCacheData is the data sent from the ChainProcessors to the PathProcessors
+// to keep the PathProcessors up to date with the latest info from the chains.
 type ChainProcessorCacheData struct {
-	NewMessages MessageCache
-	InSync      bool
+	ChannelMessageCache
+	InSync bool
+	ChannelStateCache
 }
 
 // Merge will merge another MessageCache into this one.
@@ -89,6 +142,18 @@ func (c MessageCache) DeleteCachedMessages(toDelete ...map[string][]uint64) {
 			for _, sequence := range toDeleteMessages {
 				delete(c[message], sequence)
 			}
+		}
+	}
+}
+
+// Merge will merge another MessageCache into this one.
+func (c ChannelMessageCache) Merge(other ChannelMessageCache) {
+	for channelKey, messageCache := range other {
+		_, ok := c[channelKey]
+		if !ok {
+			c[channelKey] = messageCache
+		} else {
+			c[channelKey].Merge(messageCache)
 		}
 	}
 }

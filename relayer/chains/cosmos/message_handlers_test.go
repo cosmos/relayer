@@ -13,24 +13,15 @@ import (
 	"go.uber.org/zap"
 )
 
-func TestHandleMsgTransfer(t *testing.T) {
+func mockCosmosChainProcessor(t *testing.T) *CosmosChainProcessor {
 	const (
-		sequence         = uint64(1)
-		chainID1         = "test-chain-1"
-		chainID2         = "test-chain-2"
-		srcChannel       = "channel-0"
-		dstChannel       = "channel-1"
-		srcPort          = "transfer"
-		dstPort          = "transfer"
-		timeoutHeight    = 100
-		timeoutRevision  = 1
-		timeoutTimestamp = uint64(2054566111724000000)
+		chainID1 = "test-chain-1"
+		chainID2 = "test-chain-2"
 	)
 	var (
-		packetData    = []byte{0x1, 0x2, 0x3, 0x4}
-		log           = zap.NewNop()
 		pathEnd1      = processor.PathEnd{ChainID: chainID1}
 		pathEnd2      = processor.PathEnd{ChainID: chainID2}
+		log           = zap.NewNop()
 		pathProcessor = processor.NewPathProcessor(log, pathEnd1, pathEnd2)
 		provider      = cosmos.CosmosProvider{PCfg: cosmos.CosmosProviderConfig{ChainID: chainID1}}
 	)
@@ -40,6 +31,25 @@ func TestHandleMsgTransfer(t *testing.T) {
 
 	applicable := pathProcessor.SetChainProviderIfApplicable(&provider)
 	require.True(t, applicable, "error setting path processor reference to chain processor")
+
+	return ccp
+}
+
+func TestHandleMsgTransfer(t *testing.T) {
+	const (
+		sequence         = uint64(1)
+		srcChannel       = "channel-0"
+		dstChannel       = "channel-1"
+		srcPort          = "transfer"
+		dstPort          = "transfer"
+		timeoutHeight    = 100
+		timeoutRevision  = 1
+		timeoutTimestamp = uint64(2054566111724000000)
+	)
+	var (
+		packetData = []byte{0x1, 0x2, 0x3, 0x4}
+		ccp        = mockCosmosChainProcessor(t)
+	)
 
 	foundMessages := make(processor.ChannelMessageCache)
 
@@ -63,12 +73,7 @@ func TestHandleMsgTransfer(t *testing.T) {
 
 	require.Len(t, foundMessages, 1)
 
-	channelKey := processor.ChannelKey{
-		ChannelID:             srcChannel,
-		PortID:                srcPort,
-		CounterpartyChannelID: dstChannel,
-		CounterpartyPortID:    dstPort,
-	}
+	channelKey := packetInfo.channelKey()
 
 	channelMessages, ok := foundMessages[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
@@ -95,28 +100,16 @@ func TestHandleMsgTransfer(t *testing.T) {
 func TestHandleMsgRecvPacket(t *testing.T) {
 	const (
 		sequence   = uint64(1)
-		chainID1   = "test-chain-1"
-		chainID2   = "test-chain-2"
 		srcChannel = "channel-0"
 		dstChannel = "channel-1"
 		srcPort    = "transfer"
 		dstPort    = "transfer"
 	)
 	var (
-		packetData    = []byte{0x1, 0x2, 0x3, 0x4}
-		packetAck     = []byte{0x2, 0x3, 0x4, 0x5}
-		log           = zap.NewNop()
-		pathEnd1      = processor.PathEnd{ChainID: chainID1}
-		pathEnd2      = processor.PathEnd{ChainID: chainID2}
-		pathProcessor = processor.NewPathProcessor(log, pathEnd1, pathEnd2)
-		provider      = cosmos.CosmosProvider{PCfg: cosmos.CosmosProviderConfig{ChainID: chainID1}}
+		packetData = []byte{0x1, 0x2, 0x3, 0x4}
+		packetAck  = []byte{0x2, 0x3, 0x4, 0x5}
+		ccp        = mockCosmosChainProcessor(t)
 	)
-
-	ccp, err := NewCosmosChainProcessor(log, &provider, "", os.Stdin, os.Stdout, []*processor.PathProcessor{pathProcessor})
-	require.NoError(t, err, "error constructing cosmos chain processor")
-
-	applicable := pathProcessor.SetChainProviderIfApplicable(&provider)
-	require.True(t, applicable, "error setting path processor reference to chain processor")
 
 	foundMessages := make(processor.ChannelMessageCache)
 
@@ -137,12 +130,7 @@ func TestHandleMsgRecvPacket(t *testing.T) {
 	require.Len(t, foundMessages, 1)
 
 	// flipped on purpose since MsgRecvPacket is committed on counterparty chain
-	channelKey := processor.ChannelKey{
-		ChannelID:             dstChannel,
-		PortID:                dstPort,
-		CounterpartyChannelID: srcChannel,
-		CounterpartyPortID:    srcPort,
-	}
+	channelKey := packetInfo.channelKey().Counterparty()
 
 	channelMessages, ok := foundMessages[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
@@ -169,27 +157,15 @@ func TestHandleMsgRecvPacket(t *testing.T) {
 func TestHandleMsgAcknowledgement(t *testing.T) {
 	const (
 		sequence   = uint64(1)
-		chainID1   = "test-chain-1"
-		chainID2   = "test-chain-2"
 		srcChannel = "channel-0"
 		dstChannel = "channel-1"
 		srcPort    = "transfer"
 		dstPort    = "transfer"
 	)
 	var (
-		packetData    = []byte{0x1, 0x2, 0x3, 0x4}
-		log           = zap.NewNop()
-		pathEnd1      = processor.PathEnd{ChainID: chainID1}
-		pathEnd2      = processor.PathEnd{ChainID: chainID2}
-		pathProcessor = processor.NewPathProcessor(log, pathEnd1, pathEnd2)
-		provider      = cosmos.CosmosProvider{PCfg: cosmos.CosmosProviderConfig{ChainID: chainID1}}
+		packetData = []byte{0x1, 0x2, 0x3, 0x4}
+		ccp        = mockCosmosChainProcessor(t)
 	)
-
-	ccp, err := NewCosmosChainProcessor(log, &provider, "", os.Stdin, os.Stdout, []*processor.PathProcessor{pathProcessor})
-	require.NoError(t, err, "error constructing cosmos chain processor")
-
-	applicable := pathProcessor.SetChainProviderIfApplicable(&provider)
-	require.True(t, applicable, "error setting path processor reference to chain processor")
 
 	foundMessages := make(processor.ChannelMessageCache)
 
@@ -208,12 +184,7 @@ func TestHandleMsgAcknowledgement(t *testing.T) {
 
 	require.Len(t, foundMessages, 1)
 
-	channelKey := processor.ChannelKey{
-		ChannelID:             srcChannel,
-		PortID:                srcPort,
-		CounterpartyChannelID: dstChannel,
-		CounterpartyPortID:    dstPort,
-	}
+	channelKey := packetInfo.channelKey()
 
 	channelMessages, ok := foundMessages[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
@@ -234,27 +205,15 @@ func TestHandleMsgAcknowledgement(t *testing.T) {
 func TestHandleMsgTimeout(t *testing.T) {
 	const (
 		sequence   = uint64(1)
-		chainID1   = "test-chain-1"
-		chainID2   = "test-chain-2"
 		srcChannel = "channel-0"
 		dstChannel = "channel-1"
 		srcPort    = "transfer"
 		dstPort    = "transfer"
 	)
 	var (
-		packetData    = []byte{0x1, 0x2, 0x3, 0x4}
-		log           = zap.NewNop()
-		pathEnd1      = processor.PathEnd{ChainID: chainID1}
-		pathEnd2      = processor.PathEnd{ChainID: chainID2}
-		pathProcessor = processor.NewPathProcessor(log, pathEnd1, pathEnd2)
-		provider      = cosmos.CosmosProvider{PCfg: cosmos.CosmosProviderConfig{ChainID: chainID1}}
+		packetData = []byte{0x1, 0x2, 0x3, 0x4}
+		ccp        = mockCosmosChainProcessor(t)
 	)
-
-	ccp, err := NewCosmosChainProcessor(log, &provider, "", os.Stdin, os.Stdout, []*processor.PathProcessor{pathProcessor})
-	require.NoError(t, err, "error constructing cosmos chain processor")
-
-	applicable := pathProcessor.SetChainProviderIfApplicable(&provider)
-	require.True(t, applicable, "error setting path processor reference to chain processor")
 
 	foundMessages := make(processor.ChannelMessageCache)
 
@@ -273,12 +232,7 @@ func TestHandleMsgTimeout(t *testing.T) {
 
 	require.Len(t, foundMessages, 1)
 
-	channelKey := processor.ChannelKey{
-		ChannelID:             srcChannel,
-		PortID:                srcPort,
-		CounterpartyChannelID: dstChannel,
-		CounterpartyPortID:    dstPort,
-	}
+	channelKey := packetInfo.channelKey()
 
 	channelMessages, ok := foundMessages[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
@@ -299,27 +253,15 @@ func TestHandleMsgTimeout(t *testing.T) {
 func TestHandleMsgTimeoutOnClose(t *testing.T) {
 	const (
 		sequence   = uint64(1)
-		chainID1   = "test-chain-1"
-		chainID2   = "test-chain-2"
 		srcChannel = "channel-0"
 		dstChannel = "channel-1"
 		srcPort    = "transfer"
 		dstPort    = "transfer"
 	)
 	var (
-		packetData    = []byte{0x1, 0x2, 0x3, 0x4}
-		log           = zap.NewNop()
-		pathEnd1      = processor.PathEnd{ChainID: chainID1}
-		pathEnd2      = processor.PathEnd{ChainID: chainID2}
-		pathProcessor = processor.NewPathProcessor(log, pathEnd1, pathEnd2)
-		provider      = cosmos.CosmosProvider{PCfg: cosmos.CosmosProviderConfig{ChainID: chainID1}}
+		packetData = []byte{0x1, 0x2, 0x3, 0x4}
+		ccp        = mockCosmosChainProcessor(t)
 	)
-
-	ccp, err := NewCosmosChainProcessor(log, &provider, "", os.Stdin, os.Stdout, []*processor.PathProcessor{pathProcessor})
-	require.NoError(t, err, "error constructing cosmos chain processor")
-
-	applicable := pathProcessor.SetChainProviderIfApplicable(&provider)
-	require.True(t, applicable, "error setting path processor reference to chain processor")
 
 	foundMessages := make(processor.ChannelMessageCache)
 
@@ -338,12 +280,7 @@ func TestHandleMsgTimeoutOnClose(t *testing.T) {
 
 	require.Len(t, foundMessages, 1)
 
-	channelKey := processor.ChannelKey{
-		ChannelID:             srcChannel,
-		PortID:                srcPort,
-		CounterpartyChannelID: dstChannel,
-		CounterpartyPortID:    dstPort,
-	}
+	channelKey := packetInfo.channelKey()
 
 	channelMessages, ok := foundMessages[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
@@ -359,4 +296,127 @@ func TestHandleMsgTimeoutOnClose(t *testing.T) {
 	require.True(t, ok, "unable to find message for sequence")
 
 	require.Nil(t, sequenceMessage, "message is not nil, expected nil since no messages need to be constructed for counterparty")
+}
+
+func TestHandleChannelHandshake(t *testing.T) {
+	const (
+		srcChannel = "channel-0"
+		dstChannel = "channel-1"
+		srcPort    = "transfer"
+		dstPort    = "transfer"
+	)
+
+	ccp := mockCosmosChainProcessor(t)
+
+	channelInfo := &channelInfo{
+		channelID:             srcChannel,
+		portID:                srcPort,
+		counterpartyChannelID: dstChannel,
+		counterpartyPortID:    dstPort,
+	}
+
+	foundMessages := make(processor.ChannelMessageCache)
+
+	ccp.handleMsgChannelOpenInit(MsgHandlerParams{messageInfo: channelInfo, foundMessages: foundMessages})
+
+	channelKey := channelInfo.channelKey()
+
+	channelState, ok := ccp.channelStateCache[channelKey]
+	require.True(t, ok, "unable to find channel state for channel key")
+
+	require.False(t, channelState.Open, "channel should not be marked open yet")
+
+	require.Len(t, channelState.Messages, 1)
+
+	require.Equal(t, channelState.Messages[0], processor.MsgChannelOpenInit)
+
+	ccp.handleMsgChannelOpenAck(MsgHandlerParams{messageInfo: channelInfo, foundMessages: foundMessages})
+
+	channelState, ok = ccp.channelStateCache[channelKey]
+	require.True(t, ok, "unable to find channel state for channel key")
+
+	require.True(t, channelState.Open, "channel should be marked open now")
+
+	require.Len(t, channelState.Messages, 2)
+
+	require.Equal(t, channelState.Messages[0], processor.MsgChannelOpenInit)
+	require.Equal(t, channelState.Messages[1], processor.MsgChannelOpenAck)
+
+	channelStateFlushed := ccp.channelStateCache.Flush()
+	channelStateFlush, ok := channelStateFlushed[channelKey]
+	require.True(t, ok, "unable to find channel state for channel key after flush")
+
+	channelState, ok = ccp.channelStateCache[channelKey]
+	require.True(t, ok, "unable to find channel state for channel key after flush")
+	require.True(t, channelState.Open, "channel state cache should retain open state after flush")
+
+	require.True(t, channelStateFlush.Open, "channel state clone should retain open state")
+
+	require.Len(t, channelState.Messages, 0, "channel state messages were not flushed from cache")
+	require.Len(t, channelStateFlush.Messages, 2, "channel state messages were not copied to channel state returned by flush")
+
+	require.Equal(t, channelStateFlush.Messages[0], processor.MsgChannelOpenInit)
+	require.Equal(t, channelStateFlush.Messages[1], processor.MsgChannelOpenAck)
+}
+
+func TestHandleChannelHandshakeCounterparty(t *testing.T) {
+	const (
+		srcChannel = "channel-0"
+		dstChannel = "channel-1"
+		srcPort    = "transfer"
+		dstPort    = "transfer"
+	)
+
+	ccp := mockCosmosChainProcessor(t)
+
+	channelInfo := &channelInfo{
+		channelID:             srcChannel,
+		portID:                srcPort,
+		counterpartyChannelID: dstChannel,
+		counterpartyPortID:    dstPort,
+	}
+
+	foundMessages := make(processor.ChannelMessageCache)
+
+	ccp.handleMsgChannelOpenTry(MsgHandlerParams{messageInfo: channelInfo, foundMessages: foundMessages})
+
+	// counterparty is purposefully flipped since counterparty initiated handshake
+	channelKey := channelInfo.channelKey().Counterparty()
+
+	channelState, ok := ccp.channelStateCache[channelKey]
+	require.True(t, ok, "unable to find channel state for channel key")
+
+	require.False(t, channelState.Open, "channel should not be marked open yet")
+
+	require.Len(t, channelState.Messages, 1)
+
+	require.Equal(t, channelState.Messages[0], processor.MsgChannelOpenTry)
+
+	ccp.handleMsgChannelOpenConfirm(MsgHandlerParams{messageInfo: channelInfo, foundMessages: foundMessages})
+
+	channelState, ok = ccp.channelStateCache[channelKey]
+	require.True(t, ok, "unable to find channel state for channel key")
+
+	require.True(t, channelState.Open, "channel should be marked open now")
+
+	require.Len(t, channelState.Messages, 2)
+
+	require.Equal(t, channelState.Messages[0], processor.MsgChannelOpenTry)
+	require.Equal(t, channelState.Messages[1], processor.MsgChannelOpenConfirm)
+
+	channelStateFlushed := ccp.channelStateCache.Flush()
+	channelStateFlush, ok := channelStateFlushed[channelKey]
+	require.True(t, ok, "unable to find channel state for channel key after flush")
+
+	channelState, ok = ccp.channelStateCache[channelKey]
+	require.True(t, ok, "unable to find channel state for channel key after flush")
+	require.True(t, channelState.Open, "channel state cache should retain open state after flush")
+
+	require.True(t, channelStateFlush.Open, "channel state clone should retain open state")
+
+	require.Len(t, channelState.Messages, 0, "channel state messages were not flushed from cache")
+	require.Len(t, channelStateFlush.Messages, 2, "channel state messages were not copied to channel state returned by flush")
+
+	require.Equal(t, channelStateFlush.Messages[0], processor.MsgChannelOpenTry)
+	require.Equal(t, channelStateFlush.Messages[1], processor.MsgChannelOpenConfirm)
 }
