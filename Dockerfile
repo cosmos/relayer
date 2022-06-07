@@ -10,7 +10,7 @@ ARG TARGETOS
 
 # Update and install needed deps prioir to installing the binary.
 RUN apk update && \
-  apk --no-cache add make git && \
+  apk --no-cache add make git build-base && \
   export GOOS=${TARGETOS} GOARCH=${TARGETARCH} && \
   make install
 
