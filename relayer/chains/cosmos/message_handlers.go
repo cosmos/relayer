@@ -20,27 +20,12 @@ var messageHandlers = map[string]func(*CosmosChainProcessor, MsgHandlerParams) b
 	processor.MsgRecvPacket:      (*CosmosChainProcessor).handleMsgRecvPacket,
 	processor.MsgAcknowledgement: (*CosmosChainProcessor).handleMsgAcknowlegement,
 	processor.MsgTimeout:         (*CosmosChainProcessor).handleMsgTimeout,
-	processor.MsgTimeoutOnClose:  (*CosmosChainProcessor).handleMsgTimeoutOnClose,
+	processor.MsgTimeoutOnClose:  (*CosmosChainProcessor).handleMsgTimeoutOnClose, 
 
-	processor.MsgCreateClient:       (*CosmosChainProcessor).handleMsgCreateClient,
-	processor.MsgUpdateClient:       (*CosmosChainProcessor).handleMsgUpdateClient,
-	processor.MsgUpgradeClient:      (*CosmosChainProcessor).handleMsgUpgradeClient,
-	processor.MsgSubmitMisbehaviour: (*CosmosChainProcessor).handleMsgSubmitMisbehaviour,
-
-	processor.MsgConnectionOpenInit:    (*CosmosChainProcessor).handleMsgConnectionOpenInit,
-	processor.MsgConnectionOpenTry:     (*CosmosChainProcessor).handleMsgConnectionOpenTry,
-	processor.MsgConnectionOpenAck:     (*CosmosChainProcessor).handleMsgConnectionOpenAck,
-	processor.MsgConnectionOpenConfirm: (*CosmosChainProcessor).handleMsgConnectionOpenConfirm,
-
-	processor.MsgChannelCloseConfirm: (*CosmosChainProcessor).handleMsgChannelCloseConfirm,
-	processor.MsgChannelCloseInit:    (*CosmosChainProcessor).handleMsgChannelCloseInit,
-	processor.MsgChannelOpenAck:      (*CosmosChainProcessor).handleMsgChannelOpenAck,
-	processor.MsgChannelOpenConfirm:  (*CosmosChainProcessor).handleMsgChannelOpenConfirm,
-	processor.MsgChannelOpenInit:     (*CosmosChainProcessor).handleMsgChannelOpenInit,
-	processor.MsgChannelOpenTry:      (*CosmosChainProcessor).handleMsgChannelOpenTry,
+	// TODO client, connection, channel messages
 }
 
-func getTypedMessage[T *packetInfo | *channelInfo | *clientInfo | *connectionInfo](messageInfo interface{}) T {
+func typedMessage[T *packetInfo | *channelInfo | *clientInfo | *connectionInfo](messageInfo interface{}) T {
 	typedInfo, ok := messageInfo.(T)
 	if !ok {
 		panic("invalid message info provided")
@@ -85,7 +70,7 @@ func retainPacketMessage(message string, packetInfo *packetInfo, foundMessages p
 
 // BEGIN packet msg handlers
 func (ccp *CosmosChainProcessor) handleMsgTransfer(p MsgHandlerParams) bool {
-	packetInfo := getTypedMessage[*packetInfo](p.messageInfo)
+	packetInfo := typedMessage[*packetInfo](p.messageInfo)
 	// source chain processor will call this handler
 	// source channel used as key because MsgTransfer is sent to source chain
 	channelKey := packetInfo.channelKey()
@@ -118,7 +103,7 @@ func (ccp *CosmosChainProcessor) handleMsgTransfer(p MsgHandlerParams) bool {
 }
 
 func (ccp *CosmosChainProcessor) handleMsgRecvPacket(p MsgHandlerParams) bool {
-	packetInfo := getTypedMessage[*packetInfo](p.messageInfo)
+	packetInfo := typedMessage[*packetInfo](p.messageInfo)
 	// destination chain processor will call this handler
 	// destination channel used because MsgRecvPacket is sent to destination chain
 	channelKey := packetInfo.channelKey().Counterparty()
@@ -148,7 +133,7 @@ func (ccp *CosmosChainProcessor) handleMsgRecvPacket(p MsgHandlerParams) bool {
 }
 
 func (ccp *CosmosChainProcessor) handleMsgAcknowlegement(p MsgHandlerParams) bool {
-	packetInfo := getTypedMessage[*packetInfo](p.messageInfo)
+	packetInfo := typedMessage[*packetInfo](p.messageInfo)
 	// source chain processor will call this handler
 	// source channel used as key because MsgAcknowlegement is sent to source chain
 	channelKey := packetInfo.channelKey()
@@ -164,7 +149,7 @@ func (ccp *CosmosChainProcessor) handleMsgAcknowlegement(p MsgHandlerParams) boo
 }
 
 func (ccp *CosmosChainProcessor) handleMsgTimeout(p MsgHandlerParams) bool {
-	packetInfo := getTypedMessage[*packetInfo](p.messageInfo)
+	packetInfo := typedMessage[*packetInfo](p.messageInfo)
 	// source chain processor will call this handler
 	// source channel used as key because MsgTimeout is sent to source chain
 	channelKey := packetInfo.channelKey()
@@ -180,7 +165,7 @@ func (ccp *CosmosChainProcessor) handleMsgTimeout(p MsgHandlerParams) bool {
 }
 
 func (ccp *CosmosChainProcessor) handleMsgTimeoutOnClose(p MsgHandlerParams) bool {
-	packetInfo := getTypedMessage[*packetInfo](p.messageInfo)
+	packetInfo := typedMessage[*packetInfo](p.messageInfo)
 	// source channel used because timeout is sent to source chain
 	channelKey := packetInfo.channelKey()
 	if !ccp.isPacketApplicable(processor.MsgTimeoutOnClose, packetInfo, p.foundMessages, channelKey) {
@@ -208,172 +193,3 @@ func (ccp *CosmosChainProcessor) logPacketMessage(message string, packetInfo *pa
 }
 
 // END packet msg handlers
-
-// BEGIN client msg handlers
-
-func (ccp *CosmosChainProcessor) handleMsgCreateClient(p MsgHandlerParams) bool {
-	clientInfo := getTypedMessage[*clientInfo](p.messageInfo)
-	// save the latest consensus height and header for this client
-	ccp.latestClientState.UpdateLatestClientState(*clientInfo)
-	ccp.logClientMessage("MsgCreateClient", clientInfo)
-	return true
-}
-
-func (ccp *CosmosChainProcessor) handleMsgUpdateClient(p MsgHandlerParams) bool {
-	clientInfo := getTypedMessage[*clientInfo](p.messageInfo)
-	// save the latest consensus height and header for this client
-	ccp.latestClientState.UpdateLatestClientState(*clientInfo)
-	ccp.logClientMessage("MsgUpdateClient", clientInfo)
-	return true
-}
-
-func (ccp *CosmosChainProcessor) handleMsgUpgradeClient(p MsgHandlerParams) bool {
-	clientInfo := getTypedMessage[*clientInfo](p.messageInfo)
-	// save the latest consensus height and header for this client
-	ccp.latestClientState.UpdateLatestClientState(*clientInfo)
-	ccp.logClientMessage("MsgUpgradeClient", clientInfo)
-	return true
-}
-
-func (ccp *CosmosChainProcessor) handleMsgSubmitMisbehaviour(p MsgHandlerParams) bool {
-	clientInfo := getTypedMessage[*clientInfo](p.messageInfo)
-	// save the latest consensus height and header for this client
-	ccp.latestClientState.UpdateLatestClientState(*clientInfo)
-	ccp.logClientMessage("MsgSubmitMisbehaviour", clientInfo)
-	return true
-}
-
-func (ccp *CosmosChainProcessor) logClientMessage(message string, clientInfo *clientInfo) bool {
-	ccp.log.Debug("observed ibc message",
-		zap.String("message", message),
-		zap.String("client_id", clientInfo.clientID),
-	)
-	return true
-}
-
-// END client msg handlers
-
-// BEGIN connection msg handlers
-
-func (ccp *CosmosChainProcessor) handleMsgConnectionOpenInit(p MsgHandlerParams) bool {
-	connectionInfo := getTypedMessage[*connectionInfo](p.messageInfo)
-	ccp.logConnectionMessage("MsgConnectionOpenInit", connectionInfo)
-	return true
-}
-
-func (ccp *CosmosChainProcessor) handleMsgConnectionOpenTry(p MsgHandlerParams) bool {
-	connectionInfo := getTypedMessage[*connectionInfo](p.messageInfo)
-	ccp.logConnectionMessage("MsgConnectionOpenTry", connectionInfo)
-	return true
-}
-
-func (ccp *CosmosChainProcessor) handleMsgConnectionOpenAck(p MsgHandlerParams) bool {
-	connectionInfo := getTypedMessage[*connectionInfo](p.messageInfo)
-	ccp.logConnectionMessage("MsgConnectionOpenAck", connectionInfo)
-	return true
-}
-
-func (ccp *CosmosChainProcessor) handleMsgConnectionOpenConfirm(p MsgHandlerParams) bool {
-	connectionInfo := getTypedMessage[*connectionInfo](p.messageInfo)
-	ccp.logConnectionMessage("MsgConnectionOpenConfirm", connectionInfo)
-	return true
-}
-
-func (ccp *CosmosChainProcessor) logConnectionMessage(message string, connectionInfo *connectionInfo) {
-	ccp.log.Debug("observed ibc message",
-		zap.String("message", message),
-		zap.String("client_id", connectionInfo.clientID),
-		zap.String("connection_id", connectionInfo.connectionID),
-		zap.String("counterparty_client_id", connectionInfo.counterpartyClientID),
-		zap.String("counterparty_connection_id", connectionInfo.counterpartyConnectionID),
-	)
-}
-
-// END connection msg handlers
-
-// BEGIN channel msg handlers
-
-func (ccp *CosmosChainProcessor) handleMsgChannelOpenInit(p MsgHandlerParams) bool {
-	channelInfo := getTypedMessage[*channelInfo](p.messageInfo)
-	channelKey := channelInfo.channelKey()
-	// Sending false for open because channel is not open until MsgChannelOpenAck on this chain
-	ccp.appendChannelMessage(channelKey, p.foundMessages, processor.MsgChannelOpenInit, false)
-	ccp.logChannelMessage("MsgChannelOpenInit", channelInfo)
-	return true
-}
-
-func (ccp *CosmosChainProcessor) handleMsgChannelOpenTry(p MsgHandlerParams) bool {
-	channelInfo := getTypedMessage[*channelInfo](p.messageInfo)
-	// using flipped counterparty since counterparty initialized this handshake
-	channelKey := channelInfo.channelKey().Counterparty()
-	// Sending false for open because channel is not open until MsgChannelOpenConfirm on this chain
-	ccp.appendChannelMessage(channelKey, p.foundMessages, processor.MsgChannelOpenTry, false)
-	ccp.logChannelMessage("MsgChannelOpenTry", channelInfo)
-	return true
-}
-
-func (ccp *CosmosChainProcessor) handleMsgChannelOpenAck(p MsgHandlerParams) bool {
-	channelInfo := getTypedMessage[*channelInfo](p.messageInfo)
-	channelKey := channelInfo.channelKey()
-	ccp.appendChannelMessage(channelKey, p.foundMessages, processor.MsgChannelOpenAck, true)
-	ccp.logChannelMessage("MsgChannelOpenAck", channelInfo)
-	return true
-}
-
-func (ccp *CosmosChainProcessor) handleMsgChannelOpenConfirm(p MsgHandlerParams) bool {
-	channelInfo := getTypedMessage[*channelInfo](p.messageInfo)
-	// using flipped counterparty since counterparty initialized this handshake
-	channelKey := channelInfo.channelKey().Counterparty()
-	ccp.appendChannelMessage(channelKey, p.foundMessages, processor.MsgChannelOpenConfirm, true)
-	ccp.logChannelMessage("MsgChannelOpenConfirm", channelInfo)
-	return true
-}
-
-func (ccp *CosmosChainProcessor) handleMsgChannelCloseInit(p MsgHandlerParams) bool {
-	channelInfo := getTypedMessage[*channelInfo](p.messageInfo)
-	channelKey := channelInfo.channelKey()
-	ccp.appendChannelMessage(channelKey, p.foundMessages, processor.MsgChannelCloseInit, false)
-	ccp.logChannelMessage("MsgChannelCloseInit", channelInfo)
-	return true
-}
-
-func (ccp *CosmosChainProcessor) handleMsgChannelCloseConfirm(p MsgHandlerParams) bool {
-	channelInfo := getTypedMessage[*channelInfo](p.messageInfo)
-	// using flipped counterparty since counterparty initialized this channel close
-	channelKey := channelInfo.channelKey().Counterparty()
-	ccp.appendChannelMessage(channelKey, p.foundMessages, processor.MsgChannelCloseConfirm, false)
-	ccp.logChannelMessage("MsgChannelCloseConfirm", channelInfo)
-	return true
-}
-
-func (ccp *CosmosChainProcessor) appendChannelMessage(channelKey processor.ChannelKey, foundMessages processor.ChannelMessageCache, message string, open bool) {
-	_, haveMessagesForChannel := foundMessages[channelKey]
-	if !haveMessagesForChannel {
-		// we want this channel event to be handled by the PathProcessor(s) even if no new packet messages are handled this cycle
-		foundMessages[channelKey] = make(processor.MessageCache)
-	}
-	channelState, ok := ccp.channelStateCache[channelKey]
-	if !ok {
-		ccp.channelStateCache[channelKey] = processor.ChannelState {
-			Open: open,
-			Messages: []string{message},
-		}
-		return
-	}
-	channelState.Open = open
-	channelState.Messages = append(channelState.Messages, message)
-	ccp.channelStateCache[channelKey] = channelState
-}
-
-func (ccp *CosmosChainProcessor) logChannelMessage(message string, channelInfo *channelInfo) {
-	ccp.log.Debug("observed ibc message",
-		zap.String("message", message),
-		zap.String("channel_id", channelInfo.channelID),
-		zap.String("port_id", channelInfo.portID),
-		zap.String("counterparty_channel_id", channelInfo.counterpartyChannelID),
-		zap.String("counterparty_port_id", channelInfo.counterpartyPortID),
-		zap.String("connection_id", channelInfo.connectionID),
-	)
-}
-
-// END channel msg handlers

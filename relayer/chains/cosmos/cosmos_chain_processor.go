@@ -28,9 +28,6 @@ type CosmosChainProcessor struct {
 	// indicates whether queries are in sync with latest height of the chain
 	inSync bool
 
-	// holds highest consensus height and header for all clients
-	latestClientState
-
 	// holds open state for discovered channels
 	channelStateCache processor.ChannelStateCache
 }
@@ -45,7 +42,6 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, r
 		chainProvider:     provider,
 		cc:                cc,
 		pathProcessors:    pathProcessors,
-		latestClientState: make(latestClientState),
 		channelStateCache: make(processor.ChannelStateCache),
 	}, nil
 }
