@@ -2,6 +2,8 @@ package processor
 
 import (
 	"context"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 // The ChainProcessor interface is reponsible for polling blocks and emitting IBC message events to the PathProcessors.
@@ -12,12 +14,8 @@ type ChainProcessor interface {
 	// ChainProcessors should obey the context and return upon context cancellation.
 	Run(ctx context.Context, initialBlockHistory uint64) error
 
-	// InSync indicates whether queries are in sync with latest height of the chain.
-	// The PathProcessors use this as a signal for determining if the backlog of messaged is ready to be processed and relayed.
-	InSync() bool
-
-	// ChainID returns the identifier of the chain
-	ChainID() string
+	// Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
+	Provider() provider.ChainProvider
 
 	// Set the PathProcessors that this ChainProcessor should publish relevant IBC events to.
 	// ChainProcessors need reference to their PathProcessors and vice-versa, handled by EventProcessorBuilder.Build().

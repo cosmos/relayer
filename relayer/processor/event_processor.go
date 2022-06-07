@@ -48,7 +48,7 @@ func (ep EventProcessorBuilder) Build() EventProcessor {
 	for _, chainProcessor := range ep.chainProcessors {
 		pathProcessorsForThisChain := PathProcessors{}
 		for _, pathProcessor := range ep.pathProcessors {
-			if pathProcessor.SetChainProcessorIfApplicable(chainProcessor.ChainID(), chainProcessor) {
+			if pathProcessor.SetChainProviderIfApplicable(chainProcessor.Provider()) {
 				pathProcessorsForThisChain = append(pathProcessorsForThisChain, pathProcessor)
 			}
 		}

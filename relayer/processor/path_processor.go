@@ -37,12 +37,15 @@ type PathProcessors []*PathProcessor
 type PathEndRuntime struct {
 	info PathEnd
 
-	chainProcessor ChainProcessor
+	chainProvider provider.ChainProvider
 
 	messageCache MessageCache
 
-	// New messages arriving from the handleNewMessagesForPathEnd method.
-	incomingMessages chan MessageCache
+	// New messages and other data arriving from the handleNewMessagesForPathEnd method.
+	incomingCacheData chan ChainProcessorCacheData
+
+	// inSync indicates whether queries are in sync with latest height of the chain.
+	inSync bool
 }
 
 // IBCMessageWithSequence holds a packet's sequence along with it,
@@ -56,14 +59,14 @@ func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *Path
 	return &PathProcessor{
 		log: log,
 		pathEnd1: &PathEndRuntime{
-			info:             pathEnd1,
-			incomingMessages: make(chan MessageCache, 100),
-			messageCache:     make(MessageCache),
+			info:              pathEnd1,
+			incomingCacheData: make(chan ChainProcessorCacheData, 100),
+			messageCache:      make(MessageCache),
 		},
 		pathEnd2: &PathEndRuntime{
-			info:             pathEnd2,
-			incomingMessages: make(chan MessageCache, 100),
-			messageCache:     make(MessageCache),
+			info:              pathEnd2,
+			incomingCacheData: make(chan ChainProcessorCacheData, 100),
+			messageCache:      make(MessageCache),
 		},
 		retryProcess: make(chan struct{}, 8),
 	}
@@ -81,33 +84,42 @@ func (pp *PathProcessor) PathEnd2Messages(message string) SequenceCache {
 
 // Path Processors are constructed before ChainProcessors, so reference needs to be added afterwards
 // This can be done inside the ChainProcessor constructor for simplification
-func (pp *PathProcessor) SetChainProcessorIfApplicable(chainID string, chainProcessor ChainProcessor) bool {
-	if pp.pathEnd1.info.ChainID == chainID {
-		pp.pathEnd1.chainProcessor = chainProcessor
+func (pp *PathProcessor) SetChainProviderIfApplicable(chainProvider provider.ChainProvider) bool {
+	if chainProvider == nil {
+		return false
+	}
+	if pp.pathEnd1.info.ChainID == chainProvider.ChainId() {
+		pp.pathEnd1.chainProvider = chainProvider
 		return true
-	} else if pp.pathEnd2.info.ChainID == chainID {
-		pp.pathEnd2.chainProcessor = chainProcessor
+	} else if pp.pathEnd2.info.ChainID == chainProvider.ChainId() {
+		pp.pathEnd2.chainProvider = chainProvider
 		return true
 	}
 	return false
 }
 
-// ChainProcessors call this method when they have new IBC messages
-func (pp *PathProcessor) HandleNewMessages(chainID string, channelKey ChannelKey, messages MessageCache) {
-	if pp.pathEnd1.info.ChainID == chainID {
-		// TODO make sure passes channel filter for pathEnd1 before calling this
-		pp.handleNewMessagesForPathEnd(pp.pathEnd1, messages)
-	} else if pp.pathEnd2.info.ChainID == chainID {
-		// TODO make sure passes channel filter for pathEnd2 before calling this
-		pp.handleNewMessagesForPathEnd(pp.pathEnd2, messages)
+// ProcessBacklogIfReady gives ChainProcessors a way to trigger the path processor process
+// as soon as they are in sync for the first time, even if they do not have new messages.
+func (pp *PathProcessor) ProcessBacklogIfReady() {
+	select {
+	case pp.retryProcess <- struct{}{}:
+		// All good.
+	default:
+		// Log that the channel is saturated;
+		// something is wrong if we are retrying this quickly.
+		pp.log.Info("Failed to enqueue path processor retry")
 	}
 }
 
-func (pp *PathProcessor) handleNewMessagesForPathEnd(
-	p *PathEndRuntime,
-	newMessages MessageCache,
-) {
-	p.incomingMessages <- newMessages
+// ChainProcessors call this method when they have new IBC messages
+func (pp *PathProcessor) HandleNewMessages(chainID string, channelKey ChannelKey, cacheData ChainProcessorCacheData) {
+	if pp.pathEnd1.info.ChainID == chainID {
+		// TODO make sure passes channel filter for pathEnd1 before calling this
+		pp.pathEnd1.incomingCacheData <- cacheData
+	} else if pp.pathEnd2.info.ChainID == chainID {
+		// TODO make sure passes channel filter for pathEnd2 before calling this
+		pp.pathEnd2.incomingCacheData <- cacheData
+	}
 }
 
 // this contains MsgRecvPacket from same chain
@@ -239,27 +251,27 @@ func (pp *PathProcessor) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 
-		case m := <-pp.pathEnd1.incomingMessages:
+		case d := <-pp.pathEnd1.incomingCacheData:
 			// if new messages are available from pathEnd1, run processLatestMessages
-			pp.pathEnd1.messageCache.Merge(m) // Merge incoming messages into the backlog of IBC messages for pathEnd1
+			pp.pathEnd1.messageCache.Merge(d.NewMessages) // Merge incoming messages into the backlog of IBC messages for pathEnd1
+			pp.pathEnd1.inSync = d.InSync
 
-		case m := <-pp.pathEnd2.incomingMessages:
+		case d := <-pp.pathEnd2.incomingCacheData:
 			// if new messages are available from pathEnd2, run processLatestMessages
-			pp.pathEnd2.messageCache.Merge(m) // Merge incoming messages into the backlog of IBC messages for pathEnd2
+			pp.pathEnd2.messageCache.Merge(d.NewMessages) // Merge incoming messages into the backlog of IBC messages for pathEnd2
+			pp.pathEnd2.inSync = d.InSync
 
 		case <-pp.retryProcess:
 			// No new messages to merge in, just retry handling.
 		}
 
-		if !pp.pathEnd1.chainProcessor.InSync() || !pp.pathEnd2.chainProcessor.InSync() {
+		if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {
 			continue
 		}
 		// process latest message cache state from both pathEnds
 		if err := pp.processLatestMessages(); err != nil {
 			// in case of IBC message send errors, schedule retry after DurationErrorRetry
-			time.AfterFunc(DurationErrorRetry, func() {
-				pp.retryProcess <- struct{}{}
-			})
+			time.AfterFunc(DurationErrorRetry, pp.ProcessBacklogIfReady)
 		}
 	}
 }

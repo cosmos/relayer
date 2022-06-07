@@ -58,6 +58,11 @@ type ChannelKey struct {
 	CounterpartyPortID    string
 }
 
+type ChainProcessorCacheData struct {
+	NewMessages MessageCache
+	InSync      bool
+}
+
 // Merge will merge another MessageCache into this one.
 func (c MessageCache) Merge(other MessageCache) {
 	for k, v := range other {
