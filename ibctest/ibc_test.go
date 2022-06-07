@@ -31,10 +31,10 @@ import (
 //
 // The canonical set of test chains are defined in the ibctest repository.
 func TestRelayer(t *testing.T) {
-	cf := ibctest.NewBuiltinChainFactory([]ibctest.BuiltinChainFactoryEntry{
-		{Name: "gaia", Version: "v7.0.1", ChainID: "cosmoshub-1004", NumValidators: 2, NumFullNodes: 1},
-		{Name: "osmosis", Version: "v7.2.0", ChainID: "osmosis-1001", NumValidators: 2, NumFullNodes: 1},
-	}, zaptest.NewLogger(t))
+	cf := ibctest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctest.ChainSpec{
+		{Name: "gaia", Version: "v7.0.1", ChainConfig: ibc.ChainConfig{ChainID: "cosmoshub-1004"}},
+		{Name: "osmosis", Version: "v7.2.0", ChainConfig: ibc.ChainConfig{ChainID: "osmosis-1001"}},
+	})
 	conformance.Test(
 		t,
 		[]ibctest.ChainFactory{cf},
@@ -72,11 +72,8 @@ func (relayerFactory) Build(
 }
 
 func (relayerFactory) Capabilities() map[ibctestrelayer.Capability]bool {
-	// As of the current version of ibc-testing-framework's relayer tests,
-	// this version of the relayer can support everything but the timestamp timeout.
-	m := ibctestrelayer.FullCapabilities()
-	m[ibctestrelayer.TimestampTimeout] = false
-	return m
+	// It is currently expected that the main branch of the relayer supports all tested features.
+	return ibctestrelayer.FullCapabilities()
 }
 
 func (relayerFactory) Labels() []label.Relayer {
