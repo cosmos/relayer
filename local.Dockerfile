@@ -8,7 +8,7 @@ COPY . .
 # Update and install needed deps prioir to installing the binary.
 RUN apk update && \
   apk --no-cache add make git && \
-  make install gcc
+  make install build-base
 
 FROM alpine:latest
 
