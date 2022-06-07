@@ -279,32 +279,48 @@ func (pp *PathProcessor) sendMessages(pathEnd *PathEndRuntime, messages []IBCMes
 }
 
 // messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
-func (pp *PathProcessor) processLatestMessages(channelPair channelPair) error {
-	pathEnd1PacketFlowMessages := PathEndPacketFlowMessages{
-		SrcMsgTransfer:        pp.pathEnd1.messageCache[channelPair.pathEnd1ChannelKey][MsgTransfer],
-		DstMsgRecvPacket:      pp.pathEnd2.messageCache[channelPair.pathEnd2ChannelKey][MsgRecvPacket],
-		SrcMsgAcknowledgement: pp.pathEnd1.messageCache[channelPair.pathEnd1ChannelKey][MsgAcknowledgement],
-	}
-	pathEnd2PacketFlowMessages := PathEndPacketFlowMessages{
-		SrcMsgTransfer:        pp.pathEnd2.messageCache[channelPair.pathEnd2ChannelKey][MsgTransfer],
-		DstMsgRecvPacket:      pp.pathEnd1.messageCache[channelPair.pathEnd1ChannelKey][MsgRecvPacket],
-		SrcMsgAcknowledgement: pp.pathEnd2.messageCache[channelPair.pathEnd2ChannelKey][MsgAcknowledgement],
-	}
+func (pp *PathProcessor) processLatestMessages() error {
+	channelPairs := pp.channelPairs()
 
 	// process the packet flows for both packends to determine what needs to be relayed
-	var pathEnd1ProcessRes, pathEnd2ProcessRes PathEndProcessedResponse
+	pathEnd1ProcessRes := make([]*PathEndProcessedResponse, len(channelPairs))
+	pathEnd2ProcessRes := make([]*PathEndProcessedResponse, len(channelPairs))
+
 	var wg sync.WaitGroup
-	wg.Add(2)
-	go pp.getUnrelayedPacketsAndAcksAndToDelete(pathEnd1PacketFlowMessages, &wg, &pathEnd1ProcessRes)
-	go pp.getUnrelayedPacketsAndAcksAndToDelete(pathEnd2PacketFlowMessages, &wg, &pathEnd2ProcessRes)
+
+	for i, channelPair := range channelPairs {
+		pathEnd1PacketFlowMessages := PathEndPacketFlowMessages{
+			SrcMsgTransfer:        pp.pathEnd1.messageCache[channelPair.pathEnd1ChannelKey][MsgTransfer],
+			DstMsgRecvPacket:      pp.pathEnd2.messageCache[channelPair.pathEnd2ChannelKey][MsgRecvPacket],
+			SrcMsgAcknowledgement: pp.pathEnd1.messageCache[channelPair.pathEnd1ChannelKey][MsgAcknowledgement],
+		}
+		pathEnd2PacketFlowMessages := PathEndPacketFlowMessages{
+			SrcMsgTransfer:        pp.pathEnd2.messageCache[channelPair.pathEnd2ChannelKey][MsgTransfer],
+			DstMsgRecvPacket:      pp.pathEnd1.messageCache[channelPair.pathEnd1ChannelKey][MsgRecvPacket],
+			SrcMsgAcknowledgement: pp.pathEnd2.messageCache[channelPair.pathEnd2ChannelKey][MsgAcknowledgement],
+		}
+
+		pathEnd1ProcessRes[i] = new(PathEndProcessedResponse)
+		pathEnd2ProcessRes[i] = new(PathEndProcessedResponse)
+
+		wg.Add(2)
+		go pp.getUnrelayedPacketsAndAcksAndToDelete(pathEnd1PacketFlowMessages, &wg, pathEnd1ProcessRes[i])
+		go pp.getUnrelayedPacketsAndAcksAndToDelete(pathEnd2PacketFlowMessages, &wg, pathEnd2ProcessRes[i])
+	}
 	wg.Wait()
 
 	// concatenate applicable messages for pathend
-	pathEnd1Messages := append(pathEnd2ProcessRes.UnrelayedPackets, pathEnd1ProcessRes.UnrelayedAcknowledgements...)
-	pathEnd2Messages := append(pathEnd1ProcessRes.UnrelayedPackets, pathEnd2ProcessRes.UnrelayedAcknowledgements...)
+	var pathEnd1Messages, pathEnd2Messages []IBCMessageWithSequence
+	for i := 0; i < len(channelPairs); i++ {
+		pathEnd1Messages = append(pathEnd1Messages, pathEnd2ProcessRes[i].UnrelayedPackets...)
+		pathEnd1Messages = append(pathEnd1Messages, pathEnd1ProcessRes[i].UnrelayedAcknowledgements...)
 
-	pp.pathEnd1.messageCache[channelPair.pathEnd1ChannelKey].DeleteCachedMessages(pathEnd1ProcessRes.ToDeleteSrc, pathEnd2ProcessRes.ToDeleteDst)
-	pp.pathEnd2.messageCache[channelPair.pathEnd2ChannelKey].DeleteCachedMessages(pathEnd2ProcessRes.ToDeleteSrc, pathEnd1ProcessRes.ToDeleteDst)
+		pathEnd2Messages = append(pathEnd2Messages, pathEnd1ProcessRes[i].UnrelayedPackets...)
+		pathEnd2Messages = append(pathEnd2Messages, pathEnd2ProcessRes[i].UnrelayedAcknowledgements...)
+
+		pp.pathEnd1.messageCache[channelPairs[i].pathEnd1ChannelKey].DeleteCachedMessages(pathEnd1ProcessRes[i].ToDeleteSrc, pathEnd2ProcessRes[i].ToDeleteDst)
+		pp.pathEnd2.messageCache[channelPairs[i].pathEnd2ChannelKey].DeleteCachedMessages(pathEnd2ProcessRes[i].ToDeleteSrc, pathEnd1ProcessRes[i].ToDeleteDst)
+	}
 
 	// now send messages in parallel
 	var eg errgroup.Group
@@ -337,15 +353,7 @@ func (pp *PathProcessor) Run(ctx context.Context) {
 		}
 
 		// process latest message cache state from both pathEnds
-		var eg errgroup.Group
-		for _, channelPair := range pp.channelPairs() {
-			channelPair := channelPair
-			// TODO make sure channelPair passes channel filter
-			eg.Go(func() error {
-				return pp.processLatestMessages(channelPair)
-			})
-		}
-		if err := eg.Wait(); err != nil {
+		if err := pp.processLatestMessages(); err != nil {
 			// in case of IBC message send errors, schedule retry after DurationErrorRetry
 			time.AfterFunc(DurationErrorRetry, pp.ProcessBacklogIfReady)
 		}
