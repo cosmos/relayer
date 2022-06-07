@@ -27,6 +27,12 @@ type CosmosChainProcessor struct {
 
 	// indicates whether queries are in sync with latest height of the chain
 	inSync bool
+
+	// holds highest consensus height and header for all clients
+	latestClientState latestClientState
+
+	// holds open state for discovered channels
+	channelOpenState map[processor.ChannelKey]bool
 }
 
 func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, rpcAddress string, input io.Reader, output io.Writer, pathProcessors processor.PathProcessors) (*CosmosChainProcessor, error) {
@@ -60,6 +66,15 @@ func (ccp *CosmosChainProcessor) Provider() provider.ChainProvider {
 // ChainProcessors need reference to their PathProcessors and vice-versa, handled by EventProcessorBuilder.Build().
 func (ccp *CosmosChainProcessor) SetPathProcessors(pathProcessors processor.PathProcessors) {
 	ccp.pathProcessors = pathProcessors
+}
+
+func (ccp *CosmosChainProcessor) isRelayedChannel(channelKey processor.ChannelKey) bool {
+	for _, pathProcessor := range ccp.pathProcessors {
+		if pathProcessor.IsRelayedChannel(ccp.chainProvider.ChainId(), channelKey) {
+			return true
+		}
+	}
+	return false
 }
 
 // latestHeightWithRetry will query for the latest height, retrying in case of failure.
@@ -174,6 +189,8 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		}
 	}
 
+	foundMessages := make(processor.ChannelMessageCache)
+
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		blockRes, err := ccp.cc.Client.BlockResults(ctx, &i)
 		if err != nil {
@@ -190,12 +207,36 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 			ccp.log.Debug("Parsed IBC messages", zap.Any("messages", messages))
 
-			// TODO pass messages to handlers
+			for _, m := range messages {
+				if handler, ok := messageHandlers[m.messageType]; ok {
+					// call message handler for this ibc message type. can do things like cache things on the chain processor or retain ibc messages that should be sent to the PathProcessors.
+					handler(ccp, MsgHandlerParams{
+						messageInfo:   m.messageInfo,
+						foundMessages: foundMessages,
+					})
+				}
+			}
 		}
 	}
 
-	if firstTimeInSync {
-		for _, pp := range ccp.pathProcessors {
+	chainID := ccp.chainProvider.ChainId()
+
+	for _, pp := range ccp.pathProcessors {
+		triggeredPathProcessor := false
+		for channelKey, messages := range foundMessages {
+			// do not relay on closed channels
+			if !ccp.channelOpenState[channelKey] {
+				continue
+			}
+			pp.HandleNewMessages(chainID, channelKey, processor.ChainProcessorCacheData{
+				NewMessages: messages,
+				InSync:      ccp.inSync,
+			})
+			// don't need to do firstTimeInSync check because we are triggering the path processor with HandleNewMessages
+			triggeredPathProcessor = true
+		}
+		if firstTimeInSync && !triggeredPathProcessor {
+			// if didn't pass messages the first time this chain processor is in sync, trigger path processor
 			pp.ProcessBacklogIfReady()
 		}
 	}

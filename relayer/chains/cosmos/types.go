@@ -45,3 +45,16 @@ type clientInfo struct {
 	consensusHeight clienttypes.Height
 	header          []byte
 }
+
+type latestClientState map[string]clientInfo
+
+func (l latestClientState) UpdateLatestClientState(clientInfo clientInfo) {
+	existingClientInfo, ok := l[clientInfo.clientID]
+	if ok && clientInfo.consensusHeight.LT(existingClientInfo.consensusHeight) {
+		// height is less than latest, so no-op
+		return
+	}
+
+	// update latest if no existing state or provided consensus height is newer
+	l[clientInfo.clientID] = clientInfo
+}

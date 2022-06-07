@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	// DurationErrorRetry determines how long
+	// DurationErrorRetry determines how long to wait before retrying
+	// in the case of failure to send transactions with IBC messages.
 	DurationErrorRetry = 5 * time.Second
 )
 
@@ -93,6 +94,33 @@ func (pp *PathProcessor) SetChainProviderIfApplicable(chainProvider provider.Cha
 		return true
 	} else if pp.pathEnd2.info.ChainID == chainProvider.ChainId() {
 		pp.pathEnd2.chainProvider = chainProvider
+		return true
+	}
+	return false
+}
+
+func (pp *PathProcessor) IsRelayedChannel(chainID string, channelKey ChannelKey) bool {
+	if pp.pathEnd1.info.ChainID == chainID {
+		return pp.pathEnd1.info.ShouldRelayChannel(channelKey)
+	} else if pp.pathEnd2.info.ChainID == chainID {
+		return pp.pathEnd2.info.ShouldRelayChannel(channelKey)
+	}
+	return false
+}
+
+func (pp *PathProcessor) IsRelevantClient(chainID string, clientID string) bool {
+	if pp.pathEnd1.info.ChainID == chainID && pp.pathEnd1.info.ClientID == clientID {
+		return true
+	} else if pp.pathEnd2.info.ChainID == chainID && pp.pathEnd2.info.ClientID == clientID {
+		return true
+	}
+	return false
+}
+
+func (pp *PathProcessor) IsRelevantConnection(chainID string, connectionID string) bool {
+	if pp.pathEnd1.info.ChainID == chainID && pp.pathEnd1.info.ConnectionID == connectionID {
+		return true
+	} else if pp.pathEnd2.info.ChainID == chainID && pp.pathEnd2.info.ConnectionID == connectionID {
 		return true
 	}
 	return false
