@@ -28,6 +28,7 @@ const (
 var (
 	gaiaProviderCfg = cosmos.CosmosProviderConfig{
 		Key:            "",
+		ChainName:      "",
 		ChainID:        "",
 		RPCAddr:        "",
 		AccountPrefix:  "cosmos",
@@ -49,6 +50,7 @@ var (
 
 	akashProviderCfg = cosmos.CosmosProviderConfig{
 		Key:            "",
+		ChainName:      "",
 		ChainID:        "",
 		RPCAddr:        "",
 		AccountPrefix:  "akash",
@@ -70,6 +72,7 @@ var (
 
 	osmosisProviderCfg = cosmos.CosmosProviderConfig{
 		Key:            "",
+		ChainName:      "",
 		ChainID:        "",
 		RPCAddr:        "",
 		AccountPrefix:  "osmo",
@@ -96,10 +99,11 @@ type (
 	// testChain represents the different configuration options for spinning up a test
 	// cosmos-sdk based blockchain
 	testChain struct {
-		chainID string
-		seed    int
-		t       testChainConfig
-		pcfg    provider.ProviderConfig
+		chainName string
+		chainID   string
+		seed      int
+		t         testChainConfig
+		pcfg      provider.ProviderConfig
 	}
 
 	// testChainConfig represents the chain specific docker and codec configurations
@@ -133,7 +137,7 @@ func newTestChain(t *testing.T, tc testChain) *relayer.Chain {
 		panic(fmt.Errorf("no case for type %T when trying to edit ProviderConfig", tc.pcfg))
 	}
 
-	prov, err := tc.pcfg.NewProvider(zaptest.NewLogger(t), "/tmp", true)
+	prov, err := tc.pcfg.NewProvider(zaptest.NewLogger(t), "/tmp", true, tc.chainName)
 	require.NoError(t, err)
 
 	var debug bool

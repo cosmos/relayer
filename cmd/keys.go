@@ -55,18 +55,18 @@ func keysCmd(a *appState) *cobra.Command {
 // keysAddCmd respresents the `keys add` command
 func keysAddCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "add chain_id name",
+		Use:     "add chain_name key_name",
 		Aliases: []string{"a"},
 		Short:   "Adds a key to the keychain associated with a particular chain",
 		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys add ibc-0
 $ %s keys add ibc-1 key2
-$ %s k a ibc-2 testkey`, appName, appName, appName)),
+$ %s k a cosmoshub testkey`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			keyName := args[1]
@@ -101,18 +101,19 @@ $ %s k a ibc-2 testkey`, appName, appName, appName)),
 // keysRestoreCmd respresents the `keys add` command
 func keysRestoreCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "restore chain_id name mnemonic",
+		Use:     "restore chain_name key_name mnemonic",
 		Aliases: []string{"r"},
 		Short:   "Restores a mnemonic to the keychain associated with a particular chain",
 		Args:    withUsage(cobra.ExactArgs(3)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys restore ibc-0 testkey "[mnemonic-words]"
-$ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
+$ %s k r cosmoshub faucet-key "[mnemonic-words]"`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			if chain.ChainProvider.KeyExists(keyName) {
@@ -141,18 +142,18 @@ $ %s k r ibc-1 faucet-key "[mnemonic-words]"`, appName, appName)),
 // keysDeleteCmd respresents the `keys delete` command
 func keysDeleteCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete chain_id name",
+		Use:     "delete chain_name key_name",
 		Aliases: []string{"d"},
 		Short:   "Deletes a key from the keychain associated with a particular chain",
 		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys delete ibc-0 -y
 $ %s keys delete ibc-1 key2 -y
-$ %s k d ibc-2 testkey`, appName, appName, appName)),
+$ %s k d cosmoshub default`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			keyName := args[1]
@@ -167,7 +168,7 @@ $ %s k d ibc-2 testkey`, appName, appName, appName)),
 				}
 			}
 
-			err = chain.ChainProvider.DeleteKey(keyName)
+			err := chain.ChainProvider.DeleteKey(keyName)
 			if err != nil {
 				return err
 			}
@@ -202,7 +203,7 @@ func askForConfirmation(a *appState, stdin io.Reader, stderr io.Writer) bool {
 // keysListCmd respresents the `keys list` command
 func keysListCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list chain_id",
+		Use:     "list chain_name",
 		Aliases: []string{"l"},
 		Short:   "Lists keys from the keychain associated with a particular chain",
 		Args:    withUsage(cobra.ExactArgs(1)),
@@ -210,11 +211,11 @@ func keysListCmd(a *appState) *cobra.Command {
 $ %s keys list ibc-0
 $ %s k l ibc-1`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chainID := args[0]
+			chainName := args[0]
 
-			chain, err := a.Config.Chains.Get(chainID)
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[chainName]
+			if !ok {
+				return errChainNotFound(chainName)
 			}
 
 			info, err := chain.ChainProvider.ListAddresses()
@@ -223,7 +224,7 @@ $ %s k l ibc-1`, appName, appName)),
 			}
 
 			if len(info) == 0 {
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: no keys found for chain %s (do you need to run 'rly keys add %s'?)\n", chainID, chainID)
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: no keys found for chain %s (do you need to run 'rly keys add %s'?)\n", chainName, chainName)
 			}
 
 			for key, val := range info {
@@ -240,7 +241,7 @@ $ %s k l ibc-1`, appName, appName)),
 // keysShowCmd respresents the `keys show` command
 func keysShowCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "show chain_id [name]",
+		Use:     "show chain_name [key_name]",
 		Aliases: []string{"s"},
 		Short:   "Shows a key from the keychain associated with a particular chain",
 		Args:    withUsage(cobra.RangeArgs(1, 2)),
@@ -249,9 +250,9 @@ $ %s keys show ibc-0
 $ %s keys show ibc-1 key2
 $ %s k s ibc-2 testkey`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			var keyName string
@@ -281,18 +282,18 @@ $ %s k s ibc-2 testkey`, appName, appName, appName)),
 // keysExportCmd respresents the `keys export` command
 func keysExportCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "export chain_id name",
+		Use:     "export chain_name key_name",
 		Aliases: []string{"e"},
 		Short:   "Exports a privkey from the keychain associated with a particular chain",
 		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys export ibc-0 testkey
-$ %s k e ibc-2 testkey`, appName, appName)),
+$ %s k e cosmoshub testkey`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			if !chain.ChainProvider.KeyExists(keyName) {
