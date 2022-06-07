@@ -21,7 +21,7 @@ require (
 	github.com/google/go-cmp v0.5.8
 	github.com/jsternberg/zap-logfmt v1.2.0
 	github.com/ory/dockertest/v3 v3.9.1
-	github.com/strangelove-ventures/lens v0.5.1-0.20220607155830-046eb42c8b78
+	github.com/strangelove-ventures/lens v0.5.1
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211

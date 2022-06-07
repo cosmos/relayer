@@ -1126,6 +1126,8 @@ github.com/strangelove-ventures/lens v0.5.1-0.20220607155103-b4541d2464e1 h1:7uF
 github.com/strangelove-ventures/lens v0.5.1-0.20220607155103-b4541d2464e1/go.mod h1:E6Zh+4WEtIy9RsyUIGvCaLnhgfpYwMS5WJ4a6fP+UrM=
 github.com/strangelove-ventures/lens v0.5.1-0.20220607155830-046eb42c8b78 h1:E1Vg7HGoyFu6mKxED5EulqVLW4tOmsgE0aRPsN0QXuI=
 github.com/strangelove-ventures/lens v0.5.1-0.20220607155830-046eb42c8b78/go.mod h1:E6Zh+4WEtIy9RsyUIGvCaLnhgfpYwMS5WJ4a6fP+UrM=
+github.com/strangelove-ventures/lens v0.5.1 h1:8FbPhcCdZqj0RKYs9Lqhlezz89KCHzDDGd/7WgM44C0=
+github.com/strangelove-ventures/lens v0.5.1/go.mod h1:E6Zh+4WEtIy9RsyUIGvCaLnhgfpYwMS5WJ4a6fP+UrM=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v1.0.0/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
