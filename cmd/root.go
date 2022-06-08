@@ -228,8 +228,7 @@ func readLine(in io.Reader) (string, error) {
 // because that is a global value that will be modified by concurrent tests,
 // causing a data race.
 func lineBreakCommand() *cobra.Command {
-	var cmd = *lineBreak
-	return &cmd
+	return &cobra.Command{Run: func(*cobra.Command, []string) {}}
 }
 
 // withUsage wraps a PositionalArgs to display usage only when the PositionalArgs

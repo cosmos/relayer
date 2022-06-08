@@ -47,10 +47,6 @@ const (
 	defaultDebugAddr = "localhost:7597"
 )
 
-// lineBreak can be included in a command list to provide a blank line
-// to help with readability
-var lineBreak = &cobra.Command{Run: func(*cobra.Command, []string) {}}
-
 func ibcDenomFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagIBCDenoms, "i", false, "Display IBC denominations for sending tokens back to other chains")
 	if err := v.BindPFlag(flagIBCDenoms, cmd.Flags().Lookup(flagIBCDenoms)); err != nil {
