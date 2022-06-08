@@ -4,7 +4,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/client"
 	cosmosClient "github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
@@ -25,7 +24,7 @@ import (
 type Codec struct {
 	InterfaceRegistry types.InterfaceRegistry
 	Marshaler         codec.Codec
-	TxConfig          client.TxConfig
+	TxConfig          cosmosClient.TxConfig
 	Amino             *codec.LegacyAmino
 }
 
@@ -77,15 +76,15 @@ func getCosmosClient(rpcAddress string, chainID string, input io.Reader, output 
 	if err != nil {
 		return nil, err
 	}
-	codec := makeCodec([]module.AppModuleBasic{})
+	cdc := makeCodec([]module.AppModuleBasic{})
 	return &cosmosClient.Context{
 		Client:            client,
 		ChainID:           chainID,
 		Input:             input,
 		Output:            output,
-		TxConfig:          codec.TxConfig,
-		Codec:             codec.Marshaler,
-		InterfaceRegistry: codec.InterfaceRegistry,
+		TxConfig:          cdc.TxConfig,
+		Codec:             cdc.Marshaler,
+		InterfaceRegistry: cdc.InterfaceRegistry,
 		OutputFormat:      "json",
 	}, nil
 }
