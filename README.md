@@ -30,6 +30,9 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 
 </div>
 
+
+**If you are updating the relayer from any version prior to `v2.0.0-rc1`, your current config file is not compatible. See: [config_migration](docs/config_migration.md)
+
 ---
 
 ## Table Of Contents
@@ -134,6 +137,8 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 7. **Configure path meta-data in config file.**
    <br>
    We have the chain meta-data configured, now we need path meta-data. For more info on `path` terminology visit [here](docs/troubleshooting.md).  
+   >NOTE: Thinking of chains in the config as "source" and "destination" can be confusing. Be aware that most path are bi-directional.
+
    <br>
    `rly paths fetch` will check for the relevant `path.json` files for ALL configured chains in your config file.  
    The path meta-data is queried from the [interchain](https://github.com/cosmos/relayer/tree/main/interchain) directory.
@@ -178,6 +183,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    ```
    
    >Because two channels between chains are tightly coupled, there is no need to specify the dst channels.
+   >If you only know the "dst" channel-ID you can query the "src" channel-ID by running: `rly q channel <dst_chain_name> <dst_channel_id> <port> | jq '.channel.counterparty.channel_id'`
 
 10. **Finally, we start the relayer on the desired path.**
 
