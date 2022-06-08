@@ -221,12 +221,8 @@ func readLine(in io.Reader) (string, error) {
 	return strings.TrimSpace(str), err
 }
 
-// lineBreakCommand returns a new instance of a command to be used as a line break
-// in a command's help output.
-//
-// This is not a plain reference to lineBreak,
-// because that is a global value that will be modified by concurrent tests,
-// causing a data race.
+// lineBreakCommand returns a new instance of the lineBreakCommand every time to avoid
+// data races in concurrent tests exercising commands.
 func lineBreakCommand() *cobra.Command {
 	return &cobra.Command{Run: func(*cobra.Command, []string) {}}
 }
