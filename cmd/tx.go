@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/ibc-go/v3/modules/core/exported"
@@ -300,7 +299,7 @@ func upgradeClientsCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
+			height, err := cmd.Flags().GetInt64(flagHeight)
 			if err != nil {
 				return err
 			}
