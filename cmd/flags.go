@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	flagHome                    = "home"
 	flagURL                     = "url"
 	flagSkip                    = "skip"
 	flagTimeout                 = "timeout"
