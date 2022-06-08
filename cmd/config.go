@@ -303,16 +303,16 @@ func addPathsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, d
 }
 
 // Wrapped converts the Config struct into a ConfigOutputWrapper struct
-func (config *Config) Wrapped() *ConfigOutputWrapper {
+func (c *Config) Wrapped() *ConfigOutputWrapper {
 	providers := make(ProviderConfigs)
-	for _, chain := range config.Chains {
+	for _, chain := range c.Chains {
 		pcfgw := &ProviderConfigWrapper{
 			Type:  chain.ChainProvider.Type(),
 			Value: chain.ChainProvider.ProviderConfig(),
 		}
 		providers[chain.ChainProvider.ChainName()] = pcfgw
 	}
-	return &ConfigOutputWrapper{Global: config.Global, ProviderConfigs: providers, Paths: config.Paths}
+	return &ConfigOutputWrapper{Global: c.Global, ProviderConfigs: providers, Paths: c.Paths}
 }
 
 // Config represents the config file for the relayer
