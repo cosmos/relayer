@@ -147,11 +147,11 @@ type PathEndProcessedResponse struct {
 	ToDeleteDst map[string][]uint64
 }
 
-func (m PathEndProcessedResponse) appendPacket(sequence uint64, msgRecvPacket provider.RelayerMessage) {
+func (m *PathEndProcessedResponse) appendPacket(sequence uint64, msgRecvPacket provider.RelayerMessage) {
 	m.UnrelayedPackets = append(m.UnrelayedPackets, IBCMessageWithSequence{Sequence: sequence, Message: msgRecvPacket})
 }
 
-func (m PathEndProcessedResponse) appendAcknowledgement(sequence uint64, msgAcknowledgement provider.RelayerMessage) {
+func (m *PathEndProcessedResponse) appendAcknowledgement(sequence uint64, msgAcknowledgement provider.RelayerMessage) {
 	m.UnrelayedAcknowledgements = append(m.UnrelayedAcknowledgements, IBCMessageWithSequence{Sequence: sequence, Message: msgAcknowledgement})
 }
 
