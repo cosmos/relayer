@@ -22,6 +22,7 @@ var (
 
 type CosmosProviderConfig struct {
 	Key            string  `json:"key" yaml:"key"`
+	ChainName      string  `json:"-" yaml:"-"`
 	ChainID        string  `json:"chain-id" yaml:"chain-id"`
 	RPCAddr        string  `json:"rpc-addr" yaml:"rpc-addr"`
 	AccountPrefix  string  `json:"account-prefix" yaml:"account-prefix"`
@@ -42,7 +43,7 @@ func (pc CosmosProviderConfig) Validate() error {
 }
 
 // NewProvider validates the CosmosProviderConfig, instantiates a ChainClient and then instantiates a CosmosProvider
-func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool) (provider.ChainProvider, error) {
+func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
 	if err := pc.Validate(); err != nil {
 		return nil, err
 	}
@@ -56,6 +57,7 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 	if err != nil {
 		return nil, err
 	}
+	pc.ChainName = chainName
 	return &CosmosProvider{
 		log: log,
 
@@ -96,6 +98,10 @@ func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {
 
 func (cc *CosmosProvider) ChainId() string {
 	return cc.PCfg.ChainID
+}
+
+func (cc *CosmosProvider) ChainName() string {
+	return cc.PCfg.ChainName
 }
 
 func (cc *CosmosProvider) Type() string {
