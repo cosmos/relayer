@@ -26,10 +26,11 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	abci "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/light"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"golang.org/x/sync/errgroup"
 )
+
+var _ provider.QueryProvider = &CosmosProvider{}
 
 // QueryTx takes a transaction hash and returns the transaction
 func (cc *CosmosProvider) QueryTx(ctx context.Context, hashHex string) (*provider.RelayerTxResponse, error) {
@@ -275,31 +276,6 @@ func (cc *CosmosProvider) QueryClientConsensusState(ctx context.Context, chainHe
 		ConsensusState: anyConsensusState,
 		Proof:          proofBz,
 		ProofHeight:    proofHeight,
-	}, nil
-}
-
-//DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
-var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
-
-func (cc *CosmosProvider) NewClientState(dstUpdateHeader ibcexported.Header, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
-	dstTmHeader, ok := dstUpdateHeader.(*tmclient.Header)
-	if !ok {
-		return nil, fmt.Errorf("got data of type %T but wanted tmclient.Header", dstUpdateHeader)
-	}
-
-	// Create the ClientState we want on 'c' tracking 'dst'
-	return &tmclient.ClientState{
-		ChainId:                      dstTmHeader.GetHeader().GetChainID(),
-		TrustLevel:                   tmclient.NewFractionFromTm(light.DefaultTrustLevel),
-		TrustingPeriod:               dstTrustingPeriod,
-		UnbondingPeriod:              dstUbdPeriod,
-		MaxClockDrift:                time.Minute * 10,
-		FrozenHeight:                 clienttypes.ZeroHeight(),
-		LatestHeight:                 dstUpdateHeader.GetHeight().(clienttypes.Height),
-		ProofSpecs:                   commitmenttypes.GetSDKSpecs(),
-		UpgradePath:                  defaultUpgradePath,
-		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
-		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
 	}, nil
 }
 
@@ -859,4 +835,37 @@ func DefaultPageRequest() *querytypes.PageRequest {
 		Limit:      1000,
 		CountTotal: true,
 	}
+}
+
+func (cc *CosmosProvider) QueryConsensusStateABCI(ctx context.Context, clientID string, height ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
+	key := host.FullConsensusStateKey(clientID, height)
+
+	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height.GetRevisionHeight()), key)
+	if err != nil {
+		return nil, err
+	}
+
+	// check if consensus state exists
+	if len(value) == 0 {
+		return nil, sdkerrors.Wrap(clienttypes.ErrConsensusStateNotFound, clientID)
+	}
+
+	// TODO do we really want to create a new codec? ChainClient exposes proto.Marshaler
+	cdc := codec.NewProtoCodec(cc.Codec.InterfaceRegistry)
+
+	cs, err := clienttypes.UnmarshalConsensusState(cdc, value)
+	if err != nil {
+		return nil, err
+	}
+
+	anyConsensusState, err := clienttypes.PackConsensusState(cs)
+	if err != nil {
+		return nil, err
+	}
+
+	return &clienttypes.QueryConsensusStateResponse{
+		ConsensusState: anyConsensusState,
+		Proof:          proofBz,
+		ProofHeight:    proofHeight,
+	}, nil
 }
