@@ -144,9 +144,9 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 	}
 
 	// Create the ClientState we want on 'src' tracking 'dst'
-	clientState, err := src.ChainProvider.NewClientState(dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
+	clientState, err := dst.ChainProvider.NewClientState(dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
 	if err != nil {
-		return false, fmt.Errorf("failed to create new client state for chain{%s} tracking chain{%s}: %w", src.ChainID(), dst.ChainID(), err)
+		return false, fmt.Errorf("failed to create new client state for chain{%s}: %w", dst.ChainID(), err)
 	}
 
 	var clientID string
@@ -174,9 +174,19 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 		zap.String("dst_chain_id", dst.ChainID()),
 	)
 
-	createMsg, err := src.ChainProvider.CreateClient(clientState, dstUpdateHeader)
+	// We need to retrieve the address of the src chain account because we want to use
+	// the dst chains implementation of CreateClient, to ensure the proper client/header
+	// logic is executed, but the message gets submitted on the src chain which means
+	// we need to sign with the address from src.
+	acc, err := src.ChainProvider.Address()
 	if err != nil {
-		return false, fmt.Errorf("failed to compose CreateClient msg for chain{%s}: %w", src.ChainID(), err)
+		return false, err
+	}
+
+	createMsg, err := dst.ChainProvider.CreateClient(clientState, dstUpdateHeader, acc)
+	if err != nil {
+		return false, fmt.Errorf("failed to compose CreateClient msg for chain{%s} tracking the state of chain{%s}: %w",
+			src.ChainID(), dst.ChainID(), err)
 	}
 
 	msgs := []provider.RelayerMessage{createMsg}
