@@ -42,7 +42,7 @@ func QueryBalance(ctx context.Context, chain *relayer.Chain, address string, sho
 		}
 
 		for i, d := range dts {
-			if strings.ToLower(c.Denom) == strings.ToLower(d.IBCDenom()) {
+			if strings.EqualFold(c.Denom, d.IBCDenom()) {
 				out = append(out, sdk.Coin{Denom: d.GetFullDenomPath(), Amount: c.Amount})
 				break
 			}

@@ -29,8 +29,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/client/flags"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
@@ -67,7 +65,7 @@ func configShowCmd(a *appState) *cobra.Command {
 $ %s config show --home %s
 $ %s cfg list`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			home, err := cmd.Flags().GetString(flags.FlagHome)
+			home, err := cmd.Flags().GetString(flagHome)
 			if err != nil {
 				return err
 			}
@@ -123,7 +121,7 @@ func configInitCmd() *cobra.Command {
 $ %s config init --home %s
 $ %s cfg i`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			home, err := cmd.Flags().GetString(flags.FlagHome)
+			home, err := cmd.Flags().GetString(flagHome)
 			if err != nil {
 				return err
 			}
@@ -305,16 +303,16 @@ func addPathsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, d
 }
 
 // Wrapped converts the Config struct into a ConfigOutputWrapper struct
-func (config *Config) Wrapped() *ConfigOutputWrapper {
+func (c *Config) Wrapped() *ConfigOutputWrapper {
 	providers := make(ProviderConfigs)
-	for _, chain := range config.Chains {
+	for _, chain := range c.Chains {
 		pcfgw := &ProviderConfigWrapper{
 			Type:  chain.ChainProvider.Type(),
 			Value: chain.ChainProvider.ProviderConfig(),
 		}
 		providers[chain.ChainProvider.ChainName()] = pcfgw
 	}
-	return &ConfigOutputWrapper{Global: config.Global, ProviderConfigs: providers, Paths: config.Paths}
+	return &ConfigOutputWrapper{Global: c.Global, ProviderConfigs: providers, Paths: c.Paths}
 }
 
 // Config represents the config file for the relayer
@@ -552,7 +550,7 @@ func validateConfig(c *Config) error {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig(cmd *cobra.Command, a *appState) error {
-	home, err := cmd.PersistentFlags().GetString(flags.FlagHome)
+	home, err := cmd.PersistentFlags().GetString(flagHome)
 	if err != nil {
 		return err
 	}
@@ -617,10 +615,10 @@ func initConfig(cmd *cobra.Command, a *appState) error {
 // ValidatePath checks that a path is valid
 func (c *Config) ValidatePath(ctx context.Context, stderr io.Writer, p *relayer.Path) (err error) {
 	if err = c.ValidatePathEnd(ctx, stderr, p.Src); err != nil {
-		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Src.ChainID)
+		return fmt.Errorf("chain %s failed path validation: %w", p.Src.ChainID, err)
 	}
 	if err = c.ValidatePathEnd(ctx, stderr, p.Dst); err != nil {
-		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Dst.ChainID)
+		return fmt.Errorf("chain %s failed path validation: %w", p.Dst.ChainID, err)
 	}
 	return nil
 }
