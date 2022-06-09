@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cosmos/cosmos-sdk/client/flags"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/v2/helpers"
 	"github.com/cosmos/relayer/v2/relayer"
@@ -172,12 +171,12 @@ $ %s q txs ibc-0 "message.action=transfer"`,
 				return errChainNotFound(args[0])
 			}
 
-			offset, err := cmd.Flags().GetUint64(flags.FlagOffset)
+			offset, err := cmd.Flags().GetUint64(flagOffset)
 			if err != nil {
 				return err
 			}
 
-			limit, err := cmd.Flags().GetUint64(flags.FlagLimit)
+			limit, err := cmd.Flags().GetUint64(flagLimit)
 			if err != nil {
 				return err
 			}
@@ -197,7 +196,7 @@ $ %s q txs ibc-0 "message.action=transfer"`,
 		},
 	}
 
-	return paginationFlags(a.Viper, cmd)
+	return paginationFlags(a.Viper, cmd, "txs")
 }
 
 //func queryAccountCmd() *cobra.Command {
@@ -406,7 +405,7 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 				return errChainNotFound(args[0])
 			}
 
-			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
+			height, err := cmd.Flags().GetInt64(flagHeight)
 			if err != nil {
 				return err
 			}
@@ -483,8 +482,7 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 		},
 	}
 
-	flags.AddPaginationFlagsToCmd(cmd, "client states")
-	return cmd
+	return paginationFlags(a.Viper, cmd, "client states")
 }
 
 //func queryValSetAtHeightCmd() *cobra.Command {
@@ -565,8 +563,7 @@ $ %s q conns ibc-1`,
 		},
 	}
 
-	flags.AddPaginationFlagsToCmd(cmd, "connections on a network")
-	return cmd
+	return paginationFlags(a.Viper, cmd, "connections on a network")
 }
 
 func queryConnectionsUsingClient(a *appState) *cobra.Command {
@@ -591,7 +588,7 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 				return err
 			}
 
-			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
+			height, err := cmd.Flags().GetInt64(flagHeight)
 			if err != nil {
 				return err
 			}
@@ -712,8 +709,7 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 		},
 	}
 
-	flags.AddPaginationFlagsToCmd(cmd, "channels associated with a connection")
-	return cmd
+	return paginationFlags(a.Viper, cmd, "channels associated with a connection")
 }
 
 func queryChannel(a *appState) *cobra.Command {
@@ -738,7 +734,7 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 				return err
 			}
 
-			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
+			height, err := cmd.Flags().GetInt64(flagHeight)
 			if err != nil {
 				return err
 			}
@@ -810,8 +806,7 @@ $ %s query channels ibc-2 --offset 2 --limit 30`,
 		},
 	}
 
-	flags.AddPaginationFlagsToCmd(cmd, "channels on a network")
-	return cmd
+	return paginationFlags(a.Viper, cmd, "channels on a network")
 }
 
 func queryPacketCommitment(a *appState) *cobra.Command {
