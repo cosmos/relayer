@@ -15,22 +15,14 @@ type MsgHandlerParams struct {
 	foundMessages processor.ChannelMessageCache
 }
 
-var messageHandlers = map[string]func(*CosmosChainProcessor, MsgHandlerParams) bool {
+var messageHandlers = map[string]func(*CosmosChainProcessor, MsgHandlerParams) bool{
 	processor.MsgTransfer:        (*CosmosChainProcessor).handleMsgTransfer,
 	processor.MsgRecvPacket:      (*CosmosChainProcessor).handleMsgRecvPacket,
 	processor.MsgAcknowledgement: (*CosmosChainProcessor).handleMsgAcknowlegement,
 	processor.MsgTimeout:         (*CosmosChainProcessor).handleMsgTimeout,
-	processor.MsgTimeoutOnClose:  (*CosmosChainProcessor).handleMsgTimeoutOnClose, 
+	processor.MsgTimeoutOnClose:  (*CosmosChainProcessor).handleMsgTimeoutOnClose,
 
 	// TODO client, connection, channel messages
-}
-
-func typedMessage[T *packetInfo | *channelInfo | *clientInfo | *connectionInfo](messageInfo interface{}) T {
-	typedInfo, ok := messageInfo.(T)
-	if !ok {
-		panic("invalid message info provided")
-	}
-	return typedInfo
 }
 
 // isPacketApplicable returns true if packet is applicable to the channels for path processors that are subscribed to this chain processor
@@ -56,7 +48,7 @@ func (ccp *CosmosChainProcessor) isPacketApplicable(message string, packetInfo *
 	return true
 }
 
-// retainApplicableMessage assumes the packet is applicable to the channels for a path processor that is subscribed to this chain processor.
+// retainPacketMessage assumes the packet is applicable to the channels for a path processor that is subscribed to this chain processor.
 // It creates cache path if it doesn't exist, then caches message.
 func retainPacketMessage(message string, packetInfo *packetInfo, foundMessages processor.ChannelMessageCache, channelKey processor.ChannelKey, ibcMsg provider.RelayerMessage) {
 	if _, ok := foundMessages[channelKey]; !ok {
@@ -70,7 +62,7 @@ func retainPacketMessage(message string, packetInfo *packetInfo, foundMessages p
 
 // BEGIN packet msg handlers
 func (ccp *CosmosChainProcessor) handleMsgTransfer(p MsgHandlerParams) bool {
-	packetInfo := typedMessage[*packetInfo](p.messageInfo)
+	packetInfo := p.messageInfo.(*packetInfo)
 	// source chain processor will call this handler
 	// source channel used as key because MsgTransfer is sent to source chain
 	channelKey := packetInfo.channelKey()
@@ -96,14 +88,14 @@ func (ccp *CosmosChainProcessor) handleMsgTransfer(p MsgHandlerParams) bool {
 		},
 	}))
 	ccp.logPacketMessage("MsgTransfer", packetInfo,
-	  zap.String("timeout_height", fmt.Sprintf("%d-%d", packetInfo.packet.TimeoutHeight.RevisionNumber, packetInfo.packet.TimeoutHeight.RevisionHeight)),
-	  zap.Uint64("timeout_timestamp", packetInfo.packet.TimeoutTimestamp),
+		zap.String("timeout_height", fmt.Sprintf("%d-%d", packetInfo.packet.TimeoutHeight.RevisionNumber, packetInfo.packet.TimeoutHeight.RevisionHeight)),
+		zap.Uint64("timeout_timestamp", packetInfo.packet.TimeoutTimestamp),
 	)
 	return true
 }
 
 func (ccp *CosmosChainProcessor) handleMsgRecvPacket(p MsgHandlerParams) bool {
-	packetInfo := typedMessage[*packetInfo](p.messageInfo)
+	packetInfo := p.messageInfo.(*packetInfo)
 	// destination chain processor will call this handler
 	// destination channel used because MsgRecvPacket is sent to destination chain
 	channelKey := packetInfo.channelKey().Counterparty()
@@ -133,7 +125,7 @@ func (ccp *CosmosChainProcessor) handleMsgRecvPacket(p MsgHandlerParams) bool {
 }
 
 func (ccp *CosmosChainProcessor) handleMsgAcknowlegement(p MsgHandlerParams) bool {
-	packetInfo := typedMessage[*packetInfo](p.messageInfo)
+	packetInfo := p.messageInfo.(*packetInfo)
 	// source chain processor will call this handler
 	// source channel used as key because MsgAcknowlegement is sent to source chain
 	channelKey := packetInfo.channelKey()
@@ -149,7 +141,7 @@ func (ccp *CosmosChainProcessor) handleMsgAcknowlegement(p MsgHandlerParams) boo
 }
 
 func (ccp *CosmosChainProcessor) handleMsgTimeout(p MsgHandlerParams) bool {
-	packetInfo := typedMessage[*packetInfo](p.messageInfo)
+	packetInfo := p.messageInfo.(*packetInfo)
 	// source chain processor will call this handler
 	// source channel used as key because MsgTimeout is sent to source chain
 	channelKey := packetInfo.channelKey()
@@ -165,7 +157,7 @@ func (ccp *CosmosChainProcessor) handleMsgTimeout(p MsgHandlerParams) bool {
 }
 
 func (ccp *CosmosChainProcessor) handleMsgTimeoutOnClose(p MsgHandlerParams) bool {
-	packetInfo := typedMessage[*packetInfo](p.messageInfo)
+	packetInfo := p.messageInfo.(*packetInfo)
 	// source channel used because timeout is sent to source chain
 	channelKey := packetInfo.channelKey()
 	if !ccp.isPacketApplicable(processor.MsgTimeoutOnClose, packetInfo, p.foundMessages, channelKey) {

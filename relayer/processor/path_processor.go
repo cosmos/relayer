@@ -183,7 +183,6 @@ func (pp *PathProcessor) ProcessBacklogIfReady() {
 
 // ChainProcessors call this method when they have new IBC messages
 func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorCacheData) {
-	pp.log.Debug("handleNewData", zap.String("chain_id", chainID))
 	if pp.pathEnd1.info.ChainID == chainID {
 		pp.pathEnd1.incomingCacheData <- cacheData
 	} else if pp.pathEnd2.info.ChainID == chainID {

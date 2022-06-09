@@ -81,7 +81,7 @@ func (l latestClientState) UpdateLatestClientState(clientInfo clientInfo) {
 }
 
 func (l latestClientState) Clone() latestClientState {
-	newLatestClientState := make(latestClientState)
+	newLatestClientState := make(latestClientState, len(l))
 	for k, v := range l {
 		newLatestClientState[k] = v
 	}
@@ -91,7 +91,7 @@ func (l latestClientState) Clone() latestClientState {
 type channelOpenState map[processor.ChannelKey]bool
 
 func (c channelOpenState) Clone() channelOpenState {
-	newChannelOpenState := make(channelOpenState)
+	newChannelOpenState := make(channelOpenState, len(c))
 	for k, v := range c {
 		newChannelOpenState[k] = v
 	}
