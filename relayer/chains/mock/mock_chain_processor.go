@@ -122,7 +122,7 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		// fetch block
 
 		// used for collecting IBC messages that will be sent to the Path Processors
-		foundMessages := make(processor.ChannelMessageCache)
+		ibcMessagesCache := processor.NewIBCMessagesCache()
 
 		// iterate through transactions
 		// iterate through messages in transactions
@@ -136,14 +136,14 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		messages := mcp.getMockMessages()
 
 		// iterate through ibc messages and call specific handler for each
-		// will do things like mutate chainprocessor state and add relevant messages to foundMessages
+		// will do things like mutate chainprocessor state and add relevant messages to packetFlowMessages
 		// this can be parralelized also
 		for _, m := range messages {
 			if handler, ok := messageHandlers[m.Action]; ok {
 				handler(MsgHandlerParams{
-					mcp:           mcp,
-					PacketInfo:    m.PacketInfo,
-					FoundMessages: foundMessages,
+					mcp:              mcp,
+					packetInfo:       m.PacketInfo,
+					ibcMessagesCache: ibcMessagesCache,
 				})
 			}
 		}
@@ -152,19 +152,17 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		channelStateCache := make(processor.ChannelStateCache)
 
 		// mocking all channels open
-		for channelKey := range foundMessages {
-			channelStateCache[channelKey] = processor.ChannelState{
-				Open: true,
-			}
+		for channelKey := range ibcMessagesCache.PacketFlow {
+			channelStateCache[channelKey] = true
 		}
 
-		// now pass foundMessages to the path processors
+		// now pass packetFlowMessages to the path processors
 		for _, pp := range mcp.pathProcessors {
 			mcp.log.Info("sending messages to path processor", zap.String("chain_id", mcp.chainID))
 			pp.HandleNewData(mcp.chainID, processor.ChainProcessorCacheData{
-				ChannelMessageCache: foundMessages,
-				InSync:              mcp.inSync,
-				ChannelStateCache:   channelStateCache,
+				IBCMessagesCache:  ibcMessagesCache,
+				InSync:            mcp.inSync,
+				ChannelStateCache: channelStateCache,
 			})
 		}
 		persistence.latestQueriedBlock = i

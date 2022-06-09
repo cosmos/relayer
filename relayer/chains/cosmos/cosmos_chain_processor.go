@@ -28,7 +28,13 @@ type CosmosChainProcessor struct {
 	// indicates whether queries are in sync with latest height of the chain
 	inSync bool
 
-	// holds open state for discovered channels
+	// holds highest consensus height and header for all clients
+	latestClientState
+
+	// holds open state for known connections
+	connectionStateCache processor.ConnectionStateCache
+
+	// holds open state for known channels
 	channelStateCache processor.ChannelStateCache
 }
 
@@ -38,11 +44,13 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, r
 		return nil, fmt.Errorf("error getting cosmos client: %w", err)
 	}
 	return &CosmosChainProcessor{
-		log:               log.With(zap.String("chain_id", provider.ChainId())),
-		chainProvider:     provider,
-		cc:                cc,
-		pathProcessors:    pathProcessors,
-		channelStateCache: make(processor.ChannelStateCache),
+		log:                  log.With(zap.String("chain_id", provider.ChainId())),
+		chainProvider:        provider,
+		cc:                   cc,
+		pathProcessors:       pathProcessors,
+		latestClientState:    make(latestClientState),
+		channelStateCache:    make(processor.ChannelStateCache),
+		connectionStateCache: make(processor.ConnectionStateCache),
 	}, nil
 }
 
@@ -178,7 +186,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		}
 	}
 
-	foundMessages := make(processor.ChannelMessageCache)
+	ibcMessagesCache := processor.NewIBCMessagesCache()
 
 	ppChanged := false
 
@@ -205,8 +213,8 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 				}
 				// call message handler for this ibc message type. can do things like cache things on the chain processor or retain ibc messages that should be sent to the PathProcessors.
 				changed := handler(ccp, MsgHandlerParams{
-					messageInfo:   m.messageInfo,
-					foundMessages: foundMessages,
+					messageInfo:      m.messageInfo,
+					ibcMessagesCache: ibcMessagesCache,
 				})
 				ppChanged = ppChanged || changed
 			}
@@ -227,10 +235,10 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	for _, pp := range ccp.pathProcessors {
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
-			ChannelMessageCache: foundMessages,
-			InSync:              ccp.inSync,
-			// fetch non-flushed channel messages. flush local cache messages, retaining Open state.
-			ChannelStateCache: ccp.channelStateCache.Flush(),
+			IBCMessagesCache:     ibcMessagesCache,
+			InSync:               ccp.inSync,
+			ConnectionStateCache: ccp.connectionStateCache,
+			ChannelStateCache:    ccp.channelStateCache,
 		})
 	}
 

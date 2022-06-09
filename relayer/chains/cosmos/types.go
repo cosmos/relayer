@@ -38,6 +38,15 @@ type connectionInfo struct {
 	counterpartyConnectionID string
 }
 
+func (c connectionInfo) connectionKey() processor.ConnectionKey {
+	return processor.ConnectionKey{
+		ConnectionID:             c.connectionID,
+		ClientID:                 c.clientID,
+		CounterpartyConnectionID: c.counterpartyConnectionID,
+		CounterpartyClientID:     c.counterpartyClientID,
+	}
+}
+
 // packetInfo contains pertinent packet information for constructing IBC messages for the counterparty.
 type packetInfo struct {
 	// Packet is the IBC conformant Packet.
@@ -65,6 +74,27 @@ type clientInfo struct {
 	clientID        string
 	consensusHeight clienttypes.Height
 	header          []byte
+}
+
+type latestClientState map[string]clientInfo
+
+func (l latestClientState) UpdateLatestClientState(clientInfo clientInfo) {
+	existingClientInfo, ok := l[clientInfo.clientID]
+	if ok && clientInfo.consensusHeight.LT(existingClientInfo.consensusHeight) {
+		// height is less than latest, so no-op
+		return
+	}
+
+	// update latest if no existing state or provided consensus height is newer
+	l[clientInfo.clientID] = clientInfo
+}
+
+func (l latestClientState) Clone() latestClientState {
+	newLatestClientState := make(latestClientState, len(l))
+	for k, v := range l {
+		newLatestClientState[k] = v
+	}
+	return newLatestClientState
 }
 
 type channelOpenState map[processor.ChannelKey]bool

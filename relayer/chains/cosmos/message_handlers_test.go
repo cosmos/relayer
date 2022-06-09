@@ -51,7 +51,7 @@ func TestHandleMsgTransfer(t *testing.T) {
 		ccp        = mockCosmosChainProcessor(t)
 	)
 
-	foundMessages := make(processor.ChannelMessageCache)
+	ibcMessagesCache := processor.NewIBCMessagesCache()
 
 	packetInfo := &packetInfo{
 		packet: chantypes.Packet{
@@ -69,13 +69,13 @@ func TestHandleMsgTransfer(t *testing.T) {
 		},
 	}
 
-	ccp.handleMsgTransfer(MsgHandlerParams{messageInfo: packetInfo, foundMessages: foundMessages})
+	ccp.handleMsgTransfer(MsgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
 
-	require.Len(t, foundMessages, 1)
+	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
 	channelKey := packetInfo.channelKey()
 
-	channelMessages, ok := foundMessages[channelKey]
+	channelMessages, ok := ibcMessagesCache.PacketFlow[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
 
 	require.Len(t, channelMessages, 1)
@@ -111,7 +111,7 @@ func TestHandleMsgRecvPacket(t *testing.T) {
 		ccp        = mockCosmosChainProcessor(t)
 	)
 
-	foundMessages := make(processor.ChannelMessageCache)
+	ibcMessagesCache := processor.NewIBCMessagesCache()
 
 	packetInfo := &packetInfo{
 		packet: chantypes.Packet{
@@ -125,14 +125,14 @@ func TestHandleMsgRecvPacket(t *testing.T) {
 		ack: packetAck,
 	}
 
-	ccp.handleMsgRecvPacket(MsgHandlerParams{messageInfo: packetInfo, foundMessages: foundMessages})
+	ccp.handleMsgRecvPacket(MsgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
 
-	require.Len(t, foundMessages, 1)
+	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
 	// flipped on purpose since MsgRecvPacket is committed on counterparty chain
 	channelKey := packetInfo.channelKey().Counterparty()
 
-	channelMessages, ok := foundMessages[channelKey]
+	channelMessages, ok := ibcMessagesCache.PacketFlow[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
 
 	require.Len(t, channelMessages, 1)
@@ -167,7 +167,7 @@ func TestHandleMsgAcknowledgement(t *testing.T) {
 		ccp        = mockCosmosChainProcessor(t)
 	)
 
-	foundMessages := make(processor.ChannelMessageCache)
+	ibcMessagesCache := processor.NewIBCMessagesCache()
 
 	packetInfo := &packetInfo{
 		packet: chantypes.Packet{
@@ -180,13 +180,13 @@ func TestHandleMsgAcknowledgement(t *testing.T) {
 		},
 	}
 
-	ccp.handleMsgAcknowledgement(MsgHandlerParams{messageInfo: packetInfo, foundMessages: foundMessages})
+	ccp.handleMsgAcknowledgement(MsgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
 
-	require.Len(t, foundMessages, 1)
+	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
 	channelKey := packetInfo.channelKey()
 
-	channelMessages, ok := foundMessages[channelKey]
+	channelMessages, ok := ibcMessagesCache.PacketFlow[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
 
 	require.Len(t, channelMessages, 1)
@@ -215,7 +215,7 @@ func TestHandleMsgTimeout(t *testing.T) {
 		ccp        = mockCosmosChainProcessor(t)
 	)
 
-	foundMessages := make(processor.ChannelMessageCache)
+	ibcMessagesCache := processor.NewIBCMessagesCache()
 
 	packetInfo := &packetInfo{
 		packet: chantypes.Packet{
@@ -228,13 +228,13 @@ func TestHandleMsgTimeout(t *testing.T) {
 		},
 	}
 
-	ccp.handleMsgTimeout(MsgHandlerParams{messageInfo: packetInfo, foundMessages: foundMessages})
+	ccp.handleMsgTimeout(MsgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
 
-	require.Len(t, foundMessages, 1)
+	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
 	channelKey := packetInfo.channelKey()
 
-	channelMessages, ok := foundMessages[channelKey]
+	channelMessages, ok := ibcMessagesCache.PacketFlow[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
 
 	require.Len(t, channelMessages, 1)
@@ -263,7 +263,7 @@ func TestHandleMsgTimeoutOnClose(t *testing.T) {
 		ccp        = mockCosmosChainProcessor(t)
 	)
 
-	foundMessages := make(processor.ChannelMessageCache)
+	ibcMessagesCache := processor.NewIBCMessagesCache()
 
 	packetInfo := &packetInfo{
 		packet: chantypes.Packet{
@@ -276,13 +276,13 @@ func TestHandleMsgTimeoutOnClose(t *testing.T) {
 		},
 	}
 
-	ccp.handleMsgTimeoutOnClose(MsgHandlerParams{messageInfo: packetInfo, foundMessages: foundMessages})
+	ccp.handleMsgTimeoutOnClose(MsgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
 
-	require.Len(t, foundMessages, 1)
+	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
 	channelKey := packetInfo.channelKey()
 
-	channelMessages, ok := foundMessages[channelKey]
+	channelMessages, ok := ibcMessagesCache.PacketFlow[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
 
 	require.Len(t, channelMessages, 1)
@@ -296,4 +296,224 @@ func TestHandleMsgTimeoutOnClose(t *testing.T) {
 	require.True(t, ok, "unable to find message for sequence")
 
 	require.Nil(t, sequenceMessage, "message is not nil, expected nil since no messages need to be constructed for counterparty")
+}
+
+func TestHandleConnectionHandshake(t *testing.T) {
+	const (
+		srcConnection = "connection-0"
+		dstConnection = "connection-1"
+		srcClient     = "client-0"
+		dstClient     = "client-1"
+	)
+
+	ccp := mockCosmosChainProcessor(t)
+
+	connectionInfo := &connectionInfo{
+		connectionID:             srcConnection,
+		clientID:                 srcClient,
+		counterpartyClientID:     dstClient,
+		counterpartyConnectionID: dstConnection,
+	}
+
+	ibcMessagesCache := processor.NewIBCMessagesCache()
+
+	ccp.handleMsgConnectionOpenInit(MsgHandlerParams{messageInfo: connectionInfo, ibcMessagesCache: ibcMessagesCache})
+
+	connectionKey := connectionInfo.connectionKey()
+
+	connectionOpen, ok := ccp.connectionStateCache[connectionKey]
+	require.True(t, ok, "unable to find connection state for connection key")
+
+	require.False(t, connectionOpen, "connection should not be marked open yet")
+
+	require.Len(t, ibcMessagesCache.ConnectionHandshake, 1)
+
+	connectionMessages, hasConnectionKey := ibcMessagesCache.ConnectionHandshake[connectionKey]
+	require.True(t, hasConnectionKey, "no messages cached for connection key")
+
+	_, hasConnectionOpenInit := connectionMessages[processor.MsgConnectionOpenInit]
+	require.True(t, hasConnectionOpenInit, "no messages cached for MsgConnectionOpenInit")
+
+	ccp.handleMsgConnectionOpenAck(MsgHandlerParams{messageInfo: connectionInfo, ibcMessagesCache: ibcMessagesCache})
+
+	connectionOpen, ok = ccp.connectionStateCache[connectionKey]
+	require.True(t, ok, "unable to find connection state for connection key")
+
+	require.True(t, connectionOpen, "connection should be marked open now")
+
+	connectionMessages, hasConnectionKey = ibcMessagesCache.ConnectionHandshake[connectionKey]
+	require.True(t, hasConnectionKey, "no messages cached for connection key")
+
+	require.Len(t, connectionMessages, 2)
+
+	_, hasConnectionOpenInit = connectionMessages[processor.MsgConnectionOpenInit]
+	require.True(t, hasConnectionOpenInit, "no messages cached for MsgConnectionOpenInit")
+
+	_, hasConnectionOpenAck := connectionMessages[processor.MsgConnectionOpenAck]
+	require.True(t, hasConnectionOpenAck, "no messages cached for MsgConnectionOpenAck")
+}
+
+func TestHandleConnectionHandshakeCounterparty(t *testing.T) {
+	const (
+		srcConnection = "connection-0"
+		dstConnection = "connection-1"
+		srcClient     = "client-0"
+		dstClient     = "client-1"
+	)
+
+	ccp := mockCosmosChainProcessor(t)
+
+	connectionInfo := &connectionInfo{
+		connectionID:             srcConnection,
+		clientID:                 srcClient,
+		counterpartyClientID:     dstClient,
+		counterpartyConnectionID: dstConnection,
+	}
+
+	ibcMessagesCache := processor.NewIBCMessagesCache()
+
+	ccp.handleMsgConnectionOpenTry(MsgHandlerParams{messageInfo: connectionInfo, ibcMessagesCache: ibcMessagesCache})
+
+	connectionKey := connectionInfo.connectionKey().Counterparty()
+
+	connectionOpen, ok := ccp.connectionStateCache[connectionKey]
+	require.True(t, ok, "unable to find connection state for connection key")
+
+	require.False(t, connectionOpen, "connection should not be marked open yet")
+
+	require.Len(t, ibcMessagesCache.ConnectionHandshake, 1)
+
+	connectionMessages, hasConnectionKey := ibcMessagesCache.ConnectionHandshake[connectionKey]
+	require.True(t, hasConnectionKey, "no messages cached for connection key")
+
+	_, hasConnectionOpenTry := connectionMessages[processor.MsgConnectionOpenTry]
+	require.True(t, hasConnectionOpenTry, "no messages cached for MsgConnectionOpenTry")
+
+	ccp.handleMsgConnectionOpenConfirm(MsgHandlerParams{messageInfo: connectionInfo, ibcMessagesCache: ibcMessagesCache})
+
+	connectionOpen, ok = ccp.connectionStateCache[connectionKey]
+	require.True(t, ok, "unable to find connection state for connection key")
+
+	require.True(t, connectionOpen, "connection should be marked open now")
+
+	connectionMessages, hasConnectionKey = ibcMessagesCache.ConnectionHandshake[connectionKey]
+	require.True(t, hasConnectionKey, "no messages cached for connection key")
+
+	require.Len(t, connectionMessages, 2)
+
+	_, hasConnectionOpenTry = connectionMessages[processor.MsgConnectionOpenTry]
+	require.True(t, hasConnectionOpenTry, "no messages cached for MsgConnectionOpenTry")
+
+	_, hasConnectionOpenConfirm := connectionMessages[processor.MsgConnectionOpenConfirm]
+	require.True(t, hasConnectionOpenConfirm, "no messages cached for MsgConnectionOpenConfirm")
+}
+
+func TestHandleChannelHandshake(t *testing.T) {
+	const (
+		srcChannel = "channel-0"
+		dstChannel = "channel-1"
+		srcPort    = "transfer"
+		dstPort    = "transfer"
+	)
+
+	ccp := mockCosmosChainProcessor(t)
+
+	channelInfo := &channelInfo{
+		channelID:             srcChannel,
+		portID:                srcPort,
+		counterpartyChannelID: dstChannel,
+		counterpartyPortID:    dstPort,
+	}
+
+	ibcMessagesCache := processor.NewIBCMessagesCache()
+
+	ccp.handleMsgChannelOpenInit(MsgHandlerParams{messageInfo: channelInfo, ibcMessagesCache: ibcMessagesCache})
+
+	channelKey := channelInfo.channelKey()
+
+	channelOpen, ok := ccp.channelStateCache[channelKey]
+	require.True(t, ok, "unable to find channel state for channel key")
+
+	require.False(t, channelOpen, "channel should not be marked open yet")
+
+	require.Len(t, ibcMessagesCache.ChannelHandshake, 1)
+
+	channelMessages, hasChannelKey := ibcMessagesCache.ChannelHandshake[channelKey]
+	require.True(t, hasChannelKey, "no messages cached for channel key")
+
+	_, hasChannelOpenInit := channelMessages[processor.MsgChannelOpenInit]
+	require.True(t, hasChannelOpenInit, "no messages cached for MsgChannelOpenInit")
+
+	ccp.handleMsgChannelOpenAck(MsgHandlerParams{messageInfo: channelInfo, ibcMessagesCache: ibcMessagesCache})
+
+	channelOpen, ok = ccp.channelStateCache[channelKey]
+	require.True(t, ok, "unable to find channel state for channel key")
+
+	require.True(t, channelOpen, "channel should be marked open now")
+
+	channelMessages, hasChannelKey = ibcMessagesCache.ChannelHandshake[channelKey]
+	require.True(t, hasChannelKey, "no messages cached for channel key")
+
+	require.Len(t, channelMessages, 2)
+
+	_, hasChannelOpenInit = channelMessages[processor.MsgChannelOpenInit]
+	require.True(t, hasChannelOpenInit, "no messages cached for MsgChannelOpenInit")
+
+	_, hasChannelOpenAck := channelMessages[processor.MsgChannelOpenAck]
+	require.True(t, hasChannelOpenAck, "no messages cached for MsgChannelOpenAck")
+}
+
+func TestHandleChannelHandshakeCounterparty(t *testing.T) {
+	const (
+		srcChannel = "channel-0"
+		dstChannel = "channel-1"
+		srcPort    = "transfer"
+		dstPort    = "transfer"
+	)
+
+	ccp := mockCosmosChainProcessor(t)
+
+	channelInfo := &channelInfo{
+		channelID:             srcChannel,
+		portID:                srcPort,
+		counterpartyChannelID: dstChannel,
+		counterpartyPortID:    dstPort,
+	}
+
+	ibcMessagesCache := processor.NewIBCMessagesCache()
+
+	ccp.handleMsgChannelOpenTry(MsgHandlerParams{messageInfo: channelInfo, ibcMessagesCache: ibcMessagesCache})
+
+	channelKey := channelInfo.channelKey().Counterparty()
+
+	channelOpen, ok := ccp.channelStateCache[channelKey]
+	require.True(t, ok, "unable to find channel state for channel key")
+
+	require.False(t, channelOpen, "channel should not be marked open yet")
+
+	require.Len(t, ibcMessagesCache.ChannelHandshake, 1)
+
+	channelMessages, hasChannelKey := ibcMessagesCache.ChannelHandshake[channelKey]
+	require.True(t, hasChannelKey, "no messages cached for channel key")
+
+	_, hasChannelOpenTry := channelMessages[processor.MsgChannelOpenTry]
+	require.True(t, hasChannelOpenTry, "no messages cached for MsgChannelOpenTry")
+
+	ccp.handleMsgChannelOpenConfirm(MsgHandlerParams{messageInfo: channelInfo, ibcMessagesCache: ibcMessagesCache})
+
+	channelOpen, ok = ccp.channelStateCache[channelKey]
+	require.True(t, ok, "unable to find channel state for channel key")
+
+	require.True(t, channelOpen, "channel should be marked open now")
+
+	channelMessages, hasChannelKey = ibcMessagesCache.ChannelHandshake[channelKey]
+	require.True(t, hasChannelKey, "no messages cached for channel key")
+
+	require.Len(t, channelMessages, 2)
+
+	_, hasChannelOpenTry = channelMessages[processor.MsgChannelOpenTry]
+	require.True(t, hasChannelOpenTry, "no messages cached for MsgChannelOpenTry")
+
+	_, hasChannelOpenConfirm := channelMessages[processor.MsgChannelOpenConfirm]
+	require.True(t, hasChannelOpenConfirm, "no messages cached for MsgChannelOpenConfirm")
 }
