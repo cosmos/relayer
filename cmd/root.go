@@ -29,7 +29,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/client/flags"
 	zaplogfmt "github.com/jsternberg/zap-logfmt"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -100,8 +99,8 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 	}
 
 	// Register --home flag
-	rootCmd.PersistentFlags().StringVar(&a.HomePath, flags.FlagHome, defaultHome, "set home directory")
-	if err := a.Viper.BindPFlag(flags.FlagHome, rootCmd.PersistentFlags().Lookup(flags.FlagHome)); err != nil {
+	rootCmd.PersistentFlags().StringVar(&a.HomePath, flagHome, defaultHome, "set home directory")
+	if err := a.Viper.BindPFlag(flagHome, rootCmd.PersistentFlags().Lookup(flagHome)); err != nil {
 		panic(err)
 	}
 
@@ -222,15 +221,10 @@ func readLine(in io.Reader) (string, error) {
 	return strings.TrimSpace(str), err
 }
 
-// lineBreakCommand returns a new instance of a command to be used as a line break
-// in a command's help output.
-//
-// This is not a plain reference to flags.LineBreak,
-// because that is a global value that will be modified by concurrent tests,
-// causing a data race.
+// lineBreakCommand returns a new instance of the lineBreakCommand every time to avoid
+// data races in concurrent tests exercising commands.
 func lineBreakCommand() *cobra.Command {
-	var cmd cobra.Command = *flags.LineBreak
-	return &cmd
+	return &cobra.Command{Run: func(*cobra.Command, []string) {}}
 }
 
 // withUsage wraps a PositionalArgs to display usage only when the PositionalArgs
