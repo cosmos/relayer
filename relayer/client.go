@@ -143,17 +143,19 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 		return false, err
 	}
 
-	// Create the ClientState we want on 'src' tracking 'dst'
-	clientState, err := src.ChainProvider.NewClientState(dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
+	// We want to create a light client on the src chain which tracks the state of the dst chain.
+	// So we build a new client state from dst and attempt to use this for creating the light client on src.
+	clientState, err := dst.ChainProvider.NewClientState(dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
 	if err != nil {
-		return false, fmt.Errorf("failed to create new client state for chain{%s} tracking chain{%s}: %w", src.ChainID(), dst.ChainID(), err)
+		return false, fmt.Errorf("failed to create new client state for chain{%s}: %w", dst.ChainID(), err)
 	}
 
 	var clientID string
 	var found bool
 	// Will not reuse same client if override is true
 	if !override {
-		// Check if an identical light client already exists
+		// Check if an identical light client already exists on the src chain which matches the
+		// proposed new client state from dst.
 		clientID, found, err = FindMatchingClient(ctx, src, dst, clientState)
 		if err != nil {
 			return false, fmt.Errorf("failed to find a matching client for the new client state: %w", err)
@@ -177,9 +179,19 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 		zap.String("dst_chain_id", dst.ChainID()),
 	)
 
-	createMsg, err := src.ChainProvider.CreateClient(clientState, dstUpdateHeader)
+	// We need to retrieve the address of the src chain account because we want to use
+	// the dst chains implementation of CreateClient, to ensure the proper client/header
+	// logic is executed, but the message gets submitted on the src chain which means
+	// we need to sign with the address from src.
+	acc, err := src.ChainProvider.Address()
 	if err != nil {
-		return false, fmt.Errorf("failed to compose CreateClient msg for chain{%s}: %w", src.ChainID(), err)
+		return false, err
+	}
+
+	createMsg, err := dst.ChainProvider.CreateClient(clientState, dstUpdateHeader, acc)
+	if err != nil {
+		return false, fmt.Errorf("failed to compose CreateClient msg for chain{%s} tracking the state of chain{%s}: %w",
+			src.ChainID(), dst.ChainID(), err)
 	}
 
 	msgs := []provider.RelayerMessage{createMsg}

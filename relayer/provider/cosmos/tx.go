@@ -274,19 +274,10 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 }
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (cc *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
-	var (
-		acc string
-		err error
-	)
-
+func (cc *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header, signer string) (provider.RelayerMessage, error) {
 	tmHeader, ok := dstHeader.(*tmclient.Header)
 	if !ok {
 		return nil, fmt.Errorf("got data of type %T but wanted tmclient.Header", dstHeader)
-	}
-
-	if acc, err = cc.Address(); err != nil {
-		return nil, err
 	}
 
 	anyClientState, err := clienttypes.PackClientState(clientState)
@@ -302,10 +293,7 @@ func (cc *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstH
 	msg := &clienttypes.MsgCreateClient{
 		ClientState:    anyClientState,
 		ConsensusState: anyConsensusState,
-		Signer:         acc,
-	}
-	if err != nil {
-		return nil, err
+		Signer:         signer,
 	}
 
 	return NewCosmosMessage(msg), nil
