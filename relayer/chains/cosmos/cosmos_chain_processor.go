@@ -180,7 +180,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	foundMessages := make(processor.ChannelMessageCache)
 
-	haveChangesForPathProcessor := false
+	ppChanged := false
 
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		blockRes, err := ccp.cc.Client.BlockResults(ctx, &i)
@@ -199,21 +199,21 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			ccp.log.Debug("Parsed IBC messages", zap.Any("messages", messages))
 
 			for _, m := range messages {
-				if handler, ok := messageHandlers[m.messageType]; ok {
-					// call message handler for this ibc message type. can do things like cache things on the chain processor or retain ibc messages that should be sent to the PathProcessors.
-					handlerMadeChangesForPathProcessor := handler(ccp, MsgHandlerParams{
-						messageInfo:   m.messageInfo,
-						foundMessages: foundMessages,
-					})
-					if handlerMadeChangesForPathProcessor {
-						haveChangesForPathProcessor = true
-					}
+				handler, ok := messageHandlers[m.messageType]
+				if !ok {
+					continue
 				}
+				// call message handler for this ibc message type. can do things like cache things on the chain processor or retain ibc messages that should be sent to the PathProcessors.
+				changed := handler(ccp, MsgHandlerParams{
+					messageInfo:   m.messageInfo,
+					foundMessages: foundMessages,
+				})
+				ppChanged = ppChanged || changed
 			}
 		}
 	}
 
-	if !haveChangesForPathProcessor {
+	if !ppChanged {
 		if firstTimeInSync {
 			for _, pp := range ccp.pathProcessors {
 				pp.ProcessBacklogIfReady()
