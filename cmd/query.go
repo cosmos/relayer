@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cosmos/cosmos-sdk/client/flags"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	"github.com/cosmos/relayer/v2/helpers"
 	"github.com/cosmos/relayer/v2/relayer"
@@ -53,7 +52,7 @@ func queryCmd(a *appState) *cobra.Command {
 
 func queryIBCDenoms(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ibc-denoms chain_id",
+		Use:   "ibc-denoms chain_name",
 		Short: "query denomination traces for a given network by chain ID",
 		Args:  withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
@@ -62,9 +61,9 @@ $ %s q ibc-denoms ibc-0`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			h, err := chain.ChainProvider.QueryLatestHeight(cmd.Context())
@@ -93,14 +92,14 @@ func queryBaseDenomFromIBCDenom(a *appState) *cobra.Command {
 		Short: "query that retrieves the base denom from the IBC denomination trace",
 		Args:  withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s query denom-trace osmosis-1 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118D904BFE0F5F5E
-$ %s q denom-trace osmosis-1 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118D904BFE0F5F5E`,
+$ %s query denom-trace osmosis 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118D904BFE0F5F5E
+$ %s q denom-trace osmosis 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118D904BFE0F5F5E`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			c, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 			res, err := c.ChainProvider.QueryDenomTrace(cmd.Context(), args[1])
 			if err != nil {
@@ -117,7 +116,7 @@ $ %s q denom-trace osmosis-1 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118
 
 func queryTx(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "tx chain_id tx_hash",
+		Use:   "tx chain_name tx_hash",
 		Short: "query for a transaction on a given network by transaction hash and chain ID",
 		Args:  withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
@@ -126,9 +125,9 @@ $ %s q tx ibc-0 A5DF8D272F1C451CFF92BA6C41942C4D29B5CF180279439ED6AB038282F956BE
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			txs, err := chain.ChainProvider.QueryTx(cmd.Context(), args[1])
@@ -151,7 +150,7 @@ $ %s q tx ibc-0 A5DF8D272F1C451CFF92BA6C41942C4D29B5CF180279439ED6AB038282F956BE
 
 func queryTxs(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "txs chain_id events",
+		Use:   "txs chain_name events",
 		Short: "query for transactions on a given network by chain ID and a set of transaction events",
 		Long: strings.TrimSpace(`Search for a paginated list of transactions that match the given set of
 events. Each event takes the form of '{eventType}.{eventAttribute}={value}' with multiple events
@@ -167,17 +166,17 @@ $ %s q txs ibc-0 "message.action=transfer"`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
+			}
+
+			offset, err := cmd.Flags().GetUint64(flagOffset)
 			if err != nil {
 				return err
 			}
 
-			offset, err := cmd.Flags().GetUint64(flags.FlagOffset)
-			if err != nil {
-				return err
-			}
-
-			limit, err := cmd.Flags().GetUint64(flags.FlagLimit)
+			limit, err := cmd.Flags().GetUint64(flagLimit)
 			if err != nil {
 				return err
 			}
@@ -197,7 +196,7 @@ $ %s q txs ibc-0 "message.action=transfer"`,
 		},
 	}
 
-	return paginationFlags(a.Viper, cmd)
+	return paginationFlags(a.Viper, cmd, "txs")
 }
 
 //func queryAccountCmd() *cobra.Command {
@@ -255,7 +254,7 @@ $ %s q txs ibc-0 "message.action=transfer"`,
 
 func queryBalanceCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "balance chain_id [key_name]",
+		Use:     "balance chain_name [key_name]",
 		Aliases: []string{"bal"},
 		Short:   "query the relayer's account balance on a given network by chain-ID",
 		Args:    withUsage(cobra.RangeArgs(1, 2)),
@@ -265,9 +264,9 @@ $ %s query balance ibc-0 testkey`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			showDenoms, err := cmd.Flags().GetBool(flagIBCDenoms)
@@ -304,7 +303,7 @@ $ %s query balance ibc-0 testkey`,
 
 func queryHeaderCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "header chain_id [height]",
+		Use:   "header chain_name [height]",
 		Short: "query the header of a network by chain ID at a given height or the latest height",
 		Args:  withUsage(cobra.RangeArgs(1, 2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
@@ -313,12 +312,13 @@ $ %s query header ibc-0 1400`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
-			var header ibcexported.ClientMessage
+			var header ibcexported.Header
+			var err error
 			switch len(args) {
 			case 1:
 				header, err = chain.ChainProvider.GetLightSignedHeaderAtHeight(cmd.Context(), 0)
@@ -333,7 +333,7 @@ $ %s query header ibc-0 1400`,
 				}
 			}
 
-			s, err := chain.Sprint(header, false, false)
+			s, err := chain.ChainProvider.Sprint(header)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal header: %v\n", err)
 				return err
@@ -351,7 +351,7 @@ $ %s query header ibc-0 1400`,
 // the chain as defined in https://github.com/cosmos/ics/tree/master/spec/ics-002-client-semantics#query
 func queryNodeStateCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "node-state chain_id",
+		Use:   "node-state chain_name",
 		Short: "query the consensus state of a network by chain ID",
 		Args:  withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
@@ -360,9 +360,9 @@ $ %s q node-state ibc-1`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			height, err := chain.ChainProvider.QueryLatestHeight(cmd.Context())
@@ -375,7 +375,7 @@ $ %s q node-state ibc-1`,
 				return err
 			}
 
-			s, err := chain.Sprint(csRes, false, false)
+			s, err := chain.ChainProvider.Sprint(csRes)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal consensus state: %v\n", err)
 				return err
@@ -391,21 +391,21 @@ $ %s q node-state ibc-1`,
 
 func queryClientCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "client chain_id client_id",
+		Use:   "client chain_name client_id",
 		Short: "query the state of a light client on a network by chain ID",
 		Args:  withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s query client ibc-0 ibczeroclient
+$ %s query client osmosis 07-tendermint-259
 $ %s query client ibc-0 ibczeroclient --height 1205`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
-			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
+			height, err := cmd.Flags().GetInt64(flagHeight)
 			if err != nil {
 				return err
 			}
@@ -426,7 +426,7 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 				return err
 			}
 
-			s, err := chain.Sprint(res, false, false)
+			s, err := chain.ChainProvider.Sprint(res)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal state: %v\n", err)
 				return err
@@ -442,19 +442,19 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 
 func queryClientsCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "clients chain_id",
+		Use:     "clients chain_name",
 		Aliases: []string{"clnts"},
 		Short:   "query for all light client states on a network by chain ID",
 		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s query clients ibc-0
+$ %s query clients osmosis
 $ %s query clients ibc-2 --offset 2 --limit 30`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			// TODO fix pagination
@@ -469,7 +469,7 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 			}
 
 			for _, client := range res {
-				s, err := chain.Sprint(&client, false, false)
+				s, err := chain.ChainProvider.Sprint(&client)
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal state: %v\n", err)
 					continue
@@ -482,8 +482,7 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 		},
 	}
 
-	flags.AddPaginationFlagsToCmd(cmd, "client states")
-	return cmd
+	return paginationFlags(a.Viper, cmd, "client states")
 }
 
 //func queryValSetAtHeightCmd() *cobra.Command {
@@ -534,9 +533,9 @@ $ %s q conns ibc-1`,
 			appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			// TODO fix pagination
@@ -551,7 +550,7 @@ $ %s q conns ibc-1`,
 			}
 
 			for _, connection := range res {
-				s, err := chain.Sprint(connection, false, false)
+				s, err := chain.ChainProvider.Sprint(connection)
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal connection: %v\n", err)
 					continue
@@ -564,13 +563,12 @@ $ %s q conns ibc-1`,
 		},
 	}
 
-	flags.AddPaginationFlagsToCmd(cmd, "connections on a network")
-	return cmd
+	return paginationFlags(a.Viper, cmd, "connections on a network")
 }
 
 func queryConnectionsUsingClient(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "client-connections chain_id client_id",
+		Use:   "client-connections chain_name client_id",
 		Short: "query for all connections for a given client on a network by chain ID",
 		Args:  withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
@@ -579,16 +577,18 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			//TODO - Add pagination
+
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			if err := chain.AddPath(args[1], dcon); err != nil {
 				return err
 			}
 
-			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
+			height, err := cmd.Flags().GetInt64(flagHeight)
 			if err != nil {
 				return err
 			}
@@ -605,7 +605,7 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 				return err
 			}
 
-			s, err := chain.Sprint(res, false, false)
+			s, err := chain.ChainProvider.Sprint(res)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal client connection state: %v\n", err)
 				return err
@@ -621,7 +621,7 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 
 func queryConnection(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "connection chain_id connection_id",
+		Use:     "connection chain_name connection_id",
 		Aliases: []string{"conn"},
 		Short:   "query the connection state for a given connection id on a network by chain ID",
 		Args:    withUsage(cobra.ExactArgs(2)),
@@ -631,9 +631,9 @@ $ %s q conn ibc-1 ibconeconn`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			if err := chain.AddPath(dcli, args[1]); err != nil {
@@ -650,7 +650,7 @@ $ %s q conn ibc-1 ibconeconn`,
 				return err
 			}
 
-			s, err := chain.Sprint(res, false, false)
+			s, err := chain.ChainProvider.Sprint(res)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal connection state: %v\n", err)
 				return err
@@ -666,7 +666,7 @@ $ %s q conn ibc-1 ibconeconn`,
 
 func queryConnectionChannels(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "connection-channels chain_id connection_id",
+		Use:   "connection-channels chain_name connection_id",
 		Short: "query all channels associated with a given connection on a network by chain ID",
 		Args:  withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
@@ -675,12 +675,12 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
-			if err = chain.AddPath(dcli, args[1]); err != nil {
+			if err := chain.AddPath(dcli, args[1]); err != nil {
 				return err
 			}
 
@@ -696,7 +696,7 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 			}
 
 			for _, channel := range chans {
-				s, err := chain.Sprint(channel, false, false)
+				s, err := chain.ChainProvider.Sprint(channel)
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal channel: %v\n", err)
 					continue
@@ -709,13 +709,12 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 		},
 	}
 
-	flags.AddPaginationFlagsToCmd(cmd, "channels associated with a connection")
-	return cmd
+	return paginationFlags(a.Viper, cmd, "channels associated with a connection")
 }
 
 func queryChannel(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "channel chain_id channel_id port_id",
+		Use:   "channel chain_name channel_id port_id",
 		Short: "query a channel by channel and port ID on a network by chain ID",
 		Args:  withUsage(cobra.ExactArgs(3)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
@@ -724,18 +723,18 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			channelID := args[1]
 			portID := args[2]
-			if err = chain.AddPath(dcli, dcon); err != nil {
+			if err := chain.AddPath(dcli, dcon); err != nil {
 				return err
 			}
 
-			height, err := cmd.Flags().GetInt64(flags.FlagHeight)
+			height, err := cmd.Flags().GetInt64(flagHeight)
 			if err != nil {
 				return err
 			}
@@ -752,7 +751,7 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 				return err
 			}
 
-			s, err := chain.Sprint(res, false, false)
+			s, err := chain.ChainProvider.Sprint(res)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal channel state: %v\n", err)
 				return err
@@ -768,7 +767,7 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 
 func queryChannels(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "channels chain_id",
+		Use:   "channels chain_name",
 		Short: "query for all channels on a network by chain ID",
 		Args:  withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
@@ -777,9 +776,9 @@ $ %s query channels ibc-2 --offset 2 --limit 30`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			// TODO fix pagination
@@ -794,7 +793,7 @@ $ %s query channels ibc-2 --offset 2 --limit 30`,
 			}
 
 			for _, channel := range res {
-				s, err := chain.Sprint(channel, false, false)
+				s, err := chain.ChainProvider.Sprint(channel)
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal channel: %v\n", err)
 					continue
@@ -807,13 +806,12 @@ $ %s query channels ibc-2 --offset 2 --limit 30`,
 		},
 	}
 
-	flags.AddPaginationFlagsToCmd(cmd, "channels on a network")
-	return cmd
+	return paginationFlags(a.Viper, cmd, "channels on a network")
 }
 
 func queryPacketCommitment(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "packet-commit chain_id channel_id port_id seq",
+		Use:   "packet-commit chain_name channel_id port_id seq",
 		Short: "query for the packet commitment given a sequence and channel ID on a network by chain ID",
 		Args:  withUsage(cobra.ExactArgs(4)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
@@ -822,9 +820,9 @@ $ %s q packet-commit ibc-1 ibconechannel transfer 31`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := a.Config.Chains.Get(args[0])
-			if err != nil {
-				return err
+			chain, ok := a.Config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
 			}
 
 			channelID := args[1]
@@ -840,7 +838,7 @@ $ %s q packet-commit ibc-1 ibconechannel transfer 31`,
 				return err
 			}
 
-			s, err := chain.Sprint(res, false, false)
+			s, err := chain.ChainProvider.Sprint(res)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal packet-commit state: %v\n", err)
 				return err
@@ -892,10 +890,7 @@ $ %s query unrelayed-pkts demo-path channel-0`,
 				return err
 			}
 
-			sp, err := relayer.UnrelayedSequences(cmd.Context(), c[src], c[dst], channel)
-			if err != nil {
-				return err
-			}
+			sp := relayer.UnrelayedSequences(cmd.Context(), c[src], c[dst], channel)
 
 			out, err := json.Marshal(sp)
 			if err != nil {
@@ -947,10 +942,7 @@ $ %s query unrelayed-acks demo-path channel-0`,
 				return err
 			}
 
-			sp, err := relayer.UnrelayedAcknowledgements(cmd.Context(), c[src], c[dst], channel)
-			if err != nil {
-				return err
-			}
+			sp := relayer.UnrelayedAcknowledgements(cmd.Context(), c[src], c[dst], channel)
 
 			out, err := json.Marshal(sp)
 			if err != nil {

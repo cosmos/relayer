@@ -57,7 +57,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 			var err error
 			srcExpected, err = src.ChainProvider.QueryBalance(egCtx, src.ChainProvider.Key())
 			if srcExpected.IsZero() {
-				return fmt.Errorf("expected non-zero balance. Err: %w", err)
+				return fmt.Errorf("(src chain) expected non-zero balance. Err: %w", err)
 			}
 			return err
 		})
@@ -67,7 +67,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 			var err error
 			dstExpected, err = dst.ChainProvider.QueryBalance(egCtx, dst.ChainProvider.Key())
 			if dstExpected.IsZero() {
-				return fmt.Errorf("expected non-zero balance. Err: %w", err)
+				return fmt.Errorf("(dst chain) expected non-zero balance. Err: %w", err)
 			}
 			return err
 		})
@@ -148,8 +148,8 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	// TODO: fix and re-enable this test
 	t.Skip()
 	chains := spinUpTestChains(t, []testChain{
-		{"ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
-		{"ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
+		{"testChain0", "ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
+		{"testChain1", "ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
 	}...)
 
 	var (
@@ -229,8 +229,8 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	// need to figure out what this feature is supposed to do
 	t.Skip()
 	chains := spinUpTestChains(t, []testChain{
-		{"ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
-		{"ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
+		{"testChain0", "ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
+		{"testChain1", "ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
 	}...)
 
 	var (
@@ -330,8 +330,8 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 
 func TestRelayAllChannelsOnConnection(t *testing.T) {
 	chains := spinUpTestChains(t, []testChain{
-		{"ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
-		{"ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
+		{"testChain0", "ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
+		{"testChain1", "ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
 	}...)
 
 	var (
@@ -535,10 +535,11 @@ func createTMClientHeader(t *testing.T, chainID string, blockHeight int64, trust
 	}
 }
 
+// a.Config.Chains[args[0]]
 func TestUnorderedChannelBlockHeightTimeout(t *testing.T) {
 	chains := spinUpTestChains(t, []testChain{
-		{"ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
-		{"ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
+		{"testChain0", "ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
+		{"testChain1", "ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
 	}...)
 
 	var (
@@ -635,8 +636,8 @@ func TestUnorderedChannelBlockHeightTimeout(t *testing.T) {
 
 func TestUnorderedChannelTimestampTimeout(t *testing.T) {
 	chains := spinUpTestChains(t, []testChain{
-		{"ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
-		{"ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
+		{"testChain0", "ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
+		{"testChain1", "ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
 	}...)
 
 	var (
@@ -718,7 +719,7 @@ func TestUnorderedChannelTimestampTimeout(t *testing.T) {
 	filter := relayer.ChannelFilter{}
 	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5)
 
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 10)
 
 	// check balance on src against expected
 	srcGot, err := src.ChainProvider.QueryBalance(ctx, src.ChainProvider.Key())

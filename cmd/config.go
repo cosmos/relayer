@@ -30,8 +30,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/client/flags"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
@@ -68,7 +66,7 @@ func configShowCmd(a *appState) *cobra.Command {
 $ %s config show --home %s
 $ %s cfg list`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			home, err := cmd.Flags().GetString(flags.FlagHome)
+			home, err := cmd.Flags().GetString(flagHome)
 			if err != nil {
 				return err
 			}
@@ -93,14 +91,14 @@ $ %s cfg list`, appName, defaultHome, appName)),
 			case yml && jsn:
 				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
 			case jsn:
-				out, err := json.Marshal(ConfigToWrapper(a.Config))
+				out, err := json.Marshal(a.Config.Wrapped())
 				if err != nil {
 					return err
 				}
 				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			default:
-				out, err := yaml.Marshal(ConfigToWrapper(a.Config))
+				out, err := yaml.Marshal(a.Config.Wrapped())
 				if err != nil {
 					return err
 				}
@@ -113,7 +111,7 @@ $ %s cfg list`, appName, defaultHome, appName)),
 	return yamlFlag(a.Viper, jsonFlag(a.Viper, cmd))
 }
 
-// Command for inititalizing an empty config at the --home location
+// Command for initializing an empty config at the --home location
 func configInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "init",
@@ -124,7 +122,7 @@ func configInitCmd() *cobra.Command {
 $ %s config init --home %s
 $ %s cfg i`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			home, err := cmd.Flags().GetString(flags.FlagHome)
+			home, err := cmd.Flags().GetString(flagHome)
 			if err != nil {
 				return err
 			}
@@ -242,10 +240,10 @@ func addChainsFromDirectory(stderr io.Writer, a *appState, dir string) error {
 			fmt.Fprintf(stderr, "failed to unmarshal file %s. Err: %v skipping...\n", pth, err)
 			continue
 		}
-
+		chainName := strings.Split(f.Name(), ".")[0]
 		prov, err := pcw.Value.NewProvider(
 			a.Log.With(zap.String("provider_type", pcw.Type)),
-			a.HomePath, a.Debug,
+			a.HomePath, a.Debug, chainName,
 		)
 		if err != nil {
 			fmt.Fprintf(stderr, "failed to build ChainProvider for %s. Err: %v \n", pth, err)
@@ -305,19 +303,17 @@ func addPathsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, d
 	return nil
 }
 
-// ConfigToWrapper converts the Config struct into a ConfigOutputWrapper struct
-func ConfigToWrapper(config *Config) *ConfigOutputWrapper {
-	cfgw := &ConfigOutputWrapper{Global: config.Global, Paths: config.Paths}
-	var providers []*ProviderConfigWrapper
-	for _, chain := range config.Chains {
+// Wrapped converts the Config struct into a ConfigOutputWrapper struct
+func (c *Config) Wrapped() *ConfigOutputWrapper {
+	providers := make(ProviderConfigs)
+	for _, chain := range c.Chains {
 		pcfgw := &ProviderConfigWrapper{
 			Type:  chain.ChainProvider.Type(),
 			Value: chain.ChainProvider.ProviderConfig(),
 		}
-		providers = append(providers, pcfgw)
+		providers[chain.ChainProvider.ChainName()] = pcfgw
 	}
-	cfgw.ProviderConfigs = providers
-	return cfgw
+	return &ConfigOutputWrapper{Global: c.Global, ProviderConfigs: providers, Paths: c.Paths}
 }
 
 // Config represents the config file for the relayer
@@ -336,12 +332,12 @@ type ConfigOutputWrapper struct {
 
 // ConfigInputWrapper is an intermediary type for parsing the config.yaml file
 type ConfigInputWrapper struct {
-	Global          GlobalConfig                 `yaml:"global"`
-	ProviderConfigs []*ProviderConfigYAMLWrapper `yaml:"chains"`
-	Paths           relayer.Paths                `yaml:"paths"`
+	Global          GlobalConfig                          `yaml:"global"`
+	ProviderConfigs map[string]*ProviderConfigYAMLWrapper `yaml:"chains"`
+	Paths           relayer.Paths                         `yaml:"paths"`
 }
 
-type ProviderConfigs []*ProviderConfigWrapper
+type ProviderConfigs map[string]*ProviderConfigWrapper
 
 // ProviderConfigWrapper is an intermediary type for parsing arbitrary ProviderConfigs from json files and writing to json/yaml files
 type ProviderConfigWrapper struct {
@@ -488,7 +484,7 @@ func (c *Config) AddChain(chain *relayer.Chain) (err error) {
 	if chn != nil || err == nil {
 		return fmt.Errorf("chain with ID %s already exists in config", chainId)
 	}
-	c.Chains = append(c.Chains, chain)
+	c.Chains[chain.ChainProvider.ChainName()] = chain
 	return nil
 }
 
@@ -543,13 +539,7 @@ func (c *Config) AddPath(name string, path *relayer.Path) (err error) {
 
 // DeleteChain modifies c in-place to remove any chains that have the given name.
 func (c *Config) DeleteChain(chain string) {
-	var set relayer.Chains
-	for _, ch := range c.Chains {
-		if ch.ChainID() != chain {
-			set = append(set, ch)
-		}
-	}
-	c.Chains = set
+	delete(c.Chains, chain)
 }
 
 // validateConfig is used to validate the GlobalConfig values
@@ -564,7 +554,7 @@ func validateConfig(c *Config) error {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig(cmd *cobra.Command, a *appState) error {
-	home, err := cmd.PersistentFlags().GetString(flags.FlagHome)
+	home, err := cmd.PersistentFlags().GetString(flagHome)
 	if err != nil {
 		return err
 	}
@@ -596,18 +586,18 @@ func initConfig(cmd *cobra.Command, a *appState) error {
 			}
 
 			// build the config struct
-			var chains relayer.Chains
-			for _, pcfg := range cfgWrapper.ProviderConfigs {
+			chains := make(relayer.Chains)
+			for chainName, pcfg := range cfgWrapper.ProviderConfigs {
 				prov, err := pcfg.Value.(provider.ProviderConfig).NewProvider(
 					a.Log.With(zap.String("provider_type", pcfg.Type)),
-					a.HomePath, a.Debug,
+					a.HomePath, a.Debug, chainName,
 				)
 				if err != nil {
 					return fmt.Errorf("failed to build ChainProviders: %w", err)
 				}
 
 				chain := relayer.NewChain(a.Log, prov, a.Debug)
-				chains = append(chains, chain)
+				chains[chainName] = chain
 			}
 
 			a.Config = &Config{
@@ -629,10 +619,10 @@ func initConfig(cmd *cobra.Command, a *appState) error {
 // ValidatePath checks that a path is valid
 func (c *Config) ValidatePath(ctx context.Context, stderr io.Writer, p *relayer.Path) (err error) {
 	if err = c.ValidatePathEnd(ctx, stderr, p.Src); err != nil {
-		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Src.ChainID)
+		return fmt.Errorf("chain %s failed path validation: %w", p.Src.ChainID, err)
 	}
 	if err = c.ValidatePathEnd(ctx, stderr, p.Dst); err != nil {
-		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Dst.ChainID)
+		return fmt.Errorf("chain %s failed path validation: %w", p.Dst.ChainID, err)
 	}
 	return nil
 }

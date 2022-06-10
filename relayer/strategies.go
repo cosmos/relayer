@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -29,47 +31,96 @@ func StartRelayer(ctx context.Context, log *zap.Logger, src, dst *Chain, filter 
 func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64, errCh chan<- error) {
 	defer close(errCh)
 
-	channels := make(chan *ActiveChannel, 10)
-	var srcOpenChannels []*ActiveChannel
+	// Query the list of channels on the src connection.
+	srcChannels, err := queryChannelsOnConnection(ctx, src)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			errCh <- err
+		} else {
+			errCh <- fmt.Errorf("error querying all channels on chain{%s}@connection{%s}: %w",
+				src.ChainID(), src.ConnectionID(), err)
+		}
+		return
+	}
 
+	channels := make(chan *ActiveChannel, len(srcChannels))
+
+	// Apply the channel filter rule (i.e. build allowlist, denylist or relay on all channels available),
+	// then filter out only the channels in the OPEN state.
+	srcChannels = applyChannelFilterRule(filter, srcChannels)
+	srcOpenChannels := filterOpenChannels(srcChannels)
+
+	var wg sync.WaitGroup
 	for {
-		// Query the list of channels on the src connection
-		srcChannels, err := queryChannelsOnConnection(ctx, src)
-		if err != nil {
-			if errors.Is(err, context.Canceled) {
-				errCh <- err
-			} else {
-				errCh <- fmt.Errorf("error querying all channels on chain{%s}@connection{%s}: %w",
-					src.ChainID(), src.ConnectionID(), err)
-			}
+		// TODO once upstream changes are merged for emitting the channel version in ibc-go,
+		// we will want to add back logic for finishing the channel handshake for interchain accounts.
+		// Essentially the interchain accounts module will initiate the handshake and then the relayer finishes it.
+		// So we will occasionally query recent txs and check the events for `ChannelOpenInit`, at which point
+		// we will attempt to finish opening the channel.
+
+		// TODO when we have completed the Chain/Path processor refactor we will be listening for
+		// new channels that are being opened/created so it's possible we have no open channels to relay on
+		// at startup but after some time has passed a channel needs opened and relayed on. At this point we
+		// could choose to loop here until some action is needed.
+		if len(srcOpenChannels) == 0 {
+			errCh <- fmt.Errorf("there are no open channels to relay on")
 			return
 		}
 
-		// Apply the channel filter rule (i.e. build allowlist, denylist or relay on all channels available)
-		srcChannels = applyChannelFilterRule(filter, srcChannels)
-
-		// Filter for open channels that are not already in our slice of open channels
-		srcOpenChannels = filterOpenChannels(srcChannels, srcOpenChannels)
-
-		// Spin up a goroutine to relay packets & acks for each channel that isn't already being relayed against
+		// Spin up a goroutine to relay packets & acks for each channel that isn't already being relayed against.
 		for _, channel := range srcOpenChannels {
 			if !channel.active {
 				channel.active = true
-				go relayUnrelayedPacketsAndAcks(ctx, log, src, dst, maxTxSize, maxMsgLength, channel, channels)
+				wg.Add(1)
+				go relayUnrelayedPacketsAndAcks(ctx, log, &wg, src, dst, maxTxSize, maxMsgLength, channel, channels)
 			}
 		}
 
-		for channel := range channels {
-			channel.active = false
+		// Block here until one of the running goroutines exits, while accounting for the case where
+		// the main context is cancelled while we are waiting for a read from the channel.
+		var channel *ActiveChannel
+		select {
+		case channel = <-channels:
 			break
+		case <-ctx.Done():
+			wg.Wait() // Wait here for the running goroutines to finish
+			errCh <- ctx.Err()
+			return
 		}
 
-		// Make sure we are removing channels no longer in OPEN state from the slice of open channels
-		for i, channel := range srcOpenChannels {
-			if channel.channel.State != types.OPEN {
-				srcOpenChannels[i] = srcOpenChannels[len(srcOpenChannels)-1]
-				srcOpenChannels = srcOpenChannels[:len(srcOpenChannels)-1]
+		channel.active = false
+
+		// When a goroutine exits we need to query the channel and check that it is still in OPEN state.
+		var queryChannelResp *types.QueryChannelResponse
+		if err = retry.Do(func() error {
+			queryChannelResp, err = src.ChainProvider.QueryChannel(ctx, 0, channel.channel.ChannelId, channel.channel.PortId)
+			if err != nil {
+				return err
 			}
+			return nil
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			src.log.Info(
+				"Failed to query channel for updated state",
+				zap.String("src_chain_id", src.ChainID()),
+				zap.String("src_channel_id", channel.channel.ChannelId),
+				zap.Uint("attempt", n+1),
+				zap.Uint("max_attempts", RtyAttNum),
+				zap.Error(err),
+			)
+		})); err != nil {
+			errCh <- err
+			return
+		}
+
+		// If the channel is no longer in OPEN state then we remove it from the map of open channels.
+		if queryChannelResp.Channel.State != types.OPEN {
+			delete(srcOpenChannels, channel.channel.ChannelId)
+			src.log.Info(
+				"Channel is no longer in open state",
+				zap.String("chain_id", src.ChainID()),
+				zap.String("channel_id", channel.channel.ChannelId),
+				zap.String("channel_state", queryChannelResp.Channel.State.String()),
+			)
 		}
 	}
 }
@@ -103,28 +154,16 @@ func queryChannelsOnConnection(ctx context.Context, src *Chain) ([]*types.Identi
 	return srcChannels, nil
 }
 
-// filterOpenChannels takes a slice of channels and adds all the channels with OPEN state to a new slice of channels.
-// NOTE: channels will not be added to the slice of open channels more than once.
-func filterOpenChannels(channels []*types.IdentifiedChannel, openChannels []*ActiveChannel) []*ActiveChannel {
-	// Filter for open channels
+// filterOpenChannels takes a slice of channels, searches for the channels in open state,
+// and builds a map of ActiveChannel's from those open channels.
+func filterOpenChannels(channels []*types.IdentifiedChannel) map[string]*ActiveChannel {
+	openChannels := make(map[string]*ActiveChannel)
+
 	for _, channel := range channels {
 		if channel.State == types.OPEN {
-			inSlice := false
-
-			// Check if we have already added this channel to the slice of open channels
-			for _, openChannel := range openChannels {
-				if channel.ChannelId == openChannel.channel.ChannelId {
-					inSlice = true
-					break
-				}
-			}
-
-			// We don't want to add channels to the slice of open channels that have already been added
-			if !inSlice {
-				openChannels = append(openChannels, &ActiveChannel{
-					channel: channel,
-					active:  false,
-				})
+			openChannels[channel.ChannelId] = &ActiveChannel{
+				channel: channel,
+				active:  false,
 			}
 		}
 	}
@@ -160,9 +199,10 @@ func applyChannelFilterRule(filter ChannelFilter, channels []*types.IdentifiedCh
 }
 
 // relayUnrelayedPacketsAndAcks will relay all the pending packets and acknowledgements on both the src and dst chains.
-func relayUnrelayedPacketsAndAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *ActiveChannel, channels chan<- *ActiveChannel) {
+func relayUnrelayedPacketsAndAcks(ctx context.Context, log *zap.Logger, wg *sync.WaitGroup, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *ActiveChannel, channels chan<- *ActiveChannel) {
 	// make goroutine signal its death, whether it's a panic or a return
 	defer func() {
+		wg.Done()
 		channels <- srcChannel
 	}()
 
@@ -188,20 +228,8 @@ func relayUnrelayedPacketsAndAcks(ctx context.Context, log *zap.Logger, src, dst
 // relayUnrelayedPackets returns true if packets were empty or were successfully relayed.
 // Otherwise, it logs the errors and returns false.
 func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) bool {
-	childCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
-	defer cancel()
-
 	// Fetch any unrelayed sequences depending on the channel order
-	sp, err := UnrelayedSequences(ctx, src, dst, srcChannel)
-	if err != nil {
-		src.log.Warn(
-			"Error retrieving unrelayed sequences",
-			zap.String("src_chain_id", src.ChainID()),
-			zap.String("src_channel_id", srcChannel.ChannelId),
-			zap.Error(err),
-		)
-		return false
-	}
+	sp := UnrelayedSequences(ctx, src, dst, srcChannel)
 
 	// If there are no unrelayed packets, stop early.
 	if sp.Empty() {
@@ -235,7 +263,7 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 		)
 	}
 
-	if err := RelayPackets(childCtx, log, src, dst, sp, maxTxSize, maxMsgLength, srcChannel); err != nil {
+	if err := RelayPackets(ctx, log, src, dst, sp, maxTxSize, maxMsgLength, srcChannel); err != nil {
 		// If there was a context cancellation or deadline while attempting to relay packets,
 		// log that and indicate failure.
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
@@ -245,7 +273,20 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 				zap.String("src_channel_id", srcChannel.ChannelId),
 				zap.String("dst_chain_id", dst.ChainID()),
 				zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
-				zap.Error(childCtx.Err()),
+				zap.Error(ctx.Err()),
+			)
+			return false
+		}
+
+		// If we encounter an error that suggest node configuration issues, log a more insightful error message.
+		if strings.Contains(err.Error(), "Internal error: transaction indexing is disabled") {
+			log.Warn(
+				"Remote server needs to enable transaction indexing",
+				zap.String("src_chain_id", src.ChainID()),
+				zap.String("src_channel_id", srcChannel.ChannelId),
+				zap.String("dst_chain_id", dst.ChainID()),
+				zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
+				zap.Error(ctx.Err()),
 			)
 			return false
 		}
@@ -270,20 +311,8 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 // relayUnrelayedAcks returns true if acknowledgements were empty or were successfully relayed.
 // Otherwise, it logs the errors and returns false.
 func relayUnrelayedAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) bool {
-	childCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
-	defer cancel()
-
 	// Fetch any unrelayed acks depending on the channel order
-	ap, err := UnrelayedAcknowledgements(ctx, src, dst, srcChannel)
-	if err != nil {
-		log.Warn(
-			"Error retrieving unrelayed acknowledgements",
-			zap.String("src_chain_id", src.ChainID()),
-			zap.String("src_channel_id", srcChannel.ChannelId),
-			zap.Error(err),
-		)
-		return false
-	}
+	ap := UnrelayedAcknowledgements(ctx, src, dst, srcChannel)
 
 	// If there are no unrelayed acks, stop early.
 	if ap.Empty() {
@@ -317,7 +346,7 @@ func relayUnrelayedAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, m
 		)
 	}
 
-	if err := RelayAcknowledgements(childCtx, log, src, dst, ap, maxTxSize, maxMsgLength, srcChannel); err != nil {
+	if err := RelayAcknowledgements(ctx, log, src, dst, ap, maxTxSize, maxMsgLength, srcChannel); err != nil {
 		// If there was a context cancellation or deadline while attempting to relay acknowledgements,
 		// log that and indicate failure.
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
@@ -327,7 +356,7 @@ func relayUnrelayedAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, m
 				zap.String("src_channel_id", srcChannel.ChannelId),
 				zap.String("dst_chain_id", dst.ChainID()),
 				zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
-				zap.Error(childCtx.Err()),
+				zap.Error(ctx.Err()),
 			)
 			return false
 		}

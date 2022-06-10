@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -21,6 +21,9 @@ type RelayMsgs struct {
 	MaxTxSize    uint64                    `json:"max_tx_size"`    // maximum permitted size of the msgs in a bundled relay transaction
 	MaxMsgLength uint64                    `json:"max_msg_length"` // maximum amount of messages in a bundled relay transaction
 }
+
+// batchSendMessageTimeout is the timeout for sending a single batch of IBC messages to an RPC node.
+const batchSendMessageTimeout = 30 * time.Second
 
 // Ready returns true if there are messages to relay
 func (r *RelayMsgs) Ready() bool {
@@ -37,45 +40,6 @@ func (r *RelayMsgs) Ready() bool {
 func (r *RelayMsgs) IsMaxTx(msgLen, txSize uint64) bool {
 	return (r.MaxMsgLength != 0 && msgLen > r.MaxMsgLength) ||
 		(r.MaxTxSize != 0 && txSize > r.MaxTxSize)
-}
-
-func EncodeMsgs(c *Chain, msgs []provider.RelayerMessage) []string {
-	outMsgs := make([]string, 0, len(msgs))
-	for _, msg := range msgs {
-		bz, err := c.Encoding.Amino.MarshalJSON(msg)
-		if err != nil {
-			msgField := zap.Skip()
-			if cm, ok := msg.(cosmos.CosmosMessage); ok {
-				msgField = zap.Object("msg", cm)
-			}
-			c.log.Warn(
-				"Failed to marshal message to amino JSON",
-				msgField,
-				zap.Error(err),
-			)
-		} else {
-			outMsgs = append(outMsgs, string(bz))
-		}
-	}
-	return outMsgs
-}
-
-func DecodeMsgs(c *Chain, msgs []string) []provider.RelayerMessage {
-	outMsgs := make([]provider.RelayerMessage, 0, len(msgs))
-	for _, msg := range msgs {
-		var sm provider.RelayerMessage
-		err := c.Encoding.Amino.UnmarshalJSON([]byte(msg), &sm)
-		if err != nil {
-			c.log.Warn(
-				"Failed to unmarshal amino JSON message",
-				zap.Binary("msg", []byte(msg)), // Although presented as a string, this is a binary blob.
-				zap.Error(err),
-			)
-		} else {
-			outMsgs = append(outMsgs, sm)
-		}
-	}
-	return outMsgs
 }
 
 // RelayMsgSender is a narrow subset of a Chain,
@@ -200,7 +164,9 @@ func (r *RelayMsgs) send(
 		// Otherwise, we have reached the message count limit or the byte size limit.
 		// Send out this batch now.
 		batchMsgs := msgs[batchStartIdx:i]
-		resp, success, err := s.SendMessages(ctx, batchMsgs)
+		batchCtx, batchCtxCancel := context.WithTimeout(ctx, batchSendMessageTimeout)
+		resp, success, err := s.SendMessages(batchCtx, batchMsgs)
+		batchCtxCancel()
 		if err != nil {
 			logFailedTx(log, s.ChainID, resp, err, batchMsgs)
 			multierr.AppendInto(errors, err)
@@ -220,7 +186,9 @@ func (r *RelayMsgs) send(
 	// If there are any messages left over, send those out too.
 	if batchStartIdx < uint64(len(msgs)) {
 		batchMsgs := msgs[batchStartIdx:]
-		resp, success, err := s.SendMessages(ctx, batchMsgs)
+		batchCtx, batchCtxCancel := context.WithTimeout(ctx, batchSendMessageTimeout)
+		resp, success, err := s.SendMessages(batchCtx, batchMsgs)
+		batchCtxCancel()
 		if err != nil {
 			logFailedTx(log, s.ChainID, resp, err, batchMsgs)
 			multierr.AppendInto(errors, err)

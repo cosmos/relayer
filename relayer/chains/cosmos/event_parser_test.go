@@ -1,0 +1,354 @@
+package cosmos
+
+import (
+	"encoding/hex"
+	"testing"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+)
+
+func TestParsePacket(t *testing.T) {
+	const (
+		testPacketTimeoutHeight    = "1-1245"
+		testPacketTimeoutTimestamp = "1654033235600000000"
+		testPacketSequence         = "1"
+		testPacketDataHex          = "0123456789ABCDEF"
+		testPacketSrcChannel       = "channel-0"
+		testPacketSrcPort          = "port-0"
+		testPacketDstChannel       = "channel-1"
+		testPacketDstPort          = "port-1"
+	)
+
+	packetEventAttributes := []sdk.Attribute{
+		{
+			Key:   chantypes.AttributeKeySequence,
+			Value: testPacketSequence,
+		},
+		{
+			Key:   chantypes.AttributeKeyDataHex,
+			Value: testPacketDataHex,
+		},
+		{
+			Key:   chantypes.AttributeKeyTimeoutHeight,
+			Value: testPacketTimeoutHeight,
+		},
+		{
+			Key:   chantypes.AttributeKeyTimeoutTimestamp,
+			Value: testPacketTimeoutTimestamp,
+		},
+		{
+			Key:   chantypes.AttributeKeySrcChannel,
+			Value: testPacketSrcChannel,
+		},
+		{
+			Key:   chantypes.AttributeKeySrcPort,
+			Value: testPacketSrcPort,
+		},
+		{
+			Key:   chantypes.AttributeKeyDstChannel,
+			Value: testPacketDstChannel,
+		},
+		{
+			Key:   chantypes.AttributeKeyDstPort,
+			Value: testPacketDstPort,
+		},
+	}
+
+	parsed := new(packetInfo)
+	parsed = parsed.parsePacketInfo(zap.NewNop(), packetEventAttributes)
+
+	packetData, err := hex.DecodeString(testPacketDataHex)
+	require.NoError(t, err, "error decoding test packet data")
+
+	require.Empty(t, cmp.Diff(*parsed, packetInfo{
+		packet: chantypes.Packet{
+			Sequence: uint64(1),
+			Data:     packetData,
+			TimeoutHeight: clienttypes.Height{
+				RevisionNumber: uint64(1),
+				RevisionHeight: uint64(1245),
+			},
+			TimeoutTimestamp:   uint64(1654033235600000000),
+			SourceChannel:      testPacketSrcChannel,
+			SourcePort:         testPacketSrcPort,
+			DestinationChannel: testPacketDstChannel,
+			DestinationPort:    testPacketDstPort,
+		},
+	}, cmp.AllowUnexported(packetInfo{}, chantypes.Packet{})), "parsed does not match expected")
+}
+
+func TestParseClient(t *testing.T) {
+	const (
+		testClientID1             = "test-client-id-1"
+		testClientConsensusHeight = "1-1023"
+		testClientHeader          = "0123456789ABCDEF"
+	)
+
+	clientEventAttributes := []sdk.Attribute{
+		{
+			Key:   clienttypes.AttributeKeyClientID,
+			Value: testClientID1,
+		},
+		{
+			Key:   clienttypes.AttributeKeyConsensusHeight,
+			Value: testClientConsensusHeight,
+		},
+		{
+			Key:   clienttypes.AttributeKeyHeader,
+			Value: testClientHeader,
+		},
+	}
+
+	parsed := parseClientInfo(zap.NewNop(), clientEventAttributes)
+
+	clientHeader, err := hex.DecodeString(testClientHeader)
+	require.NoError(t, err, "error parsing test client header")
+
+	require.Empty(t, cmp.Diff(parsed, clientInfo{
+		clientID: testClientID1,
+		consensusHeight: clienttypes.Height{
+			RevisionNumber: uint64(1),
+			RevisionHeight: uint64(1023),
+		},
+		header: clientHeader,
+	}, cmp.AllowUnexported(clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
+}
+
+func TestParseChannel(t *testing.T) {
+	const (
+		testConnectionID1 = "test-connection-id-1"
+		testChannelID1    = "test-channel-id-1"
+		testPortID1       = "test-port-id-1"
+		testChannelID2    = "test-channel-id-2"
+		testPortID2       = "test-port-id-2"
+	)
+
+	channelEventAttributes := []sdk.Attribute{
+		{
+			Key:   chantypes.AttributeKeyConnectionID,
+			Value: testConnectionID1,
+		},
+		{
+			Key:   chantypes.AttributeKeyChannelID,
+			Value: testChannelID1,
+		},
+		{
+			Key:   chantypes.AttributeKeyPortID,
+			Value: testPortID1,
+		},
+		{
+			Key:   chantypes.AttributeCounterpartyChannelID,
+			Value: testChannelID2,
+		},
+		{
+			Key:   chantypes.AttributeCounterpartyPortID,
+			Value: testPortID2,
+		},
+	}
+
+	parsed := parseChannelInfo(channelEventAttributes)
+
+	require.Empty(t, cmp.Diff(parsed, channelInfo{
+		connectionID:          testConnectionID1,
+		channelID:             testChannelID1,
+		portID:                testPortID1,
+		counterpartyChannelID: testChannelID2,
+		counterpartyPortID:    testPortID2,
+	}, cmp.AllowUnexported(channelInfo{})), "parsed channel info does not match expected")
+}
+
+func TestParseConnection(t *testing.T) {
+	const (
+		testConnectionID1 = "test-connection-id-1"
+		testClientID1     = "test-client-id-1"
+		testConnectionID2 = "test-connection-id-2"
+		testClientID2     = "test-client-id-2"
+	)
+
+	connectionEventAttributes := []sdk.Attribute{
+		{
+			Key:   conntypes.AttributeKeyConnectionID,
+			Value: testConnectionID1,
+		},
+		{
+			Key:   conntypes.AttributeKeyClientID,
+			Value: testClientID1,
+		},
+		{
+			Key:   conntypes.AttributeKeyCounterpartyConnectionID,
+			Value: testConnectionID2,
+		},
+		{
+			Key:   conntypes.AttributeKeyCounterpartyClientID,
+			Value: testClientID2,
+		},
+	}
+
+	parsed := parseConnectionInfo(connectionEventAttributes)
+
+	require.Empty(t, cmp.Diff(parsed, connectionInfo{
+		clientID:                 testClientID1,
+		connectionID:             testConnectionID1,
+		counterpartyClientID:     testClientID2,
+		counterpartyConnectionID: testConnectionID2,
+	}, cmp.AllowUnexported(connectionInfo{})), "parsed connection info does not match expected")
+}
+
+func TestParseEventLogs(t *testing.T) {
+	const (
+		testClientID1              = "test-client-id-1"
+		testClientConsensusHeight  = "1-1023"
+		testPacketTimeoutHeight    = "1-1245"
+		testPacketTimeoutTimestamp = "1654033235600000000"
+		testPacketSequence         = "1"
+		testPacketDataHex          = "0123456789ABCDEF"
+		testPacketAckHex           = "FBDA532947"
+		testPacketSrcChannel       = "channel-0"
+		testPacketSrcPort          = "port-0"
+		testPacketDstChannel       = "channel-1"
+		testPacketDstPort          = "port-1"
+	)
+	abciLogs := sdk.ABCIMessageLogs{
+		{
+			MsgIndex: 0,
+			Events: sdk.StringEvents{
+				{
+					Type: "message",
+					Attributes: []sdk.Attribute{
+						{
+							Key:   "action",
+							Value: processor.MsgUpdateClient,
+						},
+					},
+				},
+				{
+					Type: clienttypes.EventTypeUpdateClient,
+					Attributes: []sdk.Attribute{
+						{
+							Key:   clienttypes.AttributeKeyClientID,
+							Value: testClientID1,
+						},
+						{
+							Key:   clienttypes.AttributeKeyConsensusHeight,
+							Value: testClientConsensusHeight,
+						},
+					},
+				},
+			},
+		},
+		{
+			MsgIndex: 1,
+			Events: sdk.StringEvents{
+				{
+					Type: "message",
+					Attributes: []sdk.Attribute{
+						{
+							Key:   "action",
+							Value: processor.MsgRecvPacket,
+						},
+					},
+				},
+				{
+					Type: chantypes.EventTypeRecvPacket,
+					Attributes: []sdk.Attribute{
+						{
+							Key:   chantypes.AttributeKeySequence,
+							Value: testPacketSequence,
+						},
+						{
+							Key:   chantypes.AttributeKeyDataHex,
+							Value: testPacketDataHex,
+						},
+						{
+							Key:   chantypes.AttributeKeyTimeoutHeight,
+							Value: testPacketTimeoutHeight,
+						},
+						{
+							Key:   chantypes.AttributeKeyTimeoutTimestamp,
+							Value: testPacketTimeoutTimestamp,
+						},
+						{
+							Key:   chantypes.AttributeKeySrcChannel,
+							Value: testPacketSrcChannel,
+						},
+						{
+							Key:   chantypes.AttributeKeySrcPort,
+							Value: testPacketSrcPort,
+						},
+						{
+							Key:   chantypes.AttributeKeyDstChannel,
+							Value: testPacketDstChannel,
+						},
+						{
+							Key:   chantypes.AttributeKeyDstPort,
+							Value: testPacketDstPort,
+						},
+					},
+				},
+				{
+					Type: chantypes.EventTypeWriteAck,
+					Attributes: []sdk.Attribute{
+						{
+							Key:   chantypes.AttributeKeyAckHex,
+							Value: testPacketAckHex,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	ibcMessages := parseABCILogs(zap.NewNop(), abciLogs)
+
+	require.Len(t, ibcMessages, 2)
+
+	msgUpdateClient := ibcMessages[0]
+	require.Equal(t, processor.MsgUpdateClient, msgUpdateClient.messageType)
+
+	clientInfoParsed, isClientInfo := msgUpdateClient.messageInfo.(clientInfo)
+	require.True(t, isClientInfo, "messageInfo is not clientInfo")
+
+	require.Empty(t, cmp.Diff(clientInfoParsed, clientInfo{
+		clientID: testClientID1,
+		consensusHeight: clienttypes.Height{
+			RevisionNumber: uint64(1),
+			RevisionHeight: uint64(1023),
+		},
+	}, cmp.AllowUnexported(clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
+
+	msgRecvPacket := ibcMessages[1]
+	require.Equal(t, processor.MsgRecvPacket, msgRecvPacket.messageType, "message is not MsgRecvPacket")
+
+	packetInfoParsed, isPacketInfo := msgRecvPacket.messageInfo.(packetInfo)
+	require.True(t, isPacketInfo, "messageInfo is not packetInfo")
+
+	packetAck, err := hex.DecodeString(testPacketAckHex)
+	require.NoError(t, err, "error decoding test packet ack")
+
+	packetData, err := hex.DecodeString(testPacketDataHex)
+	require.NoError(t, err, "error decoding test packet data")
+
+	require.Empty(t, cmp.Diff(packetInfoParsed, packetInfo{
+		packet: chantypes.Packet{
+			Sequence: uint64(1),
+			Data:     packetData,
+			TimeoutHeight: clienttypes.Height{
+				RevisionNumber: uint64(1),
+				RevisionHeight: uint64(1245),
+			},
+			TimeoutTimestamp:   uint64(1654033235600000000),
+			SourceChannel:      testPacketSrcChannel,
+			SourcePort:         testPacketSrcPort,
+			DestinationChannel: testPacketDstChannel,
+			DestinationPort:    testPacketDstPort,
+		},
+		ack: packetAck,
+	}, cmp.AllowUnexported(packetInfo{}, chantypes.Packet{})), "parsed packet info does not match expected")
+}

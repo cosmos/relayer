@@ -210,6 +210,13 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 
 	src.PathEnd.ClientID = clientID
 
+	src.log.Info(
+		"Client Created",
+		zap.String("src_chain_id", src.ChainID()),
+		zap.String("src_client_id", src.PathEnd.ClientID),
+		zap.String("dst_chain_id", dst.ChainID()),
+	)
+
 	return true, nil
 }
 
