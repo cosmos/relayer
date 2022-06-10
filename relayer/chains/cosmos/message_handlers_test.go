@@ -180,7 +180,7 @@ func TestHandleMsgAcknowledgement(t *testing.T) {
 		},
 	}
 
-	ccp.handleMsgAcknowlegement(MsgHandlerParams{messageInfo: packetInfo, foundMessages: foundMessages})
+	ccp.handleMsgAcknowledgement(MsgHandlerParams{messageInfo: packetInfo, foundMessages: foundMessages})
 
 	require.Len(t, foundMessages, 1)
 

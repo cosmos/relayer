@@ -172,7 +172,7 @@ func (c ChannelMessageCache) ShouldRetainSequence(p PathProcessors, k ChannelKey
 	for sequence := range c[k][m] {
 		if sequence == seq {
 			// already have this sequence number
-			// there can be multiple MsgRecvPacket, MsgAcknowlegement, MsgTimeout, and MsgTimeoutOnClose for the same packet
+			// there can be multiple MsgRecvPacket, MsgAcknowledgement, MsgTimeout, and MsgTimeoutOnClose for the same packet
 			// from different relayers.
 			return false
 		}

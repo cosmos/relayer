@@ -110,24 +110,24 @@ type channelPair struct {
 
 func (pp *PathProcessor) channelPairs() []channelPair {
 	channelsFromPathEnd1Perspective := make(map[ChannelKey]bool)
-	for channelKey, channelState := range pp.pathEnd1.channelStateCache {
-		if !channelState.Open {
+	for key, state := range pp.pathEnd1.channelStateCache {
+		if !state.Open {
 			continue
 		}
-		channelsFromPathEnd1Perspective[channelKey] = true
+		channelsFromPathEnd1Perspective[key] = true
 	}
-	for channelKey, channelState := range pp.pathEnd2.channelStateCache {
-		if !channelState.Open {
+	for key, state := range pp.pathEnd2.channelStateCache {
+		if !state.Open {
 			continue
 		}
-		channelsFromPathEnd1Perspective[channelKey.Counterparty()] = true
+		channelsFromPathEnd1Perspective[key.Counterparty()] = true
 	}
 	channelPairs := make([]channelPair, len(channelsFromPathEnd1Perspective))
 	i := 0
-	for channelKey := range channelsFromPathEnd1Perspective {
+	for key := range channelsFromPathEnd1Perspective {
 		channelPairs[i] = channelPair{
-			pathEnd1ChannelKey: channelKey,
-			pathEnd2ChannelKey: channelKey.Counterparty(),
+			pathEnd1ChannelKey: key,
+			pathEnd2ChannelKey: key.Counterparty(),
 		}
 		i++
 	}
@@ -296,16 +296,16 @@ func (pp *PathProcessor) processLatestMessages() error {
 
 	var wg sync.WaitGroup
 
-	for i, channelPair := range channelPairs {
+	for i, pair := range channelPairs {
 		pathEnd1PacketFlowMessages := PathEndPacketFlowMessages{
-			SrcMsgTransfer:        pp.pathEnd1.messageCache[channelPair.pathEnd1ChannelKey][MsgTransfer],
-			DstMsgRecvPacket:      pp.pathEnd2.messageCache[channelPair.pathEnd2ChannelKey][MsgRecvPacket],
-			SrcMsgAcknowledgement: pp.pathEnd1.messageCache[channelPair.pathEnd1ChannelKey][MsgAcknowledgement],
+			SrcMsgTransfer:        pp.pathEnd1.messageCache[pair.pathEnd1ChannelKey][MsgTransfer],
+			DstMsgRecvPacket:      pp.pathEnd2.messageCache[pair.pathEnd2ChannelKey][MsgRecvPacket],
+			SrcMsgAcknowledgement: pp.pathEnd1.messageCache[pair.pathEnd1ChannelKey][MsgAcknowledgement],
 		}
 		pathEnd2PacketFlowMessages := PathEndPacketFlowMessages{
-			SrcMsgTransfer:        pp.pathEnd2.messageCache[channelPair.pathEnd2ChannelKey][MsgTransfer],
-			DstMsgRecvPacket:      pp.pathEnd1.messageCache[channelPair.pathEnd1ChannelKey][MsgRecvPacket],
-			SrcMsgAcknowledgement: pp.pathEnd2.messageCache[channelPair.pathEnd2ChannelKey][MsgAcknowledgement],
+			SrcMsgTransfer:        pp.pathEnd2.messageCache[pair.pathEnd2ChannelKey][MsgTransfer],
+			DstMsgRecvPacket:      pp.pathEnd1.messageCache[pair.pathEnd1ChannelKey][MsgRecvPacket],
+			SrcMsgAcknowledgement: pp.pathEnd2.messageCache[pair.pathEnd2ChannelKey][MsgAcknowledgement],
 		}
 
 		pathEnd1ProcessRes[i] = new(PathEndProcessedResponse)

@@ -19,7 +19,7 @@ type MsgHandlerParams struct {
 var messageHandlers = map[string]func(MsgHandlerParams){
 	processor.MsgTransfer:        handleMsgTransfer,
 	processor.MsgRecvPacket:      handleMsgRecvPacket,
-	processor.MsgAcknowledgement: handleMsgAcknowlegement,
+	processor.MsgAcknowledgement: handleMsgAcknowledgement,
 
 	// TODO handlers for packet timeout, client, channel, and connection messages
 }
@@ -70,7 +70,7 @@ func handleMsgRecvPacket(p MsgHandlerParams) {
 	)
 }
 
-func handleMsgAcknowlegement(p MsgHandlerParams) {
+func handleMsgAcknowledgement(p MsgHandlerParams) {
 	channelKey := processor.ChannelKey{
 		ChannelID:             p.PacketInfo.SourceChannel,
 		PortID:                p.PacketInfo.SourcePort,

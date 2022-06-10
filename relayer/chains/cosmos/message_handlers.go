@@ -17,7 +17,7 @@ type MsgHandlerParams struct {
 var messageHandlers = map[string]func(*CosmosChainProcessor, MsgHandlerParams) bool{
 	processor.MsgTransfer:        (*CosmosChainProcessor).handleMsgTransfer,
 	processor.MsgRecvPacket:      (*CosmosChainProcessor).handleMsgRecvPacket,
-	processor.MsgAcknowledgement: (*CosmosChainProcessor).handleMsgAcknowlegement,
+	processor.MsgAcknowledgement: (*CosmosChainProcessor).handleMsgAcknowledgement,
 	processor.MsgTimeout:         (*CosmosChainProcessor).handleMsgTimeout,
 	processor.MsgTimeoutOnClose:  (*CosmosChainProcessor).handleMsgTimeoutOnClose,
 
@@ -26,11 +26,11 @@ var messageHandlers = map[string]func(*CosmosChainProcessor, MsgHandlerParams) b
 
 // BEGIN packet msg handlers
 func (ccp *CosmosChainProcessor) handleMsgTransfer(p MsgHandlerParams) bool {
-	packetInfo := p.messageInfo.(*packetInfo)
+	pi := p.messageInfo.(*packetInfo)
 	// source chain processor will call this handler
 	// source channel used as key because MsgTransfer is sent to source chain
-	channelKey := packetInfo.channelKey()
-	if !p.foundMessages.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), processor.MsgTransfer, packetInfo.packet.Sequence) {
+	channelKey := pi.channelKey()
+	if !p.foundMessages.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), processor.MsgTransfer, pi.packet.Sequence) {
 		return false
 	}
 	// Construct the start of the MsgRecvPacket for the counterparty chain.
@@ -39,31 +39,31 @@ func (ccp *CosmosChainProcessor) handleMsgTransfer(p MsgHandlerParams) bool {
 	// a MsgAcknowledgement, MsgTimeout, or MsgTimeout is not detected yet on this chain,
 	// and the packet timeout has not expired, a MsgRecvPacket will be sent to the counterparty chain
 	// using this information with the packet commitment proof from this chain added.
-	p.foundMessages.Retain(channelKey, processor.MsgTransfer, packetInfo.packet.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgRecvPacket{
+	p.foundMessages.Retain(channelKey, processor.MsgTransfer, pi.packet.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgRecvPacket{
 		Packet: chantypes.Packet{
-			Sequence:           packetInfo.packet.Sequence,
-			SourcePort:         packetInfo.packet.SourcePort,
-			SourceChannel:      packetInfo.packet.SourceChannel,
-			DestinationPort:    packetInfo.packet.DestinationPort,
-			DestinationChannel: packetInfo.packet.DestinationChannel,
-			Data:               packetInfo.packet.Data,
-			TimeoutHeight:      packetInfo.packet.TimeoutHeight,
-			TimeoutTimestamp:   packetInfo.packet.TimeoutTimestamp,
+			Sequence:           pi.packet.Sequence,
+			SourcePort:         pi.packet.SourcePort,
+			SourceChannel:      pi.packet.SourceChannel,
+			DestinationPort:    pi.packet.DestinationPort,
+			DestinationChannel: pi.packet.DestinationChannel,
+			Data:               pi.packet.Data,
+			TimeoutHeight:      pi.packet.TimeoutHeight,
+			TimeoutTimestamp:   pi.packet.TimeoutTimestamp,
 		},
 	}))
-	ccp.logPacketMessage("MsgTransfer", packetInfo,
-		zap.String("timeout_height", fmt.Sprintf("%d-%d", packetInfo.packet.TimeoutHeight.RevisionNumber, packetInfo.packet.TimeoutHeight.RevisionHeight)),
-		zap.Uint64("timeout_timestamp", packetInfo.packet.TimeoutTimestamp),
+	ccp.logPacketMessage("MsgTransfer", pi,
+		zap.String("timeout_height", fmt.Sprintf("%d-%d", pi.packet.TimeoutHeight.RevisionNumber, pi.packet.TimeoutHeight.RevisionHeight)),
+		zap.Uint64("timeout_timestamp", pi.packet.TimeoutTimestamp),
 	)
 	return true
 }
 
 func (ccp *CosmosChainProcessor) handleMsgRecvPacket(p MsgHandlerParams) bool {
-	packetInfo := p.messageInfo.(*packetInfo)
+	pi := p.messageInfo.(*packetInfo)
 	// destination chain processor will call this handler
 	// destination channel used because MsgRecvPacket is sent to destination chain
-	channelKey := packetInfo.channelKey().Counterparty()
-	if !p.foundMessages.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), processor.MsgRecvPacket, packetInfo.packet.Sequence) {
+	channelKey := pi.channelKey().Counterparty()
+	if !p.foundMessages.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), processor.MsgRecvPacket, pi.packet.Sequence) {
 		return false
 	}
 	// Construct the start of the MsgAcknowledgement for the counterparty chain.
@@ -71,81 +71,81 @@ func (ccp *CosmosChainProcessor) handleMsgRecvPacket(p MsgHandlerParams) bool {
 	// For example, if a MsgAcknowledgement is not detected yet on the counterparty chain,
 	// a MsgAcknowledgement will be sent to the counterparty chain
 	// using this information with the packet acknowledgement commitment proof from this chain added.
-	p.foundMessages.Retain(channelKey, processor.MsgRecvPacket, packetInfo.packet.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgAcknowledgement{
+	p.foundMessages.Retain(channelKey, processor.MsgRecvPacket, pi.packet.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgAcknowledgement{
 		Packet: chantypes.Packet{
-			Sequence:           packetInfo.packet.Sequence,
-			SourcePort:         packetInfo.packet.SourcePort,
-			SourceChannel:      packetInfo.packet.SourceChannel,
-			DestinationPort:    packetInfo.packet.DestinationPort,
-			DestinationChannel: packetInfo.packet.DestinationChannel,
-			Data:               packetInfo.packet.Data,
-			TimeoutHeight:      packetInfo.packet.TimeoutHeight,
-			TimeoutTimestamp:   packetInfo.packet.TimeoutTimestamp,
+			Sequence:           pi.packet.Sequence,
+			SourcePort:         pi.packet.SourcePort,
+			SourceChannel:      pi.packet.SourceChannel,
+			DestinationPort:    pi.packet.DestinationPort,
+			DestinationChannel: pi.packet.DestinationChannel,
+			Data:               pi.packet.Data,
+			TimeoutHeight:      pi.packet.TimeoutHeight,
+			TimeoutTimestamp:   pi.packet.TimeoutTimestamp,
 		},
-		Acknowledgement: packetInfo.ack,
+		Acknowledgement: pi.ack,
 	}))
-	ccp.logPacketMessage("MsgRecvPacket", packetInfo)
+	ccp.logPacketMessage("MsgRecvPacket", pi)
 	return true
 }
 
-func (ccp *CosmosChainProcessor) handleMsgAcknowlegement(p MsgHandlerParams) bool {
-	packetInfo := p.messageInfo.(*packetInfo)
+func (ccp *CosmosChainProcessor) handleMsgAcknowledgement(p MsgHandlerParams) bool {
+	pi := p.messageInfo.(*packetInfo)
 	// source chain processor will call this handler
-	// source channel used as key because MsgAcknowlegement is sent to source chain
-	channelKey := packetInfo.channelKey()
-	if !p.foundMessages.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), processor.MsgAcknowledgement, packetInfo.packet.Sequence) {
+	// source channel used as key because MsgAcknowledgement is sent to source chain
+	channelKey := pi.channelKey()
+	if !p.foundMessages.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), processor.MsgAcknowledgement, pi.packet.Sequence) {
 		return false
 	}
 	// Retaining a nil message here because this is for book-keeping in the PathProcessor cache only.
 	// A message does not need to be constructed for the counterparty chain after the MsgAcknowledgement is observed,
 	// but we want to tell the PathProcessor that the packet flow is complete for this sequence.
-	p.foundMessages.Retain(channelKey, processor.MsgAcknowledgement, packetInfo.packet.Sequence, nil)
-	ccp.logPacketMessage("MsgAcknowledgement", packetInfo)
+	p.foundMessages.Retain(channelKey, processor.MsgAcknowledgement, pi.packet.Sequence, nil)
+	ccp.logPacketMessage("MsgAcknowledgement", pi)
 	return true
 }
 
 func (ccp *CosmosChainProcessor) handleMsgTimeout(p MsgHandlerParams) bool {
-	packetInfo := p.messageInfo.(*packetInfo)
+	pi := p.messageInfo.(*packetInfo)
 	// source chain processor will call this handler
 	// source channel used as key because MsgTimeout is sent to source chain
-	channelKey := packetInfo.channelKey()
-	if !p.foundMessages.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), processor.MsgTimeout, packetInfo.packet.Sequence) {
+	channelKey := pi.channelKey()
+	if !p.foundMessages.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), processor.MsgTimeout, pi.packet.Sequence) {
 		return false
 	}
 	// Retaining a nil message here because this is for book-keeping in the PathProcessor cache only.
 	// A message does not need to be constructed for the counterparty chain after the MsgTimeout is observed,
 	// but we want to tell the PathProcessor that the packet flow is complete for this sequence.
-	p.foundMessages.Retain(channelKey, processor.MsgTimeout, packetInfo.packet.Sequence, nil)
-	ccp.logPacketMessage("MsgTimeout", packetInfo)
+	p.foundMessages.Retain(channelKey, processor.MsgTimeout, pi.packet.Sequence, nil)
+	ccp.logPacketMessage("MsgTimeout", pi)
 	return true
 }
 
 func (ccp *CosmosChainProcessor) handleMsgTimeoutOnClose(p MsgHandlerParams) bool {
-	packetInfo := p.messageInfo.(*packetInfo)
+	pi := p.messageInfo.(*packetInfo)
 	// source channel used because timeout is sent to source chain
-	channelKey := packetInfo.channelKey()
-	if !p.foundMessages.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), processor.MsgTimeoutOnClose, packetInfo.packet.Sequence) {
+	channelKey := pi.channelKey()
+	if !p.foundMessages.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), processor.MsgTimeoutOnClose, pi.packet.Sequence) {
 		return false
 	}
 	// Retaining a nil message here because this is for book-keeping in the PathProcessor cache only.
 	// A message does not need to be constructed for the counterparty chain after the MsgTimeoutOnClose is observed,
 	// but we want to tell the PathProcessor that the packet flow is complete for this sequence.
-	p.foundMessages.Retain(channelKey, processor.MsgTimeoutOnClose, packetInfo.packet.Sequence, nil)
-	ccp.logPacketMessage("MsgTimeoutOnClose", packetInfo)
+	p.foundMessages.Retain(channelKey, processor.MsgTimeoutOnClose, pi.packet.Sequence, nil)
+	ccp.logPacketMessage("MsgTimeoutOnClose", pi)
 	return true
 }
 
-func (ccp *CosmosChainProcessor) logPacketMessage(message string, packetInfo *packetInfo, additionalFields ...zap.Field) {
+func (ccp *CosmosChainProcessor) logPacketMessage(message string, pi *packetInfo, additionalFields ...zap.Field) {
 	fields := []zap.Field{
 		zap.String("message", message),
-		zap.Uint64("sequence", packetInfo.packet.Sequence),
-		zap.String("src_channel", packetInfo.packet.SourceChannel),
-		zap.String("src_port", packetInfo.packet.SourcePort),
-		zap.String("dst_channel", packetInfo.packet.DestinationChannel),
-		zap.String("dst_port", packetInfo.packet.DestinationPort),
+		zap.Uint64("sequence", pi.packet.Sequence),
+		zap.String("src_channel", pi.packet.SourceChannel),
+		zap.String("src_port", pi.packet.SourcePort),
+		zap.String("dst_channel", pi.packet.DestinationChannel),
+		zap.String("dst_port", pi.packet.DestinationPort),
 	}
 	fields = append(fields, additionalFields...)
-	ccp.log.Debug("observed ibc message", fields...)
+	ccp.log.Debug("Observed IBC message", fields...)
 }
 
 // END packet msg handlers
