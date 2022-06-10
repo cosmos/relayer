@@ -180,3 +180,15 @@ func (c ChannelMessageCache) ShouldRetainSequence(p PathProcessors, k ChannelKey
 
 	return true
 }
+
+// Retain assumes the packet is applicable to the channels for a path processor that is subscribed to this chain processor.
+// It creates cache path if it doesn't exist, then caches message.
+func (c ChannelMessageCache) Retain(k ChannelKey, m string, seq uint64, ibcMsg provider.RelayerMessage) {
+	if _, ok := c[k]; !ok {
+		c[k] = make(MessageCache)
+	}
+	if _, ok := c[k][m]; !ok {
+		c[k][m] = make(SequenceCache)
+	}
+	c[k][m][seq] = ibcMsg
+}

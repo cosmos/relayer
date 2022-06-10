@@ -5,7 +5,6 @@ import (
 
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"go.uber.org/zap"
 )
@@ -25,18 +24,6 @@ var messageHandlers = map[string]func(*CosmosChainProcessor, MsgHandlerParams) b
 	// TODO client, connection, channel messages
 }
 
-// retainPacketMessage assumes the packet is applicable to the channels for a path processor that is subscribed to this chain processor.
-// It creates cache path if it doesn't exist, then caches message.
-func retainPacketMessage(message string, packetInfo *packetInfo, foundMessages processor.ChannelMessageCache, channelKey processor.ChannelKey, ibcMsg provider.RelayerMessage) {
-	if _, ok := foundMessages[channelKey]; !ok {
-		foundMessages[channelKey] = make(processor.MessageCache)
-	}
-	if _, ok := foundMessages[channelKey][message]; !ok {
-		foundMessages[channelKey][message] = make(processor.SequenceCache)
-	}
-	foundMessages[channelKey][message][packetInfo.packet.Sequence] = ibcMsg
-}
-
 // BEGIN packet msg handlers
 func (ccp *CosmosChainProcessor) handleMsgTransfer(p MsgHandlerParams) bool {
 	packetInfo := p.messageInfo.(*packetInfo)
@@ -52,7 +39,7 @@ func (ccp *CosmosChainProcessor) handleMsgTransfer(p MsgHandlerParams) bool {
 	// a MsgAcknowledgement, MsgTimeout, or MsgTimeout is not detected yet on this chain,
 	// and the packet timeout has not expired, a MsgRecvPacket will be sent to the counterparty chain
 	// using this information with the packet commitment proof from this chain added.
-	retainPacketMessage(processor.MsgTransfer, packetInfo, p.foundMessages, channelKey, cosmos.NewCosmosMessage(&chantypes.MsgRecvPacket{
+	p.foundMessages.Retain(channelKey, processor.MsgTransfer, packetInfo.packet.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgRecvPacket{
 		Packet: chantypes.Packet{
 			Sequence:           packetInfo.packet.Sequence,
 			SourcePort:         packetInfo.packet.SourcePort,
@@ -84,7 +71,7 @@ func (ccp *CosmosChainProcessor) handleMsgRecvPacket(p MsgHandlerParams) bool {
 	// For example, if a MsgAcknowledgement is not detected yet on the counterparty chain,
 	// a MsgAcknowledgement will be sent to the counterparty chain
 	// using this information with the packet acknowledgement commitment proof from this chain added.
-	retainPacketMessage(processor.MsgRecvPacket, packetInfo, p.foundMessages, channelKey, cosmos.NewCosmosMessage(&chantypes.MsgAcknowledgement{
+	p.foundMessages.Retain(channelKey, processor.MsgRecvPacket, packetInfo.packet.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgAcknowledgement{
 		Packet: chantypes.Packet{
 			Sequence:           packetInfo.packet.Sequence,
 			SourcePort:         packetInfo.packet.SourcePort,
@@ -112,7 +99,7 @@ func (ccp *CosmosChainProcessor) handleMsgAcknowlegement(p MsgHandlerParams) boo
 	// Retaining a nil message here because this is for book-keeping in the PathProcessor cache only.
 	// A message does not need to be constructed for the counterparty chain after the MsgAcknowledgement is observed,
 	// but we want to tell the PathProcessor that the packet flow is complete for this sequence.
-	retainPacketMessage(processor.MsgAcknowledgement, packetInfo, p.foundMessages, channelKey, nil)
+	p.foundMessages.Retain(channelKey, processor.MsgAcknowledgement, packetInfo.packet.Sequence, nil)
 	ccp.logPacketMessage("MsgAcknowledgement", packetInfo)
 	return true
 }
@@ -128,7 +115,7 @@ func (ccp *CosmosChainProcessor) handleMsgTimeout(p MsgHandlerParams) bool {
 	// Retaining a nil message here because this is for book-keeping in the PathProcessor cache only.
 	// A message does not need to be constructed for the counterparty chain after the MsgTimeout is observed,
 	// but we want to tell the PathProcessor that the packet flow is complete for this sequence.
-	retainPacketMessage(processor.MsgTimeout, packetInfo, p.foundMessages, channelKey, nil)
+	p.foundMessages.Retain(channelKey, processor.MsgTimeout, packetInfo.packet.Sequence, nil)
 	ccp.logPacketMessage("MsgTimeout", packetInfo)
 	return true
 }
@@ -143,7 +130,7 @@ func (ccp *CosmosChainProcessor) handleMsgTimeoutOnClose(p MsgHandlerParams) boo
 	// Retaining a nil message here because this is for book-keeping in the PathProcessor cache only.
 	// A message does not need to be constructed for the counterparty chain after the MsgTimeoutOnClose is observed,
 	// but we want to tell the PathProcessor that the packet flow is complete for this sequence.
-	retainPacketMessage(processor.MsgTimeoutOnClose, packetInfo, p.foundMessages, channelKey, nil)
+	p.foundMessages.Retain(channelKey, processor.MsgTimeoutOnClose, packetInfo.packet.Sequence, nil)
 	ccp.logPacketMessage("MsgTimeoutOnClose", packetInfo)
 	return true
 }
