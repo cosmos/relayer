@@ -109,22 +109,23 @@ type channelPair struct {
 }
 
 func (pp *PathProcessor) channelPairs() []channelPair {
-	channelsFromPathEnd1Perspective := make(map[ChannelKey]bool)
+	// Channel keys are from pathEnd1's perspective
+	channels := make(map[ChannelKey]bool)
 	for key, state := range pp.pathEnd1.channelStateCache {
 		if !state.Open {
 			continue
 		}
-		channelsFromPathEnd1Perspective[key] = true
+		channels[key] = true
 	}
 	for key, state := range pp.pathEnd2.channelStateCache {
 		if !state.Open {
 			continue
 		}
-		channelsFromPathEnd1Perspective[key.Counterparty()] = true
+		channels[key.Counterparty()] = true
 	}
-	channelPairs := make([]channelPair, len(channelsFromPathEnd1Perspective))
+	channelPairs := make([]channelPair, len(channels))
 	i := 0
-	for key := range channelsFromPathEnd1Perspective {
+	for key := range channels {
 		channelPairs[i] = channelPair{
 			pathEnd1ChannelKey: key,
 			pathEnd2ChannelKey: key.Counterparty(),
