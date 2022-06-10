@@ -154,7 +154,7 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 	// Will not reuse same client if override is true
 	if !override {
 		// Check if an identical light client already exists
-		clientID, found = src.ChainProvider.FindMatchingClient(ctx, dst.ChainProvider, clientState)
+		clientID, found, err = FindMatchingClient(ctx, src, dst, clientState)
 	}
 
 	if found && !override {
@@ -376,4 +376,47 @@ func MustGetHeight(h ibcexported.Height) clienttypes.Height {
 		panic("height is not an instance of height!")
 	}
 	return height
+}
+
+// FindMatchingClient is a helper function that will determine if there exists a client with identical client and
+// consensus states to the client which would have been created. Source is the chain that would be adding a client
+// which would track the counterparty. Therefore, we query source for the existing clients
+// and check if any match the counterparty. The counterparty must have a matching consensus state
+// to the latest consensus state of a potential match. The provided client state is the client
+// state that will be created if there exist no matches.
+func FindMatchingClient(ctx context.Context, src, dst *Chain, newClientState ibcexported.ClientState) (string, bool, error) {
+	var (
+		clientsResp clienttypes.IdentifiedClientStates
+		err         error
+	)
+
+	if err = retry.Do(func() error {
+		clientsResp, err = src.ChainProvider.QueryClients(ctx)
+		if err != nil {
+			return err
+		}
+		return nil
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		src.log.Info(
+			"Failed to query clients",
+			zap.String("chain_id", src.ChainID()),
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", RtyAttNum),
+			zap.Error(err),
+		)
+	})); err != nil {
+		return "", false, err
+	}
+
+	for _, existingClientState := range clientsResp {
+		clientID, found, err := provider.ClientsMatch(ctx, src.ChainProvider, dst.ChainProvider, existingClientState, newClientState)
+		if err != nil {
+			return "", false, err
+		}
+		if found {
+			return clientID, true, nil
+		}
+	}
+
+	return "", false, nil
 }
