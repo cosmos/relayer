@@ -151,18 +151,18 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 	}
 
 	var clientID string
-	var found bool
+
 	// Will not reuse same client if override is true
 	if !override {
 		// Check if an identical light client already exists on the src chain which matches the
 		// proposed new client state from dst.
-		clientID, found, err = FindMatchingClient(ctx, src, dst, clientState)
+		clientID, err = findMatchingClient(ctx, src, dst, clientState)
 		if err != nil {
 			return false, fmt.Errorf("failed to find a matching client for the new client state: %w", err)
 		}
 	}
 
-	if found && !override {
+	if clientID != "" && !override {
 		src.log.Debug(
 			"Client already exists",
 			zap.String("client_id", clientID),
@@ -393,13 +393,13 @@ func MustGetHeight(h ibcexported.Height) clienttypes.Height {
 	return height
 }
 
-// FindMatchingClient is a helper function that will determine if there exists a client with identical client and
+// findMatchingClient is a helper function that will determine if there exists a client with identical client and
 // consensus states to the client which would have been created. Source is the chain that would be adding a client
 // which would track the counterparty. Therefore, we query source for the existing clients
 // and check if any match the counterparty. The counterparty must have a matching consensus state
 // to the latest consensus state of a potential match. The provided client state is the client
 // state that will be created if there exist no matches.
-func FindMatchingClient(ctx context.Context, src, dst *Chain, newClientState ibcexported.ClientState) (string, bool, error) {
+func findMatchingClient(ctx context.Context, src, dst *Chain, newClientState ibcexported.ClientState) (string, error) {
 	var (
 		clientsResp clienttypes.IdentifiedClientStates
 		err         error
@@ -420,18 +420,23 @@ func FindMatchingClient(ctx context.Context, src, dst *Chain, newClientState ibc
 			zap.Error(err),
 		)
 	})); err != nil {
-		return "", false, err
+		return "", err
 	}
 
 	for _, existingClientState := range clientsResp {
-		clientID, found, err := provider.ClientsMatch(ctx, src.ChainProvider, dst.ChainProvider, existingClientState, newClientState)
+		clientID, err := provider.ClientsMatch(ctx, src.ChainProvider, dst.ChainProvider, existingClientState, newClientState)
+
+		// If there is an error parsing/type asserting the client state in ClientsMatch this is going
+		// to make the entire find matching client logic fail.
+		// We should really never be encountering an error here and if we do it is probably a sign of a
+		// larger scale problem at hand.
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
-		if found {
-			return clientID, true, nil
+		if clientID != "" {
+			return clientID, nil
 		}
 	}
 
-	return "", false, nil
+	return "", nil
 }
