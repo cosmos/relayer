@@ -25,29 +25,6 @@ var messageHandlers = map[string]func(*CosmosChainProcessor, MsgHandlerParams) b
 	// TODO client, connection, channel messages
 }
 
-// isPacketApplicable returns true if packet is applicable to the channels for path processors that are subscribed to this chain processor
-func (ccp *CosmosChainProcessor) isPacketApplicable(message string, packetInfo *packetInfo, foundMessages processor.ChannelMessageCache, channelKey processor.ChannelKey) bool {
-	if !ccp.isRelayedChannel(channelKey) {
-		return false
-	}
-	if _, ok := foundMessages[channelKey]; !ok {
-		return true
-	}
-	if _, ok := foundMessages[channelKey][message]; !ok {
-		return true
-	}
-	for sequence := range foundMessages[channelKey][message] {
-		if sequence == packetInfo.packet.Sequence {
-			// already have this sequence number
-			// there can be multiple MsgRecvPacket, MsgAcknowlegement, MsgTimeout, and MsgTimeoutOnClose for the same packet
-			// from different relayers.
-			return false
-		}
-	}
-
-	return true
-}
-
 // retainPacketMessage assumes the packet is applicable to the channels for a path processor that is subscribed to this chain processor.
 // It creates cache path if it doesn't exist, then caches message.
 func retainPacketMessage(message string, packetInfo *packetInfo, foundMessages processor.ChannelMessageCache, channelKey processor.ChannelKey, ibcMsg provider.RelayerMessage) {
@@ -66,7 +43,7 @@ func (ccp *CosmosChainProcessor) handleMsgTransfer(p MsgHandlerParams) bool {
 	// source chain processor will call this handler
 	// source channel used as key because MsgTransfer is sent to source chain
 	channelKey := packetInfo.channelKey()
-	if !ccp.isPacketApplicable(processor.MsgTransfer, packetInfo, p.foundMessages, channelKey) {
+	if !p.foundMessages.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), processor.MsgTransfer, packetInfo.packet.Sequence) {
 		return false
 	}
 	// Construct the start of the MsgRecvPacket for the counterparty chain.
@@ -99,7 +76,7 @@ func (ccp *CosmosChainProcessor) handleMsgRecvPacket(p MsgHandlerParams) bool {
 	// destination chain processor will call this handler
 	// destination channel used because MsgRecvPacket is sent to destination chain
 	channelKey := packetInfo.channelKey().Counterparty()
-	if !ccp.isPacketApplicable(processor.MsgRecvPacket, packetInfo, p.foundMessages, channelKey) {
+	if !p.foundMessages.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), processor.MsgRecvPacket, packetInfo.packet.Sequence) {
 		return false
 	}
 	// Construct the start of the MsgAcknowledgement for the counterparty chain.
@@ -129,7 +106,7 @@ func (ccp *CosmosChainProcessor) handleMsgAcknowlegement(p MsgHandlerParams) boo
 	// source chain processor will call this handler
 	// source channel used as key because MsgAcknowlegement is sent to source chain
 	channelKey := packetInfo.channelKey()
-	if !ccp.isPacketApplicable(processor.MsgAcknowledgement, packetInfo, p.foundMessages, channelKey) {
+	if !p.foundMessages.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), processor.MsgAcknowledgement, packetInfo.packet.Sequence) {
 		return false
 	}
 	// Retaining a nil message here because this is for book-keeping in the PathProcessor cache only.
@@ -145,7 +122,7 @@ func (ccp *CosmosChainProcessor) handleMsgTimeout(p MsgHandlerParams) bool {
 	// source chain processor will call this handler
 	// source channel used as key because MsgTimeout is sent to source chain
 	channelKey := packetInfo.channelKey()
-	if !ccp.isPacketApplicable(processor.MsgTimeout, packetInfo, p.foundMessages, channelKey) {
+	if !p.foundMessages.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), processor.MsgTimeout, packetInfo.packet.Sequence) {
 		return false
 	}
 	// Retaining a nil message here because this is for book-keeping in the PathProcessor cache only.
@@ -160,7 +137,7 @@ func (ccp *CosmosChainProcessor) handleMsgTimeoutOnClose(p MsgHandlerParams) boo
 	packetInfo := p.messageInfo.(*packetInfo)
 	// source channel used because timeout is sent to source chain
 	channelKey := packetInfo.channelKey()
-	if !ccp.isPacketApplicable(processor.MsgTimeoutOnClose, packetInfo, p.foundMessages, channelKey) {
+	if !p.foundMessages.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), processor.MsgTimeoutOnClose, packetInfo.packet.Sequence) {
 		return false
 	}
 	// Retaining a nil message here because this is for book-keeping in the PathProcessor cache only.

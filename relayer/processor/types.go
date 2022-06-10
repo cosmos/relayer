@@ -157,3 +157,26 @@ func (c ChannelMessageCache) Merge(other ChannelMessageCache) {
 		}
 	}
 }
+
+// ShouldRetainSequence returns true if packet is applicable to the channels for path processors that are subscribed to this chain processor
+func (c ChannelMessageCache) ShouldRetainSequence(p PathProcessors, k ChannelKey, chainID string, m string, seq uint64) bool {
+	if !p.IsRelayedChannel(k, chainID) {
+		return false
+	}
+	if _, ok := c[k]; !ok {
+		return true
+	}
+	if _, ok := c[k][m]; !ok {
+		return true
+	}
+	for sequence := range c[k][m] {
+		if sequence == seq {
+			// already have this sequence number
+			// there can be multiple MsgRecvPacket, MsgAcknowlegement, MsgTimeout, and MsgTimeoutOnClose for the same packet
+			// from different relayers.
+			return false
+		}
+	}
+
+	return true
+}

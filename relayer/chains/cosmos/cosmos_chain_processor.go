@@ -66,15 +66,6 @@ func (ccp *CosmosChainProcessor) SetPathProcessors(pathProcessors processor.Path
 	ccp.pathProcessors = pathProcessors
 }
 
-func (ccp *CosmosChainProcessor) isRelayedChannel(channelKey processor.ChannelKey) bool {
-	for _, pathProcessor := range ccp.pathProcessors {
-		if pathProcessor.IsRelayedChannel(ccp.chainProvider.ChainId(), channelKey) {
-			return true
-		}
-	}
-	return false
-}
-
 // latestHeightWithRetry will query for the latest height, retrying in case of failure.
 // It will delay by latestHeightQueryRetryDelay between attempts, up to latestHeightQueryRetries.
 func (ccp *CosmosChainProcessor) latestHeightWithRetry(ctx context.Context) (latestHeight int64, err error) {

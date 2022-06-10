@@ -32,6 +32,15 @@ type PathProcessor struct {
 // PathProcessors is a slice of PathProcessor instances
 type PathProcessors []*PathProcessor
 
+func (p PathProcessors) IsRelayedChannel(k ChannelKey, chainID string) bool {
+	for _, pp := range p {
+		if pp.IsRelayedChannel(chainID, k) {
+			return true
+		}
+	}
+	return false
+}
+
 // PathEndRuntime is used at runtime for each chain involved in the path.
 // It holds a channel for incoming messages from the ChainProcessors, which will
 // be processed during Run(ctx).
