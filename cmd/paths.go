@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"path/filepath"
+	"path"
 	"sort"
 	"strings"
 
@@ -276,7 +276,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 
 				// TODO: Don't use github api. Potentially use: https://github.com/eco-stake/cosmos-directory once they integrate IBC data into restAPI. This will avoid rate limits.
 				fileName := pthName + ".json"
-				regPath := filepath.Join("_IBC", fileName)
+				regPath := path.Join("_IBC", fileName)
 				reader, _, err := client.Repositories.DownloadContents(cmd.Context(), "cosmos", "chain-registry", regPath, nil)
 				if err != nil {
 					if _, ok := err.(*github.RateLimitError); ok {
