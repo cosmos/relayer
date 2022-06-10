@@ -269,7 +269,8 @@ $ %s pth fch`, appName, defaultHome, appName)),
 
 				_, exist := a.Config.Paths[pthName]
 				if exist && !overwrite {
-					fmt.Printf("skipping:  %s already exists in config, use -o to overwrite (clears filters) \n", pthName)
+					// fmt.Printf("skipping:  %s already exists in config, use -o to overwrite (clears filters) \n", pthName)
+					fmt.Fprintf(cmd.ErrOrStderr(), "skipping:  %s already exists in config, use -o to overwrite (clears filters)\n", pthName)
 					continue
 				}
 
@@ -281,7 +282,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					if _, ok := err.(*github.RateLimitError); ok {
 						return fmt.Errorf("hit github rate limit ERR: %w", err)
 					}
-					fmt.Printf("not found:  path %s not found in repo 'cosmos/chain-registry', folder '_IBC'\n", pthName)
+					fmt.Fprintf(cmd.ErrOrStderr(), "not found:  path %s not found in repo 'cosmos/chain-registry', folder '_IBC'\n", pthName)
 					continue
 				}
 
@@ -317,7 +318,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 				if err = a.Config.AddPath(pthName, newPath); err != nil {
 					return fmt.Errorf("failed to add path %s: %w", pthName, err)
 				}
-				fmt.Printf("added:  %s\n", pthName)
+				fmt.Fprintf(cmd.ErrOrStderr(), "added:  %s\n", pthName)
 
 			}
 
