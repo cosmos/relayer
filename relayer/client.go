@@ -143,7 +143,8 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 		return false, err
 	}
 
-	// Create the ClientState we want on 'src' tracking 'dst'
+	// We want to create a light client on the src chain which tracks the state of the dst chain.
+	// So we build a new client state from dst and attempt to use this for creating the light client on src.
 	clientState, err := dst.ChainProvider.NewClientState(dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
 	if err != nil {
 		return false, fmt.Errorf("failed to create new client state for chain{%s}: %w", dst.ChainID(), err)
@@ -153,7 +154,8 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 	var found bool
 	// Will not reuse same client if override is true
 	if !override {
-		// Check if an identical light client already exists
+		// Check if an identical light client already exists on the src chain which matches the
+		// proposed new client state from dst.
 		clientID, found = src.ChainProvider.FindMatchingClient(ctx, dst.ChainProvider, clientState)
 	}
 
