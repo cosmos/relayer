@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -264,7 +263,6 @@ $ %s pth fch`, appName, defaultHome, appName)),
 			combinations := permutations(chains)
 
 			client := github.NewClient(nil)
-			gh_ctx := context.Background()
 
 			overwrite, _ := cmd.Flags().GetBool(flagOverwriteConfig)
 
@@ -276,10 +274,10 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					continue
 				}
 
-				// TDOD: Don't use github api. Potentially use: https://github.com/eco-stake/cosmos-directory once they integrate IBC data into restAPI. This will avoid rate limits.
+				// TODO: Don't use github api. Potentially use: https://github.com/eco-stake/cosmos-directory once they integrate IBC data into restAPI. This will avoid rate limits.
 				fileName := pthName + ".json"
-				reg_path := filepath.Join("_IBC", fileName)
-				r, err := client.Repositories.DownloadContents(gh_ctx, "cosmos", "chain-registry", reg_path, nil)
+				regPath := filepath.Join("_IBC", fileName)
+				reader, _, err := client.Repositories.DownloadContents(cmd.Context(), "cosmos", "chain-registry", regPath, nil)
 				if err != nil {
 					if _, ok := err.(*github.RateLimitError); ok {
 						return fmt.Errorf("hit github rate limit ERR: %w", err)
@@ -288,7 +286,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					continue
 				}
 
-				bytes, err := ioutil.ReadAll(r)
+				bytes, err := ioutil.ReadAll(reader)
 				if err != nil {
 					fmt.Printf("error reading response body: %v", err)
 				}
@@ -298,16 +296,16 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					fmt.Println("failed to unmarshal ", err)
 				}
 
-				src_chainName := ibc.Chain1.ChainName
-				dst_chainName := ibc.Chain2.ChainName
+				srcChainName := ibc.Chain1.ChainName
+				dstChainName := ibc.Chain2.ChainName
 
 				srcPathEnd := &relayer.PathEnd{
-					ChainID:      a.Config.Chains[src_chainName].ChainID(),
+					ChainID:      a.Config.Chains[srcChainName].ChainID(),
 					ClientID:     ibc.Chain1.ClientID,
 					ConnectionID: ibc.Chain1.ConnectionID,
 				}
 				dstPathEnd := &relayer.PathEnd{
-					ChainID:      a.Config.Chains[dst_chainName].ChainID(),
+					ChainID:      a.Config.Chains[dstChainName].ChainID(),
 					ClientID:     ibc.Chain2.ClientID,
 					ConnectionID: ibc.Chain2.ConnectionID,
 				}
@@ -315,7 +313,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					Src: srcPathEnd,
 					Dst: dstPathEnd,
 				}
-				r.Close()
+				reader.Close()
 
 				if err = a.Config.AddPath(pthName, newPath); err != nil {
 					return fmt.Errorf("failed to add path %s: %w", pthName, err)
