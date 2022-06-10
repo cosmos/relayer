@@ -3,7 +3,6 @@ package cosmos
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -1481,27 +1480,6 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 	// inject TrustedValidators into header
 	h.TrustedValidators = trustedHeader.ValidatorSet
 	return h, nil
-}
-
-// isMatchingClient determines if the two provided clients match in all fields
-// except latest height. They are assumed to be IBC tendermint light clients.
-// NOTE: we don't pass in a pointer so upstream references don't have a modified
-// latest height set to zero.
-func isMatchingClient(clientStateA, clientStateB tmclient.ClientState) bool {
-	// zero out latest client height since this is determined and incremented
-	// by on-chain updates. Changing the latest height does not fundamentally
-	// change the client. The associated consensus state at the latest height
-	// determines this last check
-	clientStateA.LatestHeight = clienttypes.ZeroHeight()
-	clientStateB.LatestHeight = clienttypes.ZeroHeight()
-
-	return reflect.DeepEqual(clientStateA, clientStateB)
-}
-
-// isMatchingConsensusState determines if the two provided consensus states are
-// identical. They are assumed to be IBC tendermint light clients.
-func isMatchingConsensusState(consensusStateA, consensusStateB *tmclient.ConsensusState) bool {
-	return reflect.DeepEqual(*consensusStateA, *consensusStateB)
 }
 
 // queryTMClientState retrieves the latest consensus state for a client in state at a given height
