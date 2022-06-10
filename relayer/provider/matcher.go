@@ -11,7 +11,9 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
 )
 
-// ClientsMatch
+// ClientsMatch will check the type of an existing light client on the src chain, tracking the dst chain, and run
+// an appropriate matcher function to determine if the existing client's state matches a proposed new client
+// state constructed from the dst chain.
 func ClientsMatch(ctx context.Context, src, dst ChainProvider, existingClient clienttypes.IdentifiedClientState, newClient ibcexported.ClientState) (string, bool, error) {
 	existingClientState, err := clienttypes.UnpackClientState(existingClient.ClientState)
 	if err != nil {
@@ -31,7 +33,8 @@ func ClientsMatch(ctx context.Context, src, dst ChainProvider, existingClient cl
 	return "", false, nil
 }
 
-// TendermintMatcher
+// TendermintMatcher determines if there is an existing light client on the src chain, tracking the dst chain,
+// with a state which matches a proposed new client state constructed from the dst chain.
 func TendermintMatcher(ctx context.Context, src, dst ChainProvider, existingClientID string, existingClient, newClient ibcexported.ClientState) (string, bool, error) {
 	newClientState, ok := newClient.(*tmclient.ClientState)
 	if !ok {
@@ -43,17 +46,16 @@ func TendermintMatcher(ctx context.Context, src, dst ChainProvider, existingClie
 		return "", false, fmt.Errorf("failed type assertion got type(%s) expected type(*tmclient.ClientState)", reflect.TypeOf(existingClient))
 	}
 
-	// check if the client states match
+	// Check if the client states match.
 	// NOTE: FrozenHeight.IsZero() is a sanity check, the client to be created should always
-	// have a zero frozen height and therefore should never match with a frozen client
+	// have a zero frozen height and therefore should never match with a frozen client.
 	if isMatchingTendermintClient(*newClientState, *existingClientState) && existingClientState.FrozenHeight.IsZero() {
-
-		// query the latest consensus state of the potential matching client
 		srch, err := src.QueryLatestHeight(ctx)
 		if err != nil {
 			return "", false, err
 		}
 
+		// Query the src chain for the latest consensus state of the potential matching client.
 		consensusStateResp, err := src.QueryClientConsensusState(ctx, srch, existingClientID, existingClientState.GetLatestHeight())
 		if err != nil {
 			return "", false, err
@@ -69,10 +71,13 @@ func TendermintMatcher(ctx context.Context, src, dst ChainProvider, existingClie
 			return "", false, fmt.Errorf("failed type assertion got type(%s) expected type(*tmclient.ConsensusState)", reflect.TypeOf(exportedConsState))
 		}
 
+		// If the existing client state has not been updated within the trusting period,
+		// we do not want to use the existing client since it's in an expired state.
 		if existingClientState.IsExpired(existingConsensusState.Timestamp, time.Now()) {
 			return "", false, tmclient.ErrTrustingPeriodExpired
 		}
 
+		// Construct a header for the consensus state of the counterparty chain.
 		header, err := dst.GetLightSignedHeaderAtHeight(ctx, int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
 		if err != nil {
 			return "", false, err
@@ -83,9 +88,10 @@ func TendermintMatcher(ctx context.Context, src, dst ChainProvider, existingClie
 			return "", false, fmt.Errorf("failed type assertion got type(%s) expected type(*tmclient.Header)", reflect.TypeOf(header))
 		}
 
+		// Determine if the existing consensus state on src for the potential matching client is identical
+		// to the consensus state of the counterparty chain.
 		if isMatchingTendermintConsensusState(existingConsensusState, tmHeader.ConsensusState()) {
-			// found matching client
-			return existingClientID, true, nil
+			return existingClientID, true, nil // found matching client
 		}
 	}
 
