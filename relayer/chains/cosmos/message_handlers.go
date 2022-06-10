@@ -1,8 +1,6 @@
 package cosmos
 
 import (
-	"fmt"
-
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
@@ -52,7 +50,8 @@ func (ccp *CosmosChainProcessor) handleMsgTransfer(p MsgHandlerParams) bool {
 		},
 	}))
 	ccp.logPacketMessage("MsgTransfer", pi,
-		zap.String("timeout_height", fmt.Sprintf("%d-%d", pi.packet.TimeoutHeight.RevisionNumber, pi.packet.TimeoutHeight.RevisionHeight)),
+		zap.Uint64("timeout_height", pi.packet.TimeoutHeight.RevisionHeight),
+		zap.Uint64("timeout_height_revision", pi.packet.TimeoutHeight.RevisionNumber),
 		zap.Uint64("timeout_timestamp", pi.packet.TimeoutTimestamp),
 	)
 	return true
