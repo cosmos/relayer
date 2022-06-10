@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"path"
 	"sort"
 	"strings"
@@ -286,13 +285,13 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					continue
 				}
 
-				bytes, err := ioutil.ReadAll(reader)
+				b, err := io.ReadAll(reader)
 				if err != nil {
 					fmt.Printf("error reading response body: %v", err)
 				}
 
 				ibc := &relayer.IBC_data{}
-				if err = json.Unmarshal(bytes, &ibc); err != nil {
+				if err = json.Unmarshal(b, &ibc); err != nil {
 					fmt.Println("failed to unmarshal ", err)
 				}
 
