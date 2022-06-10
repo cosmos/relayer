@@ -70,7 +70,7 @@ func TendermintMatcher(ctx context.Context, src, dst ChainProvider, existingClie
 		}
 
 		if existingClientState.IsExpired(existingConsensusState.Timestamp, time.Now()) {
-			return "", false, clienttypes.ErrClientFrozen
+			return "", false, tmclient.ErrTrustingPeriodExpired
 		}
 
 		header, err := dst.GetLightSignedHeaderAtHeight(ctx, int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
