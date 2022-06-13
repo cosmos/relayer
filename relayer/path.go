@@ -101,7 +101,7 @@ type ChannelFilter struct {
 	ChannelList []string `yaml:"channel-list" json:"channel-list"`
 }
 
-type IBC_data struct {
+type IBCdata struct {
 	Schema string `json:"$schema"`
 	Chain1 struct {
 		ChainName    string `json:"chain-name"`

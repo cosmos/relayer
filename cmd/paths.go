@@ -291,7 +291,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					fmt.Printf("error reading response body: %v", err)
 				}
 
-				ibc := &relayer.IBC_data{}
+				ibc := &relayer.IBCdata{}
 				if err = json.Unmarshal(b, &ibc); err != nil {
 					fmt.Println("failed to unmarshal ", err)
 				}
