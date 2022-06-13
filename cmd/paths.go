@@ -279,6 +279,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 				regPath := path.Join("_IBC", fileName)
 				reader, _, err := client.Repositories.DownloadContents(cmd.Context(), "cosmos", "chain-registry", regPath, nil)
 				if err != nil {
+					defer reader.Close()
 					if _, ok := err.(*github.RateLimitError); ok {
 						return fmt.Errorf("hit github rate limit ERR: %w", err)
 					}
@@ -288,12 +289,12 @@ $ %s pth fch`, appName, defaultHome, appName)),
 
 				b, err := io.ReadAll(reader)
 				if err != nil {
-					fmt.Printf("error reading response body: %v", err)
+					return fmt.Errorf("error reading response body: %v", err)
 				}
 
 				ibc := &relayer.IBCdata{}
 				if err = json.Unmarshal(b, &ibc); err != nil {
-					fmt.Println("failed to unmarshal ", err)
+					return fmt.Errorf("failed to unmarshal: %v ", err)
 				}
 
 				srcChainName := ibc.Chain1.ChainName
