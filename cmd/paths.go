@@ -260,7 +260,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 				chains = append(chains, chain_name)
 			}
 
-			combinations := permutations(chains)
+			combinations := findChainCombinations(chains)
 
 			client := github.NewClient(nil)
 
@@ -270,7 +270,6 @@ $ %s pth fch`, appName, defaultHome, appName)),
 
 				_, exist := a.Config.Paths[pthName]
 				if exist && !overwrite {
-					// fmt.Printf("skipping:  %s already exists in config, use -o to overwrite (clears filters) \n", pthName)
 					fmt.Fprintf(cmd.ErrOrStderr(), "skipping:  %s already exists in config, use -o to overwrite (clears filters)\n", pthName)
 					continue
 				}
@@ -280,6 +279,8 @@ $ %s pth fch`, appName, defaultHome, appName)),
 				regPath := path.Join("_IBC", fileName)
 				reader, _, err := client.Repositories.DownloadContents(cmd.Context(), "cosmos", "chain-registry", regPath, nil)
 				if err != nil {
+					fmt.Println("first close")
+					defer reader.Close()
 					if errors.As(err, new(*github.RateLimitError)) {
 						return fmt.Errorf("github API rate limit reached while querying data ERR: %w", err)
 					}
@@ -314,6 +315,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					Src: srcPathEnd,
 					Dst: dstPathEnd,
 				}
+				fmt.Println("second close")
 				reader.Close()
 
 				if err = a.Config.AddPath(pthName, newPath); err != nil {
@@ -334,7 +336,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 }
 
 // used in pathsFetch command to find all possible combinations of paths for configured chains
-func permutations(arr []string) []string {
+func findChainCombinations(arr []string) []string {
 	var helper func([]string, int)
 	res := []string{}
 
