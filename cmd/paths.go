@@ -277,18 +277,17 @@ $ %s pth fch`, appName, defaultHome, appName)),
 				// TODO: Don't use github api. Potentially use: https://github.com/eco-stake/cosmos-directory once they integrate IBC data into restAPI. This will avoid rate limits.
 				fileName := pthName + ".json"
 				regPath := path.Join("_IBC", fileName)
-				reader, _, err := client.Repositories.DownloadContents(cmd.Context(), "cosmos", "chain-registry", regPath, nil)
+				client, _, err := client.Repositories.DownloadContents(cmd.Context(), "cosmos", "chain-registry", regPath, nil)
 				if err != nil {
-					fmt.Println("first close")
-					defer reader.Close()
 					if errors.As(err, new(*github.RateLimitError)) {
 						return fmt.Errorf("github API rate limit reached while querying data ERR: %w", err)
 					}
 					fmt.Fprintf(cmd.ErrOrStderr(), "not found:  path %s not found in repo 'cosmos/chain-registry', folder '_IBC'\n", pthName)
 					continue
 				}
+				defer client.Close()
 
-				b, err := io.ReadAll(reader)
+				b, err := io.ReadAll(client)
 				if err != nil {
 					return fmt.Errorf("error reading response body: %v", err)
 				}
@@ -315,8 +314,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					Src: srcPathEnd,
 					Dst: dstPathEnd,
 				}
-				fmt.Println("second close")
-				reader.Close()
+				client.Close()
 
 				if err = a.Config.AddPath(pthName, newPath); err != nil {
 					return fmt.Errorf("failed to add path %s: %w", pthName, err)
