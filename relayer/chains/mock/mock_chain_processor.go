@@ -6,6 +6,7 @@ import (
 
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"go.uber.org/zap"
@@ -50,7 +51,7 @@ func (mcp *MockChainProcessor) SetPathProcessors(pathProcessors processor.PathPr
 
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
 func (mcp *MockChainProcessor) Provider() provider.ChainProvider {
-	return nil
+	return &cosmos.CosmosProvider{PCfg: cosmos.CosmosProviderConfig{ChainID: mcp.chainID}}
 }
 
 type queryCyclePersistence struct {
@@ -148,16 +149,23 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		}
 		// }
 
-		// now pass foundMessages to the path processors
-		for channelKey, messages := range foundMessages {
-			// TODO do not relay on closed channels
-			for _, pp := range mcp.pathProcessors {
-				mcp.log.Info("sending messages to path processor", zap.String("chain_id", mcp.chainID))
-				pp.HandleNewMessages(mcp.chainID, channelKey, processor.ChainProcessorCacheData{
-					NewMessages: messages,
-					InSync:      mcp.inSync,
-				})
+		channelStateCache := make(processor.ChannelStateCache)
+
+		// mocking all channels open
+		for channelKey := range foundMessages {
+			channelStateCache[channelKey] = processor.ChannelState{
+				Open: true,
 			}
+		}
+
+		// now pass foundMessages to the path processors
+		for _, pp := range mcp.pathProcessors {
+			mcp.log.Info("sending messages to path processor", zap.String("chain_id", mcp.chainID))
+			pp.HandleNewData(mcp.chainID, processor.ChainProcessorCacheData{
+				ChannelMessageCache: foundMessages,
+				InSync:              mcp.inSync,
+				ChannelStateCache:   channelStateCache,
+			})
 		}
 		persistence.latestQueriedBlock = i
 	}

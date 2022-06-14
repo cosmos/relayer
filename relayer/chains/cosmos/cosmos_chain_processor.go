@@ -27,6 +27,9 @@ type CosmosChainProcessor struct {
 
 	// indicates whether queries are in sync with latest height of the chain
 	inSync bool
+
+	// holds open state for discovered channels
+	channelStateCache processor.ChannelStateCache
 }
 
 func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, rpcAddress string, input io.Reader, output io.Writer, pathProcessors processor.PathProcessors) (*CosmosChainProcessor, error) {
@@ -35,10 +38,11 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, r
 		return nil, fmt.Errorf("error getting cosmos client: %w", err)
 	}
 	return &CosmosChainProcessor{
-		log:            log.With(zap.String("chain_id", provider.ChainId())),
-		chainProvider:  provider,
-		cc:             cc,
-		pathProcessors: pathProcessors,
+		log:               log.With(zap.String("chain_id", provider.ChainId())),
+		chainProvider:     provider,
+		cc:                cc,
+		pathProcessors:    pathProcessors,
+		channelStateCache: make(processor.ChannelStateCache),
 	}, nil
 }
 
@@ -174,6 +178,10 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		}
 	}
 
+	foundMessages := make(processor.ChannelMessageCache)
+
+	ppChanged := false
+
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		blockRes, err := ccp.cc.Client.BlockResults(ctx, &i)
 		if err != nil {
@@ -190,14 +198,40 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 			ccp.log.Debug("Parsed IBC messages", zap.Any("messages", messages))
 
-			// TODO pass messages to handlers
+			for _, m := range messages {
+				handler, ok := messageHandlers[m.messageType]
+				if !ok {
+					continue
+				}
+				// call message handler for this ibc message type. can do things like cache things on the chain processor or retain ibc messages that should be sent to the PathProcessors.
+				changed := handler(ccp, MsgHandlerParams{
+					messageInfo:   m.messageInfo,
+					foundMessages: foundMessages,
+				})
+				ppChanged = ppChanged || changed
+			}
 		}
 	}
 
-	if firstTimeInSync {
-		for _, pp := range ccp.pathProcessors {
-			pp.ProcessBacklogIfReady()
+	if !ppChanged {
+		if firstTimeInSync {
+			for _, pp := range ccp.pathProcessors {
+				pp.ProcessBacklogIfReady()
+			}
 		}
+
+		return nil
+	}
+
+	chainID := ccp.chainProvider.ChainId()
+
+	for _, pp := range ccp.pathProcessors {
+		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
+			ChannelMessageCache: foundMessages,
+			InSync:              ccp.inSync,
+			// fetch non-flushed channel messages. flush local cache messages, retaining Open state.
+			ChannelStateCache: ccp.channelStateCache.Flush(),
+		})
 	}
 
 	return nil
