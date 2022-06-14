@@ -50,9 +50,8 @@ type PathEndRuntime struct {
 	chainProvider provider.ChainProvider
 
 	// cached data
-	messageCache         IBCMessagesCache
-	connectionStateCache ConnectionStateCache
-	channelStateCache    ChannelStateCache
+	messageCache      IBCMessagesCache
+	channelStateCache ChannelStateCache
 
 	// New messages and other data arriving from the handleNewMessagesForPathEnd method.
 	incomingCacheData chan ChainProcessorCacheData
@@ -63,9 +62,8 @@ type PathEndRuntime struct {
 
 func (pathEnd *PathEndRuntime) MergeCacheData(d ChainProcessorCacheData) {
 	// TODO make sure passes channel filter for pathEnd1 before calling this
-	pathEnd.messageCache.Merge(d.IBCMessagesCache)             // Merge incoming packet IBC messages into the backlog
-	pathEnd.connectionStateCache.Merge(d.ConnectionStateCache) // Update latest connection open state for chain
-	pathEnd.channelStateCache.Merge(d.ChannelStateCache)       // Update latest channel open state for chain
+	pathEnd.messageCache.Merge(d.IBCMessagesCache)       // Merge incoming packet IBC messages into the backlog
+	pathEnd.channelStateCache.Merge(d.ChannelStateCache) // Update latest channel open state for chain
 	pathEnd.inSync = d.InSync
 }
 
@@ -80,18 +78,16 @@ func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *Path
 	return &PathProcessor{
 		log: log,
 		pathEnd1: &PathEndRuntime{
-			info:                 pathEnd1,
-			incomingCacheData:    make(chan ChainProcessorCacheData, 100),
-			connectionStateCache: make(ConnectionStateCache),
-			channelStateCache:    make(ChannelStateCache),
-			messageCache:         NewIBCMessagesCache(),
+			info:              pathEnd1,
+			incomingCacheData: make(chan ChainProcessorCacheData, 100),
+			channelStateCache: make(ChannelStateCache),
+			messageCache:      NewIBCMessagesCache(),
 		},
 		pathEnd2: &PathEndRuntime{
-			info:                 pathEnd2,
-			incomingCacheData:    make(chan ChainProcessorCacheData, 100),
-			connectionStateCache: make(ConnectionStateCache),
-			channelStateCache:    make(ChannelStateCache),
-			messageCache:         NewIBCMessagesCache(),
+			info:              pathEnd2,
+			incomingCacheData: make(chan ChainProcessorCacheData, 100),
+			channelStateCache: make(ChannelStateCache),
+			messageCache:      NewIBCMessagesCache(),
 		},
 		retryProcess: make(chan struct{}, 8),
 	}

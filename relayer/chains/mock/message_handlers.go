@@ -5,7 +5,6 @@ import (
 
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"go.uber.org/zap"
 )
@@ -24,16 +23,6 @@ var messageHandlers = map[string]func(MsgHandlerParams){
 	// TODO handlers for packet timeout, client, channel, and connection messages
 }
 
-func retainMessage(p MsgHandlerParams, channelKey processor.ChannelKey, message string, sequence uint64, ibcMessage provider.RelayerMessage) {
-	if _, ok := p.ibcMessagesCache.PacketFlow[channelKey]; !ok {
-		p.ibcMessagesCache.PacketFlow[channelKey] = make(processor.PacketMessagesCache)
-	}
-	if _, ok := p.ibcMessagesCache.PacketFlow[channelKey][message]; !ok {
-		p.ibcMessagesCache.PacketFlow[channelKey][message] = make(processor.PacketSequenceCache)
-	}
-	p.ibcMessagesCache.PacketFlow[channelKey][message][sequence] = ibcMessage
-}
-
 func handleMsgTransfer(p MsgHandlerParams) {
 	channelKey := processor.ChannelKey{
 		ChannelID:             p.packetInfo.SourceChannel,
@@ -41,7 +30,7 @@ func handleMsgTransfer(p MsgHandlerParams) {
 		CounterpartyChannelID: p.packetInfo.DestinationChannel,
 		CounterpartyPortID:    p.packetInfo.DestinationPort,
 	}
-	retainMessage(p, channelKey, processor.MsgTransfer, p.packetInfo.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgRecvPacket{Packet: *p.packetInfo}))
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, processor.MsgTransfer, p.packetInfo.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgRecvPacket{Packet: *p.packetInfo}))
 	p.mcp.log.Debug("observed MsgTransfer",
 		zap.String("chain_id", p.mcp.chainID),
 		zap.Uint64("sequence", p.packetInfo.Sequence),
@@ -59,7 +48,7 @@ func handleMsgRecvPacket(p MsgHandlerParams) {
 		CounterpartyChannelID: p.packetInfo.SourceChannel,
 		CounterpartyPortID:    p.packetInfo.SourcePort,
 	}
-	retainMessage(p, channelKey, processor.MsgRecvPacket, p.packetInfo.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgAcknowledgement{Packet: *p.packetInfo}))
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, processor.MsgRecvPacket, p.packetInfo.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgAcknowledgement{Packet: *p.packetInfo}))
 	p.mcp.log.Debug("observed MsgRecvPacket",
 		zap.String("chain_id", p.mcp.chainID),
 		zap.Uint64("sequence", p.packetInfo.Sequence),
@@ -77,8 +66,7 @@ func handleMsgAcknowledgement(p MsgHandlerParams) {
 		CounterpartyChannelID: p.packetInfo.DestinationChannel,
 		CounterpartyPortID:    p.packetInfo.DestinationPort,
 	}
-	retainMessage(p, channelKey, processor.MsgAcknowledgement, p.packetInfo.Sequence, nil)
-
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, processor.MsgAcknowledgement, p.packetInfo.Sequence, nil)
 	p.mcp.log.Debug("observed MsgAcknowledgement",
 		zap.String("chain_id", p.mcp.chainID),
 		zap.Uint64("sequence", p.packetInfo.Sequence),

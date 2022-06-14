@@ -31,9 +31,6 @@ type CosmosChainProcessor struct {
 	// holds highest consensus height and header for all clients
 	latestClientState
 
-	// holds open state for known connections
-	connectionStateCache processor.ConnectionStateCache
-
 	// holds open state for known channels
 	channelStateCache processor.ChannelStateCache
 }
@@ -44,13 +41,12 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, r
 		return nil, fmt.Errorf("error getting cosmos client: %w", err)
 	}
 	return &CosmosChainProcessor{
-		log:                  log.With(zap.String("chain_id", provider.ChainId())),
-		chainProvider:        provider,
-		cc:                   cc,
-		pathProcessors:       pathProcessors,
-		latestClientState:    make(latestClientState),
-		channelStateCache:    make(processor.ChannelStateCache),
-		connectionStateCache: make(processor.ConnectionStateCache),
+		log:               log.With(zap.String("chain_id", provider.ChainId())),
+		chainProvider:     provider,
+		cc:                cc,
+		pathProcessors:    pathProcessors,
+		latestClientState: make(latestClientState),
+		channelStateCache: make(processor.ChannelStateCache),
 	}, nil
 }
 
@@ -235,10 +231,9 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	for _, pp := range ccp.pathProcessors {
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
-			IBCMessagesCache:     ibcMessagesCache,
-			InSync:               ccp.inSync,
-			ConnectionStateCache: ccp.connectionStateCache,
-			ChannelStateCache:    ccp.channelStateCache,
+			IBCMessagesCache:  ibcMessagesCache,
+			InSync:            ccp.inSync,
+			ChannelStateCache: ccp.channelStateCache,
 		})
 	}
 
