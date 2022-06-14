@@ -9,8 +9,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cespare/permute/v2"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/google/go-github/v43/github"
+
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -260,14 +262,25 @@ $ %s pth fch`, appName, defaultHome, appName)),
 				chains = append(chains, chain_name)
 			}
 
-			combinations := findChainCombinations(chains)
-
-			client := github.NewClient(nil)
+			//find all combinations of paths for configured chains
+			//note: path file names on the chain-registry are in alphabetical order ex: achain-zchain.json
+			p := permute.Slice(chains)
+			var chainCombinations []string
+			for p.Permute() {
+				tmp := make([]string, 2)
+				copy(tmp, chains)
+				sort.Strings(tmp)
+				tmp1 := string(tmp[0] + "-" + tmp[1])
+				if !contains(chainCombinations, tmp1) {
+					chainCombinations = append(chainCombinations, tmp1)
+				}
+			}
 
 			overwrite, _ := cmd.Flags().GetBool(flagOverwriteConfig)
 
-			for _, pthName := range combinations {
+			client := github.NewClient(nil)
 
+			for _, pthName := range chainCombinations {
 				_, exist := a.Config.Paths[pthName]
 				if exist && !overwrite {
 					fmt.Fprintf(cmd.ErrOrStderr(), "skipping:  %s already exists in config, use -o to overwrite (clears filters)\n", pthName)
@@ -331,41 +344,6 @@ $ %s pth fch`, appName, defaultHome, appName)),
 		},
 	}
 	return OverwriteConfigFlag(a.Viper, cmd)
-}
-
-// used in pathsFetch command to find all possible combinations of paths for configured chains
-func findChainCombinations(arr []string) []string {
-	var helper func([]string, int)
-	res := []string{}
-
-	helper = func(arr []string, n int) {
-		if n == 1 {
-			tmp := make([]string, 2)
-			copy(tmp, arr)
-			// make alphabetical
-			sort.Strings(tmp)
-			// ibc0-ibc1
-			tmp1 := string(tmp[0] + "-" + tmp[1])
-			if !contains(res, tmp1) {
-				res = append(res, tmp1)
-			}
-		} else {
-			for i := 0; i < n; i++ {
-				helper(arr, n-1)
-				if n%2 == 1 {
-					tmp := arr[i]
-					arr[i] = arr[n-1]
-					arr[n-1] = tmp
-				} else {
-					tmp := arr[0]
-					arr[0] = arr[n-1]
-					arr[n-1] = tmp
-				}
-			}
-		}
-	}
-	helper(arr, len(arr))
-	return res
 }
 
 func contains(s []string, str string) bool {
