@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"path"
@@ -279,9 +280,8 @@ $ %s pth fch`, appName, defaultHome, appName)),
 				regPath := path.Join("_IBC", fileName)
 				reader, _, err := client.Repositories.DownloadContents(cmd.Context(), "cosmos", "chain-registry", regPath, nil)
 				if err != nil {
-					defer reader.Close()
-					if _, ok := err.(*github.RateLimitError); ok {
-						return fmt.Errorf("hit github rate limit ERR: %w", err)
+					if errors.As(err, new(*github.RateLimitError)) {
+						return fmt.Errorf("github API rate limit reached while querying data ERR: %w", err)
 					}
 					fmt.Fprintf(cmd.ErrOrStderr(), "not found:  path %s not found in repo 'cosmos/chain-registry', folder '_IBC'\n", pthName)
 					continue
