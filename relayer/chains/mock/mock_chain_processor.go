@@ -122,7 +122,7 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		// fetch block
 
 		// used for collecting IBC messages that will be sent to the Path Processors
-		foundMessages := make(processor.ChannelMessageCache)
+		ibcMessagesCache := processor.NewIBCMessagesCache()
 
 		// iterate through transactions
 		// iterate through messages in transactions
@@ -141,9 +141,9 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		for _, m := range messages {
 			if handler, ok := messageHandlers[m.Action]; ok {
 				handler(MsgHandlerParams{
-					mcp:           mcp,
-					PacketInfo:    m.PacketInfo,
-					FoundMessages: foundMessages,
+					mcp:              mcp,
+					packetInfo:       m.PacketInfo,
+					ibcMessagesCache: ibcMessagesCache,
 				})
 			}
 		}
@@ -152,7 +152,7 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		channelStateCache := make(processor.ChannelStateCache)
 
 		// mocking all channels open
-		for channelKey := range foundMessages {
+		for channelKey := range ibcMessagesCache.PacketFlow {
 			channelStateCache[channelKey] = true
 		}
 
@@ -160,9 +160,9 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		for _, pp := range mcp.pathProcessors {
 			mcp.log.Info("sending messages to path processor", zap.String("chain_id", mcp.chainID))
 			pp.HandleNewData(mcp.chainID, processor.ChainProcessorCacheData{
-				ChannelMessageCache: foundMessages,
-				InSync:              mcp.inSync,
-				ChannelStateCache:   channelStateCache,
+				IBCMessagesCache:  ibcMessagesCache,
+				InSync:            mcp.inSync,
+				ChannelStateCache: channelStateCache,
 			})
 		}
 		persistence.latestQueriedBlock = i
