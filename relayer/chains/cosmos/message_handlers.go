@@ -191,5 +191,5 @@ func (ccp *CosmosChainProcessor) handleMsgSubmitMisbehaviour(p MsgHandlerParams)
 // END client msg handlers
 
 func (ccp *CosmosChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {
-	ccp.log.Debug("Observed IBC message", append([]zap.Field{zap.String("message", m)}, fields...)...)
+	ccp.log.With(zap.String("message", m)).Debug("Observed IBC message", fields...)
 }
