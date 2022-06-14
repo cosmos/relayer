@@ -142,7 +142,6 @@ func (ccp *CosmosChainProcessor) handleMsgTimeoutOnClose(p MsgHandlerParams) boo
 
 func (ccp *CosmosChainProcessor) logPacketMessage(message string, pi *packetInfo, additionalFields ...zap.Field) {
 	fields := []zap.Field{
-		zap.String("message", message),
 		zap.Uint64("sequence", pi.packet.Sequence),
 		zap.String("src_channel", pi.packet.SourceChannel),
 		zap.String("src_port", pi.packet.SourcePort),
@@ -150,7 +149,7 @@ func (ccp *CosmosChainProcessor) logPacketMessage(message string, pi *packetInfo
 		zap.String("dst_port", pi.packet.DestinationPort),
 	}
 	fields = append(fields, additionalFields...)
-	ccp.log.Debug("Observed IBC message", fields...)
+	ccp.logObservedIBCMessage(message, fields...)
 }
 
 // END packet msg handlers
@@ -161,40 +160,36 @@ func (ccp *CosmosChainProcessor) handleMsgCreateClient(p MsgHandlerParams) bool 
 	clientInfo := p.messageInfo.(*clientInfo)
 	// save the latest consensus height and header for this client
 	ccp.latestClientState.UpdateLatestClientState(*clientInfo)
-	ccp.logClientMessage("MsgCreateClient", clientInfo)
-	return true
+	ccp.logObservedIBCMessage("MsgCreateClient", zap.String("client_id", clientInfo.clientID))
+	return false
 }
 
 func (ccp *CosmosChainProcessor) handleMsgUpdateClient(p MsgHandlerParams) bool {
 	clientInfo := p.messageInfo.(*clientInfo)
 	// save the latest consensus height and header for this client
 	ccp.latestClientState.UpdateLatestClientState(*clientInfo)
-	ccp.logClientMessage("MsgUpdateClient", clientInfo)
-	return true
+	ccp.logObservedIBCMessage("MsgUpdateClient", zap.String("client_id", clientInfo.clientID))
+	return false
 }
 
 func (ccp *CosmosChainProcessor) handleMsgUpgradeClient(p MsgHandlerParams) bool {
 	clientInfo := p.messageInfo.(*clientInfo)
 	// save the latest consensus height and header for this client
 	ccp.latestClientState.UpdateLatestClientState(*clientInfo)
-	ccp.logClientMessage("MsgUpgradeClient", clientInfo)
-	return true
+	ccp.logObservedIBCMessage("MsgUpgradeClient", zap.String("client_id", clientInfo.clientID))
+	return false
 }
 
 func (ccp *CosmosChainProcessor) handleMsgSubmitMisbehaviour(p MsgHandlerParams) bool {
 	clientInfo := p.messageInfo.(*clientInfo)
 	// save the latest consensus height and header for this client
 	ccp.latestClientState.UpdateLatestClientState(*clientInfo)
-	ccp.logClientMessage("MsgSubmitMisbehaviour", clientInfo)
-	return true
-}
-
-func (ccp *CosmosChainProcessor) logClientMessage(message string, clientInfo *clientInfo) bool {
-	ccp.log.Debug("observed ibc message",
-		zap.String("message", message),
-		zap.String("client_id", clientInfo.clientID),
-	)
-	return true
+	ccp.logObservedIBCMessage("MsgSubmitMisbehaviour", zap.String("client_id", clientInfo.clientID))
+	return false
 }
 
 // END client msg handlers
+
+func (ccp *CosmosChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {
+	ccp.log.Debug("Observed IBC message", append([]zap.Field{zap.String("message", m)}, fields...)...)
+}
