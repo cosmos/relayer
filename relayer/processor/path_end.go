@@ -1,9 +1,14 @@
 package processor
 
 type PathEnd struct {
-	ChainID string
+	ChainID      string
+	ClientID     string
+	ConnectionID string
 
-	// TODO clientID, connectionID, and channel filter stuff (allowlist, denylist)
+	// TODO channel filter stuff (allowlist, denylist)
 }
 
-// TODO methods for determining if a given channel, client, or connection is relevant for this pathEnd
+func (pe PathEnd) ShouldRelayChannel(channelKey ChannelKey) bool {
+	// TODO return based on channel filter
+	return true
+}

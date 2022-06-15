@@ -104,7 +104,7 @@ func (r *relayer) log() *zap.Logger {
 
 func (r *relayer) AddChainConfiguration(ctx context.Context, _ ibc.RelayerExecReporter, chainConfig ibc.ChainConfig, keyName, rpcAddr, grpcAddr string) error {
 	sys := &relayertest.System{HomeDir: r.home}
-	sys.MustAddChain(r.t, cmd.ProviderConfigWrapper{
+	sys.MustAddChain(r.t, chainConfig.ChainID, cmd.ProviderConfigWrapper{
 		Type: "cosmos",
 		Value: cosmos.CosmosProviderConfig{
 			Key:     keyName,

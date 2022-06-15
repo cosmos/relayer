@@ -55,11 +55,7 @@ func (ep EventProcessorBuilder) Build() EventProcessor {
 		chainProcessor.SetPathProcessors(pathProcessorsForThisChain)
 	}
 
-	return EventProcessor{
-		chainProcessors:     ep.chainProcessors,
-		initialBlockHistory: ep.initialBlockHistory,
-		pathProcessors:      ep.pathProcessors,
-	}
+	return EventProcessor(ep)
 }
 
 // Run is a blocking call that launches all provided PathProcessors and ChainProcessors in parallel.

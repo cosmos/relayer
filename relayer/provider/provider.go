@@ -86,7 +86,7 @@ type ChainProvider interface {
 	KeyProvider
 
 	Init() error
-	CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header) (RelayerMessage, error)
+	CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header, signer string) (RelayerMessage, error)
 	SubmitMisbehavior( /*TODO TBD*/ ) (RelayerMessage, error)
 	UpdateClient(srcClientId string, dstHeader ibcexported.Header) (RelayerMessage, error)
 	ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) ([]RelayerMessage, error)
@@ -151,7 +151,6 @@ type QueryProvider interface {
 	QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error)
 	QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error)
 	AutoUpdateClient(ctx context.Context, dst ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error)
-	FindMatchingClient(ctx context.Context, counterparty ChainProvider, clientState ibcexported.ClientState) (string, bool)
 
 	// ics 03 - connection
 	QueryConnection(ctx context.Context, height int64, connectionid string) (*conntypes.QueryConnectionResponse, error)

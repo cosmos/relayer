@@ -27,6 +27,12 @@ type CosmosChainProcessor struct {
 
 	// indicates whether queries are in sync with latest height of the chain
 	inSync bool
+
+	// holds highest consensus height and header for all clients
+	latestClientState
+
+	// holds open state for known channels
+	channelStateCache processor.ChannelStateCache
 }
 
 func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, rpcAddress string, input io.Reader, output io.Writer, pathProcessors processor.PathProcessors) (*CosmosChainProcessor, error) {
@@ -35,10 +41,12 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, r
 		return nil, fmt.Errorf("error getting cosmos client: %w", err)
 	}
 	return &CosmosChainProcessor{
-		log:            log.With(zap.String("chain_id", provider.ChainId())),
-		chainProvider:  provider,
-		cc:             cc,
-		pathProcessors: pathProcessors,
+		log:               log.With(zap.String("chain_id", provider.ChainId())),
+		chainProvider:     provider,
+		cc:                cc,
+		pathProcessors:    pathProcessors,
+		latestClientState: make(latestClientState),
+		channelStateCache: make(processor.ChannelStateCache),
 	}, nil
 }
 
@@ -50,6 +58,31 @@ const (
 	defaultMinQueryLoopDuration = 1 * time.Second
 	inSyncNumBlocksThreshold    = 2
 )
+
+type msgHandlerParams struct {
+	// incoming IBC message
+	messageInfo interface{}
+
+	// reference to the caches that will be assembled by the handlers in this file
+	ibcMessagesCache processor.IBCMessagesCache
+}
+
+var messageHandlers = map[string]func(*CosmosChainProcessor, msgHandlerParams) bool{
+	processor.MsgTransfer:        (*CosmosChainProcessor).handleMsgTransfer,
+	processor.MsgRecvPacket:      (*CosmosChainProcessor).handleMsgRecvPacket,
+	processor.MsgAcknowledgement: (*CosmosChainProcessor).handleMsgAcknowledgement,
+	processor.MsgTimeout:         (*CosmosChainProcessor).handleMsgTimeout,
+	processor.MsgTimeoutOnClose:  (*CosmosChainProcessor).handleMsgTimeoutOnClose,
+
+	processor.MsgCreateClient:       (*CosmosChainProcessor).handleMsgCreateClient,
+	processor.MsgUpdateClient:       (*CosmosChainProcessor).handleMsgUpdateClient,
+	processor.MsgUpgradeClient:      (*CosmosChainProcessor).handleMsgUpgradeClient,
+	processor.MsgSubmitMisbehaviour: (*CosmosChainProcessor).handleMsgSubmitMisbehaviour,
+}
+
+func (ccp *CosmosChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {
+	ccp.log.With(zap.String("message", m)).Debug("Observed IBC message", fields...)
+}
 
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
 func (ccp *CosmosChainProcessor) Provider() provider.ChainProvider {
@@ -174,6 +207,10 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		}
 	}
 
+	ibcMessagesCache := processor.NewIBCMessagesCache()
+
+	ppChanged := false
+
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		blockRes, err := ccp.cc.Client.BlockResults(ctx, &i)
 		if err != nil {
@@ -190,14 +227,39 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 			ccp.log.Debug("Parsed IBC messages", zap.Any("messages", messages))
 
-			// TODO pass messages to handlers
+			for _, m := range messages {
+				handler, ok := messageHandlers[m.messageType]
+				if !ok {
+					continue
+				}
+				// call message handler for this ibc message type. can do things like cache things on the chain processor or retain ibc messages that should be sent to the PathProcessors.
+				changed := handler(ccp, msgHandlerParams{
+					messageInfo:      m.messageInfo,
+					ibcMessagesCache: ibcMessagesCache,
+				})
+				ppChanged = ppChanged || changed
+			}
 		}
 	}
 
-	if firstTimeInSync {
-		for _, pp := range ccp.pathProcessors {
-			pp.ProcessBacklogIfReady()
+	if !ppChanged {
+		if firstTimeInSync {
+			for _, pp := range ccp.pathProcessors {
+				pp.ProcessBacklogIfReady()
+			}
 		}
+
+		return nil
+	}
+
+	chainID := ccp.chainProvider.ChainId()
+
+	for _, pp := range ccp.pathProcessors {
+		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
+			IBCMessagesCache:  ibcMessagesCache,
+			InSync:            ccp.inSync,
+			ChannelStateCache: ccp.channelStateCache,
+		})
 	}
 
 	return nil

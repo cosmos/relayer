@@ -6,6 +6,7 @@ import (
 
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"go.uber.org/zap"
@@ -50,7 +51,7 @@ func (mcp *MockChainProcessor) SetPathProcessors(pathProcessors processor.PathPr
 
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
 func (mcp *MockChainProcessor) Provider() provider.ChainProvider {
-	return nil
+	return &cosmos.CosmosProvider{PCfg: cosmos.CosmosProviderConfig{ChainID: mcp.chainID}}
 }
 
 type queryCyclePersistence struct {
@@ -121,7 +122,7 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		// fetch block
 
 		// used for collecting IBC messages that will be sent to the Path Processors
-		foundMessages := make(processor.ChannelMessageCache)
+		ibcMessagesCache := processor.NewIBCMessagesCache()
 
 		// iterate through transactions
 		// iterate through messages in transactions
@@ -139,25 +140,30 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		// this can be parralelized also
 		for _, m := range messages {
 			if handler, ok := messageHandlers[m.Action]; ok {
-				handler(MsgHandlerParams{
-					mcp:           mcp,
-					PacketInfo:    m.PacketInfo,
-					FoundMessages: foundMessages,
+				handler(msgHandlerParams{
+					mcp:              mcp,
+					packetInfo:       m.PacketInfo,
+					ibcMessagesCache: ibcMessagesCache,
 				})
 			}
 		}
 		// }
 
+		channelStateCache := make(processor.ChannelStateCache)
+
+		// mocking all channels open
+		for channelKey := range ibcMessagesCache.PacketFlow {
+			channelStateCache[channelKey] = true
+		}
+
 		// now pass foundMessages to the path processors
-		for channelKey, messages := range foundMessages {
-			// TODO do not relay on closed channels
-			for _, pp := range mcp.pathProcessors {
-				mcp.log.Info("sending messages to path processor", zap.String("chain_id", mcp.chainID))
-				pp.HandleNewMessages(mcp.chainID, channelKey, processor.ChainProcessorCacheData{
-					NewMessages: messages,
-					InSync:      mcp.inSync,
-				})
-			}
+		for _, pp := range mcp.pathProcessors {
+			mcp.log.Info("sending messages to path processor", zap.String("chain_id", mcp.chainID))
+			pp.HandleNewData(mcp.chainID, processor.ChainProcessorCacheData{
+				IBCMessagesCache:  ibcMessagesCache,
+				InSync:            mcp.inSync,
+				ChannelStateCache: channelStateCache,
+			})
 		}
 		persistence.latestQueriedBlock = i
 	}

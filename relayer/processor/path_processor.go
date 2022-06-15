@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	// DurationErrorRetry determines how long
+	// DurationErrorRetry determines how long to wait before retrying
+	// in the case of failure to send transactions with IBC messages.
 	DurationErrorRetry = 5 * time.Second
 )
 
@@ -31,6 +32,15 @@ type PathProcessor struct {
 // PathProcessors is a slice of PathProcessor instances
 type PathProcessors []*PathProcessor
 
+func (p PathProcessors) IsRelayedChannel(k ChannelKey, chainID string) bool {
+	for _, pp := range p {
+		if pp.IsRelayedChannel(chainID, k) {
+			return true
+		}
+	}
+	return false
+}
+
 // PathEndRuntime is used at runtime for each chain involved in the path.
 // It holds a channel for incoming messages from the ChainProcessors, which will
 // be processed during Run(ctx).
@@ -39,13 +49,22 @@ type PathEndRuntime struct {
 
 	chainProvider provider.ChainProvider
 
-	messageCache MessageCache
+	// cached data
+	messageCache      IBCMessagesCache
+	channelStateCache ChannelStateCache
 
 	// New messages and other data arriving from the handleNewMessagesForPathEnd method.
 	incomingCacheData chan ChainProcessorCacheData
 
 	// inSync indicates whether queries are in sync with latest height of the chain.
 	inSync bool
+}
+
+func (pathEnd *PathEndRuntime) MergeCacheData(d ChainProcessorCacheData) {
+	// TODO make sure passes channel filter for pathEnd1 before calling this
+	pathEnd.messageCache.Merge(d.IBCMessagesCache)       // Merge incoming packet IBC messages into the backlog
+	pathEnd.channelStateCache.Merge(d.ChannelStateCache) // Update latest channel open state for chain
+	pathEnd.inSync = d.InSync
 }
 
 // IBCMessageWithSequence holds a packet's sequence along with it,
@@ -61,25 +80,56 @@ func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *Path
 		pathEnd1: &PathEndRuntime{
 			info:              pathEnd1,
 			incomingCacheData: make(chan ChainProcessorCacheData, 100),
-			messageCache:      make(MessageCache),
+			channelStateCache: make(ChannelStateCache),
+			messageCache:      NewIBCMessagesCache(),
 		},
 		pathEnd2: &PathEndRuntime{
 			info:              pathEnd2,
 			incomingCacheData: make(chan ChainProcessorCacheData, 100),
-			messageCache:      make(MessageCache),
+			channelStateCache: make(ChannelStateCache),
+			messageCache:      NewIBCMessagesCache(),
 		},
 		retryProcess: make(chan struct{}, 8),
 	}
 }
 
 // TEST USE ONLY
-func (pp *PathProcessor) PathEnd1Messages(message string) SequenceCache {
-	return pp.pathEnd1.messageCache[message]
+func (pp *PathProcessor) PathEnd1Messages(channelKey ChannelKey, message string) PacketSequenceCache {
+	return pp.pathEnd1.messageCache.PacketFlow[channelKey][message]
 }
 
 // TEST USE ONLY
-func (pp *PathProcessor) PathEnd2Messages(message string) SequenceCache {
-	return pp.pathEnd2.messageCache[message]
+func (pp *PathProcessor) PathEnd2Messages(channelKey ChannelKey, message string) PacketSequenceCache {
+	return pp.pathEnd2.messageCache.PacketFlow[channelKey][message]
+}
+
+type channelPair struct {
+	pathEnd1ChannelKey ChannelKey
+	pathEnd2ChannelKey ChannelKey
+}
+
+func (pp *PathProcessor) channelPairs() []channelPair {
+	// Channel keys are from pathEnd1's perspective
+	channels := make(map[ChannelKey]bool)
+	for k, open := range pp.pathEnd1.channelStateCache {
+		channels[k] = open
+	}
+	for k, open := range pp.pathEnd2.channelStateCache {
+		channels[k.Counterparty()] = open
+	}
+	pairs := make([]channelPair, len(channels))
+	i := 0
+	for k, open := range channels {
+		if !open {
+			continue
+		}
+		pairs[i] = channelPair{
+			pathEnd1ChannelKey: k,
+			pathEnd2ChannelKey: k.Counterparty(),
+		}
+		i++
+	}
+	return pairs
 }
 
 // Path Processors are constructed before ChainProcessors, so reference needs to be added afterwards
@@ -93,6 +143,33 @@ func (pp *PathProcessor) SetChainProviderIfApplicable(chainProvider provider.Cha
 		return true
 	} else if pp.pathEnd2.info.ChainID == chainProvider.ChainId() {
 		pp.pathEnd2.chainProvider = chainProvider
+		return true
+	}
+	return false
+}
+
+func (pp *PathProcessor) IsRelayedChannel(chainID string, channelKey ChannelKey) bool {
+	if pp.pathEnd1.info.ChainID == chainID {
+		return pp.pathEnd1.info.ShouldRelayChannel(channelKey)
+	} else if pp.pathEnd2.info.ChainID == chainID {
+		return pp.pathEnd2.info.ShouldRelayChannel(channelKey)
+	}
+	return false
+}
+
+func (pp *PathProcessor) IsRelevantClient(chainID string, clientID string) bool {
+	if pp.pathEnd1.info.ChainID == chainID && pp.pathEnd1.info.ClientID == clientID {
+		return true
+	} else if pp.pathEnd2.info.ChainID == chainID && pp.pathEnd2.info.ClientID == clientID {
+		return true
+	}
+	return false
+}
+
+func (pp *PathProcessor) IsRelevantConnection(chainID string, connectionID string) bool {
+	if pp.pathEnd1.info.ChainID == chainID && pp.pathEnd1.info.ConnectionID == connectionID {
+		return true
+	} else if pp.pathEnd2.info.ChainID == chainID && pp.pathEnd2.info.ConnectionID == connectionID {
 		return true
 	}
 	return false
@@ -112,12 +189,10 @@ func (pp *PathProcessor) ProcessBacklogIfReady() {
 }
 
 // ChainProcessors call this method when they have new IBC messages
-func (pp *PathProcessor) HandleNewMessages(chainID string, channelKey ChannelKey, cacheData ChainProcessorCacheData) {
+func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorCacheData) {
 	if pp.pathEnd1.info.ChainID == chainID {
-		// TODO make sure passes channel filter for pathEnd1 before calling this
 		pp.pathEnd1.incomingCacheData <- cacheData
 	} else if pp.pathEnd2.info.ChainID == chainID {
-		// TODO make sure passes channel filter for pathEnd2 before calling this
 		pp.pathEnd2.incomingCacheData <- cacheData
 	}
 }
@@ -125,17 +200,17 @@ func (pp *PathProcessor) HandleNewMessages(chainID string, channelKey ChannelKey
 // this contains MsgRecvPacket from same chain
 // needs to be transformed into PathEndPacketFlowMessages once counterparty info is available to complete packet flow state for pathEnd
 type PathEndMessages struct {
-	MsgTransfer        SequenceCache
-	MsgRecvPacket      SequenceCache
-	MsgAcknowledgement SequenceCache
+	MsgTransfer        PacketSequenceCache
+	MsgRecvPacket      PacketSequenceCache
+	MsgAcknowledgement PacketSequenceCache
 }
 
 // contains MsgRecvPacket from counterparty
 // entire packet flow
 type PathEndPacketFlowMessages struct {
-	SrcMsgTransfer        SequenceCache
-	DstMsgRecvPacket      SequenceCache
-	SrcMsgAcknowledgement SequenceCache
+	SrcMsgTransfer        PacketSequenceCache
+	DstMsgRecvPacket      PacketSequenceCache
+	SrcMsgAcknowledgement PacketSequenceCache
 	// TODO SrcTimeout and SrcTimeoutOnClose
 }
 
@@ -147,11 +222,11 @@ type PathEndProcessedResponse struct {
 	ToDeleteDst map[string][]uint64
 }
 
-func (m PathEndProcessedResponse) appendPacket(sequence uint64, msgRecvPacket provider.RelayerMessage) {
+func (m *PathEndProcessedResponse) appendPacket(sequence uint64, msgRecvPacket provider.RelayerMessage) {
 	m.UnrelayedPackets = append(m.UnrelayedPackets, IBCMessageWithSequence{Sequence: sequence, Message: msgRecvPacket})
 }
 
-func (m PathEndProcessedResponse) appendAcknowledgement(sequence uint64, msgAcknowledgement provider.RelayerMessage) {
+func (m *PathEndProcessedResponse) appendAcknowledgement(sequence uint64, msgAcknowledgement provider.RelayerMessage) {
 	m.UnrelayedAcknowledgements = append(m.UnrelayedAcknowledgements, IBCMessageWithSequence{Sequence: sequence, Message: msgAcknowledgement})
 }
 
@@ -211,31 +286,47 @@ func (pp *PathProcessor) sendMessages(pathEnd *PathEndRuntime, messages []IBCMes
 
 // messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
 func (pp *PathProcessor) processLatestMessages() error {
-	pathEnd1PacketFlowMessages := PathEndPacketFlowMessages{
-		SrcMsgTransfer:        pp.pathEnd1.messageCache[MsgTransfer],
-		DstMsgRecvPacket:      pp.pathEnd2.messageCache[MsgRecvPacket],
-		SrcMsgAcknowledgement: pp.pathEnd1.messageCache[MsgAcknowledgement],
-	}
-	pathEnd2PacketFlowMessages := PathEndPacketFlowMessages{
-		SrcMsgTransfer:        pp.pathEnd2.messageCache[MsgTransfer],
-		DstMsgRecvPacket:      pp.pathEnd1.messageCache[MsgRecvPacket],
-		SrcMsgAcknowledgement: pp.pathEnd2.messageCache[MsgAcknowledgement],
-	}
+	channelPairs := pp.channelPairs()
 
 	// process the packet flows for both packends to determine what needs to be relayed
-	var pathEnd1ProcessRes, pathEnd2ProcessRes PathEndProcessedResponse
+	pathEnd1ProcessRes := make([]*PathEndProcessedResponse, len(channelPairs))
+	pathEnd2ProcessRes := make([]*PathEndProcessedResponse, len(channelPairs))
+
 	var wg sync.WaitGroup
-	wg.Add(2)
-	go pp.getUnrelayedPacketsAndAcksAndToDelete(pathEnd1PacketFlowMessages, &wg, &pathEnd1ProcessRes)
-	go pp.getUnrelayedPacketsAndAcksAndToDelete(pathEnd2PacketFlowMessages, &wg, &pathEnd2ProcessRes)
+
+	for i, pair := range channelPairs {
+		pathEnd1PacketFlowMessages := PathEndPacketFlowMessages{
+			SrcMsgTransfer:        pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][MsgTransfer],
+			DstMsgRecvPacket:      pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][MsgRecvPacket],
+			SrcMsgAcknowledgement: pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][MsgAcknowledgement],
+		}
+		pathEnd2PacketFlowMessages := PathEndPacketFlowMessages{
+			SrcMsgTransfer:        pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][MsgTransfer],
+			DstMsgRecvPacket:      pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][MsgRecvPacket],
+			SrcMsgAcknowledgement: pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][MsgAcknowledgement],
+		}
+
+		pathEnd1ProcessRes[i] = new(PathEndProcessedResponse)
+		pathEnd2ProcessRes[i] = new(PathEndProcessedResponse)
+
+		wg.Add(2)
+		go pp.getUnrelayedPacketsAndAcksAndToDelete(pathEnd1PacketFlowMessages, &wg, pathEnd1ProcessRes[i])
+		go pp.getUnrelayedPacketsAndAcksAndToDelete(pathEnd2PacketFlowMessages, &wg, pathEnd2ProcessRes[i])
+	}
 	wg.Wait()
 
 	// concatenate applicable messages for pathend
-	pathEnd1Messages := append(pathEnd2ProcessRes.UnrelayedPackets, pathEnd1ProcessRes.UnrelayedAcknowledgements...)
-	pathEnd2Messages := append(pathEnd1ProcessRes.UnrelayedPackets, pathEnd2ProcessRes.UnrelayedAcknowledgements...)
+	var pathEnd1Messages, pathEnd2Messages []IBCMessageWithSequence
+	for i := 0; i < len(channelPairs); i++ {
+		pathEnd1Messages = append(pathEnd1Messages, pathEnd2ProcessRes[i].UnrelayedPackets...)
+		pathEnd1Messages = append(pathEnd1Messages, pathEnd1ProcessRes[i].UnrelayedAcknowledgements...)
 
-	pp.pathEnd1.messageCache.DeleteCachedMessages(pathEnd1ProcessRes.ToDeleteSrc, pathEnd2ProcessRes.ToDeleteDst)
-	pp.pathEnd2.messageCache.DeleteCachedMessages(pathEnd2ProcessRes.ToDeleteSrc, pathEnd1ProcessRes.ToDeleteDst)
+		pathEnd2Messages = append(pathEnd2Messages, pathEnd1ProcessRes[i].UnrelayedPackets...)
+		pathEnd2Messages = append(pathEnd2Messages, pathEnd2ProcessRes[i].UnrelayedAcknowledgements...)
+
+		pp.pathEnd1.messageCache.PacketFlow[channelPairs[i].pathEnd1ChannelKey].DeleteCachedMessages(pathEnd1ProcessRes[i].ToDeleteSrc, pathEnd2ProcessRes[i].ToDeleteDst)
+		pp.pathEnd2.messageCache.PacketFlow[channelPairs[i].pathEnd2ChannelKey].DeleteCachedMessages(pathEnd2ProcessRes[i].ToDeleteSrc, pathEnd1ProcessRes[i].ToDeleteDst)
+	}
 
 	// now send messages in parallel
 	var eg errgroup.Group
@@ -252,22 +343,21 @@ func (pp *PathProcessor) Run(ctx context.Context) {
 			return
 
 		case d := <-pp.pathEnd1.incomingCacheData:
-			// if new messages are available from pathEnd1, run processLatestMessages
-			pp.pathEnd1.messageCache.Merge(d.NewMessages) // Merge incoming messages into the backlog of IBC messages for pathEnd1
-			pp.pathEnd1.inSync = d.InSync
+			// we have new data from ChainProcessor for pathEnd1
+			pp.pathEnd1.MergeCacheData(d)
 
 		case d := <-pp.pathEnd2.incomingCacheData:
-			// if new messages are available from pathEnd2, run processLatestMessages
-			pp.pathEnd2.messageCache.Merge(d.NewMessages) // Merge incoming messages into the backlog of IBC messages for pathEnd2
-			pp.pathEnd2.inSync = d.InSync
+			// we have new data from ChainProcessor for pathEnd2
+			pp.pathEnd2.MergeCacheData(d)
 
 		case <-pp.retryProcess:
-			// No new messages to merge in, just retry handling.
+			// No new data to merge in, just retry handling.
 		}
 
 		if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {
 			continue
 		}
+
 		// process latest message cache state from both pathEnds
 		if err := pp.processLatestMessages(); err != nil {
 			// in case of IBC message send errors, schedule retry after DurationErrorRetry

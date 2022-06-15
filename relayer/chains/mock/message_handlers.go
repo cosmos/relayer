@@ -5,86 +5,74 @@ import (
 
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"go.uber.org/zap"
 )
 
-type MsgHandlerParams struct {
-	mcp           *MockChainProcessor
-	PacketInfo    *chantypes.Packet
-	FoundMessages processor.ChannelMessageCache
+type msgHandlerParams struct {
+	mcp              *MockChainProcessor
+	packetInfo       *chantypes.Packet
+	ibcMessagesCache processor.IBCMessagesCache
 }
 
-var messageHandlers = map[string]func(MsgHandlerParams){
+var messageHandlers = map[string]func(msgHandlerParams){
 	processor.MsgTransfer:        handleMsgTransfer,
 	processor.MsgRecvPacket:      handleMsgRecvPacket,
-	processor.MsgAcknowledgement: handleMsgAcknowlegement,
+	processor.MsgAcknowledgement: handleMsgAcknowledgement,
 
 	// TODO handlers for packet timeout, client, channel, and connection messages
 }
 
-func retainMessage(p MsgHandlerParams, channelKey processor.ChannelKey, message string, sequence uint64, ibcMessage provider.RelayerMessage) {
-	if _, ok := p.FoundMessages[channelKey]; !ok {
-		p.FoundMessages[channelKey] = make(processor.MessageCache)
-	}
-	if _, ok := p.FoundMessages[channelKey][message]; !ok {
-		p.FoundMessages[channelKey][message] = make(processor.SequenceCache)
-	}
-	p.FoundMessages[channelKey][message][sequence] = ibcMessage
-}
-
-func handleMsgTransfer(p MsgHandlerParams) {
+func handleMsgTransfer(p msgHandlerParams) {
 	channelKey := processor.ChannelKey{
-		ChannelID:             p.PacketInfo.SourceChannel,
-		PortID:                p.PacketInfo.SourcePort,
-		CounterpartyChannelID: p.PacketInfo.DestinationChannel,
-		CounterpartyPortID:    p.PacketInfo.DestinationPort,
+		ChannelID:             p.packetInfo.SourceChannel,
+		PortID:                p.packetInfo.SourcePort,
+		CounterpartyChannelID: p.packetInfo.DestinationChannel,
+		CounterpartyPortID:    p.packetInfo.DestinationPort,
 	}
-	retainMessage(p, channelKey, processor.MsgTransfer, p.PacketInfo.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgRecvPacket{Packet: *p.PacketInfo}))
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, processor.MsgTransfer, p.packetInfo.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgRecvPacket{Packet: *p.packetInfo}))
 	p.mcp.log.Debug("observed MsgTransfer",
 		zap.String("chain_id", p.mcp.chainID),
-		zap.Uint64("sequence", p.PacketInfo.Sequence),
-		zap.String("src_channel", p.PacketInfo.SourceChannel),
-		zap.String("src_port", p.PacketInfo.SourcePort),
-		zap.String("timeout_height", fmt.Sprintf("%d-%d", p.PacketInfo.TimeoutHeight.RevisionNumber, p.PacketInfo.TimeoutHeight.RevisionHeight)),
-		zap.Uint64("timeout_timestamp", p.PacketInfo.TimeoutTimestamp),
+		zap.Uint64("sequence", p.packetInfo.Sequence),
+		zap.String("src_channel", p.packetInfo.SourceChannel),
+		zap.String("src_port", p.packetInfo.SourcePort),
+		zap.String("timeout_height", fmt.Sprintf("%d-%d", p.packetInfo.TimeoutHeight.RevisionNumber, p.packetInfo.TimeoutHeight.RevisionHeight)),
+		zap.Uint64("timeout_timestamp", p.packetInfo.TimeoutTimestamp),
 	)
 }
 
-func handleMsgRecvPacket(p MsgHandlerParams) {
+func handleMsgRecvPacket(p msgHandlerParams) {
 	channelKey := processor.ChannelKey{
-		ChannelID:             p.PacketInfo.DestinationChannel,
-		PortID:                p.PacketInfo.DestinationPort,
-		CounterpartyChannelID: p.PacketInfo.SourceChannel,
-		CounterpartyPortID:    p.PacketInfo.SourcePort,
+		ChannelID:             p.packetInfo.DestinationChannel,
+		PortID:                p.packetInfo.DestinationPort,
+		CounterpartyChannelID: p.packetInfo.SourceChannel,
+		CounterpartyPortID:    p.packetInfo.SourcePort,
 	}
-	retainMessage(p, channelKey, processor.MsgRecvPacket, p.PacketInfo.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgAcknowledgement{Packet: *p.PacketInfo}))
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, processor.MsgRecvPacket, p.packetInfo.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgAcknowledgement{Packet: *p.packetInfo}))
 	p.mcp.log.Debug("observed MsgRecvPacket",
 		zap.String("chain_id", p.mcp.chainID),
-		zap.Uint64("sequence", p.PacketInfo.Sequence),
-		zap.String("src_channel", p.PacketInfo.SourceChannel),
-		zap.String("src_port", p.PacketInfo.SourcePort),
-		zap.String("dst_channel", p.PacketInfo.DestinationChannel),
-		zap.String("dst_port", p.PacketInfo.DestinationPort),
+		zap.Uint64("sequence", p.packetInfo.Sequence),
+		zap.String("src_channel", p.packetInfo.SourceChannel),
+		zap.String("src_port", p.packetInfo.SourcePort),
+		zap.String("dst_channel", p.packetInfo.DestinationChannel),
+		zap.String("dst_port", p.packetInfo.DestinationPort),
 	)
 }
 
-func handleMsgAcknowlegement(p MsgHandlerParams) {
+func handleMsgAcknowledgement(p msgHandlerParams) {
 	channelKey := processor.ChannelKey{
-		ChannelID:             p.PacketInfo.SourceChannel,
-		PortID:                p.PacketInfo.SourcePort,
-		CounterpartyChannelID: p.PacketInfo.DestinationChannel,
-		CounterpartyPortID:    p.PacketInfo.DestinationPort,
+		ChannelID:             p.packetInfo.SourceChannel,
+		PortID:                p.packetInfo.SourcePort,
+		CounterpartyChannelID: p.packetInfo.DestinationChannel,
+		CounterpartyPortID:    p.packetInfo.DestinationPort,
 	}
-	retainMessage(p, channelKey, processor.MsgAcknowledgement, p.PacketInfo.Sequence, nil)
-
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, processor.MsgAcknowledgement, p.packetInfo.Sequence, nil)
 	p.mcp.log.Debug("observed MsgAcknowledgement",
 		zap.String("chain_id", p.mcp.chainID),
-		zap.Uint64("sequence", p.PacketInfo.Sequence),
-		zap.String("src_channel", p.PacketInfo.SourceChannel),
-		zap.String("src_port", p.PacketInfo.SourcePort),
-		zap.String("dst_channel", p.PacketInfo.DestinationChannel),
-		zap.String("dst_port", p.PacketInfo.DestinationPort),
+		zap.Uint64("sequence", p.packetInfo.Sequence),
+		zap.String("src_channel", p.packetInfo.SourceChannel),
+		zap.String("src_port", p.packetInfo.SourcePort),
+		zap.String("dst_channel", p.packetInfo.DestinationChannel),
+		zap.String("dst_port", p.packetInfo.DestinationPort),
 	)
 }
