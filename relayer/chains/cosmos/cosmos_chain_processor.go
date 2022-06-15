@@ -28,7 +28,10 @@ type CosmosChainProcessor struct {
 	// indicates whether queries are in sync with latest height of the chain
 	inSync bool
 
-	// holds open state for discovered channels
+	// holds highest consensus height and header for all clients
+	latestClientState
+
+	// holds open state for known channels
 	channelStateCache processor.ChannelStateCache
 }
 
@@ -42,6 +45,7 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, r
 		chainProvider:     provider,
 		cc:                cc,
 		pathProcessors:    pathProcessors,
+		latestClientState: make(latestClientState),
 		channelStateCache: make(processor.ChannelStateCache),
 	}, nil
 }
@@ -54,6 +58,31 @@ const (
 	defaultMinQueryLoopDuration = 1 * time.Second
 	inSyncNumBlocksThreshold    = 2
 )
+
+type msgHandlerParams struct {
+	// incoming IBC message
+	messageInfo interface{}
+
+	// reference to the caches that will be assembled by the handlers in this file
+	ibcMessagesCache processor.IBCMessagesCache
+}
+
+var messageHandlers = map[string]func(*CosmosChainProcessor, msgHandlerParams) bool{
+	processor.MsgTransfer:        (*CosmosChainProcessor).handleMsgTransfer,
+	processor.MsgRecvPacket:      (*CosmosChainProcessor).handleMsgRecvPacket,
+	processor.MsgAcknowledgement: (*CosmosChainProcessor).handleMsgAcknowledgement,
+	processor.MsgTimeout:         (*CosmosChainProcessor).handleMsgTimeout,
+	processor.MsgTimeoutOnClose:  (*CosmosChainProcessor).handleMsgTimeoutOnClose,
+
+	processor.MsgCreateClient:       (*CosmosChainProcessor).handleMsgCreateClient,
+	processor.MsgUpdateClient:       (*CosmosChainProcessor).handleMsgUpdateClient,
+	processor.MsgUpgradeClient:      (*CosmosChainProcessor).handleMsgUpgradeClient,
+	processor.MsgSubmitMisbehaviour: (*CosmosChainProcessor).handleMsgSubmitMisbehaviour,
+}
+
+func (ccp *CosmosChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {
+	ccp.log.With(zap.String("message", m)).Debug("Observed IBC message", fields...)
+}
 
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
 func (ccp *CosmosChainProcessor) Provider() provider.ChainProvider {
@@ -178,7 +207,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		}
 	}
 
-	foundMessages := make(processor.ChannelMessageCache)
+	ibcMessagesCache := processor.NewIBCMessagesCache()
 
 	ppChanged := false
 
@@ -204,9 +233,9 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 					continue
 				}
 				// call message handler for this ibc message type. can do things like cache things on the chain processor or retain ibc messages that should be sent to the PathProcessors.
-				changed := handler(ccp, MsgHandlerParams{
-					messageInfo:   m.messageInfo,
-					foundMessages: foundMessages,
+				changed := handler(ccp, msgHandlerParams{
+					messageInfo:      m.messageInfo,
+					ibcMessagesCache: ibcMessagesCache,
 				})
 				ppChanged = ppChanged || changed
 			}
@@ -227,10 +256,9 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	for _, pp := range ccp.pathProcessors {
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
-			ChannelMessageCache: foundMessages,
-			InSync:              ccp.inSync,
-			// fetch non-flushed channel messages. flush local cache messages, retaining Open state.
-			ChannelStateCache: ccp.channelStateCache.Flush(),
+			IBCMessagesCache:  ibcMessagesCache,
+			InSync:            ccp.inSync,
+			ChannelStateCache: ccp.channelStateCache,
 		})
 	}
 

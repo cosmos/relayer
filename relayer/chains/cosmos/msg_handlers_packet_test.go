@@ -51,7 +51,7 @@ func TestHandleMsgTransfer(t *testing.T) {
 		ccp        = mockCosmosChainProcessor(t)
 	)
 
-	foundMessages := make(processor.ChannelMessageCache)
+	ibcMessagesCache := processor.NewIBCMessagesCache()
 
 	packetInfo := &packetInfo{
 		packet: chantypes.Packet{
@@ -69,13 +69,13 @@ func TestHandleMsgTransfer(t *testing.T) {
 		},
 	}
 
-	ccp.handleMsgTransfer(MsgHandlerParams{messageInfo: packetInfo, foundMessages: foundMessages})
+	ccp.handleMsgTransfer(msgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
 
-	require.Len(t, foundMessages, 1)
+	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
 	channelKey := packetInfo.channelKey()
 
-	channelMessages, ok := foundMessages[channelKey]
+	channelMessages, ok := ibcMessagesCache.PacketFlow[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
 
 	require.Len(t, channelMessages, 1)
@@ -111,7 +111,7 @@ func TestHandleMsgRecvPacket(t *testing.T) {
 		ccp        = mockCosmosChainProcessor(t)
 	)
 
-	foundMessages := make(processor.ChannelMessageCache)
+	ibcMessagesCache := processor.NewIBCMessagesCache()
 
 	packetInfo := &packetInfo{
 		packet: chantypes.Packet{
@@ -125,14 +125,14 @@ func TestHandleMsgRecvPacket(t *testing.T) {
 		ack: packetAck,
 	}
 
-	ccp.handleMsgRecvPacket(MsgHandlerParams{messageInfo: packetInfo, foundMessages: foundMessages})
+	ccp.handleMsgRecvPacket(msgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
 
-	require.Len(t, foundMessages, 1)
+	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
 	// flipped on purpose since MsgRecvPacket is committed on counterparty chain
 	channelKey := packetInfo.channelKey().Counterparty()
 
-	channelMessages, ok := foundMessages[channelKey]
+	channelMessages, ok := ibcMessagesCache.PacketFlow[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
 
 	require.Len(t, channelMessages, 1)
@@ -167,7 +167,7 @@ func TestHandleMsgAcknowledgement(t *testing.T) {
 		ccp        = mockCosmosChainProcessor(t)
 	)
 
-	foundMessages := make(processor.ChannelMessageCache)
+	ibcMessagesCache := processor.NewIBCMessagesCache()
 
 	packetInfo := &packetInfo{
 		packet: chantypes.Packet{
@@ -180,13 +180,13 @@ func TestHandleMsgAcknowledgement(t *testing.T) {
 		},
 	}
 
-	ccp.handleMsgAcknowledgement(MsgHandlerParams{messageInfo: packetInfo, foundMessages: foundMessages})
+	ccp.handleMsgAcknowledgement(msgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
 
-	require.Len(t, foundMessages, 1)
+	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
 	channelKey := packetInfo.channelKey()
 
-	channelMessages, ok := foundMessages[channelKey]
+	channelMessages, ok := ibcMessagesCache.PacketFlow[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
 
 	require.Len(t, channelMessages, 1)
@@ -215,7 +215,7 @@ func TestHandleMsgTimeout(t *testing.T) {
 		ccp        = mockCosmosChainProcessor(t)
 	)
 
-	foundMessages := make(processor.ChannelMessageCache)
+	ibcMessagesCache := processor.NewIBCMessagesCache()
 
 	packetInfo := &packetInfo{
 		packet: chantypes.Packet{
@@ -228,13 +228,13 @@ func TestHandleMsgTimeout(t *testing.T) {
 		},
 	}
 
-	ccp.handleMsgTimeout(MsgHandlerParams{messageInfo: packetInfo, foundMessages: foundMessages})
+	ccp.handleMsgTimeout(msgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
 
-	require.Len(t, foundMessages, 1)
+	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
 	channelKey := packetInfo.channelKey()
 
-	channelMessages, ok := foundMessages[channelKey]
+	channelMessages, ok := ibcMessagesCache.PacketFlow[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
 
 	require.Len(t, channelMessages, 1)
@@ -263,7 +263,7 @@ func TestHandleMsgTimeoutOnClose(t *testing.T) {
 		ccp        = mockCosmosChainProcessor(t)
 	)
 
-	foundMessages := make(processor.ChannelMessageCache)
+	ibcMessagesCache := processor.NewIBCMessagesCache()
 
 	packetInfo := &packetInfo{
 		packet: chantypes.Packet{
@@ -276,13 +276,13 @@ func TestHandleMsgTimeoutOnClose(t *testing.T) {
 		},
 	}
 
-	ccp.handleMsgTimeoutOnClose(MsgHandlerParams{messageInfo: packetInfo, foundMessages: foundMessages})
+	ccp.handleMsgTimeoutOnClose(msgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
 
-	require.Len(t, foundMessages, 1)
+	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
 	channelKey := packetInfo.channelKey()
 
-	channelMessages, ok := foundMessages[channelKey]
+	channelMessages, ok := ibcMessagesCache.PacketFlow[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
 
 	require.Len(t, channelMessages, 1)
