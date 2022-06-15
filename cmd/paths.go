@@ -6,13 +6,11 @@ import (
 	"fmt"
 	"io"
 	"path"
-	"sort"
 	"strings"
 
 	"github.com/cespare/permute/v2"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/google/go-github/v43/github"
-
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -257,30 +255,29 @@ func pathsFetchCmd(a *appState) *cobra.Command {
 $ %s paths fetch --home %s
 $ %s pth fch`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			overwrite, _ := cmd.Flags().GetBool(flagOverwriteConfig)
+
 			chains := []string{}
 			for chainName := range a.Config.Chains {
 				chains = append(chains, chainName)
 			}
 
-			//find all combinations of paths for configured chains
-			//note: path file names on the chain-registry are in alphabetical order ex: achain-zchain.json
+			// find all combinations of paths for configured chains
+			// note: path file names on the chain-registry are in alphabetical order ex: achain-zchain.json
 			p := permute.Slice(chains)
-			var chainCombinations []string
+			chainCombinations := make(map[string]bool)
 			for p.Permute() {
-				tmp := make([]string, 2)
-				copy(tmp, chains)
-				sort.Strings(tmp)
-				tmp1 := string(tmp[0] + "-" + tmp[1])
-				if !contains(chainCombinations, tmp1) {
-					chainCombinations = append(chainCombinations, tmp1)
+				a, b := chains[0], chains[1]
+				pair := a + "-" + b
+				if b < a {
+					pair = b + "-" + a
 				}
+				chainCombinations[pair] = true
 			}
-
-			overwrite, _ := cmd.Flags().GetBool(flagOverwriteConfig)
 
 			client := github.NewClient(nil)
 
-			for _, pthName := range chainCombinations {
+			for pthName := range chainCombinations {
 				_, exist := a.Config.Paths[pthName]
 				if exist && !overwrite {
 					fmt.Fprintf(cmd.ErrOrStderr(), "skipping:  %s already exists in config, use -o to overwrite (clears filters)\n", pthName)
@@ -295,7 +292,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					if errors.As(err, new(*github.RateLimitError)) {
 						return fmt.Errorf("error message: %w", err)
 					}
-					fmt.Fprintf(cmd.ErrOrStderr(), "failure retrieving from cosmos/chain-registry: ERR: %v\n", err)
+					fmt.Fprintf(cmd.ErrOrStderr(), "failure retrieving: %s: consider adding to cosmos/chain-registry: ERR: %v\n", pthName, err)
 					continue
 				}
 				defer client.Close()
@@ -344,13 +341,4 @@ $ %s pth fch`, appName, defaultHome, appName)),
 		},
 	}
 	return OverwriteConfigFlag(a.Viper, cmd)
-}
-
-func contains(s []string, str string) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
-	}
-	return false
 }
