@@ -258,8 +258,8 @@ $ %s paths fetch --home %s
 $ %s pth fch`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chains := []string{}
-			for chain_name := range a.Config.Chains {
-				chains = append(chains, chain_name)
+			for chainName := range a.Config.Chains {
+				chains = append(chains, chainName)
 			}
 
 			//find all combinations of paths for configured chains
@@ -293,7 +293,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 				client, _, err := client.Repositories.DownloadContents(cmd.Context(), "cosmos", "chain-registry", regPath, nil)
 				if err != nil {
 					if errors.As(err, new(*github.RateLimitError)) {
-						return fmt.Errorf("github API rate limit reached while querying data ERR: %w", err)
+						return fmt.Errorf("error message: %w", err)
 					}
 					fmt.Fprintf(cmd.ErrOrStderr(), "not found:  path %s not found in repo 'cosmos/chain-registry', folder '_IBC'\n", pthName)
 					continue
@@ -302,12 +302,12 @@ $ %s pth fch`, appName, defaultHome, appName)),
 
 				b, err := io.ReadAll(client)
 				if err != nil {
-					return fmt.Errorf("error reading response body: %v", err)
+					return fmt.Errorf("error reading response body: %w", err)
 				}
 
 				ibc := &relayer.IBCdata{}
 				if err = json.Unmarshal(b, &ibc); err != nil {
-					return fmt.Errorf("failed to unmarshal: %v ", err)
+					return fmt.Errorf("failed to unmarshal: %w ", err)
 				}
 
 				srcChainName := ibc.Chain1.ChainName
