@@ -2,16 +2,15 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"os"
 	"path"
-	"path/filepath"
 	"strings"
 
+	"github.com/cespare/permute/v2"
 	"github.com/cosmos/relayer/v2/relayer"
-	"github.com/go-git/go-git/v5"
+	"github.com/google/go-github/v43/github"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -256,77 +255,90 @@ func pathsFetchCmd(a *appState) *cobra.Command {
 $ %s paths fetch --home %s
 $ %s pth fch`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Clone the GH repo to tmp dir, we will extract the path files from here
-			localRepo, err := os.MkdirTemp("", "")
-			if err != nil {
-				return err
+			overwrite, _ := cmd.Flags().GetBool(flagOverwriteConfig)
+
+			chains := []string{}
+			for chainName := range a.Config.Chains {
+				chains = append(chains, chainName)
 			}
 
-			if _, err = git.PlainClone(localRepo, false, &git.CloneOptions{
-				URL:           REPOURL,
-				Progress:      io.Discard,
-				ReferenceName: "refs/heads/main",
-			}); err != nil {
-				return err
-			}
-
-			// Try to fetch path info for each configured chain that has canonical chain/path info in the GH repo
-			for _, srcChain := range a.Config.Chains {
-				for _, dstChain := range a.Config.Chains {
-
-					// Add paths to rly config from {localRepo}/interchain/chaind-id/
-					localPathsDir := path.Join(localRepo, "interchain", srcChain.ChainID())
-
-					dir := path.Clean(localPathsDir)
-					files, err := ioutil.ReadDir(dir)
-					if err != nil {
-						fmt.Fprintf(cmd.ErrOrStderr(), "path info does not exist for chain: %s. Consider adding its info to %s. Error: %v\n", srcChain.ChainID(), path.Join(PATHSURL, "interchain"), err)
-						break
-					}
-
-					// For each path file, check that the dst is also a configured chain in the relayers config
-					for _, f := range files {
-						pth := filepath.Join(dir, f.Name())
-
-						if f.IsDir() {
-							fmt.Fprintf(cmd.ErrOrStderr(), "directory at %s, skipping...\n", pth)
-							continue
-						}
-
-						byt, err := os.ReadFile(pth)
-						if err != nil {
-							cleanupDir(localRepo)
-							return fmt.Errorf("failed to read file %s: %w", pth, err)
-						}
-
-						p := &relayer.Path{}
-						if err = json.Unmarshal(byt, p); err != nil {
-							cleanupDir(localRepo)
-							return fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
-						}
-
-						if p.Dst.ChainID == dstChain.ChainID() {
-							pthName := strings.Split(f.Name(), ".")[0]
-							if err = a.Config.AddPath(pthName, p); err != nil {
-								return fmt.Errorf("failed to add path %s: %w", pth, err)
-							}
-
-							fmt.Fprintf(cmd.ErrOrStderr(), "added path %s...\n", pthName)
-						}
-					}
-
-					if err := a.OverwriteConfig(a.Config); err != nil {
-						return err
-					}
+			// find all combinations of paths for configured chains
+			// note: path file names on the chain-registry are in alphabetical order ex: achain-zchain.json
+			p := permute.Slice(chains)
+			chainCombinations := make(map[string]bool)
+			for p.Permute() {
+				a, b := chains[0], chains[1]
+				pair := a + "-" + b
+				if b < a {
+					pair = b + "-" + a
 				}
+				chainCombinations[pair] = true
 			}
-			cleanupDir(localRepo)
+
+			client := github.NewClient(nil)
+
+			for pthName := range chainCombinations {
+				_, exist := a.Config.Paths[pthName]
+				if exist && !overwrite {
+					fmt.Fprintf(cmd.ErrOrStderr(), "skipping:  %s already exists in config, use -o to overwrite (clears filters)\n", pthName)
+					continue
+				}
+
+				// TODO: Don't use github api. Potentially use: https://github.com/eco-stake/cosmos-directory once they integrate IBC data into restAPI. This will avoid rate limits.
+				fileName := pthName + ".json"
+				regPath := path.Join("_IBC", fileName)
+				client, _, err := client.Repositories.DownloadContents(cmd.Context(), "cosmos", "chain-registry", regPath, nil)
+				if err != nil {
+					if errors.As(err, new(*github.RateLimitError)) {
+						return fmt.Errorf("error message: %w", err)
+					}
+					fmt.Fprintf(cmd.ErrOrStderr(), "failure retrieving: %s: consider adding to cosmos/chain-registry: ERR: %v\n", pthName, err)
+					continue
+				}
+				defer client.Close()
+
+				b, err := io.ReadAll(client)
+				if err != nil {
+					return fmt.Errorf("error reading response body: %w", err)
+				}
+
+				ibc := &relayer.IBCdata{}
+				if err = json.Unmarshal(b, &ibc); err != nil {
+					return fmt.Errorf("failed to unmarshal: %w ", err)
+				}
+
+				srcChainName := ibc.Chain1.ChainName
+				dstChainName := ibc.Chain2.ChainName
+
+				srcPathEnd := &relayer.PathEnd{
+					ChainID:      a.Config.Chains[srcChainName].ChainID(),
+					ClientID:     ibc.Chain1.ClientID,
+					ConnectionID: ibc.Chain1.ConnectionID,
+				}
+				dstPathEnd := &relayer.PathEnd{
+					ChainID:      a.Config.Chains[dstChainName].ChainID(),
+					ClientID:     ibc.Chain2.ClientID,
+					ConnectionID: ibc.Chain2.ConnectionID,
+				}
+				newPath := &relayer.Path{
+					Src: srcPathEnd,
+					Dst: dstPathEnd,
+				}
+				client.Close()
+
+				if err = a.Config.AddPath(pthName, newPath); err != nil {
+					return fmt.Errorf("failed to add path %s: %w", pthName, err)
+				}
+				fmt.Fprintf(cmd.ErrOrStderr(), "added:  %s\n", pthName)
+
+			}
+
+			if err := a.OverwriteConfig(a.Config); err != nil {
+				return err
+			}
 			return nil
+
 		},
 	}
-	return cmd
-}
-
-func cleanupDir(dir string) {
-	_ = os.RemoveAll(dir)
+	return OverwriteConfigFlag(a.Viper, cmd)
 }
