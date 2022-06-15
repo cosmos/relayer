@@ -295,7 +295,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					if errors.As(err, new(*github.RateLimitError)) {
 						return fmt.Errorf("error message: %w", err)
 					}
-					fmt.Fprintf(cmd.ErrOrStderr(), "not found:  path %s not found in repo 'cosmos/chain-registry', folder '_IBC'\n", pthName)
+					fmt.Fprintf(cmd.ErrOrStderr(), "failure retrieving from cosmos/chain-registry: ERR: %v\n", err)
 					continue
 				}
 				defer client.Close()
