@@ -16,9 +16,10 @@ require (
 
 require (
 	github.com/avast/retry-go/v4 v4.0.5
+	github.com/cespare/permute/v2 v2.0.0-beta2
 	github.com/cosmos/ibc-go/v3 v3.0.0
 	github.com/google/go-cmp v0.5.8
-	github.com/google/go-github v17.0.0+incompatible
+	github.com/google/go-github/v43 v43.0.0
 	github.com/jsternberg/zap-logfmt v1.2.0
 	github.com/ory/dockertest/v3 v3.9.1
 	github.com/strangelove-ventures/lens v0.5.1
@@ -44,7 +45,6 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
-	github.com/cespare/permute/v2 v2.0.0-beta2 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/coinbase/rosetta-sdk-go v0.7.0 // indirect
@@ -79,7 +79,6 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.0.0 // indirect
-	github.com/google/go-github/v43 v43.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/orderedcode v0.0.1 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
