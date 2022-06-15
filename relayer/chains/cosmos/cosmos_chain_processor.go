@@ -44,7 +44,7 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, r
 		return nil, fmt.Errorf("error getting cosmos client: %w", err)
 	}
 	return &CosmosChainProcessor{
-		log:                  log.With(zap.String("chain_id", provider.ChainId())),
+		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
 		chainProvider:        provider,
 		cc:                   cc,
 		pathProcessors:       pathProcessors,
