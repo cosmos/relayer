@@ -140,7 +140,7 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		// this can be parralelized also
 		for _, m := range messages {
 			if handler, ok := messageHandlers[m.Action]; ok {
-				handler(MsgHandlerParams{
+				handler(msgHandlerParams{
 					mcp:              mcp,
 					packetInfo:       m.PacketInfo,
 					ibcMessagesCache: ibcMessagesCache,

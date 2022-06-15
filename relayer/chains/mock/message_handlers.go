@@ -9,13 +9,13 @@ import (
 	"go.uber.org/zap"
 )
 
-type MsgHandlerParams struct {
+type msgHandlerParams struct {
 	mcp              *MockChainProcessor
 	packetInfo       *chantypes.Packet
 	ibcMessagesCache processor.IBCMessagesCache
 }
 
-var messageHandlers = map[string]func(MsgHandlerParams){
+var messageHandlers = map[string]func(msgHandlerParams){
 	processor.MsgTransfer:        handleMsgTransfer,
 	processor.MsgRecvPacket:      handleMsgRecvPacket,
 	processor.MsgAcknowledgement: handleMsgAcknowledgement,
@@ -23,7 +23,7 @@ var messageHandlers = map[string]func(MsgHandlerParams){
 	// TODO handlers for packet timeout, client, channel, and connection messages
 }
 
-func handleMsgTransfer(p MsgHandlerParams) {
+func handleMsgTransfer(p msgHandlerParams) {
 	channelKey := processor.ChannelKey{
 		ChannelID:             p.packetInfo.SourceChannel,
 		PortID:                p.packetInfo.SourcePort,
@@ -41,7 +41,7 @@ func handleMsgTransfer(p MsgHandlerParams) {
 	)
 }
 
-func handleMsgRecvPacket(p MsgHandlerParams) {
+func handleMsgRecvPacket(p msgHandlerParams) {
 	channelKey := processor.ChannelKey{
 		ChannelID:             p.packetInfo.DestinationChannel,
 		PortID:                p.packetInfo.DestinationPort,
@@ -59,7 +59,7 @@ func handleMsgRecvPacket(p MsgHandlerParams) {
 	)
 }
 
-func handleMsgAcknowledgement(p MsgHandlerParams) {
+func handleMsgAcknowledgement(p msgHandlerParams) {
 	channelKey := processor.ChannelKey{
 		ChannelID:             p.packetInfo.SourceChannel,
 		PortID:                p.packetInfo.SourcePort,

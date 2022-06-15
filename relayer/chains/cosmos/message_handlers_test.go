@@ -69,7 +69,7 @@ func TestHandleMsgTransfer(t *testing.T) {
 		},
 	}
 
-	ccp.handleMsgTransfer(MsgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgTransfer(msgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
 
 	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
@@ -125,7 +125,7 @@ func TestHandleMsgRecvPacket(t *testing.T) {
 		ack: packetAck,
 	}
 
-	ccp.handleMsgRecvPacket(MsgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgRecvPacket(msgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
 
 	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
@@ -180,7 +180,7 @@ func TestHandleMsgAcknowledgement(t *testing.T) {
 		},
 	}
 
-	ccp.handleMsgAcknowledgement(MsgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgAcknowledgement(msgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
 
 	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
@@ -228,7 +228,7 @@ func TestHandleMsgTimeout(t *testing.T) {
 		},
 	}
 
-	ccp.handleMsgTimeout(MsgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgTimeout(msgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
 
 	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
@@ -276,7 +276,7 @@ func TestHandleMsgTimeoutOnClose(t *testing.T) {
 		},
 	}
 
-	ccp.handleMsgTimeoutOnClose(MsgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgTimeoutOnClose(msgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
 
 	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 

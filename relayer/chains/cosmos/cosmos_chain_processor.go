@@ -59,6 +59,31 @@ const (
 	inSyncNumBlocksThreshold    = 2
 )
 
+type msgHandlerParams struct {
+	// incoming IBC message
+	messageInfo interface{}
+
+	// reference to the caches that will be assembled by the handlers in this file
+	ibcMessagesCache processor.IBCMessagesCache
+}
+
+var messageHandlers = map[string]func(*CosmosChainProcessor, msgHandlerParams) bool{
+	processor.MsgTransfer:        (*CosmosChainProcessor).handleMsgTransfer,
+	processor.MsgRecvPacket:      (*CosmosChainProcessor).handleMsgRecvPacket,
+	processor.MsgAcknowledgement: (*CosmosChainProcessor).handleMsgAcknowledgement,
+	processor.MsgTimeout:         (*CosmosChainProcessor).handleMsgTimeout,
+	processor.MsgTimeoutOnClose:  (*CosmosChainProcessor).handleMsgTimeoutOnClose,
+
+	processor.MsgCreateClient:       (*CosmosChainProcessor).handleMsgCreateClient,
+	processor.MsgUpdateClient:       (*CosmosChainProcessor).handleMsgUpdateClient,
+	processor.MsgUpgradeClient:      (*CosmosChainProcessor).handleMsgUpgradeClient,
+	processor.MsgSubmitMisbehaviour: (*CosmosChainProcessor).handleMsgSubmitMisbehaviour,
+}
+
+func (ccp *CosmosChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {
+	ccp.log.With(zap.String("message", m)).Debug("Observed IBC message", fields...)
+}
+
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
 func (ccp *CosmosChainProcessor) Provider() provider.ChainProvider {
 	return ccp.chainProvider
@@ -208,7 +233,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 					continue
 				}
 				// call message handler for this ibc message type. can do things like cache things on the chain processor or retain ibc messages that should be sent to the PathProcessors.
-				changed := handler(ccp, MsgHandlerParams{
+				changed := handler(ccp, msgHandlerParams{
 					messageInfo:      m.messageInfo,
 					ibcMessagesCache: ibcMessagesCache,
 				})

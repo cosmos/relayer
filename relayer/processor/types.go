@@ -143,9 +143,9 @@ type ChainProcessorCacheData struct {
 
 // Clone will create a deep copy of a PacketMessagesCache.
 func (c PacketMessagesCache) Clone() PacketMessagesCache {
-	newPacketMessagesCache := make(PacketMessagesCache)
+	newPacketMessagesCache := make(PacketMessagesCache, len(c))
 	for mk, mv := range c {
-		newPacketSequenceCache := make(PacketSequenceCache)
+		newPacketSequenceCache := make(PacketSequenceCache, len(mv))
 		for sk, sv := range mv {
 			newPacketSequenceCache[sk] = sv
 		}

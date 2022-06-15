@@ -76,6 +76,7 @@ type clientInfo struct {
 	header          []byte
 }
 
+// latestClientState is a map of clientID to the latest clientInfo for that client.
 type latestClientState map[string]clientInfo
 
 func (l latestClientState) UpdateLatestClientState(clientInfo clientInfo) {
@@ -97,6 +98,7 @@ func (l latestClientState) Clone() latestClientState {
 	return newLatestClientState
 }
 
+// channelOpenState is a map of channelKey to the latest open state, true/false, for a channel.
 type channelOpenState map[processor.ChannelKey]bool
 
 func (c channelOpenState) Clone() channelOpenState {

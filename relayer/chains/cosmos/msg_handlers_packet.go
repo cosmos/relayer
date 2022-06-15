@@ -7,29 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type MsgHandlerParams struct {
-	// incoming IBC message
-	messageInfo interface{}
-
-	// reference to the caches that will be assembled by the handlers in this file
-	ibcMessagesCache processor.IBCMessagesCache
-}
-
-var messageHandlers = map[string]func(*CosmosChainProcessor, MsgHandlerParams) bool{
-	processor.MsgTransfer:        (*CosmosChainProcessor).handleMsgTransfer,
-	processor.MsgRecvPacket:      (*CosmosChainProcessor).handleMsgRecvPacket,
-	processor.MsgAcknowledgement: (*CosmosChainProcessor).handleMsgAcknowledgement,
-	processor.MsgTimeout:         (*CosmosChainProcessor).handleMsgTimeout,
-	processor.MsgTimeoutOnClose:  (*CosmosChainProcessor).handleMsgTimeoutOnClose,
-
-	processor.MsgCreateClient:       (*CosmosChainProcessor).handleMsgCreateClient,
-	processor.MsgUpdateClient:       (*CosmosChainProcessor).handleMsgUpdateClient,
-	processor.MsgUpgradeClient:      (*CosmosChainProcessor).handleMsgUpgradeClient,
-	processor.MsgSubmitMisbehaviour: (*CosmosChainProcessor).handleMsgSubmitMisbehaviour,
-}
-
-// BEGIN packet msg handlers
-func (ccp *CosmosChainProcessor) handleMsgTransfer(p MsgHandlerParams) bool {
+func (ccp *CosmosChainProcessor) handleMsgTransfer(p msgHandlerParams) bool {
 	pi := p.messageInfo.(*packetInfo)
 	// source chain processor will call this handler
 	// source channel used as key because MsgTransfer is sent to source chain
@@ -63,7 +41,7 @@ func (ccp *CosmosChainProcessor) handleMsgTransfer(p MsgHandlerParams) bool {
 	return true
 }
 
-func (ccp *CosmosChainProcessor) handleMsgRecvPacket(p MsgHandlerParams) bool {
+func (ccp *CosmosChainProcessor) handleMsgRecvPacket(p msgHandlerParams) bool {
 	pi := p.messageInfo.(*packetInfo)
 	// destination chain processor will call this handler
 	// destination channel used because MsgRecvPacket is sent to destination chain
@@ -93,7 +71,7 @@ func (ccp *CosmosChainProcessor) handleMsgRecvPacket(p MsgHandlerParams) bool {
 	return true
 }
 
-func (ccp *CosmosChainProcessor) handleMsgAcknowledgement(p MsgHandlerParams) bool {
+func (ccp *CosmosChainProcessor) handleMsgAcknowledgement(p msgHandlerParams) bool {
 	pi := p.messageInfo.(*packetInfo)
 	// source chain processor will call this handler
 	// source channel used as key because MsgAcknowledgement is sent to source chain
@@ -109,7 +87,7 @@ func (ccp *CosmosChainProcessor) handleMsgAcknowledgement(p MsgHandlerParams) bo
 	return true
 }
 
-func (ccp *CosmosChainProcessor) handleMsgTimeout(p MsgHandlerParams) bool {
+func (ccp *CosmosChainProcessor) handleMsgTimeout(p msgHandlerParams) bool {
 	pi := p.messageInfo.(*packetInfo)
 	// source chain processor will call this handler
 	// source channel used as key because MsgTimeout is sent to source chain
@@ -125,7 +103,7 @@ func (ccp *CosmosChainProcessor) handleMsgTimeout(p MsgHandlerParams) bool {
 	return true
 }
 
-func (ccp *CosmosChainProcessor) handleMsgTimeoutOnClose(p MsgHandlerParams) bool {
+func (ccp *CosmosChainProcessor) handleMsgTimeoutOnClose(p msgHandlerParams) bool {
 	pi := p.messageInfo.(*packetInfo)
 	// source channel used because timeout is sent to source chain
 	channelKey := pi.channelKey()
@@ -150,46 +128,4 @@ func (ccp *CosmosChainProcessor) logPacketMessage(message string, pi *packetInfo
 	}
 	fields = append(fields, additionalFields...)
 	ccp.logObservedIBCMessage(message, fields...)
-}
-
-// END packet msg handlers
-
-// BEGIN client msg handlers
-
-func (ccp *CosmosChainProcessor) handleMsgCreateClient(p MsgHandlerParams) bool {
-	clientInfo := p.messageInfo.(*clientInfo)
-	// save the latest consensus height and header for this client
-	ccp.latestClientState.UpdateLatestClientState(*clientInfo)
-	ccp.logObservedIBCMessage("MsgCreateClient", zap.String("client_id", clientInfo.clientID))
-	return false
-}
-
-func (ccp *CosmosChainProcessor) handleMsgUpdateClient(p MsgHandlerParams) bool {
-	clientInfo := p.messageInfo.(*clientInfo)
-	// save the latest consensus height and header for this client
-	ccp.latestClientState.UpdateLatestClientState(*clientInfo)
-	ccp.logObservedIBCMessage("MsgUpdateClient", zap.String("client_id", clientInfo.clientID))
-	return false
-}
-
-func (ccp *CosmosChainProcessor) handleMsgUpgradeClient(p MsgHandlerParams) bool {
-	clientInfo := p.messageInfo.(*clientInfo)
-	// save the latest consensus height and header for this client
-	ccp.latestClientState.UpdateLatestClientState(*clientInfo)
-	ccp.logObservedIBCMessage("MsgUpgradeClient", zap.String("client_id", clientInfo.clientID))
-	return false
-}
-
-func (ccp *CosmosChainProcessor) handleMsgSubmitMisbehaviour(p MsgHandlerParams) bool {
-	clientInfo := p.messageInfo.(*clientInfo)
-	// save the latest consensus height and header for this client
-	ccp.latestClientState.UpdateLatestClientState(*clientInfo)
-	ccp.logObservedIBCMessage("MsgSubmitMisbehaviour", zap.String("client_id", clientInfo.clientID))
-	return false
-}
-
-// END client msg handlers
-
-func (ccp *CosmosChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {
-	ccp.log.With(zap.String("message", m)).Debug("Observed IBC message", fields...)
 }
