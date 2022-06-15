@@ -31,6 +31,9 @@ type CosmosChainProcessor struct {
 	// holds highest consensus height and header for all clients
 	latestClientState
 
+	// holds open state for known connections
+	connectionStateCache processor.ConnectionStateCache
+
 	// holds open state for known channels
 	channelStateCache processor.ChannelStateCache
 }
@@ -41,12 +44,13 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, r
 		return nil, fmt.Errorf("error getting cosmos client: %w", err)
 	}
 	return &CosmosChainProcessor{
-		log:               log.With(zap.String("chain_id", provider.ChainId())),
-		chainProvider:     provider,
-		cc:                cc,
-		pathProcessors:    pathProcessors,
-		latestClientState: make(latestClientState),
-		channelStateCache: make(processor.ChannelStateCache),
+		log:                  log.With(zap.String("chain_id", provider.ChainId())),
+		chainProvider:        provider,
+		cc:                   cc,
+		pathProcessors:       pathProcessors,
+		latestClientState:    make(latestClientState),
+		connectionStateCache: make(processor.ConnectionStateCache),
+		channelStateCache:    make(processor.ChannelStateCache),
 	}, nil
 }
 
@@ -78,6 +82,11 @@ var messageHandlers = map[string]func(*CosmosChainProcessor, msgHandlerParams) b
 	processor.MsgUpdateClient:       (*CosmosChainProcessor).handleMsgUpdateClient,
 	processor.MsgUpgradeClient:      (*CosmosChainProcessor).handleMsgUpgradeClient,
 	processor.MsgSubmitMisbehaviour: (*CosmosChainProcessor).handleMsgSubmitMisbehaviour,
+
+	processor.MsgConnectionOpenInit:    (*CosmosChainProcessor).handleMsgConnectionOpenInit,
+	processor.MsgConnectionOpenTry:     (*CosmosChainProcessor).handleMsgConnectionOpenTry,
+	processor.MsgConnectionOpenAck:     (*CosmosChainProcessor).handleMsgConnectionOpenAck,
+	processor.MsgConnectionOpenConfirm: (*CosmosChainProcessor).handleMsgConnectionOpenConfirm,
 }
 
 func (ccp *CosmosChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {
@@ -256,9 +265,10 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	for _, pp := range ccp.pathProcessors {
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
-			IBCMessagesCache:  ibcMessagesCache,
-			InSync:            ccp.inSync,
-			ChannelStateCache: ccp.channelStateCache,
+			IBCMessagesCache:     ibcMessagesCache,
+			InSync:               ccp.inSync,
+			ConnectionStateCache: ccp.connectionStateCache,
+			ChannelStateCache:    ccp.channelStateCache,
 		})
 	}
 
