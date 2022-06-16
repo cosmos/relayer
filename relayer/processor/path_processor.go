@@ -201,21 +201,14 @@ func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorC
 	}
 }
 
-// this contains MsgRecvPacket from same chain
-// needs to be transformed into PathEndPacketFlowMessages once counterparty info is available to complete packet flow state for pathEnd
-type PathEndMessages struct {
-	MsgTransfer        PacketSequenceCache
-	MsgRecvPacket      PacketSequenceCache
-	MsgAcknowledgement PacketSequenceCache
-}
-
 // contains MsgRecvPacket from counterparty
 // entire packet flow
 type PathEndPacketFlowMessages struct {
 	SrcMsgTransfer        PacketSequenceCache
 	DstMsgRecvPacket      PacketSequenceCache
 	SrcMsgAcknowledgement PacketSequenceCache
-	// TODO SrcTimeout and SrcTimeoutOnClose
+	SrcMsgTimeout         PacketSequenceCache
+	SrcMsgTimeoutOnClose  PacketSequenceCache
 }
 
 type PathEndProcessedResponse struct {
@@ -253,9 +246,24 @@ MsgTransferLoop:
 				continue MsgTransferLoop
 			}
 		}
-
-		// would iterate timeout messages here also
-
+		for timeoutSeq := range pathEndPacketFlowMessages.SrcMsgTimeout {
+			if transferSeq == timeoutSeq {
+				// we have a timeout for this packet, so packet flow is complete
+				// remove all retention of this sequence number
+				res.ToDeleteSrc[MsgTransfer] = append(res.ToDeleteSrc[MsgTransfer], transferSeq)
+				res.ToDeleteSrc[MsgTimeout] = append(res.ToDeleteSrc[MsgTimeout], transferSeq)
+				continue MsgTransferLoop
+			}
+		}
+		for timeoutOnCloseSeq := range pathEndPacketFlowMessages.SrcMsgTimeoutOnClose {
+			if transferSeq == timeoutOnCloseSeq {
+				// we have a timeout for this packet, so packet flow is complete
+				// remove all retention of this sequence number
+				res.ToDeleteSrc[MsgTransfer] = append(res.ToDeleteSrc[MsgTransfer], transferSeq)
+				res.ToDeleteSrc[MsgTimeoutOnClose] = append(res.ToDeleteSrc[MsgTimeoutOnClose], transferSeq)
+				continue MsgTransferLoop
+			}
+		}
 		for msgRecvSeq, msgAcknowledgement := range pathEndPacketFlowMessages.DstMsgRecvPacket {
 			if transferSeq == msgRecvSeq {
 				// msg is received by dst chain, but no ack yet. Need to relay ack from dst to src!
@@ -273,8 +281,14 @@ MsgTransferLoop:
 		res.ToDeleteDst[MsgRecvPacket] = append(res.ToDeleteDst[MsgRecvPacket], ackSeq)
 		res.ToDeleteSrc[MsgAcknowledgement] = append(res.ToDeleteSrc[MsgAcknowledgement], ackSeq)
 	}
-
-	// would iterate timeout messages here also
+	for timeoutSeq := range pathEndPacketFlowMessages.SrcMsgTimeout {
+		res.ToDeleteSrc[MsgTransfer] = append(res.ToDeleteSrc[MsgTransfer], timeoutSeq)
+		res.ToDeleteSrc[MsgTimeout] = append(res.ToDeleteSrc[MsgTimeout], timeoutSeq)
+	}
+	for timeoutOnCloseSeq := range pathEndPacketFlowMessages.SrcMsgTimeoutOnClose {
+		res.ToDeleteSrc[MsgTransfer] = append(res.ToDeleteSrc[MsgTransfer], timeoutOnCloseSeq)
+		res.ToDeleteSrc[MsgTimeoutOnClose] = append(res.ToDeleteSrc[MsgTimeoutOnClose], timeoutOnCloseSeq)
+	}
 }
 
 func (pp *PathProcessor) sendMessages(pathEnd *PathEndRuntime, messages []IBCMessageWithSequence) error {
@@ -303,11 +317,15 @@ func (pp *PathProcessor) processLatestMessages() error {
 			SrcMsgTransfer:        pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][MsgTransfer],
 			DstMsgRecvPacket:      pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][MsgRecvPacket],
 			SrcMsgAcknowledgement: pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][MsgAcknowledgement],
+			SrcMsgTimeout:         pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][MsgTimeout],
+			SrcMsgTimeoutOnClose:  pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][MsgTimeoutOnClose],
 		}
 		pathEnd2PacketFlowMessages := PathEndPacketFlowMessages{
 			SrcMsgTransfer:        pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][MsgTransfer],
 			DstMsgRecvPacket:      pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][MsgRecvPacket],
 			SrcMsgAcknowledgement: pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][MsgAcknowledgement],
+			SrcMsgTimeout:         pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][MsgTimeout],
+			SrcMsgTimeoutOnClose:  pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][MsgTimeoutOnClose],
 		}
 
 		pathEnd1ProcessRes[i] = new(PathEndProcessedResponse)
