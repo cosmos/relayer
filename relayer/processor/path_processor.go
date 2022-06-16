@@ -201,16 +201,6 @@ func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorC
 	}
 }
 
-// this contains MsgRecvPacket from same chain
-// needs to be transformed into PathEndPacketFlowMessages once counterparty info is available to complete packet flow state for pathEnd
-type PathEndMessages struct {
-	MsgTransfer        PacketSequenceCache
-	MsgRecvPacket      PacketSequenceCache
-	MsgAcknowledgement PacketSequenceCache
-	MsgTimeout         PacketSequenceCache
-	// TODO MsgTimeoutOnClose
-}
-
 // contains MsgRecvPacket from counterparty
 // entire packet flow
 type PathEndPacketFlowMessages struct {
