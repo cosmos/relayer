@@ -37,11 +37,13 @@ func TestHandleConnectionHandshake(t *testing.T) {
 
 	require.Len(t, ibcMessagesCache.ConnectionHandshake, 1)
 
-	connectionMessages, hasConnectionKey := ibcMessagesCache.ConnectionHandshake[connectionKey]
-	require.True(t, hasConnectionKey, "no messages cached for connection key")
-
-	_, hasConnectionOpenInit := connectionMessages[processor.MsgConnectionOpenInit]
+	openInitMessages, hasConnectionOpenInit := ibcMessagesCache.ConnectionHandshake[processor.MsgConnectionOpenInit]
 	require.True(t, hasConnectionOpenInit, "no messages cached for MsgConnectionOpenInit")
+
+	openInitMessage, hasOpenInitMessage := openInitMessages[connectionKey]
+	require.True(t, hasOpenInitMessage, "no init messages cached for connection key")
+
+	require.NotNil(t, openInitMessage)
 
 	ccp.handleMsgConnectionOpenAck(msgHandlerParams{messageInfo: connectionInfo, ibcMessagesCache: ibcMessagesCache})
 
@@ -50,16 +52,22 @@ func TestHandleConnectionHandshake(t *testing.T) {
 
 	require.True(t, connectionOpen, "connection should be marked open now")
 
-	connectionMessages, hasConnectionKey = ibcMessagesCache.ConnectionHandshake[connectionKey]
-	require.True(t, hasConnectionKey, "no messages cached for connection key")
-
-	require.Len(t, connectionMessages, 2)
-
-	_, hasConnectionOpenInit = connectionMessages[processor.MsgConnectionOpenInit]
+	openInitMessages, hasConnectionOpenInit = ibcMessagesCache.ConnectionHandshake[processor.MsgConnectionOpenInit]
 	require.True(t, hasConnectionOpenInit, "no messages cached for MsgConnectionOpenInit")
 
-	_, hasConnectionOpenAck := connectionMessages[processor.MsgConnectionOpenAck]
+	openAckMessages, hasConnectionOpenAck := ibcMessagesCache.ConnectionHandshake[processor.MsgConnectionOpenAck]
 	require.True(t, hasConnectionOpenAck, "no messages cached for MsgConnectionOpenAck")
+
+	openInitMessage, hasOpenInitMessage = openInitMessages[connectionKey]
+	require.True(t, hasOpenInitMessage, "no init messages cached for connection key")
+
+	require.NotNil(t, openInitMessage)
+
+	openAckMessage, hasOpenAckMessage := openAckMessages[connectionKey]
+	require.True(t, hasOpenAckMessage, "no ack messages cached for connection key")
+
+	require.NotNil(t, openAckMessage)
+
 }
 
 func TestHandleConnectionHandshakeCounterparty(t *testing.T) {
@@ -92,11 +100,13 @@ func TestHandleConnectionHandshakeCounterparty(t *testing.T) {
 
 	require.Len(t, ibcMessagesCache.ConnectionHandshake, 1)
 
-	connectionMessages, hasConnectionKey := ibcMessagesCache.ConnectionHandshake[connectionKey]
-	require.True(t, hasConnectionKey, "no messages cached for connection key")
-
-	_, hasConnectionOpenTry := connectionMessages[processor.MsgConnectionOpenTry]
+	openTryMessages, hasConnectionOpenTry := ibcMessagesCache.ConnectionHandshake[processor.MsgConnectionOpenTry]
 	require.True(t, hasConnectionOpenTry, "no messages cached for MsgConnectionOpenTry")
+
+	openTryMessage, hasOpenTryMessage := openTryMessages[connectionKey]
+	require.True(t, hasOpenTryMessage, "no messages cached for connection key")
+
+	require.NotNil(t, openTryMessage)
 
 	ccp.handleMsgConnectionOpenConfirm(msgHandlerParams{messageInfo: connectionInfo, ibcMessagesCache: ibcMessagesCache})
 
@@ -105,14 +115,19 @@ func TestHandleConnectionHandshakeCounterparty(t *testing.T) {
 
 	require.True(t, connectionOpen, "connection should be marked open now")
 
-	connectionMessages, hasConnectionKey = ibcMessagesCache.ConnectionHandshake[connectionKey]
-	require.True(t, hasConnectionKey, "no messages cached for connection key")
-
-	require.Len(t, connectionMessages, 2)
-
-	_, hasConnectionOpenTry = connectionMessages[processor.MsgConnectionOpenTry]
+	openTryMessages, hasConnectionOpenTry = ibcMessagesCache.ConnectionHandshake[processor.MsgConnectionOpenTry]
 	require.True(t, hasConnectionOpenTry, "no messages cached for MsgConnectionOpenTry")
 
-	_, hasConnectionOpenConfirm := connectionMessages[processor.MsgConnectionOpenConfirm]
+	openConfirmMessages, hasConnectionOpenConfirm := ibcMessagesCache.ConnectionHandshake[processor.MsgConnectionOpenConfirm]
 	require.True(t, hasConnectionOpenConfirm, "no messages cached for MsgConnectionOpenConfirm")
+
+	openTryMessage, hasOpenTryMessage = openTryMessages[connectionKey]
+	require.True(t, hasOpenTryMessage, "no open try messages cached for connection key")
+
+	require.NotNil(t, openTryMessage)
+
+	openConfirmMessage, hasOpenConfirmMessage := openConfirmMessages[connectionKey]
+	require.True(t, hasOpenConfirmMessage, "no open confirm messages cached for connection key")
+
+	require.Nil(t, openConfirmMessage)
 }
