@@ -64,17 +64,17 @@ type PacketMessagesCache map[string]PacketSequenceCache
 // PacketSequenceCache is used for caching an IBC message for a given packet sequence.
 type PacketSequenceCache map[uint64]provider.RelayerMessage
 
-// ChannelMessagesCache is used for caching a ChannelMessageCache for a given IBC channel.
-type ChannelMessagesCache map[ChannelKey]ChannelMessageCache
+// ChannelMessagesCache is used for caching a ChannelMessageCache for a given IBC message type.
+type ChannelMessagesCache map[string]ChannelMessageCache
 
-// ChannelMessageCache is used for caching channel handshake IBC messages for a given IBC message type.
-type ChannelMessageCache map[string]provider.RelayerMessage
+// ChannelMessageCache is used for caching channel handshake IBC messages for a given IBC channel.
+type ChannelMessageCache map[ChannelKey]provider.RelayerMessage
 
-// ConnectionMessagesCache is used for caching a ConnectionMessageCache for a given IBC connection.
-type ConnectionMessagesCache map[ConnectionKey]ConnectionMessageCache
+// ConnectionMessagesCache is used for caching a ConnectionMessageCache for a given IBC message type.
+type ConnectionMessagesCache map[string]ConnectionMessageCache
 
-// ConnectionMessageCache is used for caching connection handshake IBC messages for a given IBC message type.
-type ConnectionMessageCache map[string]provider.RelayerMessage
+// ConnectionMessageCache is used for caching connection handshake IBC messages for a given IBC connection.
+type ConnectionMessageCache map[ConnectionKey]provider.RelayerMessage
 
 // ChannelKey is the key used for identifying channels between ChainProcessor and PathProcessor.
 type ChannelKey struct {
@@ -250,10 +250,20 @@ func (c ConnectionMessagesCache) Merge(other ConnectionMessagesCache) {
 
 // Retain assumes creates cache path if it doesn't exist, then caches message.
 func (c ConnectionMessagesCache) Retain(k ConnectionKey, m string, ibcMsg provider.RelayerMessage) {
-	if _, ok := c[k]; !ok {
-		c[k] = make(ConnectionMessageCache)
+	if _, ok := c[m]; !ok {
+		c[m] = make(ConnectionMessageCache)
 	}
-	c[k][m] = ibcMsg
+	c[m][k] = ibcMsg
+}
+
+func (c ConnectionMessagesCache) DeleteCachedMessages(toDelete ...map[string][]ConnectionKey) {
+	for _, toDeleteMap := range toDelete {
+		for message, toDeleteMessages := range toDeleteMap {
+			for _, connection := range toDeleteMessages {
+				delete(c[message], connection)
+			}
+		}
+	}
 }
 
 // Merge will merge another ConnectionMessageCache into this one.
@@ -277,10 +287,20 @@ func (c ChannelMessagesCache) Merge(other ChannelMessagesCache) {
 
 // Retain assumes creates cache path if it doesn't exist, then caches message.
 func (c ChannelMessagesCache) Retain(k ChannelKey, m string, ibcMsg provider.RelayerMessage) {
-	if _, ok := c[k]; !ok {
-		c[k] = make(ChannelMessageCache)
+	if _, ok := c[m]; !ok {
+		c[m] = make(ChannelMessageCache)
 	}
-	c[k][m] = ibcMsg
+	c[m][k] = ibcMsg
+}
+
+func (c ChannelMessagesCache) DeleteCachedMessages(toDelete ...map[string][]ChannelKey) {
+	for _, toDeleteMap := range toDelete {
+		for message, toDeleteMessages := range toDeleteMap {
+			for _, channel := range toDeleteMessages {
+				delete(c[message], channel)
+			}
+		}
+	}
 }
 
 // Merge will merge another ChannelMessageCache into this one.

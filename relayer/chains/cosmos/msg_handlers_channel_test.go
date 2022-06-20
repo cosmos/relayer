@@ -37,11 +37,13 @@ func TestHandleChannelHandshake(t *testing.T) {
 
 	require.Len(t, ibcMessagesCache.ChannelHandshake, 1)
 
-	channelMessages, hasChannelKey := ibcMessagesCache.ChannelHandshake[channelKey]
-	require.True(t, hasChannelKey, "no messages cached for channel key")
-
-	_, hasChannelOpenInit := channelMessages[processor.MsgChannelOpenInit]
+	openInitMessages, hasChannelOpenInit := ibcMessagesCache.ChannelHandshake[processor.MsgChannelOpenInit]
 	require.True(t, hasChannelOpenInit, "no messages cached for MsgChannelOpenInit")
+
+	openInitMessage, hasOpenInitMessage := openInitMessages[channelKey]
+	require.True(t, hasOpenInitMessage, "no open init messages cached for channel key")
+
+	require.NotNil(t, openInitMessage)
 
 	ccp.handleMsgChannelOpenAck(msgHandlerParams{messageInfo: channelInfo, ibcMessagesCache: ibcMessagesCache})
 
@@ -50,16 +52,21 @@ func TestHandleChannelHandshake(t *testing.T) {
 
 	require.True(t, channelOpen, "channel should be marked open now")
 
-	channelMessages, hasChannelKey = ibcMessagesCache.ChannelHandshake[channelKey]
-	require.True(t, hasChannelKey, "no messages cached for channel key")
-
-	require.Len(t, channelMessages, 2)
-
-	_, hasChannelOpenInit = channelMessages[processor.MsgChannelOpenInit]
+	openInitMessages, hasChannelOpenInit = ibcMessagesCache.ChannelHandshake[processor.MsgChannelOpenInit]
 	require.True(t, hasChannelOpenInit, "no messages cached for MsgChannelOpenInit")
 
-	_, hasChannelOpenAck := channelMessages[processor.MsgChannelOpenAck]
+	openAckMessages, hasChannelOpenAck := ibcMessagesCache.ChannelHandshake[processor.MsgChannelOpenAck]
 	require.True(t, hasChannelOpenAck, "no messages cached for MsgChannelOpenAck")
+
+	openInitMessage, hasOpenInitMessage = openInitMessages[channelKey]
+	require.True(t, hasOpenInitMessage, "no open init messages cached for channel key")
+
+	require.NotNil(t, openInitMessage)
+
+	openAckMessage, hasOpenAckMessage := openAckMessages[channelKey]
+	require.True(t, hasOpenAckMessage, "no open ack messages cached for channel key")
+
+	require.NotNil(t, openAckMessage)
 }
 
 func TestHandleChannelHandshakeCounterparty(t *testing.T) {
@@ -92,11 +99,13 @@ func TestHandleChannelHandshakeCounterparty(t *testing.T) {
 
 	require.Len(t, ibcMessagesCache.ChannelHandshake, 1)
 
-	channelMessages, hasChannelKey := ibcMessagesCache.ChannelHandshake[channelKey]
-	require.True(t, hasChannelKey, "no messages cached for channel key")
-
-	_, hasChannelOpenTry := channelMessages[processor.MsgChannelOpenTry]
+	openTryMessages, hasChannelOpenTry := ibcMessagesCache.ChannelHandshake[processor.MsgChannelOpenTry]
 	require.True(t, hasChannelOpenTry, "no messages cached for MsgChannelOpenTry")
+
+	openTryMessage, hasOpenTryMessage := openTryMessages[channelKey]
+	require.True(t, hasOpenTryMessage, "no open try messages cached for channel key")
+
+	require.NotNil(t, openTryMessage)
 
 	ccp.handleMsgChannelOpenConfirm(msgHandlerParams{messageInfo: channelInfo, ibcMessagesCache: ibcMessagesCache})
 
@@ -105,14 +114,20 @@ func TestHandleChannelHandshakeCounterparty(t *testing.T) {
 
 	require.True(t, channelOpen, "channel should be marked open now")
 
-	channelMessages, hasChannelKey = ibcMessagesCache.ChannelHandshake[channelKey]
-	require.True(t, hasChannelKey, "no messages cached for channel key")
-
-	require.Len(t, channelMessages, 2)
-
-	_, hasChannelOpenTry = channelMessages[processor.MsgChannelOpenTry]
+	openTryMessages, hasChannelOpenTry = ibcMessagesCache.ChannelHandshake[processor.MsgChannelOpenTry]
 	require.True(t, hasChannelOpenTry, "no messages cached for MsgChannelOpenTry")
 
-	_, hasChannelOpenConfirm := channelMessages[processor.MsgChannelOpenConfirm]
+	openConfirmMessages, hasChannelOpenConfirm := ibcMessagesCache.ChannelHandshake[processor.MsgChannelOpenConfirm]
 	require.True(t, hasChannelOpenConfirm, "no messages cached for MsgChannelOpenConfirm")
+
+	openTryMessage, hasOpenTryMessage = openTryMessages[channelKey]
+	require.True(t, hasOpenTryMessage, "no open try messages cached for channel key")
+
+	require.NotNil(t, openTryMessage)
+
+	openConfirmMessage, hasOpenConfirmMessage := openConfirmMessages[channelKey]
+	require.True(t, hasOpenConfirmMessage, "no open confirm messages cached for channel key")
+
+	require.Nil(t, openConfirmMessage)
+
 }
