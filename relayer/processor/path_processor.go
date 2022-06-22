@@ -50,6 +50,7 @@ type pathEndRuntime struct {
 	chainProvider provider.ChainProvider
 
 	// cached data
+	latestBlock          provider.LatestBlock
 	messageCache         IBCMessagesCache
 	connectionStateCache ConnectionStateCache
 	channelStateCache    ChannelStateCache
@@ -62,11 +63,12 @@ type pathEndRuntime struct {
 }
 
 func (pathEnd *pathEndRuntime) MergeCacheData(d ChainProcessorCacheData) {
+	pathEnd.inSync = d.InSync
+	pathEnd.latestBlock = d.LatestBlock
 	// TODO make sure passes channel filter for pathEnd1 before calling this
 	pathEnd.messageCache.Merge(d.IBCMessagesCache)             // Merge incoming packet IBC messages into the backlog
 	pathEnd.connectionStateCache.Merge(d.ConnectionStateCache) // Update latest connection open state for chain
 	pathEnd.channelStateCache.Merge(d.ChannelStateCache)       // Update latest channel open state for chain
-	pathEnd.inSync = d.InSync
 }
 
 // ibcMessageWithSequence holds a packet's sequence along with it,

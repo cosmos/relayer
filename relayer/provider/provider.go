@@ -38,6 +38,11 @@ type RelayerEvent struct {
 	Attributes map[string]string
 }
 
+type LatestBlock struct {
+	Height uint64
+	Time   time.Time
+}
+
 // loggableEvents is an unexported wrapper type for a slice of RelayerEvent,
 // to satisfy the zapcore.ArrayMarshaler interface.
 type loggableEvents []RelayerEvent
