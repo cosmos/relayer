@@ -7,8 +7,6 @@ import (
 	"io"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/avast/retry-go/v4"
 	cosmosClient "github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/relayer/v2/relayer/processor"
@@ -19,6 +17,7 @@ import (
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 type CosmosChainProcessor struct {
