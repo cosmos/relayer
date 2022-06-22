@@ -29,6 +29,8 @@ type MockChainProcessor struct {
 	inSync bool
 
 	getMockMessages func() []TransactionMessage
+
+	chainProvider provider.ChainProvider
 }
 
 // types used for parsing IBC messages from transactions, then passed to message handlers for mutating the MockChainProcessor state if necessary and retaining applicable messages for sending to the Path Processors
@@ -38,10 +40,20 @@ type TransactionMessage struct {
 }
 
 func NewMockChainProcessor(log *zap.Logger, chainID string, getMockMessages func() []TransactionMessage) *MockChainProcessor {
+	chainProviderCfg := cosmos.CosmosProviderConfig{
+		Key:            "mock-key",
+		ChainID:        chainID,
+		AccountPrefix:  "mock",
+		KeyringBackend: "test",
+		Timeout:        "10s",
+	}
+	chainProvider, _ := chainProviderCfg.NewProvider(zap.NewNop(), "/tmp", true, "mock-chain-name")
+	_, _ = chainProvider.AddKey(chainProvider.Key(), 118)
 	return &MockChainProcessor{
 		log:             log,
 		chainID:         chainID,
 		getMockMessages: getMockMessages,
+		chainProvider:   chainProvider,
 	}
 }
 
@@ -51,7 +63,7 @@ func (mcp *MockChainProcessor) SetPathProcessors(pathProcessors processor.PathPr
 
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
 func (mcp *MockChainProcessor) Provider() provider.ChainProvider {
-	return &cosmos.CosmosProvider{PCfg: cosmos.CosmosProviderConfig{ChainID: mcp.chainID}}
+	return mcp.chainProvider
 }
 
 type queryCyclePersistence struct {
