@@ -1178,6 +1178,57 @@ func (cc *CosmosProvider) MsgTimeoutOnClose(ctx context.Context, msgRecvPacket p
 	return NewCosmosMessage(msgTimeout), nil
 }
 
+func (cc *CosmosProvider) MsgUpdateClient(latestHeader provider.IBCHeader, clientTrustedState provider.ClientTrustedState, signer string) (provider.RelayerMessage, error) {
+	var signedHeader *tmtypes.SignedHeader
+	var validatorSet, trustedValidators *tmtypes.ValidatorSet
+
+	switch trustedHeader := clientTrustedState.IBCHeader.(type) {
+	case CosmosIBCHeader:
+		trustedValidators = trustedHeader.ValidatorSet
+	default:
+		return nil, fmt.Errorf("Unsupported IBC trusted header type, only CosmosIBCHeader currently supported: %v", trustedHeader)
+	}
+
+	switch ibcHeader := latestHeader.(type) {
+	case CosmosIBCHeader:
+		signedHeader = ibcHeader.SignedHeader
+		validatorSet = ibcHeader.ValidatorSet
+	default:
+		return nil, fmt.Errorf("Unsupported IBC header type, only CosmosIBCHeader currently supported: %v", ibcHeader)
+	}
+
+	trustedValidatorsProto, err := trustedValidators.ToProto()
+	if err != nil {
+		return nil, fmt.Errorf("Error converting trusted validators to proto object: %w", err)
+	}
+
+	signedHeaderProto := signedHeader.ToProto()
+
+	validatorSetProto, err := validatorSet.ToProto()
+	if err != nil {
+		return nil, fmt.Errorf("Error converting validator set to proto object: %w", err)
+	}
+
+	tmHeader := &tmclient.Header{
+		SignedHeader:      signedHeaderProto,
+		ValidatorSet:      validatorSetProto,
+		TrustedValidators: trustedValidatorsProto,
+		TrustedHeight:     clientTrustedState.ClientState.ConsensusHeight,
+	}
+
+	header, err := clienttypes.PackHeader(tmHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := &clienttypes.MsgUpdateClient{
+		ClientId: clientTrustedState.ClientState.ClientID,
+		Header:   header,
+		Signer:   signer,
+	}
+	return NewCosmosMessage(msg), nil
+}
+
 // RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
 func (cc *CosmosProvider) RelayPacketFromSequence(
 	ctx context.Context,

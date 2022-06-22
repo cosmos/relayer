@@ -4,6 +4,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 // ibcMessage is the type used for parsing all possible properties of IBC messages
@@ -76,35 +77,23 @@ type clientInfo struct {
 	header          []byte
 }
 
+func (c clientInfo) ClientState() provider.ClientState {
+	return provider.ClientState{
+		ClientID:        c.clientID,
+		ConsensusHeight: c.consensusHeight,
+	}
+}
+
 // latestClientState is a map of clientID to the latest clientInfo for that client.
-type latestClientState map[string]clientInfo
+type latestClientState map[string]provider.ClientState
 
 func (l latestClientState) UpdateLatestClientState(clientInfo clientInfo) {
 	existingClientInfo, ok := l[clientInfo.clientID]
-	if ok && clientInfo.consensusHeight.LT(existingClientInfo.consensusHeight) {
+	if ok && clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
 		// height is less than latest, so no-op
 		return
 	}
 
 	// update latest if no existing state or provided consensus height is newer
-	l[clientInfo.clientID] = clientInfo
-}
-
-func (l latestClientState) Clone() latestClientState {
-	newLatestClientState := make(latestClientState, len(l))
-	for k, v := range l {
-		newLatestClientState[k] = v
-	}
-	return newLatestClientState
-}
-
-// channelOpenState is a map of channelKey to the latest open state, true/false, for a channel.
-type channelOpenState map[processor.ChannelKey]bool
-
-func (c channelOpenState) Clone() channelOpenState {
-	newChannelOpenState := make(channelOpenState, len(c))
-	for k, v := range c {
-		newChannelOpenState[k] = v
-	}
-	return newChannelOpenState
+	l[clientInfo.clientID] = clientInfo.ClientState()
 }

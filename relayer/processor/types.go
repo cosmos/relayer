@@ -122,6 +122,15 @@ func (c ChannelStateCache) Merge(other ChannelStateCache) {
 	}
 }
 
+// Clone will make a copy of the ChannelStateCache so it can be used by other threads.
+func (c ChannelStateCache) Clone() ChannelStateCache {
+	n := make(ChannelStateCache, len(c))
+	for k, v := range c {
+		n[k] = v
+	}
+	return n
+}
+
 // ConnectionStateCache maintains connection open state for multiple connections.
 type ConnectionStateCache map[ConnectionKey]bool
 
@@ -132,14 +141,26 @@ func (c ConnectionStateCache) Merge(other ConnectionStateCache) {
 	}
 }
 
+// Clone will make a copy of the ConnectionStateCache so it can be used by other threads.
+func (c ConnectionStateCache) Clone() ConnectionStateCache {
+	n := make(ConnectionStateCache, len(c))
+	for k, v := range c {
+		n[k] = v
+	}
+	return n
+}
+
 // ChainProcessorCacheData is the data sent from the ChainProcessors to the PathProcessors
 // to keep the PathProcessors up to date with the latest info from the chains.
 type ChainProcessorCacheData struct {
-	IBCMessagesCache
-	InSync bool
-	ConnectionStateCache
-	ChannelStateCache
-	LatestBlock provider.LatestBlock
+	IBCMessagesCache     IBCMessagesCache
+	InSync               bool
+	ClientState          provider.ClientState
+	ConnectionStateCache ConnectionStateCache
+	ChannelStateCache    ChannelStateCache
+	LatestBlock          provider.LatestBlock
+	LatestHeader         provider.IBCHeader
+	IBCHeaderCache       IBCHeaderCache
 }
 
 // Clone will create a deep copy of a PacketMessagesCache.
@@ -306,6 +327,15 @@ func (c ChannelMessagesCache) DeleteCachedMessages(toDelete ...map[string][]Chan
 
 // Merge will merge another ChannelMessageCache into this one.
 func (c ChannelMessageCache) Merge(other ChannelMessageCache) {
+	for k, v := range other {
+		c[k] = v
+	}
+}
+
+type IBCHeaderCache map[uint64]provider.IBCHeader
+
+// Merge will merge another IBCHeaderCache into this one.
+func (c IBCHeaderCache) Merge(other IBCHeaderCache) {
 	for k, v := range other {
 		c[k] = v
 	}

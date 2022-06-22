@@ -44,6 +44,23 @@ type LatestBlock struct {
 	Time   time.Time
 }
 
+type IBCHeader interface {
+	IBCHeader()
+}
+
+// ClientState holds the current state of a client from a single chain's perspective
+type ClientState struct {
+	ClientID        string
+	ConsensusHeight clienttypes.Height
+}
+
+// ClientTrustedState holds the current state of a client from the perspective of both involved chains,
+// i.e. ClientState enriched with the trusted IBC header of the counterparty chain.
+type ClientTrustedState struct {
+	ClientState ClientState
+	IBCHeader   IBCHeader
+}
+
 // loggableEvents is an unexported wrapper type for a slice of RelayerEvent,
 // to satisfy the zapcore.ArrayMarshaler interface.
 type loggableEvents []RelayerEvent
@@ -137,6 +154,14 @@ type ChainProvider interface {
 	MsgTimeoutOnClose(ctx context.Context, msgRecvPacket RelayerMessage, signer string, latest LatestBlock) (RelayerMessage, error)
 
 	// [End] Packet flow IBC message assembly
+
+	// [Begin] Client IBC message assembly
+
+	// MsgUpdateClient takes the latest chain header, in addition to the latest client trusted header
+	// and assembles a MsgUpdateClient to update the client to the latest block height.
+	MsgUpdateClient(latestHeader IBCHeader, clientTrustedState ClientTrustedState, signer string) (RelayerMessage, error)
+
+	// [End] Client IBC message assembly
 
 	// TODO remove these message assembly functions in favor of the above.
 	MsgRelayAcknowledgement(ctx context.Context, dst ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet RelayPacket) (RelayerMessage, error)

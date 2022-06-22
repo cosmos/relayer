@@ -24,8 +24,8 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	mockChainID1 := "mock-chain-1"
 	mockChainID2 := "mock-chain-2"
 
-	pathEnd1 := processor.PathEnd{ChainID: mockChainID1}
-	pathEnd2 := processor.PathEnd{ChainID: mockChainID2}
+	pathEnd1 := processor.PathEnd{ChainID: mockChainID1, ClientID: "mock-client-1"}
+	pathEnd2 := processor.PathEnd{ChainID: mockChainID2, ClientID: "mock-client-2"}
 
 	mockSequence1 := uint64(0)
 	mockSequence2 := uint64(0)
