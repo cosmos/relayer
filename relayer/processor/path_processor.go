@@ -72,27 +72,6 @@ func (pathEnd *pathEndRuntime) MergeCacheData(d ChainProcessorCacheData) {
 	pathEnd.channelStateCache.Merge(d.ChannelStateCache)       // Update latest channel open state for chain
 }
 
-// ibcMessageWithSequence holds a packet's sequence along with it,
-// useful for sending packets around internal to the PathProcessor.
-type ibcMessageWithSequence struct {
-	Sequence uint64
-	Message  provider.RelayerMessage
-}
-
-// ibcMessageWithChannel holds a channel handshake message's channel along with it,
-// useful for sending messages around internal to the PathProcessor.
-type ibcMessageWithChannel struct {
-	ChannelKey
-	Message provider.RelayerMessage
-}
-
-// ibcMessageWithConnection holds a connection handshake message's connection along with it,
-// useful for sending messages around internal to the PathProcessor.
-type ibcMessageWithConnection struct {
-	ConnectionKey
-	Message provider.RelayerMessage
-}
-
 func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *PathProcessor {
 	return &PathProcessor{
 		log: log,
@@ -279,20 +258,21 @@ type pathEndConnectionHandshakeResponse struct {
 	ToDeleteDst map[string][]ConnectionKey
 }
 
-// assembleIBCMessage constructs the
+// assembleIBCMessage constructs the applicable IBC message using the requested function.
+// These functions may do things like make queries in order to assemble a complete IBC message.
 func (pp *PathProcessor) assembleIBCMessage(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
 	message string,
 	partialMessage provider.RelayerMessage,
-	messageFunc func(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error),
+	assembleMessage func(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error),
 	messages *[]provider.RelayerMessage,
 ) error {
 	signer, err := dst.chainProvider.Address()
 	if err != nil {
 		return fmt.Errorf("error getting signer address for {%s}: %w\n", dst.info.ChainID, err)
 	}
-	assembled, err := messageFunc(ctx, partialMessage, signer, src.latestBlock)
+	assembled, err := assembleMessage(ctx, partialMessage, signer, src.latestBlock)
 	if err != nil {
 		return fmt.Errorf("error assembling %s for {%s}: %w\n", message, dst.info.ChainID, err)
 	}
