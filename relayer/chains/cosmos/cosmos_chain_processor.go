@@ -19,6 +19,7 @@ import (
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 type CosmosChainProcessor struct {
