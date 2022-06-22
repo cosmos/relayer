@@ -139,6 +139,7 @@ type ChainProcessorCacheData struct {
 	InSync bool
 	ConnectionStateCache
 	ChannelStateCache
+	LatestBlock provider.LatestBlock
 }
 
 // Clone will create a deep copy of a PacketMessagesCache.

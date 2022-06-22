@@ -7,11 +7,17 @@ import (
 	"io"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/avast/retry-go/v4"
 	cosmosClient "github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
+	provtypes "github.com/tendermint/tendermint/light/provider"
+	prov "github.com/tendermint/tendermint/light/provider/http"
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 )
 
@@ -23,10 +29,16 @@ type CosmosChainProcessor struct {
 	// sdk context
 	cc *cosmosClient.Context
 
+	// for fetching light blocks from tendermint
+	lightProvider provtypes.Provider
+
 	pathProcessors processor.PathProcessors
 
 	// indicates whether queries are in sync with latest height of the chain
 	inSync bool
+
+	// highest block
+	latestBlock provider.LatestBlock
 
 	// holds highest consensus height and header for all clients
 	latestClientState
@@ -39,14 +51,20 @@ type CosmosChainProcessor struct {
 }
 
 func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, rpcAddress string, input io.Reader, output io.Writer, pathProcessors processor.PathProcessors) (*CosmosChainProcessor, error) {
-	cc, err := getCosmosClient(rpcAddress, provider.ChainId(), input, output)
+	chainID := provider.ChainId()
+	cc, err := getCosmosClient(rpcAddress, chainID, input, output)
 	if err != nil {
 		return nil, fmt.Errorf("error getting cosmos client: %w", err)
 	}
+	lightProvider, err := prov.New(chainID, rpcAddress)
+	if err != nil {
+		return nil, fmt.Errorf("error getting light provider: %w", err)
+	}
 	return &CosmosChainProcessor{
-		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
+		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", chainID)),
 		chainProvider:        provider,
 		cc:                   cc,
+		lightProvider:        lightProvider,
 		pathProcessors:       pathProcessors,
 		latestClientState:    make(latestClientState),
 		connectionStateCache: make(processor.ConnectionStateCache),
@@ -228,10 +246,26 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	ppChanged := false
 
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
-		blockRes, err := ccp.cc.Client.BlockResults(ctx, &i)
-		if err != nil {
-			ccp.log.Error("Error getting block results", zap.Error(err))
+		var eg errgroup.Group
+		var blockRes *ctypes.ResultBlockResults
+		var lightBlock *tmtypes.LightBlock
+		eg.Go(func() (err error) {
+			blockRes, err = ccp.cc.Client.BlockResults(ctx, &i)
+			return err
+		})
+		eg.Go(func() (err error) {
+			lightBlock, err = ccp.lightProvider.LightBlock(ctx, i)
+			return err
+		})
+
+		if err := eg.Wait(); err != nil {
+			ccp.log.Error("Error querying block data", zap.Error(err))
 			return nil
+		}
+
+		ccp.latestBlock = provider.LatestBlock{
+			Height: uint64(lightBlock.Height),
+			Time:   lightBlock.Header.Time,
 		}
 
 		for _, tx := range blockRes.TxsResults {
@@ -272,6 +306,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	for _, pp := range ccp.pathProcessors {
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
+			LatestBlock:          ccp.latestBlock,
 			IBCMessagesCache:     ibcMessagesCache,
 			InSync:               ccp.inSync,
 			ConnectionStateCache: ccp.connectionStateCache,
