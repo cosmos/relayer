@@ -1078,7 +1078,7 @@ func (cc *CosmosProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.C
 }
 
 func (cc *CosmosProvider) ValidatePacket(msgRecvPacket provider.RelayerMessage, latest provider.LatestBlock) error {
-	msg := TypedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
+	msg := typedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
 
 	if msg.Packet.Sequence == 0 {
 		return errors.New("refusing to relay packet with sequence: 0")
@@ -1107,7 +1107,7 @@ func (cc *CosmosProvider) ValidatePacket(msgRecvPacket provider.RelayerMessage, 
 }
 
 func (cc *CosmosProvider) MsgRecvPacket(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	msg := TypedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
+	msg := typedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
 
 	key := host.PacketCommitmentKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
@@ -1123,7 +1123,7 @@ func (cc *CosmosProvider) MsgRecvPacket(ctx context.Context, msgRecvPacket provi
 }
 
 func (cc *CosmosProvider) MsgAcknowledgement(ctx context.Context, msgAcknowledgement provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	msg := TypedCosmosMsg[*chantypes.MsgAcknowledgement](msgAcknowledgement)
+	msg := typedCosmosMsg[*chantypes.MsgAcknowledgement](msgAcknowledgement)
 
 	key := host.PacketAcknowledgementKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
@@ -1139,7 +1139,7 @@ func (cc *CosmosProvider) MsgAcknowledgement(ctx context.Context, msgAcknowledge
 }
 
 func (cc *CosmosProvider) MsgTimeout(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	msg := TypedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
+	msg := typedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
 
 	key := host.PacketReceiptKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
@@ -1159,7 +1159,7 @@ func (cc *CosmosProvider) MsgTimeout(ctx context.Context, msgRecvPacket provider
 }
 
 func (cc *CosmosProvider) MsgTimeoutOnClose(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	msg := TypedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
+	msg := typedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
 
 	key := host.PacketReceiptKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)

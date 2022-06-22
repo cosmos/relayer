@@ -32,8 +32,8 @@ func CosmosMsg(rm provider.RelayerMessage) sdk.Msg {
 	}
 }
 
-// TypedCosmosMsg does not accept nil. IBC Message must be of the requested type.
-func TypedCosmosMsg[T *chantypes.MsgRecvPacket | *chantypes.MsgAcknowledgement](msg provider.RelayerMessage) T  {
+// typedCosmosMsg does not accept nil. IBC Message must be of the requested type.
+func typedCosmosMsg[T *chantypes.MsgRecvPacket | *chantypes.MsgAcknowledgement](msg provider.RelayerMessage) T  {
 	if msg == nil {
 		panic("msg is nil")
 	}

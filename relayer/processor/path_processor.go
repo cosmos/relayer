@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"sync"
@@ -282,9 +283,12 @@ func (pp *PathProcessor) assembleIBCMessage(
 
 func (pp *PathProcessor) appendPacketOrTimeout(ctx context.Context, src, dst *pathEndRuntime, sequence uint64, msgRecvPacket provider.RelayerMessage, res *pathEndPacketFlowResponse) {
 	if err := dst.chainProvider.ValidatePacket(msgRecvPacket, dst.latestBlock); err != nil {
+		var timeoutHeightErr *provider.TimeoutHeightError
+		var timeoutTimestampErr *provider.TimeoutTimestampError
+		var timeoutOnCloseErr *provider.TimeoutOnCloseError
+
 		// if timeouts were detected, need to generate msgs for them for src
-		switch err.(type) {
-		case *provider.TimeoutHeightError, *provider.TimeoutTimestampError:
+		if errors.As(err, &timeoutHeightErr) || errors.As(err, &timeoutTimestampErr) {
 			if err := pp.assembleIBCMessage(ctx, dst, src, MsgTimeout, msgRecvPacket, dst.chainProvider.MsgTimeout, &res.SrcMessages); err != nil {
 				pp.log.Error("Error assembling MsgTimeout",
 					zap.Uint64("sequence", sequence),
@@ -292,7 +296,7 @@ func (pp *PathProcessor) appendPacketOrTimeout(ctx context.Context, src, dst *pa
 					zap.Error(err),
 				)
 			}
-		case *provider.TimeoutOnCloseError:
+		} else if errors.As(err, &timeoutOnCloseErr) {
 			if err := pp.assembleIBCMessage(ctx, dst, src, MsgTimeoutOnClose, msgRecvPacket, dst.chainProvider.MsgTimeoutOnClose, &res.SrcMessages); err != nil {
 				pp.log.Error("Error assembling MsgTimeoutOnClose",
 					zap.Uint64("sequence", sequence),
@@ -300,7 +304,7 @@ func (pp *PathProcessor) appendPacketOrTimeout(ctx context.Context, src, dst *pa
 					zap.Error(err),
 				)
 			}
-		default:
+		} else {
 			pp.log.Error("Packet is invalid",
 				zap.String("chain_id", src.info.ChainID),
 				zap.Error(err),
