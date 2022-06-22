@@ -5,6 +5,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap/zapcore"
@@ -29,6 +30,18 @@ func CosmosMsg(rm provider.RelayerMessage) sdk.Msg {
 	} else {
 		return val.Msg
 	}
+}
+
+// TypedCosmosMsg does not accept nil. IBC Message must be of the requested type.
+func TypedCosmosMsg[T *chantypes.MsgRecvPacket | *chantypes.MsgAcknowledgement](msg provider.RelayerMessage) T  {
+	if msg == nil {
+		panic("msg is nil")
+	}
+	cosmosMsg := CosmosMsg(msg)
+	if cosmosMsg == nil {
+		panic("cosmosMsg is nil")
+	}
+	return cosmosMsg.(T)
 }
 
 func CosmosMsgs(rm ...provider.RelayerMessage) []sdk.Msg {
