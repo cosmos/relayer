@@ -270,11 +270,11 @@ func (pp *PathProcessor) assembleIBCMessage(
 ) error {
 	signer, err := dst.chainProvider.Address()
 	if err != nil {
-		return fmt.Errorf("error getting signer address for {%s}: %w\n", dst.info.ChainID, err)
+		return fmt.Errorf("error getting signer address for {%s}: %w", dst.info.ChainID, err)
 	}
 	assembled, err := assembleMessage(ctx, partialMessage, signer, src.latestBlock)
 	if err != nil {
-		return fmt.Errorf("error assembling %s for {%s}: %w\n", message, dst.info.ChainID, err)
+		return fmt.Errorf("error assembling %s for {%s}: %w", message, dst.info.ChainID, err)
 	}
 	*messages = append(*messages, assembled)
 	return nil
@@ -286,25 +286,46 @@ func (pp *PathProcessor) appendPacketOrTimeout(ctx context.Context, src, dst *pa
 		switch err.(type) {
 		case *provider.TimeoutHeightError, *provider.TimeoutTimestampError:
 			if err := pp.assembleIBCMessage(ctx, dst, src, MsgTimeout, msgRecvPacket, dst.chainProvider.MsgTimeout, &res.SrcMessages); err != nil {
-				pp.log.Error("Error assembling MsgTimeout", zap.Uint64("sequence", sequence), zap.String("chain_id", src.info.ChainID), zap.Error(err))
+				pp.log.Error("Error assembling MsgTimeout",
+					zap.Uint64("sequence", sequence),
+					zap.String("chain_id", src.info.ChainID),
+					zap.Error(err),
+				)
 			}
 		case *provider.TimeoutOnCloseError:
 			if err := pp.assembleIBCMessage(ctx, dst, src, MsgTimeoutOnClose, msgRecvPacket, dst.chainProvider.MsgTimeoutOnClose, &res.SrcMessages); err != nil {
-				pp.log.Error("Error assembling MsgTimeout", zap.Uint64("sequence", sequence), zap.String("chain_id", src.info.ChainID), zap.Error(err))
+				pp.log.Error("Error assembling MsgTimeoutOnClose",
+					zap.Uint64("sequence", sequence),
+					zap.String("chain_id", src.info.ChainID),
+					zap.Error(err),
+				)
 			}
 		default:
-			pp.log.Error("Packet is invalid", zap.String("chain_id", src.info.ChainID), zap.Error(err))
+			pp.log.Error("Packet is invalid",
+				zap.String("chain_id", src.info.ChainID),
+				zap.Error(err),
+			)
 		}
 		return
 	}
 	if err := pp.assembleIBCMessage(ctx, src, dst, MsgRecvPacket, msgRecvPacket, src.chainProvider.MsgRecvPacket, &res.DstMessages); err != nil {
-		pp.log.Error("Error assembling MsgRecvPacket", zap.Uint64("sequence", sequence), zap.String("src_chain_id", src.info.ChainID), zap.String("dst_chain_id", dst.info.ChainID), zap.Error(err))
+		pp.log.Error("Error assembling MsgRecvPacket",
+			zap.Uint64("sequence", sequence),
+			zap.String("src_chain_id", src.info.ChainID),
+			zap.String("dst_chain_id", dst.info.ChainID),
+			zap.Error(err),
+		)
 	}
 }
 
 func (pp *PathProcessor) appendAcknowledgement(ctx context.Context, src, dst *pathEndRuntime, sequence uint64, msgAcknowledgement provider.RelayerMessage, res *pathEndPacketFlowResponse) {
 	if err := pp.assembleIBCMessage(ctx, src, dst, MsgAcknowledgement, msgAcknowledgement, src.chainProvider.MsgAcknowledgement, &res.DstMessages); err != nil {
-		pp.log.Error("Error assembling MsgAcknowledgement", zap.Uint64("sequence", sequence), zap.String("src_chain_id", src.info.ChainID), zap.String("dst_chain_id", dst.info.ChainID), zap.Error(err))
+		pp.log.Error("Error assembling MsgAcknowledgement",
+			zap.Uint64("sequence", sequence),
+			zap.String("src_chain_id", src.info.ChainID),
+			zap.String("dst_chain_id", dst.info.ChainID),
+			zap.Error(err),
+		)
 	}
 }
 
