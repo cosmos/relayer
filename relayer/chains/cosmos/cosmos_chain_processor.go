@@ -89,7 +89,7 @@ type msgHandlerParams struct {
 	ibcMessagesCache processor.IBCMessagesCache
 }
 
-var messageHandlers = map[string]func(*CosmosChainProcessor, msgHandlerParams) bool{
+var messageHandlers = map[string]func(*CosmosChainProcessor, msgHandlerParams){
 	processor.MsgTransfer:        (*CosmosChainProcessor).handleMsgTransfer,
 	processor.MsgRecvPacket:      (*CosmosChainProcessor).handleMsgRecvPacket,
 	processor.MsgAcknowledgement: (*CosmosChainProcessor).handleMsgAcknowledgement,
@@ -301,6 +301,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		}
 
 		ibcHeaderCache[uint64(i)] = latestHeader
+		ppChanged = true
 
 		for _, tx := range blockRes.TxsResults {
 			if tx.Code != 0 {
@@ -317,11 +318,10 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 					continue
 				}
 				// call message handler for this ibc message type. can do things like cache things on the chain processor or retain ibc messages that should be sent to the PathProcessors.
-				changed := handler(ccp, msgHandlerParams{
+				handler(ccp, msgHandlerParams{
 					messageInfo:      m.messageInfo,
 					ibcMessagesCache: ibcMessagesCache,
 				})
-				ppChanged = ppChanged || changed
 			}
 		}
 	}
