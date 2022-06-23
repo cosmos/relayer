@@ -111,7 +111,6 @@ type ChainProvider interface {
 	Init() error
 	CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header, signer string) (RelayerMessage, error)
 	SubmitMisbehavior( /*TODO TBD*/ ) (RelayerMessage, error)
-	UpdateClient(srcClientId string, dstHeader ibcexported.Header) (RelayerMessage, error)
 	ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) ([]RelayerMessage, error)
 	ConnectionOpenTry(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]RelayerMessage, error)
 	ConnectionOpenAck(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]RelayerMessage, error)
@@ -157,9 +156,14 @@ type ChainProvider interface {
 
 	// [Begin] Client IBC message assembly
 
-	// MsgUpdateClient takes the latest chain header, in addition to the latest client trusted header
-	// and assembles a MsgUpdateClient to update the client to the latest block height.
-	MsgUpdateClient(latestHeader IBCHeader, clientTrustedState ClientTrustedState, signer string) (RelayerMessage, error)
+	// MsgUpdateClientHeader takes the latest chain header, in addition to the latest client trusted header
+	// and assembles a new header for updating the light client on the counterparty chain.
+	MsgUpdateClientHeader(latestHeader IBCHeader, trustedHeight clienttypes.Height, trustedHeader IBCHeader) (ibcexported.Header, error)
+
+	// MsgUpdateClient takes an update client header to prove trust for the previous
+	// consensus height and the new height, and assembles a MsgUpdateClient message
+	// formatted for this chain.
+	MsgUpdateClient(clientId string, counterpartyHeader ibcexported.Header) (RelayerMessage, error)
 
 	// [End] Client IBC message assembly
 

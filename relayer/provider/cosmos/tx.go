@@ -305,7 +305,7 @@ func (cc *CosmosProvider) SubmitMisbehavior( /*TBD*/ ) (provider.RelayerMessage,
 	return nil, nil
 }
 
-func (cc *CosmosProvider) UpdateClient(srcClientId string, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) MsgUpdateClient(srcClientId string, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
 	acc, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -331,7 +331,7 @@ func (cc *CosmosProvider) ConnectionOpenInit(srcClientId, dstClientId string, ds
 		err     error
 		version *conntypes.Version
 	)
-	updateMsg, err := cc.UpdateClient(srcClientId, dstHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -361,7 +361,7 @@ func (cc *CosmosProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvide
 		acc string
 		err error
 	)
-	updateMsg, err := cc.UpdateClient(srcClientId, dstHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -427,7 +427,7 @@ func (cc *CosmosProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvide
 		err error
 	)
 
-	updateMsg, err := cc.UpdateClient(srcClientId, dstHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -475,7 +475,7 @@ func (cc *CosmosProvider) ConnectionOpenConfirm(ctx context.Context, dstQueryPro
 		acc string
 		err error
 	)
-	updateMsg, err := cc.UpdateClient(srcClientId, dstHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -508,7 +508,7 @@ func (cc *CosmosProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, src
 		acc string
 		err error
 	)
-	updateMsg, err := cc.UpdateClient(srcClientId, dstHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -540,7 +540,7 @@ func (cc *CosmosProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider p
 		acc string
 		err error
 	)
-	updateMsg, err := cc.UpdateClient(srcClientId, dstHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -593,7 +593,7 @@ func (cc *CosmosProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider p
 		acc string
 		err error
 	)
-	updateMsg, err := cc.UpdateClient(srcClientId, dstHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -630,7 +630,7 @@ func (cc *CosmosProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvid
 		acc string
 		err error
 	)
-	updateMsg, err := cc.UpdateClient(srcClientId, dstHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -797,7 +797,7 @@ func (cc *CosmosProvider) AutoUpdateClient(ctx context.Context, dst provider.Cha
 		return 0, err
 	}
 
-	updateMsg, err := cc.UpdateClient(srcClientId, dstUpdateHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstUpdateHeader)
 	if err != nil {
 		return 0, err
 	}
@@ -1178,55 +1178,35 @@ func (cc *CosmosProvider) MsgTimeoutOnClose(ctx context.Context, msgRecvPacket p
 	return NewCosmosMessage(msgTimeout), nil
 }
 
-func (cc *CosmosProvider) MsgUpdateClient(latestHeader provider.IBCHeader, clientTrustedState provider.ClientTrustedState, signer string) (provider.RelayerMessage, error) {
-	var signedHeader *tmtypes.SignedHeader
-	var validatorSet, trustedValidators *tmtypes.ValidatorSet
-
-	switch trustedHeader := clientTrustedState.IBCHeader.(type) {
-	case CosmosIBCHeader:
-		trustedValidators = trustedHeader.ValidatorSet
-	default:
-		return nil, fmt.Errorf("Unsupported IBC trusted header type, only CosmosIBCHeader currently supported: %v", trustedHeader)
+func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.Header, error) {
+	trustedCosmosHeader, ok := trustedHeader.(CosmosIBCHeader)
+	if !ok {
+		return nil, fmt.Errorf("Unsupported IBC trusted header type. Must be CosmosIBCHeader: %v", trustedHeader)
 	}
 
-	switch ibcHeader := latestHeader.(type) {
-	case CosmosIBCHeader:
-		signedHeader = ibcHeader.SignedHeader
-		validatorSet = ibcHeader.ValidatorSet
-	default:
-		return nil, fmt.Errorf("Unsupported IBC header type, only CosmosIBCHeader currently supported: %v", ibcHeader)
+	latestCosmosHeader, ok := latestHeader.(CosmosIBCHeader)
+	if !ok {
+		return nil, fmt.Errorf("Unsupported IBC header type. Must be CosmosIBCHeader: %v", latestHeader)
 	}
 
-	trustedValidatorsProto, err := trustedValidators.ToProto()
+	trustedValidatorsProto, err := trustedCosmosHeader.ValidatorSet.ToProto()
 	if err != nil {
 		return nil, fmt.Errorf("Error converting trusted validators to proto object: %w", err)
 	}
 
-	signedHeaderProto := signedHeader.ToProto()
+	signedHeaderProto := latestCosmosHeader.SignedHeader.ToProto()
 
-	validatorSetProto, err := validatorSet.ToProto()
+	validatorSetProto, err := latestCosmosHeader.ValidatorSet.ToProto()
 	if err != nil {
 		return nil, fmt.Errorf("Error converting validator set to proto object: %w", err)
 	}
 
-	tmHeader := &tmclient.Header{
+	return &tmclient.Header{
 		SignedHeader:      signedHeaderProto,
 		ValidatorSet:      validatorSetProto,
 		TrustedValidators: trustedValidatorsProto,
-		TrustedHeight:     clientTrustedState.ClientState.ConsensusHeight,
-	}
-
-	header, err := clienttypes.PackHeader(tmHeader)
-	if err != nil {
-		return nil, err
-	}
-
-	msg := &clienttypes.MsgUpdateClient{
-		ClientId: clientTrustedState.ClientState.ClientID,
-		Header:   header,
-		Signer:   signer,
-	}
-	return NewCosmosMessage(msg), nil
+		TrustedHeight:     trustedHeight,
+	}, nil
 }
 
 // RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error

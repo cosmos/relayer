@@ -565,27 +565,41 @@ ChannelHandshakeLoop:
 	}
 }
 
-func (pp *PathProcessor) sendMessages(src *pathEndRuntime, dst *pathEndRuntime, messages []provider.RelayerMessage) error {
+func (pp *PathProcessor) prependMsgUpdateClient(src, dst *pathEndRuntime, messages *[]provider.RelayerMessage) error {
+	// If the client state trusted height is not equal to the client trusted state height, we cannot send a MsgUpdateClient
+	// until another block is observed. But we can send the rest without the MsgUpdateClient.
+	if !dst.clientTrustedState.ClientState.ConsensusHeight.EQ(dst.clientState.ConsensusHeight) {
+		return fmt.Errorf("observed client trusted height: %d does not equal latest client state height: %d",
+			dst.clientTrustedState.ClientState.ConsensusHeight.RevisionHeight, dst.clientState.ConsensusHeight.RevisionHeight)
+	}
+
+	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(src.latestHeader, dst.clientTrustedState.ClientState.ConsensusHeight, dst.clientTrustedState.IBCHeader)
+	if err != nil {
+		return fmt.Errorf("error assembling new client header: %w", err)
+	}
+
+	msgUpdateClient, err := dst.chainProvider.MsgUpdateClient(dst.info.ClientID, msgUpdateClientHeader)
+	if err != nil {
+		return fmt.Errorf("error assembling MsgUpdateClient: %w", err)
+	}
+
+	*messages = append([]provider.RelayerMessage{msgUpdateClient}, *messages...)
+
+	return nil
+}
+
+func (pp *PathProcessor) sendMessages(src, dst *pathEndRuntime, messages []provider.RelayerMessage) error {
 	if len(messages) == 0 {
 		return nil
 	}
-	signer, err := dst.chainProvider.Address()
-	if err != nil {
-		return fmt.Errorf("error getting signer address for {%s}: %w", dst.info.ChainID, err)
-	}
-	// If the client state trusted height is not equal to the client trusted state height, we cannot send a MsgUpdateClient
-	// until another block is observed. But we can send the rest without the MsgUpdateClient.
-	if dst.clientTrustedState.ClientState.ConsensusHeight.EQ(dst.clientState.ConsensusHeight) {
-		msgUpdateClient, err := dst.chainProvider.MsgUpdateClient(src.latestHeader, dst.clientTrustedState, signer)
-		if err != nil {
-			// MsgUpdateClient is not critical for every IBC transaction, so continuing on without it this time.
-			pp.log.Error("Error assembling MsgUpdateClient",
-				zap.String("chain_id", dst.info.ChainID),
-				zap.Error(err),
-			)
-		} else {
-			messages = append([]provider.RelayerMessage{msgUpdateClient}, messages...)
-		}
+
+	if err := pp.prependMsgUpdateClient(src, dst, &messages); err != nil {
+		// MsgUpdateClient is not critical for every IBC transaction, so continuing on without it this time.
+		pp.log.Error("Error prepending MsgUpdateClient",
+			zap.String("chain_id", dst.info.ChainID),
+			zap.String("client_id", dst.info.ClientID),
+			zap.Error(err),
+		)
 	}
 
 	pp.log.Debug("will send", zap.Any("messages", messages))
