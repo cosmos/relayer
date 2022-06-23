@@ -746,7 +746,7 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 				return nil, false, err
 			}
 
-			updateMsg, err := c.ChainProvider.UpdateClient(c.ClientID(), dstHeader)
+			updateMsg, err := c.ChainProvider.MsgUpdateClient(c.ClientID(), dstHeader)
 			if err != nil {
 				return nil, false, err
 			}
@@ -771,7 +771,7 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 				return nil, false, err
 			}
 
-			updateMsg, err := dst.ChainProvider.UpdateClient(dst.ClientID(), srcHeader)
+			updateMsg, err := dst.ChainProvider.MsgUpdateClient(dst.ClientID(), srcHeader)
 			if err != nil {
 				return nil, false, err
 			}
@@ -800,7 +800,7 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 				return nil, false, err
 			}
 
-			updateMsg, err := dst.ChainProvider.UpdateClient(dst.ClientID(), srcHeader)
+			updateMsg, err := dst.ChainProvider.MsgUpdateClient(dst.ClientID(), srcHeader)
 			if err != nil {
 				return nil, false, err
 			}
@@ -834,7 +834,7 @@ func (c *Chain) CloseChannelStep(ctx context.Context, dst *Chain, srcChanID, src
 				return nil, false, err
 			}
 
-			updateMsg, err := c.ChainProvider.UpdateClient(c.ClientID(), dstHeader)
+			updateMsg, err := c.ChainProvider.MsgUpdateClient(c.ClientID(), dstHeader)
 			if err != nil {
 				return nil, false, err
 			}
