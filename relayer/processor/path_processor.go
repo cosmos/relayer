@@ -594,11 +594,10 @@ func (pp *PathProcessor) sendMessages(src, dst *pathEndRuntime, messages []provi
 	}
 
 	if err := pp.prependMsgUpdateClient(src, dst, &messages); err != nil {
-		// MsgUpdateClient is not critical for every IBC transaction, so continuing on without it this time.
-		pp.log.Error("Error prepending MsgUpdateClient",
-			zap.String("chain_id", dst.info.ChainID),
-			zap.String("client_id", dst.info.ClientID),
-			zap.Error(err),
+		return fmt.Errorf("error prepending MsgUpdateClient, chain_id: %s, client_id: %s, %w",
+			dst.info.ChainID,
+			dst.info.ClientID,
+			err,
 		)
 	}
 
