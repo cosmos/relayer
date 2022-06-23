@@ -898,32 +898,25 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 
 			// Query all channels for the configured connection on the src chain
 			srcChannelID := args[4]
-			channels_s, err := src.ChainProvider.QueryConnectionChannels(cmd.Context(), srch, path.Src.ConnectionID)
+			srcChainID := args[0]
+
+			var pathConnectionID string
+			if srcChainID == path.Src.ChainID {
+				pathConnectionID = path.Src.ConnectionID
+			} else if srcChainID == path.Dst.ChainID {
+				pathConnectionID = path.Dst.ConnectionID
+			} else {
+				return fmt.Errorf("no path configured using chain-id: %s", src.Chainid)
+			}
+
+			channels, err := src.ChainProvider.QueryConnectionChannels(cmd.Context(), srch, pathConnectionID)
 			if err != nil {
 				return err
 			}
 
 			// Ensure the specified channel exists for the given path
 			var srcChannel *chantypes.IdentifiedChannel
-			for _, channel := range channels_s {
-				if channel.ChannelId == srcChannelID {
-					srcChannel = channel
-					break
-				}
-			}
-
-			if srcChannel == nil {
-				fmt.Errorf("could not find channel{%s} for chain{%s}@connection{%s}",
-					srcChannelID, src, path.Src.ConnectionID)
-			}
-
-			channels_d, err := src.ChainProvider.QueryConnectionChannels(cmd.Context(), srch, path.Dst.ConnectionID)
-			if err != nil {
-				return err
-			}
-
-			// Ensure the specified channel exists for the given path
-			for _, channel := range channels_d {
+			for _, channel := range channels {
 				if channel.ChannelId == srcChannelID {
 					srcChannel = channel
 					break
