@@ -148,6 +148,8 @@ func (ccp *CosmosChainProcessor) latestHeightWithRetry(ctx context.Context) (lat
 	}))
 }
 
+// clientState will return the most recent client state if client messages
+// have already been observed for the clientID, otherwise it will query for it.
 func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID string) (provider.ClientState, error) {
 	if state, ok := ccp.latestClientState[clientID]; ok {
 		return state, nil
@@ -164,6 +166,7 @@ func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID strin
 	return clientState, nil
 }
 
+// queryCyclePersistence hold the variables that should be retained across queryCycles.
 type queryCyclePersistence struct {
 	latestHeight         int64
 	latestQueriedBlock   int64

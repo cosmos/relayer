@@ -1,6 +1,8 @@
 package processor
 
 import (
+	"sort"
+
 	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
@@ -332,11 +334,29 @@ func (c ChannelMessageCache) Merge(other ChannelMessageCache) {
 	}
 }
 
+// IBCHeaderCache holds a mapping of IBCHeaders for their block height.
 type IBCHeaderCache map[uint64]provider.IBCHeader
 
 // Merge will merge another IBCHeaderCache into this one.
 func (c IBCHeaderCache) Merge(other IBCHeaderCache) {
 	for k, v := range other {
 		c[k] = v
+	}
+}
+
+// Prune will delete all map entries except for the most recent (keep).
+func (c IBCHeaderCache) Prune(keep int) {
+	keys := make([]uint64, len(c))
+	i := 0
+	for k := range c {
+		keys[i] = k
+		i++
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	toRemove := len(keys) - keep - 1
+	if toRemove > 0 {
+		for i := 0; i < toRemove; i++ {
+			delete(c, keys[i])
+		}
 	}
 }

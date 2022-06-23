@@ -14,9 +14,11 @@ import (
 )
 
 const (
-	// DurationErrorRetry determines how long to wait before retrying
+	// durationErrorRetry determines how long to wait before retrying
 	// in the case of failure to send transactions with IBC messages.
-	DurationErrorRetry = 5 * time.Second
+	durationErrorRetry = 5 * time.Second
+
+	ibcHeadersToCache = 10
 )
 
 // PathProcessor is a process that handles incoming IBC messages from a pair of chains.
@@ -74,16 +76,17 @@ func (pathEnd *pathEndRuntime) MergeCacheData(d ChainProcessorCacheData) {
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
 
-	// TODO messageCache Merge will likely need to move into the PathProcessor, and make sure passes client, connection, or channel filter for pathEnd before calling this
+	// TODO messageCache Merge will likely need to move into the PathProcessor, and make sure passes client, connection, or channel filter
 	pathEnd.messageCache.Merge(d.IBCMessagesCache) // Merge incoming packet IBC messages into the backlog
 
-	// TODO connectionStateCache Merge will likely need to move into the PathProcessor, and make sure passes connection filter for pathEnd before calling this
+	// TODO connectionStateCache Merge will likely need to move into the PathProcessor, and make sure passes connection filter
 	pathEnd.connectionStateCache.Merge(d.ConnectionStateCache) // Update latest connection open state for chain
 
-	// TODO channelStateCache Merge will likely need to move into the PathProcessor, and make sure passes connection filter for pathEnd before calling this
+	// TODO channelStateCache Merge will likely need to move into the PathProcessor, and make sure passes connection filter
 	pathEnd.channelStateCache.Merge(d.ChannelStateCache) // Update latest channel open state for chain
 
-	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache) // Update latest IBC header state
+	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
+	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
 }
 
 func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *PathProcessor {
@@ -767,8 +770,8 @@ func (pp *PathProcessor) Run(ctx context.Context) {
 
 		// process latest message cache state from both pathEnds
 		if err := pp.processLatestMessages(ctx); err != nil {
-			// in case of IBC message send errors, schedule retry after DurationErrorRetry
-			time.AfterFunc(DurationErrorRetry, pp.ProcessBacklogIfReady)
+			// in case of IBC message send errors, schedule retry after durationErrorRetry
+			time.AfterFunc(durationErrorRetry, pp.ProcessBacklogIfReady)
 		}
 	}
 }
