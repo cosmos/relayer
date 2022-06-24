@@ -92,6 +92,9 @@ type relayer struct {
 	// Set during StartRelayer.
 	errCh  chan error
 	cancel context.CancelFunc
+
+	// wallets contains a mapping of chainID to relayer wallet
+	wallets map[string]ibc.RelayerWallet
 }
 
 func (r *relayer) sys() *relayertest.System {
@@ -155,8 +158,20 @@ func (r *relayer) GeneratePath(ctx context.Context, _ ibc.RelayerExecReporter, s
 	return nil
 }
 
-func (r *relayer) ClearQueue(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, channelID string) error {
-	panic("not yet implemented")
+func (r *relayer) FlushAcknowledgements(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, channelID string) error {
+	res := r.sys().RunC(ctx, r.log(), "tx", "relay-acks", pathName, channelID)
+	if res.Err != nil {
+		return res.Err
+	}
+	return nil
+}
+
+func (r *relayer) FlushPackets(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, channelID string) error {
+	res := r.sys().RunC(ctx, r.log(), "tx", "relay-pkts", pathName, channelID)
+	if res.Err != nil {
+		return res.Err
+	}
+	return nil
 }
 
 func (r *relayer) GetChannels(ctx context.Context, _ ibc.RelayerExecReporter, chainID string) ([]ibc.ChannelOutput, error) {
@@ -178,6 +193,11 @@ func (r *relayer) GetChannels(ctx context.Context, _ ibc.RelayerExecReporter, ch
 	}
 
 	return channels, nil
+}
+
+func (r *relayer) GetWallet(chainID string) (ibc.RelayerWallet, bool) {
+	w, ok := r.wallets[chainID]
+	return w, ok
 }
 
 func (r *relayer) LinkPath(ctx context.Context, _ ibc.RelayerExecReporter, pathName string) error {
