@@ -11,6 +11,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	lens "github.com/strangelove-ventures/lens/client"
+	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 )
 
@@ -91,6 +92,14 @@ type CosmosProvider struct {
 	lens.ChainClient
 	PCfg CosmosProviderConfig
 }
+
+type CosmosIBCHeader struct {
+	SignedHeader *tmtypes.SignedHeader
+	ValidatorSet *tmtypes.ValidatorSet
+}
+
+// noop to implement processor.IBCHeader
+func (h CosmosIBCHeader) IBCHeaderIndicator() {}
 
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {
 	return cc.PCfg

@@ -44,6 +44,23 @@ type LatestBlock struct {
 	Time   time.Time
 }
 
+type IBCHeader interface {
+	IBCHeaderIndicator()
+}
+
+// ClientState holds the current state of a client from a single chain's perspective
+type ClientState struct {
+	ClientID        string
+	ConsensusHeight clienttypes.Height
+}
+
+// ClientTrustedState holds the current state of a client from the perspective of both involved chains,
+// i.e. ClientState enriched with the trusted IBC header of the counterparty chain.
+type ClientTrustedState struct {
+	ClientState ClientState
+	IBCHeader   IBCHeader
+}
+
 // loggableEvents is an unexported wrapper type for a slice of RelayerEvent,
 // to satisfy the zapcore.ArrayMarshaler interface.
 type loggableEvents []RelayerEvent
@@ -94,7 +111,6 @@ type ChainProvider interface {
 	Init() error
 	CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header, signer string) (RelayerMessage, error)
 	SubmitMisbehavior( /*TODO TBD*/ ) (RelayerMessage, error)
-	UpdateClient(srcClientId string, dstHeader ibcexported.Header) (RelayerMessage, error)
 	ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) ([]RelayerMessage, error)
 	ConnectionOpenTry(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]RelayerMessage, error)
 	ConnectionOpenAck(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]RelayerMessage, error)
@@ -113,7 +129,7 @@ type ChainProvider interface {
 
 	// [Begin] Packet flow IBC message assembly functions
 
-	// These functions will query the proof of the packet state on the source chain. The message
+	// These functions query the proof of the packet state on the source chain. The message
 	// indicated by the function name is assembled and returned to be written to the destination chain.
 
 	// MsgRecvPacket takes a partial MsgRecvPacket, queries the packet commitment,
@@ -137,6 +153,19 @@ type ChainProvider interface {
 	MsgTimeoutOnClose(ctx context.Context, msgRecvPacket RelayerMessage, signer string, latest LatestBlock) (RelayerMessage, error)
 
 	// [End] Packet flow IBC message assembly
+
+	// [Begin] Client IBC message assembly
+
+	// MsgUpdateClientHeader takes the latest chain header, in addition to the latest client trusted header
+	// and assembles a new header for updating the light client on the counterparty chain.
+	MsgUpdateClientHeader(latestHeader IBCHeader, trustedHeight clienttypes.Height, trustedHeader IBCHeader) (ibcexported.Header, error)
+
+	// MsgUpdateClient takes an update client header to prove trust for the previous
+	// consensus height and the new height, and assembles a MsgUpdateClient message
+	// formatted for this chain.
+	MsgUpdateClient(clientId string, counterpartyHeader ibcexported.Header) (RelayerMessage, error)
+
+	// [End] Client IBC message assembly
 
 	// TODO remove these message assembly functions in favor of the above.
 	MsgRelayAcknowledgement(ctx context.Context, dst ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet RelayPacket) (RelayerMessage, error)

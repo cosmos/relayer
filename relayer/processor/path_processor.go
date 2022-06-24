@@ -14,9 +14,11 @@ import (
 )
 
 const (
-	// DurationErrorRetry determines how long to wait before retrying
+	// durationErrorRetry determines how long to wait before retrying
 	// in the case of failure to send transactions with IBC messages.
-	DurationErrorRetry = 5 * time.Second
+	durationErrorRetry = 5 * time.Second
+
+	ibcHeadersToCache = 10
 )
 
 // PathProcessor is a process that handles incoming IBC messages from a pair of chains.
@@ -44,8 +46,8 @@ func (p PathProcessors) IsRelayedChannel(k ChannelKey, chainID string) bool {
 }
 
 // pathEndRuntime is used at runtime for each chain involved in the path.
-// It holds a channel for incoming messages from the ChainProcessors, which will
-// be processed during Run(ctx).
+// It holds a channel for incoming messages from the ChainProcessors, which are
+// processed during Run(ctx).
 type pathEndRuntime struct {
 	info PathEnd
 
@@ -54,8 +56,12 @@ type pathEndRuntime struct {
 	// cached data
 	latestBlock          provider.LatestBlock
 	messageCache         IBCMessagesCache
+	clientState          provider.ClientState
+	clientTrustedState   provider.ClientTrustedState
 	connectionStateCache ConnectionStateCache
 	channelStateCache    ChannelStateCache
+	latestHeader         provider.IBCHeader
+	ibcHeaderCache       IBCHeaderCache
 
 	// New messages and other data arriving from the handleNewMessagesForPathEnd method.
 	incomingCacheData chan ChainProcessorCacheData
@@ -67,10 +73,20 @@ type pathEndRuntime struct {
 func (pathEnd *pathEndRuntime) MergeCacheData(d ChainProcessorCacheData) {
 	pathEnd.inSync = d.InSync
 	pathEnd.latestBlock = d.LatestBlock
-	// TODO make sure passes channel filter for pathEnd1 before calling this
-	pathEnd.messageCache.Merge(d.IBCMessagesCache)             // Merge incoming packet IBC messages into the backlog
+	pathEnd.latestHeader = d.LatestHeader
+	pathEnd.clientState = d.ClientState
+
+	// TODO messageCache Merge will likely need to move into the PathProcessor, and make sure passes client, connection, or channel filter
+	pathEnd.messageCache.Merge(d.IBCMessagesCache) // Merge incoming packet IBC messages into the backlog
+
+	// TODO connectionStateCache Merge will likely need to move into the PathProcessor, and make sure passes connection filter
 	pathEnd.connectionStateCache.Merge(d.ConnectionStateCache) // Update latest connection open state for chain
-	pathEnd.channelStateCache.Merge(d.ChannelStateCache)       // Update latest channel open state for chain
+
+	// TODO channelStateCache Merge will likely need to move into the PathProcessor, and make sure passes connection filter
+	pathEnd.channelStateCache.Merge(d.ChannelStateCache) // Update latest channel open state for chain
+
+	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
+	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
 }
 
 func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *PathProcessor {
@@ -82,6 +98,7 @@ func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *Path
 			connectionStateCache: make(ConnectionStateCache),
 			channelStateCache:    make(ChannelStateCache),
 			messageCache:         NewIBCMessagesCache(),
+			ibcHeaderCache:       make(IBCHeaderCache),
 		},
 		pathEnd2: &pathEndRuntime{
 			info:                 pathEnd2,
@@ -89,6 +106,7 @@ func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *Path
 			connectionStateCache: make(ConnectionStateCache),
 			channelStateCache:    make(ChannelStateCache),
 			messageCache:         NewIBCMessagesCache(),
+			ibcHeaderCache:       make(IBCHeaderCache),
 		},
 		retryProcess: make(chan struct{}, 8),
 	}
@@ -107,6 +125,17 @@ func (pp *PathProcessor) PathEnd2Messages(channelKey ChannelKey, message string)
 type channelPair struct {
 	pathEnd1ChannelKey ChannelKey
 	pathEnd2ChannelKey ChannelKey
+}
+
+// RelevantClientID returns the relevant client ID or panics
+func (pp *PathProcessor) RelevantClientID(chainID string) string {
+	if pp.pathEnd1.info.ChainID == chainID {
+		return pp.pathEnd1.info.ClientID
+	}
+	if pp.pathEnd2.info.ChainID == chainID {
+		return pp.pathEnd2.info.ClientID
+	}
+	panic(fmt.Errorf("no relevant client ID for chain ID: %s", chainID))
 }
 
 func (pp *PathProcessor) channelPairs() []channelPair {
@@ -536,19 +565,76 @@ ChannelHandshakeLoop:
 	}
 }
 
-func (pp *PathProcessor) sendMessages(pathEnd *pathEndRuntime, messages []provider.RelayerMessage) error {
+func (pp *PathProcessor) prependMsgUpdateClient(src, dst *pathEndRuntime, messages *[]provider.RelayerMessage) error {
+	// If the client state trusted height is not equal to the client trusted state height, we cannot send a MsgUpdateClient
+	// until another block is observed. But we can send the rest without the MsgUpdateClient.
+	if !dst.clientTrustedState.ClientState.ConsensusHeight.EQ(dst.clientState.ConsensusHeight) {
+		return fmt.Errorf("observed client trusted height: %d does not equal latest client state height: %d",
+			dst.clientTrustedState.ClientState.ConsensusHeight.RevisionHeight, dst.clientState.ConsensusHeight.RevisionHeight)
+	}
+
+	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(src.latestHeader, dst.clientTrustedState.ClientState.ConsensusHeight, dst.clientTrustedState.IBCHeader)
+	if err != nil {
+		return fmt.Errorf("error assembling new client header: %w", err)
+	}
+
+	msgUpdateClient, err := dst.chainProvider.MsgUpdateClient(dst.info.ClientID, msgUpdateClientHeader)
+	if err != nil {
+		return fmt.Errorf("error assembling MsgUpdateClient: %w", err)
+	}
+
+	*messages = append([]provider.RelayerMessage{msgUpdateClient}, *messages...)
+
+	return nil
+}
+
+func (pp *PathProcessor) sendMessages(src, dst *pathEndRuntime, messages []provider.RelayerMessage) error {
 	if len(messages) == 0 {
 		return nil
 	}
-	// TODO construct MsgUpdateClient for this pathEnd, using the latest trusted IBC header from other pathEnd, prepend messages with the MsgUpdateClient, then send the messages to this pathEnd
+
+	if err := pp.prependMsgUpdateClient(src, dst, &messages); err != nil {
+		return fmt.Errorf("error prepending MsgUpdateClient, chain_id: %s, client_id: %s, %w",
+			dst.info.ChainID,
+			dst.info.ClientID,
+			err,
+		)
+	}
 
 	pp.log.Debug("will send", zap.Any("messages", messages))
 
 	return nil
 }
 
+// updateClientTrustedState will combine the counterparty chains trusted IBC header
+// with the latest client state, which will be used for constructing MsgUpdateClient messages.
+func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *pathEndRuntime) {
+	if src.clientTrustedState.ClientState.ConsensusHeight.GTE(src.clientState.ConsensusHeight) {
+		// current height already trusted
+		return
+	}
+	// need to assemble new trusted state
+	ibcHeader, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight+1]
+	if !ok {
+		pp.log.Warn("No IBC header for client trusted height",
+			zap.String("chain_id", src.info.ChainID),
+			zap.String("client_id", src.info.ClientID),
+			zap.Uint64("height", src.clientState.ConsensusHeight.RevisionHeight+1),
+		)
+		return
+	}
+	src.clientTrustedState = provider.ClientTrustedState{
+		ClientState: src.clientState,
+		IBCHeader:   ibcHeader,
+	}
+}
+
 // messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
 func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
+	// Update trusted client state for both pathends
+	pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
+	pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
+
 	channelPairs := pp.channelPairs()
 
 	// process the packet flows for both packends to determine what needs to be relayed
@@ -664,10 +750,10 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	// now send messages in parallel
 	var eg errgroup.Group
 	eg.Go(func() error {
-		return pp.sendMessages(pp.pathEnd1, pathEnd1Messages)
+		return pp.sendMessages(pp.pathEnd1, pp.pathEnd2, pathEnd2Messages)
 	})
 	eg.Go(func() error {
-		return pp.sendMessages(pp.pathEnd2, pathEnd2Messages)
+		return pp.sendMessages(pp.pathEnd2, pp.pathEnd1, pathEnd1Messages)
 	})
 	return eg.Wait()
 }
@@ -697,8 +783,8 @@ func (pp *PathProcessor) Run(ctx context.Context) {
 
 		// process latest message cache state from both pathEnds
 		if err := pp.processLatestMessages(ctx); err != nil {
-			// in case of IBC message send errors, schedule retry after DurationErrorRetry
-			time.AfterFunc(DurationErrorRetry, pp.ProcessBacklogIfReady)
+			// in case of IBC message send errors, schedule retry after durationErrorRetry
+			time.AfterFunc(durationErrorRetry, pp.ProcessBacklogIfReady)
 		}
 	}
 }
