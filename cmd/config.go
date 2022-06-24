@@ -48,7 +48,6 @@ func configCmd(a *appState) *cobra.Command {
 		configShowCmd(a),
 		configInitCmd(),
 		configAddChainsCmd(a),
-		configAddPathsCmd(a),
 	)
 
 	return cmd
@@ -179,27 +178,6 @@ func configAddChainsCmd(a *appState) *cobra.Command {
 $ %s config add-chains configs/chains`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			if err := addChainsFromDirectory(cmd.ErrOrStderr(), a, args[0]); err != nil {
-				return err
-			}
-			return a.OverwriteConfig(a.Config)
-		},
-	}
-
-	return cmd
-}
-
-func configAddPathsCmd(a *appState) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:  "add-paths path_to_paths",
-		Args: withUsage(cobra.ExactArgs(1)),
-		//nolint:lll
-		Short: `Add new paths to the configuration file from a directory full of path 
-              configurations, useful for adding testnet configurations. 
-              NOTE: Chain configuration files must be added before calling this command.`,
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s config add-paths configs/paths`, appName)),
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			if err := addPathsFromDirectory(cmd.Context(), cmd.ErrOrStderr(), a, args[0]); err != nil {
 				return err
 			}
 			return a.OverwriteConfig(a.Config)
