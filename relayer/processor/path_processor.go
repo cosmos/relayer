@@ -16,7 +16,9 @@ import (
 const (
 	// durationErrorRetry determines how long to wait before retrying
 	// in the case of failure to send transactions with IBC messages.
-	durationErrorRetry = 5 * time.Second
+	durationErrorRetry       = 5 * time.Second
+	blocksToRetryPacketAfter = 5
+	maxMessageSendRetries    = 5
 
 	ibcHeadersToCache = 10
 )
@@ -66,6 +68,12 @@ type pathEndRuntime struct {
 	// New messages and other data arriving from the handleNewMessagesForPathEnd method.
 	incomingCacheData chan ChainProcessorCacheData
 
+	// Cache in progress sends for the different IBC message types
+	// to avoid retrying a message immediately after it is sent.
+	packetSendCache     packetSendCache
+	connectionSendCache connectionSendCache
+	channelSendCache    channelSendCache
+
 	// inSync indicates whether queries are in sync with latest height of the chain.
 	inSync bool
 }
@@ -87,6 +95,31 @@ func (pathEnd *pathEndRuntime) MergeCacheData(d ChainProcessorCacheData) {
 
 	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
 	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
+}
+
+// packetIBCMessage holds a packet message's action and sequence along with it,
+// useful for sending packets around internal to the PathProcessor.
+type packetIBCMessage struct {
+	channelKey ChannelKey
+	action     string
+	sequence   uint64
+	message    provider.RelayerMessage
+}
+
+// channelIBCMessage holds a channel handshake message's action and channel along with it,
+// useful for sending messages around internal to the PathProcessor.
+type channelIBCMessage struct {
+	action     string
+	channelKey ChannelKey
+	message    provider.RelayerMessage
+}
+
+// connectionIBCMessage holds a connection handshake message's action and connection along with it,
+// useful for sending messages around internal to the PathProcessor.
+type connectionIBCMessage struct {
+	action        string
+	connectionKey ConnectionKey
+	message       provider.RelayerMessage
 }
 
 func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *PathProcessor {
@@ -227,11 +260,59 @@ func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorC
 	}
 }
 
+// inProgressSend tracks the send state of an IBC message
+type inProgressSend struct {
+	sendHeight uint64
+	retryCount uint64
+	message    provider.RelayerMessage
+}
+
+type packetSendCache map[ChannelKey]packetChannelMessageCache
+type packetChannelMessageCache map[string]packetMessageSendCache
+type packetMessageSendCache map[uint64]inProgressSend
+
+func (c packetChannelMessageCache) deleteCachedMessages(toDelete ...map[string][]uint64) {
+	for _, toDeleteMap := range toDelete {
+		for message, toDeleteMessages := range toDeleteMap {
+			for _, sequence := range toDeleteMessages {
+				delete(c[message], sequence)
+			}
+		}
+	}
+}
+
+type channelSendCache map[string]channelKeySendCache
+type channelKeySendCache map[ChannelKey]inProgressSend
+
+func (c channelSendCache) deleteCachedMessages(toDelete ...map[string][]ChannelKey) {
+	for _, toDeleteMap := range toDelete {
+		for message, toDeleteMessages := range toDeleteMap {
+			for _, channel := range toDeleteMessages {
+				delete(c[message], channel)
+			}
+		}
+	}
+}
+
+type connectionSendCache map[string]connectionKeySendCache
+type connectionKeySendCache map[ConnectionKey]inProgressSend
+
+func (c connectionSendCache) deleteCachedMessages(toDelete ...map[string][]ConnectionKey) {
+	for _, toDeleteMap := range toDelete {
+		for message, toDeleteMessages := range toDeleteMap {
+			for _, connection := range toDeleteMessages {
+				delete(c[message], connection)
+			}
+		}
+	}
+}
+
 // contains MsgRecvPacket from counterparty
 // entire packet flow
 type pathEndPacketFlowMessages struct {
 	Src                   *pathEndRuntime
 	Dst                   *pathEndRuntime
+	ChannelKey            ChannelKey
 	SrcMsgTransfer        PacketSequenceCache
 	DstMsgRecvPacket      PacketSequenceCache
 	SrcMsgAcknowledgement PacketSequenceCache
@@ -265,24 +346,24 @@ type pathEndChannelCloseMessages struct {
 }
 
 type pathEndPacketFlowResponse struct {
-	SrcMessages []provider.RelayerMessage
-	DstMessages []provider.RelayerMessage
+	SrcMessages []packetIBCMessage
+	DstMessages []packetIBCMessage
 
 	ToDeleteSrc map[string][]uint64
 	ToDeleteDst map[string][]uint64
 }
 
 type pathEndChannelHandshakeResponse struct {
-	SrcMessages []provider.RelayerMessage
-	DstMessages []provider.RelayerMessage
+	SrcMessages []channelIBCMessage
+	DstMessages []channelIBCMessage
 
 	ToDeleteSrc map[string][]ChannelKey
 	ToDeleteDst map[string][]ChannelKey
 }
 
 type pathEndConnectionHandshakeResponse struct {
-	SrcMessages []provider.RelayerMessage
-	DstMessages []provider.RelayerMessage
+	SrcMessages []connectionIBCMessage
+	DstMessages []connectionIBCMessage
 
 	ToDeleteSrc map[string][]ConnectionKey
 	ToDeleteDst map[string][]ConnectionKey
@@ -290,13 +371,15 @@ type pathEndConnectionHandshakeResponse struct {
 
 // assembleIBCMessage constructs the applicable IBC message using the requested function.
 // These functions may do things like make queries in order to assemble a complete IBC message.
-func (pp *PathProcessor) assembleIBCMessage(
+func (pp *PathProcessor) assemblePacketIBCMessage(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
-	message string,
+	channelKey ChannelKey,
+	action string,
+	sequence uint64,
 	partialMessage provider.RelayerMessage,
 	assembleMessage func(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error),
-	messages *[]provider.RelayerMessage,
+	messages *[]packetIBCMessage,
 ) error {
 	signer, err := dst.chainProvider.Address()
 	if err != nil {
@@ -304,13 +387,13 @@ func (pp *PathProcessor) assembleIBCMessage(
 	}
 	assembled, err := assembleMessage(ctx, partialMessage, signer, src.latestBlock)
 	if err != nil {
-		return fmt.Errorf("error assembling %s for {%s}: %w", message, dst.info.ChainID, err)
+		return fmt.Errorf("error assembling %s for {%s}: %w", action, dst.info.ChainID, err)
 	}
-	*messages = append(*messages, assembled)
+	*messages = append(*messages, packetIBCMessage{channelKey: channelKey, action: action, sequence: sequence, message: assembled})
 	return nil
 }
 
-func (pp *PathProcessor) appendPacketOrTimeout(ctx context.Context, src, dst *pathEndRuntime, sequence uint64, msgRecvPacket provider.RelayerMessage, res *pathEndPacketFlowResponse) {
+func (pp *PathProcessor) appendPacketOrTimeout(ctx context.Context, src, dst *pathEndRuntime, channelKey ChannelKey, sequence uint64, msgRecvPacket provider.RelayerMessage, res *pathEndPacketFlowResponse) {
 	if err := dst.chainProvider.ValidatePacket(msgRecvPacket, dst.latestBlock); err != nil {
 		var timeoutHeightErr *provider.TimeoutHeightError
 		var timeoutTimestampErr *provider.TimeoutTimestampError
@@ -319,7 +402,7 @@ func (pp *PathProcessor) appendPacketOrTimeout(ctx context.Context, src, dst *pa
 		// if timeouts were detected, need to generate msgs for them for src
 		switch {
 		case errors.As(err, &timeoutHeightErr) || errors.As(err, &timeoutTimestampErr):
-			if err := pp.assembleIBCMessage(ctx, dst, src, MsgTimeout, msgRecvPacket, dst.chainProvider.MsgTimeout, &res.SrcMessages); err != nil {
+			if err := pp.assemblePacketIBCMessage(ctx, dst, src, channelKey, MsgTimeout, sequence, msgRecvPacket, dst.chainProvider.MsgTimeout, &res.SrcMessages); err != nil {
 				pp.log.Error("Error assembling MsgTimeout",
 					zap.Uint64("sequence", sequence),
 					zap.String("chain_id", src.info.ChainID),
@@ -327,7 +410,7 @@ func (pp *PathProcessor) appendPacketOrTimeout(ctx context.Context, src, dst *pa
 				)
 			}
 		case errors.As(err, &timeoutOnCloseErr):
-			if err := pp.assembleIBCMessage(ctx, dst, src, MsgTimeoutOnClose, msgRecvPacket, dst.chainProvider.MsgTimeoutOnClose, &res.SrcMessages); err != nil {
+			if err := pp.assemblePacketIBCMessage(ctx, dst, src, channelKey, MsgTimeoutOnClose, sequence, msgRecvPacket, dst.chainProvider.MsgTimeoutOnClose, &res.SrcMessages); err != nil {
 				pp.log.Error("Error assembling MsgTimeoutOnClose",
 					zap.Uint64("sequence", sequence),
 					zap.String("chain_id", src.info.ChainID),
@@ -342,7 +425,7 @@ func (pp *PathProcessor) appendPacketOrTimeout(ctx context.Context, src, dst *pa
 		}
 		return
 	}
-	if err := pp.assembleIBCMessage(ctx, src, dst, MsgRecvPacket, msgRecvPacket, src.chainProvider.MsgRecvPacket, &res.DstMessages); err != nil {
+	if err := pp.assemblePacketIBCMessage(ctx, src, dst, channelKey, MsgRecvPacket, sequence, msgRecvPacket, src.chainProvider.MsgRecvPacket, &res.DstMessages); err != nil {
 		pp.log.Error("Error assembling MsgRecvPacket",
 			zap.Uint64("sequence", sequence),
 			zap.String("src_chain_id", src.info.ChainID),
@@ -352,8 +435,8 @@ func (pp *PathProcessor) appendPacketOrTimeout(ctx context.Context, src, dst *pa
 	}
 }
 
-func (pp *PathProcessor) appendAcknowledgement(ctx context.Context, src, dst *pathEndRuntime, sequence uint64, msgAcknowledgement provider.RelayerMessage, res *pathEndPacketFlowResponse) {
-	if err := pp.assembleIBCMessage(ctx, src, dst, MsgAcknowledgement, msgAcknowledgement, src.chainProvider.MsgAcknowledgement, &res.DstMessages); err != nil {
+func (pp *PathProcessor) appendAcknowledgement(ctx context.Context, src, dst *pathEndRuntime, channelKey ChannelKey, sequence uint64, msgAcknowledgement provider.RelayerMessage, res *pathEndPacketFlowResponse) {
+	if err := pp.assemblePacketIBCMessage(ctx, src, dst, channelKey, MsgAcknowledgement, sequence, msgAcknowledgement, src.chainProvider.MsgAcknowledgement, &res.DstMessages); err != nil {
 		pp.log.Error("Error assembling MsgAcknowledgement",
 			zap.Uint64("sequence", sequence),
 			zap.String("src_chain_id", src.info.ChainID),
@@ -363,20 +446,20 @@ func (pp *PathProcessor) appendAcknowledgement(ctx context.Context, src, dst *pa
 	}
 }
 
-func (m *pathEndConnectionHandshakeResponse) appendSrc(connectionKey ConnectionKey, msg provider.RelayerMessage) {
-	m.SrcMessages = append(m.SrcMessages, msg)
+func (m *pathEndConnectionHandshakeResponse) appendSrc(connectionKey ConnectionKey, action string, msg provider.RelayerMessage) {
+	m.SrcMessages = append(m.SrcMessages, connectionIBCMessage{action: action, connectionKey: connectionKey, message: msg})
 }
 
-func (m *pathEndConnectionHandshakeResponse) appendDst(connectionKey ConnectionKey, msg provider.RelayerMessage) {
-	m.DstMessages = append(m.DstMessages, msg)
+func (m *pathEndConnectionHandshakeResponse) appendDst(connectionKey ConnectionKey, action string, msg provider.RelayerMessage) {
+	m.DstMessages = append(m.DstMessages, connectionIBCMessage{action: action, connectionKey: connectionKey, message: msg})
 }
 
-func (m *pathEndChannelHandshakeResponse) appendSrc(channelKey ChannelKey, msg provider.RelayerMessage) {
-	m.SrcMessages = append(m.SrcMessages, msg)
+func (m *pathEndChannelHandshakeResponse) appendSrc(channelKey ChannelKey, action string, msg provider.RelayerMessage) {
+	m.SrcMessages = append(m.SrcMessages, channelIBCMessage{action: action, channelKey: channelKey, message: msg})
 }
 
-func (m *pathEndChannelHandshakeResponse) appendDst(channelKey ChannelKey, msg provider.RelayerMessage) {
-	m.DstMessages = append(m.DstMessages, msg)
+func (m *pathEndChannelHandshakeResponse) appendDst(channelKey ChannelKey, action string, msg provider.RelayerMessage) {
+	m.DstMessages = append(m.DstMessages, channelIBCMessage{action: action, channelKey: channelKey, message: msg})
 }
 
 func (pp *PathProcessor) getUnrelayedPacketsAndAcksAndToDelete(ctx context.Context, pathEndPacketFlowMessages pathEndPacketFlowMessages, wg *sync.WaitGroup, res *pathEndPacketFlowResponse) {
@@ -419,12 +502,12 @@ MsgTransferLoop:
 		for msgRecvSeq, msgAcknowledgement := range pathEndPacketFlowMessages.DstMsgRecvPacket {
 			if transferSeq == msgRecvSeq {
 				// msg is received by dst chain, but no ack yet. Need to relay ack from dst to src!
-				pp.appendAcknowledgement(ctx, pathEndPacketFlowMessages.Dst, pathEndPacketFlowMessages.Src, msgRecvSeq, msgAcknowledgement, res)
+				pp.appendAcknowledgement(ctx, pathEndPacketFlowMessages.Dst, pathEndPacketFlowMessages.Src, pathEndPacketFlowMessages.ChannelKey, msgRecvSeq, msgAcknowledgement, res)
 				continue MsgTransferLoop
 			}
 		}
 		// Packet is not yet relayed! need to relay from src to dst
-		pp.appendPacketOrTimeout(ctx, pathEndPacketFlowMessages.Src, pathEndPacketFlowMessages.Dst, transferSeq, msgTransfer, res)
+		pp.appendPacketOrTimeout(ctx, pathEndPacketFlowMessages.Src, pathEndPacketFlowMessages.Dst, pathEndPacketFlowMessages.ChannelKey.Counterparty(), transferSeq, msgTransfer, res)
 	}
 
 	// now iterate through packet-flow-complete messages and remove any leftover messages if the MsgTransfer or MsgRecvPacket was in a previous block that we did not query
@@ -461,7 +544,7 @@ ConnectionHandshakeLoop:
 		}
 		if foundOpenTry == nil {
 			// need to send an open try to dst
-			res.appendDst(openInitKey, openInitMsg)
+			res.appendDst(openInitKey, MsgConnectionOpenTry, openInitMsg)
 			continue ConnectionHandshakeLoop
 		}
 		var foundOpenAck provider.RelayerMessage
@@ -473,7 +556,7 @@ ConnectionHandshakeLoop:
 		}
 		if foundOpenAck == nil {
 			// need to send an open ack to src
-			res.appendSrc(openInitKey, foundOpenTry)
+			res.appendSrc(openInitKey, MsgConnectionOpenAck, foundOpenTry)
 			continue ConnectionHandshakeLoop
 		}
 		var foundOpenConfirm provider.RelayerMessage
@@ -485,7 +568,7 @@ ConnectionHandshakeLoop:
 		}
 		if foundOpenConfirm == nil {
 			// need to send an open confirm to dst
-			res.appendDst(openInitKey, foundOpenAck)
+			res.appendDst(openInitKey, MsgConnectionOpenConfirm, foundOpenAck)
 			continue ConnectionHandshakeLoop
 		}
 		// handshake is complete for this connection, remove all retention.
@@ -522,7 +605,7 @@ ChannelHandshakeLoop:
 		}
 		if foundOpenTry == nil {
 			// need to send an open try to dst
-			res.appendDst(openInitKey, openInitMsg)
+			res.appendDst(openInitKey, MsgChannelOpenTry, openInitMsg)
 			continue ChannelHandshakeLoop
 		}
 		var foundOpenAck provider.RelayerMessage
@@ -534,7 +617,7 @@ ChannelHandshakeLoop:
 		}
 		if foundOpenAck == nil {
 			// need to send an open ack to src
-			res.appendSrc(openInitKey, foundOpenTry)
+			res.appendSrc(openInitKey, MsgChannelOpenAck, foundOpenTry)
 			continue ChannelHandshakeLoop
 		}
 		var foundOpenConfirm provider.RelayerMessage
@@ -546,7 +629,7 @@ ChannelHandshakeLoop:
 		}
 		if foundOpenConfirm == nil {
 			// need to send an open confirm to dst
-			res.appendDst(openInitKey, foundOpenAck)
+			res.appendDst(openInitKey, MsgChannelOpenConfirm, foundOpenAck)
 			continue ChannelHandshakeLoop
 		}
 		// handshake is complete for this channel, remove all retention.
@@ -565,35 +648,178 @@ ChannelHandshakeLoop:
 	}
 }
 
-func (pp *PathProcessor) prependMsgUpdateClient(src, dst *pathEndRuntime, messages *[]provider.RelayerMessage) error {
+func (pp *PathProcessor) assembleMsgUpdateClient(src, dst *pathEndRuntime) (provider.RelayerMessage, error) {
 	// If the client state trusted height is not equal to the client trusted state height, we cannot send a MsgUpdateClient
 	// until another block is observed. But we can send the rest without the MsgUpdateClient.
 	if !dst.clientTrustedState.ClientState.ConsensusHeight.EQ(dst.clientState.ConsensusHeight) {
-		return fmt.Errorf("observed client trusted height: %d does not equal latest client state height: %d",
+		return nil, fmt.Errorf("observed client trusted height: %d does not equal latest client state height: %d",
 			dst.clientTrustedState.ClientState.ConsensusHeight.RevisionHeight, dst.clientState.ConsensusHeight.RevisionHeight)
 	}
 
 	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(src.latestHeader, dst.clientTrustedState.ClientState.ConsensusHeight, dst.clientTrustedState.IBCHeader)
 	if err != nil {
-		return fmt.Errorf("error assembling new client header: %w", err)
+		return nil, fmt.Errorf("error assembling new client header: %w", err)
 	}
 
 	msgUpdateClient, err := dst.chainProvider.MsgUpdateClient(dst.info.ClientID, msgUpdateClientHeader)
 	if err != nil {
-		return fmt.Errorf("error assembling MsgUpdateClient: %w", err)
+		return nil, fmt.Errorf("error assembling MsgUpdateClient: %w", err)
 	}
 
-	*messages = append([]provider.RelayerMessage{msgUpdateClient}, *messages...)
-
-	return nil
+	return msgUpdateClient, nil
 }
 
-func (pp *PathProcessor) sendMessages(src, dst *pathEndRuntime, messages []provider.RelayerMessage) error {
-	if len(messages) == 0 {
+func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage) bool {
+	msgSendCache, ok := pathEnd.packetSendCache[message.channelKey]
+	if !ok {
+		// in progress cache does not exist for this channel, so can send.
+		return true
+	}
+	channelSendCache, ok := msgSendCache[message.action]
+	if !ok {
+		// in progress cache does not exist for this action, so can send
+		return true
+	}
+	inProgress, ok := channelSendCache[message.sequence]
+	if !ok {
+		// in progress cache does not exist for this sequence, so can send.
+		return true
+	}
+	if pathEnd.latestBlock.Height-inProgress.sendHeight < blocksToRetryPacketAfter {
+		// this message was sent less than blocksToRetryPacketAfter ago, do not send again yet.
+		return false
+	}
+	if inProgress.retryCount == maxMessageSendRetries {
+		// giving up on sending this packet message
+		// TODO remove all retention of this sequence in pathEnd.messagesCache.PacketFlow and counterparty
+		return false
+	}
+
+	return true
+}
+
+func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBCMessage) bool {
+	msgSendCache, ok := pathEnd.connectionSendCache[message.action]
+	if !ok {
+		// in progress cache does not exist for this action, so can send.
+		return true
+	}
+	inProgress, ok := msgSendCache[message.connectionKey]
+	if !ok {
+		// in progress cache does not exist for this connection, so can send.
+		return true
+	}
+	if pathEnd.latestBlock.Height-inProgress.sendHeight < blocksToRetryPacketAfter {
+		// this message was sent less than blocksToRetryPacketAfter ago, do not send again yet.
+		return false
+	}
+	if inProgress.retryCount == maxMessageSendRetries {
+		// giving up on sending this packet message
+		// TODO remove all retention of this connection handshake in pathEnd.messagesCache.ConnectionHandshake and counterparty
+		return false
+	}
+
+	return true
+}
+
+func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessage) bool {
+	msgSendCache, ok := pathEnd.channelSendCache[message.action]
+	if !ok {
+		// in progress cache does not exist for this action, so can send.
+		return true
+	}
+	inProgress, ok := msgSendCache[message.channelKey]
+	if !ok {
+		// in progress cache does not exist for this channel, so can send.
+		return true
+	}
+	if pathEnd.latestBlock.Height-inProgress.sendHeight < blocksToRetryPacketAfter {
+		// this message was sent less than blocksToRetryPacketAfter ago, do not send again yet.
+		return false
+	}
+	if inProgress.retryCount == maxMessageSendRetries {
+		// giving up on sending this packet message
+		// TODO remove all retention of this channel handshake in pathEnd.messagesCache.ChannelHandshake and counterparty
+		return false
+	}
+
+	return true
+}
+
+func (pathEnd *pathEndRuntime) trackSentPacketMessage(message packetIBCMessage) {
+	msgSendCache, ok := pathEnd.packetSendCache[message.channelKey]
+	if !ok {
+		pathEnd.packetSendCache[message.channelKey] = make(packetChannelMessageCache)
+	}
+	channelSendCache, ok := msgSendCache[message.action]
+	if !ok {
+		msgSendCache[message.action] = make(packetMessageSendCache)
+	}
+
+	retryCount := uint64(0)
+
+	if inProgress, ok := channelSendCache[message.sequence]; ok {
+		retryCount = inProgress.retryCount + 1
+	}
+
+	channelSendCache[message.sequence] = inProgressSend{
+		sendHeight: pathEnd.latestBlock.Height,
+		message:    message.message,
+		retryCount: retryCount,
+	}
+}
+
+func (pathEnd *pathEndRuntime) trackSentConnectionMessage(message connectionIBCMessage) {
+	msgSendCache, ok := pathEnd.connectionSendCache[message.action]
+	if !ok {
+		pathEnd.connectionSendCache[message.action] = make(connectionKeySendCache)
+	}
+
+	retryCount := uint64(0)
+
+	if inProgress, ok := msgSendCache[message.connectionKey]; ok {
+		retryCount = inProgress.retryCount + 1
+	}
+
+	msgSendCache[message.connectionKey] = inProgressSend{
+		sendHeight: pathEnd.latestBlock.Height,
+		message:    message.message,
+		retryCount: retryCount,
+	}
+}
+
+func (pathEnd *pathEndRuntime) trackSentChannelMessage(message channelIBCMessage) {
+	msgSendCache, ok := pathEnd.channelSendCache[message.action]
+	if !ok {
+		pathEnd.channelSendCache[message.action] = make(channelKeySendCache)
+	}
+
+	retryCount := uint64(0)
+
+	if inProgress, ok := msgSendCache[message.channelKey]; ok {
+		retryCount = inProgress.retryCount + 1
+	}
+
+	msgSendCache[message.channelKey] = inProgressSend{
+		sendHeight: pathEnd.latestBlock.Height,
+		message:    message.message,
+		retryCount: retryCount,
+	}
+}
+
+func (pp *PathProcessor) sendMessages(
+	ctx context.Context,
+	src, dst *pathEndRuntime,
+	packetMessages []packetIBCMessage,
+	connectionMessages []connectionIBCMessage,
+	channelMessages []channelIBCMessage,
+) error {
+	if len(packetMessages) == 0 && len(connectionMessages) == 0 && len(channelMessages) == 0 {
 		return nil
 	}
 
-	if err := pp.prependMsgUpdateClient(src, dst, &messages); err != nil {
+	msgUpdateClient, err := pp.assembleMsgUpdateClient(src, dst)
+	if err != nil {
 		return fmt.Errorf("error prepending MsgUpdateClient, chain_id: %s, client_id: %s, %w",
 			dst.info.ChainID,
 			dst.info.ClientID,
@@ -601,7 +827,44 @@ func (pp *PathProcessor) sendMessages(src, dst *pathEndRuntime, messages []provi
 		)
 	}
 
-	pp.log.Debug("will send", zap.Any("messages", messages))
+	messages := []provider.RelayerMessage{msgUpdateClient}
+
+	for _, msg := range packetMessages {
+		if !dst.shouldSendPacketMessage(msg) {
+			continue
+		}
+		messages = append(messages, msg.message)
+	}
+	for _, msg := range connectionMessages {
+		if !dst.shouldSendConnectionMessage(msg) {
+			continue
+		}
+		messages = append(messages, msg.message)
+	}
+	for _, msg := range channelMessages {
+		if !dst.shouldSendChannelMessage(msg) {
+			continue
+		}
+		messages = append(messages, msg.message)
+	}
+
+	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, messages)
+	if err != nil {
+		return fmt.Errorf("error sending messages to chain_id: %s, %v", dst.info.ChainID, err)
+	}
+	if !txSuccess {
+		return fmt.Errorf("error sending messages to chain_id: %s, transaction was not successful", dst.info.ChainID)
+	}
+
+	for _, msg := range packetMessages {
+		dst.trackSentPacketMessage(msg)
+	}
+	for _, msg := range connectionMessages {
+		dst.trackSentConnectionMessage(msg)
+	}
+	for _, msg := range channelMessages {
+		dst.trackSentChannelMessage(msg)
+	}
 
 	return nil
 }
@@ -690,6 +953,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 		pathEnd1PacketFlowMessages := pathEndPacketFlowMessages{
 			Src:                   pp.pathEnd1,
 			Dst:                   pp.pathEnd2,
+			ChannelKey:            pair.pathEnd1ChannelKey,
 			SrcMsgTransfer:        pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][MsgTransfer],
 			DstMsgRecvPacket:      pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][MsgRecvPacket],
 			SrcMsgAcknowledgement: pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][MsgAcknowledgement],
@@ -699,6 +963,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 		pathEnd2PacketFlowMessages := pathEndPacketFlowMessages{
 			Src:                   pp.pathEnd2,
 			Dst:                   pp.pathEnd1,
+			ChannelKey:            pair.pathEnd2ChannelKey,
 			SrcMsgTransfer:        pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][MsgTransfer],
 			DstMsgRecvPacket:      pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][MsgRecvPacket],
 			SrcMsgAcknowledgement: pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][MsgAcknowledgement],
@@ -716,32 +981,34 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	wg.Wait()
 
 	// concatenate applicable messages for pathend
-	var pathEnd1Messages, pathEnd2Messages []provider.RelayerMessage
+	var pathEnd1PacketMessages, pathEnd2PacketMessages []packetIBCMessage
+	var pathEnd1ConnectionMessages, pathEnd2ConnectionMessages []connectionIBCMessage
+	var pathEnd1ChannelMessages, pathEnd2ChannelMessages []channelIBCMessage
 
-	pathEnd1Messages = append(pathEnd1Messages, pathEnd1ConnectionHandshakeRes.SrcMessages...)
-	pathEnd1Messages = append(pathEnd1Messages, pathEnd2ConnectionHandshakeRes.DstMessages...)
+	pathEnd1ConnectionMessages = append(pathEnd1ConnectionMessages, pathEnd1ConnectionHandshakeRes.SrcMessages...)
+	pathEnd1ConnectionMessages = append(pathEnd1ConnectionMessages, pathEnd2ConnectionHandshakeRes.DstMessages...)
 
-	pathEnd2Messages = append(pathEnd2Messages, pathEnd2ConnectionHandshakeRes.SrcMessages...)
-	pathEnd2Messages = append(pathEnd2Messages, pathEnd1ConnectionHandshakeRes.DstMessages...)
+	pathEnd2ConnectionMessages = append(pathEnd2ConnectionMessages, pathEnd2ConnectionHandshakeRes.SrcMessages...)
+	pathEnd2ConnectionMessages = append(pathEnd2ConnectionMessages, pathEnd1ConnectionHandshakeRes.DstMessages...)
 
 	pp.pathEnd1.messageCache.ConnectionHandshake.DeleteCachedMessages(pathEnd1ConnectionHandshakeRes.ToDeleteSrc, pathEnd2ConnectionHandshakeRes.ToDeleteDst)
 	pp.pathEnd2.messageCache.ConnectionHandshake.DeleteCachedMessages(pathEnd2ConnectionHandshakeRes.ToDeleteSrc, pathEnd1ConnectionHandshakeRes.ToDeleteDst)
 
-	pathEnd1Messages = append(pathEnd1Messages, pathEnd1ChannelHandshakeRes.SrcMessages...)
-	pathEnd1Messages = append(pathEnd1Messages, pathEnd2ChannelHandshakeRes.DstMessages...)
+	pathEnd1ChannelMessages = append(pathEnd1ChannelMessages, pathEnd1ChannelHandshakeRes.SrcMessages...)
+	pathEnd1ChannelMessages = append(pathEnd1ChannelMessages, pathEnd2ChannelHandshakeRes.DstMessages...)
 
-	pathEnd2Messages = append(pathEnd2Messages, pathEnd2ChannelHandshakeRes.SrcMessages...)
-	pathEnd2Messages = append(pathEnd2Messages, pathEnd1ChannelHandshakeRes.DstMessages...)
+	pathEnd2ChannelMessages = append(pathEnd2ChannelMessages, pathEnd2ChannelHandshakeRes.SrcMessages...)
+	pathEnd2ChannelMessages = append(pathEnd2ChannelMessages, pathEnd1ChannelHandshakeRes.DstMessages...)
 
 	pp.pathEnd1.messageCache.ChannelHandshake.DeleteCachedMessages(pathEnd1ChannelHandshakeRes.ToDeleteSrc, pathEnd2ChannelHandshakeRes.ToDeleteDst)
 	pp.pathEnd2.messageCache.ChannelHandshake.DeleteCachedMessages(pathEnd2ChannelHandshakeRes.ToDeleteSrc, pathEnd1ChannelHandshakeRes.ToDeleteDst)
 
 	for i := 0; i < len(channelPairs); i++ {
-		pathEnd1Messages = append(pathEnd1Messages, pathEnd2ProcessRes[i].DstMessages...)
-		pathEnd1Messages = append(pathEnd1Messages, pathEnd1ProcessRes[i].SrcMessages...)
+		pathEnd1PacketMessages = append(pathEnd1PacketMessages, pathEnd2ProcessRes[i].DstMessages...)
+		pathEnd1PacketMessages = append(pathEnd1PacketMessages, pathEnd1ProcessRes[i].SrcMessages...)
 
-		pathEnd2Messages = append(pathEnd2Messages, pathEnd1ProcessRes[i].DstMessages...)
-		pathEnd2Messages = append(pathEnd2Messages, pathEnd2ProcessRes[i].SrcMessages...)
+		pathEnd2PacketMessages = append(pathEnd2PacketMessages, pathEnd1ProcessRes[i].DstMessages...)
+		pathEnd2PacketMessages = append(pathEnd2PacketMessages, pathEnd2ProcessRes[i].SrcMessages...)
 
 		pp.pathEnd1.messageCache.PacketFlow[channelPairs[i].pathEnd1ChannelKey].DeleteCachedMessages(pathEnd1ProcessRes[i].ToDeleteSrc, pathEnd2ProcessRes[i].ToDeleteDst)
 		pp.pathEnd2.messageCache.PacketFlow[channelPairs[i].pathEnd2ChannelKey].DeleteCachedMessages(pathEnd2ProcessRes[i].ToDeleteSrc, pathEnd1ProcessRes[i].ToDeleteDst)
@@ -750,10 +1017,10 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	// now send messages in parallel
 	var eg errgroup.Group
 	eg.Go(func() error {
-		return pp.sendMessages(pp.pathEnd1, pp.pathEnd2, pathEnd2Messages)
+		return pp.sendMessages(ctx, pp.pathEnd1, pp.pathEnd2, pathEnd2PacketMessages, pathEnd2ConnectionMessages, pathEnd2ChannelMessages)
 	})
 	eg.Go(func() error {
-		return pp.sendMessages(pp.pathEnd2, pp.pathEnd1, pathEnd1Messages)
+		return pp.sendMessages(ctx, pp.pathEnd2, pp.pathEnd1, pathEnd1PacketMessages, pathEnd1ConnectionMessages, pathEnd1ChannelMessages)
 	})
 	return eg.Wait()
 }
