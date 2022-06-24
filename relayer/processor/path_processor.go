@@ -46,8 +46,8 @@ func (p PathProcessors) IsRelayedChannel(k ChannelKey, chainID string) bool {
 }
 
 // pathEndRuntime is used at runtime for each chain involved in the path.
-// It holds a channel for incoming messages from the ChainProcessors, which will
-// be processed during Run(ctx).
+// It holds a channel for incoming messages from the ChainProcessors, which are
+// processed during Run(ctx).
 type pathEndRuntime struct {
 	info PathEnd
 
@@ -135,7 +135,7 @@ func (pp *PathProcessor) RelevantClientID(chainID string) string {
 	if pp.pathEnd2.info.ChainID == chainID {
 		return pp.pathEnd2.info.ClientID
 	}
-	panic(fmt.Sprintf("no relevant client ID for chain ID: %s", chainID))
+	panic(fmt.Errorf("no relevant client ID for chain ID: %s", chainID))
 }
 
 func (pp *PathProcessor) channelPairs() []channelPair {

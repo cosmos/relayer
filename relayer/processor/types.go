@@ -117,14 +117,14 @@ func (connectionKey ConnectionKey) Counterparty() ConnectionKey {
 // ChannelStateCache maintains channel open state for multiple channels.
 type ChannelStateCache map[ChannelKey]bool
 
-// Merge will merge another ChannelStateCache into this one, appending messages and updating the Open state.
+// Merge merges another ChannelStateCache into this one, appending messages and updating the Open state.
 func (c ChannelStateCache) Merge(other ChannelStateCache) {
 	for channelKey, newState := range other {
 		c[channelKey] = newState
 	}
 }
 
-// Clone will make a copy of the ChannelStateCache so it can be used by other threads.
+// Clone makes a copy of the ChannelStateCache so it can be used by other threads.
 func (c ChannelStateCache) Clone() ChannelStateCache {
 	n := make(ChannelStateCache, len(c))
 	for k, v := range c {
@@ -136,14 +136,14 @@ func (c ChannelStateCache) Clone() ChannelStateCache {
 // ConnectionStateCache maintains connection open state for multiple connections.
 type ConnectionStateCache map[ConnectionKey]bool
 
-// Merge will merge another ChannelStateCache into this one, appending messages and updating the Open state.
+// Merge merges another ChannelStateCache into this one, appending messages and updating the Open state.
 func (c ConnectionStateCache) Merge(other ConnectionStateCache) {
 	for channelKey, newState := range other {
 		c[channelKey] = newState
 	}
 }
 
-// Clone will make a copy of the ConnectionStateCache so it can be used by other threads.
+// Clone makes a copy of the ConnectionStateCache so it can be used by other threads.
 func (c ConnectionStateCache) Clone() ConnectionStateCache {
 	n := make(ConnectionStateCache, len(c))
 	for k, v := range c {
@@ -165,7 +165,7 @@ type ChainProcessorCacheData struct {
 	IBCHeaderCache       IBCHeaderCache
 }
 
-// Clone will create a deep copy of a PacketMessagesCache.
+// Clone creates a deep copy of a PacketMessagesCache.
 func (c PacketMessagesCache) Clone() PacketMessagesCache {
 	newPacketMessagesCache := make(PacketMessagesCache, len(c))
 	for mk, mv := range c {
@@ -194,7 +194,7 @@ func (c IBCMessagesCache) Merge(other IBCMessagesCache) {
 	c.PacketFlow.Merge(other.PacketFlow)
 }
 
-// Merge will merge another ChannelPacketMessagesCache into this one.
+// Merge merges another ChannelPacketMessagesCache into this one.
 func (c ChannelPacketMessagesCache) Merge(other ChannelPacketMessagesCache) {
 	for channelKey, messageCache := range other {
 		_, ok := c[channelKey]
@@ -241,7 +241,7 @@ func (c ChannelPacketMessagesCache) Retain(k ChannelKey, m string, seq uint64, i
 	c[k][m][seq] = ibcMsg
 }
 
-// Merge will merge another PacketMessagesCache into this one.
+// Merge merges another PacketMessagesCache into this one.
 func (c PacketMessagesCache) Merge(other PacketMessagesCache) {
 	for ibcMessage, messageCache := range other {
 		_, ok := c[ibcMessage]
@@ -253,14 +253,14 @@ func (c PacketMessagesCache) Merge(other PacketMessagesCache) {
 	}
 }
 
-// Merge will merge another PacketSequenceCache into this one.
+// Merge merges another PacketSequenceCache into this one.
 func (c PacketSequenceCache) Merge(other PacketSequenceCache) {
 	for k, v := range other {
 		c[k] = v
 	}
 }
 
-// Merge will merge another ConnectionMessagesCache into this one.
+// Merge merges another ConnectionMessagesCache into this one.
 func (c ConnectionMessagesCache) Merge(other ConnectionMessagesCache) {
 	for ibcMessage, messageCache := range other {
 		_, ok := c[ibcMessage]
@@ -290,14 +290,14 @@ func (c ConnectionMessagesCache) DeleteCachedMessages(toDelete ...map[string][]C
 	}
 }
 
-// Merge will merge another ConnectionMessageCache into this one.
+// Merge merges another ConnectionMessageCache into this one.
 func (c ConnectionMessageCache) Merge(other ConnectionMessageCache) {
 	for k, v := range other {
 		c[k] = v
 	}
 }
 
-// Merge will merge another ChannelMessagesCache into this one.
+// Merge merges another ChannelMessagesCache into this one.
 func (c ChannelMessagesCache) Merge(other ChannelMessagesCache) {
 	for ibcMessage, messageCache := range other {
 		_, ok := c[ibcMessage]
@@ -327,7 +327,7 @@ func (c ChannelMessagesCache) DeleteCachedMessages(toDelete ...map[string][]Chan
 	}
 }
 
-// Merge will merge another ChannelMessageCache into this one.
+// Merge merges another ChannelMessageCache into this one.
 func (c ChannelMessageCache) Merge(other ChannelMessageCache) {
 	for k, v := range other {
 		c[k] = v
@@ -337,14 +337,14 @@ func (c ChannelMessageCache) Merge(other ChannelMessageCache) {
 // IBCHeaderCache holds a mapping of IBCHeaders for their block height.
 type IBCHeaderCache map[uint64]provider.IBCHeader
 
-// Merge will merge another IBCHeaderCache into this one.
+// Merge merges another IBCHeaderCache into this one.
 func (c IBCHeaderCache) Merge(other IBCHeaderCache) {
 	for k, v := range other {
 		c[k] = v
 	}
 }
 
-// Prune will delete all map entries except for the most recent (keep).
+// Prune deletes all map entries except for the most recent (keep).
 func (c IBCHeaderCache) Prune(keep int) {
 	keys := make([]uint64, len(c))
 	i := 0
@@ -355,7 +355,7 @@ func (c IBCHeaderCache) Prune(keep int) {
 	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
 	toRemove := len(keys) - keep - 1
 	if toRemove > 0 {
-		for i := 0; i < toRemove; i++ {
+		for i := 0; i <= toRemove; i++ {
 			delete(c, keys[i])
 		}
 	}

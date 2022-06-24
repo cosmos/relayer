@@ -99,7 +99,7 @@ type CosmosIBCHeader struct {
 }
 
 // noop to implement processor.IBCHeader
-func (h CosmosIBCHeader) IBCHeader() {}
+func (h CosmosIBCHeader) IBCHeaderIndicator() {}
 
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {
 	return cc.PCfg

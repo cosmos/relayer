@@ -1181,24 +1181,24 @@ func (cc *CosmosProvider) MsgTimeoutOnClose(ctx context.Context, msgRecvPacket p
 func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.Header, error) {
 	trustedCosmosHeader, ok := trustedHeader.(CosmosIBCHeader)
 	if !ok {
-		return nil, fmt.Errorf("Unsupported IBC trusted header type. Must be CosmosIBCHeader: %v", trustedHeader)
+		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: CosmosIBCHeader, actual: %T", trustedHeader)
 	}
 
 	latestCosmosHeader, ok := latestHeader.(CosmosIBCHeader)
 	if !ok {
-		return nil, fmt.Errorf("Unsupported IBC header type. Must be CosmosIBCHeader: %v", latestHeader)
+		return nil, fmt.Errorf("unsupported IBC header type, expected: CosmosIBCHeader, actual: %T", latestHeader)
 	}
 
 	trustedValidatorsProto, err := trustedCosmosHeader.ValidatorSet.ToProto()
 	if err != nil {
-		return nil, fmt.Errorf("Error converting trusted validators to proto object: %w", err)
+		return nil, fmt.Errorf("error converting trusted validators to proto object: %w", err)
 	}
 
 	signedHeaderProto := latestCosmosHeader.SignedHeader.ToProto()
 
 	validatorSetProto, err := latestCosmosHeader.ValidatorSet.ToProto()
 	if err != nil {
-		return nil, fmt.Errorf("Error converting validator set to proto object: %w", err)
+		return nil, fmt.Errorf("error converting validator set to proto object: %w", err)
 	}
 
 	return &tmclient.Header{

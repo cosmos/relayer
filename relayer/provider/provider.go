@@ -45,7 +45,7 @@ type LatestBlock struct {
 }
 
 type IBCHeader interface {
-	IBCHeader()
+	IBCHeaderIndicator()
 }
 
 // ClientState holds the current state of a client from a single chain's perspective
@@ -129,7 +129,7 @@ type ChainProvider interface {
 
 	// [Begin] Packet flow IBC message assembly functions
 
-	// These functions will query the proof of the packet state on the source chain. The message
+	// These functions query the proof of the packet state on the source chain. The message
 	// indicated by the function name is assembled and returned to be written to the destination chain.
 
 	// MsgRecvPacket takes a partial MsgRecvPacket, queries the packet commitment,
