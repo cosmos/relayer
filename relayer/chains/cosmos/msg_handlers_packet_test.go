@@ -26,8 +26,10 @@ func mockCosmosChainProcessor(t *testing.T) *CosmosChainProcessor {
 		provider      = cosmos.CosmosProvider{PCfg: cosmos.CosmosProviderConfig{ChainID: chainID1}}
 	)
 
-	ccp, err := NewCosmosChainProcessor(log, &provider, "", os.Stdin, os.Stdout, []*processor.PathProcessor{pathProcessor})
+	ccp, err := NewCosmosChainProcessor(log, &provider, "", os.Stdin, os.Stdout)
 	require.NoError(t, err, "error constructing cosmos chain processor")
+
+	ccp.SetPathProcessors(processor.PathProcessors{pathProcessor})
 
 	applicable := pathProcessor.SetChainProviderIfApplicable(&provider)
 	require.True(t, applicable, "error setting path processor reference to chain processor")

@@ -25,9 +25,9 @@ func NewEventProcessor() EventProcessorBuilder {
 	return EventProcessorBuilder{}
 }
 
-// WithChainProcessors will set the ChainProcessors to be used.
+// WithChainProcessors will add to the list of ChainProcessors to be used.
 func (ep EventProcessorBuilder) WithChainProcessors(chainProcessors ...ChainProcessor) EventProcessorBuilder {
-	ep.chainProcessors = chainProcessors
+	ep.chainProcessors = append(ep.chainProcessors, chainProcessors...)
 	return ep
 }
 
@@ -37,9 +37,9 @@ func (ep EventProcessorBuilder) WithInitialBlockHistory(initialBlockHistory uint
 	return ep
 }
 
-// WithPathProcessors will set the PathProcessors to be used.
+// WithPathProcessors will add to the list of PathProcessors to be used.
 func (ep EventProcessorBuilder) WithPathProcessors(pathProcessors ...*PathProcessor) EventProcessorBuilder {
-	ep.pathProcessors = pathProcessors
+	ep.pathProcessors = append(ep.pathProcessors, pathProcessors...)
 	return ep
 }
 

@@ -40,6 +40,8 @@ const (
 	flagPageKey                 = "page-key"
 	flagCountTotal              = "count-total"
 	flagReverse                 = "reverse"
+	flagEventProcessor          = "events"
+	flagInitialBlockHistory     = "block-history"
 )
 
 const (
@@ -282,6 +284,18 @@ func dstPortFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().String(flagDebugAddr, defaultDebugAddr, "address to use for debug server. Set empty to disable debug server.")
 	if err := v.BindPFlag(flagDebugAddr, cmd.Flags().Lookup(flagDebugAddr)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func eventProcessorFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP(flagEventProcessor, "e", false, "relay using event processor")
+	if err := v.BindPFlag(flagEventProcessor, cmd.Flags().Lookup(flagEventProcessor)); err != nil {
+		panic(err)
+	}
+	cmd.Flags().Uint64P(flagInitialBlockHistory, "h", 20, "initial block history to query when using event processor relaying")
+	if err := v.BindPFlag(flagEventProcessor, cmd.Flags().Lookup(flagEventProcessor)); err != nil {
 		panic(err)
 	}
 	return cmd

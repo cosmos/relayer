@@ -51,7 +51,7 @@ type CosmosChainProcessor struct {
 	channelStateCache processor.ChannelStateCache
 }
 
-func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, rpcAddress string, input io.Reader, output io.Writer, pathProcessors processor.PathProcessors) (*CosmosChainProcessor, error) {
+func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, rpcAddress string, input io.Reader, output io.Writer) (*CosmosChainProcessor, error) {
 	chainID := provider.ChainId()
 	cc, err := getCosmosClient(rpcAddress, chainID, input, output)
 	if err != nil {
@@ -66,7 +66,6 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, r
 		chainProvider:        provider,
 		cc:                   cc,
 		lightProvider:        lightProvider,
-		pathProcessors:       pathProcessors,
 		latestClientState:    make(latestClientState),
 		connectionStateCache: make(processor.ConnectionStateCache),
 		channelStateCache:    make(processor.ChannelStateCache),

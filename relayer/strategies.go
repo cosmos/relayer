@@ -4,12 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	cosmosProcessor "github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/cosmos/relayer/v2/relayer/provider"
+	cosmosProvider "github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"go.uber.org/zap"
 )
 
@@ -20,11 +25,94 @@ type ActiveChannel struct {
 }
 
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
-func StartRelayer(ctx context.Context, log *zap.Logger, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64) chan error {
+func StartRelayer(ctx context.Context, log *zap.Logger, src, dst *Chain, stdin io.Reader, stdout io.Writer, filter ChannelFilter, maxTxSize, maxMsgLength uint64, useEventProcessor bool, initialBlockHistory uint64) chan error {
 	errorChan := make(chan error, 1)
+
+	if useEventProcessor {
+		var allowedSrc, allowedDst, blockedSrc, blockedDst []processor.ChannelKey
+
+		for _, ch := range filter.ChannelList {
+			ruleSrc := processor.ChannelKey{ChannelID: ch}
+			ruleDst := processor.ChannelKey{CounterpartyChannelID: ch}
+			if filter.Rule == allowList {
+				allowedSrc = append(allowedSrc, ruleSrc)
+				allowedDst = append(allowedDst, ruleDst)
+			} else if filter.Rule == denyList {
+				blockedSrc = append(blockedSrc, ruleSrc)
+				blockedDst = append(blockedDst, ruleDst)
+			}
+		}
+		paths := []path{path{
+			src: pathChain{
+				provider:   src.ChainProvider,
+				pathEnd:    processor.NewPathEnd(src.ChainProvider.ChainId(), src.ClientID(), []string{src.ConnectionID()}, allowedSrc, blockedSrc),
+				rpcAddress: src.RPCAddr,
+			},
+			dst: pathChain{
+				provider:   dst.ChainProvider,
+				pathEnd:    processor.NewPathEnd(dst.ChainProvider.ChainId(), dst.ClientID(), []string{dst.ConnectionID()}, allowedDst, blockedDst),
+				rpcAddress: dst.RPCAddr,
+			},
+		}}
+
+		go relayerStartEventProcessor(ctx, log, stdin, stdout, paths, initialBlockHistory, maxTxSize, maxMsgLength, errorChan)
+		return errorChan
+	}
 
 	go relayerMainLoop(ctx, log, src, dst, filter, maxTxSize, maxMsgLength, errorChan)
 	return errorChan
+}
+
+// chainProcessorForProvider returns the corresponding ChainProcessor implementation instance.
+func chainProcessorForProvider(log *zap.Logger, chain pathChain, stdin io.Reader, stdout io.Writer) processor.ChainProcessor {
+	// Handle new ChainProcessor implementations as cases here
+	switch p := chain.provider.(type) {
+	case *cosmosProvider.CosmosProvider:
+		chainProcessor, err := cosmosProcessor.NewCosmosChainProcessor(log, p, chain.rpcAddress, stdin, stdout)
+		if err != nil {
+			panic(err)
+		}
+		return chainProcessor
+	default:
+		panic(fmt.Errorf("unsupported chain provider type: %T", chain.provider))
+	}
+}
+
+type pathChain struct {
+	provider   provider.ChainProvider
+	pathEnd    processor.PathEnd
+	rpcAddress string
+}
+
+type path struct {
+	src pathChain
+	dst pathChain
+}
+
+// relayerStartEventProcessor is the main relayer process when using the event processor.
+func relayerStartEventProcessor(ctx context.Context, log *zap.Logger, stdin io.Reader, stdout io.Writer, paths []path, initialBlockHistory uint64, maxTxSize, maxMsgLength uint64, errCh chan<- error) {
+	defer close(errCh)
+
+	epb := processor.NewEventProcessor()
+
+	for _, p := range paths {
+		epb = epb.
+			WithChainProcessors(
+				chainProcessorForProvider(log, p.src, stdin, stdout),
+				chainProcessorForProvider(log, p.dst, stdin, stdout),
+			).
+			WithPathProcessors(processor.NewPathProcessor(
+				log,
+				p.src.pathEnd,
+				p.dst.pathEnd,
+			))
+	}
+
+	ep := epb.
+		WithInitialBlockHistory(initialBlockHistory).
+		Build()
+
+	errCh <- ep.Run(ctx)
 }
 
 // relayerMainLoop is the main loop of the relayer.
