@@ -7,23 +7,25 @@ type PathEnd struct {
 	ClientID string
 	// ConnectionIDs are tracked by pathEndRuntime in PathProcessor for known connections on this client
 
-	// can only provide one. panic if both are provided
-	AllowList []ChannelKey // only use these if provided
-	BlockList []ChannelKey // use everything except these if provided
+	// Can be either "allowlist" or "denylist"
+	Rule       string
+	FilterList []ChannelKey // which channels to allow or deny
 }
 
 // NewPathEnd constructs a PathEnd, validating initial parameters.
-func NewPathEnd(chainID string, clientID string, allowList []ChannelKey, blockList []ChannelKey) PathEnd {
-	if len(allowList) > 0 && len(blockList) > 0 {
-		panic("only one of allowlist or blocklist are allowed")
-	}
+func NewPathEnd(chainID string, clientID string, rule string, filterList []ChannelKey) PathEnd {
 	return PathEnd{
-		ChainID:   chainID,
-		ClientID:  clientID,
-		AllowList: allowList,
-		BlockList: blockList,
+		ChainID:    chainID,
+		ClientID:   clientID,
+		Rule:       rule,
+		FilterList: filterList,
 	}
 }
+
+const (
+	RuleAllowList = "allowlist"
+	RuleDenyList  = "denylist"
+)
 
 func (pe PathEnd) checkChannelMatch(listChannelID, listPortID string, channelKey ChannelKey) bool {
 	if listChannelID == "" {
@@ -63,15 +65,15 @@ func (pe PathEnd) shouldRelayChannelSingle(channelKey ChannelKey, listChannel Ch
 // if port ID is empty on blocklist channel, block all ports
 // if port ID is non-empty on blocklist channel, block only that specific port
 func (pe PathEnd) ShouldRelayChannel(channelKey ChannelKey) bool {
-	if len(pe.AllowList) > 0 {
-		for _, allowedChannel := range pe.AllowList {
+	if pe.Rule == RuleAllowList {
+		for _, allowedChannel := range pe.FilterList {
 			if pe.shouldRelayChannelSingle(channelKey, allowedChannel, true) {
 				return true
 			}
 		}
 		return false
-	} else if len(pe.BlockList) > 0 {
-		for _, blockedChannel := range pe.BlockList {
+	} else if pe.Rule == RuleDenyList {
+		for _, blockedChannel := range pe.FilterList {
 			if !pe.shouldRelayChannelSingle(channelKey, blockedChannel, false) {
 				return false
 			}

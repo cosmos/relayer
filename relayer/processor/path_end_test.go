@@ -16,12 +16,7 @@ const (
 
 // empty allow list and block list should relay everything
 func TestAllowAllChannels(t *testing.T) {
-	mockAllowList := []processor.ChannelKey{}
-	mockBlockList := []processor.ChannelKey{}
-	mockPathEnd := processor.PathEnd{
-		AllowList: mockAllowList,
-		BlockList: mockBlockList,
-	}
+	mockPathEnd := processor.PathEnd{}
 
 	mockAllowedChannel := processor.ChannelKey{
 		ChannelID: testChannel0,
@@ -42,10 +37,9 @@ func TestAllowAllPortsForChannel(t *testing.T) {
 	mockAllowList := []processor.ChannelKey{
 		{ChannelID: testChannel0},
 	}
-	mockBlockList := []processor.ChannelKey{}
 	mockPathEnd := processor.PathEnd{
-		AllowList: mockAllowList,
-		BlockList: mockBlockList,
+		Rule:       processor.RuleAllowList,
+		FilterList: mockAllowList,
 	}
 
 	mockAllowedChannel := processor.ChannelKey{
@@ -78,10 +72,9 @@ func TestAllowSpecificPortForChannel(t *testing.T) {
 	mockAllowList := []processor.ChannelKey{
 		{ChannelID: testChannel0, PortID: testPort0},
 	}
-	mockBlockList := []processor.ChannelKey{}
 	mockPathEnd := processor.PathEnd{
-		AllowList: mockAllowList,
-		BlockList: mockBlockList,
+		Rule:       processor.RuleAllowList,
+		FilterList: mockAllowList,
 	}
 
 	mockAllowedChannel := processor.ChannelKey{
@@ -111,13 +104,12 @@ func TestAllowSpecificPortForChannel(t *testing.T) {
 }
 
 func TestBlockAllPortsForChannel(t *testing.T) {
-	mockAllowList := []processor.ChannelKey{}
 	mockBlockList := []processor.ChannelKey{
 		{ChannelID: testChannel0},
 	}
 	mockPathEnd := processor.PathEnd{
-		AllowList: mockAllowList,
-		BlockList: mockBlockList,
+		Rule:       processor.RuleDenyList,
+		FilterList: mockBlockList,
 	}
 
 	mockBlockedChannel := processor.ChannelKey{
@@ -147,13 +139,12 @@ func TestBlockAllPortsForChannel(t *testing.T) {
 }
 
 func TestBlockSpecificPortForChannel(t *testing.T) {
-	mockAllowList := []processor.ChannelKey{}
 	mockBlockList := []processor.ChannelKey{
 		{ChannelID: testChannel0, PortID: testPort0},
 	}
 	mockPathEnd := processor.PathEnd{
-		AllowList: mockAllowList,
-		BlockList: mockBlockList,
+		Rule:       processor.RuleDenyList,
+		FilterList: mockBlockList,
 	}
 
 	mockBlockedChannel := processor.ChannelKey{
