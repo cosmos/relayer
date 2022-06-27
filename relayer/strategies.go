@@ -45,12 +45,12 @@ func StartRelayer(ctx context.Context, log *zap.Logger, src, dst *Chain, stdin i
 		paths := []path{path{
 			src: pathChain{
 				provider:   src.ChainProvider,
-				pathEnd:    processor.NewPathEnd(src.ChainProvider.ChainId(), src.ClientID(), []string{src.ConnectionID()}, allowedSrc, blockedSrc),
+				pathEnd:    processor.NewPathEnd(src.ChainProvider.ChainId(), src.ClientID(), allowedSrc, blockedSrc),
 				rpcAddress: src.RPCAddr,
 			},
 			dst: pathChain{
 				provider:   dst.ChainProvider,
-				pathEnd:    processor.NewPathEnd(dst.ChainProvider.ChainId(), dst.ClientID(), []string{dst.ConnectionID()}, allowedDst, blockedDst),
+				pathEnd:    processor.NewPathEnd(dst.ChainProvider.ChainId(), dst.ClientID(), allowedDst, blockedDst),
 				rpcAddress: dst.RPCAddr,
 			},
 		}}
