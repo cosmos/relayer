@@ -898,15 +898,14 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 
 			// Query all channels for the configured connection on the src chain
 			srcChannelID := args[4]
-			srcChainID := args[0]
 
 			var pathConnectionID string
-			if srcChainID == path.Src.ChainID {
+			if src.ChainID()  == path.Src.ChainID {
 				pathConnectionID = path.Src.ConnectionID
-			} else if srcChainID == path.Dst.ChainID {
+			} else if src.ChainID()  == path.Dst.ChainID {
 				pathConnectionID = path.Dst.ConnectionID
 			} else {
-				return fmt.Errorf("no path configured using chain-id: %s", src.Chainid)
+				return fmt.Errorf("no path configured using chain-id: %s", src.ChainID())
 			}
 
 			channels, err := src.ChainProvider.QueryConnectionChannels(cmd.Context(), srch, pathConnectionID)
@@ -925,7 +924,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 
 			if srcChannel == nil {
 				return fmt.Errorf("could not find channel{%s} for chain{%s}@connection{%s}",
-					srcChannelID, src, path.Dst.ConnectionID)
+					srcChannelID, src, pathConnectionID)
 			}
 
 			dts, err := src.ChainProvider.QueryDenomTraces(cmd.Context(), 0, 100, srch)
