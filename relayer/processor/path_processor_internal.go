@@ -264,3 +264,102 @@ func (pp *PathProcessor) sendMessages(
 
 	return nil
 }
+
+func (pp *PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes pathEndChannelHandshakeResponse) ([]channelIBCMessage, []channelIBCMessage) {
+	pathEnd1ChannelSrcLen := len(pathEnd1ChannelHandshakeRes.SrcMessages)
+	pathEnd1ChannelDstLen := len(pathEnd1ChannelHandshakeRes.DstMessages)
+	pathEnd2ChannelDstLen := len(pathEnd2ChannelHandshakeRes.DstMessages)
+	pathEnd2ChannelSrcLen := len(pathEnd2ChannelHandshakeRes.SrcMessages)
+	pathEnd1ChannelMessages := make([]channelIBCMessage, pathEnd1ChannelSrcLen+pathEnd2ChannelDstLen)
+	pathEnd2ChannelMessages := make([]channelIBCMessage, pathEnd2ChannelSrcLen+pathEnd1ChannelDstLen)
+
+	// pathEnd1 channel messages come from pathEnd1 src and pathEnd2 dst
+	for i, msg := range pathEnd1ChannelHandshakeRes.SrcMessages {
+		pathEnd1ChannelMessages[i] = msg
+	}
+	for i, msg := range pathEnd2ChannelHandshakeRes.DstMessages {
+		pathEnd1ChannelMessages[i+pathEnd1ChannelSrcLen] = msg
+	}
+
+	// pathEnd2 channel messages come from pathEnd2 src and pathEnd1 dst
+	for i, msg := range pathEnd2ChannelHandshakeRes.SrcMessages {
+		pathEnd2ChannelMessages[i] = msg
+	}
+	for i, msg := range pathEnd1ChannelHandshakeRes.DstMessages {
+		pathEnd2ChannelMessages[i+pathEnd2ChannelSrcLen] = msg
+	}
+
+	pp.pathEnd1.messageCache.ChannelHandshake.DeleteCachedMessages(pathEnd1ChannelHandshakeRes.ToDeleteSrc, pathEnd2ChannelHandshakeRes.ToDeleteDst)
+	pp.pathEnd2.messageCache.ChannelHandshake.DeleteCachedMessages(pathEnd2ChannelHandshakeRes.ToDeleteSrc, pathEnd1ChannelHandshakeRes.ToDeleteDst)
+
+	return pathEnd1ChannelMessages, pathEnd2ChannelMessages
+}
+
+func (pp *PathProcessor) connectionMessagesToSend(pathEnd1ConnectionHandshakeRes, pathEnd2ConnectionHandshakeRes pathEndConnectionHandshakeResponse) ([]connectionIBCMessage, []connectionIBCMessage) {
+	pathEnd1ConnectionSrcLen := len(pathEnd1ConnectionHandshakeRes.SrcMessages)
+	pathEnd1ConnectionDstLen := len(pathEnd1ConnectionHandshakeRes.DstMessages)
+	pathEnd2ConnectionDstLen := len(pathEnd2ConnectionHandshakeRes.DstMessages)
+	pathEnd2ConnectionSrcLen := len(pathEnd2ConnectionHandshakeRes.SrcMessages)
+	pathEnd1ConnectionMessages := make([]connectionIBCMessage, pathEnd1ConnectionSrcLen+pathEnd2ConnectionDstLen)
+	pathEnd2ConnectionMessages := make([]connectionIBCMessage, pathEnd2ConnectionSrcLen+pathEnd1ConnectionDstLen)
+
+	// pathEnd1 connection messages come from pathEnd1 src and pathEnd2 dst
+	for i, msg := range pathEnd1ConnectionHandshakeRes.SrcMessages {
+		pathEnd1ConnectionMessages[i] = msg
+	}
+	for i, msg := range pathEnd2ConnectionHandshakeRes.DstMessages {
+		pathEnd1ConnectionMessages[i+pathEnd1ConnectionSrcLen] = msg
+	}
+
+	// pathEnd2 connection messages come from pathEnd2 src and pathEnd1 dst
+	for i, msg := range pathEnd2ConnectionHandshakeRes.SrcMessages {
+		pathEnd2ConnectionMessages[i] = msg
+	}
+	for i, msg := range pathEnd1ConnectionHandshakeRes.DstMessages {
+		pathEnd2ConnectionMessages[i+pathEnd2ConnectionSrcLen] = msg
+	}
+
+	pp.pathEnd1.messageCache.ConnectionHandshake.DeleteCachedMessages(pathEnd1ConnectionHandshakeRes.ToDeleteSrc, pathEnd2ConnectionHandshakeRes.ToDeleteDst)
+	pp.pathEnd2.messageCache.ConnectionHandshake.DeleteCachedMessages(pathEnd2ConnectionHandshakeRes.ToDeleteSrc, pathEnd1ConnectionHandshakeRes.ToDeleteDst)
+	return pathEnd1ConnectionMessages, pathEnd2ConnectionMessages
+}
+
+func (pp *PathProcessor) packetMessagesToSend(channelPairs []channelPair, pathEnd1ProcessRes []*pathEndPacketFlowResponse, pathEnd2ProcessRes []*pathEndPacketFlowResponse) ([]packetIBCMessage, []packetIBCMessage) {
+	pathEnd1PacketLen := 0
+	pathEnd2PacketLen := 0
+	for i := 0; i < len(channelPairs); i++ {
+		pathEnd1PacketLen += len(pathEnd2ProcessRes[i].DstMessages) + len(pathEnd1ProcessRes[i].SrcMessages)
+		pathEnd2PacketLen += len(pathEnd1ProcessRes[i].DstMessages) + len(pathEnd2ProcessRes[i].SrcMessages)
+	}
+
+	pathEnd1PacketMessages := make([]packetIBCMessage, pathEnd1PacketLen)
+	pathEnd2PacketMessages := make([]packetIBCMessage, pathEnd2PacketLen)
+
+	pathEnd1PacketItr := 0
+	pathEnd2PacketItr := 0
+
+	for i := 0; i < len(channelPairs); i++ {
+		for _, msg := range pathEnd2ProcessRes[i].DstMessages {
+			pathEnd1PacketMessages[pathEnd1PacketItr] = msg
+			pathEnd1PacketItr++
+		}
+		for _, msg := range pathEnd1ProcessRes[i].SrcMessages {
+			pathEnd1PacketMessages[pathEnd1PacketItr] = msg
+			pathEnd1PacketItr++
+		}
+
+		for _, msg := range pathEnd1ProcessRes[i].DstMessages {
+			pathEnd2PacketMessages[pathEnd2PacketItr] = msg
+			pathEnd2PacketItr++
+		}
+		for _, msg := range pathEnd2ProcessRes[i].SrcMessages {
+			pathEnd2PacketMessages[pathEnd2PacketItr] = msg
+			pathEnd2PacketItr++
+		}
+
+		pp.pathEnd1.messageCache.PacketFlow[channelPairs[i].pathEnd1ChannelKey].DeleteCachedMessages(pathEnd1ProcessRes[i].ToDeleteSrc, pathEnd2ProcessRes[i].ToDeleteDst)
+		pp.pathEnd2.messageCache.PacketFlow[channelPairs[i].pathEnd2ChannelKey].DeleteCachedMessages(pathEnd2ProcessRes[i].ToDeleteSrc, pathEnd1ProcessRes[i].ToDeleteDst)
+	}
+
+	return pathEnd1PacketMessages, pathEnd2PacketMessages
+}
