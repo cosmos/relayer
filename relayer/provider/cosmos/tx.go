@@ -1528,6 +1528,22 @@ func (cc *CosmosProvider) GetIBCUpdateHeader(ctx context.Context, srch int64, ds
 	return cc.InjectTrustedFields(ctx, h, dst, dstClientId)
 }
 
+func (cc *CosmosProvider) IBCHeaderAtHeight(ctx context.Context, h int64) (provider.IBCHeader, error) {
+	if h == 0 {
+		return nil, fmt.Errorf("height cannot be 0")
+	}
+
+	lightBlock, err := cc.LightProvider.LightBlock(ctx, h)
+	if err != nil {
+		return nil, err
+	}
+
+	return CosmosIBCHeader{
+		SignedHeader: lightBlock.SignedHeader,
+		ValidatorSet: lightBlock.ValidatorSet,
+	}, nil
+}
+
 func (cc *CosmosProvider) GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error) {
 	if h == 0 {
 		return nil, fmt.Errorf("height cannot be 0")

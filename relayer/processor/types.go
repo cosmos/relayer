@@ -188,12 +188,6 @@ func (c PacketMessagesCache) DeleteCachedMessages(toDelete ...map[string][]uint6
 	}
 }
 
-func (c IBCMessagesCache) Merge(other IBCMessagesCache) {
-	c.ConnectionHandshake.Merge(other.ConnectionHandshake)
-	c.ChannelHandshake.Merge(other.ChannelHandshake)
-	c.PacketFlow.Merge(other.PacketFlow)
-}
-
 // Merge merges another ChannelPacketMessagesCache into this one.
 func (c ChannelPacketMessagesCache) Merge(other ChannelPacketMessagesCache) {
 	for channelKey, messageCache := range other {

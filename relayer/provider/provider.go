@@ -179,8 +179,12 @@ type ChainProvider interface {
 	SendMessage(ctx context.Context, msg RelayerMessage) (*RelayerTxResponse, bool, error)
 	SendMessages(ctx context.Context, msgs []RelayerMessage) (*RelayerTxResponse, bool, error)
 
+	// TODO consolidate with IBCHeaderAtHeight
 	GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error)
 	GetIBCUpdateHeader(ctx context.Context, srch int64, dst ChainProvider, dstClientId string) (ibcexported.Header, error)
+
+	// IBCHeaderAtHeight returns the IBC compatible block header at a specific height.
+	IBCHeaderAtHeight(ctx context.Context, h int64) (IBCHeader, error)
 
 	ChainName() string
 	ChainId() string
