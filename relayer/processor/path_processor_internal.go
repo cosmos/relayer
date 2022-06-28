@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"go.uber.org/zap"
 )
 
 // shouldSendPacketMessage determines if the packet flow message should be sent now.
@@ -145,11 +146,13 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 func (pathEnd *pathEndRuntime) trackSentPacketMessage(message packetIBCMessage) {
 	msgSendCache, ok := pathEnd.packetSendCache[message.channelKey]
 	if !ok {
-		pathEnd.packetSendCache[message.channelKey] = make(packetChannelMessageCache)
+		msgSendCache = make(packetChannelMessageCache)
+		pathEnd.packetSendCache[message.channelKey] = msgSendCache
 	}
 	channelSendCache, ok := msgSendCache[message.action]
 	if !ok {
-		msgSendCache[message.action] = make(packetMessageSendCache)
+		channelSendCache = make(packetMessageSendCache)
+		msgSendCache[message.action] = channelSendCache
 	}
 
 	retryCount := uint64(0)
@@ -168,7 +171,8 @@ func (pathEnd *pathEndRuntime) trackSentPacketMessage(message packetIBCMessage) 
 func (pathEnd *pathEndRuntime) trackSentConnectionMessage(message connectionIBCMessage) {
 	msgSendCache, ok := pathEnd.connectionSendCache[message.action]
 	if !ok {
-		pathEnd.connectionSendCache[message.action] = make(connectionKeySendCache)
+		msgSendCache = make(connectionKeySendCache)
+		pathEnd.connectionSendCache[message.action] = msgSendCache
 	}
 
 	retryCount := uint64(0)
@@ -187,7 +191,8 @@ func (pathEnd *pathEndRuntime) trackSentConnectionMessage(message connectionIBCM
 func (pathEnd *pathEndRuntime) trackSentChannelMessage(message channelIBCMessage) {
 	msgSendCache, ok := pathEnd.channelSendCache[message.action]
 	if !ok {
-		pathEnd.channelSendCache[message.action] = make(channelKeySendCache)
+		msgSendCache = make(channelKeySendCache)
+		pathEnd.channelSendCache[message.action] = msgSendCache
 	}
 
 	retryCount := uint64(0)

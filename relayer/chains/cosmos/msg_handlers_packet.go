@@ -8,7 +8,7 @@ import (
 )
 
 func (ccp *CosmosChainProcessor) handleMsgTransfer(p msgHandlerParams) {
-	pi := p.messageInfo.(*packetInfo)
+	pi := p.messageInfo.(packetInfo)
 	// source chain processor will call this handler
 	// source channel used as key because MsgTransfer is sent to source chain
 	channelKey := pi.channelKey()
@@ -41,7 +41,7 @@ func (ccp *CosmosChainProcessor) handleMsgTransfer(p msgHandlerParams) {
 }
 
 func (ccp *CosmosChainProcessor) handleMsgRecvPacket(p msgHandlerParams) {
-	pi := p.messageInfo.(*packetInfo)
+	pi := p.messageInfo.(packetInfo)
 	// destination chain processor will call this handler
 	// destination channel used because MsgRecvPacket is sent to destination chain
 	channelKey := pi.channelKey().Counterparty()
@@ -70,7 +70,7 @@ func (ccp *CosmosChainProcessor) handleMsgRecvPacket(p msgHandlerParams) {
 }
 
 func (ccp *CosmosChainProcessor) handleMsgAcknowledgement(p msgHandlerParams) {
-	pi := p.messageInfo.(*packetInfo)
+	pi := p.messageInfo.(packetInfo)
 	// source chain processor will call this handler
 	// source channel used as key because MsgAcknowledgement is sent to source chain
 	channelKey := pi.channelKey()
@@ -85,7 +85,7 @@ func (ccp *CosmosChainProcessor) handleMsgAcknowledgement(p msgHandlerParams) {
 }
 
 func (ccp *CosmosChainProcessor) handleMsgTimeout(p msgHandlerParams) {
-	pi := p.messageInfo.(*packetInfo)
+	pi := p.messageInfo.(packetInfo)
 	// source chain processor will call this handler
 	// source channel used as key because MsgTimeout is sent to source chain
 	channelKey := pi.channelKey()
@@ -100,7 +100,7 @@ func (ccp *CosmosChainProcessor) handleMsgTimeout(p msgHandlerParams) {
 }
 
 func (ccp *CosmosChainProcessor) handleMsgTimeoutOnClose(p msgHandlerParams) {
-	pi := p.messageInfo.(*packetInfo)
+	pi := p.messageInfo.(packetInfo)
 	// source channel used because timeout is sent to source chain
 	channelKey := pi.channelKey()
 	if !p.ibcMessagesCache.PacketFlow.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), processor.MsgTimeoutOnClose, pi.packet.Sequence) {
@@ -113,7 +113,7 @@ func (ccp *CosmosChainProcessor) handleMsgTimeoutOnClose(p msgHandlerParams) {
 	ccp.logPacketMessage("MsgTimeoutOnClose", pi)
 }
 
-func (ccp *CosmosChainProcessor) logPacketMessage(message string, pi *packetInfo, additionalFields ...zap.Field) {
+func (ccp *CosmosChainProcessor) logPacketMessage(message string, pi packetInfo, additionalFields ...zap.Field) {
 	fields := []zap.Field{
 		zap.Uint64("sequence", pi.packet.Sequence),
 		zap.String("src_channel", pi.packet.SourceChannel),

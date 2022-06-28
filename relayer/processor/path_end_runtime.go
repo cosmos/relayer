@@ -49,6 +49,9 @@ func newPathEndRuntime(pathEnd PathEnd) *pathEndRuntime {
 		channelStateCache:    make(ChannelStateCache),
 		messageCache:         NewIBCMessagesCache(),
 		ibcHeaderCache:       make(IBCHeaderCache),
+		packetSendCache:      make(packetSendCache),
+		connectionSendCache:  make(connectionSendCache),
+		channelSendCache:     make(channelSendCache),
 	}
 }
 
@@ -68,7 +71,7 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache) 
 	channelHandshakeMessages := make(ChannelMessagesCache)
 
 	for ch, pmc := range messageCache.PacketFlow {
-		if !pathEnd.info.ShouldRelayChannel(ch) {
+		if pathEnd.info.ShouldRelayChannel(ch) {
 			packetMessages[ch] = pmc
 		}
 	}
