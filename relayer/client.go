@@ -279,7 +279,7 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 		return err
 	}
 
-	srcUpdateMsg, err := c.ChainProvider.UpdateClient(c.ClientID(), dstUpdateHeader)
+	srcUpdateMsg, err := c.ChainProvider.MsgUpdateClient(c.ClientID(), dstUpdateHeader)
 	if err != nil {
 		c.log.Debug(
 			"Failed to update source client",
@@ -289,7 +289,7 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 		return err
 	}
 
-	dstUpdateMsg, err := dst.ChainProvider.UpdateClient(dst.ClientID(), srcUpdateHeader)
+	dstUpdateMsg, err := dst.ChainProvider.MsgUpdateClient(dst.ClientID(), srcUpdateHeader)
 	if err != nil {
 		dst.log.Debug(
 			"Failed to update destination client",
@@ -342,7 +342,7 @@ func (c *Chain) UpgradeClients(ctx context.Context, dst *Chain, height int64) er
 	}
 
 	// updates off-chain light client
-	updateMsg, err := c.ChainProvider.UpdateClient(c.ClientID(), dstHeader)
+	updateMsg, err := c.ChainProvider.MsgUpdateClient(c.ClientID(), dstHeader)
 	if err != nil {
 		return err
 	}

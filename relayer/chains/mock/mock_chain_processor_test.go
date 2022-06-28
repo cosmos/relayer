@@ -2,10 +2,12 @@ package mock_test
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/mock"
 	"github.com/cosmos/relayer/v2/relayer/processor"
@@ -22,8 +24,8 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	mockChainID1 := "mock-chain-1"
 	mockChainID2 := "mock-chain-2"
 
-	pathEnd1 := processor.PathEnd{ChainID: mockChainID1}
-	pathEnd2 := processor.PathEnd{ChainID: mockChainID2}
+	pathEnd1 := processor.PathEnd{ChainID: mockChainID1, ClientID: "mock-client-1"}
+	pathEnd2 := processor.PathEnd{ChainID: mockChainID2, ClientID: "mock-client-2"}
 
 	mockSequence1 := uint64(0)
 	mockSequence2 := uint64(0)
@@ -102,6 +104,9 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequenceCounterparty, lastSentMockMsgRecvCounterparty *uint64, lock *sync.Mutex) []mock.TransactionMessage {
 	lock.Lock()
 	defer lock.Unlock()
+	if *mockSequence-*mockSequenceCounterparty > 0 {
+		return []mock.TransactionMessage{}
+	}
 	*mockSequence++
 	mockMessages := []mock.TransactionMessage{
 		{
@@ -112,6 +117,10 @@ func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequence
 				SourcePort:         channelKey.PortID,
 				DestinationChannel: channelKey.CounterpartyChannelID,
 				DestinationPort:    channelKey.CounterpartyPortID,
+				Data:               []byte(strconv.FormatUint(*mockSequence, 10)),
+				TimeoutHeight: clienttypes.Height{
+					RevisionHeight: 1000,
+				},
 			},
 		},
 	}
@@ -125,6 +134,10 @@ func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequence
 				SourcePort:         channelKey.CounterpartyPortID,
 				DestinationChannel: channelKey.ChannelID,
 				DestinationPort:    channelKey.PortID,
+				Data:               []byte(strconv.FormatUint(*mockSequenceCounterparty, 10)),
+				TimeoutHeight: clienttypes.Height{
+					RevisionHeight: 1000,
+				},
 			},
 		})
 	}
@@ -137,6 +150,7 @@ func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequence
 				SourcePort:         channelKey.PortID,
 				DestinationChannel: channelKey.CounterpartyChannelID,
 				DestinationPort:    channelKey.CounterpartyPortID,
+				Data:               []byte(strconv.FormatUint(*mockSequence, 10)),
 			},
 		})
 	}

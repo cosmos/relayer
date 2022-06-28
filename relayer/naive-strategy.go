@@ -419,11 +419,11 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 			return err
 		}
 
-		srcUpdateMsg, err := src.ChainProvider.UpdateClient(src.PathEnd.ClientID, dstHeader)
+		srcUpdateMsg, err := src.ChainProvider.MsgUpdateClient(src.PathEnd.ClientID, dstHeader)
 		if err != nil {
 			return err
 		}
-		dstUpdateMsg, err := dst.ChainProvider.UpdateClient(dst.PathEnd.ClientID, srcHeader)
+		dstUpdateMsg, err := dst.ChainProvider.MsgUpdateClient(dst.PathEnd.ClientID, srcHeader)
 		if err != nil {
 			return err
 		}
@@ -675,7 +675,7 @@ func PrependUpdateClientMsg(ctx context.Context, msgs *[]provider.RelayerMessage
 	var updateMsg provider.RelayerMessage
 	if err := retry.Do(func() error {
 		var err error
-		updateMsg, err = dst.ChainProvider.UpdateClient(dst.PathEnd.ClientID, srcHeader)
+		updateMsg, err = dst.ChainProvider.MsgUpdateClient(dst.PathEnd.ClientID, srcHeader)
 		return err
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		dst.log.Info(

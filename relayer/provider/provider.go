@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -41,6 +42,23 @@ type RelayerEvent struct {
 type LatestBlock struct {
 	Height uint64
 	Time   time.Time
+}
+
+type IBCHeader interface {
+	IBCHeaderIndicator()
+}
+
+// ClientState holds the current state of a client from a single chain's perspective
+type ClientState struct {
+	ClientID        string
+	ConsensusHeight clienttypes.Height
+}
+
+// ClientTrustedState holds the current state of a client from the perspective of both involved chains,
+// i.e. ClientState enriched with the trusted IBC header of the counterparty chain.
+type ClientTrustedState struct {
+	ClientState ClientState
+	IBCHeader   IBCHeader
 }
 
 // loggableEvents is an unexported wrapper type for a slice of RelayerEvent,
@@ -93,7 +111,6 @@ type ChainProvider interface {
 	Init() error
 	CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header, signer string) (RelayerMessage, error)
 	SubmitMisbehavior( /*TODO TBD*/ ) (RelayerMessage, error)
-	UpdateClient(srcClientId string, dstHeader ibcexported.Header) (RelayerMessage, error)
 	ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) ([]RelayerMessage, error)
 	ConnectionOpenTry(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]RelayerMessage, error)
 	ConnectionOpenAck(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]RelayerMessage, error)
@@ -105,6 +122,52 @@ type ChainProvider interface {
 	ChannelCloseInit(srcPortId, srcChanId string) (RelayerMessage, error)
 	ChannelCloseConfirm(ctx context.Context, dstQueryProvider QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (RelayerMessage, error)
 
+	// ValidatePacket makes sure packet is valid to be relayed.
+	// It should return TimeoutHeightError, TimeoutTimestampError, or TimeoutOnCloseError
+	// for packet timeout scenarios so that timeout message can be written to other chain.
+	ValidatePacket(msgRecvPacket RelayerMessage, latestBlock LatestBlock) error
+
+	// [Begin] Packet flow IBC message assembly functions
+
+	// These functions query the proof of the packet state on the source chain. The message
+	// indicated by the function name is assembled and returned to be written to the destination chain.
+
+	// MsgRecvPacket takes a partial MsgRecvPacket, queries the packet commitment,
+	// and assembles a full MsgRecvPacket ready to write to the counterparty chain.
+	MsgRecvPacket(ctx context.Context, msgRecvPacket RelayerMessage, signer string, latest LatestBlock) (RelayerMessage, error)
+
+	// MsgAcknowledgement takes a partial MsgAcknowledgement, queries the packet acknowledgement,
+	// and assembles a full MsgAcknowledgement ready to write to the counterparty chain.
+	MsgAcknowledgement(ctx context.Context, msgAcknowledgement RelayerMessage, signer string, latest LatestBlock) (RelayerMessage, error)
+
+	// MsgTimeout takes a partial MsgRecvPacket, queries the packet receipt to prove that the packet was never relayed,
+	// i.e. that the MsgRecvPacket was never written to the chain,
+	// and assembles a full MsgTimeout ready to write to the counterparty chain,
+	// i.e. the chain where the MsgTransfer was committed.
+	MsgTimeout(ctx context.Context, msgRecvPacket RelayerMessage, signer string, latest LatestBlock) (RelayerMessage, error)
+
+	// MsgTimeoutOnClose takes a partial MsgRecvPacket, queries the packet receipt to prove that the packet was never relayed,
+	// i.e. that the MsgRecvPacket was never written to the chain,
+	// and assembles a full MsgTimeoutOnClose ready to write to the counterparty chain,
+	// i.e. the chain where the MsgTransfer was committed.
+	MsgTimeoutOnClose(ctx context.Context, msgRecvPacket RelayerMessage, signer string, latest LatestBlock) (RelayerMessage, error)
+
+	// [End] Packet flow IBC message assembly
+
+	// [Begin] Client IBC message assembly
+
+	// MsgUpdateClientHeader takes the latest chain header, in addition to the latest client trusted header
+	// and assembles a new header for updating the light client on the counterparty chain.
+	MsgUpdateClientHeader(latestHeader IBCHeader, trustedHeight clienttypes.Height, trustedHeader IBCHeader) (ibcexported.Header, error)
+
+	// MsgUpdateClient takes an update client header to prove trust for the previous
+	// consensus height and the new height, and assembles a MsgUpdateClient message
+	// formatted for this chain.
+	MsgUpdateClient(clientId string, counterpartyHeader ibcexported.Header) (RelayerMessage, error)
+
+	// [End] Client IBC message assembly
+
+	// TODO remove these message assembly functions in favor of the above.
 	MsgRelayAcknowledgement(ctx context.Context, dst ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet RelayPacket) (RelayerMessage, error)
 	MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanId string, timeoutHeight, timeoutTimestamp uint64) (RelayerMessage, error)
 	MsgRelayTimeout(ctx context.Context, dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string, order chantypes.Order) (RelayerMessage, error)
@@ -198,4 +261,48 @@ type RelayPacket interface {
 type KeyOutput struct {
 	Mnemonic string `json:"mnemonic" yaml:"mnemonic"`
 	Address  string `json:"address" yaml:"address"`
+}
+
+// TimeoutHeightError is used during packet validation to inform the PathProcessor
+// that the current chain height has exceeded the packet height timeout so that
+// a MsgTimeout can be assembled for the counterparty chain.
+type TimeoutHeightError struct {
+	latestHeight  uint64
+	timeoutHeight uint64
+}
+
+func (t *TimeoutHeightError) Error() string {
+	return fmt.Sprintf("latest height %d is greater than expiration height: %d", t.latestHeight, t.timeoutHeight)
+}
+
+func NewTimeoutHeightError(latestHeight, timeoutHeight uint64) *TimeoutHeightError {
+	return &TimeoutHeightError{latestHeight, timeoutHeight}
+}
+
+// TimeoutTimestampError is used during packet validation to inform the PathProcessor
+// that current block timestamp has exceeded the packet timestamp timeout so that
+// a MsgTimeout can be assembled for the counterparty chain.
+type TimeoutTimestampError struct {
+	latestTimestamp  uint64
+	timeoutTimestamp uint64
+}
+
+func (t *TimeoutTimestampError) Error() string {
+	return fmt.Sprintf("latest block timestamp %d is greater than expiration timestamp: %d", t.latestTimestamp, t.timeoutTimestamp)
+}
+
+func NewTimeoutTimestampError(latestTimestamp, timeoutTimestamp uint64) *TimeoutTimestampError {
+	return &TimeoutTimestampError{latestTimestamp, timeoutTimestamp}
+}
+
+type TimeoutOnCloseError struct {
+	msg string
+}
+
+func (t *TimeoutOnCloseError) Error() string {
+	return fmt.Sprintf("packet timeout on close error: %s", t.msg)
+}
+
+func NewTimeoutOnCloseError(msg string) *TimeoutOnCloseError {
+	return &TimeoutOnCloseError{msg}
 }
