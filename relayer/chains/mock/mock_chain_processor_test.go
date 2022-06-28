@@ -2,10 +2,12 @@ package mock_test
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/mock"
 	"github.com/cosmos/relayer/v2/relayer/processor"
@@ -22,8 +24,8 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	mockChainID1 := "mock-chain-1"
 	mockChainID2 := "mock-chain-2"
 
-	pathEnd1 := processor.PathEnd{ChainID: mockChainID1}
-	pathEnd2 := processor.PathEnd{ChainID: mockChainID2}
+	pathEnd1 := processor.PathEnd{ChainID: mockChainID1, ClientID: "mock-client-1"}
+	pathEnd2 := processor.PathEnd{ChainID: mockChainID2, ClientID: "mock-client-2"}
 
 	mockSequence1 := uint64(0)
 	mockSequence2 := uint64(0)
@@ -31,11 +33,20 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	lastSentMockMsgRecvSequence2 := uint64(0)
 	var mockLock sync.Mutex
 
+	mockChannelKey1 := processor.ChannelKey{
+		ChannelID:             "channel-0",
+		PortID:                "port-0",
+		CounterpartyChannelID: "channel-1",
+		CounterpartyPortID:    "port-1",
+	}
+
+	mockChannelKey2 := mockChannelKey1.Counterparty()
+
 	getMockMessages1 := func() []mock.TransactionMessage {
-		return getMockMessages(&mockSequence1, &mockSequence2, &lastSentMockMsgRecvSequence2, &mockLock)
+		return getMockMessages(mockChannelKey1, &mockSequence1, &mockSequence2, &lastSentMockMsgRecvSequence2, &mockLock)
 	}
 	getMockMessages2 := func() []mock.TransactionMessage {
-		return getMockMessages(&mockSequence2, &mockSequence1, &lastSentMockMsgRecvSequence1, &mockLock)
+		return getMockMessages(mockChannelKey2, &mockSequence2, &mockSequence1, &lastSentMockMsgRecvSequence1, &mockLock)
 	}
 
 	log := zaptest.NewLogger(t)
@@ -57,13 +68,13 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	err := eventProcessor.Run(ctx)
 	require.NoError(t, err, "error running event processor")
 
-	pathEnd1LeftoverMsgTransfer := pathProcessor.PathEnd1Messages(processor.MsgTransfer)
-	pathEnd1LeftoverMsgRecvPacket := pathProcessor.PathEnd1Messages(processor.MsgRecvPacket)
-	pathEnd1LeftoverMsgAcknowledgement := pathProcessor.PathEnd1Messages(processor.MsgAcknowledgement)
+	pathEnd1LeftoverMsgTransfer := pathProcessor.PathEnd1Messages(mockChannelKey1, processor.MsgTransfer)
+	pathEnd1LeftoverMsgRecvPacket := pathProcessor.PathEnd1Messages(mockChannelKey1, processor.MsgRecvPacket)
+	pathEnd1LeftoverMsgAcknowledgement := pathProcessor.PathEnd1Messages(mockChannelKey1, processor.MsgAcknowledgement)
 
-	pathEnd2LeftoverMsgTransfer := pathProcessor.PathEnd2Messages(processor.MsgTransfer)
-	pathEnd2LeftoverMsgRecvPacket := pathProcessor.PathEnd2Messages(processor.MsgRecvPacket)
-	pathEnd2LeftoverMsgAcknowledgement := pathProcessor.PathEnd2Messages(processor.MsgAcknowledgement)
+	pathEnd2LeftoverMsgTransfer := pathProcessor.PathEnd2Messages(mockChannelKey2, processor.MsgTransfer)
+	pathEnd2LeftoverMsgRecvPacket := pathProcessor.PathEnd2Messages(mockChannelKey2, processor.MsgRecvPacket)
+	pathEnd2LeftoverMsgAcknowledgement := pathProcessor.PathEnd2Messages(mockChannelKey2, processor.MsgAcknowledgement)
 
 	log.Debug("leftover",
 		zap.Int("pathEnd1MsgTransfer", len(pathEnd1LeftoverMsgTransfer)),
@@ -90,27 +101,57 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 // MsgTransfer
 // MsgRecvPacket for counterparty
 // MsgAcknowledgement
-func getMockMessages(mockSequence, mockSequenceCounterparty, lastSentMockMsgRecvCounterparty *uint64, lock *sync.Mutex) []mock.TransactionMessage {
+func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequenceCounterparty, lastSentMockMsgRecvCounterparty *uint64, lock *sync.Mutex) []mock.TransactionMessage {
 	lock.Lock()
 	defer lock.Unlock()
+	if *mockSequence-*mockSequenceCounterparty > 0 {
+		return []mock.TransactionMessage{}
+	}
 	*mockSequence++
 	mockMessages := []mock.TransactionMessage{
 		{
-			Action:     processor.MsgTransfer,
-			PacketInfo: &chantypes.Packet{Sequence: *mockSequence},
+			Action: processor.MsgTransfer,
+			PacketInfo: &chantypes.Packet{
+				Sequence:           *mockSequence,
+				SourceChannel:      channelKey.ChannelID,
+				SourcePort:         channelKey.PortID,
+				DestinationChannel: channelKey.CounterpartyChannelID,
+				DestinationPort:    channelKey.CounterpartyPortID,
+				Data:               []byte(strconv.FormatUint(*mockSequence, 10)),
+				TimeoutHeight: clienttypes.Height{
+					RevisionHeight: 1000,
+				},
+			},
 		},
 	}
 	if *mockSequenceCounterparty > 1 && *lastSentMockMsgRecvCounterparty != *mockSequenceCounterparty {
 		*lastSentMockMsgRecvCounterparty = *mockSequenceCounterparty
 		mockMessages = append(mockMessages, mock.TransactionMessage{
-			Action:     processor.MsgRecvPacket,
-			PacketInfo: &chantypes.Packet{Sequence: *mockSequenceCounterparty - 1},
+			Action: processor.MsgRecvPacket,
+			PacketInfo: &chantypes.Packet{
+				Sequence:           *mockSequenceCounterparty - 1,
+				SourceChannel:      channelKey.CounterpartyChannelID,
+				SourcePort:         channelKey.CounterpartyPortID,
+				DestinationChannel: channelKey.ChannelID,
+				DestinationPort:    channelKey.PortID,
+				Data:               []byte(strconv.FormatUint(*mockSequenceCounterparty, 10)),
+				TimeoutHeight: clienttypes.Height{
+					RevisionHeight: 1000,
+				},
+			},
 		})
 	}
 	if *mockSequence > 2 {
 		mockMessages = append(mockMessages, mock.TransactionMessage{
-			Action:     processor.MsgAcknowledgement,
-			PacketInfo: &chantypes.Packet{Sequence: *mockSequence - 2},
+			Action: processor.MsgAcknowledgement,
+			PacketInfo: &chantypes.Packet{
+				Sequence:           *mockSequence - 2,
+				SourceChannel:      channelKey.ChannelID,
+				SourcePort:         channelKey.PortID,
+				DestinationChannel: channelKey.CounterpartyChannelID,
+				DestinationPort:    channelKey.CounterpartyPortID,
+				Data:               []byte(strconv.FormatUint(*mockSequence, 10)),
+			},
 		})
 	}
 	return mockMessages

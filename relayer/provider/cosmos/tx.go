@@ -2,8 +2,8 @@ package cosmos
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +19,7 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v3/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -275,19 +276,10 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 }
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (cc *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
-	var (
-		acc string
-		err error
-	)
-
+func (cc *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header, signer string) (provider.RelayerMessage, error) {
 	tmHeader, ok := dstHeader.(*tmclient.Header)
 	if !ok {
 		return nil, fmt.Errorf("got data of type %T but wanted tmclient.Header", dstHeader)
-	}
-
-	if acc, err = cc.Address(); err != nil {
-		return nil, err
 	}
 
 	anyClientState, err := clienttypes.PackClientState(clientState)
@@ -303,10 +295,7 @@ func (cc *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstH
 	msg := &clienttypes.MsgCreateClient{
 		ClientState:    anyClientState,
 		ConsensusState: anyConsensusState,
-		Signer:         acc,
-	}
-	if err != nil {
-		return nil, err
+		Signer:         signer,
 	}
 
 	return NewCosmosMessage(msg), nil
@@ -316,7 +305,7 @@ func (cc *CosmosProvider) SubmitMisbehavior( /*TBD*/ ) (provider.RelayerMessage,
 	return nil, nil
 }
 
-func (cc *CosmosProvider) UpdateClient(srcClientId string, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) MsgUpdateClient(srcClientId string, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
 	acc, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -342,7 +331,7 @@ func (cc *CosmosProvider) ConnectionOpenInit(srcClientId, dstClientId string, ds
 		err     error
 		version *conntypes.Version
 	)
-	updateMsg, err := cc.UpdateClient(srcClientId, dstHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -372,7 +361,7 @@ func (cc *CosmosProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvide
 		acc string
 		err error
 	)
-	updateMsg, err := cc.UpdateClient(srcClientId, dstHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -438,7 +427,7 @@ func (cc *CosmosProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvide
 		err error
 	)
 
-	updateMsg, err := cc.UpdateClient(srcClientId, dstHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -486,7 +475,7 @@ func (cc *CosmosProvider) ConnectionOpenConfirm(ctx context.Context, dstQueryPro
 		acc string
 		err error
 	)
-	updateMsg, err := cc.UpdateClient(srcClientId, dstHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -519,7 +508,7 @@ func (cc *CosmosProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, src
 		acc string
 		err error
 	)
-	updateMsg, err := cc.UpdateClient(srcClientId, dstHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -551,7 +540,7 @@ func (cc *CosmosProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider p
 		acc string
 		err error
 	)
-	updateMsg, err := cc.UpdateClient(srcClientId, dstHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -604,7 +593,7 @@ func (cc *CosmosProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider p
 		acc string
 		err error
 	)
-	updateMsg, err := cc.UpdateClient(srcClientId, dstHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -641,7 +630,7 @@ func (cc *CosmosProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvid
 		acc string
 		err error
 	)
-	updateMsg, err := cc.UpdateClient(srcClientId, dstHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -808,7 +797,7 @@ func (cc *CosmosProvider) AutoUpdateClient(ctx context.Context, dst provider.Cha
 		return 0, err
 	}
 
-	updateMsg, err := cc.UpdateClient(srcClientId, dstUpdateHeader)
+	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstUpdateHeader)
 	if err != nil {
 		return 0, err
 	}
@@ -1086,6 +1075,138 @@ func (cc *CosmosProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.C
 
 		return NewCosmosMessage(msg), nil
 	}
+}
+
+func (cc *CosmosProvider) ValidatePacket(msgRecvPacket provider.RelayerMessage, latest provider.LatestBlock) error {
+	msg := typedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
+
+	if msg.Packet.Sequence == 0 {
+		return errors.New("refusing to relay packet with sequence: 0")
+	}
+
+	if len(msg.Packet.Data) == 0 {
+		return errors.New("refusing to relay packet with empty data")
+	}
+
+	// This should not be possible, as it violates IBC spec
+	if msg.Packet.TimeoutHeight.IsZero() && msg.Packet.TimeoutTimestamp == 0 {
+		return errors.New("refusing to relay packet without a timeout (height or timestamp must be set)")
+	}
+
+	revision := clienttypes.ParseChainID(cc.PCfg.ChainID)
+	latestClientTypesHeight := clienttypes.NewHeight(revision, latest.Height)
+	if !msg.Packet.TimeoutHeight.IsZero() && latestClientTypesHeight.GTE(msg.Packet.TimeoutHeight) {
+		return provider.NewTimeoutHeightError(latest.Height, msg.Packet.TimeoutHeight.RevisionHeight)
+	}
+	latestTimestamp := uint64(latest.Time.UnixNano())
+	if msg.Packet.TimeoutTimestamp > 0 && latestTimestamp > msg.Packet.TimeoutTimestamp {
+		return provider.NewTimeoutTimestampError(latestTimestamp, msg.Packet.TimeoutTimestamp)
+	}
+
+	return nil
+}
+
+func (cc *CosmosProvider) MsgRecvPacket(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+	msg := typedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
+
+	key := host.PacketCommitmentKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
+	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
+	if err != nil {
+		return nil, fmt.Errorf("error querying tendermint proof for packet commitment: %w", err)
+	}
+
+	msg.ProofCommitment = proof
+	msg.ProofHeight = proofHeight
+	msg.Signer = signer
+
+	return NewCosmosMessage(msg), nil
+}
+
+func (cc *CosmosProvider) MsgAcknowledgement(ctx context.Context, msgAcknowledgement provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+	msg := typedCosmosMsg[*chantypes.MsgAcknowledgement](msgAcknowledgement)
+
+	key := host.PacketAcknowledgementKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
+	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
+	if err != nil {
+		return nil, fmt.Errorf("error querying tendermint proof for packet acknowledgement: %w", err)
+	}
+
+	msg.ProofAcked = proof
+	msg.ProofHeight = proofHeight
+	msg.Signer = signer
+
+	return NewCosmosMessage(msg), nil
+}
+
+func (cc *CosmosProvider) MsgTimeout(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+	msg := typedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
+
+	key := host.PacketReceiptKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
+	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
+	if err != nil {
+		return nil, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
+	}
+
+	assembled := &chantypes.MsgTimeout{
+		Packet:           msg.Packet,
+		ProofUnreceived:  proof,
+		ProofHeight:      proofHeight,
+		NextSequenceRecv: msg.Packet.Sequence,
+		Signer:           signer,
+	}
+
+	return NewCosmosMessage(assembled), nil
+}
+
+func (cc *CosmosProvider) MsgTimeoutOnClose(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+	msg := typedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
+
+	key := host.PacketReceiptKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
+	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
+	if err != nil {
+		return nil, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
+	}
+
+	msgTimeout := &chantypes.MsgTimeoutOnClose{
+		Packet:           msg.Packet,
+		ProofUnreceived:  proof,
+		ProofHeight:      proofHeight,
+		NextSequenceRecv: msg.Packet.Sequence,
+		Signer:           signer,
+	}
+
+	return NewCosmosMessage(msgTimeout), nil
+}
+
+func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.Header, error) {
+	trustedCosmosHeader, ok := trustedHeader.(CosmosIBCHeader)
+	if !ok {
+		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: CosmosIBCHeader, actual: %T", trustedHeader)
+	}
+
+	latestCosmosHeader, ok := latestHeader.(CosmosIBCHeader)
+	if !ok {
+		return nil, fmt.Errorf("unsupported IBC header type, expected: CosmosIBCHeader, actual: %T", latestHeader)
+	}
+
+	trustedValidatorsProto, err := trustedCosmosHeader.ValidatorSet.ToProto()
+	if err != nil {
+		return nil, fmt.Errorf("error converting trusted validators to proto object: %w", err)
+	}
+
+	signedHeaderProto := latestCosmosHeader.SignedHeader.ToProto()
+
+	validatorSetProto, err := latestCosmosHeader.ValidatorSet.ToProto()
+	if err != nil {
+		return nil, fmt.Errorf("error converting validator set to proto object: %w", err)
+	}
+
+	return &tmclient.Header{
+		SignedHeader:      signedHeaderProto,
+		ValidatorSet:      validatorSetProto,
+		TrustedValidators: trustedValidatorsProto,
+		TrustedHeight:     trustedHeight,
+	}, nil
 }
 
 // RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
@@ -1481,143 +1602,6 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 	// inject TrustedValidators into header
 	h.TrustedValidators = trustedHeader.ValidatorSet
 	return h, nil
-}
-
-// FindMatchingClient will determine if there exists a client with identical client and consensus states
-// to the client which would have been created. Source is the chain that would be adding a client
-// which would track the counterparty. Therefore we query source for the existing clients
-// and check if any match the counterparty. The counterparty must have a matching consensus state
-// to the latest consensus state of a potential match. The provided client state is the client
-// state that will be created if there exist no matches.
-func (cc *CosmosProvider) FindMatchingClient(ctx context.Context, counterparty provider.ChainProvider, clientState ibcexported.ClientState) (string, bool) {
-	// TODO: add appropriate offset and limits
-	var (
-		clientsResp clienttypes.IdentifiedClientStates
-		err         error
-	)
-
-	if err = retry.Do(func() error {
-		clientsResp, err = cc.QueryClients(ctx)
-		if err != nil {
-			return err
-		}
-		return nil
-	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-		cc.log.Info(
-			"Failed to query clients",
-			zap.String("chain_id", cc.PCfg.ChainID),
-			zap.Uint("attempt", n+1),
-			zap.Uint("max_attempts", rtyAttNum),
-			zap.Error(err),
-		)
-	})); err != nil {
-		return "", false
-	}
-
-	for _, identifiedClientState := range clientsResp {
-		// unpack any into ibc tendermint client state
-		existingClientState, err := castClientStateToTMType(identifiedClientState.ClientState)
-		if err != nil {
-			return "", false
-		}
-
-		tmClientState, ok := clientState.(*tmclient.ClientState)
-		if !ok {
-			cc.log.Info(
-				"Failed to convert value to *tmclient.ClientState",
-				zap.Stringer("client_state_type", reflect.TypeOf(clientState)),
-			)
-			return "", false
-		}
-
-		// check if the client states match
-		// NOTE: FrozenHeight.IsZero() is a sanity check, the client to be created should always
-		// have a zero frozen height and therefore should never match with a frozen client
-		if isMatchingClient(*tmClientState, *existingClientState) && existingClientState.FrozenHeight.IsZero() {
-
-			// query the latest consensus state of the potential matching client
-			consensusStateResp, err := cc.QueryConsensusStateABCI(ctx, identifiedClientState.ClientId, existingClientState.GetLatestHeight())
-			if err != nil {
-				cc.log.Info(
-					"Failed to query latest consensus state for existing client on chain",
-					zap.String("chain_id", cc.PCfg.ChainID),
-					zap.Error(err),
-				)
-				continue
-			}
-
-			//nolint:lll
-			header, err := counterparty.GetLightSignedHeaderAtHeight(ctx, int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
-			if err != nil {
-				cc.log.Info(
-					"Failed to query header",
-					zap.String("chain_id", counterparty.ChainId()),
-					zap.Uint64("height", existingClientState.GetLatestHeight().GetRevisionHeight()),
-					zap.Error(err),
-				)
-				continue
-			}
-
-			exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
-			if err != nil {
-				cc.log.Info(
-					"Failed to unpack consensus state",
-					zap.String("chain", counterparty.ChainId()),
-					zap.Error(err),
-				)
-				continue
-			}
-			existingConsensusState, ok := exportedConsState.(*tmclient.ConsensusState)
-			if !ok {
-				cc.log.Info(
-					"Cannot convert consensus state to *tmclient.ConsensusState",
-					zap.String("chain_id", counterparty.ChainId()),
-					zap.Stringer("consensus_state_type", reflect.TypeOf(exportedConsState)),
-				)
-				continue
-			}
-
-			if existingClientState.IsExpired(existingConsensusState.Timestamp, time.Now()) {
-				continue
-			}
-
-			tmHeader, ok := header.(*tmclient.Header)
-			if !ok {
-				cc.log.Info(
-					"Failed to convert value to *tmclient.Header",
-					zap.Stringer("header_type", reflect.TypeOf(header)),
-				)
-				return "", false
-			}
-
-			if isMatchingConsensusState(existingConsensusState, tmHeader.ConsensusState()) {
-				// found matching client
-				return identifiedClientState.ClientId, true
-			}
-		}
-	}
-	return "", false
-}
-
-// isMatchingClient determines if the two provided clients match in all fields
-// except latest height. They are assumed to be IBC tendermint light clients.
-// NOTE: we don't pass in a pointer so upstream references don't have a modified
-// latest height set to zero.
-func isMatchingClient(clientStateA, clientStateB tmclient.ClientState) bool {
-	// zero out latest client height since this is determined and incremented
-	// by on-chain updates. Changing the latest height does not fundamentally
-	// change the client. The associated consensus state at the latest height
-	// determines this last check
-	clientStateA.LatestHeight = clienttypes.ZeroHeight()
-	clientStateB.LatestHeight = clienttypes.ZeroHeight()
-
-	return reflect.DeepEqual(clientStateA, clientStateB)
-}
-
-// isMatchingConsensusState determines if the two provided consensus states are
-// identical. They are assumed to be IBC tendermint light clients.
-func isMatchingConsensusState(consensusStateA, consensusStateB *tmclient.ConsensusState) bool {
-	return reflect.DeepEqual(*consensusStateA, *consensusStateB)
 }
 
 // queryTMClientState retrieves the latest consensus state for a client in state at a given height

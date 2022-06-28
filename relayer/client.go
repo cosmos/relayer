@@ -143,21 +143,26 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 		return false, err
 	}
 
-	// Create the ClientState we want on 'src' tracking 'dst'
-	clientState, err := src.ChainProvider.NewClientState(dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
+	// We want to create a light client on the src chain which tracks the state of the dst chain.
+	// So we build a new client state from dst and attempt to use this for creating the light client on src.
+	clientState, err := dst.ChainProvider.NewClientState(dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
 	if err != nil {
-		return false, fmt.Errorf("failed to create new client state for chain{%s} tracking chain{%s}: %w", src.ChainID(), dst.ChainID(), err)
+		return false, fmt.Errorf("failed to create new client state for chain{%s}: %w", dst.ChainID(), err)
 	}
 
 	var clientID string
-	var found bool
+
 	// Will not reuse same client if override is true
 	if !override {
-		// Check if an identical light client already exists
-		clientID, found = src.ChainProvider.FindMatchingClient(ctx, dst.ChainProvider, clientState)
+		// Check if an identical light client already exists on the src chain which matches the
+		// proposed new client state from dst.
+		clientID, err = findMatchingClient(ctx, src, dst, clientState)
+		if err != nil {
+			return false, fmt.Errorf("failed to find a matching client for the new client state: %w", err)
+		}
 	}
 
-	if found && !override {
+	if clientID != "" && !override {
 		src.log.Debug(
 			"Client already exists",
 			zap.String("client_id", clientID),
@@ -174,9 +179,19 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 		zap.String("dst_chain_id", dst.ChainID()),
 	)
 
-	createMsg, err := src.ChainProvider.CreateClient(clientState, dstUpdateHeader)
+	// We need to retrieve the address of the src chain account because we want to use
+	// the dst chains implementation of CreateClient, to ensure the proper client/header
+	// logic is executed, but the message gets submitted on the src chain which means
+	// we need to sign with the address from src.
+	acc, err := src.ChainProvider.Address()
 	if err != nil {
-		return false, fmt.Errorf("failed to compose CreateClient msg for chain{%s}: %w", src.ChainID(), err)
+		return false, err
+	}
+
+	createMsg, err := dst.ChainProvider.CreateClient(clientState, dstUpdateHeader, acc)
+	if err != nil {
+		return false, fmt.Errorf("failed to compose CreateClient msg for chain{%s} tracking the state of chain{%s}: %w",
+			src.ChainID(), dst.ChainID(), err)
 	}
 
 	msgs := []provider.RelayerMessage{createMsg}
@@ -264,7 +279,7 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 		return err
 	}
 
-	srcUpdateMsg, err := c.ChainProvider.UpdateClient(c.ClientID(), dstUpdateHeader)
+	srcUpdateMsg, err := c.ChainProvider.MsgUpdateClient(c.ClientID(), dstUpdateHeader)
 	if err != nil {
 		c.log.Debug(
 			"Failed to update source client",
@@ -274,7 +289,7 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 		return err
 	}
 
-	dstUpdateMsg, err := dst.ChainProvider.UpdateClient(dst.ClientID(), srcUpdateHeader)
+	dstUpdateMsg, err := dst.ChainProvider.MsgUpdateClient(dst.ClientID(), srcUpdateHeader)
 	if err != nil {
 		dst.log.Debug(
 			"Failed to update destination client",
@@ -327,7 +342,7 @@ func (c *Chain) UpgradeClients(ctx context.Context, dst *Chain, height int64) er
 	}
 
 	// updates off-chain light client
-	updateMsg, err := c.ChainProvider.UpdateClient(c.ClientID(), dstHeader)
+	updateMsg, err := c.ChainProvider.MsgUpdateClient(c.ClientID(), dstHeader)
 	if err != nil {
 		return err
 	}
@@ -376,4 +391,52 @@ func MustGetHeight(h ibcexported.Height) clienttypes.Height {
 		panic("height is not an instance of height!")
 	}
 	return height
+}
+
+// findMatchingClient is a helper function that will determine if there exists a client with identical client and
+// consensus states to the client which would have been created. Source is the chain that would be adding a client
+// which would track the counterparty. Therefore, we query source for the existing clients
+// and check if any match the counterparty. The counterparty must have a matching consensus state
+// to the latest consensus state of a potential match. The provided client state is the client
+// state that will be created if there exist no matches.
+func findMatchingClient(ctx context.Context, src, dst *Chain, newClientState ibcexported.ClientState) (string, error) {
+	var (
+		clientsResp clienttypes.IdentifiedClientStates
+		err         error
+	)
+
+	if err = retry.Do(func() error {
+		clientsResp, err = src.ChainProvider.QueryClients(ctx)
+		if err != nil {
+			return err
+		}
+		return nil
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		src.log.Info(
+			"Failed to query clients",
+			zap.String("chain_id", src.ChainID()),
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", RtyAttNum),
+			zap.Error(err),
+		)
+	})); err != nil {
+		return "", err
+	}
+
+	for _, existingClientState := range clientsResp {
+		clientID, err := provider.ClientsMatch(ctx, src.ChainProvider, dst.ChainProvider, existingClientState, newClientState)
+
+		// If there is an error parsing/type asserting the client state in ClientsMatch this is going
+		// to make the entire find matching client logic fail.
+		// We should really never be encountering an error here and if we do it is probably a sign of a
+		// larger scale problem at hand.
+		if err != nil {
+			return "", err
+		}
+		if clientID != "" {
+			return clientID, nil
+		}
+	}
+
+	return "", nil
 }

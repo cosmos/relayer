@@ -32,6 +32,7 @@ const (
 	flagOrder                   = "order"
 	flagVersion                 = "version"
 	flagDebugAddr               = "debug-addr"
+	flagOverwriteConfig         = "overwrite"
 	flagOffset                  = "offset"
 	flagLimit                   = "limit"
 	flagHeight                  = "height"
@@ -281,6 +282,15 @@ func dstPortFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().String(flagDebugAddr, defaultDebugAddr, "address to use for debug server. Set empty to disable debug server.")
 	if err := v.BindPFlag(flagDebugAddr, cmd.Flags().Lookup(flagDebugAddr)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func OverwriteConfigFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP(flagOverwriteConfig, "o", false,
+		"overwrite already configured paths - will clear channel filter(s)")
+	if err := v.BindPFlag(flagOverwriteConfig, cmd.Flags().Lookup(flagOverwriteConfig)); err != nil {
 		panic(err)
 	}
 	return cmd
