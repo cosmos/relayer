@@ -452,12 +452,37 @@ ChannelHandshakeLoop:
 
 // assembleMsgUpdateClient uses the ChainProvider from both pathEnds to assemble the client update header
 // from the source and then assemble the update client message in the correct format for the destination.
-func (pp *PathProcessor) assembleMsgUpdateClient(src, dst *pathEndRuntime) (provider.RelayerMessage, error) {
-	// If the client state trusted height is not equal to the client trusted state height, we cannot send a MsgUpdateClient
-	// until another block is observed. But we can send the rest without the MsgUpdateClient.
+func (pp *PathProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime) (provider.RelayerMessage, error) {
+	// If the client state height is not equal to the client trusted state height and the client state height is the latest block, we cannot send a MsgUpdateClient
+	// until another block is observed on the counterparty.
+	// If the client state height is in the past, beyond ibcHeadersToCache, then we need to query for it.
 	if !dst.clientTrustedState.ClientState.ConsensusHeight.EQ(dst.clientState.ConsensusHeight) {
-		return nil, fmt.Errorf("observed client trusted height: %d does not equal latest client state height: %d",
-			dst.clientTrustedState.ClientState.ConsensusHeight.RevisionHeight, dst.clientState.ConsensusHeight.RevisionHeight)
+		if int64(dst.clientState.ConsensusHeight.RevisionHeight)-int64(dst.clientTrustedState.ClientState.ConsensusHeight.RevisionHeight) > ibcHeadersToCache {
+			header, err := src.chainProvider.IBCHeaderAtHeight(ctx, int64(dst.clientState.ConsensusHeight.RevisionHeight+1))
+			if err != nil {
+				pp.log.Error("Error getting IBC header at height",
+					zap.String("chain_id", src.info.ChainID),
+					zap.String("counterparty_chain_id", dst.info.ChainID),
+					zap.String("counterparty_client_id", dst.info.ClientID),
+					zap.Uint64("height", dst.clientState.ConsensusHeight.RevisionHeight+1),
+				)
+				return nil, err
+			}
+			pp.log.Warn("Had to query for client trusted IBC header",
+				zap.String("chain_id", src.info.ChainID),
+				zap.String("counterparty_chain_id", dst.info.ChainID),
+				zap.String("counterparty_client_id", dst.info.ClientID),
+				zap.Uint64("height", dst.clientState.ConsensusHeight.RevisionHeight+1),
+				zap.Uint64("latest_height", src.latestBlock.Height),
+			)
+			dst.clientTrustedState = provider.ClientTrustedState{
+				ClientState: dst.clientState,
+				IBCHeader:   header,
+			}
+		} else {
+			return nil, fmt.Errorf("observed client trusted height: %d does not equal latest client state height: %d",
+				dst.clientTrustedState.ClientState.ConsensusHeight.RevisionHeight, dst.clientState.ConsensusHeight.RevisionHeight)
+		}
 	}
 
 	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(src.latestHeader, dst.clientTrustedState.ClientState.ConsensusHeight, dst.clientTrustedState.IBCHeader)
@@ -483,7 +508,7 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 	// need to assemble new trusted state
 	ibcHeader, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight+1]
 	if !ok {
-		pp.log.Warn("No IBC header for client trusted height",
+		pp.log.Warn("No cached IBC header for client trusted height",
 			zap.String("chain_id", src.info.ChainID),
 			zap.String("client_id", src.info.ClientID),
 			zap.Uint64("height", src.clientState.ConsensusHeight.RevisionHeight+1),

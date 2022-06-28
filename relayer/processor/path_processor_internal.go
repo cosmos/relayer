@@ -214,16 +214,7 @@ func (pp *PathProcessor) sendMessages(
 		return nil
 	}
 
-	msgUpdateClient, err := pp.assembleMsgUpdateClient(src, dst)
-	if err != nil {
-		return fmt.Errorf("error prepending MsgUpdateClient, chain_id: %s, client_id: %s, %w",
-			dst.info.ChainID,
-			dst.info.ClientID,
-			err,
-		)
-	}
-
-	messages := []provider.RelayerMessage{msgUpdateClient}
+	var messages []provider.RelayerMessage
 
 	for _, msg := range packetMessages {
 		if !dst.shouldSendPacketMessage(msg, src) {
@@ -243,6 +234,23 @@ func (pp *PathProcessor) sendMessages(
 		}
 		messages = append(messages, msg.message)
 	}
+
+	if len(messages) == 0 {
+		pp.log.Debug("No messages to send after filtering", zap.String("chain_id", dst.info.ChainID))
+		return nil
+	}
+
+	msgUpdateClient, err := pp.assembleMsgUpdateClient(ctx, src, dst)
+	if err != nil {
+		pp.log.Debug("Error prepending MsgUpdateClient",
+			zap.String("chain_id", dst.info.ChainID),
+			zap.String("client_id", dst.info.ClientID),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	messages = append([]provider.RelayerMessage{msgUpdateClient}, messages...)
 
 	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, messages)
 	if err != nil {
