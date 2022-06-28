@@ -2,9 +2,11 @@ package processor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"go.uber.org/zap"
 )
 
 // shouldSendPacketMessage determines if the packet flow message should be sent now.
@@ -218,16 +220,7 @@ func (pp *PathProcessor) sendMessages(
 		return nil
 	}
 
-	msgUpdateClient, err := pp.assembleMsgUpdateClient(src, dst)
-	if err != nil {
-		return fmt.Errorf("error prepending MsgUpdateClient, chain_id: %s, client_id: %s, %w",
-			dst.info.ChainID,
-			dst.info.ClientID,
-			err,
-		)
-	}
-
-	messages := []provider.RelayerMessage{msgUpdateClient}
+	var messages []provider.RelayerMessage
 
 	for _, msg := range packetMessages {
 		if !dst.shouldSendPacketMessage(msg, src) {
@@ -248,12 +241,27 @@ func (pp *PathProcessor) sendMessages(
 		messages = append(messages, msg.message)
 	}
 
-	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, messages)
+	if len(messages) == 0 {
+		pp.log.Debug("No messages to send after filtering", zap.String("chain_id", dst.info.ChainID))
+		return nil
+	}
+
+	msgUpdateClient, err := pp.assembleMsgUpdateClient(ctx, src, dst)
 	if err != nil {
-		return fmt.Errorf("error sending messages to chain_id: %s, %v", dst.info.ChainID, err)
+		return fmt.Errorf("error assembling MsgUpdateClient: %w", err)
+	}
+
+	// build final messages slice of all messages to send prepended with MsgUpdateClient
+	finalMessages := make([]provider.RelayerMessage, 0, len(messages)+1)
+	finalMessages = append(finalMessages, msgUpdateClient)
+	finalMessages = append(finalMessages, messages...)
+
+	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, finalMessages)
+	if err != nil {
+		return fmt.Errorf("error sending messages: %w", err)
 	}
 	if !txSuccess {
-		return fmt.Errorf("error sending messages to chain_id: %s, transaction was not successful", dst.info.ChainID)
+		return errors.New("error sending messages, transaction was not successful")
 	}
 
 	for _, msg := range packetMessages {
@@ -274,24 +282,16 @@ func (pp *PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, path
 	pathEnd1ChannelDstLen := len(pathEnd1ChannelHandshakeRes.DstMessages)
 	pathEnd2ChannelDstLen := len(pathEnd2ChannelHandshakeRes.DstMessages)
 	pathEnd2ChannelSrcLen := len(pathEnd2ChannelHandshakeRes.SrcMessages)
-	pathEnd1ChannelMessages := make([]channelIBCMessage, pathEnd1ChannelSrcLen+pathEnd2ChannelDstLen)
-	pathEnd2ChannelMessages := make([]channelIBCMessage, pathEnd2ChannelSrcLen+pathEnd1ChannelDstLen)
+	pathEnd1ChannelMessages := make([]channelIBCMessage, 0, pathEnd1ChannelSrcLen+pathEnd2ChannelDstLen)
+	pathEnd2ChannelMessages := make([]channelIBCMessage, 0, pathEnd2ChannelSrcLen+pathEnd1ChannelDstLen)
 
 	// pathEnd1 channel messages come from pathEnd1 src and pathEnd2 dst
-	for i, msg := range pathEnd1ChannelHandshakeRes.SrcMessages {
-		pathEnd1ChannelMessages[i] = msg
-	}
-	for i, msg := range pathEnd2ChannelHandshakeRes.DstMessages {
-		pathEnd1ChannelMessages[i+pathEnd1ChannelSrcLen] = msg
-	}
+	pathEnd1ChannelMessages = append(pathEnd1ChannelMessages, pathEnd2ChannelHandshakeRes.DstMessages...)
+	pathEnd1ChannelMessages = append(pathEnd1ChannelMessages, pathEnd1ChannelHandshakeRes.SrcMessages...)
 
 	// pathEnd2 channel messages come from pathEnd2 src and pathEnd1 dst
-	for i, msg := range pathEnd2ChannelHandshakeRes.SrcMessages {
-		pathEnd2ChannelMessages[i] = msg
-	}
-	for i, msg := range pathEnd1ChannelHandshakeRes.DstMessages {
-		pathEnd2ChannelMessages[i+pathEnd2ChannelSrcLen] = msg
-	}
+	pathEnd2ChannelMessages = append(pathEnd2ChannelMessages, pathEnd1ChannelHandshakeRes.DstMessages...)
+	pathEnd2ChannelMessages = append(pathEnd2ChannelMessages, pathEnd2ChannelHandshakeRes.SrcMessages...)
 
 	pp.pathEnd1.messageCache.ChannelHandshake.DeleteCachedMessages(pathEnd1ChannelHandshakeRes.ToDeleteSrc, pathEnd2ChannelHandshakeRes.ToDeleteDst)
 	pp.pathEnd2.messageCache.ChannelHandshake.DeleteCachedMessages(pathEnd2ChannelHandshakeRes.ToDeleteSrc, pathEnd1ChannelHandshakeRes.ToDeleteDst)
@@ -304,24 +304,16 @@ func (pp *PathProcessor) connectionMessagesToSend(pathEnd1ConnectionHandshakeRes
 	pathEnd1ConnectionDstLen := len(pathEnd1ConnectionHandshakeRes.DstMessages)
 	pathEnd2ConnectionDstLen := len(pathEnd2ConnectionHandshakeRes.DstMessages)
 	pathEnd2ConnectionSrcLen := len(pathEnd2ConnectionHandshakeRes.SrcMessages)
-	pathEnd1ConnectionMessages := make([]connectionIBCMessage, pathEnd1ConnectionSrcLen+pathEnd2ConnectionDstLen)
-	pathEnd2ConnectionMessages := make([]connectionIBCMessage, pathEnd2ConnectionSrcLen+pathEnd1ConnectionDstLen)
+	pathEnd1ConnectionMessages := make([]connectionIBCMessage, 0, pathEnd1ConnectionSrcLen+pathEnd2ConnectionDstLen)
+	pathEnd2ConnectionMessages := make([]connectionIBCMessage, 0, pathEnd2ConnectionSrcLen+pathEnd1ConnectionDstLen)
 
 	// pathEnd1 connection messages come from pathEnd1 src and pathEnd2 dst
-	for i, msg := range pathEnd1ConnectionHandshakeRes.SrcMessages {
-		pathEnd1ConnectionMessages[i] = msg
-	}
-	for i, msg := range pathEnd2ConnectionHandshakeRes.DstMessages {
-		pathEnd1ConnectionMessages[i+pathEnd1ConnectionSrcLen] = msg
-	}
+	pathEnd1ConnectionMessages = append(pathEnd1ConnectionMessages, pathEnd2ConnectionHandshakeRes.DstMessages...)
+	pathEnd1ConnectionMessages = append(pathEnd1ConnectionMessages, pathEnd1ConnectionHandshakeRes.SrcMessages...)
 
 	// pathEnd2 connection messages come from pathEnd2 src and pathEnd1 dst
-	for i, msg := range pathEnd2ConnectionHandshakeRes.SrcMessages {
-		pathEnd2ConnectionMessages[i] = msg
-	}
-	for i, msg := range pathEnd1ConnectionHandshakeRes.DstMessages {
-		pathEnd2ConnectionMessages[i+pathEnd2ConnectionSrcLen] = msg
-	}
+	pathEnd2ConnectionMessages = append(pathEnd2ConnectionMessages, pathEnd1ConnectionHandshakeRes.DstMessages...)
+	pathEnd2ConnectionMessages = append(pathEnd2ConnectionMessages, pathEnd2ConnectionHandshakeRes.SrcMessages...)
 
 	pp.pathEnd1.messageCache.ConnectionHandshake.DeleteCachedMessages(pathEnd1ConnectionHandshakeRes.ToDeleteSrc, pathEnd2ConnectionHandshakeRes.ToDeleteDst)
 	pp.pathEnd2.messageCache.ConnectionHandshake.DeleteCachedMessages(pathEnd2ConnectionHandshakeRes.ToDeleteSrc, pathEnd1ConnectionHandshakeRes.ToDeleteDst)
@@ -336,33 +328,18 @@ func (pp *PathProcessor) packetMessagesToSend(channelPairs []channelPair, pathEn
 		pathEnd2PacketLen += len(pathEnd1ProcessRes[i].DstMessages) + len(pathEnd2ProcessRes[i].SrcMessages)
 	}
 
-	pathEnd1PacketMessages := make([]packetIBCMessage, pathEnd1PacketLen)
-	pathEnd2PacketMessages := make([]packetIBCMessage, pathEnd2PacketLen)
+	pathEnd1PacketMessages := make([]packetIBCMessage, 0, pathEnd1PacketLen)
+	pathEnd2PacketMessages := make([]packetIBCMessage, 0, pathEnd2PacketLen)
 
-	pathEnd1PacketItr := 0
-	pathEnd2PacketItr := 0
+	for i, channelPair := range channelPairs {
+		pathEnd1PacketMessages = append(pathEnd1PacketMessages, pathEnd2ProcessRes[i].DstMessages...)
+		pathEnd1PacketMessages = append(pathEnd1PacketMessages, pathEnd1ProcessRes[i].SrcMessages...)
 
-	for i := 0; i < len(channelPairs); i++ {
-		for _, msg := range pathEnd2ProcessRes[i].DstMessages {
-			pathEnd1PacketMessages[pathEnd1PacketItr] = msg
-			pathEnd1PacketItr++
-		}
-		for _, msg := range pathEnd1ProcessRes[i].SrcMessages {
-			pathEnd1PacketMessages[pathEnd1PacketItr] = msg
-			pathEnd1PacketItr++
-		}
+		pathEnd2PacketMessages = append(pathEnd2PacketMessages, pathEnd1ProcessRes[i].DstMessages...)
+		pathEnd2PacketMessages = append(pathEnd2PacketMessages, pathEnd2ProcessRes[i].SrcMessages...)
 
-		for _, msg := range pathEnd1ProcessRes[i].DstMessages {
-			pathEnd2PacketMessages[pathEnd2PacketItr] = msg
-			pathEnd2PacketItr++
-		}
-		for _, msg := range pathEnd2ProcessRes[i].SrcMessages {
-			pathEnd2PacketMessages[pathEnd2PacketItr] = msg
-			pathEnd2PacketItr++
-		}
-
-		pp.pathEnd1.messageCache.PacketFlow[channelPairs[i].pathEnd1ChannelKey].DeleteCachedMessages(pathEnd1ProcessRes[i].ToDeleteSrc, pathEnd2ProcessRes[i].ToDeleteDst)
-		pp.pathEnd2.messageCache.PacketFlow[channelPairs[i].pathEnd2ChannelKey].DeleteCachedMessages(pathEnd2ProcessRes[i].ToDeleteSrc, pathEnd1ProcessRes[i].ToDeleteDst)
+		pp.pathEnd1.messageCache.PacketFlow[channelPair.pathEnd1ChannelKey].DeleteCachedMessages(pathEnd1ProcessRes[i].ToDeleteSrc, pathEnd2ProcessRes[i].ToDeleteDst)
+		pp.pathEnd2.messageCache.PacketFlow[channelPair.pathEnd2ChannelKey].DeleteCachedMessages(pathEnd2ProcessRes[i].ToDeleteSrc, pathEnd1ProcessRes[i].ToDeleteDst)
 	}
 
 	return pathEnd1PacketMessages, pathEnd2PacketMessages
