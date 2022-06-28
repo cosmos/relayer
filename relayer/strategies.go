@@ -29,28 +29,23 @@ func StartRelayer(ctx context.Context, log *zap.Logger, src, dst *Chain, stdin i
 	errorChan := make(chan error, 1)
 
 	if useEventProcessor {
-		var allowedSrc, allowedDst, blockedSrc, blockedDst []processor.ChannelKey
+		var filterSrc, filterDst []processor.ChannelKey
 
 		for _, ch := range filter.ChannelList {
 			ruleSrc := processor.ChannelKey{ChannelID: ch}
 			ruleDst := processor.ChannelKey{CounterpartyChannelID: ch}
-			if filter.Rule == allowList {
-				allowedSrc = append(allowedSrc, ruleSrc)
-				allowedDst = append(allowedDst, ruleDst)
-			} else if filter.Rule == denyList {
-				blockedSrc = append(blockedSrc, ruleSrc)
-				blockedDst = append(blockedDst, ruleDst)
-			}
+			filterSrc = append(filterSrc, ruleSrc)
+			filterDst = append(filterDst, ruleDst)
 		}
-		paths := []path{path{
+		paths := []path{{
 			src: pathChain{
 				provider:   src.ChainProvider,
-				pathEnd:    processor.NewPathEnd(src.ChainProvider.ChainId(), src.ClientID(), allowedSrc, blockedSrc),
+				pathEnd:    processor.NewPathEnd(src.ChainProvider.ChainId(), src.ClientID(), filter.Rule, filterSrc),
 				rpcAddress: src.RPCAddr,
 			},
 			dst: pathChain{
 				provider:   dst.ChainProvider,
-				pathEnd:    processor.NewPathEnd(dst.ChainProvider.ChainId(), dst.ClientID(), allowedDst, blockedDst),
+				pathEnd:    processor.NewPathEnd(dst.ChainProvider.ChainId(), dst.ClientID(), filter.Rule, filterDst),
 				rpcAddress: dst.RPCAddr,
 			},
 		}}
