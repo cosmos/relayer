@@ -11,10 +11,10 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	cosmosProcessor "github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	cosmosprocessor "github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	cosmosProvider "github.com/cosmos/relayer/v2/relayer/provider/cosmos"
+	cosmosprovider "github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"go.uber.org/zap"
 )
 
@@ -24,11 +24,17 @@ type ActiveChannel struct {
 	active  bool
 }
 
+const (
+	ProcessorEvents string = "events"
+	ProcessorLegacy        = "legacy"
+)
+
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
-func StartRelayer(ctx context.Context, log *zap.Logger, src, dst *Chain, stdin io.Reader, stdout io.Writer, filter ChannelFilter, maxTxSize, maxMsgLength uint64, useEventProcessor bool, initialBlockHistory uint64) chan error {
+func StartRelayer(ctx context.Context, log *zap.Logger, src, dst *Chain, stdin io.Reader, stdout io.Writer, filter ChannelFilter, maxTxSize, maxMsgLength uint64, processorType string, initialBlockHistory uint64) chan error {
 	errorChan := make(chan error, 1)
 
-	if useEventProcessor {
+	switch processorType {
+	case ProcessorEvents:
 		var filterSrc, filterDst []processor.ChannelKey
 
 		for _, ch := range filter.ChannelList {
@@ -52,10 +58,12 @@ func StartRelayer(ctx context.Context, log *zap.Logger, src, dst *Chain, stdin i
 
 		go relayerStartEventProcessor(ctx, log, stdin, stdout, paths, initialBlockHistory, maxTxSize, maxMsgLength, errorChan)
 		return errorChan
+	case ProcessorLegacy:
+		go relayerMainLoop(ctx, log, src, dst, filter, maxTxSize, maxMsgLength, errorChan)
+		return errorChan
+	default:
+		panic(fmt.Errorf("unexpected processor type: %s, supports one of: [%s, %s]", processorType, ProcessorEvents, ProcessorLegacy))
 	}
-
-	go relayerMainLoop(ctx, log, src, dst, filter, maxTxSize, maxMsgLength, errorChan)
-	return errorChan
 }
 
 // TODO: intermediate types. Should combine/replace with the relayer.Chain, relayer.Path, and relayer.PathEnd structs
@@ -75,8 +83,8 @@ type pathChain struct {
 func (chain pathChain) chainProcessor(log *zap.Logger, stdin io.Reader, stdout io.Writer) processor.ChainProcessor {
 	// Handle new ChainProcessor implementations as cases here
 	switch p := chain.provider.(type) {
-	case *cosmosProvider.CosmosProvider:
-		chainProcessor, err := cosmosProcessor.NewCosmosChainProcessor(log, p, chain.rpcAddress, stdin, stdout)
+	case *cosmosprovider.CosmosProvider:
+		chainProcessor, err := cosmosprocessor.NewCosmosChainProcessor(log, p, chain.rpcAddress, stdin, stdout)
 		if err != nil {
 			panic(err)
 		}

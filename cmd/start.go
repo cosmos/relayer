@@ -82,7 +82,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 				relaydebug.StartDebugServer(cmd.Context(), log, ln)
 			}
 
-			useEventProcessor, err := cmd.Flags().GetBool(flagEventProcessor)
+			processorType, err := cmd.Flags().GetString(flagProcessor)
 			if err != nil {
 				return err
 			}
@@ -91,7 +91,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 				return err
 			}
 
-			rlyErrCh := relayer.StartRelayer(cmd.Context(), a.Log, c[src], c[dst], cmd.InOrStdin(), cmd.OutOrStdout(), filter, maxTxSize, maxMsgLength, useEventProcessor, initialBlockHistory)
+			rlyErrCh := relayer.StartRelayer(cmd.Context(), a.Log, c[src], c[dst], cmd.InOrStdin(), cmd.OutOrStdout(), filter, maxTxSize, maxMsgLength, processorType, initialBlockHistory)
 
 			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire
 			// when there are no packets flowing across the channels. It is currently a source of errors that have been
@@ -151,7 +151,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 	cmd = updateTimeFlags(a.Viper, cmd)
 	cmd = strategyFlag(a.Viper, cmd)
 	cmd = debugServerFlags(a.Viper, cmd)
-	cmd = eventProcessorFlags(a.Viper, cmd)
+	cmd = processorFlags(a.Viper, cmd)
 	return cmd
 }
 

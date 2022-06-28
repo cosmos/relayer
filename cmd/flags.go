@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cosmos/relayer/v2/relayer"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -40,7 +42,7 @@ const (
 	flagPageKey                 = "page-key"
 	flagCountTotal              = "count-total"
 	flagReverse                 = "reverse"
-	flagEventProcessor          = "events"
+	flagProcessor               = "processor"
 	flagInitialBlockHistory     = "block-history"
 )
 
@@ -289,13 +291,13 @@ func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
-func eventProcessorFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().BoolP(flagEventProcessor, "e", false, "relay using event processor")
-	if err := v.BindPFlag(flagEventProcessor, cmd.Flags().Lookup(flagEventProcessor)); err != nil {
+func processorFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagProcessor, "p", relayer.ProcessorLegacy, "which relayer processor to use")
+	if err := v.BindPFlag(flagProcessor, cmd.Flags().Lookup(flagProcessor)); err != nil {
 		panic(err)
 	}
-	cmd.Flags().Uint64P(flagInitialBlockHistory, "h", 20, "initial block history to query when using event processor relaying")
-	if err := v.BindPFlag(flagEventProcessor, cmd.Flags().Lookup(flagEventProcessor)); err != nil {
+	cmd.Flags().Uint64P(flagInitialBlockHistory, "h", 20, "initial block history to query when using 'events' as the processor for relaying")
+	if err := v.BindPFlag(flagInitialBlockHistory, cmd.Flags().Lookup(flagInitialBlockHistory)); err != nil {
 		panic(err)
 	}
 	return cmd
