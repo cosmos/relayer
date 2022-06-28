@@ -248,22 +248,6 @@ func (pp *PathProcessor) appendAcknowledgement(ctx context.Context, src, dst *pa
 	}
 }
 
-func (m *pathEndConnectionHandshakeResponse) appendSrc(connectionKey ConnectionKey, action string, msg provider.RelayerMessage) {
-	m.SrcMessages = append(m.SrcMessages, connectionIBCMessage{action: action, connectionKey: connectionKey, message: msg})
-}
-
-func (m *pathEndConnectionHandshakeResponse) appendDst(connectionKey ConnectionKey, action string, msg provider.RelayerMessage) {
-	m.DstMessages = append(m.DstMessages, connectionIBCMessage{action: action, connectionKey: connectionKey, message: msg})
-}
-
-func (m *pathEndChannelHandshakeResponse) appendSrc(channelKey ChannelKey, action string, msg provider.RelayerMessage) {
-	m.SrcMessages = append(m.SrcMessages, channelIBCMessage{action: action, channelKey: channelKey, message: msg})
-}
-
-func (m *pathEndChannelHandshakeResponse) appendDst(channelKey ChannelKey, action string, msg provider.RelayerMessage) {
-	m.DstMessages = append(m.DstMessages, channelIBCMessage{action: action, channelKey: channelKey, message: msg})
-}
-
 func (pp *PathProcessor) getUnrelayedPacketsAndAcksAndToDelete(ctx context.Context, pathEndPacketFlowMessages pathEndPacketFlowMessages, wg *sync.WaitGroup, res *pathEndPacketFlowResponse) {
 	defer wg.Done()
 	res.SrcMessages = nil
@@ -336,7 +320,7 @@ func (pp *PathProcessor) getUnrelayedConnectionHandshakeMessagesAndToDelete(path
 	res.ToDeleteDst = make(map[string][]ConnectionKey)
 
 ConnectionHandshakeLoop:
-	for openInitKey, openInitMsg := range pathEndConnectionHandshakeMessages.SrcMsgConnectionOpenInit {
+	for openInitKey, _ := range pathEndConnectionHandshakeMessages.SrcMsgConnectionOpenInit {
 		var foundOpenTry provider.RelayerMessage
 		for openTryKey, openTryMsg := range pathEndConnectionHandshakeMessages.DstMsgConnectionOpenTry {
 			if openInitKey == openTryKey {
@@ -345,8 +329,7 @@ ConnectionHandshakeLoop:
 			}
 		}
 		if foundOpenTry == nil {
-			// need to send an open try to dst
-			res.appendDst(openInitKey, MsgConnectionOpenTry, openInitMsg)
+			// TODO need to send an open try to dst
 			continue ConnectionHandshakeLoop
 		}
 		var foundOpenAck provider.RelayerMessage
@@ -357,8 +340,7 @@ ConnectionHandshakeLoop:
 			}
 		}
 		if foundOpenAck == nil {
-			// need to send an open ack to src
-			res.appendSrc(openInitKey, MsgConnectionOpenAck, foundOpenTry)
+			// TODO need to send an open ack to src
 			continue ConnectionHandshakeLoop
 		}
 		var foundOpenConfirm provider.RelayerMessage
@@ -369,8 +351,7 @@ ConnectionHandshakeLoop:
 			}
 		}
 		if foundOpenConfirm == nil {
-			// need to send an open confirm to dst
-			res.appendDst(openInitKey, MsgConnectionOpenConfirm, foundOpenAck)
+			// TODO need to send an open confirm to dst
 			continue ConnectionHandshakeLoop
 		}
 		// handshake is complete for this connection, remove all retention.
@@ -397,7 +378,7 @@ func (pp *PathProcessor) getUnrelayedChannelHandshakeMessagesAndToDelete(pathEnd
 	res.ToDeleteDst = make(map[string][]ChannelKey)
 
 ChannelHandshakeLoop:
-	for openInitKey, openInitMsg := range pathEndChannelHandshakeMessages.SrcMsgChannelOpenInit {
+	for openInitKey, _ := range pathEndChannelHandshakeMessages.SrcMsgChannelOpenInit {
 		var foundOpenTry provider.RelayerMessage
 		for openTryKey, openTryMsg := range pathEndChannelHandshakeMessages.DstMsgChannelOpenTry {
 			if openInitKey == openTryKey {
@@ -406,8 +387,7 @@ ChannelHandshakeLoop:
 			}
 		}
 		if foundOpenTry == nil {
-			// need to send an open try to dst
-			res.appendDst(openInitKey, MsgChannelOpenTry, openInitMsg)
+			// TODO need to send an open try to dst
 			continue ChannelHandshakeLoop
 		}
 		var foundOpenAck provider.RelayerMessage
@@ -418,8 +398,7 @@ ChannelHandshakeLoop:
 			}
 		}
 		if foundOpenAck == nil {
-			// need to send an open ack to src
-			res.appendSrc(openInitKey, MsgChannelOpenAck, foundOpenTry)
+			// TODO need to send an open ack to src
 			continue ChannelHandshakeLoop
 		}
 		var foundOpenConfirm provider.RelayerMessage
@@ -430,8 +409,7 @@ ChannelHandshakeLoop:
 			}
 		}
 		if foundOpenConfirm == nil {
-			// need to send an open confirm to dst
-			res.appendDst(openInitKey, MsgChannelOpenConfirm, foundOpenAck)
+			// TODO need to send an open confirm to dst
 			continue ChannelHandshakeLoop
 		}
 		// handshake is complete for this channel, remove all retention.

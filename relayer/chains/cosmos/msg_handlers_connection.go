@@ -14,7 +14,7 @@ import (
 // yet on this chain, a MsgConnectionOpenTry will be sent to the counterparty chain
 // using this information with the connection init proof from this chain added.
 func (ccp *CosmosChainProcessor) handleMsgConnectionOpenInit(p msgHandlerParams) {
-	ci := p.messageInfo.(*connectionInfo)
+	ci := p.messageInfo.(connectionInfo)
 	k := ci.connectionKey()
 	p.ibcMessagesCache.ConnectionHandshake.Retain(k, processor.MsgConnectionOpenInit, cosmos.NewCosmosMessage(&conntypes.MsgConnectionOpenTry{
 		ClientId:             k.ClientID,
@@ -35,7 +35,7 @@ func (ccp *CosmosChainProcessor) handleMsgConnectionOpenInit(p msgHandlerParams)
 // a MsgConnectionOpenAck will be sent to the counterparty chain
 // using this information with the connection try proof from this chain added.
 func (ccp *CosmosChainProcessor) handleMsgConnectionOpenTry(p msgHandlerParams) {
-	ci := p.messageInfo.(*connectionInfo)
+	ci := p.messageInfo.(connectionInfo)
 	k := ci.connectionKey().Counterparty()
 	p.ibcMessagesCache.ConnectionHandshake.Retain(k, processor.MsgConnectionOpenTry, cosmos.NewCosmosMessage(&conntypes.MsgConnectionOpenAck{
 		ConnectionId:             k.ConnectionID,
@@ -51,7 +51,7 @@ func (ccp *CosmosChainProcessor) handleMsgConnectionOpenTry(p msgHandlerParams) 
 // a MsgConnectionOpenConfirm will be sent to the counterparty chain
 // using this information with the connection ack proof from this chain added.
 func (ccp *CosmosChainProcessor) handleMsgConnectionOpenAck(p msgHandlerParams) {
-	ci := p.messageInfo.(*connectionInfo)
+	ci := p.messageInfo.(connectionInfo)
 	k := ci.connectionKey()
 	p.ibcMessagesCache.ConnectionHandshake.Retain(k, processor.MsgConnectionOpenAck, cosmos.NewCosmosMessage(&conntypes.MsgConnectionOpenConfirm{
 		ConnectionId: k.ConnectionID,
@@ -65,16 +65,18 @@ func (ccp *CosmosChainProcessor) handleMsgConnectionOpenAck(p msgHandlerParams) 
 // A message does not need to be constructed for the counterparty chain after the MsgConnectionOpenConfirm is observed,
 // but we want to tell the PathProcessor that the connection handshake is complete for this sequence.
 func (ccp *CosmosChainProcessor) handleMsgConnectionOpenConfirm(p msgHandlerParams) {
-	ci := p.messageInfo.(*connectionInfo)
+	ci := p.messageInfo.(connectionInfo)
 	k := ci.connectionKey().Counterparty()
 	p.ibcMessagesCache.ConnectionHandshake.Retain(k, processor.MsgConnectionOpenConfirm, nil)
 	ccp.connectionStateCache[k] = true
 	ccp.logConnectionMessage("MsgConnectionOpenConfirm", ci)
 }
 
-func (ccp *CosmosChainProcessor) logConnectionMessage(message string, connectionInfo *connectionInfo) {
-	ccp.logObservedIBCMessage(message, zap.String("client_id", connectionInfo.clientID),
-		zap.String("connection_id", connectionInfo.connectionID),
-		zap.String("counterparty_client_id", connectionInfo.counterpartyClientID),
-		zap.String("counterparty_connection_id", connectionInfo.counterpartyConnectionID))
+func (ccp *CosmosChainProcessor) logConnectionMessage(message string, ci connectionInfo) {
+	ccp.logObservedIBCMessage(message,
+		zap.String("client_id", ci.clientID),
+		zap.String("connection_id", ci.connectionID),
+		zap.String("counterparty_client_id", ci.counterpartyClientID),
+		zap.String("counterparty_connection_id", ci.counterpartyConnectionID),
+	)
 }

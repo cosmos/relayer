@@ -383,5 +383,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		})
 	}
 
+	persistence.latestQueriedBlock = persistence.latestHeight
+
 	return nil
 }
