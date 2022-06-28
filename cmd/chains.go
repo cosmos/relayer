@@ -332,10 +332,12 @@ func chainsAddDirCmd(a *appState) *cobra.Command {
 		Use:     "add-dir dir",
 		Aliases: []string{"ad"},
 		Args:    withUsage(cobra.ExactArgs(1)),
-		Short: `Add new chains to the configuration file from a directory 
-		full of chain configuration, useful for adding testnet configurations`,
+		Short:   `Add chain configuration data in bulk from a directory. Example dir: 'configs/demo/chains'`,
+		Long: `Add chain configuration data in bulk from a directory housing individual chain config files. 
+		
+		See 'configs/demo/chains' for an example of individual chain config files.`,
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s chains add-dir testnet/chains/
+$ %s chains add-dir configs/demo/chains
 $ %s ch ad testnet/chains/`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			if err := addChainsFromDirectory(cmd.ErrOrStderr(), a, args[0]); err != nil {
