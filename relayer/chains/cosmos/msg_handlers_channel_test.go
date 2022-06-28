@@ -17,7 +17,7 @@ func TestHandleChannelHandshake(t *testing.T) {
 
 	ccp := mockCosmosChainProcessor(t)
 
-	channelInfo := &channelInfo{
+	ci := channelInfo{
 		channelID:             srcChannel,
 		portID:                srcPort,
 		counterpartyChannelID: dstChannel,
@@ -26,9 +26,9 @@ func TestHandleChannelHandshake(t *testing.T) {
 
 	ibcMessagesCache := processor.NewIBCMessagesCache()
 
-	ccp.handleMsgChannelOpenInit(msgHandlerParams{messageInfo: channelInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgChannelOpenInit(msgHandlerParams{messageInfo: ci, ibcMessagesCache: ibcMessagesCache})
 
-	channelKey := channelInfo.channelKey()
+	channelKey := ci.channelKey()
 
 	channelOpen, ok := ccp.channelStateCache[channelKey]
 	require.True(t, ok, "unable to find channel state for channel key")
@@ -45,7 +45,7 @@ func TestHandleChannelHandshake(t *testing.T) {
 
 	require.NotNil(t, openInitMessage)
 
-	ccp.handleMsgChannelOpenAck(msgHandlerParams{messageInfo: channelInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgChannelOpenAck(msgHandlerParams{messageInfo: ci, ibcMessagesCache: ibcMessagesCache})
 
 	channelOpen, ok = ccp.channelStateCache[channelKey]
 	require.True(t, ok, "unable to find channel state for channel key")
@@ -79,7 +79,7 @@ func TestHandleChannelHandshakeCounterparty(t *testing.T) {
 
 	ccp := mockCosmosChainProcessor(t)
 
-	channelInfo := &channelInfo{
+	ci := channelInfo{
 		channelID:             srcChannel,
 		portID:                srcPort,
 		counterpartyChannelID: dstChannel,
@@ -88,9 +88,9 @@ func TestHandleChannelHandshakeCounterparty(t *testing.T) {
 
 	ibcMessagesCache := processor.NewIBCMessagesCache()
 
-	ccp.handleMsgChannelOpenTry(msgHandlerParams{messageInfo: channelInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgChannelOpenTry(msgHandlerParams{messageInfo: ci, ibcMessagesCache: ibcMessagesCache})
 
-	channelKey := channelInfo.channelKey().Counterparty()
+	channelKey := ci.channelKey().Counterparty()
 
 	channelOpen, ok := ccp.channelStateCache[channelKey]
 	require.True(t, ok, "unable to find channel state for channel key")
@@ -107,7 +107,7 @@ func TestHandleChannelHandshakeCounterparty(t *testing.T) {
 
 	require.NotNil(t, openTryMessage)
 
-	ccp.handleMsgChannelOpenConfirm(msgHandlerParams{messageInfo: channelInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgChannelOpenConfirm(msgHandlerParams{messageInfo: ci, ibcMessagesCache: ibcMessagesCache})
 
 	channelOpen, ok = ccp.channelStateCache[channelKey]
 	require.True(t, ok, "unable to find channel state for channel key")
