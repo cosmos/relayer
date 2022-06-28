@@ -333,7 +333,7 @@ func chainsAddDirCmd(a *appState) *cobra.Command {
 		Aliases: []string{"ad"},
 		Args:    withUsage(cobra.ExactArgs(1)),
 		Short:   `Add chain configuration data in bulk from a directory. Example dir: 'configs/demo/chains'`,
-		Long: `Add chain configuration data in bulk from a directory housing individual chain config files. 
+		Long: `Add chain configuration data in bulk from a directory housing individual chain config files. This is useful for spinning up testnets.
 		
 		See 'configs/demo/chains' for an example of individual chain config files.`,
 		Example: strings.TrimSpace(fmt.Sprintf(`
