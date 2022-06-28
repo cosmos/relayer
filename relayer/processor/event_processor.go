@@ -25,25 +25,34 @@ func NewEventProcessor() EventProcessorBuilder {
 	return EventProcessorBuilder{}
 }
 
-// WithChainProcessors will add to the list of ChainProcessors to be used.
+// WithChainProcessors adds to the list of ChainProcessors to be used
+// if the chain name has not already been added.
 func (ep EventProcessorBuilder) WithChainProcessors(chainProcessors ...ChainProcessor) EventProcessorBuilder {
-	ep.chainProcessors = append(ep.chainProcessors, chainProcessors...)
+ChainProcessorLoop:
+	for _, cp := range chainProcessors {
+		for _, existingCp := range ep.chainProcessors {
+			if existingCp.Provider().ChainName() == cp.Provider().ChainName() {
+				continue ChainProcessorLoop
+			}
+		}
+		ep.chainProcessors = append(ep.chainProcessors, cp)
+	}
 	return ep
 }
 
-// WithInitialBlockHistory will set the initial block history to query for the ChainProcessors.
+// WithInitialBlockHistory sets the initial block history to query for the ChainProcessors.
 func (ep EventProcessorBuilder) WithInitialBlockHistory(initialBlockHistory uint64) EventProcessorBuilder {
 	ep.initialBlockHistory = initialBlockHistory
 	return ep
 }
 
-// WithPathProcessors will add to the list of PathProcessors to be used.
+// WithPathProcessors adds to the list of PathProcessors to be used.
 func (ep EventProcessorBuilder) WithPathProcessors(pathProcessors ...*PathProcessor) EventProcessorBuilder {
 	ep.pathProcessors = append(ep.pathProcessors, pathProcessors...)
 	return ep
 }
 
-// Build will link the relevant ChainProcessors and PathProcessors, then return an EventProcessor that can be used to run the ChainProcessors and PathProcessors.
+// Build links the relevant ChainProcessors and PathProcessors, then returns an EventProcessor that can be used to run the ChainProcessors and PathProcessors.
 func (ep EventProcessorBuilder) Build() EventProcessor {
 	for _, chainProcessor := range ep.chainProcessors {
 		pathProcessorsForThisChain := PathProcessors{}
