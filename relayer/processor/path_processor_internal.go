@@ -251,9 +251,14 @@ func (pp *PathProcessor) sendMessages(
 		return err
 	}
 
-	messages = append([]provider.RelayerMessage{msgUpdateClient}, messages...)
+	// build final messages slice of all messages to send prepended with MsgUpdateClient
+	finalMessages := make([]provider.RelayerMessage, len(messages)+1)
+	messages[0] = msgUpdateClient
+	for i, msg := range messages {
+		finalMessages[i+1] = msg
+	}
 
-	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, messages)
+	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, finalMessages)
 	if err != nil {
 		return fmt.Errorf("error sending messages to chain_id: %s, %v", dst.info.ChainID, err)
 	}
