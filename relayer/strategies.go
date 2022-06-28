@@ -58,8 +58,21 @@ func StartRelayer(ctx context.Context, log *zap.Logger, src, dst *Chain, stdin i
 	return errorChan
 }
 
-// chainProcessorForProvider returns the corresponding ChainProcessor implementation instance.
-func chainProcessorForProvider(log *zap.Logger, chain pathChain, stdin io.Reader, stdout io.Writer) processor.ChainProcessor {
+// TODO: intermediate types. Should combine/replace with the relayer.Chain, relayer.Path, and relayer.PathEnd structs
+// as the stateless and stateful/event-based relaying mechanisms are consolidated.
+type path struct {
+	src pathChain
+	dst pathChain
+}
+
+type pathChain struct {
+	provider   provider.ChainProvider
+	pathEnd    processor.PathEnd
+	rpcAddress string
+}
+
+// chainProcessor returns the corresponding ChainProcessor implementation instance for a pathChain.
+func (chain pathChain) chainProcessor(log *zap.Logger, stdin io.Reader, stdout io.Writer) processor.ChainProcessor {
 	// Handle new ChainProcessor implementations as cases here
 	switch p := chain.provider.(type) {
 	case *cosmosProvider.CosmosProvider:
@@ -73,17 +86,6 @@ func chainProcessorForProvider(log *zap.Logger, chain pathChain, stdin io.Reader
 	}
 }
 
-type pathChain struct {
-	provider   provider.ChainProvider
-	pathEnd    processor.PathEnd
-	rpcAddress string
-}
-
-type path struct {
-	src pathChain
-	dst pathChain
-}
-
 // relayerStartEventProcessor is the main relayer process when using the event processor.
 func relayerStartEventProcessor(ctx context.Context, log *zap.Logger, stdin io.Reader, stdout io.Writer, paths []path, initialBlockHistory uint64, maxTxSize, maxMsgLength uint64, errCh chan<- error) {
 	defer close(errCh)
@@ -93,8 +95,8 @@ func relayerStartEventProcessor(ctx context.Context, log *zap.Logger, stdin io.R
 	for _, p := range paths {
 		epb = epb.
 			WithChainProcessors(
-				chainProcessorForProvider(log, p.src, stdin, stdout),
-				chainProcessorForProvider(log, p.dst, stdin, stdout),
+				p.src.chainProcessor(log, stdin, stdout),
+				p.dst.chainProcessor(log, stdin, stdout),
 			).
 			WithPathProcessors(processor.NewPathProcessor(
 				log,
