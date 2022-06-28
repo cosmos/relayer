@@ -453,44 +453,42 @@ ChannelHandshakeLoop:
 // assembleMsgUpdateClient uses the ChainProvider from both pathEnds to assemble the client update header
 // from the source and then assemble the update client message in the correct format for the destination.
 func (pp *PathProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime) (provider.RelayerMessage, error) {
-	// If the client state height is not equal to the client trusted state height and the client state height is the latest block, we cannot send a MsgUpdateClient
-	// until another block is observed on the counterparty.
+	clientID := dst.info.ClientID
+	clientConsensusHeight := dst.clientState.ConsensusHeight
+	trustedConsensusHeight := dst.clientTrustedState.ClientState.ConsensusHeight
+
+	// If the client state height is not equal to the client trusted state height and the client state height is
+	// the latest block, we cannot send a MsgUpdateClient until another block is observed on the counterparty.
 	// If the client state height is in the past, beyond ibcHeadersToCache, then we need to query for it.
-	if !dst.clientTrustedState.ClientState.ConsensusHeight.EQ(dst.clientState.ConsensusHeight) {
-		if int64(dst.clientState.ConsensusHeight.RevisionHeight)-int64(dst.clientTrustedState.ClientState.ConsensusHeight.RevisionHeight) > ibcHeadersToCache {
-			header, err := src.chainProvider.IBCHeaderAtHeight(ctx, int64(dst.clientState.ConsensusHeight.RevisionHeight+1))
-			if err != nil {
-				pp.log.Error("Error getting IBC header at height",
-					zap.String("chain_id", src.info.ChainID),
-					zap.String("counterparty_chain_id", dst.info.ChainID),
-					zap.String("counterparty_client_id", dst.info.ClientID),
-					zap.Uint64("height", dst.clientState.ConsensusHeight.RevisionHeight+1),
-				)
-				return nil, err
-			}
-			pp.log.Warn("Had to query for client trusted IBC header",
-				zap.String("chain_id", src.info.ChainID),
-				zap.String("counterparty_chain_id", dst.info.ChainID),
-				zap.String("counterparty_client_id", dst.info.ClientID),
-				zap.Uint64("height", dst.clientState.ConsensusHeight.RevisionHeight+1),
-				zap.Uint64("latest_height", src.latestBlock.Height),
-			)
-			dst.clientTrustedState = provider.ClientTrustedState{
-				ClientState: dst.clientState,
-				IBCHeader:   header,
-			}
-		} else {
+	if !trustedConsensusHeight.EQ(clientConsensusHeight) {
+		if int64(clientConsensusHeight.RevisionHeight)-int64(trustedConsensusHeight.RevisionHeight) <= ibcHeadersToCache {
 			return nil, fmt.Errorf("observed client trusted height: %d does not equal latest client state height: %d",
-				dst.clientTrustedState.ClientState.ConsensusHeight.RevisionHeight, dst.clientState.ConsensusHeight.RevisionHeight)
+				trustedConsensusHeight.RevisionHeight, clientConsensusHeight.RevisionHeight)
 		}
+		header, err := src.chainProvider.IBCHeaderAtHeight(ctx, int64(clientConsensusHeight.RevisionHeight+1))
+		if err != nil {
+			return nil, fmt.Errorf("error getting IBC header at height: %d for chain_id: %s, %w", clientConsensusHeight.RevisionHeight+1, src.info.ChainID, err)
+		}
+		pp.log.Warn("Had to query for client trusted IBC header",
+			zap.String("chain_id", src.info.ChainID),
+			zap.String("counterparty_chain_id", dst.info.ChainID),
+			zap.String("counterparty_client_id", clientID),
+			zap.Uint64("height", clientConsensusHeight.RevisionHeight+1),
+			zap.Uint64("latest_height", src.latestBlock.Height),
+		)
+		dst.clientTrustedState = provider.ClientTrustedState{
+			ClientState: dst.clientState,
+			IBCHeader:   header,
+		}
+		trustedConsensusHeight = clientConsensusHeight
 	}
 
-	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(src.latestHeader, dst.clientTrustedState.ClientState.ConsensusHeight, dst.clientTrustedState.IBCHeader)
+	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(src.latestHeader, trustedConsensusHeight, dst.clientTrustedState.IBCHeader)
 	if err != nil {
 		return nil, fmt.Errorf("error assembling new client header: %w", err)
 	}
 
-	msgUpdateClient, err := dst.chainProvider.MsgUpdateClient(dst.info.ClientID, msgUpdateClientHeader)
+	msgUpdateClient, err := dst.chainProvider.MsgUpdateClient(clientID, msgUpdateClientHeader)
 	if err != nil {
 		return nil, fmt.Errorf("error assembling MsgUpdateClient: %w", err)
 	}
@@ -618,10 +616,28 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	// if sending messages fails to one pathEnd, we don't need to halt sending to the other pathEnd.
 	var eg errgroup.Group
 	eg.Go(func() error {
-		return pp.sendMessages(ctx, pp.pathEnd1, pp.pathEnd2, pathEnd2PacketMessages, pathEnd2ConnectionMessages, pathEnd2ChannelMessages)
+		if err := pp.sendMessages(ctx, pp.pathEnd1, pp.pathEnd2, pathEnd2PacketMessages, pathEnd2ConnectionMessages, pathEnd2ChannelMessages); err != nil {
+			pp.log.Error("Error sending messages",
+				zap.String("src_chain_id", pp.pathEnd1.info.ChainID),
+				zap.String("dst_chain_id", pp.pathEnd2.info.ChainID),
+				zap.String("dst_client_id", pp.pathEnd2.info.ClientID),
+				zap.Error(err),
+			)
+			return err
+		}
+		return nil
 	})
 	eg.Go(func() error {
-		return pp.sendMessages(ctx, pp.pathEnd2, pp.pathEnd1, pathEnd1PacketMessages, pathEnd1ConnectionMessages, pathEnd1ChannelMessages)
+		if err := pp.sendMessages(ctx, pp.pathEnd2, pp.pathEnd1, pathEnd1PacketMessages, pathEnd1ConnectionMessages, pathEnd1ChannelMessages); err != nil {
+			pp.log.Error("Error sending messages",
+				zap.String("src_chain_id", pp.pathEnd2.info.ChainID),
+				zap.String("dst_chain_id", pp.pathEnd1.info.ChainID),
+				zap.String("dst_client_id", pp.pathEnd1.info.ClientID),
+				zap.Error(err),
+			)
+			return err
+		}
+		return nil
 	})
 	return eg.Wait()
 }

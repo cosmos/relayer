@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -243,27 +244,20 @@ func (pp *PathProcessor) sendMessages(
 
 	msgUpdateClient, err := pp.assembleMsgUpdateClient(ctx, src, dst)
 	if err != nil {
-		pp.log.Debug("Error prepending MsgUpdateClient",
-			zap.String("chain_id", dst.info.ChainID),
-			zap.String("client_id", dst.info.ClientID),
-			zap.Error(err),
-		)
-		return err
+		return fmt.Errorf("error assembling MsgUpdateClient: %w", err)
 	}
 
 	// build final messages slice of all messages to send prepended with MsgUpdateClient
-	finalMessages := make([]provider.RelayerMessage, len(messages)+1)
-	messages[0] = msgUpdateClient
-	for i, msg := range messages {
-		finalMessages[i+1] = msg
-	}
+	finalMessages := make([]provider.RelayerMessage, 0, len(messages)+1)
+	finalMessages = append(finalMessages, msgUpdateClient)
+	finalMessages = append(finalMessages, messages...)
 
 	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, finalMessages)
 	if err != nil {
-		return fmt.Errorf("error sending messages to chain_id: %s, %v", dst.info.ChainID, err)
+		return fmt.Errorf("error sending messages: %w", err)
 	}
 	if !txSuccess {
-		return fmt.Errorf("error sending messages to chain_id: %s, transaction was not successful", dst.info.ChainID)
+		return errors.New("error sending messages, transaction was not successful")
 	}
 
 	for _, msg := range packetMessages {
