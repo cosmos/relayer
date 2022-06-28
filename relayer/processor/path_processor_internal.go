@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"go.uber.org/zap"
 )
 
 // shouldSendPacketMessage determines if the packet flow message should be sent now.
