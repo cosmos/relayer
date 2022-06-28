@@ -12,6 +12,10 @@ import (
 // shouldSendPacketMessage determines if the packet flow message should be sent now.
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
 func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage, counterparty *pathEndRuntime) bool {
+	if !pathEnd.channelStateCache[message.channelKey] {
+		// channel is not open, do not send
+		return false
+	}
 	msgSendCache, ok := pathEnd.packetSendCache[message.channelKey]
 	if !ok {
 		// in progress cache does not exist for this channel, so can send.
