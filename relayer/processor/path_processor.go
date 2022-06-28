@@ -132,19 +132,19 @@ func (pp *PathProcessor) IsRelayedChannel(chainID string, channelKey ChannelKey)
 }
 
 func (pp *PathProcessor) IsRelevantClient(chainID string, clientID string) bool {
-	if pp.pathEnd1.info.ChainID == chainID && pp.pathEnd1.info.ClientID == clientID {
-		return true
-	} else if pp.pathEnd2.info.ChainID == chainID && pp.pathEnd2.info.ClientID == clientID {
-		return true
+	if pp.pathEnd1.info.ChainID == chainID {
+		return pp.pathEnd1.info.ClientID == clientID
+	} else if pp.pathEnd2.info.ChainID == chainID {
+		return pp.pathEnd2.info.ClientID == clientID
 	}
 	return false
 }
 
 func (pp *PathProcessor) IsRelevantConnection(chainID string, connectionID string) bool {
-	if pp.pathEnd1.info.ChainID == chainID && pp.pathEnd1.info.ConnectionID == connectionID {
-		return true
-	} else if pp.pathEnd2.info.ChainID == chainID && pp.pathEnd2.info.ConnectionID == connectionID {
-		return true
+	if pp.pathEnd1.info.ChainID == chainID {
+		return pp.pathEnd1.isRelevantConnection(connectionID)
+	} else if pp.pathEnd2.info.ChainID == chainID {
+		return pp.pathEnd2.isRelevantConnection(connectionID)
 	}
 	return false
 }
