@@ -17,7 +17,7 @@ func TestHandleConnectionHandshake(t *testing.T) {
 
 	ccp := mockCosmosChainProcessor(t)
 
-	connectionInfo := &connectionInfo{
+	ci := connectionInfo{
 		connectionID:             srcConnection,
 		clientID:                 srcClient,
 		counterpartyClientID:     dstClient,
@@ -26,9 +26,9 @@ func TestHandleConnectionHandshake(t *testing.T) {
 
 	ibcMessagesCache := processor.NewIBCMessagesCache()
 
-	ccp.handleMsgConnectionOpenInit(msgHandlerParams{messageInfo: connectionInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgConnectionOpenInit(msgHandlerParams{messageInfo: ci, ibcMessagesCache: ibcMessagesCache})
 
-	connectionKey := connectionInfo.connectionKey()
+	connectionKey := ci.connectionKey()
 
 	connectionOpen, ok := ccp.connectionStateCache[connectionKey]
 	require.True(t, ok, "unable to find connection state for connection key")
@@ -45,7 +45,7 @@ func TestHandleConnectionHandshake(t *testing.T) {
 
 	require.NotNil(t, openInitMessage)
 
-	ccp.handleMsgConnectionOpenAck(msgHandlerParams{messageInfo: connectionInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgConnectionOpenAck(msgHandlerParams{messageInfo: ci, ibcMessagesCache: ibcMessagesCache})
 
 	connectionOpen, ok = ccp.connectionStateCache[connectionKey]
 	require.True(t, ok, "unable to find connection state for connection key")
@@ -80,7 +80,7 @@ func TestHandleConnectionHandshakeCounterparty(t *testing.T) {
 
 	ccp := mockCosmosChainProcessor(t)
 
-	connectionInfo := &connectionInfo{
+	ci := connectionInfo{
 		connectionID:             srcConnection,
 		clientID:                 srcClient,
 		counterpartyClientID:     dstClient,
@@ -89,9 +89,9 @@ func TestHandleConnectionHandshakeCounterparty(t *testing.T) {
 
 	ibcMessagesCache := processor.NewIBCMessagesCache()
 
-	ccp.handleMsgConnectionOpenTry(msgHandlerParams{messageInfo: connectionInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgConnectionOpenTry(msgHandlerParams{messageInfo: ci, ibcMessagesCache: ibcMessagesCache})
 
-	connectionKey := connectionInfo.connectionKey().Counterparty()
+	connectionKey := ci.connectionKey().Counterparty()
 
 	connectionOpen, ok := ccp.connectionStateCache[connectionKey]
 	require.True(t, ok, "unable to find connection state for connection key")
@@ -108,7 +108,7 @@ func TestHandleConnectionHandshakeCounterparty(t *testing.T) {
 
 	require.NotNil(t, openTryMessage)
 
-	ccp.handleMsgConnectionOpenConfirm(msgHandlerParams{messageInfo: connectionInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgConnectionOpenConfirm(msgHandlerParams{messageInfo: ci, ibcMessagesCache: ibcMessagesCache})
 
 	connectionOpen, ok = ccp.connectionStateCache[connectionKey]
 	require.True(t, ok, "unable to find connection state for connection key")

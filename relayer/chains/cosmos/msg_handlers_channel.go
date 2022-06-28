@@ -14,7 +14,7 @@ import (
 // a MsgChannelOpenTry will be sent to the counterparty chain using this information
 // with the channel open init proof from this chain added.
 func (ccp *CosmosChainProcessor) handleMsgChannelOpenInit(p msgHandlerParams) {
-	ci := p.messageInfo.(*channelInfo)
+	ci := p.messageInfo.(channelInfo)
 	k := ci.channelKey()
 	p.ibcMessagesCache.ChannelHandshake.Retain(k, processor.MsgChannelOpenInit, cosmos.NewCosmosMessage(&chantypes.MsgChannelOpenTry{
 		PortId:            k.PortID,
@@ -39,7 +39,7 @@ func (ccp *CosmosChainProcessor) handleMsgChannelOpenInit(p msgHandlerParams) {
 // will be sent to the counterparty chain using this information with the
 // channel open try proof from this chain added.
 func (ccp *CosmosChainProcessor) handleMsgChannelOpenTry(p msgHandlerParams) {
-	ci := p.messageInfo.(*channelInfo)
+	ci := p.messageInfo.(channelInfo)
 	// using flipped counterparty since counterparty initialized this handshake
 	k := ci.channelKey().Counterparty()
 	p.ibcMessagesCache.ChannelHandshake.Retain(k, processor.MsgChannelOpenTry, cosmos.NewCosmosMessage(&chantypes.MsgChannelOpenAck{
@@ -58,7 +58,7 @@ func (ccp *CosmosChainProcessor) handleMsgChannelOpenTry(p msgHandlerParams) {
 // a MsgChannelOpenConfirm will be sent to the counterparty chain
 // using this information with the channel open ack proof from this chain added.
 func (ccp *CosmosChainProcessor) handleMsgChannelOpenAck(p msgHandlerParams) {
-	ci := p.messageInfo.(*channelInfo)
+	ci := p.messageInfo.(channelInfo)
 	k := ci.channelKey()
 	p.ibcMessagesCache.ChannelHandshake.Retain(k, processor.MsgChannelOpenAck, cosmos.NewCosmosMessage(&chantypes.MsgChannelOpenConfirm{
 		PortId:    k.PortID,
@@ -73,7 +73,7 @@ func (ccp *CosmosChainProcessor) handleMsgChannelOpenAck(p msgHandlerParams) {
 // for the counterparty chain after the MsgChannelOpenConfirm is observed, but we want to
 // tell the PathProcessor that the channel handshake is complete for this channel.
 func (ccp *CosmosChainProcessor) handleMsgChannelOpenConfirm(p msgHandlerParams) {
-	ci := p.messageInfo.(*channelInfo)
+	ci := p.messageInfo.(channelInfo)
 	// using flipped counterparty since counterparty initialized this handshake
 	k := ci.channelKey().Counterparty()
 	p.ibcMessagesCache.ChannelHandshake.Retain(k, processor.MsgChannelOpenConfirm, nil)
@@ -87,7 +87,7 @@ func (ccp *CosmosChainProcessor) handleMsgChannelOpenConfirm(p msgHandlerParams)
 // a MsgChannelCloseConfirm will be sent to the counterparty chain
 // using this information with the channel close init proof from this chain added.
 func (ccp *CosmosChainProcessor) handleMsgChannelCloseInit(p msgHandlerParams) {
-	ci := p.messageInfo.(*channelInfo)
+	ci := p.messageInfo.(channelInfo)
 	k := ci.channelKey()
 	p.ibcMessagesCache.ChannelHandshake.Retain(k, processor.MsgChannelCloseInit, cosmos.NewCosmosMessage(&chantypes.MsgChannelCloseConfirm{
 		PortId:    k.PortID,
@@ -102,7 +102,7 @@ func (ccp *CosmosChainProcessor) handleMsgChannelCloseInit(p msgHandlerParams) {
 // for the counterparty chain after the MsgChannelCloseConfirm is observed, but we want to
 // tell the PathProcessor that the channel close is complete for this channel.
 func (ccp *CosmosChainProcessor) handleMsgChannelCloseConfirm(p msgHandlerParams) {
-	ci := p.messageInfo.(*channelInfo)
+	ci := p.messageInfo.(channelInfo)
 	// using flipped counterparty since counterparty initialized this channel close
 	k := ci.channelKey().Counterparty()
 	p.ibcMessagesCache.ChannelHandshake.Retain(k, processor.MsgChannelCloseConfirm, nil)
@@ -110,12 +110,12 @@ func (ccp *CosmosChainProcessor) handleMsgChannelCloseConfirm(p msgHandlerParams
 	ccp.logChannelMessage("MsgChannelCloseConfirm", ci)
 }
 
-func (ccp *CosmosChainProcessor) logChannelMessage(message string, channelInfo *channelInfo) {
+func (ccp *CosmosChainProcessor) logChannelMessage(message string, ci channelInfo) {
 	ccp.logObservedIBCMessage(message,
-		zap.String("channel_id", channelInfo.channelID),
-		zap.String("port_id", channelInfo.portID),
-		zap.String("counterparty_channel_id", channelInfo.counterpartyChannelID),
-		zap.String("counterparty_port_id", channelInfo.counterpartyPortID),
-		zap.String("connection_id", channelInfo.connectionID),
+		zap.String("channel_id", ci.channelID),
+		zap.String("port_id", ci.portID),
+		zap.String("counterparty_channel_id", ci.counterpartyChannelID),
+		zap.String("counterparty_port_id", ci.counterpartyPortID),
+		zap.String("connection_id", ci.connectionID),
 	)
 }
