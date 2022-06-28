@@ -43,7 +43,7 @@ func startCmd(a *appState) *cobra.Command {
 		Short:   "Start the listening relayer on a given path",
 		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s start demo-path -e # to use event processor
+$ %s start demo-path -p events # to use event processor
 $ %s start demo-path --max-msgs 3
 $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {

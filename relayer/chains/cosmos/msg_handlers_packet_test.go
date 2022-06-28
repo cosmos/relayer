@@ -1,7 +1,8 @@
 package cosmos
 
 import (
-	"os"
+	"bytes"
+	"io"
 	"testing"
 
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
@@ -26,7 +27,7 @@ func mockCosmosChainProcessor(t *testing.T) *CosmosChainProcessor {
 		provider      = cosmos.CosmosProvider{PCfg: cosmos.CosmosProviderConfig{ChainID: chainID1}}
 	)
 
-	ccp, err := NewCosmosChainProcessor(log, &provider, "", os.Stdin, os.Stdout)
+	ccp, err := NewCosmosChainProcessor(log, &provider, "", bytes.NewReader(nil), io.Discard)
 	require.NoError(t, err, "error constructing cosmos chain processor")
 
 	ccp.SetPathProcessors(processor.PathProcessors{pathProcessor})
