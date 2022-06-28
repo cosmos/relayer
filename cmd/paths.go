@@ -215,11 +215,12 @@ $ %s pth a ibc-0 ibc-1 demo-path`, appName, appName, appName)),
 
 func pathsAddDirCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:  "add-dir dir",
-		Args: withUsage(cobra.ExactArgs(1)),
-		Short: `Add new paths to the configuration file from a directory full of path 
-              configurations, useful for adding testnet configurations. 
-              NOTE: Chain configuration files must be added before calling this command.`,
+		Use:   "add-dir dir",
+		Args:  withUsage(cobra.ExactArgs(1)),
+		Short: `Add path configuration data in bulk from a directory. Example dir: 'configs/demo/paths'`,
+		Long: `Add path configuration data in bulk from a directory housing individual path config files. This is useful for spinning up testnets.
+		
+		See 'configs/demo/paths' for an example of individual path config files.`,
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s config add-paths configs/paths`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
