@@ -101,6 +101,10 @@ type CosmosIBCHeader struct {
 // noop to implement processor.IBCHeader
 func (h CosmosIBCHeader) IBCHeaderIndicator() {}
 
+func (h CosmosIBCHeader) Height() uint64 {
+	return uint64(h.SignedHeader.Height)
+}
+
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {
 	return cc.PCfg
 }
