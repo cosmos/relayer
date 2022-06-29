@@ -11,6 +11,7 @@ import (
 type mockIBCHeader struct{}
 
 func (h mockIBCHeader) IBCHeaderIndicator() {}
+func (h mockIBCHeader) Height() uint64      { return 0 }
 
 func TestIBCHeaderCachePrune(t *testing.T) {
 	cache := make(processor.IBCHeaderCache)

@@ -46,6 +46,7 @@ type LatestBlock struct {
 
 type IBCHeader interface {
 	IBCHeaderIndicator()
+	Height() uint64
 }
 
 // ClientState holds the current state of a client from a single chain's perspective
