@@ -1,7 +1,8 @@
 package cosmos
 
 import (
-	"os"
+	"bytes"
+	"io"
 	"testing"
 
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
@@ -26,8 +27,10 @@ func mockCosmosChainProcessor(t *testing.T) *CosmosChainProcessor {
 		provider      = cosmos.CosmosProvider{PCfg: cosmos.CosmosProviderConfig{ChainID: chainID1}}
 	)
 
-	ccp, err := NewCosmosChainProcessor(log, &provider, "", os.Stdin, os.Stdout, []*processor.PathProcessor{pathProcessor})
+	ccp, err := NewCosmosChainProcessor(log, &provider, "", bytes.NewReader(nil), io.Discard)
 	require.NoError(t, err, "error constructing cosmos chain processor")
+
+	ccp.SetPathProcessors(processor.PathProcessors{pathProcessor})
 
 	applicable := pathProcessor.SetChainProviderIfApplicable(&provider)
 	require.True(t, applicable, "error setting path processor reference to chain processor")
@@ -53,7 +56,7 @@ func TestHandleMsgTransfer(t *testing.T) {
 
 	ibcMessagesCache := processor.NewIBCMessagesCache()
 
-	packetInfo := &packetInfo{
+	pi := packetInfo{
 		packet: chantypes.Packet{
 			Data:               packetData,
 			Sequence:           sequence,
@@ -69,11 +72,11 @@ func TestHandleMsgTransfer(t *testing.T) {
 		},
 	}
 
-	ccp.handleMsgTransfer(msgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgTransfer(msgHandlerParams{messageInfo: pi, ibcMessagesCache: ibcMessagesCache})
 
 	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
-	channelKey := packetInfo.channelKey()
+	channelKey := pi.channelKey()
 
 	channelMessages, ok := ibcMessagesCache.PacketFlow[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
@@ -94,7 +97,7 @@ func TestHandleMsgTransfer(t *testing.T) {
 	msgRecvPacket, ok := cosmosMsg.(*chantypes.MsgRecvPacket)
 	require.True(t, ok, "unable to read message as MsgRecvPacket")
 
-	require.Empty(t, cmp.Diff(packetInfo.packet, msgRecvPacket.Packet), "MsgRecvPacket data does not match MsgTransfer data")
+	require.Empty(t, cmp.Diff(pi.packet, msgRecvPacket.Packet), "MsgRecvPacket data does not match MsgTransfer data")
 }
 
 func TestHandleMsgRecvPacket(t *testing.T) {
@@ -113,7 +116,7 @@ func TestHandleMsgRecvPacket(t *testing.T) {
 
 	ibcMessagesCache := processor.NewIBCMessagesCache()
 
-	packetInfo := &packetInfo{
+	pi := packetInfo{
 		packet: chantypes.Packet{
 			Data:               packetData,
 			Sequence:           sequence,
@@ -125,12 +128,12 @@ func TestHandleMsgRecvPacket(t *testing.T) {
 		ack: packetAck,
 	}
 
-	ccp.handleMsgRecvPacket(msgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgRecvPacket(msgHandlerParams{messageInfo: pi, ibcMessagesCache: ibcMessagesCache})
 
 	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
 	// flipped on purpose since MsgRecvPacket is committed on counterparty chain
-	channelKey := packetInfo.channelKey().Counterparty()
+	channelKey := pi.channelKey().Counterparty()
 
 	channelMessages, ok := ibcMessagesCache.PacketFlow[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
@@ -151,7 +154,7 @@ func TestHandleMsgRecvPacket(t *testing.T) {
 	msgRecvPacket, ok := cosmosMsg.(*chantypes.MsgAcknowledgement)
 	require.True(t, ok, "unable to read message as MsgAcknowledgement")
 
-	require.Empty(t, cmp.Diff(packetInfo.packet, msgRecvPacket.Packet), "MsgAcknowledgement data does not match MsgRecvPacket data")
+	require.Empty(t, cmp.Diff(pi.packet, msgRecvPacket.Packet), "MsgAcknowledgement data does not match MsgRecvPacket data")
 }
 
 func TestHandleMsgAcknowledgement(t *testing.T) {
@@ -169,7 +172,7 @@ func TestHandleMsgAcknowledgement(t *testing.T) {
 
 	ibcMessagesCache := processor.NewIBCMessagesCache()
 
-	packetInfo := &packetInfo{
+	pi := packetInfo{
 		packet: chantypes.Packet{
 			Data:               packetData,
 			Sequence:           sequence,
@@ -180,11 +183,11 @@ func TestHandleMsgAcknowledgement(t *testing.T) {
 		},
 	}
 
-	ccp.handleMsgAcknowledgement(msgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgAcknowledgement(msgHandlerParams{messageInfo: pi, ibcMessagesCache: ibcMessagesCache})
 
 	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
-	channelKey := packetInfo.channelKey()
+	channelKey := pi.channelKey()
 
 	channelMessages, ok := ibcMessagesCache.PacketFlow[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
@@ -217,7 +220,7 @@ func TestHandleMsgTimeout(t *testing.T) {
 
 	ibcMessagesCache := processor.NewIBCMessagesCache()
 
-	packetInfo := &packetInfo{
+	pi := packetInfo{
 		packet: chantypes.Packet{
 			Data:               packetData,
 			Sequence:           sequence,
@@ -228,11 +231,11 @@ func TestHandleMsgTimeout(t *testing.T) {
 		},
 	}
 
-	ccp.handleMsgTimeout(msgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgTimeout(msgHandlerParams{messageInfo: pi, ibcMessagesCache: ibcMessagesCache})
 
 	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
-	channelKey := packetInfo.channelKey()
+	channelKey := pi.channelKey()
 
 	channelMessages, ok := ibcMessagesCache.PacketFlow[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")
@@ -265,7 +268,7 @@ func TestHandleMsgTimeoutOnClose(t *testing.T) {
 
 	ibcMessagesCache := processor.NewIBCMessagesCache()
 
-	packetInfo := &packetInfo{
+	pi := packetInfo{
 		packet: chantypes.Packet{
 			Data:               packetData,
 			Sequence:           sequence,
@@ -276,11 +279,11 @@ func TestHandleMsgTimeoutOnClose(t *testing.T) {
 		},
 	}
 
-	ccp.handleMsgTimeoutOnClose(msgHandlerParams{messageInfo: packetInfo, ibcMessagesCache: ibcMessagesCache})
+	ccp.handleMsgTimeoutOnClose(msgHandlerParams{messageInfo: pi, ibcMessagesCache: ibcMessagesCache})
 
 	require.Len(t, ibcMessagesCache.PacketFlow, 1)
 
-	channelKey := packetInfo.channelKey()
+	channelKey := pi.channelKey()
 
 	channelMessages, ok := ibcMessagesCache.PacketFlow[channelKey]
 	require.True(t, ok, "unable to find messages for channel key")

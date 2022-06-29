@@ -10,6 +10,7 @@ import (
 	"github.com/avast/retry-go/v4"
 	cosmosClient "github.com/cosmos/cosmos-sdk/client"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
@@ -50,7 +51,7 @@ type CosmosChainProcessor struct {
 	channelStateCache processor.ChannelStateCache
 }
 
-func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, rpcAddress string, input io.Reader, output io.Writer, pathProcessors processor.PathProcessors) (*CosmosChainProcessor, error) {
+func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, rpcAddress string, input io.Reader, output io.Writer) (*CosmosChainProcessor, error) {
 	chainID := provider.ChainId()
 	cc, err := getCosmosClient(rpcAddress, chainID, input, output)
 	if err != nil {
@@ -65,7 +66,6 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider, r
 		chainProvider:        provider,
 		cc:                   cc,
 		lightProvider:        lightProvider,
-		pathProcessors:       pathProcessors,
 		latestClientState:    make(latestClientState),
 		connectionStateCache: make(processor.ConnectionStateCache),
 		channelStateCache:    make(processor.ChannelStateCache),
@@ -209,6 +209,8 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 
 	persistence.latestQueriedBlock = latestQueriedBlock
 
+	ccp.initializeChannelState(ctx)
+
 	ccp.log.Debug("Entering main query loop")
 
 	ticker := time.NewTicker(persistence.minQueryLoopDuration)
@@ -224,6 +226,25 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 			ticker.Reset(persistence.minQueryLoopDuration)
 		}
 	}
+}
+
+// initializeChannelState will bootstrap the channelStateCache with the open channel state.
+func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) error {
+	queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
+	defer cancelQueryCtx()
+	channels, err := ccp.chainProvider.QueryChannels(queryCtx)
+	if err != nil {
+		return fmt.Errorf("error querying channels: %w", err)
+	}
+	for _, ch := range channels {
+		ccp.channelStateCache[processor.ChannelKey{
+			ChannelID:             ch.ChannelId,
+			PortID:                ch.PortId,
+			CounterpartyChannelID: ch.Counterparty.ChannelId,
+			CounterpartyPortID:    ch.Counterparty.PortId,
+		}] = ch.State == chantypes.OPEN
+	}
+	return nil
 }
 
 func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
@@ -360,6 +381,8 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			IBCHeaderCache:       ibcHeaderCache,
 		})
 	}
+
+	persistence.latestQueriedBlock = persistence.latestHeight
 
 	return nil
 }
