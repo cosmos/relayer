@@ -490,7 +490,7 @@ clients)
 
   # Let all our chains initialise.
   wait
-  rly config add-paths "$BASEDIR/config/paths"
+  rly paths add-dir "$BASEDIR/config/paths"
 
   for i in ${!IDS[@]}; do
     ID=${IDS[$i]}

@@ -47,9 +47,7 @@ func configCmd(a *appState) *cobra.Command {
 	cmd.AddCommand(
 		configShowCmd(a),
 		configInitCmd(),
-		configAddPathsCmd(a),
 	)
-
 	return cmd
 }
 
@@ -168,26 +166,6 @@ $ %s cfg i`, appName, defaultHome, appName)),
 	return cmd
 }
 
-func configAddPathsCmd(a *appState) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:  "add-paths path_to_paths",
-		Args: withUsage(cobra.ExactArgs(1)),
-		//nolint:lll
-		Short: `Add new paths to the configuration file from a directory full of path 
-              configurations, useful for adding testnet configurations. 
-              NOTE: Chain configuration files must be added before calling this command.`,
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s config add-paths configs/paths`, appName)),
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			if err := addPathsFromDirectory(cmd.Context(), cmd.ErrOrStderr(), a, args[0]); err != nil {
-				return err
-			}
-			return a.OverwriteConfig(a.Config)
-		},
-	}
-
-	return cmd
-}
 
 // addChainsFromDirectory finds all JSON-encoded config files in dir,
 // and optimistically adds them to a's chains.
