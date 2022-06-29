@@ -204,7 +204,7 @@ func (pp *PathProcessor) appendPacketOrTimeout(ctx context.Context, src, dst *pa
 		// if timeouts were detected, need to generate msgs for them for src
 		switch {
 		case errors.As(err, &timeoutHeightErr) || errors.As(err, &timeoutTimestampErr):
-			if err := pp.assemblePacketIBCMessage(ctx, dst, src, channelKey, MsgTimeout, sequence, msgRecvPacket, dst.chainProvider.MsgTimeout, &res.SrcMessages); err != nil {
+			if err := pp.assemblePacketIBCMessage(ctx, dst, src, channelKey.Counterparty(), MsgTimeout, sequence, msgRecvPacket, dst.chainProvider.MsgTimeout, &res.SrcMessages); err != nil {
 				pp.log.Error("Error assembling MsgTimeout",
 					zap.Uint64("sequence", sequence),
 					zap.String("chain_id", src.info.ChainID),
@@ -212,7 +212,7 @@ func (pp *PathProcessor) appendPacketOrTimeout(ctx context.Context, src, dst *pa
 				)
 			}
 		case errors.As(err, &timeoutOnCloseErr):
-			if err := pp.assemblePacketIBCMessage(ctx, dst, src, channelKey, MsgTimeoutOnClose, sequence, msgRecvPacket, dst.chainProvider.MsgTimeoutOnClose, &res.SrcMessages); err != nil {
+			if err := pp.assemblePacketIBCMessage(ctx, dst, src, channelKey.Counterparty(), MsgTimeoutOnClose, sequence, msgRecvPacket, dst.chainProvider.MsgTimeoutOnClose, &res.SrcMessages); err != nil {
 				pp.log.Error("Error assembling MsgTimeoutOnClose",
 					zap.Uint64("sequence", sequence),
 					zap.String("chain_id", src.info.ChainID),
@@ -237,8 +237,8 @@ func (pp *PathProcessor) appendPacketOrTimeout(ctx context.Context, src, dst *pa
 	}
 }
 
-func (pp *PathProcessor) appendAcknowledgement(ctx context.Context, src, dst *pathEndRuntime, channelKey ChannelKey, sequence uint64, msgAcknowledgement provider.RelayerMessage, res *pathEndPacketFlowResponse) {
-	if err := pp.assemblePacketIBCMessage(ctx, src, dst, channelKey, MsgAcknowledgement, sequence, msgAcknowledgement, src.chainProvider.MsgAcknowledgement, &res.DstMessages); err != nil {
+func (pp *PathProcessor) appendAcknowledgement(ctx context.Context, src, dst *pathEndRuntime, channelKey ChannelKey, sequence uint64, msgAcknowledgement provider.RelayerMessage, messages *[]packetIBCMessage) {
+	if err := pp.assemblePacketIBCMessage(ctx, src, dst, channelKey, MsgAcknowledgement, sequence, msgAcknowledgement, src.chainProvider.MsgAcknowledgement, messages); err != nil {
 		pp.log.Error("Error assembling MsgAcknowledgement",
 			zap.Uint64("sequence", sequence),
 			zap.String("src_chain_id", src.info.ChainID),
@@ -288,7 +288,7 @@ MsgTransferLoop:
 		for msgRecvSeq, msgAcknowledgement := range pathEndPacketFlowMessages.DstMsgRecvPacket {
 			if transferSeq == msgRecvSeq {
 				// msg is received by dst chain, but no ack yet. Need to relay ack from dst to src!
-				pp.appendAcknowledgement(ctx, pathEndPacketFlowMessages.Dst, pathEndPacketFlowMessages.Src, pathEndPacketFlowMessages.ChannelKey, msgRecvSeq, msgAcknowledgement, res)
+				pp.appendAcknowledgement(ctx, pathEndPacketFlowMessages.Dst, pathEndPacketFlowMessages.Src, pathEndPacketFlowMessages.ChannelKey, msgRecvSeq, msgAcknowledgement, &res.SrcMessages)
 				continue MsgTransferLoop
 			}
 		}
@@ -459,6 +459,12 @@ func (pp *PathProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *
 			IBCHeader:   header,
 		}
 		trustedConsensusHeight = clientConsensusHeight
+	}
+
+	if src.latestHeader.Height() == trustedConsensusHeight.RevisionHeight {
+		return nil, fmt.Errorf("latest header height is equal to the client trusted height: %d, "+
+			"need to wait for next block's header before we can assemble and send a new MsgUpdateClient",
+			trustedConsensusHeight.RevisionHeight)
 	}
 
 	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(src.latestHeader, trustedConsensusHeight, dst.clientTrustedState.IBCHeader)
