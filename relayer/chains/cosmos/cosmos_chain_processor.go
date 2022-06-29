@@ -289,7 +289,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			return nil
 		}
 
-		latestHeader := ibcHeader.(cosmos.CosmosIBCHeader)
+		latestHeader = ibcHeader.(cosmos.CosmosIBCHeader)
 
 		ccp.latestBlock = provider.LatestBlock{
 			Height: uint64(latestHeader.SignedHeader.Height),
@@ -305,8 +305,6 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 				continue
 			}
 			messages := ccp.ibcMessagesFromTransaction(tx)
-
-			ccp.log.Debug("Parsed IBC messages", zap.Any("messages", messages))
 
 			for _, m := range messages {
 				handler, ok := messageHandlers[m.messageType]
