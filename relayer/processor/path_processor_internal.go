@@ -213,7 +213,7 @@ func (pathEnd *pathEndRuntime) trackSentChannelMessage(message channelIBCMessage
 	}
 }
 
-func (pp *PathProcessor) sendMessages(
+func (pp *PathProcessor) assembleAndSendMessages(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
 	packetMessages []packetIBCMessage,
@@ -223,44 +223,47 @@ func (pp *PathProcessor) sendMessages(
 	if len(packetMessages) == 0 && len(connectionMessages) == 0 && len(channelMessages) == 0 {
 		return nil
 	}
-
-	var messages []provider.RelayerMessage
-
-	for _, msg := range packetMessages {
-		if !dst.shouldSendPacketMessage(msg, src) {
-			continue
-		}
-		messages = append(messages, msg.message)
-	}
-	for _, msg := range connectionMessages {
-		if !dst.shouldSendConnectionMessage(msg, src) {
-			continue
-		}
-		messages = append(messages, msg.message)
-	}
-	for _, msg := range channelMessages {
-		if !dst.shouldSendChannelMessage(msg, src) {
-			continue
-		}
-		messages = append(messages, msg.message)
-	}
-
-	if len(messages) == 0 {
-		pp.log.Debug("No messages to send after filtering", zap.String("chain_id", dst.info.ChainID))
-		return nil
-	}
-
+	var outgoingMessages []provider.RelayerMessage
 	msgUpdateClient, err := pp.assembleMsgUpdateClient(ctx, src, dst)
 	if err != nil {
-		return fmt.Errorf("error assembling MsgUpdateClient: %w", err)
+		return err
+	}
+	outgoingMessages = append(outgoingMessages, msgUpdateClient)
+
+	var sentPackageMessages []packetIBCMessage
+	var sentConnectionMessages []connectionIBCMessage
+	var sentChannelMessages []channelIBCMessage
+
+	for _, msg := range packetMessages {
+		var assembleMessage func(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error)
+		switch msg.action {
+		case MsgRecvPacket:
+			assembleMessage = src.chainProvider.MsgRecvPacket
+		case MsgAcknowledgement:
+			assembleMessage = src.chainProvider.MsgAcknowledgement
+		case MsgTimeout:
+			assembleMessage = src.chainProvider.MsgTimeout
+		case MsgTimeoutOnClose:
+			assembleMessage = src.chainProvider.MsgTimeoutOnClose
+		default:
+			pp.log.Error("Unexepected packet message action for message assembly",
+				zap.String("action", msg.action),
+			)
+			continue
+		}
+
+		message, err := pp.assemblePacketIBCMessage(ctx, src, dst, msg, assembleMessage)
+		if err != nil {
+			pp.log.Error("Error assembling packet message", zap.Error(err))
+			continue
+		}
+		sentPackageMessages = append(sentPackageMessages, msg)
+		outgoingMessages = append(outgoingMessages, message)
 	}
 
-	// build final messages slice of all messages to send prepended with MsgUpdateClient
-	finalMessages := make([]provider.RelayerMessage, 0, len(messages)+1)
-	finalMessages = append(finalMessages, msgUpdateClient)
-	finalMessages = append(finalMessages, messages...)
+	// TODO handle connection and channel handshake messages
 
-	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, finalMessages)
+	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, outgoingMessages)
 	if err != nil {
 		return fmt.Errorf("error sending messages: %w", err)
 	}
@@ -268,13 +271,13 @@ func (pp *PathProcessor) sendMessages(
 		return errors.New("error sending messages, transaction was not successful")
 	}
 
-	for _, msg := range packetMessages {
+	for _, msg := range sentPackageMessages {
 		dst.trackSentPacketMessage(msg)
 	}
-	for _, msg := range connectionMessages {
+	for _, msg := range sentConnectionMessages {
 		dst.trackSentConnectionMessage(msg)
 	}
-	for _, msg := range channelMessages {
+	for _, msg := range sentChannelMessages {
 		dst.trackSentChannelMessage(msg)
 	}
 
@@ -324,7 +327,7 @@ func (pp *PathProcessor) connectionMessagesToSend(pathEnd1ConnectionHandshakeRes
 	return pathEnd1ConnectionMessages, pathEnd2ConnectionMessages
 }
 
-func (pp *PathProcessor) packetMessagesToSend(channelPairs []channelPair, pathEnd1ProcessRes []*pathEndPacketFlowResponse, pathEnd2ProcessRes []*pathEndPacketFlowResponse) ([]packetIBCMessage, []packetIBCMessage) {
+func (pp *PathProcessor) packetMessagesToSend(channelPairs []channelPair, pathEnd1ProcessRes []pathEndPacketFlowResponse, pathEnd2ProcessRes []pathEndPacketFlowResponse) ([]packetIBCMessage, []packetIBCMessage) {
 	pathEnd1PacketLen := 0
 	pathEnd2PacketLen := 0
 	for i := 0; i < len(channelPairs); i++ {
