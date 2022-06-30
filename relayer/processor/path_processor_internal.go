@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"go.uber.org/zap"
 )
 
 // shouldSendPacketMessage determines if the packet flow message should be sent now.
@@ -212,7 +213,7 @@ func (pathEnd *pathEndRuntime) trackSentChannelMessage(message channelIBCMessage
 	}
 }
 
-func (pp *PathProcessor) sendMessages(
+func (pp *PathProcessor) assembleAndSendMessages(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
 	packetMessages []packetIBCMessage,
@@ -222,24 +223,45 @@ func (pp *PathProcessor) sendMessages(
 	if len(packetMessages) == 0 && len(connectionMessages) == 0 && len(channelMessages) == 0 {
 		return nil
 	}
-
+	var messages []provider.RelayerMessage
 	msgUpdateClient, err := pp.assembleMsgUpdateClient(ctx, src, dst)
 	if err != nil {
-		return fmt.Errorf("error assembling MsgUpdateClient: %w", err)
+		return err
 	}
-
-	messages := make([]provider.RelayerMessage, 0, 1+len(packetMessages)+len(connectionMessages)+len(channelMessages))
-
 	messages = append(messages, msgUpdateClient)
+
+	var sentPackageMessages []packetIBCMessage
+	var sentConnectionMessages []connectionIBCMessage
+	var sentChannelMessages []channelIBCMessage
+
 	for _, msg := range packetMessages {
-		messages = append(messages, msg.message)
+		var assembleMessage func(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error)
+		switch msg.action {
+		case MsgRecvPacket:
+			assembleMessage = src.chainProvider.MsgRecvPacket
+		case MsgAcknowledgement:
+			assembleMessage = src.chainProvider.MsgAcknowledgement
+		case MsgTimeout:
+			assembleMessage = src.chainProvider.MsgTimeout
+		case MsgTimeoutOnClose:
+			assembleMessage = src.chainProvider.MsgTimeoutOnClose
+		default:
+			pp.log.Error("unexepected packet message action for message assembly",
+				zap.String("action", msg.action),
+			)
+			continue
+		}
+
+		message, err := pp.assemblePacketIBCMessage(ctx, src, dst, msg, assembleMessage)
+		if err != nil {
+			pp.log.Error("Error assembling packet message", zap.Error(err))
+			continue
+		}
+		sentPackageMessages = append(sentPackageMessages, msg)
+		messages = append(messages, message)
 	}
-	for _, msg := range connectionMessages {
-		messages = append(messages, msg.message)
-	}
-	for _, msg := range channelMessages {
-		messages = append(messages, msg.message)
-	}
+
+	// TODO handle connection and channel handshake messages
 
 	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, messages)
 	if err != nil {
@@ -249,13 +271,13 @@ func (pp *PathProcessor) sendMessages(
 		return errors.New("error sending messages, transaction was not successful")
 	}
 
-	for _, msg := range packetMessages {
+	for _, msg := range sentPackageMessages {
 		dst.trackSentPacketMessage(msg)
 	}
-	for _, msg := range connectionMessages {
+	for _, msg := range sentConnectionMessages {
 		dst.trackSentConnectionMessage(msg)
 	}
-	for _, msg := range channelMessages {
+	for _, msg := range sentChannelMessages {
 		dst.trackSentChannelMessage(msg)
 	}
 
@@ -305,7 +327,7 @@ func (pp *PathProcessor) connectionMessagesToSend(pathEnd1ConnectionHandshakeRes
 	return pathEnd1ConnectionMessages, pathEnd2ConnectionMessages
 }
 
-func (pp *PathProcessor) packetMessagesToSend(channelPairs []channelPair, pathEnd1ProcessRes []*pathEndPacketFlowResponse, pathEnd2ProcessRes []*pathEndPacketFlowResponse) ([]packetIBCMessage, []packetIBCMessage) {
+func (pp *PathProcessor) packetMessagesToSend(channelPairs []channelPair, pathEnd1ProcessRes []pathEndPacketFlowResponse, pathEnd2ProcessRes []pathEndPacketFlowResponse) ([]packetIBCMessage, []packetIBCMessage) {
 	pathEnd1PacketLen := 0
 	pathEnd2PacketLen := 0
 	for i := 0; i < len(channelPairs); i++ {
