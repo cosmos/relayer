@@ -223,12 +223,12 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	if len(packetMessages) == 0 && len(connectionMessages) == 0 && len(channelMessages) == 0 {
 		return nil
 	}
-	var messages []provider.RelayerMessage
+	var outgoingMessages []provider.RelayerMessage
 	msgUpdateClient, err := pp.assembleMsgUpdateClient(ctx, src, dst)
 	if err != nil {
 		return err
 	}
-	messages = append(messages, msgUpdateClient)
+	outgoingMessages = append(outgoingMessages, msgUpdateClient)
 
 	var sentPackageMessages []packetIBCMessage
 	var sentConnectionMessages []connectionIBCMessage
@@ -246,7 +246,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		case MsgTimeoutOnClose:
 			assembleMessage = src.chainProvider.MsgTimeoutOnClose
 		default:
-			pp.log.Error("unexepected packet message action for message assembly",
+			pp.log.Error("Unexepected packet message action for message assembly",
 				zap.String("action", msg.action),
 			)
 			continue
@@ -258,12 +258,12 @@ func (pp *PathProcessor) assembleAndSendMessages(
 			continue
 		}
 		sentPackageMessages = append(sentPackageMessages, msg)
-		messages = append(messages, message)
+		outgoingMessages = append(outgoingMessages, message)
 	}
 
 	// TODO handle connection and channel handshake messages
 
-	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, messages)
+	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, outgoingMessages)
 	if err != nil {
 		return fmt.Errorf("error sending messages: %w", err)
 	}
