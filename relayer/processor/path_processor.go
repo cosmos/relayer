@@ -183,6 +183,11 @@ func (pp *PathProcessor) assemblePacketIBCMessage(
 	assembleMessage func(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error),
 	messages *[]packetIBCMessage,
 ) error {
+	packetMsg := packetIBCMessage{channelKey: channelKey, action: action, sequence: sequence, message: partialMessage}
+	// skip unneccessary message assembly queries if this message will not be sent this time anyways
+	if !dst.shouldSendPacketMessage(packetMsg, src) {
+		return nil
+	}
 	signer, err := dst.chainProvider.Address()
 	if err != nil {
 		return fmt.Errorf("error getting signer address for {%s}: %w", dst.info.ChainID, err)
@@ -191,7 +196,8 @@ func (pp *PathProcessor) assemblePacketIBCMessage(
 	if err != nil {
 		return fmt.Errorf("error assembling %s for {%s}: %w", action, dst.info.ChainID, err)
 	}
-	*messages = append(*messages, packetIBCMessage{channelKey: channelKey, action: action, sequence: sequence, message: assembled})
+	packetMsg.message = assembled
+	*messages = append(*messages, packetMsg)
 	return nil
 }
 

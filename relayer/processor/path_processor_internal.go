@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"go.uber.org/zap"
 )
 
 // shouldSendPacketMessage determines if the packet flow message should be sent now.
@@ -224,43 +223,25 @@ func (pp *PathProcessor) sendMessages(
 		return nil
 	}
 
-	var messages []provider.RelayerMessage
-
-	for _, msg := range packetMessages {
-		if !dst.shouldSendPacketMessage(msg, src) {
-			continue
-		}
-		messages = append(messages, msg.message)
-	}
-	for _, msg := range connectionMessages {
-		if !dst.shouldSendConnectionMessage(msg, src) {
-			continue
-		}
-		messages = append(messages, msg.message)
-	}
-	for _, msg := range channelMessages {
-		if !dst.shouldSendChannelMessage(msg, src) {
-			continue
-		}
-		messages = append(messages, msg.message)
-	}
-
-	if len(messages) == 0 {
-		pp.log.Debug("No messages to send after filtering", zap.String("chain_id", dst.info.ChainID))
-		return nil
-	}
-
 	msgUpdateClient, err := pp.assembleMsgUpdateClient(ctx, src, dst)
 	if err != nil {
 		return fmt.Errorf("error assembling MsgUpdateClient: %w", err)
 	}
 
-	// build final messages slice of all messages to send prepended with MsgUpdateClient
-	finalMessages := make([]provider.RelayerMessage, 0, len(messages)+1)
-	finalMessages = append(finalMessages, msgUpdateClient)
-	finalMessages = append(finalMessages, messages...)
+	messages := make([]provider.RelayerMessage, 0, 1+len(packetMessages)+len(connectionMessages)+len(channelMessages))
 
-	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, finalMessages)
+	messages = append(messages, msgUpdateClient)
+	for _, msg := range packetMessages {
+		messages = append(messages, msg.message)
+	}
+	for _, msg := range connectionMessages {
+		messages = append(messages, msg.message)
+	}
+	for _, msg := range channelMessages {
+		messages = append(messages, msg.message)
+	}
+
+	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, messages)
 	if err != nil {
 		return fmt.Errorf("error sending messages: %w", err)
 	}
