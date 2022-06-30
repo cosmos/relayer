@@ -3,6 +3,7 @@ package ibctest_test
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -21,6 +22,8 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
+const relayerImageName = "ibctestrelayer"
+
 // TestRelayer runs the ibctest conformance tests against
 // the current state of this relayer implementation.
 //
@@ -29,41 +32,19 @@ import (
 //
 // The canonical set of test chains are defined in the ibctest repository.
 func TestRelayer(t *testing.T) {
+	buildRelayerImage(t)
+
 	cf := ibctest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctest.ChainSpec{
 		{Name: "gaia", Version: "v7.0.1", ChainConfig: ibc.ChainConfig{ChainID: "cosmoshub-1004"}},
 		{Name: "osmosis", Version: "v7.2.0", ChainConfig: ibc.ChainConfig{ChainID: "osmosis-1001"}},
 	})
 
-	_, b, _, _ := runtime.Caller(0)
-	basepath := filepath.Join(filepath.Dir(b), "..")
-
-	tar, err := archive.TarWithOptions(basepath, &archive.TarOptions{})
-	require.NoError(t, err, "error archiving relayer for docker image build")
-
-	const dockerImageName = "ibctestrelayer"
-
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	require.NoError(t, err, "error building docker client")
-
-	res, err := cli.ImageBuild(context.Background(), tar, dockertypes.ImageBuildOptions{
-		Dockerfile: "local.Dockerfile",
-		Tags:       []string{dockerImageName},
-	})
-	if err != nil {
-		if res.Body == nil {
-			t.Fatal("error building docker image, body is nil: ", err)
-		}
-		scanner := bufio.NewScanner(res.Body)
-		if scanner == nil {
-			t.Fatal("error building docker image, scanner is nil: ", err)
-		}
-		for scanner.Scan() {
-			fmt.Println(scanner.Text())
-		}
-		t.Fatal("error building docker image", err)
-	}
-
-	relayerFactory := ibctest.NewBuiltinRelayerFactory(ibc.CosmosRly, zaptest.NewLogger(t), ibctestrelayer.CustomDockerImage(dockerImageName, "latest"), ibctestrelayer.ImagePull(false))
+	relayerFactory := ibctest.NewBuiltinRelayerFactory(
+		ibc.CosmosRly,
+		zaptest.NewLogger(t),
+		ibctestrelayer.CustomDockerImage(relayerImageName, "latest"),
+		ibctestrelayer.ImagePull(false),
+	)
 
 	conformance.Test(
 		t,
@@ -73,6 +54,61 @@ func TestRelayer(t *testing.T) {
 		// which is fine for these tests for now.
 		testreporter.NewReporter(newNopWriteCloser()),
 	)
+}
+
+type dockerLogLine struct {
+	Stream      string            `json:"stream"`
+	Aux         any               `json:"aux"`
+	Error       string            `json:"error"`
+	ErrorDetail dockerErrorDetail `json:"errorDetail"`
+}
+
+type dockerErrorDetail struct {
+	Message string `json:"message"`
+}
+
+func buildRelayerImage(t *testing.T) {
+	_, b, _, _ := runtime.Caller(0)
+	basepath := filepath.Join(filepath.Dir(b), "..")
+
+	tar, err := archive.TarWithOptions(basepath, &archive.TarOptions{})
+	require.NoError(t, err, "error archiving relayer for docker image build")
+
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	require.NoError(t, err, "error building docker client")
+
+	res, err := cli.ImageBuild(context.Background(), tar, dockertypes.ImageBuildOptions{
+		Dockerfile: "local.Dockerfile",
+		Tags:       []string{relayerImageName},
+	})
+	require.NoError(t, err, "error building docker image")
+
+	defer res.Body.Close()
+	handleDockerBuildOutput(t, res.Body)
+}
+
+func handleDockerBuildOutput(t *testing.T, body io.Reader) {
+	var logLine dockerLogLine
+
+	scanner := bufio.NewScanner(body)
+	for scanner.Scan() {
+		logLine.Stream = ""
+		logLine.Aux = nil
+		logLine.Error = ""
+		logLine.ErrorDetail = dockerErrorDetail{}
+
+		line := scanner.Text()
+
+		_ = json.Unmarshal([]byte(line), &logLine)
+		if logLine.Stream != "" {
+			fmt.Print(logLine.Stream)
+		}
+		if logLine.Aux != nil {
+			fmt.Println(logLine.Aux)
+		}
+	}
+
+	require.Equalf(t, "", logLine.Error, "docker image build error: %s", logLine.ErrorDetail.Message)
 }
 
 // nopWriteCloser is a no-op io.WriteCloser used to satisfy the ibctest TestReporter type.
