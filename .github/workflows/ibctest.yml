@@ -27,4 +27,4 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: ibctest conformance tests
-        run: make ibctest
+        run: make ibctest-docker
