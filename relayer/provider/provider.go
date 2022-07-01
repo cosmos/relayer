@@ -155,6 +155,24 @@ type ChainProvider interface {
 
 	// [End] Packet flow IBC message assembly
 
+	// [Begin] Connection handshake IBC message assembly
+
+	MsgConnectionOpenTry(ctx context.Context, msgOpenTry RelayerMessage, signer string, latest LatestBlock) (RelayerMessage, error)
+	MsgConnectionOpenAck(ctx context.Context, msgOpenAck RelayerMessage, signer string, latest LatestBlock) (RelayerMessage, error)
+	MsgConnectionOpenConfirm(ctx context.Context, msgOpenConfirm RelayerMessage, signer string, latest LatestBlock) (RelayerMessage, error)
+
+	// [End] Connection handshake IBC message assembly
+
+	// [Begin] Channel handshake IBC message assembly
+
+	MsgChannelOpenTry(ctx context.Context, msgOpenTry RelayerMessage, signer string, latest LatestBlock) (RelayerMessage, error)
+	MsgChannelOpenAck(ctx context.Context, msgOpenAck RelayerMessage, signer string, latest LatestBlock) (RelayerMessage, error)
+	MsgChannelOpenConfirm(ctx context.Context, msgOpenConfirm RelayerMessage, signer string, latest LatestBlock) (RelayerMessage, error)
+	
+	MsgChannelCloseConfirm(ctx context.Context, msgCloseConfirm RelayerMessage, signer string, latest LatestBlock) (RelayerMessage, error)
+
+	// [End] Channel handshake IBC message assembly
+
 	// [Begin] Client IBC message assembly
 
 	// MsgUpdateClientHeader takes the latest chain header, in addition to the latest client trusted header

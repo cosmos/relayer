@@ -12,19 +12,20 @@ import (
 
 // assembleIBCMessage constructs the applicable IBC message using the requested function.
 // These functions may do things like make queries in order to assemble a complete IBC message.
-func (pp *PathProcessor) assemblePacketIBCMessage(
+func (pp *PathProcessor) assembleIBCMessage(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
-	partialMessage packetIBCMessage,
+	partialMessage provider.RelayerMessage,
+	action string,
 	assembleMessage func(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error),
 ) (provider.RelayerMessage, error) {
 	signer, err := dst.chainProvider.Address()
 	if err != nil {
 		return nil, fmt.Errorf("error getting signer address for {%s}: %w", dst.info.ChainID, err)
 	}
-	assembled, err := assembleMessage(ctx, partialMessage.message, signer, src.latestBlock)
+	assembled, err := assembleMessage(ctx, partialMessage, signer, src.latestBlock)
 	if err != nil {
-		return nil, fmt.Errorf("error assembling %s for {%s}: %w", partialMessage.action, dst.info.ChainID, err)
+		return nil, fmt.Errorf("error assembling %s for {%s}: %w", action, dst.info.ChainID, err)
 	}
 
 	return assembled, nil
@@ -516,7 +517,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	var sentChannelMessages []channelIBCMessage
 
 	for _, msg := range packetMessages {
-		var assembleMessage func(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error)
+		var assembleMessage func(context.Context, provider.RelayerMessage, string, provider.LatestBlock) (provider.RelayerMessage, error)
 		switch msg.action {
 		case MsgRecvPacket:
 			assembleMessage = src.chainProvider.MsgRecvPacket
@@ -533,7 +534,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 			continue
 		}
 
-		message, err := pp.assemblePacketIBCMessage(ctx, src, dst, msg, assembleMessage)
+		message, err := pp.assembleIBCMessage(ctx, src, dst, msg.message, msg.action, assembleMessage)
 		if err != nil {
 			pp.log.Error("Error assembling packet message", zap.Error(err))
 			continue
@@ -542,7 +543,55 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		outgoingMessages = append(outgoingMessages, message)
 	}
 
-	// TODO handle connection and channel handshake messages
+	for _, msg := range connectionMessages {
+		var assembleMessage func(context.Context, provider.RelayerMessage, string, provider.LatestBlock) (provider.RelayerMessage, error)
+		switch msg.action {
+		case MsgConnectionOpenTry:
+			assembleMessage = src.chainProvider.MsgConnectionOpenTry
+		case MsgConnectionOpenAck:
+			assembleMessage = src.chainProvider.MsgConnectionOpenAck
+		case MsgConnectionOpenConfirm:
+			assembleMessage = src.chainProvider.MsgConnectionOpenConfirm
+		default:
+			pp.log.Error("Unexepected connection message action for message assembly",
+				zap.String("action", msg.action),
+			)
+			continue
+		}
+
+		message, err := pp.assembleIBCMessage(ctx, src, dst, msg.message, msg.action, assembleMessage)
+		if err != nil {
+			pp.log.Error("Error assembling connection message", zap.Error(err))
+			continue
+		}
+		sentConnectionMessages = append(sentConnectionMessages, msg)
+		outgoingMessages = append(outgoingMessages, message)
+	}
+
+	for _, msg := range channelMessages {
+		var assembleMessage func(context.Context, provider.RelayerMessage, string, provider.LatestBlock) (provider.RelayerMessage, error)
+		switch msg.action {
+		case MsgChannelOpenTry:
+			assembleMessage = src.chainProvider.MsgChannelOpenTry
+		case MsgChannelOpenAck:
+			assembleMessage = src.chainProvider.MsgChannelOpenAck
+		case MsgChannelOpenConfirm:
+			assembleMessage = src.chainProvider.MsgChannelOpenConfirm
+		default:
+			pp.log.Error("Unexepected channel message action for message assembly",
+				zap.String("action", msg.action),
+			)
+			continue
+		}
+
+		message, err := pp.assembleIBCMessage(ctx, src, dst, msg.message, msg.action, assembleMessage)
+		if err != nil {
+			pp.log.Error("Error assembling connection message", zap.Error(err))
+			continue
+		}
+		sentChannelMessages = append(sentChannelMessages, msg)
+		outgoingMessages = append(outgoingMessages, message)
+	}
 
 	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, outgoingMessages)
 	if err != nil {

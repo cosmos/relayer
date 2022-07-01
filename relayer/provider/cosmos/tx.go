@@ -1178,6 +1178,34 @@ func (cc *CosmosProvider) MsgTimeoutOnClose(ctx context.Context, msgRecvPacket p
 	return NewCosmosMessage(msgTimeout), nil
 }
 
+func (cc *CosmosProvider) MsgConnectionOpenTry(ctx context.Context, msgOpenTry provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+	return nil, errors.New("not yet implemented")
+}
+
+func (cc *CosmosProvider) MsgConnectionOpenAck(ctx context.Context, msgOpenAck provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+	return nil, errors.New("not yet implemented")
+}
+
+func (cc *CosmosProvider) MsgConnectionOpenConfirm(ctx context.Context, msgOpenConfirm provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+	return nil, errors.New("not yet implemented")
+}
+
+func (cc *CosmosProvider) MsgChannelOpenTry(ctx context.Context, msgOpenTry provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+	return nil, errors.New("not yet implemented")
+}
+
+func (cc *CosmosProvider) MsgChannelOpenAck(ctx context.Context, msgOpenAck provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+	return nil, errors.New("not yet implemented")
+}
+
+func (cc *CosmosProvider) MsgChannelOpenConfirm(ctx context.Context, msgOpenConfirm provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+	return nil, errors.New("not yet implemented")
+}
+
+func (cc *CosmosProvider) MsgChannelCloseConfirm(ctx context.Context, msgCloseConfirm provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+	return nil, errors.New("not yet implemented")
+}
+
 func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.Header, error) {
 	trustedCosmosHeader, ok := trustedHeader.(CosmosIBCHeader)
 	if !ok {
