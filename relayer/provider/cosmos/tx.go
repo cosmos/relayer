@@ -1179,30 +1179,164 @@ func (cc *CosmosProvider) MsgTimeoutOnClose(ctx context.Context, msgRecvPacket p
 }
 
 func (cc *CosmosProvider) MsgConnectionOpenTry(ctx context.Context, msgOpenTry provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	return nil, errors.New("not yet implemented")
+	msg := typedCosmosMsg[*conntypes.MsgConnectionOpenTry](msgOpenTry)
+
+	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := cc.GenerateConnHandshakeProof(ctx, int64(latest.Height), msg.Counterparty.ClientId, msg.Counterparty.ConnectionId)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(connStateProof) == 0 {
+		// It is possible that we have asked for a proof too early.
+		// If the connection state proof is empty, there is no point in returning the MsgConnectionOpenTry.
+		// We are not using (*conntypes.MsgConnectionOpenTry).ValidateBasic here because
+		// that chokes on cross-chain bech32 details in ibc-go.
+		return nil, fmt.Errorf("received invalid zero-length connection state proof")
+	}
+
+	csAny, err := clienttypes.PackClientState(clientState)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: query instead of using default
+	msg.DelayPeriod = defaultDelayPeriod
+	msg.Counterparty.Prefix = defaultChainPrefix
+	msg.CounterpartyVersions = conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions())
+
+	msg.ClientState = csAny
+	msg.ProofHeight = proofHeight.(clienttypes.Height)
+	msg.ProofInit = connStateProof
+	msg.ProofClient = clientStateProof
+	msg.ProofConsensus = consensusStateProof
+	msg.ConsensusHeight = clientState.GetLatestHeight().(clienttypes.Height)
+	msg.Signer = signer
+
+	return NewCosmosMessage(msg), nil
 }
 
 func (cc *CosmosProvider) MsgConnectionOpenAck(ctx context.Context, msgOpenAck provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	return nil, errors.New("not yet implemented")
+	msg := typedCosmosMsg[*conntypes.MsgConnectionOpenAck](msgOpenAck)
+
+	// TODO fetch or pass this in
+	dstClientID := "TODO"
+
+	clientState, clientStateProof, consensusStateProof, connStateProof,
+		proofHeight, err := cc.GenerateConnHandshakeProof(ctx, int64(latest.Height), dstClientID, msg.CounterpartyConnectionId)
+	if err != nil {
+		return nil, err
+	}
+
+	csAny, err := clienttypes.PackClientState(clientState)
+	if err != nil {
+		return nil, err
+	}
+
+	msg.Version = conntypes.DefaultIBCVersion
+	msg.ClientState = csAny
+	msg.ProofHeight = proofHeight.(clienttypes.Height)
+	msg.ProofTry = connStateProof
+	msg.ProofClient = clientStateProof
+	msg.ProofConsensus = consensusStateProof
+	msg.ConsensusHeight = clientState.GetLatestHeight().(clienttypes.Height)
+	msg.Signer = signer
+
+	return NewCosmosMessage(msg), nil
 }
 
 func (cc *CosmosProvider) MsgConnectionOpenConfirm(ctx context.Context, msgOpenConfirm provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	return nil, errors.New("not yet implemented")
+	msg := typedCosmosMsg[*conntypes.MsgConnectionOpenConfirm](msgOpenConfirm)
+
+	// TODO fetch or pass this in
+	dstConnectionID := "TODO"
+
+	connState, err := cc.QueryConnection(ctx, int64(latest.Height), dstConnectionID)
+	if err != nil {
+		return nil, err
+	}
+
+	msg.ProofAck = connState.Proof
+	msg.ProofHeight = connState.ProofHeight
+	msg.Signer = signer
+
+	return NewCosmosMessage(msg), nil
 }
 
 func (cc *CosmosProvider) MsgChannelOpenTry(ctx context.Context, msgOpenTry provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	return nil, errors.New("not yet implemented")
+	msg := typedCosmosMsg[*chantypes.MsgChannelOpenTry](msgOpenTry)
+
+	channelRes, err := cc.QueryChannel(ctx, int64(latest.Height), msg.Channel.Counterparty.ChannelId, msg.Channel.Counterparty.PortId)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(channelRes.Proof) == 0 {
+		// It is possible that we have asked for a proof too early.
+		// If the connection state proof is empty, there is no point in returning the MsgChannelOpenTry.
+		// We are not using (*conntypes.MsgChannelOpenTry).ValidateBasic here because
+		// that chokes on cross-chain bech32 details in ibc-go.
+		return nil, fmt.Errorf("received invalid zero-length channel state proof")
+	}
+
+	msg.Channel.State = chantypes.TRYOPEN
+	msg.Channel.Ordering = channelRes.Channel.Ordering
+	// msg.Channel.Version = ? TODO
+	msg.ProofInit = channelRes.Proof
+	msg.ProofHeight = channelRes.ProofHeight
+	msg.CounterpartyVersion = channelRes.Channel.Version
+	msg.Signer = signer
+
+	return NewCosmosMessage(msg), nil
 }
 
 func (cc *CosmosProvider) MsgChannelOpenAck(ctx context.Context, msgOpenAck provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	return nil, errors.New("not yet implemented")
+	msg := typedCosmosMsg[*chantypes.MsgChannelOpenAck](msgOpenAck)
+
+	// TODO should be counterparty port ID but we don't have that info yet.
+	dstPortId := "transfer"
+
+	channelRes, err := cc.QueryChannel(ctx, int64(latest.Height), msg.CounterpartyChannelId, dstPortId)
+	if err != nil {
+		return nil, err
+	}
+
+	msg.ProofTry = channelRes.Proof
+	msg.ProofHeight = channelRes.ProofHeight
+	msg.CounterpartyVersion = channelRes.Channel.Version
+	msg.Signer = signer
+
+	return NewCosmosMessage(msg), nil
 }
 
 func (cc *CosmosProvider) MsgChannelOpenConfirm(ctx context.Context, msgOpenConfirm provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	return nil, errors.New("not yet implemented")
+	msg := typedCosmosMsg[*chantypes.MsgChannelOpenConfirm](msgOpenConfirm)
+
+	// TODO check channel and port ID here, should be counterparty but we don't have that info yet.
+	channelRes, err := cc.QueryChannel(ctx, int64(latest.Height), msg.ChannelId, msg.PortId)
+	if err != nil {
+		return nil, err
+	}
+
+	msg.ProofAck = channelRes.Proof
+	msg.ProofHeight = channelRes.ProofHeight
+	msg.Signer = signer
+
+	return NewCosmosMessage(msg), nil
 }
 
 func (cc *CosmosProvider) MsgChannelCloseConfirm(ctx context.Context, msgCloseConfirm provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+	msg := typedCosmosMsg[*chantypes.MsgChannelCloseConfirm](msgCloseConfirm)
+
+	// TODO check channel and port ID here, should be counterparty but we don't have that info yet.
+	channelRes, err := cc.QueryChannel(ctx, int64(latest.Height), msg.ChannelId, msg.PortId)
+	if err != nil {
+		return nil, err
+	}
+
+	msg.ProofInit = channelRes.Proof
+	msg.ProofHeight = channelRes.ProofHeight
+	msg.Signer = signer
+
 	return nil, errors.New("not yet implemented")
 }
 
