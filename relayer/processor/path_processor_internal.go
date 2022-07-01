@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"golang.org/x/sync/errgroup"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // assembleIBCMessage constructs the applicable IBC message using the requested function.

@@ -130,7 +130,6 @@ func (pathEnd *pathEndRuntime) MergeCacheData(d ChainProcessorCacheData) {
 	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
 }
 
-
 // shouldSendPacketMessage determines if the packet flow message should be sent now.
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
 func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage, counterparty *pathEndRuntime) bool {
