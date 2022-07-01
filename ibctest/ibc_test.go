@@ -44,6 +44,7 @@ func TestRelayer(t *testing.T) {
 		zaptest.NewLogger(t),
 		ibctestrelayer.CustomDockerImage(relayerImageName, "latest"),
 		ibctestrelayer.ImagePull(false),
+		ibctestrelayer.StartupFlags("--processor", "events", "--block-history", "100"),
 	)
 
 	conformance.Test(
