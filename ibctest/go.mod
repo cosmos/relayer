@@ -8,7 +8,7 @@ require (
 	github.com/docker/docker v20.10.17+incompatible
 	github.com/moby/moby v20.10.17+incompatible
 	github.com/ory/dockertest/v3 v3.9.1
-	github.com/strangelove-ventures/ibctest v0.0.0-20220701153033-6cac8e364cf5
+	github.com/strangelove-ventures/ibctest v0.0.0-20220701194752-7d965645c85e
 	github.com/stretchr/testify v1.7.2
 	go.uber.org/zap v1.21.0
 )
@@ -51,7 +51,7 @@ require (
 	github.com/dgraph-io/ristretto v0.0.3 // indirect
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
 	github.com/docker/cli v20.10.14+incompatible // indirect
-	github.com/docker/distribution v2.7.1+incompatible // indirect
+	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect

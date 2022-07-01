@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"path/filepath"
 	"runtime"
@@ -63,10 +62,10 @@ func handleDockerBuildOutput(t *testing.T, body io.Reader) {
 
 		_ = json.Unmarshal([]byte(line), &logLine)
 		if logLine.Stream != "" {
-			fmt.Print(logLine.Stream)
+			t.Log(logLine.Stream)
 		}
 		if logLine.Aux != nil {
-			fmt.Println(logLine.Aux)
+			t.Log(logLine.Aux)
 		}
 	}
 

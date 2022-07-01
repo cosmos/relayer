@@ -470,6 +470,8 @@ github.com/docker/distribution v0.0.0-20190905152932-14b96e55d84c/go.mod h1:0+TT
 github.com/docker/distribution v2.7.1-0.20190205005809-0d3efadf0154+incompatible/go.mod h1:J2gT2udsDAN96Uj4KfcMRqY0/ypR+oyYUYmja8H+y+w=
 github.com/docker/distribution v2.7.1+incompatible h1:a5mlkVzth6W5A4fOsS3D2EO5BUmsJpcB+cRlLU7cSug=
 github.com/docker/distribution v2.7.1+incompatible/go.mod h1:J2gT2udsDAN96Uj4KfcMRqY0/ypR+oyYUYmja8H+y+w=
+github.com/docker/distribution v2.8.1+incompatible h1:Q50tZOPR6T/hjNsyc9g8/syEs6bk8XXApsHjKukMl68=
+github.com/docker/distribution v2.8.1+incompatible/go.mod h1:J2gT2udsDAN96Uj4KfcMRqY0/ypR+oyYUYmja8H+y+w=
 github.com/docker/docker v1.4.2-0.20180625184442-8e610b2b55bf/go.mod h1:eEKB0N0r5NX/I1kEveEz05bcu8tLC/8azJZsviup8Sk=
 github.com/docker/docker v1.4.2-0.20190924003213-a8608b5b67c7/go.mod h1:eEKB0N0r5NX/I1kEveEz05bcu8tLC/8azJZsviup8Sk=
 github.com/docker/docker v20.10.17+incompatible h1:JYCuMrWaVNophQTOrMMoSwudOVEfcegoZZrleKc1xwE=
@@ -1311,6 +1313,8 @@ github.com/status-im/keycard-go v0.0.0-20190316090335-8537d3370df4/go.mod h1:RZL
 github.com/stefanberger/go-pkcs11uri v0.0.0-20201008174630-78d3cae3a980/go.mod h1:AO3tvPzVZ/ayst6UlUKUv6rcPQInYe3IknH3jYhAKu8=
 github.com/strangelove-ventures/ibctest v0.0.0-20220701153033-6cac8e364cf5 h1:nLcJS7r823agRlmmd92GlFOeIYJQRA6P+zxc58kgRCg=
 github.com/strangelove-ventures/ibctest v0.0.0-20220701153033-6cac8e364cf5/go.mod h1:t3iz43R1/j4s8amDiZ+VHER9NOdTm3vpWnI6JnTkq58=
+github.com/strangelove-ventures/ibctest v0.0.0-20220701194752-7d965645c85e h1:eoeVQCUjMYHt/sOT3oAYxtv7TQB2hbtjvFcMNRpcfh4=
+github.com/strangelove-ventures/ibctest v0.0.0-20220701194752-7d965645c85e/go.mod h1:UjhKi/BLudic8IAvfFMNqBRzJC0wm1EVRAZTRZjR6+c=
 github.com/strangelove-ventures/lens v0.5.1 h1:8FbPhcCdZqj0RKYs9Lqhlezz89KCHzDDGd/7WgM44C0=
 github.com/strangelove-ventures/lens v0.5.1/go.mod h1:E6Zh+4WEtIy9RsyUIGvCaLnhgfpYwMS5WJ4a6fP+UrM=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=

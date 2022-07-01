@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ory/dockertest/v3"
+	"github.com/docker/docker/client"
 	"github.com/strangelove-ventures/ibctest/ibc"
 	"github.com/strangelove-ventures/ibctest/label"
 	ibctestrelayer "github.com/strangelove-ventures/ibctest/relayer"
@@ -17,15 +17,12 @@ type RelayerFactory struct{}
 // Build returns a relayer interface
 func (RelayerFactory) Build(
 	t *testing.T,
-	pool *dockertest.Pool,
+	_ *client.Client,
 	networkID string,
 	home string,
 ) ibc.Relayer {
 	r := &Relayer{
-		t: t,
-
-		pool: pool,
-
+		t:    t,
 		home: home,
 	}
 

@@ -67,7 +67,7 @@ test-short:
 	@go test -mod=readonly -v -run TestOsmoToGaiaRelaying ./_test/
 
 ibctest:
-	cd ibctest && go test -race -v -run TestRelayer .
+	cd ibctest && go test -race -v -run TestRelayerInProcess .
 
 ibctest-docker:
 	cd ibctest && go test -race -v -run TestRelayerDocker .

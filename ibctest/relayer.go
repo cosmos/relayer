@@ -11,7 +11,6 @@ import (
 	"github.com/cosmos/relayer/v2/cmd"
 	"github.com/cosmos/relayer/v2/internal/relayertest"
 	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
-	"github.com/ory/dockertest/v3"
 	"github.com/strangelove-ventures/ibctest/ibc"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -19,8 +18,6 @@ import (
 
 type Relayer struct {
 	t *testing.T
-
-	pool *dockertest.Pool
 
 	home string
 
@@ -88,10 +85,6 @@ func (r *Relayer) GeneratePath(ctx context.Context, _ ibc.RelayerExecReporter, s
 		return res.Err
 	}
 	return nil
-}
-
-func (r *Relayer) ClearQueue(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, channelID string) error {
-	panic("not yet implemented")
 }
 
 func (r *Relayer) GetChannels(ctx context.Context, _ ibc.RelayerExecReporter, chainID string) ([]ibc.ChannelOutput, error) {

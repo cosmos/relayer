@@ -35,9 +35,9 @@ func ibctestConformance(t *testing.T, rf ibctest.RelayerFactory) {
 	)
 }
 
-// TestRelayerBinary runs the ibctest conformance tests against
-// the current state of this relayer implementation built as a binary.
-func TestRelayerBinary(t *testing.T) {
+// TestRelayerInProcess runs the ibctest conformance tests against
+// the current state of this relayer implementation running in process.
+func TestRelayerInProcess(t *testing.T) {
 	ibctestConformance(t, relayeribctest.RelayerFactory{})
 }
 
