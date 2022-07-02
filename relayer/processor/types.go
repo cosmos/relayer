@@ -43,6 +43,47 @@ var (
 	MsgSubmitMisbehaviour = "/" + proto.MessageName((*clienttypes.MsgSubmitMisbehaviour)(nil))
 )
 
+// TerminationMessage is used to set a stop condition for the PathProcessor.
+// PathProcessor will stop if it observes a message that matches the TerminationMessage.
+type TerminationMessage interface {
+	terminationMessageIndicator()
+	chainID() string
+}
+
+// PacketTerminationMessage is used as a stop condition for the PathProcessor.
+// It will stop if it observes a packet flow message matching the struct parameters.
+type PacketTerminationMessage struct {
+	ChainID    string
+	Action     string
+	ChannelKey ChannelKey
+	Sequence   uint64
+}
+
+func (t *PacketTerminationMessage) terminationMessageIndicator() {}
+func (t *PacketTerminationMessage) chainID() string              { return t.ChainID }
+
+// ConnectionTerminationMessage is used as a stop condition for the PathProcessor.
+// It will stop if it observes a connection handshake message matching the struct parameters.
+type ConnectionTerminationMessage struct {
+	ChainID       string
+	Action        string
+	ConnectionKey ConnectionKey
+}
+
+func (t *ConnectionTerminationMessage) terminationMessageIndicator() {}
+func (t *ConnectionTerminationMessage) chainID() string              { return t.ChainID }
+
+// ChannelTerminationMessage is used as a stop condition for the PathProcessor.
+// It will stop if it observes a channel handshake message matching the struct parameters.
+type ChannelTerminationMessage struct {
+	ChainID    string
+	Action     string
+	ChannelKey ChannelKey
+}
+
+func (t *ChannelTerminationMessage) terminationMessageIndicator() {}
+func (t *ChannelTerminationMessage) chainID() string              { return t.ChainID }
+
 type IBCMessagesCache struct {
 	PacketFlow          ChannelPacketMessagesCache
 	ConnectionHandshake ConnectionMessagesCache

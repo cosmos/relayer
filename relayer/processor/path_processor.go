@@ -168,22 +168,25 @@ func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorC
 }
 
 // Run executes the main path process.
-func (pp *PathProcessor) Run(ctx context.Context) {
+func (pp *PathProcessor) Run(ctx context.Context, ctxCancel func(), terminationMsg TerminationMessage) {
 	for {
 		select {
-		case <-ctx.Done():
-			return
-
 		case d := <-pp.pathEnd1.incomingCacheData:
 			// we have new data from ChainProcessor for pathEnd1
-			pp.pathEnd1.MergeCacheData(d)
+			pp.pathEnd1.MergeCacheData(ctx, ctxCancel, d, terminationMsg)
 
 		case d := <-pp.pathEnd2.incomingCacheData:
 			// we have new data from ChainProcessor for pathEnd2
-			pp.pathEnd2.MergeCacheData(d)
+			pp.pathEnd2.MergeCacheData(ctx, ctxCancel, d, terminationMsg)
 
 		case <-pp.retryProcess:
 			// No new data to merge in, just retry handling.
+		}
+
+		// check context error here in case MergeCacheData found termination condition,
+		// don't need to proceed to process messages if so.
+		if ctx.Err() != nil {
+			return
 		}
 
 		if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {

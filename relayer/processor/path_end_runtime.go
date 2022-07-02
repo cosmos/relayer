@@ -1,6 +1,10 @@
 package processor
 
-import "github.com/cosmos/relayer/v2/relayer/provider"
+import (
+	"context"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
+)
 
 // pathEndRuntime is used at runtime for each chain involved in the path.
 // It holds a channel for incoming messages from the ChainProcessors, which are
@@ -115,11 +119,65 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache) 
 	pathEnd.messageCache.ChannelHandshake.Merge(channelHandshakeMessages)
 }
 
-func (pathEnd *pathEndRuntime) MergeCacheData(d ChainProcessorCacheData) {
+func (pathEnd *pathEndRuntime) shouldTerminate(cache IBCMessagesCache, terminationMsg TerminationMessage) bool {
+	if terminationMsg == nil {
+		return false
+	}
+	if terminationMsg.chainID() != pathEnd.info.ChainID {
+		return false
+	}
+	switch m := terminationMsg.(type) {
+	case *PacketTerminationMessage:
+		actionCache, ok := pathEnd.messageCache.PacketFlow[m.ChannelKey]
+		if !ok {
+			return false
+		}
+		sequenceCache, ok := actionCache[m.Action]
+		if !ok {
+			return false
+		}
+		_, ok = sequenceCache[m.Sequence]
+		if !ok {
+			return false
+		}
+		// stop path processor, condition fulfilled
+		return true
+	case *ChannelTerminationMessage:
+		channelCache, ok := pathEnd.messageCache.ChannelHandshake[m.Action]
+		if !ok {
+			return false
+		}
+		_, ok = channelCache[m.ChannelKey]
+		if !ok {
+			return false
+		}
+		// stop path processor, condition fulfilled
+		return true
+	case *ConnectionTerminationMessage:
+		connectionCache, ok := pathEnd.messageCache.ConnectionHandshake[m.Action]
+		if !ok {
+			return false
+		}
+		_, ok = connectionCache[m.ConnectionKey]
+		if !ok {
+			return false
+		}
+		// stop path processor, condition fulfilled
+		return true
+	}
+	return false
+}
+
+func (pathEnd *pathEndRuntime) MergeCacheData(ctx context.Context, ctxCancel func(), d ChainProcessorCacheData, terminationMsg TerminationMessage) {
 	pathEnd.inSync = d.InSync
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
+
+	if pathEnd.shouldTerminate(d.IBCMessagesCache, terminationMsg) {
+		ctxCancel()
+		return
+	}
 
 	pathEnd.mergeMessageCache(d.IBCMessagesCache) // Merge incoming packet IBC messages into the backlog
 
