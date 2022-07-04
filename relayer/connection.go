@@ -121,7 +121,7 @@ func (c *Chain) CreateOpenConnections(
 		}
 	}
 
-	panic("unreachable")
+	panic(any("unreachable"))
 }
 
 // ExecuteConnectionStep executes the next connection step based on the

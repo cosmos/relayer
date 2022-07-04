@@ -136,8 +136,7 @@ func (c *Chain) CreateOpenChannels(
 			}
 		}
 	}
-
-	panic("unreachable")
+	panic(any("unreachable"))
 }
 
 // ExecuteChannelStep executes the next channel step based on the

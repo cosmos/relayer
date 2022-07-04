@@ -388,7 +388,7 @@ func (c *Chain) UpgradeClients(ctx context.Context, dst *Chain, height int64) er
 func MustGetHeight(h ibcexported.Height) clienttypes.Height {
 	height, ok := h.(clienttypes.Height)
 	if !ok {
-		panic("height is not an instance of height!")
+		panic(any("height is not an instance of height!"))
 	}
 	return height
 }
