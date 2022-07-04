@@ -361,11 +361,6 @@ $ %s tx conn demo-path --timeout 5s`,
 				return err
 			}
 
-			retries, err := cmd.Flags().GetUint64(flagMaxRetries)
-			if err != nil {
-				return err
-			}
-
 			override, err := cmd.Flags().GetBool(flagOverride)
 			if err != nil {
 				return err
@@ -390,7 +385,7 @@ $ %s tx conn demo-path --timeout 5s`,
 				}
 			}
 
-			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to)
+			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], to)
 			if err != nil {
 				return err
 			}
@@ -427,11 +422,6 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 				return err
 			}
 
-			override, err := cmd.Flags().GetBool(flagOverride)
-			if err != nil {
-				return err
-			}
-
 			srcPort, err := cmd.Flags().GetString(flagSrcPort)
 			if err != nil {
 				return err
@@ -457,11 +447,6 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 				return err
 			}
 
-			retries, err := cmd.Flags().GetUint64(flagMaxRetries)
-			if err != nil {
-				return err
-			}
-
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
@@ -471,7 +456,7 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			}
 
 			// create channel if it isn't already created
-			modified, err := c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override)
+			modified, err := c[src].CreateOpenChannels(cmd.Context(), c[dst], to, srcPort, dstPort, order, version)
 			if err != nil {
 				return fmt.Errorf("error creating channels: %w", err)
 			}
@@ -523,17 +508,7 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
-			srch, err := c[src].ChainProvider.QueryLatestHeight(cmd.Context())
-			if err != nil {
-				return err
-			}
-
-			channel, err := c[src].ChainProvider.QueryChannel(cmd.Context(), srch, channelID, portID)
-			if err != nil {
-				return err
-			}
-
-			return c[src].CloseChannel(cmd.Context(), c[dst], to, channelID, portID, channel)
+			return c[src].CloseChannel(cmd.Context(), c[dst], to, channelID, portID)
 		},
 	}
 
@@ -605,11 +580,6 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				return err
 			}
 
-			retries, err := cmd.Flags().GetUint64(flagMaxRetries)
-			if err != nil {
-				return err
-			}
-
 			override, err := cmd.Flags().GetBool(flagOverride)
 			if err != nil {
 				return err
@@ -635,7 +605,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			// create connection if it isn't already created
-			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to)
+			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], to)
 			if err != nil {
 				return fmt.Errorf("error creating connections: %w", err)
 			}
@@ -646,7 +616,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			// create channel if it isn't already created
-			modified, err = c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override)
+			modified, err = c[src].CreateOpenChannels(cmd.Context(), c[dst], to, srcPort, dstPort, order, version)
 			if err != nil {
 				return fmt.Errorf("error creating channels: %w", err)
 			}
@@ -900,9 +870,9 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 			srcChannelID := args[4]
 
 			var pathConnectionID string
-			if src.ChainID()  == path.Src.ChainID {
+			if src.ChainID() == path.Src.ChainID {
 				pathConnectionID = path.Src.ConnectionID
-			} else if src.ChainID()  == path.Dst.ChainID {
+			} else if src.ChainID() == path.Dst.ChainID {
 				pathConnectionID = path.Dst.ConnectionID
 			} else {
 				return fmt.Errorf("no path configured using chain-id: %s", src.ChainID())

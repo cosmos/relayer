@@ -8,6 +8,7 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -38,15 +39,23 @@ type CosmosChainProcessor struct {
 
 	// holds open state for known channels
 	channelStateCache processor.ChannelStateCache
+
+	// map of connection ID to client ID
+	connectionClients map[string]string
+
+	// map of channel ID to connection ID
+	channelConnections map[string]string
 }
 
-func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider) *CosmosChainProcessor {
+func NewCosmosChainProcessor(log *zap.Logger, chainProvider *cosmos.CosmosProvider) *CosmosChainProcessor {
 	return &CosmosChainProcessor{
-		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
-		chainProvider:        provider,
+		log:                  log.With(zap.String("chain_name", chainProvider.ChainName()), zap.String("chain_id", chainProvider.ChainId())),
+		chainProvider:        chainProvider,
 		latestClientState:    make(latestClientState),
 		connectionStateCache: make(processor.ConnectionStateCache),
 		channelStateCache:    make(processor.ChannelStateCache),
+		connectionClients:    make(map[string]string),
+		channelConnections:   make(map[string]string),
 	}
 }
 
@@ -61,39 +70,10 @@ const (
 
 type msgHandlerParams struct {
 	// incoming IBC message
-	messageInfo interface{}
+	message ibcMessage
 
 	// reference to the caches that will be assembled by the handlers in this file
 	ibcMessagesCache processor.IBCMessagesCache
-}
-
-var messageHandlers = map[string]func(*CosmosChainProcessor, msgHandlerParams){
-	processor.MsgTransfer:        (*CosmosChainProcessor).handleMsgTransfer,
-	processor.MsgRecvPacket:      (*CosmosChainProcessor).handleMsgRecvPacket,
-	processor.MsgAcknowledgement: (*CosmosChainProcessor).handleMsgAcknowledgement,
-	processor.MsgTimeout:         (*CosmosChainProcessor).handleMsgTimeout,
-	processor.MsgTimeoutOnClose:  (*CosmosChainProcessor).handleMsgTimeoutOnClose,
-
-	processor.MsgCreateClient:       (*CosmosChainProcessor).handleMsgCreateClient,
-	processor.MsgUpdateClient:       (*CosmosChainProcessor).handleMsgUpdateClient,
-	processor.MsgUpgradeClient:      (*CosmosChainProcessor).handleMsgUpgradeClient,
-	processor.MsgSubmitMisbehaviour: (*CosmosChainProcessor).handleMsgSubmitMisbehaviour,
-
-	processor.MsgConnectionOpenInit:    (*CosmosChainProcessor).handleMsgConnectionOpenInit,
-	processor.MsgConnectionOpenTry:     (*CosmosChainProcessor).handleMsgConnectionOpenTry,
-	processor.MsgConnectionOpenAck:     (*CosmosChainProcessor).handleMsgConnectionOpenAck,
-	processor.MsgConnectionOpenConfirm: (*CosmosChainProcessor).handleMsgConnectionOpenConfirm,
-
-	processor.MsgChannelCloseConfirm: (*CosmosChainProcessor).handleMsgChannelCloseConfirm,
-	processor.MsgChannelCloseInit:    (*CosmosChainProcessor).handleMsgChannelCloseInit,
-	processor.MsgChannelOpenAck:      (*CosmosChainProcessor).handleMsgChannelOpenAck,
-	processor.MsgChannelOpenConfirm:  (*CosmosChainProcessor).handleMsgChannelOpenConfirm,
-	processor.MsgChannelOpenInit:     (*CosmosChainProcessor).handleMsgChannelOpenInit,
-	processor.MsgChannelOpenTry:      (*CosmosChainProcessor).handleMsgChannelOpenTry,
-}
-
-func (ccp *CosmosChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {
-	ccp.log.With(zap.String("message", m)).Debug("Observed IBC message", fields...)
 }
 
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
@@ -187,7 +167,16 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 
 	persistence.latestQueriedBlock = latestQueriedBlock
 
-	ccp.initializeChannelState(ctx)
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return ccp.initializeConnectionState(ctx)
+	})
+	eg.Go(func() error {
+		return ccp.initializeChannelState(ctx)
+	})
+	if err := eg.Wait(); err != nil {
+		return err
+	}
 
 	ccp.log.Debug("Entering main query loop")
 
@@ -199,11 +188,32 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 		}
 		select {
 		case <-ctx.Done():
+			ccp.log.Debug("Context cancelled, quitting CosmosChainProcessor", zap.Error(ctx.Err()))
 			return nil
 		case <-ticker.C:
 			ticker.Reset(persistence.minQueryLoopDuration)
 		}
 	}
+}
+
+// initializeConnectionState will bootstrap the connectionStateCache with the open connection state.
+func (ccp *CosmosChainProcessor) initializeConnectionState(ctx context.Context) error {
+	queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
+	defer cancelQueryCtx()
+	connections, err := ccp.chainProvider.QueryConnections(queryCtx)
+	if err != nil {
+		return fmt.Errorf("error querying connections: %w", err)
+	}
+	for _, c := range connections {
+		ccp.connectionClients[c.Id] = c.ClientId
+		ccp.connectionStateCache[processor.ConnectionKey{
+			ConnectionID:             c.Id,
+			ClientID:                 c.ClientId,
+			CounterpartyConnectionID: c.Counterparty.ConnectionId,
+			CounterpartyClientID:     c.Counterparty.ClientId,
+		}] = c.State == conntypes.OPEN
+	}
+	return nil
 }
 
 // initializeChannelState will bootstrap the channelStateCache with the open channel state.
@@ -215,6 +225,15 @@ func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) err
 		return fmt.Errorf("error querying channels: %w", err)
 	}
 	for _, ch := range channels {
+		if len(ch.ConnectionHops) != 1 {
+			ccp.log.Error("Found channel using multiple connection hops. Not currently supported, ignoring.",
+				zap.String("channel_id", ch.ChannelId),
+				zap.String("port_id", ch.PortId),
+				zap.Any("connection_hops", ch.ConnectionHops),
+			)
+			continue
+		}
+		ccp.channelConnections[ch.ChannelId] = ch.ConnectionHops[0]
 		ccp.channelStateCache[processor.ChannelKey{
 			ChannelID:             ch.ChannelId,
 			PortID:                ch.PortId,
@@ -291,12 +310,14 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 		latestHeader = ibcHeader.(cosmos.CosmosIBCHeader)
 
+		heightUint64 := uint64(i)
+
 		ccp.latestBlock = provider.LatestBlock{
-			Height: uint64(latestHeader.SignedHeader.Height),
+			Height: heightUint64,
 			Time:   latestHeader.SignedHeader.Time,
 		}
 
-		ibcHeaderCache[uint64(i)] = latestHeader
+		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
 		for _, tx := range blockRes.TxsResults {
@@ -304,18 +325,8 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 				// tx was not successful
 				continue
 			}
-			messages := ccp.ibcMessagesFromTransaction(tx)
-
-			for _, m := range messages {
-				handler, ok := messageHandlers[m.messageType]
-				if !ok {
-					continue
-				}
-				// call message handler for this ibc message type. can do things like cache things on the chain processor or retain ibc messages that should be sent to the PathProcessors.
-				handler(ccp, msgHandlerParams{
-					messageInfo:      m.messageInfo,
-					ibcMessagesCache: ibcMessagesCache,
-				})
+			for _, m := range ccp.ibcMessagesFromTransaction(tx, heightUint64) {
+				ccp.handleMessage(m, ibcMessagesCache)
 			}
 		}
 	}
@@ -349,8 +360,8 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			IBCMessagesCache:     ibcMessagesCache,
 			InSync:               ccp.inSync,
 			ClientState:          clientState,
-			ConnectionStateCache: ccp.connectionStateCache.Clone(),
-			ChannelStateCache:    ccp.channelStateCache.Clone(),
+			ConnectionStateCache: ccp.connectionStateCache.Filter(clientID),
+			ChannelStateCache:    ccp.channelStateCache.Filter(clientID, ccp.channelConnections, ccp.connectionClients),
 			IBCHeaderCache:       ibcHeaderCache,
 		})
 	}

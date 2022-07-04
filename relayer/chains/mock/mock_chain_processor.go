@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer/processor"
@@ -39,7 +40,7 @@ type TransactionMessage struct {
 	PacketInfo *chantypes.Packet
 }
 
-func NewMockChainProcessor(log *zap.Logger, chainID string, getMockMessages func() []TransactionMessage) *MockChainProcessor {
+func NewMockChainProcessor(log *zap.Logger, chainName string, chainID string, getMockMessages func() []TransactionMessage) *MockChainProcessor {
 	chainProviderCfg := cosmos.CosmosProviderConfig{
 		Key:            "mock-key",
 		ChainID:        chainID,
@@ -47,7 +48,7 @@ func NewMockChainProcessor(log *zap.Logger, chainID string, getMockMessages func
 		KeyringBackend: "test",
 		Timeout:        "10s",
 	}
-	chainProvider, _ := chainProviderCfg.NewProvider(zap.NewNop(), "/tmp", true, "mock-chain-name")
+	chainProvider, _ := chainProviderCfg.NewProvider(zap.NewNop(), "/tmp", true, chainName)
 	_, _ = chainProvider.AddKey(chainProvider.Key(), 118)
 	return &MockChainProcessor{
 		log:             log,
@@ -150,13 +151,17 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		// iterate through ibc messages and call specific handler for each
 		// will do things like mutate chainprocessor state and add relevant messages to foundMessages
 		// this can be parralelized also
+		fmt.Printf("Got messages, length: %d\n", len(messages))
 		for _, m := range messages {
 			if handler, ok := messageHandlers[m.Action]; ok {
+				fmt.Printf("Calling msg handler for %s\n", m.Action)
 				handler(msgHandlerParams{
 					mcp:              mcp,
 					packetInfo:       m.PacketInfo,
 					ibcMessagesCache: ibcMessagesCache,
 				})
+			} else {
+				fmt.Printf("No msg handler for %s\n", m.Action)
 			}
 		}
 		// }

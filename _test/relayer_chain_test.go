@@ -83,12 +83,12 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, err)
 
 	t.Log("Creating connections")
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, timeout)
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
 	t.Log("Creating channels")
-	_, err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	_, err = src.CreateOpenChannels(ctx, dst, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion)
 	require.NoError(t, err)
 
 	t.Log("Querying open channels to ensure successful creation")
@@ -171,11 +171,11 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, timeout)
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
-	_, err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	_, err = src.CreateOpenChannels(ctx, dst, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion)
 	require.NoError(t, err)
 
 	// query open channels and ensure there is no error
@@ -198,11 +198,11 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, timeout)
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
-	_, err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	_, err = src.CreateOpenChannels(ctx, dst, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion)
 	require.NoError(t, err)
 	testChannelPair(ctx, t, src, dst, channel.ChannelId, channel.PortId)
 
@@ -252,11 +252,11 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, timeout)
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
-	_, err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	_, err = src.CreateOpenChannels(ctx, dst, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion)
 	require.NoError(t, err)
 
 	// query open channels and ensure there is no error
@@ -393,15 +393,15 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Log("Creating connections")
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, timeout)
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
 	t.Log("Creating channels")
-	_, err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	_, err = src.CreateOpenChannels(ctx, dst, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion)
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, true)
+	_, err = src.CreateOpenChannels(ctx, dst, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion)
 	require.NoError(t, err)
 
 	t.Log("Ensuring two channels exist")
@@ -589,11 +589,11 @@ func TestUnorderedChannelBlockHeightTimeout(t *testing.T) {
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, timeout)
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
-	_, err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	_, err = src.CreateOpenChannels(ctx, dst, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion)
 	require.NoError(t, err)
 
 	// query open channels and ensure there is no error
@@ -687,11 +687,11 @@ func TestUnorderedChannelTimestampTimeout(t *testing.T) {
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, timeout)
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
-	_, err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	_, err = src.CreateOpenChannels(ctx, dst, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion)
 	require.NoError(t, err)
 
 	// query open channels and ensure there is no error

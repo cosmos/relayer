@@ -11,7 +11,7 @@ type EventProcessorBuilder struct {
 	chainProcessors     ChainProcessors
 	initialBlockHistory uint64
 	pathProcessors      PathProcessors
-	terminationMsg      TerminationMessage
+	messageLifecycle    MessageLifecycle
 }
 
 // EventProcessor is a built instance that is ready to be executed with Run(ctx).
@@ -19,7 +19,7 @@ type EventProcessor struct {
 	chainProcessors     ChainProcessors
 	initialBlockHistory uint64
 	pathProcessors      PathProcessors
-	terminationMsg      TerminationMessage
+	messageLifecycle    MessageLifecycle
 }
 
 // NewEventProcessor creates a builder than can be used to construct a multi-ChainProcessor, multi-PathProcessor topology for the relayer.
@@ -54,9 +54,9 @@ func (ep EventProcessorBuilder) WithPathProcessors(pathProcessors ...*PathProces
 	return ep
 }
 
-// WithTerminationMessage sets the message that should stop the PathProcessor.
-func (ep EventProcessorBuilder) WithTerminationMessage(terminationMsg TerminationMessage) EventProcessorBuilder {
-	ep.terminationMsg = terminationMsg
+// WithMessageLifecycle sets the message that should stop the PathProcessor.
+func (ep EventProcessorBuilder) WithMessageLifecycle(messageLifecycle MessageLifecycle) EventProcessorBuilder {
+	ep.messageLifecycle = messageLifecycle
 	return ep
 }
 
@@ -84,7 +84,7 @@ func (ep EventProcessor) Run(ctx context.Context) error {
 	for _, pathProcessor := range ep.pathProcessors {
 		pathProcessor := pathProcessor
 		eg.Go(func() error {
-			pathProcessor.Run(runCtx, runCtxCancel, ep.terminationMsg)
+			pathProcessor.Run(runCtx, runCtxCancel, ep.messageLifecycle)
 			return nil
 		})
 	}

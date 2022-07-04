@@ -1,7 +1,9 @@
 package processor
 
 import (
+	"fmt"
 	"sort"
+	"strings"
 
 	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
@@ -43,46 +45,62 @@ var (
 	MsgSubmitMisbehaviour = "/" + proto.MessageName((*clienttypes.MsgSubmitMisbehaviour)(nil))
 )
 
-// TerminationMessage is used to set a stop condition for the PathProcessor.
-// PathProcessor will stop if it observes a message that matches the TerminationMessage.
-type TerminationMessage interface {
-	terminationMessageIndicator()
-	chainID() string
+// ShortAction returns the short name for an IBC message action.
+func ShortAction(action string) string {
+	split := strings.Split(action, ".")
+	return split[len(split)-1]
 }
 
-// PacketTerminationMessage is used as a stop condition for the PathProcessor.
-// It will stop if it observes a packet flow message matching the struct parameters.
-type PacketTerminationMessage struct {
-	ChainID    string
-	Action     string
-	ChannelKey ChannelKey
-	Sequence   uint64
+// MessageLifecycle is used to set a stop condition for the PathProcessor.
+// PathProcessor will stop if it observes a message that matches the MessageLifecycle.
+type MessageLifecycle interface {
+	messageLifecycler() //noop
 }
 
-func (t *PacketTerminationMessage) terminationMessageIndicator() {}
-func (t *PacketTerminationMessage) chainID() string              { return t.ChainID }
-
-// ConnectionTerminationMessage is used as a stop condition for the PathProcessor.
-// It will stop if it observes a connection handshake message matching the struct parameters.
-type ConnectionTerminationMessage struct {
-	ChainID       string
-	Action        string
-	ConnectionKey ConnectionKey
+type PacketMessage struct {
+	ChainID string
+	Action  string
+	Info    provider.PacketInfo
 }
 
-func (t *ConnectionTerminationMessage) terminationMessageIndicator() {}
-func (t *ConnectionTerminationMessage) chainID() string              { return t.ChainID }
-
-// ChannelTerminationMessage is used as a stop condition for the PathProcessor.
-// It will stop if it observes a channel handshake message matching the struct parameters.
-type ChannelTerminationMessage struct {
-	ChainID    string
-	Action     string
-	ChannelKey ChannelKey
+// PacketMessageLifecycle is used as a stop condition for the PathProcessor.
+// It will send the initial message, then stop once it observes a MsgAcknowledgement.
+type PacketMessageLifecycle struct {
+	Initial     PacketMessage
+	Termination PacketMessage
 }
 
-func (t *ChannelTerminationMessage) terminationMessageIndicator() {}
-func (t *ChannelTerminationMessage) chainID() string              { return t.ChainID }
+func (t *PacketMessageLifecycle) messageLifecycler() {}
+
+type ConnectionMessage struct {
+	ChainID string
+	Action  string
+	Info    provider.ConnectionInfo
+}
+
+// ConnectionMessageLifecycle is used as a stop condition for the PathProcessor.
+// It will send the initial message, then stop once it observes a MsgConnectionOpenConfirm.
+type ConnectionMessageLifecycle struct {
+	Initial     ConnectionMessage
+	Termination ConnectionMessage
+}
+
+func (t *ConnectionMessageLifecycle) messageLifecycler() {}
+
+type ChannelMessage struct {
+	ChainID string
+	Action  string
+	Info    provider.ChannelInfo
+}
+
+// ChannelMessageLifecycle is used as a stop condition for the PathProcessor.
+// It will send the initial message, then stop once it observes the action.
+type ChannelMessageLifecycle struct {
+	Initial     ChannelMessage
+	Termination ChannelMessage
+}
+
+func (t *ChannelMessageLifecycle) messageLifecycler() {}
 
 type IBCMessagesCache struct {
 	PacketFlow          ChannelPacketMessagesCache
@@ -105,19 +123,19 @@ type ChannelPacketMessagesCache map[ChannelKey]PacketMessagesCache
 type PacketMessagesCache map[string]PacketSequenceCache
 
 // PacketSequenceCache is used for caching an IBC message for a given packet sequence.
-type PacketSequenceCache map[uint64]provider.RelayerMessage
+type PacketSequenceCache map[uint64]provider.PacketInfo
 
 // ChannelMessagesCache is used for caching a ChannelMessageCache for a given IBC message type.
 type ChannelMessagesCache map[string]ChannelMessageCache
 
 // ChannelMessageCache is used for caching channel handshake IBC messages for a given IBC channel.
-type ChannelMessageCache map[ChannelKey]provider.RelayerMessage
+type ChannelMessageCache map[ChannelKey]provider.ChannelInfo
 
 // ConnectionMessagesCache is used for caching a ConnectionMessageCache for a given IBC message type.
 type ConnectionMessagesCache map[string]ConnectionMessageCache
 
 // ConnectionMessageCache is used for caching connection handshake IBC messages for a given IBC connection.
-type ConnectionMessageCache map[ConnectionKey]provider.RelayerMessage
+type ConnectionMessageCache map[ConnectionKey]provider.ConnectionInfo
 
 // ChannelKey is the key used for identifying channels between ChainProcessor and PathProcessor.
 type ChannelKey struct {
@@ -137,6 +155,17 @@ func (channelKey ChannelKey) Counterparty() ChannelKey {
 	}
 }
 
+// msgInitKey is used for comparing MsgChannelOpenInit keys with other connection
+// handshake messages. MsgChannelOpenInit does not have CounterpartyChannelID.
+func (channelKey ChannelKey) msgInitKey() ChannelKey {
+	return ChannelKey{
+		ChannelID:             channelKey.ChannelID,
+		PortID:                channelKey.PortID,
+		CounterpartyChannelID: "",
+		CounterpartyPortID:    channelKey.CounterpartyPortID,
+	}
+}
+
 // ConnectionKey is the key used for identifying connections between ChainProcessor and PathProcessor.
 type ConnectionKey struct {
 	ClientID                 string
@@ -152,6 +181,17 @@ func (connectionKey ConnectionKey) Counterparty() ConnectionKey {
 		ConnectionID:             connectionKey.CounterpartyConnectionID,
 		CounterpartyClientID:     connectionKey.ClientID,
 		CounterpartyConnectionID: connectionKey.ConnectionID,
+	}
+}
+
+// msgInitKey is used for comparing MsgConnectionOpenInit keys with other connection
+// handshake messages. MsgConnectionOpenInit does not have CounterpartyConnectionID.
+func (connectionKey ConnectionKey) msgInitKey() ConnectionKey {
+	return ConnectionKey{
+		ClientID:                 connectionKey.ClientID,
+		ConnectionID:             connectionKey.ConnectionID,
+		CounterpartyClientID:     connectionKey.CounterpartyClientID,
+		CounterpartyConnectionID: "",
 	}
 }
 
@@ -174,21 +214,43 @@ func (c ChannelStateCache) Clone() ChannelStateCache {
 	return n
 }
 
+// Filter returns a filtered map of channels on top of an underlying clientID
+func (c ChannelStateCache) Filter(clientID string, channelConnections map[string]string, connectionClients map[string]string) ChannelStateCache {
+	n := make(ChannelStateCache)
+	for k, v := range c {
+		connection, ok := channelConnections[k.ChannelID]
+		if !ok {
+			continue
+		}
+		client, ok := connectionClients[connection]
+		if !ok {
+			continue
+		}
+		if clientID == client {
+			n[k] = v
+		}
+	}
+	return n
+}
+
 // ConnectionStateCache maintains connection open state for multiple connections.
 type ConnectionStateCache map[ConnectionKey]bool
 
 // Merge merges another ChannelStateCache into this one, appending messages and updating the Open state.
 func (c ConnectionStateCache) Merge(other ConnectionStateCache) {
-	for channelKey, newState := range other {
-		c[channelKey] = newState
+	for k, newState := range other {
+		c[k] = newState
 	}
 }
 
 // Clone makes a copy of the ConnectionStateCache so it can be used by other threads.
-func (c ConnectionStateCache) Clone() ConnectionStateCache {
-	n := make(ConnectionStateCache, len(c))
+func (c ConnectionStateCache) Filter(clientID string) ConnectionStateCache {
+	n := make(ConnectionStateCache)
 	for k, v := range c {
-		n[k] = v
+		if k.ClientID == clientID {
+			n[k] = v
+			break
+		}
 	}
 	return n
 }
@@ -266,7 +328,7 @@ func (c ChannelPacketMessagesCache) ShouldRetainSequence(p PathProcessors, k Cha
 
 // Retain assumes the packet is applicable to the channels for a path processor that is subscribed to this chain processor.
 // It creates cache path if it doesn't exist, then caches message.
-func (c ChannelPacketMessagesCache) Retain(k ChannelKey, m string, seq uint64, ibcMsg provider.RelayerMessage) {
+func (c ChannelPacketMessagesCache) Retain(k ChannelKey, m string, seq uint64, ibcMsg provider.PacketInfo) {
 	if _, ok := c[k]; !ok {
 		c[k] = make(PacketMessagesCache)
 	}
@@ -308,11 +370,11 @@ func (c ConnectionMessagesCache) Merge(other ConnectionMessagesCache) {
 }
 
 // Retain assumes creates cache path if it doesn't exist, then caches message.
-func (c ConnectionMessagesCache) Retain(k ConnectionKey, m string, ibcMsg provider.RelayerMessage) {
+func (c ConnectionMessagesCache) Retain(m string, ibcMsg provider.ConnectionInfo) {
 	if _, ok := c[m]; !ok {
 		c[m] = make(ConnectionMessageCache)
 	}
-	c[m][k] = ibcMsg
+	c[m][ConnectionInfoConnectionKey(ibcMsg)] = ibcMsg
 }
 
 func (c ConnectionMessagesCache) DeleteCachedMessages(toDelete ...map[string][]ConnectionKey) {
@@ -345,11 +407,11 @@ func (c ChannelMessagesCache) Merge(other ChannelMessagesCache) {
 }
 
 // Retain assumes creates cache path if it doesn't exist, then caches message.
-func (c ChannelMessagesCache) Retain(k ChannelKey, m string, ibcMsg provider.RelayerMessage) {
+func (c ChannelMessagesCache) Retain(m string, ibcMsg provider.ChannelInfo) {
 	if _, ok := c[m]; !ok {
 		c[m] = make(ChannelMessageCache)
 	}
-	c[m][k] = ibcMsg
+	c[m][ChannelInfoChannelKey(ibcMsg)] = ibcMsg
 }
 
 func (c ChannelMessagesCache) DeleteCachedMessages(toDelete ...map[string][]ChannelKey) {
@@ -393,5 +455,36 @@ func (c IBCHeaderCache) Prune(keep int) {
 		for i := 0; i <= toRemove; i++ {
 			delete(c, keys[i])
 		}
+	}
+}
+
+// PacketInfoChannelKey returns the applicable ChannelKey for the chain based on the action.
+func PacketInfoChannelKey(action string, info provider.PacketInfo) ChannelKey {
+	switch action {
+	case MsgRecvPacket:
+		return packetInfoChannelKey(info).Counterparty()
+	case MsgTransfer, MsgAcknowledgement, MsgTimeout, MsgTimeoutOnClose:
+		return packetInfoChannelKey(info)
+	}
+	panic(fmt.Errorf("action not expected for packetIBCMessage channelKey: %s", action))
+}
+
+// ChannelInfoChannelKey returns the applicable ChannelKey for ChannelInfo.
+func ChannelInfoChannelKey(info provider.ChannelInfo) ChannelKey {
+	return ChannelKey{
+		ChannelID:             info.ChannelID,
+		CounterpartyChannelID: info.CounterpartyChannelID,
+		PortID:                info.PortID,
+		CounterpartyPortID:    info.CounterpartyPortID,
+	}
+}
+
+// ConnectionInfoConnectionKey returns the applicable ConnectionKey for ConnectionInfo.
+func ConnectionInfoConnectionKey(info provider.ConnectionInfo) ConnectionKey {
+	return ConnectionKey{
+		ClientID:                 info.ClientID,
+		CounterpartyClientID:     info.CounterpartyClientID,
+		ConnectionID:             info.ConnectionID,
+		CounterpartyConnectionID: info.CounterpartyConnectionID,
 	}
 }

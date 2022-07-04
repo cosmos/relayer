@@ -5,7 +5,7 @@ import (
 
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
 
@@ -30,7 +30,7 @@ func handleMsgTransfer(p msgHandlerParams) {
 		CounterpartyChannelID: p.packetInfo.DestinationChannel,
 		CounterpartyPortID:    p.packetInfo.DestinationPort,
 	}
-	p.ibcMessagesCache.PacketFlow.Retain(channelKey, processor.MsgTransfer, p.packetInfo.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgRecvPacket{Packet: *p.packetInfo}))
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, processor.MsgTransfer, p.packetInfo.Sequence, provider.PacketInfo{Sequence: p.packetInfo.Sequence})
 	p.mcp.log.Debug("observed MsgTransfer",
 		zap.String("chain_id", p.mcp.chainID),
 		zap.Uint64("sequence", p.packetInfo.Sequence),
@@ -48,7 +48,7 @@ func handleMsgRecvPacket(p msgHandlerParams) {
 		CounterpartyChannelID: p.packetInfo.SourceChannel,
 		CounterpartyPortID:    p.packetInfo.SourcePort,
 	}
-	p.ibcMessagesCache.PacketFlow.Retain(channelKey, processor.MsgRecvPacket, p.packetInfo.Sequence, cosmos.NewCosmosMessage(&chantypes.MsgAcknowledgement{Packet: *p.packetInfo}))
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, processor.MsgRecvPacket, p.packetInfo.Sequence, provider.PacketInfo{Sequence: p.packetInfo.Sequence})
 	p.mcp.log.Debug("observed MsgRecvPacket",
 		zap.String("chain_id", p.mcp.chainID),
 		zap.Uint64("sequence", p.packetInfo.Sequence),
@@ -66,7 +66,7 @@ func handleMsgAcknowledgement(p msgHandlerParams) {
 		CounterpartyChannelID: p.packetInfo.DestinationChannel,
 		CounterpartyPortID:    p.packetInfo.DestinationPort,
 	}
-	p.ibcMessagesCache.PacketFlow.Retain(channelKey, processor.MsgAcknowledgement, p.packetInfo.Sequence, nil)
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, processor.MsgAcknowledgement, p.packetInfo.Sequence, provider.PacketInfo{Sequence: p.packetInfo.Sequence})
 	p.mcp.log.Debug("observed MsgAcknowledgement",
 		zap.String("chain_id", p.mcp.chainID),
 		zap.Uint64("sequence", p.packetInfo.Sequence),
