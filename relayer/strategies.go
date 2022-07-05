@@ -10,6 +10,10 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	cosmosprocessor "github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/cosmos/relayer/v2/relayer/provider"
+	cosmosprovider "github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"go.uber.org/zap"
 )
 
@@ -19,12 +23,101 @@ type ActiveChannel struct {
 	active  bool
 }
 
+const (
+	ProcessorEvents string = "events"
+	ProcessorLegacy        = "legacy"
+)
+
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
-func StartRelayer(ctx context.Context, log *zap.Logger, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64) chan error {
+func StartRelayer(
+	ctx context.Context,
+	log *zap.Logger,
+	src, dst *Chain,
+	filter ChannelFilter,
+	maxTxSize, maxMsgLength uint64,
+	processorType string,
+	initialBlockHistory uint64,
+) chan error {
 	errorChan := make(chan error, 1)
 
-	go relayerMainLoop(ctx, log, src, dst, filter, maxTxSize, maxMsgLength, errorChan)
-	return errorChan
+	switch processorType {
+	case ProcessorEvents:
+		var filterSrc, filterDst []processor.ChannelKey
+
+		for _, ch := range filter.ChannelList {
+			ruleSrc := processor.ChannelKey{ChannelID: ch}
+			ruleDst := processor.ChannelKey{CounterpartyChannelID: ch}
+			filterSrc = append(filterSrc, ruleSrc)
+			filterDst = append(filterDst, ruleDst)
+		}
+		paths := []path{{
+			src: pathChain{
+				provider: src.ChainProvider,
+				pathEnd:  processor.NewPathEnd(src.ChainProvider.ChainId(), src.ClientID(), filter.Rule, filterSrc),
+			},
+			dst: pathChain{
+				provider: dst.ChainProvider,
+				pathEnd:  processor.NewPathEnd(dst.ChainProvider.ChainId(), dst.ClientID(), filter.Rule, filterDst),
+			},
+		}}
+
+		go relayerStartEventProcessor(ctx, log, paths, initialBlockHistory, maxTxSize, maxMsgLength, errorChan)
+		return errorChan
+	case ProcessorLegacy:
+		go relayerMainLoop(ctx, log, src, dst, filter, maxTxSize, maxMsgLength, errorChan)
+		return errorChan
+	default:
+		panic(fmt.Errorf("unexpected processor type: %s, supports one of: [%s, %s]", processorType, ProcessorEvents, ProcessorLegacy))
+	}
+}
+
+// TODO: intermediate types. Should combine/replace with the relayer.Chain, relayer.Path, and relayer.PathEnd structs
+// as the stateless and stateful/event-based relaying mechanisms are consolidated.
+type path struct {
+	src pathChain
+	dst pathChain
+}
+
+type pathChain struct {
+	provider provider.ChainProvider
+	pathEnd  processor.PathEnd
+}
+
+// chainProcessor returns the corresponding ChainProcessor implementation instance for a pathChain.
+func (chain pathChain) chainProcessor(log *zap.Logger) processor.ChainProcessor {
+	// Handle new ChainProcessor implementations as cases here
+	switch p := chain.provider.(type) {
+	case *cosmosprovider.CosmosProvider:
+		return cosmosprocessor.NewCosmosChainProcessor(log, p)
+	default:
+		panic(fmt.Errorf("unsupported chain provider type: %T", chain.provider))
+	}
+}
+
+// relayerStartEventProcessor is the main relayer process when using the event processor.
+func relayerStartEventProcessor(ctx context.Context, log *zap.Logger, paths []path, initialBlockHistory uint64, maxTxSize, maxMsgLength uint64, errCh chan<- error) {
+	defer close(errCh)
+
+	epb := processor.NewEventProcessor()
+
+	for _, p := range paths {
+		epb = epb.
+			WithChainProcessors(
+				p.src.chainProcessor(log),
+				p.dst.chainProcessor(log),
+			).
+			WithPathProcessors(processor.NewPathProcessor(
+				log,
+				p.src.pathEnd,
+				p.dst.pathEnd,
+			))
+	}
+
+	ep := epb.
+		WithInitialBlockHistory(initialBlockHistory).
+		Build()
+
+	errCh <- ep.Run(ctx)
 }
 
 // relayerMainLoop is the main loop of the relayer.

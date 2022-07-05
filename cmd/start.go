@@ -43,8 +43,9 @@ func startCmd(a *appState) *cobra.Command {
 		Short:   "Start the listening relayer on a given path",
 		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s start demo-path -p events # to use event processor
 $ %s start demo-path --max-msgs 3
-$ %s start demo-path2 --max-tx-size 10`, appName, appName)),
+$ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
@@ -81,7 +82,16 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 				relaydebug.StartDebugServer(cmd.Context(), log, ln)
 			}
 
-			rlyErrCh := relayer.StartRelayer(cmd.Context(), a.Log, c[src], c[dst], filter, maxTxSize, maxMsgLength)
+			processorType, err := cmd.Flags().GetString(flagProcessor)
+			if err != nil {
+				return err
+			}
+			initialBlockHistory, err := cmd.Flags().GetUint64(flagInitialBlockHistory)
+			if err != nil {
+				return err
+			}
+
+			rlyErrCh := relayer.StartRelayer(cmd.Context(), a.Log, c[src], c[dst], filter, maxTxSize, maxMsgLength, processorType, initialBlockHistory)
 
 			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire
 			// when there are no packets flowing across the channels. It is currently a source of errors that have been
@@ -138,7 +148,11 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName)),
 			return nil
 		},
 	}
-	return debugServerFlags(a.Viper, strategyFlag(a.Viper, updateTimeFlags(a.Viper, cmd)))
+	cmd = updateTimeFlags(a.Viper, cmd)
+	cmd = strategyFlag(a.Viper, cmd)
+	cmd = debugServerFlags(a.Viper, cmd)
+	cmd = processorFlags(a.Viper, cmd)
+	return cmd
 }
 
 // UpdateClientsFromChains takes src, dst chains, threshold time and update clients based on expiry time

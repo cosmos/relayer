@@ -1,0 +1,30 @@
+name: TESTING - ibctest conformance
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  ibctest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.18
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.18
+        id: go
+
+      - name: checkout relayer
+        uses: actions/checkout@v2
+
+      - uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: ibctest conformance tests
+        run: make ibctest-docker
