@@ -4,12 +4,11 @@ go 1.18
 
 require (
 	github.com/cosmos/cosmos-sdk v0.45.5-0.20220523154235-2921a1c3c918
-	github.com/cosmos/relayer/v2 v2.0.0-00010101000000-000000000000
+	github.com/cosmos/relayer/v2 v2.0.0
 	github.com/docker/docker v20.10.17+incompatible
 	github.com/moby/moby v20.10.17+incompatible
-	github.com/ory/dockertest/v3 v3.9.1
-	github.com/strangelove-ventures/ibctest v0.0.0-20220701194752-7d965645c85e
-	github.com/stretchr/testify v1.7.2
+	github.com/strangelove-ventures/ibctest v0.0.0-20220705151749-76314a6ae221
+	github.com/stretchr/testify v1.8.0
 	go.uber.org/zap v1.21.0
 )
 
@@ -23,7 +22,7 @@ require (
 	github.com/Microsoft/hcsshim v0.9.3 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/armon/go-metrics v0.4.0 // indirect
-	github.com/avast/retry-go/v4 v4.0.5 // indirect
+	github.com/avast/retry-go/v4 v4.1.0 // indirect
 	github.com/benbjohnson/clock v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.0 // indirect
@@ -105,6 +104,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.3-0.20211202183452-c5a74bcca799 // indirect
 	github.com/opencontainers/runc v1.1.2 // indirect
+	github.com/ory/dockertest/v3 v3.9.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
@@ -122,11 +122,11 @@ require (
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
-	github.com/spf13/cobra v1.4.0 // indirect
+	github.com/spf13/cobra v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.12.0 // indirect
-	github.com/strangelove-ventures/lens v0.5.1 // indirect
+	github.com/strangelove-ventures/lens v0.5.2-0.20220705143712-1be0cf0d92af // indirect
 	github.com/subosito/gotenv v1.3.0 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/tendermint/btcd v0.1.1 // indirect
@@ -134,7 +134,7 @@ require (
 	github.com/tendermint/go-amino v0.16.0 // indirect
 	github.com/tendermint/tendermint v0.34.20-0.20220517115723-e6f071164839 // indirect
 	github.com/tendermint/tm-db v0.6.7 // indirect
-	github.com/tharsis/ethermint v0.16.0 // indirect
+	github.com/tharsis/ethermint v0.16.1 // indirect
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
