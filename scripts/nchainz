@@ -446,7 +446,7 @@ clients)
 
   echo "Generating rly configurations..."
   rly config init
-  rly config add-chains "$BASEDIR/config/chains"
+  rly chains add-dir "$BASEDIR/config/chains"
 
   sleep 2
 
@@ -490,7 +490,7 @@ clients)
 
   # Let all our chains initialise.
   wait
-  rly config add-paths "$BASEDIR/config/paths"
+  rly paths add-dir "$BASEDIR/config/paths"
 
   for i in ${!IDS[@]}; do
     ID=${IDS[$i]}
