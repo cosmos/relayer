@@ -1315,6 +1315,8 @@ github.com/strangelove-ventures/ibctest v0.0.0-20220701153033-6cac8e364cf5 h1:nL
 github.com/strangelove-ventures/ibctest v0.0.0-20220701153033-6cac8e364cf5/go.mod h1:t3iz43R1/j4s8amDiZ+VHER9NOdTm3vpWnI6JnTkq58=
 github.com/strangelove-ventures/ibctest v0.0.0-20220701194752-7d965645c85e h1:eoeVQCUjMYHt/sOT3oAYxtv7TQB2hbtjvFcMNRpcfh4=
 github.com/strangelove-ventures/ibctest v0.0.0-20220701194752-7d965645c85e/go.mod h1:UjhKi/BLudic8IAvfFMNqBRzJC0wm1EVRAZTRZjR6+c=
+github.com/strangelove-ventures/ibctest v0.0.0-20220701220145-b783e516bff0 h1:NjImCG4wNpDbi1LQ7AtUHWx4Jlo6OCqaMtw2qDWu7EM=
+github.com/strangelove-ventures/ibctest v0.0.0-20220701220145-b783e516bff0/go.mod h1:UjhKi/BLudic8IAvfFMNqBRzJC0wm1EVRAZTRZjR6+c=
 github.com/strangelove-ventures/lens v0.5.1 h1:8FbPhcCdZqj0RKYs9Lqhlezz89KCHzDDGd/7WgM44C0=
 github.com/strangelove-ventures/lens v0.5.1/go.mod h1:E6Zh+4WEtIy9RsyUIGvCaLnhgfpYwMS5WJ4a6fP+UrM=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=

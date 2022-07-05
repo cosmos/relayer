@@ -8,7 +8,7 @@ require (
 	github.com/docker/docker v20.10.17+incompatible
 	github.com/moby/moby v20.10.17+incompatible
 	github.com/ory/dockertest/v3 v3.9.1
-	github.com/strangelove-ventures/ibctest v0.0.0-20220701194752-7d965645c85e
+	github.com/strangelove-ventures/ibctest v0.0.0-20220701220145-b783e516bff0
 	github.com/stretchr/testify v1.7.2
 	go.uber.org/zap v1.21.0
 )
