@@ -27,8 +27,8 @@ func handleMsgTransfer(p msgHandlerParams) {
 	channelKey := processor.ChannelKey{
 		ChannelID:             p.packetInfo.SourceChannel,
 		PortID:                p.packetInfo.SourcePort,
-		CounterpartyChannelID: p.packetInfo.DestChannel,
-		CounterpartyPortID:    p.packetInfo.DestPort,
+		CounterpartyChannelID: p.packetInfo.DestinationChannel,
+		CounterpartyPortID:    p.packetInfo.DestinationPort,
 	}
 	p.ibcMessagesCache.PacketFlow.Retain(channelKey, processor.MsgTransfer, provider.PacketInfo{Sequence: p.packetInfo.Sequence})
 	p.mcp.log.Debug("observed MsgTransfer",
@@ -43,8 +43,8 @@ func handleMsgTransfer(p msgHandlerParams) {
 
 func handleMsgRecvPacket(p msgHandlerParams) {
 	channelKey := processor.ChannelKey{
-		ChannelID:             p.packetInfo.DestChannel,
-		PortID:                p.packetInfo.DestPort,
+		ChannelID:             p.packetInfo.DestinationChannel,
+		PortID:                p.packetInfo.DestinationPort,
 		CounterpartyChannelID: p.packetInfo.SourceChannel,
 		CounterpartyPortID:    p.packetInfo.SourcePort,
 	}
@@ -54,8 +54,8 @@ func handleMsgRecvPacket(p msgHandlerParams) {
 		zap.Uint64("sequence", p.packetInfo.Sequence),
 		zap.String("src_channel", p.packetInfo.SourceChannel),
 		zap.String("src_port", p.packetInfo.SourcePort),
-		zap.String("dst_channel", p.packetInfo.DestChannel),
-		zap.String("dst_port", p.packetInfo.DestPort),
+		zap.String("dst_channel", p.packetInfo.DestinationChannel),
+		zap.String("dst_port", p.packetInfo.DestinationPort),
 	)
 }
 
@@ -63,8 +63,8 @@ func handleMsgAcknowledgement(p msgHandlerParams) {
 	channelKey := processor.ChannelKey{
 		ChannelID:             p.packetInfo.SourceChannel,
 		PortID:                p.packetInfo.SourcePort,
-		CounterpartyChannelID: p.packetInfo.DestChannel,
-		CounterpartyPortID:    p.packetInfo.DestPort,
+		CounterpartyChannelID: p.packetInfo.DestinationChannel,
+		CounterpartyPortID:    p.packetInfo.DestinationPort,
 	}
 	p.ibcMessagesCache.PacketFlow.Retain(channelKey, processor.MsgAcknowledgement, provider.PacketInfo{Sequence: p.packetInfo.Sequence})
 	p.mcp.log.Debug("observed MsgAcknowledgement",
@@ -72,7 +72,7 @@ func handleMsgAcknowledgement(p msgHandlerParams) {
 		zap.Uint64("sequence", p.packetInfo.Sequence),
 		zap.String("src_channel", p.packetInfo.SourceChannel),
 		zap.String("src_port", p.packetInfo.SourcePort),
-		zap.String("dst_channel", p.packetInfo.DestChannel),
-		zap.String("dst_port", p.packetInfo.DestPort),
+		zap.String("dst_channel", p.packetInfo.DestinationChannel),
+		zap.String("dst_port", p.packetInfo.DestinationPort),
 	)
 }

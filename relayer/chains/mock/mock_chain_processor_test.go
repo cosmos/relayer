@@ -115,8 +115,8 @@ func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequence
 				Sequence:           *mockSequence,
 				SourceChannel:      channelKey.ChannelID,
 				SourcePort:         channelKey.PortID,
-				DestChannel: channelKey.CounterpartyChannelID,
-				DestPort:    channelKey.CounterpartyPortID,
+				DestinationChannel: channelKey.CounterpartyChannelID,
+				DestinationPort:    channelKey.CounterpartyPortID,
 				Data:               []byte(strconv.FormatUint(*mockSequence, 10)),
 				TimeoutHeight: clienttypes.Height{
 					RevisionHeight: 1000,
@@ -132,8 +132,8 @@ func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequence
 				Sequence:           *mockSequenceCounterparty - 1,
 				SourceChannel:      channelKey.CounterpartyChannelID,
 				SourcePort:         channelKey.CounterpartyPortID,
-				DestChannel: channelKey.ChannelID,
-				DestPort:    channelKey.PortID,
+				DestinationChannel: channelKey.ChannelID,
+				DestinationPort:    channelKey.PortID,
 				Data:               []byte(strconv.FormatUint(*mockSequenceCounterparty, 10)),
 				TimeoutHeight: clienttypes.Height{
 					RevisionHeight: 1000,
@@ -148,8 +148,8 @@ func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequence
 				Sequence:           *mockSequence - 2,
 				SourceChannel:      channelKey.ChannelID,
 				SourcePort:         channelKey.PortID,
-				DestChannel: channelKey.CounterpartyChannelID,
-				DestPort:    channelKey.CounterpartyPortID,
+				DestinationChannel: channelKey.CounterpartyChannelID,
+				DestinationPort:    channelKey.CounterpartyPortID,
 				Data:               []byte(strconv.FormatUint(*mockSequence, 10)),
 			},
 		})
