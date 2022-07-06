@@ -65,26 +65,26 @@ type ClientTrustedState struct {
 // PacketInfo contains any relevant properties from packet flow messages
 // which may be necessary to construct the next message in the packet flow.
 type PacketInfo struct {
-	Height             uint64
-	Sequence           uint64
-	SourcePort         string
-	SourceChannel      string
-	DestinationPort    string
-	DestinationChannel string
-	Data               []byte
-	TimeoutHeight      clienttypes.Height
-	TimeoutTimestamp   uint64
-	Acknowledgement    []byte
+	Height           uint64
+	Sequence         uint64
+	SourcePort       string
+	SourceChannel    string
+	DestPort         string
+	DestChannel      string
+	Data             []byte
+	TimeoutHeight    clienttypes.Height
+	TimeoutTimestamp uint64
+	Ack              []byte
 }
 
 // ConnectionInfo contains relevant properties from connection handshake messages
 // which may be necessary to construct the next message for the counterparty chain.
 type ConnectionInfo struct {
-	Height                   uint64
-	ConnectionID             string
-	ClientID                 string
-	CounterpartyClientID     string
-	CounterpartyConnectionID string
+	Height               uint64
+	ConnID               string
+	ClientID             string
+	CounterpartyClientID string
+	CounterpartyConnID   string
 }
 
 // ChannelInfo contains relevant properties from channel handshake messages
@@ -95,11 +95,11 @@ type ChannelInfo struct {
 	ChannelID             string
 	CounterpartyPortID    string
 	CounterpartyChannelID string
-	ConnectionID          string
+	ConnID                string
 
-	// CounterpartyConnectionID doesn't come from any events, but is needed for
+	// CounterpartyConnID doesn't come from any events, but is needed for
 	// MsgChannelOpenTry, so should be added manually for MsgChannelOpenInit.
-	CounterpartyConnectionID string
+	CounterpartyConnID string
 
 	Order   chantypes.Order
 	Version string

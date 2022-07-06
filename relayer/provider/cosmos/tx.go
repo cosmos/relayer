@@ -1112,16 +1112,7 @@ func (cc *CosmosProvider) MsgRecvPacket(ctx context.Context, msgTransfer provide
 	}
 
 	msg := &chantypes.MsgRecvPacket{
-		Packet: chantypes.Packet{
-			Sequence:           msgTransfer.Sequence,
-			SourcePort:         msgTransfer.SourcePort,
-			SourceChannel:      msgTransfer.SourceChannel,
-			DestinationPort:    msgTransfer.DestinationPort,
-			DestinationChannel: msgTransfer.DestinationChannel,
-			Data:               msgTransfer.Data,
-			TimeoutHeight:      msgTransfer.TimeoutHeight,
-			TimeoutTimestamp:   msgTransfer.TimeoutTimestamp,
-		},
+		Packet:          toCosmosPacket(msgTransfer),
 		ProofCommitment: proof,
 		ProofHeight:     proofHeight,
 		Signer:          signer,
@@ -1131,24 +1122,15 @@ func (cc *CosmosProvider) MsgRecvPacket(ctx context.Context, msgTransfer provide
 }
 
 func (cc *CosmosProvider) MsgAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	key := host.PacketAcknowledgementKey(msgRecvPacket.DestinationPort, msgRecvPacket.DestinationChannel, msgRecvPacket.Sequence)
+	key := host.PacketAcknowledgementKey(msgRecvPacket.DestPort, msgRecvPacket.DestChannel, msgRecvPacket.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
 	if err != nil {
 		return nil, fmt.Errorf("error querying tendermint proof for packet acknowledgement: %w", err)
 	}
 
 	msg := &chantypes.MsgAcknowledgement{
-		Packet: chantypes.Packet{
-			Sequence:           msgRecvPacket.Sequence,
-			SourcePort:         msgRecvPacket.SourcePort,
-			SourceChannel:      msgRecvPacket.SourceChannel,
-			DestinationPort:    msgRecvPacket.DestinationPort,
-			DestinationChannel: msgRecvPacket.DestinationChannel,
-			Data:               msgRecvPacket.Data,
-			TimeoutHeight:      msgRecvPacket.TimeoutHeight,
-			TimeoutTimestamp:   msgRecvPacket.TimeoutTimestamp,
-		},
-		Acknowledgement: msgRecvPacket.Acknowledgement,
+		Packet:          toCosmosPacket(msgRecvPacket),
+		Acknowledgement: msgRecvPacket.Ack,
 		ProofAcked:      proof,
 		ProofHeight:     proofHeight,
 		Signer:          signer,
@@ -1158,23 +1140,14 @@ func (cc *CosmosProvider) MsgAcknowledgement(ctx context.Context, msgRecvPacket 
 }
 
 func (cc *CosmosProvider) MsgTimeout(ctx context.Context, msgTransfer provider.PacketInfo, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	key := host.PacketReceiptKey(msgTransfer.DestinationPort, msgTransfer.DestinationChannel, msgTransfer.Sequence)
+	key := host.PacketReceiptKey(msgTransfer.DestPort, msgTransfer.DestChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
 	if err != nil {
 		return nil, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
 	}
 
 	assembled := &chantypes.MsgTimeout{
-		Packet: chantypes.Packet{
-			Sequence:           msgTransfer.Sequence,
-			SourcePort:         msgTransfer.SourcePort,
-			SourceChannel:      msgTransfer.SourceChannel,
-			DestinationPort:    msgTransfer.DestinationPort,
-			DestinationChannel: msgTransfer.DestinationChannel,
-			Data:               msgTransfer.Data,
-			TimeoutHeight:      msgTransfer.TimeoutHeight,
-			TimeoutTimestamp:   msgTransfer.TimeoutTimestamp,
-		},
+		Packet:           toCosmosPacket(msgTransfer),
 		ProofUnreceived:  proof,
 		ProofHeight:      proofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,
@@ -1185,23 +1158,14 @@ func (cc *CosmosProvider) MsgTimeout(ctx context.Context, msgTransfer provider.P
 }
 
 func (cc *CosmosProvider) MsgTimeoutOnClose(ctx context.Context, msgTransfer provider.PacketInfo, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	key := host.PacketReceiptKey(msgTransfer.DestinationPort, msgTransfer.DestinationChannel, msgTransfer.Sequence)
+	key := host.PacketReceiptKey(msgTransfer.DestPort, msgTransfer.DestChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
 	if err != nil {
 		return nil, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
 	}
 
 	msgTimeout := &chantypes.MsgTimeoutOnClose{
-		Packet: chantypes.Packet{
-			Sequence:           msgTransfer.Sequence,
-			SourcePort:         msgTransfer.SourcePort,
-			SourceChannel:      msgTransfer.SourceChannel,
-			DestinationPort:    msgTransfer.DestinationPort,
-			DestinationChannel: msgTransfer.DestinationChannel,
-			Data:               msgTransfer.Data,
-			TimeoutHeight:      msgTransfer.TimeoutHeight,
-			TimeoutTimestamp:   msgTransfer.TimeoutTimestamp,
-		},
+		Packet:           toCosmosPacket(msgTransfer),
 		ProofUnreceived:  proof,
 		ProofHeight:      proofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,

@@ -46,8 +46,10 @@ var (
 )
 
 // ShortAction returns the short name for an IBC message action.
-func ShortAction(action string) string {
-	split := strings.Split(action, ".")
+type ShortAction string
+
+func (a ShortAction) String() string {
+	split := strings.Split(string(a), ".")
 	return split[len(split)-1]
 }
 
@@ -104,21 +106,43 @@ func (channelKey ChannelKey) Counterparty() ChannelKey {
 	}
 }
 
+// msgInitKey is used for comparing MsgChannelOpenInit keys with other connection
+// handshake messages. MsgChannelOpenInit does not have CounterpartyChannelID.
+func (channelKey ChannelKey) msgInitKey() ChannelKey {
+	return ChannelKey{
+		ChannelID:             channelKey.ChannelID,
+		PortID:                channelKey.PortID,
+		CounterpartyChannelID: "",
+		CounterpartyPortID:    channelKey.CounterpartyPortID,
+	}
+}
+
 // ConnectionKey is the key used for identifying connections between ChainProcessor and PathProcessor.
 type ConnectionKey struct {
-	ClientID                 string
-	ConnectionID             string
-	CounterpartyClientID     string
-	CounterpartyConnectionID string
+	ClientID             string
+	ConnectionID         string
+	CounterpartyClientID string
+	CounterpartyConnID   string
 }
 
 // Counterparty flips a ConnectionKey for the perspective of the counterparty chain
 func (connectionKey ConnectionKey) Counterparty() ConnectionKey {
 	return ConnectionKey{
-		ClientID:                 connectionKey.CounterpartyClientID,
-		ConnectionID:             connectionKey.CounterpartyConnectionID,
-		CounterpartyClientID:     connectionKey.ClientID,
-		CounterpartyConnectionID: connectionKey.ConnectionID,
+		ClientID:             connectionKey.CounterpartyClientID,
+		ConnectionID:         connectionKey.CounterpartyConnID,
+		CounterpartyClientID: connectionKey.ClientID,
+		CounterpartyConnID:   connectionKey.ConnectionID,
+	}
+}
+
+// msgInitKey is used for comparing MsgConnectionOpenInit keys with other connection
+// handshake messages. MsgConnectionOpenInit does not have CounterpartyConnectionID.
+func (connectionKey ConnectionKey) msgInitKey() ConnectionKey {
+	return ConnectionKey{
+		ClientID:             connectionKey.ClientID,
+		ConnectionID:         connectionKey.ConnectionID,
+		CounterpartyClientID: connectionKey.CounterpartyClientID,
+		CounterpartyConnID:   "",
 	}
 }
 
@@ -186,7 +210,7 @@ func (c PacketMessagesCache) Clone() PacketMessagesCache {
 	return newPacketMessagesCache
 }
 
-func (c PacketMessagesCache) DeleteCachedMessages(toDelete ...map[string][]uint64) {
+func (c PacketMessagesCache) DeleteMessages(toDelete ...map[string][]uint64) {
 	for _, toDeleteMap := range toDelete {
 		for message, toDeleteMessages := range toDeleteMap {
 			for _, sequence := range toDeleteMessages {
@@ -282,7 +306,7 @@ func (c ConnectionMessagesCache) Retain(k ConnectionKey, m string, ibcMsg provid
 	c[m][k] = ibcMsg
 }
 
-func (c ConnectionMessagesCache) DeleteCachedMessages(toDelete ...map[string][]ConnectionKey) {
+func (c ConnectionMessagesCache) DeleteMessages(toDelete ...map[string][]ConnectionKey) {
 	for _, toDeleteMap := range toDelete {
 		for message, toDeleteMessages := range toDeleteMap {
 			for _, connection := range toDeleteMessages {
@@ -319,7 +343,7 @@ func (c ChannelMessagesCache) Retain(k ChannelKey, m string, ibcMsg provider.Cha
 	c[m][k] = ibcMsg
 }
 
-func (c ChannelMessagesCache) DeleteCachedMessages(toDelete ...map[string][]ChannelKey) {
+func (c ChannelMessagesCache) DeleteMessages(toDelete ...map[string][]ChannelKey) {
 	for _, toDeleteMap := range toDelete {
 		for message, toDeleteMessages := range toDeleteMap {
 			for _, channel := range toDeleteMessages {
@@ -364,14 +388,14 @@ func (c IBCHeaderCache) Prune(keep int) {
 }
 
 // PacketInfoChannelKey returns the applicable ChannelKey for the chain based on the action.
-func PacketInfoChannelKey(action string, info provider.PacketInfo) ChannelKey {
+func PacketInfoChannelKey(action string, info provider.PacketInfo) (ChannelKey, error) {
 	switch action {
 	case MsgRecvPacket:
-		return packetInfoChannelKey(info).Counterparty()
+		return packetInfoChannelKey(info).Counterparty(), nil
 	case MsgTransfer, MsgAcknowledgement, MsgTimeout, MsgTimeoutOnClose:
-		return packetInfoChannelKey(info)
+		return packetInfoChannelKey(info), nil
 	}
-	panic(fmt.Errorf("action not expected for packetIBCMessage channelKey: %s", action))
+	return ChannelKey{}, fmt.Errorf("action not expected for packetIBCMessage channelKey: %s", action)
 }
 
 // ChannelInfoChannelKey returns the applicable ChannelKey for ChannelInfo.
@@ -387,9 +411,9 @@ func ChannelInfoChannelKey(info provider.ChannelInfo) ChannelKey {
 // ConnectionInfoConnectionKey returns the applicable ConnectionKey for ConnectionInfo.
 func ConnectionInfoConnectionKey(info provider.ConnectionInfo) ConnectionKey {
 	return ConnectionKey{
-		ClientID:                 info.ClientID,
-		CounterpartyClientID:     info.CounterpartyClientID,
-		ConnectionID:             info.ConnectionID,
-		CounterpartyConnectionID: info.CounterpartyConnectionID,
+		ClientID:             info.ClientID,
+		CounterpartyClientID: info.CounterpartyClientID,
+		ConnectionID:         info.ConnID,
+		CounterpartyConnID:   info.CounterpartyConnID,
 	}
 }

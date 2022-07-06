@@ -11,7 +11,7 @@ type packetIBCMessage struct {
 
 // channelKey returns channel key for new message by this action
 // based on prior action.
-func (p packetIBCMessage) channelKey() ChannelKey {
+func (p packetIBCMessage) channelKey() (ChannelKey, error) {
 	return PacketInfoChannelKey(p.action, p.info)
 }
 
@@ -40,7 +40,7 @@ type packetProcessingCache map[ChannelKey]packetChannelMessageCache
 type packetChannelMessageCache map[string]packetMessageSendCache
 type packetMessageSendCache map[uint64]processingMessage
 
-func (c packetChannelMessageCache) deleteCachedMessages(toDelete ...map[string][]uint64) {
+func (c packetChannelMessageCache) deleteMessages(toDelete ...map[string][]uint64) {
 	for _, toDeleteMap := range toDelete {
 		for message, toDeleteMessages := range toDeleteMap {
 			for _, sequence := range toDeleteMessages {
@@ -53,7 +53,7 @@ func (c packetChannelMessageCache) deleteCachedMessages(toDelete ...map[string][
 type channelProcessingCache map[string]channelKeySendCache
 type channelKeySendCache map[ChannelKey]processingMessage
 
-func (c channelProcessingCache) deleteCachedMessages(toDelete ...map[string][]ChannelKey) {
+func (c channelProcessingCache) deleteMessages(toDelete ...map[string][]ChannelKey) {
 	for _, toDeleteMap := range toDelete {
 		for message, toDeleteMessages := range toDeleteMap {
 			for _, channel := range toDeleteMessages {
@@ -66,7 +66,7 @@ func (c channelProcessingCache) deleteCachedMessages(toDelete ...map[string][]Ch
 type connectionProcessingCache map[string]connectionKeySendCache
 type connectionKeySendCache map[ConnectionKey]processingMessage
 
-func (c connectionProcessingCache) deleteCachedMessages(toDelete ...map[string][]ConnectionKey) {
+func (c connectionProcessingCache) deleteMessages(toDelete ...map[string][]ConnectionKey) {
 	for _, toDeleteMap := range toDelete {
 		for message, toDeleteMessages := range toDeleteMap {
 			for _, connection := range toDeleteMessages {
@@ -142,17 +142,17 @@ func packetInfoChannelKey(p provider.PacketInfo) ChannelKey {
 	return ChannelKey{
 		ChannelID:             p.SourceChannel,
 		PortID:                p.SourcePort,
-		CounterpartyChannelID: p.DestinationChannel,
-		CounterpartyPortID:    p.DestinationPort,
+		CounterpartyChannelID: p.DestChannel,
+		CounterpartyPortID:    p.DestPort,
 	}
 }
 
 func connectionInfoConnectionKey(c provider.ConnectionInfo) ConnectionKey {
 	return ConnectionKey{
-		ClientID:                 c.ClientID,
-		ConnectionID:             c.ConnectionID,
-		CounterpartyClientID:     c.CounterpartyClientID,
-		CounterpartyConnectionID: c.CounterpartyConnectionID,
+		ClientID:             c.ClientID,
+		ConnectionID:         c.ConnID,
+		CounterpartyClientID: c.CounterpartyClientID,
+		CounterpartyConnID:   c.CounterpartyConnID,
 	}
 }
 
