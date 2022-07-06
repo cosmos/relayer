@@ -46,6 +46,7 @@ type LatestBlock struct {
 
 type IBCHeader interface {
 	IBCHeaderIndicator()
+	Height() uint64
 }
 
 // ClientState holds the current state of a client from a single chain's perspective
@@ -179,8 +180,12 @@ type ChainProvider interface {
 	SendMessage(ctx context.Context, msg RelayerMessage) (*RelayerTxResponse, bool, error)
 	SendMessages(ctx context.Context, msgs []RelayerMessage) (*RelayerTxResponse, bool, error)
 
-	GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.ClientMessage, error)
-	GetIBCUpdateHeader(ctx context.Context, srch int64, dst ChainProvider, dstClientId string) (ibcexported.ClientMessage, error)
+	// TODO consolidate with IBCHeaderAtHeight
+	GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error)
+	GetIBCUpdateHeader(ctx context.Context, srch int64, dst ChainProvider, dstClientId string) (ibcexported.Header, error)
+
+	// IBCHeaderAtHeight returns the IBC compatible block header at a specific height.
+	IBCHeaderAtHeight(ctx context.Context, h int64) (IBCHeader, error)
 
 	ChainName() string
 	ChainId() string
