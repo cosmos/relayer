@@ -62,6 +62,49 @@ type ClientTrustedState struct {
 	IBCHeader   IBCHeader
 }
 
+// PacketInfo contains any relevant properties from packet flow messages
+// which may be necessary to construct the next message in the packet flow.
+type PacketInfo struct {
+	Height             uint64
+	Sequence           uint64
+	SourcePort         string
+	SourceChannel      string
+	DestinationPort    string
+	DestinationChannel string
+	Data               []byte
+	TimeoutHeight      clienttypes.Height
+	TimeoutTimestamp   uint64
+	Acknowledgement    []byte
+}
+
+// ConnectionInfo contains relevant properties from connection handshake messages
+// which may be necessary to construct the next message for the counterparty chain.
+type ConnectionInfo struct {
+	Height                   uint64
+	ConnectionID             string
+	ClientID                 string
+	CounterpartyClientID     string
+	CounterpartyConnectionID string
+}
+
+// ChannelInfo contains relevant properties from channel handshake messages
+// which may be necessary to construct the next message for the counterparty chain.
+type ChannelInfo struct {
+	Height                uint64
+	PortID                string
+	ChannelID             string
+	CounterpartyPortID    string
+	CounterpartyChannelID string
+	ConnectionID          string
+
+	// CounterpartyConnectionID doesn't come from any events, but is needed for
+	// MsgChannelOpenTry, so should be added manually for MsgChannelOpenInit.
+	CounterpartyConnectionID string
+
+	Order   chantypes.Order
+	Version string
+}
+
 // loggableEvents is an unexported wrapper type for a slice of RelayerEvent,
 // to satisfy the zapcore.ArrayMarshaler interface.
 type loggableEvents []RelayerEvent
@@ -126,7 +169,7 @@ type ChainProvider interface {
 	// ValidatePacket makes sure packet is valid to be relayed.
 	// It should return TimeoutHeightError, TimeoutTimestampError, or TimeoutOnCloseError
 	// for packet timeout scenarios so that timeout message can be written to other chain.
-	ValidatePacket(msgRecvPacket RelayerMessage, latestBlock LatestBlock) error
+	ValidatePacket(msgTransfer PacketInfo, latestBlock LatestBlock) error
 
 	// [Begin] Packet flow IBC message assembly functions
 
@@ -135,23 +178,23 @@ type ChainProvider interface {
 
 	// MsgRecvPacket takes a partial MsgRecvPacket, queries the packet commitment,
 	// and assembles a full MsgRecvPacket ready to write to the counterparty chain.
-	MsgRecvPacket(ctx context.Context, msgRecvPacket RelayerMessage, signer string, latest LatestBlock) (RelayerMessage, error)
+	MsgRecvPacket(ctx context.Context, msgTransfer PacketInfo, signer string, latest LatestBlock) (RelayerMessage, error)
 
 	// MsgAcknowledgement takes a partial MsgAcknowledgement, queries the packet acknowledgement,
 	// and assembles a full MsgAcknowledgement ready to write to the counterparty chain.
-	MsgAcknowledgement(ctx context.Context, msgAcknowledgement RelayerMessage, signer string, latest LatestBlock) (RelayerMessage, error)
+	MsgAcknowledgement(ctx context.Context, msgRecvPacket PacketInfo, signer string, latest LatestBlock) (RelayerMessage, error)
 
 	// MsgTimeout takes a partial MsgRecvPacket, queries the packet receipt to prove that the packet was never relayed,
 	// i.e. that the MsgRecvPacket was never written to the chain,
 	// and assembles a full MsgTimeout ready to write to the counterparty chain,
 	// i.e. the chain where the MsgTransfer was committed.
-	MsgTimeout(ctx context.Context, msgRecvPacket RelayerMessage, signer string, latest LatestBlock) (RelayerMessage, error)
+	MsgTimeout(ctx context.Context, msgTransfer PacketInfo, signer string, latest LatestBlock) (RelayerMessage, error)
 
 	// MsgTimeoutOnClose takes a partial MsgRecvPacket, queries the packet receipt to prove that the packet was never relayed,
 	// i.e. that the MsgRecvPacket was never written to the chain,
 	// and assembles a full MsgTimeoutOnClose ready to write to the counterparty chain,
 	// i.e. the chain where the MsgTransfer was committed.
-	MsgTimeoutOnClose(ctx context.Context, msgRecvPacket RelayerMessage, signer string, latest LatestBlock) (RelayerMessage, error)
+	MsgTimeoutOnClose(ctx context.Context, msgTransfer PacketInfo, signer string, latest LatestBlock) (RelayerMessage, error)
 
 	// [End] Packet flow IBC message assembly
 

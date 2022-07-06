@@ -1077,101 +1077,134 @@ func (cc *CosmosProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.C
 	}
 }
 
-func (cc *CosmosProvider) ValidatePacket(msgRecvPacket provider.RelayerMessage, latest provider.LatestBlock) error {
-	msg := typedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
-
-	if msg.Packet.Sequence == 0 {
+func (cc *CosmosProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest provider.LatestBlock) error {
+	if msgTransfer.Sequence == 0 {
 		return errors.New("refusing to relay packet with sequence: 0")
 	}
 
-	if len(msg.Packet.Data) == 0 {
+	if len(msgTransfer.Data) == 0 {
 		return errors.New("refusing to relay packet with empty data")
 	}
 
 	// This should not be possible, as it violates IBC spec
-	if msg.Packet.TimeoutHeight.IsZero() && msg.Packet.TimeoutTimestamp == 0 {
+	if msgTransfer.TimeoutHeight.IsZero() && msgTransfer.TimeoutTimestamp == 0 {
 		return errors.New("refusing to relay packet without a timeout (height or timestamp must be set)")
 	}
 
 	revision := clienttypes.ParseChainID(cc.PCfg.ChainID)
 	latestClientTypesHeight := clienttypes.NewHeight(revision, latest.Height)
-	if !msg.Packet.TimeoutHeight.IsZero() && latestClientTypesHeight.GTE(msg.Packet.TimeoutHeight) {
-		return provider.NewTimeoutHeightError(latest.Height, msg.Packet.TimeoutHeight.RevisionHeight)
+	if !msgTransfer.TimeoutHeight.IsZero() && latestClientTypesHeight.GTE(msgTransfer.TimeoutHeight) {
+		return provider.NewTimeoutHeightError(latest.Height, msgTransfer.TimeoutHeight.RevisionHeight)
 	}
 	latestTimestamp := uint64(latest.Time.UnixNano())
-	if msg.Packet.TimeoutTimestamp > 0 && latestTimestamp > msg.Packet.TimeoutTimestamp {
-		return provider.NewTimeoutTimestampError(latestTimestamp, msg.Packet.TimeoutTimestamp)
+	if msgTransfer.TimeoutTimestamp > 0 && latestTimestamp > msgTransfer.TimeoutTimestamp {
+		return provider.NewTimeoutTimestampError(latestTimestamp, msgTransfer.TimeoutTimestamp)
 	}
 
 	return nil
 }
 
-func (cc *CosmosProvider) MsgRecvPacket(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	msg := typedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
-
-	key := host.PacketCommitmentKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
+func (cc *CosmosProvider) MsgRecvPacket(ctx context.Context, msgTransfer provider.PacketInfo, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+	key := host.PacketCommitmentKey(msgTransfer.SourcePort, msgTransfer.SourceChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
 	if err != nil {
 		return nil, fmt.Errorf("error querying tendermint proof for packet commitment: %w", err)
 	}
 
-	msg.ProofCommitment = proof
-	msg.ProofHeight = proofHeight
-	msg.Signer = signer
+	msg := &chantypes.MsgRecvPacket{
+		Packet: chantypes.Packet{
+			Sequence:           msgTransfer.Sequence,
+			SourcePort:         msgTransfer.SourcePort,
+			SourceChannel:      msgTransfer.SourceChannel,
+			DestinationPort:    msgTransfer.DestinationPort,
+			DestinationChannel: msgTransfer.DestinationChannel,
+			Data:               msgTransfer.Data,
+			TimeoutHeight:      msgTransfer.TimeoutHeight,
+			TimeoutTimestamp:   msgTransfer.TimeoutTimestamp,
+		},
+		ProofCommitment: proof,
+		ProofHeight:     proofHeight,
+		Signer:          signer,
+	}
 
 	return NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) MsgAcknowledgement(ctx context.Context, msgAcknowledgement provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	msg := typedCosmosMsg[*chantypes.MsgAcknowledgement](msgAcknowledgement)
-
-	key := host.PacketAcknowledgementKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
+func (cc *CosmosProvider) MsgAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+	key := host.PacketAcknowledgementKey(msgRecvPacket.DestinationPort, msgRecvPacket.DestinationChannel, msgRecvPacket.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
 	if err != nil {
 		return nil, fmt.Errorf("error querying tendermint proof for packet acknowledgement: %w", err)
 	}
 
-	msg.ProofAcked = proof
-	msg.ProofHeight = proofHeight
-	msg.Signer = signer
+	msg := &chantypes.MsgAcknowledgement{
+		Packet: chantypes.Packet{
+			Sequence:           msgRecvPacket.Sequence,
+			SourcePort:         msgRecvPacket.SourcePort,
+			SourceChannel:      msgRecvPacket.SourceChannel,
+			DestinationPort:    msgRecvPacket.DestinationPort,
+			DestinationChannel: msgRecvPacket.DestinationChannel,
+			Data:               msgRecvPacket.Data,
+			TimeoutHeight:      msgRecvPacket.TimeoutHeight,
+			TimeoutTimestamp:   msgRecvPacket.TimeoutTimestamp,
+		},
+		Acknowledgement: msgRecvPacket.Acknowledgement,
+		ProofAcked:      proof,
+		ProofHeight:     proofHeight,
+		Signer:          signer,
+	}
 
 	return NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) MsgTimeout(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	msg := typedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
-
-	key := host.PacketReceiptKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
+func (cc *CosmosProvider) MsgTimeout(ctx context.Context, msgTransfer provider.PacketInfo, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+	key := host.PacketReceiptKey(msgTransfer.DestinationPort, msgTransfer.DestinationChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
 	if err != nil {
 		return nil, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
 	}
 
 	assembled := &chantypes.MsgTimeout{
-		Packet:           msg.Packet,
+		Packet: chantypes.Packet{
+			Sequence:           msgTransfer.Sequence,
+			SourcePort:         msgTransfer.SourcePort,
+			SourceChannel:      msgTransfer.SourceChannel,
+			DestinationPort:    msgTransfer.DestinationPort,
+			DestinationChannel: msgTransfer.DestinationChannel,
+			Data:               msgTransfer.Data,
+			TimeoutHeight:      msgTransfer.TimeoutHeight,
+			TimeoutTimestamp:   msgTransfer.TimeoutTimestamp,
+		},
 		ProofUnreceived:  proof,
 		ProofHeight:      proofHeight,
-		NextSequenceRecv: msg.Packet.Sequence,
+		NextSequenceRecv: msgTransfer.Sequence,
 		Signer:           signer,
 	}
 
 	return NewCosmosMessage(assembled), nil
 }
 
-func (cc *CosmosProvider) MsgTimeoutOnClose(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	msg := typedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
-
-	key := host.PacketReceiptKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
+func (cc *CosmosProvider) MsgTimeoutOnClose(ctx context.Context, msgTransfer provider.PacketInfo, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+	key := host.PacketReceiptKey(msgTransfer.DestinationPort, msgTransfer.DestinationChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
 	if err != nil {
 		return nil, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
 	}
 
 	msgTimeout := &chantypes.MsgTimeoutOnClose{
-		Packet:           msg.Packet,
+		Packet: chantypes.Packet{
+			Sequence:           msgTransfer.Sequence,
+			SourcePort:         msgTransfer.SourcePort,
+			SourceChannel:      msgTransfer.SourceChannel,
+			DestinationPort:    msgTransfer.DestinationPort,
+			DestinationChannel: msgTransfer.DestinationChannel,
+			Data:               msgTransfer.Data,
+			TimeoutHeight:      msgTransfer.TimeoutHeight,
+			TimeoutTimestamp:   msgTransfer.TimeoutTimestamp,
+		},
 		ProofUnreceived:  proof,
 		ProofHeight:      proofHeight,
-		NextSequenceRecv: msg.Packet.Sequence,
+		NextSequenceRecv: msgTransfer.Sequence,
 		Signer:           signer,
 	}
 

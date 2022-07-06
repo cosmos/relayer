@@ -9,8 +9,8 @@ import (
 
 // ibcMessage is the type used for parsing all possible properties of IBC messages
 type ibcMessage struct {
-	messageType string
-	messageInfo interface{}
+	action string
+	info   any
 }
 
 // channelInfo contains useful channel information during channel state changes
@@ -87,7 +87,7 @@ func (c clientInfo) ClientState() provider.ClientState {
 // latestClientState is a map of clientID to the latest clientInfo for that client.
 type latestClientState map[string]provider.ClientState
 
-func (l latestClientState) UpdateLatestClientState(clientInfo clientInfo) {
+func (l latestClientState) updateLatestClientState(clientInfo clientInfo) {
 	existingClientInfo, ok := l[clientInfo.clientID]
 	if ok && clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
 		// height is less than latest, so no-op

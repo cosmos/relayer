@@ -1,7 +1,9 @@
 package processor
 
 import (
+	"fmt"
 	"sort"
+	"strings"
 
 	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
@@ -43,6 +45,12 @@ var (
 	MsgSubmitMisbehaviour = "/" + proto.MessageName((*clienttypes.MsgSubmitMisbehaviour)(nil))
 )
 
+// ShortAction returns the short name for an IBC message action.
+func ShortAction(action string) string {
+	split := strings.Split(action, ".")
+	return split[len(split)-1]
+}
+
 type IBCMessagesCache struct {
 	PacketFlow          ChannelPacketMessagesCache
 	ConnectionHandshake ConnectionMessagesCache
@@ -64,19 +72,19 @@ type ChannelPacketMessagesCache map[ChannelKey]PacketMessagesCache
 type PacketMessagesCache map[string]PacketSequenceCache
 
 // PacketSequenceCache is used for caching an IBC message for a given packet sequence.
-type PacketSequenceCache map[uint64]provider.RelayerMessage
+type PacketSequenceCache map[uint64]provider.PacketInfo
 
 // ChannelMessagesCache is used for caching a ChannelMessageCache for a given IBC message type.
 type ChannelMessagesCache map[string]ChannelMessageCache
 
 // ChannelMessageCache is used for caching channel handshake IBC messages for a given IBC channel.
-type ChannelMessageCache map[ChannelKey]provider.RelayerMessage
+type ChannelMessageCache map[ChannelKey]provider.ChannelInfo
 
 // ConnectionMessagesCache is used for caching a ConnectionMessageCache for a given IBC message type.
 type ConnectionMessagesCache map[string]ConnectionMessageCache
 
 // ConnectionMessageCache is used for caching connection handshake IBC messages for a given IBC connection.
-type ConnectionMessageCache map[ConnectionKey]provider.RelayerMessage
+type ConnectionMessageCache map[ConnectionKey]provider.ConnectionInfo
 
 // ChannelKey is the key used for identifying channels between ChainProcessor and PathProcessor.
 type ChannelKey struct {
@@ -225,14 +233,14 @@ func (c ChannelPacketMessagesCache) ShouldRetainSequence(p PathProcessors, k Cha
 
 // Retain assumes the packet is applicable to the channels for a path processor that is subscribed to this chain processor.
 // It creates cache path if it doesn't exist, then caches message.
-func (c ChannelPacketMessagesCache) Retain(k ChannelKey, m string, seq uint64, ibcMsg provider.RelayerMessage) {
+func (c ChannelPacketMessagesCache) Retain(k ChannelKey, m string, pi provider.PacketInfo) {
 	if _, ok := c[k]; !ok {
 		c[k] = make(PacketMessagesCache)
 	}
 	if _, ok := c[k][m]; !ok {
 		c[k][m] = make(PacketSequenceCache)
 	}
-	c[k][m][seq] = ibcMsg
+	c[k][m][pi.Sequence] = pi
 }
 
 // Merge merges another PacketMessagesCache into this one.
@@ -267,7 +275,7 @@ func (c ConnectionMessagesCache) Merge(other ConnectionMessagesCache) {
 }
 
 // Retain assumes creates cache path if it doesn't exist, then caches message.
-func (c ConnectionMessagesCache) Retain(k ConnectionKey, m string, ibcMsg provider.RelayerMessage) {
+func (c ConnectionMessagesCache) Retain(k ConnectionKey, m string, ibcMsg provider.ConnectionInfo) {
 	if _, ok := c[m]; !ok {
 		c[m] = make(ConnectionMessageCache)
 	}
@@ -304,7 +312,7 @@ func (c ChannelMessagesCache) Merge(other ChannelMessagesCache) {
 }
 
 // Retain assumes creates cache path if it doesn't exist, then caches message.
-func (c ChannelMessagesCache) Retain(k ChannelKey, m string, ibcMsg provider.RelayerMessage) {
+func (c ChannelMessagesCache) Retain(k ChannelKey, m string, ibcMsg provider.ChannelInfo) {
 	if _, ok := c[m]; !ok {
 		c[m] = make(ChannelMessageCache)
 	}
@@ -352,5 +360,36 @@ func (c IBCHeaderCache) Prune(keep int) {
 		for i := 0; i <= toRemove; i++ {
 			delete(c, keys[i])
 		}
+	}
+}
+
+// PacketInfoChannelKey returns the applicable ChannelKey for the chain based on the action.
+func PacketInfoChannelKey(action string, info provider.PacketInfo) ChannelKey {
+	switch action {
+	case MsgRecvPacket:
+		return packetInfoChannelKey(info).Counterparty()
+	case MsgTransfer, MsgAcknowledgement, MsgTimeout, MsgTimeoutOnClose:
+		return packetInfoChannelKey(info)
+	}
+	panic(fmt.Errorf("action not expected for packetIBCMessage channelKey: %s", action))
+}
+
+// ChannelInfoChannelKey returns the applicable ChannelKey for ChannelInfo.
+func ChannelInfoChannelKey(info provider.ChannelInfo) ChannelKey {
+	return ChannelKey{
+		ChannelID:             info.ChannelID,
+		CounterpartyChannelID: info.CounterpartyChannelID,
+		PortID:                info.PortID,
+		CounterpartyPortID:    info.CounterpartyPortID,
+	}
+}
+
+// ConnectionInfoConnectionKey returns the applicable ConnectionKey for ConnectionInfo.
+func ConnectionInfoConnectionKey(info provider.ConnectionInfo) ConnectionKey {
+	return ConnectionKey{
+		ClientID:                 info.ClientID,
+		CounterpartyClientID:     info.CounterpartyClientID,
+		ConnectionID:             info.ConnectionID,
+		CounterpartyConnectionID: info.CounterpartyConnectionID,
 	}
 }
