@@ -8,6 +8,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/types/module"
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	lens "github.com/strangelove-ventures/lens/client"
@@ -225,4 +226,17 @@ func (cc *CosmosProvider) BlockTime(ctx context.Context, height int64) (int64, e
 		return 0, err
 	}
 	return resultBlock.Block.Time.UnixNano(), nil
+}
+
+func toCosmosPacket(pi provider.PacketInfo) chantypes.Packet {
+	return chantypes.Packet{
+		Sequence:           pi.Sequence,
+		SourcePort:         pi.SourcePort,
+		SourceChannel:      pi.SourceChannel,
+		DestinationPort:    pi.DestPort,
+		DestinationChannel: pi.DestChannel,
+		Data:               pi.Data,
+		TimeoutHeight:      pi.TimeoutHeight,
+		TimeoutTimestamp:   pi.TimeoutTimestamp,
+	}
 }

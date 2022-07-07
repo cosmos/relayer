@@ -12,9 +12,10 @@ import (
 const (
 	// durationErrorRetry determines how long to wait before retrying
 	// in the case of failure to send transactions with IBC messages.
-	durationErrorRetry       = 5 * time.Second
-	blocksToRetryPacketAfter = 5
-	maxMessageSendRetries    = 5
+	durationErrorRetry         = 5 * time.Second
+	blocksToRetryAssemblyAfter = 1
+	blocksToRetrySendAfter     = 2
+	maxMessageSendRetries      = 5
 
 	ibcHeadersToCache = 10
 )
@@ -46,8 +47,8 @@ func (p PathProcessors) IsRelayedChannel(k ChannelKey, chainID string) bool {
 func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *PathProcessor {
 	return &PathProcessor{
 		log:          log,
-		pathEnd1:     newPathEndRuntime(pathEnd1),
-		pathEnd2:     newPathEndRuntime(pathEnd2),
+		pathEnd1:     newPathEndRuntime(log, pathEnd1),
+		pathEnd2:     newPathEndRuntime(log, pathEnd2),
 		retryProcess: make(chan struct{}, 8),
 	}
 }

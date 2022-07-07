@@ -67,33 +67,18 @@ type msgHandlerParams struct {
 	ibcMessagesCache processor.IBCMessagesCache
 }
 
-var messageHandlers = map[string]func(*CosmosChainProcessor, msgHandlerParams){
-	processor.MsgTransfer:        (*CosmosChainProcessor).handleMsgTransfer,
-	processor.MsgRecvPacket:      (*CosmosChainProcessor).handleMsgRecvPacket,
-	processor.MsgAcknowledgement: (*CosmosChainProcessor).handleMsgAcknowledgement,
-	processor.MsgTimeout:         (*CosmosChainProcessor).handleMsgTimeout,
-	processor.MsgTimeoutOnClose:  (*CosmosChainProcessor).handleMsgTimeoutOnClose,
+// latestClientState is a map of clientID to the latest clientInfo for that client.
+type latestClientState map[string]provider.ClientState
 
-	processor.MsgCreateClient:       (*CosmosChainProcessor).handleMsgCreateClient,
-	processor.MsgUpdateClient:       (*CosmosChainProcessor).handleMsgUpdateClient,
-	processor.MsgUpgradeClient:      (*CosmosChainProcessor).handleMsgUpgradeClient,
-	processor.MsgSubmitMisbehaviour: (*CosmosChainProcessor).handleMsgSubmitMisbehaviour,
+func (l latestClientState) update(clientInfo clientInfo) {
+	existingClientInfo, ok := l[clientInfo.clientID]
+	if ok && clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
+		// height is less than latest, so no-op
+		return
+	}
 
-	processor.MsgConnectionOpenInit:    (*CosmosChainProcessor).handleMsgConnectionOpenInit,
-	processor.MsgConnectionOpenTry:     (*CosmosChainProcessor).handleMsgConnectionOpenTry,
-	processor.MsgConnectionOpenAck:     (*CosmosChainProcessor).handleMsgConnectionOpenAck,
-	processor.MsgConnectionOpenConfirm: (*CosmosChainProcessor).handleMsgConnectionOpenConfirm,
-
-	processor.MsgChannelCloseConfirm: (*CosmosChainProcessor).handleMsgChannelCloseConfirm,
-	processor.MsgChannelCloseInit:    (*CosmosChainProcessor).handleMsgChannelCloseInit,
-	processor.MsgChannelOpenAck:      (*CosmosChainProcessor).handleMsgChannelOpenAck,
-	processor.MsgChannelOpenConfirm:  (*CosmosChainProcessor).handleMsgChannelOpenConfirm,
-	processor.MsgChannelOpenInit:     (*CosmosChainProcessor).handleMsgChannelOpenInit,
-	processor.MsgChannelOpenTry:      (*CosmosChainProcessor).handleMsgChannelOpenTry,
-}
-
-func (ccp *CosmosChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {
-	ccp.log.With(zap.String("message", m)).Debug("Observed IBC message", fields...)
+	// update latest if no existing state or provided consensus height is newer
+	l[clientInfo.clientID] = clientInfo.ClientState()
 }
 
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
@@ -291,12 +276,14 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 		latestHeader = ibcHeader.(cosmos.CosmosIBCHeader)
 
+		heightUint64 := uint64(i)
+
 		ccp.latestBlock = provider.LatestBlock{
-			Height: uint64(latestHeader.SignedHeader.Height),
+			Height: heightUint64,
 			Time:   latestHeader.SignedHeader.Time,
 		}
 
-		ibcHeaderCache[uint64(i)] = latestHeader
+		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
 		for _, tx := range blockRes.TxsResults {
@@ -304,18 +291,10 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 				// tx was not successful
 				continue
 			}
-			messages := ccp.ibcMessagesFromTransaction(tx)
+			messages := ccp.ibcMessagesFromTransaction(tx, heightUint64)
 
 			for _, m := range messages {
-				handler, ok := messageHandlers[m.messageType]
-				if !ok {
-					continue
-				}
-				// call message handler for this ibc message type. can do things like cache things on the chain processor or retain ibc messages that should be sent to the PathProcessors.
-				handler(ccp, msgHandlerParams{
-					messageInfo:      m.messageInfo,
-					ibcMessagesCache: ibcMessagesCache,
-				})
+				ccp.handleMessage(m, ibcMessagesCache)
 			}
 		}
 	}
