@@ -67,6 +67,20 @@ type msgHandlerParams struct {
 	ibcMessagesCache processor.IBCMessagesCache
 }
 
+// latestClientState is a map of clientID to the latest clientInfo for that client.
+type latestClientState map[string]provider.ClientState
+
+func (l latestClientState) update(clientInfo clientInfo) {
+	existingClientInfo, ok := l[clientInfo.clientID]
+	if ok && clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
+		// height is less than latest, so no-op
+		return
+	}
+
+	// update latest if no existing state or provided consensus height is newer
+	l[clientInfo.clientID] = clientInfo.ClientState()
+}
+
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
 func (ccp *CosmosChainProcessor) Provider() provider.ChainProvider {
 	return ccp.chainProvider

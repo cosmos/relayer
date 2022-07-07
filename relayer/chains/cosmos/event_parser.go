@@ -9,9 +9,20 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"go.uber.org/zap"
 )
+
+// ibcMessage is the type used for parsing all possible properties of IBC messages
+type ibcMessage struct {
+	action string
+	info   ibcMessageInfo
+}
+
+type ibcMessageInfo interface {
+	parseAttrs(log *zap.Logger, attrs []sdk.Attribute)
+}
 
 // ibcMessagesFromTransaction parses all events within a transaction to find IBC messages
 func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDeliverTx, height uint64) []ibcMessage {
@@ -84,6 +95,20 @@ func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, height uint64) (me
 	return messages
 }
 
+// clientInfo contains the consensus height of the counterparty chain for a client.
+type clientInfo struct {
+	clientID        string
+	consensusHeight clienttypes.Height
+	header          []byte
+}
+
+func (c clientInfo) ClientState() provider.ClientState {
+	return provider.ClientState{
+		ClientID:        c.clientID,
+		ConsensusHeight: c.consensusHeight,
+	}
+}
+
 func (res *clientInfo) parseAttrs(log *zap.Logger, attributes []sdk.Attribute) {
 	for _, attr := range attributes {
 		res.parseClientAttribute(log, attr)
@@ -135,6 +160,9 @@ func (res *clientInfo) parseClientAttribute(log *zap.Logger, attr sdk.Attribute)
 		res.header = data
 	}
 }
+
+// alias type to the provider types, used for adding parser methods
+type packetInfo provider.PacketInfo
 
 // parsePacketInfo is treated differently from the others since it can be constructed from the accumulation of multiple events
 func (res *packetInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
@@ -234,6 +262,9 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute)
 	}
 }
 
+// alias type to the provider types, used for adding parser methods
+type channelInfo provider.ChannelInfo
+
 func (res *channelInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
 	for _, attr := range attrs {
 		res.parseChannelAttribute(attr)
@@ -254,6 +285,9 @@ func (res *channelInfo) parseChannelAttribute(attr sdk.Attribute) {
 		res.ConnID = attr.Value
 	}
 }
+
+// alias type to the provider types, used for adding parser methods
+type connectionInfo provider.ConnectionInfo
 
 func (res *connectionInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
 	for _, attr := range attrs {
