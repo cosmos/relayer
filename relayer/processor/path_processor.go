@@ -30,6 +30,8 @@ type PathProcessor struct {
 
 	// Signals to retry.
 	retryProcess chan struct{}
+
+	sentInitialMsg bool
 }
 
 // PathProcessors is a slice of PathProcessor instances
@@ -146,6 +148,15 @@ func (pp *PathProcessor) IsRelevantConnection(chainID string, connectionID strin
 	return false
 }
 
+func (pp *PathProcessor) IsRelevantChannel(chainID string, channelID string) bool {
+	if pp.pathEnd1.info.ChainID == chainID {
+		return pp.pathEnd1.isRelevantChannel(channelID)
+	} else if pp.pathEnd2.info.ChainID == chainID {
+		return pp.pathEnd2.isRelevantChannel(channelID)
+	}
+	return false
+}
+
 // ProcessBacklogIfReady gives ChainProcessors a way to trigger the path processor process
 // as soon as they are in sync for the first time, even if they do not have new messages.
 func (pp *PathProcessor) ProcessBacklogIfReady() {
@@ -169,22 +180,56 @@ func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorC
 }
 
 // Run executes the main path process.
-func (pp *PathProcessor) Run(ctx context.Context) {
+func (pp *PathProcessor) Run(ctx context.Context, ctxCancel func(), messageLifecycle MessageLifecycle) {
+	var retryTimer *time.Timer
 	for {
+		// block until we have any signals to process
 		select {
 		case <-ctx.Done():
+			pp.log.Debug("Context done, quitting PathProcessor",
+				zap.String("chain_id_1", pp.pathEnd1.info.ChainID),
+				zap.String("chain_id_2", pp.pathEnd2.info.ChainID),
+				zap.String("client_id_1", pp.pathEnd1.info.ClientID),
+				zap.String("client_id_2", pp.pathEnd2.info.ClientID),
+				zap.Error(ctx.Err()),
+			)
 			return
-
 		case d := <-pp.pathEnd1.incomingCacheData:
 			// we have new data from ChainProcessor for pathEnd1
-			pp.pathEnd1.MergeCacheData(d)
+			pp.pathEnd1.MergeCacheData(ctx, ctxCancel, d, messageLifecycle)
 
 		case d := <-pp.pathEnd2.incomingCacheData:
 			// we have new data from ChainProcessor for pathEnd2
-			pp.pathEnd2.MergeCacheData(d)
+			pp.pathEnd2.MergeCacheData(ctx, ctxCancel, d, messageLifecycle)
 
 		case <-pp.retryProcess:
 			// No new data to merge in, just retry handling.
+		}
+
+		// Fully flush pathEnd incoming data before processing
+		for len(pp.pathEnd1.incomingCacheData) > 0 {
+			pp.pathEnd1.MergeCacheData(ctx, ctxCancel, <-pp.pathEnd1.incomingCacheData, messageLifecycle)
+		}
+		for len(pp.pathEnd2.incomingCacheData) > 0 {
+			pp.pathEnd2.MergeCacheData(ctx, ctxCancel, <-pp.pathEnd2.incomingCacheData, messageLifecycle)
+		}
+
+		// flush retry process in case retries were scheduled
+		for len(pp.retryProcess) > 0 {
+			<-pp.retryProcess
+		}
+
+		// check context error here in case MergeCacheData found termination condition,
+		// don't need to proceed to process messages if so.
+		if ctx.Err() != nil {
+			pp.log.Debug("Context cancelled, quitting PathProcessor",
+				zap.String("chain_id_1", pp.pathEnd1.info.ChainID),
+				zap.String("chain_id_2", pp.pathEnd2.info.ChainID),
+				zap.String("client_id_1", pp.pathEnd1.info.ClientID),
+				zap.String("client_id_2", pp.pathEnd2.info.ClientID),
+				zap.Error(ctx.Err()),
+			)
+			return
 		}
 
 		if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {
@@ -192,9 +237,14 @@ func (pp *PathProcessor) Run(ctx context.Context) {
 		}
 
 		// process latest message cache state from both pathEnds
-		if err := pp.processLatestMessages(ctx); err != nil {
+		if err := pp.processLatestMessages(ctx, messageLifecycle); err != nil {
 			// in case of IBC message send errors, schedule retry after durationErrorRetry
-			time.AfterFunc(durationErrorRetry, pp.ProcessBacklogIfReady)
+			if retryTimer != nil {
+				retryTimer.Stop()
+			}
+			if ctx.Err() == nil {
+				retryTimer = time.AfterFunc(durationErrorRetry, pp.ProcessBacklogIfReady)
+			}
 		}
 	}
 }

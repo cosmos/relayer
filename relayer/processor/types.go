@@ -53,12 +53,75 @@ func (a ShortAction) String() string {
 	return split[len(split)-1]
 }
 
+// MessageLifecycle is used to send an initial IBC message to a chain
+// once the chains are in sync for the PathProcessor.
+// It also allows setting a stop condition for the PathProcessor.
+// PathProcessor will stop if it observes a message that matches
+// the MessageLifecycle's Termination message.
+type MessageLifecycle interface {
+	messageLifecycler() //noop
+}
+
+type PacketMessage struct {
+	ChainID string
+	Action  string
+	Info    provider.PacketInfo
+}
+
+// PacketMessageLifecycle is used as a stop condition for the PathProcessor.
+// It will send the Initial packet message (if non-nil), then stop once it
+// observes the Termination packet message (if non-nil).
+type PacketMessageLifecycle struct {
+	Initial     *PacketMessage
+	Termination *PacketMessage
+}
+
+func (t *PacketMessageLifecycle) messageLifecycler() {}
+
+type ConnectionMessage struct {
+	ChainID string
+	Action  string
+	Info    provider.ConnectionInfo
+}
+
+// ConnectionMessageLifecycle is used as a stop condition for the PathProcessor.
+// It will send the Initial connection message (if non-nil), then stop once it
+// observes the termination connection message (if non-nil).
+type ConnectionMessageLifecycle struct {
+	Initial     *ConnectionMessage
+	Termination *ConnectionMessage
+}
+
+func (t *ConnectionMessageLifecycle) messageLifecycler() {}
+
+type ChannelMessage struct {
+	ChainID string
+	Action  string
+	Info    provider.ChannelInfo
+}
+
+// ChannelMessageLifecycle is used as a stop condition for the PathProcessor.
+// It will send the Initial channel message (if non-nil), then stop once it observes
+// the termination channel message (if non-nil).
+type ChannelMessageLifecycle struct {
+	Initial     *ChannelMessage
+	Termination *ChannelMessage
+}
+
+func (t *ChannelMessageLifecycle) messageLifecycler() {}
+
+// IBCMessagesCache holds cached messages for packet flows, connection handshakes,
+// and channel handshakes. The PathProcessors use this for message correlation to determine
+// when messages should be sent and are pruned when flows/handshakes are complete.
+// ChainProcessors construct this for new IBC messages and pass it to the PathProcessors
+// which will retain relevant messages for each PathProcessor.
 type IBCMessagesCache struct {
 	PacketFlow          ChannelPacketMessagesCache
 	ConnectionHandshake ConnectionMessagesCache
 	ChannelHandshake    ChannelMessagesCache
 }
 
+// NewIBCMessagesCache returns an empty IBCMessagesCache.
 func NewIBCMessagesCache() IBCMessagesCache {
 	return IBCMessagesCache{
 		PacketFlow:          make(ChannelPacketMessagesCache),
@@ -156,11 +219,21 @@ func (c ChannelStateCache) Merge(other ChannelStateCache) {
 	}
 }
 
-// Clone makes a copy of the ChannelStateCache so it can be used by other threads.
-func (c ChannelStateCache) Clone() ChannelStateCache {
-	n := make(ChannelStateCache, len(c))
+// Filter returns a filtered map of channels on top of an underlying clientID
+func (c ChannelStateCache) Filter(clientID string, channelConnections map[string]string, connectionClients map[string]string) ChannelStateCache {
+	n := make(ChannelStateCache)
 	for k, v := range c {
-		n[k] = v
+		connection, ok := channelConnections[k.ChannelID]
+		if !ok {
+			continue
+		}
+		client, ok := connectionClients[connection]
+		if !ok {
+			continue
+		}
+		if clientID == client {
+			n[k] = v
+		}
 	}
 	return n
 }
@@ -175,11 +248,14 @@ func (c ConnectionStateCache) Merge(other ConnectionStateCache) {
 	}
 }
 
-// Clone makes a copy of the ConnectionStateCache so it can be used by other threads.
-func (c ConnectionStateCache) Clone() ConnectionStateCache {
-	n := make(ConnectionStateCache, len(c))
+// Filter makes a filtered copy of the ConnectionStateCache so it can be used by other threads.
+func (c ConnectionStateCache) Filter(clientID string) ConnectionStateCache {
+	n := make(ConnectionStateCache)
 	for k, v := range c {
-		n[k] = v
+		if k.ClientID == clientID {
+			n[k] = v
+			break
+		}
 	}
 	return n
 }

@@ -1,6 +1,8 @@
 package processor
 
 import (
+	"context"
+
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
@@ -12,14 +14,6 @@ type pathEndRuntime struct {
 	log *zap.Logger
 
 	info PathEnd
-
-	// TODO populate known connections and channels as they are discovered on this client.
-	// channel handshakes will not work until these are populated properly.
-
-	// includes all known and discovered connections that use this PathEnd's client.
-	knownConnections []string
-	// includes all known and discovered channels on connections that use this PathEnd's client.
-	knownChannels []string
 
 	chainProvider provider.ChainProvider
 
@@ -65,8 +59,17 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd) *pathEndRuntime {
 }
 
 func (pathEnd *pathEndRuntime) isRelevantConnection(connectionID string) bool {
-	for _, conn := range pathEnd.knownConnections {
-		if conn == connectionID {
+	for k := range pathEnd.connectionStateCache {
+		if k.ConnectionID == connectionID {
+			return true
+		}
+	}
+	return false
+}
+
+func (pathEnd *pathEndRuntime) isRelevantChannel(channelID string) bool {
+	for k := range pathEnd.channelStateCache {
+		if k.ChannelID == channelID {
 			return true
 		}
 	}
@@ -88,12 +91,11 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache) 
 
 	for action, cmc := range messageCache.ConnectionHandshake {
 		newCmc := make(ConnectionMessageCache)
-		for conn, msg := range cmc {
-			if pathEnd.info.ClientID == conn.ClientID {
+		for k, ci := range cmc {
+			if pathEnd.isRelevantConnection(k.ConnectionID) {
 				// can complete connection handshakes on this client
 				// since PathProcessor holds reference to the counterparty chain pathEndRuntime.
-				newCmc[conn] = msg
-				break
+				newCmc[k] = ci
 			}
 		}
 		if len(newCmc) == 0 {
@@ -105,15 +107,11 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache) 
 
 	for action, cmc := range messageCache.ChannelHandshake {
 		newCmc := make(ChannelMessageCache)
-		for ch, msg := range cmc {
-			for _, chID := range pathEnd.knownChannels {
-				if chID == ch.ChannelID {
-					// if channel's connection is known, and connection is on top of this client,
-					// then we can complete channel handshake for this channel
-					// since PathProcessor holds reference to the counterparty chain pathEndRuntime.
-					newCmc[ch] = msg
-					break
-				}
+		for k, ci := range cmc {
+			if pathEnd.isRelevantChannel(k.ChannelID) {
+				// can complete channel handshakes on this client
+				// since PathProcessor holds reference to the counterparty chain pathEndRuntime.
+				newCmc[k] = ci
 			}
 		}
 		if len(newCmc) == 0 {
@@ -124,16 +122,133 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache) 
 	pathEnd.messageCache.ChannelHandshake.Merge(channelHandshakeMessages)
 }
 
-func (pathEnd *pathEndRuntime) MergeCacheData(d ChainProcessorCacheData) {
+func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache, messageLifecycle MessageLifecycle) bool {
+	if messageLifecycle == nil {
+		return false
+	}
+	switch m := messageLifecycle.(type) {
+	case *PacketMessageLifecycle:
+		if m.Termination.ChainID != pathEnd.info.ChainID {
+			return false
+		}
+		channelKey, err := PacketInfoChannelKey(m.Termination.Action, m.Termination.Info)
+		if err != nil {
+			pathEnd.log.Error("Unexpected error checking packet message",
+				zap.String("action", m.Termination.Action),
+				zap.Any("channel", channelKey),
+				zap.Error(err),
+			)
+			return false
+		}
+		actionCache, ok := ibcMessagesCache.PacketFlow[channelKey]
+		if !ok {
+			return false
+		}
+		sequenceCache, ok := actionCache[m.Termination.Action]
+		if !ok {
+			return false
+		}
+		_, ok = sequenceCache[m.Termination.Info.Sequence]
+		if !ok {
+			return false
+		}
+		// stop path processor, condition fulfilled
+		pathEnd.log.Info("Found termination condition for packet flow")
+		return true
+	case *ChannelMessageLifecycle:
+		if m.Termination.ChainID != pathEnd.info.ChainID {
+			return false
+		}
+		cache, ok := ibcMessagesCache.ChannelHandshake[m.Termination.Action]
+		if !ok {
+			return false
+		}
+		// check against m.Termination.Info
+		foundChannelID := m.Termination.Info.ChannelID == ""
+		foundPortID := m.Termination.Info.PortID == ""
+		foundCounterpartyChannelID := m.Termination.Info.CounterpartyChannelID == ""
+		foundCounterpartyPortID := m.Termination.Info.CounterpartyPortID == ""
+		for _, ci := range cache {
+			if !foundChannelID && ci.ChannelID == m.Termination.Info.ChannelID {
+				foundChannelID = true
+			}
+			if !foundPortID && ci.PortID == m.Termination.Info.PortID {
+				foundPortID = true
+			}
+			if !foundCounterpartyChannelID && ci.CounterpartyChannelID == m.Termination.Info.CounterpartyChannelID {
+				foundCounterpartyChannelID = true
+			}
+			if !foundCounterpartyPortID && ci.CounterpartyPortID == m.Termination.Info.CounterpartyPortID {
+				foundCounterpartyPortID = true
+			}
+		}
+		if foundChannelID && foundPortID && foundCounterpartyChannelID && foundCounterpartyPortID {
+			pathEnd.log.Info("Found termination condition for channel handshake")
+			return true
+		}
+	case *ConnectionMessageLifecycle:
+		if m.Termination.ChainID != pathEnd.info.ChainID {
+			return false
+		}
+		cache, ok := ibcMessagesCache.ConnectionHandshake[m.Termination.Action]
+		if !ok {
+			return false
+		}
+		// check against m.Termination.Info
+		foundClientID := m.Termination.Info.ClientID == ""
+		foundConnectionID := m.Termination.Info.ConnID == ""
+		foundCounterpartyClientID := m.Termination.Info.CounterpartyClientID == ""
+		foundCounterpartyConnectionID := m.Termination.Info.CounterpartyConnID == ""
+		for _, ci := range cache {
+			pathEnd.log.Info("Connection handshake termination candidate",
+				zap.String("termination_client_id", m.Termination.Info.ClientID),
+				zap.String("observed_client_id", ci.ClientID),
+				zap.String("termination_counterparty_client_id", m.Termination.Info.CounterpartyClientID),
+				zap.String("observed_counterparty_client_id", ci.CounterpartyClientID),
+			)
+			if !foundClientID && ci.ClientID == m.Termination.Info.ClientID {
+				foundClientID = true
+			}
+			if !foundConnectionID && ci.ConnID == m.Termination.Info.ConnID {
+				foundConnectionID = true
+			}
+			if !foundCounterpartyClientID && ci.CounterpartyClientID == m.Termination.Info.CounterpartyClientID {
+				foundCounterpartyClientID = true
+			}
+			if !foundCounterpartyConnectionID && ci.CounterpartyConnID == m.Termination.Info.CounterpartyConnID {
+				foundCounterpartyConnectionID = true
+			}
+		}
+		if foundClientID && foundConnectionID && foundCounterpartyClientID && foundCounterpartyConnectionID {
+			pathEnd.log.Info("Found termination condition for connection handshake")
+			return true
+		} else {
+			pathEnd.log.Info("Did not find termination condition for connection handshake",
+				zap.Bool("foundClientID", foundClientID),
+				zap.Bool("foundConnectionID", foundConnectionID),
+				zap.Bool("foundCounterpartyClientID", foundCounterpartyClientID),
+				zap.Bool("foundCounterpartyConnectionID", foundCounterpartyConnectionID),
+			)
+		}
+	}
+	return false
+}
+
+func (pathEnd *pathEndRuntime) MergeCacheData(ctx context.Context, ctxCancel func(), d ChainProcessorCacheData, messageLifecycle MessageLifecycle) {
 	pathEnd.inSync = d.InSync
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
 
-	pathEnd.mergeMessageCache(d.IBCMessagesCache) // Merge incoming packet IBC messages into the backlog
+	if pathEnd.shouldTerminate(d.IBCMessagesCache, messageLifecycle) {
+		ctxCancel()
+		return
+	}
 
 	pathEnd.connectionStateCache.Merge(d.ConnectionStateCache) // Update latest connection open state for chain
 	pathEnd.channelStateCache.Merge(d.ChannelStateCache)       // Update latest channel open state for chain
+
+	pathEnd.mergeMessageCache(d.IBCMessagesCache) // Merge incoming packet IBC messages into the backlog
 
 	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
 	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers

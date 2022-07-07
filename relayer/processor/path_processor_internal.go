@@ -370,7 +370,7 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 }
 
 // messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
-func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
+func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifecycle MessageLifecycle) error {
 	// Update trusted client state for both pathends
 	pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
 	pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
@@ -449,6 +449,67 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	pathEnd1ConnectionMessages, pathEnd2ConnectionMessages := pp.connectionMessagesToSend(pathEnd1ConnectionHandshakeRes, pathEnd2ConnectionHandshakeRes)
 	pathEnd1ChannelMessages, pathEnd2ChannelMessages := pp.channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes)
 	pathEnd1PacketMessages, pathEnd2PacketMessages := pp.packetMessagesToSend(channelPairs, pathEnd1ProcessRes, pathEnd2ProcessRes)
+
+	if messageLifecycle != nil && !pp.sentInitialMsg {
+		switch m := messageLifecycle.(type) {
+		case *PacketMessageLifecycle:
+			channelKey, err := PacketInfoChannelKey(m.Initial.Action, m.Initial.Info)
+			if err != nil {
+				pp.log.Error("Unexpected error checking packet message",
+					zap.String("action", m.Termination.Action),
+					zap.Any("channel", channelKey),
+					zap.Error(err),
+				)
+				break
+			}
+			if !pp.IsRelayedChannel(m.Initial.ChainID, channelKey) {
+				break
+			}
+			if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
+				pathEnd1PacketMessages = append(pathEnd1PacketMessages, packetIBCMessage{
+					action: m.Initial.Action,
+					info:   m.Initial.Info,
+				})
+			} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
+				pathEnd2PacketMessages = append(pathEnd2PacketMessages, packetIBCMessage{
+					action: m.Initial.Action,
+					info:   m.Initial.Info,
+				})
+			}
+		case *ConnectionMessageLifecycle:
+			if !pp.IsRelevantConnection(m.Initial.ChainID, m.Initial.Info.ConnID) {
+				break
+			}
+			if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
+				pathEnd1ConnectionMessages = append(pathEnd1ConnectionMessages, connectionIBCMessage{
+					action: m.Initial.Action,
+					info:   m.Initial.Info,
+				})
+			} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
+				pathEnd2ConnectionMessages = append(pathEnd2ConnectionMessages, connectionIBCMessage{
+					action: m.Initial.Action,
+					info:   m.Initial.Info,
+				})
+			}
+		case *ChannelMessageLifecycle:
+			if !pp.IsRelevantChannel(m.Initial.ChainID, m.Initial.Info.ChannelID) {
+				break
+			}
+			if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
+				pathEnd1ChannelMessages = append(pathEnd1ChannelMessages, channelIBCMessage{
+					action: m.Initial.Action,
+					info:   m.Initial.Info,
+				})
+			} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
+				pathEnd2ChannelMessages = append(pathEnd2ChannelMessages, channelIBCMessage{
+					action: m.Initial.Action,
+					info:   m.Initial.Info,
+				})
+			}
+		}
+
+		pp.sentInitialMsg = true
+	}
 
 	// now assemble and send messages in parallel
 	// if sending messages fails to one pathEnd, we don't need to halt sending to the other pathEnd.
