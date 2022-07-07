@@ -453,6 +453,9 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 	if messageLifecycle != nil && !pp.sentInitialMsg {
 		switch m := messageLifecycle.(type) {
 		case *PacketMessageLifecycle:
+			if m.Initial == nil {
+				break
+			}
 			channelKey, err := PacketInfoChannelKey(m.Initial.Action, m.Initial.Info)
 			if err != nil {
 				pp.log.Error("Unexpected error checking packet message",
@@ -477,6 +480,9 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 				})
 			}
 		case *ConnectionMessageLifecycle:
+			if m.Initial == nil {
+				break
+			}
 			if !pp.IsRelevantConnection(m.Initial.ChainID, m.Initial.Info.ConnID) {
 				break
 			}
@@ -492,6 +498,9 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 				})
 			}
 		case *ChannelMessageLifecycle:
+			if m.Initial == nil {
+				break
+			}
 			if !pp.IsRelevantChannel(m.Initial.ChainID, m.Initial.Info.ChannelID) {
 				break
 			}

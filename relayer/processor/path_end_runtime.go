@@ -128,7 +128,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 	}
 	switch m := messageLifecycle.(type) {
 	case *PacketMessageLifecycle:
-		if m.Termination.ChainID != pathEnd.info.ChainID {
+		if m.Termination == nil || m.Termination.ChainID != pathEnd.info.ChainID {
 			return false
 		}
 		channelKey, err := PacketInfoChannelKey(m.Termination.Action, m.Termination.Info)
@@ -156,7 +156,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 		pathEnd.log.Info("Found termination condition for packet flow")
 		return true
 	case *ChannelMessageLifecycle:
-		if m.Termination.ChainID != pathEnd.info.ChainID {
+		if m.Termination == nil || m.Termination.ChainID != pathEnd.info.ChainID {
 			return false
 		}
 		cache, ok := ibcMessagesCache.ChannelHandshake[m.Termination.Action]
@@ -187,7 +187,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 			return true
 		}
 	case *ConnectionMessageLifecycle:
-		if m.Termination.ChainID != pathEnd.info.ChainID {
+		if m.Termination == nil || m.Termination.ChainID != pathEnd.info.ChainID {
 			return false
 		}
 		cache, ok := ibcMessagesCache.ConnectionHandshake[m.Termination.Action]
