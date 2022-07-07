@@ -369,6 +369,79 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 	}
 }
 
+func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, pathEnd1Messages, pathEnd2Messages *pathEndMessages) {
+	if msg == nil || pp.sentInitialMsg {
+		return
+	}
+	switch m := msg.(type) {
+	case *PacketMessageLifecycle:
+		if m.Initial == nil {
+			break
+		}
+		channelKey, err := PacketInfoChannelKey(m.Initial.Action, m.Initial.Info)
+		if err != nil {
+			pp.log.Error("Unexpected error checking packet message",
+				zap.String("action", m.Termination.Action),
+				zap.Any("channel", channelKey),
+				zap.Error(err),
+			)
+			break
+		}
+		if !pp.IsRelayedChannel(m.Initial.ChainID, channelKey) {
+			break
+		}
+		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
+			pathEnd1Messages.packetMessages = append(pathEnd1Messages.packetMessages, packetIBCMessage{
+				action: m.Initial.Action,
+				info:   m.Initial.Info,
+			})
+		} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
+			pathEnd2Messages.packetMessages = append(pathEnd2Messages.packetMessages, packetIBCMessage{
+				action: m.Initial.Action,
+				info:   m.Initial.Info,
+			})
+		}
+	case *ConnectionMessageLifecycle:
+		if m.Initial == nil {
+			break
+		}
+		if !pp.IsRelevantConnection(m.Initial.ChainID, m.Initial.Info.ConnID) {
+			break
+		}
+		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
+			pathEnd1Messages.connectionMessages = append(pathEnd1Messages.connectionMessages, connectionIBCMessage{
+				action: m.Initial.Action,
+				info:   m.Initial.Info,
+			})
+		} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
+			pathEnd2Messages.connectionMessages = append(pathEnd2Messages.connectionMessages, connectionIBCMessage{
+				action: m.Initial.Action,
+				info:   m.Initial.Info,
+			})
+		}
+	case *ChannelMessageLifecycle:
+		if m.Initial == nil {
+			break
+		}
+		if !pp.IsRelevantChannel(m.Initial.ChainID, m.Initial.Info.ChannelID) {
+			break
+		}
+		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
+			pathEnd1Messages.channelMessages = append(pathEnd1Messages.channelMessages, channelIBCMessage{
+				action: m.Initial.Action,
+				info:   m.Initial.Info,
+			})
+		} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
+			pathEnd2Messages.channelMessages = append(pathEnd2Messages.channelMessages, channelIBCMessage{
+				action: m.Initial.Action,
+				info:   m.Initial.Info,
+			})
+		}
+	}
+
+	pp.sentInitialMsg = true
+}
+
 // messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
 func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifecycle MessageLifecycle) error {
 	// Update trusted client state for both pathends
@@ -450,81 +523,25 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 	pathEnd1ChannelMessages, pathEnd2ChannelMessages := pp.channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes)
 	pathEnd1PacketMessages, pathEnd2PacketMessages := pp.packetMessagesToSend(channelPairs, pathEnd1ProcessRes, pathEnd2ProcessRes)
 
-	if messageLifecycle != nil && !pp.sentInitialMsg {
-		switch m := messageLifecycle.(type) {
-		case *PacketMessageLifecycle:
-			if m.Initial == nil {
-				break
-			}
-			channelKey, err := PacketInfoChannelKey(m.Initial.Action, m.Initial.Info)
-			if err != nil {
-				pp.log.Error("Unexpected error checking packet message",
-					zap.String("action", m.Termination.Action),
-					zap.Any("channel", channelKey),
-					zap.Error(err),
-				)
-				break
-			}
-			if !pp.IsRelayedChannel(m.Initial.ChainID, channelKey) {
-				break
-			}
-			if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
-				pathEnd1PacketMessages = append(pathEnd1PacketMessages, packetIBCMessage{
-					action: m.Initial.Action,
-					info:   m.Initial.Info,
-				})
-			} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
-				pathEnd2PacketMessages = append(pathEnd2PacketMessages, packetIBCMessage{
-					action: m.Initial.Action,
-					info:   m.Initial.Info,
-				})
-			}
-		case *ConnectionMessageLifecycle:
-			if m.Initial == nil {
-				break
-			}
-			if !pp.IsRelevantConnection(m.Initial.ChainID, m.Initial.Info.ConnID) {
-				break
-			}
-			if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
-				pathEnd1ConnectionMessages = append(pathEnd1ConnectionMessages, connectionIBCMessage{
-					action: m.Initial.Action,
-					info:   m.Initial.Info,
-				})
-			} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
-				pathEnd2ConnectionMessages = append(pathEnd2ConnectionMessages, connectionIBCMessage{
-					action: m.Initial.Action,
-					info:   m.Initial.Info,
-				})
-			}
-		case *ChannelMessageLifecycle:
-			if m.Initial == nil {
-				break
-			}
-			if !pp.IsRelevantChannel(m.Initial.ChainID, m.Initial.Info.ChannelID) {
-				break
-			}
-			if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
-				pathEnd1ChannelMessages = append(pathEnd1ChannelMessages, channelIBCMessage{
-					action: m.Initial.Action,
-					info:   m.Initial.Info,
-				})
-			} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
-				pathEnd2ChannelMessages = append(pathEnd2ChannelMessages, channelIBCMessage{
-					action: m.Initial.Action,
-					info:   m.Initial.Info,
-				})
-			}
-		}
-
-		pp.sentInitialMsg = true
+	pathEnd1Messages := pathEndMessages{
+		connectionMessages: pathEnd1ConnectionMessages,
+		channelMessages:    pathEnd1ChannelMessages,
+		packetMessages:     pathEnd1PacketMessages,
 	}
+
+	pathEnd2Messages := pathEndMessages{
+		connectionMessages: pathEnd2ConnectionMessages,
+		channelMessages:    pathEnd2ChannelMessages,
+		packetMessages:     pathEnd2PacketMessages,
+	}
+
+	pp.appendInitialMessageIfNecessary(messageLifecycle, &pathEnd1Messages, &pathEnd2Messages)
 
 	// now assemble and send messages in parallel
 	// if sending messages fails to one pathEnd, we don't need to halt sending to the other pathEnd.
 	var eg errgroup.Group
 	eg.Go(func() error {
-		if err := pp.assembleAndSendMessages(ctx, pp.pathEnd2, pp.pathEnd1, pathEnd1PacketMessages, pathEnd1ConnectionMessages, pathEnd1ChannelMessages); err != nil {
+		if err := pp.assembleAndSendMessages(ctx, pp.pathEnd2, pp.pathEnd1, pathEnd1Messages); err != nil {
 			pp.log.Error("Error sending messages",
 				zap.String("src_chain_id", pp.pathEnd1.info.ChainID),
 				zap.String("dst_chain_id", pp.pathEnd2.info.ChainID),
@@ -536,7 +553,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 		return nil
 	})
 	eg.Go(func() error {
-		if err := pp.assembleAndSendMessages(ctx, pp.pathEnd1, pp.pathEnd2, pathEnd2PacketMessages, pathEnd2ConnectionMessages, pathEnd2ChannelMessages); err != nil {
+		if err := pp.assembleAndSendMessages(ctx, pp.pathEnd1, pp.pathEnd2, pathEnd2Messages); err != nil {
 			pp.log.Error("Error sending messages",
 				zap.String("src_chain_id", pp.pathEnd2.info.ChainID),
 				zap.String("dst_chain_id", pp.pathEnd1.info.ChainID),
@@ -553,11 +570,9 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 func (pp *PathProcessor) assembleAndSendMessages(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
-	packetMessages []packetIBCMessage,
-	connectionMessages []connectionIBCMessage,
-	channelMessages []channelIBCMessage,
+	messages pathEndMessages,
 ) error {
-	if len(packetMessages) == 0 && len(connectionMessages) == 0 && len(channelMessages) == 0 {
+	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 {
 		return nil
 	}
 	var outgoingMessages []provider.RelayerMessage
@@ -569,7 +584,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 
 	var sentPackageMessages []packetIBCMessage
 
-	for _, msg := range packetMessages {
+	for _, msg := range messages.packetMessages {
 		var assembleMessage func(context.Context, provider.PacketInfo, string, provider.LatestBlock) (provider.RelayerMessage, error)
 		switch msg.action {
 		case MsgRecvPacket:

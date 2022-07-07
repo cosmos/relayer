@@ -2,6 +2,14 @@ package processor
 
 import "github.com/cosmos/relayer/v2/relayer/provider"
 
+// pathEndMessages holds the different IBC messages that
+// will attempt to be sent to the pathEnd.
+type pathEndMessages struct {
+	connectionMessages []connectionIBCMessage
+	channelMessages    []channelIBCMessage
+	packetMessages     []packetIBCMessage
+}
+
 // packetIBCMessage holds a packet message's action and sequence along with it,
 // useful for sending packets around internal to the PathProcessor.
 type packetIBCMessage struct {
