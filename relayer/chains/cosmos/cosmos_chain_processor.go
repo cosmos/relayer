@@ -70,7 +70,7 @@ const (
 
 type msgHandlerParams struct {
 	// incoming IBC message
-	messageInfo interface{}
+	messageInfo any
 
 	// reference to the caches that will be assembled by the handlers in this file
 	ibcMessagesCache processor.IBCMessagesCache
