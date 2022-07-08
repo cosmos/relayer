@@ -51,7 +51,7 @@ func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *Path
 		log:          log,
 		pathEnd1:     newPathEndRuntime(log, pathEnd1),
 		pathEnd2:     newPathEndRuntime(log, pathEnd2),
-		retryProcess: make(chan struct{}, 8),
+		retryProcess: make(chan struct{}, 2),
 	}
 }
 
@@ -166,7 +166,7 @@ func (pp *PathProcessor) ProcessBacklogIfReady() {
 	default:
 		// Log that the channel is saturated;
 		// something is wrong if we are retrying this quickly.
-		pp.log.Info("Failed to enqueue path processor retry")
+		pp.log.Error("Failed to enqueue path processor retry, retries already scheduled")
 	}
 }
 
