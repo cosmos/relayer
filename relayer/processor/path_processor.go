@@ -179,7 +179,9 @@ func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorC
 	}
 }
 
-func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel func(), messageLifecycle MessageLifecycle) error {
+// processAvailableSignals will block if signals are not yet available, otherwise it will process one of the available signals.
+// It returns whether or not the pathProcessor should quit.
+func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel func(), messageLifecycle MessageLifecycle) bool {
 	select {
 	case <-ctx.Done():
 		pp.log.Debug("Context done, quitting PathProcessor",
@@ -189,7 +191,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 			zap.String("client_id_2", pp.pathEnd2.info.ClientID),
 			zap.Error(ctx.Err()),
 		)
-		return ctx.Err()
+		return true
 	case d := <-pp.pathEnd1.incomingCacheData:
 		// we have new data from ChainProcessor for pathEnd1
 		pp.pathEnd1.MergeCacheData(ctx, cancel, d, messageLifecycle)
@@ -201,7 +203,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 	case <-pp.retryProcess:
 		// No new data to merge in, just retry handling.
 	}
-	return nil
+	return false
 }
 
 // Run executes the main path process.
@@ -209,13 +211,13 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func(), messageLifecycl
 	var retryTimer *time.Timer
 	for {
 		// block until we have any signals to process
-		if err := pp.processAvailableSignals(ctx, cancel, messageLifecycle); err != nil {
+		if pp.processAvailableSignals(ctx, cancel, messageLifecycle) {
 			return
 		}
 
 		for len(pp.pathEnd1.incomingCacheData) > 0 || len(pp.pathEnd2.incomingCacheData) > 0 || len(pp.retryProcess) > 0 {
 			// signals are available, so this will not need to block.
-			if err := pp.processAvailableSignals(ctx, cancel, messageLifecycle); err != nil {
+			if pp.processAvailableSignals(ctx, cancel, messageLifecycle) {
 				return
 			}
 		}

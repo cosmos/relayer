@@ -219,7 +219,7 @@ func (c ChannelStateCache) Merge(other ChannelStateCache) {
 	}
 }
 
-// FilterForClient returns a filtered map of channels on top of an underlying clientID
+// FilterForClient returns a filtered copy of channels on top of an underlying clientID so it can be used by other goroutines.
 func (c ChannelStateCache) FilterForClient(clientID string, channelConnections map[string]string, connectionClients map[string]string) ChannelStateCache {
 	n := make(ChannelStateCache)
 	for k, v := range c {
@@ -249,7 +249,7 @@ func (c ConnectionStateCache) Merge(other ConnectionStateCache) {
 }
 
 // FilterForClient makes a filtered copy of the ConnectionStateCache
-// for a single client ID so it can be used by other threads.
+// for a single client ID so it can be used by other goroutines.
 func (c ConnectionStateCache) FilterForClient(clientID string) ConnectionStateCache {
 	n := make(ConnectionStateCache)
 	for k, v := range c {
