@@ -900,9 +900,9 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 			srcChannelID := args[4]
 
 			var pathConnectionID string
-			if src.ChainID()  == path.Src.ChainID {
+			if src.ChainID() == path.Src.ChainID {
 				pathConnectionID = path.Src.ConnectionID
-			} else if src.ChainID()  == path.Dst.ChainID {
+			} else if src.ChainID() == path.Dst.ChainID {
 				pathConnectionID = path.Dst.ConnectionID
 			} else {
 				return fmt.Errorf("no path configured using chain-id: %s", src.ChainID())
