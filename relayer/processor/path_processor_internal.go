@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -584,24 +585,34 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	var sentPackageMessages []packetIBCMessage
 
 	for _, msg := range messages.packetMessages {
-		var assembleMessage func(context.Context, provider.PacketInfo, string, provider.LatestBlock) (provider.RelayerMessage, error)
+		var packetProof func(context.Context, provider.PacketInfo, provider.LatestBlock) ([]byte, clienttypes.Height, error)
+		var assembleMessage func(provider.PacketInfo, []byte, clienttypes.Height) (provider.RelayerMessage, error)
 		switch msg.action {
 		case MsgRecvPacket:
-			assembleMessage = src.chainProvider.MsgRecvPacket
+			packetProof = src.chainProvider.PacketCommitment
+			assembleMessage = dst.chainProvider.MsgRecvPacket
 		case MsgAcknowledgement:
-			assembleMessage = src.chainProvider.MsgAcknowledgement
+			packetProof = src.chainProvider.PacketAcknowledgement
+			assembleMessage = dst.chainProvider.MsgAcknowledgement
 		case MsgTimeout:
-			assembleMessage = src.chainProvider.MsgTimeout
+			packetProof = src.chainProvider.PacketReceipt
+			assembleMessage = dst.chainProvider.MsgTimeout
 		case MsgTimeoutOnClose:
-			assembleMessage = src.chainProvider.MsgTimeoutOnClose
+			packetProof = src.chainProvider.PacketReceipt
+			assembleMessage = dst.chainProvider.MsgTimeoutOnClose
 		default:
 			pp.log.Error("Unexepected packet message action for message assembly",
 				zap.String("action", msg.action),
 			)
 			continue
 		}
-
-		message, err := pp.assemblePacketIBCMessage(ctx, src, dst, msg, assembleMessage)
+		proof, proofHeight, err := packetProof(ctx, msg.info, src.latestBlock)
+		if err != nil {
+			dst.trackProcessingPacketMessage(msg, false)
+			pp.log.Error("Error querying packet proof", zap.Error(err))
+			continue
+		}
+		message, err := assembleMessage(msg.info, proof, proofHeight)
 		dst.trackProcessingPacketMessage(msg, err == nil)
 		if err != nil {
 			pp.log.Error("Error assembling packet message", zap.Error(err))
