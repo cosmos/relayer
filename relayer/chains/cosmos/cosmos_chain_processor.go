@@ -8,6 +8,7 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -38,6 +39,12 @@ type CosmosChainProcessor struct {
 
 	// holds open state for known channels
 	channelStateCache processor.ChannelStateCache
+
+	// map of connection ID to client ID
+	connectionClients map[string]string
+
+	// map of channel ID to connection ID
+	channelConnections map[string]string
 }
 
 func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider) *CosmosChainProcessor {
@@ -47,6 +54,8 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider) *
 		latestClientState:    make(latestClientState),
 		connectionStateCache: make(processor.ConnectionStateCache),
 		channelStateCache:    make(processor.ChannelStateCache),
+		connectionClients:    make(map[string]string),
+		channelConnections:   make(map[string]string),
 	}
 }
 
@@ -172,7 +181,16 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 
 	persistence.latestQueriedBlock = latestQueriedBlock
 
-	ccp.initializeChannelState(ctx)
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return ccp.initializeConnectionState(ctx)
+	})
+	eg.Go(func() error {
+		return ccp.initializeChannelState(ctx)
+	})
+	if err := eg.Wait(); err != nil {
+		return err
+	}
 
 	ccp.log.Debug("Entering main query loop")
 
@@ -191,15 +209,44 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 	}
 }
 
+// initializeConnectionState will bootstrap the connectionStateCache with the open connection state.
+func (ccp *CosmosChainProcessor) initializeConnectionState(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	connections, err := ccp.chainProvider.QueryConnections(ctx)
+	if err != nil {
+		return fmt.Errorf("error querying connections: %w", err)
+	}
+	for _, c := range connections {
+		ccp.connectionClients[c.Id] = c.ClientId
+		ccp.connectionStateCache[processor.ConnectionKey{
+			ConnectionID:         c.Id,
+			ClientID:             c.ClientId,
+			CounterpartyConnID:   c.Counterparty.ConnectionId,
+			CounterpartyClientID: c.Counterparty.ClientId,
+		}] = c.State == conntypes.OPEN
+	}
+	return nil
+}
+
 // initializeChannelState will bootstrap the channelStateCache with the open channel state.
 func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) error {
-	queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
-	defer cancelQueryCtx()
-	channels, err := ccp.chainProvider.QueryChannels(queryCtx)
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	channels, err := ccp.chainProvider.QueryChannels(ctx)
 	if err != nil {
 		return fmt.Errorf("error querying channels: %w", err)
 	}
 	for _, ch := range channels {
+		if len(ch.ConnectionHops) != 1 {
+			ccp.log.Error("Found channel using multiple connection hops. Not currently supported, ignoring.",
+				zap.String("channel_id", ch.ChannelId),
+				zap.String("port_id", ch.PortId),
+				zap.Any("connection_hops", ch.ConnectionHops),
+			)
+			continue
+		}
+		ccp.channelConnections[ch.ChannelId] = ch.ConnectionHops[0]
 		ccp.channelStateCache[processor.ChannelKey{
 			ChannelID:             ch.ChannelId,
 			PortID:                ch.PortId,
@@ -328,8 +375,8 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			IBCMessagesCache:     ibcMessagesCache,
 			InSync:               ccp.inSync,
 			ClientState:          clientState,
-			ConnectionStateCache: ccp.connectionStateCache.Clone(),
-			ChannelStateCache:    ccp.channelStateCache.Clone(),
+			ConnectionStateCache: ccp.connectionStateCache.FilterForClient(clientID),
+			ChannelStateCache:    ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients),
 			IBCHeaderCache:       ibcHeaderCache,
 		})
 	}
