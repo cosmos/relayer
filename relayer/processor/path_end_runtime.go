@@ -36,6 +36,11 @@ type pathEndRuntime struct {
 	connProcessing    connectionProcessingCache
 	channelProcessing channelProcessingCache
 
+	// Message subscriber callbacks
+	connSubscribers    map[string][]func(provider.ConnectionInfo)
+	channelSubscribers map[string][]func(provider.ChannelInfo)
+	packetSubscribers  map[string][]func(provider.PacketInfo)
+
 	// inSync indicates whether queries are in sync with latest height of the chain.
 	inSync bool
 }
@@ -55,6 +60,9 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd) *pathEndRuntime {
 		packetProcessing:     make(packetProcessingCache),
 		connProcessing:       make(connectionProcessingCache),
 		channelProcessing:    make(channelProcessingCache),
+		connSubscribers:      make(map[string][]func(provider.ConnectionInfo)),
+		channelSubscribers:   make(map[string][]func(provider.ChannelInfo)),
+		packetSubscribers:    make(map[string][]func(provider.PacketInfo)),
 	}
 }
 
@@ -120,6 +128,50 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache) 
 		channelHandshakeMessages[action] = newCmc
 	}
 	pathEnd.messageCache.ChannelHandshake.Merge(channelHandshakeMessages)
+}
+
+func (pathEnd *pathEndRuntime) handleCallbacks(c IBCMessagesCache) {
+	if len(pathEnd.connSubscribers) > 0 {
+		for action, m := range c.ConnectionHandshake {
+			subscribers, ok := pathEnd.connSubscribers[action]
+			if !ok {
+				continue
+			}
+			for _, ci := range m {
+				for _, subscriber := range subscribers {
+					subscriber(ci)
+				}
+			}
+		}
+	}
+	if len(pathEnd.channelSubscribers) > 0 {
+		for action, m := range c.ChannelHandshake {
+			subscribers, ok := pathEnd.channelSubscribers[action]
+			if !ok {
+				continue
+			}
+			for _, ci := range m {
+				for _, subscriber := range subscribers {
+					subscriber(ci)
+				}
+			}
+		}
+	}
+	if len(pathEnd.packetSubscribers) > 0 {
+		for _, m := range c.PacketFlow {
+			for action, s := range m {
+				subscribers, ok := pathEnd.packetSubscribers[action]
+				if !ok {
+					continue
+				}
+				for _, pi := range s {
+					for _, subscriber := range subscribers {
+						subscriber(pi)
+					}
+				}
+			}
+		}
+	}
 }
 
 func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache, messageLifecycle MessageLifecycle) bool {
@@ -232,6 +284,8 @@ func (pathEnd *pathEndRuntime) MergeCacheData(ctx context.Context, cancel func()
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
+
+	pathEnd.handleCallbacks(d.IBCMessagesCache)
 
 	if pathEnd.shouldTerminate(d.IBCMessagesCache, messageLifecycle) {
 		cancel()
