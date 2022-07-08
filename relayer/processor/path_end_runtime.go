@@ -169,16 +169,16 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 		foundCounterpartyChannelID := m.Termination.Info.CounterpartyChannelID == ""
 		foundCounterpartyPortID := m.Termination.Info.CounterpartyPortID == ""
 		for _, ci := range cache {
-			if !foundChannelID && ci.ChannelID == m.Termination.Info.ChannelID {
+			if ci.ChannelID == m.Termination.Info.ChannelID {
 				foundChannelID = true
 			}
-			if !foundPortID && ci.PortID == m.Termination.Info.PortID {
+			if ci.PortID == m.Termination.Info.PortID {
 				foundPortID = true
 			}
-			if !foundCounterpartyChannelID && ci.CounterpartyChannelID == m.Termination.Info.CounterpartyChannelID {
+			if ci.CounterpartyChannelID == m.Termination.Info.CounterpartyChannelID {
 				foundCounterpartyChannelID = true
 			}
-			if !foundCounterpartyPortID && ci.CounterpartyPortID == m.Termination.Info.CounterpartyPortID {
+			if ci.CounterpartyPortID == m.Termination.Info.CounterpartyPortID {
 				foundCounterpartyPortID = true
 			}
 		}
@@ -206,29 +206,22 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 				zap.String("termination_counterparty_client_id", m.Termination.Info.CounterpartyClientID),
 				zap.String("observed_counterparty_client_id", ci.CounterpartyClientID),
 			)
-			if !foundClientID && ci.ClientID == m.Termination.Info.ClientID {
+			if ci.ClientID == m.Termination.Info.ClientID {
 				foundClientID = true
 			}
-			if !foundConnectionID && ci.ConnID == m.Termination.Info.ConnID {
+			if ci.ConnID == m.Termination.Info.ConnID {
 				foundConnectionID = true
 			}
-			if !foundCounterpartyClientID && ci.CounterpartyClientID == m.Termination.Info.CounterpartyClientID {
+			if ci.CounterpartyClientID == m.Termination.Info.CounterpartyClientID {
 				foundCounterpartyClientID = true
 			}
-			if !foundCounterpartyConnectionID && ci.CounterpartyConnID == m.Termination.Info.CounterpartyConnID {
+			if ci.CounterpartyConnID == m.Termination.Info.CounterpartyConnID {
 				foundCounterpartyConnectionID = true
 			}
 		}
 		if foundClientID && foundConnectionID && foundCounterpartyClientID && foundCounterpartyConnectionID {
 			pathEnd.log.Info("Found termination condition for connection handshake")
 			return true
-		} else {
-			pathEnd.log.Info("Did not find termination condition for connection handshake",
-				zap.Bool("foundClientID", foundClientID),
-				zap.Bool("foundConnectionID", foundConnectionID),
-				zap.Bool("foundCounterpartyClientID", foundCounterpartyClientID),
-				zap.Bool("foundCounterpartyConnectionID", foundCounterpartyConnectionID),
-			)
 		}
 	}
 	return false

@@ -373,10 +373,11 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, p
 	if msg == nil || pp.sentInitialMsg {
 		return
 	}
+	pp.sentInitialMsg = true
 	switch m := msg.(type) {
 	case *PacketMessageLifecycle:
 		if m.Initial == nil {
-			break
+			return
 		}
 		channelKey, err := PacketInfoChannelKey(m.Initial.Action, m.Initial.Info)
 		if err != nil {
@@ -385,10 +386,10 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, p
 				zap.Any("channel", channelKey),
 				zap.Error(err),
 			)
-			break
+			return
 		}
 		if !pp.IsRelayedChannel(m.Initial.ChainID, channelKey) {
-			break
+			return
 		}
 		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
 			pathEnd1Messages.packetMessages = append(pathEnd1Messages.packetMessages, packetIBCMessage{
@@ -403,10 +404,10 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, p
 		}
 	case *ConnectionMessageLifecycle:
 		if m.Initial == nil {
-			break
+			return
 		}
 		if !pp.IsRelevantConnection(m.Initial.ChainID, m.Initial.Info.ConnID) {
-			break
+			return
 		}
 		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
 			pathEnd1Messages.connectionMessages = append(pathEnd1Messages.connectionMessages, connectionIBCMessage{
@@ -421,10 +422,10 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, p
 		}
 	case *ChannelMessageLifecycle:
 		if m.Initial == nil {
-			break
+			return
 		}
 		if !pp.IsRelevantChannel(m.Initial.ChainID, m.Initial.Info.ChannelID) {
-			break
+			return
 		}
 		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
 			pathEnd1Messages.channelMessages = append(pathEnd1Messages.channelMessages, channelIBCMessage{
@@ -438,8 +439,6 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, p
 			})
 		}
 	}
-
-	pp.sentInitialMsg = true
 }
 
 // messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd

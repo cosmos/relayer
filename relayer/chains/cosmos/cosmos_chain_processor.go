@@ -211,9 +211,9 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 
 // initializeConnectionState will bootstrap the connectionStateCache with the open connection state.
 func (ccp *CosmosChainProcessor) initializeConnectionState(ctx context.Context) error {
-	queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
-	defer cancelQueryCtx()
-	connections, err := ccp.chainProvider.QueryConnections(queryCtx)
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	connections, err := ccp.chainProvider.QueryConnections(ctx)
 	if err != nil {
 		return fmt.Errorf("error querying connections: %w", err)
 	}
@@ -231,9 +231,9 @@ func (ccp *CosmosChainProcessor) initializeConnectionState(ctx context.Context) 
 
 // initializeChannelState will bootstrap the channelStateCache with the open channel state.
 func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) error {
-	queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
-	defer cancelQueryCtx()
-	channels, err := ccp.chainProvider.QueryChannels(queryCtx)
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	channels, err := ccp.chainProvider.QueryChannels(ctx)
 	if err != nil {
 		return fmt.Errorf("error querying channels: %w", err)
 	}
@@ -375,8 +375,8 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			IBCMessagesCache:     ibcMessagesCache,
 			InSync:               ccp.inSync,
 			ClientState:          clientState,
-			ConnectionStateCache: ccp.connectionStateCache.Filter(clientID),
-			ChannelStateCache:    ccp.channelStateCache.Filter(clientID, ccp.channelConnections, ccp.connectionClients),
+			ConnectionStateCache: ccp.connectionStateCache.FilterForClient(clientID),
+			ChannelStateCache:    ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients),
 			IBCHeaderCache:       ibcHeaderCache,
 		})
 	}
