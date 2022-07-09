@@ -582,11 +582,9 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	}
 	outgoingMessages = append(outgoingMessages, msgUpdateClient)
 
-	var sentPackageMessages []packetIBCMessage
-
 	for _, msg := range messages.packetMessages {
-		var packetProof func(context.Context, provider.PacketInfo, provider.LatestBlock) ([]byte, clienttypes.Height, error)
-		var assembleMessage func(provider.PacketInfo, []byte, clienttypes.Height) (provider.RelayerMessage, error)
+		var packetProof func(context.Context, provider.PacketInfo, provider.LatestBlock) (provider.PacketProof, error)
+		var assembleMessage func(provider.PacketInfo, provider.PacketProof) (provider.RelayerMessage, error)
 		switch msg.action {
 		case MsgRecvPacket:
 			packetProof = src.chainProvider.PacketCommitment
@@ -606,19 +604,20 @@ func (pp *PathProcessor) assembleAndSendMessages(
 			)
 			continue
 		}
-		proof, proofHeight, err := packetProof(ctx, msg.info, src.latestBlock)
+		proof, err := packetProof(ctx, msg.info, src.latestBlock)
 		if err != nil {
 			dst.trackProcessingPacketMessage(msg, false)
 			pp.log.Error("Error querying packet proof", zap.Error(err))
 			continue
 		}
-		message, err := assembleMessage(msg.info, proof, proofHeight)
+		message, err := assembleMessage(msg.info, proof)
 		dst.trackProcessingPacketMessage(msg, err == nil)
 		if err != nil {
 			pp.log.Error("Error assembling packet message", zap.Error(err))
 			continue
 		}
-		sentPackageMessages = append(sentPackageMessages, msg)
+		outgoingMessages = append(outgoingMessages, message)
+	}
 		outgoingMessages = append(outgoingMessages, message)
 	}
 

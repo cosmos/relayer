@@ -105,6 +105,12 @@ type ChannelInfo struct {
 	Version string
 }
 
+// PacketProof includes all of the proof parameters needed for packet flows.
+type PacketProof struct {
+	Proof       []byte
+	ProofHeight clienttypes.Height
+}
+
 // loggableEvents is an unexported wrapper type for a slice of RelayerEvent,
 // to satisfy the zapcore.ArrayMarshaler interface.
 type loggableEvents []RelayerEvent
@@ -176,33 +182,33 @@ type ChainProvider interface {
 	// These functions query the proof of the packet state on the chain.
 
 	// PacketCommitment queries for proof that a MsgTransfer has been committed on the chain.
-	PacketCommitment(ctx context.Context, msgTransfer PacketInfo, latest LatestBlock) ([]byte, clienttypes.Height, error)
+	PacketCommitment(ctx context.Context, msgTransfer PacketInfo, latest LatestBlock) (PacketProof, error)
 
 	// PacketAcknowledgement queries for proof that a MsgRecvPacket has been committed on the chain.
-	PacketAcknowledgement(ctx context.Context, msgRecvPacket PacketInfo, latest LatestBlock) ([]byte, clienttypes.Height, error)
+	PacketAcknowledgement(ctx context.Context, msgRecvPacket PacketInfo, latest LatestBlock) (PacketProof, error)
 
 	// PacketReceipt queries for proof that a MsgRecvPacket has not been committed to the chain.
-	PacketReceipt(ctx context.Context, msgTransfer PacketInfo, latest LatestBlock) ([]byte, clienttypes.Height, error)
+	PacketReceipt(ctx context.Context, msgTransfer PacketInfo, latest LatestBlock) (PacketProof, error)
 
 	// MsgRecvPacket takes takes the packet infromation from a MsgTransfer along with the packet commitment,
 	// and assembles a full MsgRecvPacket ready to write to the chain.
-	MsgRecvPacket(msgTransfer PacketInfo, proof []byte, proofHeight clienttypes.Height) (RelayerMessage, error)
+	MsgRecvPacket(msgTransfer PacketInfo, proof PacketProof) (RelayerMessage, error)
 
 	// MsgAcknowledgement takes the packet infromation from a MsgRecvPacket along with the packet acknowledgement,
 	// and assembles a full MsgAcknowledgement ready to write to the chain.
-	MsgAcknowledgement(msgRecvPacket PacketInfo, proofAcked []byte, proofHeight clienttypes.Height) (RelayerMessage, error)
+	MsgAcknowledgement(msgRecvPacket PacketInfo, proofAcked PacketProof) (RelayerMessage, error)
 
 	// MsgTimeout takes the packet information from a MsgTransfer along with the packet receipt to prove that the packet was never relayed,
 	// i.e. that the MsgRecvPacket was never written to the counterparty chain,
 	// and assembles a full MsgTimeout ready to write to the chain,
 	// i.e. the chain where the MsgTransfer was committed.
-	MsgTimeout(msgTransfer PacketInfo, proofUnreceived []byte, proofHeight clienttypes.Height) (RelayerMessage, error)
+	MsgTimeout(msgTransfer PacketInfo, proofUnreceived PacketProof) (RelayerMessage, error)
 
 	// MsgTimeoutOnClose takes the packet information from a MsgTransfer along with the packet receipt to prove that the packet was never relayed,
 	// i.e. that the MsgRecvPacket was never written to the counterparty chain,
 	// and assembles a full MsgTimeoutOnClose ready to write to the chain,
 	// i.e. the chain where the MsgTransfer was committed.
-	MsgTimeoutOnClose(msgTransfer PacketInfo, proofUnreceived []byte, proofHeight clienttypes.Height) (RelayerMessage, error)
+	MsgTimeoutOnClose(msgTransfer PacketInfo, proofUnreceived PacketProof) (RelayerMessage, error)
 
 	// [End] Packet flow IBC message assembly
 
