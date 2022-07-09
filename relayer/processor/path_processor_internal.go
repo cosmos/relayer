@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -616,8 +615,6 @@ func (pp *PathProcessor) assembleAndSendMessages(
 			pp.log.Error("Error assembling packet message", zap.Error(err))
 			continue
 		}
-		outgoingMessages = append(outgoingMessages, message)
-	}
 		outgoingMessages = append(outgoingMessages, message)
 	}
 
