@@ -111,6 +111,22 @@ type PacketProof struct {
 	ProofHeight clienttypes.Height
 }
 
+// ConnectionProof includes all of the proof parameters needed for the connection handshake.
+type ConnectionProof struct {
+	ConsensusStateProof  []byte
+	ConnectionStateProof []byte
+	ClientStateProof     []byte
+	ProofHeight          clienttypes.Height
+	ClientState          ibcexported.ClientState
+}
+
+type ChannelProof struct {
+	Proof       []byte
+	ProofHeight clienttypes.Height
+	Ordering    chantypes.Order
+	Version     string
+}
+
 // loggableEvents is an unexported wrapper type for a slice of RelayerEvent,
 // to satisfy the zapcore.ArrayMarshaler interface.
 type loggableEvents []RelayerEvent
@@ -211,6 +227,66 @@ type ChainProvider interface {
 	MsgTimeoutOnClose(msgTransfer PacketInfo, proofUnreceived PacketProof) (RelayerMessage, error)
 
 	// [End] Packet flow IBC message assembly
+
+	// [Begin] Connection handshake IBC message assembly
+
+	// ConnectionHandshakeProof queries for proof of an initialized connection handshake.
+	ConnectionHandshakeProof(ctx context.Context, msgOpenInit ConnectionInfo, latest LatestBlock) (ConnectionProof, error)
+
+	// ConnectionProof queries for proof of an acked handshake.
+	ConnectionProof(ctx context.Context, msgOpenAck ConnectionInfo, latest LatestBlock) (ConnectionProof, error)
+
+	// MsgConnectionOpenInit takes connection info and assembles a MsgConnectionOpenInit message
+	// ready to write to the chain. The connection proof is not needed here, but it needs
+	// the same signature as the other connection message assembly methods.
+	MsgConnectionOpenInit(info ConnectionInfo, proof ConnectionProof) (RelayerMessage, error)
+
+	// MsgConnectionOpenTry takes connection info along with the proof that the connection has been initialized
+	// on the counterparty chain, and assembles a MsgConnectionOpenTry message ready to write to the chain.
+	MsgConnectionOpenTry(msgOpenInit ConnectionInfo, proof ConnectionProof) (RelayerMessage, error)
+
+	// MsgConnectionOpenAck takes connection info along with the proof that the connection try has occurred
+	// on the counterparty chain, and assembles a MsgConnectionOpenAck message ready to write to the chain.
+	MsgConnectionOpenAck(msgOpenTry ConnectionInfo, proof ConnectionProof) (RelayerMessage, error)
+
+	// MsgConnectionOpenConfirm takes connection info along with the proof that the connection ack has occurred
+	// on the counterparty chain, and assembles a MsgConnectionOpenConfirm message ready to write to the chain.
+	MsgConnectionOpenConfirm(msgOpenAck ConnectionInfo, proof ConnectionProof) (RelayerMessage, error)
+
+	// [End] Connection handshake IBC message assembly
+
+	// [Begin] Channel handshake IBC message assembly
+
+	// ChannelProof queries for proof of a channel state.
+	ChannelProof(ctx context.Context, msg ChannelInfo, latest LatestBlock) (ChannelProof, error)
+
+	// MsgChannelOpenInit takes channel info and assembles a MsgChannelOpenInit message
+	// ready to write to the chain. The channel proof is not needed here, but it needs
+	// the same signature as the other channel message assembly methods.
+	MsgChannelOpenInit(info ChannelInfo, proof ChannelProof) (RelayerMessage, error)
+
+	// MsgChannelOpenTry takes channel info along with the proof that the channel has been initialized
+	// on the counterparty chain, and assembles a MsgChannelOpenTry message ready to write to the chain.
+	MsgChannelOpenTry(msgOpenInit ChannelInfo, proof ChannelProof) (RelayerMessage, error)
+
+	// MsgChannelOpenAck takes channel info along with the proof that the channel try has occurred
+	// on the counterparty chain, and assembles a MsgChannelOpenAck message ready to write to the chain.
+	MsgChannelOpenAck(msgOpenTry ChannelInfo, proof ChannelProof) (RelayerMessage, error)
+
+	// MsgChannelOpenConfirm takes connection info along with the proof that the channel ack has occurred
+	// on the counterparty chain, and assembles a MsgChannelOpenConfirm message ready to write to the chain.
+	MsgChannelOpenConfirm(msgOpenAck ChannelInfo, proof ChannelProof) (RelayerMessage, error)
+
+	// MsgChannelCloseInit takes channel info and assembles a MsgChannelCloseInit message
+	// ready to write to the chain. The channel proof is not needed here, but it needs
+	// the same signature as the other channel message assembly methods.
+	MsgChannelCloseInit(info ChannelInfo, proof ChannelProof) (RelayerMessage, error)
+
+	// MsgChannelCloseConfirm takes connection info along with the proof that the channel close has occurred
+	// on the counterparty chain, and assembles a MsgChannelCloseConfirm message ready to write to the chain.
+	MsgChannelCloseConfirm(msgCloseInit ChannelInfo, proof ChannelProof) (RelayerMessage, error)
+
+	// [End] Channel handshake IBC message assembly
 
 	// [Begin] Client IBC message assembly
 
