@@ -1293,12 +1293,6 @@ func (cc *CosmosProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInf
 		return nil, err
 	}
 
-	cc.log.Debug("MsgConnectionOpenAck assembly",
-		zap.String("client_id", msgOpenTry.ClientID),
-		zap.String("connection_id", msgOpenTry.ConnID),
-		zap.String("counterparty_connection_id", msgOpenTry.CounterpartyConnID),
-	)
-
 	msg := &conntypes.MsgConnectionOpenAck{
 		ConnectionId:             msgOpenTry.CounterpartyConnID,
 		CounterpartyConnectionId: msgOpenTry.ConnID,

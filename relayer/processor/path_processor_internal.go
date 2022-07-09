@@ -186,8 +186,7 @@ ConnectionHandshakeLoop:
 		}
 		var foundOpenConfirm *provider.ConnectionInfo
 		for openConfirmKey, openConfirmMsg := range pathEndConnectionHandshakeMessages.DstMsgConnectionOpenConfirm {
-			openConfirmCmp := openConfirmKey.Counterparty()
-			if openInitKey == openConfirmCmp {
+			if openInitKey == openConfirmKey.Counterparty() {
 				foundOpenConfirm = &openConfirmMsg
 				break
 			}
