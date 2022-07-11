@@ -587,7 +587,8 @@ func (pp *PathProcessor) assembleMessage(
 	ctx context.Context,
 	msg ibcMessage,
 	src, dst *pathEndRuntime,
-	outgoingMessages chan provider.RelayerMessage,
+	outgoingMessages *[]provider.RelayerMessage,
+	lock *sync.Mutex,
 	wg *sync.WaitGroup,
 ) {
 	defer wg.Done()
@@ -605,7 +606,9 @@ func (pp *PathProcessor) assembleMessage(
 		pp.log.Error("Error assembling channel message", zap.Error(err))
 		return
 	}
-	outgoingMessages <- message
+	defer lock.Unlock()
+	lock.Lock()
+	*outgoingMessages = append(*outgoingMessages, message)
 }
 
 func (pp *PathProcessor) assembleAndSendMessages(
@@ -616,39 +619,38 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 {
 		return nil
 	}
-	outgoingMessages := make(chan provider.RelayerMessage, len(messages.packetMessages)+len(messages.connectionMessages)+len(messages.channelMessages))
+	outgoingMessages := make(
+		[]provider.RelayerMessage,
+		0,
+		len(messages.packetMessages)+len(messages.connectionMessages)+len(messages.channelMessages),
+	)
 	msgUpdateClient, err := pp.assembleMsgUpdateClient(ctx, src, dst)
 	if err != nil {
 		return err
 	}
-	outgoingMessages <- msgUpdateClient
+	outgoingMessages = append(outgoingMessages, msgUpdateClient)
 
 	var wg sync.WaitGroup
+	var lock sync.Mutex
 
 	for _, msg := range messages.packetMessages {
 		wg.Add(1)
-		go pp.assembleMessage(ctx, msg, src, dst, outgoingMessages, &wg)
+		go pp.assembleMessage(ctx, msg, src, dst, &outgoingMessages, &lock, &wg)
 	}
 
 	for _, msg := range messages.connectionMessages {
 		wg.Add(1)
-		go pp.assembleMessage(ctx, msg, src, dst, outgoingMessages, &wg)
+		go pp.assembleMessage(ctx, msg, src, dst, &outgoingMessages, &lock, &wg)
 	}
 
 	for _, msg := range messages.channelMessages {
 		wg.Add(1)
-		go pp.assembleMessage(ctx, msg, src, dst, outgoingMessages, &wg)
+		go pp.assembleMessage(ctx, msg, src, dst, &outgoingMessages, &lock, &wg)
 	}
 
 	wg.Wait()
 
-	outgoing := make([]provider.RelayerMessage, 0, len(outgoingMessages))
-
-	for msg := range outgoingMessages {
-		outgoing = append(outgoing, msg)
-	}
-
-	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, outgoing)
+	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, outgoingMessages)
 	if err != nil {
 		return fmt.Errorf("error sending messages: %w", err)
 	}
