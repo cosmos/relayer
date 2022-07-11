@@ -1104,52 +1104,83 @@ func (cc *CosmosProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest
 	return nil
 }
 
-func (cc *CosmosProvider) MsgRecvPacket(ctx context.Context, msgTransfer provider.PacketInfo, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) PacketCommitment(ctx context.Context, msgTransfer provider.PacketInfo, latest provider.LatestBlock) (provider.PacketProof, error) {
 	key := host.PacketCommitmentKey(msgTransfer.SourcePort, msgTransfer.SourceChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
 	if err != nil {
-		return nil, fmt.Errorf("error querying tendermint proof for packet commitment: %w", err)
+		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet commitment: %w", err)
 	}
+	return provider.PacketProof{
+		Proof:       proof,
+		ProofHeight: proofHeight,
+	}, nil
+}
 
+func (cc *CosmosProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
 	msg := &chantypes.MsgRecvPacket{
 		Packet:          toCosmosPacket(msgTransfer),
-		ProofCommitment: proof,
-		ProofHeight:     proofHeight,
+		ProofCommitment: proof.Proof,
+		ProofHeight:     proof.ProofHeight,
 		Signer:          signer,
 	}
 
 	return NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) MsgAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, latest provider.LatestBlock) (provider.PacketProof, error) {
 	key := host.PacketAcknowledgementKey(msgRecvPacket.DestPort, msgRecvPacket.DestChannel, msgRecvPacket.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
 	if err != nil {
-		return nil, fmt.Errorf("error querying tendermint proof for packet acknowledgement: %w", err)
+		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet acknowledgement: %w", err)
 	}
+	return provider.PacketProof{
+		Proof:       proof,
+		ProofHeight: proofHeight,
+	}, nil
+}
 
+func (cc *CosmosProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
 	msg := &chantypes.MsgAcknowledgement{
 		Packet:          toCosmosPacket(msgRecvPacket),
 		Acknowledgement: msgRecvPacket.Ack,
-		ProofAcked:      proof,
-		ProofHeight:     proofHeight,
+		ProofAcked:      proof.Proof,
+		ProofHeight:     proof.ProofHeight,
 		Signer:          signer,
 	}
 
 	return NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) MsgTimeout(ctx context.Context, msgTransfer provider.PacketInfo, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, latest provider.LatestBlock) (provider.PacketProof, error) {
 	key := host.PacketReceiptKey(msgTransfer.DestPort, msgTransfer.DestChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
 	if err != nil {
-		return nil, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
+		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
 	}
 
+	return provider.PacketProof{
+		Proof:       proof,
+		ProofHeight: proofHeight,
+	}, nil
+}
+
+func (cc *CosmosProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
 	assembled := &chantypes.MsgTimeout{
 		Packet:           toCosmosPacket(msgTransfer),
-		ProofUnreceived:  proof,
-		ProofHeight:      proofHeight,
+		ProofUnreceived:  proof.Proof,
+		ProofHeight:      proof.ProofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,
 		Signer:           signer,
 	}
@@ -1157,22 +1188,20 @@ func (cc *CosmosProvider) MsgTimeout(ctx context.Context, msgTransfer provider.P
 	return NewCosmosMessage(assembled), nil
 }
 
-func (cc *CosmosProvider) MsgTimeoutOnClose(ctx context.Context, msgTransfer provider.PacketInfo, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	key := host.PacketReceiptKey(msgTransfer.DestPort, msgTransfer.DestChannel, msgTransfer.Sequence)
-	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
+func (cc *CosmosProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
 	if err != nil {
-		return nil, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
+		return nil, err
 	}
-
-	msgTimeout := &chantypes.MsgTimeoutOnClose{
+	assembled := &chantypes.MsgTimeoutOnClose{
 		Packet:           toCosmosPacket(msgTransfer),
-		ProofUnreceived:  proof,
-		ProofHeight:      proofHeight,
+		ProofUnreceived:  proof.Proof,
+		ProofHeight:      proof.ProofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,
 		Signer:           signer,
 	}
 
-	return NewCosmosMessage(msgTimeout), nil
+	return NewCosmosMessage(assembled), nil
 }
 
 func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.Header, error) {
