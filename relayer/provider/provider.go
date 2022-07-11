@@ -190,11 +190,11 @@ type ChainProvider interface {
 	// PacketReceipt queries for proof that a MsgRecvPacket has not been committed to the chain.
 	PacketReceipt(ctx context.Context, msgTransfer PacketInfo, latest LatestBlock) (PacketProof, error)
 
-	// MsgRecvPacket takes takes the packet infromation from a MsgTransfer along with the packet commitment,
+	// MsgRecvPacket takes the packet information from a MsgTransfer along with the packet commitment,
 	// and assembles a full MsgRecvPacket ready to write to the chain.
 	MsgRecvPacket(msgTransfer PacketInfo, proof PacketProof) (RelayerMessage, error)
 
-	// MsgAcknowledgement takes the packet infromation from a MsgRecvPacket along with the packet acknowledgement,
+	// MsgAcknowledgement takes the packet information from a MsgRecvPacket along with the packet acknowledgement,
 	// and assembles a full MsgAcknowledgement ready to write to the chain.
 	MsgAcknowledgement(msgRecvPacket PacketInfo, proofAcked PacketProof) (RelayerMessage, error)
 
