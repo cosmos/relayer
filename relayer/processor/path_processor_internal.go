@@ -598,35 +598,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	outgoingMessages = append(outgoingMessages, msgUpdateClient)
 
 	for _, msg := range messages.packetMessages {
-		var packetProof func(context.Context, provider.PacketInfo, provider.LatestBlock) (provider.PacketProof, error)
-		var assembleMessage func(provider.PacketInfo, provider.PacketProof) (provider.RelayerMessage, error)
-		switch msg.action {
-		case MsgRecvPacket:
-			packetProof = src.chainProvider.PacketCommitment
-			assembleMessage = dst.chainProvider.MsgRecvPacket
-		case MsgAcknowledgement:
-			packetProof = src.chainProvider.PacketAcknowledgement
-			assembleMessage = dst.chainProvider.MsgAcknowledgement
-		case MsgTimeout:
-			packetProof = src.chainProvider.PacketReceipt
-			assembleMessage = dst.chainProvider.MsgTimeout
-		case MsgTimeoutOnClose:
-			packetProof = src.chainProvider.PacketReceipt
-			assembleMessage = dst.chainProvider.MsgTimeoutOnClose
-		default:
-			pp.log.Error("Unexepected packet message action for message assembly",
-				zap.String("action", msg.action),
-			)
-			continue
-		}
-		proof, err := packetProof(ctx, msg.info, src.latestBlock)
-		if err != nil {
-			dst.trackProcessingPacketMessage(msg, false)
-			pp.log.Error("Error querying packet proof", zap.Error(err))
-			continue
-		}
-		message, err := assembleMessage(msg.info, proof)
-		dst.trackProcessingPacketMessage(msg, err == nil)
+		message, err := pp.assemblePacketMessage(ctx, msg, src, dst)
 		if err != nil {
 			pp.log.Error("Error assembling packet message", zap.Error(err))
 			continue
@@ -635,38 +607,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	}
 
 	for _, msg := range messages.connectionMessages {
-		var connProof func(context.Context, provider.ConnectionInfo, provider.LatestBlock) (provider.ConnectionProof, error)
-		var assembleMessage func(provider.ConnectionInfo, provider.ConnectionProof) (provider.RelayerMessage, error)
-		switch msg.action {
-		case MsgConnectionOpenInit:
-			// don't need proof for this message
-			assembleMessage = dst.chainProvider.MsgConnectionOpenInit
-		case MsgConnectionOpenTry:
-			connProof = src.chainProvider.ConnectionHandshakeProof
-			assembleMessage = dst.chainProvider.MsgConnectionOpenTry
-		case MsgConnectionOpenAck:
-			connProof = src.chainProvider.ConnectionHandshakeProof
-			assembleMessage = dst.chainProvider.MsgConnectionOpenAck
-		case MsgConnectionOpenConfirm:
-			connProof = src.chainProvider.ConnectionProof
-			assembleMessage = dst.chainProvider.MsgConnectionOpenConfirm
-		default:
-			pp.log.Error("Unexepected connection message action for message assembly",
-				zap.String("action", msg.action),
-			)
-			continue
-		}
-		var proof provider.ConnectionProof
-		if connProof != nil {
-			proof, err = connProof(ctx, msg.info, src.latestBlock)
-			if err != nil {
-				dst.trackProcessingConnectionMessage(msg, false)
-				pp.log.Error("Error querying connection proof", zap.Error(err))
-				continue
-			}
-		}
-		message, err := assembleMessage(msg.info, proof)
-		dst.trackProcessingConnectionMessage(msg, err == nil)
+		message, err := pp.assembleConnectionMessage(ctx, msg, src, dst)
 		if err != nil {
 			pp.log.Error("Error assembling connection message", zap.Error(err))
 			continue
@@ -675,44 +616,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	}
 
 	for _, msg := range messages.channelMessages {
-		var chanProof func(context.Context, provider.ChannelInfo, provider.LatestBlock) (provider.ChannelProof, error)
-		var assembleMessage func(provider.ChannelInfo, provider.ChannelProof) (provider.RelayerMessage, error)
-		switch msg.action {
-		case MsgChannelOpenInit:
-			// don't need proof for this message
-			assembleMessage = dst.chainProvider.MsgChannelOpenInit
-		case MsgChannelOpenTry:
-			chanProof = src.chainProvider.ChannelProof
-			assembleMessage = dst.chainProvider.MsgChannelOpenTry
-		case MsgChannelOpenAck:
-			chanProof = src.chainProvider.ChannelProof
-			assembleMessage = dst.chainProvider.MsgChannelOpenAck
-		case MsgChannelOpenConfirm:
-			chanProof = src.chainProvider.ChannelProof
-			assembleMessage = dst.chainProvider.MsgChannelOpenConfirm
-		case MsgChannelCloseInit:
-			// don't need proof for this message
-			assembleMessage = dst.chainProvider.MsgChannelCloseInit
-		case MsgChannelCloseConfirm:
-			chanProof = src.chainProvider.ChannelProof
-			assembleMessage = dst.chainProvider.MsgChannelCloseConfirm
-		default:
-			pp.log.Error("Unexepected channel message action for message assembly",
-				zap.String("action", msg.action),
-			)
-			continue
-		}
-		var proof provider.ChannelProof
-		if chanProof != nil {
-			proof, err = chanProof(ctx, msg.info, src.latestBlock)
-			if err != nil {
-				dst.trackProcessingChannelMessage(msg, false)
-				pp.log.Error("Error querying channel proof", zap.Error(err))
-				continue
-			}
-		}
-		message, err := assembleMessage(msg.info, proof)
-		dst.trackProcessingChannelMessage(msg, err == nil)
+		message, err := pp.assembleChannelMessage(ctx, msg, src, dst)
 		if err != nil {
 			pp.log.Error("Error assembling channel message", zap.Error(err))
 			continue
@@ -729,6 +633,119 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	}
 
 	return nil
+}
+
+func (pp *PathProcessor) assemblePacketMessage(
+	ctx context.Context,
+	msg packetIBCMessage,
+	src, dst *pathEndRuntime,
+) (provider.RelayerMessage, error) {
+	var packetProof func(context.Context, provider.PacketInfo, provider.LatestBlock) (provider.PacketProof, error)
+	var assembleMessage func(provider.PacketInfo, provider.PacketProof) (provider.RelayerMessage, error)
+	switch msg.action {
+	case MsgRecvPacket:
+		packetProof = src.chainProvider.PacketCommitment
+		assembleMessage = dst.chainProvider.MsgRecvPacket
+	case MsgAcknowledgement:
+		packetProof = src.chainProvider.PacketAcknowledgement
+		assembleMessage = dst.chainProvider.MsgAcknowledgement
+	case MsgTimeout:
+		packetProof = src.chainProvider.PacketReceipt
+		assembleMessage = dst.chainProvider.MsgTimeout
+	case MsgTimeoutOnClose:
+		packetProof = src.chainProvider.PacketReceipt
+		assembleMessage = dst.chainProvider.MsgTimeoutOnClose
+	default:
+		return nil, fmt.Errorf("unexepected packet message action for message assembly: %s", msg.action)
+	}
+	proof, err := packetProof(ctx, msg.info, src.latestBlock)
+	if err != nil {
+		dst.trackProcessingPacketMessage(msg, false)
+		return nil, fmt.Errorf("error querying packet proof: %w", err)
+	}
+	message, err := assembleMessage(msg.info, proof)
+	dst.trackProcessingPacketMessage(msg, err == nil)
+	return message, err
+}
+
+func (pp *PathProcessor) assembleConnectionMessage(
+	ctx context.Context,
+	msg connectionIBCMessage,
+	src, dst *pathEndRuntime,
+) (provider.RelayerMessage, error) {
+	var connProof func(context.Context, provider.ConnectionInfo, provider.LatestBlock) (provider.ConnectionProof, error)
+	var assembleMessage func(provider.ConnectionInfo, provider.ConnectionProof) (provider.RelayerMessage, error)
+	switch msg.action {
+	case MsgConnectionOpenInit:
+		// don't need proof for this message
+		assembleMessage = dst.chainProvider.MsgConnectionOpenInit
+	case MsgConnectionOpenTry:
+		connProof = src.chainProvider.ConnectionHandshakeProof
+		assembleMessage = dst.chainProvider.MsgConnectionOpenTry
+	case MsgConnectionOpenAck:
+		connProof = src.chainProvider.ConnectionHandshakeProof
+		assembleMessage = dst.chainProvider.MsgConnectionOpenAck
+	case MsgConnectionOpenConfirm:
+		connProof = src.chainProvider.ConnectionProof
+		assembleMessage = dst.chainProvider.MsgConnectionOpenConfirm
+	default:
+		return nil, fmt.Errorf("unexepected connection message action for message assembly: %s", msg.action)
+	}
+	var proof provider.ConnectionProof
+	var err error
+	if connProof != nil {
+		proof, err = connProof(ctx, msg.info, src.latestBlock)
+		if err != nil {
+			dst.trackProcessingConnectionMessage(msg, false)
+			return nil, fmt.Errorf("error querying connection proof: %w", err)
+		}
+	}
+	message, err := assembleMessage(msg.info, proof)
+	dst.trackProcessingConnectionMessage(msg, err == nil)
+	return message, err
+}
+
+func (pp *PathProcessor) assembleChannelMessage(
+	ctx context.Context,
+	msg channelIBCMessage,
+	src, dst *pathEndRuntime,
+) (provider.RelayerMessage, error) {
+	var chanProof func(context.Context, provider.ChannelInfo, provider.LatestBlock) (provider.ChannelProof, error)
+	var assembleMessage func(provider.ChannelInfo, provider.ChannelProof) (provider.RelayerMessage, error)
+	switch msg.action {
+	case MsgChannelOpenInit:
+		// don't need proof for this message
+		assembleMessage = dst.chainProvider.MsgChannelOpenInit
+	case MsgChannelOpenTry:
+		chanProof = src.chainProvider.ChannelProof
+		assembleMessage = dst.chainProvider.MsgChannelOpenTry
+	case MsgChannelOpenAck:
+		chanProof = src.chainProvider.ChannelProof
+		assembleMessage = dst.chainProvider.MsgChannelOpenAck
+	case MsgChannelOpenConfirm:
+		chanProof = src.chainProvider.ChannelProof
+		assembleMessage = dst.chainProvider.MsgChannelOpenConfirm
+	case MsgChannelCloseInit:
+		// don't need proof for this message
+		assembleMessage = dst.chainProvider.MsgChannelCloseInit
+	case MsgChannelCloseConfirm:
+		chanProof = src.chainProvider.ChannelProof
+		assembleMessage = dst.chainProvider.MsgChannelCloseConfirm
+	default:
+		return nil, fmt.Errorf("unexepected channel message action for message assembly: %s", msg.action)
+	}
+	var proof provider.ChannelProof
+	var err error
+	if chanProof != nil {
+		proof, err = chanProof(ctx, msg.info, src.latestBlock)
+		if err != nil {
+			dst.trackProcessingChannelMessage(msg, false)
+			return nil, fmt.Errorf("error querying channel proof: %w", err)
+		}
+	}
+	message, err := assembleMessage(msg.info, proof)
+	dst.trackProcessingChannelMessage(msg, err == nil)
+	return message, err
 }
 
 func (pp *PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes pathEndChannelHandshakeResponse) ([]channelIBCMessage, []channelIBCMessage) {
