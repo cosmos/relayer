@@ -10,12 +10,18 @@ type pathEndMessages struct {
 	packetMessages     []packetIBCMessage
 }
 
+type ibcMessage interface {
+	ibcMessageIndicator()
+}
+
 // packetIBCMessage holds a packet message's action and sequence along with it,
 // useful for sending packets around internal to the PathProcessor.
 type packetIBCMessage struct {
 	info   provider.PacketInfo
 	action string
 }
+
+func (packetIBCMessage) ibcMessageIndicator() {}
 
 // channelKey returns channel key for new message by this action
 // based on prior action.
@@ -30,12 +36,16 @@ type channelIBCMessage struct {
 	info   provider.ChannelInfo
 }
 
+func (channelIBCMessage) ibcMessageIndicator() {}
+
 // connectionIBCMessage holds a connection handshake message's action along with its details,
 // useful for sending messages around internal to the PathProcessor.
 type connectionIBCMessage struct {
 	action string
 	info   provider.ConnectionInfo
 }
+
+func (connectionIBCMessage) ibcMessageIndicator() {}
 
 // processingMessage tracks the state of a IBC message currently being processed.
 type processingMessage struct {

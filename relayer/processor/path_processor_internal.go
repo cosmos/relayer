@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
@@ -582,6 +583,31 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 	return eg.Wait()
 }
 
+func (pp *PathProcessor) assembleMessage(
+	ctx context.Context,
+	msg ibcMessage,
+	src, dst *pathEndRuntime,
+	outgoingMessages chan provider.RelayerMessage,
+	wg *sync.WaitGroup,
+) {
+	defer wg.Done()
+	var message provider.RelayerMessage
+	var err error
+	switch m := msg.(type) {
+	case packetIBCMessage:
+		message, err = pp.assemblePacketMessage(ctx, m, src, dst)
+	case connectionIBCMessage:
+		message, err = pp.assembleConnectionMessage(ctx, m, src, dst)
+	case channelIBCMessage:
+		message, err = pp.assembleChannelMessage(ctx, m, src, dst)
+	}
+	if err != nil {
+		pp.log.Error("Error assembling channel message", zap.Error(err))
+		return
+	}
+	outgoingMessages <- message
+}
+
 func (pp *PathProcessor) assembleAndSendMessages(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
@@ -590,41 +616,39 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 {
 		return nil
 	}
-	var outgoingMessages []provider.RelayerMessage
+	outgoingMessages := make(chan provider.RelayerMessage, len(messages.packetMessages)+len(messages.connectionMessages)+len(messages.channelMessages))
 	msgUpdateClient, err := pp.assembleMsgUpdateClient(ctx, src, dst)
 	if err != nil {
 		return err
 	}
-	outgoingMessages = append(outgoingMessages, msgUpdateClient)
+	outgoingMessages <- msgUpdateClient
+
+	var wg sync.WaitGroup
 
 	for _, msg := range messages.packetMessages {
-		message, err := pp.assemblePacketMessage(ctx, msg, src, dst)
-		if err != nil {
-			pp.log.Error("Error assembling packet message", zap.Error(err))
-			continue
-		}
-		outgoingMessages = append(outgoingMessages, message)
+		wg.Add(1)
+		go pp.assembleMessage(ctx, msg, src, dst, outgoingMessages, &wg)
 	}
 
 	for _, msg := range messages.connectionMessages {
-		message, err := pp.assembleConnectionMessage(ctx, msg, src, dst)
-		if err != nil {
-			pp.log.Error("Error assembling connection message", zap.Error(err))
-			continue
-		}
-		outgoingMessages = append(outgoingMessages, message)
+		wg.Add(1)
+		go pp.assembleMessage(ctx, msg, src, dst, outgoingMessages, &wg)
 	}
 
 	for _, msg := range messages.channelMessages {
-		message, err := pp.assembleChannelMessage(ctx, msg, src, dst)
-		if err != nil {
-			pp.log.Error("Error assembling channel message", zap.Error(err))
-			continue
-		}
-		outgoingMessages = append(outgoingMessages, message)
+		wg.Add(1)
+		go pp.assembleMessage(ctx, msg, src, dst, outgoingMessages, &wg)
 	}
 
-	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, outgoingMessages)
+	wg.Wait()
+
+	outgoing := make([]provider.RelayerMessage, 0, len(outgoingMessages))
+
+	for msg := range outgoingMessages {
+		outgoing = append(outgoing, msg)
+	}
+
+	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, outgoing)
 	if err != nil {
 		return fmt.Errorf("error sending messages: %w", err)
 	}
