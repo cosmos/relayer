@@ -1391,8 +1391,10 @@ func (cc *CosmosProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, pr
 				ChannelId: msgOpenInit.ChannelID,
 			},
 			ConnectionHops: []string{msgOpenInit.CounterpartyConnID},
-			// TODO wire this up
-			Version: "ics20-1",
+			// In the future, may need to separate this from the CounterpartyVersion.
+			// https://github.com/cosmos/ibc/tree/master/spec/core/ics-004-channel-and-packet-semantics#definitions
+			// Using same version as counterparty for now.
+			Version: proof.Version,
 		},
 		CounterpartyVersion: proof.Version,
 		ProofInit:           proof.Proof,
