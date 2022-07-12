@@ -9,24 +9,35 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"go.uber.org/zap"
 )
 
+// ibcMessage is the type used for parsing all possible properties of IBC messages
+type ibcMessage struct {
+	action string
+	info   ibcMessageInfo
+}
+
+type ibcMessageInfo interface {
+	parseAttrs(log *zap.Logger, attrs []sdk.Attribute)
+}
+
 // ibcMessagesFromTransaction parses all events within a transaction to find IBC messages
-func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDeliverTx) []ibcMessage {
+func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDeliverTx, height uint64) []ibcMessage {
 	parsedLogs, err := sdk.ParseABCILogs(tx.Log)
 	if err != nil {
 		ccp.log.Info("Failed to parse abci logs", zap.Error(err))
 		return nil
 	}
-	return parseABCILogs(ccp.log, parsedLogs)
+	return parseABCILogs(ccp.log, parsedLogs, height)
 }
 
-func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs) (messages []ibcMessage) {
+func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, height uint64) (messages []ibcMessage) {
 	for _, messageLog := range logs {
-		var messageInfo interface{}
-		var messageType string
+		var info ibcMessageInfo
+		var action string
 		var packetAccumulator *packetInfo
 		for _, event := range messageLog.Events {
 			switch event.Type {
@@ -34,57 +45,77 @@ func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs) (messages []ibcMes
 				for _, attr := range event.Attributes {
 					switch attr.Key {
 					case "action":
-						messageType = attr.Value
+						action = attr.Value
 					}
 				}
 			case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
 				clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
 				clienttypes.EventTypeUpdateClientProposal:
-				messageInfo = parseClientInfo(log, event.Attributes)
+				clientInfo := new(clientInfo)
+				clientInfo.parseAttrs(log, event.Attributes)
+				info = clientInfo
 			case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
 				chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
 				chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
-				packetAccumulator = packetAccumulator.parsePacketInfo(log, event.Attributes)
+				if packetAccumulator == nil {
+					packetAccumulator = &packetInfo{Height: height}
+				}
+				packetAccumulator.parseAttrs(log, event.Attributes)
+				info = packetAccumulator
 			case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
 				conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
-				messageInfo = parseConnectionInfo(event.Attributes)
+				connectionInfo := &connectionInfo{Height: height}
+				connectionInfo.parseAttrs(log, event.Attributes)
+				info = connectionInfo
 			case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
 				chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
 				chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
-				messageInfo = parseChannelInfo(event.Attributes)
+				channelInfo := &channelInfo{Height: height}
+				channelInfo.parseAttrs(log, event.Attributes)
+				info = channelInfo
 			}
 		}
-		if packetAccumulator != nil {
-			messageInfo = *packetAccumulator
-		}
 
-		if messageInfo == nil {
+		if info == nil {
 			// Not an IBC message, don't need to log here
 			continue
 		}
-		if messageType == "" {
-			log.Error("Unexpected ibc message parser state: message info is populated but type is empty",
-				zap.Any("message", messageInfo),
+		if action == "" {
+			log.Error("Unexpected ibc message parser state: message info is populated but action is empty",
+				zap.Any("info", info),
 			)
 			continue
 		}
 		messages = append(messages, ibcMessage{
-			messageType: messageType,
-			messageInfo: messageInfo,
+			action: action,
+			info:   info,
 		})
 	}
 
 	return messages
 }
 
-func parseClientInfo(log *zap.Logger, attributes []sdk.Attribute) (res clientInfo) {
-	for _, attr := range attributes {
-		res = res.parseClientAttribute(log, attr)
-	}
-	return res
+// clientInfo contains the consensus height of the counterparty chain for a client.
+type clientInfo struct {
+	clientID        string
+	consensusHeight clienttypes.Height
+	header          []byte
 }
 
-func (res clientInfo) parseClientAttribute(log *zap.Logger, attr sdk.Attribute) clientInfo {
+func (c clientInfo) ClientState() provider.ClientState {
+	return provider.ClientState{
+		ClientID:        c.clientID,
+		ConsensusHeight: c.consensusHeight,
+	}
+}
+
+func (res *clientInfo) parseAttrs(log *zap.Logger, attributes []sdk.Attribute) {
+	for _, attr := range attributes {
+		res.parseClientAttribute(log, attr)
+	}
+}
+
+func (res *clientInfo) parseClientAttribute(log *zap.Logger, attr sdk.Attribute) {
 	switch attr.Key {
 	case clienttypes.AttributeKeyClientID:
 		res.clientID = attr.Value
@@ -95,7 +126,7 @@ func (res clientInfo) parseClientAttribute(log *zap.Logger, attr sdk.Attribute) 
 				zap.String("client_id", res.clientID),
 				zap.String("value", attr.Value),
 			)
-			return res
+			return
 		}
 		revisionNumberString := revisionSplit[0]
 		revisionNumber, err := strconv.ParseUint(revisionNumberString, 10, 64)
@@ -103,7 +134,7 @@ func (res clientInfo) parseClientAttribute(log *zap.Logger, attr sdk.Attribute) 
 			log.Error("Error parsing client consensus height revision number",
 				zap.Error(err),
 			)
-			return res
+			return
 		}
 		revisionHeightString := revisionSplit[1]
 		revisionHeight, err := strconv.ParseUint(revisionHeightString, 10, 64)
@@ -111,7 +142,7 @@ func (res clientInfo) parseClientAttribute(log *zap.Logger, attr sdk.Attribute) 
 			log.Error("Error parsing client consensus height revision height",
 				zap.Error(err),
 			)
-			return res
+			return
 		}
 		res.consensusHeight = clienttypes.Height{
 			RevisionNumber: revisionNumber,
@@ -124,160 +155,155 @@ func (res clientInfo) parseClientAttribute(log *zap.Logger, attr sdk.Attribute) 
 				zap.String("header", attr.Value),
 				zap.Error(err),
 			)
-			return res
+			return
 		}
 		res.header = data
 	}
-	return res
 }
+
+// alias type to the provider types, used for adding parser methods
+type packetInfo provider.PacketInfo
 
 // parsePacketInfo is treated differently from the others since it can be constructed from the accumulation of multiple events
-func (res *packetInfo) parsePacketInfo(log *zap.Logger, attributes []sdk.Attribute) *packetInfo {
-	if res == nil {
-		res = new(packetInfo)
+func (res *packetInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
+	for _, attr := range attrs {
+		res.parsePacketAttribute(log, attr)
 	}
-	for _, attr := range attributes {
-		res = res.parsePacketAttribute(log, attr)
-	}
-	return res
 }
 
-func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute) *packetInfo {
+func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute) {
 	var err error
 	switch attr.Key {
 	case chantypes.AttributeKeySequence:
-		res.packet.Sequence, err = strconv.ParseUint(attr.Value, 10, 64)
+		res.Sequence, err = strconv.ParseUint(attr.Value, 10, 64)
 		if err != nil {
 			log.Error("Error parsing packet sequence",
 				zap.String("value", attr.Value),
 				zap.Error(err),
 			)
-			return res
+			return
 		}
 	case chantypes.AttributeKeyTimeoutTimestamp:
-		res.packet.TimeoutTimestamp, err = strconv.ParseUint(attr.Value, 10, 64)
+		res.TimeoutTimestamp, err = strconv.ParseUint(attr.Value, 10, 64)
 		if err != nil {
 			log.Error("Error parsing packet timestamp",
-				zap.Uint64("sequence", res.packet.Sequence),
+				zap.Uint64("sequence", res.Sequence),
 				zap.String("value", attr.Value),
 				zap.Error(err),
 			)
-			return res
+			return
 		}
 	// NOTE: deprecated per IBC spec
 	case chantypes.AttributeKeyData:
-		res.packet.Data = []byte(attr.Value)
+		res.Data = []byte(attr.Value)
 	case chantypes.AttributeKeyDataHex:
 		data, err := hex.DecodeString(attr.Value)
 		if err != nil {
 			log.Error("Error parsing packet data",
-				zap.Uint64("sequence", res.packet.Sequence),
+				zap.Uint64("sequence", res.Sequence),
 				zap.Error(err),
 			)
-			return res
+			return
 		}
-		res.packet.Data = data
+		res.Data = data
 	// NOTE: deprecated per IBC spec
 	case chantypes.AttributeKeyAck:
-		res.ack = []byte(attr.Value)
+		res.Ack = []byte(attr.Value)
 	case chantypes.AttributeKeyAckHex:
 		data, err := hex.DecodeString(attr.Value)
 		if err != nil {
 			log.Error("Error parsing packet ack",
-				zap.Uint64("sequence", res.packet.Sequence),
+				zap.Uint64("sequence", res.Sequence),
 				zap.String("value", attr.Value),
 				zap.Error(err),
 			)
-			return res
+			return
 		}
-		res.ack = data
+		res.Ack = data
 	case chantypes.AttributeKeyTimeoutHeight:
 		timeoutSplit := strings.Split(attr.Value, "-")
 		if len(timeoutSplit) != 2 {
 			log.Error("Error parsing packet height timeout",
-				zap.Uint64("sequence", res.packet.Sequence),
+				zap.Uint64("sequence", res.Sequence),
 				zap.String("value", attr.Value),
 			)
-			return res
+			return
 		}
 		revisionNumber, err := strconv.ParseUint(timeoutSplit[0], 10, 64)
 		if err != nil {
 			log.Error("Error parsing packet timeout height revision number",
-				zap.Uint64("sequence", res.packet.Sequence),
+				zap.Uint64("sequence", res.Sequence),
 				zap.String("value", timeoutSplit[0]),
 				zap.Error(err),
 			)
-			return res
+			return
 		}
 		revisionHeight, err := strconv.ParseUint(timeoutSplit[1], 10, 64)
 		if err != nil {
 			log.Error("Error parsing packet timeout height revision height",
-				zap.Uint64("sequence", res.packet.Sequence),
+				zap.Uint64("sequence", res.Sequence),
 				zap.String("value", timeoutSplit[1]),
 				zap.Error(err),
 			)
-			return res
+			return
 		}
-		res.packet.TimeoutHeight = clienttypes.Height{
+		res.TimeoutHeight = clienttypes.Height{
 			RevisionNumber: revisionNumber,
 			RevisionHeight: revisionHeight,
 		}
 	case chantypes.AttributeKeySrcPort:
-		res.packet.SourcePort = attr.Value
+		res.SourcePort = attr.Value
 	case chantypes.AttributeKeySrcChannel:
-		res.packet.SourceChannel = attr.Value
+		res.SourceChannel = attr.Value
 	case chantypes.AttributeKeyDstPort:
-		res.packet.DestinationPort = attr.Value
+		res.DestPort = attr.Value
 	case chantypes.AttributeKeyDstChannel:
-		res.packet.DestinationChannel = attr.Value
-	case chantypes.AttributeKeyChannelOrdering:
-		res.channelOrdering = attr.Value
-	case chantypes.AttributeKeyConnection:
-		res.connectionID = attr.Value
+		res.DestChannel = attr.Value
 	}
-	return res
 }
 
-func parseChannelInfo(attributes []sdk.Attribute) (res channelInfo) {
-	for _, attr := range attributes {
-		res = res.parseChannelAttribute(attr)
+// alias type to the provider types, used for adding parser methods
+type channelInfo provider.ChannelInfo
+
+func (res *channelInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
+	for _, attr := range attrs {
+		res.parseChannelAttribute(attr)
 	}
-	return res
 }
 
-func (res channelInfo) parseChannelAttribute(attr sdk.Attribute) channelInfo {
+func (res *channelInfo) parseChannelAttribute(attr sdk.Attribute) {
 	switch attr.Key {
 	case chantypes.AttributeKeyPortID:
-		res.portID = attr.Value
+		res.PortID = attr.Value
 	case chantypes.AttributeKeyChannelID:
-		res.channelID = attr.Value
+		res.ChannelID = attr.Value
 	case chantypes.AttributeCounterpartyPortID:
-		res.counterpartyPortID = attr.Value
+		res.CounterpartyPortID = attr.Value
 	case chantypes.AttributeCounterpartyChannelID:
-		res.counterpartyChannelID = attr.Value
+		res.CounterpartyChannelID = attr.Value
 	case chantypes.AttributeKeyConnectionID:
-		res.connectionID = attr.Value
+		res.ConnID = attr.Value
 	}
-	return res
 }
 
-func parseConnectionInfo(attributes []sdk.Attribute) (res connectionInfo) {
-	for _, attr := range attributes {
-		res = res.parseConnectionAttribute(attr)
+// alias type to the provider types, used for adding parser methods
+type connectionInfo provider.ConnectionInfo
+
+func (res *connectionInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
+	for _, attr := range attrs {
+		res.parseConnectionAttribute(attr)
 	}
-	return res
 }
 
-func (res connectionInfo) parseConnectionAttribute(attr sdk.Attribute) connectionInfo {
+func (res *connectionInfo) parseConnectionAttribute(attr sdk.Attribute) {
 	switch attr.Key {
 	case conntypes.AttributeKeyConnectionID:
-		res.connectionID = attr.Value
+		res.ConnID = attr.Value
 	case conntypes.AttributeKeyClientID:
-		res.clientID = attr.Value
+		res.ClientID = attr.Value
 	case conntypes.AttributeKeyCounterpartyConnectionID:
-		res.counterpartyConnectionID = attr.Value
+		res.CounterpartyConnID = attr.Value
 	case conntypes.AttributeKeyCounterpartyClientID:
-		res.counterpartyClientID = attr.Value
+		res.CounterpartyClientID = attr.Value
 	}
-	return res
 }

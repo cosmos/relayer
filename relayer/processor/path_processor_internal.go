@@ -16,13 +16,13 @@ func (pp *PathProcessor) assemblePacketIBCMessage(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
 	partialMessage packetIBCMessage,
-	assembleMessage func(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error),
+	assembleMessage func(ctx context.Context, msgRecvPacket provider.PacketInfo, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error),
 ) (provider.RelayerMessage, error) {
 	signer, err := dst.chainProvider.Address()
 	if err != nil {
 		return nil, fmt.Errorf("error getting signer address for {%s}: %w", dst.info.ChainID, err)
 	}
-	assembled, err := assembleMessage(ctx, partialMessage.message, signer, src.latestBlock)
+	assembled, err := assembleMessage(ctx, partialMessage.info, signer, src.latestBlock)
 	if err != nil {
 		return nil, fmt.Errorf("error assembling %s for {%s}: %w", partialMessage.action, dst.info.ChainID, err)
 	}
@@ -70,10 +70,8 @@ MsgTransferLoop:
 			if transferSeq == msgRecvSeq {
 				// msg is received by dst chain, but no ack yet. Need to relay ack from dst to src!
 				ackMsg := packetIBCMessage{
-					channelKey: pathEndPacketFlowMessages.ChannelKey,
-					action:     MsgAcknowledgement,
-					sequence:   transferSeq,
-					message:    msgAcknowledgement,
+					action: MsgAcknowledgement,
+					info:   msgAcknowledgement,
 				}
 				if pathEndPacketFlowMessages.Src.shouldSendPacketMessage(ackMsg, pathEndPacketFlowMessages.Dst) {
 					res.SrcMessages = append(res.SrcMessages, ackMsg)
@@ -90,20 +88,16 @@ MsgTransferLoop:
 			switch {
 			case errors.As(err, &timeoutHeightErr) || errors.As(err, &timeoutTimestampErr):
 				timeoutMsg := packetIBCMessage{
-					channelKey: pathEndPacketFlowMessages.ChannelKey,
-					action:     MsgTimeout,
-					sequence:   transferSeq,
-					message:    msgTransfer,
+					action: MsgTimeout,
+					info:   msgTransfer,
 				}
 				if pathEndPacketFlowMessages.Src.shouldSendPacketMessage(timeoutMsg, pathEndPacketFlowMessages.Dst) {
 					res.SrcMessages = append(res.SrcMessages, timeoutMsg)
 				}
 			case errors.As(err, &timeoutOnCloseErr):
 				timeoutOnCloseMsg := packetIBCMessage{
-					channelKey: pathEndPacketFlowMessages.ChannelKey,
-					action:     MsgTimeoutOnClose,
-					sequence:   transferSeq,
-					message:    msgTransfer,
+					action: MsgTimeoutOnClose,
+					info:   msgTransfer,
 				}
 				if pathEndPacketFlowMessages.Src.shouldSendPacketMessage(timeoutOnCloseMsg, pathEndPacketFlowMessages.Dst) {
 					res.SrcMessages = append(res.SrcMessages, timeoutOnCloseMsg)
@@ -117,10 +111,8 @@ MsgTransferLoop:
 			continue MsgTransferLoop
 		}
 		recvPacketMsg := packetIBCMessage{
-			channelKey: pathEndPacketFlowMessages.ChannelKey.Counterparty(),
-			action:     MsgRecvPacket,
-			sequence:   transferSeq,
-			message:    msgTransfer,
+			action: MsgRecvPacket,
+			info:   msgTransfer,
 		}
 		if pathEndPacketFlowMessages.Dst.shouldSendPacketMessage(recvPacketMsg, pathEndPacketFlowMessages.Src) {
 			res.DstMessages = append(res.DstMessages, recvPacketMsg)
@@ -152,57 +144,58 @@ func (pp *PathProcessor) getUnrelayedConnectionHandshakeMessagesAndToDelete(path
 
 ConnectionHandshakeLoop:
 	for openInitKey, openInitMsg := range pathEndConnectionHandshakeMessages.SrcMsgConnectionOpenInit {
-		var foundOpenTry provider.RelayerMessage
+		var foundOpenTry *provider.ConnectionInfo
 		for openTryKey, openTryMsg := range pathEndConnectionHandshakeMessages.DstMsgConnectionOpenTry {
-			if openInitKey == openTryKey {
-				foundOpenTry = openTryMsg
+			// MsgConnectionOpenInit does not have counterparty connection ID, so check if everything
+			// else matches for counterparty. If so, add counterparty connection ID for
+			// the checks later on in this function.
+			if openInitKey.ConnectionID == openTryKey.CounterpartyConnID && openInitKey.ClientID == openTryKey.CounterpartyClientID && openInitKey.CounterpartyClientID == openTryKey.ClientID {
+				openInitKey.CounterpartyConnID = openTryKey.ConnectionID
+				foundOpenTry = &openTryMsg
 				break
 			}
 		}
 		if foundOpenTry == nil {
 			// need to send an open try to dst
 			msgOpenTry := connectionIBCMessage{
-				action:        MsgConnectionOpenTry,
-				connectionKey: openInitKey.Counterparty(),
-				message:       openInitMsg,
+				action: MsgConnectionOpenTry,
+				info:   openInitMsg,
 			}
 			if pathEndConnectionHandshakeMessages.Dst.shouldSendConnectionMessage(msgOpenTry, pathEndConnectionHandshakeMessages.Src) {
 				res.DstMessages = append(res.DstMessages, msgOpenTry)
 			}
 			continue ConnectionHandshakeLoop
 		}
-		var foundOpenAck provider.RelayerMessage
+		var foundOpenAck *provider.ConnectionInfo
 		for openAckKey, openAckMsg := range pathEndConnectionHandshakeMessages.SrcMsgConnectionOpenAck {
 			if openInitKey == openAckKey {
-				foundOpenAck = openAckMsg
+				foundOpenAck = &openAckMsg
 				break
 			}
 		}
 		if foundOpenAck == nil {
 			// need to send an open ack to src
 			msgOpenAck := connectionIBCMessage{
-				action:        MsgConnectionOpenAck,
-				connectionKey: openInitKey,
-				message:       foundOpenTry,
+				action: MsgConnectionOpenAck,
+				info:   *foundOpenTry,
 			}
 			if pathEndConnectionHandshakeMessages.Src.shouldSendConnectionMessage(msgOpenAck, pathEndConnectionHandshakeMessages.Dst) {
 				res.SrcMessages = append(res.SrcMessages, msgOpenAck)
 			}
 			continue ConnectionHandshakeLoop
 		}
-		var foundOpenConfirm provider.RelayerMessage
+		var foundOpenConfirm *provider.ConnectionInfo
 		for openConfirmKey, openConfirmMsg := range pathEndConnectionHandshakeMessages.DstMsgConnectionOpenConfirm {
-			if openInitKey == openConfirmKey {
-				foundOpenConfirm = openConfirmMsg
+			if openInitKey == openConfirmKey.Counterparty() {
+				foundOpenConfirm = &openConfirmMsg
 				break
 			}
 		}
 		if foundOpenConfirm == nil {
 			// need to send an open confirm to dst
 			msgOpenConfirm := connectionIBCMessage{
-				action:        MsgConnectionOpenConfirm,
-				connectionKey: openInitKey.Counterparty(),
-				message:       foundOpenAck,
+				action: MsgConnectionOpenConfirm,
+				info:   *foundOpenAck,
 			}
 			if pathEndConnectionHandshakeMessages.Dst.shouldSendConnectionMessage(msgOpenConfirm, pathEndConnectionHandshakeMessages.Src) {
 				res.DstMessages = append(res.DstMessages, msgOpenConfirm)
@@ -210,18 +203,24 @@ ConnectionHandshakeLoop:
 			continue ConnectionHandshakeLoop
 		}
 		// handshake is complete for this connection, remove all retention.
-		res.ToDeleteSrc[MsgConnectionOpenInit] = append(res.ToDeleteSrc[MsgConnectionOpenInit], openInitKey)
 		res.ToDeleteDst[MsgConnectionOpenTry] = append(res.ToDeleteDst[MsgConnectionOpenTry], openInitKey)
 		res.ToDeleteSrc[MsgConnectionOpenAck] = append(res.ToDeleteSrc[MsgConnectionOpenAck], openInitKey)
 		res.ToDeleteDst[MsgConnectionOpenConfirm] = append(res.ToDeleteDst[MsgConnectionOpenConfirm], openInitKey)
+
+		// MsgConnectionOpenInit does not have CounterpartyConnectionID
+		openInitKey.CounterpartyConnID = ""
+		res.ToDeleteSrc[MsgConnectionOpenInit] = append(res.ToDeleteSrc[MsgConnectionOpenInit], openInitKey)
 	}
 
 	// now iterate through connection-handshake-complete messages and remove any leftover messages
 	for openConfirmKey := range pathEndConnectionHandshakeMessages.DstMsgConnectionOpenConfirm {
-		res.ToDeleteSrc[MsgConnectionOpenInit] = append(res.ToDeleteSrc[MsgConnectionOpenInit], openConfirmKey)
 		res.ToDeleteDst[MsgConnectionOpenTry] = append(res.ToDeleteDst[MsgConnectionOpenTry], openConfirmKey)
 		res.ToDeleteSrc[MsgConnectionOpenAck] = append(res.ToDeleteSrc[MsgConnectionOpenAck], openConfirmKey)
 		res.ToDeleteDst[MsgConnectionOpenConfirm] = append(res.ToDeleteDst[MsgConnectionOpenConfirm], openConfirmKey)
+
+		// MsgConnectionOpenInit does not have CounterpartyConnectionID
+		openConfirmKey.CounterpartyConnID = ""
+		res.ToDeleteSrc[MsgConnectionOpenInit] = append(res.ToDeleteSrc[MsgConnectionOpenInit], openConfirmKey)
 	}
 	return res
 }
@@ -234,57 +233,58 @@ func (pp *PathProcessor) getUnrelayedChannelHandshakeMessagesAndToDelete(pathEnd
 
 ChannelHandshakeLoop:
 	for openInitKey, openInitMsg := range pathEndChannelHandshakeMessages.SrcMsgChannelOpenInit {
-		var foundOpenTry provider.RelayerMessage
+		var foundOpenTry *provider.ChannelInfo
 		for openTryKey, openTryMsg := range pathEndChannelHandshakeMessages.DstMsgChannelOpenTry {
-			if openInitKey == openTryKey {
-				foundOpenTry = openTryMsg
+			// MsgChannelOpenInit does not have counterparty channel ID, so check if everything
+			// else matches for counterparty. If so, add counterparty channel ID for
+			// the checks later on in this function.
+			if openInitKey == openTryKey.Counterparty().msgInitKey() {
+				openInitKey.CounterpartyChannelID = openTryMsg.ChannelID
+				foundOpenTry = &openTryMsg
 				break
 			}
 		}
 		if foundOpenTry == nil {
 			// need to send an open try to dst
 			msgOpenTry := channelIBCMessage{
-				action:     MsgChannelOpenTry,
-				channelKey: openInitKey.Counterparty(),
-				message:    openInitMsg,
+				action: MsgChannelOpenTry,
+				info:   openInitMsg,
 			}
 			if pathEndChannelHandshakeMessages.Dst.shouldSendChannelMessage(msgOpenTry, pathEndChannelHandshakeMessages.Src) {
 				res.DstMessages = append(res.DstMessages, msgOpenTry)
 			}
 			continue ChannelHandshakeLoop
 		}
-		var foundOpenAck provider.RelayerMessage
+		var foundOpenAck *provider.ChannelInfo
 		for openAckKey, openAckMsg := range pathEndChannelHandshakeMessages.SrcMsgChannelOpenAck {
 			if openInitKey == openAckKey {
-				foundOpenAck = openAckMsg
+				foundOpenAck = &openAckMsg
 				break
 			}
 		}
 		if foundOpenAck == nil {
 			// need to send an open ack to src
 			msgOpenAck := channelIBCMessage{
-				action:     MsgChannelOpenAck,
-				channelKey: openInitKey,
-				message:    foundOpenTry,
+				action: MsgChannelOpenAck,
+				info:   *foundOpenTry,
 			}
 			if pathEndChannelHandshakeMessages.Src.shouldSendChannelMessage(msgOpenAck, pathEndChannelHandshakeMessages.Dst) {
 				res.SrcMessages = append(res.SrcMessages, msgOpenAck)
 			}
 			continue ChannelHandshakeLoop
 		}
-		var foundOpenConfirm provider.RelayerMessage
+		var foundOpenConfirm *provider.ChannelInfo
 		for openConfirmKey, openConfirmMsg := range pathEndChannelHandshakeMessages.DstMsgChannelOpenConfirm {
-			if openInitKey == openConfirmKey {
-				foundOpenConfirm = openConfirmMsg
+			if openInitKey == openConfirmKey.Counterparty() {
+				foundOpenConfirm = &openConfirmMsg
 				break
 			}
 		}
 		if foundOpenConfirm == nil {
 			// need to send an open confirm to dst
 			msgOpenConfirm := channelIBCMessage{
-				action:     MsgChannelOpenConfirm,
-				channelKey: openInitKey.Counterparty(),
-				message:    foundOpenAck,
+				action: MsgChannelOpenConfirm,
+				info:   *foundOpenAck,
 			}
 			if pathEndChannelHandshakeMessages.Dst.shouldSendChannelMessage(msgOpenConfirm, pathEndChannelHandshakeMessages.Src) {
 				res.DstMessages = append(res.DstMessages, msgOpenConfirm)
@@ -292,18 +292,20 @@ ChannelHandshakeLoop:
 			continue ChannelHandshakeLoop
 		}
 		// handshake is complete for this channel, remove all retention.
-		res.ToDeleteSrc[MsgChannelOpenInit] = append(res.ToDeleteSrc[MsgChannelOpenInit], openInitKey)
 		res.ToDeleteDst[MsgChannelOpenTry] = append(res.ToDeleteDst[MsgChannelOpenTry], openInitKey)
 		res.ToDeleteSrc[MsgChannelOpenAck] = append(res.ToDeleteSrc[MsgChannelOpenAck], openInitKey)
 		res.ToDeleteDst[MsgChannelOpenConfirm] = append(res.ToDeleteDst[MsgChannelOpenConfirm], openInitKey)
+		// MsgChannelOpenInit does not have CounterpartyChannelID
+		res.ToDeleteSrc[MsgChannelOpenInit] = append(res.ToDeleteSrc[MsgChannelOpenInit], openInitKey.msgInitKey())
 	}
 
 	// now iterate through channel-handshake-complete messages and remove any leftover messages
 	for openConfirmKey := range pathEndChannelHandshakeMessages.DstMsgChannelOpenConfirm {
-		res.ToDeleteSrc[MsgChannelOpenInit] = append(res.ToDeleteSrc[MsgChannelOpenInit], openConfirmKey)
 		res.ToDeleteDst[MsgChannelOpenTry] = append(res.ToDeleteDst[MsgChannelOpenTry], openConfirmKey)
 		res.ToDeleteSrc[MsgChannelOpenAck] = append(res.ToDeleteSrc[MsgChannelOpenAck], openConfirmKey)
 		res.ToDeleteDst[MsgChannelOpenConfirm] = append(res.ToDeleteDst[MsgChannelOpenConfirm], openConfirmKey)
+		// MsgChannelOpenInit does not have CounterpartyChannelID
+		res.ToDeleteSrc[MsgChannelOpenInit] = append(res.ToDeleteSrc[MsgChannelOpenInit], openConfirmKey.msgInitKey())
 	}
 	return res
 }
@@ -383,8 +385,80 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 	}
 }
 
+func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, pathEnd1Messages, pathEnd2Messages *pathEndMessages) {
+	if msg == nil || pp.sentInitialMsg {
+		return
+	}
+	pp.sentInitialMsg = true
+	switch m := msg.(type) {
+	case *PacketMessageLifecycle:
+		if m.Initial == nil {
+			return
+		}
+		channelKey, err := PacketInfoChannelKey(m.Initial.Action, m.Initial.Info)
+		if err != nil {
+			pp.log.Error("Unexpected error checking packet message",
+				zap.String("action", m.Termination.Action),
+				zap.Any("channel", channelKey),
+				zap.Error(err),
+			)
+			return
+		}
+		if !pp.IsRelayedChannel(m.Initial.ChainID, channelKey) {
+			return
+		}
+		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
+			pathEnd1Messages.packetMessages = append(pathEnd1Messages.packetMessages, packetIBCMessage{
+				action: m.Initial.Action,
+				info:   m.Initial.Info,
+			})
+		} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
+			pathEnd2Messages.packetMessages = append(pathEnd2Messages.packetMessages, packetIBCMessage{
+				action: m.Initial.Action,
+				info:   m.Initial.Info,
+			})
+		}
+	case *ConnectionMessageLifecycle:
+		if m.Initial == nil {
+			return
+		}
+		if !pp.IsRelevantConnection(m.Initial.ChainID, m.Initial.Info.ConnID) {
+			return
+		}
+		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
+			pathEnd1Messages.connectionMessages = append(pathEnd1Messages.connectionMessages, connectionIBCMessage{
+				action: m.Initial.Action,
+				info:   m.Initial.Info,
+			})
+		} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
+			pathEnd2Messages.connectionMessages = append(pathEnd2Messages.connectionMessages, connectionIBCMessage{
+				action: m.Initial.Action,
+				info:   m.Initial.Info,
+			})
+		}
+	case *ChannelMessageLifecycle:
+		if m.Initial == nil {
+			return
+		}
+		if !pp.IsRelevantChannel(m.Initial.ChainID, m.Initial.Info.ChannelID) {
+			return
+		}
+		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
+			pathEnd1Messages.channelMessages = append(pathEnd1Messages.channelMessages, channelIBCMessage{
+				action: m.Initial.Action,
+				info:   m.Initial.Info,
+			})
+		} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
+			pathEnd2Messages.channelMessages = append(pathEnd2Messages.channelMessages, channelIBCMessage{
+				action: m.Initial.Action,
+				info:   m.Initial.Info,
+			})
+		}
+	}
+}
+
 // messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
-func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
+func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifecycle MessageLifecycle) error {
 	// Update trusted client state for both pathends
 	pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
 	pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
@@ -464,11 +538,25 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	pathEnd1ChannelMessages, pathEnd2ChannelMessages := pp.channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes)
 	pathEnd1PacketMessages, pathEnd2PacketMessages := pp.packetMessagesToSend(channelPairs, pathEnd1ProcessRes, pathEnd2ProcessRes)
 
+	pathEnd1Messages := pathEndMessages{
+		connectionMessages: pathEnd1ConnectionMessages,
+		channelMessages:    pathEnd1ChannelMessages,
+		packetMessages:     pathEnd1PacketMessages,
+	}
+
+	pathEnd2Messages := pathEndMessages{
+		connectionMessages: pathEnd2ConnectionMessages,
+		channelMessages:    pathEnd2ChannelMessages,
+		packetMessages:     pathEnd2PacketMessages,
+	}
+
+	pp.appendInitialMessageIfNecessary(messageLifecycle, &pathEnd1Messages, &pathEnd2Messages)
+
 	// now assemble and send messages in parallel
 	// if sending messages fails to one pathEnd, we don't need to halt sending to the other pathEnd.
 	var eg errgroup.Group
 	eg.Go(func() error {
-		if err := pp.assembleAndSendMessages(ctx, pp.pathEnd2, pp.pathEnd1, pathEnd1PacketMessages, pathEnd1ConnectionMessages, pathEnd1ChannelMessages); err != nil {
+		if err := pp.assembleAndSendMessages(ctx, pp.pathEnd2, pp.pathEnd1, pathEnd1Messages); err != nil {
 			pp.log.Error("Error sending messages",
 				zap.String("src_chain_id", pp.pathEnd1.info.ChainID),
 				zap.String("dst_chain_id", pp.pathEnd2.info.ChainID),
@@ -480,7 +568,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 		return nil
 	})
 	eg.Go(func() error {
-		if err := pp.assembleAndSendMessages(ctx, pp.pathEnd1, pp.pathEnd2, pathEnd2PacketMessages, pathEnd2ConnectionMessages, pathEnd2ChannelMessages); err != nil {
+		if err := pp.assembleAndSendMessages(ctx, pp.pathEnd1, pp.pathEnd2, pathEnd2Messages); err != nil {
 			pp.log.Error("Error sending messages",
 				zap.String("src_chain_id", pp.pathEnd2.info.ChainID),
 				zap.String("dst_chain_id", pp.pathEnd1.info.ChainID),
@@ -497,11 +585,9 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 func (pp *PathProcessor) assembleAndSendMessages(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
-	packetMessages []packetIBCMessage,
-	connectionMessages []connectionIBCMessage,
-	channelMessages []channelIBCMessage,
+	messages pathEndMessages,
 ) error {
-	if len(packetMessages) == 0 && len(connectionMessages) == 0 && len(channelMessages) == 0 {
+	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 {
 		return nil
 	}
 	var outgoingMessages []provider.RelayerMessage
@@ -511,38 +597,32 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	}
 	outgoingMessages = append(outgoingMessages, msgUpdateClient)
 
-	var sentPackageMessages []packetIBCMessage
-	var sentConnectionMessages []connectionIBCMessage
-	var sentChannelMessages []channelIBCMessage
-
-	for _, msg := range packetMessages {
-		var assembleMessage func(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error)
-		switch msg.action {
-		case MsgRecvPacket:
-			assembleMessage = src.chainProvider.MsgRecvPacket
-		case MsgAcknowledgement:
-			assembleMessage = src.chainProvider.MsgAcknowledgement
-		case MsgTimeout:
-			assembleMessage = src.chainProvider.MsgTimeout
-		case MsgTimeoutOnClose:
-			assembleMessage = src.chainProvider.MsgTimeoutOnClose
-		default:
-			pp.log.Error("Unexepected packet message action for message assembly",
-				zap.String("action", msg.action),
-			)
-			continue
-		}
-
-		message, err := pp.assemblePacketIBCMessage(ctx, src, dst, msg, assembleMessage)
+	for _, msg := range messages.packetMessages {
+		message, err := pp.assemblePacketMessage(ctx, msg, src, dst)
 		if err != nil {
 			pp.log.Error("Error assembling packet message", zap.Error(err))
 			continue
 		}
-		sentPackageMessages = append(sentPackageMessages, msg)
 		outgoingMessages = append(outgoingMessages, message)
 	}
 
-	// TODO handle connection and channel handshake messages
+	for _, msg := range messages.connectionMessages {
+		message, err := pp.assembleConnectionMessage(ctx, msg, src, dst)
+		if err != nil {
+			pp.log.Error("Error assembling connection message", zap.Error(err))
+			continue
+		}
+		outgoingMessages = append(outgoingMessages, message)
+	}
+
+	for _, msg := range messages.channelMessages {
+		message, err := pp.assembleChannelMessage(ctx, msg, src, dst)
+		if err != nil {
+			pp.log.Error("Error assembling channel message", zap.Error(err))
+			continue
+		}
+		outgoingMessages = append(outgoingMessages, message)
+	}
 
 	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, outgoingMessages)
 	if err != nil {
@@ -552,17 +632,120 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		return errors.New("error sending messages, transaction was not successful")
 	}
 
-	for _, msg := range sentPackageMessages {
-		dst.trackSentPacketMessage(msg)
-	}
-	for _, msg := range sentConnectionMessages {
-		dst.trackSentConnectionMessage(msg)
-	}
-	for _, msg := range sentChannelMessages {
-		dst.trackSentChannelMessage(msg)
-	}
-
 	return nil
+}
+
+func (pp *PathProcessor) assemblePacketMessage(
+	ctx context.Context,
+	msg packetIBCMessage,
+	src, dst *pathEndRuntime,
+) (provider.RelayerMessage, error) {
+	var packetProof func(context.Context, provider.PacketInfo, provider.LatestBlock) (provider.PacketProof, error)
+	var assembleMessage func(provider.PacketInfo, provider.PacketProof) (provider.RelayerMessage, error)
+	switch msg.action {
+	case MsgRecvPacket:
+		packetProof = src.chainProvider.PacketCommitment
+		assembleMessage = dst.chainProvider.MsgRecvPacket
+	case MsgAcknowledgement:
+		packetProof = src.chainProvider.PacketAcknowledgement
+		assembleMessage = dst.chainProvider.MsgAcknowledgement
+	case MsgTimeout:
+		packetProof = src.chainProvider.PacketReceipt
+		assembleMessage = dst.chainProvider.MsgTimeout
+	case MsgTimeoutOnClose:
+		packetProof = src.chainProvider.PacketReceipt
+		assembleMessage = dst.chainProvider.MsgTimeoutOnClose
+	default:
+		return nil, fmt.Errorf("unexepected packet message action for message assembly: %s", msg.action)
+	}
+	proof, err := packetProof(ctx, msg.info, src.latestBlock)
+	if err != nil {
+		dst.trackProcessingPacketMessage(msg, false)
+		return nil, fmt.Errorf("error querying packet proof: %w", err)
+	}
+	message, err := assembleMessage(msg.info, proof)
+	dst.trackProcessingPacketMessage(msg, err == nil)
+	return message, err
+}
+
+func (pp *PathProcessor) assembleConnectionMessage(
+	ctx context.Context,
+	msg connectionIBCMessage,
+	src, dst *pathEndRuntime,
+) (provider.RelayerMessage, error) {
+	var connProof func(context.Context, provider.ConnectionInfo, provider.LatestBlock) (provider.ConnectionProof, error)
+	var assembleMessage func(provider.ConnectionInfo, provider.ConnectionProof) (provider.RelayerMessage, error)
+	switch msg.action {
+	case MsgConnectionOpenInit:
+		// don't need proof for this message
+		assembleMessage = dst.chainProvider.MsgConnectionOpenInit
+	case MsgConnectionOpenTry:
+		connProof = src.chainProvider.ConnectionHandshakeProof
+		assembleMessage = dst.chainProvider.MsgConnectionOpenTry
+	case MsgConnectionOpenAck:
+		connProof = src.chainProvider.ConnectionHandshakeProof
+		assembleMessage = dst.chainProvider.MsgConnectionOpenAck
+	case MsgConnectionOpenConfirm:
+		connProof = src.chainProvider.ConnectionProof
+		assembleMessage = dst.chainProvider.MsgConnectionOpenConfirm
+	default:
+		return nil, fmt.Errorf("unexepected connection message action for message assembly: %s", msg.action)
+	}
+	var proof provider.ConnectionProof
+	var err error
+	if connProof != nil {
+		proof, err = connProof(ctx, msg.info, src.latestBlock)
+		if err != nil {
+			dst.trackProcessingConnectionMessage(msg, false)
+			return nil, fmt.Errorf("error querying connection proof: %w", err)
+		}
+	}
+	message, err := assembleMessage(msg.info, proof)
+	dst.trackProcessingConnectionMessage(msg, err == nil)
+	return message, err
+}
+
+func (pp *PathProcessor) assembleChannelMessage(
+	ctx context.Context,
+	msg channelIBCMessage,
+	src, dst *pathEndRuntime,
+) (provider.RelayerMessage, error) {
+	var chanProof func(context.Context, provider.ChannelInfo, provider.LatestBlock) (provider.ChannelProof, error)
+	var assembleMessage func(provider.ChannelInfo, provider.ChannelProof) (provider.RelayerMessage, error)
+	switch msg.action {
+	case MsgChannelOpenInit:
+		// don't need proof for this message
+		assembleMessage = dst.chainProvider.MsgChannelOpenInit
+	case MsgChannelOpenTry:
+		chanProof = src.chainProvider.ChannelProof
+		assembleMessage = dst.chainProvider.MsgChannelOpenTry
+	case MsgChannelOpenAck:
+		chanProof = src.chainProvider.ChannelProof
+		assembleMessage = dst.chainProvider.MsgChannelOpenAck
+	case MsgChannelOpenConfirm:
+		chanProof = src.chainProvider.ChannelProof
+		assembleMessage = dst.chainProvider.MsgChannelOpenConfirm
+	case MsgChannelCloseInit:
+		// don't need proof for this message
+		assembleMessage = dst.chainProvider.MsgChannelCloseInit
+	case MsgChannelCloseConfirm:
+		chanProof = src.chainProvider.ChannelProof
+		assembleMessage = dst.chainProvider.MsgChannelCloseConfirm
+	default:
+		return nil, fmt.Errorf("unexepected channel message action for message assembly: %s", msg.action)
+	}
+	var proof provider.ChannelProof
+	var err error
+	if chanProof != nil {
+		proof, err = chanProof(ctx, msg.info, src.latestBlock)
+		if err != nil {
+			dst.trackProcessingChannelMessage(msg, false)
+			return nil, fmt.Errorf("error querying channel proof: %w", err)
+		}
+	}
+	message, err := assembleMessage(msg.info, proof)
+	dst.trackProcessingChannelMessage(msg, err == nil)
+	return message, err
 }
 
 func (pp *PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes pathEndChannelHandshakeResponse) ([]channelIBCMessage, []channelIBCMessage) {
@@ -581,8 +764,8 @@ func (pp *PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, path
 	pathEnd2ChannelMessages = append(pathEnd2ChannelMessages, pathEnd1ChannelHandshakeRes.DstMessages...)
 	pathEnd2ChannelMessages = append(pathEnd2ChannelMessages, pathEnd2ChannelHandshakeRes.SrcMessages...)
 
-	pp.pathEnd1.messageCache.ChannelHandshake.DeleteCachedMessages(pathEnd1ChannelHandshakeRes.ToDeleteSrc, pathEnd2ChannelHandshakeRes.ToDeleteDst)
-	pp.pathEnd2.messageCache.ChannelHandshake.DeleteCachedMessages(pathEnd2ChannelHandshakeRes.ToDeleteSrc, pathEnd1ChannelHandshakeRes.ToDeleteDst)
+	pp.pathEnd1.messageCache.ChannelHandshake.DeleteMessages(pathEnd1ChannelHandshakeRes.ToDeleteSrc, pathEnd2ChannelHandshakeRes.ToDeleteDst)
+	pp.pathEnd2.messageCache.ChannelHandshake.DeleteMessages(pathEnd2ChannelHandshakeRes.ToDeleteSrc, pathEnd1ChannelHandshakeRes.ToDeleteDst)
 
 	return pathEnd1ChannelMessages, pathEnd2ChannelMessages
 }
@@ -603,8 +786,8 @@ func (pp *PathProcessor) connectionMessagesToSend(pathEnd1ConnectionHandshakeRes
 	pathEnd2ConnectionMessages = append(pathEnd2ConnectionMessages, pathEnd1ConnectionHandshakeRes.DstMessages...)
 	pathEnd2ConnectionMessages = append(pathEnd2ConnectionMessages, pathEnd2ConnectionHandshakeRes.SrcMessages...)
 
-	pp.pathEnd1.messageCache.ConnectionHandshake.DeleteCachedMessages(pathEnd1ConnectionHandshakeRes.ToDeleteSrc, pathEnd2ConnectionHandshakeRes.ToDeleteDst)
-	pp.pathEnd2.messageCache.ConnectionHandshake.DeleteCachedMessages(pathEnd2ConnectionHandshakeRes.ToDeleteSrc, pathEnd1ConnectionHandshakeRes.ToDeleteDst)
+	pp.pathEnd1.messageCache.ConnectionHandshake.DeleteMessages(pathEnd1ConnectionHandshakeRes.ToDeleteSrc, pathEnd2ConnectionHandshakeRes.ToDeleteDst)
+	pp.pathEnd2.messageCache.ConnectionHandshake.DeleteMessages(pathEnd2ConnectionHandshakeRes.ToDeleteSrc, pathEnd1ConnectionHandshakeRes.ToDeleteDst)
 	return pathEnd1ConnectionMessages, pathEnd2ConnectionMessages
 }
 
@@ -626,8 +809,8 @@ func (pp *PathProcessor) packetMessagesToSend(channelPairs []channelPair, pathEn
 		pathEnd2PacketMessages = append(pathEnd2PacketMessages, pathEnd1ProcessRes[i].DstMessages...)
 		pathEnd2PacketMessages = append(pathEnd2PacketMessages, pathEnd2ProcessRes[i].SrcMessages...)
 
-		pp.pathEnd1.messageCache.PacketFlow[channelPair.pathEnd1ChannelKey].DeleteCachedMessages(pathEnd1ProcessRes[i].ToDeleteSrc, pathEnd2ProcessRes[i].ToDeleteDst)
-		pp.pathEnd2.messageCache.PacketFlow[channelPair.pathEnd2ChannelKey].DeleteCachedMessages(pathEnd2ProcessRes[i].ToDeleteSrc, pathEnd1ProcessRes[i].ToDeleteDst)
+		pp.pathEnd1.messageCache.PacketFlow[channelPair.pathEnd1ChannelKey].DeleteMessages(pathEnd1ProcessRes[i].ToDeleteSrc, pathEnd2ProcessRes[i].ToDeleteDst)
+		pp.pathEnd2.messageCache.PacketFlow[channelPair.pathEnd2ChannelKey].DeleteMessages(pathEnd2ProcessRes[i].ToDeleteSrc, pathEnd1ProcessRes[i].ToDeleteDst)
 	}
 
 	return pathEnd1PacketMessages, pathEnd2PacketMessages

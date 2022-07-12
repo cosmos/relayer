@@ -9,6 +9,7 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -62,26 +63,24 @@ func TestParsePacket(t *testing.T) {
 	}
 
 	parsed := new(packetInfo)
-	parsed = parsed.parsePacketInfo(zap.NewNop(), packetEventAttributes)
+	parsed.parseAttrs(zap.NewNop(), packetEventAttributes)
 
 	packetData, err := hex.DecodeString(testPacketDataHex)
 	require.NoError(t, err, "error decoding test packet data")
 
-	require.Empty(t, cmp.Diff(*parsed, packetInfo{
-		packet: chantypes.Packet{
-			Sequence: uint64(1),
-			Data:     packetData,
-			TimeoutHeight: clienttypes.Height{
-				RevisionNumber: uint64(1),
-				RevisionHeight: uint64(1245),
-			},
-			TimeoutTimestamp:   uint64(1654033235600000000),
-			SourceChannel:      testPacketSrcChannel,
-			SourcePort:         testPacketSrcPort,
-			DestinationChannel: testPacketDstChannel,
-			DestinationPort:    testPacketDstPort,
+	require.Empty(t, cmp.Diff(provider.PacketInfo(*parsed), provider.PacketInfo{
+		Sequence: uint64(1),
+		Data:     packetData,
+		TimeoutHeight: clienttypes.Height{
+			RevisionNumber: uint64(1),
+			RevisionHeight: uint64(1245),
 		},
-	}, cmp.AllowUnexported(packetInfo{}, chantypes.Packet{})), "parsed does not match expected")
+		TimeoutTimestamp: uint64(1654033235600000000),
+		SourceChannel:    testPacketSrcChannel,
+		SourcePort:       testPacketSrcPort,
+		DestChannel:      testPacketDstChannel,
+		DestPort:         testPacketDstPort,
+	}), "parsed does not match expected")
 }
 
 func TestParseClient(t *testing.T) {
@@ -106,12 +105,13 @@ func TestParseClient(t *testing.T) {
 		},
 	}
 
-	parsed := parseClientInfo(zap.NewNop(), clientEventAttributes)
+	parsed := new(clientInfo)
+	parsed.parseAttrs(zap.NewNop(), clientEventAttributes)
 
 	clientHeader, err := hex.DecodeString(testClientHeader)
 	require.NoError(t, err, "error parsing test client header")
 
-	require.Empty(t, cmp.Diff(parsed, clientInfo{
+	require.Empty(t, cmp.Diff(*parsed, clientInfo{
 		clientID: testClientID1,
 		consensusHeight: clienttypes.Height{
 			RevisionNumber: uint64(1),
@@ -153,15 +153,16 @@ func TestParseChannel(t *testing.T) {
 		},
 	}
 
-	parsed := parseChannelInfo(channelEventAttributes)
+	parsed := new(channelInfo)
+	parsed.parseAttrs(zap.NewNop(), channelEventAttributes)
 
-	require.Empty(t, cmp.Diff(parsed, channelInfo{
-		connectionID:          testConnectionID1,
-		channelID:             testChannelID1,
-		portID:                testPortID1,
-		counterpartyChannelID: testChannelID2,
-		counterpartyPortID:    testPortID2,
-	}, cmp.AllowUnexported(channelInfo{})), "parsed channel info does not match expected")
+	require.Empty(t, cmp.Diff(provider.ChannelInfo(*parsed), provider.ChannelInfo{
+		ConnID:                testConnectionID1,
+		ChannelID:             testChannelID1,
+		PortID:                testPortID1,
+		CounterpartyChannelID: testChannelID2,
+		CounterpartyPortID:    testPortID2,
+	}), "parsed channel info does not match expected")
 }
 
 func TestParseConnection(t *testing.T) {
@@ -191,14 +192,15 @@ func TestParseConnection(t *testing.T) {
 		},
 	}
 
-	parsed := parseConnectionInfo(connectionEventAttributes)
+	parsed := new(connectionInfo)
+	parsed.parseAttrs(zap.NewNop(), connectionEventAttributes)
 
-	require.Empty(t, cmp.Diff(parsed, connectionInfo{
-		clientID:                 testClientID1,
-		connectionID:             testConnectionID1,
-		counterpartyClientID:     testClientID2,
-		counterpartyConnectionID: testConnectionID2,
-	}, cmp.AllowUnexported(connectionInfo{})), "parsed connection info does not match expected")
+	require.Empty(t, cmp.Diff(provider.ConnectionInfo(*parsed), provider.ConnectionInfo{
+		ClientID:             testClientID1,
+		ConnID:               testConnectionID1,
+		CounterpartyClientID: testClientID2,
+		CounterpartyConnID:   testConnectionID2,
+	}), "parsed connection info does not match expected")
 }
 
 func TestParseEventLogs(t *testing.T) {
@@ -305,17 +307,17 @@ func TestParseEventLogs(t *testing.T) {
 		},
 	}
 
-	ibcMessages := parseABCILogs(zap.NewNop(), abciLogs)
+	ibcMessages := parseABCILogs(zap.NewNop(), abciLogs, 0)
 
 	require.Len(t, ibcMessages, 2)
 
 	msgUpdateClient := ibcMessages[0]
-	require.Equal(t, processor.MsgUpdateClient, msgUpdateClient.messageType)
+	require.Equal(t, processor.MsgUpdateClient, msgUpdateClient.action)
 
-	clientInfoParsed, isClientInfo := msgUpdateClient.messageInfo.(clientInfo)
+	clientInfoParsed, isClientInfo := msgUpdateClient.info.(*clientInfo)
 	require.True(t, isClientInfo, "messageInfo is not clientInfo")
 
-	require.Empty(t, cmp.Diff(clientInfoParsed, clientInfo{
+	require.Empty(t, cmp.Diff(*clientInfoParsed, clientInfo{
 		clientID: testClientID1,
 		consensusHeight: clienttypes.Height{
 			RevisionNumber: uint64(1),
@@ -324,9 +326,9 @@ func TestParseEventLogs(t *testing.T) {
 	}, cmp.AllowUnexported(clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
 
 	msgRecvPacket := ibcMessages[1]
-	require.Equal(t, processor.MsgRecvPacket, msgRecvPacket.messageType, "message is not MsgRecvPacket")
+	require.Equal(t, processor.MsgRecvPacket, msgRecvPacket.action, "message is not MsgRecvPacket")
 
-	packetInfoParsed, isPacketInfo := msgRecvPacket.messageInfo.(packetInfo)
+	packetInfoParsed, isPacketInfo := msgRecvPacket.info.(*packetInfo)
 	require.True(t, isPacketInfo, "messageInfo is not packetInfo")
 
 	packetAck, err := hex.DecodeString(testPacketAckHex)
@@ -335,20 +337,18 @@ func TestParseEventLogs(t *testing.T) {
 	packetData, err := hex.DecodeString(testPacketDataHex)
 	require.NoError(t, err, "error decoding test packet data")
 
-	require.Empty(t, cmp.Diff(packetInfoParsed, packetInfo{
-		packet: chantypes.Packet{
-			Sequence: uint64(1),
-			Data:     packetData,
-			TimeoutHeight: clienttypes.Height{
-				RevisionNumber: uint64(1),
-				RevisionHeight: uint64(1245),
-			},
-			TimeoutTimestamp:   uint64(1654033235600000000),
-			SourceChannel:      testPacketSrcChannel,
-			SourcePort:         testPacketSrcPort,
-			DestinationChannel: testPacketDstChannel,
-			DestinationPort:    testPacketDstPort,
+	require.Empty(t, cmp.Diff(provider.PacketInfo(*packetInfoParsed), provider.PacketInfo{
+		Sequence: uint64(1),
+		Data:     packetData,
+		TimeoutHeight: clienttypes.Height{
+			RevisionNumber: uint64(1),
+			RevisionHeight: uint64(1245),
 		},
-		ack: packetAck,
-	}, cmp.AllowUnexported(packetInfo{}, chantypes.Packet{})), "parsed packet info does not match expected")
+		TimeoutTimestamp: uint64(1654033235600000000),
+		SourceChannel:    testPacketSrcChannel,
+		SourcePort:       testPacketSrcPort,
+		DestChannel:      testPacketDstChannel,
+		DestPort:         testPacketDstPort,
+		Ack:              packetAck,
+	}), "parsed packet info does not match expected")
 }

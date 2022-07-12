@@ -12,9 +12,10 @@ import (
 const (
 	// durationErrorRetry determines how long to wait before retrying
 	// in the case of failure to send transactions with IBC messages.
-	durationErrorRetry       = 5 * time.Second
-	blocksToRetryPacketAfter = 5
-	maxMessageSendRetries    = 5
+	durationErrorRetry         = 5 * time.Second
+	blocksToRetryAssemblyAfter = 1
+	blocksToRetrySendAfter     = 2
+	maxMessageSendRetries      = 5
 
 	ibcHeadersToCache = 10
 )
@@ -29,6 +30,8 @@ type PathProcessor struct {
 
 	// Signals to retry.
 	retryProcess chan struct{}
+
+	sentInitialMsg bool
 }
 
 // PathProcessors is a slice of PathProcessor instances
@@ -46,9 +49,9 @@ func (p PathProcessors) IsRelayedChannel(k ChannelKey, chainID string) bool {
 func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *PathProcessor {
 	return &PathProcessor{
 		log:          log,
-		pathEnd1:     newPathEndRuntime(pathEnd1),
-		pathEnd2:     newPathEndRuntime(pathEnd2),
-		retryProcess: make(chan struct{}, 8),
+		pathEnd1:     newPathEndRuntime(log, pathEnd1),
+		pathEnd2:     newPathEndRuntime(log, pathEnd2),
+		retryProcess: make(chan struct{}, 2),
 	}
 }
 
@@ -145,6 +148,15 @@ func (pp *PathProcessor) IsRelevantConnection(chainID string, connectionID strin
 	return false
 }
 
+func (pp *PathProcessor) IsRelevantChannel(chainID string, channelID string) bool {
+	if pp.pathEnd1.info.ChainID == chainID {
+		return pp.pathEnd1.isRelevantChannel(channelID)
+	} else if pp.pathEnd2.info.ChainID == chainID {
+		return pp.pathEnd2.isRelevantChannel(channelID)
+	}
+	return false
+}
+
 // ProcessBacklogIfReady gives ChainProcessors a way to trigger the path processor process
 // as soon as they are in sync for the first time, even if they do not have new messages.
 func (pp *PathProcessor) ProcessBacklogIfReady() {
@@ -154,7 +166,7 @@ func (pp *PathProcessor) ProcessBacklogIfReady() {
 	default:
 		// Log that the channel is saturated;
 		// something is wrong if we are retrying this quickly.
-		pp.log.Info("Failed to enqueue path processor retry")
+		pp.log.Error("Failed to enqueue path processor retry, retries already scheduled")
 	}
 }
 
@@ -167,23 +179,47 @@ func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorC
 	}
 }
 
+// processAvailableSignals will block if signals are not yet available, otherwise it will process one of the available signals.
+// It returns whether or not the pathProcessor should quit.
+func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel func(), messageLifecycle MessageLifecycle) bool {
+	select {
+	case <-ctx.Done():
+		pp.log.Debug("Context done, quitting PathProcessor",
+			zap.String("chain_id_1", pp.pathEnd1.info.ChainID),
+			zap.String("chain_id_2", pp.pathEnd2.info.ChainID),
+			zap.String("client_id_1", pp.pathEnd1.info.ClientID),
+			zap.String("client_id_2", pp.pathEnd2.info.ClientID),
+			zap.Error(ctx.Err()),
+		)
+		return true
+	case d := <-pp.pathEnd1.incomingCacheData:
+		// we have new data from ChainProcessor for pathEnd1
+		pp.pathEnd1.MergeCacheData(ctx, cancel, d, messageLifecycle)
+
+	case d := <-pp.pathEnd2.incomingCacheData:
+		// we have new data from ChainProcessor for pathEnd2
+		pp.pathEnd2.MergeCacheData(ctx, cancel, d, messageLifecycle)
+
+	case <-pp.retryProcess:
+		// No new data to merge in, just retry handling.
+	}
+	return false
+}
+
 // Run executes the main path process.
-func (pp *PathProcessor) Run(ctx context.Context) {
+func (pp *PathProcessor) Run(ctx context.Context, cancel func(), messageLifecycle MessageLifecycle) {
+	var retryTimer *time.Timer
 	for {
-		select {
-		case <-ctx.Done():
+		// block until we have any signals to process
+		if pp.processAvailableSignals(ctx, cancel, messageLifecycle) {
 			return
+		}
 
-		case d := <-pp.pathEnd1.incomingCacheData:
-			// we have new data from ChainProcessor for pathEnd1
-			pp.pathEnd1.MergeCacheData(d)
-
-		case d := <-pp.pathEnd2.incomingCacheData:
-			// we have new data from ChainProcessor for pathEnd2
-			pp.pathEnd2.MergeCacheData(d)
-
-		case <-pp.retryProcess:
-			// No new data to merge in, just retry handling.
+		for len(pp.pathEnd1.incomingCacheData) > 0 || len(pp.pathEnd2.incomingCacheData) > 0 || len(pp.retryProcess) > 0 {
+			// signals are available, so this will not need to block.
+			if pp.processAvailableSignals(ctx, cancel, messageLifecycle) {
+				return
+			}
 		}
 
 		if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {
@@ -191,9 +227,14 @@ func (pp *PathProcessor) Run(ctx context.Context) {
 		}
 
 		// process latest message cache state from both pathEnds
-		if err := pp.processLatestMessages(ctx); err != nil {
+		if err := pp.processLatestMessages(ctx, messageLifecycle); err != nil {
 			// in case of IBC message send errors, schedule retry after durationErrorRetry
-			time.AfterFunc(durationErrorRetry, pp.ProcessBacklogIfReady)
+			if retryTimer != nil {
+				retryTimer.Stop()
+			}
+			if ctx.Err() == nil {
+				retryTimer = time.AfterFunc(durationErrorRetry, pp.ProcessBacklogIfReady)
+			}
 		}
 	}
 }

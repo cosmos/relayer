@@ -167,7 +167,6 @@ $ %s cfg i`, appName, defaultHome, appName)),
 	return cmd
 }
 
-
 // addChainsFromDirectory finds all JSON-encoded config files in dir,
 // and optimistically adds them to a's chains.
 //
@@ -305,8 +304,8 @@ type ProviderConfigWrapper struct {
 
 // ProviderConfigYAMLWrapper is an intermediary type for parsing arbitrary ProviderConfigs from yaml files
 type ProviderConfigYAMLWrapper struct {
-	Type  string      `yaml:"type"`
-	Value interface{} `yaml:"-"`
+	Type  string `yaml:"type"`
+	Value any    `yaml:"-"`
 }
 
 // UnmarshalJSON adds support for unmarshalling data from an arbitrary ProviderConfig
@@ -326,8 +325,8 @@ func (pcw *ProviderConfigWrapper) UnmarshalJSON(data []byte) error {
 }
 
 // UnmarshalJSONProviderConfig contains the custom unmarshalling logic for ProviderConfig structs
-func UnmarshalJSONProviderConfig(data []byte, customTypes map[string]reflect.Type) (interface{}, error) {
-	m := map[string]interface{}{}
+func UnmarshalJSONProviderConfig(data []byte, customTypes map[string]reflect.Type) (any, error) {
+	m := map[string]any{}
 	if err := json.Unmarshal(data, &m); err != nil {
 		return nil, err
 	}

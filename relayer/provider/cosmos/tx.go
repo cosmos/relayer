@@ -1077,105 +1077,396 @@ func (cc *CosmosProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.C
 	}
 }
 
-func (cc *CosmosProvider) ValidatePacket(msgRecvPacket provider.RelayerMessage, latest provider.LatestBlock) error {
-	msg := typedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
-
-	if msg.Packet.Sequence == 0 {
+func (cc *CosmosProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest provider.LatestBlock) error {
+	if msgTransfer.Sequence == 0 {
 		return errors.New("refusing to relay packet with sequence: 0")
 	}
 
-	if len(msg.Packet.Data) == 0 {
+	if len(msgTransfer.Data) == 0 {
 		return errors.New("refusing to relay packet with empty data")
 	}
 
 	// This should not be possible, as it violates IBC spec
-	if msg.Packet.TimeoutHeight.IsZero() && msg.Packet.TimeoutTimestamp == 0 {
+	if msgTransfer.TimeoutHeight.IsZero() && msgTransfer.TimeoutTimestamp == 0 {
 		return errors.New("refusing to relay packet without a timeout (height or timestamp must be set)")
 	}
 
 	revision := clienttypes.ParseChainID(cc.PCfg.ChainID)
 	latestClientTypesHeight := clienttypes.NewHeight(revision, latest.Height)
-	if !msg.Packet.TimeoutHeight.IsZero() && latestClientTypesHeight.GTE(msg.Packet.TimeoutHeight) {
-		return provider.NewTimeoutHeightError(latest.Height, msg.Packet.TimeoutHeight.RevisionHeight)
+	if !msgTransfer.TimeoutHeight.IsZero() && latestClientTypesHeight.GTE(msgTransfer.TimeoutHeight) {
+		return provider.NewTimeoutHeightError(latest.Height, msgTransfer.TimeoutHeight.RevisionHeight)
 	}
 	latestTimestamp := uint64(latest.Time.UnixNano())
-	if msg.Packet.TimeoutTimestamp > 0 && latestTimestamp > msg.Packet.TimeoutTimestamp {
-		return provider.NewTimeoutTimestampError(latestTimestamp, msg.Packet.TimeoutTimestamp)
+	if msgTransfer.TimeoutTimestamp > 0 && latestTimestamp > msgTransfer.TimeoutTimestamp {
+		return provider.NewTimeoutTimestampError(latestTimestamp, msgTransfer.TimeoutTimestamp)
 	}
 
 	return nil
 }
 
-func (cc *CosmosProvider) MsgRecvPacket(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	msg := typedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
-
-	key := host.PacketCommitmentKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
+func (cc *CosmosProvider) PacketCommitment(ctx context.Context, msgTransfer provider.PacketInfo, latest provider.LatestBlock) (provider.PacketProof, error) {
+	key := host.PacketCommitmentKey(msgTransfer.SourcePort, msgTransfer.SourceChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
 	if err != nil {
-		return nil, fmt.Errorf("error querying tendermint proof for packet commitment: %w", err)
+		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet commitment: %w", err)
 	}
+	return provider.PacketProof{
+		Proof:       proof,
+		ProofHeight: proofHeight,
+	}, nil
+}
 
-	msg.ProofCommitment = proof
-	msg.ProofHeight = proofHeight
-	msg.Signer = signer
+func (cc *CosmosProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
+	msg := &chantypes.MsgRecvPacket{
+		Packet:          toCosmosPacket(msgTransfer),
+		ProofCommitment: proof.Proof,
+		ProofHeight:     proof.ProofHeight,
+		Signer:          signer,
+	}
 
 	return NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) MsgAcknowledgement(ctx context.Context, msgAcknowledgement provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	msg := typedCosmosMsg[*chantypes.MsgAcknowledgement](msgAcknowledgement)
-
-	key := host.PacketAcknowledgementKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
+func (cc *CosmosProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, latest provider.LatestBlock) (provider.PacketProof, error) {
+	key := host.PacketAcknowledgementKey(msgRecvPacket.DestPort, msgRecvPacket.DestChannel, msgRecvPacket.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
 	if err != nil {
-		return nil, fmt.Errorf("error querying tendermint proof for packet acknowledgement: %w", err)
+		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet acknowledgement: %w", err)
 	}
+	return provider.PacketProof{
+		Proof:       proof,
+		ProofHeight: proofHeight,
+	}, nil
+}
 
-	msg.ProofAcked = proof
-	msg.ProofHeight = proofHeight
-	msg.Signer = signer
+func (cc *CosmosProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
+	msg := &chantypes.MsgAcknowledgement{
+		Packet:          toCosmosPacket(msgRecvPacket),
+		Acknowledgement: msgRecvPacket.Ack,
+		ProofAcked:      proof.Proof,
+		ProofHeight:     proof.ProofHeight,
+		Signer:          signer,
+	}
 
 	return NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) MsgTimeout(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	msg := typedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
-
-	key := host.PacketReceiptKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
+func (cc *CosmosProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, latest provider.LatestBlock) (provider.PacketProof, error) {
+	key := host.PacketReceiptKey(msgTransfer.DestPort, msgTransfer.DestChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
 	if err != nil {
-		return nil, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
+		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
 	}
 
+	return provider.PacketProof{
+		Proof:       proof,
+		ProofHeight: proofHeight,
+	}, nil
+}
+
+func (cc *CosmosProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
 	assembled := &chantypes.MsgTimeout{
-		Packet:           msg.Packet,
-		ProofUnreceived:  proof,
-		ProofHeight:      proofHeight,
-		NextSequenceRecv: msg.Packet.Sequence,
+		Packet:           toCosmosPacket(msgTransfer),
+		ProofUnreceived:  proof.Proof,
+		ProofHeight:      proof.ProofHeight,
+		NextSequenceRecv: msgTransfer.Sequence,
 		Signer:           signer,
 	}
 
 	return NewCosmosMessage(assembled), nil
 }
 
-func (cc *CosmosProvider) MsgTimeoutOnClose(ctx context.Context, msgRecvPacket provider.RelayerMessage, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error) {
-	msg := typedCosmosMsg[*chantypes.MsgRecvPacket](msgRecvPacket)
-
-	key := host.PacketReceiptKey(msg.Packet.SourcePort, msg.Packet.SourceChannel, msg.Packet.Sequence)
-	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
+func (cc *CosmosProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
 	if err != nil {
-		return nil, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
+		return nil, err
 	}
-
-	msgTimeout := &chantypes.MsgTimeoutOnClose{
-		Packet:           msg.Packet,
-		ProofUnreceived:  proof,
-		ProofHeight:      proofHeight,
-		NextSequenceRecv: msg.Packet.Sequence,
+	assembled := &chantypes.MsgTimeoutOnClose{
+		Packet:           toCosmosPacket(msgTransfer),
+		ProofUnreceived:  proof.Proof,
+		ProofHeight:      proof.ProofHeight,
+		NextSequenceRecv: msgTransfer.Sequence,
 		Signer:           signer,
 	}
 
-	return NewCosmosMessage(msgTimeout), nil
+	return NewCosmosMessage(assembled), nil
+}
+
+func (cc *CosmosProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
+	msg := &conntypes.MsgConnectionOpenInit{
+		ClientId: info.ClientID,
+		Counterparty: conntypes.Counterparty{
+			ClientId:     info.CounterpartyClientID,
+			ConnectionId: "",
+			Prefix:       defaultChainPrefix,
+		},
+		Version:     nil,
+		DelayPeriod: defaultDelayPeriod,
+		Signer:      signer,
+	}
+
+	return NewCosmosMessage(msg), nil
+}
+
+func (cc *CosmosProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenInit provider.ConnectionInfo, latest provider.LatestBlock) (provider.ConnectionProof, error) {
+	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := cc.GenerateConnHandshakeProof(ctx, int64(latest.Height), msgOpenInit.ClientID, msgOpenInit.ConnID)
+	if err != nil {
+		return provider.ConnectionProof{}, err
+	}
+
+	if len(connStateProof) == 0 {
+		// It is possible that we have asked for a proof too early.
+		// If the connection state proof is empty, there is no point in returning the next message.
+		// We are not using (*conntypes.MsgConnectionOpenTry).ValidateBasic here because
+		// that chokes on cross-chain bech32 details in ibc-go.
+		return provider.ConnectionProof{}, fmt.Errorf("received invalid zero-length connection state proof")
+	}
+
+	return provider.ConnectionProof{
+		ClientState:          clientState,
+		ClientStateProof:     clientStateProof,
+		ConsensusStateProof:  consensusStateProof,
+		ConnectionStateProof: connStateProof,
+		ProofHeight:          proofHeight.(clienttypes.Height),
+	}, nil
+}
+
+func (cc *CosmosProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
+
+	csAny, err := clienttypes.PackClientState(proof.ClientState)
+	if err != nil {
+		return nil, err
+	}
+
+	counterparty := conntypes.Counterparty{
+		ClientId:     msgOpenInit.ClientID,
+		ConnectionId: msgOpenInit.ConnID,
+		Prefix:       defaultChainPrefix,
+	}
+
+	msg := &conntypes.MsgConnectionOpenTry{
+		ClientId:             msgOpenInit.CounterpartyClientID,
+		PreviousConnectionId: msgOpenInit.CounterpartyConnID,
+		ClientState:          csAny,
+		Counterparty:         counterparty,
+		DelayPeriod:          defaultDelayPeriod,
+		CounterpartyVersions: conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
+		ProofHeight:          proof.ProofHeight,
+		ProofInit:            proof.ConnectionStateProof,
+		ProofClient:          proof.ClientStateProof,
+		ProofConsensus:       proof.ConsensusStateProof,
+		ConsensusHeight:      proof.ClientState.GetLatestHeight().(clienttypes.Height),
+		Signer:               signer,
+	}
+
+	return NewCosmosMessage(msg), nil
+}
+
+func (cc *CosmosProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
+
+	csAny, err := clienttypes.PackClientState(proof.ClientState)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := &conntypes.MsgConnectionOpenAck{
+		ConnectionId:             msgOpenTry.CounterpartyConnID,
+		CounterpartyConnectionId: msgOpenTry.ConnID,
+		Version:                  conntypes.DefaultIBCVersion,
+		ClientState:              csAny,
+		ProofHeight: clienttypes.Height{
+			RevisionNumber: proof.ProofHeight.GetRevisionNumber(),
+			RevisionHeight: proof.ProofHeight.GetRevisionHeight(),
+		},
+		ProofTry:        proof.ConnectionStateProof,
+		ProofClient:     proof.ClientStateProof,
+		ProofConsensus:  proof.ConsensusStateProof,
+		ConsensusHeight: proof.ClientState.GetLatestHeight().(clienttypes.Height),
+		Signer:          signer,
+	}
+
+	return NewCosmosMessage(msg), nil
+}
+
+func (cc *CosmosProvider) ConnectionProof(ctx context.Context, msgOpenAck provider.ConnectionInfo, latest provider.LatestBlock) (provider.ConnectionProof, error) {
+	connState, err := cc.QueryConnection(ctx, int64(latest.Height), msgOpenAck.ConnID)
+	if err != nil {
+		return provider.ConnectionProof{}, err
+	}
+
+	return provider.ConnectionProof{
+		ConnectionStateProof: connState.Proof,
+		ProofHeight:          connState.ProofHeight,
+	}, nil
+}
+
+func (cc *CosmosProvider) MsgConnectionOpenConfirm(msgOpenAck provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
+	msg := &conntypes.MsgConnectionOpenConfirm{
+		ConnectionId: msgOpenAck.CounterpartyConnID,
+		ProofAck:     proof.ConnectionStateProof,
+		ProofHeight:  proof.ProofHeight,
+		Signer:       signer,
+	}
+
+	return NewCosmosMessage(msg), nil
+}
+
+func (cc *CosmosProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
+	msg := &chantypes.MsgChannelOpenInit{
+		PortId: info.PortID,
+		Channel: chantypes.Channel{
+			State:    chantypes.INIT,
+			Ordering: info.Order,
+			Counterparty: chantypes.Counterparty{
+				PortId:    info.CounterpartyPortID,
+				ChannelId: "",
+			},
+			ConnectionHops: []string{info.ConnID},
+			Version:        info.Version,
+		},
+		Signer: signer,
+	}
+
+	return NewCosmosMessage(msg), nil
+}
+
+func (cc *CosmosProvider) ChannelProof(ctx context.Context, msg provider.ChannelInfo, latest provider.LatestBlock) (provider.ChannelProof, error) {
+	channelRes, err := cc.QueryChannel(ctx, int64(latest.Height), msg.ChannelID, msg.PortID)
+	if err != nil {
+		return provider.ChannelProof{}, err
+	}
+	return provider.ChannelProof{
+		Proof:       channelRes.Proof,
+		ProofHeight: channelRes.ProofHeight,
+		Version:     channelRes.Channel.Version,
+		Ordering:    channelRes.Channel.Ordering,
+	}, nil
+}
+
+func (cc *CosmosProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
+	msg := &chantypes.MsgChannelOpenTry{
+		PortId:            msgOpenInit.CounterpartyPortID,
+		PreviousChannelId: msgOpenInit.CounterpartyChannelID,
+		Channel: chantypes.Channel{
+			State:    chantypes.TRYOPEN,
+			Ordering: proof.Ordering,
+			Counterparty: chantypes.Counterparty{
+				PortId:    msgOpenInit.PortID,
+				ChannelId: msgOpenInit.ChannelID,
+			},
+			ConnectionHops: []string{msgOpenInit.CounterpartyConnID},
+			// In the future, may need to separate this from the CounterpartyVersion.
+			// https://github.com/cosmos/ibc/tree/master/spec/core/ics-004-channel-and-packet-semantics#definitions
+			// Using same version as counterparty for now.
+			Version: proof.Version,
+		},
+		CounterpartyVersion: proof.Version,
+		ProofInit:           proof.Proof,
+		ProofHeight:         proof.ProofHeight,
+		Signer:              signer,
+	}
+
+	return NewCosmosMessage(msg), nil
+}
+
+func (cc *CosmosProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
+	msg := &chantypes.MsgChannelOpenAck{
+		PortId:                msgOpenTry.CounterpartyPortID,
+		ChannelId:             msgOpenTry.CounterpartyChannelID,
+		CounterpartyChannelId: msgOpenTry.ChannelID,
+		CounterpartyVersion:   proof.Version,
+		ProofTry:              proof.Proof,
+		ProofHeight:           proof.ProofHeight,
+		Signer:                signer,
+	}
+
+	return NewCosmosMessage(msg), nil
+}
+
+func (cc *CosmosProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
+	msg := &chantypes.MsgChannelOpenConfirm{
+		PortId:      msgOpenAck.CounterpartyPortID,
+		ChannelId:   msgOpenAck.CounterpartyChannelID,
+		ProofAck:    proof.Proof,
+		ProofHeight: proof.ProofHeight,
+		Signer:      signer,
+	}
+
+	return NewCosmosMessage(msg), nil
+}
+
+func (cc *CosmosProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
+	msg := &chantypes.MsgChannelCloseInit{
+		PortId:    info.PortID,
+		ChannelId: info.ChannelID,
+		Signer:    signer,
+	}
+
+	return NewCosmosMessage(msg), nil
+}
+
+func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
+	msg := &chantypes.MsgChannelCloseConfirm{
+		PortId:      msgCloseInit.CounterpartyPortID,
+		ChannelId:   msgCloseInit.CounterpartyChannelID,
+		ProofInit:   proof.Proof,
+		ProofHeight: proof.ProofHeight,
+		Signer:      signer,
+	}
+
+	return NewCosmosMessage(msg), nil
 }
 
 func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.Header, error) {
