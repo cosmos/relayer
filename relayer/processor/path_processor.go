@@ -91,24 +91,6 @@ func (pp *PathProcessor) OnConnectionMessage(chainID string, action string, onMs
 	}
 }
 
-// OnChannelMessage allows the caller to handle channel handshake messages with a callback.
-func (pp *PathProcessor) OnChannelMessage(chainID string, action string, onMsg func(provider.ChannelInfo)) {
-	if pp.pathEnd1.info.ChainID == chainID {
-		pp.pathEnd1.channelSubscribers[action] = append(pp.pathEnd1.channelSubscribers[action], onMsg)
-	} else if pp.pathEnd2.info.ChainID == chainID {
-		pp.pathEnd2.channelSubscribers[action] = append(pp.pathEnd2.channelSubscribers[action], onMsg)
-	}
-}
-
-// OnPacketMessage allows the caller to handle packet flow messages with a callback.
-func (pp *PathProcessor) OnPacketMessage(chainID string, action string, onMsg func(provider.PacketInfo)) {
-	if pp.pathEnd1.info.ChainID == chainID {
-		pp.pathEnd1.packetSubscribers[action] = append(pp.pathEnd1.packetSubscribers[action], onMsg)
-	} else if pp.pathEnd2.info.ChainID == chainID {
-		pp.pathEnd2.packetSubscribers[action] = append(pp.pathEnd2.packetSubscribers[action], onMsg)
-	}
-}
-
 func (pp *PathProcessor) channelPairs() []channelPair {
 	// Channel keys are from pathEnd1's perspective
 	channels := make(map[ChannelKey]bool)

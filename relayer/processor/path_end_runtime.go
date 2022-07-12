@@ -37,9 +37,7 @@ type pathEndRuntime struct {
 	channelProcessing channelProcessingCache
 
 	// Message subscriber callbacks
-	connSubscribers    map[string][]func(provider.ConnectionInfo)
-	channelSubscribers map[string][]func(provider.ChannelInfo)
-	packetSubscribers  map[string][]func(provider.PacketInfo)
+	connSubscribers map[string][]func(provider.ConnectionInfo)
 
 	// inSync indicates whether queries are in sync with latest height of the chain.
 	inSync bool
@@ -61,8 +59,6 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd) *pathEndRuntime {
 		connProcessing:       make(connectionProcessingCache),
 		channelProcessing:    make(channelProcessingCache),
 		connSubscribers:      make(map[string][]func(provider.ConnectionInfo)),
-		channelSubscribers:   make(map[string][]func(provider.ChannelInfo)),
-		packetSubscribers:    make(map[string][]func(provider.PacketInfo)),
 	}
 }
 
@@ -151,34 +147,6 @@ func (pathEnd *pathEndRuntime) handleCallbacks(c IBCMessagesCache) {
 			for _, ci := range m {
 				for _, subscriber := range subscribers {
 					subscriber(ci)
-				}
-			}
-		}
-	}
-	if len(pathEnd.channelSubscribers) > 0 {
-		for action, m := range c.ChannelHandshake {
-			subscribers, ok := pathEnd.channelSubscribers[action]
-			if !ok {
-				continue
-			}
-			for _, ci := range m {
-				for _, subscriber := range subscribers {
-					subscriber(ci)
-				}
-			}
-		}
-	}
-	if len(pathEnd.packetSubscribers) > 0 {
-		for _, m := range c.PacketFlow {
-			for action, s := range m {
-				subscribers, ok := pathEnd.packetSubscribers[action]
-				if !ok {
-					continue
-				}
-				for _, pi := range s {
-					for _, subscriber := range subscribers {
-						subscriber(pi)
-					}
 				}
 			}
 		}

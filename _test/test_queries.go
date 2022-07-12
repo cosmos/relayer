@@ -7,7 +7,6 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	clientypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/stretchr/testify/require"
 )
@@ -94,23 +93,11 @@ func testChannel(ctx context.Context, t *testing.T, src, dst *relayer.Chain, cha
 
 	chans, err := src.ChainProvider.QueryChannels(ctx)
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(chans), 1)
-
-	var channel *chantypes.IdentifiedChannel
-	for _, ch := range chans {
-		if ch.Counterparty.ChannelId == channelID && ch.Counterparty.PortId == portID {
-			channel = ch
-			break
-		}
-	}
-
-	require.NotNil(t, channel)
-
-	require.Equal(t, channel.Ordering.String(), "ORDER_UNORDERED")
-	require.True(t,
-		channel.State.String() == "STATE_TRY_OPEN" || channel.State.String() == "STATE_OPEN",
-		"State: %s is not STATE_TRY_OPEN or STATE_OPEN", channel.State.String(),
-	)
+	require.Equal(t, 1, len(chans))
+	require.Equal(t, chans[0].Ordering.String(), "ORDER_UNORDERED")
+	require.Equal(t, chans[0].State.String(), "STATE_OPEN")
+	require.Equal(t, chans[0].Counterparty.ChannelId, channelID)
+	require.Equal(t, chans[0].Counterparty.GetPortID(), portID)
 
 	h, err := src.ChainProvider.QueryLatestHeight(ctx)
 	require.NoError(t, err)
@@ -121,5 +108,5 @@ func testChannel(ctx context.Context, t *testing.T, src, dst *relayer.Chain, cha
 	require.Equal(t, ch.Channel.Ordering.String(), "ORDER_UNORDERED")
 	require.Equal(t, ch.Channel.State.String(), "STATE_OPEN")
 	require.Equal(t, ch.Channel.Counterparty.ChannelId, channelID)
-	require.Equal(t, ch.Channel.Counterparty.PortId, portID)
+	require.Equal(t, ch.Channel.Counterparty.GetPortID(), portID)
 }
