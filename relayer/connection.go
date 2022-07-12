@@ -22,13 +22,13 @@ func (c *Chain) CreateOpenConnections(
 		return modified, err
 	}
 
-	srcPathChain := PathChain{
-		Provider: c.ChainProvider,
-		PathEnd:  processor.NewPathEnd(c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChannelKey{}),
+	srcpathChain := pathChain{
+		provider: c.ChainProvider,
+		pathEnd:  processor.NewPathEnd(c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChannelKey{}),
 	}
-	dstPathChain := PathChain{
-		Provider: dst.ChainProvider,
-		PathEnd:  processor.NewPathEnd(dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChannelKey{}),
+	dstpathChain := pathChain{
+		provider: dst.ChainProvider,
+		pathEnd:  processor.NewPathEnd(dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChannelKey{}),
 	}
 
 	processorCtx, processorCtxCancel := context.WithTimeout(ctx, timeout)
@@ -36,8 +36,8 @@ func (c *Chain) CreateOpenConnections(
 
 	pp := processor.NewPathProcessor(
 		c.log,
-		srcPathChain.PathEnd,
-		dstPathChain.PathEnd,
+		srcpathChain.pathEnd,
+		dstpathChain.pathEnd,
 	)
 
 	pp.OnConnectionMessage(dst.PathEnd.ChainID, processor.MsgConnectionOpenConfirm, func(ci provider.ConnectionInfo) {
@@ -55,8 +55,8 @@ func (c *Chain) CreateOpenConnections(
 
 	return modified, processor.NewEventProcessor().
 		WithChainProcessors(
-			srcPathChain.ChainProcessor(c.log),
-			dstPathChain.ChainProcessor(c.log)).
+			srcpathChain.chainProcessor(c.log),
+			dstpathChain.chainProcessor(c.log)).
 		WithPathProcessors(pp).
 		WithInitialBlockHistory(0).
 		WithMessageLifecycle(&processor.ConnectionMessageLifecycle{

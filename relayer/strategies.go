@@ -51,13 +51,13 @@ func StartRelayer(
 			filterDst = append(filterDst, ruleDst)
 		}
 		paths := []path{{
-			src: PathChain{
-				Provider: src.ChainProvider,
-				PathEnd:  processor.NewPathEnd(src.ChainProvider.ChainId(), src.ClientID(), filter.Rule, filterSrc),
+			src: pathChain{
+				provider: src.ChainProvider,
+				pathEnd:  processor.NewPathEnd(src.ChainProvider.ChainId(), src.ClientID(), filter.Rule, filterSrc),
 			},
-			dst: PathChain{
-				Provider: dst.ChainProvider,
-				PathEnd:  processor.NewPathEnd(dst.ChainProvider.ChainId(), dst.ClientID(), filter.Rule, filterDst),
+			dst: pathChain{
+				provider: dst.ChainProvider,
+				pathEnd:  processor.NewPathEnd(dst.ChainProvider.ChainId(), dst.ClientID(), filter.Rule, filterDst),
 			},
 		}}
 
@@ -74,23 +74,23 @@ func StartRelayer(
 // TODO: intermediate types. Should combine/replace with the relayer.Chain, relayer.Path, and relayer.PathEnd structs
 // as the stateless and stateful/event-based relaying mechanisms are consolidated.
 type path struct {
-	src PathChain
-	dst PathChain
+	src pathChain
+	dst pathChain
 }
 
-type PathChain struct {
-	Provider provider.ChainProvider
-	PathEnd  processor.PathEnd
+type pathChain struct {
+	provider provider.ChainProvider
+	pathEnd  processor.PathEnd
 }
 
-// chainProcessor returns the corresponding ChainProcessor implementation instance for a PathChain.
-func (chain PathChain) ChainProcessor(log *zap.Logger) processor.ChainProcessor {
+// chainProcessor returns the corresponding ChainProcessor implementation instance for a pathChain.
+func (chain pathChain) chainProcessor(log *zap.Logger) processor.ChainProcessor {
 	// Handle new ChainProcessor implementations as cases here
-	switch p := chain.Provider.(type) {
+	switch p := chain.provider.(type) {
 	case *cosmosprovider.CosmosProvider:
 		return cosmosprocessor.NewCosmosChainProcessor(log, p)
 	default:
-		panic(fmt.Errorf("unsupported chain provider type: %T", chain.Provider))
+		panic(fmt.Errorf("unsupported chain provider type: %T", chain.provider))
 	}
 }
 
@@ -103,13 +103,13 @@ func relayerStartEventProcessor(ctx context.Context, log *zap.Logger, paths []pa
 	for _, p := range paths {
 		epb = epb.
 			WithChainProcessors(
-				p.src.ChainProcessor(log),
-				p.dst.ChainProcessor(log),
+				p.src.chainProcessor(log),
+				p.dst.chainProcessor(log),
 			).
 			WithPathProcessors(processor.NewPathProcessor(
 				log,
-				p.src.PathEnd,
-				p.dst.PathEnd,
+				p.src.pathEnd,
+				p.dst.pathEnd,
 			))
 	}
 
