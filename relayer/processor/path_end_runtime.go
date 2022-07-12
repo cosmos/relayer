@@ -36,6 +36,9 @@ type pathEndRuntime struct {
 	connProcessing    connectionProcessingCache
 	channelProcessing channelProcessingCache
 
+	// Message subscriber callbacks
+	connSubscribers map[string][]func(provider.ConnectionInfo)
+
 	// inSync indicates whether queries are in sync with latest height of the chain.
 	inSync bool
 }
@@ -55,6 +58,7 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd) *pathEndRuntime {
 		packetProcessing:     make(packetProcessingCache),
 		connProcessing:       make(connectionProcessingCache),
 		channelProcessing:    make(channelProcessingCache),
+		connSubscribers:      make(map[string][]func(provider.ConnectionInfo)),
 	}
 }
 
@@ -131,6 +135,22 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache) 
 		channelHandshakeMessages[action] = newCmc
 	}
 	pathEnd.messageCache.ChannelHandshake.Merge(channelHandshakeMessages)
+}
+
+func (pathEnd *pathEndRuntime) handleCallbacks(c IBCMessagesCache) {
+	if len(pathEnd.connSubscribers) > 0 {
+		for action, m := range c.ConnectionHandshake {
+			subscribers, ok := pathEnd.connSubscribers[action]
+			if !ok {
+				continue
+			}
+			for _, ci := range m {
+				for _, subscriber := range subscribers {
+					subscriber(ci)
+				}
+			}
+		}
+	}
 }
 
 func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache, messageLifecycle MessageLifecycle) bool {
@@ -238,11 +258,13 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 	return false
 }
 
-func (pathEnd *pathEndRuntime) MergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, messageLifecycle MessageLifecycle) {
+func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, messageLifecycle MessageLifecycle) {
 	pathEnd.inSync = d.InSync
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
+
+	pathEnd.handleCallbacks(d.IBCMessagesCache)
 
 	if pathEnd.shouldTerminate(d.IBCMessagesCache, messageLifecycle) {
 		cancel()
