@@ -50,9 +50,7 @@ func (ccp *CosmosChainProcessor) handleChannelMessage(action string, ci provider
 	ccp.channelConnections[ci.ChannelID] = ci.ConnID
 	channelKey := processor.ChannelInfoChannelKey(ci)
 	switch action {
-	case processor.MsgChannelOpenInit:
-		ccp.channelStateCache[channelKey] = false
-	case processor.MsgChannelOpenTry:
+	case processor.MsgChannelOpenInit, processor.MsgChannelOpenTry:
 		ccp.channelStateCache[channelKey] = false
 	case processor.MsgChannelOpenAck, processor.MsgChannelOpenConfirm:
 		ccp.channelStateCache[channelKey] = true
@@ -72,12 +70,8 @@ func (ccp *CosmosChainProcessor) handleChannelMessage(action string, ci provider
 func (ccp *CosmosChainProcessor) handleConnectionMessage(action string, ci provider.ConnectionInfo, ibcMessagesCache processor.IBCMessagesCache) {
 	ccp.connectionClients[ci.ConnID] = ci.ClientID
 	connectionKey := processor.ConnectionInfoConnectionKey(ci)
-	switch action {
-	case processor.MsgConnectionOpenAck, processor.MsgConnectionOpenConfirm:
-		ccp.connectionStateCache[connectionKey] = true
-	default:
-		ccp.connectionStateCache[connectionKey] = false
-	}
+	open := (action == processor.MsgConnectionOpenAck || action == processor.MsgConnectionOpenConfirm)
+	ccp.connectionStateCache[connectionKey] = open
 	ibcMessagesCache.ConnectionHandshake.Retain(connectionKey, action, ci)
 
 	ccp.logConnectionMessage(action, ci)
