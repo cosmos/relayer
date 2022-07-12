@@ -258,7 +258,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 	return false
 }
 
-func (pathEnd *pathEndRuntime) MergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, messageLifecycle MessageLifecycle) {
+func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, messageLifecycle MessageLifecycle) {
 	pathEnd.inSync = d.InSync
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.latestHeader = d.LatestHeader
