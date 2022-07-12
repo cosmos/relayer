@@ -51,13 +51,6 @@ func (ccp *CosmosChainProcessor) handleChannelMessage(action string, ci provider
 	channelKey := processor.ChannelInfoChannelKey(ci)
 	switch action {
 	case processor.MsgChannelOpenInit:
-		// CounterpartyConnectionID is needed to construct MsgChannelOpenTry.
-		for k := range ccp.connectionStateCache {
-			if k.ConnectionID == ci.ConnID {
-				ci.CounterpartyConnID = k.CounterpartyConnID
-				break
-			}
-		}
 		ccp.channelStateCache[channelKey] = false
 	case processor.MsgChannelOpenTry:
 		ccp.channelStateCache[channelKey] = false
