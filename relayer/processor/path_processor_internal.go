@@ -321,7 +321,7 @@ func (pp *PathProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *
 	// the latest block, we cannot send a MsgUpdateClient until another block is observed on the counterparty.
 	// If the client state height is in the past, beyond ibcHeadersToCache, then we need to query for it.
 	if !trustedConsensusHeight.EQ(clientConsensusHeight) {
-		if int64(clientConsensusHeight.RevisionHeight)-int64(trustedConsensusHeight.RevisionHeight) <= ibcHeadersToCache {
+		if int64(clientConsensusHeight.RevisionHeight)-int64(trustedConsensusHeight.RevisionHeight) <= 2 {
 			return nil, fmt.Errorf("observed client trusted height: %d does not equal latest client state height: %d",
 				trustedConsensusHeight.RevisionHeight, clientConsensusHeight.RevisionHeight)
 		}
@@ -422,7 +422,7 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, p
 		if m.Initial == nil {
 			return
 		}
-		if !pp.IsRelevantConnection(m.Initial.ChainID, m.Initial.Info.ConnID) {
+		if !pp.IsRelevantClient(m.Initial.ChainID, m.Initial.Info.ClientID) {
 			return
 		}
 		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
@@ -440,7 +440,7 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, p
 		if m.Initial == nil {
 			return
 		}
-		if !pp.IsRelevantChannel(m.Initial.ChainID, m.Initial.Info.ChannelID) {
+		if !pp.IsRelevantConnection(m.Initial.ChainID, m.Initial.Info.ConnID) {
 			return
 		}
 		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {

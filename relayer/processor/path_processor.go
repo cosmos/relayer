@@ -17,7 +17,8 @@ const (
 	blocksToRetrySendAfter     = 2
 	maxMessageSendRetries      = 5
 
-	ibcHeadersToCache = 10
+	ibcHeadersToCache                          = 10
+	clientConsensusHeightUpdateThresholdBlocks = 2
 )
 
 // PathProcessor is a process that handles incoming IBC messages from a pair of chains.
