@@ -606,8 +606,8 @@ func (pp *PathProcessor) assembleMessage(
 		pp.log.Error("Error assembling channel message", zap.Error(err))
 		return
 	}
-	defer lock.Unlock()
 	lock.Lock()
+	defer lock.Unlock()
 	*outgoingMessages = append(*outgoingMessages, message)
 }
 
@@ -630,6 +630,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	}
 	outgoingMessages = append(outgoingMessages, msgUpdateClient)
 
+	// Each assembleMessage call below will make a query on the source chain, so these operations can run in parallel.
 	var wg sync.WaitGroup
 	var lock sync.Mutex
 
