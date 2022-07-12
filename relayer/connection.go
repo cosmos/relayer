@@ -31,7 +31,9 @@ func (c *Chain) CreateOpenConnections(
 		pathEnd:  processor.NewPathEnd(dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChannelKey{}),
 	}
 
-	processorCtx, processorCtxCancel := context.WithTimeout(ctx, timeout)
+	processorTimeout := timeout * 4 * time.Duration(maxRetries)
+
+	processorCtx, processorCtxCancel := context.WithTimeout(ctx, processorTimeout)
 	defer processorCtxCancel()
 
 	pp := processor.NewPathProcessor(

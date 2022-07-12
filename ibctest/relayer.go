@@ -48,7 +48,7 @@ func (r *Relayer) AddChainConfiguration(ctx context.Context, _ ibc.RelayerExecRe
 			GasAdjustment:  chainConfig.GasAdjustment,
 			GasPrices:      chainConfig.GasPrices,
 			Debug:          true,
-			Timeout:        "2m",
+			Timeout:        "10s",
 			OutputFormat:   "json",
 			SignModeStr:    "direct",
 		},

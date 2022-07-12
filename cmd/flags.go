@@ -156,7 +156,7 @@ func fileFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func timeoutFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagTimeout, "t", "2m", "timeout between relayer runs")
+	cmd.Flags().StringP(flagTimeout, "t", "10s", "timeout between relayer runs")
 	if err := v.BindPFlag(flagTimeout, cmd.Flags().Lookup(flagTimeout)); err != nil {
 		panic(err)
 	}
