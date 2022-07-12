@@ -36,7 +36,7 @@ var (
 		GasAdjustment:  1.3,
 		GasPrices:      "0.00samoleans",
 		Debug:          true,
-		Timeout:        "10s",
+		Timeout:        "2m",
 		OutputFormat:   "json",
 		SignModeStr:    "direct",
 	}
@@ -58,7 +58,7 @@ var (
 		GasAdjustment:  1.3,
 		GasPrices:      "0.00samoleans",
 		Debug:          true,
-		Timeout:        "10s",
+		Timeout:        "2m",
 		OutputFormat:   "json",
 		SignModeStr:    "direct",
 	}
@@ -80,7 +80,7 @@ var (
 		GasAdjustment:  1.3,
 		GasPrices:      "0.00samoleans",
 		Debug:          true,
-		Timeout:        "10s",
+		Timeout:        "2m",
 		OutputFormat:   "json",
 		SignModeStr:    "direct",
 	}
