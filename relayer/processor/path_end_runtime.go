@@ -116,11 +116,22 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache) 
 	for action, cmc := range messageCache.ChannelHandshake {
 		newCmc := make(ChannelMessageCache)
 		for k, ci := range cmc {
-			if pathEnd.isRelevantChannel(k.ChannelID) {
-				// can complete channel handshakes on this client
-				// since PathProcessor holds reference to the counterparty chain pathEndRuntime.
-				newCmc[k] = ci
+			if !pathEnd.isRelevantChannel(k.ChannelID) {
+				continue
 			}
+			// can complete channel handshakes on this client
+			// since PathProcessor holds reference to the counterparty chain pathEndRuntime.
+
+			if action == MsgChannelOpenInit {
+				// CounterpartyConnectionID is needed to construct MsgChannelOpenTry.
+				for k := range pathEnd.connectionStateCache {
+					if k.ConnectionID == ci.ConnID {
+						ci.CounterpartyConnID = k.CounterpartyConnID
+						break
+					}
+				}
+			}
+			newCmc[k] = ci
 		}
 		if len(newCmc) == 0 {
 			continue
