@@ -17,7 +17,8 @@ const (
 	blocksToRetrySendAfter     = 2
 	maxMessageSendRetries      = 5
 
-	ibcHeadersToCache = 10
+	ibcHeadersToCache                          = 10
+	clientConsensusHeightUpdateThresholdBlocks = 2
 )
 
 // PathProcessor is a process that handles incoming IBC messages from a pair of chains.
@@ -79,6 +80,15 @@ func (pp *PathProcessor) RelevantClientID(chainID string) string {
 		return pp.pathEnd2.info.ClientID
 	}
 	panic(fmt.Errorf("no relevant client ID for chain ID: %s", chainID))
+}
+
+// OnConnectionMessage allows the caller to handle connection handshake messages with a callback.
+func (pp *PathProcessor) OnConnectionMessage(chainID string, action string, onMsg func(provider.ConnectionInfo)) {
+	if pp.pathEnd1.info.ChainID == chainID {
+		pp.pathEnd1.connSubscribers[action] = append(pp.pathEnd1.connSubscribers[action], onMsg)
+	} else if pp.pathEnd2.info.ChainID == chainID {
+		pp.pathEnd2.connSubscribers[action] = append(pp.pathEnd2.connSubscribers[action], onMsg)
+	}
 }
 
 func (pp *PathProcessor) channelPairs() []channelPair {
@@ -194,11 +204,11 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 		return true
 	case d := <-pp.pathEnd1.incomingCacheData:
 		// we have new data from ChainProcessor for pathEnd1
-		pp.pathEnd1.MergeCacheData(ctx, cancel, d, messageLifecycle)
+		pp.pathEnd1.mergeCacheData(ctx, cancel, d, messageLifecycle)
 
 	case d := <-pp.pathEnd2.incomingCacheData:
 		// we have new data from ChainProcessor for pathEnd2
-		pp.pathEnd2.MergeCacheData(ctx, cancel, d, messageLifecycle)
+		pp.pathEnd2.mergeCacheData(ctx, cancel, d, messageLifecycle)
 
 	case <-pp.retryProcess:
 		// No new data to merge in, just retry handling.
