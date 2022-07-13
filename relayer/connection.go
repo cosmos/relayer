@@ -34,8 +34,8 @@ func (c *Chain) CreateOpenConnections(
 	// Timeout is per message. Four connection handshake messages, allowing maxRetries for each.
 	processorTimeout := timeout * 4 * time.Duration(maxRetries)
 
-	processorCtx, processorCtxCancel := context.WithTimeout(ctx, processorTimeout)
-	defer processorCtxCancel()
+	ctx, cancel := context.WithTimeout(ctx, processorTimeout)
+	defer cancel()
 
 	pp := processor.NewPathProcessor(
 		c.log,
@@ -59,7 +59,8 @@ func (c *Chain) CreateOpenConnections(
 	return modified, processor.NewEventProcessor().
 		WithChainProcessors(
 			srcpathChain.chainProcessor(c.log),
-			dstpathChain.chainProcessor(c.log)).
+			dstpathChain.chainProcessor(c.log),
+		).
 		WithPathProcessors(pp).
 		WithInitialBlockHistory(0).
 		WithMessageLifecycle(&processor.ConnectionMessageLifecycle{
@@ -81,5 +82,5 @@ func (c *Chain) CreateOpenConnections(
 			},
 		}).
 		Build().
-		Run(processorCtx)
+		Run(ctx)
 }

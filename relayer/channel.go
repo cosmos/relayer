@@ -31,14 +31,16 @@ func (c *Chain) CreateOpenChannels(
 		return err
 	}
 
-	channel, err := QueryPortChannel(ctx, c, srcPortID)
-	if !override && err == nil && channel != nil {
-		return fmt.Errorf("channel {%s} with port {%s} already exists on chain {%s}", channel.ChannelId, channel.PortId, c.ChainID())
-	}
+	if !override {
+		channel, err := QueryPortChannel(ctx, c, srcPortID)
+		if err == nil && channel != nil {
+			return fmt.Errorf("channel {%s} with port {%s} already exists on chain {%s}", channel.ChannelId, channel.PortId, c.ChainID())
+		}
 
-	channel, err = QueryPortChannel(ctx, dst, dstPortID)
-	if !override && err == nil && channel != nil {
-		return fmt.Errorf("channel {%s} with port {%s} already exists on chain {%s}", channel.ChannelId, channel.PortId, dst.ChainID())
+		channel, err = QueryPortChannel(ctx, dst, dstPortID)
+		if err == nil && channel != nil {
+			return fmt.Errorf("channel {%s} with port {%s} already exists on chain {%s}", channel.ChannelId, channel.PortId, dst.ChainID())
+		}
 	}
 
 	srcPathChain := pathChain{
@@ -53,8 +55,8 @@ func (c *Chain) CreateOpenChannels(
 	// Timeout is per message. Four channel handshake messages, allowing maxRetries for each.
 	processorTimeout := timeout * 4 * time.Duration(maxRetries)
 
-	processorCtx, processorCtxCancel := context.WithTimeout(ctx, processorTimeout)
-	defer processorCtxCancel()
+	ctx, cancel := context.WithTimeout(ctx, processorTimeout)
+	defer cancel()
 
 	pp := processor.NewPathProcessor(
 		c.log,
@@ -72,7 +74,8 @@ func (c *Chain) CreateOpenChannels(
 	return processor.NewEventProcessor().
 		WithChainProcessors(
 			srcPathChain.chainProcessor(c.log),
-			dstPathChain.chainProcessor(c.log)).
+			dstPathChain.chainProcessor(c.log),
+		).
 		WithPathProcessors(pp).
 		WithInitialBlockHistory(0).
 		WithMessageLifecycle(&processor.ChannelMessageLifecycle{
@@ -97,7 +100,7 @@ func (c *Chain) CreateOpenChannels(
 			},
 		}).
 		Build().
-		Run(processorCtx)
+		Run(ctx)
 }
 
 // CloseChannel runs the channel closing messages on timeout until they pass.
@@ -114,13 +117,14 @@ func (c *Chain) CloseChannel(ctx context.Context, dst *Chain, maxRetries uint64,
 	// Timeout is per message. Two close channel handshake messages, allowing maxRetries for each.
 	processorTimeout := timeout * 2 * time.Duration(maxRetries)
 
-	processorCtx, processorCtxCancel := context.WithTimeout(ctx, processorTimeout)
-	defer processorCtxCancel()
+	ctx, cancel := context.WithTimeout(ctx, processorTimeout)
+	defer cancel()
 
 	return processor.NewEventProcessor().
 		WithChainProcessors(
 			srcPathChain.chainProcessor(c.log),
-			dstPathChain.chainProcessor(c.log)).
+			dstPathChain.chainProcessor(c.log),
+		).
 		WithPathProcessors(processor.NewPathProcessor(
 			c.log,
 			srcPathChain.pathEnd,
@@ -146,7 +150,7 @@ func (c *Chain) CloseChannel(ctx context.Context, dst *Chain, maxRetries uint64,
 			},
 		}).
 		Build().
-		Run(processorCtx)
+		Run(ctx)
 }
 
 // ValidateChannelParams validates a set of port-ids as well as the order.

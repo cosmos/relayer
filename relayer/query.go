@@ -3,6 +3,7 @@ package relayer
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/avast/retry-go/v4"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -145,14 +146,21 @@ func QueryPortChannel(ctx context.Context, src *Chain, portID string) (*chantype
 	}
 
 	// Find the specified channel in the slice of all channels
-	for _, channel := range srcChannels {
+	var sb strings.Builder
+	for i, channel := range srcChannels {
 		if channel.PortId == portID {
 			return channel, nil
 		}
+		if i != 0 {
+			sb.WriteString(",")
+		}
+		sb.WriteString(channel.ChannelId)
+		sb.WriteString(":")
+		sb.WriteString(channel.PortId)
 	}
 
-	return nil, fmt.Errorf("channel with port{%s} not found for [%s] -> client{%s}@connection{%s}",
-		portID, src.ChainID(), src.ClientID(), src.ConnectionID())
+	return nil, fmt.Errorf("channel with port{%s} not found for [%s] -> client{%s}@connection{%s}channels{%s}",
+		portID, src.ChainID(), src.ClientID(), src.ConnectionID(), sb.String())
 }
 
 // GetIBCUpdateHeaders returns a pair of IBC update headers which can be used to update an on chain light client

@@ -107,7 +107,7 @@ func testChannel(ctx context.Context, t *testing.T, src, dst *relayer.Chain, cha
 	require.NotNil(t, channel)
 
 	require.Equal(t, channel.Ordering.String(), "ORDER_UNORDERED")
-	require.True(t,
+	require.Truef(t,
 		channel.State.String() == "STATE_TRY_OPEN" || channel.State.String() == "STATE_OPEN",
 		"State: %s is not STATE_TRY_OPEN or STATE_OPEN", channel.State.String(),
 	)
