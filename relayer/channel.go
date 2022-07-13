@@ -23,6 +23,7 @@ func (c *Chain) CreateOpenChannels(
 	memo string,
 	pathName string,
 ) error {
+	fmt.Println("CREATING CHANNELS")
 	// client and connection identifiers must be filled in
 	if err := ValidateConnectionPaths(c, dst); err != nil {
 		return err
@@ -74,7 +75,7 @@ func (c *Chain) CreateOpenChannels(
 			dst.chainProcessor(c.log, nil),
 		).
 		WithPathProcessors(pp).
-		WithInitialBlockHistory(0).
+		WithInitialBlockHistory(100).
 		WithMessageLifecycle(&processor.ChannelMessageLifecycle{
 			Initial: &processor.ChannelMessage{
 				ChainID:   c.PathEnd.ChainID,
