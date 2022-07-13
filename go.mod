@@ -22,7 +22,7 @@ require (
 	github.com/google/go-github/v43 v43.0.0
 	github.com/jsternberg/zap-logfmt v1.2.0
 	github.com/ory/dockertest/v3 v3.9.1
-	github.com/strangelove-ventures/lens v0.5.2-0.20220705143712-1be0cf0d92af
+	github.com/strangelove-ventures/lens v0.5.2-0.20220713232429-0763782f847c
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
