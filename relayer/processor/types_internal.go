@@ -1,6 +1,10 @@
 package processor
 
-import "github.com/cosmos/relayer/v2/relayer/provider"
+import (
+	"sync"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
+)
 
 // pathEndMessages holds the different IBC messages that
 // will attempt to be sent to the pathEnd.
@@ -181,4 +185,20 @@ func channelInfoChannelKey(c provider.ChannelInfo) ChannelKey {
 		CounterpartyChannelID: c.CounterpartyChannelID,
 		CounterpartyPortID:    c.CounterpartyPortID,
 	}
+}
+
+// outgoingMessages is a slice of relayer messages that can be
+// appended to concurrently.
+type outgoingMessages struct {
+	mu   sync.Mutex
+	msgs []provider.RelayerMessage
+}
+
+// Append acquires a lock on om's mutex and then appends msg.
+// When there are no more possible concurrent calls to Append,
+// it is safe to directly access om.msgs.
+func (om *outgoingMessages) Append(msg provider.RelayerMessage) {
+	om.mu.Lock()
+	defer om.mu.Unlock()
+	om.msgs = append(om.msgs, msg)
 }

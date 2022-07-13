@@ -587,8 +587,7 @@ func (pp *PathProcessor) assembleMessage(
 	ctx context.Context,
 	msg ibcMessage,
 	src, dst *pathEndRuntime,
-	outgoingMessages *[]provider.RelayerMessage,
-	lock *sync.Mutex,
+	om *outgoingMessages,
 	wg *sync.WaitGroup,
 ) {
 	defer wg.Done()
@@ -606,9 +605,7 @@ func (pp *PathProcessor) assembleMessage(
 		pp.log.Error("Error assembling channel message", zap.Error(err))
 		return
 	}
-	lock.Lock()
-	defer lock.Unlock()
-	*outgoingMessages = append(*outgoingMessages, message)
+	om.Append(message)
 }
 
 func (pp *PathProcessor) assembleAndSendMessages(
@@ -619,39 +616,40 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 {
 		return nil
 	}
-	outgoingMessages := make(
-		[]provider.RelayerMessage,
-		0,
-		len(messages.packetMessages)+len(messages.connectionMessages)+len(messages.channelMessages),
-	)
+	om := outgoingMessages{
+		msgs: make(
+			[]provider.RelayerMessage,
+			0,
+			len(messages.packetMessages)+len(messages.connectionMessages)+len(messages.channelMessages),
+		),
+	}
 	msgUpdateClient, err := pp.assembleMsgUpdateClient(ctx, src, dst)
 	if err != nil {
 		return err
 	}
-	outgoingMessages = append(outgoingMessages, msgUpdateClient)
+	om.Append(msgUpdateClient)
 
 	// Each assembleMessage call below will make a query on the source chain, so these operations can run in parallel.
 	var wg sync.WaitGroup
-	var lock sync.Mutex
 
 	for _, msg := range messages.packetMessages {
 		wg.Add(1)
-		go pp.assembleMessage(ctx, msg, src, dst, &outgoingMessages, &lock, &wg)
+		go pp.assembleMessage(ctx, msg, src, dst, &om, &wg)
 	}
 
 	for _, msg := range messages.connectionMessages {
 		wg.Add(1)
-		go pp.assembleMessage(ctx, msg, src, dst, &outgoingMessages, &lock, &wg)
+		go pp.assembleMessage(ctx, msg, src, dst, &om, &wg)
 	}
 
 	for _, msg := range messages.channelMessages {
 		wg.Add(1)
-		go pp.assembleMessage(ctx, msg, src, dst, &outgoingMessages, &lock, &wg)
+		go pp.assembleMessage(ctx, msg, src, dst, &om, &wg)
 	}
 
 	wg.Wait()
 
-	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, outgoingMessages)
+	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, om.msgs)
 	if err != nil {
 		return fmt.Errorf("error sending messages: %w", err)
 	}
