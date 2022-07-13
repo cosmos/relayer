@@ -214,6 +214,7 @@ func CreateClient(
 			src.LogFailedTx(res, err, msgs)
 			return fmt.Errorf("failed to send messages on chain{%s}: %w", src.ChainID(), err)
 		}
+		fmt.Println("success")
 
 		if !success {
 			src.LogFailedTx(res, nil, msgs)

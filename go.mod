@@ -22,6 +22,7 @@ require (
 	github.com/google/go-github/v43 v43.0.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/jsternberg/zap-logfmt v1.3.0
+	github.com/penumbra-zone/penumbra v0.0.0-20221214203025-dff73965a1fb
 	github.com/prometheus/client_golang v1.14.0
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.15.0
