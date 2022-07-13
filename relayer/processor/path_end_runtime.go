@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"sync"
+	"fmt"
 	"time"
 
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -134,6 +135,7 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 		newCmc := make(ChannelMessageCache)
 		for k, ci := range cmc {
 			if !pathEnd.isRelevantChannel(k.ChannelID) {
+				fmt.Println("NOT RELEVANT")
 				continue
 			}
 			// can complete channel handshakes on this client
@@ -141,6 +143,7 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 			if eventType == chantypes.EventTypeChannelOpenInit {
 				// CounterpartyConnectionID is needed to construct MsgChannelOpenTry.
 				for k := range pathEnd.connectionStateCache {
+					fmt.Println(k)
 					if k.ConnectionID == ci.ConnID {
 						ci.CounterpartyConnID = k.CounterpartyConnID
 						break

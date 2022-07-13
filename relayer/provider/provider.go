@@ -284,6 +284,9 @@ type ChainProvider interface {
 	// i.e. the chain where the MsgTransfer was committed.
 	MsgTimeoutOnClose(msgTransfer PacketInfo, proofUnreceived PacketProof) (RelayerMessage, error)
 
+	// Get the commitment prefix of the chain.
+	CommitmentPrefix() commitmenttypes.MerklePrefix
+
 	// [End] Packet flow IBC message assembly
 
 	// [Begin] Connection handshake IBC message assembly
@@ -390,7 +393,6 @@ type ChainProvider interface {
 	ChainId() string
 	Type() string
 	ProviderConfig() ProviderConfig
-	CommitmentPrefix() commitmenttypes.MerklePrefix
 	Key() string
 	Address() (string, error)
 	Timeout() string

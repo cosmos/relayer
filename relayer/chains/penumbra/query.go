@@ -1,4 +1,4 @@
-package cosmos
+package penumbra
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -15,58 +14,27 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/cosmos/cosmos-sdk/x/params/types/proposal"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
-	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v5/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	abci "github.com/tendermint/tendermint/abci/types"
-	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
-const PaginationDelay = 10 * time.Millisecond
-
-var _ provider.QueryProvider = &CosmosProvider{}
-
-// queryIBCMessages returns an array of IBC messages given a tag
-func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger, page, limit int, query string, base64Encoded bool) ([]ibcMessage, error) {
-	if query == "" {
-		return nil, errors.New("query string must be provided")
-	}
-
-	if page <= 0 {
-		return nil, errors.New("page must greater than 0")
-	}
-
-	if limit <= 0 {
-		return nil, errors.New("limit must greater than 0")
-	}
-
-	res, err := cc.RPCClient.TxSearch(ctx, query, true, &page, &limit, "")
-	if err != nil {
-		return nil, err
-	}
-	var ibcMsgs []ibcMessage
-	chainID := cc.ChainId()
-	for _, tx := range res.Txs {
-		ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, base64Encoded)...)
-	}
-
-	return ibcMsgs, nil
-}
+var _ provider.QueryProvider = &PenumbraProvider{}
 
 // QueryTx takes a transaction hash and returns the transaction
-func (cc *CosmosProvider) QueryTx(ctx context.Context, hashHex string) (*provider.RelayerTxResponse, error) {
+func (cc *PenumbraProvider) QueryTx(ctx context.Context, hashHex string) (*provider.RelayerTxResponse, error) {
 	hash, err := hex.DecodeString(hashHex)
 	if err != nil {
 		return nil, err
@@ -89,7 +57,7 @@ func (cc *CosmosProvider) QueryTx(ctx context.Context, hashHex string) (*provide
 }
 
 // QueryTxs returns an array of transactions given a tag
-func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events []string) ([]*provider.RelayerTxResponse, error) {
+func (cc *PenumbraProvider) QueryTxs(ctx context.Context, page, limit int, events []string) ([]*provider.RelayerTxResponse, error) {
 	if len(events) == 0 {
 		return nil, errors.New("must declare at least one event to search")
 	}
@@ -142,7 +110,7 @@ func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) []provider.Re
 }
 
 // QueryBalance returns the amount of coins in the relayer account
-func (cc *CosmosProvider) QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error) {
+func (cc *PenumbraProvider) QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error) {
 	addr, err := cc.ShowAddress(keyName)
 	if err != nil {
 		return nil, err
@@ -152,73 +120,34 @@ func (cc *CosmosProvider) QueryBalance(ctx context.Context, keyName string) (sdk
 }
 
 // QueryBalanceWithAddress returns the amount of coins in the relayer account with address as input
-func (cc *CosmosProvider) QueryBalanceWithAddress(ctx context.Context, address string) (sdk.Coins, error) {
-	qc := bankTypes.NewQueryClient(cc)
-	p := DefaultPageRequest()
-	coins := sdk.Coins{}
+// TODO add pagination support
+func (cc *PenumbraProvider) QueryBalanceWithAddress(ctx context.Context, address string) (sdk.Coins, error) {
+	p := &bankTypes.QueryAllBalancesRequest{Address: address, Pagination: DefaultPageRequest()}
+	queryClient := bankTypes.NewQueryClient(cc)
 
-	for {
-		res, err := qc.AllBalances(ctx, &bankTypes.QueryAllBalancesRequest{
-			Address:    address,
-			Pagination: p,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		coins = append(coins, res.Balances...)
-		next := res.GetPagination().GetNextKey()
-		if len(next) == 0 {
-			break
-		}
-
-		time.Sleep(PaginationDelay)
-		p.Key = next
-	}
-	return coins, nil
-}
-
-func (cc *CosmosProvider) queryConsumerUnbondingPeriod(ctx context.Context) (time.Duration, error) {
-	queryClient := proposal.NewQueryClient(cc)
-
-	params := proposal.QueryParamsRequest{Subspace: "ccvconsumer", Key: "UnbondingPeriod"}
-
-	resICS, err := queryClient.Params(ctx, &params)
-
+	res, err := queryClient.AllBalances(ctx, p)
 	if err != nil {
-		return 0, fmt.Errorf("failed to make ccvconsumer params request: %w", err)
+		return nil, err
 	}
 
-	if resICS.Param.Value == "" {
-		return 0, fmt.Errorf("ccvconsumer unbonding period is empty")
-	}
-
-	unbondingPeriod, err := strconv.ParseUint(strings.ReplaceAll(resICS.Param.Value, `"`, ""), 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse unbonding period from ccvconsumer param: %w", err)
-	}
-
-	return time.Duration(unbondingPeriod), nil
+	return res.Balances, nil
 }
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
-func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
-	req := stakingtypes.QueryParamsRequest{}
-	queryClient := stakingtypes.NewQueryClient(cc)
+func (cc *PenumbraProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
+	// TODO:
+	return time.Hour * 4, nil
+	/*
+		req := stakingtypes.QueryParamsRequest{}
+		queryClient := stakingtypes.NewQueryClient(cc)
 
-	res, err := queryClient.Params(ctx, &req)
-	if err != nil {
-		// Attempt ICS query
-		consumerUnbondingPeriod, consumerErr := cc.queryConsumerUnbondingPeriod(ctx)
-		if consumerErr != nil {
-			return 0,
-				fmt.Errorf("failed to query unbonding period as both standard and consumer chain: %s: %w", err.Error(), consumerErr)
+		res, err := queryClient.Params(ctx, &req)
+		if err != nil {
+			return 0, err
 		}
 
-		return consumerUnbondingPeriod, nil
-	}
-
-	return res.Params.UnbondingTime, nil
+		return res.Params.UnbondingTime, nil
+	*/
 }
 
 // QueryTendermintProof performs an ABCI query with the given key and returns
@@ -230,7 +159,7 @@ func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Durati
 // not supported. Queries with a client context height of 0 will perform a query
 // at the latest state available.
 // Issue: https://github.com/cosmos/cosmos-sdk/issues/6567
-func (cc *CosmosProvider) QueryTendermintProof(ctx context.Context, height int64, key []byte) ([]byte, []byte, clienttypes.Height, error) {
+func (cc *PenumbraProvider) QueryTendermintProof(ctx context.Context, height int64, key []byte) ([]byte, []byte, clienttypes.Height, error) {
 	// ABCI queries at heights 1, 2 or less than or equal to 0 are not supported.
 	// Base app does not support queries for height less than or equal to 1.
 	// Therefore, a query at height 2 would be equivalent to a query at height 3.
@@ -239,14 +168,18 @@ func (cc *CosmosProvider) QueryTendermintProof(ctx context.Context, height int64
 		return nil, nil, clienttypes.Height{}, fmt.Errorf("proof queries at height <= 2 are not supported")
 	}
 
-	// Use the IAVL height if a valid tendermint height is passed in.
-	// A height of 0 will query with the latest state.
 	if height != 0 {
 		height--
 	}
 
+	// TODO: fix this at the query layer?
+	if height == 0 {
+		height, _ = cc.QueryLatestHeight(ctx)
+	}
+
+	fmt.Println("querying at height:", height, "with key:", string(key))
 	req := abci.RequestQuery{
-		Path:   fmt.Sprintf("store/%s/key", ibcexported.StoreKey),
+		Path:   "state/key",
 		Height: height,
 		Data:   key,
 		Prove:  true,
@@ -274,7 +207,7 @@ func (cc *CosmosProvider) QueryTendermintProof(ctx context.Context, height int64
 }
 
 // QueryClientStateResponse retrieves the latest consensus state for a client in state at a given height
-func (cc *CosmosProvider) QueryClientStateResponse(ctx context.Context, height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
+func (cc *PenumbraProvider) QueryClientStateResponse(ctx context.Context, height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
 	key := host.FullClientStateKey(srcClientId)
 
 	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
@@ -308,7 +241,7 @@ func (cc *CosmosProvider) QueryClientStateResponse(ctx context.Context, height i
 
 // QueryClientState retrieves the latest consensus state for a client in state at a given height
 // and unpacks it to exported client state interface
-func (cc *CosmosProvider) QueryClientState(ctx context.Context, height int64, clientid string) (ibcexported.ClientState, error) {
+func (cc *PenumbraProvider) QueryClientState(ctx context.Context, height int64, clientid string) (ibcexported.ClientState, error) {
 	clientStateRes, err := cc.QueryClientStateResponse(ctx, height, clientid)
 	if err != nil {
 		return nil, err
@@ -323,7 +256,7 @@ func (cc *CosmosProvider) QueryClientState(ctx context.Context, height int64, cl
 }
 
 // QueryClientConsensusState retrieves the latest consensus state for a client in state at a given height
-func (cc *CosmosProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
+func (cc *PenumbraProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
 	key := host.FullConsensusStateKey(clientid, clientHeight)
 
 	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, chainHeight, key)
@@ -357,9 +290,9 @@ func (cc *CosmosProvider) QueryClientConsensusState(ctx context.Context, chainHe
 
 // QueryUpgradeProof performs an abci query with the given key and returns the proto encoded merkle proof
 // for the query and the height at which the proof will succeed on a tendermint verifier.
-func (cc *CosmosProvider) QueryUpgradeProof(ctx context.Context, key []byte, height uint64) ([]byte, clienttypes.Height, error) {
+func (cc *PenumbraProvider) QueryUpgradeProof(ctx context.Context, key []byte, height uint64) ([]byte, clienttypes.Height, error) {
 	res, err := cc.QueryABCI(ctx, abci.RequestQuery{
-		Path:   "store/upgrade/key",
+		Path:   "state/key",
 		Height: int64(height - 1),
 		Data:   key,
 		Prove:  true,
@@ -390,7 +323,7 @@ func (cc *CosmosProvider) QueryUpgradeProof(ctx context.Context, key []byte, hei
 }
 
 // QueryUpgradedClient returns upgraded client info
-func (cc *CosmosProvider) QueryUpgradedClient(ctx context.Context, height int64) (*clienttypes.QueryClientStateResponse, error) {
+func (cc *PenumbraProvider) QueryUpgradedClient(ctx context.Context, height int64) (*clienttypes.QueryClientStateResponse, error) {
 	req := clienttypes.QueryUpgradedClientStateRequest{}
 
 	queryClient := clienttypes.NewQueryClient(cc)
@@ -417,7 +350,7 @@ func (cc *CosmosProvider) QueryUpgradedClient(ctx context.Context, height int64)
 }
 
 // QueryUpgradedConsState returns upgraded consensus state and height of client
-func (cc *CosmosProvider) QueryUpgradedConsState(ctx context.Context, height int64) (*clienttypes.QueryConsensusStateResponse, error) {
+func (cc *PenumbraProvider) QueryUpgradedConsState(ctx context.Context, height int64) (*clienttypes.QueryConsensusStateResponse, error) {
 	req := clienttypes.QueryUpgradedConsensusStateRequest{}
 
 	queryClient := clienttypes.NewQueryClient(cc)
@@ -445,7 +378,7 @@ func (cc *CosmosProvider) QueryUpgradedConsState(ctx context.Context, height int
 
 // QueryConsensusState returns a consensus state for a given chain to be used as a
 // client in another chain, fetches latest height when passed 0 as arg
-func (cc *CosmosProvider) QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error) {
+func (cc *PenumbraProvider) QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error) {
 	commit, err := cc.RPCClient.Commit(ctx, &height)
 	if err != nil {
 		return &tmclient.ConsensusState{}, 0, err
@@ -470,33 +403,20 @@ func (cc *CosmosProvider) QueryConsensusState(ctx context.Context, height int64)
 }
 
 // QueryClients queries all the clients!
-func (cc *CosmosProvider) QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error) {
+// TODO add pagination support
+func (cc *PenumbraProvider) QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error) {
 	qc := clienttypes.NewQueryClient(cc)
-	p := DefaultPageRequest()
-	clients := clienttypes.IdentifiedClientStates{}
-
-	for {
-		res, err := qc.ClientStates(ctx, &clienttypes.QueryClientStatesRequest{
-			Pagination: p,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		clients = append(clients, res.ClientStates...)
-		next := res.GetPagination().GetNextKey()
-		if len(next) == 0 {
-			break
-		}
-
-		time.Sleep(PaginationDelay)
-		p.Key = next
+	state, err := qc.ClientStates(ctx, &clienttypes.QueryClientStatesRequest{
+		Pagination: DefaultPageRequest(),
+	})
+	if err != nil {
+		return nil, err
 	}
-	return clients, nil
+	return state.ClientStates, nil
 }
 
 // QueryConnection returns the remote end of a given connection
-func (cc *CosmosProvider) QueryConnection(ctx context.Context, height int64, connectionid string) (*conntypes.QueryConnectionResponse, error) {
+func (cc *PenumbraProvider) QueryConnection(ctx context.Context, height int64, connectionid string) (*conntypes.QueryConnectionResponse, error) {
 	res, err := cc.queryConnectionABCI(ctx, height, connectionid)
 	if err != nil && strings.Contains(err.Error(), "not found") {
 		return &conntypes.QueryConnectionResponse{
@@ -520,7 +440,7 @@ func (cc *CosmosProvider) QueryConnection(ctx context.Context, height int64, con
 	return res, nil
 }
 
-func (cc *CosmosProvider) queryConnectionABCI(ctx context.Context, height int64, connectionID string) (*conntypes.QueryConnectionResponse, error) {
+func (cc *PenumbraProvider) queryConnectionABCI(ctx context.Context, height int64, connectionID string) (*conntypes.QueryConnectionResponse, error) {
 	key := host.ConnectionKey(connectionID)
 
 	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
@@ -548,60 +468,31 @@ func (cc *CosmosProvider) queryConnectionABCI(ctx context.Context, height int64,
 }
 
 // QueryConnections gets any connections on a chain
-func (cc *CosmosProvider) QueryConnections(ctx context.Context) ([]*conntypes.IdentifiedConnection, error) {
+// TODO add pagination support
+func (cc *PenumbraProvider) QueryConnections(ctx context.Context) (conns []*conntypes.IdentifiedConnection, err error) {
 	qc := conntypes.NewQueryClient(cc)
-	p := DefaultPageRequest()
-	conns := []*conntypes.IdentifiedConnection{}
-
-	for {
-		res, err := qc.Connections(ctx, &conntypes.QueryConnectionsRequest{
-			Pagination: p,
-		})
-		if err != nil || res == nil {
-			return nil, err
-		}
-
-		conns = append(conns, res.Connections...)
-		next := res.GetPagination().GetNextKey()
-		if len(next) == 0 {
-			break
-		}
-
-		time.Sleep(PaginationDelay)
-		p.Key = next
+	res, err := qc.Connections(ctx, &conntypes.QueryConnectionsRequest{
+		Pagination: DefaultPageRequest(),
+	})
+	if err != nil || res == nil {
+		return nil, err
 	}
-	return conns, nil
+	return res.Connections, err
 }
 
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
-func (cc *CosmosProvider) QueryConnectionsUsingClient(ctx context.Context, height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
+// TODO add pagination support
+func (cc *PenumbraProvider) QueryConnectionsUsingClient(ctx context.Context, height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
 	qc := conntypes.NewQueryClient(cc)
-	p := DefaultPageRequest()
-	connections := &conntypes.QueryConnectionsResponse{}
-
-	for {
-		res, err := qc.Connections(ctx, &conntypes.QueryConnectionsRequest{
-			Pagination: p,
-		})
-		if err != nil || res == nil {
-			return nil, err
-		}
-
-		connections.Connections = append(connections.Connections, res.Connections...)
-		next := res.GetPagination().GetNextKey()
-		if len(next) == 0 {
-			break
-		}
-
-		time.Sleep(PaginationDelay)
-		p.Key = next
-	}
-	return connections, nil
+	res, err := qc.Connections(ctx, &conntypes.QueryConnectionsRequest{
+		Pagination: DefaultPageRequest(),
+	})
+	return res, err
 }
 
 // GenerateConnHandshakeProof generates all the proofs needed to prove the existence of the
 // connection state on this chain. A counterparty should use these generated proofs.
-func (cc *CosmosProvider) GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string) (clientState ibcexported.ClientState, clientStateProof []byte, consensusProof []byte, connectionProof []byte, connectionProofHeight ibcexported.Height, err error) {
+func (cc *PenumbraProvider) GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string) (clientState ibcexported.ClientState, clientStateProof []byte, consensusProof []byte, connectionProof []byte, connectionProofHeight ibcexported.Height, err error) {
 	var (
 		clientStateRes     *clienttypes.QueryClientStateResponse
 		consensusStateRes  *clienttypes.QueryConsensusStateResponse
@@ -639,9 +530,10 @@ func (cc *CosmosProvider) GenerateConnHandshakeProof(ctx context.Context, height
 }
 
 // QueryChannel returns the channel associated with a channelID
-func (cc *CosmosProvider) QueryChannel(ctx context.Context, height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
+func (cc *PenumbraProvider) QueryChannel(ctx context.Context, height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
 	res, err := cc.queryChannelABCI(ctx, height, portid, channelid)
 	if err != nil && strings.Contains(err.Error(), "not found") {
+
 		return &chantypes.QueryChannelResponse{
 			Channel: &chantypes.Channel{
 				State:    chantypes.UNINITIALIZED,
@@ -665,7 +557,7 @@ func (cc *CosmosProvider) QueryChannel(ctx context.Context, height int64, channe
 	return res, nil
 }
 
-func (cc *CosmosProvider) queryChannelABCI(ctx context.Context, height int64, portID, channelID string) (*chantypes.QueryChannelResponse, error) {
+func (cc *PenumbraProvider) queryChannelABCI(ctx context.Context, height int64, portID, channelID string) (*chantypes.QueryChannelResponse, error) {
 	key := host.ChannelKey(portID, channelID)
 
 	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
@@ -684,9 +576,7 @@ func (cc *CosmosProvider) queryChannelABCI(ctx context.Context, height int64, po
 	if err := cdc.Unmarshal(value, &channel); err != nil {
 		return nil, err
 	}
-
 	fmt.Println("QUERIED CHANNEL WITH STATE: ", channel.State)
-
 
 	return &chantypes.QueryChannelResponse{
 		Channel:     &channel,
@@ -696,7 +586,7 @@ func (cc *CosmosProvider) queryChannelABCI(ctx context.Context, height int64, po
 }
 
 // QueryChannelClient returns the client state of the client supporting a given channel
-func (cc *CosmosProvider) QueryChannelClient(ctx context.Context, height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
+func (cc *PenumbraProvider) QueryChannelClient(ctx context.Context, height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
 	qc := chantypes.NewQueryClient(cc)
 	cState, err := qc.ChannelClientState(ctx, &chantypes.QueryChannelClientStateRequest{
 		PortId:    portid,
@@ -709,135 +599,63 @@ func (cc *CosmosProvider) QueryChannelClient(ctx context.Context, height int64, 
 }
 
 // QueryConnectionChannels queries the channels associated with a connection
-func (cc *CosmosProvider) QueryConnectionChannels(ctx context.Context, height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
+func (cc *PenumbraProvider) QueryConnectionChannels(ctx context.Context, height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
 	qc := chantypes.NewQueryClient(cc)
-	p := DefaultPageRequest()
-	channels := []*chantypes.IdentifiedChannel{}
-
-	for {
-		res, err := qc.ConnectionChannels(ctx, &chantypes.QueryConnectionChannelsRequest{
-			Connection: connectionid,
-			Pagination: p,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		channels = append(channels, res.Channels...)
-		next := res.GetPagination().GetNextKey()
-		if len(next) == 0 {
-			break
-		}
-
-		time.Sleep(PaginationDelay)
-		p.Key = next
-	}
-	return channels, nil
-}
-
-// QueryChannels returns all the channels that are registered on a chain
-func (cc *CosmosProvider) QueryChannels(ctx context.Context) ([]*chantypes.IdentifiedChannel, error) {
-	qc := chantypes.NewQueryClient(cc)
-	p := DefaultPageRequest()
-	chans := []*chantypes.IdentifiedChannel{}
-
-	for {
-		res, err := qc.Channels(ctx, &chantypes.QueryChannelsRequest{
-			Pagination: p,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		chans = append(chans, res.Channels...)
-		next := res.GetPagination().GetNextKey()
-		if len(next) == 0 {
-			break
-		}
-
-		time.Sleep(PaginationDelay)
-		p.Key = next
-	}
-	return chans, nil
-}
-
-// QueryChannels returns all the channels that are registered on a chain
-func (cc *CosmosProvider) QueryChannelsPaginated(ctx context.Context, pageRequest *querytypes.PageRequest) ([]*chantypes.IdentifiedChannel, []byte, error) {
-	qc := chantypes.NewQueryClient(cc)
-	chans := []*chantypes.IdentifiedChannel{}
-
-	res, err := qc.Channels(ctx, &chantypes.QueryChannelsRequest{
-		Pagination: pageRequest,
+	chans, err := qc.ConnectionChannels(ctx, &chantypes.QueryConnectionChannelsRequest{
+		Connection: connectionid,
+		Pagination: DefaultPageRequest(),
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
+	return chans.Channels, nil
+}
 
-	chans = append(chans, res.Channels...)
-	next := res.GetPagination().GetNextKey()
-
-	return chans, next, nil
+// QueryChannels returns all the channels that are registered on a chain
+// TODO add pagination support
+func (cc *PenumbraProvider) QueryChannels(ctx context.Context) ([]*chantypes.IdentifiedChannel, error) {
+	qc := chantypes.NewQueryClient(cc)
+	res, err := qc.Channels(ctx, &chantypes.QueryChannelsRequest{
+		Pagination: DefaultPageRequest(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res.Channels, nil
 }
 
 // QueryPacketCommitments returns an array of packet commitments
-func (cc *CosmosProvider) QueryPacketCommitments(ctx context.Context, height uint64, channelid, portid string) (*chantypes.QueryPacketCommitmentsResponse, error) {
+// TODO add pagination support
+func (cc *PenumbraProvider) QueryPacketCommitments(ctx context.Context, height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
 	qc := chantypes.NewQueryClient(cc)
-	p := DefaultPageRequest()
-	commitments := &chantypes.QueryPacketCommitmentsResponse{}
-
-	for {
-		res, err := qc.PacketCommitments(ctx, &chantypes.QueryPacketCommitmentsRequest{
-			PortId:     portid,
-			ChannelId:  channelid,
-			Pagination: p,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		commitments.Commitments = append(commitments.Commitments, res.Commitments...)
-		commitments.Height = res.Height
-		next := res.GetPagination().GetNextKey()
-		if len(next) == 0 {
-			break
-		}
-
-		time.Sleep(PaginationDelay)
-		p.Key = next
+	c, err := qc.PacketCommitments(ctx, &chantypes.QueryPacketCommitmentsRequest{
+		PortId:     portid,
+		ChannelId:  channelid,
+		Pagination: DefaultPageRequest(),
+	})
+	if err != nil {
+		return nil, err
 	}
-	return commitments, nil
+	return c, nil
 }
 
 // QueryPacketAcknowledgements returns an array of packet acks
-func (cc *CosmosProvider) QueryPacketAcknowledgements(ctx context.Context, height uint64, channelid, portid string) ([]*chantypes.PacketState, error) {
+// TODO add pagination support
+func (cc *PenumbraProvider) QueryPacketAcknowledgements(ctx context.Context, height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
 	qc := chantypes.NewQueryClient(cc)
-	p := DefaultPageRequest()
-	acknowledgements := []*chantypes.PacketState{}
-	for {
-		res, err := qc.PacketAcknowledgements(ctx, &chantypes.QueryPacketAcknowledgementsRequest{
-			PortId:     portid,
-			ChannelId:  channelid,
-			Pagination: p,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		acknowledgements = append(acknowledgements, res.Acknowledgements...)
-		next := res.GetPagination().GetNextKey()
-		if len(next) == 0 {
-			break
-		}
-
-		time.Sleep(PaginationDelay)
-		p.Key = next
+	acks, err := qc.PacketAcknowledgements(ctx, &chantypes.QueryPacketAcknowledgementsRequest{
+		PortId:     portid,
+		ChannelId:  channelid,
+		Pagination: DefaultPageRequest(),
+	})
+	if err != nil {
+		return nil, err
 	}
-
-	return acknowledgements, nil
+	return acks.Acknowledgements, nil
 }
 
 // QueryUnreceivedPackets returns a list of unrelayed packet commitments
-func (cc *CosmosProvider) QueryUnreceivedPackets(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
+func (cc *PenumbraProvider) QueryUnreceivedPackets(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
 	qc := chantypes.NewQueryClient(cc)
 	res, err := qc.UnreceivedPackets(ctx, &chantypes.QueryUnreceivedPacketsRequest{
 		PortId:                    portid,
@@ -850,84 +668,8 @@ func (cc *CosmosProvider) QueryUnreceivedPackets(ctx context.Context, height uin
 	return res.Sequences, nil
 }
 
-func sendPacketQuery(channelID string, portID string, seq uint64) string {
-	x := []string{
-		fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
-		fmt.Sprintf("%s.packet_src_port='%s'", spTag, portID),
-		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq),
-	}
-	return strings.Join(x, " AND ")
-}
-
-func writeAcknowledgementQuery(channelID string, portID string, seq uint64) string {
-	x := []string{
-		fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
-		fmt.Sprintf("%s.packet_dst_port='%s'", waTag, portID),
-		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq),
-	}
-	return strings.Join(x, " AND ")
-}
-
-func (cc *CosmosProvider) QuerySendPacket(
-	ctx context.Context,
-	srcChanID,
-	srcPortID string,
-	sequence uint64,
-) (provider.PacketInfo, error) {
-	status, err := cc.QueryStatus(ctx)
-	if err != nil {
-		return provider.PacketInfo{}, err
-	}
-
-	q := sendPacketQuery(srcChanID, srcPortID, sequence)
-	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q, cc.legacyEncodedEvents(zap.NewNop(), status.NodeInfo.Version))
-	if err != nil {
-		return provider.PacketInfo{}, err
-	}
-	for _, msg := range ibcMsgs {
-		if msg.eventType != chantypes.EventTypeSendPacket {
-			continue
-		}
-		if pi, ok := msg.info.(*packetInfo); ok {
-			if pi.SourceChannel == srcChanID && pi.SourcePort == srcPortID && pi.Sequence == sequence {
-				return provider.PacketInfo(*pi), nil
-			}
-		}
-	}
-	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for send_packet query: %s", q)
-}
-
-func (cc *CosmosProvider) QueryRecvPacket(
-	ctx context.Context,
-	dstChanID,
-	dstPortID string,
-	sequence uint64,
-) (provider.PacketInfo, error) {
-	status, err := cc.QueryStatus(ctx)
-	if err != nil {
-		return provider.PacketInfo{}, err
-	}
-
-	q := writeAcknowledgementQuery(dstChanID, dstPortID, sequence)
-	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q, cc.legacyEncodedEvents(zap.NewNop(), status.NodeInfo.Version))
-	if err != nil {
-		return provider.PacketInfo{}, err
-	}
-	for _, msg := range ibcMsgs {
-		if msg.eventType != chantypes.EventTypeWriteAck {
-			continue
-		}
-		if pi, ok := msg.info.(*packetInfo); ok {
-			if pi.DestChannel == dstChanID && pi.DestPort == dstPortID && pi.Sequence == sequence {
-				return provider.PacketInfo(*pi), nil
-			}
-		}
-	}
-	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for write_acknowledgement query: %s", q)
-}
-
 // QueryUnreceivedAcknowledgements returns a list of unrelayed packet acks
-func (cc *CosmosProvider) QueryUnreceivedAcknowledgements(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
+func (cc *PenumbraProvider) QueryUnreceivedAcknowledgements(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
 	qc := chantypes.NewQueryClient(cc)
 	res, err := qc.UnreceivedAcks(ctx, &chantypes.QueryUnreceivedAcksRequest{
 		PortId:             portid,
@@ -941,7 +683,7 @@ func (cc *CosmosProvider) QueryUnreceivedAcknowledgements(ctx context.Context, h
 }
 
 // QueryNextSeqRecv returns the next seqRecv for a configured channel
-func (cc *CosmosProvider) QueryNextSeqRecv(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
+func (cc *PenumbraProvider) QueryNextSeqRecv(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
 	key := host.NextSequenceRecvKey(portid, channelid)
 
 	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
@@ -964,7 +706,7 @@ func (cc *CosmosProvider) QueryNextSeqRecv(ctx context.Context, height int64, ch
 }
 
 // QueryPacketCommitment returns the packet commitment proof at a given height
-func (cc *CosmosProvider) QueryPacketCommitment(ctx context.Context, height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error) {
+func (cc *PenumbraProvider) QueryPacketCommitment(ctx context.Context, height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error) {
 	key := host.PacketCommitmentKey(portid, channelid, seq)
 
 	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
@@ -985,7 +727,7 @@ func (cc *CosmosProvider) QueryPacketCommitment(ctx context.Context, height int6
 }
 
 // QueryPacketAcknowledgement returns the packet ack proof at a given height
-func (cc *CosmosProvider) QueryPacketAcknowledgement(ctx context.Context, height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
+func (cc *PenumbraProvider) QueryPacketAcknowledgement(ctx context.Context, height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
 	key := host.PacketAcknowledgementKey(portid, channelid, seq)
 
 	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
@@ -1005,7 +747,7 @@ func (cc *CosmosProvider) QueryPacketAcknowledgement(ctx context.Context, height
 }
 
 // QueryPacketReceipt returns the packet receipt proof at a given height
-func (cc *CosmosProvider) QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
+func (cc *PenumbraProvider) QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
 	key := host.PacketReceiptKey(portid, channelid, seq)
 
 	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
@@ -1020,7 +762,7 @@ func (cc *CosmosProvider) QueryPacketReceipt(ctx context.Context, height int64, 
 	}, nil
 }
 
-func (cc *CosmosProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
+func (cc *PenumbraProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
 	stat, err := cc.RPCClient.Status(ctx)
 	if err != nil {
 		return -1, err
@@ -1030,17 +772,8 @@ func (cc *CosmosProvider) QueryLatestHeight(ctx context.Context) (int64, error) 
 	return stat.SyncInfo.LatestBlockHeight, nil
 }
 
-// Query current node status
-func (cc *CosmosProvider) QueryStatus(ctx context.Context) (*coretypes.ResultStatus, error) {
-	status, err := cc.RPCClient.Status(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query node status: %w", err)
-	}
-	return status, nil
-}
-
 // QueryHeaderAtHeight returns the header at a given height
-func (cc *CosmosProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.ClientMessage, error) {
+func (cc *PenumbraProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.Header, error) {
 	var (
 		page    = 1
 		perPage = 100000
@@ -1073,7 +806,7 @@ func (cc *CosmosProvider) QueryHeaderAtHeight(ctx context.Context, height int64)
 }
 
 // QueryDenomTrace takes a denom from IBC and queries the information about it
-func (cc *CosmosProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
+func (cc *PenumbraProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
 	transfers, err := transfertypes.NewQueryClient(cc).DenomTrace(ctx,
 		&transfertypes.QueryDenomTraceRequest{
 			Hash: denom,
@@ -1085,33 +818,19 @@ func (cc *CosmosProvider) QueryDenomTrace(ctx context.Context, denom string) (*t
 }
 
 // QueryDenomTraces returns all the denom traces from a given chain
-func (cc *CosmosProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
-	qc := transfertypes.NewQueryClient(cc)
-	p := DefaultPageRequest()
-	transfers := []transfertypes.DenomTrace{}
-	for {
-		res, err := qc.DenomTraces(ctx,
-			&transfertypes.QueryDenomTracesRequest{
-				Pagination: p,
-			})
-
-		if err != nil || res == nil {
-			return nil, err
-		}
-
-		transfers = append(transfers, res.DenomTraces...)
-		next := res.GetPagination().GetNextKey()
-		if len(next) == 0 {
-			break
-		}
-
-		time.Sleep(PaginationDelay)
-		p.Key = next
+// TODO add pagination support
+func (cc *PenumbraProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
+	transfers, err := transfertypes.NewQueryClient(cc).DenomTraces(ctx,
+		&transfertypes.QueryDenomTracesRequest{
+			Pagination: DefaultPageRequest(),
+		})
+	if err != nil {
+		return nil, err
 	}
-	return transfers, nil
+	return transfers.DenomTraces, nil
 }
 
-func (cc *CosmosProvider) QueryStakingParams(ctx context.Context) (*stakingtypes.Params, error) {
+func (cc *PenumbraProvider) QueryStakingParams(ctx context.Context) (*stakingtypes.Params, error) {
 	res, err := stakingtypes.NewQueryClient(cc).Params(ctx, &stakingtypes.QueryParamsRequest{})
 	if err != nil {
 		return nil, err
@@ -1124,11 +843,11 @@ func DefaultPageRequest() *querytypes.PageRequest {
 		Key:        []byte(""),
 		Offset:     0,
 		Limit:      1000,
-		CountTotal: false,
+		CountTotal: true,
 	}
 }
 
-func (cc *CosmosProvider) QueryConsensusStateABCI(ctx context.Context, clientID string, height ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
+func (cc *PenumbraProvider) QueryConsensusStateABCI(ctx context.Context, clientID string, height ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
 	key := host.FullConsensusStateKey(clientID, height)
 
 	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height.GetRevisionHeight()), key)
@@ -1159,4 +878,162 @@ func (cc *CosmosProvider) QueryConsensusStateABCI(ctx context.Context, clientID 
 		Proof:          proofBz,
 		ProofHeight:    proofHeight,
 	}, nil
+}
+
+func parseIBCMessageFromEvent(
+	log *zap.Logger,
+	event sdk.StringEvent,
+	chainID string,
+	height uint64,
+) *ibcMessage {
+	switch event.Type {
+	case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck,
+		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
+		chantypes.EventTypeTimeoutPacketOnClose:
+		pi := &packetInfo{Height: height}
+		pi.parseAttrs(log, event.Attributes)
+		return &ibcMessage{
+			eventType: event.Type,
+			info:      pi,
+		}
+	case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
+		chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
+		chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
+		ci := &channelInfo{Height: height}
+		ci.parseAttrs(log, event.Attributes)
+		return &ibcMessage{
+			eventType: event.Type,
+			info:      ci,
+		}
+	case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
+		conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
+		ci := &connectionInfo{Height: height}
+		ci.parseAttrs(log, event.Attributes)
+		return &ibcMessage{
+			eventType: event.Type,
+			info:      ci,
+		}
+	case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
+		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
+		clienttypes.EventTypeUpdateClientProposal:
+		ci := new(clientInfo)
+		ci.parseAttrs(log, event.Attributes)
+		return &ibcMessage{
+			eventType: event.Type,
+			info:      ci,
+		}
+	}
+	return nil
+}
+
+// ibcMessagesFromTransaction parses all events within a transaction to find IBC messages
+func ibcMessagesFromEvents(
+	log *zap.Logger,
+	events []abci.Event,
+	chainID string,
+	height uint64,
+) (messages []ibcMessage) {
+	for _, event := range events {
+		evt := sdk.StringifyEvent(event)
+		m := parseIBCMessageFromEvent(log, evt, chainID, height)
+		if m == nil || m.info == nil {
+			// Not an IBC message, don't need to log here
+			continue
+		}
+		messages = append(messages, *m)
+	}
+	return messages
+}
+
+// queryIBCMessages returns an array of IBC messages given a tag
+func (cc *PenumbraProvider) queryIBCMessages(ctx context.Context, log *zap.Logger, page, limit int, query string) ([]ibcMessage, error) {
+	if query == "" {
+		return nil, errors.New("query string must be provided")
+	}
+
+	if page <= 0 {
+		return nil, errors.New("page must greater than 0")
+	}
+
+	if limit <= 0 {
+		return nil, errors.New("limit must greater than 0")
+	}
+
+	res, err := cc.RPCClient.TxSearch(ctx, query, true, &page, &limit, "")
+	if err != nil {
+		return nil, err
+	}
+	var ibcMsgs []ibcMessage
+	chainID := cc.ChainId()
+	for _, tx := range res.Txs {
+		ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0)...)
+	}
+
+	return ibcMsgs, nil
+}
+
+func sendPacketQuery(channelID string, portID string, seq uint64) string {
+	x := []string{
+		fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
+		fmt.Sprintf("%s.packet_src_port='%s'", spTag, portID),
+		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq),
+	}
+	return strings.Join(x, " AND ")
+}
+
+func (cc *PenumbraProvider) QuerySendPacket(
+	ctx context.Context,
+	srcChanID,
+	srcPortID string,
+	sequence uint64,
+) (provider.PacketInfo, error) {
+	q := sendPacketQuery(srcChanID, srcPortID, sequence)
+	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q)
+	if err != nil {
+		return provider.PacketInfo{}, err
+	}
+	for _, msg := range ibcMsgs {
+		if msg.eventType != chantypes.EventTypeSendPacket {
+			continue
+		}
+		if pi, ok := msg.info.(*packetInfo); ok {
+			if pi.SourceChannel == srcChanID && pi.SourcePort == srcPortID && pi.Sequence == sequence {
+				return provider.PacketInfo(*pi), nil
+			}
+		}
+	}
+	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for send_packet query: %s", q)
+}
+
+func writeAcknowledgementQuery(channelID string, portID string, seq uint64) string {
+	x := []string{
+		fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
+		fmt.Sprintf("%s.packet_dst_port='%s'", waTag, portID),
+		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq),
+	}
+	return strings.Join(x, " AND ")
+}
+
+func (cc *PenumbraProvider) QueryRecvPacket(
+	ctx context.Context,
+	dstChanID,
+	dstPortID string,
+	sequence uint64,
+) (provider.PacketInfo, error) {
+	q := writeAcknowledgementQuery(dstChanID, dstPortID, sequence)
+	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q)
+	if err != nil {
+		return provider.PacketInfo{}, err
+	}
+	for _, msg := range ibcMsgs {
+		if msg.eventType != chantypes.EventTypeWriteAck {
+			continue
+		}
+		if pi, ok := msg.info.(*packetInfo); ok {
+			if pi.DestChannel == dstChanID && pi.DestPort == dstPortID && pi.Sequence == sequence {
+				return provider.PacketInfo(*pi), nil
+			}
+		}
+	}
+	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for write_acknowledgement query: %s", q)
 }

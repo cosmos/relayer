@@ -196,6 +196,7 @@ func (cc *CosmosProvider) Address() (string, error) {
 }
 
 func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
+	fmt.Println("getting COSMOS trusting period")
 	res, err := cc.QueryStakingParams(ctx)
 
 	var unbondingTime time.Duration
