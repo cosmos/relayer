@@ -84,7 +84,7 @@ func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, height uint64) (me
 		}
 		if action == "" {
 			log.Error("Unexpected ibc message parser state: message info is populated but action is empty",
-				zap.Object("info", info),
+				zap.Inline(info),
 			)
 			continue
 		}

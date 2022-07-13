@@ -166,7 +166,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 		if err != nil {
 			pathEnd.log.Error("Unexpected error checking packet message",
 				zap.String("action", m.Termination.Action),
-				zap.Object("channel", channelKey),
+				zap.Inline(channelKey),
 				zap.Error(err),
 			)
 			return false
@@ -290,7 +290,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		pathEnd.log.Error("Unexpected error checking if should send packet message",
 			zap.String("action", action),
 			zap.Uint64("sequence", sequence),
-			zap.Object("channel", k),
+			zap.Inline(k),
 			zap.Error(err),
 		)
 		return false
@@ -299,7 +299,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
 			zap.String("action", action),
 			zap.Uint64("sequence", sequence),
-			zap.Object("channel", k),
+			zap.Inline(k),
 		)
 		return false
 	}
@@ -308,7 +308,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		pathEnd.log.Warn("Refusing to relay packet message because channel is not open",
 			zap.String("action", action),
 			zap.Uint64("sequence", sequence),
-			zap.Object("channel", k),
+			zap.Inline(k),
 		)
 		return false
 	}
@@ -343,7 +343,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		pathEnd.log.Error("Giving up on sending packet message after max retries",
 			zap.String("action", action),
 			zap.Uint64("sequence", sequence),
-			zap.Object("channel", k),
+			zap.Inline(k),
 			zap.Int("max_retries", maxMessageSendRetries),
 		)
 		// giving up on sending this packet flow message
@@ -377,7 +377,7 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 	k := connectionInfoConnectionKey(message.info).Counterparty()
 	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay connection message until counterparty height has incremented",
-			zap.Object("connection", k),
+			zap.Inline(k),
 			zap.String("action", action),
 		)
 		return false
@@ -444,7 +444,7 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 	channelKey := channelInfoChannelKey(message.info).Counterparty()
 	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay channel message until counterparty height has incremented",
-			zap.Object("channel", channelKey),
+			zap.Inline(channelKey),
 			zap.String("action", action),
 		)
 		return false
@@ -511,7 +511,7 @@ func (pathEnd *pathEndRuntime) trackProcessingPacketMessage(message packetIBCMes
 	channelKey, err := message.channelKey()
 	if err != nil {
 		pathEnd.log.Error("Unexpected error tracking processing packet",
-			zap.Object("channel", channelKey),
+			zap.Inline(channelKey),
 			zap.String("action", action),
 			zap.Uint64("sequence", sequence),
 			zap.Error(err),

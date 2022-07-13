@@ -400,7 +400,7 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, p
 		if err != nil {
 			pp.log.Error("Unexpected error checking packet message",
 				zap.String("action", m.Termination.Action),
-				zap.Object("channel", channelKey),
+				zap.Inline(channelKey),
 				zap.Error(err),
 			)
 			return

@@ -27,7 +27,7 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(action string, pi provider.
 		ccp.log.Error("Unexpected error handling packet message",
 			zap.String("action", action),
 			zap.Uint64("sequence", pi.Sequence),
-			zap.Object("channel", k),
+			zap.Inline(k),
 			zap.Error(err),
 		)
 		return
@@ -37,7 +37,7 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(action string, pi provider.
 		ccp.log.Debug("Not retaining packet message",
 			zap.String("action", action),
 			zap.Uint64("sequence", pi.Sequence),
-			zap.Object("channel", k),
+			zap.Inline(k),
 		)
 		return
 	}
@@ -45,7 +45,7 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(action string, pi provider.
 	ccp.log.Debug("Retaining packet message",
 		zap.String("action", action),
 		zap.Uint64("sequence", pi.Sequence),
-		zap.Object("channel", k),
+		zap.Inline(k),
 	)
 
 	c.PacketFlow.Retain(k, action, pi)
