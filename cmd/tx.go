@@ -471,18 +471,7 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			}
 
 			// create channel if it isn't already created
-			modified, err := c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override)
-			if err != nil {
-				return fmt.Errorf("error creating channels: %w", err)
-			}
-
-			if modified {
-				if err := a.OverwriteConfig(a.Config); err != nil {
-					return err
-				}
-			}
-
-			return nil
+			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override)
 		},
 	}
 
@@ -512,6 +501,11 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 				return err
 			}
 
+			retries, err := cmd.Flags().GetUint64(flagMaxRetries)
+			if err != nil {
+				return err
+			}
+
 			channelID := args[1]
 			portID := args[2]
 
@@ -528,16 +522,16 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 				return err
 			}
 
-			channel, err := c[src].ChainProvider.QueryChannel(cmd.Context(), srch, channelID, portID)
+			_, err = c[src].ChainProvider.QueryChannel(cmd.Context(), srch, channelID, portID)
 			if err != nil {
 				return err
 			}
 
-			return c[src].CloseChannel(cmd.Context(), c[dst], to, channelID, portID, channel)
+			return c[src].CloseChannel(cmd.Context(), c[dst], retries, to, channelID, portID)
 		},
 	}
 
-	return timeoutFlag(a.Viper, cmd)
+	return retryFlag(a.Viper, timeoutFlag(a.Viper, cmd))
 }
 
 func linkCmd(a *appState) *cobra.Command {
@@ -646,17 +640,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			// create channel if it isn't already created
-			modified, err = c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override)
-			if err != nil {
-				return fmt.Errorf("error creating channels: %w", err)
-			}
-			if modified {
-				if err := a.OverwriteConfig(a.Config); err != nil {
-					return err
-				}
-			}
-
-			return nil
+			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override)
 		},
 	}
 
