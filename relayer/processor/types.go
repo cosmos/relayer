@@ -218,6 +218,14 @@ func (connectionKey ConnectionKey) msgInitKey() ConnectionKey {
 	}
 }
 
+func (k ConnectionKey) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("connection_id", k.ConnectionID)
+	enc.AddString("client_id", k.ClientID)
+	enc.AddString("counterparty_connection_id", k.CounterpartyConnID)
+	enc.AddString("counterparty_client_id", k.CounterpartyClientID)
+	return nil
+}
+
 // ChannelStateCache maintains channel open state for multiple channels.
 type ChannelStateCache map[ChannelKey]bool
 

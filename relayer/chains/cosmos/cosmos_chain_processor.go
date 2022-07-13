@@ -242,7 +242,7 @@ func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) err
 			ccp.log.Error("Found channel using multiple connection hops. Not currently supported, ignoring.",
 				zap.String("channel_id", ch.ChannelId),
 				zap.String("port_id", ch.PortId),
-				zap.Any("connection_hops", ch.ConnectionHops),
+				zap.Strings("connection_hops", ch.ConnectionHops),
 			)
 			continue
 		}
