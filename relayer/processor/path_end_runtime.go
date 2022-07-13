@@ -285,34 +285,34 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage, counterparty *pathEndRuntime) bool {
 	action := message.action
 	sequence := message.info.Sequence
-	channelKey, err := message.channelKey()
+	k, err := message.channelKey()
 	if err != nil {
 		pathEnd.log.Error("Unexpected error checking if should send packet message",
-			zap.Any("channel", channelKey),
 			zap.String("action", action),
 			zap.Uint64("sequence", sequence),
+			zap.Object("channel", k),
 			zap.Error(err),
 		)
 		return false
 	}
 	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
-			zap.Any("channel", channelKey),
 			zap.String("action", action),
 			zap.Uint64("sequence", sequence),
+			zap.Object("channel", k),
 		)
 		return false
 	}
-	if !pathEnd.channelStateCache[channelKey] {
+	if !pathEnd.channelStateCache[k] {
 		// channel is not open, do not send
 		pathEnd.log.Warn("Refusing to relay packet message because channel is not open",
-			zap.Any("channel", channelKey),
 			zap.String("action", action),
 			zap.Uint64("sequence", sequence),
+			zap.Object("channel", k),
 		)
 		return false
 	}
-	msgProcessCache, ok := pathEnd.packetProcessing[channelKey]
+	msgProcessCache, ok := pathEnd.packetProcessing[k]
 	if !ok {
 		// in progress cache does not exist for this channel, so can send.
 		return true
@@ -341,9 +341,9 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	}
 	if inProgress.retryCount >= maxMessageSendRetries {
 		pathEnd.log.Error("Giving up on sending packet message after max retries",
-			zap.Any("channel", channelKey),
 			zap.String("action", action),
 			zap.Uint64("sequence", sequence),
+			zap.Object("channel", k),
 			zap.Int("max_retries", maxMessageSendRetries),
 		)
 		// giving up on sending this packet flow message
@@ -360,10 +360,10 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 			toDelete[MsgTransfer] = []uint64{sequence}
 		}
 		// delete in progress send for this specific message
-		pathEnd.packetProcessing[channelKey].deleteMessages(map[string][]uint64{action: []uint64{sequence}})
+		pathEnd.packetProcessing[k].deleteMessages(map[string][]uint64{action: []uint64{sequence}})
 		// delete all packet flow retention history for this sequence
-		pathEnd.messageCache.PacketFlow[channelKey].DeleteMessages(toDelete)
-		counterparty.messageCache.PacketFlow[channelKey].DeleteMessages(toDeleteCounterparty)
+		pathEnd.messageCache.PacketFlow[k].DeleteMessages(toDelete)
+		counterparty.messageCache.PacketFlow[k].DeleteMessages(toDeleteCounterparty)
 		return false
 	}
 

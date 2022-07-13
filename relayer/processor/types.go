@@ -11,6 +11,7 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
+	"go.uber.org/zap/zapcore"
 )
 
 // These are the IBC message types that are the possible message actions when parsing tendermint events.
@@ -160,24 +161,32 @@ type ChannelKey struct {
 }
 
 // Counterparty flips a ChannelKey for the perspective of the counterparty chain
-func (channelKey ChannelKey) Counterparty() ChannelKey {
+func (k ChannelKey) Counterparty() ChannelKey {
 	return ChannelKey{
-		ChannelID:             channelKey.CounterpartyChannelID,
-		PortID:                channelKey.CounterpartyPortID,
-		CounterpartyChannelID: channelKey.ChannelID,
-		CounterpartyPortID:    channelKey.PortID,
+		ChannelID:             k.CounterpartyChannelID,
+		PortID:                k.CounterpartyPortID,
+		CounterpartyChannelID: k.ChannelID,
+		CounterpartyPortID:    k.PortID,
 	}
 }
 
 // msgInitKey is used for comparing MsgChannelOpenInit keys with other connection
 // handshake messages. MsgChannelOpenInit does not have CounterpartyChannelID.
-func (channelKey ChannelKey) msgInitKey() ChannelKey {
+func (k ChannelKey) msgInitKey() ChannelKey {
 	return ChannelKey{
-		ChannelID:             channelKey.ChannelID,
-		PortID:                channelKey.PortID,
+		ChannelID:             k.ChannelID,
+		PortID:                k.PortID,
 		CounterpartyChannelID: "",
-		CounterpartyPortID:    channelKey.CounterpartyPortID,
+		CounterpartyPortID:    k.CounterpartyPortID,
 	}
+}
+
+func (k ChannelKey) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("channel_id", k.ChannelID)
+	enc.AddString("port_id", k.PortID)
+	enc.AddString("counterparty_channel_id", k.CounterpartyChannelID)
+	enc.AddString("counterparty_port_id", k.CounterpartyPortID)
+	return nil
 }
 
 // ConnectionKey is the key used for identifying connections between ChainProcessor and PathProcessor.
