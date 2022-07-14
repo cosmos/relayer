@@ -12,14 +12,36 @@ import (
 const (
 	// durationErrorRetry determines how long to wait before retrying
 	// in the case of failure to send transactions with IBC messages.
-	durationErrorRetry         = 5 * time.Second
-	messageSendTimeout         = 10 * time.Second
-	packetProofQueryTimeout    = 5 * time.Second
-	blocksToRetryAssemblyAfter = 0
-	blocksToRetrySendAfter     = 2
-	maxMessageSendRetries      = 5
+	durationErrorRetry = 5 * time.Second
 
-	ibcHeadersToCache                          = 10
+	// Amount of time to wait when sending transactions before giving up
+	// and continuing on. Messages will be retried later if they are still
+	// relevant.
+	messageSendTimeout = 10 * time.Second
+
+	// Amount of time to wait for a proof to be queried before giving up.
+	// The proof query will be retried later if the message still needs
+	// to be relayed.
+	packetProofQueryTimeout = 5 * time.Second
+
+	// If message assembly fails from either proof query failure on the source
+	// or assembling the message for the destination, how many blocks should pass
+	// before retrying.
+	blocksToRetryAssemblyAfter = 0
+
+	// If the message was assembled successfully, but sending the message failed,
+	// how many blocks should pass before retrying.
+	blocksToRetrySendAfter = 2
+
+	// How many times to retry sending a message before giving up on it.
+	maxMessageSendRetries = 5
+
+	// How many blocks of history to retain ibc headers in the cache for.
+	ibcHeadersToCache = 10
+
+	// How many blocks of history before determining that a query needs to be
+	// made to retrieve the client consensus state in order to assemble a
+	// MsgUpdateClient message.
 	clientConsensusHeightUpdateThresholdBlocks = 2
 )
 

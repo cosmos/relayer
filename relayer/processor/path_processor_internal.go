@@ -723,12 +723,12 @@ func (pp *PathProcessor) assemblePacketMessage(
 		return nil, fmt.Errorf("unexepected packet message action for message assembly: %s", msg.action)
 	}
 
-	proofQueryCtx, cancelProofQueryCtx := context.WithTimeout(ctx, packetProofQueryTimeout)
-	defer cancelProofQueryCtx()
+	ctx, cancel := context.WithTimeout(ctx, packetProofQueryTimeout)
+	defer cancel()
 
 	var proof provider.PacketProof
 	var err error
-	proof, err = packetProof(proofQueryCtx, msg.info, src.latestBlock.Height)
+	proof, err = packetProof(ctx, msg.info, src.latestBlock.Height)
 	if err != nil {
 		return nil, fmt.Errorf("error querying packet proof: %w", err)
 	}
