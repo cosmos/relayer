@@ -400,7 +400,7 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, p
 		if err != nil {
 			pp.log.Error("Unexpected error checking packet message",
 				zap.String("action", m.Termination.Action),
-				zap.Any("channel", channelKey),
+				zap.Inline(channelKey),
 				zap.Error(err),
 			)
 			return
@@ -648,6 +648,9 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	}
 
 	wg.Wait()
+
+	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
+	defer cancel()
 
 	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, om.msgs)
 	if err != nil {

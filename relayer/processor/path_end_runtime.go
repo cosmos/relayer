@@ -166,7 +166,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 		if err != nil {
 			pathEnd.log.Error("Unexpected error checking packet message",
 				zap.String("action", m.Termination.Action),
-				zap.Any("channel", channelKey),
+				zap.Inline(channelKey),
 				zap.Error(err),
 			)
 			return false
@@ -285,34 +285,34 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage, counterparty *pathEndRuntime) bool {
 	action := message.action
 	sequence := message.info.Sequence
-	channelKey, err := message.channelKey()
+	k, err := message.channelKey()
 	if err != nil {
 		pathEnd.log.Error("Unexpected error checking if should send packet message",
-			zap.Any("channel", channelKey),
 			zap.String("action", action),
 			zap.Uint64("sequence", sequence),
+			zap.Inline(k),
 			zap.Error(err),
 		)
 		return false
 	}
 	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
-			zap.Any("channel", channelKey),
 			zap.String("action", action),
 			zap.Uint64("sequence", sequence),
+			zap.Inline(k),
 		)
 		return false
 	}
-	if !pathEnd.channelStateCache[channelKey] {
+	if !pathEnd.channelStateCache[k] {
 		// channel is not open, do not send
 		pathEnd.log.Warn("Refusing to relay packet message because channel is not open",
-			zap.Any("channel", channelKey),
 			zap.String("action", action),
 			zap.Uint64("sequence", sequence),
+			zap.Inline(k),
 		)
 		return false
 	}
-	msgProcessCache, ok := pathEnd.packetProcessing[channelKey]
+	msgProcessCache, ok := pathEnd.packetProcessing[k]
 	if !ok {
 		// in progress cache does not exist for this channel, so can send.
 		return true
@@ -341,9 +341,9 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	}
 	if inProgress.retryCount >= maxMessageSendRetries {
 		pathEnd.log.Error("Giving up on sending packet message after max retries",
-			zap.Any("channel", channelKey),
 			zap.String("action", action),
 			zap.Uint64("sequence", sequence),
+			zap.Inline(k),
 			zap.Int("max_retries", maxMessageSendRetries),
 		)
 		// giving up on sending this packet flow message
@@ -360,10 +360,10 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 			toDelete[MsgTransfer] = []uint64{sequence}
 		}
 		// delete in progress send for this specific message
-		pathEnd.packetProcessing[channelKey].deleteMessages(map[string][]uint64{action: []uint64{sequence}})
+		pathEnd.packetProcessing[k].deleteMessages(map[string][]uint64{action: []uint64{sequence}})
 		// delete all packet flow retention history for this sequence
-		pathEnd.messageCache.PacketFlow[channelKey].DeleteMessages(toDelete)
-		counterparty.messageCache.PacketFlow[channelKey].DeleteMessages(toDeleteCounterparty)
+		pathEnd.messageCache.PacketFlow[k].DeleteMessages(toDelete)
+		counterparty.messageCache.PacketFlow[k].DeleteMessages(toDeleteCounterparty)
 		return false
 	}
 
@@ -374,10 +374,10 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
 func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBCMessage, counterparty *pathEndRuntime) bool {
 	action := message.action
-	connectionKey := connectionInfoConnectionKey(message.info).Counterparty()
+	k := connectionInfoConnectionKey(message.info).Counterparty()
 	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay connection message until counterparty height has incremented",
-			zap.Any("connection", connectionKey),
+			zap.Inline(k),
 			zap.String("action", action),
 		)
 		return false
@@ -387,7 +387,7 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 		// in progress cache does not exist for this action, so can send.
 		return true
 	}
-	inProgress, ok := msgProcessCache[connectionKey]
+	inProgress, ok := msgProcessCache[k]
 	if !ok {
 		// in progress cache does not exist for this connection, so can send.
 		return true
@@ -412,20 +412,20 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 		// remove all retention of this connection handshake in pathEnd.messagesCache.ConnectionHandshake and counterparty
 		toDelete := make(map[string][]ConnectionKey)
 		toDeleteCounterparty := make(map[string][]ConnectionKey)
-		counterpartyKey := connectionKey.Counterparty()
+		counterpartyKey := k.Counterparty()
 		switch action {
 		case MsgConnectionOpenTry:
 			toDeleteCounterparty[MsgConnectionOpenInit] = []ConnectionKey{counterpartyKey.msgInitKey()}
 		case MsgConnectionOpenAck:
 			toDeleteCounterparty[MsgConnectionOpenTry] = []ConnectionKey{counterpartyKey}
-			toDelete[MsgConnectionOpenInit] = []ConnectionKey{connectionKey.msgInitKey()}
+			toDelete[MsgConnectionOpenInit] = []ConnectionKey{k.msgInitKey()}
 		case MsgConnectionOpenConfirm:
 			toDeleteCounterparty[MsgConnectionOpenAck] = []ConnectionKey{counterpartyKey}
-			toDelete[MsgConnectionOpenTry] = []ConnectionKey{connectionKey}
+			toDelete[MsgConnectionOpenTry] = []ConnectionKey{k}
 			toDeleteCounterparty[MsgConnectionOpenInit] = []ConnectionKey{counterpartyKey.msgInitKey()}
 		}
 		// delete in progress send for this specific message
-		pathEnd.connProcessing.deleteMessages(map[string][]ConnectionKey{action: []ConnectionKey{connectionKey}})
+		pathEnd.connProcessing.deleteMessages(map[string][]ConnectionKey{action: []ConnectionKey{k}})
 
 		// delete all connection handshake retention history for this connection
 		pathEnd.messageCache.ConnectionHandshake.DeleteMessages(toDelete)
@@ -444,7 +444,7 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 	channelKey := channelInfoChannelKey(message.info).Counterparty()
 	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay channel message until counterparty height has incremented",
-			zap.Any("channel", channelKey),
+			zap.Inline(channelKey),
 			zap.String("action", action),
 		)
 		return false
@@ -511,7 +511,7 @@ func (pathEnd *pathEndRuntime) trackProcessingPacketMessage(message packetIBCMes
 	channelKey, err := message.channelKey()
 	if err != nil {
 		pathEnd.log.Error("Unexpected error tracking processing packet",
-			zap.Any("channel", channelKey),
+			zap.Inline(channelKey),
 			zap.String("action", action),
 			zap.Uint64("sequence", sequence),
 			zap.Error(err),

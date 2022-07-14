@@ -22,27 +22,33 @@ func (ccp *CosmosChainProcessor) handleMessage(m ibcMessage, c processor.IBCMess
 }
 
 func (ccp *CosmosChainProcessor) handlePacketMessage(action string, pi provider.PacketInfo, c processor.IBCMessagesCache) {
-	channelKey, err := processor.PacketInfoChannelKey(action, pi)
+	k, err := processor.PacketInfoChannelKey(action, pi)
 	if err != nil {
 		ccp.log.Error("Unexpected error handling packet message",
 			zap.String("action", action),
 			zap.Uint64("sequence", pi.Sequence),
-			zap.Any("channel", channelKey),
+			zap.Inline(k),
 			zap.Error(err),
 		)
 		return
 	}
 
-	if !c.PacketFlow.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), action, pi.Sequence) {
-		ccp.log.Warn("Not retaining packet message",
+	if !c.PacketFlow.ShouldRetainSequence(ccp.pathProcessors, k, ccp.chainProvider.ChainId(), action, pi.Sequence) {
+		ccp.log.Debug("Not retaining packet message",
 			zap.String("action", action),
 			zap.Uint64("sequence", pi.Sequence),
-			zap.Any("channel", channelKey),
+			zap.Inline(k),
 		)
 		return
 	}
 
-	c.PacketFlow.Retain(channelKey, action, pi)
+	ccp.log.Debug("Retaining packet message",
+		zap.String("action", action),
+		zap.Uint64("sequence", pi.Sequence),
+		zap.Inline(k),
+	)
+
+	c.PacketFlow.Retain(k, action, pi)
 	ccp.logPacketMessage(action, pi)
 }
 
