@@ -1104,12 +1104,21 @@ func (cc *CosmosProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest
 	return nil
 }
 
-func (cc *CosmosProvider) PacketCommitment(ctx context.Context, msgTransfer provider.PacketInfo, latest provider.LatestBlock) (provider.PacketProof, error) {
+func (cc *CosmosProvider) PacketCommitment(
+	ctx context.Context,
+	msgTransfer provider.PacketInfo,
+	height uint64,
+) (provider.PacketProof, error) {
 	key := host.PacketCommitmentKey(msgTransfer.SourcePort, msgTransfer.SourceChannel, msgTransfer.Sequence)
-	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
+	commitment, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
 		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet commitment: %w", err)
 	}
+	// check if packet commitment exists
+	if len(commitment) == 0 {
+		return provider.PacketProof{}, chantypes.ErrPacketCommitmentNotFound
+	}
+
 	return provider.PacketProof{
 		Proof:       proof,
 		ProofHeight: proofHeight,
@@ -1131,11 +1140,18 @@ func (cc *CosmosProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof p
 	return NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, latest provider.LatestBlock) (provider.PacketProof, error) {
+func (cc *CosmosProvider) PacketAcknowledgement(
+	ctx context.Context,
+	msgRecvPacket provider.PacketInfo,
+	height uint64,
+) (provider.PacketProof, error) {
 	key := host.PacketAcknowledgementKey(msgRecvPacket.DestPort, msgRecvPacket.DestChannel, msgRecvPacket.Sequence)
-	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
+	ack, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
 		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet acknowledgement: %w", err)
+	}
+	if len(ack) == 0 {
+		return provider.PacketProof{}, chantypes.ErrInvalidAcknowledgement
 	}
 	return provider.PacketProof{
 		Proof:       proof,
@@ -1159,9 +1175,13 @@ func (cc *CosmosProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, 
 	return NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, latest provider.LatestBlock) (provider.PacketProof, error) {
+func (cc *CosmosProvider) PacketReceipt(
+	ctx context.Context,
+	msgTransfer provider.PacketInfo,
+	height uint64,
+) (provider.PacketProof, error) {
 	key := host.PacketReceiptKey(msgTransfer.DestPort, msgTransfer.DestChannel, msgTransfer.Sequence)
-	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(latest.Height), key)
+	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
 		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
 	}
@@ -1224,8 +1244,12 @@ func (cc *CosmosProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, pr
 	return NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenInit provider.ConnectionInfo, latest provider.LatestBlock) (provider.ConnectionProof, error) {
-	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := cc.GenerateConnHandshakeProof(ctx, int64(latest.Height), msgOpenInit.ClientID, msgOpenInit.ConnID)
+func (cc *CosmosProvider) ConnectionHandshakeProof(
+	ctx context.Context,
+	msgOpenInit provider.ConnectionInfo,
+	height uint64,
+) (provider.ConnectionProof, error) {
+	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := cc.GenerateConnHandshakeProof(ctx, int64(height), msgOpenInit.ClientID, msgOpenInit.ConnID)
 	if err != nil {
 		return provider.ConnectionProof{}, err
 	}
@@ -1312,8 +1336,12 @@ func (cc *CosmosProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInf
 	return NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) ConnectionProof(ctx context.Context, msgOpenAck provider.ConnectionInfo, latest provider.LatestBlock) (provider.ConnectionProof, error) {
-	connState, err := cc.QueryConnection(ctx, int64(latest.Height), msgOpenAck.ConnID)
+func (cc *CosmosProvider) ConnectionProof(
+	ctx context.Context,
+	msgOpenAck provider.ConnectionInfo,
+	height uint64,
+) (provider.ConnectionProof, error) {
+	connState, err := cc.QueryConnection(ctx, int64(height), msgOpenAck.ConnID)
 	if err != nil {
 		return provider.ConnectionProof{}, err
 	}
@@ -1362,8 +1390,12 @@ func (cc *CosmosProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof pr
 	return NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) ChannelProof(ctx context.Context, msg provider.ChannelInfo, latest provider.LatestBlock) (provider.ChannelProof, error) {
-	channelRes, err := cc.QueryChannel(ctx, int64(latest.Height), msg.ChannelID, msg.PortID)
+func (cc *CosmosProvider) ChannelProof(
+	ctx context.Context,
+	msg provider.ChannelInfo,
+	height uint64,
+) (provider.ChannelProof, error) {
+	channelRes, err := cc.QueryChannel(ctx, int64(height), msg.ChannelID, msg.PortID)
 	if err != nil {
 		return provider.ChannelProof{}, err
 	}

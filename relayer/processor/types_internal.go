@@ -190,8 +190,11 @@ func channelInfoChannelKey(c provider.ChannelInfo) ChannelKey {
 // outgoingMessages is a slice of relayer messages that can be
 // appended to concurrently.
 type outgoingMessages struct {
-	mu   sync.Mutex
-	msgs []provider.RelayerMessage
+	mu       sync.Mutex
+	msgs     []provider.RelayerMessage
+	pktMsgs  []packetMessageToTrack
+	connMsgs []connectionMessageToTrack
+	chanMsgs []channelMessageToTrack
 }
 
 // Append acquires a lock on om's mutex and then appends msg.
@@ -201,4 +204,19 @@ func (om *outgoingMessages) Append(msg provider.RelayerMessage) {
 	om.mu.Lock()
 	defer om.mu.Unlock()
 	om.msgs = append(om.msgs, msg)
+}
+
+type packetMessageToTrack struct {
+	msg       packetIBCMessage
+	assembled bool
+}
+
+type connectionMessageToTrack struct {
+	msg       connectionIBCMessage
+	assembled bool
+}
+
+type channelMessageToTrack struct {
+	msg       channelIBCMessage
+	assembled bool
 }
