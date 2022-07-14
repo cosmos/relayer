@@ -14,7 +14,8 @@ const (
 	// in the case of failure to send transactions with IBC messages.
 	durationErrorRetry         = 5 * time.Second
 	messageSendTimeout         = 10 * time.Second
-	blocksToRetryAssemblyAfter = 1
+	packetProofQueryTimeout    = 5 * time.Second
+	blocksToRetryAssemblyAfter = 0
 	blocksToRetrySendAfter     = 2
 	maxMessageSendRetries      = 5
 

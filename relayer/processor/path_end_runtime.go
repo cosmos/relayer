@@ -295,19 +295,13 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		)
 		return false
 	}
-	// NOTE: this block of code cleans up the logs significantly since it gives
-	// a better guarantee that the proof will be committed, but it slows down relaying.
-	// The relayer can relay more packets in competitive environments by retrying
-	// proof queries, even though the logs will show more proof query errors.
-	if !competitiveRelaying {
-		if message.info.Height >= counterparty.latestBlock.Height {
-			pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
-				zap.String("action", action),
-				zap.Uint64("sequence", sequence),
-				zap.Inline(k),
-			)
-			return false
-		}
+	if message.info.Height >= counterparty.latestBlock.Height {
+		pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
+			zap.String("action", action),
+			zap.Uint64("sequence", sequence),
+			zap.Inline(k),
+		)
+		return false
 	}
 	if !pathEnd.channelStateCache[k] {
 		// channel is not open, do not send
