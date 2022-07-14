@@ -558,14 +558,14 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 	// if sending messages fails to one pathEnd, we don't need to halt sending to the other pathEnd.
 	var eg errgroup.Group
 	eg.Go(func() error {
-		if err := pp.assembleAndSendMessages(ctx, pp.pathEnd2, pp.pathEnd1, pathEnd1Messages, msgMemo); err != nil {
+		if err := pp.assembleAndSendMessages(ctx, pp.pathEnd2, pp.pathEnd1, pathEnd1Messages); err != nil {
 			pp.logFailedTx(pp.pathEnd2.info, pp.pathEnd1.info, err)
 			return err
 		}
 		return nil
 	})
 	eg.Go(func() error {
-		if err := pp.assembleAndSendMessages(ctx, pp.pathEnd1, pp.pathEnd2, pathEnd2Messages, msgMemo); err != nil {
+		if err := pp.assembleAndSendMessages(ctx, pp.pathEnd1, pp.pathEnd2, pathEnd2Messages); err != nil {
 			pp.logFailedTx(pp.pathEnd1.info, pp.pathEnd2.info, err)
 			return err
 		}
