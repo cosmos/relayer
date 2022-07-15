@@ -35,7 +35,7 @@ func StartRelayer(
 	src, dst *Chain,
 	filter ChannelFilter,
 	maxTxSize, maxMsgLength uint64,
-	msgMemo string,
+	memo string,
 	processorType string,
 	initialBlockHistory uint64,
 ) chan error {
@@ -62,10 +62,10 @@ func StartRelayer(
 			},
 		}}
 
-		go relayerStartEventProcessor(ctx, log, paths, initialBlockHistory, maxTxSize, maxMsgLength, msgMemo, errorChan)
+		go relayerStartEventProcessor(ctx, log, paths, initialBlockHistory, maxTxSize, maxMsgLength, memo, errorChan)
 		return errorChan
 	case ProcessorLegacy:
-		go relayerMainLoop(ctx, log, src, dst, filter, maxTxSize, maxMsgLength, msgMemo, errorChan)
+		go relayerMainLoop(ctx, log, src, dst, filter, maxTxSize, maxMsgLength, memo, errorChan)
 		return errorChan
 	default:
 		panic(fmt.Errorf("unexpected processor type: %s, supports one of: [%s, %s]", processorType, ProcessorEvents, ProcessorLegacy))
@@ -103,7 +103,7 @@ func relayerStartEventProcessor(
 	initialBlockHistory uint64,
 	maxTxSize,
 	maxMsgLength uint64,
-	msgMemo string,
+	memo string,
 	errCh chan<- error,
 ) {
 	defer close(errCh)
@@ -120,7 +120,7 @@ func relayerStartEventProcessor(
 				log,
 				p.src.pathEnd,
 				p.dst.pathEnd,
-				msgMemo,
+				memo,
 			))
 	}
 
@@ -132,7 +132,7 @@ func relayerStartEventProcessor(
 }
 
 // relayerMainLoop is the main loop of the relayer.
-func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64, msgMemo string, errCh chan<- error) {
+func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64, memo string, errCh chan<- error) {
 	defer close(errCh)
 
 	// Query the list of channels on the src connection.
@@ -176,7 +176,7 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 			if !channel.active {
 				channel.active = true
 				wg.Add(1)
-				go relayUnrelayedPacketsAndAcks(ctx, log, &wg, src, dst, maxTxSize, maxMsgLength, msgMemo, channel, channels)
+				go relayUnrelayedPacketsAndAcks(ctx, log, &wg, src, dst, maxTxSize, maxMsgLength, memo, channel, channels)
 			}
 		}
 

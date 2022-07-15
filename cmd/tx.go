@@ -407,6 +407,7 @@ $ %s tx conn demo-path --timeout 5s`,
 	cmd = timeoutFlag(a.Viper, cmd)
 	cmd = retryFlag(a.Viper, cmd)
 	cmd = clientParameterFlags(a.Viper, cmd)
+	cmd = overrideFlag(a.Viper, cmd)
 	cmd = memoFlag(a.Viper, cmd)
 	return cmd
 }
@@ -482,6 +483,7 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 	cmd = timeoutFlag(a.Viper, cmd)
 	cmd = retryFlag(a.Viper, cmd)
 	cmd = overrideFlag(a.Viper, cmd)
+	cmd = channelParameterFlags(a.Viper, cmd)
 	cmd = memoFlag(a.Viper, cmd)
 	return cmd
 }
@@ -660,6 +662,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 	cmd = retryFlag(a.Viper, cmd)
 	cmd = clientParameterFlags(a.Viper, cmd)
 	cmd = channelParameterFlags(a.Viper, cmd)
+	cmd = overrideFlag(a.Viper, cmd)
 	cmd = memoFlag(a.Viper, cmd)
 	return cmd
 }

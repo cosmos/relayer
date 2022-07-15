@@ -153,10 +153,7 @@ func (pathEnd *pathEndRuntime) handleCallbacks(c IBCMessagesCache) {
 	}
 }
 
-func (pathEnd *pathEndRuntime) shouldTerminate(
-	ibcMessagesCache IBCMessagesCache,
-	messageLifecycle MessageLifecycle,
-) bool {
+func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache, messageLifecycle MessageLifecycle) bool {
 	if messageLifecycle == nil {
 		return false
 	}
@@ -261,12 +258,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(
 	return false
 }
 
-func (pathEnd *pathEndRuntime) mergeCacheData(
-	ctx context.Context,
-	cancel func(),
-	d ChainProcessorCacheData,
-	messageLifecycle MessageLifecycle,
-) {
+func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, messageLifecycle MessageLifecycle) {
 	pathEnd.inSync = d.InSync
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.latestHeader = d.LatestHeader
@@ -368,7 +360,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 			toDelete[MsgTransfer] = []uint64{sequence}
 		}
 		// delete in progress send for this specific message
-		pathEnd.packetProcessing[k].deleteMessages(map[string][]uint64{action: {sequence}})
+		pathEnd.packetProcessing[k].deleteMessages(map[string][]uint64{action: []uint64{sequence}})
 		// delete all packet flow retention history for this sequence
 		pathEnd.messageCache.PacketFlow[k].DeleteMessages(toDelete)
 		counterparty.messageCache.PacketFlow[k].DeleteMessages(toDeleteCounterparty)
@@ -380,10 +372,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 
 // shouldSendConnectionMessage determines if the connection handshake message should be sent now.
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
-func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(
-	message connectionIBCMessage,
-	counterparty *pathEndRuntime,
-) bool {
+func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBCMessage, counterparty *pathEndRuntime) bool {
 	action := message.action
 	k := connectionInfoConnectionKey(message.info).Counterparty()
 	if message.info.Height >= counterparty.latestBlock.Height {
@@ -436,7 +425,7 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(
 			toDeleteCounterparty[MsgConnectionOpenInit] = []ConnectionKey{counterpartyKey.msgInitKey()}
 		}
 		// delete in progress send for this specific message
-		pathEnd.connProcessing.deleteMessages(map[string][]ConnectionKey{action: {k}})
+		pathEnd.connProcessing.deleteMessages(map[string][]ConnectionKey{action: []ConnectionKey{k}})
 
 		// delete all connection handshake retention history for this connection
 		pathEnd.messageCache.ConnectionHandshake.DeleteMessages(toDelete)
@@ -504,7 +493,7 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 			toDeleteCounterparty[MsgChannelOpenInit] = []ChannelKey{counterpartyKey.msgInitKey()}
 		}
 		// delete in progress send for this specific message
-		pathEnd.channelProcessing.deleteMessages(map[string][]ChannelKey{action: {channelKey}})
+		pathEnd.channelProcessing.deleteMessages(map[string][]ChannelKey{action: []ChannelKey{channelKey}})
 
 		// delete all connection handshake retention history for this channel
 		pathEnd.messageCache.ChannelHandshake.DeleteMessages(toDelete)
