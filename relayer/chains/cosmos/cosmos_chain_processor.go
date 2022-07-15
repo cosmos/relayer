@@ -60,8 +60,11 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider) *
 }
 
 const (
-	// Default timeout for initialization queries, block results query, light block query,
+	// Timeout for initialization queries and light block query,
 	queryTimeout = 10 * time.Second
+
+	// Timeout for block results query. Longer timeout needed for large blocks.
+	blockResultsQueryTimeout = 2 * time.Minute
 
 	// Back off delay between latest height query retries
 	latestHeightQueryRetryDelay = 1 * time.Second
@@ -91,10 +94,10 @@ const (
 	// Scenarios for how much clock drift should be added to
 	// target ideal block query window.
 
-	// Clock drift addition when the light block query fails
+	// Clock drift addition when a block query fails
 	queryFailureClockDriftAdditionMs = 47
 
-	// Clock drift addition when the light block query succeeds
+	// Clock drift addition when the block queries succeeds
 	querySuccessClockDriftAdditionMs = -23
 
 	// Clock drift addition when the latest block is the same as
@@ -146,39 +149,6 @@ func (ccp *CosmosChainProcessor) latestHeightWithRetry(ctx context.Context) (lat
 	}))
 }
 
-// blockResultsWithRetry will query for block data, retrying with a longer timeout in case of failure.
-// It will delay by latestHeightQueryRetryDelay between attempts, up to latestHeightQueryRetries.
-func (ccp *CosmosChainProcessor) queryBlockResultsWithRetry(
-	ctx context.Context,
-	height int64,
-) (blockRes *ctypes.ResultBlockResults, err error) {
-	timeout := queryTimeout
-	return blockRes, retry.Do(func() error {
-		queryCtx, cancel := context.WithTimeout(ctx, timeout)
-		defer cancel()
-		var err error
-		blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &height)
-		return err
-	},
-		retry.Context(ctx),
-		retry.Attempts(blockQueryRetries),
-		retry.Delay(blockQueryRetryDelay),
-		retry.DelayType(retry.FixedDelay),
-		retry.LastErrorOnly(true),
-		retry.OnRetry(func(n uint, err error) {
-			// double timeout, longer timeouts are needed for larger blocks.
-			timeout *= 2
-			ccp.log.Error(
-				"Failed to query block results",
-				zap.Int64("height", height),
-				zap.Uint("attempt", n+1),
-				zap.Uint("max_attempts", blockQueryRetries),
-				zap.Error(err),
-			)
-		}),
-	)
-}
-
 // clientState will return the most recent client state if client messages
 // have already been observed for the clientID, otherwise it will query for it.
 func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID string) (provider.ClientState, error) {
@@ -208,7 +178,7 @@ type queryCyclePersistence struct {
 }
 
 // addClockDriftMs is used to modify the clock drift for targeting the
-// next ideal window for block queries. For example if the light block query fails
+// next ideal window for block queries. For example if a block query fails
 // because it is too early to be queried, clock drift should be added. If the query
 // succeeds, clock drift should be removed, but not as much as is added for the error
 // case. Clock drift should also be added when checking the latest height and it has
@@ -440,27 +410,25 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		var ibcHeader provider.IBCHeader
 		i := i
 		queryStartTime := time.Now()
-		eg.Go(func() error {
-			blockRes, err = ccp.queryBlockResultsWithRetry(ctx, i)
+		eg.Go(func() (err error) {
+			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
+			defer cancelQueryCtx()
+			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
 			return err
 		})
-		eg.Go(func() error {
-			queryCtx, cancel := context.WithTimeout(ctx, queryTimeout)
-			defer cancel()
-			var err error
+		eg.Go(func() (err error) {
+			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
+			defer cancelQueryCtx()
 			ibcHeader, err = ccp.chainProvider.IBCHeaderAtHeight(queryCtx, i)
-			if err != nil {
-				persistence.addClockDriftMs(queryFailureClockDriftAdditionMs)
-			} else {
-				persistence.addClockDriftMs(querySuccessClockDriftAdditionMs)
-			}
 			return err
 		})
 
 		if err := eg.Wait(); err != nil {
+			persistence.addClockDriftMs(queryFailureClockDriftAdditionMs)
 			ccp.log.Warn("Error querying block data", zap.Error(err))
 			break
 		}
+		persistence.addClockDriftMs(querySuccessClockDriftAdditionMs)
 
 		latestHeader = ibcHeader.(cosmos.CosmosIBCHeader)
 
