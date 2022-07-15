@@ -60,17 +60,46 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider) *
 }
 
 const (
-	queryTimeout                = 10 * time.Second
+	// Default timeout for initialization queries, block results query, light block query,
+	queryTimeout = 10 * time.Second
+
+	// Back off delay between latest height query retries
 	latestHeightQueryRetryDelay = 1 * time.Second
-	latestHeightQueryRetries    = 5
 
+	// Max retries for failed latest height queries
+	latestHeightQueryRetries = 5
+
+	// Initial query loop minimum duration.
+	// Rolling average block time will be used after startup.
 	defaultMinQueryLoopDuration = 1 * time.Second
-	inSyncNumBlocksThreshold    = 2
 
+	// How many blocks behind the latest to consider in sync with the chain.
+	inSyncNumBlocksThreshold = 2
+
+	// Fixed delay between block query retry attempts.
 	blockQueryRetryDelay = 200 * time.Millisecond
 
-	// With doubling the 10 second timeout each time, this gives ~3 mins max timeout
+	// With doubling the 10 second queryTimeout each time, this gives ~3 mins max timeout.
 	blockQueryRetries = 4
+
+	// Each new delta block time will affect the rolling average by 1/n of this.
+	blockAverageSmoothing = 10
+
+	// Delta block times will be excluded from rolling average if they exceed this.
+	maxConsideredDeltaBlockTimeMs = 15000
+
+	// Scenarios for how much clock drift should be added to
+	// target ideal block query window.
+
+	// Clock drift addition when the light block query fails
+	queryFailureClockDriftAdditionMs = 47
+
+	// Clock drift addition when the light block query succeeds
+	querySuccessClockDriftAdditionMs = -23
+
+	// Clock drift addition when the latest block is the same as
+	// the last successfully queried block
+	sameBlockClockDriftAdditionMs = 71
 )
 
 // latestClientState is a map of clientID to the latest clientInfo for that client.
@@ -150,38 +179,6 @@ func (ccp *CosmosChainProcessor) queryBlockResultsWithRetry(
 	)
 }
 
-// ibcHeaderWithRetry will query for a block ibc header, retrying with a longer timeout in case of failure.
-// It will delay by latestHeightQueryRetryDelay between attempts, up to latestHeightQueryRetries.
-func (ccp *CosmosChainProcessor) queryIBCHeaderWithRetry(
-	ctx context.Context,
-	height int64,
-) (ibcHeader provider.IBCHeader, err error) {
-	timeout := queryTimeout
-	return ibcHeader, retry.Do(func() error {
-		queryCtx, cancel := context.WithTimeout(ctx, timeout)
-		defer cancel()
-		var err error
-		ibcHeader, err = ccp.chainProvider.IBCHeaderAtHeight(queryCtx, height)
-		return err
-	},
-		retry.Context(ctx),
-		retry.Attempts(blockQueryRetries),
-		retry.Delay(blockQueryRetryDelay),
-		retry.DelayType(retry.BackOffDelay),
-		retry.LastErrorOnly(true),
-		retry.OnRetry(func(n uint, err error) {
-			timeout *= 2
-			ccp.log.Warn(
-				"Failed to query IBC header",
-				zap.Int64("height", height),
-				zap.Uint("attempt", n+1),
-				zap.Uint("max_attempts", blockQueryRetries),
-				zap.Error(err),
-			)
-		}),
-	)
-}
-
 // clientState will return the most recent client state if client messages
 // have already been observed for the clientID, otherwise it will query for it.
 func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID string) (provider.ClientState, error) {
@@ -202,9 +199,79 @@ func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID strin
 
 // queryCyclePersistence hold the variables that should be retained across queryCycles.
 type queryCyclePersistence struct {
-	latestHeight         int64
-	latestQueriedBlock   int64
-	minQueryLoopDuration time.Duration
+	latestHeight           int64
+	latestQueriedBlock     int64
+	latestQueriedBlockTime time.Time
+	averageBlockTimeMs     int64
+	minQueryLoopDuration   time.Duration
+	clockDriftMs           int64
+}
+
+// addClockDriftMs is used to modify the clock drift for targeting the
+// next ideal window for block queries. For example if the light block query fails
+// because it is too early to be queried, clock drift should be added. If the query
+// succeeds, clock drift should be removed, but not as much as is added for the error
+// case. Clock drift should also be added when checking the latest height and it has
+// not yet incremented.
+func (p *queryCyclePersistence) addClockDriftMs(ms int64) {
+	p.clockDriftMs += ms
+	if p.clockDriftMs < 0 {
+		p.clockDriftMs = 0
+	} else if p.clockDriftMs > p.averageBlockTimeMs {
+		// Should not add more than the average block time as a delay
+		// when targeting the next available block query.
+		p.clockDriftMs = p.averageBlockTimeMs
+	}
+}
+
+// dynamicBlockTime targets the next ideal window for a block query to attempt
+// to schedule block queries for the exact time when they are available.
+func (p *queryCyclePersistence) dynamicBlockTime(
+	log *zap.Logger,
+	queryStart time.Time,
+	latestBlockTime time.Time,
+) {
+	var deltaBlockTime int64
+
+	if p.latestQueriedBlockTime.IsZero() {
+		// latestQueriedBlockTime not yet initialized
+		return
+	}
+
+	// deltaT between previous block time and latest block time.
+	deltaBlockTime = latestBlockTime.Sub(p.latestQueriedBlockTime).Milliseconds()
+
+	if deltaBlockTime > maxConsideredDeltaBlockTimeMs {
+		// treat halts and upgrades as outliers
+		return
+	}
+	if p.averageBlockTimeMs == 0 {
+		// initialize average block time with first measurement of deltaT
+		p.averageBlockTimeMs = deltaBlockTime
+	} else {
+		// compute rolling average of deltaT
+		weightedComponent := p.averageBlockTimeMs * (blockAverageSmoothing - 1)
+		p.averageBlockTimeMs = int64(float64(weightedComponent+deltaBlockTime) / blockAverageSmoothing)
+	}
+
+	// calculate deltaT between the block timestamp and when we initiated the query.
+	timeQueriedAfterBlockTime := queryStart.Sub(latestBlockTime).Milliseconds()
+	if timeQueriedAfterBlockTime <= 0 {
+		log.Debug("Unexpected state, query start is before latest block time but query succeeded")
+		return
+	}
+
+	// also take into account older blocks, where timeQueriedAfterBlockTime > p.averageBlockTimeMs, by using remainder.
+	// clock drift tolerant using clockDriftMs trim value
+	targetedQueryTimeFromNow := p.averageBlockTimeMs - (timeQueriedAfterBlockTime % p.averageBlockTimeMs) + p.clockDriftMs
+
+	p.minQueryLoopDuration = time.Millisecond * time.Duration(targetedQueryTimeFromNow)
+
+	log.Debug("Dynamic query time",
+		zap.Int64("avg_block_ms", p.averageBlockTimeMs),
+		zap.Int64("targeted_query_ms", targetedQueryTimeFromNow),
+		zap.Int64("clock_drift_ms", p.clockDriftMs),
+	)
 }
 
 // Run starts the query loop for the chain which will gather applicable ibc messages and push events out to the relevant PathProcessors.
@@ -256,17 +323,14 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 
 	ccp.log.Debug("Entering main query loop")
 
-	ticker := time.NewTicker(persistence.minQueryLoopDuration)
-
 	for {
-		if err := ccp.queryCycle(ctx, &persistence); err != nil {
-			return err
-		}
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-ticker.C:
-			ticker.Reset(persistence.minQueryLoopDuration)
+		case <-time.After(persistence.minQueryLoopDuration):
+			if err := ccp.queryCycle(ctx, &persistence); err != nil {
+				return err
+			}
 		}
 	}
 }
@@ -337,6 +401,12 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		zap.Int64("latest_height", persistence.latestHeight),
 	)
 
+	if persistence.latestHeight == persistence.latestQueriedBlock {
+		persistence.addClockDriftMs(sameBlockClockDriftAdditionMs)
+		persistence.minQueryLoopDuration += 100 * time.Millisecond
+		return nil
+	}
+
 	// used at the end of the cycle to send signal to path processors to start processing if both chains are in sync and no new messages came in this cycle
 	firstTimeInSync := false
 
@@ -357,8 +427,6 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	ibcHeaderCache := make(processor.IBCHeaderCache)
 
-	ppChanged := false
-
 	var latestHeader cosmos.CosmosIBCHeader
 
 	newLatestQueriedBlock := persistence.latestQueriedBlock
@@ -368,12 +436,21 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		var blockRes *ctypes.ResultBlockResults
 		var ibcHeader provider.IBCHeader
 		i := i
-		eg.Go(func() (err error) {
+		queryStartTime := time.Now()
+		eg.Go(func() error {
 			blockRes, err = ccp.queryBlockResultsWithRetry(ctx, i)
 			return err
 		})
-		eg.Go(func() (err error) {
-			ibcHeader, err = ccp.queryIBCHeaderWithRetry(ctx, i)
+		eg.Go(func() error {
+			queryCtx, cancel := context.WithTimeout(ctx, queryTimeout)
+			defer cancel()
+			var err error
+			ibcHeader, err = ccp.chainProvider.IBCHeaderAtHeight(queryCtx, i)
+			if err != nil {
+				persistence.addClockDriftMs(queryFailureClockDriftAdditionMs)
+			} else {
+				persistence.addClockDriftMs(querySuccessClockDriftAdditionMs)
+			}
 			return err
 		})
 
@@ -386,13 +463,14 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 		heightUint64 := uint64(i)
 
+		latestBlockTime := latestHeader.SignedHeader.Time
+
 		ccp.latestBlock = provider.LatestBlock{
 			Height: heightUint64,
-			Time:   latestHeader.SignedHeader.Time,
+			Time:   latestBlockTime,
 		}
 
 		ibcHeaderCache[heightUint64] = latestHeader
-		ppChanged = true
 
 		for _, tx := range blockRes.TxsResults {
 			if tx.Code != 0 {
@@ -406,13 +484,12 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			}
 		}
 		newLatestQueriedBlock = i
+
+		persistence.dynamicBlockTime(ccp.log, queryStartTime, latestBlockTime)
+		persistence.latestQueriedBlockTime = latestBlockTime
 	}
 
 	if newLatestQueriedBlock == persistence.latestQueriedBlock {
-		return nil
-	}
-
-	if !ppChanged {
 		if firstTimeInSync {
 			for _, pp := range ccp.pathProcessors {
 				pp.ProcessBacklogIfReady()
