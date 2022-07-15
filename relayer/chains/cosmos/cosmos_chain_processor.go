@@ -261,9 +261,12 @@ func (p *queryCyclePersistence) dynamicBlockTime(
 		return
 	}
 
+	queryDurationMs := time.Since(queryStart).Milliseconds()
+
 	// also take into account older blocks, where timeQueriedAfterBlockTime > p.averageBlockTimeMs, by using remainder.
 	// clock drift tolerant using clockDriftMs trim value
-	targetedQueryTimeFromNow := p.averageBlockTimeMs - (timeQueriedAfterBlockTime % p.averageBlockTimeMs) + p.clockDriftMs
+	targetedQueryTimeFromNow := p.averageBlockTimeMs - (timeQueriedAfterBlockTime % p.averageBlockTimeMs) -
+		queryDurationMs + p.clockDriftMs
 
 	p.minQueryLoopDuration = time.Millisecond * time.Duration(targetedQueryTimeFromNow)
 
