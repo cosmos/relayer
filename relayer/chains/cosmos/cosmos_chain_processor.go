@@ -60,8 +60,7 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider) *
 }
 
 const (
-	queryTimeout                = 5 * time.Second
-	blockResultsQueryTimeout    = 2 * time.Minute
+	queryTimeout                = 10 * time.Second
 	latestHeightQueryRetryDelay = 1 * time.Second
 	latestHeightQueryRetries    = 5
 
@@ -69,7 +68,9 @@ const (
 	inSyncNumBlocksThreshold    = 2
 
 	blockQueryRetryDelay = 200 * time.Millisecond
-	blockQueryRetries    = 10
+
+	// With doubling the 10 second timeout each time, this gives ~3 mins max timeout
+	blockQueryRetries = 4
 )
 
 // latestClientState is a map of clientID to the latest clientInfo for that client.
@@ -136,9 +137,11 @@ func (ccp *CosmosChainProcessor) queryBlockResultsWithRetry(
 		retry.DelayType(retry.FixedDelay),
 		retry.LastErrorOnly(true),
 		retry.OnRetry(func(n uint, err error) {
+			// double timeout, longer timeouts are needed for larger blocks.
 			timeout *= 2
 			ccp.log.Error(
 				"Failed to query block results",
+				zap.Int64("height", height),
 				zap.Uint("attempt", n+1),
 				zap.Uint("max_attempts", blockQueryRetries),
 				zap.Error(err),
@@ -155,7 +158,7 @@ func (ccp *CosmosChainProcessor) queryIBCHeaderWithRetry(
 ) (ibcHeader provider.IBCHeader, err error) {
 	timeout := queryTimeout
 	return ibcHeader, retry.Do(func() error {
-		queryCtx, cancel := context.WithTimeout(ctx, queryTimeout)
+		queryCtx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
 		var err error
 		ibcHeader, err = ccp.chainProvider.IBCHeaderAtHeight(queryCtx, height)
@@ -168,8 +171,9 @@ func (ccp *CosmosChainProcessor) queryIBCHeaderWithRetry(
 		retry.LastErrorOnly(true),
 		retry.OnRetry(func(n uint, err error) {
 			timeout *= 2
-			ccp.log.Error(
+			ccp.log.Warn(
 				"Failed to query IBC header",
+				zap.Int64("height", height),
 				zap.Uint("attempt", n+1),
 				zap.Uint("max_attempts", blockQueryRetries),
 				zap.Error(err),
