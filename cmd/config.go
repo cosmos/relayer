@@ -46,7 +46,7 @@ func configCmd(a *appState) *cobra.Command {
 
 	cmd.AddCommand(
 		configShowCmd(a),
-		configInitCmd(),
+		configInitCmd(a),
 	)
 	return cmd
 }
@@ -108,7 +108,7 @@ $ %s cfg list`, appName, defaultHome, appName)),
 }
 
 // Command for initializing an empty config at the --home location
-func configInitCmd() *cobra.Command {
+func configInitCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "init",
 		Aliases: []string{"i"},
@@ -150,8 +150,10 @@ $ %s cfg i`, appName, defaultHome, appName)),
 				}
 				defer f.Close()
 
+				memo, _ := cmd.Flags().GetString(flagMemo)
+
 				// And write the default config to that location...
-				if _, err = f.Write(defaultConfig()); err != nil {
+				if _, err = f.Write(defaultConfig(memo)); err != nil {
 					return err
 				}
 
@@ -163,7 +165,7 @@ $ %s cfg i`, appName, defaultHome, appName)),
 			return fmt.Errorf("config already exists: %s", cfgPath)
 		},
 	}
-	return cmd
+	return memoFlag(a.Viper, cmd)
 }
 
 // addChainsFromDirectory finds all JSON-encoded config files in dir,
@@ -276,6 +278,10 @@ func (c *Config) Wrapped() *ConfigOutputWrapper {
 // that includes "rly" and the version, e.g. "rly(v2.0.0)"
 // or "My custom memo | rly(v2.0.0)"
 func rlyMemo(memo string) string {
+	if memo == "-" {
+		// omit memo entirely
+		return ""
+	}
 	defaultMemo := fmt.Sprintf("rly(%s)", Version)
 	if memo == "" {
 		return defaultMemo
@@ -425,9 +431,9 @@ func (c Config) MustYAML() []byte {
 	return out
 }
 
-func defaultConfig() []byte {
+func defaultConfig(memo string) []byte {
 	return Config{
-		Global: newDefaultGlobalConfig(),
+		Global: newDefaultGlobalConfig(memo),
 		Chains: relayer.Chains{},
 		Paths:  relayer.Paths{},
 	}.MustYAML()
@@ -442,11 +448,12 @@ type GlobalConfig struct {
 }
 
 // newDefaultGlobalConfig returns a global config with defaults set
-func newDefaultGlobalConfig() GlobalConfig {
+func newDefaultGlobalConfig(memo string) GlobalConfig {
 	return GlobalConfig{
 		APIListenPort:  ":5183",
 		Timeout:        "10s",
 		LightCacheSize: 20,
+		Memo:           memo,
 	}
 }
 
