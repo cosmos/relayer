@@ -61,6 +61,7 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider) *
 
 const (
 	queryTimeout                = 5 * time.Second
+	blockResultsQueryTimeout    = 2 * time.Minute
 	latestHeightQueryRetryDelay = 1 * time.Second
 	latestHeightQueryRetries    = 5
 
@@ -299,7 +300,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		var ibcHeader provider.IBCHeader
 		i := i
 		eg.Go(func() (err error) {
-			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
+			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
 			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
 			return err
