@@ -505,10 +505,10 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 	return true
 }
 
-func (pathEnd *pathEndRuntime) trackProcessingPacketMessage(message packetIBCMessage, assembled bool) {
-	action := message.action
-	sequence := message.info.Sequence
-	channelKey, err := message.channelKey()
+func (pathEnd *pathEndRuntime) trackProcessingPacketMessage(t packetMessageToTrack) {
+	action := t.msg.action
+	sequence := t.msg.info.Sequence
+	channelKey, err := t.msg.channelKey()
 	if err != nil {
 		pathEnd.log.Error("Unexpected error tracking processing packet",
 			zap.Inline(channelKey),
@@ -538,13 +538,13 @@ func (pathEnd *pathEndRuntime) trackProcessingPacketMessage(message packetIBCMes
 	channelProcessingCache[sequence] = processingMessage{
 		lastProcessedHeight: pathEnd.latestBlock.Height,
 		retryCount:          retryCount,
-		assembled:           assembled,
+		assembled:           t.assembled,
 	}
 }
 
-func (pathEnd *pathEndRuntime) trackProcessingConnectionMessage(message connectionIBCMessage, assembled bool) {
-	action := message.action
-	connectionKey := connectionInfoConnectionKey(message.info).Counterparty()
+func (pathEnd *pathEndRuntime) trackProcessingConnectionMessage(t connectionMessageToTrack) {
+	action := t.msg.action
+	connectionKey := connectionInfoConnectionKey(t.msg.info).Counterparty()
 	msgProcessCache, ok := pathEnd.connProcessing[action]
 	if !ok {
 		msgProcessCache = make(connectionKeySendCache)
@@ -560,13 +560,13 @@ func (pathEnd *pathEndRuntime) trackProcessingConnectionMessage(message connecti
 	msgProcessCache[connectionKey] = processingMessage{
 		lastProcessedHeight: pathEnd.latestBlock.Height,
 		retryCount:          retryCount,
-		assembled:           assembled,
+		assembled:           t.assembled,
 	}
 }
 
-func (pathEnd *pathEndRuntime) trackProcessingChannelMessage(message channelIBCMessage, assembled bool) {
-	action := message.action
-	channelKey := channelInfoChannelKey(message.info).Counterparty()
+func (pathEnd *pathEndRuntime) trackProcessingChannelMessage(t channelMessageToTrack) {
+	action := t.msg.action
+	channelKey := channelInfoChannelKey(t.msg.info).Counterparty()
 	msgProcessCache, ok := pathEnd.channelProcessing[action]
 	if !ok {
 		msgProcessCache = make(channelKeySendCache)
@@ -582,6 +582,6 @@ func (pathEnd *pathEndRuntime) trackProcessingChannelMessage(message channelIBCM
 	msgProcessCache[channelKey] = processingMessage{
 		lastProcessedHeight: pathEnd.latestBlock.Height,
 		retryCount:          retryCount,
-		assembled:           assembled,
+		assembled:           t.assembled,
 	}
 }

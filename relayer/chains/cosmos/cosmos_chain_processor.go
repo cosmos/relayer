@@ -68,14 +68,6 @@ const (
 	inSyncNumBlocksThreshold    = 2
 )
 
-type msgHandlerParams struct {
-	// incoming IBC message
-	messageInfo any
-
-	// reference to the caches that will be assembled by the handlers in this file
-	ibcMessagesCache processor.IBCMessagesCache
-}
-
 // latestClientState is a map of clientID to the latest clientInfo for that client.
 type latestClientState map[string]provider.ClientState
 
@@ -299,10 +291,13 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	var latestHeader cosmos.CosmosIBCHeader
 
+	newLatestQueriedBlock := persistence.latestQueriedBlock
+
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var eg errgroup.Group
 		var blockRes *ctypes.ResultBlockResults
 		var ibcHeader provider.IBCHeader
+		i := i
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
 			defer cancelQueryCtx()
@@ -317,8 +312,8 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		})
 
 		if err := eg.Wait(); err != nil {
-			ccp.log.Error("Error querying block data", zap.Error(err))
-			return nil
+			ccp.log.Warn("Error querying block data", zap.Error(err))
+			break
 		}
 
 		latestHeader = ibcHeader.(cosmos.CosmosIBCHeader)
@@ -344,6 +339,11 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 				ccp.handleMessage(m, ibcMessagesCache)
 			}
 		}
+		newLatestQueriedBlock = i
+	}
+
+	if newLatestQueriedBlock == persistence.latestQueriedBlock {
+		return nil
 	}
 
 	if !ppChanged {
@@ -381,7 +381,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		})
 	}
 
-	persistence.latestQueriedBlock = persistence.latestHeight
+	persistence.latestQueriedBlock = newLatestQueriedBlock
 
 	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -330,7 +331,7 @@ func (pp *PathProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *
 		if err != nil {
 			return nil, fmt.Errorf("error getting IBC header at height: %d for chain_id: %s, %w", clientConsensusHeight.RevisionHeight+1, src.info.ChainID, err)
 		}
-		pp.log.Warn("Had to query for client trusted IBC header",
+		pp.log.Debug("Had to query for client trusted IBC header",
 			zap.String("chain_id", src.info.ChainID),
 			zap.String("counterparty_chain_id", dst.info.ChainID),
 			zap.String("counterparty_client_id", clientID),
@@ -373,7 +374,7 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 	// need to assemble new trusted state
 	ibcHeader, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight+1]
 	if !ok {
-		pp.log.Warn("No cached IBC header for client trusted height",
+		pp.log.Debug("No cached IBC header for client trusted height",
 			zap.String("chain_id", src.info.ChainID),
 			zap.String("client_id", src.info.ClientID),
 			zap.Uint64("height", src.clientState.ConsensusHeight.RevisionHeight+1),
@@ -558,24 +559,14 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 	var eg errgroup.Group
 	eg.Go(func() error {
 		if err := pp.assembleAndSendMessages(ctx, pp.pathEnd2, pp.pathEnd1, pathEnd1Messages); err != nil {
-			pp.log.Error("Error sending messages",
-				zap.String("src_chain_id", pp.pathEnd1.info.ChainID),
-				zap.String("dst_chain_id", pp.pathEnd2.info.ChainID),
-				zap.String("dst_client_id", pp.pathEnd2.info.ClientID),
-				zap.Error(err),
-			)
+			pp.logFailedTx(pp.pathEnd2.info, pp.pathEnd1.info, err)
 			return err
 		}
 		return nil
 	})
 	eg.Go(func() error {
 		if err := pp.assembleAndSendMessages(ctx, pp.pathEnd1, pp.pathEnd2, pathEnd2Messages); err != nil {
-			pp.log.Error("Error sending messages",
-				zap.String("src_chain_id", pp.pathEnd2.info.ChainID),
-				zap.String("dst_chain_id", pp.pathEnd1.info.ChainID),
-				zap.String("dst_client_id", pp.pathEnd1.info.ClientID),
-				zap.Error(err),
-			)
+			pp.logFailedTx(pp.pathEnd1.info, pp.pathEnd2.info, err)
 			return err
 		}
 		return nil
@@ -583,11 +574,26 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 	return eg.Wait()
 }
 
+func (pp *PathProcessor) logFailedTx(src, dst PathEnd, err error) {
+	if errors.Is(err, chantypes.ErrRedundantTx) {
+		pp.log.Debug("Packet(s) already handled by another relayer")
+		return
+	}
+	pp.log.Error("Error sending messages",
+		zap.String("src_chain_id", src.ChainID),
+		zap.String("dst_chain_id", dst.ChainID),
+		zap.String("src_client_id", src.ClientID),
+		zap.String("dst_client_id", dst.ClientID),
+		zap.Error(err),
+	)
+}
+
 func (pp *PathProcessor) assembleMessage(
 	ctx context.Context,
 	msg ibcMessage,
 	src, dst *pathEndRuntime,
 	om *outgoingMessages,
+	i int,
 	wg *sync.WaitGroup,
 ) {
 	defer wg.Done()
@@ -596,10 +602,22 @@ func (pp *PathProcessor) assembleMessage(
 	switch m := msg.(type) {
 	case packetIBCMessage:
 		message, err = pp.assemblePacketMessage(ctx, m, src, dst)
+		om.pktMsgs[i] = packetMessageToTrack{
+			msg:       m,
+			assembled: err == nil,
+		}
 	case connectionIBCMessage:
 		message, err = pp.assembleConnectionMessage(ctx, m, src, dst)
+		om.connMsgs[i] = connectionMessageToTrack{
+			msg:       m,
+			assembled: err == nil,
+		}
 	case channelIBCMessage:
 		message, err = pp.assembleChannelMessage(ctx, m, src, dst)
+		om.chanMsgs[i] = channelMessageToTrack{
+			msg:       m,
+			assembled: err == nil,
+		}
 	}
 	if err != nil {
 		pp.log.Error("Error assembling channel message", zap.Error(err))
@@ -622,6 +640,9 @@ func (pp *PathProcessor) assembleAndSendMessages(
 			0,
 			len(messages.packetMessages)+len(messages.connectionMessages)+len(messages.channelMessages),
 		),
+		pktMsgs:  make([]packetMessageToTrack, len(messages.packetMessages)),
+		connMsgs: make([]connectionMessageToTrack, len(messages.connectionMessages)),
+		chanMsgs: make([]channelMessageToTrack, len(messages.channelMessages)),
 	}
 	msgUpdateClient, err := pp.assembleMsgUpdateClient(ctx, src, dst)
 	if err != nil {
@@ -632,22 +653,37 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	// Each assembleMessage call below will make a query on the source chain, so these operations can run in parallel.
 	var wg sync.WaitGroup
 
-	for _, msg := range messages.packetMessages {
+	for i, msg := range messages.packetMessages {
 		wg.Add(1)
-		go pp.assembleMessage(ctx, msg, src, dst, &om, &wg)
+		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
 	}
 
-	for _, msg := range messages.connectionMessages {
+	for i, msg := range messages.connectionMessages {
 		wg.Add(1)
-		go pp.assembleMessage(ctx, msg, src, dst, &om, &wg)
+		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
 	}
 
-	for _, msg := range messages.channelMessages {
+	for i, msg := range messages.channelMessages {
 		wg.Add(1)
-		go pp.assembleMessage(ctx, msg, src, dst, &om, &wg)
+		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
 	}
 
 	wg.Wait()
+
+	if len(om.msgs) == 1 {
+		// only msgUpdateClient, don't need to send
+		return errors.New("all messages failed to assemble")
+	}
+
+	for _, m := range om.pktMsgs {
+		dst.trackProcessingPacketMessage(m)
+	}
+	for _, m := range om.connMsgs {
+		dst.trackProcessingConnectionMessage(m)
+	}
+	for _, m := range om.chanMsgs {
+		dst.trackProcessingChannelMessage(m)
+	}
 
 	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
@@ -668,7 +704,7 @@ func (pp *PathProcessor) assemblePacketMessage(
 	msg packetIBCMessage,
 	src, dst *pathEndRuntime,
 ) (provider.RelayerMessage, error) {
-	var packetProof func(context.Context, provider.PacketInfo, provider.LatestBlock) (provider.PacketProof, error)
+	var packetProof func(context.Context, provider.PacketInfo, uint64) (provider.PacketProof, error)
 	var assembleMessage func(provider.PacketInfo, provider.PacketProof) (provider.RelayerMessage, error)
 	switch msg.action {
 	case MsgRecvPacket:
@@ -686,14 +722,17 @@ func (pp *PathProcessor) assemblePacketMessage(
 	default:
 		return nil, fmt.Errorf("unexepected packet message action for message assembly: %s", msg.action)
 	}
-	proof, err := packetProof(ctx, msg.info, src.latestBlock)
+
+	ctx, cancel := context.WithTimeout(ctx, packetProofQueryTimeout)
+	defer cancel()
+
+	var proof provider.PacketProof
+	var err error
+	proof, err = packetProof(ctx, msg.info, src.latestBlock.Height)
 	if err != nil {
-		dst.trackProcessingPacketMessage(msg, false)
 		return nil, fmt.Errorf("error querying packet proof: %w", err)
 	}
-	message, err := assembleMessage(msg.info, proof)
-	dst.trackProcessingPacketMessage(msg, err == nil)
-	return message, err
+	return assembleMessage(msg.info, proof)
 }
 
 func (pp *PathProcessor) assembleConnectionMessage(
@@ -701,7 +740,7 @@ func (pp *PathProcessor) assembleConnectionMessage(
 	msg connectionIBCMessage,
 	src, dst *pathEndRuntime,
 ) (provider.RelayerMessage, error) {
-	var connProof func(context.Context, provider.ConnectionInfo, provider.LatestBlock) (provider.ConnectionProof, error)
+	var connProof func(context.Context, provider.ConnectionInfo, uint64) (provider.ConnectionProof, error)
 	var assembleMessage func(provider.ConnectionInfo, provider.ConnectionProof) (provider.RelayerMessage, error)
 	switch msg.action {
 	case MsgConnectionOpenInit:
@@ -722,15 +761,12 @@ func (pp *PathProcessor) assembleConnectionMessage(
 	var proof provider.ConnectionProof
 	var err error
 	if connProof != nil {
-		proof, err = connProof(ctx, msg.info, src.latestBlock)
+		proof, err = connProof(ctx, msg.info, src.latestBlock.Height)
 		if err != nil {
-			dst.trackProcessingConnectionMessage(msg, false)
 			return nil, fmt.Errorf("error querying connection proof: %w", err)
 		}
 	}
-	message, err := assembleMessage(msg.info, proof)
-	dst.trackProcessingConnectionMessage(msg, err == nil)
-	return message, err
+	return assembleMessage(msg.info, proof)
 }
 
 func (pp *PathProcessor) assembleChannelMessage(
@@ -738,7 +774,7 @@ func (pp *PathProcessor) assembleChannelMessage(
 	msg channelIBCMessage,
 	src, dst *pathEndRuntime,
 ) (provider.RelayerMessage, error) {
-	var chanProof func(context.Context, provider.ChannelInfo, provider.LatestBlock) (provider.ChannelProof, error)
+	var chanProof func(context.Context, provider.ChannelInfo, uint64) (provider.ChannelProof, error)
 	var assembleMessage func(provider.ChannelInfo, provider.ChannelProof) (provider.RelayerMessage, error)
 	switch msg.action {
 	case MsgChannelOpenInit:
@@ -765,15 +801,12 @@ func (pp *PathProcessor) assembleChannelMessage(
 	var proof provider.ChannelProof
 	var err error
 	if chanProof != nil {
-		proof, err = chanProof(ctx, msg.info, src.latestBlock)
+		proof, err = chanProof(ctx, msg.info, src.latestBlock.Height)
 		if err != nil {
-			dst.trackProcessingChannelMessage(msg, false)
 			return nil, fmt.Errorf("error querying channel proof: %w", err)
 		}
 	}
-	message, err := assembleMessage(msg.info, proof)
-	dst.trackProcessingChannelMessage(msg, err == nil)
-	return message, err
+	return assembleMessage(msg.info, proof)
 }
 
 func (pp *PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes pathEndChannelHandshakeResponse) ([]channelIBCMessage, []channelIBCMessage) {

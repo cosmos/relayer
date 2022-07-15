@@ -198,13 +198,13 @@ type ChainProvider interface {
 	// These functions query the proof of the packet state on the chain.
 
 	// PacketCommitment queries for proof that a MsgTransfer has been committed on the chain.
-	PacketCommitment(ctx context.Context, msgTransfer PacketInfo, latest LatestBlock) (PacketProof, error)
+	PacketCommitment(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
 
 	// PacketAcknowledgement queries for proof that a MsgRecvPacket has been committed on the chain.
-	PacketAcknowledgement(ctx context.Context, msgRecvPacket PacketInfo, latest LatestBlock) (PacketProof, error)
+	PacketAcknowledgement(ctx context.Context, msgRecvPacket PacketInfo, height uint64) (PacketProof, error)
 
 	// PacketReceipt queries for proof that a MsgRecvPacket has not been committed to the chain.
-	PacketReceipt(ctx context.Context, msgTransfer PacketInfo, latest LatestBlock) (PacketProof, error)
+	PacketReceipt(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
 
 	// MsgRecvPacket takes the packet information from a MsgTransfer along with the packet commitment,
 	// and assembles a full MsgRecvPacket ready to write to the chain.
@@ -231,10 +231,10 @@ type ChainProvider interface {
 	// [Begin] Connection handshake IBC message assembly
 
 	// ConnectionHandshakeProof queries for proof of an initialized connection handshake.
-	ConnectionHandshakeProof(ctx context.Context, msgOpenInit ConnectionInfo, latest LatestBlock) (ConnectionProof, error)
+	ConnectionHandshakeProof(ctx context.Context, msgOpenInit ConnectionInfo, height uint64) (ConnectionProof, error)
 
 	// ConnectionProof queries for proof of an acked handshake.
-	ConnectionProof(ctx context.Context, msgOpenAck ConnectionInfo, latest LatestBlock) (ConnectionProof, error)
+	ConnectionProof(ctx context.Context, msgOpenAck ConnectionInfo, height uint64) (ConnectionProof, error)
 
 	// MsgConnectionOpenInit takes connection info and assembles a MsgConnectionOpenInit message
 	// ready to write to the chain. The connection proof is not needed here, but it needs
@@ -258,7 +258,7 @@ type ChainProvider interface {
 	// [Begin] Channel handshake IBC message assembly
 
 	// ChannelProof queries for proof of a channel state.
-	ChannelProof(ctx context.Context, msg ChannelInfo, latest LatestBlock) (ChannelProof, error)
+	ChannelProof(ctx context.Context, msg ChannelInfo, height uint64) (ChannelProof, error)
 
 	// MsgChannelOpenInit takes channel info and assembles a MsgChannelOpenInit message
 	// ready to write to the chain. The channel proof is not needed here, but it needs
