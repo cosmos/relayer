@@ -95,14 +95,14 @@ const (
 	// target ideal block query window.
 
 	// Clock drift addition when a block query fails
-	queryFailureClockDriftAdditionMs = 47
+	queryFailureClockDriftAdditionMs = 73
 
 	// Clock drift addition when the block queries succeeds
-	querySuccessClockDriftAdditionMs = -23
+	querySuccessClockDriftAdditionMs = -11
 
 	// Clock drift addition when the latest block is the same as
 	// the last successfully queried block
-	sameBlockClockDriftAdditionMs = 71
+	sameBlockClockDriftAdditionMs = 97
 )
 
 // latestClientState is a map of clientID to the latest clientInfo for that client.
@@ -235,8 +235,8 @@ func (p *queryCyclePersistence) dynamicBlockTime(
 
 	// also take into account older blocks, where timeQueriedAfterBlockTime > p.averageBlockTimeMs, by using remainder.
 	// clock drift tolerant using clockDriftMs trim value
-	targetedQueryTimeFromNow := p.averageBlockTimeMs - (timeQueriedAfterBlockTime % p.averageBlockTimeMs) -
-		queryDurationMs + p.clockDriftMs
+	targetedQueryTimeFromNow := p.averageBlockTimeMs - (timeQueriedAfterBlockTime % p.averageBlockTimeMs) +
+		p.clockDriftMs - queryDurationMs
 
 	p.minQueryLoopDuration = time.Millisecond * time.Duration(targetedQueryTimeFromNow)
 
@@ -376,7 +376,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	if persistence.latestHeight == persistence.latestQueriedBlock {
 		persistence.addClockDriftMs(sameBlockClockDriftAdditionMs)
-		persistence.minQueryLoopDuration += 100 * time.Millisecond
+		persistence.minQueryLoopDuration = defaultMinQueryLoopDuration
 		return nil
 	}
 
