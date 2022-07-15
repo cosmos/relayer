@@ -16,6 +16,7 @@ func (c *Chain) CreateOpenConnections(
 	dst *Chain,
 	maxRetries uint64,
 	timeout time.Duration,
+	memo string,
 ) (modified bool, err error) {
 	// client identifiers must be filled in
 	if err = ValidateClientPaths(c, dst); err != nil {
@@ -41,6 +42,7 @@ func (c *Chain) CreateOpenConnections(
 		c.log,
 		srcpathChain.pathEnd,
 		dstpathChain.pathEnd,
+		memo,
 	)
 
 	pp.OnConnectionMessage(dst.PathEnd.ChainID, processor.MsgConnectionOpenConfirm, func(ci provider.ConnectionInfo) {

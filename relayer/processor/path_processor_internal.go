@@ -460,7 +460,7 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, p
 }
 
 // messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
-func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifecycle MessageLifecycle) error {
+func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifecycle MessageLifecycle, msgMemo string) error {
 	// Update trusted client state for both pathends
 	pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
 	pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
@@ -688,7 +688,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
-	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, om.msgs)
+	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, om.msgs, pp.memo)
 	if err != nil {
 		return fmt.Errorf("error sending messages: %w", err)
 	}

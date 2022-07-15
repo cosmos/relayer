@@ -8,19 +8,27 @@ import (
 )
 
 func (ccp *CosmosChainProcessor) handleMessage(m ibcMessage, c processor.IBCMessagesCache) {
-	switch t := m.info.(type) {
-	case *packetInfo:
-		ccp.handlePacketMessage(m.action, provider.PacketInfo(*t), c)
-	case *channelInfo:
-		ccp.handleChannelMessage(m.action, provider.ChannelInfo(*t), c)
-	case *connectionInfo:
-		ccp.handleConnectionMessage(m.action, provider.ConnectionInfo(*t), c)
-	case *clientInfo:
-		ccp.handleClientMessage(m.action, *t)
+	// These are the only actions we care about, not logging for non-IBC actions.
+	switch m.action {
+	case processor.MsgTransfer, processor.MsgRecvPacket, processor.MsgAcknowledgement,
+		processor.MsgTimeout, processor.MsgTimeoutOnClose:
+		ccp.handlePacketMessage(m.action, provider.PacketInfo(*m.info.(*packetInfo)), c)
+	case processor.MsgChannelOpenInit, processor.MsgChannelOpenTry,
+		processor.MsgChannelOpenAck, processor.MsgChannelOpenConfirm:
+		ccp.handleChannelMessage(m.action, provider.ChannelInfo(*m.info.(*channelInfo)), c)
+	case processor.MsgConnectionOpenInit, processor.MsgConnectionOpenTry,
+		processor.MsgConnectionOpenAck, processor.MsgConnectionOpenConfirm:
+		ccp.handleConnectionMessage(m.action, provider.ConnectionInfo(*m.info.(*connectionInfo)), c)
+	case processor.MsgCreateClient, processor.MsgUpdateClient, processor.MsgUpgradeClient, processor.MsgSubmitMisbehaviour:
+		ccp.handleClientMessage(m.action, *m.info.(*clientInfo))
 	}
 }
 
-func (ccp *CosmosChainProcessor) handlePacketMessage(action string, pi provider.PacketInfo, c processor.IBCMessagesCache) {
+func (ccp *CosmosChainProcessor) handlePacketMessage(
+	action string,
+	pi provider.PacketInfo,
+	c processor.IBCMessagesCache,
+) {
 	k, err := processor.PacketInfoChannelKey(action, pi)
 	if err != nil {
 		ccp.log.Error("Unexpected error handling packet message",
@@ -51,7 +59,11 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(action string, pi provider.
 	ccp.logPacketMessage(action, pi)
 }
 
-func (ccp *CosmosChainProcessor) handleChannelMessage(action string, ci provider.ChannelInfo, ibcMessagesCache processor.IBCMessagesCache) {
+func (ccp *CosmosChainProcessor) handleChannelMessage(
+	action string,
+	ci provider.ChannelInfo,
+	ibcMessagesCache processor.IBCMessagesCache,
+) {
 	ccp.channelConnections[ci.ChannelID] = ci.ConnID
 	channelKey := processor.ChannelInfoChannelKey(ci)
 	switch action {
@@ -72,7 +84,11 @@ func (ccp *CosmosChainProcessor) handleChannelMessage(action string, ci provider
 	ccp.logChannelMessage(action, ci)
 }
 
-func (ccp *CosmosChainProcessor) handleConnectionMessage(action string, ci provider.ConnectionInfo, ibcMessagesCache processor.IBCMessagesCache) {
+func (ccp *CosmosChainProcessor) handleConnectionMessage(
+	action string,
+	ci provider.ConnectionInfo,
+	ibcMessagesCache processor.IBCMessagesCache,
+) {
 	ccp.connectionClients[ci.ConnID] = ci.ClientID
 	connectionKey := processor.ConnectionInfoConnectionKey(ci)
 	open := (action == processor.MsgConnectionOpenAck || action == processor.MsgConnectionOpenConfirm)

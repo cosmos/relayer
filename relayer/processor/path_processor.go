@@ -53,6 +53,8 @@ type PathProcessor struct {
 	pathEnd1 *pathEndRuntime
 	pathEnd2 *pathEndRuntime
 
+	memo string
+
 	// Signals to retry.
 	retryProcess chan struct{}
 
@@ -71,12 +73,13 @@ func (p PathProcessors) IsRelayedChannel(k ChannelKey, chainID string) bool {
 	return false
 }
 
-func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *PathProcessor {
+func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd, memo string) *PathProcessor {
 	return &PathProcessor{
 		log:          log,
 		pathEnd1:     newPathEndRuntime(log, pathEnd1),
 		pathEnd2:     newPathEndRuntime(log, pathEnd2),
 		retryProcess: make(chan struct{}, 2),
+		memo:         memo,
 	}
 }
 
@@ -241,7 +244,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 }
 
 // Run executes the main path process.
-func (pp *PathProcessor) Run(ctx context.Context, cancel func(), messageLifecycle MessageLifecycle) {
+func (pp *PathProcessor) Run(ctx context.Context, cancel func(), messageLifecycle MessageLifecycle, msgMemo string) {
 	var retryTimer *time.Timer
 	for {
 		// block until we have any signals to process
@@ -261,7 +264,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func(), messageLifecycl
 		}
 
 		// process latest message cache state from both pathEnds
-		if err := pp.processLatestMessages(ctx, messageLifecycle); err != nil {
+		if err := pp.processLatestMessages(ctx, messageLifecycle, msgMemo); err != nil {
 			// in case of IBC message send errors, schedule retry after durationErrorRetry
 			if retryTimer != nil {
 				retryTimer.Stop()

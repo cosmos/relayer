@@ -91,7 +91,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 				return err
 			}
 
-			rlyErrCh := relayer.StartRelayer(cmd.Context(), a.Log, c[src], c[dst], filter, maxTxSize, maxMsgLength, processorType, initialBlockHistory)
+			rlyErrCh := relayer.StartRelayer(cmd.Context(), a.Log, c[src], c[dst], filter, maxTxSize, maxMsgLength, a.Config.memo(cmd), processorType, initialBlockHistory)
 
 			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire
 			// when there are no packets flowing across the channels. It is currently a source of errors that have been
@@ -152,6 +152,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 	cmd = strategyFlag(a.Viper, cmd)
 	cmd = debugServerFlags(a.Viper, cmd)
 	cmd = processorFlags(a.Viper, cmd)
+	cmd = memoFlag(a.Viper, cmd)
 	return cmd
 }
 

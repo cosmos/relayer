@@ -49,7 +49,10 @@ type CosmosChainProcessor struct {
 
 func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider) *CosmosChainProcessor {
 	return &CosmosChainProcessor{
-		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
+		log: log.With(
+			zap.String("chain_name", provider.ChainName()),
+			zap.String("chain_id", provider.ChainId()),
+		),
 		chainProvider:        provider,
 		latestClientState:    make(latestClientState),
 		connectionStateCache: make(processor.ConnectionStateCache),
@@ -83,7 +86,8 @@ func (l latestClientState) update(clientInfo clientInfo) {
 	l[clientInfo.clientID] = clientInfo.ClientState()
 }
 
-// Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
+// Provider returns the ChainProvider, which provides the methods
+// for querying, assembling IBC messages, and sending transactions.
 func (ccp *CosmosChainProcessor) Provider() provider.ChainProvider {
 	return ccp.chainProvider
 }
@@ -103,14 +107,20 @@ func (ccp *CosmosChainProcessor) latestHeightWithRetry(ctx context.Context) (lat
 		var err error
 		latestHeight, err = ccp.chainProvider.QueryLatestHeight(latestHeightQueryCtx)
 		return err
-	}, retry.Context(ctx), retry.Attempts(latestHeightQueryRetries), retry.Delay(latestHeightQueryRetryDelay), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
-		ccp.log.Info(
-			"Failed to query latest height",
-			zap.Uint("attempt", n+1),
-			zap.Uint("max_attempts", latestHeightQueryRetries),
-			zap.Error(err),
-		)
-	}))
+	},
+		retry.Context(ctx),
+		retry.Attempts(latestHeightQueryRetries),
+		retry.Delay(latestHeightQueryRetryDelay),
+		retry.LastErrorOnly(true),
+		retry.OnRetry(func(n uint, err error) {
+			ccp.log.Info(
+				"Failed to query latest height",
+				zap.Uint("attempt", n+1),
+				zap.Uint("max_attempts", latestHeightQueryRetries),
+				zap.Error(err),
+			)
+		}),
+	)
 }
 
 // clientState will return the most recent client state if client messages
@@ -138,8 +148,9 @@ type queryCyclePersistence struct {
 	minQueryLoopDuration time.Duration
 }
 
-// Run starts the query loop for the chain which will gather applicable ibc messages and push events out to the relevant PathProcessors.
-// The initialBlockHistory parameter determines how many historical blocks should be fetched and processed before continuing with current blocks.
+// Run starts the query loop for the chain which will gather applicable ibc messages and push
+// events out to the relevant PathProcessors. The initialBlockHistory parameter determines
+// how many historical blocks should be fetched and processed before continuing with current blocks.
 // ChainProcessors should obey the context and return upon context cancellation.
 func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
 	// this will be used for persistence across query cycle loop executions
@@ -264,11 +275,12 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		return nil
 	}
 
-	ccp.log.Debug("Queried latest height",
-		zap.Int64("latest_height", persistence.latestHeight),
-	)
+	// ccp.log.Debug("Queried latest height",
+	// 	zap.Int64("latest_height", persistence.latestHeight),
+	// )
 
-	// used at the end of the cycle to send signal to path processors to start processing if both chains are in sync and no new messages came in this cycle
+	// used at the end of the cycle to send signal to path processors to start
+	// processing if both chains are in sync and no new messages came in this cycle.
 	firstTimeInSync := false
 
 	if !ccp.inSync {

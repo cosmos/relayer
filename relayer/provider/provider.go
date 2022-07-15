@@ -214,13 +214,15 @@ type ChainProvider interface {
 	// and assembles a full MsgAcknowledgement ready to write to the chain.
 	MsgAcknowledgement(msgRecvPacket PacketInfo, proofAcked PacketProof) (RelayerMessage, error)
 
-	// MsgTimeout takes the packet information from a MsgTransfer along with the packet receipt to prove that the packet was never relayed,
+	// MsgTimeout takes the packet information from a MsgTransfer along
+	// with the packet receipt to prove that the packet was never relayed,
 	// i.e. that the MsgRecvPacket was never written to the counterparty chain,
 	// and assembles a full MsgTimeout ready to write to the chain,
 	// i.e. the chain where the MsgTransfer was committed.
 	MsgTimeout(msgTransfer PacketInfo, proofUnreceived PacketProof) (RelayerMessage, error)
 
-	// MsgTimeoutOnClose takes the packet information from a MsgTransfer along with the packet receipt to prove that the packet was never relayed,
+	// MsgTimeoutOnClose takes the packet information from a MsgTransfer along
+	// with the packet receipt to prove that the packet was never relayed,
 	// i.e. that the MsgRecvPacket was never written to the counterparty chain,
 	// and assembles a full MsgTimeoutOnClose ready to write to the chain,
 	// i.e. the chain where the MsgTransfer was committed.
@@ -310,8 +312,8 @@ type ChainProvider interface {
 	RelayPacketFromSequence(ctx context.Context, src, dst ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string, order chantypes.Order) (RelayerMessage, RelayerMessage, error)
 	AcknowledgementFromSequence(ctx context.Context, dst ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
 
-	SendMessage(ctx context.Context, msg RelayerMessage) (*RelayerTxResponse, bool, error)
-	SendMessages(ctx context.Context, msgs []RelayerMessage) (*RelayerTxResponse, bool, error)
+	SendMessage(ctx context.Context, msg RelayerMessage, memo string) (*RelayerTxResponse, bool, error)
+	SendMessages(ctx context.Context, msgs []RelayerMessage, memo string) (*RelayerTxResponse, bool, error)
 
 	// TODO consolidate with IBCHeaderAtHeight
 	GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error)

@@ -272,6 +272,28 @@ func (c *Config) Wrapped() *ConfigOutputWrapper {
 	return &ConfigOutputWrapper{Global: c.Global, ProviderConfigs: providers, Paths: c.Paths}
 }
 
+// rlyMemo returns a formatted message memo string
+// that includes "rly" and the version, e.g. "rly(v2.0.0)"
+// or "My custom memo | rly(v2.0.0)"
+func rlyMemo(memo string) string {
+	defaultMemo := fmt.Sprintf("rly(%s)", Version)
+	if memo == "" {
+		return defaultMemo
+	}
+	return fmt.Sprintf("%s | %s", memo, defaultMemo)
+}
+
+// memo returns a formatted message memo string,
+// provided either by the memo flag or the config.
+func (c *Config) memo(cmd *cobra.Command) string {
+	memoFlag, _ := cmd.Flags().GetString(flagMemo)
+	if memoFlag != "" {
+		return rlyMemo(memoFlag)
+	}
+
+	return rlyMemo(c.Global.Memo)
+}
+
 // Config represents the config file for the relayer
 type Config struct {
 	Global GlobalConfig   `yaml:"global" json:"global"`
@@ -415,6 +437,7 @@ func defaultConfig() []byte {
 type GlobalConfig struct {
 	APIListenPort  string `yaml:"api-listen-addr" json:"api-listen-addr"`
 	Timeout        string `yaml:"timeout" json:"timeout"`
+	Memo           string `yaml:"memo" json:"memo"`
 	LightCacheSize int    `yaml:"light-cache-size" json:"light-cache-size"`
 }
 

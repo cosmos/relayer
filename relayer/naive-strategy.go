@@ -383,7 +383,7 @@ func (rs *RelaySequences) Empty() bool {
 }
 
 // RelayAcknowledgements creates transactions to relay acknowledgements from src to dst and from dst to src
-func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain, sp RelaySequences, maxTxSize, maxMsgLength uint64, srcChannel *chantypes.IdentifiedChannel) error {
+func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain, sp RelaySequences, maxTxSize, maxMsgLength uint64, memo string, srcChannel *chantypes.IdentifiedChannel) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []provider.RelayerMessage{},
@@ -481,7 +481,7 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 		}
 
 		// send messages to their respective chains
-		result := msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst))
+		result := msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst), memo)
 		if err := result.Error(); err != nil {
 			if result.PartiallySent() {
 				log.Info(
@@ -508,7 +508,7 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 }
 
 // RelayPackets creates transactions to relay packets from src to dst and from dst to src
-func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp RelaySequences, maxTxSize, maxMsgLength uint64, srcChannel *chantypes.IdentifiedChannel) error {
+func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp RelaySequences, maxTxSize, maxMsgLength uint64, memo string, srcChannel *chantypes.IdentifiedChannel) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []provider.RelayerMessage{},
@@ -570,7 +570,7 @@ func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp Rela
 		}
 
 		// send messages to their respective chains
-		result := msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst))
+		result := msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst), memo)
 		if err := result.Error(); err != nil {
 			if result.PartiallySent() {
 				log.Info(

@@ -201,7 +201,7 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 	if err := retry.Do(func() error {
 		var success bool
 		var err error
-		res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
+		res, success, err = src.ChainProvider.SendMessages(ctx, msgs, "")
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
 			return fmt.Errorf("failed to send messages on chain{%s}: %w", src.ChainID(), err)
@@ -236,7 +236,7 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 }
 
 // UpdateClients updates clients for src on dst and dst on src given the configured paths
-func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
+func (c *Chain) UpdateClients(ctx context.Context, dst *Chain, memo string) (err error) {
 	var (
 		srcUpdateHeader, dstUpdateHeader ibcexported.Header
 		srch, dsth                       int64
@@ -305,7 +305,7 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 	}
 
 	// Send msgs to both chains
-	result := clients.Send(ctx, c.log, AsRelayMsgSender(c), AsRelayMsgSender(dst))
+	result := clients.Send(ctx, c.log, AsRelayMsgSender(c), AsRelayMsgSender(dst), memo)
 	if err := result.Error(); err != nil {
 		if result.PartiallySent() {
 			c.log.Info(
@@ -375,7 +375,7 @@ func (c *Chain) UpgradeClients(ctx context.Context, dst *Chain, height int64) er
 		upgradeMsg,
 	}
 
-	res, _, err := c.ChainProvider.SendMessages(ctx, msgs)
+	res, _, err := c.ChainProvider.SendMessages(ctx, msgs, "")
 	if err != nil {
 		c.LogFailedTx(res, err, msgs)
 		return err

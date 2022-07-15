@@ -59,8 +59,8 @@ var (
 
 // SendMessage attempts to sign, encode & send a RelayerMessage
 // This is used extensively in the relayer as an extension of the Provider interface
-func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
-	return cc.SendMessages(ctx, []provider.RelayerMessage{msg})
+func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
+	return cc.SendMessages(ctx, []provider.RelayerMessage{msg}, memo)
 }
 
 // SendMessages attempts to sign, encode, & send a slice of RelayerMessages
@@ -70,11 +70,11 @@ func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerM
 // transaction will not return an error. If a transaction is successfully sent, the result of the execution
 // of that transaction will be logged. A boolean indicating if a transaction was successfully
 // sent and executed successfully is returned.
-func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 	var resp *sdk.TxResponse
 
 	if err := retry.Do(func() error {
-		txBytes, err := cc.buildMessages(ctx, msgs)
+		txBytes, err := cc.buildMessages(ctx, msgs, memo)
 		if err != nil {
 			errMsg := err.Error()
 
@@ -209,11 +209,15 @@ func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
 	return events
 }
 
-func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.RelayerMessage) ([]byte, error) {
+func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) ([]byte, error) {
 	// Query account details
 	txf, err := cc.PrepareFactory(cc.TxFactory())
 	if err != nil {
 		return nil, err
+	}
+
+	if memo != "" {
+		txf = txf.WithMemo(memo)
 	}
 
 	// TODO: Make this work with new CalculateGas method
@@ -804,7 +808,7 @@ func (cc *CosmosProvider) AutoUpdateClient(ctx context.Context, dst provider.Cha
 
 	msgs := []provider.RelayerMessage{updateMsg}
 
-	res, success, err := cc.SendMessages(ctx, msgs)
+	res, success, err := cc.SendMessages(ctx, msgs, "")
 	if err != nil {
 		// cp.LogFailedTx(res, err, CosmosMsgs(msgs...))
 		return 0, err
@@ -1125,7 +1129,10 @@ func (cc *CosmosProvider) PacketCommitment(
 	}, nil
 }
 
-func (cc *CosmosProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) MsgRecvPacket(
+	msgTransfer provider.PacketInfo,
+	proof provider.PacketProof,
+) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1159,7 +1166,10 @@ func (cc *CosmosProvider) PacketAcknowledgement(
 	}, nil
 }
 
-func (cc *CosmosProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) MsgAcknowledgement(
+	msgRecvPacket provider.PacketInfo,
+	proof provider.PacketProof,
+) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
