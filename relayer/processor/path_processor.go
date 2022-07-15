@@ -244,7 +244,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 }
 
 // Run executes the main path process.
-func (pp *PathProcessor) Run(ctx context.Context, cancel func(), messageLifecycle MessageLifecycle, memo string) {
+func (pp *PathProcessor) Run(ctx context.Context, cancel func(), messageLifecycle MessageLifecycle) {
 	var retryTimer *time.Timer
 	for {
 		// block until we have any signals to process
@@ -264,7 +264,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func(), messageLifecycl
 		}
 
 		// process latest message cache state from both pathEnds
-		if err := pp.processLatestMessages(ctx, messageLifecycle, memo); err != nil {
+		if err := pp.processLatestMessages(ctx, messageLifecycle); err != nil {
 			// in case of IBC message send errors, schedule retry after durationErrorRetry
 			if retryTimer != nil {
 				retryTimer.Stop()
