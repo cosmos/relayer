@@ -14,7 +14,7 @@ import (
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
-func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (bool, error) {
+func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool, memo string) (bool, error) {
 	// Query the latest heights on src and dst and retry if the query fails
 	var srch, dsth int64
 	if err := retry.Do(func() error {
@@ -58,7 +58,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	eg.Go(func() error {
 		var err error
 		// Create client on src for dst if the client id is unspecified
-		modifiedSrc, err = CreateClient(egCtx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+		modifiedSrc, err = CreateClient(egCtx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, memo)
 		if err != nil {
 			return fmt.Errorf("failed to create client on src chain{%s}: %w", c.ChainID(), err)
 		}
@@ -68,7 +68,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	eg.Go(func() error {
 		var err error
 		// Create client on dst for src if the client id is unspecified
-		modifiedDst, err = CreateClient(egCtx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+		modifiedDst, err = CreateClient(egCtx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, memo)
 		if err != nil {
 			return fmt.Errorf("failed to create client on dst chain{%s}: %w", dst.ChainID(), err)
 		}
@@ -91,7 +91,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	return modifiedSrc || modifiedDst, nil
 }
 
-func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.Header, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (bool, error) {
+func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.Header, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool, memo string) (bool, error) {
 	// If a client ID was specified in the path, ensure it exists.
 	if src.PathEnd.ClientID != "" {
 		// TODO: check client is not expired
@@ -201,7 +201,7 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 	if err := retry.Do(func() error {
 		var success bool
 		var err error
-		res, success, err = src.ChainProvider.SendMessages(ctx, msgs, "")
+		res, success, err = src.ChainProvider.SendMessages(ctx, msgs, memo)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
 			return fmt.Errorf("failed to send messages on chain{%s}: %w", src.ChainID(), err)
@@ -335,7 +335,7 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain, memo string) (err
 }
 
 // UpgradeClients upgrades the client on src after dst chain has undergone an upgrade.
-func (c *Chain) UpgradeClients(ctx context.Context, dst *Chain, height int64) error {
+func (c *Chain) UpgradeClients(ctx context.Context, dst *Chain, height int64, memo string) error {
 	dstHeader, err := dst.ChainProvider.GetLightSignedHeaderAtHeight(ctx, height)
 	if err != nil {
 		return err
@@ -375,7 +375,7 @@ func (c *Chain) UpgradeClients(ctx context.Context, dst *Chain, height int64) er
 		upgradeMsg,
 	}
 
-	res, _, err := c.ChainProvider.SendMessages(ctx, msgs, "")
+	res, _, err := c.ChainProvider.SendMessages(ctx, msgs, memo)
 	if err != nil {
 		c.LogFailedTx(res, err, msgs)
 		return err

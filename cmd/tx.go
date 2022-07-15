@@ -138,7 +138,7 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
-			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, a.Config.memo(cmd))
 			if err != nil {
 				return err
 			}
@@ -152,7 +152,10 @@ func createClientsCmd(a *appState) *cobra.Command {
 		},
 	}
 
-	return overrideFlag(a.Viper, clientParameterFlags(a.Viper, cmd))
+	cmd = clientParameterFlags(a.Viper, cmd)
+	cmd = overrideFlag(a.Viper, cmd)
+	cmd = memoFlag(a.Viper, cmd)
+	return cmd
 }
 
 func createClientCmd(a *appState) *cobra.Command {
@@ -241,7 +244,7 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			modified, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+			modified, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, a.Config.memo(cmd))
 			if err != nil {
 				return err
 			}
@@ -255,7 +258,10 @@ func createClientCmd(a *appState) *cobra.Command {
 		},
 	}
 
-	return overrideFlag(a.Viper, clientParameterFlags(a.Viper, cmd))
+	cmd = clientParameterFlags(a.Viper, cmd)
+	cmd = overrideFlag(a.Viper, cmd)
+	cmd = memoFlag(a.Viper, cmd)
+	return cmd
 }
 
 func updateClientsCmd(a *appState) *cobra.Command {
@@ -314,16 +320,20 @@ func upgradeClientsCmd(a *appState) *cobra.Command {
 
 			targetChainID := args[1]
 
+			memo := a.Config.memo(cmd)
+
 			// send the upgrade message on the targetChainID
 			if src == targetChainID {
-				return c[src].UpgradeClients(cmd.Context(), c[dst], height)
+				return c[src].UpgradeClients(cmd.Context(), c[dst], height, memo)
 			}
 
-			return c[dst].UpgradeClients(cmd.Context(), c[src], height)
+			return c[dst].UpgradeClients(cmd.Context(), c[src], height, memo)
 		},
 	}
 
-	return heightFlag(a.Viper, cmd)
+	cmd = heightFlag(a.Viper, cmd)
+	cmd = memoFlag(a.Viper, cmd)
+	return cmd
 }
 
 func createConnectionCmd(a *appState) *cobra.Command {
@@ -379,8 +389,10 @@ $ %s tx conn demo-path --timeout 5s`,
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
+			memo := a.Config.memo(cmd)
+
 			// ensure that the clients exist
-			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, memo)
 			if err != nil {
 				return err
 			}
@@ -390,7 +402,7 @@ $ %s tx conn demo-path --timeout 5s`,
 				}
 			}
 
-			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, a.Config.memo(cmd))
+			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo)
 			if err != nil {
 				return err
 			}
@@ -630,8 +642,10 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
+			memo := a.Config.memo(cmd)
+
 			// create clients if they aren't already created
-			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, memo)
 			if err != nil {
 				return fmt.Errorf("error creating clients: %w", err)
 			}
@@ -640,8 +654,6 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 					return err
 				}
 			}
-
-			memo := a.Config.memo(cmd)
 
 			// create connection if it isn't already created
 			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo)
