@@ -44,6 +44,7 @@ const (
 	flagReverse                 = "reverse"
 	flagProcessor               = "processor"
 	flagInitialBlockHistory     = "block-history"
+	flagMemo                    = "memo"
 )
 
 const (
@@ -298,6 +299,14 @@ func processorFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	}
 	cmd.Flags().Uint64P(flagInitialBlockHistory, "b", 20, "initial block history to query when using 'events' as the processor for relaying")
 	if err := v.BindPFlag(flagInitialBlockHistory, cmd.Flags().Lookup(flagInitialBlockHistory)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func memoFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().String(flagMemo, "", "a memo to include in relayed packets")
+	if err := v.BindPFlag(flagMemo, cmd.Flags().Lookup(flagMemo)); err != nil {
 		panic(err)
 	}
 	return cmd

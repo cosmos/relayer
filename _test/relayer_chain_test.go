@@ -75,7 +75,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, eg.Wait())
 
 	t.Log("Creating clients")
-	_, err = src.CreateClients(ctx, dst, true, true, false)
+	_, err = src.CreateClients(ctx, dst, true, true, false, "")
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
@@ -83,12 +83,12 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, err)
 
 	t.Log("Creating connections")
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "")
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
 	t.Log("Creating channels")
-	err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false, "")
 	require.NoError(t, err)
 
 	t.Log("Querying open channels to ensure successful creation")
@@ -119,7 +119,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 
 	t.Log("Starting relayer")
 	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, relayer.ProcessorEvents, 20)
+	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20)
 
 	t.Log("Waiting for relayer messages to reach both chains")
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 2))
@@ -164,18 +164,18 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_, err = src.CreateClients(ctx, dst, true, true, false)
+	_, err = src.CreateClients(ctx, dst, true, true, false, "")
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "")
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
-	err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false, "")
 	require.NoError(t, err)
 
 	// query open channels and ensure there is no error
@@ -194,15 +194,15 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	dst.PathEnd.ClientID = ""
 	dst.PathEnd.ConnectionID = ""
 
-	_, err = src.CreateClients(ctx, dst, true, true, false)
+	_, err = src.CreateClients(ctx, dst, true, true, false, "")
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "")
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
-	err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false, "")
 	require.NoError(t, err)
 	testChannelPair(ctx, t, src, dst, channel.ChannelId, channel.PortId)
 
@@ -216,7 +216,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	src.PathEnd.ClientID = ""
 	dst.PathEnd.ClientID = ""
 
-	_, err = src.CreateClients(ctx, dst, true, true, true)
+	_, err = src.CreateClients(ctx, dst, true, true, true, "")
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
@@ -245,18 +245,18 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_, err = src.CreateClients(ctx, dst, true, true, false)
+	_, err = src.CreateClients(ctx, dst, true, true, false, "")
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "")
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
-	err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false, "")
 	require.NoError(t, err)
 
 	// query open channels and ensure there is no error
@@ -269,7 +269,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	log := zaptest.NewLogger(t)
 	// start the relayer process in it's own goroutine
 	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, relayer.ProcessorEvents, 20)
+	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20)
 
 	// Wait for relay message inclusion in both chains
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 1))
@@ -312,7 +312,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	updateMsg, err := src.ChainProvider.MsgUpdateClient(src.PathEnd.ClientID, newHeader)
 	require.NoError(t, err)
 
-	res, success, err := src.ChainProvider.SendMessage(ctx, updateMsg)
+	res, success, err := src.ChainProvider.SendMessage(ctx, updateMsg, "")
 	require.NoError(t, err)
 	require.True(t, success)
 	require.Equal(t, uint32(0), res.Code)
@@ -385,7 +385,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.NoError(t, eg.Wait())
 
 	t.Log("Creating clients")
-	_, err = src.CreateClients(ctx, dst, true, true, false)
+	_, err = src.CreateClients(ctx, dst, true, true, false, "")
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
@@ -393,15 +393,15 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Log("Creating connections")
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "")
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
 	t.Log("Creating channels")
-	err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false, "")
 	require.NoError(t, err)
 
-	err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, true)
+	err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, true, "")
 	require.NoError(t, err)
 
 	t.Log("Ensuring two channels exist")
@@ -443,7 +443,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 
 	t.Log("Starting relayer")
 	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, relayer.ProcessorEvents, 20)
+	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20)
 
 	t.Log("Waiting for relayer message inclusion in both chains")
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 1))
@@ -582,18 +582,18 @@ func TestUnorderedChannelBlockHeightTimeout(t *testing.T) {
 	require.NoError(t, eg.Wait())
 
 	// create path
-	_, err = src.CreateClients(ctx, dst, true, true, false)
+	_, err = src.CreateClients(ctx, dst, true, true, false, "")
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "")
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
-	err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false, "")
 	require.NoError(t, err)
 
 	// query open channels and ensure there is no error
@@ -619,7 +619,7 @@ func TestUnorderedChannelBlockHeightTimeout(t *testing.T) {
 
 	// start the relayer process in it's own goroutine
 	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, relayer.ProcessorEvents, 20)
+	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20)
 
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 5))
 
@@ -680,18 +680,18 @@ func TestUnorderedChannelTimestampTimeout(t *testing.T) {
 	require.NoError(t, eg.Wait())
 
 	// create path
-	_, err = src.CreateClients(ctx, dst, true, true, false)
+	_, err = src.CreateClients(ctx, dst, true, true, false, "")
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout)
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "")
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
-	err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false)
+	err = src.CreateOpenChannels(ctx, dst, 3, timeout, DefaultSrcPortID, DefaultDstPortID, DefaultOrder, DefaultVersion, false, "")
 	require.NoError(t, err)
 
 	// query open channels and ensure there is no error
@@ -717,7 +717,7 @@ func TestUnorderedChannelTimestampTimeout(t *testing.T) {
 
 	// start the relayer process in it's own goroutine
 	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, relayer.ProcessorEvents, 20)
+	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20)
 
 	time.Sleep(time.Second * 10)
 

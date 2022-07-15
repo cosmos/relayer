@@ -68,6 +68,19 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    ```
    **Default config file location:** `~/.relayer/config/config.yaml`
 
+   By default, transactions will be relayed with a memo of `rly(VERSION)` e.g. `rly(v2.0.0)`.
+
+   To customize the memo for all relaying, use the `--memo` flag when initializing the configuration.
+
+   ```shell
+   $ rly config init --memo "My custom memo"
+   ```
+
+   Custom memos will have `rly(VERSION)` appended. For example, a memo of `My custom memo` running on relayer version `v2.0.0` would result in a transaction memo of `My custom memo | rly(v2.0.0)`. 
+   
+   The `--memo` flag is also available for other `rly` commands also that involve sending transactions such as `rly tx link` and `rly start`. It can be passed there to override the `config.yaml` value if desired.
+
+   To omit the memo entirely, including the default value of `rly(VERSION)`, use `-` for the memo.
 
 3. **Configure the chains you want to relay between.**
    

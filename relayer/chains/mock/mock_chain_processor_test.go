@@ -54,7 +54,7 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*20)
 	defer ctxCancel()
 
-	pathProcessor := processor.NewPathProcessor(log, pathEnd1, pathEnd2)
+	pathProcessor := processor.NewPathProcessor(log, pathEnd1, pathEnd2, "")
 
 	eventProcessor := processor.NewEventProcessor().
 		WithChainProcessors(

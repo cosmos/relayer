@@ -62,7 +62,7 @@ func TestRelayMsgs_Send_Success(t *testing.T) {
 	var srcSent []provider.RelayerMessage
 	src := relayer.RelayMsgSender{
 		ChainID: "src",
-		SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+		SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 			srcSent = append(srcSent, msgs...)
 			return nil, true, nil
 		},
@@ -71,7 +71,7 @@ func TestRelayMsgs_Send_Success(t *testing.T) {
 	var dstSent []provider.RelayerMessage
 	dst := relayer.RelayMsgSender{
 		ChainID: "dst",
-		SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+		SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 			dstSent = append(dstSent, msgs...)
 			return nil, true, nil
 		},
@@ -90,7 +90,7 @@ func TestRelayMsgs_Send_Success(t *testing.T) {
 			Dst: []provider.RelayerMessage{dstMsg},
 		}
 
-		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst)
+		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst, "")
 		require.Equal(t, result.SuccessfulSrcBatches, 1)
 		require.Equal(t, result.SuccessfulDstBatches, 1)
 		require.NoError(t, result.SrcSendError)
@@ -112,7 +112,7 @@ func TestRelayMsgs_Send_Success(t *testing.T) {
 			MaxMsgLength: 2,
 		}
 
-		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst)
+		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst, "")
 		require.Equal(t, result.SuccessfulSrcBatches, 2)
 		require.Equal(t, result.SuccessfulDstBatches, 2)
 		require.NoError(t, result.SrcSendError)
@@ -134,7 +134,7 @@ func TestRelayMsgs_Send_Success(t *testing.T) {
 			MaxMsgLength: 2,
 		}
 
-		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst)
+		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst, "")
 		require.Equal(t, result.SuccessfulSrcBatches, 2)
 		require.Equal(t, result.SuccessfulDstBatches, 2)
 		require.NoError(t, result.SrcSendError)
@@ -150,7 +150,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 		srcErr := fmt.Errorf("source error")
 		src := relayer.RelayMsgSender{
 			ChainID: "src",
-			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 				return nil, false, srcErr
 			},
 		}
@@ -158,7 +158,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 		dstErr := fmt.Errorf("dest error")
 		dst := relayer.RelayMsgSender{
 			ChainID: "dst",
-			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 				return nil, false, dstErr
 			},
 		}
@@ -171,7 +171,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 			Dst: []provider.RelayerMessage{dstMsg},
 		}
 
-		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst)
+		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst, "")
 		require.Equal(t, result.SuccessfulSrcBatches, 0)
 		require.Equal(t, result.SuccessfulDstBatches, 0)
 		require.ErrorIs(t, result.SrcSendError, srcErr)
@@ -183,7 +183,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 		var srcCalls int
 		src := relayer.RelayMsgSender{
 			ChainID: "src",
-			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 				srcCalls++
 				switch srcCalls {
 				case 1:
@@ -200,7 +200,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 		var dstCalls int
 		dst := relayer.RelayMsgSender{
 			ChainID: "dst",
-			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 				dstCalls++
 				switch dstCalls {
 				case 1:
@@ -223,7 +223,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 			MaxMsgLength: 2,
 		}
 
-		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst)
+		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst, "")
 		require.Equal(t, result.SuccessfulSrcBatches, 0)
 		require.Equal(t, result.SuccessfulDstBatches, 0)
 		require.ErrorIs(t, result.SrcSendError, srcErr1)
@@ -237,7 +237,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 		var srcCalls int
 		src := relayer.RelayMsgSender{
 			ChainID: "src",
-			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 				srcCalls++
 				switch srcCalls {
 				case 1:
@@ -254,7 +254,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 		var dstCalls int
 		dst := relayer.RelayMsgSender{
 			ChainID: "dst",
-			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error) {
+			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 				dstCalls++
 				switch dstCalls {
 				case 1:
@@ -277,7 +277,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 			MaxMsgLength: 2,
 		}
 
-		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst)
+		result := rm.Send(context.Background(), zaptest.NewLogger(t), src, dst, "")
 		require.Equal(t, result.SuccessfulSrcBatches, 1)
 		require.Equal(t, result.SuccessfulDstBatches, 1)
 		require.ErrorIs(t, result.SrcSendError, srcErr)

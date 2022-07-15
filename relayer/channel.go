@@ -20,6 +20,7 @@ func (c *Chain) CreateOpenChannels(
 	timeout time.Duration,
 	srcPortID, dstPortID, order, version string,
 	override bool,
+	memo string,
 ) error {
 	// client and connection identifiers must be filled in
 	if err := ValidateConnectionPaths(c, dst); err != nil {
@@ -62,6 +63,7 @@ func (c *Chain) CreateOpenChannels(
 		c.log,
 		srcPathChain.pathEnd,
 		dstPathChain.pathEnd,
+		memo,
 	)
 
 	c.log.Info("Starting event processor for channel handshake",
@@ -104,7 +106,15 @@ func (c *Chain) CreateOpenChannels(
 }
 
 // CloseChannel runs the channel closing messages on timeout until they pass.
-func (c *Chain) CloseChannel(ctx context.Context, dst *Chain, maxRetries uint64, timeout time.Duration, srcChanID, srcPortID string) error {
+func (c *Chain) CloseChannel(
+	ctx context.Context,
+	dst *Chain,
+	maxRetries uint64,
+	timeout time.Duration,
+	srcChanID,
+	srcPortID string,
+	memo string,
+) error {
 	srcPathChain := pathChain{
 		provider: c.ChainProvider,
 		pathEnd:  processor.NewPathEnd(c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChannelKey{}),
@@ -129,6 +139,7 @@ func (c *Chain) CloseChannel(ctx context.Context, dst *Chain, maxRetries uint64,
 			c.log,
 			srcPathChain.pathEnd,
 			dstPathChain.pathEnd,
+			memo,
 		)).
 		WithInitialBlockHistory(0).
 		WithMessageLifecycle(&processor.ChannelMessageLifecycle{

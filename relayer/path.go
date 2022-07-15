@@ -88,6 +88,7 @@ type PathAction struct {
 }
 
 // Path represents a pair of chains and the identifiers needed to relay over them along with a channel filter list.
+// A Memo can optionally be provided for identification in relayed messages.
 type Path struct {
 	Src    *PathEnd      `yaml:"src" json:"src"`
 	Dst    *PathEnd      `yaml:"dst" json:"dst"`

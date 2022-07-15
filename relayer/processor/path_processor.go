@@ -53,6 +53,8 @@ type PathProcessor struct {
 	pathEnd1 *pathEndRuntime
 	pathEnd2 *pathEndRuntime
 
+	memo string
+
 	// Signals to retry.
 	retryProcess chan struct{}
 
@@ -71,12 +73,13 @@ func (p PathProcessors) IsRelayedChannel(k ChannelKey, chainID string) bool {
 	return false
 }
 
-func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *PathProcessor {
+func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd, memo string) *PathProcessor {
 	return &PathProcessor{
 		log:          log,
 		pathEnd1:     newPathEndRuntime(log, pathEnd1),
 		pathEnd2:     newPathEndRuntime(log, pathEnd2),
 		retryProcess: make(chan struct{}, 2),
+		memo:         memo,
 	}
 }
 

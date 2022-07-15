@@ -688,7 +688,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
-	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, om.msgs)
+	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, om.msgs, pp.memo)
 	if err != nil {
 		return fmt.Errorf("error sending messages: %w", err)
 	}
