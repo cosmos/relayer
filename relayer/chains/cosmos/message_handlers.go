@@ -8,16 +8,15 @@ import (
 )
 
 func (ccp *CosmosChainProcessor) handleMessage(m ibcMessage, c processor.IBCMessagesCache) {
-	// These are the only actions we care about, not logging for non-IBC actions.
-	switch m.action {
-	case processor.MsgTransfer, processor.MsgRecvPacket, processor.MsgAcknowledgement, processor.MsgTimeout, processor.MsgTimeoutOnClose:
-		ccp.handlePacketMessage(m.action, provider.PacketInfo(*m.info.(*packetInfo)), c)
-	case processor.MsgChannelOpenInit, processor.MsgChannelOpenTry, processor.MsgChannelOpenAck, processor.MsgChannelOpenConfirm:
-		ccp.handleChannelMessage(m.action, provider.ChannelInfo(*m.info.(*channelInfo)), c)
-	case processor.MsgConnectionOpenInit, processor.MsgConnectionOpenTry, processor.MsgConnectionOpenAck, processor.MsgConnectionOpenConfirm:
-		ccp.handleConnectionMessage(m.action, provider.ConnectionInfo(*m.info.(*connectionInfo)), c)
-	case processor.MsgCreateClient, processor.MsgUpdateClient, processor.MsgUpgradeClient, processor.MsgSubmitMisbehaviour:
-		ccp.handleClientMessage(m.action, *m.info.(*clientInfo))
+	switch t := m.info.(type) {
+	case *packetInfo:
+		ccp.handlePacketMessage(m.action, provider.PacketInfo(*t), c)
+	case *channelInfo:
+		ccp.handleChannelMessage(m.action, provider.ChannelInfo(*t), c)
+	case *connectionInfo:
+		ccp.handleConnectionMessage(m.action, provider.ConnectionInfo(*t), c)
+	case *clientInfo:
+		ccp.handleClientMessage(m.action, *t)
 	}
 }
 
