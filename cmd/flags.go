@@ -305,7 +305,7 @@ func processorFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func memoFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagMemo, "m", "", "a memo to include in relayed packets")
+	cmd.Flags().String(flagMemo, "", "a memo to include in relayed packets")
 	if err := v.BindPFlag(flagMemo, cmd.Flags().Lookup(flagMemo)); err != nil {
 		panic(err)
 	}
