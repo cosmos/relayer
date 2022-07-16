@@ -82,8 +82,8 @@ func (c *Chain) CreateOpenChannels(
 		WithInitialBlockHistory(0).
 		WithMessageLifecycle(&processor.ChannelMessageLifecycle{
 			Initial: &processor.ChannelMessage{
-				ChainID: c.PathEnd.ChainID,
-				Action:  chantypes.EventTypeChannelOpenInit,
+				ChainID:   c.PathEnd.ChainID,
+				EventType: chantypes.EventTypeChannelOpenInit,
 				Info: provider.ChannelInfo{
 					PortID:             srcPortID,
 					CounterpartyPortID: dstPortID,
@@ -93,8 +93,8 @@ func (c *Chain) CreateOpenChannels(
 				},
 			},
 			Termination: &processor.ChannelMessage{
-				ChainID: dst.PathEnd.ChainID,
-				Action:  chantypes.EventTypeChannelOpenConfirm,
+				ChainID:   dst.PathEnd.ChainID,
+				EventType: chantypes.EventTypeChannelOpenConfirm,
 				Info: provider.ChannelInfo{
 					PortID:             dstPortID,
 					CounterpartyPortID: srcPortID,
@@ -144,16 +144,16 @@ func (c *Chain) CloseChannel(
 		WithInitialBlockHistory(0).
 		WithMessageLifecycle(&processor.ChannelMessageLifecycle{
 			Initial: &processor.ChannelMessage{
-				ChainID: c.PathEnd.ChainID,
-				Action:  chantypes.EventTypeChannelCloseInit,
+				ChainID:   c.PathEnd.ChainID,
+				EventType: chantypes.EventTypeChannelCloseInit,
 				Info: provider.ChannelInfo{
 					PortID:    srcPortID,
 					ChannelID: srcChanID,
 				},
 			},
 			Termination: &processor.ChannelMessage{
-				ChainID: dst.PathEnd.ChainID,
-				Action:  chantypes.EventTypeChannelCloseConfirm,
+				ChainID:   dst.PathEnd.ChainID,
+				EventType: chantypes.EventTypeChannelCloseConfirm,
 				Info: provider.ChannelInfo{
 					CounterpartyPortID:    srcPortID,
 					CounterpartyChannelID: srcChanID,

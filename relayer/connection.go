@@ -68,16 +68,16 @@ func (c *Chain) CreateOpenConnections(
 		WithInitialBlockHistory(0).
 		WithMessageLifecycle(&processor.ConnectionMessageLifecycle{
 			Initial: &processor.ConnectionMessage{
-				ChainID: c.PathEnd.ChainID,
-				Action:  conntypes.EventTypeConnectionOpenInit,
+				ChainID:   c.PathEnd.ChainID,
+				EventType: conntypes.EventTypeConnectionOpenInit,
 				Info: provider.ConnectionInfo{
 					ClientID:             c.PathEnd.ClientID,
 					CounterpartyClientID: dst.PathEnd.ClientID,
 				},
 			},
 			Termination: &processor.ConnectionMessage{
-				ChainID: dst.PathEnd.ChainID,
-				Action:  conntypes.EventTypeConnectionOpenConfirm,
+				ChainID:   dst.PathEnd.ChainID,
+				EventType: conntypes.EventTypeConnectionOpenConfirm,
 				Info: provider.ConnectionInfo{
 					ClientID:             dst.PathEnd.ClientID,
 					CounterpartyClientID: c.PathEnd.ClientID,

@@ -398,10 +398,10 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, p
 		if m.Initial == nil {
 			return
 		}
-		channelKey, err := PacketInfoChannelKey(m.Initial.Action, m.Initial.Info)
+		channelKey, err := PacketInfoChannelKey(m.Initial.EventType, m.Initial.Info)
 		if err != nil {
 			pp.log.Error("Unexpected error checking packet message",
-				zap.String("event_type", m.Termination.Action),
+				zap.String("event_type", m.Termination.EventType),
 				zap.Inline(channelKey),
 				zap.Error(err),
 			)
@@ -412,12 +412,12 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, p
 		}
 		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
 			pathEnd1Messages.packetMessages = append(pathEnd1Messages.packetMessages, packetIBCMessage{
-				eventType: m.Initial.Action,
+				eventType: m.Initial.EventType,
 				info:      m.Initial.Info,
 			})
 		} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
 			pathEnd2Messages.packetMessages = append(pathEnd2Messages.packetMessages, packetIBCMessage{
-				eventType: m.Initial.Action,
+				eventType: m.Initial.EventType,
 				info:      m.Initial.Info,
 			})
 		}
@@ -430,12 +430,12 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, p
 		}
 		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
 			pathEnd1Messages.connectionMessages = append(pathEnd1Messages.connectionMessages, connectionIBCMessage{
-				eventType: m.Initial.Action,
+				eventType: m.Initial.EventType,
 				info:      m.Initial.Info,
 			})
 		} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
 			pathEnd2Messages.connectionMessages = append(pathEnd2Messages.connectionMessages, connectionIBCMessage{
-				eventType: m.Initial.Action,
+				eventType: m.Initial.EventType,
 				info:      m.Initial.Info,
 			})
 		}
@@ -448,12 +448,12 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, p
 		}
 		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
 			pathEnd1Messages.channelMessages = append(pathEnd1Messages.channelMessages, channelIBCMessage{
-				eventType: m.Initial.Action,
+				eventType: m.Initial.EventType,
 				info:      m.Initial.Info,
 			})
 		} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
 			pathEnd2Messages.channelMessages = append(pathEnd2Messages.channelMessages, channelIBCMessage{
-				eventType: m.Initial.Action,
+				eventType: m.Initial.EventType,
 				info:      m.Initial.Info,
 			})
 		}

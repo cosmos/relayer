@@ -19,9 +19,9 @@ type MessageLifecycle interface {
 }
 
 type PacketMessage struct {
-	ChainID string
-	Action  string
-	Info    provider.PacketInfo
+	ChainID   string
+	EventType string
+	Info      provider.PacketInfo
 }
 
 // PacketMessageLifecycle is used as a stop condition for the PathProcessor.
@@ -35,9 +35,9 @@ type PacketMessageLifecycle struct {
 func (t *PacketMessageLifecycle) messageLifecycler() {}
 
 type ConnectionMessage struct {
-	ChainID string
-	Action  string
-	Info    provider.ConnectionInfo
+	ChainID   string
+	EventType string
+	Info      provider.ConnectionInfo
 }
 
 // ConnectionMessageLifecycle is used as a stop condition for the PathProcessor.
@@ -51,9 +51,9 @@ type ConnectionMessageLifecycle struct {
 func (t *ConnectionMessageLifecycle) messageLifecycler() {}
 
 type ChannelMessage struct {
-	ChainID string
-	Action  string
-	Info    provider.ChannelInfo
+	ChainID   string
+	EventType string
+	Info      provider.ChannelInfo
 }
 
 // ChannelMessageLifecycle is used as a stop condition for the PathProcessor.

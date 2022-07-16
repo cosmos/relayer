@@ -164,10 +164,10 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 		if m.Termination == nil || m.Termination.ChainID != pathEnd.info.ChainID {
 			return false
 		}
-		channelKey, err := PacketInfoChannelKey(m.Termination.Action, m.Termination.Info)
+		channelKey, err := PacketInfoChannelKey(m.Termination.EventType, m.Termination.Info)
 		if err != nil {
 			pathEnd.log.Error("Unexpected error checking packet message",
-				zap.String("event_type", m.Termination.Action),
+				zap.String("event_type", m.Termination.EventType),
 				zap.Inline(channelKey),
 				zap.Error(err),
 			)
@@ -177,7 +177,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 		if !ok {
 			return false
 		}
-		sequenceCache, ok := eventTypeCache[m.Termination.Action]
+		sequenceCache, ok := eventTypeCache[m.Termination.EventType]
 		if !ok {
 			return false
 		}
@@ -192,7 +192,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 		if m.Termination == nil || m.Termination.ChainID != pathEnd.info.ChainID {
 			return false
 		}
-		cache, ok := ibcMessagesCache.ChannelHandshake[m.Termination.Action]
+		cache, ok := ibcMessagesCache.ChannelHandshake[m.Termination.EventType]
 		if !ok {
 			return false
 		}
@@ -223,7 +223,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 		if m.Termination == nil || m.Termination.ChainID != pathEnd.info.ChainID {
 			return false
 		}
-		cache, ok := ibcMessagesCache.ConnectionHandshake[m.Termination.Action]
+		cache, ok := ibcMessagesCache.ConnectionHandshake[m.Termination.EventType]
 		if !ok {
 			return false
 		}

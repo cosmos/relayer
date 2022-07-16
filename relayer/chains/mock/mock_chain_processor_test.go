@@ -110,7 +110,7 @@ func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequence
 	*mockSequence++
 	mockMessages := []mock.TransactionMessage{
 		{
-			Action: chantypes.EventTypeSendPacket,
+			EventType: chantypes.EventTypeSendPacket,
 			PacketInfo: &chantypes.Packet{
 				Sequence:           *mockSequence,
 				SourceChannel:      channelKey.ChannelID,
@@ -127,7 +127,7 @@ func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequence
 	if *mockSequenceCounterparty > 1 && *lastSentMockMsgRecvCounterparty != *mockSequenceCounterparty {
 		*lastSentMockMsgRecvCounterparty = *mockSequenceCounterparty
 		mockMessages = append(mockMessages, mock.TransactionMessage{
-			Action: chantypes.EventTypeRecvPacket,
+			EventType: chantypes.EventTypeRecvPacket,
 			PacketInfo: &chantypes.Packet{
 				Sequence:           *mockSequenceCounterparty - 1,
 				SourceChannel:      channelKey.CounterpartyChannelID,
@@ -143,7 +143,7 @@ func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequence
 	}
 	if *mockSequence > 2 {
 		mockMessages = append(mockMessages, mock.TransactionMessage{
-			Action: chantypes.EventTypeAcknowledgePacket,
+			EventType: chantypes.EventTypeAcknowledgePacket,
 			PacketInfo: &chantypes.Packet{
 				Sequence:           *mockSequence - 2,
 				SourceChannel:      channelKey.ChannelID,
