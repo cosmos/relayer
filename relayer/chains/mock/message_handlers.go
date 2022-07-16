@@ -16,9 +16,9 @@ type msgHandlerParams struct {
 }
 
 var messageHandlers = map[string]func(msgHandlerParams){
-	processor.MsgTransfer:        handleMsgTransfer,
-	processor.MsgRecvPacket:      handleMsgRecvPacket,
-	processor.MsgAcknowledgement: handleMsgAcknowledgement,
+	chantypes.EventTypeSendPacket:        handleMsgTransfer,
+	chantypes.EventTypeRecvPacket:        handleMsgRecvPacket,
+	chantypes.EventTypeAcknowledgePacket: handleMsgAcknowledgement,
 
 	// TODO handlers for packet timeout, client, channel, and connection messages
 }
@@ -30,7 +30,7 @@ func handleMsgTransfer(p msgHandlerParams) {
 		CounterpartyChannelID: p.packetInfo.DestinationChannel,
 		CounterpartyPortID:    p.packetInfo.DestinationPort,
 	}
-	p.ibcMessagesCache.PacketFlow.Retain(channelKey, processor.MsgTransfer, provider.PacketInfo{Sequence: p.packetInfo.Sequence})
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeSendPacket, provider.PacketInfo{Sequence: p.packetInfo.Sequence})
 	p.mcp.log.Debug("observed MsgTransfer",
 		zap.String("chain_id", p.mcp.chainID),
 		zap.Uint64("sequence", p.packetInfo.Sequence),
@@ -48,7 +48,7 @@ func handleMsgRecvPacket(p msgHandlerParams) {
 		CounterpartyChannelID: p.packetInfo.SourceChannel,
 		CounterpartyPortID:    p.packetInfo.SourcePort,
 	}
-	p.ibcMessagesCache.PacketFlow.Retain(channelKey, processor.MsgRecvPacket, provider.PacketInfo{Sequence: p.packetInfo.Sequence})
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeRecvPacket, provider.PacketInfo{Sequence: p.packetInfo.Sequence})
 	p.mcp.log.Debug("observed MsgRecvPacket",
 		zap.String("chain_id", p.mcp.chainID),
 		zap.Uint64("sequence", p.packetInfo.Sequence),
@@ -66,7 +66,7 @@ func handleMsgAcknowledgement(p msgHandlerParams) {
 		CounterpartyChannelID: p.packetInfo.DestinationChannel,
 		CounterpartyPortID:    p.packetInfo.DestinationPort,
 	}
-	p.ibcMessagesCache.PacketFlow.Retain(channelKey, processor.MsgAcknowledgement, provider.PacketInfo{Sequence: p.packetInfo.Sequence})
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeAcknowledgePacket, provider.PacketInfo{Sequence: p.packetInfo.Sequence})
 	p.mcp.log.Debug("observed MsgAcknowledgement",
 		zap.String("chain_id", p.mcp.chainID),
 		zap.Uint64("sequence", p.packetInfo.Sequence),

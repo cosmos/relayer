@@ -68,13 +68,13 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	err := eventProcessor.Run(ctx)
 	require.NoError(t, err, "error running event processor")
 
-	pathEnd1LeftoverMsgTransfer := pathProcessor.PathEnd1Messages(mockChannelKey1, processor.MsgTransfer)
-	pathEnd1LeftoverMsgRecvPacket := pathProcessor.PathEnd1Messages(mockChannelKey1, processor.MsgRecvPacket)
-	pathEnd1LeftoverMsgAcknowledgement := pathProcessor.PathEnd1Messages(mockChannelKey1, processor.MsgAcknowledgement)
+	pathEnd1LeftoverMsgTransfer := pathProcessor.PathEnd1Messages(mockChannelKey1, chantypes.EventTypeSendPacket)
+	pathEnd1LeftoverMsgRecvPacket := pathProcessor.PathEnd1Messages(mockChannelKey1, chantypes.EventTypeRecvPacket)
+	pathEnd1LeftoverMsgAcknowledgement := pathProcessor.PathEnd1Messages(mockChannelKey1, chantypes.EventTypeAcknowledgePacket)
 
-	pathEnd2LeftoverMsgTransfer := pathProcessor.PathEnd2Messages(mockChannelKey2, processor.MsgTransfer)
-	pathEnd2LeftoverMsgRecvPacket := pathProcessor.PathEnd2Messages(mockChannelKey2, processor.MsgRecvPacket)
-	pathEnd2LeftoverMsgAcknowledgement := pathProcessor.PathEnd2Messages(mockChannelKey2, processor.MsgAcknowledgement)
+	pathEnd2LeftoverMsgTransfer := pathProcessor.PathEnd2Messages(mockChannelKey2, chantypes.EventTypeSendPacket)
+	pathEnd2LeftoverMsgRecvPacket := pathProcessor.PathEnd2Messages(mockChannelKey2, chantypes.EventTypeRecvPacket)
+	pathEnd2LeftoverMsgAcknowledgement := pathProcessor.PathEnd2Messages(mockChannelKey2, chantypes.EventTypeAcknowledgePacket)
 
 	log.Debug("leftover",
 		zap.Int("pathEnd1MsgTransfer", len(pathEnd1LeftoverMsgTransfer)),
@@ -110,7 +110,7 @@ func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequence
 	*mockSequence++
 	mockMessages := []mock.TransactionMessage{
 		{
-			Action: processor.MsgTransfer,
+			EventType: chantypes.EventTypeSendPacket,
 			PacketInfo: &chantypes.Packet{
 				Sequence:           *mockSequence,
 				SourceChannel:      channelKey.ChannelID,
@@ -127,7 +127,7 @@ func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequence
 	if *mockSequenceCounterparty > 1 && *lastSentMockMsgRecvCounterparty != *mockSequenceCounterparty {
 		*lastSentMockMsgRecvCounterparty = *mockSequenceCounterparty
 		mockMessages = append(mockMessages, mock.TransactionMessage{
-			Action: processor.MsgRecvPacket,
+			EventType: chantypes.EventTypeRecvPacket,
 			PacketInfo: &chantypes.Packet{
 				Sequence:           *mockSequenceCounterparty - 1,
 				SourceChannel:      channelKey.CounterpartyChannelID,
@@ -143,7 +143,7 @@ func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequence
 	}
 	if *mockSequence > 2 {
 		mockMessages = append(mockMessages, mock.TransactionMessage{
-			Action: processor.MsgAcknowledgement,
+			EventType: chantypes.EventTypeAcknowledgePacket,
 			PacketInfo: &chantypes.Packet{
 				Sequence:           *mockSequence - 2,
 				SourceChannel:      channelKey.ChannelID,

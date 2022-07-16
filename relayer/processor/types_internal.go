@@ -18,35 +18,35 @@ type ibcMessage interface {
 	ibcMessageIndicator()
 }
 
-// packetIBCMessage holds a packet message's action and sequence along with it,
+// packetIBCMessage holds a packet message's eventType and sequence along with it,
 // useful for sending packets around internal to the PathProcessor.
 type packetIBCMessage struct {
-	info   provider.PacketInfo
-	action string
+	info      provider.PacketInfo
+	eventType string
 }
 
 func (packetIBCMessage) ibcMessageIndicator() {}
 
-// channelKey returns channel key for new message by this action
-// based on prior action.
+// channelKey returns channel key for new message by this eventType
+// based on prior eventType.
 func (p packetIBCMessage) channelKey() (ChannelKey, error) {
-	return PacketInfoChannelKey(p.action, p.info)
+	return PacketInfoChannelKey(p.eventType, p.info)
 }
 
-// channelIBCMessage holds a channel handshake message's action along with its details,
+// channelIBCMessage holds a channel handshake message's eventType along with its details,
 // useful for sending messages around internal to the PathProcessor.
 type channelIBCMessage struct {
-	action string
-	info   provider.ChannelInfo
+	eventType string
+	info      provider.ChannelInfo
 }
 
 func (channelIBCMessage) ibcMessageIndicator() {}
 
-// connectionIBCMessage holds a connection handshake message's action along with its details,
+// connectionIBCMessage holds a connection handshake message's eventType along with its details,
 // useful for sending messages around internal to the PathProcessor.
 type connectionIBCMessage struct {
-	action string
-	info   provider.ConnectionInfo
+	eventType string
+	info      provider.ConnectionInfo
 }
 
 func (connectionIBCMessage) ibcMessageIndicator() {}

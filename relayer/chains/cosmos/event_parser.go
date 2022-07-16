@@ -17,8 +17,8 @@ import (
 
 // ibcMessage is the type used for parsing all possible properties of IBC messages
 type ibcMessage struct {
-	action string
-	info   ibcMessageInfo
+	eventType string
+	info      ibcMessageInfo
 }
 
 type ibcMessageInfo interface {
@@ -39,23 +39,17 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDel
 func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, height uint64) (messages []ibcMessage) {
 	for _, messageLog := range logs {
 		var info ibcMessageInfo
-		var action string
+		var eventType string
 		var packetAccumulator *packetInfo
 		for _, event := range messageLog.Events {
 			switch event.Type {
-			case "message":
-				for _, attr := range event.Attributes {
-					switch attr.Key {
-					case "action":
-						action = attr.Value
-					}
-				}
 			case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
 				clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
 				clienttypes.EventTypeUpdateClientProposal:
 				clientInfo := new(clientInfo)
 				clientInfo.parseAttrs(log, event.Attributes)
 				info = clientInfo
+				eventType = event.Type
 			case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
 				chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
 				chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
@@ -64,17 +58,22 @@ func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, height uint64) (me
 				}
 				packetAccumulator.parseAttrs(log, event.Attributes)
 				info = packetAccumulator
+				if event.Type != chantypes.EventTypeWriteAck {
+					eventType = event.Type
+				}
 			case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
 				conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
 				connectionInfo := &connectionInfo{Height: height}
 				connectionInfo.parseAttrs(log, event.Attributes)
 				info = connectionInfo
+				eventType = event.Type
 			case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
 				chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
 				chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
 				channelInfo := &channelInfo{Height: height}
 				channelInfo.parseAttrs(log, event.Attributes)
 				info = channelInfo
+				eventType = event.Type
 			}
 		}
 
@@ -82,15 +81,9 @@ func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, height uint64) (me
 			// Not an IBC message, don't need to log here
 			continue
 		}
-		if action == "" {
-			log.Error("Unexpected ibc message parser state: message info is populated but action is empty",
-				zap.Inline(info),
-			)
-			continue
-		}
 		messages = append(messages, ibcMessage{
-			action: action,
-			info:   info,
+			eventType: eventType,
+			info:      info,
 		})
 	}
 
