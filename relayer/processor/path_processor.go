@@ -110,11 +110,11 @@ func (pp *PathProcessor) RelevantClientID(chainID string) string {
 }
 
 // OnConnectionMessage allows the caller to handle connection handshake messages with a callback.
-func (pp *PathProcessor) OnConnectionMessage(chainID string, action string, onMsg func(provider.ConnectionInfo)) {
+func (pp *PathProcessor) OnConnectionMessage(chainID string, eventType string, onMsg func(provider.ConnectionInfo)) {
 	if pp.pathEnd1.info.ChainID == chainID {
-		pp.pathEnd1.connSubscribers[action] = append(pp.pathEnd1.connSubscribers[action], onMsg)
+		pp.pathEnd1.connSubscribers[eventType] = append(pp.pathEnd1.connSubscribers[eventType], onMsg)
 	} else if pp.pathEnd2.info.ChainID == chainID {
-		pp.pathEnd2.connSubscribers[action] = append(pp.pathEnd2.connSubscribers[action], onMsg)
+		pp.pathEnd2.connSubscribers[eventType] = append(pp.pathEnd2.connSubscribers[eventType], onMsg)
 	}
 }
 

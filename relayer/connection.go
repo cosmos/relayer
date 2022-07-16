@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
@@ -45,7 +46,7 @@ func (c *Chain) CreateOpenConnections(
 		memo,
 	)
 
-	pp.OnConnectionMessage(dst.PathEnd.ChainID, processor.MsgConnectionOpenConfirm, func(ci provider.ConnectionInfo) {
+	pp.OnConnectionMessage(dst.PathEnd.ChainID, conntypes.EventTypeConnectionOpenConfirm, func(ci provider.ConnectionInfo) {
 		dst.PathEnd.ConnectionID = ci.ConnID
 		c.PathEnd.ConnectionID = ci.CounterpartyConnID
 		modified = true
@@ -68,7 +69,7 @@ func (c *Chain) CreateOpenConnections(
 		WithMessageLifecycle(&processor.ConnectionMessageLifecycle{
 			Initial: &processor.ConnectionMessage{
 				ChainID: c.PathEnd.ChainID,
-				Action:  processor.MsgConnectionOpenInit,
+				Action:  conntypes.EventTypeConnectionOpenInit,
 				Info: provider.ConnectionInfo{
 					ClientID:             c.PathEnd.ClientID,
 					CounterpartyClientID: dst.PathEnd.ClientID,
@@ -76,7 +77,7 @@ func (c *Chain) CreateOpenConnections(
 			},
 			Termination: &processor.ConnectionMessage{
 				ChainID: dst.PathEnd.ChainID,
-				Action:  processor.MsgConnectionOpenConfirm,
+				Action:  conntypes.EventTypeConnectionOpenConfirm,
 				Info: provider.ConnectionInfo{
 					ClientID:             dst.PathEnd.ClientID,
 					CounterpartyClientID: c.PathEnd.ClientID,

@@ -83,7 +83,7 @@ func (c *Chain) CreateOpenChannels(
 		WithMessageLifecycle(&processor.ChannelMessageLifecycle{
 			Initial: &processor.ChannelMessage{
 				ChainID: c.PathEnd.ChainID,
-				Action:  processor.MsgChannelOpenInit,
+				Action:  chantypes.EventTypeChannelOpenInit,
 				Info: provider.ChannelInfo{
 					PortID:             srcPortID,
 					CounterpartyPortID: dstPortID,
@@ -94,7 +94,7 @@ func (c *Chain) CreateOpenChannels(
 			},
 			Termination: &processor.ChannelMessage{
 				ChainID: dst.PathEnd.ChainID,
-				Action:  processor.MsgChannelOpenConfirm,
+				Action:  chantypes.EventTypeChannelOpenConfirm,
 				Info: provider.ChannelInfo{
 					PortID:             dstPortID,
 					CounterpartyPortID: srcPortID,
@@ -145,7 +145,7 @@ func (c *Chain) CloseChannel(
 		WithMessageLifecycle(&processor.ChannelMessageLifecycle{
 			Initial: &processor.ChannelMessage{
 				ChainID: c.PathEnd.ChainID,
-				Action:  processor.MsgChannelCloseInit,
+				Action:  chantypes.EventTypeChannelCloseInit,
 				Info: provider.ChannelInfo{
 					PortID:    srcPortID,
 					ChannelID: srcChanID,
@@ -153,7 +153,7 @@ func (c *Chain) CloseChannel(
 			},
 			Termination: &processor.ChannelMessage{
 				ChainID: dst.PathEnd.ChainID,
-				Action:  processor.MsgChannelCloseConfirm,
+				Action:  chantypes.EventTypeChannelCloseConfirm,
 				Info: provider.ChannelInfo{
 					CounterpartyPortID:    srcPortID,
 					CounterpartyChannelID: srcChanID,
