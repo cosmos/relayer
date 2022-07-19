@@ -391,6 +391,11 @@ $ %s tx conn demo-path --timeout 5s`,
 
 			memo := a.Config.memo(cmd)
 
+			initialBlockHistory, err := cmd.Flags().GetUint64(flagInitialBlockHistory)
+			if err != nil {
+				return err
+			}
+
 			// ensure that the clients exist
 			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, memo)
 			if err != nil {
@@ -402,7 +407,7 @@ $ %s tx conn demo-path --timeout 5s`,
 				}
 			}
 
-			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo)
+			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory)
 			if err != nil {
 				return err
 			}
@@ -421,6 +426,7 @@ $ %s tx conn demo-path --timeout 5s`,
 	cmd = clientParameterFlags(a.Viper, cmd)
 	cmd = overrideFlag(a.Viper, cmd)
 	cmd = memoFlag(a.Viper, cmd)
+	cmd = initBlockFlag(a.Viper, cmd)
 	return cmd
 }
 
@@ -644,6 +650,11 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 
 			memo := a.Config.memo(cmd)
 
+			initialBlockHistory, err := cmd.Flags().GetUint64(flagInitialBlockHistory)
+			if err != nil {
+				return err
+			}
+
 			// create clients if they aren't already created
 			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, memo)
 			if err != nil {
@@ -656,7 +667,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			// create connection if it isn't already created
-			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo)
+			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory)
 			if err != nil {
 				return fmt.Errorf("error creating connections: %w", err)
 			}
@@ -676,6 +687,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 	cmd = channelParameterFlags(a.Viper, cmd)
 	cmd = overrideFlag(a.Viper, cmd)
 	cmd = memoFlag(a.Viper, cmd)
+	cmd = initBlockFlag(a.Viper, cmd)
 	return cmd
 }
 

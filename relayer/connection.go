@@ -18,6 +18,7 @@ func (c *Chain) CreateOpenConnections(
 	maxRetries uint64,
 	timeout time.Duration,
 	memo string,
+	initialBlockHistory uint64,
 ) (modified bool, err error) {
 	// client identifiers must be filled in
 	if err = ValidateClientPaths(c, dst); err != nil {
@@ -65,7 +66,7 @@ func (c *Chain) CreateOpenConnections(
 			dstpathChain.chainProcessor(c.log),
 		).
 		WithPathProcessors(pp).
-		WithInitialBlockHistory(0).
+		WithInitialBlockHistory(initialBlockHistory).
 		WithMessageLifecycle(&processor.ConnectionMessageLifecycle{
 			Initial: &processor.ConnectionMessage{
 				ChainID:   c.PathEnd.ChainID,
