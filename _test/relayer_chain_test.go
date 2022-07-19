@@ -83,7 +83,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, err)
 
 	t.Log("Creating connections")
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "")
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "", 0)
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
@@ -171,7 +171,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "")
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "", 0)
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
@@ -198,7 +198,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "")
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "", 0)
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
@@ -252,7 +252,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "")
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "", 0)
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
@@ -393,7 +393,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Log("Creating connections")
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "")
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "", 0)
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
@@ -589,7 +589,7 @@ func TestUnorderedChannelBlockHeightTimeout(t *testing.T) {
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "")
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "", 0)
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
@@ -687,7 +687,7 @@ func TestUnorderedChannelTimestampTimeout(t *testing.T) {
 	timeout, err := src.GetTimeout()
 	require.NoError(t, err)
 
-	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "")
+	_, err = src.CreateOpenConnections(ctx, dst, 3, timeout, "", 0)
 	require.NoError(t, err)
 	testConnectionPair(ctx, t, src, dst)
 
