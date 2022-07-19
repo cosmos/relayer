@@ -71,6 +71,7 @@ type PacketInfo struct {
 	SourceChannel    string
 	DestPort         string
 	DestChannel      string
+	ChannelOrder     string
 	Data             []byte
 	TimeoutHeight    clienttypes.Height
 	TimeoutTimestamp uint64
@@ -205,6 +206,11 @@ type ChainProvider interface {
 
 	// PacketReceipt queries for proof that a MsgRecvPacket has not been committed to the chain.
 	PacketReceipt(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
+
+	// NextSeqRecv queries for the appropriate proof required to prove the next expected packet sequence number
+	// for a given counterparty channel. This is used in ORDERED channels to ensure packets are being delivered in the
+	// exact same order as they were sent over the wire.
+	NextSeqRecv(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
 
 	// MsgRecvPacket takes the packet information from a MsgTransfer along with the packet commitment,
 	// and assembles a full MsgRecvPacket ready to write to the chain.

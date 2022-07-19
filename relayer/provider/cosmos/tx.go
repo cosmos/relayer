@@ -1202,6 +1202,26 @@ func (cc *CosmosProvider) PacketReceipt(
 	}, nil
 }
 
+// NextSeqRecv queries for the appropriate Tendermint proof required to prove the next expected packet sequence number
+// for a given counterparty channel. This is used in ORDERED channels to ensure packets are being delivered in the
+// exact same order as they were sent over the wire.
+func (cc *CosmosProvider) NextSeqRecv(
+	ctx context.Context,
+	msgTransfer provider.PacketInfo,
+	height uint64,
+) (provider.PacketProof, error) {
+	key := host.NextSequenceRecvKey(msgTransfer.DestPort, msgTransfer.DestChannel)
+	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
+	if err != nil {
+		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for next sequence receive: %w", err)
+	}
+
+	return provider.PacketProof{
+		Proof:       proof,
+		ProofHeight: proofHeight,
+	}, nil
+}
+
 func (cc *CosmosProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {

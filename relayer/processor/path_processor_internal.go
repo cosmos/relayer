@@ -715,10 +715,20 @@ func (pp *PathProcessor) assemblePacketMessage(
 		packetProof = src.chainProvider.PacketAcknowledgement
 		assembleMessage = dst.chainProvider.MsgAcknowledgement
 	case chantypes.EventTypeTimeoutPacket:
-		packetProof = src.chainProvider.PacketReceipt
+		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
+			packetProof = src.chainProvider.NextSeqRecv
+		} else {
+			packetProof = src.chainProvider.PacketReceipt
+		}
+
 		assembleMessage = dst.chainProvider.MsgTimeout
 	case chantypes.EventTypeTimeoutPacketOnClose:
-		packetProof = src.chainProvider.PacketReceipt
+		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
+			packetProof = src.chainProvider.NextSeqRecv
+		} else {
+			packetProof = src.chainProvider.PacketReceipt
+		}
+
 		assembleMessage = dst.chainProvider.MsgTimeoutOnClose
 	default:
 		return nil, fmt.Errorf("unexepected packet message eventType for message assembly: %s", msg.eventType)
