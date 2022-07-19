@@ -828,6 +828,8 @@ func (pp *PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, path
 
 	pp.pathEnd1.messageCache.ChannelHandshake.DeleteMessages(pathEnd1ChannelHandshakeRes.ToDeleteSrc, pathEnd2ChannelHandshakeRes.ToDeleteDst)
 	pp.pathEnd2.messageCache.ChannelHandshake.DeleteMessages(pathEnd2ChannelHandshakeRes.ToDeleteSrc, pathEnd1ChannelHandshakeRes.ToDeleteDst)
+	pp.pathEnd1.channelProcessing.deleteMessages(pathEnd1ChannelHandshakeRes.ToDeleteSrc, pathEnd2ChannelHandshakeRes.ToDeleteDst)
+	pp.pathEnd2.channelProcessing.deleteMessages(pathEnd2ChannelHandshakeRes.ToDeleteSrc, pathEnd1ChannelHandshakeRes.ToDeleteDst)
 
 	return pathEnd1ChannelMessages, pathEnd2ChannelMessages
 }
@@ -850,6 +852,9 @@ func (pp *PathProcessor) connectionMessagesToSend(pathEnd1ConnectionHandshakeRes
 
 	pp.pathEnd1.messageCache.ConnectionHandshake.DeleteMessages(pathEnd1ConnectionHandshakeRes.ToDeleteSrc, pathEnd2ConnectionHandshakeRes.ToDeleteDst)
 	pp.pathEnd2.messageCache.ConnectionHandshake.DeleteMessages(pathEnd2ConnectionHandshakeRes.ToDeleteSrc, pathEnd1ConnectionHandshakeRes.ToDeleteDst)
+	pp.pathEnd1.connProcessing.deleteMessages(pathEnd1ConnectionHandshakeRes.ToDeleteSrc, pathEnd2ConnectionHandshakeRes.ToDeleteDst)
+	pp.pathEnd2.connProcessing.deleteMessages(pathEnd2ConnectionHandshakeRes.ToDeleteSrc, pathEnd1ConnectionHandshakeRes.ToDeleteDst)
+
 	return pathEnd1ConnectionMessages, pathEnd2ConnectionMessages
 }
 
@@ -873,6 +878,8 @@ func (pp *PathProcessor) packetMessagesToSend(channelPairs []channelPair, pathEn
 
 		pp.pathEnd1.messageCache.PacketFlow[channelPair.pathEnd1ChannelKey].DeleteMessages(pathEnd1ProcessRes[i].ToDeleteSrc, pathEnd2ProcessRes[i].ToDeleteDst)
 		pp.pathEnd2.messageCache.PacketFlow[channelPair.pathEnd2ChannelKey].DeleteMessages(pathEnd2ProcessRes[i].ToDeleteSrc, pathEnd1ProcessRes[i].ToDeleteDst)
+		pp.pathEnd1.packetProcessing[channelPair.pathEnd1ChannelKey].deleteMessages(pathEnd1ProcessRes[i].ToDeleteSrc, pathEnd2ProcessRes[i].ToDeleteDst)
+		pp.pathEnd2.packetProcessing[channelPair.pathEnd2ChannelKey].deleteMessages(pathEnd2ProcessRes[i].ToDeleteSrc, pathEnd1ProcessRes[i].ToDeleteDst)
 	}
 
 	return pathEnd1PacketMessages, pathEnd2PacketMessages
