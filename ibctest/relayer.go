@@ -10,7 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/relayer/v2/cmd"
 	"github.com/cosmos/relayer/v2/internal/relayertest"
-	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/strangelove-ventures/ibctest/ibc"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
