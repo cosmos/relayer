@@ -2,6 +2,7 @@ package processor_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -12,6 +13,7 @@ type mockIBCHeader struct{}
 
 func (h mockIBCHeader) IBCHeaderIndicator() {}
 func (h mockIBCHeader) Height() uint64      { return 0 }
+func (h mockIBCHeader) Time() time.Time     { return time.Now() }
 
 func TestIBCHeaderCachePrune(t *testing.T) {
 	cache := make(processor.IBCHeaderCache)

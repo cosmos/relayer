@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
@@ -555,6 +556,8 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 
 	pp.appendInitialMessageIfNecessary(messageLifecycle, &pathEnd1Messages, &pathEnd2Messages)
 
+	// if there are no pathEnd1 messages, check client states against trusing periods and see if clients need to be udpated
+
 	// now assemble and send messages in parallel
 	// if sending messages fails to one pathEnd, we don't need to halt sending to the other pathEnd.
 	var eg errgroup.Group
@@ -632,8 +635,28 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	src, dst *pathEndRuntime,
 	messages pathEndMessages,
 ) error {
+	updateClientOnly := false
 	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 {
-		return nil
+		// Check if client is about to expire, if so, don't return. If client is close to expiring set updateClientOnly to True
+		var consensusHeightTime time.Time
+		if dst.clientState.ConsensusTime.IsZero() {
+			h, err := src.chainProvider.IBCHeaderAtHeight(ctx, int64(dst.clientState.ConsensusHeight.RevisionHeight))
+			if err != nil {
+				return fmt.Errorf("failed to get header height: %w", err)
+			}
+			consensusHeightTime = h.Time()
+		} else {
+			consensusHeightTime = dst.clientState.ConsensusTime
+		}
+		if float64(dst.clientState.TrustingPeriod.Milliseconds())*2/3 < float64(time.Since(consensusHeightTime).Milliseconds()) {
+			updateClientOnly = true
+			pp.log.Info("client close to expiration",
+				zap.String("chainID: %s", dst.info.ChainID),
+				zap.String("clientID: %s", dst.info.ClientID),
+			)
+		} else {
+			return nil
+		}
 	}
 	om := outgoingMessages{
 		msgs: make(
@@ -671,7 +694,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 
 	wg.Wait()
 
-	if len(om.msgs) == 1 {
+	if len(om.msgs) == 1 && !updateClientOnly {
 		// only msgUpdateClient, don't need to send
 		return errors.New("all messages failed to assemble")
 	}

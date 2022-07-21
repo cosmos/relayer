@@ -106,6 +106,10 @@ func (h CosmosIBCHeader) Height() uint64 {
 	return uint64(h.SignedHeader.Height)
 }
 
+func (h CosmosIBCHeader) Time() time.Time {
+	return h.SignedHeader.Time
+}
+
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {
 	return cc.PCfg
 }

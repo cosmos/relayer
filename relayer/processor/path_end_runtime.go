@@ -260,11 +260,17 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 	return false
 }
 
-func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, messageLifecycle MessageLifecycle) {
+func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, messageLifecycle MessageLifecycle, counterParty *pathEndRuntime) {
 	pathEnd.inSync = d.InSync
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.latestHeader = d.LatestHeader
-	pathEnd.clientState = d.ClientState
+	if d.ClientState.ConsensusHeight != pathEnd.clientState.ConsensusHeight {
+		pathEnd.clientState = d.ClientState
+		ibcHeader, ok := counterParty.ibcHeaderCache[d.ClientState.ConsensusHeight.RevisionHeight]
+		if ok {
+			pathEnd.clientState.ConsensusTime = ibcHeader.Time()
+		}
+	}
 
 	pathEnd.handleCallbacks(d.IBCMessagesCache)
 

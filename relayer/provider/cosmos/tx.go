@@ -730,7 +730,7 @@ func (cc *CosmosProvider) AutoUpdateClient(ctx context.Context, dst provider.Cha
 		return 0, err
 	}
 
-	clientState, err := cc.queryTMClientState(ctx, srch, srcClientId)
+	clientState, err := cc.QueryTMClientState(ctx, srch, srcClientId)
 	if err != nil {
 		return 0, err
 	}
@@ -755,7 +755,7 @@ func (cc *CosmosProvider) AutoUpdateClient(ctx context.Context, dst provider.Cha
 			zap.Uint("max_attempts", rtyAttNum),
 			zap.Error(err),
 		)
-		clientState, err = cc.queryTMClientState(ctx, srch, srcClientId)
+		clientState, err = cc.QueryTMClientState(ctx, srch, srcClientId)
 		if err != nil {
 			clientState = nil
 			cc.log.Info(
@@ -1953,9 +1953,9 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 	return h, nil
 }
 
-// queryTMClientState retrieves the latest consensus state for a client in state at a given height
+// QueryTMClientState retrieves the latest consensus state for a client in state at a given height
 // and unpacks/cast it to tendermint clientstate
-func (cc *CosmosProvider) queryTMClientState(ctx context.Context, srch int64, srcClientId string) (*tmclient.ClientState, error) {
+func (cc *CosmosProvider) QueryTMClientState(ctx context.Context, srch int64, srcClientId string) (*tmclient.ClientState, error) {
 	clientStateRes, err := cc.QueryClientStateResponse(ctx, srch, srcClientId)
 	if err != nil {
 		return &tmclient.ClientState{}, err

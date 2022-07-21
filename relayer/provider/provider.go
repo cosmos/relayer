@@ -47,12 +47,15 @@ type LatestBlock struct {
 type IBCHeader interface {
 	IBCHeaderIndicator()
 	Height() uint64
+	Time() time.Time
 }
 
 // ClientState holds the current state of a client from a single chain's perspective
 type ClientState struct {
 	ClientID        string
 	ConsensusHeight clienttypes.Height
+	TrustingPeriod  time.Duration
+	ConsensusTime   time.Time
 }
 
 // ClientTrustedState holds the current state of a client from the perspective of both involved chains,

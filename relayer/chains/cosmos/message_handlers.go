@@ -1,6 +1,8 @@
 package cosmos
 
 import (
+	"context"
+
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
@@ -9,7 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func (ccp *CosmosChainProcessor) handleMessage(m ibcMessage, c processor.IBCMessagesCache) {
+func (ccp *CosmosChainProcessor) handleMessage(ctx context.Context, m ibcMessage, c processor.IBCMessagesCache) {
 	switch t := m.info.(type) {
 	case *packetInfo:
 		ccp.handlePacketMessage(m.eventType, provider.PacketInfo(*t), c)
@@ -18,7 +20,7 @@ func (ccp *CosmosChainProcessor) handleMessage(m ibcMessage, c processor.IBCMess
 	case *connectionInfo:
 		ccp.handleConnectionMessage(m.eventType, provider.ConnectionInfo(*t), c)
 	case *clientInfo:
-		ccp.handleClientMessage(m.eventType, *t)
+		ccp.handleClientMessage(ctx, m.eventType, *t)
 	}
 }
 
@@ -84,8 +86,8 @@ func (ccp *CosmosChainProcessor) handleConnectionMessage(eventType string, ci pr
 	ccp.logConnectionMessage(eventType, ci)
 }
 
-func (ccp *CosmosChainProcessor) handleClientMessage(eventType string, ci clientInfo) {
-	ccp.latestClientState.update(ci)
+func (ccp *CosmosChainProcessor) handleClientMessage(ctx context.Context, eventType string, ci clientInfo) {
+	ccp.latestClientState.update(ctx, ci, ccp)
 	ccp.logObservedIBCMessage(eventType, zap.String("client_id", ci.clientID))
 }
 
