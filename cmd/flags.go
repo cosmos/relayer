@@ -292,11 +292,15 @@ func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
-func processorFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+func processorFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagProcessor, "p", relayer.ProcessorLegacy, "which relayer processor to use")
 	if err := v.BindPFlag(flagProcessor, cmd.Flags().Lookup(flagProcessor)); err != nil {
 		panic(err)
 	}
+	return cmd
+}
+
+func initBlockFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Uint64P(flagInitialBlockHistory, "b", 20, "initial block history to query when using 'events' as the processor for relaying")
 	if err := v.BindPFlag(flagInitialBlockHistory, cmd.Flags().Lookup(flagInitialBlockHistory)); err != nil {
 		panic(err)

@@ -270,6 +270,8 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute)
 		res.DestPort = attr.Value
 	case chantypes.AttributeKeyDstChannel:
 		res.DestChannel = attr.Value
+	case chantypes.AttributeKeyChannelOrdering:
+		res.ChannelOrder = attr.Value
 	}
 }
 

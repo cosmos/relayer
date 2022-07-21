@@ -151,7 +151,8 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 	cmd = updateTimeFlags(a.Viper, cmd)
 	cmd = strategyFlag(a.Viper, cmd)
 	cmd = debugServerFlags(a.Viper, cmd)
-	cmd = processorFlags(a.Viper, cmd)
+	cmd = processorFlag(a.Viper, cmd)
+	cmd = initBlockFlag(a.Viper, cmd)
 	cmd = memoFlag(a.Viper, cmd)
 	return cmd
 }
