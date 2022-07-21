@@ -274,9 +274,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 			default:
 				return nil
 			}
-		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			srch, _ = src.ChainProvider.QueryLatestHeight(ctx)
-		})); err != nil {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 			src.log.Error(
 				"Failed to query packet acknowledgement commitments after max attempts",
 				zap.String("channel_id", srcChannel.ChannelId),
@@ -307,9 +305,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 			default:
 				return nil
 			}
-		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
-		})); err != nil {
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 			dst.log.Error(
 				"Failed to query packet acknowledgement commitments after max attempts",
 				zap.String("channel_id", srcChannel.Counterparty.ChannelId),
@@ -335,9 +331,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 			if err := retry.Do(func() error {
 				rs.Src, err = dst.ChainProvider.QueryUnreceivedAcknowledgements(ctx, uint64(dsth), srcChannel.Counterparty.ChannelId, srcChannel.Counterparty.PortId, srcPacketSeq)
 				return err
-			}, retry.Context(ctx), RtyErr, RtyAtt, RtyDel, retry.OnRetry(func(n uint, err error) {
-				dsth, _ = dst.ChainProvider.QueryLatestHeight(ctx)
-			})); err != nil {
+			}, retry.Context(ctx), RtyErr, RtyAtt, RtyDel); err != nil {
 				dst.log.Error(
 					"Failed to query unreceived acknowledgements after max attempts",
 					zap.String("channel_id", srcChannel.Counterparty.ChannelId),
@@ -358,9 +352,7 @@ func UnrelayedAcknowledgements(ctx context.Context, src, dst *Chain, srcChannel 
 			if err := retry.Do(func() error {
 				rs.Dst, err = src.ChainProvider.QueryUnreceivedAcknowledgements(ctx, uint64(srch), srcChannel.ChannelId, srcChannel.PortId, dstPacketSeq)
 				return err
-			}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-				srch, _ = src.ChainProvider.QueryLatestHeight(ctx)
-			})); err != nil {
+			}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 				src.log.Error(
 					"Failed to query unreceived acknowledgements after max attempts",
 					zap.String("channel_id", srcChannel.ChannelId),
@@ -391,7 +383,7 @@ func (rs *RelaySequences) Empty() bool {
 }
 
 // RelayAcknowledgements creates transactions to relay acknowledgements from src to dst and from dst to src
-func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain, sp RelaySequences, maxTxSize, maxMsgLength uint64, srcChannel *chantypes.IdentifiedChannel) error {
+func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain, sp RelaySequences, maxTxSize, maxMsgLength uint64, memo string, srcChannel *chantypes.IdentifiedChannel) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []provider.RelayerMessage{},
@@ -427,11 +419,11 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 			return err
 		}
 
-		srcUpdateMsg, err := src.ChainProvider.UpdateClient(src.PathEnd.ClientID, dstHeader)
+		srcUpdateMsg, err := src.ChainProvider.MsgUpdateClient(src.PathEnd.ClientID, dstHeader)
 		if err != nil {
 			return err
 		}
-		dstUpdateMsg, err := dst.ChainProvider.UpdateClient(dst.PathEnd.ClientID, srcHeader)
+		dstUpdateMsg, err := dst.ChainProvider.MsgUpdateClient(dst.PathEnd.ClientID, srcHeader)
 		if err != nil {
 			return err
 		}
@@ -489,7 +481,7 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 		}
 
 		// send messages to their respective chains
-		result := msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst))
+		result := msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst), memo)
 		if err := result.Error(); err != nil {
 			if result.PartiallySent() {
 				log.Info(
@@ -516,7 +508,7 @@ func RelayAcknowledgements(ctx context.Context, log *zap.Logger, src, dst *Chain
 }
 
 // RelayPackets creates transactions to relay packets from src to dst and from dst to src
-func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp RelaySequences, maxTxSize, maxMsgLength uint64, srcChannel *chantypes.IdentifiedChannel) error {
+func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp RelaySequences, maxTxSize, maxMsgLength uint64, memo string, srcChannel *chantypes.IdentifiedChannel) error {
 	// set the maximum relay transaction constraints
 	msgs := &RelayMsgs{
 		Src:          []provider.RelayerMessage{},
@@ -578,7 +570,7 @@ func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp Rela
 		}
 
 		// send messages to their respective chains
-		result := msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst))
+		result := msgs.Send(ctx, log, AsRelayMsgSender(src), AsRelayMsgSender(dst), memo)
 		if err := result.Error(); err != nil {
 			if result.PartiallySent() {
 				log.Info(
@@ -683,7 +675,7 @@ func PrependUpdateClientMsg(ctx context.Context, msgs *[]provider.RelayerMessage
 	var updateMsg provider.RelayerMessage
 	if err := retry.Do(func() error {
 		var err error
-		updateMsg, err = dst.ChainProvider.UpdateClient(dst.PathEnd.ClientID, srcHeader)
+		updateMsg, err = dst.ChainProvider.MsgUpdateClient(dst.PathEnd.ClientID, srcHeader)
 		return err
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		dst.log.Info(

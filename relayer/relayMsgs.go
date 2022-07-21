@@ -23,7 +23,7 @@ type RelayMsgs struct {
 }
 
 // batchSendMessageTimeout is the timeout for sending a single batch of IBC messages to an RPC node.
-const batchSendMessageTimeout = 10 * time.Second
+const batchSendMessageTimeout = 30 * time.Second
 
 // Ready returns true if there are messages to relay
 func (r *RelayMsgs) Ready() bool {
@@ -51,7 +51,7 @@ type RelayMsgSender struct {
 	// on the ChainProvider interface.
 	//
 	// Accepting this narrow subset of the interface greatly simplifies testing.
-	SendMessages func(context.Context, []provider.RelayerMessage) (*provider.RelayerTxResponse, bool, error)
+	SendMessages func(context.Context, []provider.RelayerMessage, string) (*provider.RelayerTxResponse, bool, error)
 }
 
 // AsRelayMsgSender converts c to a RelayMsgSender.
@@ -110,7 +110,7 @@ func (r SendMsgsResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 }
 
 // Send concurrently sends out r's messages to the corresponding RelayMsgSenders.
-func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsgSender) SendMsgsResult {
+func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsgSender, memo string) SendMsgsResult {
 	var (
 		wg     sync.WaitGroup
 		result SendMsgsResult
@@ -118,11 +118,11 @@ func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsg
 
 	if len(r.Src) > 0 {
 		wg.Add(1)
-		go r.send(ctx, log, &wg, src, r.Src, &result.SuccessfulSrcBatches, &result.SrcSendError)
+		go r.send(ctx, log, &wg, src, r.Src, memo, &result.SuccessfulSrcBatches, &result.SrcSendError)
 	}
 	if len(r.Dst) > 0 {
 		wg.Add(1)
-		go r.send(ctx, log, &wg, dst, r.Dst, &result.SuccessfulDstBatches, &result.DstSendError)
+		go r.send(ctx, log, &wg, dst, r.Dst, memo, &result.SuccessfulDstBatches, &result.DstSendError)
 	}
 
 	wg.Wait()
@@ -135,6 +135,7 @@ func (r *RelayMsgs) send(
 	wg *sync.WaitGroup,
 	s RelayMsgSender,
 	msgs []provider.RelayerMessage,
+	memo string,
 	successes *int,
 	errors *error,
 ) {
@@ -165,7 +166,7 @@ func (r *RelayMsgs) send(
 		// Send out this batch now.
 		batchMsgs := msgs[batchStartIdx:i]
 		batchCtx, batchCtxCancel := context.WithTimeout(ctx, batchSendMessageTimeout)
-		resp, success, err := s.SendMessages(batchCtx, batchMsgs)
+		resp, success, err := s.SendMessages(batchCtx, batchMsgs, memo)
 		batchCtxCancel()
 		if err != nil {
 			logFailedTx(log, s.ChainID, resp, err, batchMsgs)
@@ -187,7 +188,7 @@ func (r *RelayMsgs) send(
 	if batchStartIdx < uint64(len(msgs)) {
 		batchMsgs := msgs[batchStartIdx:]
 		batchCtx, batchCtxCancel := context.WithTimeout(ctx, batchSendMessageTimeout)
-		resp, success, err := s.SendMessages(batchCtx, batchMsgs)
+		resp, success, err := s.SendMessages(batchCtx, batchMsgs, memo)
 		batchCtxCancel()
 		if err != nil {
 			logFailedTx(log, s.ChainID, resp, err, batchMsgs)

@@ -1,14 +1,17 @@
 package cmd
 
 import (
+	"fmt"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/client/flags"
+	"github.com/cosmos/relayer/v2/relayer"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 const (
+	flagHome                    = "home"
 	flagURL                     = "url"
 	flagSkip                    = "skip"
 	flagTimeout                 = "timeout"
@@ -31,6 +34,17 @@ const (
 	flagOrder                   = "order"
 	flagVersion                 = "version"
 	flagDebugAddr               = "debug-addr"
+	flagOverwriteConfig         = "overwrite"
+	flagOffset                  = "offset"
+	flagLimit                   = "limit"
+	flagHeight                  = "height"
+	flagPage                    = "page"
+	flagPageKey                 = "page-key"
+	flagCountTotal              = "count-total"
+	flagReverse                 = "reverse"
+	flagProcessor               = "processor"
+	flagInitialBlockHistory     = "block-history"
+	flagMemo                    = "memo"
 )
 
 const (
@@ -48,20 +62,37 @@ func ibcDenomFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func heightFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().Int64(flags.FlagHeight, 0, "Height of headers to fetch")
-	if err := v.BindPFlag(flags.FlagHeight, cmd.Flags().Lookup(flags.FlagHeight)); err != nil {
+	cmd.Flags().Int64(flagHeight, 0, "Height of headers to fetch")
+	if err := v.BindPFlag(flagHeight, cmd.Flags().Lookup(flagHeight)); err != nil {
 		panic(err)
 	}
 	return cmd
 }
 
-func paginationFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().Uint64P(flags.FlagOffset, "o", 0, "pagination offset for query")
-	cmd.Flags().Uint64P(flags.FlagLimit, "l", 10, "pagination limit for query")
-	if err := v.BindPFlag(flags.FlagOffset, cmd.Flags().Lookup(flags.FlagOffset)); err != nil {
+func paginationFlags(v *viper.Viper, cmd *cobra.Command, query string) *cobra.Command {
+	cmd.Flags().Uint64(flagPage, 1, fmt.Sprintf("pagination page of %s to query for. This sets offset to a multiple of limit", query))
+	cmd.Flags().String(flagPageKey, "", fmt.Sprintf("pagination page-key of %s to query for", query))
+	cmd.Flags().Uint64(flagOffset, 0, fmt.Sprintf("pagination offset of %s to query for", query))
+	cmd.Flags().Uint64(flagLimit, 100, fmt.Sprintf("pagination limit of %s to query for", query))
+	cmd.Flags().Bool(flagCountTotal, false, fmt.Sprintf("count total number of records in %s to query for", query))
+	cmd.Flags().Bool(flagReverse, false, "results are sorted in descending order")
+
+	if err := v.BindPFlag(flagPage, cmd.Flags().Lookup(flagPage)); err != nil {
 		panic(err)
 	}
-	if err := v.BindPFlag(flags.FlagLimit, cmd.Flags().Lookup(flags.FlagLimit)); err != nil {
+	if err := v.BindPFlag(flagPageKey, cmd.Flags().Lookup(flagPageKey)); err != nil {
+		panic(err)
+	}
+	if err := v.BindPFlag(flagOffset, cmd.Flags().Lookup(flagOffset)); err != nil {
+		panic(err)
+	}
+	if err := v.BindPFlag(flagLimit, cmd.Flags().Lookup(flagLimit)); err != nil {
+		panic(err)
+	}
+	if err := v.BindPFlag(flagCountTotal, cmd.Flags().Lookup(flagCountTotal)); err != nil {
+		panic(err)
+	}
+	if err := v.BindPFlag(flagReverse, cmd.Flags().Lookup(flagReverse)); err != nil {
 		panic(err)
 	}
 	return cmd
@@ -256,6 +287,39 @@ func dstPortFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().String(flagDebugAddr, defaultDebugAddr, "address to use for debug server. Set empty to disable debug server.")
 	if err := v.BindPFlag(flagDebugAddr, cmd.Flags().Lookup(flagDebugAddr)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func processorFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagProcessor, "p", relayer.ProcessorLegacy, "which relayer processor to use")
+	if err := v.BindPFlag(flagProcessor, cmd.Flags().Lookup(flagProcessor)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func initBlockFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Uint64P(flagInitialBlockHistory, "b", 20, "initial block history to query when using 'events' as the processor for relaying")
+	if err := v.BindPFlag(flagInitialBlockHistory, cmd.Flags().Lookup(flagInitialBlockHistory)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func memoFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().String(flagMemo, "", "a memo to include in relayed packets")
+	if err := v.BindPFlag(flagMemo, cmd.Flags().Lookup(flagMemo)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func OverwriteConfigFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP(flagOverwriteConfig, "o", false,
+		"overwrite already configured paths - will clear channel filter(s)")
+	if err := v.BindPFlag(flagOverwriteConfig, cmd.Flags().Lookup(flagOverwriteConfig)); err != nil {
 		panic(err)
 	}
 	return cmd

@@ -4,16 +4,16 @@ import "testing"
 
 var (
 	gaiaChains = []testChain{
-		{"ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
-		{"ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
+		{"testChain0", "ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
+		{"testChain1", "ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
 	}
 	akashChains = []testChain{
-		{"ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
-		{"ibc-1", 1, akashTestConfig, akashProviderCfg},
+		{"testChain0", "ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
+		{"testChain1", "ibc-1", 1, akashTestConfig, akashProviderCfg},
 	}
 	osmoChains = []testChain{
-		{"ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
-		{"ibc-1", 1, osmosisTestConfig, osmosisProviderCfg},
+		{"testChain0", "ibc-0", 0, gaiaTestConfig, gaiaProviderCfg},
+		{"testChain1", "ibc-1", 1, osmosisTestConfig, osmosisProviderCfg},
 	}
 )
 

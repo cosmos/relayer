@@ -34,7 +34,7 @@ func TestChainsAdd_File(t *testing.T) {
 
 	_ = sys.MustRun(t, "config", "init")
 
-	sys.MustAddChain(t, cmd.ProviderConfigWrapper{
+	sys.MustAddChain(t, "testChain", cmd.ProviderConfigWrapper{
 		Type: "cosmos",
 		Value: cosmos.CosmosProviderConfig{
 			ChainID:        "testcosmos",
@@ -79,7 +79,8 @@ func TestChainsAdd_URL(t *testing.T) {
 	defer srv.Close()
 
 	// Add the chain at the URL and path of the test server.
-	res := sys.MustRun(t, "chains", "add", "--url", srv.URL+"/chain.json")
+	chainName := "testChain"
+	res := sys.MustRun(t, "chains", "add", "--url", srv.URL+"/chain.json", chainName)
 	require.Empty(t, res.Stdout.String())
 	require.Empty(t, res.Stderr.String())
 
@@ -96,7 +97,7 @@ func TestChainsAdd_Delete(t *testing.T) {
 
 	_ = sys.MustRun(t, "config", "init")
 
-	sys.MustAddChain(t, cmd.ProviderConfigWrapper{
+	sys.MustAddChain(t, "testChain", cmd.ProviderConfigWrapper{
 		Type: "cosmos",
 		Value: cosmos.CosmosProviderConfig{
 			ChainID:        "testcosmos",
@@ -111,7 +112,7 @@ func TestChainsAdd_Delete(t *testing.T) {
 	require.Empty(t, res.Stderr.String())
 
 	// Delete the added chain. Silent output.
-	res = sys.MustRun(t, "chains", "delete", "testcosmos")
+	res = sys.MustRun(t, "chains", "delete", "testChain")
 	require.Empty(t, res.Stdout.String())
 	require.Empty(t, res.Stderr.String())
 
