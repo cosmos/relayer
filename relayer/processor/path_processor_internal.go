@@ -557,8 +557,6 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 
 	pp.appendInitialMessageIfNecessary(messageLifecycle, &pathEnd1Messages, &pathEnd2Messages)
 
-	// if there are no pathEnd1 messages, check client states against trusing periods and see if clients need to be udpated
-
 	// now assemble and send messages in parallel
 	// if sending messages fails to one pathEnd, we don't need to halt sending to the other pathEnd.
 	var eg errgroup.Group
