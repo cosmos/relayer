@@ -36,8 +36,9 @@ func (pp *PathProcessor) assemblePacketIBCMessage(
 
 func (pp *PathProcessor) getUnrelayedPacketsAndAcksAndToDelete(ctx context.Context, pathEndPacketFlowMessages pathEndPacketFlowMessages) pathEndPacketFlowResponse {
 	res := pathEndPacketFlowResponse{
-		ToDeleteSrc: make(map[string][]uint64),
-		ToDeleteDst: make(map[string][]uint64),
+		ToDeleteSrc:        make(map[string][]uint64),
+		ToDeleteDst:        make(map[string][]uint64),
+		ToDeleteDstChannel: make(map[string][]ChannelKey),
 	}
 
 MsgTransferLoop:
@@ -56,35 +57,46 @@ MsgTransferLoop:
 			for timeoutSeq := range pathEndPacketFlowMessages.SrcMsgTimeout {
 			to for timeoutSeq, msgTimeout := range pathEndPacketFlowMessages.SrcMsgTimeout { for example.
 		*/
+
 		for timeoutSeq, msgTimeout := range pathEndPacketFlowMessages.SrcMsgTimeout {
 			if transferSeq == timeoutSeq {
-				// we have a timeout for this packet, so packet flow is complete
-				// remove all retention of this sequence number
-				res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], transferSeq)
-				res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], transferSeq)
-			}
+				if msgTimeout.ChannelOrder == chantypes.ORDERED.String() {
+					// For ordered channel packets, flow is not done until channel-close-confirm is observed.
+					if pathEndPacketFlowMessages.DstMsgChannelCloseConfirm == nil {
+						// have not yet observed a channel-close-confirm yet for this channel, send it if ready.
+						// will come back through here next block if not yet ready.
+						fmt.Printf("Counterparty port ID: %s \n", msgTimeout.DestPort)
+						fmt.Printf("Counterparty chan ID: %s \n", msgTimeout.DestChannel)
+						closeChan := channelIBCMessage{
+							eventType: chantypes.EventTypeChannelCloseConfirm,
+							info: provider.ChannelInfo{
+								Height:                msgTimeout.Height,
+								PortID:                msgTimeout.SourcePort,
+								ChannelID:             msgTimeout.SourceChannel,
+								CounterpartyPortID:    msgTimeout.DestPort,
+								CounterpartyChannelID: msgTimeout.DestChannel,
+								Order:                 orderFromString(msgTimeout.ChannelOrder),
+							},
+						}
 
-			if msgTimeout.ChannelOrder == chantypes.ORDERED.String() {
-				fmt.Printf("Counterparty port ID: %s \n", msgTimeout.DestPort)
-				fmt.Printf("Counterparty chan ID: %s \n", msgTimeout.DestChannel)
-				closeChan := channelIBCMessage{
-					eventType: chantypes.EventTypeChannelCloseConfirm,
-					info: provider.ChannelInfo{
-						Height:                msgTimeout.Height,
-						PortID:                msgTimeout.SourcePort,
-						ChannelID:             msgTimeout.SourceChannel,
-						CounterpartyPortID:    msgTimeout.DestPort,
-						CounterpartyChannelID: msgTimeout.DestChannel,
-						Order:                 orderFromString(msgTimeout.ChannelOrder),
-					},
+						if pathEndPacketFlowMessages.Src.shouldSendChannelMessage(closeChan, pathEndPacketFlowMessages.Dst) {
+							res.DstChannelMessage = append(res.DstChannelMessage, closeChan)
+						}
+					} else {
+						// ordered channel, and we have a channel close confirm, so packet-flow and channel-close-flow is complete.
+						// remove all retention of this sequence number and this channel-close-confirm.
+						res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm] = append(res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm], pathEndPacketFlowMessages.ChannelKey.Counterparty())
+						res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], transferSeq)
+						res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], transferSeq)
+					}
+				} else {
+					// unordered channel, and we have a timeout for this packet, so packet flow is complete
+					// remove all retention of this sequence number
+					res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], transferSeq)
+					res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], transferSeq)
 				}
-
-				if pathEndPacketFlowMessages.Src.shouldSendChannelMessage(closeChan, pathEndPacketFlowMessages.Dst) {
-					res.DstChannelMessage = append(res.DstChannelMessage, closeChan)
-				}
+				continue MsgTransferLoop
 			}
-
-			continue MsgTransferLoop
 		}
 		for timeoutOnCloseSeq := range pathEndPacketFlowMessages.SrcMsgTimeoutOnClose {
 			if transferSeq == timeoutOnCloseSeq {
@@ -154,9 +166,18 @@ MsgTransferLoop:
 		res.ToDeleteDst[chantypes.EventTypeRecvPacket] = append(res.ToDeleteDst[chantypes.EventTypeRecvPacket], ackSeq)
 		res.ToDeleteSrc[chantypes.EventTypeAcknowledgePacket] = append(res.ToDeleteSrc[chantypes.EventTypeAcknowledgePacket], ackSeq)
 	}
-	for timeoutSeq := range pathEndPacketFlowMessages.SrcMsgTimeout {
-		res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], timeoutSeq)
-		res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], timeoutSeq)
+	for timeoutSeq, msgTimeout := range pathEndPacketFlowMessages.SrcMsgTimeout {
+		if msgTimeout.ChannelOrder == chantypes.ORDERED.String() {
+			if pathEndPacketFlowMessages.DstMsgChannelCloseConfirm != nil {
+				// For ordered channel packets, flow is not done until channel-close-confirm is observed.
+				res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm] = append(res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm], pathEndPacketFlowMessages.ChannelKey.Counterparty())
+				res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], timeoutSeq)
+				res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], timeoutSeq)
+			}
+		} else {
+			res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], timeoutSeq)
+			res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], timeoutSeq)
+		}
 	}
 	for timeoutOnCloseSeq := range pathEndPacketFlowMessages.SrcMsgTimeoutOnClose {
 		res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], timeoutOnCloseSeq)
@@ -597,25 +618,43 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 	pathEnd2ProcessRes := make([]pathEndPacketFlowResponse, len(channelPairs))
 
 	for i, pair := range channelPairs {
+		var pathEnd1ChannelCloseConfirm, pathEnd2ChannelCloseConfirm *provider.ChannelInfo
+		pathEnd1ChanCloseConfirmMsgs, ok := pp.pathEnd1.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseConfirm]
+		if ok {
+			pathEnd1ChannelCloseConfirmMsg, ok := pathEnd1ChanCloseConfirmMsgs[pair.pathEnd1ChannelKey]
+			if ok {
+				pathEnd1ChannelCloseConfirm = &pathEnd1ChannelCloseConfirmMsg
+			}
+		}
+		pathEnd2ChanCloseConfirmMsgs, ok := pp.pathEnd2.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseConfirm]
+		if ok {
+			pathEnd2ChannelCloseConfirmMsg, ok := pathEnd2ChanCloseConfirmMsgs[pair.pathEnd2ChannelKey]
+			if ok {
+				pathEnd2ChannelCloseConfirm = &pathEnd2ChannelCloseConfirmMsg
+			}
+		}
+
 		pathEnd1PacketFlowMessages := pathEndPacketFlowMessages{
-			Src:                   pp.pathEnd1,
-			Dst:                   pp.pathEnd2,
-			ChannelKey:            pair.pathEnd1ChannelKey,
-			SrcMsgTransfer:        pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeSendPacket],
-			DstMsgRecvPacket:      pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeRecvPacket],
-			SrcMsgAcknowledgement: pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeAcknowledgePacket],
-			SrcMsgTimeout:         pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacket],
-			SrcMsgTimeoutOnClose:  pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
+			Src:                       pp.pathEnd1,
+			Dst:                       pp.pathEnd2,
+			ChannelKey:                pair.pathEnd1ChannelKey,
+			SrcMsgTransfer:            pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeSendPacket],
+			DstMsgRecvPacket:          pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeRecvPacket],
+			SrcMsgAcknowledgement:     pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeAcknowledgePacket],
+			SrcMsgTimeout:             pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacket],
+			SrcMsgTimeoutOnClose:      pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
+			DstMsgChannelCloseConfirm: pathEnd2ChannelCloseConfirm,
 		}
 		pathEnd2PacketFlowMessages := pathEndPacketFlowMessages{
-			Src:                   pp.pathEnd2,
-			Dst:                   pp.pathEnd1,
-			ChannelKey:            pair.pathEnd2ChannelKey,
-			SrcMsgTransfer:        pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeSendPacket],
-			DstMsgRecvPacket:      pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeRecvPacket],
-			SrcMsgAcknowledgement: pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeAcknowledgePacket],
-			SrcMsgTimeout:         pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacket],
-			SrcMsgTimeoutOnClose:  pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
+			Src:                       pp.pathEnd2,
+			Dst:                       pp.pathEnd1,
+			ChannelKey:                pair.pathEnd2ChannelKey,
+			SrcMsgTransfer:            pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeSendPacket],
+			DstMsgRecvPacket:          pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeRecvPacket],
+			SrcMsgAcknowledgement:     pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeAcknowledgePacket],
+			SrcMsgTimeout:             pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacket],
+			SrcMsgTimeoutOnClose:      pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
+			DstMsgChannelCloseConfirm: pathEnd1ChannelCloseConfirm,
 		}
 
 		pathEnd1ProcessRes[i] = pp.getUnrelayedPacketsAndAcksAndToDelete(ctx, pathEnd1PacketFlowMessages)
@@ -992,6 +1031,9 @@ func (pp *PathProcessor) packetMessagesToSend(channelPairs []channelPair, pathEn
 
 		pathEnd1ChannelMessage = append(pathEnd1ChannelMessage, pathEnd2ProcessRes[i].DstChannelMessage...)
 		pathEnd2ChannelMessage = append(pathEnd2ChannelMessage, pathEnd1ProcessRes[i].DstChannelMessage...)
+
+		pp.pathEnd1.messageCache.ChannelHandshake.DeleteMessages(pathEnd2ProcessRes[i].ToDeleteDstChannel)
+		pp.pathEnd2.messageCache.ChannelHandshake.DeleteMessages(pathEnd1ProcessRes[i].ToDeleteDstChannel)
 
 		pp.pathEnd1.messageCache.PacketFlow[channelPair.pathEnd1ChannelKey].DeleteMessages(pathEnd1ProcessRes[i].ToDeleteSrc, pathEnd2ProcessRes[i].ToDeleteDst)
 		pp.pathEnd2.messageCache.PacketFlow[channelPair.pathEnd2ChannelKey].DeleteMessages(pathEnd2ProcessRes[i].ToDeleteSrc, pathEnd1ProcessRes[i].ToDeleteDst)
