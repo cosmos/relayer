@@ -36,7 +36,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 ---
 
 ## Table Of Contents
-- [Basic Usage - Relaying Across Chains](https://github.com/Choi-Jinhong/relayer#basic-usage---relaying-packets-across-chains)
+- [Basic Usage - Relaying Across Chains](https://github.com/cosmos/relayer#basic-usage---relaying-packets-across-chains)
 - [Create Path Across Chains](./docs/create-path-across-chain.md)
 - [Troubleshooting](./docs/troubleshooting.md)
 - [Features](./docs/features.md)
