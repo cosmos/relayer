@@ -101,14 +101,15 @@ func (c connectionProcessingCache) deleteMessages(toDelete ...map[string][]Conne
 // contains MsgRecvPacket from counterparty
 // entire packet flow
 type pathEndPacketFlowMessages struct {
-	Src                   *pathEndRuntime
-	Dst                   *pathEndRuntime
-	ChannelKey            ChannelKey
-	SrcMsgTransfer        PacketSequenceCache
-	DstMsgRecvPacket      PacketSequenceCache
-	SrcMsgAcknowledgement PacketSequenceCache
-	SrcMsgTimeout         PacketSequenceCache
-	SrcMsgTimeoutOnClose  PacketSequenceCache
+	Src                       *pathEndRuntime
+	Dst                       *pathEndRuntime
+	ChannelKey                ChannelKey
+	SrcMsgTransfer            PacketSequenceCache
+	DstMsgRecvPacket          PacketSequenceCache
+	SrcMsgAcknowledgement     PacketSequenceCache
+	SrcMsgTimeout             PacketSequenceCache
+	SrcMsgTimeoutOnClose      PacketSequenceCache
+	DstMsgChannelCloseConfirm *provider.ChannelInfo
 }
 
 type pathEndConnectionHandshakeMessages struct {
@@ -142,8 +143,9 @@ type pathEndPacketFlowResponse struct {
 
 	DstChannelMessage []channelIBCMessage
 
-	ToDeleteSrc map[string][]uint64
-	ToDeleteDst map[string][]uint64
+	ToDeleteSrc        map[string][]uint64
+	ToDeleteDst        map[string][]uint64
+	ToDeleteDstChannel map[string][]ChannelKey
 }
 
 type pathEndChannelHandshakeResponse struct {
