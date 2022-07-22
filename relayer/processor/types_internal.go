@@ -140,6 +140,8 @@ type pathEndPacketFlowResponse struct {
 	SrcMessages []packetIBCMessage
 	DstMessages []packetIBCMessage
 
+	DstChannelMessage []channelIBCMessage
+
 	ToDeleteSrc map[string][]uint64
 	ToDeleteDst map[string][]uint64
 }

@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"fmt"
 
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
@@ -122,8 +123,10 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache) 
 
 			if eventType == chantypes.EventTypeChannelOpenInit {
 				// CounterpartyConnectionID is needed to construct MsgChannelOpenTry.
+				fmt.Println("Attempting to get the counterparty connection ID")
 				for k := range pathEnd.connectionStateCache {
 					if k.ConnectionID == ci.ConnID {
+						fmt.Println("Found connection ID for counterparty needed in MsgChannelOpenTry")
 						ci.CounterpartyConnID = k.CounterpartyConnID
 						break
 					}
@@ -493,9 +496,14 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 			toDeleteCounterparty[chantypes.EventTypeChannelOpenAck] = []ChannelKey{counterpartyKey}
 			toDelete[chantypes.EventTypeChannelOpenTry] = []ChannelKey{channelKey}
 			toDeleteCounterparty[chantypes.EventTypeChannelOpenInit] = []ChannelKey{counterpartyKey.msgInitKey()}
+		case chantypes.EventTypeChannelCloseConfirm:
+			fmt.Println("Deleting Channel Close msgs on failure in should send chan msgs")
+			toDeleteCounterparty[chantypes.EventTypeChannelCloseInit] = []ChannelKey{counterpartyKey}
+			toDelete[chantypes.EventTypeChannelCloseConfirm] = []ChannelKey{channelKey}
 		}
+
 		// delete in progress send for this specific message
-		pathEnd.channelProcessing.deleteMessages(map[string][]ChannelKey{eventType: []ChannelKey{channelKey}})
+		pathEnd.channelProcessing.deleteMessages(map[string][]ChannelKey{eventType: {channelKey}})
 
 		// delete all connection handshake retention history for this channel
 		pathEnd.messageCache.ChannelHandshake.DeleteMessages(toDelete)

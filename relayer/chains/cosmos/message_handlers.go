@@ -1,6 +1,8 @@
 package cosmos
 
 import (
+	"fmt"
+
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
@@ -62,6 +64,7 @@ func (ccp *CosmosChainProcessor) handleChannelMessage(eventType string, ci provi
 	case chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm:
 		ccp.channelStateCache[channelKey] = true
 	case chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
+		fmt.Printf("FOUND channel close event: %s \n", eventType)
 		for k := range ccp.channelStateCache {
 			if k.PortID == ci.PortID && k.ChannelID == ci.ChannelID {
 				ccp.channelStateCache[k] = false
