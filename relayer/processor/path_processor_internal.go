@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 
 	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
@@ -975,16 +974,4 @@ func (pp *PathProcessor) packetMessagesToSend(
 	}
 
 	return pathEnd1PacketMessages, pathEnd2PacketMessages, pathEnd1ChannelMessage, pathEnd2ChannelMessage
-}
-
-// orderFromString parses a string into a channel order byte
-func orderFromString(order string) chantypes.Order {
-	switch strings.ToUpper(order) {
-	case "UNORDERED":
-		return chantypes.UNORDERED
-	case "ORDERED":
-		return chantypes.ORDERED
-	default:
-		return chantypes.NONE
-	}
 }

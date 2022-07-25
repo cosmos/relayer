@@ -1,8 +1,10 @@
 package processor
 
 import (
+	"strings"
 	"sync"
 
+	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
@@ -130,13 +132,6 @@ type pathEndChannelHandshakeMessages struct {
 	DstMsgChannelOpenConfirm ChannelMessageCache
 }
 
-type pathEndChannelCloseMessages struct {
-	Src                       *pathEndRuntime
-	Dst                       *pathEndRuntime
-	SrcMsgChannelCloseInit    ChannelMessageCache
-	DstMsgChannelCloseConfirm ChannelMessageCache
-}
-
 type pathEndPacketFlowResponse struct {
 	SrcMessages []packetIBCMessage
 	DstMessages []packetIBCMessage
@@ -223,4 +218,16 @@ type connectionMessageToTrack struct {
 type channelMessageToTrack struct {
 	msg       channelIBCMessage
 	assembled bool
+}
+
+// orderFromString parses a string into a channel order byte.
+func orderFromString(order string) chantypes.Order {
+	switch strings.ToUpper(order) {
+	case chantypes.UNORDERED.String():
+		return chantypes.UNORDERED
+	case chantypes.ORDERED.String():
+		return chantypes.ORDERED
+	default:
+		return chantypes.NONE
+	}
 }
