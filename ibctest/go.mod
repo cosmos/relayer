@@ -117,7 +117,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.12.0 // indirect
-	github.com/strangelove-ventures/lens v0.5.2-0.20220725175804-9dc4e1b811ce // indirect
+	github.com/strangelove-ventures/lens v0.5.2-0.20220725181212-615bf7a39fe6 // indirect
 	github.com/subosito/gotenv v1.3.0 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/tendermint/btcd v0.1.1 // indirect

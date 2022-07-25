@@ -15,7 +15,7 @@ require (
 	github.com/ory/dockertest/v3 v3.9.1
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
-	github.com/strangelove-ventures/lens v0.5.2-0.20220725175804-9dc4e1b811ce
+	github.com/strangelove-ventures/lens v0.5.2-0.20220725181212-615bf7a39fe6
 	github.com/stretchr/testify v1.8.0
 	github.com/tendermint/tendermint v0.34.20-0.20220517115723-e6f071164839
 	go.uber.org/multierr v1.8.0

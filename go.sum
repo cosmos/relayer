@@ -1089,8 +1089,8 @@ github.com/spf13/viper v1.12.0/go.mod h1:b6COn30jlNxbm/V2IqWiNWkJ+vZNiMNksliPCiu
 github.com/status-im/keycard-go v0.0.0-20190316090335-8537d3370df4/go.mod h1:RZLeN1LMWmRsyYjvAu+I6Dm9QmlDaIIt+Y+4Kd7Tp+Q=
 github.com/steakknife/bloomfilter v0.0.0-20180922174646-6819c0d2a570/go.mod h1:8OR4w3TdeIHIh1g6EMY5p0gVNOovcWC+1vpc7naMuAw=
 github.com/steakknife/hamming v0.0.0-20180906055917-c99c65617cd3/go.mod h1:hpGUWaI9xL8pRQCTXQgocU38Qw1g0Us7n5PxxTwTCYU=
-github.com/strangelove-ventures/lens v0.5.2-0.20220725175804-9dc4e1b811ce h1:k038VBr6H7VX2Jr+oOp7smHJtEvmabB2lqxajTDra9A=
-github.com/strangelove-ventures/lens v0.5.2-0.20220725175804-9dc4e1b811ce/go.mod h1:wYyOIBMBJC2GW5Wl6f/tnQyeicEVsgyLctHKo+/zg4I=
+github.com/strangelove-ventures/lens v0.5.2-0.20220725181212-615bf7a39fe6 h1:zqc+cBHJn1YD/G0MK40jYnQJi6qWzJgNVjVcTeb8WjQ=
+github.com/strangelove-ventures/lens v0.5.2-0.20220725181212-615bf7a39fe6/go.mod h1:nJkqTtTKgLUM4nEUJKABNVLzQ+y9u6XhDYMHNn93HjQ=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v1.0.0/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=

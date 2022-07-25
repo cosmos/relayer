@@ -1301,8 +1301,8 @@ github.com/status-im/keycard-go v0.0.0-20190316090335-8537d3370df4/go.mod h1:RZL
 github.com/stefanberger/go-pkcs11uri v0.0.0-20201008174630-78d3cae3a980/go.mod h1:AO3tvPzVZ/ayst6UlUKUv6rcPQInYe3IknH3jYhAKu8=
 github.com/strangelove-ventures/ibctest v0.0.0-20220722174333-fef71f837b13 h1:N0yc7mtEkibAnHusTLMH5oCJhYsRwgzxSpqUdxVkC8o=
 github.com/strangelove-ventures/ibctest v0.0.0-20220722174333-fef71f837b13/go.mod h1:aWBeEKU4lGfvJ9qO543zJbQGtB2fK2ffrJh6jbtowEM=
-github.com/strangelove-ventures/lens v0.5.2-0.20220725175804-9dc4e1b811ce h1:k038VBr6H7VX2Jr+oOp7smHJtEvmabB2lqxajTDra9A=
-github.com/strangelove-ventures/lens v0.5.2-0.20220725175804-9dc4e1b811ce/go.mod h1:wYyOIBMBJC2GW5Wl6f/tnQyeicEVsgyLctHKo+/zg4I=
+github.com/strangelove-ventures/lens v0.5.2-0.20220725181212-615bf7a39fe6 h1:zqc+cBHJn1YD/G0MK40jYnQJi6qWzJgNVjVcTeb8WjQ=
+github.com/strangelove-ventures/lens v0.5.2-0.20220725181212-615bf7a39fe6/go.mod h1:nJkqTtTKgLUM4nEUJKABNVLzQ+y9u6XhDYMHNn93HjQ=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v1.0.0/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
