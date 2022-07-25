@@ -411,8 +411,6 @@ github.com/cosmos/gorocksdb v1.2.0 h1:d0l3jJG8M4hBouIZq0mDUHZ+zjOx044J3nGRskwTb4
 github.com/cosmos/gorocksdb v1.2.0/go.mod h1:aaKvKItm514hKfNJpUJXnnOWeBnk2GL4+Qw9NHizILw=
 github.com/cosmos/iavl v0.17.3 h1:s2N819a2olOmiauVa0WAhoIJq9EhSXE9HDBAoR9k+8Y=
 github.com/cosmos/iavl v0.17.3/go.mod h1:prJoErZFABYZGDHka1R6Oay4z9PrNeFFiMKHDAMOi4w=
-github.com/cosmos/ibc-go/v3 v3.0.0 h1:XUNplHVS51Q2gMnTFsFsH9QJ7flsovMamnltKbEgPQ4=
-github.com/cosmos/ibc-go/v3 v3.0.0/go.mod h1:Mb+1NXiPOLd+CPFlOC6BKeAUaxXlhuWenMmRiUiSmwY=
 github.com/cosmos/ibc-go/v4 v4.0.0-rc0 h1:zeMr6PNE7L300AcGkrMwRvtp62/RpGc7qU1LwhUcPKc=
 github.com/cosmos/ibc-go/v4 v4.0.0-rc0/go.mod h1:4LK+uPycPhebJrJ8ebIqvsMEZ0lVRVNTiEyeI9zfB0U=
 github.com/cosmos/ledger-cosmos-go v0.11.1 h1:9JIYsGnXP613pb2vPjFeMMjBI5lEDsEaF6oYorTy6J4=
@@ -1303,8 +1301,8 @@ github.com/status-im/keycard-go v0.0.0-20190316090335-8537d3370df4/go.mod h1:RZL
 github.com/stefanberger/go-pkcs11uri v0.0.0-20201008174630-78d3cae3a980/go.mod h1:AO3tvPzVZ/ayst6UlUKUv6rcPQInYe3IknH3jYhAKu8=
 github.com/strangelove-ventures/ibctest v0.0.0-20220722174333-fef71f837b13 h1:N0yc7mtEkibAnHusTLMH5oCJhYsRwgzxSpqUdxVkC8o=
 github.com/strangelove-ventures/ibctest v0.0.0-20220722174333-fef71f837b13/go.mod h1:aWBeEKU4lGfvJ9qO543zJbQGtB2fK2ffrJh6jbtowEM=
-github.com/strangelove-ventures/lens v0.5.2-0.20220713232429-0763782f847c h1:ysHIxIZ7B4HpheB+FKCn+zjsiqUx8tBdCTFf8AmTPuE=
-github.com/strangelove-ventures/lens v0.5.2-0.20220713232429-0763782f847c/go.mod h1:d0CKf16Z7Us9ZpVSMNZJOIjS3GLowlo6b6EAT8B+0h8=
+github.com/strangelove-ventures/lens v0.5.2-0.20220725175804-9dc4e1b811ce h1:k038VBr6H7VX2Jr+oOp7smHJtEvmabB2lqxajTDra9A=
+github.com/strangelove-ventures/lens v0.5.2-0.20220725175804-9dc4e1b811ce/go.mod h1:wYyOIBMBJC2GW5Wl6f/tnQyeicEVsgyLctHKo+/zg4I=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v1.0.0/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
