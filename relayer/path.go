@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
+	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 )
