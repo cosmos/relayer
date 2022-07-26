@@ -75,7 +75,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, eg.Wait())
 
 	t.Log("Creating clients")
-	_, err = src.CreateClients(ctx, dst, true, true, false, "")
+	_, err = src.CreateClients(ctx, dst, true, true, false, 0, "")
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
