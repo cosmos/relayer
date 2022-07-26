@@ -1990,6 +1990,8 @@ func (cc *CosmosProvider) NewClientState(dstUpdateHeader ibcexported.Header, dst
 		return nil, fmt.Errorf("got data of type %T but wanted tmclient.Header", dstUpdateHeader)
 	}
 
+	fmt.Println("DAN TRUSTING PERIOD:", dstTrustingPeriod)
+
 	// Create the ClientState we want on 'c' tracking 'dst'
 	return &tmclient.ClientState{
 		ChainId:                      dstTmHeader.GetHeader().GetChainID(),

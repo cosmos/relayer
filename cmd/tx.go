@@ -120,6 +120,11 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return err
 			}
 
+			customClientTrustingPeriod, err := cmd.Flags().GetFloat64(flagClientTrustingPeriod)
+			if err != nil {
+				return err
+			}
+
 			override, err := cmd.Flags().GetBool(flagOverride)
 			if err != nil {
 				return err
@@ -138,7 +143,7 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
-			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, a.Config.memo(cmd))
+			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.Config.memo(cmd))
 			if err != nil {
 				return err
 			}
@@ -173,6 +178,11 @@ func createClientCmd(a *appState) *cobra.Command {
 			}
 
 			allowUpdateAfterMisbehaviour, err := cmd.Flags().GetBool(flagUpdateAfterMisbehaviour)
+			if err != nil {
+				return err
+			}
+
+			customClientTrustingPeriod, err := cmd.Flags().GetFloat64(flagClientTrustingPeriod)
 			if err != nil {
 				return err
 			}
@@ -244,7 +254,7 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			modified, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, a.Config.memo(cmd))
+			modified, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, float64(customClientTrustingPeriod), a.Config.memo(cmd))
 			if err != nil {
 				return err
 			}
@@ -361,6 +371,11 @@ $ %s tx conn demo-path --timeout 5s`,
 				return err
 			}
 
+			customClientTrustingPeriod, err := cmd.Flags().GetFloat64(flagClientTrustingPeriod)
+			if err != nil {
+				return err
+			}
+
 			c, src, dst, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
@@ -392,7 +407,7 @@ $ %s tx conn demo-path --timeout 5s`,
 			memo := a.Config.memo(cmd)
 
 			// ensure that the clients exist
-			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, memo)
+			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
 			if err != nil {
 				return err
 			}
@@ -585,6 +600,11 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				return err
 			}
 
+			customClientTrustingPeriod, err := cmd.Flags().GetFloat64(flagClientTrustingPeriod)
+			if err != nil {
+				return err
+			}
+
 			pth, err := a.Config.Paths.Get(args[0])
 			if err != nil {
 				return err
@@ -645,7 +665,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			memo := a.Config.memo(cmd)
 
 			// create clients if they aren't already created
-			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, memo)
+			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
 			if err != nil {
 				return fmt.Errorf("error creating clients: %w", err)
 			}
