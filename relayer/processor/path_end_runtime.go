@@ -519,9 +519,6 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 					}
 				}
 			}
-
-			toDeleteCounterparty[chantypes.EventTypeTimeoutPacket] = []ChannelKey{counterpartyKey}
-			toDelete[chantypes.EventTypeSendPacket] = []ChannelKey{channelKey}
 		}
 
 		// delete in progress send for this specific message
