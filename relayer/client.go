@@ -108,7 +108,6 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 
 	// Query the trusting period for dst and retry if the query fails
 	var tp time.Duration
-	const nsInHour = 3.6e+12
 	if customClientTrustingPeriod == 0 {
 		if err := retry.Do(func() error {
 			var err error
@@ -124,7 +123,8 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 			return false, err
 		}
 	} else {
-		tp = time.Duration(customClientTrustingPeriod * nsInHour)
+		// convert the trusintg period to hours with go-type duration
+		tp = time.Duration(time.Duration(customClientTrustingPeriod*60) * time.Minute)
 	}
 
 	src.log.Debug(
