@@ -500,8 +500,8 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 			toDeleteCounterparty[chantypes.EventTypeChannelCloseInit] = []ChannelKey{counterpartyKey}
 			toDelete[chantypes.EventTypeChannelCloseConfirm] = []ChannelKey{channelKey}
 
-			// Delete relevant send packet messages for this channel key if we are operating on an
-			// ordered channel.
+			// Gather relevant send packet messages, for this channel key, that should be deleted if we
+			// are operating on an ordered channel.
 			if messageCache, ok := pathEnd.messageCache.PacketFlow[channelKey]; ok {
 				if seqCache, ok := messageCache[chantypes.EventTypeSendPacket]; ok {
 					for seq, packetInfo := range seqCache {
@@ -512,8 +512,8 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 				}
 			}
 
-			// Delete relevant timeout packet messages for the counterparty channel key if we are operating on an
-			// ordered channel.
+			// Gather relevant timeout messages, for this counterparty channel key, that should be deleted if we
+			// are operating on an ordered channel.
 			if messageCache, ok := counterparty.messageCache.PacketFlow[counterpartyKey]; ok {
 				if seqCache, ok := messageCache[chantypes.EventTypeTimeoutPacket]; ok {
 					for seq, packetInfo := range seqCache {
@@ -527,6 +527,8 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 
 		// delete in progress send for this specific message
 		pathEnd.channelProcessing.deleteMessages(map[string][]ChannelKey{eventType: {channelKey}})
+		pathEnd.messageCache.PacketFlow[channelKey].DeleteMessages(toDeletePacket)
+		pathEnd.messageCache.PacketFlow[counterpartyKey].DeleteMessages(toDeleteCounterpartyPacket)
 
 		// delete all connection handshake retention history for this channel
 		pathEnd.messageCache.ChannelHandshake.DeleteMessages(toDelete)
