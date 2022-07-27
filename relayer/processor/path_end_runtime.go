@@ -528,7 +528,7 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 		// delete in progress send for this specific message
 		pathEnd.channelProcessing.deleteMessages(map[string][]ChannelKey{eventType: {channelKey}})
 		pathEnd.messageCache.PacketFlow[channelKey].DeleteMessages(toDeletePacket)
-		pathEnd.messageCache.PacketFlow[counterpartyKey].DeleteMessages(toDeleteCounterpartyPacket)
+		counterparty.messageCache.PacketFlow[counterpartyKey].DeleteMessages(toDeleteCounterpartyPacket)
 
 		// delete all connection handshake retention history for this channel
 		pathEnd.messageCache.ChannelHandshake.DeleteMessages(toDelete)
