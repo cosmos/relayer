@@ -232,7 +232,7 @@ func clientParameterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 		"allow governance to update the client if expiry occurs")
 	cmd.Flags().BoolP(flagUpdateAfterMisbehaviour, "m", true,
 		"allow governance to update the client if misbehaviour freezing occurs")
-	cmd.Flags().Duration(flagClientTrustingPeriod, 0, "custom light client trusting period ex. 24h (default: 85% of unbonding time)")
+	cmd.Flags().Duration(flagClientTrustingPeriod, 0, "custom light client trusting period ex. 24h (default: 85% of chains reported unbonding time)")
 	if err := v.BindPFlag(flagUpdateAfterExpiry, cmd.Flags().Lookup(flagUpdateAfterExpiry)); err != nil {
 		panic(err)
 	}

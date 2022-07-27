@@ -107,8 +107,9 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 	// Otherwise, create client for the destination chain on the source chain.
 
 	// Query the trusting period for dst and retry if the query fails
-	var tp time.Duration
-	if customClientTrustingPeriod == 0 {
+	// var tp time.Duration
+	tp := customClientTrustingPeriod
+	if tp == 0 {
 		if err := retry.Do(func() error {
 			var err error
 			tp, err = dst.GetTrustingPeriod(ctx)
@@ -116,14 +117,12 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 				return fmt.Errorf("failed to get trusting period for chain{%s}: %w", dst.ChainID(), err)
 			}
 			if tp == 0 {
-				return fmt.Errorf("chain %s reported invalid zero trusting period", dst.ChainID())
+				return retry.Unrecoverable(fmt.Errorf("chain %s reported invalid zero trusting period", dst.ChainID()))
 			}
 			return nil
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 			return false, err
 		}
-	} else {
-		tp = customClientTrustingPeriod
 	}
 
 	src.log.Debug(
