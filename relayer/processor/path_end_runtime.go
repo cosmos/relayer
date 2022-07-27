@@ -502,20 +502,24 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 
 			// Delete relevant send packet messages for this channel key if we are operating on an
 			// ordered channel.
-			for _, pCache := range pathEnd.messageCache.PacketFlow[channelKey] {
-				for _, p := range pCache {
-					if p.ChannelOrder == chantypes.ORDERED.String() {
-						toDeletePacket[chantypes.EventTypeSendPacket] = []uint64{}
+			if messageCache, ok := pathEnd.messageCache.PacketFlow[channelKey]; ok {
+				if seqCache, ok := messageCache[chantypes.EventTypeSendPacket]; ok {
+					for seq, packetInfo := range seqCache {
+						if packetInfo.ChannelOrder == chantypes.ORDERED.String() {
+							toDeletePacket[chantypes.EventTypeSendPacket] = append(toDeletePacket[chantypes.EventTypeSendPacket], seq)
+						}
 					}
 				}
 			}
 
-			// Delete relevant timeout packet messages for this channel key if we are operating on an
+			// Delete relevant timeout packet messages for the counterparty channel key if we are operating on an
 			// ordered channel.
-			for _, pCache := range counterparty.messageCache.PacketFlow[counterpartyKey] {
-				for _, p := range pCache {
-					if p.ChannelOrder == chantypes.ORDERED.String() {
-						toDeleteCounterpartyPacket[chantypes.EventTypeTimeoutPacket] = []uint64{}
+			if messageCache, ok := counterparty.messageCache.PacketFlow[counterpartyKey]; ok {
+				if seqCache, ok := messageCache[chantypes.EventTypeTimeoutPacket]; ok {
+					for seq, packetInfo := range seqCache {
+						if packetInfo.ChannelOrder == chantypes.ORDERED.String() {
+							toDeleteCounterpartyPacket[chantypes.EventTypeTimeoutPacket] = append(toDeleteCounterpartyPacket[chantypes.EventTypeTimeoutPacket], seq)
+						}
 					}
 				}
 			}
