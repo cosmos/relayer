@@ -14,7 +14,7 @@ import (
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
-func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool, memo string) (bool, error) {
+func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool, customClientTrustingPeriod time.Duration, memo string) (bool, error) {
 	// Query the latest heights on src and dst and retry if the query fails
 	var srch, dsth int64
 	if err := retry.Do(func() error {
@@ -58,7 +58,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	eg.Go(func() error {
 		var err error
 		// Create client on src for dst if the client id is unspecified
-		modifiedSrc, err = CreateClient(egCtx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, memo)
+		modifiedSrc, err = CreateClient(egCtx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
 		if err != nil {
 			return fmt.Errorf("failed to create client on src chain{%s}: %w", c.ChainID(), err)
 		}
@@ -68,7 +68,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	eg.Go(func() error {
 		var err error
 		// Create client on dst for src if the client id is unspecified
-		modifiedDst, err = CreateClient(egCtx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, memo)
+		modifiedDst, err = CreateClient(egCtx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
 		if err != nil {
 			return fmt.Errorf("failed to create client on dst chain{%s}: %w", dst.ChainID(), err)
 		}
@@ -91,7 +91,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	return modifiedSrc || modifiedDst, nil
 }
 
-func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.Header, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool, memo string) (bool, error) {
+func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.Header, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool, customClientTrustingPeriod time.Duration, memo string) (bool, error) {
 	// If a client ID was specified in the path, ensure it exists.
 	if src.PathEnd.ClientID != "" {
 		// TODO: check client is not expired
@@ -107,19 +107,22 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 	// Otherwise, create client for the destination chain on the source chain.
 
 	// Query the trusting period for dst and retry if the query fails
-	var tp time.Duration
-	if err := retry.Do(func() error {
-		var err error
-		tp, err = dst.GetTrustingPeriod(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to get trusting period for chain{%s}: %w", dst.ChainID(), err)
+	// var tp time.Duration
+	tp := customClientTrustingPeriod
+	if tp == 0 {
+		if err := retry.Do(func() error {
+			var err error
+			tp, err = dst.GetTrustingPeriod(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to get trusting period for chain{%s}: %w", dst.ChainID(), err)
+			}
+			if tp == 0 {
+				return retry.Unrecoverable(fmt.Errorf("chain %s reported invalid zero trusting period", dst.ChainID()))
+			}
+			return nil
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
+			return false, err
 		}
-		if tp == 0 {
-			return fmt.Errorf("chain %s reported invalid zero trusting period", dst.ChainID())
-		}
-		return nil
-	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
-		return false, err
 	}
 
 	src.log.Debug(
