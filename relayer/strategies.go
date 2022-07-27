@@ -9,11 +9,10 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	"github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	cosmosprocessor "github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	cosmosprovider "github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"go.uber.org/zap"
 )
 
@@ -88,8 +87,8 @@ type pathChain struct {
 func (chain pathChain) chainProcessor(log *zap.Logger) processor.ChainProcessor {
 	// Handle new ChainProcessor implementations as cases here
 	switch p := chain.provider.(type) {
-	case *cosmosprovider.CosmosProvider:
-		return cosmosprocessor.NewCosmosChainProcessor(log, p)
+	case *cosmos.CosmosProvider:
+		return cosmos.NewCosmosChainProcessor(log, p)
 	default:
 		panic(fmt.Errorf("unsupported chain provider type: %T", chain.provider))
 	}

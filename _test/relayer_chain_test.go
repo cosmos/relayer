@@ -8,10 +8,10 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
-	ibctesting "github.com/cosmos/ibc-go/v3/testing"
-	ibctestingmock "github.com/cosmos/ibc-go/v3/testing/mock"
+	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
+	tmclient "github.com/cosmos/ibc-go/v4/modules/light-clients/07-tendermint/types"
+	ibctesting "github.com/cosmos/ibc-go/v4/testing"
+	ibctestingmock "github.com/cosmos/ibc-go/v4/testing/mock"
 	"github.com/cosmos/relayer/v2/cmd"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/stretchr/testify/require"
@@ -75,7 +75,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, eg.Wait())
 
 	t.Log("Creating clients")
-	_, err = src.CreateClients(ctx, dst, true, true, false, "")
+	_, err = src.CreateClients(ctx, dst, true, true, false, 0, "")
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
@@ -164,7 +164,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_, err = src.CreateClients(ctx, dst, true, true, false, "")
+	_, err = src.CreateClients(ctx, dst, true, true, false, 0, "")
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
@@ -194,7 +194,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	dst.PathEnd.ClientID = ""
 	dst.PathEnd.ConnectionID = ""
 
-	_, err = src.CreateClients(ctx, dst, true, true, false, "")
+	_, err = src.CreateClients(ctx, dst, true, true, false, 0, "")
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
@@ -216,7 +216,7 @@ func TestGaiaReuseIdentifiers(t *testing.T) {
 	src.PathEnd.ClientID = ""
 	dst.PathEnd.ClientID = ""
 
-	_, err = src.CreateClients(ctx, dst, true, true, true, "")
+	_, err = src.CreateClients(ctx, dst, true, true, true, 0, "")
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
@@ -245,7 +245,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_, err = src.CreateClients(ctx, dst, true, true, false, "")
+	_, err = src.CreateClients(ctx, dst, true, true, false, 0, "")
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
@@ -385,7 +385,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.NoError(t, eg.Wait())
 
 	t.Log("Creating clients")
-	_, err = src.CreateClients(ctx, dst, true, true, false, "")
+	_, err = src.CreateClients(ctx, dst, true, true, false, 0, "")
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
@@ -582,7 +582,7 @@ func TestUnorderedChannelBlockHeightTimeout(t *testing.T) {
 	require.NoError(t, eg.Wait())
 
 	// create path
-	_, err = src.CreateClients(ctx, dst, true, true, false, "")
+	_, err = src.CreateClients(ctx, dst, true, true, false, 0, "")
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 
@@ -680,7 +680,7 @@ func TestUnorderedChannelTimestampTimeout(t *testing.T) {
 	require.NoError(t, eg.Wait())
 
 	// create path
-	_, err = src.CreateClients(ctx, dst, true, true, false, "")
+	_, err = src.CreateClients(ctx, dst, true, true, false, 0, "")
 	require.NoError(t, err)
 	testClientPair(ctx, t, src, dst)
 

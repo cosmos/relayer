@@ -7,12 +7,11 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -21,7 +20,7 @@ import (
 type CosmosChainProcessor struct {
 	log *zap.Logger
 
-	chainProvider *cosmos.CosmosProvider
+	chainProvider *CosmosProvider
 
 	pathProcessors processor.PathProcessors
 
@@ -47,7 +46,7 @@ type CosmosChainProcessor struct {
 	channelConnections map[string]string
 }
 
-func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider) *CosmosChainProcessor {
+func NewCosmosChainProcessor(log *zap.Logger, provider *CosmosProvider) *CosmosChainProcessor {
 	return &CosmosChainProcessor{
 		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
 		chainProvider:        provider,
@@ -290,7 +289,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	ppChanged := false
 
-	var latestHeader cosmos.CosmosIBCHeader
+	var latestHeader CosmosIBCHeader
 
 	newLatestQueriedBlock := persistence.latestQueriedBlock
 
@@ -317,7 +316,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			break
 		}
 
-		latestHeader = ibcHeader.(cosmos.CosmosIBCHeader)
+		latestHeader = ibcHeader.(CosmosIBCHeader)
 
 		heightUint64 := uint64(i)
 

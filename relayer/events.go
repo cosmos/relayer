@@ -3,9 +3,9 @@ package relayer
 import (
 	"fmt"
 
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	connectiontypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
-	channeltypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
+	connectiontypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
+	channeltypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
