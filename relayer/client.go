@@ -123,7 +123,6 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 			return false, err
 		}
 	} else {
-		// convert the trusintg period to hours with go-type duration
 		tp = customClientTrustingPeriod
 	}
 
