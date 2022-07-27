@@ -482,6 +482,9 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 		// remove all retention of this connection handshake in pathEnd.messagesCache.ConnectionHandshake and counterparty
 		toDelete := make(map[string][]ChannelKey)
 		toDeleteCounterparty := make(map[string][]ChannelKey)
+		toDeletePacket := make(map[string][]uint64)
+		toDeleteCounterpartyPacket := make(map[string][]uint64)
+
 		counterpartyKey := channelKey.Counterparty()
 		switch eventType {
 		case chantypes.EventTypeChannelOpenTry:
@@ -493,9 +496,39 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 			toDeleteCounterparty[chantypes.EventTypeChannelOpenAck] = []ChannelKey{counterpartyKey}
 			toDelete[chantypes.EventTypeChannelOpenTry] = []ChannelKey{channelKey}
 			toDeleteCounterparty[chantypes.EventTypeChannelOpenInit] = []ChannelKey{counterpartyKey.msgInitKey()}
+		case chantypes.EventTypeChannelCloseConfirm:
+			toDeleteCounterparty[chantypes.EventTypeChannelCloseInit] = []ChannelKey{counterpartyKey}
+			toDelete[chantypes.EventTypeChannelCloseConfirm] = []ChannelKey{channelKey}
+
+			// Gather relevant send packet messages, for this channel key, that should be deleted if we
+			// are operating on an ordered channel.
+			if messageCache, ok := pathEnd.messageCache.PacketFlow[channelKey]; ok {
+				if seqCache, ok := messageCache[chantypes.EventTypeSendPacket]; ok {
+					for seq, packetInfo := range seqCache {
+						if packetInfo.ChannelOrder == chantypes.ORDERED.String() {
+							toDeletePacket[chantypes.EventTypeSendPacket] = append(toDeletePacket[chantypes.EventTypeSendPacket], seq)
+						}
+					}
+				}
+			}
+
+			// Gather relevant timeout messages, for this counterparty channel key, that should be deleted if we
+			// are operating on an ordered channel.
+			if messageCache, ok := counterparty.messageCache.PacketFlow[counterpartyKey]; ok {
+				if seqCache, ok := messageCache[chantypes.EventTypeTimeoutPacket]; ok {
+					for seq, packetInfo := range seqCache {
+						if packetInfo.ChannelOrder == chantypes.ORDERED.String() {
+							toDeleteCounterpartyPacket[chantypes.EventTypeTimeoutPacket] = append(toDeleteCounterpartyPacket[chantypes.EventTypeTimeoutPacket], seq)
+						}
+					}
+				}
+			}
 		}
+
 		// delete in progress send for this specific message
-		pathEnd.channelProcessing.deleteMessages(map[string][]ChannelKey{eventType: []ChannelKey{channelKey}})
+		pathEnd.channelProcessing.deleteMessages(map[string][]ChannelKey{eventType: {channelKey}})
+		pathEnd.messageCache.PacketFlow[channelKey].DeleteMessages(toDeletePacket)
+		counterparty.messageCache.PacketFlow[counterpartyKey].DeleteMessages(toDeleteCounterpartyPacket)
 
 		// delete all connection handshake retention history for this channel
 		pathEnd.messageCache.ChannelHandshake.DeleteMessages(toDelete)
