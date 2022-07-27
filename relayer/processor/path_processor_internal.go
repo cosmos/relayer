@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"sync"
 
-	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -324,7 +324,8 @@ func (pp *PathProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *
 	// the latest block, we cannot send a MsgUpdateClient until another block is observed on the counterparty.
 	// If the client state height is in the past, beyond ibcHeadersToCache, then we need to query for it.
 	if !trustedConsensusHeight.EQ(clientConsensusHeight) {
-		if int64(clientConsensusHeight.RevisionHeight)-int64(trustedConsensusHeight.RevisionHeight) <= clientConsensusHeightUpdateThresholdBlocks {
+		deltaConsensusHeight := int64(clientConsensusHeight.RevisionHeight) - int64(trustedConsensusHeight.RevisionHeight)
+		if trustedConsensusHeight.RevisionHeight != 0 && deltaConsensusHeight <= clientConsensusHeightUpdateThresholdBlocks {
 			return nil, fmt.Errorf("observed client trusted height: %d does not equal latest client state height: %d",
 				trustedConsensusHeight.RevisionHeight, clientConsensusHeight.RevisionHeight)
 		}
@@ -715,10 +716,20 @@ func (pp *PathProcessor) assemblePacketMessage(
 		packetProof = src.chainProvider.PacketAcknowledgement
 		assembleMessage = dst.chainProvider.MsgAcknowledgement
 	case chantypes.EventTypeTimeoutPacket:
-		packetProof = src.chainProvider.PacketReceipt
+		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
+			packetProof = src.chainProvider.NextSeqRecv
+		} else {
+			packetProof = src.chainProvider.PacketReceipt
+		}
+
 		assembleMessage = dst.chainProvider.MsgTimeout
 	case chantypes.EventTypeTimeoutPacketOnClose:
-		packetProof = src.chainProvider.PacketReceipt
+		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
+			packetProof = src.chainProvider.NextSeqRecv
+		} else {
+			packetProof = src.chainProvider.PacketReceipt
+		}
+
 		assembleMessage = dst.chainProvider.MsgTimeoutOnClose
 	default:
 		return nil, fmt.Errorf("unexepected packet message eventType for message assembly: %s", msg.eventType)

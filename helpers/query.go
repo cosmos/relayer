@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
+	ibcexported "github.com/cosmos/ibc-go/v4/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer"
 )
 

@@ -19,11 +19,10 @@ func (RelayerFactory) Build(
 	t *testing.T,
 	_ *client.Client,
 	networkID string,
-	home string,
 ) ibc.Relayer {
 	r := &Relayer{
 		t:    t,
-		home: home,
+		home: t.TempDir(),
 	}
 
 	res := r.sys().Run(zaptest.NewLogger(t), "config", "init")

@@ -3,29 +3,26 @@ module github.com/cosmos/relayer/v2
 go 1.18
 
 require (
-	github.com/cosmos/cosmos-sdk v0.45.5-0.20220523154235-2921a1c3c918
-	github.com/gogo/protobuf v1.3.3
-	github.com/gorilla/mux v1.8.0 // indirect
-	github.com/spf13/cobra v1.5.0
-	github.com/spf13/viper v1.12.0
-	github.com/stretchr/testify v1.8.0
-	github.com/tendermint/tendermint v0.34.20-0.20220517115723-e6f071164839
-	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
-	gopkg.in/yaml.v3 v3.0.1
-)
-
-require (
 	github.com/avast/retry-go/v4 v4.1.0
 	github.com/cespare/permute/v2 v2.0.0-beta2
-	github.com/cosmos/ibc-go/v3 v3.0.0
+	github.com/cosmos/cosmos-sdk v0.45.6
+	github.com/cosmos/ibc-go/v4 v4.0.0-rc0
+	github.com/gogo/protobuf v1.3.3
 	github.com/google/go-cmp v0.5.8
 	github.com/google/go-github/v43 v43.0.0
+	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/jsternberg/zap-logfmt v1.2.0
 	github.com/ory/dockertest/v3 v3.9.1
-	github.com/strangelove-ventures/lens v0.5.2-0.20220713232429-0763782f847c
+	github.com/spf13/cobra v1.5.0
+	github.com/spf13/viper v1.12.0
+	github.com/strangelove-ventures/lens v0.5.2-0.20220725181212-615bf7a39fe6
+	github.com/stretchr/testify v1.8.0
+	github.com/tendermint/tendermint v0.34.20-0.20220517115723-e6f071164839
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.21.0
+	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -71,6 +68,7 @@ require (
 	github.com/ethereum/go-ethereum v1.10.16 // indirect
 	github.com/felixge/httpsnoop v1.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
+	github.com/gin-gonic/gin v1.7.0 // indirect
 	github.com/go-kit/kit v0.12.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect

@@ -3,11 +3,11 @@ module github.com/cosmos/relayer/v2/ibctest
 go 1.18
 
 require (
-	github.com/cosmos/cosmos-sdk v0.45.5-0.20220523154235-2921a1c3c918
+	github.com/cosmos/cosmos-sdk v0.45.6
 	github.com/cosmos/relayer/v2 v2.0.0
 	github.com/docker/docker v20.10.17+incompatible
 	github.com/moby/moby v20.10.17+incompatible
-	github.com/strangelove-ventures/ibctest v0.0.0-20220705151749-76314a6ae221
+	github.com/strangelove-ventures/ibctest v0.0.0-20220722174333-fef71f837b13
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/zap v1.21.0
 )
@@ -37,7 +37,7 @@ require (
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gorocksdb v1.2.0 // indirect
 	github.com/cosmos/iavl v0.17.3 // indirect
-	github.com/cosmos/ibc-go/v3 v3.0.0 // indirect
+	github.com/cosmos/ibc-go/v4 v4.0.0-rc0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.11.1 // indirect
 	github.com/cosmos/ledger-go v0.9.2 // indirect
 	github.com/danieljoos/wincred v1.0.2 // indirect
@@ -117,7 +117,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.12.0 // indirect
-	github.com/strangelove-ventures/lens v0.5.2-0.20220713232429-0763782f847c // indirect
+	github.com/strangelove-ventures/lens v0.5.2-0.20220725181212-615bf7a39fe6 // indirect
 	github.com/subosito/gotenv v1.3.0 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/tendermint/btcd v0.1.1 // indirect

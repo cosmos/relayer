@@ -14,14 +14,14 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v3/modules/core/24-host"
-	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
+	transfertypes "github.com/cosmos/ibc-go/v4/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v4/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v4/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v4/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v4/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/tendermint/tendermint/light"
 	tmtypes "github.com/tendermint/tendermint/types"
@@ -1194,6 +1194,26 @@ func (cc *CosmosProvider) PacketReceipt(
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
 		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
+	}
+
+	return provider.PacketProof{
+		Proof:       proof,
+		ProofHeight: proofHeight,
+	}, nil
+}
+
+// NextSeqRecv queries for the appropriate Tendermint proof required to prove the next expected packet sequence number
+// for a given counterparty channel. This is used in ORDERED channels to ensure packets are being delivered in the
+// exact same order as they were sent over the wire.
+func (cc *CosmosProvider) NextSeqRecv(
+	ctx context.Context,
+	msgTransfer provider.PacketInfo,
+	height uint64,
+) (provider.PacketProof, error) {
+	key := host.NextSequenceRecvKey(msgTransfer.DestPort, msgTransfer.DestChannel)
+	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
+	if err != nil {
+		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for next sequence receive: %w", err)
 	}
 
 	return provider.PacketProof{
