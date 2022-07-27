@@ -22,6 +22,17 @@ type RelayMsgs struct {
 	MaxMsgLength uint64                    `json:"max_msg_length"` // maximum amount of messages in a bundled relay transaction
 }
 
+// RelayInterqueryMsgs contains the msgs that need to be sent to src chain
+// with query results from the dst chain
+type RelayInterqueryMsgs struct {
+	Msgs         []provider.RelayerMessage `json:"msgs"`
+	MaxTxSize    uint64                    `json:"max_tx_size"`    // maximum permitted size of the msgs in a bundled relay transaction
+	MaxMsgLength uint64                    `json:"max_msg_length"` // maximum amount of messages in a bundled relay transaction
+
+	Last      bool `json:"last"`
+	Succeeded bool `json:"success"`
+}
+
 // batchSendMessageTimeout is the timeout for sending a single batch of IBC messages to an RPC node.
 const batchSendMessageTimeout = 30 * time.Second
 
@@ -37,7 +48,29 @@ func (r *RelayMsgs) Ready() bool {
 	return true
 }
 
+// Ready returns true if there are messages to relay
+func (r *RelayInterqueryMsgs) Ready() bool {
+	if r == nil {
+		return false
+	}
+
+	if len(r.Msgs) == 0 {
+		return false
+	}
+	return true
+}
+
+// Success returns the success var
+func (r *RelayInterqueryMsgs) Success() bool {
+	return r.Succeeded
+}
+
 func (r *RelayMsgs) IsMaxTx(msgLen, txSize uint64) bool {
+	return (r.MaxMsgLength != 0 && msgLen > r.MaxMsgLength) ||
+		(r.MaxTxSize != 0 && txSize > r.MaxTxSize)
+}
+
+func (r *RelayInterqueryMsgs) IsMaxTx(msgLen, txSize uint64) bool {
 	return (r.MaxMsgLength != 0 && msgLen > r.MaxMsgLength) ||
 		(r.MaxTxSize != 0 && txSize > r.MaxTxSize)
 }
@@ -197,5 +230,52 @@ func (r *RelayMsgs) send(
 		if success {
 			*successes++
 		}
+	}
+}
+
+func (r *RelayInterqueryMsgs) Send(ctx context.Context, src, dst *Chain) {
+	//nolint:prealloc // can not be pre allocated
+	var (
+		msgLen, txSize uint64
+		msgs           []provider.RelayerMessage
+	)
+
+	r.Succeeded = true
+
+	// submit batches of relay transactions
+	for _, msg := range r.Msgs {
+		if msg != nil {
+			bz, err := msg.MsgBytes()
+			if err != nil {
+				panic(err)
+			}
+
+			msgLen++
+			txSize += uint64(len(bz))
+
+			if r.IsMaxTx(msgLen, txSize) {
+				// Submit the transactions to src chain and update its status
+				res, success, err := src.ChainProvider.SendMessages(ctx, msgs, "Cosmos Relayer: Interqueries Relayed")
+				if err != nil {
+					src.LogFailedTx(res, err, msgs)
+				}
+				r.Succeeded = r.Succeeded && success
+
+				// clear the current batch and reset variables
+				msgLen, txSize = 1, uint64(len(bz))
+				msgs = []provider.RelayerMessage{}
+			}
+			msgs = append(msgs, msg)
+		}
+	}
+
+	// submit leftover msgs
+	if len(msgs) > 0 {
+		res, success, err := src.ChainProvider.SendMessages(ctx, msgs, "Cosmos Relayer: Interqueries Relayed")
+		if err != nil {
+			src.LogFailedTx(res, err, msgs)
+		}
+
+		r.Succeeded = success
 	}
 }

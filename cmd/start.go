@@ -47,7 +47,7 @@ $ %s start demo-path -p events # to use event processor
 $ %s start demo-path --max-msgs 3
 $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			c, src, dst, interquery, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -91,7 +91,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 				return err
 			}
 
-			rlyErrCh := relayer.StartRelayer(cmd.Context(), a.Log, c[src], c[dst], filter, maxTxSize, maxMsgLength, a.Config.memo(cmd), processorType, initialBlockHistory)
+			rlyErrCh := relayer.StartRelayer(cmd.Context(), a.Log, c[src], c[dst], interquery, filter, maxTxSize, maxMsgLength, a.Config.memo(cmd), processorType, initialBlockHistory)
 
 			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire
 			// when there are no packets flowing across the channels. It is currently a source of errors that have been

@@ -68,6 +68,15 @@ func (c *Chain) logPacketsRelayed(dst *Chain, num int, srcChannel *chantypes.Ide
 	)
 }
 
+func (c *Chain) logInterqueryRelayed(dst *Chain, num int) {
+	c.log.Info(
+		"Relayed interqueries",
+		zap.Int("count", num),
+		zap.String("querying_chain_id", dst.ChainID()),
+		zap.String("queried_chain_id", c.ChainID()),
+	)
+}
+
 func logChannelStates(src, dst *Chain, srcChan, dstChan *chantypes.QueryChannelResponse) {
 	src.log.Debug(
 		"Channel states",

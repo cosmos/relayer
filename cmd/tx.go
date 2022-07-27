@@ -125,7 +125,7 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			c, src, dst, _, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -274,7 +274,7 @@ corresponding update-client messages.`,
 		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`$ %s transact update-clients demo-path`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			c, src, dst, _, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -300,7 +300,7 @@ func upgradeClientsCmd(a *appState) *cobra.Command {
 		Short: "upgrades IBC clients between two configured chains with a configured path and chain-id",
 		Args:  withUsage(cobra.ExactArgs(2)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			c, src, dst, _, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -361,7 +361,7 @@ $ %s tx conn demo-path --timeout 5s`,
 				return err
 			}
 
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			c, src, dst, _, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -439,7 +439,7 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			c, src, dst, _, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -513,7 +513,7 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 			appName, appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			c, src, dst, _, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -731,7 +731,7 @@ $ %s tx relay-pkts demo-path channel-0`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			c, src, dst, _, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -778,7 +778,7 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			c, src, dst, _, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
