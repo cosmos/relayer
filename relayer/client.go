@@ -108,7 +108,6 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 
 	// Query the trusting period for dst and retry if the query fails
 	var tp time.Duration
-	fmt.Println("DAN DURATION:", customClientTrustingPeriod)
 	if customClientTrustingPeriod == 0 {
 		if err := retry.Do(func() error {
 			var err error
