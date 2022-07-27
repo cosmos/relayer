@@ -120,7 +120,7 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			customClientTrustingPeriod, err := cmd.Flags().GetFloat64(flagClientTrustingPeriod)
+			customClientTrustingPeriod, err := cmd.Flags().GetDuration(flagClientTrustingPeriod)
 			if err != nil {
 				return err
 			}
@@ -182,7 +182,7 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			customClientTrustingPeriod, err := cmd.Flags().GetFloat64(flagClientTrustingPeriod)
+			customClientTrustingPeriod, err := cmd.Flags().GetDuration(flagClientTrustingPeriod)
 			if err != nil {
 				return err
 			}
@@ -254,7 +254,7 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			modified, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, float64(customClientTrustingPeriod), a.Config.memo(cmd))
+			modified, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.Config.memo(cmd))
 			if err != nil {
 				return err
 			}
@@ -371,7 +371,7 @@ $ %s tx conn demo-path --timeout 5s`,
 				return err
 			}
 
-			customClientTrustingPeriod, err := cmd.Flags().GetFloat64(flagClientTrustingPeriod)
+			customClientTrustingPeriod, err := cmd.Flags().GetDuration(flagClientTrustingPeriod)
 			if err != nil {
 				return err
 			}
@@ -606,7 +606,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				return err
 			}
 
-			customClientTrustingPeriod, err := cmd.Flags().GetFloat64(flagClientTrustingPeriod)
+			customClientTrustingPeriod, err := cmd.Flags().GetDuration(flagClientTrustingPeriod)
 			if err != nil {
 				return err
 			}
