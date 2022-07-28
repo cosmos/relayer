@@ -3,14 +3,15 @@ package relayer
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/avast/retry-go/v4"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
+	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v4/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v4/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -110,6 +111,56 @@ func QueryChannel(ctx context.Context, src *Chain, channelID string) (*chantypes
 
 	return nil, fmt.Errorf("channel{%s} not found for [%s] -> client{%s}@connection{%s}",
 		channelID, src.ChainID(), src.ClientID(), src.ConnectionID())
+}
+
+func QueryPortChannel(ctx context.Context, src *Chain, portID string) (*chantypes.IdentifiedChannel, error) {
+	var (
+		srch        int64
+		err         error
+		srcChannels []*chantypes.IdentifiedChannel
+	)
+
+	// Query the latest height
+	if err = retry.Do(func() error {
+		var err error
+		srch, err = src.ChainProvider.QueryLatestHeight(ctx)
+		return err
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
+		return nil, err
+	}
+
+	// Query all channels for the given connection
+	if err = retry.Do(func() error {
+		srcChannels, err = src.ChainProvider.QueryConnectionChannels(ctx, srch, src.ConnectionID())
+		return err
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		src.log.Info(
+			"Failed to query connection channels",
+			zap.String("conn_id", src.ConnectionID()),
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", RtyAttNum),
+			zap.Error(err),
+		)
+	})); err != nil {
+		return nil, err
+	}
+
+	// Find the specified channel in the slice of all channels
+	var sb strings.Builder
+	for i, channel := range srcChannels {
+		if channel.PortId == portID {
+			return channel, nil
+		}
+		if i != 0 {
+			sb.WriteString(",")
+		}
+		sb.WriteString(channel.ChannelId)
+		sb.WriteString(":")
+		sb.WriteString(channel.PortId)
+	}
+
+	return nil, fmt.Errorf("channel with port{%s} not found for [%s] -> client{%s}@connection{%s}channels{%s}",
+		portID, src.ChainID(), src.ClientID(), src.ConnectionID(), sb.String())
 }
 
 // GetIBCUpdateHeaders returns a pair of IBC update headers which can be used to update an on chain light client

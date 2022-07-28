@@ -5,10 +5,9 @@ import (
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/processor"
+	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
@@ -222,15 +221,6 @@ func TestParseEventLogs(t *testing.T) {
 			MsgIndex: 0,
 			Events: sdk.StringEvents{
 				{
-					Type: "message",
-					Attributes: []sdk.Attribute{
-						{
-							Key:   "action",
-							Value: processor.MsgUpdateClient,
-						},
-					},
-				},
-				{
 					Type: clienttypes.EventTypeUpdateClient,
 					Attributes: []sdk.Attribute{
 						{
@@ -248,15 +238,6 @@ func TestParseEventLogs(t *testing.T) {
 		{
 			MsgIndex: 1,
 			Events: sdk.StringEvents{
-				{
-					Type: "message",
-					Attributes: []sdk.Attribute{
-						{
-							Key:   "action",
-							Value: processor.MsgRecvPacket,
-						},
-					},
-				},
 				{
 					Type: chantypes.EventTypeRecvPacket,
 					Attributes: []sdk.Attribute{
@@ -312,7 +293,7 @@ func TestParseEventLogs(t *testing.T) {
 	require.Len(t, ibcMessages, 2)
 
 	msgUpdateClient := ibcMessages[0]
-	require.Equal(t, processor.MsgUpdateClient, msgUpdateClient.action)
+	require.Equal(t, clienttypes.EventTypeUpdateClient, msgUpdateClient.eventType)
 
 	clientInfoParsed, isClientInfo := msgUpdateClient.info.(*clientInfo)
 	require.True(t, isClientInfo, "messageInfo is not clientInfo")
@@ -326,7 +307,7 @@ func TestParseEventLogs(t *testing.T) {
 	}, cmp.AllowUnexported(clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
 
 	msgRecvPacket := ibcMessages[1]
-	require.Equal(t, processor.MsgRecvPacket, msgRecvPacket.action, "message is not MsgRecvPacket")
+	require.Equal(t, chantypes.EventTypeRecvPacket, msgRecvPacket.eventType, "message event is not recv_packet")
 
 	packetInfoParsed, isPacketInfo := msgRecvPacket.info.(*packetInfo)
 	require.True(t, isPacketInfo, "messageInfo is not packetInfo")

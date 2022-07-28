@@ -3,36 +3,37 @@ module github.com/cosmos/relayer/v2
 go 1.18
 
 require (
-	github.com/ComposableFi/go-merkle-trees v0.0.0-20220119155315-3ce250c9ec59
+	github.com/ComposableFi/go-merkle-trees v0.0.0-20220505132313-e976260288cc
 	github.com/ComposableFi/go-substrate-rpc-client v2.0.0+incompatible
-	github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220429100113-e4096ab43316
-	github.com/cosmos/cosmos-sdk v0.45.5-0.20220523154235-2921a1c3c918
+	github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220520095549-28b7c5a4e212
+	github.com/avast/retry-go/v4 v4.1.0
+	github.com/cespare/permute/v2 v2.0.0-beta2
+	github.com/cosmos/cosmos-sdk v0.45.6
+	github.com/cosmos/ibc-go/v4 v4.0.0-rc0
 	github.com/gogo/protobuf v1.3.3
+	github.com/google/go-cmp v0.5.8
+	github.com/google/go-github/v43 v43.0.0
 	github.com/gorilla/mux v1.8.0 // indirect
+	github.com/jsternberg/zap-logfmt v1.2.0
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
+	github.com/strangelove-ventures/lens v0.5.2-0.20220725181212-615bf7a39fe6
 	github.com/stretchr/testify v1.8.0
 	github.com/tendermint/tendermint v0.34.20-0.20220517115723-e6f071164839
+	go.uber.org/multierr v1.8.0
+	go.uber.org/zap v1.21.0
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
+	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	github.com/99designs/keyring v1.1.6
-	github.com/avast/retry-go/v4 v4.1.0
-	github.com/cespare/permute/v2 v2.0.0-beta2
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/ibc-go/v3 v3.0.0
 	github.com/ethereum/go-ethereum v1.10.17
-	github.com/google/go-cmp v0.5.8
-	github.com/google/go-github/v43 v43.0.0
-	github.com/jsternberg/zap-logfmt v1.2.0
 	github.com/pkg/errors v0.9.1
-	github.com/strangelove-ventures/lens v0.5.2-0.20220705143712-1be0cf0d92af
-	go.uber.org/multierr v1.8.0
-	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
-	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 )
 
 require (
@@ -94,7 +95,7 @@ require (
 	github.com/ipfs/go-cid v0.0.7 // indirect
 	github.com/jmhodges/levigo v1.0.0 // indirect
 	github.com/keybase/go-keychain v0.0.0-20190712205309-48d3d31d256d // indirect
-	github.com/klauspost/compress v1.15.1 // indirect
+	github.com/klauspost/compress v1.15.6 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/libp2p/go-buffer-pool v0.0.2 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
@@ -144,10 +145,10 @@ require (
 	github.com/zondax/hid v0.9.0 // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	golang.org/x/net v0.0.0-20220520000938-2e3eb7b945c2 // indirect
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
+	golang.org/x/net v0.0.0-20220621193019-9d032be2e588 // indirect
+	golang.org/x/sys v0.0.0-20220615213510-4f61da869c0c // indirect
 	golang.org/x/text v0.3.7 // indirect
-	google.golang.org/genproto v0.0.0-20220602131408-e326c6e8e9c8 // indirect
+	google.golang.org/genproto v0.0.0-20220621134657-43db42f103f7 // indirect
 	google.golang.org/grpc v1.47.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
@@ -156,7 +157,7 @@ require (
 )
 
 //replace github.com/cosmos/ibc-go/v3 => ../../ComposableFi/ibc-go
-replace github.com/cosmos/ibc-go/v3 => github.com/ComposableFi/ibc-go/v3 v3.0.0-20220519082444-c5d058f389c6
+replace github.com/cosmos/ibc-go/v3 => github.com/ComposableFi/ibc-go/v3 v3.0.0-20220627131003-16580fc9e1e8
 
 //replace github.com/ComposableFi/go-substrate-rpc-client/v4 => ../../ComposableFi/go-substrate-rpc-client
 

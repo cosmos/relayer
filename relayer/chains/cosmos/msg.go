@@ -5,7 +5,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap/zapcore"

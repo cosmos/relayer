@@ -7,12 +7,11 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -21,7 +20,7 @@ import (
 type CosmosChainProcessor struct {
 	log *zap.Logger
 
-	chainProvider *cosmos.CosmosProvider
+	chainProvider *CosmosProvider
 
 	pathProcessors processor.PathProcessors
 
@@ -47,7 +46,7 @@ type CosmosChainProcessor struct {
 	channelConnections map[string]string
 }
 
-func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider) *CosmosChainProcessor {
+func NewCosmosChainProcessor(log *zap.Logger, provider *CosmosProvider) *CosmosChainProcessor {
 	return &CosmosChainProcessor{
 		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
 		chainProvider:        provider,
@@ -61,20 +60,13 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *cosmos.CosmosProvider) *
 
 const (
 	queryTimeout                = 5 * time.Second
+	blockResultsQueryTimeout    = 2 * time.Minute
 	latestHeightQueryRetryDelay = 1 * time.Second
 	latestHeightQueryRetries    = 5
 
 	defaultMinQueryLoopDuration = 1 * time.Second
 	inSyncNumBlocksThreshold    = 2
 )
-
-type msgHandlerParams struct {
-	// incoming IBC message
-	messageInfo any
-
-	// reference to the caches that will be assembled by the handlers in this file
-	ibcMessagesCache processor.IBCMessagesCache
-}
 
 // latestClientState is a map of clientID to the latest clientInfo for that client.
 type latestClientState map[string]provider.ClientState
@@ -242,7 +234,7 @@ func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) err
 			ccp.log.Error("Found channel using multiple connection hops. Not currently supported, ignoring.",
 				zap.String("channel_id", ch.ChannelId),
 				zap.String("port_id", ch.PortId),
-				zap.Any("connection_hops", ch.ConnectionHops),
+				zap.Strings("connection_hops", ch.ConnectionHops),
 			)
 			continue
 		}
@@ -297,14 +289,17 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	ppChanged := false
 
-	var latestHeader cosmos.CosmosIBCHeader
+	var latestHeader CosmosIBCHeader
+
+	newLatestQueriedBlock := persistence.latestQueriedBlock
 
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var eg errgroup.Group
 		var blockRes *ctypes.ResultBlockResults
 		var ibcHeader provider.IBCHeader
+		i := i
 		eg.Go(func() (err error) {
-			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
+			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
 			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
 			return err
@@ -317,11 +312,11 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		})
 
 		if err := eg.Wait(); err != nil {
-			ccp.log.Error("Error querying block data", zap.Error(err))
-			return nil
+			ccp.log.Warn("Error querying block data", zap.Error(err))
+			break
 		}
 
-		latestHeader = ibcHeader.(cosmos.CosmosIBCHeader)
+		latestHeader = ibcHeader.(CosmosIBCHeader)
 
 		heightUint64 := uint64(i)
 
@@ -344,6 +339,11 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 				ccp.handleMessage(m, ibcMessagesCache)
 			}
 		}
+		newLatestQueriedBlock = i
+	}
+
+	if newLatestQueriedBlock == persistence.latestQueriedBlock {
+		return nil
 	}
 
 	if !ppChanged {
@@ -381,7 +381,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		})
 	}
 
-	persistence.latestQueriedBlock = persistence.latestHeight
+	persistence.latestQueriedBlock = newLatestQueriedBlock
 
 	return nil
 }

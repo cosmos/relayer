@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
+	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 )
@@ -88,6 +88,7 @@ type PathAction struct {
 }
 
 // Path represents a pair of chains and the identifiers needed to relay over them along with a channel filter list.
+// A Memo can optionally be provided for identification in relayed messages.
 type Path struct {
 	Src    *PathEnd      `yaml:"src" json:"src"`
 	Dst    *PathEnd      `yaml:"dst" json:"dst"`

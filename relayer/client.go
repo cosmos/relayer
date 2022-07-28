@@ -6,15 +6,15 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
+	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
+	ibcexported "github.com/cosmos/ibc-go/v4/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
-func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (bool, error) {
+func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool, customClientTrustingPeriod time.Duration, memo string) (bool, error) {
 	// Query the latest heights on src and dst and retry if the query fails
 	var srch, dsth int64
 	if err := retry.Do(func() error {
@@ -58,7 +58,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	eg.Go(func() error {
 		var err error
 		// Create client on src for dst if the client id is unspecified
-		modifiedSrc, err = CreateClient(egCtx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+		modifiedSrc, err = CreateClient(egCtx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
 		if err != nil {
 			return fmt.Errorf("failed to create client on src chain{%s}: %w", c.ChainID(), err)
 		}
@@ -68,7 +68,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	eg.Go(func() error {
 		var err error
 		// Create client on dst for src if the client id is unspecified
-		modifiedDst, err = CreateClient(egCtx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override)
+		modifiedDst, err = CreateClient(egCtx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
 		if err != nil {
 			return fmt.Errorf("failed to create client on dst chain{%s}: %w", dst.ChainID(), err)
 		}
@@ -91,7 +91,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	return modifiedSrc || modifiedDst, nil
 }
 
-func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.ClientMessage, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool) (bool, error) {
+func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpdateHeader ibcexported.Header, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool, customClientTrustingPeriod time.Duration, memo string) (bool, error) {
 	// If a client ID was specified in the path, ensure it exists.
 	if src.PathEnd.ClientID != "" {
 		// TODO: check client is not expired
@@ -107,19 +107,22 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 	// Otherwise, create client for the destination chain on the source chain.
 
 	// Query the trusting period for dst and retry if the query fails
-	var tp time.Duration
-	if err := retry.Do(func() error {
-		var err error
-		tp, err = dst.GetTrustingPeriod(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to get trusting period for chain{%s}: %w", dst.ChainID(), err)
+	// var tp time.Duration
+	tp := customClientTrustingPeriod
+	if tp == 0 {
+		if err := retry.Do(func() error {
+			var err error
+			tp, err = dst.GetTrustingPeriod(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to get trusting period for chain{%s}: %w", dst.ChainID(), err)
+			}
+			if tp == 0 {
+				return retry.Unrecoverable(fmt.Errorf("chain %s reported invalid zero trusting period", dst.ChainID()))
+			}
+			return nil
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
+			return false, err
 		}
-		if tp == 0 {
-			return fmt.Errorf("chain %s reported invalid zero trusting period", dst.ChainID())
-		}
-		return nil
-	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
-		return false, err
 	}
 
 	src.log.Debug(
@@ -201,7 +204,7 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 	if err := retry.Do(func() error {
 		var success bool
 		var err error
-		res, success, err = src.ChainProvider.SendMessages(ctx, msgs)
+		res, success, err = src.ChainProvider.SendMessages(ctx, msgs, memo)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
 			return fmt.Errorf("failed to send messages on chain{%s}: %w", src.ChainID(), err)
@@ -236,7 +239,7 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 }
 
 // UpdateClients updates clients for src on dst and dst on src given the configured paths
-func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
+func (c *Chain) UpdateClients(ctx context.Context, dst *Chain, memo string) (err error) {
 	var (
 		srcUpdateHeader, dstUpdateHeader ibcexported.ClientMessage
 		srch, dsth                       int64
@@ -305,7 +308,7 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 	}
 
 	// Send msgs to both chains
-	result := clients.Send(ctx, c.log, AsRelayMsgSender(c), AsRelayMsgSender(dst))
+	result := clients.Send(ctx, c.log, AsRelayMsgSender(c), AsRelayMsgSender(dst), memo)
 	if err := result.Error(); err != nil {
 		if result.PartiallySent() {
 			c.log.Info(
@@ -335,7 +338,7 @@ func (c *Chain) UpdateClients(ctx context.Context, dst *Chain) (err error) {
 }
 
 // UpgradeClients upgrades the client on src after dst chain has undergone an upgrade.
-func (c *Chain) UpgradeClients(ctx context.Context, dst *Chain, height int64) error {
+func (c *Chain) UpgradeClients(ctx context.Context, dst *Chain, height int64, memo string) error {
 	dstHeader, err := dst.ChainProvider.GetLightSignedHeaderAtHeight(ctx, height)
 	if err != nil {
 		return err
@@ -375,7 +378,7 @@ func (c *Chain) UpgradeClients(ctx context.Context, dst *Chain, height int64) er
 		upgradeMsg,
 	}
 
-	res, _, err := c.ChainProvider.SendMessages(ctx, msgs)
+	res, _, err := c.ChainProvider.SendMessages(ctx, msgs, memo)
 	if err != nil {
 		c.LogFailedTx(res, err, msgs)
 		return err

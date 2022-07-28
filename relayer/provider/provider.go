@@ -6,11 +6,11 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
+	transfertypes "github.com/cosmos/ibc-go/v4/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v4/modules/core/exported"
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -71,6 +71,7 @@ type PacketInfo struct {
 	SourceChannel    string
 	DestPort         string
 	DestChannel      string
+	ChannelOrder     string
 	Data             []byte
 	TimeoutHeight    clienttypes.Height
 	TimeoutTimestamp uint64
@@ -198,13 +199,18 @@ type ChainProvider interface {
 	// These functions query the proof of the packet state on the chain.
 
 	// PacketCommitment queries for proof that a MsgTransfer has been committed on the chain.
-	PacketCommitment(ctx context.Context, msgTransfer PacketInfo, latest LatestBlock) (PacketProof, error)
+	PacketCommitment(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
 
 	// PacketAcknowledgement queries for proof that a MsgRecvPacket has been committed on the chain.
-	PacketAcknowledgement(ctx context.Context, msgRecvPacket PacketInfo, latest LatestBlock) (PacketProof, error)
+	PacketAcknowledgement(ctx context.Context, msgRecvPacket PacketInfo, height uint64) (PacketProof, error)
 
 	// PacketReceipt queries for proof that a MsgRecvPacket has not been committed to the chain.
-	PacketReceipt(ctx context.Context, msgTransfer PacketInfo, latest LatestBlock) (PacketProof, error)
+	PacketReceipt(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
+
+	// NextSeqRecv queries for the appropriate proof required to prove the next expected packet sequence number
+	// for a given counterparty channel. This is used in ORDERED channels to ensure packets are being delivered in the
+	// exact same order as they were sent over the wire.
+	NextSeqRecv(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
 
 	// MsgRecvPacket takes the packet information from a MsgTransfer along with the packet commitment,
 	// and assembles a full MsgRecvPacket ready to write to the chain.
@@ -214,13 +220,15 @@ type ChainProvider interface {
 	// and assembles a full MsgAcknowledgement ready to write to the chain.
 	MsgAcknowledgement(msgRecvPacket PacketInfo, proofAcked PacketProof) (RelayerMessage, error)
 
-	// MsgTimeout takes the packet information from a MsgTransfer along with the packet receipt to prove that the packet was never relayed,
+	// MsgTimeout takes the packet information from a MsgTransfer along
+	// with the packet receipt to prove that the packet was never relayed,
 	// i.e. that the MsgRecvPacket was never written to the counterparty chain,
 	// and assembles a full MsgTimeout ready to write to the chain,
 	// i.e. the chain where the MsgTransfer was committed.
 	MsgTimeout(msgTransfer PacketInfo, proofUnreceived PacketProof) (RelayerMessage, error)
 
-	// MsgTimeoutOnClose takes the packet information from a MsgTransfer along with the packet receipt to prove that the packet was never relayed,
+	// MsgTimeoutOnClose takes the packet information from a MsgTransfer along
+	// with the packet receipt to prove that the packet was never relayed,
 	// i.e. that the MsgRecvPacket was never written to the counterparty chain,
 	// and assembles a full MsgTimeoutOnClose ready to write to the chain,
 	// i.e. the chain where the MsgTransfer was committed.
@@ -231,10 +239,10 @@ type ChainProvider interface {
 	// [Begin] Connection handshake IBC message assembly
 
 	// ConnectionHandshakeProof queries for proof of an initialized connection handshake.
-	ConnectionHandshakeProof(ctx context.Context, msgOpenInit ConnectionInfo, latest LatestBlock) (ConnectionProof, error)
+	ConnectionHandshakeProof(ctx context.Context, msgOpenInit ConnectionInfo, height uint64) (ConnectionProof, error)
 
 	// ConnectionProof queries for proof of an acked handshake.
-	ConnectionProof(ctx context.Context, msgOpenAck ConnectionInfo, latest LatestBlock) (ConnectionProof, error)
+	ConnectionProof(ctx context.Context, msgOpenAck ConnectionInfo, height uint64) (ConnectionProof, error)
 
 	// MsgConnectionOpenInit takes connection info and assembles a MsgConnectionOpenInit message
 	// ready to write to the chain. The connection proof is not needed here, but it needs
@@ -258,7 +266,7 @@ type ChainProvider interface {
 	// [Begin] Channel handshake IBC message assembly
 
 	// ChannelProof queries for proof of a channel state.
-	ChannelProof(ctx context.Context, msg ChannelInfo, latest LatestBlock) (ChannelProof, error)
+	ChannelProof(ctx context.Context, msg ChannelInfo, height uint64) (ChannelProof, error)
 
 	// MsgChannelOpenInit takes channel info and assembles a MsgChannelOpenInit message
 	// ready to write to the chain. The channel proof is not needed here, but it needs
@@ -310,8 +318,8 @@ type ChainProvider interface {
 	RelayPacketFromSequence(ctx context.Context, src, dst ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string, order chantypes.Order) (RelayerMessage, RelayerMessage, error)
 	AcknowledgementFromSequence(ctx context.Context, dst ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
 
-	SendMessage(ctx context.Context, msg RelayerMessage) (*RelayerTxResponse, bool, error)
-	SendMessages(ctx context.Context, msgs []RelayerMessage) (*RelayerTxResponse, bool, error)
+	SendMessage(ctx context.Context, msg RelayerMessage, memo string) (*RelayerTxResponse, bool, error)
+	SendMessages(ctx context.Context, msgs []RelayerMessage, memo string) (*RelayerTxResponse, bool, error)
 
 	// TODO consolidate with IBCHeaderAtHeight
 	GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error)

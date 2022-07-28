@@ -12,12 +12,37 @@ import (
 const (
 	// durationErrorRetry determines how long to wait before retrying
 	// in the case of failure to send transactions with IBC messages.
-	durationErrorRetry         = 5 * time.Second
-	blocksToRetryAssemblyAfter = 1
-	blocksToRetrySendAfter     = 2
-	maxMessageSendRetries      = 5
+	durationErrorRetry = 5 * time.Second
 
+	// Amount of time to wait when sending transactions before giving up
+	// and continuing on. Messages will be retried later if they are still
+	// relevant.
+	messageSendTimeout = 10 * time.Second
+
+	// Amount of time to wait for a proof to be queried before giving up.
+	// The proof query will be retried later if the message still needs
+	// to be relayed.
+	packetProofQueryTimeout = 5 * time.Second
+
+	// If message assembly fails from either proof query failure on the source
+	// or assembling the message for the destination, how many blocks should pass
+	// before retrying.
+	blocksToRetryAssemblyAfter = 0
+
+	// If the message was assembled successfully, but sending the message failed,
+	// how many blocks should pass before retrying.
+	blocksToRetrySendAfter = 2
+
+	// How many times to retry sending a message before giving up on it.
+	maxMessageSendRetries = 5
+
+	// How many blocks of history to retain ibc headers in the cache for.
 	ibcHeadersToCache = 10
+
+	// How many blocks of history before determining that a query needs to be
+	// made to retrieve the client consensus state in order to assemble a
+	// MsgUpdateClient message.
+	clientConsensusHeightUpdateThresholdBlocks = 2
 )
 
 // PathProcessor is a process that handles incoming IBC messages from a pair of chains.
@@ -27,6 +52,8 @@ type PathProcessor struct {
 
 	pathEnd1 *pathEndRuntime
 	pathEnd2 *pathEndRuntime
+
+	memo string
 
 	// Signals to retry.
 	retryProcess chan struct{}
@@ -46,12 +73,13 @@ func (p PathProcessors) IsRelayedChannel(k ChannelKey, chainID string) bool {
 	return false
 }
 
-func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd) *PathProcessor {
+func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd, memo string) *PathProcessor {
 	return &PathProcessor{
 		log:          log,
 		pathEnd1:     newPathEndRuntime(log, pathEnd1),
 		pathEnd2:     newPathEndRuntime(log, pathEnd2),
 		retryProcess: make(chan struct{}, 2),
+		memo:         memo,
 	}
 }
 
@@ -79,6 +107,15 @@ func (pp *PathProcessor) RelevantClientID(chainID string) string {
 		return pp.pathEnd2.info.ClientID
 	}
 	panic(fmt.Errorf("no relevant client ID for chain ID: %s", chainID))
+}
+
+// OnConnectionMessage allows the caller to handle connection handshake messages with a callback.
+func (pp *PathProcessor) OnConnectionMessage(chainID string, eventType string, onMsg func(provider.ConnectionInfo)) {
+	if pp.pathEnd1.info.ChainID == chainID {
+		pp.pathEnd1.connSubscribers[eventType] = append(pp.pathEnd1.connSubscribers[eventType], onMsg)
+	} else if pp.pathEnd2.info.ChainID == chainID {
+		pp.pathEnd2.connSubscribers[eventType] = append(pp.pathEnd2.connSubscribers[eventType], onMsg)
+	}
 }
 
 func (pp *PathProcessor) channelPairs() []channelPair {
@@ -194,11 +231,11 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 		return true
 	case d := <-pp.pathEnd1.incomingCacheData:
 		// we have new data from ChainProcessor for pathEnd1
-		pp.pathEnd1.MergeCacheData(ctx, cancel, d, messageLifecycle)
+		pp.pathEnd1.mergeCacheData(ctx, cancel, d, messageLifecycle)
 
 	case d := <-pp.pathEnd2.incomingCacheData:
 		// we have new data from ChainProcessor for pathEnd2
-		pp.pathEnd2.MergeCacheData(ctx, cancel, d, messageLifecycle)
+		pp.pathEnd2.mergeCacheData(ctx, cancel, d, messageLifecycle)
 
 	case <-pp.retryProcess:
 		// No new data to merge in, just retry handling.

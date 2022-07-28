@@ -3,6 +3,8 @@ package processor
 import (
 	"context"
 
+	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
@@ -36,6 +38,9 @@ type pathEndRuntime struct {
 	connProcessing    connectionProcessingCache
 	channelProcessing channelProcessingCache
 
+	// Message subscriber callbacks
+	connSubscribers map[string][]func(provider.ConnectionInfo)
+
 	// inSync indicates whether queries are in sync with latest height of the chain.
 	inSync bool
 }
@@ -55,6 +60,7 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd) *pathEndRuntime {
 		packetProcessing:     make(packetProcessingCache),
 		connProcessing:       make(connectionProcessingCache),
 		channelProcessing:    make(channelProcessingCache),
+		connSubscribers:      make(map[string][]func(provider.ConnectionInfo)),
 	}
 }
 
@@ -89,7 +95,7 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache) 
 	}
 	pathEnd.messageCache.PacketFlow.Merge(packetMessages)
 
-	for action, cmc := range messageCache.ConnectionHandshake {
+	for eventType, cmc := range messageCache.ConnectionHandshake {
 		newCmc := make(ConnectionMessageCache)
 		for k, ci := range cmc {
 			if pathEnd.isRelevantConnection(k.ConnectionID) {
@@ -101,25 +107,52 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache) 
 		if len(newCmc) == 0 {
 			continue
 		}
-		connectionHandshakeMessages[action] = newCmc
+		connectionHandshakeMessages[eventType] = newCmc
 	}
 	pathEnd.messageCache.ConnectionHandshake.Merge(connectionHandshakeMessages)
 
-	for action, cmc := range messageCache.ChannelHandshake {
+	for eventType, cmc := range messageCache.ChannelHandshake {
 		newCmc := make(ChannelMessageCache)
 		for k, ci := range cmc {
-			if pathEnd.isRelevantChannel(k.ChannelID) {
-				// can complete channel handshakes on this client
-				// since PathProcessor holds reference to the counterparty chain pathEndRuntime.
-				newCmc[k] = ci
+			if !pathEnd.isRelevantChannel(k.ChannelID) {
+				continue
 			}
+			// can complete channel handshakes on this client
+			// since PathProcessor holds reference to the counterparty chain pathEndRuntime.
+
+			if eventType == chantypes.EventTypeChannelOpenInit {
+				// CounterpartyConnectionID is needed to construct MsgChannelOpenTry.
+				for k := range pathEnd.connectionStateCache {
+					if k.ConnectionID == ci.ConnID {
+						ci.CounterpartyConnID = k.CounterpartyConnID
+						break
+					}
+				}
+			}
+			newCmc[k] = ci
 		}
 		if len(newCmc) == 0 {
 			continue
 		}
-		channelHandshakeMessages[action] = newCmc
+		channelHandshakeMessages[eventType] = newCmc
 	}
 	pathEnd.messageCache.ChannelHandshake.Merge(channelHandshakeMessages)
+}
+
+func (pathEnd *pathEndRuntime) handleCallbacks(c IBCMessagesCache) {
+	if len(pathEnd.connSubscribers) > 0 {
+		for eventType, m := range c.ConnectionHandshake {
+			subscribers, ok := pathEnd.connSubscribers[eventType]
+			if !ok {
+				continue
+			}
+			for _, ci := range m {
+				for _, subscriber := range subscribers {
+					subscriber(ci)
+				}
+			}
+		}
+	}
 }
 
 func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache, messageLifecycle MessageLifecycle) bool {
@@ -131,20 +164,20 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 		if m.Termination == nil || m.Termination.ChainID != pathEnd.info.ChainID {
 			return false
 		}
-		channelKey, err := PacketInfoChannelKey(m.Termination.Action, m.Termination.Info)
+		channelKey, err := PacketInfoChannelKey(m.Termination.EventType, m.Termination.Info)
 		if err != nil {
 			pathEnd.log.Error("Unexpected error checking packet message",
-				zap.String("action", m.Termination.Action),
-				zap.Any("channel", channelKey),
+				zap.String("event_type", m.Termination.EventType),
+				zap.Inline(channelKey),
 				zap.Error(err),
 			)
 			return false
 		}
-		actionCache, ok := ibcMessagesCache.PacketFlow[channelKey]
+		eventTypeCache, ok := ibcMessagesCache.PacketFlow[channelKey]
 		if !ok {
 			return false
 		}
-		sequenceCache, ok := actionCache[m.Termination.Action]
+		sequenceCache, ok := eventTypeCache[m.Termination.EventType]
 		if !ok {
 			return false
 		}
@@ -159,7 +192,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 		if m.Termination == nil || m.Termination.ChainID != pathEnd.info.ChainID {
 			return false
 		}
-		cache, ok := ibcMessagesCache.ChannelHandshake[m.Termination.Action]
+		cache, ok := ibcMessagesCache.ChannelHandshake[m.Termination.EventType]
 		if !ok {
 			return false
 		}
@@ -190,7 +223,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 		if m.Termination == nil || m.Termination.ChainID != pathEnd.info.ChainID {
 			return false
 		}
-		cache, ok := ibcMessagesCache.ConnectionHandshake[m.Termination.Action]
+		cache, ok := ibcMessagesCache.ConnectionHandshake[m.Termination.EventType]
 		if !ok {
 			return false
 		}
@@ -227,11 +260,13 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 	return false
 }
 
-func (pathEnd *pathEndRuntime) MergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, messageLifecycle MessageLifecycle) {
+func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, messageLifecycle MessageLifecycle) {
 	pathEnd.inSync = d.InSync
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
+
+	pathEnd.handleCallbacks(d.IBCMessagesCache)
 
 	if pathEnd.shouldTerminate(d.IBCMessagesCache, messageLifecycle) {
 		cancel()
@@ -250,43 +285,43 @@ func (pathEnd *pathEndRuntime) MergeCacheData(ctx context.Context, cancel func()
 // shouldSendPacketMessage determines if the packet flow message should be sent now.
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
 func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage, counterparty *pathEndRuntime) bool {
-	action := message.action
+	eventType := message.eventType
 	sequence := message.info.Sequence
-	channelKey, err := message.channelKey()
+	k, err := message.channelKey()
 	if err != nil {
 		pathEnd.log.Error("Unexpected error checking if should send packet message",
-			zap.Any("channel", channelKey),
-			zap.String("action", action),
+			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
+			zap.Inline(k),
 			zap.Error(err),
 		)
 		return false
 	}
 	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
-			zap.Any("channel", channelKey),
-			zap.String("action", action),
+			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
+			zap.Inline(k),
 		)
 		return false
 	}
-	if !pathEnd.channelStateCache[channelKey] {
+	if !pathEnd.channelStateCache[k] {
 		// channel is not open, do not send
 		pathEnd.log.Warn("Refusing to relay packet message because channel is not open",
-			zap.Any("channel", channelKey),
-			zap.String("action", action),
+			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
+			zap.Inline(k),
 		)
 		return false
 	}
-	msgProcessCache, ok := pathEnd.packetProcessing[channelKey]
+	msgProcessCache, ok := pathEnd.packetProcessing[k]
 	if !ok {
 		// in progress cache does not exist for this channel, so can send.
 		return true
 	}
-	channelProcessingCache, ok := msgProcessCache[action]
+	channelProcessingCache, ok := msgProcessCache[eventType]
 	if !ok {
-		// in progress cache does not exist for this action, so can send
+		// in progress cache does not exist for this eventType, so can send
 		return true
 	}
 	inProgress, ok := channelProcessingCache[sequence]
@@ -308,29 +343,29 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	}
 	if inProgress.retryCount >= maxMessageSendRetries {
 		pathEnd.log.Error("Giving up on sending packet message after max retries",
-			zap.Any("channel", channelKey),
-			zap.String("action", action),
+			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
+			zap.Inline(k),
 			zap.Int("max_retries", maxMessageSendRetries),
 		)
 		// giving up on sending this packet flow message
 		// remove all retention of this connection handshake in pathEnd.messagesCache.PacketFlow and counterparty
 		toDelete := make(map[string][]uint64)
 		toDeleteCounterparty := make(map[string][]uint64)
-		switch action {
-		case MsgRecvPacket:
-			toDelete[MsgRecvPacket] = []uint64{sequence}
-			toDeleteCounterparty[MsgTransfer] = []uint64{sequence}
-		case MsgAcknowledgement, MsgTimeout, MsgTimeoutOnClose:
-			toDelete[action] = []uint64{sequence}
-			toDeleteCounterparty[MsgRecvPacket] = []uint64{sequence}
-			toDelete[MsgTransfer] = []uint64{sequence}
+		switch eventType {
+		case chantypes.EventTypeRecvPacket:
+			toDelete[eventType] = []uint64{sequence}
+			toDeleteCounterparty[chantypes.EventTypeSendPacket] = []uint64{sequence}
+		case chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket, chantypes.EventTypeTimeoutPacketOnClose:
+			toDelete[eventType] = []uint64{sequence}
+			toDeleteCounterparty[chantypes.EventTypeRecvPacket] = []uint64{sequence}
+			toDelete[chantypes.EventTypeSendPacket] = []uint64{sequence}
 		}
 		// delete in progress send for this specific message
-		pathEnd.packetProcessing[channelKey].deleteMessages(map[string][]uint64{action: []uint64{sequence}})
+		pathEnd.packetProcessing[k].deleteMessages(map[string][]uint64{eventType: []uint64{sequence}})
 		// delete all packet flow retention history for this sequence
-		pathEnd.messageCache.PacketFlow[channelKey].DeleteMessages(toDelete)
-		counterparty.messageCache.PacketFlow[channelKey].DeleteMessages(toDeleteCounterparty)
+		pathEnd.messageCache.PacketFlow[k].DeleteMessages(toDelete)
+		counterparty.messageCache.PacketFlow[k].DeleteMessages(toDeleteCounterparty)
 		return false
 	}
 
@@ -340,21 +375,21 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 // shouldSendConnectionMessage determines if the connection handshake message should be sent now.
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
 func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBCMessage, counterparty *pathEndRuntime) bool {
-	action := message.action
-	connectionKey := connectionInfoConnectionKey(message.info).Counterparty()
+	eventType := message.eventType
+	k := connectionInfoConnectionKey(message.info).Counterparty()
 	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay connection message until counterparty height has incremented",
-			zap.Any("connection", connectionKey),
-			zap.String("action", action),
+			zap.Inline(k),
+			zap.String("event_type", eventType),
 		)
 		return false
 	}
-	msgProcessCache, ok := pathEnd.connProcessing[action]
+	msgProcessCache, ok := pathEnd.connProcessing[eventType]
 	if !ok {
-		// in progress cache does not exist for this action, so can send.
+		// in progress cache does not exist for this eventType, so can send.
 		return true
 	}
-	inProgress, ok := msgProcessCache[connectionKey]
+	inProgress, ok := msgProcessCache[k]
 	if !ok {
 		// in progress cache does not exist for this connection, so can send.
 		return true
@@ -373,26 +408,26 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 	}
 	if inProgress.retryCount >= maxMessageSendRetries {
 		pathEnd.log.Error("Giving up on sending connection message after max retries",
-			zap.String("action", action),
+			zap.String("event_type", eventType),
 		)
 		// giving up on sending this connection handshake message
 		// remove all retention of this connection handshake in pathEnd.messagesCache.ConnectionHandshake and counterparty
 		toDelete := make(map[string][]ConnectionKey)
 		toDeleteCounterparty := make(map[string][]ConnectionKey)
-		counterpartyKey := connectionKey.Counterparty()
-		switch action {
-		case MsgConnectionOpenTry:
-			toDeleteCounterparty[MsgConnectionOpenInit] = []ConnectionKey{counterpartyKey.msgInitKey()}
-		case MsgConnectionOpenAck:
-			toDeleteCounterparty[MsgConnectionOpenTry] = []ConnectionKey{counterpartyKey}
-			toDelete[MsgConnectionOpenInit] = []ConnectionKey{connectionKey.msgInitKey()}
-		case MsgConnectionOpenConfirm:
-			toDeleteCounterparty[MsgConnectionOpenAck] = []ConnectionKey{counterpartyKey}
-			toDelete[MsgConnectionOpenTry] = []ConnectionKey{connectionKey}
-			toDeleteCounterparty[MsgConnectionOpenInit] = []ConnectionKey{counterpartyKey.msgInitKey()}
+		counterpartyKey := k.Counterparty()
+		switch eventType {
+		case conntypes.EventTypeConnectionOpenInit:
+			toDeleteCounterparty[conntypes.EventTypeConnectionOpenInit] = []ConnectionKey{counterpartyKey.msgInitKey()}
+		case conntypes.EventTypeConnectionOpenAck:
+			toDeleteCounterparty[conntypes.EventTypeConnectionOpenTry] = []ConnectionKey{counterpartyKey}
+			toDelete[conntypes.EventTypeConnectionOpenInit] = []ConnectionKey{k.msgInitKey()}
+		case conntypes.EventTypeConnectionOpenConfirm:
+			toDeleteCounterparty[conntypes.EventTypeConnectionOpenAck] = []ConnectionKey{counterpartyKey}
+			toDelete[conntypes.EventTypeConnectionOpenTry] = []ConnectionKey{k}
+			toDeleteCounterparty[conntypes.EventTypeConnectionOpenInit] = []ConnectionKey{counterpartyKey.msgInitKey()}
 		}
 		// delete in progress send for this specific message
-		pathEnd.connProcessing.deleteMessages(map[string][]ConnectionKey{action: []ConnectionKey{connectionKey}})
+		pathEnd.connProcessing.deleteMessages(map[string][]ConnectionKey{eventType: []ConnectionKey{k}})
 
 		// delete all connection handshake retention history for this connection
 		pathEnd.messageCache.ConnectionHandshake.DeleteMessages(toDelete)
@@ -407,18 +442,18 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 // shouldSendConnectionMessage determines if the channel handshake message should be sent now.
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
 func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessage, counterparty *pathEndRuntime) bool {
-	action := message.action
+	eventType := message.eventType
 	channelKey := channelInfoChannelKey(message.info).Counterparty()
 	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay channel message until counterparty height has incremented",
-			zap.Any("channel", channelKey),
-			zap.String("action", action),
+			zap.Inline(channelKey),
+			zap.String("event_type", eventType),
 		)
 		return false
 	}
-	msgProcessCache, ok := pathEnd.channelProcessing[action]
+	msgProcessCache, ok := pathEnd.channelProcessing[eventType]
 	if !ok {
-		// in progress cache does not exist for this action, so can send.
+		// in progress cache does not exist for this eventType, so can send.
 		return true
 	}
 	inProgress, ok := msgProcessCache[channelKey]
@@ -440,27 +475,60 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 	}
 	if inProgress.retryCount >= maxMessageSendRetries {
 		pathEnd.log.Error("Giving up on sending channel message after max retries",
-			zap.String("action", action),
+			zap.String("event_type", eventType),
 			zap.Int("max_retries", maxMessageSendRetries),
 		)
 		// giving up on sending this channel handshake message
 		// remove all retention of this connection handshake in pathEnd.messagesCache.ConnectionHandshake and counterparty
 		toDelete := make(map[string][]ChannelKey)
 		toDeleteCounterparty := make(map[string][]ChannelKey)
+		toDeletePacket := make(map[string][]uint64)
+		toDeleteCounterpartyPacket := make(map[string][]uint64)
+
 		counterpartyKey := channelKey.Counterparty()
-		switch action {
-		case MsgChannelOpenTry:
-			toDeleteCounterparty[MsgChannelOpenInit] = []ChannelKey{counterpartyKey.msgInitKey()}
-		case MsgChannelOpenAck:
-			toDeleteCounterparty[MsgChannelOpenTry] = []ChannelKey{counterpartyKey}
-			toDelete[MsgChannelOpenInit] = []ChannelKey{channelKey.msgInitKey()}
-		case MsgChannelOpenConfirm:
-			toDeleteCounterparty[MsgChannelOpenAck] = []ChannelKey{counterpartyKey}
-			toDelete[MsgChannelOpenTry] = []ChannelKey{channelKey}
-			toDeleteCounterparty[MsgChannelOpenInit] = []ChannelKey{counterpartyKey.msgInitKey()}
+		switch eventType {
+		case chantypes.EventTypeChannelOpenTry:
+			toDeleteCounterparty[chantypes.EventTypeChannelOpenInit] = []ChannelKey{counterpartyKey.msgInitKey()}
+		case chantypes.EventTypeChannelOpenAck:
+			toDeleteCounterparty[chantypes.EventTypeChannelOpenTry] = []ChannelKey{counterpartyKey}
+			toDelete[chantypes.EventTypeChannelOpenInit] = []ChannelKey{channelKey.msgInitKey()}
+		case chantypes.EventTypeChannelOpenConfirm:
+			toDeleteCounterparty[chantypes.EventTypeChannelOpenAck] = []ChannelKey{counterpartyKey}
+			toDelete[chantypes.EventTypeChannelOpenTry] = []ChannelKey{channelKey}
+			toDeleteCounterparty[chantypes.EventTypeChannelOpenInit] = []ChannelKey{counterpartyKey.msgInitKey()}
+		case chantypes.EventTypeChannelCloseConfirm:
+			toDeleteCounterparty[chantypes.EventTypeChannelCloseInit] = []ChannelKey{counterpartyKey}
+			toDelete[chantypes.EventTypeChannelCloseConfirm] = []ChannelKey{channelKey}
+
+			// Gather relevant send packet messages, for this channel key, that should be deleted if we
+			// are operating on an ordered channel.
+			if messageCache, ok := pathEnd.messageCache.PacketFlow[channelKey]; ok {
+				if seqCache, ok := messageCache[chantypes.EventTypeSendPacket]; ok {
+					for seq, packetInfo := range seqCache {
+						if packetInfo.ChannelOrder == chantypes.ORDERED.String() {
+							toDeletePacket[chantypes.EventTypeSendPacket] = append(toDeletePacket[chantypes.EventTypeSendPacket], seq)
+						}
+					}
+				}
+			}
+
+			// Gather relevant timeout messages, for this counterparty channel key, that should be deleted if we
+			// are operating on an ordered channel.
+			if messageCache, ok := counterparty.messageCache.PacketFlow[counterpartyKey]; ok {
+				if seqCache, ok := messageCache[chantypes.EventTypeTimeoutPacket]; ok {
+					for seq, packetInfo := range seqCache {
+						if packetInfo.ChannelOrder == chantypes.ORDERED.String() {
+							toDeleteCounterpartyPacket[chantypes.EventTypeTimeoutPacket] = append(toDeleteCounterpartyPacket[chantypes.EventTypeTimeoutPacket], seq)
+						}
+					}
+				}
+			}
 		}
+
 		// delete in progress send for this specific message
-		pathEnd.channelProcessing.deleteMessages(map[string][]ChannelKey{action: []ChannelKey{channelKey}})
+		pathEnd.channelProcessing.deleteMessages(map[string][]ChannelKey{eventType: {channelKey}})
+		pathEnd.messageCache.PacketFlow[channelKey].DeleteMessages(toDeletePacket)
+		counterparty.messageCache.PacketFlow[counterpartyKey].DeleteMessages(toDeleteCounterpartyPacket)
 
 		// delete all connection handshake retention history for this channel
 		pathEnd.messageCache.ChannelHandshake.DeleteMessages(toDelete)
@@ -472,14 +540,14 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 	return true
 }
 
-func (pathEnd *pathEndRuntime) trackProcessingPacketMessage(message packetIBCMessage, assembled bool) {
-	action := message.action
-	sequence := message.info.Sequence
-	channelKey, err := message.channelKey()
+func (pathEnd *pathEndRuntime) trackProcessingPacketMessage(t packetMessageToTrack) {
+	eventType := t.msg.eventType
+	sequence := t.msg.info.Sequence
+	channelKey, err := t.msg.channelKey()
 	if err != nil {
 		pathEnd.log.Error("Unexpected error tracking processing packet",
-			zap.Any("channel", channelKey),
-			zap.String("action", action),
+			zap.Inline(channelKey),
+			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
 			zap.Error(err),
 		)
@@ -490,10 +558,10 @@ func (pathEnd *pathEndRuntime) trackProcessingPacketMessage(message packetIBCMes
 		msgProcessCache = make(packetChannelMessageCache)
 		pathEnd.packetProcessing[channelKey] = msgProcessCache
 	}
-	channelProcessingCache, ok := msgProcessCache[action]
+	channelProcessingCache, ok := msgProcessCache[eventType]
 	if !ok {
 		channelProcessingCache = make(packetMessageSendCache)
-		msgProcessCache[action] = channelProcessingCache
+		msgProcessCache[eventType] = channelProcessingCache
 	}
 
 	retryCount := uint64(0)
@@ -505,17 +573,17 @@ func (pathEnd *pathEndRuntime) trackProcessingPacketMessage(message packetIBCMes
 	channelProcessingCache[sequence] = processingMessage{
 		lastProcessedHeight: pathEnd.latestBlock.Height,
 		retryCount:          retryCount,
-		assembled:           assembled,
+		assembled:           t.assembled,
 	}
 }
 
-func (pathEnd *pathEndRuntime) trackProcessingConnectionMessage(message connectionIBCMessage, assembled bool) {
-	action := message.action
-	connectionKey := connectionInfoConnectionKey(message.info).Counterparty()
-	msgProcessCache, ok := pathEnd.connProcessing[action]
+func (pathEnd *pathEndRuntime) trackProcessingConnectionMessage(t connectionMessageToTrack) {
+	eventType := t.msg.eventType
+	connectionKey := connectionInfoConnectionKey(t.msg.info).Counterparty()
+	msgProcessCache, ok := pathEnd.connProcessing[eventType]
 	if !ok {
 		msgProcessCache = make(connectionKeySendCache)
-		pathEnd.connProcessing[action] = msgProcessCache
+		pathEnd.connProcessing[eventType] = msgProcessCache
 	}
 
 	retryCount := uint64(0)
@@ -527,17 +595,17 @@ func (pathEnd *pathEndRuntime) trackProcessingConnectionMessage(message connecti
 	msgProcessCache[connectionKey] = processingMessage{
 		lastProcessedHeight: pathEnd.latestBlock.Height,
 		retryCount:          retryCount,
-		assembled:           assembled,
+		assembled:           t.assembled,
 	}
 }
 
-func (pathEnd *pathEndRuntime) trackProcessingChannelMessage(message channelIBCMessage, assembled bool) {
-	action := message.action
-	channelKey := channelInfoChannelKey(message.info).Counterparty()
-	msgProcessCache, ok := pathEnd.channelProcessing[action]
+func (pathEnd *pathEndRuntime) trackProcessingChannelMessage(t channelMessageToTrack) {
+	eventType := t.msg.eventType
+	channelKey := channelInfoChannelKey(t.msg.info).Counterparty()
+	msgProcessCache, ok := pathEnd.channelProcessing[eventType]
 	if !ok {
 		msgProcessCache = make(channelKeySendCache)
-		pathEnd.channelProcessing[action] = msgProcessCache
+		pathEnd.channelProcessing[eventType] = msgProcessCache
 	}
 
 	retryCount := uint64(0)
@@ -549,6 +617,6 @@ func (pathEnd *pathEndRuntime) trackProcessingChannelMessage(message channelIBCM
 	msgProcessCache[channelKey] = processingMessage{
 		lastProcessedHeight: pathEnd.latestBlock.Height,
 		retryCount:          retryCount,
-		assembled:           assembled,
+		assembled:           t.assembled,
 	}
 }

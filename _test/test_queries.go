@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	clientypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	clientypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
+	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/stretchr/testify/require"
 )
@@ -57,12 +58,17 @@ func testConnection(ctx context.Context, t *testing.T, src, dst *relayer.Chain) 
 
 	conns, err := src.ChainProvider.QueryConnections(ctx)
 	require.NoError(t, err)
-	require.Equal(t, len(conns), 1)
-	require.Equal(t, conns[0].ClientId, src.PathEnd.ClientID)
-	require.Equal(t, conns[0].Counterparty.GetClientID(), dst.PathEnd.ClientID)
-	require.Equal(t, conns[0].Counterparty.GetConnectionID(), dst.PathEnd.ConnectionID)
-	require.Equal(t, conns[0].State.String(), "STATE_OPEN")
+	require.GreaterOrEqual(t, len(conns), 1)
+	for _, conn := range conns {
+		require.Equal(t, conn.ClientId, src.PathEnd.ClientID)
+		require.Equal(t, conn.Counterparty.ClientId, dst.PathEnd.ClientID)
+		require.Equal(t, conn.Counterparty.ConnectionId, dst.PathEnd.ConnectionID)
 
+		require.Truef(t,
+			conn.State.String() == "STATE_TRYOPEN" || conn.State.String() == "STATE_OPEN",
+			"State: %s is not STATE_TRYOPEN or STATE_OPEN", conn.State.String(),
+		)
+	}
 	h, err := src.ChainProvider.QueryLatestHeight(ctx)
 	require.NoError(t, err)
 
@@ -70,8 +76,8 @@ func testConnection(ctx context.Context, t *testing.T, src, dst *relayer.Chain) 
 	conn, err := src.ChainProvider.QueryConnection(ctx, h, src.ConnectionID())
 	require.NoError(t, err)
 	require.Equal(t, conn.Connection.ClientId, src.PathEnd.ClientID)
-	require.Equal(t, conn.Connection.GetCounterparty().GetClientID(), dst.PathEnd.ClientID)
-	require.Equal(t, conn.Connection.GetCounterparty().GetConnectionID(), dst.PathEnd.ConnectionID)
+	require.Equal(t, conn.Connection.Counterparty.ClientId, dst.PathEnd.ClientID)
+	require.Equal(t, conn.Connection.Counterparty.ConnectionId, dst.PathEnd.ConnectionID)
 	require.Equal(t, conn.Connection.State.String(), "STATE_OPEN")
 }
 
@@ -88,11 +94,23 @@ func testChannel(ctx context.Context, t *testing.T, src, dst *relayer.Chain, cha
 
 	chans, err := src.ChainProvider.QueryChannels(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(chans))
-	require.Equal(t, chans[0].Ordering.String(), "ORDER_UNORDERED")
-	require.Equal(t, chans[0].State.String(), "STATE_OPEN")
-	require.Equal(t, chans[0].Counterparty.ChannelId, channelID)
-	require.Equal(t, chans[0].Counterparty.GetPortID(), portID)
+	require.GreaterOrEqual(t, len(chans), 1)
+
+	var channel *chantypes.IdentifiedChannel
+	for _, ch := range chans {
+		if ch.Counterparty.ChannelId == channelID && ch.Counterparty.PortId == portID {
+			channel = ch
+			break
+		}
+	}
+
+	require.NotNil(t, channel)
+
+	require.Equal(t, channel.Ordering.String(), "ORDER_UNORDERED")
+	require.Truef(t,
+		channel.State.String() == "STATE_TRY_OPEN" || channel.State.String() == "STATE_OPEN",
+		"State: %s is not STATE_TRY_OPEN or STATE_OPEN", channel.State.String(),
+	)
 
 	h, err := src.ChainProvider.QueryLatestHeight(ctx)
 	require.NoError(t, err)
@@ -103,5 +121,5 @@ func testChannel(ctx context.Context, t *testing.T, src, dst *relayer.Chain, cha
 	require.Equal(t, ch.Channel.Ordering.String(), "ORDER_UNORDERED")
 	require.Equal(t, ch.Channel.State.String(), "STATE_OPEN")
 	require.Equal(t, ch.Channel.Counterparty.ChannelId, channelID)
-	require.Equal(t, ch.Channel.Counterparty.GetPortID(), portID)
+	require.Equal(t, ch.Channel.Counterparty.PortId, portID)
 }

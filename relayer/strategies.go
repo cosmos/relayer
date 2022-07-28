@@ -9,11 +9,10 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	"github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	cosmosprocessor "github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	cosmosprovider "github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"go.uber.org/zap"
 )
 
@@ -35,6 +34,7 @@ func StartRelayer(
 	src, dst *Chain,
 	filter ChannelFilter,
 	maxTxSize, maxMsgLength uint64,
+	memo string,
 	processorType string,
 	initialBlockHistory uint64,
 ) chan error {
@@ -61,10 +61,10 @@ func StartRelayer(
 			},
 		}}
 
-		go relayerStartEventProcessor(ctx, log, paths, initialBlockHistory, maxTxSize, maxMsgLength, errorChan)
+		go relayerStartEventProcessor(ctx, log, paths, initialBlockHistory, maxTxSize, maxMsgLength, memo, errorChan)
 		return errorChan
 	case ProcessorLegacy:
-		go relayerMainLoop(ctx, log, src, dst, filter, maxTxSize, maxMsgLength, errorChan)
+		go relayerMainLoop(ctx, log, src, dst, filter, maxTxSize, maxMsgLength, memo, errorChan)
 		return errorChan
 	default:
 		panic(fmt.Errorf("unexpected processor type: %s, supports one of: [%s, %s]", processorType, ProcessorEvents, ProcessorLegacy))
@@ -87,15 +87,24 @@ type pathChain struct {
 func (chain pathChain) chainProcessor(log *zap.Logger) processor.ChainProcessor {
 	// Handle new ChainProcessor implementations as cases here
 	switch p := chain.provider.(type) {
-	case *cosmosprovider.CosmosProvider:
-		return cosmosprocessor.NewCosmosChainProcessor(log, p)
+	case *cosmos.CosmosProvider:
+		return cosmos.NewCosmosChainProcessor(log, p)
 	default:
 		panic(fmt.Errorf("unsupported chain provider type: %T", chain.provider))
 	}
 }
 
 // relayerStartEventProcessor is the main relayer process when using the event processor.
-func relayerStartEventProcessor(ctx context.Context, log *zap.Logger, paths []path, initialBlockHistory uint64, maxTxSize, maxMsgLength uint64, errCh chan<- error) {
+func relayerStartEventProcessor(
+	ctx context.Context,
+	log *zap.Logger,
+	paths []path,
+	initialBlockHistory uint64,
+	maxTxSize,
+	maxMsgLength uint64,
+	memo string,
+	errCh chan<- error,
+) {
 	defer close(errCh)
 
 	epb := processor.NewEventProcessor()
@@ -110,6 +119,7 @@ func relayerStartEventProcessor(ctx context.Context, log *zap.Logger, paths []pa
 				log,
 				p.src.pathEnd,
 				p.dst.pathEnd,
+				memo,
 			))
 	}
 
@@ -121,7 +131,7 @@ func relayerStartEventProcessor(ctx context.Context, log *zap.Logger, paths []pa
 }
 
 // relayerMainLoop is the main loop of the relayer.
-func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64, errCh chan<- error) {
+func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64, memo string, errCh chan<- error) {
 	defer close(errCh)
 
 	// Query the list of channels on the src connection.
@@ -165,7 +175,7 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 			if !channel.active {
 				channel.active = true
 				wg.Add(1)
-				go relayUnrelayedPacketsAndAcks(ctx, log, &wg, src, dst, maxTxSize, maxMsgLength, channel, channels)
+				go relayUnrelayedPacketsAndAcks(ctx, log, &wg, src, dst, maxTxSize, maxMsgLength, memo, channel, channels)
 			}
 		}
 
@@ -292,7 +302,7 @@ func applyChannelFilterRule(filter ChannelFilter, channels []*types.IdentifiedCh
 }
 
 // relayUnrelayedPacketsAndAcks will relay all the pending packets and acknowledgements on both the src and dst chains.
-func relayUnrelayedPacketsAndAcks(ctx context.Context, log *zap.Logger, wg *sync.WaitGroup, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *ActiveChannel, channels chan<- *ActiveChannel) {
+func relayUnrelayedPacketsAndAcks(ctx context.Context, log *zap.Logger, wg *sync.WaitGroup, src, dst *Chain, maxTxSize, maxMsgLength uint64, memo string, srcChannel *ActiveChannel, channels chan<- *ActiveChannel) {
 	// make goroutine signal its death, whether it's a panic or a return
 	defer func() {
 		wg.Done()
@@ -300,10 +310,10 @@ func relayUnrelayedPacketsAndAcks(ctx context.Context, log *zap.Logger, wg *sync
 	}()
 
 	for {
-		if ok := relayUnrelayedPackets(ctx, log, src, dst, maxTxSize, maxMsgLength, srcChannel.channel); !ok {
+		if ok := relayUnrelayedPackets(ctx, log, src, dst, maxTxSize, maxMsgLength, memo, srcChannel.channel); !ok {
 			return
 		}
-		if ok := relayUnrelayedAcks(ctx, log, src, dst, maxTxSize, maxMsgLength, srcChannel.channel); !ok {
+		if ok := relayUnrelayedAcks(ctx, log, src, dst, maxTxSize, maxMsgLength, memo, srcChannel.channel); !ok {
 			return
 		}
 
@@ -320,7 +330,7 @@ func relayUnrelayedPacketsAndAcks(ctx context.Context, log *zap.Logger, wg *sync
 // relayUnrelayedPackets fetches unrelayed packet sequence numbers and attempts to relay the associated packets.
 // relayUnrelayedPackets returns true if packets were empty or were successfully relayed.
 // Otherwise, it logs the errors and returns false.
-func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) bool {
+func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, maxTxSize, maxMsgLength uint64, memo string, srcChannel *types.IdentifiedChannel) bool {
 	// Fetch any unrelayed sequences depending on the channel order
 	sp := UnrelayedSequences(ctx, src, dst, srcChannel)
 
@@ -356,7 +366,7 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 		)
 	}
 
-	if err := RelayPackets(ctx, log, src, dst, sp, maxTxSize, maxMsgLength, srcChannel); err != nil {
+	if err := RelayPackets(ctx, log, src, dst, sp, maxTxSize, maxMsgLength, memo, srcChannel); err != nil {
 		// If there was a context cancellation or deadline while attempting to relay packets,
 		// log that and indicate failure.
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
@@ -403,7 +413,7 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 // relayUnrelayedAcks fetches unrelayed acknowledgements and attempts to relay them.
 // relayUnrelayedAcks returns true if acknowledgements were empty or were successfully relayed.
 // Otherwise, it logs the errors and returns false.
-func relayUnrelayedAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, maxTxSize, maxMsgLength uint64, srcChannel *types.IdentifiedChannel) bool {
+func relayUnrelayedAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, maxTxSize, maxMsgLength uint64, memo string, srcChannel *types.IdentifiedChannel) bool {
 	// Fetch any unrelayed acks depending on the channel order
 	ap := UnrelayedAcknowledgements(ctx, src, dst, srcChannel)
 
@@ -439,7 +449,7 @@ func relayUnrelayedAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, m
 		)
 	}
 
-	if err := RelayAcknowledgements(ctx, log, src, dst, ap, maxTxSize, maxMsgLength, srcChannel); err != nil {
+	if err := RelayAcknowledgements(ctx, log, src, dst, ap, maxTxSize, maxMsgLength, memo, srcChannel); err != nil {
 		// If there was a context cancellation or deadline while attempting to relay acknowledgements,
 		// log that and indicate failure.
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {

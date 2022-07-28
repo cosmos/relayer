@@ -1,6 +1,12 @@
 package processor
 
-import "github.com/cosmos/relayer/v2/relayer/provider"
+import (
+	"strings"
+	"sync"
+
+	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer/provider"
+)
 
 // pathEndMessages holds the different IBC messages that
 // will attempt to be sent to the pathEnd.
@@ -10,32 +16,42 @@ type pathEndMessages struct {
 	packetMessages     []packetIBCMessage
 }
 
-// packetIBCMessage holds a packet message's action and sequence along with it,
+type ibcMessage interface {
+	ibcMessageIndicator()
+}
+
+// packetIBCMessage holds a packet message's eventType and sequence along with it,
 // useful for sending packets around internal to the PathProcessor.
 type packetIBCMessage struct {
-	info   provider.PacketInfo
-	action string
+	info      provider.PacketInfo
+	eventType string
 }
 
-// channelKey returns channel key for new message by this action
-// based on prior action.
+func (packetIBCMessage) ibcMessageIndicator() {}
+
+// channelKey returns channel key for new message by this eventType
+// based on prior eventType.
 func (p packetIBCMessage) channelKey() (ChannelKey, error) {
-	return PacketInfoChannelKey(p.action, p.info)
+	return PacketInfoChannelKey(p.eventType, p.info)
 }
 
-// channelIBCMessage holds a channel handshake message's action along with its details,
+// channelIBCMessage holds a channel handshake message's eventType along with its details,
 // useful for sending messages around internal to the PathProcessor.
 type channelIBCMessage struct {
-	action string
-	info   provider.ChannelInfo
+	eventType string
+	info      provider.ChannelInfo
 }
 
-// connectionIBCMessage holds a connection handshake message's action along with its details,
+func (channelIBCMessage) ibcMessageIndicator() {}
+
+// connectionIBCMessage holds a connection handshake message's eventType along with its details,
 // useful for sending messages around internal to the PathProcessor.
 type connectionIBCMessage struct {
-	action string
-	info   provider.ConnectionInfo
+	eventType string
+	info      provider.ConnectionInfo
 }
+
+func (connectionIBCMessage) ibcMessageIndicator() {}
 
 // processingMessage tracks the state of a IBC message currently being processed.
 type processingMessage struct {
@@ -87,14 +103,15 @@ func (c connectionProcessingCache) deleteMessages(toDelete ...map[string][]Conne
 // contains MsgRecvPacket from counterparty
 // entire packet flow
 type pathEndPacketFlowMessages struct {
-	Src                   *pathEndRuntime
-	Dst                   *pathEndRuntime
-	ChannelKey            ChannelKey
-	SrcMsgTransfer        PacketSequenceCache
-	DstMsgRecvPacket      PacketSequenceCache
-	SrcMsgAcknowledgement PacketSequenceCache
-	SrcMsgTimeout         PacketSequenceCache
-	SrcMsgTimeoutOnClose  PacketSequenceCache
+	Src                       *pathEndRuntime
+	Dst                       *pathEndRuntime
+	ChannelKey                ChannelKey
+	SrcMsgTransfer            PacketSequenceCache
+	DstMsgRecvPacket          PacketSequenceCache
+	SrcMsgAcknowledgement     PacketSequenceCache
+	SrcMsgTimeout             PacketSequenceCache
+	SrcMsgTimeoutOnClose      PacketSequenceCache
+	DstMsgChannelCloseConfirm *provider.ChannelInfo
 }
 
 type pathEndConnectionHandshakeMessages struct {
@@ -115,19 +132,15 @@ type pathEndChannelHandshakeMessages struct {
 	DstMsgChannelOpenConfirm ChannelMessageCache
 }
 
-type pathEndChannelCloseMessages struct {
-	Src                       *pathEndRuntime
-	Dst                       *pathEndRuntime
-	SrcMsgChannelCloseInit    ChannelMessageCache
-	DstMsgChannelCloseConfirm ChannelMessageCache
-}
-
 type pathEndPacketFlowResponse struct {
 	SrcMessages []packetIBCMessage
 	DstMessages []packetIBCMessage
 
-	ToDeleteSrc map[string][]uint64
-	ToDeleteDst map[string][]uint64
+	DstChannelMessage []channelIBCMessage
+
+	ToDeleteSrc        map[string][]uint64
+	ToDeleteDst        map[string][]uint64
+	ToDeleteDstChannel map[string][]ChannelKey
 }
 
 type pathEndChannelHandshakeResponse struct {
@@ -170,5 +183,51 @@ func channelInfoChannelKey(c provider.ChannelInfo) ChannelKey {
 		PortID:                c.PortID,
 		CounterpartyChannelID: c.CounterpartyChannelID,
 		CounterpartyPortID:    c.CounterpartyPortID,
+	}
+}
+
+// outgoingMessages is a slice of relayer messages that can be
+// appended to concurrently.
+type outgoingMessages struct {
+	mu       sync.Mutex
+	msgs     []provider.RelayerMessage
+	pktMsgs  []packetMessageToTrack
+	connMsgs []connectionMessageToTrack
+	chanMsgs []channelMessageToTrack
+}
+
+// Append acquires a lock on om's mutex and then appends msg.
+// When there are no more possible concurrent calls to Append,
+// it is safe to directly access om.msgs.
+func (om *outgoingMessages) Append(msg provider.RelayerMessage) {
+	om.mu.Lock()
+	defer om.mu.Unlock()
+	om.msgs = append(om.msgs, msg)
+}
+
+type packetMessageToTrack struct {
+	msg       packetIBCMessage
+	assembled bool
+}
+
+type connectionMessageToTrack struct {
+	msg       connectionIBCMessage
+	assembled bool
+}
+
+type channelMessageToTrack struct {
+	msg       channelIBCMessage
+	assembled bool
+}
+
+// orderFromString parses a string into a channel order byte.
+func orderFromString(order string) chantypes.Order {
+	switch strings.ToUpper(order) {
+	case chantypes.UNORDERED.String():
+		return chantypes.UNORDERED
+	case chantypes.ORDERED.String():
+		return chantypes.ORDERED
+	default:
+		return chantypes.NONE
 	}
 }

@@ -28,6 +28,7 @@ const (
 	flagThresholdTime           = "time-threshold"
 	flagUpdateAfterExpiry       = "update-after-expiry"
 	flagUpdateAfterMisbehaviour = "update-after-misbehaviour"
+	flagClientTrustingPeriod    = "client-tp"
 	flagOverride                = "override"
 	flagSrcPort                 = "src-port"
 	flagDstPort                 = "dst-port"
@@ -44,6 +45,7 @@ const (
 	flagReverse                 = "reverse"
 	flagProcessor               = "processor"
 	flagInitialBlockHistory     = "block-history"
+	flagMemo                    = "memo"
 )
 
 const (
@@ -230,10 +232,14 @@ func clientParameterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 		"allow governance to update the client if expiry occurs")
 	cmd.Flags().BoolP(flagUpdateAfterMisbehaviour, "m", true,
 		"allow governance to update the client if misbehaviour freezing occurs")
+	cmd.Flags().Duration(flagClientTrustingPeriod, 0, "custom light client trusting period ex. 24h (default: 85% of chains reported unbonding time)")
 	if err := v.BindPFlag(flagUpdateAfterExpiry, cmd.Flags().Lookup(flagUpdateAfterExpiry)); err != nil {
 		panic(err)
 	}
 	if err := v.BindPFlag(flagUpdateAfterMisbehaviour, cmd.Flags().Lookup(flagUpdateAfterMisbehaviour)); err != nil {
+		panic(err)
+	}
+	if err := v.BindPFlag(flagClientTrustingPeriod, cmd.Flags().Lookup(flagClientTrustingPeriod)); err != nil {
 		panic(err)
 	}
 	return cmd
@@ -291,13 +297,25 @@ func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
-func processorFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+func processorFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagProcessor, "p", relayer.ProcessorLegacy, "which relayer processor to use")
 	if err := v.BindPFlag(flagProcessor, cmd.Flags().Lookup(flagProcessor)); err != nil {
 		panic(err)
 	}
+	return cmd
+}
+
+func initBlockFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Uint64P(flagInitialBlockHistory, "b", 20, "initial block history to query when using 'events' as the processor for relaying")
 	if err := v.BindPFlag(flagInitialBlockHistory, cmd.Flags().Lookup(flagInitialBlockHistory)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func memoFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().String(flagMemo, "", "a memo to include in relayed packets")
+	if err := v.BindPFlag(flagMemo, cmd.Flags().Lookup(flagMemo)); err != nil {
 		panic(err)
 	}
 	return cmd

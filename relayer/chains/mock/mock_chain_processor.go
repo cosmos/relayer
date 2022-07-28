@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
 	"go.uber.org/zap"
 )
 
@@ -35,7 +35,7 @@ type MockChainProcessor struct {
 
 // types used for parsing IBC messages from transactions, then passed to message handlers for mutating the MockChainProcessor state if necessary and retaining applicable messages for sending to the Path Processors
 type TransactionMessage struct {
-	Action     string
+	EventType  string
 	PacketInfo *chantypes.Packet
 }
 
@@ -151,7 +151,7 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		// will do things like mutate chainprocessor state and add relevant messages to foundMessages
 		// this can be parralelized also
 		for _, m := range messages {
-			if handler, ok := messageHandlers[m.Action]; ok {
+			if handler, ok := messageHandlers[m.EventType]; ok {
 				handler(msgHandlerParams{
 					mcp:              mcp,
 					packetInfo:       m.PacketInfo,

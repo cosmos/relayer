@@ -3,55 +3,11 @@ package processor
 import (
 	"fmt"
 	"sort"
-	"strings"
 
-	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/gogo/protobuf/proto"
+	"go.uber.org/zap/zapcore"
 )
-
-// These are the IBC message types that are the possible message actions when parsing tendermint events.
-// They are also used as shared message keys between ChainProcessors and PathProcessors.
-var (
-	// Packet messages
-	MsgTransfer        = "/" + proto.MessageName((*transfertypes.MsgTransfer)(nil))
-	MsgRecvPacket      = "/" + proto.MessageName((*chantypes.MsgRecvPacket)(nil))
-	MsgAcknowledgement = "/" + proto.MessageName((*chantypes.MsgAcknowledgement)(nil))
-	MsgTimeout         = "/" + proto.MessageName((*chantypes.MsgTimeout)(nil))
-	MsgTimeoutOnClose  = "/" + proto.MessageName((*chantypes.MsgTimeoutOnClose)(nil))
-
-	// Connection messages
-	MsgConnectionOpenInit    = "/" + proto.MessageName((*conntypes.MsgConnectionOpenInit)(nil))
-	MsgConnectionOpenTry     = "/" + proto.MessageName((*conntypes.MsgConnectionOpenTry)(nil))
-	MsgConnectionOpenAck     = "/" + proto.MessageName((*conntypes.MsgConnectionOpenAck)(nil))
-	MsgConnectionOpenConfirm = "/" + proto.MessageName((*conntypes.MsgConnectionOpenConfirm)(nil))
-
-	// Channel messages
-	MsgChannelOpenInit    = "/" + proto.MessageName((*chantypes.MsgChannelOpenInit)(nil))
-	MsgChannelOpenTry     = "/" + proto.MessageName((*chantypes.MsgChannelOpenTry)(nil))
-	MsgChannelOpenAck     = "/" + proto.MessageName((*chantypes.MsgChannelOpenAck)(nil))
-	MsgChannelOpenConfirm = "/" + proto.MessageName((*chantypes.MsgChannelOpenConfirm)(nil))
-
-	MsgChannelCloseInit    = "/" + proto.MessageName((*chantypes.MsgChannelCloseInit)(nil))
-	MsgChannelCloseConfirm = "/" + proto.MessageName((*chantypes.MsgChannelCloseConfirm)(nil))
-
-	// Client messages
-	MsgCreateClient       = "/" + proto.MessageName((*clienttypes.MsgCreateClient)(nil))
-	MsgUpdateClient       = "/" + proto.MessageName((*clienttypes.MsgUpdateClient)(nil))
-	MsgUpgradeClient      = "/" + proto.MessageName((*clienttypes.MsgUpgradeClient)(nil))
-	MsgSubmitMisbehaviour = "/" + proto.MessageName((*clienttypes.MsgSubmitMisbehaviour)(nil))
-)
-
-// ShortAction returns the short name for an IBC message action.
-type ShortAction string
-
-func (a ShortAction) String() string {
-	split := strings.Split(string(a), ".")
-	return split[len(split)-1]
-}
 
 // MessageLifecycle is used to send an initial IBC message to a chain
 // once the chains are in sync for the PathProcessor.
@@ -63,9 +19,9 @@ type MessageLifecycle interface {
 }
 
 type PacketMessage struct {
-	ChainID string
-	Action  string
-	Info    provider.PacketInfo
+	ChainID   string
+	EventType string
+	Info      provider.PacketInfo
 }
 
 // PacketMessageLifecycle is used as a stop condition for the PathProcessor.
@@ -79,9 +35,9 @@ type PacketMessageLifecycle struct {
 func (t *PacketMessageLifecycle) messageLifecycler() {}
 
 type ConnectionMessage struct {
-	ChainID string
-	Action  string
-	Info    provider.ConnectionInfo
+	ChainID   string
+	EventType string
+	Info      provider.ConnectionInfo
 }
 
 // ConnectionMessageLifecycle is used as a stop condition for the PathProcessor.
@@ -95,9 +51,9 @@ type ConnectionMessageLifecycle struct {
 func (t *ConnectionMessageLifecycle) messageLifecycler() {}
 
 type ChannelMessage struct {
-	ChainID string
-	Action  string
-	Info    provider.ChannelInfo
+	ChainID   string
+	EventType string
+	Info      provider.ChannelInfo
 }
 
 // ChannelMessageLifecycle is used as a stop condition for the PathProcessor.
@@ -160,24 +116,32 @@ type ChannelKey struct {
 }
 
 // Counterparty flips a ChannelKey for the perspective of the counterparty chain
-func (channelKey ChannelKey) Counterparty() ChannelKey {
+func (k ChannelKey) Counterparty() ChannelKey {
 	return ChannelKey{
-		ChannelID:             channelKey.CounterpartyChannelID,
-		PortID:                channelKey.CounterpartyPortID,
-		CounterpartyChannelID: channelKey.ChannelID,
-		CounterpartyPortID:    channelKey.PortID,
+		ChannelID:             k.CounterpartyChannelID,
+		PortID:                k.CounterpartyPortID,
+		CounterpartyChannelID: k.ChannelID,
+		CounterpartyPortID:    k.PortID,
 	}
 }
 
 // msgInitKey is used for comparing MsgChannelOpenInit keys with other connection
 // handshake messages. MsgChannelOpenInit does not have CounterpartyChannelID.
-func (channelKey ChannelKey) msgInitKey() ChannelKey {
+func (k ChannelKey) msgInitKey() ChannelKey {
 	return ChannelKey{
-		ChannelID:             channelKey.ChannelID,
-		PortID:                channelKey.PortID,
+		ChannelID:             k.ChannelID,
+		PortID:                k.PortID,
 		CounterpartyChannelID: "",
-		CounterpartyPortID:    channelKey.CounterpartyPortID,
+		CounterpartyPortID:    k.CounterpartyPortID,
 	}
+}
+
+func (k ChannelKey) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("channel_id", k.ChannelID)
+	enc.AddString("port_id", k.PortID)
+	enc.AddString("counterparty_channel_id", k.CounterpartyChannelID)
+	enc.AddString("counterparty_port_id", k.CounterpartyPortID)
+	return nil
 }
 
 // ConnectionKey is the key used for identifying connections between ChainProcessor and PathProcessor.
@@ -207,6 +171,14 @@ func (connectionKey ConnectionKey) msgInitKey() ConnectionKey {
 		CounterpartyClientID: connectionKey.CounterpartyClientID,
 		CounterpartyConnID:   "",
 	}
+}
+
+func (k ConnectionKey) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("connection_id", k.ConnectionID)
+	enc.AddString("client_id", k.ClientID)
+	enc.AddString("counterparty_connection_id", k.CounterpartyConnID)
+	enc.AddString("counterparty_client_id", k.CounterpartyClientID)
+	return nil
 }
 
 // ChannelStateCache maintains channel open state for multiple channels.
@@ -463,15 +435,15 @@ func (c IBCHeaderCache) Prune(keep int) {
 	}
 }
 
-// PacketInfoChannelKey returns the applicable ChannelKey for the chain based on the action.
-func PacketInfoChannelKey(action string, info provider.PacketInfo) (ChannelKey, error) {
-	switch action {
-	case MsgRecvPacket:
+// PacketInfoChannelKey returns the applicable ChannelKey for the chain based on the eventType.
+func PacketInfoChannelKey(eventType string, info provider.PacketInfo) (ChannelKey, error) {
+	switch eventType {
+	case chantypes.EventTypeRecvPacket:
 		return packetInfoChannelKey(info).Counterparty(), nil
-	case MsgTransfer, MsgAcknowledgement, MsgTimeout, MsgTimeoutOnClose:
+	case chantypes.EventTypeSendPacket, chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket, chantypes.EventTypeTimeoutPacketOnClose:
 		return packetInfoChannelKey(info), nil
 	}
-	return ChannelKey{}, fmt.Errorf("action not expected for packetIBCMessage channelKey: %s", action)
+	return ChannelKey{}, fmt.Errorf("eventType not expected for packetIBCMessage channelKey: %s", eventType)
 }
 
 // ChannelInfoChannelKey returns the applicable ChannelKey for ChannelInfo.
