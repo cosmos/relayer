@@ -1961,7 +1961,7 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 	// Retrieve the dst chain's client state from the source chain,
 	// this is the client that will be updated.
 	var cs ibcexported.ClientState
-	chainHaltHeight := uint64(0)
+	chainHaltHeight := uint64(4136530)
 
 	if h.TrustedHeight.RevisionHeight <= chainHaltHeight && dst.ChainId() == "juno-1" {
 		cs, err = tmpProvider.QueryClientState(ctx, int64(h.TrustedHeight.RevisionHeight), dstClientId)
