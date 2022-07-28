@@ -9,8 +9,8 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -28,6 +28,7 @@ const (
 var (
 	gaiaProviderCfg = cosmos.CosmosProviderConfig{
 		Key:            "",
+		ChainName:      "",
 		ChainID:        "",
 		RPCAddr:        "",
 		AccountPrefix:  "cosmos",
@@ -43,12 +44,13 @@ var (
 		dockerfile: "docker/gaiad/Dockerfile",
 		rpcPort:    "26657",
 		buildArgs: []dc.BuildArg{
-			{Name: "DefaultVersion", Value: "v5.0.8"},
+			{Name: "VERSION", Value: "v7.0.1"},
 		},
 	}
 
 	akashProviderCfg = cosmos.CosmosProviderConfig{
 		Key:            "",
+		ChainName:      "",
 		ChainID:        "",
 		RPCAddr:        "",
 		AccountPrefix:  "akash",
@@ -64,12 +66,13 @@ var (
 		dockerfile: "docker/akash/Dockerfile",
 		rpcPort:    "26657",
 		buildArgs: []dc.BuildArg{
-			{Name: "DefaultVersion", Value: "v0.12.1"},
+			{Name: "VERSION", Value: "v0.16.3"},
 		},
 	}
 
 	osmosisProviderCfg = cosmos.CosmosProviderConfig{
 		Key:            "",
+		ChainName:      "",
 		ChainID:        "",
 		RPCAddr:        "",
 		AccountPrefix:  "osmo",
@@ -85,7 +88,7 @@ var (
 		dockerfile: "docker/osmosis/Dockerfile",
 		rpcPort:    "26657",
 		buildArgs: []dc.BuildArg{
-			{Name: "DefaultVersion", Value: "v6.4.0"},
+			{Name: "VERSION", Value: "v8.0.0"},
 		},
 	}
 
@@ -96,10 +99,11 @@ type (
 	// testChain represents the different configuration options for spinning up a test
 	// cosmos-sdk based blockchain
 	testChain struct {
-		chainID string
-		seed    int
-		t       testChainConfig
-		pcfg    provider.ProviderConfig
+		chainName string
+		chainID   string
+		seed      int
+		t         testChainConfig
+		pcfg      provider.ProviderConfig
 	}
 
 	// testChainConfig represents the chain specific docker and codec configurations
@@ -133,7 +137,7 @@ func newTestChain(t *testing.T, tc testChain) *relayer.Chain {
 		panic(fmt.Errorf("no case for type %T when trying to edit ProviderConfig", tc.pcfg))
 	}
 
-	prov, err := tc.pcfg.NewProvider(zaptest.NewLogger(t), "/tmp", true)
+	prov, err := tc.pcfg.NewProvider(zaptest.NewLogger(t), "/tmp", true, tc.chainName)
 	require.NoError(t, err)
 
 	var debug bool

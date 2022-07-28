@@ -6,20 +6,57 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	typestx "github.com/cosmos/cosmos-sdk/types/tx"
-	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
+	transfertypes "github.com/cosmos/ibc-go/v4/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
+
+// getChannelsIfPresent scans the events for channel tags
+func getChannelsIfPresent(events []provider.RelayerEvent) []zapcore.Field {
+	channelTags := []string{srcChanTag, dstChanTag}
+	fields := []zap.Field{}
+
+	// While a transaction may have multiple messages, we just need to first
+	// pair of channels
+	foundTag := map[string]struct{}{}
+
+	for _, event := range events {
+		for _, tag := range channelTags {
+			for attributeKey, attributeValue := range event.Attributes {
+				if attributeKey == tag {
+					// Only append the tag once
+					// TODO: what if they are different?
+					if _, ok := foundTag[tag]; !ok {
+						fields = append(fields, zap.String(tag, attributeValue))
+						foundTag[tag] = struct{}{}
+					}
+				}
+			}
+		}
+	}
+	return fields
+}
 
 // LogFailedTx takes the transaction and the messages to create it and logs the appropriate data
 func (cc *CosmosProvider) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
+	// Include the chain_id
+	fields := []zapcore.Field{zap.String("chain_id", cc.ChainId())}
+
+	// Extract the channels from the events, if present
+	if res != nil {
+		channels := getChannelsIfPresent(res.Events)
+		fields = append(fields, channels...)
+	}
+	fields = append(fields, msgTypesField(msgs))
+
 	if err != nil {
+		// Make a copy since we may continue to the warning
+		errorFields := append(fields, zap.Error(err))
 		cc.log.Error(
 			"Failed sending cosmos transaction",
-			zap.String("chain_id", cc.ChainId()),
-			msgTypesField(msgs),
-			zap.Error(err),
+			errorFields...,
 		)
 
 		if res == nil {
@@ -28,28 +65,36 @@ func (cc *CosmosProvider) LogFailedTx(res *provider.RelayerTxResponse, err error
 	}
 
 	if res.Code != 0 && res.Data != "" {
+		fields = append(fields, zap.Object("response", res))
 		cc.log.Warn(
 			"Sent transaction but received failure response",
-			zap.String("chain_id", cc.ChainId()),
-			msgTypesField(msgs),
-			zap.Object("response", res),
+			fields...,
 		)
 	}
 }
 
 // LogSuccessTx take the transaction and the messages to create it and logs the appropriate data
 func (cc *CosmosProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.RelayerMessage) {
-	feesField := zap.Skip()
-	feePayerField := zap.Skip()
+	// Include the chain_id
+	fields := []zapcore.Field{zap.String("chain_id", cc.ChainId())}
 
+	// Extract the channels from the events, if present
+	if res != nil {
+		events := parseEventsFromTxResponse(res)
+		fields = append(fields, getChannelsIfPresent(events)...)
+	}
+
+	// Include the gas used
+	fields = append(fields, zap.Int64("gas_used", res.GasUsed))
+
+	// Extract fees and fee_payer if present
 	ir := types.NewInterfaceRegistry()
 	var m sdk.Msg
 	if err := ir.UnpackAny(res.Tx, &m); err == nil {
 		if tx, ok := m.(*typestx.Tx); ok {
-			feesField = zap.Stringer("fees", tx.GetFee())
-
+			fields = append(fields, zap.Stringer("fees", tx.GetFee()))
 			if feePayer := getFeePayer(tx); feePayer != "" {
-				feePayerField = zap.String("fee_payer", feePayer)
+				fields = append(fields, zap.String("fee_payer", feePayer))
 			}
 		} else {
 			cc.log.Debug(
@@ -61,15 +106,17 @@ func (cc *CosmosProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.Rela
 		cc.log.Debug("Failed to unpack response Tx into sdk.Msg", zap.Error(err))
 	}
 
-	cc.log.Info(
-		"Successful transaction",
-		zap.String("chain_id", cc.ChainId()),
-		zap.Int64("gas_used", res.GasUsed),
-		feesField,
-		feePayerField,
+	// Include the height, msgType, and tx_hash
+	fields = append(fields,
 		zap.Int64("height", res.Height),
 		msgTypesField(msgs),
 		zap.String("tx_hash", res.TxHash),
+	)
+
+	// Log the succesful transaction with fields
+	cc.log.Info(
+		"Successful transaction",
+		fields...,
 	)
 }
 

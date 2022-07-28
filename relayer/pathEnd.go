@@ -3,8 +3,8 @@ package relayer
 import (
 	"strings"
 
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
+	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v4/modules/core/23-commitment/types"
 )
 
 // TODO double check that these are okay
@@ -30,6 +30,18 @@ func OrderFromString(order string) chantypes.Order {
 		return chantypes.ORDERED
 	default:
 		return chantypes.NONE
+	}
+}
+
+// StringFromOrder returns the string representation of a channel order.
+func StringFromOrder(order chantypes.Order) string {
+	switch order {
+	case chantypes.UNORDERED:
+		return "unordered"
+	case chantypes.ORDERED:
+		return "ordered"
+	default:
+		return ""
 	}
 }
 

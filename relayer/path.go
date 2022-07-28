@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
+	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 )
@@ -88,6 +88,7 @@ type PathAction struct {
 }
 
 // Path represents a pair of chains and the identifiers needed to relay over them along with a channel filter list.
+// A Memo can optionally be provided for identification in relayed messages.
 type Path struct {
 	Src    *PathEnd      `yaml:"src" json:"src"`
 	Dst    *PathEnd      `yaml:"dst" json:"dst"`
@@ -99,6 +100,38 @@ type Path struct {
 type ChannelFilter struct {
 	Rule        string   `yaml:"rule" json:"rule"`
 	ChannelList []string `yaml:"channel-list" json:"channel-list"`
+}
+
+type IBCdata struct {
+	Schema string `json:"$schema"`
+	Chain1 struct {
+		ChainName    string `json:"chain-name"`
+		ClientID     string `json:"client-id"`
+		ConnectionID string `json:"connection-id"`
+	} `json:"chain-1"`
+	Chain2 struct {
+		ChainName    string `json:"chain-name"`
+		ClientID     string `json:"client-id"`
+		ConnectionID string `json:"connection-id"`
+	} `json:"chain-2"`
+	Channels []struct {
+		Chain1 struct {
+			ChannelID string `json:"channel-id"`
+			PortID    string `json:"port-id"`
+		} `json:"chain-1"`
+		Chain2 struct {
+			ChannelID string `json:"channel-id"`
+			PortID    string `json:"port-id"`
+		} `json:"chain-2"`
+		Ordering string `json:"ordering"`
+		Version  string `json:"version"`
+		Tags     struct {
+			Status     string `json:"status"`
+			Preferred  bool   `json:"preferred"`
+			Dex        string `json:"dex"`
+			Properties string `json:"properties"`
+		} `json:"tags,omitempty"`
+	} `json:"channels"`
 }
 
 // ValidateChannelFilterRule verifies that the configured ChannelFilter rule is set to an appropriate value.

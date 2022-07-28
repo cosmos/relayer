@@ -3,9 +3,10 @@ package helpers
 import (
 	"context"
 	"strconv"
+	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
+	ibcexported "github.com/cosmos/ibc-go/v4/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer"
 )
 
@@ -41,7 +42,7 @@ func QueryBalance(ctx context.Context, chain *relayer.Chain, address string, sho
 		}
 
 		for i, d := range dts {
-			if c.Denom == d.IBCDenom() {
+			if strings.EqualFold(c.Denom, d.IBCDenom()) {
 				out = append(out, sdk.Coin{Denom: d.GetFullDenomPath(), Amount: c.Amount})
 				break
 			}

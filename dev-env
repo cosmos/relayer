@@ -58,6 +58,3 @@ echo "Balances after packets are sent"
 echo "balance 0 $(rly q bal ibc-0)"
 echo "balance 1 $(rly q bal ibc-1)"
 
-
-
-#curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "state_getMetadata", "params":[]}' wss://0.0.0.0:9989\n

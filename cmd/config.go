@@ -30,11 +30,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/client/flags"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -49,11 +47,8 @@ func configCmd(a *appState) *cobra.Command {
 
 	cmd.AddCommand(
 		configShowCmd(a),
-		configInitCmd(),
-		configAddChainsCmd(a),
-		configAddPathsCmd(a),
+		configInitCmd(a),
 	)
-
 	return cmd
 }
 
@@ -68,7 +63,7 @@ func configShowCmd(a *appState) *cobra.Command {
 $ %s config show --home %s
 $ %s cfg list`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			home, err := cmd.Flags().GetString(flags.FlagHome)
+			home, err := cmd.Flags().GetString(flagHome)
 			if err != nil {
 				return err
 			}
@@ -93,14 +88,14 @@ $ %s cfg list`, appName, defaultHome, appName)),
 			case yml && jsn:
 				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
 			case jsn:
-				out, err := json.Marshal(ConfigToWrapper(a.Config))
+				out, err := json.Marshal(a.Config.Wrapped())
 				if err != nil {
 					return err
 				}
 				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			default:
-				out, err := yaml.Marshal(ConfigToWrapper(a.Config))
+				out, err := yaml.Marshal(a.Config.Wrapped())
 				if err != nil {
 					return err
 				}
@@ -113,8 +108,8 @@ $ %s cfg list`, appName, defaultHome, appName)),
 	return yamlFlag(a.Viper, jsonFlag(a.Viper, cmd))
 }
 
-// Command for inititalizing an empty config at the --home location
-func configInitCmd() *cobra.Command {
+// Command for initializing an empty config at the --home location
+func configInitCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "init",
 		Aliases: []string{"i"},
@@ -124,7 +119,7 @@ func configInitCmd() *cobra.Command {
 $ %s config init --home %s
 $ %s cfg i`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			home, err := cmd.Flags().GetString(flags.FlagHome)
+			home, err := cmd.Flags().GetString(flagHome)
 			if err != nil {
 				return err
 			}
@@ -156,8 +151,10 @@ $ %s cfg i`, appName, defaultHome, appName)),
 				}
 				defer f.Close()
 
+				memo, _ := cmd.Flags().GetString(flagMemo)
+
 				// And write the default config to that location...
-				if _, err = f.Write(defaultConfig()); err != nil {
+				if _, err = f.Write(defaultConfig(memo)); err != nil {
 					return err
 				}
 
@@ -169,47 +166,7 @@ $ %s cfg i`, appName, defaultHome, appName)),
 			return fmt.Errorf("config already exists: %s", cfgPath)
 		},
 	}
-	return cmd
-}
-
-func configAddChainsCmd(a *appState) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:  "add-chains path_to_chains",
-		Args: withUsage(cobra.ExactArgs(1)),
-		Short: `Add new chains to the configuration file from a directory full of chain 
-              configurations, useful for adding testnet configurations`,
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s config add-chains configs/chains`, appName)),
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			if err := addChainsFromDirectory(cmd.ErrOrStderr(), a, args[0]); err != nil {
-				return err
-			}
-			return a.OverwriteConfig(a.Config)
-		},
-	}
-
-	return cmd
-}
-
-func configAddPathsCmd(a *appState) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:  "add-paths path_to_paths",
-		Args: withUsage(cobra.ExactArgs(1)),
-		//nolint:lll
-		Short: `Add new paths to the configuration file from a directory full of path 
-              configurations, useful for adding testnet configurations. 
-              NOTE: Chain configuration files must be added before calling this command.`,
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s config add-paths configs/paths`, appName)),
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			if err := addPathsFromDirectory(cmd.Context(), cmd.ErrOrStderr(), a, args[0]); err != nil {
-				return err
-			}
-			return a.OverwriteConfig(a.Config)
-		},
-	}
-
-	return cmd
+	return memoFlag(a.Viper, cmd)
 }
 
 // addChainsFromDirectory finds all JSON-encoded config files in dir,
@@ -242,10 +199,10 @@ func addChainsFromDirectory(stderr io.Writer, a *appState, dir string) error {
 			fmt.Fprintf(stderr, "failed to unmarshal file %s. Err: %v skipping...\n", pth, err)
 			continue
 		}
-
+		chainName := strings.Split(f.Name(), ".")[0]
 		prov, err := pcw.Value.NewProvider(
 			a.Log.With(zap.String("provider_type", pcw.Type)),
-			a.HomePath, a.Debug,
+			a.HomePath, a.Debug, chainName,
 		)
 		if err != nil {
 			fmt.Fprintf(stderr, "failed to build ChainProvider for %s. Err: %v \n", pth, err)
@@ -305,19 +262,43 @@ func addPathsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, d
 	return nil
 }
 
-// ConfigToWrapper converts the Config struct into a ConfigOutputWrapper struct
-func ConfigToWrapper(config *Config) *ConfigOutputWrapper {
-	cfgw := &ConfigOutputWrapper{Global: config.Global, Paths: config.Paths}
-	var providers []*ProviderConfigWrapper
-	for _, chain := range config.Chains {
+// Wrapped converts the Config struct into a ConfigOutputWrapper struct
+func (c *Config) Wrapped() *ConfigOutputWrapper {
+	providers := make(ProviderConfigs)
+	for _, chain := range c.Chains {
 		pcfgw := &ProviderConfigWrapper{
 			Type:  chain.ChainProvider.Type(),
 			Value: chain.ChainProvider.ProviderConfig(),
 		}
-		providers = append(providers, pcfgw)
+		providers[chain.ChainProvider.ChainName()] = pcfgw
 	}
-	cfgw.ProviderConfigs = providers
-	return cfgw
+	return &ConfigOutputWrapper{Global: c.Global, ProviderConfigs: providers, Paths: c.Paths}
+}
+
+// rlyMemo returns a formatted message memo string
+// that includes "rly" and the version, e.g. "rly(v2.0.0)"
+// or "My custom memo | rly(v2.0.0)"
+func rlyMemo(memo string) string {
+	if memo == "-" {
+		// omit memo entirely
+		return ""
+	}
+	defaultMemo := fmt.Sprintf("rly(%s)", Version)
+	if memo == "" {
+		return defaultMemo
+	}
+	return fmt.Sprintf("%s | %s", memo, defaultMemo)
+}
+
+// memo returns a formatted message memo string,
+// provided either by the memo flag or the config.
+func (c *Config) memo(cmd *cobra.Command) string {
+	memoFlag, _ := cmd.Flags().GetString(flagMemo)
+	if memoFlag != "" {
+		return rlyMemo(memoFlag)
+	}
+
+	return rlyMemo(c.Global.Memo)
 }
 
 // Config represents the config file for the relayer
@@ -336,12 +317,12 @@ type ConfigOutputWrapper struct {
 
 // ConfigInputWrapper is an intermediary type for parsing the config.yaml file
 type ConfigInputWrapper struct {
-	Global          GlobalConfig                 `yaml:"global"`
-	ProviderConfigs []*ProviderConfigYAMLWrapper `yaml:"chains"`
-	Paths           relayer.Paths                `yaml:"paths"`
+	Global          GlobalConfig                          `yaml:"global"`
+	ProviderConfigs map[string]*ProviderConfigYAMLWrapper `yaml:"chains"`
+	Paths           relayer.Paths                         `yaml:"paths"`
 }
 
-type ProviderConfigs []*ProviderConfigWrapper
+type ProviderConfigs map[string]*ProviderConfigWrapper
 
 // ProviderConfigWrapper is an intermediary type for parsing arbitrary ProviderConfigs from json files and writing to json/yaml files
 type ProviderConfigWrapper struct {
@@ -351,8 +332,8 @@ type ProviderConfigWrapper struct {
 
 // ProviderConfigYAMLWrapper is an intermediary type for parsing arbitrary ProviderConfigs from yaml files
 type ProviderConfigYAMLWrapper struct {
-	Type  string      `yaml:"type"`
-	Value interface{} `yaml:"-"`
+	Type  string `yaml:"type"`
+	Value any    `yaml:"-"`
 }
 
 // UnmarshalJSON adds support for unmarshalling data from an arbitrary ProviderConfig
@@ -372,8 +353,8 @@ func (pcw *ProviderConfigWrapper) UnmarshalJSON(data []byte) error {
 }
 
 // UnmarshalJSONProviderConfig contains the custom unmarshalling logic for ProviderConfig structs
-func UnmarshalJSONProviderConfig(data []byte, customTypes map[string]reflect.Type) (interface{}, error) {
-	m := map[string]interface{}{}
+func UnmarshalJSONProviderConfig(data []byte, customTypes map[string]reflect.Type) (any, error) {
+	m := map[string]any{}
 	if err := json.Unmarshal(data, &m); err != nil {
 		return nil, err
 	}
@@ -454,9 +435,9 @@ func (c Config) MustYAML() []byte {
 	return out
 }
 
-func defaultConfig() []byte {
+func defaultConfig(memo string) []byte {
 	return Config{
-		Global: newDefaultGlobalConfig(),
+		Global: newDefaultGlobalConfig(memo),
 		Chains: relayer.Chains{},
 		Paths:  relayer.Paths{},
 	}.MustYAML()
@@ -466,15 +447,17 @@ func defaultConfig() []byte {
 type GlobalConfig struct {
 	APIListenPort  string `yaml:"api-listen-addr" json:"api-listen-addr"`
 	Timeout        string `yaml:"timeout" json:"timeout"`
+	Memo           string `yaml:"memo" json:"memo"`
 	LightCacheSize int    `yaml:"light-cache-size" json:"light-cache-size"`
 }
 
 // newDefaultGlobalConfig returns a global config with defaults set
-func newDefaultGlobalConfig() GlobalConfig {
+func newDefaultGlobalConfig(memo string) GlobalConfig {
 	return GlobalConfig{
 		APIListenPort:  ":5183",
 		Timeout:        "10s",
 		LightCacheSize: 20,
+		Memo:           memo,
 	}
 }
 
@@ -488,7 +471,7 @@ func (c *Config) AddChain(chain *relayer.Chain) (err error) {
 	if chn != nil || err == nil {
 		return fmt.Errorf("chain with ID %s already exists in config", chainId)
 	}
-	c.Chains = append(c.Chains, chain)
+	c.Chains[chain.ChainProvider.ChainName()] = chain
 	return nil
 }
 
@@ -543,13 +526,7 @@ func (c *Config) AddPath(name string, path *relayer.Path) (err error) {
 
 // DeleteChain modifies c in-place to remove any chains that have the given name.
 func (c *Config) DeleteChain(chain string) {
-	var set relayer.Chains
-	for _, ch := range c.Chains {
-		if ch.ChainID() != chain {
-			set = append(set, ch)
-		}
-	}
-	c.Chains = set
+	delete(c.Chains, chain)
 }
 
 // validateConfig is used to validate the GlobalConfig values
@@ -564,7 +541,7 @@ func validateConfig(c *Config) error {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig(cmd *cobra.Command, a *appState) error {
-	home, err := cmd.PersistentFlags().GetString(flags.FlagHome)
+	home, err := cmd.PersistentFlags().GetString(flagHome)
 	if err != nil {
 		return err
 	}
@@ -596,18 +573,18 @@ func initConfig(cmd *cobra.Command, a *appState) error {
 			}
 
 			// build the config struct
-			var chains relayer.Chains
-			for _, pcfg := range cfgWrapper.ProviderConfigs {
+			chains := make(relayer.Chains)
+			for chainName, pcfg := range cfgWrapper.ProviderConfigs {
 				prov, err := pcfg.Value.(provider.ProviderConfig).NewProvider(
 					a.Log.With(zap.String("provider_type", pcfg.Type)),
-					a.HomePath, a.Debug,
+					a.HomePath, a.Debug, chainName,
 				)
 				if err != nil {
 					return fmt.Errorf("failed to build ChainProviders: %w", err)
 				}
 
 				chain := relayer.NewChain(a.Log, prov, a.Debug)
-				chains = append(chains, chain)
+				chains[chainName] = chain
 			}
 
 			a.Config = &Config{
@@ -629,10 +606,10 @@ func initConfig(cmd *cobra.Command, a *appState) error {
 // ValidatePath checks that a path is valid
 func (c *Config) ValidatePath(ctx context.Context, stderr io.Writer, p *relayer.Path) (err error) {
 	if err = c.ValidatePathEnd(ctx, stderr, p.Src); err != nil {
-		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Src.ChainID)
+		return fmt.Errorf("chain %s failed path validation: %w", p.Src.ChainID, err)
 	}
 	if err = c.ValidatePathEnd(ctx, stderr, p.Dst); err != nil {
-		return sdkerrors.Wrapf(err, "chain %s failed path validation", p.Dst.ChainID)
+		return fmt.Errorf("chain %s failed path validation: %w", p.Dst.ChainID, err)
 	}
 	return nil
 }

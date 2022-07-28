@@ -295,6 +295,7 @@ func (sp *SubstrateProvider) FindMatchingClient(ctx context.Context, counterpart
 			}
 
 			//nolint:lll
+			//todo: return finalized block here ?
 			header, err := counterparty.GetLightSignedHeaderAtHeight(ctx, int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
 			if err != nil {
 				if sp.Config.Debug {
