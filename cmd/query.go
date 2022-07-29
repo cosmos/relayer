@@ -161,7 +161,7 @@ documents its respective events under 'cosmos-sdk/x/{module}/spec/xx_events.md'.
 		),
 		Args: withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s query txs ibc-0 "message.action=transfer" --offset 1 --limit 10
+$ %s query txs ibc-0 "message.action=transfer" --page 1 --limit 10
 $ %s q txs ibc-0 "message.action=transfer"`,
 			appName, appName,
 		)),
