@@ -1936,7 +1936,7 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 		Key:            "default",
 		ChainName:      "juno",
 		ChainID:        "juno-1",
-		RPCAddr:        "http://rpc-v3-archive.junonetwork.io:26657",
+		RPCAddr:        "https://rpc-v3-archive.junonetwork.io:443",
 		AccountPrefix:  "juno",
 		KeyringBackend: "test",
 		GasAdjustment:  1.2,
@@ -1961,7 +1961,7 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 	// Retrieve the dst chain's client state from the source chain,
 	// this is the client that will be updated.
 	var cs ibcexported.ClientState
-	chainHaltHeight := uint64(4136530)
+	chainHaltHeight := uint64(4136531)
 
 	if h.TrustedHeight.RevisionHeight <= chainHaltHeight && dst.ChainId() == "juno-1" {
 		cs, err = tmpProvider.QueryClientState(ctx, int64(h.TrustedHeight.RevisionHeight), dstClientId)
