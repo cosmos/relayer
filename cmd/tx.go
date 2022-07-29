@@ -8,8 +8,8 @@ import (
 	"github.com/avast/retry-go/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
-	"github.com/cosmos/ibc-go/v4/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -178,9 +178,9 @@ func createClientCmd(a *appState) *cobra.Command {
 			}
 
 			// Query the light signed headers for src & dst at the heights srch & dsth, retry if the query fails
-			var srcUpdateHeader, dstUpdateHeader exported.Header
+			var srcUpdateHeader, dstUpdateHeader provider.IBCHeader
 			if err = retry.Do(func() error {
-				srcUpdateHeader, dstUpdateHeader, err = relayer.GetLightSignedHeadersAtHeights(cmd.Context(), src, dst, srch, dsth)
+				srcUpdateHeader, dstUpdateHeader, err = relayer.QueryIBCHeaders(cmd.Context(), src, dst, srch, dsth)
 				if err != nil {
 					return err
 				}
@@ -244,7 +244,7 @@ corresponding update-client messages.`,
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
-			return c[src].UpdateClients(cmd.Context(), c[dst], a.Config.memo(cmd))
+			return relayer.UpdateClients(cmd.Context(), c[src], c[dst], a.Config.memo(cmd))
 		},
 	}
 
@@ -281,10 +281,10 @@ func upgradeClientsCmd(a *appState) *cobra.Command {
 
 			// send the upgrade message on the targetChainID
 			if src == targetChainID {
-				return c[src].UpgradeClients(cmd.Context(), c[dst], height, memo)
+				return relayer.UpgradeClient(cmd.Context(), c[dst], c[src], height, memo)
 			}
 
-			return c[dst].UpgradeClients(cmd.Context(), c[src], height, memo)
+			return relayer.UpgradeClient(cmd.Context(), c[src], c[dst], height, memo)
 		},
 	}
 

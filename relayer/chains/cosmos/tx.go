@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -280,10 +279,10 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 }
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (cc *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header, signer string) (provider.RelayerMessage, error) {
-	tmHeader, ok := dstHeader.(*tmclient.Header)
-	if !ok {
-		return nil, fmt.Errorf("got data of type %T but wanted tmclient.Header", dstHeader)
+func (cc *CosmosProvider) MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
 	}
 
 	anyClientState, err := clienttypes.PackClientState(clientState)
@@ -291,7 +290,7 @@ func (cc *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstH
 		return nil, err
 	}
 
-	anyConsensusState, err := clienttypes.PackConsensusState(tmHeader.ConsensusState())
+	anyConsensusState, err := clienttypes.PackConsensusState(consensusState)
 	if err != nil {
 		return nil, err
 	}
@@ -303,10 +302,6 @@ func (cc *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstH
 	}
 
 	return NewCosmosMessage(msg), nil
-}
-
-func (cc *CosmosProvider) SubmitMisbehavior( /*TBD*/ ) (provider.RelayerMessage, error) {
-	return nil, nil
 }
 
 func (cc *CosmosProvider) MsgUpdateClient(srcClientId string, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
@@ -349,210 +344,6 @@ func mustGetHeight(h ibcexported.Height) clienttypes.Height {
 		panic("height is not an instance of height!")
 	}
 	return height
-}
-
-// MsgRelayAcknowledgement constructs the MsgAcknowledgement which is to be sent to the sending chain.
-// The counterparty represents the receiving chain where the acknowledgement would be stored.
-func (cc *CosmosProvider) MsgRelayAcknowledgement(ctx context.Context, dst provider.ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet provider.RelayPacket) (provider.RelayerMessage, error) {
-	var (
-		acc string
-		err error
-	)
-	msgPacketAck, ok := packet.(*relayMsgPacketAck)
-	if !ok {
-		return nil, fmt.Errorf("got data of type %T but wanted relayMsgPacketAck", packet)
-	}
-
-	if acc, err = cc.Address(); err != nil {
-		return nil, err
-	}
-
-	ackRes, err := dst.QueryPacketAcknowledgement(ctx, dsth, dstChanId, dstPortId, packet.Seq())
-	switch {
-	case err != nil:
-		return nil, err
-	case ackRes.Proof == nil || ackRes.Acknowledgement == nil:
-		return nil, fmt.Errorf("ack packet acknowledgement query seq(%d) is nil", packet.Seq())
-	case ackRes == nil:
-		return nil, fmt.Errorf("ack packet [%s]seq{%d} has no associated proofs", dst.ChainId(), packet.Seq())
-	default:
-		msg := &chantypes.MsgAcknowledgement{
-			Packet: chantypes.Packet{
-				Sequence:           packet.Seq(),
-				SourcePort:         srcPortId,
-				SourceChannel:      srcChanId,
-				DestinationPort:    dstPortId,
-				DestinationChannel: dstChanId,
-				Data:               packet.Data(),
-				TimeoutHeight:      packet.Timeout(),
-				TimeoutTimestamp:   packet.TimeoutStamp(),
-			},
-			Acknowledgement: msgPacketAck.ack,
-			ProofAcked:      ackRes.Proof,
-			ProofHeight:     ackRes.ProofHeight,
-			Signer:          acc,
-		}
-
-		return NewCosmosMessage(msg), nil
-	}
-}
-
-// MsgRelayTimeout constructs the MsgTimeout which is to be sent to the sending chain.
-// The counterparty represents the receiving chain where the receipts would have been
-// stored.
-func (cc *CosmosProvider) MsgRelayTimeout(
-	ctx context.Context,
-	dst provider.ChainProvider,
-	dsth int64,
-	packet provider.RelayPacket,
-	dstChanId, dstPortId, srcChanId, srcPortId string,
-	order chantypes.Order,
-) (provider.RelayerMessage, error) {
-	var (
-		acc string
-		err error
-		msg provider.RelayerMessage
-	)
-	if acc, err = cc.Address(); err != nil {
-		return nil, err
-	}
-
-	switch order {
-	case chantypes.UNORDERED:
-		msg, err = cc.unorderedChannelTimeoutMsg(ctx, dst, dsth, packet, acc, dstChanId, dstPortId, srcChanId, srcPortId)
-		if err != nil {
-			return nil, err
-		}
-	case chantypes.ORDERED:
-		msg, err = cc.orderedChannelTimeoutMsg(ctx, dst, dsth, packet, acc, dstChanId, dstPortId, srcChanId, srcPortId)
-		if err != nil {
-			return nil, err
-		}
-	default:
-		return nil, fmt.Errorf("invalid order type %s, order should be %s or %s",
-			order, chantypes.ORDERED, chantypes.UNORDERED)
-	}
-
-	return msg, nil
-}
-
-func (cc *CosmosProvider) orderedChannelTimeoutMsg(
-	ctx context.Context,
-	dst provider.ChainProvider,
-	dsth int64,
-	packet provider.RelayPacket,
-	acc, dstChanId, dstPortId, srcChanId, srcPortId string,
-) (provider.RelayerMessage, error) {
-	seqRes, err := dst.QueryNextSeqRecv(ctx, dsth, dstChanId, dstPortId)
-	if err != nil {
-		return nil, err
-	}
-
-	if seqRes == nil {
-		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", cc.PCfg.ChainID, packet.Seq())
-	}
-
-	if seqRes.Proof == nil {
-		return nil, fmt.Errorf("timeout packet next sequence received proof seq(%d) is nil", packet.Seq())
-	}
-
-	msg := &chantypes.MsgTimeout{
-		Packet: chantypes.Packet{
-			Sequence:           packet.Seq(),
-			SourcePort:         srcPortId,
-			SourceChannel:      srcChanId,
-			DestinationPort:    dstPortId,
-			DestinationChannel: dstChanId,
-			Data:               packet.Data(),
-			TimeoutHeight:      packet.Timeout(),
-			TimeoutTimestamp:   packet.TimeoutStamp(),
-		},
-		ProofUnreceived:  seqRes.Proof,
-		ProofHeight:      seqRes.ProofHeight,
-		NextSequenceRecv: packet.Seq(),
-		Signer:           acc,
-	}
-
-	return NewCosmosMessage(msg), nil
-}
-
-func (cc *CosmosProvider) unorderedChannelTimeoutMsg(
-	ctx context.Context,
-	dst provider.ChainProvider,
-	dsth int64,
-	packet provider.RelayPacket,
-	acc, dstChanId, dstPortId, srcChanId, srcPortId string,
-) (provider.RelayerMessage, error) {
-	recvRes, err := dst.QueryPacketReceipt(ctx, dsth, dstChanId, dstPortId, packet.Seq())
-	if err != nil {
-		return nil, err
-	}
-
-	if recvRes == nil {
-		return nil, fmt.Errorf("timeout packet [%s]seq{%d} has no associated proofs", cc.PCfg.ChainID, packet.Seq())
-	}
-
-	if recvRes.Proof == nil {
-		return nil, fmt.Errorf("timeout packet receipt proof seq(%d) is nil", packet.Seq())
-	}
-
-	msg := &chantypes.MsgTimeout{
-		Packet: chantypes.Packet{
-			Sequence:           packet.Seq(),
-			SourcePort:         srcPortId,
-			SourceChannel:      srcChanId,
-			DestinationPort:    dstPortId,
-			DestinationChannel: dstChanId,
-			Data:               packet.Data(),
-			TimeoutHeight:      packet.Timeout(),
-			TimeoutTimestamp:   packet.TimeoutStamp(),
-		},
-		ProofUnreceived:  recvRes.Proof,
-		ProofHeight:      recvRes.ProofHeight,
-		NextSequenceRecv: packet.Seq(),
-		Signer:           acc,
-	}
-	return NewCosmosMessage(msg), nil
-}
-
-// MsgRelayRecvPacket constructs the MsgRecvPacket which is to be sent to the receiving chain.
-// The counterparty represents the sending chain where the packet commitment would be stored.
-func (cc *CosmosProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
-	var (
-		acc string
-		err error
-	)
-	if acc, err = cc.Address(); err != nil {
-		return nil, err
-	}
-
-	comRes, err := dst.QueryPacketCommitment(ctx, dsth, dstChanId, dstPortId, packet.Seq())
-	switch {
-	case err != nil:
-		return nil, err
-	case comRes.Proof == nil || comRes.Commitment == nil:
-		return nil, fmt.Errorf("recv packet commitment query seq(%d) is nil", packet.Seq())
-	case comRes == nil:
-		return nil, fmt.Errorf("receive packet [%s]seq{%d} has no associated proofs", cc.PCfg.ChainID, packet.Seq())
-	default:
-		msg := &chantypes.MsgRecvPacket{
-			Packet: chantypes.Packet{
-				Sequence:           packet.Seq(),
-				SourcePort:         dstPortId,
-				SourceChannel:      dstChanId,
-				DestinationPort:    srcPortId,
-				DestinationChannel: srcChanId,
-				Data:               packet.Data(),
-				TimeoutHeight:      packet.Timeout(),
-				TimeoutTimestamp:   packet.TimeoutStamp(),
-			},
-			ProofCommitment: comRes.Proof,
-			ProofHeight:     comRes.ProofHeight,
-			Signer:          acc,
-		}
-
-		return NewCosmosMessage(msg), nil
-	}
 }
 
 // MsgTransfer creates a new transfer message
@@ -1066,323 +857,90 @@ func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
 // RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
 func (cc *CosmosProvider) RelayPacketFromSequence(
 	ctx context.Context,
-	src, dst provider.ChainProvider,
+	src provider.ChainProvider,
 	srch, dsth, seq uint64,
-	dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string,
+	srcChanID, srcPortID string,
 	order chantypes.Order,
 ) (provider.RelayerMessage, provider.RelayerMessage, error) {
-	txs, err := cc.QueryTxs(ctx, 1, 1000, rcvPacketQuery(srcChanId, int(seq)))
-	switch {
-	case err != nil:
+	msgTransfer, err := src.QuerySendPacket(ctx, srcChanID, srcPortID, seq)
+	if err != nil {
 		return nil, nil, err
-	case len(txs) == 0:
-		return nil, nil, fmt.Errorf("no transactions returned with query")
-	case len(txs) > 1:
-		return nil, nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	rcvPackets, timeoutPackets, err := cc.relayPacketsFromResultTx(ctx, src, dst, int64(dsth), txs[0], dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId)
-	switch {
-	case err != nil:
+	dstTime, err := cc.BlockTime(ctx, int64(dsth))
+	if err != nil {
 		return nil, nil, err
-	case len(rcvPackets) == 0 && len(timeoutPackets) == 0:
-		return nil, nil, fmt.Errorf("no relay msgs created from query response")
-	case len(rcvPackets)+len(timeoutPackets) > 1:
-		return nil, nil, fmt.Errorf("more than one relay msg found in tx query")
 	}
 
-	if len(rcvPackets) == 1 {
-		pkt := rcvPackets[0]
-		if seq != pkt.Seq() {
-			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
-		}
-
-		packet, err := dst.MsgRelayRecvPacket(ctx, src, int64(srch), pkt, srcChanId, srcPortId, dstChanId, dstPortId)
-		if err != nil {
+	if err := cc.ValidatePacket(msgTransfer, provider.LatestBlock{
+		Height: dsth,
+		Time:   dstTime,
+	}); err != nil {
+		switch err.(type) {
+		case *provider.TimeoutHeightError, *provider.TimeoutTimestampError, *provider.TimeoutOnCloseError:
+			var pp provider.PacketProof
+			switch order {
+			case chantypes.UNORDERED:
+				pp, err = cc.PacketReceipt(ctx, msgTransfer, dsth)
+				if err != nil {
+					return nil, nil, err
+				}
+			case chantypes.ORDERED:
+				pp, err = cc.NextSeqRecv(ctx, msgTransfer, dsth)
+				if err != nil {
+					return nil, nil, err
+				}
+			}
+			if _, ok := err.(*provider.TimeoutOnCloseError); ok {
+				timeout, err := src.MsgTimeoutOnClose(msgTransfer, pp)
+				if err != nil {
+					return nil, nil, err
+				}
+				return nil, timeout, nil
+			} else {
+				timeout, err := src.MsgTimeout(msgTransfer, pp)
+				if err != nil {
+					return nil, nil, err
+				}
+				return nil, timeout, nil
+			}
+		default:
 			return nil, nil, err
 		}
-
-		return packet, nil, nil
 	}
 
-	if len(timeoutPackets) == 1 {
-		pkt := timeoutPackets[0]
-		if seq != pkt.Seq() {
-			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
-		}
-
-		timeout, err := src.MsgRelayTimeout(ctx, dst, int64(dsth), pkt, dstChanId, dstPortId, srcChanId, srcPortId, order)
-		if err != nil {
-			return nil, nil, err
-		}
-		return nil, timeout, nil
+	pp, err := src.PacketCommitment(ctx, msgTransfer, srch)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return nil, nil, fmt.Errorf("should have errored before here")
+	packet, err := cc.MsgRecvPacket(msgTransfer, pp)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return packet, nil, nil
 }
 
 // AcknowledgementFromSequence relays an acknowledgement with a given seq on src, source is the sending chain, destination is the receiving chain
 func (cc *CosmosProvider) AcknowledgementFromSequence(ctx context.Context, dst provider.ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
-	txs, err := dst.QueryTxs(ctx, 1, 1000, ackPacketQuery(dstChanId, int(seq)))
-	switch {
-	case err != nil:
-		return nil, err
-	case len(txs) == 0:
-		return nil, fmt.Errorf("no transactions returned with query")
-	case len(txs) > 1:
-		return nil, fmt.Errorf("more than one transaction returned with query")
-	}
-
-	acks, err := cc.acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId, txs[0])
-	switch {
-	case err != nil:
-		return nil, err
-	case len(acks) == 0:
-		return nil, fmt.Errorf("no ack msgs created from query response")
-	}
-
-	var out provider.RelayerMessage
-	for _, ack := range acks {
-		if seq != ack.Seq() {
-			continue
-		}
-		msg, err := cc.MsgRelayAcknowledgement(ctx, dst, dstChanId, dstPortId, srcChanId, srcPortId, int64(dsth), ack)
-		if err != nil {
-			return nil, err
-		}
-		out = msg
-	}
-	return out, nil
-}
-
-func rcvPacketQuery(channelID string, seq int) []string {
-	return []string{fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
-		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq)}
-}
-
-func ackPacketQuery(channelID string, seq int) []string {
-	return []string{fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
-		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq)}
-}
-
-// relayPacketsFromResultTx looks through the events in a *ctypes.ResultTx
-// and returns relayPackets with the appropriate data
-func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst provider.ChainProvider, dsth int64, resp *provider.RelayerTxResponse, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
-	var (
-		rcvPackets     []provider.RelayPacket
-		timeoutPackets []provider.RelayPacket
-	)
-
-EventLoop:
-	for _, event := range resp.Events {
-		rp := &relayMsgRecvPacket{}
-
-		if event.EventType != spTag {
-			continue
-		}
-
-		for attributeKey, attributeValue := range event.Attributes {
-			switch attributeKey {
-			case srcChanTag:
-				if attributeValue != srcChanId {
-					continue EventLoop
-				}
-			case dstChanTag:
-				if attributeValue != dstChanId {
-					continue EventLoop
-				}
-			case srcPortTag:
-				if attributeValue != srcPortId {
-					continue EventLoop
-				}
-			case dstPortTag:
-				if attributeValue != dstPortId {
-					continue EventLoop
-				}
-			case dataTag:
-				rp.packetData = []byte(attributeValue)
-			case toHeightTag:
-				timeout, err := clienttypes.ParseHeight(attributeValue)
-				if err != nil {
-					cc.log.Warn("error parsing height timeout",
-						zap.String("chain_id", cc.ChainId()),
-						zap.Uint64("sequence", rp.seq),
-						zap.Error(err),
-					)
-					continue EventLoop
-				}
-				rp.timeout = timeout
-			case toTSTag:
-				timeout, err := strconv.ParseUint(attributeValue, 10, 64)
-				if err != nil {
-					cc.log.Warn("error parsing timestamp timeout",
-						zap.String("chain_id", cc.ChainId()),
-						zap.Uint64("sequence", rp.seq),
-						zap.Error(err),
-					)
-					continue EventLoop
-				}
-				rp.timeoutStamp = timeout
-			case seqTag:
-				seq, err := strconv.ParseUint(attributeValue, 10, 64)
-				if err != nil {
-					cc.log.Warn("error parsing packet sequence",
-						zap.String("chain_id", cc.ChainId()),
-						zap.Error(err),
-					)
-					continue EventLoop
-				}
-				rp.seq = seq
-			}
-		}
-
-		// If packet data is nil or sequence number is 0 keep parsing events,
-		// also check that at least the block height or timestamp is set.
-		if rp.packetData == nil || rp.seq == 0 || (rp.timeout.IsZero() && rp.timeoutStamp == 0) {
-			continue
-		}
-
-		// fetch the header which represents a block produced on destination
-		block, err := dst.GetIBCUpdateHeader(ctx, dsth, src, srcClientId)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		// if the timestamp is set on the packet, we need to retrieve the current block time from dst
-		var dstBlockTime int64
-		if rp.timeoutStamp > 0 {
-			dstBlockTime, err = dst.BlockTime(ctx, dsth)
-			if err != nil {
-				return nil, nil, err
-			}
-		}
-
-		switch {
-		// If the packet has a timeout time, and it has been reached, return a timeout packet
-		case rp.timeoutStamp > 0 && uint64(dstBlockTime) > rp.timeoutStamp:
-			timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
-		// If the packet has a timeout height, and it has been reached, return a timeout packet
-		case !rp.timeout.IsZero() && block.GetHeight().GTE(rp.timeout):
-			timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
-		// If the packet matches the relay constraints relay it as a MsgReceivePacket
-		default:
-			rcvPackets = append(rcvPackets, rp)
-		}
-	}
-
-	// If there is a relayPacket, return it
-	if len(rcvPackets) > 0 || len(timeoutPackets) > 0 {
-		return rcvPackets, timeoutPackets, nil
-	}
-
-	return nil, nil, fmt.Errorf("no packet data found")
-}
-
-// acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
-// relayPackets with the appropriate data
-func (cc *CosmosProvider) acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId string, resp *provider.RelayerTxResponse) ([]provider.RelayPacket, error) {
-	var ackPackets []provider.RelayPacket
-
-EventLoop:
-	for _, event := range resp.Events {
-		rp := &relayMsgPacketAck{}
-
-		if event.EventType != waTag {
-			continue
-		}
-
-		for attributeKey, attributeValue := range event.Attributes {
-
-			switch attributeKey {
-			case srcChanTag:
-				if attributeValue != srcChanId {
-					continue EventLoop
-				}
-			case dstChanTag:
-				if attributeValue != dstChanId {
-					continue EventLoop
-				}
-			case srcPortTag:
-				if attributeValue != srcPortId {
-					continue EventLoop
-				}
-			case dstPortTag:
-				if attributeValue != dstPortId {
-					continue EventLoop
-				}
-			case ackTag:
-				rp.ack = []byte(attributeValue)
-			case dataTag:
-				rp.packetData = []byte(attributeValue)
-			case toHeightTag:
-				timeout, err := clienttypes.ParseHeight(attributeValue)
-				if err != nil {
-					cc.log.Warn("error parsing height timeout",
-						zap.String("chain_id", cc.ChainId()),
-						zap.Uint64("sequence", rp.seq),
-						zap.Error(err),
-					)
-					continue EventLoop
-				}
-				rp.timeout = timeout
-			case toTSTag:
-				timeout, err := strconv.ParseUint(attributeValue, 10, 64)
-				if err != nil {
-					cc.log.Warn("error parsing timestamp timeout",
-						zap.String("chain_id", cc.ChainId()),
-						zap.Uint64("sequence", rp.seq),
-						zap.Error(err),
-					)
-					continue EventLoop
-				}
-				rp.timeoutStamp = timeout
-			case seqTag:
-				seq, err := strconv.ParseUint(attributeValue, 10, 64)
-				if err != nil {
-					cc.log.Warn("error parsing packet sequence",
-						zap.String("chain_id", cc.ChainId()),
-						zap.Error(err),
-					)
-					continue EventLoop
-				}
-				rp.seq = seq
-			}
-		}
-
-		// If packet data is nil or sequence number is 0 keep parsing events,
-		// also check that at least the block height or timestamp is set.
-		if rp.ack == nil || rp.packetData == nil || rp.seq == 0 || (rp.timeout.IsZero() && rp.timeoutStamp == 0) {
-			continue
-		}
-
-		ackPackets = append(ackPackets, rp)
-
-	}
-
-	// If there is a relayPacket, return it
-	if len(ackPackets) > 0 {
-		return ackPackets, nil
-	}
-
-	return nil, fmt.Errorf("no packet data found")
-}
-
-// GetIBCUpdateHeader updates the off chain tendermint light client and
-// returns an IBC Update Header which can be used to update an on chain
-// light client on the destination chain. The source is used to construct
-// the header data.
-func (cc *CosmosProvider) GetIBCUpdateHeader(ctx context.Context, srch int64, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
-	// Construct header data from light client representing source.
-	h, err := cc.GetLightSignedHeaderAtHeight(ctx, srch)
+	msgRecvPacket, err := dst.QueryRecvPacket(ctx, dstChanId, dstPortId, seq)
 	if err != nil {
 		return nil, err
 	}
 
-	// Inject trusted fields based on previous header data from source
-	return cc.InjectTrustedFields(ctx, h, dst, dstClientId)
+	pp, err := dst.PacketAcknowledgement(ctx, msgRecvPacket, dsth)
+	if err != nil {
+		return nil, err
+	}
+	msg, err := cc.MsgAcknowledgement(msgRecvPacket, pp)
+	if err != nil {
+		return nil, err
+	}
+	return msg, nil
 }
 
-func (cc *CosmosProvider) IBCHeaderAtHeight(ctx context.Context, h int64) (provider.IBCHeader, error) {
+func (cc *CosmosProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
 	if h == 0 {
 		return nil, fmt.Errorf("height cannot be 0")
 	}
@@ -1395,27 +953,6 @@ func (cc *CosmosProvider) IBCHeaderAtHeight(ctx context.Context, h int64) (provi
 	return CosmosIBCHeader{
 		SignedHeader: lightBlock.SignedHeader,
 		ValidatorSet: lightBlock.ValidatorSet,
-	}, nil
-}
-
-func (cc *CosmosProvider) GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error) {
-	if h == 0 {
-		return nil, fmt.Errorf("height cannot be 0")
-	}
-
-	lightBlock, err := cc.LightProvider.LightBlock(ctx, h)
-	if err != nil {
-		return nil, err
-	}
-
-	protoVal, err := tmtypes.NewValidatorSet(lightBlock.ValidatorSet.Validators).ToProto()
-	if err != nil {
-		return nil, err
-	}
-
-	return &tmclient.Header{
-		SignedHeader: lightBlock.SignedHeader.ToProto(),
-		ValidatorSet: protoVal,
 	}, nil
 }
 
@@ -1448,19 +985,14 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 
 	// TODO: this is likely a source of off by 1 errors but may be impossible to change? Maybe this is the
 	// place where we need to fix the upstream query proof issue?
-	var trustedHeader *tmclient.Header
+	var trustedValidators *tmtypes.ValidatorSet
 	if err := retry.Do(func() error {
-		tmpHeader, err := cc.GetLightSignedHeaderAtHeight(ctx, int64(h.TrustedHeight.RevisionHeight+1))
+		ibcHeader, err := cc.QueryIBCHeader(ctx, int64(h.TrustedHeight.RevisionHeight+1))
 		if err != nil {
 			return err
 		}
 
-		th, ok := tmpHeader.(*tmclient.Header)
-		if !ok {
-			err = fmt.Errorf("non-tm client header")
-		}
-
-		trustedHeader = th
+		trustedValidators = ibcHeader.(CosmosIBCHeader).ValidatorSet
 		return err
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
 		return nil, fmt.Errorf(
@@ -1469,8 +1001,13 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 		)
 	}
 
+	tvProto, err := trustedValidators.ToProto()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert trusted validators to proto: %w", err)
+	}
+
 	// inject TrustedValidators into header
-	h.TrustedValidators = trustedHeader.ValidatorSet
+	h.TrustedValidators = tvProto
 	return h, nil
 }
 
@@ -1505,21 +1042,21 @@ func castClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) 
 //DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
 var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 
-func (cc *CosmosProvider) NewClientState(dstUpdateHeader ibcexported.Header, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
-	dstTmHeader, ok := dstUpdateHeader.(*tmclient.Header)
-	if !ok {
-		return nil, fmt.Errorf("got data of type %T but wanted tmclient.Header", dstUpdateHeader)
-	}
+func (cc *CosmosProvider) NewClientState(dstChainID string, dstUpdateHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
+	revisionNumber := clienttypes.ParseChainID(dstChainID)
 
 	// Create the ClientState we want on 'c' tracking 'dst'
 	return &tmclient.ClientState{
-		ChainId:                      dstTmHeader.GetHeader().GetChainID(),
-		TrustLevel:                   tmclient.NewFractionFromTm(light.DefaultTrustLevel),
-		TrustingPeriod:               dstTrustingPeriod,
-		UnbondingPeriod:              dstUbdPeriod,
-		MaxClockDrift:                time.Minute * 10,
-		FrozenHeight:                 clienttypes.ZeroHeight(),
-		LatestHeight:                 dstUpdateHeader.GetHeight().(clienttypes.Height),
+		ChainId:         dstChainID,
+		TrustLevel:      tmclient.NewFractionFromTm(light.DefaultTrustLevel),
+		TrustingPeriod:  dstTrustingPeriod,
+		UnbondingPeriod: dstUbdPeriod,
+		MaxClockDrift:   time.Minute * 10,
+		FrozenHeight:    clienttypes.ZeroHeight(),
+		LatestHeight: clienttypes.Height{
+			RevisionNumber: revisionNumber,
+			RevisionHeight: dstUpdateHeader.Height(),
+		},
 		ProofSpecs:                   commitmenttypes.GetSDKSpecs(),
 		UpgradePath:                  defaultUpgradePath,
 		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,

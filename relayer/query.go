@@ -3,13 +3,13 @@ package relayer
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/avast/retry-go/v4"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v4/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v4/modules/light-clients/07-tendermint/types"
@@ -18,7 +18,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// QueryLatestHeights returns the heights of multiple chains at once
+// QueryLatestHeights queries the heights of multiple chains at once
 func QueryLatestHeights(ctx context.Context, src, dst *Chain) (srch, dsth int64, err error) {
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
@@ -32,6 +32,87 @@ func QueryLatestHeights(ctx context.Context, src, dst *Chain) (srch, dsth int64,
 		return err
 	})
 	err = eg.Wait()
+	return
+}
+
+// QueryClientStates queries the client state of multiple chains at once
+func QueryClientStates(ctx context.Context,
+	srch, dsth int64,
+	src, dst *Chain,
+) (srcClientState ibcexported.ClientState, dstClientState ibcexported.ClientState, err error) {
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		return retry.Do(func() error {
+			srcClientState, err = src.ChainProvider.QueryClientState(egCtx, srch, src.ClientID())
+			if err != nil {
+				return err
+			}
+			return nil
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			src.log.Info(
+				"Failed to query client state when updating clients",
+				zap.String("client_id", src.ClientID()),
+				zap.Uint("attempt", n+1),
+				zap.Uint("max_attempts", RtyAttNum),
+				zap.Error(err),
+			)
+		}))
+	})
+
+	eg.Go(func() error {
+		return retry.Do(func() error {
+			dstClientState, err = dst.ChainProvider.QueryClientState(egCtx, dsth, dst.ClientID())
+			if err != nil {
+				return err
+			}
+			return nil
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+			dst.log.Info(
+				"Failed to query client state when updating clients",
+				zap.String("client_id", dst.ClientID()),
+				zap.Uint("attempt", n+1),
+				zap.Uint("max_attempts", RtyAttNum),
+				zap.Error(err),
+			)
+		}))
+	})
+	err = eg.Wait()
+	return
+}
+
+// QueryConnectionPair returns a pair of connection responses
+func QueryConnectionPair(ctx context.Context, src, dst *Chain, srcH, dstH int64) (srcConn, dstConn *conntypes.QueryConnectionResponse, err error) {
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		var err error
+		srcConn, err = src.ChainProvider.QueryConnection(egCtx, srcH, src.ConnectionID())
+		return err
+	})
+	eg.Go(func() error {
+		var err error
+		dstConn, err = dst.ChainProvider.QueryConnection(egCtx, dstH, dst.ConnectionID())
+		return err
+	})
+	err = eg.Wait()
+	return
+}
+
+// QueryChannelPair returns a pair of channel responses
+func QueryChannelPair(ctx context.Context, src, dst *Chain, srcH, dstH int64, srcChanID, dstChanID, srcPortID, dstPortID string) (srcChan, dstChan *chantypes.QueryChannelResponse, err error) {
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		var err error
+		srcChan, err = src.ChainProvider.QueryChannel(egCtx, srcH, srcChanID, srcPortID)
+		return err
+	})
+	eg.Go(func() error {
+		var err error
+		dstChan, err = dst.ChainProvider.QueryChannel(egCtx, dstH, dstChanID, dstPortID)
+		return err
+	})
+	if err = eg.Wait(); err != nil {
+		return nil, nil, err
+	}
 	return
 }
 
@@ -128,40 +209,52 @@ func QueryPortChannel(ctx context.Context, src *Chain, portID string) (*chantype
 		portID, src.ChainID(), src.ClientID(), src.ConnectionID(), sb.String())
 }
 
-// GetIBCUpdateHeaders returns a pair of IBC update headers which can be used to update an on chain light client
-func GetIBCUpdateHeaders(ctx context.Context, srch, dsth int64, src, dst provider.ChainProvider, srcClientID, dstClientID string) (srcHeader, dstHeader ibcexported.Header, err error) {
+// QueryIBCUpdateHeaders returns a pair of IBC update headers which can be used to update an on chain light client
+func QueryIBCUpdateHeaders(
+	ctx context.Context,
+	srcClientID, dstClientID string,
+	src, dst provider.ChainProvider,
+	srch, dsth int64,
+	srcTrustedH, dstTrustedH int64,
+) (srcHeader, dstHeader, srcTrustedHeader, dstTrustedHeader provider.IBCHeader, err error) {
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		var err error
-		srcHeader, err = src.GetIBCUpdateHeader(egCtx, srch, dst, dstClientID)
+		srcHeader, err = src.QueryIBCHeader(egCtx, srch)
 		return err
 	})
 	eg.Go(func() error {
 		var err error
-		dstHeader, err = dst.GetIBCUpdateHeader(egCtx, dsth, src, srcClientID)
+		dstHeader, err = dst.QueryIBCHeader(egCtx, dsth)
 		return err
 	})
-	if err = eg.Wait(); err != nil {
-		return nil, nil, err
-	}
+	eg.Go(func() error {
+		var err error
+		srcTrustedHeader, err = src.QueryIBCHeader(egCtx, srcTrustedH+1)
+		return err
+	})
+	eg.Go(func() error {
+		var err error
+		dstTrustedHeader, err = dst.QueryIBCHeader(egCtx, dstTrustedH+1)
+		return err
+	})
+	err = eg.Wait()
 	return
 }
 
-func GetLightSignedHeadersAtHeights(ctx context.Context, src, dst *Chain, srch, dsth int64) (srcUpdateHeader, dstUpdateHeader ibcexported.Header, err error) {
+func QueryIBCHeaders(ctx context.Context, src, dst *Chain, srch, dsth int64) (srcUpdateHeader, dstUpdateHeader provider.IBCHeader, err error) {
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		var err error
-		srcUpdateHeader, err = src.ChainProvider.GetLightSignedHeaderAtHeight(egCtx, srch)
+		srcUpdateHeader, err = src.ChainProvider.QueryIBCHeader(egCtx, srch)
 		return err
 	})
 	eg.Go(func() error {
 		var err error
-		dstUpdateHeader, err = dst.ChainProvider.GetLightSignedHeaderAtHeight(egCtx, dsth)
+		dstUpdateHeader, err = dst.ChainProvider.QueryIBCHeader(egCtx, dsth)
 		return err
 	})
-	if err := eg.Wait(); err != nil {
-		return nil, nil, err
-	}
+	err = eg.Wait()
 	return
 }
 
@@ -236,18 +329,4 @@ func QueryBalance(ctx context.Context, chain *Chain, address string, showDenoms 
 		}
 	}
 	return out, nil
-}
-
-// QueryHeader is a helper function for query header
-func QueryHeader(ctx context.Context, chain *Chain, opts ...string) (ibcexported.Header, error) {
-	if len(opts) > 0 {
-		height, err := strconv.ParseInt(opts[0], 10, 64) //convert to int64
-		if err != nil {
-			return nil, err
-		}
-
-		return chain.ChainProvider.QueryHeaderAtHeight(ctx, height)
-	}
-
-	return chain.ChainProvider.GetLightSignedHeaderAtHeight(ctx, 0)
 }

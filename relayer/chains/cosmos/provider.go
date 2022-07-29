@@ -8,6 +8,9 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/types/module"
+	commitmenttypes "github.com/cosmos/ibc-go/v4/modules/core/23-commitment/types"
+	ibcexported "github.com/cosmos/ibc-go/v4/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v4/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	lens "github.com/strangelove-ventures/lens/client"
@@ -98,11 +101,20 @@ type CosmosIBCHeader struct {
 	ValidatorSet *tmtypes.ValidatorSet
 }
 
-// noop to implement processor.IBCHeader
-func (h CosmosIBCHeader) IBCHeaderIndicator() {}
-
 func (h CosmosIBCHeader) Height() uint64 {
 	return uint64(h.SignedHeader.Height)
+}
+
+func (h CosmosIBCHeader) ConsensusState() ibcexported.ConsensusState {
+	return &tmclient.ConsensusState{
+		Timestamp:          h.SignedHeader.Time,
+		Root:               commitmenttypes.NewMerkleRoot(h.SignedHeader.AppHash),
+		NextValidatorsHash: h.ValidatorSet.Hash(),
+	}
+}
+
+func (h CosmosIBCHeader) ToCosmosValidatorSet() (*tmtypes.ValidatorSet, error) {
+	return h.ValidatorSet, nil
 }
 
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {
@@ -219,10 +231,10 @@ func (cc *CosmosProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	}
 }
 
-func (cc *CosmosProvider) BlockTime(ctx context.Context, height int64) (int64, error) {
+func (cc *CosmosProvider) BlockTime(ctx context.Context, height int64) (time.Time, error) {
 	resultBlock, err := cc.RPCClient.Block(ctx, &height)
 	if err != nil {
-		return 0, err
+		return time.Time{}, err
 	}
-	return resultBlock.Block.Time.UnixNano(), nil
+	return resultBlock.Block.Time, nil
 }
