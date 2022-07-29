@@ -12,7 +12,6 @@ import (
 // This allows us to avoid directly depending on the `sdk/client/flags` package inside of our cmd package.
 func TestFlagEqualityAgainstSDK(t *testing.T) {
 	require.Equal(t, flagHome, flags.FlagHome)
-	require.Equal(t, flagOffset, flags.FlagOffset)
 	require.Equal(t, flagLimit, flags.FlagLimit)
 	require.Equal(t, flagHeight, flags.FlagHeight)
 	require.Equal(t, flagPage, flags.FlagPage)

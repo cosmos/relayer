@@ -171,7 +171,7 @@ $ %s q txs ibc-0 "message.action=transfer"`,
 				return errChainNotFound(args[0])
 			}
 
-			offset, err := cmd.Flags().GetUint64(flagOffset)
+			page, err := cmd.Flags().GetUint64(flagPage)
 			if err != nil {
 				return err
 			}
@@ -181,7 +181,7 @@ $ %s q txs ibc-0 "message.action=transfer"`,
 				return err
 			}
 
-			txs, err := chain.ChainProvider.QueryTxs(cmd.Context(), int(offset), int(limit), []string{args[1]})
+			txs, err := chain.ChainProvider.QueryTxs(cmd.Context(), int(page), int(limit), []string{args[1]})
 			if err != nil {
 				return err
 			}
