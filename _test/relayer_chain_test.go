@@ -14,6 +14,7 @@ import (
 	ibctestingmock "github.com/cosmos/ibc-go/v4/testing/mock"
 	"github.com/cosmos/relayer/v2/cmd"
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
@@ -278,7 +279,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	latestHeight, err := dst.ChainProvider.QueryLatestHeight(ctx)
 	require.NoError(t, err)
 
-	header, err := dst.ChainProvider.QueryHeaderAtHeight(ctx, latestHeight)
+	header, err := dst.ChainProvider.QueryIBCHeader(ctx, latestHeight)
 	require.NoError(t, err)
 
 	clientState, err := src.QueryTMClientState(ctx, latestHeight)
@@ -296,9 +297,9 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	pubKey, err := privVal.GetPubKey()
 	require.NoError(t, err)
 
-	tmHeader, ok := header.(*tmclient.Header)
+	tmHeader, ok := header.(cosmos.CosmosIBCHeader)
 	if !ok {
-		t.Fatalf("got data of type %T but wanted tmclient.Header \n", header)
+		t.Fatalf("got data of type %T but wanted cosmos.CosmosIBCHeader \n", header)
 	}
 	validator := tmtypes.NewValidator(pubKey, tmHeader.ValidatorSet.Proposer.VotingPower)
 	valSet := tmtypes.NewValidatorSet([]*tmtypes.Validator{validator})
@@ -306,7 +307,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 
 	// creating duplicate header
 	newHeader := createTMClientHeader(t, dst.ChainID(), int64(heightPlus1.RevisionHeight), height,
-		tmHeader.GetTime().Add(time.Minute), valSet, valSet, signers, tmHeader)
+		tmHeader.SignedHeader.Time.Add(time.Minute), valSet, valSet, signers, nil)
 
 	// update client with duplicate header
 	updateMsg, err := src.ChainProvider.MsgUpdateClient(src.PathEnd.ClientID, newHeader)
