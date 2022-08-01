@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
 )
 
@@ -17,7 +19,7 @@ const (
 	// Amount of time to wait when sending transactions before giving up
 	// and continuing on. Messages will be retried later if they are still
 	// relevant.
-	messageSendTimeout = 10 * time.Second
+	messageSendTimeout = 60 * time.Second
 
 	// Amount of time to wait for a proof to be queried before giving up.
 	// The proof query will be retried later if the message still needs
@@ -45,6 +47,10 @@ const (
 	clientConsensusHeightUpdateThresholdBlocks = 2
 )
 
+var (
+	prometheusCounter = []string{"path", "chain", "channel", "port", "type"}
+)
+
 // PathProcessor is a process that handles incoming IBC messages from a pair of chains.
 // It determines what messages need to be relayed, and sends them.
 type PathProcessor struct {
@@ -59,6 +65,8 @@ type PathProcessor struct {
 	retryProcess chan struct{}
 
 	sentInitialMsg bool
+
+	packetRelayedCounter *prometheus.CounterVec
 }
 
 // PathProcessors is a slice of PathProcessor instances
@@ -74,12 +82,22 @@ func (p PathProcessors) IsRelayedChannel(k ChannelKey, chainID string) bool {
 }
 
 func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd, memo string) *PathProcessor {
+	packetObservedCounter := promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "observed_packets",
+		Help: "The total number of observed packets",
+	}, prometheusCounter)
+	packetRelayedCounter := promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "relayed_packets",
+		Help: "The total number of relayed packets",
+	}, prometheusCounter)
+
 	return &PathProcessor{
-		log:          log,
-		pathEnd1:     newPathEndRuntime(log, pathEnd1),
-		pathEnd2:     newPathEndRuntime(log, pathEnd2),
-		retryProcess: make(chan struct{}, 2),
-		memo:         memo,
+		log:                  log,
+		pathEnd1:             newPathEndRuntime(log, pathEnd1, packetObservedCounter),
+		pathEnd2:             newPathEndRuntime(log, pathEnd2, packetObservedCounter),
+		retryProcess:         make(chan struct{}, 2),
+		memo:                 memo,
+		packetRelayedCounter: packetRelayedCounter,
 	}
 }
 

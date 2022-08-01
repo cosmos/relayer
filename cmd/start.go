@@ -47,7 +47,8 @@ $ %s start demo-path -p events # to use event processor
 $ %s start demo-path --max-msgs 3
 $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			pathName := args[0]
+			c, src, dst, err := a.Config.ChainsFromPath(pathName)
 			if err != nil {
 				return err
 			}
@@ -56,7 +57,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 				return err
 			}
 
-			path := a.Config.Paths.MustGet(args[0])
+			path := a.Config.Paths.MustGet(pathName)
 
 			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
 			if err != nil {
@@ -110,6 +111,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 				maxTxSize, maxMsgLength,
 				a.Config.memo(cmd),
 				processorType, initialBlockHistory,
+				pathName,
 				prometheusListen)
 
 			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire

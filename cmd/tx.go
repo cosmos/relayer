@@ -376,7 +376,9 @@ $ %s tx conn demo-path --timeout 5s`,
 				return err
 			}
 
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			pathName := args[0]
+
+			c, src, dst, err := a.Config.ChainsFromPath(pathName)
 			if err != nil {
 				return err
 			}
@@ -422,7 +424,7 @@ $ %s tx conn demo-path --timeout 5s`,
 				}
 			}
 
-			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory)
+			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory, pathName)
 			if err != nil {
 				return err
 			}
@@ -460,7 +462,10 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+
+			pathName := args[0]
+
+			c, src, dst, err := a.Config.ChainsFromPath(pathName)
 			if err != nil {
 				return err
 			}
@@ -509,7 +514,7 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			}
 
 			// create channel if it isn't already created
-			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, a.Config.memo(cmd))
+			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, a.Config.memo(cmd), pathName)
 		},
 	}
 
@@ -534,7 +539,9 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 			appName, appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			pathName := args[0]
+
+			c, src, dst, err := a.Config.ChainsFromPath(pathName)
 			if err != nil {
 				return err
 			}
@@ -570,7 +577,7 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 				return err
 			}
 
-			return c[src].CloseChannel(cmd.Context(), c[dst], retries, to, channelID, portID, a.Config.memo(cmd))
+			return c[src].CloseChannel(cmd.Context(), c[dst], retries, to, channelID, portID, a.Config.memo(cmd), pathName)
 		},
 	}
 
@@ -611,7 +618,9 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				return err
 			}
 
-			pth, err := a.Config.Paths.Get(args[0])
+			pathName := args[0]
+
+			pth, err := a.Config.Paths.Get(pathName)
 			if err != nil {
 				return err
 			}
@@ -687,7 +696,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			// create connection if it isn't already created
-			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory)
+			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory, pathName)
 			if err != nil {
 				return fmt.Errorf("error creating connections: %w", err)
 			}
@@ -698,7 +707,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			// create channel if it isn't already created
-			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, memo)
+			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, memo, pathName)
 		},
 	}
 	cmd = timeoutFlag(a.Viper, cmd)

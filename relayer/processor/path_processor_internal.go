@@ -758,6 +758,15 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		return errors.New("error sending messages, transeventType was not successful")
 	}
 
+	for _, m := range om.pktMsgs {
+		switch m.msg.eventType {
+		case chantypes.EventTypeRecvPacket:
+			pp.packetRelayedCounter.WithLabelValues(dst.info.Path, dst.info.ChainID, m.msg.info.DestChannel, m.msg.info.DestPort, m.msg.eventType).Inc()
+		default:
+			pp.packetRelayedCounter.WithLabelValues(dst.info.Path, dst.info.ChainID, m.msg.info.SourceChannel, m.msg.info.SourcePort, m.msg.eventType).Inc()
+		}
+	}
+
 	return nil
 }
 

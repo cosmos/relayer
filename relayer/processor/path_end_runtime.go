@@ -6,6 +6,7 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
@@ -43,11 +44,14 @@ type pathEndRuntime struct {
 
 	// inSync indicates whether queries are in sync with latest height of the chain.
 	inSync bool
+
+	packetCounter *prometheus.CounterVec
 }
 
-func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd) *pathEndRuntime {
+func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, packetCounter *prometheus.CounterVec) *pathEndRuntime {
 	return &pathEndRuntime{
 		log: log.With(
+			zap.String("path", pathEnd.Path),
 			zap.String("chain_id", pathEnd.ChainID),
 			zap.String("client_id", pathEnd.ClientID),
 		),
@@ -61,6 +65,7 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd) *pathEndRuntime {
 		connProcessing:       make(connectionProcessingCache),
 		channelProcessing:    make(channelProcessingCache),
 		connSubscribers:      make(map[string][]func(provider.ConnectionInfo)),
+		packetCounter:        packetCounter,
 	}
 }
 
@@ -90,6 +95,16 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache) 
 
 	for ch, pmc := range messageCache.PacketFlow {
 		if pathEnd.info.ShouldRelayChannel(ch) {
+			for msgType, pCache := range pmc {
+				msgCount := len(pCache)
+				pathEnd.packetCounter.WithLabelValues(
+					pathEnd.info.Path,
+					pathEnd.info.ChainID,
+					ch.ChannelID,
+					ch.PortID,
+					msgType,
+				).Add(float64(msgCount))
+			}
 			packetMessages[ch] = pmc
 		}
 	}
