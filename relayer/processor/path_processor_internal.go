@@ -754,6 +754,9 @@ func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRunt
 		return
 	}
 
+	if pp.packetRelayedCounter == nil {
+		return
+	}
 	for _, m := range om.pktMsgs {
 		switch m.msg.eventType {
 		case chantypes.EventTypeRecvPacket:

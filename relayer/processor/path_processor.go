@@ -7,7 +7,6 @@ import (
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
 )
 
@@ -47,10 +46,6 @@ const (
 	clientConsensusHeightUpdateThresholdBlocks = 2
 )
 
-var (
-	prometheusCounter = []string{"path", "chain", "channel", "port", "type"}
-)
-
 // PathProcessor is a process that handles incoming IBC messages from a pair of chains.
 // It determines what messages need to be relayed, and sends them.
 type PathProcessor struct {
@@ -81,16 +76,14 @@ func (p PathProcessors) IsRelayedChannel(k ChannelKey, chainID string) bool {
 	return false
 }
 
-func NewPathProcessor(log *zap.Logger, pathEnd1 PathEnd, pathEnd2 PathEnd, memo string) *PathProcessor {
-	packetObservedCounter := promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "observed_packets",
-		Help: "The total number of observed packets",
-	}, prometheusCounter)
-	packetRelayedCounter := promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "relayed_packets",
-		Help: "The total number of relayed packets",
-	}, prometheusCounter)
-
+func NewPathProcessor(
+	log *zap.Logger,
+	pathEnd1 PathEnd,
+	pathEnd2 PathEnd,
+	packetObservedCounter,
+	packetRelayedCounter *prometheus.CounterVec,
+	memo string,
+) *PathProcessor {
 	return &PathProcessor{
 		log:                  log,
 		pathEnd1:             newPathEndRuntime(log, pathEnd1, packetObservedCounter),

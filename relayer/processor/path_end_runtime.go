@@ -95,7 +95,7 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 
 	for ch, pmc := range messageCache.PacketFlow {
 		if pathEnd.info.ShouldRelayChannel(ch) {
-			if inSync {
+			if inSync && pathEnd.packetCounter != nil {
 				for msgType, pCache := range pmc {
 					msgCount := len(pCache)
 					pathEnd.packetCounter.WithLabelValues(
