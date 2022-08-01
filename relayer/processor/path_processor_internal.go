@@ -758,12 +758,15 @@ func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRunt
 		return
 	}
 	for _, m := range om.pktMsgs {
-		switch m.msg.eventType {
-		case chantypes.EventTypeRecvPacket:
-			pp.packetRelayedCounter.WithLabelValues(dst.info.Path, dst.info.ChainID, m.msg.info.DestChannel, m.msg.info.DestPort, m.msg.eventType).Inc()
-		default:
-			pp.packetRelayedCounter.WithLabelValues(dst.info.Path, dst.info.ChainID, m.msg.info.SourceChannel, m.msg.info.SourcePort, m.msg.eventType).Inc()
+		var channel, port string
+		if m.msg.eventType == chantypes.EventTypeRecvPacket {
+			channel = m.msg.info.DestChannel
+			port = m.msg.info.DestPort
+		} else {
+			channel = m.msg.info.SourceChannel
+			port = m.msg.info.SourcePort
 		}
+		pp.packetRelayedCounter.WithLabelValues(dst.info.Path, dst.info.ChainID, channel, port, m.msg.eventType).Inc()
 	}
 }
 
