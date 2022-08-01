@@ -8,7 +8,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/cespare/permute/v2"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/google/go-github/v43/github"
 	"github.com/spf13/cobra"
@@ -285,20 +284,22 @@ $ %s pth fch`, appName, defaultHome, appName)),
 			}
 
 			// find all combinations of paths for configured chains
-			// note: path file names on the chain-registry are in alphabetical order ex: achain-zchain.json
-			p := permute.Slice(chains)
 			chainCombinations := make(map[string]bool)
-			for p.Permute() {
-				a, b := chains[0], chains[1]
-				pair := a + "-" + b
-				if b < a {
-					pair = b + "-" + a
+			for _, chainA := range chains {
+				for _, chainB := range chains {
+					if chainA == chainB {
+						continue
+					}
+
+					pair := chainA + "-" + chainB
+					if chainB < chainA {
+						pair = chainB + "-" + chainA
+					}
+					chainCombinations[pair] = true
 				}
-				chainCombinations[pair] = true
 			}
 
 			client := github.NewClient(nil)
-
 			for pthName := range chainCombinations {
 				_, exist := a.Config.Paths[pthName]
 				if exist && !overwrite {
@@ -312,7 +313,8 @@ $ %s pth fch`, appName, defaultHome, appName)),
 				client, _, err := client.Repositories.DownloadContents(cmd.Context(), "cosmos", "chain-registry", regPath, nil)
 				if err != nil {
 					if errors.As(err, new(*github.RateLimitError)) {
-						return fmt.Errorf("error message: %w", err)
+						fmt.Println("all paths were not added: %w", err)
+						break
 					}
 					fmt.Fprintf(cmd.ErrOrStderr(), "failure retrieving: %s: consider adding to cosmos/chain-registry: ERR: %v\n", pthName, err)
 					continue
