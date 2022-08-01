@@ -441,10 +441,11 @@ func defaultConfig(memo string) []byte {
 
 // GlobalConfig describes any global relayer settings
 type GlobalConfig struct {
-	APIListenPort  string `yaml:"api-listen-addr" json:"api-listen-addr"`
-	Timeout        string `yaml:"timeout" json:"timeout"`
-	Memo           string `yaml:"memo" json:"memo"`
-	LightCacheSize int    `yaml:"light-cache-size" json:"light-cache-size"`
+	APIListenPort    string `yaml:"api-listen-addr" json:"api-listen-addr"`
+	PrometheusListen string `yaml:"prometheus-listen-addr" json:"prometheus-listen-addr"`
+	Timeout          string `yaml:"timeout" json:"timeout"`
+	Memo             string `yaml:"memo" json:"memo"`
+	LightCacheSize   int    `yaml:"light-cache-size" json:"light-cache-size"`
 }
 
 // newDefaultGlobalConfig returns a global config with defaults set

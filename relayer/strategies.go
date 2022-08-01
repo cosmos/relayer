@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -27,6 +29,13 @@ const (
 	ProcessorLegacy        = "legacy"
 )
 
+func startPrometheus(prometheusListen string) {
+	http.Handle("/metrics", promhttp.Handler())
+	if err := http.ListenAndServe(prometheusListen, nil); err != nil {
+		panic(fmt.Errorf("error starting prometheus: %w", err))
+	}
+}
+
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
 func StartRelayer(
 	ctx context.Context,
@@ -37,8 +46,13 @@ func StartRelayer(
 	memo string,
 	processorType string,
 	initialBlockHistory uint64,
+	prometheusListen string,
 ) chan error {
 	errorChan := make(chan error, 1)
+
+	if prometheusListen != "" {
+		go startPrometheus(prometheusListen)
+	}
 
 	switch processorType {
 	case ProcessorEvents:

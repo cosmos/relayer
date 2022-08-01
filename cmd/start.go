@@ -91,7 +91,26 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 				return err
 			}
 
-			rlyErrCh := relayer.StartRelayer(cmd.Context(), a.Log, c[src], c[dst], filter, maxTxSize, maxMsgLength, a.Config.memo(cmd), processorType, initialBlockHistory)
+			prometheusListen := a.Config.Global.PrometheusListen
+
+			prometheusListenFlag, err := cmd.Flags().GetString(flagPrometheusListen)
+			if err != nil {
+				return err
+			}
+
+			if prometheusListenFlag != "" {
+				prometheusListen = prometheusListenFlag
+			}
+
+			rlyErrCh := relayer.StartRelayer(
+				cmd.Context(),
+				a.Log,
+				c[src], c[dst],
+				filter,
+				maxTxSize, maxMsgLength,
+				a.Config.memo(cmd),
+				processorType, initialBlockHistory,
+				prometheusListen)
 
 			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire
 			// when there are no packets flowing across the channels. It is currently a source of errors that have been
@@ -153,6 +172,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 	cmd = debugServerFlags(a.Viper, cmd)
 	cmd = processorFlag(a.Viper, cmd)
 	cmd = initBlockFlag(a.Viper, cmd)
+	cmd = prometheusFlag(a.Viper, cmd)
 	cmd = memoFlag(a.Viper, cmd)
 	return cmd
 }
