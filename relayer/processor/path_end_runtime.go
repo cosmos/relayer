@@ -88,22 +88,24 @@ func (pathEnd *pathEndRuntime) isRelevantChannel(channelID string) bool {
 }
 
 // mergeMessageCache merges relevant IBC messages for packet flows, connection handshakes, and channel handshakes.
-func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache) {
+func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, inSync bool) {
 	packetMessages := make(ChannelPacketMessagesCache)
 	connectionHandshakeMessages := make(ConnectionMessagesCache)
 	channelHandshakeMessages := make(ChannelMessagesCache)
 
 	for ch, pmc := range messageCache.PacketFlow {
 		if pathEnd.info.ShouldRelayChannel(ch) {
-			for msgType, pCache := range pmc {
-				msgCount := len(pCache)
-				pathEnd.packetCounter.WithLabelValues(
-					pathEnd.info.Path,
-					pathEnd.info.ChainID,
-					ch.ChannelID,
-					ch.PortID,
-					msgType,
-				).Add(float64(msgCount))
+			if inSync {
+				for msgType, pCache := range pmc {
+					msgCount := len(pCache)
+					pathEnd.packetCounter.WithLabelValues(
+						pathEnd.info.Path,
+						pathEnd.info.ChainID,
+						ch.ChannelID,
+						ch.PortID,
+						msgType,
+					).Add(float64(msgCount))
+				}
 			}
 			packetMessages[ch] = pmc
 		}
@@ -275,7 +277,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 	return false
 }
 
-func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, messageLifecycle MessageLifecycle) {
+func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, counterpartyInSync bool, messageLifecycle MessageLifecycle) {
 	pathEnd.inSync = d.InSync
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.latestHeader = d.LatestHeader
@@ -291,7 +293,7 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	pathEnd.connectionStateCache.Merge(d.ConnectionStateCache) // Update latest connection open state for chain
 	pathEnd.channelStateCache.Merge(d.ChannelStateCache)       // Update latest channel open state for chain
 
-	pathEnd.mergeMessageCache(d.IBCMessagesCache) // Merge incoming packet IBC messages into the backlog
+	pathEnd.mergeMessageCache(d.IBCMessagesCache, pathEnd.inSync && counterpartyInSync) // Merge incoming packet IBC messages into the backlog
 
 	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
 	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
