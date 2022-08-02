@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/cosmos/cosmos-sdk v0.45.6
+	github.com/cosmos/ibc-go/v4 v4.0.0-rc0
 	github.com/cosmos/relayer/v2 v2.0.0
 	github.com/docker/docker v20.10.17+incompatible
 	github.com/moby/moby v20.10.17+incompatible
@@ -27,7 +28,6 @@ require (
 	github.com/btcsuite/btcd v0.22.1 // indirect
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
-	github.com/cespare/permute/v2 v2.0.0-beta2 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/confio/ics23/go v0.7.0 // indirect
@@ -37,7 +37,6 @@ require (
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gorocksdb v1.2.0 // indirect
 	github.com/cosmos/iavl v0.17.3 // indirect
-	github.com/cosmos/ibc-go/v4 v4.0.0-rc0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.11.1 // indirect
 	github.com/cosmos/ledger-go v0.9.2 // indirect
 	github.com/danieljoos/wincred v1.0.2 // indirect
