@@ -199,6 +199,22 @@ func (r *Relayer) StartRelayer(ctx context.Context, _ ibc.RelayerExecReporter, p
 	return nil
 }
 
+// StartRelayerMany starts a relayer that relays on many paths in the same process.
+// This is a custom method to the relayer/ibctest submodule;
+// it is not part of the standard ibctest API.
+func (r *Relayer) StartRelayerMany(ctx context.Context, _ ibc.RelayerExecReporter, pathNames ...string) error {
+	if r.errCh != nil || r.cancel != nil {
+		panic(fmt.Errorf("StartRelayer called multiple times without being stopped"))
+	}
+
+	r.errCh = make(chan error, 1)
+	ctx, r.cancel = context.WithCancel(ctx)
+
+	args := append([]string{"--processor=events"}, pathNames...)
+	go r.start(ctx, args...)
+	return nil
+}
+
 func (r *Relayer) StopRelayer(ctx context.Context, _ ibc.RelayerExecReporter) error {
 	r.cancel()
 	err := <-r.errCh
@@ -209,11 +225,12 @@ func (r *Relayer) StopRelayer(ctx context.Context, _ ibc.RelayerExecReporter) er
 }
 
 // start runs in its own goroutine, blocking until "rly start" finishes.
-func (r *Relayer) start(ctx context.Context, pathName string) {
+func (r *Relayer) start(ctx context.Context, remainingArgs ...string) {
 	// Start the debug server on a random port.
 	// It won't be reachable without introspecting the output,
 	// but this will allow catching any possible data races around the debug server.
-	res := r.sys().RunC(ctx, r.log(), "start", pathName, "--debug-addr", "localhost:0")
+	args := append([]string{"start", "--debug-addr", "localhost:0"}, remainingArgs...)
+	res := r.sys().RunC(ctx, r.log(), args...)
 	if res.Err != nil {
 		r.errCh <- res.Err
 		return
