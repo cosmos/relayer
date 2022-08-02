@@ -29,8 +29,6 @@ import (
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/relayer/v2/internal/relaydebug"
 	"github.com/cosmos/relayer/v2/relayer"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -104,15 +102,6 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 			if prometheusListenFlag != "" {
 				prometheusListen = prometheusListenFlag
 			}
-			prometheusCounter := []string{"path", "chain", "channel", "port", "type"}
-			packetObservedCounter := promauto.NewCounterVec(prometheus.CounterOpts{
-				Name: "observed_packets",
-				Help: "The total number of observed packets",
-			}, prometheusCounter)
-			packetRelayedCounter := promauto.NewCounterVec(prometheus.CounterOpts{
-				Name: "relayed_packets",
-				Help: "The total number of relayed packets",
-			}, prometheusCounter)
 
 			rlyErrCh := relayer.StartRelayer(
 				cmd.Context(),
@@ -124,8 +113,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 				processorType, initialBlockHistory,
 				pathName,
 				prometheusListen,
-				packetObservedCounter,
-				packetRelayedCounter,
+				relayer.NewPrometheusMetrics(),
 			)
 
 			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire

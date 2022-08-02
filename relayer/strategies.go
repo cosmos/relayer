@@ -15,6 +15,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
@@ -37,6 +38,25 @@ func startPrometheus(prometheusListen string) {
 	}
 }
 
+type PrometheusMetrics struct {
+	PacketObservedCounter *prometheus.CounterVec
+	PacketRelayedCounter  *prometheus.CounterVec
+}
+
+func NewPrometheusMetrics() *PrometheusMetrics {
+	packetLabels := []string{"path", "chain", "channel", "port", "type"}
+	return &PrometheusMetrics{
+		PacketObservedCounter: promauto.NewCounterVec(prometheus.CounterOpts{
+			Name: "observed_packets",
+			Help: "The total number of observed packets",
+		}, packetLabels),
+		PacketRelayedCounter: promauto.NewCounterVec(prometheus.CounterOpts{
+			Name: "relayed_packets",
+			Help: "The total number of relayed packets",
+		}, packetLabels),
+	}
+}
+
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
 func StartRelayer(
 	ctx context.Context,
@@ -49,8 +69,7 @@ func StartRelayer(
 	initialBlockHistory uint64,
 	pathName string,
 	prometheusListen string,
-	packetObservedCounter *prometheus.CounterVec,
-	packetRelayedCounter *prometheus.CounterVec,
+	metrics *PrometheusMetrics,
 ) chan error {
 	errorChan := make(chan error, 1)
 
@@ -79,7 +98,7 @@ func StartRelayer(
 			},
 		}}
 
-		go relayerStartEventProcessor(ctx, log, paths, initialBlockHistory, maxTxSize, maxMsgLength, memo, errorChan, packetObservedCounter, packetRelayedCounter)
+		go relayerStartEventProcessor(ctx, log, paths, initialBlockHistory, maxTxSize, maxMsgLength, memo, errorChan, metrics)
 		return errorChan
 	case ProcessorLegacy:
 		go relayerMainLoop(ctx, log, src, dst, filter, maxTxSize, maxMsgLength, memo, errorChan)
@@ -122,8 +141,7 @@ func relayerStartEventProcessor(
 	maxMsgLength uint64,
 	memo string,
 	errCh chan<- error,
-	packetObservedCounter *prometheus.CounterVec,
-	packetRelayedCounter *prometheus.CounterVec,
+	metrics *PrometheusMetrics,
 ) {
 	defer close(errCh)
 
@@ -139,8 +157,8 @@ func relayerStartEventProcessor(
 				log,
 				p.src.pathEnd,
 				p.dst.pathEnd,
-				packetObservedCounter,
-				packetRelayedCounter,
+				metrics.PacketObservedCounter,
+				metrics.PacketRelayedCounter,
 				memo,
 			))
 	}

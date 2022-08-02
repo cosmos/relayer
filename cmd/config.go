@@ -550,11 +550,11 @@ func initConfig(cmd *cobra.Command, a *appState) error {
 
 	cfgPath := path.Join(home, "config", "config.yaml")
 	if _, err := os.Stat(cfgPath); err != nil {
-		return err
+		return nil
 	}
 	a.Viper.SetConfigFile(cfgPath)
 	if err := a.Viper.ReadInConfig(); err != nil {
-		return err
+		return nil
 	}
 	// read the config file bytes
 	file, err := os.ReadFile(a.Viper.ConfigFileUsed())
