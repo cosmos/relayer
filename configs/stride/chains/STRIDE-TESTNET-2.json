@@ -1,0 +1,1 @@
+{"type":"cosmos","value":{"key":"testkey","chain-id":"STRIDE-TESTNET-2","rpc-addr":"http://localhost:56657","account-prefix":"stride","keyring-backend":"test","gas-adjustment":1.2,"gas-prices":"0.001ustrd","debug":false,"timeout":"30s","output-format":"json","sign-mode":"direct"}}
