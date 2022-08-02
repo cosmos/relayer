@@ -119,7 +119,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 
 	t.Log("Starting relayer")
 	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, "", "", nil)
+	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, "", nil)
 
 	t.Log("Waiting for relayer messages to reach both chains")
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 2))
@@ -269,7 +269,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 	log := zaptest.NewLogger(t)
 	// start the relayer process in it's own goroutine
 	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, "", "", nil)
+	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, "", nil)
 
 	// Wait for relay message inclusion in both chains
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 1))
@@ -443,7 +443,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 
 	t.Log("Starting relayer")
 	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, "", "", nil)
+	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, "", nil)
 
 	t.Log("Waiting for relayer message inclusion in both chains")
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 1))
@@ -619,7 +619,7 @@ func TestUnorderedChannelBlockHeightTimeout(t *testing.T) {
 
 	// start the relayer process in it's own goroutine
 	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, "", "", nil)
+	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, "", nil)
 
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 5))
 
@@ -717,7 +717,7 @@ func TestUnorderedChannelTimestampTimeout(t *testing.T) {
 
 	// start the relayer process in it's own goroutine
 	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, "", "", nil)
+	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, "", nil)
 
 	time.Sleep(time.Second * 10)
 

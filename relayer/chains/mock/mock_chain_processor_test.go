@@ -9,8 +9,10 @@ import (
 
 	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/mock"
 	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -21,11 +23,12 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 		t.Skip()
 	}
 
+	mockPathName := "mockpath"
 	mockChainID1 := "mock-chain-1"
 	mockChainID2 := "mock-chain-2"
 
-	pathEnd1 := processor.PathEnd{ChainID: mockChainID1, ClientID: "mock-client-1"}
-	pathEnd2 := processor.PathEnd{ChainID: mockChainID2, ClientID: "mock-client-2"}
+	pathEnd1 := processor.PathEnd{Path: mockPathName, ChainID: mockChainID1, ClientID: "mock-client-1"}
+	pathEnd2 := processor.PathEnd{Path: mockPathName, ChainID: mockChainID2, ClientID: "mock-client-2"}
 
 	mockSequence1 := uint64(0)
 	mockSequence2 := uint64(0)
@@ -54,7 +57,9 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*20)
 	defer ctxCancel()
 
-	pathProcessor := processor.NewPathProcessor(log, pathEnd1, pathEnd2, nil, nil, "")
+	metrics := relayer.NewPrometheusMetrics()
+
+	pathProcessor := processor.NewPathProcessor(log, pathEnd1, pathEnd2, metrics.PacketObservedCounter, metrics.PacketRelayedCounter, "")
 
 	eventProcessor := processor.NewEventProcessor().
 		WithChainProcessors(
@@ -95,6 +100,32 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	require.LessOrEqual(t, len(pathEnd2LeftoverMsgTransfer), 3)
 	require.LessOrEqual(t, len(pathEnd2LeftoverMsgRecvPacket), 2)
 	require.LessOrEqual(t, len(pathEnd2LeftoverMsgAcknowledgement), 1)
+
+	require.Equal(t, 6, testutil.CollectAndCount(metrics.PacketObservedCounter))
+
+	countChain1EventSend := testutil.ToFloat64(metrics.PacketObservedCounter.WithLabelValues(mockPathName, mockChainID1, mockChannelKey1.ChannelID, mockChannelKey1.PortID, chantypes.EventTypeSendPacket))
+	countChain1EventRecv := testutil.ToFloat64(metrics.PacketObservedCounter.WithLabelValues(mockPathName, mockChainID1, mockChannelKey1.ChannelID, mockChannelKey1.PortID, chantypes.EventTypeRecvPacket))
+	countChain1EventAck := testutil.ToFloat64(metrics.PacketObservedCounter.WithLabelValues(mockPathName, mockChainID1, mockChannelKey1.ChannelID, mockChannelKey1.PortID, chantypes.EventTypeAcknowledgePacket))
+
+	require.GreaterOrEqual(t, float64(mockSequence1), countChain1EventSend)
+	require.GreaterOrEqual(t, float64(mockSequence2-1), countChain1EventRecv)
+	require.GreaterOrEqual(t, float64(mockSequence1-2), countChain1EventAck)
+
+	require.Greater(t, countChain1EventSend, float64(0))
+	require.Greater(t, countChain1EventRecv, float64(0))
+	require.Greater(t, countChain1EventAck, float64(0))
+
+	countChain2EventSend := testutil.ToFloat64(metrics.PacketObservedCounter.WithLabelValues(mockPathName, mockChainID2, mockChannelKey2.ChannelID, mockChannelKey2.PortID, chantypes.EventTypeSendPacket))
+	countChain2EventRecv := testutil.ToFloat64(metrics.PacketObservedCounter.WithLabelValues(mockPathName, mockChainID2, mockChannelKey2.ChannelID, mockChannelKey2.PortID, chantypes.EventTypeRecvPacket))
+	countChain2EventAck := testutil.ToFloat64(metrics.PacketObservedCounter.WithLabelValues(mockPathName, mockChainID2, mockChannelKey2.ChannelID, mockChannelKey2.PortID, chantypes.EventTypeAcknowledgePacket))
+
+	require.GreaterOrEqual(t, float64(mockSequence2), countChain2EventSend)
+	require.GreaterOrEqual(t, float64(mockSequence1-1), countChain2EventRecv)
+	require.GreaterOrEqual(t, float64(mockSequence2-2), countChain2EventAck)
+
+	require.Greater(t, countChain2EventSend, float64(0))
+	require.Greater(t, countChain2EventRecv, float64(0))
+	require.Greater(t, countChain2EventAck, float64(0))
 }
 
 // will send cycles of:
@@ -104,7 +135,7 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequenceCounterparty, lastSentMockMsgRecvCounterparty *uint64, lock *sync.Mutex) []mock.TransactionMessage {
 	lock.Lock()
 	defer lock.Unlock()
-	if *mockSequence-*mockSequenceCounterparty > 0 {
+	if int64(*mockSequence)-int64(*mockSequenceCounterparty) > 0 {
 		return []mock.TransactionMessage{}
 	}
 	*mockSequence++
