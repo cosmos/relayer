@@ -82,6 +82,16 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 
    To omit the memo entirely, including the default value of `rly(VERSION)`, use `-` for the memo.
 
+   To enable the prometheus metrics listener, use the `--prometheus-addr` flag when initializing the configuration.
+
+   ```shell
+   $ rly config init --prometheus-addr ":9090"
+   ```
+
+   Prometheus metrics will then be enabled at runtime and be available at `http://$IP:9090/metrics`
+
+   The `--prometheus-addr` flag is also available for the `rly start` command and will override the global config parameter if provided.
+
 3. **Configure the chains you want to relay between.**
    
    In our example, we will configure the relayer to operate on the canonical path between the Cosmos Hub and Osmosis.  
