@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -16,7 +15,6 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -30,13 +28,6 @@ const (
 	ProcessorEvents string = "events"
 	ProcessorLegacy        = "legacy"
 )
-
-func startPrometheus(prometheusListen string) {
-	http.Handle("/metrics", promhttp.Handler())
-	if err := http.ListenAndServe(prometheusListen, nil); err != nil {
-		panic(fmt.Errorf("error starting prometheus: %w", err))
-	}
-}
 
 type PrometheusMetrics struct {
 	PacketObservedCounter *prometheus.CounterVec
@@ -68,14 +59,9 @@ func StartRelayer(
 	processorType string,
 	initialBlockHistory uint64,
 	pathName string,
-	prometheusListen string,
 	metrics *PrometheusMetrics,
 ) chan error {
 	errorChan := make(chan error, 1)
-
-	if prometheusListen != "" {
-		go startPrometheus(prometheusListen)
-	}
 
 	switch processorType {
 	case ProcessorEvents:

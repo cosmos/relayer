@@ -28,6 +28,7 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/relayer/v2/internal/relaydebug"
+	"github.com/cosmos/relayer/v2/internal/relayprometheus"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -103,6 +104,19 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 				prometheusListen = prometheusListenFlag
 			}
 
+			var prometheusMetrics *relayer.PrometheusMetrics
+
+			if prometheusListen != "" {
+				nl, err := net.Listen("tcp", prometheusListen)
+				if err != nil {
+					a.Log.Error("Failed to listen on prometheus address. If you have another relayer process open, use --" + flagPrometheusListen + " to pick a different address.")
+					return fmt.Errorf("failed to listen on prometheus address %q: %w", prometheusListen, err)
+				}
+				log := a.Log.With(zap.String("sys", "prometheus"))
+				relayprometheus.Serve(cmd.Context(), log, nl)
+				prometheusMetrics = relayer.NewPrometheusMetrics()
+			}
+
 			rlyErrCh := relayer.StartRelayer(
 				cmd.Context(),
 				a.Log,
@@ -112,8 +126,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 				a.Config.memo(cmd),
 				processorType, initialBlockHistory,
 				pathName,
-				prometheusListen,
-				relayer.NewPrometheusMetrics(),
+				prometheusMetrics,
 			)
 
 			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire
