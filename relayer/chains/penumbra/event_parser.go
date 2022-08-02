@@ -1,4 +1,4 @@
-package cosmos
+package penumbra
 
 import (
 	"encoding/hex"

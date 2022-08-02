@@ -1,4 +1,4 @@
-package cosmos
+package penumbra
 
 import (
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
