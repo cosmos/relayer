@@ -147,6 +147,13 @@ func relayerStartEventProcessor(
 
 	epb := processor.NewEventProcessor()
 
+	var packetObservedCounter, packetRelayedCounter *prometheus.CounterVec
+
+	if metrics != nil {
+		packetObservedCounter = metrics.PacketObservedCounter
+		packetRelayedCounter = metrics.PacketRelayedCounter
+	}
+
 	for _, p := range paths {
 		epb = epb.
 			WithChainProcessors(
@@ -157,8 +164,8 @@ func relayerStartEventProcessor(
 				log,
 				p.src.pathEnd,
 				p.dst.pathEnd,
-				metrics.PacketObservedCounter,
-				metrics.PacketRelayedCounter,
+				packetObservedCounter,
+				packetRelayedCounter,
 				memo,
 			))
 	}
