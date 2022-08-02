@@ -541,7 +541,7 @@ func validateConfig(c *Config) error {
 	return nil
 }
 
-// initConfig reads in config file and ENV variables if set.
+// initConfig reads config file into a.Config if file is present.
 func initConfig(cmd *cobra.Command, a *appState) error {
 	home, err := cmd.PersistentFlags().GetString(flagHome)
 	if err != nil {
@@ -550,11 +550,12 @@ func initConfig(cmd *cobra.Command, a *appState) error {
 
 	cfgPath := path.Join(home, "config", "config.yaml")
 	if _, err := os.Stat(cfgPath); err != nil {
+		// don't return error if file doesn't exist
 		return nil
 	}
 	a.Viper.SetConfigFile(cfgPath)
 	if err := a.Viper.ReadInConfig(); err != nil {
-		return nil
+		return err
 	}
 	// read the config file bytes
 	file, err := os.ReadFile(a.Viper.ConfigFileUsed())
