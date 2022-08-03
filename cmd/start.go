@@ -29,6 +29,7 @@ import (
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/relayer/v2/internal/relaydebug"
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -47,7 +48,8 @@ $ %s start demo-path -p events # to use event processor
 $ %s start demo-path --max-msgs 3
 $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			pathName := args[0]
+			c, src, dst, err := a.Config.ChainsFromPath(pathName)
 			if err != nil {
 				return err
 			}
@@ -56,7 +58,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 				return err
 			}
 
-			path := a.Config.Paths.MustGet(args[0])
+			path := a.Config.Paths.MustGet(pathName)
 
 			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
 			if err != nil {
@@ -64,6 +66,8 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 			}
 
 			filter := path.Filter
+
+			var prometheusMetrics *processor.PrometheusMetrics
 
 			debugAddr, err := cmd.Flags().GetString(flagDebugAddr)
 			if err != nil {
@@ -80,6 +84,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 				log := a.Log.With(zap.String("sys", "debughttp"))
 				log.Info("Debug server listening", zap.String("addr", debugAddr))
 				relaydebug.StartDebugServer(cmd.Context(), log, ln)
+				prometheusMetrics = processor.NewPrometheusMetrics()
 			}
 
 			processorType, err := cmd.Flags().GetString(flagProcessor)
@@ -91,7 +96,17 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 				return err
 			}
 
-			rlyErrCh := relayer.StartRelayer(cmd.Context(), a.Log, c[src], c[dst], filter, maxTxSize, maxMsgLength, a.Config.memo(cmd), processorType, initialBlockHistory)
+			rlyErrCh := relayer.StartRelayer(
+				cmd.Context(),
+				a.Log,
+				c[src], c[dst],
+				filter,
+				maxTxSize, maxMsgLength,
+				a.Config.memo(cmd),
+				processorType, initialBlockHistory,
+				pathName,
+				prometheusMetrics,
+			)
 
 			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire
 			// when there are no packets flowing across the channels. It is currently a source of errors that have been

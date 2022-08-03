@@ -43,11 +43,14 @@ type pathEndRuntime struct {
 
 	// inSync indicates whether queries are in sync with latest height of the chain.
 	inSync bool
+
+	metrics *PrometheusMetrics
 }
 
-func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd) *pathEndRuntime {
+func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetrics) *pathEndRuntime {
 	return &pathEndRuntime{
 		log: log.With(
+			zap.String("path_name", pathEnd.PathName),
 			zap.String("chain_id", pathEnd.ChainID),
 			zap.String("client_id", pathEnd.ClientID),
 		),
@@ -61,6 +64,7 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd) *pathEndRuntime {
 		connProcessing:       make(connectionProcessingCache),
 		channelProcessing:    make(channelProcessingCache),
 		connSubscribers:      make(map[string][]func(provider.ConnectionInfo)),
+		metrics:              metrics,
 	}
 }
 
@@ -83,13 +87,20 @@ func (pathEnd *pathEndRuntime) isRelevantChannel(channelID string) bool {
 }
 
 // mergeMessageCache merges relevant IBC messages for packet flows, connection handshakes, and channel handshakes.
-func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache) {
+// inSync indicates whether both involved ChainProcessors are in sync or not. When true, the observed packets
+// metrics will be counted so that observed vs relayed packets can be compared.
+func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, inSync bool) {
 	packetMessages := make(ChannelPacketMessagesCache)
 	connectionHandshakeMessages := make(ConnectionMessagesCache)
 	channelHandshakeMessages := make(ChannelMessagesCache)
 
 	for ch, pmc := range messageCache.PacketFlow {
 		if pathEnd.info.ShouldRelayChannel(ch) {
+			if inSync && pathEnd.metrics != nil {
+				for eventType, pCache := range pmc {
+					pathEnd.metrics.AddPacketsObserved(pathEnd.info.PathName, pathEnd.info.ChainID, ch.ChannelID, ch.PortID, eventType, len(pCache))
+				}
+			}
 			packetMessages[ch] = pmc
 		}
 	}
@@ -260,7 +271,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 	return false
 }
 
-func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, messageLifecycle MessageLifecycle) {
+func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, counterpartyInSync bool, messageLifecycle MessageLifecycle) {
 	pathEnd.inSync = d.InSync
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.latestHeader = d.LatestHeader
@@ -276,7 +287,7 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	pathEnd.connectionStateCache.Merge(d.ConnectionStateCache) // Update latest connection open state for chain
 	pathEnd.channelStateCache.Merge(d.ChannelStateCache)       // Update latest channel open state for chain
 
-	pathEnd.mergeMessageCache(d.IBCMessagesCache) // Merge incoming packet IBC messages into the backlog
+	pathEnd.mergeMessageCache(d.IBCMessagesCache, pathEnd.inSync && counterpartyInSync) // Merge incoming packet IBC messages into the backlog
 
 	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
 	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
