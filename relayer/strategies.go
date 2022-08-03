@@ -13,8 +13,6 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
 )
 
@@ -29,25 +27,6 @@ const (
 	ProcessorLegacy        = "legacy"
 )
 
-type PrometheusMetrics struct {
-	PacketObservedCounter *prometheus.CounterVec
-	PacketRelayedCounter  *prometheus.CounterVec
-}
-
-func NewPrometheusMetrics() *PrometheusMetrics {
-	packetLabels := []string{"path", "chain", "channel", "port", "type"}
-	return &PrometheusMetrics{
-		PacketObservedCounter: promauto.NewCounterVec(prometheus.CounterOpts{
-			Name: "observed_packets",
-			Help: "The total number of observed packets",
-		}, packetLabels),
-		PacketRelayedCounter: promauto.NewCounterVec(prometheus.CounterOpts{
-			Name: "relayed_packets",
-			Help: "The total number of relayed packets",
-		}, packetLabels),
-	}
-}
-
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
 func StartRelayer(
 	ctx context.Context,
@@ -59,7 +38,7 @@ func StartRelayer(
 	processorType string,
 	initialBlockHistory uint64,
 	pathName string,
-	metrics *PrometheusMetrics,
+	metrics *processor.PrometheusMetrics,
 ) chan error {
 	errorChan := make(chan error, 1)
 
@@ -127,18 +106,11 @@ func relayerStartEventProcessor(
 	maxMsgLength uint64,
 	memo string,
 	errCh chan<- error,
-	metrics *PrometheusMetrics,
+	metrics *processor.PrometheusMetrics,
 ) {
 	defer close(errCh)
 
 	epb := processor.NewEventProcessor()
-
-	var packetObservedCounter, packetRelayedCounter *prometheus.CounterVec
-
-	if metrics != nil {
-		packetObservedCounter = metrics.PacketObservedCounter
-		packetRelayedCounter = metrics.PacketRelayedCounter
-	}
 
 	for _, p := range paths {
 		epb = epb.
@@ -150,8 +122,7 @@ func relayerStartEventProcessor(
 				log,
 				p.src.pathEnd,
 				p.dst.pathEnd,
-				packetObservedCounter,
-				packetRelayedCounter,
+				metrics,
 				memo,
 			))
 	}

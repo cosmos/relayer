@@ -44,7 +44,6 @@ const (
 	flagReverse                 = "reverse"
 	flagProcessor               = "processor"
 	flagInitialBlockHistory     = "block-history"
-	flagPrometheusListen        = "prometheus-addr"
 	flagMemo                    = "memo"
 )
 
@@ -304,14 +303,6 @@ func processorFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 func initBlockFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Uint64P(flagInitialBlockHistory, "b", 20, "initial block history to query when using 'events' as the processor for relaying")
 	if err := v.BindPFlag(flagInitialBlockHistory, cmd.Flags().Lookup(flagInitialBlockHistory)); err != nil {
-		panic(err)
-	}
-	return cmd
-}
-
-func prometheusFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().String(flagPrometheusListen, "", "prometheus metrics server listen address")
-	if err := v.BindPFlag(flagPrometheusListen, cmd.Flags().Lookup(flagPrometheusListen)); err != nil {
 		panic(err)
 	}
 	return cmd

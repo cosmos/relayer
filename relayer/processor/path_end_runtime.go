@@ -6,7 +6,6 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
@@ -45,13 +44,13 @@ type pathEndRuntime struct {
 	// inSync indicates whether queries are in sync with latest height of the chain.
 	inSync bool
 
-	packetCounter *prometheus.CounterVec
+	metrics *PrometheusMetrics
 }
 
-func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, packetCounter *prometheus.CounterVec) *pathEndRuntime {
+func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetrics) *pathEndRuntime {
 	return &pathEndRuntime{
 		log: log.With(
-			zap.String("path", pathEnd.Path),
+			zap.String("path_name", pathEnd.PathName),
 			zap.String("chain_id", pathEnd.ChainID),
 			zap.String("client_id", pathEnd.ClientID),
 		),
@@ -65,7 +64,7 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, packetCounter *promethe
 		connProcessing:       make(connectionProcessingCache),
 		channelProcessing:    make(channelProcessingCache),
 		connSubscribers:      make(map[string][]func(provider.ConnectionInfo)),
-		packetCounter:        packetCounter,
+		metrics:              metrics,
 	}
 }
 
@@ -88,6 +87,8 @@ func (pathEnd *pathEndRuntime) isRelevantChannel(channelID string) bool {
 }
 
 // mergeMessageCache merges relevant IBC messages for packet flows, connection handshakes, and channel handshakes.
+// inSync indicates whether both involved ChainProcessors are in sync or not. When true, the observed packets
+// metrics will be counted so that observed vs relayed packets can be compared.
 func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, inSync bool) {
 	packetMessages := make(ChannelPacketMessagesCache)
 	connectionHandshakeMessages := make(ConnectionMessagesCache)
@@ -95,16 +96,9 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 
 	for ch, pmc := range messageCache.PacketFlow {
 		if pathEnd.info.ShouldRelayChannel(ch) {
-			if inSync && pathEnd.packetCounter != nil {
-				for msgType, pCache := range pmc {
-					msgCount := len(pCache)
-					pathEnd.packetCounter.WithLabelValues(
-						pathEnd.info.Path,
-						pathEnd.info.ChainID,
-						ch.ChannelID,
-						ch.PortID,
-						msgType,
-					).Add(float64(msgCount))
+			if inSync && pathEnd.metrics != nil {
+				for eventType, pCache := range pmc {
+					pathEnd.metrics.AddPacketsObserved(pathEnd.info.PathName, pathEnd.info.ChainID, ch.ChannelID, ch.PortID, eventType, len(pCache))
 				}
 			}
 			packetMessages[ch] = pmc

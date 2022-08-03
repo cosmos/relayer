@@ -28,8 +28,8 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/relayer/v2/internal/relaydebug"
-	"github.com/cosmos/relayer/v2/internal/relayprometheus"
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -67,6 +67,8 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 
 			filter := path.Filter
 
+			var prometheusMetrics *processor.PrometheusMetrics
+
 			debugAddr, err := cmd.Flags().GetString(flagDebugAddr)
 			if err != nil {
 				return err
@@ -82,6 +84,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 				log := a.Log.With(zap.String("sys", "debughttp"))
 				log.Info("Debug server listening", zap.String("addr", debugAddr))
 				relaydebug.StartDebugServer(cmd.Context(), log, ln)
+				prometheusMetrics = processor.NewPrometheusMetrics()
 			}
 
 			processorType, err := cmd.Flags().GetString(flagProcessor)
@@ -91,30 +94,6 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 			initialBlockHistory, err := cmd.Flags().GetUint64(flagInitialBlockHistory)
 			if err != nil {
 				return err
-			}
-
-			prometheusListen := a.Config.Global.PrometheusListen
-
-			prometheusListenFlag, err := cmd.Flags().GetString(flagPrometheusListen)
-			if err != nil {
-				return err
-			}
-
-			if prometheusListenFlag != "" {
-				prometheusListen = prometheusListenFlag
-			}
-
-			var prometheusMetrics *relayer.PrometheusMetrics
-
-			if prometheusListen != "" {
-				nl, err := net.Listen("tcp", prometheusListen)
-				if err != nil {
-					a.Log.Error("Failed to listen on prometheus address. If you have another relayer process open, use --" + flagPrometheusListen + " to pick a different address.")
-					return fmt.Errorf("failed to listen on prometheus address %q: %w", prometheusListen, err)
-				}
-				log := a.Log.With(zap.String("sys", "prometheus"))
-				relayprometheus.Serve(cmd.Context(), log, nl)
-				prometheusMetrics = relayer.NewPrometheusMetrics()
 			}
 
 			rlyErrCh := relayer.StartRelayer(
@@ -189,7 +168,6 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 	cmd = debugServerFlags(a.Viper, cmd)
 	cmd = processorFlag(a.Viper, cmd)
 	cmd = initBlockFlag(a.Viper, cmd)
-	cmd = prometheusFlag(a.Viper, cmd)
 	cmd = memoFlag(a.Viper, cmd)
 	return cmd
 }

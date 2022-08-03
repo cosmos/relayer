@@ -737,7 +737,13 @@ func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRunt
 	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, om.msgs, pp.memo)
 	if err != nil {
 		if errors.Is(err, chantypes.ErrRedundantTx) {
-			pp.log.Debug("Packet(s) already handled by another relayer")
+			pp.log.Debug("Packet(s) already handled by another relayer",
+				zap.String("src_chain_id", src.info.ChainID),
+				zap.String("dst_chain_id", dst.info.ChainID),
+				zap.String("src_client_id", src.info.ClientID),
+				zap.String("dst_client_id", dst.info.ClientID),
+				zap.Error(err),
+			)
 			return
 		}
 		pp.log.Error("Error sending messages",
@@ -754,7 +760,7 @@ func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRunt
 		return
 	}
 
-	if pp.packetRelayedCounter == nil {
+	if pp.metrics == nil {
 		return
 	}
 	for _, m := range om.pktMsgs {
@@ -766,7 +772,7 @@ func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRunt
 			channel = m.msg.info.SourceChannel
 			port = m.msg.info.SourcePort
 		}
-		pp.packetRelayedCounter.WithLabelValues(dst.info.Path, dst.info.ChainID, channel, port, m.msg.eventType).Inc()
+		pp.metrics.IncPacketsRelayed(dst.info.PathName, dst.info.ChainID, channel, port, m.msg.eventType)
 	}
 }
 

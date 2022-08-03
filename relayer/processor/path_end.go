@@ -3,7 +3,7 @@ package processor
 // PathEnd references one chain involved in a path.
 // A path is composed of two PathEnds.
 type PathEnd struct {
-	Path     string
+	PathName string
 	ChainID  string
 	ClientID string
 	// ConnectionIDs are tracked by pathEndRuntime in PathProcessor for known connections on this client
@@ -14,9 +14,9 @@ type PathEnd struct {
 }
 
 // NewPathEnd constructs a PathEnd, validating initial parameters.
-func NewPathEnd(path string, chainID string, clientID string, rule string, filterList []ChannelKey) PathEnd {
+func NewPathEnd(pathName string, chainID string, clientID string, rule string, filterList []ChannelKey) PathEnd {
 	return PathEnd{
-		Path:       path,
+		PathName:   pathName,
 		ChainID:    chainID,
 		ClientID:   clientID,
 		Rule:       rule,

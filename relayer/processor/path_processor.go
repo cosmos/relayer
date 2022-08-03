@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
@@ -61,7 +60,7 @@ type PathProcessor struct {
 
 	sentInitialMsg bool
 
-	packetRelayedCounter *prometheus.CounterVec
+	metrics *PrometheusMetrics
 }
 
 // PathProcessors is a slice of PathProcessor instances
@@ -80,17 +79,16 @@ func NewPathProcessor(
 	log *zap.Logger,
 	pathEnd1 PathEnd,
 	pathEnd2 PathEnd,
-	packetObservedCounter,
-	packetRelayedCounter *prometheus.CounterVec,
+	metrics *PrometheusMetrics,
 	memo string,
 ) *PathProcessor {
 	return &PathProcessor{
-		log:                  log,
-		pathEnd1:             newPathEndRuntime(log, pathEnd1, packetObservedCounter),
-		pathEnd2:             newPathEndRuntime(log, pathEnd2, packetObservedCounter),
-		retryProcess:         make(chan struct{}, 2),
-		memo:                 memo,
-		packetRelayedCounter: packetRelayedCounter,
+		log:          log,
+		pathEnd1:     newPathEndRuntime(log, pathEnd1, metrics),
+		pathEnd2:     newPathEndRuntime(log, pathEnd2, metrics),
+		retryProcess: make(chan struct{}, 2),
+		memo:         memo,
+		metrics:      metrics,
 	}
 }
 

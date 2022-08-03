@@ -9,7 +9,6 @@ import (
 
 	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/mock"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -27,8 +26,8 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	mockChainID1 := "mock-chain-1"
 	mockChainID2 := "mock-chain-2"
 
-	pathEnd1 := processor.PathEnd{Path: mockPathName, ChainID: mockChainID1, ClientID: "mock-client-1"}
-	pathEnd2 := processor.PathEnd{Path: mockPathName, ChainID: mockChainID2, ClientID: "mock-client-2"}
+	pathEnd1 := processor.PathEnd{PathName: mockPathName, ChainID: mockChainID1, ClientID: "mock-client-1"}
+	pathEnd2 := processor.PathEnd{PathName: mockPathName, ChainID: mockChainID2, ClientID: "mock-client-2"}
 
 	mockSequence1 := uint64(0)
 	mockSequence2 := uint64(0)
@@ -57,9 +56,9 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*20)
 	defer ctxCancel()
 
-	metrics := relayer.NewPrometheusMetrics()
+	metrics := processor.NewPrometheusMetrics()
 
-	pathProcessor := processor.NewPathProcessor(log, pathEnd1, pathEnd2, metrics.PacketObservedCounter, metrics.PacketRelayedCounter, "")
+	pathProcessor := processor.NewPathProcessor(log, pathEnd1, pathEnd2, metrics, "")
 
 	eventProcessor := processor.NewEventProcessor().
 		WithChainProcessors(

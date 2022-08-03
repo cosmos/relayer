@@ -64,7 +64,7 @@ func (c *Chain) CreateOpenChannels(
 		c.log,
 		srcPathChain.pathEnd,
 		dstPathChain.pathEnd,
-		nil, nil,
+		nil,
 		memo,
 	)
 
@@ -142,7 +142,7 @@ func (c *Chain) CloseChannel(
 			c.log,
 			srcPathChain.pathEnd,
 			dstPathChain.pathEnd,
-			nil, nil,
+			nil,
 			memo,
 		)).
 		WithInitialBlockHistory(0).

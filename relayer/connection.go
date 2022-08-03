@@ -45,7 +45,7 @@ func (c *Chain) CreateOpenConnections(
 		c.log,
 		srcpathChain.pathEnd,
 		dstpathChain.pathEnd,
-		nil, nil,
+		nil,
 		memo,
 	)
 
