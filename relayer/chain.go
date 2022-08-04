@@ -39,17 +39,6 @@ type Chain struct {
 // Chains is a collection of Chain (mapped by chain_name)
 type Chains map[string]*Chain
 
-// ValidatePaths takes two chains and validates their paths
-func ValidatePaths(src, dst *Chain) error {
-	if err := src.PathEnd.ValidateFull(); err != nil {
-		return src.ErrCantSetPath(err)
-	}
-	if err := dst.PathEnd.ValidateFull(); err != nil {
-		return dst.ErrCantSetPath(err)
-	}
-	return nil
-}
-
 // ValidateClientPaths takes two chains and validates their clients
 func ValidateClientPaths(src, dst *Chain) error {
 	if err := src.PathEnd.Vclient(); err != nil {
@@ -169,45 +158,3 @@ func (c *Chain) GetTimeout() (time.Duration, error) {
 	}
 	return timeout, nil
 }
-
-//// UpgradeChain submits and upgrade proposal using a zero'd out client state with an updated unbonding period.
-//func (c *Chain) UpgradeChain(dst *Chain, plan *upgradetypes.Plan, deposit sdk.Coin,
-//	unbondingPeriod time.Duration) error {
-//	height, err := dst.ChainProvider.QueryLatestHeight()
-//	if err != nil {
-//		return err
-//	}
-//
-//	clientState, err := dst.ChainProvider.QueryClientState(height, c.PathEnd.ClientID)
-//	if err != nil {
-//		return err
-//	}
-//
-//	upgradedClientState := clientState.ZeroCustomFields().(*ibctmtypes.ClientState)
-//	upgradedClientState.LatestHeight.RevisionHeight = uint64(plan.Height + 1)
-//	upgradedClientState.UnbondingPeriod = unbondingPeriod
-//
-//	// TODO: make cli args for title and description
-//	upgradeProposal, err := clienttypes.NewUpgradeProposal("upgrade",
-//		"upgrade the chain's software and unbonding period", *plan, upgradedClientState)
-//	if err != nil {
-//		return err
-//	}
-//
-//	addr, err := c.ChainProvider.ShowAddress(c.ChainProvider.Key())
-//	if err != nil {
-//		return err
-//	}
-//
-//	msg, err := govtypes.NewMsgSubmitProposal(upgradeProposal, sdk.NewCoins(deposit), addr)
-//	if err != nil {
-//		return err
-//	}
-//
-//	_, _, err = c.ChainProvider.SendMessage(msg)
-//	if err != nil {
-//		return err
-//	}
-//
-//	return nil
-//}

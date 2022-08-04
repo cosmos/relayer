@@ -222,7 +222,7 @@ func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpda
 
 	// update the client identifier
 	// use index 0, the transaction only has one message
-	if clientID, err = ParseClientIDFromEvents(res.Events); err != nil {
+	if clientID, err = parseClientIDFromEvents(res.Events); err != nil {
 		return false, err
 	}
 
@@ -442,4 +442,19 @@ func findMatchingClient(ctx context.Context, src, dst *Chain, newClientState ibc
 	}
 
 	return "", nil
+}
+
+// parseClientIDFromEvents parses events emitted from a MsgCreateClient and returns the
+// client identifier.
+func parseClientIDFromEvents(events []provider.RelayerEvent) (string, error) {
+	for _, event := range events {
+		if event.EventType == clienttypes.EventTypeCreateClient {
+			for attributeKey, attributeValue := range event.Attributes {
+				if attributeKey == clienttypes.AttributeKeyClientID {
+					return attributeValue, nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("client identifier event attribute not found")
 }
