@@ -78,6 +78,19 @@ type PacketInfo struct {
 	Ack              []byte
 }
 
+func (pi PacketInfo) Packet() chantypes.Packet {
+	return chantypes.Packet{
+		Sequence:           pi.Sequence,
+		SourcePort:         pi.SourcePort,
+		SourceChannel:      pi.SourceChannel,
+		DestinationPort:    pi.DestPort,
+		DestinationChannel: pi.DestChannel,
+		Data:               pi.Data,
+		TimeoutHeight:      pi.TimeoutHeight,
+		TimeoutTimestamp:   pi.TimeoutTimestamp,
+	}
+}
+
 // ConnectionInfo contains relevant properties from connection handshake messages
 // which may be necessary to construct the next message for the counterparty chain.
 type ConnectionInfo struct {
