@@ -387,7 +387,6 @@ type QueryProvider interface {
 
 type RelayPacket interface {
 	Msg(src ChainProvider, srcPortId, srcChanId, dstPortId, dstChanId string) (RelayerMessage, error)
-	FetchCommitResponse(ctx context.Context, dst ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error
 	Data() []byte
 	Seq() uint64
 	Timeout() clienttypes.Height
