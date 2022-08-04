@@ -22,11 +22,11 @@ func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain
 	)
 
 	// get header representing dst to check timeouts
-	dsth, err := dst.ChainProvider.QueryLatestHeight(ctx)
+	srch, dsth, err := QueryLatestHeights(ctx, c, dst)
 	if err != nil {
 		return err
 	}
-	h, err := dst.ChainProvider.GetIBCUpdateHeader(ctx, dsth, c.ChainProvider, c.PathEnd.ClientID)
+	h, err := c.ChainProvider.QueryClientState(ctx, srch, c.PathEnd.ClientID)
 	if err != nil {
 		return err
 	}
@@ -65,21 +65,32 @@ func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain
 		}
 	}
 
+	clientHeight := h.GetLatestHeight().GetRevisionHeight()
+
 	switch {
 	case toHeightOffset > 0 && toTimeOffset > 0:
-		timeoutHeight = h.GetHeight().GetRevisionHeight() + toHeightOffset
+		timeoutHeight = clientHeight + toHeightOffset
 	case toHeightOffset > 0:
-		timeoutHeight = h.GetHeight().GetRevisionHeight() + toHeightOffset
+		timeoutHeight = clientHeight + toHeightOffset
 		timeoutTimestamp = 0
 	case toTimeOffset > 0:
 		timeoutHeight = 0
 	case toHeightOffset == 0 && toTimeOffset == 0:
-		timeoutHeight = h.GetHeight().GetRevisionHeight() + 1000
+		timeoutHeight = clientHeight + 1000
 		timeoutTimestamp = 0
 	}
 
 	// MsgTransfer will call SendPacket on src chain
-	msg, err := c.ChainProvider.MsgTransfer(amount, dst.PathEnd.ChainID, dstAddr, srcChannel.PortId, srcChannel.ChannelId, timeoutHeight, timeoutTimestamp)
+	pi := provider.PacketInfo{
+		SourceChannel: srcChannel.ChannelId,
+		SourcePort:    srcChannel.PortId,
+		TimeoutHeight: clienttypes.Height{
+			RevisionNumber: h.GetLatestHeight().GetRevisionNumber(),
+			RevisionHeight: timeoutHeight,
+		},
+		TimeoutTimestamp: timeoutTimestamp,
+	}
+	msg, err := c.ChainProvider.MsgTransfer(dstAddr, amount, pi)
 	if err != nil {
 		return err
 	}

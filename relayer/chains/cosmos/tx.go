@@ -882,47 +882,6 @@ func (cc *CosmosProvider) MsgRelayAcknowledgement(ctx context.Context, dst provi
 	}
 }
 
-// MsgTransfer creates a new transfer message
-func (cc *CosmosProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanId string, timeoutHeight, timeoutTimestamp uint64) (provider.RelayerMessage, error) {
-	var (
-		acc string
-		err error
-		msg sdk.Msg
-	)
-	if acc, err = cc.Address(); err != nil {
-		return nil, err
-	}
-
-	// If the timeoutHeight is 0 then we don't need to explicitly set it on the MsgTransfer
-	if timeoutHeight == 0 {
-		msg = &transfertypes.MsgTransfer{
-			SourcePort:       srcPortId,
-			SourceChannel:    srcChanId,
-			Token:            amount,
-			Sender:           acc,
-			Receiver:         dstAddr,
-			TimeoutTimestamp: timeoutTimestamp,
-		}
-	} else {
-		version := clienttypes.ParseChainID(dstChainId)
-
-		msg = &transfertypes.MsgTransfer{
-			SourcePort:    srcPortId,
-			SourceChannel: srcChanId,
-			Token:         amount,
-			Sender:        acc,
-			Receiver:      dstAddr,
-			TimeoutHeight: clienttypes.Height{
-				RevisionNumber: version,
-				RevisionHeight: timeoutHeight,
-			},
-			TimeoutTimestamp: timeoutTimestamp,
-		}
-	}
-
-	return NewCosmosMessage(msg), nil
-}
-
 // MsgRelayTimeout constructs the MsgTimeout which is to be sent to the sending chain.
 // The counterparty represents the receiving chain where the receipts would have been
 // stored.
@@ -1079,6 +1038,42 @@ func (cc *CosmosProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.C
 
 		return NewCosmosMessage(msg), nil
 	}
+}
+
+// MsgTransfer creates a new transfer message
+func (cc *CosmosProvider) MsgTransfer(dstAddr string, amount sdk.Coin, info provider.PacketInfo) (provider.RelayerMessage, error) {
+	var (
+		acc string
+		err error
+		msg sdk.Msg
+	)
+	if acc, err = cc.Address(); err != nil {
+		return nil, err
+	}
+
+	// If the timeoutHeight is 0 then we don't need to explicitly set it on the MsgTransfer
+	if info.TimeoutHeight.RevisionHeight == 0 {
+		msg = &transfertypes.MsgTransfer{
+			SourcePort:       info.SourcePort,
+			SourceChannel:    info.SourceChannel,
+			Token:            amount,
+			Sender:           acc,
+			Receiver:         dstAddr,
+			TimeoutTimestamp: info.TimeoutTimestamp,
+		}
+	} else {
+		msg = &transfertypes.MsgTransfer{
+			SourcePort:       info.SourcePort,
+			SourceChannel:    info.SourceChannel,
+			Token:            amount,
+			Sender:           acc,
+			Receiver:         dstAddr,
+			TimeoutHeight:    info.TimeoutHeight,
+			TimeoutTimestamp: info.TimeoutTimestamp,
+		}
+	}
+
+	return NewCosmosMessage(msg), nil
 }
 
 func (cc *CosmosProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest provider.LatestBlock) error {
