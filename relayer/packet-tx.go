@@ -13,6 +13,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const defaultTimeoutOffset = 1000
+
 //nolint:lll
 // SendTransferMsg initiates an ics20 transfer from src to dst with the specified args
 func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain, amount sdk.Coin, dstAddr string, toHeightOffset uint64, toTimeOffset time.Duration, srcChannel *chantypes.IdentifiedChannel) error {
@@ -76,7 +78,7 @@ func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain
 	case toTimeOffset > 0:
 		timeoutHeight = 0
 	case toHeightOffset == 0 && toTimeOffset == 0:
-		timeoutHeight = clientHeight + 1000
+		timeoutHeight = clientHeight + defaultTimeoutOffset
 		timeoutTimestamp = 0
 	}
 

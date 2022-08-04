@@ -664,36 +664,27 @@ func (cc *CosmosProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.C
 }
 
 // MsgTransfer creates a new transfer message
-func (cc *CosmosProvider) MsgTransfer(dstAddr string, amount sdk.Coin, info provider.PacketInfo) (provider.RelayerMessage, error) {
-	var (
-		acc string
-		err error
-		msg sdk.Msg
-	)
-	if acc, err = cc.Address(); err != nil {
+func (cc *CosmosProvider) MsgTransfer(
+	dstAddr string,
+	amount sdk.Coin,
+	info provider.PacketInfo,
+) (provider.RelayerMessage, error) {
+	acc, err := cc.Address()
+	if err != nil {
 		return nil, err
+	}
+	msg := &transfertypes.MsgTransfer{
+		SourcePort:       info.SourcePort,
+		SourceChannel:    info.SourceChannel,
+		Token:            amount,
+		Sender:           acc,
+		Receiver:         dstAddr,
+		TimeoutTimestamp: info.TimeoutTimestamp,
 	}
 
 	// If the timeoutHeight is 0 then we don't need to explicitly set it on the MsgTransfer
-	if info.TimeoutHeight.RevisionHeight == 0 {
-		msg = &transfertypes.MsgTransfer{
-			SourcePort:       info.SourcePort,
-			SourceChannel:    info.SourceChannel,
-			Token:            amount,
-			Sender:           acc,
-			Receiver:         dstAddr,
-			TimeoutTimestamp: info.TimeoutTimestamp,
-		}
-	} else {
-		msg = &transfertypes.MsgTransfer{
-			SourcePort:       info.SourcePort,
-			SourceChannel:    info.SourceChannel,
-			Token:            amount,
-			Sender:           acc,
-			Receiver:         dstAddr,
-			TimeoutHeight:    info.TimeoutHeight,
-			TimeoutTimestamp: info.TimeoutTimestamp,
-		}
+	if info.TimeoutHeight.RevisionHeight != 0 {
+		msg.TimeoutHeight = info.TimeoutHeight
 	}
 
 	return NewCosmosMessage(msg), nil
