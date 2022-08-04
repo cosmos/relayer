@@ -1,7 +1,6 @@
 package cosmos
 
 import (
-	"context"
 	"fmt"
 
 	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
@@ -39,19 +38,6 @@ func (rp relayMsgTimeout) Timeout() clienttypes.Height {
 
 func (rp relayMsgTimeout) TimeoutStamp() uint64 {
 	return rp.timeoutStamp
-}
-
-func (rp relayMsgTimeout) FetchCommitResponse(ctx context.Context, dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
-	dstRecvRes, err := dst.QueryPacketReceipt(ctx, int64(queryHeight)-1, dstChanId, dstPortId, rp.seq)
-	switch {
-	case err != nil:
-		return err
-	case dstRecvRes.Proof == nil:
-		return fmt.Errorf("timeout packet receipt proof seq(%d) is nil", rp.seq)
-	default:
-		rp.dstRecvRes = dstRecvRes
-		return nil
-	}
 }
 
 func (rp relayMsgTimeout) Msg(src provider.ChainProvider, srcPortId, srcChanId, dstPortId, dstChanId string) (provider.RelayerMessage, error) {
@@ -116,21 +102,6 @@ func (rp relayMsgRecvPacket) Timeout() clienttypes.Height {
 
 func (rp relayMsgRecvPacket) TimeoutStamp() uint64 {
 	return rp.timeoutStamp
-}
-
-func (rp relayMsgRecvPacket) FetchCommitResponse(ctx context.Context, dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
-	dstCommitRes, err := dst.QueryPacketCommitment(ctx, int64(queryHeight)-1, dstChanId, dstPortId, rp.seq)
-	switch {
-	case err != nil:
-		return err
-	case dstCommitRes.Proof == nil:
-		return fmt.Errorf("recv packet commitment proof seq(%d) is nil", rp.seq)
-	case dstCommitRes.Commitment == nil:
-		return fmt.Errorf("recv packet commitment query seq(%d) is nil", rp.seq)
-	default:
-		rp.dstComRes = dstCommitRes
-		return nil
-	}
 }
 
 func (rp relayMsgRecvPacket) Msg(src provider.ChainProvider, srcPortId, srcChanId, dstPortId, dstChanId string) (provider.RelayerMessage, error) {
@@ -214,19 +185,4 @@ func (rp relayMsgPacketAck) Msg(src provider.ChainProvider, srcPortId, srcChanId
 	}
 
 	return NewCosmosMessage(msg), nil
-}
-
-func (rp relayMsgPacketAck) FetchCommitResponse(ctx context.Context, dst provider.ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error {
-	dstCommitRes, err := dst.QueryPacketAcknowledgement(ctx, int64(queryHeight)-1, dstChanId, dstPortId, rp.seq)
-	switch {
-	case err != nil:
-		return err
-	case dstCommitRes.Proof == nil:
-		return fmt.Errorf("ack packet acknowledgement proof seq(%d) is nil", rp.seq)
-	case dstCommitRes.Acknowledgement == nil:
-		return fmt.Errorf("ack packet acknowledgement query seq(%d) is nil", rp.seq)
-	default:
-		rp.dstComRes = dstCommitRes
-		return nil
-	}
 }
