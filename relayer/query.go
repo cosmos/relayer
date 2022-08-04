@@ -9,7 +9,6 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v4/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v4/modules/light-clients/07-tendermint/types"
@@ -77,42 +76,6 @@ func QueryClientStates(ctx context.Context,
 		}))
 	})
 	err = eg.Wait()
-	return
-}
-
-// QueryConnectionPair returns a pair of connection responses
-func QueryConnectionPair(ctx context.Context, src, dst *Chain, srcH, dstH int64) (srcConn, dstConn *conntypes.QueryConnectionResponse, err error) {
-	eg, egCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		var err error
-		srcConn, err = src.ChainProvider.QueryConnection(egCtx, srcH, src.ConnectionID())
-		return err
-	})
-	eg.Go(func() error {
-		var err error
-		dstConn, err = dst.ChainProvider.QueryConnection(egCtx, dstH, dst.ConnectionID())
-		return err
-	})
-	err = eg.Wait()
-	return
-}
-
-// QueryChannelPair returns a pair of channel responses
-func QueryChannelPair(ctx context.Context, src, dst *Chain, srcH, dstH int64, srcChanID, dstChanID, srcPortID, dstPortID string) (srcChan, dstChan *chantypes.QueryChannelResponse, err error) {
-	eg, egCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		var err error
-		srcChan, err = src.ChainProvider.QueryChannel(egCtx, srcH, srcChanID, srcPortID)
-		return err
-	})
-	eg.Go(func() error {
-		var err error
-		dstChan, err = dst.ChainProvider.QueryChannel(egCtx, dstH, dstChanID, dstPortID)
-		return err
-	})
-	if err = eg.Wait(); err != nil {
-		return nil, nil, err
-	}
 	return
 }
 
