@@ -43,7 +43,8 @@ func TestRelayerInProcess(t *testing.T) {
 
 // TestRelayerDocker runs the ibctest conformance tests against
 // the current state of this relayer implementation built in docker.
-func TestRelayerDocker(t *testing.T) {
+// Relayer runs using the event processor.
+func TestRelayerDockerEventProcessor(t *testing.T) {
 	relayeribctest.BuildRelayerImage(t)
 
 	rf := ibctest.NewBuiltinRelayerFactory(
@@ -52,6 +53,23 @@ func TestRelayerDocker(t *testing.T) {
 		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest"),
 		ibctestrelayer.ImagePull(false),
 		ibctestrelayer.StartupFlags("--processor", "events", "--block-history", "100"),
+	)
+
+	ibctestConformance(t, rf)
+}
+
+// TestRelayerDocker runs the ibctest conformance tests against
+// the current state of this relayer implementation built in docker.
+// Relayer runs using the event processor.
+func TestRelayerDockerLegacyProcessor(t *testing.T) {
+	relayeribctest.BuildRelayerImage(t)
+
+	rf := ibctest.NewBuiltinRelayerFactory(
+		ibc.CosmosRly,
+		zaptest.NewLogger(t),
+		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest"),
+		ibctestrelayer.ImagePull(false),
+		ibctestrelayer.StartupFlags("--processor", "legacy"),
 	)
 
 	ibctestConformance(t, rf)

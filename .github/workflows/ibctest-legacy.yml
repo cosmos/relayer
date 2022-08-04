@@ -1,4 +1,4 @@
-name: TESTING - ibctest conformance
+name: TESTING - ibctest conformance legacy processor
 
 on:
   pull_request:
@@ -27,4 +27,4 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: ibctest conformance tests
-        run: make ibctest-docker
+        run: make ibctest-docker-legacy
