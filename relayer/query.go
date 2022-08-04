@@ -3,12 +3,13 @@ package relayer
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/avast/retry-go/v4"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v4/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v4/modules/light-clients/07-tendermint/types"
@@ -31,42 +32,6 @@ func QueryLatestHeights(ctx context.Context, src, dst *Chain) (srch, dsth int64,
 		return err
 	})
 	err = eg.Wait()
-	return
-}
-
-// QueryConnectionPair returns a pair of connection responses
-func QueryConnectionPair(ctx context.Context, src, dst *Chain, srcH, dstH int64) (srcConn, dstConn *conntypes.QueryConnectionResponse, err error) {
-	eg, egCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		var err error
-		srcConn, err = src.ChainProvider.QueryConnection(egCtx, srcH, src.ConnectionID())
-		return err
-	})
-	eg.Go(func() error {
-		var err error
-		dstConn, err = dst.ChainProvider.QueryConnection(egCtx, dstH, dst.ConnectionID())
-		return err
-	})
-	err = eg.Wait()
-	return
-}
-
-// QueryChannelPair returns a pair of channel responses
-func QueryChannelPair(ctx context.Context, src, dst *Chain, srcH, dstH int64, srcChanID, dstChanID, srcPortID, dstPortID string) (srcChan, dstChan *chantypes.QueryChannelResponse, err error) {
-	eg, egCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		var err error
-		srcChan, err = src.ChainProvider.QueryChannel(egCtx, srcH, srcChanID, srcPortID)
-		return err
-	})
-	eg.Go(func() error {
-		var err error
-		dstChan, err = dst.ChainProvider.QueryChannel(egCtx, dstH, dstChanID, dstPortID)
-		return err
-	})
-	if err = eg.Wait(); err != nil {
-		return nil, nil, err
-	}
 	return
 }
 
@@ -228,58 +193,61 @@ func CastClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) 
 	return clientState, nil
 }
 
-//// QueryHistoricalInfo returns historical header data
-//func (c *Chain) QueryHistoricalInfo(height clienttypes.Height) (*stakingtypes.QueryHistoricalInfoResponse, error) {
-//	//TODO: use epoch number in query once SDK gets updated
-//	qc := stakingtypes.NewQueryClient(c.CLIContext(0))
-//	return qc.HistoricalInfo(context.Background(), &stakingtypes.QueryHistoricalInfoRequest{
-//		Height: int64(height.GetRevisionHeight()),
-//	})
-//}
-//
-//// QueryValsetAtHeight returns the validator set at a given height
-//func (c *Chain) QueryValsetAtHeight(height clienttypes.Height) (*tmproto.ValidatorSet, error) {
-//	res, err := c.QueryHistoricalInfo(height)
-//	if err != nil {
-//		return nil, fmt.Errorf("chain(%s): %s", c.ChainID, err)
-//	}
-//
-//	// create tendermint ValidatorSet from SDK Validators
-//	tmVals, err := c.toTmValidators(res.Hist.Valset)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	sort.Sort(tmtypes.ValidatorsByVotingPower(tmVals))
-//	tmValSet := &tmtypes.ValidatorSet{
-//		Validators: tmVals,
-//	}
-//	tmValSet.GetProposer()
-//
-//	return tmValSet.ToProto()
-//}
-//
-//func (c *Chain) toTmValidators(vals stakingtypes.Validators) ([]*tmtypes.Validator, error) {
-//	validators := make([]*tmtypes.Validator, len(vals))
-//	var err error
-//	for i, val := range vals {
-//		validators[i], err = c.toTmValidator(val)
-//		if err != nil {
-//			return nil, err
-//		}
-//	}
-//
-//	return validators, nil
-//}
-//
-//func (c *Chain) toTmValidator(val stakingtypes.Validator) (*tmtypes.Validator, error) {
-//	var pk cryptotypes.PubKey
-//	if err := c.Encoding.Marshaler.UnpackAny(val.ConsensusPubkey, &pk); err != nil {
-//		return nil, err
-//	}
-//	tmkey, err := cryptocodec.ToTmPubKeyInterface(pk)
-//	if err != nil {
-//		return nil, fmt.Errorf("pubkey not a tendermint pub key %s", err)
-//	}
-//	return tmtypes.NewValidator(tmkey, val.ConsensusPower(sdk.DefaultPowerReduction)), nil
-//}
+// QueryBalance is a helper function for query balance
+func QueryBalance(ctx context.Context, chain *Chain, address string, showDenoms bool) (sdk.Coins, error) {
+	coins, err := chain.ChainProvider.QueryBalanceWithAddress(ctx, address)
+	if err != nil {
+		return nil, err
+	}
+
+	if showDenoms {
+		return coins, nil
+	}
+
+	h, err := chain.ChainProvider.QueryLatestHeight(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	dts, err := chain.ChainProvider.QueryDenomTraces(ctx, 0, 1000, h)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(dts) == 0 {
+		return coins, nil
+	}
+
+	var out sdk.Coins
+	for _, c := range coins {
+		if c.Amount.Equal(sdk.NewInt(0)) {
+			continue
+		}
+
+		for i, d := range dts {
+			if strings.EqualFold(c.Denom, d.IBCDenom()) {
+				out = append(out, sdk.Coin{Denom: d.GetFullDenomPath(), Amount: c.Amount})
+				break
+			}
+
+			if i == len(dts)-1 {
+				out = append(out, c)
+			}
+		}
+	}
+	return out, nil
+}
+
+// QueryHeader is a helper function for query header
+func QueryHeader(ctx context.Context, chain *Chain, opts ...string) (ibcexported.Header, error) {
+	if len(opts) > 0 {
+		height, err := strconv.ParseInt(opts[0], 10, 64) //convert to int64
+		if err != nil {
+			return nil, err
+		}
+
+		return chain.ChainProvider.QueryHeaderAtHeight(ctx, height)
+	}
+
+	return chain.ChainProvider.GetLightSignedHeaderAtHeight(ctx, 0)
+}

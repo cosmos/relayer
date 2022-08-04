@@ -14,11 +14,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const (
-	REPOURL  = "https://github.com/cosmos/relayer"
-	PATHSURL = "https://github.com/cosmos/relayer/tree/main/interchain"
-)
-
 func pathsCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "paths",
