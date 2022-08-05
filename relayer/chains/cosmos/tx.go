@@ -639,7 +639,7 @@ func (cc *CosmosProvider) MsgRecvPacket(
 		return nil, err
 	}
 	msg := &chantypes.MsgRecvPacket{
-		Packet:          toCosmosPacket(msgTransfer),
+		Packet:          msgTransfer.Packet(),
 		ProofCommitment: proof.Proof,
 		ProofHeight:     proof.ProofHeight,
 		Signer:          signer,
@@ -676,7 +676,7 @@ func (cc *CosmosProvider) MsgAcknowledgement(
 		return nil, err
 	}
 	msg := &chantypes.MsgAcknowledgement{
-		Packet:          toCosmosPacket(msgRecvPacket),
+		Packet:          msgRecvPacket.Packet(),
 		Acknowledgement: msgRecvPacket.Ack,
 		ProofAcked:      proof.Proof,
 		ProofHeight:     proof.ProofHeight,
@@ -729,7 +729,7 @@ func (cc *CosmosProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof prov
 		return nil, err
 	}
 	assembled := &chantypes.MsgTimeout{
-		Packet:           toCosmosPacket(msgTransfer),
+		Packet:           msgTransfer.Packet(),
 		ProofUnreceived:  proof.Proof,
 		ProofHeight:      proof.ProofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,
@@ -745,7 +745,7 @@ func (cc *CosmosProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, pro
 		return nil, err
 	}
 	assembled := &chantypes.MsgTimeoutOnClose{
-		Packet:           toCosmosPacket(msgTransfer),
+		Packet:           msgTransfer.Packet(),
 		ProofUnreceived:  proof.Proof,
 		ProofHeight:      proof.ProofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,
