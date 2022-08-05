@@ -460,16 +460,3 @@ func (t *TimeoutOnCloseError) Error() string {
 func NewTimeoutOnCloseError(msg string) *TimeoutOnCloseError {
 	return &TimeoutOnCloseError{msg}
 }
-
-func ToIBCPacket(pi PacketInfo) chantypes.Packet {
-	return chantypes.Packet{
-		Sequence:           pi.Sequence,
-		SourcePort:         pi.SourcePort,
-		SourceChannel:      pi.SourceChannel,
-		DestinationPort:    pi.DestPort,
-		DestinationChannel: pi.DestChannel,
-		Data:               pi.Data,
-		TimeoutHeight:      pi.TimeoutHeight,
-		TimeoutTimestamp:   pi.TimeoutTimestamp,
-	}
-}
