@@ -45,6 +45,7 @@ func TestRelayerInProcess(t *testing.T) {
 // the current state of this relayer implementation built in docker.
 // Relayer runs using the event processor.
 func TestRelayerDockerEventProcessor(t *testing.T) {
+	t.Parallel()
 	relayeribctest.BuildRelayerImage(t)
 
 	rf := ibctest.NewBuiltinRelayerFactory(
@@ -60,8 +61,9 @@ func TestRelayerDockerEventProcessor(t *testing.T) {
 
 // TestRelayerDocker runs the ibctest conformance tests against
 // the current state of this relayer implementation built in docker.
-// Relayer runs using the event processor.
+// Relayer runs using the legacy processor.
 func TestRelayerDockerLegacyProcessor(t *testing.T) {
+	t.Parallel()
 	relayeribctest.BuildRelayerImage(t)
 
 	rf := ibctest.NewBuiltinRelayerFactory(
