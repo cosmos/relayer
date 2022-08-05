@@ -72,6 +72,12 @@ ibctest:
 ibctest-docker:
 	cd ibctest && go test -race -v -run TestRelayerDocker .
 
+ibctest-docker-events:
+	cd ibctest && go test -race -v -run TestRelayerDockerEventProcessor .
+
+ibctest-docker-legacy:
+	cd ibctest && go test -race -v -run TestRelayerDockerLegacyProcessor .
+
 coverage:
 	@echo "viewing test coverage..."
 	@go tool cover --html=coverage.out
