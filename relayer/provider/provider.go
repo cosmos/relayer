@@ -12,7 +12,6 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v4/modules/core/exported"
 	"github.com/gogo/protobuf/proto"
-	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -49,7 +48,6 @@ type IBCHeader interface {
 	Height() uint64
 	ConsensusState() ibcexported.ConsensusState
 	// require conversion implementation for third party chains
-	ToCosmosValidatorSet() (*tmtypes.ValidatorSet, error)
 }
 
 // ClientState holds the current state of a client from a single chain's perspective

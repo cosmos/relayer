@@ -113,10 +113,6 @@ func (h CosmosIBCHeader) ConsensusState() ibcexported.ConsensusState {
 	}
 }
 
-func (h CosmosIBCHeader) ToCosmosValidatorSet() (*tmtypes.ValidatorSet, error) {
-	return h.ValidatorSet, nil
-}
-
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {
 	return cc.PCfg
 }
