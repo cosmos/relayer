@@ -1,0 +1,6 @@
+sudo systemctl stop relayerd
+sudo systemctl disable relayerd
+sudo rm /etc/systemd/system/relayerd* -rf
+sudo rm $(which rly) -rf
+sudo rm -rf $HOME/.relayer
+sudo rm -rf $HOME/relayer
