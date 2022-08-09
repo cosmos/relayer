@@ -41,6 +41,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 - [Troubleshooting](./docs/troubleshooting.md)
 - [Features](./docs/features.md)
 - [Relayer Terminology](./docs/terminology.md)
+- [New Chain Implementation](./docs/chain_implementation.md)
 - [Recommended Pruning Settings](./docs/node_pruning.md)
 - [Demo](./docs/demo.md)
 
