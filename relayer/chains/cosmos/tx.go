@@ -1432,11 +1432,50 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 		return nil, fmt.Errorf("trying to inject fields into non-tendermint headers")
 	}
 
-	// retrieve dst client from src chain
-	// this is the client that will be updated
-	cs, err := dst.QueryClientState(ctx, int64(h.TrustedHeight.RevisionHeight), dstClientId)
+	// Construct a new config that points to a node from pre-chain halt.
+	cfg := CosmosProviderConfig{
+		Key:            "default",
+		ChainName:      "juno",
+		ChainID:        "juno-1",
+		RPCAddr:        "https://rpc-v3-archive.junonetwork.io:443",
+		AccountPrefix:  "juno",
+		KeyringBackend: "test",
+		GasAdjustment:  1.2,
+		GasPrices:      "0.0025",
+		Debug:          true,
+		Timeout:        "10s",
+		OutputFormat:   "json",
+		SignModeStr:    "direct",
+	}
+
+	// Build our new provider
+	tmpProvider, err := cfg.NewProvider(cc.log, "~/.relayer/", true, "juno")
 	if err != nil {
 		return nil, err
+	}
+
+	err = tmpProvider.Init()
+	if err != nil {
+		return nil, err
+	}
+
+	// Retrieve the dst chain's client state from the source chain,
+	// this is the client that will be updated.
+	var cs ibcexported.ClientState
+	chainHaltHeight := uint64(4136531)
+
+	if h.TrustedHeight.RevisionHeight <= chainHaltHeight && dst.ChainId() == "juno-1" {
+		cs, err = tmpProvider.QueryClientState(ctx, int64(h.TrustedHeight.RevisionHeight), dstClientId)
+		if err != nil {
+			cc.log.Info("Failed to query client state on our newly constructed provider", zap.String("chain_id", tmpProvider.ChainId()))
+			return nil, err
+		}
+	} else {
+		cs, err = dst.QueryClientState(ctx, int64(h.TrustedHeight.RevisionHeight), dstClientId)
+		if err != nil {
+			cc.log.Info("Failed to query client state on dst", zap.String("chain_id", dst.ChainId()))
+			return nil, err
+		}
 	}
 
 	// inject TrustedHeight as latest height stored on dst client
@@ -1450,9 +1489,18 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 	// place where we need to fix the upstream query proof issue?
 	var trustedHeader *tmclient.Header
 	if err := retry.Do(func() error {
-		tmpHeader, err := cc.GetLightSignedHeaderAtHeight(ctx, int64(h.TrustedHeight.RevisionHeight+1))
-		if err != nil {
-			return err
+		var tmpHeader ibcexported.Header
+
+		if h.TrustedHeight.RevisionHeight <= chainHaltHeight && cc.ChainId() == "juno-1" {
+			tmpHeader, err = tmpProvider.GetLightSignedHeaderAtHeight(ctx, int64(h.TrustedHeight.RevisionHeight+1))
+			if err != nil {
+				return err
+			}
+		} else {
+			tmpHeader, err = cc.GetLightSignedHeaderAtHeight(ctx, int64(h.TrustedHeight.RevisionHeight+1))
+			if err != nil {
+				return err
+			}
 		}
 
 		th, ok := tmpHeader.(*tmclient.Header)
