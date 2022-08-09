@@ -1046,7 +1046,15 @@ func castClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) 
 //DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
 var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 
-func (cc *CosmosProvider) NewClientState(dstChainID string, dstUpdateHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
+// NewClientState creates a new tendermint client state tracking the dst chain.
+func (cc *CosmosProvider) NewClientState(
+	dstChainID string,
+	dstUpdateHeader provider.IBCHeader,
+	dstTrustingPeriod,
+	dstUbdPeriod time.Duration,
+	allowUpdateAfterExpiry,
+	allowUpdateAfterMisbehaviour bool,
+) (ibcexported.ClientState, error) {
 	revisionNumber := clienttypes.ParseChainID(dstChainID)
 
 	// Create the ClientState we want on 'c' tracking 'dst'

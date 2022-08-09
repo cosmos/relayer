@@ -91,7 +91,16 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	return modifiedSrc || modifiedDst, nil
 }
 
-func CreateClient(ctx context.Context, src, dst *Chain, srcUpdateHeader, dstUpdateHeader provider.IBCHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool, customClientTrustingPeriod time.Duration, memo string) (bool, error) {
+// CreateClient creates client tracking dst on src.
+func CreateClient(
+	ctx context.Context,
+	src, dst *Chain,
+	srcUpdateHeader, dstUpdateHeader provider.IBCHeader,
+	allowUpdateAfterExpiry bool,
+	allowUpdateAfterMisbehaviour bool,
+	override bool,
+	customClientTrustingPeriod time.Duration,
+	memo string) (bool, error) {
 	// If a client ID was specified in the path, ensure it exists.
 	if src.PathEnd.ClientID != "" {
 		// TODO: check client is not expired
@@ -267,7 +276,7 @@ func MsgUpdateClient(
 			var err error
 			srcHeader, err = src.ChainProvider.QueryIBCHeader(egCtx, srch)
 			return err
-		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.log.Info(
 				"Failed to query IBC header when building update client message",
 				zap.String("client_id", dst.ClientID()),
@@ -282,7 +291,7 @@ func MsgUpdateClient(
 			var err error
 			dstTrustedHeader, err = src.ChainProvider.QueryIBCHeader(egCtx, int64(dstClientState.GetLatestHeight().GetRevisionHeight())+1)
 			return err
-		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.log.Info(
 				"Failed to query IBC header when building update client message",
 				zap.String("client_id", dst.ClientID()),
@@ -318,19 +327,19 @@ func MsgUpdateClient(
 	return dst.ChainProvider.MsgUpdateClient(dst.ClientID(), updateHeader)
 }
 
-// UpdateClients updates clients for src on dst and dst on src given the configured paths
+// UpdateClients updates clients for src on dst and dst on src given the configured paths.
 func UpdateClients(
 	ctx context.Context,
 	src, dst *Chain,
 	memo string,
-) (err error) {
+) error {
 	srch, dsth, err := QueryLatestHeights(ctx, src, dst)
 	if err != nil {
 		return err
 	}
 
 	var srcMsgUpdateClient, dstMsgUpdateClient provider.RelayerMessage
-	eg, egCtx := errgroup.WithContext(ctx) // New errgroup because previous egCtx is canceled at this point.
+	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		var err error
 		srcMsgUpdateClient, err = MsgUpdateClient(egCtx, dst, src, dsth, srch)
@@ -377,7 +386,9 @@ func UpdateClients(
 	return nil
 }
 
-// UpgradeClients upgrades the client on dst after src chain has undergone an upgrade.
+// UpgradeClient upgrades the client on dst after src chain has undergone an upgrade.
+// If height is zero, will use the latest height of the source chain.
+// If height is non-zero, it will be used for queries on the source chain.
 func UpgradeClient(
 	ctx context.Context,
 	src, dst *Chain,
