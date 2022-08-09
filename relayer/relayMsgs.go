@@ -10,6 +10,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/sync/errgroup"
 )
 
 // RelayMsgs contains the msgs that need to be sent to both a src and dst chain
@@ -35,6 +36,36 @@ func (r *RelayMsgs) Ready() bool {
 		return false
 	}
 	return true
+}
+
+func (r *RelayMsgs) PrependMsgUpdateClient(
+	ctx context.Context,
+	src, dst *Chain,
+	srch, dsth int64,
+) error {
+	eg, egCtx := errgroup.WithContext(ctx)
+	if len(r.Src) > 0 {
+		eg.Go(func() error {
+			srcMsgUpdateClient, err := MsgUpdateClient(egCtx, dst, src, dsth, srch)
+			if err != nil {
+				return err
+			}
+			r.Src = append([]provider.RelayerMessage{srcMsgUpdateClient}, r.Src...)
+			return nil
+		})
+	}
+	if len(r.Dst) > 0 {
+		eg.Go(func() error {
+			dstMsgUpdateClient, err := MsgUpdateClient(egCtx, src, dst, srch, dsth)
+			if err != nil {
+				return err
+			}
+			r.Dst = append([]provider.RelayerMessage{dstMsgUpdateClient}, r.Dst...)
+			return nil
+		})
+	}
+
+	return eg.Wait()
 }
 
 func (r *RelayMsgs) IsMaxTx(msgLen, txSize uint64) bool {
