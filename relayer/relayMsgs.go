@@ -43,7 +43,7 @@ func (r *RelayMsgs) PrependMsgUpdateClient(
 	src, dst *Chain,
 	srch, dsth int64,
 ) error {
-	eg, egCtx := errgroup.WithContext(ctx) // New errgroup because previous egCtx is canceled at this point.
+	eg, egCtx := errgroup.WithContext(ctx)
 	if len(r.Src) > 0 {
 		eg.Go(func() error {
 			srcMsgUpdateClient, err := MsgUpdateClient(egCtx, dst, src, dsth, srch)

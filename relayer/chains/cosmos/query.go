@@ -34,9 +34,9 @@ import (
 var _ provider.QueryProvider = &CosmosProvider{}
 
 // queryIBCMessages returns an array of IBC messages given a tag
-func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger, page, limit int, events []string) ([]ibcMessage, error) {
-	if len(events) == 0 {
-		return nil, errors.New("must declare at least one event to search")
+func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger, page, limit int, query string) ([]ibcMessage, error) {
+	if query == "" {
+		return nil, errors.New("query string must be provided")
 	}
 
 	if page <= 0 {
@@ -47,7 +47,7 @@ func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger,
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	res, err := cc.RPCClient.TxSearch(ctx, strings.Join(events, " AND "), true, &page, &limit, "")
+	res, err := cc.RPCClient.TxSearch(ctx, query, true, &page, &limit, "")
 	if err != nil {
 		return nil, err
 	}
@@ -690,20 +690,22 @@ func (cc *CosmosProvider) QueryUnreceivedPackets(ctx context.Context, height uin
 	return res.Sequences, nil
 }
 
-func sendPacketQuery(channelID string, portID string, seq uint64) []string {
-	return []string{
+func sendPacketQuery(channelID string, portID string, seq uint64) string {
+	x := []string{
 		fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
 		fmt.Sprintf("%s.packet_src_port='%s'", spTag, portID),
 		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq),
 	}
+	return strings.Join(x, " AND ")
 }
 
-func writeAcknowledgementQuery(channelID string, portID string, seq uint64) []string {
-	return []string{
+func writeAcknowledgementQuery(channelID string, portID string, seq uint64) string {
+	x := []string{
 		fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
 		fmt.Sprintf("%s.packet_dst_port='%s'", waTag, portID),
 		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq),
 	}
+	return strings.Join(x, " AND ")
 }
 
 func (cc *CosmosProvider) QuerySendPacket(
@@ -712,7 +714,8 @@ func (cc *CosmosProvider) QuerySendPacket(
 	srcPortID string,
 	sequence uint64,
 ) (provider.PacketInfo, error) {
-	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, sendPacketQuery(srcChanID, srcPortID, sequence))
+	q := sendPacketQuery(srcChanID, srcPortID, sequence)
+	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q)
 	if err != nil {
 		return provider.PacketInfo{}, err
 	}
@@ -723,7 +726,7 @@ func (cc *CosmosProvider) QuerySendPacket(
 			}
 		}
 	}
-	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for send_packet query")
+	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for send_packet query: %s", q)
 }
 
 func (cc *CosmosProvider) QueryRecvPacket(
@@ -732,7 +735,8 @@ func (cc *CosmosProvider) QueryRecvPacket(
 	dstPortID string,
 	sequence uint64,
 ) (provider.PacketInfo, error) {
-	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, writeAcknowledgementQuery(dstChanID, dstPortID, sequence))
+	q := writeAcknowledgementQuery(dstChanID, dstPortID, sequence)
+	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q)
 	if err != nil {
 		return provider.PacketInfo{}, err
 	}
@@ -743,7 +747,7 @@ func (cc *CosmosProvider) QueryRecvPacket(
 			}
 		}
 	}
-	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for write_acknowledgement query")
+	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for write_acknowledgement query: %s", q)
 }
 
 // QueryUnreceivedAcknowledgements returns a list of unrelayed packet acks

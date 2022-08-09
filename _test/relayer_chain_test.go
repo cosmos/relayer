@@ -299,7 +299,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 
 	tmHeader, ok := header.(cosmos.CosmosIBCHeader)
 	if !ok {
-		t.Fatalf("got data of type %T but wanted cosmos.CosmosIBCHeader \n", header)
+		t.Fatalf("got data of type %T but wanted cosmos.CosmosIBCHeader", header)
 	}
 	validator := tmtypes.NewValidator(pubKey, tmHeader.ValidatorSet.Proposer.VotingPower)
 	valSet := tmtypes.NewValidatorSet([]*tmtypes.Validator{validator})

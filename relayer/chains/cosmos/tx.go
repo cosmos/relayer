@@ -278,8 +278,11 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 	return txBytes, nil
 }
 
-// CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (cc *CosmosProvider) MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (provider.RelayerMessage, error) {
+// MsgCreateClient creates an sdk.Msg to update the client on src with consensus state from dst
+func (cc *CosmosProvider) MsgCreateClient(
+	clientState ibcexported.ClientState,
+	consensusState ibcexported.ConsensusState,
+) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -940,6 +943,7 @@ func (cc *CosmosProvider) AcknowledgementFromSequence(ctx context.Context, dst p
 	return msg, nil
 }
 
+// QueryIBCHeader returns the IBC compatible block header (CosmosIBCHeader) at a specific height.
 func (cc *CosmosProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
 	if h == 0 {
 		return nil, fmt.Errorf("height cannot be 0")

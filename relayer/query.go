@@ -38,16 +38,21 @@ func QueryLatestHeights(ctx context.Context, src, dst *Chain) (srch, dsth int64,
 func QueryClientStates(ctx context.Context,
 	srch, dsth int64,
 	src, dst *Chain,
-) (srcClientState ibcexported.ClientState, dstClientState ibcexported.ClientState, err error) {
+) (ibcexported.ClientState, ibcexported.ClientState, error) {
+	var (
+		srcClientState ibcexported.ClientState
+		dstClientState ibcexported.ClientState
+	)
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		return retry.Do(func() error {
+			var err error
 			srcClientState, err = src.ChainProvider.QueryClientState(egCtx, srch, src.ClientID())
 			if err != nil {
 				return err
 			}
 			return nil
-		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.log.Info(
 				"Failed to query client state when updating clients",
 				zap.String("client_id", src.ClientID()),
@@ -60,12 +65,13 @@ func QueryClientStates(ctx context.Context,
 
 	eg.Go(func() error {
 		return retry.Do(func() error {
+			var err error
 			dstClientState, err = dst.ChainProvider.QueryClientState(egCtx, dsth, dst.ClientID())
 			if err != nil {
 				return err
 			}
 			return nil
-		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			dst.log.Info(
 				"Failed to query client state when updating clients",
 				zap.String("client_id", dst.ClientID()),
@@ -75,8 +81,10 @@ func QueryClientStates(ctx context.Context,
 			)
 		}))
 	})
-	err = eg.Wait()
-	return
+	if err := eg.Wait(); err != nil {
+		return nil, nil, err
+	}
+	return srcClientState, dstClientState, nil
 }
 
 func QueryChannel(ctx context.Context, src *Chain, channelID string) (*chantypes.IdentifiedChannel, error) {

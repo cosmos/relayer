@@ -383,7 +383,7 @@ func UpgradeClient(
 	src, dst *Chain,
 	height int64,
 	memo string,
-) (err error) {
+) error {
 	srch, dsth, err := QueryLatestHeights(ctx, src, dst)
 	if err != nil {
 		return err
@@ -393,19 +393,30 @@ func UpgradeClient(
 		srch = height
 	}
 
-	updateMsg, err := MsgUpdateClient(ctx, src, dst, srch, dsth)
-	if err != nil {
-		return err
-	}
+	var eg errgroup.Group
 
-	// query proofs on counterparty
-	clientRes, err := src.ChainProvider.QueryUpgradedClient(ctx, srch)
-	if err != nil {
+	var clientRes *clienttypes.QueryClientStateResponse
+	eg.Go(func() error {
+		var err error
+		clientRes, err = src.ChainProvider.QueryUpgradedClient(ctx, srch)
 		return err
-	}
+	})
 
-	consRes, err := src.ChainProvider.QueryUpgradedConsState(ctx, srch)
-	if err != nil {
+	var consRes *clienttypes.QueryConsensusStateResponse
+	eg.Go(func() error {
+		var err error
+		consRes, err = src.ChainProvider.QueryUpgradedConsState(ctx, srch)
+		return err
+	})
+
+	var updateMsg provider.RelayerMessage
+	eg.Go(func() error {
+		var err error
+		updateMsg, err = MsgUpdateClient(ctx, src, dst, srch, dsth)
+		return err
+	})
+
+	if err := eg.Wait(); err != nil {
 		return err
 	}
 
