@@ -78,19 +78,19 @@ func tendermintMatcher(ctx context.Context, src, dst ChainProvider, existingClie
 		}
 
 		// Construct a header for the consensus state of the counterparty chain.
-		header, err := dst.GetLightSignedHeaderAtHeight(ctx, int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
+		ibcHeader, err := dst.QueryIBCHeader(ctx, int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
 		if err != nil {
 			return "", err
 		}
 
-		tmHeader, ok := header.(*tmclient.Header)
+		consensusState, ok := ibcHeader.ConsensusState().(*tmclient.ConsensusState)
 		if !ok {
-			return "", fmt.Errorf("got type(%T) expected type(*tmclient.Header)", header)
+			return "", fmt.Errorf("got type(%T) expected type(*tmclient.ConsensusState)", consensusState)
 		}
 
 		// Determine if the existing consensus state on src for the potential matching client is identical
 		// to the consensus state of the counterparty chain.
-		if isMatchingTendermintConsensusState(existingConsensusState, tmHeader.ConsensusState()) {
+		if isMatchingTendermintConsensusState(existingConsensusState, consensusState) {
 			return existingClientID, nil // found matching client
 		}
 	}

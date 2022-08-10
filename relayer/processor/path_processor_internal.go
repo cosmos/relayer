@@ -369,7 +369,7 @@ func (pp *PathProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *
 			return nil, fmt.Errorf("observed client trusted height: %d does not equal latest client state height: %d",
 				trustedConsensusHeight.RevisionHeight, clientConsensusHeight.RevisionHeight)
 		}
-		header, err := src.chainProvider.IBCHeaderAtHeight(ctx, int64(clientConsensusHeight.RevisionHeight+1))
+		header, err := src.chainProvider.QueryIBCHeader(ctx, int64(clientConsensusHeight.RevisionHeight+1))
 		if err != nil {
 			return nil, fmt.Errorf("error getting IBC header at height: %d for chain_id: %s, %w", clientConsensusHeight.RevisionHeight+1, src.info.ChainID, err)
 		}
