@@ -10,7 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/relayer/v2/cmd"
 	"github.com/cosmos/relayer/v2/internal/relayertest"
-	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/strangelove-ventures/ibctest/ibc"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -222,6 +222,25 @@ func (r *Relayer) start(ctx context.Context, pathName string) {
 }
 
 func (r *Relayer) UseDockerNetwork() bool { return false }
+
+func (r *Relayer) Exec(ctx context.Context, _ ibc.RelayerExecReporter, cmd, env []string) ibc.RelayerExecResult {
+	// TODO: env would be ignored for now.
+	// We may want to modify the call to sys() to accept environment overrides,
+	// so this relayer can continue to be used in parallel without environment cross-contamination.
+	res := r.sys().RunC(ctx, r.log(), cmd...)
+
+	exitCode := 0
+	if res.Err != nil {
+		exitCode = 1
+	}
+
+	return ibc.RelayerExecResult{
+		Err:      res.Err,
+		ExitCode: exitCode,
+		Stdout:   res.Stdout.Bytes(),
+		Stderr:   res.Stderr.Bytes(),
+	}
+}
 
 func (r *Relayer) FlushAcknowledgements(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, channelID string) error {
 	res := r.sys().RunC(ctx, r.log(), "tx", "relay-acks", pathName, channelID)

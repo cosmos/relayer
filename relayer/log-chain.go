@@ -3,12 +3,11 @@ package relayer
 import (
 	"fmt"
 
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"go.uber.org/zap"
 
-	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 )
 
 func logFailedTx(log *zap.Logger, chainID string, res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
@@ -65,36 +64,6 @@ func (c *Chain) logPacketsRelayed(dst *Chain, num int, srcChannel *chantypes.Ide
 		zap.String("from_port_id", srcChannel.Counterparty.PortId),
 		zap.String("to_chain_id", c.ChainID()),
 		zap.String("to_port_id", srcChannel.PortId),
-	)
-}
-
-func logChannelStates(src, dst *Chain, srcChan, dstChan *chantypes.QueryChannelResponse) {
-	src.log.Debug(
-		"Channel states",
-		zap.String("src_chain_id", src.ChainID()),
-		zap.Stringer("src_channel_proof_height", MustGetHeight(srcChan.ProofHeight)),
-		zap.String("src_channel_id", dstChan.Channel.Counterparty.ChannelId),
-		zap.Stringer("src_channel_state", srcChan.Channel.State),
-
-		zap.String("dst_chain_id", dst.ChainID()),
-		zap.Stringer("dst_channel_proof_height", MustGetHeight(dstChan.ProofHeight)),
-		zap.String("dst_channel_id", srcChan.Channel.Counterparty.ChannelId),
-		zap.Stringer("dst_channel_state", dstChan.Channel.State),
-	)
-}
-
-func logConnectionStates(src, dst *Chain, srcConn, dstConn *conntypes.QueryConnectionResponse) {
-	src.log.Debug(
-		"Connection states",
-		zap.String("src_chain_id", src.ChainID()),
-		zap.Stringer("src_conn_proof_height", MustGetHeight(srcConn.ProofHeight)),
-		zap.String("src_conn_id", src.ConnectionID()),
-		zap.Stringer("src_conn_state", srcConn.Connection.State),
-
-		zap.String("dst_chain_id", dst.ChainID()),
-		zap.Stringer("dst_conn_proof_height", MustGetHeight(dstConn.ProofHeight)),
-		zap.String("dst_conn_id", dst.ConnectionID()),
-		zap.Stringer("dst_conn_state", dstConn.Connection.State),
 	)
 }
 

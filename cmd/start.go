@@ -20,22 +20,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"net"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/relayer/v2/internal/relaydebug"
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 )
 
 // startCmd represents the start command
-// NOTE: This is basically pseudocode
 func startCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "start path_name",
@@ -47,7 +43,8 @@ $ %s start demo-path -p events # to use event processor
 $ %s start demo-path --max-msgs 3
 $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			pathName := args[0]
+			c, src, dst, err := a.Config.ChainsFromPath(pathName)
 			if err != nil {
 				return err
 			}
@@ -56,7 +53,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 				return err
 			}
 
-			path := a.Config.Paths.MustGet(args[0])
+			path := a.Config.Paths.MustGet(pathName)
 
 			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
 			if err != nil {
@@ -64,6 +61,8 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 			}
 
 			filter := path.Filter
+
+			var prometheusMetrics *processor.PrometheusMetrics
 
 			debugAddr, err := cmd.Flags().GetString(flagDebugAddr)
 			if err != nil {
@@ -80,6 +79,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 				log := a.Log.With(zap.String("sys", "debughttp"))
 				log.Info("Debug server listening", zap.String("addr", debugAddr))
 				relaydebug.StartDebugServer(cmd.Context(), log, ln)
+				prometheusMetrics = processor.NewPrometheusMetrics()
 			}
 
 			processorType, err := cmd.Flags().GetString(flagProcessor)
@@ -91,48 +91,17 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 				return err
 			}
 
-			rlyErrCh := relayer.StartRelayer(cmd.Context(), a.Log, c[src], c[dst], filter, maxTxSize, maxMsgLength, a.Config.memo(cmd), processorType, initialBlockHistory)
-
-			// NOTE: This block of code is useful for ensuring that the clients tracking each chain do not expire
-			// when there are no packets flowing across the channels. It is currently a source of errors that have been
-			// hard to rectify, so we are just avoiding this code path for now
-			if false {
-				thresholdTime := a.Viper.GetDuration(flagThresholdTime)
-				eg, egCtx := errgroup.WithContext(cmd.Context())
-
-				eg.Go(func() error {
-					for {
-						var timeToExpiry time.Duration
-						if err = retry.Do(func() error {
-							timeToExpiry, err = UpdateClientsFromChains(egCtx, c[src], c[dst], thresholdTime)
-							return err
-						}, retry.Context(egCtx), retry.Attempts(5), retry.Delay(time.Millisecond*500), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
-							a.Log.Info(
-								"Failed to update clients from chains",
-								zap.String("src_chain_id", c[src].ChainID()),
-								zap.String("dst_chain_id", c[dst].ChainID()),
-								zap.Uint("attempt", n+1),
-								zap.Uint("max_attempts", relayer.RtyAttNum),
-								zap.Error(err),
-							)
-						})); err != nil {
-							return err
-						}
-						select {
-						case <-time.After(timeToExpiry - thresholdTime):
-							// Nothing to do.
-						case <-egCtx.Done():
-							return egCtx.Err()
-						}
-					}
-				})
-				if err = eg.Wait(); err != nil {
-					a.Log.Warn(
-						"Error updating clients",
-						zap.Error(err),
-					)
-				}
-			}
+			rlyErrCh := relayer.StartRelayer(
+				cmd.Context(),
+				a.Log,
+				c[src], c[dst],
+				filter,
+				maxTxSize, maxMsgLength,
+				a.Config.memo(cmd),
+				processorType, initialBlockHistory,
+				pathName,
+				prometheusMetrics,
+			)
 
 			// Block until the error channel sends a message.
 			// The context being canceled will cause the relayer to stop,
@@ -155,43 +124,6 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 	cmd = initBlockFlag(a.Viper, cmd)
 	cmd = memoFlag(a.Viper, cmd)
 	return cmd
-}
-
-// UpdateClientsFromChains takes src, dst chains, threshold time and update clients based on expiry time
-func UpdateClientsFromChains(ctx context.Context, src, dst *relayer.Chain, thresholdTime time.Duration) (time.Duration, error) {
-	var (
-		srcTimeExpiry, dstTimeExpiry time.Duration
-		err                          error
-	)
-
-	eg, egCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		var err error
-		srcTimeExpiry, err = src.ChainProvider.AutoUpdateClient(egCtx, dst.ChainProvider, thresholdTime, src.ClientID(), dst.ClientID())
-		return err
-	})
-	eg.Go(func() error {
-		var err error
-		dstTimeExpiry, err = dst.ChainProvider.AutoUpdateClient(egCtx, src.ChainProvider, thresholdTime, dst.ClientID(), src.ClientID())
-		return err
-	})
-	if err = eg.Wait(); err != nil {
-		return 0, err
-	}
-
-	if srcTimeExpiry <= 0 {
-		return 0, fmt.Errorf("client (%s) of chain: %s is expired",
-			src.PathEnd.ClientID, src.ChainID())
-	}
-
-	if dstTimeExpiry <= 0 {
-		return 0, fmt.Errorf("client (%s) of chain: %s is expired",
-			dst.PathEnd.ClientID, dst.ChainID())
-	}
-
-	minTimeExpiry := math.Min(float64(srcTimeExpiry), float64(dstTimeExpiry))
-
-	return time.Duration(int64(minTimeExpiry)), nil
 }
 
 // GetStartOptions sets strategy specific fields.

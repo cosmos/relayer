@@ -6,11 +6,11 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
+	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -45,8 +45,9 @@ type LatestBlock struct {
 }
 
 type IBCHeader interface {
-	IBCHeaderIndicator()
 	Height() uint64
+	ConsensusState() ibcexported.ConsensusState
+	// require conversion implementation for third party chains
 }
 
 // ClientState holds the current state of a client from a single chain's perspective
@@ -76,6 +77,19 @@ type PacketInfo struct {
 	TimeoutHeight    clienttypes.Height
 	TimeoutTimestamp uint64
 	Ack              []byte
+}
+
+func (pi PacketInfo) Packet() chantypes.Packet {
+	return chantypes.Packet{
+		Sequence:           pi.Sequence,
+		SourcePort:         pi.SourcePort,
+		SourceChannel:      pi.SourceChannel,
+		DestinationPort:    pi.DestPort,
+		DestinationChannel: pi.DestChannel,
+		Data:               pi.Data,
+		TimeoutHeight:      pi.TimeoutHeight,
+		TimeoutTimestamp:   pi.TimeoutTimestamp,
+	}
 }
 
 // ConnectionInfo contains relevant properties from connection handshake messages
@@ -176,18 +190,15 @@ type ChainProvider interface {
 	KeyProvider
 
 	Init() error
-	CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header, signer string) (RelayerMessage, error)
-	SubmitMisbehavior( /*TODO TBD*/ ) (RelayerMessage, error)
-	ConnectionOpenInit(srcClientId, dstClientId string, dstHeader ibcexported.Header) ([]RelayerMessage, error)
-	ConnectionOpenTry(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, dstClientId, srcConnId, dstConnId string) ([]RelayerMessage, error)
-	ConnectionOpenAck(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]RelayerMessage, error)
-	ConnectionOpenConfirm(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]RelayerMessage, error)
-	ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.Header) ([]RelayerMessage, error)
-	ChannelOpenTry(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]RelayerMessage, error)
-	ChannelOpenAck(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]RelayerMessage, error)
-	ChannelOpenConfirm(ctx context.Context, dstQueryProvider QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChannId string) ([]RelayerMessage, error)
-	ChannelCloseInit(srcPortId, srcChanId string) (RelayerMessage, error)
-	ChannelCloseConfirm(ctx context.Context, dstQueryProvider QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (RelayerMessage, error)
+
+	// [Begin] Client IBC message assembly functions
+	NewClientState(dstChainID string, dstIBCHeader IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
+
+	MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (RelayerMessage, error)
+
+	MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (RelayerMessage, error)
+	// MsgSubmitMisbehavior(/*TODO*/)
+	// [End] Client IBC message assembly functions
 
 	// ValidatePacket makes sure packet is valid to be relayed.
 	// It should return TimeoutHeightError, TimeoutTimestampError, or TimeoutOnCloseError
@@ -211,6 +222,9 @@ type ChainProvider interface {
 	// for a given counterparty channel. This is used in ORDERED channels to ensure packets are being delivered in the
 	// exact same order as they were sent over the wire.
 	NextSeqRecv(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
+
+	// MsgTransfer constructs a MsgTransfer message ready to write to the chain.
+	MsgTransfer(dstAddr string, amount sdk.Coin, info PacketInfo) (RelayerMessage, error)
 
 	// MsgRecvPacket takes the packet information from a MsgTransfer along with the packet commitment,
 	// and assembles a full MsgRecvPacket ready to write to the chain.
@@ -309,24 +323,13 @@ type ChainProvider interface {
 
 	// [End] Client IBC message assembly
 
-	// TODO remove these message assembly functions in favor of the above.
-	MsgRelayAcknowledgement(ctx context.Context, dst ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet RelayPacket) (RelayerMessage, error)
-	MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanId string, timeoutHeight, timeoutTimestamp uint64) (RelayerMessage, error)
-	MsgRelayTimeout(ctx context.Context, dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string, order chantypes.Order) (RelayerMessage, error)
-	MsgRelayRecvPacket(ctx context.Context, dst ChainProvider, dsth int64, packet RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
-	MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (RelayerMessage, error)
-	RelayPacketFromSequence(ctx context.Context, src, dst ChainProvider, srch, dsth, seq uint64, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string, order chantypes.Order) (RelayerMessage, RelayerMessage, error)
-	AcknowledgementFromSequence(ctx context.Context, dst ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (RelayerMessage, error)
+	// Query heavy relay methods. Only used for flushing old packets.
+
+	RelayPacketFromSequence(ctx context.Context, src ChainProvider, srch, dsth, seq uint64, srcChanID, srcPortID string, order chantypes.Order) (RelayerMessage, RelayerMessage, error)
+	AcknowledgementFromSequence(ctx context.Context, dst ChainProvider, dsth, seq uint64, dstChanID, dstPortID, srcChanID, srcPortID string) (RelayerMessage, error)
 
 	SendMessage(ctx context.Context, msg RelayerMessage, memo string) (*RelayerTxResponse, bool, error)
 	SendMessages(ctx context.Context, msgs []RelayerMessage, memo string) (*RelayerTxResponse, bool, error)
-
-	// TODO consolidate with IBCHeaderAtHeight
-	GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error)
-	GetIBCUpdateHeader(ctx context.Context, srch int64, dst ChainProvider, dstClientId string) (ibcexported.Header, error)
-
-	// IBCHeaderAtHeight returns the IBC compatible block header at a specific height.
-	IBCHeaderAtHeight(ctx context.Context, h int64) (IBCHeader, error)
 
 	ChainName() string
 	ChainId() string
@@ -343,11 +346,17 @@ type ChainProvider interface {
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?
 type QueryProvider interface {
 	// chain
-	BlockTime(ctx context.Context, height int64) (int64, error)
+	BlockTime(ctx context.Context, height int64) (time.Time, error)
 	QueryTx(ctx context.Context, hashHex string) (*RelayerTxResponse, error)
 	QueryTxs(ctx context.Context, page, limit int, events []string) ([]*RelayerTxResponse, error)
 	QueryLatestHeight(ctx context.Context) (int64, error)
-	QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.Header, error)
+
+	// QueryIBCHeader returns the IBC compatible block header at a specific height.
+	QueryIBCHeader(ctx context.Context, h int64) (IBCHeader, error)
+
+	// query packet info for sequence
+	QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (PacketInfo, error)
+	QueryRecvPacket(ctx context.Context, dstChanID, dstPortID string, sequence uint64) (PacketInfo, error)
 
 	// bank
 	QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error)
@@ -364,7 +373,6 @@ type QueryProvider interface {
 	QueryUpgradedConsState(ctx context.Context, height int64) (*clienttypes.QueryConsensusStateResponse, error)
 	QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error)
 	QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error)
-	AutoUpdateClient(ctx context.Context, dst ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error)
 
 	// ics 03 - connection
 	QueryConnection(ctx context.Context, height int64, connectionid string) (*conntypes.QueryConnectionResponse, error)
@@ -373,7 +381,6 @@ type QueryProvider interface {
 	GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string) (clientState ibcexported.ClientState,
 		clientStateProof []byte, consensusProof []byte, connectionProof []byte,
 		connectionProofHeight ibcexported.Height, err error)
-	NewClientState(dstUpdateHeader ibcexported.Header, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
 
 	// ics 04 - channel
 	QueryChannel(ctx context.Context, height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error)
@@ -396,7 +403,6 @@ type QueryProvider interface {
 
 type RelayPacket interface {
 	Msg(src ChainProvider, srcPortId, srcChanId, dstPortId, dstChanId string) (RelayerMessage, error)
-	FetchCommitResponse(ctx context.Context, dst ChainProvider, queryHeight uint64, dstChanId, dstPortId string) error
 	Data() []byte
 	Seq() uint64
 	Timeout() clienttypes.Height

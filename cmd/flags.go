@@ -28,6 +28,7 @@ const (
 	flagThresholdTime           = "time-threshold"
 	flagUpdateAfterExpiry       = "update-after-expiry"
 	flagUpdateAfterMisbehaviour = "update-after-misbehaviour"
+	flagClientTrustingPeriod    = "client-tp"
 	flagOverride                = "override"
 	flagSrcPort                 = "src-port"
 	flagDstPort                 = "dst-port"
@@ -35,7 +36,6 @@ const (
 	flagVersion                 = "version"
 	flagDebugAddr               = "debug-addr"
 	flagOverwriteConfig         = "overwrite"
-	flagOffset                  = "offset"
 	flagLimit                   = "limit"
 	flagHeight                  = "height"
 	flagPage                    = "page"
@@ -72,7 +72,6 @@ func heightFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 func paginationFlags(v *viper.Viper, cmd *cobra.Command, query string) *cobra.Command {
 	cmd.Flags().Uint64(flagPage, 1, fmt.Sprintf("pagination page of %s to query for. This sets offset to a multiple of limit", query))
 	cmd.Flags().String(flagPageKey, "", fmt.Sprintf("pagination page-key of %s to query for", query))
-	cmd.Flags().Uint64(flagOffset, 0, fmt.Sprintf("pagination offset of %s to query for", query))
 	cmd.Flags().Uint64(flagLimit, 100, fmt.Sprintf("pagination limit of %s to query for", query))
 	cmd.Flags().Bool(flagCountTotal, false, fmt.Sprintf("count total number of records in %s to query for", query))
 	cmd.Flags().Bool(flagReverse, false, "results are sorted in descending order")
@@ -81,9 +80,6 @@ func paginationFlags(v *viper.Viper, cmd *cobra.Command, query string) *cobra.Co
 		panic(err)
 	}
 	if err := v.BindPFlag(flagPageKey, cmd.Flags().Lookup(flagPageKey)); err != nil {
-		panic(err)
-	}
-	if err := v.BindPFlag(flagOffset, cmd.Flags().Lookup(flagOffset)); err != nil {
 		panic(err)
 	}
 	if err := v.BindPFlag(flagLimit, cmd.Flags().Lookup(flagLimit)); err != nil {
@@ -231,10 +227,14 @@ func clientParameterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 		"allow governance to update the client if expiry occurs")
 	cmd.Flags().BoolP(flagUpdateAfterMisbehaviour, "m", true,
 		"allow governance to update the client if misbehaviour freezing occurs")
+	cmd.Flags().Duration(flagClientTrustingPeriod, 0, "custom light client trusting period ex. 24h (default: 85% of chains reported unbonding time)")
 	if err := v.BindPFlag(flagUpdateAfterExpiry, cmd.Flags().Lookup(flagUpdateAfterExpiry)); err != nil {
 		panic(err)
 	}
 	if err := v.BindPFlag(flagUpdateAfterMisbehaviour, cmd.Flags().Lookup(flagUpdateAfterMisbehaviour)); err != nil {
+		panic(err)
+	}
+	if err := v.BindPFlag(flagClientTrustingPeriod, cmd.Flags().Lookup(flagClientTrustingPeriod)); err != nil {
 		panic(err)
 	}
 	return cmd

@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"sort"
 
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -463,5 +465,32 @@ func ConnectionInfoConnectionKey(info provider.ConnectionInfo) ConnectionKey {
 		CounterpartyClientID: info.CounterpartyClientID,
 		ConnectionID:         info.ConnID,
 		CounterpartyConnID:   info.CounterpartyConnID,
+	}
+}
+
+type PrometheusMetrics struct {
+	PacketObservedCounter *prometheus.CounterVec
+	PacketRelayedCounter  *prometheus.CounterVec
+}
+
+func (m *PrometheusMetrics) AddPacketsObserved(path, chain, channel, port, eventType string, count int) {
+	m.PacketObservedCounter.WithLabelValues(path, chain, channel, port, eventType).Add(float64(count))
+}
+
+func (m *PrometheusMetrics) IncPacketsRelayed(path, chain, channel, port, eventType string) {
+	m.PacketRelayedCounter.WithLabelValues(path, chain, channel, port, eventType).Inc()
+}
+
+func NewPrometheusMetrics() *PrometheusMetrics {
+	packetLabels := []string{"path", "chain", "channel", "port", "type"}
+	return &PrometheusMetrics{
+		PacketObservedCounter: promauto.NewCounterVec(prometheus.CounterOpts{
+			Name: "observed_packets",
+			Help: "The total number of observed packets",
+		}, packetLabels),
+		PacketRelayedCounter: promauto.NewCounterVec(prometheus.CounterOpts{
+			Name: "relayed_packets",
+			Help: "The total number of relayed packets",
+		}, packetLabels),
 	}
 }

@@ -3,7 +3,7 @@ package relayer
 import (
 	"fmt"
 
-	host "github.com/cosmos/ibc-go/v3/modules/core/24-host"
+	host "github.com/cosmos/ibc-go/v5/modules/core/24-host"
 )
 
 // Vclient validates the client identifier in the path
@@ -23,16 +23,6 @@ func (pe PathEnd) String() string {
 // PathSet check if the chain has a path set
 func (c *Chain) PathSet() bool {
 	return c.PathEnd != nil
-}
-
-// PathsSet checks if the chains have their paths set
-func PathsSet(chains ...*Chain) bool {
-	for _, c := range chains {
-		if !c.PathSet() {
-			return false
-		}
-	}
-	return true
 }
 
 // SetPath sets the path and validates the identifiers if they are initialized.

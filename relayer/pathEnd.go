@@ -3,14 +3,7 @@ package relayer
 import (
 	"strings"
 
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
-)
-
-// TODO double check that these are okay
-var (
-	defaultChainPrefix = commitmenttypes.NewMerklePrefix([]byte("ibc"))
-	defaultDelayPeriod = uint64(0)
+	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 )
 
 // PathEnd represents the local connection identifiers for a relay path
@@ -43,23 +36,4 @@ func StringFromOrder(order chantypes.Order) string {
 	default:
 		return ""
 	}
-}
-
-var marshalledChains = map[PathEnd]*Chain{}
-
-// MarshalChain is PathEnd
-func MarshalChain(c *Chain) PathEnd {
-	pe := *c.PathEnd
-	if _, ok := marshalledChains[pe]; !ok {
-		marshalledChains[pe] = c
-	}
-	return pe
-}
-
-// UnmarshalChain returns Marshalled chain
-func UnmarshalChain(pe PathEnd) *Chain {
-	if c, ok := marshalledChains[pe]; ok {
-		return c
-	}
-	return nil
 }

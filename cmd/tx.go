@@ -7,9 +7,9 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	"github.com/cosmos/ibc-go/v3/modules/core/exported"
+	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -39,67 +39,14 @@ Most of these commands take a [path] argument. Make sure:
 		createClientCmd(a),
 		updateClientsCmd(a),
 		upgradeClientsCmd(a),
-		//upgradeChainCmd(),
 		createConnectionCmd(a),
 		createChannelCmd(a),
 		closeChannelCmd(a),
 		lineBreakCommand(),
-
-		//sendCmd(),
 	)
 
 	return cmd
 }
-
-// TODO send needs revised still
-//func sendCmd() *cobra.Command {
-//	cmd := &cobra.Command{
-//		Use:   "send [chain-id] [from-key] [to-address] [amount]",
-//		Short: "send funds to a different address on the same chain",
-//		Args:  cobra.ExactArgs(4),
-//		Example: strings.TrimSpace(fmt.Sprintf(`
-//$ %s tx send testkey cosmos10yft4nc8tacpngwlpyq3u4t88y7qzc9xv0q4y8 10000uatom`,
-//			appName,
-//		)),
-//		RunE: func(cmd *cobra.Command, args []string) error {
-//			c, err := config.Chains.Get(args[0])
-//			if err != nil {
-//				return err
-//			}
-//
-//			// ensure that keys exist
-//
-//			key, err := c.Keybase.Key(args[1])
-//			if err != nil {
-//				return err
-//			}
-//
-//			to, err := sdk.AccAddressFromBech32(args[2])
-//			if err != nil {
-//				return err
-//			}
-//
-//			amt, err := sdk.ParseCoinsNormalized(args[3])
-//			if err != nil {
-//				return err
-//			}
-//
-//			msg := banktypes.NewMsgSend(key.GetAddress(), to, amt)
-//			if err := msg.ValidateBasic(); err != nil {
-//				return err
-//			}
-//
-//			res, _, err := c.ChainProvider.SendMessage(msg)
-//			if err != nil {
-//				return err
-//			}
-//
-//			return c.Print(res, false, true)
-//		},
-//	}
-//
-//	return cmd
-//}
 
 func createClientsCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
@@ -116,6 +63,11 @@ func createClientsCmd(a *appState) *cobra.Command {
 			}
 
 			allowUpdateAfterMisbehaviour, err := cmd.Flags().GetBool(flagUpdateAfterMisbehaviour)
+			if err != nil {
+				return err
+			}
+
+			customClientTrustingPeriod, err := cmd.Flags().GetDuration(flagClientTrustingPeriod)
 			if err != nil {
 				return err
 			}
@@ -138,7 +90,7 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
-			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, a.Config.memo(cmd))
+			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.Config.memo(cmd))
 			if err != nil {
 				return err
 			}
@@ -173,6 +125,11 @@ func createClientCmd(a *appState) *cobra.Command {
 			}
 
 			allowUpdateAfterMisbehaviour, err := cmd.Flags().GetBool(flagUpdateAfterMisbehaviour)
+			if err != nil {
+				return err
+			}
+
+			customClientTrustingPeriod, err := cmd.Flags().GetDuration(flagClientTrustingPeriod)
 			if err != nil {
 				return err
 			}
@@ -221,9 +178,9 @@ func createClientCmd(a *appState) *cobra.Command {
 			}
 
 			// Query the light signed headers for src & dst at the heights srch & dsth, retry if the query fails
-			var srcUpdateHeader, dstUpdateHeader exported.Header
+			var srcUpdateHeader, dstUpdateHeader provider.IBCHeader
 			if err = retry.Do(func() error {
-				srcUpdateHeader, dstUpdateHeader, err = relayer.GetLightSignedHeadersAtHeights(cmd.Context(), src, dst, srch, dsth)
+				srcUpdateHeader, dstUpdateHeader, err = relayer.QueryIBCHeaders(cmd.Context(), src, dst, srch, dsth)
 				if err != nil {
 					return err
 				}
@@ -244,7 +201,7 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			modified, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, a.Config.memo(cmd))
+			modified, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.Config.memo(cmd))
 			if err != nil {
 				return err
 			}
@@ -287,7 +244,7 @@ corresponding update-client messages.`,
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
-			return c[src].UpdateClients(cmd.Context(), c[dst], a.Config.memo(cmd))
+			return relayer.UpdateClients(cmd.Context(), c[src], c[dst], a.Config.memo(cmd))
 		},
 	}
 
@@ -324,10 +281,10 @@ func upgradeClientsCmd(a *appState) *cobra.Command {
 
 			// send the upgrade message on the targetChainID
 			if src == targetChainID {
-				return c[src].UpgradeClients(cmd.Context(), c[dst], height, memo)
+				return relayer.UpgradeClient(cmd.Context(), c[dst], c[src], height, memo)
 			}
 
-			return c[dst].UpgradeClients(cmd.Context(), c[src], height, memo)
+			return relayer.UpgradeClient(cmd.Context(), c[src], c[dst], height, memo)
 		},
 	}
 
@@ -361,7 +318,14 @@ $ %s tx conn demo-path --timeout 5s`,
 				return err
 			}
 
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			customClientTrustingPeriod, err := cmd.Flags().GetDuration(flagClientTrustingPeriod)
+			if err != nil {
+				return err
+			}
+
+			pathName := args[0]
+
+			c, src, dst, err := a.Config.ChainsFromPath(pathName)
 			if err != nil {
 				return err
 			}
@@ -397,7 +361,7 @@ $ %s tx conn demo-path --timeout 5s`,
 			}
 
 			// ensure that the clients exist
-			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, memo)
+			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
 			if err != nil {
 				return err
 			}
@@ -407,7 +371,7 @@ $ %s tx conn demo-path --timeout 5s`,
 				}
 			}
 
-			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory)
+			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory, pathName)
 			if err != nil {
 				return err
 			}
@@ -445,7 +409,10 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+
+			pathName := args[0]
+
+			c, src, dst, err := a.Config.ChainsFromPath(pathName)
 			if err != nil {
 				return err
 			}
@@ -494,7 +461,7 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			}
 
 			// create channel if it isn't already created
-			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, a.Config.memo(cmd))
+			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, a.Config.memo(cmd), pathName)
 		},
 	}
 
@@ -519,7 +486,9 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 			appName, appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			pathName := args[0]
+
+			c, src, dst, err := a.Config.ChainsFromPath(pathName)
 			if err != nil {
 				return err
 			}
@@ -555,7 +524,7 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 				return err
 			}
 
-			return c[src].CloseChannel(cmd.Context(), c[dst], retries, to, channelID, portID, a.Config.memo(cmd))
+			return c[src].CloseChannel(cmd.Context(), c[dst], retries, to, channelID, portID, a.Config.memo(cmd), pathName)
 		},
 	}
 
@@ -591,7 +560,14 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				return err
 			}
 
-			pth, err := a.Config.Paths.Get(args[0])
+			customClientTrustingPeriod, err := cmd.Flags().GetDuration(flagClientTrustingPeriod)
+			if err != nil {
+				return err
+			}
+
+			pathName := args[0]
+
+			pth, err := a.Config.Paths.Get(pathName)
 			if err != nil {
 				return err
 			}
@@ -656,7 +632,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			// create clients if they aren't already created
-			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, memo)
+			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
 			if err != nil {
 				return fmt.Errorf("error creating clients: %w", err)
 			}
@@ -667,7 +643,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			// create connection if it isn't already created
-			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory)
+			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory, pathName)
 			if err != nil {
 				return fmt.Errorf("error creating connections: %w", err)
 			}
@@ -678,7 +654,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			// create channel if it isn't already created
-			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, memo)
+			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, memo, pathName)
 		},
 	}
 	cmd = timeoutFlag(a.Viper, cmd)
@@ -826,71 +802,6 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 	cmd = memoFlag(a.Viper, cmd)
 	return cmd
 }
-
-// TODO still needs a revisit
-//func upgradeChainCmd() *cobra.Command {
-//	cmd := &cobra.Command{
-//		Use:   "upgrade-chain [path-name] [chain-id] [new-unbonding-period] [deposit] [path/to/upgradePlan.json]",
-//		Short: "upgrade an IBC-enabled network with a given upgrade plan",
-//		Long: strings.TrimSpace(`Upgrade an IBC-enabled network by providing the chain-id of the
-//network being upgraded, the new unbonding period, the proposal deposit and the JSON file of the
-//upgrade plan without the upgrade client state.`,
-//		),
-//		Args: cobra.ExactArgs(5),
-//		RunE: func(cmd *cobra.Command, args []string) error {
-//			c, src, dst, err := config.ChainsFromPath(args[0])
-//			if err != nil {
-//				return err
-//			}
-//
-//			targetChainID := args[1]
-//
-//			unbondingPeriod, err := time.ParseDuration(args[2])
-//			if err != nil {
-//				return err
-//			}
-//
-//			// ensure that keys exist
-//			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
-//				return fmt.Errorf("key %s not found on chain %s \n", c[src].ChainProvider.Key(), c[src].ChainID())
-//			}
-//			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
-//				return fmt.Errorf("key %s not found on chain %s \n", c[dst].ChainProvider.Key(), c[dst].ChainID())
-//			}
-//
-//			// parse deposit
-//			deposit, err := sdk.ParseCoinNormalized(args[3])
-//			if err != nil {
-//				return err
-//			}
-//
-//			// parse plan
-//			plan := &upgradetypes.Plan{}
-//			path := args[4]
-//			if _, err := os.Stat(path); err != nil {
-//				return err
-//			}
-//
-//			byt, err := os.ReadFile(path)
-//			if err != nil {
-//				return err
-//			}
-//
-//			if err = json.Unmarshal(byt, plan); err != nil {
-//				return err
-//			}
-//
-//			// send the upgrade message on the targetChainID
-//			if src == targetChainID {
-//				return c[src].UpgradeChain(c[dst], plan, deposit, unbondingPeriod)
-//			}
-//
-//			return c[dst].UpgradeChain(c[src], plan, deposit, unbondingPeriod)
-//		},
-//	}
-//
-//	return cmd
-//}
 
 func xfersend(a *appState) *cobra.Command {
 	cmd := &cobra.Command{

@@ -3,8 +3,8 @@ package processor
 import (
 	"context"
 
-	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
@@ -43,11 +43,14 @@ type pathEndRuntime struct {
 
 	// inSync indicates whether queries are in sync with latest height of the chain.
 	inSync bool
+
+	metrics *PrometheusMetrics
 }
 
-func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd) *pathEndRuntime {
+func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetrics) *pathEndRuntime {
 	return &pathEndRuntime{
 		log: log.With(
+			zap.String("path_name", pathEnd.PathName),
 			zap.String("chain_id", pathEnd.ChainID),
 			zap.String("client_id", pathEnd.ClientID),
 		),
@@ -61,6 +64,7 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd) *pathEndRuntime {
 		connProcessing:       make(connectionProcessingCache),
 		channelProcessing:    make(channelProcessingCache),
 		connSubscribers:      make(map[string][]func(provider.ConnectionInfo)),
+		metrics:              metrics,
 	}
 }
 
@@ -83,13 +87,20 @@ func (pathEnd *pathEndRuntime) isRelevantChannel(channelID string) bool {
 }
 
 // mergeMessageCache merges relevant IBC messages for packet flows, connection handshakes, and channel handshakes.
-func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache) {
+// inSync indicates whether both involved ChainProcessors are in sync or not. When true, the observed packets
+// metrics will be counted so that observed vs relayed packets can be compared.
+func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, inSync bool) {
 	packetMessages := make(ChannelPacketMessagesCache)
 	connectionHandshakeMessages := make(ConnectionMessagesCache)
 	channelHandshakeMessages := make(ChannelMessagesCache)
 
 	for ch, pmc := range messageCache.PacketFlow {
 		if pathEnd.info.ShouldRelayChannel(ch) {
+			if inSync && pathEnd.metrics != nil {
+				for eventType, pCache := range pmc {
+					pathEnd.metrics.AddPacketsObserved(pathEnd.info.PathName, pathEnd.info.ChainID, ch.ChannelID, ch.PortID, eventType, len(pCache))
+				}
+			}
 			packetMessages[ch] = pmc
 		}
 	}
@@ -260,7 +271,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 	return false
 }
 
-func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, messageLifecycle MessageLifecycle) {
+func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, counterpartyInSync bool, messageLifecycle MessageLifecycle) {
 	pathEnd.inSync = d.InSync
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.latestHeader = d.LatestHeader
@@ -276,7 +287,7 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	pathEnd.connectionStateCache.Merge(d.ConnectionStateCache) // Update latest connection open state for chain
 	pathEnd.channelStateCache.Merge(d.ChannelStateCache)       // Update latest channel open state for chain
 
-	pathEnd.mergeMessageCache(d.IBCMessagesCache) // Merge incoming packet IBC messages into the backlog
+	pathEnd.mergeMessageCache(d.IBCMessagesCache, pathEnd.inSync && counterpartyInSync) // Merge incoming packet IBC messages into the backlog
 
 	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
 	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
@@ -482,6 +493,9 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 		// remove all retention of this connection handshake in pathEnd.messagesCache.ConnectionHandshake and counterparty
 		toDelete := make(map[string][]ChannelKey)
 		toDeleteCounterparty := make(map[string][]ChannelKey)
+		toDeletePacket := make(map[string][]uint64)
+		toDeleteCounterpartyPacket := make(map[string][]uint64)
+
 		counterpartyKey := channelKey.Counterparty()
 		switch eventType {
 		case chantypes.EventTypeChannelOpenTry:
@@ -493,9 +507,39 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 			toDeleteCounterparty[chantypes.EventTypeChannelOpenAck] = []ChannelKey{counterpartyKey}
 			toDelete[chantypes.EventTypeChannelOpenTry] = []ChannelKey{channelKey}
 			toDeleteCounterparty[chantypes.EventTypeChannelOpenInit] = []ChannelKey{counterpartyKey.msgInitKey()}
+		case chantypes.EventTypeChannelCloseConfirm:
+			toDeleteCounterparty[chantypes.EventTypeChannelCloseInit] = []ChannelKey{counterpartyKey}
+			toDelete[chantypes.EventTypeChannelCloseConfirm] = []ChannelKey{channelKey}
+
+			// Gather relevant send packet messages, for this channel key, that should be deleted if we
+			// are operating on an ordered channel.
+			if messageCache, ok := pathEnd.messageCache.PacketFlow[channelKey]; ok {
+				if seqCache, ok := messageCache[chantypes.EventTypeSendPacket]; ok {
+					for seq, packetInfo := range seqCache {
+						if packetInfo.ChannelOrder == chantypes.ORDERED.String() {
+							toDeletePacket[chantypes.EventTypeSendPacket] = append(toDeletePacket[chantypes.EventTypeSendPacket], seq)
+						}
+					}
+				}
+			}
+
+			// Gather relevant timeout messages, for this counterparty channel key, that should be deleted if we
+			// are operating on an ordered channel.
+			if messageCache, ok := counterparty.messageCache.PacketFlow[counterpartyKey]; ok {
+				if seqCache, ok := messageCache[chantypes.EventTypeTimeoutPacket]; ok {
+					for seq, packetInfo := range seqCache {
+						if packetInfo.ChannelOrder == chantypes.ORDERED.String() {
+							toDeleteCounterpartyPacket[chantypes.EventTypeTimeoutPacket] = append(toDeleteCounterpartyPacket[chantypes.EventTypeTimeoutPacket], seq)
+						}
+					}
+				}
+			}
 		}
+
 		// delete in progress send for this specific message
-		pathEnd.channelProcessing.deleteMessages(map[string][]ChannelKey{eventType: []ChannelKey{channelKey}})
+		pathEnd.channelProcessing.deleteMessages(map[string][]ChannelKey{eventType: {channelKey}})
+		pathEnd.messageCache.PacketFlow[channelKey].DeleteMessages(toDeletePacket)
+		counterparty.messageCache.PacketFlow[counterpartyKey].DeleteMessages(toDeleteCounterpartyPacket)
 
 		// delete all connection handshake retention history for this channel
 		pathEnd.messageCache.ChannelHandshake.DeleteMessages(toDelete)

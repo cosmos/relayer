@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -30,6 +31,9 @@ func StartDebugServer(ctx context.Context, log *zap.Logger, ln net.Listener) {
 	// And redirect the browser to the /debug/pprof root,
 	// so operators don't see a mysterious 404 page.
 	mux.Handle("/", http.RedirectHandler("/debug/pprof", http.StatusSeeOther))
+
+	// Serve prometheus metrics
+	mux.Handle("/metrics", promhttp.Handler())
 
 	srv := &http.Server{
 		Handler:  mux,
