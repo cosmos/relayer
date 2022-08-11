@@ -1,0 +1,101 @@
+{
+  "relaychain": {
+    "bin": "bin/polkadot",
+    "chain": "rococo-local",
+    "nodes": [
+      {
+        "name": "alice",
+        "wsPort": 9944,
+        "port": 30444,
+        "flags": ["--rpc-cors=all", "--ws-external", "--unsafe-rpc-external", "--rpc-methods=unsafe", "--beefy", "--enable-offchain-indexing=true"]
+      },
+      {
+        "name": "bob",
+        "wsPort": 9955,
+        "port": 30555,
+        "flags": ["--rpc-cors=all", "--ws-external", "--unsafe-rpc-external", "--rpc-methods=unsafe", "--beefy"]
+      },
+      {
+        "name": "charlie",
+        "wsPort": 9966,
+        "port": 30666,
+        "flags": ["--rpc-cors=all", "--ws-external", "--unsafe-rpc-external", "--rpc-methods=unsafe", "--beefy"]
+      },
+      {
+        "name": "dave",
+        "wsPort": 9977,
+        "port": 30777,
+        "flags": ["--rpc-cors=all", "--ws-external", "--unsafe-rpc-external", "--rpc-methods=unsafe", "--beefy"]
+      },
+      {
+        "name": "ferdie",
+        "wsPort": 9978,
+        "basePath": "/tmp/polkadot-launch/relaychains/ferdie",
+        "port": 30778,
+        "flags": ["--rpc-cors=all", "--ws-external", "--unsafe-rpc-external", "--rpc-methods=unsafe", "--beefy"]
+      }
+
+    ],
+    "runtime_genesis_config": {
+      "parachainsConfiguration": {
+        "config": {
+          "validation_upgrade_frequency": 1,
+          "validation_upgrade_delay": 10
+        }
+      }
+    }
+  },
+  "simpleParachains": [],
+  "parachains": [
+    {
+      "bin": "bin/composable",
+      "chain":"dali-dev",
+      "balance": "1000000000000000000000",
+      "nodes": [
+        {
+          "wsPort": 9988,
+          "port": 31200,
+          "flags": ["--alice", "--rpc-cors=all", "--ws-external", "--unsafe-rpc-external", "--rpc-methods=unsafe", "--", "--execution=wasm"]
+        },
+        {
+          "wsPort": 9989,
+          "port": 31201,
+          "flags": ["--bob", "--rpc-cors=all", "--ws-external", "--unsafe-rpc-external", "--rpc-methods=unsafe", "--", "--execution=wasm"]
+        }
+      ]
+    },
+    {
+      "bin": "bin/basilisk",
+      "chain":"local",
+      "balance": "1000000000000000000000",
+      "nodes": [
+        {
+          "wsPort": 9998,
+          "port": 31300,
+          "flags": ["--alice", "--rpc-cors=all", "--ws-external", "--unsafe-rpc-external", "--rpc-methods=unsafe", "--", "--execution=wasm"]
+        },
+        {
+          "wsPort": 9999,
+          "port": 31301,
+          "flags": ["--bob", "--rpc-cors=all", "--ws-external", "--unsafe-rpc-external", "--rpc-methods=unsafe", "--", "--execution=wasm"]
+        }
+      ]
+    }
+  ],
+  "hrmpChannels": [
+    {
+      "sender": 2000,
+      "recipient": 2090,
+      "maxCapacity": 8,
+      "maxMessageSize": 512
+    },
+    {
+      "sender": 2090,
+      "recipient": 2000,
+      "maxCapacity": 8,
+      "maxMessageSize": 512
+    }
+  ],
+  "types": {},
+  "finalization": false
+}

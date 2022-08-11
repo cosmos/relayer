@@ -855,7 +855,7 @@ func (cc *CosmosProvider) QueryLatestHeight(ctx context.Context) (int64, error) 
 }
 
 // QueryHeaderAtHeight returns the header at a given height
-func (cc *CosmosProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.Header, error) {
+func (cc *CosmosProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.ClientMessage, error) {
 	var (
 		page    = 1
 		perPage = 100000
