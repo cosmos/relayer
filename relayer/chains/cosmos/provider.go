@@ -6,11 +6,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	commitmenttypes "github.com/cosmos/ibc-go/v4/modules/core/23-commitment/types"
-	ibcexported "github.com/cosmos/ibc-go/v4/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v4/modules/light-clients/07-tendermint/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
+	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	lens "github.com/strangelove-ventures/lens/client"
@@ -156,15 +155,17 @@ func (cc *CosmosProvider) AddKey(name string, coinType uint32) (*provider.KeyOut
 
 // Address returns the chains configured address as a string
 func (cc *CosmosProvider) Address() (string, error) {
-	var (
-		err  error
-		info keyring.Info
-	)
-	info, err = cc.Keybase.Key(cc.PCfg.Key)
+	info, err := cc.Keybase.Key(cc.PCfg.Key)
 	if err != nil {
 		return "", err
 	}
-	out, err := cc.EncodeBech32AccAddr(info.GetAddress())
+
+	acc, err := info.GetAddress()
+	if err != nil {
+		return "", err
+	}
+
+	out, err := cc.EncodeBech32AccAddr(acc)
 	if err != nil {
 		return "", err
 	}

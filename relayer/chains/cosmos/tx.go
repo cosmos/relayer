@@ -13,14 +13,14 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	transfertypes "github.com/cosmos/ibc-go/v4/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v4/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v4/modules/core/24-host"
-	ibcexported "github.com/cosmos/ibc-go/v4/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v4/modules/light-clients/07-tendermint/types"
+	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v5/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/tendermint/tendermint/light"
 	tmtypes "github.com/tendermint/tendermint/types"
@@ -234,7 +234,7 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 	var txb client.TxBuilder
 	// Build the transaction builder & retry on failures
 	if err := retry.Do(func() error {
-		txb, err = tx.BuildUnsignedTx(txf, CosmosMsgs(msgs...)...)
+		txb, err = txf.BuildUnsignedTx(CosmosMsgs(msgs...)...)
 		if err != nil {
 			return err
 		}
