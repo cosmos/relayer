@@ -48,9 +48,6 @@ const (
 	// Default identifiers for dummy usage
 	dcli = "defaultclientid"
 	dcon = "defaultconnectionid"
-	dcha = "defaultchannelid"
-	dpor = "defaultportid"
-	dord = "ordered"
 )
 
 // NewRootCmd returns the root command for relayer.

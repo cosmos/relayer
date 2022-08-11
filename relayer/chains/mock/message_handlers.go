@@ -30,7 +30,11 @@ func handleMsgTransfer(p msgHandlerParams) {
 		CounterpartyChannelID: p.packetInfo.DestinationChannel,
 		CounterpartyPortID:    p.packetInfo.DestinationPort,
 	}
-	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeSendPacket, provider.PacketInfo{Sequence: p.packetInfo.Sequence})
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeSendPacket, provider.PacketInfo{
+		Sequence:      p.packetInfo.Sequence,
+		Data:          p.packetInfo.Data,
+		TimeoutHeight: p.packetInfo.TimeoutHeight,
+	})
 	p.mcp.log.Debug("observed MsgTransfer",
 		zap.String("chain_id", p.mcp.chainID),
 		zap.Uint64("sequence", p.packetInfo.Sequence),
@@ -48,7 +52,10 @@ func handleMsgRecvPacket(p msgHandlerParams) {
 		CounterpartyChannelID: p.packetInfo.SourceChannel,
 		CounterpartyPortID:    p.packetInfo.SourcePort,
 	}
-	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeRecvPacket, provider.PacketInfo{Sequence: p.packetInfo.Sequence})
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeRecvPacket, provider.PacketInfo{
+		Sequence: p.packetInfo.Sequence,
+		Data:     p.packetInfo.Data,
+	})
 	p.mcp.log.Debug("observed MsgRecvPacket",
 		zap.String("chain_id", p.mcp.chainID),
 		zap.Uint64("sequence", p.packetInfo.Sequence),
@@ -66,7 +73,10 @@ func handleMsgAcknowledgement(p msgHandlerParams) {
 		CounterpartyChannelID: p.packetInfo.DestinationChannel,
 		CounterpartyPortID:    p.packetInfo.DestinationPort,
 	}
-	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeAcknowledgePacket, provider.PacketInfo{Sequence: p.packetInfo.Sequence})
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeAcknowledgePacket, provider.PacketInfo{
+		Sequence: p.packetInfo.Sequence,
+		Data:     p.packetInfo.Data,
+	})
 	p.mcp.log.Debug("observed MsgAcknowledgement",
 		zap.String("chain_id", p.mcp.chainID),
 		zap.Uint64("sequence", p.packetInfo.Sequence),

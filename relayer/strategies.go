@@ -37,6 +37,8 @@ func StartRelayer(
 	memo string,
 	processorType string,
 	initialBlockHistory uint64,
+	pathName string,
+	metrics *processor.PrometheusMetrics,
 ) chan error {
 	errorChan := make(chan error, 1)
 
@@ -53,15 +55,15 @@ func StartRelayer(
 		paths := []path{{
 			src: pathChain{
 				provider: src.ChainProvider,
-				pathEnd:  processor.NewPathEnd(src.ChainProvider.ChainId(), src.ClientID(), filter.Rule, filterSrc),
+				pathEnd:  processor.NewPathEnd(pathName, src.ChainProvider.ChainId(), src.ClientID(), filter.Rule, filterSrc),
 			},
 			dst: pathChain{
 				provider: dst.ChainProvider,
-				pathEnd:  processor.NewPathEnd(dst.ChainProvider.ChainId(), dst.ClientID(), filter.Rule, filterDst),
+				pathEnd:  processor.NewPathEnd(pathName, dst.ChainProvider.ChainId(), dst.ClientID(), filter.Rule, filterDst),
 			},
 		}}
 
-		go relayerStartEventProcessor(ctx, log, paths, initialBlockHistory, maxTxSize, maxMsgLength, memo, errorChan)
+		go relayerStartEventProcessor(ctx, log, paths, initialBlockHistory, maxTxSize, maxMsgLength, memo, errorChan, metrics)
 		return errorChan
 	case ProcessorLegacy:
 		go relayerMainLoop(ctx, log, src, dst, filter, maxTxSize, maxMsgLength, memo, errorChan)
@@ -104,6 +106,7 @@ func relayerStartEventProcessor(
 	maxMsgLength uint64,
 	memo string,
 	errCh chan<- error,
+	metrics *processor.PrometheusMetrics,
 ) {
 	defer close(errCh)
 
@@ -119,6 +122,7 @@ func relayerStartEventProcessor(
 				log,
 				p.src.pathEnd,
 				p.dst.pathEnd,
+				metrics,
 				memo,
 			))
 	}

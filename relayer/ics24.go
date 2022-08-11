@@ -25,16 +25,6 @@ func (c *Chain) PathSet() bool {
 	return c.PathEnd != nil
 }
 
-// PathsSet checks if the chains have their paths set
-func PathsSet(chains ...*Chain) bool {
-	for _, c := range chains {
-		if !c.PathSet() {
-			return false
-		}
-	}
-	return true
-}
-
 // SetPath sets the path and validates the identifiers if they are initialized.
 func (c *Chain) SetPath(p *PathEnd) error {
 	err := p.ValidateFull()

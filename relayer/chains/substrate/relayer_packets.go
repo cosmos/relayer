@@ -1,4 +1,4 @@
-package cosmos
+package substrate
 
 import (
 	"fmt"
@@ -66,7 +66,7 @@ func (rp relayMsgTimeout) Msg(src provider.ChainProvider, srcPortId, srcChanId, 
 		Signer:           addr,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return NewSubstrateMessage(msg), nil
 }
 
 type relayMsgRecvPacket struct {
@@ -129,7 +129,7 @@ func (rp relayMsgRecvPacket) Msg(src provider.ChainProvider, srcPortId, srcChanI
 		Signer:          addr,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return NewSubstrateMessage(msg), nil
 }
 
 type relayMsgPacketAck struct {
@@ -184,5 +184,5 @@ func (rp relayMsgPacketAck) Msg(src provider.ChainProvider, srcPortId, srcChanId
 		Signer:          addr,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return NewSubstrateMessage(msg), nil
 }

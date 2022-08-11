@@ -223,6 +223,25 @@ func (r *Relayer) start(ctx context.Context, pathName string) {
 
 func (r *Relayer) UseDockerNetwork() bool { return false }
 
+func (r *Relayer) Exec(ctx context.Context, _ ibc.RelayerExecReporter, cmd, env []string) ibc.RelayerExecResult {
+	// TODO: env would be ignored for now.
+	// We may want to modify the call to sys() to accept environment overrides,
+	// so this relayer can continue to be used in parallel without environment cross-contamination.
+	res := r.sys().RunC(ctx, r.log(), cmd...)
+
+	exitCode := 0
+	if res.Err != nil {
+		exitCode = 1
+	}
+
+	return ibc.RelayerExecResult{
+		Err:      res.Err,
+		ExitCode: exitCode,
+		Stdout:   res.Stdout.Bytes(),
+		Stderr:   res.Stderr.Bytes(),
+	}
+}
+
 func (r *Relayer) FlushAcknowledgements(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, channelID string) error {
 	res := r.sys().RunC(ctx, r.log(), "tx", "relay-acks", pathName, channelID)
 	if res.Err != nil {

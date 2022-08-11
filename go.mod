@@ -7,7 +7,6 @@ require (
 	github.com/ComposableFi/go-substrate-rpc-client v2.0.0+incompatible
 	github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220520095549-28b7c5a4e212
 	github.com/avast/retry-go/v4 v4.1.0
-	github.com/cespare/permute/v2 v2.0.0-beta2
 	github.com/cosmos/cosmos-sdk v0.45.6
 	github.com/cosmos/ibc-go/v4 v4.0.0-rc0
 	github.com/gogo/protobuf v1.3.3
@@ -15,6 +14,8 @@ require (
 	github.com/google/go-github/v43 v43.0.0
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/jsternberg/zap-logfmt v1.2.0
+	github.com/ory/dockertest/v3 v3.9.1
+	github.com/prometheus/client_golang v1.12.2
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
 	github.com/strangelove-ventures/lens v0.5.2-0.20220725181212-615bf7a39fe6
@@ -120,7 +121,6 @@ require (
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pierrec/xxHash v0.1.5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_golang v1.12.2 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect

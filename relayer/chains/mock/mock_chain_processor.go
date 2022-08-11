@@ -47,7 +47,7 @@ func NewMockChainProcessor(log *zap.Logger, chainID string, getMockMessages func
 		KeyringBackend: "test",
 		Timeout:        "10s",
 	}
-	chainProvider, _ := chainProviderCfg.NewProvider(zap.NewNop(), "/tmp", true, "mock-chain-name")
+	chainProvider, _ := chainProviderCfg.NewProvider(zap.NewNop(), "/tmp", true, "mock-chain-name-"+chainID)
 	_, _ = chainProvider.AddKey(chainProvider.Key(), 118)
 	return &MockChainProcessor{
 		log:             log,
