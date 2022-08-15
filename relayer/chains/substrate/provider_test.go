@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cosmos/relayer/v2/relayer/provider/substrate"
-	"github.com/cosmos/relayer/v2/relayer/provider/substrate/keystore"
+	"github.com/cosmos/relayer/v2/relayer/chains/substrate"
+	"github.com/cosmos/relayer/v2/relayer/chains/substrate/keystore"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,7 +20,7 @@ func TestGetTrustingPeriod(t *testing.T) {
 	require.NotNil(t, tp)
 }
 
-func getSubstrateConfig(keyHome string, debug bool) *substrate.SubstrateProviderConfig {
+func getSubstrateConfig(keyHome string, network uint8, debug bool) *substrate.SubstrateProviderConfig {
 	return &substrate.SubstrateProviderConfig{
 		Key:            "default",
 		ChainID:        "substrate-test",
@@ -28,11 +28,15 @@ func getSubstrateConfig(keyHome string, debug bool) *substrate.SubstrateProvider
 		KeyringBackend: keystore.BackendTest,
 		KeyDirectory:   keyHome,
 		Timeout:        "20s",
+		Network:        network,
 	}
 }
 
 func getTestProvider() (*substrate.SubstrateProvider, error) {
-	testProvider, err := substrate.NewSubstrateProvider(getSubstrateConfig(homePath, true), "")
-	return testProvider, err
-
+	config := getSubstrateConfig(homePath, 42, true)
+	provider, err := config.NewProvider(nil, homePath, true, "substrate")
+	if err != nil {
+		return nil, err
+	}
+	return provider.(*substrate.SubstrateProvider), nil
 }

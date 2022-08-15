@@ -1,11 +1,12 @@
 package substrate
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
 
 	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
-	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
+	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
@@ -24,7 +25,7 @@ type ibcMessageInfo interface {
 
 // ibcMessagesFromTransaction parses all events within a transaction to find IBC messages
 func (scp *SubstrateChainProcessor) handleIBCMessagesFromEvents(height uint64, c processor.IBCMessagesCache) error {
-	ibcEvents, err := scp.chainProvider.RPCClient.RPC.IBC.QueryIbcEvents([]rpcclienttypes.BlockNumberOrHash{{Number: uint32(height)}})
+	ibcEvents, err := scp.chainProvider.RPCClient.RPC.IBC.QueryIbcEvents(context.Background(), []rpcclienttypes.BlockNumberOrHash{{Number: uint32(height)}})
 	if err != nil {
 		return err
 	}

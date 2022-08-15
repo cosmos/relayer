@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path"
 	"time"
 
 	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
-	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/relayer/v2/relayer/chains/substrate/keystore"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
-	lens "github.com/strangelove-ventures/lens/client"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 )
@@ -27,6 +26,7 @@ type SubstrateProviderConfig struct {
 	ChainName      string  `json:"-" yaml:"-"`
 	ChainID        string  `json:"chain-id" yaml:"chain-id"`
 	RPCAddr        string  `json:"rpc-addr" yaml:"rpc-addr"`
+	RelayRPCAddr   string  `json:"rpc-addr" yaml:"rpc-addr"`
 	AccountPrefix  string  `json:"account-prefix" yaml:"account-prefix"`
 	KeyringBackend string  `json:"keyring-backend" yaml:"keyring-backend"`
 	KeyDirectory   string  `json:"key-directory" yaml:"key-directory"`
@@ -36,46 +36,43 @@ type SubstrateProviderConfig struct {
 	Timeout        string  `json:"timeout" yaml:"timeout"`
 	OutputFormat   string  `json:"output-format" yaml:"output-format"`
 	SignModeStr    string  `json:"sign-mode" yaml:"sign-mode"`
+	Network        uint8   `json:"network" yaml:"network"`
 }
 
-func (pc SubstrateProviderConfig) Validate() error {
-	if _, err := time.ParseDuration(pc.Timeout); err != nil {
+func (spc SubstrateProviderConfig) Validate() error {
+	if _, err := time.ParseDuration(spc.Timeout); err != nil {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 	return nil
 }
 
-// NewProvider validates the SubstrateProviderConfig, instantiates a ChainClient and then instantiates a SubstrateProvider
-func (pc SubstrateProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
-	return &SubstrateProvider{}, nil
+func keysDir(home, chainID string) string {
+	return path.Join(home, "keys", chainID)
 }
 
-// ChainClientConfig builds a ChainClientConfig struct from a SubstrateProviderConfig, this is used
-// to instantiate an instance of ChainClient from lens which is how we build the SubstrateProvider
-func ChainClientConfig(pcfg *SubstrateProviderConfig) *lens.ChainClientConfig {
-	return &lens.ChainClientConfig{
-		Key:            pcfg.Key,
-		ChainID:        pcfg.ChainID,
-		RPCAddr:        pcfg.RPCAddr,
-		AccountPrefix:  pcfg.AccountPrefix,
-		KeyringBackend: pcfg.KeyringBackend,
-		GasAdjustment:  pcfg.GasAdjustment,
-		GasPrices:      pcfg.GasPrices,
-		Debug:          pcfg.Debug,
-		Timeout:        pcfg.Timeout,
-		OutputFormat:   pcfg.OutputFormat,
-		SignModeStr:    pcfg.SignModeStr,
-		Modules:        append([]module.AppModuleBasic{}, lens.ModuleBasics...),
+// NewProvider validates the SubstrateProviderConfig, instantiates a ChainClient and then instantiates a SubstrateProvider
+func (spc SubstrateProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
+	spc.KeyDirectory = keysDir(homepath, spc.ChainID)
+	sp := &SubstrateProvider{
+		Config: &spc,
 	}
+
+	err := sp.Init()
+	if err != nil {
+		return nil, err
+	}
+
+	return sp, nil
 }
 
 type SubstrateProvider struct {
 	log *zap.Logger
 
-	RPCClient *rpcclient.SubstrateAPI
-	Config    *SubstrateProviderConfig
-	Keybase   keystore.Keyring
-	Input     io.Reader
+	RPCClient      *rpcclient.SubstrateAPI
+	RPCRelayClient *rpcclient.SubstrateAPI
+	Config         *SubstrateProviderConfig
+	Keybase        keystore.Keyring
+	Input          io.Reader
 
 	PCfg SubstrateProviderConfig
 }
@@ -83,6 +80,16 @@ type SubstrateProvider struct {
 type SubstrateIBCHeader struct {
 	SignedHeader *tmtypes.SignedHeader
 	ValidatorSet *tmtypes.ValidatorSet
+}
+
+func (sp *SubstrateProvider) Init() error {
+	keybase, err := keystore.New(sp.Config.ChainID, sp.Config.KeyringBackend, sp.Config.KeyDirectory, sp.Input)
+	if err != nil {
+		return err
+	}
+
+	sp.Keybase = keybase
+	return nil
 }
 
 // noop to implement processor.IBCHeader

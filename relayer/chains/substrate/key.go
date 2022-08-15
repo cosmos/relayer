@@ -11,7 +11,7 @@ import (
 )
 
 // TODO: change the network if needed
-const network = 42
+const network = 49
 
 func (sp *SubstrateProvider) CreateKeystore(path string) error {
 	keybase, err := keystore.New(sp.Config.ChainID, sp.Config.KeyringBackend, sp.Config.KeyDirectory, sp.Input)
@@ -113,7 +113,7 @@ func (sp *SubstrateProvider) KeyAddOrRestore(keyName string, coinType uint32, mn
 		}
 	}
 
-	info, err := sp.Keybase.NewAccount(keyName, mnemonicStr, network)
+	info, err := sp.Keybase.NewAccount(keyName, mnemonicStr, sp.Config.Network)
 	if err != nil {
 		return nil, err
 	}
