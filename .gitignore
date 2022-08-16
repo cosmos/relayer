@@ -1,5 +1,5 @@
 build/
-data/
+examples/demo/data
 coverage.out
 release.tar.gz
 .env
