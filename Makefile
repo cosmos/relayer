@@ -96,6 +96,6 @@ get-gaia:
 	@git clone --branch $(GAIA_VERSION) --depth=1 https://github.com/cosmos/gaia.git ./chain-code/gaia
 
 build-gaia:
-	@./scripts/build-gaia
+	@./examples/demo/scripts/build-gaia
 
 .PHONY: two-chains test test-integration ibctest install build lint coverage clean
