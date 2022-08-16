@@ -5,10 +5,9 @@ import (
 	"strconv"
 
 	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
-	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
+	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -23,18 +22,9 @@ type ibcMessageInfo interface {
 }
 
 // ibcMessagesFromTransaction parses all events within a transaction to find IBC messages
-func (scp *SubstrateChainProcessor) handleIBCMessagesFromEvents(height uint64, c processor.IBCMessagesCache) error {
-	ibcEvents, err := scp.chainProvider.RPCClient.RPC.IBC.QueryIbcEvents([]rpcclienttypes.BlockNumberOrHash{{Number: uint32(height)}})
-	if err != nil {
-		return err
-	}
-	return scp.parseABCIEvents(scp.log, ibcEvents, height, c)
-}
-
-func (scp *SubstrateChainProcessor) parseABCIEvents(log *zap.Logger, events rpcclienttypes.IBCEventsQueryResult, height uint64, c processor.IBCMessagesCache) error {
-
-	for i := 0; i < len(events); i++ {
-		for eType, data := range events[i] {
+func (scp *SubstrateChainProcessor) handleIBCMessagesFromEvents(ibcEvents rpcclienttypes.IBCEventsQueryResult, height uint64, c processor.IBCMessagesCache) error {
+	for i := 0; i < len(ibcEvents); i++ {
+		for eType, data := range ibcEvents[i] {
 			var info ibcMessageInfo
 			var eventType string
 

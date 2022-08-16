@@ -18,3 +18,5 @@ _test/keys/
 
 # Don't commit the vendor directory if anyone runs 'go mod vendor'.
 /vendor
+
+.vscode

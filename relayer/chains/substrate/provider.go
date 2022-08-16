@@ -8,6 +8,7 @@ import (
 
 	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
 	"github.com/cosmos/cosmos-sdk/types/module"
+	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/chains/substrate/keystore"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
@@ -90,6 +91,10 @@ func (h SubstrateIBCHeader) IBCHeaderIndicator() {}
 
 func (h SubstrateIBCHeader) Height() uint64 {
 	return uint64(h.SignedHeader.Height)
+}
+
+func (h SubstrateIBCHeader) ConsensusState() ibcexported.ConsensusState {
+	return nil
 }
 
 func (sc *SubstrateProvider) ProviderConfig() provider.ProviderConfig {
