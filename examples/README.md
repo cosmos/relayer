@@ -23,15 +23,15 @@ This script creates a folder called "data": `examples/demo/data/`.
 Logs and config info for each chain can be found here.
 
 
-Note: After running, two gaiad instances will be running on your machine. 
-To kill all gaiad instances run:
+Note: After running, two `gaiad` instances will be running on your machine. 
+To kill ALL `gaiad` instances run:
 ```bash
 killall gaiad
 ```
 
 ---
 
-## Example Config: [examples/config.yaml](./examples/config_EXAMPLE.yaml)
+## Example Config: [examples/config.yaml](./config_EXAMPLE.yaml)
 
 This is an example of a config file with:
 
