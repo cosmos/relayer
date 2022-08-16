@@ -56,15 +56,17 @@ mkdir -p $GAIA_DATA && cd $GAIA_DATA && cd ../
 cd $RELAYER_DIR
 
 echo "Building Relayer..."
-make install
+make -C ../../ install
+
+pwd
 
 echo "Generating rly configurations..."
 rly config init
-rly chains add-dir configs/demo/chains
+rly chains add-dir configs/chains
 
 SEED0=$(jq -r '.mnemonic' $GAIA_DATA/ibc-0/key_seed.json)
 SEED1=$(jq -r '.mnemonic' $GAIA_DATA/ibc-1/key_seed.json)
 echo "Key $(rly keys restore ibc-0 testkey "$SEED0") imported from ibc-0 to relayer..."
 echo "Key $(rly keys restore ibc-1 testkey "$SEED1") imported from ibc-1 to relayer..."
 
-rly paths add-dir configs/demo/paths
+rly paths add-dir configs/paths
