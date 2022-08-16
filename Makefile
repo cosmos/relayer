@@ -34,9 +34,7 @@ build-zip: go.sum
 	@GOOS=windows GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/windows-amd64-rly.exe main.go
 	@tar -czvf release.tar.gz ./build
 
-install:
-	@go mod download
-	@go mod tidy -compat=1.17
+install: go.sum
 	@echo "installing rly binary..."
 	@go build -mod=readonly $(BUILD_FLAGS) -o $(GOBIN)/rly main.go
 
@@ -94,6 +92,10 @@ lint:
 ###############################################################################
 
 get-gaia:
+	@mkdir -p ./chain-code/
+	@git clone --branch $(GAIA_VERSION) --depth=1 https://github.com/cosmos/gaia.git ./chain-code/gaia
+
+get-gaia-beefy:
 	@mkdir -p ./chain-code/
 	@git clone --branch test/beefy-light-client --depth=1 https://github.com/strangelove-ventures/gaia.git ./chain-code/gaia
 
