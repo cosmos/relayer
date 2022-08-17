@@ -590,5 +590,3 @@ func AddMessagesForSequences(
 
 	return nil
 }
-<<<<<<< HEAD
-=======

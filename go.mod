@@ -2,9 +2,10 @@ module github.com/cosmos/relayer/v2
 
 go 1.18
 
+require github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220815083349-ea2c4ccf9f2e
+
 require (
 	github.com/99designs/keyring v1.2.1
-	github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220520095549-28b7c5a4e212
 	github.com/avast/retry-go/v4 v4.1.0
 	github.com/cosmos/cosmos-sdk v0.46.0
 	github.com/cosmos/go-bip39 v1.0.0
@@ -160,5 +161,3 @@ replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alp
 replace github.com/ChainSafe/go-schnorrkel v1.0.0 => github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d
 
 replace github.com/vedhavyas/go-subkey v1.0.3 => github.com/vedhavyas/go-subkey v1.0.0
-
-replace github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220520095549-28b7c5a4e212 => ../go-substrate-rpc-client
