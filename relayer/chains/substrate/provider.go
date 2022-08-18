@@ -30,7 +30,7 @@ type SubstrateProviderConfig struct {
 	ChainName      string `json:"-" yaml:"-"`
 	ChainID        string `json:"chain-id" yaml:"chain-id"`
 	RPCAddr        string `json:"rpc-addr" yaml:"rpc-addr"`
-	RelayRPCAddr   string `json:"relay-rpc-addr" yaml:"rpc-addr"`
+	RelayRPCAddr   string `json:"relay-rpc-addr" yaml:"relay-rpc-addr"`
 	AccountPrefix  string `json:"account-prefix" yaml:"account-prefix"`
 	KeyringBackend string `json:"keyring-backend" yaml:"keyring-backend"`
 	KeyDirectory   string `json:"key-directory" yaml:"key-directory"`
@@ -52,7 +52,14 @@ func keysDir(home, chainID string) string {
 
 // NewProvider validates the SubstrateProviderConfig, instantiates a ChainClient and then instantiates a SubstrateProvider
 func (spc SubstrateProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
-	spc.KeyDirectory = keysDir(homepath, spc.ChainID)
+	if err := spc.Validate(); err != nil {
+		return nil, err
+	}
+
+	if len(spc.KeyDirectory) == 0 {
+		spc.KeyDirectory = keysDir(homepath, spc.ChainID)
+	}
+
 	sp := &SubstrateProvider{
 		log:  log,
 		PCfg: spc,

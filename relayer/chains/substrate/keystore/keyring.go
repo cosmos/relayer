@@ -36,6 +36,26 @@ const (
 	maxPassphraseEntryAttempts = 3
 )
 
+type keystore struct {
+	db keyring.Keyring
+}
+
+// Keyring exposes operations over a backend supported by github.com/99designs/keyring.
+type Keyring interface {
+	// List returns a list of all stored keys.
+	List() ([]Info, error)
+
+	// Key fetches and returns a key using its uid.
+	Key(uid string) (Info, error)
+
+	// Delete remove keys from the keyring.
+	Delete(uid string) error
+
+	// NewAccount converts a mnemonic to a private key and BIP-39 HD Path and persists it.
+	// It fails if there is an existing key Info with the same address.
+	NewAccount(name, mnemonic string, network uint8) (Info, error)
+}
+
 func New(
 	appName, backend string, rootDir string, userInput io.Reader,
 ) (Keyring, error) {
@@ -184,7 +204,7 @@ func (ks keystore) key(infoKey string) (Info, error) {
 		return nil, errors.Errorf("%s: %s", ErrTextKeyNotFound, infoKey)
 	}
 	if len(bs.Data) == 0 {
-		return nil, errors.Errorf(ErrTextKeyNotFound, infoKey)
+		return nil, errors.Errorf("%s: %s", ErrTextKeyNotFound, infoKey)
 	}
 	return unmarshalInfo(bs.Data)
 }
@@ -228,7 +248,7 @@ func (ks keystore) List() ([]Info, error) {
 		}
 
 		if len(rawInfo.Data) == 0 {
-			return nil, errors.Errorf(ErrTextKeyNotFound, key)
+			return nil, errors.Errorf("%s: %s", ErrTextKeyNotFound, key)
 		}
 
 		info, err := unmarshalInfo(rawInfo.Data)
@@ -261,10 +281,7 @@ func (ks keystore) NewAccount(name string, mnemonic string, network uint8) (Info
 }
 
 func (ks keystore) writeLocalKey(name string, keypair signature.KeyringPair) (Info, error) {
-	info, err := newLocalInfo(name, keypair)
-	if err != nil {
-		return info, err
-	}
+	info := newLocalInfo(name, keypair)
 	if err := ks.writeInfo(info); err != nil {
 		return nil, err
 	}

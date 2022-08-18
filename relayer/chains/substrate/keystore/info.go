@@ -7,21 +7,35 @@ import (
 	"github.com/ComposableFi/go-substrate-rpc-client/v4/signature"
 )
 
-func newLocalInfo(name string, kp signature.KeyringPair) (Info, error) {
+// Info is the publicly exposed information about a keypair
+type Info interface {
+	// GetName returns the name of the underlying key
+	GetName() string
+	// GetAddress returns the address of the underlying key as a string
+	GetAddress() string
+	// GetPublicKey returns the public key as bytes
+	GetPublicKey() []byte
+	// GetKeyringPair returns the keyring pair
+	GetKeyringPair() signature.KeyringPair
+}
 
+// localInfo is the public information about a locally stored key
+type localInfo struct {
+	Name    string                `json:"name"`
+	Keypair signature.KeyringPair `json:"keypair"`
+}
+
+func newLocalInfo(name string, kp signature.KeyringPair) Info {
 	return &localInfo{
 		Name:    name,
 		Keypair: kp,
-	}, nil
-
+	}
 }
 
-// GetType implements Info interface
 func (i localInfo) GetAddress() string {
 	return i.Keypair.Address
 }
 
-// GetType implements Info interface
 func (i localInfo) GetName() string {
 	return i.Name
 }
@@ -34,7 +48,6 @@ func (i localInfo) GetKeyringPair() signature.KeyringPair {
 	return i.Keypair
 }
 
-// encoding info
 func marshalInfo(i Info) ([]byte, error) {
 	marshalled, err := json.Marshal(i)
 	if err != nil {
@@ -43,7 +56,6 @@ func marshalInfo(i Info) ([]byte, error) {
 	return marshalled, nil
 }
 
-// decoding info
 func unmarshalInfo(bz []byte) (Info, error) {
 	localInfo := localInfo{}
 	if err := json.Unmarshal(bz, &localInfo); err != nil {
@@ -52,5 +64,7 @@ func unmarshalInfo(bz []byte) (Info, error) {
 
 	return localInfo, nil
 }
-func infoKey(name string) string   { return fmt.Sprintf("%s.%s", name, infoSuffix) }
+
+func infoKey(name string) string { return fmt.Sprintf("%s.%s", name, infoSuffix) }
+
 func infoKeyBz(name string) []byte { return []byte(infoKey(name)) }
