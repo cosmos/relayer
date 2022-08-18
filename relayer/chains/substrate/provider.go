@@ -54,6 +54,7 @@ func keysDir(home, chainID string) string {
 func (spc SubstrateProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
 	spc.KeyDirectory = keysDir(homepath, spc.ChainID)
 	sp := &SubstrateProvider{
+		log:  log,
 		PCfg: spc,
 	}
 

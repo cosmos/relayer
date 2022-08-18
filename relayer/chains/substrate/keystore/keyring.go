@@ -52,7 +52,7 @@ func New(
 	case BackendFile:
 		db, err = keyring.Open(newFileBackendKeyringConfig(appName, rootDir, userInput))
 	default:
-		return nil, fmt.Errorf(ErrTextUnknownKeyringBackend, backend)
+		return nil, fmt.Errorf("%s: %s", ErrTextUnknownKeyringBackend, backend)
 	}
 
 	if err != nil {
@@ -104,7 +104,7 @@ func newRealPrompt(dir string, buf io.Reader) func(string) (string, error) {
 		case err == nil:
 			keyhash, err = ioutil.ReadFile(keyhashFilePath)
 			if err != nil {
-				return "", fmt.Errorf(ErrTextFailedToRead, keyhashFilePath, err)
+				return "", fmt.Errorf("%s: %s: %s", ErrTextFailedToRead, keyhashFilePath, err)
 			}
 
 			keyhashStored = true
@@ -113,7 +113,7 @@ func newRealPrompt(dir string, buf io.Reader) func(string) (string, error) {
 			keyhashStored = false
 
 		default:
-			return "", fmt.Errorf(ErrTextFailedToOpen, keyhashFilePath, err)
+			return "", fmt.Errorf("%s: %s: %s", ErrTextFailedToOpen, keyhashFilePath, err)
 		}
 
 		failureCounter := 0
@@ -165,7 +165,7 @@ func newRealPrompt(dir string, buf io.Reader) func(string) (string, error) {
 				continue
 			}
 
-			if err := ioutil.WriteFile(dir+"/keyhash", passwordHash, 0555); err != nil {
+			if err := ioutil.WriteFile(keyhashFilePath, passwordHash, 0555); err != nil {
 				return "", err
 			}
 
@@ -181,7 +181,7 @@ func newKeystore(kr keyring.Keyring) keystore {
 func (ks keystore) key(infoKey string) (Info, error) {
 	bs, err := ks.db.Get(infoKey)
 	if err != nil {
-		return nil, errors.Errorf(ErrTextKeyNotFound, infoKey)
+		return nil, errors.Errorf("%s: %s", ErrTextKeyNotFound, infoKey)
 	}
 	if len(bs.Data) == 0 {
 		return nil, errors.Errorf(ErrTextKeyNotFound, infoKey)
@@ -219,23 +219,24 @@ func (ks keystore) List() ([]Info, error) {
 	sort.Strings(keys)
 
 	for _, key := range keys {
-		if strings.HasSuffix(key, infoSuffix) {
-			rawInfo, err := ks.db.Get(key)
-			if err != nil {
-				return nil, err
-			}
-
-			if len(rawInfo.Data) == 0 {
-				return nil, errors.Errorf(ErrTextKeyNotFound, key)
-			}
-
-			info, err := unmarshalInfo(rawInfo.Data)
-			if err != nil {
-				return nil, err
-			}
-
-			res = append(res, info)
+		if !strings.HasSuffix(key, infoSuffix) {
+			continue
 		}
+		rawInfo, err := ks.db.Get(key)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(rawInfo.Data) == 0 {
+			return nil, errors.Errorf(ErrTextKeyNotFound, key)
+		}
+
+		info, err := unmarshalInfo(rawInfo.Data)
+		if err != nil {
+			return nil, err
+		}
+
+		res = append(res, info)
 	}
 
 	return res, nil
@@ -249,11 +250,11 @@ func (ks keystore) Key(uid string) (Info, error) {
 func (ks keystore) NewAccount(name string, mnemonic string, network uint8) (Info, error) {
 	kp, err := signature.KeyringPairFromSecret(mnemonic, network)
 	if err != nil {
-		fmt.Println("error while creating keypair: " + err.Error())
+		return nil, fmt.Errorf("failed to create keypair: %w", err)
 	}
 
 	if _, err := ks.KeyByAddress(kp.Address); err == nil {
-		return nil, fmt.Errorf(ErrTextAddressExists, kp.Address)
+		return nil, fmt.Errorf("%s: %s", ErrTextAddressExists, kp.Address)
 	}
 
 	return ks.writeLocalKey(name, kp)
@@ -328,11 +329,11 @@ func (ks keystore) existsInDb(info Info) (bool, error) {
 func (ks keystore) KeyByAddress(address string) (Info, error) {
 	ik, err := ks.db.Get(address)
 	if err != nil {
-		return nil, errors.Errorf(ErrTextKeyWithAddressNotFound, address)
+		return nil, errors.Errorf("%s: %s", ErrTextKeyWithAddressNotFound, address)
 	}
 
 	if len(ik.Data) == 0 {
-		return nil, errors.Errorf(ErrTextKeyWithAddressNotFound, address)
+		return nil, errors.Errorf("%s: %s", ErrTextKeyWithAddressNotFound, address)
 	}
 	return ks.key(string(ik.Data))
 }

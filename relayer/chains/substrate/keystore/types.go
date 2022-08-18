@@ -14,7 +14,7 @@ type Keyring interface {
 	// List all keys.
 	List() ([]Info, error)
 
-	// Key and KeyByAddress return keys by uid and address respectively.
+	// Key returns keys by uid respectively.
 	Key(uid string) (Info, error)
 
 	// Delete and DeleteByAddress remove keys from the keyring.
@@ -27,13 +27,13 @@ type Keyring interface {
 
 // Info is the publicly exposed information about a keypair
 type Info interface {
-	// Name of the key
+	// GetName returns the name of the key
 	GetName() string
-	// Address
+	// GetAddress returns the address as a string
 	GetAddress() string
-	// Public key
+	// GetPublicKey returns the publickey as bytes
 	GetPublicKey() []byte
-	// KeyPair
+	// GetKeyringPair returns the keyring pair
 	GetKeyringPair() signature.KeyringPair
 }
 

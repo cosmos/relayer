@@ -1,8 +1,6 @@
 package substrate
 
 import (
-	"errors"
-	"fmt"
 	"os"
 
 	"github.com/cosmos/go-bip39"
@@ -20,9 +18,7 @@ func (sp *SubstrateProvider) CreateKeystore(path string) error {
 }
 
 func (sp *SubstrateProvider) KeystoreCreated(path string) bool {
-	if _, err := os.Stat(sp.PCfg.KeyDirectory); errors.Is(err, os.ErrNotExist) {
-		return false
-	} else if sp.Keybase == nil {
+	if _, err := os.Stat(path); err != nil || sp.Keybase == nil {
 		return false
 	}
 	return true
@@ -84,7 +80,6 @@ func (sp *SubstrateProvider) KeyExists(name string) bool {
 
 	k, err := sp.Keybase.Key(name)
 	if err != nil {
-		fmt.Println(err)
 		return false
 	}
 	return k.GetName() == name

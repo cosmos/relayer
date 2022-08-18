@@ -1,13 +1,13 @@
 package keystore
 
 const (
-	ErrTextKeyNotFound             = "key not found: %v"
-	ErrTextKeyWithAddressNotFound  = "key with address %s not found"
-	ErrTextAddressExists           = "account with address %s already exists in keyring, delete the key first if you want to recreate it"
-	ErrTextPubkeyExists            = "public key already exists in keybase"
-	ErrTextUnknownKeyringBackend   = "unknown keyring backend %v"
-	ErrTextFailedToRead            = "failed to read %s: %v"
-	ErrTextFailedToOpen            = "failed to open %s: %v"
+	ErrTextKeyNotFound             = "key not found"
+	ErrTextKeyWithAddressNotFound  = "key with address not found"
+	ErrTextAddressExists           = "account with address already exists in keyring"
+	ErrTextPubkeyExists            = "public key already exists in keystore"
+	ErrTextUnknownKeyringBackend   = "unknown keyring backend"
+	ErrTextFailedToRead            = "failed to read"
+	ErrTextFailedToOpen            = "failed to open"
 	ErrTextTooManyWrongPassphrases = "too many failed passphrase attempts"
 	ErrTextIncorrectPassphrase     = "incorrect passphrase"
 	ErrTextPassphraseDoNotMatch    = "passphrase do not match"
