@@ -32,9 +32,7 @@ func (scp *SubstrateChainProcessor) handleIBCMessagesFromEvents(ibcEvents rpccli
 
 			switch eType {
 
-			case "CreateClient":
-			case "UpgradeClient":
-			case "ClientMisbehaviour":
+			case "CreateClient", "UpgradeClient", "ClientMisbehaviour":
 				ce := clientInfo{}
 				json.Unmarshal(marshalled, &ce)
 				info = &ce
@@ -46,10 +44,7 @@ func (scp *SubstrateChainProcessor) handleIBCMessagesFromEvents(ibcEvents rpccli
 				info = &ce
 				eventType = eType
 
-			case "OpenInitConnection":
-			case "OpenTryConnection":
-			case "OpenAckConnection":
-			case "OpenConfirmConnection":
+			case "OpenInitConnection", "OpenTryConnection", "OpenAckConnection", "OpenConfirmConnection":
 				ce := connectionEvent{}
 				json.Unmarshal(marshalled, &ce)
 				info = &connectionInfo{
@@ -61,12 +56,7 @@ func (scp *SubstrateChainProcessor) handleIBCMessagesFromEvents(ibcEvents rpccli
 				}
 				eventType = eType
 
-			case "OpenInitChannel":
-			case "OpenTryChannel":
-			case "OpenAckChannel":
-			case "OpenConfirmChannel":
-			case "CloseInitChannel":
-			case "CloseConfirmChannel":
+			case "OpenInitChannel", "OpenTryChannel", "OpenAckChannel", "OpenConfirmChannel", "CloseInitChannel", "CloseConfirmChannel":
 				ce := channelEvent{}
 				json.Unmarshal(marshalled, &ce)
 				info = &channelInfo{
@@ -84,12 +74,7 @@ func (scp *SubstrateChainProcessor) handleIBCMessagesFromEvents(ibcEvents rpccli
 				}
 				eventType = eType
 
-			case "SendPacket":
-			case "ReceivePacket":
-			case "WriteAcknowledgement":
-			case "AcknowledgePacket":
-			case "TimeoutPacket":
-			case "TimeoutOnClosePacket":
+			case "SendPacket", "ReceivePacket", "WriteAcknowledgement", "AcknowledgePacket", "TimeoutPacket", "TimeoutOnClosePacket":
 				ce := packetEvent{}
 				json.Unmarshal(marshalled, &ce)
 				info = &packetInfo{
