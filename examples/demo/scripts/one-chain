@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 display_usage() {
 	echo "\nMissing $1 parameter. Please check if all parameters were specified."
