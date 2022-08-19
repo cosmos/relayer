@@ -1,5 +1,3 @@
-# Examples + Demo/dev-net
-
 ## Demo/Dev-Environment
 
 The demo environment is a series of bash scripts that:
