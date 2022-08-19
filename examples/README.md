@@ -4,7 +4,7 @@
 
 The demo environment is a series of bash scripts that:
 
-1) Spins up two IBC enabled blockchains chains in your local environment
+1) Spins up two IBC enabled blockchains chains (gaia) in your local environment
 2) Creates an IBC connection between both chains
 3) Sends an IBC transaction between both chains
 
