@@ -8,12 +8,14 @@ import (
 	"time"
 
 	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
+	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
+	beefyclient "github.com/cosmos/ibc-go/v5/modules/light-clients/11-beefy/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/substrate/keystore"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
@@ -85,11 +87,13 @@ func (sp *SubstrateProvider) Init() error {
 }
 
 type SubstrateProvider struct {
-	log       *zap.Logger
-	Keybase   keystore.Keyring
-	RPCClient *rpcclient.SubstrateAPI
-	PCfg      SubstrateProviderConfig
-	Input     io.Reader
+	log     *zap.Logger
+	Keybase keystore.Keyring
+	PCfg    SubstrateProviderConfig
+	Input   io.Reader
+
+	RPCClient        *rpcclient.SubstrateAPI
+	RelayerRPCClient *rpcclient.SubstrateAPI
 }
 
 type SubstrateIBCHeader struct {
@@ -129,8 +133,18 @@ func (sp *SubstrateProvider) QueryTxs(ctx context.Context, page, limit int, even
 }
 
 func (sp *SubstrateProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
-	//TODO implement me
-	panic("implement me")
+	// TODO: should the latest height be the latest relayer height or the latest parachain height?
+	signedHash, err := sp.RelayerRPCClient.RPC.Beefy.GetFinalizedHead()
+	if err != nil {
+		return 0, err
+	}
+
+	signedBlock, err := sp.RelayerRPCClient.RPC.Chain.GetBlock(signedHash)
+	if err != nil {
+		return 0, err
+	}
+
+	return int64(signedBlock.Block.Header.Number), nil
 }
 
 func (sp *SubstrateProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
