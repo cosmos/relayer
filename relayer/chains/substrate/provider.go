@@ -36,7 +36,7 @@ type SubstrateProviderConfig struct {
 	KeyDirectory   string `json:"key-directory" yaml:"key-directory"`
 	Debug          bool   `json:"debug" yaml:"debug"`
 	Timeout        string `json:"timeout" yaml:"timeout"`
-	Network        uint8  `json:"network" yaml:"network"`
+	Network        uint16 `json:"network" yaml:"network"`
 }
 
 func (spc SubstrateProviderConfig) Validate() error {

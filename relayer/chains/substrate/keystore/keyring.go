@@ -53,7 +53,7 @@ type Keyring interface {
 
 	// NewAccount converts a mnemonic to a private key and BIP-39 HD Path and persists it.
 	// It fails if there is an existing key Info with the same address.
-	NewAccount(name, mnemonic string, network uint8) (Info, error)
+	NewAccount(name, mnemonic string, network uint16) (Info, error)
 }
 
 func New(
@@ -267,7 +267,7 @@ func (ks keystore) Key(uid string) (Info, error) {
 	return ks.key(infoKey)
 }
 
-func (ks keystore) NewAccount(name string, mnemonic string, network uint8) (Info, error) {
+func (ks keystore) NewAccount(name string, mnemonic string, network uint16) (Info, error) {
 	kp, err := signature.KeyringPairFromSecret(mnemonic, network)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create keypair: %w", err)

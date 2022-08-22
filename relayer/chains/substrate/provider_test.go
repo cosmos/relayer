@@ -7,7 +7,7 @@ import (
 
 const homePath = "/tmp"
 
-func getSubstrateConfig(keyDir string, network uint8) *substrate.SubstrateProviderConfig {
+func getSubstrateConfig(keyDir string, network uint16) *substrate.SubstrateProviderConfig {
 	return &substrate.SubstrateProviderConfig{
 		Key:            "default",
 		ChainID:        "substrate-test",
