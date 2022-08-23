@@ -1,7 +1,6 @@
 package ibctest_test
 
 import (
-	"io"
 	"testing"
 
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
@@ -29,21 +28,22 @@ func ibctestConformance(t *testing.T, rf ibctest.RelayerFactory) {
 		t,
 		[]ibctest.ChainFactory{cf},
 		[]ibctest.RelayerFactory{rf},
-		// The nop write closer means no test report will be generated,
-		// which is fine for these tests for now.
-		testreporter.NewReporter(newNopWriteCloser()),
+		testreporter.NewNopReporter(),
 	)
 }
 
 // TestRelayerInProcess runs the ibctest conformance tests against
 // the current state of this relayer implementation running in process.
 func TestRelayerInProcess(t *testing.T) {
+	t.Parallel()
 	ibctestConformance(t, relayeribctest.RelayerFactory{})
 }
 
 // TestRelayerDocker runs the ibctest conformance tests against
 // the current state of this relayer implementation built in docker.
-func TestRelayerDocker(t *testing.T) {
+// Relayer runs using the event processor.
+func TestRelayerDockerEventProcessor(t *testing.T) {
+	t.Parallel()
 	relayeribctest.BuildRelayerImage(t)
 
 	rf := ibctest.NewBuiltinRelayerFactory(
@@ -57,16 +57,20 @@ func TestRelayerDocker(t *testing.T) {
 	ibctestConformance(t, rf)
 }
 
-// nopWriteCloser is a no-op io.WriteCloser used to satisfy the ibctest TestReporter type.
-// Because the relayer is used in-process, all logs are simply streamed to the test log.
-type nopWriteCloser struct {
-	io.Writer
-}
+// TestRelayerDocker runs the ibctest conformance tests against
+// the current state of this relayer implementation built in docker.
+// Relayer runs using the legacy processor.
+func TestRelayerDockerLegacyProcessor(t *testing.T) {
+	t.Parallel()
+	relayeribctest.BuildRelayerImage(t)
 
-func (nopWriteCloser) Close() error {
-	return nil
-}
+	rf := ibctest.NewBuiltinRelayerFactory(
+		ibc.CosmosRly,
+		zaptest.NewLogger(t),
+		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest"),
+		ibctestrelayer.ImagePull(false),
+		ibctestrelayer.StartupFlags("--processor", "legacy"),
+	)
 
-func newNopWriteCloser() io.WriteCloser {
-	return nopWriteCloser{Writer: io.Discard}
+	ibctestConformance(t, rf)
 }

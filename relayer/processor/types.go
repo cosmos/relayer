@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
+	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"

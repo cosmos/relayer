@@ -3,15 +3,15 @@ package processor_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
+	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/stretchr/testify/require"
 )
 
 type mockIBCHeader struct{}
 
-func (h mockIBCHeader) IBCHeaderIndicator() {}
-func (h mockIBCHeader) Height() uint64      { return 0 }
+func (h mockIBCHeader) Height() uint64                             { return 0 }
+func (h mockIBCHeader) ConsensusState() ibcexported.ConsensusState { return nil }
 
 func TestIBCHeaderCachePrune(t *testing.T) {
 	cache := make(processor.IBCHeaderCache)

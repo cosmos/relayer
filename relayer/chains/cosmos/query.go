@@ -16,21 +16,53 @@ import (
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
-	transfertypes "github.com/cosmos/ibc-go/v4/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v4/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v4/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v4/modules/core/24-host"
-	ibcexported "github.com/cosmos/ibc-go/v4/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v4/modules/light-clients/07-tendermint/types"
+	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v5/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	abci "github.com/tendermint/tendermint/abci/types"
 	tmtypes "github.com/tendermint/tendermint/types"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
 var _ provider.QueryProvider = &CosmosProvider{}
+
+// queryIBCMessages returns an array of IBC messages given a tag
+func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger, page, limit int, query string) ([]ibcMessage, error) {
+	if query == "" {
+		return nil, errors.New("query string must be provided")
+	}
+
+	if page <= 0 {
+		return nil, errors.New("page must greater than 0")
+	}
+
+	if limit <= 0 {
+		return nil, errors.New("limit must greater than 0")
+	}
+
+	res, err := cc.RPCClient.TxSearch(ctx, query, true, &page, &limit, "")
+	if err != nil {
+		return nil, err
+	}
+	var ibcMsgs []ibcMessage
+	for _, tx := range res.Txs {
+		parsedLogs, err := sdk.ParseABCILogs(tx.TxResult.Log)
+		if err != nil {
+			continue
+		}
+
+		ibcMsgs = append(ibcMsgs, parseABCILogs(log, parsedLogs, 0)...)
+	}
+
+	return ibcMsgs, nil
+}
 
 // QueryTx takes a transaction hash and returns the transaction
 func (cc *CosmosProvider) QueryTx(ctx context.Context, hashHex string) (*provider.RelayerTxResponse, error) {
@@ -656,6 +688,66 @@ func (cc *CosmosProvider) QueryUnreceivedPackets(ctx context.Context, height uin
 		return nil, err
 	}
 	return res.Sequences, nil
+}
+
+func sendPacketQuery(channelID string, portID string, seq uint64) string {
+	x := []string{
+		fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
+		fmt.Sprintf("%s.packet_src_port='%s'", spTag, portID),
+		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq),
+	}
+	return strings.Join(x, " AND ")
+}
+
+func writeAcknowledgementQuery(channelID string, portID string, seq uint64) string {
+	x := []string{
+		fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
+		fmt.Sprintf("%s.packet_dst_port='%s'", waTag, portID),
+		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq),
+	}
+	return strings.Join(x, " AND ")
+}
+
+func (cc *CosmosProvider) QuerySendPacket(
+	ctx context.Context,
+	srcChanID,
+	srcPortID string,
+	sequence uint64,
+) (provider.PacketInfo, error) {
+	q := sendPacketQuery(srcChanID, srcPortID, sequence)
+	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q)
+	if err != nil {
+		return provider.PacketInfo{}, err
+	}
+	for _, msg := range ibcMsgs {
+		if pi, ok := msg.info.(*packetInfo); ok {
+			if pi.Sequence == sequence {
+				return provider.PacketInfo(*pi), nil
+			}
+		}
+	}
+	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for send_packet query: %s", q)
+}
+
+func (cc *CosmosProvider) QueryRecvPacket(
+	ctx context.Context,
+	dstChanID,
+	dstPortID string,
+	sequence uint64,
+) (provider.PacketInfo, error) {
+	q := writeAcknowledgementQuery(dstChanID, dstPortID, sequence)
+	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q)
+	if err != nil {
+		return provider.PacketInfo{}, err
+	}
+	for _, msg := range ibcMsgs {
+		if pi, ok := msg.info.(*packetInfo); ok {
+			if pi.Sequence == sequence {
+				return provider.PacketInfo(*pi), nil
+			}
+		}
+	}
+	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for write_acknowledgement query: %s", q)
 }
 
 // QueryUnreceivedAcknowledgements returns a list of unrelayed packet acks

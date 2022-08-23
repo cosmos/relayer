@@ -15,12 +15,13 @@ fi
 cd $RELAYER_DIR
 rm -rf $RELAYER_CONF &> /dev/null
 pwd
+# spin up two ibc enabled chains and add relevant config info for relaying
 bash scripts/two-chainz "skip"
 
 echo "waiting for blocks..."
 sleep 3
 
-# creates client, connection, and channel all in one command
+# creates clients, connections and channels (all this happens in rly tx command)
 rly tx link demo -d -t 3s
 sleep 2
 echo "Initial balances"

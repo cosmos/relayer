@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	ibcexported "github.com/cosmos/ibc-go/v4/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/spf13/cobra"
 )
@@ -261,23 +260,29 @@ $ %s query header ibc-0 1400`,
 				return errChainNotFound(args[0])
 			}
 
-			var header ibcexported.Header
-			var err error
+			var height int64
 			switch len(args) {
 			case 1:
-				header, err = chain.ChainProvider.GetLightSignedHeaderAtHeight(cmd.Context(), 0)
+				var err error
+				height, err = chain.ChainProvider.QueryLatestHeight(cmd.Context())
 				if err != nil {
 					return err
 				}
 
 			case 2:
-				header, err = relayer.QueryHeader(cmd.Context(), chain, args[1])
+				var err error
+				height, err = strconv.ParseInt(args[1], 10, 64)
 				if err != nil {
 					return err
 				}
 			}
 
-			s, err := chain.ChainProvider.Sprint(header)
+			header, err := chain.ChainProvider.QueryIBCHeader(cmd.Context(), height)
+			if err != nil {
+				return err
+			}
+
+			s, err := json.Marshal(header)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal header: %v\n", err)
 				return err
