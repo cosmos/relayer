@@ -54,7 +54,7 @@ func TestConnectionStateCache(t *testing.T) {
 		require.Len(t, ccp.connectionStateCache, 1)
 
 		// The fully populated ConnectionKey should now be the only entry for this connection.
-		// The connection now open.
+		// The connection should now be open.
 		require.True(t, ccp.connectionStateCache[k])
 	})
 

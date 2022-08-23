@@ -204,7 +204,7 @@ type outgoingMessages struct {
 func (om *outgoingMessages) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	for i, m := range om.pktMsgs {
 		pfx := "pkt_" + strconv.FormatInt(int64(i), 10) + "_"
-		enc.AddString(pfx+"evt_type", m.msg.eventType)
+		enc.AddString(pfx+"event_type", m.msg.eventType)
 		enc.AddString(pfx+"src_chan", m.msg.info.SourceChannel)
 		enc.AddString(pfx+"src_port", m.msg.info.SourcePort)
 		enc.AddString(pfx+"dst_chan", m.msg.info.DestChannel)
@@ -213,7 +213,7 @@ func (om *outgoingMessages) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	for i, m := range om.connMsgs {
 		pfx := "conn_" + strconv.FormatInt(int64(i), 10) + "_"
-		enc.AddString(pfx+"evt_type", m.msg.eventType)
+		enc.AddString(pfx+"event_type", m.msg.eventType)
 		enc.AddString(pfx+"client_id", m.msg.info.ClientID)
 		enc.AddString(pfx+"conn_id", m.msg.info.ConnID)
 		enc.AddString(pfx+"cntrprty_client_id", m.msg.info.CounterpartyClientID)
@@ -221,7 +221,7 @@ func (om *outgoingMessages) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	for i, m := range om.chanMsgs {
 		pfx := "chan_" + strconv.FormatInt(int64(i), 10) + "_"
-		enc.AddString(pfx+"evt_type", m.msg.eventType)
+		enc.AddString(pfx+"event_type", m.msg.eventType)
 		enc.AddString(pfx+"chan_id", m.msg.info.ChannelID)
 		enc.AddString(pfx+"port_id", m.msg.info.PortID)
 		enc.AddString(pfx+"cntrprty_chan_id", m.msg.info.CounterpartyChannelID)

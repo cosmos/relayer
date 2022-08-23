@@ -72,7 +72,6 @@ func (ccp *CosmosChainProcessor) handleChannelMessage(eventType string, ci provi
 			ccp.channelStateCache[channelKey] = false
 		}
 	} else {
-		// Clear out MsgInitKeys once we have the counterparty channel ID
 		switch eventType {
 		case chantypes.EventTypeChannelOpenTry:
 			ccp.channelStateCache[channelKey] = false
