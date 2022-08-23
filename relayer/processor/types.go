@@ -127,9 +127,9 @@ func (k ChannelKey) Counterparty() ChannelKey {
 	}
 }
 
-// msgInitKey is used for comparing MsgChannelOpenInit keys with other connection
+// MsgInitKey is used for comparing MsgChannelOpenInit keys with other connection
 // handshake messages. MsgChannelOpenInit does not have CounterpartyChannelID.
-func (k ChannelKey) msgInitKey() ChannelKey {
+func (k ChannelKey) MsgInitKey() ChannelKey {
 	return ChannelKey{
 		ChannelID:             k.ChannelID,
 		PortID:                k.PortID,
@@ -164,9 +164,9 @@ func (connectionKey ConnectionKey) Counterparty() ConnectionKey {
 	}
 }
 
-// msgInitKey is used for comparing MsgConnectionOpenInit keys with other connection
+// MsgInitKey is used for comparing MsgConnectionOpenInit keys with other connection
 // handshake messages. MsgConnectionOpenInit does not have CounterpartyConnectionID.
-func (connectionKey ConnectionKey) msgInitKey() ConnectionKey {
+func (connectionKey ConnectionKey) MsgInitKey() ConnectionKey {
 	return ConnectionKey{
 		ClientID:             connectionKey.ClientID,
 		ConnectionID:         connectionKey.ConnectionID,
@@ -185,13 +185,6 @@ func (k ConnectionKey) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 // ChannelStateCache maintains channel open state for multiple channels.
 type ChannelStateCache map[ChannelKey]bool
-
-// Merge merges another ChannelStateCache into this one, appending messages and updating the Open state.
-func (c ChannelStateCache) Merge(other ChannelStateCache) {
-	for channelKey, newState := range other {
-		c[channelKey] = newState
-	}
-}
 
 // FilterForClient returns a filtered copy of channels on top of an underlying clientID so it can be used by other goroutines.
 func (c ChannelStateCache) FilterForClient(clientID string, channelConnections map[string]string, connectionClients map[string]string) ChannelStateCache {
@@ -214,13 +207,6 @@ func (c ChannelStateCache) FilterForClient(clientID string, channelConnections m
 
 // ConnectionStateCache maintains connection open state for multiple connections.
 type ConnectionStateCache map[ConnectionKey]bool
-
-// Merge merges another ChannelStateCache into this one, appending messages and updating the Open state.
-func (c ConnectionStateCache) Merge(other ConnectionStateCache) {
-	for channelKey, newState := range other {
-		c[channelKey] = newState
-	}
-}
 
 // FilterForClient makes a filtered copy of the ConnectionStateCache
 // for a single client ID so it can be used by other goroutines.
