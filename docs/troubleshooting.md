@@ -65,7 +65,7 @@ When preparing a transaction for relaying, the amount of gas that the transactio
 lvl=info msg="Error building or broadcasting transaction" provider_type=cosmos chain_id=evmos_9001-2 attempt=1 max_attempts=5 error="rpc error: code = InvalidArgument desc = provided fee < minimum global fee (0aevmos < ). Please increase the gas price.: insufficient fee: invalid request"
 ```
 
-A workaround is available in which the `min-gas-amount` may be set in the chain's configuration to enable simulate with a non-zero amount of gas.
+A workaround is available in which the `min-gas-amount` may be set in the chain's configuration to enable simulation with a non-zero amount of gas.
 
 ```
     evmos:
