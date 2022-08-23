@@ -69,6 +69,15 @@ func (ccp *CosmosChainProcessor) handleChannelMessage(eventType string, ci provi
 			}
 		}
 	}
+	if eventType != chantypes.EventTypeChannelOpenInit {
+		// Clear out MsgInitKeys once we have the counterparty channel ID
+		msgInitKey := channelKey.MsgInitKey()
+		for k := range ccp.channelStateCache {
+			if k == msgInitKey {
+				delete(ccp.channelStateCache, k)
+			}
+		}
+	}
 	ibcMessagesCache.ChannelHandshake.Retain(channelKey, eventType, ci)
 
 	ccp.logChannelMessage(eventType, ci)
@@ -79,6 +88,15 @@ func (ccp *CosmosChainProcessor) handleConnectionMessage(eventType string, ci pr
 	connectionKey := processor.ConnectionInfoConnectionKey(ci)
 	open := (eventType == conntypes.EventTypeConnectionOpenAck || eventType == conntypes.EventTypeConnectionOpenConfirm)
 	ccp.connectionStateCache[connectionKey] = open
+	if eventType != conntypes.EventTypeConnectionOpenInit {
+		// Clear out MsgInitKeys once we have the counterparty connection ID
+		msgInitKey := connectionKey.MsgInitKey()
+		for k := range ccp.connectionStateCache {
+			if k == msgInitKey {
+				delete(ccp.connectionStateCache, k)
+			}
+		}
+	}
 	ibcMessagesCache.ConnectionHandshake.Retain(connectionKey, eventType, ci)
 
 	ccp.logConnectionMessage(eventType, ci)
