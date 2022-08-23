@@ -725,12 +725,12 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		dst.trackProcessingChannelMessage(m)
 	}
 
-	go pp.sendMessages(ctx, src, dst, om, pp.memo)
+	go pp.sendMessages(ctx, src, dst, &om, pp.memo)
 
 	return nil
 }
 
-func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRuntime, om outgoingMessages, memo string) {
+func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRuntime, om *outgoingMessages, memo string) {
 	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
@@ -742,6 +742,7 @@ func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRunt
 				zap.String("dst_chain_id", dst.info.ChainID),
 				zap.String("src_client_id", src.info.ClientID),
 				zap.String("dst_client_id", dst.info.ClientID),
+				zap.Object("messages", om),
 				zap.Error(err),
 			)
 			return
@@ -751,6 +752,7 @@ func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRunt
 			zap.String("dst_chain_id", dst.info.ChainID),
 			zap.String("src_client_id", src.info.ClientID),
 			zap.String("dst_client_id", dst.info.ClientID),
+			zap.Object("messages", om),
 			zap.Error(err),
 		)
 		return
