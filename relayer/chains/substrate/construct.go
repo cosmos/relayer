@@ -86,7 +86,7 @@ func clientState(
 
 	var authorityTreeRoot = bytes32(authorityTree.Root())
 	var nextAuthorityTreeRoot = bytes32(nextAuthorityTree.Root())
-	clientState := &beefyclienttypes.ClientState{
+	return &beefyclienttypes.ClientState{
 		MmrRootHash:          commitment.Commitment.Payload[0].Value,
 		LatestBeefyHeight:    blockNumber,
 		BeefyActivationBlock: 0,
@@ -100,9 +100,7 @@ func clientState(
 			Len:           uint32(len(nextAuthorities)),
 			AuthorityRoot: &nextAuthorityTreeRoot,
 		},
-	}
-
-	return clientState, err
+	}, nil
 }
 
 func beefyAuthorities(blockNumber uint32, conn *rpcclient.SubstrateAPI, method string) ([][]byte, error) {
