@@ -12,6 +12,7 @@
 * [\#467](https://github.com/cosmos/relayer/pull/467) cli: UX cleanup for tx commands
 * [\#466](https://github.com/cosmos/relayer/pull/466) Docs cleanup. 
 * [\#506](https://github.com/cosmos/relayer/pull/506) Fix Timeout Handling on Relayer restart
+* [\#940](https://github.com/cosmos/relayer/pull/940) Add min-gas-amount parameter for chain configs, to workaround gas estimation failure.
 
 ## v0.9.3
 

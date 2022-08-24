@@ -8,7 +8,7 @@ on:
 
 jobs:
   events:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Set up Go 1.18
         uses: actions/setup-go@v1
@@ -29,7 +29,7 @@ jobs:
       - name: ibctest
         run: make ibctest-docker-events
   legacy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Set up Go 1.18
         uses: actions/setup-go@v1
