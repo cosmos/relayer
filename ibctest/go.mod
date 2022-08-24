@@ -9,7 +9,7 @@ require (
 	github.com/moby/moby v20.10.17+incompatible
 	github.com/strangelove-ventures/ibctest v0.0.0-20220809152134-4bd6b88f8572
 	github.com/stretchr/testify v1.8.0
-	go.uber.org/zap v1.21.0
+	go.uber.org/zap v1.22.0
 )
 
 require (
@@ -137,7 +137,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.12.0 // indirect
-	github.com/strangelove-ventures/lens v0.5.2-0.20220810214843-6af97ce869d8 // indirect
+	github.com/strangelove-ventures/lens v0.5.2-0.20220822201013-1e7ffd450f20 // indirect
 	github.com/subosito/gotenv v1.4.0 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220614013038-64ee5596c38a // indirect
 	github.com/tendermint/btcd v0.1.1 // indirect
