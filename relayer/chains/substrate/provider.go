@@ -14,6 +14,7 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
+	"github.com/cosmos/relayer/v2/relayer/chains/substrate/keystore"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
@@ -30,13 +31,13 @@ type SubstrateProviderConfig struct {
 	ChainName      string `json:"-" yaml:"-"`
 	ChainID        string `json:"chain-id" yaml:"chain-id"`
 	RPCAddr        string `json:"rpc-addr" yaml:"rpc-addr"`
-	RelayRPCAddr   string `json:"relay-rpc-addr" yaml:"rpc-addr"`
+	RelayRPCAddr   string `json:"relay-rpc-addr" yaml:"relay-rpc-addr"`
 	AccountPrefix  string `json:"account-prefix" yaml:"account-prefix"`
 	KeyringBackend string `json:"keyring-backend" yaml:"keyring-backend"`
 	KeyDirectory   string `json:"key-directory" yaml:"key-directory"`
 	Debug          bool   `json:"debug" yaml:"debug"`
 	Timeout        string `json:"timeout" yaml:"timeout"`
-	Network        uint8  `json:"network" yaml:"network"`
+	Network        uint16 `json:"network" yaml:"network"`
 }
 
 func (spc SubstrateProviderConfig) Validate() error {
@@ -52,8 +53,16 @@ func keysDir(home, chainID string) string {
 
 // NewProvider validates the SubstrateProviderConfig, instantiates a ChainClient and then instantiates a SubstrateProvider
 func (spc SubstrateProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
-	spc.KeyDirectory = keysDir(homepath, spc.ChainID)
+	if err := spc.Validate(); err != nil {
+		return nil, err
+	}
+
+	if len(spc.KeyDirectory) == 0 {
+		spc.KeyDirectory = keysDir(homepath, spc.ChainID)
+	}
+
 	sp := &SubstrateProvider{
+		log:  log,
 		PCfg: spc,
 	}
 
@@ -66,19 +75,21 @@ func (spc SubstrateProviderConfig) NewProvider(log *zap.Logger, homepath string,
 }
 
 func (sp *SubstrateProvider) Init() error {
-	//TODO implement me
-	panic("implement me")
+	keybase, err := keystore.New(sp.PCfg.ChainID, sp.PCfg.KeyringBackend, sp.PCfg.KeyDirectory, sp.Input)
+	if err != nil {
+		return err
+	}
+
+	sp.Keybase = keybase
 	return nil
 }
 
 type SubstrateProvider struct {
-	log *zap.Logger
-
+	log       *zap.Logger
+	Keybase   keystore.Keyring
 	RPCClient *rpcclient.SubstrateAPI
-	Config    *SubstrateProviderConfig
+	PCfg      SubstrateProviderConfig
 	Input     io.Reader
-
-	PCfg SubstrateProviderConfig
 }
 
 type SubstrateIBCHeader struct{}

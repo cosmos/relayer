@@ -3,14 +3,17 @@ module github.com/cosmos/relayer/v2
 go 1.18
 
 require (
+	github.com/99designs/keyring v1.2.1
 	github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220819133021-62ed9987ea7c
 	github.com/avast/retry-go/v4 v4.1.0
 	github.com/cosmos/cosmos-sdk v0.46.0
+	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/ibc-go/v5 v5.0.0-beta1
 	github.com/gogo/protobuf v1.3.3
 	github.com/google/go-cmp v0.5.8
 	github.com/google/go-github/v43 v43.0.0
 	github.com/jsternberg/zap-logfmt v1.2.0
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.2
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
@@ -19,6 +22,7 @@ require (
 	github.com/tendermint/tendermint v0.34.20
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.21.0
+	golang.org/x/crypto v0.0.0-20220817201139-bc19a97f63c8
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
 	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467
 	gopkg.in/yaml.v3 v3.0.1
@@ -33,7 +37,6 @@ require (
 	cosmossdk.io/math v1.0.0-beta.3 // indirect
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
-	github.com/99designs/keyring v1.2.1 // indirect
 	github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d // indirect
 	github.com/ComposableFi/go-subkey/v2 v2.0.0-tm03420 // indirect
 	github.com/armon/go-metrics v0.4.0 // indirect
@@ -51,7 +54,6 @@ require (
 	github.com/confio/ics23/go v0.7.0 // indirect
 	github.com/cosmos/btcutil v1.0.4 // indirect
 	github.com/cosmos/cosmos-proto v1.0.0-alpha7 // indirect
-	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gorocksdb v1.2.0 // indirect
 	github.com/cosmos/iavl v0.19.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.11.1 // indirect
@@ -113,7 +115,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.2 // indirect
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pierrec/xxHash v0.1.5 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.34.0 // indirect
@@ -138,7 +139,6 @@ require (
 	go.etcd.io/bbolt v1.3.6 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	golang.org/x/crypto v0.0.0-20220817201139-bc19a97f63c8 // indirect
 	golang.org/x/net v0.0.0-20220617184016-355a448f1bc9 // indirect
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect
 	golang.org/x/sys v0.0.0-20220818161305-2296e01440c6 // indirect
