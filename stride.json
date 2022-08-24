@@ -1,7 +1,7 @@
 {
   "type": "cosmos",
   "value": {
-    "key": "wallet",
+    "key": "gloreix_key",
     "chain-id": "STRIDE-TESTNET-4",
     "rpc-addr": "http://185.185.80.4",
     "account-prefix": "stride",
