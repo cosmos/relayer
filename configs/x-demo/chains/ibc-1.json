@@ -1,0 +1,15 @@
+{
+  "type": "substrate",
+  "value": {
+    "key": "testkey",
+    "chain-id": "ibc-1",
+    "rpc-addr": "ws://127.0.0.1:9988",
+    "relay-rpc-addr": "ws://127.0.0.1:9944",
+    "account-prefix": "",
+    "keyring-backend": "test",
+    "key-directory": "/tmp",
+    "debug": true,
+    "timeout": "10s",
+    "network": 49
+  }
+}
