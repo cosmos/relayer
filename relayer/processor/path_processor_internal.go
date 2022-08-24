@@ -192,7 +192,7 @@ ConnectionHandshakeLoop:
 			// MsgConnectionOpenInit does not have counterparty connection ID, so check if everything
 			// else matches for counterparty. If so, add counterparty connection ID for
 			// the checks later on in this function.
-			if openInitKey.ConnectionID == openTryKey.CounterpartyConnID && openInitKey.ClientID == openTryKey.CounterpartyClientID && openInitKey.CounterpartyClientID == openTryKey.ClientID {
+			if openInitKey == openTryKey.Counterparty().MsgInitKey() {
 				openInitKey.CounterpartyConnID = openTryKey.ConnectionID
 				foundOpenTry = &openTryMsg
 				break
@@ -281,7 +281,7 @@ ChannelHandshakeLoop:
 			// MsgChannelOpenInit does not have counterparty channel ID, so check if everything
 			// else matches for counterparty. If so, add counterparty channel ID for
 			// the checks later on in this function.
-			if openInitKey == openTryKey.Counterparty().msgInitKey() {
+			if openInitKey == openTryKey.Counterparty().MsgInitKey() {
 				openInitKey.CounterpartyChannelID = openTryMsg.ChannelID
 				foundOpenTry = &openTryMsg
 				break
@@ -339,7 +339,7 @@ ChannelHandshakeLoop:
 		res.ToDeleteSrc[chantypes.EventTypeChannelOpenAck] = append(res.ToDeleteSrc[chantypes.EventTypeChannelOpenAck], openInitKey)
 		res.ToDeleteDst[chantypes.EventTypeChannelOpenConfirm] = append(res.ToDeleteDst[chantypes.EventTypeChannelOpenConfirm], openInitKey)
 		// MsgChannelOpenInit does not have CounterpartyChannelID
-		res.ToDeleteSrc[chantypes.EventTypeChannelOpenInit] = append(res.ToDeleteSrc[chantypes.EventTypeChannelOpenInit], openInitKey.msgInitKey())
+		res.ToDeleteSrc[chantypes.EventTypeChannelOpenInit] = append(res.ToDeleteSrc[chantypes.EventTypeChannelOpenInit], openInitKey.MsgInitKey())
 	}
 
 	// now iterate through channel-handshake-complete messages and remove any leftover messages
@@ -348,7 +348,7 @@ ChannelHandshakeLoop:
 		res.ToDeleteSrc[chantypes.EventTypeChannelOpenAck] = append(res.ToDeleteSrc[chantypes.EventTypeChannelOpenAck], openConfirmKey)
 		res.ToDeleteDst[chantypes.EventTypeChannelOpenConfirm] = append(res.ToDeleteDst[chantypes.EventTypeChannelOpenConfirm], openConfirmKey)
 		// MsgChannelOpenInit does not have CounterpartyChannelID
-		res.ToDeleteSrc[chantypes.EventTypeChannelOpenInit] = append(res.ToDeleteSrc[chantypes.EventTypeChannelOpenInit], openConfirmKey.msgInitKey())
+		res.ToDeleteSrc[chantypes.EventTypeChannelOpenInit] = append(res.ToDeleteSrc[chantypes.EventTypeChannelOpenInit], openConfirmKey.MsgInitKey())
 	}
 	return res
 }
@@ -725,12 +725,12 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		dst.trackProcessingChannelMessage(m)
 	}
 
-	go pp.sendMessages(ctx, src, dst, om, pp.memo)
+	go pp.sendMessages(ctx, src, dst, &om, pp.memo)
 
 	return nil
 }
 
-func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRuntime, om outgoingMessages, memo string) {
+func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRuntime, om *outgoingMessages, memo string) {
 	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
@@ -742,6 +742,7 @@ func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRunt
 				zap.String("dst_chain_id", dst.info.ChainID),
 				zap.String("src_client_id", src.info.ClientID),
 				zap.String("dst_client_id", dst.info.ClientID),
+				zap.Object("messages", om),
 				zap.Error(err),
 			)
 			return
@@ -751,6 +752,7 @@ func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRunt
 			zap.String("dst_chain_id", dst.info.ChainID),
 			zap.String("src_client_id", src.info.ClientID),
 			zap.String("dst_client_id", dst.info.ClientID),
+			zap.Object("messages", om),
 			zap.Error(err),
 		)
 		return
