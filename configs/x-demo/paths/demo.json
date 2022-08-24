@@ -1,0 +1,12 @@
+{
+  "src": {
+    "chain-id": "ibc-0"
+  },
+  "dst": {
+    "chain-id": "ibc-1"
+  },
+  "src-channel-filter": {
+    "rule": null,
+    "channel-list": []
+  }
+}

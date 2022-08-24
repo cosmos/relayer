@@ -278,38 +278,36 @@ func (sp *SubstrateProvider) AcknowledgementFromSequence(ctx context.Context, ds
 }
 
 func (sp *SubstrateProvider) ChainName() string {
-	//TODO implement me
-	panic("implement me")
+	return sp.PCfg.ChainName
 }
 
 func (sp *SubstrateProvider) ChainId() string {
-	//TODO implement me
-	panic("implement me")
+	return sp.PCfg.ChainID
 }
 
 func (sp *SubstrateProvider) Type() string {
-	//TODO implement me
-	panic("implement me")
+	return "substrate"
 }
 
 func (sp *SubstrateProvider) ProviderConfig() provider.ProviderConfig {
-	//TODO implement me
-	panic("implement me")
+	return sp.PCfg
 }
 
 func (sp *SubstrateProvider) Key() string {
-	//TODO implement me
-	panic("implement me")
+	return sp.PCfg.Key
 }
 
 func (sp *SubstrateProvider) Address() (string, error) {
-	//TODO implement me
-	panic("implement me")
+	info, err := sp.Keybase.Key(sp.Key())
+	if err != nil {
+		return "", nil
+	}
+
+	return info.GetAddress(), nil
 }
 
 func (sp *SubstrateProvider) Timeout() string {
-	//TODO implement me
-	panic("implement me")
+	return sp.PCfg.Timeout
 }
 
 func (sp *SubstrateProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
