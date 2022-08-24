@@ -2,6 +2,7 @@ package substrate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -21,12 +22,12 @@ var _ provider.QueryProvider = &SubstrateProvider{}
 
 // QueryTx takes a transaction hash and returns the transaction
 func (cc *SubstrateProvider) QueryTx(ctx context.Context, hashHex string) (*provider.RelayerTxResponse, error) {
-	return &provider.RelayerTxResponse{}, nil
+	return &provider.RelayerTxResponse{}, errors.New(ErrTextSubstrateDoesnotHaveQueryForTransactions)
 }
 
 // QueryTxs returns an array of transactions given a tag
 func (cc *SubstrateProvider) QueryTxs(ctx context.Context, page, limit int, events []string) ([]*provider.RelayerTxResponse, error) {
-	return []*provider.RelayerTxResponse{}, nil
+	return []*provider.RelayerTxResponse{}, errors.New(ErrTextSubstrateDoesnotHaveQueryForTransactions)
 }
 
 // QueryBalance returns the amount of coins in the relayer account
@@ -251,17 +252,13 @@ func (sp *SubstrateProvider) GenerateConnHandshakeProof(ctx context.Context, hei
 // QueryChannel returns the channel associated with a channelID
 func (sp *SubstrateProvider) QueryChannel(ctx context.Context, height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
 
-	res, err := sp.RPCClient.RPC.IBC.QueryConnectionChannels(ctx, height, connectionid)
+	res, err := sp.RPCClient.RPC.IBC.QueryChannel(ctx, height, channelid, portid)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, channel := range res.Channels {
-
-	}
-
+	// TODO check if how can be the "not found" result from composable node
 	if err != nil && strings.Contains(err.Error(), "not found") {
-
 		return &chantypes.QueryChannelResponse{
 			Channel: &chantypes.Channel{
 				State:    chantypes.UNINITIALIZED,
@@ -283,10 +280,6 @@ func (sp *SubstrateProvider) QueryChannel(ctx context.Context, height int64, cha
 		return nil, err
 	}
 	return res, nil
-}
-
-func (cc *SubstrateProvider) queryChannelABCI(ctx context.Context, height int64, portID, channelID string) (*chantypes.QueryChannelResponse, error) {
-	return &chantypes.QueryChannelResponse{}, nil
 }
 
 // QueryChannelClient returns the client state of the client supporting a given channel
