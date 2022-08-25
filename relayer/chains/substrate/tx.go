@@ -23,9 +23,9 @@ func (sp *SubstrateProvider) NewClientState(
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 ) (ibcexported.ClientState, error) {
-	substrateHeader, ok := dstIBCHeader.(*SubstrateIBCHeader)
+	substrateHeader, ok := dstIBCHeader.(SubstrateIBCHeader)
 	if !ok {
-		return nil, fmt.Errorf("got data of type %T but wanted  beefyClientType.Header \n", dstIBCHeader)
+		return nil, fmt.Errorf("got data of type %T but wanted  substrate.SubstrateIBCHeader \n", dstIBCHeader)
 	}
 
 	// TODO: this won't work because we need the height passed to GetBlockHash to be the previously finalized beefy height

@@ -28,7 +28,7 @@ var (
 
 type SubstrateProviderConfig struct {
 	Key            string `json:"key" yaml:"key"`
-	ChainName      string `json:"-" yaml:"-"`
+	ChainName      string `json:"chain-name" yaml:"chain-name"`
 	ChainID        string `json:"chain-id" yaml:"chain-id"`
 	RPCAddr        string `json:"rpc-addr" yaml:"rpc-addr"`
 	RelayRPCAddr   string `json:"relay-rpc-addr" yaml:"relay-rpc-addr"`
@@ -90,7 +90,19 @@ func (sp *SubstrateProvider) Init() error {
 		return err
 	}
 
+	client, err := rpcclient.NewSubstrateAPI(sp.PCfg.RPCAddr)
+	if err != nil {
+		return err
+	}
+
+	relayerClient, err := rpcclient.NewSubstrateAPI(sp.PCfg.RelayRPCAddr)
+	if err != nil {
+		return err
+	}
+
 	sp.Keybase = keybase
+	sp.RPCClient = client
+	sp.RelayerRPCClient = relayerClient
 	return nil
 }
 
