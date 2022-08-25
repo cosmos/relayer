@@ -8,7 +8,7 @@
     "account-prefix": "",
     "keyring-backend": "test",
     "key-directory": "/tmp",
-    "debug": true,
+    "debug": false,
     "timeout": "10s",
     "network": 49
   }

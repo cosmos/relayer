@@ -543,6 +543,7 @@ func mmrUpdateProof(
 	}, nil
 }
 
+// TODO: there's probably a more efficient way of getting the previously finalized block
 func previouslyFinalizedBlock(conn *rpcclient.SubstrateAPI, blockNumber uint64) (rpcclienttypes.Hash, uint64, error) {
 	var previousBlock = blockNumber
 	var previousHash rpcclienttypes.Hash

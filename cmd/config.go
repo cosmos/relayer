@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/cosmos/relayer/v2/relayer/chains/substrate"
 	"io"
 	"io/ioutil"
 	"os"
@@ -32,6 +31,7 @@ import (
 
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/cosmos/relayer/v2/relayer/chains/substrate"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -395,6 +395,8 @@ func (iw *ProviderConfigYAMLWrapper) UnmarshalYAML(n *yaml.Node) error {
 	switch iw.Type {
 	case "cosmos":
 		iw.Value = new(cosmos.CosmosProviderConfig)
+	case "substrate":
+		iw.Value = new(substrate.SubstrateProviderConfig)
 	default:
 		return fmt.Errorf("%s is an invalid chain type, check your config file", iw.Type)
 	}
