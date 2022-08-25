@@ -77,6 +77,7 @@ type IBCMessagesCache struct {
 	PacketFlow          ChannelPacketMessagesCache
 	ConnectionHandshake ConnectionMessagesCache
 	ChannelHandshake    ChannelMessagesCache
+	ClientICQ           ClientICQMessagesCache
 }
 
 // NewIBCMessagesCache returns an empty IBCMessagesCache.
@@ -99,6 +100,10 @@ type PacketSequenceCache map[uint64]provider.PacketInfo
 
 // ChannelMessagesCache is used for caching a ChannelMessageCache for a given IBC message type.
 type ChannelMessagesCache map[string]ChannelMessageCache
+
+// ClientICQMessagesCache is used for caching ICQ messages for the
+// Client ICQ implementation (does not use IBC connections and channels).
+type ClientICQMessagesCache []provider.ClientICQInfo
 
 // ChannelMessageCache is used for caching channel handshake IBC messages for a given IBC channel.
 type ChannelMessageCache map[ChannelKey]provider.ChannelInfo

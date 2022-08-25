@@ -127,6 +127,10 @@ func (ccp *CosmosChainProcessor) handleClientMessage(eventType string, ci client
 	ccp.logObservedIBCMessage(eventType, zap.String("client_id", ci.clientID))
 }
 
+func (ccp *CosmosChainProcessor) handleClientIcqMessage(eventType string, ci clientICQInfo, c processor.IBCMessagesCache) {
+
+}
+
 func (ccp *CosmosChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {
 	ccp.log.With(zap.String("event_type", m)).Debug("Observed IBC message", fields...)
 }
