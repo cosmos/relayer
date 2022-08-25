@@ -64,6 +64,29 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDel
 	return parseABCILogs(ccp.log, parsedLogs, height)
 }
 
+func (ccp *CosmosChainProcessor) parseClientICQMessage(e abci.Event, height uint64) clientICQInfo {
+	clientICQInfo := &clientICQInfo{}
+	clientICQInfo.parseAttrs(e.Attributes)
+	return *clientICQInfo
+}
+
+func (ccp *CosmosChainProcessor) clientICQMessagesFromBlock(
+	events []abci.Event,
+	height uint64,
+) (msgs []provider.ClientICQInfo) {
+	for _, e := range events {
+		for _, attr := range e.Attributes {
+			if string(attr.Key) == "module" && string(attr.Value) == "interchainquery" {
+				info := ccp.parseClientICQMessage(e, height)
+				msgs = append(msgs, provider.ClientICQInfo(info))
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, height uint64) (messages []ibcMessage) {
 	for _, msgLog := range logs {
 		msg := new(ibcMessage)
@@ -305,6 +328,56 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute)
 	case chantypes.AttributeKeyChannelOrdering:
 		res.ChannelOrder = attr.Value
 	}
+}
+
+type clientICQInfo struct {
+	Source     string
+	Connection string
+	Chain      string
+	QueryID    string
+	Type       string
+	Request    []byte
+	Height     uint64
+}
+
+func (res *clientICQInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("connection_id", res.Connection)
+	enc.AddString("chain_id", res.Chain)
+	enc.AddString("query_id", res.QueryID)
+	enc.AddString("type", res.Type)
+	enc.AddString("request", hex.EncodeToString(res.Request))
+	enc.AddUint64("height", res.Height)
+
+	return nil
+}
+
+func (res *clientICQInfo) parseAttrs(attrs []abci.EventAttribute) {
+	for _, attr := range attrs {
+		if err := res.parseAttribute(attr); err != nil {
+			panic(fmt.Errorf("failed to parse attributes from client ICQ message: %w", err))
+		}
+	}
+}
+
+func (res *clientICQInfo) parseAttribute(attr abci.EventAttribute) (err error) {
+	switch string(attr.Key) {
+	case "connection_id":
+		res.Connection = string(attr.Value)
+	case "chain_id":
+		res.Chain = string(attr.Value)
+	case "query_id":
+		res.QueryID = string(attr.Value)
+	case "type":
+		res.Type = string(attr.Value)
+	case "request":
+		res.Request = []byte(attr.Value)
+	case "height":
+		res.Height, err = strconv.ParseUint(string(attr.Value), 10, 64)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // alias type to the provider types, used for adding parser methods

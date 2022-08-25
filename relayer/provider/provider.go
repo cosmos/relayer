@@ -120,6 +120,16 @@ type ChannelInfo struct {
 	Version string
 }
 
+type ClientICQInfo struct {
+	Source     string
+	Connection string
+	Chain      string
+	QueryID    string
+	Type       string
+	Request    []byte
+	Height     uint64
+}
+
 // PacketProof includes all of the proof parameters needed for packet flows.
 type PacketProof struct {
 	Proof       []byte
