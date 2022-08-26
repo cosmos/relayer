@@ -132,8 +132,7 @@ func (sp *SubstrateProvider) QueryConsensusState(ctx context.Context, height int
 }
 
 func (sp *SubstrateProvider) QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error) {
-	//TODO implement me
-	panic("implement me")
+	return sp.RPCClient.RPC.IBC.QueryClients(ctx)
 }
 
 func (sp *SubstrateProvider) QueryConnection(ctx context.Context, height int64, connectionid string) (*conntypes.QueryConnectionResponse, error) {

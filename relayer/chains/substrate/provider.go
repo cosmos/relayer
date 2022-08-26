@@ -145,7 +145,6 @@ func (sp *SubstrateProvider) MsgCreateClient(clientState ibcexported.ClientState
 		ConsensusState: anyConsensusState,
 		Signer:         signer,
 	}
-
 	return NewSubstrateMessage(msg), nil
 }
 

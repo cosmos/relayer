@@ -3,16 +3,16 @@ package substrate
 import (
 	"context"
 	"fmt"
+	"github.com/ChainSafe/gossamer/lib/common"
+	beefyclienttypes "github.com/cosmos/ibc-go/v5/modules/light-clients/11-beefy/types"
 	"time"
 
 	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
 
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
-	"github.com/gogo/protobuf/proto"
-	prototypes "github.com/gogo/protobuf/types"
-
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/gogo/protobuf/proto"
 )
 
 func (sp *SubstrateProvider) NewClientState(
@@ -52,7 +52,12 @@ func (sp *SubstrateProvider) SendMessage(ctx context.Context, msg provider.Relay
 	return sp.SendMessages(ctx, []provider.RelayerMessage{msg}, memo)
 }
 
-func (sp *SubstrateProvider) buildCallParams(msgs []provider.RelayerMessage) (call string, anyMsgs []prototypes.Any, err error) {
+type Any struct {
+	TypeUrl []byte `json:"type_url,omitempty"`
+	Value   []byte `json:"value,omitempty"`
+}
+
+func (sp *SubstrateProvider) buildCallParams(msgs []provider.RelayerMessage) (call string, anyMsgs []Any, err error) {
 	var msgTypeCall = func(msgType string) string {
 		switch msgType {
 		case "/" + proto.MessageName(&clienttypes.MsgCreateClient{}):
@@ -64,17 +69,18 @@ func (sp *SubstrateProvider) buildCallParams(msgs []provider.RelayerMessage) (ca
 
 	call = msgTypeCall(msgs[0].Type())
 	for i := 0; i < len(msgs); i++ {
-		if call != msgs[i].Type() {
+		if call != msgTypeCall(msgs[i].Type()) {
 			return "", nil,
 				fmt.Errorf("permissioned and non permissioned calls can't be mixed")
 		}
+
 		msgBytes, err := msgs[i].MsgBytes()
 		if err != nil {
 			return "", nil, err
 		}
 
-		anyMsgs = append(anyMsgs, prototypes.Any{
-			TypeUrl: msgs[i].Type(),
+		anyMsgs = append(anyMsgs, Any{
+			TypeUrl: []byte(msgs[i].Type()),
 			Value:   msgBytes,
 		})
 	}
@@ -85,10 +91,11 @@ func (sp *SubstrateProvider) buildCallParams(msgs []provider.RelayerMessage) (ca
 func (sp *SubstrateProvider) fetchAndBuildEvents(
 	ctx context.Context,
 	blockHash rpcclienttypes.Hash,
+	extHash rpcclienttypes.Hash,
 ) (relayerEvents []provider.RelayerEvent, err error) {
 	// TODO: this should query the substrate block for ibc events and return
 	// the RelayerEvent type
-	client, err := sp.RPCClient.RPC.IBC.QueryNewlyCreatedClient(ctx, blockHash)
+	client, err := sp.RPCClient.RPC.IBC.QueryNewlyCreatedClient(ctx, blockHash, extHash)
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +117,10 @@ func (sp *SubstrateProvider) SendMessages(ctx context.Context, msgs []provider.R
 	}
 
 	call, anyMsgs, err := sp.buildCallParams(msgs)
+	if err != nil {
+		return nil, false, err
+	}
+
 	c, err := rpcclienttypes.NewCall(meta, call, anyMsgs)
 	if err != nil {
 		return nil, false, err
@@ -177,21 +188,31 @@ func (sp *SubstrateProvider) SendMessages(ctx context.Context, msgs []provider.R
 	defer sub.Unsubscribe()
 	for {
 		status = <-sub.Chan()
-
-		// wait until finalisation
-		if status.IsFinalized {
+		// TODO: add zap log for waiting on transaction
+		if status.IsInBlock {
 			break
 		}
 	}
 
-	events, err := sp.fetchAndBuildEvents(ctx, status.AsFinalized)
+	encodedExt, err := beefyclienttypes.Encode(ext)
+	if err != nil {
+		return nil, false, err
+	}
+
+	var extHash [32]byte
+	extHash, err = common.Blake2bHash(encodedExt)
+	if err != nil {
+		return nil, false, err
+	}
+
+	events, err := sp.fetchAndBuildEvents(ctx, status.AsInBlock, extHash)
 	if err != nil {
 		return nil, false, err
 	}
 
 	rlyRes := &provider.RelayerTxResponse{
 		// TODO: pass in a proper block height
-		// TODO: pass a proper transaction hash
+		TxHash: fmt.Sprintf("0x%x", extHash[:]),
 		Events: events,
 	}
 
