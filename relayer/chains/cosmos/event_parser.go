@@ -94,6 +94,9 @@ func parseIBCMessageFromEvent(log *zap.Logger, event sdk.StringEvent, chainID st
 	case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
 		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
 		chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
+		if accumulator == nil {
+			accumulator = &ibcMessage{}
+		}
 		var pi *packetInfo
 		if accumulator.info == nil {
 			pi = &packetInfo{Height: height}
@@ -101,18 +104,11 @@ func parseIBCMessageFromEvent(log *zap.Logger, event sdk.StringEvent, chainID st
 			pi = accumulator.info.(*packetInfo)
 		}
 		pi.parseAttrs(log, event.Attributes)
+		accumulator.info = pi
 		if event.Type != chantypes.EventTypeWriteAck {
 			accumulator.eventType = event.Type
 		}
 		return accumulator
-	case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
-		conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
-		connectionInfo := &connectionInfo{Height: height}
-		connectionInfo.parseAttrs(log, event.Attributes)
-		return &ibcMessage{
-			eventType: event.Type,
-			info:      connectionInfo,
-		}
 	case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
 		chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
 		chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
