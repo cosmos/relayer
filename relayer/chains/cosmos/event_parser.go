@@ -65,7 +65,7 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDel
 }
 
 func (ccp *CosmosChainProcessor) parseClientICQMessage(e abci.Event, height uint64) clientICQInfo {
-	clientICQInfo := &clientICQInfo{}
+	clientICQInfo := &clientICQInfo{Source: ccp.chainProvider.ChainId()}
 	clientICQInfo.parseAttrs(e.Attributes)
 	return *clientICQInfo
 }
@@ -73,12 +73,16 @@ func (ccp *CosmosChainProcessor) parseClientICQMessage(e abci.Event, height uint
 func (ccp *CosmosChainProcessor) clientICQMessagesFromBlock(
 	events []abci.Event,
 	height uint64,
-) (msgs []provider.ClientICQInfo) {
+) map[string]provider.ClientICQInfo {
+	msgs := make(map[string]provider.ClientICQInfo)
 	for _, e := range events {
+		if e.Type != "message" {
+			continue
+		}
 		for _, attr := range e.Attributes {
 			if string(attr.Key) == "module" && string(attr.Value) == "interchainquery" {
 				info := ccp.parseClientICQMessage(e, height)
-				msgs = append(msgs, provider.ClientICQInfo(info))
+				msgs[info.QueryID] = provider.ClientICQInfo(info)
 				break
 			}
 		}
@@ -370,7 +374,10 @@ func (res *clientICQInfo) parseAttribute(attr abci.EventAttribute) (err error) {
 	case "type":
 		res.Type = string(attr.Value)
 	case "request":
-		res.Request = []byte(attr.Value)
+		res.Request, err = hex.DecodeString(string(attr.Value)) // double encoded (bytes are a hex string)
+		if err != nil {
+			return err
+		}
 	case "height":
 		res.Height, err = strconv.ParseUint(string(attr.Value), 10, 64)
 		if err != nil {

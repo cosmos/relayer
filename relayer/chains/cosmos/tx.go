@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	qstypes "github.com/Stride-Labs/stride/x/interchainquery/types"
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -23,6 +24,7 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/tendermint/tendermint/light"
+	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 )
@@ -855,6 +857,38 @@ func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
 		TrustedValidators: trustedValidatorsProto,
 		TrustedHeight:     trustedHeight,
 	}, nil
+}
+
+func (cc *CosmosProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
+	res, err := cc.RPCClient.ABCIQueryWithOptions(ctx, "/"+msgType, request, rpcclient.ABCIQueryOptions{
+		Height: int64(height),
+		Prove:  false,
+	})
+	if err != nil {
+		return provider.ICQProof{}, fmt.Errorf("failed to execute interchain query: %w", err)
+	}
+	return provider.ICQProof{
+		Result:   res.Response.Value,
+		ProofOps: res.Response.ProofOps,
+		Height:   res.Response.Height,
+	}, nil
+}
+
+func (cc *CosmosProvider) MsgSubmitQueryResponse(chainID string, queryID string, proof provider.ICQProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
+	msg := &qstypes.MsgSubmitQueryResponse{
+		ChainId:     chainID,
+		QueryId:     queryID,
+		Result:      proof.Result,
+		ProofOps:    proof.ProofOps,
+		Height:      proof.Height,
+		FromAddress: signer,
+	}
+
+	return NewCosmosMessage(msg), nil
 }
 
 // RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
