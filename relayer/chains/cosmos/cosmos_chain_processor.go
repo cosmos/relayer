@@ -328,6 +328,11 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
+		blockMsgs := ccp.ibcMessagesFromBlockEvents(blockRes.BeginBlockEvents, blockRes.EndBlockEvents, heightUint64)
+		for _, m := range blockMsgs {
+			ccp.handleMessage(m, ibcMessagesCache)
+		}
+
 		for _, tx := range blockRes.TxsResults {
 			if tx.Code != 0 {
 				// tx was not successful
