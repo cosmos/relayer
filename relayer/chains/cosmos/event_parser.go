@@ -77,63 +77,53 @@ func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, height uint64) (me
 	return messages
 }
 
-func parseIBCMessageFromEvent(log *zap.Logger, event sdk.StringEvent, height uint64, accumulator *ibcMessage) *ibcMessage {
+func parseIBCMessageFromEvent(log *zap.Logger, event sdk.StringEvent, height uint64, msg *ibcMessage) *ibcMessage {
 	switch event.Type {
 	case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
 		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
 		clienttypes.EventTypeUpdateClientProposal:
 		clientInfo := new(clientInfo)
 		clientInfo.parseAttrs(log, event.Attributes)
-		return &ibcMessage{
-			eventType: event.Type,
-			info:      clientInfo,
-		}
+		msg.eventType = event.Type
+		msg.info = clientInfo
 	case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
 		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
 		chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
-		if accumulator == nil {
-			accumulator = &ibcMessage{}
-		}
 		var pi *packetInfo
-		if accumulator.info == nil {
+		if msg.info == nil {
 			pi = &packetInfo{Height: height}
 		} else {
-			pi = accumulator.info.(*packetInfo)
+			pi = msg.info.(*packetInfo)
 		}
 		pi.parseAttrs(log, event.Attributes)
-		accumulator.info = pi
+		msg.info = pi
 		if event.Type != chantypes.EventTypeWriteAck {
-			accumulator.eventType = event.Type
+			msg.eventType = event.Type
 		}
-		return accumulator
 	case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
 		conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
 		connectionInfo := &connectionInfo{Height: height}
 		connectionInfo.parseAttrs(log, event.Attributes)
-		return &ibcMessage{
-			eventType: event.Type,
-			info:      connectionInfo,
-		}
+		msg.eventType = event.Type
+		msg.info = connectionInfo
 	case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
 		chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
 		chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
 		channelInfo := &channelInfo{Height: height}
 		channelInfo.parseAttrs(log, event.Attributes)
-		return &ibcMessage{
-			eventType: event.Type,
-			info:      channelInfo,
-		}
+		msg.eventType = event.Type
+		msg.info = channelInfo
 	}
-	return nil
+	return msg
 }
 
 func parseIBCMessagesFromTxMsgEvents(log *zap.Logger, events sdk.StringEvents, height uint64) (ibcMessage, error) {
-	var msg *ibcMessage
+	msg := new(ibcMessage)
 	for _, event := range events {
 		msg = parseIBCMessageFromEvent(log, event, height, msg)
 	}
 
-	if msg == nil {
+	if msg.info == nil {
 		// Not an IBC message, don't need to log here
 		return ibcMessage{}, fmt.Errorf("not an IBC message")
 	}
