@@ -2,6 +2,7 @@ package cosmos
 
 import (
 	"encoding/hex"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -26,6 +27,21 @@ type ibcMessageInfo interface {
 	MarshalLogObject(enc zapcore.ObjectEncoder) error
 }
 
+func (ccp *CosmosChainProcessor) ibcMessagesFromBlock(beginBlockEvents, endBlockEvents []abci.Event, height uint64) (res []ibcMessage) {
+	beginBlockStringified := sdk.StringifyEvents(beginBlockEvents)
+	beginBlockMessage, err := parseIBCMessagesFromEvents(ccp.log, beginBlockStringified, height)
+	if err == nil {
+		res = append(res, *beginBlockMessage)
+	}
+
+	endBlockStringified := sdk.StringifyEvents(endBlockEvents)
+	endBlockMessage, err := parseIBCMessagesFromEvents(ccp.log, endBlockStringified, height)
+	if err == nil {
+		res = append(res, *endBlockMessage)
+	}
+	return res
+}
+
 // ibcMessagesFromTransaction parses all events within a transaction to find IBC messages
 func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDeliverTx, height uint64) []ibcMessage {
 	parsedLogs, err := sdk.ParseABCILogs(tx.Log)
@@ -38,56 +54,64 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDel
 
 func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, height uint64) (messages []ibcMessage) {
 	for _, messageLog := range logs {
-		var info ibcMessageInfo
-		var eventType string
-		var packetAccumulator *packetInfo
-		for _, event := range messageLog.Events {
-			switch event.Type {
-			case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
-				clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
-				clienttypes.EventTypeUpdateClientProposal:
-				clientInfo := new(clientInfo)
-				clientInfo.parseAttrs(log, event.Attributes)
-				info = clientInfo
-				eventType = event.Type
-			case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
-				chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
-				chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
-				if packetAccumulator == nil {
-					packetAccumulator = &packetInfo{Height: height}
-				}
-				packetAccumulator.parseAttrs(log, event.Attributes)
-				info = packetAccumulator
-				if event.Type != chantypes.EventTypeWriteAck {
-					eventType = event.Type
-				}
-			case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
-				conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
-				connectionInfo := &connectionInfo{Height: height}
-				connectionInfo.parseAttrs(log, event.Attributes)
-				info = connectionInfo
-				eventType = event.Type
-			case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
-				chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
-				chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
-				channelInfo := &channelInfo{Height: height}
-				channelInfo.parseAttrs(log, event.Attributes)
-				info = channelInfo
-				eventType = event.Type
-			}
-		}
-
-		if info == nil {
-			// Not an IBC message, don't need to log here
+		m, err := parseIBCMessagesFromEvents(log, messageLog.Events, height)
+		if err != nil {
 			continue
 		}
-		messages = append(messages, ibcMessage{
-			eventType: eventType,
-			info:      info,
-		})
+		messages = append(messages, *m)
 	}
 
 	return messages
+}
+
+func parseIBCMessagesFromEvents(log *zap.Logger, events sdk.StringEvents, height uint64) (*ibcMessage, error) {
+	var info ibcMessageInfo
+	var eventType string
+	var packetAccumulator *packetInfo
+	for _, event := range events {
+		switch event.Type {
+		case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
+			clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
+			clienttypes.EventTypeUpdateClientProposal:
+			clientInfo := new(clientInfo)
+			clientInfo.parseAttrs(log, event.Attributes)
+			info = clientInfo
+			eventType = event.Type
+		case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
+			chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
+			chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
+			if packetAccumulator == nil {
+				packetAccumulator = &packetInfo{Height: height}
+			}
+			packetAccumulator.parseAttrs(log, event.Attributes)
+			info = packetAccumulator
+			if event.Type != chantypes.EventTypeWriteAck {
+				eventType = event.Type
+			}
+		case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
+			conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
+			connectionInfo := &connectionInfo{Height: height}
+			connectionInfo.parseAttrs(log, event.Attributes)
+			info = connectionInfo
+			eventType = event.Type
+		case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
+			chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
+			chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
+			channelInfo := &channelInfo{Height: height}
+			channelInfo.parseAttrs(log, event.Attributes)
+			info = channelInfo
+			eventType = event.Type
+		}
+	}
+
+	if info == nil {
+		// Not an IBC message, don't need to log here
+		return nil, fmt.Errorf("not an IBC message")
+	}
+	return &ibcMessage{
+		eventType: eventType,
+		info:      info,
+	}, nil
 }
 
 // clientInfo contains the consensus height of the counterparty chain for a client.
