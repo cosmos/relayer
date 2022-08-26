@@ -92,8 +92,8 @@ func parseIBCMessageFromEvent(log *zap.Logger, event sdk.StringEvent, chainID st
 		clienttypes.EventTypeUpdateClientProposal:
 		ci := new(clientInfo)
 		ci.parseAttrs(log, event.Attributes)
-		msg.info = ci
 		msg.eventType = event.Type
+		msg.info = ci
 	case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
 		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
 		chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
@@ -112,15 +112,15 @@ func parseIBCMessageFromEvent(log *zap.Logger, event sdk.StringEvent, chainID st
 		conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
 		ci := &connectionInfo{Height: height}
 		ci.parseAttrs(log, event.Attributes)
-		msg.info = ci
 		msg.eventType = event.Type
+		msg.info = ci
 	case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
 		chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
 		chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
 		ci := &channelInfo{Height: height}
 		ci.parseAttrs(log, event.Attributes)
-		msg.info = ci
 		msg.eventType = event.Type
+		msg.info = ci
 	case "message":
 		for _, attr := range event.Attributes {
 			if attr.Key == "module" && attr.Value == "interchainquery" {
