@@ -68,9 +68,14 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDel
 }
 
 func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, chainID string, height uint64) (messages []ibcMessage) {
-	for _, messageLog := range logs {
-		m, err := parseIBCMessagesFromTxMsgEvents(log, messageLog.Events, chainID, height)
-		if err != nil {
+	for _, msgLog := range logs {
+		msg := new(ibcMessage)
+		for _, event := range msgLog.Events {
+			msg = parseIBCMessageFromEvent(log, event, chainID, height, msg)
+		}
+
+		if msg == nil {
+			// Not an IBC message, don't need to log here
 			continue
 		}
 
@@ -80,85 +85,58 @@ func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, chainID string, he
 	return messages
 }
 
-func parseIBCMessageFromEvent(log *zap.Logger, event sdk.StringEvent, chainID string, height uint64, accumulator *ibcMessage) *ibcMessage {
+func parseIBCMessageFromEvent(log *zap.Logger, event sdk.StringEvent, chainID string, height uint64, msg *ibcMessage) *ibcMessage {
 	switch event.Type {
 	case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
 		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
 		clienttypes.EventTypeUpdateClientProposal:
-		clientInfo := new(clientInfo)
-		clientInfo.parseAttrs(log, event.Attributes)
-		return &ibcMessage{
-			eventType: event.Type,
-			info:      clientInfo,
-		}
+		ci := new(clientInfo)
+		ci.parseAttrs(log, event.Attributes)
+		msg.info = ci
+		msg.eventType = event.Type
 	case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
 		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
 		chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
-		if accumulator == nil {
-			accumulator = &ibcMessage{}
-		}
 		var pi *packetInfo
-		if accumulator.info == nil {
+		if msg.info == nil {
 			pi = &packetInfo{Height: height}
 		} else {
-			pi = accumulator.info.(*packetInfo)
+			pi = msg.info.(*packetInfo)
 		}
 		pi.parseAttrs(log, event.Attributes)
-		accumulator.info = pi
+		msg.info = pi
 		if event.Type != chantypes.EventTypeWriteAck {
-			accumulator.eventType = event.Type
+			msg.eventType = event.Type
 		}
-		return accumulator
 	case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
 		conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
-		connectionInfo := &connectionInfo{Height: height}
-		connectionInfo.parseAttrs(log, event.Attributes)
-		return &ibcMessage{
-			eventType: event.Type,
-			info:      connectionInfo,
-		}
+		ci := &connectionInfo{Height: height}
+		ci.parseAttrs(log, event.Attributes)
+		msg.info = ci
+		msg.eventType = event.Type
 	case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
 		chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
 		chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
-		channelInfo := &channelInfo{Height: height}
-		channelInfo.parseAttrs(log, event.Attributes)
-		return &ibcMessage{
-			eventType: event.Type,
-			info:      channelInfo,
-		}
+		ci := &channelInfo{Height: height}
+		ci.parseAttrs(log, event.Attributes)
+		msg.info = ci
+		msg.eventType = event.Type
 	case "message":
 		for _, attr := range event.Attributes {
-			if string(attr.Key) == "module" && string(attr.Value) == "interchainquery" {
+			if attr.Key == "module" && attr.Value == "interchainquery" {
 				ci := &clientICQInfo{Source: chainID}
 				ci.parseAttrs(log, event.Attributes)
-				var eventType string
 				if ci.Action == "" {
-					eventType = processor.ClientICQTypeQuery
+					msg.eventType = processor.ClientICQTypeQuery
 				} else {
 					// action is MsgSubmitQueryResponse
-					eventType = processor.ClientICQTypeResponse
+					msg.eventType = processor.ClientICQTypeResponse
 				}
-				return &ibcMessage{
-					eventType: eventType,
-					info:      ci,
-				}
+				msg.info = ci
 			}
 		}
 	}
-	return nil
-}
-
-func parseIBCMessagesFromTxMsgEvents(log *zap.Logger, events sdk.StringEvents, chainID string, height uint64) (ibcMessage, error) {
-	var msg *ibcMessage
-	for _, event := range events {
-		msg = parseIBCMessageFromEvent(log, event, chainID, height, msg)
-	}
-
-	if msg == nil {
-		// Not an IBC message, don't need to log here
-		return ibcMessage{}, fmt.Errorf("not an IBC message")
-	}
-	return *msg, nil
+	return msg
 }
 
 // clientInfo contains the consensus height of the counterparty chain for a client.
