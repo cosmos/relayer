@@ -16,6 +16,7 @@ type pathEndMessages struct {
 	connectionMessages []connectionIBCMessage
 	channelMessages    []channelIBCMessage
 	packetMessages     []packetIBCMessage
+	clientICQMessages  []clientICQMessage
 }
 
 type ibcMessage interface {
@@ -55,6 +56,14 @@ type connectionIBCMessage struct {
 
 func (connectionIBCMessage) ibcMessageIndicator() {}
 
+// clientICQMessage holds a client ICQ message info,
+// useful for sending messages around internal to the PathProcessor.
+type clientICQMessage struct {
+	info provider.ClientICQInfo
+}
+
+func (clientICQMessage) ibcMessageIndicator() {}
+
 // processingMessage tracks the state of a IBC message currently being processed.
 type processingMessage struct {
 	assembled           bool
@@ -75,6 +84,8 @@ func (c packetChannelMessageCache) deleteMessages(toDelete ...map[string][]uint6
 		}
 	}
 }
+
+type clientICQProcessingCache map[string]processingMessage
 
 type channelProcessingCache map[string]channelKeySendCache
 type channelKeySendCache map[ChannelKey]processingMessage
@@ -161,6 +172,11 @@ type pathEndConnectionHandshakeResponse struct {
 	ToDeleteDst map[string][]ConnectionKey
 }
 
+type pathEndClientICQFlowResponse struct {
+	Messages []clientICQMessage
+	ToDelete []string
+}
+
 func packetInfoChannelKey(p provider.PacketInfo) ChannelKey {
 	return ChannelKey{
 		ChannelID:             p.SourceChannel,
@@ -191,11 +207,12 @@ func channelInfoChannelKey(c provider.ChannelInfo) ChannelKey {
 // outgoingMessages is a slice of relayer messages that can be
 // appended to concurrently.
 type outgoingMessages struct {
-	mu       sync.Mutex
-	msgs     []provider.RelayerMessage
-	pktMsgs  []packetMessageToTrack
-	connMsgs []connectionMessageToTrack
-	chanMsgs []channelMessageToTrack
+	mu            sync.Mutex
+	msgs          []provider.RelayerMessage
+	pktMsgs       []packetMessageToTrack
+	connMsgs      []connectionMessageToTrack
+	chanMsgs      []channelMessageToTrack
+	clientICQMsgs []clientICQMessageToTrack
 }
 
 // MarshalLogObject satisfies the zapcore.ObjectMarshaler interface
@@ -251,6 +268,11 @@ type connectionMessageToTrack struct {
 
 type channelMessageToTrack struct {
 	msg       channelIBCMessage
+	assembled bool
+}
+
+type clientICQMessageToTrack struct {
+	msg       clientICQMessage
 	assembled bool
 }
 

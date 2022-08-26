@@ -12,6 +12,7 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	"github.com/gogo/protobuf/proto"
+	"github.com/tendermint/tendermint/proto/tendermint/crypto"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -150,6 +151,12 @@ type ChannelProof struct {
 	ProofHeight clienttypes.Height
 	Ordering    chantypes.Order
 	Version     string
+}
+
+type ICQProof struct {
+	Result   []byte
+	ProofOps *crypto.ProofOps // TODO swap out tendermint type for third party chains.
+	Height   int64
 }
 
 // loggableEvents is an unexported wrapper type for a slice of RelayerEvent,
@@ -332,6 +339,14 @@ type ChainProvider interface {
 	MsgUpdateClient(clientId string, counterpartyHeader ibcexported.Header) (RelayerMessage, error)
 
 	// [End] Client IBC message assembly
+
+	// [Begin] Client ICQ message assembly
+
+	QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (ICQProof, error)
+
+	MsgSubmitQueryResponse(chainID string, queryID string, proof ICQProof) (RelayerMessage, error)
+
+	// [End] Client ICQ message assembly
 
 	// Query heavy relay methods. Only used for flushing old packets.
 
