@@ -2,7 +2,6 @@ package cosmos
 
 import (
 	"encoding/hex"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -66,12 +65,18 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDel
 }
 
 func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, height uint64) (messages []ibcMessage) {
-	for _, messageLog := range logs {
-		m, err := parseIBCMessagesFromTxMsgEvents(log, messageLog.Events, height)
-		if err != nil {
+	for _, msgLog := range logs {
+		msg := new(ibcMessage)
+		for _, event := range msgLog.Events {
+			msg = parseIBCMessageFromEvent(log, event, height, msg)
+		}
+
+		if msg.info == nil {
+			// Not an IBC message, don't need to log here
 			continue
 		}
-		messages = append(messages, m)
+
+		messages = append(messages, *msg)
 	}
 
 	return messages
@@ -82,10 +87,10 @@ func parseIBCMessageFromEvent(log *zap.Logger, event sdk.StringEvent, height uin
 	case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
 		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
 		clienttypes.EventTypeUpdateClientProposal:
-		clientInfo := new(clientInfo)
-		clientInfo.parseAttrs(log, event.Attributes)
+		ci := new(clientInfo)
+		ci.parseAttrs(log, event.Attributes)
 		msg.eventType = event.Type
-		msg.info = clientInfo
+		msg.info = ci
 	case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
 		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
 		chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
@@ -102,32 +107,19 @@ func parseIBCMessageFromEvent(log *zap.Logger, event sdk.StringEvent, height uin
 		}
 	case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
 		conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
-		connectionInfo := &connectionInfo{Height: height}
-		connectionInfo.parseAttrs(log, event.Attributes)
+		ci := &connectionInfo{Height: height}
+		ci.parseAttrs(log, event.Attributes)
 		msg.eventType = event.Type
-		msg.info = connectionInfo
+		msg.info = ci
 	case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
 		chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
 		chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
-		channelInfo := &channelInfo{Height: height}
-		channelInfo.parseAttrs(log, event.Attributes)
+		ci := &channelInfo{Height: height}
+		ci.parseAttrs(log, event.Attributes)
 		msg.eventType = event.Type
-		msg.info = channelInfo
+		msg.info = ci
 	}
 	return msg
-}
-
-func parseIBCMessagesFromTxMsgEvents(log *zap.Logger, events sdk.StringEvents, height uint64) (ibcMessage, error) {
-	msg := new(ibcMessage)
-	for _, event := range events {
-		msg = parseIBCMessageFromEvent(log, event, height, msg)
-	}
-
-	if msg.info == nil {
-		// Not an IBC message, don't need to log here
-		return ibcMessage{}, fmt.Errorf("not an IBC message")
-	}
-	return *msg, nil
 }
 
 // clientInfo contains the consensus height of the counterparty chain for a client.
