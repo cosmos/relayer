@@ -97,10 +97,14 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 	channelHandshakeMessages := make(ChannelMessagesCache)
 	clientICQMessages := make(ClientICQMessagesCache)
 
-	for _, cm := range messageCache.ClientICQ {
-		if cm.Chain == counterpartyChainID {
-			clientICQMessages[cm.QueryID] = cm
+	for icqType, cm := range messageCache.ClientICQ {
+		newCache := make(ClientICQMessageCache)
+		for queryID, m := range cm {
+			if m.Chain == counterpartyChainID {
+				newCache[queryID] = m
+			}
 		}
+		clientICQMessages[icqType] = newCache
 	}
 	pathEnd.messageCache.ClientICQ.Merge(clientICQMessages)
 
@@ -589,12 +593,12 @@ func (pathEnd *pathEndRuntime) shouldSendClientICQMessage(message provider.Clien
 	}
 	if inProgress.retryCount >= maxMessageSendRetries {
 		pathEnd.log.Error("Giving up on sending client ICQ message after max retries",
-			zap.String("query_id", queryID),
+			zap.String("query_id", string(queryID)),
 		)
 
 		// giving up on this query
 		// remove all retention of this client interchain query flow in pathEnd.messagesCache.ConnectionHandshake
-		pathEnd.messageCache.ClientICQ.DeleteMessages([]string{queryID})
+		pathEnd.messageCache.ClientICQ.DeleteMessages(queryID)
 
 		// delete in progress query for this specific ID
 		delete(pathEnd.clientICQProcessing, queryID)

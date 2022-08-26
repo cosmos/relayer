@@ -101,9 +101,14 @@ type PacketSequenceCache map[uint64]provider.PacketInfo
 // ChannelMessagesCache is used for caching a ChannelMessageCache for a given IBC message type.
 type ChannelMessagesCache map[string]ChannelMessageCache
 
-// ClientICQMessagesCache is used for caching ICQ messages for the
-// Client ICQ implementation (does not use IBC connections and channels).
-type ClientICQMessagesCache map[string]provider.ClientICQInfo
+// ClientICQType string wrapper for query/response type.
+type ClientICQType string
+
+// ClientICQMessagesCache is used for caching a ClientICQMessageCache for a given type (query/response).
+type ClientICQMessagesCache map[ClientICQType]ClientICQMessageCache
+
+// ClientICQMessageCache is used for caching a client ICQ message for a given query ID.
+type ClientICQMessageCache map[provider.ClientICQQueryID]provider.ClientICQInfo
 
 // ChannelMessageCache is used for caching channel handshake IBC messages for a given IBC channel.
 type ChannelMessageCache map[ChannelKey]provider.ChannelInfo
@@ -261,17 +266,38 @@ func (c PacketMessagesCache) DeleteMessages(toDelete ...map[string][]uint64) {
 	}
 }
 
+// Retain creates cache path if it doesn't exist, then caches message.
+func (c ClientICQMessagesCache) Retain(icqType ClientICQType, ci provider.ClientICQInfo) {
+	queryID := ci.QueryID
+	if _, ok := c[icqType]; !ok {
+		c[icqType] = make(ClientICQMessageCache)
+	}
+	c[icqType][queryID] = ci
+}
+
 // Merge merges another ClientICQMessagesCache into this one.
 func (c ClientICQMessagesCache) Merge(other ClientICQMessagesCache) {
+	for k, v := range other {
+		_, ok := c[k]
+		if !ok {
+			c[k] = v
+		} else {
+			c[k].Merge(v)
+		}
+	}
+}
+
+// Merge merges another ClientICQMessageCache into this one.
+func (c ClientICQMessageCache) Merge(other ClientICQMessageCache) {
 	for k, v := range other {
 		c[k] = v
 	}
 }
 
-// DeleteMessages deletes cached messages for the provided query IDs.
-func (c ClientICQMessagesCache) DeleteMessages(toDelete []string) {
-	for _, queryID := range toDelete {
-		delete(c, queryID)
+// DeleteMessages deletes cached messages for the provided query ID.
+func (c ClientICQMessagesCache) DeleteMessages(queryID provider.ClientICQQueryID) {
+	for _, cm := range c {
+		delete(cm, queryID)
 	}
 }
 
