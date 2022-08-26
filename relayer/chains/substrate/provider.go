@@ -117,7 +117,7 @@ func (h SubstrateIBCHeader) Height() uint64 {
 }
 
 func (h SubstrateIBCHeader) ConsensusState() ibcexported.ConsensusState {
-	return h.ConsensusState()
+	return h.SignedHeader.ConsensusState()
 }
 
 func (sp *SubstrateProvider) BlockTime(ctx context.Context, height int64) (time.Time, error) {
@@ -146,7 +146,6 @@ func (sp *SubstrateProvider) MsgCreateClient(clientState ibcexported.ClientState
 		ConsensusState: anyConsensusState,
 		Signer:         signer,
 	}
-
 	return NewSubstrateMessage(msg), nil
 }
 
