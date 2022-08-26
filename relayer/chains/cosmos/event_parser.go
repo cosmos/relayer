@@ -109,6 +109,14 @@ func parseIBCMessageFromEvent(log *zap.Logger, event sdk.StringEvent, chainID st
 			accumulator.eventType = event.Type
 		}
 		return accumulator
+	case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
+		conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
+		connectionInfo := &connectionInfo{Height: height}
+		connectionInfo.parseAttrs(log, event.Attributes)
+		return &ibcMessage{
+			eventType: event.Type,
+			info:      connectionInfo,
+		}
 	case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
 		chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
 		chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
