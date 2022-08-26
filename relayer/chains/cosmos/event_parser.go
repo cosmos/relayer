@@ -27,20 +27,30 @@ type ibcMessageInfo interface {
 	MarshalLogObject(enc zapcore.ObjectEncoder) error
 }
 
-func (ccp *CosmosChainProcessor) ibcMessagesFromBlock(
+func (ccp *CosmosChainProcessor) ibcMessagesFromBlockEvents(
 	beginBlockEvents, endBlockEvents []abci.Event,
 	height uint64,
 ) (res []ibcMessage) {
 	beginBlockStringified := sdk.StringifyEvents(beginBlockEvents)
-	beginBlockMessage, err := parseIBCMessagesFromEvents(ccp.log, beginBlockStringified, height)
-	if err == nil {
-		res = append(res, beginBlockMessage)
+	for _, event := range beginBlockStringified {
+		// don't use accumulator on begin and end block events, can be multiple IBC messages.
+		msg := parseIBCMessageFromEvent(ccp.log, event, height, nil)
+		if msg == nil {
+			// not an ibc event
+			continue
+		}
+		res = append(res, *msg)
 	}
 
 	endBlockStringified := sdk.StringifyEvents(endBlockEvents)
-	endBlockMessage, err := parseIBCMessagesFromEvents(ccp.log, endBlockStringified, height)
-	if err == nil {
-		res = append(res, endBlockMessage)
+	for _, event := range endBlockStringified {
+		// don't use accumulator on begin and end block events, can be multiple IBC messages.
+		msg := parseIBCMessageFromEvent(ccp.log, event, height, nil)
+		if msg == nil {
+			// not an ibc event
+			continue
+		}
+		res = append(res, *msg)
 	}
 	return res
 }
@@ -57,7 +67,7 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDel
 
 func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, height uint64) (messages []ibcMessage) {
 	for _, messageLog := range logs {
-		m, err := parseIBCMessagesFromEvents(log, messageLog.Events, height)
+		m, err := parseIBCMessagesFromTxMsgEvents(log, messageLog.Events, height)
 		if err != nil {
 			continue
 		}
@@ -67,54 +77,67 @@ func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, height uint64) (me
 	return messages
 }
 
-func parseIBCMessagesFromEvents(log *zap.Logger, events sdk.StringEvents, height uint64) (ibcMessage, error) {
-	var info ibcMessageInfo
-	var eventType string
-	var packetAccumulator *packetInfo
-	for _, event := range events {
-		switch event.Type {
-		case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
-			clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
-			clienttypes.EventTypeUpdateClientProposal:
-			clientInfo := new(clientInfo)
-			clientInfo.parseAttrs(log, event.Attributes)
-			info = clientInfo
-			eventType = event.Type
-		case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
-			chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
-			chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
-			if packetAccumulator == nil {
-				packetAccumulator = &packetInfo{Height: height}
-			}
-			packetAccumulator.parseAttrs(log, event.Attributes)
-			info = packetAccumulator
-			if event.Type != chantypes.EventTypeWriteAck {
-				eventType = event.Type
-			}
-		case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
-			conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
-			connectionInfo := &connectionInfo{Height: height}
-			connectionInfo.parseAttrs(log, event.Attributes)
-			info = connectionInfo
-			eventType = event.Type
-		case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
-			chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
-			chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
-			channelInfo := &channelInfo{Height: height}
-			channelInfo.parseAttrs(log, event.Attributes)
-			info = channelInfo
-			eventType = event.Type
+func parseIBCMessageFromEvent(log *zap.Logger, event sdk.StringEvent, height uint64, accumulator *ibcMessage) *ibcMessage {
+	switch event.Type {
+	case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
+		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
+		clienttypes.EventTypeUpdateClientProposal:
+		clientInfo := new(clientInfo)
+		clientInfo.parseAttrs(log, event.Attributes)
+		return &ibcMessage{
+			eventType: event.Type,
+			info:      clientInfo,
+		}
+	case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
+		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
+		chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
+		if accumulator == nil {
+			accumulator = &ibcMessage{}
+		}
+		var pi *packetInfo
+		if accumulator.info == nil {
+			pi = &packetInfo{Height: height}
+		} else {
+			pi = accumulator.info.(*packetInfo)
+		}
+		pi.parseAttrs(log, event.Attributes)
+		accumulator.info = pi
+		if event.Type != chantypes.EventTypeWriteAck {
+			accumulator.eventType = event.Type
+		}
+		return accumulator
+	case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
+		conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
+		connectionInfo := &connectionInfo{Height: height}
+		connectionInfo.parseAttrs(log, event.Attributes)
+		return &ibcMessage{
+			eventType: event.Type,
+			info:      connectionInfo,
+		}
+	case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
+		chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
+		chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
+		channelInfo := &channelInfo{Height: height}
+		channelInfo.parseAttrs(log, event.Attributes)
+		return &ibcMessage{
+			eventType: event.Type,
+			info:      channelInfo,
 		}
 	}
+	return nil
+}
 
-	if info == nil {
+func parseIBCMessagesFromTxMsgEvents(log *zap.Logger, events sdk.StringEvents, height uint64) (ibcMessage, error) {
+	var msg *ibcMessage
+	for _, event := range events {
+		msg = parseIBCMessageFromEvent(log, event, height, msg)
+	}
+
+	if msg == nil {
 		// Not an IBC message, don't need to log here
 		return ibcMessage{}, fmt.Errorf("not an IBC message")
 	}
-	return ibcMessage{
-		eventType: eventType,
-		info:      info,
-	}, nil
+	return *msg, nil
 }
 
 // clientInfo contains the consensus height of the counterparty chain for a client.

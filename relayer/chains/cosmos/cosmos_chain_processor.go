@@ -328,7 +328,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		blockMsgs := ccp.ibcMessagesFromBlock(blockRes.BeginBlockEvents, blockRes.EndBlockEvents, heightUint64)
+		blockMsgs := ccp.ibcMessagesFromBlockEvents(blockRes.BeginBlockEvents, blockRes.EndBlockEvents, heightUint64)
 		for _, m := range blockMsgs {
 			ccp.handleMessage(m, ibcMessagesCache)
 		}
