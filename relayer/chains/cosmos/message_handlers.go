@@ -1,6 +1,8 @@
 package cosmos
 
 import (
+	"encoding/hex"
+
 	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
@@ -19,6 +21,8 @@ func (ccp *CosmosChainProcessor) handleMessage(m ibcMessage, c processor.IBCMess
 		ccp.handleConnectionMessage(m.eventType, provider.ConnectionInfo(*t), c)
 	case *clientInfo:
 		ccp.handleClientMessage(m.eventType, *t)
+	case *clientICQInfo:
+		ccp.handleClientICQMessage(m.eventType, provider.ClientICQInfo(*t), c)
 	}
 }
 
@@ -127,8 +131,13 @@ func (ccp *CosmosChainProcessor) handleClientMessage(eventType string, ci client
 	ccp.logObservedIBCMessage(eventType, zap.String("client_id", ci.clientID))
 }
 
-func (ccp *CosmosChainProcessor) handleClientIcqMessage(eventType string, ci clientICQInfo, c processor.IBCMessagesCache) {
-
+func (ccp *CosmosChainProcessor) handleClientICQMessage(
+	eventType string,
+	ci provider.ClientICQInfo,
+	c processor.IBCMessagesCache,
+) {
+	c.ClientICQ.Retain(processor.ClientICQType(eventType), ci)
+	ccp.logClientICQMessage(eventType, ci)
 }
 
 func (ccp *CosmosChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {
@@ -174,5 +183,17 @@ func (ccp *CosmosChainProcessor) logConnectionMessage(message string, ci provide
 		zap.String("connection_id", ci.ConnID),
 		zap.String("counterparty_client_id", ci.CounterpartyClientID),
 		zap.String("counterparty_connection_id", ci.CounterpartyConnID),
+	)
+}
+
+func (ccp *CosmosChainProcessor) logClientICQMessage(icqType string, ci provider.ClientICQInfo) {
+	ccp.logObservedIBCMessage(icqType,
+		zap.String("action", ci.Action),
+		zap.String("type", ci.Type),
+		zap.String("query_id", string(ci.QueryID)),
+		zap.String("request", hex.EncodeToString(ci.Request)),
+		zap.String("chain_id", ci.Chain),
+		zap.String("connection_id", ci.Connection),
+		zap.Uint64("height", ci.Height),
 	)
 }

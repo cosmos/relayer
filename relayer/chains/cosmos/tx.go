@@ -874,14 +874,14 @@ func (cc *CosmosProvider) QueryICQWithProof(ctx context.Context, msgType string,
 	}, nil
 }
 
-func (cc *CosmosProvider) MsgSubmitQueryResponse(chainID string, queryID string, proof provider.ICQProof) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) MsgSubmitQueryResponse(chainID string, queryID provider.ClientICQQueryID, proof provider.ICQProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
 	}
 	msg := &qstypes.MsgSubmitQueryResponse{
 		ChainId:     chainID,
-		QueryId:     queryID,
+		QueryId:     string(queryID),
 		Result:      proof.Result,
 		ProofOps:    proof.ProofOps,
 		Height:      proof.Height,

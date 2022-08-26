@@ -288,7 +288,7 @@ func TestParseEventLogs(t *testing.T) {
 		},
 	}
 
-	ibcMessages := parseABCILogs(zap.NewNop(), abciLogs, 0)
+	ibcMessages := parseABCILogs(zap.NewNop(), abciLogs, "", 0)
 
 	require.Len(t, ibcMessages, 2)
 

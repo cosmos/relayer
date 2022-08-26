@@ -121,11 +121,17 @@ type ChannelInfo struct {
 	Version string
 }
 
+// ClientICQQueryID string wrapper for query ID.
+type ClientICQQueryID string
+
+// ClientICQInfo contains relevant properties from client ICQ messages.
+// Client ICQ implementation does not use IBC connections and channels.
 type ClientICQInfo struct {
+	Action     string
 	Source     string
 	Connection string
 	Chain      string
-	QueryID    string
+	QueryID    ClientICQQueryID
 	Type       string
 	Request    []byte
 	Height     uint64
@@ -342,9 +348,12 @@ type ChainProvider interface {
 
 	// [Begin] Client ICQ message assembly
 
+	// QueryICQWithProof performs an ABCI query and includes the required proofOps.
 	QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (ICQProof, error)
 
-	MsgSubmitQueryResponse(chainID string, queryID string, proof ICQProof) (RelayerMessage, error)
+	// MsgSubmitQueryResponse takes the counterparty chain ID, the ICQ query ID, and the query result proof,
+	// then assembles a MsgSubmitQueryResponse message formatted for sending to this chain.
+	MsgSubmitQueryResponse(chainID string, queryID ClientICQQueryID, proof ICQProof) (RelayerMessage, error)
 
 	// [End] Client ICQ message assembly
 
