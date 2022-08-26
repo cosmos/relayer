@@ -27,17 +27,20 @@ type ibcMessageInfo interface {
 	MarshalLogObject(enc zapcore.ObjectEncoder) error
 }
 
-func (ccp *CosmosChainProcessor) ibcMessagesFromBlock(beginBlockEvents, endBlockEvents []abci.Event, height uint64) (res []ibcMessage) {
+func (ccp *CosmosChainProcessor) ibcMessagesFromBlock(
+	beginBlockEvents, endBlockEvents []abci.Event,
+	height uint64,
+) (res []ibcMessage) {
 	beginBlockStringified := sdk.StringifyEvents(beginBlockEvents)
 	beginBlockMessage, err := parseIBCMessagesFromEvents(ccp.log, beginBlockStringified, height)
 	if err == nil {
-		res = append(res, *beginBlockMessage)
+		res = append(res, beginBlockMessage)
 	}
 
 	endBlockStringified := sdk.StringifyEvents(endBlockEvents)
 	endBlockMessage, err := parseIBCMessagesFromEvents(ccp.log, endBlockStringified, height)
 	if err == nil {
-		res = append(res, *endBlockMessage)
+		res = append(res, endBlockMessage)
 	}
 	return res
 }
@@ -58,13 +61,13 @@ func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, height uint64) (me
 		if err != nil {
 			continue
 		}
-		messages = append(messages, *m)
+		messages = append(messages, m)
 	}
 
 	return messages
 }
 
-func parseIBCMessagesFromEvents(log *zap.Logger, events sdk.StringEvents, height uint64) (*ibcMessage, error) {
+func parseIBCMessagesFromEvents(log *zap.Logger, events sdk.StringEvents, height uint64) (ibcMessage, error) {
 	var info ibcMessageInfo
 	var eventType string
 	var packetAccumulator *packetInfo
@@ -106,9 +109,9 @@ func parseIBCMessagesFromEvents(log *zap.Logger, events sdk.StringEvents, height
 
 	if info == nil {
 		// Not an IBC message, don't need to log here
-		return nil, fmt.Errorf("not an IBC message")
+		return ibcMessage{}, fmt.Errorf("not an IBC message")
 	}
-	return &ibcMessage{
+	return ibcMessage{
 		eventType: eventType,
 		info:      info,
 	}, nil
