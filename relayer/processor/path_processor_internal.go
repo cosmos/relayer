@@ -347,18 +347,28 @@ ChannelHandshakeLoop:
 	return res
 }
 
-func (pp *PathProcessor) getUnrelayedClientICQMessages(pathEnd *pathEndRuntime, clientICQMessages ClientICQMessagesCache) (res []clientICQMessage) {
-	for _, m := range clientICQMessages {
-		if pathEnd.shouldSendClientICQMessage(m) {
+func (pp *PathProcessor) getUnrelayedClientICQMessages(pathEnd *pathEndRuntime, queryMessages, responseMessages ClientICQMessageCache) (res []clientICQMessage) {
+ClientICQLoop:
+	for queryID, queryMsg := range queryMessages {
+		for resQueryID := range responseMessages {
+			if queryID == resQueryID {
+				// done with this query, remove all retention.
+				pathEnd.messageCache.ClientICQ.DeleteMessages(queryID)
+				continue ClientICQLoop
+			}
+		}
+		// query ID not found in response messages, check if should send queryMsg and send
+		if pathEnd.shouldSendClientICQMessage(queryMsg) {
 			res = append(res, clientICQMessage{
-				info: m,
+				info: queryMsg,
 			})
 		}
 	}
 
-	// TODO determine deletion conditions for request IDs based on flow-completion transaction message
-
-	//pathEnd.messageCache.ClientICQ.DeleteMessages(...)
+	// now iterate through completion message and remove any leftover messages.
+	for queryID := range responseMessages {
+		pathEnd.messageCache.ClientICQ.DeleteMessages(queryID)
+	}
 	return res
 }
 
@@ -610,8 +620,15 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 	pathEnd1ChannelMessages = append(pathEnd1ChannelMessages, pathEnd1ChanCloseMessages...)
 	pathEnd2ChannelMessages = append(pathEnd2ChannelMessages, pathEnd2ChanCloseMessages...)
 
-	pathEnd1ClientICQMessages := pp.getUnrelayedClientICQMessages(pp.pathEnd1, pp.pathEnd1.messageCache.ClientICQ)
-	pathEnd2ClientICQMessages := pp.getUnrelayedClientICQMessages(pp.pathEnd2, pp.pathEnd2.messageCache.ClientICQ)
+	pathEnd1ClientICQMessages := pp.getUnrelayedClientICQMessages(
+		pp.pathEnd1,
+		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeQuery],
+		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeResponse],
+	)
+	pathEnd2ClientICQMessages := pp.getUnrelayedClientICQMessages(pp.pathEnd2,
+		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeQuery],
+		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeResponse],
+	)
 
 	pathEnd1Messages := pathEndMessages{
 		connectionMessages: pathEnd1ConnectionMessages,

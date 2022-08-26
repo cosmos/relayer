@@ -2,6 +2,7 @@ package cosmos
 
 import (
 	"encoding/hex"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"go.uber.org/zap"
@@ -30,10 +32,11 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromBlockEvents(
 	beginBlockEvents, endBlockEvents []abci.Event,
 	height uint64,
 ) (res []ibcMessage) {
+	chainID := ccp.chainProvider.ChainId()
 	beginBlockStringified := sdk.StringifyEvents(beginBlockEvents)
 	for _, event := range beginBlockStringified {
 		// don't use accumulator on begin and end block events, can be multiple IBC messages.
-		msg := parseIBCMessageFromEvent(ccp.log, event, height, new(ibcMessage))
+		msg := parseIBCMessageFromEvent(ccp.log, event, chainID, height, nil)
 		if msg == nil {
 			// not an ibc event
 			continue
@@ -44,7 +47,7 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromBlockEvents(
 	endBlockStringified := sdk.StringifyEvents(endBlockEvents)
 	for _, event := range endBlockStringified {
 		// don't use accumulator on begin and end block events, can be multiple IBC messages.
-		msg := parseIBCMessageFromEvent(ccp.log, event, height, new(ibcMessage))
+		msg := parseIBCMessageFromEvent(ccp.log, event, chainID, height, nil)
 		if msg == nil {
 			// not an ibc event
 			continue
@@ -61,45 +64,13 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDel
 		ccp.log.Info("Failed to parse abci logs", zap.Error(err))
 		return nil
 	}
-	return parseABCILogs(ccp.log, parsedLogs, height)
+	return parseABCILogs(ccp.log, parsedLogs, ccp.chainProvider.ChainId(), height)
 }
 
-func (ccp *CosmosChainProcessor) parseClientICQMessage(e abci.Event, height uint64) clientICQInfo {
-	clientICQInfo := &clientICQInfo{Source: ccp.chainProvider.ChainId()}
-	clientICQInfo.parseAttrs(e.Attributes)
-	return *clientICQInfo
-}
-
-func (ccp *CosmosChainProcessor) clientICQMessagesFromBlock(
-	events []abci.Event,
-	height uint64,
-) map[string]provider.ClientICQInfo {
-	msgs := make(map[string]provider.ClientICQInfo)
-	for _, e := range events {
-		if e.Type != "message" {
-			continue
-		}
-		for _, attr := range e.Attributes {
-			if string(attr.Key) == "module" && string(attr.Value) == "interchainquery" {
-				info := ccp.parseClientICQMessage(e, height)
-				msgs[info.QueryID] = provider.ClientICQInfo(info)
-				break
-			}
-		}
-	}
-
-	return nil
-}
-
-func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, height uint64) (messages []ibcMessage) {
-	for _, msgLog := range logs {
-		msg := new(ibcMessage)
-		for _, event := range msgLog.Events {
-			msg = parseIBCMessageFromEvent(log, event, height, msg)
-		}
-
-		if msg.info == nil {
-			// Not an IBC message, don't need to log here
+func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, chainID string, height uint64) (messages []ibcMessage) {
+	for _, messageLog := range logs {
+		m, err := parseIBCMessagesFromTxMsgEvents(log, messageLog.Events, chainID, height)
+		if err != nil {
 			continue
 		}
 
@@ -109,44 +80,81 @@ func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, height uint64) (me
 	return messages
 }
 
-func parseIBCMessageFromEvent(log *zap.Logger, event sdk.StringEvent, height uint64, msg *ibcMessage) *ibcMessage {
+func parseIBCMessageFromEvent(log *zap.Logger, event sdk.StringEvent, chainID string, height uint64, accumulator *ibcMessage) *ibcMessage {
 	switch event.Type {
 	case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
 		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
 		clienttypes.EventTypeUpdateClientProposal:
-		ci := new(clientInfo)
-		ci.parseAttrs(log, event.Attributes)
-		msg.eventType = event.Type
-		msg.info = ci
+		clientInfo := new(clientInfo)
+		clientInfo.parseAttrs(log, event.Attributes)
+		return &ibcMessage{
+			eventType: event.Type,
+			info:      clientInfo,
+		}
 	case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
 		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
 		chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
 		var pi *packetInfo
-		if msg.info == nil {
+		if accumulator.info == nil {
 			pi = &packetInfo{Height: height}
 		} else {
-			pi = msg.info.(*packetInfo)
+			pi = accumulator.info.(*packetInfo)
 		}
 		pi.parseAttrs(log, event.Attributes)
-		msg.info = pi
 		if event.Type != chantypes.EventTypeWriteAck {
-			msg.eventType = event.Type
+			accumulator.eventType = event.Type
 		}
+		return accumulator
 	case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
 		conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
-		ci := &connectionInfo{Height: height}
-		ci.parseAttrs(log, event.Attributes)
-		msg.eventType = event.Type
-		msg.info = ci
+		connectionInfo := &connectionInfo{Height: height}
+		connectionInfo.parseAttrs(log, event.Attributes)
+		return &ibcMessage{
+			eventType: event.Type,
+			info:      connectionInfo,
+		}
 	case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
 		chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
 		chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
-		ci := &channelInfo{Height: height}
-		ci.parseAttrs(log, event.Attributes)
-		msg.eventType = event.Type
-		msg.info = ci
+		channelInfo := &channelInfo{Height: height}
+		channelInfo.parseAttrs(log, event.Attributes)
+		return &ibcMessage{
+			eventType: event.Type,
+			info:      channelInfo,
+		}
+	case "message":
+		for _, attr := range event.Attributes {
+			if string(attr.Key) == "module" && string(attr.Value) == "interchainquery" {
+				ci := &clientICQInfo{Source: chainID}
+				ci.parseAttrs(log, event.Attributes)
+				var eventType string
+				if ci.Action == "" {
+					eventType = processor.ClientICQTypeQuery
+				} else {
+					// action is MsgSubmitQueryResponse
+					eventType = processor.ClientICQTypeResponse
+				}
+				return &ibcMessage{
+					eventType: eventType,
+					info:      ci,
+				}
+			}
+		}
 	}
-	return msg
+	return nil
+}
+
+func parseIBCMessagesFromTxMsgEvents(log *zap.Logger, events sdk.StringEvents, chainID string, height uint64) (ibcMessage, error) {
+	var msg *ibcMessage
+	for _, event := range events {
+		msg = parseIBCMessageFromEvent(log, event, chainID, height, msg)
+	}
+
+	if msg == nil {
+		// Not an IBC message, don't need to log here
+		return ibcMessage{}, fmt.Errorf("not an IBC message")
+	}
+	return *msg, nil
 }
 
 // clientInfo contains the consensus height of the counterparty chain for a client.
@@ -335,10 +343,11 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute)
 }
 
 type clientICQInfo struct {
+	Action     string
 	Source     string
 	Connection string
 	Chain      string
-	QueryID    string
+	QueryID    provider.ClientICQQueryID
 	Type       string
 	Request    []byte
 	Height     uint64
@@ -347,7 +356,7 @@ type clientICQInfo struct {
 func (res *clientICQInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("connection_id", res.Connection)
 	enc.AddString("chain_id", res.Chain)
-	enc.AddString("query_id", res.QueryID)
+	enc.AddString("query_id", string(res.QueryID))
 	enc.AddString("type", res.Type)
 	enc.AddString("request", hex.EncodeToString(res.Request))
 	enc.AddUint64("height", res.Height)
@@ -355,7 +364,7 @@ func (res *clientICQInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (res *clientICQInfo) parseAttrs(attrs []abci.EventAttribute) {
+func (res *clientICQInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
 	for _, attr := range attrs {
 		if err := res.parseAttribute(attr); err != nil {
 			panic(fmt.Errorf("failed to parse attributes from client ICQ message: %w", err))
@@ -363,23 +372,25 @@ func (res *clientICQInfo) parseAttrs(attrs []abci.EventAttribute) {
 	}
 }
 
-func (res *clientICQInfo) parseAttribute(attr abci.EventAttribute) (err error) {
-	switch string(attr.Key) {
+func (res *clientICQInfo) parseAttribute(attr sdk.Attribute) (err error) {
+	switch attr.Key {
+	case "action":
+		res.Action = attr.Value
 	case "connection_id":
-		res.Connection = string(attr.Value)
+		res.Connection = attr.Value
 	case "chain_id":
-		res.Chain = string(attr.Value)
+		res.Chain = attr.Value
 	case "query_id":
-		res.QueryID = string(attr.Value)
+		res.QueryID = provider.ClientICQQueryID(attr.Value)
 	case "type":
-		res.Type = string(attr.Value)
+		res.Type = attr.Value
 	case "request":
-		res.Request, err = hex.DecodeString(string(attr.Value)) // double encoded (bytes are a hex string)
+		res.Request, err = hex.DecodeString(attr.Value)
 		if err != nil {
 			return err
 		}
 	case "height":
-		res.Height, err = strconv.ParseUint(string(attr.Value), 10, 64)
+		res.Height, err = strconv.ParseUint(attr.Value, 10, 64)
 		if err != nil {
 			return err
 		}

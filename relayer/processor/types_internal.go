@@ -56,6 +56,11 @@ type connectionIBCMessage struct {
 
 func (connectionIBCMessage) ibcMessageIndicator() {}
 
+const (
+	ClientICQTypeQuery    = "query"
+	ClientICQTypeResponse = "response"
+)
+
 // clientICQMessage holds a client ICQ message info,
 // useful for sending messages around internal to the PathProcessor.
 type clientICQMessage struct {
@@ -85,7 +90,7 @@ func (c packetChannelMessageCache) deleteMessages(toDelete ...map[string][]uint6
 	}
 }
 
-type clientICQProcessingCache map[string]processingMessage
+type clientICQProcessingCache map[provider.ClientICQQueryID]processingMessage
 
 type channelProcessingCache map[string]channelKeySendCache
 type channelKeySendCache map[ChannelKey]processingMessage
@@ -170,11 +175,6 @@ type pathEndConnectionHandshakeResponse struct {
 
 	ToDeleteSrc map[string][]ConnectionKey
 	ToDeleteDst map[string][]ConnectionKey
-}
-
-type pathEndClientICQFlowResponse struct {
-	Messages []clientICQMessage
-	ToDelete []string
 }
 
 func packetInfoChannelKey(p provider.PacketInfo) ChannelKey {
