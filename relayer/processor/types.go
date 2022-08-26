@@ -101,7 +101,7 @@ type ChannelMessagesCache map[string]ChannelMessageCache
 
 // ClientICQMessagesCache is used for caching ICQ messages for the
 // Client ICQ implementation (does not use IBC connections and channels).
-type ClientICQMessagesCache []provider.ClientICQInfo
+type ClientICQMessagesCache map[string]provider.ClientICQInfo
 
 // ChannelMessageCache is used for caching channel handshake IBC messages for a given IBC channel.
 type ChannelMessageCache map[ChannelKey]provider.ChannelInfo
@@ -256,6 +256,20 @@ func (c PacketMessagesCache) DeleteMessages(toDelete ...map[string][]uint64) {
 				delete(c[message], sequence)
 			}
 		}
+	}
+}
+
+// Merge merges another ClientICQMessagesCache into this one.
+func (c ClientICQMessagesCache) Merge(other ClientICQMessagesCache) {
+	for k, v := range other {
+		c[k] = v
+	}
+}
+
+// DeleteMessages deletes cached messages for the provided query IDs.
+func (c ClientICQMessagesCache) DeleteMessages(toDelete []string) {
+	for _, queryID := range toDelete {
+		delete(c, queryID)
 	}
 }
 

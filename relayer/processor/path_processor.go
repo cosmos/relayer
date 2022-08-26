@@ -24,6 +24,9 @@ const (
 	// to be relayed.
 	packetProofQueryTimeout = 5 * time.Second
 
+	// Amount of time to wait for interchain queries.
+	interchainQueryTimeout = 60 * time.Second
+
 	// If message assembly fails from either proof query failure on the source
 	// or assembling the message for the destination, how many blocks should pass
 	// before retrying.
@@ -237,11 +240,11 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 		return true
 	case d := <-pp.pathEnd1.incomingCacheData:
 		// we have new data from ChainProcessor for pathEnd1
-		pp.pathEnd1.mergeCacheData(ctx, cancel, d, pp.pathEnd2.inSync, messageLifecycle)
+		pp.pathEnd1.mergeCacheData(ctx, cancel, d, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync, messageLifecycle)
 
 	case d := <-pp.pathEnd2.incomingCacheData:
 		// we have new data from ChainProcessor for pathEnd2
-		pp.pathEnd2.mergeCacheData(ctx, cancel, d, pp.pathEnd1.inSync, messageLifecycle)
+		pp.pathEnd2.mergeCacheData(ctx, cancel, d, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync, messageLifecycle)
 
 	case <-pp.retryProcess:
 		// No new data to merge in, just retry handling.
