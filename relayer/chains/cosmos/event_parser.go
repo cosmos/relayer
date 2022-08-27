@@ -33,7 +33,7 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromBlockEvents(
 	beginBlockStringified := sdk.StringifyEvents(beginBlockEvents)
 	for _, event := range beginBlockStringified {
 		// don't use accumulator on begin and end block events, can be multiple IBC messages.
-		msg := parseIBCMessageFromEvent(ccp.log, event, height, nil)
+		msg := parseIBCMessageFromEvent(ccp.log, event, height, new(ibcMessage))
 		if msg == nil {
 			// not an ibc event
 			continue
@@ -44,7 +44,7 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromBlockEvents(
 	endBlockStringified := sdk.StringifyEvents(endBlockEvents)
 	for _, event := range endBlockStringified {
 		// don't use accumulator on begin and end block events, can be multiple IBC messages.
-		msg := parseIBCMessageFromEvent(ccp.log, event, height, nil)
+		msg := parseIBCMessageFromEvent(ccp.log, event, height, new(ibcMessage))
 		if msg == nil {
 			// not an ibc event
 			continue
