@@ -714,7 +714,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	src, dst *pathEndRuntime,
 	messages pathEndMessages,
 ) error {
-	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 {
+	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 && len(messages.clientICQMessages) == 0 {
 		return nil
 	}
 	om := outgoingMessages{
