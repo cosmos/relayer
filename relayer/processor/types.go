@@ -86,6 +86,7 @@ func NewIBCMessagesCache() IBCMessagesCache {
 		PacketFlow:          make(ChannelPacketMessagesCache),
 		ConnectionHandshake: make(ConnectionMessagesCache),
 		ChannelHandshake:    make(ChannelMessagesCache),
+		ClientICQ:           make(ClientICQMessagesCache),
 	}
 }
 
