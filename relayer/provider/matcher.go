@@ -139,7 +139,7 @@ func beefyMatcher(ctx context.Context, src, dst ChainProvider, existingClientID 
 	// Check if the client states match.
 	// NOTE: FrozenHeight.IsZero() is a sanity check, the client to be created should always
 	// have a zero frozen height and therefore should never match with a frozen client.
-	if isMatchingBeefyClient(*newClientState, *existingClientState) && existingClientState.FrozenHeight == 0 {
+	if reflect.DeepEqual(*newClientState, *existingClientState) && existingClientState.FrozenHeight == 0 {
 		srch, err := src.QueryLatestHeight(ctx)
 		if err != nil {
 			return "", err
@@ -163,7 +163,7 @@ func beefyMatcher(ctx context.Context, src, dst ChainProvider, existingClientID 
 
 		// If the existing client state has not been updated within the trusting period,
 		// we do not want to use the existing client since it's in an expired state.
-		// TODO: look into trusting period for the beefy client
+		// TODO: beefy client spec doesn't have trusting period as part of its field yet
 		//if existingClientState.IsExpired(existingConsensusState.Timestamp, time.Now()) {
 		//	return "", tmclient.ErrTrustingPeriodExpired
 		//}
@@ -181,21 +181,10 @@ func beefyMatcher(ctx context.Context, src, dst ChainProvider, existingClientID 
 
 		// Determine if the existing consensus state on src for the potential matching client is identical
 		// to the consensus state of the counterparty chain.
-		if isMatchingBeefyConsensusState(existingConsensusState, consensusState) {
+		if reflect.DeepEqual(existingConsensusState, consensusState) {
 			return existingClientID, nil // found matching client
 		}
 	}
 
 	return "", nil
-}
-
-// isMatchingBeefyClient determines if the two provided beefy client states match in all fields
-func isMatchingBeefyClient(a, b beefyclienttypes.ClientState) bool {
-	return reflect.DeepEqual(a, b)
-}
-
-// isMatchingBeefyConsensusState determines if the two provided beefy consensus states are
-// identical.
-func isMatchingBeefyConsensusState(a, b *beefyclienttypes.ConsensusState) bool {
-	return reflect.DeepEqual(*a, *b)
 }

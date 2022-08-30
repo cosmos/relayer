@@ -3,6 +3,9 @@ package substrate
 import (
 	"context"
 	"fmt"
+	"math"
+	"time"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
@@ -10,8 +13,6 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"math"
-	"time"
 )
 
 var _ provider.QueryProvider = &SubstrateProvider{}
@@ -112,8 +113,8 @@ func (sp *SubstrateProvider) QueryClientStateResponse(ctx context.Context, heigh
 }
 
 func (sp *SubstrateProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	return sp.RPCClient.RPC.IBC.QueryClientConsensusState(ctx, uint32(chainHeight), []byte(clientid),
+		clientHeight.GetRevisionHeight(), clientHeight.GetRevisionNumber(), true)
 }
 
 func (sp *SubstrateProvider) QueryUpgradedClient(ctx context.Context, height int64) (*clienttypes.QueryClientStateResponse, error) {

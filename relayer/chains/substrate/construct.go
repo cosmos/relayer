@@ -100,8 +100,33 @@ func clientState(
 			Len:           uint32(len(nextAuthorities)),
 			AuthorityRoot: &nextAuthorityTreeRoot,
 		},
+		ParaId: PARA_ID,
+		// TODO: pass a defined para chain height
+		LatestParaHeight: 0,
+		// TODO: add relaychain to config
+		RelayChain: beefyclienttypes.RelayChain_KUSAMA,
 	}, nil
 }
+
+// 	// Latest mmr root hash
+//	MmrRootHash []byte `protobuf:"bytes,1,opt,name=mmr_root_hash,json=mmrRootHash,proto3" json:"mmr_root_hash,omitempty"`
+//	// block number for the latest mmr_root_hash
+//	LatestBeefyHeight uint32 `protobuf:"varint,2,opt,name=latest_beefy_height,json=latestBeefyHeight,proto3" json:"latest_beefy_height,omitempty"`
+//	// Block height when the client was frozen due to a misbehaviour
+//	FrozenHeight uint64 `protobuf:"varint,3,opt,name=frozen_height,json=frozenHeight,proto3" json:"frozen_height,omitempty"`
+//	/// Known relay chains
+//	RelayChain RelayChain `protobuf:"varint,4,opt,name=relay_chain,json=relayChain,proto3,enum=ibc.lightclients.beefy.v1.RelayChain" json:"relay_chain,omitempty"`
+//	/// ParaId of associated parachain
+//	ParaId uint32 `protobuf:"varint,5,opt,name=para_id,json=paraId,proto3" json:"para_id,omitempty"`
+//	/// latest parachain height
+//	LatestParaHeight uint32 `protobuf:"varint,6,opt,name=latest_para_height,json=latestParaHeight,proto3" json:"latest_para_height,omitempty"`
+//	// block number that the beefy protocol was activated on the relay chain.
+//	// This should be the first block in the merkle-mountain-range tree.
+//	BeefyActivationBlock uint32 `protobuf:"varint,7,opt,name=beefy_activation_block,json=beefyActivationBlock,proto3" json:"beefy_activation_block,omitempty"`
+//	// authorities for the current round
+//	Authority *BeefyAuthoritySet `protobuf:"bytes,8,opt,name=authority,proto3" json:"authority,omitempty"`
+//	// authorities for the next round
+//	NextAuthoritySet *BeefyAuthoritySet `protobuf:"bytes,9,opt,name=next_authority_set,json=nextAuthoritySet,proto3" json:"next_authority_set,omitempty"`
 
 func beefyAuthorities(blockNumber uint32, conn *rpcclient.SubstrateAPI, method string) ([][]byte, error) {
 	blockHash, err := conn.RPC.Chain.GetBlockHash(uint64(blockNumber))
@@ -352,7 +377,6 @@ func (sp *SubstrateProvider) constructParachainHeaders(
 				},
 			},
 			ParachainHeadsProof: paraHeadsProof.ProofHashes(),
-			ParaId:              PARA_ID,
 			HeadsLeafIndex:      uint32(index),
 			HeadsTotalCount:     uint32(len(paraHeadsLeaves)),
 			TimestampExtrinsic:  timestampExt,
@@ -461,12 +485,12 @@ func mmrBatchProofItems(mmrBatchProof rpcclienttypes.GenerateMmrBatchProofRespon
 	return proofItems
 }
 
-func mmrUpdateProof(
+func clientStateUpdateProof(
 	conn *rpcclient.SubstrateAPI,
 	blockHash rpcclienttypes.Hash,
 	signedCommitment rpcclienttypes.SignedCommitment,
 	leafIndex uint64,
-) (*beefyclienttypes.MmrUpdateProof, error) {
+) (*beefyclienttypes.ClientStateUpdateProof, error) {
 	mmrProof, err := conn.RPC.MMR.GenerateProof(
 		leafIndex,
 		blockHash,
@@ -515,7 +539,7 @@ func mmrUpdateProof(
 	}
 
 	var payloadId beefyclienttypes.SizedByte2 = CommitmentPayload.ID
-	return &beefyclienttypes.MmrUpdateProof{
+	return &beefyclienttypes.ClientStateUpdateProof{
 		MmrLeaf: &beefyclienttypes.BeefyMmrLeaf{
 			Version:        beefyclienttypes.U8(latestLeaf.Version),
 			ParentNumber:   uint32(latestLeaf.ParentNumberAndHash.ParentNumber),
@@ -608,15 +632,17 @@ func (sp *SubstrateProvider) constructBeefyHeader(blockHash rpcclienttypes.Hash)
 
 	leafIndex := cs.GetLeafIndexForBlockNumber(uint32(latestCommitment.Commitment.BlockNumber))
 	blockNumber := uint32(latestCommitment.Commitment.BlockNumber)
-	updateProof, err := mmrUpdateProof(conn, blockHash, latestCommitment, uint64(cs.GetLeafIndexForBlockNumber(blockNumber)))
+	csUpdateProof, err := clientStateUpdateProof(conn, blockHash, latestCommitment, uint64(cs.GetLeafIndexForBlockNumber(blockNumber)))
 	if err != nil {
 		return nil, err
 	}
 
 	return &beefyclienttypes.Header{
-		ParachainHeaders: parachainHeads,
-		MmrProofs:        mmrBatchProofItems(batchProofs),
-		MmrSize:          mmr.LeafIndexToMMRSize(uint64(leafIndex)),
-		MmrUpdateProof:   updateProof,
+		ConsensusStateUpdate: &beefyclienttypes.ConsensusStateUpdateProof{
+			ParachainHeaders: parachainHeads,
+			MmrProofs:        mmrBatchProofItems(batchProofs),
+			MmrSize:          mmr.LeafIndexToMMRSize(uint64(leafIndex)),
+		},
+		ClientState: csUpdateProof,
 	}, nil
 }
