@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 
@@ -71,9 +72,11 @@ func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerM
 // sent and executed successfully is returned.
 func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 	var resp *sdk.TxResponse
+	var fees sdk.Coins
 
 	if err := retry.Do(func() error {
-		txBytes, err := cc.buildMessages(ctx, msgs, memo)
+		txBytes, f, err := cc.buildMessages(ctx, msgs, memo)
+		fees = f
 		if err != nil {
 			errMsg := err.Error()
 
@@ -179,10 +182,13 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 	// transaction was successfully executed.
 	if rlyResp.Code != 0 {
 		cc.LogFailedTx(rlyResp, nil, msgs)
+		cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), fees)
 		return rlyResp, false, fmt.Errorf("transaction failed with code: %d", resp.Code)
 	}
 
 	cc.LogSuccessTx(resp, msgs)
+	cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), fees)
+
 	return rlyResp, true, nil
 }
 
@@ -208,11 +214,11 @@ func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
 	return events
 }
 
-func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) ([]byte, error) {
+func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) ([]byte, sdk.Coins, error) {
 	// Query account details
 	txf, err := cc.PrepareFactory(cc.TxFactory())
 	if err != nil {
-		return nil, err
+		return nil, sdk.Coins{}, err
 	}
 
 	if memo != "" {
@@ -225,7 +231,7 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 	// If users pass gas adjustment, then calculate gas
 	_, adjusted, err := cc.CalculateGas(ctx, txf, CosmosMsgs(msgs...)...)
 	if err != nil {
-		return nil, err
+		return nil, sdk.Coins{}, err
 	}
 
 	// Set the gas amount on the transaction factory
@@ -240,7 +246,7 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 		}
 		return nil
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
-		return nil, err
+		return nil, sdk.Coins{}, err
 	}
 
 	// Attach the signature to the transaction
@@ -257,10 +263,12 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 		}
 		return nil
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
-		return nil, err
+		return nil, sdk.Coins{}, err
 	}
 
 	done()
+
+	fees := txb.GetTx().GetFee()
 
 	var txBytes []byte
 	// Generate the transaction bytes
@@ -272,10 +280,10 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 		}
 		return nil
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
-		return nil, err
+		return nil, sdk.Coins{}, err
 	}
 
-	return txBytes, nil
+	return txBytes, fees, nil
 }
 
 // MsgCreateClient creates an sdk.Msg to update the client on src with consensus state from dst
@@ -1074,4 +1082,14 @@ func (cc *CosmosProvider) NewClientState(
 		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
 		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
 	}, nil
+}
+
+func (cc *CosmosProvider) UpdateFeesSpent(chain, key string, fees sdk.Coins) {
+	cc.TotalFees = cc.TotalFees.Add(fees...)
+
+	for _, fee := range cc.TotalFees {
+		// Convert to a big float to get a float64 for metrics
+		f, _ := big.NewFloat(0.0).SetInt(fee.Amount.BigInt()).Float64()
+		cc.metrics.SetFeesSpent(chain, key, fee.GetDenom(), f)
+	}
 }

@@ -64,8 +64,8 @@ func (c *Chain) CreateOpenConnections(
 
 	return modified, processor.NewEventProcessor().
 		WithChainProcessors(
-			srcpathChain.chainProcessor(c.log),
-			dstpathChain.chainProcessor(c.log),
+			srcpathChain.chainProcessor(c.log, nil),
+			dstpathChain.chainProcessor(c.log, nil),
 		).
 		WithPathProcessors(pp).
 		WithInitialBlockHistory(initialBlockHistory).

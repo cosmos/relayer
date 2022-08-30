@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
@@ -44,9 +46,15 @@ type CosmosChainProcessor struct {
 
 	// map of channel ID to connection ID
 	channelConnections map[string]string
+
+	// metrics to monitor lifetime of processor
+	metrics *processor.PrometheusMetrics
+
+	// parsed gas prices accepted by the chain (only used for metrics)
+	parsedGasPrices *sdk.DecCoins
 }
 
-func NewCosmosChainProcessor(log *zap.Logger, provider *CosmosProvider) *CosmosChainProcessor {
+func NewCosmosChainProcessor(log *zap.Logger, provider *CosmosProvider, metrics *processor.PrometheusMetrics) *CosmosChainProcessor {
 	return &CosmosChainProcessor{
 		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
 		chainProvider:        provider,
@@ -55,6 +63,7 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *CosmosProvider) *CosmosC
 		channelStateCache:    make(processor.ChannelStateCache),
 		connectionClients:    make(map[string]string),
 		channelConnections:   make(map[string]string),
+		metrics:              metrics,
 	}
 }
 
@@ -64,8 +73,9 @@ const (
 	latestHeightQueryRetryDelay = 1 * time.Second
 	latestHeightQueryRetries    = 5
 
-	defaultMinQueryLoopDuration = 1 * time.Second
-	inSyncNumBlocksThreshold    = 2
+	defaultMinQueryLoopDuration      = 1 * time.Second
+	defaultBalanceUpdateWaitDuration = 60 * time.Second
+	inSyncNumBlocksThreshold         = 2
 )
 
 // latestClientState is a map of clientID to the latest clientInfo for that client.
@@ -132,9 +142,11 @@ func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID strin
 
 // queryCyclePersistence hold the variables that should be retained across queryCycles.
 type queryCyclePersistence struct {
-	latestHeight         int64
-	latestQueriedBlock   int64
-	minQueryLoopDuration time.Duration
+	latestHeight              int64
+	latestQueriedBlock        int64
+	minQueryLoopDuration      time.Duration
+	lastBalanceUpdate         time.Time
+	balanceUpdateWaitDuration time.Duration
 }
 
 // Run starts the query loop for the chain which will gather applicable ibc messages and push events out to the relevant PathProcessors.
@@ -143,7 +155,9 @@ type queryCyclePersistence struct {
 func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
 	// this will be used for persistence across query cycle loop executions
 	persistence := queryCyclePersistence{
-		minQueryLoopDuration: defaultMinQueryLoopDuration,
+		minQueryLoopDuration:      defaultMinQueryLoopDuration,
+		lastBalanceUpdate:         time.Unix(0, 0),
+		balanceUpdateWaitDuration: defaultBalanceUpdateWaitDuration,
 	}
 
 	// Infinite retry to get initial latest height
@@ -267,6 +281,10 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		zap.Int64("latest_height", persistence.latestHeight),
 	)
 
+	if ccp.metrics != nil {
+		ccp.CollectMetrics(ctx, persistence)
+	}
+
 	// used at the end of the cycle to send signal to path processors to start processing if both chains are in sync and no new messages came in this cycle
 	firstTimeInSync := false
 
@@ -389,4 +407,52 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	persistence.latestQueriedBlock = newLatestQueriedBlock
 
 	return nil
+}
+
+func (ccp *CosmosChainProcessor) CollectMetrics(ctx context.Context, persistence *queryCyclePersistence) {
+	ccp.CurrentBlockHeight(ctx, persistence)
+
+	// Wait a while before updating the balance
+	if time.Since(persistence.lastBalanceUpdate) > persistence.balanceUpdateWaitDuration {
+		ccp.CurrentRelayerBalance(ctx)
+		persistence.lastBalanceUpdate = time.Now()
+	}
+}
+
+func (ccp *CosmosChainProcessor) CurrentBlockHeight(ctx context.Context, persistence *queryCyclePersistence) {
+	ccp.metrics.SetLatestHeight(ccp.chainProvider.ChainName(), persistence.latestHeight)
+}
+
+func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
+	// memoize the current gas prices to only show metrics for "interesting" denoms
+	if ccp.parsedGasPrices == nil {
+		gp, err := sdk.ParseDecCoins(ccp.chainProvider.Config.GasPrices)
+		if err != nil {
+			ccp.log.Error(
+				"Failed to parse gas prices",
+				zap.Error(err),
+			)
+		}
+		ccp.parsedGasPrices = &gp
+	}
+
+	// Get the balance for the chain provider's key
+	relayerWalletBalance, err := ccp.chainProvider.QueryBalance(ctx, ccp.chainProvider.Key())
+	if err != nil {
+		ccp.log.Error(
+			"Failed to query relayer balance",
+			zap.Error(err),
+		)
+	}
+
+	// Print the relevant gas prices
+	for _, gasDenom := range *ccp.parsedGasPrices {
+		for _, balance := range relayerWalletBalance {
+			if balance.Denom == gasDenom.Denom {
+				// Convert to a big float to get a float64 for metrics
+				f, _ := big.NewFloat(0.0).SetInt(balance.Amount.BigInt()).Float64()
+				ccp.metrics.SetWalletBalance(ccp.chainProvider.ChainId(), ccp.chainProvider.Key(), balance.Denom, f)
+			}
+		}
+	}
 }

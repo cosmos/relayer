@@ -6,10 +6,12 @@ import (
 	"os"
 	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
+	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	lens "github.com/strangelove-ventures/lens/client"
@@ -62,11 +64,13 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 		return nil, err
 	}
 	pc.ChainName = chainName
-	return &CosmosProvider{
-		log: log,
+	m := processor.NewPrometheusMetrics()
 
+	return &CosmosProvider{
+		log:         log,
 		ChainClient: *cc,
 		PCfg:        pc,
+		metrics:     m,
 	}, nil
 }
 
@@ -95,6 +99,10 @@ type CosmosProvider struct {
 
 	lens.ChainClient
 	PCfg CosmosProviderConfig
+
+	// metrics to monitor the provider
+	TotalFees sdk.Coins
+	metrics   *processor.PrometheusMetrics
 }
 
 type CosmosIBCHeader struct {
