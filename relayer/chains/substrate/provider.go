@@ -7,6 +7,7 @@ import (
 	"path"
 	"time"
 
+	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
@@ -84,10 +85,31 @@ func (sp *SubstrateProvider) Init() error {
 }
 
 type SubstrateProvider struct {
-	log     *zap.Logger
-	Keybase keystore.Keyring
-	PCfg    SubstrateProviderConfig
-	Input   io.Reader
+	log       *zap.Logger
+	Keybase   keystore.Keyring
+	RPCClient *rpcclient.SubstrateAPI
+	PCfg      SubstrateProviderConfig
+	Input     io.Reader
+}
+
+type SubstrateIBCHeader struct{}
+
+// noop to implement processor.IBCHeader
+func (h SubstrateIBCHeader) IBCHeaderIndicator() {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (h SubstrateIBCHeader) Height() uint64 {
+	//TODO implement me
+	panic("implement me")
+	return 0
+}
+
+func (h SubstrateIBCHeader) ConsensusState() ibcexported.ConsensusState {
+	//TODO implement me
+	panic("implement me")
+	return nil
 }
 
 func (sp *SubstrateProvider) BlockTime(ctx context.Context, height int64) (time.Time, error) {
