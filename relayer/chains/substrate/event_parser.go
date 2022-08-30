@@ -93,7 +93,7 @@ func (scp *SubstrateChainProcessor) handleIBCMessagesFromEvents(ibcEvents rpccli
 					// Ack: ,
 
 				}
-				eventType = eType
+				eventType = intoIBCEventType(eType)
 
 			default:
 				panic("event not recognized")
