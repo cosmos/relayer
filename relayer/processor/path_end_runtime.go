@@ -525,11 +525,11 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 
 			// Gather relevant timeout messages, for this counterparty channel key, that should be deleted if we
 			// are operating on an ordered channel.
-			if messageCache, ok := counterparty.messageCache.PacketFlow[channelKey]; ok {
+			if messageCache, ok := counterparty.messageCache.PacketFlow[counterpartyKey]; ok {
 				if seqCache, ok := messageCache[chantypes.EventTypeTimeoutPacket]; ok {
 					for seq, packetInfo := range seqCache {
 						if packetInfo.ChannelOrder == chantypes.ORDERED.String() {
-							toDeleteCounterpartyPacket[chantypes.EventTypeTimeoutPacket] = append(toDeletePacket[chantypes.EventTypeTimeoutPacket], seq)
+							toDeleteCounterpartyPacket[chantypes.EventTypeTimeoutPacket] = append(toDeleteCounterpartyPacket[chantypes.EventTypeTimeoutPacket], seq)
 						}
 					}
 				}
