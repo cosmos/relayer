@@ -58,6 +58,7 @@ MsgTransferLoop:
 				if msgTimeout.ChannelOrder == chantypes.ORDERED.String() {
 					// For ordered channel packets, flow is not done until channel-close-confirm is observed.
 					if pathEndPacketFlowMessages.DstMsgChannelCloseConfirm == nil {
+						fmt.Println("DstMsgChannelCloseConfirm was nil.")
 						// have not observed a channel-close-confirm yet for this channel, send it if ready.
 						// will come back through here next block if not yet ready.
 						closeChan := channelIBCMessage{
@@ -73,9 +74,11 @@ MsgTransferLoop:
 						}
 
 						if pathEndPacketFlowMessages.Src.shouldSendChannelMessage(closeChan, pathEndPacketFlowMessages.Dst) {
+							fmt.Println("Sending Channel Close Msg")
 							res.DstChannelMessage = append(res.DstChannelMessage, closeChan)
 						}
 					} else {
+						fmt.Println("Channel Close Confirm was observed, purging cache retention of packet msgs")
 						// ordered channel, and we have a channel close confirm, so packet-flow and channel-close-flow is complete.
 						// remove all retention of this sequence number and this channel-close-confirm.
 						res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm] = append(res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm], pathEndPacketFlowMessages.ChannelKey.Counterparty())
