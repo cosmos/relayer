@@ -176,6 +176,7 @@ MsgTransferLoop:
 		res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], timeoutOnCloseSeq)
 		res.ToDeleteSrc[chantypes.EventTypeTimeoutPacketOnClose] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacketOnClose], timeoutOnCloseSeq)
 	}
+	fmt.Printf("%+v", pathEndPacketFlowMessages)
 	return res
 }
 
