@@ -74,7 +74,7 @@ MsgTransferLoop:
 						}
 
 						if pathEndPacketFlowMessages.Src.shouldSendChannelMessage(closeChan, pathEndPacketFlowMessages.Dst) {
-							fmt.Println("Should send Channel Close Msg")
+							fmt.Println("Should send MsgChannelCloseConfirm")
 							res.DstChannelMessage = append(res.DstChannelMessage, closeChan)
 						}
 					} else {
@@ -895,6 +895,7 @@ func (pp *PathProcessor) assembleChannelMessage(
 		// don't need proof for this message
 		assembleMessage = dst.chainProvider.MsgChannelCloseInit
 	case chantypes.EventTypeChannelCloseConfirm:
+		fmt.Println("assembleChannelMessage: MsgChannelCloseConfirm has been assembled")
 		chanProof = src.chainProvider.ChannelProof
 		assembleMessage = dst.chainProvider.MsgChannelCloseConfirm
 	default:

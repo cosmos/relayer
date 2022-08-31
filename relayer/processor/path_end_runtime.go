@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"fmt"
 
 	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
@@ -508,6 +509,7 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 			toDelete[chantypes.EventTypeChannelOpenTry] = []ChannelKey{channelKey}
 			toDeleteCounterparty[chantypes.EventTypeChannelOpenInit] = []ChannelKey{counterpartyKey.MsgInitKey()}
 		case chantypes.EventTypeChannelCloseConfirm:
+			fmt.Println("shouldSendChannelMessage: ChannelCloseConfirm case hit on max retries")
 			toDeleteCounterparty[chantypes.EventTypeChannelCloseInit] = []ChannelKey{counterpartyKey}
 			toDelete[chantypes.EventTypeChannelCloseConfirm] = []ChannelKey{channelKey}
 
