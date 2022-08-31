@@ -536,6 +536,13 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 		pathEnd.channelProcessing.deleteMessages(map[string][]ChannelKey{eventType: {channelKey}})
 		pathEnd.messageCache.PacketFlow[channelKey].DeleteMessages(toDeletePacket)
 		//counterparty.messageCache.PacketFlow[counterpartyKey].DeleteMessages(toDeleteCounterpartyPacket)
+<<<<<<< HEAD
+=======
+
+		// delete all connection handshake retention history for this channel
+		pathEnd.messageCache.ChannelHandshake.DeleteMessages(toDelete)
+		counterparty.messageCache.ChannelHandshake.DeleteMessages(toDeleteCounterparty)
+>>>>>>> 15fed43 (reverse channel close msg purging)
 
 		return false
 	}
