@@ -74,7 +74,7 @@ MsgTransferLoop:
 						}
 
 						if pathEndPacketFlowMessages.Src.shouldSendChannelMessage(closeChan, pathEndPacketFlowMessages.Dst) {
-							fmt.Println("Sending Channel Close Msg")
+							fmt.Println("Should send Channel Close Msg")
 							res.DstChannelMessage = append(res.DstChannelMessage, closeChan)
 						}
 					} else {
@@ -597,7 +597,13 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 		}
 
 		pathEnd1ProcessRes[i] = pp.getUnrelayedPacketsAndAcksAndToDelete(ctx, pathEnd1PacketFlowMessages)
+		if pathEnd1ProcessRes[i].DstChannelMessage != nil {
+			fmt.Printf("processLatestMessages: we have dst chan msgs on pe1 %v \n", pathEnd1ProcessRes[i].DstChannelMessage)
+		}
 		pathEnd2ProcessRes[i] = pp.getUnrelayedPacketsAndAcksAndToDelete(ctx, pathEnd2PacketFlowMessages)
+		if pathEnd2ProcessRes[i].DstChannelMessage != nil {
+			fmt.Printf("processLatestMessages: we have dst chan msgs on pe2 %v \n", pathEnd2ProcessRes[i].DstChannelMessage)
+		}
 	}
 
 	// concatenate applicable messages for pathend
