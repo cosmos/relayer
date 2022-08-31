@@ -494,6 +494,7 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 		toDelete := make(map[string][]ChannelKey)
 		toDeleteCounterparty := make(map[string][]ChannelKey)
 		toDeletePacket := make(map[string][]uint64)
+		toDeleteCounterpartyPacket := make(map[string][]uint64)
 
 		counterpartyKey := channelKey.Counterparty()
 		switch eventType {
@@ -524,11 +525,11 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 
 			// Gather relevant timeout messages, for this counterparty channel key, that should be deleted if we
 			// are operating on an ordered channel.
-			if messageCache, ok := pathEnd.messageCache.PacketFlow[channelKey]; ok {
+			if messageCache, ok := counterparty.messageCache.PacketFlow[channelKey]; ok {
 				if seqCache, ok := messageCache[chantypes.EventTypeTimeoutPacket]; ok {
 					for seq, packetInfo := range seqCache {
 						if packetInfo.ChannelOrder == chantypes.ORDERED.String() {
-							toDeletePacket[chantypes.EventTypeTimeoutPacket] = append(toDeletePacket[chantypes.EventTypeTimeoutPacket], seq)
+							toDeleteCounterpartyPacket[chantypes.EventTypeTimeoutPacket] = append(toDeletePacket[chantypes.EventTypeTimeoutPacket], seq)
 						}
 					}
 				}
@@ -538,7 +539,7 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 		// delete in progress send for this specific message
 		pathEnd.channelProcessing.deleteMessages(map[string][]ChannelKey{eventType: {channelKey}})
 		pathEnd.messageCache.PacketFlow[channelKey].DeleteMessages(toDeletePacket)
-		//counterparty.messageCache.PacketFlow[counterpartyKey].DeleteMessages(toDeleteCounterpartyPacket)
+		counterparty.messageCache.PacketFlow[counterpartyKey].DeleteMessages(toDeleteCounterpartyPacket)
 
 		// delete all connection handshake retention history for this channel
 		pathEnd.messageCache.ChannelHandshake.DeleteMessages(toDelete)
