@@ -597,9 +597,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 		}
 
 		pathEnd1ProcessRes[i] = pp.getUnrelayedPacketsAndAcksAndToDelete(ctx, pathEnd1PacketFlowMessages)
-		fmt.Printf("Path End 1 Process: %+v \n", pathEnd1ProcessRes[i].DstChannelMessage)
 		pathEnd2ProcessRes[i] = pp.getUnrelayedPacketsAndAcksAndToDelete(ctx, pathEnd2PacketFlowMessages)
-		fmt.Printf("Path End 2 Process: %+v \n", pathEnd2ProcessRes[i].DstChannelMessage)
 	}
 
 	// concatenate applicable messages for pathend
