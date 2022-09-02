@@ -4,9 +4,6 @@ import (
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/client/keys"
-	"github.com/cosmos/cosmos-sdk/codec"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/relayer/v2/cmd"
 	"github.com/cosmos/relayer/v2/internal/relayertest"
@@ -103,10 +100,7 @@ func TestKeysExport(t *testing.T) {
 	require.Empty(t, res.Stderr.String())
 
 	// Import the key to a temporary keyring.
-	registry := codectypes.NewInterfaceRegistry()
-	cryptocodec.RegisterInterfaces(registry)
-	cdc := codec.NewProtoCodec(registry)
-	kr := keyring.NewInMemory(cdc)
+	kr := keyring.NewInMemory()
 	require.NoError(t, kr.ImportPrivKey("temp", armorOut, keys.DefaultKeyPass))
 
 	// TODO: confirm the imported address matches?
