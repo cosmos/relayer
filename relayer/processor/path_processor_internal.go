@@ -696,7 +696,7 @@ func (pp *PathProcessor) assembleMessage(
 		}
 	}
 	if err != nil {
-		pp.log.Error("Error assembling channel message", zap.Error(err))
+		pp.log.Error("Error assembling message", zap.Error(err))
 		return
 	}
 	om.Append(message)
