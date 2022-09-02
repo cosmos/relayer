@@ -2,7 +2,6 @@ package processor
 
 import (
 	"context"
-	"fmt"
 
 	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
@@ -127,12 +126,10 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 		newCmc := make(ChannelMessageCache)
 		for k, ci := range cmc {
 			if !pathEnd.isRelevantChannel(k.ChannelID) {
-				fmt.Printf("Observed irrelevant chan handshake msg, %v \n", eventType)
 				continue
 			}
 			// can complete channel handshakes on this client
 			// since PathProcessor holds reference to the counterparty chain pathEndRuntime.
-			fmt.Printf("Observed relevant chan handshake msg, %v \n", eventType)
 			if eventType == chantypes.EventTypeChannelOpenInit {
 				// CounterpartyConnectionID is needed to construct MsgChannelOpenTry.
 				for k := range pathEnd.connectionStateCache {
@@ -511,7 +508,6 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 			toDelete[chantypes.EventTypeChannelOpenTry] = []ChannelKey{channelKey}
 			toDeleteCounterparty[chantypes.EventTypeChannelOpenInit] = []ChannelKey{counterpartyKey.MsgInitKey()}
 		case chantypes.EventTypeChannelCloseConfirm:
-			fmt.Println("shouldSendChannelMessage: ChannelCloseConfirm case hit on max retries")
 			toDeleteCounterparty[chantypes.EventTypeChannelCloseInit] = []ChannelKey{counterpartyKey}
 			toDelete[chantypes.EventTypeChannelCloseConfirm] = []ChannelKey{channelKey}
 

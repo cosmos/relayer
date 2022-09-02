@@ -58,7 +58,6 @@ MsgTransferLoop:
 				if msgTimeout.ChannelOrder == chantypes.ORDERED.String() {
 					// For ordered channel packets, flow is not done until channel-close-confirm is observed.
 					if pathEndPacketFlowMessages.DstMsgChannelCloseConfirm == nil {
-						fmt.Println("DstMsgChannelCloseConfirm was nil.")
 						// have not observed a channel-close-confirm yet for this channel, send it if ready.
 						// will come back through here next block if not yet ready.
 						closeChan := channelIBCMessage{
@@ -73,12 +72,10 @@ MsgTransferLoop:
 							},
 						}
 
-						if pathEndPacketFlowMessages.Src.shouldSendChannelMessage(closeChan, pathEndPacketFlowMessages.Dst) {
-							fmt.Println("Should send MsgChannelCloseConfirm")
+						if pathEndPacketFlowMessages.Dst.shouldSendChannelMessage(closeChan, pathEndPacketFlowMessages.Src) {
 							res.DstChannelMessage = append(res.DstChannelMessage, closeChan)
 						}
 					} else {
-						fmt.Println("Channel Close Confirm was observed, purging cache retention of packet msgs")
 						// ordered channel, and we have a channel close confirm, so packet-flow and channel-close-flow is complete.
 						// remove all retention of this sequence number and this channel-close-confirm.
 						res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm] = append(res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm], pathEndPacketFlowMessages.ChannelKey.Counterparty())
@@ -163,15 +160,7 @@ MsgTransferLoop:
 		res.ToDeleteSrc[chantypes.EventTypeAcknowledgePacket] = append(res.ToDeleteSrc[chantypes.EventTypeAcknowledgePacket], ackSeq)
 	}
 	for timeoutSeq, msgTimeout := range pathEndPacketFlowMessages.SrcMsgTimeout {
-		if msgTimeout.ChannelOrder == chantypes.ORDERED.String() {
-			if pathEndPacketFlowMessages.DstMsgChannelCloseConfirm != nil {
-				fmt.Println("Packet lifecycle complete, purging cache on MsgChannelCloseConfirm")
-				// For ordered channel packets, flow is not done until channel-close-confirm is observed.
-				res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm] = append(res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm], pathEndPacketFlowMessages.ChannelKey.Counterparty())
-				res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], timeoutSeq)
-				res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], timeoutSeq)
-			}
-		} else {
+		if msgTimeout.ChannelOrder != chantypes.ORDERED.String() {
 			res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], timeoutSeq)
 			res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], timeoutSeq)
 		}
@@ -561,14 +550,12 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 
 		if pathEnd1ChanCloseConfirmMsgs, ok := pp.pathEnd1.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseConfirm]; ok {
 			if pathEnd1ChannelCloseConfirmMsg, ok := pathEnd1ChanCloseConfirmMsgs[pair.pathEnd1ChannelKey]; ok {
-				fmt.Println("Channel Close Confirm ready to send on path end 1")
 				pathEnd1ChannelCloseConfirm = &pathEnd1ChannelCloseConfirmMsg
 			}
 		}
 
 		if pathEnd2ChanCloseConfirmMsgs, ok := pp.pathEnd2.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseConfirm]; ok {
 			if pathEnd2ChannelCloseConfirmMsg, ok := pathEnd2ChanCloseConfirmMsgs[pair.pathEnd2ChannelKey]; ok {
-				fmt.Println("Channel Close Confirm ready to send on path end 2")
 				pathEnd2ChannelCloseConfirm = &pathEnd2ChannelCloseConfirmMsg
 			}
 		}
@@ -597,13 +584,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 		}
 
 		pathEnd1ProcessRes[i] = pp.getUnrelayedPacketsAndAcksAndToDelete(ctx, pathEnd1PacketFlowMessages)
-		if pathEnd1ProcessRes[i].DstChannelMessage != nil {
-			fmt.Printf("processLatestMessages: we have dst chan msgs on pe1 %v \n", pathEnd1ProcessRes[i].DstChannelMessage)
-		}
 		pathEnd2ProcessRes[i] = pp.getUnrelayedPacketsAndAcksAndToDelete(ctx, pathEnd2PacketFlowMessages)
-		if pathEnd2ProcessRes[i].DstChannelMessage != nil {
-			fmt.Printf("processLatestMessages: we have dst chan msgs on pe2 %v \n", pathEnd2ProcessRes[i].DstChannelMessage)
-		}
 	}
 
 	// concatenate applicable messages for pathend
@@ -895,7 +876,6 @@ func (pp *PathProcessor) assembleChannelMessage(
 		// don't need proof for this message
 		assembleMessage = dst.chainProvider.MsgChannelCloseInit
 	case chantypes.EventTypeChannelCloseConfirm:
-		fmt.Println("assembleChannelMessage: MsgChannelCloseConfirm has been assembled")
 		chanProof = src.chainProvider.ChannelProof
 		assembleMessage = dst.chainProvider.MsgChannelCloseConfirm
 	default:
@@ -994,10 +974,14 @@ func (pp *PathProcessor) packetMessagesToSend(
 		pathEnd2ChannelMessage = append(pathEnd2ChannelMessage, pathEnd1ProcessRes[i].DstChannelMessage...)
 
 		pp.pathEnd1.messageCache.ChannelHandshake.DeleteMessages(pathEnd2ProcessRes[i].ToDeleteDstChannel)
+		pp.pathEnd1.channelProcessing.deleteMessages(pathEnd2ProcessRes[i].ToDeleteDstChannel)
+
 		pp.pathEnd2.messageCache.ChannelHandshake.DeleteMessages(pathEnd1ProcessRes[i].ToDeleteDstChannel)
+		pp.pathEnd2.channelProcessing.deleteMessages(pathEnd1ProcessRes[i].ToDeleteDstChannel)
 
 		pp.pathEnd1.messageCache.PacketFlow[channelPair.pathEnd1ChannelKey].DeleteMessages(pathEnd1ProcessRes[i].ToDeleteSrc, pathEnd2ProcessRes[i].ToDeleteDst)
 		pp.pathEnd2.messageCache.PacketFlow[channelPair.pathEnd2ChannelKey].DeleteMessages(pathEnd2ProcessRes[i].ToDeleteSrc, pathEnd1ProcessRes[i].ToDeleteDst)
+
 		pp.pathEnd1.packetProcessing[channelPair.pathEnd1ChannelKey].deleteMessages(pathEnd1ProcessRes[i].ToDeleteSrc, pathEnd2ProcessRes[i].ToDeleteDst)
 		pp.pathEnd2.packetProcessing[channelPair.pathEnd2ChannelKey].deleteMessages(pathEnd2ProcessRes[i].ToDeleteSrc, pathEnd1ProcessRes[i].ToDeleteDst)
 	}
