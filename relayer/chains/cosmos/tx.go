@@ -868,9 +868,10 @@ func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
 }
 
 func (cc *CosmosProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
+	slashSplit := strings.Split(msgType, "/")
 	res, err := cc.RPCClient.ABCIQueryWithOptions(ctx, "/"+msgType, request, rpcclient.ABCIQueryOptions{
 		Height: int64(height),
-		Prove:  false,
+		Prove:  slashSplit[len(slashSplit)-1] == "key",
 	})
 	if err != nil {
 		return provider.ICQProof{}, fmt.Errorf("failed to execute interchain query: %w", err)
