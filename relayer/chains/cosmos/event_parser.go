@@ -77,7 +77,7 @@ func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, chainID string, he
 				chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
 				msg = parseIBCMessageFromEvent(log, event, chainID, height, msg)
 			default:
-				m := parseIBCMessageFromEvent(log, event, chainID, height, msg)
+				m := parseIBCMessageFromEvent(log, event, chainID, height, new(ibcMessage))
 				if m == nil {
 					// Not an IBC message, don't need to log here
 					continue
