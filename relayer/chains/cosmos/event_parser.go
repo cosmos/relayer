@@ -71,7 +71,19 @@ func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, chainID string, he
 	for _, msgLog := range logs {
 		msg := new(ibcMessage)
 		for _, event := range msgLog.Events {
-			msg = parseIBCMessageFromEvent(log, event, chainID, height, msg)
+			switch event.Type {
+			case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
+				chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
+				chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
+				msg = parseIBCMessageFromEvent(log, event, chainID, height, msg)
+			default:
+				m := parseIBCMessageFromEvent(log, event, chainID, height, msg)
+				if m == nil {
+					// Not an IBC message, don't need to log here
+					continue
+				}
+				messages = append(messages, *m)
+			}
 		}
 
 		if msg == nil {
@@ -85,7 +97,13 @@ func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, chainID string, he
 	return messages
 }
 
-func parseIBCMessageFromEvent(log *zap.Logger, event sdk.StringEvent, chainID string, height uint64, msg *ibcMessage) *ibcMessage {
+func parseIBCMessageFromEvent(
+	log *zap.Logger,
+	event sdk.StringEvent,
+	chainID string,
+	height uint64,
+	msg *ibcMessage,
+) *ibcMessage {
 	switch event.Type {
 	case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
 		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
