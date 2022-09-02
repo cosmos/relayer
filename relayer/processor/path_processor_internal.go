@@ -192,7 +192,7 @@ ConnectionHandshakeLoop:
 			// MsgConnectionOpenInit does not have counterparty connection ID, so check if everything
 			// else matches for counterparty. If so, add counterparty connection ID for
 			// the checks later on in this function.
-			if openInitKey == openTryKey.Counterparty().MsgInitKey() {
+			if openInitKey.MsgInitKey() == openTryKey.Counterparty().MsgInitKey() {
 				openInitKey.CounterpartyConnID = openTryKey.ConnectionID
 				foundOpenTry = &openTryMsg
 				break
@@ -281,7 +281,7 @@ ChannelHandshakeLoop:
 			// MsgChannelOpenInit does not have counterparty channel ID, so check if everything
 			// else matches for counterparty. If so, add counterparty channel ID for
 			// the checks later on in this function.
-			if openInitKey == openTryKey.Counterparty().MsgInitKey() {
+			if openInitKey.MsgInitKey() == openTryKey.Counterparty().MsgInitKey() {
 				openInitKey.CounterpartyChannelID = openTryMsg.ChannelID
 				foundOpenTry = &openTryMsg
 				break

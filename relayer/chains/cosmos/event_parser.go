@@ -35,24 +35,34 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromBlockEvents(
 	chainID := ccp.chainProvider.ChainId()
 	beginBlockStringified := sdk.StringifyEvents(beginBlockEvents)
 	for _, event := range beginBlockStringified {
-		// don't use accumulator on begin and end block events, can be multiple IBC messages.
-		msg := parseIBCMessageFromEvent(ccp.log, event, chainID, height, new(ibcMessage))
-		if msg == nil {
-			// not an ibc event
-			continue
+		switch event.Type {
+		case chantypes.EventTypeChannelOpenInit:
+			openInitMsgs := parseIBCChannelOpenInitMessagesFromEvent(ccp.log, event, chainID, height)
+			res = append(res, openInitMsgs...)
+		default:
+			m := parseIBCMessagesFromEvent(ccp.log, event, chainID, height)
+			if m.info == nil {
+				// Not an IBC message, don't need to log here
+				continue
+			}
+			res = append(res, m)
 		}
-		res = append(res, *msg)
 	}
 
 	endBlockStringified := sdk.StringifyEvents(endBlockEvents)
 	for _, event := range endBlockStringified {
-		// don't use accumulator on begin and end block events, can be multiple IBC messages.
-		msg := parseIBCMessageFromEvent(ccp.log, event, chainID, height, new(ibcMessage))
-		if msg == nil {
-			// not an ibc event
-			continue
+		switch event.Type {
+		case chantypes.EventTypeChannelOpenInit:
+			openInitMsgs := parseIBCChannelOpenInitMessagesFromEvent(ccp.log, event, chainID, height)
+			res = append(res, openInitMsgs...)
+		default:
+			m := parseIBCMessagesFromEvent(ccp.log, event, chainID, height)
+			if m.info == nil {
+				// Not an IBC message, don't need to log here
+				continue
+			}
+			res = append(res, m)
 		}
-		res = append(res, *msg)
 	}
 	return res
 }
@@ -69,77 +79,96 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDel
 
 func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, chainID string, height uint64) (messages []ibcMessage) {
 	for _, msgLog := range logs {
-		msg := new(ibcMessage)
+		packetMsg := new(ibcMessage)
 		for _, event := range msgLog.Events {
 			switch event.Type {
-			case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
-				chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
-				chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
-				msg = parseIBCMessageFromEvent(log, event, chainID, height, msg)
+			case chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck:
+				packetMsg = parseIBCPacketReceiveMessageFromEvent(log, event, chainID, height, packetMsg)
+			case chantypes.EventTypeChannelOpenInit:
+				openInitMsgs := parseIBCChannelOpenInitMessagesFromEvent(log, event, chainID, height)
+				messages = append(messages, openInitMsgs...)
 			default:
-				m := parseIBCMessageFromEvent(log, event, chainID, height, new(ibcMessage))
-				if m == nil {
+				m := parseIBCMessagesFromEvent(log, event, chainID, height)
+				if m.info == nil {
 					// Not an IBC message, don't need to log here
 					continue
 				}
-				messages = append(messages, *m)
+				messages = append(messages, m)
 			}
 		}
 
-		if msg == nil {
-			// Not an IBC message, don't need to log here
+		if packetMsg == nil || packetMsg.info == nil {
+			// Not a packet IBC message, don't need to log here
 			continue
 		}
 
-		messages = append(messages, *msg)
+		messages = append(messages, *packetMsg)
 	}
 
 	return messages
 }
 
-func parseIBCMessageFromEvent(
+func parseIBCChannelOpenInitMessagesFromEvent(
 	log *zap.Logger,
 	event sdk.StringEvent,
 	chainID string,
 	height uint64,
-	msg *ibcMessage,
-) *ibcMessage {
+) (out []ibcMessage) {
+
+	cis := parseChannelAttrsMultiple(log, height, event.Attributes)
+	for _, ci := range cis {
+		out = append(out, ibcMessage{eventType: event.Type, info: ci})
+	}
+
+	return out
+}
+
+func parseIBCMessagesFromEvent(
+	log *zap.Logger,
+	event sdk.StringEvent,
+	chainID string,
+	height uint64,
+) ibcMessage {
 	switch event.Type {
 	case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
 		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
 		clienttypes.EventTypeUpdateClientProposal:
 		ci := new(clientInfo)
 		ci.parseAttrs(log, event.Attributes)
-		msg.eventType = event.Type
-		msg.info = ci
-	case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
-		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
-		chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
-		var pi *packetInfo
-		if msg.info == nil {
-			pi = &packetInfo{Height: height}
-		} else {
-			pi = msg.info.(*packetInfo)
+		return ibcMessage{
+			eventType: event.Type,
+			info:      ci,
 		}
+
+	case chantypes.EventTypeSendPacket,
+		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
+		chantypes.EventTypeTimeoutPacketOnClose:
+		pi := new(packetInfo)
 		pi.parseAttrs(log, event.Attributes)
-		msg.info = pi
-		if event.Type != chantypes.EventTypeWriteAck {
-			msg.eventType = event.Type
+		return ibcMessage{
+			eventType: event.Type,
+			info:      pi,
 		}
 	case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
 		conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
 		ci := &connectionInfo{Height: height}
 		ci.parseAttrs(log, event.Attributes)
-		msg.eventType = event.Type
-		msg.info = ci
-	case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
+		return ibcMessage{
+			eventType: event.Type,
+			info:      ci,
+		}
+	case chantypes.EventTypeChannelOpenTry,
 		chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
 		chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
+
 		ci := &channelInfo{Height: height}
 		ci.parseAttrs(log, event.Attributes)
-		msg.eventType = event.Type
-		msg.info = ci
+		return ibcMessage{
+			eventType: event.Type,
+			info:      ci,
+		}
 	case "message":
+		var msg ibcMessage
 		for _, attr := range event.Attributes {
 			if attr.Key == "module" && attr.Value == "interchainquery" {
 				ci := &clientICQInfo{Source: chainID}
@@ -153,6 +182,28 @@ func parseIBCMessageFromEvent(
 				msg.info = ci
 			}
 		}
+		return msg
+	}
+	return ibcMessage{}
+}
+
+func parseIBCPacketReceiveMessageFromEvent(
+	log *zap.Logger,
+	event sdk.StringEvent,
+	chainID string,
+	height uint64,
+	msg *ibcMessage,
+) *ibcMessage {
+	var pi *packetInfo
+	if msg.info == nil {
+		pi = &packetInfo{Height: height}
+	} else {
+		pi = msg.info.(*packetInfo)
+	}
+	pi.parseAttrs(log, event.Attributes)
+	msg.info = pi
+	if event.Type != chantypes.EventTypeWriteAck {
+		msg.eventType = event.Type
 	}
 	return msg
 }
@@ -415,6 +466,23 @@ func (res *channelInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
 	}
 }
 
+func (res *channelInfo) isFullyParsed() bool {
+	return res.ChannelID != "" && res.PortID != "" &&
+		res.CounterpartyPortID != "" && res.ConnID != "" && res.Version != ""
+}
+
+func parseChannelAttrsMultiple(log *zap.Logger, height uint64, attrs []sdk.Attribute) (out []*channelInfo) {
+	ci := &channelInfo{Height: height}
+	for _, attr := range attrs {
+		ci.parseChannelAttribute(attr)
+		if ci.isFullyParsed() {
+			out = append(out, ci)
+			ci = &channelInfo{Height: height}
+		}
+	}
+	return out
+}
+
 func (res *channelInfo) parseChannelAttribute(attr sdk.Attribute) {
 	switch attr.Key {
 	case chantypes.AttributeKeyPortID:
@@ -427,6 +495,8 @@ func (res *channelInfo) parseChannelAttribute(attr sdk.Attribute) {
 		res.CounterpartyChannelID = attr.Value
 	case chantypes.AttributeKeyConnectionID:
 		res.ConnID = attr.Value
+	case chantypes.AttributeVersion:
+		res.Version = attr.Value
 	}
 }
 
