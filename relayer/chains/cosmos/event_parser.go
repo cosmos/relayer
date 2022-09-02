@@ -173,7 +173,7 @@ func parseIBCMessagesFromEvent(
 			if attr.Key == "module" && attr.Value == "interchainquery" {
 				ci := &clientICQInfo{Source: chainID}
 				ci.parseAttrs(log, event.Attributes)
-				if ci.Action == "" {
+				if ci.Action == "query" {
 					msg.eventType = processor.ClientICQTypeQuery
 				} else {
 					// action is MsgSubmitQueryResponse
