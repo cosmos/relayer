@@ -180,6 +180,7 @@ func parseIBCMessagesFromEvent(
 					msg.eventType = processor.ClientICQTypeResponse
 				}
 				msg.info = ci
+				break
 			}
 		}
 		return msg
