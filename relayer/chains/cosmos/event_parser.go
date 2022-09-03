@@ -462,6 +462,11 @@ func (res *channelInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
 	}
 }
 
+func (res *channelInfo) isFullyParsed() bool {
+	return res.ChannelID != "" && res.PortID != "" &&
+		res.CounterpartyPortID != "" && res.ConnID != "" && res.Version != ""
+}
+
 // parseChannelAttrsMultiple parsed a single event into potentially multiple channelInfo.
 // This is needed for ICA channelOpenInit messages.
 func parseChannelAttrsMultiple(log *zap.Logger, height uint64, attrs []sdk.Attribute) (out []*channelInfo) {
@@ -476,6 +481,10 @@ func parseChannelAttrsMultiple(log *zap.Logger, height uint64, attrs []sdk.Attri
 			ci.parseChannelAttribute(attr)
 		}
 	}
+	if ci.isFullyParsed() {
+		out = append(out, ci)
+	}
+
 	return out
 }
 
