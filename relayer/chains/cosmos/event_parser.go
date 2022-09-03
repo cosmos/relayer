@@ -40,12 +40,11 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromBlockEvents(
 			openInitMsgs := parseIBCChannelOpenInitMessagesFromEvent(ccp.log, event, chainID, height)
 			res = append(res, openInitMsgs...)
 		default:
-			m := parseIBCMessagesFromEvent(ccp.log, event, chainID, height)
-			if m.info == nil {
-				// Not an IBC message, don't need to log here
-				continue
+			m := parseIBCMessageFromEvent(ccp.log, event, chainID, height)
+			if m != nil && m.info != nil {
+				res = append(res, *m)
 			}
-			res = append(res, m)
+			// Not an IBC message, don't need to log here
 		}
 	}
 
@@ -56,12 +55,11 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromBlockEvents(
 			openInitMsgs := parseIBCChannelOpenInitMessagesFromEvent(ccp.log, event, chainID, height)
 			res = append(res, openInitMsgs...)
 		default:
-			m := parseIBCMessagesFromEvent(ccp.log, event, chainID, height)
-			if m.info == nil {
-				// Not an IBC message, don't need to log here
-				continue
+			m := parseIBCMessageFromEvent(ccp.log, event, chainID, height)
+			if m != nil && m.info != nil {
+				res = append(res, *m)
 			}
-			res = append(res, m)
+			// Not an IBC message, don't need to log here
 		}
 	}
 	return res
@@ -79,30 +77,28 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDel
 
 func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, chainID string, height uint64) (messages []ibcMessage) {
 	for _, msgLog := range logs {
-		packetMsg := new(ibcMessage)
+		recvPacketMsg := new(ibcMessage)
 		for _, event := range msgLog.Events {
 			switch event.Type {
 			case chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck:
-				packetMsg = parseIBCPacketReceiveMessageFromEvent(log, event, chainID, height, packetMsg)
+				recvPacketMsg.parseIBCPacketReceiveMessageFromEvent(log, event, chainID, height)
 			case chantypes.EventTypeChannelOpenInit:
 				openInitMsgs := parseIBCChannelOpenInitMessagesFromEvent(log, event, chainID, height)
 				messages = append(messages, openInitMsgs...)
 			default:
-				m := parseIBCMessagesFromEvent(log, event, chainID, height)
-				if m.info == nil {
+				m := parseIBCMessageFromEvent(log, event, chainID, height)
+				if m == nil || m.info == nil {
 					// Not an IBC message, don't need to log here
 					continue
 				}
-				messages = append(messages, m)
+				messages = append(messages, *m)
 			}
 		}
 
-		if packetMsg == nil || packetMsg.info == nil {
+		if recvPacketMsg != nil && recvPacketMsg.info != nil {
 			// Not a packet IBC message, don't need to log here
-			continue
+			messages = append(messages, *recvPacketMsg)
 		}
-
-		messages = append(messages, *packetMsg)
 	}
 
 	return messages
@@ -123,47 +119,45 @@ func parseIBCChannelOpenInitMessagesFromEvent(
 	return out
 }
 
-func parseIBCMessagesFromEvent(
+func parseIBCMessageFromEvent(
 	log *zap.Logger,
 	event sdk.StringEvent,
 	chainID string,
 	height uint64,
-) ibcMessage {
+) *ibcMessage {
 	switch event.Type {
-	case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
-		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
-		clienttypes.EventTypeUpdateClientProposal:
-		ci := new(clientInfo)
-		ci.parseAttrs(log, event.Attributes)
-		return ibcMessage{
-			eventType: event.Type,
-			info:      ci,
-		}
-
 	case chantypes.EventTypeSendPacket,
 		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
 		chantypes.EventTypeTimeoutPacketOnClose:
-		pi := new(packetInfo)
+		pi := &packetInfo{Height: height}
 		pi.parseAttrs(log, event.Attributes)
-		return ibcMessage{
+		return &ibcMessage{
 			eventType: event.Type,
 			info:      pi,
+		}
+	case chantypes.EventTypeChannelOpenTry,
+		chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
+		chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
+		ci := &channelInfo{Height: height}
+		ci.parseAttrs(log, event.Attributes)
+		return &ibcMessage{
+			eventType: event.Type,
+			info:      ci,
 		}
 	case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
 		conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
 		ci := &connectionInfo{Height: height}
 		ci.parseAttrs(log, event.Attributes)
-		return ibcMessage{
+		return &ibcMessage{
 			eventType: event.Type,
 			info:      ci,
 		}
-	case chantypes.EventTypeChannelOpenTry,
-		chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
-		chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
-
-		ci := &channelInfo{Height: height}
+	case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
+		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
+		clienttypes.EventTypeUpdateClientProposal:
+		ci := new(clientInfo)
 		ci.parseAttrs(log, event.Attributes)
-		return ibcMessage{
+		return &ibcMessage{
 			eventType: event.Type,
 			info:      ci,
 		}
@@ -183,28 +177,27 @@ func parseIBCMessagesFromEvent(
 					msg.eventType = processor.ClientICQTypeResponse
 				}
 				msg.info = ci
-				return msg
+				return &msg
 			}
 		}
 	}
-	return ibcMessage{}
+	return nil
 }
 
-func parseIBCPacketReceiveMessageFromEvent(
+func (msg *ibcMessage) parseIBCPacketReceiveMessageFromEvent(
 	log *zap.Logger,
 	event sdk.StringEvent,
 	chainID string,
 	height uint64,
-	msg *ibcMessage,
 ) *ibcMessage {
 	var pi *packetInfo
 	if msg.info == nil {
 		pi = &packetInfo{Height: height}
+		msg.info = pi
 	} else {
 		pi = msg.info.(*packetInfo)
 	}
 	pi.parseAttrs(log, event.Attributes)
-	msg.info = pi
 	if event.Type != chantypes.EventTypeWriteAck {
 		msg.eventType = event.Type
 	}
@@ -469,38 +462,61 @@ func (res *channelInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
 	}
 }
 
-func (res *channelInfo) isFullyParsed() bool {
-	return res.ChannelID != "" && res.PortID != "" &&
-		res.CounterpartyPortID != "" && res.ConnID != "" && res.Version != ""
-}
-
+// parseChannelAttrsMultiple parsed a single event into potentially multiple channelInfo.
+// This is needed for ICA channelOpenInit messages.
 func parseChannelAttrsMultiple(log *zap.Logger, height uint64, attrs []sdk.Attribute) (out []*channelInfo) {
 	ci := &channelInfo{Height: height}
 	for _, attr := range attrs {
-		ci.parseChannelAttribute(attr)
-		if ci.isFullyParsed() {
+		if ci.parseChannelAttribute(attr) {
+			// this attribute has already been parsed for this channelInfo,
+			// so save this channelInfo and start a new one.
 			out = append(out, ci)
 			ci = &channelInfo{Height: height}
+			// re-parse attribute now that we have fresh channelInfo.
+			ci.parseChannelAttribute(attr)
 		}
 	}
 	return out
 }
 
-func (res *channelInfo) parseChannelAttribute(attr sdk.Attribute) {
+// parseChannelAttribute parses channel attributes from an event.
+// If the attribute has already been parsed into the channelInfo,
+// it will not overwrite, and return true to inform the caller that
+// the attribute already exists.
+func (res *channelInfo) parseChannelAttribute(attr sdk.Attribute) bool {
 	switch attr.Key {
 	case chantypes.AttributeKeyPortID:
+		if res.PortID != "" {
+			return true
+		}
 		res.PortID = attr.Value
 	case chantypes.AttributeKeyChannelID:
+		if res.ChannelID != "" {
+			return true
+		}
 		res.ChannelID = attr.Value
 	case chantypes.AttributeCounterpartyPortID:
+		if res.CounterpartyPortID != "" {
+			return true
+		}
 		res.CounterpartyPortID = attr.Value
 	case chantypes.AttributeCounterpartyChannelID:
+		if res.CounterpartyChannelID != "" {
+			return true
+		}
 		res.CounterpartyChannelID = attr.Value
 	case chantypes.AttributeKeyConnectionID:
+		if res.ConnID != "" {
+			return true
+		}
 		res.ConnID = attr.Value
 	case chantypes.AttributeVersion:
+		if res.Version != "" {
+			return true
+		}
 		res.Version = attr.Value
 	}
+	return false
 }
 
 // alias type to the provider types, used for adding parser methods
