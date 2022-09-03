@@ -23,6 +23,7 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/light"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	tmtypes "github.com/tendermint/tendermint/types"
@@ -859,19 +860,23 @@ func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
 	}, nil
 }
 
-func (cc *CosmosProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
-	slashSplit := strings.Split(msgType, "/")
-	res, err := cc.RPCClient.ABCIQueryWithOptions(ctx, "/"+msgType, request, rpcclient.ABCIQueryOptions{
+func (cc *CosmosProvider) QueryICQWithProof(ctx context.Context, path string, request []byte, height uint64) (provider.ICQProof, error) {
+	slashSplit := strings.Split(path, "/")
+	req := abci.RequestQuery{
+		Path:   path,
 		Height: int64(height),
+		Data:   request,
 		Prove:  slashSplit[len(slashSplit)-1] == "key",
-	})
+	}
+
+	res, err := cc.QueryABCI(ctx, req)
 	if err != nil {
 		return provider.ICQProof{}, fmt.Errorf("failed to execute interchain query: %w", err)
 	}
 	return provider.ICQProof{
-		Result:   res.Response.Value,
-		ProofOps: res.Response.ProofOps,
-		Height:   res.Response.Height,
+		Result:   res.Value,
+		ProofOps: res.ProofOps,
+		Height:   res.Height,
 	}, nil
 }
 

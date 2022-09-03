@@ -49,7 +49,7 @@ func TestRelayerDockerEventProcessor(t *testing.T) {
 	rf := ibctest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest"),
+		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest", "100:1000"),
 		ibctestrelayer.ImagePull(false),
 		ibctestrelayer.StartupFlags("--processor", "events", "--block-history", "100"),
 	)
@@ -67,7 +67,7 @@ func TestRelayerDockerLegacyProcessor(t *testing.T) {
 	rf := ibctest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest"),
+		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest", "100:1000"),
 		ibctestrelayer.ImagePull(false),
 		ibctestrelayer.StartupFlags("--processor", "legacy"),
 	)
