@@ -982,6 +982,8 @@ github.com/strangelove-ventures/go-subkey v1.0.7 h1:cOP/Lajg3uxV/tvspu0m6+0Cu+DJ
 github.com/strangelove-ventures/go-subkey v1.0.7/go.mod h1:E34izOIEm+sZ1YmYawYRquqBQWeZBjVB4pF7bMuhc1c=
 github.com/strangelove-ventures/ibctest v0.0.0-20220903032745-b4df12fd1de4 h1:0jKbL8XyeuLW2hs4J2sn1i5do2jdvYRTYguQJd7bw+Y=
 github.com/strangelove-ventures/ibctest v0.0.0-20220903032745-b4df12fd1de4/go.mod h1:VEIiAI/8yQgYf/XYD829YfmZlMGsTAreGQwhCp0tPgA=
+github.com/strangelove-ventures/ibctest v0.0.0-20220903083503-483c93e49edc h1:Rz9RnMhfRt8KplNSBkprwWs6q3RqHKXDdJ2BQ9wnrnA=
+github.com/strangelove-ventures/ibctest v0.0.0-20220903083503-483c93e49edc/go.mod h1:VEIiAI/8yQgYf/XYD829YfmZlMGsTAreGQwhCp0tPgA=
 github.com/strangelove-ventures/lens v0.5.2-0.20220902224051-3b64274cd999 h1:7bswoPLTebSZP5aPkUFcv4kwknxXE5bWoM/qY5OPVDk=
 github.com/strangelove-ventures/lens v0.5.2-0.20220902224051-3b64274cd999/go.mod h1:16K7X0BqE6WJOxdq/Q6WCGMGO7iUVmB6BI1wN7nq2Tg=
 github.com/stretchr/objx v0.0.0-20180129172003-8a3f7159479f/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

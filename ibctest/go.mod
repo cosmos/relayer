@@ -7,7 +7,7 @@ require (
 	github.com/cosmos/relayer/v2 v2.0.0
 	github.com/docker/docker v20.10.17+incompatible
 	github.com/moby/moby v20.10.17+incompatible
-	github.com/strangelove-ventures/ibctest v0.0.0-20220903032745-b4df12fd1de4
+	github.com/strangelove-ventures/ibctest v0.0.0-20220903083503-483c93e49edc
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/zap v1.22.0
 )
