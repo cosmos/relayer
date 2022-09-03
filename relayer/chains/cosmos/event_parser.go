@@ -464,7 +464,7 @@ func (res *channelInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
 
 func (res *channelInfo) isFullyParsed() bool {
 	return res.ChannelID != "" && res.PortID != "" &&
-		res.CounterpartyPortID != "" && res.ConnID != "" && res.Version != ""
+		res.CounterpartyPortID != "" && res.ConnID != ""
 }
 
 // parseChannelAttrsMultiple parsed a single event into potentially multiple channelInfo.
