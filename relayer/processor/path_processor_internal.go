@@ -354,6 +354,7 @@ ClientICQLoop:
 			if queryID == resQueryID {
 				// done with this query, remove all retention.
 				pathEnd.messageCache.ClientICQ.DeleteMessages(queryID)
+				delete(pathEnd.clientICQProcessing, queryID)
 				continue ClientICQLoop
 			}
 		}
@@ -368,6 +369,7 @@ ClientICQLoop:
 	// now iterate through completion message and remove any leftover messages.
 	for queryID := range responseMessages {
 		pathEnd.messageCache.ClientICQ.DeleteMessages(queryID)
+		delete(pathEnd.clientICQProcessing, queryID)
 	}
 	return res
 }
@@ -622,11 +624,11 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 
 	pathEnd1ClientICQMessages := pp.getUnrelayedClientICQMessages(
 		pp.pathEnd1,
-		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeQuery],
+		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeRequest],
 		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeResponse],
 	)
 	pathEnd2ClientICQMessages := pp.getUnrelayedClientICQMessages(pp.pathEnd2,
-		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeQuery],
+		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeRequest],
 		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeResponse],
 	)
 
