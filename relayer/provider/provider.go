@@ -127,7 +127,6 @@ type ClientICQQueryID string
 // ClientICQInfo contains relevant properties from client ICQ messages.
 // Client ICQ implementation does not use IBC connections and channels.
 type ClientICQInfo struct {
-	Action     string
 	Source     string
 	Connection string
 	Chain      string
