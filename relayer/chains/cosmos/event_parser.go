@@ -171,7 +171,10 @@ func parseIBCMessagesFromEvent(
 		var msg ibcMessage
 		for _, attr := range event.Attributes {
 			if attr.Key == "module" && attr.Value == "interchainquery" {
-				ci := &clientICQInfo{Source: chainID}
+				ci := &clientICQInfo{
+					Height: height,
+					Source: chainID,
+				}
 				ci.parseAttrs(log, event.Attributes)
 				if ci.Action == "query" {
 					msg.eventType = processor.ClientICQTypeQuery
@@ -180,10 +183,9 @@ func parseIBCMessagesFromEvent(
 					msg.eventType = processor.ClientICQTypeResponse
 				}
 				msg.info = ci
-				break
+				return msg
 			}
 		}
-		return msg
 	}
 	return ibcMessage{}
 }

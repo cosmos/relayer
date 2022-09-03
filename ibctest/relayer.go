@@ -57,15 +57,15 @@ func (r *Relayer) AddChainConfiguration(ctx context.Context, _ ibc.RelayerExecRe
 	return nil
 }
 
-func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName string) (ibc.RelayerWallet, error) {
+func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName string) (ibc.Wallet, error) {
 	res := r.sys().RunC(ctx, r.log(), "keys", "add", chainID, keyName)
 	if res.Err != nil {
-		return ibc.RelayerWallet{}, res.Err
+		return ibc.Wallet{}, res.Err
 	}
 
-	var w ibc.RelayerWallet
+	var w ibc.Wallet
 	if err := json.Unmarshal(res.Stdout.Bytes(), &w); err != nil {
-		return ibc.RelayerWallet{}, err
+		return ibc.Wallet{}, err
 	}
 
 	return w, nil
@@ -108,12 +108,12 @@ func (r *Relayer) GetChannels(ctx context.Context, _ ibc.RelayerExecReporter, ch
 	return channels, nil
 }
 
-func (r *Relayer) LinkPath(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, opts ibc.CreateChannelOptions) error {
+func (r *Relayer) LinkPath(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, chanOpts ibc.CreateChannelOptions, clientOpts ibc.CreateClientOptions) error {
 	res := r.sys().RunC(ctx, r.log(), "tx", "link", pathName,
-		"--src-port", opts.SourcePortName,
-		"--dst-port", opts.DestPortName,
-		"--order", opts.Order.String(),
-		"--version", opts.Version)
+		"--src-port", chanOpts.SourcePortName,
+		"--dst-port", chanOpts.DestPortName,
+		"--order", chanOpts.Order.String(),
+		"--version", chanOpts.Version)
 	if res.Err != nil {
 		return res.Err
 	}
@@ -171,7 +171,7 @@ func (r *Relayer) CreateConnections(ctx context.Context, _ ibc.RelayerExecReport
 	return nil
 }
 
-func (r *Relayer) CreateClients(ctx context.Context, _ ibc.RelayerExecReporter, pathName string) error {
+func (r *Relayer) CreateClients(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, opts ibc.CreateClientOptions) error {
 	res := r.sys().RunC(ctx, r.log(), "tx", "clients", pathName)
 	if res.Err != nil {
 		return res.Err
@@ -258,11 +258,11 @@ func (r *Relayer) FlushPackets(ctx context.Context, _ ibc.RelayerExecReporter, p
 	return nil
 }
 
-func (r *Relayer) GetWallet(chainID string) (ibc.RelayerWallet, bool) {
+func (r *Relayer) GetWallet(chainID string) (ibc.Wallet, bool) {
 	res := r.sys().RunC(context.Background(), r.log(), "keys", "show", chainID)
 	if res.Err != nil {
-		return ibc.RelayerWallet{}, false
+		return ibc.Wallet{}, false
 	}
 	address := strings.TrimSpace(res.Stdout.String())
-	return ibc.RelayerWallet{Address: address}, true
+	return ibc.Wallet{Address: address}, true
 }
