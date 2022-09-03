@@ -161,24 +161,15 @@ func parseIBCMessageFromEvent(
 			eventType: event.Type,
 			info:      ci,
 		}
-	case "message":
-		var msg ibcMessage
-		for _, attr := range event.Attributes {
-			if attr.Key == "module" && attr.Value == "interchainquery" {
-				ci := &clientICQInfo{
-					Height: height,
-					Source: chainID,
-				}
-				ci.parseAttrs(log, event.Attributes)
-				if ci.Action == "query" {
-					msg.eventType = processor.ClientICQTypeQuery
-				} else {
-					// action is MsgSubmitQueryResponse
-					msg.eventType = processor.ClientICQTypeResponse
-				}
-				msg.info = ci
-				return &msg
-			}
+	case processor.ClientICQTypeRequest, processor.ClientICQTypeResponse:
+		ci := &clientICQInfo{
+			Height: height,
+			Source: chainID,
+		}
+		ci.parseAttrs(log, event.Attributes)
+		return &ibcMessage{
+			eventType: event.Type,
+			info:      ci,
 		}
 	}
 	return nil
@@ -390,7 +381,6 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute)
 }
 
 type clientICQInfo struct {
-	Action     string
 	Source     string
 	Connection string
 	Chain      string
@@ -421,8 +411,6 @@ func (res *clientICQInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
 
 func (res *clientICQInfo) parseAttribute(attr sdk.Attribute) (err error) {
 	switch attr.Key {
-	case "action":
-		res.Action = attr.Value
 	case "connection_id":
 		res.Connection = attr.Value
 	case "chain_id":

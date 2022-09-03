@@ -188,7 +188,6 @@ func (ccp *CosmosChainProcessor) logConnectionMessage(message string, ci provide
 
 func (ccp *CosmosChainProcessor) logClientICQMessage(icqType string, ci provider.ClientICQInfo) {
 	ccp.logObservedIBCMessage(icqType,
-		zap.String("action", ci.Action),
 		zap.String("type", ci.Type),
 		zap.String("query_id", string(ci.QueryID)),
 		zap.String("request", hex.EncodeToString(ci.Request)),
