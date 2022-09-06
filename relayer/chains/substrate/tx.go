@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/ChainSafe/gossamer/lib/common"
-	beefyclienttypes "github.com/cosmos/ibc-go/v5/modules/light-clients/11-beefy/types"
 	"time"
 
 	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
@@ -194,7 +193,7 @@ func (sp *SubstrateProvider) SendMessages(ctx context.Context, msgs []provider.R
 		}
 	}
 
-	encodedExt, err := beefyclienttypes.Encode(ext)
+	encodedExt, err := rpcclienttypes.Encode(ext)
 	if err != nil {
 		return nil, false, err
 	}

@@ -15,7 +15,7 @@ import (
 	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
 	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
 	"github.com/ComposableFi/go-substrate-rpc-client/v4/xxhash"
-	beefyclienttypes "github.com/cosmos/ibc-go/v5/modules/light-clients/11-beefy/types"
+	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
@@ -238,7 +238,7 @@ func getFinalizedBlocks(
 		for _, keyValue := range changes.Changes {
 			if keyValue.HasStorageData {
 				var paraId uint32
-				err = beefyclienttypes.DecodeFromBytes(keyValue.StorageKey[40:], &paraId)
+				err = rpcclienttypes.Decode(keyValue.StorageKey[40:], &paraId)
 				if err != nil {
 					return nil, nil, err
 				}

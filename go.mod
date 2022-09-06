@@ -8,12 +8,12 @@ require (
 	github.com/ChainSafe/gossamer v0.6.1-0.20220406182257-98400b30ca00
 	github.com/ComposableFi/go-merkle-trees v0.0.0-20220505132313-e976260288cc
 	github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220820010439-71c9d526f2f5
-	github.com/ComposableFi/ics11-beefy v0.0.0-20220907132902-15f736a8e91e
+		github.com/ComposableFi/ics11-beefy v0.0.0-20220903212826-f6dc0720b787
 	github.com/avast/retry-go/v4 v4.1.0
 	github.com/cosmos/cosmos-sdk v0.46.0
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/ibc-go/v5 v5.0.0-beta1
-	github.com/ethereum/go-ethereum v1.10.20
+	github.com/ethereum/go-ethereum v1.10.23
 	github.com/gogo/protobuf v1.3.3
 	github.com/google/go-cmp v0.5.8
 	github.com/google/go-github/v43 v43.0.0

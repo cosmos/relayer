@@ -6,10 +6,10 @@ import (
 	"reflect"
 	"time"
 
+	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
-	beefyclienttypes "github.com/cosmos/ibc-go/v5/modules/light-clients/11-beefy/types"
 )
 
 // ClientsMatch will check the type of an existing light client on the src chain, tracking the dst chain, and run

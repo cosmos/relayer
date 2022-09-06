@@ -113,7 +113,7 @@ func (sp *SubstrateProvider) QueryClientStateResponse(ctx context.Context, heigh
 }
 
 func (sp *SubstrateProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
-	return sp.RPCClient.RPC.IBC.QueryClientConsensusState(ctx, uint32(chainHeight), []byte(clientid),
+	return sp.RPCClient.RPC.IBC.QueryClientConsensusState(ctx, uint32(chainHeight), clientid,
 		clientHeight.GetRevisionHeight(), clientHeight.GetRevisionNumber(), true)
 }
 

@@ -8,8 +8,9 @@ import (
 	"path"
 	"time"
 
-	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
 	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
+
+	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
