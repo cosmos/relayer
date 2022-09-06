@@ -144,7 +144,6 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 			}
 			// can complete channel handshakes on this client
 			// since PathProcessor holds reference to the counterparty chain pathEndRuntime.
-
 			if eventType == chantypes.EventTypeChannelOpenInit {
 				// CounterpartyConnectionID is needed to construct MsgChannelOpenTry.
 				for k := range pathEnd.connectionStateCache {
@@ -159,6 +158,7 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 		if len(newCmc) == 0 {
 			continue
 		}
+
 		channelHandshakeMessages[eventType] = newCmc
 	}
 	pathEnd.messageCache.ChannelHandshake.Merge(channelHandshakeMessages)

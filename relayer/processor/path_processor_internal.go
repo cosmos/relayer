@@ -72,7 +72,7 @@ MsgTransferLoop:
 							},
 						}
 
-						if pathEndPacketFlowMessages.Src.shouldSendChannelMessage(closeChan, pathEndPacketFlowMessages.Dst) {
+						if pathEndPacketFlowMessages.Dst.shouldSendChannelMessage(closeChan, pathEndPacketFlowMessages.Src) {
 							res.DstChannelMessage = append(res.DstChannelMessage, closeChan)
 						}
 					} else {
@@ -160,14 +160,7 @@ MsgTransferLoop:
 		res.ToDeleteSrc[chantypes.EventTypeAcknowledgePacket] = append(res.ToDeleteSrc[chantypes.EventTypeAcknowledgePacket], ackSeq)
 	}
 	for timeoutSeq, msgTimeout := range pathEndPacketFlowMessages.SrcMsgTimeout {
-		if msgTimeout.ChannelOrder == chantypes.ORDERED.String() {
-			if pathEndPacketFlowMessages.DstMsgChannelCloseConfirm != nil {
-				// For ordered channel packets, flow is not done until channel-close-confirm is observed.
-				res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm] = append(res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm], pathEndPacketFlowMessages.ChannelKey.Counterparty())
-				res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], timeoutSeq)
-				res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], timeoutSeq)
-			}
-		} else {
+		if msgTimeout.ChannelOrder != chantypes.ORDERED.String() {
 			res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], timeoutSeq)
 			res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], timeoutSeq)
 		}
@@ -176,6 +169,7 @@ MsgTransferLoop:
 		res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], timeoutOnCloseSeq)
 		res.ToDeleteSrc[chantypes.EventTypeTimeoutPacketOnClose] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacketOnClose], timeoutOnCloseSeq)
 	}
+
 	return res
 }
 
@@ -1050,10 +1044,14 @@ func (pp *PathProcessor) packetMessagesToSend(
 		pathEnd2ChannelMessage = append(pathEnd2ChannelMessage, pathEnd1ProcessRes[i].DstChannelMessage...)
 
 		pp.pathEnd1.messageCache.ChannelHandshake.DeleteMessages(pathEnd2ProcessRes[i].ToDeleteDstChannel)
+		pp.pathEnd1.channelProcessing.deleteMessages(pathEnd2ProcessRes[i].ToDeleteDstChannel)
+
 		pp.pathEnd2.messageCache.ChannelHandshake.DeleteMessages(pathEnd1ProcessRes[i].ToDeleteDstChannel)
+		pp.pathEnd2.channelProcessing.deleteMessages(pathEnd1ProcessRes[i].ToDeleteDstChannel)
 
 		pp.pathEnd1.messageCache.PacketFlow[channelPair.pathEnd1ChannelKey].DeleteMessages(pathEnd1ProcessRes[i].ToDeleteSrc, pathEnd2ProcessRes[i].ToDeleteDst)
 		pp.pathEnd2.messageCache.PacketFlow[channelPair.pathEnd2ChannelKey].DeleteMessages(pathEnd2ProcessRes[i].ToDeleteSrc, pathEnd1ProcessRes[i].ToDeleteDst)
+
 		pp.pathEnd1.packetProcessing[channelPair.pathEnd1ChannelKey].deleteMessages(pathEnd1ProcessRes[i].ToDeleteSrc, pathEnd2ProcessRes[i].ToDeleteDst)
 		pp.pathEnd2.packetProcessing[channelPair.pathEnd2ChannelKey].deleteMessages(pathEnd2ProcessRes[i].ToDeleteSrc, pathEnd1ProcessRes[i].ToDeleteDst)
 	}
