@@ -64,13 +64,11 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 		return nil, err
 	}
 	pc.ChainName = chainName
-	m := processor.NewPrometheusMetrics()
 
 	return &CosmosProvider{
 		log:         log,
 		ChainClient: *cc,
 		PCfg:        pc,
-		metrics:     m,
 	}, nil
 }
 
