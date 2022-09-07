@@ -7,7 +7,6 @@ import (
 	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
 	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
-	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -25,7 +24,7 @@ type ibcMessageInfo interface {
 }
 
 // ibcMessagesFromTransaction parses all events within a transaction to find IBC messages
-func (scp *SubstrateChainProcessor) handleIBCMessagesFromEvents(ibcEvents rpcclienttypes.IBCEventsQueryResult, height uint64, c processor.IBCMessagesCache) error {
+func (scp *SubstrateChainProcessor) ibcMessagesFromTransaction(ibcEvents rpcclienttypes.IBCEventsQueryResult, height uint64) (messages []ibcMessage) {
 	packetAccumulator := make(map[uint64]*packetInfo)
 	for i := 0; i < len(ibcEvents); i++ {
 
@@ -92,15 +91,15 @@ func (scp *SubstrateChainProcessor) handleIBCMessagesFromEvents(ibcEvents rpccli
 				continue
 			}
 
-			scp.handleMessage(ibcMessage{
+			messages = append(messages, ibcMessage{
 				eventType: eventType,
 				info:      info,
-			}, c)
+			})
 
 		}
 	}
 
-	return nil
+	return messages
 }
 
 // client info attributes and methods
