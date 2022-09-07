@@ -25,6 +25,8 @@ RPCPORT=$4
 P2PPORT=$5
 PROFPORT=$6
 GRPCPORT=$7
+DENOM=$8
+BASEDENOM=$9
 
 if [ -z "$1" ]; then
   display_usage "[BINARY] ($BINARY|akash)"
@@ -63,8 +65,8 @@ if ! mkdir -p $CHAINDIR/$CHAINID 2>/dev/null; then
 fi
 
 # Build genesis file incl account for passed address
-coins="100000000000stake,100000000000samoleans"
-delegate="100000000000stake"
+coins="100000000000$DENOM,100000000000$BASEDENOM"
+delegate="100000000000$DENOM"
 
 redirect $BINARY --home $CHAINDIR/$CHAINID --chain-id $CHAINID init $CHAINID 
 sleep 1
@@ -89,7 +91,7 @@ if [ "$unamestr" = 'Linux' ]; then
 fi
 
 # Set proper defaults and change ports (use a different sed for Mac or Linux)
-echo "Change settings in config.toml file..."
+echo "Change settings in config.toml and genesis.json files..."
 if [ $platform = 'linux' ]; then
   sed -i 's#"tcp://127.0.0.1:26657"#"tcp://0.0.0.0:'"$RPCPORT"'"#g' $CHAINDIR/$CHAINID/config/config.toml
   sed -i 's#"tcp://0.0.0.0:26656"#"tcp://0.0.0.0:'"$P2PPORT"'"#g' $CHAINDIR/$CHAINID/config/config.toml
@@ -97,6 +99,7 @@ if [ $platform = 'linux' ]; then
   sed -i 's/timeout_commit = "5s"/timeout_commit = "1s"/g' $CHAINDIR/$CHAINID/config/config.toml
   sed -i 's/timeout_propose = "3s"/timeout_propose = "1s"/g' $CHAINDIR/$CHAINID/config/config.toml
   sed -i 's/index_all_keys = false/index_all_keys = true/g' $CHAINDIR/$CHAINID/config/config.toml
+  sed -i 's/"bond_denom": "stake"/"bond_denom": "'"$DENOM"'"/g' $CHAINDIR/$CHAINID/config/genesis.json
   # sed -i '' 's#index-events = \[\]#index-events = \["message.action","send_packet.packet_src_channel","send_packet.packet_sequence"\]#g' $CHAINDIR/$CHAINID/config/app.toml
 else
   sed -i '' 's#"tcp://127.0.0.1:26657"#"tcp://0.0.0.0:'"$RPCPORT"'"#g' $CHAINDIR/$CHAINID/config/config.toml
@@ -105,6 +108,7 @@ else
   sed -i '' 's/timeout_commit = "5s"/timeout_commit = "1s"/g' $CHAINDIR/$CHAINID/config/config.toml
   sed -i '' 's/timeout_propose = "3s"/timeout_propose = "1s"/g' $CHAINDIR/$CHAINID/config/config.toml
   sed -i '' 's/index_all_keys = false/index_all_keys = true/g' $CHAINDIR/$CHAINID/config/config.toml
+  sed -i '' 's/"bond_denom": "stake"/"bond_denom": "'"$DENOM"'"/g' $CHAINDIR/$CHAINID/config/genesis.json
   # sed -i '' 's#index-events = \[\]#index-events = \["message.action","send_packet.packet_src_channel","send_packet.packet_sequence"\]#g' $CHAINDIR/$CHAINID/config/app.toml
 fi
 
