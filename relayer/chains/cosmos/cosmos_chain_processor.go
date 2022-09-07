@@ -423,7 +423,7 @@ func (ccp *CosmosChainProcessor) CollectMetrics(ctx context.Context, persistence
 }
 
 func (ccp *CosmosChainProcessor) CurrentBlockHeight(ctx context.Context, persistence *queryCyclePersistence) {
-	ccp.metrics.SetLatestHeight(ccp.chainProvider.ChainName(), persistence.latestHeight)
+	ccp.metrics.SetLatestHeight(ccp.chainProvider.ChainId(), persistence.latestHeight)
 }
 
 func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
