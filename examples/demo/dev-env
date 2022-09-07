@@ -24,18 +24,35 @@ sleep 3
 # creates clients, connections and channels (all this happens in rly tx command)
 rly tx link demo -d -t 3s
 sleep 2
-echo "Initial balances"
+echo "--  Initial balances --"
 echo "balance 0 $(rly q bal ibc-0)"
 echo "balance 1 $(rly q bal ibc-1)"
+
+echo "-- Sending IBC transaction... --"
 rly tx transfer ibc-0 ibc-1 100000samoleans "$(rly keys show ibc-1)" channel-0 -d
-rly tx transfer ibc-1 ibc-0 100000samoleans "$(rly keys show ibc-0)" channel-0 -d
 sleep 5
-# relay remaining packets and then finishes as opposed to starting a continuous listening loop with `rly start`
+
+# relay remaining packets -- (could also be accomplished by running: `rly start`)
 rly tx relay-packets demo channel-0 -d
 sleep 5
-# relay remaining acknowledgments and then finishes as opposed to starting a continuous listening loop with `rly start`
+
+# relay remaining acknowledgments -- (could also be accomplished by running: `rly start`)
 rly tx relay-acknowledgements demo channel-0 -d
 sleep 5
-echo "Balances after packets are sent"
+echo "-- Balances after packets are sent --"
+echo "balance 0 $(rly q bal ibc-0)"
+echo "balance 1 $(rly q bal ibc-1)"
+
+echo "-- Sending tokens back to original wallet... --"
+rly tx transfer ibc-1 ibc-0 100000transfer/channel-0/samoleans "$(rly keys show ibc-0)" channel-0 -d
+sleep 5
+
+rly tx relay-packets demo channel-0 -d
+sleep 5
+
+rly tx relay-acknowledgements demo channel-0 -d
+sleep 5
+
+echo "-- Balances after sending packets back --"
 echo "balance 0 $(rly q bal ibc-0)"
 echo "balance 1 $(rly q bal ibc-1)"
