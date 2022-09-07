@@ -1085,6 +1085,11 @@ func (cc *CosmosProvider) NewClientState(
 }
 
 func (cc *CosmosProvider) UpdateFeesSpent(chain, key string, fees sdk.Coins) {
+	// Don't set the metrics in testing
+	if cc.metrics == nil {
+		return
+	}
+
 	cc.TotalFees = cc.TotalFees.Add(fees...)
 
 	for _, fee := range cc.TotalFees {
