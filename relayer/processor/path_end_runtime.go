@@ -572,23 +572,23 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 
 // shouldSendConnectionMessage determines if the connection handshake message should be sent now.
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
-func (pathEnd *pathEndRuntime) shouldSendClientICQMessage(message provider.ClientICQInfo) (*provider.ICQProof, bool) {
+func (pathEnd *pathEndRuntime) shouldSendClientICQMessage(message provider.ClientICQInfo) bool {
 	queryID := message.QueryID
 	inProgress, ok := pathEnd.clientICQProcessing[queryID]
 	if !ok {
 		// in progress cache does not exist for this query ID, so can send.
-		return nil, true
+		return true
 	}
 	blocksSinceLastProcessed := pathEnd.latestBlock.Height - inProgress.lastProcessedHeight
 	if inProgress.assembled {
 		if blocksSinceLastProcessed < blocksToRetrySendAfter {
 			// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
-			return nil, false
+			return false
 		}
 	} else {
 		if blocksSinceLastProcessed < blocksToRetryAssemblyAfter {
 			// this message was sent less than blocksToRetryAssemblyAfter ago, do not attempt assembly again yet.
-			return nil, false
+			return false
 		}
 	}
 	if inProgress.retryCount >= maxMessageSendRetries {
@@ -603,10 +603,10 @@ func (pathEnd *pathEndRuntime) shouldSendClientICQMessage(message provider.Clien
 		// delete in progress query for this specific ID
 		delete(pathEnd.clientICQProcessing, queryID)
 
-		return nil, false
+		return false
 	}
 
-	return inProgress.proof, true
+	return true
 }
 
 func (pathEnd *pathEndRuntime) trackProcessingPacketMessage(t packetMessageToTrack) {
@@ -699,12 +699,9 @@ func (pathEnd *pathEndRuntime) trackProcessingClientICQMessage(t clientICQMessag
 		retryCount = inProgress.retryCount + 1
 	}
 
-	pathEnd.clientICQProcessing[queryID] = processingICQMessage{
-		processingMessage: processingMessage{
-			lastProcessedHeight: pathEnd.latestBlock.Height,
-			retryCount:          retryCount,
-			assembled:           t.assembled,
-		},
-		proof: t.msg.proof,
+	pathEnd.clientICQProcessing[queryID] = processingMessage{
+		lastProcessedHeight: pathEnd.latestBlock.Height,
+		retryCount:          retryCount,
+		assembled:           t.assembled,
 	}
 }

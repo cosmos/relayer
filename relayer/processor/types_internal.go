@@ -64,8 +64,7 @@ const (
 // clientICQMessage holds a client ICQ message info,
 // useful for sending messages around internal to the PathProcessor.
 type clientICQMessage struct {
-	info  provider.ClientICQInfo
-	proof *provider.ICQProof
+	info provider.ClientICQInfo
 }
 
 func (clientICQMessage) ibcMessageIndicator() {}
@@ -75,11 +74,6 @@ type processingMessage struct {
 	assembled           bool
 	lastProcessedHeight uint64
 	retryCount          uint64
-}
-
-type processingICQMessage struct {
-	processingMessage // embedding
-	proof             *provider.ICQProof
 }
 
 type packetProcessingCache map[ChannelKey]packetChannelMessageCache
@@ -96,7 +90,7 @@ func (c packetChannelMessageCache) deleteMessages(toDelete ...map[string][]uint6
 	}
 }
 
-type clientICQProcessingCache map[provider.ClientICQQueryID]processingICQMessage
+type clientICQProcessingCache map[provider.ClientICQQueryID]processingMessage
 
 type channelProcessingCache map[string]channelKeySendCache
 type channelKeySendCache map[ChannelKey]processingMessage
