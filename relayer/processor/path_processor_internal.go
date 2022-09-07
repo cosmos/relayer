@@ -359,9 +359,11 @@ ClientICQLoop:
 			}
 		}
 		// query ID not found in response messages, check if should send queryMsg and send
-		if pathEnd.shouldSendClientICQMessage(queryMsg) {
+		proof, shouldSend := pathEnd.shouldSendClientICQMessage(queryMsg)
+		if shouldSend {
 			res = append(res, clientICQMessage{
-				info: queryMsg,
+				info:  queryMsg,
+				proof: proof,
 			})
 		}
 	}
@@ -691,7 +693,7 @@ func (pp *PathProcessor) assembleMessage(
 			assembled: err == nil,
 		}
 	case clientICQMessage:
-		message, err = pp.assembleClientICQMessage(ctx, m, src, dst)
+		message, err = pp.assembleClientICQMessage(ctx, &m, src, dst)
 		om.clientICQMsgs[i] = clientICQMessageToTrack{
 			msg:       m,
 			assembled: err == nil,
@@ -702,7 +704,6 @@ func (pp *PathProcessor) assembleMessage(
 		return
 	}
 	om.Append(message)
-
 }
 
 func (pp *PathProcessor) assembleAndSendMessages(
@@ -948,18 +949,28 @@ func (pp *PathProcessor) assembleChannelMessage(
 
 func (pp *PathProcessor) assembleClientICQMessage(
 	ctx context.Context,
-	msg clientICQMessage,
+	msg *clientICQMessage,
 	src, dst *pathEndRuntime,
 ) (provider.RelayerMessage, error) {
 	ctx, cancel := context.WithTimeout(ctx, interchainQueryTimeout)
 	defer cancel()
 
-	proof, err := src.chainProvider.QueryICQWithProof(ctx, msg.info.Type, msg.info.Request, msg.info.Height)
+	if msg.proof == nil {
+		icqProof, err := src.chainProvider.QueryICQWithProof(ctx, msg.info.Type, msg.info.Request, msg.info.Height)
+		if err != nil {
+			return nil, fmt.Errorf("error during interchain query: %w", err)
+		}
+		msg.proof = &icqProof
+	}
+	if src.latestBlock.Height <= uint64(msg.proof.Height) {
+		return nil, errors.New("waiting one block before submitting MsgSubmitQueryResponse")
+	}
+	m, err := dst.chainProvider.MsgSubmitQueryResponse(msg.info.Chain, msg.info.QueryID, *msg.proof)
 	if err != nil {
-		return nil, fmt.Errorf("error during interchain query: %w", err)
+		return nil, fmt.Errorf("error assembling MsgSubmitQueryResponse: %w", err)
 	}
 
-	return dst.chainProvider.MsgSubmitQueryResponse(msg.info.Chain, msg.info.QueryID, proof)
+	return m, nil
 }
 
 func (pp *PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes pathEndChannelHandshakeResponse) ([]channelIBCMessage, []channelIBCMessage) {
