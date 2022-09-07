@@ -243,3 +243,7 @@ func (cc *CosmosProvider) BlockTime(ctx context.Context, height int64) (time.Tim
 	}
 	return resultBlock.Block.Time, nil
 }
+
+func (cc *CosmosProvider) SetMetrics(m *processor.PrometheusMetrics) {
+	cc.metrics = m
+}
