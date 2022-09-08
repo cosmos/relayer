@@ -23,14 +23,16 @@ type ibcMessageInfo interface {
 	MarshalLogObject(enc zapcore.ObjectEncoder) error
 }
 
-// ibcMessagesFromTransaction parses all events within a transaction to find IBC messages
-func (scp *SubstrateChainProcessor) ibcMessagesFromTransaction(ibcEvents rpcclienttypes.IBCEventsQueryResult, height uint64) (messages []ibcMessage) {
-	packetAccumulator := make(map[uint64]*packetInfo)
+type ibcEventQueryItem (map[string]interface{})
+
+// ibcMessagesFromEvents parses all events of a certain height to find IBC messages
+func (scp *SubstrateChainProcessor) ibcMessagesFromEvents(ibcEvents rpcclienttypes.IBCEventsQueryResult, height uint64) (messages []ibcMessage) {
+	packetAccumulator := make(map[ibcPacketKey]*packetInfo)
 	for i := 0; i < len(ibcEvents); i++ {
+		var info ibcMessageInfo
+		var eventType string
 
 		for eType, data := range ibcEvents[i] {
-			var info ibcMessageInfo
-			var eventType string
 
 			switch eType {
 
@@ -67,8 +69,7 @@ func (scp *SubstrateChainProcessor) ibcMessagesFromTransaction(ibcEvents rpcclie
 
 			case SendPacket, ReceivePacket, WriteAcknowledgement, AcknowledgePacket, TimeoutPacket, TimeoutOnClosePacket:
 
-				// TODO: determine if is it a good key
-				accumKey := data.(map[string]interface{})["sequence"].(uint64)
+				accumKey := genAccumKey(data)
 
 				_, exists := packetAccumulator[accumKey]
 				if !exists {
@@ -86,59 +87,85 @@ func (scp *SubstrateChainProcessor) ibcMessagesFromTransaction(ibcEvents rpcclie
 				panic("event not recognized")
 			}
 
-			if info == nil {
-				// Not an IBC message, don't need to log here
-				continue
-			}
-
-			messages = append(messages, ibcMessage{
-				eventType: eventType,
-				info:      info,
-			})
-
 		}
+
+		if info == nil {
+			// Not an IBC message, don't need to log here
+			continue
+		}
+
+		// update messages
+		messages = append(messages, ibcMessage{
+			eventType: eventType,
+			info:      info,
+		})
 	}
 
 	return messages
 }
 
-// client info attributes and methods
-type clientInfo struct {
-	Height          clienttypes.Height `json:"height"`
-	ClientID        string             `json:"client_id"`
-	ClientType      uint32             `json:"client_type"`
-	ConsensusHeight clienttypes.Height `json:"consensus_height"`
+// substrate ibc events endpoint returns a list of events
+// relayted to different transaction, so we need
+// to define a unique key
+type ibcPacketKey struct {
+	sequence   uint64
+	srcChannel string
+	srcPort    string
+	dstChannel string
+	dstPort    string
 }
 
-func (c clientInfo) ClientState() provider.ClientState {
-	return provider.ClientState{
-		ClientID:        c.ClientID,
-		ConsensusHeight: c.ConsensusHeight,
+// returns the unique key for packet accumulator cache
+func genAccumKey(data interface{}) ibcPacketKey {
+	return ibcPacketKey{
+		sequence:   data.(ibcEventQueryItem)["sequence"].(uint64),
+		srcChannel: data.(ibcEventQueryItem)["source_channel"].(string),
+		srcPort:    data.(ibcEventQueryItem)["source_port"].(string),
+		dstChannel: data.(ibcEventQueryItem)["destination_channel"].(string),
+		dstPort:    data.(ibcEventQueryItem)["destination_port"].(string),
 	}
 }
 
-func (res *clientInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("client_id", res.ClientID)
-	enc.AddUint64("consensus_height", res.ConsensusHeight.RevisionHeight)
-	enc.AddUint64("consensus_height_revision", res.ConsensusHeight.RevisionNumber)
+// client info attributes and methods
+type clientInfo struct {
+	Height          clienttypes.Height
+	ClientID        string
+	ClientType      uint32
+	ConsensusHeight clienttypes.Height
+}
+
+// ClientState returns the height and id of client
+func (cl clientInfo) ClientState() provider.ClientState {
+	return provider.ClientState{
+		ClientID:        cl.ClientID,
+		ConsensusHeight: cl.ConsensusHeight,
+	}
+}
+
+// MarshalLogObject marshals attributes of client info
+func (cl *clientInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("client_id", cl.ClientID)
+	enc.AddUint64("consensus_height", cl.ConsensusHeight.RevisionHeight)
+	enc.AddUint64("consensus_height_revision", cl.ConsensusHeight.RevisionNumber)
 	return nil
 }
 
-func (res *clientInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
-	attrs := attributes.(map[string]interface{})
+// parseAttrs parses the attributes of client info
+func (cl *clientInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
+	attrs := attributes.(ibcEventQueryItem)
 
 	var err error
-	if res.Height, err = parseHeight(attrs["height"]); err != nil {
+	if cl.Height, err = parseHeight(attrs["height"]); err != nil {
 		log.Error("error parsing client consensus height: ",
 			zap.Error(err),
 		)
 		return
 	}
 
-	res.ClientID = attrs["client_id"].(string)
-	res.ClientType = attrs["client_type"].(uint32)
+	cl.ClientID = attrs["client_id"].(string)
+	cl.ClientType = attrs["client_type"].(uint32)
 
-	if res.ConsensusHeight, err = parseHeight(attrs["consensus_height"]); err != nil {
+	if cl.ConsensusHeight, err = parseHeight(attrs["consensus_height"]); err != nil {
 		log.Error("error parsing client consensus height: ",
 			zap.Error(err),
 		)
@@ -149,82 +176,67 @@ func (res *clientInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
 
 // client update info attributes and methods
 type clientUpdateInfo struct {
-	Common clientInfo              `json:"common"`
-	Header beefyclienttypes.Header `json:"header"`
+	Common clientInfo
+	Header beefyclienttypes.Header
 }
 
-func (res *clientUpdateInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("client_id", res.Common.ClientID)
-	enc.AddUint64("consensus_height", res.Common.ConsensusHeight.RevisionHeight)
-	enc.AddUint64("consensus_height_revision", res.Common.ConsensusHeight.RevisionNumber)
+// MarshalLogObject marshals attributes of client update info
+func (clu *clientUpdateInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("client_id", clu.Common.ClientID)
+	enc.AddUint64("consensus_height", clu.Common.ConsensusHeight.RevisionHeight)
+	enc.AddUint64("consensus_height_revision", clu.Common.ConsensusHeight.RevisionNumber)
 	// TODO: include header if
 	return nil
 }
-func (res *clientUpdateInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
-	attrs := attributes.(map[string]interface{})
+
+// parseAttrs parses the attributes of client update info
+func (clu *clientUpdateInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
+	attrs := attributes.(ibcEventQueryItem)
 
 	clientInfo := new(clientInfo)
 	clientInfo.parseAttrs(log, attrs["common"])
+	clu.Common = *clientInfo
 
-	res.Common = *clientInfo
-
-	var err error
-	if res.Header, err = parseHeader(attrs["header"]); err != nil {
-		log.Error("error parsing beefy header: ",
-			zap.Error(err),
-		)
-		return
-	}
+	clu.Header = parseHeader(attrs["header"])
 }
-
-// // packet attributes
-// type packetEvent struct {
-// 	height             clienttypes.Height `json:"height"`
-// 	sequence           uint64             `json:"sequence"`
-// 	sourcePort         string             `json:"source_port"`
-// 	sourceCannel       uint64             `json:"source_channel"`
-// 	destinationPort    string             `json:"destination_port"`
-// 	destinationChannel uint64             `json:"destination_channel"`
-// 	data               []byte             `json:"data"`
-// 	timeoutHeight      clienttypes.Height `json:"timeout_height"`
-// 	timeoutTimestamp   uint64             `json:"timeout_timestamp"`
-// }
 
 // alias type to the provider types, used for adding parser methods
 type packetInfo provider.PacketInfo
 
-func (res *packetInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddUint64("sequence", res.Sequence)
-	enc.AddString("src_channel", res.SourceChannel)
-	enc.AddString("src_port", res.SourcePort)
-	enc.AddString("dst_channel", res.DestChannel)
-	enc.AddString("dst_port", res.DestPort)
+// MarshalLogObject marshals attributes of packet info
+func (pkt *packetInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddUint64("sequence", pkt.Sequence)
+	enc.AddString("src_channel", pkt.SourceChannel)
+	enc.AddString("src_port", pkt.SourcePort)
+	enc.AddString("dst_channel", pkt.DestChannel)
+	enc.AddString("dst_port", pkt.DestPort)
 	return nil
 }
 
-func (res *packetInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
-	attrs := attributes.(map[string]interface{})
+// parseAttrs parses the attributes of packet info
+func (pkt *packetInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
+	attrs := attributes.(ibcEventQueryItem)
 
-	res.Sequence = attrs["sequence"].(uint64)
-	res.SourcePort = attrs["source_port"].(string)
-	res.SourceChannel = attrs["source_channel"].(string)
-	res.DestPort = attrs["destination_port"].(string)
-	res.DestChannel = attrs["destination_channel"].(string)
-	res.Data = attrs["data"].([]byte)
+	pkt.Sequence = attrs["sequence"].(uint64)
+	pkt.SourcePort = attrs["source_port"].(string)
+	pkt.SourceChannel = attrs["source_channel"].(string)
+	pkt.DestPort = attrs["destination_port"].(string)
+	pkt.DestChannel = attrs["destination_channel"].(string)
+	pkt.Data = attrs["data"].([]byte)
 
 	var err error
-	if res.TimeoutHeight, err = parseHeight(attrs["timeout_height"]); err != nil {
+	if pkt.TimeoutHeight, err = parseHeight(attrs["timeout_height"]); err != nil {
 		log.Error("error parsing packet height: ",
 			zap.Error(err),
 		)
 		return
 	}
 
-	res.TimeoutTimestamp = attrs["timeout_timestamp"].(uint64)
+	pkt.TimeoutTimestamp = attrs["timeout_timestamp"].(uint64)
 
 	ack, found := attrs["ack"]
 	if found {
-		res.Ack = ack.([]byte)
+		pkt.Ack = ack.([]byte)
 	}
 
 	// TODO: how to populate order
@@ -234,72 +246,57 @@ func (res *packetInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
 
 }
 
-// // channel attributes
-// type channelEvent struct {
-// 	height                clienttypes.Height `json:"height"`
-// 	channelID             uint64             `json:"channel_id"`
-// 	portID                string             `json:"port_id"`
-// 	connectionID          string             `json:"connection_id"`
-// 	counterpartyPortID    uint64             `json:"counterparty_port_id"`
-// 	counterpartyChannelID string             `json:"counterparty_channel_id"`
-// }
-
 // alias type to the provider types, used for adding parser methods
 type channelInfo provider.ChannelInfo
 
-func (res *channelInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("channel_id", res.ChannelID)
-	enc.AddString("port_id", res.PortID)
-	enc.AddString("counterparty_channel_id", res.CounterpartyChannelID)
-	enc.AddString("counterparty_port_id", res.CounterpartyPortID)
+// MarshalLogObject marshals attributes of channel info
+func (ch *channelInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("channel_id", ch.ChannelID)
+	enc.AddString("port_id", ch.PortID)
+	enc.AddString("counterparty_channel_id", ch.CounterpartyChannelID)
+	enc.AddString("counterparty_port_id", ch.CounterpartyPortID)
 	return nil
 }
 
-func (res *channelInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
-	attrs := attributes.(map[string]interface{})
+// parseAttrs parses the attributes of channel info
+func (ch *channelInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
+	attrs := attributes.(ibcEventQueryItem)
 
-	res.PortID = attrs["port_id"].(string)
-	res.ChannelID = attrs["channel_id"].(string)
-	res.CounterpartyPortID = attrs["counterparty_port_id"].(string)
-	res.CounterpartyChannelID = attrs["counterparty_channel_id"].(string)
-	res.ConnID = attrs["connection_id"].(string)
+	ch.PortID = attrs["port_id"].(string)
+	ch.ChannelID = attrs["channel_id"].(string)
+	ch.CounterpartyPortID = attrs["counterparty_port_id"].(string)
+	ch.CounterpartyChannelID = attrs["counterparty_channel_id"].(string)
+	ch.ConnID = attrs["connection_id"].(string)
 }
-
-// // connection attributes
-// type connectionEvent struct {
-// 	height                   clienttypes.Height `json:"height"`
-// 	connectionID             string             `json:"connection_id"`
-// 	clientID                 string             `json:"client_id"`
-// 	counterpartyConnectionID string             `json:"counterparty_connection_id"`
-// 	counterpartyClientID     string             `json:"counterparty_client_id"`
-// }
 
 // alias type to the provider types, used for adding parser methods
 type connectionInfo provider.ConnectionInfo
 
-func (res *connectionInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("connection_id", res.ConnID)
-	enc.AddString("client_id", res.ClientID)
-	enc.AddString("counterparty_connection_id", res.CounterpartyConnID)
-	enc.AddString("counterparty_client_id", res.CounterpartyClientID)
+// MarshalLogObject marshals attributes of connection info
+func (con *connectionInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("connection_id", con.ConnID)
+	enc.AddString("client_id", con.ClientID)
+	enc.AddString("counterparty_connection_id", con.CounterpartyConnID)
+	enc.AddString("counterparty_client_id", con.CounterpartyClientID)
 	return nil
 }
 
-func (res *connectionInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
-	attrs := attributes.(map[string]interface{})
+// parseAttrs parses the attributes of connection info
+func (con *connectionInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
+	attrs := attributes.(ibcEventQueryItem)
 
-	res.ConnID = attrs["connection_id"].(string)
-	res.ClientID = attrs["client_id"].(string)
-	res.CounterpartyClientID = attrs["counterparty_client_id"].(string)
-	res.CounterpartyConnID = attrs["counterparty_connection_id"].(string)
+	con.ConnID = attrs["connection_id"].(string)
+	con.ClientID = attrs["client_id"].(string)
+	con.CounterpartyClientID = attrs["counterparty_client_id"].(string)
+	con.CounterpartyConnID = attrs["counterparty_connection_id"].(string)
 }
 
-func parseHeight(h interface{}) (clienttypes.Height, error) {
-	height := h.(map[string]interface{})
+// parses the attributes of ibc core client type
+func parseHeight(i interface{}) (clienttypes.Height, error) {
+	height := i.(ibcEventQueryItem)
 
 	revisionNumber, err := strconv.ParseUint(height["revision_number"].(string), 10, 64)
 	if err != nil {
-
 		return clienttypes.Height{}, fmt.Errorf("error parsing revision number: %s", err)
 	}
 
@@ -314,11 +311,168 @@ func parseHeight(h interface{}) (clienttypes.Height, error) {
 	}, nil
 }
 
-func parseHeader(header interface{}) (beefyclienttypes.Header, error) {
-	// TODO: parse beefy header
-	// headerAttrs := header.(map[string]interface{})
+// parses beefy header
+func parseHeader(i interface{}) (res beefyclienttypes.Header) {
+	attrs := i.(ibcEventQueryItem)
 
-	var headers beefyclienttypes.Header
+	res = beefyclienttypes.Header{
+		HeadersWithProof: parseParachainHeaderWithProof(attrs["headers_with_proof"]),
+		MMRUpdateProof:   parseUpdateProofs(attrs["mmr_update_proof"]),
+	}
 
-	return headers, nil
+	return
+}
+
+// parses parachain header and mmr proofs
+func parseParachainHeaderWithProof(i interface{}) (res *beefyclienttypes.ParachainHeadersWithProof) {
+	attrs := i.(ibcEventQueryItem)
+
+	res = &beefyclienttypes.ParachainHeadersWithProof{
+		Headers:   parseParachainHeaders(attrs["headers"]),
+		MMRProofs: attrs["mmr_proofs"].([][]byte),
+		MMRSize:   attrs["mmr_size"].(uint64),
+	}
+
+	return
+}
+
+// parses parachain header attributes
+func parseParachainHeaders(i interface{}) (res []*beefyclienttypes.ParachainHeader) {
+	attrs := i.(rpcclienttypes.IBCEventsQueryResult)
+	res = []*beefyclienttypes.ParachainHeader{}
+
+	for i := 0; i < len(attrs); i++ {
+		headerAttrs := attrs[i]
+
+		resItem := &beefyclienttypes.ParachainHeader{
+			ParachainHeader:     headerAttrs["parachain_header"].([]byte),
+			PartialMMRLeaf:      parsePartialMMRLeaf(headerAttrs["partial_mmr_leaf"]),
+			ParachainHeadsProof: headerAttrs["parachain_heads_proof"].([][]byte),
+			HeadsLeafIndex:      headerAttrs["heads_leaf_index"].(uint32),
+			HeadsTotalCount:     headerAttrs["heads_total_count"].(uint32),
+			ExtrinsicProof:      headerAttrs["extrinsic_proof"].([][]byte),
+			TimestampExtrinsic:  headerAttrs["timestamp_extrinsic"].([]byte),
+		}
+		res = append(res, resItem)
+	}
+
+	return
+}
+
+// parses mmr update proof attributes
+func parseUpdateProofs(i interface{}) (res *beefyclienttypes.MMRUpdateProof) {
+	attrs := i.(ibcEventQueryItem)
+
+	res = &beefyclienttypes.MMRUpdateProof{
+		SignedCommitment:   parseSignedCommitment(attrs["signed_commitments"]),
+		LatestMMRLeafIndex: attrs["latest_mmr_leaf_index"].(uint64),
+		LatestMMRLeaf:      parseBeefyMMRLeaf(attrs["latest_mmr_leaf"]),
+		MMRProof:           attrs["mmr_proof"].([][]byte),
+		AuthoritiesProof:   attrs["authorities_proof"].([][]byte),
+	}
+
+	return
+}
+
+// parses partial mmr tree leaf attributes
+func parsePartialMMRLeaf(i interface{}) (res *beefyclienttypes.PartialMMRLeaf) {
+	attrs := i.(ibcEventQueryItem)
+
+	res = &beefyclienttypes.PartialMMRLeaf{
+		Version:               attrs["version"].(beefyclienttypes.U8),
+		ParentNumber:          attrs["parent_number"].(uint32),
+		ParentHash:            attrs["parent_hash"].(*beefyclienttypes.SizedByte32),
+		BeefyNextAuthoritySet: parseAuthoritySet(attrs["beefy_next_authority_set"]),
+	}
+
+	return
+}
+
+// parses signed commitment and corresposing signatures
+func parseSignedCommitment(i interface{}) (res *beefyclienttypes.SignedCommitment) {
+	attrs := i.(ibcEventQueryItem)
+
+	res = &beefyclienttypes.SignedCommitment{
+		Commitment: parseCommitment(attrs["commitment"]),
+		Signatures: parseSignatures(attrs["signatures"]),
+	}
+
+	return
+}
+
+// parses the commitment and payload attributes
+func parseCommitment(i interface{}) (res *beefyclienttypes.Commitment) {
+	attrs := i.(ibcEventQueryItem)
+
+	res = &beefyclienttypes.Commitment{
+		Payload:        parsePayload(attrs),
+		BlockNumber:    attrs["block_number"].(uint32),
+		ValidatorSetID: attrs["validator_set_id"].(uint64),
+	}
+
+	return
+}
+
+// parses the payload id and attributes
+func parsePayload(i interface{}) (res []*beefyclienttypes.Payload) {
+	sliceAttrs := i.(rpcclienttypes.IBCEventsQueryResult)
+	res = []*beefyclienttypes.Payload{}
+
+	for j := 0; j < len(sliceAttrs); j++ {
+		attrs := sliceAttrs[j]
+
+		resItem := &beefyclienttypes.Payload{
+			PayloadID:   attrs["payload_id"].(*beefyclienttypes.SizedByte2),
+			PayloadData: attrs["payload_data"].([]byte),
+		}
+		res = append(res, resItem)
+	}
+
+	return
+}
+
+// parses the commitment signatures attributes
+func parseSignatures(i interface{}) (res []*beefyclienttypes.CommitmentSignature) {
+	sliceAttrs := i.(rpcclienttypes.IBCEventsQueryResult)
+	res = []*beefyclienttypes.CommitmentSignature{}
+
+	for j := 0; j < len(sliceAttrs); j++ {
+		attrs := sliceAttrs[j]
+
+		resItem := &beefyclienttypes.CommitmentSignature{
+			Signature:      attrs["signature"].([]byte),
+			AuthorityIndex: attrs["authority_index"].(uint32),
+		}
+		res = append(res, resItem)
+	}
+
+	return
+}
+
+// parses mmr leaf attributes of beefy
+func parseBeefyMMRLeaf(i interface{}) (res *beefyclienttypes.BeefyMMRLeaf) {
+	attrs := i.(ibcEventQueryItem)
+
+	res = &beefyclienttypes.BeefyMMRLeaf{
+		Version:               attrs["version"].(beefyclienttypes.U8),
+		ParentNumber:          attrs["parent_number"].(uint32),
+		ParentHash:            attrs["parent_hash"].(*beefyclienttypes.SizedByte32),
+		BeefyNextAuthoritySet: parseAuthoritySet(attrs["beefy_next_authority_set"]),
+		ParachainHeads:        attrs["parachain_heads"].(*beefyclienttypes.SizedByte32),
+	}
+
+	return
+}
+
+// parses authority set attributes
+func parseAuthoritySet(i interface{}) (res beefyclienttypes.BeefyAuthoritySet) {
+	attrs := i.(ibcEventQueryItem)
+
+	res = beefyclienttypes.BeefyAuthoritySet{
+		ID:            attrs["id"].(uint64),
+		Len:           attrs["len"].(uint32),
+		AuthorityRoot: attrs["authority_root"].(*beefyclienttypes.SizedByte32),
+	}
+
+	return
 }
