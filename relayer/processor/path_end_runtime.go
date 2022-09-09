@@ -95,7 +95,7 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 	channelHandshakeMessages := make(ChannelMessagesCache)
 
 	for ch, pmc := range messageCache.PacketFlow {
-		if pathEnd.info.ShouldRelayChannel(ch) {
+		if pathEnd.info.ShouldRelayChannel(ChainChannelKey{ChainID: pathEnd.info.ChainID, ChannelKey: ch}) {
 			if inSync && pathEnd.metrics != nil {
 				for eventType, pCache := range pmc {
 					pathEnd.metrics.AddPacketsObserved(pathEnd.info.PathName, pathEnd.info.ChainID, ch.ChannelID, ch.PortID, eventType, len(pCache))
