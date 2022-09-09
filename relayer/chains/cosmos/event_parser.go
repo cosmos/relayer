@@ -33,34 +33,22 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromBlockEvents(
 	height uint64,
 ) (res []ibcMessage) {
 	chainID := ccp.chainProvider.ChainId()
-	beginBlockStringified := sdk.StringifyEvents(beginBlockEvents)
-	for _, event := range beginBlockStringified {
-		switch event.Type {
-		case chantypes.EventTypeChannelOpenInit:
-			openInitMsgs := parseIBCChannelOpenInitMessagesFromEvent(ccp.log, event, chainID, height)
-			res = append(res, openInitMsgs...)
-		default:
-			m := parseIBCMessageFromEvent(ccp.log, event, chainID, height)
-			if m != nil && m.info != nil {
-				res = append(res, *m)
-			}
-			// Not an IBC message, don't need to log here
+	for _, event := range beginBlockEvents {
+		evt := sdk.StringifyEvent(event)
+		m := parseIBCMessageFromEvent(ccp.log, evt, chainID, height)
+		if m != nil && m.info != nil {
+			res = append(res, *m)
 		}
+		// Not an IBC message, don't need to log here
 	}
 
-	endBlockStringified := sdk.StringifyEvents(endBlockEvents)
-	for _, event := range endBlockStringified {
-		switch event.Type {
-		case chantypes.EventTypeChannelOpenInit:
-			openInitMsgs := parseIBCChannelOpenInitMessagesFromEvent(ccp.log, event, chainID, height)
-			res = append(res, openInitMsgs...)
-		default:
-			m := parseIBCMessageFromEvent(ccp.log, event, chainID, height)
-			if m != nil && m.info != nil {
-				res = append(res, *m)
-			}
-			// Not an IBC message, don't need to log here
+	for _, event := range endBlockEvents {
+		evt := sdk.StringifyEvent(event)
+		m := parseIBCMessageFromEvent(ccp.log, evt, chainID, height)
+		if m != nil && m.info != nil {
+			res = append(res, *m)
 		}
+		// Not an IBC message, don't need to log here
 	}
 	return res
 }
@@ -82,9 +70,6 @@ func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, chainID string, he
 			switch event.Type {
 			case chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck:
 				recvPacketMsg.parseIBCPacketReceiveMessageFromEvent(log, event, chainID, height)
-			case chantypes.EventTypeChannelOpenInit:
-				openInitMsgs := parseIBCChannelOpenInitMessagesFromEvent(log, event, chainID, height)
-				messages = append(messages, openInitMsgs...)
 			default:
 				m := parseIBCMessageFromEvent(log, event, chainID, height)
 				if m == nil || m.info == nil {
@@ -102,21 +87,6 @@ func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, chainID string, he
 	}
 
 	return messages
-}
-
-func parseIBCChannelOpenInitMessagesFromEvent(
-	log *zap.Logger,
-	event sdk.StringEvent,
-	chainID string,
-	height uint64,
-) (out []ibcMessage) {
-
-	cis := parseChannelAttrsMultiple(log, height, event.Attributes)
-	for _, ci := range cis {
-		out = append(out, ibcMessage{eventType: event.Type, info: ci})
-	}
-
-	return out
 }
 
 func parseIBCMessageFromEvent(
@@ -450,70 +420,25 @@ func (res *channelInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
 	}
 }
 
-func (res *channelInfo) isFullyParsed() bool {
-	return res.ChannelID != "" && res.PortID != "" &&
-		res.CounterpartyPortID != "" && res.ConnID != ""
-}
-
-// parseChannelAttrsMultiple parsed a single event into potentially multiple channelInfo.
-// This is needed for ICA channelOpenInit messages.
-func parseChannelAttrsMultiple(log *zap.Logger, height uint64, attrs []sdk.Attribute) (out []*channelInfo) {
-	ci := &channelInfo{Height: height}
-	for _, attr := range attrs {
-		if ci.parseChannelAttribute(attr) {
-			// this attribute has already been parsed for this channelInfo,
-			// so save this channelInfo and start a new one.
-			out = append(out, ci)
-			ci = &channelInfo{Height: height}
-			// re-parse attribute now that we have fresh channelInfo.
-			ci.parseChannelAttribute(attr)
-		}
-	}
-	if ci.isFullyParsed() {
-		out = append(out, ci)
-	}
-
-	return out
-}
-
 // parseChannelAttribute parses channel attributes from an event.
 // If the attribute has already been parsed into the channelInfo,
 // it will not overwrite, and return true to inform the caller that
 // the attribute already exists.
-func (res *channelInfo) parseChannelAttribute(attr sdk.Attribute) bool {
+func (res *channelInfo) parseChannelAttribute(attr sdk.Attribute) {
 	switch attr.Key {
 	case chantypes.AttributeKeyPortID:
-		if res.PortID != "" {
-			return true
-		}
 		res.PortID = attr.Value
 	case chantypes.AttributeKeyChannelID:
-		if res.ChannelID != "" {
-			return true
-		}
 		res.ChannelID = attr.Value
 	case chantypes.AttributeCounterpartyPortID:
-		if res.CounterpartyPortID != "" {
-			return true
-		}
 		res.CounterpartyPortID = attr.Value
 	case chantypes.AttributeCounterpartyChannelID:
-		if res.CounterpartyChannelID != "" {
-			return true
-		}
 		res.CounterpartyChannelID = attr.Value
 	case chantypes.AttributeKeyConnectionID:
-		if res.ConnID != "" {
-			return true
-		}
 		res.ConnID = attr.Value
 	case chantypes.AttributeVersion:
-		if res.Version != "" {
-			return true
-		}
 		res.Version = attr.Value
 	}
-	return false
 }
 
 // alias type to the provider types, used for adding parser methods
