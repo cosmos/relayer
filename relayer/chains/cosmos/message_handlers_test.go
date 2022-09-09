@@ -34,7 +34,7 @@ func TestConnectionStateCache(t *testing.T) {
 		// will populate the connectionStateCache with a key that has an empty counterparty connection ID.
 		// The MsgConnectionOpenTry needs to replace this key with a key that has the counterparty connection ID.
 
-		ccp := NewCosmosChainProcessor(zap.NewNop(), &CosmosProvider{})
+		ccp := NewCosmosChainProcessor(zap.NewNop(), &CosmosProvider{}, nil)
 		c := processor.NewIBCMessagesCache()
 
 		// Observe MsgConnectionOpenInit, which does not have counterparty connection ID.
@@ -67,7 +67,7 @@ func TestConnectionStateCache(t *testing.T) {
 		// We need to make sure that the connectionStateCache does not have two keys for the same connection,
 		// i.e. one key with the counterparty connection ID, and one without.
 
-		ccp := NewCosmosChainProcessor(zap.NewNop(), &CosmosProvider{})
+		ccp := NewCosmosChainProcessor(zap.NewNop(), &CosmosProvider{}, nil)
 		c := processor.NewIBCMessagesCache()
 
 		// Initialize connectionStateCache with populated connection ID and counterparty connection ID.
@@ -118,7 +118,7 @@ func TestChannelStateCache(t *testing.T) {
 		// will populate the channelStateCache with a key that has an empty counterparty channel ID.
 		// The MsgChannelOpenTry needs to replace this key with a key that has the counterparty channel ID.
 
-		ccp := NewCosmosChainProcessor(zap.NewNop(), &CosmosProvider{})
+		ccp := NewCosmosChainProcessor(zap.NewNop(), &CosmosProvider{}, nil)
 		c := processor.NewIBCMessagesCache()
 
 		// Observe MsgChannelOpenInit, which does not have counterparty channel ID.
@@ -151,7 +151,7 @@ func TestChannelStateCache(t *testing.T) {
 		// We need to make sure that the channelStateCache does not have two keys for the same channel,
 		// i.e. one key with the counterparty channel ID, and one without.
 
-		ccp := NewCosmosChainProcessor(zap.NewNop(), &CosmosProvider{})
+		ccp := NewCosmosChainProcessor(zap.NewNop(), &CosmosProvider{}, nil)
 		c := processor.NewIBCMessagesCache()
 
 		// Initialize channelStateCache with populated channel ID and counterparty channel ID.

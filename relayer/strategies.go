@@ -86,11 +86,11 @@ type pathChain struct {
 }
 
 // chainProcessor returns the corresponding ChainProcessor implementation instance for a pathChain.
-func (chain pathChain) chainProcessor(log *zap.Logger) processor.ChainProcessor {
+func (chain pathChain) chainProcessor(log *zap.Logger, metrics *processor.PrometheusMetrics) processor.ChainProcessor {
 	// Handle new ChainProcessor implementations as cases here
 	switch p := chain.provider.(type) {
 	case *cosmos.CosmosProvider:
-		return cosmos.NewCosmosChainProcessor(log, p)
+		return cosmos.NewCosmosChainProcessor(log, p, metrics)
 	default:
 		panic(fmt.Errorf("unsupported chain provider type: %T", chain.provider))
 	}
@@ -115,8 +115,8 @@ func relayerStartEventProcessor(
 	for _, p := range paths {
 		epb = epb.
 			WithChainProcessors(
-				p.src.chainProcessor(log),
-				p.dst.chainProcessor(log),
+				p.src.chainProcessor(log, metrics),
+				p.dst.chainProcessor(log, metrics),
 			).
 			WithPathProcessors(processor.NewPathProcessor(
 				log,
