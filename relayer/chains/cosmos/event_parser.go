@@ -105,7 +105,7 @@ func parseIBCMessageFromEvent(
 			eventType: event.Type,
 			info:      pi,
 		}
-	case chantypes.EventTypeChannelOpenTry,
+	case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
 		chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
 		chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
 		ci := &channelInfo{Height: height}
