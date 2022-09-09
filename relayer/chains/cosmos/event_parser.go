@@ -36,6 +36,9 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromBlockEvents(
 	beginBlockStringified := sdk.StringifyEvents(beginBlockEvents)
 	for _, event := range beginBlockStringified {
 		switch event.Type {
+		case chantypes.EventTypeSendPacket:
+			sendPacketMessages := parseIBCSendPacketMessagesFromEvent(ccp.log, event, chainID, height)
+			res = append(res, sendPacketMessages...)
 		case chantypes.EventTypeChannelOpenInit:
 			openInitMsgs := parseIBCChannelOpenInitMessagesFromEvent(ccp.log, event, chainID, height)
 			res = append(res, openInitMsgs...)
@@ -51,6 +54,9 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromBlockEvents(
 	endBlockStringified := sdk.StringifyEvents(endBlockEvents)
 	for _, event := range endBlockStringified {
 		switch event.Type {
+		case chantypes.EventTypeSendPacket:
+			sendPacketMessages := parseIBCSendPacketMessagesFromEvent(ccp.log, event, chainID, height)
+			res = append(res, sendPacketMessages...)
 		case chantypes.EventTypeChannelOpenInit:
 			openInitMsgs := parseIBCChannelOpenInitMessagesFromEvent(ccp.log, event, chainID, height)
 			res = append(res, openInitMsgs...)
@@ -82,6 +88,9 @@ func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, chainID string, he
 			switch event.Type {
 			case chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck:
 				recvPacketMsg.parseIBCPacketReceiveMessageFromEvent(log, event, chainID, height)
+			case chantypes.EventTypeSendPacket:
+				sendPacketMessages := parseIBCSendPacketMessagesFromEvent(log, event, chainID, height)
+				messages = append(messages, sendPacketMessages...)
 			case chantypes.EventTypeChannelOpenInit:
 				openInitMsgs := parseIBCChannelOpenInitMessagesFromEvent(log, event, chainID, height)
 				messages = append(messages, openInitMsgs...)
@@ -114,6 +123,21 @@ func parseIBCChannelOpenInitMessagesFromEvent(
 	cis := parseChannelAttrsMultiple(log, height, event.Attributes)
 	for _, ci := range cis {
 		out = append(out, ibcMessage{eventType: event.Type, info: ci})
+	}
+
+	return out
+}
+
+func parseIBCSendPacketMessagesFromEvent(
+	log *zap.Logger,
+	event sdk.StringEvent,
+	chainID string,
+	height uint64,
+) (out []ibcMessage) {
+
+	pis := parsePacketAttrsMultiple(log, height, event.Attributes)
+	for _, pi := range pis {
+		out = append(out, ibcMessage{eventType: event.Type, info: pi})
 	}
 
 	return out
@@ -287,19 +311,54 @@ func (res *packetInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
 	}
 }
 
-func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute) {
+// parseChannelAttrsMultiple parsed a single event into potentially multiple packetInfo.
+// This is needed for ICA send packet messages.
+func parsePacketAttrsMultiple(log *zap.Logger, height uint64, attrs []sdk.Attribute) (out []*packetInfo) {
+	pi := &packetInfo{Height: height}
+	for _, attr := range attrs {
+		if pi.parsePacketAttribute(log, attr) {
+			// this attribute has already been parsed for this channelInfo,
+			// so save this channelInfo and start a new one.
+			out = append(out, pi)
+			pi = &packetInfo{Height: height}
+			// re-parse attribute now that we have fresh channelInfo.
+			pi.parsePacketAttribute(log, attr)
+		}
+	}
+	if pi.isFullyParsed() {
+		out = append(out, pi)
+	}
+
+	return out
+}
+
+func (res *packetInfo) isFullyParsed() bool {
+	return res.Sequence != 0 && res.TimeoutTimestamp != 0 &&
+		res.TimeoutHeight != clienttypes.NewHeight(0, 0) &&
+		res.ChannelOrder != "" && len(res.Data) > 0 &&
+		res.SourceChannel != "" && res.SourcePort != "" &&
+		res.DestChannel != "" && res.DestPort != ""
+}
+
+func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute) bool {
 	var err error
 	switch attr.Key {
 	case chantypes.AttributeKeySequence:
+		if res.Sequence != 0 {
+			return true
+		}
 		res.Sequence, err = strconv.ParseUint(attr.Value, 10, 64)
 		if err != nil {
 			log.Error("Error parsing packet sequence",
 				zap.String("value", attr.Value),
 				zap.Error(err),
 			)
-			return
+			return false
 		}
 	case chantypes.AttributeKeyTimeoutTimestamp:
+		if res.TimeoutTimestamp != 0 {
+			return true
+		}
 		res.TimeoutTimestamp, err = strconv.ParseUint(attr.Value, 10, 64)
 		if err != nil {
 			log.Error("Error parsing packet timestamp",
@@ -307,25 +366,31 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute)
 				zap.String("value", attr.Value),
 				zap.Error(err),
 			)
-			return
+			return false
 		}
 	// NOTE: deprecated per IBC spec
 	case chantypes.AttributeKeyData:
 		res.Data = []byte(attr.Value)
 	case chantypes.AttributeKeyDataHex:
+		if len(res.Data) > 0 {
+			return true
+		}
 		data, err := hex.DecodeString(attr.Value)
 		if err != nil {
 			log.Error("Error parsing packet data",
 				zap.Uint64("sequence", res.Sequence),
 				zap.Error(err),
 			)
-			return
+			return false
 		}
 		res.Data = data
 	// NOTE: deprecated per IBC spec
 	case chantypes.AttributeKeyAck:
 		res.Ack = []byte(attr.Value)
 	case chantypes.AttributeKeyAckHex:
+		if len(res.Ack) > 0 {
+			return true
+		}
 		data, err := hex.DecodeString(attr.Value)
 		if err != nil {
 			log.Error("Error parsing packet ack",
@@ -333,17 +398,20 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute)
 				zap.String("value", attr.Value),
 				zap.Error(err),
 			)
-			return
+			return false
 		}
 		res.Ack = data
 	case chantypes.AttributeKeyTimeoutHeight:
+		if res.TimeoutHeight != clienttypes.NewHeight(0, 0) {
+			return true
+		}
 		timeoutSplit := strings.Split(attr.Value, "-")
 		if len(timeoutSplit) != 2 {
 			log.Error("Error parsing packet height timeout",
 				zap.Uint64("sequence", res.Sequence),
 				zap.String("value", attr.Value),
 			)
-			return
+			return false
 		}
 		revisionNumber, err := strconv.ParseUint(timeoutSplit[0], 10, 64)
 		if err != nil {
@@ -352,7 +420,7 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute)
 				zap.String("value", timeoutSplit[0]),
 				zap.Error(err),
 			)
-			return
+			return false
 		}
 		revisionHeight, err := strconv.ParseUint(timeoutSplit[1], 10, 64)
 		if err != nil {
@@ -361,23 +429,39 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute)
 				zap.String("value", timeoutSplit[1]),
 				zap.Error(err),
 			)
-			return
+			return false
 		}
 		res.TimeoutHeight = clienttypes.Height{
 			RevisionNumber: revisionNumber,
 			RevisionHeight: revisionHeight,
 		}
 	case chantypes.AttributeKeySrcPort:
+		if res.SourcePort != "" {
+			return true
+		}
 		res.SourcePort = attr.Value
 	case chantypes.AttributeKeySrcChannel:
+		if res.SourceChannel != "" {
+			return true
+		}
 		res.SourceChannel = attr.Value
 	case chantypes.AttributeKeyDstPort:
+		if res.DestPort != "" {
+			return true
+		}
 		res.DestPort = attr.Value
 	case chantypes.AttributeKeyDstChannel:
+		if res.DestChannel != "" {
+			return true
+		}
 		res.DestChannel = attr.Value
 	case chantypes.AttributeKeyChannelOrdering:
+		if res.ChannelOrder != "" {
+			return true
+		}
 		res.ChannelOrder = attr.Value
 	}
+	return false
 }
 
 type clientICQInfo struct {
