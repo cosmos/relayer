@@ -28,11 +28,11 @@ func (c *Chain) CreateOpenConnections(
 
 	srcpathChain := pathChain{
 		provider: c.ChainProvider,
-		pathEnd:  processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChannelKey{}),
+		pathEnd:  processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
 	}
 	dstpathChain := pathChain{
 		provider: dst.ChainProvider,
-		pathEnd:  processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChannelKey{}),
+		pathEnd:  processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
 	}
 
 	// Timeout is per message. Four connection handshake messages, allowing maxRetries for each.
