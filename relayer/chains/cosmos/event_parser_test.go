@@ -11,6 +11,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
+	abci "github.com/tendermint/tendermint/abci/types"
 	"go.uber.org/zap"
 )
 
@@ -216,79 +217,90 @@ func TestParseEventLogs(t *testing.T) {
 		testPacketDstChannel       = "channel-1"
 		testPacketDstPort          = "port-1"
 	)
-	abciLogs := sdk.ABCIMessageLogs{
+	events := []abci.Event{
+
 		{
-			MsgIndex: 0,
-			Events: sdk.StringEvents{
+			Type: clienttypes.EventTypeUpdateClient,
+			Attributes: []abci.EventAttribute{
 				{
-					Type: clienttypes.EventTypeUpdateClient,
-					Attributes: []sdk.Attribute{
-						{
-							Key:   clienttypes.AttributeKeyClientID,
-							Value: testClientID1,
-						},
-						{
-							Key:   clienttypes.AttributeKeyConsensusHeight,
-							Value: testClientConsensusHeight,
-						},
-					},
+					Key:   []byte(clienttypes.AttributeKeyClientID),
+					Value: []byte(testClientID1),
+				},
+				{
+					Key:   []byte(clienttypes.AttributeKeyConsensusHeight),
+					Value: []byte(testClientConsensusHeight),
 				},
 			},
 		},
 		{
-			MsgIndex: 1,
-			Events: sdk.StringEvents{
+			Type: chantypes.EventTypeRecvPacket,
+			Attributes: []abci.EventAttribute{
 				{
-					Type: chantypes.EventTypeRecvPacket,
-					Attributes: []sdk.Attribute{
-						{
-							Key:   chantypes.AttributeKeySequence,
-							Value: testPacketSequence,
-						},
-						{
-							Key:   chantypes.AttributeKeyDataHex,
-							Value: testPacketDataHex,
-						},
-						{
-							Key:   chantypes.AttributeKeyTimeoutHeight,
-							Value: testPacketTimeoutHeight,
-						},
-						{
-							Key:   chantypes.AttributeKeyTimeoutTimestamp,
-							Value: testPacketTimeoutTimestamp,
-						},
-						{
-							Key:   chantypes.AttributeKeySrcChannel,
-							Value: testPacketSrcChannel,
-						},
-						{
-							Key:   chantypes.AttributeKeySrcPort,
-							Value: testPacketSrcPort,
-						},
-						{
-							Key:   chantypes.AttributeKeyDstChannel,
-							Value: testPacketDstChannel,
-						},
-						{
-							Key:   chantypes.AttributeKeyDstPort,
-							Value: testPacketDstPort,
-						},
-					},
+					Key:   []byte(chantypes.AttributeKeySequence),
+					Value: []byte(testPacketSequence),
 				},
 				{
-					Type: chantypes.EventTypeWriteAck,
-					Attributes: []sdk.Attribute{
-						{
-							Key:   chantypes.AttributeKeyAckHex,
-							Value: testPacketAckHex,
-						},
-					},
+					Key:   []byte(chantypes.AttributeKeyDataHex),
+					Value: []byte(testPacketDataHex),
+				},
+				{
+					Key:   []byte(chantypes.AttributeKeyTimeoutHeight),
+					Value: []byte(testPacketTimeoutHeight),
+				},
+				{
+					Key:   []byte(chantypes.AttributeKeyTimeoutTimestamp),
+					Value: []byte(testPacketTimeoutTimestamp),
+				},
+				{
+					Key:   []byte(chantypes.AttributeKeySrcChannel),
+					Value: []byte(testPacketSrcChannel),
+				},
+				{
+					Key:   []byte(chantypes.AttributeKeySrcPort),
+					Value: []byte(testPacketSrcPort),
+				},
+				{
+					Key:   []byte(chantypes.AttributeKeyDstChannel),
+					Value: []byte(testPacketDstChannel),
+				},
+				{
+					Key:   []byte(chantypes.AttributeKeyDstPort),
+					Value: []byte(testPacketDstPort),
+				},
+			},
+		},
+		{
+			Type: chantypes.EventTypeWriteAck,
+			Attributes: []abci.EventAttribute{
+				{
+					Key:   []byte(chantypes.AttributeKeySequence),
+					Value: []byte(testPacketSequence),
+				},
+				{
+					Key:   []byte(chantypes.AttributeKeyAckHex),
+					Value: []byte(testPacketAckHex),
+				},
+				{
+					Key:   []byte(chantypes.AttributeKeySrcChannel),
+					Value: []byte(testPacketSrcChannel),
+				},
+				{
+					Key:   []byte(chantypes.AttributeKeySrcPort),
+					Value: []byte(testPacketSrcPort),
+				},
+				{
+					Key:   []byte(chantypes.AttributeKeyDstChannel),
+					Value: []byte(testPacketDstChannel),
+				},
+				{
+					Key:   []byte(chantypes.AttributeKeyDstPort),
+					Value: []byte(testPacketDstPort),
 				},
 			},
 		},
 	}
 
-	ibcMessages := parseABCILogs(zap.NewNop(), abciLogs, "", 0)
+	ibcMessages := ibcMessagesFromEvents(zap.NewNop(), events, "", 0)
 
 	require.Len(t, ibcMessages, 2)
 

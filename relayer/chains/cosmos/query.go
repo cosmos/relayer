@@ -54,12 +54,7 @@ func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger,
 	var ibcMsgs []ibcMessage
 	chainID := cc.ChainId()
 	for _, tx := range res.Txs {
-		parsedLogs, err := sdk.ParseABCILogs(tx.TxResult.Log)
-		if err != nil {
-			continue
-		}
-
-		ibcMsgs = append(ibcMsgs, parseABCILogs(log, parsedLogs, chainID, 0)...)
+		ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0)...)
 	}
 
 	return ibcMsgs, nil

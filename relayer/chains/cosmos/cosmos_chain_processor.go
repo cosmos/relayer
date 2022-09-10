@@ -314,6 +314,8 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	newLatestQueriedBlock := persistence.latestQueriedBlock
 
+	chainID := ccp.chainProvider.ChainId()
+
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var eg errgroup.Group
 		var blockRes *ctypes.ResultBlockResults
@@ -359,7 +361,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 				// tx was not successful
 				continue
 			}
-			messages := ccp.ibcMessagesFromTransaction(tx, heightUint64)
+			messages := ibcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64)
 
 			for _, m := range messages {
 				ccp.handleMessage(m, ibcMessagesCache)
@@ -381,8 +383,6 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 		return nil
 	}
-
-	chainID := ccp.chainProvider.ChainId()
 
 	for _, pp := range ccp.pathProcessors {
 		clientID := pp.RelevantClientID(chainID)

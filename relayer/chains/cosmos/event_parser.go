@@ -33,57 +33,57 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromBlockEvents(
 	height uint64,
 ) (res []ibcMessage) {
 	chainID := ccp.chainProvider.ChainId()
-	for _, event := range beginBlockEvents {
-		evt := sdk.StringifyEvent(event)
-		m := parseIBCMessageFromEvent(ccp.log, evt, chainID, height)
-		if m != nil && m.info != nil {
-			res = append(res, *m)
-		}
-		// Not an IBC message, don't need to log here
-	}
-
-	for _, event := range endBlockEvents {
-		evt := sdk.StringifyEvent(event)
-		m := parseIBCMessageFromEvent(ccp.log, evt, chainID, height)
-		if m != nil && m.info != nil {
-			res = append(res, *m)
-		}
-		// Not an IBC message, don't need to log here
-	}
+	res = append(res, ibcMessagesFromEvents(ccp.log, beginBlockEvents, chainID, height)...)
+	res = append(res, ibcMessagesFromEvents(ccp.log, endBlockEvents, chainID, height)...)
 	return res
 }
 
-// ibcMessagesFromTransaction parses all events within a transaction to find IBC messages
-func (ccp *CosmosChainProcessor) ibcMessagesFromTransaction(tx *abci.ResponseDeliverTx, height uint64) []ibcMessage {
-	parsedLogs, err := sdk.ParseABCILogs(tx.Log)
-	if err != nil {
-		ccp.log.Info("Failed to parse abci logs", zap.Error(err))
-		return nil
-	}
-	return parseABCILogs(ccp.log, parsedLogs, ccp.chainProvider.ChainId(), height)
+type packetKey struct {
+	sequence uint64
+	channel  processor.ChannelKey
 }
 
-func parseABCILogs(log *zap.Logger, logs sdk.ABCIMessageLogs, chainID string, height uint64) (messages []ibcMessage) {
-	for _, msgLog := range logs {
-		recvPacketMsg := new(ibcMessage)
-		for _, event := range msgLog.Events {
-			switch event.Type {
-			case chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck:
-				recvPacketMsg.parseIBCPacketReceiveMessageFromEvent(log, event, chainID, height)
-			default:
-				m := parseIBCMessageFromEvent(log, event, chainID, height)
-				if m == nil || m.info == nil {
-					// Not an IBC message, don't need to log here
-					continue
+// ibcMessagesFromTransaction parses all events within a transaction to find IBC messages
+func ibcMessagesFromEvents(
+	log *zap.Logger,
+	events []abci.Event,
+	chainID string,
+	height uint64,
+) (messages []ibcMessage) {
+	recvPacketMsgs := make(map[packetKey]*packetInfo)
+	for _, event := range events {
+		evt := sdk.StringifyEvent(event)
+		switch event.Type {
+		case chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck:
+			pi := &packetInfo{Height: height}
+			pi.parseAttrs(log, evt.Attributes)
+			ck, err := processor.PacketInfoChannelKey(event.Type, provider.PacketInfo(*pi))
+			if err == nil {
+				pk := packetKey{
+					sequence: pi.Sequence,
+					channel:  ck,
 				}
-				messages = append(messages, *m)
+				_, ok := recvPacketMsgs[pk]
+				if !ok {
+					recvPacketMsgs[pk] = pi
+				}
+				recvPacketMsgs[pk].parseAttrs(log, evt.Attributes)
 			}
+		default:
+			m := parseIBCMessageFromEvent(log, evt, chainID, height)
+			if m == nil || m.info == nil {
+				// Not an IBC message, don't need to log here
+				continue
+			}
+			messages = append(messages, *m)
 		}
+	}
 
-		if recvPacketMsg != nil && recvPacketMsg.info != nil {
-			// Not a packet IBC message, don't need to log here
-			messages = append(messages, *recvPacketMsg)
-		}
+	for _, recvPacketMsg := range recvPacketMsgs {
+		messages = append(messages, ibcMessage{
+			eventType: chantypes.EventTypeRecvPacket,
+			info:      recvPacketMsg,
+		})
 	}
 
 	return messages
