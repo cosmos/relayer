@@ -105,24 +105,24 @@ type ChannelFilter struct {
 type IBCdata struct {
 	Schema string `json:"$schema"`
 	Chain1 struct {
-		ChainName    string `json:"chain-name"`
-		ClientID     string `json:"client-id"`
-		ConnectionID string `json:"connection-id"`
-	} `json:"chain-1"`
+		ChainName    string `json:"chain_name"`
+		ClientID     string `json:"client_id"`
+		ConnectionID string `json:"connection_id"`
+	} `json:"chain_1"`
 	Chain2 struct {
-		ChainName    string `json:"chain-name"`
-		ClientID     string `json:"client-id"`
-		ConnectionID string `json:"connection-id"`
-	} `json:"chain-2"`
+		ChainName    string `json:"chain_name"`
+		ClientID     string `json:"client_id"`
+		ConnectionID string `json:"connection_id"`
+	} `json:"chain_2"`
 	Channels []struct {
 		Chain1 struct {
-			ChannelID string `json:"channel-id"`
-			PortID    string `json:"port-id"`
-		} `json:"chain-1"`
+			ChannelID string `json:"channel_id"`
+			PortID    string `json:"port_id"`
+		} `json:"chain_1"`
 		Chain2 struct {
-			ChannelID string `json:"channel-id"`
-			PortID    string `json:"port-id"`
-		} `json:"chain-2"`
+			ChannelID string `json:"channel_id"`
+			PortID    string `json:"port_id"`
+		} `json:"chain_2"`
 		Ordering string `json:"ordering"`
 		Version  string `json:"version"`
 		Tags     struct {
