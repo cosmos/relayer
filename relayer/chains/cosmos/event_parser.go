@@ -65,8 +65,9 @@ func ibcMessagesFromEvents(
 				_, ok := recvPacketMsgs[pk]
 				if !ok {
 					recvPacketMsgs[pk] = pi
+				} else {
+					recvPacketMsgs[pk].parseAttrs(log, evt.Attributes)
 				}
-				recvPacketMsgs[pk].parseAttrs(log, evt.Attributes)
 			}
 		default:
 			m := parseIBCMessageFromEvent(log, evt, chainID, height)
