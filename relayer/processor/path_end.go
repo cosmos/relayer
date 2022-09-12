@@ -10,11 +10,17 @@ type PathEnd struct {
 
 	// Can be either "allowlist" or "denylist"
 	Rule       string
-	FilterList []ChannelKey // which channels to allow or deny
+	FilterList []ChainChannelKey // which channels to allow or deny
+}
+
+type ChainChannelKey struct {
+	ChainID             string
+	CounterpartyChainID string
+	ChannelKey          ChannelKey
 }
 
 // NewPathEnd constructs a PathEnd, validating initial parameters.
-func NewPathEnd(pathName string, chainID string, clientID string, rule string, filterList []ChannelKey) PathEnd {
+func NewPathEnd(pathName string, chainID string, clientID string, rule string, filterList []ChainChannelKey) PathEnd {
 	return PathEnd{
 		PathName:   pathName,
 		ChainID:    chainID,
@@ -29,34 +35,34 @@ const (
 	RuleDenyList  = "denylist"
 )
 
-func (pe PathEnd) checkChannelMatch(listChannelID, listPortID string, channelKey ChannelKey) bool {
+func (pe PathEnd) checkChannelMatch(listChainID, listChannelID, listPortID string, channelKey ChainChannelKey) bool {
 	if listChannelID == "" {
 		return false
 	}
-	if listChannelID == channelKey.ChannelID {
+	if listChannelID == channelKey.ChannelKey.ChannelID && listChainID == channelKey.ChainID {
 		if listPortID == "" {
 			return true
 		}
-		if listPortID == channelKey.PortID {
+		if listPortID == channelKey.ChannelKey.PortID {
 			return true
 		}
 	}
-	if listChannelID == channelKey.CounterpartyChannelID {
+	if listChannelID == channelKey.ChannelKey.CounterpartyChannelID && listChainID == channelKey.CounterpartyChainID {
 		if listPortID == "" {
 			return true
 		}
-		if listPortID == channelKey.CounterpartyPortID {
+		if listPortID == channelKey.ChannelKey.CounterpartyPortID {
 			return true
 		}
 	}
 	return false
 }
 
-func (pe PathEnd) shouldRelayChannelSingle(channelKey ChannelKey, listChannel ChannelKey, allowList bool) bool {
-	if pe.checkChannelMatch(listChannel.ChannelID, listChannel.PortID, channelKey) {
+func (pe PathEnd) shouldRelayChannelSingle(channelKey ChainChannelKey, listChannel ChainChannelKey, allowList bool) bool {
+	if pe.checkChannelMatch(listChannel.ChainID, listChannel.ChannelKey.ChannelID, listChannel.ChannelKey.PortID, channelKey) {
 		return allowList
 	}
-	if pe.checkChannelMatch(listChannel.CounterpartyChannelID, listChannel.CounterpartyPortID, channelKey) {
+	if pe.checkChannelMatch(listChannel.CounterpartyChainID, listChannel.ChannelKey.CounterpartyChannelID, listChannel.ChannelKey.CounterpartyPortID, channelKey) {
 		return allowList
 	}
 	return !allowList
@@ -66,7 +72,7 @@ func (pe PathEnd) shouldRelayChannelSingle(channelKey ChannelKey, listChannel Ch
 // if port ID is non-empty on allowlist channel, allow only that specific port
 // if port ID is empty on blocklist channel, block all ports
 // if port ID is non-empty on blocklist channel, block only that specific port
-func (pe PathEnd) ShouldRelayChannel(channelKey ChannelKey) bool {
+func (pe PathEnd) ShouldRelayChannel(channelKey ChainChannelKey) bool {
 	if pe.Rule == RuleAllowList {
 		for _, allowedChannel := range pe.FilterList {
 			if pe.shouldRelayChannelSingle(channelKey, allowedChannel, true) {

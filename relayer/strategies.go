@@ -44,11 +44,11 @@ func StartRelayer(
 
 	switch processorType {
 	case ProcessorEvents:
-		var filterSrc, filterDst []processor.ChannelKey
+		var filterSrc, filterDst []processor.ChainChannelKey
 
 		for _, ch := range filter.ChannelList {
-			ruleSrc := processor.ChannelKey{ChannelID: ch}
-			ruleDst := processor.ChannelKey{CounterpartyChannelID: ch}
+			ruleSrc := processor.ChainChannelKey{ChainID: src.ChainProvider.ChainId(), ChannelKey: processor.ChannelKey{ChannelID: ch}}
+			ruleDst := processor.ChainChannelKey{CounterpartyChainID: src.ChainProvider.ChainId(), ChannelKey: processor.ChannelKey{CounterpartyChannelID: ch}}
 			filterSrc = append(filterSrc, ruleSrc)
 			filterDst = append(filterDst, ruleDst)
 		}

@@ -47,11 +47,11 @@ func (c *Chain) CreateOpenChannels(
 
 	srcPathChain := pathChain{
 		provider: c.ChainProvider,
-		pathEnd:  processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChannelKey{}),
+		pathEnd:  processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
 	}
 	dstPathChain := pathChain{
 		provider: dst.ChainProvider,
-		pathEnd:  processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChannelKey{}),
+		pathEnd:  processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
 	}
 
 	// Timeout is per message. Four channel handshake messages, allowing maxRetries for each.
@@ -120,11 +120,11 @@ func (c *Chain) CloseChannel(
 ) error {
 	srcPathChain := pathChain{
 		provider: c.ChainProvider,
-		pathEnd:  processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChannelKey{}),
+		pathEnd:  processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
 	}
 	dstPathChain := pathChain{
 		provider: dst.ChainProvider,
-		pathEnd:  processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChannelKey{}),
+		pathEnd:  processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
 	}
 
 	// Timeout is per message. Two close channel handshake messages, allowing maxRetries for each.
