@@ -124,7 +124,7 @@ func (scp *SubstrateChainProcessor) parseEvent(
 			con.parseAttrs(scp.log, data)
 			info = con
 
-			eventType = eType
+			eventType = intoIBCEventType(eType)
 
 		case OpenInitChannel, OpenTryChannel, OpenAckChannel, OpenConfirmChannel, CloseInitChannel, CloseConfirmChannel:
 			chann := &channelInfo{Height: height}
