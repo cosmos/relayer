@@ -49,6 +49,7 @@ func (scp *SubstrateChainProcessor) ibcMessagesFromEvents(
 		info, eventType := scp.parseEvent(ibcEvents[i], height, packetAccumulator)
 		if info == nil {
 			// Not an IBC message, don't need to log here
+			// event is write acknowledement, so receive packet will be processed by accumulator
 			continue
 		}
 
@@ -56,6 +57,14 @@ func (scp *SubstrateChainProcessor) ibcMessagesFromEvents(
 		messages = append(messages, ibcMessage{
 			eventType: eventType,
 			info:      info,
+		})
+	}
+
+	// add all of accumulated packets to messages
+	for _, pkt := range packetAccumulator {
+		messages = append(messages, ibcMessage{
+			eventType: intoIBCEventType(ReceivePacket),
+			info:      pkt,
 		})
 	}
 
@@ -108,11 +117,6 @@ func (scp *SubstrateChainProcessor) parseEvent(
 			}
 
 			packetAccumulator[accumKey].parseAttrs(scp.log, data)
-
-			info = packetAccumulator[accumKey]
-			if eType != WriteAcknowledgement {
-				eventType = intoIBCEventType(eType)
-			}
 
 		case OpenInitConnection, OpenTryConnection, OpenAckConnection, OpenConfirmConnection:
 
