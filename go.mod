@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/99designs/keyring v1.2.1
 	github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220830115327-2c45fdcbfba1
-	github.com/ComposableFi/ics11-beefy v0.0.0-20220903212826-f6dc0720b787
+	github.com/ComposableFi/ics11-beefy v0.0.0-20220907132902-15f736a8e91e
 	github.com/avast/retry-go/v4 v4.1.0
 	github.com/cosmos/cosmos-sdk v0.46.0
 	github.com/cosmos/go-bip39 v1.0.0

@@ -112,8 +112,8 @@ github.com/ComposableFi/go-subkey/v2 v2.0.0-tm03420 h1:oknQF/iIhf5lVjbwjsVDzDByu
 github.com/ComposableFi/go-subkey/v2 v2.0.0-tm03420/go.mod h1:KYkiMX5AbOlXXYfxkrYPrRPV6EbVUALTQh5ptUOJzu8=
 github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220830115327-2c45fdcbfba1 h1:QzHBQYyTiPeRGNpJyT+N654PLvYrzhHe+Ty+nJe9crI=
 github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220830115327-2c45fdcbfba1/go.mod h1:swRgltPLuxQuM1AnrlRRXkbtkcHN0BjlMvGC0iEkNjk=
-github.com/ComposableFi/ics11-beefy v0.0.0-20220903212826-f6dc0720b787 h1:GX/l9fMZvjavT5p7pGqj/Iz1+uI4xTdPASF5AR162a8=
-github.com/ComposableFi/ics11-beefy v0.0.0-20220903212826-f6dc0720b787/go.mod h1:abQmZdVblL6RhFPAB7uAx4K7y4+hYexcOlVXk36N5YM=
+github.com/ComposableFi/ics11-beefy v0.0.0-20220907132902-15f736a8e91e h1:9rR6jIxr4QIsZXuYIxdmLe0c0U+wXufr90EKKiwL+vQ=
+github.com/ComposableFi/ics11-beefy v0.0.0-20220907132902-15f736a8e91e/go.mod h1:abQmZdVblL6RhFPAB7uAx4K7y4+hYexcOlVXk36N5YM=
 github.com/DATA-DOG/go-sqlmock v1.3.3/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=
 github.com/DATA-DOG/go-sqlmock v1.5.0/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=
 github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
