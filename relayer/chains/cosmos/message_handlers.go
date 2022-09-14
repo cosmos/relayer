@@ -38,6 +38,11 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(eventType string, pi provid
 		return
 	}
 
+	if eventType == chantypes.EventTypeRecvPacket && len(pi.Ack) == 0 {
+		// ignore recv packet with empty ack bytes
+		return
+	}
+
 	if !c.PacketFlow.ShouldRetainSequence(ccp.pathProcessors, k, ccp.chainProvider.ChainId(), eventType, pi.Sequence) {
 		ccp.log.Debug("Not retaining packet message",
 			zap.String("event_type", eventType),
