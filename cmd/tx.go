@@ -77,7 +77,9 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			path := args[0]
+
+			c, src, dst, err := a.Config.ChainsFromPath(path)
 			if err != nil {
 				return err
 			}
@@ -90,12 +92,12 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
-			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.Config.memo(cmd))
+			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.Config.memo(cmd))
 			if err != nil {
 				return err
 			}
-			if modified {
-				if err := a.OverwriteConfig(a.Config); err != nil {
+			if clientSrc != "" || clientDst != "" {
+				if err := a.OverwriteConfigOnTheFly(cmd, path, clientSrc, clientDst, "", ""); err != nil {
 					return err
 				}
 			}
@@ -201,12 +203,18 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			modified, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.Config.memo(cmd))
+			clientID, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.Config.memo(cmd))
 			if err != nil {
 				return err
 			}
-			if modified {
-				if err = a.OverwriteConfig(a.Config); err != nil {
+			var clientSrc, clientDst string
+			if path.Src.ChainID == src.ChainID() {
+				clientSrc = clientID
+			} else {
+				clientDst = clientID
+			}
+			if clientID != "" {
+				if err = a.OverwriteConfigOnTheFly(cmd, pathName, clientSrc, clientDst, "", ""); err != nil {
 					return err
 				}
 			}
@@ -361,22 +369,22 @@ $ %s tx conn demo-path --timeout 5s`,
 			}
 
 			// ensure that the clients exist
-			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
+			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
 			if err != nil {
 				return err
 			}
-			if modified {
-				if err := a.OverwriteConfig(a.Config); err != nil {
+			if clientSrc != "" || clientDst != "" {
+				if err := a.OverwriteConfigOnTheFly(cmd, pathName, clientSrc, clientDst, "", ""); err != nil {
 					return err
 				}
 			}
 
-			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory, pathName)
+			connectionSrc, connectionDst, err := c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory, pathName)
 			if err != nil {
 				return err
 			}
-			if modified {
-				if err := a.OverwriteConfig(a.Config); err != nil {
+			if connectionSrc != "" || connectionDst != "" {
+				if err := a.OverwriteConfigOnTheFly(cmd, pathName, "", "", connectionSrc, connectionDst); err != nil {
 					return err
 				}
 			}
@@ -632,23 +640,23 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			// create clients if they aren't already created
-			modified, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
+			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
 			if err != nil {
 				return fmt.Errorf("error creating clients: %w", err)
 			}
-			if modified {
-				if err := a.OverwriteConfig(a.Config); err != nil {
+			if clientSrc != "" || clientDst != "" {
+				if err := a.OverwriteConfigOnTheFly(cmd, pathName, clientSrc, clientDst, "", ""); err != nil {
 					return err
 				}
 			}
 
 			// create connection if it isn't already created
-			modified, err = c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory, pathName)
+			connectionSrc, connectionDst, err := c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory, pathName)
 			if err != nil {
 				return fmt.Errorf("error creating connections: %w", err)
 			}
-			if modified {
-				if err := a.OverwriteConfig(a.Config); err != nil {
+			if connectionSrc != "" || connectionDst != "" {
+				if err := a.OverwriteConfigOnTheFly(cmd, pathName, "", "", connectionSrc, connectionDst); err != nil {
 					return err
 				}
 			}

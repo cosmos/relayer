@@ -20,10 +20,10 @@ func (c *Chain) CreateOpenConnections(
 	memo string,
 	initialBlockHistory uint64,
 	pathName string,
-) (modified bool, err error) {
+) (string, string, error) {
 	// client identifiers must be filled in
-	if err = ValidateClientPaths(c, dst); err != nil {
-		return modified, err
+	if err := ValidateClientPaths(c, dst); err != nil {
+		return "", "", err
 	}
 
 	srcpathChain := pathChain{
@@ -49,10 +49,13 @@ func (c *Chain) CreateOpenConnections(
 		memo,
 	)
 
+	var connectionSrc, connectionDst string
+
 	pp.OnConnectionMessage(dst.PathEnd.ChainID, conntypes.EventTypeConnectionOpenConfirm, func(ci provider.ConnectionInfo) {
 		dst.PathEnd.ConnectionID = ci.ConnID
 		c.PathEnd.ConnectionID = ci.CounterpartyConnID
-		modified = true
+		connectionSrc = ci.CounterpartyConnID
+		connectionDst = ci.ConnID
 	})
 
 	c.log.Info("Starting event processor for connection handshake",
@@ -62,7 +65,7 @@ func (c *Chain) CreateOpenConnections(
 		zap.String("dst_client_id", dst.PathEnd.ClientID),
 	)
 
-	return modified, processor.NewEventProcessor().
+	return connectionSrc, connectionDst, processor.NewEventProcessor().
 		WithChainProcessors(
 			srcpathChain.chainProcessor(c.log, nil),
 			dstpathChain.chainProcessor(c.log, nil),
