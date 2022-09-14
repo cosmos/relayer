@@ -320,11 +320,10 @@ func (scp *SubstrateChainProcessor) queryCycle(ctx context.Context, persistence 
 
 		latestHeader = ibcHeader.(SubstrateIBCHeader)
 
-		// TODO: update latest bolock
-		// scp.latestBlock = provider.LatestBlock{
-		// 	Height: heightUint64,
-		// 	Time:   latestHeader.SignedHeader.Time,
-		// }
+		scp.latestBlock = provider.LatestBlock{
+			Height: heightUint64,
+			Time:   latestHeader.SignedHeader.ConsensusState().Timestamp,
+		}
 
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true

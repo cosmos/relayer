@@ -8,6 +8,7 @@ import (
 	"time"
 
 	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
+	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
@@ -92,24 +93,17 @@ type SubstrateProvider struct {
 	Input     io.Reader
 }
 
-type SubstrateIBCHeader struct{}
-
-// noop to implement processor.IBCHeader
-func (h SubstrateIBCHeader) IBCHeaderIndicator() {
-	//TODO implement me
-	panic("implement me")
+type SubstrateIBCHeader struct {
+	height       uint64
+	SignedHeader *beefyclienttypes.Header
 }
 
 func (h SubstrateIBCHeader) Height() uint64 {
-	//TODO implement me
-	panic("implement me")
-	return 0
+	return h.height
 }
 
 func (h SubstrateIBCHeader) ConsensusState() ibcexported.ConsensusState {
-	//TODO implement me
-	panic("implement me")
-	return nil
+	return h.SignedHeader.ConsensusState()
 }
 
 func (sp *SubstrateProvider) BlockTime(ctx context.Context, height int64) (time.Time, error) {
