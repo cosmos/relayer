@@ -70,7 +70,7 @@ require (
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/dvsekhvalnov/jose2go v1.5.0 // indirect
-	github.com/ethereum/go-ethereum v1.10.20 // indirect
+	github.com/ethereum/go-ethereum v1.10.23 // indirect
 	github.com/evmos/ethermint v0.6.1-0.20220810122651-42abb259cbed // indirect
 	github.com/felixge/httpsnoop v1.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
