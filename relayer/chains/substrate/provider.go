@@ -92,7 +92,8 @@ type SubstrateProvider struct {
 	Input     io.Reader
 }
 
-type SubstrateIBCHeader struct{}
+type SubstrateIBCHeader struct {
+}
 
 // noop to implement processor.IBCHeader
 func (h SubstrateIBCHeader) IBCHeaderIndicator() {
