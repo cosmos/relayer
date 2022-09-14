@@ -538,12 +538,15 @@ func validateConfig(c *Config) error {
 
 // initConfig reads config file into a.Config if file is present.
 func initConfig(cmd *cobra.Command, a *appState) error {
-	home, err := cmd.PersistentFlags().GetString(flagHome)
-	if err != nil {
-		return err
+	if a.HomePath == "" {
+		var err error
+		a.HomePath, err = cmd.PersistentFlags().GetString(flagHome)
+		if err != nil {
+			return err
+		}
 	}
 
-	cfgPath := path.Join(home, "config", "config.yaml")
+	cfgPath := path.Join(a.HomePath, "config", "config.yaml")
 	if _, err := os.Stat(cfgPath); err != nil {
 		// don't return error if file doesn't exist
 		return nil
