@@ -2,6 +2,7 @@ package substrate
 
 import (
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 )
 
@@ -12,16 +13,15 @@ func intoIBCEventType(substrateType SubstrateEventType) string {
 	case UpdateClient:
 		return clienttypes.EventTypeUpdateClient
 	case ClientMisbehaviour:
-		return "not supported" //TOOD: confirm
+		return clienttypes.EventTypeSubmitMisbehaviour
 	case SendPacket:
 		return chantypes.EventTypeSendPacket
 	case ReceivePacket:
-		return "not supported" //TOOD: confirm
+		return chantypes.EventTypeRecvPacket
 	case WriteAcknowledgement:
-		return "not supported" //TOOD: confirm
+		return chantypes.EventTypeAcknowledgePacket
 	case AcknowledgePacket:
-		return "not supported" //TOOD: confirm
-		// return clienttypes.AcknowledgePacket
+		return chantypes.EventTypeWriteAck
 	case TimeoutPacket:
 		return chantypes.EventTypeTimeoutPacket
 	case TimeoutOnClosePacket:
@@ -39,13 +39,13 @@ func intoIBCEventType(substrateType SubstrateEventType) string {
 	case CloseConfirmChannel:
 		return chantypes.EventTypeChannelCloseConfirm
 	case OpenInitConnection:
-		return chantypes.EventTypeChannelOpenInit
+		return conntypes.EventTypeConnectionOpenInit
 	case OpenTryConnection:
-		return chantypes.EventTypeChannelOpenTry
+		return conntypes.EventTypeConnectionOpenTry
 	case OpenAckConnection:
-		return "not supported" //TOOD: confirm
+		return conntypes.EventTypeConnectionOpenAck
 	case OpenConfirmConnection:
-		return "not supported" //TOOD: confirm
+		return conntypes.EventTypeConnectionOpenConfirm
 	default:
 		return ""
 	}

@@ -23,72 +23,30 @@ type ibcMessageInfo interface {
 	MarshalLogObject(enc zapcore.ObjectEncoder) error
 }
 
+// alias for the interface map
 type ibcEventQueryItem (map[string]interface{})
 
+// substrate ibc events endpoint returns a list of events
+// relayted to different transaction, so we need
+// to define a unique key
+type ibcPacketKey struct {
+	sequence   uint64
+	srcChannel string
+	srcPort    string
+	dstChannel string
+	dstPort    string
+}
+
 // ibcMessagesFromEvents parses all events of a certain height to find IBC messages
-func (scp *SubstrateChainProcessor) ibcMessagesFromEvents(ibcEvents rpcclienttypes.IBCEventsQueryResult, height uint64) (messages []ibcMessage) {
+func (scp *SubstrateChainProcessor) ibcMessagesFromEvents(
+	ibcEvents rpcclienttypes.IBCEventsQueryResult,
+	height uint64,
+) (messages []ibcMessage) {
+
 	packetAccumulator := make(map[ibcPacketKey]*packetInfo)
 	for i := 0; i < len(ibcEvents); i++ {
-		var info ibcMessageInfo
-		var eventType string
 
-		for eType, data := range ibcEvents[i] {
-
-			switch eType {
-
-			case CreateClient, UpgradeClient, ClientMisbehaviour:
-
-				ce := new(clientInfo)
-				ce.parseAttrs(scp.log, data)
-				info = ce
-
-				eventType = intoIBCEventType(eType)
-
-			case UpdateClient:
-
-				ce := new(clientUpdateInfo)
-				ce.parseAttrs(scp.log, data)
-				info = ce
-
-				eventType = intoIBCEventType(eType)
-
-			case OpenInitConnection, OpenTryConnection, OpenAckConnection, OpenConfirmConnection:
-
-				ce := &connectionInfo{Height: height}
-				ce.parseAttrs(scp.log, data)
-				info = ce
-
-				eventType = eType
-
-			case OpenInitChannel, OpenTryChannel, OpenAckChannel, OpenConfirmChannel, CloseInitChannel, CloseConfirmChannel:
-				ce := &channelInfo{Height: height}
-				ce.parseAttrs(scp.log, data)
-				info = ce
-
-				eventType = intoIBCEventType(eType)
-
-			case SendPacket, ReceivePacket, WriteAcknowledgement, AcknowledgePacket, TimeoutPacket, TimeoutOnClosePacket:
-
-				accumKey := genAccumKey(data)
-
-				_, exists := packetAccumulator[accumKey]
-				if !exists {
-					packetAccumulator[accumKey] = &packetInfo{Height: height}
-				}
-
-				packetAccumulator[accumKey].parseAttrs(scp.log, data)
-
-				info = packetAccumulator[accumKey]
-				if eType != WriteAcknowledgement {
-					eventType = intoIBCEventType(eType)
-				}
-
-			default:
-				panic("event not recognized")
-			}
-
-		}
-
+		info, eventType := scp.parseEvent(ibcEvents[i], height, packetAccumulator)
 		if info == nil {
 			// Not an IBC message, don't need to log here
 			continue
@@ -104,15 +62,80 @@ func (scp *SubstrateChainProcessor) ibcMessagesFromEvents(ibcEvents rpcclienttyp
 	return messages
 }
 
-// substrate ibc events endpoint returns a list of events
-// relayted to different transaction, so we need
-// to define a unique key
-type ibcPacketKey struct {
-	sequence   uint64
-	srcChannel string
-	srcPort    string
-	dstChannel string
-	dstPort    string
+func (scp *SubstrateChainProcessor) parseEvent(
+	event ibcEventQueryItem,
+	height uint64,
+	packetAccumulator map[ibcPacketKey]*packetInfo,
+) (info ibcMessageInfo, eventType string) {
+
+	// there is one itm in the event type map
+	// so this loop iterates just one iteration
+	for eType, data := range event {
+
+		switch eType {
+
+		case CreateClient, UpgradeClient, ClientMisbehaviour:
+
+			cl := new(clientInfo)
+			cl.parseAttrs(scp.log, data)
+			info = cl
+
+			eventType = intoIBCEventType(eType)
+
+		case UpdateClient:
+
+			clu := new(clientUpdateInfo)
+			clu.parseAttrs(scp.log, data)
+			info = clu
+
+			eventType = intoIBCEventType(eType)
+
+		case SendPacket, AcknowledgePacket, TimeoutPacket, TimeoutOnClosePacket:
+
+			pkt := new(packetInfo)
+			pkt.parseAttrs(scp.log, data)
+			info = pkt
+
+			eventType = intoIBCEventType(eType)
+
+		case ReceivePacket, WriteAcknowledgement:
+
+			accumKey := genAccumKey(data)
+
+			_, exists := packetAccumulator[accumKey]
+			if !exists {
+				packetAccumulator[accumKey] = &packetInfo{Height: height}
+			}
+
+			packetAccumulator[accumKey].parseAttrs(scp.log, data)
+
+			info = packetAccumulator[accumKey]
+			if eType != WriteAcknowledgement {
+				eventType = intoIBCEventType(eType)
+			}
+
+		case OpenInitConnection, OpenTryConnection, OpenAckConnection, OpenConfirmConnection:
+
+			con := &connectionInfo{Height: height}
+			con.parseAttrs(scp.log, data)
+			info = con
+
+			eventType = eType
+
+		case OpenInitChannel, OpenTryChannel, OpenAckChannel, OpenConfirmChannel, CloseInitChannel, CloseConfirmChannel:
+			chann := &channelInfo{Height: height}
+			chann.parseAttrs(scp.log, data)
+			info = chann
+
+			eventType = intoIBCEventType(eType)
+
+		default:
+			panic("event not recognized")
+		}
+
+	}
+
+	return
 }
 
 // returns the unique key for packet accumulator cache
