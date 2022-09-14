@@ -22,7 +22,7 @@ require (
 	github.com/prometheus/client_golang v1.12.2
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
-	github.com/strangelove-ventures/lens v0.5.2-0.20220810214843-6af97ce869d8
+	github.com/strangelove-ventures/lens v0.5.2-0.20220822201013-1e7ffd450f20
 	github.com/stretchr/testify v1.8.0
 	github.com/tendermint/tendermint v0.34.20
 	go.uber.org/multierr v1.8.0
