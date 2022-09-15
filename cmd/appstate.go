@@ -3,12 +3,16 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path"
+	"time"
 
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/juju/fslock"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -157,5 +161,71 @@ func (a *appState) OverwriteConfig(cfg *Config) error {
 
 	// Write the config back into the app state.
 	a.Config = cfg
+	return nil
+}
+
+// OverwriteConfigOnTheFly overwrites the config file concurrently,
+// locking to read, modify, then write the config.
+func (a *appState) OverwriteConfigOnTheFly(
+	cmd *cobra.Command,
+	pathName string,
+	clientSrc, clientDst string,
+	connectionSrc, connectionDst string,
+) error {
+	if pathName == "" {
+		return errors.New("empty path name not allowed")
+	}
+
+	// use lock file to guard concurrent access to config.yaml
+	lockFilePath := path.Join(a.HomePath, "config", "config.lock")
+	lock := fslock.New(lockFilePath)
+	err := lock.LockWithTimeout(10 * time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to acquire config lock: %w", err)
+	}
+	defer func() {
+		if err := lock.Unlock(); err != nil {
+			a.Log.Error("error unlocking config file lock, please manually delete",
+				zap.String("filepath", lockFilePath),
+			)
+		}
+	}()
+
+	// load config from file and validate it. don't want to miss
+	// any changes that may have been made while unlocked.
+	if err := initConfig(cmd, a); err != nil {
+		return fmt.Errorf("failed to initialize config from file: %w", err)
+	}
+
+	path, ok := a.Config.Paths[pathName]
+	if !ok {
+		return fmt.Errorf("config does not exist for that path: %s", pathName)
+	}
+	if clientSrc != "" {
+		path.Src.ClientID = clientSrc
+	}
+	if clientDst != "" {
+		path.Dst.ClientID = clientDst
+	}
+	if connectionSrc != "" {
+		path.Src.ConnectionID = connectionSrc
+	}
+	if connectionDst != "" {
+		path.Dst.ConnectionID = connectionDst
+	}
+
+	// marshal the new config
+	out, err := yaml.Marshal(a.Config.Wrapped())
+	if err != nil {
+		return err
+	}
+
+	cfgPath := a.Viper.ConfigFileUsed()
+
+	// Overwrite the config file.
+	if err := os.WriteFile(cfgPath, out, 0600); err != nil {
+		return fmt.Errorf("failed to write config file at %s: %w", cfgPath, err)
+	}
+
 	return nil
 }
