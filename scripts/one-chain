@@ -109,4 +109,4 @@ else
 fi
 
 # Start the gaia
-$BINARY --home $CHAINDIR/$CHAINID start --minimum-gas-prices=0.0001stake --pruning=nothing --grpc-web.enable=false --grpc.address="0.0.0.0:$GRPCPORT" > $CHAINDIR/$CHAINID.log 2>&1 &
+$BINARY --home $CHAINDIR/$CHAINID start --minimum-gas-prices="0.025stake" --pruning=nothing --grpc-web.enable=false --grpc.address="0.0.0.0:$GRPCPORT" > $CHAINDIR/$CHAINID.log 2>&1 &
