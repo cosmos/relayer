@@ -49,6 +49,32 @@ func fetchParaIds(conn *rpcclient.SubstrateAPI, blockHash rpcclienttypes.Hash) (
 	return paraIds, nil
 }
 
+func parachainHeaderKey() ([]byte, error) {
+	keyPrefix := rpcclienttypes.CreateStorageKeyPrefix("Paras", "Heads")
+	encodedParaId, err := Encode(uint32(PARA_ID))
+	if err != nil {
+		return nil, err
+	}
+
+	twoxhash := xxhash.New64(encodedParaId).Sum(nil)
+	fullKey := append(append(keyPrefix, twoxhash[:]...), encodedParaId...)
+	return fullKey, nil
+}
+
+func paraHeadData(conn *rpcclient.SubstrateAPI, blockHash rpcclienttypes.Hash) ([]byte, error) {
+	paraKey, err := parachainHeaderKey()
+	if err != nil {
+		return nil, err
+	}
+
+	storage, err := conn.RPC.State.GetStorageRaw(paraKey, blockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return *storage, nil
+}
+
 func clientState(
 	conn *rpcclient.SubstrateAPI,
 	commitment rpcclienttypes.SignedCommitment,
@@ -81,52 +107,47 @@ func clientState(
 
 	nextAuthorityTree, err := merkle.NewTree(hasher.Keccak256Hasher{}).FromLeaves(nextAuthorityLeaves)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	var authorityTreeRoot = bytes32(authorityTree.Root())
 	var nextAuthorityTreeRoot = bytes32(nextAuthorityTree.Root())
+
+	blockHash, err := conn.RPC.Chain.GetBlockHash(uint64(blockNumber))
+	if err != nil {
+		return nil, err
+	}
+
+	headData, err := paraHeadData(conn, blockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	paraHead, err := beefyclienttypes.DecodeParachainHeader(headData)
+	if err != nil {
+		return nil, err
+	}
+
 	return &beefyclienttypes.ClientState{
-		MmrRootHash:          commitment.Commitment.Payload[0].Value,
+		MMRRootHash:          commitment.Commitment.Payload[0].Value,
 		LatestBeefyHeight:    blockNumber,
 		BeefyActivationBlock: 0,
 		Authority: &beefyclienttypes.BeefyAuthoritySet{
-			Id:            uint64(commitment.Commitment.ValidatorSetID),
+			ID:            uint64(commitment.Commitment.ValidatorSetID),
 			Len:           uint32(len(authorities)),
 			AuthorityRoot: &authorityTreeRoot,
 		},
 		NextAuthoritySet: &beefyclienttypes.BeefyAuthoritySet{
-			Id:            uint64(commitment.Commitment.ValidatorSetID) + 1,
+			ID:            uint64(commitment.Commitment.ValidatorSetID) + 1,
 			Len:           uint32(len(nextAuthorities)),
 			AuthorityRoot: &nextAuthorityTreeRoot,
 		},
-		ParaId: PARA_ID,
-		// TODO: pass a defined para chain height
-		LatestParaHeight: 0,
+		ParaID:           PARA_ID,
+		LatestParaHeight: uint32(paraHead.Number),
 		// TODO: add relaychain to config
 		RelayChain: beefyclienttypes.RelayChain_KUSAMA,
 	}, nil
 }
-
-// 	// Latest mmr root hash
-//	MmrRootHash []byte `protobuf:"bytes,1,opt,name=mmr_root_hash,json=mmrRootHash,proto3" json:"mmr_root_hash,omitempty"`
-//	// block number for the latest mmr_root_hash
-//	LatestBeefyHeight uint32 `protobuf:"varint,2,opt,name=latest_beefy_height,json=latestBeefyHeight,proto3" json:"latest_beefy_height,omitempty"`
-//	// Block height when the client was frozen due to a misbehaviour
-//	FrozenHeight uint64 `protobuf:"varint,3,opt,name=frozen_height,json=frozenHeight,proto3" json:"frozen_height,omitempty"`
-//	/// Known relay chains
-//	RelayChain RelayChain `protobuf:"varint,4,opt,name=relay_chain,json=relayChain,proto3,enum=ibc.lightclients.beefy.v1.RelayChain" json:"relay_chain,omitempty"`
-//	/// ParaId of associated parachain
-//	ParaId uint32 `protobuf:"varint,5,opt,name=para_id,json=paraId,proto3" json:"para_id,omitempty"`
-//	/// latest parachain height
-//	LatestParaHeight uint32 `protobuf:"varint,6,opt,name=latest_para_height,json=latestParaHeight,proto3" json:"latest_para_height,omitempty"`
-//	// block number that the beefy protocol was activated on the relay chain.
-//	// This should be the first block in the merkle-mountain-range tree.
-//	BeefyActivationBlock uint32 `protobuf:"varint,7,opt,name=beefy_activation_block,json=beefyActivationBlock,proto3" json:"beefy_activation_block,omitempty"`
-//	// authorities for the current round
-//	Authority *BeefyAuthoritySet `protobuf:"bytes,8,opt,name=authority,proto3" json:"authority,omitempty"`
-//	// authorities for the next round
-//	NextAuthoritySet *BeefyAuthoritySet `protobuf:"bytes,9,opt,name=next_authority_set,json=nextAuthoritySet,proto3" json:"next_authority_set,omitempty"`
 
 func beefyAuthorities(blockNumber uint32, conn *rpcclient.SubstrateAPI, method string) ([][]byte, error) {
 	blockHash, err := conn.RPC.Chain.GetBlockHash(uint64(blockNumber))
@@ -197,36 +218,78 @@ func signedCommitment(conn *rpcclient.SubstrateAPI, blockHash rpcclienttypes.Has
 	return rpcclienttypes.SignedCommitment{}, nil
 }
 
+const BeefyActivationBlock = 0
+
+func getBlockNumberForLeaf(leafIndex uint32) uint32 {
+	var blockNumber uint32
+
+	// calculate the leafIndex for this leaf.
+	if BeefyActivationBlock == 0 {
+		// in this case the leaf index is the same as the block number - 1 (leaf index starts at 0)
+		blockNumber = leafIndex + 1
+	} else {
+		// in this case the leaf index is activation block - current block number.
+		blockNumber = BeefyActivationBlock + leafIndex
+	}
+
+	return blockNumber
+}
+
+// GetLeafIndexForBlockNumber given the MmrLeafPartial.ParentNumber & BeefyActivationBlock,
+func getLeafIndexForBlockNumber(blockNumber uint32) uint32 {
+	var leafIndex uint32
+
+	// calculate the leafIndex for this leaf.
+	if BeefyActivationBlock == 0 {
+		// in this case the leaf index is the same as the block number - 1 (leaf index starts at 0)
+		leafIndex = blockNumber - 1
+	} else {
+		// in this case the leaf index is activation block - current block number.
+		leafIndex = BeefyActivationBlock - (blockNumber + 1)
+	}
+
+	return leafIndex
+}
+
 // finalized block returns the finalized block double map that holds block numbers,
 // for which our parachain header was included in the mmr leaf, seeing as our parachain
 // headers might not make it into every relay chain block. Map<BlockNumber, Map<ParaId, Header>>
 // It also returns the leaf indeces of those blocks
 func getFinalizedBlocks(
 	conn *rpcclient.SubstrateAPI,
-	cs *beefyclienttypes.ClientState,
 	blockHash rpcclienttypes.Hash,
+	previouslyFinalizedBlockHash *rpcclienttypes.Hash,
 ) (map[uint32]map[uint32][]byte, []uint64, error) {
-
-	previousFinalizedHash, err := conn.RPC.Chain.GetBlockHash(uint64(cs.LatestBeefyHeight + 1))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var paraHeaderKeys []rpcclienttypes.StorageKey
-	paraHeaderKeys, err = parachainHeaderKeys(conn, blockHash)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	changeSet, err := conn.RPC.State.QueryStorage(paraHeaderKeys, previousFinalizedHash, blockHash)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	var finalizedBlocks = make(map[uint32]map[uint32][]byte)
-
-	// request for batch mmr proof of those leaves
 	var leafIndeces []uint64
+
+	if previouslyFinalizedBlockHash == nil {
+		var heads = make(map[uint32][]byte)
+		headData, err := paraHeadData(conn, blockHash)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		paraHead, err := beefyclienttypes.DecodeParachainHeader(headData)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		heads[PARA_ID] = headData
+		finalizedBlocks[uint32(paraHead.Number)] = heads
+		leafIndeces = append(leafIndeces, uint64(getLeafIndexForBlockNumber(uint32(paraHead.Number))))
+		return finalizedBlocks, leafIndeces, nil
+	}
+
+	paraHeaderKeys, err := parachainHeaderKeys(conn, blockHash)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	changeSet, err := conn.RPC.State.QueryStorage(paraHeaderKeys, *previouslyFinalizedBlockHash, blockHash)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	for _, changes := range changeSet {
 		header, err := conn.RPC.Chain.GetHeader(changes.Block)
@@ -254,7 +317,7 @@ func getFinalizedBlocks(
 
 		finalizedBlocks[uint32(header.Number)] = heads
 
-		leafIndeces = append(leafIndeces, uint64(cs.GetLeafIndexForBlockNumber(uint32(header.Number))))
+		leafIndeces = append(leafIndeces, uint64(getLeafIndexForBlockNumber(uint32(header.Number))))
 	}
 	return finalizedBlocks, leafIndeces, nil
 }
@@ -289,12 +352,12 @@ func parachainHeaderKeys(
 
 func (sp *SubstrateProvider) constructParachainHeaders(
 	blockHash rpcclienttypes.Hash,
-	cs *beefyclienttypes.ClientState,
+	previouslyFinalizedBlockHash *rpcclienttypes.Hash,
 ) ([]*beefyclienttypes.ParachainHeader, error) {
 	var conn = sp.RelayerRPCClient
 	var finalizedBlocks = make(map[uint32]map[uint32][]byte)
 	var leafIndeces []uint64
-	finalizedBlocks, leafIndeces, err := getFinalizedBlocks(conn, cs, blockHash)
+	finalizedBlocks, leafIndeces, err := getFinalizedBlocks(conn, blockHash, previouslyFinalizedBlockHash)
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +377,8 @@ func (sp *SubstrateProvider) constructParachainHeaders(
 		leafIndex := mmrBatchProof.Proof.LeafIndex[i]
 
 		paraHeads[i] = v.ParachainHeads[:]
-		var leafBlockNumber = cs.GetBlockNumberForLeaf(uint32(leafIndex))
+		// TODO: The activation block number can be added to the substrate provider and this method as well
+		var leafBlockNumber = getBlockNumberForLeaf(uint32(leafIndex))
 		paraHeaders := finalizedBlocks[leafBlockNumber]
 
 		var paraHeadsLeaves [][]byte
@@ -366,12 +430,12 @@ func (sp *SubstrateProvider) constructParachainHeaders(
 
 		header := beefyclienttypes.ParachainHeader{
 			ParachainHeader: paraHeaders[PARA_ID],
-			MmrLeafPartial: &beefyclienttypes.BeefyMmrLeafPartial{
+			PartialMMRLeaf: &beefyclienttypes.PartialMMRLeaf{
 				Version:      beefyclienttypes.U8(v.Version),
 				ParentNumber: uint32(v.ParentNumberAndHash.ParentNumber),
 				ParentHash:   &parentHash,
 				BeefyNextAuthoritySet: beefyclienttypes.BeefyAuthoritySet{
-					Id:            uint64(v.BeefyNextAuthoritySet.ID),
+					ID:            uint64(v.BeefyNextAuthoritySet.ID),
 					Len:           uint32(v.BeefyNextAuthoritySet.Len),
 					AuthorityRoot: &authorityRoot,
 				},
@@ -458,12 +522,11 @@ func (sp *SubstrateProvider) constructExtrinsics(
 
 func mmrBatchProofs(
 	conn *rpcclient.SubstrateAPI,
-	cs *beefyclienttypes.ClientState,
 	blockHash rpcclienttypes.Hash,
-	commitment rpcclienttypes.SignedCommitment,
+	previouslyFinalizedBlockHash *rpcclienttypes.Hash,
 ) (rpcclienttypes.GenerateMmrBatchProofResponse, error) {
 	var leafIndeces []uint64
-	_, leafIndeces, err := getFinalizedBlocks(conn, cs, blockHash)
+	_, leafIndeces, err := getFinalizedBlocks(conn, blockHash, previouslyFinalizedBlockHash)
 	if err != nil {
 		return rpcclienttypes.GenerateMmrBatchProofResponse{}, err
 	}
@@ -485,12 +548,12 @@ func mmrBatchProofItems(mmrBatchProof rpcclienttypes.GenerateMmrBatchProofRespon
 	return proofItems
 }
 
-func clientStateUpdateProof(
+func mmrUpdateProof(
 	conn *rpcclient.SubstrateAPI,
 	blockHash rpcclienttypes.Hash,
 	signedCommitment rpcclienttypes.SignedCommitment,
 	leafIndex uint64,
-) (*beefyclienttypes.ClientStateUpdateProof, error) {
+) (*beefyclienttypes.MMRUpdateProof, error) {
 	mmrProof, err := conn.RPC.MMR.GenerateProof(
 		leafIndex,
 		blockHash,
@@ -539,27 +602,27 @@ func clientStateUpdateProof(
 	}
 
 	var payloadId beefyclienttypes.SizedByte2 = CommitmentPayload.ID
-	return &beefyclienttypes.ClientStateUpdateProof{
-		MmrLeaf: &beefyclienttypes.BeefyMmrLeaf{
+	return &beefyclienttypes.MMRUpdateProof{
+		LatestMMRLeaf: &beefyclienttypes.BeefyMMRLeaf{
 			Version:        beefyclienttypes.U8(latestLeaf.Version),
 			ParentNumber:   uint32(latestLeaf.ParentNumberAndHash.ParentNumber),
 			ParentHash:     &parentHash,
 			ParachainHeads: &ParachainHeads,
 			BeefyNextAuthoritySet: beefyclienttypes.BeefyAuthoritySet{
-				Id:            uint64(latestLeaf.BeefyNextAuthoritySet.ID),
+				ID:            uint64(latestLeaf.BeefyNextAuthoritySet.ID),
 				Len:           uint32(latestLeaf.BeefyNextAuthoritySet.Len),
 				AuthorityRoot: &BeefyNextAuthoritySetRoot,
 			},
 		},
-		MmrLeafIndex: leafIndex,
-		MmrProof:     latestLeafMmrProof,
+		LatestMMRLeafIndex: leafIndex,
+		MMRProof:           latestLeafMmrProof,
 		SignedCommitment: &beefyclienttypes.SignedCommitment{
 			Commitment: &beefyclienttypes.Commitment{
-				Payload: []*beefyclienttypes.PayloadItem{
-					{PayloadId: &payloadId, PayloadData: CommitmentPayload.Value},
+				Payload: []*beefyclienttypes.Payload{
+					{PayloadID: &payloadId, PayloadData: CommitmentPayload.Value},
 				},
-				BlockNumer:     uint32(signedCommitment.Commitment.BlockNumber),
-				ValidatorSetId: uint64(signedCommitment.Commitment.ValidatorSetID),
+				BlockNumber:    uint32(signedCommitment.Commitment.BlockNumber),
+				ValidatorSetID: uint64(signedCommitment.Commitment.ValidatorSetID),
 			},
 			Signatures: signatures,
 		},
@@ -592,57 +655,38 @@ func previouslyFinalizedBlock(conn *rpcclient.SubstrateAPI, blockNumber uint64) 
 	}
 }
 
-func (sp *SubstrateProvider) constructBeefyHeader(blockHash rpcclienttypes.Hash) (*beefyclienttypes.Header, error) {
+func (sp *SubstrateProvider) constructBeefyHeader(blockHash rpcclienttypes.Hash, previousFinalizedHash *rpcclienttypes.Hash) (*beefyclienttypes.Header, error) {
 	var conn = sp.RelayerRPCClient
 	// assuming blockHash is always the latest beefy block hash
-	latestFinalizedBlock, err := conn.RPC.Chain.GetBlock(blockHash)
-	if err != nil {
-		return nil, err
-	}
-
-	pHash, _, err := previouslyFinalizedBlock(conn, uint64(latestFinalizedBlock.Block.Header.Number))
-	if err != nil {
-		return nil, err
-	}
-
-	commitment, err := signedCommitment(conn, pHash)
-	if err != nil {
-		return nil, err
-	}
-
-	cs, err := clientState(conn, commitment)
-	if err != nil {
-		return nil, err
-	}
-
+	// TODO: check that it is the latest block hash
 	latestCommitment, err := signedCommitment(conn, blockHash)
 	if err != nil {
 		return nil, err
 	}
 
-	parachainHeads, err := sp.constructParachainHeaders(blockHash, cs)
+	parachainHeads, err := sp.constructParachainHeaders(blockHash, previousFinalizedHash)
 	if err != nil {
 		return nil, err
 	}
 
-	batchProofs, err := mmrBatchProofs(conn, cs, blockHash, latestCommitment)
+	batchProofs, err := mmrBatchProofs(conn, blockHash, previousFinalizedHash)
 	if err != nil {
 		return nil, err
 	}
 
-	leafIndex := cs.GetLeafIndexForBlockNumber(uint32(latestCommitment.Commitment.BlockNumber))
+	leafIndex := getLeafIndexForBlockNumber(uint32(latestCommitment.Commitment.BlockNumber))
 	blockNumber := uint32(latestCommitment.Commitment.BlockNumber)
-	csUpdateProof, err := clientStateUpdateProof(conn, blockHash, latestCommitment, uint64(cs.GetLeafIndexForBlockNumber(blockNumber)))
+	mmrProof, err := mmrUpdateProof(conn, blockHash, latestCommitment, uint64(getLeafIndexForBlockNumber(blockNumber)))
 	if err != nil {
 		return nil, err
 	}
 
 	return &beefyclienttypes.Header{
-		ConsensusStateUpdate: &beefyclienttypes.ConsensusStateUpdateProof{
-			ParachainHeaders: parachainHeads,
-			MmrProofs:        mmrBatchProofItems(batchProofs),
-			MmrSize:          mmr.LeafIndexToMMRSize(uint64(leafIndex)),
+		HeadersWithProof: &beefyclienttypes.ParachainHeadersWithProof{
+			Headers:   parachainHeads,
+			MMRProofs: mmrBatchProofItems(batchProofs),
+			MMRSize:   mmr.LeafIndexToMMRSize(uint64(leafIndex)),
 		},
-		ClientState: csUpdateProof,
+		MMRUpdateProof: mmrProof,
 	}, nil
 }
