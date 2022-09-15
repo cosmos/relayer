@@ -705,7 +705,6 @@ func (pp *PathProcessor) assembleMessage(
 		return
 	}
 	om.Append(message)
-
 }
 
 func (pp *PathProcessor) assembleAndSendMessages(
@@ -746,7 +745,9 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	})
 
 	for _, m := range om.pktMsgs {
-		om.msgs = append(om.msgs, m.message)
+		if m.assembled {
+			om.Append(m.message)
+		}
 	}
 
 	for i, msg := range messages.connectionMessages {
