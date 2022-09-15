@@ -257,7 +257,6 @@ func (om *outgoingMessages) Append(msg provider.RelayerMessage) {
 }
 
 type packetMessageToTrack struct {
-	message   provider.RelayerMessage
 	msg       packetIBCMessage
 	assembled bool
 }
