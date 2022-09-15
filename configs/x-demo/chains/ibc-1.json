@@ -11,6 +11,8 @@
     "key-directory": "/tmp",
     "debug": false,
     "timeout": "10s",
-    "network": 49
+    "network": 49,
+    "para-id": 2000,
+    "beefy-activation-block": 0
   }
 }

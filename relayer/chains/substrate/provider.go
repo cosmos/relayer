@@ -28,17 +28,19 @@ var (
 )
 
 type SubstrateProviderConfig struct {
-	Key            string `json:"key" yaml:"key"`
-	ChainName      string `json:"chain-name" yaml:"chain-name"`
-	ChainID        string `json:"chain-id" yaml:"chain-id"`
-	RPCAddr        string `json:"rpc-addr" yaml:"rpc-addr"`
-	RelayRPCAddr   string `json:"relay-rpc-addr" yaml:"relay-rpc-addr"`
-	AccountPrefix  string `json:"account-prefix" yaml:"account-prefix"`
-	KeyringBackend string `json:"keyring-backend" yaml:"keyring-backend"`
-	KeyDirectory   string `json:"key-directory" yaml:"key-directory"`
-	Debug          bool   `json:"debug" yaml:"debug"`
-	Timeout        string `json:"timeout" yaml:"timeout"`
-	Network        uint16 `json:"network" yaml:"network"`
+	Key                  string `json:"key" yaml:"key"`
+	ChainName            string `json:"chain-name" yaml:"chain-name"`
+	ChainID              string `json:"chain-id" yaml:"chain-id"`
+	RPCAddr              string `json:"rpc-addr" yaml:"rpc-addr"`
+	RelayRPCAddr         string `json:"relay-rpc-addr" yaml:"relay-rpc-addr"`
+	AccountPrefix        string `json:"account-prefix" yaml:"account-prefix"`
+	KeyringBackend       string `json:"keyring-backend" yaml:"keyring-backend"`
+	KeyDirectory         string `json:"key-directory" yaml:"key-directory"`
+	Debug                bool   `json:"debug" yaml:"debug"`
+	Timeout              string `json:"timeout" yaml:"timeout"`
+	Network              uint16 `json:"network" yaml:"network"`
+	ParaID               uint32 `json:"para-id" yaml:"para-id"`
+	BeefyActivationBlock uint32 `json:"beefy-activation-block" yaml:"beefy-activation-block"`
 }
 
 func (spc SubstrateProviderConfig) Validate() error {

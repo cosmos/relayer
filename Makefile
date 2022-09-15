@@ -1,6 +1,6 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
-GAIA_VERSION := v7.0.1
+GAIA_VERSION := beefy_client
 AKASH_VERSION := v0.16.3
 OSMOSIS_VERSION := v8.0.0
 WASMD_VERSION := v0.25.0
@@ -105,7 +105,8 @@ lint:
 
 get-gaia:
 	@mkdir -p ./chain-code/
-	@git clone --depth=1 https://github.com/cosmos/gaia.git ./chain-code/gaia
+	# @git clone --depth=1 https://github.com/cosmos/gaia.git ./chain-code/gaia
+	@git clone --depth=1 --branch=$(GAIA_VERSION) https://github.com/oshorefueled/gaia.git ./chain-code/gaia
 
 build-gaia:
 	@./examples/demo/scripts/build-gaia
