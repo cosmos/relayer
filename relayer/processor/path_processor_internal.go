@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
@@ -675,9 +676,11 @@ func (pp *PathProcessor) assembleMessage(
 	case packetIBCMessage:
 		message, err = pp.assemblePacketMessage(ctx, m, src, dst)
 		om.pktMsgs[i] = packetMessageToTrack{
+			message:   message,
 			msg:       m,
 			assembled: err == nil,
 		}
+		return
 	case connectionIBCMessage:
 		message, err = pp.assembleConnectionMessage(ctx, m, src, dst)
 		om.connMsgs[i] = connectionMessageToTrack{
@@ -736,6 +739,14 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	for i, msg := range messages.packetMessages {
 		wg.Add(1)
 		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+	}
+
+	sort.Slice(om.pktMsgs, func(i, j int) bool {
+		return om.pktMsgs[i].msg.info.Sequence < om.pktMsgs[j].msg.info.Sequence
+	})
+
+	for _, m := range om.pktMsgs {
+		om.msgs = append(om.msgs, m.message)
 	}
 
 	for i, msg := range messages.connectionMessages {
