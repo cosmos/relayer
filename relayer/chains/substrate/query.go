@@ -66,7 +66,7 @@ func (sp *SubstrateProvider) QueryIBCHeader(ctx context.Context, h int64) (provi
 		return nil, err
 	}
 
-	header, err := sp.constructBeefyHeader(blockHash)
+	header, err := sp.constructBeefyHeader(blockHash, nil)
 	if err != nil {
 		return nil, err
 	}
