@@ -35,15 +35,18 @@ const (
 func chainTest(t *testing.T, tcs []testChain) {
 	chains := spinUpTestChains(t, tcs...)
 
+	c, err := chains.Gets("ibc-0", "ibc-1")
+	require.NoError(t, err)
+
 	var (
-		src         = chains.MustGet(tcs[0].chainID)
-		dst         = chains.MustGet(tcs[1].chainID)
+		src         = c["ibc-0"]
+		dst         = c["ibc-1"]
 		testDenom   = "samoleans"
 		testCoin    = sdk.NewCoin(testDenom, sdk.NewInt(1000))
 		twoTestCoin = sdk.NewCoin(testDenom, sdk.NewInt(2000))
 	)
 
-	_, err := genTestPathAndSet(src, dst)
+	p, err := genTestPathAndSet(src, dst)
 	require.NoError(t, err)
 
 	t.Log("Querying initial balances for later comparison")
@@ -119,8 +122,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(ctx, 1))
 
 	t.Log("Starting relayer")
-	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, "", nil)
+	_ = relayer.StartRelayer(ctx, log, c, []relayer.NamedPath{{Path: p}}, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, nil)
 
 	t.Log("Waiting for relayer messages to reach both chains")
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 2))
@@ -234,12 +236,15 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 		{"testChain1", "ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
 	}...)
 
+	c, err := chains.Gets("ibc-0", "ibc-1")
+	require.NoError(t, err)
+
 	var (
-		src = chains.MustGet("ibc-0")
-		dst = chains.MustGet("ibc-1")
+		src = c["ibc-0"]
+		dst = c["ibc-1"]
 	)
 
-	_, err := genTestPathAndSet(src, dst)
+	p, err := genTestPathAndSet(src, dst)
 	require.NoError(t, err)
 
 	// create path
@@ -269,8 +274,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 
 	log := zaptest.NewLogger(t)
 	// start the relayer process in it's own goroutine
-	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, "", nil)
+	_ = relayer.StartRelayer(ctx, log, c, []relayer.NamedPath{{Path: p}}, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, nil)
 
 	// Wait for relay message inclusion in both chains
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 1))
@@ -335,15 +339,18 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 		{"testChain1", "ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
 	}...)
 
+	c, err := chains.Gets("ibc-0", "ibc-1")
+	require.NoError(t, err)
+
 	var (
-		src         = chains.MustGet("ibc-0")
-		dst         = chains.MustGet("ibc-1")
+		src         = c["ibc-0"]
+		dst         = c["ibc-1"]
 		testDenom   = "samoleans"
 		testCoin    = sdk.NewCoin(testDenom, sdk.NewInt(1000))
 		twoTestCoin = sdk.NewCoin(testDenom, sdk.NewInt(2000))
 	)
 
-	_, err := genTestPathAndSet(src, dst)
+	p, err := genTestPathAndSet(src, dst)
 	require.NoError(t, err)
 
 	t.Log("Querying initial balances to compare against at the end")
@@ -443,8 +450,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(ctx, 1))
 
 	t.Log("Starting relayer")
-	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, "", nil)
+	_ = relayer.StartRelayer(ctx, log, c, []relayer.NamedPath{{Path: p}}, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, nil)
 
 	t.Log("Waiting for relayer message inclusion in both chains")
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 1))
@@ -543,14 +549,17 @@ func TestUnorderedChannelBlockHeightTimeout(t *testing.T) {
 		{"testChain1", "ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
 	}...)
 
+	c, err := chains.Gets("ibc-0", "ibc-1")
+	require.NoError(t, err)
+
 	var (
-		src         = chains.MustGet("ibc-0")
-		dst         = chains.MustGet("ibc-1")
+		src         = c["ibc-0"]
+		dst         = c["ibc-1"]
 		testDenom   = "samoleans"
 		twoTestCoin = sdk.NewCoin(testDenom, sdk.NewInt(2000))
 	)
 
-	_, err := genTestPathAndSet(src, dst)
+	p, err := genTestPathAndSet(src, dst)
 	require.NoError(t, err)
 
 	// query initial balances to compare against at the end
@@ -619,8 +628,7 @@ func TestUnorderedChannelBlockHeightTimeout(t *testing.T) {
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 11))
 
 	// start the relayer process in it's own goroutine
-	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, "", nil)
+	_ = relayer.StartRelayer(ctx, log, c, []relayer.NamedPath{{Path: p}}, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, nil)
 
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 5))
 
@@ -641,14 +649,17 @@ func TestUnorderedChannelTimestampTimeout(t *testing.T) {
 		{"testChain1", "ibc-1", 1, gaiaTestConfig, gaiaProviderCfg},
 	}...)
 
+	c, err := chains.Gets("ibc-0", "ibc-1")
+	require.NoError(t, err)
+
 	var (
-		src         = chains.MustGet("ibc-0")
-		dst         = chains.MustGet("ibc-1")
+		src         = c["ibc-0"]
+		dst         = c["ibc-1"]
 		testDenom   = "samoleans"
 		twoTestCoin = sdk.NewCoin(testDenom, sdk.NewInt(2000))
 	)
 
-	_, err := genTestPathAndSet(src, dst)
+	p, err := genTestPathAndSet(src, dst)
 	require.NoError(t, err)
 
 	// query initial balances to compare against at the end
@@ -717,8 +728,7 @@ func TestUnorderedChannelTimestampTimeout(t *testing.T) {
 	time.Sleep(time.Second * 20)
 
 	// start the relayer process in it's own goroutine
-	filter := relayer.ChannelFilter{}
-	_ = relayer.StartRelayer(ctx, log, src, dst, filter, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, "", nil)
+	_ = relayer.StartRelayer(ctx, log, c, []relayer.NamedPath{{Path: p}}, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, nil)
 
 	time.Sleep(time.Second * 10)
 
