@@ -95,6 +95,12 @@ type Path struct {
 	Filter ChannelFilter `yaml:"src-channel-filter" json:"src-channel-filter"`
 }
 
+// Named path wraps a Path with its name.
+type NamedPath struct {
+	Name string
+	Path *Path
+}
+
 // ChannelFilter provides the means for either creating an allowlist or a denylist of channels on the src chain
 // which will be used to narrow down the list of channels a user wants to relay on.
 type ChannelFilter struct {

@@ -37,30 +37,46 @@ func startCmd(a *appState) *cobra.Command {
 		Use:     "start path_name",
 		Aliases: []string{"st"},
 		Short:   "Start the listening relayer on a given path",
-		Args:    withUsage(cobra.ExactArgs(1)),
+		Args:    withUsage(cobra.MinimumNArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s start demo-path -p events # to use event processor
 $ %s start demo-path --max-msgs 3
 $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pathName := args[0]
-			c, src, dst, err := a.Config.ChainsFromPath(pathName)
+			chains := make(map[string]*relayer.Chain)
+			paths := make([]relayer.NamedPath, len(args))
+
+			for i, pathName := range args {
+				path := a.Config.Paths.MustGet(pathName)
+				paths[i] = relayer.NamedPath{
+					Name: pathName,
+					Path: path,
+				}
+
+				// collect unique chain IDs
+				chains[path.Src.ChainID] = nil
+				chains[path.Dst.ChainID] = nil
+			}
+
+			chainIDs := make([]string, 0, len(chains))
+			for chainID := range chains {
+				chainIDs = append(chainIDs, chainID)
+			}
+
+			// get chain configurations
+			chains, err := a.Config.Chains.Gets(chainIDs...)
 			if err != nil {
 				return err
 			}
 
-			if err = ensureKeysExist(c); err != nil {
+			if err := ensureKeysExist(chains); err != nil {
 				return err
 			}
-
-			path := a.Config.Paths.MustGet(pathName)
 
 			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
 			if err != nil {
 				return err
 			}
-
-			filter := path.Filter
 
 			var prometheusMetrics *processor.PrometheusMetrics
 
@@ -94,12 +110,11 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 			rlyErrCh := relayer.StartRelayer(
 				cmd.Context(),
 				a.Log,
-				c[src], c[dst],
-				filter,
+				chains,
+				paths,
 				maxTxSize, maxMsgLength,
 				a.Config.memo(cmd),
 				processorType, initialBlockHistory,
-				pathName,
 				prometheusMetrics,
 			)
 
