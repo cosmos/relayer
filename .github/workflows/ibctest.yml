@@ -49,3 +49,24 @@ jobs:
 
       - name: ibctest
         run: make ibctest-docker-legacy
+  multiple-paths:
+    runs-on: self-hosted
+    steps:
+      - name: Set up Go 1.18
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.18
+        id: go
+
+      - name: checkout relayer
+        uses: actions/checkout@v2
+
+      - uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: ibctest
+        run: make ibctest-docker-multiple

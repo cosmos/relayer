@@ -1,14 +1,15 @@
 package ibctest_test
 
 import (
+	"context"
 	"testing"
 
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
-	"github.com/strangelove-ventures/ibctest"
-	"github.com/strangelove-ventures/ibctest/conformance"
-	"github.com/strangelove-ventures/ibctest/ibc"
-	ibctestrelayer "github.com/strangelove-ventures/ibctest/relayer"
-	"github.com/strangelove-ventures/ibctest/testreporter"
+	ibctest "github.com/strangelove-ventures/ibctest/v5"
+	"github.com/strangelove-ventures/ibctest/v5/conformance"
+	"github.com/strangelove-ventures/ibctest/v5/ibc"
+	ibctestrelayer "github.com/strangelove-ventures/ibctest/v5/relayer"
+	"github.com/strangelove-ventures/ibctest/v5/testreporter"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -26,6 +27,7 @@ func ibctestConformance(t *testing.T, rf ibctest.RelayerFactory) {
 	})
 	conformance.Test(
 		t,
+		context.Background(),
 		[]ibctest.ChainFactory{cf},
 		[]ibctest.RelayerFactory{rf},
 		testreporter.NewNopReporter(),
@@ -49,7 +51,7 @@ func TestRelayerDockerEventProcessor(t *testing.T) {
 	rf := ibctest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest"),
+		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest", "100:1000"),
 		ibctestrelayer.ImagePull(false),
 		ibctestrelayer.StartupFlags("--processor", "events", "--block-history", "100"),
 	)
@@ -67,7 +69,7 @@ func TestRelayerDockerLegacyProcessor(t *testing.T) {
 	rf := ibctest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest"),
+		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest", "100:1000"),
 		ibctestrelayer.ImagePull(false),
 		ibctestrelayer.StartupFlags("--processor", "legacy"),
 	)
