@@ -1,14 +1,15 @@
 package ibctest_test
 
 import (
+	"context"
 	"testing"
 
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
-	"github.com/strangelove-ventures/ibctest"
-	"github.com/strangelove-ventures/ibctest/conformance"
-	"github.com/strangelove-ventures/ibctest/ibc"
-	ibctestrelayer "github.com/strangelove-ventures/ibctest/relayer"
-	"github.com/strangelove-ventures/ibctest/testreporter"
+	ibctest "github.com/strangelove-ventures/ibctest/v3"
+	"github.com/strangelove-ventures/ibctest/v3/conformance"
+	"github.com/strangelove-ventures/ibctest/v3/ibc"
+	ibctestrelayer "github.com/strangelove-ventures/ibctest/v3/relayer"
+	"github.com/strangelove-ventures/ibctest/v3/testreporter"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -26,6 +27,7 @@ func ibctestConformance(t *testing.T, rf ibctest.RelayerFactory) {
 	})
 	conformance.Test(
 		t,
+		context.Background(),
 		[]ibctest.ChainFactory{cf},
 		[]ibctest.RelayerFactory{rf},
 		testreporter.NewNopReporter(),

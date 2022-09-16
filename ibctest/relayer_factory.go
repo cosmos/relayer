@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/docker/docker/client"
-	"github.com/strangelove-ventures/ibctest/ibc"
-	"github.com/strangelove-ventures/ibctest/label"
-	ibctestrelayer "github.com/strangelove-ventures/ibctest/relayer"
+	"github.com/strangelove-ventures/ibctest/v3/ibc"
+	"github.com/strangelove-ventures/ibctest/v3/label"
+	ibctestrelayer "github.com/strangelove-ventures/ibctest/v3/relayer"
 	"go.uber.org/zap/zaptest"
 )
 

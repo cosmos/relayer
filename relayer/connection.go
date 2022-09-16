@@ -26,15 +26,6 @@ func (c *Chain) CreateOpenConnections(
 		return "", "", err
 	}
 
-	srcpathChain := pathChain{
-		provider: c.ChainProvider,
-		pathEnd:  processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
-	}
-	dstpathChain := pathChain{
-		provider: dst.ChainProvider,
-		pathEnd:  processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
-	}
-
 	// Timeout is per message. Four connection handshake messages, allowing maxRetries for each.
 	processorTimeout := timeout * 4 * time.Duration(maxRetries)
 
@@ -43,8 +34,8 @@ func (c *Chain) CreateOpenConnections(
 
 	pp := processor.NewPathProcessor(
 		c.log,
-		srcpathChain.pathEnd,
-		dstpathChain.pathEnd,
+		processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
+		processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
 		nil,
 		memo,
 	)
@@ -67,8 +58,8 @@ func (c *Chain) CreateOpenConnections(
 
 	return connectionSrc, connectionDst, processor.NewEventProcessor().
 		WithChainProcessors(
-			srcpathChain.chainProcessor(c.log, nil),
-			dstpathChain.chainProcessor(c.log, nil),
+			c.chainProcessor(c.log, nil),
+			dst.chainProcessor(c.log, nil),
 		).
 		WithPathProcessors(pp).
 		WithInitialBlockHistory(initialBlockHistory).
