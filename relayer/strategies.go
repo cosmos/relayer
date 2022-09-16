@@ -72,7 +72,7 @@ func StartRelayer(
 		return errorChan
 	case ProcessorLegacy:
 		if len(paths) != 1 {
-			panic(fmt.Errorf("only one path supported for legacy processor. pass `-p events` for multiple paths"))
+			panic(errors.New("only one path supported for legacy processor"))
 		}
 		p := paths[0].Path
 		src, dst := chains[p.Src.ChainID], chains[p.Dst.ChainID]

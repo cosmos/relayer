@@ -29,7 +29,6 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 		zaptest.NewLogger(t),
 		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest", "100:1000"),
 		ibctestrelayer.ImagePull(false),
-		ibctestrelayer.StartupFlags("-p", "events"),
 	).Build(t, client, network)
 
 	rep := testreporter.NewNopReporter()

@@ -293,7 +293,7 @@ func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func processorFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagProcessor, "p", relayer.ProcessorLegacy, "which relayer processor to use")
+	cmd.Flags().StringP(flagProcessor, "p", relayer.ProcessorEvents, "which relayer processor to use")
 	if err := v.BindPFlag(flagProcessor, cmd.Flags().Lookup(flagProcessor)); err != nil {
 		panic(err)
 	}
