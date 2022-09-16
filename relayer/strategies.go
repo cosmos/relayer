@@ -75,7 +75,10 @@ func StartRelayer(
 			panic(fmt.Errorf("only one path supported for legacy processor. pass `-p events` for multiple paths"))
 		}
 		p := paths[0].Path
-		go relayerMainLoop(ctx, log, chains[p.Src.ChainID], chains[p.Dst.ChainID], p.Filter, maxTxSize, maxMsgLength, memo, errorChan)
+		src, dst := chains[p.Src.ChainID], chains[p.Dst.ChainID]
+		src.PathEnd = p.Src
+		dst.PathEnd = p.Dst
+		go relayerStartLegacy(ctx, log, src, dst, p.Filter, maxTxSize, maxMsgLength, memo, errorChan)
 		return errorChan
 	default:
 		panic(fmt.Errorf("unexpected processor type: %s, supports one of: [%s, %s]", processorType, ProcessorEvents, ProcessorLegacy))
@@ -135,8 +138,8 @@ func relayerStartEventProcessor(
 	errCh <- ep.Run(ctx)
 }
 
-// relayerMainLoop is the main loop of the relayer.
-func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64, memo string, errCh chan<- error) {
+// relayerStartLegacy is the main loop of the relayer.
+func relayerStartLegacy(ctx context.Context, log *zap.Logger, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64, memo string, errCh chan<- error) {
 	defer close(errCh)
 
 	// Query the list of channels on the src connection.
