@@ -740,7 +740,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	orderedChannelsHandled := make(map[ChannelKey]bool, 0)
 
 	for i, msg := range messages.packetMessages {
-		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
+		if msg.eventType == chantypes.EventTypeRecvPacket && msg.info.ChannelOrder == chantypes.ORDERED.String() {
 			// only send at most 1 packet for an ordered channel
 			// and only the one with the minimum sequence.
 			ck := packetInfoChannelKey(msg.info)

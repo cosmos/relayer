@@ -356,8 +356,8 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	}
 	isOrderedChannel := message.info.ChannelOrder == chantypes.ORDERED.String()
 	inProgress, ok := channelProcessingCache[sequence]
-	if !ok && (!isOrderedChannel || len(channelProcessingCache) == 0) {
-		// only proceed for ordered channels if there are no other packets being processed currently on the channel.
+	if !ok && (eventType != chantypes.EventTypeRecvPacket || !isOrderedChannel || len(channelProcessingCache) == 0) {
+		// only proceed for ordered channel receive packet messages if there are no other packets being processed currently on the channel.
 		// for non-ordered channels, in progress cache does not exist for this sequence, so can send.
 		return true
 	}
