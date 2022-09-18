@@ -737,9 +737,28 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		return messages.packetMessages[i].info.Sequence < messages.packetMessages[j].info.Sequence
 	})
 
+	orderedChannelsHandled := make(map[ChannelKey]bool, 0)
+
 	for i, msg := range messages.packetMessages {
-		wg.Add(1)
-		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
+			// only send at most 1 packet for an ordered channel
+			// and only the one with the minimum sequence.
+			ck := packetInfoChannelKey(msg.info)
+			if _, ok := orderedChannelsHandled[ck]; !ok {
+				orderedChannelsHandled[ck] = true
+				wg.Add(1)
+				go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+			} else {
+				om.pktMsgs[i] = packetMessageToTrack{
+					msg:                         msg,
+					assembled:                   false,
+					waitingForPreviousSequences: true,
+				}
+			}
+		} else {
+			wg.Add(1)
+			go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+		}
 	}
 
 	for i, msg := range messages.connectionMessages {
@@ -765,7 +784,9 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	}
 
 	for _, m := range om.pktMsgs {
-		dst.trackProcessingPacketMessage(m)
+		if !m.waitingForPreviousSequences {
+			dst.trackProcessingPacketMessage(m)
+		}
 	}
 	for _, m := range om.connMsgs {
 		dst.trackProcessingConnectionMessage(m)
