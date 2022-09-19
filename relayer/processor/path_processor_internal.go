@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 
 	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
@@ -39,6 +40,8 @@ func (pp *PathProcessor) getUnrelayedPacketsAndAcksAndToDelete(ctx context.Conte
 		ToDeleteDst:        make(map[string][]uint64),
 		ToDeleteDstChannel: make(map[string][]ChannelKey),
 	}
+
+	dstRecvPacketMsgs := make([]packetIBCMessage, 0)
 
 MsgTransferLoop:
 	for transferSeq, msgTransfer := range pathEndPacketFlowMessages.SrcMsgTransfer {
@@ -148,8 +151,26 @@ MsgTransferLoop:
 			eventType: chantypes.EventTypeRecvPacket,
 			info:      msgTransfer,
 		}
-		if pathEndPacketFlowMessages.Dst.shouldSendPacketMessage(recvPacketMsg, pathEndPacketFlowMessages.Src) {
-			res.DstMessages = append(res.DstMessages, recvPacketMsg)
+		dstRecvPacketMsgs = append(dstRecvPacketMsgs, recvPacketMsg)
+	}
+
+	if len(dstRecvPacketMsgs) > 0 {
+		sort.SliceStable(dstRecvPacketMsgs, func(i, j int) bool {
+			return dstRecvPacketMsgs[i].info.Sequence < dstRecvPacketMsgs[j].info.Sequence
+		})
+		firstMsg := dstRecvPacketMsgs[0]
+		if firstMsg.info.ChannelOrder == chantypes.ORDERED.String() {
+			// for recv packet messages on ordered channels, only handle the lowest sequence number now.
+			if pathEndPacketFlowMessages.Dst.shouldSendPacketMessage(firstMsg, pathEndPacketFlowMessages.Src) {
+				res.DstMessages = append(res.DstMessages, firstMsg)
+			}
+		} else {
+			// for unordered channels, can handle multiple simultaneous packets.
+			for _, msg := range dstRecvPacketMsgs {
+				if pathEndPacketFlowMessages.Dst.shouldSendPacketMessage(msg, pathEndPacketFlowMessages.Src) {
+					res.DstMessages = append(res.DstMessages, msg)
+				}
+			}
 		}
 	}
 
@@ -657,7 +678,6 @@ func (pp *PathProcessor) assembleMessage(
 		return
 	}
 	om.Append(message)
-
 }
 
 func (pp *PathProcessor) assembleAndSendMessages(
