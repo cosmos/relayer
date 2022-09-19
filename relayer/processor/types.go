@@ -266,12 +266,10 @@ func (c PacketMessagesCache) DeleteMessages(toDelete ...map[string][]uint64) {
 // Merge merges another ChannelPacketMessagesCache into this one.
 func (c ChannelPacketMessagesCache) Merge(other ChannelPacketMessagesCache) {
 	for channelKey, messageCache := range other {
-		_, ok := c[channelKey]
-		if !ok {
-			c[channelKey] = messageCache
-		} else {
-			c[channelKey].Merge(messageCache)
+		if _, ok := c[channelKey]; !ok {
+			c[channelKey] = make(PacketMessagesCache)
 		}
+		c[channelKey].Merge(messageCache)
 	}
 }
 
@@ -313,12 +311,10 @@ func (c ChannelPacketMessagesCache) Retain(k ChannelKey, m string, pi provider.P
 // Merge merges another PacketMessagesCache into this one.
 func (c PacketMessagesCache) Merge(other PacketMessagesCache) {
 	for ibcMessage, messageCache := range other {
-		_, ok := c[ibcMessage]
-		if !ok {
-			c[ibcMessage] = messageCache
-		} else {
-			c[ibcMessage].Merge(messageCache)
+		if _, ok := c[ibcMessage]; !ok {
+			c[ibcMessage] = make(PacketSequenceCache)
 		}
+		c[ibcMessage].Merge(messageCache)
 	}
 }
 
@@ -332,12 +328,10 @@ func (c PacketSequenceCache) Merge(other PacketSequenceCache) {
 // Merge merges another ConnectionMessagesCache into this one.
 func (c ConnectionMessagesCache) Merge(other ConnectionMessagesCache) {
 	for ibcMessage, messageCache := range other {
-		_, ok := c[ibcMessage]
-		if !ok {
-			c[ibcMessage] = messageCache
-		} else {
-			c[ibcMessage].Merge(messageCache)
+		if _, ok := c[ibcMessage]; !ok {
+			c[ibcMessage] = make(ConnectionMessageCache)
 		}
+		c[ibcMessage].Merge(messageCache)
 	}
 }
 
@@ -369,12 +363,10 @@ func (c ConnectionMessageCache) Merge(other ConnectionMessageCache) {
 // Merge merges another ChannelMessagesCache into this one.
 func (c ChannelMessagesCache) Merge(other ChannelMessagesCache) {
 	for ibcMessage, messageCache := range other {
-		_, ok := c[ibcMessage]
-		if !ok {
-			c[ibcMessage] = messageCache
-		} else {
-			c[ibcMessage].Merge(messageCache)
+		if _, ok := c[ibcMessage]; !ok {
+			c[ibcMessage] = make(ChannelMessageCache)
 		}
+		c[ibcMessage].Merge(messageCache)
 	}
 }
 
