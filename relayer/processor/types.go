@@ -77,6 +77,15 @@ type IBCMessagesCache struct {
 	ChannelHandshake    ChannelMessagesCache
 }
 
+// Clone makes a deep copy of an IBCMessagesCache.
+func (c IBCMessagesCache) Clone() IBCMessagesCache {
+	x := NewIBCMessagesCache()
+	x.PacketFlow.Merge(c.PacketFlow)
+	x.ConnectionHandshake.Merge(c.ConnectionHandshake)
+	x.ChannelHandshake.Merge(c.ChannelHandshake)
+	return x
+}
+
 // NewIBCMessagesCache returns an empty IBCMessagesCache.
 func NewIBCMessagesCache() IBCMessagesCache {
 	return IBCMessagesCache{
@@ -396,6 +405,13 @@ func (c ChannelMessageCache) Merge(other ChannelMessageCache) {
 
 // IBCHeaderCache holds a mapping of IBCHeaders for their block height.
 type IBCHeaderCache map[uint64]provider.IBCHeader
+
+// Clone makes a deep copy of an IBCHeaderCache.
+func (c IBCHeaderCache) Clone() IBCHeaderCache {
+	x := make(IBCHeaderCache)
+	x.Merge(c)
+	return x
+}
 
 // Merge merges another IBCHeaderCache into this one.
 func (c IBCHeaderCache) Merge(other IBCHeaderCache) {
