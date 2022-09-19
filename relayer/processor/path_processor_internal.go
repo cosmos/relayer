@@ -41,6 +41,8 @@ func (pp *PathProcessor) getUnrelayedPacketsAndAcksAndToDelete(ctx context.Conte
 		ToDeleteDstChannel: make(map[string][]ChannelKey),
 	}
 
+	dstRecvPacketMsgs := make([]packetIBCMessage, 0)
+
 MsgTransferLoop:
 	for transferSeq, msgTransfer := range pathEndPacketFlowMessages.SrcMsgTransfer {
 		for ackSeq := range pathEndPacketFlowMessages.SrcMsgAcknowledgement {
@@ -149,8 +151,26 @@ MsgTransferLoop:
 			eventType: chantypes.EventTypeRecvPacket,
 			info:      msgTransfer,
 		}
-		if pathEndPacketFlowMessages.Dst.shouldSendPacketMessage(recvPacketMsg, pathEndPacketFlowMessages.Src) {
-			res.DstMessages = append(res.DstMessages, recvPacketMsg)
+		dstRecvPacketMsgs = append(dstRecvPacketMsgs, recvPacketMsg)
+	}
+
+	if len(dstRecvPacketMsgs) > 0 {
+		sort.SliceStable(dstRecvPacketMsgs, func(i, j int) bool {
+			return dstRecvPacketMsgs[i].info.Sequence < dstRecvPacketMsgs[j].info.Sequence
+		})
+		firstMsg := dstRecvPacketMsgs[0]
+		if firstMsg.info.ChannelOrder == chantypes.ORDERED.String() {
+			// for recv packet messages on ordered channels, only handle the lowest sequence number now.
+			if pathEndPacketFlowMessages.Dst.shouldSendPacketMessage(firstMsg, pathEndPacketFlowMessages.Src) {
+				res.DstMessages = append(res.DstMessages, firstMsg)
+			}
+		} else {
+			// for unordered channels, can handle multiple simultaneous packets.
+			for _, msg := range dstRecvPacketMsgs {
+				if pathEndPacketFlowMessages.Dst.shouldSendPacketMessage(msg, pathEndPacketFlowMessages.Src) {
+					res.DstMessages = append(res.DstMessages, msg)
+				}
+			}
 		}
 	}
 
@@ -733,32 +753,9 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	// Each assembleMessage call below will make a query on the source chain, so these operations can run in parallel.
 	var wg sync.WaitGroup
 
-	sort.SliceStable(messages.packetMessages, func(i, j int) bool {
-		return messages.packetMessages[i].info.Sequence < messages.packetMessages[j].info.Sequence
-	})
-
-	orderedChannelsHandled := make(map[ChannelKey]bool, 0)
-
 	for i, msg := range messages.packetMessages {
-		if msg.eventType == chantypes.EventTypeRecvPacket && msg.info.ChannelOrder == chantypes.ORDERED.String() {
-			// only send at most 1 packet for an ordered channel
-			// and only the one with the minimum sequence.
-			ck := packetInfoChannelKey(msg.info)
-			if _, ok := orderedChannelsHandled[ck]; !ok {
-				orderedChannelsHandled[ck] = true
-				wg.Add(1)
-				go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
-			} else {
-				om.pktMsgs[i] = packetMessageToTrack{
-					msg:                         msg,
-					assembled:                   false,
-					waitingForPreviousSequences: true,
-				}
-			}
-		} else {
-			wg.Add(1)
-			go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
-		}
+		wg.Add(1)
+		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
 	}
 
 	for i, msg := range messages.connectionMessages {
@@ -784,9 +781,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	}
 
 	for _, m := range om.pktMsgs {
-		if !m.waitingForPreviousSequences {
-			dst.trackProcessingPacketMessage(m)
-		}
+		dst.trackProcessingPacketMessage(m)
 	}
 	for _, m := range om.connMsgs {
 		dst.trackProcessingConnectionMessage(m)
