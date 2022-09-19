@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"sync"
 
 	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
@@ -46,6 +47,8 @@ type pathEndRuntime struct {
 
 	metrics *PrometheusMetrics
 }
+
+var pathCacheCoherency sync.Mutex
 
 func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetrics) *pathEndRuntime {
 	return &pathEndRuntime{
@@ -272,6 +275,9 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 }
 
 func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, counterpartyInSync bool, messageLifecycle MessageLifecycle) {
+	pathCacheCoherency.Lock()
+	defer pathCacheCoherency.Unlock()
+
 	pathEnd.inSync = d.InSync
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.latestHeader = d.LatestHeader
