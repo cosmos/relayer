@@ -320,7 +320,6 @@ func (c PacketMessagesCache) Merge(other PacketMessagesCache) {
 		}
 		c[ibcMessage].Merge(messageCache)
 	}
-}
 
 // Merge merges another PacketSequenceCache into this one.
 func (c PacketSequenceCache) Merge(other PacketSequenceCache) {
@@ -337,7 +336,6 @@ func (c ConnectionMessagesCache) Merge(other ConnectionMessagesCache) {
 		}
 		c[ibcMessage].Merge(messageCache)
 	}
-}
 
 // Retain assumes creates cache path if it doesn't exist, then caches message.
 func (c ConnectionMessagesCache) Retain(k ConnectionKey, m string, ibcMsg provider.ConnectionInfo) {
