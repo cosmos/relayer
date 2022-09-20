@@ -398,12 +398,12 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
 			LatestBlock:          ccp.latestBlock,
 			LatestHeader:         latestHeader,
-			IBCMessagesCache:     ibcMessagesCache,
+			IBCMessagesCache:     ibcMessagesCache.Clone(),
 			InSync:               ccp.inSync,
 			ClientState:          clientState,
 			ConnectionStateCache: ccp.connectionStateCache.FilterForClient(clientID),
 			ChannelStateCache:    ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients),
-			IBCHeaderCache:       ibcHeaderCache,
+			IBCHeaderCache:       ibcHeaderCache.Clone(),
 		})
 	}
 
