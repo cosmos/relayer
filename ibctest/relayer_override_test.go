@@ -18,6 +18,10 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
+// TestClientOverrideFlag tests that the --override flag is being respected when attempting to create new light clients.
+// If the override flag is not present, the relayer should attempt to look for an existing light client if there
+// is a client-id present in the relative path config. If the override flag is present, the relayer should always
+// attempt to create a new light client and then overwrite the config file if successful.
 func TestClientOverrideFlag(t *testing.T) {
 	relayeribctest.BuildRelayerImage(t)
 
