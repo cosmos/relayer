@@ -1474,6 +1474,8 @@ github.com/strangelove-ventures/ibctest/v5 v5.0.0-20220916035922-bf1eb3ad8c6e h1
 github.com/strangelove-ventures/ibctest/v5 v5.0.0-20220916035922-bf1eb3ad8c6e/go.mod h1:C284t8FhFrldr1BfQHDLsAMMzAWczTgeruePi7M6TmA=
 github.com/strangelove-ventures/ibctest/v5 v5.0.0-20220916051004-abcda680ee7d h1:9f67V5dmwBcbQGZ7z5jmhjxPGkcGUJ6wmwHvXBgzK04=
 github.com/strangelove-ventures/ibctest/v5 v5.0.0-20220916051004-abcda680ee7d/go.mod h1:C284t8FhFrldr1BfQHDLsAMMzAWczTgeruePi7M6TmA=
+github.com/strangelove-ventures/ibctest/v5 v5.0.0-20220919160614-77d0523e3378 h1:xlSrlegNKmohCgDUdsXsCU2NZkQbl+/DNOjTcG5eVII=
+github.com/strangelove-ventures/ibctest/v5 v5.0.0-20220919160614-77d0523e3378/go.mod h1:C284t8FhFrldr1BfQHDLsAMMzAWczTgeruePi7M6TmA=
 github.com/strangelove-ventures/lens v0.5.2-0.20220822201013-1e7ffd450f20 h1:nYM1gFMJHbV3aYdiNCCS5jfBe/uMkORHwg8DSWZ5MRA=
 github.com/strangelove-ventures/lens v0.5.2-0.20220822201013-1e7ffd450f20/go.mod h1:qrmVarKca7XLvuTEkR9jO50FrOprxQxukbmB7fpVrVo=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
