@@ -1155,7 +1155,9 @@ func (cc *CosmosProvider) UpdateFeesSpent(chain, key string, fees sdk.Coins) {
 		return
 	}
 
+	cc.totalFeesMu.Lock()
 	cc.TotalFees = cc.TotalFees.Add(fees...)
+	cc.totalFeesMu.Unlock()
 
 	for _, fee := range cc.TotalFees {
 		// Convert to a big float to get a float64 for metrics

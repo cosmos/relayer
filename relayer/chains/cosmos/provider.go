@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-        "sync"
+	"sync"
 	"time"
 
 	"github.com/Stride-Labs/stride/x/interchainquery"
@@ -107,8 +107,10 @@ type CosmosProvider struct {
 	txMu           sync.Mutex
 
 	// metrics to monitor the provider
-	TotalFees sdk.Coins
-	metrics   *processor.PrometheusMetrics
+	TotalFees   sdk.Coins
+	totalFeesMu sync.Mutex
+
+	metrics *processor.PrometheusMetrics
 }
 
 type CosmosIBCHeader struct {

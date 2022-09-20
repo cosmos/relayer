@@ -41,12 +41,11 @@ func TestRelayerInProcess(t *testing.T) {
 	ibctestConformance(t, relayeribctest.RelayerFactory{})
 }
 
-// TestRelayerDocker runs the ibctest conformance tests against
+// TestRelayerDockerEventProcessor runs the ibctest conformance tests against
 // the current state of this relayer implementation built in docker.
 // Relayer runs using the event processor.
 func TestRelayerDockerEventProcessor(t *testing.T) {
 	t.Parallel()
-	relayeribctest.BuildRelayerImage(t)
 
 	rf := ibctest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
@@ -59,7 +58,7 @@ func TestRelayerDockerEventProcessor(t *testing.T) {
 	ibctestConformance(t, rf)
 }
 
-// TestRelayerDocker runs the ibctest conformance tests against
+// TestRelayerDockerLegacyProcessor runs the ibctest conformance tests against
 // the current state of this relayer implementation built in docker.
 // Relayer runs using the legacy processor.
 func TestRelayerDockerLegacyProcessor(t *testing.T) {
@@ -75,4 +74,27 @@ func TestRelayerDockerLegacyProcessor(t *testing.T) {
 	)
 
 	ibctestConformance(t, rf)
+}
+
+// TestRelayerEventProcessor runs the ibctest conformance tests against
+// the local relayer code. This is helpful for detecting race conditions.
+// Relayer runs using the event processor.
+func TestRelayerEventProcessor(t *testing.T) {
+	t.Parallel()
+
+	ibctestConformance(t, relayeribctest.NewRelayerFactory(relayeribctest.RelayerConfig{
+		Processor:           relayer.ProcessorEvents,
+		InitialBlockHistory: 100,
+	}))
+}
+
+// TestRelayerLegacyProcessor runs the ibctest conformance tests against
+// the local relayer code. This is helpful for detecting race conditions.
+// Relayer runs using the legacy processor.
+func TestRelayerLegacyProcessor(t *testing.T) {
+	t.Parallel()
+
+	ibctestConformance(t, relayeribctest.NewRelayerFactory(relayeribctest.RelayerConfig{
+		Processor: relayer.ProcessorLegacy,
+	}))
 }
