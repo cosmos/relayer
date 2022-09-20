@@ -42,7 +42,7 @@ func NewRelayer(
 
 	res := r.sys().Run(zaptest.NewLogger(t), "config", "init", "--memo", config.Memo)
 	if res.Err != nil {
-		panic(fmt.Errorf("failed to rly config init: %w", res.Err))
+		t.Fatalf("failed to rly config init: %w", res.Err)
 	}
 
 	return r
@@ -220,16 +220,14 @@ func (r *Relayer) StartRelayer(ctx context.Context, _ ibc.RelayerExecReporter, p
 	r.errCh = make(chan error, 1)
 	ctx, r.cancel = context.WithCancel(ctx)
 
-	var args []string
 	if r.config.Processor == "" {
 		r.config.Processor = relayer.ProcessorEvents
 	}
-	args = append(args,
+	args := append([]string{
 		"--processor", r.config.Processor,
 		"--block-history", strconv.FormatUint(r.config.InitialBlockHistory, 10),
-	)
+	}, pathNames...)
 
-	args = append(args, pathNames...)
 	go r.start(ctx, args...)
 	return nil
 }
