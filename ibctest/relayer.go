@@ -42,7 +42,7 @@ func NewRelayer(
 
 	res := r.sys().Run(zaptest.NewLogger(t), "config", "init", "--memo", config.Memo)
 	if res.Err != nil {
-		t.Fatalf("failed to rly config init: %w", res.Err)
+		t.Fatalf("failed to rly config init: %v", res.Err)
 	}
 
 	return r
