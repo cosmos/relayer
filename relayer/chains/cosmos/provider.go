@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -99,8 +100,10 @@ type CosmosProvider struct {
 	PCfg CosmosProviderConfig
 
 	// metrics to monitor the provider
-	TotalFees sdk.Coins
-	metrics   *processor.PrometheusMetrics
+	TotalFees   sdk.Coins
+	totalFeesMu sync.Mutex
+
+	metrics *processor.PrometheusMetrics
 }
 
 type CosmosIBCHeader struct {
