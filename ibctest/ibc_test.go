@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
+	"github.com/cosmos/relayer/v2/relayer"
 	ibctest "github.com/strangelove-ventures/ibctest/v5"
 	"github.com/strangelove-ventures/ibctest/v5/conformance"
 	"github.com/strangelove-ventures/ibctest/v5/ibc"
@@ -41,12 +42,11 @@ func TestRelayerInProcess(t *testing.T) {
 	ibctestConformance(t, relayeribctest.RelayerFactory{})
 }
 
-// TestRelayerDocker runs the ibctest conformance tests against
+// TestRelayerDockerEventProcessor runs the ibctest conformance tests against
 // the current state of this relayer implementation built in docker.
 // Relayer runs using the event processor.
 func TestRelayerDockerEventProcessor(t *testing.T) {
 	t.Parallel()
-	relayeribctest.BuildRelayerImage(t)
 
 	rf := ibctest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
@@ -59,7 +59,7 @@ func TestRelayerDockerEventProcessor(t *testing.T) {
 	ibctestConformance(t, rf)
 }
 
-// TestRelayerDocker runs the ibctest conformance tests against
+// TestRelayerDockerLegacyProcessor runs the ibctest conformance tests against
 // the current state of this relayer implementation built in docker.
 // Relayer runs using the legacy processor.
 func TestRelayerDockerLegacyProcessor(t *testing.T) {
@@ -72,6 +72,38 @@ func TestRelayerDockerLegacyProcessor(t *testing.T) {
 		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest", "100:1000"),
 		ibctestrelayer.ImagePull(false),
 		ibctestrelayer.StartupFlags("--processor", "legacy"),
+	)
+
+	ibctestConformance(t, rf)
+}
+
+// TestRelayerEventProcessor runs the ibctest conformance tests against
+// the local relayer code. This is helpful for detecting race conditions.
+// Relayer runs using the event processor.
+func TestRelayerEventProcessor(t *testing.T) {
+	t.Parallel()
+
+	rf := relayeribctest.NewLocalRelayerFactory(
+		zaptest.NewLogger(t),
+		relayeribctest.LocalRelayerConfig{
+			Processor: relayer.ProcessorEvents,
+		},
+	)
+
+	ibctestConformance(t, rf)
+}
+
+// TestRelayerLegacyProcessor runs the ibctest conformance tests against
+// the local relayer code. This is helpful for detecting race conditions.
+// Relayer runs using the legacy processor.
+func TestRelayerLegacyProcessor(t *testing.T) {
+	t.Parallel()
+
+	rf := relayeribctest.NewLocalRelayerFactory(
+		zaptest.NewLogger(t),
+		relayeribctest.LocalRelayerConfig{
+			Processor: relayer.ProcessorLegacy,
+		},
 	)
 
 	ibctestConformance(t, rf)

@@ -1086,6 +1086,8 @@ func (cc *CosmosProvider) NewClientState(
 
 func (cc *CosmosProvider) UpdateFeesSpent(chain, key string, fees sdk.Coins) {
 	// Don't set the metrics in testing
+	cc.metricsMu.Lock()
+	defer cc.metricsMu.Unlock()
 	if cc.metrics == nil {
 		return
 	}

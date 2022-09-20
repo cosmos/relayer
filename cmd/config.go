@@ -153,7 +153,7 @@ $ %s cfg i`, appName, defaultHome, appName)),
 				memo, _ := cmd.Flags().GetString(flagMemo)
 
 				// And write the default config to that location...
-				if _, err = f.Write(defaultConfig(memo)); err != nil {
+				if _, err = f.Write(defaultConfigYAML(memo)); err != nil {
 					return err
 				}
 
@@ -432,12 +432,16 @@ func (c Config) MustYAML() []byte {
 	return out
 }
 
-func defaultConfig(memo string) []byte {
-	return Config{
+func defaultConfigYAML(memo string) []byte {
+	return DefaultConfig(memo).MustYAML()
+}
+
+func DefaultConfig(memo string) *Config {
+	return &Config{
 		Global: newDefaultGlobalConfig(memo),
-		Chains: relayer.Chains{},
-		Paths:  relayer.Paths{},
-	}.MustYAML()
+		Chains: make(relayer.Chains),
+		Paths:  make(relayer.Paths),
+	}
 }
 
 // GlobalConfig describes any global relayer settings

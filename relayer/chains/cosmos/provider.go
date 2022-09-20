@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -101,6 +102,7 @@ type CosmosProvider struct {
 	// metrics to monitor the provider
 	TotalFees sdk.Coins
 	metrics   *processor.PrometheusMetrics
+	metricsMu sync.Mutex
 }
 
 type CosmosIBCHeader struct {
@@ -245,5 +247,7 @@ func (cc *CosmosProvider) BlockTime(ctx context.Context, height int64) (time.Tim
 }
 
 func (cc *CosmosProvider) SetMetrics(m *processor.PrometheusMetrics) {
+	cc.metricsMu.Lock()
+	defer cc.metricsMu.Unlock()
 	cc.metrics = m
 }

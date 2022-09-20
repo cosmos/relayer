@@ -27,7 +27,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: ibctest
-        run: make ibctest-docker-events
+        run: make ibctest-events
   legacy:
     runs-on: self-hosted
     steps:
@@ -48,7 +48,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: ibctest
-        run: make ibctest-docker-legacy
+        run: make ibctest-legacy
   multiple-paths:
     runs-on: self-hosted
     steps:
@@ -69,4 +69,4 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: ibctest
-        run: make ibctest-docker-multiple
+        run: make ibctest-multiple
