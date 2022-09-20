@@ -101,12 +101,12 @@ func CreateClient(
 	override bool,
 	customClientTrustingPeriod time.Duration,
 	memo string) (string, error) {
-	// If a client ID was specified in the path, ensure it exists.
-	if src.PathEnd.ClientID != "" {
+	// If a client ID was specified in the path and override is not set, ensure the client exists.
+	if !override && src.PathEnd.ClientID != "" {
 		// TODO: check client is not expired
 		_, err := src.ChainProvider.QueryClientStateResponse(ctx, int64(srcUpdateHeader.Height()), src.ClientID())
 		if err != nil {
-			return "", fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
+			return "", fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %w",
 				src.PathEnd.ClientID, src.ChainID(), err)
 		}
 
@@ -116,7 +116,6 @@ func CreateClient(
 	// Otherwise, create client for the destination chain on the source chain.
 
 	// Query the trusting period for dst and retry if the query fails
-	// var tp time.Duration
 	tp := customClientTrustingPeriod
 	if tp == 0 {
 		if err := retry.Do(func() error {
@@ -195,7 +194,6 @@ func CreateClient(
 	// the dst chains implementation of CreateClient, to ensure the proper client/header
 	// logic is executed, but the message gets submitted on the src chain which means
 	// we need to sign with the address from src.
-
 	createMsg, err := src.ChainProvider.MsgCreateClient(clientState, dstUpdateHeader.ConsensusState())
 	if err != nil {
 		return "", fmt.Errorf("failed to compose CreateClient msg for chain{%s} tracking the state of chain{%s}: %w",
