@@ -7,8 +7,8 @@ require (
 	github.com/ChainSafe/chaindb v0.1.5-0.20220322154826-c0d431995732
 	github.com/ChainSafe/gossamer v0.6.1-0.20220406182257-98400b30ca00
 	github.com/ComposableFi/go-merkle-trees v0.0.0-20220505132313-e976260288cc
-	github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220820010439-71c9d526f2f5
-		github.com/ComposableFi/ics11-beefy v0.0.0-20220903212826-f6dc0720b787
+	github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220920084912-1395042133a0
+	github.com/ComposableFi/ics11-beefy v0.0.0-20220915123708-0965f4b89a73
 	github.com/avast/retry-go/v4 v4.1.0
 	github.com/cosmos/cosmos-sdk v0.46.0
 	github.com/cosmos/go-bip39 v1.0.0
@@ -26,7 +26,7 @@ require (
 	github.com/stretchr/testify v1.8.0
 	github.com/tendermint/tendermint v0.34.20
 	go.uber.org/multierr v1.8.0
-	go.uber.org/zap v1.21.0
+	go.uber.org/zap v1.22.0
 	golang.org/x/crypto v0.0.0-20220817201139-bc19a97f63c8
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
 	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467
@@ -158,7 +158,6 @@ require (
 	go.etcd.io/bbolt v1.3.6 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 	golang.org/x/net v0.0.0-20220726230323-06994584191e // indirect
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect
 	golang.org/x/sys v0.0.0-20220818161305-2296e01440c6 // indirect
@@ -179,4 +178,3 @@ require (
 replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
 replace github.com/ChainSafe/go-schnorrkel v1.0.0 => github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d
-

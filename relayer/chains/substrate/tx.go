@@ -39,7 +39,7 @@ func (sp *SubstrateProvider) NewClientState(
 		return nil, err
 	}
 
-	cs, err := clientState(sp.RelayerRPCClient, commitment)
+	cs, err := sp.clientState(sp.RelayerRPCClient, commitment)
 	if err != nil {
 		return nil, err
 	}
