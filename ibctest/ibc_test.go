@@ -83,14 +83,10 @@ func TestRelayerDockerLegacyProcessor(t *testing.T) {
 func TestRelayerEventProcessor(t *testing.T) {
 	t.Parallel()
 
-	rf := relayeribctest.NewLocalRelayerFactory(
-		zaptest.NewLogger(t),
-		relayeribctest.LocalRelayerConfig{
-			Processor: relayer.ProcessorEvents,
-		},
-	)
-
-	ibctestConformance(t, rf)
+	ibctestConformance(t, relayeribctest.NewRelayerFactory(relayeribctest.RelayerConfig{
+		Processor:           relayer.ProcessorEvents,
+		InitialBlockHistory: 100,
+	}))
 }
 
 // TestRelayerLegacyProcessor runs the ibctest conformance tests against
@@ -99,12 +95,7 @@ func TestRelayerEventProcessor(t *testing.T) {
 func TestRelayerLegacyProcessor(t *testing.T) {
 	t.Parallel()
 
-	rf := relayeribctest.NewLocalRelayerFactory(
-		zaptest.NewLogger(t),
-		relayeribctest.LocalRelayerConfig{
-			Processor: relayer.ProcessorLegacy,
-		},
-	)
-
-	ibctestConformance(t, rf)
+	ibctestConformance(t, relayeribctest.NewRelayerFactory(relayeribctest.RelayerConfig{
+		Processor: relayer.ProcessorLegacy,
+	}))
 }

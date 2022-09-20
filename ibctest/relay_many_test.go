@@ -20,11 +20,7 @@ import (
 // from the same process using the go relayer. A single
 // CosmosChainProcessor (gaia) will feed data to two PathProcessors (gaia-osmosis and gaia-juno).
 func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
-	r := relayeribctest.NewLocalRelayer(
-		zaptest.NewLogger(t),
-		t.TempDir(),
-		relayeribctest.LocalRelayerConfig{},
-	)
+	r := relayeribctest.NewRelayer(t, relayeribctest.RelayerConfig{})
 
 	rep := testreporter.NewNopReporter()
 	eRep := rep.RelayerExecReporter(t)
