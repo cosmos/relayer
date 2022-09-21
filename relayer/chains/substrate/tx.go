@@ -3,8 +3,9 @@ package substrate
 import (
 	"context"
 	"fmt"
-	"github.com/ChainSafe/gossamer/lib/common"
 	"time"
+
+	"github.com/ChainSafe/gossamer/lib/common"
 
 	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
 

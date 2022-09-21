@@ -81,9 +81,11 @@ func tendermintMatcher(ctx context.Context, src, dst ChainProvider, existingClie
 			return "", tmclient.ErrTrustingPeriodExpired
 		}
 
+		fmt.Printf("\nquery ibc header %v \n \n", existingClientState.GetLatestHeight().GetRevisionHeight())
 		// Construct a header for the consensus state of the counterparty chain.
 		ibcHeader, err := dst.QueryIBCHeader(ctx, int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
 		if err != nil {
+			fmt.Printf("error quering header at height %v \n \n", existingClientState.GetLatestHeight().GetRevisionHeight())
 			return "", err
 		}
 
