@@ -3,9 +3,10 @@ package substrate
 import (
 	"context"
 	"fmt"
-	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	"math"
 	"time"
+
+	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
@@ -29,6 +30,7 @@ func (sp *SubstrateProvider) QueryTxs(ctx context.Context, page, limit int, even
 }
 
 func latestParaHeightHeight(paraHeaders []*beefyclienttypes.ParachainHeader) (int64, error) {
+	fmt.Printf("length of parachain headers %v \n", len(paraHeaders))
 	header, err := beefyclienttypes.DecodeParachainHeader(paraHeaders[0].ParachainHeader)
 	if err != nil {
 		return 0, err
@@ -53,35 +55,56 @@ func (sp *SubstrateProvider) QueryLatestHeight(ctx context.Context) (int64, erro
 	if err != nil {
 		return 0, err
 	}
-	
+
+	block, err := sp.RelayerRPCClient.RPC.Chain.GetBlock(signedHash)
+	if err != nil {
+		return 0, err
+	}
+
 	header, err := sp.constructBeefyHeader(signedHash, nil)
 	if err != nil {
 		return 0, err
 	}
 
-	return latestParaHeightHeight(header.HeadersWithProof.Headers)
+	decodedHeader, err := beefyclienttypes.DecodeParachainHeader(header.HeadersWithProof.Headers[0].ParachainHeader)
+	if err != nil {
+		return 0, err
+	}
+
+	paraHeight := int64(decodedHeader.Number)
+	sp.LatestQueriedRelayHeight[paraHeight] = int64(block.Block.Header.Number)
+	return int64(decodedHeader.Number), nil
 }
 
+// QueryIBCHeader returns the result of QueryLatestIBCHeader. It is only applicable when creating clients.
+// QueryIBCHeaderOverBlocks should be used in the chain processor when querying headers to update the client.
 func (sp *SubstrateProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
 	if h <= 0 {
 		return nil, fmt.Errorf("must pass in valid height, %d not valid", h)
 	}
 
-	latestBeefyBlockHash, err := sp.RelayerRPCClient.RPC.Beefy.GetFinalizedHead()
+	latestFinalizedHeight, err := sp.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	latestBeefyHeight, err := sp.RelayerRPCClient.RPC.Chain.GetBlock(latestBeefyBlockHash)
-	if err != nil {
-		return nil, err
+	if h > latestFinalizedHeight {
+		return nil, fmt.Errorf("queried height is not finalized")
 	}
 
-	if h > int64(latestBeefyHeight.Block.Header.Number) {
-		return nil, fmt.Errorf("queried block is not finalized")
+	return sp.QueryLatestIBCHeader(h)
+}
+
+// QueryLatestIBCHeader returns the IBCHeader at the latest finalized relay chain height. It uses the relay chain height
+// which is set in the SubstrateProvider when the QueryLatestHeight method is called.
+func (sp *SubstrateProvider) QueryLatestIBCHeader(queriedParaHeight int64) (provider.IBCHeader, error) {
+	var relayChainHeight uint64
+	if _, ok := sp.LatestQueriedRelayHeight[queriedParaHeight]; !ok {
+		return nil, fmt.Errorf("latest finalized parachain height needs to be queried first")
 	}
 
-	blockHash, err := sp.RelayerRPCClient.RPC.Chain.GetBlockHash(uint64(h))
+	relayChainHeight = uint64(sp.LatestQueriedRelayHeight[queriedParaHeight])
+	blockHash, err := sp.RelayerRPCClient.RPC.Chain.GetBlockHash(relayChainHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -92,9 +115,14 @@ func (sp *SubstrateProvider) QueryIBCHeader(ctx context.Context, h int64) (provi
 	}
 
 	return SubstrateIBCHeader{
-		height:       uint64(h),
+		height:       uint64(header.MMRUpdateProof.SignedCommitment.Commitment.BlockNumber),
 		SignedHeader: header,
 	}, nil
+}
+
+func (sp *SubstrateProvider) QueryIBCHeaderOverBlocks(finalizedHeight, previouslyFinalized int64) (provider.IBCHeader, error) {
+	// TODO
+	return nil, nil
 }
 
 func (sp *SubstrateProvider) QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (provider.PacketInfo, error) {

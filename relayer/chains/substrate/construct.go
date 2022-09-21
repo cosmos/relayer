@@ -60,13 +60,13 @@ func (sp *SubstrateProvider) parachainHeaderKey() ([]byte, error) {
 	return fullKey, nil
 }
 
-func (sp *SubstrateProvider) paraHeadData(conn *rpcclient.SubstrateAPI, blockHash rpcclienttypes.Hash) ([]byte, error) {
+func (sp *SubstrateProvider) paraHeadData(blockHash rpcclienttypes.Hash) ([]byte, error) {
 	paraKey, err := sp.parachainHeaderKey()
 	if err != nil {
 		return nil, err
 	}
 
-	storage, err := conn.RPC.State.GetStorageRaw(paraKey, blockHash)
+	storage, err := sp.RelayerRPCClient.RPC.State.GetStorageRaw(paraKey, blockHash)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func (sp *SubstrateProvider) clientState(
 		return nil, err
 	}
 
-	headData, err := sp.paraHeadData(conn, blockHash)
+	headData, err := sp.paraHeadData(blockHash)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +256,6 @@ func getLeafIndexForBlockNumber(beefyActivationBlock, blockNumber uint32) uint32
 // headers might not make it into every relay chain block. Map<BlockNumber, Map<ParaId, Header>>
 // It also returns the leaf indeces of those blocks
 func (sp *SubstrateProvider) getFinalizedBlocks(
-	conn *rpcclient.SubstrateAPI,
 	blockHash rpcclienttypes.Hash,
 	previouslyFinalizedBlockHash *rpcclienttypes.Hash,
 ) (map[uint32]map[uint32][]byte, []uint64, error) {
@@ -265,7 +264,7 @@ func (sp *SubstrateProvider) getFinalizedBlocks(
 
 	if previouslyFinalizedBlockHash == nil {
 		var heads = make(map[uint32][]byte)
-		headData, err := sp.paraHeadData(conn, blockHash)
+		headData, err := sp.paraHeadData(blockHash)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -282,18 +281,18 @@ func (sp *SubstrateProvider) getFinalizedBlocks(
 		return finalizedBlocks, leafIndeces, nil
 	}
 
-	paraHeaderKeys, err := parachainHeaderKeys(conn, blockHash)
+	paraHeaderKeys, err := parachainHeaderKeys(sp.RelayerRPCClient, blockHash)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	changeSet, err := conn.RPC.State.QueryStorage(paraHeaderKeys, *previouslyFinalizedBlockHash, blockHash)
+	changeSet, err := sp.RelayerRPCClient.RPC.State.QueryStorage(paraHeaderKeys, *previouslyFinalizedBlockHash, blockHash)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	for _, changes := range changeSet {
-		header, err := conn.RPC.Chain.GetHeader(changes.Block)
+		header, err := sp.RelayerRPCClient.RPC.Chain.GetHeader(changes.Block)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -359,7 +358,7 @@ func (sp *SubstrateProvider) constructParachainHeaders(
 	var conn = sp.RelayerRPCClient
 	var finalizedBlocks = make(map[uint32]map[uint32][]byte)
 	var leafIndeces []uint64
-	finalizedBlocks, leafIndeces, err := sp.getFinalizedBlocks(conn, blockHash, previouslyFinalizedBlockHash)
+	finalizedBlocks, leafIndeces, err := sp.getFinalizedBlocks(blockHash, previouslyFinalizedBlockHash)
 	if err != nil {
 		return nil, err
 	}
@@ -523,18 +522,17 @@ func (sp *SubstrateProvider) constructExtrinsics(
 }
 
 func (sp *SubstrateProvider) mmrBatchProofs(
-	conn *rpcclient.SubstrateAPI,
 	blockHash rpcclienttypes.Hash,
 	previouslyFinalizedBlockHash *rpcclienttypes.Hash,
 ) (rpcclienttypes.GenerateMmrBatchProofResponse, error) {
 	var leafIndeces []uint64
-	_, leafIndeces, err := sp.getFinalizedBlocks(conn, blockHash, previouslyFinalizedBlockHash)
+	_, leafIndeces, err := sp.getFinalizedBlocks(blockHash, previouslyFinalizedBlockHash)
 	if err != nil {
 		return rpcclienttypes.GenerateMmrBatchProofResponse{}, err
 	}
 
 	// fetch mmr proofs for leaves containing our target paraId
-	batchProofs, err := conn.RPC.MMR.GenerateBatchProof(leafIndeces, blockHash)
+	batchProofs, err := sp.RelayerRPCClient.RPC.MMR.GenerateBatchProof(leafIndeces, blockHash)
 	if err != nil {
 		return rpcclienttypes.GenerateMmrBatchProofResponse{}, err
 	}
@@ -649,7 +647,7 @@ func (sp *SubstrateProvider) constructBeefyHeader(
 		return nil, err
 	}
 
-	batchProofs, err := sp.mmrBatchProofs(conn, blockHash, previousFinalizedHash)
+	batchProofs, err := sp.mmrBatchProofs(blockHash, previousFinalizedHash)
 	if err != nil {
 		return nil, err
 	}
