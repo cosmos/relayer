@@ -3,6 +3,7 @@ package substrate
 import (
 	"context"
 	"fmt"
+	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	"math"
 	"time"
 
@@ -27,19 +28,38 @@ func (sp *SubstrateProvider) QueryTxs(ctx context.Context, page, limit int, even
 	panic("implement me")
 }
 
+func latestParaHeightHeight(paraHeaders []*beefyclienttypes.ParachainHeader) (int64, error) {
+	header, err := beefyclienttypes.DecodeParachainHeader(paraHeaders[0].ParachainHeader)
+	if err != nil {
+		return 0, err
+	}
+
+	latestHeight := int64(header.Number)
+	for _, h := range paraHeaders {
+		decodedHeader, err := beefyclienttypes.DecodeParachainHeader(h.ParachainHeader)
+		if err != nil {
+			return 0, err
+		}
+
+		if int64(decodedHeader.Number) < latestHeight {
+			latestHeight = int64(decodedHeader.Number)
+		}
+	}
+	return latestHeight, nil
+}
+
 func (sp *SubstrateProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
-	// TODO: should the latest height be the latest relayer height or the latest parachain height?
 	signedHash, err := sp.RelayerRPCClient.RPC.Beefy.GetFinalizedHead()
 	if err != nil {
 		return 0, err
 	}
-
-	signedBlock, err := sp.RelayerRPCClient.RPC.Chain.GetBlock(signedHash)
+	
+	header, err := sp.constructBeefyHeader(signedHash, nil)
 	if err != nil {
 		return 0, err
 	}
 
-	return int64(signedBlock.Block.Header.Number), nil
+	return latestParaHeightHeight(header.HeadersWithProof.Headers)
 }
 
 func (sp *SubstrateProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
