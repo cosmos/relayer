@@ -2,9 +2,7 @@ package ibctest_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
-	"time"
 
 	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
@@ -22,24 +20,25 @@ import (
 func TestPathFilterAllow(t *testing.T) {
 	ctx := context.Background()
 
+	nv := 1
+	nf := 0
+
 	// Chain Factory
 	cf := ibctest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctest.ChainSpec{
-		{Name: "gaia", Version: "v7.0.3"},
-		{Name: "osmosis", Version: "v11.0.1"},
+		{Name: "gaia", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf},
+		{Name: "osmosis", Version: "v11.0.1", NumValidators: &nv, NumFullNodes: &nf},
 	})
 
 	chains, err := cf.Chains(t.Name())
 	require.NoError(t, err)
 	gaia, osmosis := chains[0], chains[1]
 
-	// Relayer Factory
-	client, network := ibctest.DockerSetup(t)
-
+	// Relayer Factory to construct relayer
 	r := relayeribctest.NewRelayerFactory(relayeribctest.RelayerConfig{
 		Processor:           relayer.ProcessorEvents,
 		InitialBlockHistory: 100,
 	}).Build(
-		t, client, network)
+		t, nil, "")
 
 	// Prep Interchain
 	const ibcPath = "gaia-osmosis"
@@ -54,19 +53,17 @@ func TestPathFilterAllow(t *testing.T) {
 			Path:    ibcPath,
 		})
 
-	// Log location
-	f, err := ibctest.CreateLogFile(fmt.Sprintf("%d.json", time.Now().Unix()))
-	require.NoError(t, err)
 	// Reporter/logs
-	rep := testreporter.NewReporter(f)
+	rep := testreporter.NewNopReporter()
 	eRep := rep.RelayerExecReporter(t)
+
+	client, network := ibctest.DockerSetup(t)
 
 	// Build interchain
 	require.NoError(t, ic.Build(ctx, eRep, ibctest.InterchainBuildOptions{
-		TestName:          t.Name(),
-		Client:            client,
-		NetworkID:         network,
-		BlockDatabaseFile: ibctest.DefaultBlockDatabaseFilepath(),
+		TestName:  t.Name(),
+		Client:    client,
+		NetworkID: network,
 
 		SkipPathCreation: false,
 	}))
@@ -137,6 +134,7 @@ func TestPathFilterAllow(t *testing.T) {
 		_, err = test.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
 		return err
 	})
+	// Acks should exist
 	require.NoError(t, eg.Wait())
 
 	// Trace IBC Denom
@@ -146,7 +144,7 @@ func TestPathFilterAllow(t *testing.T) {
 	osmosisDenomTrace := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(gaiaChannel.PortID, gaiaChannel.ChannelID, osmosis.Config().Denom))
 	osmosisIbcDenom := osmosisDenomTrace.IBCDenom()
 
-	// Test destination wallet has increased funds
+	// Test destination wallets have increased funds
 	gaiaIBCBalance, err := osmosis.GetBalance(ctx, gaiaDstAddress, gaiaIbcDenom)
 	require.NoError(t, err)
 	require.Equal(t, amountToSend, gaiaIBCBalance)
@@ -160,24 +158,25 @@ func TestPathFilterAllow(t *testing.T) {
 func TestPathFilterDeny(t *testing.T) {
 	ctx := context.Background()
 
+	nv := 1
+	nf := 0
+
 	// Chain Factory
 	cf := ibctest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctest.ChainSpec{
-		{Name: "gaia", Version: "v7.0.3"},
-		{Name: "osmosis", Version: "v11.0.1"},
+		{Name: "gaia", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf},
+		{Name: "osmosis", Version: "v11.0.1", NumValidators: &nv, NumFullNodes: &nf},
 	})
 
 	chains, err := cf.Chains(t.Name())
 	require.NoError(t, err)
 	gaia, osmosis := chains[0], chains[1]
 
-	// Relayer Factory
-	client, network := ibctest.DockerSetup(t)
-
+	// Relayer Factory to construct relayer
 	r := relayeribctest.NewRelayerFactory(relayeribctest.RelayerConfig{
 		Processor:           relayer.ProcessorEvents,
 		InitialBlockHistory: 100,
 	}).Build(
-		t, client, network)
+		t, nil, "")
 
 	// Prep Interchain
 	const ibcPath = "gaia-osmosis"
@@ -192,19 +191,16 @@ func TestPathFilterDeny(t *testing.T) {
 			Path:    ibcPath,
 		})
 
-	// Log location
-	f, err := ibctest.CreateLogFile(fmt.Sprintf("%d.json", time.Now().Unix()))
-	require.NoError(t, err)
-	// Reporter/logs
-	rep := testreporter.NewReporter(f)
+	rep := testreporter.NewNopReporter()
 	eRep := rep.RelayerExecReporter(t)
+
+	client, network := ibctest.DockerSetup(t)
 
 	// Build interchain
 	require.NoError(t, ic.Build(ctx, eRep, ibctest.InterchainBuildOptions{
-		TestName:          t.Name(),
-		Client:            client,
-		NetworkID:         network,
-		BlockDatabaseFile: ibctest.DefaultBlockDatabaseFilepath(),
+		TestName:  t.Name(),
+		Client:    client,
+		NetworkID: network,
 
 		SkipPathCreation: false,
 	}))
@@ -275,6 +271,7 @@ func TestPathFilterDeny(t *testing.T) {
 		_, err = test.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
 		return err
 	})
+	// Test that acks do not show up
 	require.Error(t, eg.Wait())
 
 	// Trace IBC Denom
@@ -284,12 +281,12 @@ func TestPathFilterDeny(t *testing.T) {
 	osmosisDenomTrace := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(gaiaChannel.PortID, gaiaChannel.ChannelID, osmosis.Config().Denom))
 	osmosisIbcDenom := osmosisDenomTrace.IBCDenom()
 
-	// Test destination wallet has increased funds
+	// Test destination wallets do not have increased funds
 	gaiaIBCBalance, err := osmosis.GetBalance(ctx, gaiaDstAddress, gaiaIbcDenom)
 	require.NoError(t, err)
-	require.Equal(t, 0, gaiaIBCBalance)
+	require.Equal(t, int64(0), gaiaIBCBalance)
 
 	osmosisIBCBalance, err := gaia.GetBalance(ctx, osmosisDstAddress, osmosisIbcDenom)
 	require.NoError(t, err)
-	require.Equal(t, 0, osmosisIBCBalance)
+	require.Equal(t, int64(0), osmosisIBCBalance)
 }
