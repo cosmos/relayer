@@ -169,9 +169,9 @@ func (pp *PathProcessor) SetChainProviderIfApplicable(chainProvider provider.Cha
 
 func (pp *PathProcessor) IsRelayedChannel(chainID string, channelKey ChannelKey) bool {
 	if pp.pathEnd1.info.ChainID == chainID {
-		return pp.pathEnd1.info.ShouldRelayChannel(ChainChannelKey{ChainID: chainID, ChannelKey: channelKey})
+		return pp.pathEnd1.info.ShouldRelayChannel(ChainChannelKey{ChainID: chainID, CounterpartyChainID: pp.pathEnd2.info.ChainID, ChannelKey: channelKey})
 	} else if pp.pathEnd2.info.ChainID == chainID {
-		return pp.pathEnd2.info.ShouldRelayChannel(ChainChannelKey{ChainID: chainID, ChannelKey: channelKey})
+		return pp.pathEnd2.info.ShouldRelayChannel(ChainChannelKey{ChainID: chainID, CounterpartyChainID: pp.pathEnd1.info.ChainID, ChannelKey: channelKey})
 	}
 	return false
 }
