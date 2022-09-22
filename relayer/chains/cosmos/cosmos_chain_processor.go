@@ -201,6 +201,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 	ccp.log.Debug("Entering main query loop")
 
 	ticker := time.NewTicker(persistence.minQueryLoopDuration)
+	defer ticker.Stop()
 
 	for {
 		if err := ccp.queryCycle(ctx, &persistence); err != nil {
