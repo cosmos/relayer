@@ -45,6 +45,8 @@ const (
 	flagProcessor               = "processor"
 	flagInitialBlockHistory     = "block-history"
 	flagMemo                    = "memo"
+	flagFilterRule              = "filter-rule"
+	flagFilterChannels          = "filter-channels"
 )
 
 const (
@@ -147,6 +149,18 @@ func jsonFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 func fileFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagFile, "f", "", "fetch json data from specified file")
 	if err := v.BindPFlag(flagFile, cmd.Flags().Lookup(flagFile)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func pathFilterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().String(flagFilterRule, "", `filter rule ("allowlist", "denylist", or "" for no filtering)`)
+	if err := v.BindPFlag(flagFilterRule, cmd.Flags().Lookup(flagFilterRule)); err != nil {
+		panic(err)
+	}
+	cmd.Flags().String(flagFilterChannels, "", "channels from source chain perspective to filter")
+	if err := v.BindPFlag(flagFilterRule, cmd.Flags().Lookup(flagFilterRule)); err != nil {
 		panic(err)
 	}
 	return cmd

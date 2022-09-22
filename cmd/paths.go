@@ -30,6 +30,7 @@ This includes the client, connection, and channel ids from both the source and d
 		pathsAddCmd(a),
 		pathsAddDirCmd(a),
 		pathsNewCmd(a),
+		pathsUpdateCmd(a),
 		pathsFetchCmd(a),
 		pathsDeleteCmd(a),
 	)
@@ -258,6 +259,49 @@ $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName)),
 		},
 	}
 	return channelParameterFlags(a.Viper, cmd)
+}
+
+func pathsUpdateCmd(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "update path_name",
+		Aliases: []string{"n"},
+		Short:   `Update a path such as the filter rule ("allowlist", "denylist", or "" for no filtering) and channels`,
+		Args:    withUsage(cobra.ExactArgs(1)),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s paths update demo-path --filter-rule allowlist --filter-channels channel-0,channel-1
+$ %s paths update demo-path --filter-rule denylist --filter-channels channel-0,channel-1`,
+			appName, appName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := args[0]
+
+			filterRule, err := cmd.Flags().GetString(flagFilterRule)
+			if err != nil {
+				return err
+			}
+
+			filterChannels, err := cmd.Flags().GetString(flagFilterChannels)
+			if err != nil {
+				return err
+			}
+
+			var channelList []string
+
+			if filterChannels != "" {
+				channelList = append(channelList, strings.Split(filterChannels, ",")...)
+			}
+
+			p := a.Config.Paths.MustGet(name)
+
+			p.Filter = relayer.ChannelFilter{
+				Rule:        filterRule,
+				ChannelList: channelList,
+			}
+
+			return a.OverwriteConfig(a.Config)
+		},
+	}
+	cmd = pathFilterFlags(a.Viper, cmd)
+	return cmd
 }
 
 // pathsFetchCmd attempts to fetch the json files containing the path metadata, for each configured chain, from GitHub
