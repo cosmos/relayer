@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/google/go-github/v43/github"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -277,6 +278,9 @@ $ %s paths update demo-path --filter-rule denylist --filter-channels channel-0,c
 			filterRule, err := cmd.Flags().GetString(flagFilterRule)
 			if err != nil {
 				return err
+			}
+			if filterRule != "" && filterRule != processor.RuleAllowList && filterRule != processor.RuleDenyList {
+				return fmt.Errorf(`invalid filter rule : "%s". valid rules: ("", "%s", "%s")`, filterRule, processor.RuleAllowList, processor.RuleDenyList)
 			}
 
 			filterChannels, err := cmd.Flags().GetString(flagFilterChannels)

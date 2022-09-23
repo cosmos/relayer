@@ -6,15 +6,14 @@ import (
 
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
+	"github.com/cosmos/relayer/v2/relayer/processor"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 )
 
 const (
-	check     = "✔"
-	xIcon     = "✘"
-	allowList = "allowlist"
-	denyList  = "denylist"
+	check = "✔"
+	xIcon = "✘"
 )
 
 // Paths represent connection paths between chains
@@ -142,9 +141,9 @@ type IBCdata struct {
 
 // ValidateChannelFilterRule verifies that the configured ChannelFilter rule is set to an appropriate value.
 func (p *Path) ValidateChannelFilterRule() error {
-	if p.Filter.Rule != allowList && p.Filter.Rule != denyList && p.Filter.Rule != "" {
+	if p.Filter.Rule != processor.RuleAllowList && p.Filter.Rule != processor.RuleDenyList && p.Filter.Rule != "" {
 		return fmt.Errorf("%s is not a valid channel filter rule, please "+
-			"ensure your channel filter rule is `%s` or '%s'", p.Filter.Rule, allowList, denyList)
+			"ensure your channel filter rule is `%s` or '%s'", p.Filter.Rule, processor.RuleAllowList, processor.RuleDenyList)
 	}
 	return nil
 }

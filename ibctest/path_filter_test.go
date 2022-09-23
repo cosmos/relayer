@@ -2,11 +2,13 @@ package ibctest_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/processor"
 	ibctest "github.com/strangelove-ventures/ibctest/v5"
 	"github.com/strangelove-ventures/ibctest/v5/ibc"
 	"github.com/strangelove-ventures/ibctest/v5/test"
@@ -37,8 +39,7 @@ func TestPathFilterAllow(t *testing.T) {
 	r := relayeribctest.NewRelayerFactory(relayeribctest.RelayerConfig{
 		Processor:           relayer.ProcessorEvents,
 		InitialBlockHistory: 100,
-	}).Build(
-		t, nil, "")
+	}).Build(t, nil, "")
 
 	// Prep Interchain
 	const ibcPath = "gaia-osmosis"
@@ -75,7 +76,7 @@ func TestPathFilterAllow(t *testing.T) {
 	osmosisChannel := gaiaChans[0].Counterparty
 
 	r.UpdatePath(ctx, eRep, ibcPath, ibc.ChannelFilter{
-		Rule:        "allowlist",
+		Rule:        processor.RuleAllowList,
 		ChannelList: []string{gaiaChannel.ChannelID},
 	})
 
@@ -154,7 +155,7 @@ func TestPathFilterAllow(t *testing.T) {
 	require.Equal(t, amountToSend, osmosisIBCBalance)
 }
 
-// TestPathFilterAllow tests the channel denylist
+// TestPathFilterDeny tests the channel denylist
 func TestPathFilterDeny(t *testing.T) {
 	ctx := context.Background()
 
@@ -175,8 +176,7 @@ func TestPathFilterDeny(t *testing.T) {
 	r := relayeribctest.NewRelayerFactory(relayeribctest.RelayerConfig{
 		Processor:           relayer.ProcessorEvents,
 		InitialBlockHistory: 100,
-	}).Build(
-		t, nil, "")
+	}).Build(t, nil, "")
 
 	// Prep Interchain
 	const ibcPath = "gaia-osmosis"
@@ -212,7 +212,7 @@ func TestPathFilterDeny(t *testing.T) {
 	osmosisChannel := gaiaChans[0].Counterparty
 
 	r.UpdatePath(ctx, eRep, ibcPath, ibc.ChannelFilter{
-		Rule:        "denylist",
+		Rule:        processor.RuleDenyList,
 		ChannelList: []string{gaiaChannel.ChannelID},
 	})
 
@@ -250,8 +250,14 @@ func TestPathFilterDeny(t *testing.T) {
 		if err := tx.Validate(); err != nil {
 			return err
 		}
-		_, err = test.PollForAck(ctx, gaia, gaiaHeight, gaiaHeight+10, tx.Packet)
-		return err
+
+		// we want an error here
+		ack, err := test.PollForAck(ctx, gaia, gaiaHeight, gaiaHeight+10, tx.Packet)
+		if err == nil {
+			return fmt.Errorf("no error when error was expected when polling for ack: %+v", ack)
+		}
+
+		return nil
 	})
 
 	eg.Go(func() error {
@@ -268,11 +274,17 @@ func TestPathFilterDeny(t *testing.T) {
 		if err := tx.Validate(); err != nil {
 			return err
 		}
-		_, err = test.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
-		return err
+
+		// we want an error here
+		ack, err := test.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
+		if err == nil {
+			return fmt.Errorf("no error when error was expected when polling for ack: %+v", ack)
+		}
+
+		return nil
 	})
 	// Test that acks do not show up
-	require.Error(t, eg.Wait())
+	require.NoError(t, eg.Wait())
 
 	// Trace IBC Denom
 	gaiaDenomTrace := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(osmosisChannel.PortID, osmosisChannel.ChannelID, gaia.Config().Denom))
