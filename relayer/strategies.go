@@ -286,7 +286,7 @@ func filterOpenChannels(channels []*types.IdentifiedChannel) map[string]*ActiveC
 // channels to relay on.
 func applyChannelFilterRule(filter ChannelFilter, channels []*types.IdentifiedChannel) []*types.IdentifiedChannel {
 	switch filter.Rule {
-	case allowList:
+	case processor.RuleAllowList:
 		var filteredChans []*types.IdentifiedChannel
 		for _, c := range channels {
 			if filter.InChannelList(c.ChannelId) {
@@ -294,7 +294,7 @@ func applyChannelFilterRule(filter ChannelFilter, channels []*types.IdentifiedCh
 			}
 		}
 		return filteredChans
-	case denyList:
+	case processor.RuleDenyList:
 		var filteredChans []*types.IdentifiedChannel
 		for _, c := range channels {
 			if filter.InChannelList(c.ChannelId) {
