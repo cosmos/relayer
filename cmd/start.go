@@ -40,7 +40,8 @@ func startCmd(a *appState) *cobra.Command {
 		Short:   "Start the listening relayer on a given path",
 		Args:    withUsage(cobra.MinimumNArgs(0)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s start demo-path -p events # to use event processor
+$ %s start           # start all configured paths
+$ %s start demo-path # start the 'demo-path' path
 $ %s start demo-path --max-msgs 3
 $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -59,7 +60,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
 					chains[path.Src.ChainID] = nil
 					chains[path.Dst.ChainID] = nil
 				}
-			} else if len(args) == 0 {
+			} else {
 				for n, path := range a.Config.Paths {
 					paths = append(paths, relayer.NamedPath{
 						Name: n,
