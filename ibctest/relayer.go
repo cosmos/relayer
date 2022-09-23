@@ -110,6 +110,17 @@ func (r *Relayer) GeneratePath(ctx context.Context, _ ibc.RelayerExecReporter, s
 	return nil
 }
 
+func (r *Relayer) UpdatePath(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, filter ibc.ChannelFilter) error {
+	res := r.sys().RunC(ctx, r.log(), "paths", "update", pathName,
+		"--filter-rule", filter.Rule,
+		"--filter-channels", strings.Join(filter.ChannelList, ","),
+	)
+	if res.Err != nil {
+		return res.Err
+	}
+	return nil
+}
+
 func (r *Relayer) GetChannels(ctx context.Context, _ ibc.RelayerExecReporter, chainID string) ([]ibc.ChannelOutput, error) {
 	res := r.sys().RunC(ctx, r.log(), "q", "channels", chainID)
 	if res.Err != nil {
