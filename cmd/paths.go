@@ -291,7 +291,7 @@ $ %s paths update demo-path --filter-rule denylist --filter-channels channel-0,c
 			var channelList []string
 
 			if filterChannels != "" {
-				channelList = append(channelList, strings.Split(filterChannels, ",")...)
+				channelList = strings.Split(filterChannels, ",")
 			}
 
 			p := a.Config.Paths.MustGet(name)

@@ -87,11 +87,8 @@ ibctest-legacy:
 ibctest-multiple:
 	cd ibctest && go test -race -v -run TestRelayerMultiplePathsSingleProcess .
 
-ibctest-path-filter-allow:
-	cd ibctest && go test -race -v -run TestPathFilterAllow .
-
-ibctest-path-filter-deny:
-	cd ibctest && go test -race -v -run TestPathFilterDeny .
+ibctest-path-filter:
+	cd ibctest && go test -race -v -run TestPathFilter .
 
 coverage:
 	@echo "viewing test coverage..."
