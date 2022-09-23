@@ -20,6 +20,7 @@ import (
 
 // TestPathFilterAllow tests the channel allowlist
 func TestPathFilterAllow(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 
 	nv := 1
@@ -157,6 +158,7 @@ func TestPathFilterAllow(t *testing.T) {
 
 // TestPathFilterDeny tests the channel denylist
 func TestPathFilterDeny(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 
 	nv := 1
