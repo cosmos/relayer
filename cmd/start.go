@@ -43,7 +43,7 @@ func startCmd(a *appState) *cobra.Command {
 $ %s start           # start all configured paths
 $ %s start demo-path # start the 'demo-path' path
 $ %s start demo-path --max-msgs 3
-$ %s start demo-path2 --max-tx-size 10`, appName, appName, appName)),
+$ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chains := make(map[string]*relayer.Chain)
 			paths := make([]relayer.NamedPath, len(args))
