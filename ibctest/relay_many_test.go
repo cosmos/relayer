@@ -9,7 +9,6 @@ import (
 	ibctest "github.com/strangelove-ventures/ibctest/v5"
 	"github.com/strangelove-ventures/ibctest/v5/chain/cosmos"
 	"github.com/strangelove-ventures/ibctest/v5/ibc"
-	ibctestrelayer "github.com/strangelove-ventures/ibctest/v5/relayer"
 	"github.com/strangelove-ventures/ibctest/v5/test"
 	"github.com/strangelove-ventures/ibctest/v5/testreporter"
 	"github.com/stretchr/testify/require"
@@ -21,15 +20,7 @@ import (
 // from the same process using the go relayer. A single
 // CosmosChainProcessor (gaia) will feed data to two PathProcessors (gaia-osmosis and gaia-juno).
 func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
-	relayeribctest.BuildRelayerImage(t)
-
-	client, network := ibctest.DockerSetup(t)
-	r := ibctest.NewBuiltinRelayerFactory(
-		ibc.CosmosRly,
-		zaptest.NewLogger(t),
-		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest", "100:1000"),
-		ibctestrelayer.ImagePull(false),
-	).Build(t, client, network)
+	r := relayeribctest.NewRelayer(t, relayeribctest.RelayerConfig{})
 
 	rep := testreporter.NewNopReporter()
 	eRep := rep.RelayerExecReporter(t)
@@ -83,6 +74,8 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 			Relayer: r,
 			Path:    pathGaiaJuno,
 		})
+
+	client, network := ibctest.DockerSetup(t)
 
 	require.NoError(t, ic.Build(ctx, eRep, ibctest.InterchainBuildOptions{
 		TestName:          t.Name(),

@@ -77,6 +77,19 @@ type IBCMessagesCache struct {
 	ChannelHandshake    ChannelMessagesCache
 }
 
+// Clone makes a deep copy of an IBCMessagesCache.
+func (c IBCMessagesCache) Clone() IBCMessagesCache {
+	x := IBCMessagesCache{
+		PacketFlow:          make(ChannelPacketMessagesCache, len(c.PacketFlow)),
+		ConnectionHandshake: make(ConnectionMessagesCache, len(c.ConnectionHandshake)),
+		ChannelHandshake:    make(ChannelMessagesCache, len(c.ChannelHandshake)),
+	}
+	x.PacketFlow.Merge(c.PacketFlow)
+	x.ConnectionHandshake.Merge(c.ConnectionHandshake)
+	x.ChannelHandshake.Merge(c.ChannelHandshake)
+	return x
+}
+
 // NewIBCMessagesCache returns an empty IBCMessagesCache.
 func NewIBCMessagesCache() IBCMessagesCache {
 	return IBCMessagesCache{
@@ -257,12 +270,10 @@ func (c PacketMessagesCache) DeleteMessages(toDelete ...map[string][]uint64) {
 // Merge merges another ChannelPacketMessagesCache into this one.
 func (c ChannelPacketMessagesCache) Merge(other ChannelPacketMessagesCache) {
 	for channelKey, messageCache := range other {
-		_, ok := c[channelKey]
-		if !ok {
-			c[channelKey] = messageCache
-		} else {
-			c[channelKey].Merge(messageCache)
+		if _, ok := c[channelKey]; !ok {
+			c[channelKey] = make(PacketMessagesCache)
 		}
+		c[channelKey].Merge(messageCache)
 	}
 }
 
@@ -304,12 +315,10 @@ func (c ChannelPacketMessagesCache) Retain(k ChannelKey, m string, pi provider.P
 // Merge merges another PacketMessagesCache into this one.
 func (c PacketMessagesCache) Merge(other PacketMessagesCache) {
 	for ibcMessage, messageCache := range other {
-		_, ok := c[ibcMessage]
-		if !ok {
-			c[ibcMessage] = messageCache
-		} else {
-			c[ibcMessage].Merge(messageCache)
+		if _, ok := c[ibcMessage]; !ok {
+			c[ibcMessage] = make(PacketSequenceCache)
 		}
+		c[ibcMessage].Merge(messageCache)
 	}
 }
 
@@ -323,12 +332,10 @@ func (c PacketSequenceCache) Merge(other PacketSequenceCache) {
 // Merge merges another ConnectionMessagesCache into this one.
 func (c ConnectionMessagesCache) Merge(other ConnectionMessagesCache) {
 	for ibcMessage, messageCache := range other {
-		_, ok := c[ibcMessage]
-		if !ok {
-			c[ibcMessage] = messageCache
-		} else {
-			c[ibcMessage].Merge(messageCache)
+		if _, ok := c[ibcMessage]; !ok {
+			c[ibcMessage] = make(ConnectionMessageCache)
 		}
+		c[ibcMessage].Merge(messageCache)
 	}
 }
 
@@ -360,12 +367,10 @@ func (c ConnectionMessageCache) Merge(other ConnectionMessageCache) {
 // Merge merges another ChannelMessagesCache into this one.
 func (c ChannelMessagesCache) Merge(other ChannelMessagesCache) {
 	for ibcMessage, messageCache := range other {
-		_, ok := c[ibcMessage]
-		if !ok {
-			c[ibcMessage] = messageCache
-		} else {
-			c[ibcMessage].Merge(messageCache)
+		if _, ok := c[ibcMessage]; !ok {
+			c[ibcMessage] = make(ChannelMessageCache)
 		}
+		c[ibcMessage].Merge(messageCache)
 	}
 }
 
@@ -396,6 +401,13 @@ func (c ChannelMessageCache) Merge(other ChannelMessageCache) {
 
 // IBCHeaderCache holds a mapping of IBCHeaders for their block height.
 type IBCHeaderCache map[uint64]provider.IBCHeader
+
+// Clone makes a deep copy of an IBCHeaderCache.
+func (c IBCHeaderCache) Clone() IBCHeaderCache {
+	x := make(IBCHeaderCache, len(c))
+	x.Merge(c)
+	return x
+}
 
 // Merge merges another IBCHeaderCache into this one.
 func (c IBCHeaderCache) Merge(other IBCHeaderCache) {

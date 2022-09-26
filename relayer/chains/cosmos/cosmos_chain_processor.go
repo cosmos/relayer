@@ -55,9 +55,6 @@ type CosmosChainProcessor struct {
 }
 
 func NewCosmosChainProcessor(log *zap.Logger, provider *CosmosProvider, metrics *processor.PrometheusMetrics) *CosmosChainProcessor {
-
-	provider.SetMetrics(metrics)
-
 	return &CosmosChainProcessor{
 		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
 		chainProvider:        provider,
@@ -398,12 +395,12 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
 			LatestBlock:          ccp.latestBlock,
 			LatestHeader:         latestHeader,
-			IBCMessagesCache:     ibcMessagesCache,
+			IBCMessagesCache:     ibcMessagesCache.Clone(),
 			InSync:               ccp.inSync,
 			ClientState:          clientState,
 			ConnectionStateCache: ccp.connectionStateCache.FilterForClient(clientID),
 			ChannelStateCache:    ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients),
-			IBCHeaderCache:       ibcHeaderCache,
+			IBCHeaderCache:       ibcHeaderCache.Clone(),
 		})
 	}
 

@@ -203,6 +203,8 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
      ```shell
      $ rly paths list
      $ rly start [path]
+     # Optionally you can omit the `path` argument to start all configured paths
+     $ rly start 
      ```
    
     You will need to start a separate shell instance for each path you wish to relay over.

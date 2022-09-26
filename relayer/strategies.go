@@ -49,7 +49,7 @@ func StartRelayer(
 		}
 
 		ePaths := make([]path, len(paths))
-		for _, np := range paths {
+		for i, np := range paths {
 			pathName := np.Name
 			p := np.Path
 
@@ -62,10 +62,10 @@ func StartRelayer(
 				filterSrc = append(filterSrc, ruleSrc)
 				filterDst = append(filterDst, ruleDst)
 			}
-			ePaths = append(ePaths, path{
+			ePaths[i] = path{
 				src: processor.NewPathEnd(pathName, p.Src.ChainID, p.Src.ClientID, filter.Rule, filterSrc),
 				dst: processor.NewPathEnd(pathName, p.Dst.ChainID, p.Dst.ClientID, filter.Rule, filterDst),
-			})
+			}
 		}
 
 		go relayerStartEventProcessor(ctx, log, chainProcessors, ePaths, initialBlockHistory, maxTxSize, maxMsgLength, memo, errorChan, metrics)
@@ -286,7 +286,7 @@ func filterOpenChannels(channels []*types.IdentifiedChannel) map[string]*ActiveC
 // channels to relay on.
 func applyChannelFilterRule(filter ChannelFilter, channels []*types.IdentifiedChannel) []*types.IdentifiedChannel {
 	switch filter.Rule {
-	case allowList:
+	case processor.RuleAllowList:
 		var filteredChans []*types.IdentifiedChannel
 		for _, c := range channels {
 			if filter.InChannelList(c.ChannelId) {
@@ -294,7 +294,7 @@ func applyChannelFilterRule(filter ChannelFilter, channels []*types.IdentifiedCh
 			}
 		}
 		return filteredChans
-	case denyList:
+	case processor.RuleDenyList:
 		var filteredChans []*types.IdentifiedChannel
 		for _, c := range channels {
 			if filter.InChannelList(c.ChannelId) {

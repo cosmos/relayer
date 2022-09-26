@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/relayer/v2/cmd"
 	"github.com/cosmos/relayer/v2/internal/relayertest"
+	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/strangelove-ventures/ibctest/v5/ibc"
 	"go.uber.org/zap"
@@ -19,11 +21,31 @@ import (
 type Relayer struct {
 	t *testing.T
 
-	home string
+	config RelayerConfig
+	home   string
 
 	// Set during StartRelayer.
 	errCh  chan error
 	cancel context.CancelFunc
+}
+
+// Build returns a relayer interface
+func NewRelayer(
+	t *testing.T,
+	config RelayerConfig,
+) ibc.Relayer {
+	r := &Relayer{
+		t:      t,
+		home:   t.TempDir(),
+		config: config,
+	}
+
+	res := r.sys().Run(zaptest.NewLogger(t), "config", "init", "--memo", config.Memo)
+	if res.Err != nil {
+		t.Fatalf("failed to rly config init: %v", res.Err)
+	}
+
+	return r
 }
 
 func (r *Relayer) sys() *relayertest.System {
@@ -47,10 +69,11 @@ func (r *Relayer) AddChainConfiguration(ctx context.Context, _ ibc.RelayerExecRe
 			KeyringBackend: keyring.BackendTest,
 			GasAdjustment:  chainConfig.GasAdjustment,
 			GasPrices:      chainConfig.GasPrices,
-			Debug:          true,
-			Timeout:        "10s",
-			OutputFormat:   "json",
-			SignModeStr:    "direct",
+			// MinGasAmount: chainConfig.MinGasAmount, // TODO
+			Debug:        true,
+			Timeout:      "10s",
+			OutputFormat: "json",
+			SignModeStr:  "direct",
 		},
 	})
 
@@ -81,6 +104,17 @@ func (r *Relayer) RestoreKey(ctx context.Context, _ ibc.RelayerExecReporter, cha
 
 func (r *Relayer) GeneratePath(ctx context.Context, _ ibc.RelayerExecReporter, srcChainID, dstChainID, pathName string) error {
 	res := r.sys().RunC(ctx, r.log(), "paths", "new", srcChainID, dstChainID, pathName)
+	if res.Err != nil {
+		return res.Err
+	}
+	return nil
+}
+
+func (r *Relayer) UpdatePath(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, filter ibc.ChannelFilter) error {
+	res := r.sys().RunC(ctx, r.log(), "paths", "update", pathName,
+		"--filter-rule", filter.Rule,
+		"--filter-channels", strings.Join(filter.ChannelList, ","),
+	)
 	if res.Err != nil {
 		return res.Err
 	}
@@ -197,12 +231,22 @@ func (r *Relayer) StartRelayer(ctx context.Context, _ ibc.RelayerExecReporter, p
 	r.errCh = make(chan error, 1)
 	ctx, r.cancel = context.WithCancel(ctx)
 
-	args := append([]string{"--processor=events"}, pathNames...)
+	if r.config.Processor == "" {
+		r.config.Processor = relayer.ProcessorEvents
+	}
+	args := append([]string{
+		"--processor", r.config.Processor,
+		"--block-history", strconv.FormatUint(r.config.InitialBlockHistory, 10),
+	}, pathNames...)
+
 	go r.start(ctx, args...)
 	return nil
 }
 
 func (r *Relayer) StopRelayer(ctx context.Context, _ ibc.RelayerExecReporter) error {
+	if r.cancel == nil {
+		return nil
+	}
 	r.cancel()
 	err := <-r.errCh
 
