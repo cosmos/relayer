@@ -180,7 +180,6 @@ func (sp *SubstrateProvider) SendMessages(ctx context.Context, msgs []provider.R
 	// Send the extrinsic
 	sub, err := sp.RPCClient.RPC.Author.SubmitAndWatchExtrinsic(ext)
 	if err != nil {
-		fmt.Printf("Extrinsic Error: %v \n", err.Error())
 		return nil, false, err
 	}
 

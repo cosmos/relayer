@@ -29,27 +29,6 @@ func (sp *SubstrateProvider) QueryTxs(ctx context.Context, page, limit int, even
 	panic("implement me")
 }
 
-func latestParaHeightHeight(paraHeaders []*beefyclienttypes.ParachainHeader) (int64, error) {
-	fmt.Printf("length of parachain headers %v \n", len(paraHeaders))
-	header, err := beefyclienttypes.DecodeParachainHeader(paraHeaders[0].ParachainHeader)
-	if err != nil {
-		return 0, err
-	}
-
-	latestHeight := int64(header.Number)
-	for _, h := range paraHeaders {
-		decodedHeader, err := beefyclienttypes.DecodeParachainHeader(h.ParachainHeader)
-		if err != nil {
-			return 0, err
-		}
-
-		if int64(decodedHeader.Number) < latestHeight {
-			latestHeight = int64(decodedHeader.Number)
-		}
-	}
-	return latestHeight, nil
-}
-
 func (sp *SubstrateProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
 	signedHash, err := sp.RelayerRPCClient.RPC.Beefy.GetFinalizedHead()
 	if err != nil {
