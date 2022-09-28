@@ -30,6 +30,8 @@ const (
 	DefaultDstPortID = "transfer"
 	DefaultOrder     = "unordered"
 	DefaultVersion   = "ics20-1"
+
+	defaultClientUpdateTresholdTime = 6 * time.Hour
 )
 
 func chainTest(t *testing.T, tcs []testChain) {
@@ -122,7 +124,7 @@ func chainTest(t *testing.T, tcs []testChain) {
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(ctx, 1))
 
 	t.Log("Starting relayer")
-	_ = relayer.StartRelayer(ctx, log, c, []relayer.NamedPath{{Path: p}}, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, nil)
+	_ = relayer.StartRelayer(ctx, log, c, []relayer.NamedPath{{Path: p}}, 2*cmd.MB, 5, "", defaultClientUpdateTresholdTime, relayer.ProcessorEvents, 20, nil)
 
 	t.Log("Waiting for relayer messages to reach both chains")
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 2))
@@ -274,7 +276,7 @@ func TestGaiaMisbehaviourMonitoring(t *testing.T) {
 
 	log := zaptest.NewLogger(t)
 	// start the relayer process in it's own goroutine
-	_ = relayer.StartRelayer(ctx, log, c, []relayer.NamedPath{{Path: p}}, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, nil)
+	_ = relayer.StartRelayer(ctx, log, c, []relayer.NamedPath{{Path: p}}, 2*cmd.MB, 5, "", defaultClientUpdateTresholdTime, relayer.ProcessorEvents, 20, nil)
 
 	// Wait for relay message inclusion in both chains
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 1))
@@ -450,7 +452,7 @@ func TestRelayAllChannelsOnConnection(t *testing.T) {
 	require.NoError(t, dst.ChainProvider.WaitForNBlocks(ctx, 1))
 
 	t.Log("Starting relayer")
-	_ = relayer.StartRelayer(ctx, log, c, []relayer.NamedPath{{Path: p}}, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, nil)
+	_ = relayer.StartRelayer(ctx, log, c, []relayer.NamedPath{{Path: p}}, 2*cmd.MB, 5, "", defaultClientUpdateTresholdTime, relayer.ProcessorEvents, 20, nil)
 
 	t.Log("Waiting for relayer message inclusion in both chains")
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 1))
@@ -628,7 +630,7 @@ func TestUnorderedChannelBlockHeightTimeout(t *testing.T) {
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 11))
 
 	// start the relayer process in it's own goroutine
-	_ = relayer.StartRelayer(ctx, log, c, []relayer.NamedPath{{Path: p}}, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, nil)
+	_ = relayer.StartRelayer(ctx, log, c, []relayer.NamedPath{{Path: p}}, 2*cmd.MB, 5, "", defaultClientUpdateTresholdTime, relayer.ProcessorEvents, 20, nil)
 
 	require.NoError(t, src.ChainProvider.WaitForNBlocks(ctx, 5))
 
@@ -728,7 +730,7 @@ func TestUnorderedChannelTimestampTimeout(t *testing.T) {
 	time.Sleep(time.Second * 20)
 
 	// start the relayer process in it's own goroutine
-	_ = relayer.StartRelayer(ctx, log, c, []relayer.NamedPath{{Path: p}}, 2*cmd.MB, 5, "", relayer.ProcessorEvents, 20, nil)
+	_ = relayer.StartRelayer(ctx, log, c, []relayer.NamedPath{{Path: p}}, 2*cmd.MB, 5, "", defaultClientUpdateTresholdTime, relayer.ProcessorEvents, 20, nil)
 
 	time.Sleep(time.Second * 10)
 
