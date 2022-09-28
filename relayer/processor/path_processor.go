@@ -55,6 +55,8 @@ type PathProcessor struct {
 
 	memo string
 
+	clientUpdateThresholdTime time.Duration
+
 	// Signals to retry.
 	retryProcess chan struct{}
 
@@ -81,14 +83,16 @@ func NewPathProcessor(
 	pathEnd2 PathEnd,
 	metrics *PrometheusMetrics,
 	memo string,
+	clientUpdateThresholdTime time.Duration,
 ) *PathProcessor {
 	return &PathProcessor{
-		log:          log,
-		pathEnd1:     newPathEndRuntime(log, pathEnd1, metrics),
-		pathEnd2:     newPathEndRuntime(log, pathEnd2, metrics),
-		retryProcess: make(chan struct{}, 2),
-		memo:         memo,
-		metrics:      metrics,
+		log:                       log,
+		pathEnd1:                  newPathEndRuntime(log, pathEnd1, metrics),
+		pathEnd2:                  newPathEndRuntime(log, pathEnd2, metrics),
+		retryProcess:              make(chan struct{}, 2),
+		memo:                      memo,
+		clientUpdateThresholdTime: clientUpdateThresholdTime,
+		metrics:                   metrics,
 	}
 }
 
@@ -237,11 +241,11 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 		return true
 	case d := <-pp.pathEnd1.incomingCacheData:
 		// we have new data from ChainProcessor for pathEnd1
-		pp.pathEnd1.mergeCacheData(ctx, cancel, d, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync, messageLifecycle)
+		pp.pathEnd1.mergeCacheData(ctx, cancel, d, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync, messageLifecycle, pp.pathEnd2)
 
 	case d := <-pp.pathEnd2.incomingCacheData:
 		// we have new data from ChainProcessor for pathEnd2
-		pp.pathEnd2.mergeCacheData(ctx, cancel, d, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync, messageLifecycle)
+		pp.pathEnd2.mergeCacheData(ctx, cancel, d, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync, messageLifecycle, pp.pathEnd1)
 
 	case <-pp.retryProcess:
 		// No new data to merge in, just retry handling.

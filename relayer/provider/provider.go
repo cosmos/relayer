@@ -54,6 +54,8 @@ type IBCHeader interface {
 type ClientState struct {
 	ClientID        string
 	ConsensusHeight clienttypes.Height
+	TrustingPeriod  time.Duration
+	ConsensusTime   time.Time
 }
 
 // ClientTrustedState holds the current state of a client from the perspective of both involved chains,

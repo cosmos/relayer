@@ -81,12 +81,24 @@ const (
 // latestClientState is a map of clientID to the latest clientInfo for that client.
 type latestClientState map[string]provider.ClientState
 
-func (l latestClientState) update(clientInfo clientInfo) {
+func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, ccp *CosmosChainProcessor) {
 	existingClientInfo, ok := l[clientInfo.clientID]
-	if ok && clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
-		// height is less than latest, so no-op
-		return
+	var trustingPeriod time.Duration
+	if ok {
+		if clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
+			// height is less than latest, so no-op
+			return
+		}
+		trustingPeriod = existingClientInfo.TrustingPeriod
 	}
+	if trustingPeriod.Milliseconds() == 0 {
+		cs, err := ccp.chainProvider.queryTMClientState(ctx, int64(ccp.latestBlock.Height), clientInfo.clientID)
+		if err == nil {
+			trustingPeriod = cs.TrustingPeriod
+		}
+	}
+	clientState := clientInfo.ClientState()
+	clientState.TrustingPeriod = trustingPeriod
 
 	// update latest if no existing state or provided consensus height is newer
 	l[clientInfo.clientID] = clientInfo.ClientState()
@@ -128,13 +140,14 @@ func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID strin
 	if state, ok := ccp.latestClientState[clientID]; ok {
 		return state, nil
 	}
-	cs, err := ccp.chainProvider.QueryClientState(ctx, int64(ccp.latestBlock.Height), clientID)
+	cs, err := ccp.chainProvider.queryTMClientState(ctx, int64(ccp.latestBlock.Height), clientID)
 	if err != nil {
 		return provider.ClientState{}, err
 	}
 	clientState := provider.ClientState{
 		ClientID:        clientID,
 		ConsensusHeight: cs.GetLatestHeight().(clienttypes.Height),
+		TrustingPeriod:  cs.TrustingPeriod,
 	}
 	ccp.latestClientState[clientID] = clientState
 	return clientState, nil
@@ -350,7 +363,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 		blockMsgs := ccp.ibcMessagesFromBlockEvents(blockRes.BeginBlockEvents, blockRes.EndBlockEvents, heightUint64)
 		for _, m := range blockMsgs {
-			ccp.handleMessage(m, ibcMessagesCache)
+			ccp.handleMessage(ctx, m, ibcMessagesCache)
 		}
 
 		for _, tx := range blockRes.TxsResults {
@@ -361,7 +374,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			messages := ibcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64)
 
 			for _, m := range messages {
-				ccp.handleMessage(m, ibcMessagesCache)
+				ccp.handleMessage(ctx, m, ibcMessagesCache)
 			}
 		}
 		newLatestQueriedBlock = i

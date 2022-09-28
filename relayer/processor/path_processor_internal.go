@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
@@ -685,8 +686,27 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	src, dst *pathEndRuntime,
 	messages pathEndMessages,
 ) error {
+	updateClientOnly := false
 	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 {
-		return nil
+		var consensusHeightTime time.Time
+		if dst.clientState.ConsensusTime.IsZero() {
+			h, err := src.chainProvider.QueryIBCHeader(ctx, int64(dst.clientState.ConsensusHeight.RevisionHeight))
+			if err != nil {
+				return fmt.Errorf("failed to get header height: %w", err)
+			}
+			consensusHeightTime = time.Unix(0, int64(h.ConsensusState().GetTimestamp()))
+		} else {
+			consensusHeightTime = dst.clientState.ConsensusTime
+		}
+		if dst.clientState.TrustingPeriod.Milliseconds()-time.Since(consensusHeightTime).Milliseconds() < pp.clientUpdateThresholdTime.Milliseconds() {
+			updateClientOnly = true
+			pp.log.Info("client close to exiration",
+				zap.String("chainID: %s", dst.info.ChainID),
+				zap.String("clientID: %s", dst.info.ClientID),
+			)
+		} else {
+			return nil
+		}
 	}
 	om := outgoingMessages{
 		msgs: make(
@@ -724,7 +744,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 
 	wg.Wait()
 
-	if len(om.msgs) == 1 {
+	if len(om.msgs) == 1 && !updateClientOnly {
 		// only msgUpdateClient, don't need to send
 		return errors.New("all messages failed to assemble")
 	}

@@ -22,8 +22,9 @@ type ActiveChannel struct {
 }
 
 const (
-	ProcessorEvents string = "events"
-	ProcessorLegacy        = "legacy"
+	ProcessorEvents                 string = "events"
+	ProcessorLegacy                        = "legacy"
+	defaultClientUpdateTresholdTime        = 6 * time.Hour
 )
 
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
@@ -34,6 +35,7 @@ func StartRelayer(
 	paths []NamedPath,
 	maxTxSize, maxMsgLength uint64,
 	memo string,
+	clientUpdateThresholdTime time.Duration,
 	processorType string,
 	initialBlockHistory uint64,
 	metrics *processor.PrometheusMetrics,
@@ -68,7 +70,7 @@ func StartRelayer(
 			}
 		}
 
-		go relayerStartEventProcessor(ctx, log, chainProcessors, ePaths, initialBlockHistory, maxTxSize, maxMsgLength, memo, errorChan, metrics)
+		go relayerStartEventProcessor(ctx, log, chainProcessors, ePaths, initialBlockHistory, maxTxSize, maxMsgLength, memo, clientUpdateThresholdTime, errorChan, metrics)
 		return errorChan
 	case ProcessorLegacy:
 		if len(paths) != 1 {
@@ -113,6 +115,7 @@ func relayerStartEventProcessor(
 	maxTxSize,
 	maxMsgLength uint64,
 	memo string,
+	clientUpdateThresholdTime time.Duration,
 	errCh chan<- error,
 	metrics *processor.PrometheusMetrics,
 ) {
@@ -128,6 +131,7 @@ func relayerStartEventProcessor(
 				p.dst,
 				metrics,
 				memo,
+				clientUpdateThresholdTime,
 			))
 	}
 
