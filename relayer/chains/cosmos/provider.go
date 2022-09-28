@@ -96,8 +96,11 @@ func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
 type CosmosProvider struct {
 	log *zap.Logger
 
-	lens.ChainClient
 	PCfg CosmosProviderConfig
+
+	lens.ChainClient
+	nextAccountSeq uint64
+	txMu           sync.Mutex
 
 	// metrics to monitor the provider
 	TotalFees   sdk.Coins
@@ -145,6 +148,12 @@ func (cc *CosmosProvider) Key() string {
 
 func (cc *CosmosProvider) Timeout() string {
 	return cc.PCfg.Timeout
+}
+
+func (cc *CosmosProvider) UpdateNextAccountSequence(seq uint64) {
+	if seq > cc.nextAccountSeq {
+		cc.nextAccountSeq = seq
+	}
 }
 
 func (cc *CosmosProvider) AddKey(name string, coinType uint32) (*provider.KeyOutput, error) {
