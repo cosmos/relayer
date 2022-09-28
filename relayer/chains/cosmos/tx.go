@@ -169,7 +169,7 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 		}
 
 		// we had a successful tx with this sequence, so update it to the next
-		cc.UpdateNextAccountSequence(sequence + 1)
+		cc.updateNextAccountSequence(sequence + 1)
 
 		return nil
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
@@ -308,7 +308,7 @@ func (cc *CosmosProvider) handleAccountSequenceMismatchError(err error) {
 	if err != nil {
 		return
 	}
-	cc.UpdateNextAccountSequence(nextSeq)
+	cc.updateNextAccountSequence(nextSeq)
 }
 
 // MsgCreateClient creates an sdk.Msg to update the client on src with consensus state from dst

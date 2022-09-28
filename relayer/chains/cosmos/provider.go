@@ -150,12 +150,6 @@ func (cc *CosmosProvider) Timeout() string {
 	return cc.PCfg.Timeout
 }
 
-func (cc *CosmosProvider) UpdateNextAccountSequence(seq uint64) {
-	if seq > cc.nextAccountSeq {
-		cc.nextAccountSeq = seq
-	}
-}
-
 func (cc *CosmosProvider) AddKey(name string, coinType uint32) (*provider.KeyOutput, error) {
 	// The lens client returns an equivalent KeyOutput type,
 	// but that type is declared in the lens module,
@@ -258,4 +252,10 @@ func (cc *CosmosProvider) BlockTime(ctx context.Context, height int64) (time.Tim
 
 func (cc *CosmosProvider) SetMetrics(m *processor.PrometheusMetrics) {
 	cc.metrics = m
+}
+
+func (cc *CosmosProvider) updateNextAccountSequence(seq uint64) {
+	if seq > cc.nextAccountSeq {
+		cc.nextAccountSeq = seq
+	}
 }
