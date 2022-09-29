@@ -162,6 +162,7 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 		if err != nil {
 			if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
 				cc.handleAccountSequenceMismatchError(err)
+				return err
 			}
 
 			// Don't retry if BroadcastTx resulted in any other error.
