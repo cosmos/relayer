@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -68,8 +69,11 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *CosmosProvider, metrics 
 }
 
 const (
-	queryTimeout                = 5 * time.Second
-	blockResultsQueryTimeout    = 2 * time.Minute
+	queryTimeout             = 5 * time.Second
+	blockResultsQueryTimeout = 2 * time.Minute
+	blockQueryRetryDelay     = 500 * time.Millisecond
+	blockQueryRetries        = 5
+
 	latestHeightQueryRetryDelay = 1 * time.Second
 	latestHeightQueryRetries    = 5
 
@@ -120,6 +124,64 @@ func (ccp *CosmosChainProcessor) latestHeightWithRetry(ctx context.Context) (lat
 			zap.Error(err),
 		)
 	}))
+}
+
+// blockResultsWithRetry will query for the block results.
+// It will only retry for "RPC error -32603 - Internal error: could not find results for height" errors.
+// It will delay by blockQueryRetryDelay between attempts, up to blockQueryRetries.
+func (ccp *CosmosChainProcessor) blockResultsWithRetry(
+	ctx context.Context,
+	height int64,
+) (blockRes *ctypes.ResultBlockResults, err error) {
+	return blockRes, retry.Do(func() error {
+		queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
+		defer cancelQueryCtx()
+		blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &height)
+		if err != nil {
+			if strings.Contains(err.Error(), "RPC error -32603 - Internal error: could not find results for height") {
+				return err
+			}
+			return retry.Unrecoverable(err)
+		}
+		return nil
+	},
+		retry.Context(ctx),
+		retry.DelayType(retry.FixedDelay),
+		retry.Attempts(blockQueryRetries),
+		retry.Delay(blockQueryRetryDelay),
+		retry.LastErrorOnly(true),
+	)
+}
+
+// ibcHeaderWithRetry will query for the IBC Header, retrying in case of specific failures.
+// It will retry for "height requested is too high" and "invalid character" errors.
+// It will delay by blockQueryRetryDelay between attempts, up to blockQueryRetries.
+func (ccp *CosmosChainProcessor) ibcHeaderWithRetry(
+	ctx context.Context,
+	height int64,
+) (header provider.IBCHeader, err error) {
+	return header, retry.Do(func() error {
+		queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
+		defer cancelQueryCtx()
+		header, err = ccp.chainProvider.QueryIBCHeader(queryCtx, height)
+		if err != nil {
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "height requested is too high") {
+				return err
+			}
+			if strings.Contains(errMsg, "invalid character '<' looking for beginning of value") {
+				return err
+			}
+			return retry.Unrecoverable(err)
+		}
+		return nil
+	},
+		retry.Context(ctx),
+		retry.DelayType(retry.FixedDelay),
+		retry.Attempts(blockQueryRetries),
+		retry.Delay(blockQueryRetryDelay),
+		retry.LastErrorOnly(true),
+	)
 }
 
 // clientState will return the most recent client state if client messages
@@ -319,15 +381,11 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		var ibcHeader provider.IBCHeader
 		i := i
 		eg.Go(func() (err error) {
-			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
-			defer cancelQueryCtx()
-			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
+			blockRes, err = ccp.blockResultsWithRetry(ctx, i)
 			return err
 		})
 		eg.Go(func() (err error) {
-			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
-			defer cancelQueryCtx()
-			ibcHeader, err = ccp.chainProvider.QueryIBCHeader(queryCtx, i)
+			ibcHeader, err = ccp.ibcHeaderWithRetry(ctx, i)
 			return err
 		})
 
