@@ -309,7 +309,7 @@ func (cc *CosmosProvider) handleAccountSequenceMismatchError(err error) {
 	if err != nil {
 		return
 	}
-	cc.updateNextAccountSequence(nextSeq)
+	cc.nextAccountSeq = nextSeq
 }
 
 // MsgCreateClient creates an sdk.Msg to update the client on src with consensus state from dst
