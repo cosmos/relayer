@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+        "sync"
 	"time"
 
 	"github.com/Stride-Labs/stride/x/interchainquery"
