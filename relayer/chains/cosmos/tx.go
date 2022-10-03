@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -36,6 +38,7 @@ var (
 	rtyAtt    = retry.Attempts(rtyAttNum)
 	rtyDel    = retry.Delay(time.Millisecond * 400)
 	rtyErr    = retry.LastErrorOnly(true)
+	numRegex  = regexp.MustCompile("[0-9]+")
 )
 
 // Default IBC settings
@@ -76,11 +79,22 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 	var resp *sdk.TxResponse
 	var fees sdk.Coins
 
+	// Guard against account sequence number mismatch errors by locking for the specific wallet for
+	// the account sequence query all the way through the transaction broadcast success/fail.
+	cc.txMu.Lock()
+	defer cc.txMu.Unlock()
+
 	if err := retry.Do(func() error {
-		txBytes, f, err := cc.buildMessages(ctx, msgs, memo)
+		txBytes, sequence, f, err := cc.buildMessages(ctx, msgs, memo)
 		fees = f
 		if err != nil {
 			errMsg := err.Error()
+
+			// Account sequence mismatch errors can happen on the simulated transaction also.
+			if strings.Contains(errMsg, sdkerrors.ErrWrongSequence.Error()) {
+				cc.handleAccountSequenceMismatchError(err)
+				return err
+			}
 
 			// Occasionally the client will be out of date,
 			// and we will receive an RPC error like:
@@ -148,15 +162,17 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 
 		resp, err = cc.BroadcastTx(ctx, txBytes)
 		if err != nil {
-			if err == sdkerrors.ErrWrongSequence {
-				// Allow retrying if we got an invalid sequence error when attempting to broadcast this tx.
+			if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+				cc.handleAccountSequenceMismatchError(err)
 				return err
 			}
 
 			// Don't retry if BroadcastTx resulted in any other error.
-			// (This was the previous behavior. Unclear if that is still desired.)
 			return retry.Unrecoverable(err)
 		}
+
+		// we had a successful tx with this sequence, so update it to the next
+		cc.updateNextAccountSequence(sequence + 1)
 
 		return nil
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
@@ -216,11 +232,11 @@ func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
 	return events
 }
 
-func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) ([]byte, sdk.Coins, error) {
+func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) ([]byte, uint64, sdk.Coins, error) {
 	// Query account details
 	txf, err := cc.PrepareFactory(cc.TxFactory())
 	if err != nil {
-		return nil, sdk.Coins{}, err
+		return nil, 0, sdk.Coins{}, err
 	}
 
 	if memo != "" {
@@ -233,7 +249,7 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 	// If users pass gas adjustment, then calculate gas
 	_, adjusted, err := cc.CalculateGas(ctx, txf, CosmosMsgs(msgs...)...)
 	if err != nil {
-		return nil, sdk.Coins{}, err
+		return nil, 0, sdk.Coins{}, err
 	}
 
 	// Set the gas amount on the transaction factory
@@ -248,13 +264,7 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 		}
 		return nil
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
-		return nil, sdk.Coins{}, err
-	}
-
-	// Attach the signature to the transaction
-	// Force encoding in the chain specific address
-	for _, msg := range msgs {
-		cc.Codec.Marshaler.MustMarshalJSON(CosmosMsg(msg))
+		return nil, 0, sdk.Coins{}, err
 	}
 
 	done := cc.SetSDKContext()
@@ -265,27 +275,43 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 		}
 		return nil
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
-		return nil, sdk.Coins{}, err
+		return nil, 0, sdk.Coins{}, err
 	}
 
 	done()
 
-	fees := txb.GetTx().GetFee()
+	tx := txb.GetTx()
+	fees := tx.GetFee()
 
 	var txBytes []byte
 	// Generate the transaction bytes
 	if err := retry.Do(func() error {
 		var err error
-		txBytes, err = cc.Codec.TxConfig.TxEncoder()(txb.GetTx())
+		txBytes, err = cc.Codec.TxConfig.TxEncoder()(tx)
 		if err != nil {
 			return err
 		}
 		return nil
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
-		return nil, sdk.Coins{}, err
+		return nil, 0, sdk.Coins{}, err
 	}
 
-	return txBytes, fees, nil
+	return txBytes, txf.Sequence(), fees, nil
+}
+
+// handleAccountSequenceMismatchError will parse the error string, e.g.:
+// "account sequence mismatch, expected 10, got 9: incorrect account sequence"
+// and update the next account sequence with the expected value.
+func (cc *CosmosProvider) handleAccountSequenceMismatchError(err error) {
+	sequences := numRegex.FindAllString(err.Error(), -1)
+	if len(sequences) != 2 {
+		return
+	}
+	nextSeq, err := strconv.ParseUint(sequences[0], 10, 64)
+	if err != nil {
+		return
+	}
+	cc.nextAccountSeq = nextSeq
 }
 
 // MsgCreateClient creates an sdk.Msg to update the client on src with consensus state from dst
@@ -1090,7 +1116,7 @@ func castClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) 
 	return clientState, nil
 }
 
-//DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
+// DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
 var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 
 // NewClientState creates a new tendermint client state tracking the dst chain.
