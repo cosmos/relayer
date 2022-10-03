@@ -101,7 +101,7 @@ func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, cc
 	clientState.TrustingPeriod = trustingPeriod
 
 	// update latest if no existing state or provided consensus height is newer
-	l[clientInfo.clientID] = clientInfo.ClientState()
+	l[clientInfo.clientID] = clientState
 }
 
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
