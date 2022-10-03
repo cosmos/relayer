@@ -96,8 +96,11 @@ func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
 type CosmosProvider struct {
 	log *zap.Logger
 
-	lens.ChainClient
 	PCfg CosmosProviderConfig
+
+	lens.ChainClient
+	nextAccountSeq uint64
+	txMu           sync.Mutex
 
 	// metrics to monitor the provider
 	TotalFees   sdk.Coins
@@ -249,4 +252,10 @@ func (cc *CosmosProvider) BlockTime(ctx context.Context, height int64) (time.Tim
 
 func (cc *CosmosProvider) SetMetrics(m *processor.PrometheusMetrics) {
 	cc.metrics = m
+}
+
+func (cc *CosmosProvider) updateNextAccountSequence(seq uint64) {
+	if seq > cc.nextAccountSeq {
+		cc.nextAccountSeq = seq
+	}
 }

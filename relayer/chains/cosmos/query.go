@@ -921,7 +921,7 @@ func DefaultPageRequest() *querytypes.PageRequest {
 		Key:        []byte(""),
 		Offset:     0,
 		Limit:      1000,
-		CountTotal: true,
+		CountTotal: false,
 	}
 }
 
