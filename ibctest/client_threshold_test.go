@@ -19,10 +19,29 @@ import (
 const (
 	g0ChainId = "gaia-0"
 	g1ChainId = "gaia-1"
+
+	ibcPath = "demo-path"
+
+	// Count how many MsgUpdateClient messages were sent for each chain after specified height
+	qUpdateClientBothChains = `SELECT
+	 COUNT(*)
+	 FROM v_cosmos_messages
+	 WHERE (type = "/ibc.core.client.v1.MsgUpdateClient" AND chain_id = ? AND block_height >= ?)
+	 OR (type = "/ibc.core.client.v1.MsgUpdateClient" AND chain_id = ? AND block_height >= ?)
+	 `
+
+	// Count how many MsgUpdateClient messages were sent for one chain after specified height
+	qUpdateClientSingleChain = `SELECT
+	 COUNT(*)
+	 FROM v_cosmos_messages
+	 WHERE type = "/ibc.core.client.v1.MsgUpdateClient" 
+	 AND chain_id = ? AND block_height >= ?
+	 `
 )
 
-// TestClientThreshold tests that the relyer will update light clients within a
+// Tests that the Relayer will update light clients within a
 // user specified time threshold.
+// If the client is set to expire withing the threshold, the relayer should update the client.
 func TestClientThresholdUpdate(t *testing.T) {
 
 	ctx := context.Background()
@@ -32,7 +51,7 @@ func TestClientThresholdUpdate(t *testing.T) {
 
 	// Chain Factory
 	cf := ibctest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctest.ChainSpec{
-		// Two otherwise identical chains that only differ by ChainID.
+		// Two otherwise identical chains that only differ by ChainName and ChainID.
 		{Name: "gaia", ChainName: "g0", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: g0ChainId}},
 		{Name: "gaia", ChainName: "g1", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: g1ChainId}},
 	})
@@ -45,8 +64,8 @@ func TestClientThresholdUpdate(t *testing.T) {
 	relayeribctest.BuildRelayerImage(t)
 
 	// Relayer is set with "--time-threshold 5m"
-	// The client beeing created below also has a trusting period of 5m.
-	// The relayer should update the client immediatly.
+	// The client being created below also has a trusting period of 5m.
+	// The relayer should automatically update the client after chains re in sync.
 	r := ibctest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
@@ -55,8 +74,7 @@ func TestClientThresholdUpdate(t *testing.T) {
 		ibctestrelayer.StartupFlags("--time-threshold", "5m"),
 	).Build(t, client, network)
 
-	// Prep Interchain with client trusting period of 5 min)
-	const ibcPath = "demo-path"
+	// Prep Interchain with client trusting period of 5 min
 	ic := ibctest.NewInterchain().
 		AddChain(g0).
 		AddChain(g1).
@@ -109,15 +127,7 @@ func TestClientThresholdUpdate(t *testing.T) {
 	g0_height, _ := g0.Height(ctx)
 	g1_height, _ := g1.Height(ctx)
 
-	// Count how many updateclient messages were sent for each chain after specified height
-	const qUpdateClientBothChains = `SELECT
-	 COUNT(*)
-	 FROM v_cosmos_messages
-	 WHERE (type = "/ibc.core.client.v1.MsgUpdateClient" AND chain_id = ? AND block_height >= ?)
-	 OR (type = "/ibc.core.client.v1.MsgUpdateClient" AND chain_id = ? AND block_height >= ?)
-	 `
-
-	// Verify there are no updateclient messages after noted height for each chain.
+	// Verify there are no "MsgUpdateClient" messages after noted height for each chain.
 	var count int
 	row := db.QueryRow(qUpdateClientBothChains, g0ChainId, g0_height, g1ChainId, g1_height)
 	require.NoError(t, row.Scan(&count))
@@ -129,26 +139,20 @@ func TestClientThresholdUpdate(t *testing.T) {
 	// Give relayer time to sync both chains
 	test.WaitForBlocks(ctx, 4, g0, g1)
 
-	// Count how many updateclient messages were sent for each chain after specified height
-	const qUpdateClientSingleChain = `SELECT
-	 COUNT(*)
-	 FROM v_cosmos_messages
-	 WHERE type = "/ibc.core.client.v1.MsgUpdateClient" 
-	 AND chain_id = ? AND block_height >= ?
-	 `
-
-	// Verify there are updateclient messages for g0
+	// Verify there are MsgUpdateClient messages for g0
 	row = db.QueryRow(qUpdateClientSingleChain, g0ChainId, g0_height)
 	require.NoError(t, row.Scan(&count))
 	require.Greater(t, count, 0)
 
-	// Verify there are updateclient messages for g1
+	// Verify there are MsgUpdateClient messages for g1
 	row = db.QueryRow(qUpdateClientSingleChain, g1ChainId, g1_height)
 	require.NoError(t, row.Scan(&count))
 	require.Greater(t, count, 0)
 
 }
 
+// Tests that passing in a "--time-threshold" of "0" to the relayer
+// will not update the client if it nears expiration.
 func TestClientThresholdNoUpdate(t *testing.T) {
 
 	ctx := context.Background()
@@ -171,7 +175,7 @@ func TestClientThresholdNoUpdate(t *testing.T) {
 	relayeribctest.BuildRelayerImage(t)
 
 	// Relayer is set with "--time-threshold 0"
-	// The Relayer should NOT conitinuously update clients
+	// The Relayer should NOT continuously update clients
 	r := ibctest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
@@ -180,8 +184,7 @@ func TestClientThresholdNoUpdate(t *testing.T) {
 		ibctestrelayer.StartupFlags("--time-threshold", "0"),
 	).Build(t, client, network)
 
-	// Prep Interchain with client trusting period of 5 min)
-	const ibcPath = "demo-path"
+	// Prep Interchain with client trusting period of 5 min
 	ic := ibctest.NewInterchain().
 		AddChain(g0).
 		AddChain(g1).
@@ -234,15 +237,7 @@ func TestClientThresholdNoUpdate(t *testing.T) {
 	g0_height, _ := g0.Height(ctx)
 	g1_height, _ := g1.Height(ctx)
 
-	// Count how many updateclient messages were sent for each chain after specified height
-	const qUpdateClientBothChains = `SELECT
-	 COUNT(*)
-	 FROM v_cosmos_messages
-	 WHERE (type = "/ibc.core.client.v1.MsgUpdateClient" AND chain_id = ? AND block_height >= ?)
-	 OR (type = "/ibc.core.client.v1.MsgUpdateClient" AND chain_id = ? AND block_height >= ?)
-	 `
-
-	// Verify there are no updateclient messages after noted height for each chain.
+	// Verify there are no MsgUpdateClient messages after noted height for each chain.
 	var count int
 	row := db.QueryRow(qUpdateClientBothChains, g0ChainId, g0_height, g1ChainId, g1_height)
 	require.NoError(t, row.Scan(&count))
@@ -254,20 +249,12 @@ func TestClientThresholdNoUpdate(t *testing.T) {
 	// Give relayer time to sync both chains
 	test.WaitForBlocks(ctx, 4, g0, g1)
 
-	// Count how many updateclient messages were sent for each chain after specified height
-	const qUpdateClientSingleChain = `SELECT
-	 COUNT(*)
-	 FROM v_cosmos_messages
-	 WHERE type = "/ibc.core.client.v1.MsgUpdateClient" 
-	 AND chain_id = ? AND block_height >= ?
-	 `
-
-	// Verify there are 0 updateclient messages for g0
+	// Verify there are 0 MsgUpdateClient messages for g0
 	row = db.QueryRow(qUpdateClientSingleChain, g0ChainId, g0_height)
 	require.NoError(t, row.Scan(&count))
 	require.Equal(t, count, 0)
 
-	// Verify there are 0 updateclient messages for g1
+	// Verify there are 0 MsgUpdateClient messages for g1
 	row = db.QueryRow(qUpdateClientSingleChain, g1ChainId, g1_height)
 	require.NoError(t, row.Scan(&count))
 	require.Equal(t, count, 0)
