@@ -30,12 +30,12 @@ func (sp *SubstrateProvider) QueryTxs(ctx context.Context, page, limit int, even
 }
 
 func (sp *SubstrateProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
-	signedHash, err := sp.RelayerRPCClient.RPC.Beefy.GetFinalizedHead()
+	signedHash, err := sp.RelayRPCClient.RPC.Beefy.GetFinalizedHead()
 	if err != nil {
 		return 0, err
 	}
 
-	block, err := sp.RelayerRPCClient.RPC.Chain.GetBlock(signedHash)
+	block, err := sp.RelayRPCClient.RPC.Chain.GetBlock(signedHash)
 	if err != nil {
 		return 0, err
 	}
@@ -83,7 +83,7 @@ func (sp *SubstrateProvider) QueryLatestIBCHeader(queriedParaHeight int64) (prov
 	}
 
 	relayChainHeight = uint64(sp.LatestQueriedRelayHeight[queriedParaHeight])
-	blockHash, err := sp.RelayerRPCClient.RPC.Chain.GetBlockHash(relayChainHeight)
+	blockHash, err := sp.RelayRPCClient.RPC.Chain.GetBlockHash(relayChainHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -99,9 +99,26 @@ func (sp *SubstrateProvider) QueryLatestIBCHeader(queriedParaHeight int64) (prov
 	}, nil
 }
 
-func (sp *SubstrateProvider) QueryIBCHeaderOverBlocks(finalizedHeight, previouslyFinalized int64) (provider.IBCHeader, error) {
-	// TODO
-	return nil, nil
+func (sp *SubstrateProvider) QueryIBCHeaderOverBlocks(finalizedHeight, previouslyFinalized uint64) (provider.IBCHeader, error) {
+	finalizedHash, err := sp.RelayRPCClient.RPC.Chain.GetBlockHash(finalizedHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	previouslyFinalizedHash, err := sp.RelayRPCClient.RPC.Chain.GetBlockHash(previouslyFinalized)
+	if err != nil {
+		return nil, err
+	}
+
+	header, err := sp.constructBeefyHeader(finalizedHash, &previouslyFinalizedHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return SubstrateIBCHeader{
+		height:       uint64(header.MMRUpdateProof.SignedCommitment.Commitment.BlockNumber),
+		SignedHeader: header,
+	}, nil
 }
 
 func (sp *SubstrateProvider) QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (provider.PacketInfo, error) {

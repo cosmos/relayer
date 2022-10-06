@@ -66,7 +66,7 @@ func (sp *SubstrateProvider) paraHeadData(blockHash rpcclienttypes.Hash) ([]byte
 		return nil, err
 	}
 
-	storage, err := sp.RelayerRPCClient.RPC.State.GetStorageRaw(paraKey, blockHash)
+	storage, err := sp.RelayRPCClient.RPC.State.GetStorageRaw(paraKey, blockHash)
 	if err != nil {
 		return nil, err
 	}
@@ -281,18 +281,18 @@ func (sp *SubstrateProvider) getFinalizedBlocks(
 		return finalizedBlocks, leafIndeces, nil
 	}
 
-	paraHeaderKeys, err := parachainHeaderKeys(sp.RelayerRPCClient, blockHash)
+	paraHeaderKeys, err := parachainHeaderKeys(sp.RelayRPCClient, blockHash)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	changeSet, err := sp.RelayerRPCClient.RPC.State.QueryStorage(paraHeaderKeys, *previouslyFinalizedBlockHash, blockHash)
+	changeSet, err := sp.RelayRPCClient.RPC.State.QueryStorage(paraHeaderKeys, *previouslyFinalizedBlockHash, blockHash)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	for _, changes := range changeSet {
-		header, err := sp.RelayerRPCClient.RPC.Chain.GetHeader(changes.Block)
+		header, err := sp.RelayRPCClient.RPC.Chain.GetHeader(changes.Block)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -355,7 +355,7 @@ func (sp *SubstrateProvider) constructParachainHeaders(
 	blockHash rpcclienttypes.Hash,
 	previouslyFinalizedBlockHash *rpcclienttypes.Hash,
 ) ([]*beefyclienttypes.ParachainHeader, error) {
-	var conn = sp.RelayerRPCClient
+	var conn = sp.RelayRPCClient
 	var finalizedBlocks = make(map[uint32]map[uint32][]byte)
 	var leafIndeces []uint64
 	finalizedBlocks, leafIndeces, err := sp.getFinalizedBlocks(blockHash, previouslyFinalizedBlockHash)
@@ -532,7 +532,7 @@ func (sp *SubstrateProvider) mmrBatchProofs(
 	}
 
 	// fetch mmr proofs for leaves containing our target paraId
-	batchProofs, err := sp.RelayerRPCClient.RPC.MMR.GenerateBatchProof(leafIndeces, blockHash)
+	batchProofs, err := sp.RelayRPCClient.RPC.MMR.GenerateBatchProof(leafIndeces, blockHash)
 	if err != nil {
 		return rpcclienttypes.GenerateMmrBatchProofResponse{}, err
 	}
@@ -634,7 +634,7 @@ func (sp *SubstrateProvider) constructBeefyHeader(
 	blockHash rpcclienttypes.Hash,
 	previousFinalizedHash *rpcclienttypes.Hash,
 ) (*beefyclienttypes.Header, error) {
-	var conn = sp.RelayerRPCClient
+	var conn = sp.RelayRPCClient
 	// assuming blockHash is always the latest beefy block hash
 	// TODO: check that it is the latest block hash
 	latestCommitment, err := signedCommitment(conn, blockHash)
