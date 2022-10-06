@@ -23,8 +23,8 @@ import (
 // The canonical set of test chains are defined in the ibctest repository.
 func ibctestConformance(t *testing.T, rf ibctest.RelayerFactory) {
 	cf := ibctest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctest.ChainSpec{
-		{Name: "gaia", Version: "v7.0.1", ChainConfig: ibc.ChainConfig{ChainID: "cosmoshub-1004"}},
-		{Name: "osmosis", Version: "v7.2.0", ChainConfig: ibc.ChainConfig{ChainID: "osmosis-1001"}},
+		{Name: "gaia", Version: "v7.0.3", ChainConfig: ibc.ChainConfig{ChainID: "cosmoshub-1004"}},
+		{Name: "osmosis", Version: "v12.1.0", ChainConfig: ibc.ChainConfig{ChainID: "osmosis-1001"}},
 	})
 	conformance.Test(
 		t,
