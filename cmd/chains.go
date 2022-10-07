@@ -510,7 +510,7 @@ func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) er
 
 	}
 	a.Log.Info("config update status",
-		zap.Any("added chains", added),
+		zap.Any("added", added),
 		zap.Any("failed", failed),
 		zap.Any("already existed", existed),
 	)
