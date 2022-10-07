@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	rpcClientTypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
+	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
 	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	"github.com/avast/retry-go/v4"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
@@ -37,21 +36,6 @@ var (
 	defaultDelayPeriod = uint64(0)
 )
 
-// Strings for parsing events
-var (
-	spTag       = "send_packet"
-	waTag       = "write_acknowledgement"
-	srcChanTag  = "packet_src_channel"
-	dstChanTag  = "packet_dst_channel"
-	srcPortTag  = "packet_src_port"
-	dstPortTag  = "packet_dst_port"
-	dataTag     = "packet_data"
-	ackTag      = "packet_ack"
-	toHeightTag = "packet_timeout_height"
-	toTSTag     = "packet_timeout_timestamp"
-	seqTag      = "packet_sequence"
-)
-
 // SendMessage attempts to sign, encode & send a RelayerMessage
 // This is used extensively in the relayer as an extension of the Provider interface
 func (sp *SubstrateProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
@@ -74,13 +58,13 @@ func (sp *SubstrateProvider) SendMessages(ctx context.Context, msgs []provider.R
 			return err
 		}
 
-		c, err := rpcClientTypes.NewCall(meta, "IBC.deliver", msgs)
+		c, err := rpcclienttypes.NewCall(meta, "IBC.deliver", msgs)
 		if err != nil {
 			return err
 		}
 
 		// Create the extrinsic
-		ext := rpcClientTypes.NewExtrinsic(c)
+		ext := rpcclienttypes.NewExtrinsic(c)
 
 		genesisHash, err := sp.RPCClient.RPC.Chain.GetBlockHash(0)
 		if err != nil {
@@ -97,12 +81,12 @@ func (sp *SubstrateProvider) SendMessages(ctx context.Context, msgs []provider.R
 			return err
 		}
 
-		key, err := rpcClientTypes.CreateStorageKey(meta, "System", "Account", info.GetPublicKey(), nil)
+		key, err := rpcclienttypes.CreateStorageKey(meta, "System", "Account", info.GetPublicKey(), nil)
 		if err != nil {
 			return err
 		}
 
-		var accountInfo rpcClientTypes.AccountInfo
+		var accountInfo rpcclienttypes.AccountInfo
 		ok, err := sp.RPCClient.RPC.State.GetStorageLatest(key, &accountInfo)
 		if err != nil || !ok {
 			return err
@@ -110,13 +94,13 @@ func (sp *SubstrateProvider) SendMessages(ctx context.Context, msgs []provider.R
 
 		nonce := uint32(accountInfo.Nonce)
 
-		o := rpcClientTypes.SignatureOptions{
+		o := rpcclienttypes.SignatureOptions{
 			BlockHash:   genesisHash,
-			Era:         rpcClientTypes.ExtrinsicEra{IsMortalEra: false},
+			Era:         rpcclienttypes.ExtrinsicEra{IsMortalEra: false},
 			GenesisHash: genesisHash,
-			Nonce:       rpcClientTypes.NewUCompactFromUInt(uint64(nonce)),
+			Nonce:       rpcclienttypes.NewUCompactFromUInt(uint64(nonce)),
 			SpecVersion: rv.SpecVersion,
-			Tip:         rpcClientTypes.NewUCompactFromUInt(0),
+			Tip:         rpcclienttypes.NewUCompactFromUInt(0),
 		}
 
 		err = ext.Sign(info.GetKeyringPair(), o)
@@ -881,34 +865,6 @@ func (sp *SubstrateProvider) InjectTrustedFields(ctx context.Context, header ibc
 	h.MMRUpdateProof.SignedCommitment.Commitment.ValidatorSetID = trustedValidatorSetID
 
 	return h, nil
-}
-
-// queryTMClientState retrieves the latest consensus state for a client in state at a given height
-// and unpacks/cast it to tendermint clientstate
-func (sp *SubstrateProvider) queryTMClientState(ctx context.Context, srch int64, srcClientId string) (*tmclient.ClientState, error) {
-	clientStateRes, err := sp.QueryClientStateResponse(ctx, srch, srcClientId)
-	if err != nil {
-		return &tmclient.ClientState{}, err
-	}
-
-	return castClientStateToTMType(clientStateRes.ClientState)
-}
-
-// castClientStateToTMType casts client state to tendermint type
-func castClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) {
-	clientStateExported, err := clienttypes.UnpackClientState(cs)
-	if err != nil {
-		return &tmclient.ClientState{}, err
-	}
-
-	// cast from interface to concrete type
-	clientState, ok := clientStateExported.(*tmclient.ClientState)
-	if !ok {
-		return &tmclient.ClientState{},
-			fmt.Errorf("error when casting exported clientstate to tendermint type")
-	}
-
-	return clientState, nil
 }
 
 // DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
