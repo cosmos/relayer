@@ -70,7 +70,7 @@ func (spc SubstrateProviderConfig) NewProvider(log *zap.Logger, homepath string,
 
 	sp := &SubstrateProvider{
 		log:    log,
-		Config: spc,
+		Config: &spc,
 	}
 
 	err := sp.Init()
