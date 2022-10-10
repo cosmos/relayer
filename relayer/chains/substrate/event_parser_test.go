@@ -212,7 +212,7 @@ func TestParseConnection(t *testing.T) {
 	}), "parsed connection info does not match expected")
 }
 
-func TestParseEventLogs(t *testing.T) {
+func TestParseEvents(t *testing.T) {
 	events := `[
 		{
 			"` + UpdateClient + `": {
