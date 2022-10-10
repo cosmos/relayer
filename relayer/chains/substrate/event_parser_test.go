@@ -12,29 +12,34 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	testConnectionID1  = "connection-0"
+	testConnectionID2  = "connection-1"
+	testClientID1      = "client-0"
+	testClientID2      = "client-1"
+	testChannelID1     = "channel-0"
+	testChannelID2     = "channel-1"
+	testPortID1        = "port-0"
+	testPortID2        = "port-1"
+	testRevisionNumber = "0"
+	testRevisionHeight = "10"
+)
+
 func TestParsePacket(t *testing.T) {
-	const (
-		testPacketTimeoutHeight    = "1-1245"
-		testPacketTimeoutTimestamp = "1654033235600000000"
-		testPacketSequence         = "1"
-		testPacketDataHex          = "68656C6C6F"
-		testPacketSrcChannel       = "channel-0"
-		testPacketSrcPort          = "port-0"
-		testPacketDstChannel       = "channel-1"
-		testPacketDstPort          = "port-1"
-	)
+
+	testPacketDataHex := "68656C6C6F"
 
 	packetStr := `{
 		"packet": {
 			"sequence": 0,
-			"source_port": "port-0",
-			"source_channel": "channel-0",
-			"destination_port": "port-1",
-			"destination_channel": "channel-1",
-			"data": "68656C6C6F",
+			"source_port": "` + testPortID1 + `",
+			"source_channel": "` + testChannelID1 + `",
+			"destination_port": "` + testPortID2 + `",
+			"destination_channel": "` + testChannelID2 + `",
+			"data": "` + testPacketDataHex + `",
 			"timeout_height": {
-				"revision_number": 0,
-				"revision_height": 10
+				"revision_number": ` + testRevisionNumber + `,
+				"revision_height": ` + testRevisionHeight + `
 			},
 			"timeout_timestamp": {
 				"time": "2022-10-06T11:00:02.664464Z"
@@ -60,21 +65,14 @@ func TestParsePacket(t *testing.T) {
 			RevisionHeight: uint64(10),
 		},
 		TimeoutTimestamp: uint64(1665054002664464000),
-		SourceChannel:    testPacketSrcChannel,
-		SourcePort:       testPacketSrcPort,
-		DestChannel:      testPacketDstChannel,
-		DestPort:         testPacketDstPort,
+		SourceChannel:    testChannelID1,
+		SourcePort:       testPortID1,
+		DestChannel:      testChannelID2,
+		DestPort:         testPortID2,
 	}), "parsed does not match expected")
 }
 
 func TestParseChannel(t *testing.T) {
-	const (
-		testConnectionID = "connection-0"
-		testChannelID1   = "channel-0"
-		testPortID1      = "port-0"
-		testChannelID2   = "channel-1"
-		testPortID2      = "port-1"
-	)
 
 	clientStr := `{
 		"height": {
@@ -83,7 +81,7 @@ func TestParseChannel(t *testing.T) {
 		},
 		"port_id": "` + testPortID1 + `",
 		"channel_id": "` + testChannelID1 + `",
-		"connection_id": "` + testConnectionID + `",
+		"connection_id": "` + testConnectionID1 + `",
 		"counterparty_port_id": "` + testPortID2 + `",
 		"counterparty_channel_id": "` + testChannelID2 + `"
 	}`
@@ -96,10 +94,34 @@ func TestParseChannel(t *testing.T) {
 	parsed.parseAttrs(zap.NewNop(), clientAttributes)
 
 	require.Empty(t, cmp.Diff(provider.ChannelInfo(*parsed), provider.ChannelInfo{
-		ConnID:                testConnectionID,
+		ConnID:                testConnectionID1,
 		ChannelID:             testChannelID1,
 		PortID:                testPortID1,
 		CounterpartyChannelID: testChannelID2,
 		CounterpartyPortID:    testPortID2,
 	}), "parsed channel info does not match expected")
+}
+
+func TestParseConnection(t *testing.T) {
+
+	connectionStr := `{
+		"connection_id": "` + testConnectionID1 + `",
+		"client_id": "` + testClientID1 + `",
+		"counterparty_connection_id": "` + testConnectionID2 + `",
+		"counterparty_client_id": "` + testClientID2 + `"
+	}`
+
+	var connectionAttributes ibcEventQueryItem
+	err := json.Unmarshal([]byte(connectionStr), &connectionAttributes)
+	require.NoError(t, err)
+
+	parsed := new(connectionInfo)
+	parsed.parseAttrs(zap.NewNop(), connectionAttributes)
+
+	require.Empty(t, cmp.Diff(provider.ConnectionInfo(*parsed), provider.ConnectionInfo{
+		ClientID:             testClientID1,
+		ConnID:               testConnectionID1,
+		CounterpartyClientID: testClientID2,
+		CounterpartyConnID:   testConnectionID2,
+	}), "parsed connection info does not match expected")
 }
