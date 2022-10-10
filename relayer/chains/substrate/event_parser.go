@@ -2,12 +2,12 @@ package substrate
 
 import (
 	"fmt"
-	"strconv"
 
 	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
 	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/spf13/cast"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -24,7 +24,7 @@ type ibcMessageInfo interface {
 }
 
 // alias for the interface map
-type ibcEventQueryItem (map[string]interface{})
+type ibcEventQueryItem = map[string]interface{}
 
 // substrate ibc events endpoint returns a list of events
 // relayted to different transaction, so we need
@@ -244,14 +244,20 @@ func (pkt *packetInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 func (pkt *packetInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
 	attrs := attributes.(ibcEventQueryItem)
 
-	pkt.Sequence = attrs["sequence"].(uint64)
+	pkt.Sequence = cast.ToUint64(attrs["sequence"].(float64))
 	pkt.SourcePort = attrs["source_port"].(string)
 	pkt.SourceChannel = attrs["source_channel"].(string)
 	pkt.DestPort = attrs["destination_port"].(string)
 	pkt.DestChannel = attrs["destination_channel"].(string)
-	pkt.Data = attrs["data"].([]byte)
 
 	var err error
+	if pkt.Data, err = rpcclienttypes.HexDecodeString(attrs["data"].(string)); err != nil {
+		log.Error("error parsing packet data: ",
+			zap.Error(err),
+		)
+		return
+	}
+
 	if pkt.TimeoutHeight, err = parseHeight(attrs["timeout_height"]); err != nil {
 		log.Error("error parsing packet height: ",
 			zap.Error(err),
@@ -259,7 +265,12 @@ func (pkt *packetInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
 		return
 	}
 
-	pkt.TimeoutTimestamp = attrs["timeout_timestamp"].(uint64)
+	if pkt.TimeoutTimestamp, err = parseTimestamp(attrs["timeout_timestamp"]); err != nil {
+		log.Error("error parsing packet timeout timestamp: ",
+			zap.Error(err),
+		)
+		return
+	}
 
 	ack, found := attrs["ack"]
 	if found {
@@ -318,16 +329,16 @@ func (con *connectionInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
 	con.CounterpartyConnID = attrs["counterparty_connection_id"].(string)
 }
 
-// parses the attributes of ibc core client type
+// parses the height from an input interface
 func parseHeight(i interface{}) (clienttypes.Height, error) {
 	height := i.(ibcEventQueryItem)
 
-	revisionNumber, err := strconv.ParseUint(height["revision_number"].(string), 10, 64)
+	revisionNumber, err := cast.ToUint64E(height["revision_number"].(float64))
 	if err != nil {
 		return clienttypes.Height{}, fmt.Errorf("error parsing revision number: %s", err)
 	}
 
-	revisionHeight, err := strconv.ParseUint(height["revision_height"].(string), 10, 64)
+	revisionHeight, err := cast.ToUint64E(height["revision_height"].(float64))
 	if err != nil {
 		return clienttypes.Height{}, fmt.Errorf("error parsing revision height: %s", err)
 	}
@@ -336,6 +347,17 @@ func parseHeight(i interface{}) (clienttypes.Height, error) {
 		RevisionNumber: revisionNumber,
 		RevisionHeight: revisionHeight,
 	}, nil
+}
+
+// parses timestamp from an input interface
+func parseTimestamp(i interface{}) (uint64, error) {
+	timestamp := i.(ibcEventQueryItem)
+
+	t, err := cast.ToTimeE(timestamp["time"].(string))
+	if err != nil {
+		return 0, fmt.Errorf("error parsing timestamp: %s", err)
+	}
+	return uint64(t.UnixNano()), nil
 }
 
 // parses beefy header
