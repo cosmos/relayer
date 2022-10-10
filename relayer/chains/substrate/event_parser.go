@@ -190,7 +190,13 @@ func (cl *clientInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
 	}
 
 	cl.ClientID = attrs["client_id"].(string)
-	cl.ClientType = attrs["client_type"].(uint32)
+
+	if cl.ClientType, err = cast.ToUint32E(attrs["client_type"].(string)); err != nil {
+		log.Error("error parsing client type: ",
+			zap.Error(err),
+		)
+		return
+	}
 
 	if cl.ConsensusHeight, err = parseHeight(attrs["consensus_height"]); err != nil {
 		log.Error("error parsing client consensus height: ",

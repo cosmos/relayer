@@ -8,11 +8,13 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/google/go-cmp/cmp"
+	"github.com/spf13/cast"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
 const (
+	testSequence       = uint64(0)
 	testConnectionID1  = "connection-0"
 	testConnectionID2  = "connection-1"
 	testClientID1      = "client-0"
@@ -21,8 +23,10 @@ const (
 	testChannelID2     = "channel-1"
 	testPortID1        = "port-0"
 	testPortID2        = "port-1"
-	testRevisionNumber = "0"
-	testRevisionHeight = "10"
+	testRevisionNumber = 0
+	testRevisionHeight = 10
+	testTimestamp      = "2022-10-06T11:00:02.664464Z"
+	testClientType     = 0
 )
 
 func TestParsePacket(t *testing.T) {
@@ -31,18 +35,18 @@ func TestParsePacket(t *testing.T) {
 
 	packetStr := `{
 		"packet": {
-			"sequence": 0,
+			"sequence": ` + cast.ToString(testSequence) + `,
 			"source_port": "` + testPortID1 + `",
 			"source_channel": "` + testChannelID1 + `",
 			"destination_port": "` + testPortID2 + `",
 			"destination_channel": "` + testChannelID2 + `",
 			"data": "` + testPacketDataHex + `",
 			"timeout_height": {
-				"revision_number": ` + testRevisionNumber + `,
-				"revision_height": ` + testRevisionHeight + `
+				"revision_number": ` + cast.ToString(testRevisionNumber) + `,
+				"revision_height": ` + cast.ToString(testRevisionHeight) + `
 			},
 			"timeout_timestamp": {
-				"time": "2022-10-06T11:00:02.664464Z"
+				"time": "` + testTimestamp + `"
 			}
 		}
 	}`
@@ -58,11 +62,11 @@ func TestParsePacket(t *testing.T) {
 	require.NoError(t, err, "error decoding test packet data")
 
 	require.Empty(t, cmp.Diff(provider.PacketInfo(*parsed), provider.PacketInfo{
-		Sequence: uint64(0),
+		Sequence: testSequence,
 		Data:     packetData,
 		TimeoutHeight: clienttypes.Height{
-			RevisionNumber: uint64(0),
-			RevisionHeight: uint64(10),
+			RevisionNumber: testRevisionNumber,
+			RevisionHeight: testRevisionHeight,
 		},
 		TimeoutTimestamp: uint64(1665054002664464000),
 		SourceChannel:    testChannelID1,
@@ -72,12 +76,48 @@ func TestParsePacket(t *testing.T) {
 	}), "parsed does not match expected")
 }
 
+func TestParseClient(t *testing.T) {
+
+	clientStr := `{
+		"height": {
+			"revision_number": ` + cast.ToString(testRevisionNumber) + `,
+			"revision_height": ` + cast.ToString(testRevisionHeight) + `
+		},
+		"client_id": "` + testClientID1 + `",
+		"consensus_height": {
+			"revision_number": ` + cast.ToString(testRevisionNumber) + `,
+			"revision_height": ` + cast.ToString(testRevisionHeight) + `
+		},
+		"client_type": "` + cast.ToString(testClientType) + `"
+	}`
+
+	var clientEventAttributes ibcEventQueryItem
+	err := json.Unmarshal([]byte(clientStr), &clientEventAttributes)
+	require.NoError(t, err)
+
+	parsed := new(clientInfo)
+	parsed.parseAttrs(zap.NewNop(), clientEventAttributes)
+
+	require.Empty(t, cmp.Diff(*parsed, clientInfo{
+		Height: clienttypes.Height{
+			RevisionNumber: testRevisionNumber,
+			RevisionHeight: testRevisionHeight,
+		},
+		ClientID: testClientID1,
+		ConsensusHeight: clienttypes.Height{
+			RevisionNumber: testRevisionNumber,
+			RevisionHeight: testRevisionHeight,
+		},
+		ClientType: testClientType,
+	}, cmp.AllowUnexported(clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
+}
+
 func TestParseChannel(t *testing.T) {
 
 	clientStr := `{
 		"height": {
-			"revision_number": 0,
-			"revision_height": 10
+			"revision_number": ` + cast.ToString(testRevisionNumber) + `,
+			"revision_height": ` + cast.ToString(testRevisionHeight) + `
 		},
 		"port_id": "` + testPortID1 + `",
 		"channel_id": "` + testChannelID1 + `",
