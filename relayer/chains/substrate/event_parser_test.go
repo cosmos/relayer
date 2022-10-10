@@ -26,7 +26,7 @@ const (
 	testRevisionNumber = 0
 	testRevisionHeight = 10
 	testTimestamp      = "2022-10-06T11:00:02.664464Z"
-	testClientType     = 0
+	testClientType     = uint32(0)
 )
 
 func TestParsePacket(t *testing.T) {
@@ -109,6 +109,47 @@ func TestParseClient(t *testing.T) {
 			RevisionHeight: testRevisionHeight,
 		},
 		ClientType: testClientType,
+	}, cmp.AllowUnexported(clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
+}
+
+func TestParseClientUpdate(t *testing.T) {
+
+	// header is always ignored, so there is no need to populate it
+	clientStr := `{
+		"common": {
+			"height": {
+				"revision_number": ` + cast.ToString(testRevisionNumber) + `,
+				"revision_height": ` + cast.ToString(testRevisionHeight) + `
+			},
+			"client_id": "` + testClientID1 + `",
+			"consensus_height": {
+				"revision_number": ` + cast.ToString(testRevisionNumber) + `,
+				"revision_height": ` + cast.ToString(testRevisionHeight) + `
+			},
+			"client_type": "` + cast.ToString(testClientType) + `"
+		}
+	}`
+
+	var clientEventAttributes ibcEventQueryItem
+	err := json.Unmarshal([]byte(clientStr), &clientEventAttributes)
+	require.NoError(t, err)
+
+	parsed := new(clientUpdateInfo)
+	parsed.parseAttrs(zap.NewNop(), clientEventAttributes)
+
+	require.Empty(t, cmp.Diff(*parsed, clientUpdateInfo{
+		Common: clientInfo{
+			Height: clienttypes.Height{
+				RevisionNumber: testRevisionNumber,
+				RevisionHeight: testRevisionHeight,
+			},
+			ClientID: testClientID1,
+			ConsensusHeight: clienttypes.Height{
+				RevisionNumber: testRevisionNumber,
+				RevisionHeight: testRevisionHeight,
+			},
+			ClientType: testClientType,
+		},
 	}, cmp.AllowUnexported(clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
 }
 

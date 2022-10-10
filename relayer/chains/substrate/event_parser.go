@@ -230,7 +230,9 @@ func (clu *clientUpdateInfo) parseAttrs(log *zap.Logger, attributes interface{})
 	clientInfo.parseAttrs(log, attrs["common"])
 	clu.Common = *clientInfo
 
-	clu.Header = parseHeader(attrs["header"])
+	if h, ok := attrs["header"]; ok {
+		clu.Header = parseHeader(h)
+	}
 }
 
 // alias type to the provider types, used for adding parser methods
