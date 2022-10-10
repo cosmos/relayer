@@ -168,11 +168,11 @@ func (scp *SubstrateChainProcessor) Run(ctx context.Context, initialBlockHistory
 		break
 	}
 
-	// this will make initial QueryLoop iteration look back initialBlockHistory blocks in history
-	latestProcessedBlock := persistence.latestBlockHeight - initialBlockHistory
-	//
-	if latestProcessedBlock < 0 {
-		latestProcessedBlock = 0
+	// this will make initial ibc event processing look back initialBlockHistory blocks in history
+	var hasHistoryToProcess bool
+	persistence.startBlockHeight = persistence.latestBlockHeight - initialBlockHistory
+	if persistence.startBlockHeight > 0 {
+		hasHistoryToProcess = true
 	}
 
 	var eg errgroup.Group
@@ -186,9 +186,7 @@ func (scp *SubstrateChainProcessor) Run(ctx context.Context, initialBlockHistory
 		return err
 	}
 
-	// TODO: process ibc events for missed events in previous blocks
 	scp.log.Debug("subscribing and listening to relay chain commitments")
-
 	commitments := make(chan interface{})
 	sub, err := scp.chainProvider.RelayRPCClient.Client.Subscribe(
 		context.Background(),
@@ -205,6 +203,15 @@ func (scp *SubstrateChainProcessor) Run(ctx context.Context, initialBlockHistory
 	defer sub.Unsubscribe()
 
 	for {
+		if hasHistoryToProcess {
+			err := scp.processIBCEvents(ctx, &persistence, nil)
+			if err != nil {
+				// TODO: this should probably retry instead of stopping event processing
+				return err
+			}
+			hasHistoryToProcess = false
+		}
+
 		select {
 		case msg, ok := <-commitments:
 			if !ok {
@@ -217,7 +224,7 @@ func (scp *SubstrateChainProcessor) Run(ctx context.Context, initialBlockHistory
 				return err
 			}
 
-			err := scp.processIBCEvents(ctx, compactCommitment, &persistence)
+			err := scp.processIBCEvents(ctx, &persistence, &compactCommitment)
 			if err != nil {
 				// TODO: this should probably retry instead of stopping event processing
 				return err
@@ -276,18 +283,27 @@ func (scp *SubstrateChainProcessor) initializeChannelState(ctx context.Context) 
 	return nil
 }
 
-func (scp *SubstrateChainProcessor) processIBCEvents(ctx context.Context, cc rpcclienttypes.CompactSignedCommitment, persistence *processCyclePersistence) error {
-	commitment := cc.Unpack()
-	blockNumber := uint64(commitment.Commitment.BlockNumber)
-	if persistence.latestBlockHeight <= 0 {
-		// we need a range of finalized relay chain blocks. If the start block is the genesis block,
-		// skip event processing cycle
-		persistence.startBlockHeight = blockNumber + 1
-		return nil
+// TODO: add condition to set the chain processor to a synced state
+// TODO: add a threshold for the sync state
+func (scp *SubstrateChainProcessor) processIBCEvents(
+	ctx context.Context,
+	persistence *processCyclePersistence,
+	cc *rpcclienttypes.CompactSignedCommitment,
+) error {
+	if cc != nil {
+		commitment := cc.Unpack()
+		blockNumber := uint64(commitment.Commitment.BlockNumber)
+		if persistence.startBlockHeight <= 0 {
+			// we need a range of finalized relay chain blocks. If the start block is the genesis block,
+			// skip event processing cycle
+			persistence.startBlockHeight = blockNumber + 1
+			return nil
+		}
+
+		persistence.latestBlockHeight = blockNumber
 	}
 
-	persistence.latestBlockHeight = blockNumber
-	header, err := scp.chainProvider.QueryIBCHeaderOverBlocks(blockNumber, persistence.startBlockHeight)
+	header, err := scp.chainProvider.QueryIBCHeaderOverBlocks(persistence.latestBlockHeight, persistence.startBlockHeight)
 	if err != nil {
 		return nil
 	}
@@ -349,6 +365,6 @@ func (scp *SubstrateChainProcessor) processIBCEvents(ctx context.Context, cc rpc
 	}
 
 	// update the start block of the next process cycle to the latest process block height + 1
-	persistence.startBlockHeight = blockNumber + 1
+	persistence.startBlockHeight = persistence.latestBlockHeight + 1
 	return nil
 }
