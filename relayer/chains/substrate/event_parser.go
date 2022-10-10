@@ -145,7 +145,7 @@ func (scp *SubstrateChainProcessor) parseEvent(
 // returns the unique key for packet accumulator cache
 func genAccumKey(data interface{}) ibcPacketKey {
 	return ibcPacketKey{
-		sequence:   data.(ibcEventQueryItem)["sequence"].(uint64),
+		sequence:   cast.ToUint64(data.(ibcEventQueryItem)["sequence"].(float64)),
 		srcChannel: data.(ibcEventQueryItem)["source_channel"].(string),
 		srcPort:    data.(ibcEventQueryItem)["source_port"].(string),
 		dstChannel: data.(ibcEventQueryItem)["destination_channel"].(string),
@@ -230,7 +230,7 @@ func (clu *clientUpdateInfo) parseAttrs(log *zap.Logger, attributes interface{})
 	clientInfo.parseAttrs(log, attrs["common"])
 	clu.Common = *clientInfo
 
-	if h, ok := attrs["header"]; ok {
+	if h, headerFound := attrs["header"]; headerFound {
 		clu.Header = parseHeader(h)
 	}
 }
@@ -280,9 +280,15 @@ func (pkt *packetInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
 		return
 	}
 
-	ack, found := attrs["ack"]
-	if found {
-		pkt.Ack = ack.([]byte)
+	ack, ackFound := attrs["ack"]
+	if ackFound {
+
+		if pkt.Ack, err = rpcclienttypes.HexDecodeString(ack.(string)); err != nil {
+			log.Error("error parsing ack data: ",
+				zap.Error(err),
+			)
+			return
+		}
 	}
 
 	// TODO: how to populate order
