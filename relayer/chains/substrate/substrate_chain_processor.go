@@ -19,6 +19,16 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const (
+	queryTimeout                = 5 * time.Second
+	latestHeightQueryRetryDelay = 1 * time.Second
+	latestHeightQueryRetries    = 5
+	// inSyncNumBlocksThreshold is an estimation of 2 BEEFY finalization rounds. The relayer is not in
+	// sync if the last processed block is greater than 2 relay chain finalization rounds.
+	// TODO: this should be reviewed when the light client is changed to a GRANDPA client.
+	inSyncNumBlocksThreshold = 16
+)
+
 type SubstrateChainProcessor struct {
 	log *zap.Logger
 
@@ -59,16 +69,6 @@ func NewSubstrateChainProcessor(log *zap.Logger, provider *SubstrateProvider) *S
 		channelConnections:   make(map[string]string),
 	}
 }
-
-const (
-	queryTimeout                = 5 * time.Second
-	blockResultsQueryTimeout    = 2 * time.Minute
-	latestHeightQueryRetryDelay = 1 * time.Second
-	latestHeightQueryRetries    = 5
-
-	defaultMinQueryLoopDuration = 1 * time.Second
-	inSyncNumBlocksThreshold    = 2
-)
 
 // latestClientState is a map of clientID to the latest clientInfo for that client.
 type latestClientState map[string]provider.ClientState
@@ -206,7 +206,6 @@ func (scp *SubstrateChainProcessor) Run(ctx context.Context, initialBlockHistory
 		if hasHistoryToProcess {
 			err := scp.processIBCEvents(ctx, &persistence, nil)
 			if err != nil {
-				// TODO: this should probably retry instead of stopping event processing
 				return err
 			}
 			hasHistoryToProcess = false
@@ -226,7 +225,6 @@ func (scp *SubstrateChainProcessor) Run(ctx context.Context, initialBlockHistory
 
 			err := scp.processIBCEvents(ctx, &persistence, &compactCommitment)
 			if err != nil {
-				// TODO: this should probably retry instead of stopping event processing
 				return err
 			}
 		case <-ctx.Done():
@@ -283,8 +281,6 @@ func (scp *SubstrateChainProcessor) initializeChannelState(ctx context.Context) 
 	return nil
 }
 
-// TODO: add condition to set the chain processor to a synced state
-// TODO: add a threshold for the sync state
 func (scp *SubstrateChainProcessor) processIBCEvents(
 	ctx context.Context,
 	persistence *processCyclePersistence,
@@ -301,6 +297,15 @@ func (scp *SubstrateChainProcessor) processIBCEvents(
 		}
 
 		persistence.latestBlockHeight = blockNumber
+	}
+
+	var firstTimeSync bool
+	if !scp.inSync {
+		if (persistence.latestBlockHeight - persistence.startBlockHeight) > inSyncNumBlocksThreshold {
+			scp.inSync = true
+			firstTimeSync = true
+			scp.log.Info("Chain is in sync")
+		}
 	}
 
 	header, err := scp.chainProvider.QueryIBCHeaderOverBlocks(persistence.latestBlockHeight, persistence.startBlockHeight)
@@ -325,6 +330,16 @@ func (scp *SubstrateChainProcessor) processIBCEvents(
 	ibcEvents, err := scp.chainProvider.RPCClient.RPC.IBC.QueryIbcEvents(ctx, blockNumbers)
 	if err != nil {
 		return err
+	}
+
+	// skip event processing cycle if there are no events to process
+	if len(ibcEvents) == 0 {
+		if firstTimeSync {
+			for _, pp := range scp.pathProcessors {
+				pp.ProcessBacklogIfReady()
+			}
+		}
+		return nil
 	}
 
 	ibcMessagesCache := processor.NewIBCMessagesCache()
