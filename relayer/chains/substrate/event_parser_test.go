@@ -66,3 +66,40 @@ func TestParsePacket(t *testing.T) {
 		DestPort:         testPacketDstPort,
 	}), "parsed does not match expected")
 }
+
+func TestParseChannel(t *testing.T) {
+	const (
+		testConnectionID = "connection-0"
+		testChannelID1   = "channel-0"
+		testPortID1      = "port-0"
+		testChannelID2   = "channel-1"
+		testPortID2      = "port-1"
+	)
+
+	clientStr := `{
+		"height": {
+			"revision_number": 0,
+			"revision_height": 10
+		},
+		"port_id": "` + testPortID1 + `",
+		"channel_id": "` + testChannelID1 + `",
+		"connection_id": "` + testConnectionID + `",
+		"counterparty_port_id": "` + testPortID2 + `",
+		"counterparty_channel_id": "` + testChannelID2 + `"
+	}`
+
+	var clientAttributes ibcEventQueryItem
+	err := json.Unmarshal([]byte(clientStr), &clientAttributes)
+	require.NoError(t, err)
+
+	parsed := new(channelInfo)
+	parsed.parseAttrs(zap.NewNop(), clientAttributes)
+
+	require.Empty(t, cmp.Diff(provider.ChannelInfo(*parsed), provider.ChannelInfo{
+		ConnID:                testConnectionID,
+		ChannelID:             testChannelID1,
+		PortID:                testPortID1,
+		CounterpartyChannelID: testChannelID2,
+		CounterpartyPortID:    testPortID2,
+	}), "parsed channel info does not match expected")
+}
