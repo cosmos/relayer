@@ -78,6 +78,18 @@ ibctest-docker-events:
 ibctest-docker-legacy:
 	cd ibctest && go test -race -v -run TestRelayerDockerLegacyProcessor .
 
+ibctest-events:
+	cd ibctest && go test -race -v -run TestRelayerEventProcessor .
+
+ibctest-legacy:
+	cd ibctest && go test -race -v -run TestRelayerLegacyProcessor .
+
+ibctest-multiple:
+	cd ibctest && go test -race -v -run TestRelayerMultiplePathsSingleProcess .
+
+ibctest-path-filter:
+	cd ibctest && go test -race -v -run TestPathFilter .
+
 coverage:
 	@echo "viewing test coverage..."
 	@go tool cover --html=coverage.out
@@ -96,28 +108,6 @@ get-gaia:
 	@git clone --branch $(GAIA_VERSION) --depth=1 https://github.com/cosmos/gaia.git ./chain-code/gaia
 
 build-gaia:
-	@./scripts/build-gaia
-
-build-akash:
-	@./scripts/build-akash
-
-get-akash:
-	@mkdir -p ./chain-code/
-	@git clone --branch $(AKASH_VERSION) git@github.com:ovrclk/akash.git ./chain-code/akash
-
-get-chains: get-gaia get-akash get-wasmd
-
-get-wasmd:
-	@mkdir -p ./chain-code/
-	@git clone --branch $(WASMD_VERSION) git@github.com:CosmWasm/wasmd.git ./chain-code/wasmd
-
-build-wasmd:
-	@./scripts/build-wasmd
-
-build-chains: build-akash build-gaia build-wasmd
-
-delete-chains: 
-	@echo "Removing the ./chain-code/ directory..."
-	@rm -rf ./chain-code
+	@./examples/demo/scripts/build-gaia
 
 .PHONY: two-chains test test-integration ibctest install build lint coverage clean

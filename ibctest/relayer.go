@@ -4,14 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/relayer/v2/cmd"
 	"github.com/cosmos/relayer/v2/internal/relayertest"
+	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
-	"github.com/strangelove-ventures/ibctest/ibc"
+	"github.com/strangelove-ventures/ibctest/v5/ibc"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
@@ -19,11 +21,31 @@ import (
 type Relayer struct {
 	t *testing.T
 
-	home string
+	config RelayerConfig
+	home   string
 
 	// Set during StartRelayer.
 	errCh  chan error
 	cancel context.CancelFunc
+}
+
+// Build returns a relayer interface
+func NewRelayer(
+	t *testing.T,
+	config RelayerConfig,
+) ibc.Relayer {
+	r := &Relayer{
+		t:      t,
+		home:   t.TempDir(),
+		config: config,
+	}
+
+	res := r.sys().Run(zaptest.NewLogger(t), "config", "init", "--memo", config.Memo)
+	if res.Err != nil {
+		t.Fatalf("failed to rly config init: %v", res.Err)
+	}
+
+	return r
 }
 
 func (r *Relayer) sys() *relayertest.System {
@@ -47,25 +69,26 @@ func (r *Relayer) AddChainConfiguration(ctx context.Context, _ ibc.RelayerExecRe
 			KeyringBackend: keyring.BackendTest,
 			GasAdjustment:  chainConfig.GasAdjustment,
 			GasPrices:      chainConfig.GasPrices,
-			Debug:          true,
-			Timeout:        "10s",
-			OutputFormat:   "json",
-			SignModeStr:    "direct",
+			// MinGasAmount: chainConfig.MinGasAmount, // TODO
+			Debug:        true,
+			Timeout:      "10s",
+			OutputFormat: "json",
+			SignModeStr:  "direct",
 		},
 	})
 
 	return nil
 }
 
-func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName string) (ibc.RelayerWallet, error) {
+func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName string) (ibc.Wallet, error) {
 	res := r.sys().RunC(ctx, r.log(), "keys", "add", chainID, keyName)
 	if res.Err != nil {
-		return ibc.RelayerWallet{}, res.Err
+		return ibc.Wallet{}, res.Err
 	}
 
-	var w ibc.RelayerWallet
+	var w ibc.Wallet
 	if err := json.Unmarshal(res.Stdout.Bytes(), &w); err != nil {
-		return ibc.RelayerWallet{}, err
+		return ibc.Wallet{}, err
 	}
 
 	return w, nil
@@ -81,6 +104,17 @@ func (r *Relayer) RestoreKey(ctx context.Context, _ ibc.RelayerExecReporter, cha
 
 func (r *Relayer) GeneratePath(ctx context.Context, _ ibc.RelayerExecReporter, srcChainID, dstChainID, pathName string) error {
 	res := r.sys().RunC(ctx, r.log(), "paths", "new", srcChainID, dstChainID, pathName)
+	if res.Err != nil {
+		return res.Err
+	}
+	return nil
+}
+
+func (r *Relayer) UpdatePath(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, filter ibc.ChannelFilter) error {
+	res := r.sys().RunC(ctx, r.log(), "paths", "update", pathName,
+		"--filter-rule", filter.Rule,
+		"--filter-channels", strings.Join(filter.ChannelList, ","),
+	)
 	if res.Err != nil {
 		return res.Err
 	}
@@ -108,12 +142,14 @@ func (r *Relayer) GetChannels(ctx context.Context, _ ibc.RelayerExecReporter, ch
 	return channels, nil
 }
 
-func (r *Relayer) LinkPath(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, opts ibc.CreateChannelOptions) error {
+func (r *Relayer) LinkPath(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, chanOpts ibc.CreateChannelOptions, clientOpts ibc.CreateClientOptions) error {
 	res := r.sys().RunC(ctx, r.log(), "tx", "link", pathName,
-		"--src-port", opts.SourcePortName,
-		"--dst-port", opts.DestPortName,
-		"--order", opts.Order.String(),
-		"--version", opts.Version)
+		"--src-port", chanOpts.SourcePortName,
+		"--dst-port", chanOpts.DestPortName,
+		"--order", chanOpts.Order.String(),
+		"--version", chanOpts.Version,
+		"--client-tp", clientOpts.TrustingPeriod,
+	)
 	if res.Err != nil {
 		return res.Err
 	}
@@ -171,8 +207,8 @@ func (r *Relayer) CreateConnections(ctx context.Context, _ ibc.RelayerExecReport
 	return nil
 }
 
-func (r *Relayer) CreateClients(ctx context.Context, _ ibc.RelayerExecReporter, pathName string) error {
-	res := r.sys().RunC(ctx, r.log(), "tx", "clients", pathName)
+func (r *Relayer) CreateClients(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, clientOpts ibc.CreateClientOptions) error {
+	res := r.sys().RunC(ctx, r.log(), "tx", "clients", pathName, "--client-tp", clientOpts.TrustingPeriod)
 	if res.Err != nil {
 		return res.Err
 	}
@@ -187,7 +223,7 @@ func (r *Relayer) UpdateClients(ctx context.Context, _ ibc.RelayerExecReporter, 
 	return nil
 }
 
-func (r *Relayer) StartRelayer(ctx context.Context, _ ibc.RelayerExecReporter, pathName string) error {
+func (r *Relayer) StartRelayer(ctx context.Context, _ ibc.RelayerExecReporter, pathNames ...string) error {
 	if r.errCh != nil || r.cancel != nil {
 		panic(fmt.Errorf("StartRelayer called multiple times without being stopped"))
 	}
@@ -195,11 +231,22 @@ func (r *Relayer) StartRelayer(ctx context.Context, _ ibc.RelayerExecReporter, p
 	r.errCh = make(chan error, 1)
 	ctx, r.cancel = context.WithCancel(ctx)
 
-	go r.start(ctx, pathName)
+	if r.config.Processor == "" {
+		r.config.Processor = relayer.ProcessorEvents
+	}
+	args := append([]string{
+		"--processor", r.config.Processor,
+		"--block-history", strconv.FormatUint(r.config.InitialBlockHistory, 10),
+	}, pathNames...)
+
+	go r.start(ctx, args...)
 	return nil
 }
 
 func (r *Relayer) StopRelayer(ctx context.Context, _ ibc.RelayerExecReporter) error {
+	if r.cancel == nil {
+		return nil
+	}
 	r.cancel()
 	err := <-r.errCh
 
@@ -209,11 +256,12 @@ func (r *Relayer) StopRelayer(ctx context.Context, _ ibc.RelayerExecReporter) er
 }
 
 // start runs in its own goroutine, blocking until "rly start" finishes.
-func (r *Relayer) start(ctx context.Context, pathName string) {
+func (r *Relayer) start(ctx context.Context, remainingArgs ...string) {
 	// Start the debug server on a random port.
 	// It won't be reachable without introspecting the output,
 	// but this will allow catching any possible data races around the debug server.
-	res := r.sys().RunC(ctx, r.log(), "start", pathName, "--debug-addr", "localhost:0")
+	args := append([]string{"start", "--debug-addr", "localhost:0"}, remainingArgs...)
+	res := r.sys().RunC(ctx, r.log(), args...)
 	if res.Err != nil {
 		r.errCh <- res.Err
 		return
@@ -258,11 +306,11 @@ func (r *Relayer) FlushPackets(ctx context.Context, _ ibc.RelayerExecReporter, p
 	return nil
 }
 
-func (r *Relayer) GetWallet(chainID string) (ibc.RelayerWallet, bool) {
+func (r *Relayer) GetWallet(chainID string) (ibc.Wallet, bool) {
 	res := r.sys().RunC(context.Background(), r.log(), "keys", "show", chainID)
 	if res.Err != nil {
-		return ibc.RelayerWallet{}, false
+		return ibc.Wallet{}, false
 	}
 	address := strings.TrimSpace(res.Stdout.String())
-	return ibc.RelayerWallet{Address: address}, true
+	return ibc.Wallet{Address: address}, true
 }

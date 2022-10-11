@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/google/go-github/v43/github"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -30,6 +31,7 @@ This includes the client, connection, and channel ids from both the source and d
 		pathsAddCmd(a),
 		pathsAddDirCmd(a),
 		pathsNewCmd(a),
+		pathsUpdateCmd(a),
 		pathsFetchCmd(a),
 		pathsDeleteCmd(a),
 	)
@@ -214,9 +216,9 @@ func pathsAddDirCmd(a *appState) *cobra.Command {
 		Short: `Add path configuration data in bulk from a directory. Example dir: 'configs/demo/paths'`,
 		Long: `Add path configuration data in bulk from a directory housing individual path config files. This is useful for spinning up testnets.
 		
-		See 'configs/demo/paths' for an example of individual path config files.`,
+		See 'examples/demo/configs/paths' for an example of individual path config files.`,
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s config add-paths configs/paths`, appName)),
+$ %s config add-paths examples/demo/configs/paths`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			if err := addPathsFromDirectory(cmd.Context(), cmd.ErrOrStderr(), a, args[0]); err != nil {
 				return err
@@ -258,6 +260,52 @@ $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName)),
 		},
 	}
 	return channelParameterFlags(a.Viper, cmd)
+}
+
+func pathsUpdateCmd(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "update path_name",
+		Aliases: []string{"n"},
+		Short:   `Update a path such as the filter rule ("allowlist", "denylist", or "" for no filtering) and channels`,
+		Args:    withUsage(cobra.ExactArgs(1)),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s paths update demo-path --filter-rule allowlist --filter-channels channel-0,channel-1
+$ %s paths update demo-path --filter-rule denylist --filter-channels channel-0,channel-1`,
+			appName, appName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := args[0]
+
+			filterRule, err := cmd.Flags().GetString(flagFilterRule)
+			if err != nil {
+				return err
+			}
+			if filterRule != "" && filterRule != processor.RuleAllowList && filterRule != processor.RuleDenyList {
+				return fmt.Errorf(`invalid filter rule : "%s". valid rules: ("", "%s", "%s")`, filterRule, processor.RuleAllowList, processor.RuleDenyList)
+			}
+
+			filterChannels, err := cmd.Flags().GetString(flagFilterChannels)
+			if err != nil {
+				return err
+			}
+
+			var channelList []string
+
+			if filterChannels != "" {
+				channelList = strings.Split(filterChannels, ",")
+			}
+
+			p := a.Config.Paths.MustGet(name)
+
+			p.Filter = relayer.ChannelFilter{
+				Rule:        filterRule,
+				ChannelList: channelList,
+			}
+
+			return a.OverwriteConfig(a.Config)
+		},
+	}
+	cmd = pathFilterFlags(a.Viper, cmd)
+	return cmd
 }
 
 // pathsFetchCmd attempts to fetch the json files containing the path metadata, for each configured chain, from GitHub

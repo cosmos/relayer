@@ -34,6 +34,11 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(eventType string, pi provid
 		return
 	}
 
+	if eventType == chantypes.EventTypeRecvPacket && len(pi.Ack) == 0 {
+		// ignore recv packet with empty ack bytes
+		return
+	}
+
 	if !c.PacketFlow.ShouldRetainSequence(ccp.pathProcessors, k, ccp.chainProvider.ChainId(), eventType, pi.Sequence) {
 		ccp.log.Debug("Not retaining packet message",
 			zap.String("event_type", eventType),
@@ -56,19 +61,39 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(eventType string, pi provid
 func (ccp *CosmosChainProcessor) handleChannelMessage(eventType string, ci provider.ChannelInfo, ibcMessagesCache processor.IBCMessagesCache) {
 	ccp.channelConnections[ci.ChannelID] = ci.ConnID
 	channelKey := processor.ChannelInfoChannelKey(ci)
-	switch eventType {
-	case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry:
-		ccp.channelStateCache[channelKey] = false
-	case chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm:
-		ccp.channelStateCache[channelKey] = true
-	case chantypes.EventTypeChannelCloseConfirm:
+
+	if eventType == chantypes.EventTypeChannelOpenInit {
+		found := false
 		for k := range ccp.channelStateCache {
-			if k.PortID == ci.PortID && k.ChannelID == ci.ChannelID {
-				ccp.channelStateCache[k] = false
+			// Don't add a channelKey to the channelStateCache without counterparty channel ID
+			// since we already have the channelKey in the channelStateCache which includes the
+			// counterparty channel ID.
+			if k.MsgInitKey() == channelKey {
+				found = true
 				break
 			}
 		}
+		if !found {
+			ccp.channelStateCache[channelKey] = false
+		}
+	} else {
+		switch eventType {
+		case chantypes.EventTypeChannelOpenTry:
+			ccp.channelStateCache[channelKey] = false
+		case chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm:
+			ccp.channelStateCache[channelKey] = true
+		case chantypes.EventTypeChannelCloseConfirm:
+			for k := range ccp.channelStateCache {
+				if k.PortID == ci.PortID && k.ChannelID == ci.ChannelID {
+					ccp.channelStateCache[k] = false
+					break
+				}
+			}
+		}
+		// Clear out MsgInitKeys once we have the counterparty channel ID
+		delete(ccp.channelStateCache, channelKey.MsgInitKey())
 	}
+
 	ibcMessagesCache.ChannelHandshake.Retain(channelKey, eventType, ci)
 
 	ccp.logChannelMessage(eventType, ci)
@@ -77,8 +102,26 @@ func (ccp *CosmosChainProcessor) handleChannelMessage(eventType string, ci provi
 func (ccp *CosmosChainProcessor) handleConnectionMessage(eventType string, ci provider.ConnectionInfo, ibcMessagesCache processor.IBCMessagesCache) {
 	ccp.connectionClients[ci.ConnID] = ci.ClientID
 	connectionKey := processor.ConnectionInfoConnectionKey(ci)
-	open := (eventType == conntypes.EventTypeConnectionOpenAck || eventType == conntypes.EventTypeConnectionOpenConfirm)
-	ccp.connectionStateCache[connectionKey] = open
+	if eventType == conntypes.EventTypeConnectionOpenInit {
+		found := false
+		for k := range ccp.connectionStateCache {
+			// Don't add a connectionKey to the connectionStateCache without counterparty connection ID
+			// since we already have the connectionKey in the connectionStateCache which includes the
+			// counterparty connection ID.
+			if k.MsgInitKey() == connectionKey {
+				found = true
+				break
+			}
+		}
+		if !found {
+			ccp.connectionStateCache[connectionKey] = false
+		}
+	} else {
+		// Clear out MsgInitKeys once we have the counterparty connection ID
+		delete(ccp.connectionStateCache, connectionKey.MsgInitKey())
+		open := (eventType == conntypes.EventTypeConnectionOpenAck || eventType == conntypes.EventTypeConnectionOpenConfirm)
+		ccp.connectionStateCache[connectionKey] = open
+	}
 	ibcMessagesCache.ConnectionHandshake.Retain(connectionKey, eventType, ci)
 
 	ccp.logConnectionMessage(eventType, ci)
