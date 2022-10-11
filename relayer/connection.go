@@ -20,19 +20,10 @@ func (c *Chain) CreateOpenConnections(
 	memo string,
 	initialBlockHistory uint64,
 	pathName string,
-) (modified bool, err error) {
+) (string, string, error) {
 	// client identifiers must be filled in
-	if err = ValidateClientPaths(c, dst); err != nil {
-		return modified, err
-	}
-
-	srcpathChain := pathChain{
-		provider: c.ChainProvider,
-		pathEnd:  processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChannelKey{}),
-	}
-	dstpathChain := pathChain{
-		provider: dst.ChainProvider,
-		pathEnd:  processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChannelKey{}),
+	if err := ValidateClientPaths(c, dst); err != nil {
+		return "", "", err
 	}
 
 	// Timeout is per message. Four connection handshake messages, allowing maxRetries for each.
@@ -43,16 +34,19 @@ func (c *Chain) CreateOpenConnections(
 
 	pp := processor.NewPathProcessor(
 		c.log,
-		srcpathChain.pathEnd,
-		dstpathChain.pathEnd,
+		processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
+		processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
 		nil,
 		memo,
 	)
 
+	var connectionSrc, connectionDst string
+
 	pp.OnConnectionMessage(dst.PathEnd.ChainID, conntypes.EventTypeConnectionOpenConfirm, func(ci provider.ConnectionInfo) {
 		dst.PathEnd.ConnectionID = ci.ConnID
 		c.PathEnd.ConnectionID = ci.CounterpartyConnID
-		modified = true
+		connectionSrc = ci.CounterpartyConnID
+		connectionDst = ci.ConnID
 	})
 
 	c.log.Info("Starting event processor for connection handshake",
@@ -62,10 +56,10 @@ func (c *Chain) CreateOpenConnections(
 		zap.String("dst_client_id", dst.PathEnd.ClientID),
 	)
 
-	return modified, processor.NewEventProcessor().
+	return connectionSrc, connectionDst, processor.NewEventProcessor().
 		WithChainProcessors(
-			srcpathChain.chainProcessor(c.log),
-			dstpathChain.chainProcessor(c.log),
+			c.chainProcessor(c.log, nil),
+			dst.chainProcessor(c.log, nil),
 		).
 		WithPathProcessors(pp).
 		WithInitialBlockHistory(initialBlockHistory).

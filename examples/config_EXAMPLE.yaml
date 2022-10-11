@@ -1,0 +1,88 @@
+global:
+    api-listen-addr: :5183
+    timeout: 10s
+    memo: ""
+    light-cache-size: 20
+chains:
+    cosmoshub:
+        type: cosmos
+        value:
+            key: default
+            chain-id: cosmoshub-4
+            rpc-addr: http://cosmoshub.strange.love:26657/
+            account-prefix: cosmos
+            keyring-backend: test
+            gas-adjustment: 1.2
+            gas-prices: 0.01uatom
+            debug: false
+            timeout: 20s
+            output-format: json
+            sign-mode: direct
+    juno:
+        type: cosmos
+        value:
+            key: default
+            chain-id: juno-1
+            rpc-addr: http://juno.strange.love:26657/
+            account-prefix: juno
+            keyring-backend: test
+            gas-adjustment: 1.2
+            gas-prices: 0.01ujuno
+            debug: false
+            timeout: 20s
+            output-format: json
+            sign-mode: direct
+    osmosis:
+        type: cosmos
+        value:
+            key: default
+            chain-id: osmosis-1
+            rpc-addr: http://osmosis.strange.love:26657/
+            account-prefix: osmo
+            keyring-backend: test
+            gas-adjustment: 1.2
+            gas-prices: 0.01uosmo
+            debug: false
+            timeout: 20s
+            output-format: json
+            sign-mode: direct
+paths:
+    cosmoshub-juno:
+        src:
+            chain-id: cosmoshub-4
+            client-id: 07-tendermint-439
+            connection-id: connection-372
+        dst:
+            chain-id: juno-1
+            client-id: 07-tendermint-3
+            connection-id: connection-2
+        src-channel-filter:
+            rule: ""
+            channel-list: []
+    cosmoshub-osmosis:
+        src:
+            chain-id: cosmoshub-4
+            client-id: 07-tendermint-259
+            connection-id: connection-257
+        dst:
+            chain-id: osmosis-1
+            client-id: 07-tendermint-1
+            connection-id: connection-1
+        src-channel-filter:
+            rule: allowlist
+            channel-list:
+                - channel-141
+    juno-osmosis:
+        src:
+            chain-id: juno-1
+            client-id: 07-tendermint-0
+            connection-id: connection-0
+        dst:
+            chain-id: osmosis-1
+            client-id: 07-tendermint-1457
+            connection-id: connection-1142
+        src-channel-filter:
+            rule: allowlist
+            channel-list:
+                - channel-0
+                - wasm.juno1v4887y83d6g28puzvt8cl0f3cdhd3y6y9mpysnsp3k8krdm7l6jqgm0rkn

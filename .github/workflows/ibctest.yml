@@ -8,7 +8,7 @@ on:
 
 jobs:
   events:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Set up Go 1.18
         uses: actions/setup-go@v1
@@ -27,8 +27,50 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: ibctest
-        run: make ibctest-docker-events
+        run: make ibctest-events
   legacy:
+    runs-on: self-hosted
+    steps:
+      - name: Set up Go 1.18
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.18
+        id: go
+
+      - name: checkout relayer
+        uses: actions/checkout@v2
+
+      - uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: ibctest
+        run: make ibctest-legacy
+  multiple-paths:
+    runs-on: self-hosted
+    steps:
+      - name: Set up Go 1.18
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.18
+        id: go
+
+      - name: checkout relayer
+        uses: actions/checkout@v2
+
+      - uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: ibctest
+        run: make ibctest-multiple
+  path-filter:
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go 1.18
@@ -48,4 +90,4 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: ibctest
-        run: make ibctest-docker-legacy
+        run: make ibctest-path-filter

@@ -98,6 +98,12 @@ type SubstrateIBCHeader struct {
 	SignedHeader *beefyclienttypes.Header
 }
 
+// noop to implement processor.IBCHeader
+func (h SubstrateIBCHeader) IBCHeaderIndicator() {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (h SubstrateIBCHeader) Height() uint64 {
 	return h.height
 }

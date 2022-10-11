@@ -1,36 +1,39 @@
 package ibctest
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/docker/docker/client"
-	"github.com/strangelove-ventures/ibctest/ibc"
-	"github.com/strangelove-ventures/ibctest/label"
-	ibctestrelayer "github.com/strangelove-ventures/ibctest/relayer"
-	"go.uber.org/zap/zaptest"
+	"github.com/strangelove-ventures/ibctest/v5/ibc"
+	"github.com/strangelove-ventures/ibctest/v5/label"
+	ibctestrelayer "github.com/strangelove-ventures/ibctest/v5/relayer"
 )
 
 // RelayerFactory implements the ibctest RelayerFactory interface.
-type RelayerFactory struct{}
+type RelayerFactory struct {
+	config RelayerConfig
+}
+
+// LocalRelayerConfig defines parameters for customizing a LocalRelayer.
+type RelayerConfig struct {
+	Processor           string
+	Memo                string
+	InitialBlockHistory uint64
+}
+
+func NewRelayerFactory(config RelayerConfig) RelayerFactory {
+	return RelayerFactory{
+		config: config,
+	}
+}
 
 // Build returns a relayer interface
-func (RelayerFactory) Build(
+func (rf RelayerFactory) Build(
 	t *testing.T,
 	_ *client.Client,
 	networkID string,
 ) ibc.Relayer {
-	r := &Relayer{
-		t:    t,
-		home: t.TempDir(),
-	}
-
-	res := r.sys().Run(zaptest.NewLogger(t), "config", "init")
-	if res.Err != nil {
-		panic(fmt.Errorf("failed to rly config init: %w", res.Err))
-	}
-
-	return r
+	return NewRelayer(t, rf.config)
 }
 
 func (RelayerFactory) Capabilities() map[ibctestrelayer.Capability]bool {
