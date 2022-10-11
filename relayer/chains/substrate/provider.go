@@ -83,10 +83,9 @@ type SubstrateProvider struct {
 	PCfg    SubstrateProviderConfig
 	Input   io.Reader
 
-	RPCClient        *rpcclient.SubstrateAPI
-	RelayerRPCClient *rpcclient.SubstrateAPI
-	// TODO: only one key and value needs to be stored
-	LatestQueriedRelayHeight map[int64]int64
+	RPCClient                *rpcclient.SubstrateAPI
+	RelayerRPCClient         *rpcclient.SubstrateAPI
+	LatestQueriedRelayHeight int64
 }
 
 func (sp *SubstrateProvider) Init() error {
@@ -108,7 +107,6 @@ func (sp *SubstrateProvider) Init() error {
 	sp.Keybase = keybase
 	sp.RPCClient = client
 	sp.RelayerRPCClient = relayerClient
-	sp.LatestQueriedRelayHeight = make(map[int64]int64)
 	return nil
 }
 

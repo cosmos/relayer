@@ -50,8 +50,7 @@ func (sp *SubstrateProvider) QueryLatestHeight(ctx context.Context) (int64, erro
 		return 0, err
 	}
 
-	paraHeight := int64(decodedHeader.Number)
-	sp.LatestQueriedRelayHeight[paraHeight] = int64(block.Block.Header.Number)
+	sp.LatestQueriedRelayHeight = int64(block.Block.Header.Number)
 	return int64(decodedHeader.Number), nil
 }
 
@@ -78,11 +77,11 @@ func (sp *SubstrateProvider) QueryIBCHeader(ctx context.Context, h int64) (provi
 // which is set in the SubstrateProvider when the QueryLatestHeight method is called.
 func (sp *SubstrateProvider) QueryLatestIBCHeader(queriedParaHeight int64) (provider.IBCHeader, error) {
 	var relayChainHeight uint64
-	if _, ok := sp.LatestQueriedRelayHeight[queriedParaHeight]; !ok {
+	if sp.LatestQueriedRelayHeight == 0 {
 		return nil, fmt.Errorf("latest finalized parachain height needs to be queried first")
 	}
 
-	relayChainHeight = uint64(sp.LatestQueriedRelayHeight[queriedParaHeight])
+	relayChainHeight = uint64(sp.LatestQueriedRelayHeight)
 	blockHash, err := sp.RelayerRPCClient.RPC.Chain.GetBlockHash(relayChainHeight)
 	if err != nil {
 		return nil, err
@@ -93,6 +92,8 @@ func (sp *SubstrateProvider) QueryLatestIBCHeader(queriedParaHeight int64) (prov
 		return nil, err
 	}
 
+	// reset latest queried relay height after IBC Header is queried
+	sp.LatestQueriedRelayHeight = 0
 	return SubstrateIBCHeader{
 		height:       uint64(header.MMRUpdateProof.SignedCommitment.Commitment.BlockNumber),
 		SignedHeader: header,
