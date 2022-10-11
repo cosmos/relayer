@@ -6,6 +6,7 @@ import (
 	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
 	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
+	"github.com/cosmos/ibc-go/v5/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/spf13/cast"
 	"go.uber.org/zap"
@@ -113,21 +114,21 @@ func (scp *SubstrateChainProcessor) parseEvent(
 
 			_, exists := packetAccumulator[accumKey]
 			if !exists {
-				packetAccumulator[accumKey] = &packetInfo{Height: height}
+				packetAccumulator[accumKey] = new(packetInfo)
 			}
 
 			packetAccumulator[accumKey].parseAttrs(scp.log, data)
 
 		case OpenInitConnection, OpenTryConnection, OpenAckConnection, OpenConfirmConnection:
 
-			con := &connectionInfo{Height: height}
+			con := new(connectionInfo)
 			con.parseAttrs(scp.log, data)
 			info = con
 
 			eventType = intoIBCEventType(eType)
 
 		case OpenInitChannel, OpenTryChannel, OpenAckChannel, OpenConfirmChannel, CloseInitChannel, CloseConfirmChannel:
-			chann := &channelInfo{Height: height}
+			chann := new(channelInfo)
 			chann.parseAttrs(scp.log, data)
 			info = chann
 
@@ -252,13 +253,23 @@ func (pkt *packetInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 func (pkt *packetInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
 	attrs := attributes.(ibcEventQueryItem)
 
+	var err error
+
+	var height exported.Height
+	if height, err = parseHeight(attrs["height"]); err != nil {
+		log.Error("error parsing connection height: ",
+			zap.Error(err),
+		)
+		return
+	}
+	pkt.Height = height.GetRevisionHeight()
+
 	pkt.Sequence = cast.ToUint64(attrs["sequence"].(float64))
 	pkt.SourcePort = attrs["source_port"].(string)
 	pkt.SourceChannel = attrs["source_channel"].(string)
 	pkt.DestPort = attrs["destination_port"].(string)
 	pkt.DestChannel = attrs["destination_channel"].(string)
 
-	var err error
 	if pkt.Data, err = rpcclienttypes.HexDecodeString(attrs["data"].(string)); err != nil {
 		log.Error("error parsing packet data: ",
 			zap.Error(err),
@@ -314,6 +325,17 @@ func (ch *channelInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 func (ch *channelInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
 	attrs := attributes.(ibcEventQueryItem)
 
+	var err error
+
+	var height exported.Height
+	if height, err = parseHeight(attrs["height"]); err != nil {
+		log.Error("error parsing channel height: ",
+			zap.Error(err),
+		)
+		return
+	}
+	ch.Height = height.GetRevisionHeight()
+
 	ch.PortID = attrs["port_id"].(string)
 	ch.ChannelID = attrs["channel_id"].(string)
 	ch.CounterpartyPortID = attrs["counterparty_port_id"].(string)
@@ -336,6 +358,17 @@ func (con *connectionInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 // parseAttrs parses the attributes of connection info
 func (con *connectionInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
 	attrs := attributes.(ibcEventQueryItem)
+
+	var err error
+
+	var height exported.Height
+	if height, err = parseHeight(attrs["height"]); err != nil {
+		log.Error("error parsing connection height: ",
+			zap.Error(err),
+		)
+		return
+	}
+	con.Height = height.GetRevisionHeight()
 
 	con.ConnID = attrs["connection_id"].(string)
 	con.ClientID = attrs["client_id"].(string)

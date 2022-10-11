@@ -36,6 +36,10 @@ const (
 func TestParsePacket(t *testing.T) {
 
 	packetStr := `{
+		"height": {
+			"revision_number": ` + cast.ToString(testRevisionNumber) + `,
+			"revision_height": ` + cast.ToString(testRevisionHeight) + `
+		},
 		"sequence": ` + cast.ToString(testSequence) + `,
 		"source_port": "` + testPortID1 + `",
 		"source_channel": "` + testChannelID1 + `",
@@ -66,6 +70,7 @@ func TestParsePacket(t *testing.T) {
 	require.NoError(t, err, "error decoding test ack data")
 
 	require.Empty(t, cmp.Diff(provider.PacketInfo(*parsed), provider.PacketInfo{
+		Height:   testRevisionHeight,
 		Sequence: testSequence,
 		Data:     packetData,
 		TimeoutHeight: clienttypes.Height{
@@ -180,6 +185,7 @@ func TestParseChannel(t *testing.T) {
 	parsed.parseAttrs(zap.NewNop(), clientAttributes)
 
 	require.Empty(t, cmp.Diff(provider.ChannelInfo(*parsed), provider.ChannelInfo{
+		Height:                testRevisionHeight,
 		ConnID:                testConnectionID1,
 		ChannelID:             testChannelID1,
 		PortID:                testPortID1,
@@ -191,6 +197,10 @@ func TestParseChannel(t *testing.T) {
 func TestParseConnection(t *testing.T) {
 
 	connectionStr := `{
+		"height": {
+			"revision_number": ` + cast.ToString(testRevisionNumber) + `,
+			"revision_height": ` + cast.ToString(testRevisionHeight) + `
+		},
 		"connection_id": "` + testConnectionID1 + `",
 		"client_id": "` + testClientID1 + `",
 		"counterparty_connection_id": "` + testConnectionID2 + `",
@@ -205,6 +215,7 @@ func TestParseConnection(t *testing.T) {
 	parsed.parseAttrs(zap.NewNop(), connectionAttributes)
 
 	require.Empty(t, cmp.Diff(provider.ConnectionInfo(*parsed), provider.ConnectionInfo{
+		Height:               testRevisionHeight,
 		ClientID:             testClientID1,
 		ConnID:               testConnectionID1,
 		CounterpartyClientID: testClientID2,
@@ -232,6 +243,10 @@ func TestParseEvents(t *testing.T) {
 		},
 		{
 			"` + ReceivePacket + `": {
+				"height": {
+					"revision_number": ` + cast.ToString(testRevisionNumber) + `,
+					"revision_height": ` + cast.ToString(testRevisionHeight) + `
+				},
 				"sequence": ` + cast.ToString(testSequence) + `,
 				"source_port": "` + testPortID1 + `",
 				"source_channel": "` + testChannelID1 + `",
@@ -255,7 +270,7 @@ func TestParseEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	proc := SubstrateChainProcessor{}
-	ibcMessages := proc.ibcMessagesFromEvents(eventsResult, 0)
+	ibcMessages := proc.ibcMessagesFromEvents(eventsResult)
 
 	require.Len(t, ibcMessages, 2)
 
@@ -293,6 +308,7 @@ func TestParseEvents(t *testing.T) {
 	require.NoError(t, err, "error decoding test packet data")
 
 	require.Empty(t, cmp.Diff(provider.PacketInfo(*packetInfoParsed), provider.PacketInfo{
+		Height:   testRevisionHeight,
 		Sequence: testSequence,
 		Data:     packetData,
 		TimeoutHeight: clienttypes.Height{
