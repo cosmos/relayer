@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
+	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	lens "github.com/strangelove-ventures/lens/client"
@@ -32,6 +35,7 @@ type CosmosProviderConfig struct {
 	KeyringBackend string  `json:"keyring-backend" yaml:"keyring-backend"`
 	GasAdjustment  float64 `json:"gas-adjustment" yaml:"gas-adjustment"`
 	GasPrices      string  `json:"gas-prices" yaml:"gas-prices"`
+	MinGasAmount   uint64  `json:"min-gas-amount" yaml:"min-gas-amount"`
 	Debug          bool    `json:"debug" yaml:"debug"`
 	Timeout        string  `json:"timeout" yaml:"timeout"`
 	OutputFormat   string  `json:"output-format" yaml:"output-format"`
@@ -61,9 +65,9 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 		return nil, err
 	}
 	pc.ChainName = chainName
-	return &CosmosProvider{
-		log: log,
 
+	return &CosmosProvider{
+		log:         log,
 		ChainClient: *cc,
 		PCfg:        pc,
 	}, nil
@@ -80,6 +84,7 @@ func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
 		KeyringBackend: pcfg.KeyringBackend,
 		GasAdjustment:  pcfg.GasAdjustment,
 		GasPrices:      pcfg.GasPrices,
+		MinGasAmount:   pcfg.MinGasAmount,
 		Debug:          pcfg.Debug,
 		Timeout:        pcfg.Timeout,
 		OutputFormat:   pcfg.OutputFormat,
@@ -91,8 +96,17 @@ func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
 type CosmosProvider struct {
 	log *zap.Logger
 
-	lens.ChainClient
 	PCfg CosmosProviderConfig
+
+	lens.ChainClient
+	nextAccountSeq uint64
+	txMu           sync.Mutex
+
+	// metrics to monitor the provider
+	TotalFees   sdk.Coins
+	totalFeesMu sync.Mutex
+
+	metrics *processor.PrometheusMetrics
 }
 
 type CosmosIBCHeader struct {
@@ -234,4 +248,14 @@ func (cc *CosmosProvider) BlockTime(ctx context.Context, height int64) (time.Tim
 		return time.Time{}, err
 	}
 	return resultBlock.Block.Time, nil
+}
+
+func (cc *CosmosProvider) SetMetrics(m *processor.PrometheusMetrics) {
+	cc.metrics = m
+}
+
+func (cc *CosmosProvider) updateNextAccountSequence(seq uint64) {
+	if seq > cc.nextAccountSeq {
+		cc.nextAccountSeq = seq
+	}
 }

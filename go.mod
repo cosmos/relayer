@@ -14,16 +14,17 @@ require (
 	github.com/google/go-cmp v0.5.8
 	github.com/google/go-github/v43 v43.0.0
 	github.com/jsternberg/zap-logfmt v1.2.0
+	github.com/juju/fslock v0.0.0-20160525022230-4d5c94c67b4b
 	github.com/ory/dockertest/v3 v3.9.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.2
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
-	github.com/strangelove-ventures/lens v0.5.2-0.20220810214843-6af97ce869d8
+	github.com/strangelove-ventures/lens v0.5.2-0.20220822201013-1e7ffd450f20
 	github.com/stretchr/testify v1.8.0
 	github.com/tendermint/tendermint v0.34.20
 	go.uber.org/multierr v1.8.0
-	go.uber.org/zap v1.21.0
+	go.uber.org/zap v1.22.0
 	golang.org/x/crypto v0.0.0-20220817201139-bc19a97f63c8
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
 	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467

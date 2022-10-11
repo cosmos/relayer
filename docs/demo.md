@@ -19,7 +19,7 @@ $ make get-gaia build-gaia
 
 # two-chainz creates two gaia-based chains with data directories in this repo
 # it also builds and configures the relayer for operations with those chains
-$ ./scripts/two-chainz
+$ ./examples/demo/scripts/two-chainz 
 # NOTE: If you want to stop the two gaia-based chains running in the background use `killall gaiad`
 
 # At this point the relayer --home directory is ready for normal operations between
