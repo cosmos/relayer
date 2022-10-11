@@ -34,7 +34,6 @@ type CosmosProviderConfig struct {
 	AccountPrefix  string  `json:"account-prefix" yaml:"account-prefix"`
 	KeyringBackend string  `json:"keyring-backend" yaml:"keyring-backend"`
 	GasAdjustment  float64 `json:"gas-adjustment" yaml:"gas-adjustment"`
-	MinGasAmount   uint64  `json:"min-gas-amount" yaml:"min-gas-amount"`
 	GasPrices      string  `json:"gas-prices" yaml:"gas-prices"`
 	MinGasAmount   uint64  `json:"min-gas-amount" yaml:"min-gas-amount"`
 	Debug          bool    `json:"debug" yaml:"debug"`
@@ -84,7 +83,6 @@ func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
 		AccountPrefix:  pcfg.AccountPrefix,
 		KeyringBackend: pcfg.KeyringBackend,
 		GasAdjustment:  pcfg.GasAdjustment,
-		MinGasAmount:   pcfg.MinGasAmount,
 		GasPrices:      pcfg.GasPrices,
 		MinGasAmount:   pcfg.MinGasAmount,
 		Debug:          pcfg.Debug,
