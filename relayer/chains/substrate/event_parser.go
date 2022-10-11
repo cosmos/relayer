@@ -13,6 +13,8 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// TODO: implement tests for event parser methods.
+
 // ibcMessage is the type used for parsing all possible properties of IBC messages
 type ibcMessage struct {
 	eventType string
@@ -39,15 +41,17 @@ type ibcPacketKey struct {
 }
 
 // ibcMessagesFromEvents parses all events of a certain height to find IBC messages
+// TODO (NOTE): passing height won't work here using listening to commitment method to process ibc events.
+//
+//	the heights need to be fetched from the parsed ibc events.
 func (scp *SubstrateChainProcessor) ibcMessagesFromEvents(
 	ibcEvents rpcclienttypes.IBCEventsQueryResult,
-	height uint64,
 ) (messages []ibcMessage) {
 
 	packetAccumulator := make(map[ibcPacketKey]*packetInfo)
 	for i := 0; i < len(ibcEvents); i++ {
 
-		info, eventType := scp.parseEvent(ibcEvents[i], height, packetAccumulator)
+		info, eventType := scp.parseEvent(ibcEvents[i], packetAccumulator)
 		if info == nil {
 			// Not an IBC message, don't need to log here
 			// event is write acknowledement, so receive packet will be processed by accumulator
@@ -64,6 +68,7 @@ func (scp *SubstrateChainProcessor) ibcMessagesFromEvents(
 	// add all of accumulated packets to messages
 	for _, pkt := range packetAccumulator {
 		messages = append(messages, ibcMessage{
+			// TODO (Question): will the packet type always be a receive packet?
 			eventType: intoIBCEventType(ReceivePacket),
 			info:      pkt,
 		})
@@ -74,7 +79,6 @@ func (scp *SubstrateChainProcessor) ibcMessagesFromEvents(
 
 func (scp *SubstrateChainProcessor) parseEvent(
 	event ibcEventQueryItem,
-	height uint64,
 	packetAccumulator map[ibcPacketKey]*packetInfo,
 ) (info ibcMessageInfo, eventType string) {
 
@@ -109,7 +113,8 @@ func (scp *SubstrateChainProcessor) parseEvent(
 			eventType = intoIBCEventType(eType)
 
 		case ReceivePacket, WriteAcknowledgement:
-
+			// TODO (QUESTION): the cosmos parser uses the packet accumulator for other events like the SendPacket,
+			//  is there a reason that doesn't work for us? Can receive packet
 			accumKey := genAccumKey(data)
 
 			_, exists := packetAccumulator[accumKey]
@@ -156,6 +161,7 @@ func genAccumKey(data interface{}) ibcPacketKey {
 
 // client info attributes and methods
 type clientInfo struct {
+	// TODO: is there a reason the fields are exported? Since the clientInfo struct is not exported.
 	Height          clienttypes.Height
 	ClientID        string
 	ClientType      uint32

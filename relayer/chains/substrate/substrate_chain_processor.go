@@ -329,7 +329,7 @@ func (scp *SubstrateChainProcessor) queryCycle(ctx context.Context, persistence 
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		messages := scp.ibcMessagesFromEvents(ibcEvents, heightUint64)
+		messages := scp.ibcMessagesFromEvents(ibcEvents)
 
 		for _, m := range messages {
 			scp.handleMessage(m, ibcMessagesCache)
