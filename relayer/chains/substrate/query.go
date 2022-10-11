@@ -21,13 +21,13 @@ import (
 var _ provider.QueryProvider = &SubstrateProvider{}
 
 // QueryTx takes a transaction hash and returns the transaction
-func (cc *SubstrateProvider) QueryTx(ctx context.Context, hashHex string) (*provider.RelayerTxResponse, error) {
-	return &provider.RelayerTxResponse{}, errors.New(ErrTextSubstrateDoesnotHaveQueryForTransactions)
+func (sp *SubstrateProvider) QueryTx(ctx context.Context, hashHex string) (*provider.RelayerTxResponse, error) {
+	return &provider.RelayerTxResponse{}, errors.New(ErrTextSubstrateDoesNotHaveQueryForTransactions)
 }
 
 // QueryTxs returns an array of transactions given a tag
-func (cc *SubstrateProvider) QueryTxs(ctx context.Context, page, limit int, events []string) ([]*provider.RelayerTxResponse, error) {
-	return []*provider.RelayerTxResponse{}, errors.New(ErrTextSubstrateDoesnotHaveQueryForTransactions)
+func (sp *SubstrateProvider) QueryTxs(ctx context.Context, page, limit int, events []string) ([]*provider.RelayerTxResponse, error) {
+	return []*provider.RelayerTxResponse{}, errors.New(ErrTextSubstrateDoesNotHaveQueryForTransactions)
 }
 
 // QueryBalance returns the amount of coins in the relayer account
@@ -62,7 +62,7 @@ func (sp *SubstrateProvider) QueryBalanceWithAddress(ctx context.Context, addres
 }
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
-func (cc *SubstrateProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
+func (sp *SubstrateProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
 	return 0, nil
 }
 
@@ -73,7 +73,7 @@ func (sp *SubstrateProvider) QueryClientStateResponse(ctx context.Context, heigh
 		return nil, err
 	}
 
-	return res, nil
+	return &res, nil
 }
 
 // QueryClientState retrieves the latest consensus state for a client in state at a given height
@@ -94,8 +94,8 @@ func (sp *SubstrateProvider) QueryClientState(ctx context.Context, height int64,
 
 // QueryClientConsensusState retrieves the latest consensus state for a client in state at a given height
 func (sp *SubstrateProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
-	res, err := sp.RPCClient.RPC.IBC.QueryClientConsensusState(ctx, clientid,
-		clientHeight.GetRevisionHeight(), clientHeight.GetRevisionNumber(), false)
+	res, err := sp.RPCClient.RPC.IBC.QueryClientConsensusState(ctx,
+		uint32(chainHeight), clientid, clientHeight.GetRevisionNumber(), clientHeight.GetRevisionHeight(), false)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (sp *SubstrateProvider) QueryClientConsensusState(ctx context.Context, chai
 
 // QueryUpgradeProof performs an abci query with the given key and returns the proto encoded merkle proof
 // for the query and the height at which the proof will succeed on a tendermint verifier.
-func (cc *SubstrateProvider) QueryUpgradeProof(ctx context.Context, key []byte, height uint64) ([]byte, clienttypes.Height, error) {
+func (sp *SubstrateProvider) QueryUpgradeProof(ctx context.Context, key []byte, height uint64) ([]byte, clienttypes.Height, error) {
 	return nil, clienttypes.Height{}, nil
 }
 
@@ -182,10 +182,6 @@ func (sp *SubstrateProvider) QueryConnection(ctx context.Context, height int64, 
 	return res, nil
 }
 
-func (cc *SubstrateProvider) queryConnectionABCI(ctx context.Context, height int64, connectionID string) (*conntypes.QueryConnectionResponse, error) {
-	return &conntypes.QueryConnectionResponse{}, nil
-}
-
 // QueryConnections gets any connections on a chain
 // TODO add pagination support
 func (sp *SubstrateProvider) QueryConnections(ctx context.Context) (conns []*conntypes.IdentifiedConnection, err error) {
@@ -252,7 +248,7 @@ func (sp *SubstrateProvider) GenerateConnHandshakeProof(ctx context.Context, hei
 // QueryChannel returns the channel associated with a channelID
 func (sp *SubstrateProvider) QueryChannel(ctx context.Context, height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
 
-	res, err := sp.RPCClient.RPC.IBC.QueryChannel(ctx, height, channelid, portid)
+	res, err := sp.RPCClient.RPC.IBC.QueryChannel(ctx, uint32(height), channelid, portid)
 	if err != nil {
 		return nil, err
 	}
@@ -345,22 +341,56 @@ func (sp *SubstrateProvider) QueryUnreceivedPackets(ctx context.Context, height 
 	return packets, err
 }
 
-func (cc *SubstrateProvider) QuerySendPacket(
+func (sp *SubstrateProvider) QuerySendPacket(
 	ctx context.Context,
 	srcChanID,
 	srcPortID string,
 	sequence uint64,
 ) (provider.PacketInfo, error) {
-	return provider.PacketInfo{}, nil
+	packets, err := sp.RPCClient.RPC.IBC.QuerySendPackets(ctx, srcChanID, srcPortID, []uint64{sequence})
+	if err != nil {
+		return provider.PacketInfo{}, err
+	}
+	packet := packets[0]
+	return provider.PacketInfo{
+		Height:           packet.Height,
+		Sequence:         packet.Sequence,
+		SourceChannel:    packet.SourceChannel,
+		SourcePort:       packet.SourcePort,
+		DestChannel:      packet.DestinationChannel,
+		DestPort:         packet.DestinationPort,
+		ChannelOrder:     packet.ChannelOrder,
+		Data:             packet.Data,
+		Ack:              packet.Ack,
+		TimeoutHeight:    packet.TimeoutHeight,
+		TimeoutTimestamp: packet.TimeoutTimestamp,
+	}, nil
 }
 
-func (cc *SubstrateProvider) QueryRecvPacket(
+func (sp *SubstrateProvider) QueryRecvPacket(
 	ctx context.Context,
 	dstChanID,
 	dstPortID string,
 	sequence uint64,
 ) (provider.PacketInfo, error) {
-	return provider.PacketInfo{}, nil
+	packets, err := sp.RPCClient.RPC.IBC.QueryRecvPackets(ctx, dstChanID, dstPortID, []uint64{sequence})
+	if err != nil {
+		return provider.PacketInfo{}, err
+	}
+	packet := packets[0]
+	return provider.PacketInfo{
+		Height:           packet.Height,
+		Sequence:         packet.Sequence,
+		SourceChannel:    packet.SourceChannel,
+		SourcePort:       packet.SourcePort,
+		DestChannel:      packet.DestinationChannel,
+		DestPort:         packet.DestinationPort,
+		ChannelOrder:     packet.ChannelOrder,
+		Data:             packet.Data,
+		Ack:              packet.Ack,
+		TimeoutHeight:    packet.TimeoutHeight,
+		TimeoutTimestamp: packet.TimeoutTimestamp,
+	}, nil
 }
 
 // QueryUnreceivedAcknowledgements returns a list of unrelayed packet acks
@@ -411,7 +441,13 @@ func (sp *SubstrateProvider) QueryPacketReceipt(ctx context.Context, height int6
 }
 
 func (sp *SubstrateProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
-	signedBlock, err := sp.RPCClient.RPC.Chain.GetBlockLatest(ctx)
+	// TODO: should the latest height be the latest relayer height or the latest parachain height?
+	signedHash, err := sp.RelayChainRPCClient.RPC.Beefy.GetFinalizedHead()
+	if err != nil {
+		return 0, err
+	}
+
+	signedBlock, err := sp.RelayChainRPCClient.RPC.Chain.GetBlock(signedHash)
 	if err != nil {
 		return 0, err
 	}
@@ -421,7 +457,7 @@ func (sp *SubstrateProvider) QueryLatestHeight(ctx context.Context) (int64, erro
 
 // QueryHeaderAtHeight returns the header at a given height
 func (sp *SubstrateProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.Header, error) {
-	latestBlockHash, err := sp.RPCClient.RPC.Chain.GetBlockHashLatest(ctx)
+	latestBlockHash, err := sp.RPCClient.RPC.Chain.GetBlockHashLatest()
 	if err != nil {
 		return nil, err
 	}
@@ -440,7 +476,7 @@ func (sp *SubstrateProvider) QueryHeaderAtHeight(ctx context.Context, height int
 		return nil, err
 	}
 
-	return constructBeefyHeader(sp.RPCClient, blockHash)
+	return sp.constructBeefyHeader(blockHash, nil)
 }
 
 // QueryDenomTrace takes a denom from IBC and queries the information about it

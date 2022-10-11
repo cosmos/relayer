@@ -3,6 +3,7 @@ package substrate
 import (
 	"io"
 
+	"github.com/ChainSafe/gossamer/lib/keystore"
 	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
 	"go.uber.org/zap"
 )
@@ -24,11 +25,11 @@ type SubstrateProviderConfig struct {
 }
 
 type SubstrateProvider struct {
-	log *zap.Logger
+	log     *zap.Logger
+	Config  *SubstrateProviderConfig
+	Keybase keystore.Keyring
+	Input   io.Reader
 
-	RPCClient *rpcclient.SubstrateAPI
-	Config    *SubstrateProviderConfig
-	Input     io.Reader
-
-	PCfg SubstrateProviderConfig
+	RPCClient           *rpcclient.SubstrateAPI
+	RelayChainRPCClient *rpcclient.SubstrateAPI
 }

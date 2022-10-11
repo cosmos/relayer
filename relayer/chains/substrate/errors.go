@@ -2,5 +2,7 @@ package substrate
 
 const (
 	ErrTextConsensusStateNotFound                   = "consensus state not found: %s"
-	ErrTextSubstrateDoesnotHaveQueryForTransactions = "substrate chains do not support transaction querying"
+	ErrTextSubstrateDoesNotHaveQueryForTransactions = "substrate chains do not support transaction querying"
+	ErrBeefyAttributesNotFound                      = "beefy authorities not found"
+	ErrBeefyConstructNotFound                       = "beefy authorities not found"
 )
