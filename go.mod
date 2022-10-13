@@ -32,6 +32,7 @@ require (
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.22.0
 	golang.org/x/crypto v0.0.0-20220817201139-bc19a97f63c8
+	golang.org/x/exp v0.0.0-20220426173459-3bcf042a4bf5
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
 	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467
 	gopkg.in/yaml.v3 v3.0.1

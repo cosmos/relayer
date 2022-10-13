@@ -16,9 +16,7 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/tendermint/tendermint/light"
 	"go.uber.org/zap"
 )
 
@@ -34,6 +32,15 @@ var (
 var (
 	defaultChainPrefix = commitmenttypes.NewMerklePrefix([]byte("ibc"))
 	defaultDelayPeriod = uint64(0)
+)
+
+const (
+	callIbcDeliver = "IBC.deliver"
+)
+
+const (
+	prefixSystem  = "System"
+	methodAccount = "Account"
 )
 
 // SendMessage attempts to sign, encode & send a RelayerMessage
@@ -58,7 +65,7 @@ func (sp *SubstrateProvider) SendMessages(ctx context.Context, msgs []provider.R
 			return err
 		}
 
-		c, err := rpcclienttypes.NewCall(meta, "IBC.deliver", msgs)
+		c, err := rpcclienttypes.NewCall(meta, callIbcDeliver, msgs)
 		if err != nil {
 			return err
 		}
@@ -81,7 +88,7 @@ func (sp *SubstrateProvider) SendMessages(ctx context.Context, msgs []provider.R
 			return err
 		}
 
-		key, err := rpcclienttypes.CreateStorageKey(meta, "System", "Account", info.GetPublicKey(), nil)
+		key, err := rpcclienttypes.CreateStorageKey(meta, prefixSystem, methodAccount, info.GetPublicKey(), nil)
 		if err != nil {
 			return err
 		}
@@ -118,6 +125,7 @@ func (sp *SubstrateProvider) SendMessages(ctx context.Context, msgs []provider.R
 		rlyResp = &provider.RelayerTxResponse{
 			// TODO: What height is the height field in this struct? Is the transaction added to the blockchain right away?
 			TxHash: hash.Hex(),
+			// TODO: check code proper implementation
 		}
 
 		return nil
@@ -306,7 +314,7 @@ func (sp *SubstrateProvider) PacketAcknowledgement(
 ) (provider.PacketProof, error) {
 	ackRes, err := sp.RPCClient.RPC.IBC.QueryPacketAcknowledgement(ctx, uint32(height), msgRecvPacket.DestChannel, msgRecvPacket.DestPort, msgRecvPacket.Sequence)
 	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet acknowledgement: %w", err)
+		return provider.PacketProof{}, fmt.Errorf("error querying beefy proof for packet acknowledgement: %w", err)
 	}
 	if len(ackRes.Acknowledgement) == 0 {
 		return provider.PacketProof{}, chantypes.ErrInvalidAcknowledgement
@@ -351,7 +359,7 @@ func (sp *SubstrateProvider) PacketReceipt(
 	}, nil
 }
 
-// NextSeqRecv queries for the appropriate Tendermint proof required to prove the next expected packet sequence number
+// NextSeqRecv queries for the appropriate beefy proof required to prove the next expected packet sequence number
 // for a given counterparty channel. This is used in ORDERED channels to ensure packets are being delivered in the
 // exact same order as they were sent over the wire.
 func (sp *SubstrateProvider) NextSeqRecv(
@@ -827,7 +835,7 @@ func (sp *SubstrateProvider) InjectTrustedFields(ctx context.Context, header ibc
 	// make copy of header stored in mop
 	h, ok := header.(*beefyclienttypes.Header)
 	if !ok {
-		return nil, fmt.Errorf("trying to inject fields into non-tendermint headers")
+		return nil, fmt.Errorf("trying to inject fields into non-beefy headers")
 	}
 
 	// retrieve dst client from src chain
@@ -844,7 +852,6 @@ func (sp *SubstrateProvider) InjectTrustedFields(ctx context.Context, header ibc
 	// since the last trusted validators for a header at height h is the NextValidators
 	// at h+1 committed to in header h by NextValidatorsHash
 
-	// TODO: this is likely a source of off by 1 errors but may be impossible to change? Maybe this is the
 	// place where we need to fix the upstream query proof issue?
 	var trustedValidatorSetID uint64
 	if err := retry.Do(func() error {
@@ -870,7 +877,7 @@ func (sp *SubstrateProvider) InjectTrustedFields(ctx context.Context, header ibc
 // DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
 var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 
-// NewClientState creates a new tendermint client state tracking the dst chain.
+// NewClientState creates a new beefy client state tracking the dst chain.
 func (sp *SubstrateProvider) NewClientState(
 	dstChainID string,
 	dstUpdateHeader provider.IBCHeader,
@@ -879,23 +886,6 @@ func (sp *SubstrateProvider) NewClientState(
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 ) (ibcexported.ClientState, error) {
-	revisionNumber := clienttypes.ParseChainID(dstChainID)
-
-	// Create the ClientState we want on 'c' tracking 'dst'
-	return &tmclient.ClientState{
-		ChainId:         dstChainID,
-		TrustLevel:      tmclient.NewFractionFromTm(light.DefaultTrustLevel),
-		TrustingPeriod:  dstTrustingPeriod,
-		UnbondingPeriod: dstUbdPeriod,
-		MaxClockDrift:   time.Minute * 10,
-		FrozenHeight:    clienttypes.ZeroHeight(),
-		LatestHeight: clienttypes.Height{
-			RevisionNumber: revisionNumber,
-			RevisionHeight: dstUpdateHeader.Height(),
-		},
-		ProofSpecs:                   commitmenttypes.GetSDKSpecs(),
-		UpgradePath:                  defaultUpgradePath,
-		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
-		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
-	}, nil
+	// TODO: check if it is possible to create substrate client state
+	return &beefyclienttypes.ClientState{}, nil
 }
