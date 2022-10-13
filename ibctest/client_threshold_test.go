@@ -2,7 +2,6 @@ package ibctest_test
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
@@ -177,9 +176,6 @@ func TestClientThresholdNoUpdate(t *testing.T) {
 	rep := testreporter.NewNopReporter()
 	eRep := rep.RelayerExecReporter(t)
 
-	dbDir := ibctest.TempDir(t)
-	dbPath := filepath.Join(dbDir, "blocks.db")
-
 	// Build interchain
 	require.NoError(t, ic.Build(ctx, eRep, ibctest.InterchainBuildOptions{
 		TestName:  t.Name(),
@@ -187,8 +183,6 @@ func TestClientThresholdNoUpdate(t *testing.T) {
 		NetworkID: network,
 
 		SkipPathCreation: false,
-
-		BlockDatabaseFile: dbPath,
 	}))
 	t.Cleanup(func() {
 		_ = ic.Close()
