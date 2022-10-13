@@ -2,10 +2,10 @@ package ibctest_test
 
 import (
 	"context"
-	"database/sql"
 	"path/filepath"
 	"testing"
 
+	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
 	"github.com/strangelove-ventures/ibctest/v5"
 	"github.com/strangelove-ventures/ibctest/v5/ibc"
@@ -21,46 +21,24 @@ const (
 	g1ChainId = "gaia-1"
 
 	ibcPath = "demo-path"
-
-	// Count how many MsgUpdateClient messages were sent for each chain after specified height
-	qUpdateClientBothChains = `SELECT
-	 COUNT(*)
-	 FROM v_cosmos_messages
-	 WHERE (type = "/ibc.core.client.v1.MsgUpdateClient" AND chain_id = ? AND block_height >= ?)
-	 OR (type = "/ibc.core.client.v1.MsgUpdateClient" AND chain_id = ? AND block_height >= ?)
-	 `
-
-	// Count how many MsgUpdateClient messages were sent for one chain after specified height
-	qUpdateClientSingleChain = `SELECT
-	 COUNT(*)
-	 FROM v_cosmos_messages
-	 WHERE type = "/ibc.core.client.v1.MsgUpdateClient" 
-	 AND chain_id = ? AND block_height >= ?
-	 `
 )
 
-func pollForClientStatus(ctx context.Context, chain *ibc.Chain, startHeight, maxHeight uint64, clientID string) (clientStatus string, err error) {
-	cliContext := ibctest.CosmosChain.cliContext()
-
-	queryClient := clienttypes.NewQueryClient(cliContext)
-
+func findClientStatus(ctx context.Context, chain ibc.Chain, clientID string) (string, error) {
+	queryClient := clienttypes.NewQueryClient(CliContext(chain))
 	req := &clienttypes.QueryClientStatusRequest{
 		ClientId: clientID,
 	}
-
-	clientStatusRes, err := queryClient.ClientStatus(ctx, req)
+	res, err := queryClient.ClientStatus(ctx, req)
 	if err != nil {
 		return "", err
 	}
-
-	return clientStatusRes, nil
+	return res.Status, err
 }
 
 // Tests that the Relayer will update light clients within a
 // user specified time threshold.
 // If the client is set to expire withing the threshold, the relayer should update the client.
 func TestClientThresholdUpdate(t *testing.T) {
-
 	ctx := context.Background()
 
 	nv := 1
@@ -110,9 +88,6 @@ func TestClientThresholdUpdate(t *testing.T) {
 	rep := testreporter.NewNopReporter()
 	eRep := rep.RelayerExecReporter(t)
 
-	dbDir := ibctest.TempDir(t)
-	dbPath := filepath.Join(dbDir, "blocks.db")
-
 	// Build interchain
 	require.NoError(t, ic.Build(ctx, eRep, ibctest.InterchainBuildOptions{
 		TestName:  t.Name(),
@@ -120,58 +95,40 @@ func TestClientThresholdUpdate(t *testing.T) {
 		NetworkID: network,
 
 		SkipPathCreation: false,
-
-		BlockDatabaseFile: dbPath,
 	}))
 	t.Cleanup(func() {
 		_ = ic.Close()
 	})
 
-	// The database should exist on disk
-	db, err := sql.Open("sqlite", dbPath)
-	require.NoError(t, err)
-	defer db.Close()
-
-	// Copy the busy timeout from the migration
-	// The journal_mode pragma should be persisted on disk, so we should not need to set that here
-	_, err = db.Exec(`PRAGMA busy_timeout = 3000`)
-	require.NoError(t, err)
-
 	// Wait 2 blocks after building interchain
-	test.WaitForBlocks(ctx, 2, g0, g1)
+	require.NoError(t, test.WaitForBlocks(ctx, 2, g0, g1))
 
-	// get height of chains
-	g0_height, _ := g0.Height(ctx)
-	g1_height, _ := g1.Height(ctx)
-
-	// Verify there are no "MsgUpdateClient" messages after noted height for each chain.
-	var count int
-	row := db.QueryRow(qUpdateClientBothChains, g0ChainId, g0_height, g1ChainId, g1_height)
-	require.NoError(t, row.Scan(&count))
-	require.Equal(t, count, 0)
-
-	// Start relayer
-	r.StartRelayer(ctx, eRep, ibcPath)
+	require.NoError(t, r.StartRelayer(ctx, eRep, ibcPath))
+	t.Cleanup(func() {
+		_ = r.StopRelayer(ctx, eRep)
+	})
 
 	// Give relayer time to sync both chains
-	test.WaitForBlocks(ctx, 4, g0, g1)
+	require.NoError(t, test.WaitForBlocks(ctx, 5, g0, g1))
 
-	// Verify there are MsgUpdateClient messages for g0
-	row = db.QueryRow(qUpdateClientSingleChain, g0ChainId, g0_height)
-	require.NoError(t, row.Scan(&count))
-	require.Greater(t, count, 0)
+	const clientID = "07-tendermint-0"
 
-	// Verify there are MsgUpdateClient messages for g1
-	row = db.QueryRow(qUpdateClientSingleChain, g1ChainId, g1_height)
-	require.NoError(t, row.Scan(&count))
-	require.Greater(t, count, 0)
+	// Find client status for first chain
+	status, err := findClientStatus(ctx, g0, clientID)
 
+	require.NoError(t, err)
+	require.Equal(t, "Active", status)
+
+	// Find client status for second chain
+	status, err = findClientStatus(ctx, g1, clientID)
+
+	require.NoError(t, err)
+	require.Equal(t, "Active", status)
 }
 
 // Tests that passing in a "--time-threshold" of "0" to the relayer
 // will not update the client if it nears expiration.
 func TestClientThresholdNoUpdate(t *testing.T) {
-
 	ctx := context.Background()
 
 	nv := 1
@@ -237,43 +194,28 @@ func TestClientThresholdNoUpdate(t *testing.T) {
 		_ = ic.Close()
 	})
 
-	// The database should exist on disk
-	db, err := sql.Open("sqlite", dbPath)
-	require.NoError(t, err)
-	defer db.Close()
-
-	// Copy the busy timeout from the migration
-	// The journal_mode pragma should be persisted on disk, so we should not need to set that here
-	_, err = db.Exec(`PRAGMA busy_timeout = 3000`)
-	require.NoError(t, err)
-
 	// Wait 2 blocks after building interchain
-	test.WaitForBlocks(ctx, 2, g0, g1)
+	require.NoError(t, test.WaitForBlocks(ctx, 2, g0, g1))
 
-	// get height of chains
-	g0_height, _ := g0.Height(ctx)
-	g1_height, _ := g1.Height(ctx)
-
-	// Verify there are no MsgUpdateClient messages after noted height for each chain.
-	var count int
-	row := db.QueryRow(qUpdateClientBothChains, g0ChainId, g0_height, g1ChainId, g1_height)
-	require.NoError(t, row.Scan(&count))
-	require.Equal(t, count, 0)
-
-	// Start relayer
-	r.StartRelayer(ctx, eRep, ibcPath)
+	require.NoError(t, r.StartRelayer(ctx, eRep, ibcPath))
+	t.Cleanup(func() {
+		_ = r.StopRelayer(ctx, eRep)
+	})
 
 	// Give relayer time to sync both chains
-	test.WaitForBlocks(ctx, 4, g0, g1)
+	require.NoError(t, test.WaitForBlocks(ctx, 5, g0, g1))
 
-	// Verify there are 0 MsgUpdateClient messages for g0
-	row = db.QueryRow(qUpdateClientSingleChain, g0ChainId, g0_height)
-	require.NoError(t, row.Scan(&count))
-	require.Equal(t, count, 0)
+	const clientID = "07-tendermint-0"
 
-	// Verify there are 0 MsgUpdateClient messages for g1
-	row = db.QueryRow(qUpdateClientSingleChain, g1ChainId, g1_height)
-	require.NoError(t, row.Scan(&count))
-	require.Equal(t, count, 0)
+	// Find client status for first chain
+	status, err := findClientStatus(ctx, g0, clientID)
 
+	require.NoError(t, err)
+	require.Equal(t, "Active", status)
+
+	// Find client status for second chain
+	status, err = findClientStatus(ctx, g1, clientID)
+
+	require.NoError(t, err)
+	require.Equal(t, "Active", status)
 }

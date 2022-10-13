@@ -686,7 +686,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	src, dst *pathEndRuntime,
 	messages pathEndMessages,
 ) error {
-	updateClientOnly := false
+	var needsClientUpdate bool
 	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 {
 		var consensusHeightTime time.Time
 		if dst.clientState.ConsensusTime.IsZero() {
@@ -699,7 +699,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 			consensusHeightTime = dst.clientState.ConsensusTime
 		}
 		if (dst.clientState.TrustingPeriod.Milliseconds() - time.Since(consensusHeightTime).Milliseconds()) < pp.clientUpdateThresholdTime.Milliseconds() {
-			updateClientOnly = true
+			needsClientUpdate = true
 			pp.log.Info("client close to expiration",
 				zap.String("chainID:", dst.info.ChainID),
 				zap.String("clientID:", dst.info.ClientID),
@@ -747,7 +747,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 
 	wg.Wait()
 
-	if len(om.msgs) == 1 && !updateClientOnly {
+	if len(om.msgs) == 1 && !needsClientUpdate {
 		// only msgUpdateClient, don't need to send
 		return errors.New("all messages failed to assemble")
 	}
