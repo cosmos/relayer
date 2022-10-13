@@ -39,6 +39,23 @@ const (
 	 `
 )
 
+func pollForClientStatus(ctx context.Context, chain *ibc.Chain, startHeight, maxHeight uint64, clientID string) (clientStatus string, err error) {
+	cliContext := ibctest.CosmosChain.cliContext()
+
+	queryClient := clienttypes.NewQueryClient(cliContext)
+
+	req := &clienttypes.QueryClientStatusRequest{
+		ClientId: clientID,
+	}
+
+	clientStatusRes, err := queryClient.ClientStatus(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	return clientStatusRes, nil
+}
+
 // Tests that the Relayer will update light clients within a
 // user specified time threshold.
 // If the client is set to expire withing the threshold, the relayer should update the client.
