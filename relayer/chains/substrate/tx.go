@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ChainSafe/gossamer/lib/common"
 	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
 	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	"github.com/avast/retry-go/v4"
@@ -17,7 +18,7 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 // Variables used for retries
@@ -35,13 +36,21 @@ var (
 )
 
 const (
-	callIbcDeliver = "IBC.deliver"
+	callIbcDeliver     = "Ibc.deliver"
+	callIbcDeliverPerm = "Ibc.deliver_permissioned"
+	callSudo           = "Sudo.sudo"
 )
 
+// storage key prefix and methods
 const (
 	prefixSystem  = "System"
 	methodAccount = "Account"
 )
+
+type Any struct {
+	TypeUrl []byte `json:"type_url,omitempty"`
+	Value   []byte `json:"value,omitempty"`
+}
 
 // SendMessage attempts to sign, encode & send a RelayerMessage
 // This is used extensively in the relayer as an extension of the Provider interface
@@ -57,100 +66,105 @@ func (sp *SubstrateProvider) SendMessage(ctx context.Context, msg provider.Relay
 // of that transaction will be logged. A boolean indicating if a transaction was successfully
 // sent and executed successfully is returned.
 func (sp *SubstrateProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
-	var rlyResp *provider.RelayerTxResponse
-
-	if err := retry.Do(func() error {
-		meta, err := sp.RPCClient.RPC.State.GetMetadataLatest()
-		if err != nil {
-			return err
-		}
-
-		c, err := rpcclienttypes.NewCall(meta, callIbcDeliver, msgs)
-		if err != nil {
-			return err
-		}
-
-		// Create the extrinsic
-		ext := rpcclienttypes.NewExtrinsic(c)
-
-		genesisHash, err := sp.RPCClient.RPC.Chain.GetBlockHash(0)
-		if err != nil {
-			return err
-		}
-
-		rv, err := sp.RPCClient.RPC.State.GetRuntimeVersionLatest()
-		if err != nil {
-			return err
-		}
-
-		info, err := sp.Keybase.Key(sp.Key())
-		if err != nil {
-			return err
-		}
-
-		key, err := rpcclienttypes.CreateStorageKey(meta, prefixSystem, methodAccount, info.GetPublicKey(), nil)
-		if err != nil {
-			return err
-		}
-
-		var accountInfo rpcclienttypes.AccountInfo
-		ok, err := sp.RPCClient.RPC.State.GetStorageLatest(key, &accountInfo)
-		if err != nil || !ok {
-			return err
-		}
-
-		nonce := uint32(accountInfo.Nonce)
-
-		o := rpcclienttypes.SignatureOptions{
-			BlockHash:   genesisHash,
-			Era:         rpcclienttypes.ExtrinsicEra{IsMortalEra: false},
-			GenesisHash: genesisHash,
-			Nonce:       rpcclienttypes.NewUCompactFromUInt(uint64(nonce)),
-			SpecVersion: rv.SpecVersion,
-			Tip:         rpcclienttypes.NewUCompactFromUInt(0),
-		}
-
-		err = ext.Sign(info.GetKeyringPair(), o)
-		if err != nil {
-			return err
-		}
-
-		// Send the extrinsic
-		hash, err := sp.RPCClient.RPC.Author.SubmitExtrinsic(ext)
-		if err != nil {
-			return err
-		}
-
-		// TODO: check if there's a go substrate rpc method to wait for finalization
-		rlyResp = &provider.RelayerTxResponse{
-			// TODO: What height is the height field in this struct? Is the transaction added to the blockchain right away?
-			TxHash: hash.Hex(),
-			// TODO: check code proper implementation
-		}
-
-		return nil
-	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-		sp.log.Info(
-			"Error building or broadcasting transaction",
-			zap.String("chain_id", sp.Config.ChainID),
-			zap.Uint("attempt", n+1),
-			zap.Uint("max_attempts", rtyAttNum),
-			zap.Error(err),
-		)
-	})); err != nil || rlyResp == nil {
+	meta, err := sp.RPCClient.RPC.State.GetMetadataLatest()
+	if err != nil {
 		return nil, false, err
 	}
 
-	// transaction was executed, log the success or failure using the tx response code
-	// NOTE: error is nil, logic should use the returned error to determine if the
-	// transaction was successfully executed.
-	if rlyResp.Code != 0 {
-		sp.LogFailedTx(rlyResp, nil, msgs)
-		return rlyResp, false, fmt.Errorf("transaction failed with code: %d", rlyResp.Code)
+	call, anyMsgs, err := sp.buildCallParams(msgs)
+	if err != nil {
+		return nil, false, err
 	}
 
-	sp.LogSuccessTx(rlyResp, msgs)
-	return rlyResp, true, nil
+	c, err := rpcclienttypes.NewCall(meta, call, anyMsgs)
+	if err != nil {
+		return nil, false, err
+	}
+
+	sc, err := rpcclienttypes.NewCall(meta, callSudo, c)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// Create the extrinsic
+	ext := rpcclienttypes.NewExtrinsic(sc)
+
+	genesisHash, err := sp.RPCClient.RPC.Chain.GetBlockHash(0)
+	if err != nil {
+		return nil, false, err
+	}
+
+	rv, err := sp.RPCClient.RPC.State.GetRuntimeVersionLatest()
+	if err != nil {
+		return nil, false, err
+	}
+
+	info, err := sp.Keybase.Key(sp.Key())
+	if err != nil {
+		return nil, false, err
+	}
+
+	key, err := rpcclienttypes.CreateStorageKey(meta, prefixSystem, methodAccount, info.GetPublicKey(), nil)
+	if err != nil {
+		return nil, false, err
+	}
+
+	var accountInfo rpcclienttypes.AccountInfo
+	ok, err := sp.RPCClient.RPC.State.GetStorageLatest(key, &accountInfo)
+	if err != nil || !ok {
+		return nil, false, err
+	}
+
+	nonce := uint32(accountInfo.Nonce)
+
+	o := rpcclienttypes.SignatureOptions{
+		BlockHash:          genesisHash,
+		Era:                rpcclienttypes.ExtrinsicEra{IsMortalEra: false},
+		GenesisHash:        genesisHash,
+		Nonce:              rpcclienttypes.NewUCompactFromUInt(uint64(nonce)),
+		SpecVersion:        rv.SpecVersion,
+		Tip:                rpcclienttypes.NewUCompactFromUInt(0),
+		TransactionVersion: rv.TransactionVersion,
+	}
+
+	err = ext.Sign(info.GetKeyringPair(), o)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// Send the extrinsic
+	sub, err := sp.RPCClient.RPC.Author.SubmitAndWatchExtrinsic(ext)
+	if err != nil {
+		return nil, false, err
+	}
+
+	var status rpcclienttypes.ExtrinsicStatus
+	defer sub.Unsubscribe()
+	for {
+		status = <-sub.Chan()
+		// TODO: add zap log for waiting on transaction
+		if status.IsInBlock {
+			break
+		}
+	}
+
+	encodedExt, err := rpcclienttypes.Encode(ext)
+	if err != nil {
+		return nil, false, err
+	}
+
+	var extHash [32]byte
+	extHash, err = common.Blake2bHash(encodedExt)
+	if err != nil {
+		return nil, false, err
+	}
+
+	rlyRes := &provider.RelayerTxResponse{
+		// TODO: pass in a proper block height
+		TxHash: fmt.Sprintf("0x%x", extHash[:]),
+	}
+
+	return rlyRes, true, nil
 }
 
 // MsgCreateClient creates an sdk.Msg to update the client on src with consensus state from dst
@@ -182,6 +196,7 @@ func (sp *SubstrateProvider) MsgCreateClient(
 	return NewSubstrateMessage(msg), nil
 }
 
+// MsgUpdateClient constructs update client message into substrate message
 func (sp *SubstrateProvider) MsgUpdateClient(srcClientId string, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
 	acc, err := sp.Address()
 	if err != nil {
@@ -202,6 +217,7 @@ func (sp *SubstrateProvider) MsgUpdateClient(srcClientId string, dstHeader ibcex
 	return NewSubstrateMessage(msg), nil
 }
 
+// MsgUpgradeClient constructs upgrade client message into substrate message
 func (sp *SubstrateProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
 	var (
 		acc string
@@ -242,6 +258,7 @@ func (sp *SubstrateProvider) MsgTransfer(
 	return NewSubstrateMessage(msg), nil
 }
 
+// ValidatePacket validates transfer message
 func (sp *SubstrateProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest provider.LatestBlock) error {
 	if msgTransfer.Sequence == 0 {
 		return errors.New("refusing to relay packet with sequence: 0")
@@ -269,6 +286,7 @@ func (sp *SubstrateProvider) ValidatePacket(msgTransfer provider.PacketInfo, lat
 	return nil
 }
 
+// PacketCommitment constructs packet proof from packet at certain height
 func (sp *SubstrateProvider) PacketCommitment(
 	ctx context.Context,
 	msgTransfer provider.PacketInfo,
@@ -289,6 +307,7 @@ func (sp *SubstrateProvider) PacketCommitment(
 	}, nil
 }
 
+// MsgRecvPacket constructs receive packet message
 func (sp *SubstrateProvider) MsgRecvPacket(
 	msgTransfer provider.PacketInfo,
 	proof provider.PacketProof,
@@ -307,6 +326,7 @@ func (sp *SubstrateProvider) MsgRecvPacket(
 	return NewSubstrateMessage(msg), nil
 }
 
+// PacketAcknowledgement constructs packet proof from receive packet
 func (sp *SubstrateProvider) PacketAcknowledgement(
 	ctx context.Context,
 	msgRecvPacket provider.PacketInfo,
@@ -325,6 +345,7 @@ func (sp *SubstrateProvider) PacketAcknowledgement(
 	}, nil
 }
 
+// MsgAcknowledgement constructs ack message
 func (sp *SubstrateProvider) MsgAcknowledgement(
 	msgRecvPacket provider.PacketInfo,
 	proof provider.PacketProof,
@@ -344,6 +365,7 @@ func (sp *SubstrateProvider) MsgAcknowledgement(
 	return NewSubstrateMessage(msg), nil
 }
 
+// PacketReceipt returns packet proof of the receipt
 func (sp *SubstrateProvider) PacketReceipt(
 	ctx context.Context,
 	msgTransfer provider.PacketInfo,
@@ -377,6 +399,7 @@ func (sp *SubstrateProvider) NextSeqRecv(
 	}, nil
 }
 
+// MsgTimeout constructs timeout message from packet
 func (sp *SubstrateProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := sp.Address()
 	if err != nil {
@@ -393,6 +416,7 @@ func (sp *SubstrateProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof p
 	return NewSubstrateMessage(assembled), nil
 }
 
+// MsgTimeoutOnClose constructs message from packet and the proof
 func (sp *SubstrateProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := sp.Address()
 	if err != nil {
@@ -409,6 +433,7 @@ func (sp *SubstrateProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, 
 	return NewSubstrateMessage(assembled), nil
 }
 
+// MsgConnectionOpenInit constructs connection open init message drom proof and connection info
 func (sp *SubstrateProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
 	signer, err := sp.Address()
 	if err != nil {
@@ -429,6 +454,7 @@ func (sp *SubstrateProvider) MsgConnectionOpenInit(info provider.ConnectionInfo,
 	return NewSubstrateMessage(msg), nil
 }
 
+// ConnectionHandshakeProof returns connection proof from consensus state and proof
 func (sp *SubstrateProvider) ConnectionHandshakeProof(
 	ctx context.Context,
 	msgOpenInit provider.ConnectionInfo,
@@ -456,6 +482,7 @@ func (sp *SubstrateProvider) ConnectionHandshakeProof(
 	}, nil
 }
 
+// MsgConnectionOpenTry constructs connection open try from connection info and proof
 func (sp *SubstrateProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
 	signer, err := sp.Address()
 	if err != nil {
@@ -491,6 +518,7 @@ func (sp *SubstrateProvider) MsgConnectionOpenTry(msgOpenInit provider.Connectio
 	return NewSubstrateMessage(msg), nil
 }
 
+// MsgConnectionOpenAck constructs connection open ack message from connection info and proof
 func (sp *SubstrateProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
 	signer, err := sp.Address()
 	if err != nil {
@@ -521,6 +549,7 @@ func (sp *SubstrateProvider) MsgConnectionOpenAck(msgOpenTry provider.Connection
 	return NewSubstrateMessage(msg), nil
 }
 
+// ConnectionProof returns connection proof from connection state
 func (sp *SubstrateProvider) ConnectionProof(
 	ctx context.Context,
 	msgOpenAck provider.ConnectionInfo,
@@ -537,6 +566,7 @@ func (sp *SubstrateProvider) ConnectionProof(
 	}, nil
 }
 
+// MsgConnectionOpenConfirm constructs connection open confirm from open ack message and connection proof
 func (sp *SubstrateProvider) MsgConnectionOpenConfirm(msgOpenAck provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
 	signer, err := sp.Address()
 	if err != nil {
@@ -552,6 +582,7 @@ func (sp *SubstrateProvider) MsgConnectionOpenConfirm(msgOpenAck provider.Connec
 	return NewSubstrateMessage(msg), nil
 }
 
+// MsgChannelOpenInit constructs channel open init message from provider info and proof
 func (sp *SubstrateProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := sp.Address()
 	if err != nil {
@@ -575,6 +606,7 @@ func (sp *SubstrateProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof
 	return NewSubstrateMessage(msg), nil
 }
 
+// ChannelProof returns proof of channel from channel info
 func (sp *SubstrateProvider) ChannelProof(
 	ctx context.Context,
 	msg provider.ChannelInfo,
@@ -592,6 +624,7 @@ func (sp *SubstrateProvider) ChannelProof(
 	}, nil
 }
 
+// MsgChannelOpenTry constructs channel open try from channel info and proof
 func (sp *SubstrateProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := sp.Address()
 	if err != nil {
@@ -622,6 +655,7 @@ func (sp *SubstrateProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo,
 	return NewSubstrateMessage(msg), nil
 }
 
+// MsgChannelOpenAck constructs channel open acknowledgement from channel info and proof
 func (sp *SubstrateProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := sp.Address()
 	if err != nil {
@@ -640,6 +674,7 @@ func (sp *SubstrateProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, 
 	return NewSubstrateMessage(msg), nil
 }
 
+// MsgChannelOpenConfirm constructs channel open confirm message from channel info and proof
 func (sp *SubstrateProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := sp.Address()
 	if err != nil {
@@ -656,6 +691,7 @@ func (sp *SubstrateProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelIn
 	return NewSubstrateMessage(msg), nil
 }
 
+// MsgChannelCloseInit constructs message channel close initialization message drom info and proof
 func (sp *SubstrateProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := sp.Address()
 	if err != nil {
@@ -670,6 +706,7 @@ func (sp *SubstrateProvider) MsgChannelCloseInit(info provider.ChannelInfo, proo
 	return NewSubstrateMessage(msg), nil
 }
 
+// MsgChannelCloseConfirm constructs channel close confirmation message form channel info and proof
 func (sp *SubstrateProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := sp.Address()
 	if err != nil {
@@ -686,6 +723,7 @@ func (sp *SubstrateProvider) MsgChannelCloseConfirm(msgCloseInit provider.Channe
 	return NewSubstrateMessage(msg), nil
 }
 
+// MsgUpdateClientHeader constructs update client header message from ibc header and trusted header and height
 func (sp *SubstrateProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.Header, error) {
 	_, ok := trustedHeader.(SubstrateIBCHeader)
 	if !ok {
@@ -874,9 +912,6 @@ func (sp *SubstrateProvider) InjectTrustedFields(ctx context.Context, header ibc
 	return h, nil
 }
 
-// DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
-var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
-
 // NewClientState creates a new beefy client state tracking the dst chain.
 func (sp *SubstrateProvider) NewClientState(
 	dstChainID string,
@@ -886,6 +921,61 @@ func (sp *SubstrateProvider) NewClientState(
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 ) (ibcexported.ClientState, error) {
-	// TODO: check if it is possible to create substrate client state
-	return &beefyclienttypes.ClientState{}, nil
+	substrateHeader, ok := dstUpdateHeader.(SubstrateIBCHeader)
+	if !ok {
+		return nil, fmt.Errorf("got data of type %T but wanted  substrate.SubstrateIBCHeader \n", dstUpdateHeader)
+	}
+
+	// TODO: this won't work because we need the height passed to GetBlockHash to be the previously finalized beefy height
+	// from the relayer. However, the height from substrate.Height() is the height of the first parachain from the beefy header.
+	blockHash, err := sp.RelayerRPCClient.RPC.Chain.GetBlockHash(substrateHeader.Height())
+	if err != nil {
+		return nil, err
+	}
+
+	commitment, err := sp.signedCommitment(blockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	cs, err := sp.clientState(commitment)
+	if err != nil {
+		return nil, err
+	}
+
+	return cs, nil
+}
+
+// returns call method and messages of relayer
+func (sp *SubstrateProvider) buildCallParams(msgs []provider.RelayerMessage) (call string, anyMsgs []Any, err error) {
+	var msgTypeCall = func(msgType string) string {
+		switch msgType {
+		case "/" + string(proto.MessageName(&clienttypes.MsgCreateClient{})):
+			return callIbcDeliverPerm
+		default:
+			return callIbcDeliver
+		}
+	}
+
+	call = msgTypeCall(msgs[0].Type())
+	for i := 0; i < len(msgs); i++ {
+		msg := msgs[i]
+
+		if call != msgTypeCall(msg.Type()) {
+			return "", nil,
+				fmt.Errorf("different types of calls can't be mixed", msg)
+		}
+
+		msgBytes, err := msg.MsgBytes()
+		if err != nil {
+			return "", nil, err
+		}
+
+		anyMsgs = append(anyMsgs, Any{
+			TypeUrl: []byte(msg.Type()),
+			Value:   msgBytes,
+		})
+	}
+
+	return
 }
