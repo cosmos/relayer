@@ -20,14 +20,12 @@ import (
 const (
 	g0ChainId = "gaia-0"
 	g1ChainId = "gaia-1"
-
-	ibcPath = "demo-path"
 )
 
 // Tests that the Relayer will update light clients within a
 // user specified time threshold.
 // If the client is set to expire withing the threshold, the relayer should update the client.
-func TestClientThresholdUpdate(t *testing.T) {
+func TestScenarioClientThresholdUpdate(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -59,6 +57,8 @@ func TestClientThresholdUpdate(t *testing.T) {
 		ibctestrelayer.ImagePull(false),
 		ibctestrelayer.StartupFlags("--time-threshold", "5m"),
 	).Build(t, client, network)
+
+	ibcPath := t.Name()
 
 	// Prep Interchain with client trusting period of 5 min
 	ic := ibctest.NewInterchain().
@@ -134,7 +134,7 @@ func TestClientThresholdUpdate(t *testing.T) {
 
 // Tests that passing in a "--time-threshold" of "0" to the relayer
 // will not update the client if it nears expiration.
-func TestClientThresholdNoUpdate(t *testing.T) {
+func TestScenarioClientThresholdNoUpdate(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -165,6 +165,8 @@ func TestClientThresholdNoUpdate(t *testing.T) {
 		ibctestrelayer.ImagePull(false),
 		ibctestrelayer.StartupFlags("--time-threshold", "0"),
 	).Build(t, client, network)
+
+	ibcPath := t.Name()
 
 	// Prep Interchain with client trusting period of 5 min
 	ic := ibctest.NewInterchain().

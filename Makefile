@@ -87,8 +87,8 @@ ibctest-legacy:
 ibctest-multiple:
 	cd ibctest && go test -race -v -run TestRelayerMultiplePathsSingleProcess .
 
-ibctest-path-filter:
-	cd ibctest && go test -race -v -run TestPathFilter .
+ibctest-scenario: ## Scenario tests are suitable for simple networks of 1 validator and no full nodes. They test specific functionality.
+	cd ibctest && go test -race -v -run TestScenario .
 
 coverage:
 	@echo "viewing test coverage..."
