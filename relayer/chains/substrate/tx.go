@@ -159,9 +159,16 @@ func (sp *SubstrateProvider) SendMessages(ctx context.Context, msgs []provider.R
 		return nil, false, err
 	}
 
+	events, err := sp.fetchAndBuildEvents(ctx, status.AsInBlock, extHash)
+	if err != nil {
+		return nil, false, err
+	}
+
 	rlyRes := &provider.RelayerTxResponse{
 		// TODO: pass in a proper block height
 		TxHash: fmt.Sprintf("0x%x", extHash[:]),
+		Code:   0, // if the process is reached this line, so there is no error
+		Events: events,
 	}
 
 	return rlyRes, true, nil
@@ -978,4 +985,47 @@ func (sp *SubstrateProvider) buildCallParams(msgs []provider.RelayerMessage) (ca
 	}
 
 	return
+}
+
+func (sp *SubstrateProvider) fetchAndBuildEvents(
+	ctx context.Context,
+	blockHash rpcclienttypes.Hash,
+	extHash rpcclienttypes.Hash,
+) (relayerEvents []provider.RelayerEvent, err error) {
+
+	blockHashHex := blockHash.Hex()
+	eventResult, err := sp.RPCClient.RPC.IBC.QueryIbcEvents(ctx, []rpcclienttypes.BlockNumberOrHash{{Hash: &blockHashHex}})
+	if err != nil {
+		return nil, err
+	}
+
+	events := parseRelayEventsFromEvents(eventResult)
+	return events, nil
+}
+
+func parseRelayEventsFromEvents(eventResult rpcclienttypes.IBCEventsQueryResult) []provider.RelayerEvent {
+	var events []provider.RelayerEvent
+
+	if eventResult == nil {
+		return events
+	}
+
+	for _, e := range eventResult {
+
+		for key, attributes := range e {
+			stringAttrs := make(map[string]string)
+
+			attrs := attributes.(ibcEventQueryItem)
+			for attrKey, a := range attrs {
+				stringAttrs[attrKey] = fmt.Sprint(a)
+			}
+
+			events = append(events, provider.RelayerEvent{
+				EventType:  key,
+				Attributes: stringAttrs,
+			})
+		}
+
+	}
+	return events
 }
