@@ -19,9 +19,7 @@ import (
 // TestRelayerMultiplePathsSingleProcess tests relaying multiple paths
 // from the same process using the go relayer. A single
 // CosmosChainProcessor (gaia) will feed data to two PathProcessors (gaia-osmosis and gaia-juno).
-func TestScenarioRelayerMultiplePathsSingleProcess(t *testing.T) {
-	t.Parallel()
-
+func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	var (
 		r    = relayeribctest.NewRelayer(t, relayeribctest.RelayerConfig{})
 		rep  = testreporter.NewNopReporter()
@@ -195,5 +193,4 @@ func TestScenarioRelayerMultiplePathsSingleProcess(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, transferAmount, junoOnGaiaBalance)
-
 }
