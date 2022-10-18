@@ -2,9 +2,9 @@ package ibctest_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
-	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
 	"github.com/strangelove-ventures/ibctest/v5"
 	"github.com/strangelove-ventures/ibctest/v5/ibc"
@@ -13,6 +13,7 @@ import (
 	"github.com/strangelove-ventures/ibctest/v5/testreporter"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -21,18 +22,6 @@ const (
 
 	ibcPath = "demo-path"
 )
-
-func findClientStatus(ctx context.Context, chain ibc.Chain, clientID string) (string, error) {
-	queryClient := clienttypes.NewQueryClient(CliContext(chain))
-	req := &clienttypes.QueryClientStatusRequest{
-		ClientId: clientID,
-	}
-	res, err := queryClient.ClientStatus(ctx, req)
-	if err != nil {
-		return "", err
-	}
-	return res.Status, err
-}
 
 // Tests that the Relayer will update light clients within a
 // user specified time threshold.
@@ -92,8 +81,6 @@ func TestClientThresholdUpdate(t *testing.T) {
 		TestName:  t.Name(),
 		Client:    client,
 		NetworkID: network,
-
-		SkipPathCreation: false,
 	}))
 	t.Cleanup(func() {
 		_ = ic.Close()
@@ -102,27 +89,43 @@ func TestClientThresholdUpdate(t *testing.T) {
 	// Wait 2 blocks after building interchain
 	require.NoError(t, test.WaitForBlocks(ctx, 2, g0, g1))
 
+	g0Height, err := g0.Height(ctx)
+	require.NoError(t, err)
+	g1Height, err := g1.Height(ctx)
+	require.NoError(t, err)
+
 	require.NoError(t, r.StartRelayer(ctx, eRep, ibcPath))
 	t.Cleanup(func() {
 		_ = r.StopRelayer(ctx, eRep)
 	})
 
-	// Give relayer time to sync both chains
-	require.NoError(t, test.WaitForBlocks(ctx, 5, g0, g1))
-
 	const clientID = "07-tendermint-0"
+	var eg errgroup.Group
 
-	// Find client status for first chain
-	status, err := findClientStatus(ctx, g0, clientID)
+	eg.Go(func() error {
+		// Find client status for first chain
+		msg, err := pollForUpdateClient(ctx, g0, g0Height, g0Height+20)
+		if err != nil {
+			return fmt.Errorf("first chain: %w", err)
+		}
+		if msg.ClientId != clientID {
+			return fmt.Errorf("first chain: unexpected client id, want %s, got %s", clientID, msg.ClientId)
+		}
+		return nil
+	})
+	eg.Go(func() error {
+		// Find client status for first chain
+		msg, err := pollForUpdateClient(ctx, g1, g1Height, g1Height+20)
+		if err != nil {
+			return fmt.Errorf("second chain: %w", err)
+		}
+		if msg.ClientId != clientID {
+			return fmt.Errorf("second chain: unexpected client id, want %s, got %s", clientID, msg.ClientId)
+		}
+		return nil
+	})
 
-	require.NoError(t, err)
-	require.Equal(t, "Active", status)
-
-	// Find client status for second chain
-	status, err = findClientStatus(ctx, g1, clientID)
-
-	require.NoError(t, err)
-	require.Equal(t, "Active", status)
+	require.NoError(t, eg.Wait())
 }
 
 // Tests that passing in a "--time-threshold" of "0" to the relayer
@@ -199,17 +202,19 @@ func TestClientThresholdNoUpdate(t *testing.T) {
 	// Give relayer time to sync both chains
 	require.NoError(t, test.WaitForBlocks(ctx, 5, g0, g1))
 
-	const clientID = "07-tendermint-0"
+	t.Fatal("TODO")
 
-	// Find client status for first chain
-	status, err := findClientStatus(ctx, g0, clientID)
-
-	require.NoError(t, err)
-	require.Equal(t, "Active", status)
-
-	// Find client status for second chain
-	status, err = findClientStatus(ctx, g1, clientID)
-
-	require.NoError(t, err)
-	require.Equal(t, "Active", status)
+	//const clientID = "07-tendermint-0"
+	//
+	//// Find client status for first chain
+	//status, err := findClientStatus(ctx, g0, clientID)
+	//
+	//require.NoError(t, err)
+	//require.Equal(t, "Active", status)
+	//
+	//// Find client status for second chain
+	//status, err = findClientStatus(ctx, g1, clientID)
+	//
+	//require.NoError(t, err)
+	//require.Equal(t, "Active", status)
 }
