@@ -109,16 +109,16 @@ func TestParseClient(t *testing.T) {
 	parsed.parseAttrs(zap.NewNop(), clientEventAttributes)
 
 	require.Empty(t, cmp.Diff(*parsed, clientInfo{
-		Height: clienttypes.Height{
+		height: clienttypes.Height{
 			RevisionNumber: testRevisionNumber,
 			RevisionHeight: testRevisionHeight,
 		},
-		ClientID: testClientID1,
-		ConsensusHeight: clienttypes.Height{
+		clientID: testClientID1,
+		consensusHeight: clienttypes.Height{
 			RevisionNumber: testRevisionNumber,
 			RevisionHeight: testRevisionHeight,
 		},
-		ClientType: testClientType,
+		clientType: testClientType,
 	}, cmp.AllowUnexported(clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
 }
 
@@ -148,17 +148,17 @@ func TestParseClientUpdate(t *testing.T) {
 	parsed.parseAttrs(zap.NewNop(), clientEventAttributes)
 
 	require.Empty(t, cmp.Diff(*parsed, clientUpdateInfo{
-		Common: clientInfo{
-			Height: clienttypes.Height{
+		common: clientInfo{
+			height: clienttypes.Height{
 				RevisionNumber: testRevisionNumber,
 				RevisionHeight: testRevisionHeight,
 			},
-			ClientID: testClientID1,
-			ConsensusHeight: clienttypes.Height{
+			clientID: testClientID1,
+			consensusHeight: clienttypes.Height{
 				RevisionNumber: testRevisionNumber,
 				RevisionHeight: testRevisionHeight,
 			},
-			ClientType: testClientType,
+			clientType: testClientType,
 		},
 	}, cmp.AllowUnexported(clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
 }
@@ -281,17 +281,17 @@ func TestParseEvents(t *testing.T) {
 	require.True(t, isClientInfo, "messageInfo is not clientInfo")
 
 	require.Empty(t, cmp.Diff(*clientInfoParsed, clientUpdateInfo{
-		Common: clientInfo{
-			Height: clienttypes.Height{
+		common: clientInfo{
+			height: clienttypes.Height{
 				RevisionNumber: testRevisionNumber,
 				RevisionHeight: testRevisionHeight,
 			},
-			ClientID: testClientID1,
-			ConsensusHeight: clienttypes.Height{
+			clientID: testClientID1,
+			consensusHeight: clienttypes.Height{
 				RevisionNumber: testRevisionNumber,
 				RevisionHeight: testRevisionHeight,
 			},
-			ClientType: testClientType,
+			clientType: testClientType,
 		},
 	}, cmp.AllowUnexported(clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
 
