@@ -3,6 +3,7 @@ package ibctest_test
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
 
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
@@ -27,6 +28,8 @@ const (
 // user specified time threshold.
 // If the client is set to expire withing the threshold, the relayer should update the client.
 func TestClientThresholdUpdate(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	nv := 1
@@ -99,12 +102,14 @@ func TestClientThresholdUpdate(t *testing.T) {
 		_ = r.StopRelayer(ctx, eRep)
 	})
 
-	const clientID = "07-tendermint-0"
+	const (
+		clientID     = "07-tendermint-0"
+		heightOffset = 10
+	)
 	var eg errgroup.Group
 
 	eg.Go(func() error {
-		// Find client status for first chain
-		msg, err := pollForUpdateClient(ctx, g0, g0Height, g0Height+20)
+		msg, err := pollForUpdateClient(ctx, g0, g0Height, g0Height+heightOffset)
 		if err != nil {
 			return fmt.Errorf("first chain: %w", err)
 		}
@@ -114,8 +119,7 @@ func TestClientThresholdUpdate(t *testing.T) {
 		return nil
 	})
 	eg.Go(func() error {
-		// Find client status for first chain
-		msg, err := pollForUpdateClient(ctx, g1, g1Height, g1Height+20)
+		msg, err := pollForUpdateClient(ctx, g1, g1Height, g1Height+heightOffset)
 		if err != nil {
 			return fmt.Errorf("second chain: %w", err)
 		}
@@ -131,6 +135,8 @@ func TestClientThresholdUpdate(t *testing.T) {
 // Tests that passing in a "--time-threshold" of "0" to the relayer
 // will not update the client if it nears expiration.
 func TestClientThresholdNoUpdate(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	nv := 1
@@ -194,27 +200,36 @@ func TestClientThresholdNoUpdate(t *testing.T) {
 	// Wait 2 blocks after building interchain
 	require.NoError(t, test.WaitForBlocks(ctx, 2, g0, g1))
 
+	g0Height, err := g0.Height(ctx)
+	require.NoError(t, err)
+	g1Height, err := g1.Height(ctx)
+	require.NoError(t, err)
+
 	require.NoError(t, r.StartRelayer(ctx, eRep, ibcPath))
 	t.Cleanup(func() {
 		_ = r.StopRelayer(ctx, eRep)
 	})
 
-	// Give relayer time to sync both chains
-	require.NoError(t, test.WaitForBlocks(ctx, 5, g0, g1))
+	const heightOffset = 10
 
-	t.Fatal("TODO")
+	var errCount int64
 
-	//const clientID = "07-tendermint-0"
-	//
-	//// Find client status for first chain
-	//status, err := findClientStatus(ctx, g0, clientID)
-	//
-	//require.NoError(t, err)
-	//require.Equal(t, "Active", status)
-	//
-	//// Find client status for second chain
-	//status, err = findClientStatus(ctx, g1, clientID)
-	//
-	//require.NoError(t, err)
-	//require.Equal(t, "Active", status)
+	var eg errgroup.Group
+	eg.Go(func() error {
+		_, err := pollForUpdateClient(ctx, g0, g0Height, g0Height+heightOffset)
+		if err != nil {
+			atomic.AddInt64(&errCount, 1)
+		}
+		return err
+	})
+	eg.Go(func() error {
+		_, err := pollForUpdateClient(ctx, g1, g1Height, g1Height+heightOffset)
+		if err != nil {
+			atomic.AddInt64(&errCount, 1)
+		}
+		return err
+	})
+
+	require.Error(t, eg.Wait())
+	require.EqualValues(t, 2, errCount)
 }
