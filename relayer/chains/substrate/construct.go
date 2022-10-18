@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"os"
 	"sort"
 
-	"github.com/ChainSafe/chaindb"
 	"github.com/ChainSafe/gossamer/lib/trie"
 	"github.com/ComposableFi/go-merkle-trees/hasher"
 	"github.com/ComposableFi/go-merkle-trees/merkle"
@@ -122,7 +120,7 @@ func (sp *SubstrateProvider) fetchParaIds(blockHash rpcclienttypes.Hash) ([]uint
 	}
 
 	if !ok {
-		return nil, fmt.Errorf(ErrBeefyAttributesNotFound, storageKey, paraIds, blockHash)
+		return nil, fmt.Errorf("%s: storage key %v, paraids %v, block hash %v", ErrBeefyAttributesNotFound, storageKey, paraIds, blockHash)
 	}
 
 	return paraIds, nil
@@ -179,7 +177,8 @@ func (sp *SubstrateProvider) beefyAuthorities(blockNumber uint32, method string)
 	}
 
 	if !ok {
-		return nil, fmt.Errorf(ErrBeefyConstructNotFound, storageKey, authorities, blockHash)
+		return nil, fmt.Errorf("%s: beefy construct not found: storage key %v, authorities %v, block hash %v",
+			ErrBeefyConstructNotFound, storageKey, authorities, blockHash)
 	}
 
 	// Convert from ecdsa public key to ethereum address
@@ -461,20 +460,7 @@ func (sp *SubstrateProvider) constructExtrinsics(
 		t.Put(encodedKey, ext)
 	}
 
-	userHomeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	memdb, err := chaindb.NewBadgerDB(&chaindb.Config{
-		InMemory: true,
-		DataDir:  userHomeDir,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = t.Store(memdb)
+	err = t.Store(sp.Memdb)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -489,7 +475,7 @@ func (sp *SubstrateProvider) constructExtrinsics(
 	if err != nil {
 		return nil, nil, err
 	}
-	extrinsicProof, err = trie.GenerateProof(rootHash.ToBytes(), [][]byte{encodedTPKey}, memdb)
+	extrinsicProof, err = trie.GenerateProof(rootHash.ToBytes(), [][]byte{encodedTPKey}, sp.Memdb)
 	if err != nil {
 		return nil, nil, err
 	}

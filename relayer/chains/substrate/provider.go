@@ -7,6 +7,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/ChainSafe/chaindb"
 	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
 	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -68,12 +69,21 @@ func (spc SubstrateProviderConfig) NewProvider(log *zap.Logger, homepath string,
 		spc.KeyDirectory = keysDir(homepath, spc.ChainID)
 	}
 
+	memdb, err := chaindb.NewBadgerDB(&chaindb.Config{
+		InMemory: true,
+		DataDir:  homepath,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	sp := &SubstrateProvider{
 		log:    log,
 		Config: &spc,
+		Memdb:  memdb,
 	}
 
-	err := sp.Init()
+	err = sp.Init()
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +105,7 @@ type SubstrateProvider struct {
 	log     *zap.Logger
 	Config  *SubstrateProviderConfig
 	Keybase keystore.Keyring
+	Memdb   *chaindb.BadgerDB
 	Input   io.Reader
 
 	RPCClient        *rpcclient.SubstrateAPI
