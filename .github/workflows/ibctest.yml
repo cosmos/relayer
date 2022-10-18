@@ -74,7 +74,7 @@ jobs:
         run: make ibctest-multiple
 
   scenarios:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Set up Go 1.18
         uses: actions/setup-go@v1
