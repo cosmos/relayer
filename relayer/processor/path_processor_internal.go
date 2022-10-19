@@ -700,9 +700,9 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		}
 		if (dst.clientState.TrustingPeriod.Milliseconds() - time.Since(consensusHeightTime).Milliseconds()) < pp.clientUpdateThresholdTime.Milliseconds() {
 			needsClientUpdate = true
-			pp.log.Info("client close to expiration",
-				zap.String("chainID:", dst.info.ChainID),
-				zap.String("clientID:", dst.info.ClientID),
+			pp.log.Info("Client close to expiration",
+				zap.String("chain_id:", dst.info.ChainID),
+				zap.String("client_id:", dst.info.ClientID),
 				zap.Int64("trusting_period", dst.clientState.TrustingPeriod.Milliseconds()),
 				zap.Int64("time_since_client_update", time.Since(consensusHeightTime).Milliseconds()),
 				zap.Int64("client_threshold_time", pp.clientUpdateThresholdTime.Milliseconds()),
