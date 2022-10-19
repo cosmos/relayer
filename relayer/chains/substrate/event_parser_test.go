@@ -160,7 +160,7 @@ func TestParseClientUpdate(t *testing.T) {
 			},
 			clientType: testClientType,
 		},
-	}, cmp.AllowUnexported(clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
+	}, cmp.AllowUnexported(clientUpdateInfo{}, clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
 }
 
 func TestParseChannel(t *testing.T) {
@@ -293,7 +293,7 @@ func TestParseEvents(t *testing.T) {
 			},
 			clientType: testClientType,
 		},
-	}, cmp.AllowUnexported(clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
+	}, cmp.AllowUnexported(clientUpdateInfo{}, clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
 
 	msgRecvPacket := ibcMessages[1]
 	require.Equal(t, chantypes.EventTypeRecvPacket, msgRecvPacket.eventType, "message event is not recv_packet")
