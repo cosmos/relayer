@@ -970,7 +970,7 @@ func (sp *SubstrateProvider) buildCallParams(msgs []provider.RelayerMessage) (ca
 
 		if call != msgTypeCall(msg.Type()) {
 			return "", nil,
-				fmt.Errorf("different types of calls can't be mixed", msg)
+				fmt.Errorf("%s: %s", ErrDifferentTypesOfCallsMixed, msg)
 		}
 
 		msgBytes, err := msg.MsgBytes()

@@ -155,25 +155,25 @@ func genAccumKey(data interface{}) ibcPacketKey {
 
 // client info attributes and methods
 type clientInfo struct {
-	Height          clienttypes.Height
-	ClientID        string
-	ClientType      uint32
-	ConsensusHeight clienttypes.Height
+	height          clienttypes.Height
+	clientID        string
+	clientType      uint32
+	consensusHeight clienttypes.Height
 }
 
 // ClientState returns the height and id of client
 func (cl clientInfo) ClientState() provider.ClientState {
 	return provider.ClientState{
-		ClientID:        cl.ClientID,
-		ConsensusHeight: cl.ConsensusHeight,
+		ClientID:        cl.clientID,
+		ConsensusHeight: cl.consensusHeight,
 	}
 }
 
 // MarshalLogObject marshals attributes of client info
 func (cl *clientInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("client_id", cl.ClientID)
-	enc.AddUint64("consensus_height", cl.ConsensusHeight.RevisionHeight)
-	enc.AddUint64("consensus_height_revision", cl.ConsensusHeight.RevisionNumber)
+	enc.AddString("client_id", cl.clientID)
+	enc.AddUint64("consensus_height", cl.consensusHeight.RevisionHeight)
+	enc.AddUint64("consensus_height_revision", cl.consensusHeight.RevisionNumber)
 	return nil
 }
 
@@ -182,17 +182,17 @@ func (cl *clientInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
 	attrs := attributes.(ibcEventQueryItem)
 
 	var err error
-	if cl.Height, err = parseHeight(attrs["height"]); err != nil {
+	if cl.height, err = parseHeight(attrs["height"]); err != nil {
 		log.Error("error parsing client consensus height: ",
 			zap.Error(err),
 		)
 		return
 	}
 
-	cl.ClientID = attrs["client_id"].(string)
-	cl.ClientType = attrs["client_type"].(uint32)
+	cl.clientID = attrs["client_id"].(string)
+	cl.clientType = attrs["client_type"].(uint32)
 
-	if cl.ConsensusHeight, err = parseHeight(attrs["consensus_height"]); err != nil {
+	if cl.consensusHeight, err = parseHeight(attrs["consensus_height"]); err != nil {
 		log.Error("error parsing client consensus height: ",
 			zap.Error(err),
 		)
@@ -203,15 +203,15 @@ func (cl *clientInfo) parseAttrs(log *zap.Logger, attributes interface{}) {
 
 // client update info attributes and methods
 type clientUpdateInfo struct {
-	Common clientInfo
-	Header beefyclienttypes.Header
+	common clientInfo
+	header beefyclienttypes.Header
 }
 
 // MarshalLogObject marshals attributes of client update info
 func (clu *clientUpdateInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("client_id", clu.Common.ClientID)
-	enc.AddUint64("consensus_height", clu.Common.ConsensusHeight.RevisionHeight)
-	enc.AddUint64("consensus_height_revision", clu.Common.ConsensusHeight.RevisionNumber)
+	enc.AddString("client_id", clu.common.clientID)
+	enc.AddUint64("consensus_height", clu.common.consensusHeight.RevisionHeight)
+	enc.AddUint64("consensus_height_revision", clu.common.consensusHeight.RevisionNumber)
 	// TODO: include header if
 	return nil
 }
@@ -222,9 +222,9 @@ func (clu *clientUpdateInfo) parseAttrs(log *zap.Logger, attributes interface{})
 
 	clientInfo := new(clientInfo)
 	clientInfo.parseAttrs(log, attrs["common"])
-	clu.Common = *clientInfo
+	clu.common = *clientInfo
 
-	clu.Header = parseHeader(attrs["header"])
+	clu.header = parseHeader(attrs["header"])
 }
 
 // alias type to the provider types, used for adding parser methods
