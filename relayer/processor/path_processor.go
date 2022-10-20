@@ -138,10 +138,7 @@ func (pp *PathProcessor) channelPairs() []channelPair {
 	}
 	pairs := make([]channelPair, len(channels))
 	i := 0
-	for k, open := range channels {
-		if !open {
-			continue
-		}
+	for k, _ := range channels {
 		pairs[i] = channelPair{
 			pathEnd1ChannelKey: k,
 			pathEnd2ChannelKey: k.Counterparty(),
@@ -169,9 +166,9 @@ func (pp *PathProcessor) SetChainProviderIfApplicable(chainProvider provider.Cha
 
 func (pp *PathProcessor) IsRelayedChannel(chainID string, channelKey ChannelKey) bool {
 	if pp.pathEnd1.info.ChainID == chainID {
-		return pp.pathEnd1.info.ShouldRelayChannel(channelKey)
+		return pp.pathEnd1.info.ShouldRelayChannel(ChainChannelKey{ChainID: chainID, CounterpartyChainID: pp.pathEnd2.info.ChainID, ChannelKey: channelKey})
 	} else if pp.pathEnd2.info.ChainID == chainID {
-		return pp.pathEnd2.info.ShouldRelayChannel(channelKey)
+		return pp.pathEnd2.info.ShouldRelayChannel(ChainChannelKey{ChainID: chainID, CounterpartyChainID: pp.pathEnd1.info.ChainID, ChannelKey: channelKey})
 	}
 	return false
 }
@@ -240,11 +237,11 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 		return true
 	case d := <-pp.pathEnd1.incomingCacheData:
 		// we have new data from ChainProcessor for pathEnd1
-		pp.pathEnd1.mergeCacheData(ctx, cancel, d, pp.pathEnd2.inSync, messageLifecycle)
+		pp.pathEnd1.mergeCacheData(ctx, cancel, d, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync, messageLifecycle)
 
 	case d := <-pp.pathEnd2.incomingCacheData:
 		// we have new data from ChainProcessor for pathEnd2
-		pp.pathEnd2.mergeCacheData(ctx, cancel, d, pp.pathEnd1.inSync, messageLifecycle)
+		pp.pathEnd2.mergeCacheData(ctx, cancel, d, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync, messageLifecycle)
 
 	case <-pp.retryProcess:
 		// No new data to merge in, just retry handling.

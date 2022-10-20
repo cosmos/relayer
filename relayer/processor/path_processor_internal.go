@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 
 	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
@@ -40,6 +41,8 @@ func (pp *PathProcessor) getUnrelayedPacketsAndAcksAndToDelete(ctx context.Conte
 		ToDeleteDstChannel: make(map[string][]ChannelKey),
 	}
 
+	dstRecvPacketMsgs := make([]packetIBCMessage, 0)
+
 MsgTransferLoop:
 	for transferSeq, msgTransfer := range pathEndPacketFlowMessages.SrcMsgTransfer {
 		for ackSeq := range pathEndPacketFlowMessages.SrcMsgAcknowledgement {
@@ -72,7 +75,7 @@ MsgTransferLoop:
 							},
 						}
 
-						if pathEndPacketFlowMessages.Src.shouldSendChannelMessage(closeChan, pathEndPacketFlowMessages.Dst) {
+						if pathEndPacketFlowMessages.Dst.shouldSendChannelMessage(closeChan, pathEndPacketFlowMessages.Src) {
 							res.DstChannelMessage = append(res.DstChannelMessage, closeChan)
 						}
 					} else {
@@ -148,8 +151,26 @@ MsgTransferLoop:
 			eventType: chantypes.EventTypeRecvPacket,
 			info:      msgTransfer,
 		}
-		if pathEndPacketFlowMessages.Dst.shouldSendPacketMessage(recvPacketMsg, pathEndPacketFlowMessages.Src) {
-			res.DstMessages = append(res.DstMessages, recvPacketMsg)
+		dstRecvPacketMsgs = append(dstRecvPacketMsgs, recvPacketMsg)
+	}
+
+	if len(dstRecvPacketMsgs) > 0 {
+		sort.SliceStable(dstRecvPacketMsgs, func(i, j int) bool {
+			return dstRecvPacketMsgs[i].info.Sequence < dstRecvPacketMsgs[j].info.Sequence
+		})
+		firstMsg := dstRecvPacketMsgs[0]
+		if firstMsg.info.ChannelOrder == chantypes.ORDERED.String() {
+			// for recv packet messages on ordered channels, only handle the lowest sequence number now.
+			if pathEndPacketFlowMessages.Dst.shouldSendPacketMessage(firstMsg, pathEndPacketFlowMessages.Src) {
+				res.DstMessages = append(res.DstMessages, firstMsg)
+			}
+		} else {
+			// for unordered channels, can handle multiple simultaneous packets.
+			for _, msg := range dstRecvPacketMsgs {
+				if pathEndPacketFlowMessages.Dst.shouldSendPacketMessage(msg, pathEndPacketFlowMessages.Src) {
+					res.DstMessages = append(res.DstMessages, msg)
+				}
+			}
 		}
 	}
 
@@ -160,14 +181,7 @@ MsgTransferLoop:
 		res.ToDeleteSrc[chantypes.EventTypeAcknowledgePacket] = append(res.ToDeleteSrc[chantypes.EventTypeAcknowledgePacket], ackSeq)
 	}
 	for timeoutSeq, msgTimeout := range pathEndPacketFlowMessages.SrcMsgTimeout {
-		if msgTimeout.ChannelOrder == chantypes.ORDERED.String() {
-			if pathEndPacketFlowMessages.DstMsgChannelCloseConfirm != nil {
-				// For ordered channel packets, flow is not done until channel-close-confirm is observed.
-				res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm] = append(res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm], pathEndPacketFlowMessages.ChannelKey.Counterparty())
-				res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], timeoutSeq)
-				res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], timeoutSeq)
-			}
-		} else {
+		if msgTimeout.ChannelOrder != chantypes.ORDERED.String() {
 			res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], timeoutSeq)
 			res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], timeoutSeq)
 		}
@@ -176,6 +190,7 @@ MsgTransferLoop:
 		res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], timeoutOnCloseSeq)
 		res.ToDeleteSrc[chantypes.EventTypeTimeoutPacketOnClose] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacketOnClose], timeoutOnCloseSeq)
 	}
+
 	return res
 }
 
@@ -192,7 +207,7 @@ ConnectionHandshakeLoop:
 			// MsgConnectionOpenInit does not have counterparty connection ID, so check if everything
 			// else matches for counterparty. If so, add counterparty connection ID for
 			// the checks later on in this function.
-			if openInitKey.ConnectionID == openTryKey.CounterpartyConnID && openInitKey.ClientID == openTryKey.CounterpartyClientID && openInitKey.CounterpartyClientID == openTryKey.ClientID {
+			if openInitKey == openTryKey.Counterparty().MsgInitKey() {
 				openInitKey.CounterpartyConnID = openTryKey.ConnectionID
 				foundOpenTry = &openTryMsg
 				break
@@ -281,7 +296,7 @@ ChannelHandshakeLoop:
 			// MsgChannelOpenInit does not have counterparty channel ID, so check if everything
 			// else matches for counterparty. If so, add counterparty channel ID for
 			// the checks later on in this function.
-			if openInitKey == openTryKey.Counterparty().msgInitKey() {
+			if openInitKey == openTryKey.Counterparty().MsgInitKey() {
 				openInitKey.CounterpartyChannelID = openTryMsg.ChannelID
 				foundOpenTry = &openTryMsg
 				break
@@ -339,7 +354,7 @@ ChannelHandshakeLoop:
 		res.ToDeleteSrc[chantypes.EventTypeChannelOpenAck] = append(res.ToDeleteSrc[chantypes.EventTypeChannelOpenAck], openInitKey)
 		res.ToDeleteDst[chantypes.EventTypeChannelOpenConfirm] = append(res.ToDeleteDst[chantypes.EventTypeChannelOpenConfirm], openInitKey)
 		// MsgChannelOpenInit does not have CounterpartyChannelID
-		res.ToDeleteSrc[chantypes.EventTypeChannelOpenInit] = append(res.ToDeleteSrc[chantypes.EventTypeChannelOpenInit], openInitKey.msgInitKey())
+		res.ToDeleteSrc[chantypes.EventTypeChannelOpenInit] = append(res.ToDeleteSrc[chantypes.EventTypeChannelOpenInit], openInitKey.MsgInitKey())
 	}
 
 	// now iterate through channel-handshake-complete messages and remove any leftover messages
@@ -348,7 +363,7 @@ ChannelHandshakeLoop:
 		res.ToDeleteSrc[chantypes.EventTypeChannelOpenAck] = append(res.ToDeleteSrc[chantypes.EventTypeChannelOpenAck], openConfirmKey)
 		res.ToDeleteDst[chantypes.EventTypeChannelOpenConfirm] = append(res.ToDeleteDst[chantypes.EventTypeChannelOpenConfirm], openConfirmKey)
 		// MsgChannelOpenInit does not have CounterpartyChannelID
-		res.ToDeleteSrc[chantypes.EventTypeChannelOpenInit] = append(res.ToDeleteSrc[chantypes.EventTypeChannelOpenInit], openConfirmKey.msgInitKey())
+		res.ToDeleteSrc[chantypes.EventTypeChannelOpenInit] = append(res.ToDeleteSrc[chantypes.EventTypeChannelOpenInit], openConfirmKey.MsgInitKey())
 	}
 	return res
 }
@@ -663,7 +678,6 @@ func (pp *PathProcessor) assembleMessage(
 		return
 	}
 	om.Append(message)
-
 }
 
 func (pp *PathProcessor) assembleAndSendMessages(
@@ -725,12 +739,12 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		dst.trackProcessingChannelMessage(m)
 	}
 
-	go pp.sendMessages(ctx, src, dst, om, pp.memo)
+	go pp.sendMessages(ctx, src, dst, &om, pp.memo)
 
 	return nil
 }
 
-func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRuntime, om outgoingMessages, memo string) {
+func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRuntime, om *outgoingMessages, memo string) {
 	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
@@ -742,6 +756,7 @@ func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRunt
 				zap.String("dst_chain_id", dst.info.ChainID),
 				zap.String("src_client_id", src.info.ClientID),
 				zap.String("dst_client_id", dst.info.ClientID),
+				zap.Object("messages", om),
 				zap.Error(err),
 			)
 			return
@@ -751,6 +766,7 @@ func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRunt
 			zap.String("dst_chain_id", dst.info.ChainID),
 			zap.String("src_client_id", src.info.ClientID),
 			zap.String("dst_client_id", dst.info.ClientID),
+			zap.Object("messages", om),
 			zap.Error(err),
 		)
 		return
@@ -978,10 +994,14 @@ func (pp *PathProcessor) packetMessagesToSend(
 		pathEnd2ChannelMessage = append(pathEnd2ChannelMessage, pathEnd1ProcessRes[i].DstChannelMessage...)
 
 		pp.pathEnd1.messageCache.ChannelHandshake.DeleteMessages(pathEnd2ProcessRes[i].ToDeleteDstChannel)
+		pp.pathEnd1.channelProcessing.deleteMessages(pathEnd2ProcessRes[i].ToDeleteDstChannel)
+
 		pp.pathEnd2.messageCache.ChannelHandshake.DeleteMessages(pathEnd1ProcessRes[i].ToDeleteDstChannel)
+		pp.pathEnd2.channelProcessing.deleteMessages(pathEnd1ProcessRes[i].ToDeleteDstChannel)
 
 		pp.pathEnd1.messageCache.PacketFlow[channelPair.pathEnd1ChannelKey].DeleteMessages(pathEnd1ProcessRes[i].ToDeleteSrc, pathEnd2ProcessRes[i].ToDeleteDst)
 		pp.pathEnd2.messageCache.PacketFlow[channelPair.pathEnd2ChannelKey].DeleteMessages(pathEnd2ProcessRes[i].ToDeleteSrc, pathEnd1ProcessRes[i].ToDeleteDst)
+
 		pp.pathEnd1.packetProcessing[channelPair.pathEnd1ChannelKey].deleteMessages(pathEnd1ProcessRes[i].ToDeleteSrc, pathEnd2ProcessRes[i].ToDeleteDst)
 		pp.pathEnd2.packetProcessing[channelPair.pathEnd2ChannelKey].deleteMessages(pathEnd2ProcessRes[i].ToDeleteSrc, pathEnd1ProcessRes[i].ToDeleteDst)
 	}
