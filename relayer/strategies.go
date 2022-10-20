@@ -24,7 +24,7 @@ type ActiveChannel struct {
 const (
 	ProcessorEvents              string = "events"
 	ProcessorLegacy                     = "legacy"
-	DefaultClientUpdateThreshold        = 6 * time.Hour
+	DefaultClientUpdateThreshold        = 0 * time.Millisecond
 )
 
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
