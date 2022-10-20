@@ -1,6 +1,6 @@
 module github.com/cosmos/relayer/v2
 
-go 1.19
+go 1.18
 
 require (
 	github.com/ChainSafe/chaindb v0.1.5-0.20220322154826-c0d431995732
