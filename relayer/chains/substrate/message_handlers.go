@@ -129,7 +129,7 @@ func (ccp *SubstrateChainProcessor) handleConnectionMessage(eventType string, ci
 
 func (ccp *SubstrateChainProcessor) handleClientMessage(eventType string, ci clientInfo) {
 	ccp.latestClientState.update(ci)
-	ccp.logObservedIBCMessage(eventType, zap.String("client_id", ci.ClientID))
+	ccp.logObservedIBCMessage(eventType, zap.String("client_id", ci.clientID))
 }
 
 func (ccp *SubstrateChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {
