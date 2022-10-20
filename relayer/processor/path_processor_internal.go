@@ -698,7 +698,9 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		} else {
 			consensusHeightTime = dst.clientState.ConsensusTime
 		}
-		if (dst.clientState.TrustingPeriod.Milliseconds() - time.Since(consensusHeightTime).Milliseconds()) < pp.clientUpdateThresholdTime.Milliseconds() {
+		clientUpdateThresholdMs := pp.clientUpdateThresholdTime.Milliseconds()
+		if (float64(dst.clientState.TrustingPeriod.Milliseconds())*2/3 < float64(time.Since(consensusHeightTime).Milliseconds())) ||
+			(clientUpdateThresholdMs > 0 && time.Since(consensusHeightTime).Milliseconds() > clientUpdateThresholdMs) {
 			needsClientUpdate = true
 			pp.log.Info("Client close to expiration",
 				zap.String("chain_id:", dst.info.ChainID),
