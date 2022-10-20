@@ -57,7 +57,7 @@ func (c *Chain) CreateOpenChannels(
 		processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
 		nil,
 		memo,
-		defaultClientUpdateThreshold,
+		DefaultClientUpdateThreshold,
 	)
 
 	c.log.Info("Starting event processor for channel handshake",
@@ -127,7 +127,7 @@ func (c *Chain) CloseChannel(
 			processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
 			nil,
 			memo,
-			defaultClientUpdateThreshold,
+			DefaultClientUpdateThreshold,
 		)).
 		WithInitialBlockHistory(0).
 		WithMessageLifecycle(&processor.ChannelMessageLifecycle{
