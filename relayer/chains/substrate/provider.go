@@ -124,15 +124,11 @@ func (h SubstrateIBCHeader) IBCHeaderIndicator() {
 }
 
 func (h SubstrateIBCHeader) Height() uint64 {
-	//TODO implement me
-	panic("implement me")
-	return 0
+	return h.height
 }
 
 func (h SubstrateIBCHeader) ConsensusState() ibcexported.ConsensusState {
-	//TODO implement me
-	panic("implement me")
-	return nil
+	return h.SignedHeader.ConsensusState()
 }
 
 func (sp *SubstrateProvider) BlockTime(ctx context.Context, height int64) (time.Time, error) {
