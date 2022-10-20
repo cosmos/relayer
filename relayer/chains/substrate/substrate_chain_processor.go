@@ -72,14 +72,14 @@ const (
 type latestClientState map[string]provider.ClientState
 
 func (l latestClientState) update(clientInfo clientInfo) {
-	existingClientInfo, ok := l[clientInfo.ClientID]
-	if ok && clientInfo.ConsensusHeight.LT(existingClientInfo.ConsensusHeight) {
+	existingClientInfo, ok := l[clientInfo.clientID]
+	if ok && clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
 		// height is less than latest, so no-op
 		return
 	}
 
 	// update latest if no existing state or provided consensus height is newer
-	l[clientInfo.ClientID] = clientInfo.ClientState()
+	l[clientInfo.clientID] = clientInfo.ClientState()
 }
 
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.

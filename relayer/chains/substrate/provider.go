@@ -7,6 +7,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/ChainSafe/chaindb"
 	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
 	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -28,17 +29,23 @@ var (
 )
 
 type SubstrateProviderConfig struct {
-	Key            string `json:"key" yaml:"key"`
-	ChainName      string `json:"-" yaml:"-"`
-	ChainID        string `json:"chain-id" yaml:"chain-id"`
-	RPCAddr        string `json:"rpc-addr" yaml:"rpc-addr"`
-	RelayRPCAddr   string `json:"relay-rpc-addr" yaml:"relay-rpc-addr"`
-	AccountPrefix  string `json:"account-prefix" yaml:"account-prefix"`
-	KeyringBackend string `json:"keyring-backend" yaml:"keyring-backend"`
-	KeyDirectory   string `json:"key-directory" yaml:"key-directory"`
-	Debug          bool   `json:"debug" yaml:"debug"`
-	Timeout        string `json:"timeout" yaml:"timeout"`
-	Network        uint16 `json:"network" yaml:"network"`
+	Key                  string  `json:"key" yaml:"key"`
+	ChainName            string  `json:"-" yaml:"-"`
+	ChainID              string  `json:"chain-id" yaml:"chain-id"`
+	RPCAddr              string  `json:"rpc-addr" yaml:"rpc-addr"`
+	RelayRPCAddr         string  `json:"relay-rpc-addr" yaml:"relay-rpc-addr"`
+	AccountPrefix        string  `json:"account-prefix" yaml:"account-prefix"`
+	KeyringBackend       string  `json:"keyring-backend" yaml:"keyring-backend"`
+	KeyDirectory         string  `json:"key-directory" yaml:"key-directory"`
+	GasPrices            string  `json:"gas-prices" yaml:"gas-prices"`
+	GasAdjustment        float64 `json:"gas-adjustment" yaml:"gas-adjustment"`
+	Debug                bool    `json:"debug" yaml:"debug"`
+	Timeout              string  `json:"timeout" yaml:"timeout"`
+	OutputFormat         string  `json:"output-format" yaml:"output-format"`
+	SignModeStr          string  `json:"sign-mode" yaml:"sign-mode"`
+	Network              uint16  `json:"network" yaml:"network"`
+	ParaID               uint32  `json:"para-id" yaml:"para-id"`
+	BeefyActivationBlock uint32  `json:"beefy-activation-block" yaml:"beefy-activation-block"`
 }
 
 func (spc SubstrateProviderConfig) Validate() error {
@@ -62,12 +69,21 @@ func (spc SubstrateProviderConfig) NewProvider(log *zap.Logger, homepath string,
 		spc.KeyDirectory = keysDir(homepath, spc.ChainID)
 	}
 
-	sp := &SubstrateProvider{
-		log:  log,
-		PCfg: spc,
+	memdb, err := chaindb.NewBadgerDB(&chaindb.Config{
+		InMemory: true,
+		DataDir:  homepath,
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	err := sp.Init()
+	sp := &SubstrateProvider{
+		log:    log,
+		Config: &spc,
+		Memdb:  memdb,
+	}
+
+	err = sp.Init()
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +92,7 @@ func (spc SubstrateProviderConfig) NewProvider(log *zap.Logger, homepath string,
 }
 
 func (sp *SubstrateProvider) Init() error {
-	keybase, err := keystore.New(sp.PCfg.ChainID, sp.PCfg.KeyringBackend, sp.PCfg.KeyDirectory, sp.Input)
+	keybase, err := keystore.New(sp.Config.ChainID, sp.Config.KeyringBackend, sp.Config.KeyDirectory, sp.Input)
 	if err != nil {
 		return err
 	}
@@ -86,11 +102,14 @@ func (sp *SubstrateProvider) Init() error {
 }
 
 type SubstrateProvider struct {
-	log       *zap.Logger
-	Keybase   keystore.Keyring
-	RPCClient *rpcclient.SubstrateAPI
-	PCfg      SubstrateProviderConfig
-	Input     io.Reader
+	log     *zap.Logger
+	Config  *SubstrateProviderConfig
+	Keybase keystore.Keyring
+	Memdb   *chaindb.BadgerDB
+	Input   io.Reader
+
+	RPCClient        *rpcclient.SubstrateAPI
+	RelayerRPCClient *rpcclient.SubstrateAPI
 }
 
 type SubstrateIBCHeader struct {
@@ -128,11 +147,6 @@ func (sp *SubstrateProvider) QueryTxs(ctx context.Context, page, limit int, even
 }
 
 func (sp *SubstrateProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -283,166 +297,6 @@ func (sp *SubstrateProvider) QueryDenomTrace(ctx context.Context, denom string) 
 }
 
 func (sp *SubstrateProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) NewClientState(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) ValidatePacket(msgTransfer provider.PacketInfo, latestBlock provider.LatestBlock) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) PacketCommitment(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, height uint64) (provider.PacketProof, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) NextSeqRecv(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgTransfer(dstAddr string, amount sdk.Coin, info provider.PacketInfo) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, proofAcked provider.PacketProof) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgTimeout(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenInit provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) ConnectionProof(ctx context.Context, msgOpenAck provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgConnectionOpenConfirm(msgOpenAck provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) ChannelProof(ctx context.Context, msg provider.ChannelInfo, height uint64) (provider.ChannelProof, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.Header, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) MsgUpdateClient(clientId string, counterpartyHeader ibcexported.Header) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) RelayPacketFromSequence(ctx context.Context, src provider.ChainProvider, srch, dsth, seq uint64, srcChanID, srcPortID string, order chantypes.Order) (provider.RelayerMessage, provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) AcknowledgementFromSequence(ctx context.Context, dst provider.ChainProvider, dsth, seq uint64, dstChanID, dstPortID, srcChanID, srcPortID string) (provider.RelayerMessage, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (sp *SubstrateProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 	//TODO implement me
 	panic("implement me")
 }
