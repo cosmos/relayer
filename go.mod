@@ -7,7 +7,6 @@ require (
 	github.com/ChainSafe/chaindb v0.1.5-0.20220322154826-c0d431995732
 	github.com/ChainSafe/gossamer v0.6.1-0.20220406182257-98400b30ca00
 	github.com/ComposableFi/go-merkle-trees v0.0.0-20220505132313-e976260288cc
-	github.com/ComposableFi/go-substrate-rpc-client v2.0.0+incompatible
 	github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220920084912-1395042133a0
 	github.com/ComposableFi/ics11-beefy v0.0.0-20220915123708-0965f4b89a73
 	github.com/OneOfOne/xxhash v1.2.8
@@ -35,7 +34,6 @@ require (
 	golang.org/x/exp v0.0.0-20220426173459-3bcf042a4bf5
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
 	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467
-	google.golang.org/protobuf v1.28.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -204,6 +202,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220725144611-272f38e5d71b // indirect
 	google.golang.org/grpc v1.49.0 // indirect
+	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
