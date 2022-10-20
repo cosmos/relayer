@@ -3,7 +3,6 @@ package ibctest_test
 import (
 	"context"
 	"fmt"
-	"sync/atomic"
 	"testing"
 
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
@@ -24,7 +23,6 @@ const (
 
 // Tests that the Relayer will update light clients within a
 // user specified time threshold.
-// If the client is set to expire withing the threshold, the relayer should update the client.
 func TestScenarioClientThresholdUpdate(t *testing.T) {
 	t.Parallel()
 
@@ -55,7 +53,7 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 		zaptest.NewLogger(t),
 		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest", "100:1000"),
 		ibctestrelayer.ImagePull(false),
-		ibctestrelayer.StartupFlags("--time-threshold", "5m"),
+		ibctestrelayer.StartupFlags("--time-threshold", "20s"),
 	).Build(t, client, network)
 
 	ibcPath := t.Name()
@@ -71,7 +69,9 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 			Relayer: r,
 			Path:    ibcPath,
 			CreateClientOpts: ibc.CreateClientOptions{
-				TrustingPeriod: "5m",
+				// Trusting period is very long, so no chance of auto update client during test run due to 2/3 trusting period.
+				// This lets us test the --time-threshold flag.
+				TrustingPeriod: "120h",
 			},
 		})
 
@@ -102,19 +102,28 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 		_ = r.StopRelayer(ctx, eRep)
 	})
 
-	const (
-		clientID     = "07-tendermint-0"
-		heightOffset = 10
-	)
-	var eg errgroup.Group
+	const heightOffset = 10
 
+	g0Conns, err := r.GetConnections(ctx, eRep, g0ChainId)
+	require.NoError(t, err)
+	require.Len(t, g0Conns, 1)
+
+	g0ClientID := g0Conns[0].ClientID
+
+	g1Conns, err := r.GetConnections(ctx, eRep, g1ChainId)
+	require.NoError(t, err)
+	require.Len(t, g1Conns, 1)
+
+	g1ClientID := g1Conns[0].ClientID
+
+	var eg errgroup.Group
 	eg.Go(func() error {
 		msg, err := pollForUpdateClient(ctx, g0, g0Height, g0Height+heightOffset)
 		if err != nil {
 			return fmt.Errorf("first chain: %w", err)
 		}
-		if msg.ClientId != clientID {
-			return fmt.Errorf("first chain: unexpected client id, want %s, got %s", clientID, msg.ClientId)
+		if msg.ClientId != g0ClientID {
+			return fmt.Errorf("first chain: unexpected client id, want %s, got %s", g0ClientID, msg.ClientId)
 		}
 		return nil
 	})
@@ -123,8 +132,8 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("second chain: %w", err)
 		}
-		if msg.ClientId != clientID {
-			return fmt.Errorf("second chain: unexpected client id, want %s, got %s", clientID, msg.ClientId)
+		if msg.ClientId != g1ClientID {
+			return fmt.Errorf("second chain: unexpected client id, want %s, got %s", g1ClientID, msg.ClientId)
 		}
 		return nil
 	})
@@ -132,9 +141,9 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 	require.NoError(t, eg.Wait())
 }
 
-// Tests that passing in a "--time-threshold" of "0" to the relayer
-// will not update the client if it nears expiration.
-func TestScenarioClientThresholdNoUpdate(t *testing.T) {
+// Tests that without the threshold flag, the clients will be updated
+// automatically due to passing 2/3 trusting period expiration.
+func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -163,12 +172,11 @@ func TestScenarioClientThresholdNoUpdate(t *testing.T) {
 		zaptest.NewLogger(t),
 		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest", "100:1000"),
 		ibctestrelayer.ImagePull(false),
-		ibctestrelayer.StartupFlags("--time-threshold", "0"),
 	).Build(t, client, network)
 
 	ibcPath := t.Name()
 
-	// Prep Interchain with client trusting period of 5 min
+	// Prep Interchain with client trusting period of 20s.
 	ic := ibctest.NewInterchain().
 		AddChain(g0).
 		AddChain(g1).
@@ -179,7 +187,7 @@ func TestScenarioClientThresholdNoUpdate(t *testing.T) {
 			Relayer: r,
 			Path:    ibcPath,
 			CreateClientOpts: ibc.CreateClientOptions{
-				TrustingPeriod: "5m",
+				TrustingPeriod: "20s",
 			},
 		})
 
@@ -214,24 +222,39 @@ func TestScenarioClientThresholdNoUpdate(t *testing.T) {
 
 	const heightOffset = 10
 
-	var errCount int64
+	g0Conns, err := r.GetConnections(ctx, eRep, g0ChainId)
+	require.NoError(t, err)
+	require.Len(t, g0Conns, 1)
+
+	g0ClientID := g0Conns[0].ClientID
+
+	g1Conns, err := r.GetConnections(ctx, eRep, g1ChainId)
+	require.NoError(t, err)
+	require.Len(t, g1Conns, 1)
+
+	g1ClientID := g1Conns[0].ClientID
 
 	var eg errgroup.Group
 	eg.Go(func() error {
-		_, err := pollForUpdateClient(ctx, g0, g0Height, g0Height+heightOffset)
+		msg, err := pollForUpdateClient(ctx, g0, g0Height, g0Height+heightOffset)
 		if err != nil {
-			atomic.AddInt64(&errCount, 1)
+			return fmt.Errorf("first chain: %w", err)
 		}
-		return err
+		if msg.ClientId != g0ClientID {
+			return fmt.Errorf("first chain: unexpected client id, want %s, got %s", g0ClientID, msg.ClientId)
+		}
+		return nil
 	})
 	eg.Go(func() error {
-		_, err := pollForUpdateClient(ctx, g1, g1Height, g1Height+heightOffset)
+		msg, err := pollForUpdateClient(ctx, g1, g1Height, g1Height+heightOffset)
 		if err != nil {
-			atomic.AddInt64(&errCount, 1)
+			return fmt.Errorf("second chain: %w", err)
 		}
-		return err
+		if msg.ClientId != g1ClientID {
+			return fmt.Errorf("second chain: unexpected client id, want %s, got %s", g1ClientID, msg.ClientId)
+		}
+		return nil
 	})
 
-	require.Error(t, eg.Wait())
-	require.EqualValues(t, 2, errCount)
+	require.NoError(t, eg.Wait())
 }
