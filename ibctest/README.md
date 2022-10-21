@@ -38,3 +38,10 @@ go get github.com/strangelove-ventures/ibctest@<COMMIT_HASH_HERE>
 ```
 
 Your go.mod file should update respectively.
+
+### Inclusion in CI
+
+ibctest requires non-trivial resources to run. As such, CI tests are partitioned. See [the github workflow](../.github/workflows/ibctest.yml).
+
+If you want a test to be included in CI automatically, name your test with prefix `TestScenario`. For these tests, 
+it's highly recommended to use a simple network of 1 validator and no full nodes.
