@@ -127,6 +127,11 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				return err
 			}
 
+			clientUpdateThresholdTime, err := cmd.Flags().GetDuration(flagThresholdTime)
+			if err != nil {
+				return err
+			}
+
 			rlyErrCh := relayer.StartRelayer(
 				cmd.Context(),
 				a.Log,
@@ -134,6 +139,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				paths,
 				maxTxSize, maxMsgLength,
 				a.Config.memo(cmd),
+				clientUpdateThresholdTime,
 				processorType, initialBlockHistory,
 				prometheusMetrics,
 			)

@@ -10,6 +10,7 @@ require (
 	github.com/moby/moby v20.10.17+incompatible
 	github.com/strangelove-ventures/ibctest/v3 v3.0.0-20221114184853-4ff8042c35cc
 	github.com/stretchr/testify v1.8.0
+	github.com/tendermint/tendermint v0.34.21
 	go.uber.org/zap v1.22.0
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 )
@@ -157,7 +158,6 @@ require (
 	github.com/tendermint/btcd v0.1.1 // indirect
 	github.com/tendermint/crypto v0.0.0-20191022145703-50d29ede1e15 // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
-	github.com/tendermint/tendermint v0.34.21 // indirect
 	github.com/tendermint/tm-db v0.6.7 // indirect
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
 	github.com/vedhavyas/go-subkey v1.0.3 // indirect

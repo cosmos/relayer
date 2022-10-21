@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"time"
 
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
@@ -286,15 +287,25 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 }
 
 func (pathEnd *pathEndRuntime) mergeCacheData(
-	ctx context.Context, cancel func(),
+	ctx context.Context,
+	cancel func(),
 	d ChainProcessorCacheData,
-	counterpartyChainID string, counterpartyInSync bool,
+	counterpartyChainID string,
+	counterpartyInSync bool,
 	messageLifecycle MessageLifecycle,
+	counterParty *pathEndRuntime,
 ) {
 	pathEnd.inSync = d.InSync
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
+	if d.ClientState.ConsensusHeight != pathEnd.clientState.ConsensusHeight {
+		pathEnd.clientState = d.ClientState
+		ibcHeader, ok := counterParty.ibcHeaderCache[d.ClientState.ConsensusHeight.RevisionHeight]
+		if ok {
+			pathEnd.clientState.ConsensusTime = time.Unix(0, int64(ibcHeader.ConsensusState().GetTimestamp()))
+		}
+	}
 
 	pathEnd.handleCallbacks(d.IBCMessagesCache)
 

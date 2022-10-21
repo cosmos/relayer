@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
@@ -730,8 +731,32 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	src, dst *pathEndRuntime,
 	messages pathEndMessages,
 ) error {
-	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 && len(messages.clientICQMessages) == 0 {
-		return nil
+	var needsClientUpdate bool
+	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 {
+		var consensusHeightTime time.Time
+		if dst.clientState.ConsensusTime.IsZero() {
+			h, err := src.chainProvider.QueryIBCHeader(ctx, int64(dst.clientState.ConsensusHeight.RevisionHeight))
+			if err != nil {
+				return fmt.Errorf("failed to get header height: %w", err)
+			}
+			consensusHeightTime = time.Unix(0, int64(h.ConsensusState().GetTimestamp()))
+		} else {
+			consensusHeightTime = dst.clientState.ConsensusTime
+		}
+		clientUpdateThresholdMs := pp.clientUpdateThresholdTime.Milliseconds()
+		if (float64(dst.clientState.TrustingPeriod.Milliseconds())*2/3 < float64(time.Since(consensusHeightTime).Milliseconds())) ||
+			(clientUpdateThresholdMs > 0 && time.Since(consensusHeightTime).Milliseconds() > clientUpdateThresholdMs) {
+			needsClientUpdate = true
+			pp.log.Info("Client close to expiration",
+				zap.String("chain_id:", dst.info.ChainID),
+				zap.String("client_id:", dst.info.ClientID),
+				zap.Int64("trusting_period", dst.clientState.TrustingPeriod.Milliseconds()),
+				zap.Int64("time_since_client_update", time.Since(consensusHeightTime).Milliseconds()),
+				zap.Int64("client_threshold_time", pp.clientUpdateThresholdTime.Milliseconds()),
+			)
+		} else {
+			return nil
+		}
 	}
 	om := outgoingMessages{
 		msgs: make(
@@ -775,7 +800,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 
 	wg.Wait()
 
-	if len(om.msgs) == 1 {
+	if len(om.msgs) == 1 && !needsClientUpdate {
 		// only msgUpdateClient, don't need to send
 		return errors.New("all messages failed to assemble")
 	}

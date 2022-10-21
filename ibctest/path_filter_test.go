@@ -18,8 +18,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// TestPathFilterAllow tests the channel allowlist
-func TestPathFilterAllow(t *testing.T) {
+// TestScenarioPathFilterAllow tests the channel allowlist
+func TestScenarioPathFilterAllow(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
@@ -156,8 +156,8 @@ func TestPathFilterAllow(t *testing.T) {
 	require.Equal(t, amountToSend, osmosisIBCBalance)
 }
 
-// TestPathFilterDeny tests the channel denylist
-func TestPathFilterDeny(t *testing.T) {
+// TestScenarioPathFilterDeny tests the channel denylist
+func TestScenarioPathFilterDeny(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
