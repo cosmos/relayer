@@ -120,7 +120,7 @@ func (sp *SubstrateProvider) fetchParaIds(blockHash rpcclienttypes.Hash) ([]uint
 	}
 
 	if !ok {
-		return nil, fmt.Errorf("%s: storage key %v, paraids %v, block hash %v", ErrBeefyAttributesNotFound, storageKey, paraIds, blockHash)
+		return nil, fmt.Errorf("%s: storage key %v, paraids %v, block hash %v", ErrParachainSetNotFound, storageKey, paraIds, blockHash)
 	}
 
 	return paraIds, nil
@@ -177,8 +177,8 @@ func (sp *SubstrateProvider) beefyAuthorities(blockNumber uint32, method string)
 	}
 
 	if !ok {
-		return nil, fmt.Errorf("%s: beefy construct not found: storage key %v, authorities %v, block hash %v",
-			ErrBeefyConstructNotFound, storageKey, authorities, blockHash)
+		return nil, fmt.Errorf("%s: storage key %v, authorities %v, block hash %v",
+			ErrAuthoritySetNotFound, storageKey, authorities, blockHash)
 	}
 
 	// Convert from ecdsa public key to ethereum address
@@ -201,7 +201,7 @@ func (sp *SubstrateProvider) beefyAuthorities(blockNumber uint32, method string)
 func (sp *SubstrateProvider) signedCommitment(
 	blockHash rpcclienttypes.Hash,
 ) (rpcclienttypes.SignedCommitment, error) {
-	signedBlock, err := sp.RelayerRPCClient.RPC.Chain.GetBlock(blockHash)
+	signedBlock, err := sp.RelayChainRPCClient.RPC.Chain.GetBlock(blockHash)
 	if err != nil {
 		return rpcclienttypes.SignedCommitment{}, err
 	}
@@ -494,7 +494,7 @@ func (sp *SubstrateProvider) mmrBatchProofs(
 	}
 
 	// fetch mmr proofs for leaves containing our target paraId
-	batchProofs, err := sp.RelayerRPCClient.RPC.MMR.GenerateBatchProof(leafIndices, blockHash)
+	batchProofs, err := sp.RelayChainRPCClient.RPC.MMR.GenerateBatchProof(leafIndices, blockHash)
 	if err != nil {
 		return rpcclienttypes.GenerateMmrBatchProofResponse{}, err
 	}
