@@ -39,9 +39,6 @@ type ibcPacketKey struct {
 }
 
 // ibcMessagesFromEvents parses all events of a certain height to find IBC messages
-// TODO (NOTE): passing height won't work here using listening to commitment method to process ibc events.
-//
-//	the heights need to be fetched from the parsed ibc events.
 func (scp *SubstrateChainProcessor) ibcMessagesFromEvents(
 	ibcEvents rpcclienttypes.IBCEventsQueryResult,
 ) (messages []ibcMessage) {
@@ -66,7 +63,6 @@ func (scp *SubstrateChainProcessor) ibcMessagesFromEvents(
 	// add all of accumulated packets to messages
 	for _, pkt := range packetAccumulator {
 		messages = append(messages, ibcMessage{
-			// TODO (Question): will the packet type always be a receive packet?
 			eventType: intoIBCEventType(ReceivePacket),
 			info:      pkt,
 		})
@@ -111,8 +107,7 @@ func (scp *SubstrateChainProcessor) parseEvent(
 			eventType = intoIBCEventType(eType)
 
 		case ReceivePacket, WriteAcknowledgement:
-			// TODO (QUESTION): the cosmos parser uses the packet accumulator for other events like the SendPacket,
-			//  is there a reason that doesn't work for us? Can receive packet
+
 			accumKey := genAccumKey(data)
 
 			_, exists := packetAccumulator[accumKey]
@@ -159,7 +154,6 @@ func genAccumKey(data any) ibcPacketKey {
 
 // client info attributes and methods
 type clientInfo struct {
-	// TODO: is there a reason the fields are exported? Since the clientInfo struct is not exported.
 	height          clienttypes.Height
 	clientID        string
 	clientType      uint32
@@ -204,7 +198,7 @@ func (cl *clientInfo) parseAttrs(log *zap.Logger, attributes any) {
 	}
 
 	if cl.consensusHeight, err = parseHeight(attrs["consensus_height"]); err != nil {
-		log.Error("Error parsing client consensus height",
+		log.Error("error parsing client consensus height",
 			zap.Error(err),
 		)
 		return
@@ -282,7 +276,7 @@ func (pkt *packetInfo) parseAttrs(log *zap.Logger, attributes any) {
 	}
 
 	if pkt.TimeoutHeight, err = parseHeight(attrs["timeout_height"]); err != nil {
-		log.Error("Error parsing packet height",
+		log.Error("error parsing packet height",
 			zap.Error(err),
 		)
 		return
