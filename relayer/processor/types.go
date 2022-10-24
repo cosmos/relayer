@@ -6,8 +6,6 @@ import (
 
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -79,6 +77,19 @@ type IBCMessagesCache struct {
 	ChannelHandshake    ChannelMessagesCache
 }
 
+// Clone makes a deep copy of an IBCMessagesCache.
+func (c IBCMessagesCache) Clone() IBCMessagesCache {
+	x := IBCMessagesCache{
+		PacketFlow:          make(ChannelPacketMessagesCache, len(c.PacketFlow)),
+		ConnectionHandshake: make(ConnectionMessagesCache, len(c.ConnectionHandshake)),
+		ChannelHandshake:    make(ChannelMessagesCache, len(c.ChannelHandshake)),
+	}
+	x.PacketFlow.Merge(c.PacketFlow)
+	x.ConnectionHandshake.Merge(c.ConnectionHandshake)
+	x.ChannelHandshake.Merge(c.ChannelHandshake)
+	return x
+}
+
 // NewIBCMessagesCache returns an empty IBCMessagesCache.
 func NewIBCMessagesCache() IBCMessagesCache {
 	return IBCMessagesCache{
@@ -127,9 +138,9 @@ func (k ChannelKey) Counterparty() ChannelKey {
 	}
 }
 
-// msgInitKey is used for comparing MsgChannelOpenInit keys with other connection
+// MsgInitKey is used for comparing MsgChannelOpenInit keys with other connection
 // handshake messages. MsgChannelOpenInit does not have CounterpartyChannelID.
-func (k ChannelKey) msgInitKey() ChannelKey {
+func (k ChannelKey) MsgInitKey() ChannelKey {
 	return ChannelKey{
 		ChannelID:             k.ChannelID,
 		PortID:                k.PortID,
@@ -164,9 +175,9 @@ func (connectionKey ConnectionKey) Counterparty() ConnectionKey {
 	}
 }
 
-// msgInitKey is used for comparing MsgConnectionOpenInit keys with other connection
+// MsgInitKey is used for comparing MsgConnectionOpenInit keys with other connection
 // handshake messages. MsgConnectionOpenInit does not have CounterpartyConnectionID.
-func (connectionKey ConnectionKey) msgInitKey() ConnectionKey {
+func (connectionKey ConnectionKey) MsgInitKey() ConnectionKey {
 	return ConnectionKey{
 		ClientID:             connectionKey.ClientID,
 		ConnectionID:         connectionKey.ConnectionID,
@@ -185,13 +196,6 @@ func (k ConnectionKey) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 // ChannelStateCache maintains channel open state for multiple channels.
 type ChannelStateCache map[ChannelKey]bool
-
-// Merge merges another ChannelStateCache into this one, appending messages and updating the Open state.
-func (c ChannelStateCache) Merge(other ChannelStateCache) {
-	for channelKey, newState := range other {
-		c[channelKey] = newState
-	}
-}
 
 // FilterForClient returns a filtered copy of channels on top of an underlying clientID so it can be used by other goroutines.
 func (c ChannelStateCache) FilterForClient(clientID string, channelConnections map[string]string, connectionClients map[string]string) ChannelStateCache {
@@ -214,13 +218,6 @@ func (c ChannelStateCache) FilterForClient(clientID string, channelConnections m
 
 // ConnectionStateCache maintains connection open state for multiple connections.
 type ConnectionStateCache map[ConnectionKey]bool
-
-// Merge merges another ChannelStateCache into this one, appending messages and updating the Open state.
-func (c ConnectionStateCache) Merge(other ConnectionStateCache) {
-	for channelKey, newState := range other {
-		c[channelKey] = newState
-	}
-}
 
 // FilterForClient makes a filtered copy of the ConnectionStateCache
 // for a single client ID so it can be used by other goroutines.
@@ -273,12 +270,10 @@ func (c PacketMessagesCache) DeleteMessages(toDelete ...map[string][]uint64) {
 // Merge merges another ChannelPacketMessagesCache into this one.
 func (c ChannelPacketMessagesCache) Merge(other ChannelPacketMessagesCache) {
 	for channelKey, messageCache := range other {
-		_, ok := c[channelKey]
-		if !ok {
-			c[channelKey] = messageCache
-		} else {
-			c[channelKey].Merge(messageCache)
+		if _, ok := c[channelKey]; !ok {
+			c[channelKey] = make(PacketMessagesCache)
 		}
+		c[channelKey].Merge(messageCache)
 	}
 }
 
@@ -320,12 +315,10 @@ func (c ChannelPacketMessagesCache) Retain(k ChannelKey, m string, pi provider.P
 // Merge merges another PacketMessagesCache into this one.
 func (c PacketMessagesCache) Merge(other PacketMessagesCache) {
 	for ibcMessage, messageCache := range other {
-		_, ok := c[ibcMessage]
-		if !ok {
-			c[ibcMessage] = messageCache
-		} else {
-			c[ibcMessage].Merge(messageCache)
+		if _, ok := c[ibcMessage]; !ok {
+			c[ibcMessage] = make(PacketSequenceCache)
 		}
+		c[ibcMessage].Merge(messageCache)
 	}
 }
 
@@ -339,12 +332,10 @@ func (c PacketSequenceCache) Merge(other PacketSequenceCache) {
 // Merge merges another ConnectionMessagesCache into this one.
 func (c ConnectionMessagesCache) Merge(other ConnectionMessagesCache) {
 	for ibcMessage, messageCache := range other {
-		_, ok := c[ibcMessage]
-		if !ok {
-			c[ibcMessage] = messageCache
-		} else {
-			c[ibcMessage].Merge(messageCache)
+		if _, ok := c[ibcMessage]; !ok {
+			c[ibcMessage] = make(ConnectionMessageCache)
 		}
+		c[ibcMessage].Merge(messageCache)
 	}
 }
 
@@ -376,12 +367,10 @@ func (c ConnectionMessageCache) Merge(other ConnectionMessageCache) {
 // Merge merges another ChannelMessagesCache into this one.
 func (c ChannelMessagesCache) Merge(other ChannelMessagesCache) {
 	for ibcMessage, messageCache := range other {
-		_, ok := c[ibcMessage]
-		if !ok {
-			c[ibcMessage] = messageCache
-		} else {
-			c[ibcMessage].Merge(messageCache)
+		if _, ok := c[ibcMessage]; !ok {
+			c[ibcMessage] = make(ChannelMessageCache)
 		}
+		c[ibcMessage].Merge(messageCache)
 	}
 }
 
@@ -413,6 +402,13 @@ func (c ChannelMessageCache) Merge(other ChannelMessageCache) {
 // IBCHeaderCache holds a mapping of IBCHeaders for their block height.
 type IBCHeaderCache map[uint64]provider.IBCHeader
 
+// Clone makes a deep copy of an IBCHeaderCache.
+func (c IBCHeaderCache) Clone() IBCHeaderCache {
+	x := make(IBCHeaderCache, len(c))
+	x.Merge(c)
+	return x
+}
+
 // Merge merges another IBCHeaderCache into this one.
 func (c IBCHeaderCache) Merge(other IBCHeaderCache) {
 	for k, v := range other {
@@ -440,7 +436,7 @@ func (c IBCHeaderCache) Prune(keep int) {
 // PacketInfoChannelKey returns the applicable ChannelKey for the chain based on the eventType.
 func PacketInfoChannelKey(eventType string, info provider.PacketInfo) (ChannelKey, error) {
 	switch eventType {
-	case chantypes.EventTypeRecvPacket:
+	case chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck:
 		return packetInfoChannelKey(info).Counterparty(), nil
 	case chantypes.EventTypeSendPacket, chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket, chantypes.EventTypeTimeoutPacketOnClose:
 		return packetInfoChannelKey(info), nil
@@ -465,32 +461,5 @@ func ConnectionInfoConnectionKey(info provider.ConnectionInfo) ConnectionKey {
 		CounterpartyClientID: info.CounterpartyClientID,
 		ConnectionID:         info.ConnID,
 		CounterpartyConnID:   info.CounterpartyConnID,
-	}
-}
-
-type PrometheusMetrics struct {
-	PacketObservedCounter *prometheus.CounterVec
-	PacketRelayedCounter  *prometheus.CounterVec
-}
-
-func (m *PrometheusMetrics) AddPacketsObserved(path, chain, channel, port, eventType string, count int) {
-	m.PacketObservedCounter.WithLabelValues(path, chain, channel, port, eventType).Add(float64(count))
-}
-
-func (m *PrometheusMetrics) IncPacketsRelayed(path, chain, channel, port, eventType string) {
-	m.PacketRelayedCounter.WithLabelValues(path, chain, channel, port, eventType).Inc()
-}
-
-func NewPrometheusMetrics() *PrometheusMetrics {
-	packetLabels := []string{"path", "chain", "channel", "port", "type"}
-	return &PrometheusMetrics{
-		PacketObservedCounter: promauto.NewCounterVec(prometheus.CounterOpts{
-			Name: "observed_packets",
-			Help: "The total number of observed packets",
-		}, packetLabels),
-		PacketRelayedCounter: promauto.NewCounterVec(prometheus.CounterOpts{
-			Name: "relayed_packets",
-			Help: "The total number of relayed packets",
-		}, packetLabels),
 	}
 }

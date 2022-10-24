@@ -45,15 +45,6 @@ func (c *Chain) CreateOpenChannels(
 		}
 	}
 
-	srcPathChain := pathChain{
-		provider: c.ChainProvider,
-		pathEnd:  processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChannelKey{}),
-	}
-	dstPathChain := pathChain{
-		provider: dst.ChainProvider,
-		pathEnd:  processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChannelKey{}),
-	}
-
 	// Timeout is per message. Four channel handshake messages, allowing maxRetries for each.
 	processorTimeout := timeout * 4 * time.Duration(maxRetries)
 
@@ -62,8 +53,8 @@ func (c *Chain) CreateOpenChannels(
 
 	pp := processor.NewPathProcessor(
 		c.log,
-		srcPathChain.pathEnd,
-		dstPathChain.pathEnd,
+		processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
+		processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
 		nil,
 		memo,
 	)
@@ -77,8 +68,8 @@ func (c *Chain) CreateOpenChannels(
 
 	return processor.NewEventProcessor().
 		WithChainProcessors(
-			srcPathChain.chainProcessor(c.log),
-			dstPathChain.chainProcessor(c.log),
+			c.chainProcessor(c.log, nil),
+			dst.chainProcessor(c.log, nil),
 		).
 		WithPathProcessors(pp).
 		WithInitialBlockHistory(0).
@@ -118,15 +109,6 @@ func (c *Chain) CloseChannel(
 	memo string,
 	pathName string,
 ) error {
-	srcPathChain := pathChain{
-		provider: c.ChainProvider,
-		pathEnd:  processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChannelKey{}),
-	}
-	dstPathChain := pathChain{
-		provider: dst.ChainProvider,
-		pathEnd:  processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChannelKey{}),
-	}
-
 	// Timeout is per message. Two close channel handshake messages, allowing maxRetries for each.
 	processorTimeout := timeout * 2 * time.Duration(maxRetries)
 
@@ -135,13 +117,13 @@ func (c *Chain) CloseChannel(
 
 	return processor.NewEventProcessor().
 		WithChainProcessors(
-			srcPathChain.chainProcessor(c.log),
-			dstPathChain.chainProcessor(c.log),
+			c.chainProcessor(c.log, nil),
+			dst.chainProcessor(c.log, nil),
 		).
 		WithPathProcessors(processor.NewPathProcessor(
 			c.log,
-			srcPathChain.pathEnd,
-			dstPathChain.pathEnd,
+			processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
+			processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
 			nil,
 			memo,
 		)).
