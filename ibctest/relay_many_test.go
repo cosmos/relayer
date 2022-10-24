@@ -6,7 +6,7 @@ import (
 
 	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
-	ibctest "github.com/strangelove-ventures/ibctest/v5"
+	"github.com/strangelove-ventures/ibctest/v5"
 	"github.com/strangelove-ventures/ibctest/v5/chain/cosmos"
 	"github.com/strangelove-ventures/ibctest/v5/ibc"
 	"github.com/strangelove-ventures/ibctest/v5/test"
@@ -20,29 +20,37 @@ import (
 // from the same process using the go relayer. A single
 // CosmosChainProcessor (gaia) will feed data to two PathProcessors (gaia-osmosis and gaia-juno).
 func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
-	r := relayeribctest.NewRelayer(t, relayeribctest.RelayerConfig{})
-
-	rep := testreporter.NewNopReporter()
-	eRep := rep.RelayerExecReporter(t)
-
-	ctx := context.Background()
+	var (
+		r    = relayeribctest.NewRelayer(t, relayeribctest.RelayerConfig{})
+		rep  = testreporter.NewNopReporter()
+		eRep = rep.RelayerExecReporter(t)
+		ctx  = context.Background()
+		nv   = 1
+		nf   = 0
+	)
 
 	// Define chains involved in test
 	cf := ibctest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctest.ChainSpec{
 		{
-			Name:      "gaia",
-			ChainName: "gaia",
-			Version:   "v7.0.3",
+			Name:          "gaia",
+			ChainName:     "gaia",
+			Version:       "v7.0.3",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
 		},
 		{
-			Name:      "osmosis",
-			ChainName: "osmosis",
-			Version:   "v11.0.1",
+			Name:          "osmosis",
+			ChainName:     "osmosis",
+			Version:       "v11.0.1",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
 		},
 		{
-			Name:      "juno",
-			ChainName: "juno",
-			Version:   "v9.0.0",
+			Name:          "juno",
+			ChainName:     "juno",
+			Version:       "v9.0.0",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
 		},
 	})
 
@@ -185,5 +193,4 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, transferAmount, junoOnGaiaBalance)
-
 }

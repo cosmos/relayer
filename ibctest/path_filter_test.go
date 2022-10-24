@@ -9,7 +9,7 @@ import (
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/processor"
-	ibctest "github.com/strangelove-ventures/ibctest/v5"
+	"github.com/strangelove-ventures/ibctest/v5"
 	"github.com/strangelove-ventures/ibctest/v5/ibc"
 	"github.com/strangelove-ventures/ibctest/v5/test"
 	"github.com/strangelove-ventures/ibctest/v5/testreporter"
@@ -18,8 +18,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// TestPathFilterAllow tests the channel allowlist
-func TestPathFilterAllow(t *testing.T) {
+// TestScenarioPathFilterAllow tests the channel allowlist
+func TestScenarioPathFilterAllow(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
@@ -156,8 +156,8 @@ func TestPathFilterAllow(t *testing.T) {
 	require.Equal(t, amountToSend, osmosisIBCBalance)
 }
 
-// TestPathFilterDeny tests the channel denylist
-func TestPathFilterDeny(t *testing.T) {
+// TestScenarioPathFilterDeny tests the channel denylist
+func TestScenarioPathFilterDeny(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
