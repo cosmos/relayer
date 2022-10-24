@@ -462,7 +462,7 @@ func (sp *SubstrateProvider) QueryHeaderAtHeight(ctx context.Context, height int
 		return nil, err
 	}
 
-	c, err := signedCommitment(sp.RPCClient, latestBlockHash)
+	c, err := sp.signedCommitment(latestBlockHash)
 	if err != nil {
 		return nil, err
 	}

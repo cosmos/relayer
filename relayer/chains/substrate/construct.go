@@ -6,12 +6,10 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/ChainSafe/chaindb"
 	"github.com/ChainSafe/gossamer/lib/trie"
 	"github.com/ComposableFi/go-merkle-trees/hasher"
 	"github.com/ComposableFi/go-merkle-trees/merkle"
 	"github.com/ComposableFi/go-merkle-trees/mmr"
-	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
 	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
 	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	"github.com/OneOfOne/xxhash"
@@ -122,7 +120,7 @@ func (sp *SubstrateProvider) fetchParaIds(blockHash rpcclienttypes.Hash) ([]uint
 	}
 
 	if !ok {
-		return nil, fmt.Errorf("%s: storage key %v, paraids %v, block hash %v", ErrBeefyAttributesNotFound, storageKey, paraIds, blockHash)
+		return nil, fmt.Errorf("%s: storage key %v, paraids %v, block hash %v", ErrParachainSetNotFound, storageKey, paraIds, blockHash)
 	}
 
 	return paraIds, nil
@@ -179,8 +177,8 @@ func (sp *SubstrateProvider) beefyAuthorities(blockNumber uint32, method string)
 	}
 
 	if !ok {
-		return nil, fmt.Errorf("%s: beefy construct not found: storage key %v, authorities %v, block hash %v",
-			ErrBeefyConstructNotFound, storageKey, authorities, blockHash)
+		return nil, fmt.Errorf("%s: storage key %v, authorities %v, block hash %v",
+			ErrAuthoritySetNotFound, storageKey, authorities, blockHash)
 	}
 
 	// Convert from ecdsa public key to ethereum address
@@ -203,7 +201,7 @@ func (sp *SubstrateProvider) beefyAuthorities(blockNumber uint32, method string)
 func (sp *SubstrateProvider) signedCommitment(
 	blockHash rpcclienttypes.Hash,
 ) (rpcclienttypes.SignedCommitment, error) {
-	signedBlock, err := sp.RelayerRPCClient.RPC.Chain.GetBlock(blockHash)
+	signedBlock, err := sp.RelayChainRPCClient.RPC.Chain.GetBlock(blockHash)
 	if err != nil {
 		return rpcclienttypes.SignedCommitment{}, err
 	}
@@ -462,12 +460,7 @@ func (sp *SubstrateProvider) constructExtrinsics(
 		t.Put(encodedKey, ext)
 	}
 
-	memdb, err := chaindb.NewBadgerDB(&chaindb.Config{
-		InMemory: true,
-		DataDir:  "./",
-	})
-
-	err = t.Store(memdb)
+	err = t.Store(sp.Memdb)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -482,7 +475,7 @@ func (sp *SubstrateProvider) constructExtrinsics(
 	if err != nil {
 		return nil, nil, err
 	}
-	extrinsicProof, err = trie.GenerateProof(rootHash.ToBytes(), [][]byte{encodedTPKey}, memdb)
+	extrinsicProof, err = trie.GenerateProof(rootHash.ToBytes(), [][]byte{encodedTPKey}, sp.Memdb)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -501,7 +494,7 @@ func (sp *SubstrateProvider) mmrBatchProofs(
 	}
 
 	// fetch mmr proofs for leaves containing our target paraId
-	batchProofs, err := sp.RelayerRPCClient.RPC.MMR.GenerateBatchProof(leafIndices, blockHash)
+	batchProofs, err := sp.RelayChainRPCClient.RPC.MMR.GenerateBatchProof(leafIndices, blockHash)
 	if err != nil {
 		return rpcclienttypes.GenerateMmrBatchProofResponse{}, err
 	}

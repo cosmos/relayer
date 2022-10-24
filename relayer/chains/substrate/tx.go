@@ -935,7 +935,7 @@ func (sp *SubstrateProvider) NewClientState(
 
 	// TODO: this won't work because we need the height passed to GetBlockHash to be the previously finalized beefy height
 	// from the relayer. However, the height from substrate.Height() is the height of the first parachain from the beefy header.
-	blockHash, err := sp.RelayerRPCClient.RPC.Chain.GetBlockHash(substrateHeader.Height())
+	blockHash, err := sp.RelayChainRPCClient.RPC.Chain.GetBlockHash(substrateHeader.Height())
 	if err != nil {
 		return nil, err
 	}
