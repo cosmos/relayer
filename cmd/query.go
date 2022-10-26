@@ -3,11 +3,10 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
-	"strings"
-
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/spf13/cobra"
+	"strconv"
+	"strings"
 )
 
 // queryCmd represents the chain command
@@ -31,6 +30,7 @@ func queryCmd(a *appState) *cobra.Command {
 		lineBreakCommand(),
 		queryClientCmd(a),
 		queryClientsCmd(a),
+		queryClientsExpiration(a),
 		queryConnection(a),
 		queryConnections(a),
 		queryConnectionsUsingClient(a),
@@ -864,6 +864,52 @@ $ %s query unrelayed-acks demo-path channel-0`,
 			}
 
 			fmt.Fprintln(cmd.OutOrStdout(), string(out))
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func queryClientsExpiration(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "clients-expiration path",
+		Short: "query for light clients expiration date",
+		Args:  withUsage(cobra.ExactArgs(1)),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query clients-expiration demo-path`,
+			appName,
+		)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path, err := a.Config.Paths.Get(args[0])
+			if err != nil {
+				return err
+			}
+			src, dst := path.Src.ChainID, path.Dst.ChainID
+			c, err := a.Config.Chains.Gets(src, dst)
+			if err != nil {
+				return err
+			}
+
+			if err = c[src].SetPath(path.Src); err != nil {
+				return err
+			}
+			if err = c[dst].SetPath(path.Dst); err != nil {
+				return err
+			}
+
+			srcExpiration, err := relayer.QueryClientExpiration(cmd.Context(), c[src], c[dst])
+			if err != nil {
+				return err
+			}
+			dstExpiration, err := relayer.QueryClientExpiration(cmd.Context(), c[dst], c[src])
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[src], srcExpiration))
+			fmt.Fprintf(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[dst], dstExpiration))
+
 			return nil
 		},
 	}
