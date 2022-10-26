@@ -9,23 +9,23 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func (ccp *PenumbraChainProcessor) handleMessage(m ibcMessage, c processor.IBCMessagesCache) {
+func (pcp *PenumbraChainProcessor) handleMessage(m ibcMessage, c processor.IBCMessagesCache) {
 	switch t := m.info.(type) {
 	case *packetInfo:
-		ccp.handlePacketMessage(m.eventType, provider.PacketInfo(*t), c)
+		pcp.handlePacketMessage(m.eventType, provider.PacketInfo(*t), c)
 	case *channelInfo:
-		ccp.handleChannelMessage(m.eventType, provider.ChannelInfo(*t), c)
+		pcp.handleChannelMessage(m.eventType, provider.ChannelInfo(*t), c)
 	case *connectionInfo:
-		ccp.handleConnectionMessage(m.eventType, provider.ConnectionInfo(*t), c)
+		pcp.handleConnectionMessage(m.eventType, provider.ConnectionInfo(*t), c)
 	case *clientInfo:
-		ccp.handleClientMessage(m.eventType, *t)
+		pcp.handleClientMessage(m.eventType, *t)
 	}
 }
 
-func (ccp *PenumbraChainProcessor) handlePacketMessage(action string, pi provider.PacketInfo, c processor.IBCMessagesCache) {
+func (pcp *PenumbraChainProcessor) handlePacketMessage(action string, pi provider.PacketInfo, c processor.IBCMessagesCache) {
 	channelKey, err := processor.PacketInfoChannelKey(action, pi)
 	if err != nil {
-		ccp.log.Error("Unexpected error handling packet message",
+		pcp.log.Error("Unexpected error handling packet message",
 			zap.String("action", action),
 			zap.Uint64("sequence", pi.Sequence),
 			zap.Any("channel", channelKey),
@@ -34,8 +34,8 @@ func (ccp *PenumbraChainProcessor) handlePacketMessage(action string, pi provide
 		return
 	}
 
-	if !c.PacketFlow.ShouldRetainSequence(ccp.pathProcessors, channelKey, ccp.chainProvider.ChainId(), action, pi.Sequence) {
-		ccp.log.Warn("Not retaining packet message",
+	if !c.PacketFlow.ShouldRetainSequence(pcp.pathProcessors, channelKey, pcp.chainProvider.ChainId(), action, pi.Sequence) {
+		pcp.log.Warn("Not retaining packet message",
 			zap.String("action", action),
 			zap.Uint64("sequence", pi.Sequence),
 			zap.Any("channel", channelKey),
@@ -44,51 +44,51 @@ func (ccp *PenumbraChainProcessor) handlePacketMessage(action string, pi provide
 	}
 
 	c.PacketFlow.Retain(channelKey, action, pi)
-	ccp.logPacketMessage(action, pi)
+	pcp.logPacketMessage(action, pi)
 }
 
-func (ccp *PenumbraChainProcessor) handleChannelMessage(eventType string, ci provider.ChannelInfo, ibcMessagesCache processor.IBCMessagesCache) {
-	ccp.channelConnections[ci.ChannelID] = ci.ConnID
+func (pcp *PenumbraChainProcessor) handleChannelMessage(eventType string, ci provider.ChannelInfo, ibcMessagesCache processor.IBCMessagesCache) {
+	pcp.channelConnections[ci.ChannelID] = ci.ConnID
 	channelKey := processor.ChannelInfoChannelKey(ci)
 	switch eventType {
 	case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry:
-		ccp.channelStateCache[channelKey] = false
+		pcp.channelStateCache[channelKey] = false
 	case chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm:
-		ccp.channelStateCache[channelKey] = true
+		pcp.channelStateCache[channelKey] = true
 	case chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
-		for k := range ccp.channelStateCache {
+		for k := range pcp.channelStateCache {
 			if k.PortID == ci.PortID && k.ChannelID == ci.ChannelID {
-				ccp.channelStateCache[k] = false
+				pcp.channelStateCache[k] = false
 				break
 			}
 		}
 	}
 	ibcMessagesCache.ChannelHandshake.Retain(channelKey, eventType, ci)
 
-	ccp.logChannelMessage(eventType, ci)
+	pcp.logChannelMessage(eventType, ci)
 }
 
-func (ccp *PenumbraChainProcessor) handleConnectionMessage(eventType string, ci provider.ConnectionInfo, ibcMessagesCache processor.IBCMessagesCache) {
-	ccp.connectionClients[ci.ConnID] = ci.ClientID
+func (pcp *PenumbraChainProcessor) handleConnectionMessage(eventType string, ci provider.ConnectionInfo, ibcMessagesCache processor.IBCMessagesCache) {
+	pcp.connectionClients[ci.ConnID] = ci.ClientID
 	connectionKey := processor.ConnectionInfoConnectionKey(ci)
 	open := (eventType == conntypes.EventTypeConnectionOpenAck || eventType == conntypes.EventTypeConnectionOpenConfirm)
-	ccp.connectionStateCache[connectionKey] = open
+	pcp.connectionStateCache[connectionKey] = open
 	ibcMessagesCache.ConnectionHandshake.Retain(connectionKey, eventType, ci)
 
-	ccp.logConnectionMessage(eventType, ci)
+	pcp.logConnectionMessage(eventType, ci)
 }
 
-func (ccp *PenumbraChainProcessor) handleClientMessage(eventType string, ci clientInfo) {
-	ccp.latestClientState.update(ci)
-	ccp.logObservedIBCMessage(eventType, zap.String("client_id", ci.clientID))
+func (pcp *PenumbraChainProcessor) handleClientMessage(eventType string, ci clientInfo) {
+	pcp.latestClientState.update(ci)
+	pcp.logObservedIBCMessage(eventType, zap.String("client_id", ci.clientID))
 }
 
-func (ccp *PenumbraChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {
-	ccp.log.With(zap.String("event_type", m)).Debug("Observed IBC message", fields...)
+func (pcp *PenumbraChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {
+	pcp.log.With(zap.String("event_type", m)).Debug("Observed IBC message", fields...)
 }
 
-func (ccp *PenumbraChainProcessor) logPacketMessage(message string, pi provider.PacketInfo) {
-	if !ccp.log.Core().Enabled(zapcore.DebugLevel) {
+func (pcp *PenumbraChainProcessor) logPacketMessage(message string, pi provider.PacketInfo) {
+	if !pcp.log.Core().Enabled(zapcore.DebugLevel) {
 		return
 	}
 	fields := []zap.Field{
@@ -107,11 +107,11 @@ func (ccp *PenumbraChainProcessor) logPacketMessage(message string, pi provider.
 	if pi.TimeoutTimestamp > 0 {
 		fields = append(fields, zap.Uint64("timeout_timestamp", pi.TimeoutTimestamp))
 	}
-	ccp.logObservedIBCMessage(message, fields...)
+	pcp.logObservedIBCMessage(message, fields...)
 }
 
-func (ccp *PenumbraChainProcessor) logChannelMessage(message string, ci provider.ChannelInfo) {
-	ccp.logObservedIBCMessage(message,
+func (pcp *PenumbraChainProcessor) logChannelMessage(message string, ci provider.ChannelInfo) {
+	pcp.logObservedIBCMessage(message,
 		zap.String("channel_id", ci.ChannelID),
 		zap.String("port_id", ci.PortID),
 		zap.String("counterparty_channel_id", ci.CounterpartyChannelID),
@@ -120,8 +120,8 @@ func (ccp *PenumbraChainProcessor) logChannelMessage(message string, ci provider
 	)
 }
 
-func (ccp *PenumbraChainProcessor) logConnectionMessage(message string, ci provider.ConnectionInfo) {
-	ccp.logObservedIBCMessage(message,
+func (pcp *PenumbraChainProcessor) logConnectionMessage(message string, ci provider.ConnectionInfo) {
+	pcp.logObservedIBCMessage(message,
 		zap.String("client_id", ci.ClientID),
 		zap.String("connection_id", ci.ConnID),
 		zap.String("counterparty_client_id", ci.CounterpartyClientID),
