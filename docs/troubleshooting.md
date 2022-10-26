@@ -12,22 +12,18 @@
 
 ---
 
- **Healthy relayer log with no packets to relay should look like:**
+## **Verify valid `chain`, `client`, and `connection`**
 
-   ```log
-2022-03-25T20:11:19.511489Z	info	No packets in queue	{"src_chain_id": "ibc-0", "src_channel_id": "channel-0", "src_port_id": "transfer", "dst_chain_id": "ibc-1", "dst_channel_id": "channel-0", "dst_port_id": "transfer"}
-2022-03-25T20:11:19.514370Z	info	No acknowledgements in queue	{"src_chain_id": "ibc-0", "src_channel_id": "channel-0", "src_port_id": "transfer", "dst_chain_id": "ibc-1", "dst_channel_id": "channel-0", "dst_port_id": "transfer"}
-2022-03-25T20:11:20.517184Z	info	No packets in queue	{"src_chain_id": "ibc-0", "src_channel_id": "channel-0", "src_port_id": "transfer", "dst_chain_id": "ibc-1", "dst_channel_id": "channel-0", "dst_port_id": "transfer"}
-2022-03-25T20:11:20.523035Z	info	No acknowledgements in queue	{"src_chain_id": "ibc-0", "src_channel_id": "channel-0", "src_port_id": "transfer", "dst_chain_id": "ibc-1", "dst_channel_id": "channel-0", "dst_port_id": "transfer"}
-2022-03-25T20:11:21.528712Z	info	No packets in queue	{"src_chain_id": "ibc-0", "src_channel_id": "channel-0", "src_port_id": "transfer", "dst_chain_id": "ibc-1", "dst_channel_id": "channel-0", "dst_port_id": "transfer"}
-2022-03-25T20:11:21.532996Z	info	No acknowledgements in queue	{"src_chain_id": "ibc-0", "src_channel_id": "channel-0", "src_port_id": "transfer", "dst_chain_id": "ibc-1", "dst_channel_id": "channel-0", "dst_port_id": "transfer"}
-2022-03-25T20:11:22.539200Z	info	No packets in queue	{"src_chain_id": "ibc-0", "src_channel_id": "channel-0", "src_port_id": "transfer", "dst_chain_id": "ibc-1", "dst_channel_id": "channel-0", "dst_port_id": "transfer"}
-2022-03-25T20:11:22.543539Z	info	No acknowledgements in queue	{"src_chain_id": "ibc-0", "src_channel_id": "channel-0", "src_port_id": "transfer", "dst_chain_id": "ibc-1", "dst_channel_id": "channel-0", "dst_port_id": "transfer"}
+```shell
+$ rly chains list
 ```
 
----
+Output should show all checkboxes:
+```shell
+-> type(cosmos) key(✔) bal(✔) path(✔)
+```
 
-**Verify valid `chain`, `client`, and `connection`**
+## **Verify valid `chain`, `client`, and `connection`**
 
 ```shell
 $ rly paths list
@@ -47,7 +43,7 @@ Your client is the culprit here. Your client may be invalid or expired.
 
 ---
 
-**Inspect Go runtime debug data**
+## **Inspect Go runtime debug data**
 
 If you started `rly` with the default `--debug-addr` argument,
 you can open `http://localhost:7597` in your browser to explore details from the Go runtime.

@@ -38,6 +38,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 ## Table Of Contents
 - [Basic Usage - Relaying Across Chains](#Basic-Usage---Relaying-Packets-Across-Chains)
 - [Create Path Across Chains](./docs/create-path-across-chain.md)
+- [Advanced Usage](./docs/advanced_usage.md)
 - [Troubleshooting](./docs/troubleshooting.md)
 - [Features](./docs/features.md)
 - [Relayer Terminology](./docs/terminology.md)
@@ -207,8 +208,6 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
      $ rly start 
      ```
    
-    You will need to start a separate shell instance for each path you wish to relay over.
-
     >When running multiple instances of `rly start`, you will need to use the `--debug-addr` flag and provide an address:port. You can also pass an empty string `''`  to turn off this feature or pass `localhost:0` to randomly select a port.
 
     ---
