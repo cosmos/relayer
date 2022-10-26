@@ -9,7 +9,7 @@ import (
 )
 
 func (sp *SubstrateProvider) CreateKeystore(path string) error {
-	keybase, err := keystore.New(sp.PCfg.ChainID, sp.PCfg.KeyringBackend, sp.PCfg.KeyDirectory, sp.Input)
+	keybase, err := keystore.New(sp.Config.ChainID, sp.Config.KeyringBackend, sp.Config.KeyDirectory, sp.Input)
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func (sp *SubstrateProvider) KeyAddOrRestore(keyName string, coinType uint32, mn
 		}
 	}
 
-	info, err := sp.Keybase.NewAccount(keyName, mnemonicStr, sp.PCfg.Network)
+	info, err := sp.Keybase.NewAccount(keyName, mnemonicStr, sp.Config.Network)
 	if err != nil {
 		return nil, err
 	}
