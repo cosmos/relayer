@@ -6,7 +6,6 @@ import (
 )
 
 type PrometheusMetrics struct {
-	Registry              *prometheus.Registry
 	PacketObservedCounter *prometheus.CounterVec
 	PacketRelayedCounter  *prometheus.CounterVec
 	LatestHeightGauge     *prometheus.GaugeVec
@@ -38,27 +37,24 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
 	walletLabels := []string{"chain", "key", "denom"}
-	registry := prometheus.NewRegistry()
-	registerer := promauto.With(registry)
 	return &PrometheusMetrics{
-		Registry: registry,
-		PacketObservedCounter: registerer.NewCounterVec(prometheus.CounterOpts{
+		PacketObservedCounter: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "cosmos_relayer_observed_packets",
 			Help: "The total number of observed packets",
 		}, packetLabels),
-		PacketRelayedCounter: registerer.NewCounterVec(prometheus.CounterOpts{
+		PacketRelayedCounter: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "cosmos_relayer_relayed_packets",
 			Help: "The total number of relayed packets",
 		}, packetLabels),
-		LatestHeightGauge: registerer.NewGaugeVec(prometheus.GaugeOpts{
+		LatestHeightGauge: promauto.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "cosmos_relayer_chain_latest_height",
 			Help: "The current height of the chain",
 		}, heightLabels),
-		WalletBalance: registerer.NewGaugeVec(prometheus.GaugeOpts{
+		WalletBalance: promauto.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "cosmos_relayer_wallet_balance",
 			Help: "The current balance for the relayer's wallet",
 		}, walletLabels),
-		FeesSpent: registerer.NewGaugeVec(prometheus.GaugeOpts{
+		FeesSpent: promauto.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "cosmos_relayer_fees_spent",
 			Help: "The amount of fees spent from the relayer's wallet",
 		}, walletLabels),
