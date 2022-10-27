@@ -15,13 +15,12 @@ func TestKeyRestoreAndRetrieve(t *testing.T) {
 	mnemonic := "blind master acoustic speak victory lend kiss grab glad help demand hood roast zone lend sponsor level cheap truck kingdom apology token hover reunion"
 	expectedAddress := "5Hn67YZ75F3XrHiJAtiscJMGQ4zFNw9e45CNfLuxL6vEVYz8"
 
-	var provider = substrate.SubstrateProvider{}
-	var err error
-
+	provider := substrate.SubstrateProvider{}
 	config := getSubstrateConfig(homePath, 42)
-	provider.PCfg = *config
-	provider.Keybase, err = keystore.New(config.ChainName, config.KeyringBackend, config.KeyDirectory, nil)
+	provider.Config = config
+	keybase, err := keystore.New(config.ChainName, config.KeyringBackend, config.KeyDirectory, nil)
 	require.Nil(t, err)
+	provider.Keybase = keybase
 
 	if provider.KeyExists(keyName) {
 		err = provider.DeleteKey(keyName) // Delete if test is being run again

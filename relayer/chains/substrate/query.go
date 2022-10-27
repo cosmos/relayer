@@ -513,12 +513,11 @@ func (sp *SubstrateProvider) QueryIBCHeader(ctx context.Context, h int64) (provi
 // QueryLatestIBCHeader returns the IBCHeader at the latest finalized relay chain height. It uses the relay chain height
 // which is set in the SubstrateProvider when the QueryLatestHeight method is called.
 func (sp *SubstrateProvider) QueryLatestIBCHeader() (provider.IBCHeader, error) {
-	var relayChainHeight uint64
 	if sp.LatestQueriedRelayChainHeight == 0 {
 		return nil, fmt.Errorf("latest finalized parachain height needs to be queried first")
 	}
 
-	relayChainHeight = uint64(sp.LatestQueriedRelayChainHeight)
+	relayChainHeight := uint64(sp.LatestQueriedRelayChainHeight)
 	blockHash, err := sp.RelayChainRPCClient.RPC.Chain.GetBlockHash(relayChainHeight)
 	if err != nil {
 		return nil, err
