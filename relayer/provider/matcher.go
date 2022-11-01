@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"time"
 
+	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
@@ -28,6 +29,9 @@ func ClientsMatch(ctx context.Context, src, dst ChainProvider, existingClient cl
 	case *tmclient.ClientState:
 		nc := newClient.(*tmclient.ClientState)
 		return tendermintMatcher(ctx, src, dst, existingClient.ClientId, ec, nc)
+	case *beefyclienttypes.ClientState:
+		nc := newClient.(*beefyclienttypes.ClientState)
+		return beefyMatcher(ctx, src, dst, existingClient.ClientId, ec, nc)
 	}
 
 	return "", nil
@@ -117,4 +121,70 @@ func isMatchingTendermintClient(a, b tmclient.ClientState) bool {
 // identical. They are assumed to be IBC tendermint light clients.
 func isMatchingTendermintConsensusState(a, b *tmclient.ConsensusState) bool {
 	return reflect.DeepEqual(*a, *b)
+}
+
+// beefyMatcher determines if there is an existing light client on the src chain, tracking the dst chain,
+// with a state which matches a proposed new client state constructed from the dst chain.
+func beefyMatcher(ctx context.Context, src, dst ChainProvider, existingClientID string, existingClient, newClient ibcexported.ClientState) (string, error) {
+	newClientState, ok := newClient.(*beefyclienttypes.ClientState)
+	if !ok {
+		return "", fmt.Errorf("got type(%T) expected type(*beefyclienttypes.ClientState)", newClient)
+	}
+
+	existingClientState, ok := existingClient.(*beefyclienttypes.ClientState)
+	if !ok {
+		return "", fmt.Errorf("got type(%T) expected type(*beefyclienttypes.ClientState)", existingClient)
+	}
+
+	// Check if the client states match.
+	// NOTE: FrozenHeight.IsZero() is a sanity check, the client to be created should always
+	// have a zero frozen height and therefore should never match with a frozen client.
+	if reflect.DeepEqual(*newClientState, *existingClientState) && existingClientState.FrozenHeight == 0 {
+		srch, err := src.QueryLatestHeight(ctx)
+		if err != nil {
+			return "", err
+		}
+
+		// Query the src chain for the latest consensus state of the potential matching client.
+		consensusStateResp, err := src.QueryClientConsensusState(ctx, srch, existingClientID, existingClientState.GetLatestHeight())
+		if err != nil {
+			return "", err
+		}
+
+		exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
+		if err != nil {
+			return "", err
+		}
+
+		existingConsensusState, ok := exportedConsState.(*beefyclienttypes.ConsensusState)
+		if !ok {
+			return "", fmt.Errorf("got type(%T) expected type(*beefyclient.ConsensusState)", exportedConsState)
+		}
+
+		// If the existing client state has not been updated within the trusting period,
+		// we do not want to use the existing client since it's in an expired state.
+		// TODO: beefy client spec doesn't have trusting period as part of its field yet
+		//if existingClientState.IsExpired(existingConsensusState.Timestamp, time.Now()) {
+		//	return "", tmclient.ErrTrustingPeriodExpired
+		//}
+
+		// Construct a header for the consensus state of the counterparty chain.
+		ibcHeader, err := dst.QueryIBCHeader(ctx, int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
+		if err != nil {
+			return "", err
+		}
+
+		consensusState, ok := ibcHeader.ConsensusState().(*beefyclienttypes.ConsensusState)
+		if !ok {
+			return "", fmt.Errorf("got type(%T) expected type(*beefyclient.ConsensusState)", consensusState)
+		}
+
+		// Determine if the existing consensus state on src for the potential matching client is identical
+		// to the consensus state of the counterparty chain.
+		if reflect.DeepEqual(existingConsensusState, consensusState) {
+			return existingClientID, nil // found matching client
+		}
+	}
+
+	return "", nil
 }

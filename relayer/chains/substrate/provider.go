@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"path"
 	"time"
 
@@ -92,7 +93,19 @@ func (sp *SubstrateProvider) Init() error {
 		return err
 	}
 
+	client, err := rpcclient.NewSubstrateAPI(sp.Config.RPCAddr)
+	if err != nil {
+		return err
+	}
+
+	relaychainClient, err := rpcclient.NewSubstrateAPI(sp.Config.RelayRPCAddr)
+	if err != nil {
+		return err
+	}
+
 	sp.Keybase = keybase
+	sp.RPCClient = client
+	sp.RelayChainRPCClient = relaychainClient
 	return nil
 }
 
@@ -103,19 +116,14 @@ type SubstrateProvider struct {
 	Memdb   *chaindb.BadgerDB
 	Input   io.Reader
 
-	RPCClient           *rpcclient.SubstrateAPI
-	RelayChainRPCClient *rpcclient.SubstrateAPI
+	RPCClient                     *rpcclient.SubstrateAPI
+	RelayChainRPCClient           *rpcclient.SubstrateAPI
+	LatestQueriedRelayChainHeight int64
 }
 
 type SubstrateIBCHeader struct {
 	height       uint64
 	SignedHeader *beefyclienttypes.Header
-}
-
-// noop to implement processor.IBCHeader
-func (h SubstrateIBCHeader) IBCHeaderIndicator() {
-	//TODO implement me
-	panic("implement me")
 }
 
 func (h SubstrateIBCHeader) Height() uint64 {
@@ -132,43 +140,41 @@ func (sp *SubstrateProvider) BlockTime(ctx context.Context, height int64) (time.
 }
 
 func (sp *SubstrateProvider) ChainName() string {
-	//TODO implement me
-	panic("implement me")
+	return sp.Config.ChainName
 }
 
 func (sp *SubstrateProvider) ChainId() string {
-	//TODO implement me
-	panic("implement me")
+	return sp.Config.ChainID
 }
 
 func (sp *SubstrateProvider) Type() string {
-	//TODO implement me
-	panic("implement me")
+	return "substrate"
 }
 
 func (sp *SubstrateProvider) ProviderConfig() provider.ProviderConfig {
-	//TODO implement me
-	panic("implement me")
+	return sp.Config
 }
 
 func (sp *SubstrateProvider) Key() string {
-	//TODO implement me
-	panic("implement me")
+	return sp.Config.Key
 }
 
 func (sp *SubstrateProvider) Address() (string, error) {
-	//TODO implement me
-	panic("implement me")
+	info, err := sp.Keybase.Key(sp.Key())
+	if err != nil {
+		return "", nil
+	}
+
+	return info.GetAddress(), nil
 }
 
 func (sp *SubstrateProvider) Timeout() string {
-	//TODO implement me
-	panic("implement me")
+	return sp.Config.Timeout
 }
 
 func (sp *SubstrateProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
-	//TODO implement me
-	panic("implement me")
+	// TODO: implement a proper trusting period
+	return time.Duration(math.MaxInt), nil
 }
 
 func (sp *SubstrateProvider) WaitForNBlocks(ctx context.Context, n int64) error {

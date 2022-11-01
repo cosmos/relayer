@@ -25,10 +25,18 @@ require (
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.1 // indirect
 	github.com/BurntSushi/toml v1.2.0 // indirect
+	github.com/ChainSafe/chaindb v0.1.5-0.20220322154826-c0d431995732 // indirect
 	github.com/ChainSafe/go-schnorrkel v1.0.0 // indirect
 	github.com/ChainSafe/go-schnorrkel/1 v0.0.0-00010101000000-000000000000 // indirect
+	github.com/ChainSafe/gossamer v0.6.1-0.20220406182257-98400b30ca00 // indirect
+	github.com/ChainSafe/log15 v1.0.0 // indirect
+	github.com/ComposableFi/go-merkle-trees v0.0.0-20220505132313-e976260288cc // indirect
+	github.com/ComposableFi/go-subkey/v2 v2.0.0-tm03420 // indirect
+	github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220921072213-b36dd716026d // indirect
+	github.com/ComposableFi/ics11-beefy v0.0.0-20220915123708-0965f4b89a73 // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/Microsoft/hcsshim v0.9.3 // indirect
+	github.com/OneOfOne/xxhash v1.2.8 // indirect
 	github.com/StirlingMarketingGroup/go-namecase v1.0.0 // indirect
 	github.com/armon/go-metrics v0.4.0 // indirect
 	github.com/avast/retry-go/v4 v4.1.0 // indirect
@@ -120,6 +128,7 @@ require (
 	github.com/libp2p/go-libp2p-core v0.15.1 // indirect
 	github.com/libp2p/go-openssl v0.0.7 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
+	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/mimoo/StrobeGo v0.0.0-20220103164710-9a04d6ca976b // indirect
@@ -152,6 +161,7 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.34.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
+	github.com/qdm12/gotree v0.2.0 // indirect
 	github.com/rakyll/statik v0.1.7 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
 	github.com/regen-network/cosmos-proto v0.3.1 // indirect

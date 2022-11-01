@@ -167,7 +167,6 @@ func (sp *SubstrateProvider) SendMessages(ctx context.Context, msgs []provider.R
 	rlyRes := &provider.RelayerTxResponse{
 		// TODO: pass in a proper block height
 		TxHash: fmt.Sprintf("0x%x", extHash[:]),
-		Code:   0, // if the process is reached this line, so there is no error
 		Events: events,
 	}
 
@@ -832,42 +831,6 @@ func (sp *SubstrateProvider) AcknowledgementFromSequence(ctx context.Context, ds
 		return nil, err
 	}
 	return msg, nil
-}
-
-// QueryIBCHeader returns the IBC compatible block header (SubstrateIBCHeader) at a specific height.
-func (sp *SubstrateProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
-	if h <= 0 {
-		return nil, fmt.Errorf("must pass in valid height, %d not valid", h)
-	}
-
-	latestBeefyBlockHash, err := sp.RPCClient.RPC.Beefy.GetFinalizedHead()
-	if err != nil {
-		return nil, err
-	}
-
-	latestBeefyHeight, err := sp.RPCClient.RPC.Chain.GetBlock(latestBeefyBlockHash)
-	if err != nil {
-		return nil, err
-	}
-
-	if h > int64(latestBeefyHeight.Block.Header.Number) {
-		return nil, fmt.Errorf("queried block is not finalized")
-	}
-
-	blockHash, err := sp.RPCClient.RPC.Chain.GetBlockHash(uint64(h))
-	if err != nil {
-		return nil, err
-	}
-
-	header, err := sp.constructBeefyHeader(latestBeefyBlockHash, &blockHash)
-	if err != nil {
-		return nil, err
-	}
-
-	return SubstrateIBCHeader{
-		height:       uint64(h),
-		SignedHeader: header,
-	}, nil
 }
 
 // InjectTrustedFields injects the necessary trusted fields for a header to update a light

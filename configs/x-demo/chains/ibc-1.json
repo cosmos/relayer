@@ -1,0 +1,18 @@
+{
+  "type": "substrate",
+  "value": {
+    "key": "testkey",
+    "chain-name": "ibc-1",
+    "chain-id": "ibc-1",
+    "rpc-addr": "ws://127.0.0.1:9988",
+    "relay-rpc-addr": "ws://127.0.0.1:9944",
+    "account-prefix": "",
+    "keyring-backend": "test",
+    "key-directory": "/tmp",
+    "debug": false,
+    "timeout": "10s",
+    "network": 49,
+    "para-id": 2000,
+    "beefy-activation-block": 0
+  }
+}

@@ -9,12 +9,14 @@ const homePath = "/tmp"
 
 func getSubstrateConfig(keyDir string, network uint16) *substrate.SubstrateProviderConfig {
 	return &substrate.SubstrateProviderConfig{
-		Key:            "default",
-		ChainID:        "substrate-test",
-		KeyringBackend: keystore.BackendTest,
-		KeyDirectory:   keyDir,
-		Timeout:        "20s",
-		Network:        network,
+		Key:                  "default",
+		ChainID:              "substrate-test",
+		KeyringBackend:       keystore.BackendTest,
+		KeyDirectory:         keyDir,
+		Timeout:              "20s",
+		Network:              network,
+		BeefyActivationBlock: 0,
+		ParaID:               2000,
 	}
 }
 

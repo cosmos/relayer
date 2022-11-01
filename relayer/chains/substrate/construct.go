@@ -128,7 +128,7 @@ func (sp *SubstrateProvider) fetchParaIds(blockHash rpcclienttypes.Hash) ([]uint
 
 func (sp *SubstrateProvider) parachainHeaderKey() ([]byte, error) {
 	keyPrefix := rpcclienttypes.CreateStorageKeyPrefix(prefixParas, methodHeads)
-	encodedParaId, err := Encode(sp.Config.ParaID)
+	encodedParaId, err := rpcclienttypes.Encode(sp.Config.ParaID)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +308,7 @@ func (sp *SubstrateProvider) parachainHeaderKeys(
 	keyPrefix := rpcclienttypes.CreateStorageKeyPrefix(prefixParas, methodHeads)
 	// so we can query all blocks from lastfinalized to latestBeefyHeight
 	for _, paraId := range paraIds {
-		encodedParaId, err := Encode(paraId)
+		encodedParaId, err := rpcclienttypes.Encode(paraId)
 		if err != nil {
 			return nil, err
 		}
@@ -439,20 +439,20 @@ func (sp *SubstrateProvider) constructExtrinsics(
 		return nil, nil, nil
 	}
 
-	timestampExtrinsic, err = Encode(exts[0])
+	timestampExtrinsic, err = rpcclienttypes.Encode(exts[0])
 	if err != nil {
 		return nil, nil, err
 	}
 
 	t := trie.NewEmptyTrie()
 	for i := 0; i < len(exts); i++ {
-		ext, err := Encode(exts[i])
+		ext, err := rpcclienttypes.Encode(exts[i])
 		if err != nil {
 			return nil, nil, err
 		}
 
 		key := rpcclienttypes.NewUCompactFromUInt(uint64(i))
-		encodedKey, err := Encode(key)
+		encodedKey, err := rpcclienttypes.Encode(key)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -471,7 +471,7 @@ func (sp *SubstrateProvider) constructExtrinsics(
 	}
 
 	timestampKey := rpcclienttypes.NewUCompactFromUInt(uint64(0))
-	encodedTPKey, err := Encode(timestampKey)
+	encodedTPKey, err := rpcclienttypes.Encode(timestampKey)
 	if err != nil {
 		return nil, nil, err
 	}
