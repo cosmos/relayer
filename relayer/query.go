@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/avast/retry-go/v4"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -300,4 +301,37 @@ func QueryBalance(ctx context.Context, chain *Chain, address string, showDenoms 
 		}
 	}
 	return out, nil
+}
+
+func QueryClientExpiration(ctx context.Context, src, dst *Chain) (time.Time, error) {
+	latestHeight, err := src.ChainProvider.QueryLatestHeight(ctx)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	clientState, err := src.QueryTMClientState(ctx, latestHeight)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	trustingPeriod := clientState.TrustingPeriod
+	clientTime, err := dst.ChainProvider.BlockTime(ctx, int64(clientState.GetLatestHeight().GetRevisionHeight()))
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return clientTime.Add(trustingPeriod), nil
+}
+
+func SPrintClientExpiration(chain *Chain, expiration time.Time) string {
+	now := time.Now()
+	remainingTime := expiration.Sub(now)
+	expirationFormatted := expiration.Format(time.RFC822)
+
+	if remainingTime < 0 {
+		return fmt.Sprintf("client %s (%s) is already expired (%s)\n",
+			chain.ClientID(), chain.ChainID(), expirationFormatted)
+	}
+	return fmt.Sprintf("client %s (%s) expires in %s (%s)\n",
+		chain.ClientID(), chain.ChainID(), remainingTime.Round(time.Second), expirationFormatted)
 }
