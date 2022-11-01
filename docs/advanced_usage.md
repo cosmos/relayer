@@ -5,7 +5,7 @@
 **Prometheus exporter**
 
 If you started `rly` with the default `--debug-addr` argument,
-you can use `http://$IP:7597/metrics` as a target for your prometheus scraper.
+you can use `http://$IP:7597/relayer/metrics` as a target for your prometheus scraper.
 
 **Example metrics**
 

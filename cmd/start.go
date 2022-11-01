@@ -109,8 +109,8 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				}
 				log := a.Log.With(zap.String("sys", "debughttp"))
 				log.Info("Debug server listening", zap.String("addr", debugAddr))
-				relaydebug.StartDebugServer(cmd.Context(), log, ln)
 				prometheusMetrics = processor.NewPrometheusMetrics()
+				relaydebug.StartDebugServer(cmd.Context(), log, ln, prometheusMetrics.Registry)
 				for _, chain := range chains {
 					if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
 						ccp.SetMetrics(prometheusMetrics)
