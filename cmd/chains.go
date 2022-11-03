@@ -426,9 +426,7 @@ func addChainFromURL(a *appState, chainName string, rawurl string) error {
 func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) error {
 	chainRegistry := registry.DefaultChainRegistry(a.Log)
 
-	var existed []string
-	var failed []string
-	var added []string
+	var existed, failed, added []string
 
 	for _, chain := range chains {
 		if _, ok := a.Config.Chains[chain]; ok {
