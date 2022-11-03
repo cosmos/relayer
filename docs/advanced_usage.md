@@ -31,9 +31,10 @@ relayed_packets{chain="osmosis-1",channel="channel-0",path="hubosmo",port="trans
 
 ## Auto Update Light Client
 
-By default, the Relayer will automatically update clients (`msgUpdateClient`) if the client has <= 1/3 of its trusting period left. 
+By default, the Relayer will automatically update clients (`MsgUpdateClient`) if the client has <= 1/3 of its trusting period left. 
 
-> NOTE: The trusting period of the corresponding client is restored with each transaction the Relayer relays. In other words, every time the Relayer relays a message, it also sends a `msgUpdateClient` message restarting the time to the clients expiration. 
+> NOTE: The trusting period of the corresponding client is restored with each transaction a relayer relays. In other words, every time a relayer relays a message, it also sends a `MsgUpdateClient` message restarting the time to the clients expiration.*
+
 > This auto-update functionality is specifically useful on low trafficked paths where messages aren't regularly being relayed.
 
 
@@ -43,12 +44,11 @@ Example:
 
 - You are relaying on a path that has a client trusting period of 9 minutes.
 - If no messages are sent for 6 minutes and the client is 3 minutes (1/3) to expiration, the relayer will automatically update the client.
-- If you wish to update the client more frequently, say when the client is within 5 min of expiration, use flag: `--time-threshold 5m`
+- If you wish to update the client more frequently, say anytime two minutes have passed without a `MsgUpdateClient` being sent, use flag: `--time-threshold 2m`
 
-Selecting a time-threshold that is less than 1/3 of the client trusting period will deem itself useless.
+Selecting a time-threshold that is greater than 2/3 of the client trusting period will deem itself useless.
 
-> Most chains have a client trusting period of 336h or 504h
-
+\* It is not mandatory for relayers to include the `MsgUpdateClient` when relaying packets, however most, if not all relayers currently do.
 
 ---
 
