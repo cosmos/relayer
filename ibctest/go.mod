@@ -7,7 +7,7 @@ require (
 	github.com/cosmos/ibc-go/v3 v3.3.0
 	github.com/cosmos/relayer/v2 v2.0.0
 	github.com/docker/docker v20.10.17+incompatible
-	github.com/moby/moby v20.10.17+incompatible
+	github.com/moby/moby v20.10.18+incompatible
 	github.com/strangelove-ventures/ibctest/v3 v3.0.0-20221114184853-4ff8042c35cc
 	github.com/stretchr/testify v1.8.0
 	github.com/tendermint/tendermint v0.34.21
