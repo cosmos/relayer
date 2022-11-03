@@ -11,7 +11,7 @@ require (
 	github.com/strangelove-ventures/ibctest/v3 v3.0.0-20221114184853-4ff8042c35cc
 	github.com/stretchr/testify v1.8.0
 	github.com/tendermint/tendermint v0.34.21
-	go.uber.org/zap v1.22.0
+	go.uber.org/zap v1.23.0
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 )
 
