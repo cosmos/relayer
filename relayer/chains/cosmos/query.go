@@ -738,7 +738,7 @@ func (cc *CosmosProvider) QueryRecvPacket(
 	}
 	for _, msg := range ibcMsgs {
 		if pi, ok := msg.info.(*packetInfo); ok {
-			if pi.Sequence == sequence {
+			if pi.DestChannel == dstChanID && pi.Sequence == sequence {
 				return provider.PacketInfo(*pi), nil
 			}
 		}
