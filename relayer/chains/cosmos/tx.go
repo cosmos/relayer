@@ -593,7 +593,7 @@ func (cc *CosmosProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, pr
 		Counterparty: conntypes.Counterparty{
 			ClientId:     info.CounterpartyClientID,
 			ConnectionId: "",
-			Prefix:       defaultChainPrefix,
+			Prefix:       info.CounterpartyCommitmentPrefix,
 		},
 		Version:     nil,
 		DelayPeriod: defaultDelayPeriod,

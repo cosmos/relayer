@@ -167,6 +167,11 @@ func (cc *CosmosProvider) AddKey(name string, coinType uint32) (*provider.KeyOut
 	}, nil
 }
 
+// CommitmentPrefix returns the commitment prefix for Cosmos
+func (cc *CosmosProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
+	return defaultChainPrefix
+}
+
 // Address returns the chains configured address as a string
 func (cc *CosmosProvider) Address() (string, error) {
 	info, err := cc.Keybase.Key(cc.PCfg.Key)
