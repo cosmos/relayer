@@ -425,11 +425,9 @@ func addChainFromURL(a *appState, chainName string, rawurl string) error {
 
 func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) error {
 	chainRegistry := registry.DefaultChainRegistry(a.Log)
-	allChains, err := chainRegistry.ListChains(ctx)
-	if err != nil {
-		return err
-	}
-	foundError := false
+
+	var existed, failed, added []string
+
 	for _, chain := range chains {
 		if _, ok := a.Config.Chains[chain]; ok {
 			a.Log.Warn(
@@ -437,93 +435,82 @@ func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) er
 				zap.String("chain", chain),
 				zap.String("source_link", chainRegistry.SourceLink()),
 			)
+			existed = append(existed, chain)
 			continue
 		}
-		found := false
-		for _, possibleChain := range allChains {
-			if chain == possibleChain {
-				found = true
-			}
 
-			if !found {
-				a.Log.Warn(
-					"Unable to find chain",
-					zap.String("chain", chain),
-					zap.String("source_link", chainRegistry.SourceLink()),
-				)
-				continue
-			}
-
-			chainInfo, err := chainRegistry.GetChain(ctx, chain)
-			if err != nil {
-				a.Log.Warn(
-					"Error retrieving chain",
-					zap.String("chain", chain),
-					zap.Error(err),
-				)
-				foundError = true
-				continue
-			}
-
-			chainConfig, err := chainInfo.GetChainConfig(ctx)
-			if err != nil {
-				a.Log.Warn(
-					"Error generating chain config",
-					zap.String("chain", chain),
-					zap.Error(err),
-				)
-				foundError = true
-				continue
-			}
-
-			// build the ChainProvider
-			pcfg := &cosmos.CosmosProviderConfig{
-				Key:            chainConfig.Key,
-				ChainName:      chainInfo.ChainName,
-				ChainID:        chainConfig.ChainID,
-				RPCAddr:        chainConfig.RPCAddr,
-				AccountPrefix:  chainConfig.AccountPrefix,
-				KeyringBackend: chainConfig.KeyringBackend,
-				GasAdjustment:  chainConfig.GasAdjustment,
-				GasPrices:      chainConfig.GasPrices,
-				Debug:          chainConfig.Debug,
-				Timeout:        chainConfig.Timeout,
-				OutputFormat:   chainConfig.OutputFormat,
-				SignModeStr:    chainConfig.SignModeStr,
-			}
-
-			prov, err := pcfg.NewProvider(
-				a.Log.With(zap.String("provider_type", "cosmos")),
-				a.HomePath, a.Debug, chainInfo.ChainName,
+		chainInfo, err := chainRegistry.GetChain(ctx, chain)
+		if err != nil {
+			a.Log.Warn(
+				"Error retrieving chain",
+				zap.String("chain", chain),
+				zap.Error(err),
 			)
-			if err != nil {
-				a.Log.Warn(
-					"Failed to build ChainProvider",
-					zap.String("chain_id", chainConfig.ChainID),
-					zap.Error(err),
-				)
-				foundError = true
-				continue
-			}
-
-			// add to config
-			c := relayer.NewChain(a.Log, prov, a.Debug)
-			if err = a.Config.AddChain(c); err != nil {
-				a.Log.Warn(
-					"Failed to add chain to config",
-					zap.String("chain", chain),
-					zap.Error(err),
-				)
-				foundError = true
-				continue
-			}
-
-			// found the correct chain so move on to next chain in chains
-			break
+			failed = append(failed, chain)
+			continue
 		}
+
+		chainConfig, err := chainInfo.GetChainConfig(ctx)
+		if err != nil {
+			a.Log.Warn(
+				"Error generating chain config",
+				zap.String("chain", chain),
+				zap.Error(err),
+			)
+			failed = append(failed, chain)
+			continue
+		}
+
+		// build the ChainProvider
+		pcfg := &cosmos.CosmosProviderConfig{
+			Key:            chainConfig.Key,
+			ChainName:      chainInfo.ChainName,
+			ChainID:        chainConfig.ChainID,
+			RPCAddr:        chainConfig.RPCAddr,
+			AccountPrefix:  chainConfig.AccountPrefix,
+			KeyringBackend: chainConfig.KeyringBackend,
+			GasAdjustment:  chainConfig.GasAdjustment,
+			GasPrices:      chainConfig.GasPrices,
+			Debug:          chainConfig.Debug,
+			Timeout:        chainConfig.Timeout,
+			OutputFormat:   chainConfig.OutputFormat,
+			SignModeStr:    chainConfig.SignModeStr,
+		}
+
+		prov, err := pcfg.NewProvider(
+			a.Log.With(zap.String("provider_type", "cosmos")),
+			a.HomePath, a.Debug, chainInfo.ChainName,
+		)
+		if err != nil {
+			a.Log.Warn(
+				"Failed to build ChainProvider",
+				zap.String("chain_id", chainConfig.ChainID),
+				zap.Error(err),
+			)
+			failed = append(failed, chain)
+			continue
+		}
+
+		// add to config
+		c := relayer.NewChain(a.Log, prov, a.Debug)
+		if err = a.Config.AddChain(c); err != nil {
+			a.Log.Warn(
+				"Failed to add chain to config",
+				zap.String("chain", chain),
+				zap.Error(err),
+			)
+			failed = append(failed, chain)
+			continue
+		}
+
+		added = append(added, chain)
+		// found the correct chain so move on to next chain in chains
+
 	}
-	if foundError {
-		return errors.New("some chain(s) failed to be added to config")
-	}
+	a.Log.Info("config update status",
+		zap.Any("added", added),
+		zap.Any("failed", failed),
+		zap.Any("already existed", existed),
+	)
 	return nil
 }
