@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/provider/penumbra"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
+
 	//	jsonrpcclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -22,7 +23,7 @@ import (
 type PenumbraChainProcessor struct {
 	log *zap.Logger
 
-	chainProvider *penumbra.PenumbraProvider
+	chainProvider *PenumbraProvider
 
 	pathProcessors processor.PathProcessors
 
@@ -48,7 +49,7 @@ type PenumbraChainProcessor struct {
 	channelConnections map[string]string
 }
 
-func NewPenumbraChainProcessor(log *zap.Logger, provider *penumbra.PenumbraProvider) *PenumbraChainProcessor {
+func NewPenumbraChainProcessor(log *zap.Logger, provider *PenumbraProvider) *PenumbraChainProcessor {
 	return &PenumbraChainProcessor{
 		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
 		chainProvider:        provider,
@@ -308,7 +309,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 
 	ppChanged := false
 
-	var latestHeader penumbra.PenumbraIBCHeader
+	var latestHeader PenumbraIBCHeader
 
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var eg errgroup.Group
@@ -334,7 +335,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 			return nil
 		}
 
-		latestHeader = ibcHeader.(penumbra.PenumbraIBCHeader)
+		latestHeader = ibcHeader.(PenumbraIBCHeader)
 
 		heightUint64 := uint64(i)
 

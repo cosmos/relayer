@@ -5,9 +5,9 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
+	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	cosmosprovider "github.com/cosmos/relayer/v2/relayer/provider/cosmos"
+	cosmos "github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap/zapcore"
 )
@@ -49,8 +49,8 @@ func PenumbraMsgs(rm ...provider.RelayerMessage) []sdk.Msg {
 		switch rMsg.(type) {
 		case PenumbraMessage:
 			sdkMsgs = append(sdkMsgs, rMsg.(PenumbraMessage).Msg)
-		case cosmosprovider.CosmosMessage:
-			sdkMsgs = append(sdkMsgs, rMsg.(cosmosprovider.CosmosMessage).Msg)
+		case cosmos.CosmosMessage:
+			sdkMsgs = append(sdkMsgs, rMsg.(cosmos.CosmosMessage).Msg)
 		default:
 			fmt.Printf("got data of type %T but wanted PenumbraMessage \n", rMsg)
 			return nil

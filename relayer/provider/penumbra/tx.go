@@ -11,16 +11,16 @@ import (
 	ics23 "github.com/confio/ics23/go"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v3/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v3/modules/core/24-host"
-	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
+	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v5/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	cosmosprovider "github.com/cosmos/relayer/v2/relayer/provider/cosmos"
 	penumbra_types "github.com/penumbra-zone/penumbra/proto/go-proto"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/bytes"
@@ -273,7 +273,7 @@ func (cc *PenumbraProvider) SendMessages(ctx context.Context, msgs []provider.Re
 		// NOTE: currently we have to build 1 TX per action,
 		// due to how the penumbra state machine is
 		// constructed.
-		for _, msg := range cosmosprovider.CosmosMsgs(msgs...) {
+		for _, msg := range cosmos.CosmosMsgs(msgs...) {
 			txBody := penumbra_types.TransactionBody{
 				Actions: make([]*penumbra_types.Action, 1),
 				Fee:     &penumbra_types.Fee{Amount: 0},
@@ -426,7 +426,7 @@ func (cc *PenumbraProvider) CreateClient(clientState ibcexported.ClientState, ds
 		Signer:         signer,
 	}
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 func (cc *PenumbraProvider) SubmitMisbehavior( /*TBD*/ ) (provider.RelayerMessage, error) {
@@ -467,7 +467,7 @@ func (cc *PenumbraProvider) MsgUpdateClient(srcClientId string, dstHeader ibcexp
 		Signer:   acc,
 	}
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 func (cc *PenumbraProvider) ConnectionOpenInit(srcClientId, dstClientId string, dstPrefix commitmenttypes.MerklePrefix, dstHeader ibcexported.Header) ([]provider.RelayerMessage, error) {
@@ -500,7 +500,7 @@ func (cc *PenumbraProvider) ConnectionOpenInit(srcClientId, dstClientId string, 
 		Signer:       acc,
 	}
 
-	return []provider.RelayerMessage{updateMsg, cosmosprovider.NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
 func (cc *PenumbraProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstPrefix commitmenttypes.MerklePrefix, srcClientId, dstClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
@@ -566,7 +566,7 @@ func (cc *PenumbraProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvi
 		Signer:          acc,
 	}
 
-	return []provider.RelayerMessage{updateMsg, cosmosprovider.NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
 func (cc *PenumbraProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]provider.RelayerMessage, error) {
@@ -615,7 +615,7 @@ func (cc *PenumbraProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvi
 		Signer:          acc,
 	}
 
-	return []provider.RelayerMessage{updateMsg, cosmosprovider.NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
 func (cc *PenumbraProvider) ConnectionOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]provider.RelayerMessage, error) {
@@ -648,7 +648,7 @@ func (cc *PenumbraProvider) ConnectionOpenConfirm(ctx context.Context, dstQueryP
 		Signer:       acc,
 	}
 
-	return []provider.RelayerMessage{updateMsg, cosmosprovider.NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
 func (cc *PenumbraProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.Header) ([]provider.RelayerMessage, error) {
@@ -680,7 +680,7 @@ func (cc *PenumbraProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, s
 		Signer: acc,
 	}
 
-	return []provider.RelayerMessage{updateMsg, cosmosprovider.NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
 func (cc *PenumbraProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
@@ -733,7 +733,7 @@ func (cc *PenumbraProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider
 		Signer:              acc,
 	}
 
-	return []provider.RelayerMessage{updateMsg, cosmosprovider.NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
 func (cc *PenumbraProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]provider.RelayerMessage, error) {
@@ -770,7 +770,7 @@ func (cc *PenumbraProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider
 		Signer:                acc,
 	}
 
-	return []provider.RelayerMessage{updateMsg, cosmosprovider.NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
 func (cc *PenumbraProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChanId string) ([]provider.RelayerMessage, error) {
@@ -804,7 +804,7 @@ func (cc *PenumbraProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProv
 		Signer:      acc,
 	}
 
-	return []provider.RelayerMessage{updateMsg, cosmosprovider.NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
 func (cc *PenumbraProvider) ChannelCloseInit(srcPortId, srcChanId string) (provider.RelayerMessage, error) {
@@ -822,7 +822,7 @@ func (cc *PenumbraProvider) ChannelCloseInit(srcPortId, srcChanId string) (provi
 		Signer:    acc,
 	}
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 func (cc *PenumbraProvider) ChannelCloseConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (provider.RelayerMessage, error) {
@@ -847,7 +847,7 @@ func (cc *PenumbraProvider) ChannelCloseConfirm(ctx context.Context, dstQueryPro
 		Signer:      acc,
 	}
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 func (cc *PenumbraProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
@@ -858,7 +858,7 @@ func (cc *PenumbraProvider) MsgUpgradeClient(srcClientId string, consRes *client
 	if acc, err = cc.Address(); err != nil {
 		return nil, err
 	}
-	return cosmosprovider.NewCosmosMessage(&clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
+	return cosmos.NewCosmosMessage(&clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
 		ConsensusState: consRes.ConsensusState, ProofUpgradeClient: consRes.GetProof(),
 		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}), nil
 }
@@ -1022,7 +1022,7 @@ func (cc *PenumbraProvider) MsgRelayAcknowledgement(ctx context.Context, dst pro
 			Signer:          acc,
 		}
 
-		return cosmosprovider.NewCosmosMessage(msg), nil
+		return cosmos.NewCosmosMessage(msg), nil
 	}
 }
 
@@ -1064,7 +1064,7 @@ func (cc *PenumbraProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, sr
 		}
 	}
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 // MsgRelayTimeout constructs the MsgTimeout which is to be sent to the sending chain.
@@ -1143,7 +1143,7 @@ func (cc *PenumbraProvider) orderedChannelTimeoutMsg(
 		Signer:           acc,
 	}
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 func (cc *PenumbraProvider) unorderedChannelTimeoutMsg(
@@ -1182,7 +1182,7 @@ func (cc *PenumbraProvider) unorderedChannelTimeoutMsg(
 		NextSequenceRecv: packet.Seq(),
 		Signer:           acc,
 	}
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 // MsgRelayRecvPacket constructs the MsgRecvPacket which is to be sent to the receiving chain.
@@ -1221,7 +1221,7 @@ func (cc *PenumbraProvider) MsgRelayRecvPacket(ctx context.Context, dst provider
 			Signer:          acc,
 		}
 
-		return cosmosprovider.NewCosmosMessage(msg), nil
+		return cosmos.NewCosmosMessage(msg), nil
 	}
 }
 
@@ -1276,7 +1276,7 @@ func (cc *PenumbraProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof
 		Signer:          signer,
 	}
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 func (cc *PenumbraProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, height uint64) (provider.PacketProof, error) {
@@ -1304,7 +1304,7 @@ func (cc *PenumbraProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo
 		Signer:          signer,
 	}
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 func (cc *PenumbraProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
@@ -1333,7 +1333,7 @@ func (cc *PenumbraProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof pr
 		Signer:           signer,
 	}
 
-	return cosmosprovider.NewCosmosMessage(assembled), nil
+	return cosmos.NewCosmosMessage(assembled), nil
 }
 
 func (cc *PenumbraProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
@@ -1349,7 +1349,7 @@ func (cc *PenumbraProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, p
 		Signer:           signer,
 	}
 
-	return cosmosprovider.NewCosmosMessage(assembled), nil
+	return cosmos.NewCosmosMessage(assembled), nil
 }
 
 func (cc *PenumbraProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -1369,7 +1369,7 @@ func (cc *PenumbraProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, 
 		Signer:      signer,
 	}
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 func (cc *PenumbraProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenInit provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
@@ -1427,7 +1427,7 @@ func (cc *PenumbraProvider) MsgConnectionOpenTry(msgOpenInit provider.Connection
 		Signer:               signer,
 	}
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 var called = 0
@@ -1464,7 +1464,7 @@ func (cc *PenumbraProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionI
 
 	called++
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 // NextSeqRecv queries for the appropriate Tendermint proof required to prove the next expected packet sequence number
@@ -1511,7 +1511,7 @@ func (cc *PenumbraProvider) MsgConnectionOpenConfirm(msgOpenAck provider.Connect
 		Signer:       signer,
 	}
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 func (cc *PenumbraProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -1534,7 +1534,7 @@ func (cc *PenumbraProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof 
 		Signer: signer,
 	}
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 func (cc *PenumbraProvider) ChannelProof(ctx context.Context, msg provider.ChannelInfo, height uint64) (provider.ChannelProof, error) {
@@ -1577,7 +1577,7 @@ func (cc *PenumbraProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, 
 		Signer:              signer,
 	}
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 func (cc *PenumbraProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -1595,7 +1595,7 @@ func (cc *PenumbraProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, p
 		Signer:                signer,
 	}
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 func (cc *PenumbraProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -1611,7 +1611,7 @@ func (cc *PenumbraProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInf
 		Signer:      signer,
 	}
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 func (cc *PenumbraProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -1625,7 +1625,7 @@ func (cc *PenumbraProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof
 		Signer:    signer,
 	}
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 func (cc *PenumbraProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -1641,7 +1641,7 @@ func (cc *PenumbraProvider) MsgChannelCloseConfirm(msgCloseInit provider.Channel
 		Signer:      signer,
 	}
 
-	return cosmosprovider.NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 func (cc *PenumbraProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.Header, error) {

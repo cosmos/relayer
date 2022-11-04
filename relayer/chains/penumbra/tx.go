@@ -1,19 +1,16 @@
-package cosmos
+package penumbra
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/client/tx"
+	ics23 "github.com/confio/ics23/go"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
@@ -22,10 +19,15 @@ import (
 	host "github.com/cosmos/ibc-go/v5/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	penumbra_types "github.com/penumbra-zone/penumbra/proto/go-proto"
+	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/light"
+
 	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
+	googleproto "google.golang.org/protobuf/proto"
 )
 
 // Variables used for retries
@@ -59,8 +61,163 @@ var (
 
 // SendMessage attempts to sign, encode & send a RelayerMessage
 // This is used extensively in the relayer as an extension of the Provider interface
-func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
+func (cc *PenumbraProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 	return cc.SendMessages(ctx, []provider.RelayerMessage{msg}, memo)
+}
+
+// takes a RelayerMessage, converts it to a PenumbraMessage, and wraps it into
+// Penumbra's equivalent of the "message" abstraction, an Action.
+func msgToPenumbraAction(msg sdk.Msg) (*penumbra_types.Action, error) {
+	switch msg.(type) {
+	case *clienttypes.MsgCreateClient:
+		return &penumbra_types.Action{
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
+				Action: &penumbra_types.IBCAction_CreateClient{
+					CreateClient: msg.(*clienttypes.MsgCreateClient),
+				},
+			}},
+		}, nil
+	case *clienttypes.MsgUpdateClient:
+		return &penumbra_types.Action{
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
+				Action: &penumbra_types.IBCAction_UpdateClient{
+					UpdateClient: msg.(*clienttypes.MsgUpdateClient),
+				},
+			}},
+		}, nil
+	case *conntypes.MsgConnectionOpenInit:
+		return &penumbra_types.Action{
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
+				Action: &penumbra_types.IBCAction_ConnectionOpenInit{
+					ConnectionOpenInit: msg.(*conntypes.MsgConnectionOpenInit),
+				},
+			}},
+		}, nil
+	case *conntypes.MsgConnectionOpenAck:
+		return &penumbra_types.Action{
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
+				Action: &penumbra_types.IBCAction_ConnectionOpenAck{
+					ConnectionOpenAck: msg.(*conntypes.MsgConnectionOpenAck),
+				},
+			}},
+		}, nil
+	case *conntypes.MsgConnectionOpenTry:
+		return &penumbra_types.Action{
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
+				Action: &penumbra_types.IBCAction_ConnectionOpenTry{
+					ConnectionOpenTry: msg.(*conntypes.MsgConnectionOpenTry),
+				},
+			}},
+		}, nil
+	case *conntypes.MsgConnectionOpenConfirm:
+		return &penumbra_types.Action{
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
+				Action: &penumbra_types.IBCAction_ConnectionOpenConfirm{
+					ConnectionOpenConfirm: msg.(*conntypes.MsgConnectionOpenConfirm),
+				},
+			}},
+		}, nil
+	case *chantypes.MsgChannelOpenInit:
+		return &penumbra_types.Action{
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
+				Action: &penumbra_types.IBCAction_ChannelOpenInit{
+					ChannelOpenInit: msg.(*chantypes.MsgChannelOpenInit),
+				},
+			}},
+		}, nil
+	case *chantypes.MsgChannelOpenTry:
+		return &penumbra_types.Action{
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
+				Action: &penumbra_types.IBCAction_ChannelOpenTry{
+					ChannelOpenTry: msg.(*chantypes.MsgChannelOpenTry),
+				},
+			}},
+		}, nil
+	case *chantypes.MsgChannelOpenAck:
+		return &penumbra_types.Action{
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
+				Action: &penumbra_types.IBCAction_ChannelOpenAck{
+					ChannelOpenAck: msg.(*chantypes.MsgChannelOpenAck),
+				},
+			}},
+		}, nil
+	case *chantypes.MsgChannelOpenConfirm:
+		return &penumbra_types.Action{
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
+				Action: &penumbra_types.IBCAction_ChannelOpenConfirm{
+					ChannelOpenConfirm: msg.(*chantypes.MsgChannelOpenConfirm),
+				},
+			}},
+		}, nil
+	case *chantypes.MsgChannelCloseInit:
+		return &penumbra_types.Action{
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
+				Action: &penumbra_types.IBCAction_ChannelCloseInit{
+					ChannelCloseInit: msg.(*chantypes.MsgChannelCloseInit),
+				},
+			}},
+		}, nil
+	case *chantypes.MsgChannelCloseConfirm:
+		return &penumbra_types.Action{
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
+				Action: &penumbra_types.IBCAction_ChannelCloseConfirm{
+					ChannelCloseConfirm: msg.(*chantypes.MsgChannelCloseConfirm),
+				},
+			}},
+		}, nil
+	case *chantypes.MsgRecvPacket:
+		return &penumbra_types.Action{
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
+				Action: &penumbra_types.IBCAction_RecvPacket{
+					RecvPacket: msg.(*chantypes.MsgRecvPacket),
+				},
+			}},
+		}, nil
+	case *chantypes.MsgAcknowledgement:
+		return &penumbra_types.Action{
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
+				Action: &penumbra_types.IBCAction_Acknowledgement{
+					Acknowledgement: msg.(*chantypes.MsgAcknowledgement),
+				},
+			}},
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("unknown message type: %T", msg)
+	}
+}
+
+func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbra_types.MerkleRoot, error) {
+	req := abci.RequestQuery{
+		Path:   "state/key",
+		Height: 1,
+		Data:   []byte("shielded_pool/anchor/1"),
+		Prove:  false,
+	}
+
+	res, err := cc.QueryABCI(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return &penumbra_types.MerkleRoot{Inner: res.Value[2:]}, nil
+}
+
+func parseEventsFromABCIResponse(resp abci.ResponseDeliverTx) []provider.RelayerEvent {
+	var events []provider.RelayerEvent
+
+	for _, event := range resp.Events {
+		attributes := make(map[string]string)
+		for _, attribute := range event.Attributes {
+			attributes[string(attribute.Key)] = string(attribute.Value)
+		}
+		events = append(events, provider.RelayerEvent{
+			EventType:  event.Type,
+			Attributes: attributes,
+		})
+	}
+	return events
+
 }
 
 // SendMessages attempts to sign, encode, & send a slice of RelayerMessages
@@ -70,109 +227,88 @@ func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerM
 // transaction will not return an error. If a transaction is successfully sent, the result of the execution
 // of that transaction will be logged. A boolean indicating if a transaction was successfully
 // sent and executed successfully is returned.
-func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
-	var resp *sdk.TxResponse
+func (cc *PenumbraProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, _memo string) (*provider.RelayerTxResponse, bool, error) {
+	var events []provider.RelayerEvent
+	var height int64
+	var data []byte
+	var txhash string
+	var code uint32
 
-	if err := retry.Do(func() error {
-		txBytes, err := cc.buildMessages(ctx, msgs, memo)
+	// TODO: fee estimation, fee payments
+	// NOTE: we do not actually need to sign this tx currently, since there
+	// are no fees required on the testnet. future versions of penumbra
+	// will have a signing protocol for this.
+
+	// NOTE: currently we have to build 1 TX per action,
+	// due to how the penumbra state machine is
+	// constructed.
+	for _, msg := range cosmos.CosmosMsgs(msgs...) {
+		txBody := penumbra_types.TransactionBody{
+			Actions: make([]*penumbra_types.Action, 1),
+			Fee:     &penumbra_types.Fee{Amount: 0},
+		}
+		action, err := msgToPenumbraAction(msg)
 		if err != nil {
-			errMsg := err.Error()
+			return nil, false, err
+		}
+		txBody.Actions[0] = action
 
-			// Occasionally the client will be out of date,
-			// and we will receive an RPC error like:
-			//     rpc error: code = InvalidArgument desc = failed to execute message; message index: 1: channel handshake open try failed: failed channel state verification for client (07-tendermint-0): client state height < proof height ({0 58} < {0 59}), please ensure the client has been updated: invalid height: invalid request
-			// or
-			//     rpc error: code = InvalidArgument desc = failed to execute message; message index: 1: receive packet verification failed: couldn't verify counterparty packet commitment: failed packet commitment verification for client (07-tendermint-0): client state height < proof height ({0 142} < {0 143}), please ensure the client has been updated: invalid height: invalid request
-			//
-			// No amount of retrying will fix this. The client needs to be updated.
-			// Unfortunately, the entirety of that error message originates on the server,
-			// so there is not an obvious way to access a more structured error value.
-			//
-			// If this logic should ever fail due to the string values of the error messages on the server
-			// changing from the client's version of the library,
-			// at worst this will run more unnecessary retries.
-			if strings.Contains(errMsg, sdkerrors.ErrInvalidHeight.Error()) {
-				cc.log.Info(
-					"Skipping retry due to invalid height error",
-					zap.Error(err),
-				)
-				return retry.Unrecoverable(err)
-			}
-
-			// On a fast retry, it is possible to have an invalid connection state.
-			// Retrying that message also won't fix the underlying state mismatch,
-			// so log it and mark it as unrecoverable.
-			if strings.Contains(errMsg, conntypes.ErrInvalidConnectionState.Error()) {
-				cc.log.Info(
-					"Skipping retry due to invalid connection state",
-					zap.Error(err),
-				)
-				return retry.Unrecoverable(err)
-			}
-
-			// Also possible to have an invalid channel state on a fast retry.
-			if strings.Contains(errMsg, chantypes.ErrInvalidChannelState.Error()) {
-				cc.log.Info(
-					"Skipping retry due to invalid channel state",
-					zap.Error(err),
-				)
-				return retry.Unrecoverable(err)
-			}
-
-			// If the message reported an invalid proof, back off.
-			// NOTE: this error string ("invalid proof") will match other errors too,
-			// but presumably it is safe to stop retrying in those cases as well.
-			if strings.Contains(errMsg, commitmenttypes.ErrInvalidProof.Error()) {
-				cc.log.Info(
-					"Skipping retry due to invalid proof",
-					zap.Error(err),
-				)
-				return retry.Unrecoverable(err)
-			}
-
-			// Invalid packets should not be retried either.
-			if strings.Contains(errMsg, chantypes.ErrInvalidPacket.Error()) {
-				cc.log.Info(
-					"Skipping retry due to invalid packet",
-					zap.Error(err),
-				)
-				return retry.Unrecoverable(err)
-			}
-
-			return err
+		anchor, err := cc.getAnchor(ctx)
+		if err != nil {
+			return nil, false, err
 		}
 
-		resp, err = cc.BroadcastTx(ctx, txBytes)
+		tx := &penumbra_types.Transaction{
+			Body:       &txBody,
+			BindingSig: make([]byte, 64), // use the Cool Signature
+			Anchor:     anchor,
+		}
+
+		txBytes, err := googleproto.Marshal(tx)
 		if err != nil {
-			if err == sdkerrors.ErrWrongSequence {
-				// Allow retrying if we got an invalid sequence error when attempting to broadcast this tx.
+			return nil, false, err
+		}
+
+		syncRes, err := cc.RPCClient.BroadcastTxSync(ctx, txBytes)
+		if err != nil {
+			return nil, false, err
+		}
+		cc.log.Info("waiting for penumbra tx to commit")
+
+		if err := retry.Do(func() error {
+			ctx, cancel := context.WithTimeout(ctx, 40*time.Second)
+			defer cancel()
+
+			res, err := cc.RPCClient.Tx(ctx, syncRes.Hash, false)
+			if err != nil {
 				return err
 			}
 
-			// Don't retry if BroadcastTx resulted in any other error.
-			// (This was the previous behavior. Unclear if that is still desired.)
-			return retry.Unrecoverable(err)
-		}
+			height = res.Height
+			txhash = syncRes.Hash.String()
+			code = res.TxResult.Code
 
-		return nil
-	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-		cc.log.Info(
-			"Error building or broadcasting transaction",
-			zap.String("chain_id", cc.PCfg.ChainID),
-			zap.Uint("attempt", n+1),
-			zap.Uint("max_attempts", rtyAttNum),
-			zap.Error(err),
-		)
-	})); err != nil || resp == nil {
-		return nil, false, err
+			events = append(events, parseEventsFromABCIResponse(res.TxResult)...)
+			return nil
+		}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+			cc.log.Info(
+				"Error building or broadcasting transaction",
+				zap.String("chain_id", cc.PCfg.ChainID),
+				zap.Uint("attempt", n+1),
+				zap.Uint("max_attempts", rtyAttNum),
+				zap.Error(err),
+			)
+		})); err != nil {
+			return nil, false, err
+		}
 	}
 
 	rlyResp := &provider.RelayerTxResponse{
-		Height: resp.Height,
-		TxHash: resp.TxHash,
-		Code:   resp.Code,
-		Data:   resp.Data,
-		Events: parseEventsFromTxResponse(resp),
+		Height: height,
+		TxHash: txhash,
+		Code:   code,
+		Data:   string(data),
+		Events: events,
 	}
 
 	// transaction was executed, log the success or failure using the tx response code
@@ -180,10 +316,9 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 	// transaction was successfully executed.
 	if rlyResp.Code != 0 {
 		cc.LogFailedTx(rlyResp, nil, msgs)
-		return rlyResp, false, fmt.Errorf("transaction failed with code: %d", resp.Code)
+		return rlyResp, false, fmt.Errorf("transaction failed with code: %d", code)
 	}
 
-	cc.LogSuccessTx(resp, msgs)
 	return rlyResp, true, nil
 }
 
@@ -209,79 +344,8 @@ func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
 	return events
 }
 
-func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) ([]byte, error) {
-	// Query account details
-	txf, err := cc.PrepareFactory(cc.TxFactory())
-	if err != nil {
-		fmt.Println("error factory")
-		return nil, err
-	}
-
-	if memo != "" {
-		txf = txf.WithMemo(memo)
-	}
-
-	// TODO: Make this work with new CalculateGas method
-	// TODO: This is related to GRPC client stuff?
-	// https://github.com/cosmos/cosmos-sdk/blob/5725659684fc93790a63981c653feee33ecf3225/client/tx/tx.go#L297
-	// If users pass gas adjustment, then calculate gas
-	_, adjusted, err := cc.CalculateGas(ctx, txf, CosmosMsgs(msgs...)...)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set the gas amount on the transaction factory
-	txf = txf.WithGas(adjusted)
-
-	var txb client.TxBuilder
-	// Build the transaction builder & retry on failures
-	if err := retry.Do(func() error {
-		txb, err = tx.BuildUnsignedTx(txf, CosmosMsgs(msgs...)...)
-		if err != nil {
-			return err
-		}
-		return nil
-	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
-		return nil, err
-	}
-
-	// Attach the signature to the transaction
-	// Force encoding in the chain specific address
-	for _, msg := range msgs {
-		cc.Codec.Marshaler.MustMarshalJSON(CosmosMsg(msg))
-	}
-
-	done := cc.SetSDKContext()
-
-	if err := retry.Do(func() error {
-		if err := tx.Sign(txf, cc.PCfg.Key, txb, false); err != nil {
-			return err
-		}
-		return nil
-	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
-		return nil, err
-	}
-
-	done()
-
-	var txBytes []byte
-	// Generate the transaction bytes
-	if err := retry.Do(func() error {
-		var err error
-		txBytes, err = cc.Codec.TxConfig.TxEncoder()(txb.GetTx())
-		if err != nil {
-			return err
-		}
-		return nil
-	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
-		return nil, err
-	}
-
-	return txBytes, nil
-}
-
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (cc *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header, signer string) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header, signer string) (provider.RelayerMessage, error) {
 	tmHeader, ok := dstHeader.(*tmclient.Header)
 	if !ok {
 		return nil, fmt.Errorf("got data of type %T but wanted tmclient.Header", dstHeader)
@@ -303,20 +367,37 @@ func (cc *CosmosProvider) CreateClient(clientState ibcexported.ClientState, dstH
 		Signer:         signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) SubmitMisbehavior( /*TBD*/ ) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) SubmitMisbehavior( /*TBD*/ ) (provider.RelayerMessage, error) {
 	return nil, nil
 }
 
-func (cc *CosmosProvider) MsgUpdateClient(srcClientId string, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgUpdateClient(srcClientId string, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
+	fmt.Println("PENUMBRA update client")
 	acc, err := cc.Address()
 	if err != nil {
 		return nil, err
 	}
 
-	anyHeader, err := clienttypes.PackHeader(dstHeader)
+	cosmosheader, ok := dstHeader.(*tmclient.Header)
+	if !ok {
+		panic("not cosmos header")
+	}
+
+	valSet, err := tmtypes.ValidatorSetFromProto(cosmosheader.ValidatorSet)
+	if err != nil {
+		return nil, err
+	}
+	trustedValset, err := tmtypes.ValidatorSetFromProto(cosmosheader.TrustedValidators)
+	if err != nil {
+		return nil, err
+	}
+	cosmosheader.ValidatorSet.TotalVotingPower = valSet.TotalVotingPower()
+	cosmosheader.TrustedValidators.TotalVotingPower = trustedValset.TotalVotingPower()
+
+	anyHeader, err := clienttypes.PackHeader(cosmosheader)
 	if err != nil {
 		return nil, err
 	}
@@ -327,16 +408,17 @@ func (cc *CosmosProvider) MsgUpdateClient(srcClientId string, dstHeader ibcexpor
 		Signer:   acc,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) ConnectionOpenInit(srcClientId, dstClientId string, dstPrefix commitmenttypes.MerklePrefix, dstHeader ibcexported.Header) ([]provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ConnectionOpenInit(srcClientId, dstClientId string, dstPrefix commitmenttypes.MerklePrefix, dstHeader ibcexported.Header) ([]provider.RelayerMessage, error) {
 	var (
 		acc     string
 		err     error
 		version *conntypes.Version
 	)
 	version = conntypes.DefaultIBCVersion
+
 	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstHeader)
 	if err != nil {
 		return nil, err
@@ -359,10 +441,11 @@ func (cc *CosmosProvider) ConnectionOpenInit(srcClientId, dstClientId string, ds
 		Signer:       acc,
 	}
 
-	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstPrefix commitmenttypes.MerklePrefix, srcClientId, dstClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstPrefix commitmenttypes.MerklePrefix, srcClientId, dstClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
+	fmt.Println("CONN OPEN TRY")
 	var (
 		acc string
 		err error
@@ -424,10 +507,10 @@ func (cc *CosmosProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvide
 		Signer:          acc,
 	}
 
-	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -473,10 +556,10 @@ func (cc *CosmosProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvide
 		Signer:          acc,
 	}
 
-	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ConnectionOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ConnectionOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -506,10 +589,10 @@ func (cc *CosmosProvider) ConnectionOpenConfirm(ctx context.Context, dstQueryPro
 		Signer:       acc,
 	}
 
-	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.Header) ([]provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.Header) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -538,10 +621,10 @@ func (cc *CosmosProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, src
 		Signer: acc,
 	}
 
-	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -591,10 +674,10 @@ func (cc *CosmosProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider p
 		Signer:              acc,
 	}
 
-	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -628,10 +711,10 @@ func (cc *CosmosProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider p
 		Signer:                acc,
 	}
 
-	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChanId string) ([]provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChanId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -662,10 +745,10 @@ func (cc *CosmosProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvid
 		Signer:      acc,
 	}
 
-	return []provider.RelayerMessage{updateMsg, NewCosmosMessage(msg)}, nil
+	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
-func (cc *CosmosProvider) ChannelCloseInit(srcPortId, srcChanId string) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ChannelCloseInit(srcPortId, srcChanId string) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -680,10 +763,10 @@ func (cc *CosmosProvider) ChannelCloseInit(srcPortId, srcChanId string) (provide
 		Signer:    acc,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) ChannelCloseConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ChannelCloseConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dsth int64, dstChanId, dstPortId, srcPortId, srcChanId string) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -705,10 +788,10 @@ func (cc *CosmosProvider) ChannelCloseConfirm(ctx context.Context, dstQueryProvi
 		Signer:      acc,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -716,13 +799,13 @@ func (cc *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clientty
 	if acc, err = cc.Address(); err != nil {
 		return nil, err
 	}
-	return NewCosmosMessage(&clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
+	return cosmos.NewCosmosMessage(&clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
 		ConsensusState: consRes.ConsensusState, ProofUpgradeClient: consRes.GetProof(),
 		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}), nil
 }
 
 // AutoUpdateClient update client automatically to prevent expiry
-func (cc *CosmosProvider) AutoUpdateClient(ctx context.Context, dst provider.ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error) {
+func (cc *PenumbraProvider) AutoUpdateClient(ctx context.Context, dst provider.ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error) {
 	srch, err := cc.QueryLatestHeight(ctx)
 	if err != nil {
 		return 0, err
@@ -812,7 +895,7 @@ func (cc *CosmosProvider) AutoUpdateClient(ctx context.Context, dst provider.Cha
 
 	res, success, err := cc.SendMessages(ctx, msgs, "")
 	if err != nil {
-		// cp.LogFailedTx(res, err, CosmosMsgs(msgs...))
+		// cp.LogFailedTx(res, err, PenumbraMsgs(msgs...))
 		return 0, err
 	}
 	if !success {
@@ -840,7 +923,7 @@ func mustGetHeight(h ibcexported.Height) clienttypes.Height {
 
 // MsgRelayAcknowledgement constructs the MsgAcknowledgement which is to be sent to the sending chain.
 // The counterparty represents the receiving chain where the acknowledgement would be stored.
-func (cc *CosmosProvider) MsgRelayAcknowledgement(ctx context.Context, dst provider.ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet provider.RelayPacket) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgRelayAcknowledgement(ctx context.Context, dst provider.ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet provider.RelayPacket) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -880,12 +963,12 @@ func (cc *CosmosProvider) MsgRelayAcknowledgement(ctx context.Context, dst provi
 			Signer:          acc,
 		}
 
-		return NewCosmosMessage(msg), nil
+		return cosmos.NewCosmosMessage(msg), nil
 	}
 }
 
 // MsgTransfer creates a new transfer message
-func (cc *CosmosProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanId string, timeoutHeight, timeoutTimestamp uint64) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanId string, timeoutHeight, timeoutTimestamp uint64) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -922,13 +1005,13 @@ func (cc *CosmosProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcP
 		}
 	}
 
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 // MsgRelayTimeout constructs the MsgTimeout which is to be sent to the sending chain.
 // The counterparty represents the receiving chain where the receipts would have been
 // stored.
-func (cc *CosmosProvider) MsgRelayTimeout(
+func (cc *PenumbraProvider) MsgRelayTimeout(
 	ctx context.Context,
 	dst provider.ChainProvider,
 	dsth int64,
@@ -964,7 +1047,7 @@ func (cc *CosmosProvider) MsgRelayTimeout(
 	return msg, nil
 }
 
-func (cc *CosmosProvider) orderedChannelTimeoutMsg(
+func (cc *PenumbraProvider) orderedChannelTimeoutMsg(
 	ctx context.Context,
 	dst provider.ChainProvider,
 	dsth int64,
@@ -1001,10 +1084,10 @@ func (cc *CosmosProvider) orderedChannelTimeoutMsg(
 		Signer:           acc,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) unorderedChannelTimeoutMsg(
+func (cc *PenumbraProvider) unorderedChannelTimeoutMsg(
 	ctx context.Context,
 	dst provider.ChainProvider,
 	dsth int64,
@@ -1040,12 +1123,12 @@ func (cc *CosmosProvider) unorderedChannelTimeoutMsg(
 		NextSequenceRecv: packet.Seq(),
 		Signer:           acc,
 	}
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
 // MsgRelayRecvPacket constructs the MsgRecvPacket which is to be sent to the receiving chain.
 // The counterparty represents the sending chain where the packet commitment would be stored.
-func (cc *CosmosProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.ChainProvider, dsth int64, packet provider.RelayPacket, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -1079,11 +1162,11 @@ func (cc *CosmosProvider) MsgRelayRecvPacket(ctx context.Context, dst provider.C
 			Signer:          acc,
 		}
 
-		return NewCosmosMessage(msg), nil
+		return cosmos.NewCosmosMessage(msg), nil
 	}
 }
 
-func (cc *CosmosProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest provider.LatestBlock) error {
+func (cc *PenumbraProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest provider.LatestBlock) error {
 	if msgTransfer.Sequence == 0 {
 		return errors.New("refusing to relay packet with sequence: 0")
 	}
@@ -1110,57 +1193,38 @@ func (cc *CosmosProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest
 	return nil
 }
 
-func (cc *CosmosProvider) PacketCommitment(
-	ctx context.Context,
-	msgTransfer provider.PacketInfo,
-	height uint64,
-) (provider.PacketProof, error) {
+func (cc *PenumbraProvider) PacketCommitment(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 	key := host.PacketCommitmentKey(msgTransfer.SourcePort, msgTransfer.SourceChannel, msgTransfer.Sequence)
-	commitment, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
+	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
 		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet commitment: %w", err)
 	}
-	// check if packet commitment exists
-	if len(commitment) == 0 {
-		return provider.PacketProof{}, chantypes.ErrPacketCommitmentNotFound
-	}
-
 	return provider.PacketProof{
 		Proof:       proof,
 		ProofHeight: proofHeight,
 	}, nil
 }
 
-func (cc *CosmosProvider) MsgRecvPacket(
-	msgTransfer provider.PacketInfo,
-	proof provider.PacketProof,
-) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
 	}
 	msg := &chantypes.MsgRecvPacket{
-		Packet:          toCosmosPacket(msgTransfer),
+		Packet:          toPenumbraPacket(msgTransfer),
 		ProofCommitment: proof.Proof,
 		ProofHeight:     proof.ProofHeight,
 		Signer:          signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) PacketAcknowledgement(
-	ctx context.Context,
-	msgRecvPacket provider.PacketInfo,
-	height uint64,
-) (provider.PacketProof, error) {
+func (cc *PenumbraProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 	key := host.PacketAcknowledgementKey(msgRecvPacket.DestPort, msgRecvPacket.DestChannel, msgRecvPacket.Sequence)
-	ack, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
+	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
 		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet acknowledgement: %w", err)
-	}
-	if len(ack) == 0 {
-		return provider.PacketProof{}, chantypes.ErrInvalidAcknowledgement
 	}
 	return provider.PacketProof{
 		Proof:       proof,
@@ -1168,30 +1232,23 @@ func (cc *CosmosProvider) PacketAcknowledgement(
 	}, nil
 }
 
-func (cc *CosmosProvider) MsgAcknowledgement(
-	msgRecvPacket provider.PacketInfo,
-	proof provider.PacketProof,
-) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
 	}
 	msg := &chantypes.MsgAcknowledgement{
-		Packet:          toCosmosPacket(msgRecvPacket),
+		Packet:          toPenumbraPacket(msgRecvPacket),
 		Acknowledgement: msgRecvPacket.Ack,
 		ProofAcked:      proof.Proof,
 		ProofHeight:     proof.ProofHeight,
 		Signer:          signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) PacketReceipt(
-	ctx context.Context,
-	msgTransfer provider.PacketInfo,
-	height uint64,
-) (provider.PacketProof, error) {
+func (cc *PenumbraProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 	key := host.PacketReceiptKey(msgTransfer.DestPort, msgTransfer.DestChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
@@ -1204,59 +1261,39 @@ func (cc *CosmosProvider) PacketReceipt(
 	}, nil
 }
 
-// NextSeqRecv queries for the appropriate Tendermint proof required to prove the next expected packet sequence number
-// for a given counterparty channel. This is used in ORDERED channels to ensure packets are being delivered in the
-// exact same order as they were sent over the wire.
-func (cc *CosmosProvider) NextSeqRecv(
-	ctx context.Context,
-	msgTransfer provider.PacketInfo,
-	height uint64,
-) (provider.PacketProof, error) {
-	key := host.NextSequenceRecvKey(msgTransfer.DestPort, msgTransfer.DestChannel)
-	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
-	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for next sequence receive: %w", err)
-	}
-
-	return provider.PacketProof{
-		Proof:       proof,
-		ProofHeight: proofHeight,
-	}, nil
-}
-
-func (cc *CosmosProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
 	}
 	assembled := &chantypes.MsgTimeout{
-		Packet:           toCosmosPacket(msgTransfer),
+		Packet:           toPenumbraPacket(msgTransfer),
 		ProofUnreceived:  proof.Proof,
 		ProofHeight:      proof.ProofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,
 		Signer:           signer,
 	}
 
-	return NewCosmosMessage(assembled), nil
+	return cosmos.NewCosmosMessage(assembled), nil
 }
 
-func (cc *CosmosProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
 	}
 	assembled := &chantypes.MsgTimeoutOnClose{
-		Packet:           toCosmosPacket(msgTransfer),
+		Packet:           toPenumbraPacket(msgTransfer),
 		ProofUnreceived:  proof.Proof,
 		ProofHeight:      proof.ProofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,
 		Signer:           signer,
 	}
 
-	return NewCosmosMessage(assembled), nil
+	return cosmos.NewCosmosMessage(assembled), nil
 }
 
-func (cc *CosmosProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1268,19 +1305,15 @@ func (cc *CosmosProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, pr
 			ConnectionId: "",
 			Prefix:       info.CounterpartyPrefix,
 		},
-		Version:     nil,
+		Version:     conntypes.DefaultIBCVersion,
 		DelayPeriod: defaultDelayPeriod,
 		Signer:      signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) ConnectionHandshakeProof(
-	ctx context.Context,
-	msgOpenInit provider.ConnectionInfo,
-	height uint64,
-) (provider.ConnectionProof, error) {
+func (cc *PenumbraProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenInit provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
 	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := cc.GenerateConnHandshakeProof(ctx, int64(height), msgOpenInit.ClientID, msgOpenInit.ConnID)
 	if err != nil {
 		return provider.ConnectionProof{}, err
@@ -1303,10 +1336,7 @@ func (cc *CosmosProvider) ConnectionHandshakeProof(
 	}, nil
 }
 
-func (cc *CosmosProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
-	fmt.Println("CONNECTION OPEN TRY")
-	fmt.Println("PREFIX:", msgOpenInit.CounterpartyPrefix)
-
+func (cc *PenumbraProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1338,10 +1368,15 @@ func (cc *CosmosProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionIn
 		Signer:               signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
+var called = 0
+
+func (cc *PenumbraProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
+	if called != 0 {
+		panic("DUPLICATE CALL")
+	}
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1368,14 +1403,32 @@ func (cc *CosmosProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInf
 		Signer:          signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	called++
+
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) ConnectionProof(
+// NextSeqRecv queries for the appropriate Tendermint proof required to prove the next expected packet sequence number
+// for a given counterparty channel. This is used in ORDERED channels to ensure packets are being delivered in the
+// exact same order as they were sent over the wire.
+func (cc *PenumbraProvider) NextSeqRecv(
 	ctx context.Context,
-	msgOpenAck provider.ConnectionInfo,
+	msgTransfer provider.PacketInfo,
 	height uint64,
-) (provider.ConnectionProof, error) {
+) (provider.PacketProof, error) {
+	key := host.NextSequenceRecvKey(msgTransfer.DestPort, msgTransfer.DestChannel)
+	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
+	if err != nil {
+		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for next sequence receive: %w", err)
+	}
+
+	return provider.PacketProof{
+		Proof:       proof,
+		ProofHeight: proofHeight,
+	}, nil
+}
+
+func (cc *PenumbraProvider) ConnectionProof(ctx context.Context, msgOpenAck provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
 	connState, err := cc.QueryConnection(ctx, int64(height), msgOpenAck.ConnID)
 	if err != nil {
 		return provider.ConnectionProof{}, err
@@ -1387,7 +1440,7 @@ func (cc *CosmosProvider) ConnectionProof(
 	}, nil
 }
 
-func (cc *CosmosProvider) MsgConnectionOpenConfirm(msgOpenAck provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgConnectionOpenConfirm(msgOpenAck provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1399,10 +1452,10 @@ func (cc *CosmosProvider) MsgConnectionOpenConfirm(msgOpenAck provider.Connectio
 		Signer:       signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1422,14 +1475,10 @@ func (cc *CosmosProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof pr
 		Signer: signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) ChannelProof(
-	ctx context.Context,
-	msg provider.ChannelInfo,
-	height uint64,
-) (provider.ChannelProof, error) {
+func (cc *PenumbraProvider) ChannelProof(ctx context.Context, msg provider.ChannelInfo, height uint64) (provider.ChannelProof, error) {
 	channelRes, err := cc.QueryChannel(ctx, int64(height), msg.ChannelID, msg.PortID)
 	if err != nil {
 		return provider.ChannelProof{}, err
@@ -1442,7 +1491,7 @@ func (cc *CosmosProvider) ChannelProof(
 	}, nil
 }
 
-func (cc *CosmosProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1469,10 +1518,10 @@ func (cc *CosmosProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, pr
 		Signer:              signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1487,10 +1536,10 @@ func (cc *CosmosProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, pro
 		Signer:                signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1503,10 +1552,10 @@ func (cc *CosmosProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo,
 		Signer:      signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1517,10 +1566,10 @@ func (cc *CosmosProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof p
 		Signer:    signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1533,18 +1582,18 @@ func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelIn
 		Signer:      signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.Header, error) {
-	trustedCosmosHeader, ok := trustedHeader.(CosmosIBCHeader)
+func (cc *PenumbraProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.Header, error) {
+	trustedCosmosHeader, ok := trustedHeader.(PenumbraIBCHeader)
 	if !ok {
-		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: CosmosIBCHeader, actual: %T", trustedHeader)
+		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: PenumbraIBCHeader, actual: %T", trustedHeader)
 	}
 
-	latestCosmosHeader, ok := latestHeader.(CosmosIBCHeader)
+	latestCosmosHeader, ok := latestHeader.(PenumbraIBCHeader)
 	if !ok {
-		return nil, fmt.Errorf("unsupported IBC header type, expected: CosmosIBCHeader, actual: %T", latestHeader)
+		return nil, fmt.Errorf("unsupported IBC header type, expected: PenumbraIBCHeader, actual: %T", latestHeader)
 	}
 
 	trustedValidatorsProto, err := trustedCosmosHeader.ValidatorSet.ToProto()
@@ -1568,7 +1617,7 @@ func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
 }
 
 // RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
-func (cc *CosmosProvider) RelayPacketFromSequence(
+func (cc *PenumbraProvider) RelayPacketFromSequence(
 	ctx context.Context,
 	src, dst provider.ChainProvider,
 	srch, dsth, seq uint64,
@@ -1626,7 +1675,7 @@ func (cc *CosmosProvider) RelayPacketFromSequence(
 }
 
 // AcknowledgementFromSequence relays an acknowledgement with a given seq on src, source is the sending chain, destination is the receiving chain
-func (cc *CosmosProvider) AcknowledgementFromSequence(ctx context.Context, dst provider.ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) AcknowledgementFromSequence(ctx context.Context, dst provider.ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
 	txs, err := dst.QueryTxs(ctx, 1, 1000, ackPacketQuery(dstChanId, int(seq)))
 	switch {
 	case err != nil:
@@ -1671,7 +1720,7 @@ func ackPacketQuery(channelID string, seq int) []string {
 
 // relayPacketsFromResultTx looks through the events in a *ctypes.ResultTx
 // and returns relayPackets with the appropriate data
-func (cc *CosmosProvider) relayPacketsFromResultTx(ctx context.Context, src, dst provider.ChainProvider, dsth int64, resp *provider.RelayerTxResponse, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
+func (cc *PenumbraProvider) relayPacketsFromResultTx(ctx context.Context, src, dst provider.ChainProvider, dsth int64, resp *provider.RelayerTxResponse, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
 	var (
 		rcvPackets     []provider.RelayPacket
 		timeoutPackets []provider.RelayPacket
@@ -1784,7 +1833,7 @@ EventLoop:
 
 // acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
 // relayPackets with the appropriate data
-func (cc *CosmosProvider) acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId string, resp *provider.RelayerTxResponse) ([]provider.RelayPacket, error) {
+func (cc *PenumbraProvider) acknowledgementsFromResultTx(dstChanId, dstPortId, srcChanId, srcPortId string, resp *provider.RelayerTxResponse) ([]provider.RelayPacket, error) {
 	var ackPackets []provider.RelayPacket
 
 EventLoop:
@@ -1875,7 +1924,7 @@ EventLoop:
 // returns an IBC Update Header which can be used to update an on chain
 // light client on the destination chain. The source is used to construct
 // the header data.
-func (cc *CosmosProvider) GetIBCUpdateHeader(ctx context.Context, srch int64, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
+func (cc *PenumbraProvider) GetIBCUpdateHeader(ctx context.Context, srch int64, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
 	// Construct header data from light client representing source.
 	h, err := cc.GetLightSignedHeaderAtHeight(ctx, srch)
 	if err != nil {
@@ -1886,7 +1935,7 @@ func (cc *CosmosProvider) GetIBCUpdateHeader(ctx context.Context, srch int64, ds
 	return cc.InjectTrustedFields(ctx, h, dst, dstClientId)
 }
 
-func (cc *CosmosProvider) IBCHeaderAtHeight(ctx context.Context, h int64) (provider.IBCHeader, error) {
+func (cc *PenumbraProvider) IBCHeaderAtHeight(ctx context.Context, h int64) (provider.IBCHeader, error) {
 	if h == 0 {
 		return nil, fmt.Errorf("height cannot be 0")
 	}
@@ -1896,13 +1945,13 @@ func (cc *CosmosProvider) IBCHeaderAtHeight(ctx context.Context, h int64) (provi
 		return nil, err
 	}
 
-	return CosmosIBCHeader{
+	return PenumbraIBCHeader{
 		SignedHeader: lightBlock.SignedHeader,
 		ValidatorSet: lightBlock.ValidatorSet,
 	}, nil
 }
 
-func (cc *CosmosProvider) GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error) {
+func (cc *PenumbraProvider) GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error) {
 	if h == 0 {
 		return nil, fmt.Errorf("height cannot be 0")
 	}
@@ -1929,7 +1978,7 @@ func (cc *CosmosProvider) GetLightSignedHeaderAtHeight(ctx context.Context, h in
 // TrustedHeight is the latest height of the IBC client on dst
 // TrustedValidators is the validator set of srcChain at the TrustedHeight
 // InjectTrustedFields returns a copy of the header with TrustedFields modified
-func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexported.Header, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
+func (cc *PenumbraProvider) InjectTrustedFields(ctx context.Context, header ibcexported.Header, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
 	// make copy of header stored in mop
 	h, ok := header.(*tmclient.Header)
 	if !ok {
@@ -1980,7 +2029,7 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 
 // queryTMClientState retrieves the latest consensus state for a client in state at a given height
 // and unpacks/cast it to tendermint clientstate
-func (cc *CosmosProvider) queryTMClientState(ctx context.Context, srch int64, srcClientId string) (*tmclient.ClientState, error) {
+func (cc *PenumbraProvider) queryTMClientState(ctx context.Context, srch int64, srcClientId string) (*tmclient.ClientState, error) {
 	clientStateRes, err := cc.QueryClientStateResponse(ctx, srch, srcClientId)
 	if err != nil {
 		return &tmclient.ClientState{}, err
@@ -2009,7 +2058,101 @@ func castClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) 
 //DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
 var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 
-func (cc *CosmosProvider) NewClientState(dstUpdateHeader ibcexported.Header, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
+/*
+fn apphash_spec() -> ics23::ProofSpec {
+    ics23::ProofSpec {
+        // the leaf hash is simply H(key || value)
+        leaf_spec: Some(ics23::LeafOp {
+            prefix: vec![],
+            hash: ics23::HashOp::Sha256.into(),
+            length: ics23::LengthOp::NoPrefix.into(),
+            prehash_key: ics23::HashOp::NoHash.into(),
+            prehash_value: ics23::HashOp::NoHash.into(),
+        }),
+        // NOTE: we don't actually use any InnerOps.
+        inner_spec: Some(ics23::InnerSpec {
+            hash: ics23::HashOp::Sha256.into(),
+            child_order: vec![0, 1],
+            child_size: 32,
+            empty_child: vec![],
+            min_prefix_length: 0,
+            max_prefix_length: 0,
+        }),
+        min_depth: 0,
+        max_depth: 1,
+    }
+}
+
+pub fn ics23_spec() -> ics23::ProofSpec {
+    ics23::ProofSpec {
+        leaf_spec: Some(ics23::LeafOp {
+            hash: ics23::HashOp::Sha256.into(),
+            prehash_key: ics23::HashOp::Sha256.into(),
+            prehash_value: ics23::HashOp::Sha256.into(),
+            length: ics23::LengthOp::NoPrefix.into(),
+            prefix: b"JMT::LeafNode".to_vec(),
+        }),
+        inner_spec: Some(ics23::InnerSpec {
+            // This is the only field we're sure about
+            hash: ics23::HashOp::Sha256.into(),
+            // These fields are apparently used for neighbor tests in range proofs,
+            // and could be wrong:
+            child_order: vec![0, 1], //where exactly does this need to be true?
+            min_prefix_length: 16,   //what is this?
+            max_prefix_length: 48,   //and this?
+            child_size: 32,
+            empty_child: vec![], //check JMT repo to determine if special value used here
+        }),
+        // TODO: check this
+        min_depth: 0,
+        // TODO:
+        max_depth: 64,
+    }
+*/
+
+var JmtSpec = &ics23.ProofSpec{
+	LeafSpec: &ics23.LeafOp{
+		Hash:         ics23.HashOp_SHA256,
+		PrehashKey:   ics23.HashOp_SHA256,
+		PrehashValue: ics23.HashOp_SHA256,
+		Length:       ics23.LengthOp_NO_PREFIX,
+		Prefix:       []byte("JMT::LeafNode"),
+	},
+	InnerSpec: &ics23.InnerSpec{
+		Hash:            ics23.HashOp_SHA256,
+		ChildOrder:      []int32{0, 1},
+		MinPrefixLength: 16,
+		MaxPrefixLength: 48,
+		ChildSize:       32,
+		EmptyChild:      nil,
+	},
+	MinDepth: 0,
+	MaxDepth: 64,
+}
+
+var ApphashSpec = &ics23.ProofSpec{
+	LeafSpec: &ics23.LeafOp{
+		Prefix:       nil,
+		Hash:         ics23.HashOp_SHA256,
+		Length:       ics23.LengthOp_NO_PREFIX,
+		PrehashKey:   ics23.HashOp_NO_HASH,
+		PrehashValue: ics23.HashOp_NO_HASH,
+	},
+	InnerSpec: &ics23.InnerSpec{
+		Hash:            ics23.HashOp_SHA256,
+		MaxPrefixLength: 0,
+		MinPrefixLength: 0,
+		ChildOrder:      []int32{0, 1},
+		ChildSize:       32,
+		EmptyChild:      nil,
+	},
+	MinDepth: 0,
+	MaxDepth: 1,
+}
+
+var PenumbraProofSpecs = []*ics23.ProofSpec{JmtSpec, ApphashSpec}
+
+func (cc *PenumbraProvider) NewClientState(dstUpdateHeader ibcexported.Header, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
 	dstTmHeader, ok := dstUpdateHeader.(*tmclient.Header)
 	if !ok {
 		return nil, fmt.Errorf("got data of type %T but wanted tmclient.Header", dstUpdateHeader)
@@ -2024,7 +2167,7 @@ func (cc *CosmosProvider) NewClientState(dstUpdateHeader ibcexported.Header, dst
 		MaxClockDrift:                time.Minute * 10,
 		FrozenHeight:                 clienttypes.ZeroHeight(),
 		LatestHeight:                 dstUpdateHeader.GetHeight().(clienttypes.Height),
-		ProofSpecs:                   commitmenttypes.GetSDKSpecs(),
+		ProofSpecs:                   PenumbraProofSpecs,
 		UpgradePath:                  defaultUpgradePath,
 		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
 		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,

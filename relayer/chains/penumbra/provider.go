@@ -8,8 +8,10 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	chantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
+	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
+	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	lens "github.com/strangelove-ventures/lens/client"
@@ -112,6 +114,14 @@ type PenumbraProvider struct {
 type PenumbraIBCHeader struct {
 	SignedHeader *tmtypes.SignedHeader
 	ValidatorSet *tmtypes.ValidatorSet
+}
+
+func (h PenumbraIBCHeader) ConsensusState() ibcexported.ConsensusState {
+	return &tmclient.ConsensusState{
+		Timestamp:          h.SignedHeader.Time,
+		Root:               commitmenttypes.NewMerkleRoot(h.SignedHeader.AppHash),
+		NextValidatorsHash: h.ValidatorSet.Hash(),
+	}
 }
 
 // noop to implement processor.IBCHeader
