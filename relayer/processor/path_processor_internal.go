@@ -593,6 +593,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 		for seq, ackInfo := range pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeWriteAck] {
 			if recvPacketInfo, ok := pathEnd1DstMsgRecvPacket[seq]; ok {
 				recvPacketInfo.Ack = ackInfo.Ack
+				pathEnd1DstMsgRecvPacket[seq] = recvPacketInfo
 			}
 		}
 
@@ -600,6 +601,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 		for seq, ackInfo := range pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeWriteAck] {
 			if recvPacketInfo, ok := pathEnd2DstMsgRecvPacket[seq]; ok {
 				recvPacketInfo.Ack = ackInfo.Ack
+				pathEnd2DstMsgRecvPacket[seq] = recvPacketInfo
 			}
 		}
 
