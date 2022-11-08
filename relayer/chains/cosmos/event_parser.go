@@ -50,42 +50,15 @@ func ibcMessagesFromEvents(
 	chainID string,
 	height uint64,
 ) (messages []ibcMessage) {
-	recvPacketMsgs := make(map[packetKey]*packetInfo)
 	for _, event := range events {
 		evt := sdk.StringifyEvent(event)
-		switch event.Type {
-		case chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck:
-			pi := &packetInfo{Height: height}
-			pi.parseAttrs(log, evt.Attributes)
-			ck, err := processor.PacketInfoChannelKey(event.Type, provider.PacketInfo(*pi))
-			if err == nil {
-				pk := packetKey{
-					sequence: pi.Sequence,
-					channel:  ck,
-				}
-				_, ok := recvPacketMsgs[pk]
-				if !ok {
-					recvPacketMsgs[pk] = pi
-				}
-				recvPacketMsgs[pk].parseAttrs(log, evt.Attributes)
-			}
-		default:
-			m := parseIBCMessageFromEvent(log, evt, chainID, height)
-			if m == nil || m.info == nil {
-				// Not an IBC message, don't need to log here
-				continue
-			}
-			messages = append(messages, *m)
+		m := parseIBCMessageFromEvent(log, evt, chainID, height)
+		if m == nil || m.info == nil {
+			// Not an IBC message, don't need to log here
+			continue
 		}
+		messages = append(messages, *m)
 	}
-
-	for _, recvPacketMsg := range recvPacketMsgs {
-		messages = append(messages, ibcMessage{
-			eventType: chantypes.EventTypeRecvPacket,
-			info:      recvPacketMsg,
-		})
-	}
-
 	return messages
 }
 
@@ -96,7 +69,7 @@ func parseIBCMessageFromEvent(
 	height uint64,
 ) *ibcMessage {
 	switch event.Type {
-	case chantypes.EventTypeSendPacket,
+	case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck,
 		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
 		chantypes.EventTypeTimeoutPacketOnClose:
 		pi := &packetInfo{Height: height}

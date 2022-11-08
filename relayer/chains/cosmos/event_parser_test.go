@@ -302,7 +302,7 @@ func TestParseEventLogs(t *testing.T) {
 
 	ibcMessages := ibcMessagesFromEvents(zap.NewNop(), events, "", 0)
 
-	require.Len(t, ibcMessages, 2)
+	require.Len(t, ibcMessages, 3)
 
 	msgUpdateClient := ibcMessages[0]
 	require.Equal(t, clienttypes.EventTypeUpdateClient, msgUpdateClient.eventType)
@@ -322,7 +322,13 @@ func TestParseEventLogs(t *testing.T) {
 	require.Equal(t, chantypes.EventTypeRecvPacket, msgRecvPacket.eventType, "message event is not recv_packet")
 
 	packetInfoParsed, isPacketInfo := msgRecvPacket.info.(*packetInfo)
-	require.True(t, isPacketInfo, "messageInfo is not packetInfo")
+	require.True(t, isPacketInfo, "recv_packet messageInfo is not packetInfo")
+
+	msgWriteAcknowledgement := ibcMessages[2]
+	require.Equal(t, chantypes.EventTypeWriteAck, msgWriteAcknowledgement.eventType, "message event is not write_acknowledgement")
+
+	ackPacketInfoParsed, isPacketInfo := msgWriteAcknowledgement.info.(*packetInfo)
+	require.True(t, isPacketInfo, "ack messageInfo is not packetInfo")
 
 	packetAck, err := hex.DecodeString(testPacketAckHex)
 	require.NoError(t, err, "error decoding test packet ack")
@@ -342,6 +348,14 @@ func TestParseEventLogs(t *testing.T) {
 		SourcePort:       testPacketSrcPort,
 		DestChannel:      testPacketDstChannel,
 		DestPort:         testPacketDstPort,
-		Ack:              packetAck,
+	}), "parsed packet info does not match expected")
+
+	require.Empty(t, cmp.Diff(provider.PacketInfo(*ackPacketInfoParsed), provider.PacketInfo{
+		Sequence:      uint64(1),
+		SourceChannel: testPacketSrcChannel,
+		SourcePort:    testPacketSrcPort,
+		DestChannel:   testPacketDstChannel,
+		DestPort:      testPacketDstPort,
+		Ack:           packetAck,
 	}), "parsed packet info does not match expected")
 }

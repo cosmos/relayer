@@ -716,8 +716,11 @@ func (cc *CosmosProvider) QuerySendPacket(
 		return provider.PacketInfo{}, err
 	}
 	for _, msg := range ibcMsgs {
+		if msg.eventType != chantypes.EventTypeSendPacket {
+			continue
+		}
 		if pi, ok := msg.info.(*packetInfo); ok {
-			if pi.Sequence == sequence {
+			if pi.SourceChannel == srcChanID && pi.SourcePort == srcPortID && pi.Sequence == sequence {
 				return provider.PacketInfo(*pi), nil
 			}
 		}
@@ -737,8 +740,11 @@ func (cc *CosmosProvider) QueryRecvPacket(
 		return provider.PacketInfo{}, err
 	}
 	for _, msg := range ibcMsgs {
+		if msg.eventType != chantypes.EventTypeWriteAck {
+			continue
+		}
 		if pi, ok := msg.info.(*packetInfo); ok {
-			if pi.DestChannel == dstChanID && pi.Sequence == sequence {
+			if pi.DestChannel == dstChanID && pi.DestPort == dstPortID && pi.Sequence == sequence {
 				return provider.PacketInfo(*pi), nil
 			}
 		}
