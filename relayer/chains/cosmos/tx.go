@@ -48,7 +48,6 @@ var (
 // Strings for parsing events
 var (
 	spTag       = "send_packet"
-	rpTag       = "recv_packet"
 	waTag       = "write_acknowledgement"
 	srcChanTag  = "packet_src_channel"
 	dstChanTag  = "packet_dst_channel"

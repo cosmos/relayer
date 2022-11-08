@@ -701,14 +701,7 @@ func writeAcknowledgementQuery(channelID string, portID string, seq uint64) stri
 		fmt.Sprintf("%s.packet_dst_port='%s'", waTag, portID),
 		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq),
 	}
-	writeAckPortion := strings.Join(x, " AND ")
-	y := []string{
-		fmt.Sprintf("%s.packet_dst_channel='%s'", rpTag, channelID),
-		fmt.Sprintf("%s.packet_dst_port='%s'", rpTag, portID),
-		fmt.Sprintf("%s.packet_sequence='%d'", rpTag, seq),
-	}
-	recvPacketPortion := strings.Join(y, " AND ")
-	return fmt.Sprintf("(%s) OR (%s)", writeAckPortion, recvPacketPortion)
+	return strings.Join(x, " AND ")
 }
 
 func (cc *CosmosProvider) QuerySendPacket(
@@ -723,6 +716,9 @@ func (cc *CosmosProvider) QuerySendPacket(
 		return provider.PacketInfo{}, err
 	}
 	for _, msg := range ibcMsgs {
+		if msg.eventType != chantypes.EventTypeSendPacket {
+			continue
+		}
 		if pi, ok := msg.info.(*packetInfo); ok {
 			if pi.SourceChannel == srcChanID && pi.SourcePort == srcPortID && pi.Sequence == sequence {
 				return provider.PacketInfo(*pi), nil
@@ -743,27 +739,13 @@ func (cc *CosmosProvider) QueryRecvPacket(
 	if err != nil {
 		return provider.PacketInfo{}, err
 	}
-	var recvPacket *packetInfo
-	var ack []byte
 	for _, msg := range ibcMsgs {
-		if msg.eventType != chantypes.EventTypeRecvPacket && msg.eventType != chantypes.EventTypeWriteAck {
+		if msg.eventType != chantypes.EventTypeWriteAck {
 			continue
 		}
 		if pi, ok := msg.info.(*packetInfo); ok {
 			if pi.DestChannel == dstChanID && pi.DestPort == dstPortID && pi.Sequence == sequence {
-				if msg.eventType == chantypes.EventTypeRecvPacket {
-					recvPacket = pi
-					if len(ack) > 0 {
-						recvPacket.Ack = ack
-						return provider.PacketInfo(*pi), nil
-					}
-				} else {
-					ack = pi.Ack
-					if recvPacket != nil {
-						recvPacket.Ack = ack
-						return provider.PacketInfo(*pi), nil
-					}
-				}
+				return provider.PacketInfo(*pi), nil
 			}
 		}
 	}
