@@ -829,7 +829,7 @@ func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRunt
 	}
 	for _, m := range om.pktMsgs {
 		var channel, port string
-		if m.msg.eventType == chantypes.EventTypeRecvPacket || m.msg.eventType == chantypes.EventTypeWriteAck {
+		if m.msg.eventType == chantypes.EventTypeRecvPacket {
 			channel = m.msg.info.DestChannel
 			port = m.msg.info.DestPort
 		} else {
