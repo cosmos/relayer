@@ -46,6 +46,13 @@ func (pp *PathProcessor) getUnrelayedPacketsAndAcksAndToDelete(ctx context.Conte
 
 MsgTransferLoop:
 	for transferSeq, msgTransfer := range pathEndPacketFlowMessages.SrcMsgTransfer {
+		pp.log.Debug("deciding what to do with packet",
+			zap.Uint64("sequence", transferSeq),
+			zap.String("src_channel", msgTransfer.SourceChannel),
+			zap.String("src_port", msgTransfer.SourcePort),
+			zap.String("dst_channel", msgTransfer.DestChannel),
+			zap.String("dst_port", msgTransfer.DestPort),
+		)
 		for ackSeq := range pathEndPacketFlowMessages.SrcMsgAcknowledgement {
 			if transferSeq == ackSeq {
 				// we have an ack for this packet, so packet flow is complete
@@ -54,6 +61,13 @@ MsgTransferLoop:
 				res.ToDeleteDst[chantypes.EventTypeRecvPacket] = append(res.ToDeleteDst[chantypes.EventTypeRecvPacket], transferSeq)
 				res.ToDeleteDst[chantypes.EventTypeWriteAck] = append(res.ToDeleteDst[chantypes.EventTypeWriteAck], transferSeq)
 				res.ToDeleteSrc[chantypes.EventTypeAcknowledgePacket] = append(res.ToDeleteSrc[chantypes.EventTypeAcknowledgePacket], transferSeq)
+				pp.log.Debug("observed ack for packet, removing retention",
+					zap.Uint64("sequence", transferSeq),
+					zap.String("src_channel", msgTransfer.SourceChannel),
+					zap.String("src_port", msgTransfer.SourcePort),
+					zap.String("dst_channel", msgTransfer.DestChannel),
+					zap.String("dst_port", msgTransfer.DestPort),
+				)
 				continue MsgTransferLoop
 			}
 		}
@@ -77,12 +91,34 @@ MsgTransferLoop:
 							},
 						}
 
+						pp.log.Debug("observed timeout for ordered channel, checking if should send close channel",
+							zap.Uint64("sequence", transferSeq),
+							zap.String("src_channel", msgTimeout.SourceChannel),
+							zap.String("src_port", msgTimeout.SourcePort),
+							zap.String("dst_channel", msgTimeout.DestChannel),
+							zap.String("dst_port", msgTimeout.DestPort),
+						)
+
 						if pathEndPacketFlowMessages.Dst.shouldSendChannelMessage(closeChan, pathEndPacketFlowMessages.Src) {
+							pp.log.Debug("observed timeout for ordered channel, sending close channel",
+								zap.Uint64("sequence", transferSeq),
+								zap.String("src_channel", msgTimeout.SourceChannel),
+								zap.String("src_port", msgTimeout.SourcePort),
+								zap.String("dst_channel", msgTimeout.DestChannel),
+								zap.String("dst_port", msgTimeout.DestPort),
+							)
 							res.DstChannelMessage = append(res.DstChannelMessage, closeChan)
 						}
 					} else {
 						// ordered channel, and we have a channel close confirm, so packet-flow and channel-close-flow is complete.
 						// remove all retention of this sequence number and this channel-close-confirm.
+						pp.log.Debug("observed channel close confirm for ordered channel, removing retention",
+							zap.Uint64("sequence", transferSeq),
+							zap.String("src_channel", msgTimeout.SourceChannel),
+							zap.String("src_port", msgTimeout.SourcePort),
+							zap.String("dst_channel", msgTimeout.DestChannel),
+							zap.String("dst_port", msgTimeout.DestPort),
+						)
 						res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm] = append(res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm], pathEndPacketFlowMessages.ChannelKey.Counterparty())
 						res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], transferSeq)
 						res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], transferSeq)
@@ -90,16 +126,30 @@ MsgTransferLoop:
 				} else {
 					// unordered channel, and we have a timeout for this packet, so packet flow is complete
 					// remove all retention of this sequence number
+					pp.log.Debug("observed timeout for unordered channel, removing retention",
+						zap.Uint64("sequence", transferSeq),
+						zap.String("src_channel", msgTimeout.SourceChannel),
+						zap.String("src_port", msgTimeout.SourcePort),
+						zap.String("dst_channel", msgTimeout.DestChannel),
+						zap.String("dst_port", msgTimeout.DestPort),
+					)
 					res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], transferSeq)
 					res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], transferSeq)
 				}
 				continue MsgTransferLoop
 			}
 		}
-		for timeoutOnCloseSeq := range pathEndPacketFlowMessages.SrcMsgTimeoutOnClose {
+		for timeoutOnCloseSeq, msgTimeout := range pathEndPacketFlowMessages.SrcMsgTimeoutOnClose {
 			if transferSeq == timeoutOnCloseSeq {
 				// we have a timeout for this packet, so packet flow is complete
 				// remove all retention of this sequence number
+				pp.log.Debug("observed timeout on close, removing retention",
+					zap.Uint64("sequence", transferSeq),
+					zap.String("src_channel", msgTimeout.SourceChannel),
+					zap.String("src_port", msgTimeout.SourcePort),
+					zap.String("dst_channel", msgTimeout.DestChannel),
+					zap.String("dst_port", msgTimeout.DestPort),
+				)
 				res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], transferSeq)
 				res.ToDeleteSrc[chantypes.EventTypeTimeoutPacketOnClose] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacketOnClose], transferSeq)
 				continue MsgTransferLoop
@@ -109,6 +159,13 @@ MsgTransferLoop:
 			if transferSeq == msgRecvSeq {
 				if len(msgAcknowledgement.Ack) == 0 {
 					// have recv_packet but not write_acknowledgement yet. skip for now.
+					pp.log.Debug("observed recv packet but don't have write acknowledgement yet",
+						zap.Uint64("sequence", transferSeq),
+						zap.String("src_channel", msgAcknowledgement.SourceChannel),
+						zap.String("src_port", msgAcknowledgement.SourcePort),
+						zap.String("dst_channel", msgAcknowledgement.DestChannel),
+						zap.String("dst_port", msgAcknowledgement.DestPort),
+					)
 					continue MsgTransferLoop
 				}
 				// msg is received by dst chain, but no ack yet. Need to relay ack from dst to src!
@@ -116,13 +173,34 @@ MsgTransferLoop:
 					eventType: chantypes.EventTypeAcknowledgePacket,
 					info:      msgAcknowledgement,
 				}
+				pp.log.Debug("observed recv packet and have ack, checking if should send ack",
+					zap.Uint64("sequence", transferSeq),
+					zap.String("src_channel", msgAcknowledgement.SourceChannel),
+					zap.String("src_port", msgAcknowledgement.SourcePort),
+					zap.String("dst_channel", msgAcknowledgement.DestChannel),
+					zap.String("dst_port", msgAcknowledgement.DestPort),
+				)
 				if pathEndPacketFlowMessages.Src.shouldSendPacketMessage(ackMsg, pathEndPacketFlowMessages.Dst) {
+					pp.log.Debug("observed recv packet and have ack, sending ack",
+						zap.Uint64("sequence", transferSeq),
+						zap.String("src_channel", msgAcknowledgement.SourceChannel),
+						zap.String("src_port", msgAcknowledgement.SourcePort),
+						zap.String("dst_channel", msgAcknowledgement.DestChannel),
+						zap.String("dst_port", msgAcknowledgement.DestPort),
+					)
 					res.SrcMessages = append(res.SrcMessages, ackMsg)
 				}
 				continue MsgTransferLoop
 			}
 		}
 		// Packet is not yet relayed! need to relay either MsgRecvPacket from src to dst, or MsgTimeout/MsgTimeoutOnClose from dst to src
+		pp.log.Debug("observed send packet but don't have recv packet, need to relay",
+			zap.Uint64("sequence", transferSeq),
+			zap.String("src_channel", msgTransfer.SourceChannel),
+			zap.String("src_port", msgTransfer.SourcePort),
+			zap.String("dst_channel", msgTransfer.DestChannel),
+			zap.String("dst_port", msgTransfer.DestPort),
+		)
 		if err := pathEndPacketFlowMessages.Dst.chainProvider.ValidatePacket(msgTransfer, pathEndPacketFlowMessages.Dst.latestBlock); err != nil {
 			var timeoutHeightErr *provider.TimeoutHeightError
 			var timeoutTimestampErr *provider.TimeoutTimestampError
@@ -134,7 +212,21 @@ MsgTransferLoop:
 					eventType: chantypes.EventTypeTimeoutPacket,
 					info:      msgTransfer,
 				}
+				pp.log.Debug("packet timeout expired, need to relay a timeout. checking if should send",
+					zap.Uint64("sequence", transferSeq),
+					zap.String("src_channel", msgTransfer.SourceChannel),
+					zap.String("src_port", msgTransfer.SourcePort),
+					zap.String("dst_channel", msgTransfer.DestChannel),
+					zap.String("dst_port", msgTransfer.DestPort),
+				)
 				if pathEndPacketFlowMessages.Src.shouldSendPacketMessage(timeoutMsg, pathEndPacketFlowMessages.Dst) {
+					pp.log.Debug("packet timeout expired, sending a timeout.",
+						zap.Uint64("sequence", transferSeq),
+						zap.String("src_channel", msgTransfer.SourceChannel),
+						zap.String("src_port", msgTransfer.SourcePort),
+						zap.String("dst_channel", msgTransfer.DestChannel),
+						zap.String("dst_port", msgTransfer.DestPort),
+					)
 					res.SrcMessages = append(res.SrcMessages, timeoutMsg)
 				}
 			case errors.As(err, &timeoutOnCloseErr):
@@ -142,7 +234,21 @@ MsgTransferLoop:
 					eventType: chantypes.EventTypeTimeoutPacketOnClose,
 					info:      msgTransfer,
 				}
+				pp.log.Debug("packet timeout expired due to channel closure, need to relay a timeout. checking if should send",
+					zap.Uint64("sequence", transferSeq),
+					zap.String("src_channel", msgTransfer.SourceChannel),
+					zap.String("src_port", msgTransfer.SourcePort),
+					zap.String("dst_channel", msgTransfer.DestChannel),
+					zap.String("dst_port", msgTransfer.DestPort),
+				)
 				if pathEndPacketFlowMessages.Src.shouldSendPacketMessage(timeoutOnCloseMsg, pathEndPacketFlowMessages.Dst) {
+					pp.log.Debug("packet timeout expired, sending a timeout on close.",
+						zap.Uint64("sequence", transferSeq),
+						zap.String("src_channel", msgTransfer.SourceChannel),
+						zap.String("src_port", msgTransfer.SourcePort),
+						zap.String("dst_channel", msgTransfer.DestChannel),
+						zap.String("dst_port", msgTransfer.DestPort),
+					)
 					res.SrcMessages = append(res.SrcMessages, timeoutOnCloseMsg)
 				}
 			default:
@@ -153,6 +259,13 @@ MsgTransferLoop:
 			}
 			continue MsgTransferLoop
 		}
+		pp.log.Debug("packet needs to be relayed, appending to list",
+			zap.Uint64("sequence", transferSeq),
+			zap.String("src_channel", msgTransfer.SourceChannel),
+			zap.String("src_port", msgTransfer.SourcePort),
+			zap.String("dst_channel", msgTransfer.DestChannel),
+			zap.String("dst_port", msgTransfer.DestPort),
+		)
 		recvPacketMsg := packetIBCMessage{
 			eventType: chantypes.EventTypeRecvPacket,
 			info:      msgTransfer,
@@ -167,13 +280,41 @@ MsgTransferLoop:
 		firstMsg := dstRecvPacketMsgs[0]
 		if firstMsg.info.ChannelOrder == chantypes.ORDERED.String() {
 			// for recv packet messages on ordered channels, only handle the lowest sequence number now.
+			pp.log.Debug("packet on ordered channel needs to be relayed. checking if should send",
+				zap.Uint64("sequence", firstMsg.info.Sequence),
+				zap.String("src_channel", firstMsg.info.SourceChannel),
+				zap.String("src_port", firstMsg.info.SourcePort),
+				zap.String("dst_channel", firstMsg.info.DestChannel),
+				zap.String("dst_port", firstMsg.info.DestPort),
+			)
 			if pathEndPacketFlowMessages.Dst.shouldSendPacketMessage(firstMsg, pathEndPacketFlowMessages.Src) {
+				pp.log.Debug("packet on ordered channel will be relayed",
+					zap.Uint64("sequence", firstMsg.info.Sequence),
+					zap.String("src_channel", firstMsg.info.SourceChannel),
+					zap.String("src_port", firstMsg.info.SourcePort),
+					zap.String("dst_channel", firstMsg.info.DestChannel),
+					zap.String("dst_port", firstMsg.info.DestPort),
+				)
 				res.DstMessages = append(res.DstMessages, firstMsg)
 			}
 		} else {
 			// for unordered channels, can handle multiple simultaneous packets.
 			for _, msg := range dstRecvPacketMsgs {
+				pp.log.Debug("packet on unordered channel needs to be relayed. checking if should send",
+					zap.Uint64("sequence", firstMsg.info.Sequence),
+					zap.String("src_channel", firstMsg.info.SourceChannel),
+					zap.String("src_port", firstMsg.info.SourcePort),
+					zap.String("dst_channel", firstMsg.info.DestChannel),
+					zap.String("dst_port", firstMsg.info.DestPort),
+				)
 				if pathEndPacketFlowMessages.Dst.shouldSendPacketMessage(msg, pathEndPacketFlowMessages.Src) {
+					pp.log.Debug("packet on unordered channel will be relayed",
+						zap.Uint64("sequence", firstMsg.info.Sequence),
+						zap.String("src_channel", firstMsg.info.SourceChannel),
+						zap.String("src_port", firstMsg.info.SourcePort),
+						zap.String("dst_channel", firstMsg.info.DestChannel),
+						zap.String("dst_port", firstMsg.info.DestPort),
+					)
 					res.DstMessages = append(res.DstMessages, msg)
 				}
 			}
