@@ -35,6 +35,37 @@ func (pp *PathProcessor) assemblePacketIBCMessage(
 	return assembled, nil
 }
 
+// getMessagesToSend returns only the lowest sequence message (if it should be sent) for ordered channels,
+// otherwise returns all which should be sent.
+func (pp *PathProcessor) getMessagesToSend(
+	msgs []packetIBCMessage,
+	src, dst *pathEndRuntime,
+) (out []packetIBCMessage) {
+	if len(msgs) == 0 {
+		return
+	}
+	if msgs[0].info.ChannelOrder == chantypes.ORDERED.String() {
+		// for packet messages on ordered channels, only handle the lowest sequence number now.
+		sort.SliceStable(msgs, func(i, j int) bool {
+			return msgs[i].info.Sequence < msgs[j].info.Sequence
+		})
+		firstMsg := msgs[0]
+		if dst.shouldSendPacketMessage(firstMsg, src) {
+			out = append(out, firstMsg)
+		}
+		return out
+	}
+
+	// for unordered channels, can handle multiple simultaneous packets.
+	for _, msg := range msgs {
+		if dst.shouldSendPacketMessage(msg, src) {
+			out = append(out, msg)
+		}
+	}
+	return out
+
+}
+
 func (pp *PathProcessor) getUnrelayedPacketsAndAcksAndToDelete(ctx context.Context, pathEndPacketFlowMessages pathEndPacketFlowMessages) pathEndPacketFlowResponse {
 	res := pathEndPacketFlowResponse{
 		ToDeleteSrc:        make(map[string][]uint64),
@@ -42,7 +73,7 @@ func (pp *PathProcessor) getUnrelayedPacketsAndAcksAndToDelete(ctx context.Conte
 		ToDeleteDstChannel: make(map[string][]ChannelKey),
 	}
 
-	dstRecvPacketMsgs := make([]packetIBCMessage, 0)
+	var dstRecvPacketMsgs, srcAckMsgs, srcTimeoutMsgs, srcTimeoutOnCloseMsgs []packetIBCMessage
 
 MsgTransferLoop:
 	for transferSeq, msgTransfer := range pathEndPacketFlowMessages.SrcMsgTransfer {
@@ -116,9 +147,7 @@ MsgTransferLoop:
 					eventType: chantypes.EventTypeAcknowledgePacket,
 					info:      msgAcknowledgement,
 				}
-				if pathEndPacketFlowMessages.Src.shouldSendPacketMessage(ackMsg, pathEndPacketFlowMessages.Dst) {
-					res.SrcMessages = append(res.SrcMessages, ackMsg)
-				}
+				srcAckMsgs = append(srcAckMsgs, ackMsg)
 				continue MsgTransferLoop
 			}
 		}
@@ -134,17 +163,13 @@ MsgTransferLoop:
 					eventType: chantypes.EventTypeTimeoutPacket,
 					info:      msgTransfer,
 				}
-				if pathEndPacketFlowMessages.Src.shouldSendPacketMessage(timeoutMsg, pathEndPacketFlowMessages.Dst) {
-					res.SrcMessages = append(res.SrcMessages, timeoutMsg)
-				}
+				srcTimeoutMsgs = append(srcTimeoutMsgs, timeoutMsg)
 			case errors.As(err, &timeoutOnCloseErr):
 				timeoutOnCloseMsg := packetIBCMessage{
 					eventType: chantypes.EventTypeTimeoutPacketOnClose,
 					info:      msgTransfer,
 				}
-				if pathEndPacketFlowMessages.Src.shouldSendPacketMessage(timeoutOnCloseMsg, pathEndPacketFlowMessages.Dst) {
-					res.SrcMessages = append(res.SrcMessages, timeoutOnCloseMsg)
-				}
+				srcTimeoutOnCloseMsgs = append(srcTimeoutOnCloseMsgs, timeoutOnCloseMsg)
 			default:
 				pp.log.Error("Packet is invalid",
 					zap.String("chain_id", pathEndPacketFlowMessages.Src.info.ChainID),
@@ -160,25 +185,11 @@ MsgTransferLoop:
 		dstRecvPacketMsgs = append(dstRecvPacketMsgs, recvPacketMsg)
 	}
 
-	if len(dstRecvPacketMsgs) > 0 {
-		sort.SliceStable(dstRecvPacketMsgs, func(i, j int) bool {
-			return dstRecvPacketMsgs[i].info.Sequence < dstRecvPacketMsgs[j].info.Sequence
-		})
-		firstMsg := dstRecvPacketMsgs[0]
-		if firstMsg.info.ChannelOrder == chantypes.ORDERED.String() {
-			// for recv packet messages on ordered channels, only handle the lowest sequence number now.
-			if pathEndPacketFlowMessages.Dst.shouldSendPacketMessage(firstMsg, pathEndPacketFlowMessages.Src) {
-				res.DstMessages = append(res.DstMessages, firstMsg)
-			}
-		} else {
-			// for unordered channels, can handle multiple simultaneous packets.
-			for _, msg := range dstRecvPacketMsgs {
-				if pathEndPacketFlowMessages.Dst.shouldSendPacketMessage(msg, pathEndPacketFlowMessages.Src) {
-					res.DstMessages = append(res.DstMessages, msg)
-				}
-			}
-		}
-	}
+	// ordered vs. unordered channel handling
+	res.DstMessages = append(res.DstMessages, pp.getMessagesToSend(dstRecvPacketMsgs, pathEndPacketFlowMessages.Src, pathEndPacketFlowMessages.Dst)...)
+	res.SrcMessages = append(res.SrcMessages, pp.getMessagesToSend(srcAckMsgs, pathEndPacketFlowMessages.Dst, pathEndPacketFlowMessages.Src)...)
+	res.SrcMessages = append(res.SrcMessages, pp.getMessagesToSend(srcTimeoutMsgs, pathEndPacketFlowMessages.Dst, pathEndPacketFlowMessages.Src)...)
+	res.SrcMessages = append(res.SrcMessages, pp.getMessagesToSend(srcTimeoutOnCloseMsgs, pathEndPacketFlowMessages.Dst, pathEndPacketFlowMessages.Src)...)
 
 	// now iterate through packet-flow-complete messages and remove any leftover messages if the MsgTransfer or MsgRecvPacket was in a previous block that we did not query
 	for ackSeq := range pathEndPacketFlowMessages.SrcMsgAcknowledgement {
