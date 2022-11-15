@@ -177,7 +177,7 @@ func (cc *CosmosProvider) QueryConsumerUnbondingPeriod(ctx context.Context) (tim
 		return 0, fmt.Errorf("ccvconsumer unbonding period is empty")
 	}
 
-	unbondingPeriod, err := strconv.ParseUint(resICS.Param.Value, 10, 64)
+	unbondingPeriod, err := strconv.ParseUint(strings.ReplaceAll(resICS.Param.Value, `"`, ""), 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse unbonding period from ccvconsumer param: %w", err)
 	}
