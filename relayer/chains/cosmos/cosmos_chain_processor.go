@@ -21,6 +21,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const strideStuckPacketHeight = 5391153
+
 type CosmosChainProcessor struct {
 	log *zap.Logger
 
@@ -247,6 +249,10 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 		latestQueriedBlock = 0
 	}
 
+	if ccp.chainProvider.ChainId() == "stride-1" {
+		latestQueriedBlock = strideStuckPacketHeight - 1
+	}
+
 	persistence.latestQueriedBlock = latestQueriedBlock
 
 	var eg errgroup.Group
@@ -383,11 +389,11 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		var eg errgroup.Group
 		var blockRes *ctypes.ResultBlockResults
 		var ibcHeader provider.IBCHeader
-		i := i
+		sI := i
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
-			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
+			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &sI)
 			if err != nil && ccp.metrics != nil {
 				ccp.metrics.IncBlockQueryFailure(chainID, "RPC Client")
 			}
@@ -396,7 +402,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
 			defer cancelQueryCtx()
-			ibcHeader, err = ccp.chainProvider.QueryIBCHeader(queryCtx, i)
+			ibcHeader, err = ccp.chainProvider.QueryIBCHeader(queryCtx, sI)
 			if err != nil && ccp.metrics != nil {
 				ccp.metrics.IncBlockQueryFailure(chainID, "IBC Header")
 			}
@@ -467,6 +473,11 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		}
 
 		newLatestQueriedBlock = i
+
+		if ccp.chainProvider.ChainId() == "stride-1" && newLatestQueriedBlock == strideStuckPacketHeight {
+			i = persistence.latestHeight - 1
+			ccp.log.Debug("we have parsed stuck packet height, skipping ahead", zap.Int64("new_height", i))
+		}
 	}
 
 	if newLatestQueriedBlock == persistence.latestQueriedBlock {
