@@ -19,6 +19,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const strideStuckPacketHeight = 850172
+
 type CosmosChainProcessor struct {
 	log *zap.Logger
 
@@ -198,6 +200,10 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 		latestQueriedBlock = 0
 	}
 
+	if ccp.chainProvider.ChainId() == "stride-1" {
+		latestQueriedBlock = strideStuckPacketHeight - 1
+	}
+
 	persistence.latestQueriedBlock = latestQueriedBlock
 
 	var eg errgroup.Group
@@ -302,7 +308,8 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	firstTimeInSync := false
 
 	if !ccp.inSync {
-		if (persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold {
+		if (ccp.chainProvider.ChainId() == "stride-1" && persistence.latestQueriedBlock > strideStuckPacketHeight) ||
+			((persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold) {
 			ccp.inSync = true
 			firstTimeInSync = true
 			ccp.log.Info("Chain is in sync")
