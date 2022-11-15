@@ -331,6 +331,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 		}
 
 		if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {
+			pp.log.Debug("PathProcessor not yet in sync")
 			continue
 		}
 
