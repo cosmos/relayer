@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/cosmos/cosmos-sdk/x/params/types/proposal"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
@@ -160,6 +162,29 @@ func (cc *CosmosProvider) QueryBalanceWithAddress(ctx context.Context, address s
 	return res.Balances, nil
 }
 
+func (cc *CosmosProvider) QueryConsumerUnbondingPeriod(ctx context.Context) (time.Duration, error) {
+	queryClient := proposal.NewQueryClient(cc)
+
+	params := proposal.QueryParamsRequest{Subspace: "ccvconsumer", Key: "UnbondingPeriod"}
+
+	resICS, err := queryClient.Params(ctx, &params)
+
+	if err != nil {
+		return 0, fmt.Errorf("failed to make ccvconsumer params request: %w", err)
+	}
+
+	if resICS.Param.Value == "" {
+		return 0, fmt.Errorf("ccvconsumer unbonding period is empty")
+	}
+
+	unbondingPeriod, err := strconv.ParseUint(resICS.Param.Value, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse unbonding period from ccvconsumer param: %w", err)
+	}
+
+	return time.Duration(unbondingPeriod), nil
+}
+
 // QueryUnbondingPeriod returns the unbonding period of the chain
 func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
 	req := stakingtypes.QueryParamsRequest{}
@@ -167,7 +192,14 @@ func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Durati
 
 	res, err := queryClient.Params(ctx, &req)
 	if err != nil {
-		return 0, err
+		// Attempt ICS query
+		consumerUnbondingPeriod, consumerErr := cc.QueryConsumerUnbondingPeriod(ctx)
+		if consumerErr != nil {
+			return 0,
+				fmt.Errorf("failed to query unbonding period as both standard and consumer chain: %s: %w", err.Error(), consumerErr)
+		}
+
+		return consumerUnbondingPeriod, nil
 	}
 
 	return res.Params.UnbondingTime, nil
