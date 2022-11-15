@@ -344,7 +344,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	firstTimeInSync := false
 
 	if !ccp.inSync {
-		if (ccp.chainProvider.ChainId() == "stride-1" && persistence.latestQueriedBlock > strideStuckPacketHeight) ||
+		if (ccp.chainProvider.ChainId() == "stride-1" && persistence.latestQueriedBlock >= strideStuckPacketHeight) ||
 			((persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold) {
 			ccp.inSync = true
 			firstTimeInSync = true
@@ -451,6 +451,10 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		}
 
 		newLatestQueriedBlock = i
+
+		if ccp.chainProvider.ChainId() == "stride-1" && newLatestQueriedBlock == strideStuckPacketHeight {
+			break
+		}
 	}
 
 	if newLatestQueriedBlock == persistence.latestQueriedBlock {
