@@ -308,8 +308,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	firstTimeInSync := false
 
 	if !ccp.inSync {
-		if (ccp.chainProvider.ChainId() == "stride-1" && persistence.latestQueriedBlock >= strideStuckPacketHeight) ||
-			((persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold) {
+		if (persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold {
 			ccp.inSync = true
 			firstTimeInSync = true
 			ccp.log.Info("Chain is in sync")
@@ -337,17 +336,17 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		var eg errgroup.Group
 		var blockRes *ctypes.ResultBlockResults
 		var ibcHeader provider.IBCHeader
-		i := i
+		wrappedI := i
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
-			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
+			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &wrappedI)
 			return err
 		})
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
 			defer cancelQueryCtx()
-			ibcHeader, err = ccp.chainProvider.QueryIBCHeader(queryCtx, i)
+			ibcHeader, err = ccp.chainProvider.QueryIBCHeader(queryCtx, wrappedI)
 			return err
 		})
 
@@ -385,13 +384,16 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			}
 		}
 		newLatestQueriedBlock = i
+		ccp.log.Debug("successfully processed block", zap.Int64("height", i))
 
 		if ccp.chainProvider.ChainId() == "stride-1" && newLatestQueriedBlock == strideStuckPacketHeight {
-			break
+			ccp.log.Debug("we have parsed stuck packet height")
+			i = persistence.latestHeight - 100
 		}
 	}
 
 	if newLatestQueriedBlock == persistence.latestQueriedBlock {
+		ccp.log.Debug("new latest queried block has not incremented, returning")
 		return nil
 	}
 
@@ -401,6 +403,8 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 				pp.ProcessBacklogIfReady()
 			}
 		}
+
+		ccp.log.Debug("no changes for path processor")
 
 		return nil
 	}
@@ -415,6 +419,11 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			)
 			continue
 		}
+
+		ccp.log.Debug("passing data to path processor",
+			zap.String("client_id", clientID),
+			zap.Bool("in_sync", ccp.inSync),
+		)
 
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
 			LatestBlock:          ccp.latestBlock,

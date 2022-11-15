@@ -43,6 +43,7 @@ func (pp *PathProcessor) getUnrelayedPacketsAndAcksAndToDelete(ctx context.Conte
 	}
 
 	dstRecvPacketMsgs := make([]packetIBCMessage, 0)
+	srcTimeoutMsgs := make([]packetIBCMessage, 0)
 
 MsgTransferLoop:
 	for transferSeq, msgTransfer := range pathEndPacketFlowMessages.SrcMsgTransfer {
@@ -212,23 +213,7 @@ MsgTransferLoop:
 					eventType: chantypes.EventTypeTimeoutPacket,
 					info:      msgTransfer,
 				}
-				pp.log.Debug("packet timeout expired, need to relay a timeout. checking if should send",
-					zap.Uint64("sequence", transferSeq),
-					zap.String("src_channel", msgTransfer.SourceChannel),
-					zap.String("src_port", msgTransfer.SourcePort),
-					zap.String("dst_channel", msgTransfer.DestChannel),
-					zap.String("dst_port", msgTransfer.DestPort),
-				)
-				if pathEndPacketFlowMessages.Src.shouldSendPacketMessage(timeoutMsg, pathEndPacketFlowMessages.Dst) {
-					pp.log.Debug("packet timeout expired, sending a timeout.",
-						zap.Uint64("sequence", transferSeq),
-						zap.String("src_channel", msgTransfer.SourceChannel),
-						zap.String("src_port", msgTransfer.SourcePort),
-						zap.String("dst_channel", msgTransfer.DestChannel),
-						zap.String("dst_port", msgTransfer.DestPort),
-					)
-					res.SrcMessages = append(res.SrcMessages, timeoutMsg)
-				}
+				srcTimeoutMsgs = append(srcTimeoutMsgs, timeoutMsg)
 			case errors.As(err, &timeoutOnCloseErr):
 				timeoutOnCloseMsg := packetIBCMessage{
 					eventType: chantypes.EventTypeTimeoutPacketOnClose,
@@ -271,6 +256,54 @@ MsgTransferLoop:
 			info:      msgTransfer,
 		}
 		dstRecvPacketMsgs = append(dstRecvPacketMsgs, recvPacketMsg)
+	}
+
+	if len(srcTimeoutMsgs) > 0 {
+		sort.SliceStable(srcTimeoutMsgs, func(i, j int) bool {
+			return srcTimeoutMsgs[i].info.Sequence < srcTimeoutMsgs[j].info.Sequence
+		})
+		firstMsg := srcTimeoutMsgs[0]
+		if firstMsg.info.ChannelOrder == chantypes.ORDERED.String() {
+			// for recv packet messages on ordered channels, only handle the lowest sequence number now.
+			pp.log.Debug("timeout on ordered channel needs to be relayed. checking if should send",
+				zap.Uint64("sequence", firstMsg.info.Sequence),
+				zap.String("src_channel", firstMsg.info.SourceChannel),
+				zap.String("src_port", firstMsg.info.SourcePort),
+				zap.String("dst_channel", firstMsg.info.DestChannel),
+				zap.String("dst_port", firstMsg.info.DestPort),
+			)
+			if pathEndPacketFlowMessages.Src.shouldSendPacketMessage(firstMsg, pathEndPacketFlowMessages.Dst) {
+				pp.log.Debug("timeout on ordered channel will be relayed",
+					zap.Uint64("sequence", firstMsg.info.Sequence),
+					zap.String("src_channel", firstMsg.info.SourceChannel),
+					zap.String("src_port", firstMsg.info.SourcePort),
+					zap.String("dst_channel", firstMsg.info.DestChannel),
+					zap.String("dst_port", firstMsg.info.DestPort),
+				)
+				res.SrcMessages = append(res.SrcMessages, firstMsg)
+			}
+		} else {
+			// for unordered channels, can handle multiple simultaneous packets.
+			for _, msg := range srcTimeoutMsgs {
+				pp.log.Debug("timeout on unordered channel needs to be relayed. checking if should send",
+					zap.Uint64("sequence", firstMsg.info.Sequence),
+					zap.String("src_channel", firstMsg.info.SourceChannel),
+					zap.String("src_port", firstMsg.info.SourcePort),
+					zap.String("dst_channel", firstMsg.info.DestChannel),
+					zap.String("dst_port", firstMsg.info.DestPort),
+				)
+				if pathEndPacketFlowMessages.Src.shouldSendPacketMessage(msg, pathEndPacketFlowMessages.Dst) {
+					pp.log.Debug("timeout on unordered channel will be relayed",
+						zap.Uint64("sequence", firstMsg.info.Sequence),
+						zap.String("src_channel", firstMsg.info.SourceChannel),
+						zap.String("src_port", firstMsg.info.SourcePort),
+						zap.String("dst_channel", firstMsg.info.DestChannel),
+						zap.String("dst_port", firstMsg.info.DestPort),
+					)
+					res.SrcMessages = append(res.SrcMessages, msg)
+				}
+			}
+		}
 	}
 
 	if len(dstRecvPacketMsgs) > 0 {
@@ -742,6 +775,9 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 	pathEnd2ProcessRes := make([]pathEndPacketFlowResponse, len(channelPairs))
 
 	for i, pair := range channelPairs {
+
+		pp.log.Debug("iterating channel pair", zap.String("src_channel", pair.pathEnd1ChannelKey.ChannelID), zap.String("dst_channel", pair.pathEnd2ChannelKey.ChannelID))
+
 		var pathEnd1ChannelCloseConfirm, pathEnd2ChannelCloseConfirm *provider.ChannelInfo
 
 		if pathEnd1ChanCloseConfirmMsgs, ok := pp.pathEnd1.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseConfirm]; ok {

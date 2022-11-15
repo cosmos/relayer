@@ -261,6 +261,9 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func(), messageLifecycl
 	var retryTimer *time.Timer
 	for {
 		// block until we have any signals to process
+
+		pp.log.Debug("PathProcessor waiting for signal")
+
 		if pp.processAvailableSignals(ctx, cancel, messageLifecycle) {
 			return
 		}
@@ -273,8 +276,11 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func(), messageLifecycl
 		}
 
 		if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {
+			pp.log.Debug("PathProcessor not yet in sync")
 			continue
 		}
+
+		pp.log.Debug("both chains are in sync, running processLatestMessages")
 
 		// process latest message cache state from both pathEnds
 		if err := pp.processLatestMessages(ctx, messageLifecycle); err != nil {
