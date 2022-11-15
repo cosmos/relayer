@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
+	"github.com/cosmos/relayer/v2/relayer"
 	ibctest "github.com/strangelove-ventures/ibctest/v3"
 	"github.com/strangelove-ventures/ibctest/v3/conformance"
 	"github.com/strangelove-ventures/ibctest/v3/ibc"

@@ -9,7 +9,6 @@ import (
 	ibctest "github.com/strangelove-ventures/ibctest/v3"
 	"github.com/strangelove-ventures/ibctest/v3/chain/cosmos"
 	"github.com/strangelove-ventures/ibctest/v3/ibc"
-	ibctestrelayer "github.com/strangelove-ventures/ibctest/v3/relayer"
 	"github.com/strangelove-ventures/ibctest/v3/test"
 	"github.com/strangelove-ventures/ibctest/v3/testreporter"
 	"github.com/stretchr/testify/require"
