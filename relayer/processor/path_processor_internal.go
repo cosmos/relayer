@@ -683,7 +683,8 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeRequest],
 		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeResponse],
 	)
-	pathEnd2ClientICQMessages := pp.getUnrelayedClientICQMessages(pp.pathEnd2,
+	pathEnd2ClientICQMessages := pp.getUnrelayedClientICQMessages(
+		pp.pathEnd2,
 		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeRequest],
 		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeResponse],
 	)
@@ -766,7 +767,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	messages pathEndMessages,
 ) error {
 	var needsClientUpdate bool
-	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 {
+	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 && len(messages.clientICQMessages) == 0 {
 		var consensusHeightTime time.Time
 		if dst.clientState.ConsensusTime.IsZero() {
 			h, err := src.chainProvider.QueryIBCHeader(ctx, int64(dst.clientState.ConsensusHeight.RevisionHeight))
@@ -796,7 +797,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		msgs: make(
 			[]provider.RelayerMessage,
 			0,
-			len(messages.packetMessages)+len(messages.connectionMessages)+len(messages.channelMessages),
+			len(messages.packetMessages)+len(messages.connectionMessages)+len(messages.channelMessages)+len(messages.clientICQMessages),
 		),
 		pktMsgs:       make([]packetMessageToTrack, len(messages.packetMessages)),
 		connMsgs:      make([]connectionMessageToTrack, len(messages.connectionMessages)),

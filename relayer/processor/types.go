@@ -84,10 +84,12 @@ func (c IBCMessagesCache) Clone() IBCMessagesCache {
 		PacketFlow:          make(ChannelPacketMessagesCache, len(c.PacketFlow)),
 		ConnectionHandshake: make(ConnectionMessagesCache, len(c.ConnectionHandshake)),
 		ChannelHandshake:    make(ChannelMessagesCache, len(c.ChannelHandshake)),
+		ClientICQ:           make(ClientICQMessagesCache, len(c.ClientICQ)),
 	}
 	x.PacketFlow.Merge(c.PacketFlow)
 	x.ConnectionHandshake.Merge(c.ConnectionHandshake)
 	x.ChannelHandshake.Merge(c.ChannelHandshake)
+	x.ClientICQ.Merge(c.ClientICQ)
 	return x
 }
 
