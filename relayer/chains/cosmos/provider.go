@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Stride-Labs/stride/x/interchainquery"
+	"github.com/Stride-Labs/stride/v3/x/interchainquery"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	commitmenttypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"

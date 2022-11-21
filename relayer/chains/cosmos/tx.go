@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	qstypes "github.com/Stride-Labs/stride/x/interchainquery/types"
+	qstypes "github.com/Stride-Labs/stride/v3/x/interchainquery/types"
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
