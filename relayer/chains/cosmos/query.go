@@ -162,7 +162,7 @@ func (cc *CosmosProvider) QueryBalanceWithAddress(ctx context.Context, address s
 	return res.Balances, nil
 }
 
-func (cc *CosmosProvider) QueryConsumerUnbondingPeriod(ctx context.Context) (time.Duration, error) {
+func (cc *CosmosProvider) queryConsumerUnbondingPeriod(ctx context.Context) (time.Duration, error) {
 	queryClient := proposal.NewQueryClient(cc)
 
 	params := proposal.QueryParamsRequest{Subspace: "ccvconsumer", Key: "UnbondingPeriod"}
@@ -193,7 +193,7 @@ func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Durati
 	res, err := queryClient.Params(ctx, &req)
 	if err != nil {
 		// Attempt ICS query
-		consumerUnbondingPeriod, consumerErr := cc.QueryConsumerUnbondingPeriod(ctx)
+		consumerUnbondingPeriod, consumerErr := cc.queryConsumerUnbondingPeriod(ctx)
 		if consumerErr != nil {
 			return 0,
 				fmt.Errorf("failed to query unbonding period as both standard and consumer chain: %s: %w", err.Error(), consumerErr)
