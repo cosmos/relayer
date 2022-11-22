@@ -91,11 +91,17 @@ lint:
 # Chain Code Downloads
 ###############################################################################
 
+CHAIN_CODE := ./chain-code
+GAIA_LOCATION := $(CHAIN_CODE)/gaia
+
 get-gaia:
-	@mkdir -p ./chain-code/
+	@mkdir -p $(CHAIN-CODE)/
 	@git clone --branch $(GAIA_VERSION) --depth=1 https://github.com/cosmos/gaia.git ./chain-code/gaia
 
 build-gaia:
-	@./examples/demo/scripts/build-gaia
+	@[ -d $(GAIA_LOCATION) ] || { echo "Repositry for gaia does not exist at $(GAIA_LOCATION). Try running 'make get-gaia'..." ; exit 1; }
+	@cd $(GAIA_LOCATION)
+	@make install &> /dev/null
+	@gaiad version --long
 
 .PHONY: two-chains test test-integration ibctest install build lint coverage clean
