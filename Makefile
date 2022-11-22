@@ -92,15 +92,15 @@ lint:
 ###############################################################################
 
 CHAIN_CODE := ./chain-code
-GAIA_LOCATION := $(CHAIN_CODE)/gaia
+GAIA_REPO := $(CHAIN_CODE)/gaia
 
 get-gaia:
 	@mkdir -p $(CHAIN_CODE)/
-	@git clone --branch $(GAIA_VERSION) --depth=1 https://github.com/cosmos/gaia.git ./chain-code/gaia
+	@git clone --branch $(GAIA_REPO) --depth=1 https://github.com/cosmos/gaia.git $(GAIA_REPO)
 
 build-gaia:
-	@[ -d $(GAIA_LOCATION) ] || { echo "Repositry for gaia does not exist at $(GAIA_LOCATION). Try running 'make get-gaia'..." ; exit 1; }
-	@cd $(GAIA_LOCATION)
+	@[ -d $(GAIA_REPO) ] || { echo "Repositry for gaia does not exist at $(GAIA_REPO). Try running 'make get-gaia'..." ; exit 1; }
+	@cd $(GAIA_REPO)
 	@make install &> /dev/null
 	@gaiad version --long
 
