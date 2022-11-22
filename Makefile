@@ -95,7 +95,7 @@ CHAIN_CODE := ./chain-code
 GAIA_LOCATION := $(CHAIN_CODE)/gaia
 
 get-gaia:
-	@mkdir -p $(CHAIN-CODE)/
+	@mkdir -p $(CHAIN_CODE)/
 	@git clone --branch $(GAIA_VERSION) --depth=1 https://github.com/cosmos/gaia.git ./chain-code/gaia
 
 build-gaia:
