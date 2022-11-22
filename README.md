@@ -21,18 +21,6 @@ In addition to relaying packets, this relayer can open paths across chains, thus
 
 Additional information on how IBC works can be found [here](https://ibc.cosmos.network/).
 
-<div align="center">
-
-   | Relayer |        IBC-Go        |
-   |:-------:|:--------------------:|
-   | v1.0.0  | ibc-go v1, ibc-go v2 |
-   | v2.0.0  | ibc-go v3            |
-
-</div>
-
-
-**If you are updating the relayer from any version prior to `v2.0.0-rc1`, your current config file is not compatible. See: [config_migration](docs/config_migration.md)
-
 ---
 
 ## Table Of Contents
