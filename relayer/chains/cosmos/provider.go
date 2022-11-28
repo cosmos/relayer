@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Stride-Labs/stride/v3/x/interchainquery"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	commitmenttypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
@@ -28,19 +27,20 @@ var (
 )
 
 type CosmosProviderConfig struct {
-	Key            string  `json:"key" yaml:"key"`
-	ChainName      string  `json:"-" yaml:"-"`
-	ChainID        string  `json:"chain-id" yaml:"chain-id"`
-	RPCAddr        string  `json:"rpc-addr" yaml:"rpc-addr"`
-	AccountPrefix  string  `json:"account-prefix" yaml:"account-prefix"`
-	KeyringBackend string  `json:"keyring-backend" yaml:"keyring-backend"`
-	GasAdjustment  float64 `json:"gas-adjustment" yaml:"gas-adjustment"`
-	GasPrices      string  `json:"gas-prices" yaml:"gas-prices"`
-	MinGasAmount   uint64  `json:"min-gas-amount" yaml:"min-gas-amount"`
-	Debug          bool    `json:"debug" yaml:"debug"`
-	Timeout        string  `json:"timeout" yaml:"timeout"`
-	OutputFormat   string  `json:"output-format" yaml:"output-format"`
-	SignModeStr    string  `json:"sign-mode" yaml:"sign-mode"`
+	Key            string   `json:"key" yaml:"key"`
+	ChainName      string   `json:"-" yaml:"-"`
+	ChainID        string   `json:"chain-id" yaml:"chain-id"`
+	RPCAddr        string   `json:"rpc-addr" yaml:"rpc-addr"`
+	AccountPrefix  string   `json:"account-prefix" yaml:"account-prefix"`
+	KeyringBackend string   `json:"keyring-backend" yaml:"keyring-backend"`
+	GasAdjustment  float64  `json:"gas-adjustment" yaml:"gas-adjustment"`
+	GasPrices      string   `json:"gas-prices" yaml:"gas-prices"`
+	MinGasAmount   uint64   `json:"min-gas-amount" yaml:"min-gas-amount"`
+	Debug          bool     `json:"debug" yaml:"debug"`
+	Timeout        string   `json:"timeout" yaml:"timeout"`
+	OutputFormat   string   `json:"output-format" yaml:"output-format"`
+	SignModeStr    string   `json:"sign-mode" yaml:"sign-mode"`
+	ExtraCodecs    []string `json:"extra-codecs" yaml:"extra-codecs"`
 }
 
 func (pc CosmosProviderConfig) Validate() error {
@@ -77,9 +77,6 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 // ChainClientConfig builds a ChainClientConfig struct from a CosmosProviderConfig, this is used
 // to instantiate an instance of ChainClient from lens which is how we build the CosmosProvider
 func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
-	var modules []module.AppModuleBasic
-	modules = append(modules, lens.ModuleBasics...)
-	modules = append(modules, interchainquery.AppModuleBasic{})
 	return &lens.ChainClientConfig{
 		Key:            pcfg.Key,
 		ChainID:        pcfg.ChainID,
@@ -93,7 +90,8 @@ func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
 		Timeout:        pcfg.Timeout,
 		OutputFormat:   pcfg.OutputFormat,
 		SignModeStr:    pcfg.SignModeStr,
-		Modules:        modules,
+		ExtraCodecs:    pcfg.ExtraCodecs,
+		Modules:        append([]module.AppModuleBasic{}, lens.ModuleBasics...),
 	}
 }
 
