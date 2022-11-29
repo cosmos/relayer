@@ -159,32 +159,11 @@ MsgTransferLoop:
 
 			switch {
 			case errors.As(err, &timeoutHeightErr) || errors.As(err, &timeoutTimestampErr):
-				k := pathEndPacketFlowMessages.ChannelKey
-				open, ok := pathEndPacketFlowMessages.Src.channelStateCache[k]
-				if !ok {
-					pp.log.Error("Channel state does not exist in cache",
-						zap.String("chain_id", pathEndPacketFlowMessages.Src.info.ChainID),
-						zap.String("channel_id", k.ChannelID),
-						zap.String("port_id", k.PortID),
-						zap.String("counterparty_channel_id", k.CounterpartyChannelID),
-						zap.String("counterparty_port_id", k.CounterpartyPortID),
-						zap.Error(err),
-					)
-					continue MsgTransferLoop
+				timeoutMsg := packetIBCMessage{
+					eventType: chantypes.EventTypeTimeoutPacket,
+					info:      msgTransfer,
 				}
-				if open {
-					timeoutMsg := packetIBCMessage{
-						eventType: chantypes.EventTypeTimeoutPacket,
-						info:      msgTransfer,
-					}
-					srcTimeoutMsgs = append(srcTimeoutMsgs, timeoutMsg)
-				} else {
-					timeoutOnCloseMsg := packetIBCMessage{
-						eventType: chantypes.EventTypeTimeoutPacketOnClose,
-						info:      msgTransfer,
-					}
-					srcTimeoutOnCloseMsgs = append(srcTimeoutOnCloseMsgs, timeoutOnCloseMsg)
-				}
+				srcTimeoutMsgs = append(srcTimeoutMsgs, timeoutMsg)
 			case errors.As(err, &timeoutOnCloseErr):
 				timeoutOnCloseMsg := packetIBCMessage{
 					eventType: chantypes.EventTypeTimeoutPacketOnClose,
