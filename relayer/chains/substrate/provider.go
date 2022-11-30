@@ -134,9 +134,13 @@ func (h SubstrateIBCHeader) ConsensusState() ibcexported.ConsensusState {
 	return h.SignedHeader.ConsensusState()
 }
 
-func (sp *SubstrateProvider) BlockTime(ctx context.Context, height int64) (time.Time, error) {
-	//TODO implement me
-	panic("implement me")
+func (sp *SubstrateProvider) BlockTime(_ context.Context, height int64) (time.Time, error) {
+	timestampExtrinsic, _, err := sp.constructExtrinsics(uint32(height), false)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return beefyclienttypes.DecodeExtrinsicTimestamp(timestampExtrinsic)
 }
 
 func (sp *SubstrateProvider) ChainName() string {

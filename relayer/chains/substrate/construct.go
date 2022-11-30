@@ -391,7 +391,7 @@ func (sp *SubstrateProvider) constructParachainHeaders(
 			return nil, err
 		}
 
-		timestampExt, extProof, err := sp.constructExtrinsics(uint32(parachainHeaderDecoded.Number))
+		timestampExt, extProof, err := sp.constructExtrinsics(uint32(parachainHeaderDecoded.Number), true)
 		if err != nil {
 			return nil, err
 		}
@@ -423,6 +423,7 @@ func (sp *SubstrateProvider) constructParachainHeaders(
 
 func (sp *SubstrateProvider) constructExtrinsics(
 	blockNumber uint32,
+	proof bool,
 ) (timestampExtrinsic []byte, extrinsicProof [][]byte, err error) {
 	blockHash, err := sp.RPCClient.RPC.Chain.GetBlockHash(uint64(blockNumber))
 	if err != nil {
@@ -442,6 +443,10 @@ func (sp *SubstrateProvider) constructExtrinsics(
 	timestampExtrinsic, err = rpcclienttypes.Encode(exts[0])
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if !proof {
+		return timestampExtrinsic, nil, nil
 	}
 
 	t := trie.NewEmptyTrie()
