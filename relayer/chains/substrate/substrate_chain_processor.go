@@ -27,6 +27,11 @@ const (
 	// sync if the last processed block is greater than 2 relay chain finalization rounds.
 	// TODO: this should be reviewed when the light client is changed to a GRANDPA client.
 	inSyncNumBlocksThreshold = 16
+
+	SubscriptionNamespace    = "beefy"
+	SubscribeMethodSuffix    = "subscribeJustifications"
+	UnsubscribeMethodSuffix  = "unsubscribeJustifications"
+	NotificationMethodSuffix = "justifications"
 )
 
 type SubstrateChainProcessor struct {
@@ -186,14 +191,15 @@ func (scp *SubstrateChainProcessor) Run(ctx context.Context, initialBlockHistory
 		return err
 	}
 
-	scp.log.Debug("subscribing and listening to relay chain commitments")
+	scp.log.Debug("Subscribing and listening to relay chain commitments")
 	commitments := make(chan interface{})
+
 	sub, err := scp.chainProvider.RelayChainRPCClient.Client.Subscribe(
 		context.Background(),
-		"beefy",
-		"subscribeJustifications",
-		"unsubscribeJustifications",
-		"justifications",
+		SubscriptionNamespace,
+		SubscribeMethodSuffix,
+		UnsubscribeMethodSuffix,
+		NotificationMethodSuffix,
 		commitments,
 	)
 	if err != nil {
