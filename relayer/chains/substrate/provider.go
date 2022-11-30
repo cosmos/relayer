@@ -160,9 +160,9 @@ func (sp *SubstrateProvider) Key() string {
 }
 
 func (sp *SubstrateProvider) Address() (string, error) {
-	info, err := sp.Keybase.Key(sp.Key())
+	info, err := sp.Keybase.Key(sp.Config.Key)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	return info.GetAddress(), nil
@@ -177,12 +177,12 @@ func (sp *SubstrateProvider) TrustingPeriod(ctx context.Context) (time.Duration,
 	return time.Duration(math.MaxInt), nil
 }
 
+// WaitForNBlocks is no-op as it isn't used anywhere
 func (sp *SubstrateProvider) WaitForNBlocks(ctx context.Context, n int64) error {
-	//TODO implement me
-	panic("implement me")
+	return nil
 }
 
+// Sprint is no-op as it isn't used anywhere
 func (sp *SubstrateProvider) Sprint(toPrint proto.Message) (string, error) {
-	//TODO implement me
-	panic("implement me")
+	return "", nil
 }
