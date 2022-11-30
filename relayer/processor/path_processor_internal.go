@@ -818,9 +818,13 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
 	}
 
-	for i, msg := range messages.channelMessages {
-		wg.Add(1)
-		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+	if len(om.connMsgs) == 0 {
+		// only assemble and send channel handshake messages if there are no conn handshake messages
+		// this prioritizes connection handshake messages, useful if a connection handshake needs to occur before a channel handshake
+		for i, msg := range messages.channelMessages {
+			wg.Add(1)
+			go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+		}
 	}
 
 	for i, msg := range messages.clientICQMessages {
@@ -828,8 +832,10 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
 	}
 
-	if len(om.msgs) == 1 {
-		// only send packet messages if there are no conn, channel, or icq messages
+	if len(om.chanMsgs) == 0 && len(om.connMsgs) == 0 {
+		// only assemble and send packet messages if there are no conn or channel handshake messages
+		// this prioritizes handshake messages, useful if a handshake needs to occur before packet messages
+		// can be sent
 		for i, msg := range messages.packetMessages {
 			wg.Add(1)
 			go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
