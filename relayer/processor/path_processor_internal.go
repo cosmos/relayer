@@ -766,11 +766,6 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	// Each assembleMessage call below will make a query on the source chain, so these operations can run in parallel.
 	var wg sync.WaitGroup
 
-	for i, msg := range messages.packetMessages {
-		wg.Add(1)
-		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
-	}
-
 	for i, msg := range messages.connectionMessages {
 		wg.Add(1)
 		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
@@ -779,6 +774,14 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	for i, msg := range messages.channelMessages {
 		wg.Add(1)
 		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+	}
+
+	if len(om.msgs) == 1 {
+		// only send packet messages if there are no conn, channel, or icq messages
+		for i, msg := range messages.packetMessages {
+			wg.Add(1)
+			go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+		}
 	}
 
 	wg.Wait()
