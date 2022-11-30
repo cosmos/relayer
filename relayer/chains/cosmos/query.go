@@ -52,13 +52,9 @@ func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger,
 		return nil, err
 	}
 	var ibcMsgs []ibcMessage
+	chainID := cc.ChainId()
 	for _, tx := range res.Txs {
-		parsedLogs, err := sdk.ParseABCILogs(tx.TxResult.Log)
-		if err != nil {
-			continue
-		}
-
-		ibcMsgs = append(ibcMsgs, parseABCILogs(log, parsedLogs, 0)...)
+		ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0)...)
 	}
 
 	return ibcMsgs, nil
@@ -925,7 +921,7 @@ func DefaultPageRequest() *querytypes.PageRequest {
 		Key:        []byte(""),
 		Offset:     0,
 		Limit:      1000,
-		CountTotal: true,
+		CountTotal: false,
 	}
 }
 

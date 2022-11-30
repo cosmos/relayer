@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	"sort"
 	"time"
 
 	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
+	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	"github.com/avast/retry-go/v4"
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
@@ -74,14 +74,14 @@ func NewSubstrateChainProcessor(log *zap.Logger, provider *SubstrateProvider) *S
 type latestClientState map[string]provider.ClientState
 
 func (l latestClientState) update(clientInfo clientInfo) {
-	existingClientInfo, ok := l[clientInfo.ClientID]
-	if ok && clientInfo.ConsensusHeight.LT(existingClientInfo.ConsensusHeight) {
+	existingClientInfo, ok := l[clientInfo.clientID]
+	if ok && clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
 		// height is less than latest, so no-op
 		return
 	}
 
 	// update latest if no existing state or provided consensus height is newer
-	l[clientInfo.ClientID] = clientInfo.ClientState()
+	l[clientInfo.clientID] = clientInfo.ClientState()
 }
 
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
@@ -188,7 +188,7 @@ func (scp *SubstrateChainProcessor) Run(ctx context.Context, initialBlockHistory
 
 	scp.log.Debug("subscribing and listening to relay chain commitments")
 	commitments := make(chan interface{})
-	sub, err := scp.chainProvider.RelayRPCClient.Client.Subscribe(
+	sub, err := scp.chainProvider.RelayChainRPCClient.Client.Subscribe(
 		context.Background(),
 		"beefy",
 		"subscribeJustifications",

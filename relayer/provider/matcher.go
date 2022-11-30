@@ -81,11 +81,9 @@ func tendermintMatcher(ctx context.Context, src, dst ChainProvider, existingClie
 			return "", tmclient.ErrTrustingPeriodExpired
 		}
 
-		fmt.Printf("\nquery ibc header %v \n \n", existingClientState.GetLatestHeight().GetRevisionHeight())
 		// Construct a header for the consensus state of the counterparty chain.
 		ibcHeader, err := dst.QueryIBCHeader(ctx, int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
 		if err != nil {
-			fmt.Printf("error quering header at height %v \n \n", existingClientState.GetLatestHeight().GetRevisionHeight())
 			return "", err
 		}
 
@@ -160,7 +158,7 @@ func beefyMatcher(ctx context.Context, src, dst ChainProvider, existingClientID 
 
 		existingConsensusState, ok := exportedConsState.(*beefyclienttypes.ConsensusState)
 		if !ok {
-			return "", fmt.Errorf("got type(%T) expected type(*tmclient.ConsensusState)", exportedConsState)
+			return "", fmt.Errorf("got type(%T) expected type(*beefyclient.ConsensusState)", exportedConsState)
 		}
 
 		// If the existing client state has not been updated within the trusting period,
@@ -178,7 +176,7 @@ func beefyMatcher(ctx context.Context, src, dst ChainProvider, existingClientID 
 
 		consensusState, ok := ibcHeader.ConsensusState().(*beefyclienttypes.ConsensusState)
 		if !ok {
-			return "", fmt.Errorf("got type(%T) expected type(*tmclient.ConsensusState)", consensusState)
+			return "", fmt.Errorf("got type(%T) expected type(*beefyclient.ConsensusState)", consensusState)
 		}
 
 		// Determine if the existing consensus state on src for the potential matching client is identical

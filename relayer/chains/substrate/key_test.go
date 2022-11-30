@@ -1,6 +1,7 @@
 package substrate_test
 
 import (
+	"github.com/cosmos/relayer/v2/relayer/chains/substrate"
 	"testing"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/substrate/keystore"
@@ -14,12 +15,12 @@ func TestKeyRestoreAndRetrieve(t *testing.T) {
 	mnemonic := "blind master acoustic speak victory lend kiss grab glad help demand hood roast zone lend sponsor level cheap truck kingdom apology token hover reunion"
 	expectedAddress := "5Hn67YZ75F3XrHiJAtiscJMGQ4zFNw9e45CNfLuxL6vEVYz8"
 
-	provider, err := getTestProvider()
-	require.Nil(t, err)
-
+	provider := substrate.SubstrateProvider{}
 	config := getSubstrateConfig(homePath, 42)
-	provider.Keybase, err = keystore.New(config.ChainName, config.KeyringBackend, config.KeyDirectory, nil)
+	provider.Config = config
+	keybase, err := keystore.New(config.ChainName, config.KeyringBackend, config.KeyDirectory, nil)
 	require.Nil(t, err)
+	provider.Keybase = keybase
 
 	if provider.KeyExists(keyName) {
 		err = provider.DeleteKey(keyName) // Delete if test is being run again

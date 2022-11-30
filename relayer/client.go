@@ -14,7 +14,7 @@ import (
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
-func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool, customClientTrustingPeriod time.Duration, memo string) (bool, error) {
+func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool, customClientTrustingPeriod time.Duration, memo string) (string, string, error) {
 	// Query the latest heights on src and dst and retry if the query fails
 	var srch, dsth int64
 	if err := retry.Do(func() error {
@@ -25,7 +25,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 		}
 		return nil
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
-		return false, err
+		return "", "", err
 	}
 
 	// Query the light signed headers for src & dst at the heights srch & dsth, retry if the query fails
@@ -50,15 +50,15 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 		)
 		srch, dsth, _ = QueryLatestHeights(ctx, c, dst)
 	})); err != nil {
-		return false, err
+		return "", "", err
 	}
 
-	var modifiedSrc, modifiedDst bool
+	var clientSrc, clientDst string
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		var err error
 		// Create client on src for dst if the client id is unspecified
-		modifiedSrc, err = CreateClient(egCtx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
+		clientSrc, err = CreateClient(egCtx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
 		if err != nil {
 			return fmt.Errorf("failed to create client on src chain{%s}: %w", c.ChainID(), err)
 		}
@@ -68,8 +68,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	eg.Go(func() error {
 		var err error
 		// Create client on dst for src if the client id is unspecified
-		// TODO: remove temporary override when creating a tendermint client on the substrate chain
-		modifiedDst, err = CreateClient(egCtx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
+		clientDst, err = CreateClient(egCtx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
 		if err != nil {
 			return fmt.Errorf("failed to create client on dst chain{%s}: %w", dst.ChainID(), err)
 		}
@@ -78,7 +77,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 
 	if err := eg.Wait(); err != nil {
 		// If one completed successfully and the other didn't, we can still report modified.
-		return modifiedSrc || modifiedDst, err
+		return clientSrc, clientDst, err
 	}
 
 	c.log.Info(
@@ -89,7 +88,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 		zap.String("dst_chain_id", dst.ChainID()),
 	)
 
-	return modifiedSrc || modifiedDst, nil
+	return clientSrc, clientDst, nil
 }
 
 // CreateClient creates client tracking dst on src.
@@ -101,23 +100,22 @@ func CreateClient(
 	allowUpdateAfterMisbehaviour bool,
 	override bool,
 	customClientTrustingPeriod time.Duration,
-	memo string) (bool, error) {
-	// If a client ID was specified in the path, ensure it exists.
-	if src.PathEnd.ClientID != "" {
+	memo string) (string, error) {
+	// If a client ID was specified in the path and override is not set, ensure the client exists.
+	if !override && src.PathEnd.ClientID != "" {
 		// TODO: check client is not expired
 		_, err := src.ChainProvider.QueryClientStateResponse(ctx, int64(srcUpdateHeader.Height()), src.ClientID())
 		if err != nil {
-			return false, fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %v",
+			return "", fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %w",
 				src.PathEnd.ClientID, src.ChainID(), err)
 		}
 
-		return false, nil
+		return "", nil
 	}
 
 	// Otherwise, create client for the destination chain on the source chain.
 
 	// Query the trusting period for dst and retry if the query fails
-	// var tp time.Duration
 	tp := customClientTrustingPeriod
 	if tp == 0 {
 		if err := retry.Do(func() error {
@@ -131,7 +129,7 @@ func CreateClient(
 			}
 			return nil
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
-			return false, err
+			return "", err
 		}
 	}
 
@@ -153,14 +151,14 @@ func CreateClient(
 		}
 		return nil
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
-		return false, err
+		return "", err
 	}
 
 	// We want to create a light client on the src chain which tracks the state of the dst chain.
 	// So we build a new client state from dst and attempt to use this for creating the light client on src.
 	clientState, err := dst.ChainProvider.NewClientState(dst.ChainID(), dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
 	if err != nil {
-		return false, fmt.Errorf("failed to create new client state for chain{%s}: %w", dst.ChainID(), err)
+		return "", fmt.Errorf("failed to create new client state for chain{%s}: %w", dst.ChainID(), err)
 	}
 
 	var clientID string
@@ -171,7 +169,7 @@ func CreateClient(
 		// proposed new client state from dst.
 		clientID, err = findMatchingClient(ctx, src, dst, clientState)
 		if err != nil {
-			return false, fmt.Errorf("failed to find a matching client for the new client state: %w", err)
+			return "", fmt.Errorf("failed to find a matching client for the new client state: %w", err)
 		}
 	}
 
@@ -183,7 +181,7 @@ func CreateClient(
 			zap.String("dst_chain_id", dst.ChainID()),
 		)
 		src.PathEnd.ClientID = clientID
-		return true, nil
+		return clientID, nil
 	}
 
 	src.log.Debug(
@@ -196,10 +194,9 @@ func CreateClient(
 	// the dst chains implementation of CreateClient, to ensure the proper client/header
 	// logic is executed, but the message gets submitted on the src chain which means
 	// we need to sign with the address from src.
-
 	createMsg, err := src.ChainProvider.MsgCreateClient(clientState, dstUpdateHeader.ConsensusState())
 	if err != nil {
-		return false, fmt.Errorf("failed to compose CreateClient msg for chain{%s} tracking the state of chain{%s}: %w",
+		return "", fmt.Errorf("failed to compose CreateClient msg for chain{%s} tracking the state of chain{%s}: %w",
 			src.ChainID(), dst.ChainID(), err)
 	}
 
@@ -223,13 +220,13 @@ func CreateClient(
 
 		return nil
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
-		return false, err
+		return "", err
 	}
 
 	// update the client identifier
 	// use index 0, the transaction only has one message
 	if clientID, err = parseClientIDFromEvents(res.Events); err != nil {
-		return false, err
+		return "", err
 	}
 
 	src.PathEnd.ClientID = clientID
@@ -241,7 +238,7 @@ func CreateClient(
 		zap.String("dst_chain_id", dst.ChainID()),
 	)
 
-	return true, nil
+	return clientID, nil
 }
 
 // MsgUpdateClient queries for the current client state on dst,

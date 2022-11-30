@@ -154,7 +154,7 @@ $ %s cfg i`, appName, defaultHome, appName)),
 				memo, _ := cmd.Flags().GetString(flagMemo)
 
 				// And write the default config to that location...
-				if _, err = f.Write(defaultConfig(memo)); err != nil {
+				if _, err = f.Write(defaultConfigYAML(memo)); err != nil {
 					return err
 				}
 
@@ -436,12 +436,16 @@ func (c Config) MustYAML() []byte {
 	return out
 }
 
-func defaultConfig(memo string) []byte {
-	return Config{
+func defaultConfigYAML(memo string) []byte {
+	return DefaultConfig(memo).MustYAML()
+}
+
+func DefaultConfig(memo string) *Config {
+	return &Config{
 		Global: newDefaultGlobalConfig(memo),
-		Chains: relayer.Chains{},
-		Paths:  relayer.Paths{},
-	}.MustYAML()
+		Chains: make(relayer.Chains),
+		Paths:  make(relayer.Paths),
+	}
 }
 
 // GlobalConfig describes any global relayer settings
@@ -542,12 +546,15 @@ func validateConfig(c *Config) error {
 
 // initConfig reads config file into a.Config if file is present.
 func initConfig(cmd *cobra.Command, a *appState) error {
-	home, err := cmd.PersistentFlags().GetString(flagHome)
-	if err != nil {
-		return err
+	if a.HomePath == "" {
+		var err error
+		a.HomePath, err = cmd.PersistentFlags().GetString(flagHome)
+		if err != nil {
+			return err
+		}
 	}
 
-	cfgPath := path.Join(home, "config", "config.yaml")
+	cfgPath := path.Join(a.HomePath, "config", "config.yaml")
 	if _, err := os.Stat(cfgPath); err != nil {
 		// don't return error if file doesn't exist
 		return nil
