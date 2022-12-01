@@ -396,6 +396,9 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	for _, pp := range ccp.pathProcessors {
 		clientID := pp.RelevantClientID(chainID)
+		if clientID == "" {
+			continue
+		}
 		clientState, err := ccp.clientState(ctx, clientID)
 		if err != nil {
 			ccp.log.Error("Error fetching client state",

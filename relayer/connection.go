@@ -39,6 +39,7 @@ func (c *Chain) CreateOpenConnections(
 		nil,
 		memo,
 		DefaultClientUpdateThreshold,
+		false,
 	)
 
 	var connectionSrc, connectionDst string

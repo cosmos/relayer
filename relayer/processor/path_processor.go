@@ -3,6 +3,8 @@ package processor
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -63,6 +65,8 @@ type PathProcessor struct {
 	sentInitialMsg bool
 
 	metrics *PrometheusMetrics
+
+	localhost bool
 }
 
 // PathProcessors is a slice of PathProcessor instances
@@ -84,6 +88,7 @@ func NewPathProcessor(
 	metrics *PrometheusMetrics,
 	memo string,
 	clientUpdateThresholdTime time.Duration,
+	localhost bool,
 ) *PathProcessor {
 	return &PathProcessor{
 		log:                       log,
@@ -217,8 +222,111 @@ func (pp *PathProcessor) ProcessBacklogIfReady() {
 	}
 }
 
+func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) {
+	pathEnd1Cache := ChainProcessorCacheData{
+		IBCMessagesCache:     NewIBCMessagesCache(),
+		InSync:               cacheData.InSync,
+		ClientState:          cacheData.ClientState,          // probably don't need
+		ConnectionStateCache: cacheData.ConnectionStateCache, // probably don't need
+		LatestBlock:          cacheData.LatestBlock,
+		LatestHeader:         cacheData.LatestHeader,
+		IBCHeaderCache:       cacheData.IBCHeaderCache,
+	}
+	pathEnd2Cache := ChainProcessorCacheData{
+		IBCMessagesCache:     NewIBCMessagesCache(),
+		InSync:               cacheData.InSync,
+		ClientState:          cacheData.ClientState,          // probably don't need
+		ConnectionStateCache: cacheData.ConnectionStateCache, // probably don't need
+		LatestBlock:          cacheData.LatestBlock,
+		LatestHeader:         cacheData.LatestHeader,
+		IBCHeaderCache:       cacheData.IBCHeaderCache,
+	}
+
+	// split up data and send lower channel-id data to pathEnd1 and higher channel-id data to pathEnd2
+	for k, v := range cacheData.IBCMessagesCache.PacketFlow {
+		chanStr1 := strings.Replace(k.ChannelID, "channel-", "", 1)
+		chanStr2 := strings.Replace(k.CounterpartyChannelID, "channel-", "", 1)
+		chan1, err := strconv.Atoi(chanStr1)
+		if err != nil {
+			pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
+			continue
+		}
+		chan2, err := strconv.Atoi(chanStr2)
+		if err != nil {
+			pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
+			continue
+		}
+		if chan1 > chan2 {
+			pathEnd1Cache.IBCMessagesCache.PacketFlow[k] = v
+		} else {
+			pathEnd2Cache.IBCMessagesCache.PacketFlow[k] = v
+		}
+	}
+
+	for eventType, c := range cacheData.IBCMessagesCache.ChannelHandshake {
+		for k, v := range c {
+			chanStr1 := strings.Replace(k.ChannelID, "channel-", "", 1)
+			chanStr2 := strings.Replace(k.CounterpartyChannelID, "channel-", "", 1)
+			chan1, err := strconv.Atoi(chanStr1)
+			if err != nil {
+				pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
+				continue
+			}
+			chan2, err := strconv.Atoi(chanStr2)
+			if err != nil {
+				pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
+				continue
+			}
+			if chan1 > chan2 {
+				if _, ok := pathEnd1Cache.IBCMessagesCache.ChannelHandshake[eventType]; !ok {
+					pathEnd1Cache.IBCMessagesCache.ChannelHandshake[eventType] = make(ChannelMessageCache)
+				}
+				pathEnd1Cache.IBCMessagesCache.ChannelHandshake[eventType][k] = v
+			} else {
+				if _, ok := pathEnd2Cache.IBCMessagesCache.ChannelHandshake[eventType]; !ok {
+					pathEnd2Cache.IBCMessagesCache.ChannelHandshake[eventType] = make(ChannelMessageCache)
+				}
+				pathEnd2Cache.IBCMessagesCache.ChannelHandshake[eventType][k] = v
+			}
+		}
+	}
+
+	channelStateCache1 := make(map[ChannelKey]bool)
+	channelStateCache2 := make(map[ChannelKey]bool)
+
+	for k, v := range cacheData.ChannelStateCache {
+		chanStr1 := strings.Replace(k.ChannelID, "channel-", "", 1)
+		chanStr2 := strings.Replace(k.CounterpartyChannelID, "channel-", "", 1)
+		chan1, err := strconv.Atoi(chanStr1)
+		if err != nil {
+			pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
+			continue
+		}
+		chan2, err := strconv.Atoi(chanStr2)
+		if err != nil {
+			pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
+			continue
+		}
+		if chan1 > chan2 {
+			channelStateCache1[k] = v
+		} else {
+			channelStateCache2[k] = v
+		}
+	}
+
+	pathEnd1Cache.ChannelStateCache = channelStateCache1
+	pathEnd2Cache.ChannelStateCache = channelStateCache2
+
+	pp.pathEnd1.incomingCacheData <- pathEnd1Cache
+	pp.pathEnd2.incomingCacheData <- pathEnd2Cache
+}
+
 // ChainProcessors call this method when they have new IBC messages
 func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorCacheData) {
+	if pp.localhost {
+		pp.handleLocalhostData(cacheData)
+		return
+	}
 	if pp.pathEnd1.info.ChainID == chainID {
 		pp.pathEnd1.incomingCacheData <- cacheData
 	} else if pp.pathEnd2.info.ChainID == chainID {

@@ -65,8 +65,9 @@ func StartRelayer(
 				filterDst = append(filterDst, ruleDst)
 			}
 			ePaths[i] = path{
-				src: processor.NewPathEnd(pathName, p.Src.ChainID, p.Src.ClientID, filter.Rule, filterSrc),
-				dst: processor.NewPathEnd(pathName, p.Dst.ChainID, p.Dst.ClientID, filter.Rule, filterDst),
+				src:       processor.NewPathEnd(pathName, p.Src.ChainID, p.Src.ClientID, filter.Rule, filterSrc),
+				dst:       processor.NewPathEnd(pathName, p.Dst.ChainID, p.Dst.ClientID, filter.Rule, filterDst),
+				localhost: p.Src.ConnectionID == localhostConnection,
 			}
 		}
 
@@ -90,8 +91,9 @@ func StartRelayer(
 // TODO: intermediate types. Should combine/replace with the relayer.Chain, relayer.Path, and relayer.PathEnd structs
 // as the stateless and stateful/event-based relaying mechanisms are consolidated.
 type path struct {
-	src processor.PathEnd
-	dst processor.PathEnd
+	src       processor.PathEnd
+	dst       processor.PathEnd
+	localhost bool
 }
 
 // chainProcessor returns the corresponding ChainProcessor implementation instance for a pathChain.
@@ -132,6 +134,7 @@ func relayerStartEventProcessor(
 				metrics,
 				memo,
 				clientUpdateThresholdTime,
+				p.localhost,
 			))
 	}
 

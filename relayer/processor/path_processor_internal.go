@@ -722,6 +722,9 @@ func (pp *PathProcessor) assembleAndSendMessages(
 ) error {
 	var needsClientUpdate bool
 	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 {
+		if pp.localhost {
+			return nil
+		}
 		var consensusHeightTime time.Time
 		if dst.clientState.ConsensusTime.IsZero() {
 			h, err := src.chainProvider.QueryIBCHeader(ctx, int64(dst.clientState.ConsensusHeight.RevisionHeight))
@@ -757,11 +760,14 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		connMsgs: make([]connectionMessageToTrack, len(messages.connectionMessages)),
 		chanMsgs: make([]channelMessageToTrack, len(messages.channelMessages)),
 	}
-	msgUpdateClient, err := pp.assembleMsgUpdateClient(ctx, src, dst)
-	if err != nil {
-		return err
+
+	if !pp.localhost {
+		msgUpdateClient, err := pp.assembleMsgUpdateClient(ctx, src, dst)
+		if err != nil {
+			return err
+		}
+		om.Append(msgUpdateClient)
 	}
-	om.Append(msgUpdateClient)
 
 	// Each assembleMessage call below will make a query on the source chain, so these operations can run in parallel.
 	var wg sync.WaitGroup
@@ -771,19 +777,21 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
 	}
 
-	for i, msg := range messages.connectionMessages {
-		wg.Add(1)
-		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
-	}
+	if !pp.localhost {
+		for i, msg := range messages.connectionMessages {
+			wg.Add(1)
+			go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+		}
 
-	for i, msg := range messages.channelMessages {
-		wg.Add(1)
-		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+		for i, msg := range messages.channelMessages {
+			wg.Add(1)
+			go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+		}
 	}
 
 	wg.Wait()
 
-	if len(om.msgs) == 1 && !needsClientUpdate {
+	if (pp.localhost && len(om.msgs) == 0) || (len(om.msgs) == 1 && !needsClientUpdate) {
 		// only msgUpdateClient, don't need to send
 		return errors.New("all messages failed to assemble")
 	}
@@ -791,11 +799,13 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	for _, m := range om.pktMsgs {
 		dst.trackProcessingPacketMessage(m)
 	}
-	for _, m := range om.connMsgs {
-		dst.trackProcessingConnectionMessage(m)
-	}
-	for _, m := range om.chanMsgs {
-		dst.trackProcessingChannelMessage(m)
+	if !pp.localhost {
+		for _, m := range om.connMsgs {
+			dst.trackProcessingConnectionMessage(m)
+		}
+		for _, m := range om.chanMsgs {
+			dst.trackProcessingChannelMessage(m)
+		}
 	}
 
 	go pp.sendMessages(ctx, src, dst, &om, pp.memo)
@@ -885,14 +895,20 @@ func (pp *PathProcessor) assemblePacketMessage(
 		return nil, fmt.Errorf("unexepected packet message eventType for message assembly: %s", msg.eventType)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, packetProofQueryTimeout)
-	defer cancel()
+	if pp.localhost {
+		packetProof = nil
+	}
 
 	var proof provider.PacketProof
-	var err error
-	proof, err = packetProof(ctx, msg.info, src.latestBlock.Height)
-	if err != nil {
-		return nil, fmt.Errorf("error querying packet proof: %w", err)
+	if packetProof != nil {
+		ctx, cancel := context.WithTimeout(ctx, packetProofQueryTimeout)
+		defer cancel()
+
+		var err error
+		proof, err = packetProof(ctx, msg.info, src.latestBlock.Height)
+		if err != nil {
+			return nil, fmt.Errorf("error querying packet proof: %w", err)
+		}
 	}
 	return assembleMessage(msg.info, proof)
 }
@@ -960,6 +976,11 @@ func (pp *PathProcessor) assembleChannelMessage(
 	default:
 		return nil, fmt.Errorf("unexepected channel message eventType for message assembly: %s", msg.eventType)
 	}
+
+	if pp.localhost {
+		chanProof = nil
+	}
+
 	var proof provider.ChannelProof
 	var err error
 	if chanProof != nil {

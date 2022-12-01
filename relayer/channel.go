@@ -12,6 +12,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const localhostConnection = "localhost-connection"
+
 // CreateOpenChannels runs the channel creation messages on timeout until they pass.
 func (c *Chain) CreateOpenChannels(
 	ctx context.Context,
@@ -58,6 +60,7 @@ func (c *Chain) CreateOpenChannels(
 		nil,
 		memo,
 		DefaultClientUpdateThreshold,
+		c.PathEnd.ConnectionID == localhostConnection,
 	)
 
 	c.log.Info("Starting event processor for channel handshake",
@@ -128,6 +131,7 @@ func (c *Chain) CloseChannel(
 			nil,
 			memo,
 			DefaultClientUpdateThreshold,
+			c.PathEnd.ConnectionID == localhostConnection,
 		)).
 		WithInitialBlockHistory(0).
 		WithMessageLifecycle(&processor.ChannelMessageLifecycle{
