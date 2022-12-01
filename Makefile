@@ -14,9 +14,12 @@ all: lint install
 # Build / Install
 ###############################################################################
 
-LD_FLAGS = -X github.com/cosmos/relayer/v2/cmd.Version=$(VERSION)
+ldflags = -X github.com/cosmos/relayer/v2/cmd.Version=$(VERSION)
 
-BUILD_FLAGS := -ldflags '$(LD_FLAGS)'
+ldflags += $(LDFLAGS)
+ldflags := $(strip $(ldflags))
+
+BUILD_FLAGS := -ldflags '$(ldflags)'
 
 build: go.sum
 ifeq ($(OS),Windows_NT)
