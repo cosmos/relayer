@@ -24,7 +24,7 @@ RUN if [ -d "/go/bin/linux_${TARGETARCH}" ]; then mv /go/bin/linux_${TARGETARCH}
 
 # Use minimal busybox from infra-toolkit image for final scratch image
 FROM ghcr.io/strangelove-ventures/infra-toolkit:v0.0.6 AS busybox-min
-RUN addgroup --gid 1025 -S relayer && adduser --uid 1025 -S relayer -G relayer
+RUN addgroup --gid 1000 -S relayer && adduser --uid 100 -S relayer -G relayer
 
 # Use ln and rm from full featured busybox for assembling final image
 FROM busybox:1.34.1-musl AS busybox-full
@@ -64,7 +64,7 @@ COPY --from=busybox-min /etc/ssl/cert.pem /etc/ssl/cert.pem
 
 # Install relayer user
 COPY --from=busybox-min /etc/passwd /etc/passwd
-COPY --from=busybox-min --chown=1025:1025 /home/relayer /home/relayer
+COPY --from=busybox-min --chown=100:1000 /home/relayer /home/relayer
 
 WORKDIR /home/relayer
 USER relayer
