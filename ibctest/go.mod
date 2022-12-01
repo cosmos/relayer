@@ -3,12 +3,12 @@ module github.com/cosmos/relayer/v2/ibctest
 go 1.18
 
 require (
-	github.com/cosmos/cosmos-sdk v0.46.4
+	github.com/cosmos/cosmos-sdk v0.46.6
 	github.com/cosmos/ibc-go/v5 v5.1.0
 	github.com/cosmos/relayer/v2 v2.0.0
 	github.com/docker/docker v20.10.19+incompatible
 	github.com/moby/moby v20.10.18+incompatible
-	github.com/strangelove-ventures/ibctest/v5 v5.0.0-20220922235050-6baac8c666ea
+	github.com/strangelove-ventures/ibctest/v5 v5.0.0-20221201055938-fa49178c17eb
 	github.com/stretchr/testify v1.8.1
 	github.com/tendermint/tendermint v0.34.23
 	go.uber.org/zap v1.23.0
