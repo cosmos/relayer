@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/avast/retry-go/v4 v4.3.1
-	github.com/cosmos/cosmos-sdk v0.46.4
+	github.com/cosmos/cosmos-sdk v0.46.6
 	github.com/cosmos/ibc-go/v5 v5.1.0
 	github.com/gogo/protobuf v1.3.3
 	github.com/google/go-cmp v0.5.9
