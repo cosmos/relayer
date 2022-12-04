@@ -33,7 +33,7 @@ require (
 	github.com/ComposableFi/go-merkle-trees v0.0.0-20220505132313-e976260288cc // indirect
 	github.com/ComposableFi/go-subkey/v2 v2.0.0-tm03420 // indirect
 	github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220921072213-b36dd716026d // indirect
-	github.com/ComposableFi/ics11-beefy v0.0.0-20220915123708-0965f4b89a73 // indirect
+	github.com/ComposableFi/ics11-beefy v0.0.0-20221204220936-07d28a34f643 // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/Microsoft/hcsshim v0.9.3 // indirect
 	github.com/OneOfOne/xxhash v1.2.8 // indirect
