@@ -42,6 +42,7 @@ type SubstrateProviderConfig struct {
 	Network              uint16  `json:"network" yaml:"network"`
 	ParaID               uint32  `json:"para-id" yaml:"para-id"`
 	BeefyActivationBlock uint32  `json:"beefy-activation-block" yaml:"beefy-activation-block"`
+	RelayChain           int32   `json:"relay-chain" yaml:"relay-chain"`
 }
 
 func (spc SubstrateProviderConfig) Validate() error {
@@ -176,9 +177,15 @@ func (sp *SubstrateProvider) Timeout() string {
 	return sp.Config.Timeout
 }
 
-func (sp *SubstrateProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
-	// TODO: implement a proper trusting period
-	return time.Duration(math.MaxInt), nil
+func (sp *SubstrateProvider) TrustingPeriod(_ context.Context) (time.Duration, error) {
+	switch sp.Config.RelayChain {
+	case int32(beefyclienttypes.RelayChain_POLKADOT):
+		return beefyclienttypes.RelayChain_POLKADOT.TrustingPeriod(), nil
+	case int32(beefyclienttypes.RelayChain_KUSAMA):
+		return beefyclienttypes.RelayChain_KUSAMA.TrustingPeriod(), nil
+	default:
+		return math.MaxInt, nil
+	}
 }
 
 // WaitForNBlocks is no-op as it isn't used anywhere

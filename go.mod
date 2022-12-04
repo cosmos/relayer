@@ -8,7 +8,7 @@ require (
 	github.com/ChainSafe/gossamer v0.6.1-0.20220406182257-98400b30ca00
 	github.com/ComposableFi/go-merkle-trees v0.0.0-20220505132313-e976260288cc
 	github.com/ComposableFi/go-substrate-rpc-client/v4 v4.0.1-0.20220921072213-b36dd716026d
-	github.com/ComposableFi/ics11-beefy v0.0.0-20220915123708-0965f4b89a73
+	github.com/ComposableFi/ics11-beefy v0.0.0-20221204220936-07d28a34f643
 	github.com/OneOfOne/xxhash v1.2.8
 	github.com/avast/retry-go/v4 v4.1.0
 	github.com/cosmos/cosmos-sdk v0.46.1

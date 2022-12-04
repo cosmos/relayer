@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
+	"math"
 	"strings"
 	"time"
+
+	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
 
 	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 
@@ -66,7 +68,14 @@ func (sp *SubstrateProvider) QueryBalanceWithAddress(ctx context.Context, addres
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
 func (sp *SubstrateProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
-	return 0, nil
+	switch sp.Config.RelayChain {
+	case int32(beefyclienttypes.RelayChain_POLKADOT):
+		return beefyclienttypes.RelayChain_POLKADOT.UnbondingPeriod(), nil
+	case int32(beefyclienttypes.RelayChain_KUSAMA):
+		return beefyclienttypes.RelayChain_KUSAMA.UnbondingPeriod(), nil
+	default:
+		return math.MaxInt, nil
+	}
 }
 
 // QueryClientStateResponse retrieves the latest consensus state for a client in state at a given height
