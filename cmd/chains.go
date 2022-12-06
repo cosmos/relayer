@@ -475,6 +475,7 @@ func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) er
 			Timeout:        chainConfig.Timeout,
 			OutputFormat:   chainConfig.OutputFormat,
 			SignModeStr:    chainConfig.SignModeStr,
+			ExtraCodecs:    chainConfig.ExtraCodecs,
 		}
 
 		prov, err := pcfg.NewProvider(
