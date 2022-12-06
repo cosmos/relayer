@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
+	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	"github.com/avast/retry-go/v4"
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
@@ -15,6 +17,21 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+)
+
+const (
+	queryTimeout                = 5 * time.Second
+	latestHeightQueryRetryDelay = 1 * time.Second
+	latestHeightQueryRetries    = 5
+	// inSyncNumBlocksThreshold is an estimation of 2 BEEFY finalization rounds. The relayer is not in
+	// sync if the last processed block is greater than 2 relay chain finalization rounds.
+	// TODO: this should be reviewed when the light client is changed to a GRANDPA client.
+	inSyncNumBlocksThreshold = 16
+
+	SubscriptionNamespace    = "beefy"
+	SubscribeMethodSuffix    = "subscribeJustifications"
+	UnsubscribeMethodSuffix  = "unsubscribeJustifications"
+	NotificationMethodSuffix = "justifications"
 )
 
 type SubstrateChainProcessor struct {
@@ -57,16 +74,6 @@ func NewSubstrateChainProcessor(log *zap.Logger, provider *SubstrateProvider) *S
 		channelConnections:   make(map[string]string),
 	}
 }
-
-const (
-	queryTimeout                = 5 * time.Second
-	blockResultsQueryTimeout    = 2 * time.Minute
-	latestHeightQueryRetryDelay = 1 * time.Second
-	latestHeightQueryRetries    = 5
-
-	defaultMinQueryLoopDuration = 1 * time.Second
-	inSyncNumBlocksThreshold    = 2
-)
 
 // latestClientState is a map of clientID to the latest clientInfo for that client.
 type latestClientState map[string]provider.ClientState
@@ -130,21 +137,23 @@ func (scp *SubstrateChainProcessor) clientState(ctx context.Context, clientID st
 	return clientState, nil
 }
 
-// queryCyclePersistence hold the variables that should be retained across queryCycles.
-type queryCyclePersistence struct {
-	latestHeight         int64
-	latestQueriedBlock   int64
-	minQueryLoopDuration time.Duration
+type BlockRange struct {
+	startBlock uint64
+	endBlock   uint64
+}
+
+// processCyclePersistence hold the variables that should be retained across queryCycles.
+type processCyclePersistence struct {
+	startBlockHeight  uint64
+	latestBlockHeight uint64
 }
 
 // Run starts the query loop for the chain which will gather applicable ibc messages and push events out to the relevant PathProcessors.
 // The initialBlockHistory parameter determines how many historical blocks should be fetched and processed before continuing with current blocks.
 // ChainProcessors should obey the context and return upon context cancellation.
 func (scp *SubstrateChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
-	// this will be used for persistence across query cycle loop executions
-	persistence := queryCyclePersistence{
-		minQueryLoopDuration: defaultMinQueryLoopDuration,
-	}
+	// this will be used for persistence across even process cycles
+	persistence := processCyclePersistence{}
 
 	// Infinite retry to get initial latest height
 	for {
@@ -160,18 +169,16 @@ func (scp *SubstrateChainProcessor) Run(ctx context.Context, initialBlockHistory
 			}
 			continue
 		}
-		persistence.latestHeight = latestHeight
+		persistence.latestBlockHeight = uint64(latestHeight)
 		break
 	}
 
-	// this will make initial QueryLoop iteration look back initialBlockHistory blocks in history
-	latestQueriedBlock := persistence.latestHeight - int64(initialBlockHistory)
-
-	if latestQueriedBlock < 0 {
-		latestQueriedBlock = 0
+	// this will make initial ibc event processing look back initialBlockHistory blocks in history
+	var hasHistoryToProcess bool
+	persistence.startBlockHeight = persistence.latestBlockHeight - initialBlockHistory
+	if persistence.startBlockHeight > 0 {
+		hasHistoryToProcess = true
 	}
-
-	persistence.latestQueriedBlock = latestQueriedBlock
 
 	var eg errgroup.Group
 	eg.Go(func() error {
@@ -184,19 +191,50 @@ func (scp *SubstrateChainProcessor) Run(ctx context.Context, initialBlockHistory
 		return err
 	}
 
-	scp.log.Debug("Entering main query loop")
+	scp.log.Debug("Subscribing and listening to relay chain commitments")
+	commitments := make(chan interface{})
 
-	ticker := time.NewTicker(persistence.minQueryLoopDuration)
+	sub, err := scp.chainProvider.RelayChainRPCClient.Client.Subscribe(
+		context.Background(),
+		SubscriptionNamespace,
+		SubscribeMethodSuffix,
+		UnsubscribeMethodSuffix,
+		NotificationMethodSuffix,
+		commitments,
+	)
+	if err != nil {
+		return err
+	}
+
+	defer sub.Unsubscribe()
 
 	for {
-		if err := scp.queryCycle(ctx, &persistence); err != nil {
-			return err
+		if hasHistoryToProcess {
+			err := scp.processIBCEvents(ctx, &persistence, nil)
+			if err != nil {
+				return err
+			}
+			hasHistoryToProcess = false
 		}
+
 		select {
+		case msg, ok := <-commitments:
+			if !ok {
+				return fmt.Errorf("commitments channel is closed")
+			}
+
+			compactCommitment := rpcclienttypes.CompactSignedCommitment{}
+			err = rpcclienttypes.DecodeFromHex(msg.(string), &compactCommitment)
+			if err != nil {
+				return err
+			}
+
+			err := scp.processIBCEvents(ctx, &persistence, &compactCommitment)
+			if err != nil {
+				return err
+			}
 		case <-ctx.Done():
 			return nil
-		case <-ticker.C:
-			ticker.Reset(persistence.minQueryLoopDuration)
 		}
 	}
 }
@@ -249,109 +287,80 @@ func (scp *SubstrateChainProcessor) initializeChannelState(ctx context.Context) 
 	return nil
 }
 
-func (scp *SubstrateChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
-	var err error
-	persistence.latestHeight, err = scp.latestHeightWithRetry(ctx)
+func (scp *SubstrateChainProcessor) processIBCEvents(
+	ctx context.Context,
+	persistence *processCyclePersistence,
+	cc *rpcclienttypes.CompactSignedCommitment,
+) error {
+	if cc != nil {
+		commitment := cc.Unpack()
+		blockNumber := uint64(commitment.Commitment.BlockNumber)
+		if persistence.startBlockHeight <= 0 {
+			// we need a range of finalized relay chain blocks. If the start block is the genesis block,
+			// skip event processing cycle
+			persistence.startBlockHeight = blockNumber + 1
+			return nil
+		}
 
-	// don't want to cause CosmosChainProcessor to quit here, can retry again next cycle.
-	if err != nil {
-		scp.log.Error(
-			"Failed to query latest height after max attempts",
-			zap.Uint("attempts", latestHeightQueryRetries),
-			zap.Error(err),
-		)
-		return nil
+		persistence.latestBlockHeight = blockNumber
 	}
 
-	scp.log.Debug("Queried latest height",
-		zap.Int64("latest_height", persistence.latestHeight),
-	)
-
-	// used at the end of the cycle to send signal to path processors to start processing if both chains are in sync and no new messages came in this cycle
-	firstTimeInSync := false
-
+	var firstTimeSync bool
 	if !scp.inSync {
-		if (persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold {
+		if (persistence.latestBlockHeight - persistence.startBlockHeight) > inSyncNumBlocksThreshold {
 			scp.inSync = true
-			firstTimeInSync = true
+			firstTimeSync = true
 			scp.log.Info("Chain is in sync")
-		} else {
-			scp.log.Info("Chain is not yet in sync",
-				zap.Int64("latest_queried_block", persistence.latestQueriedBlock),
-				zap.Int64("latest_height", persistence.latestHeight),
-			)
 		}
 	}
 
-	ibcMessagesCache := processor.NewIBCMessagesCache()
-
-	ibcHeaderCache := make(processor.IBCHeaderCache)
-
-	ppChanged := false
-
-	var latestHeader SubstrateIBCHeader
-
-	newLatestQueriedBlock := persistence.latestQueriedBlock
-
-	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
-		var eg errgroup.Group
-		var ibcEvents rpcclienttypes.IBCEventsQueryResult
-		var ibcHeader provider.IBCHeader
-		i := i
-		heightUint64 := uint64(i)
-
-		eg.Go(func() (err error) {
-			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
-			defer cancelQueryCtx()
-			ibcEvents, err = scp.chainProvider.RPCClient.RPC.IBC.QueryIbcEvents(queryCtx, []rpcclienttypes.BlockNumberOrHash{{Number: uint32(heightUint64)}})
-			return err
-		})
-		eg.Go(func() (err error) {
-			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
-			defer cancelQueryCtx()
-			ibcHeader, err = scp.chainProvider.QueryIBCHeader(queryCtx, i)
-			return err
-		})
-
-		if err := eg.Wait(); err != nil {
-			scp.log.Warn("Error querying block data", zap.Error(err))
-			break
-		}
-
-		latestHeader = ibcHeader.(SubstrateIBCHeader)
-
-		scp.latestBlock = provider.LatestBlock{
-			Height: heightUint64,
-			Time:   latestHeader.SignedHeader.ConsensusState().Timestamp,
-		}
-
-		ibcHeaderCache[heightUint64] = latestHeader
-		ppChanged = true
-
-		messages := scp.ibcMessagesFromEvents(ibcEvents)
-
-		for _, m := range messages {
-			scp.handleMessage(m, ibcMessagesCache)
-		}
-
-		newLatestQueriedBlock = i
-	}
-
-	if newLatestQueriedBlock == persistence.latestQueriedBlock {
+	header, err := scp.chainProvider.QueryIBCHeaderOverBlocks(persistence.latestBlockHeight, persistence.startBlockHeight)
+	if err != nil {
 		return nil
 	}
 
-	if !ppChanged {
-		if firstTimeInSync {
+	beefyHeader := header.(SubstrateIBCHeader)
+	var blockNumbers []rpcclienttypes.BlockNumberOrHash
+	for _, head := range beefyHeader.SignedHeader.HeadersWithProof.Headers {
+		decodedHeader, err := beefyclienttypes.DecodeParachainHeader(head.ParachainHeader)
+		if err != nil {
+			return err
+		}
+		blockNumbers = append(blockNumbers, rpcclienttypes.BlockNumberOrHash{Number: uint32(decodedHeader.Number)})
+	}
+
+	sort.SliceStable(blockNumbers, func(i, j int) bool {
+		return blockNumbers[i].Number < blockNumbers[j].Number
+	})
+
+	ibcEvents, err := scp.chainProvider.RPCClient.RPC.IBC.QueryIbcEvents(ctx, blockNumbers)
+	if err != nil {
+		return err
+	}
+
+	// skip event processing cycle if there are no events to process
+	if len(ibcEvents) == 0 {
+		if firstTimeSync {
 			for _, pp := range scp.pathProcessors {
 				pp.ProcessBacklogIfReady()
 			}
 		}
-
 		return nil
 	}
 
+	ibcMessagesCache := processor.NewIBCMessagesCache()
+	messages := scp.ibcMessagesFromEvents(ibcEvents)
+	for i := 0; i < len(messages); i++ {
+		scp.handleMessage(messages[i], ibcMessagesCache)
+	}
+
 	chainID := scp.chainProvider.ChainId()
+	ibcHeaderCache := make(processor.IBCHeaderCache)
+	ibcHeaderCache[persistence.latestBlockHeight] = beefyHeader
+	scp.latestBlock = provider.LatestBlock{
+		Height: persistence.latestBlockHeight,
+		Time:   beefyHeader.SignedHeader.ConsensusState().Timestamp,
+	}
 
 	for _, pp := range scp.pathProcessors {
 		clientID := pp.RelevantClientID(chainID)
@@ -366,7 +375,7 @@ func (scp *SubstrateChainProcessor) queryCycle(ctx context.Context, persistence 
 
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
 			LatestBlock:          scp.latestBlock,
-			LatestHeader:         latestHeader,
+			LatestHeader:         beefyHeader,
 			IBCMessagesCache:     ibcMessagesCache,
 			InSync:               scp.inSync,
 			ClientState:          clientState,
@@ -376,7 +385,7 @@ func (scp *SubstrateChainProcessor) queryCycle(ctx context.Context, persistence 
 		})
 	}
 
-	persistence.latestQueriedBlock = newLatestQueriedBlock
-
+	// update the start block of the next process cycle to the latest process block height + 1
+	persistence.startBlockHeight = persistence.latestBlockHeight + 1
 	return nil
 }

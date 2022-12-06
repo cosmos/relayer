@@ -536,9 +536,26 @@ func (sp *SubstrateProvider) QueryLatestIBCHeader() (provider.IBCHeader, error) 
 	}, nil
 }
 
-func (sp *SubstrateProvider) QueryIBCHeaderOverBlocks(finalizedHeight, previouslyFinalized int64) (provider.IBCHeader, error) {
-	// TODO
-	return nil, nil
+func (sp *SubstrateProvider) QueryIBCHeaderOverBlocks(finalizedHeight, previouslyFinalized uint64) (provider.IBCHeader, error) {
+	finalizedHash, err := sp.RelayChainRPCClient.RPC.Chain.GetBlockHash(finalizedHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	previouslyFinalizedHash, err := sp.RelayChainRPCClient.RPC.Chain.GetBlockHash(previouslyFinalized)
+	if err != nil {
+		return nil, err
+	}
+
+	header, err := sp.constructBeefyHeader(finalizedHash, &previouslyFinalizedHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return SubstrateIBCHeader{
+		height:       uint64(header.MMRUpdateProof.SignedCommitment.Commitment.BlockNumber),
+		SignedHeader: header,
+	}, nil
 }
 
 // QueryDenomTrace takes a denom from IBC and queries the information about it
