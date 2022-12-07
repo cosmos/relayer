@@ -818,7 +818,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 
 	if len(om.msgs) == 1 {
 		om.pktMsgs = make([]packetMessageToTrack, len(messages.packetMessages))
-		// only assemble and send packet messages if there are no handshake or ICQ messages
+		// only assemble and send packet messages if there are no handshake messages
 		for i, msg := range messages.packetMessages {
 			wg.Add(1)
 			go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)

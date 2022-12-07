@@ -383,7 +383,7 @@ func (pathEnd *pathEndRuntime) removePacketRetention(
 	k ChannelKey,
 	sequence uint64,
 ) {
-	// remove all retention of this connection handshake in pathEnd.messagesCache.PacketFlow and counterparty
+	// remove all retention of this packet flow in pathEnd.messagesCache.PacketFlow and counterparty
 	toDelete := make(map[string][]uint64)
 	toDeleteCounterparty := make(map[string][]uint64)
 	switch eventType {
