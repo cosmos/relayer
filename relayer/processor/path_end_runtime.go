@@ -317,29 +317,6 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		return false
 	}
 
-	removeRetention := func() {
-		// giving up on sending this packet flow message
-		// remove all retention of this connection handshake in pathEnd.messagesCache.PacketFlow and counterparty
-		toDelete := make(map[string][]uint64)
-		toDeleteCounterparty := make(map[string][]uint64)
-		switch eventType {
-		case chantypes.EventTypeRecvPacket:
-			toDelete[eventType] = []uint64{sequence}
-			toDeleteCounterparty[chantypes.EventTypeSendPacket] = []uint64{sequence}
-		case chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket, chantypes.EventTypeTimeoutPacketOnClose:
-			toDelete[eventType] = []uint64{sequence}
-			toDeleteCounterparty[chantypes.EventTypeRecvPacket] = []uint64{sequence}
-			toDelete[chantypes.EventTypeSendPacket] = []uint64{sequence}
-		}
-		// delete in progress send for this specific message
-		pathEnd.packetProcessing[k].deleteMessages(map[string][]uint64{
-			eventType: {sequence},
-		})
-		// delete all packet flow retention history for this sequence
-		pathEnd.messageCache.PacketFlow[k].DeleteMessages(toDelete)
-		counterparty.messageCache.PacketFlow[k].DeleteMessages(toDeleteCounterparty)
-	}
-
 	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
 			zap.String("event_type", eventType),
@@ -355,7 +332,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 			zap.Uint64("sequence", sequence),
 			zap.Inline(k),
 		)
-		removeRetention()
+		pathEnd.removePacketRetention(counterparty, eventType, k, sequence)
 		return false
 	}
 	msgProcessCache, ok := pathEnd.packetProcessing[k]
@@ -392,11 +369,39 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 			zap.Inline(k),
 			zap.Int("max_retries", maxMessageSendRetries),
 		)
-		removeRetention()
+		pathEnd.removePacketRetention(counterparty, eventType, k, sequence)
 		return false
 	}
 
 	return true
+}
+
+// removePacketRetention gives up on sending this packet flow message
+func (pathEnd *pathEndRuntime) removePacketRetention(
+	counterparty *pathEndRuntime,
+	eventType string,
+	k ChannelKey,
+	sequence uint64,
+) {
+	// remove all retention of this connection handshake in pathEnd.messagesCache.PacketFlow and counterparty
+	toDelete := make(map[string][]uint64)
+	toDeleteCounterparty := make(map[string][]uint64)
+	switch eventType {
+	case chantypes.EventTypeRecvPacket:
+		toDelete[eventType] = []uint64{sequence}
+		toDeleteCounterparty[chantypes.EventTypeSendPacket] = []uint64{sequence}
+	case chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket, chantypes.EventTypeTimeoutPacketOnClose:
+		toDelete[eventType] = []uint64{sequence}
+		toDeleteCounterparty[chantypes.EventTypeRecvPacket] = []uint64{sequence}
+		toDelete[chantypes.EventTypeSendPacket] = []uint64{sequence}
+	}
+	// delete in progress send for this specific message
+	pathEnd.packetProcessing[k].deleteMessages(map[string][]uint64{
+		eventType: {sequence},
+	})
+	// delete all packet flow retention history for this sequence
+	pathEnd.messageCache.PacketFlow[k].DeleteMessages(toDelete)
+	counterparty.messageCache.PacketFlow[k].DeleteMessages(toDeleteCounterparty)
 }
 
 // shouldSendConnectionMessage determines if the connection handshake message should be sent now.
