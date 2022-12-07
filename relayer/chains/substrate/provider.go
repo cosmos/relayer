@@ -42,6 +42,7 @@ type SubstrateProviderConfig struct {
 	Network              uint16  `json:"network" yaml:"network"`
 	ParaID               uint32  `json:"para-id" yaml:"para-id"`
 	BeefyActivationBlock uint32  `json:"beefy-activation-block" yaml:"beefy-activation-block"`
+	FinalityGadget       string  `json:"finality-gadget" yaml:"finality-gadget"`
 }
 
 func (spc SubstrateProviderConfig) Validate() error {
