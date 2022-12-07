@@ -279,6 +279,15 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 	done()
 
 	tx := txb.GetTx()
+
+	json, err := cc.Codec.TxConfig.TxJSONEncoder()(tx)
+
+	cc.log.Info(
+		"Signed Transaction",
+		zap.String("chain_id", cc.PCfg.ChainID),
+		zap.String("signed_tx", string(json)),
+	)
+
 	fees := tx.GetFee()
 
 	var txBytes []byte
