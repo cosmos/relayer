@@ -94,7 +94,7 @@ func (b *Beefy) clientState(
 			Len:           uint32(len(nextAuthorities)),
 			AuthorityRoot: &nextAuthorityTreeRoot,
 		},
-		ParaID:           b.PCfg.ParaID,
+		ParaID:           b.paraID,
 		LatestParaHeight: uint32(paraHead.Number),
 		RelayChain:       beefyclienttypes.RelayChain_KUSAMA,
 	}, nil
@@ -128,7 +128,7 @@ func (b *Beefy) fetchParaIds(blockHash rpcclienttypes.Hash) ([]uint32, error) {
 
 func (b *Beefy) parachainHeaderKey() ([]byte, error) {
 	keyPrefix := rpcclienttypes.CreateStorageKeyPrefix(prefixParas, methodHeads)
-	encodedParaId, err := rpcclienttypes.Encode(b.PCfg.ParaID)
+	encodedParaId, err := rpcclienttypes.Encode(b.paraID)
 	if err != nil {
 		return nil, err
 	}
@@ -245,9 +245,9 @@ func (b *Beefy) getFinalizedBlocks(
 			return nil, nil, err
 		}
 
-		heads[b.PCfg.ParaID] = headData
+		heads[b.paraID] = headData
 		finalizedBlocks[uint32(paraHead.Number)] = heads
-		leafIndices = append(leafIndices, uint64(getLeafIndexForBlockNumber(b.PCfg.BeefyActivationBlock,
+		leafIndices = append(leafIndices, uint64(getLeafIndexForBlockNumber(b.beefyActivationBlock,
 			uint32(paraHead.Number))))
 		return finalizedBlocks, leafIndices, nil
 	}
@@ -282,13 +282,13 @@ func (b *Beefy) getFinalizedBlocks(
 		}
 
 		// check if heads has target id, else skip
-		if heads[b.PCfg.ParaID] == nil {
+		if heads[b.paraID] == nil {
 			continue
 		}
 
 		finalizedBlocks[uint32(header.Number)] = heads
 
-		leafIndices = append(leafIndices, uint64(getLeafIndexForBlockNumber(b.PCfg.BeefyActivationBlock,
+		leafIndices = append(leafIndices, uint64(getLeafIndexForBlockNumber(b.beefyActivationBlock,
 			uint32(header.Number))))
 	}
 	return finalizedBlocks, leafIndices, nil
@@ -348,8 +348,7 @@ func (b *Beefy) constructParachainHeaders(
 		leafIndex := mmrBatchProof.Proof.LeafIndex[i]
 
 		paraHeads[i] = v.ParachainHeads[:]
-		// TODO: The activation block number can be added to the substrate provider and this method as well
-		var leafBlockNumber = getBlockNumberForLeaf(b.PCfg.BeefyActivationBlock, uint32(leafIndex))
+		var leafBlockNumber = getBlockNumberForLeaf(b.beefyActivationBlock, uint32(leafIndex))
 		paraHeaders := finalizedBlocks[leafBlockNumber]
 
 		var paraHeadsLeaves [][]byte
@@ -371,7 +370,7 @@ func (b *Beefy) constructParachainHeaders(
 			binary.LittleEndian.PutUint32(paraIdScale[:], paraId)
 			leaf := append(paraIdScale, paraHeaders[paraId]...)
 			paraHeadsLeaves = append(paraHeadsLeaves, crypto.Keccak256(leaf))
-			if paraId == b.PCfg.ParaID {
+			if paraId == b.paraID {
 				// note index of paraId
 				index = uint64(count)
 			}
@@ -386,7 +385,7 @@ func (b *Beefy) constructParachainHeaders(
 		authorityRoot := bytes32(v.BeefyNextAuthoritySet.Root[:])
 		parentHash := bytes32(v.ParentNumberAndHash.Hash[:])
 
-		parachainHeaderDecoded, err := beefyclienttypes.DecodeParachainHeader(paraHeaders[b.PCfg.ParaID])
+		parachainHeaderDecoded, err := beefyclienttypes.DecodeParachainHeader(paraHeaders[b.paraID])
 		if err != nil {
 			return nil, err
 		}
@@ -397,7 +396,7 @@ func (b *Beefy) constructParachainHeaders(
 		}
 
 		header := beefyclienttypes.ParachainHeader{
-			ParachainHeader: paraHeaders[b.PCfg.ParaID],
+			ParachainHeader: paraHeaders[b.paraID],
 			PartialMMRLeaf: &beefyclienttypes.PartialMMRLeaf{
 				Version:      beefyclienttypes.U8(v.Version),
 				ParentNumber: uint32(v.ParentNumberAndHash.ParentNumber),
@@ -602,10 +601,10 @@ func (b *Beefy) constructBeefyHeader(
 		return nil, err
 	}
 
-	leafIndex := getLeafIndexForBlockNumber(b.PCfg.BeefyActivationBlock, uint32(latestCommitment.Commitment.BlockNumber))
+	leafIndex := getLeafIndexForBlockNumber(b.beefyActivationBlock, uint32(latestCommitment.Commitment.BlockNumber))
 	blockNumber := uint32(latestCommitment.Commitment.BlockNumber)
 	mmrProof, err := b.mmrUpdateProof(blockHash, latestCommitment,
-		uint64(getLeafIndexForBlockNumber(b.PCfg.BeefyActivationBlock, blockNumber)))
+		uint64(getLeafIndexForBlockNumber(b.beefyActivationBlock, blockNumber)))
 	if err != nil {
 		return nil, err
 	}
