@@ -106,9 +106,12 @@ func (sp *SubstrateProvider) Init() error {
 		return err
 	}
 
-	sp.FinalityGadget, err = finality.NewFinalityGadget(sp.Config, client, relaychainClient, sp.Memdb)
-	if err != nil {
-		return err
+	switch sp.Config.FinalityGadget {
+	case finality.BeefyFinalityGadget:
+		sp.FinalityGadget = finality.NewBeefy(sp.RPCClient, sp.RelayChainRPCClient, sp.Config.ParaID,
+			sp.Config.BeefyActivationBlock, sp.Memdb)
+	default:
+		return fmt.Errorf("unsupported finality gadget")
 	}
 
 	sp.Keybase = keybase

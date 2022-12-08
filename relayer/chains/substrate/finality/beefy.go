@@ -7,7 +7,6 @@ import (
 	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
 	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
-	"github.com/cosmos/relayer/v2/relayer/chains/substrate"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
@@ -29,18 +28,25 @@ func (h BeefyIBCHeader) ConsensusState() ibcexported.ConsensusState {
 var _ FinalityGadget = &Beefy{}
 
 type Beefy struct {
-	PCfg             *substrate.SubstrateProviderConfig
-	parachainClient  *rpcclient.SubstrateAPI
-	relayChainClient *rpcclient.SubstrateAPI
-	memDB            *chaindb.BadgerDB
+	parachainClient      *rpcclient.SubstrateAPI
+	relayChainClient     *rpcclient.SubstrateAPI
+	paraID               uint32
+	beefyActivationBlock uint32
+	memDB                *chaindb.BadgerDB
 }
 
 func NewBeefy(
-	cfg *substrate.SubstrateProviderConfig,
 	parachainClient, relayChainClient *rpcclient.SubstrateAPI,
+	paraID, beefyActivationBlock uint32,
 	memDB *chaindb.BadgerDB,
 ) *Beefy {
-	return &Beefy{cfg, parachainClient, relayChainClient, memDB}
+	return &Beefy{
+		parachainClient,
+		relayChainClient,
+		paraID,
+		beefyActivationBlock,
+		memDB,
+	}
 }
 
 func (b *Beefy) ClientState(header provider.IBCHeader) (ibcexported.ClientState, error) {
