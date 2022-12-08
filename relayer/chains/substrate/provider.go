@@ -108,7 +108,7 @@ func (sp *SubstrateProvider) Init() error {
 
 	switch sp.Config.FinalityGadget {
 	case finality.BeefyFinalityGadget:
-		sp.FinalityGadget = finality.NewBeefy(sp.RPCClient, sp.RelayChainRPCClient, sp.Config.ParaID,
+		sp.FinalityGadget = finality.NewBeefy(client, relaychainClient, sp.Config.ParaID,
 			sp.Config.BeefyActivationBlock, sp.Memdb)
 	default:
 		return fmt.Errorf("unsupported finality gadget")
