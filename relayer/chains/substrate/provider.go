@@ -8,6 +8,8 @@ import (
 	"path"
 	"time"
 
+	"github.com/cosmos/relayer/v2/relayer/chains/substrate/finality"
+
 	"github.com/ChainSafe/chaindb"
 	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
 	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
@@ -104,6 +106,11 @@ func (sp *SubstrateProvider) Init() error {
 		return err
 	}
 
+	sp.FinalityGadget, err = finality.NewFinalityGadget(sp.Config, client, relaychainClient, sp.Memdb)
+	if err != nil {
+		return err
+	}
+
 	sp.Keybase = keybase
 	sp.RPCClient = client
 	sp.RelayChainRPCClient = relaychainClient
@@ -120,6 +127,7 @@ type SubstrateProvider struct {
 	RPCClient                     *rpcclient.SubstrateAPI
 	RelayChainRPCClient           *rpcclient.SubstrateAPI
 	LatestQueriedRelayChainHeight int64
+	FinalityGadget                finality.FinalityGadget
 }
 
 type SubstrateIBCHeader struct {
