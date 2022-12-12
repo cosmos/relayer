@@ -7,8 +7,6 @@ import (
 	"strings"
 	"time"
 
-	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
@@ -442,53 +440,19 @@ func (sp *SubstrateProvider) QueryPacketReceipt(ctx context.Context, height int6
 	return
 }
 
-func (sp *SubstrateProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
-	signedHash, err := sp.RelayChainRPCClient.RPC.Beefy.GetFinalizedHead()
+func (sp *SubstrateProvider) QueryLatestHeight(_ context.Context) (int64, error) {
+	paraHeight, relayChainHeight, err := sp.FinalityGadget.QueryLatestHeight()
 	if err != nil {
 		return 0, err
 	}
 
-	block, err := sp.RelayChainRPCClient.RPC.Chain.GetBlock(signedHash)
-	if err != nil {
-		return 0, err
-	}
-
-	header, err := sp.constructBeefyHeader(signedHash, nil)
-	if err != nil {
-		return 0, err
-	}
-
-	decodedHeader, err := beefyclienttypes.DecodeParachainHeader(header.HeadersWithProof.Headers[0].ParachainHeader)
-	if err != nil {
-		return 0, err
-	}
-
-	sp.LatestQueriedRelayChainHeight = int64(block.Block.Header.Number)
-	return int64(decodedHeader.Number), nil
+	sp.LatestQueriedRelayChainHeight = relayChainHeight
+	return paraHeight, nil
 }
 
-// QueryHeaderAtHeight returns the header at a given height
 func (sp *SubstrateProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.Header, error) {
-	latestBlockHash, err := sp.RPCClient.RPC.Chain.GetBlockHashLatest()
-	if err != nil {
-		return nil, err
-	}
-
-	c, err := sp.signedCommitment(latestBlockHash)
-	if err != nil {
-		return nil, err
-	}
-
-	if int64(c.Commitment.BlockNumber) < height {
-		return nil, fmt.Errorf("queried block is not finalized")
-	}
-
-	blockHash, err := sp.RPCClient.RPC.Chain.GetBlockHash(uint64(height))
-	if err != nil {
-		return nil, err
-	}
-
-	return sp.constructBeefyHeader(blockHash, nil)
+	// this method is no-op as it isn't used anywhere
+	return nil, nil
 }
 
 // QueryIBCHeader returns the result of QueryLatestIBCHeader. It is only applicable when creating clients.
@@ -518,44 +482,23 @@ func (sp *SubstrateProvider) QueryLatestIBCHeader() (provider.IBCHeader, error) 
 	}
 
 	relayChainHeight := uint64(sp.LatestQueriedRelayChainHeight)
-	blockHash, err := sp.RelayChainRPCClient.RPC.Chain.GetBlockHash(relayChainHeight)
-	if err != nil {
-		return nil, err
-	}
-
-	header, err := sp.constructBeefyHeader(blockHash, nil)
+	header, err := sp.FinalityGadget.QueryHeaderAt(relayChainHeight)
 	if err != nil {
 		return nil, err
 	}
 
 	// reset latest queried relay height after IBC Header is queried
 	sp.LatestQueriedRelayChainHeight = 0
-	return SubstrateIBCHeader{
-		height:       uint64(header.MMRUpdateProof.SignedCommitment.Commitment.BlockNumber),
-		SignedHeader: header,
-	}, nil
+	return sp.FinalityGadget.IBCHeader(header), nil
 }
 
 func (sp *SubstrateProvider) QueryIBCHeaderOverBlocks(finalizedHeight, previouslyFinalized uint64) (provider.IBCHeader, error) {
-	finalizedHash, err := sp.RelayChainRPCClient.RPC.Chain.GetBlockHash(finalizedHeight)
+	header, err := sp.FinalityGadget.QueryHeaderOverBlocks(finalizedHeight, previouslyFinalized)
 	if err != nil {
 		return nil, err
 	}
 
-	previouslyFinalizedHash, err := sp.RelayChainRPCClient.RPC.Chain.GetBlockHash(previouslyFinalized)
-	if err != nil {
-		return nil, err
-	}
-
-	header, err := sp.constructBeefyHeader(finalizedHash, &previouslyFinalizedHash)
-	if err != nil {
-		return nil, err
-	}
-
-	return SubstrateIBCHeader{
-		height:       uint64(header.MMRUpdateProof.SignedCommitment.Commitment.BlockNumber),
-		SignedHeader: header,
-	}, nil
+	return sp.FinalityGadget.IBCHeader(header), nil
 }
 
 // QueryDenomTrace takes a denom from IBC and queries the information about it

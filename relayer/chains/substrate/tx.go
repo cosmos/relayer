@@ -891,29 +891,7 @@ func (sp *SubstrateProvider) NewClientState(
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 ) (ibcexported.ClientState, error) {
-	substrateHeader, ok := dstUpdateHeader.(SubstrateIBCHeader)
-	if !ok {
-		return nil, fmt.Errorf("got data of type %T but wanted  substrate.SubstrateIBCHeader \n", dstUpdateHeader)
-	}
-
-	// TODO: this won't work because we need the height passed to GetBlockHash to be the previously finalized beefy height
-	// from the relayer. However, the height from substrate.Height() is the height of the first parachain from the beefy header.
-	blockHash, err := sp.RelayChainRPCClient.RPC.Chain.GetBlockHash(substrateHeader.Height())
-	if err != nil {
-		return nil, err
-	}
-
-	commitment, err := sp.signedCommitment(blockHash)
-	if err != nil {
-		return nil, err
-	}
-
-	cs, err := sp.clientState(commitment)
-	if err != nil {
-		return nil, err
-	}
-
-	return cs, nil
+	return sp.FinalityGadget.ClientState(dstUpdateHeader)
 }
 
 // returns call method and messages of relayer

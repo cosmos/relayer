@@ -8,6 +8,8 @@ import (
 	"path"
 	"time"
 
+	"github.com/cosmos/relayer/v2/relayer/chains/substrate/finality"
+
 	"github.com/ChainSafe/chaindb"
 	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
 	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
@@ -42,6 +44,7 @@ type SubstrateProviderConfig struct {
 	Network              uint16  `json:"network" yaml:"network"`
 	ParaID               uint32  `json:"para-id" yaml:"para-id"`
 	BeefyActivationBlock uint32  `json:"beefy-activation-block" yaml:"beefy-activation-block"`
+	FinalityGadget       string  `json:"finality-gadget" yaml:"finality-gadget"`
 }
 
 func (spc SubstrateProviderConfig) Validate() error {
@@ -103,6 +106,14 @@ func (sp *SubstrateProvider) Init() error {
 		return err
 	}
 
+	switch sp.Config.FinalityGadget {
+	case finality.BeefyFinalityGadget:
+		sp.FinalityGadget = finality.NewBeefy(client, relaychainClient, sp.Config.ParaID,
+			sp.Config.BeefyActivationBlock, sp.Memdb)
+	default:
+		return fmt.Errorf("unsupported finality gadget")
+	}
+
 	sp.Keybase = keybase
 	sp.RPCClient = client
 	sp.RelayChainRPCClient = relaychainClient
@@ -119,6 +130,7 @@ type SubstrateProvider struct {
 	RPCClient                     *rpcclient.SubstrateAPI
 	RelayChainRPCClient           *rpcclient.SubstrateAPI
 	LatestQueriedRelayChainHeight int64
+	FinalityGadget                finality.FinalityGadget
 }
 
 type SubstrateIBCHeader struct {
