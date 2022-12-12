@@ -36,6 +36,10 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(eventType string, pi provid
 		return
 	}
 
+	if eventType == chantypes.EventTypeTimeoutPacket && pi.ChannelOrder == chantypes.ORDERED.String() {
+		ccp.channelStateCache[k] = false
+	}
+
 	if !c.PacketFlow.ShouldRetainSequence(ccp.pathProcessors, k, ccp.chainProvider.ChainId(), eventType, pi.Sequence) {
 		ccp.log.Debug("Not retaining packet message",
 			zap.String("event_type", eventType),
