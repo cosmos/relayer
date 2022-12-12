@@ -953,8 +953,10 @@ func (pp *PathProcessor) assembleConnectionMessage(
 	switch msg.eventType {
 	case conntypes.EventTypeConnectionOpenInit:
 		// don't need proof for this message
+		msg.info.CounterpartyCommitmentPrefix = src.chainProvider.CommitmentPrefix()
 		assembleMessage = dst.chainProvider.MsgConnectionOpenInit
 	case conntypes.EventTypeConnectionOpenTry:
+		msg.info.CounterpartyCommitmentPrefix = src.chainProvider.CommitmentPrefix()
 		connProof = src.chainProvider.ConnectionHandshakeProof
 		assembleMessage = dst.chainProvider.MsgConnectionOpenTry
 	case conntypes.EventTypeConnectionOpenAck:

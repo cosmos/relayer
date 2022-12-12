@@ -10,6 +10,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
@@ -97,11 +98,12 @@ func (pi PacketInfo) Packet() chantypes.Packet {
 // ConnectionInfo contains relevant properties from connection handshake messages
 // which may be necessary to construct the next message for the counterparty chain.
 type ConnectionInfo struct {
-	Height               uint64
-	ConnID               string
-	ClientID             string
-	CounterpartyClientID string
-	CounterpartyConnID   string
+	Height                       uint64
+	ConnID                       string
+	ClientID                     string
+	CounterpartyClientID         string
+	CounterpartyConnID           string
+	CounterpartyCommitmentPrefix commitmenttypes.MerklePrefix
 }
 
 // ChannelInfo contains relevant properties from channel handshake messages
@@ -337,6 +339,7 @@ type ChainProvider interface {
 	ChainId() string
 	Type() string
 	ProviderConfig() ProviderConfig
+	CommitmentPrefix() commitmenttypes.MerklePrefix
 	Key() string
 	Address() (string, error)
 	Timeout() string

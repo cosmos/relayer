@@ -69,16 +69,18 @@ func (c *Chain) CreateOpenConnections(
 				ChainID:   c.PathEnd.ChainID,
 				EventType: conntypes.EventTypeConnectionOpenInit,
 				Info: provider.ConnectionInfo{
-					ClientID:             c.PathEnd.ClientID,
-					CounterpartyClientID: dst.PathEnd.ClientID,
+					ClientID:                     c.PathEnd.ClientID,
+					CounterpartyClientID:         dst.PathEnd.ClientID,
+					CounterpartyCommitmentPrefix: dst.ChainProvider.CommitmentPrefix(),
 				},
 			},
 			Termination: &processor.ConnectionMessage{
 				ChainID:   dst.PathEnd.ChainID,
 				EventType: conntypes.EventTypeConnectionOpenConfirm,
 				Info: provider.ConnectionInfo{
-					ClientID:             dst.PathEnd.ClientID,
-					CounterpartyClientID: c.PathEnd.ClientID,
+					ClientID:                     dst.PathEnd.ClientID,
+					CounterpartyClientID:         c.PathEnd.ClientID,
+					CounterpartyCommitmentPrefix: c.ChainProvider.CommitmentPrefix(),
 				},
 			},
 		}).
