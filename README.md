@@ -21,29 +21,18 @@ In addition to relaying packets, this relayer can open paths across chains, thus
 
 Additional information on how IBC works can be found [here](https://ibc.cosmos.network/).
 
-<div align="center">
-
-   | Relayer |        IBC-Go        |
-   |:-------:|:--------------------:|
-   | v1.0.0  | ibc-go v1, ibc-go v2 |
-   | v2.0.0  | ibc-go v3            |
-
-</div>
-
-
-**If you are updating the relayer from any version prior to `v2.0.0-rc1`, your current config file is not compatible. See: [config_migration](docs/config_migration.md)
-
 ---
 
 ## Table Of Contents
 - [Basic Usage - Relaying Across Chains](#Basic-Usage---Relaying-Packets-Across-Chains)
 - [Create Path Across Chains](./docs/create-path-across-chain.md)
+- [Advanced Usage](./docs/advanced_usage.md)
 - [Troubleshooting](./docs/troubleshooting.md)
 - [Features](./docs/features.md)
 - [Relayer Terminology](./docs/terminology.md)
 - [New Chain Implementation](./docs/chain_implementation.md)
 - [Recommended Pruning Settings](./docs/node_pruning.md)
-- [Demo](./docs/demo.md)
+- [Demo/Dev-Environmnet](./examples/README.md)
 
 ---
 ## Basic Usage - Relaying Packets Across Chains
@@ -207,8 +196,6 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
      $ rly start 
      ```
    
-    You will need to start a separate shell instance for each path you wish to relay over.
-
     >When running multiple instances of `rly start`, you will need to use the `--debug-addr` flag and provide an address:port. You can also pass an empty string `''`  to turn off this feature or pass `localhost:0` to randomly select a port.
 
     ---

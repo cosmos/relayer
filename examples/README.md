@@ -37,3 +37,7 @@ This is an example of a config file with:
 - Three paths configured: `cosmoshub-juno`, `cosmoshub-osmosis`, `juno-osmosis`
     - Path `cosmoshub-juno` does not filter any channels while the other two paths have filters set.
 - All three chains have a wallet/key called "default"
+
+---
+
+[<-- Pruning Settings](../node_pruning.md)

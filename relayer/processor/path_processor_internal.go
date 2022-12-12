@@ -35,6 +35,50 @@ func (pp *PathProcessor) assemblePacketIBCMessage(
 	return assembled, nil
 }
 
+// getMessagesToSend returns only the lowest sequence message (if it should be sent) for ordered channels,
+// otherwise returns all which should be sent.
+func (pp *PathProcessor) getMessagesToSend(
+	msgs []packetIBCMessage,
+	src, dst *pathEndRuntime,
+) (srcMsgs []packetIBCMessage, dstMsgs []packetIBCMessage) {
+	if len(msgs) == 0 {
+		return
+	}
+	if msgs[0].info.ChannelOrder == chantypes.ORDERED.String() {
+		// for packet messages on ordered channels, only handle the lowest sequence number now.
+		sort.SliceStable(msgs, func(i, j int) bool {
+			return msgs[i].info.Sequence < msgs[j].info.Sequence
+		})
+		firstMsg := msgs[0]
+		switch firstMsg.eventType {
+		case chantypes.EventTypeRecvPacket:
+			if dst.shouldSendPacketMessage(firstMsg, src) {
+				dstMsgs = append(dstMsgs, firstMsg)
+			}
+		default:
+			if src.shouldSendPacketMessage(firstMsg, dst) {
+				srcMsgs = append(srcMsgs, firstMsg)
+			}
+		}
+		return srcMsgs, dstMsgs
+	}
+
+	// for unordered channels, can handle multiple simultaneous packets.
+	for _, msg := range msgs {
+		switch msg.eventType {
+		case chantypes.EventTypeRecvPacket:
+			if dst.shouldSendPacketMessage(msg, src) {
+				dstMsgs = append(dstMsgs, msg)
+			}
+		default:
+			if src.shouldSendPacketMessage(msg, dst) {
+				srcMsgs = append(srcMsgs, msg)
+			}
+		}
+	}
+	return srcMsgs, dstMsgs
+}
+
 func (pp *PathProcessor) getUnrelayedPacketsAndAcksAndToDelete(ctx context.Context, pathEndPacketFlowMessages pathEndPacketFlowMessages) pathEndPacketFlowResponse {
 	res := pathEndPacketFlowResponse{
 		ToDeleteSrc:        make(map[string][]uint64),
@@ -42,7 +86,7 @@ func (pp *PathProcessor) getUnrelayedPacketsAndAcksAndToDelete(ctx context.Conte
 		ToDeleteDstChannel: make(map[string][]ChannelKey),
 	}
 
-	dstRecvPacketMsgs := make([]packetIBCMessage, 0)
+	var msgs []packetIBCMessage
 
 MsgTransferLoop:
 	for transferSeq, msgTransfer := range pathEndPacketFlowMessages.SrcMsgTransfer {
@@ -52,6 +96,7 @@ MsgTransferLoop:
 				// remove all retention of this sequence number
 				res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], transferSeq)
 				res.ToDeleteDst[chantypes.EventTypeRecvPacket] = append(res.ToDeleteDst[chantypes.EventTypeRecvPacket], transferSeq)
+				res.ToDeleteDst[chantypes.EventTypeWriteAck] = append(res.ToDeleteDst[chantypes.EventTypeWriteAck], transferSeq)
 				res.ToDeleteSrc[chantypes.EventTypeAcknowledgePacket] = append(res.ToDeleteSrc[chantypes.EventTypeAcknowledgePacket], transferSeq)
 				continue MsgTransferLoop
 			}
@@ -106,14 +151,16 @@ MsgTransferLoop:
 		}
 		for msgRecvSeq, msgAcknowledgement := range pathEndPacketFlowMessages.DstMsgRecvPacket {
 			if transferSeq == msgRecvSeq {
+				if len(msgAcknowledgement.Ack) == 0 {
+					// have recv_packet but not write_acknowledgement yet. skip for now.
+					continue MsgTransferLoop
+				}
 				// msg is received by dst chain, but no ack yet. Need to relay ack from dst to src!
 				ackMsg := packetIBCMessage{
 					eventType: chantypes.EventTypeAcknowledgePacket,
 					info:      msgAcknowledgement,
 				}
-				if pathEndPacketFlowMessages.Src.shouldSendPacketMessage(ackMsg, pathEndPacketFlowMessages.Dst) {
-					res.SrcMessages = append(res.SrcMessages, ackMsg)
-				}
+				msgs = append(msgs, ackMsg)
 				continue MsgTransferLoop
 			}
 		}
@@ -129,17 +176,13 @@ MsgTransferLoop:
 					eventType: chantypes.EventTypeTimeoutPacket,
 					info:      msgTransfer,
 				}
-				if pathEndPacketFlowMessages.Src.shouldSendPacketMessage(timeoutMsg, pathEndPacketFlowMessages.Dst) {
-					res.SrcMessages = append(res.SrcMessages, timeoutMsg)
-				}
+				msgs = append(msgs, timeoutMsg)
 			case errors.As(err, &timeoutOnCloseErr):
 				timeoutOnCloseMsg := packetIBCMessage{
 					eventType: chantypes.EventTypeTimeoutPacketOnClose,
 					info:      msgTransfer,
 				}
-				if pathEndPacketFlowMessages.Src.shouldSendPacketMessage(timeoutOnCloseMsg, pathEndPacketFlowMessages.Dst) {
-					res.SrcMessages = append(res.SrcMessages, timeoutOnCloseMsg)
-				}
+				msgs = append(msgs, timeoutOnCloseMsg)
 			default:
 				pp.log.Error("Packet is invalid",
 					zap.String("chain_id", pathEndPacketFlowMessages.Src.info.ChainID),
@@ -152,33 +195,16 @@ MsgTransferLoop:
 			eventType: chantypes.EventTypeRecvPacket,
 			info:      msgTransfer,
 		}
-		dstRecvPacketMsgs = append(dstRecvPacketMsgs, recvPacketMsg)
+		msgs = append(msgs, recvPacketMsg)
 	}
 
-	if len(dstRecvPacketMsgs) > 0 {
-		sort.SliceStable(dstRecvPacketMsgs, func(i, j int) bool {
-			return dstRecvPacketMsgs[i].info.Sequence < dstRecvPacketMsgs[j].info.Sequence
-		})
-		firstMsg := dstRecvPacketMsgs[0]
-		if firstMsg.info.ChannelOrder == chantypes.ORDERED.String() {
-			// for recv packet messages on ordered channels, only handle the lowest sequence number now.
-			if pathEndPacketFlowMessages.Dst.shouldSendPacketMessage(firstMsg, pathEndPacketFlowMessages.Src) {
-				res.DstMessages = append(res.DstMessages, firstMsg)
-			}
-		} else {
-			// for unordered channels, can handle multiple simultaneous packets.
-			for _, msg := range dstRecvPacketMsgs {
-				if pathEndPacketFlowMessages.Dst.shouldSendPacketMessage(msg, pathEndPacketFlowMessages.Src) {
-					res.DstMessages = append(res.DstMessages, msg)
-				}
-			}
-		}
-	}
+	res.SrcMessages, res.DstMessages = pp.getMessagesToSend(msgs, pathEndPacketFlowMessages.Src, pathEndPacketFlowMessages.Dst)
 
 	// now iterate through packet-flow-complete messages and remove any leftover messages if the MsgTransfer or MsgRecvPacket was in a previous block that we did not query
 	for ackSeq := range pathEndPacketFlowMessages.SrcMsgAcknowledgement {
 		res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], ackSeq)
 		res.ToDeleteDst[chantypes.EventTypeRecvPacket] = append(res.ToDeleteDst[chantypes.EventTypeRecvPacket], ackSeq)
+		res.ToDeleteDst[chantypes.EventTypeWriteAck] = append(res.ToDeleteDst[chantypes.EventTypeWriteAck], ackSeq)
 		res.ToDeleteSrc[chantypes.EventTypeAcknowledgePacket] = append(res.ToDeleteSrc[chantypes.EventTypeAcknowledgePacket], ackSeq)
 	}
 	for timeoutSeq, msgTimeout := range pathEndPacketFlowMessages.SrcMsgTimeout {
@@ -582,12 +608,29 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 			}
 		}
 
+		// Append acks into recv packet info if present
+		pathEnd1DstMsgRecvPacket := pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeRecvPacket]
+		for seq, ackInfo := range pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeWriteAck] {
+			if recvPacketInfo, ok := pathEnd1DstMsgRecvPacket[seq]; ok {
+				recvPacketInfo.Ack = ackInfo.Ack
+				pathEnd1DstMsgRecvPacket[seq] = recvPacketInfo
+			}
+		}
+
+		pathEnd2DstMsgRecvPacket := pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeRecvPacket]
+		for seq, ackInfo := range pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeWriteAck] {
+			if recvPacketInfo, ok := pathEnd2DstMsgRecvPacket[seq]; ok {
+				recvPacketInfo.Ack = ackInfo.Ack
+				pathEnd2DstMsgRecvPacket[seq] = recvPacketInfo
+			}
+		}
+
 		pathEnd1PacketFlowMessages := pathEndPacketFlowMessages{
 			Src:                       pp.pathEnd1,
 			Dst:                       pp.pathEnd2,
 			ChannelKey:                pair.pathEnd1ChannelKey,
 			SrcMsgTransfer:            pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeSendPacket],
-			DstMsgRecvPacket:          pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeRecvPacket],
+			DstMsgRecvPacket:          pathEnd1DstMsgRecvPacket,
 			SrcMsgAcknowledgement:     pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeAcknowledgePacket],
 			SrcMsgTimeout:             pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacket],
 			SrcMsgTimeoutOnClose:      pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
@@ -598,7 +641,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 			Dst:                       pp.pathEnd1,
 			ChannelKey:                pair.pathEnd2ChannelKey,
 			SrcMsgTransfer:            pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeSendPacket],
-			DstMsgRecvPacket:          pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeRecvPacket],
+			DstMsgRecvPacket:          pathEnd2DstMsgRecvPacket,
 			SrcMsgAcknowledgement:     pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeAcknowledgePacket],
 			SrcMsgTimeout:             pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacket],
 			SrcMsgTimeoutOnClose:      pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
@@ -661,17 +704,40 @@ func (pp *PathProcessor) assembleMessage(
 			msg:       m,
 			assembled: err == nil,
 		}
+		if err == nil {
+			dst.log.Debug("Will send packet message",
+				zap.String("event_type", m.eventType),
+				zap.Uint64("sequence", m.info.Sequence),
+				zap.String("src_channel", m.info.SourceChannel),
+				zap.String("src_port", m.info.SourcePort),
+				zap.String("dst_channel", m.info.DestChannel),
+				zap.String("dst_port", m.info.DestPort),
+			)
+		}
 	case connectionIBCMessage:
 		message, err = pp.assembleConnectionMessage(ctx, m, src, dst)
 		om.connMsgs[i] = connectionMessageToTrack{
 			msg:       m,
 			assembled: err == nil,
 		}
+		if err == nil {
+			dst.log.Debug("Will send connection message",
+				zap.String("event_type", m.eventType),
+				zap.String("connection_id", m.info.ConnID),
+			)
+		}
 	case channelIBCMessage:
 		message, err = pp.assembleChannelMessage(ctx, m, src, dst)
 		om.chanMsgs[i] = channelMessageToTrack{
 			msg:       m,
 			assembled: err == nil,
+		}
+		if err == nil {
+			dst.log.Debug("Will send channel message",
+				zap.String("event_type", m.eventType),
+				zap.String("channel_id", m.info.ChannelID),
+				zap.String("port_id", m.info.PortID),
+			)
 		}
 	}
 	if err != nil {
@@ -719,9 +785,6 @@ func (pp *PathProcessor) assembleAndSendMessages(
 			0,
 			len(messages.packetMessages)+len(messages.connectionMessages)+len(messages.channelMessages),
 		),
-		pktMsgs:  make([]packetMessageToTrack, len(messages.packetMessages)),
-		connMsgs: make([]connectionMessageToTrack, len(messages.connectionMessages)),
-		chanMsgs: make([]channelMessageToTrack, len(messages.channelMessages)),
 	}
 	msgUpdateClient, err := pp.assembleMsgUpdateClient(ctx, src, dst)
 	if err != nil {
@@ -732,36 +795,53 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	// Each assembleMessage call below will make a query on the source chain, so these operations can run in parallel.
 	var wg sync.WaitGroup
 
-	for i, msg := range messages.packetMessages {
-		wg.Add(1)
-		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
-	}
-
+	// connection messages are highest priority
+	om.connMsgs = make([]connectionMessageToTrack, len(messages.connectionMessages))
 	for i, msg := range messages.connectionMessages {
-		wg.Add(1)
-		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
-	}
-
-	for i, msg := range messages.channelMessages {
 		wg.Add(1)
 		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
 	}
 
 	wg.Wait()
 
+	if len(om.msgs) == 1 {
+		om.chanMsgs = make([]channelMessageToTrack, len(messages.channelMessages))
+		// only assemble and send channel handshake messages if there are no conn handshake messages
+		// this prioritizes connection handshake messages, useful if a connection handshake needs to occur before a channel handshake
+		for i, msg := range messages.channelMessages {
+			wg.Add(1)
+			go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+		}
+
+		wg.Wait()
+	}
+
+	if len(om.msgs) == 1 {
+		om.pktMsgs = make([]packetMessageToTrack, len(messages.packetMessages))
+		// only assemble and send packet messages if there are no handshake messages
+		for i, msg := range messages.packetMessages {
+			wg.Add(1)
+			go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+		}
+
+		wg.Wait()
+	}
+
 	if len(om.msgs) == 1 && !needsClientUpdate {
 		// only msgUpdateClient, don't need to send
 		return errors.New("all messages failed to assemble")
 	}
 
-	for _, m := range om.pktMsgs {
-		dst.trackProcessingPacketMessage(m)
-	}
 	for _, m := range om.connMsgs {
 		dst.trackProcessingConnectionMessage(m)
 	}
+
 	for _, m := range om.chanMsgs {
 		dst.trackProcessingChannelMessage(m)
+	}
+
+	for _, m := range om.pktMsgs {
+		dst.trackProcessingPacketMessage(m)
 	}
 
 	go pp.sendMessages(ctx, src, dst, &om, pp.memo)

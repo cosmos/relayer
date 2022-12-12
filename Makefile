@@ -14,9 +14,12 @@ all: lint install
 # Build / Install
 ###############################################################################
 
-LD_FLAGS = -X github.com/cosmos/relayer/v2/cmd.Version=$(VERSION)
+ldflags = -X github.com/cosmos/relayer/v2/cmd.Version=$(VERSION)
 
-BUILD_FLAGS := -ldflags '$(LD_FLAGS)'
+ldflags += $(LDFLAGS)
+ldflags := $(strip $(ldflags))
+
+BUILD_FLAGS := -ldflags '$(ldflags)'
 
 build: go.sum
 ifeq ($(OS),Windows_NT)
@@ -91,11 +94,17 @@ lint:
 # Chain Code Downloads
 ###############################################################################
 
+CHAIN_CODE := ./chain-code
+GAIA_REPO := $(CHAIN_CODE)/gaia
+
 get-gaia:
-	@mkdir -p ./chain-code/
-	@git clone --branch $(GAIA_VERSION) --depth=1 https://github.com/cosmos/gaia.git ./chain-code/gaia
+	@mkdir -p $(CHAIN_CODE)/
+	@git clone --branch $(GAIA_REPO) --depth=1 https://github.com/cosmos/gaia.git $(GAIA_REPO)
 
 build-gaia:
-	@./examples/demo/scripts/build-gaia
+	@[ -d $(GAIA_REPO) ] || { echo "Repositry for gaia does not exist at $(GAIA_REPO). Try running 'make get-gaia'..." ; exit 1; }
+	@cd $(GAIA_REPO)
+	@make install &> /dev/null
+	@gaiad version --long
 
 .PHONY: two-chains test test-integration ibctest install build lint coverage clean

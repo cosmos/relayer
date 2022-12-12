@@ -60,4 +60,4 @@ In our "Relaying Packets Across Chains" example, we set up the relayer to relay 
 ![banner](./images/github-repo-banner.gif)
  </div>
 
-[<-- Home](../README.md) - [Troubleshooting -->](./troubleshooting.md)
+[<-- Home](../README.md) - [Advanced Usage -->](./advanced_usage.md)

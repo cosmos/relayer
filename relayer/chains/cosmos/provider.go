@@ -27,19 +27,20 @@ var (
 )
 
 type CosmosProviderConfig struct {
-	Key            string  `json:"key" yaml:"key"`
-	ChainName      string  `json:"-" yaml:"-"`
-	ChainID        string  `json:"chain-id" yaml:"chain-id"`
-	RPCAddr        string  `json:"rpc-addr" yaml:"rpc-addr"`
-	AccountPrefix  string  `json:"account-prefix" yaml:"account-prefix"`
-	KeyringBackend string  `json:"keyring-backend" yaml:"keyring-backend"`
-	GasAdjustment  float64 `json:"gas-adjustment" yaml:"gas-adjustment"`
-	GasPrices      string  `json:"gas-prices" yaml:"gas-prices"`
-	MinGasAmount   uint64  `json:"min-gas-amount" yaml:"min-gas-amount"`
-	Debug          bool    `json:"debug" yaml:"debug"`
-	Timeout        string  `json:"timeout" yaml:"timeout"`
-	OutputFormat   string  `json:"output-format" yaml:"output-format"`
-	SignModeStr    string  `json:"sign-mode" yaml:"sign-mode"`
+	Key            string   `json:"key" yaml:"key"`
+	ChainName      string   `json:"-" yaml:"-"`
+	ChainID        string   `json:"chain-id" yaml:"chain-id"`
+	RPCAddr        string   `json:"rpc-addr" yaml:"rpc-addr"`
+	AccountPrefix  string   `json:"account-prefix" yaml:"account-prefix"`
+	KeyringBackend string   `json:"keyring-backend" yaml:"keyring-backend"`
+	GasAdjustment  float64  `json:"gas-adjustment" yaml:"gas-adjustment"`
+	GasPrices      string   `json:"gas-prices" yaml:"gas-prices"`
+	MinGasAmount   uint64   `json:"min-gas-amount" yaml:"min-gas-amount"`
+	Debug          bool     `json:"debug" yaml:"debug"`
+	Timeout        string   `json:"timeout" yaml:"timeout"`
+	OutputFormat   string   `json:"output-format" yaml:"output-format"`
+	SignModeStr    string   `json:"sign-mode" yaml:"sign-mode"`
+	ExtraCodecs    []string `json:"extra-codecs" yaml:"extra-codecs"`
 }
 
 func (pc CosmosProviderConfig) Validate() error {
@@ -89,6 +90,7 @@ func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
 		Timeout:        pcfg.Timeout,
 		OutputFormat:   pcfg.OutputFormat,
 		SignModeStr:    pcfg.SignModeStr,
+		ExtraCodecs:    pcfg.ExtraCodecs,
 		Modules:        append([]module.AppModuleBasic{}, lens.ModuleBasics...),
 	}
 }
