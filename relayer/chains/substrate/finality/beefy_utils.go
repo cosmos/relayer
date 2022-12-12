@@ -65,7 +65,7 @@ func (b *Beefy) clientState(
 	var authorityTreeRoot = bytes32(authorityTree.Root())
 	var nextAuthorityTreeRoot = bytes32(nextAuthorityTree.Root())
 
-	blockHash, err := b.parachainClient.RPC.Chain.GetBlockHash(uint64(blockNumber))
+	blockHash, err := b.relayChainClient.RPC.Chain.GetBlockHash(uint64(blockNumber))
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (b *Beefy) clientState(
 
 func (b *Beefy) fetchParaIds(blockHash rpcclienttypes.Hash) ([]uint32, error) {
 	// Fetch metadata
-	meta, err := b.parachainClient.RPC.State.GetMetadataLatest()
+	meta, err := b.relayChainClient.RPC.State.GetMetadataLatest()
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func (b *Beefy) fetchParaIds(blockHash rpcclienttypes.Hash) ([]uint32, error) {
 
 	var paraIds []uint32
 
-	ok, err := b.parachainClient.RPC.State.GetStorage(storageKey, &paraIds, blockHash)
+	ok, err := b.relayChainClient.RPC.State.GetStorage(storageKey, &paraIds, blockHash)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func (b *Beefy) paraHeadData(blockHash rpcclienttypes.Hash) ([]byte, error) {
 		return nil, err
 	}
 
-	storage, err := b.parachainClient.RPC.State.GetStorageRaw(paraKey, blockHash)
+	storage, err := b.relayChainClient.RPC.State.GetStorageRaw(paraKey, blockHash)
 	if err != nil {
 		return nil, err
 	}
@@ -153,13 +153,13 @@ func (b *Beefy) paraHeadData(blockHash rpcclienttypes.Hash) ([]byte, error) {
 }
 
 func (b *Beefy) beefyAuthorities(blockNumber uint32, method string) ([][]byte, error) {
-	blockHash, err := b.parachainClient.RPC.Chain.GetBlockHash(uint64(blockNumber))
+	blockHash, err := b.relayChainClient.RPC.Chain.GetBlockHash(uint64(blockNumber))
 	if err != nil {
 		return nil, err
 	}
 
 	// Fetch metadata
-	meta, err := b.parachainClient.RPC.State.GetMetadataLatest()
+	meta, err := b.relayChainClient.RPC.State.GetMetadataLatest()
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func (b *Beefy) beefyAuthorities(blockNumber uint32, method string) ([][]byte, e
 
 	var authorities Authorities
 
-	ok, err := b.parachainClient.RPC.State.GetStorage(storageKey, &authorities, blockHash)
+	ok, err := b.relayChainClient.RPC.State.GetStorage(storageKey, &authorities, blockHash)
 	if err != nil {
 		return nil, err
 	}
@@ -257,13 +257,13 @@ func (b *Beefy) getFinalizedBlocks(
 		return nil, nil, err
 	}
 
-	changeSet, err := b.parachainClient.RPC.State.QueryStorage(paraHeaderKeys, *previouslyFinalizedBlockHash, blockHash)
+	changeSet, err := b.relayChainClient.RPC.State.QueryStorage(paraHeaderKeys, *previouslyFinalizedBlockHash, blockHash)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	for _, changes := range changeSet {
-		header, err := b.parachainClient.RPC.Chain.GetHeader(changes.Block)
+		header, err := b.relayChainClient.RPC.Chain.GetHeader(changes.Block)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -295,7 +295,6 @@ func (b *Beefy) getFinalizedBlocks(
 }
 
 func (b *Beefy) parachainHeaderKeys(
-
 	blockHash rpcclienttypes.Hash,
 ) ([]rpcclienttypes.StorageKey, error) {
 	paraIds, err := b.fetchParaIds(blockHash)
@@ -334,7 +333,7 @@ func (b *Beefy) constructParachainHeaders(
 	}
 
 	// fetch mmr proofs for leaves containing our target paraId
-	mmrBatchProof, err := b.parachainClient.RPC.MMR.GenerateBatchProof(leafIndices, blockHash)
+	mmrBatchProof, err := b.relayChainClient.RPC.MMR.GenerateBatchProof(leafIndices, blockHash)
 	if err != nil {
 		return nil, err
 	}
@@ -506,7 +505,7 @@ func (b *Beefy) mmrUpdateProof(
 	signedCommitment rpcclienttypes.SignedCommitment,
 	leafIndex uint64,
 ) (*beefyclienttypes.MMRUpdateProof, error) {
-	mmrProof, err := b.parachainClient.RPC.MMR.GenerateProof(
+	mmrProof, err := b.relayChainClient.RPC.MMR.GenerateProof(
 		leafIndex,
 		blockHash,
 	)
