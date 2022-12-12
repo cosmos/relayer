@@ -91,7 +91,8 @@ func (b *Beefy) IBCHeader(signedHeader ibcexported.Header) provider.IBCHeader {
 	beefyHeader := signedHeader.(*beefyclienttypes.Header)
 	return BeefyIBCHeader{
 		SignedHeader: beefyHeader,
-		height:       uint64(beefyHeader.MMRUpdateProof.SignedCommitment.Commitment.BlockNumber),
+		// this height is the relaychain height
+		height: uint64(beefyHeader.MMRUpdateProof.SignedCommitment.Commitment.BlockNumber),
 	}
 }
 
