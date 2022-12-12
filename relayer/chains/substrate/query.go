@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
+
+	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
 
 	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 
@@ -65,7 +68,14 @@ func (sp *SubstrateProvider) QueryBalanceWithAddress(ctx context.Context, addres
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
 func (sp *SubstrateProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
-	return 0, nil
+	switch sp.Config.RelayChain {
+	case int32(beefyclienttypes.RelayChain_POLKADOT):
+		return beefyclienttypes.RelayChain_POLKADOT.UnbondingPeriod(), nil
+	case int32(beefyclienttypes.RelayChain_KUSAMA):
+		return beefyclienttypes.RelayChain_KUSAMA.UnbondingPeriod(), nil
+	default:
+		return math.MaxInt, nil
+	}
 }
 
 // QueryClientStateResponse retrieves the latest consensus state for a client in state at a given height
@@ -102,12 +112,6 @@ func (sp *SubstrateProvider) QueryClientConsensusState(ctx context.Context, chai
 		return nil, err
 	}
 	return res, nil
-}
-
-// QueryUpgradeProof performs an abci query with the given key and returns the proto encoded merkle proof
-// for the query and the height at which the proof will succeed on a tendermint verifier.
-func (sp *SubstrateProvider) QueryUpgradeProof(ctx context.Context, key []byte, height uint64) ([]byte, clienttypes.Height, error) {
-	return nil, clienttypes.Height{}, nil
 }
 
 // QueryUpgradedClient returns upgraded client info
@@ -458,13 +462,19 @@ func (sp *SubstrateProvider) QueryLatestHeight(ctx context.Context) (int64, erro
 		return 0, err
 	}
 
-	decodedHeader, err := beefyclienttypes.DecodeParachainHeader(header.HeadersWithProof.Headers[0].ParachainHeader)
-	if err != nil {
-		return 0, err
+	var latestParachainHeader rpcclienttypes.Header
+	for _, h := range header.HeadersWithProof.Headers {
+		parachainHeader, err := beefyclienttypes.DecodeParachainHeader(h.ParachainHeader)
+		if err != nil {
+			return 0, err
+		}
+		if parachainHeader.Number > latestParachainHeader.Number {
+			latestParachainHeader = parachainHeader
+		}
 	}
 
 	sp.LatestQueriedRelayChainHeight = int64(block.Block.Header.Number)
-	return int64(decodedHeader.Number), nil
+	return int64(latestParachainHeader.Number), nil
 }
 
 // QueryHeaderAtHeight returns the header at a given height
@@ -577,22 +587,4 @@ func (sp *SubstrateProvider) QueryDenomTraces(ctx context.Context, offset, limit
 	}
 
 	return res.DenomTraces, err
-}
-
-func (sp *SubstrateProvider) QueryConsensusStateABCI(ctx context.Context, clientID string, height ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
-	res, err := sp.RPCClient.RPC.IBC.QueryConsensusState(ctx, uint32(height.GetRevisionHeight()))
-	if err != nil {
-		return nil, err
-	}
-
-	// check if consensus state exists
-	if len(res.Proof) == 0 {
-		return nil, fmt.Errorf(ErrTextConsensusStateNotFound, clientID)
-	}
-
-	return &clienttypes.QueryConsensusStateResponse{
-		ConsensusState: res.ConsensusState,
-		Proof:          res.Proof,
-		ProofHeight:    res.ProofHeight,
-	}, nil
 }

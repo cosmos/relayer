@@ -42,6 +42,7 @@ type SubstrateProviderConfig struct {
 	Network              uint16  `json:"network" yaml:"network"`
 	ParaID               uint32  `json:"para-id" yaml:"para-id"`
 	BeefyActivationBlock uint32  `json:"beefy-activation-block" yaml:"beefy-activation-block"`
+	RelayChain           int32   `json:"relay-chain" yaml:"relay-chain"`
 }
 
 func (spc SubstrateProviderConfig) Validate() error {
@@ -134,9 +135,13 @@ func (h SubstrateIBCHeader) ConsensusState() ibcexported.ConsensusState {
 	return h.SignedHeader.ConsensusState()
 }
 
-func (sp *SubstrateProvider) BlockTime(ctx context.Context, height int64) (time.Time, error) {
-	//TODO implement me
-	panic("implement me")
+func (sp *SubstrateProvider) BlockTime(_ context.Context, height int64) (time.Time, error) {
+	timestampExtrinsic, _, err := sp.constructExtrinsics(uint32(height), false)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return beefyclienttypes.DecodeExtrinsicTimestamp(timestampExtrinsic)
 }
 
 func (sp *SubstrateProvider) ChainName() string {
@@ -160,9 +165,9 @@ func (sp *SubstrateProvider) Key() string {
 }
 
 func (sp *SubstrateProvider) Address() (string, error) {
-	info, err := sp.Keybase.Key(sp.Key())
+	info, err := sp.Keybase.Key(sp.Config.Key)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	return info.GetAddress(), nil
@@ -172,17 +177,23 @@ func (sp *SubstrateProvider) Timeout() string {
 	return sp.Config.Timeout
 }
 
-func (sp *SubstrateProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
-	// TODO: implement a proper trusting period
-	return time.Duration(math.MaxInt), nil
+func (sp *SubstrateProvider) TrustingPeriod(_ context.Context) (time.Duration, error) {
+	switch sp.Config.RelayChain {
+	case int32(beefyclienttypes.RelayChain_POLKADOT):
+		return beefyclienttypes.RelayChain_POLKADOT.TrustingPeriod(), nil
+	case int32(beefyclienttypes.RelayChain_KUSAMA):
+		return beefyclienttypes.RelayChain_KUSAMA.TrustingPeriod(), nil
+	default:
+		return math.MaxInt, nil
+	}
 }
 
+// WaitForNBlocks is no-op as it isn't used anywhere
 func (sp *SubstrateProvider) WaitForNBlocks(ctx context.Context, n int64) error {
-	//TODO implement me
-	panic("implement me")
+	return nil
 }
 
+// Sprint is no-op as it isn't used anywhere
 func (sp *SubstrateProvider) Sprint(toPrint proto.Message) (string, error) {
-	//TODO implement me
-	panic("implement me")
+	return "", nil
 }
