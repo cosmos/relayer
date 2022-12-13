@@ -173,7 +173,12 @@ func (g *Grandpa) fetchParachainHeadersWithRelaychainHash(
 			return nil, err
 		}
 
-		key, err := rpcclienttypes.CreateStorageKey(meta, prefixParas, methodHeads, g.paraID)
+		encodedParaId, err := rpcclienttypes.Encode(g.paraID)
+		if err != nil {
+			return nil, err
+		}
+
+		key, err := rpcclienttypes.CreateStorageKey(meta, prefixParas, methodHeads, encodedParaId)
 		if err != nil {
 			return nil, err
 		}
@@ -197,9 +202,12 @@ func (g *Grandpa) fetchParachainHeadersWithRelaychainHash(
 			return nil, err
 		}
 
+		extrinsic, extrinsicProof, err := constructExtrinsics(g.parachainClient, uint64(paraHeader.Number), g.memDB)
 		paraHeadersWithRelayHash = append(paraHeadersWithRelayHash, &types.ParachainHeaderWithRelayHash{
 			ParachainHeader: &types.ParachainHeaderProofs{
-				StateProof: stateProof.Proof,
+				StateProof:     stateProof.Proof,
+				Extrinsic:      extrinsic,
+				ExtrinsicProof: extrinsicProof,
 			},
 		})
 	}
@@ -207,9 +215,9 @@ func (g *Grandpa) fetchParachainHeadersWithRelaychainHash(
 	return paraHeadersWithRelayHash, nil
 }
 
+//todo: implement condition for when previoslyFinalizedHash is nil
 func (g *Grandpa) constructHeader(blockHash rpcclienttypes.Hash,
 	previouslyFinalizedHash *rpcclienttypes.Hash) (types.Header, error) {
-	// todo: fetch validation data and use least height as previously finalized height
 	blockHeader, err := g.relayChainClient.RPC.Chain.GetHeader(blockHash)
 	if err != nil {
 		return types.Header{}, err
@@ -225,7 +233,7 @@ func (g *Grandpa) constructHeader(blockHash rpcclienttypes.Hash,
 		return types.Header{}, err
 	}
 
-	parachainHeaders, err := g.fetchParachainHeadersWithRelaychainHash()
+	parachainHeaders, err := g.fetchParachainHeadersWithRelaychainHash(blockHash, previouslyFinalizedHash)
 	if err != nil {
 		return types.Header{}, err
 	}

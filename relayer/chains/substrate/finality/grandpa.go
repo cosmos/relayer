@@ -3,6 +3,8 @@ package finality
 import (
 	"fmt"
 
+	"github.com/ChainSafe/chaindb"
+
 	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/chains/substrate/types"
@@ -16,6 +18,7 @@ type Grandpa struct {
 	relayChainClient *rpcclient.SubstrateAPI
 	paraID           uint32
 	relayChain       types.RelayChain
+	memDB            *chaindb.BadgerDB
 }
 
 func NewGrandpa(
@@ -23,12 +26,14 @@ func NewGrandpa(
 	relayChainClient *rpcclient.SubstrateAPI,
 	paraID uint32,
 	relayChain types.RelayChain,
+	memDB *chaindb.BadgerDB,
 ) *Grandpa {
 	return &Grandpa{
 		parachainClient,
 		relayChainClient,
 		paraID,
 		relayChain,
+		memDB,
 	}
 }
 

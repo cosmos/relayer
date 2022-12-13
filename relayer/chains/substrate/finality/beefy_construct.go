@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/ChainSafe/gossamer/lib/trie"
 	"github.com/ComposableFi/go-merkle-trees/hasher"
 	"github.com/ComposableFi/go-merkle-trees/merkle"
 	"github.com/ComposableFi/go-merkle-trees/mmr"
@@ -378,7 +377,8 @@ func (b *Beefy) constructParachainHeaders(
 			return nil, err
 		}
 
-		timestampExt, extProof, err := b.constructExtrinsics(uint32(parachainHeaderDecoded.Number))
+		timestampExt, extProof, err := constructExtrinsics(b.parachainClient,
+			uint64(parachainHeaderDecoded.Number), b.memDB)
 		if err != nil {
 			return nil, err
 		}
@@ -406,68 +406,6 @@ func (b *Beefy) constructParachainHeaders(
 	}
 
 	return parachainHeaders, nil
-}
-
-func (b *Beefy) constructExtrinsics(
-	blockNumber uint32,
-) (timestampExtrinsic []byte, extrinsicProof [][]byte, err error) {
-	blockHash, err := b.parachainClient.RPC.Chain.GetBlockHash(uint64(blockNumber))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	block, err := b.parachainClient.RPC.Chain.GetBlock(blockHash)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	exts := block.Block.Extrinsics
-	if len(exts) == 0 {
-		return nil, nil, nil
-	}
-
-	timestampExtrinsic, err = rpcclienttypes.Encode(exts[0])
-	if err != nil {
-		return nil, nil, err
-	}
-
-	t := trie.NewEmptyTrie()
-	for i := 0; i < len(exts); i++ {
-		ext, err := rpcclienttypes.Encode(exts[i])
-		if err != nil {
-			return nil, nil, err
-		}
-
-		key := rpcclienttypes.NewUCompactFromUInt(uint64(i))
-		encodedKey, err := rpcclienttypes.Encode(key)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		t.Put(encodedKey, ext)
-	}
-
-	err = t.Store(b.memDB)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	rootHash, err := t.Hash()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	timestampKey := rpcclienttypes.NewUCompactFromUInt(uint64(0))
-	encodedTPKey, err := rpcclienttypes.Encode(timestampKey)
-	if err != nil {
-		return nil, nil, err
-	}
-	extrinsicProof, err = trie.GenerateProof(rootHash.ToBytes(), [][]byte{encodedTPKey}, b.memDB)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return
 }
 
 func (b *Beefy) mmrBatchProofs(
@@ -650,16 +588,4 @@ func bytes32(bytes []byte) beefyclienttypes.SizedByte32 {
 	var buffer beefyclienttypes.SizedByte32
 	copy(buffer[:], bytes)
 	return buffer
-}
-
-func parachainHeaderKey(paraID uint32) ([]byte, error) {
-	keyPrefix := rpcclienttypes.CreateStorageKeyPrefix(prefixParas, methodHeads)
-	encodedParaId, err := rpcclienttypes.Encode(paraID)
-	if err != nil {
-		return nil, err
-	}
-
-	twoxhash := xxhash.New64().Sum(encodedParaId)
-	fullKey := append(append(keyPrefix, twoxhash[:]...), encodedParaId...)
-	return fullKey, nil
 }
