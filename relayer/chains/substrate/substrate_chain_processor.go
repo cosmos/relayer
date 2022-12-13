@@ -194,6 +194,8 @@ func (scp *SubstrateChainProcessor) Run(ctx context.Context, initialBlockHistory
 	scp.log.Debug("Subscribing and listening to relay chain commitments")
 	commitments := make(chan interface{})
 
+	// todo: this subscribes to only beefy justifications, it should be more generic so as to
+	//   work with any finality gadget.
 	sub, err := scp.chainProvider.RelayChainRPCClient.Client.Subscribe(
 		context.Background(),
 		SubscriptionNamespace,

@@ -126,20 +126,8 @@ func (b *Beefy) fetchParaIds(blockHash rpcclienttypes.Hash) ([]uint32, error) {
 	return paraIds, nil
 }
 
-func (b *Beefy) parachainHeaderKey() ([]byte, error) {
-	keyPrefix := rpcclienttypes.CreateStorageKeyPrefix(prefixParas, methodHeads)
-	encodedParaId, err := rpcclienttypes.Encode(b.paraID)
-	if err != nil {
-		return nil, err
-	}
-
-	twoxhash := xxhash.New64().Sum(encodedParaId)
-	fullKey := append(append(keyPrefix, twoxhash[:]...), encodedParaId...)
-	return fullKey, nil
-}
-
 func (b *Beefy) paraHeadData(blockHash rpcclienttypes.Hash) ([]byte, error) {
-	paraKey, err := b.parachainHeaderKey()
+	paraKey, err := parachainHeaderKey(b.paraID)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +207,8 @@ func (b *Beefy) signedCommitment(
 		}
 	}
 
-	return rpcclienttypes.SignedCommitment{}, nil
+	return rpcclienttypes.SignedCommitment{}, fmt.Errorf("%s  height: %d", ErrMissingBeefyJustification,
+		signedBlock.Block.Header.Number)
 }
 
 // finalized block returns the finalized block double map that holds block numbers,
@@ -661,4 +650,16 @@ func bytes32(bytes []byte) beefyclienttypes.SizedByte32 {
 	var buffer beefyclienttypes.SizedByte32
 	copy(buffer[:], bytes)
 	return buffer
+}
+
+func parachainHeaderKey(paraID uint32) ([]byte, error) {
+	keyPrefix := rpcclienttypes.CreateStorageKeyPrefix(prefixParas, methodHeads)
+	encodedParaId, err := rpcclienttypes.Encode(paraID)
+	if err != nil {
+		return nil, err
+	}
+
+	twoxhash := xxhash.New64().Sum(encodedParaId)
+	fullKey := append(append(keyPrefix, twoxhash[:]...), encodedParaId...)
+	return fullKey, nil
 }
