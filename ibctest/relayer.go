@@ -94,7 +94,7 @@ func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID
 	return w, nil
 }
 
-func (r *Relayer) RestoreKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName, mnemonic, coinType string) error {
+func (r *Relayer) RestoreKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName, coinType, mnemonic string) error {
 	res := r.sys().RunC(ctx, r.log(), "keys", "restore", chainID, keyName, mnemonic, "--coin-type", fmt.Sprint(coinType))
 	if res.Err != nil {
 		return res.Err
