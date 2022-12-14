@@ -11,13 +11,23 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
+// todo
+//  - implement condition for when previouslyFinalizedHeight isn't passed as an argument
+//  - implement finality methods
+//  - construct grandpa consensus state
+//  - implement parsing methods from grandpa to wasm client types.
+//  - check if validation data can be used to fetch relaychain data from the parachain
+//  - make justification subscription in chain processor generic. It only subscribes to beefy justifications currently
+//  - write tests for grandpa construct methods
 var _ FinalityGadget = &Grandpa{}
+
+const GrandpaFinalityGadget = "grandpa"
 
 type Grandpa struct {
 	parachainClient  *rpcclient.SubstrateAPI
 	relayChainClient *rpcclient.SubstrateAPI
 	paraID           uint32
-	relayChain       types.RelayChain
+	relayChain       int32
 	memDB            *chaindb.BadgerDB
 }
 
@@ -25,7 +35,7 @@ func NewGrandpa(
 	parachainClient,
 	relayChainClient *rpcclient.SubstrateAPI,
 	paraID uint32,
-	relayChain types.RelayChain,
+	relayChain int32,
 	memDB *chaindb.BadgerDB,
 ) *Grandpa {
 	return &Grandpa{
@@ -108,6 +118,16 @@ func (g *Grandpa) ClientState(header provider.IBCHeader) (ibcexported.ClientStat
 		return nil, err
 	}
 
+	var relayChain types.RelayChain
+	switch types.RelayChain(g.relayChain) {
+	case types.RelayChain_POLKADOT:
+		relayChain = types.RelayChain_POLKADOT
+	case types.RelayChain_KUSAMA:
+		relayChain = types.RelayChain_KUSAMA
+	case types.RelayChain_ROCOCO:
+		relayChain = types.RelayChain_ROCOCO
+	}
+
 	return types.ClientState{
 		ParaId:             g.paraID,
 		CurrentSetId:       currentSetId,
@@ -115,6 +135,11 @@ func (g *Grandpa) ClientState(header provider.IBCHeader) (ibcexported.ClientStat
 		LatestRelayHash:    latestRelayHash[:],
 		LatestRelayHeight:  uint32(latestRelayheader.Number),
 		LatestParaHeight:   uint32(paraHeader.Number),
-		RelayChain:         g.relayChain,
+		RelayChain:         relayChain,
 	}, nil
+}
+
+func (g *Grandpa) ConsensusState() (types.ConsensusState, error) {
+	// todo
+	return types.ConsensusState{}, nil
 }

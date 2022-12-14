@@ -12,6 +12,7 @@ import (
 
 const prefixGrandpa = "Grandpa"
 const methodCurrentSetID = "CurrentSetId"
+const methodStateReadProof = "state_getReadProof"
 const grandpaConsensusEngineID = "FRNK"
 const MaxUnknownHeaders = 100000
 
@@ -133,7 +134,7 @@ type ReadProof struct {
 
 func (g *Grandpa) readProof(key []rpcclienttypes.StorageKey, blockHash rpcclienttypes.Hash) (ReadProof, error) {
 	var rp ReadProof
-	err := g.relayChainClient.Client.Call(&rp, "state_getReadProof", key, blockHash)
+	err := g.relayChainClient.Client.Call(&rp, methodStateReadProof, key, blockHash)
 	if err != nil {
 		return ReadProof{}, nil
 	}
@@ -209,6 +210,7 @@ func (g *Grandpa) fetchParachainHeadersWithRelaychainHash(
 				Extrinsic:      extrinsic,
 				ExtrinsicProof: extrinsicProof,
 			},
+			RelayHash: headerHash[:],
 		})
 	}
 

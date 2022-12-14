@@ -44,6 +44,7 @@ type SubstrateProviderConfig struct {
 	Network              uint16  `json:"network" yaml:"network"`
 	ParaID               uint32  `json:"para-id" yaml:"para-id"`
 	BeefyActivationBlock uint32  `json:"beefy-activation-block" yaml:"beefy-activation-block"`
+	RelayChain           int32   `json:"relay-chain" yaml:"relay-chain"`
 	FinalityGadget       string  `json:"finality-gadget" yaml:"finality-gadget"`
 }
 
@@ -110,6 +111,8 @@ func (sp *SubstrateProvider) Init() error {
 	case finality.BeefyFinalityGadget:
 		sp.FinalityGadget = finality.NewBeefy(client, relaychainClient, sp.Config.ParaID,
 			sp.Config.BeefyActivationBlock, sp.Memdb)
+	case finality.GrandpaFinalityGadget:
+		sp.FinalityGadget = finality.NewGrandpa(client, relaychainClient, sp.Config.ParaID, sp.Config.sp.Memdb)
 	default:
 		return fmt.Errorf("unsupported finality gadget")
 	}
