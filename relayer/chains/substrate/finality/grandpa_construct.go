@@ -3,7 +3,6 @@ package finality
 import (
 	"bytes"
 	"fmt"
-
 	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
 	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	"github.com/OneOfOne/xxhash"
@@ -17,23 +16,32 @@ const grandpaConsensusEngineID = "FRNK"
 const MaxUnknownHeaders = 100000
 
 func (g *Grandpa) getCurrentSetId(finalizedHash rpcclienttypes.Hash) (uint64, error) {
+	// TODO: it's a heavy operation, we should cache it
 	meta, err := g.relayChainClient.RPC.State.GetMetadataLatest()
 	if err != nil {
+		println("1")
 		return 0, err
 	}
 
 	storageKey, err := rpcclienttypes.CreateStorageKey(meta, prefixGrandpa, methodCurrentSetID, nil, nil)
 	if err != nil {
+		println("2")
 		return 0, err
 	}
 
 	var currentSetId uint64
 	ok, err := g.parachainClient.RPC.State.GetStorage(storageKey, &currentSetId, finalizedHash)
 	if err != nil {
+		println("3")
 		return 0, err
 	}
 	if !ok {
-		return 0, fmt.Errorf("%s: storage key %v, block hash %v", ErrCurrentSetIdNotFound, storageKey, finalizedHash)
+		println("4")
+		hex, err := rpcclienttypes.EncodeToHex(storageKey)
+		if err != nil {
+			return 0, err
+		}
+		return 0, fmt.Errorf("%s: storage key %v, block hash %v", ErrCurrentSetIdNotFound, hex, finalizedHash)
 	}
 
 	return currentSetId, nil
@@ -217,7 +225,7 @@ func (g *Grandpa) fetchParachainHeadersWithRelaychainHash(
 	return paraHeadersWithRelayHash, nil
 }
 
-//todo: implement condition for when previoslyFinalizedHash is nil
+// todo: implement condition for when previouslyFinalizedHash is nil
 func (g *Grandpa) constructHeader(blockHash rpcclienttypes.Hash,
 	previouslyFinalizedHash *rpcclienttypes.Hash) (types.Header, error) {
 	blockHeader, err := g.relayChainClient.RPC.Chain.GetHeader(blockHash)
