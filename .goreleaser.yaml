@@ -3,7 +3,7 @@ project_name: Cosmos Relayer
 builds:
   - id: darwin-amd64
     main: ./main.go
-    binary: golang-cross
+    binary: rly
     goos:
       - darwin
     goarch:
@@ -19,7 +19,7 @@ builds:
       - -s -w -X github.com/cosmos/relayer/v2/cmd.Version={{ .Tag }}
   - id: darwin-arm64
     main: ./main.go
-    binary: golang-cross
+    binary: rly
     goos:
       - darwin
     goarch:
@@ -35,18 +35,21 @@ builds:
       - -s -w -X github.com/cosmos/relayer/v2/cmd.Version={{ .Tag }}
   - id: linux-amd64
     main: ./main.go
-    binary: golang-cross
+    binary: rly
     goos:
       - linux
     goarch:
       - amd64
+    env:
+      - CC=x86_64-linux-gnu-gcc
+      - CXX=x86_64-linux-gnu-g++
     flags:
       - -mod=readonly
     ldflags:
       - -s -w -X github.com/cosmos/relayer/v2/cmd.Version={{ .Tag }}
   - id: linux-arm64
     main: ./main.go
-    binary: golang-cross
+    binary: rly
     goos:
       - linux
     goarch:
