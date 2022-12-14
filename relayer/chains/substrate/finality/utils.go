@@ -1,11 +1,14 @@
 package finality
 
 import (
+	"bytes"
 	"github.com/ChainSafe/chaindb"
 	"github.com/ChainSafe/gossamer/lib/trie"
 	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
+	"github.com/ComposableFi/go-substrate-rpc-client/v4/scale"
 	rpcclienttypes "github.com/ComposableFi/go-substrate-rpc-client/v4/types"
 	"github.com/OneOfOne/xxhash"
+	"time"
 )
 
 func constructExtrinsics(
@@ -81,4 +84,20 @@ func parachainHeaderKey(paraID uint32) ([]byte, error) {
 	twoxhash := xxhash.New64().Sum(encodedParaId)
 	fullKey := append(append(keyPrefix, twoxhash[:]...), encodedParaId...)
 	return fullKey, nil
+}
+
+func decodeExtrinsicTimestamp(encodedExtrinsic []byte) (time.Time, error) {
+	var extrinsic rpcclienttypes.Extrinsic
+	decodeErr := rpcclienttypes.Decode(encodedExtrinsic, &extrinsic)
+	if decodeErr != nil {
+		return time.Time{}, decodeErr
+	}
+
+	unix, unixDecodeErr := scale.NewDecoder(bytes.NewReader(extrinsic.Method.Args[:])).DecodeUintCompact()
+	if unixDecodeErr != nil {
+		return time.Time{}, unixDecodeErr
+	}
+	t := time.UnixMilli(unix.Int64())
+
+	return t, nil
 }

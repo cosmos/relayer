@@ -9,6 +9,7 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/chains/substrate/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // todo
@@ -57,9 +58,15 @@ func (h GrandpaIBCHeader) Height() uint64 {
 }
 
 func (h GrandpaIBCHeader) ConsensusState() ibcexported.ConsensusState {
+	// todo: should this be the first parachain header in the list?
+	parachainHeader := h.SignedHeader.ParachainHeaders[0].ParachainHeader
+	timestamp, err := decodeExtrinsicTimestamp(parachainHeader.Extrinsic)
+	if err != nil {
+		panic(err)
+	}
+
 	// todo: construct the grandpa consensus state and wrap it in a Wasm consensus
-	// state type.
-	return nil
+	return types.ConsensusState{Timestamp: timestamppb.New(timestamp)}
 }
 
 func (g *Grandpa) QueryLatestHeight() (paraHeight int64, relayChainHeight int64, err error) {
