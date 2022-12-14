@@ -8,9 +8,9 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authTx "github.com/cosmos/cosmos-sdk/x/auth/tx"
-	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
-	"github.com/strangelove-ventures/ibctest/v5/ibc"
-	"github.com/strangelove-ventures/ibctest/v5/test"
+	clienttypes "github.com/cosmos/ibc-go/v6/modules/core/02-client/types"
+	"github.com/strangelove-ventures/ibctest/v6/ibc"
+	"github.com/strangelove-ventures/ibctest/v6/testutil"
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
 )
 
@@ -42,7 +42,7 @@ func pollForUpdateClient(ctx context.Context, chain ibc.Chain, startHeight, maxH
 		return nil, errors.New("not found")
 	}
 
-	bp := test.BlockPoller{CurrentHeight: chain.Height, PollFunc: doPoll}
+	bp := testutil.BlockPoller{CurrentHeight: chain.Height, PollFunc: doPoll}
 	result, err := bp.DoPoll(ctx, startHeight, maxHeight)
 	if err != nil {
 		return nil, err

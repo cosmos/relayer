@@ -13,7 +13,7 @@ import (
 	"github.com/cosmos/relayer/v2/internal/relayertest"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
-	"github.com/strangelove-ventures/ibctest/v5/ibc"
+	"github.com/strangelove-ventures/ibctest/v6/ibc"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
@@ -80,8 +80,8 @@ func (r *Relayer) AddChainConfiguration(ctx context.Context, _ ibc.RelayerExecRe
 	return nil
 }
 
-func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName string) (ibc.Wallet, error) {
-	res := r.sys().RunC(ctx, r.log(), "keys", "add", chainID, keyName)
+func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName, coinType string) (ibc.Wallet, error) {
+	res := r.sys().RunC(ctx, r.log(), "keys", "add", chainID, keyName, "--coin-type", fmt.Sprint(coinType))
 	if res.Err != nil {
 		return ibc.Wallet{}, res.Err
 	}
@@ -94,8 +94,8 @@ func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID
 	return w, nil
 }
 
-func (r *Relayer) RestoreKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName, mnemonic string) error {
-	res := r.sys().RunC(ctx, r.log(), "keys", "restore", chainID, keyName, mnemonic)
+func (r *Relayer) RestoreKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName, mnemonic, coinType string) error {
+	res := r.sys().RunC(ctx, r.log(), "keys", "restore", chainID, keyName, mnemonic, "--coin-type", fmt.Sprint(coinType))
 	if res.Err != nil {
 		return res.Err
 	}
@@ -119,6 +119,30 @@ func (r *Relayer) UpdatePath(ctx context.Context, _ ibc.RelayerExecReporter, pat
 		return res.Err
 	}
 	return nil
+}
+
+func (r *Relayer) GetClients(ctx context.Context, rep ibc.RelayerExecReporter, chainID string) (ibc.ClientOutputs, error) {
+	res := r.sys().RunC(ctx, r.log(), "q", "clients", chainID)
+	if res.Err != nil {
+		return nil, res.Err
+	}
+
+	var clients ibc.ClientOutputs
+	for _, client := range strings.Split(res.Stdout.String(), "\n") {
+		if strings.TrimSpace(client) == "" {
+			continue
+		}
+
+		var clientOutput ibc.ClientOutput
+		if err := json.Unmarshal([]byte(client), &clientOutput); err != nil {
+			return nil, fmt.Errorf("failed to parse client %q: %w", client, err)
+		}
+
+		clients = append(clients, &clientOutput)
+	}
+
+	return clients, nil
+
 }
 
 func (r *Relayer) GetChannels(ctx context.Context, _ ibc.RelayerExecReporter, chainID string) ([]ibc.ChannelOutput, error) {
