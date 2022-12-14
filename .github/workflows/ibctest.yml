@@ -10,10 +10,10 @@ jobs:
   events:
     runs-on: self-hosted
     steps:
-      - name: Set up Go 1.18
+      - name: Set up Go 1.19
         uses: actions/setup-go@v1
         with:
-          go-version: 1.18
+          go-version: 1.19
         id: go
 
       - name: checkout relayer
@@ -32,10 +32,10 @@ jobs:
   legacy:
     runs-on: self-hosted
     steps:
-      - name: Set up Go 1.18
+      - name: Set up Go 1.19
         uses: actions/setup-go@v1
         with:
-          go-version: 1.18
+          go-version: 1.19
         id: go
 
       - name: checkout relayer
@@ -54,10 +54,10 @@ jobs:
   multiple-paths:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.18
+      - name: Set up Go 1.19
         uses: actions/setup-go@v1
         with:
-          go-version: 1.18
+          go-version: 1.19
         id: go
 
       - name: checkout relayer
@@ -76,10 +76,10 @@ jobs:
   scenarios:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.18
+      - name: Set up Go 1.19
         uses: actions/setup-go@v1
         with:
-          go-version: 1.18
+          go-version: 1.19
         id: go
 
       - name: checkout relayer
