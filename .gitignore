@@ -16,6 +16,8 @@ _test/setup/valkeys/*.json
 _test/keys/
 .DS_Store
 .vscode/
+dist/
+.release-env
 
 # Don't commit the vendor directory if anyone runs 'go mod vendor'.
 /vendor
