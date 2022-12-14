@@ -239,6 +239,8 @@ github.com/cockroachdb/apd/v2 v2.0.2 h1:weh8u7Cneje73dDh+2tEVLUvyBc89iwepWCD8b80
 github.com/cockroachdb/apd/v2 v2.0.2/go.mod h1:DDxRlzC2lo3/vSlmSoS7JkqbbrARPuFOGr0B9pvN3Gw=
 github.com/cockroachdb/datadriven v0.0.0-20190809214429-80d97fb3cbaa/go.mod h1:zn76sxSg3SzpJ0PPJaLDCu+Bu0Lg3sKTORVIj19EIF8=
 github.com/coinbase/rosetta-sdk-go v0.7.9 h1:lqllBjMnazTjIqYrOGv8h8jxjg9+hJazIGZr9ZvoCcA=
+github.com/colin-axner/lens v0.0.0-20221214134510-625d691deae1 h1:t92VK+hMGBVUpE3Pfnrhnr5I0cwsuH7ufIUUyOx7+Og=
+github.com/colin-axner/lens v0.0.0-20221214134510-625d691deae1/go.mod h1:1b313AA5QZSaeCYh3aYbWS83SevwWj7p+ipUFc7+PHw=
 github.com/confio/ics23/go v0.9.0 h1:cWs+wdbS2KRPZezoaaj+qBleXgUk5WOQFMP3CQFGTr4=
 github.com/confio/ics23/go v0.9.0/go.mod h1:4LPZ2NYqnYIVRklaozjNR1FScgDJ2s5Xrp+e/mYVRak=
 github.com/containerd/aufs v0.0.0-20200908144142-dab0cbea06f4/go.mod h1:nukgQABAEopAHvB6j7cnP5zJ+/3aVcE7hCYqvIwAHyE=
@@ -360,8 +362,6 @@ github.com/cosmos/gorocksdb v1.2.0 h1:d0l3jJG8M4hBouIZq0mDUHZ+zjOx044J3nGRskwTb4
 github.com/cosmos/gorocksdb v1.2.0/go.mod h1:aaKvKItm514hKfNJpUJXnnOWeBnk2GL4+Qw9NHizILw=
 github.com/cosmos/iavl v0.19.4 h1:t82sN+Y0WeqxDLJRSpNd8YFX5URIrT+p8n6oJbJ2Dok=
 github.com/cosmos/iavl v0.19.4/go.mod h1:X9PKD3J0iFxdmgNLa7b2LYWdsGd90ToV5cAONApkEPw=
-github.com/cosmos/ibc-go/v5 v5.1.0 h1:m1NHXFkwwvNeJegZqtyox1WLinh+PMy4ivU/Cs9KjeA=
-github.com/cosmos/ibc-go/v5 v5.1.0/go.mod h1:H6sV0/CkNRDtvSrhbsIgiog1WnSwhguGfg8x34MOVEk=
 github.com/cosmos/ibc-go/v6 v6.0.0 h1:76tsrdxJF32rM9toFFRlBdxq/Twpk9Ph4QSbArtLtVY=
 github.com/cosmos/ibc-go/v6 v6.0.0/go.mod h1:Tt3NdjCHAXrEe1mbd8rgLndA1jNykhMndX6rKs9QMIw=
 github.com/cosmos/ledger-cosmos-go v0.11.1 h1:9JIYsGnXP613pb2vPjFeMMjBI5lEDsEaF6oYorTy6J4=
@@ -1088,8 +1088,6 @@ github.com/strangelove-ventures/go-subkey v1.0.7 h1:cOP/Lajg3uxV/tvspu0m6+0Cu+DJ
 github.com/strangelove-ventures/go-subkey v1.0.7/go.mod h1:E34izOIEm+sZ1YmYawYRquqBQWeZBjVB4pF7bMuhc1c=
 github.com/strangelove-ventures/ibctest/v6 v6.0.0-20221209152048-e8388a0b91fd h1:67pNLuMmq8L8BW8WShjtMoL0KFONLpOVYQxb2HY8IlQ=
 github.com/strangelove-ventures/ibctest/v6 v6.0.0-20221209152048-e8388a0b91fd/go.mod h1:l3Q2U/8aRyZrOqXp45nhxSjeXgBB+qROwu+L0vIJmUw=
-github.com/strangelove-ventures/lens v0.6.0 h1:0cs/14rXCh/RRy4A7l15gHPNTSDsHxbfKC1JA1EdOfs=
-github.com/strangelove-ventures/lens v0.6.0/go.mod h1:02mFT/TRg4J76STUzL8Yvne/z5E1ulrjYv5WFhcBXUY=
 github.com/stretchr/objx v0.0.0-20180129172003-8a3f7159479f/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
