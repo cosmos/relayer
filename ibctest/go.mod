@@ -8,7 +8,7 @@ require (
 	github.com/cosmos/relayer/v2 v2.0.0
 	github.com/docker/docker v20.10.19+incompatible
 	github.com/moby/moby v20.10.18+incompatible
-	github.com/strangelove-ventures/ibctest/v5 v5.0.0-20221201055938-fa49178c17eb
+	github.com/strangelove-ventures/ibctest/v6 v6.0.0-20221209152048-e8388a0b91fd
 	github.com/stretchr/testify v1.8.1
 	github.com/tendermint/tendermint v0.34.23
 	go.uber.org/zap v1.23.0
@@ -176,7 +176,6 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.14.0 // indirect
-	github.com/strangelove-ventures/ibctest/v6 v6.0.0-20221209152048-e8388a0b91fd // indirect
 	github.com/strangelove-ventures/lens v0.6.0 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220614013038-64ee5596c38a // indirect
