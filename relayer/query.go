@@ -12,7 +12,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v6/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v6/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v6/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v6/modules/light-clients/07-tendermint/types"
+	tmclient "github.com/cosmos/ibc-go/v6/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"

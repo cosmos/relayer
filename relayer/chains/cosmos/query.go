@@ -25,7 +25,7 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v6/modules/core/23-commitment/types"
 	host "github.com/cosmos/ibc-go/v6/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v6/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v6/modules/light-clients/07-tendermint/types"
+	tmclient "github.com/cosmos/ibc-go/v6/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	abci "github.com/tendermint/tendermint/abci/types"
 	tmtypes "github.com/tendermint/tendermint/types"
@@ -889,7 +889,7 @@ func (cc *CosmosProvider) QueryLatestHeight(ctx context.Context) (int64, error) 
 }
 
 // QueryHeaderAtHeight returns the header at a given height
-func (cc *CosmosProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.Header, error) {
+func (cc *CosmosProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.ClientMessage, error) {
 	var (
 		page    = 1
 		perPage = 100000

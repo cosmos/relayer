@@ -223,12 +223,12 @@ func TestParseEventLogs(t *testing.T) {
 			Type: clienttypes.EventTypeUpdateClient,
 			Attributes: []abci.EventAttribute{
 				{
-					Key:   []byte(clienttypes.AttributeKeyClientID),
-					Value: []byte(testClientID1),
+					Key:   clienttypes.AttributeKeyClientID,
+					Value: testClientID1,
 				},
 				{
-					Key:   []byte(clienttypes.AttributeKeyConsensusHeight),
-					Value: []byte(testClientConsensusHeight),
+					Key:   clienttypes.AttributeKeyConsensusHeight,
+					Value: testClientConsensusHeight,
 				},
 			},
 		},
@@ -236,36 +236,36 @@ func TestParseEventLogs(t *testing.T) {
 			Type: chantypes.EventTypeRecvPacket,
 			Attributes: []abci.EventAttribute{
 				{
-					Key:   []byte(chantypes.AttributeKeySequence),
-					Value: []byte(testPacketSequence),
+					Key:   chantypes.AttributeKeySequence,
+					Value: testPacketSequence,
 				},
 				{
-					Key:   []byte(chantypes.AttributeKeyDataHex),
-					Value: []byte(testPacketDataHex),
+					Key:   chantypes.AttributeKeyDataHex,
+					Value: testPacketDataHex,
 				},
 				{
-					Key:   []byte(chantypes.AttributeKeyTimeoutHeight),
-					Value: []byte(testPacketTimeoutHeight),
+					Key:   chantypes.AttributeKeyTimeoutHeight,
+					Value: testPacketTimeoutHeight,
 				},
 				{
-					Key:   []byte(chantypes.AttributeKeyTimeoutTimestamp),
-					Value: []byte(testPacketTimeoutTimestamp),
+					Key:   chantypes.AttributeKeyTimeoutTimestamp,
+					Value: testPacketTimeoutTimestamp,
 				},
 				{
-					Key:   []byte(chantypes.AttributeKeySrcChannel),
-					Value: []byte(testPacketSrcChannel),
+					Key:   chantypes.AttributeKeySrcChannel,
+					Value: testPacketSrcChannel,
 				},
 				{
-					Key:   []byte(chantypes.AttributeKeySrcPort),
-					Value: []byte(testPacketSrcPort),
+					Key:   chantypes.AttributeKeySrcPort,
+					Value: testPacketSrcPort,
 				},
 				{
-					Key:   []byte(chantypes.AttributeKeyDstChannel),
-					Value: []byte(testPacketDstChannel),
+					Key:   chantypes.AttributeKeyDstChannel,
+					Value: testPacketDstChannel,
 				},
 				{
-					Key:   []byte(chantypes.AttributeKeyDstPort),
-					Value: []byte(testPacketDstPort),
+					Key:   chantypes.AttributeKeyDstPort,
+					Value: testPacketDstPort,
 				},
 			},
 		},
@@ -273,28 +273,28 @@ func TestParseEventLogs(t *testing.T) {
 			Type: chantypes.EventTypeWriteAck,
 			Attributes: []abci.EventAttribute{
 				{
-					Key:   []byte(chantypes.AttributeKeySequence),
-					Value: []byte(testPacketSequence),
+					Key:   chantypes.AttributeKeySequence,
+					Value: testPacketSequence,
 				},
 				{
-					Key:   []byte(chantypes.AttributeKeyAckHex),
-					Value: []byte(testPacketAckHex),
+					Key:   chantypes.AttributeKeyAckHex,
+					Value: testPacketAckHex,
 				},
 				{
-					Key:   []byte(chantypes.AttributeKeySrcChannel),
-					Value: []byte(testPacketSrcChannel),
+					Key:   chantypes.AttributeKeySrcChannel,
+					Value: testPacketSrcChannel,
 				},
 				{
-					Key:   []byte(chantypes.AttributeKeySrcPort),
-					Value: []byte(testPacketSrcPort),
+					Key:   chantypes.AttributeKeySrcPort,
+					Value: testPacketSrcPort,
 				},
 				{
-					Key:   []byte(chantypes.AttributeKeyDstChannel),
-					Value: []byte(testPacketDstChannel),
+					Key:   chantypes.AttributeKeyDstChannel,
+					Value: testPacketDstChannel,
 				},
 				{
-					Key:   []byte(chantypes.AttributeKeyDstPort),
-					Value: []byte(testPacketDstPort),
+					Key:   chantypes.AttributeKeyDstPort,
+					Value: testPacketDstPort,
 				},
 			},
 		},

@@ -318,12 +318,12 @@ type ChainProvider interface {
 
 	// MsgUpdateClientHeader takes the latest chain header, in addition to the latest client trusted header
 	// and assembles a new header for updating the light client on the counterparty chain.
-	MsgUpdateClientHeader(latestHeader IBCHeader, trustedHeight clienttypes.Height, trustedHeader IBCHeader) (ibcexported.Header, error)
+	MsgUpdateClientHeader(latestHeader IBCHeader, trustedHeight clienttypes.Height, trustedHeader IBCHeader) (ibcexported.ClientMessage, error)
 
 	// MsgUpdateClient takes an update client header to prove trust for the previous
 	// consensus height and the new height, and assembles a MsgUpdateClient message
 	// formatted for this chain.
-	MsgUpdateClient(clientId string, counterpartyHeader ibcexported.Header) (RelayerMessage, error)
+	MsgUpdateClient(clientId string, counterpartyHeader ibcexported.ClientMessage) (RelayerMessage, error)
 
 	// [End] Client IBC message assembly
 
