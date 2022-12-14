@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"testing"
 
+	clienttypes "github.com/cosmos/ibc-go/v6/modules/core/02-client/types"
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
 	"github.com/strangelove-ventures/ibctest/v6"
+	"github.com/strangelove-ventures/ibctest/v6/chain/cosmos"
 	"github.com/strangelove-ventures/ibctest/v6/ibc"
 	ibctestrelayer "github.com/strangelove-ventures/ibctest/v6/relayer"
 	"github.com/strangelove-ventures/ibctest/v6/testreporter"
@@ -118,7 +120,7 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 
 	var eg errgroup.Group
 	eg.Go(func() error {
-		msg, err := pollForUpdateClient(ctx, g0, g0Height, g0Height+heightOffset)
+		msg, err := cosmos.PollForMessage[*clienttypes.MsgUpdateClient](ctx, g0.(*cosmos.CosmosChain), g0.Config().EncodingConfig.InterfaceRegistry, g0Height, g0Height+heightOffset, nil)
 		if err != nil {
 			return fmt.Errorf("first chain: %w", err)
 		}
@@ -128,7 +130,7 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 		return nil
 	})
 	eg.Go(func() error {
-		msg, err := pollForUpdateClient(ctx, g1, g1Height, g1Height+heightOffset)
+		msg, err := cosmos.PollForMessage[*clienttypes.MsgUpdateClient](ctx, g1.(*cosmos.CosmosChain), g1.Config().EncodingConfig.InterfaceRegistry, g1Height, g1Height+heightOffset, nil)
 		if err != nil {
 			return fmt.Errorf("second chain: %w", err)
 		}
@@ -236,7 +238,7 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 
 	var eg errgroup.Group
 	eg.Go(func() error {
-		msg, err := pollForUpdateClient(ctx, g0, g0Height, g0Height+heightOffset)
+		msg, err := cosmos.PollForMessage[*clienttypes.MsgUpdateClient](ctx, g0.(*cosmos.CosmosChain), g0.Config().EncodingConfig.InterfaceRegistry, g0Height, g0Height+heightOffset, nil)
 		if err != nil {
 			return fmt.Errorf("first chain: %w", err)
 		}
@@ -246,7 +248,7 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 		return nil
 	})
 	eg.Go(func() error {
-		msg, err := pollForUpdateClient(ctx, g1, g1Height, g1Height+heightOffset)
+		msg, err := cosmos.PollForMessage[*clienttypes.MsgUpdateClient](ctx, g1.(*cosmos.CosmosChain), g1.Config().EncodingConfig.InterfaceRegistry, g1Height, g1Height+heightOffset, nil)
 		if err != nil {
 			return fmt.Errorf("second chain: %w", err)
 		}
