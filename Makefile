@@ -1,5 +1,6 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
+DIRTY := $(shell git status --porcelain | wc -l)
 GAIA_VERSION := v7.0.1
 AKASH_VERSION := v0.16.3
 OSMOSIS_VERSION := v8.0.0
@@ -14,7 +15,9 @@ all: lint install
 # Build / Install
 ###############################################################################
 
-ldflags = -X github.com/cosmos/relayer/v2/cmd.Version=$(VERSION)
+ldflags = -X github.com/cosmos/relayer/v2/cmd.Version=$(VERSION) \
+					-X github.com/cosmos/relayer/v2/cmd.Commit=$(COMMIT) \
+					-X github.com/cosmos/relayer/v2/cmd.Dirty=$(DIRTY) \
 
 ldflags += $(LDFLAGS)
 ldflags := $(strip $(ldflags))
@@ -110,7 +113,7 @@ build-gaia:
 .PHONY: two-chains test test-integration ibctest install build lint coverage clean
 
 PACKAGE_NAME          := github.com/cosmos/relayer
-GOLANG_CROSS_VERSION  ?= v1.18.3
+GOLANG_CROSS_VERSION  ?= v1.19.4
 
 SYSROOT_DIR     ?= sysroots
 SYSROOT_ARCHIVE ?= sysroots.tar.bz2
