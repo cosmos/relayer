@@ -21,7 +21,8 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	penumbra_types "github.com/penumbra-zone/penumbra/proto/go-proto"
+
+	penumbra_types "buf.build/gen/go/penumbra-zone/penumbra/protocolbuffers/go/penumbra/core/transaction/v1alpha1"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/light"
 
@@ -2055,7 +2056,7 @@ func castClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) 
 	return clientState, nil
 }
 
-//DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
+// DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
 var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 
 /*
