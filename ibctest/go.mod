@@ -1,6 +1,6 @@
 module github.com/cosmos/relayer/v2/ibctest
 
-go 1.18
+go 1.19
 
 require (
 	github.com/cosmos/cosmos-sdk v0.46.6
