@@ -41,7 +41,6 @@ build-zip: go.sum
 	@tar -czvf release.tar.gz ./build
 
 install: go.sum
-	@echo $(DIRTY)
 	@echo "installing rly binary..."
 	@go build -mod=readonly $(BUILD_FLAGS) -o $(GOBIN)/rly main.go
 
