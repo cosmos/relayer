@@ -1,6 +1,6 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
-DIRTY := $(shell git status --porcelain | wc -l)
+DIRTY := $(shell git status --porcelain | wc -l | xargs)
 GAIA_VERSION := v7.0.1
 AKASH_VERSION := v0.16.3
 OSMOSIS_VERSION := v8.0.0
@@ -17,7 +17,7 @@ all: lint install
 
 ldflags = -X github.com/cosmos/relayer/v2/cmd.Version=$(VERSION) \
 					-X github.com/cosmos/relayer/v2/cmd.Commit=$(COMMIT) \
-					-X github.com/cosmos/relayer/v2/cmd.Dirty=$(DIRTY) \
+					-X github.com/cosmos/relayer/v2/cmd.Dirty=$(DIRTY)
 
 ldflags += $(LDFLAGS)
 ldflags := $(strip $(ldflags))
@@ -41,6 +41,7 @@ build-zip: go.sum
 	@tar -czvf release.tar.gz ./build
 
 install: go.sum
+	@echo $(DIRTY)
 	@echo "installing rly binary..."
 	@go build -mod=readonly $(BUILD_FLAGS) -o $(GOBIN)/rly main.go
 
