@@ -9,9 +9,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	commitmenttypes "github.com/cosmos/ibc-go/v3/modules/core/23-commitment/types"
-	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v3/modules/light-clients/07-tendermint/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
+	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
@@ -176,7 +176,12 @@ func (cc *CosmosProvider) Address() (string, error) {
 		return "", err
 	}
 
-	out, err := cc.EncodeBech32AccAddr(info.GetAddress())
+	acc, err := info.GetAddress()
+	if err != nil {
+		return "", err
+	}
+
+	out, err := cc.EncodeBech32AccAddr(acc)
 	if err != nil {
 		return "", err
 	}

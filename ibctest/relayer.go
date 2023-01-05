@@ -13,7 +13,7 @@ import (
 	"github.com/cosmos/relayer/v2/internal/relayertest"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
-	"github.com/strangelove-ventures/ibctest/v3/ibc"
+	"github.com/strangelove-ventures/ibctest/v5/ibc"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )

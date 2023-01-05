@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/docker/docker/client"
-	"github.com/strangelove-ventures/ibctest/v3/ibc"
-	"github.com/strangelove-ventures/ibctest/v3/label"
-	ibctestrelayer "github.com/strangelove-ventures/ibctest/v3/relayer"
+	"github.com/strangelove-ventures/ibctest/v5/ibc"
+	"github.com/strangelove-ventures/ibctest/v5/label"
+	ibctestrelayer "github.com/strangelove-ventures/ibctest/v5/relayer"
 )
 
 // RelayerFactory implements the ibctest RelayerFactory interface.
