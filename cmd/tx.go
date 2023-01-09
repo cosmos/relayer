@@ -712,6 +712,10 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 	cmd = channelParameterFlags(a.Viper, cmd)
 	cmd = overrideFlag(a.Viper, cmd)
 	cmd = memoFlag(a.Viper, cmd)
+	cmd = debugServerFlags(a.Viper, cmd)
+	cmd = initBlockFlag(a.Viper, cmd)
+	cmd = processorFlag(a.Viper, cmd)
+	cmd = updateTimeFlags(a.Viper, cmd)
 	return cmd
 }
 
