@@ -249,7 +249,8 @@ func (cc *CosmosProvider) Sprint(toPrint proto.Message) (string, error) {
 func (cc *CosmosProvider) Init(ctx context.Context) error {
 	status, err := cc.QueryStatus(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to initialize cosmos provider: %w", err)
+		// Operations can occur before the node URL is added to the config, so noop here.
+		return nil
 	}
 
 	cc.SetTendermintVersion(cc.log, status.NodeInfo.Version)
