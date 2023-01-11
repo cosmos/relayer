@@ -304,7 +304,7 @@ func MsgUpdateClient(
 		return nil, err
 	}
 
-	var updateHeader provider.HeaderCompat
+	var updateHeader ibcexported.ClientMessage
 	if err := retry.Do(func() error {
 		var err error
 		updateHeader, err = src.ChainProvider.MsgUpdateClientHeader(srcHeader, dstClientState.GetLatestHeight().(clienttypes.Height), dstTrustedHeader)

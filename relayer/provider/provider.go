@@ -52,15 +52,6 @@ type IBCHeader interface {
 	// require conversion implementation for third party chains
 }
 
-// HeaderCompat is the consensus state update information
-type HeaderCompat interface {
-	proto.Message
-
-	ClientType() string
-	GetHeight() ibcexported.Height
-	ValidateBasic() error
-}
-
 // ClientState holds the current state of a client from a single chain's perspective
 type ClientState struct {
 	ClientID        string
@@ -349,12 +340,12 @@ type ChainProvider interface {
 
 	// MsgUpdateClientHeader takes the latest chain header, in addition to the latest client trusted header
 	// and assembles a new header for updating the light client on the counterparty chain.
-	MsgUpdateClientHeader(latestHeader IBCHeader, trustedHeight clienttypes.Height, trustedHeader IBCHeader) (HeaderCompat, error)
+	MsgUpdateClientHeader(latestHeader IBCHeader, trustedHeight clienttypes.Height, trustedHeader IBCHeader) (ibcexported.ClientMessage, error)
 
 	// MsgUpdateClient takes an update client header to prove trust for the previous
 	// consensus height and the new height, and assembles a MsgUpdateClient message
 	// formatted for this chain.
-	MsgUpdateClient(clientId string, counterpartyHeader HeaderCompat) (RelayerMessage, error)
+	MsgUpdateClient(clientID string, counterpartyHeader ibcexported.ClientMessage) (RelayerMessage, error)
 
 	// [End] Client IBC message assembly
 
