@@ -7,3 +7,4 @@ data/
 scripts/
 testnets/
 two-chains/
+go-export/target

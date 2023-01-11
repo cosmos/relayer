@@ -47,6 +47,20 @@ build-akash-docker:
 build-osmosis-docker:
 	docker build -t osmosis-labs/osmosis:$(OSMOSIS_VERSION) --build-arg VERSION=$(OSMOSIS_VERSION) -f ./docker/osmosis/Dockerfile .
 
+build-trie-lib-docker:
+	docker run -it -v $(CURDIR)/go-export:/proj -v $(CURDIR)/scripts:/scripts rust:alpine sh scripts/build_trie_docker.sh
+
+build-trie-lib:
+	cd go-export
+	cargo +nightly build -r -p go-export
+	cp target/release/*.a ../lib/
+	cp target/release/*.d ../lib/
+	cp target/.h ../lib/
+
+test-trie-lib:
+	cd go-export
+	cargo +nightly miri test -p go-export
+
 ###############################################################################
 # Tests / CI
 ###############################################################################

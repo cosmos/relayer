@@ -1,0 +1,23 @@
+[package]
+name = "go-export"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+sp-trie = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+light-client-common = { git = "https://github.com/ComposableFi/centauri", branch = "master" }
+
+[dev-dependencies]
+sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+hex-literal = "0.3.4"
+hex = "0.4.3"
+rand = "0.8.5"
+
+[build-dependencies]
+cbindgen = "0.24.3"
