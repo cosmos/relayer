@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/substrate/finality"
@@ -14,6 +15,7 @@ import (
 	rpcclient "github.com/ComposableFi/go-substrate-rpc-client/v4"
 	beefyclienttypes "github.com/ComposableFi/ics11-beefy/types"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
+	grandpaclienttypes "github.com/cosmos/relayer/v2/relayer/chains/substrate/finality/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/substrate/keystore"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
@@ -28,7 +30,7 @@ var (
 
 type SubstrateProviderConfig struct {
 	Key                  string  `json:"key" yaml:"key"`
-	ChainName            string  `json:"-" yaml:"-"`
+	ChainName            string  `json:"chain-name" yaml:"chain-name"`
 	ChainID              string  `json:"chain-id" yaml:"chain-id"`
 	RPCAddr              string  `json:"rpc-addr" yaml:"rpc-addr"`
 	RelayRPCAddr         string  `json:"relay-rpc-addr" yaml:"relay-rpc-addr"`
@@ -45,7 +47,7 @@ type SubstrateProviderConfig struct {
 	ParaID               uint32  `json:"para-id" yaml:"para-id"`
 	BeefyActivationBlock uint32  `json:"beefy-activation-block" yaml:"beefy-activation-block"`
 	RelayChain           int32   `json:"relay-chain" yaml:"relay-chain"`
-	FinalityGadget       string  `json:"finality-gadget" yaml:"finality-gadget"`
+	FinalityProtocol     string  `json:"finality-protocol" yaml:"finality-protocol"`
 }
 
 func (spc SubstrateProviderConfig) Validate() error {
@@ -96,7 +98,14 @@ func (sp *SubstrateProvider) Init() error {
 	if err != nil {
 		return err
 	}
-
+	fmt.Println("RPCAddr", sp.Config.RPCAddr)
+	fmt.Println("RelayRPCAddr", sp.Config.RelayRPCAddr)
+	fmt.Println("FinalityProtocol", sp.Config.FinalityProtocol)
+	split := strings.Split(sp.Config.RPCAddr, ",")
+	if len(split) > 1 {
+		sp.Config.RPCAddr = split[0]
+		sp.Config.RelayRPCAddr = split[1]
+	}
 	client, err := rpcclient.NewSubstrateAPI(sp.Config.RPCAddr)
 	if err != nil {
 		return err
@@ -107,13 +116,14 @@ func (sp *SubstrateProvider) Init() error {
 		return err
 	}
 
-	switch sp.Config.FinalityGadget {
+	switch sp.Config.FinalityProtocol {
 	case finality.BeefyFinalityGadget:
 		sp.FinalityGadget = finality.NewBeefy(client, relaychainClient, sp.Config.ParaID,
 			sp.Config.BeefyActivationBlock, sp.Memdb)
 	case finality.GrandpaFinalityGadget:
+		clientState := grandpaclienttypes.ClientState{}
 		sp.FinalityGadget = finality.NewGrandpa(client, relaychainClient, sp.Config.ParaID,
-			sp.Config.RelayChain, sp.Memdb)
+			sp.Config.RelayChain, sp.Memdb, &clientState)
 	default:
 		return fmt.Errorf("unsupported finality gadget")
 	}

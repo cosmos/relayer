@@ -6,7 +6,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -111,9 +111,11 @@ $ %s k r cosmoshub faucet-key "[mnemonic-words]"`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
 
-			chain, ok := a.Config.Chains[args[0]]
+			chainName := args[0]
+			fmt.Println("Restoring key for chain", chainName)
+			chain, ok := a.Config.Chains[chainName]
 			if !ok {
-				return errChainNotFound(args[0])
+				return errChainNotFound(chainName)
 			}
 
 			if chain.ChainProvider.KeyExists(keyName) {

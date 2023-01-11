@@ -408,19 +408,19 @@ func (m *ConsensusState) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ConsensusState proto.InternalMessageInfo
 
-func (m *ConsensusState) GetTimestamp() *timestamppb.Timestamp {
-	if m != nil {
-		return m.Timestamp
-	}
-	return nil
-}
-
-func (m *ConsensusState) GetRoot() []byte {
-	if m != nil {
-		return m.Root
-	}
-	return nil
-}
+//func (m *ConsensusState) GetTimestamp() *timestamppb.Timestamp {
+//	if m != nil {
+//		return m.Timestamp
+//	}
+//	return nil
+//}
+//
+//func (m *ConsensusState) GetRoot() []byte {
+//	if m != nil {
+//		return m.Root
+//	}
+//	return nil
+//}
 
 // GRANDPA finality proof and parachain headers
 type Header struct {
