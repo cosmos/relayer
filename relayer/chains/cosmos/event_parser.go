@@ -1,15 +1,16 @@
 package cosmos
 
 import (
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/v6/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v6/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v6/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	abci "github.com/tendermint/tendermint/abci/types"
@@ -30,17 +31,12 @@ type ibcMessageInfo interface {
 
 func (ccp *CosmosChainProcessor) ibcMessagesFromBlockEvents(
 	beginBlockEvents, endBlockEvents []abci.Event,
-	height uint64,
+	height uint64, base64Encoded bool,
 ) (res []ibcMessage) {
 	chainID := ccp.chainProvider.ChainId()
-	res = append(res, ibcMessagesFromEvents(ccp.log, beginBlockEvents, chainID, height)...)
-	res = append(res, ibcMessagesFromEvents(ccp.log, endBlockEvents, chainID, height)...)
+	res = append(res, ibcMessagesFromEvents(ccp.log, beginBlockEvents, chainID, height, base64Encoded)...)
+	res = append(res, ibcMessagesFromEvents(ccp.log, endBlockEvents, chainID, height, base64Encoded)...)
 	return res
-}
-
-type packetKey struct {
-	sequence uint64
-	channel  processor.ChannelKey
 }
 
 // ibcMessagesFromTransaction parses all events within a transaction to find IBC messages
@@ -49,9 +45,31 @@ func ibcMessagesFromEvents(
 	events []abci.Event,
 	chainID string,
 	height uint64,
+	base64Encoded bool,
 ) (messages []ibcMessage) {
 	for _, event := range events {
-		evt := sdk.StringifyEvent(event)
+		var evt sdk.StringEvent
+		if base64Encoded {
+			evt = sdk.StringEvent{Type: event.Type}
+			for _, attr := range event.Attributes {
+				key, err := base64.StdEncoding.DecodeString(attr.Key)
+				if err != nil {
+					log.Error("Failed to decode legacy key as base64", zap.String("base64", attr.Key), zap.Error(err))
+					continue
+				}
+				value, err := base64.StdEncoding.DecodeString(attr.Value)
+				if err != nil {
+					log.Error("Failed to decode legacy value as base64", zap.String("base64", attr.Value), zap.Error(err))
+					continue
+				}
+				evt.Attributes = append(evt.Attributes, sdk.Attribute{
+					Key:   string(key),
+					Value: string(value),
+				})
+			}
+		} else {
+			evt = sdk.StringifyEvent(event)
+		}
 		m := parseIBCMessageFromEvent(log, evt, chainID, height)
 		if m == nil || m.info == nil {
 			// Not an IBC message, don't need to log here

@@ -4,15 +4,15 @@ import (
 	"context"
 	"testing"
 
-	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
+	transfertypes "github.com/cosmos/ibc-go/v6/modules/apps/transfer/types"
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
-	"github.com/strangelove-ventures/ibctest/v5"
-	"github.com/strangelove-ventures/ibctest/v5/chain/cosmos"
-	"github.com/strangelove-ventures/ibctest/v5/ibc"
-	ibctestrelayer "github.com/strangelove-ventures/ibctest/v5/relayer"
-	ibctestrly "github.com/strangelove-ventures/ibctest/v5/relayer/rly"
-	"github.com/strangelove-ventures/ibctest/v5/test"
-	"github.com/strangelove-ventures/ibctest/v5/testreporter"
+	ibctest "github.com/strangelove-ventures/ibctest/v6"
+	"github.com/strangelove-ventures/ibctest/v6/chain/cosmos"
+	"github.com/strangelove-ventures/ibctest/v6/ibc"
+	ibctestrelayer "github.com/strangelove-ventures/ibctest/v6/relayer"
+	ibctestrly "github.com/strangelove-ventures/ibctest/v6/relayer/rly"
+	"github.com/strangelove-ventures/ibctest/v6/testreporter"
+	"github.com/strangelove-ventures/ibctest/v6/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -113,7 +113,7 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 	)
 
 	// Wait a few blocks for the relayer to start
-	err = test.WaitForBlocks(ctx, 5, gaia, osmosis)
+	err = testutil.WaitForBlocks(ctx, 5, gaia, osmosis)
 	require.NoError(t, err)
 
 	// Assert that all three channels were successfully initialized
@@ -130,12 +130,12 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 	}
 
 	for _, channel := range channels {
-		_, err = gaia.SendIBCTransfer(ctx, channel.ChannelID, gaiaUser.KeyName, transfer, nil)
+		_, err = gaia.SendIBCTransfer(ctx, channel.ChannelID, gaiaUser.KeyName, transfer, ibc.TransferOptions{})
 		require.NoError(t, err)
 	}
 
 	// Wait a few blocks for the transfers to be successfully relayed
-	err = test.WaitForBlocks(ctx, 5, gaia, osmosis)
+	err = testutil.WaitForBlocks(ctx, 5, gaia, osmosis)
 	require.NoError(t, err)
 
 	// Compose IBC denoms for each channel
@@ -165,12 +165,12 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 			Amount:  transferAmount,
 		}
 
-		_, err = osmosis.SendIBCTransfer(ctx, channel.Counterparty.ChannelID, osmosisUser.KeyName, transfer, nil)
+		_, err = osmosis.SendIBCTransfer(ctx, channel.Counterparty.ChannelID, osmosisUser.KeyName, transfer, ibc.TransferOptions{})
 		require.NoError(t, err)
 	}
 
 	// Wait a few blocks for the transfers to be successfully relayed
-	err = test.WaitForBlocks(ctx, 5, gaia, osmosis)
+	err = testutil.WaitForBlocks(ctx, 5, gaia, osmosis)
 	require.NoError(t, err)
 
 	// Assert that the transfers are all successful back on the original src chain account

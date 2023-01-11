@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
-	"github.com/strangelove-ventures/ibctest/v5"
-	"github.com/strangelove-ventures/ibctest/v5/ibc"
-	ibctestrelayer "github.com/strangelove-ventures/ibctest/v5/relayer"
-	"github.com/strangelove-ventures/ibctest/v5/test"
-	"github.com/strangelove-ventures/ibctest/v5/testreporter"
+	ibctest "github.com/strangelove-ventures/ibctest/v6"
+	"github.com/strangelove-ventures/ibctest/v6/ibc"
+	ibctestrelayer "github.com/strangelove-ventures/ibctest/v6/relayer"
+	"github.com/strangelove-ventures/ibctest/v6/testreporter"
+	"github.com/strangelove-ventures/ibctest/v6/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -90,7 +90,7 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 	})
 
 	// Wait 2 blocks after building interchain
-	require.NoError(t, test.WaitForBlocks(ctx, 2, g0, g1))
+	require.NoError(t, testutil.WaitForBlocks(ctx, 2, g0, g1))
 
 	g0Height, err := g0.Height(ctx)
 	require.NoError(t, err)
@@ -208,7 +208,7 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 	})
 
 	// Wait 2 blocks after building interchain
-	require.NoError(t, test.WaitForBlocks(ctx, 2, g0, g1))
+	require.NoError(t, testutil.WaitForBlocks(ctx, 2, g0, g1))
 
 	g0Height, err := g0.Height(ctx)
 	require.NoError(t, err)

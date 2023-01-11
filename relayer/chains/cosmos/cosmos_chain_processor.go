@@ -9,11 +9,12 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/v6/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v6/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v6/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -134,6 +135,25 @@ func (ccp *CosmosChainProcessor) latestHeightWithRetry(ctx context.Context) (lat
 	}))
 }
 
+// nodeStatusWithRetry will query for the latest node status, retrying in case of failure.
+// It will delay by latestHeightQueryRetryDelay between attempts, up to latestHeightQueryRetries.
+func (ccp *CosmosChainProcessor) nodeStatusWithRetry(ctx context.Context) (status *ctypes.ResultStatus, err error) {
+	return status, retry.Do(func() error {
+		latestHeightQueryCtx, cancelLatestHeightQueryCtx := context.WithTimeout(ctx, queryTimeout)
+		defer cancelLatestHeightQueryCtx()
+		var err error
+		status, err = ccp.chainProvider.QueryStatus(latestHeightQueryCtx)
+		return err
+	}, retry.Context(ctx), retry.Attempts(latestHeightQueryRetries), retry.Delay(latestHeightQueryRetryDelay), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
+		ccp.log.Info(
+			"Failed to query node status",
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", latestHeightQueryRetries),
+			zap.Error(err),
+		)
+	}))
+}
+
 // clientState will return the most recent client state if client messages
 // have already been observed for the clientID, otherwise it will query for it.
 func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID string) (provider.ClientState, error) {
@@ -175,7 +195,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 
 	// Infinite retry to get initial latest height
 	for {
-		latestHeight, err := ccp.latestHeightWithRetry(ctx)
+		status, err := ccp.nodeStatusWithRetry(ctx)
 		if err != nil {
 			ccp.log.Error(
 				"Failed to query latest height after max attempts",
@@ -187,7 +207,8 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 			}
 			continue
 		}
-		persistence.latestHeight = latestHeight
+		persistence.latestHeight = status.SyncInfo.LatestBlockHeight
+		ccp.chainProvider.SetTendermintVersion(ccp.log, status.NodeInfo.Version)
 		break
 	}
 
@@ -277,18 +298,19 @@ func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) err
 }
 
 func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
-	var err error
-	persistence.latestHeight, err = ccp.latestHeightWithRetry(ctx)
-
-	// don't want to cause CosmosChainProcessor to quit here, can retry again next cycle.
+	status, err := ccp.nodeStatusWithRetry(ctx)
 	if err != nil {
+		// don't want to cause CosmosChainProcessor to quit here, can retry again next cycle.
 		ccp.log.Error(
-			"Failed to query latest height after max attempts",
+			"Failed to query node status after max attempts",
 			zap.Uint("attempts", latestHeightQueryRetries),
 			zap.Error(err),
 		)
 		return nil
 	}
+
+	persistence.latestHeight = status.SyncInfo.LatestBlockHeight
+	ccp.chainProvider.SetTendermintVersion(ccp.log, status.NodeInfo.Version)
 
 	ccp.log.Debug("Queried latest height",
 		zap.Int64("latest_height", persistence.latestHeight),
@@ -361,7 +383,14 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		blockMsgs := ccp.ibcMessagesFromBlockEvents(blockRes.BeginBlockEvents, blockRes.EndBlockEvents, heightUint64)
+		base64Encoded := !ccp.chainProvider.GetTendermintEncodingBytes()
+
+		blockMsgs := ccp.ibcMessagesFromBlockEvents(
+			blockRes.BeginBlockEvents,
+			blockRes.EndBlockEvents,
+			heightUint64,
+			base64Encoded,
+		)
 		for _, m := range blockMsgs {
 			ccp.handleMessage(ctx, m, ibcMessagesCache)
 		}
@@ -371,12 +400,13 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 				// tx was not successful
 				continue
 			}
-			messages := ibcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64)
+			messages := ibcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64, base64Encoded)
 
 			for _, m := range messages {
 				ccp.handleMessage(ctx, m, ibcMessagesCache)
 			}
 		}
+
 		newLatestQueriedBlock = i
 	}
 

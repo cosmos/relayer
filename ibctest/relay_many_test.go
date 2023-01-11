@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
-	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
+	transfertypes "github.com/cosmos/ibc-go/v6/modules/apps/transfer/types"
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
-	"github.com/strangelove-ventures/ibctest/v5"
-	"github.com/strangelove-ventures/ibctest/v5/chain/cosmos"
-	"github.com/strangelove-ventures/ibctest/v5/ibc"
-	"github.com/strangelove-ventures/ibctest/v5/test"
-	"github.com/strangelove-ventures/ibctest/v5/testreporter"
+	ibctest "github.com/strangelove-ventures/ibctest/v6"
+	"github.com/strangelove-ventures/ibctest/v6/chain/cosmos"
+	"github.com/strangelove-ventures/ibctest/v6/ibc"
+	"github.com/strangelove-ventures/ibctest/v6/testreporter"
+	"github.com/strangelove-ventures/ibctest/v6/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -103,7 +103,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	gaiaUser, osmosisUser, junoUser := users[0], users[1], users[2]
 
 	// Wait a few blocks for user accounts to be created on chain.
-	err = test.WaitForBlocks(ctx, 2, gaia, osmosis, juno)
+	err = testutil.WaitForBlocks(ctx, 2, gaia, osmosis, juno)
 	require.NoError(t, err)
 
 	// Start the relayers
@@ -120,7 +120,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	)
 
 	// Wait a few blocks for the relayer to start.
-	err = test.WaitForBlocks(ctx, 2, gaia, osmosis, juno)
+	err = testutil.WaitForBlocks(ctx, 2, gaia, osmosis, juno)
 	require.NoError(t, err)
 
 	gaiaAddress := gaiaUser.Bech32Address(gaiaCfg.Bech32Prefix)
@@ -156,11 +156,11 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 			Amount:  transferAmount,
 			Denom:   osmosisCfg.Denom,
 			Address: gaiaAddress,
-		}, nil)
+		}, ibc.TransferOptions{})
 		if err != nil {
 			return err
 		}
-		_, err = test.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
+		_, err = testutil.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
 		return err
 	})
 
@@ -174,11 +174,11 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 			Amount:  transferAmount,
 			Denom:   junoCfg.Denom,
 			Address: gaiaAddress,
-		}, nil)
+		}, ibc.TransferOptions{})
 		if err != nil {
 			return err
 		}
-		_, err = test.PollForAck(ctx, juno, junoHeight, junoHeight+10, tx.Packet)
+		_, err = testutil.PollForAck(ctx, juno, junoHeight, junoHeight+10, tx.Packet)
 		return err
 	})
 
