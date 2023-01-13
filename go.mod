@@ -4,11 +4,9 @@ go 1.19
 
 require (
 	github.com/avast/retry-go/v4 v4.3.2
-	github.com/cosmos/cosmos-proto v1.0.0-beta.1
 	github.com/cosmos/cosmos-sdk v0.47.0-rc1
 	github.com/cosmos/gogoproto v1.4.3
-	github.com/cosmos/ibc-go/v6 v6.1.0
-	github.com/gogo/protobuf v1.3.2
+	github.com/cosmos/ibc-go/v6 v6.0.0-20230113152752-e650be91614c
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-github/v43 v43.0.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
@@ -17,7 +15,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.14.0
-	github.com/strangelove-ventures/lens v0.5.2-0.20230111080251-2431f6821e0e
+	github.com/strangelove-ventures/lens v0.5.2-0.20230113204415-75acf3475f1a
 	github.com/stretchr/testify v1.8.1
 	github.com/tendermint/tendermint v0.37.0-rc2
 	go.uber.org/multierr v1.8.0
@@ -57,6 +55,7 @@ require (
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
 	github.com/confio/ics23/go v0.9.0 // indirect
 	github.com/cosmos/btcutil v1.0.5 // indirect
+	github.com/cosmos/cosmos-proto v1.0.0-beta.1 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/gorocksdb v1.2.0 // indirect
@@ -174,5 +173,3 @@ require (
 	pgregory.net/rapid v0.5.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
-
-replace github.com/cosmos/ibc-go/v6 => github.com/strangelove-ventures/ibc-go/v6 v6.0.0-20230110184609-7b345993c84a
