@@ -231,7 +231,7 @@ func (cc *CosmosProvider) QueryTendermintProof(ctx context.Context, height int64
 	}
 
 	req := abci.RequestQuery{
-		Path:   fmt.Sprintf("store/%s/key", host.StoreKey),
+		Path:   fmt.Sprintf("store/%s/key", ibcexported.StoreKey),
 		Height: height,
 		Data:   key,
 		Prove:  true,
