@@ -6,14 +6,16 @@ import (
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/types"
-	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
+	transfertypes "github.com/cosmos/ibc-go/v6/modules/apps/transfer/types"
+	chantypes "github.com/cosmos/ibc-go/v6/modules/core/04-channel/types"
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
 	"github.com/cosmos/relayer/v2/ibctest/stride"
-	ibctest "github.com/strangelove-ventures/ibctest/v5"
-	"github.com/strangelove-ventures/ibctest/v5/chain/cosmos"
-	"github.com/strangelove-ventures/ibctest/v5/ibc"
-	"github.com/strangelove-ventures/ibctest/v5/test"
-	"github.com/strangelove-ventures/ibctest/v5/testreporter"
+	rlystride "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
+	ibctest "github.com/strangelove-ventures/ibctest/v6"
+	"github.com/strangelove-ventures/ibctest/v6/chain/cosmos"
+	"github.com/strangelove-ventures/ibctest/v6/ibc"
+	"github.com/strangelove-ventures/ibctest/v6/testreporter"
+	"github.com/strangelove-ventures/ibctest/v6/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -152,10 +154,10 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	require.NoError(t, err, "failed to fund stride admin account")
 
 	// get native chain user addresses
-	strideAddr := strideUser.Bech32Address(strideCfg.Bech32Prefix)
+	strideAddr := strideUser.FormattedAddress()
 	require.NotEmpty(t, strideAddr)
 
-	gaiaAddress := gaiaUser.Bech32Address(gaiaCfg.Bech32Prefix)
+	gaiaAddress := gaiaUser.FormattedAddress()
 	require.NotEmpty(t, gaiaAddress)
 
 	// get ibc paths
@@ -180,14 +182,14 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	require.NoError(t, err)
 
 	// Fund stride user with ibc denom atom
-	tx, err := gaia.SendIBCTransfer(ctx, gaiaChans[0].ChannelID, gaiaUser.KeyName, ibc.WalletAmount{
+	tx, err := gaia.SendIBCTransfer(ctx, gaiaChans[0].ChannelID, gaiaUser.KeyName(), ibc.WalletAmount{
 		Amount:  1_000_000_000_000,
 		Denom:   gaiaCfg.Denom,
 		Address: strideAddr,
-	}, nil)
+	}, ibc.TransferOptions{})
 	require.NoError(t, err)
 
-	_, err = test.PollForAck(ctx, gaia, gaiaHeight, gaiaHeight+10, tx.Packet)
+	_, err = testutil.PollForAck(ctx, gaia, gaiaHeight, gaiaHeight+10, tx.Packet)
 	require.NoError(t, err)
 
 	require.NoError(t, eg.Wait())
@@ -205,7 +207,12 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for the ICA accounts to be setup
-	_, err = PollForMsgChannelOpenConfirm(ctx, gaia, gaiaHeight, gaiaHeight+15, gaiaCfg.ChainID)
+	// Poll for 4 MsgChannelOpenConfirm with timeout after 15 blocks.
+	chanCount := 0
+	_, err = cosmos.PollForMessage(
+		ctx, gaia, gaiaCfg.EncodingConfig.InterfaceRegistry, gaiaHeight, gaiaHeight+15,
+		func(found *chantypes.MsgChannelOpenConfirm) bool { chanCount++; return chanCount == 4 },
+	)
 	require.NoError(t, err)
 
 	// Get validator address
@@ -231,7 +238,7 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	require.NoError(t, err)
 
 	// Liquid stake some atom
-	_, err = strideFullNode.ExecTx(ctx, strideUser.KeyName,
+	_, err = strideFullNode.ExecTx(ctx, strideUser.KeyName(),
 		"stakeibc", "liquid-stake",
 		"1000000000000", gaiaCfg.Denom,
 	)
@@ -240,6 +247,11 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	strideHeight, err := stride.Height(ctx)
 	require.NoError(t, err)
 
-	_, err = PollForMsgSubmitQueryResponse(ctx, stride, strideHeight, strideHeight+20, strideCfg.ChainID)
+	// Poll for MsgSubmitQueryResponse with timeout after 20 blocks
+	_, err = cosmos.PollForMessage(
+		ctx, stride, gaiaCfg.EncodingConfig.InterfaceRegistry, strideHeight, strideHeight+20,
+		func(found *rlystride.MsgSubmitQueryResponse) bool { return true },
+	)
+	require.NoError(t, err)
 	require.NoError(t, err)
 }

@@ -4,9 +4,11 @@ go 1.19
 
 require (
 	github.com/avast/retry-go/v4 v4.3.2
+	github.com/cosmos/cosmos-proto v1.0.0-beta.1
 	github.com/cosmos/cosmos-sdk v0.47.0-rc1
 	github.com/cosmos/gogoproto v1.4.3
 	github.com/cosmos/ibc-go/v6 v6.0.0-20230113152752-e650be91614c
+	github.com/gogo/protobuf v1.3.2
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-github/v43 v43.0.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
@@ -55,7 +57,6 @@ require (
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
 	github.com/confio/ics23/go v0.9.0 // indirect
 	github.com/cosmos/btcutil v1.0.5 // indirect
-	github.com/cosmos/cosmos-proto v1.0.0-beta.1 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/gorocksdb v1.2.0 // indirect

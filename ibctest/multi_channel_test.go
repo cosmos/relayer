@@ -124,13 +124,13 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 	// Send an IBC transfer across all three channels
 	const transferAmount = int64(1000)
 	transfer := ibc.WalletAmount{
-		Address: osmosisUser.Bech32Address(osmosis.Config().Bech32Prefix),
+		Address: osmosisUser.FormattedAddress(),
 		Denom:   gaia.Config().Denom,
 		Amount:  transferAmount,
 	}
 
 	for _, channel := range channels {
-		_, err = gaia.SendIBCTransfer(ctx, channel.ChannelID, gaiaUser.KeyName, transfer, ibc.TransferOptions{})
+		_, err = gaia.SendIBCTransfer(ctx, channel.ChannelID, gaiaUser.KeyName(), transfer, ibc.TransferOptions{})
 		require.NoError(t, err)
 	}
 
@@ -146,13 +146,13 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 	ibcDenoms[2] = transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(channels[2].Counterparty.PortID, channels[2].Counterparty.ChannelID, gaia.Config().Denom))
 
 	// Assert that the transfers are all successful out of the src chain account
-	nativeGaiaBal, err := gaia.GetBalance(ctx, gaiaUser.Bech32Address(gaia.Config().Bech32Prefix), gaia.Config().Denom)
+	nativeGaiaBal, err := gaia.GetBalance(ctx, gaiaUser.FormattedAddress(), gaia.Config().Denom)
 	require.NoError(t, err)
 	require.Equal(t, initFunds-transferAmount*3, nativeGaiaBal)
 
 	// Assert that the transfers are all successful on the dst chain account
 	for _, denom := range ibcDenoms {
-		balance, err := osmosis.GetBalance(ctx, osmosisUser.Bech32Address(osmosis.Config().Bech32Prefix), denom.IBCDenom())
+		balance, err := osmosis.GetBalance(ctx, osmosisUser.FormattedAddress(), denom.IBCDenom())
 		require.NoError(t, err)
 		require.Equal(t, transferAmount, balance)
 	}
@@ -160,12 +160,12 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 	// Send the funds back to the original source chain
 	for i, channel := range channels {
 		transfer := ibc.WalletAmount{
-			Address: gaiaUser.Bech32Address(gaia.Config().Bech32Prefix),
+			Address: gaiaUser.FormattedAddress(),
 			Denom:   ibcDenoms[i].IBCDenom(),
 			Amount:  transferAmount,
 		}
 
-		_, err = osmosis.SendIBCTransfer(ctx, channel.Counterparty.ChannelID, osmosisUser.KeyName, transfer, ibc.TransferOptions{})
+		_, err = osmosis.SendIBCTransfer(ctx, channel.Counterparty.ChannelID, osmosisUser.KeyName(), transfer, ibc.TransferOptions{})
 		require.NoError(t, err)
 	}
 
@@ -174,13 +174,13 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 	require.NoError(t, err)
 
 	// Assert that the transfers are all successful back on the original src chain account
-	nativeGaiaBal, err = gaia.GetBalance(ctx, gaiaUser.Bech32Address(gaia.Config().Bech32Prefix), gaia.Config().Denom)
+	nativeGaiaBal, err = gaia.GetBalance(ctx, gaiaUser.FormattedAddress(), gaia.Config().Denom)
 	require.NoError(t, err)
 	require.Equal(t, initFunds, nativeGaiaBal)
 
 	// Assert that the transfers are all successfully sent back to the original src chain account
 	for _, denom := range ibcDenoms {
-		balance, err := osmosis.GetBalance(ctx, osmosisUser.Bech32Address(osmosis.Config().Bech32Prefix), denom.IBCDenom())
+		balance, err := osmosis.GetBalance(ctx, osmosisUser.FormattedAddress(), denom.IBCDenom())
 		require.NoError(t, err)
 		require.Equal(t, int64(0), balance)
 	}

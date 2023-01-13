@@ -1,12 +1,12 @@
 package stride
 
 import (
-	simappparams "github.com/cosmos/cosmos-sdk/simapp/params"
+	"github.com/cosmos/cosmos-sdk/types/module/testutil"
 	rlystride "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
-	"github.com/strangelove-ventures/ibctest/v5/chain/cosmos"
+	"github.com/strangelove-ventures/ibctest/v6/chain/cosmos"
 )
 
-func Encoding() *simappparams.EncodingConfig {
+func Encoding() *testutil.TestEncodingConfig {
 	cfg := cosmos.DefaultEncoding()
 
 	rlystride.RegisterInterfaces(cfg.InterfaceRegistry)

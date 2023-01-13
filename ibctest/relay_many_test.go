@@ -58,7 +58,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	require.NoError(t, err)
 
 	gaia, osmosis, juno := chains[0].(*cosmos.CosmosChain), chains[1].(*cosmos.CosmosChain), chains[2].(*cosmos.CosmosChain)
-	gaiaCfg, osmosisCfg, junoCfg := gaia.Config(), osmosis.Config(), juno.Config()
+	osmosisCfg, junoCfg := osmosis.Config(), juno.Config()
 
 	// Build the network; spin up the chains and configure the relayer
 	const pathGaiaOsmosis = "gaia-osmosis"
@@ -100,7 +100,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	// Fund user accounts, so we can query balances and make assertions.
 	const userFunds = int64(10_000_000)
 	users := ibctest.GetAndFundTestUsers(t, ctx, t.Name(), userFunds, gaia, osmosis, juno)
-	gaiaUser, osmosisUser, junoUser := users[0], users[1], users[2]
+	gaiaUser, osmosisUser, junoUser := users[0].(*cosmos.CosmosWallet), users[1].(*cosmos.CosmosWallet), users[2].(*cosmos.CosmosWallet)
 
 	// Wait a few blocks for user accounts to be created on chain.
 	err = testutil.WaitForBlocks(ctx, 2, gaia, osmosis, juno)
@@ -123,13 +123,13 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	err = testutil.WaitForBlocks(ctx, 2, gaia, osmosis, juno)
 	require.NoError(t, err)
 
-	gaiaAddress := gaiaUser.Bech32Address(gaiaCfg.Bech32Prefix)
+	gaiaAddress := gaiaUser.FormattedAddress()
 	require.NotEmpty(t, gaiaAddress)
 
-	osmosisAddress := osmosisUser.Bech32Address(osmosisCfg.Bech32Prefix)
+	osmosisAddress := osmosisUser.FormattedAddress()
 	require.NotEmpty(t, osmosisAddress)
 
-	junoAddress := junoUser.Bech32Address(junoCfg.Bech32Prefix)
+	junoAddress := junoUser.FormattedAddress()
 	require.NotEmpty(t, junoAddress)
 
 	// get ibc chans
@@ -152,7 +152,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 			return err
 		}
 		// Fund gaia user with ibc denom osmo
-		tx, err := osmosis.SendIBCTransfer(ctx, osmosisChans[0].ChannelID, osmosisUser.KeyName, ibc.WalletAmount{
+		tx, err := osmosis.SendIBCTransfer(ctx, osmosisChans[0].ChannelID, osmosisUser.KeyName(), ibc.WalletAmount{
 			Amount:  transferAmount,
 			Denom:   osmosisCfg.Denom,
 			Address: gaiaAddress,
@@ -170,7 +170,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 			return err
 		}
 		// Fund gaia user with ibc denom juno
-		tx, err := juno.SendIBCTransfer(ctx, junoChans[0].ChannelID, junoUser.KeyName, ibc.WalletAmount{
+		tx, err := juno.SendIBCTransfer(ctx, junoChans[0].ChannelID, junoUser.KeyName(), ibc.WalletAmount{
 			Amount:  transferAmount,
 			Denom:   junoCfg.Denom,
 			Address: gaiaAddress,

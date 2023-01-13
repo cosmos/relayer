@@ -9,10 +9,12 @@ import (
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/v2/cmd"
 	"github.com/cosmos/relayer/v2/internal/relayertest"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	ibctestcosmos "github.com/strangelove-ventures/ibctest/v6/chain/cosmos"
 	"github.com/strangelove-ventures/ibctest/v6/ibc"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -83,12 +85,12 @@ func (r *Relayer) AddChainConfiguration(ctx context.Context, _ ibc.RelayerExecRe
 func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName string, coinType string) (ibc.Wallet, error) {
 	res := r.sys().RunC(ctx, r.log(), "keys", "add", chainID, keyName, "--coin-type", coinType)
 	if res.Err != nil {
-		return ibc.Wallet{}, res.Err
+		return nil, res.Err
 	}
 
 	var w ibc.Wallet
 	if err := json.Unmarshal(res.Stdout.Bytes(), &w); err != nil {
-		return ibc.Wallet{}, err
+		return nil, err
 	}
 
 	return w, nil
@@ -330,8 +332,12 @@ func (r *Relayer) FlushPackets(ctx context.Context, _ ibc.RelayerExecReporter, p
 func (r *Relayer) GetWallet(chainID string) (ibc.Wallet, bool) {
 	res := r.sys().RunC(context.Background(), r.log(), "keys", "show", chainID)
 	if res.Err != nil {
-		return ibc.Wallet{}, false
+		return nil, false
 	}
 	address := strings.TrimSpace(res.Stdout.String())
-	return ibc.Wallet{Address: address}, true
+	acc, err := types.AccAddressFromBech32(address)
+	if err != nil {
+		return nil, false
+	}
+	return ibctestcosmos.NewWallet("", acc, "", ibc.ChainConfig{}), true
 }

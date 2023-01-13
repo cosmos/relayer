@@ -1,18 +1,11 @@
 package stride_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
-	"github.com/cosmos/cosmos-sdk/codec"
-	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
-	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
-	rlystride "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/icza/dyno"
-	"github.com/strangelove-ventures/ibctest/v5/chain/cosmos"
-	"github.com/strangelove-ventures/ibctest/v5/ibc"
-	"github.com/strangelove-ventures/ibctest/v5/test"
+	"github.com/strangelove-ventures/ibctest/v6/ibc"
 )
 
 const (
@@ -184,78 +177,4 @@ func ModifyGenesisStrideCounterparty() func(ibc.ChainConfig, []byte) ([]byte, er
 		}
 		return out, nil
 	}
-}
-
-// PollForMsgSubmitQueryResponse polls until finding a block with a MsgSubmitQueryResponse message
-func PollForMsgSubmitQueryResponse(
-	ctx context.Context,
-	chain *cosmos.CosmosChain,
-	startHeight, maxHeight uint64,
-	chainID string,
-) (*rlystride.MsgSubmitQueryResponse, error) {
-	cdc := codec.NewProtoCodec(chain.Config().EncodingConfig.InterfaceRegistry)
-
-	doPoll := func(ctx context.Context, height uint64) (any, error) {
-		heightInt64 := int64(height)
-		block, err := chain.Validators[0].Client.Block(ctx, &heightInt64)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, tx := range block.Block.Txs {
-			sdkTx, err := authtx.DefaultTxDecoder(cdc)(tx)
-			if err != nil {
-				continue
-			}
-			for _, msg := range sdkTx.GetMsgs() {
-				if msgSubmitQueryResponse, ok := msg.(*rlystride.MsgSubmitQueryResponse); ok {
-					return msgSubmitQueryResponse, nil
-				}
-			}
-		}
-		return nil, fmt.Errorf("no MsgSubmitQueryResponse found")
-	}
-	bp := test.BlockPoller{CurrentHeight: chain.Height, PollFunc: doPoll}
-	p, err := bp.DoPoll(ctx, startHeight, maxHeight)
-	if err != nil {
-		return nil, err
-	}
-	return p.(*rlystride.MsgSubmitQueryResponse), nil
-}
-
-// PollForMsgSubmitQueryResponse polls until finding a block with a MsgSubmitQueryResponse message
-func PollForMsgChannelOpenConfirm(
-	ctx context.Context,
-	chain *cosmos.CosmosChain,
-	startHeight, maxHeight uint64,
-	chainID string,
-) (*chantypes.MsgChannelOpenConfirm, error) {
-	cdc := codec.NewProtoCodec(chain.Config().EncodingConfig.InterfaceRegistry)
-
-	doPoll := func(ctx context.Context, height uint64) (any, error) {
-		heightInt64 := int64(height)
-		block, err := chain.Validators[0].Client.Block(ctx, &heightInt64)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, tx := range block.Block.Txs {
-			sdkTx, err := authtx.DefaultTxDecoder(cdc)(tx)
-			if err != nil {
-				continue
-			}
-			for _, msg := range sdkTx.GetMsgs() {
-				if msgChannelOpenConfirm, ok := msg.(*chantypes.MsgChannelOpenConfirm); ok {
-					return msgChannelOpenConfirm, nil
-				}
-			}
-		}
-		return nil, fmt.Errorf("no MsgChannelOpenConfirm found")
-	}
-	bp := test.BlockPoller{CurrentHeight: chain.Height, PollFunc: doPoll}
-	p, err := bp.DoPoll(ctx, startHeight, maxHeight)
-	if err != nil {
-		return nil, err
-	}
-	return p.(*chantypes.MsgChannelOpenConfirm), nil
 }
