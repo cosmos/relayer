@@ -106,8 +106,8 @@ get-gaia:
 
 build-gaia:
 	@[ -d $(GAIA_REPO) ] || { echo "Repositry for gaia does not exist at $(GAIA_REPO). Try running 'make get-gaia'..." ; exit 1; }
-	@cd $(GAIA_REPO)
-	@make install &> /dev/null
+	@cd $(GAIA_REPO) && \
+	make install &> /dev/null
 	@gaiad version --long
 
 .PHONY: two-chains test test-integration ibctest install build lint coverage clean
