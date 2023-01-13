@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/cosmos/relayer/v2/cmd"
@@ -122,6 +123,19 @@ func (s *System) MustAddChain(t *testing.T, chainName string, pcw cmd.ProviderCo
 	res := s.MustRun(t, "chains", "add", "--file", f.Name(), chainName)
 	require.Empty(t, res.Stdout.String())
 	require.Empty(t, res.Stderr.String())
+}
+
+// MustAddChain serializes pcw to disk and calls "chains add --file".
+func (s *System) MustGetConfig(t *testing.T) (config cmd.ConfigInputWrapper) {
+	t.Helper()
+
+	configBz, err := os.ReadFile(filepath.Join(s.HomeDir, "config.yaml"))
+	require.NoError(t, err, "failed to read config file")
+
+	err = json.Unmarshal(configBz, &config)
+	require.NoError(t, err, "failed to unmarshal config file")
+
+	return config
 }
 
 // A fixed mnemonic and its resulting cosmos address, helpful for tests that need a mnemonic.

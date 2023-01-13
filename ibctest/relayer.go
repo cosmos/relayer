@@ -16,6 +16,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	ibctestcosmos "github.com/strangelove-ventures/ibctest/v6/chain/cosmos"
 	"github.com/strangelove-ventures/ibctest/v6/ibc"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
@@ -332,12 +333,30 @@ func (r *Relayer) FlushPackets(ctx context.Context, _ ibc.RelayerExecReporter, p
 func (r *Relayer) GetWallet(chainID string) (ibc.Wallet, bool) {
 	res := r.sys().RunC(context.Background(), r.log(), "keys", "show", chainID)
 	if res.Err != nil {
-		return nil, false
+		return &ibctestcosmos.CosmosWallet{}, false
 	}
 	address := strings.TrimSpace(res.Stdout.String())
-	acc, err := types.AccAddressFromBech32(address)
-	if err != nil {
-		return nil, false
+
+	var chainCfg ibc.ChainConfig
+	var keyName string
+	config := r.sys().MustGetConfig(r.t)
+	for _, v := range config.ProviderConfigs {
+		if c, ok := v.Value.(cosmos.CosmosProviderConfig); ok {
+			if c.ChainID == chainID {
+				keyName = c.Key
+				chainCfg = ibc.ChainConfig{
+					Type:          v.Type,
+					Name:          c.ChainName,
+					ChainID:       c.ChainID,
+					Bech32Prefix:  c.AccountPrefix,
+					GasPrices:     c.GasPrices,
+					GasAdjustment: c.GasAdjustment,
+				}
+			}
+		}
 	}
-	return ibctestcosmos.NewWallet("", acc, "", ibc.ChainConfig{}), true
+
+	addressBz, err := types.GetFromBech32(address, chainCfg.Bech32Prefix)
+	require.NoError(r.t, err, "failed to decode bech32 wallet")
+	return ibctestcosmos.NewWallet(keyName, addressBz, "", chainCfg), true
 }
