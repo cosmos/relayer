@@ -196,8 +196,18 @@ func (cc *CosmosProvider) Address() (string, error) {
 
 func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
 	res, err := cc.QueryStakingParams(ctx)
+
+	var unbondingTime time.Duration
 	if err != nil {
-		return 0, err
+		// Attempt ICS query
+		consumerUnbondingPeriod, consumerErr := cc.queryConsumerUnbondingPeriod(ctx)
+		if consumerErr != nil {
+			return 0,
+				fmt.Errorf("failed to query unbonding period as both standard and consumer chain: %s: %w", err.Error(), consumerErr)
+		}
+		unbondingTime = consumerUnbondingPeriod
+	} else {
+		unbondingTime = res.UnbondingTime
 	}
 
 	// We want the trusting period to be 85% of the unbonding time.
@@ -206,7 +216,7 @@ func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, er
 	// by converting int64 to float64.
 	// Use integer math the whole time, first reducing by a factor of 100
 	// and then re-growing by 85x.
-	tp := res.UnbondingTime / 100 * 85
+	tp := unbondingTime / 100 * 85
 
 	// And we only want the trusting period to be whole hours.
 	return tp.Truncate(time.Hour), nil
