@@ -102,7 +102,7 @@ GAIA_REPO := $(CHAIN_CODE)/gaia
 
 get-gaia:
 	@mkdir -p $(CHAIN_CODE)/
-	@git clone --branch $(GAIA_REPO) --depth=1 https://github.com/cosmos/gaia.git $(GAIA_REPO)
+	@git clone --branch $(GAIA_VERSION) --depth=1 https://github.com/cosmos/gaia.git $(GAIA_REPO)
 
 build-gaia:
 	@[ -d $(GAIA_REPO) ] || { echo "Repositry for gaia does not exist at $(GAIA_REPO). Try running 'make get-gaia'..." ; exit 1; }
