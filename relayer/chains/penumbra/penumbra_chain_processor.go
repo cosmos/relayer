@@ -12,13 +12,15 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/cosmos/relayer/v2/relayer/provider/penumbra"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 
 	//	jsonrpcclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
+
+const blockResultsQueryTimeout = 2 * time.Minute
 
 type PenumbraChainProcessor struct {
 	log *zap.Logger
@@ -261,14 +263,157 @@ func (pcp *PenumbraChainProcessor) initializeChannelState(ctx context.Context) e
 
 // ABCI results from a block
 type ResultBlockResults struct {
-	Height                int64                      `json:"height,string"`
-	TxsResults            []*penumbra.ExecTxResult   `json:"txs_results"`
-	TotalGasUsed          int64                      `json:"total_gas_used,string"`
-	FinalizeBlockEvents   []penumbra.Event           `json:"finalize_block_events"`
-	ValidatorUpdates      []penumbra.ValidatorUpdate `json:"validator_updates"`
-	ConsensusParamUpdates *tmproto.ConsensusParams   `json:"consensus_param_updates"`
+	Height                int64                    `json:"height,string"`
+	TxsResults            []*ExecTxResult          `json:"txs_results"`
+	TotalGasUsed          int64                    `json:"total_gas_used,string"`
+	FinalizeBlockEvents   []Event                  `json:"finalize_block_events"`
+	ValidatorUpdates      []ValidatorUpdate        `json:"validator_updates"`
+	ConsensusParamUpdates *tmproto.ConsensusParams `json:"consensus_param_updates"`
 }
 
+func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
+	var err error
+	persistence.latestHeight, err = pcp.latestHeightWithRetry(ctx)
+
+	// don't want to cause CosmosChainProcessor to quit here, can retry again next cycle.
+	if err != nil {
+		pcp.log.Error(
+			"Failed to query latest height after max attempts",
+			zap.Uint("attempts", latestHeightQueryRetries),
+			zap.Error(err),
+		)
+		return nil
+	}
+
+	pcp.log.Debug("Queried latest height",
+		zap.Int64("latest_height", persistence.latestHeight),
+	)
+
+	// used at the end of the cycle to send signal to path processors to start processing if both chains are in sync and no new messages came in this cycle
+	firstTimeInSync := false
+
+	if !pcp.inSync {
+		if (persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold {
+			pcp.inSync = true
+			firstTimeInSync = true
+			pcp.log.Info("Chain is in sync")
+		} else {
+			pcp.log.Info("Chain is not yet in sync",
+				zap.Int64("latest_queried_block", persistence.latestQueriedBlock),
+				zap.Int64("latest_height", persistence.latestHeight),
+			)
+		}
+	}
+
+	ibcMessagesCache := processor.NewIBCMessagesCache()
+
+	ibcHeaderCache := make(processor.IBCHeaderCache)
+
+	ppChanged := false
+
+	var latestHeader PenumbraIBCHeader
+
+	newLatestQueriedBlock := persistence.latestQueriedBlock
+
+	chainID := pcp.chainProvider.ChainId()
+
+	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
+		var eg errgroup.Group
+		var blockRes *ctypes.ResultBlockResults
+		var ibcHeader provider.IBCHeader
+		i := i
+		eg.Go(func() (err error) {
+			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
+			defer cancelQueryCtx()
+			blockRes, err = pcp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
+			return err
+		})
+		eg.Go(func() (err error) {
+			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
+			defer cancelQueryCtx()
+			ibcHeader, err = pcp.chainProvider.QueryIBCHeader(queryCtx, i)
+			return err
+		})
+
+		if err := eg.Wait(); err != nil {
+			pcp.log.Warn("Error querying block data", zap.Error(err))
+			break
+		}
+
+		latestHeader = ibcHeader.(PenumbraIBCHeader)
+
+		heightUint64 := uint64(i)
+
+		pcp.latestBlock = provider.LatestBlock{
+			Height: heightUint64,
+			Time:   latestHeader.SignedHeader.Time,
+		}
+
+		ibcHeaderCache[heightUint64] = latestHeader
+		ppChanged = true
+
+		blockMsgs := pcp.ibcMessagesFromBlockEvents(blockRes.BeginBlockEvents, blockRes.EndBlockEvents, heightUint64)
+		for _, m := range blockMsgs {
+			pcp.handleMessage(m, ibcMessagesCache)
+		}
+
+		for _, tx := range blockRes.TxsResults {
+			if tx.Code != 0 {
+				// tx was not successful
+				continue
+			}
+			messages := ibcMessagesFromEvents(pcp.log, tx.Events, chainID, heightUint64)
+
+			for _, m := range messages {
+				pcp.handleMessage(m, ibcMessagesCache)
+			}
+		}
+		newLatestQueriedBlock = i
+	}
+
+	if newLatestQueriedBlock == persistence.latestQueriedBlock {
+		return nil
+	}
+
+	if !ppChanged {
+		if firstTimeInSync {
+			for _, pp := range pcp.pathProcessors {
+				pp.ProcessBacklogIfReady()
+			}
+		}
+
+		return nil
+	}
+
+	for _, pp := range pcp.pathProcessors {
+		clientID := pp.RelevantClientID(chainID)
+		clientState, err := pcp.clientState(ctx, clientID)
+		if err != nil {
+			pcp.log.Error("Error fetching client state",
+				zap.String("client_id", clientID),
+				zap.Error(err),
+			)
+			continue
+		}
+
+		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
+			LatestBlock:          pcp.latestBlock,
+			LatestHeader:         latestHeader,
+			IBCMessagesCache:     ibcMessagesCache.Clone(),
+			InSync:               pcp.inSync,
+			ClientState:          clientState,
+			ConnectionStateCache: pcp.connectionStateCache.FilterForClient(clientID),
+			ChannelStateCache:    pcp.channelStateCache.FilterForClient(clientID, pcp.channelConnections, pcp.connectionClients),
+			IBCHeaderCache:       ibcHeaderCache.Clone(),
+		})
+	}
+
+	persistence.latestQueriedBlock = newLatestQueriedBlock
+
+	return nil
+}
+
+/*
 func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
 	var err error
 	persistence.latestHeight, err = pcp.latestHeightWithRetry(ctx)
@@ -311,6 +456,8 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 
 	var latestHeader PenumbraIBCHeader
 
+	chainID := pcp.chainProvider.ChainId()
+
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var eg errgroup.Group
 		blockRes := new(ResultBlockResults)
@@ -352,7 +499,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 				// tx was not successful
 				continue
 			}
-			messages := pcp.ibcMessagesFromTransaction(tx, heightUint64)
+			messages := ibcMessagesFromEvents(pcp.log, tx.Events, chainID, heightUint64)
 
 			for _, m := range messages {
 				pcp.handleMessage(m, ibcMessagesCache)
@@ -399,3 +546,5 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 
 	return nil
 }
+
+*/

@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
@@ -46,6 +45,23 @@ func (pc PenumbraProviderConfig) Validate() error {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 	return nil
+}
+
+type PenumbraIBCHeader struct {
+	SignedHeader *tmtypes.SignedHeader
+	ValidatorSet *tmtypes.ValidatorSet
+}
+
+func (h PenumbraIBCHeader) Height() uint64 {
+	return uint64(h.SignedHeader.Height)
+}
+
+func (h PenumbraIBCHeader) ConsensusState() ibcexported.ConsensusState {
+	return &tmclient.ConsensusState{
+		Timestamp:          h.SignedHeader.Time,
+		Root:               commitmenttypes.NewMerkleRoot(h.SignedHeader.AppHash),
+		NextValidatorsHash: h.ValidatorSet.Hash(),
+	}
 }
 
 // NewProvider validates the PenumbraProviderConfig, instantiates a ChainClient and then instantiates a CosmosProvider
@@ -111,26 +127,6 @@ type PenumbraProvider struct {
 	RPCCaller jsonrpcclient.Caller
 }
 
-type PenumbraIBCHeader struct {
-	SignedHeader *tmtypes.SignedHeader
-	ValidatorSet *tmtypes.ValidatorSet
-}
-
-func (h PenumbraIBCHeader) ConsensusState() ibcexported.ConsensusState {
-	return &tmclient.ConsensusState{
-		Timestamp:          h.SignedHeader.Time,
-		Root:               commitmenttypes.NewMerkleRoot(h.SignedHeader.AppHash),
-		NextValidatorsHash: h.ValidatorSet.Hash(),
-	}
-}
-
-// noop to implement processor.IBCHeader
-func (h PenumbraIBCHeader) IBCHeaderIndicator() {}
-
-func (h PenumbraIBCHeader) Height() uint64 {
-	return uint64(h.SignedHeader.Height)
-}
-
 func (cc *PenumbraProvider) ProviderConfig() provider.ProviderConfig {
 	return cc.PCfg
 }
@@ -178,15 +174,17 @@ func (cc *PenumbraProvider) AddKey(name string, coinType uint32) (*provider.KeyO
 
 // Address returns the chains configured address as a string
 func (cc *PenumbraProvider) Address() (string, error) {
-	var (
-		err  error
-		info keyring.Info
-	)
-	info, err = cc.Keybase.Key(cc.PCfg.Key)
+	info, err := cc.Keybase.Key(cc.PCfg.Key)
 	if err != nil {
 		return "", err
 	}
-	out, err := cc.EncodeBech32AccAddr(info.GetAddress())
+
+	acc, err := info.GetAddress()
+	if err != nil {
+		return "", err
+	}
+
+	out, err := cc.EncodeBech32AccAddr(acc)
 	if err != nil {
 		return "", err
 	}
@@ -254,12 +252,12 @@ func (cc *PenumbraProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	}
 }
 
-func (cc *PenumbraProvider) BlockTime(ctx context.Context, height int64) (int64, error) {
+func (cc *PenumbraProvider) BlockTime(ctx context.Context, height int64) (time.Time, error) {
 	resultBlock, err := cc.RPCClient.Block(ctx, &height)
 	if err != nil {
-		return 0, err
+		return time.Time{}, err
 	}
-	return resultBlock.Block.Time.UnixNano(), nil
+	return resultBlock.Block.Time, nil
 }
 
 func toPenumbraPacket(pi provider.PacketInfo) chantypes.Packet {

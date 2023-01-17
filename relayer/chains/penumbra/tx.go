@@ -22,13 +22,19 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
+	penumbra_crypto "buf.build/gen/go/penumbra-zone/penumbra/protocolbuffers/go/penumbra/core/crypto/v1alpha1"
+	penumbra_ibc_types "buf.build/gen/go/penumbra-zone/penumbra/protocolbuffers/go/penumbra/core/ibc/v1alpha1"
 	penumbra_types "buf.build/gen/go/penumbra-zone/penumbra/protocolbuffers/go/penumbra/core/transaction/v1alpha1"
 	abci "github.com/tendermint/tendermint/abci/types"
+	"github.com/tendermint/tendermint/libs/bytes"
 	"github.com/tendermint/tendermint/light"
+	tmcrypto "github.com/tendermint/tendermint/proto/tendermint/crypto"
 
+	"github.com/gogo/protobuf/proto"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 	googleproto "google.golang.org/protobuf/proto"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 // Variables used for retries
@@ -69,117 +75,99 @@ func (cc *PenumbraProvider) SendMessage(ctx context.Context, msg provider.Relaye
 // takes a RelayerMessage, converts it to a PenumbraMessage, and wraps it into
 // Penumbra's equivalent of the "message" abstraction, an Action.
 func msgToPenumbraAction(msg sdk.Msg) (*penumbra_types.Action, error) {
+	bz, err := proto.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+
+	anyMsg := &anypb.Any{
+		TypeUrl: "/" + proto.MessageName(msg),
+		Value:   bz,
+	}
+
 	switch msg.(type) {
 	case *clienttypes.MsgCreateClient:
 		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
-				Action: &penumbra_types.IBCAction_CreateClient{
-					CreateClient: msg.(*clienttypes.MsgCreateClient),
-				},
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+				RawAction: anyMsg,
 			}},
 		}, nil
 	case *clienttypes.MsgUpdateClient:
 		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
-				Action: &penumbra_types.IBCAction_UpdateClient{
-					UpdateClient: msg.(*clienttypes.MsgUpdateClient),
-				},
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+				RawAction: anyMsg,
 			}},
 		}, nil
 	case *conntypes.MsgConnectionOpenInit:
 		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
-				Action: &penumbra_types.IBCAction_ConnectionOpenInit{
-					ConnectionOpenInit: msg.(*conntypes.MsgConnectionOpenInit),
-				},
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+				RawAction: anyMsg,
 			}},
 		}, nil
 	case *conntypes.MsgConnectionOpenAck:
 		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
-				Action: &penumbra_types.IBCAction_ConnectionOpenAck{
-					ConnectionOpenAck: msg.(*conntypes.MsgConnectionOpenAck),
-				},
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+				RawAction: anyMsg,
 			}},
 		}, nil
 	case *conntypes.MsgConnectionOpenTry:
 		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
-				Action: &penumbra_types.IBCAction_ConnectionOpenTry{
-					ConnectionOpenTry: msg.(*conntypes.MsgConnectionOpenTry),
-				},
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+				RawAction: anyMsg,
 			}},
 		}, nil
 	case *conntypes.MsgConnectionOpenConfirm:
 		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
-				Action: &penumbra_types.IBCAction_ConnectionOpenConfirm{
-					ConnectionOpenConfirm: msg.(*conntypes.MsgConnectionOpenConfirm),
-				},
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelOpenInit:
 		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
-				Action: &penumbra_types.IBCAction_ChannelOpenInit{
-					ChannelOpenInit: msg.(*chantypes.MsgChannelOpenInit),
-				},
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelOpenTry:
 		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
-				Action: &penumbra_types.IBCAction_ChannelOpenTry{
-					ChannelOpenTry: msg.(*chantypes.MsgChannelOpenTry),
-				},
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelOpenAck:
 		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
-				Action: &penumbra_types.IBCAction_ChannelOpenAck{
-					ChannelOpenAck: msg.(*chantypes.MsgChannelOpenAck),
-				},
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelOpenConfirm:
 		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
-				Action: &penumbra_types.IBCAction_ChannelOpenConfirm{
-					ChannelOpenConfirm: msg.(*chantypes.MsgChannelOpenConfirm),
-				},
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelCloseInit:
 		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
-				Action: &penumbra_types.IBCAction_ChannelCloseInit{
-					ChannelCloseInit: msg.(*chantypes.MsgChannelCloseInit),
-				},
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelCloseConfirm:
 		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
-				Action: &penumbra_types.IBCAction_ChannelCloseConfirm{
-					ChannelCloseConfirm: msg.(*chantypes.MsgChannelCloseConfirm),
-				},
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgRecvPacket:
 		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
-				Action: &penumbra_types.IBCAction_RecvPacket{
-					RecvPacket: msg.(*chantypes.MsgRecvPacket),
-				},
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgAcknowledgement:
 		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_types.IBCAction{
-				Action: &penumbra_types.IBCAction_Acknowledgement{
-					Acknowledgement: msg.(*chantypes.MsgAcknowledgement),
-				},
+			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+				RawAction: anyMsg,
 			}},
 		}, nil
 
@@ -188,7 +176,52 @@ func msgToPenumbraAction(msg sdk.Msg) (*penumbra_types.Action, error) {
 	}
 }
 
-func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbra_types.MerkleRoot, error) {
+// EventAttribute is a single key-value pair, associated with an event.
+type EventAttribute struct {
+	Key   string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Index bool   `protobuf:"varint,3,opt,name=index,proto3" json:"index,omitempty"`
+}
+
+// Event allows application developers to attach additional information to
+// ResponseFinalizeBlock, ResponseDeliverTx, ExecTxResult
+// Later, transactions may be queried using these events.
+type Event struct {
+	Type       string           `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Attributes []EventAttribute `protobuf:"bytes,2,rep,name=attributes,proto3" json:"attributes,omitempty"`
+}
+
+// ExecTxResult contains results of executing one individual transaction.
+//
+// * Its structure is equivalent to #ResponseDeliverTx which will be deprecated/deleted
+type ExecTxResult struct {
+	Code      uint32  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Data      []byte  `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	Log       string  `protobuf:"bytes,3,opt,name=log,proto3" json:"log,omitempty"`
+	Info      string  `protobuf:"bytes,4,opt,name=info,proto3" json:"info,omitempty"`
+	GasWanted int64   `protobuf:"varint,5,opt,name=gas_wanted,json=gasWanted,proto3" json:"gas_wanted,omitempty"`
+	GasUsed   int64   `protobuf:"varint,6,opt,name=gas_used,json=gasUsed,proto3" json:"gas_used,omitempty"`
+	Events    []Event `protobuf:"bytes,7,rep,name=events,proto3" json:"events,omitempty"`
+	Codespace string  `protobuf:"bytes,8,opt,name=codespace,proto3" json:"codespace,omitempty"`
+}
+
+// Result of querying for a tx. This is from the new tendermint API.
+type ResultTx struct {
+	Hash     bytes.HexBytes  `json:"hash"`
+	Height   int64           `json:"height,string"`
+	Index    uint32          `json:"index"`
+	TxResult ExecTxResult    `json:"tx_result"`
+	Tx       tmtypes.Tx      `json:"tx"`
+	Proof    tmtypes.TxProof `json:"proof,omitempty"`
+}
+
+// ValidatorUpdate
+type ValidatorUpdate struct {
+	PubKey tmcrypto.PublicKey `protobuf:"bytes,1,opt,name=pub_key,json=pubKey,proto3" json:"pub_key"`
+	Power  int64              `protobuf:"varint,2,opt,name=power,proto3" json:"power,omitempty"`
+}
+
+func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbra_crypto.MerkleRoot, error) {
 	req := abci.RequestQuery{
 		Path:   "state/key",
 		Height: 1,
@@ -201,7 +234,7 @@ func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbra_types.Merk
 		return nil, err
 	}
 
-	return &penumbra_types.MerkleRoot{Inner: res.Value[2:]}, nil
+	return &penumbra_crypto.MerkleRoot{Inner: res.Value[2:]}, nil
 }
 
 func parseEventsFromABCIResponse(resp abci.ResponseDeliverTx) []provider.RelayerEvent {
@@ -246,7 +279,7 @@ func (cc *PenumbraProvider) SendMessages(ctx context.Context, msgs []provider.Re
 	for _, msg := range cosmos.CosmosMsgs(msgs...) {
 		txBody := penumbra_types.TransactionBody{
 			Actions: make([]*penumbra_types.Action, 1),
-			Fee:     &penumbra_types.Fee{Amount: 0},
+			Fee:     &penumbra_crypto.Fee{Amount: &penumbra_crypto.Amount{Lo: 0, Hi: 0}},
 		}
 		action, err := msgToPenumbraAction(msg)
 		if err != nil {
@@ -346,10 +379,10 @@ func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
 }
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (cc *PenumbraProvider) CreateClient(clientState ibcexported.ClientState, dstHeader ibcexported.Header, signer string) (provider.RelayerMessage, error) {
-	tmHeader, ok := dstHeader.(*tmclient.Header)
-	if !ok {
-		return nil, fmt.Errorf("got data of type %T but wanted tmclient.Header", dstHeader)
+func (cc *PenumbraProvider) MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
 	}
 
 	anyClientState, err := clienttypes.PackClientState(clientState)
@@ -357,7 +390,7 @@ func (cc *PenumbraProvider) CreateClient(clientState ibcexported.ClientState, ds
 		return nil, err
 	}
 
-	anyConsensusState, err := clienttypes.PackConsensusState(tmHeader.ConsensusState())
+	anyConsensusState, err := clienttypes.PackConsensusState(consensusState)
 	if err != nil {
 		return nil, err
 	}
@@ -368,7 +401,7 @@ func (cc *PenumbraProvider) CreateClient(clientState ibcexported.ClientState, ds
 		Signer:         signer,
 	}
 
-	return cosmos.NewCosmosMessage(msg), nil
+	return NewPenumbraMessage(msg), nil
 }
 
 func (cc *PenumbraProvider) SubmitMisbehavior( /*TBD*/ ) (provider.RelayerMessage, error) {
@@ -805,114 +838,6 @@ func (cc *PenumbraProvider) MsgUpgradeClient(srcClientId string, consRes *client
 		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}), nil
 }
 
-// AutoUpdateClient update client automatically to prevent expiry
-func (cc *PenumbraProvider) AutoUpdateClient(ctx context.Context, dst provider.ChainProvider, thresholdTime time.Duration, srcClientId, dstClientId string) (time.Duration, error) {
-	srch, err := cc.QueryLatestHeight(ctx)
-	if err != nil {
-		return 0, err
-	}
-	dsth, err := dst.QueryLatestHeight(ctx)
-	if err != nil {
-		return 0, err
-	}
-
-	clientState, err := cc.queryTMClientState(ctx, srch, srcClientId)
-	if err != nil {
-		return 0, err
-	}
-
-	if clientState.TrustingPeriod <= thresholdTime {
-		return 0, fmt.Errorf("client (%s) trusting period time is less than or equal to threshold time", srcClientId)
-	}
-
-	// query the latest consensus state of the potential matching client
-	var consensusStateResp *clienttypes.QueryConsensusStateResponse
-	if err = retry.Do(func() error {
-		if clientState == nil {
-			return fmt.Errorf("client state for chain (%s) at height (%d) cannot be nil", cc.ChainId(), srch)
-		}
-		consensusStateResp, err = cc.QueryConsensusStateABCI(ctx, srcClientId, clientState.GetLatestHeight())
-		return err
-	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-		cc.log.Info(
-			"Error querying consensus state ABCI",
-			zap.String("chain_id", cc.PCfg.ChainID),
-			zap.Uint("attempt", n+1),
-			zap.Uint("max_attempts", rtyAttNum),
-			zap.Error(err),
-		)
-		clientState, err = cc.queryTMClientState(ctx, srch, srcClientId)
-		if err != nil {
-			clientState = nil
-			cc.log.Info(
-				"Failed to refresh tendermint client state in order to re-query consensus state ABCI",
-				zap.String("chain_id", cc.PCfg.ChainID),
-				zap.Error(err),
-			)
-		}
-	})); err != nil {
-		return 0, err
-	}
-
-	exportedConsState, err := clienttypes.UnpackConsensusState(consensusStateResp.ConsensusState)
-	if err != nil {
-		return 0, err
-	}
-
-	consensusState, ok := exportedConsState.(*tmclient.ConsensusState)
-	if !ok {
-		return 0, fmt.Errorf("consensus state with clientID %s from chain %s is not IBC tendermint type",
-			srcClientId, cc.PCfg.ChainID)
-	}
-
-	expirationTime := consensusState.Timestamp.Add(clientState.TrustingPeriod)
-
-	timeToExpiry := time.Until(expirationTime)
-
-	if timeToExpiry > thresholdTime {
-		return timeToExpiry, nil
-	}
-
-	if clientState.IsExpired(consensusState.Timestamp, time.Now()) {
-		return 0, fmt.Errorf("client (%s) is already expired on chain: %s", srcClientId, cc.PCfg.ChainID)
-	}
-
-	srcUpdateHeader, err := cc.GetIBCUpdateHeader(ctx, srch, dst, dstClientId)
-	if err != nil {
-		return 0, err
-	}
-
-	dstUpdateHeader, err := dst.GetIBCUpdateHeader(ctx, dsth, cc, srcClientId)
-	if err != nil {
-		return 0, err
-	}
-
-	updateMsg, err := cc.MsgUpdateClient(srcClientId, dstUpdateHeader)
-	if err != nil {
-		return 0, err
-	}
-
-	msgs := []provider.RelayerMessage{updateMsg}
-
-	res, success, err := cc.SendMessages(ctx, msgs, "")
-	if err != nil {
-		// cp.LogFailedTx(res, err, PenumbraMsgs(msgs...))
-		return 0, err
-	}
-	if !success {
-		return 0, fmt.Errorf("tx failed: %s", res.Data)
-	}
-	cc.log.Info(
-		"Client updated",
-		zap.String("provider_chain_id", cc.PCfg.ChainID),
-		zap.String("src_client_id", srcClientId),
-		zap.Uint64("prev_height", mustGetHeight(srcUpdateHeader.GetHeight()).GetRevisionHeight()),
-		zap.Uint64("cur_height", srcUpdateHeader.GetHeight().GetRevisionHeight()),
-	)
-
-	return clientState.TrustingPeriod, nil
-}
-
 // mustGetHeight takes the height inteface and returns the actual height
 func mustGetHeight(h ibcexported.Height) clienttypes.Height {
 	height, ok := h.(clienttypes.Height)
@@ -969,41 +894,27 @@ func (cc *PenumbraProvider) MsgRelayAcknowledgement(ctx context.Context, dst pro
 }
 
 // MsgTransfer creates a new transfer message
-func (cc *PenumbraProvider) MsgTransfer(amount sdk.Coin, dstChainId, dstAddr, srcPortId, srcChanId string, timeoutHeight, timeoutTimestamp uint64) (provider.RelayerMessage, error) {
-	var (
-		acc string
-		err error
-		msg sdk.Msg
-	)
-	if acc, err = cc.Address(); err != nil {
+func (cc *PenumbraProvider) MsgTransfer(
+	dstAddr string,
+	amount sdk.Coin,
+	info provider.PacketInfo,
+) (provider.RelayerMessage, error) {
+	acc, err := cc.Address()
+	if err != nil {
 		return nil, err
+	}
+	msg := &transfertypes.MsgTransfer{
+		SourcePort:       info.SourcePort,
+		SourceChannel:    info.SourceChannel,
+		Token:            amount,
+		Sender:           acc,
+		Receiver:         dstAddr,
+		TimeoutTimestamp: info.TimeoutTimestamp,
 	}
 
 	// If the timeoutHeight is 0 then we don't need to explicitly set it on the MsgTransfer
-	if timeoutHeight == 0 {
-		msg = &transfertypes.MsgTransfer{
-			SourcePort:       srcPortId,
-			SourceChannel:    srcChanId,
-			Token:            amount,
-			Sender:           acc,
-			Receiver:         dstAddr,
-			TimeoutTimestamp: timeoutTimestamp,
-		}
-	} else {
-		version := clienttypes.ParseChainID(dstChainId)
-
-		msg = &transfertypes.MsgTransfer{
-			SourcePort:    srcPortId,
-			SourceChannel: srcChanId,
-			Token:         amount,
-			Sender:        acc,
-			Receiver:      dstAddr,
-			TimeoutHeight: clienttypes.Height{
-				RevisionNumber: version,
-				RevisionHeight: timeoutHeight,
-			},
-			TimeoutTimestamp: timeoutTimestamp,
-		}
+	if info.TimeoutHeight.RevisionHeight != 0 {
+		msg.TimeoutHeight = info.TimeoutHeight
 	}
 
 	return cosmos.NewCosmosMessage(msg), nil
@@ -1304,7 +1215,7 @@ func (cc *PenumbraProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, 
 		Counterparty: conntypes.Counterparty{
 			ClientId:     info.CounterpartyClientID,
 			ConnectionId: "",
-			Prefix:       info.CounterpartyPrefix,
+			Prefix:       info.CounterpartyCommitmentPrefix,
 		},
 		Version:     conntypes.DefaultIBCVersion,
 		DelayPeriod: defaultDelayPeriod,
@@ -1351,7 +1262,7 @@ func (cc *PenumbraProvider) MsgConnectionOpenTry(msgOpenInit provider.Connection
 	counterparty := conntypes.Counterparty{
 		ClientId:     msgOpenInit.ClientID,
 		ConnectionId: msgOpenInit.ConnID,
-		Prefix:       msgOpenInit.CounterpartyPrefix,
+		Prefix:       msgOpenInit.CounterpartyCommitmentPrefix,
 	}
 
 	msg := &conntypes.MsgConnectionOpenTry{
@@ -1620,59 +1531,69 @@ func (cc *PenumbraProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeade
 // RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
 func (cc *PenumbraProvider) RelayPacketFromSequence(
 	ctx context.Context,
-	src, dst provider.ChainProvider,
+	src provider.ChainProvider,
 	srch, dsth, seq uint64,
-	dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string,
+	srcChanID, srcPortID string,
 	order chantypes.Order,
 ) (provider.RelayerMessage, provider.RelayerMessage, error) {
-	txs, err := cc.QueryTxs(ctx, 1, 1000, rcvPacketQuery(srcChanId, int(seq)))
-	switch {
-	case err != nil:
+	msgTransfer, err := src.QuerySendPacket(ctx, srcChanID, srcPortID, seq)
+	if err != nil {
 		return nil, nil, err
-	case len(txs) == 0:
-		return nil, nil, fmt.Errorf("no transactions returned with query")
-	case len(txs) > 1:
-		return nil, nil, fmt.Errorf("more than one transaction returned with query")
 	}
 
-	rcvPackets, timeoutPackets, err := cc.relayPacketsFromResultTx(ctx, src, dst, int64(dsth), txs[0], dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId)
-	switch {
-	case err != nil:
+	dstTime, err := cc.BlockTime(ctx, int64(dsth))
+	if err != nil {
 		return nil, nil, err
-	case len(rcvPackets) == 0 && len(timeoutPackets) == 0:
-		return nil, nil, fmt.Errorf("no relay msgs created from query response")
-	case len(rcvPackets)+len(timeoutPackets) > 1:
-		return nil, nil, fmt.Errorf("more than one relay msg found in tx query")
 	}
 
-	if len(rcvPackets) == 1 {
-		pkt := rcvPackets[0]
-		if seq != pkt.Seq() {
-			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
-		}
-
-		packet, err := dst.MsgRelayRecvPacket(ctx, src, int64(srch), pkt, srcChanId, srcPortId, dstChanId, dstPortId)
-		if err != nil {
+	if err := cc.ValidatePacket(msgTransfer, provider.LatestBlock{
+		Height: dsth,
+		Time:   dstTime,
+	}); err != nil {
+		switch err.(type) {
+		case *provider.TimeoutHeightError, *provider.TimeoutTimestampError, *provider.TimeoutOnCloseError:
+			var pp provider.PacketProof
+			switch order {
+			case chantypes.UNORDERED:
+				pp, err = cc.PacketReceipt(ctx, msgTransfer, dsth)
+				if err != nil {
+					return nil, nil, err
+				}
+			case chantypes.ORDERED:
+				pp, err = cc.NextSeqRecv(ctx, msgTransfer, dsth)
+				if err != nil {
+					return nil, nil, err
+				}
+			}
+			if _, ok := err.(*provider.TimeoutOnCloseError); ok {
+				timeout, err := src.MsgTimeoutOnClose(msgTransfer, pp)
+				if err != nil {
+					return nil, nil, err
+				}
+				return nil, timeout, nil
+			} else {
+				timeout, err := src.MsgTimeout(msgTransfer, pp)
+				if err != nil {
+					return nil, nil, err
+				}
+				return nil, timeout, nil
+			}
+		default:
 			return nil, nil, err
 		}
-
-		return packet, nil, nil
 	}
 
-	if len(timeoutPackets) == 1 {
-		pkt := timeoutPackets[0]
-		if seq != pkt.Seq() {
-			return nil, nil, fmt.Errorf("wrong sequence: expected(%d) got(%d)", seq, pkt.Seq())
-		}
-
-		timeout, err := src.MsgRelayTimeout(ctx, dst, int64(dsth), pkt, dstChanId, dstPortId, srcChanId, srcPortId, order)
-		if err != nil {
-			return nil, nil, err
-		}
-		return nil, timeout, nil
+	pp, err := src.PacketCommitment(ctx, msgTransfer, srch)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return nil, nil, fmt.Errorf("should have errored before here")
+	packet, err := cc.MsgRecvPacket(msgTransfer, pp)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return packet, nil, nil
 }
 
 // AcknowledgementFromSequence relays an acknowledgement with a given seq on src, source is the sending chain, destination is the receiving chain
@@ -1717,119 +1638,6 @@ func rcvPacketQuery(channelID string, seq int) []string {
 func ackPacketQuery(channelID string, seq int) []string {
 	return []string{fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
 		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq)}
-}
-
-// relayPacketsFromResultTx looks through the events in a *ctypes.ResultTx
-// and returns relayPackets with the appropriate data
-func (cc *PenumbraProvider) relayPacketsFromResultTx(ctx context.Context, src, dst provider.ChainProvider, dsth int64, resp *provider.RelayerTxResponse, dstChanId, dstPortId, dstClientId, srcChanId, srcPortId, srcClientId string) ([]provider.RelayPacket, []provider.RelayPacket, error) {
-	var (
-		rcvPackets     []provider.RelayPacket
-		timeoutPackets []provider.RelayPacket
-	)
-
-EventLoop:
-	for _, event := range resp.Events {
-		rp := &relayMsgRecvPacket{}
-
-		if event.EventType != spTag {
-			continue
-		}
-
-		for attributeKey, attributeValue := range event.Attributes {
-			switch attributeKey {
-			case srcChanTag:
-				if attributeValue != srcChanId {
-					continue EventLoop
-				}
-			case dstChanTag:
-				if attributeValue != dstChanId {
-					continue EventLoop
-				}
-			case srcPortTag:
-				if attributeValue != srcPortId {
-					continue EventLoop
-				}
-			case dstPortTag:
-				if attributeValue != dstPortId {
-					continue EventLoop
-				}
-			case dataTag:
-				rp.packetData = []byte(attributeValue)
-			case toHeightTag:
-				timeout, err := clienttypes.ParseHeight(attributeValue)
-				if err != nil {
-					cc.log.Warn("error parsing height timeout",
-						zap.String("chain_id", cc.ChainId()),
-						zap.Uint64("sequence", rp.seq),
-						zap.Error(err),
-					)
-					continue EventLoop
-				}
-				rp.timeout = timeout
-			case toTSTag:
-				timeout, err := strconv.ParseUint(attributeValue, 10, 64)
-				if err != nil {
-					cc.log.Warn("error parsing timestamp timeout",
-						zap.String("chain_id", cc.ChainId()),
-						zap.Uint64("sequence", rp.seq),
-						zap.Error(err),
-					)
-					continue EventLoop
-				}
-				rp.timeoutStamp = timeout
-			case seqTag:
-				seq, err := strconv.ParseUint(attributeValue, 10, 64)
-				if err != nil {
-					cc.log.Warn("error parsing packet sequence",
-						zap.String("chain_id", cc.ChainId()),
-						zap.Error(err),
-					)
-					continue EventLoop
-				}
-				rp.seq = seq
-			}
-		}
-
-		// If packet data is nil or sequence number is 0 keep parsing events,
-		// also check that at least the block height or timestamp is set.
-		if rp.packetData == nil || rp.seq == 0 || (rp.timeout.IsZero() && rp.timeoutStamp == 0) {
-			continue
-		}
-
-		// fetch the header which represents a block produced on destination
-		block, err := dst.GetIBCUpdateHeader(ctx, dsth, src, srcClientId)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		// if the timestamp is set on the packet, we need to retrieve the current block time from dst
-		var dstBlockTime int64
-		if rp.timeoutStamp > 0 {
-			dstBlockTime, err = dst.BlockTime(ctx, dsth)
-			if err != nil {
-				return nil, nil, err
-			}
-		}
-
-		switch {
-		// If the packet has a timeout time, and it has been reached, return a timeout packet
-		case rp.timeoutStamp > 0 && uint64(dstBlockTime) > rp.timeoutStamp:
-			timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
-		// If the packet has a timeout height, and it has been reached, return a timeout packet
-		case !rp.timeout.IsZero() && block.GetHeight().GTE(rp.timeout):
-			timeoutPackets = append(timeoutPackets, rp.timeoutPacket())
-		// If the packet matches the relay constraints relay it as a MsgReceivePacket
-		default:
-			rcvPackets = append(rcvPackets, rp)
-		}
-	}
-
-	// If there is a relayPacket, return it
-	if len(rcvPackets) > 0 || len(timeoutPackets) > 0 {
-		return rcvPackets, timeoutPackets, nil
-	}
-
-	return nil, nil, fmt.Errorf("no packet data found")
 }
 
 // acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
@@ -2153,24 +1961,49 @@ var ApphashSpec = &ics23.ProofSpec{
 
 var PenumbraProofSpecs = []*ics23.ProofSpec{JmtSpec, ApphashSpec}
 
-func (cc *PenumbraProvider) NewClientState(dstUpdateHeader ibcexported.Header, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
-	dstTmHeader, ok := dstUpdateHeader.(*tmclient.Header)
-	if !ok {
-		return nil, fmt.Errorf("got data of type %T but wanted tmclient.Header", dstUpdateHeader)
-	}
+// NewClientState creates a new tendermint client state tracking the dst chain.
+func (cc *PenumbraProvider) NewClientState(
+	dstChainID string,
+	dstUpdateHeader provider.IBCHeader,
+	dstTrustingPeriod,
+	dstUbdPeriod time.Duration,
+	allowUpdateAfterExpiry,
+	allowUpdateAfterMisbehaviour bool,
+) (ibcexported.ClientState, error) {
+	revisionNumber := clienttypes.ParseChainID(dstChainID)
 
 	// Create the ClientState we want on 'c' tracking 'dst'
 	return &tmclient.ClientState{
-		ChainId:                      dstTmHeader.GetHeader().GetChainID(),
-		TrustLevel:                   tmclient.NewFractionFromTm(light.DefaultTrustLevel),
-		TrustingPeriod:               dstTrustingPeriod,
-		UnbondingPeriod:              dstUbdPeriod,
-		MaxClockDrift:                time.Minute * 10,
-		FrozenHeight:                 clienttypes.ZeroHeight(),
-		LatestHeight:                 dstUpdateHeader.GetHeight().(clienttypes.Height),
+		ChainId:         dstChainID,
+		TrustLevel:      tmclient.NewFractionFromTm(light.DefaultTrustLevel),
+		TrustingPeriod:  dstTrustingPeriod,
+		UnbondingPeriod: dstUbdPeriod,
+		MaxClockDrift:   time.Minute * 10,
+		FrozenHeight:    clienttypes.ZeroHeight(),
+		LatestHeight: clienttypes.Height{
+			RevisionNumber: revisionNumber,
+			RevisionHeight: dstUpdateHeader.Height(),
+		},
 		ProofSpecs:                   PenumbraProofSpecs,
 		UpgradePath:                  defaultUpgradePath,
 		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
 		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
+	}, nil
+}
+
+// QueryIBCHeader returns the IBC compatible block header (CosmosIBCHeader) at a specific height.
+func (cc *PenumbraProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
+	if h == 0 {
+		return nil, fmt.Errorf("height cannot be 0")
+	}
+
+	lightBlock, err := cc.LightProvider.LightBlock(ctx, h)
+	if err != nil {
+		return nil, err
+	}
+
+	return PenumbraIBCHeader{
+		SignedHeader: lightBlock.SignedHeader,
+		ValidatorSet: lightBlock.ValidatorSet,
 	}, nil
 }

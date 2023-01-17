@@ -2,16 +2,17 @@ package penumbra
 
 import (
 	"encoding/hex"
-	"fmt"
 	"strconv"
 	"strings"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/cosmos/relayer/v2/relayer/provider/penumbra"
+	abci "github.com/tendermint/tendermint/abci/types"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // ibcMessage is the type used for parsing all possible properties of IBC messages
@@ -21,66 +22,18 @@ type ibcMessage struct {
 }
 
 type ibcMessageInfo interface {
-	parseAttrs(log *zap.Logger, attrs []penumbra.EventAttribute)
+	parseAttrs(log *zap.Logger, attrs []sdk.Attribute)
+	MarshalLogObject(enc zapcore.ObjectEncoder) error
 }
 
-// ibcMessagesFromTransaction parses all events within a transaction to find IBC messages
-func (pcp *PenumbraChainProcessor) ibcMessagesFromTransaction(tx *penumbra.ExecTxResult, height uint64) []ibcMessage {
-	parsedEvents, err := pcp.parsePenumbraIBCEvents(tx.Events, height)
-	if err != nil {
-		pcp.log.Info("Failed to parse tx events", zap.Error(err))
-		return nil
-	}
-	return parsedEvents
-}
-
-func (pcp *PenumbraChainProcessor) parsePenumbraIBCEvents(events []penumbra.Event, height uint64) ([]ibcMessage, error) {
-	fmt.Println("parsing events for height", height)
-	var messages []ibcMessage
-	for _, ev := range events {
-		var info ibcMessageInfo
-		var packetAccumulator *packetInfo
-		eventType := ev.Type
-
-		switch ev.Type {
-		case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
-			clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
-			clienttypes.EventTypeUpdateClientProposal:
-			clientInfo := new(clientInfo)
-			clientInfo.parseAttrs(pcp.log, ev.Attributes)
-			info = clientInfo
-		case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket,
-			chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
-			chantypes.EventTypeTimeoutPacketOnClose, chantypes.EventTypeWriteAck:
-			if packetAccumulator == nil {
-				packetAccumulator = &packetInfo{Height: height}
-			}
-			packetAccumulator.parseAttrs(pcp.log, ev.Attributes)
-			info = packetAccumulator
-		case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
-			conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
-			connectionInfo := &connectionInfo{Height: height}
-			connectionInfo.parseAttrs(pcp.log, ev.Attributes)
-			info = connectionInfo
-		case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
-			chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
-			chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
-			channelInfo := &channelInfo{Height: height}
-			channelInfo.parseAttrs(pcp.log, ev.Attributes)
-			info = channelInfo
-		}
-
-		if info == nil {
-			// Not an IBC message, don't need to log here
-			continue
-		}
-		messages = append(messages, ibcMessage{
-			eventType: eventType,
-			info:      info,
-		})
-	}
-
-	return messages, nil
+func (ccp *PenumbraChainProcessor) ibcMessagesFromBlockEvents(
+	beginBlockEvents, endBlockEvents []abci.Event,
+	height uint64,
+) (res []ibcMessage) {
+	chainID := ccp.chainProvider.ChainId()
+	res = append(res, ibcMessagesFromEvents(ccp.log, beginBlockEvents, chainID, height)...)
+	res = append(res, ibcMessagesFromEvents(ccp.log, endBlockEvents, chainID, height)...)
+	return res
 }
 
 // clientInfo contains the consensus height of the counterparty chain for a client.
@@ -96,14 +49,20 @@ func (c clientInfo) ClientState() provider.ClientState {
 		ConsensusHeight: c.consensusHeight,
 	}
 }
+func (res *clientInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("client_id", res.clientID)
+	enc.AddUint64("consensus_height", res.consensusHeight.RevisionHeight)
+	enc.AddUint64("consensus_height_revision", res.consensusHeight.RevisionNumber)
+	return nil
+}
 
-func (res *clientInfo) parseAttrs(log *zap.Logger, attributes []penumbra.EventAttribute) {
+func (res *clientInfo) parseAttrs(log *zap.Logger, attributes []sdk.Attribute) {
 	for _, attr := range attributes {
 		res.parseClientAttribute(log, attr)
 	}
 }
 
-func (res *clientInfo) parseClientAttribute(log *zap.Logger, attr penumbra.EventAttribute) {
+func (res *clientInfo) parseClientAttribute(log *zap.Logger, attr sdk.Attribute) {
 	switch attr.Key {
 	case clienttypes.AttributeKeyClientID:
 		res.clientID = attr.Value
@@ -152,14 +111,23 @@ func (res *clientInfo) parseClientAttribute(log *zap.Logger, attr penumbra.Event
 // alias type to the provider types, used for adding parser methods
 type packetInfo provider.PacketInfo
 
+func (res *packetInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddUint64("sequence", res.Sequence)
+	enc.AddString("src_channel", res.SourceChannel)
+	enc.AddString("src_port", res.SourcePort)
+	enc.AddString("dst_channel", res.DestChannel)
+	enc.AddString("dst_port", res.DestPort)
+	return nil
+}
+
 // parsePacketInfo is treated differently from the others since it can be constructed from the accumulation of multiple events
-func (res *packetInfo) parseAttrs(log *zap.Logger, attrs []penumbra.EventAttribute) {
+func (res *packetInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
 	for _, attr := range attrs {
 		res.parsePacketAttribute(log, attr)
 	}
 }
 
-func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr penumbra.EventAttribute) {
+func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute) {
 	var err error
 	switch attr.Key {
 	case chantypes.AttributeKeySequence:
@@ -247,19 +215,29 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr penumbra.Event
 		res.DestPort = attr.Value
 	case chantypes.AttributeKeyDstChannel:
 		res.DestChannel = attr.Value
+	case chantypes.AttributeKeyChannelOrdering:
+		res.ChannelOrder = attr.Value
 	}
 }
 
 // alias type to the provider types, used for adding parser methods
 type channelInfo provider.ChannelInfo
 
-func (res *channelInfo) parseAttrs(log *zap.Logger, attrs []penumbra.EventAttribute) {
+func (res *channelInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("channel_id", res.ChannelID)
+	enc.AddString("port_id", res.PortID)
+	enc.AddString("counterparty_channel_id", res.CounterpartyChannelID)
+	enc.AddString("counterparty_port_id", res.CounterpartyPortID)
+	return nil
+}
+
+func (res *channelInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
 	for _, attr := range attrs {
 		res.parseChannelAttribute(attr)
 	}
 }
 
-func (res *channelInfo) parseChannelAttribute(attr penumbra.EventAttribute) {
+func (res *channelInfo) parseChannelAttribute(attr sdk.Attribute) {
 	switch attr.Key {
 	case chantypes.AttributeKeyPortID:
 		res.PortID = attr.Value
@@ -277,13 +255,21 @@ func (res *channelInfo) parseChannelAttribute(attr penumbra.EventAttribute) {
 // alias type to the provider types, used for adding parser methods
 type connectionInfo provider.ConnectionInfo
 
-func (res *connectionInfo) parseAttrs(log *zap.Logger, attrs []penumbra.EventAttribute) {
+func (res *connectionInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("connection_id", res.ConnID)
+	enc.AddString("client_id", res.ClientID)
+	enc.AddString("counterparty_connection_id", res.CounterpartyConnID)
+	enc.AddString("counterparty_client_id", res.CounterpartyClientID)
+	return nil
+}
+
+func (res *connectionInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
 	for _, attr := range attrs {
 		res.parseConnectionAttribute(attr)
 	}
 }
 
-func (res *connectionInfo) parseConnectionAttribute(attr penumbra.EventAttribute) {
+func (res *connectionInfo) parseConnectionAttribute(attr sdk.Attribute) {
 	switch attr.Key {
 	case conntypes.AttributeKeyConnectionID:
 		res.ConnID = attr.Value
