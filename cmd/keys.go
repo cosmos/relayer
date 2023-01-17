@@ -6,7 +6,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -74,12 +75,23 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 				return errKeyExists(keyName)
 			}
 
-			coinType, err := cmd.Flags().GetUint32(flagCoinType)
+			coinType, err := cmd.Flags().GetInt32(flagCoinType)
 			if err != nil {
 				return err
 			}
 
-			ko, err := chain.ChainProvider.AddKey(keyName, coinType)
+			if coinType < 0 {
+				fmt.Println(" coin type less than 0 ")
+				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
+					coinType = int32(ccp.Config.Slip44)
+					fmt.Printf(" coin type is taken from slip and the value is %v", coinType)
+				} else {
+					coinType = int32(defaultCoinType)
+					fmt.Println(" coin type is default ")
+				}
+			}
+
+			ko, err := chain.ChainProvider.AddKey(keyName, uint32(coinType))
 			if err != nil {
 				return fmt.Errorf("failed to add key: %w", err)
 			}
@@ -93,7 +105,7 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 			return nil
 		},
 	}
-	cmd.Flags().Uint32(flagCoinType, defaultCoinType, "coin type number for HD derivation")
+	cmd.Flags().Int32(flagCoinType, -1, "coin type number for HD derivation")
 
 	return cmd
 }
@@ -120,12 +132,22 @@ $ %s k r cosmoshub faucet-key "[mnemonic-words]"`, appName, appName)),
 				return errKeyExists(keyName)
 			}
 
-			coinType, err := cmd.Flags().GetUint32(flagCoinType)
+			coinType, err := cmd.Flags().GetInt32(flagCoinType)
 			if err != nil {
 				return err
 			}
+			if coinType < 0 {
+				fmt.Println(" coin type less than 0 ")
+				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
+					coinType = int32(ccp.Config.Slip44)
+					fmt.Printf(" coin type is taken from slip and the value is %v", coinType)
+				} else {
+					coinType = int32(defaultCoinType)
+					fmt.Println(" coin type is default ")
+				}
+			}
 
-			address, err := chain.ChainProvider.RestoreKey(keyName, args[2], coinType)
+			address, err := chain.ChainProvider.RestoreKey(keyName, args[2], uint32(coinType))
 			if err != nil {
 				return err
 			}
@@ -134,7 +156,7 @@ $ %s k r cosmoshub faucet-key "[mnemonic-words]"`, appName, appName)),
 			return nil
 		},
 	}
-	cmd.Flags().Uint32(flagCoinType, defaultCoinType, "coin type number for HD derivation")
+	cmd.Flags().Int32(flagCoinType, -1, "coin type number for HD derivation")
 
 	return cmd
 }

@@ -41,6 +41,7 @@ type CosmosProviderConfig struct {
 	OutputFormat   string   `json:"output-format" yaml:"output-format"`
 	SignModeStr    string   `json:"sign-mode" yaml:"sign-mode"`
 	ExtraCodecs    []string `json:"extra-codecs" yaml:"extra-codecs"`
+	Slip44         int      `json:"slip44" yaml:"slip44"`
 }
 
 func (pc CosmosProviderConfig) Validate() error {
@@ -92,6 +93,7 @@ func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
 		SignModeStr:    pcfg.SignModeStr,
 		ExtraCodecs:    pcfg.ExtraCodecs,
 		Modules:        append([]module.AppModuleBasic{}, lens.ModuleBasics...),
+		Slip44:         pcfg.Slip44,
 	}
 }
 
