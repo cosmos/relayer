@@ -218,8 +218,13 @@ func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, er
 	// and then re-growing by 85x.
 	tp := unbondingTime / 100 * 85
 
-	// And we only want the trusting period to be whole hours.
-	return tp.Truncate(time.Hour), nil
+	// We only want the trusting period to be whole hours unless it's less than an hour (for testing).
+	truncated := tp.Truncate(time.Hour)
+	if truncated.Hours() == 0 {
+		return tp, nil
+	}
+
+	return truncated, nil
 }
 
 // Sprint returns the json representation of the specified proto message.
