@@ -81,13 +81,10 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 			}
 
 			if coinType < 0 {
-				fmt.Println(" coin type less than 0 ")
 				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
 					coinType = int32(ccp.Config.Slip44)
-					fmt.Printf(" coin type is taken from slip and the value is %v", coinType)
 				} else {
 					coinType = int32(defaultCoinType)
-					fmt.Println(" coin type is default ")
 				}
 			}
 
@@ -136,14 +133,12 @@ $ %s k r cosmoshub faucet-key "[mnemonic-words]"`, appName, appName)),
 			if err != nil {
 				return err
 			}
+
 			if coinType < 0 {
-				fmt.Println(" coin type less than 0 ")
 				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
 					coinType = int32(ccp.Config.Slip44)
-					fmt.Printf(" coin type is taken from slip and the value is %v", coinType)
 				} else {
 					coinType = int32(defaultCoinType)
-					fmt.Println(" coin type is default ")
 				}
 			}
 
