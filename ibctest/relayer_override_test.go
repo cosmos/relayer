@@ -7,13 +7,13 @@ import (
 
 	"github.com/cosmos/relayer/v2/cmd"
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
-	"github.com/strangelove-ventures/ibctest/v5"
-	"github.com/strangelove-ventures/ibctest/v5/chain/cosmos"
-	"github.com/strangelove-ventures/ibctest/v5/ibc"
-	ibctestrelayer "github.com/strangelove-ventures/ibctest/v5/relayer"
-	ibctestrly "github.com/strangelove-ventures/ibctest/v5/relayer/rly"
-	"github.com/strangelove-ventures/ibctest/v5/test"
-	"github.com/strangelove-ventures/ibctest/v5/testreporter"
+	ibctest "github.com/strangelove-ventures/ibctest/v6"
+	"github.com/strangelove-ventures/ibctest/v6/chain/cosmos"
+	"github.com/strangelove-ventures/ibctest/v6/ibc"
+	ibctestrelayer "github.com/strangelove-ventures/ibctest/v6/relayer"
+	ibctestrly "github.com/strangelove-ventures/ibctest/v6/relayer/rly"
+	"github.com/strangelove-ventures/ibctest/v6/testutil"
+	"github.com/strangelove-ventures/ibctest/v6/testreporter"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -98,7 +98,7 @@ func TestClientOverrideFlag(t *testing.T) {
 	)
 
 	// Wait a few blocks for the relayer to start.
-	err = test.WaitForBlocks(ctx, 2, gaia, osmosis)
+	err = testutil.WaitForBlocks(ctx, 2, gaia, osmosis)
 	require.NoError(t, err)
 
 	// Generate a new IBC path
@@ -109,7 +109,7 @@ func TestClientOverrideFlag(t *testing.T) {
 	err = r.CreateClients(ctx, eRep, pathGaiaOsmosis, ibc.DefaultClientOpts())
 	require.NoError(t, err)
 
-	err = test.WaitForBlocks(ctx, 5, gaia, osmosis)
+	err = testutil.WaitForBlocks(ctx, 5, gaia, osmosis)
 	require.NoError(t, err)
 
 	// Dump relayer config and verify client IDs are written to path config
@@ -136,7 +136,7 @@ func TestClientOverrideFlag(t *testing.T) {
 	err = r.CreateClients(ctx, eRep, pathGaiaOsmosis, ibc.DefaultClientOpts())
 	require.NoError(t, err)
 
-	err = test.WaitForBlocks(ctx, 2, gaia, osmosis)
+	err = testutil.WaitForBlocks(ctx, 2, gaia, osmosis)
 	require.NoError(t, err)
 
 	res = r.Exec(ctx, eRep, showConfig, nil)
@@ -161,7 +161,7 @@ func TestClientOverrideFlag(t *testing.T) {
 	res = r.Exec(ctx, eRep, clientsOverride, nil)
 	require.NoError(t, res.Err)
 
-	err = test.WaitForBlocks(ctx, 5, gaia, osmosis)
+	err = testutil.WaitForBlocks(ctx, 5, gaia, osmosis)
 	require.NoError(t, err)
 
 	res = r.Exec(ctx, eRep, showConfig, nil)

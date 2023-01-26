@@ -9,10 +9,10 @@ import (
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/strangelove-ventures/ibctest/v5"
-	"github.com/strangelove-ventures/ibctest/v5/ibc"
-	"github.com/strangelove-ventures/ibctest/v5/test"
-	"github.com/strangelove-ventures/ibctest/v5/testreporter"
+	ibctest "github.com/strangelove-ventures/ibctest/v6"
+	"github.com/strangelove-ventures/ibctest/v6/ibc"
+	"github.com/strangelove-ventures/ibctest/v6/testreporter"
+	"github.com/strangelove-ventures/ibctest/v6/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -91,8 +91,8 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 
 	// Send Transaction
 	amountToSend := int64(1_000_000)
-	gaiaDstAddress := gaiaUser.Bech32Address(osmosis.Config().Bech32Prefix)
-	osmosisDstAddress := osmosisUser.Bech32Address(gaia.Config().Bech32Prefix)
+	gaiaDstAddress := gaiaUser.FormattedAddress()
+	osmosisDstAddress := osmosisUser.FormattedAddress()
 
 	gaiaHeight, err := gaia.Height(ctx)
 	require.NoError(t, err)
@@ -102,38 +102,34 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 
 	var eg errgroup.Group
 	eg.Go(func() error {
-		tx, err := gaia.SendIBCTransfer(ctx, gaiaChannel.ChannelID, gaiaUser.KeyName, ibc.WalletAmount{
+		tx, err := gaia.SendIBCTransfer(ctx, gaiaChannel.ChannelID, gaiaUser.KeyName(), ibc.WalletAmount{
 			Address: gaiaDstAddress,
 			Denom:   gaia.Config().Denom,
 			Amount:  amountToSend,
-		},
-			nil,
-		)
+		}, ibc.TransferOptions{})
 		if err != nil {
 			return err
 		}
 		if err := tx.Validate(); err != nil {
 			return err
 		}
-		_, err = test.PollForAck(ctx, gaia, gaiaHeight, gaiaHeight+10, tx.Packet)
+		_, err = testutil.PollForAck(ctx, gaia, gaiaHeight, gaiaHeight+10, tx.Packet)
 		return err
 	})
 
 	eg.Go(func() error {
-		tx, err := osmosis.SendIBCTransfer(ctx, osmosisChannel.ChannelID, osmosisUser.KeyName, ibc.WalletAmount{
+		tx, err := osmosis.SendIBCTransfer(ctx, osmosisChannel.ChannelID, osmosisUser.KeyName(), ibc.WalletAmount{
 			Address: osmosisDstAddress,
 			Denom:   osmosis.Config().Denom,
 			Amount:  amountToSend,
-		},
-			nil,
-		)
+		}, ibc.TransferOptions{})
 		if err != nil {
 			return err
 		}
 		if err := tx.Validate(); err != nil {
 			return err
 		}
-		_, err = test.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
+		_, err = testutil.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
 		return err
 	})
 	// Acks should exist
@@ -228,8 +224,8 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 
 	// Send Transaction
 	amountToSend := int64(1_000_000)
-	gaiaDstAddress := gaiaUser.Bech32Address(osmosis.Config().Bech32Prefix)
-	osmosisDstAddress := osmosisUser.Bech32Address(gaia.Config().Bech32Prefix)
+	gaiaDstAddress := gaiaUser.FormattedAddress()
+	osmosisDstAddress := osmosisUser.FormattedAddress()
 
 	gaiaHeight, err := gaia.Height(ctx)
 	require.NoError(t, err)
@@ -239,13 +235,11 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 
 	var eg errgroup.Group
 	eg.Go(func() error {
-		tx, err := gaia.SendIBCTransfer(ctx, gaiaChannel.ChannelID, gaiaUser.KeyName, ibc.WalletAmount{
+		tx, err := gaia.SendIBCTransfer(ctx, gaiaChannel.ChannelID, gaiaUser.KeyName(), ibc.WalletAmount{
 			Address: gaiaDstAddress,
 			Denom:   gaia.Config().Denom,
 			Amount:  amountToSend,
-		},
-			nil,
-		)
+		}, ibc.TransferOptions{})
 		if err != nil {
 			return err
 		}
@@ -254,7 +248,7 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 		}
 
 		// we want an error here
-		ack, err := test.PollForAck(ctx, gaia, gaiaHeight, gaiaHeight+10, tx.Packet)
+		ack, err := testutil.PollForAck(ctx, gaia, gaiaHeight, gaiaHeight+10, tx.Packet)
 		if err == nil {
 			return fmt.Errorf("no error when error was expected when polling for ack: %+v", ack)
 		}
@@ -263,13 +257,11 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 	})
 
 	eg.Go(func() error {
-		tx, err := osmosis.SendIBCTransfer(ctx, osmosisChannel.ChannelID, osmosisUser.KeyName, ibc.WalletAmount{
+		tx, err := osmosis.SendIBCTransfer(ctx, osmosisChannel.ChannelID, osmosisUser.KeyName(), ibc.WalletAmount{
 			Address: osmosisDstAddress,
 			Denom:   osmosis.Config().Denom,
 			Amount:  amountToSend,
-		},
-			nil,
-		)
+		}, ibc.TransferOptions{})
 		if err != nil {
 			return err
 		}
@@ -278,7 +270,7 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 		}
 
 		// we want an error here
-		ack, err := test.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
+		ack, err := testutil.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
 		if err == nil {
 			return fmt.Errorf("no error when error was expected when polling for ack: %+v", ack)
 		}

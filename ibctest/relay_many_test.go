@@ -6,11 +6,11 @@ import (
 
 	transfertypes "github.com/cosmos/ibc-go/v6/modules/apps/transfer/types"
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
-	"github.com/strangelove-ventures/ibctest/v5"
-	"github.com/strangelove-ventures/ibctest/v5/chain/cosmos"
-	"github.com/strangelove-ventures/ibctest/v5/ibc"
-	"github.com/strangelove-ventures/ibctest/v5/test"
-	"github.com/strangelove-ventures/ibctest/v5/testreporter"
+	ibctest "github.com/strangelove-ventures/ibctest/v6"
+	"github.com/strangelove-ventures/ibctest/v6/chain/cosmos"
+	"github.com/strangelove-ventures/ibctest/v6/ibc"
+	"github.com/strangelove-ventures/ibctest/v6/testreporter"
+	"github.com/strangelove-ventures/ibctest/v6/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -58,7 +58,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	require.NoError(t, err)
 
 	gaia, osmosis, juno := chains[0].(*cosmos.CosmosChain), chains[1].(*cosmos.CosmosChain), chains[2].(*cosmos.CosmosChain)
-	gaiaCfg, osmosisCfg, junoCfg := gaia.Config(), osmosis.Config(), juno.Config()
+	osmosisCfg, junoCfg := osmosis.Config(), juno.Config()
 
 	// Build the network; spin up the chains and configure the relayer
 	const pathGaiaOsmosis = "gaia-osmosis"
@@ -103,7 +103,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	gaiaUser, osmosisUser, junoUser := users[0], users[1], users[2]
 
 	// Wait a few blocks for user accounts to be created on chain.
-	err = test.WaitForBlocks(ctx, 2, gaia, osmosis, juno)
+	err = testutil.WaitForBlocks(ctx, 2, gaia, osmosis, juno)
 	require.NoError(t, err)
 
 	// Start the relayers
@@ -120,16 +120,16 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	)
 
 	// Wait a few blocks for the relayer to start.
-	err = test.WaitForBlocks(ctx, 2, gaia, osmosis, juno)
+	err = testutil.WaitForBlocks(ctx, 2, gaia, osmosis, juno)
 	require.NoError(t, err)
 
-	gaiaAddress := gaiaUser.Bech32Address(gaiaCfg.Bech32Prefix)
+	gaiaAddress := gaiaUser.FormattedAddress()
 	require.NotEmpty(t, gaiaAddress)
 
-	osmosisAddress := osmosisUser.Bech32Address(osmosisCfg.Bech32Prefix)
+	osmosisAddress := osmosisUser.FormattedAddress()
 	require.NotEmpty(t, osmosisAddress)
 
-	junoAddress := junoUser.Bech32Address(junoCfg.Bech32Prefix)
+	junoAddress := junoUser.FormattedAddress()
 	require.NotEmpty(t, junoAddress)
 
 	// get ibc chans
@@ -152,15 +152,15 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 			return err
 		}
 		// Fund gaia user with ibc denom osmo
-		tx, err := osmosis.SendIBCTransfer(ctx, osmosisChans[0].ChannelID, osmosisUser.KeyName, ibc.WalletAmount{
+		tx, err := osmosis.SendIBCTransfer(ctx, osmosisChans[0].ChannelID, osmosisUser.KeyName(), ibc.WalletAmount{
 			Amount:  transferAmount,
 			Denom:   osmosisCfg.Denom,
 			Address: gaiaAddress,
-		}, nil)
+		}, ibc.TransferOptions{})
 		if err != nil {
 			return err
 		}
-		_, err = test.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
+		_, err = testutil.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
 		return err
 	})
 
@@ -170,15 +170,15 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 			return err
 		}
 		// Fund gaia user with ibc denom juno
-		tx, err := juno.SendIBCTransfer(ctx, junoChans[0].ChannelID, junoUser.KeyName, ibc.WalletAmount{
+		tx, err := juno.SendIBCTransfer(ctx, junoChans[0].ChannelID, junoUser.KeyName(), ibc.WalletAmount{
 			Amount:  transferAmount,
 			Denom:   junoCfg.Denom,
 			Address: gaiaAddress,
-		}, nil)
+		}, ibc.TransferOptions{})
 		if err != nil {
 			return err
 		}
-		_, err = test.PollForAck(ctx, juno, junoHeight, junoHeight+10, tx.Packet)
+		_, err = testutil.PollForAck(ctx, juno, junoHeight, junoHeight+10, tx.Packet)
 		return err
 	})
 

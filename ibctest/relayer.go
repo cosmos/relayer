@@ -13,7 +13,8 @@ import (
 	"github.com/cosmos/relayer/v2/internal/relayertest"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
-	"github.com/strangelove-ventures/ibctest/v5/ibc"
+	ibccosmos "github.com/strangelove-ventures/ibctest/v6/chain/cosmos"
+	"github.com/strangelove-ventures/ibctest/v6/ibc"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
@@ -80,21 +81,21 @@ func (r *Relayer) AddChainConfiguration(ctx context.Context, _ ibc.RelayerExecRe
 	return nil
 }
 
-func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName string) (ibc.Wallet, error) {
+func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName string, coinType string) (ibc.Wallet, error) {
 	res := r.sys().RunC(ctx, r.log(), "keys", "add", chainID, keyName)
 	if res.Err != nil {
-		return ibc.Wallet{}, res.Err
+		return nil, res.Err
 	}
 
 	var w ibc.Wallet
 	if err := json.Unmarshal(res.Stdout.Bytes(), &w); err != nil {
-		return ibc.Wallet{}, err
+		return nil, err
 	}
 
 	return w, nil
 }
 
-func (r *Relayer) RestoreKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName, mnemonic string) error {
+func (r *Relayer) RestoreKey(ctx context.Context, rep ibc.RelayerExecReporter, chainID string, keyName string, coinType string, mnemonic string) error {
 	res := r.sys().RunC(ctx, r.log(), "keys", "restore", chainID, keyName, mnemonic)
 	if res.Err != nil {
 		return res.Err
@@ -214,6 +215,31 @@ func (r *Relayer) CreateClients(ctx context.Context, _ ibc.RelayerExecReporter, 
 	}
 	return nil
 }
+func (r *Relayer) GetClients(ctx context.Context, _ ibc.RelayerExecReporter, chainID string) (ibc.ClientOutputs, error) {
+	res := r.sys().RunC(ctx, r.log(), "q", "get-clients", chainID)
+	if res.Err != nil {
+		return nil, res.Err
+	}
+	var clients ibc.ClientOutputs
+	for _, client := range strings.Split(res.Stdout.String(), "\n") {
+		if strings.TrimSpace(client) == "" {
+			continue
+		}
+		clientOutput := ibc.ClientOutput{}
+		err := json.Unmarshal([]byte(client), &clientOutput)
+		if err != nil {
+			r.log().Error(
+				"Error parsing client json",
+				zap.Error(err),
+			)
+
+			continue
+		}
+		clients = append(clients, &clientOutput)
+	}
+
+	return clients, nil
+}
 
 func (r *Relayer) UpdateClients(ctx context.Context, _ ibc.RelayerExecReporter, pathName string) error {
 	res := r.sys().RunC(ctx, r.log(), "tx", "update-clients", pathName)
@@ -309,8 +335,8 @@ func (r *Relayer) FlushPackets(ctx context.Context, _ ibc.RelayerExecReporter, p
 func (r *Relayer) GetWallet(chainID string) (ibc.Wallet, bool) {
 	res := r.sys().RunC(context.Background(), r.log(), "keys", "show", chainID)
 	if res.Err != nil {
-		return ibc.Wallet{}, false
+		return nil, false
 	}
 	address := strings.TrimSpace(res.Stdout.String())
-	return ibc.Wallet{Address: address}, true
+	return ibccosmos.NewWallet("", []byte(address), "", ibc.ChainConfig{}), true
 }
