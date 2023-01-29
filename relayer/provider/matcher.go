@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"time"
 
-	clienttypes "github.com/cosmos/ibc-go/v6/modules/core/02-client/types"
-	ibcexported "github.com/cosmos/ibc-go/v6/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v6/modules/light-clients/07-tendermint"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 )
 
 // ClientsMatch will check the type of an existing light client on the src chain, tracking the dst chain, and run

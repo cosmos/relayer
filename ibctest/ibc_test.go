@@ -6,11 +6,11 @@ import (
 
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
 	"github.com/cosmos/relayer/v2/relayer"
-	ibctest "github.com/strangelove-ventures/ibctest/v6"
-	"github.com/strangelove-ventures/ibctest/v6/conformance"
-	"github.com/strangelove-ventures/ibctest/v6/ibc"
-	ibctestrelayer "github.com/strangelove-ventures/ibctest/v6/relayer"
-	"github.com/strangelove-ventures/ibctest/v6/testreporter"
+	ibctest "github.com/strangelove-ventures/ibctest/v7"
+	"github.com/strangelove-ventures/ibctest/v7/conformance"
+	"github.com/strangelove-ventures/ibctest/v7/ibc"
+	ibctestrelayer "github.com/strangelove-ventures/ibctest/v7/relayer"
+	"github.com/strangelove-ventures/ibctest/v7/testreporter"
 	"go.uber.org/zap/zaptest"
 )
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/icza/dyno"
-	"github.com/strangelove-ventures/ibctest/v6/ibc"
+	"github.com/strangelove-ventures/ibctest/v7/ibc"
 )
 
 const (

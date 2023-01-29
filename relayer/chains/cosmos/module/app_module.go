@@ -7,7 +7,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cobra"
 
-	tmlightclient "github.com/cosmos/ibc-go/v6/modules/light-clients/07-tendermint"
+	tmlightclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 )
 
 // AppModuleBasic defines the basic application module used by the module.
