@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/avast/retry-go/v4 v4.3.1
+	github.com/cosmos/cosmos-proto v1.0.0-alpha7
 	github.com/cosmos/cosmos-sdk v0.46.6
 	github.com/cosmos/ibc-go/v5 v5.1.0
 	github.com/gogo/protobuf v1.3.3
@@ -52,7 +53,6 @@ require (
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
 	github.com/confio/ics23/go v0.7.0 // indirect
 	github.com/cosmos/btcutil v1.0.4 // indirect
-	github.com/cosmos/cosmos-proto v1.0.0-alpha7 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gorocksdb v1.2.0 // indirect
 	github.com/cosmos/iavl v0.19.4 // indirect
@@ -93,7 +93,6 @@ require (
 	github.com/hashicorp/go-getter v1.6.1 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-safetemp v1.0.0 // indirect
-	github.com/hashicorp/go-uuid v1.0.1 // indirect
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect

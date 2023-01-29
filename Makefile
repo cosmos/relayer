@@ -5,9 +5,16 @@ GAIA_VERSION := v7.0.1
 AKASH_VERSION := v0.16.3
 OSMOSIS_VERSION := v8.0.0
 WASMD_VERSION := v0.25.0
+DOCKER := $(shell which docker)
 
 GOPATH := $(shell go env GOPATH)
 GOBIN := $(GOPATH)/bin
+
+containerProtoVer=v0.2
+containerProtoImage=tendermintdev/sdk-proto-gen:$(containerProtoVer)
+containerProtoGen=cosmos-sdk-proto-gen-$(containerProtoVer)
+containerProtoGenSwagger=cosmos-sdk-proto-gen-swagger-$(containerProtoVer)
+containerProtoFmt=cosmos-sdk-proto-fmt-$(containerProtoVer)
 
 all: lint install
 
@@ -154,3 +161,9 @@ release:
 		-w /go/src/$(PACKAGE_NAME) \
 		goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
 		release --rm-dist
+
+proto-gen:
+	@echo "Generating Protobuf files"
+	@if docker ps -a --format '{{.Names}}' | grep -Eq "^${containerProtoGen}$$"; then docker start -a $(containerProtoGen); else docker run --name $(containerProtoGen) -v $(CURDIR):/workspace --workdir /workspace $(containerProtoImage) \
+		sh ./scripts/protocgen.sh; fi
+	@go mod tidy
