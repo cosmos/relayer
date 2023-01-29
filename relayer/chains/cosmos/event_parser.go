@@ -2,6 +2,7 @@ package cosmos
 
 import (
 	"encoding/hex"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -98,6 +99,17 @@ func parseIBCMessageFromEvent(
 		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
 		clienttypes.EventTypeUpdateClientProposal:
 		ci := new(clientInfo)
+		ci.parseAttrs(log, event.Attributes)
+		return &ibcMessage{
+			eventType: event.Type,
+			info:      ci,
+		}
+
+	case processor.ClientICQTypeRequest, processor.ClientICQTypeResponse:
+		ci := &clientICQInfo{
+			Height: height,
+			Source: chainID,
+		}
 		ci.parseAttrs(log, event.Attributes)
 		return &ibcMessage{
 			eventType: event.Type,
@@ -378,4 +390,57 @@ func (res *connectionInfo) parseConnectionAttribute(attr sdk.Attribute) {
 	case conntypes.AttributeKeyCounterpartyClientID:
 		res.CounterpartyClientID = attr.Value
 	}
+}
+
+type clientICQInfo struct {
+	Source     string
+	Connection string
+	Chain      string
+	QueryID    provider.ClientICQQueryID
+	Type       string
+	Request    []byte
+	Height     uint64
+}
+
+func (res *clientICQInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("connection_id", res.Connection)
+	enc.AddString("chain_id", res.Chain)
+	enc.AddString("query_id", string(res.QueryID))
+	enc.AddString("type", res.Type)
+	enc.AddString("request", hex.EncodeToString(res.Request))
+	enc.AddUint64("height", res.Height)
+
+	return nil
+}
+
+func (res *clientICQInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
+	for _, attr := range attrs {
+		if err := res.parseAttribute(attr); err != nil {
+			panic(fmt.Errorf("failed to parse attributes from client ICQ message: %w", err))
+		}
+	}
+}
+
+func (res *clientICQInfo) parseAttribute(attr sdk.Attribute) (err error) {
+	switch attr.Key {
+	case "connection_id":
+		res.Connection = attr.Value
+	case "chain_id":
+		res.Chain = attr.Value
+	case "query_id":
+		res.QueryID = provider.ClientICQQueryID(attr.Value)
+	case "type":
+		res.Type = attr.Value
+	case "request":
+		res.Request, err = hex.DecodeString(attr.Value)
+		if err != nil {
+			return err
+		}
+	case "height":
+		res.Height, err = strconv.ParseUint(attr.Value, 10, 64)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

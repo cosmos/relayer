@@ -395,6 +395,33 @@ ChannelHandshakeLoop:
 	return res
 }
 
+func (pp *PathProcessor) getUnrelayedClientICQMessages(pathEnd *pathEndRuntime, queryMessages, responseMessages ClientICQMessageCache) (res []clientICQMessage) {
+ClientICQLoop:
+	for queryID, queryMsg := range queryMessages {
+		for resQueryID := range responseMessages {
+			if queryID == resQueryID {
+				// done with this query, remove all retention.
+				pathEnd.messageCache.ClientICQ.DeleteMessages(queryID)
+				delete(pathEnd.clientICQProcessing, queryID)
+				continue ClientICQLoop
+			}
+		}
+		// query ID not found in response messages, check if should send queryMsg and send
+		if pathEnd.shouldSendClientICQMessage(queryMsg) {
+			res = append(res, clientICQMessage{
+				info: queryMsg,
+			})
+		}
+	}
+
+	// now iterate through completion message and remove any leftover messages.
+	for queryID := range responseMessages {
+		pathEnd.messageCache.ClientICQ.DeleteMessages(queryID)
+		delete(pathEnd.clientICQProcessing, queryID)
+	}
+	return res
+}
+
 // assembleMsgUpdateClient uses the ChainProvider from both pathEnds to assemble the client update header
 // from the source and then assemble the update client message in the correct format for the destination.
 func (pp *PathProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime) (provider.RelayerMessage, error) {
@@ -660,16 +687,29 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 	pathEnd1ChannelMessages = append(pathEnd1ChannelMessages, pathEnd1ChanCloseMessages...)
 	pathEnd2ChannelMessages = append(pathEnd2ChannelMessages, pathEnd2ChanCloseMessages...)
 
+	pathEnd1ClientICQMessages := pp.getUnrelayedClientICQMessages(
+		pp.pathEnd1,
+		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeRequest],
+		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeResponse],
+	)
+	pathEnd2ClientICQMessages := pp.getUnrelayedClientICQMessages(
+		pp.pathEnd2,
+		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeRequest],
+		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeResponse],
+	)
+
 	pathEnd1Messages := pathEndMessages{
 		connectionMessages: pathEnd1ConnectionMessages,
 		channelMessages:    pathEnd1ChannelMessages,
 		packetMessages:     pathEnd1PacketMessages,
+		clientICQMessages:  pathEnd1ClientICQMessages,
 	}
 
 	pathEnd2Messages := pathEndMessages{
 		connectionMessages: pathEnd2ConnectionMessages,
 		channelMessages:    pathEnd2ChannelMessages,
 		packetMessages:     pathEnd2PacketMessages,
+		clientICQMessages:  pathEnd2ClientICQMessages,
 	}
 
 	pp.appendInitialMessageIfNecessary(messageLifecycle, &pathEnd1Messages, &pathEnd2Messages)
@@ -739,6 +779,18 @@ func (pp *PathProcessor) assembleMessage(
 				zap.String("port_id", m.info.PortID),
 			)
 		}
+	case clientICQMessage:
+		message, err = pp.assembleClientICQMessage(ctx, m, src, dst)
+		om.clientICQMsgs[i] = clientICQMessageToTrack{
+			msg:       m,
+			assembled: err == nil,
+		}
+		if err == nil {
+			dst.log.Debug("Will send ICQ message",
+				zap.String("type", m.info.Type),
+				zap.String("query_id", string(m.info.QueryID)),
+			)
+		}
 	}
 	if err != nil {
 		pp.log.Error("Error assembling channel message", zap.Error(err))
@@ -753,7 +805,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	messages pathEndMessages,
 ) error {
 	var needsClientUpdate bool
-	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 {
+	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 && len(messages.clientICQMessages) == 0 {
 		var consensusHeightTime time.Time
 		if dst.clientState.ConsensusTime.IsZero() {
 			h, err := src.chainProvider.QueryIBCHeader(ctx, int64(dst.clientState.ConsensusHeight.RevisionHeight))
@@ -783,7 +835,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		msgs: make(
 			[]provider.RelayerMessage,
 			0,
-			len(messages.packetMessages)+len(messages.connectionMessages)+len(messages.channelMessages),
+			len(messages.packetMessages)+len(messages.connectionMessages)+len(messages.channelMessages)+len(messages.clientICQMessages),
 		),
 	}
 	msgUpdateClient, err := pp.assembleMsgUpdateClient(ctx, src, dst)
@@ -817,6 +869,17 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	}
 
 	if len(om.msgs) == 1 {
+		om.clientICQMsgs = make([]clientICQMessageToTrack, len(messages.clientICQMessages))
+		// only assemble and send ICQ messages if there are no conn or chan handshake messages
+		for i, msg := range messages.clientICQMessages {
+			wg.Add(1)
+			go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+		}
+
+		wg.Wait()
+	}
+
+	if len(om.msgs) == 1 {
 		om.pktMsgs = make([]packetMessageToTrack, len(messages.packetMessages))
 		// only assemble and send packet messages if there are no handshake messages
 		for i, msg := range messages.packetMessages {
@@ -838,6 +901,10 @@ func (pp *PathProcessor) assembleAndSendMessages(
 
 	for _, m := range om.chanMsgs {
 		dst.trackProcessingChannelMessage(m)
+	}
+
+	for _, m := range om.clientICQMsgs {
+		dst.trackProcessingClientICQMessage(m)
 	}
 
 	for _, m := range om.pktMsgs {
@@ -1017,6 +1084,22 @@ func (pp *PathProcessor) assembleChannelMessage(
 		}
 	}
 	return assembleMessage(msg.info, proof)
+}
+
+func (pp *PathProcessor) assembleClientICQMessage(
+	ctx context.Context,
+	msg clientICQMessage,
+	src, dst *pathEndRuntime,
+) (provider.RelayerMessage, error) {
+	ctx, cancel := context.WithTimeout(ctx, interchainQueryTimeout)
+	defer cancel()
+
+	proof, err := src.chainProvider.QueryICQWithProof(ctx, msg.info.Type, msg.info.Request, src.latestBlock.Height-1)
+	if err != nil {
+		return nil, fmt.Errorf("error during interchain query: %w", err)
+	}
+
+	return dst.chainProvider.MsgSubmitQueryResponse(msg.info.Chain, msg.info.QueryID, proof)
 }
 
 func (pp *PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes pathEndChannelHandshakeResponse) ([]channelIBCMessage, []channelIBCMessage) {

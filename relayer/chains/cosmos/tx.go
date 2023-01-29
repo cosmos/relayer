@@ -24,7 +24,9 @@ import (
 	host "github.com/cosmos/ibc-go/v5/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
+	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/light"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
@@ -889,6 +891,43 @@ func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
 		TrustedValidators: trustedValidatorsProto,
 		TrustedHeight:     trustedHeight,
 	}, nil
+}
+
+func (cc *CosmosProvider) QueryICQWithProof(ctx context.Context, path string, request []byte, height uint64) (provider.ICQProof, error) {
+	slashSplit := strings.Split(path, "/")
+	req := abci.RequestQuery{
+		Path:   path,
+		Height: int64(height),
+		Data:   request,
+		Prove:  slashSplit[len(slashSplit)-1] == "key",
+	}
+
+	res, err := cc.QueryABCI(ctx, req)
+	if err != nil {
+		return provider.ICQProof{}, fmt.Errorf("failed to execute interchain query: %w", err)
+	}
+	return provider.ICQProof{
+		Result:   res.Value,
+		ProofOps: res.ProofOps,
+		Height:   res.Height,
+	}, nil
+}
+
+func (cc *CosmosProvider) MsgSubmitQueryResponse(chainID string, queryID provider.ClientICQQueryID, proof provider.ICQProof) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
+	msg := &strideicqtypes.MsgSubmitQueryResponse{
+		ChainId:     chainID,
+		QueryId:     string(queryID),
+		Result:      proof.Result,
+		ProofOps:    proof.ProofOps,
+		Height:      proof.Height,
+		FromAddress: signer,
+	}
+
+	return NewCosmosMessage(msg), nil
 }
 
 // RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error

@@ -27,5 +27,5 @@ done
 # move proto files to the right places
 #
 # Note: Proto files are suffixed with the current binary version.
-cp -r github.com/Stride-Labs/stride/v5/x/interchainquery/types/* ./relayer/chains/cosmos/stride/
+cp -r github.com/cosmos/relayer/* ./
 rm -rf github.com
