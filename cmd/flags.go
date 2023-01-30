@@ -47,6 +47,12 @@ const (
 	flagMemo                    = "memo"
 	flagFilterRule              = "filter-rule"
 	flagFilterChannels          = "filter-channels"
+	flagSrcChainID              = "src-chain-id"
+	flagDstChainID              = "dst-chain-id"
+	flagSrcClientID             = "src-client-id"
+	flagDstClientID             = "dst-client-id"
+	flagSrcConnID               = "src-connection-id"
+	flagDstConnID               = "dst-connection-id"
 )
 
 const (
@@ -155,12 +161,37 @@ func fileFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func pathFilterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().String(flagFilterRule, "", `filter rule ("allowlist", "denylist", or "" for no filtering)`)
-	if err := v.BindPFlag(flagFilterRule, cmd.Flags().Lookup(flagFilterRule)); err != nil {
+	flags := cmd.Flags()
+	flags.String(flagFilterRule, "blank", `filter rule ("allowlist", "denylist", or "" for no filtering)`)
+	if err := v.BindPFlag(flagFilterRule, flags.Lookup(flagFilterRule)); err != nil {
 		panic(err)
 	}
-	cmd.Flags().String(flagFilterChannels, "", "channels from source chain perspective to filter")
-	if err := v.BindPFlag(flagFilterRule, cmd.Flags().Lookup(flagFilterRule)); err != nil {
+	flags.String(flagFilterChannels, "blank", "channels from source chain perspective to filter")
+	if err := v.BindPFlag(flagFilterRule, flags.Lookup(flagFilterRule)); err != nil {
+		panic(err)
+	}
+	flags.String(flagSrcChainID, "", "chain ID for source chain")
+	if err := v.BindPFlag(flagSrcChainID, flags.Lookup(flagSrcChainID)); err != nil {
+		panic(err)
+	}
+	flags.String(flagDstChainID, "", "chain ID for destination chain")
+	if err := v.BindPFlag(flagDstChainID, flags.Lookup(flagDstChainID)); err != nil {
+		panic(err)
+	}
+	flags.String(flagSrcClientID, "", "client ID for source chain")
+	if err := v.BindPFlag(flagSrcClientID, flags.Lookup(flagSrcClientID)); err != nil {
+		panic(err)
+	}
+	flags.String(flagDstClientID, "", "client ID for destination chain")
+	if err := v.BindPFlag(flagDstClientID, flags.Lookup(flagDstClientID)); err != nil {
+		panic(err)
+	}
+	flags.String(flagSrcConnID, "", "connection ID for source chain")
+	if err := v.BindPFlag(flagSrcConnID, flags.Lookup(flagSrcConnID)); err != nil {
+		panic(err)
+	}
+	flags.String(flagDstConnID, "", "connection ID for destination chain")
+	if err := v.BindPFlag(flagDstConnID, flags.Lookup(flagDstConnID)); err != nil {
 		panic(err)
 	}
 	return cmd
