@@ -266,7 +266,7 @@ func pathsUpdateCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "update path_name",
 		Aliases: []string{"n"},
-		Short:   `Update a path such as the filter rule ("allowlist", "denylist", or "" for no filtering), channels, `,
+		Short:   `Update a path such as the filter rule ("allowlist", "denylist", or "" for no filtering), filter channels, and src/dst chain, client, or connection IDs`,
 		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths update demo-path --filter-rule allowlist --filter-channels channel-0,channel-1
@@ -285,7 +285,7 @@ $ %s paths update demo-path --src-connection-id connection-02 --dst-connection-i
 			actionTaken := false
 
 			filterRule, _ := flags.GetString(flagFilterRule)
-			if filterRule != "blank" {
+			if filterRule != blankValue {
 				if filterRule != "" && filterRule != processor.RuleAllowList && filterRule != processor.RuleDenyList {
 					return fmt.Errorf(
 						`invalid filter rule : "%s". valid rules: ("", "%s", "%s")`,
@@ -296,7 +296,7 @@ $ %s paths update demo-path --src-connection-id connection-02 --dst-connection-i
 			}
 
 			filterChannels, _ := flags.GetString(flagFilterChannels)
-			if filterChannels != "blank" {
+			if filterChannels != blankValue {
 				var channelList []string
 
 				if filterChannels != "" {

@@ -59,6 +59,8 @@ const (
 	// 7597 is "RLYR" on a telephone keypad.
 	// It also happens to be unassigned in the IANA port list.
 	defaultDebugAddr = "localhost:7597"
+
+	blankValue = "blank"
 )
 
 func ibcDenomFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
@@ -162,11 +164,11 @@ func fileFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 
 func pathFilterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	flags := cmd.Flags()
-	flags.String(flagFilterRule, "blank", `filter rule ("allowlist", "denylist", or "" for no filtering)`)
+	flags.String(flagFilterRule, blankValue, `filter rule ("allowlist", "denylist", or "" for no filtering)`)
 	if err := v.BindPFlag(flagFilterRule, flags.Lookup(flagFilterRule)); err != nil {
 		panic(err)
 	}
-	flags.String(flagFilterChannels, "blank", "channels from source chain perspective to filter")
+	flags.String(flagFilterChannels, blankValue, "channels from source chain perspective to filter")
 	if err := v.BindPFlag(flagFilterRule, flags.Lookup(flagFilterRule)); err != nil {
 		panic(err)
 	}
