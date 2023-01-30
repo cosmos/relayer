@@ -274,7 +274,7 @@ $ %s paths update demo-path --filter-rule denylist --filter-channels channel-0,c
 $ %s paths update demo-path --src-chain-id chain-1 --dst-chain-id chain-2
 $ %s paths update demo-path --src-client-id 07-tendermint-02 --dst-client-id 07-tendermint-04
 $ %s paths update demo-path --src-connection-id connection-02 --dst-connection-id connection-04`,
-			appName, appName)),
+			appName, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 
@@ -287,7 +287,9 @@ $ %s paths update demo-path --src-connection-id connection-02 --dst-connection-i
 			filterRule, _ := flags.GetString(flagFilterRule)
 			if filterRule != "blank" {
 				if filterRule != "" && filterRule != processor.RuleAllowList && filterRule != processor.RuleDenyList {
-					return fmt.Errorf(`invalid filter rule : "%s". valid rules: ("", "%s", "%s")`, filterRule, processor.RuleAllowList, processor.RuleDenyList)
+					return fmt.Errorf(
+						`invalid filter rule : "%s". valid rules: ("", "%s", "%s")`,
+						filterRule, processor.RuleAllowList, processor.RuleDenyList)
 				}
 				p.Filter.Rule = filterRule
 				actionTaken = true
