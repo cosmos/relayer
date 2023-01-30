@@ -2,7 +2,6 @@ package stride
 
 import (
 	"encoding/json"
-	fmt "fmt"
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cobra"
@@ -25,12 +24,10 @@ func (AppModuleBasic) Name() string {
 }
 
 func (AppModuleBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
-	fmt.Println("App module basic register legacy amino")
 	RegisterLegacyAminoCodec(cdc)
 }
 
 func (a AppModuleBasic) RegisterInterfaces(reg cdctypes.InterfaceRegistry) {
-	fmt.Println("App module basic register legacy amino")
 	RegisterInterfaces(reg)
 }
 

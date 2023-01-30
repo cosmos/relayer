@@ -105,7 +105,7 @@ func parseIBCMessageFromEvent(
 			info:      ci,
 		}
 
-	case processor.ClientICQTypeRequest, processor.ClientICQTypeResponse:
+	case string(processor.ClientICQTypeRequest), string(processor.ClientICQTypeResponse):
 		ci := &clientICQInfo{
 			Height: height,
 			Source: chainID,

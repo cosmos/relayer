@@ -57,8 +57,8 @@ type connectionIBCMessage struct {
 func (connectionIBCMessage) ibcMessageIndicator() {}
 
 const (
-	ClientICQTypeRequest  = "query_request"
-	ClientICQTypeResponse = "query_response"
+	ClientICQTypeRequest  ClientICQType = "query_request"
+	ClientICQTypeResponse ClientICQType = "query_response"
 )
 
 // clientICQMessage holds a client ICQ message info,
