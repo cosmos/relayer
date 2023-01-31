@@ -8,10 +8,10 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/module"
 	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
@@ -77,6 +77,8 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 // ChainClientConfig builds a ChainClientConfig struct from a CosmosProviderConfig, this is used
 // to instantiate an instance of ChainClient from lens which is how we build the CosmosProvider
 func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
+	modules := lens.ModuleBasics
+	modules = append(modules, stride.AppModuleBasic{})
 	return &lens.ChainClientConfig{
 		Key:            pcfg.Key,
 		ChainID:        pcfg.ChainID,
@@ -91,7 +93,7 @@ func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
 		OutputFormat:   pcfg.OutputFormat,
 		SignModeStr:    pcfg.SignModeStr,
 		ExtraCodecs:    pcfg.ExtraCodecs,
-		Modules:        append([]module.AppModuleBasic{}, lens.ModuleBasics...),
+		Modules:        modules,
 	}
 }
 
@@ -218,13 +220,13 @@ func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, er
 	// and then re-growing by 85x.
 	tp := unbondingTime / 100 * 85
 
-	// We only want the trusting period to be whole hours unless it's less than an hour (for testing).
-	truncated := tp.Truncate(time.Hour)
-	if truncated.Hours() == 0 {
-		return tp, nil
+	// And we only want the trusting period to be whole hours.
+	// But avoid rounding if the time is less than 1 hour
+	//  (otherwise the trusting period will go to 0)
+	if tp > time.Hour {
+		tp = tp.Truncate(time.Hour)
 	}
-
-	return truncated, nil
+	return tp, nil
 }
 
 // Sprint returns the json representation of the specified proto message.

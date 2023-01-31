@@ -35,9 +35,10 @@ type pathEndRuntime struct {
 
 	// Cache in progress sends for the different IBC message types
 	// to avoid retrying a message immediately after it is sent.
-	packetProcessing  packetProcessingCache
-	connProcessing    connectionProcessingCache
-	channelProcessing channelProcessingCache
+	packetProcessing    packetProcessingCache
+	connProcessing      connectionProcessingCache
+	channelProcessing   channelProcessingCache
+	clientICQProcessing clientICQProcessingCache
 
 	// Message subscriber callbacks
 	connSubscribers map[string][]func(provider.ConnectionInfo)
@@ -64,6 +65,7 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetr
 		packetProcessing:     make(packetProcessingCache),
 		connProcessing:       make(connectionProcessingCache),
 		channelProcessing:    make(channelProcessingCache),
+		clientICQProcessing:  make(clientICQProcessingCache),
 		connSubscribers:      make(map[string][]func(provider.ConnectionInfo)),
 		metrics:              metrics,
 	}
@@ -94,6 +96,7 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 	packetMessages := make(ChannelPacketMessagesCache)
 	connectionHandshakeMessages := make(ConnectionMessagesCache)
 	channelHandshakeMessages := make(ChannelMessagesCache)
+	clientICQMessages := make(ClientICQMessagesCache)
 
 	for ch, pmc := range messageCache.PacketFlow {
 		if pathEnd.info.ShouldRelayChannel(ChainChannelKey{ChainID: pathEnd.info.ChainID, CounterpartyChainID: counterpartyChainID, ChannelKey: ch}) {
@@ -149,6 +152,17 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 		channelHandshakeMessages[eventType] = newCmc
 	}
 	pathEnd.messageCache.ChannelHandshake.Merge(channelHandshakeMessages)
+
+	for icqType, cm := range messageCache.ClientICQ {
+		newCache := make(ClientICQMessageCache)
+		for queryID, m := range cm {
+			if m.Chain == counterpartyChainID {
+				newCache[queryID] = m
+			}
+		}
+		clientICQMessages[icqType] = newCache
+	}
+	pathEnd.messageCache.ClientICQ.Merge(clientICQMessages)
 }
 
 func (pathEnd *pathEndRuntime) handleCallbacks(c IBCMessagesCache) {
@@ -572,6 +586,45 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 	return true
 }
 
+// shouldSendClientICQMessage determines if the client ICQ message should be sent now.
+// It will also determine if the message needs to be given up on entirely and remove retention if so.
+func (pathEnd *pathEndRuntime) shouldSendClientICQMessage(message provider.ClientICQInfo) bool {
+	queryID := message.QueryID
+	inProgress, ok := pathEnd.clientICQProcessing[queryID]
+	if !ok {
+		// in progress cache does not exist for this query ID, so can send.
+		return true
+	}
+	blocksSinceLastProcessed := pathEnd.latestBlock.Height - inProgress.lastProcessedHeight
+	if inProgress.assembled {
+		if blocksSinceLastProcessed < blocksToRetrySendAfter {
+			// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
+			return false
+		}
+	} else {
+		if blocksSinceLastProcessed < blocksToRetryAssemblyAfter {
+			// this message was sent less than blocksToRetryAssemblyAfter ago, do not attempt assembly again yet.
+			return false
+		}
+	}
+	if inProgress.retryCount >= maxMessageSendRetries {
+		pathEnd.log.Error("Giving up on sending client ICQ message after max retries",
+			zap.String("query_id", string(queryID)),
+		)
+
+		// giving up on this query
+		// remove all retention of this client interchain query flow in pathEnd.messagesCache.ClientICQ
+		pathEnd.messageCache.ClientICQ.DeleteMessages(queryID)
+
+		// delete in progress query for this specific ID
+		delete(pathEnd.clientICQProcessing, queryID)
+
+		return false
+	}
+
+	return true
+}
+
 func (pathEnd *pathEndRuntime) trackProcessingPacketMessage(t packetMessageToTrack) {
 	eventType := t.msg.eventType
 	sequence := t.msg.info.Sequence
@@ -647,6 +700,22 @@ func (pathEnd *pathEndRuntime) trackProcessingChannelMessage(t channelMessageToT
 	}
 
 	msgProcessCache[channelKey] = processingMessage{
+		lastProcessedHeight: pathEnd.latestBlock.Height,
+		retryCount:          retryCount,
+		assembled:           t.assembled,
+	}
+}
+
+func (pathEnd *pathEndRuntime) trackProcessingClientICQMessage(t clientICQMessageToTrack) {
+	retryCount := uint64(0)
+
+	queryID := t.msg.info.QueryID
+
+	if inProgress, ok := pathEnd.clientICQProcessing[queryID]; ok {
+		retryCount = inProgress.retryCount + 1
+	}
+
+	pathEnd.clientICQProcessing[queryID] = processingMessage{
 		lastProcessedHeight: pathEnd.latestBlock.Height,
 		retryCount:          retryCount,
 		assembled:           t.assembled,

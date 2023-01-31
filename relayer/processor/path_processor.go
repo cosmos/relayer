@@ -24,6 +24,9 @@ const (
 	// to be relayed.
 	packetProofQueryTimeout = 5 * time.Second
 
+	// Amount of time to wait for interchain queries.
+	interchainQueryTimeout = 60 * time.Second
+
 	// If message assembly fails from either proof query failure on the source
 	// or assembling the message for the destination, how many blocks should pass
 	// before retrying.
