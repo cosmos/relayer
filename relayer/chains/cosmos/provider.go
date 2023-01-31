@@ -8,7 +8,6 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/module"
 	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
@@ -78,6 +77,8 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 // ChainClientConfig builds a ChainClientConfig struct from a CosmosProviderConfig, this is used
 // to instantiate an instance of ChainClient from lens which is how we build the CosmosProvider
 func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
+	modules := lens.ModuleBasics
+	modules = append(modules, stride.AppModuleBasic{})
 	return &lens.ChainClientConfig{
 		Key:            pcfg.Key,
 		ChainID:        pcfg.ChainID,
@@ -92,7 +93,7 @@ func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
 		OutputFormat:   pcfg.OutputFormat,
 		SignModeStr:    pcfg.SignModeStr,
 		ExtraCodecs:    pcfg.ExtraCodecs,
-		Modules:        append([]module.AppModuleBasic{stride.AppModuleBasic{}}, lens.ModuleBasics...),
+		Modules:        modules,
 	}
 }
 

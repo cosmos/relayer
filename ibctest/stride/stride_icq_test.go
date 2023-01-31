@@ -49,7 +49,7 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 				ChainID: "stride-1",
 				Images: []ibc.DockerImage{{
 					Repository: "ghcr.io/strangelove-ventures/heighliner/stride",
-					Version:    "andrew-test_admin",
+					Version:    "andrew-test_admin_v5.1.1",
 					UidGid:     "1025:1025",
 				}},
 				Bin:            "strided",
@@ -105,8 +105,8 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 		TestName:  t.Name(),
 		Client:    client,
 		NetworkID: network,
-		// TODO comment/remove
-		BlockDatabaseFile: ibctest.DefaultBlockDatabaseFilepath(),
+		// Uncomment this to load blocks, txs, msgs, and events into sqlite db as test runs
+		// BlockDatabaseFile: ibctest.DefaultBlockDatabaseFilepath(),
 
 		SkipPathCreation: false,
 	}))
@@ -242,8 +242,4 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 
 	_, err = PollForMsgSubmitQueryResponse(ctx, stride, strideHeight, strideHeight+20, strideCfg.ChainID)
 	require.NoError(t, err)
-
-	err = test.WaitForBlocks(ctx, 100, stride, gaia)
-	require.NoError(t, err)
-
 }
