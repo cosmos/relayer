@@ -39,6 +39,27 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromBlockEvents(
 	return res
 }
 
+func parseBase64Event(log *zap.Logger, event abci.Event) sdk.StringEvent {
+	evt := sdk.StringEvent{Type: event.Type}
+	for _, attr := range event.Attributes {
+		key, err := base64.StdEncoding.DecodeString(attr.Key)
+		if err != nil {
+			log.Error("Failed to decode legacy key as base64", zap.String("base64", attr.Key), zap.Error(err))
+			continue
+		}
+		value, err := base64.StdEncoding.DecodeString(attr.Value)
+		if err != nil {
+			log.Error("Failed to decode legacy value as base64", zap.String("base64", attr.Value), zap.Error(err))
+			continue
+		}
+		evt.Attributes = append(evt.Attributes, sdk.Attribute{
+			Key:   string(key),
+			Value: string(value),
+		})
+	}
+	return evt
+}
+
 // ibcMessagesFromTransaction parses all events within a transaction to find IBC messages
 func ibcMessagesFromEvents(
 	log *zap.Logger,
@@ -50,23 +71,7 @@ func ibcMessagesFromEvents(
 	for _, event := range events {
 		var evt sdk.StringEvent
 		if base64Encoded {
-			evt = sdk.StringEvent{Type: event.Type}
-			for _, attr := range event.Attributes {
-				key, err := base64.StdEncoding.DecodeString(attr.Key)
-				if err != nil {
-					log.Error("Failed to decode legacy key as base64", zap.String("base64", attr.Key), zap.Error(err))
-					continue
-				}
-				value, err := base64.StdEncoding.DecodeString(attr.Value)
-				if err != nil {
-					log.Error("Failed to decode legacy value as base64", zap.String("base64", attr.Value), zap.Error(err))
-					continue
-				}
-				evt.Attributes = append(evt.Attributes, sdk.Attribute{
-					Key:   string(key),
-					Value: string(value),
-				})
-			}
+			evt = parseBase64Event(log, event)
 		} else {
 			evt = sdk.StringifyEvent(event)
 		}

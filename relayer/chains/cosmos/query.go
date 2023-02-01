@@ -749,7 +749,7 @@ func (cc *CosmosProvider) QuerySendPacket(
 	}
 
 	q := sendPacketQuery(srcChanID, srcPortID, sequence)
-	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q, !cc.bytesEncodedEvents(zap.NewNop(), status.NodeInfo.Version))
+	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q, cc.legacyEncodedEvents(zap.NewNop(), status.NodeInfo.Version))
 	if err != nil {
 		return provider.PacketInfo{}, err
 	}
@@ -778,7 +778,7 @@ func (cc *CosmosProvider) QueryRecvPacket(
 	}
 
 	q := writeAcknowledgementQuery(dstChanID, dstPortID, sequence)
-	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q, !cc.bytesEncodedEvents(zap.NewNop(), status.NodeInfo.Version))
+	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q, cc.legacyEncodedEvents(zap.NewNop(), status.NodeInfo.Version))
 	if err != nil {
 		return provider.PacketInfo{}, err
 	}

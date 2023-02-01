@@ -126,7 +126,7 @@ func (ccp *CosmosChainProcessor) latestHeightWithRetry(ctx context.Context) (lat
 		latestHeight, err = ccp.chainProvider.QueryLatestHeight(latestHeightQueryCtx)
 		return err
 	}, retry.Context(ctx), retry.Attempts(latestHeightQueryRetries), retry.Delay(latestHeightQueryRetryDelay), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
-		ccp.log.Info(
+		ccp.log.Error(
 			"Failed to query latest height",
 			zap.Uint("attempt", n+1),
 			zap.Uint("max_attempts", latestHeightQueryRetries),
@@ -145,7 +145,7 @@ func (ccp *CosmosChainProcessor) nodeStatusWithRetry(ctx context.Context) (statu
 		status, err = ccp.chainProvider.QueryStatus(latestHeightQueryCtx)
 		return err
 	}, retry.Context(ctx), retry.Attempts(latestHeightQueryRetries), retry.Delay(latestHeightQueryRetryDelay), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
-		ccp.log.Info(
+		ccp.log.Error(
 			"Failed to query node status",
 			zap.Uint("attempt", n+1),
 			zap.Uint("max_attempts", latestHeightQueryRetries),
@@ -208,7 +208,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 			continue
 		}
 		persistence.latestHeight = status.SyncInfo.LatestBlockHeight
-		ccp.chainProvider.SetTendermintVersion(ccp.log, status.NodeInfo.Version)
+		ccp.chainProvider.setTendermintVersion(ccp.log, status.NodeInfo.Version)
 		break
 	}
 
@@ -310,7 +310,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	}
 
 	persistence.latestHeight = status.SyncInfo.LatestBlockHeight
-	ccp.chainProvider.SetTendermintVersion(ccp.log, status.NodeInfo.Version)
+	ccp.chainProvider.setTendermintVersion(ccp.log, status.NodeInfo.Version)
 
 	ccp.log.Debug("Queried latest height",
 		zap.Int64("latest_height", persistence.latestHeight),
@@ -383,7 +383,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		base64Encoded := !ccp.chainProvider.GetTendermintEncodingBytes()
+		base64Encoded := ccp.chainProvider.tendermintLegacyEncoding
 
 		blockMsgs := ccp.ibcMessagesFromBlockEvents(
 			blockRes.BeginBlockEvents,

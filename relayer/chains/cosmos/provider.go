@@ -117,8 +117,8 @@ type CosmosProvider struct {
 
 	metrics *processor.PrometheusMetrics
 
-	// for tendermint v0.37+, decode tm events as byte slice instead of base64
-	tendermintEncodingBytes bool
+	// for tendermint < v0.37, decode tm events as base64
+	tendermintLegacyEncoding bool
 }
 
 type CosmosIBCHeader struct {
@@ -253,7 +253,7 @@ func (cc *CosmosProvider) Init(ctx context.Context) error {
 		return nil
 	}
 
-	cc.SetTendermintVersion(cc.log, status.NodeInfo.Version)
+	cc.setTendermintVersion(cc.log, status.NodeInfo.Version)
 
 	return nil
 }
@@ -304,14 +304,10 @@ func (cc *CosmosProvider) updateNextAccountSequence(seq uint64) {
 	}
 }
 
-func (cc *CosmosProvider) GetTendermintEncodingBytes() bool {
-	return cc.tendermintEncodingBytes
+func (cc *CosmosProvider) setTendermintVersion(log *zap.Logger, version string) {
+	cc.tendermintLegacyEncoding = cc.legacyEncodedEvents(log, version)
 }
 
-func (cc *CosmosProvider) SetTendermintVersion(log *zap.Logger, version string) {
-	cc.tendermintEncodingBytes = cc.bytesEncodedEvents(log, version)
-}
-
-func (cc *CosmosProvider) bytesEncodedEvents(log *zap.Logger, version string) bool {
-	return semver.Compare("v"+version, tendermintEncodingThreshold) >= 0
+func (cc *CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
+	return semver.Compare("v"+version, tendermintEncodingThreshold) < 0
 }
