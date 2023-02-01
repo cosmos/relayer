@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/cosmos/cosmos-sdk v0.47.0-rc1
-	github.com/cosmos/ibc-go/v7 v7.0.0-20230129094322-b61f76443f71
+	github.com/cosmos/ibc-go/v7 v7.0.0-beta2
 	github.com/cosmos/relayer/v2 v2.0.0-00010101000000-000000000000
 	github.com/docker/docker v20.10.17+incompatible
 	github.com/icza/dyno v0.0.0-20220812133438-f0b6f8a18845
