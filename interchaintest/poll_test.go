@@ -1,4 +1,4 @@
-package ibctest_test
+package interchaintest_test
 
 import (
 	"context"
@@ -8,13 +8,13 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authTx "github.com/cosmos/cosmos-sdk/x/auth/tx"
-	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
-	"github.com/strangelove-ventures/ibctest/v5/ibc"
-	"github.com/strangelove-ventures/ibctest/v5/test"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	"github.com/strangelove-ventures/interchaintest/v7/ibc"
+	"github.com/strangelove-ventures/interchaintest/v7/testutil"
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
 )
 
-// TODO: Once relayer updated for ibc-go/v6, replace with ibctest's cosmos.PollForMessage function.
+// TODO: Once relayer updated for ibc-go/v7, replace with interchaintest's cosmos.PollForMessage function.
 func pollForUpdateClient(ctx context.Context, chain ibc.Chain, startHeight, maxHeight uint64) (*clienttypes.MsgUpdateClient, error) {
 	const secondsTimeout uint = 30
 	c, err := rpchttp.NewWithTimeout(chain.GetHostRPCAddress(), "/websocket", secondsTimeout)
@@ -22,7 +22,7 @@ func pollForUpdateClient(ctx context.Context, chain ibc.Chain, startHeight, maxH
 		panic(err)
 	}
 
-	doPoll := func(ctx context.Context, height uint64) (any, error) {
+	doPoll := func(ctx context.Context, height uint64) (*clienttypes.MsgUpdateClient, error) {
 		h := int64(height)
 		block, err := c.Block(ctx, &h)
 		if err != nil {
@@ -42,12 +42,12 @@ func pollForUpdateClient(ctx context.Context, chain ibc.Chain, startHeight, maxH
 		return nil, errors.New("not found")
 	}
 
-	bp := test.BlockPoller{CurrentHeight: chain.Height, PollFunc: doPoll}
+	bp := testutil.BlockPoller[*clienttypes.MsgUpdateClient]{CurrentHeight: chain.Height, PollFunc: doPoll}
 	result, err := bp.DoPoll(ctx, startHeight, maxHeight)
 	if err != nil {
 		return nil, err
 	}
-	return result.(*clienttypes.MsgUpdateClient), nil
+	return result, nil
 }
 
 func decodeTX(interfaceRegistry codectypes.InterfaceRegistry, txbz []byte) (sdk.Tx, error) {

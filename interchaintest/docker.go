@@ -1,4 +1,4 @@
-package ibctest
+package interchaintest
 
 import (
 	"bufio"
@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const RelayerImageName = "ibctestrelayer"
+const RelayerImageName = "interchaintestrelayer"
 
 type dockerLogLine struct {
 	Stream      string            `json:"stream"`

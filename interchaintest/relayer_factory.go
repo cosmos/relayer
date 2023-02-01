@@ -1,15 +1,15 @@
-package ibctest
+package interchaintest
 
 import (
 	"testing"
 
 	"github.com/docker/docker/client"
-	"github.com/strangelove-ventures/ibctest/v5/ibc"
-	"github.com/strangelove-ventures/ibctest/v5/label"
-	ibctestrelayer "github.com/strangelove-ventures/ibctest/v5/relayer"
+	"github.com/strangelove-ventures/interchaintest/v7/ibc"
+	"github.com/strangelove-ventures/interchaintest/v7/label"
+	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v7/relayer"
 )
 
-// RelayerFactory implements the ibctest RelayerFactory interface.
+// RelayerFactory implements the interchaintest RelayerFactory interface.
 type RelayerFactory struct {
 	config RelayerConfig
 }
@@ -36,9 +36,9 @@ func (rf RelayerFactory) Build(
 	return NewRelayer(t, rf.config)
 }
 
-func (RelayerFactory) Capabilities() map[ibctestrelayer.Capability]bool {
+func (RelayerFactory) Capabilities() map[interchaintestrelayer.Capability]bool {
 	// It is currently expected that the main branch of the relayer supports all tested features.
-	return ibctestrelayer.FullCapabilities()
+	return interchaintestrelayer.FullCapabilities()
 }
 
 func (RelayerFactory) Labels() []label.Relayer {

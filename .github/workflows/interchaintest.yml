@@ -1,4 +1,4 @@
-name: TESTING - ibctest
+name: TESTING - interchaintest
 
 on:
   pull_request:
@@ -26,8 +26,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: ibctest
-        run: make ibctest-events
+      - name: interchaintest
+        run: make interchaintest-events
 
   legacy:
     runs-on: self-hosted
@@ -48,8 +48,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: ibctest
-        run: make ibctest-legacy
+      - name: interchaintest
+        run: make interchaintest-legacy
 
   multiple-paths:
     runs-on: ubuntu-latest
@@ -70,8 +70,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: ibctest
-        run: make ibctest-multiple
+      - name: interchaintest
+        run: make interchaintest-multiple
 
   scenarios:
     runs-on: ubuntu-latest
@@ -92,5 +92,5 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: ibctest
-        run: make ibctest-scenario
+      - name: interchaintest
+        run: make interchaintest-scenario

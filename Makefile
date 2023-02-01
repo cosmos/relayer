@@ -10,12 +10,6 @@ DOCKER := $(shell which docker)
 GOPATH := $(shell go env GOPATH)
 GOBIN := $(GOPATH)/bin
 
-containerProtoVer=v0.2
-containerProtoImage=tendermintdev/sdk-proto-gen:$(containerProtoVer)
-containerProtoGen=cosmos-sdk-proto-gen-$(containerProtoVer)
-containerProtoGenSwagger=cosmos-sdk-proto-gen-swagger-$(containerProtoVer)
-containerProtoFmt=cosmos-sdk-proto-fmt-$(containerProtoVer)
-
 all: lint install
 
 ###############################################################################
@@ -67,29 +61,29 @@ build-osmosis-docker:
 test:
 	@go test -mod=readonly -race ./...
 
-ibctest:
-	cd ibctest && go test -race -v -run TestRelayerInProcess .
+interchaintest:
+	cd interchaintest && go test -race -v -run TestRelayerInProcess .
 
-ibctest-docker:
-	cd ibctest && go test -race -v -run TestRelayerDocker .
+interchaintest-docker:
+	cd interchaintest && go test -race -v -run TestRelayerDocker .
 
-ibctest-docker-events:
-	cd ibctest && go test -race -v -run TestRelayerDockerEventProcessor .
+interchaintest-docker-events:
+	cd interchaintest && go test -race -v -run TestRelayerDockerEventProcessor .
 
-ibctest-docker-legacy:
-	cd ibctest && go test -race -v -run TestRelayerDockerLegacyProcessor .
+interchaintest-docker-legacy:
+	cd interchaintest && go test -race -v -run TestRelayerDockerLegacyProcessor .
 
-ibctest-events:
-	cd ibctest && go test -race -v -run TestRelayerEventProcessor .
+interchaintest-events:
+	cd interchaintest && go test -race -v -run TestRelayerEventProcessor .
 
-ibctest-legacy:
-	cd ibctest && go test -race -v -run TestRelayerLegacyProcessor .
+interchaintest-legacy:
+	cd interchaintest && go test -race -v -run TestRelayerLegacyProcessor .
 
-ibctest-multiple:
-	cd ibctest && go test -race -v -run TestRelayerMultiplePathsSingleProcess .
+interchaintest-multiple:
+	cd interchaintest && go test -race -v -run TestRelayerMultiplePathsSingleProcess .
 
-ibctest-scenario: ## Scenario tests are suitable for simple networks of 1 validator and no full nodes. They test specific functionality.
-	cd ibctest && go test -race -v -run TestScenario ./...
+interchaintest-scenario: ## Scenario tests are suitable for simple networks of 1 validator and no full nodes. They test specific functionality.
+	cd interchaintest && go test -race -v -run TestScenario ./...
 
 coverage:
 	@echo "viewing test coverage..."
@@ -117,7 +111,7 @@ build-gaia:
 	make install &> /dev/null
 	@gaiad version --long
 
-.PHONY: two-chains test test-integration ibctest install build lint coverage clean
+.PHONY: two-chains test test-integration interchaintest install build lint coverage clean
 
 PACKAGE_NAME          := github.com/cosmos/relayer
 GOLANG_CROSS_VERSION  ?= v1.19.4
@@ -162,8 +156,18 @@ release:
 		goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
 		release --rm-dist
 
+protoVer=0.11.2
+protoImageName=ghcr.io/cosmos/proto-builder:$(protoVer)
+protoImage=$(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace $(protoImageName)
+
+proto-all: proto-format proto-lint proto-gen
+
 proto-gen:
 	@echo "Generating Protobuf files"
-	@if docker ps -a --format '{{.Names}}' | grep -Eq "^${containerProtoGen}$$"; then docker start -a $(containerProtoGen); else docker run --name $(containerProtoGen) -v $(CURDIR):/workspace --workdir /workspace $(containerProtoImage) \
-		sh ./scripts/protocgen.sh; fi
-	@go mod tidy
+	@$(protoImage) sh ./scripts/protocgen.sh
+
+proto-format:
+	@$(protoImage) find ./ -name "*.proto" -exec clang-format -i {} \;
+
+proto-lint:
+	@$(protoImage) buf lint --error-format=json

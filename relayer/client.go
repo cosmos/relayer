@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
-	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -304,7 +304,7 @@ func MsgUpdateClient(
 		return nil, err
 	}
 
-	var updateHeader ibcexported.Header
+	var updateHeader ibcexported.ClientMessage
 	if err := retry.Do(func() error {
 		var err error
 		updateHeader, err = src.ChainProvider.MsgUpdateClientHeader(srcHeader, dstClientState.GetLatestHeight().(clienttypes.Height), dstTrustedHeader)

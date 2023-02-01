@@ -18,16 +18,17 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/params/types/proposal"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
-	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v5/modules/core/24-host"
-	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
+	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	abci "github.com/tendermint/tendermint/abci/types"
+	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -36,7 +37,7 @@ import (
 var _ provider.QueryProvider = &CosmosProvider{}
 
 // queryIBCMessages returns an array of IBC messages given a tag
-func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger, page, limit int, query string) ([]ibcMessage, error) {
+func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger, page, limit int, query string, base64Encoded bool) ([]ibcMessage, error) {
 	if query == "" {
 		return nil, errors.New("query string must be provided")
 	}
@@ -56,7 +57,7 @@ func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger,
 	var ibcMsgs []ibcMessage
 	chainID := cc.ChainId()
 	for _, tx := range res.Txs {
-		ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0)...)
+		ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, base64Encoded)...)
 	}
 
 	return ibcMsgs, nil
@@ -230,7 +231,7 @@ func (cc *CosmosProvider) QueryTendermintProof(ctx context.Context, height int64
 	}
 
 	req := abci.RequestQuery{
-		Path:   fmt.Sprintf("store/%s/key", host.StoreKey),
+		Path:   fmt.Sprintf("store/%s/key", ibcexported.StoreKey),
 		Height: height,
 		Data:   key,
 		Prove:  true,
@@ -742,8 +743,13 @@ func (cc *CosmosProvider) QuerySendPacket(
 	srcPortID string,
 	sequence uint64,
 ) (provider.PacketInfo, error) {
+	status, err := cc.QueryStatus(ctx)
+	if err != nil {
+		return provider.PacketInfo{}, err
+	}
+
 	q := sendPacketQuery(srcChanID, srcPortID, sequence)
-	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q)
+	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q, cc.legacyEncodedEvents(zap.NewNop(), status.NodeInfo.Version))
 	if err != nil {
 		return provider.PacketInfo{}, err
 	}
@@ -766,8 +772,13 @@ func (cc *CosmosProvider) QueryRecvPacket(
 	dstPortID string,
 	sequence uint64,
 ) (provider.PacketInfo, error) {
+	status, err := cc.QueryStatus(ctx)
+	if err != nil {
+		return provider.PacketInfo{}, err
+	}
+
 	q := writeAcknowledgementQuery(dstChanID, dstPortID, sequence)
-	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q)
+	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q, cc.legacyEncodedEvents(zap.NewNop(), status.NodeInfo.Version))
 	if err != nil {
 		return provider.PacketInfo{}, err
 	}
@@ -888,8 +899,17 @@ func (cc *CosmosProvider) QueryLatestHeight(ctx context.Context) (int64, error) 
 	return stat.SyncInfo.LatestBlockHeight, nil
 }
 
+// Query current node status
+func (cc *CosmosProvider) QueryStatus(ctx context.Context) (*coretypes.ResultStatus, error) {
+	status, err := cc.RPCClient.Status(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query node status: %w", err)
+	}
+	return status, nil
+}
+
 // QueryHeaderAtHeight returns the header at a given height
-func (cc *CosmosProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.Header, error) {
+func (cc *CosmosProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.ClientMessage, error) {
 	var (
 		page    = 1
 		perPage = 100000

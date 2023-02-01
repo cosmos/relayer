@@ -1,16 +1,16 @@
-package ibctest_test
+package interchaintest_test
 
 import (
 	"context"
 	"testing"
 
-	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
-	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
-	"github.com/strangelove-ventures/ibctest/v5"
-	"github.com/strangelove-ventures/ibctest/v5/chain/cosmos"
-	"github.com/strangelove-ventures/ibctest/v5/ibc"
-	"github.com/strangelove-ventures/ibctest/v5/test"
-	"github.com/strangelove-ventures/ibctest/v5/testreporter"
+	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
+	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
+	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v7/ibc"
+	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v7/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -21,7 +21,7 @@ import (
 // CosmosChainProcessor (gaia) will feed data to two PathProcessors (gaia-osmosis and gaia-juno).
 func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	var (
-		r    = relayeribctest.NewRelayer(t, relayeribctest.RelayerConfig{})
+		r    = relayerinterchaintest.NewRelayer(t, relayerinterchaintest.RelayerConfig{})
 		rep  = testreporter.NewNopReporter()
 		eRep = rep.RelayerExecReporter(t)
 		ctx  = context.Background()
@@ -30,7 +30,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	)
 
 	// Define chains involved in test
-	cf := ibctest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctest.ChainSpec{
+	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		{
 			Name:          "gaia",
 			ChainName:     "gaia",
@@ -58,38 +58,38 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	require.NoError(t, err)
 
 	gaia, osmosis, juno := chains[0].(*cosmos.CosmosChain), chains[1].(*cosmos.CosmosChain), chains[2].(*cosmos.CosmosChain)
-	gaiaCfg, osmosisCfg, junoCfg := gaia.Config(), osmosis.Config(), juno.Config()
+	osmosisCfg, junoCfg := osmosis.Config(), juno.Config()
 
 	// Build the network; spin up the chains and configure the relayer
 	const pathGaiaOsmosis = "gaia-osmosis"
 	const pathGaiaJuno = "gaia-juno"
 	const relayerName = "relayer"
 
-	ic := ibctest.NewInterchain().
+	ic := interchaintest.NewInterchain().
 		AddChain(gaia).
 		AddChain(osmosis).
 		AddChain(juno).
 		AddRelayer(r, relayerName).
-		AddLink(ibctest.InterchainLink{
+		AddLink(interchaintest.InterchainLink{
 			Chain1:  gaia,
 			Chain2:  osmosis,
 			Relayer: r,
 			Path:    pathGaiaOsmosis,
 		}).
-		AddLink(ibctest.InterchainLink{
+		AddLink(interchaintest.InterchainLink{
 			Chain1:  gaia,
 			Chain2:  juno,
 			Relayer: r,
 			Path:    pathGaiaJuno,
 		})
 
-	client, network := ibctest.DockerSetup(t)
+	client, network := interchaintest.DockerSetup(t)
 
-	require.NoError(t, ic.Build(ctx, eRep, ibctest.InterchainBuildOptions{
+	require.NoError(t, ic.Build(ctx, eRep, interchaintest.InterchainBuildOptions{
 		TestName:          t.Name(),
 		Client:            client,
 		NetworkID:         network,
-		BlockDatabaseFile: ibctest.DefaultBlockDatabaseFilepath(),
+		BlockDatabaseFile: interchaintest.DefaultBlockDatabaseFilepath(),
 
 		SkipPathCreation: false,
 	}))
@@ -99,11 +99,11 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 
 	// Fund user accounts, so we can query balances and make assertions.
 	const userFunds = int64(10_000_000)
-	users := ibctest.GetAndFundTestUsers(t, ctx, t.Name(), userFunds, gaia, osmosis, juno)
-	gaiaUser, osmosisUser, junoUser := users[0], users[1], users[2]
+	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), userFunds, gaia, osmosis, juno)
+	gaiaUser, osmosisUser, junoUser := users[0].(*cosmos.CosmosWallet), users[1].(*cosmos.CosmosWallet), users[2].(*cosmos.CosmosWallet)
 
 	// Wait a few blocks for user accounts to be created on chain.
-	err = test.WaitForBlocks(ctx, 2, gaia, osmosis, juno)
+	err = testutil.WaitForBlocks(ctx, 2, gaia, osmosis, juno)
 	require.NoError(t, err)
 
 	// Start the relayers
@@ -120,16 +120,16 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	)
 
 	// Wait a few blocks for the relayer to start.
-	err = test.WaitForBlocks(ctx, 2, gaia, osmosis, juno)
+	err = testutil.WaitForBlocks(ctx, 2, gaia, osmosis, juno)
 	require.NoError(t, err)
 
-	gaiaAddress := gaiaUser.Bech32Address(gaiaCfg.Bech32Prefix)
+	gaiaAddress := gaiaUser.FormattedAddress()
 	require.NotEmpty(t, gaiaAddress)
 
-	osmosisAddress := osmosisUser.Bech32Address(osmosisCfg.Bech32Prefix)
+	osmosisAddress := osmosisUser.FormattedAddress()
 	require.NotEmpty(t, osmosisAddress)
 
-	junoAddress := junoUser.Bech32Address(junoCfg.Bech32Prefix)
+	junoAddress := junoUser.FormattedAddress()
 	require.NotEmpty(t, junoAddress)
 
 	// get ibc chans
@@ -152,15 +152,15 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 			return err
 		}
 		// Fund gaia user with ibc denom osmo
-		tx, err := osmosis.SendIBCTransfer(ctx, osmosisChans[0].ChannelID, osmosisUser.KeyName, ibc.WalletAmount{
+		tx, err := osmosis.SendIBCTransfer(ctx, osmosisChans[0].ChannelID, osmosisUser.KeyName(), ibc.WalletAmount{
 			Amount:  transferAmount,
 			Denom:   osmosisCfg.Denom,
 			Address: gaiaAddress,
-		}, nil)
+		}, ibc.TransferOptions{})
 		if err != nil {
 			return err
 		}
-		_, err = test.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
+		_, err = testutil.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
 		return err
 	})
 
@@ -170,15 +170,15 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 			return err
 		}
 		// Fund gaia user with ibc denom juno
-		tx, err := juno.SendIBCTransfer(ctx, junoChans[0].ChannelID, junoUser.KeyName, ibc.WalletAmount{
+		tx, err := juno.SendIBCTransfer(ctx, junoChans[0].ChannelID, junoUser.KeyName(), ibc.WalletAmount{
 			Amount:  transferAmount,
 			Denom:   junoCfg.Denom,
 			Address: gaiaAddress,
-		}, nil)
+		}, ibc.TransferOptions{})
 		if err != nil {
 			return err
 		}
-		_, err = test.PollForAck(ctx, juno, junoHeight, junoHeight+10, tx.Packet)
+		_, err = testutil.PollForAck(ctx, juno, junoHeight, junoHeight+10, tx.Packet)
 		return err
 	})
 

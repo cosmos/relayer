@@ -8,16 +8,18 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
-	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
+	"github.com/cosmos/gogoproto/proto"
+	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	cosmosmodule "github.com/cosmos/relayer/v2/relayer/chains/cosmos/module"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/gogo/protobuf/proto"
 	lens "github.com/strangelove-ventures/lens/client"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
+	"golang.org/x/mod/semver"
 )
 
 var (
@@ -25,6 +27,8 @@ var (
 	_ provider.KeyProvider    = &CosmosProvider{}
 	_ provider.ProviderConfig = &CosmosProviderConfig{}
 )
+
+const tendermintEncodingThreshold = "v0.37.0-alpha"
 
 type CosmosProviderConfig struct {
 	Key            string   `json:"key" yaml:"key"`
@@ -78,6 +82,7 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 // to instantiate an instance of ChainClient from lens which is how we build the CosmosProvider
 func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
 	modules := lens.ModuleBasics
+	modules = append(modules, cosmosmodule.AppModuleBasic{})
 	modules = append(modules, stride.AppModuleBasic{})
 	return &lens.ChainClientConfig{
 		Key:            pcfg.Key,
@@ -111,6 +116,9 @@ type CosmosProvider struct {
 	totalFeesMu sync.Mutex
 
 	metrics *processor.PrometheusMetrics
+
+	// for tendermint < v0.37, decode tm events as base64
+	tendermintLegacyEncoding bool
 }
 
 type CosmosIBCHeader struct {
@@ -238,6 +246,18 @@ func (cc *CosmosProvider) Sprint(toPrint proto.Message) (string, error) {
 	return string(out), nil
 }
 
+func (cc *CosmosProvider) Init(ctx context.Context) error {
+	status, err := cc.QueryStatus(ctx)
+	if err != nil {
+		// Operations can occur before the node URL is added to the config, so noop here.
+		return nil
+	}
+
+	cc.setTendermintVersion(cc.log, status.NodeInfo.Version)
+
+	return nil
+}
+
 // WaitForNBlocks blocks until the next block on a given chain
 func (cc *CosmosProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	var initial int64
@@ -282,4 +302,12 @@ func (cc *CosmosProvider) updateNextAccountSequence(seq uint64) {
 	if seq > cc.nextAccountSeq {
 		cc.nextAccountSeq = seq
 	}
+}
+
+func (cc *CosmosProvider) setTendermintVersion(log *zap.Logger, version string) {
+	cc.tendermintLegacyEncoding = cc.legacyEncodedEvents(log, version)
+}
+
+func (cc *CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
+	return semver.Compare("v"+version, tendermintEncodingThreshold) < 0
 }

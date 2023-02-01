@@ -6,14 +6,15 @@ import (
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/types"
-	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
-	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
-	"github.com/cosmos/relayer/v2/ibctest/stride"
-	ibctest "github.com/strangelove-ventures/ibctest/v5"
-	"github.com/strangelove-ventures/ibctest/v5/chain/cosmos"
-	"github.com/strangelove-ventures/ibctest/v5/ibc"
-	"github.com/strangelove-ventures/ibctest/v5/test"
-	"github.com/strangelove-ventures/ibctest/v5/testreporter"
+	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
+	rlystride "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
+	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
+	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v7/ibc"
+	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v7/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -26,7 +27,9 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 		t.Skip()
 	}
 
-	client, network := ibctest.DockerSetup(t)
+	t.Parallel()
+
+	client, network := interchaintest.DockerSetup(t)
 
 	rep := testreporter.NewNopReporter()
 	eRep := rep.RelayerExecReporter(t)
@@ -37,7 +40,7 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	nv := 1
 
 	// Define chains involved in test
-	cf := ibctest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctest.ChainSpec{
+	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		{
 			Name:          "stride",
 			ChainName:     "stride",
@@ -59,7 +62,7 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 				TrustingPeriod: TrustingPeriod,
 				GasAdjustment:  1.1,
 				ModifyGenesis:  ModifyGenesisStride(),
-				EncodingConfig: stride.Encoding(),
+				EncodingConfig: StrideEncoding(),
 			}},
 		{
 			Name:          "gaia",
@@ -80,7 +83,7 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	stride, gaia := chains[0].(*cosmos.CosmosChain), chains[1].(*cosmos.CosmosChain)
 	strideCfg, gaiaCfg := stride.Config(), gaia.Config()
 
-	r := relayeribctest.NewRelayer(t, relayeribctest.RelayerConfig{})
+	r := relayerinterchaintest.NewRelayer(t, relayerinterchaintest.RelayerConfig{})
 
 	// Build the network; spin up the chains and configure the relayer
 	const pathStrideGaia = "stride-gaia"
@@ -89,11 +92,11 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	clientOpts := ibc.DefaultClientOpts()
 	clientOpts.TrustingPeriod = TrustingPeriod
 
-	ic := ibctest.NewInterchain().
+	ic := interchaintest.NewInterchain().
 		AddChain(stride).
 		AddChain(gaia).
 		AddRelayer(r, relayerName).
-		AddLink(ibctest.InterchainLink{
+		AddLink(interchaintest.InterchainLink{
 			Chain1:           stride,
 			Chain2:           gaia,
 			Relayer:          r,
@@ -101,12 +104,12 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 			CreateClientOpts: clientOpts,
 		})
 
-	require.NoError(t, ic.Build(ctx, eRep, ibctest.InterchainBuildOptions{
+	require.NoError(t, ic.Build(ctx, eRep, interchaintest.InterchainBuildOptions{
 		TestName:  t.Name(),
 		Client:    client,
 		NetworkID: network,
 		// Uncomment this to load blocks, txs, msgs, and events into sqlite db as test runs
-		// BlockDatabaseFile: ibctest.DefaultBlockDatabaseFilepath(),
+		// BlockDatabaseFile: interchaintest.DefaultBlockDatabaseFilepath(),
 
 		SkipPathCreation: false,
 	}))
@@ -116,7 +119,7 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 
 	// Fund user accounts, so we can query balances and make assertions.
 	const userFunds = int64(10_000_000_000_000)
-	users := ibctest.GetAndFundTestUsers(t, ctx, t.Name(), userFunds, stride, gaia)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), userFunds, stride, gaia)
 	strideUser, gaiaUser := users[0], users[1]
 
 	strideFullNode := stride.Validators[0]
@@ -144,7 +147,7 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	strideAdminAddr, err := types.Bech32ifyAddressBytes(strideCfg.Bech32Prefix, strideAdminAddrBytes)
 	require.NoError(t, err)
 
-	err = stride.SendFunds(ctx, ibctest.FaucetAccountKeyName, ibc.WalletAmount{
+	err = stride.SendFunds(ctx, interchaintest.FaucetAccountKeyName, ibc.WalletAmount{
 		Address: strideAdminAddr,
 		Amount:  userFunds,
 		Denom:   strideCfg.Denom,
@@ -152,10 +155,10 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	require.NoError(t, err, "failed to fund stride admin account")
 
 	// get native chain user addresses
-	strideAddr := strideUser.Bech32Address(strideCfg.Bech32Prefix)
+	strideAddr := strideUser.FormattedAddress()
 	require.NotEmpty(t, strideAddr)
 
-	gaiaAddress := gaiaUser.Bech32Address(gaiaCfg.Bech32Prefix)
+	gaiaAddress := gaiaUser.FormattedAddress()
 	require.NotEmpty(t, gaiaAddress)
 
 	// get ibc paths
@@ -180,14 +183,14 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	require.NoError(t, err)
 
 	// Fund stride user with ibc denom atom
-	tx, err := gaia.SendIBCTransfer(ctx, gaiaChans[0].ChannelID, gaiaUser.KeyName, ibc.WalletAmount{
+	tx, err := gaia.SendIBCTransfer(ctx, gaiaChans[0].ChannelID, gaiaUser.KeyName(), ibc.WalletAmount{
 		Amount:  1_000_000_000_000,
 		Denom:   gaiaCfg.Denom,
 		Address: strideAddr,
-	}, nil)
+	}, ibc.TransferOptions{})
 	require.NoError(t, err)
 
-	_, err = test.PollForAck(ctx, gaia, gaiaHeight, gaiaHeight+10, tx.Packet)
+	_, err = testutil.PollForAck(ctx, gaia, gaiaHeight, gaiaHeight+10, tx.Packet)
 	require.NoError(t, err)
 
 	require.NoError(t, eg.Wait())
@@ -205,7 +208,12 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for the ICA accounts to be setup
-	_, err = PollForMsgChannelOpenConfirm(ctx, gaia, gaiaHeight, gaiaHeight+15, gaiaCfg.ChainID)
+	// Poll for 4 MsgChannelOpenConfirm with timeout after 15 blocks.
+	chanCount := 0
+	_, err = cosmos.PollForMessage(
+		ctx, gaia, gaiaCfg.EncodingConfig.InterfaceRegistry, gaiaHeight, gaiaHeight+15,
+		func(found *chantypes.MsgChannelOpenConfirm) bool { chanCount++; return chanCount == 4 },
+	)
 	require.NoError(t, err)
 
 	// Get validator address
@@ -231,7 +239,7 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	require.NoError(t, err)
 
 	// Liquid stake some atom
-	_, err = strideFullNode.ExecTx(ctx, strideUser.KeyName,
+	_, err = strideFullNode.ExecTx(ctx, strideUser.KeyName(),
 		"stakeibc", "liquid-stake",
 		"1000000000000", gaiaCfg.Denom,
 	)
@@ -240,6 +248,10 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	strideHeight, err := stride.Height(ctx)
 	require.NoError(t, err)
 
-	_, err = PollForMsgSubmitQueryResponse(ctx, stride, strideHeight, strideHeight+20, strideCfg.ChainID)
+	// Poll for MsgSubmitQueryResponse with timeout after 20 blocks
+	_, err = cosmos.PollForMessage(
+		ctx, stride, strideCfg.EncodingConfig.InterfaceRegistry, strideHeight, strideHeight+20,
+		func(found *rlystride.MsgSubmitQueryResponse) bool { return true },
+	)
 	require.NoError(t, err)
 }

@@ -5,8 +5,8 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap/zapcore"
 )
 
