@@ -8,7 +8,7 @@ require (
 	github.com/cosmos/relayer/v2 v2.0.0
 	github.com/docker/docker v20.10.19+incompatible
 	github.com/icza/dyno v0.0.0-20220812133438-f0b6f8a18845
-	github.com/moby/moby v20.10.18+incompatible
+	github.com/moby/moby v20.10.20+incompatible
 	github.com/strangelove-ventures/ibctest/v5 v5.0.0-20221201055938-fa49178c17eb
 	github.com/stretchr/testify v1.8.1
 	github.com/tendermint/tendermint v0.34.23
