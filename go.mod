@@ -14,7 +14,7 @@ require (
 	github.com/prometheus/client_golang v1.12.2
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.14.0
-	github.com/strangelove-ventures/lens v0.5.3
+	github.com/strangelove-ventures/lens v0.5.4
 	github.com/stretchr/testify v1.8.1
 	github.com/tendermint/tendermint v0.34.24
 	go.uber.org/multierr v1.8.0
