@@ -1,16 +1,16 @@
-package ibctest_test
+package interchaintest_test
 
 import (
 	"context"
 	"testing"
 
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
-	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
-	ibctest "github.com/strangelove-ventures/ibctest/v7"
-	"github.com/strangelove-ventures/ibctest/v7/chain/cosmos"
-	"github.com/strangelove-ventures/ibctest/v7/ibc"
-	"github.com/strangelove-ventures/ibctest/v7/testreporter"
-	"github.com/strangelove-ventures/ibctest/v7/testutil"
+	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
+	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
+	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v7/ibc"
+	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v7/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -21,7 +21,7 @@ import (
 // CosmosChainProcessor (gaia) will feed data to two PathProcessors (gaia-osmosis and gaia-juno).
 func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	var (
-		r    = relayeribctest.NewRelayer(t, relayeribctest.RelayerConfig{})
+		r    = relayerinterchaintest.NewRelayer(t, relayerinterchaintest.RelayerConfig{})
 		rep  = testreporter.NewNopReporter()
 		eRep = rep.RelayerExecReporter(t)
 		ctx  = context.Background()
@@ -30,7 +30,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	)
 
 	// Define chains involved in test
-	cf := ibctest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctest.ChainSpec{
+	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		{
 			Name:          "gaia",
 			ChainName:     "gaia",
@@ -65,31 +65,31 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	const pathGaiaJuno = "gaia-juno"
 	const relayerName = "relayer"
 
-	ic := ibctest.NewInterchain().
+	ic := interchaintest.NewInterchain().
 		AddChain(gaia).
 		AddChain(osmosis).
 		AddChain(juno).
 		AddRelayer(r, relayerName).
-		AddLink(ibctest.InterchainLink{
+		AddLink(interchaintest.InterchainLink{
 			Chain1:  gaia,
 			Chain2:  osmosis,
 			Relayer: r,
 			Path:    pathGaiaOsmosis,
 		}).
-		AddLink(ibctest.InterchainLink{
+		AddLink(interchaintest.InterchainLink{
 			Chain1:  gaia,
 			Chain2:  juno,
 			Relayer: r,
 			Path:    pathGaiaJuno,
 		})
 
-	client, network := ibctest.DockerSetup(t)
+	client, network := interchaintest.DockerSetup(t)
 
-	require.NoError(t, ic.Build(ctx, eRep, ibctest.InterchainBuildOptions{
+	require.NoError(t, ic.Build(ctx, eRep, interchaintest.InterchainBuildOptions{
 		TestName:          t.Name(),
 		Client:            client,
 		NetworkID:         network,
-		BlockDatabaseFile: ibctest.DefaultBlockDatabaseFilepath(),
+		BlockDatabaseFile: interchaintest.DefaultBlockDatabaseFilepath(),
 
 		SkipPathCreation: false,
 	}))
@@ -99,7 +99,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 
 	// Fund user accounts, so we can query balances and make assertions.
 	const userFunds = int64(10_000_000)
-	users := ibctest.GetAndFundTestUsers(t, ctx, t.Name(), userFunds, gaia, osmosis, juno)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), userFunds, gaia, osmosis, juno)
 	gaiaUser, osmosisUser, junoUser := users[0].(*cosmos.CosmosWallet), users[1].(*cosmos.CosmosWallet), users[2].(*cosmos.CosmosWallet)
 
 	// Wait a few blocks for user accounts to be created on chain.

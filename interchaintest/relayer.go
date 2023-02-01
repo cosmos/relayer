@@ -1,4 +1,4 @@
-package ibctest
+package interchaintest
 
 import (
 	"context"
@@ -14,8 +14,8 @@ import (
 	"github.com/cosmos/relayer/v2/internal/relayertest"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
-	ibctestcosmos "github.com/strangelove-ventures/ibctest/v7/chain/cosmos"
-	"github.com/strangelove-ventures/ibctest/v7/ibc"
+	interchaintestcosmos "github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v7/ibc"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -333,7 +333,7 @@ func (r *Relayer) FlushPackets(ctx context.Context, _ ibc.RelayerExecReporter, p
 func (r *Relayer) GetWallet(chainID string) (ibc.Wallet, bool) {
 	res := r.sys().RunC(context.Background(), r.log(), "keys", "show", chainID)
 	if res.Err != nil {
-		return &ibctestcosmos.CosmosWallet{}, false
+		return &interchaintestcosmos.CosmosWallet{}, false
 	}
 	address := strings.TrimSpace(res.Stdout.String())
 
@@ -358,5 +358,5 @@ func (r *Relayer) GetWallet(chainID string) (ibc.Wallet, bool) {
 
 	addressBz, err := types.GetFromBech32(address, chainCfg.Bech32Prefix)
 	require.NoError(r.t, err, "failed to decode bech32 wallet")
-	return ibctestcosmos.NewWallet(keyName, addressBz, "", chainCfg), true
+	return interchaintestcosmos.NewWallet(keyName, addressBz, "", chainCfg), true
 }

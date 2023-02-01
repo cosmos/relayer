@@ -1,14 +1,14 @@
-package ibctest_test
+package interchaintest_test
 
 import (
 	"context"
 	"testing"
 
-	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
-	ibctest "github.com/strangelove-ventures/ibctest/v7"
-	"github.com/strangelove-ventures/ibctest/v7/chain/cosmos"
-	"github.com/strangelove-ventures/ibctest/v7/conformance"
-	"github.com/strangelove-ventures/ibctest/v7/testreporter"
+	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
+	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
+	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v7/conformance"
+	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -23,7 +23,7 @@ func TestScenarioTendermint37Boundary(t *testing.T) {
 	nv := 1
 	nf := 0
 
-	cf := ibctest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctest.ChainSpec{
+	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		{
 			Name:          "gaia",
 			ChainName:     "gaia",
@@ -44,7 +44,7 @@ func TestScenarioTendermint37Boundary(t *testing.T) {
 	chains, err := cf.Chains(t.Name())
 	require.NoError(t, err)
 
-	client, network := ibctest.DockerSetup(t)
+	client, network := interchaintest.DockerSetup(t)
 
 	chain, counterpartyChain := chains[0].(*cosmos.CosmosChain), chains[1].(*cosmos.CosmosChain)
 
@@ -53,16 +53,16 @@ func TestScenarioTendermint37Boundary(t *testing.T) {
 		relayerName = "relayer"
 	)
 
-	rf := relayeribctest.NewRelayerFactory(relayeribctest.RelayerConfig{
+	rf := relayerinterchaintest.NewRelayerFactory(relayerinterchaintest.RelayerConfig{
 		InitialBlockHistory: 50,
 	})
 	r := rf.Build(t, client, network)
 
-	ic := ibctest.NewInterchain().
+	ic := interchaintest.NewInterchain().
 		AddChain(chain).
 		AddChain(counterpartyChain).
 		AddRelayer(r, relayerName).
-		AddLink(ibctest.InterchainLink{
+		AddLink(interchaintest.InterchainLink{
 			Chain1:  chain,
 			Chain2:  counterpartyChain,
 			Relayer: r,
@@ -73,11 +73,11 @@ func TestScenarioTendermint37Boundary(t *testing.T) {
 
 	rep := testreporter.NewNopReporter()
 
-	require.NoError(t, ic.Build(ctx, rep.RelayerExecReporter(t), ibctest.InterchainBuildOptions{
+	require.NoError(t, ic.Build(ctx, rep.RelayerExecReporter(t), interchaintest.InterchainBuildOptions{
 		TestName:          t.Name(),
 		Client:            client,
 		NetworkID:         network,
-		BlockDatabaseFile: ibctest.DefaultBlockDatabaseFilepath(),
+		BlockDatabaseFile: interchaintest.DefaultBlockDatabaseFilepath(),
 		SkipPathCreation:  false,
 	}))
 	t.Cleanup(func() {

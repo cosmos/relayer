@@ -1,4 +1,4 @@
-package ibctest_test
+package interchaintest_test
 
 import (
 	"context"
@@ -9,12 +9,12 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authTx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	"github.com/strangelove-ventures/ibctest/v7/ibc"
-	"github.com/strangelove-ventures/ibctest/v7/testutil"
+	"github.com/strangelove-ventures/interchaintest/v7/ibc"
+	"github.com/strangelove-ventures/interchaintest/v7/testutil"
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
 )
 
-// TODO: Once relayer updated for ibc-go/v7, replace with ibctest's cosmos.PollForMessage function.
+// TODO: Once relayer updated for ibc-go/v7, replace with interchaintest's cosmos.PollForMessage function.
 func pollForUpdateClient(ctx context.Context, chain ibc.Chain, startHeight, maxHeight uint64) (*clienttypes.MsgUpdateClient, error) {
 	const secondsTimeout uint = 30
 	c, err := rpchttp.NewWithTimeout(chain.GetHostRPCAddress(), "/websocket", secondsTimeout)

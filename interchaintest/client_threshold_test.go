@@ -1,16 +1,16 @@
-package ibctest_test
+package interchaintest_test
 
 import (
 	"context"
 	"fmt"
 	"testing"
 
-	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
-	ibctest "github.com/strangelove-ventures/ibctest/v7"
-	"github.com/strangelove-ventures/ibctest/v7/ibc"
-	ibctestrelayer "github.com/strangelove-ventures/ibctest/v7/relayer"
-	"github.com/strangelove-ventures/ibctest/v7/testreporter"
-	"github.com/strangelove-ventures/ibctest/v7/testutil"
+	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
+	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
+	"github.com/strangelove-ventures/interchaintest/v7/ibc"
+	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v7/relayer"
+	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v7/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -32,7 +32,7 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 	nf := 0
 
 	// Chain Factory
-	cf := ibctest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctest.ChainSpec{
+	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		// Two otherwise identical chains that only differ by ChainName and ChainID.
 		{Name: "gaia", ChainName: "g0", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: g0ChainId}},
 		{Name: "gaia", ChainName: "g1", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: g1ChainId}},
@@ -42,28 +42,28 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 	require.NoError(t, err)
 	g0, g1 := chains[0], chains[1]
 
-	client, network := ibctest.DockerSetup(t)
-	relayeribctest.BuildRelayerImage(t)
+	client, network := interchaintest.DockerSetup(t)
+	relayerinterchaintest.BuildRelayerImage(t)
 
 	// Relayer is set with "--time-threshold 5m"
 	// The client being created below also has a trusting period of 5m.
 	// The relayer should automatically update the client after chains re in sync.
-	r := ibctest.NewBuiltinRelayerFactory(
+	r := interchaintest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest", "100:1000"),
-		ibctestrelayer.ImagePull(false),
-		ibctestrelayer.StartupFlags("--time-threshold", "20s"),
+		interchaintestrelayer.CustomDockerImage(relayerinterchaintest.RelayerImageName, "latest", "100:1000"),
+		interchaintestrelayer.ImagePull(false),
+		interchaintestrelayer.StartupFlags("--time-threshold", "20s"),
 	).Build(t, client, network)
 
 	ibcPath := t.Name()
 
 	// Prep Interchain with client trusting period of 5 min
-	ic := ibctest.NewInterchain().
+	ic := interchaintest.NewInterchain().
 		AddChain(g0).
 		AddChain(g1).
 		AddRelayer(r, "relayer").
-		AddLink(ibctest.InterchainLink{
+		AddLink(interchaintest.InterchainLink{
 			Chain1:  g0,
 			Chain2:  g1,
 			Relayer: r,
@@ -80,7 +80,7 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 	eRep := rep.RelayerExecReporter(t)
 
 	// Build interchain
-	require.NoError(t, ic.Build(ctx, eRep, ibctest.InterchainBuildOptions{
+	require.NoError(t, ic.Build(ctx, eRep, interchaintest.InterchainBuildOptions{
 		TestName:  t.Name(),
 		Client:    client,
 		NetworkID: network,
@@ -152,7 +152,7 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 	nf := 0
 
 	// Chain Factory
-	cf := ibctest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctest.ChainSpec{
+	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		// Two otherwise identical chains that only differ by ChainID.
 		{Name: "gaia", ChainName: "g0", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: g0ChainId}},
 		{Name: "gaia", ChainName: "g1", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: g1ChainId}},
@@ -162,26 +162,26 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 	require.NoError(t, err)
 	g0, g1 := chains[0], chains[1]
 
-	client, network := ibctest.DockerSetup(t)
-	relayeribctest.BuildRelayerImage(t)
+	client, network := interchaintest.DockerSetup(t)
+	relayerinterchaintest.BuildRelayerImage(t)
 
 	// Relayer is set with "--time-threshold 0"
 	// The Relayer should NOT continuously update clients
-	r := ibctest.NewBuiltinRelayerFactory(
+	r := interchaintest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest", "100:1000"),
-		ibctestrelayer.ImagePull(false),
+		interchaintestrelayer.CustomDockerImage(relayerinterchaintest.RelayerImageName, "latest", "100:1000"),
+		interchaintestrelayer.ImagePull(false),
 	).Build(t, client, network)
 
 	ibcPath := t.Name()
 
 	// Prep Interchain with client trusting period of 20s.
-	ic := ibctest.NewInterchain().
+	ic := interchaintest.NewInterchain().
 		AddChain(g0).
 		AddChain(g1).
 		AddRelayer(r, "relayer").
-		AddLink(ibctest.InterchainLink{
+		AddLink(interchaintest.InterchainLink{
 			Chain1:  g0,
 			Chain2:  g1,
 			Relayer: r,
@@ -196,7 +196,7 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 	eRep := rep.RelayerExecReporter(t)
 
 	// Build interchain
-	require.NoError(t, ic.Build(ctx, eRep, ibctest.InterchainBuildOptions{
+	require.NoError(t, ic.Build(ctx, eRep, interchaintest.InterchainBuildOptions{
 		TestName:  t.Name(),
 		Client:    client,
 		NetworkID: network,

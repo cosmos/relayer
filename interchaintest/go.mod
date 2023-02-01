@@ -1,4 +1,4 @@
-module github.com/cosmos/relayer/v2/ibctest
+module github.com/cosmos/relayer/v2/interchaintest
 
 go 1.19
 
@@ -9,7 +9,7 @@ require (
 	github.com/docker/docker v20.10.17+incompatible
 	github.com/icza/dyno v0.0.0-20220812133438-f0b6f8a18845
 	github.com/moby/moby v20.10.22+incompatible
-	github.com/strangelove-ventures/ibctest/v7 v7.0.0-20230124162348-0fcd87d2151a
+	github.com/strangelove-ventures/interchaintest/v7 v7.0.0-20230201060741-e0e4e0f9283b
 	github.com/stretchr/testify v1.8.1
 	github.com/tendermint/tendermint v0.37.0-rc2
 	go.uber.org/zap v1.24.0

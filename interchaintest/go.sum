@@ -1203,8 +1203,8 @@ github.com/spf13/viper v1.15.0/go.mod h1:fFcTBJxvhhzSJiZy8n+PeW6t8l+KeT/uTARa0jH
 github.com/stefanberger/go-pkcs11uri v0.0.0-20201008174630-78d3cae3a980/go.mod h1:AO3tvPzVZ/ayst6UlUKUv6rcPQInYe3IknH3jYhAKu8=
 github.com/strangelove-ventures/go-subkey v1.0.7 h1:cOP/Lajg3uxV/tvspu0m6+0Cu+DJgygkEAbx/s+f35I=
 github.com/strangelove-ventures/go-subkey v1.0.7/go.mod h1:E34izOIEm+sZ1YmYawYRquqBQWeZBjVB4pF7bMuhc1c=
-github.com/strangelove-ventures/ibctest/v7 v7.0.0-20230124162348-0fcd87d2151a h1:I68lhxUi40elS4/4OAA9r71yQM4UpkRNFlfCxD43rUQ=
-github.com/strangelove-ventures/ibctest/v7 v7.0.0-20230124162348-0fcd87d2151a/go.mod h1:hU36IqtAQslhbGcRqQCfZk52xkWwNAMujFxypvzS2Gg=
+github.com/strangelove-ventures/interchaintest/v7 v7.0.0-20230201060741-e0e4e0f9283b h1:TPt4lyXM0XJUrgaO5ufBsAx9jbrNuwvSZvnIBL/5ui0=
+github.com/strangelove-ventures/interchaintest/v7 v7.0.0-20230201060741-e0e4e0f9283b/go.mod h1:xABocejOFzpH8VR9Se92KE02IqR3cLhzGnl4SHV36Qw=
 github.com/strangelove-ventures/lens v0.5.2-0.20230129222829-2ba858979e84 h1:hnQEyTOBePQU8B55lUUWBRb1DHVnzyhtKL5useYO1wM=
 github.com/strangelove-ventures/lens v0.5.2-0.20230129222829-2ba858979e84/go.mod h1:E3WlS9RgL358kFIy3bYE/IFRACYJHd5v5W5OLEA4mIY=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
