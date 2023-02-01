@@ -9,7 +9,6 @@ import (
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
-	"github.com/cosmos/relayer/v2/ibctest/stride"
 	rlystride "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	ibctest "github.com/strangelove-ventures/ibctest/v7"
 	"github.com/strangelove-ventures/ibctest/v7/chain/cosmos"
@@ -27,6 +26,8 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
+
+	t.Parallel()
 
 	client, network := ibctest.DockerSetup(t)
 
@@ -61,7 +62,7 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 				TrustingPeriod: TrustingPeriod,
 				GasAdjustment:  1.1,
 				ModifyGenesis:  ModifyGenesisStride(),
-				EncodingConfig: stride.Encoding(),
+				EncodingConfig: StrideEncoding(),
 			}},
 		{
 			Name:          "gaia",
@@ -249,9 +250,8 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 
 	// Poll for MsgSubmitQueryResponse with timeout after 20 blocks
 	_, err = cosmos.PollForMessage(
-		ctx, stride, gaiaCfg.EncodingConfig.InterfaceRegistry, strideHeight, strideHeight+20,
+		ctx, stride, strideCfg.EncodingConfig.InterfaceRegistry, strideHeight, strideHeight+20,
 		func(found *rlystride.MsgSubmitQueryResponse) bool { return true },
 	)
-	require.NoError(t, err)
 	require.NoError(t, err)
 }

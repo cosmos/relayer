@@ -6,7 +6,8 @@ import "gogoproto/gogo.proto";
 import "cosmos_proto/cosmos.proto";
 import "tendermint/crypto/proof.proto";
 
-// NOTE: copied into this repository from "github.com/Stride-Labs/stride/v5/x/interchainquery/types"
+// NOTE: copied into this repository from
+// "github.com/Stride-Labs/stride/v5/x/interchainquery/types"
 option go_package = "github.com/cosmos/relayer/relayer/chains/cosmos/stride";
 
 // MsgSubmitQueryResponse represents a message type to fulfil a query request.

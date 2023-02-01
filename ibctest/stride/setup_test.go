@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cosmos/cosmos-sdk/types/module/testutil"
+	rlystride "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/icza/dyno"
+	"github.com/strangelove-ventures/ibctest/v7/chain/cosmos"
 	"github.com/strangelove-ventures/ibctest/v7/ibc"
 )
 
@@ -104,6 +107,14 @@ type UserRedemptionRecord struct {
 	HostZoneID     string `json:"hostZoneId"`
 	EpochNumber    string `json:"epochNumber"`
 	ClaimIsPending bool   `json:"claimIsPending"`
+}
+
+func StrideEncoding() *testutil.TestEncodingConfig {
+	cfg := cosmos.DefaultEncoding()
+
+	rlystride.RegisterInterfaces(cfg.InterfaceRegistry)
+
+	return &cfg
 }
 
 func ModifyGenesisStride() func(ibc.ChainConfig, []byte) ([]byte, error) {
