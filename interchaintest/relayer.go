@@ -1,4 +1,4 @@
-package ibctest
+package interchaintest
 
 import (
 	"context"
@@ -9,12 +9,14 @@ import (
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/v2/cmd"
 	"github.com/cosmos/relayer/v2/internal/relayertest"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
-	ibccosmos "github.com/strangelove-ventures/ibctest/v6/chain/cosmos"
-	"github.com/strangelove-ventures/ibctest/v6/ibc"
+	interchaintestcosmos "github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v7/ibc"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
@@ -82,7 +84,7 @@ func (r *Relayer) AddChainConfiguration(ctx context.Context, _ ibc.RelayerExecRe
 }
 
 func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName string, coinType string) (ibc.Wallet, error) {
-	res := r.sys().RunC(ctx, r.log(), "keys", "add", chainID, keyName)
+	res := r.sys().RunC(ctx, r.log(), "keys", "add", chainID, keyName, "--coin-type", coinType)
 	if res.Err != nil {
 		return nil, res.Err
 	}
@@ -95,8 +97,8 @@ func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID
 	return w, nil
 }
 
-func (r *Relayer) RestoreKey(ctx context.Context, rep ibc.RelayerExecReporter, chainID string, keyName string, coinType string, mnemonic string) error {
-	res := r.sys().RunC(ctx, r.log(), "keys", "restore", chainID, keyName, mnemonic)
+func (r *Relayer) RestoreKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName, coinType, mnemonic string) error {
+	res := r.sys().RunC(ctx, r.log(), "keys", "restore", chainID, keyName, mnemonic, "--coin-type", coinType)
 	if res.Err != nil {
 		return res.Err
 	}
@@ -141,6 +143,27 @@ func (r *Relayer) GetChannels(ctx context.Context, _ ibc.RelayerExecReporter, ch
 	}
 
 	return channels, nil
+}
+
+func (r *Relayer) GetClients(ctx context.Context, _ ibc.RelayerExecReporter, chainID string) (ibc.ClientOutputs, error) {
+	res := r.sys().RunC(ctx, r.log(), "q", "clients", chainID)
+	if res.Err != nil {
+		return nil, res.Err
+	}
+
+	var clients []*ibc.ClientOutput
+	for _, client := range strings.Split(res.Stdout.String(), "\n") {
+		if strings.TrimSpace(client) == "" {
+			continue
+		}
+		var clientOutput *ibc.ClientOutput
+		if err := json.Unmarshal([]byte(client), clientOutput); err != nil {
+			return nil, fmt.Errorf("failed to parse client %q: %w", client, err)
+		}
+		clients = append(clients, clientOutput)
+	}
+
+	return clients, nil
 }
 
 func (r *Relayer) LinkPath(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, chanOpts ibc.CreateChannelOptions, clientOpts ibc.CreateClientOptions) error {
@@ -214,31 +237,6 @@ func (r *Relayer) CreateClients(ctx context.Context, _ ibc.RelayerExecReporter, 
 		return res.Err
 	}
 	return nil
-}
-func (r *Relayer) GetClients(ctx context.Context, _ ibc.RelayerExecReporter, chainID string) (ibc.ClientOutputs, error) {
-	res := r.sys().RunC(ctx, r.log(), "q", "get-clients", chainID)
-	if res.Err != nil {
-		return nil, res.Err
-	}
-	var clients ibc.ClientOutputs
-	for _, client := range strings.Split(res.Stdout.String(), "\n") {
-		if strings.TrimSpace(client) == "" {
-			continue
-		}
-		clientOutput := ibc.ClientOutput{}
-		err := json.Unmarshal([]byte(client), &clientOutput)
-		if err != nil {
-			r.log().Error(
-				"Error parsing client json",
-				zap.Error(err),
-			)
-
-			continue
-		}
-		clients = append(clients, &clientOutput)
-	}
-
-	return clients, nil
 }
 
 func (r *Relayer) UpdateClients(ctx context.Context, _ ibc.RelayerExecReporter, pathName string) error {
@@ -335,8 +333,30 @@ func (r *Relayer) FlushPackets(ctx context.Context, _ ibc.RelayerExecReporter, p
 func (r *Relayer) GetWallet(chainID string) (ibc.Wallet, bool) {
 	res := r.sys().RunC(context.Background(), r.log(), "keys", "show", chainID)
 	if res.Err != nil {
-		return nil, false
+		return &interchaintestcosmos.CosmosWallet{}, false
 	}
 	address := strings.TrimSpace(res.Stdout.String())
-	return ibccosmos.NewWallet("", []byte(address), "", ibc.ChainConfig{}), true
+
+	var chainCfg ibc.ChainConfig
+	var keyName string
+	config := r.sys().MustGetConfig(r.t)
+	for _, v := range config.ProviderConfigs {
+		if c, ok := v.Value.(cosmos.CosmosProviderConfig); ok {
+			if c.ChainID == chainID {
+				keyName = c.Key
+				chainCfg = ibc.ChainConfig{
+					Type:          v.Type,
+					Name:          c.ChainName,
+					ChainID:       c.ChainID,
+					Bech32Prefix:  c.AccountPrefix,
+					GasPrices:     c.GasPrices,
+					GasAdjustment: c.GasAdjustment,
+				}
+			}
+		}
+	}
+
+	addressBz, err := types.GetFromBech32(address, chainCfg.Bech32Prefix)
+	require.NoError(r.t, err, "failed to decode bech32 wallet")
+	return interchaintestcosmos.NewWallet(keyName, addressBz, "", chainCfg), true
 }

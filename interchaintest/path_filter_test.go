@@ -1,18 +1,19 @@
-package ibctest_test
+package interchaintest_test
 
 import (
 	"context"
 	"fmt"
 	"testing"
 
-	transfertypes "github.com/cosmos/ibc-go/v6/modules/apps/transfer/types"
-	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
+	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/processor"
-	ibctest "github.com/strangelove-ventures/ibctest/v6"
-	"github.com/strangelove-ventures/ibctest/v6/ibc"
-	"github.com/strangelove-ventures/ibctest/v6/testreporter"
-	"github.com/strangelove-ventures/ibctest/v6/testutil"
+	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
+	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v7/ibc"
+	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v7/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -27,7 +28,7 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 	nf := 0
 
 	// Chain Factory
-	cf := ibctest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctest.ChainSpec{
+	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		{Name: "gaia", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf},
 		{Name: "osmosis", Version: "v11.0.1", NumValidators: &nv, NumFullNodes: &nf},
 	})
@@ -37,18 +38,18 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 	gaia, osmosis := chains[0], chains[1]
 
 	// Relayer Factory to construct relayer
-	r := relayeribctest.NewRelayerFactory(relayeribctest.RelayerConfig{
+	r := relayerinterchaintest.NewRelayerFactory(relayerinterchaintest.RelayerConfig{
 		Processor:           relayer.ProcessorEvents,
 		InitialBlockHistory: 100,
 	}).Build(t, nil, "")
 
 	// Prep Interchain
 	const ibcPath = "gaia-osmosis"
-	ic := ibctest.NewInterchain().
+	ic := interchaintest.NewInterchain().
 		AddChain(gaia).
 		AddChain(osmosis).
 		AddRelayer(r, "relayer").
-		AddLink(ibctest.InterchainLink{
+		AddLink(interchaintest.InterchainLink{
 			Chain1:  gaia,
 			Chain2:  osmosis,
 			Relayer: r,
@@ -59,10 +60,10 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 	rep := testreporter.NewNopReporter()
 	eRep := rep.RelayerExecReporter(t)
 
-	client, network := ibctest.DockerSetup(t)
+	client, network := interchaintest.DockerSetup(t)
 
 	// Build interchain
-	require.NoError(t, ic.Build(ctx, eRep, ibctest.InterchainBuildOptions{
+	require.NoError(t, ic.Build(ctx, eRep, interchaintest.InterchainBuildOptions{
 		TestName:  t.Name(),
 		Client:    client,
 		NetworkID: network,
@@ -83,16 +84,16 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 
 	// Create and Fund User Wallets
 	fundAmount := int64(10_000_000)
-	users := ibctest.GetAndFundTestUsers(t, ctx, "default", int64(fundAmount), gaia, osmosis)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, "default", int64(fundAmount), gaia, osmosis)
 
-	gaiaUser, osmosisUser := users[0], users[1]
+	gaiaUser, osmosisUser := users[0].(*cosmos.CosmosWallet), users[1].(*cosmos.CosmosWallet)
 
 	r.StartRelayer(ctx, eRep, ibcPath)
 
 	// Send Transaction
 	amountToSend := int64(1_000_000)
-	gaiaDstAddress := gaiaUser.FormattedAddress()
-	osmosisDstAddress := osmosisUser.FormattedAddress()
+	gaiaDstAddress := gaiaUser.FormattedAddressWithPrefix(osmosis.Config().Bech32Prefix)
+	osmosisDstAddress := osmosisUser.FormattedAddressWithPrefix(gaia.Config().Bech32Prefix)
 
 	gaiaHeight, err := gaia.Height(ctx)
 	require.NoError(t, err)
@@ -106,7 +107,9 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 			Address: gaiaDstAddress,
 			Denom:   gaia.Config().Denom,
 			Amount:  amountToSend,
-		}, ibc.TransferOptions{})
+		},
+			ibc.TransferOptions{},
+		)
 		if err != nil {
 			return err
 		}
@@ -122,7 +125,9 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 			Address: osmosisDstAddress,
 			Denom:   osmosis.Config().Denom,
 			Amount:  amountToSend,
-		}, ibc.TransferOptions{})
+		},
+			ibc.TransferOptions{},
+		)
 		if err != nil {
 			return err
 		}
@@ -161,7 +166,7 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 	nf := 0
 
 	// Chain Factory
-	cf := ibctest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctest.ChainSpec{
+	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		{Name: "gaia", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf},
 		{Name: "osmosis", Version: "v11.0.1", NumValidators: &nv, NumFullNodes: &nf},
 	})
@@ -171,18 +176,18 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 	gaia, osmosis := chains[0], chains[1]
 
 	// Relayer Factory to construct relayer
-	r := relayeribctest.NewRelayerFactory(relayeribctest.RelayerConfig{
+	r := relayerinterchaintest.NewRelayerFactory(relayerinterchaintest.RelayerConfig{
 		Processor:           relayer.ProcessorEvents,
 		InitialBlockHistory: 100,
 	}).Build(t, nil, "")
 
 	// Prep Interchain
 	const ibcPath = "gaia-osmosis"
-	ic := ibctest.NewInterchain().
+	ic := interchaintest.NewInterchain().
 		AddChain(gaia).
 		AddChain(osmosis).
 		AddRelayer(r, "relayer").
-		AddLink(ibctest.InterchainLink{
+		AddLink(interchaintest.InterchainLink{
 			Chain1:  gaia,
 			Chain2:  osmosis,
 			Relayer: r,
@@ -192,10 +197,10 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 	rep := testreporter.NewNopReporter()
 	eRep := rep.RelayerExecReporter(t)
 
-	client, network := ibctest.DockerSetup(t)
+	client, network := interchaintest.DockerSetup(t)
 
 	// Build interchain
-	require.NoError(t, ic.Build(ctx, eRep, ibctest.InterchainBuildOptions{
+	require.NoError(t, ic.Build(ctx, eRep, interchaintest.InterchainBuildOptions{
 		TestName:  t.Name(),
 		Client:    client,
 		NetworkID: network,
@@ -216,16 +221,16 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 
 	// Create and Fund User Wallets
 	fundAmount := int64(10_000_000)
-	users := ibctest.GetAndFundTestUsers(t, ctx, "default", int64(fundAmount), gaia, osmosis)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, "default", int64(fundAmount), gaia, osmosis)
 
-	gaiaUser, osmosisUser := users[0], users[1]
+	gaiaUser, osmosisUser := users[0].(*cosmos.CosmosWallet), users[1].(*cosmos.CosmosWallet)
 
 	r.StartRelayer(ctx, eRep, ibcPath)
 
 	// Send Transaction
 	amountToSend := int64(1_000_000)
-	gaiaDstAddress := gaiaUser.FormattedAddress()
-	osmosisDstAddress := osmosisUser.FormattedAddress()
+	gaiaDstAddress := gaiaUser.FormattedAddressWithPrefix(osmosis.Config().Bech32Prefix)
+	osmosisDstAddress := osmosisUser.FormattedAddressWithPrefix(gaia.Config().Bech32Prefix)
 
 	gaiaHeight, err := gaia.Height(ctx)
 	require.NoError(t, err)
@@ -239,7 +244,9 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 			Address: gaiaDstAddress,
 			Denom:   gaia.Config().Denom,
 			Amount:  amountToSend,
-		}, ibc.TransferOptions{})
+		},
+			ibc.TransferOptions{},
+		)
 		if err != nil {
 			return err
 		}
@@ -261,7 +268,9 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 			Address: osmosisDstAddress,
 			Denom:   osmosis.Config().Denom,
 			Amount:  amountToSend,
-		}, ibc.TransferOptions{})
+		},
+			ibc.TransferOptions{},
+		)
 		if err != nil {
 			return err
 		}

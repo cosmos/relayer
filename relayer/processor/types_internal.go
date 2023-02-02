@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	chantypes "github.com/cosmos/ibc-go/v6/modules/core/04-channel/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap/zapcore"
 )
@@ -16,6 +16,7 @@ type pathEndMessages struct {
 	connectionMessages []connectionIBCMessage
 	channelMessages    []channelIBCMessage
 	packetMessages     []packetIBCMessage
+	clientICQMessages  []clientICQMessage
 }
 
 type ibcMessage interface {
@@ -54,6 +55,19 @@ type connectionIBCMessage struct {
 }
 
 func (connectionIBCMessage) ibcMessageIndicator() {}
+
+const (
+	ClientICQTypeRequest  ClientICQType = "query_request"
+	ClientICQTypeResponse ClientICQType = "query_response"
+)
+
+// clientICQMessage holds a client ICQ message info,
+// useful for sending messages around internal to the PathProcessor.
+type clientICQMessage struct {
+	info provider.ClientICQInfo
+}
+
+func (clientICQMessage) ibcMessageIndicator() {}
 
 // processingMessage tracks the state of a IBC message currently being processed.
 type processingMessage struct {
@@ -101,6 +115,8 @@ func (c connectionProcessingCache) deleteMessages(toDelete ...map[string][]Conne
 		}
 	}
 }
+
+type clientICQProcessingCache map[provider.ClientICQQueryID]processingMessage
 
 // contains MsgRecvPacket from counterparty
 // entire packet flow
@@ -191,11 +207,12 @@ func channelInfoChannelKey(c provider.ChannelInfo) ChannelKey {
 // outgoingMessages is a slice of relayer messages that can be
 // appended to concurrently.
 type outgoingMessages struct {
-	mu       sync.Mutex
-	msgs     []provider.RelayerMessage
-	pktMsgs  []packetMessageToTrack
-	connMsgs []connectionMessageToTrack
-	chanMsgs []channelMessageToTrack
+	mu            sync.Mutex
+	msgs          []provider.RelayerMessage
+	pktMsgs       []packetMessageToTrack
+	connMsgs      []connectionMessageToTrack
+	chanMsgs      []channelMessageToTrack
+	clientICQMsgs []clientICQMessageToTrack
 }
 
 // MarshalLogObject satisfies the zapcore.ObjectMarshaler interface
@@ -251,6 +268,11 @@ type connectionMessageToTrack struct {
 
 type channelMessageToTrack struct {
 	msg       channelIBCMessage
+	assembled bool
+}
+
+type clientICQMessageToTrack struct {
+	msg       clientICQMessage
 	assembled bool
 }
 

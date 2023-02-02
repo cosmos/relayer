@@ -5,6 +5,7 @@ GAIA_VERSION := v7.0.1
 AKASH_VERSION := v0.16.3
 OSMOSIS_VERSION := v8.0.0
 WASMD_VERSION := v0.25.0
+DOCKER := $(shell which docker)
 
 GOPATH := $(shell go env GOPATH)
 GOBIN := $(GOPATH)/bin
@@ -60,29 +61,29 @@ build-osmosis-docker:
 test:
 	@go test -mod=readonly -race ./...
 
-ibctest:
-	cd ibctest && go test -race -v -run TestRelayerInProcess .
+interchaintest:
+	cd interchaintest && go test -race -v -run TestRelayerInProcess .
 
-ibctest-docker:
-	cd ibctest && go test -race -v -run TestRelayerDocker .
+interchaintest-docker:
+	cd interchaintest && go test -race -v -run TestRelayerDocker .
 
-ibctest-docker-events:
-	cd ibctest && go test -race -v -run TestRelayerDockerEventProcessor .
+interchaintest-docker-events:
+	cd interchaintest && go test -race -v -run TestRelayerDockerEventProcessor .
 
-ibctest-docker-legacy:
-	cd ibctest && go test -race -v -run TestRelayerDockerLegacyProcessor .
+interchaintest-docker-legacy:
+	cd interchaintest && go test -race -v -run TestRelayerDockerLegacyProcessor .
 
-ibctest-events:
-	cd ibctest && go test -race -v -run TestRelayerEventProcessor .
+interchaintest-events:
+	cd interchaintest && go test -race -v -run TestRelayerEventProcessor .
 
-ibctest-legacy:
-	cd ibctest && go test -race -v -run TestRelayerLegacyProcessor .
+interchaintest-legacy:
+	cd interchaintest && go test -race -v -run TestRelayerLegacyProcessor .
 
-ibctest-multiple:
-	cd ibctest && go test -race -v -run TestRelayerMultiplePathsSingleProcess .
+interchaintest-multiple:
+	cd interchaintest && go test -race -v -run TestRelayerMultiplePathsSingleProcess .
 
-ibctest-scenario: ## Scenario tests are suitable for simple networks of 1 validator and no full nodes. They test specific functionality.
-	cd ibctest && go test -race -v -run TestScenario .
+interchaintest-scenario: ## Scenario tests are suitable for simple networks of 1 validator and no full nodes. They test specific functionality.
+	cd interchaintest && go test -race -v -run TestScenario ./...
 
 coverage:
 	@echo "viewing test coverage..."
@@ -102,15 +103,15 @@ GAIA_REPO := $(CHAIN_CODE)/gaia
 
 get-gaia:
 	@mkdir -p $(CHAIN_CODE)/
-	@git clone --branch $(GAIA_REPO) --depth=1 https://github.com/cosmos/gaia.git $(GAIA_REPO)
+	@git clone --branch $(GAIA_VERSION) --depth=1 https://github.com/cosmos/gaia.git $(GAIA_REPO)
 
 build-gaia:
 	@[ -d $(GAIA_REPO) ] || { echo "Repositry for gaia does not exist at $(GAIA_REPO). Try running 'make get-gaia'..." ; exit 1; }
-	@cd $(GAIA_REPO)
-	@make install &> /dev/null
+	@cd $(GAIA_REPO) && \
+	make install &> /dev/null
 	@gaiad version --long
 
-.PHONY: two-chains test test-integration ibctest install build lint coverage clean
+.PHONY: two-chains test test-integration interchaintest install build lint coverage clean
 
 PACKAGE_NAME          := github.com/cosmos/relayer
 GOLANG_CROSS_VERSION  ?= v1.19.4
@@ -154,3 +155,19 @@ release:
 		-w /go/src/$(PACKAGE_NAME) \
 		goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
 		release --rm-dist
+
+protoVer=0.11.2
+protoImageName=ghcr.io/cosmos/proto-builder:$(protoVer)
+protoImage=$(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace $(protoImageName)
+
+proto-all: proto-format proto-lint proto-gen
+
+proto-gen:
+	@echo "Generating Protobuf files"
+	@$(protoImage) sh ./scripts/protocgen.sh
+
+proto-format:
+	@$(protoImage) find ./ -name "*.proto" -exec clang-format -i {} \;
+
+proto-lint:
+	@$(protoImage) buf lint --error-format=json

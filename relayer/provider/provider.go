@@ -6,13 +6,14 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	transfertypes "github.com/cosmos/ibc-go/v6/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v6/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v6/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v6/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v6/modules/core/23-commitment/types"
-	ibcexported "github.com/cosmos/ibc-go/v6/modules/core/exported"
-	"github.com/gogo/protobuf/proto"
+	"github.com/cosmos/gogoproto/proto"
+	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	"github.com/tendermint/tendermint/proto/tendermint/crypto"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -124,6 +125,21 @@ type ChannelInfo struct {
 	Version string
 }
 
+// ClientICQQueryID string wrapper for query ID.
+type ClientICQQueryID string
+
+// ClientICQInfo contains relevant properties from client ICQ messages.
+// Client ICQ implementation does not use IBC connections and channels.
+type ClientICQInfo struct {
+	Source     string
+	Connection string
+	Chain      string
+	QueryID    ClientICQQueryID
+	Type       string
+	Request    []byte
+	Height     uint64
+}
+
 // PacketProof includes all of the proof parameters needed for packet flows.
 type PacketProof struct {
 	Proof       []byte
@@ -144,6 +160,12 @@ type ChannelProof struct {
 	ProofHeight clienttypes.Height
 	Ordering    chantypes.Order
 	Version     string
+}
+
+type ICQProof struct {
+	Result   []byte
+	ProofOps *crypto.ProofOps // TODO swap out tendermint type for third party chains.
+	Height   int64
 }
 
 // loggableEvents is an unexported wrapper type for a slice of RelayerEvent,
@@ -193,7 +215,7 @@ type ChainProvider interface {
 	QueryProvider
 	KeyProvider
 
-	Init() error
+	Init(ctx context.Context) error
 
 	// [Begin] Client IBC message assembly functions
 	NewClientState(dstChainID string, dstIBCHeader IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
@@ -318,14 +340,25 @@ type ChainProvider interface {
 
 	// MsgUpdateClientHeader takes the latest chain header, in addition to the latest client trusted header
 	// and assembles a new header for updating the light client on the counterparty chain.
-	MsgUpdateClientHeader(latestHeader IBCHeader, trustedHeight clienttypes.Height, trustedHeader IBCHeader) (ibcexported.Header, error)
+	MsgUpdateClientHeader(latestHeader IBCHeader, trustedHeight clienttypes.Height, trustedHeader IBCHeader) (ibcexported.ClientMessage, error)
 
 	// MsgUpdateClient takes an update client header to prove trust for the previous
 	// consensus height and the new height, and assembles a MsgUpdateClient message
 	// formatted for this chain.
-	MsgUpdateClient(clientId string, counterpartyHeader ibcexported.Header) (RelayerMessage, error)
+	MsgUpdateClient(clientID string, counterpartyHeader ibcexported.ClientMessage) (RelayerMessage, error)
 
 	// [End] Client IBC message assembly
+
+	// [Begin] Client ICQ message assembly
+
+	// QueryICQWithProof performs an ABCI query and includes the required proofOps.
+	QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (ICQProof, error)
+
+	// MsgSubmitQueryResponse takes the counterparty chain ID, the ICQ query ID, and the query result proof,
+	// then assembles a MsgSubmitQueryResponse message formatted for sending to this chain.
+	MsgSubmitQueryResponse(chainID string, queryID ClientICQQueryID, proof ICQProof) (RelayerMessage, error)
+
+	// [End] Client ICQ message assembly
 
 	// Query heavy relay methods. Only used for flushing old packets.
 

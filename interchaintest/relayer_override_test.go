@@ -1,4 +1,4 @@
-package ibctest_test
+package interchaintest_test
 
 import (
 	"context"
@@ -6,14 +6,14 @@ import (
 	"testing"
 
 	"github.com/cosmos/relayer/v2/cmd"
-	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
-	ibctest "github.com/strangelove-ventures/ibctest/v6"
-	"github.com/strangelove-ventures/ibctest/v6/chain/cosmos"
-	"github.com/strangelove-ventures/ibctest/v6/ibc"
-	ibctestrelayer "github.com/strangelove-ventures/ibctest/v6/relayer"
-	ibctestrly "github.com/strangelove-ventures/ibctest/v6/relayer/rly"
-	"github.com/strangelove-ventures/ibctest/v6/testutil"
-	"github.com/strangelove-ventures/ibctest/v6/testreporter"
+	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
+	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
+	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v7/ibc"
+	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v7/relayer"
+	interchaintestrly "github.com/strangelove-ventures/interchaintest/v7/relayer/rly"
+	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v7/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -23,14 +23,14 @@ import (
 // is a client-id present in the relative path config. If the override flag is present, the relayer should always
 // attempt to create a new light client and then overwrite the config file if successful.
 func TestClientOverrideFlag(t *testing.T) {
-	relayeribctest.BuildRelayerImage(t)
+	relayerinterchaintest.BuildRelayerImage(t)
 
-	client, network := ibctest.DockerSetup(t)
-	r := ibctest.NewBuiltinRelayerFactory(
+	client, network := interchaintest.DockerSetup(t)
+	r := interchaintest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest", "100:1000"),
-		ibctestrelayer.ImagePull(false),
+		interchaintestrelayer.CustomDockerImage(relayerinterchaintest.RelayerImageName, "latest", "100:1000"),
+		interchaintestrelayer.ImagePull(false),
 	).Build(t, client, network)
 
 	rep := testreporter.NewNopReporter()
@@ -39,7 +39,7 @@ func TestClientOverrideFlag(t *testing.T) {
 	ctx := context.Background()
 
 	// Define chains involved in test
-	cf := ibctest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctest.ChainSpec{
+	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		{
 			Name:      "gaia",
 			ChainName: "gaia",
@@ -61,22 +61,22 @@ func TestClientOverrideFlag(t *testing.T) {
 	const pathGaiaOsmosis = "gaia-osmosis"
 	const relayerName = "relayer"
 
-	ic := ibctest.NewInterchain().
+	ic := interchaintest.NewInterchain().
 		AddChain(gaia).
 		AddChain(osmosis).
 		AddRelayer(r, relayerName).
-		AddLink(ibctest.InterchainLink{
+		AddLink(interchaintest.InterchainLink{
 			Chain1:  gaia,
 			Chain2:  osmosis,
 			Relayer: r,
 			Path:    pathGaiaOsmosis,
 		})
 
-	require.NoError(t, ic.Build(ctx, eRep, ibctest.InterchainBuildOptions{
+	require.NoError(t, ic.Build(ctx, eRep, interchaintest.InterchainBuildOptions{
 		TestName:          t.Name(),
 		Client:            client,
 		NetworkID:         network,
-		BlockDatabaseFile: ibctest.DefaultBlockDatabaseFilepath(),
+		BlockDatabaseFile: interchaintest.DefaultBlockDatabaseFilepath(),
 
 		SkipPathCreation: true,
 	}))
@@ -113,7 +113,7 @@ func TestClientOverrideFlag(t *testing.T) {
 	require.NoError(t, err)
 
 	// Dump relayer config and verify client IDs are written to path config
-	rly := r.(*ibctestrly.CosmosRelayer)
+	rly := r.(*interchaintestrly.CosmosRelayer)
 
 	showConfig := []string{"rly", "config", "show", "-j", "--home", rly.HomeDir()}
 	res := r.Exec(ctx, eRep, showConfig, nil)

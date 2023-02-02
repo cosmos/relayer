@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	chantypes "github.com/cosmos/ibc-go/v6/modules/core/04-channel/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap/zapcore"
 )
@@ -75,6 +75,7 @@ type IBCMessagesCache struct {
 	PacketFlow          ChannelPacketMessagesCache
 	ConnectionHandshake ConnectionMessagesCache
 	ChannelHandshake    ChannelMessagesCache
+	ClientICQ           ClientICQMessagesCache
 }
 
 // Clone makes a deep copy of an IBCMessagesCache.
@@ -83,10 +84,12 @@ func (c IBCMessagesCache) Clone() IBCMessagesCache {
 		PacketFlow:          make(ChannelPacketMessagesCache, len(c.PacketFlow)),
 		ConnectionHandshake: make(ConnectionMessagesCache, len(c.ConnectionHandshake)),
 		ChannelHandshake:    make(ChannelMessagesCache, len(c.ChannelHandshake)),
+		ClientICQ:           make(ClientICQMessagesCache, len(c.ClientICQ)),
 	}
 	x.PacketFlow.Merge(c.PacketFlow)
 	x.ConnectionHandshake.Merge(c.ConnectionHandshake)
 	x.ChannelHandshake.Merge(c.ChannelHandshake)
+	x.ClientICQ.Merge(c.ClientICQ)
 	return x
 }
 
@@ -96,6 +99,7 @@ func NewIBCMessagesCache() IBCMessagesCache {
 		PacketFlow:          make(ChannelPacketMessagesCache),
 		ConnectionHandshake: make(ConnectionMessagesCache),
 		ChannelHandshake:    make(ChannelMessagesCache),
+		ClientICQ:           make(ClientICQMessagesCache),
 	}
 }
 
@@ -119,6 +123,15 @@ type ConnectionMessagesCache map[string]ConnectionMessageCache
 
 // ConnectionMessageCache is used for caching connection handshake IBC messages for a given IBC connection.
 type ConnectionMessageCache map[ConnectionKey]provider.ConnectionInfo
+
+// ClientICQType string wrapper for query/response type.
+type ClientICQType string
+
+// ClientICQMessagesCache is used for caching a ClientICQMessageCache for a given type (query/response).
+type ClientICQMessagesCache map[ClientICQType]ClientICQMessageCache
+
+// ClientICQMessageCache is used for caching a client ICQ message for a given query ID.
+type ClientICQMessageCache map[provider.ClientICQQueryID]provider.ClientICQInfo
 
 // ChannelKey is the key used for identifying channels between ChainProcessor and PathProcessor.
 type ChannelKey struct {
@@ -396,6 +409,41 @@ func (c ChannelMessagesCache) DeleteMessages(toDelete ...map[string][]ChannelKey
 func (c ChannelMessageCache) Merge(other ChannelMessageCache) {
 	for k, v := range other {
 		c[k] = v
+	}
+}
+
+// Retain creates cache path if it doesn't exist, then caches message.
+func (c ClientICQMessagesCache) Retain(icqType ClientICQType, ci provider.ClientICQInfo) {
+	queryID := ci.QueryID
+	if _, ok := c[icqType]; !ok {
+		c[icqType] = make(ClientICQMessageCache)
+	}
+	c[icqType][queryID] = ci
+}
+
+// Merge merges another ClientICQMessagesCache into this one.
+func (c ClientICQMessagesCache) Merge(other ClientICQMessagesCache) {
+	for k, v := range other {
+		_, ok := c[k]
+		if !ok {
+			c[k] = v
+		} else {
+			c[k].Merge(v)
+		}
+	}
+}
+
+// Merge merges another ClientICQMessageCache into this one.
+func (c ClientICQMessageCache) Merge(other ClientICQMessageCache) {
+	for k, v := range other {
+		c[k] = v
+	}
+}
+
+// DeleteMessages deletes cached messages for the provided query ID.
+func (c ClientICQMessagesCache) DeleteMessages(queryID provider.ClientICQQueryID) {
+	for _, cm := range c {
+		delete(cm, queryID)
 	}
 }
 

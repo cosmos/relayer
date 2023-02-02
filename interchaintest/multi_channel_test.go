@@ -1,35 +1,35 @@
-package ibctest_test
+package interchaintest_test
 
 import (
 	"context"
 	"testing"
 
-	transfertypes "github.com/cosmos/ibc-go/v6/modules/apps/transfer/types"
-	relayeribctest "github.com/cosmos/relayer/v2/ibctest"
-	ibctest "github.com/strangelove-ventures/ibctest/v6"
-	"github.com/strangelove-ventures/ibctest/v6/chain/cosmos"
-	"github.com/strangelove-ventures/ibctest/v6/ibc"
-	ibctestrelayer "github.com/strangelove-ventures/ibctest/v6/relayer"
-	ibctestrly "github.com/strangelove-ventures/ibctest/v6/relayer/rly"
-	"github.com/strangelove-ventures/ibctest/v6/testreporter"
-	"github.com/strangelove-ventures/ibctest/v6/testutil"
+	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
+	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
+	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v7/ibc"
+	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v7/relayer"
+	interchaintestrly "github.com/strangelove-ventures/interchaintest/v7/relayer/rly"
+	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v7/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
 
 func TestMultipleChannelsOneConnection(t *testing.T) {
-	relayeribctest.BuildRelayerImage(t)
+	relayerinterchaintest.BuildRelayerImage(t)
 
-	client, network := ibctest.DockerSetup(t)
-	r := ibctest.NewBuiltinRelayerFactory(
+	client, network := interchaintest.DockerSetup(t)
+	r := interchaintest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		ibctestrelayer.CustomDockerImage(relayeribctest.RelayerImageName, "latest", "100:1000"),
-		ibctestrelayer.ImagePull(false),
+		interchaintestrelayer.CustomDockerImage(relayerinterchaintest.RelayerImageName, "latest", "100:1000"),
+		interchaintestrelayer.ImagePull(false),
 	).Build(t, client, network)
 
 	// Define chains involved in test
-	cf := ibctest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctest.ChainSpec{
+	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		{
 			Name:        "gaia",
 			ChainName:   "gaia",
@@ -53,11 +53,11 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 	const pathGaiaOsmosis = "gaia-osmosis"
 	const relayerName = "relayer"
 
-	ic := ibctest.NewInterchain().
+	ic := interchaintest.NewInterchain().
 		AddChain(gaia).
 		AddChain(osmosis).
 		AddRelayer(r, relayerName).
-		AddLink(ibctest.InterchainLink{
+		AddLink(interchaintest.InterchainLink{
 			Chain1:  gaia,
 			Chain2:  osmosis,
 			Relayer: r,
@@ -69,7 +69,7 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 
 	ctx := context.Background()
 
-	require.NoError(t, ic.Build(ctx, eRep, ibctest.InterchainBuildOptions{
+	require.NoError(t, ic.Build(ctx, eRep, interchaintest.InterchainBuildOptions{
 		TestName:  t.Name(),
 		Client:    client,
 		NetworkID: network,
@@ -80,12 +80,12 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 
 	// Create user accounts on both chains
 	const initFunds = int64(10_000_000)
-	users := ibctest.GetAndFundTestUsers(t, ctx, "user-key", initFunds, gaia, osmosis)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, "user-key", initFunds, gaia, osmosis)
 
 	gaiaUser, osmosisUser := users[0], users[1]
 
 	// Create the second and third channels on the same connection as the first channel
-	rly := r.(*ibctestrly.CosmosRelayer)
+	rly := r.(*interchaintestrly.CosmosRelayer)
 
 	creatChanCmd := []string{
 		"rly", "tx", "channel", pathGaiaOsmosis,

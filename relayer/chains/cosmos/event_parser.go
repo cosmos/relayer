@@ -1,14 +1,16 @@
 package cosmos
 
 import (
+	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"strconv"
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/ibc-go/v6/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v6/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v6/modules/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	abci "github.com/tendermint/tendermint/abci/types"
@@ -29,17 +31,33 @@ type ibcMessageInfo interface {
 
 func (ccp *CosmosChainProcessor) ibcMessagesFromBlockEvents(
 	beginBlockEvents, endBlockEvents []abci.Event,
-	height uint64,
+	height uint64, base64Encoded bool,
 ) (res []ibcMessage) {
 	chainID := ccp.chainProvider.ChainId()
-	res = append(res, ibcMessagesFromEvents(ccp.log, beginBlockEvents, chainID, height)...)
-	res = append(res, ibcMessagesFromEvents(ccp.log, endBlockEvents, chainID, height)...)
+	res = append(res, ibcMessagesFromEvents(ccp.log, beginBlockEvents, chainID, height, base64Encoded)...)
+	res = append(res, ibcMessagesFromEvents(ccp.log, endBlockEvents, chainID, height, base64Encoded)...)
 	return res
 }
 
-type packetKey struct {
-	sequence uint64
-	channel  processor.ChannelKey
+func parseBase64Event(log *zap.Logger, event abci.Event) sdk.StringEvent {
+	evt := sdk.StringEvent{Type: event.Type}
+	for _, attr := range event.Attributes {
+		key, err := base64.StdEncoding.DecodeString(attr.Key)
+		if err != nil {
+			log.Error("Failed to decode legacy key as base64", zap.String("base64", attr.Key), zap.Error(err))
+			continue
+		}
+		value, err := base64.StdEncoding.DecodeString(attr.Value)
+		if err != nil {
+			log.Error("Failed to decode legacy value as base64", zap.String("base64", attr.Value), zap.Error(err))
+			continue
+		}
+		evt.Attributes = append(evt.Attributes, sdk.Attribute{
+			Key:   string(key),
+			Value: string(value),
+		})
+	}
+	return evt
 }
 
 // ibcMessagesFromTransaction parses all events within a transaction to find IBC messages
@@ -48,9 +66,15 @@ func ibcMessagesFromEvents(
 	events []abci.Event,
 	chainID string,
 	height uint64,
+	base64Encoded bool,
 ) (messages []ibcMessage) {
 	for _, event := range events {
-		evt := sdk.StringifyEvent(event)
+		var evt sdk.StringEvent
+		if base64Encoded {
+			evt = parseBase64Event(log, event)
+		} else {
+			evt = sdk.StringifyEvent(event)
+		}
 		m := parseIBCMessageFromEvent(log, evt, chainID, height)
 		if m == nil || m.info == nil {
 			// Not an IBC message, don't need to log here
@@ -98,6 +122,17 @@ func parseIBCMessageFromEvent(
 		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
 		clienttypes.EventTypeUpdateClientProposal:
 		ci := new(clientInfo)
+		ci.parseAttrs(log, event.Attributes)
+		return &ibcMessage{
+			eventType: event.Type,
+			info:      ci,
+		}
+
+	case string(processor.ClientICQTypeRequest), string(processor.ClientICQTypeResponse):
+		ci := &clientICQInfo{
+			Height: height,
+			Source: chainID,
+		}
 		ci.parseAttrs(log, event.Attributes)
 		return &ibcMessage{
 			eventType: event.Type,
@@ -378,4 +413,57 @@ func (res *connectionInfo) parseConnectionAttribute(attr sdk.Attribute) {
 	case conntypes.AttributeKeyCounterpartyClientID:
 		res.CounterpartyClientID = attr.Value
 	}
+}
+
+type clientICQInfo struct {
+	Source     string
+	Connection string
+	Chain      string
+	QueryID    provider.ClientICQQueryID
+	Type       string
+	Request    []byte
+	Height     uint64
+}
+
+func (res *clientICQInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("connection_id", res.Connection)
+	enc.AddString("chain_id", res.Chain)
+	enc.AddString("query_id", string(res.QueryID))
+	enc.AddString("type", res.Type)
+	enc.AddString("request", hex.EncodeToString(res.Request))
+	enc.AddUint64("height", res.Height)
+
+	return nil
+}
+
+func (res *clientICQInfo) parseAttrs(log *zap.Logger, attrs []sdk.Attribute) {
+	for _, attr := range attrs {
+		if err := res.parseAttribute(attr); err != nil {
+			panic(fmt.Errorf("failed to parse attributes from client ICQ message: %w", err))
+		}
+	}
+}
+
+func (res *clientICQInfo) parseAttribute(attr sdk.Attribute) (err error) {
+	switch attr.Key {
+	case "connection_id":
+		res.Connection = attr.Value
+	case "chain_id":
+		res.Chain = attr.Value
+	case "query_id":
+		res.QueryID = provider.ClientICQQueryID(attr.Value)
+	case "type":
+		res.Type = attr.Value
+	case "request":
+		res.Request, err = hex.DecodeString(attr.Value)
+		if err != nil {
+			return err
+		}
+	case "height":
+		res.Height, err = strconv.ParseUint(attr.Value, 10, 64)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
