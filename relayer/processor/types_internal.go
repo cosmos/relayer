@@ -3,7 +3,6 @@ package processor
 import (
 	"strconv"
 	"strings"
-	"sync"
 
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -207,12 +206,11 @@ func channelInfoChannelKey(c provider.ChannelInfo) ChannelKey {
 // outgoingMessages is a slice of relayer messages that can be
 // appended to concurrently.
 type outgoingMessages struct {
-	mu            sync.Mutex
-	msgs          []provider.RelayerMessage
-	pktMsgs       []packetMessageToTrack
-	connMsgs      []connectionMessageToTrack
-	chanMsgs      []channelMessageToTrack
-	clientICQMsgs []clientICQMessageToTrack
+	msgUpdateClient provider.RelayerMessage
+	pktMsgs         []packetMessageToTrack
+	connMsgs        []connectionMessageToTrack
+	chanMsgs        []channelMessageToTrack
+	clientICQMsgs   []clientICQMessageToTrack
 }
 
 // MarshalLogObject satisfies the zapcore.ObjectMarshaler interface
@@ -247,33 +245,24 @@ func (om *outgoingMessages) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-// Append acquires a lock on om's mutex and then appends msg.
-// When there are no more possible concurrent calls to Append,
-// it is safe to directly access om.msgs.
-func (om *outgoingMessages) Append(msg provider.RelayerMessage) {
-	om.mu.Lock()
-	defer om.mu.Unlock()
-	om.msgs = append(om.msgs, msg)
-}
-
 type packetMessageToTrack struct {
-	msg       packetIBCMessage
-	assembled bool
+	msg packetIBCMessage
+	m   provider.RelayerMessage
 }
 
 type connectionMessageToTrack struct {
-	msg       connectionIBCMessage
-	assembled bool
+	msg connectionIBCMessage
+	m   provider.RelayerMessage
 }
 
 type channelMessageToTrack struct {
-	msg       channelIBCMessage
-	assembled bool
+	msg channelIBCMessage
+	m   provider.RelayerMessage
 }
 
 type clientICQMessageToTrack struct {
-	msg       clientICQMessage
-	assembled bool
+	msg clientICQMessage
+	m   provider.RelayerMessage
 }
 
 // orderFromString parses a string into a channel order byte.

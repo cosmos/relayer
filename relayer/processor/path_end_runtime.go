@@ -658,7 +658,7 @@ func (pathEnd *pathEndRuntime) trackProcessingPacketMessage(t packetMessageToTra
 	channelProcessingCache[sequence] = processingMessage{
 		lastProcessedHeight: pathEnd.latestBlock.Height,
 		retryCount:          retryCount,
-		assembled:           t.assembled,
+		assembled:           t.m != nil,
 	}
 }
 
@@ -680,7 +680,7 @@ func (pathEnd *pathEndRuntime) trackProcessingConnectionMessage(t connectionMess
 	msgProcessCache[connectionKey] = processingMessage{
 		lastProcessedHeight: pathEnd.latestBlock.Height,
 		retryCount:          retryCount,
-		assembled:           t.assembled,
+		assembled:           t.m != nil,
 	}
 }
 
@@ -702,7 +702,7 @@ func (pathEnd *pathEndRuntime) trackProcessingChannelMessage(t channelMessageToT
 	msgProcessCache[channelKey] = processingMessage{
 		lastProcessedHeight: pathEnd.latestBlock.Height,
 		retryCount:          retryCount,
-		assembled:           t.assembled,
+		assembled:           t.m != nil,
 	}
 }
 
@@ -718,6 +718,6 @@ func (pathEnd *pathEndRuntime) trackProcessingClientICQMessage(t clientICQMessag
 	pathEnd.clientICQProcessing[queryID] = processingMessage{
 		lastProcessedHeight: pathEnd.latestBlock.Height,
 		retryCount:          retryCount,
-		assembled:           t.assembled,
+		assembled:           t.m != nil,
 	}
 }

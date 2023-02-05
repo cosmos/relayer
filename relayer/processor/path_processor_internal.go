@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -428,6 +429,10 @@ func (pp *PathProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *
 	clientID := dst.info.ClientID
 	clientConsensusHeight := dst.clientState.ConsensusHeight
 	trustedConsensusHeight := dst.clientTrustedState.ClientState.ConsensusHeight
+	var trustedNextValidatorsHash []byte
+	if dst.clientTrustedState.IBCHeader != nil {
+		trustedNextValidatorsHash = dst.clientTrustedState.IBCHeader.NextValidatorsHash()
+	}
 
 	// If the client state height is not equal to the client trusted state height and the client state height is
 	// the latest block, we cannot send a MsgUpdateClient until another block is observed on the counterparty.
@@ -454,9 +459,10 @@ func (pp *PathProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *
 			IBCHeader:   header,
 		}
 		trustedConsensusHeight = clientConsensusHeight
+		trustedNextValidatorsHash = header.NextValidatorsHash()
 	}
 
-	if src.latestHeader.Height() == trustedConsensusHeight.RevisionHeight {
+	if src.latestHeader.Height() == trustedConsensusHeight.RevisionHeight && !bytes.Equal(src.latestHeader.NextValidatorsHash(), trustedNextValidatorsHash) {
 		return nil, fmt.Errorf("latest header height is equal to the client trusted height: %d, "+
 			"need to wait for next block's header before we can assemble and send a new MsgUpdateClient",
 			trustedConsensusHeight.RevisionHeight)
@@ -485,12 +491,22 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 	// need to assemble new trusted state
 	ibcHeader, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight+1]
 	if !ok {
+		if ibcHeaderCurrent, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight]; ok {
+			if bytes.Equal(dst.clientTrustedState.IBCHeader.NextValidatorsHash(), ibcHeaderCurrent.NextValidatorsHash()) {
+				src.clientTrustedState = provider.ClientTrustedState{
+					ClientState: src.clientState,
+					IBCHeader:   ibcHeaderCurrent,
+				}
+				return
+			}
+		}
 		pp.log.Debug("No cached IBC header for client trusted height",
 			zap.String("chain_id", src.info.ChainID),
 			zap.String("client_id", src.info.ClientID),
 			zap.Uint64("height", src.clientState.ConsensusHeight.RevisionHeight+1),
 		)
 		return
+
 	}
 	src.clientTrustedState = provider.ClientTrustedState{
 		ClientState: src.clientState,
@@ -740,11 +756,12 @@ func (pp *PathProcessor) assembleMessage(
 	switch m := msg.(type) {
 	case packetIBCMessage:
 		message, err = pp.assemblePacketMessage(ctx, m, src, dst)
-		om.pktMsgs[i] = packetMessageToTrack{
-			msg:       m,
-			assembled: err == nil,
+		tracker := packetMessageToTrack{
+			msg: m,
 		}
 		if err == nil {
+			tracker.m = message
+			om.pktMsgs[i] = tracker
 			dst.log.Debug("Will send packet message",
 				zap.String("event_type", m.eventType),
 				zap.Uint64("sequence", m.info.Sequence),
@@ -756,11 +773,10 @@ func (pp *PathProcessor) assembleMessage(
 		}
 	case connectionIBCMessage:
 		message, err = pp.assembleConnectionMessage(ctx, m, src, dst)
-		om.connMsgs[i] = connectionMessageToTrack{
-			msg:       m,
-			assembled: err == nil,
-		}
+		tracker := connectionMessageToTrack{msg: m}
 		if err == nil {
+			tracker.m = message
+			om.connMsgs[i] = tracker
 			dst.log.Debug("Will send connection message",
 				zap.String("event_type", m.eventType),
 				zap.String("connection_id", m.info.ConnID),
@@ -768,11 +784,10 @@ func (pp *PathProcessor) assembleMessage(
 		}
 	case channelIBCMessage:
 		message, err = pp.assembleChannelMessage(ctx, m, src, dst)
-		om.chanMsgs[i] = channelMessageToTrack{
-			msg:       m,
-			assembled: err == nil,
-		}
+		tracker := channelMessageToTrack{msg: m}
 		if err == nil {
+			tracker.m = message
+			om.chanMsgs[i] = tracker
 			dst.log.Debug("Will send channel message",
 				zap.String("event_type", m.eventType),
 				zap.String("channel_id", m.info.ChannelID),
@@ -781,11 +796,10 @@ func (pp *PathProcessor) assembleMessage(
 		}
 	case clientICQMessage:
 		message, err = pp.assembleClientICQMessage(ctx, m, src, dst)
-		om.clientICQMsgs[i] = clientICQMessageToTrack{
-			msg:       m,
-			assembled: err == nil,
-		}
+		tracker := clientICQMessageToTrack{msg: m}
 		if err == nil {
+			tracker.m = message
+			om.clientICQMsgs[i] = tracker
 			dst.log.Debug("Will send ICQ message",
 				zap.String("type", m.info.Type),
 				zap.String("query_id", string(m.info.QueryID)),
@@ -796,7 +810,6 @@ func (pp *PathProcessor) assembleMessage(
 		pp.log.Error("Error assembling channel message", zap.Error(err))
 		return
 	}
-	om.Append(message)
 }
 
 func (pp *PathProcessor) assembleAndSendMessages(
@@ -831,136 +844,228 @@ func (pp *PathProcessor) assembleAndSendMessages(
 			return nil
 		}
 	}
-	om := outgoingMessages{
-		msgs: make(
-			[]provider.RelayerMessage,
-			0,
-			len(messages.packetMessages)+len(messages.connectionMessages)+len(messages.channelMessages)+len(messages.clientICQMessages),
-		),
-	}
+	om := outgoingMessages{}
 	msgUpdateClient, err := pp.assembleMsgUpdateClient(ctx, src, dst)
 	if err != nil {
 		return err
 	}
-	om.Append(msgUpdateClient)
+	om.msgUpdateClient = msgUpdateClient
 
 	// Each assembleMessage call below will make a query on the source chain, so these operations can run in parallel.
 	var wg sync.WaitGroup
 
-	// connection messages are highest priority
 	om.connMsgs = make([]connectionMessageToTrack, len(messages.connectionMessages))
 	for i, msg := range messages.connectionMessages {
 		wg.Add(1)
 		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
 	}
 
+	om.chanMsgs = make([]channelMessageToTrack, len(messages.channelMessages))
+	for i, msg := range messages.channelMessages {
+		wg.Add(1)
+		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+	}
+
+	om.clientICQMsgs = make([]clientICQMessageToTrack, len(messages.clientICQMessages))
+	for i, msg := range messages.clientICQMessages {
+		wg.Add(1)
+		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+	}
+
+	om.pktMsgs = make([]packetMessageToTrack, len(messages.packetMessages))
+	for i, msg := range messages.packetMessages {
+		wg.Add(1)
+		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+	}
+
 	wg.Wait()
 
-	if len(om.msgs) == 1 {
-		om.chanMsgs = make([]channelMessageToTrack, len(messages.channelMessages))
-		// only assemble and send channel handshake messages if there are no conn handshake messages
-		// this prioritizes connection handshake messages, useful if a connection handshake needs to occur before a channel handshake
-		for i, msg := range messages.channelMessages {
-			wg.Add(1)
-			go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
+	successCount := 0
+	for _, m := range om.connMsgs {
+		if m.m != nil {
+			successCount++
 		}
-
-		wg.Wait()
+	}
+	for _, m := range om.chanMsgs {
+		if m.m != nil {
+			successCount++
+		}
+	}
+	for _, m := range om.clientICQMsgs {
+		if m.m != nil {
+			successCount++
+		}
+	}
+	for _, m := range om.pktMsgs {
+		if m.m != nil {
+			successCount++
+		}
 	}
 
-	if len(om.msgs) == 1 {
-		om.clientICQMsgs = make([]clientICQMessageToTrack, len(messages.clientICQMessages))
-		// only assemble and send ICQ messages if there are no conn or chan handshake messages
-		for i, msg := range messages.clientICQMessages {
-			wg.Add(1)
-			go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
-		}
-
-		wg.Wait()
-	}
-
-	if len(om.msgs) == 1 {
-		om.pktMsgs = make([]packetMessageToTrack, len(messages.packetMessages))
-		// only assemble and send packet messages if there are no handshake messages
-		for i, msg := range messages.packetMessages {
-			wg.Add(1)
-			go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
-		}
-
-		wg.Wait()
-	}
-
-	if len(om.msgs) == 1 && !needsClientUpdate {
+	if successCount == 0 && !needsClientUpdate {
 		// only msgUpdateClient, don't need to send
 		return errors.New("all messages failed to assemble")
 	}
 
-	for _, m := range om.connMsgs {
-		dst.trackProcessingConnectionMessage(m)
+	for _, t := range om.connMsgs {
+		dst.trackProcessingConnectionMessage(t)
+		if t.m == nil {
+			continue
+		}
+		go pp.sendConnectionMessage(ctx, src, dst, om.msgUpdateClient, t)
 	}
 
-	for _, m := range om.chanMsgs {
-		dst.trackProcessingChannelMessage(m)
+	for _, t := range om.chanMsgs {
+		dst.trackProcessingChannelMessage(t)
+		if t.m == nil {
+			continue
+		}
+		go pp.sendChannelMessage(ctx, src, dst, om.msgUpdateClient, t)
 	}
 
-	for _, m := range om.clientICQMsgs {
-		dst.trackProcessingClientICQMessage(m)
+	for _, t := range om.clientICQMsgs {
+		dst.trackProcessingClientICQMessage(t)
+		if t.m == nil {
+			continue
+		}
+		go pp.sendClientICQMessage(ctx, src, dst, om.msgUpdateClient, t)
 	}
 
-	for _, m := range om.pktMsgs {
-		dst.trackProcessingPacketMessage(m)
+	for _, t := range om.pktMsgs {
+		dst.trackProcessingPacketMessage(t)
+		if t.m == nil {
+			continue
+		}
+		go pp.sendPacketMessage(ctx, src, dst, om.msgUpdateClient, t)
 	}
-
-	go pp.sendMessages(ctx, src, dst, &om, pp.memo)
 
 	return nil
 }
 
-func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRuntime, om *outgoingMessages, memo string) {
+func (pp *PathProcessor) sendPacketMessage(
+	ctx context.Context,
+	src, dst *pathEndRuntime,
+	msgUpdateClient provider.RelayerMessage,
+	tracker packetMessageToTrack,
+) {
+	msgs := []provider.RelayerMessage{msgUpdateClient, tracker.m}
+
 	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
-	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, om.msgs, pp.memo)
+	err := dst.chainProvider.SendMessagesToMempool(ctx, msgs, pp.memo)
 	if err != nil {
 		if errors.Is(err, chantypes.ErrRedundantTx) {
-			pp.log.Debug("Packet(s) already handled by another relayer",
+			pp.log.Debug("Packet already handled by another relayer",
 				zap.String("src_chain_id", src.info.ChainID),
 				zap.String("dst_chain_id", dst.info.ChainID),
 				zap.String("src_client_id", src.info.ClientID),
 				zap.String("dst_client_id", dst.info.ClientID),
-				zap.Object("messages", om),
+				zap.String("event_type", tracker.msg.eventType),
 				zap.Error(err),
 			)
 			return
 		}
-		pp.log.Error("Error sending messages",
+		pp.log.Error("Error sending packet message",
 			zap.String("src_chain_id", src.info.ChainID),
 			zap.String("dst_chain_id", dst.info.ChainID),
 			zap.String("src_client_id", src.info.ClientID),
 			zap.String("dst_client_id", dst.info.ClientID),
-			zap.Object("messages", om),
+			zap.String("event_type", tracker.msg.eventType),
 			zap.Error(err),
 		)
 		return
 	}
-	if !txSuccess {
-		dst.log.Error("Error sending messages, transaction was not successful")
-		return
-	}
+
+	// TODO tx not in committed block yet, so can't guarantee that tx was successful
 
 	if pp.metrics == nil {
 		return
 	}
-	for _, m := range om.pktMsgs {
-		var channel, port string
-		if m.msg.eventType == chantypes.EventTypeRecvPacket {
-			channel = m.msg.info.DestChannel
-			port = m.msg.info.DestPort
-		} else {
-			channel = m.msg.info.SourceChannel
-			port = m.msg.info.SourcePort
-		}
-		pp.metrics.IncPacketsRelayed(dst.info.PathName, dst.info.ChainID, channel, port, m.msg.eventType)
+
+	var channel, port string
+	if tracker.msg.eventType == chantypes.EventTypeRecvPacket {
+		channel = tracker.msg.info.DestChannel
+		port = tracker.msg.info.DestPort
+	} else {
+		channel = tracker.msg.info.SourceChannel
+		port = tracker.msg.info.SourcePort
+	}
+	pp.metrics.IncPacketsRelayed(dst.info.PathName, dst.info.ChainID, channel, port, tracker.msg.eventType)
+}
+
+func (pp *PathProcessor) sendChannelMessage(
+	ctx context.Context,
+	src, dst *pathEndRuntime,
+	msgUpdateClient provider.RelayerMessage,
+	tracker channelMessageToTrack,
+) {
+	msgs := []provider.RelayerMessage{msgUpdateClient, tracker.m}
+
+	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
+	defer cancel()
+
+	err := dst.chainProvider.SendMessagesToMempool(ctx, msgs, pp.memo)
+	if err != nil {
+		pp.log.Error("Error sending channel handshake message",
+			zap.String("src_chain_id", src.info.ChainID),
+			zap.String("dst_chain_id", dst.info.ChainID),
+			zap.String("src_client_id", src.info.ClientID),
+			zap.String("dst_client_id", dst.info.ClientID),
+			zap.String("event_type", tracker.msg.eventType),
+			zap.Error(err),
+		)
+		return
+	}
+}
+
+func (pp *PathProcessor) sendConnectionMessage(
+	ctx context.Context,
+	src, dst *pathEndRuntime,
+	msgUpdateClient provider.RelayerMessage,
+	tracker connectionMessageToTrack,
+) {
+	msgs := []provider.RelayerMessage{msgUpdateClient, tracker.m}
+
+	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
+	defer cancel()
+
+	err := dst.chainProvider.SendMessagesToMempool(ctx, msgs, pp.memo)
+	if err != nil {
+		pp.log.Error("Error sending connection handshake message",
+			zap.String("src_chain_id", src.info.ChainID),
+			zap.String("dst_chain_id", dst.info.ChainID),
+			zap.String("src_client_id", src.info.ClientID),
+			zap.String("dst_client_id", dst.info.ClientID),
+			zap.String("event_type", tracker.msg.eventType),
+			zap.Error(err),
+		)
+		return
+	}
+}
+
+func (pp *PathProcessor) sendClientICQMessage(
+	ctx context.Context,
+	src, dst *pathEndRuntime,
+	msgUpdateClient provider.RelayerMessage,
+	tracker clientICQMessageToTrack,
+) {
+	msgs := []provider.RelayerMessage{msgUpdateClient, tracker.m}
+
+	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
+	defer cancel()
+
+	err := dst.chainProvider.SendMessagesToMempool(ctx, msgs, pp.memo)
+	if err != nil {
+		pp.log.Error("Error sending client ICQ message",
+			zap.String("src_chain_id", src.info.ChainID),
+			zap.String("dst_chain_id", dst.info.ChainID),
+			zap.String("src_client_id", src.info.ClientID),
+			zap.String("dst_client_id", dst.info.ClientID),
+			zap.String("event_type", tracker.msg.info.Type),
+			zap.Error(err),
+		)
+		return
 	}
 }
 

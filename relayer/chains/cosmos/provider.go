@@ -134,8 +134,12 @@ func (h CosmosIBCHeader) ConsensusState() ibcexported.ConsensusState {
 	return &tmclient.ConsensusState{
 		Timestamp:          h.SignedHeader.Time,
 		Root:               commitmenttypes.NewMerkleRoot(h.SignedHeader.AppHash),
-		NextValidatorsHash: h.ValidatorSet.Hash(),
+		NextValidatorsHash: h.SignedHeader.NextValidatorsHash,
 	}
+}
+
+func (h CosmosIBCHeader) NextValidatorsHash() []byte {
+	return h.SignedHeader.NextValidatorsHash
 }
 
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {

@@ -49,7 +49,7 @@ type LatestBlock struct {
 type IBCHeader interface {
 	Height() uint64
 	ConsensusState() ibcexported.ConsensusState
-	// require conversion implementation for third party chains
+	NextValidatorsHash() []byte
 }
 
 // ClientState holds the current state of a client from a single chain's perspective
@@ -367,6 +367,7 @@ type ChainProvider interface {
 
 	SendMessage(ctx context.Context, msg RelayerMessage, memo string) (*RelayerTxResponse, bool, error)
 	SendMessages(ctx context.Context, msgs []RelayerMessage, memo string) (*RelayerTxResponse, bool, error)
+	SendMessagesToMempool(ctx context.Context, msgs []RelayerMessage, memo string) error
 
 	ChainName() string
 	ChainId() string
