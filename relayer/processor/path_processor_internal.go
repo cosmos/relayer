@@ -491,14 +491,14 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 	// need to assemble new trusted state
 	ibcHeader, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight+1]
 	if !ok {
-		if ibcHeaderCurrent, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight]; ok {
-			if bytes.Equal(dst.clientTrustedState.IBCHeader.NextValidatorsHash(), ibcHeaderCurrent.NextValidatorsHash()) {
-				src.clientTrustedState = provider.ClientTrustedState{
-					ClientState: src.clientState,
-					IBCHeader:   ibcHeaderCurrent,
-				}
-				return
+		if ibcHeaderCurrent, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight]; ok &&
+			dst.clientTrustedState.IBCHeader != nil &&
+			bytes.Equal(dst.clientTrustedState.IBCHeader.NextValidatorsHash(), ibcHeaderCurrent.NextValidatorsHash()) {
+			src.clientTrustedState = provider.ClientTrustedState{
+				ClientState: src.clientState,
+				IBCHeader:   ibcHeaderCurrent,
 			}
+			return
 		}
 		pp.log.Debug("No cached IBC header for client trusted height",
 			zap.String("chain_id", src.info.ChainID),
