@@ -349,6 +349,8 @@ func (cc *CosmosProvider) broadcastTx(
 		return err
 	}
 
+	cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), fees)
+
 	// TODO: maybe we need to check if the node has tx indexing enabled?
 	// if not, we need to find a new way to block until inclusion in a block
 
@@ -370,7 +372,6 @@ func (cc *CosmosProvider) broadcastTx(
 		// transaction was executed, log the success or failure using the tx response code
 		// NOTE: error is nil, logic should use the returned error to determine if the
 		// transaction was successfully executed.
-		cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), fees)
 
 		if resp.Code != 0 {
 			cc.LogFailedTx(rlyResp, nil, msgs)
