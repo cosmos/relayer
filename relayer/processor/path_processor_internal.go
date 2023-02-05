@@ -902,11 +902,6 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		}
 	}
 
-	if successCount == 0 && !needsClientUpdate {
-		// only msgUpdateClient, don't need to send
-		return errors.New("all messages failed to assemble")
-	}
-
 	for _, t := range om.connMsgs {
 		dst.trackProcessingConnectionMessage(t)
 		if t.m == nil {
@@ -939,7 +934,37 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		go pp.sendPacketMessage(ctx, src, dst, om.msgUpdateClient, t)
 	}
 
+	if successCount == 0 {
+		if needsClientUpdate {
+			go pp.sendClientUpdate(ctx, src, dst, om.msgUpdateClient)
+			return nil
+		}
+		// only msgUpdateClient, don't need to send
+		return errors.New("all messages failed to assemble")
+	}
+
 	return nil
+}
+
+func (pp *PathProcessor) sendClientUpdate(
+	ctx context.Context,
+	src, dst *pathEndRuntime,
+	msgUpdateClient provider.RelayerMessage,
+) {
+	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
+	defer cancel()
+
+	err := dst.chainProvider.SendMessagesToMempool(ctx, []provider.RelayerMessage{msgUpdateClient}, pp.memo)
+	if err != nil {
+		pp.log.Error("Error sending client update message",
+			zap.String("src_chain_id", src.info.ChainID),
+			zap.String("dst_chain_id", dst.info.ChainID),
+			zap.String("src_client_id", src.info.ClientID),
+			zap.String("dst_client_id", dst.info.ClientID),
+			zap.Error(err),
+		)
+		return
+	}
 }
 
 func (pp *PathProcessor) sendPacketMessage(
