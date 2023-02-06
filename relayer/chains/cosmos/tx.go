@@ -192,11 +192,12 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 	}
 
 	rlyResp := &provider.RelayerTxResponse{
-		Height: resp.Height,
-		TxHash: resp.TxHash,
-		Code:   resp.Code,
-		Data:   resp.Data,
-		Events: parseEventsFromTxResponse(resp),
+		Height:    resp.Height,
+		TxHash:    resp.TxHash,
+		Codespace: resp.Codespace,
+		Code:      resp.Code,
+		Data:      resp.Data,
+		Events:    parseEventsFromTxResponse(resp),
 	}
 
 	// transaction was executed, log the success or failure using the tx response code
@@ -214,90 +215,26 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 	return rlyResp, true, nil
 }
 
-func (cc *CosmosProvider) SendMessagesToMempool(ctx context.Context, msgs []provider.RelayerMessage, memo string) error {
-	var fees sdk.Coins
+// SendMessagesToMempool simulates and broadcasts a transaction with the given msgs and memo.
+// This method will return once the transaction has entered the mempool.
+// In an async goroutine, will wait for the tx to be included in the block unless asyncCtx exits.
+// If there is no error broadcasting, the asyncCallback will be called with success/failure of the wait for block inclusion.
+func (cc *CosmosProvider) SendMessagesToMempool(
+	ctx context.Context,
+	msgs []provider.RelayerMessage,
+	memo string,
 
+	asyncCtx context.Context,
+	asyncCallback func(*provider.RelayerTxResponse, error),
+) error {
 	// Guard against account sequence number mismatch errors by locking for the specific wallet for
 	// the account sequence query all the way through the transaction broadcast success/fail.
 	cc.txMu.Lock()
 	defer cc.txMu.Unlock()
 
-	txBytes, sequence, f, err := cc.buildMessages(ctx, msgs, memo)
-	fees = f
+	txBytes, sequence, fees, err := cc.buildMessages(ctx, msgs, memo)
 	if err != nil {
-		errMsg := err.Error()
-
 		// Account sequence mismatch errors can happen on the simulated transaction also.
-		if strings.Contains(errMsg, sdkerrors.ErrWrongSequence.Error()) {
-			cc.handleAccountSequenceMismatchError(err)
-			return err
-		}
-
-		// Occasionally the client will be out of date,
-		// and we will receive an RPC error like:
-		//     rpc error: code = InvalidArgument desc = failed to execute message; message index: 1: channel handshake open try failed: failed channel state verification for client (07-tendermint-0): client state height < proof height ({0 58} < {0 59}), please ensure the client has been updated: invalid height: invalid request
-		// or
-		//     rpc error: code = InvalidArgument desc = failed to execute message; message index: 1: receive packet verification failed: couldn't verify counterparty packet commitment: failed packet commitment verification for client (07-tendermint-0): client state height < proof height ({0 142} < {0 143}), please ensure the client has been updated: invalid height: invalid request
-		//
-		// No amount of retrying will fix this. The client needs to be updated.
-		// Unfortunately, the entirety of that error message originates on the server,
-		// so there is not an obvious way to access a more structured error value.
-		//
-		// If this logic should ever fail due to the string values of the error messages on the server
-		// changing from the client's version of the library,
-		// at worst this will run more unnecessary retries.
-		if strings.Contains(errMsg, sdkerrors.ErrInvalidHeight.Error()) {
-			cc.log.Info(
-				"Skipping retry due to invalid height error",
-				zap.Error(err),
-			)
-			return err
-		}
-
-		// On a fast retry, it is possible to have an invalid connection state.
-		// Retrying that message also won't fix the underlying state mismatch,
-		// so log it and mark it as unrecoverable.
-		if strings.Contains(errMsg, conntypes.ErrInvalidConnectionState.Error()) {
-			cc.log.Info(
-				"Skipping retry due to invalid connection state",
-				zap.Error(err),
-			)
-			return err
-		}
-
-		// Also possible to have an invalid channel state on a fast retry.
-		if strings.Contains(errMsg, chantypes.ErrInvalidChannelState.Error()) {
-			cc.log.Info(
-				"Skipping retry due to invalid channel state",
-				zap.Error(err),
-			)
-			return err
-		}
-
-		// If the message reported an invalid proof, back off.
-		// NOTE: this error string ("invalid proof") will match other errors too,
-		// but presumably it is safe to stop retrying in those cases as well.
-		if strings.Contains(errMsg, commitmenttypes.ErrInvalidProof.Error()) {
-			cc.log.Info(
-				"Skipping retry due to invalid proof",
-				zap.Error(err),
-			)
-			return err
-		}
-
-		// Invalid packets should not be retried either.
-		if strings.Contains(errMsg, chantypes.ErrInvalidPacket.Error()) {
-			cc.log.Info(
-				"Skipping retry due to invalid packet",
-				zap.Error(err),
-			)
-			return err
-		}
-
-		return err
-	}
-
-	if err := cc.broadcastTx(ctx, txBytes, msgs, fees, defaultBroadcastWaitTimeout); err != nil {
 		if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
 			cc.handleAccountSequenceMismatchError(err)
 		}
@@ -305,47 +242,58 @@ func (cc *CosmosProvider) SendMessagesToMempool(ctx context.Context, msgs []prov
 		return err
 	}
 
-	// we had a potentially successful tx with this sequence, so update it to the next
+	if err := cc.broadcastTx(ctx, txBytes, msgs, fees, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback); err != nil {
+		if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+			cc.handleAccountSequenceMismatchError(err)
+		}
+
+		return err
+	}
+
+	// we had a successful tx broadcast with this sequence, so update it to the next
 	cc.updateNextAccountSequence(sequence + 1)
 
 	return nil
 }
 
-// broadcastTx broadcasts a TX and then waits for the TX to be included in the block.
-// The waiting will either be canceled after the waitTimeout has run out or the context
-// exited.
-func (cc *CosmosProvider) broadcastTx(
-	ctx context.Context,
-	tx []byte,
-	msgs []provider.RelayerMessage,
-	fees sdk.Coins,
-	waitTimeout time.Duration,
-) error {
-	// broadcast tx sync waits for check tx to pass
-	// NOTE: this can return w/ a timeout
-	// need to investigate if this will leave the tx
-	// in the mempool or we can retry the broadcast at that
-	// point
+// sdkError will return the Cosmos SDK registered error for a given codespace/code combo if registered, otherwise nil.
+func (cc *CosmosProvider) sdkError(codespace string, code uint32) error {
+	// ABCIError will return an error other than "unknown" if syncRes.Code is a registered error in syncRes.Codespace
+	// This catches all of the sdk errors https://github.com/cosmos/cosmos-sdk/blob/f10f5e5974d2ecbf9efc05bc0bfe1c99fdeed4b6/types/errors/errors.go
+	err := errors.Unwrap(sdkerrors.ABCIError(codespace, code, "error broadcasting transaction"))
+	if err.Error() != errUnknown {
+		return err
+	}
+	return nil
+}
 
-	syncRes, err := cc.ChainClient.RPCClient.BroadcastTxSync(ctx, tx)
+// broadcastTx broadcasts a transaction with the given raw bytes and then, in an async goroutine, waits for the tx to be included in the block.
+// The wait will end after either the asyncTimeout has run out or the asyncCtx exits.
+// If there is no error broadcasting, the asyncCallback will be called with success/failure of the wait for block inclusion.
+func (cc *CosmosProvider) broadcastTx(
+	ctx context.Context, // context for tx broadcast
+	tx []byte, // raw tx to be broadcasted
+	msgs []provider.RelayerMessage, // used for logging only
+	fees sdk.Coins, // used for metrics
+
+	asyncCtx context.Context, // context for async wait for block inclusion after successful tx broadcast
+	asyncTimeout time.Duration, // timeout for waiting for block inclusion
+	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
+) error {
+	res, err := cc.ChainClient.RPCClient.BroadcastTxSync(ctx, tx)
 	if err != nil {
-		if syncRes == nil {
+		if res == nil {
 			// There are some cases where BroadcastTxSync will return an error but the associated
 			// ResultBroadcastTx will be nil.
 			return err
 		}
 		rlyResp := &provider.RelayerTxResponse{
-			TxHash: syncRes.Hash.String(),
-			Code:   syncRes.Code,
+			TxHash:    res.Hash.String(),
+			Codespace: res.Codespace,
+			Code:      res.Code,
+			Data:      res.Data.String(),
 		}
-		cc.LogFailedTx(rlyResp, nil, msgs)
-		return err
-	}
-
-	// ABCIError will return an error other than "unknown" if syncRes.Code is a registered error in syncRes.Codespace
-	// This catches all of the sdk errors https://github.com/cosmos/cosmos-sdk/blob/f10f5e5974d2ecbf9efc05bc0bfe1c99fdeed4b6/types/errors/errors.go
-	err = errors.Unwrap(sdkerrors.ABCIError(syncRes.Codespace, syncRes.Code, "error broadcasting transaction"))
-	if err.Error() != errUnknown {
+		cc.LogFailedTx(rlyResp, err, msgs)
 		return err
 	}
 
@@ -354,39 +302,65 @@ func (cc *CosmosProvider) broadcastTx(
 	// TODO: maybe we need to check if the node has tx indexing enabled?
 	// if not, we need to find a new way to block until inclusion in a block
 
-	go func() {
-		ctx := context.Background() // TODO: update
-		resp, err := cc.waitForBlockInclusion(ctx, syncRes, waitTimeout)
-		if err != nil {
-			cc.log.Error("Failed to wait for block inclusion", zap.Error(err))
-			return
-		}
-		rlyResp := &provider.RelayerTxResponse{
-			Height: resp.Height,
-			TxHash: resp.TxHash,
-			Code:   resp.Code,
-			Data:   resp.Data,
-			Events: parseEventsFromTxResponse(resp),
-		}
-
-		// transaction was executed, log the success or failure using the tx response code
-		// NOTE: error is nil, logic should use the returned error to determine if the
-		// transaction was successfully executed.
-
-		if resp.Code != 0 {
-			cc.LogFailedTx(rlyResp, nil, msgs)
-			return
-		}
-
-		cc.LogSuccessTx(resp, msgs)
-	}()
+	go cc.waitForTx(asyncCtx, res.Hash, msgs, asyncTimeout, asyncCallback)
 
 	return nil
 }
 
+// waitForTx waits for a transaction to be included in a block, logs success/fail, then invokes callback.
+// This is intended to be called as an async goroutine.
+func (cc *CosmosProvider) waitForTx(
+	ctx context.Context,
+	txHash []byte,
+	msgs []provider.RelayerMessage, // used for logging only
+	waitTimeout time.Duration,
+	callback func(*provider.RelayerTxResponse, error),
+) {
+	res, err := cc.waitForBlockInclusion(ctx, txHash, waitTimeout)
+	if err != nil {
+		cc.log.Error("Failed to wait for block inclusion", zap.Error(err))
+		if callback != nil {
+			callback(nil, err)
+		}
+		return
+	}
+
+	rlyResp := &provider.RelayerTxResponse{
+		Height:    res.Height,
+		TxHash:    res.TxHash,
+		Codespace: res.Codespace,
+		Code:      res.Code,
+		Data:      res.Data,
+		Events:    parseEventsFromTxResponse(res),
+	}
+
+	// transaction was executed, log the success or failure using the tx response code
+	// NOTE: error is nil, logic should use the returned error to determine if the
+	// transaction was successfully executed.
+
+	if res.Code != 0 {
+		// Check for any registered SDK errors
+		err := cc.sdkError(res.Codespace, res.Code)
+		if err == nil {
+			err = fmt.Errorf("transaction failed to execute")
+		}
+		if callback != nil {
+			callback(nil, err)
+		}
+		cc.LogFailedTx(rlyResp, nil, msgs)
+		return
+	}
+
+	if callback != nil {
+		callback(rlyResp, nil)
+	}
+	cc.LogSuccessTx(res, msgs)
+}
+
+// waitForBlockInclusion will wait for a transaction to be included in a block, up to waitTimeout or context cancellation.
 func (cc *CosmosProvider) waitForBlockInclusion(
 	ctx context.Context,
-	syncRes *coretypes.ResultBroadcastTx,
+	txHash []byte,
 	waitTimeout time.Duration,
 ) (*sdk.TxResponse, error) {
 	exitAfter := time.After(waitTimeout)
@@ -394,39 +368,32 @@ func (cc *CosmosProvider) waitForBlockInclusion(
 		select {
 		case <-exitAfter:
 			return nil, fmt.Errorf("timed out after: %d; %w", waitTimeout, lensclient.ErrTimeoutAfterWaitingForTxBroadcast)
-		// TODO: this is potentially less than optimal and may
-		// be better as something configurable
+		// This fixed poll is fine because it's only for logging and updating prometheus metrics currently.
 		case <-time.After(time.Millisecond * 100):
-			resTx, err := cc.ChainClient.RPCClient.Tx(ctx, syncRes.Hash, false)
+			res, err := cc.ChainClient.RPCClient.Tx(ctx, txHash, false)
 			if err == nil {
-				return cc.mkTxResult(resTx)
+				return cc.mkTxResult(res)
 			}
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
 	}
-
 }
 
+// mkTxResult decodes a tendermint transaction into an SDK TxResponse.
 func (cc *CosmosProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse, error) {
-	txb, err := cc.ChainClient.Codec.TxConfig.TxDecoder()(resTx.Tx)
+	txbz, err := cc.ChainClient.Codec.TxConfig.TxDecoder()(resTx.Tx)
 	if err != nil {
 		return nil, err
 	}
-	p, ok := txb.(intoAny)
+	p, ok := txbz.(intoAny)
 	if !ok {
-		return nil, fmt.Errorf("expecting a type implementing intoAny, got: %T", txb)
+		return nil, fmt.Errorf("expecting a type implementing intoAny, got: %T", txbz)
 	}
 	any := p.AsAny()
-	// TODO: maybe don't make up the time here?
-	// we can fetch the block for the block time buts thats
-	// more round trips
-	// TODO: logs get rendered as base64 encoded, need to fix this somehow
-	return sdk.NewResponseResultTx(resTx, any, time.Now().Format(time.RFC3339)), nil
+	return sdk.NewResponseResultTx(resTx, any, ""), nil
 }
 
-// Deprecated: this interface is used only internally for scenario we are
-// deprecating (StdTxConfig support)
 type intoAny interface {
 	AsAny() *codectypes.Any
 }

@@ -31,20 +31,21 @@ var (
 const tendermintEncodingThreshold = "v0.37.0-alpha"
 
 type CosmosProviderConfig struct {
-	Key            string   `json:"key" yaml:"key"`
-	ChainName      string   `json:"-" yaml:"-"`
-	ChainID        string   `json:"chain-id" yaml:"chain-id"`
-	RPCAddr        string   `json:"rpc-addr" yaml:"rpc-addr"`
-	AccountPrefix  string   `json:"account-prefix" yaml:"account-prefix"`
-	KeyringBackend string   `json:"keyring-backend" yaml:"keyring-backend"`
-	GasAdjustment  float64  `json:"gas-adjustment" yaml:"gas-adjustment"`
-	GasPrices      string   `json:"gas-prices" yaml:"gas-prices"`
-	MinGasAmount   uint64   `json:"min-gas-amount" yaml:"min-gas-amount"`
-	Debug          bool     `json:"debug" yaml:"debug"`
-	Timeout        string   `json:"timeout" yaml:"timeout"`
-	OutputFormat   string   `json:"output-format" yaml:"output-format"`
-	SignModeStr    string   `json:"sign-mode" yaml:"sign-mode"`
-	ExtraCodecs    []string `json:"extra-codecs" yaml:"extra-codecs"`
+	Key            string                 `json:"key" yaml:"key"`
+	ChainName      string                 `json:"-" yaml:"-"`
+	ChainID        string                 `json:"chain-id" yaml:"chain-id"`
+	RPCAddr        string                 `json:"rpc-addr" yaml:"rpc-addr"`
+	AccountPrefix  string                 `json:"account-prefix" yaml:"account-prefix"`
+	KeyringBackend string                 `json:"keyring-backend" yaml:"keyring-backend"`
+	GasAdjustment  float64                `json:"gas-adjustment" yaml:"gas-adjustment"`
+	GasPrices      string                 `json:"gas-prices" yaml:"gas-prices"`
+	MinGasAmount   uint64                 `json:"min-gas-amount" yaml:"min-gas-amount"`
+	Debug          bool                   `json:"debug" yaml:"debug"`
+	Timeout        string                 `json:"timeout" yaml:"timeout"`
+	OutputFormat   string                 `json:"output-format" yaml:"output-format"`
+	SignModeStr    string                 `json:"sign-mode" yaml:"sign-mode"`
+	ExtraCodecs    []string               `json:"extra-codecs" yaml:"extra-codecs"`
+	Broadcast      provider.BroadcastMode `json:"broadcast-mode" yaml:"broadcast-mode"`
 }
 
 func (pc CosmosProviderConfig) Validate() error {
@@ -52,6 +53,10 @@ func (pc CosmosProviderConfig) Validate() error {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 	return nil
+}
+
+func (pc CosmosProviderConfig) BroadcastMode() provider.BroadcastMode {
+	return pc.Broadcast
 }
 
 // NewProvider validates the CosmosProviderConfig, instantiates a ChainClient and then instantiates a CosmosProvider
@@ -70,6 +75,10 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 		return nil, err
 	}
 	pc.ChainName = chainName
+
+	if pc.Broadcast == "" {
+		pc.Broadcast = provider.BroadcastModeBatch
+	}
 
 	return &CosmosProvider{
 		log:         log,

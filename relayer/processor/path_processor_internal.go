@@ -902,9 +902,16 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		}
 	}
 
+	broadcastBatch := dst.chainProvider.ProviderConfig().BroadcastMode() == provider.BroadcastModeBatch
+	batchMsgs := []provider.RelayerMessage{om.msgUpdateClient}
+
 	for _, t := range om.connMsgs {
 		dst.trackProcessingConnectionMessage(t)
 		if t.m == nil {
+			continue
+		}
+		if broadcastBatch {
+			batchMsgs = append(batchMsgs, t.m)
 			continue
 		}
 		go pp.sendConnectionMessage(ctx, src, dst, om.msgUpdateClient, t)
@@ -915,6 +922,10 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		if t.m == nil {
 			continue
 		}
+		if broadcastBatch {
+			batchMsgs = append(batchMsgs, t.m)
+			continue
+		}
 		go pp.sendChannelMessage(ctx, src, dst, om.msgUpdateClient, t)
 	}
 
@@ -923,7 +934,12 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		if t.m == nil {
 			continue
 		}
+		if broadcastBatch {
+			batchMsgs = append(batchMsgs, t.m)
+			continue
+		}
 		go pp.sendClientICQMessage(ctx, src, dst, om.msgUpdateClient, t)
+
 	}
 
 	for _, t := range om.pktMsgs {
@@ -931,7 +947,15 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		if t.m == nil {
 			continue
 		}
+		if broadcastBatch {
+			batchMsgs = append(batchMsgs, t.m)
+			continue
+		}
 		go pp.sendPacketMessage(ctx, src, dst, om.msgUpdateClient, t)
+	}
+
+	if broadcastBatch {
+		go pp.sendBatchMessages(ctx, src, dst, batchMsgs, om.pktMsgs)
 	}
 
 	if successCount == 0 {
@@ -951,12 +975,60 @@ func (pp *PathProcessor) sendClientUpdate(
 	src, dst *pathEndRuntime,
 	msgUpdateClient provider.RelayerMessage,
 ) {
-	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
+	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
-	err := dst.chainProvider.SendMessagesToMempool(ctx, []provider.RelayerMessage{msgUpdateClient}, pp.memo)
+	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, []provider.RelayerMessage{msgUpdateClient}, pp.memo, ctx, nil)
 	if err != nil {
 		pp.log.Error("Error sending client update message",
+			zap.String("src_chain_id", src.info.ChainID),
+			zap.String("dst_chain_id", dst.info.ChainID),
+			zap.String("src_client_id", src.info.ClientID),
+			zap.String("dst_client_id", dst.info.ClientID),
+			zap.Error(err),
+		)
+		return
+	}
+}
+
+func (pp *PathProcessor) sendBatchMessages(
+	ctx context.Context,
+	src, dst *pathEndRuntime,
+	msgs []provider.RelayerMessage,
+	pktMsgs []packetMessageToTrack,
+) {
+	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
+	defer cancel()
+
+	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, pp.memo, ctx, func(rtr *provider.RelayerTxResponse, err error) {
+		// only increment metrics counts for successful packets
+		if err != nil || pp.metrics == nil {
+			return
+		}
+		for _, tracker := range pktMsgs {
+			var channel, port string
+			if tracker.msg.eventType == chantypes.EventTypeRecvPacket {
+				channel = tracker.msg.info.DestChannel
+				port = tracker.msg.info.DestPort
+			} else {
+				channel = tracker.msg.info.SourceChannel
+				port = tracker.msg.info.SourcePort
+			}
+			pp.metrics.IncPacketsRelayed(dst.info.PathName, dst.info.ChainID, channel, port, tracker.msg.eventType)
+		}
+	})
+	if err != nil {
+		if errors.Is(err, chantypes.ErrRedundantTx) {
+			pp.log.Debug("Packet(s) already handled by another relayer",
+				zap.String("src_chain_id", src.info.ChainID),
+				zap.String("dst_chain_id", dst.info.ChainID),
+				zap.String("src_client_id", src.info.ClientID),
+				zap.String("dst_client_id", dst.info.ClientID),
+				zap.Error(err),
+			)
+			return
+		}
+		pp.log.Error("Error sending batch of messages",
 			zap.String("src_chain_id", src.info.ChainID),
 			zap.String("dst_chain_id", dst.info.ChainID),
 			zap.String("src_client_id", src.info.ClientID),
@@ -975,10 +1047,24 @@ func (pp *PathProcessor) sendPacketMessage(
 ) {
 	msgs := []provider.RelayerMessage{msgUpdateClient, tracker.m}
 
-	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
+	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
-	err := dst.chainProvider.SendMessagesToMempool(ctx, msgs, pp.memo)
+	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, pp.memo, ctx, func(rtr *provider.RelayerTxResponse, err error) {
+		// only increment metrics counts for successful packets
+		if err != nil || pp.metrics == nil {
+			return
+		}
+		var channel, port string
+		if tracker.msg.eventType == chantypes.EventTypeRecvPacket {
+			channel = tracker.msg.info.DestChannel
+			port = tracker.msg.info.DestPort
+		} else {
+			channel = tracker.msg.info.SourceChannel
+			port = tracker.msg.info.SourcePort
+		}
+		pp.metrics.IncPacketsRelayed(dst.info.PathName, dst.info.ChainID, channel, port, tracker.msg.eventType)
+	})
 	if err != nil {
 		if errors.Is(err, chantypes.ErrRedundantTx) {
 			pp.log.Debug("Packet already handled by another relayer",
@@ -1001,22 +1087,6 @@ func (pp *PathProcessor) sendPacketMessage(
 		)
 		return
 	}
-
-	// TODO tx not in committed block yet, so can't guarantee that tx was successful
-
-	if pp.metrics == nil {
-		return
-	}
-
-	var channel, port string
-	if tracker.msg.eventType == chantypes.EventTypeRecvPacket {
-		channel = tracker.msg.info.DestChannel
-		port = tracker.msg.info.DestPort
-	} else {
-		channel = tracker.msg.info.SourceChannel
-		port = tracker.msg.info.SourcePort
-	}
-	pp.metrics.IncPacketsRelayed(dst.info.PathName, dst.info.ChainID, channel, port, tracker.msg.eventType)
 }
 
 func (pp *PathProcessor) sendChannelMessage(
@@ -1027,10 +1097,10 @@ func (pp *PathProcessor) sendChannelMessage(
 ) {
 	msgs := []provider.RelayerMessage{msgUpdateClient, tracker.m}
 
-	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
+	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
-	err := dst.chainProvider.SendMessagesToMempool(ctx, msgs, pp.memo)
+	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, pp.memo, ctx, nil)
 	if err != nil {
 		pp.log.Error("Error sending channel handshake message",
 			zap.String("src_chain_id", src.info.ChainID),
@@ -1052,10 +1122,10 @@ func (pp *PathProcessor) sendConnectionMessage(
 ) {
 	msgs := []provider.RelayerMessage{msgUpdateClient, tracker.m}
 
-	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
+	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
-	err := dst.chainProvider.SendMessagesToMempool(ctx, msgs, pp.memo)
+	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, pp.memo, ctx, nil)
 	if err != nil {
 		pp.log.Error("Error sending connection handshake message",
 			zap.String("src_chain_id", src.info.ChainID),
@@ -1077,10 +1147,10 @@ func (pp *PathProcessor) sendClientICQMessage(
 ) {
 	msgs := []provider.RelayerMessage{msgUpdateClient, tracker.m}
 
-	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
+	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
-	err := dst.chainProvider.SendMessagesToMempool(ctx, msgs, pp.memo)
+	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, pp.memo, ctx, nil)
 	if err != nil {
 		pp.log.Error("Error sending client ICQ message",
 			zap.String("src_chain_id", src.info.ChainID),
