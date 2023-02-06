@@ -32,6 +32,7 @@ func StartRelayer(
 	ctx context.Context,
 	log *zap.Logger,
 	src, dst *Chain,
+	interquery bool,
 	filter ChannelFilter,
 	maxTxSize, maxMsgLength uint64,
 	memo string,
@@ -64,7 +65,7 @@ func StartRelayer(
 		go relayerStartEventProcessor(ctx, log, paths, initialBlockHistory, maxTxSize, maxMsgLength, memo, errorChan)
 		return errorChan
 	case ProcessorLegacy:
-		go relayerMainLoop(ctx, log, src, dst, filter, maxTxSize, maxMsgLength, memo, errorChan)
+		go relayerMainLoop(ctx, log, src, dst, interquery, filter, maxTxSize, maxMsgLength, memo, errorChan)
 		return errorChan
 	default:
 		panic(fmt.Errorf("unexpected processor type: %s, supports one of: [%s, %s]", processorType, ProcessorEvents, ProcessorLegacy))
@@ -131,7 +132,7 @@ func relayerStartEventProcessor(
 }
 
 // relayerMainLoop is the main loop of the relayer.
-func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64, memo string, errCh chan<- error) {
+func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, interquery bool, filter ChannelFilter, maxTxSize, maxMsgLength uint64, memo string, errCh chan<- error) {
 	defer close(errCh)
 
 	// Query the list of channels on the src connection.
@@ -177,6 +178,11 @@ func relayerMainLoop(ctx context.Context, log *zap.Logger, src, dst *Chain, filt
 				wg.Add(1)
 				go relayUnrelayedPacketsAndAcks(ctx, log, &wg, src, dst, maxTxSize, maxMsgLength, memo, channel, channels)
 			}
+		}
+
+		// Relay pending interqueries for src -> dst
+		if interquery {
+			go relayInterqueryPackets(ctx, src, dst, maxTxSize, maxMsgLength)
 		}
 
 		// Block here until one of the running goroutines exits, while accounting for the case where
@@ -327,6 +333,24 @@ func relayUnrelayedPacketsAndAcks(ctx context.Context, log *zap.Logger, wg *sync
 	}
 }
 
+// relayInterqueryPackets will relay and submit all the pending interqueries from the src chain for the dest chain.
+func relayInterqueryPackets(ctx context.Context, src, dst *Chain, maxTxSize, maxMsgLength uint64) {
+
+	for {
+		if ok := relayInterqueries(ctx, src, dst, maxTxSize, maxMsgLength); !ok {
+			return
+		}
+
+		// Wait for a second before continuing, but allow context cancellation to break the flow.
+		select {
+		case <-time.After(time.Second):
+			// Nothing to do.
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 // relayUnrelayedPackets fetches unrelayed packet sequence numbers and attempts to relay the associated packets.
 // relayUnrelayedPackets returns true if packets were empty or were successfully relayed.
 // Otherwise, it logs the errors and returns false.
@@ -401,6 +425,70 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 			zap.String("src_channel_id", srcChannel.ChannelId),
 			zap.String("dst_chain_id", dst.ChainID()),
 			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
+			zap.Error(err),
+		)
+		// Indicate that we should attempt to keep going.
+		return true
+	}
+
+	return true
+}
+
+// relayUnrelayedPackets fetches unrelayed packet sequence numbers and attempts to relay the associated packets.
+// relayUnrelayedPackets returns true if packets were empty or were successfully relayed.
+// Otherwise, it logs the errors and returns false.
+func relayInterqueries(ctx context.Context, src, dst *Chain, maxTxSize, maxMsgLength uint64) bool {
+	childCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+
+	// Fetch any unrelayed interqueries
+	iqs, err := UnrelayedInterqueries(ctx, src, dst)
+	if err != nil {
+		src.log.Warn(
+			"Error retrieving pending interqueries",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.Error(err),
+		)
+		return false
+	}
+
+	// If there are no unrelayed interqueries, stop early.
+	if len(iqs) == 0 {
+		src.log.Info(
+			"No interqueries in queue",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("dst_chain_id", dst.ChainID()),
+		)
+		return true
+	}
+
+	if len(iqs) > 0 {
+		src.log.Debug(
+			"Unrelayed interqueries",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("dst_chain_id", dst.ChainID()),
+		)
+	}
+
+	if err := RelayInterqueries(childCtx, src, dst, iqs, maxTxSize, maxMsgLength); err != nil {
+		// If there was a context cancellation or deadline while attempting to relay interqueries,
+		// log that and indicate failure.
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			src.log.Warn(
+				"Context finished while waiting for RelayInterqueries to complete",
+				zap.String("src_chain_id", src.ChainID()),
+				zap.String("dst_chain_id", dst.ChainID()),
+				zap.Error(childCtx.Err()),
+			)
+			return false
+		}
+
+		// Otherwise, not a context error, but an application-level error.
+		src.log.Warn(
+			"Relay interqueries error",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("dst_chain_id", dst.ChainID()),
 			zap.Error(err),
 		)
 		// Indicate that we should attempt to keep going.

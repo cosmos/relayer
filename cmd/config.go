@@ -6,7 +6,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -400,26 +400,26 @@ func (iw *ProviderConfigYAMLWrapper) UnmarshalYAML(n *yaml.Node) error {
 }
 
 // ChainsFromPath takes the path name and returns the properly configured chains
-func (c *Config) ChainsFromPath(path string) (map[string]*relayer.Chain, string, string, error) {
+func (c *Config) ChainsFromPath(path string) (map[string]*relayer.Chain, string, string, bool, error) {
 	pth, err := c.Paths.Get(path)
 	if err != nil {
-		return nil, "", "", err
+		return nil, "", "", false, err
 	}
 
-	src, dst := pth.Src.ChainID, pth.Dst.ChainID
+	src, dst, interquery := pth.Src.ChainID, pth.Dst.ChainID, pth.Interquery.Query
 	chains, err := c.Chains.Gets(src, dst)
 	if err != nil {
-		return nil, "", "", err
+		return nil, "", "", false, err
 	}
 
 	if err = chains[src].SetPath(pth.Src); err != nil {
-		return nil, "", "", err
+		return nil, "", "", false, err
 	}
 	if err = chains[dst].SetPath(pth.Dst); err != nil {
-		return nil, "", "", err
+		return nil, "", "", false, err
 	}
 
-	return chains, src, dst, nil
+	return chains, src, dst, interquery, nil
 }
 
 // MustYAML returns the yaml string representation of the Paths

@@ -90,9 +90,14 @@ type PathAction struct {
 // Path represents a pair of chains and the identifiers needed to relay over them along with a channel filter list.
 // A Memo can optionally be provided for identification in relayed messages.
 type Path struct {
-	Src    *PathEnd      `yaml:"src" json:"src"`
-	Dst    *PathEnd      `yaml:"dst" json:"dst"`
-	Filter ChannelFilter `yaml:"src-channel-filter" json:"src-channel-filter"`
+	Src        *PathEnd      `yaml:"src" json:"src"`
+	Dst        *PathEnd      `yaml:"dst" json:"dst"`
+	Filter     ChannelFilter `yaml:"src-channel-filter" json:"src-channel-filter"`
+	Interquery Interquery    `yaml:"interquery" json:"interquery"`
+}
+
+type Interquery struct {
+	Query bool `yaml:"query" json:"query"`
 }
 
 // ChannelFilter provides the means for either creating an allowlist or a denylist of channels on the src chain

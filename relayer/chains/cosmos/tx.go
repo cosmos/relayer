@@ -2,6 +2,7 @@ package cosmos
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"strconv"
@@ -23,6 +24,7 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v4/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v4/modules/light-clients/07-tendermint/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	interquerytypes "github.com/defund-labs/defund/x/query/types"
 	"github.com/tendermint/tendermint/light"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
@@ -1562,6 +1564,35 @@ func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
 	}, nil
 }
 
+// MsgRelayInterqueryResult constructs the MsgRelayInterqueryResult which is to be sent to the querying chain.
+// The counterparty represents the queried chain being queried.
+func (cc *CosmosProvider) MsgRelayInterqueryResult(ctx context.Context, src, dst provider.ChainProvider, srch, dsth int64, query interquerytypes.Interquery) (provider.RelayerMessage, error) {
+	var (
+		acc string
+		err error
+	)
+	if acc, err = cc.Address(); err != nil {
+		return nil, err
+	}
+
+	res, height, err := dst.QueryStateABCI(ctx, dsth, query.Path, query.Key)
+
+	switch {
+	case err != nil:
+		return nil, err
+	default:
+		msg := &interquerytypes.MsgCreateInterqueryResult{
+			Creator: acc,
+			Storeid: query.Storeid,
+			Data:    base64.StdEncoding.EncodeToString(res.Value),
+			Height:  &height,
+			Proof:   res.ProofOps,
+		}
+
+		return NewCosmosMessage(msg), nil
+	}
+}
+
 // RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
 func (cc *CosmosProvider) RelayPacketFromSequence(
 	ctx context.Context,
@@ -1618,6 +1649,25 @@ func (cc *CosmosProvider) RelayPacketFromSequence(
 	}
 
 	return nil, nil, fmt.Errorf("should have errored before here")
+}
+
+// RelayPacketFromInterquery relays a query on src and returns msgs, and/or error
+func (cc *CosmosProvider) RelayPacketFromInterquery(ctx context.Context, src, dst provider.ChainProvider, srch, dsth uint64, iq interquerytypes.Interquery, dstConnectionId, srcConnectionId string) (provider.RelayerMessage, error) {
+
+	if iq.ConnectionId != srcConnectionId {
+		return nil, fmt.Errorf("wrong connection id for interquery %s: expected(%s) got(%s)", iq.Storeid, iq.ConnectionId, srcConnectionId)
+	}
+
+	if iq.ConnectionId == srcConnectionId {
+		result, err := src.MsgRelayInterqueryResult(ctx, src, dst, int64(srch), int64(dsth), iq)
+		if err != nil {
+			return nil, err
+		}
+
+		return result, nil
+	}
+
+	return nil, fmt.Errorf("should have errored before here")
 }
 
 // AcknowledgementFromSequence relays an acknowledgement with a given seq on src, source is the sending chain, destination is the receiving chain
@@ -2001,7 +2051,7 @@ func castClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) 
 	return clientState, nil
 }
 
-//DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
+// DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
 var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 
 func (cc *CosmosProvider) NewClientState(dstUpdateHeader ibcexported.Header, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
