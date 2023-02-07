@@ -880,25 +880,25 @@ func (pp *PathProcessor) assembleAndSendMessages(
 
 	wg.Wait()
 
-	successCount := 0
+	assembled := 0
 	for _, m := range om.connMsgs {
 		if m.m != nil {
-			successCount++
+			assembled++
 		}
 	}
 	for _, m := range om.chanMsgs {
 		if m.m != nil {
-			successCount++
+			assembled++
 		}
 	}
 	for _, m := range om.clientICQMsgs {
 		if m.m != nil {
-			successCount++
+			assembled++
 		}
 	}
 	for _, m := range om.pktMsgs {
 		if m.m != nil {
-			successCount++
+			assembled++
 		}
 	}
 
@@ -906,11 +906,11 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	batchMsgs := []provider.RelayerMessage{om.msgUpdateClient}
 
 	for _, t := range om.connMsgs {
-		dst.trackProcessingConnectionMessage(t)
+		retries := dst.trackProcessingConnectionMessage(t)
 		if t.m == nil {
 			continue
 		}
-		if broadcastBatch {
+		if broadcastBatch && retries == 0 {
 			batchMsgs = append(batchMsgs, t.m)
 			continue
 		}
@@ -918,11 +918,11 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	}
 
 	for _, t := range om.chanMsgs {
-		dst.trackProcessingChannelMessage(t)
+		retries := dst.trackProcessingChannelMessage(t)
 		if t.m == nil {
 			continue
 		}
-		if broadcastBatch {
+		if broadcastBatch && retries == 0 {
 			batchMsgs = append(batchMsgs, t.m)
 			continue
 		}
@@ -930,11 +930,11 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	}
 
 	for _, t := range om.clientICQMsgs {
-		dst.trackProcessingClientICQMessage(t)
+		retries := dst.trackProcessingClientICQMessage(t)
 		if t.m == nil {
 			continue
 		}
-		if broadcastBatch {
+		if broadcastBatch && retries == 0 {
 			batchMsgs = append(batchMsgs, t.m)
 			continue
 		}
@@ -943,22 +943,22 @@ func (pp *PathProcessor) assembleAndSendMessages(
 	}
 
 	for _, t := range om.pktMsgs {
-		dst.trackProcessingPacketMessage(t)
+		retries := dst.trackProcessingPacketMessage(t)
 		if t.m == nil {
 			continue
 		}
-		if broadcastBatch {
+		if broadcastBatch && retries == 0 {
 			batchMsgs = append(batchMsgs, t.m)
 			continue
 		}
 		go pp.sendPacketMessage(ctx, src, dst, om.msgUpdateClient, t)
 	}
 
-	if broadcastBatch {
+	if len(batchMsgs) > 1 {
 		go pp.sendBatchMessages(ctx, src, dst, batchMsgs, om.pktMsgs)
 	}
 
-	if successCount == 0 {
+	if assembled == 0 {
 		if needsClientUpdate {
 			go pp.sendClientUpdate(ctx, src, dst, om.msgUpdateClient)
 			return nil

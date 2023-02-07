@@ -625,7 +625,7 @@ func (pathEnd *pathEndRuntime) shouldSendClientICQMessage(message provider.Clien
 	return true
 }
 
-func (pathEnd *pathEndRuntime) trackProcessingPacketMessage(t packetMessageToTrack) {
+func (pathEnd *pathEndRuntime) trackProcessingPacketMessage(t packetMessageToTrack) uint64 {
 	eventType := t.msg.eventType
 	sequence := t.msg.info.Sequence
 	channelKey, err := t.msg.channelKey()
@@ -636,7 +636,7 @@ func (pathEnd *pathEndRuntime) trackProcessingPacketMessage(t packetMessageToTra
 			zap.Uint64("sequence", sequence),
 			zap.Error(err),
 		)
-		return
+		return 0
 	}
 	msgProcessCache, ok := pathEnd.packetProcessing[channelKey]
 	if !ok {
@@ -660,9 +660,11 @@ func (pathEnd *pathEndRuntime) trackProcessingPacketMessage(t packetMessageToTra
 		retryCount:          retryCount,
 		assembled:           t.m != nil,
 	}
+
+	return retryCount
 }
 
-func (pathEnd *pathEndRuntime) trackProcessingConnectionMessage(t connectionMessageToTrack) {
+func (pathEnd *pathEndRuntime) trackProcessingConnectionMessage(t connectionMessageToTrack) uint64 {
 	eventType := t.msg.eventType
 	connectionKey := connectionInfoConnectionKey(t.msg.info).Counterparty()
 	msgProcessCache, ok := pathEnd.connProcessing[eventType]
@@ -682,9 +684,11 @@ func (pathEnd *pathEndRuntime) trackProcessingConnectionMessage(t connectionMess
 		retryCount:          retryCount,
 		assembled:           t.m != nil,
 	}
+
+	return retryCount
 }
 
-func (pathEnd *pathEndRuntime) trackProcessingChannelMessage(t channelMessageToTrack) {
+func (pathEnd *pathEndRuntime) trackProcessingChannelMessage(t channelMessageToTrack) uint64 {
 	eventType := t.msg.eventType
 	channelKey := channelInfoChannelKey(t.msg.info).Counterparty()
 	msgProcessCache, ok := pathEnd.channelProcessing[eventType]
@@ -704,9 +708,11 @@ func (pathEnd *pathEndRuntime) trackProcessingChannelMessage(t channelMessageToT
 		retryCount:          retryCount,
 		assembled:           t.m != nil,
 	}
+
+	return retryCount
 }
 
-func (pathEnd *pathEndRuntime) trackProcessingClientICQMessage(t clientICQMessageToTrack) {
+func (pathEnd *pathEndRuntime) trackProcessingClientICQMessage(t clientICQMessageToTrack) uint64 {
 	retryCount := uint64(0)
 
 	queryID := t.msg.info.QueryID
@@ -720,4 +726,6 @@ func (pathEnd *pathEndRuntime) trackProcessingClientICQMessage(t clientICQMessag
 		retryCount:          retryCount,
 		assembled:           t.m != nil,
 	}
+
+	return retryCount
 }

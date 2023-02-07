@@ -78,7 +78,7 @@ func (r *Relayer) AddChainConfiguration(ctx context.Context, _ ibc.RelayerExecRe
 			Timeout:      "10s",
 			OutputFormat: "json",
 			SignModeStr:  "direct",
-			Broadcast:    provider.BroadcastModeSingle,
+			Broadcast:    provider.BroadcastModeBatch,
 		},
 	})
 
