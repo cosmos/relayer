@@ -520,16 +520,26 @@ func (cc *CosmosProvider) queryConnectionABCI(ctx context.Context, height int64,
 }
 
 // QueryConnections gets any connections on a chain
-// TODO add pagination support
 func (cc *CosmosProvider) QueryConnections(ctx context.Context) (conns []*conntypes.IdentifiedConnection, err error) {
 	qc := conntypes.NewQueryClient(cc)
-	res, err := qc.Connections(ctx, &conntypes.QueryConnectionsRequest{
-		Pagination: DefaultPageRequest(),
-	})
-	if err != nil || res == nil {
-		return nil, err
+	p := DefaultPageRequest()
+
+	// Maybe set a limit?
+	for {
+		res, err := qc.Connections(ctx, &conntypes.QueryConnectionsRequest{
+			Pagination: p,
+		})
+		if err != nil || res == nil {
+			return nil, err
+		}
+
+		conns = append(conns, res.Connections...)
+		if res.GetPagination().GetNextKey() == nil || len(res.GetPagination().GetNextKey()) == 0 {
+			break
+		}
+		p.Key = res.GetPagination().GetNextKey()
 	}
-	return res.Connections, err
+	return conns, err
 }
 
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
