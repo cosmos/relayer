@@ -34,7 +34,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const PaginationDelay = 100 * time.Millisecond
+const PaginationDelay = 10 * time.Millisecond
 
 var _ provider.QueryProvider = &CosmosProvider{}
 
