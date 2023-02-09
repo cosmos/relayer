@@ -34,6 +34,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const PaginationDelay = 100 * time.Millisecond
+
 var _ provider.QueryProvider = &CosmosProvider{}
 
 // queryIBCMessages returns an array of IBC messages given a tag
@@ -150,17 +152,30 @@ func (cc *CosmosProvider) QueryBalance(ctx context.Context, keyName string) (sdk
 }
 
 // QueryBalanceWithAddress returns the amount of coins in the relayer account with address as input
-// TODO add pagination support
 func (cc *CosmosProvider) QueryBalanceWithAddress(ctx context.Context, address string) (sdk.Coins, error) {
-	p := &bankTypes.QueryAllBalancesRequest{Address: address, Pagination: DefaultPageRequest()}
-	queryClient := bankTypes.NewQueryClient(cc)
+	qc := bankTypes.NewQueryClient(cc)
+	p := DefaultPageRequest()
+	coins := sdk.Coins{}
 
-	res, err := queryClient.AllBalances(ctx, p)
-	if err != nil {
-		return nil, err
+	for {
+		res, err := qc.AllBalances(ctx, &bankTypes.QueryAllBalancesRequest{
+			Address:    address,
+			Pagination: p,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		coins = append(coins, res.Balances...)
+		next := res.GetPagination().GetNextKey()
+		if len(next) == 0 {
+			break
+		}
+
+		time.Sleep(PaginationDelay)
+		p.Key = next
 	}
-
-	return res.Balances, nil
+	return coins, nil
 }
 
 func (cc *CosmosProvider) queryConsumerUnbondingPeriod(ctx context.Context) (time.Duration, error) {
@@ -455,16 +470,29 @@ func (cc *CosmosProvider) QueryConsensusState(ctx context.Context, height int64)
 }
 
 // QueryClients queries all the clients!
-// TODO add pagination support
 func (cc *CosmosProvider) QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error) {
 	qc := clienttypes.NewQueryClient(cc)
-	state, err := qc.ClientStates(ctx, &clienttypes.QueryClientStatesRequest{
-		Pagination: DefaultPageRequest(),
-	})
-	if err != nil {
-		return nil, err
+	p := DefaultPageRequest()
+	clients := clienttypes.IdentifiedClientStates{}
+
+	for {
+		res, err := qc.ClientStates(ctx, &clienttypes.QueryClientStatesRequest{
+			Pagination: p,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		clients = append(clients, res.ClientStates...)
+		next := res.GetPagination().GetNextKey()
+		if len(next) == 0 {
+			break
+		}
+
+		time.Sleep(PaginationDelay)
+		p.Key = next
 	}
-	return state.ClientStates, nil
+	return clients, nil
 }
 
 // QueryConnection returns the remote end of a given connection
@@ -520,11 +548,11 @@ func (cc *CosmosProvider) queryConnectionABCI(ctx context.Context, height int64,
 }
 
 // QueryConnections gets any connections on a chain
-func (cc *CosmosProvider) QueryConnections(ctx context.Context) (conns []*conntypes.IdentifiedConnection, err error) {
+func (cc *CosmosProvider) QueryConnections(ctx context.Context) ([]*conntypes.IdentifiedConnection, error) {
 	qc := conntypes.NewQueryClient(cc)
 	p := DefaultPageRequest()
+	conns := []*conntypes.IdentifiedConnection{}
 
-	// Maybe set a limit?
 	for {
 		res, err := qc.Connections(ctx, &conntypes.QueryConnectionsRequest{
 			Pagination: p,
@@ -534,22 +562,41 @@ func (cc *CosmosProvider) QueryConnections(ctx context.Context) (conns []*connty
 		}
 
 		conns = append(conns, res.Connections...)
-		if res.GetPagination().GetNextKey() == nil || len(res.GetPagination().GetNextKey()) == 0 {
+		next := res.GetPagination().GetNextKey()
+		if len(next) == 0 {
 			break
 		}
-		p.Key = res.GetPagination().GetNextKey()
+
+		time.Sleep(PaginationDelay)
+		p.Key = next
 	}
-	return conns, err
+	return conns, nil
 }
 
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
-// TODO add pagination support
 func (cc *CosmosProvider) QueryConnectionsUsingClient(ctx context.Context, height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
 	qc := conntypes.NewQueryClient(cc)
-	res, err := qc.Connections(ctx, &conntypes.QueryConnectionsRequest{
-		Pagination: DefaultPageRequest(),
-	})
-	return res, err
+	p := DefaultPageRequest()
+	connections := &conntypes.QueryConnectionsResponse{}
+
+	for {
+		res, err := qc.Connections(ctx, &conntypes.QueryConnectionsRequest{
+			Pagination: p,
+		})
+		if err != nil || res == nil {
+			return nil, err
+		}
+
+		connections.Connections = append(connections.Connections, res.Connections...)
+		next := res.GetPagination().GetNextKey()
+		if len(next) == 0 {
+			break
+		}
+
+		time.Sleep(PaginationDelay)
+		p.Key = next
+	}
+	return connections, nil
 }
 
 // GenerateConnHandshakeProof generates all the proofs needed to prove the existence of the
@@ -662,57 +709,111 @@ func (cc *CosmosProvider) QueryChannelClient(ctx context.Context, height int64, 
 // QueryConnectionChannels queries the channels associated with a connection
 func (cc *CosmosProvider) QueryConnectionChannels(ctx context.Context, height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
 	qc := chantypes.NewQueryClient(cc)
-	chans, err := qc.ConnectionChannels(ctx, &chantypes.QueryConnectionChannelsRequest{
-		Connection: connectionid,
-		Pagination: DefaultPageRequest(),
-	})
-	if err != nil {
-		return nil, err
+	p := DefaultPageRequest()
+	channels := []*chantypes.IdentifiedChannel{}
+
+	for {
+		res, err := qc.ConnectionChannels(ctx, &chantypes.QueryConnectionChannelsRequest{
+			Connection: connectionid,
+			Pagination: p,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		channels = append(channels, res.Channels...)
+		next := res.GetPagination().GetNextKey()
+		if len(next) == 0 {
+			break
+		}
+
+		time.Sleep(PaginationDelay)
+		p.Key = next
 	}
-	return chans.Channels, nil
+	return channels, nil
 }
 
 // QueryChannels returns all the channels that are registered on a chain
-// TODO add pagination support
 func (cc *CosmosProvider) QueryChannels(ctx context.Context) ([]*chantypes.IdentifiedChannel, error) {
 	qc := chantypes.NewQueryClient(cc)
-	res, err := qc.Channels(ctx, &chantypes.QueryChannelsRequest{
-		Pagination: DefaultPageRequest(),
-	})
-	if err != nil {
-		return nil, err
+	p := DefaultPageRequest()
+	chans := []*chantypes.IdentifiedChannel{}
+
+	for {
+		res, err := qc.Channels(ctx, &chantypes.QueryChannelsRequest{
+			Pagination: p,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		chans = append(chans, res.Channels...)
+		next := res.GetPagination().GetNextKey()
+		if len(next) == 0 {
+			break
+		}
+
+		time.Sleep(PaginationDelay)
+		p.Key = next
 	}
-	return res.Channels, nil
+	return chans, nil
 }
 
 // QueryPacketCommitments returns an array of packet commitments
-// TODO add pagination support
-func (cc *CosmosProvider) QueryPacketCommitments(ctx context.Context, height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
+func (cc *CosmosProvider) QueryPacketCommitments(ctx context.Context, height uint64, channelid, portid string) (*chantypes.QueryPacketCommitmentsResponse, error) {
 	qc := chantypes.NewQueryClient(cc)
-	c, err := qc.PacketCommitments(ctx, &chantypes.QueryPacketCommitmentsRequest{
-		PortId:     portid,
-		ChannelId:  channelid,
-		Pagination: DefaultPageRequest(),
-	})
-	if err != nil {
-		return nil, err
+	p := DefaultPageRequest()
+	commitments := &chantypes.QueryPacketCommitmentsResponse{}
+
+	for {
+		res, err := qc.PacketCommitments(ctx, &chantypes.QueryPacketCommitmentsRequest{
+			PortId:     portid,
+			ChannelId:  channelid,
+			Pagination: p,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		commitments.Commitments = append(commitments.Commitments, res.Commitments...)
+		commitments.Height = res.Height
+		next := res.GetPagination().GetNextKey()
+		if len(next) == 0 {
+			break
+		}
+
+		time.Sleep(PaginationDelay)
+		p.Key = next
 	}
-	return c, nil
+	return commitments, nil
 }
 
 // QueryPacketAcknowledgements returns an array of packet acks
-// TODO add pagination support
-func (cc *CosmosProvider) QueryPacketAcknowledgements(ctx context.Context, height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
+func (cc *CosmosProvider) QueryPacketAcknowledgements(ctx context.Context, height uint64, channelid, portid string) ([]*chantypes.PacketState, error) {
 	qc := chantypes.NewQueryClient(cc)
-	acks, err := qc.PacketAcknowledgements(ctx, &chantypes.QueryPacketAcknowledgementsRequest{
-		PortId:     portid,
-		ChannelId:  channelid,
-		Pagination: DefaultPageRequest(),
-	})
-	if err != nil {
-		return nil, err
+	p := DefaultPageRequest()
+	acknowledgements := []*chantypes.PacketState{}
+	for {
+		res, err := qc.PacketAcknowledgements(ctx, &chantypes.QueryPacketAcknowledgementsRequest{
+			PortId:     portid,
+			ChannelId:  channelid,
+			Pagination: p,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		acknowledgements = append(acknowledgements, res.Acknowledgements...)
+		next := res.GetPagination().GetNextKey()
+		if len(next) == 0 {
+			break
+		}
+
+		time.Sleep(PaginationDelay)
+		p.Key = next
 	}
-	return acks.Acknowledgements, nil
+
+	return acknowledgements, nil
 }
 
 // QueryUnreceivedPackets returns a list of unrelayed packet commitments
@@ -964,16 +1065,30 @@ func (cc *CosmosProvider) QueryDenomTrace(ctx context.Context, denom string) (*t
 }
 
 // QueryDenomTraces returns all the denom traces from a given chain
-// TODO add pagination support
 func (cc *CosmosProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
-	transfers, err := transfertypes.NewQueryClient(cc).DenomTraces(ctx,
-		&transfertypes.QueryDenomTracesRequest{
-			Pagination: DefaultPageRequest(),
-		})
-	if err != nil {
-		return nil, err
+	qc := transfertypes.NewQueryClient(cc)
+	p := DefaultPageRequest()
+	transfers := []transfertypes.DenomTrace{}
+	for {
+		res, err := qc.DenomTraces(ctx,
+			&transfertypes.QueryDenomTracesRequest{
+				Pagination: p,
+			})
+
+		if err != nil || res == nil {
+			return nil, err
+		}
+
+		transfers = append(transfers, res.DenomTraces...)
+		next := res.GetPagination().GetNextKey()
+		if len(next) == 0 {
+			break
+		}
+
+		time.Sleep(PaginationDelay)
+		p.Key = next
 	}
-	return transfers.DenomTraces, nil
+	return transfers, nil
 }
 
 func (cc *CosmosProvider) QueryStakingParams(ctx context.Context) (*stakingtypes.Params, error) {
