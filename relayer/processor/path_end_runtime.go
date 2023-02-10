@@ -331,10 +331,17 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		return false
 	}
 
-	if message.info.Height >= counterparty.latestBlock.Height {
+	pathEndForHeight := counterparty
+	if eventType == chantypes.EventTypeTimeoutPacket || eventType == chantypes.EventTypeTimeoutPacketOnClose {
+		pathEndForHeight = pathEnd
+	}
+
+	if message.info.Height >= pathEndForHeight.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
 			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
+			zap.Uint64("message_height", message.info.Height),
+			zap.Uint64("counterparty_height", counterparty.latestBlock.Height),
 			zap.Inline(k),
 		)
 		return false
