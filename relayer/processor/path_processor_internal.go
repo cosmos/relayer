@@ -3,6 +3,7 @@ package processor
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"sort"
@@ -13,6 +14,7 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -762,7 +764,7 @@ func (pp *PathProcessor) assembleMessage(
 		if err == nil {
 			tracker.m = message
 			om.pktMsgs[i] = tracker
-			dst.log.Debug("Will send packet message",
+			dst.log.Debug("Assembled packet message",
 				zap.String("event_type", m.eventType),
 				zap.Uint64("sequence", m.info.Sequence),
 				zap.String("src_channel", m.info.SourceChannel),
@@ -777,7 +779,7 @@ func (pp *PathProcessor) assembleMessage(
 		if err == nil {
 			tracker.m = message
 			om.connMsgs[i] = tracker
-			dst.log.Debug("Will send connection message",
+			dst.log.Debug("Assembled connection message",
 				zap.String("event_type", m.eventType),
 				zap.String("connection_id", m.info.ConnID),
 			)
@@ -788,7 +790,7 @@ func (pp *PathProcessor) assembleMessage(
 		if err == nil {
 			tracker.m = message
 			om.chanMsgs[i] = tracker
-			dst.log.Debug("Will send channel message",
+			dst.log.Debug("Assembled channel message",
 				zap.String("event_type", m.eventType),
 				zap.String("channel_id", m.info.ChannelID),
 				zap.String("port_id", m.info.PortID),
@@ -800,7 +802,7 @@ func (pp *PathProcessor) assembleMessage(
 		if err == nil {
 			tracker.m = message
 			om.clientICQMsgs[i] = tracker
-			dst.log.Debug("Will send ICQ message",
+			dst.log.Debug("Assembled ICQ message",
 				zap.String("type", m.info.Type),
 				zap.String("query_id", string(m.info.QueryID)),
 			)
@@ -978,6 +980,8 @@ func (pp *PathProcessor) sendClientUpdate(
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
+	dst.log.Debug("Will relay client update")
+
 	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, []provider.RelayerMessage{msgUpdateClient}, pp.memo, ctx, nil)
 	if err != nil {
 		pp.log.Error("Error sending client update message",
@@ -1000,6 +1004,8 @@ func (pp *PathProcessor) sendBatchMessages(
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
+	dst.log.Debug("Will relay batch of messages", zap.Int("count", len(msgs)))
+
 	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, pp.memo, ctx, func(rtr *provider.RelayerTxResponse, err error) {
 		// only increment metrics counts for successful packets
 		if err != nil || pp.metrics == nil {
@@ -1018,23 +1024,18 @@ func (pp *PathProcessor) sendBatchMessages(
 		}
 	})
 	if err != nil {
-		if errors.Is(err, chantypes.ErrRedundantTx) {
-			pp.log.Debug("Packet(s) already handled by another relayer",
-				zap.String("src_chain_id", src.info.ChainID),
-				zap.String("dst_chain_id", dst.info.ChainID),
-				zap.String("src_client_id", src.info.ClientID),
-				zap.String("dst_client_id", dst.info.ClientID),
-				zap.Error(err),
-			)
-			return
-		}
-		pp.log.Error("Error sending batch of messages",
+		errFields := []zapcore.Field{
 			zap.String("src_chain_id", src.info.ChainID),
 			zap.String("dst_chain_id", dst.info.ChainID),
 			zap.String("src_client_id", src.info.ClientID),
 			zap.String("dst_client_id", dst.info.ClientID),
 			zap.Error(err),
-		)
+		}
+		if errors.Is(err, chantypes.ErrRedundantTx) {
+			pp.log.Debug("Packet(s) already handled by another relayer", errFields...)
+			return
+		}
+		pp.log.Error("Error sending batch of messages", errFields...)
 		return
 	}
 }
@@ -1050,7 +1051,22 @@ func (pp *PathProcessor) sendPacketMessage(
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
-	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, pp.memo, ctx, func(rtr *provider.RelayerTxResponse, err error) {
+	packetFields := []zapcore.Field{
+		zap.String("event_type", tracker.msg.eventType),
+		zap.String("src_port", tracker.msg.info.SourcePort),
+		zap.String("src_channel", tracker.msg.info.SourceChannel),
+		zap.String("dst_port", tracker.msg.info.DestPort),
+		zap.String("dst_channel", tracker.msg.info.DestChannel),
+		zap.Uint64("sequence", tracker.msg.info.Sequence),
+		zap.String("timeout_height", fmt.Sprintf("%d-%d", tracker.msg.info.TimeoutHeight.RevisionNumber, tracker.msg.info.TimeoutHeight.RevisionHeight)),
+		zap.Uint64("timeout_timestamp", tracker.msg.info.TimeoutTimestamp),
+		zap.String("data", base64.StdEncoding.EncodeToString(tracker.msg.info.Data)),
+		zap.String("ack", base64.StdEncoding.EncodeToString(tracker.msg.info.Ack)),
+	}
+
+	dst.log.Debug("Will relay packet message", packetFields...)
+
+	callback := func(rtr *provider.RelayerTxResponse, err error) {
 		// only increment metrics counts for successful packets
 		if err != nil || pp.metrics == nil {
 			return
@@ -1064,29 +1080,26 @@ func (pp *PathProcessor) sendPacketMessage(
 			port = tracker.msg.info.SourcePort
 		}
 		pp.metrics.IncPacketsRelayed(dst.info.PathName, dst.info.ChainID, channel, port, tracker.msg.eventType)
-	})
+	}
+
+	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, pp.memo, ctx, callback)
 	if err != nil {
-		if errors.Is(err, chantypes.ErrRedundantTx) {
-			pp.log.Debug("Packet already handled by another relayer",
-				zap.String("src_chain_id", src.info.ChainID),
-				zap.String("dst_chain_id", dst.info.ChainID),
-				zap.String("src_client_id", src.info.ClientID),
-				zap.String("dst_client_id", dst.info.ClientID),
-				zap.String("event_type", tracker.msg.eventType),
-				zap.Error(err),
-			)
-			return
-		}
-		pp.log.Error("Error sending packet message",
+		errFields := append([]zapcore.Field{
 			zap.String("src_chain_id", src.info.ChainID),
 			zap.String("dst_chain_id", dst.info.ChainID),
 			zap.String("src_client_id", src.info.ClientID),
 			zap.String("dst_client_id", dst.info.ClientID),
-			zap.String("event_type", tracker.msg.eventType),
-			zap.Error(err),
-		)
+		}, packetFields...)
+		errFields = append(errFields, zap.Error(err))
+
+		if errors.Is(err, chantypes.ErrRedundantTx) {
+			pp.log.Debug("Packet already handled by another relayer", errFields...)
+			return
+		}
+		pp.log.Error("Error sending packet message", errFields...)
 		return
 	}
+	dst.log.Debug("Packet message broadcast completed", packetFields...)
 }
 
 func (pp *PathProcessor) sendChannelMessage(
@@ -1100,18 +1113,34 @@ func (pp *PathProcessor) sendChannelMessage(
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
+	channelFields := []zapcore.Field{
+		zap.String("event_type", tracker.msg.eventType),
+		zap.String("port_id", tracker.msg.info.PortID),
+		zap.String("channel_id", tracker.msg.info.ChannelID),
+		zap.String("counterparty_port_id", tracker.msg.info.CounterpartyPortID),
+		zap.String("counterparty_channel_id", tracker.msg.info.CounterpartyChannelID),
+		zap.String("connection_id", tracker.msg.info.ConnID),
+		zap.String("counterparty_connection_id", tracker.msg.info.CounterpartyConnID),
+		zap.String("order", tracker.msg.info.Order.String()),
+		zap.String("version", tracker.msg.info.Version),
+	}
+
+	dst.log.Debug("Will relay channel message", channelFields...)
+
 	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, pp.memo, ctx, nil)
 	if err != nil {
-		pp.log.Error("Error sending channel handshake message",
+		errFields := []zapcore.Field{
 			zap.String("src_chain_id", src.info.ChainID),
 			zap.String("dst_chain_id", dst.info.ChainID),
 			zap.String("src_client_id", src.info.ClientID),
 			zap.String("dst_client_id", dst.info.ClientID),
-			zap.String("event_type", tracker.msg.eventType),
-			zap.Error(err),
-		)
+		}
+		errFields = append(errFields, channelFields...)
+		errFields = append(errFields, zap.Error(err))
+		pp.log.Error("Error sending channel handshake message", errFields...)
 		return
 	}
+	dst.log.Debug("Channel handshake message broadcast completed", channelFields...)
 }
 
 func (pp *PathProcessor) sendConnectionMessage(
@@ -1125,18 +1154,31 @@ func (pp *PathProcessor) sendConnectionMessage(
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
+	connFields := []zapcore.Field{
+		zap.String("event_type", tracker.msg.eventType),
+		zap.String("client_id", tracker.msg.info.ClientID),
+		zap.String("counterparty_client_id", tracker.msg.info.CounterpartyClientID),
+		zap.String("connection_id", tracker.msg.info.ConnID),
+		zap.String("counterparty_connection_id", tracker.msg.info.CounterpartyConnID),
+		zap.String("counterparty_commitment_prefix", tracker.msg.info.CounterpartyCommitmentPrefix.String()),
+	}
+
+	dst.log.Debug("Will relay connection message", connFields...)
+
 	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, pp.memo, ctx, nil)
 	if err != nil {
-		pp.log.Error("Error sending connection handshake message",
+		errFields := []zapcore.Field{
 			zap.String("src_chain_id", src.info.ChainID),
 			zap.String("dst_chain_id", dst.info.ChainID),
 			zap.String("src_client_id", src.info.ClientID),
 			zap.String("dst_client_id", dst.info.ClientID),
-			zap.String("event_type", tracker.msg.eventType),
-			zap.Error(err),
-		)
+		}
+		errFields = append(errFields, connFields...)
+		errFields = append(errFields, zap.Error(err))
+		pp.log.Error("Error sending connection handshake message", errFields...)
 		return
 	}
+	dst.log.Debug("Connection handshake message broadcast completed", connFields...)
 }
 
 func (pp *PathProcessor) sendClientICQMessage(
@@ -1150,18 +1192,28 @@ func (pp *PathProcessor) sendClientICQMessage(
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
+	icqFields := []zapcore.Field{
+		zap.String("type", tracker.msg.info.Type),
+		zap.String("query_id", string(tracker.msg.info.QueryID)),
+		zap.String("request", string(tracker.msg.info.Request)),
+	}
+
+	dst.log.Debug("Will relay Stride ICQ message", icqFields...)
+
 	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, pp.memo, ctx, nil)
 	if err != nil {
-		pp.log.Error("Error sending client ICQ message",
+		errFields := []zapcore.Field{
 			zap.String("src_chain_id", src.info.ChainID),
 			zap.String("dst_chain_id", dst.info.ChainID),
 			zap.String("src_client_id", src.info.ClientID),
 			zap.String("dst_client_id", dst.info.ClientID),
-			zap.String("event_type", tracker.msg.info.Type),
-			zap.Error(err),
-		)
+		}
+		errFields = append(errFields, icqFields...)
+		errFields = append(errFields, zap.Error(err))
+		pp.log.Error("Error sending client ICQ message", errFields...)
 		return
 	}
+	dst.log.Debug("Stride ICQ message broadcast completed", icqFields...)
 }
 
 func (pp *PathProcessor) assemblePacketMessage(
