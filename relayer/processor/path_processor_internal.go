@@ -832,10 +832,11 @@ func (pp *PathProcessor) assembleAndSendMessages(
 			consensusHeightTime = dst.clientState.ConsensusTime
 		}
 		clientUpdateThresholdMs := pp.clientUpdateThresholdTime.Milliseconds()
-		if (float64(dst.clientState.TrustingPeriod.Milliseconds())*2/3 < float64(time.Since(consensusHeightTime).Milliseconds())) ||
-			(clientUpdateThresholdMs > 0 && time.Since(consensusHeightTime).Milliseconds() > clientUpdateThresholdMs) {
+		if (dst.latestBlock.Height-blocksToRetrySendAfter) > dst.lastClientUpdateHeight &&
+			((float64(dst.clientState.TrustingPeriod.Milliseconds())*2/3 < float64(time.Since(consensusHeightTime).Milliseconds())) ||
+				(clientUpdateThresholdMs > 0 && time.Since(consensusHeightTime).Milliseconds() > clientUpdateThresholdMs)) {
 			needsClientUpdate = true
-			pp.log.Info("Client close to expiration",
+			pp.log.Info("Client update threshold condition met",
 				zap.String("chain_id:", dst.info.ChainID),
 				zap.String("client_id:", dst.info.ClientID),
 				zap.Int64("trusting_period", dst.clientState.TrustingPeriod.Milliseconds()),
@@ -982,6 +983,8 @@ func (pp *PathProcessor) sendClientUpdate(
 
 	dst.log.Debug("Will relay client update")
 
+	dst.lastClientUpdateHeight = dst.latestBlock.Height
+
 	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, []provider.RelayerMessage{msgUpdateClient}, pp.memo, ctx, nil)
 	if err != nil {
 		pp.log.Error("Error sending client update message",
@@ -993,6 +996,7 @@ func (pp *PathProcessor) sendClientUpdate(
 		)
 		return
 	}
+	dst.log.Debug("Client update broadcast completed")
 }
 
 func (pp *PathProcessor) sendBatchMessages(
@@ -1038,6 +1042,7 @@ func (pp *PathProcessor) sendBatchMessages(
 		pp.log.Error("Error sending batch of messages", errFields...)
 		return
 	}
+	dst.log.Debug("Batch messages broadcast completed")
 }
 
 func (pp *PathProcessor) sendPacketMessage(

@@ -46,6 +46,8 @@ type pathEndRuntime struct {
 	// inSync indicates whether queries are in sync with latest height of the chain.
 	inSync bool
 
+	lastClientUpdateHeight uint64
+
 	metrics *PrometheusMetrics
 }
 
