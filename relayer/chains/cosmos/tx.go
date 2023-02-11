@@ -374,6 +374,9 @@ func (cc *CosmosProvider) waitForBlockInclusion(
 			if err == nil {
 				return cc.mkTxResult(res)
 			}
+			if strings.Contains(err.Error(), "transaction indexing is disabled") {
+				return nil, fmt.Errorf("cannot determine success/failure of tx because transaction indexing is disabled on rpc url")
+			}
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
