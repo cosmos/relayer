@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -46,7 +47,8 @@ type pathEndRuntime struct {
 	// inSync indicates whether queries are in sync with latest height of the chain.
 	inSync bool
 
-	lastClientUpdateHeight uint64
+	lastClientUpdateHeight   uint64
+	lastClientUpdateHeightMu sync.Mutex
 
 	metrics *PrometheusMetrics
 }

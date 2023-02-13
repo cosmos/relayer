@@ -832,7 +832,12 @@ func (pp *PathProcessor) assembleAndSendMessages(
 			consensusHeightTime = dst.clientState.ConsensusTime
 		}
 		clientUpdateThresholdMs := pp.clientUpdateThresholdTime.Milliseconds()
-		if (dst.latestBlock.Height-blocksToRetrySendAfter) > dst.lastClientUpdateHeight &&
+
+		dst.lastClientUpdateHeightMu.Lock()
+		enoughBlocksPassed := (dst.latestBlock.Height - blocksToRetrySendAfter) > dst.lastClientUpdateHeight
+		dst.lastClientUpdateHeightMu.Unlock()
+
+		if enoughBlocksPassed &&
 			((float64(dst.clientState.TrustingPeriod.Milliseconds())*2/3 < float64(time.Since(consensusHeightTime).Milliseconds())) ||
 				(clientUpdateThresholdMs > 0 && time.Since(consensusHeightTime).Milliseconds() > clientUpdateThresholdMs)) {
 			needsClientUpdate = true
@@ -983,7 +988,9 @@ func (pp *PathProcessor) sendClientUpdate(
 
 	dst.log.Debug("Will relay client update")
 
+	dst.lastClientUpdateHeightMu.Lock()
 	dst.lastClientUpdateHeight = dst.latestBlock.Height
+	dst.lastClientUpdateHeightMu.Unlock()
 
 	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, []provider.RelayerMessage{msgUpdateClient}, pp.memo, ctx, nil)
 	if err != nil {
