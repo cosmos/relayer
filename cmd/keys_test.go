@@ -49,6 +49,7 @@ func TestKeysRestore_Delete(t *testing.T) {
 			ChainID:        "testcosmos",
 			KeyringBackend: "test",
 			Timeout:        "10s",
+			Slip44:         118,
 		},
 	})
 
@@ -88,6 +89,7 @@ func TestKeysExport(t *testing.T) {
 			ChainID:        "testcosmos",
 			KeyringBackend: "test",
 			Timeout:        "10s",
+			Slip44:         118,
 		},
 	})
 
