@@ -291,8 +291,11 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 }
 
 func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, counterpartyChainID string, counterpartyInSync bool, messageLifecycle MessageLifecycle, counterParty *pathEndRuntime) {
-	pathEnd.inSync = d.InSync
+	pathEnd.lastClientUpdateHeightMu.Lock()
 	pathEnd.latestBlock = d.LatestBlock
+	pathEnd.lastClientUpdateHeightMu.Unlock()
+
+	pathEnd.inSync = d.InSync
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
 	if d.ClientState.ConsensusHeight != pathEnd.clientState.ConsensusHeight {
