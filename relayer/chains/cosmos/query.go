@@ -1004,9 +1004,9 @@ func (cc *CosmosProvider) QueryLatestHeight(ctx context.Context) (int64, error) 
 	stat, err := cc.RPCClient.Status(ctx)
 	if err != nil {
 		return -1, err
-	} else if stat.SyncInfo.CatchingUp {
+	}/* else if stat.SyncInfo.CatchingUp {
 		return -1, fmt.Errorf("node at %s running chain %s not caught up", cc.PCfg.RPCAddr, cc.PCfg.ChainID)
-	}
+	}*/
 	return stat.SyncInfo.LatestBlockHeight, nil
 }
 
