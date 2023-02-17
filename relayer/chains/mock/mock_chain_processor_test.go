@@ -64,8 +64,8 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 
 	eventProcessor := processor.NewEventProcessor().
 		WithChainProcessors(
-			mock.NewMockChainProcessor(log, mockChainID1, getMockMessages1),
-			mock.NewMockChainProcessor(log, mockChainID2, getMockMessages2),
+			mock.NewMockChainProcessor(ctx, log, mockChainID1, getMockMessages1),
+			mock.NewMockChainProcessor(ctx, log, mockChainID2, getMockMessages2),
 		).
 		WithInitialBlockHistory(100).
 		WithPathProcessors(pathProcessor).
