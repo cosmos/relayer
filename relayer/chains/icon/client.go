@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/icon-project/btp/chain/icon"
 	"github.com/icon-project/icon-bridge/cmd/iconbridge/chain/icon/types"
 	"go.uber.org/zap"
 
@@ -47,6 +48,12 @@ type IClient interface {
 	GetDataByHash(p *types.DataHashParam) ([]byte, error)
 	GetProofForResult(p *types.ProofResultParam) ([][]byte, error)
 	GetProofForEvents(p *types.ProofEventsParam) ([][][]byte, error)
+
+	GetBTPHeader(p *icon.BTPBlockParam) (string, error)
+	GetBTPMessage(p *icon.BTPBlockParam) ([]string, error)
+	GetBTPProof(p *icon.BTPBlockParam) (string, error)
+	GetBTPNetworkInfo(p *icon.BTPNetworkInfoParam) (*icon.BTPNetworkInfo, error)
+
 	MonitorBlock(ctx context.Context, p *types.BlockRequest, cb func(conn *websocket.Conn, v *types.BlockNotification) error, scb func(conn *websocket.Conn), errCb func(*websocket.Conn, error)) error
 	MonitorEvent(ctx context.Context, p *types.EventRequest, cb func(conn *websocket.Conn, v *types.EventNotification) error, errCb func(*websocket.Conn, error)) error
 	Monitor(ctx context.Context, reqUrl string, reqPtr, respPtr interface{}, cb types.WsReadCallback) error
@@ -213,6 +220,38 @@ func (c *Client) GetProofForResult(p *types.ProofResultParam) ([][]byte, error) 
 func (c *Client) GetProofForEvents(p *types.ProofEventsParam) ([][][]byte, error) {
 	var result [][][]byte
 	if _, err := c.Do("icx_getProofForEvents", p, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (c *Client) GetBTPHeader(p *icon.BTPBlockParam) (string, error) {
+	var header string
+	if _, err := c.Do("btp_getHeader", p, &header); err != nil {
+		return "", err
+	}
+	return header, nil
+}
+
+func (c *Client) GetBTPMessage(p *icon.BTPBlockParam) ([]string, error) {
+	var result []string
+	if _, err := c.Do("btp_getMessages", p, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (c *Client) GetBTPProof(p *icon.BTPBlockParam) (string, error) {
+	var result string
+	if _, err := c.Do("btp_getProof", p, &result); err != nil {
+		return "", err
+	}
+	return result, nil
+}
+
+func (c *Client) GetBTPNetworkInfo(p *icon.BTPNetworkInfoParam) (*icon.BTPNetworkInfo, error) {
+	result := &icon.BTPNetworkInfo{}
+	if _, err := c.Do("btp_getNetworkInfo", p, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
