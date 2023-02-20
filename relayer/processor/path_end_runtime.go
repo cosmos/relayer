@@ -639,106 +639,91 @@ func (pathEnd *pathEndRuntime) shouldSendClientICQMessage(message provider.Clien
 	return true
 }
 
-func (pathEnd *pathEndRuntime) trackProcessingPacketMessage(t packetMessageToTrack) uint64 {
-	eventType := t.msg.eventType
-	sequence := t.msg.info.Sequence
-	channelKey, err := t.msg.channelKey()
-	if err != nil {
-		pathEnd.log.Error("Unexpected error tracking processing packet",
-			zap.Inline(channelKey),
-			zap.String("event_type", eventType),
-			zap.Uint64("sequence", sequence),
-			zap.Error(err),
-		)
-		return 0
-	}
-	msgProcessCache, ok := pathEnd.packetProcessing[channelKey]
-	if !ok {
-		msgProcessCache = make(packetChannelMessageCache)
-		pathEnd.packetProcessing[channelKey] = msgProcessCache
-	}
-	channelProcessingCache, ok := msgProcessCache[eventType]
-	if !ok {
-		channelProcessingCache = make(packetMessageSendCache)
-		msgProcessCache[eventType] = channelProcessingCache
-	}
-
+func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) uint64 {
 	retryCount := uint64(0)
 
-	if inProgress, ok := channelProcessingCache[sequence]; ok {
-		retryCount = inProgress.retryCount + 1
-	}
+	switch t := tracker.(type) {
+	case packetMessageToTrack:
+		eventType := t.msg.eventType
+		sequence := t.msg.info.Sequence
+		channelKey, err := t.msg.channelKey()
+		if err != nil {
+			pathEnd.log.Error("Unexpected error tracking processing packet",
+				zap.Inline(channelKey),
+				zap.String("event_type", eventType),
+				zap.Uint64("sequence", sequence),
+				zap.Error(err),
+			)
+			return 0
+		}
+		msgProcessCache, ok := pathEnd.packetProcessing[channelKey]
+		if !ok {
+			msgProcessCache = make(packetChannelMessageCache)
+			pathEnd.packetProcessing[channelKey] = msgProcessCache
+		}
+		channelProcessingCache, ok := msgProcessCache[eventType]
+		if !ok {
+			channelProcessingCache = make(packetMessageSendCache)
+			msgProcessCache[eventType] = channelProcessingCache
+		}
 
-	channelProcessingCache[sequence] = processingMessage{
-		lastProcessedHeight: pathEnd.latestBlock.Height,
-		retryCount:          retryCount,
-		assembled:           t.m != nil,
-	}
+		if inProgress, ok := channelProcessingCache[sequence]; ok {
+			retryCount = inProgress.retryCount + 1
+		}
 
-	return retryCount
-}
+		channelProcessingCache[sequence] = processingMessage{
+			lastProcessedHeight: pathEnd.latestBlock.Height,
+			retryCount:          retryCount,
+			assembled:           t.assembled != nil,
+		}
+	case channelMessageToTrack:
+		eventType := t.msg.eventType
+		channelKey := channelInfoChannelKey(t.msg.info).Counterparty()
+		msgProcessCache, ok := pathEnd.channelProcessing[eventType]
+		if !ok {
+			msgProcessCache = make(channelKeySendCache)
+			pathEnd.channelProcessing[eventType] = msgProcessCache
+		}
 
-func (pathEnd *pathEndRuntime) trackProcessingConnectionMessage(t connectionMessageToTrack) uint64 {
-	eventType := t.msg.eventType
-	connectionKey := connectionInfoConnectionKey(t.msg.info).Counterparty()
-	msgProcessCache, ok := pathEnd.connProcessing[eventType]
-	if !ok {
-		msgProcessCache = make(connectionKeySendCache)
-		pathEnd.connProcessing[eventType] = msgProcessCache
-	}
+		if inProgress, ok := msgProcessCache[channelKey]; ok {
+			retryCount = inProgress.retryCount + 1
+		}
 
-	retryCount := uint64(0)
+		msgProcessCache[channelKey] = processingMessage{
+			lastProcessedHeight: pathEnd.latestBlock.Height,
+			retryCount:          retryCount,
+			assembled:           t.assembled != nil,
+		}
+	case connectionMessageToTrack:
+		eventType := t.msg.eventType
+		connectionKey := connectionInfoConnectionKey(t.msg.info).Counterparty()
+		msgProcessCache, ok := pathEnd.connProcessing[eventType]
+		if !ok {
+			msgProcessCache = make(connectionKeySendCache)
+			pathEnd.connProcessing[eventType] = msgProcessCache
+		}
 
-	if inProgress, ok := msgProcessCache[connectionKey]; ok {
-		retryCount = inProgress.retryCount + 1
-	}
+		if inProgress, ok := msgProcessCache[connectionKey]; ok {
+			retryCount = inProgress.retryCount + 1
+		}
 
-	msgProcessCache[connectionKey] = processingMessage{
-		lastProcessedHeight: pathEnd.latestBlock.Height,
-		retryCount:          retryCount,
-		assembled:           t.m != nil,
-	}
+		msgProcessCache[connectionKey] = processingMessage{
+			lastProcessedHeight: pathEnd.latestBlock.Height,
+			retryCount:          retryCount,
+			assembled:           t.assembled != nil,
+		}
+	case clientICQMessageToTrack:
+		queryID := t.msg.info.QueryID
 
-	return retryCount
-}
+		if inProgress, ok := pathEnd.clientICQProcessing[queryID]; ok {
+			retryCount = inProgress.retryCount + 1
+		}
 
-func (pathEnd *pathEndRuntime) trackProcessingChannelMessage(t channelMessageToTrack) uint64 {
-	eventType := t.msg.eventType
-	channelKey := channelInfoChannelKey(t.msg.info).Counterparty()
-	msgProcessCache, ok := pathEnd.channelProcessing[eventType]
-	if !ok {
-		msgProcessCache = make(channelKeySendCache)
-		pathEnd.channelProcessing[eventType] = msgProcessCache
-	}
-
-	retryCount := uint64(0)
-
-	if inProgress, ok := msgProcessCache[channelKey]; ok {
-		retryCount = inProgress.retryCount + 1
-	}
-
-	msgProcessCache[channelKey] = processingMessage{
-		lastProcessedHeight: pathEnd.latestBlock.Height,
-		retryCount:          retryCount,
-		assembled:           t.m != nil,
-	}
-
-	return retryCount
-}
-
-func (pathEnd *pathEndRuntime) trackProcessingClientICQMessage(t clientICQMessageToTrack) uint64 {
-	retryCount := uint64(0)
-
-	queryID := t.msg.info.QueryID
-
-	if inProgress, ok := pathEnd.clientICQProcessing[queryID]; ok {
-		retryCount = inProgress.retryCount + 1
-	}
-
-	pathEnd.clientICQProcessing[queryID] = processingMessage{
-		lastProcessedHeight: pathEnd.latestBlock.Height,
-		retryCount:          retryCount,
-		assembled:           t.m != nil,
+		pathEnd.clientICQProcessing[queryID] = processingMessage{
+			lastProcessedHeight: pathEnd.latestBlock.Height,
+			retryCount:          retryCount,
+			assembled:           t.assembled != nil,
+		}
 	}
 
 	return retryCount
