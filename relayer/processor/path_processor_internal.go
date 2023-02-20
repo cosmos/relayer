@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"sort"
 
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -13,26 +12,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
-
-// assembleIBCMessage constructs the applicable IBC message using the requested function.
-// These functions may do things like make queries in order to assemble a complete IBC message.
-func (pp *PathProcessor) assemblePacketIBCMessage(
-	ctx context.Context,
-	src, dst *pathEndRuntime,
-	partialMessage packetIBCMessage,
-	assembleMessage func(ctx context.Context, msgRecvPacket provider.PacketInfo, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error),
-) (provider.RelayerMessage, error) {
-	signer, err := dst.chainProvider.Address()
-	if err != nil {
-		return nil, fmt.Errorf("error getting signer address for {%s}: %w", dst.info.ChainID, err)
-	}
-	assembled, err := assembleMessage(ctx, partialMessage.info, signer, src.latestBlock)
-	if err != nil {
-		return nil, fmt.Errorf("error assembling %s for {%s}: %w", partialMessage.eventType, dst.info.ChainID, err)
-	}
-
-	return assembled, nil
-}
 
 // getMessagesToSend returns only the lowest sequence message (if it should be sent) for ordered channels,
 // otherwise returns all which should be sent.
