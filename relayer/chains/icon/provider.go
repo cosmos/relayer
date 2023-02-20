@@ -46,7 +46,16 @@ func (pp IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debug
 	if err := pp.Validate(); err != nil {
 		return nil, err
 	}
-	return nil, nil
+
+	return &IconProvider{
+		log:    log.With(zap.String("sys", "chain_client")),
+		client: NewClient(pp.getRPCAddr(), *log),
+		PCfg:   pp,
+	}, nil
+}
+
+func (pp IconProviderConfig) getRPCAddr() string {
+	return pp.RPCAddr
 }
 
 func ChainClientConfig(pcfg *IconProviderConfig) {
@@ -56,6 +65,7 @@ type IconProvider struct {
 	log     *zap.Logger
 	PCfg    IconProviderConfig
 	txMu    sync.Mutex
+	client  *Client
 	metrics *processor.PrometheusMetrics
 }
 
