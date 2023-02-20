@@ -35,10 +35,14 @@ func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *pro
 	}
 }
 
-func (icp *IconChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error
+func (icp *IconChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
+	return nil
+}
 
-func (icp *IconChainProcessor) Provider() provider.ChainProvider
+func (icp *IconChainProcessor) Provider() provider.ChainProvider {
+	return icp.chainProvider
+}
 
-func (icp *IconChainProcessor) SetPathProcessors(pathProcessors processor.PathProcessors)
+func (icp *IconChainProcessor) SetPathProcessors(pathProcessors processor.PathProcessors) {}
 
-func (icp *IconChainProcessor) queryCycle(ctx context.Context)
+func (icp *IconChainProcessor) queryCycle(ctx context.Context) {}
