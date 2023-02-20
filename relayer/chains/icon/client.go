@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/icon-project/btp/chain/icon"
-	"github.com/icon-project/icon-bridge/cmd/iconbridge/chain/icon/types"
+	"github.com/icon-project/ibc-relayer/relayer/chains/icon/types"
 	"go.uber.org/zap"
 
 	"github.com/gorilla/websocket"
@@ -225,7 +225,7 @@ func (c *Client) GetProofForEvents(p *types.ProofEventsParam) ([][][]byte, error
 	return result, nil
 }
 
-func (c *Client) GetBTPHeader(p *icon.BTPBlockParam) (string, error) {
+func (c *Client) GetBTPHeader(p *types.BTPBlockParam) (string, error) {
 	var header string
 	if _, err := c.Do("btp_getHeader", p, &header); err != nil {
 		return "", err
@@ -233,7 +233,7 @@ func (c *Client) GetBTPHeader(p *icon.BTPBlockParam) (string, error) {
 	return header, nil
 }
 
-func (c *Client) GetBTPMessage(p *icon.BTPBlockParam) ([]string, error) {
+func (c *Client) GetBTPMessage(p *types.BTPBlockParam) ([]string, error) {
 	var result []string
 	if _, err := c.Do("btp_getMessages", p, &result); err != nil {
 		return nil, err
@@ -241,7 +241,7 @@ func (c *Client) GetBTPMessage(p *icon.BTPBlockParam) ([]string, error) {
 	return result, nil
 }
 
-func (c *Client) GetBTPProof(p *icon.BTPBlockParam) (string, error) {
+func (c *Client) GetBTPProof(p *types.BTPBlockParam) (string, error) {
 	var result string
 	if _, err := c.Do("btp_getProof", p, &result); err != nil {
 		return "", err
@@ -249,8 +249,8 @@ func (c *Client) GetBTPProof(p *icon.BTPBlockParam) (string, error) {
 	return result, nil
 }
 
-func (c *Client) GetBTPNetworkInfo(p *icon.BTPNetworkInfoParam) (*icon.BTPNetworkInfo, error) {
-	result := &icon.BTPNetworkInfo{}
+func (c *Client) GetBTPNetworkInfo(p *types.BTPNetworkInfoParam) (*types.BTPNetworkInfo, error) {
+	result := &types.BTPNetworkInfo{}
 	if _, err := c.Do("btp_getNetworkInfo", p, &result); err != nil {
 		return nil, err
 	}
