@@ -1,12 +1,10 @@
 package processor
 
 import (
-	"strconv"
 	"strings"
 
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"go.uber.org/zap/zapcore"
 )
 
 // pathEndMessages holds the different IBC messages that
@@ -201,48 +199,6 @@ func channelInfoChannelKey(c provider.ChannelInfo) ChannelKey {
 		CounterpartyChannelID: c.CounterpartyChannelID,
 		CounterpartyPortID:    c.CounterpartyPortID,
 	}
-}
-
-// outgoingMessages is a slice of relayer messages that can be
-// appended to concurrently.
-type outgoingMessages struct {
-	msgUpdateClient provider.RelayerMessage
-	pktMsgs         []packetMessageToTrack
-	connMsgs        []connectionMessageToTrack
-	chanMsgs        []channelMessageToTrack
-	clientICQMsgs   []clientICQMessageToTrack
-}
-
-// MarshalLogObject satisfies the zapcore.ObjectMarshaler interface
-// so that you can use zap.Object("messages", r) when logging.
-// This is typically useful when logging details about a partially sent result.
-func (om *outgoingMessages) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	for i, m := range om.pktMsgs {
-		pfx := "pkt_" + strconv.FormatInt(int64(i), 10) + "_"
-		enc.AddString(pfx+"event_type", m.msg.eventType)
-		enc.AddString(pfx+"src_chan", m.msg.info.SourceChannel)
-		enc.AddString(pfx+"src_port", m.msg.info.SourcePort)
-		enc.AddString(pfx+"dst_chan", m.msg.info.DestChannel)
-		enc.AddString(pfx+"dst_port", m.msg.info.DestPort)
-		enc.AddString(pfx+"data", string(m.msg.info.Data))
-	}
-	for i, m := range om.connMsgs {
-		pfx := "conn_" + strconv.FormatInt(int64(i), 10) + "_"
-		enc.AddString(pfx+"event_type", m.msg.eventType)
-		enc.AddString(pfx+"client_id", m.msg.info.ClientID)
-		enc.AddString(pfx+"conn_id", m.msg.info.ConnID)
-		enc.AddString(pfx+"cntrprty_client_id", m.msg.info.CounterpartyClientID)
-		enc.AddString(pfx+"cntrprty_conn_id", m.msg.info.CounterpartyConnID)
-	}
-	for i, m := range om.chanMsgs {
-		pfx := "chan_" + strconv.FormatInt(int64(i), 10) + "_"
-		enc.AddString(pfx+"event_type", m.msg.eventType)
-		enc.AddString(pfx+"chan_id", m.msg.info.ChannelID)
-		enc.AddString(pfx+"port_id", m.msg.info.PortID)
-		enc.AddString(pfx+"cntrprty_chan_id", m.msg.info.CounterpartyChannelID)
-		enc.AddString(pfx+"cntrprty_port_id", m.msg.info.CounterpartyPortID)
-	}
-	return nil
 }
 
 type packetMessageToTrack struct {
