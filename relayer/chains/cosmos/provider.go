@@ -56,6 +56,7 @@ type CosmosProviderConfig struct {
 	ExtraCodecs    []string                `json:"extra-codecs" yaml:"extra-codecs"`
 	Modules        []module.AppModuleBasic `json:"-" yaml:"-"`
 	Slip44         int                     `json:"coin-type" yaml:"coin-type"`
+	Broadcast      provider.BroadcastMode `json:"broadcast-mode" yaml:"broadcast-mode"`
 }
 
 func (pc CosmosProviderConfig) Validate() error {
@@ -63,6 +64,10 @@ func (pc CosmosProviderConfig) Validate() error {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 	return nil
+}
+
+func (pc CosmosProviderConfig) BroadcastMode() provider.BroadcastMode {
+	return pc.Broadcast
 }
 
 // NewProvider validates the CosmosProviderConfig, instantiates a ChainClient and then instantiates a CosmosProvider
@@ -75,6 +80,10 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 
 	pc.ChainName = chainName
 	pc.Modules = append([]module.AppModuleBasic{}, ModuleBasics...)
+
+	if pc.Broadcast == "" {
+		pc.Broadcast = provider.BroadcastModeBatch
+	}
 
 	cp := &CosmosProvider{
 		log:            log,
@@ -129,8 +138,12 @@ func (h CosmosIBCHeader) ConsensusState() ibcexported.ConsensusState {
 	return &tmclient.ConsensusState{
 		Timestamp:          h.SignedHeader.Time,
 		Root:               commitmenttypes.NewMerkleRoot(h.SignedHeader.AppHash),
-		NextValidatorsHash: h.ValidatorSet.Hash(),
+		NextValidatorsHash: h.SignedHeader.NextValidatorsHash,
 	}
+}
+
+func (h CosmosIBCHeader) NextValidatorsHash() []byte {
+	return h.SignedHeader.NextValidatorsHash
 }
 
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {
