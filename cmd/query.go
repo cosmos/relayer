@@ -3,10 +3,15 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cosmos/relayer/v2/relayer"
-	"github.com/spf13/cobra"
 	"strconv"
 	"strings"
+	"sync"
+
+	"github.com/cosmos/cosmos-sdk/client"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/spf13/cobra"
 )
 
 // queryCmd represents the chain command
@@ -679,6 +684,15 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 	return heightFlag(a.Viper, cmd)
 }
 
+// chanExtendedInfo is an intermediate type for holding additional useful
+// channel information regarding IBC hierarchy of clients/conns/chans.
+type chanExtendedInfo struct {
+	clientID             string
+	counterpartyChainID  string
+	counterpartyConnID   string
+	counterpartyClientID string
+}
+
 func queryChannels(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "channels chain_name",
@@ -695,25 +709,114 @@ $ %s query channels ibc-2 --offset 2 --limit 30`,
 				return errChainNotFound(args[0])
 			}
 
-			// TODO fix pagination
-			//pagereq, err := client.ReadPageRequest(cmd.Flags())
-			//if err != nil {
-			//	return err
-			//}
-
-			res, err := chain.ChainProvider.QueryChannels(cmd.Context())
+			pagereq, err := client.ReadPageRequest(cmd.Flags())
 			if err != nil {
 				return err
 			}
 
-			for _, channel := range res {
+			ctx := cmd.Context()
+
+			var chans []*chantypes.IdentifiedChannel
+			var next []byte
+
+			ccp, isCosmosChain := chain.ChainProvider.(*cosmos.CosmosProvider)
+			if isCosmosChain {
+				chans, next, err = ccp.QueryChannelsPaginated(ctx, pagereq)
+			} else {
+				chans, err = chain.ChainProvider.QueryChannels(ctx)
+			}
+			if err != nil {
+				return err
+			}
+
+			uniqueConns := make(map[string]interface{})
+
+			for _, channel := range chans {
+				if len(channel.ConnectionHops) == 0 {
+					continue
+				}
+				uniqueConns[channel.ConnectionHops[0]] = struct{}{}
+			}
+
+			connectionClients := make(map[string]chanExtendedInfo)
+			var mu sync.Mutex
+
+			var wg sync.WaitGroup
+			i := 0
+			for c := range uniqueConns {
+				wg.Add(1)
+				c := c
+				go func() {
+					defer wg.Done()
+					conn, err := chain.ChainProvider.QueryConnection(ctx, 0, c)
+					if err != nil {
+						return
+					}
+					client, err := chain.ChainProvider.QueryClientStateResponse(ctx, 0, conn.Connection.ClientId)
+					if err != nil {
+						return
+					}
+					tmClient, err := relayer.CastClientStateToTMType(client.ClientState)
+					if err != nil {
+						return
+					}
+					mu.Lock()
+					defer mu.Unlock()
+					connectionClients[c] = chanExtendedInfo{
+						clientID:             conn.Connection.ClientId,
+						counterpartyClientID: conn.Connection.Counterparty.ClientId,
+						counterpartyConnID:   conn.Connection.Counterparty.ConnectionId,
+						counterpartyChainID:  tmClient.ChainId,
+					}
+				}()
+				i++
+				if i%10 == 0 {
+					wg.Wait()
+				}
+			}
+
+			wg.Wait()
+
+			for _, channel := range chans {
 				s, err := chain.ChainProvider.Sprint(channel)
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal channel: %v\n", err)
 					continue
 				}
+				if len(channel.ConnectionHops) == 0 {
+					fmt.Fprintln(cmd.OutOrStdout(), s)
+					continue
+				}
+				chanInfo, ok := connectionClients[channel.ConnectionHops[0]]
+				if !ok {
+					fmt.Fprintln(cmd.OutOrStdout(), s)
+					continue
+				}
+				asJson := make(map[string]any)
+				if err := json.Unmarshal([]byte(s), &asJson); err != nil {
+					fmt.Fprintln(cmd.OutOrStdout(), s)
+					continue
+				}
 
-				fmt.Fprintln(cmd.OutOrStdout(), s)
+				asJson["client_id"] = chanInfo.clientID
+				counterparty, ok := asJson["counterparty"].(map[string]any)
+				if ok {
+					counterparty["chain_id"] = chanInfo.counterpartyChainID
+					counterparty["client_id"] = chanInfo.counterpartyClientID
+					counterparty["connection_id"] = chanInfo.counterpartyConnID
+				}
+
+				newJson, err := json.Marshal(asJson)
+				if err != nil {
+					fmt.Fprintln(cmd.OutOrStdout(), s)
+					continue
+				}
+
+				fmt.Fprintln(cmd.OutOrStdout(), string(newJson))
+			}
+
+			if isCosmosChain {
+				fmt.Fprintf(cmd.OutOrStdout(), "\nPagination next key: %s\n", string(next))
 			}
 
 			return nil
