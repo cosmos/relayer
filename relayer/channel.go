@@ -58,6 +58,7 @@ func (c *Chain) CreateOpenChannels(
 		nil,
 		memo,
 		DefaultClientUpdateThreshold,
+		DefaultFlushInterval,
 	)
 
 	c.log.Info("Starting event processor for channel handshake",
@@ -128,6 +129,7 @@ func (c *Chain) CloseChannel(
 			nil,
 			memo,
 			DefaultClientUpdateThreshold,
+			DefaultFlushInterval,
 		)).
 		WithInitialBlockHistory(0).
 		WithMessageLifecycle(&processor.ChannelMessageLifecycle{

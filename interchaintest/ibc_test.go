@@ -85,7 +85,7 @@ func TestRelayerEventProcessor(t *testing.T) {
 
 	interchaintestConformance(t, relayerinterchaintest.NewRelayerFactory(relayerinterchaintest.RelayerConfig{
 		Processor:           relayer.ProcessorEvents,
-		InitialBlockHistory: 100,
+		InitialBlockHistory: 0,
 	}))
 }
 
