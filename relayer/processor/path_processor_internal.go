@@ -1,12 +1,10 @@
 package processor
 
 import (
+	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"sort"
-	"sync"
-	"time"
 
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
@@ -14,26 +12,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
-
-// assembleIBCMessage constructs the applicable IBC message using the requested function.
-// These functions may do things like make queries in order to assemble a complete IBC message.
-func (pp *PathProcessor) assemblePacketIBCMessage(
-	ctx context.Context,
-	src, dst *pathEndRuntime,
-	partialMessage packetIBCMessage,
-	assembleMessage func(ctx context.Context, msgRecvPacket provider.PacketInfo, signer string, latest provider.LatestBlock) (provider.RelayerMessage, error),
-) (provider.RelayerMessage, error) {
-	signer, err := dst.chainProvider.Address()
-	if err != nil {
-		return nil, fmt.Errorf("error getting signer address for {%s}: %w", dst.info.ChainID, err)
-	}
-	assembled, err := assembleMessage(ctx, partialMessage.info, signer, src.latestBlock)
-	if err != nil {
-		return nil, fmt.Errorf("error assembling %s for {%s}: %w", partialMessage.eventType, dst.info.ChainID, err)
-	}
-
-	return assembled, nil
-}
 
 // getMessagesToSend returns only the lowest sequence message (if it should be sent) for ordered channels,
 // otherwise returns all which should be sent.
@@ -422,59 +400,6 @@ ClientICQLoop:
 	return res
 }
 
-// assembleMsgUpdateClient uses the ChainProvider from both pathEnds to assemble the client update header
-// from the source and then assemble the update client message in the correct format for the destination.
-func (pp *PathProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime) (provider.RelayerMessage, error) {
-	clientID := dst.info.ClientID
-	clientConsensusHeight := dst.clientState.ConsensusHeight
-	trustedConsensusHeight := dst.clientTrustedState.ClientState.ConsensusHeight
-
-	// If the client state height is not equal to the client trusted state height and the client state height is
-	// the latest block, we cannot send a MsgUpdateClient until another block is observed on the counterparty.
-	// If the client state height is in the past, beyond ibcHeadersToCache, then we need to query for it.
-	if !trustedConsensusHeight.EQ(clientConsensusHeight) {
-		deltaConsensusHeight := int64(clientConsensusHeight.RevisionHeight) - int64(trustedConsensusHeight.RevisionHeight)
-		if trustedConsensusHeight.RevisionHeight != 0 && deltaConsensusHeight <= clientConsensusHeightUpdateThresholdBlocks {
-			return nil, fmt.Errorf("observed client trusted height: %d does not equal latest client state height: %d",
-				trustedConsensusHeight.RevisionHeight, clientConsensusHeight.RevisionHeight)
-		}
-		header, err := src.chainProvider.QueryIBCHeader(ctx, int64(clientConsensusHeight.RevisionHeight+1))
-		if err != nil {
-			return nil, fmt.Errorf("error getting IBC header at height: %d for chain_id: %s, %w", clientConsensusHeight.RevisionHeight+1, src.info.ChainID, err)
-		}
-		pp.log.Debug("Had to query for client trusted IBC header",
-			zap.String("chain_id", src.info.ChainID),
-			zap.String("counterparty_chain_id", dst.info.ChainID),
-			zap.String("counterparty_client_id", clientID),
-			zap.Uint64("height", clientConsensusHeight.RevisionHeight+1),
-			zap.Uint64("latest_height", src.latestBlock.Height),
-		)
-		dst.clientTrustedState = provider.ClientTrustedState{
-			ClientState: dst.clientState,
-			IBCHeader:   header,
-		}
-		trustedConsensusHeight = clientConsensusHeight
-	}
-
-	if src.latestHeader.Height() == trustedConsensusHeight.RevisionHeight {
-		return nil, fmt.Errorf("latest header height is equal to the client trusted height: %d, "+
-			"need to wait for next block's header before we can assemble and send a new MsgUpdateClient",
-			trustedConsensusHeight.RevisionHeight)
-	}
-
-	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(src.latestHeader, trustedConsensusHeight, dst.clientTrustedState.IBCHeader)
-	if err != nil {
-		return nil, fmt.Errorf("error assembling new client header: %w", err)
-	}
-
-	msgUpdateClient, err := dst.chainProvider.MsgUpdateClient(clientID, msgUpdateClientHeader)
-	if err != nil {
-		return nil, fmt.Errorf("error assembling MsgUpdateClient: %w", err)
-	}
-
-	return msgUpdateClient, nil
-}
-
 // updateClientTrustedState combines the counterparty chains trusted IBC header
 // with the latest client state, which will be used for constructing MsgUpdateClient messages.
 func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *pathEndRuntime) {
@@ -485,12 +410,22 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 	// need to assemble new trusted state
 	ibcHeader, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight+1]
 	if !ok {
+		if ibcHeaderCurrent, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight]; ok &&
+			dst.clientTrustedState.IBCHeader != nil &&
+			bytes.Equal(dst.clientTrustedState.IBCHeader.NextValidatorsHash(), ibcHeaderCurrent.NextValidatorsHash()) {
+			src.clientTrustedState = provider.ClientTrustedState{
+				ClientState: src.clientState,
+				IBCHeader:   ibcHeaderCurrent,
+			}
+			return
+		}
 		pp.log.Debug("No cached IBC header for client trusted height",
 			zap.String("chain_id", src.info.ChainID),
 			zap.String("client_id", src.info.ClientID),
 			zap.Uint64("height", src.clientState.ConsensusHeight.RevisionHeight+1),
 		)
 		return
+
 	}
 	src.clientTrustedState = provider.ClientTrustedState{
 		ClientState: src.clientState,
@@ -718,388 +653,14 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 	// if sending messages fails to one pathEnd, we don't need to halt sending to the other pathEnd.
 	var eg errgroup.Group
 	eg.Go(func() error {
-		return pp.assembleAndSendMessages(ctx, pp.pathEnd2, pp.pathEnd1, pathEnd1Messages)
+		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime)
+		return mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1)
 	})
 	eg.Go(func() error {
-		return pp.assembleAndSendMessages(ctx, pp.pathEnd1, pp.pathEnd2, pathEnd2Messages)
+		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime)
+		return mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2)
 	})
 	return eg.Wait()
-}
-
-func (pp *PathProcessor) assembleMessage(
-	ctx context.Context,
-	msg ibcMessage,
-	src, dst *pathEndRuntime,
-	om *outgoingMessages,
-	i int,
-	wg *sync.WaitGroup,
-) {
-	defer wg.Done()
-	var message provider.RelayerMessage
-	var err error
-	switch m := msg.(type) {
-	case packetIBCMessage:
-		message, err = pp.assemblePacketMessage(ctx, m, src, dst)
-		om.pktMsgs[i] = packetMessageToTrack{
-			msg:       m,
-			assembled: err == nil,
-		}
-		if err == nil {
-			dst.log.Debug("Will send packet message",
-				zap.String("event_type", m.eventType),
-				zap.Uint64("sequence", m.info.Sequence),
-				zap.String("src_channel", m.info.SourceChannel),
-				zap.String("src_port", m.info.SourcePort),
-				zap.String("dst_channel", m.info.DestChannel),
-				zap.String("dst_port", m.info.DestPort),
-			)
-		}
-	case connectionIBCMessage:
-		message, err = pp.assembleConnectionMessage(ctx, m, src, dst)
-		om.connMsgs[i] = connectionMessageToTrack{
-			msg:       m,
-			assembled: err == nil,
-		}
-		if err == nil {
-			dst.log.Debug("Will send connection message",
-				zap.String("event_type", m.eventType),
-				zap.String("connection_id", m.info.ConnID),
-			)
-		}
-	case channelIBCMessage:
-		message, err = pp.assembleChannelMessage(ctx, m, src, dst)
-		om.chanMsgs[i] = channelMessageToTrack{
-			msg:       m,
-			assembled: err == nil,
-		}
-		if err == nil {
-			dst.log.Debug("Will send channel message",
-				zap.String("event_type", m.eventType),
-				zap.String("channel_id", m.info.ChannelID),
-				zap.String("port_id", m.info.PortID),
-			)
-		}
-	case clientICQMessage:
-		message, err = pp.assembleClientICQMessage(ctx, m, src, dst)
-		om.clientICQMsgs[i] = clientICQMessageToTrack{
-			msg:       m,
-			assembled: err == nil,
-		}
-		if err == nil {
-			dst.log.Debug("Will send ICQ message",
-				zap.String("type", m.info.Type),
-				zap.String("query_id", string(m.info.QueryID)),
-			)
-		}
-	}
-	if err != nil {
-		pp.log.Error("Error assembling channel message", zap.Error(err))
-		return
-	}
-	om.Append(message)
-}
-
-func (pp *PathProcessor) assembleAndSendMessages(
-	ctx context.Context,
-	src, dst *pathEndRuntime,
-	messages pathEndMessages,
-) error {
-	var needsClientUpdate bool
-	if len(messages.packetMessages) == 0 && len(messages.connectionMessages) == 0 && len(messages.channelMessages) == 0 && len(messages.clientICQMessages) == 0 {
-		var consensusHeightTime time.Time
-		if dst.clientState.ConsensusTime.IsZero() {
-			h, err := src.chainProvider.QueryIBCHeader(ctx, int64(dst.clientState.ConsensusHeight.RevisionHeight))
-			if err != nil {
-				return fmt.Errorf("failed to get header height: %w", err)
-			}
-			consensusHeightTime = time.Unix(0, int64(h.ConsensusState().GetTimestamp()))
-		} else {
-			consensusHeightTime = dst.clientState.ConsensusTime
-		}
-		clientUpdateThresholdMs := pp.clientUpdateThresholdTime.Milliseconds()
-		if (float64(dst.clientState.TrustingPeriod.Milliseconds())*2/3 < float64(time.Since(consensusHeightTime).Milliseconds())) ||
-			(clientUpdateThresholdMs > 0 && time.Since(consensusHeightTime).Milliseconds() > clientUpdateThresholdMs) {
-			needsClientUpdate = true
-			pp.log.Info("Client close to expiration",
-				zap.String("chain_id:", dst.info.ChainID),
-				zap.String("client_id:", dst.info.ClientID),
-				zap.Int64("trusting_period", dst.clientState.TrustingPeriod.Milliseconds()),
-				zap.Int64("time_since_client_update", time.Since(consensusHeightTime).Milliseconds()),
-				zap.Int64("client_threshold_time", pp.clientUpdateThresholdTime.Milliseconds()),
-			)
-		} else {
-			return nil
-		}
-	}
-	om := outgoingMessages{
-		msgs: make(
-			[]provider.RelayerMessage,
-			0,
-			len(messages.packetMessages)+len(messages.connectionMessages)+len(messages.channelMessages)+len(messages.clientICQMessages),
-		),
-	}
-	msgUpdateClient, err := pp.assembleMsgUpdateClient(ctx, src, dst)
-	if err != nil {
-		return err
-	}
-	om.Append(msgUpdateClient)
-
-	// Each assembleMessage call below will make a query on the source chain, so these operations can run in parallel.
-	var wg sync.WaitGroup
-
-	// connection messages are highest priority
-	om.connMsgs = make([]connectionMessageToTrack, len(messages.connectionMessages))
-	for i, msg := range messages.connectionMessages {
-		wg.Add(1)
-		go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
-	}
-
-	wg.Wait()
-
-	if len(om.msgs) == 1 {
-		om.chanMsgs = make([]channelMessageToTrack, len(messages.channelMessages))
-		// only assemble and send channel handshake messages if there are no conn handshake messages
-		// this prioritizes connection handshake messages, useful if a connection handshake needs to occur before a channel handshake
-		for i, msg := range messages.channelMessages {
-			wg.Add(1)
-			go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
-		}
-
-		wg.Wait()
-	}
-
-	if len(om.msgs) == 1 {
-		om.clientICQMsgs = make([]clientICQMessageToTrack, len(messages.clientICQMessages))
-		// only assemble and send ICQ messages if there are no conn or chan handshake messages
-		for i, msg := range messages.clientICQMessages {
-			wg.Add(1)
-			go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
-		}
-
-		wg.Wait()
-	}
-
-	if len(om.msgs) == 1 {
-		om.pktMsgs = make([]packetMessageToTrack, len(messages.packetMessages))
-		// only assemble and send packet messages if there are no handshake messages
-		for i, msg := range messages.packetMessages {
-			wg.Add(1)
-			go pp.assembleMessage(ctx, msg, src, dst, &om, i, &wg)
-		}
-
-		wg.Wait()
-	}
-
-	if len(om.msgs) == 1 && !needsClientUpdate {
-		// only msgUpdateClient, don't need to send
-		return errors.New("all messages failed to assemble")
-	}
-
-	for _, m := range om.connMsgs {
-		dst.trackProcessingConnectionMessage(m)
-	}
-
-	for _, m := range om.chanMsgs {
-		dst.trackProcessingChannelMessage(m)
-	}
-
-	for _, m := range om.clientICQMsgs {
-		dst.trackProcessingClientICQMessage(m)
-	}
-
-	for _, m := range om.pktMsgs {
-		dst.trackProcessingPacketMessage(m)
-	}
-
-	go pp.sendMessages(ctx, src, dst, &om, pp.memo)
-
-	return nil
-}
-
-func (pp *PathProcessor) sendMessages(ctx context.Context, src, dst *pathEndRuntime, om *outgoingMessages, memo string) {
-	ctx, cancel := context.WithTimeout(ctx, messageSendTimeout)
-	defer cancel()
-
-	_, txSuccess, err := dst.chainProvider.SendMessages(ctx, om.msgs, pp.memo)
-	if err != nil {
-		if errors.Is(err, chantypes.ErrRedundantTx) {
-			pp.log.Debug("Packet(s) already handled by another relayer",
-				zap.String("src_chain_id", src.info.ChainID),
-				zap.String("dst_chain_id", dst.info.ChainID),
-				zap.String("src_client_id", src.info.ClientID),
-				zap.String("dst_client_id", dst.info.ClientID),
-				zap.Object("messages", om),
-				zap.Error(err),
-			)
-			return
-		}
-		pp.log.Error("Error sending messages",
-			zap.String("src_chain_id", src.info.ChainID),
-			zap.String("dst_chain_id", dst.info.ChainID),
-			zap.String("src_client_id", src.info.ClientID),
-			zap.String("dst_client_id", dst.info.ClientID),
-			zap.Object("messages", om),
-			zap.Error(err),
-		)
-		return
-	}
-	if !txSuccess {
-		dst.log.Error("Error sending messages, transaction was not successful")
-		return
-	}
-
-	if pp.metrics == nil {
-		return
-	}
-	for _, m := range om.pktMsgs {
-		var channel, port string
-		if m.msg.eventType == chantypes.EventTypeRecvPacket {
-			channel = m.msg.info.DestChannel
-			port = m.msg.info.DestPort
-		} else {
-			channel = m.msg.info.SourceChannel
-			port = m.msg.info.SourcePort
-		}
-		pp.metrics.IncPacketsRelayed(dst.info.PathName, dst.info.ChainID, channel, port, m.msg.eventType)
-	}
-}
-
-func (pp *PathProcessor) assemblePacketMessage(
-	ctx context.Context,
-	msg packetIBCMessage,
-	src, dst *pathEndRuntime,
-) (provider.RelayerMessage, error) {
-	var packetProof func(context.Context, provider.PacketInfo, uint64) (provider.PacketProof, error)
-	var assembleMessage func(provider.PacketInfo, provider.PacketProof) (provider.RelayerMessage, error)
-	switch msg.eventType {
-	case chantypes.EventTypeRecvPacket:
-		packetProof = src.chainProvider.PacketCommitment
-		assembleMessage = dst.chainProvider.MsgRecvPacket
-	case chantypes.EventTypeAcknowledgePacket:
-		packetProof = src.chainProvider.PacketAcknowledgement
-		assembleMessage = dst.chainProvider.MsgAcknowledgement
-	case chantypes.EventTypeTimeoutPacket:
-		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
-			packetProof = src.chainProvider.NextSeqRecv
-		} else {
-			packetProof = src.chainProvider.PacketReceipt
-		}
-
-		assembleMessage = dst.chainProvider.MsgTimeout
-	case chantypes.EventTypeTimeoutPacketOnClose:
-		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
-			packetProof = src.chainProvider.NextSeqRecv
-		} else {
-			packetProof = src.chainProvider.PacketReceipt
-		}
-
-		assembleMessage = dst.chainProvider.MsgTimeoutOnClose
-	default:
-		return nil, fmt.Errorf("unexepected packet message eventType for message assembly: %s", msg.eventType)
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, packetProofQueryTimeout)
-	defer cancel()
-
-	var proof provider.PacketProof
-	var err error
-	proof, err = packetProof(ctx, msg.info, src.latestBlock.Height)
-	if err != nil {
-		return nil, fmt.Errorf("error querying packet proof: %w", err)
-	}
-	return assembleMessage(msg.info, proof)
-}
-
-func (pp *PathProcessor) assembleConnectionMessage(
-	ctx context.Context,
-	msg connectionIBCMessage,
-	src, dst *pathEndRuntime,
-) (provider.RelayerMessage, error) {
-	var connProof func(context.Context, provider.ConnectionInfo, uint64) (provider.ConnectionProof, error)
-	var assembleMessage func(provider.ConnectionInfo, provider.ConnectionProof) (provider.RelayerMessage, error)
-	switch msg.eventType {
-	case conntypes.EventTypeConnectionOpenInit:
-		// don't need proof for this message
-		msg.info.CounterpartyCommitmentPrefix = src.chainProvider.CommitmentPrefix()
-		assembleMessage = dst.chainProvider.MsgConnectionOpenInit
-	case conntypes.EventTypeConnectionOpenTry:
-		msg.info.CounterpartyCommitmentPrefix = src.chainProvider.CommitmentPrefix()
-		connProof = src.chainProvider.ConnectionHandshakeProof
-		assembleMessage = dst.chainProvider.MsgConnectionOpenTry
-	case conntypes.EventTypeConnectionOpenAck:
-		connProof = src.chainProvider.ConnectionHandshakeProof
-		assembleMessage = dst.chainProvider.MsgConnectionOpenAck
-	case conntypes.EventTypeConnectionOpenConfirm:
-		connProof = src.chainProvider.ConnectionProof
-		assembleMessage = dst.chainProvider.MsgConnectionOpenConfirm
-	default:
-		return nil, fmt.Errorf("unexepected connection message eventType for message assembly: %s", msg.eventType)
-	}
-	var proof provider.ConnectionProof
-	var err error
-	if connProof != nil {
-		proof, err = connProof(ctx, msg.info, src.latestBlock.Height)
-		if err != nil {
-			return nil, fmt.Errorf("error querying connection proof: %w", err)
-		}
-	}
-	return assembleMessage(msg.info, proof)
-}
-
-func (pp *PathProcessor) assembleChannelMessage(
-	ctx context.Context,
-	msg channelIBCMessage,
-	src, dst *pathEndRuntime,
-) (provider.RelayerMessage, error) {
-	var chanProof func(context.Context, provider.ChannelInfo, uint64) (provider.ChannelProof, error)
-	var assembleMessage func(provider.ChannelInfo, provider.ChannelProof) (provider.RelayerMessage, error)
-	switch msg.eventType {
-	case chantypes.EventTypeChannelOpenInit:
-		// don't need proof for this message
-		assembleMessage = dst.chainProvider.MsgChannelOpenInit
-	case chantypes.EventTypeChannelOpenTry:
-		chanProof = src.chainProvider.ChannelProof
-		assembleMessage = dst.chainProvider.MsgChannelOpenTry
-	case chantypes.EventTypeChannelOpenAck:
-		chanProof = src.chainProvider.ChannelProof
-		assembleMessage = dst.chainProvider.MsgChannelOpenAck
-	case chantypes.EventTypeChannelOpenConfirm:
-		chanProof = src.chainProvider.ChannelProof
-		assembleMessage = dst.chainProvider.MsgChannelOpenConfirm
-	case chantypes.EventTypeChannelCloseInit:
-		// don't need proof for this message
-		assembleMessage = dst.chainProvider.MsgChannelCloseInit
-	case chantypes.EventTypeChannelCloseConfirm:
-		chanProof = src.chainProvider.ChannelProof
-		assembleMessage = dst.chainProvider.MsgChannelCloseConfirm
-	default:
-		return nil, fmt.Errorf("unexepected channel message eventType for message assembly: %s", msg.eventType)
-	}
-	var proof provider.ChannelProof
-	var err error
-	if chanProof != nil {
-		proof, err = chanProof(ctx, msg.info, src.latestBlock.Height)
-		if err != nil {
-			return nil, fmt.Errorf("error querying channel proof: %w", err)
-		}
-	}
-	return assembleMessage(msg.info, proof)
-}
-
-func (pp *PathProcessor) assembleClientICQMessage(
-	ctx context.Context,
-	msg clientICQMessage,
-	src, dst *pathEndRuntime,
-) (provider.RelayerMessage, error) {
-	ctx, cancel := context.WithTimeout(ctx, interchainQueryTimeout)
-	defer cancel()
-
-	proof, err := src.chainProvider.QueryICQWithProof(ctx, msg.info.Type, msg.info.Request, src.latestBlock.Height-1)
-	if err != nil {
-		return nil, fmt.Errorf("error during interchain query: %w", err)
-	}
-
-	return dst.chainProvider.MsgSubmitQueryResponse(msg.info.Chain, msg.info.QueryID, proof)
 }
 
 func (pp *PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes pathEndChannelHandshakeResponse) ([]channelIBCMessage, []channelIBCMessage) {
