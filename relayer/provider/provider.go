@@ -18,9 +18,17 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+type BroadcastMode string
+
+const (
+	BroadcastModeSingle BroadcastMode = "single"
+	BroadcastModeBatch  BroadcastMode = "batch"
+)
+
 type ProviderConfig interface {
 	NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (ChainProvider, error)
 	Validate() error
+	BroadcastMode() BroadcastMode
 }
 
 type RelayerMessage interface {
@@ -29,11 +37,12 @@ type RelayerMessage interface {
 }
 
 type RelayerTxResponse struct {
-	Height int64
-	TxHash string
-	Code   uint32
-	Data   string
-	Events []RelayerEvent
+	Height    int64
+	TxHash    string
+	Codespace string
+	Code      uint32
+	Data      string
+	Events    []RelayerEvent
 }
 
 type RelayerEvent struct {
@@ -49,7 +58,7 @@ type LatestBlock struct {
 type IBCHeader interface {
 	Height() uint64
 	ConsensusState() ibcexported.ConsensusState
-	// require conversion implementation for third party chains
+	NextValidatorsHash() []byte
 }
 
 // ClientState holds the current state of a client from a single chain's perspective
@@ -193,6 +202,7 @@ func (es loggableEvents) MarshalLogArray(enc zapcore.ArrayEncoder) error {
 func (r RelayerTxResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddInt64("height", r.Height)
 	enc.AddString("tx_hash", r.TxHash)
+	enc.AddString("codespace", r.Codespace)
 	enc.AddUint32("code", r.Code)
 	enc.AddString("data", r.Data)
 	enc.AddArray("events", loggableEvents(r.Events))
@@ -367,6 +377,14 @@ type ChainProvider interface {
 
 	SendMessage(ctx context.Context, msg RelayerMessage, memo string) (*RelayerTxResponse, bool, error)
 	SendMessages(ctx context.Context, msgs []RelayerMessage, memo string) (*RelayerTxResponse, bool, error)
+	SendMessagesToMempool(
+		ctx context.Context,
+		msgs []RelayerMessage,
+		memo string,
+
+		asyncCtx context.Context,
+		asyncCallback func(*RelayerTxResponse, error),
+	) error
 
 	ChainName() string
 	ChainId() string

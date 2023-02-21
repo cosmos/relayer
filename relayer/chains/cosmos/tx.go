@@ -26,19 +26,23 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	lensclient "github.com/strangelove-ventures/lens/client"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/light"
+	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 )
 
 // Variables used for retries
 var (
-	rtyAttNum = uint(5)
-	rtyAtt    = retry.Attempts(rtyAttNum)
-	rtyDel    = retry.Delay(time.Millisecond * 400)
-	rtyErr    = retry.LastErrorOnly(true)
-	numRegex  = regexp.MustCompile("[0-9]+")
+	rtyAttNum                   = uint(5)
+	rtyAtt                      = retry.Attempts(rtyAttNum)
+	rtyDel                      = retry.Delay(time.Millisecond * 400)
+	rtyErr                      = retry.LastErrorOnly(true)
+	numRegex                    = regexp.MustCompile("[0-9]+")
+	defaultBroadcastWaitTimeout = 10 * time.Minute
+	errUnknown                  = "unknown"
 )
 
 // Default IBC settings
@@ -188,11 +192,12 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 	}
 
 	rlyResp := &provider.RelayerTxResponse{
-		Height: resp.Height,
-		TxHash: resp.TxHash,
-		Code:   resp.Code,
-		Data:   resp.Data,
-		Events: parseEventsFromTxResponse(resp),
+		Height:    resp.Height,
+		TxHash:    resp.TxHash,
+		Codespace: resp.Codespace,
+		Code:      resp.Code,
+		Data:      resp.Data,
+		Events:    parseEventsFromTxResponse(resp),
 	}
 
 	// transaction was executed, log the success or failure using the tx response code
@@ -208,6 +213,192 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 	cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), fees)
 
 	return rlyResp, true, nil
+}
+
+// SendMessagesToMempool simulates and broadcasts a transaction with the given msgs and memo.
+// This method will return once the transaction has entered the mempool.
+// In an async goroutine, will wait for the tx to be included in the block unless asyncCtx exits.
+// If there is no error broadcasting, the asyncCallback will be called with success/failure of the wait for block inclusion.
+func (cc *CosmosProvider) SendMessagesToMempool(
+	ctx context.Context,
+	msgs []provider.RelayerMessage,
+	memo string,
+
+	asyncCtx context.Context,
+	asyncCallback func(*provider.RelayerTxResponse, error),
+) error {
+	// Guard against account sequence number mismatch errors by locking for the specific wallet for
+	// the account sequence query all the way through the transaction broadcast success/fail.
+	cc.txMu.Lock()
+	defer cc.txMu.Unlock()
+
+	txBytes, sequence, fees, err := cc.buildMessages(ctx, msgs, memo)
+	if err != nil {
+		// Account sequence mismatch errors can happen on the simulated transaction also.
+		if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+			cc.handleAccountSequenceMismatchError(err)
+		}
+
+		return err
+	}
+
+	if err := cc.broadcastTx(ctx, txBytes, msgs, fees, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback); err != nil {
+		if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+			cc.handleAccountSequenceMismatchError(err)
+		}
+
+		return err
+	}
+
+	// we had a successful tx broadcast with this sequence, so update it to the next
+	cc.updateNextAccountSequence(sequence + 1)
+
+	return nil
+}
+
+// sdkError will return the Cosmos SDK registered error for a given codespace/code combo if registered, otherwise nil.
+func (cc *CosmosProvider) sdkError(codespace string, code uint32) error {
+	// ABCIError will return an error other than "unknown" if syncRes.Code is a registered error in syncRes.Codespace
+	// This catches all of the sdk errors https://github.com/cosmos/cosmos-sdk/blob/f10f5e5974d2ecbf9efc05bc0bfe1c99fdeed4b6/types/errors/errors.go
+	err := errors.Unwrap(sdkerrors.ABCIError(codespace, code, "error broadcasting transaction"))
+	if err.Error() != errUnknown {
+		return err
+	}
+	return nil
+}
+
+// broadcastTx broadcasts a transaction with the given raw bytes and then, in an async goroutine, waits for the tx to be included in the block.
+// The wait will end after either the asyncTimeout has run out or the asyncCtx exits.
+// If there is no error broadcasting, the asyncCallback will be called with success/failure of the wait for block inclusion.
+func (cc *CosmosProvider) broadcastTx(
+	ctx context.Context, // context for tx broadcast
+	tx []byte, // raw tx to be broadcasted
+	msgs []provider.RelayerMessage, // used for logging only
+	fees sdk.Coins, // used for metrics
+
+	asyncCtx context.Context, // context for async wait for block inclusion after successful tx broadcast
+	asyncTimeout time.Duration, // timeout for waiting for block inclusion
+	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
+) error {
+	res, err := cc.ChainClient.RPCClient.BroadcastTxSync(ctx, tx)
+	if err != nil {
+		if res == nil {
+			// There are some cases where BroadcastTxSync will return an error but the associated
+			// ResultBroadcastTx will be nil.
+			return err
+		}
+		rlyResp := &provider.RelayerTxResponse{
+			TxHash:    res.Hash.String(),
+			Codespace: res.Codespace,
+			Code:      res.Code,
+			Data:      res.Data.String(),
+		}
+		cc.LogFailedTx(rlyResp, err, msgs)
+		return err
+	}
+
+	cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), fees)
+
+	// TODO: maybe we need to check if the node has tx indexing enabled?
+	// if not, we need to find a new way to block until inclusion in a block
+
+	go cc.waitForTx(asyncCtx, res.Hash, msgs, asyncTimeout, asyncCallback)
+
+	return nil
+}
+
+// waitForTx waits for a transaction to be included in a block, logs success/fail, then invokes callback.
+// This is intended to be called as an async goroutine.
+func (cc *CosmosProvider) waitForTx(
+	ctx context.Context,
+	txHash []byte,
+	msgs []provider.RelayerMessage, // used for logging only
+	waitTimeout time.Duration,
+	callback func(*provider.RelayerTxResponse, error),
+) {
+	res, err := cc.waitForBlockInclusion(ctx, txHash, waitTimeout)
+	if err != nil {
+		cc.log.Error("Failed to wait for block inclusion", zap.Error(err))
+		if callback != nil {
+			callback(nil, err)
+		}
+		return
+	}
+
+	rlyResp := &provider.RelayerTxResponse{
+		Height:    res.Height,
+		TxHash:    res.TxHash,
+		Codespace: res.Codespace,
+		Code:      res.Code,
+		Data:      res.Data,
+		Events:    parseEventsFromTxResponse(res),
+	}
+
+	// transaction was executed, log the success or failure using the tx response code
+	// NOTE: error is nil, logic should use the returned error to determine if the
+	// transaction was successfully executed.
+
+	if res.Code != 0 {
+		// Check for any registered SDK errors
+		err := cc.sdkError(res.Codespace, res.Code)
+		if err == nil {
+			err = fmt.Errorf("transaction failed to execute")
+		}
+		if callback != nil {
+			callback(nil, err)
+		}
+		cc.LogFailedTx(rlyResp, nil, msgs)
+		return
+	}
+
+	if callback != nil {
+		callback(rlyResp, nil)
+	}
+	cc.LogSuccessTx(res, msgs)
+}
+
+// waitForBlockInclusion will wait for a transaction to be included in a block, up to waitTimeout or context cancellation.
+func (cc *CosmosProvider) waitForBlockInclusion(
+	ctx context.Context,
+	txHash []byte,
+	waitTimeout time.Duration,
+) (*sdk.TxResponse, error) {
+	exitAfter := time.After(waitTimeout)
+	for {
+		select {
+		case <-exitAfter:
+			return nil, fmt.Errorf("timed out after: %d; %w", waitTimeout, lensclient.ErrTimeoutAfterWaitingForTxBroadcast)
+		// This fixed poll is fine because it's only for logging and updating prometheus metrics currently.
+		case <-time.After(time.Millisecond * 100):
+			res, err := cc.ChainClient.RPCClient.Tx(ctx, txHash, false)
+			if err == nil {
+				return cc.mkTxResult(res)
+			}
+			if strings.Contains(err.Error(), "transaction indexing is disabled") {
+				return nil, fmt.Errorf("cannot determine success/failure of tx because transaction indexing is disabled on rpc url")
+			}
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+}
+
+// mkTxResult decodes a tendermint transaction into an SDK TxResponse.
+func (cc *CosmosProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse, error) {
+	txbz, err := cc.ChainClient.Codec.TxConfig.TxDecoder()(resTx.Tx)
+	if err != nil {
+		return nil, err
+	}
+	p, ok := txbz.(intoAny)
+	if !ok {
+		return nil, fmt.Errorf("expecting a type implementing intoAny, got: %T", txbz)
+	}
+	any := p.AsAny()
+	return sdk.NewResponseResultTx(resTx, any, ""), nil
+}
+
+type intoAny interface {
+	AsAny() *codectypes.Any
 }
 
 func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
@@ -241,6 +432,13 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 
 	if memo != "" {
 		txf = txf.WithMemo(memo)
+	}
+
+	sequence := txf.Sequence()
+	cc.updateNextAccountSequence(sequence)
+	if sequence < cc.nextAccountSeq {
+		sequence = cc.nextAccountSeq
+		txf = txf.WithSequence(sequence)
 	}
 
 	// TODO: Make this work with new CalculateGas method
@@ -296,7 +494,7 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 		return nil, 0, sdk.Coins{}, err
 	}
 
-	return txBytes, txf.Sequence(), fees, nil
+	return txBytes, sequence, fees, nil
 }
 
 // handleAccountSequenceMismatchError will parse the error string, e.g.:
