@@ -8,10 +8,9 @@ import (
 	"io"
 	"os"
 	"path"
-	"time"
 
 	"github.com/cosmos/relayer/v2/relayer"
-	"github.com/juju/fslock"
+	"github.com/gofrs/flock"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -178,13 +177,13 @@ func (a *appState) OverwriteConfigOnTheFly(
 
 	// use lock file to guard concurrent access to config.yaml
 	lockFilePath := path.Join(a.HomePath, "config", "config.lock")
-	lock := fslock.New(lockFilePath)
-	err := lock.LockWithTimeout(10 * time.Second)
+	fileLock := flock.New(lockFilePath)
+	_, err := fileLock.TryLock()
 	if err != nil {
 		return fmt.Errorf("failed to acquire config lock: %w", err)
 	}
 	defer func() {
-		if err := lock.Unlock(); err != nil {
+		if err := fileLock.Unlock(); err != nil {
 			a.Log.Error("error unlocking config file lock, please manually delete",
 				zap.String("filepath", lockFilePath),
 			)
