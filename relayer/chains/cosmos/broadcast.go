@@ -14,8 +14,6 @@ import (
 )
 
 const (
-	defaultBroadcastWaitTimeout               = 10 * time.Minute
-	errUnknown                                = "unknown"
 	ErrTimeoutAfterWaitingForTxBroadcast _err = "timed out after waiting for tx to get included in the block"
 )
 

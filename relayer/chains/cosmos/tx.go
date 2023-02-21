@@ -281,7 +281,7 @@ func (cc *CosmosProvider) broadcastTx(
 	asyncTimeout time.Duration, // timeout for waiting for block inclusion
 	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
 ) error {
-	res, err := cc.ChainClient.RPCClient.BroadcastTxSync(ctx, tx)
+	res, err := cc.RPCClient.BroadcastTxSync(ctx, tx)
 	if err != nil {
 		if res == nil {
 			// There are some cases where BroadcastTxSync will return an error but the associated
@@ -368,10 +368,10 @@ func (cc *CosmosProvider) waitForBlockInclusion(
 	for {
 		select {
 		case <-exitAfter:
-			return nil, fmt.Errorf("timed out after: %d; %w", waitTimeout, lensclient.ErrTimeoutAfterWaitingForTxBroadcast)
+			return nil, fmt.Errorf("timed out after: %d; %w", waitTimeout, ErrTimeoutAfterWaitingForTxBroadcast)
 		// This fixed poll is fine because it's only for logging and updating prometheus metrics currently.
 		case <-time.After(time.Millisecond * 100):
-			res, err := cc.ChainClient.RPCClient.Tx(ctx, txHash, false)
+			res, err := cc.RPCClient.Tx(ctx, txHash, false)
 			if err == nil {
 				return cc.mkTxResult(res)
 			}
@@ -386,7 +386,7 @@ func (cc *CosmosProvider) waitForBlockInclusion(
 
 // mkTxResult decodes a tendermint transaction into an SDK TxResponse.
 func (cc *CosmosProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse, error) {
-	txbz, err := cc.ChainClient.Codec.TxConfig.TxDecoder()(resTx.Tx)
+	txbz, err := cc.Codec.TxConfig.TxDecoder()(resTx.Tx)
 	if err != nil {
 		return nil, err
 	}
@@ -396,10 +396,6 @@ func (cc *CosmosProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse
 	}
 	any := p.AsAny()
 	return sdk.NewResponseResultTx(resTx, any, ""), nil
-}
-
-type intoAny interface {
-	AsAny() *codectypes.Any
 }
 
 func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
@@ -571,15 +567,6 @@ func (cc *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clientty
 	return NewCosmosMessage(&clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
 		ConsensusState: consRes.ConsensusState, ProofUpgradeClient: consRes.GetProof(),
 		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}), nil
-}
-
-// mustGetHeight takes the height inteface and returns the actual height
-func mustGetHeight(h ibcexported.Height) clienttypes.Height {
-	height, ok := h.(clienttypes.Height)
-	if !ok {
-		panic("height is not an instance of height!")
-	}
-	return height
 }
 
 // MsgTransfer creates a new transfer message
