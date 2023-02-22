@@ -23,7 +23,6 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.15.0
-	github.com/strangelove-ventures/lens v0.5.2-0.20230202043138-4141145349c8
 	github.com/stretchr/testify v1.8.1
 	github.com/tendermint/tendermint v0.37.0-rc2
 	github.com/tyler-smith/go-bip39 v1.1.0
