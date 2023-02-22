@@ -11,11 +11,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cosmos/relayer/v2/cregistry"
 	"github.com/cosmos/relayer/v2/relayer"
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/spf13/cobra"
-	registry "github.com/strangelove-ventures/lens/client/chain_registry"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
@@ -159,7 +158,7 @@ func chainsRegistryList(a *appState) *cobra.Command {
 				return err
 			}
 
-			chains, err := registry.DefaultChainRegistry(a.Log).ListChains(cmd.Context())
+			chains, err := cregistry.DefaultChainRegistry(a.Log).ListChains(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -425,7 +424,7 @@ func addChainFromURL(a *appState, chainName string, rawurl string) error {
 }
 
 func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) error {
-	chainRegistry := registry.DefaultChainRegistry(a.Log)
+	chainRegistry := cregistry.DefaultChainRegistry(a.Log)
 
 	var existed, failed, added []string
 
@@ -461,27 +460,11 @@ func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) er
 			failed = append(failed, chain)
 			continue
 		}
+		chainConfig.ChainName = chainInfo.ChainName
+		chainConfig.Broadcast = provider.BroadcastModeBatch
 
 		// build the ChainProvider
-		pcfg := &cosmos.CosmosProviderConfig{
-			Key:            chainConfig.Key,
-			ChainName:      chainInfo.ChainName,
-			ChainID:        chainConfig.ChainID,
-			RPCAddr:        chainConfig.RPCAddr,
-			AccountPrefix:  chainConfig.AccountPrefix,
-			KeyringBackend: chainConfig.KeyringBackend,
-			GasAdjustment:  chainConfig.GasAdjustment,
-			GasPrices:      chainConfig.GasPrices,
-			Debug:          chainConfig.Debug,
-			Timeout:        chainConfig.Timeout,
-			OutputFormat:   chainConfig.OutputFormat,
-			SignModeStr:    chainConfig.SignModeStr,
-			ExtraCodecs:    chainConfig.ExtraCodecs,
-			Broadcast:      provider.BroadcastModeBatch,
-			Slip44:         chainConfig.Slip44,
-		}
-
-		prov, err := pcfg.NewProvider(
+		prov, err := chainConfig.NewProvider(
 			a.Log.With(zap.String("provider_type", "cosmos")),
 			a.HomePath, a.Debug, chainInfo.ChainName,
 		)
@@ -511,7 +494,7 @@ func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) er
 		// found the correct chain so move on to next chain in chains
 
 	}
-	a.Log.Info("config update status",
+	a.Log.Info("Config update status",
 		zap.Any("added", added),
 		zap.Any("failed", failed),
 		zap.Any("already existed", existed),

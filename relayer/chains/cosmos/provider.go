@@ -56,7 +56,7 @@ type CosmosProviderConfig struct {
 	ExtraCodecs    []string                `json:"extra-codecs" yaml:"extra-codecs"`
 	Modules        []module.AppModuleBasic `json:"-" yaml:"-"`
 	Slip44         int                     `json:"coin-type" yaml:"coin-type"`
-	Broadcast      provider.BroadcastMode `json:"broadcast-mode" yaml:"broadcast-mode"`
+	Broadcast      provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
 }
 
 func (pc CosmosProviderConfig) Validate() error {
@@ -252,7 +252,7 @@ func (cc *CosmosProvider) Init(ctx context.Context) error {
 		return err
 	}
 
-	rpcClient, err := newRPCClient(cc.PCfg.RPCAddr, timeout)
+	rpcClient, err := NewRPCClient(cc.PCfg.RPCAddr, timeout)
 	if err != nil {
 		return err
 	}
@@ -336,8 +336,8 @@ func keysDir(home, chainID string) string {
 	return path.Join(home, "keys", chainID)
 }
 
-// newRPCClient initializes a new tendermint RPC client connected to the specified address.
-func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
+// NewRPCClient initializes a new tendermint RPC client connected to the specified address.
+func NewRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
 	httpClient, err := libclient.DefaultHTTPClient(addr)
 	if err != nil {
 		return nil, err
