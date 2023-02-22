@@ -13,7 +13,6 @@ import (
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
@@ -1280,17 +1279,11 @@ func (cc *CosmosProvider) queryTMClientState(ctx context.Context, srch int64, sr
 		return &tmclient.ClientState{}, err
 	}
 
-	return castClientStateToTMType(clientStateRes.ClientState)
-}
-
-// castClientStateToTMType casts client state to tendermint type
-func castClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) {
-	clientStateExported, err := clienttypes.UnpackClientState(cs)
+	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
 	if err != nil {
 		return &tmclient.ClientState{}, err
 	}
 
-	// cast from interface to concrete type
 	clientState, ok := clientStateExported.(*tmclient.ClientState)
 	if !ok {
 		return &tmclient.ClientState{},

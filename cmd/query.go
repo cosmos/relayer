@@ -745,11 +745,11 @@ func queryChannelsToChain(cmd *cobra.Command, chain *relayer.Chain, dstChain *re
 	}
 
 	for _, client := range clients {
-		tmClient, err := relayer.CastClientStateToTMType(client.ClientState)
+		clientInfo, err := relayer.ClientInfoFromClientState(client.ClientState)
 		if err != nil {
 			continue
 		}
-		if tmClient.ChainId != dstChain.ChainProvider.ChainId() {
+		if clientInfo.ChainID != dstChain.ChainProvider.ChainId() {
 			continue
 		}
 		connections, err := chain.ChainProvider.QueryConnectionsUsingClient(ctx, 0, client.ClientId)
@@ -770,7 +770,7 @@ func queryChannelsToChain(cmd *cobra.Command, chain *relayer.Chain, dstChain *re
 				for _, channel := range channels {
 					printChannelWithExtendedInfo(cmd, chain, channel, &chanExtendedInfo{
 						clientID:             client.ClientId,
-						counterpartyChainID:  tmClient.ChainId,
+						counterpartyChainID:  clientInfo.ChainID,
 						counterpartyClientID: conn.Counterparty.ClientId,
 						counterpartyConnID:   conn.Counterparty.ConnectionId,
 					})
@@ -831,7 +831,7 @@ func queryChannelsPaginated(cmd *cobra.Command, chain *relayer.Chain, pageReq *q
 			if err != nil {
 				return
 			}
-			tmClient, err := relayer.CastClientStateToTMType(client.ClientState)
+			clientInfo, err := relayer.ClientInfoFromClientState(client.ClientState)
 			if err != nil {
 				return
 			}
@@ -841,7 +841,7 @@ func queryChannelsPaginated(cmd *cobra.Command, chain *relayer.Chain, pageReq *q
 				clientID:             conn.Connection.ClientId,
 				counterpartyClientID: conn.Connection.Counterparty.ClientId,
 				counterpartyConnID:   conn.Connection.Counterparty.ConnectionId,
-				counterpartyChainID:  tmClient.ChainId,
+				counterpartyChainID:  clientInfo.ChainID,
 			}
 		}()
 		i++
