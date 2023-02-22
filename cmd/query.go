@@ -816,7 +816,7 @@ $ %s query channels ibc-2 --offset 2 --limit 30`,
 			}
 
 			if isCosmosChain {
-				fmt.Fprintf(cmd.OutOrStdout(), "\nPagination next key: %s\n", string(next))
+				fmt.Fprintf(cmd.ErrOrStderr(), "\nPagination next key: %s\n", string(next))
 			}
 
 			return nil
