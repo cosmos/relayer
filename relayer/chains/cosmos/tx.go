@@ -14,8 +14,14 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -26,12 +32,14 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	lensclient "github.com/strangelove-ventures/lens/client"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/light"
+	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // Variables used for retries
@@ -53,17 +61,10 @@ var (
 
 // Strings for parsing events
 var (
-	spTag       = "send_packet"
-	waTag       = "write_acknowledgement"
-	srcChanTag  = "packet_src_channel"
-	dstChanTag  = "packet_dst_channel"
-	srcPortTag  = "packet_src_port"
-	dstPortTag  = "packet_dst_port"
-	dataTag     = "packet_data"
-	ackTag      = "packet_ack"
-	toHeightTag = "packet_timeout_height"
-	toTSTag     = "packet_timeout_timestamp"
-	seqTag      = "packet_sequence"
+	spTag      = "send_packet"
+	waTag      = "write_acknowledgement"
+	srcChanTag = "packet_src_channel"
+	dstChanTag = "packet_dst_channel"
 )
 
 // SendMessage attempts to sign, encode & send a RelayerMessage
@@ -280,7 +281,7 @@ func (cc *CosmosProvider) broadcastTx(
 	asyncTimeout time.Duration, // timeout for waiting for block inclusion
 	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
 ) error {
-	res, err := cc.ChainClient.RPCClient.BroadcastTxSync(ctx, tx)
+	res, err := cc.RPCClient.BroadcastTxSync(ctx, tx)
 	if err != nil {
 		if res == nil {
 			// There are some cases where BroadcastTxSync will return an error but the associated
@@ -367,10 +368,10 @@ func (cc *CosmosProvider) waitForBlockInclusion(
 	for {
 		select {
 		case <-exitAfter:
-			return nil, fmt.Errorf("timed out after: %d; %w", waitTimeout, lensclient.ErrTimeoutAfterWaitingForTxBroadcast)
+			return nil, fmt.Errorf("timed out after: %d; %w", waitTimeout, ErrTimeoutAfterWaitingForTxBroadcast)
 		// This fixed poll is fine because it's only for logging and updating prometheus metrics currently.
 		case <-time.After(time.Millisecond * 100):
-			res, err := cc.ChainClient.RPCClient.Tx(ctx, txHash, false)
+			res, err := cc.RPCClient.Tx(ctx, txHash, false)
 			if err == nil {
 				return cc.mkTxResult(res)
 			}
@@ -385,7 +386,7 @@ func (cc *CosmosProvider) waitForBlockInclusion(
 
 // mkTxResult decodes a tendermint transaction into an SDK TxResponse.
 func (cc *CosmosProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse, error) {
-	txbz, err := cc.ChainClient.Codec.TxConfig.TxDecoder()(resTx.Tx)
+	txbz, err := cc.Codec.TxConfig.TxDecoder()(resTx.Tx)
 	if err != nil {
 		return nil, err
 	}
@@ -395,10 +396,6 @@ func (cc *CosmosProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse
 	}
 	any := p.AsAny()
 	return sdk.NewResponseResultTx(resTx, any, ""), nil
-}
-
-type intoAny interface {
-	AsAny() *codectypes.Any
 }
 
 func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
@@ -570,15 +567,6 @@ func (cc *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clientty
 	return NewCosmosMessage(&clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
 		ConsensusState: consRes.ConsensusState, ProofUpgradeClient: consRes.GetProof(),
 		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}), nil
-}
-
-// mustGetHeight takes the height inteface and returns the actual height
-func mustGetHeight(h ibcexported.Height) clienttypes.Height {
-	height, ok := h.(clienttypes.Height)
-	if !ok {
-		panic("height is not an instance of height!")
-	}
-	return height
 }
 
 // MsgTransfer creates a new transfer message
@@ -1360,4 +1348,235 @@ func (cc *CosmosProvider) UpdateFeesSpent(chain, key string, fees sdk.Coins) {
 		f, _ := big.NewFloat(0.0).SetInt(fee.Amount.BigInt()).Float64()
 		cc.metrics.SetFeesSpent(chain, key, fee.GetDenom(), f)
 	}
+}
+
+// PrepareFactory mutates the tx factory with the appropriate account number, sequence number, and min gas settings.
+func (cc *CosmosProvider) PrepareFactory(txf tx.Factory) (tx.Factory, error) {
+	var (
+		err      error
+		from     sdk.AccAddress
+		num, seq uint64
+	)
+
+	// Get key address and retry if fail
+	if err = retry.Do(func() error {
+		from, err = cc.GetKeyAddress()
+		if err != nil {
+			return err
+		}
+		return err
+	}, rtyAtt, rtyDel, rtyErr); err != nil {
+		return tx.Factory{}, err
+	}
+
+	cliCtx := client.Context{}.WithClient(cc.RPCClient).
+		WithInterfaceRegistry(cc.Codec.InterfaceRegistry).
+		WithChainID(cc.PCfg.ChainID).
+		WithCodec(cc.Codec.Marshaler)
+
+	// Set the account number and sequence on the transaction factory and retry if fail
+	if err = retry.Do(func() error {
+		if err = txf.AccountRetriever().EnsureExists(cliCtx, from); err != nil {
+			return err
+		}
+		return err
+	}, rtyAtt, rtyDel, rtyErr); err != nil {
+		return txf, err
+	}
+
+	// TODO: why this code? this may potentially require another query when we don't want one
+	initNum, initSeq := txf.AccountNumber(), txf.Sequence()
+	if initNum == 0 || initSeq == 0 {
+		if err = retry.Do(func() error {
+			num, seq, err = txf.AccountRetriever().GetAccountNumberSequence(cliCtx, from)
+			if err != nil {
+				return err
+			}
+			return err
+		}, rtyAtt, rtyDel, rtyErr); err != nil {
+			return txf, err
+		}
+
+		if initNum == 0 {
+			txf = txf.WithAccountNumber(num)
+		}
+
+		if initSeq == 0 {
+			txf = txf.WithSequence(seq)
+		}
+	}
+
+	if cc.PCfg.MinGasAmount != 0 {
+		txf = txf.WithGas(cc.PCfg.MinGasAmount)
+	}
+
+	return txf, nil
+}
+
+// CalculateGas simulates a tx to generate the appropriate gas settings before broadcasting a tx.
+func (cc *CosmosProvider) CalculateGas(ctx context.Context, txf tx.Factory, msgs ...sdk.Msg) (txtypes.SimulateResponse, uint64, error) {
+	keyInfo, err := cc.Keybase.Key(cc.PCfg.Key)
+	if err != nil {
+		return txtypes.SimulateResponse{}, 0, err
+	}
+
+	var txBytes []byte
+	if err := retry.Do(func() error {
+		var err error
+		txBytes, err = BuildSimTx(keyInfo, txf, msgs...)
+		if err != nil {
+			return err
+		}
+		return nil
+	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
+		return txtypes.SimulateResponse{}, 0, err
+	}
+
+	simQuery := abci.RequestQuery{
+		Path: "/cosmos.tx.v1beta1.Service/Simulate",
+		Data: txBytes,
+	}
+
+	var res abci.ResponseQuery
+	if err := retry.Do(func() error {
+		var err error
+		res, err = cc.QueryABCI(ctx, simQuery)
+		if err != nil {
+			return err
+		}
+		return nil
+	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
+		return txtypes.SimulateResponse{}, 0, err
+	}
+
+	var simRes txtypes.SimulateResponse
+	if err := simRes.Unmarshal(res.Value); err != nil {
+		return txtypes.SimulateResponse{}, 0, err
+	}
+
+	return simRes, uint64(txf.GasAdjustment() * float64(simRes.GasInfo.GasUsed)), nil
+}
+
+// TxFactory instantiates a new tx factory with the appropriate configuration settings for this chain.
+func (cc *CosmosProvider) TxFactory() tx.Factory {
+	return tx.Factory{}.
+		WithAccountRetriever(cc).
+		WithChainID(cc.PCfg.ChainID).
+		WithTxConfig(cc.Codec.TxConfig).
+		WithGasAdjustment(cc.PCfg.GasAdjustment).
+		WithGasPrices(cc.PCfg.GasPrices).
+		WithKeybase(cc.Keybase).
+		WithSignMode(cc.PCfg.SignMode())
+}
+
+// SignMode returns the SDK sign mode type reflective of the specified sign mode in the config file.
+func (pc *CosmosProviderConfig) SignMode() signing.SignMode {
+	signMode := signing.SignMode_SIGN_MODE_UNSPECIFIED
+	switch pc.SignModeStr {
+	case "direct":
+		signMode = signing.SignMode_SIGN_MODE_DIRECT
+	case "amino-json":
+		signMode = signing.SignMode_SIGN_MODE_LEGACY_AMINO_JSON
+	}
+	return signMode
+}
+
+// QueryABCI performs an ABCI query and returns the appropriate response and error sdk error code.
+func (cc *CosmosProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) (abci.ResponseQuery, error) {
+	opts := rpcclient.ABCIQueryOptions{
+		Height: req.Height,
+		Prove:  req.Prove,
+	}
+	result, err := cc.RPCClient.ABCIQueryWithOptions(ctx, req.Path, req.Data, opts)
+	if err != nil {
+		return abci.ResponseQuery{}, err
+	}
+
+	if !result.Response.IsOK() {
+		return abci.ResponseQuery{}, sdkErrorToGRPCError(result.Response)
+	}
+
+	// data from trusted node or subspace query doesn't need verification
+	if !opts.Prove || !isQueryStoreWithProof(req.Path) {
+		return result.Response, nil
+	}
+
+	return result.Response, nil
+}
+
+func sdkErrorToGRPCError(resp abci.ResponseQuery) error {
+	switch resp.Code {
+	case sdkerrors.ErrInvalidRequest.ABCICode():
+		return status.Error(codes.InvalidArgument, resp.Log)
+	case sdkerrors.ErrUnauthorized.ABCICode():
+		return status.Error(codes.Unauthenticated, resp.Log)
+	case sdkerrors.ErrKeyNotFound.ABCICode():
+		return status.Error(codes.NotFound, resp.Log)
+	default:
+		return status.Error(codes.Unknown, resp.Log)
+	}
+}
+
+// isQueryStoreWithProof expects a format like /<queryType>/<storeName>/<subpath>
+// queryType must be "store" and subpath must be "key" to require a proof.
+func isQueryStoreWithProof(path string) bool {
+	if !strings.HasPrefix(path, "/") {
+		return false
+	}
+
+	paths := strings.SplitN(path[1:], "/", 3)
+
+	switch {
+	case len(paths) != 3:
+		return false
+	case paths[0] != "store":
+		return false
+	case rootmulti.RequireProof("/" + paths[2]):
+		return true
+	}
+
+	return false
+}
+
+// BuildSimTx creates an unsigned tx with an empty single signature and returns
+// the encoded transaction or an error if the unsigned transaction cannot be built.
+func BuildSimTx(info *keyring.Record, txf tx.Factory, msgs ...sdk.Msg) ([]byte, error) {
+	txb, err := txf.BuildUnsignedTx(msgs...)
+	if err != nil {
+		return nil, err
+	}
+
+	var pk cryptotypes.PubKey = &secp256k1.PubKey{} // use default public key type
+
+	pk, err = info.GetPubKey()
+	if err != nil {
+		return nil, err
+	}
+
+	// Create an empty signature literal as the ante handler will populate with a
+	// sentinel pubkey.
+	sig := signing.SignatureV2{
+		PubKey: pk,
+		Data: &signing.SingleSignatureData{
+			SignMode: txf.SignMode(),
+		},
+		Sequence: txf.Sequence(),
+	}
+	if err := txb.SetSignatures(sig); err != nil {
+		return nil, err
+	}
+
+	protoProvider, ok := txb.(protoTxProvider)
+	if !ok {
+		return nil, fmt.Errorf("cannot simulate amino tx")
+	}
+
+	simReq := txtypes.SimulateRequest{Tx: protoProvider.GetProtoTx()}
+	return simReq.Marshal()
+}
+
+// protoTxProvider is a type which can provide a proto transaction. It is a
+// workaround to get access to the wrapper TxBuilder's method GetProtoTx().
+type protoTxProvider interface {
+	GetProtoTx() *txtypes.Tx
 }

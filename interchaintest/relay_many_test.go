@@ -6,7 +6,7 @@ import (
 
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
-	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
+	"github.com/strangelove-ventures/interchaintest/v7"
 	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v7/ibc"
 	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
@@ -97,15 +97,6 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 		_ = ic.Close()
 	})
 
-	// Fund user accounts, so we can query balances and make assertions.
-	const userFunds = int64(10_000_000)
-	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), userFunds, gaia, osmosis, juno)
-	gaiaUser, osmosisUser, junoUser := users[0].(*cosmos.CosmosWallet), users[1].(*cosmos.CosmosWallet), users[2].(*cosmos.CosmosWallet)
-
-	// Wait a few blocks for user accounts to be created on chain.
-	err = testutil.WaitForBlocks(ctx, 2, gaia, osmosis, juno)
-	require.NoError(t, err)
-
 	// Start the relayers
 	err = r.StartRelayer(ctx, eRep, pathGaiaOsmosis, pathGaiaJuno)
 	require.NoError(t, err)
@@ -119,8 +110,13 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 		},
 	)
 
-	// Wait a few blocks for the relayer to start.
-	err = testutil.WaitForBlocks(ctx, 2, gaia, osmosis, juno)
+	// Fund user accounts, so we can query balances and make assertions.
+	const userFunds = int64(10_000_000)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), userFunds, gaia, osmosis, juno)
+	gaiaUser, osmosisUser, junoUser := users[0].(*cosmos.CosmosWallet), users[1].(*cosmos.CosmosWallet), users[2].(*cosmos.CosmosWallet)
+
+	// Wait a few blocks for user accounts to be created on chain.
+	err = testutil.WaitForBlocks(ctx, 5, gaia, osmosis, juno)
 	require.NoError(t, err)
 
 	gaiaAddress := gaiaUser.FormattedAddress()

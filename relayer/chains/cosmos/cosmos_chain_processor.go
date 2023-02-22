@@ -469,7 +469,7 @@ func (ccp *CosmosChainProcessor) CurrentBlockHeight(ctx context.Context, persist
 func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 	// memoize the current gas prices to only show metrics for "interesting" denoms
 	if ccp.parsedGasPrices == nil {
-		gp, err := sdk.ParseDecCoins(ccp.chainProvider.Config.GasPrices)
+		gp, err := sdk.ParseDecCoins(ccp.chainProvider.PCfg.GasPrices)
 		if err != nil {
 			ccp.log.Error(
 				"Failed to parse gas prices",
