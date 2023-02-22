@@ -37,7 +37,6 @@ func TestAllowAllChannels(t *testing.T) {
 	require.True(t, mockPathEnd.ShouldRelayChannel(mockAllowedChannel2), "does not allow counterparty channel to be relayed, even though allow list and block list are empty")
 }
 
-//
 func TestAllowAllPortsForChannel(t *testing.T) {
 	mockAllowList := []processor.ChainChannelKey{{
 		ChainID:    testChain0,
