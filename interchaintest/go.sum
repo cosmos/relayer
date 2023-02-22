@@ -1206,8 +1206,6 @@ github.com/strangelove-ventures/go-subkey v1.0.7 h1:cOP/Lajg3uxV/tvspu0m6+0Cu+DJ
 github.com/strangelove-ventures/go-subkey v1.0.7/go.mod h1:E34izOIEm+sZ1YmYawYRquqBQWeZBjVB4pF7bMuhc1c=
 github.com/strangelove-ventures/interchaintest/v7 v7.0.0-20230201060741-e0e4e0f9283b h1:TPt4lyXM0XJUrgaO5ufBsAx9jbrNuwvSZvnIBL/5ui0=
 github.com/strangelove-ventures/interchaintest/v7 v7.0.0-20230201060741-e0e4e0f9283b/go.mod h1:xABocejOFzpH8VR9Se92KE02IqR3cLhzGnl4SHV36Qw=
-github.com/strangelove-ventures/lens v0.5.2-0.20230202043138-4141145349c8 h1:t/JMQzpvogE2YSFHp4rMRae/RTxmpWUkQc4XRcz8Qrw=
-github.com/strangelove-ventures/lens v0.5.2-0.20230202043138-4141145349c8/go.mod h1:E3WlS9RgL358kFIy3bYE/IFRACYJHd5v5W5OLEA4mIY=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/handy v0.0.0-20190108123426-d5acb3125c2a/go.mod h1:qNTQ5P5JnDBl6z3cMAg/SywNDC5ABu5ApDIw6lUbRmI=
