@@ -716,6 +716,7 @@ func printChannelWithExtendedInfo(
 		return
 	}
 
+	asJson["chain_id"] = chain.ChainProvider.ChainId()
 	asJson["client_id"] = extendedInfo.clientID
 	counterparty, ok := asJson["counterparty"].(map[string]any)
 	if ok {
@@ -733,6 +734,8 @@ func printChannelWithExtendedInfo(
 	fmt.Fprintln(cmd.OutOrStdout(), string(newJson))
 }
 
+const concurrentQueries = 10
+
 func queryChannelsToChain(cmd *cobra.Command, chain *relayer.Chain, dstChain *relayer.Chain) error {
 	ctx := cmd.Context()
 
@@ -746,27 +749,39 @@ func queryChannelsToChain(cmd *cobra.Command, chain *relayer.Chain, dstChain *re
 		if err != nil {
 			continue
 		}
-		if tmClient.ChainId != dstChain.Chainid {
+		if tmClient.ChainId != dstChain.ChainProvider.ChainId() {
 			continue
 		}
 		connections, err := chain.ChainProvider.QueryConnectionsUsingClient(ctx, 0, client.ClientId)
 		if err != nil {
 			continue
 		}
+
+		var wg sync.WaitGroup
+		i := 0
 		for _, conn := range connections.Connections {
-			channels, err := chain.ChainProvider.QueryConnectionChannels(ctx, 0, conn.Id)
-			if err != nil {
-				continue
-			}
-			for _, channel := range channels {
-				printChannelWithExtendedInfo(cmd, chain, channel, &chanExtendedInfo{
-					clientID:             client.ClientId,
-					counterpartyChainID:  tmClient.ChainId,
-					counterpartyClientID: conn.Counterparty.ClientId,
-					counterpartyConnID:   conn.Counterparty.ConnectionId,
-				})
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				channels, err := chain.ChainProvider.QueryConnectionChannels(ctx, 0, conn.Id)
+				if err != nil {
+					return
+				}
+				for _, channel := range channels {
+					printChannelWithExtendedInfo(cmd, chain, channel, &chanExtendedInfo{
+						clientID:             client.ClientId,
+						counterpartyChainID:  tmClient.ChainId,
+						counterpartyClientID: conn.Counterparty.ClientId,
+						counterpartyConnID:   conn.Counterparty.ConnectionId,
+					})
+				}
+			}()
+			i++
+			if i%concurrentQueries == 0 {
+				wg.Wait()
 			}
 		}
+		wg.Wait()
 	}
 
 	return nil
@@ -830,7 +845,7 @@ func queryChannelsPaginated(cmd *cobra.Command, chain *relayer.Chain, pageReq *q
 			}
 		}()
 		i++
-		if i%10 == 0 {
+		if i%concurrentQueries == 0 {
 			wg.Wait()
 		}
 	}
