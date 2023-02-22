@@ -844,7 +844,7 @@ func (pp *PathProcessor) assembleAndSendMessages(
 		dst.trackProcessingPacketMessage(m)
 	}
 
-	go pp.sendMessages(ctx, src, dst, &om, pp.memo)
+	go pp.sendMessages(ctx, dst, src, &om, pp.memo)
 
 	return nil
 }
