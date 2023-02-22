@@ -3,20 +3,27 @@ package cosmos
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
+	"path"
 	"sync"
 	"time"
 
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	cosmosmodule "github.com/cosmos/relayer/v2/relayer/chains/cosmos/module"
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
+	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	lens "github.com/strangelove-ventures/lens/client"
+	provtypes "github.com/tendermint/tendermint/light/provider"
+	prov "github.com/tendermint/tendermint/light/provider/http"
+	rpcclient "github.com/tendermint/tendermint/rpc/client"
+	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
+	libclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 	"golang.org/x/mod/semver"
@@ -31,21 +38,24 @@ var (
 const tendermintEncodingThreshold = "v0.37.0-alpha"
 
 type CosmosProviderConfig struct {
-	Key            string                 `json:"key" yaml:"key"`
-	ChainName      string                 `json:"-" yaml:"-"`
-	ChainID        string                 `json:"chain-id" yaml:"chain-id"`
-	RPCAddr        string                 `json:"rpc-addr" yaml:"rpc-addr"`
-	AccountPrefix  string                 `json:"account-prefix" yaml:"account-prefix"`
-	KeyringBackend string                 `json:"keyring-backend" yaml:"keyring-backend"`
-	GasAdjustment  float64                `json:"gas-adjustment" yaml:"gas-adjustment"`
-	GasPrices      string                 `json:"gas-prices" yaml:"gas-prices"`
-	MinGasAmount   uint64                 `json:"min-gas-amount" yaml:"min-gas-amount"`
-	Debug          bool                   `json:"debug" yaml:"debug"`
-	Timeout        string                 `json:"timeout" yaml:"timeout"`
-	OutputFormat   string                 `json:"output-format" yaml:"output-format"`
-	SignModeStr    string                 `json:"sign-mode" yaml:"sign-mode"`
-	ExtraCodecs    []string               `json:"extra-codecs" yaml:"extra-codecs"`
-	Slip44         int                    `json:"coin-type" yaml:"coin-type"`
+	KeyDirectory   string                  `json:"key-directory" yaml:"key-directory"`
+	Key            string                  `json:"key" yaml:"key"`
+	ChainName      string                  `json:"-" yaml:"-"`
+	ChainID        string                  `json:"chain-id" yaml:"chain-id"`
+	RPCAddr        string                  `json:"rpc-addr" yaml:"rpc-addr"`
+	AccountPrefix  string                  `json:"account-prefix" yaml:"account-prefix"`
+	KeyringBackend string                  `json:"keyring-backend" yaml:"keyring-backend"`
+	GasAdjustment  float64                 `json:"gas-adjustment" yaml:"gas-adjustment"`
+	GasPrices      string                  `json:"gas-prices" yaml:"gas-prices"`
+	MinGasAmount   uint64                  `json:"min-gas-amount" yaml:"min-gas-amount"`
+	Debug          bool                    `json:"debug" yaml:"debug"`
+	Timeout        string                  `json:"timeout" yaml:"timeout"`
+	BlockTimeout   string                  `json:"block-timeout" yaml:"block-timeout"`
+	OutputFormat   string                  `json:"output-format" yaml:"output-format"`
+	SignModeStr    string                  `json:"sign-mode" yaml:"sign-mode"`
+	ExtraCodecs    []string                `json:"extra-codecs" yaml:"extra-codecs"`
+	Modules        []module.AppModuleBasic `json:"-" yaml:"-"`
+	Slip44         int                     `json:"coin-type" yaml:"coin-type"`
 	Broadcast      provider.BroadcastMode `json:"broadcast-mode" yaml:"broadcast-mode"`
 }
 
@@ -65,60 +75,43 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 	if err := pc.Validate(); err != nil {
 		return nil, err
 	}
-	cc, err := lens.NewChainClient(
-		log.With(zap.String("sys", "chain_client")),
-		ChainClientConfig(&pc),
-		homepath,
-		os.Stdin,
-		os.Stdout,
-	)
-	if err != nil {
-		return nil, err
-	}
+
+	pc.KeyDirectory = keysDir(homepath, pc.ChainID)
+
 	pc.ChainName = chainName
+	pc.Modules = append([]module.AppModuleBasic{}, ModuleBasics...)
 
 	if pc.Broadcast == "" {
 		pc.Broadcast = provider.BroadcastModeBatch
 	}
 
-	return &CosmosProvider{
-		log:         log,
-		ChainClient: *cc,
-		PCfg:        pc,
-	}, nil
-}
+	cp := &CosmosProvider{
+		log:            log,
+		PCfg:           pc,
+		KeyringOptions: []keyring.Option{ethermint.EthSecp256k1Option()},
+		Input:          os.Stdin,
+		Output:         os.Stdout,
 
-// ChainClientConfig builds a ChainClientConfig struct from a CosmosProviderConfig, this is used
-// to instantiate an instance of ChainClient from lens which is how we build the CosmosProvider
-func ChainClientConfig(pcfg *CosmosProviderConfig) *lens.ChainClientConfig {
-	modules := lens.ModuleBasics
-	modules = append(modules, cosmosmodule.AppModuleBasic{})
-	modules = append(modules, stride.AppModuleBasic{})
-	return &lens.ChainClientConfig{
-		Key:            pcfg.Key,
-		ChainID:        pcfg.ChainID,
-		RPCAddr:        pcfg.RPCAddr,
-		AccountPrefix:  pcfg.AccountPrefix,
-		KeyringBackend: pcfg.KeyringBackend,
-		GasAdjustment:  pcfg.GasAdjustment,
-		GasPrices:      pcfg.GasPrices,
-		MinGasAmount:   pcfg.MinGasAmount,
-		Debug:          pcfg.Debug,
-		Timeout:        pcfg.Timeout,
-		OutputFormat:   pcfg.OutputFormat,
-		SignModeStr:    pcfg.SignModeStr,
-		ExtraCodecs:    pcfg.ExtraCodecs,
-		Modules:        modules,
-		Slip44:         pcfg.Slip44,
+		// TODO: this is a bit of a hack, we should probably have a better way to inject modules
+		Codec: MakeCodec(pc.Modules, pc.ExtraCodecs),
 	}
+
+	return cp, nil
 }
 
 type CosmosProvider struct {
 	log *zap.Logger
 
-	PCfg CosmosProviderConfig
+	PCfg           CosmosProviderConfig
+	Keybase        keyring.Keyring
+	KeyringOptions []keyring.Option
+	RPCClient      rpcclient.Client
+	LightProvider  provtypes.Provider
+	Input          io.Reader
+	Output         io.Writer
+	Codec          Codec
+	// TODO: GRPC Client type?
 
-	lens.ChainClient
 	nextAccountSeq uint64
 	txMu           sync.Mutex
 
@@ -175,23 +168,6 @@ func (cc *CosmosProvider) Key() string {
 
 func (cc *CosmosProvider) Timeout() string {
 	return cc.PCfg.Timeout
-}
-
-func (cc *CosmosProvider) AddKey(name string, coinType uint32) (*provider.KeyOutput, error) {
-	// The lens client returns an equivalent KeyOutput type,
-	// but that type is declared in the lens module,
-	// and relayer's KeyProvider interface references the relayer KeyOutput.
-	//
-	// Translate the lens KeyOutput to a relayer KeyOutput here to satisfy the interface.
-
-	ko, err := cc.ChainClient.AddKey(name, coinType)
-	if err != nil {
-		return nil, err
-	}
-	return &provider.KeyOutput{
-		Mnemonic: ko.Mnemonic,
-		Address:  ko.Address,
-	}, nil
 }
 
 // CommitmentPrefix returns the commitment prefix for Cosmos
@@ -261,7 +237,35 @@ func (cc *CosmosProvider) Sprint(toPrint proto.Message) (string, error) {
 	return string(out), nil
 }
 
+// Init initializes the keystore, RPC client, amd light client provider.
+// Once initialization is complete an attempt to query the underlying node's tendermint version is performed.
+// NOTE: Init must be called after creating a new instance of CosmosProvider.
 func (cc *CosmosProvider) Init(ctx context.Context) error {
+	keybase, err := keyring.New(cc.PCfg.ChainID, cc.PCfg.KeyringBackend, cc.PCfg.KeyDirectory, cc.Input, cc.Codec.Marshaler, cc.KeyringOptions...)
+	if err != nil {
+		return err
+	}
+	// TODO: figure out how to deal with input or maybe just make all keyring backends test?
+
+	timeout, err := time.ParseDuration(cc.PCfg.Timeout)
+	if err != nil {
+		return err
+	}
+
+	rpcClient, err := newRPCClient(cc.PCfg.RPCAddr, timeout)
+	if err != nil {
+		return err
+	}
+
+	lightprovider, err := prov.New(cc.PCfg.ChainID, cc.PCfg.RPCAddr)
+	if err != nil {
+		return err
+	}
+
+	cc.RPCClient = rpcClient
+	cc.LightProvider = lightprovider
+	cc.Keybase = keybase
+
 	status, err := cc.QueryStatus(ctx)
 	if err != nil {
 		// Operations can occur before the node URL is added to the config, so noop here.
@@ -325,4 +329,23 @@ func (cc *CosmosProvider) setTendermintVersion(log *zap.Logger, version string) 
 
 func (cc *CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
 	return semver.Compare("v"+version, tendermintEncodingThreshold) < 0
+}
+
+// keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.
+func keysDir(home, chainID string) string {
+	return path.Join(home, "keys", chainID)
+}
+
+// newRPCClient initializes a new tendermint RPC client connected to the specified address.
+func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
+	httpClient, err := libclient.DefaultHTTPClient(addr)
+	if err != nil {
+		return nil, err
+	}
+	httpClient.Timeout = timeout
+	rpcClient, err := rpchttp.NewWithClient(addr, "/websocket", httpClient)
+	if err != nil {
+		return nil, err
+	}
+	return rpcClient, nil
 }
