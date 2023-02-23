@@ -95,10 +95,17 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 
 			var prometheusMetrics *processor.PrometheusMetrics
 
-			debugAddr, err := cmd.Flags().GetString(flagDebugAddr)
+			debugAddr := a.Config.Global.APIListenPort
+
+			debugAddrFlag, err := cmd.Flags().GetString(flagDebugAddr)
 			if err != nil {
 				return err
 			}
+
+			if debugAddrFlag != "" {
+				debugAddr = debugAddrFlag
+			}
+
 			if debugAddr == "" {
 				a.Log.Info("Skipping debug server due to empty debug address flag")
 			} else {
