@@ -3,10 +3,16 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cosmos/relayer/v2/relayer"
-	"github.com/spf13/cobra"
 	"strconv"
 	"strings"
+	"sync"
+
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/types/query"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/spf13/cobra"
 )
 
 // queryCmd represents the chain command
@@ -679,15 +685,199 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 	return heightFlag(a.Viper, cmd)
 }
 
+// chanExtendedInfo is an intermediate type for holding additional useful
+// channel information regarding IBC hierarchy of clients/conns/chans.
+type chanExtendedInfo struct {
+	clientID             string
+	counterpartyChainID  string
+	counterpartyConnID   string
+	counterpartyClientID string
+}
+
+func printChannelWithExtendedInfo(
+	cmd *cobra.Command,
+	chain *relayer.Chain,
+	channel *chantypes.IdentifiedChannel,
+	extendedInfo *chanExtendedInfo) {
+	s, err := chain.ChainProvider.Sprint(channel)
+	if err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal channel: %v\n", err)
+		return
+	}
+
+	if extendedInfo == nil || len(channel.ConnectionHops) == 0 {
+		fmt.Fprintln(cmd.OutOrStdout(), s)
+		return
+	}
+
+	asJson := make(map[string]any)
+	if err := json.Unmarshal([]byte(s), &asJson); err != nil {
+		fmt.Fprintln(cmd.OutOrStdout(), s)
+		return
+	}
+
+	asJson["chain_id"] = chain.ChainProvider.ChainId()
+	asJson["client_id"] = extendedInfo.clientID
+	counterparty, ok := asJson["counterparty"].(map[string]any)
+	if ok {
+		counterparty["chain_id"] = extendedInfo.counterpartyChainID
+		counterparty["client_id"] = extendedInfo.counterpartyClientID
+		counterparty["connection_id"] = extendedInfo.counterpartyConnID
+	}
+
+	newJson, err := json.Marshal(asJson)
+	if err != nil {
+		fmt.Fprintln(cmd.OutOrStdout(), s)
+		return
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), string(newJson))
+}
+
+const concurrentQueries = 10
+
+func queryChannelsToChain(cmd *cobra.Command, chain *relayer.Chain, dstChain *relayer.Chain) error {
+	ctx := cmd.Context()
+
+	clients, err := chain.ChainProvider.QueryClients(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, client := range clients {
+		clientInfo, err := relayer.ClientInfoFromClientState(client.ClientState)
+		if err != nil {
+			continue
+		}
+		if clientInfo.ChainID != dstChain.ChainProvider.ChainId() {
+			continue
+		}
+		connections, err := chain.ChainProvider.QueryConnectionsUsingClient(ctx, 0, client.ClientId)
+		if err != nil {
+			continue
+		}
+
+		var wg sync.WaitGroup
+		i := 0
+		for _, conn := range connections.Connections {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				channels, err := chain.ChainProvider.QueryConnectionChannels(ctx, 0, conn.Id)
+				if err != nil {
+					return
+				}
+				for _, channel := range channels {
+					printChannelWithExtendedInfo(cmd, chain, channel, &chanExtendedInfo{
+						clientID:             client.ClientId,
+						counterpartyChainID:  clientInfo.ChainID,
+						counterpartyClientID: conn.Counterparty.ClientId,
+						counterpartyConnID:   conn.Counterparty.ConnectionId,
+					})
+				}
+			}()
+			i++
+			if i%concurrentQueries == 0 {
+				wg.Wait()
+			}
+		}
+		wg.Wait()
+	}
+
+	return nil
+}
+
+func queryChannelsPaginated(cmd *cobra.Command, chain *relayer.Chain, pageReq *query.PageRequest) error {
+	var chans []*chantypes.IdentifiedChannel
+	var next []byte
+	var err error
+
+	ctx := cmd.Context()
+
+	ccp, isCosmosChain := chain.ChainProvider.(*cosmos.CosmosProvider)
+	if isCosmosChain {
+		chans, next, err = ccp.QueryChannelsPaginated(ctx, pageReq)
+	} else {
+		chans, err = chain.ChainProvider.QueryChannels(ctx)
+	}
+	if err != nil {
+		return err
+	}
+
+	uniqueConns := make(map[string]interface{})
+
+	for _, channel := range chans {
+		if len(channel.ConnectionHops) == 0 {
+			continue
+		}
+		uniqueConns[channel.ConnectionHops[0]] = struct{}{}
+	}
+
+	connectionClients := make(map[string]chanExtendedInfo)
+	var mu sync.Mutex
+
+	var wg sync.WaitGroup
+	i := 0
+	for c := range uniqueConns {
+		wg.Add(1)
+		c := c
+		go func() {
+			defer wg.Done()
+			conn, err := chain.ChainProvider.QueryConnection(ctx, 0, c)
+			if err != nil {
+				return
+			}
+			client, err := chain.ChainProvider.QueryClientStateResponse(ctx, 0, conn.Connection.ClientId)
+			if err != nil {
+				return
+			}
+			clientInfo, err := relayer.ClientInfoFromClientState(client.ClientState)
+			if err != nil {
+				return
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			connectionClients[c] = chanExtendedInfo{
+				clientID:             conn.Connection.ClientId,
+				counterpartyClientID: conn.Connection.Counterparty.ClientId,
+				counterpartyConnID:   conn.Connection.Counterparty.ConnectionId,
+				counterpartyChainID:  clientInfo.ChainID,
+			}
+		}()
+		i++
+		if i%concurrentQueries == 0 {
+			wg.Wait()
+		}
+	}
+
+	wg.Wait()
+
+	for _, channel := range chans {
+		chanInfo, ok := connectionClients[channel.ConnectionHops[0]]
+		if !ok {
+			printChannelWithExtendedInfo(cmd, chain, channel, nil)
+			continue
+		}
+		printChannelWithExtendedInfo(cmd, chain, channel, &chanInfo)
+	}
+
+	if isCosmosChain {
+		fmt.Fprintf(cmd.ErrOrStderr(), "\nPagination next key: %s\n", string(next))
+	}
+
+	return nil
+}
+
 func queryChannels(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "channels chain_name",
+		Use:   "channels [src_chain_name] [dst_chain_name]?",
 		Short: "query for all channels on a network by chain ID",
-		Args:  withUsage(cobra.ExactArgs(1)),
+		Args:  withUsage(cobra.RangeArgs(1, 2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query channels ibc-0
-$ %s query channels ibc-2 --offset 2 --limit 30`,
-			appName, appName,
+$ %s query channels ibc-2 --offset 2 --limit 30
+$ %s query channels ibc-0 ibc-2`,
+			appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, ok := a.Config.Chains[args[0]]
@@ -695,28 +885,20 @@ $ %s query channels ibc-2 --offset 2 --limit 30`,
 				return errChainNotFound(args[0])
 			}
 
-			// TODO fix pagination
-			//pagereq, err := client.ReadPageRequest(cmd.Flags())
-			//if err != nil {
-			//	return err
-			//}
+			if len(args) > 1 {
+				dstChain, ok := a.Config.Chains[args[1]]
+				if !ok {
+					return errChainNotFound(args[1])
+				}
+				return queryChannelsToChain(cmd, chain, dstChain)
+			}
 
-			res, err := chain.ChainProvider.QueryChannels(cmd.Context())
+			pageReq, err := client.ReadPageRequest(cmd.Flags())
 			if err != nil {
 				return err
 			}
 
-			for _, channel := range res {
-				s, err := chain.ChainProvider.Sprint(channel)
-				if err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal channel: %v\n", err)
-					continue
-				}
-
-				fmt.Fprintln(cmd.OutOrStdout(), s)
-			}
-
-			return nil
+			return queryChannelsPaginated(cmd, chain, pageReq)
 		},
 	}
 

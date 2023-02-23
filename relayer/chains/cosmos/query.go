@@ -759,6 +759,24 @@ func (cc *CosmosProvider) QueryChannels(ctx context.Context) ([]*chantypes.Ident
 	return chans, nil
 }
 
+// QueryChannels returns all the channels that are registered on a chain
+func (cc *CosmosProvider) QueryChannelsPaginated(ctx context.Context, pageRequest *querytypes.PageRequest) ([]*chantypes.IdentifiedChannel, []byte, error) {
+	qc := chantypes.NewQueryClient(cc)
+	chans := []*chantypes.IdentifiedChannel{}
+
+	res, err := qc.Channels(ctx, &chantypes.QueryChannelsRequest{
+		Pagination: pageRequest,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	chans = append(chans, res.Channels...)
+	next := res.GetPagination().GetNextKey()
+
+	return chans, next, nil
+}
+
 // QueryPacketCommitments returns an array of packet commitments
 func (cc *CosmosProvider) QueryPacketCommitments(ctx context.Context, height uint64, channelid, portid string) (*chantypes.QueryPacketCommitmentsResponse, error) {
 	qc := chantypes.NewQueryClient(cc)
