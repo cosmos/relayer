@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -518,4 +520,28 @@ func parseClientIDFromEvents(events []provider.RelayerEvent) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("client identifier event attribute not found")
+}
+
+type ClientStateInfo struct {
+	ChainID        string
+	TrustingPeriod time.Duration
+	LatestHeight   ibcexported.Height
+}
+
+func ClientInfoFromClientState(clientState *codectypes.Any) (ClientStateInfo, error) {
+	clientStateExported, err := clienttypes.UnpackClientState(clientState)
+	if err != nil {
+		return ClientStateInfo{}, err
+	}
+
+	switch t := clientStateExported.(type) {
+	case *tmclient.ClientState:
+		return ClientStateInfo{
+			ChainID:        t.ChainId,
+			TrustingPeriod: t.TrustingPeriod,
+			LatestHeight:   t.LatestHeight,
+		}, nil
+	default:
+		return ClientStateInfo{}, fmt.Errorf("unhandled client state type: (%T)", clientState)
+	}
 }
