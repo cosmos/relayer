@@ -13,7 +13,7 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/gogoproto"
-	lens "github.com/strangelove-ventures/lens/client"
+	// lens "github.com/strangelove-ventures/lens/client"
 	jsonrpcclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
@@ -69,18 +69,18 @@ func (pc PenumbraProviderConfig) NewProvider(log *zap.Logger, homepath string, d
 	if err := pc.Validate(); err != nil {
 		return nil, err
 	}
-	cc, err := lens.NewChainClient(
-		log.With(zap.String("sys", "chain_client")),
-		ChainClientConfig(&pc),
-		homepath,
-		os.Stdin,
-		os.Stdout,
-	)
-	if err != nil {
-		return nil, err
-	}
-	pc.ChainName = chainName
-
+//	cc, err := lens.NewChainClient(
+//		log.With(zap.String("sys", "chain_client")),
+//		ChainClientConfig(&pc),
+//		homepath,
+//		os.Stdin,
+//		os.Stdout,
+//	)
+//	if err != nil {
+//		return nil, err
+//	}
+//	pc.ChainName = chainName
+//
 	httpClient, err := jsonrpcclient.DefaultHTTPClient(pc.RPCAddr)
 	if err != nil {
 		return nil, err
