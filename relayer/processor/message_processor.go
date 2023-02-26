@@ -122,7 +122,8 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 	twoThirdsTrustingPeriodMs := float64(dst.clientState.TrustingPeriod.Milliseconds()) * 2 / 3
 	timeSinceLastClientUpdateMs := float64(time.Since(consensusHeightTime).Milliseconds())
 
-	pastTwoThirdsTrustingPeriod := timeSinceLastClientUpdateMs > twoThirdsTrustingPeriodMs
+	pastTwoThirdsTrustingPeriod := dst.clientState.TrustingPeriod > 0 &&
+		timeSinceLastClientUpdateMs > twoThirdsTrustingPeriodMs
 
 	pastConfiguredClientUpdateThreshold := clientUpdateThresholdMs > 0 &&
 		time.Since(consensusHeightTime).Milliseconds() > clientUpdateThresholdMs
