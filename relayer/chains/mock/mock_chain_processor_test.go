@@ -59,8 +59,9 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	metrics := processor.NewPrometheusMetrics()
 
 	clientUpdateThresholdTime := 6 * time.Hour
+	flushInterval := 6 * time.Hour
 
-	pathProcessor := processor.NewPathProcessor(log, pathEnd1, pathEnd2, metrics, "", clientUpdateThresholdTime)
+	pathProcessor := processor.NewPathProcessor(log, pathEnd1, pathEnd2, metrics, "", clientUpdateThresholdTime, flushInterval)
 
 	eventProcessor := processor.NewEventProcessor().
 		WithChainProcessors(

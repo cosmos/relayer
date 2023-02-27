@@ -25,6 +25,7 @@ const (
 	ProcessorEvents              string = "events"
 	ProcessorLegacy                     = "legacy"
 	DefaultClientUpdateThreshold        = 0 * time.Millisecond
+	DefaultFlushInterval                = 5 * time.Minute
 )
 
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
@@ -36,6 +37,8 @@ func StartRelayer(
 	maxTxSize, maxMsgLength uint64,
 	memo string,
 	clientUpdateThresholdTime time.Duration,
+	flushInterval time.Duration,
+	messageLifecycle processor.MessageLifecycle,
 	processorType string,
 	initialBlockHistory uint64,
 	metrics *processor.PrometheusMetrics,
@@ -70,7 +73,21 @@ func StartRelayer(
 			}
 		}
 
-		go relayerStartEventProcessor(ctx, log, chainProcessors, ePaths, initialBlockHistory, maxTxSize, maxMsgLength, memo, clientUpdateThresholdTime, errorChan, metrics)
+		go relayerStartEventProcessor(
+			ctx,
+			log,
+			chainProcessors,
+			ePaths,
+			initialBlockHistory,
+			maxTxSize,
+			maxMsgLength,
+			memo,
+			messageLifecycle,
+			clientUpdateThresholdTime,
+			flushInterval,
+			errorChan,
+			metrics,
+		)
 		return errorChan
 	case ProcessorLegacy:
 		if len(paths) != 1 {
@@ -115,7 +132,9 @@ func relayerStartEventProcessor(
 	maxTxSize,
 	maxMsgLength uint64,
 	memo string,
+	messageLifecycle processor.MessageLifecycle,
 	clientUpdateThresholdTime time.Duration,
+	flushInterval time.Duration,
 	errCh chan<- error,
 	metrics *processor.PrometheusMetrics,
 ) {
@@ -132,7 +151,12 @@ func relayerStartEventProcessor(
 				metrics,
 				memo,
 				clientUpdateThresholdTime,
+				flushInterval,
 			))
+	}
+
+	if messageLifecycle != nil {
+		epb = epb.WithMessageLifecycle(messageLifecycle)
 	}
 
 	ep := epb.
