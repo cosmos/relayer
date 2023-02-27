@@ -48,8 +48,8 @@ func (pp IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debug
 	}
 
 	return &IconProvider{
-		log:    log.With(zap.String("sys", "chain_client")),
-		client: NewClient(pp.getRPCAddr(), *log),
+		log:    log, //.With(zap.String("sys", "chain_client")),
+		client: NewClient(pp.getRPCAddr(), log),
 		PCfg:   pp,
 	}, nil
 }

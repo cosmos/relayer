@@ -69,7 +69,7 @@ type IClient interface {
 type Client struct {
 	*jsonrpc.Client
 	conns map[string]*websocket.Conn
-	log   zap.Logger
+	log   *zap.Logger
 	mtx   sync.Mutex
 }
 
@@ -582,7 +582,7 @@ func NewIconOptionsByHeader(h http.Header) IconOptions {
 	return nil
 }
 
-func NewClient(uri string, l zap.Logger) *Client {
+func NewClient(uri string, l *zap.Logger) *Client {
 	//TODO options {MaxRetrySendTx, MaxRetryGetResult, MaxIdleConnsPerHost, Debug, Dump}
 	tr := &http.Transport{MaxIdleConnsPerHost: 1000}
 	c := &Client{
