@@ -84,10 +84,16 @@ type BlockHeader struct {
 	Result                 []byte
 }
 
+// type EventLog struct {
+// 	Addr    []byte
+// 	Indexed [][]byte
+// 	Data    [][]byte
+// }
+
 type EventLog struct {
-	Addr    []byte
-	Indexed [][]byte
-	Data    [][]byte
+	Addr    Address
+	Indexed []string
+	Data    []string
 }
 
 type TransactionResult struct {
