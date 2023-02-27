@@ -144,6 +144,11 @@ type BMCRelayMethodParams struct {
 	Messages string `json:"_msg"`
 }
 
+type ClientStateParam struct {
+	ClientID string `json:"client_id"`
+	Height   string `json:"height"`
+}
+
 type CallParam struct {
 	FromAddress Address     `json:"from" validate:"optional,t_addr_eoa"`
 	ToAddress   Address     `json:"to" validate:"required,t_addr_score"`
@@ -338,8 +343,8 @@ type ReceiptProof struct {
 type Block struct {
 	//BlockHash              HexBytes  `json:"block_hash" validate:"required,t_hash"`
 	//Version                HexInt    `json:"version" validate:"required,t_int"`
-	Height int64 `json:"height" validate:"required,t_int"`
-	//Timestamp              int64             `json:"time_stamp" validate:"required,t_int"`
+	Height    int64 `json:"height" validate:"required,t_int"`
+	Timestamp int64 `json:"time_stamp" validate:"required,t_int"`
 	//Proposer               HexBytes  `json:"peer_id" validate:"optional,t_addr_eoa"`
 	//PrevID                 HexBytes  `json:"prev_block_hash" validate:"required,t_hash"`
 	//NormalTransactionsHash HexBytes  `json:"merkle_tree_root_hash" validate:"required,t_hash"`
@@ -453,4 +458,20 @@ type BTPBlockHeader struct {
 	MessageCount           int64
 	MessagesRoot           []byte
 	NextProofContext       []byte
+}
+
+type Packet struct {
+	Sequence           big.Int
+	Sourceport         string
+	Sourcechannel      string
+	Destinationport    string
+	Destinationchannel string
+	Data               []byte
+	Timeoutheight      Height
+	Timestamp          big.Int
+}
+
+type Height struct {
+	RevisionNumber big.Int
+	RevisionHeight big.Int
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 
+	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
@@ -58,20 +59,16 @@ func (pp IconProviderConfig) getRPCAddr() string {
 	return pp.RPCAddr
 }
 
-func ChainClientConfig(pcfg *IconProviderConfig) {
-}
-
 type IconProvider struct {
 	log     *zap.Logger
 	PCfg    IconProviderConfig
 	txMu    sync.Mutex
 	client  *Client
 	metrics *processor.PrometheusMetrics
+	codec   codec.ProtoCodecMarshaler
 }
 
 type IconIBCHeader struct {
-
-	//data to add
 }
 
 func (h IconIBCHeader) Height() uint64 {
@@ -86,6 +83,10 @@ func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
 
 func (icp *IconProvider) Init(ctx context.Context) error {
 	return nil
+}
+
+func (icp *IconProvider) Codec() codec.ProtoCodecMarshaler {
+	return icp.codec
 }
 
 func (icp *IconProvider) NewClientState(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
@@ -222,23 +223,25 @@ func (icp *IconProvider) AcknowledgementFromSequence(ctx context.Context, dst pr
 }
 
 func (icp *IconProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
-	return nil, false, nil
+	return icp.SendMessages(ctx, []provider.RelayerMessage{msg}, memo)
 }
 
 func (icp *IconProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 	return nil, false, nil
+
+	//a transaction should be implemented
 }
 
 func (icp *IconProvider) ChainName() string {
-	return "icon"
+	return icp.PCfg.ChainName
 }
 
 func (icp *IconProvider) ChainId() string {
-	return ""
+	return icp.PCfg.ChainID
 }
 
 func (icp *IconProvider) Type() string {
-	return ""
+	return "icon"
 }
 
 func (icp *IconProvider) ProviderConfig() provider.ProviderConfig {
@@ -258,13 +261,14 @@ func (icp *IconProvider) Address() (string, error) {
 }
 
 func (icp *IconProvider) Timeout() string {
-	return ""
+	return icp.PCfg.Timeout
 }
 
 func (icp *IconProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
 	return 0, nil
 }
 
+// not required initially
 func (icp *IconProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	return nil
 }
