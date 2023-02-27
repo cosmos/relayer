@@ -18,6 +18,12 @@ type MessageLifecycle interface {
 	messageLifecycler() //noop
 }
 
+// Flush lifecycle informs the PathProcessor to terminate once
+// all pending messages have been flushed.
+type FlushLifecycle struct{}
+
+func (t *FlushLifecycle) messageLifecycler() {}
+
 type PacketMessage struct {
 	ChainID   string
 	EventType string

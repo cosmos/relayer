@@ -139,6 +139,11 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				return err
 			}
 
+			flushInterval, err := cmd.Flags().GetDuration(flagFlushInterval)
+			if err != nil {
+				return err
+			}
+
 			rlyErrCh := relayer.StartRelayer(
 				cmd.Context(),
 				a.Log,
@@ -147,7 +152,10 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				maxTxSize, maxMsgLength,
 				a.Config.memo(cmd),
 				clientUpdateThresholdTime,
-				processorType, initialBlockHistory,
+				flushInterval,
+				nil,
+				processorType,
+				initialBlockHistory,
 				prometheusMetrics,
 			)
 
@@ -170,6 +178,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 	cmd = debugServerFlags(a.Viper, cmd)
 	cmd = processorFlag(a.Viper, cmd)
 	cmd = initBlockFlag(a.Viper, cmd)
+	cmd = flushIntervalFlag(a.Viper, cmd)
 	cmd = memoFlag(a.Viper, cmd)
 	return cmd
 }
