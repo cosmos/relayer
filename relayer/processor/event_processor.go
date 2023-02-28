@@ -72,6 +72,9 @@ func (ep EventProcessorBuilder) Build() EventProcessor {
 		}
 		chainProcessor.SetPathProcessors(pathProcessorsForThisChain)
 	}
+	for _, pathProcessor := range ep.pathProcessors {
+		pathProcessor.SetMessageLifecycle(ep.messageLifecycle)
+	}
 
 	return EventProcessor(ep)
 }
@@ -85,7 +88,7 @@ func (ep EventProcessor) Run(ctx context.Context) error {
 	for _, pathProcessor := range ep.pathProcessors {
 		pathProcessor := pathProcessor
 		eg.Go(func() error {
-			pathProcessor.Run(runCtx, runCtxCancel, ep.messageLifecycle)
+			pathProcessor.Run(runCtx, runCtxCancel)
 			return nil
 		})
 	}

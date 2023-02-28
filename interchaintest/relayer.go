@@ -316,16 +316,15 @@ func (r *Relayer) Exec(ctx context.Context, _ ibc.RelayerExecReporter, cmd, env 
 	}
 }
 
-func (r *Relayer) FlushAcknowledgements(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, channelID string) error {
-	res := r.sys().RunC(ctx, r.log(), "tx", "relay-acks", pathName, channelID)
-	if res.Err != nil {
-		return res.Err
+func (r *Relayer) Flush(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, channelID string) error {
+	cmd := []string{"tx", "flush"}
+	if pathName != "" {
+		cmd = append(cmd, pathName)
+		if channelID != "" {
+			cmd = append(cmd, channelID)
+		}
 	}
-	return nil
-}
-
-func (r *Relayer) FlushPackets(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, channelID string) error {
-	res := r.sys().RunC(ctx, r.log(), "tx", "relay-pkts", pathName, channelID)
+	res := r.sys().RunC(ctx, r.log(), cmd...)
 	if res.Err != nil {
 		return res.Err
 	}

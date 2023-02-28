@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"sync"
 
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
@@ -433,12 +434,12 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 	}
 }
 
-func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, pathEnd1Messages, pathEnd2Messages *pathEndMessages) {
-	if msg == nil || pp.sentInitialMsg {
+func (pp *PathProcessor) appendInitialMessageIfNecessary(pathEnd1Messages, pathEnd2Messages *pathEndMessages) {
+	if pp.messageLifecycle == nil || pp.sentInitialMsg {
 		return
 	}
 	pp.sentInitialMsg = true
-	switch m := msg.(type) {
+	switch m := pp.messageLifecycle.(type) {
 	case *PacketMessageLifecycle:
 		if m.Initial == nil {
 			return
@@ -506,7 +507,7 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(msg MessageLifecycle, p
 }
 
 // messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
-func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifecycle MessageLifecycle) error {
+func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	// Update trusted client state for both pathends
 	pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
 	pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
@@ -647,7 +648,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, messageLifec
 		clientICQMessages:  pathEnd2ClientICQMessages,
 	}
 
-	pp.appendInitialMessageIfNecessary(messageLifecycle, &pathEnd1Messages, &pathEnd2Messages)
+	pp.appendInitialMessageIfNecessary(&pathEnd1Messages, &pathEnd2Messages)
 
 	// now assemble and send messages in parallel
 	// if sending messages fails to one pathEnd, we don't need to halt sending to the other pathEnd.
@@ -758,4 +759,215 @@ func (pp *PathProcessor) packetMessagesToSend(
 	}
 
 	return pathEnd1PacketMessages, pathEnd2PacketMessages, pathEnd1ChannelMessage, pathEnd2ChannelMessage
+}
+
+func queryPacketCommitments(
+	ctx context.Context,
+	pathEnd *pathEndRuntime,
+	k ChannelKey,
+	commitments map[ChannelKey][]uint64,
+	mu *sync.Mutex,
+) func() error {
+	return func() error {
+		pathEnd.log.Debug("Flushing", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
+
+		c, err := pathEnd.chainProvider.QueryPacketCommitments(ctx, pathEnd.latestBlock.Height, k.ChannelID, k.PortID)
+		if err != nil {
+			return err
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		commitments[k] = make([]uint64, len(c.Commitments))
+		for i, p := range c.Commitments {
+			commitments[k][i] = p.Sequence
+		}
+		return nil
+	}
+}
+
+func queuePendingRecvAndAcks(
+	ctx context.Context,
+	src, dst *pathEndRuntime,
+	k ChannelKey,
+	seqs []uint64,
+	srcCache ChannelPacketMessagesCache,
+	dstCache ChannelPacketMessagesCache,
+	srcMu *sync.Mutex,
+	dstMu *sync.Mutex,
+) func() error {
+	return func() error {
+		if len(seqs) == 0 {
+			src.log.Debug("Nothing to flush", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
+			return nil
+		}
+
+		unrecv, err := dst.chainProvider.QueryUnreceivedPackets(ctx, dst.latestBlock.Height, k.CounterpartyChannelID, k.CounterpartyPortID, seqs)
+		if err != nil {
+			return err
+		}
+
+		if len(unrecv) > 0 {
+			src.log.Debug("Will flush MsgRecvPacket", zap.String("channel", k.ChannelID), zap.String("port", k.PortID), zap.Uint64s("sequences", unrecv))
+		} else {
+			src.log.Debug("No MsgRecvPacket to flush", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
+		}
+
+		for _, seq := range unrecv {
+			sendPacket, err := src.chainProvider.QuerySendPacket(ctx, k.ChannelID, k.PortID, seq)
+			if err != nil {
+				return err
+			}
+			srcMu.Lock()
+			if _, ok := srcCache[k]; !ok {
+				srcCache[k] = make(PacketMessagesCache)
+			}
+			if _, ok := srcCache[k][chantypes.EventTypeSendPacket]; !ok {
+				srcCache[k][chantypes.EventTypeSendPacket] = make(PacketSequenceCache)
+			}
+			srcCache[k][chantypes.EventTypeSendPacket][seq] = sendPacket
+			srcMu.Unlock()
+		}
+
+		var unacked []uint64
+
+	SeqLoop:
+		for _, seq := range seqs {
+			for _, unrecvSeq := range unrecv {
+				if seq == unrecvSeq {
+					continue SeqLoop
+				}
+			}
+			// does not exist in unrecv, so this is an ack that must be written
+			unacked = append(unacked, seq)
+		}
+
+		if len(unacked) > 0 {
+			src.log.Debug("Will flush MsgAcknowledgement", zap.String("channel", k.ChannelID), zap.String("port", k.PortID), zap.Uint64s("sequences", unrecv))
+		} else {
+			src.log.Debug("No MsgAcknowledgement to flush", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
+		}
+
+		for _, seq := range unacked {
+			recvPacket, err := dst.chainProvider.QueryRecvPacket(ctx, k.CounterpartyChannelID, k.CounterpartyPortID, seq)
+			if err != nil {
+				return err
+			}
+			srcMu.Lock()
+			if _, ok := srcCache[k]; !ok {
+				srcCache[k] = make(PacketMessagesCache)
+			}
+			if _, ok := srcCache[k][chantypes.EventTypeSendPacket]; !ok {
+				srcCache[k][chantypes.EventTypeSendPacket] = make(PacketSequenceCache)
+			}
+			srcCache[k][chantypes.EventTypeSendPacket][seq] = recvPacket
+			srcMu.Unlock()
+
+			dstMu.Lock()
+			if _, ok := dstCache[k]; !ok {
+				dstCache[k] = make(PacketMessagesCache)
+			}
+			if _, ok := dstCache[k][chantypes.EventTypeRecvPacket]; !ok {
+				dstCache[k][chantypes.EventTypeRecvPacket] = make(PacketSequenceCache)
+			}
+			if _, ok := dstCache[k][chantypes.EventTypeWriteAck]; !ok {
+				dstCache[k][chantypes.EventTypeWriteAck] = make(PacketSequenceCache)
+			}
+			dstCache[k][chantypes.EventTypeRecvPacket][seq] = recvPacket
+			dstCache[k][chantypes.EventTypeWriteAck][seq] = recvPacket
+			dstMu.Unlock()
+		}
+		return nil
+	}
+}
+
+// flush runs queries to relay any pending messages which may have been
+// in blocks before the height that the chain processors started querying.
+func (pp *PathProcessor) flush(ctx context.Context) {
+	var (
+		commitments1                   = make(map[ChannelKey][]uint64)
+		commitments2                   = make(map[ChannelKey][]uint64)
+		commitments1Mu, commitments2Mu sync.Mutex
+
+		pathEnd1Cache                    = NewIBCMessagesCache()
+		pathEnd2Cache                    = NewIBCMessagesCache()
+		pathEnd1CacheMu, pathEnd2CacheMu sync.Mutex
+	)
+
+	// Query remaining packet commitments on both chains
+	var eg errgroup.Group
+	for k := range pp.pathEnd1.channelStateCache {
+		eg.Go(queryPacketCommitments(ctx, pp.pathEnd1, k, commitments1, &commitments1Mu))
+	}
+	for k := range pp.pathEnd2.channelStateCache {
+		eg.Go(queryPacketCommitments(ctx, pp.pathEnd2, k, commitments2, &commitments2Mu))
+	}
+
+	if err := eg.Wait(); err != nil {
+		pp.log.Error("Failed to query packet commitments", zap.Error(err))
+	}
+
+	// From remaining packet commitments, determine if:
+	// 1. Packet commitment is on source, but MsgRecvPacket has not yet been relayed to destination
+	// 2. Packet commitment is on source, and MsgRecvPacket has been relayed to destination, but MsgAcknowledgement has not been written to source to clear the packet commitment.
+	// Based on above conditions, enqueue MsgRecvPacket and MsgAcknowledgement messages
+	for k, seqs := range commitments1 {
+		eg.Go(queuePendingRecvAndAcks(ctx, pp.pathEnd1, pp.pathEnd2, k, seqs, pathEnd1Cache.PacketFlow, pathEnd2Cache.PacketFlow, &pathEnd1CacheMu, &pathEnd2CacheMu))
+	}
+
+	for k, seqs := range commitments2 {
+		eg.Go(queuePendingRecvAndAcks(ctx, pp.pathEnd2, pp.pathEnd1, k, seqs, pathEnd2Cache.PacketFlow, pathEnd1Cache.PacketFlow, &pathEnd2CacheMu, &pathEnd1CacheMu))
+	}
+
+	if err := eg.Wait(); err != nil {
+		pp.log.Error("Failed to enqueue pending messages for flush", zap.Error(err))
+	}
+
+	pp.pathEnd1.mergeMessageCache(pathEnd1Cache, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync)
+	pp.pathEnd2.mergeMessageCache(pathEnd2Cache, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync)
+}
+
+// shouldTerminateForFlushComplete will determine if the relayer should exit
+// when FlushLifecycle is used. It will exit when all of the message caches are cleared.
+func (pp *PathProcessor) shouldTerminateForFlushComplete(
+	ctx context.Context, cancel func(),
+) bool {
+	if _, ok := pp.messageLifecycle.(*FlushLifecycle); !ok {
+		return false
+	}
+	for _, packetMessagesCache := range pp.pathEnd1.messageCache.PacketFlow {
+		for _, c := range packetMessagesCache {
+			if len(c) > 0 {
+				return false
+			}
+		}
+	}
+	for _, c := range pp.pathEnd1.messageCache.ChannelHandshake {
+		if len(c) > 0 {
+			return false
+		}
+	}
+	for _, c := range pp.pathEnd1.messageCache.ConnectionHandshake {
+		if len(c) > 0 {
+			return false
+		}
+	}
+	for _, packetMessagesCache := range pp.pathEnd2.messageCache.PacketFlow {
+		for _, c := range packetMessagesCache {
+			if len(c) > 0 {
+				return false
+			}
+		}
+	}
+	for _, c := range pp.pathEnd2.messageCache.ChannelHandshake {
+		if len(c) > 0 {
+			return false
+		}
+	}
+	for _, c := range pp.pathEnd2.messageCache.ConnectionHandshake {
+		if len(c) > 0 {
+			return false
+		}
+	}
+	pp.log.Info("Found termination condition for flush, all caches cleared")
+	return true
 }
