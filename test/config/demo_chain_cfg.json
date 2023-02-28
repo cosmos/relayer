@@ -1,0 +1,17 @@
+{
+    "type": "cosmos",
+    "value": {
+      "key": "ibc-deom-chain",
+      "chain-id": "celestia-app-demod",
+      "rpc-addr": "http://127.0.0.1:46658",
+      "account-prefix": "cosmos",
+      "keyring-backend": "test",
+      "keyring-dir":"/home/manjaro/.celestia-app-demo",
+      "gas-adjustment": 1.2,
+      "gas-prices": "0.001celeapp",
+      "debug": true,
+      "timeout": "20s",
+      "output-format": "json",
+      "sign-mode": "direct"
+    }
+  }

@@ -1,0 +1,17 @@
+{
+    "type": "cosmos",
+    "value": {
+      "key": "ibc-celestia-app",
+      "chain-id": "private",
+      "rpc-addr": "http://172.19.0.2:26657",
+      "account-prefix": "celestia",
+      "keyring-backend": "test",
+      "keyring-dir":"/home/manjaro/.celestia-app",
+      "gas-adjustment": 1.2,
+      "gas-prices": "0.001utia",
+      "debug": true,
+      "timeout": "20s",
+      "output-format": "json",
+      "sign-mode": "direct"
+    }
+  }
