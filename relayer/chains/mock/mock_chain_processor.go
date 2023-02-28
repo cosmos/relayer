@@ -91,6 +91,8 @@ func (mcp *MockChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 	mcp.log.Info("entering main query loop", zap.String("chain_id", mcp.chainID))
 
 	ticker := time.NewTicker(minQueryLoopDuration)
+	defer ticker.Stop()
+
 	// QueryLoop:
 	for {
 		mcp.queryCycle(ctx, &persistence)
