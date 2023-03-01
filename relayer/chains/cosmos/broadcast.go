@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
 )
@@ -24,6 +26,9 @@ func (e _err) Error() string { return string(e) }
 type rpcTxBroadcaster interface {
 	Tx(ctx context.Context, hash []byte, prove bool) (*ctypes.ResultTx, error)
 	BroadcastTxSync(context.Context, tmtypes.Tx) (*ctypes.ResultBroadcastTx, error)
+	Block(ctx context.Context, height *int64) (*ctypes.ResultBlock, error)
+	BlockResults(ctx context.Context, height *int64) (*ctypes.ResultBlockResults, error)
+	Status(context.Context) (*ctypes.ResultStatus, error)
 
 	// TODO: implement commit and async as well
 	// BroadcastTxCommit(context.Context, tmtypes.Tx) (*ctypes.ResultBroadcastTxCommit, error)
@@ -91,8 +96,18 @@ func broadcastTx(
 		return nil, err
 	}
 
-	// TODO: maybe we need to check if the node has tx indexing enabled?
-	// if not, we need to find a new way to block until inclusion in a block
+	// Check is indexing is disabled...
+	// if tx index is enabled and we found the result, send the results
+	// if tx index is disabled, poll for inclusion
+	// if tx index is enabled and we didn't find the tx, begin polling.
+
+	resTx, err := broadcaster.Tx(ctx, syncRes.Hash, false)
+	if err == nil {
+		return mkTxResult(txDecoder, resTx)
+	}
+	if err != nil && strings.Contains(err.Error(), "transaction indexing is disabled") {
+		return waitForBlockInclusion(ctx, broadcaster, txDecoder, syncRes.Hash, waitTimeout)
+	}
 
 	// wait for tx to be included in a block
 	exitAfter := time.After(waitTimeout)
@@ -111,6 +126,84 @@ func broadcastTx(
 			return nil, ctx.Err()
 		}
 	}
+}
+
+// waitForBlockInclusion will wait for a transaction to be included in a block, up to waitTimeout or context cancellation.
+func waitForBlockInclusion(
+	ctx context.Context,
+	broadcaster rpcTxBroadcaster,
+	txDecoder sdk.TxDecoder,
+	txHash []byte,
+	waitTimeout time.Duration,
+) (*sdk.TxResponse, error) {
+
+	// Figure out what the current height is
+	res, err := broadcaster.Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// This is likely overly cautious.
+	// We're in a bit of a race, between the transactions broadcast, attempting to lookup by hash, getting status.
+	// Let's check back two blocks and iterate a couple times until we find the txn or die
+	nextHeight := res.SyncInfo.LatestBlockHeight - 2
+	exitAfter := time.After(waitTimeout)
+
+	for {
+		select {
+		case <-exitAfter:
+			return nil, fmt.Errorf("timed out after: %d; %w", waitTimeout, ErrTimeoutAfterWaitingForTxBroadcast)
+		// This fixed poll is fine because it's only for logging and updating prometheus metrics currently.
+		case <-time.After(time.Millisecond * 100):
+			// Look up the latest block
+			res, err := broadcaster.Block(ctx, &nextHeight)
+			if err != nil {
+				// If this fails, try again
+				continue
+			}
+
+			// Is the transaction in this block?
+			index := res.Block.Txs.IndexByHash(txHash)
+			if index != -1 {
+				// Transaction is not in the block, look to the next block
+				nextHeight++
+				continue
+			}
+
+			txResp, err := mkTxResultFromResultBlock(ctx, broadcaster, txDecoder, txHash, res, index)
+			if err != nil {
+				// If this fails, try again with the same block
+				continue
+			}
+
+			return txResp, nil
+
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+}
+
+// mkTxResultFromResultBlock decodes a tendermint block into an SDK TxResponse.
+func mkTxResultFromResultBlock(ctx context.Context, broadcaster rpcTxBroadcaster, txDecoder sdk.TxDecoder, txHash []byte, res *coretypes.ResultBlock, index int) (*sdk.TxResponse, error) {
+
+	// We need the block results, the decoded txn and the parsed logs
+	results, err := broadcaster.BlockResults(ctx, &res.Block.Height)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve block results after finding block at height: %d", res.Block.Height)
+	}
+
+	// Let's now roll this up into a ResultTx and use the existing mkTxResult
+	resTx := coretypes.ResultTx{
+		Hash:     txHash,
+		Height:   res.Block.Height,
+		Index:    uint32(index),
+		TxResult: *results.TxsResults[index],
+		Tx:       res.Block.Txs[index],
+		Proof:    res.Block.Txs.Proof(index),
+	}
+
+	return mkTxResult(txDecoder, &resTx)
 }
 
 func mkTxResult(txDecoder sdk.TxDecoder, resTx *ctypes.ResultTx) (*sdk.TxResponse, error) {
