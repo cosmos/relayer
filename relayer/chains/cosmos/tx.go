@@ -397,7 +397,7 @@ func (cc *CosmosProvider) waitForBlockInclusion(
 
 			// Is the transaction in this block?
 			index := res.Block.Txs.IndexByHash(txHash)
-			if index != -1 {
+			if index == -1 {
 				// Transaction is not in the block, look to the next block
 				nextHeight++
 				continue
