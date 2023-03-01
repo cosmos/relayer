@@ -316,7 +316,13 @@ func (cc *CosmosProvider) waitForTx(
 	waitTimeout time.Duration,
 	callback func(*provider.RelayerTxResponse, error),
 ) {
-	res, err := cc.waitForBlockInclusion(ctx, txHash, waitTimeout)
+	res, err := cc.waitForTxByHash(ctx, txHash, waitTimeout)
+	if err != nil && strings.Contains(err.Error(), "transaction indexing is disabled") {
+		// TODO: Should we select the wait based on whether or not tx indexing is enabled?
+		cc.log.Debug("transaction indexing is disabled, polling blocks for block inclusion")
+		res, err = cc.waitForBlockInclusion(ctx, txHash, waitTimeout)
+	}
+
 	if err != nil {
 		cc.log.Error("Failed to wait for block inclusion", zap.Error(err))
 		if callback != nil {
@@ -363,6 +369,82 @@ func (cc *CosmosProvider) waitForBlockInclusion(
 	txHash []byte,
 	waitTimeout time.Duration,
 ) (*sdk.TxResponse, error) {
+
+	// Figure out what the current height is
+	res, err := cc.RPCClient.Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// This is likely overly cautious.
+	// We're in a bit of a race, between the transactions broadcast, attempting to lookup by hash, getting status.
+	// Let's check back two blocks and iterate a couple times until we find the txn or die
+	nextHeight := res.SyncInfo.LatestBlockHeight - 2
+	exitAfter := time.After(waitTimeout)
+
+	for {
+		select {
+		case <-exitAfter:
+			return nil, fmt.Errorf("timed out after: %d; %w", waitTimeout, ErrTimeoutAfterWaitingForTxBroadcast)
+		// This fixed poll is fine because it's only for logging and updating prometheus metrics currently.
+		case <-time.After(time.Millisecond * 100):
+			// Look up the latest block
+			res, err := cc.RPCClient.Block(ctx, &nextHeight)
+			if err != nil {
+				// If this fails, try again
+				continue
+			}
+
+			// Is the transaction in this block?
+			index := res.Block.Txs.IndexByHash(txHash)
+			if index != -1 {
+				// Transaction is not in the block, look to the next block
+				nextHeight++
+				continue
+			}
+
+			txResp, err := cc.mkTxResultFromResultBlock(ctx, txHash, res, index)
+			if err != nil {
+				// If this fails, try again with the same block
+				continue
+			}
+
+			return txResp, nil
+
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+}
+
+// mkTxResultFromResultBlock decodes a tendermint block into an SDK TxResponse.
+func (cc *CosmosProvider) mkTxResultFromResultBlock(ctx context.Context, txHash []byte, res *coretypes.ResultBlock, index int) (*sdk.TxResponse, error) {
+
+	// We need the block results, the decoded txn and the parsed logs
+	results, err := cc.RPCClient.BlockResults(ctx, &res.Block.Height)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve block results after finding block at height: %d", res.Block.Height)
+	}
+
+	// Let's now roll this up into a ResultTx and use the existing mkTxResult
+	resTx := coretypes.ResultTx{
+		Hash:     txHash,
+		Height:   res.Block.Height,
+		Index:    uint32(index),
+		TxResult: *results.TxsResults[index],
+		Tx:       res.Block.Txs[index],
+		Proof:    res.Block.Txs.Proof(index),
+	}
+
+	return cc.mkTxResult(&resTx)
+}
+
+// waitForTxByHash will wait for a transaction to appear in the index, up to waitTimeout or context cancellation.
+func (cc *CosmosProvider) waitForTxByHash(
+	ctx context.Context,
+	txHash []byte,
+	waitTimeout time.Duration,
+) (*sdk.TxResponse, error) {
 	exitAfter := time.After(waitTimeout)
 	for {
 		select {
@@ -394,6 +476,7 @@ func (cc *CosmosProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse
 		return nil, fmt.Errorf("expecting a type implementing intoAny, got: %T", txbz)
 	}
 	any := p.AsAny()
+
 	return sdk.NewResponseResultTx(resTx, any, ""), nil
 }
 
