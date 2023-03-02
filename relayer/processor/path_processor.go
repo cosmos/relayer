@@ -280,6 +280,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 	var retryTimer *time.Timer
 
 	pp.flushTicker = time.NewTicker(pp.flushInterval)
+	defer pp.flushTicker.Stop()
 
 	for {
 		// block until we have any signals to process
