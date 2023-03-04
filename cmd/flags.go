@@ -333,7 +333,7 @@ func dstPortFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().String(flagDebugAddr, defaultDebugAddr, "address to use for debug server. Set empty to disable debug server.")
+	cmd.Flags().String(flagDebugAddr, "", "address to use for debug and metrics server. By default, will be the api-listen-addr parameter in the global config.")
 	if err := v.BindPFlag(flagDebugAddr, cmd.Flags().Lookup(flagDebugAddr)); err != nil {
 		panic(err)
 	}

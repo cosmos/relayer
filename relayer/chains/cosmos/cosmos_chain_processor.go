@@ -92,14 +92,19 @@ func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, cc
 		}
 		trustingPeriod = existingClientInfo.TrustingPeriod
 	}
-	if trustingPeriod.Milliseconds() == 0 {
-		cs, err := ccp.chainProvider.queryTMClientState(ctx, int64(ccp.latestBlock.Height), clientInfo.clientID)
-		if err == nil {
-			trustingPeriod = cs.TrustingPeriod
+	if trustingPeriod == 0 {
+		cs, err := ccp.chainProvider.queryTMClientState(ctx, 0, clientInfo.clientID)
+		if err != nil {
+			ccp.log.Error(
+				"Failed to query client state to get trusting period",
+				zap.String("client_id", clientInfo.clientID),
+				zap.Error(err),
+			)
+			return
 		}
+		trustingPeriod = cs.TrustingPeriod
 	}
-	clientState := clientInfo.ClientState()
-	clientState.TrustingPeriod = trustingPeriod
+	clientState := clientInfo.ClientState(trustingPeriod)
 
 	// update latest if no existing state or provided consensus height is newer
 	l[clientInfo.clientID] = clientState
@@ -157,7 +162,7 @@ func (ccp *CosmosChainProcessor) nodeStatusWithRetry(ctx context.Context) (statu
 // clientState will return the most recent client state if client messages
 // have already been observed for the clientID, otherwise it will query for it.
 func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID string) (provider.ClientState, error) {
-	if state, ok := ccp.latestClientState[clientID]; ok {
+	if state, ok := ccp.latestClientState[clientID]; ok && state.TrustingPeriod > 0 {
 		return state, nil
 	}
 	cs, err := ccp.chainProvider.queryTMClientState(ctx, int64(ccp.latestBlock.Height), clientID)
