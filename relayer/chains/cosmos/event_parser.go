@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
@@ -169,10 +170,11 @@ type clientInfo struct {
 	header          []byte
 }
 
-func (c clientInfo) ClientState() provider.ClientState {
+func (c clientInfo) ClientState(trustingPeriod time.Duration) provider.ClientState {
 	return provider.ClientState{
 		ClientID:        c.clientID,
 		ConsensusHeight: c.consensusHeight,
+		TrustingPeriod:  trustingPeriod,
 	}
 }
 
