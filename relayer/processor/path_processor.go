@@ -60,6 +60,12 @@ type PathProcessor struct {
 
 	clientUpdateThresholdTime time.Duration
 
+	messageLifecycle MessageLifecycle
+
+	initialFlushComplete bool
+	flushTicker          *time.Ticker
+	flushInterval        time.Duration
+
 	// Signals to retry.
 	retryProcess chan struct{}
 
@@ -87,7 +93,12 @@ func NewPathProcessor(
 	metrics *PrometheusMetrics,
 	memo string,
 	clientUpdateThresholdTime time.Duration,
+	flushInterval time.Duration,
 ) *PathProcessor {
+	if flushInterval == 0 {
+		// "disable" periodic flushing by using a large value.
+		flushInterval = 200 * 24 * 365 * time.Hour
+	}
 	return &PathProcessor{
 		log:                       log,
 		pathEnd1:                  newPathEndRuntime(log, pathEnd1, metrics),
@@ -95,8 +106,13 @@ func NewPathProcessor(
 		retryProcess:              make(chan struct{}, 2),
 		memo:                      memo,
 		clientUpdateThresholdTime: clientUpdateThresholdTime,
+		flushInterval:             flushInterval,
 		metrics:                   metrics,
 	}
+}
+
+func (pp *PathProcessor) SetMessageLifecycle(messageLifecycle MessageLifecycle) {
+	pp.messageLifecycle = messageLifecycle
 }
 
 // TEST USE ONLY
@@ -231,7 +247,7 @@ func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorC
 
 // processAvailableSignals will block if signals are not yet available, otherwise it will process one of the available signals.
 // It returns whether or not the pathProcessor should quit.
-func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel func(), messageLifecycle MessageLifecycle) bool {
+func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel func()) bool {
 	select {
 	case <-ctx.Done():
 		pp.log.Debug("Context done, quitting PathProcessor",
@@ -244,30 +260,37 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 		return true
 	case d := <-pp.pathEnd1.incomingCacheData:
 		// we have new data from ChainProcessor for pathEnd1
-		pp.pathEnd1.mergeCacheData(ctx, cancel, d, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync, messageLifecycle, pp.pathEnd2)
+		pp.pathEnd1.mergeCacheData(ctx, cancel, d, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync, pp.messageLifecycle, pp.pathEnd2)
 
 	case d := <-pp.pathEnd2.incomingCacheData:
 		// we have new data from ChainProcessor for pathEnd2
-		pp.pathEnd2.mergeCacheData(ctx, cancel, d, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync, messageLifecycle, pp.pathEnd1)
+		pp.pathEnd2.mergeCacheData(ctx, cancel, d, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync, pp.messageLifecycle, pp.pathEnd1)
 
 	case <-pp.retryProcess:
 		// No new data to merge in, just retry handling.
+	case <-pp.flushTicker.C:
+		// Periodic flush to clear out any old packets
+		pp.flush(ctx)
 	}
 	return false
 }
 
 // Run executes the main path process.
-func (pp *PathProcessor) Run(ctx context.Context, cancel func(), messageLifecycle MessageLifecycle) {
+func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 	var retryTimer *time.Timer
+
+	pp.flushTicker = time.NewTicker(pp.flushInterval)
+	defer pp.flushTicker.Stop()
+
 	for {
 		// block until we have any signals to process
-		if pp.processAvailableSignals(ctx, cancel, messageLifecycle) {
+		if pp.processAvailableSignals(ctx, cancel) {
 			return
 		}
 
 		for len(pp.pathEnd1.incomingCacheData) > 0 || len(pp.pathEnd2.incomingCacheData) > 0 || len(pp.retryProcess) > 0 {
 			// signals are available, so this will not need to block.
-			if pp.processAvailableSignals(ctx, cancel, messageLifecycle) {
+			if pp.processAvailableSignals(ctx, cancel) {
 				return
 			}
 		}
@@ -276,8 +299,16 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func(), messageLifecycl
 			continue
 		}
 
+		if !pp.initialFlushComplete {
+			pp.flush(ctx)
+			pp.initialFlushComplete = true
+		} else if pp.shouldTerminateForFlushComplete(ctx, cancel) {
+			cancel()
+			return
+		}
+
 		// process latest message cache state from both pathEnds
-		if err := pp.processLatestMessages(ctx, messageLifecycle); err != nil {
+		if err := pp.processLatestMessages(ctx); err != nil {
 			// in case of IBC message send errors, schedule retry after durationErrorRetry
 			if retryTimer != nil {
 				retryTimer.Stop()

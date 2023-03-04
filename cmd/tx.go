@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -9,10 +11,13 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
+
+const flushTimeout = 10 * time.Minute
 
 // transactionCmd returns a parent transaction command handler, where all child
 // commands can submit transactions on IBC-connected networks.
@@ -31,6 +36,7 @@ Most of these commands take a [path] argument. Make sure:
 	cmd.AddCommand(
 		linkCmd(a),
 		linkThenStartCmd(a),
+		flushCmd(a),
 		relayMsgsCmd(a),
 		relayAcksCmd(a),
 		xfersend(a),
@@ -719,6 +725,112 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 	return cmd
 }
 
+func flushCmd(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "flush [path_name]? [src_channel_id]?",
+		Aliases: []string{"relay-pkts"},
+		Short:   "flush any pending MsgRecvPacket and MsgAcknowledgement messages on a given path, in both directions",
+		Args:    withUsage(cobra.RangeArgs(0, 2)),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s tx flush
+$ %s tx flush demo-path
+$ %s tx flush demo-path channel-0`,
+			appName, appName, appName,
+		)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chains := make(map[string]*relayer.Chain)
+			var paths []relayer.NamedPath
+
+			if len(args) > 0 {
+				pathName := args[0]
+				path := a.Config.Paths.MustGet(pathName)
+				paths = append(paths, relayer.NamedPath{
+					Name: pathName,
+					Path: path,
+				})
+
+				// collect unique chain IDs
+				chains[path.Src.ChainID] = nil
+				chains[path.Dst.ChainID] = nil
+			} else {
+				for n, path := range a.Config.Paths {
+					paths = append(paths, relayer.NamedPath{
+						Name: n,
+						Path: path,
+					})
+
+					// collect unique chain IDs
+					chains[path.Src.ChainID] = nil
+					chains[path.Dst.ChainID] = nil
+				}
+			}
+
+			chainIDs := make([]string, 0, len(chains))
+			for chainID := range chains {
+				chainIDs = append(chainIDs, chainID)
+			}
+
+			// get chain configurations
+			chains, err := a.Config.Chains.Gets(chainIDs...)
+			if err != nil {
+				return err
+			}
+
+			if err := ensureKeysExist(chains); err != nil {
+				return err
+			}
+
+			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
+			if err != nil {
+				return err
+			}
+
+			if len(args) == 2 {
+				// Only allow specific channel
+				paths[0].Path.Filter = relayer.ChannelFilter{
+					Rule:        processor.RuleAllowList,
+					ChannelList: []string{args[1]},
+				}
+			}
+
+			ctx, cancel := context.WithTimeout(cmd.Context(), flushTimeout)
+			defer cancel()
+
+			rlyErrCh := relayer.StartRelayer(
+				ctx,
+				a.Log,
+				chains,
+				paths,
+				maxTxSize, maxMsgLength,
+				a.Config.memo(cmd),
+				0,
+				0,
+				&processor.FlushLifecycle{},
+				relayer.ProcessorEvents,
+				0,
+				nil,
+			)
+
+			// Block until the error channel sends a message.
+			// The context being canceled will cause the relayer to stop,
+			// so we don't want to separately monitor the ctx.Done channel,
+			// because we would risk returning before the relayer cleans up.
+			if err := <-rlyErrCh; err != nil && !errors.Is(err, context.Canceled) {
+				a.Log.Warn(
+					"Relayer start error",
+					zap.Error(err),
+				)
+				return err
+			}
+			return nil
+		},
+	}
+
+	cmd = strategyFlag(a.Viper, cmd)
+	cmd = memoFlag(a.Viper, cmd)
+	return cmd
+}
+
 func relayMsgsCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "relay-packets path_name src_channel_id",
@@ -731,33 +843,8 @@ $ %s tx relay-pkts demo-path channel-0`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
-			if err != nil {
-				return err
-			}
-
-			if err = ensureKeysExist(c); err != nil {
-				return err
-			}
-
-			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
-			if err != nil {
-				return err
-			}
-
-			channelID := args[1]
-			channel, err := relayer.QueryChannel(cmd.Context(), c[src], channelID)
-			if err != nil {
-				return err
-			}
-
-			sp := relayer.UnrelayedSequences(cmd.Context(), c[src], c[dst], channel)
-
-			if err = relayer.RelayPackets(cmd.Context(), a.Log, c[src], c[dst], sp, maxTxSize, maxMsgLength, a.Config.memo(cmd), channel); err != nil {
-				return err
-			}
-
-			return nil
+			a.Log.Warn("This command is deprecated. Please use 'tx flush' command instead")
+			return flushCmd(a).RunE(cmd, args)
 		},
 	}
 
@@ -778,35 +865,8 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
-			if err != nil {
-				return err
-			}
-
-			if err = ensureKeysExist(c); err != nil {
-				return err
-			}
-
-			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
-			if err != nil {
-				return err
-			}
-
-			channelID := args[1]
-			channel, err := relayer.QueryChannel(cmd.Context(), c[src], channelID)
-			if err != nil {
-				return err
-			}
-
-			// sp.Src contains all sequences acked on SRC but acknowledgement not processed on DST
-			// sp.Dst contains all sequences acked on DST but acknowledgement not processed on SRC
-			sp := relayer.UnrelayedAcknowledgements(cmd.Context(), c[src], c[dst], channel)
-
-			if err = relayer.RelayAcknowledgements(cmd.Context(), a.Log, c[src], c[dst], sp, maxTxSize, maxMsgLength, a.Config.memo(cmd), channel); err != nil {
-				return err
-			}
-
-			return nil
+			a.Log.Warn("This command is deprecated. Please use 'tx flush' command instead")
+			return flushCmd(a).RunE(cmd, args)
 		},
 	}
 
