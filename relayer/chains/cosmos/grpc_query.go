@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"sync"
 
 	gogogrpc "github.com/cosmos/gogoproto/grpc"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -16,6 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/cosmos/cosmos-sdk/codec/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
 	"github.com/cosmos/cosmos-sdk/types/tx"
@@ -148,13 +151,36 @@ func (cc *CosmosProvider) TxServiceBroadcast(ctx context.Context, req *tx.Broadc
 		return nil, status.Error(codes.InvalidArgument, "invalid empty tx")
 	}
 
-	resp, err := cc.BroadcastTx(ctx, req.TxBytes)
-	if err != nil {
+	var rlyResp *provider.RelayerTxResponse
+	var callbackErr error
+	var wg sync.WaitGroup
+
+	callback := func(rtr *provider.RelayerTxResponse, err error) {
+		rlyResp = rtr
+		callbackErr = err
+		wg.Done()
+	}
+
+	wg.Add(1)
+
+	if err := cc.broadcastTx(ctx, req.TxBytes, nil, nil, ctx, defaultBroadcastWaitTimeout, callback); err != nil {
 		return nil, err
 	}
 
+	wg.Wait()
+
+	if callbackErr != nil {
+		return nil, callbackErr
+	}
+
 	return &tx.BroadcastTxResponse{
-		TxResponse: resp,
+		TxResponse: &sdk.TxResponse{
+			Height:    rlyResp.Height,
+			TxHash:    rlyResp.TxHash,
+			Codespace: rlyResp.Codespace,
+			Code:      rlyResp.Code,
+			Data:      rlyResp.Data,
+		},
 	}, nil
 }
 
