@@ -59,24 +59,6 @@ func TestRelayerDockerEventProcessor(t *testing.T) {
 	interchaintestConformance(t, rf)
 }
 
-// TestRelayerDockerLegacyProcessor runs the interchaintest conformance tests against
-// the current state of this relayer implementation built in docker.
-// Relayer runs using the legacy processor.
-func TestRelayerDockerLegacyProcessor(t *testing.T) {
-	t.Parallel()
-	relayerinterchaintest.BuildRelayerImage(t)
-
-	rf := interchaintest.NewBuiltinRelayerFactory(
-		ibc.CosmosRly,
-		zaptest.NewLogger(t),
-		interchaintestrelayer.CustomDockerImage(relayerinterchaintest.RelayerImageName, "latest", "100:1000"),
-		interchaintestrelayer.ImagePull(false),
-		interchaintestrelayer.StartupFlags("--processor", "legacy"),
-	)
-
-	interchaintestConformance(t, rf)
-}
-
 // TestRelayerEventProcessor runs the interchaintest conformance tests against
 // the local relayer code. This is helpful for detecting race conditions.
 // Relayer runs using the event processor.
@@ -86,16 +68,5 @@ func TestRelayerEventProcessor(t *testing.T) {
 	interchaintestConformance(t, relayerinterchaintest.NewRelayerFactory(relayerinterchaintest.RelayerConfig{
 		Processor:           relayer.ProcessorEvents,
 		InitialBlockHistory: 0,
-	}))
-}
-
-// TestRelayerLegacyProcessor runs the interchaintest conformance tests against
-// the local relayer code. This is helpful for detecting race conditions.
-// Relayer runs using the legacy processor.
-func TestRelayerLegacyProcessor(t *testing.T) {
-	t.Parallel()
-
-	interchaintestConformance(t, relayerinterchaintest.NewRelayerFactory(relayerinterchaintest.RelayerConfig{
-		Processor: relayer.ProcessorLegacy,
 	}))
 }

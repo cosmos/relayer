@@ -806,7 +806,6 @@ $ %s tx flush demo-path channel-0`,
 				0,
 				0,
 				&processor.FlushLifecycle{},
-				relayer.ProcessorEvents,
 				0,
 				nil,
 			)

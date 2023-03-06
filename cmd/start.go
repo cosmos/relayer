@@ -129,6 +129,11 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 			if err != nil {
 				return err
 			}
+
+			if processorType != relayer.ProcessorEvents {
+				return fmt.Errorf("only supports 'events' processor, got: %s", processorType)
+			}
+
 			initialBlockHistory, err := cmd.Flags().GetUint64(flagInitialBlockHistory)
 			if err != nil {
 				return err
@@ -154,7 +159,6 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				clientUpdateThresholdTime,
 				flushInterval,
 				nil,
-				processorType,
 				initialBlockHistory,
 				prometheusMetrics,
 			)
