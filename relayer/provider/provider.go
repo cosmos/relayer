@@ -383,7 +383,7 @@ type ChainProvider interface {
 		memo string,
 
 		asyncCtx context.Context,
-		asyncCallback func(*RelayerTxResponse, error),
+		asyncCallbacks []func(*RelayerTxResponse, error),
 	) error
 
 	ChainName() string

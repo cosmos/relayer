@@ -57,6 +57,23 @@ type CosmosProviderConfig struct {
 	Modules        []module.AppModuleBasic `json:"-" yaml:"-"`
 	Slip44         int                     `json:"coin-type" yaml:"coin-type"`
 	Broadcast      provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
+
+	//If FeeGrantConfiguration is set, TXs submitted by the ChainClient will be signed by the FeeGrantees in a round-robin fashion by default.
+	FeeGrants *FeeGrantConfiguration `json:"feegrants" yaml:"feegrants"`
+}
+
+// By default, TXs will be signed by the feegrantees 'ManagedGrantees' keys in a round robin fashion.
+// Clients can use other signing keys by invoking 'tx.SendMsgsWith' and specifying the signing key.
+type FeeGrantConfiguration struct {
+	GranteesWanted int `json:"num_grantees" yaml:"num_grantees"`
+	//Normally this is the default ChainClient key
+	GranterKey string `json:"granter" yaml:"granter"`
+	//List of keys (by name) that this FeeGranter manages
+	ManagedGrantees []string `json:"grantees" yaml:"grantees"`
+	//Last checked on chain (0 means grants never checked and may not exist)
+	BlockHeightVerified int64 `json:"block_last_verified" yaml:"block_last_verified"`
+	//Index of the last ManagedGrantee used as a TX signer
+	GranteeLastSignerIndex int
 }
 
 func (pc CosmosProviderConfig) Validate() error {
@@ -114,6 +131,7 @@ type CosmosProvider struct {
 
 	nextAccountSeq uint64
 	txMu           sync.Mutex
+	feegrantMu     sync.Mutex
 
 	// metrics to monitor the provider
 	TotalFees   sdk.Coins
@@ -193,6 +211,28 @@ func (cc *CosmosProvider) Address() (string, error) {
 	}
 
 	return out, err
+}
+
+func (cc *CosmosProvider) MustEncodeAccAddr(addr sdk.AccAddress) string {
+	enc, err := cc.EncodeBech32AccAddr(addr)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// AccountFromKeyOrAddress returns an account from either a key or an address.
+// If 'keyOrAddress' is the empty string, this returns the default key's address.
+func (cc *CosmosProvider) AccountFromKeyOrAddress(keyOrAddress string) (out sdk.AccAddress, err error) {
+	switch {
+	case keyOrAddress == "":
+		out, err = cc.GetKeyAddress()
+	case cc.KeyExists(keyOrAddress):
+		out, err = cc.GetKeyAddress()
+	default:
+		out, err = sdk.GetFromBech32(keyOrAddress, cc.PCfg.AccountPrefix)
+	}
+	return
 }
 
 func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
