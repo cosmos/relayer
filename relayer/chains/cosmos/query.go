@@ -206,7 +206,7 @@ func (cc *CosmosProvider) QueryFeegrantsByGranter(address string, paginator *que
 			grants = append(grants, res.Allowances...)
 		}
 
-		if res.Pagination != nil {
+		if res.Pagination != nil && res.Pagination.NextKey != nil {
 			req.Pagination.Key = res.Pagination.NextKey
 			if len(res.Pagination.NextKey) == 0 {
 				hasNextPage = false

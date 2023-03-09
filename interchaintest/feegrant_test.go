@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/go-bip39"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
@@ -46,6 +47,21 @@ func nextGrantee(gi *chainFeegrantInfo) string {
 	}
 
 	return gi.grantees[0]
+}
+
+func genMnemonic(t *testing.T) string {
+	// read entropy seed straight from tmcrypto.Rand and convert to mnemonic
+	entropySeed, err := bip39.NewEntropy(256)
+	if err != nil {
+		t.Fail()
+	}
+
+	mn, err := bip39.NewMnemonic(entropySeed)
+	if err != nil {
+		t.Fail()
+	}
+
+	return mn
 }
 
 // TestScenarioFeegrantBasic Feegrant on a single chain
@@ -147,29 +163,56 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	granteeFundAmount := int64(10)
 
 	//Mnemonic from the juno repo test user
-	gaiaGranterMnemonic := "clip hire initial neck maid actor venue client foam budget lock catalog sweet steak waste crater broccoli pipe steak sister coyote moment obvious choose"
+	//gaiaGranterMnemonic := "clip hire initial neck maid actor venue client foam budget lock catalog sweet steak waste crater broccoli pipe steak sister coyote moment obvious choose"
 
 	//Other made up mnemonics. Local testnet only.
-	osmosisGranterMnemonic := "deal faint choice forward valid practice secret lava harbor stadium train view improve tide cook sadness juice trap mansion smooth erupt version parrot canvas"
-	gaiaGranteeMnemonic := "unusual car spray work spread column badge radar oxygen oblige roof patrol wheel sing damage advice flower forest segment park blue defense morning manage"
-	gaiaGrantee2Mnemonic := "little pumpkin glimpse initial manual wool relief coach violin main sheriff law virtual inmate inmate mixture erode funny garbage kangaroo wait leave cloth climb"
-	gaiaGrantee3Mnemonic := "pattern custom brand child fatal three body food fee soul gesture armor increase dynamic enforce vintage borrow admit slot gold affair rubber tide lava"
-	osmosisGranteeMnemonic := "flight toilet early leaf hen dragon story relief indoor gap shoot firm topple start where illegal paper risk insect neutral busy olympic glory evoke"
-	ibcTransferMnemonic := "flight toilet early leaf hen dragon story relief indoor gap shoot firm topple start where illegal paper risk insect neutral busy olympic glory evoke"
+	// osmosisGranterMnemonic := "deal faint choice forward valid practice secret lava harbor stadium train view improve tide cook sadness juice trap mansion smooth erupt version parrot canvas"
+	// gaiaGranteeMnemonic := "unusual car spray work spread column badge radar oxygen oblige roof patrol wheel sing damage advice flower forest segment park blue defense morning manage"
+	// gaiaGrantee2Mnemonic := "little pumpkin glimpse initial manual wool relief coach violin main sheriff law virtual inmate inmate mixture erode funny garbage kangaroo wait leave cloth climb"
+	// gaiaGrantee3Mnemonic := "pattern custom brand child fatal three body food fee soul gesture armor increase dynamic enforce vintage borrow admit slot gold affair rubber tide lava"
+	// osmosisGranteeMnemonic := "flight toilet early leaf hen dragon story relief indoor gap shoot firm topple start where illegal paper risk insect neutral busy olympic glory evoke"
+	// ibcTransferMnemonic := "flight toilet early leaf hen dragon story relief indoor gap shoot firm topple start where illegal paper risk insect neutral busy olympic glory evoke"
 
-	granteeKey := "grantee1"
-	grantee2Key := "grantee2"
-	grantee3Key := "grantee3"
-	granterKey := "default"
+	granteeKeyPrefix := "grantee1"
+	grantee2KeyPrefix := "grantee2"
+	grantee3KeyPrefix := "grantee3"
+	granterKeyPrefix := "default"
 	coinType := "118"
 
+	mnemonicAny := genMnemonic(t)
+	gaiaGranterWallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, granterKeyPrefix, mnemonicAny, int64(fundAmount), gaia)
+	require.NoError(t, err)
+
+	mnemonicAny = genMnemonic(t)
+	gaiaGranteeWallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, granteeKeyPrefix, mnemonicAny, int64(granteeFundAmount), gaia)
+	require.NoError(t, err)
+
+	mnemonicAny = genMnemonic(t)
+	gaiaGrantee2Wallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, grantee2KeyPrefix, mnemonicAny, int64(granteeFundAmount), gaia)
+	require.NoError(t, err)
+
+	mnemonicAny = genMnemonic(t)
+	gaiaGrantee3Wallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, grantee3KeyPrefix, mnemonicAny, int64(granteeFundAmount), gaia)
+	require.NoError(t, err)
+
+	mnemonicAny = genMnemonic(t)
+	osmosisUser, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, "recipient", mnemonicAny, int64(fundAmount), osmosis)
+	require.NoError(t, err)
+
+	mnemonicAny = genMnemonic(t)
+	gaiaUser, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, "recipient", mnemonicAny, int64(fundAmount), gaia)
+	require.NoError(t, err)
+
+	mnemonic := gaiaGranterWallet.Mnemonic()
+	fmt.Printf("Wallet mnemonic: %s\n", mnemonic)
+
 	//IBC chain config is unrelated to RELAYER config so this step is necessary
 	if err := r.RestoreKey(ctx,
 		eRep,
 		gaia.Config().ChainID,
-		granterKey,
+		gaiaGranterWallet.KeyName(),
 		coinType,
-		gaiaGranterMnemonic,
+		gaiaGranterWallet.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
 	}
@@ -178,9 +221,9 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	if err := r.RestoreKey(ctx,
 		eRep,
 		gaia.Config().ChainID,
-		granteeKey,
+		gaiaGranteeWallet.KeyName(),
 		coinType,
-		gaiaGranteeMnemonic,
+		gaiaGranteeWallet.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
 	}
@@ -189,9 +232,9 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	if err := r.RestoreKey(ctx,
 		eRep,
 		gaia.Config().ChainID,
-		grantee2Key,
+		gaiaGrantee2Wallet.KeyName(),
 		coinType,
-		gaiaGrantee2Mnemonic,
+		gaiaGrantee2Wallet.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
 	}
@@ -200,9 +243,9 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	if err := r.RestoreKey(ctx,
 		eRep,
 		gaia.Config().ChainID,
-		grantee3Key,
+		gaiaGrantee3Wallet.KeyName(),
 		coinType,
-		gaiaGrantee3Mnemonic,
+		gaiaGrantee3Wallet.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
 	}
@@ -211,9 +254,9 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	if err := r.RestoreKey(ctx,
 		eRep,
 		osmosis.Config().ChainID,
-		granterKey,
+		osmosisUser.KeyName(),
 		coinType,
-		osmosisGranterMnemonic,
+		osmosisUser.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", osmosis.Config().ChainID, err.Error())
 	}
@@ -222,25 +265,12 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	if err := r.RestoreKey(ctx,
 		eRep,
 		osmosis.Config().ChainID,
-		granteeKey,
+		gaiaUser.KeyName(),
 		coinType,
-		osmosisGranteeMnemonic,
+		gaiaUser.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
 	}
-
-	gaiaGranterWallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, granterKey, gaiaGranterMnemonic, int64(fundAmount), gaia)
-	require.NoError(t, err)
-	gaiaGranteeWallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, granteeKey, gaiaGranteeMnemonic, int64(granteeFundAmount), gaia)
-	require.NoError(t, err)
-	gaiaGrantee2Wallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, grantee2Key, gaiaGrantee2Mnemonic, int64(granteeFundAmount), gaia)
-	require.NoError(t, err)
-	gaiaGrantee3Wallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, grantee3Key, gaiaGrantee3Mnemonic, int64(granteeFundAmount), gaia)
-	require.NoError(t, err)
-	osmosisUser, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, "recipient", "", int64(fundAmount), osmosis)
-	require.NoError(t, err)
-	gaiaUser, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, "recipient", ibcTransferMnemonic, int64(fundAmount), gaia)
-	require.NoError(t, err)
 
 	gaiaGranteeAddr := gaiaGranteeWallet.FormattedAddress()
 	gaiaGrantee2Addr := gaiaGrantee2Wallet.FormattedAddress()
