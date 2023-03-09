@@ -104,7 +104,7 @@ For reference, view the `CosmosIBCHeader` implementation in the [Cosmos Provider
 
 #### Event Parsers
 
-For tendermint chains, the IBC messages are parsed in the `CosmosChainProcessor` by parsing the tendermint events from every new block. This will be different for non-tendermint chains, but these items will need to be accounted for:
+For Comet BFT chains, the IBC messages are parsed in the `CosmosChainProcessor` by parsing the comet events from every new block. This will be different for non-comet chains, but these items will need to be accounted for:
 
 - For client IBC messages (e.g. MsgCreateClient, MsgUpdateClient, MsgUpgradeClient, MsgSubmitMisbehaviour), message should be parsed into `provider.ClientState`.
 - For connection handshake IBC messages (e.g. MsgConnectionOpenInit, MsgConnectionOpenTry, MsgConnectionOpenAck, MsgConnectionOpenConfirm), message should be parsed into `provider.ConnectionInfo`

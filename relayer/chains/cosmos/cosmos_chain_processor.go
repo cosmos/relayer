@@ -213,7 +213,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 			continue
 		}
 		persistence.latestHeight = status.SyncInfo.LatestBlockHeight
-		ccp.chainProvider.setTendermintVersion(ccp.log, status.NodeInfo.Version)
+		ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
 		break
 	}
 
@@ -316,7 +316,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	}
 
 	persistence.latestHeight = status.SyncInfo.LatestBlockHeight
-	ccp.chainProvider.setTendermintVersion(ccp.log, status.NodeInfo.Version)
+	ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
 
 	ccp.log.Debug("Queried latest height",
 		zap.Int64("latest_height", persistence.latestHeight),
@@ -389,7 +389,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		base64Encoded := ccp.chainProvider.tendermintLegacyEncoding
+		base64Encoded := ccp.chainProvider.cometLegacyEncoding
 
 		blockMsgs := ccp.ibcMessagesFromBlockEvents(
 			blockRes.BeginBlockEvents,

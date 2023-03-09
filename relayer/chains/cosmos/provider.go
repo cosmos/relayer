@@ -35,7 +35,7 @@ var (
 	_ provider.ProviderConfig = &CosmosProviderConfig{}
 )
 
-const tendermintEncodingThreshold = "v0.37.0-alpha"
+const cometEncodingThreshold = "v0.37.0-alpha"
 
 type CosmosProviderConfig struct {
 	KeyDirectory   string                  `json:"key-directory" yaml:"key-directory"`
@@ -121,8 +121,8 @@ type CosmosProvider struct {
 
 	metrics *processor.PrometheusMetrics
 
-	// for tendermint < v0.37, decode tm events as base64
-	tendermintLegacyEncoding bool
+	// for comet < v0.37, decode tm events as base64
+	cometLegacyEncoding bool
 }
 
 type CosmosIBCHeader struct {
@@ -272,7 +272,7 @@ func (cc *CosmosProvider) Init(ctx context.Context) error {
 		return nil
 	}
 
-	cc.setTendermintVersion(cc.log, status.NodeInfo.Version)
+	cc.setCometVersion(cc.log, status.NodeInfo.Version)
 
 	return nil
 }
@@ -323,12 +323,12 @@ func (cc *CosmosProvider) updateNextAccountSequence(seq uint64) {
 	}
 }
 
-func (cc *CosmosProvider) setTendermintVersion(log *zap.Logger, version string) {
-	cc.tendermintLegacyEncoding = cc.legacyEncodedEvents(log, version)
+func (cc *CosmosProvider) setCometVersion(log *zap.Logger, version string) {
+	cc.cometLegacyEncoding = cc.legacyEncodedEvents(log, version)
 }
 
 func (cc *CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
-	return semver.Compare("v"+version, tendermintEncodingThreshold) < 0
+	return semver.Compare("v"+version, cometEncodingThreshold) < 0
 }
 
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.
