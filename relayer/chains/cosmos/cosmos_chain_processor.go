@@ -15,7 +15,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
