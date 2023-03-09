@@ -11,6 +11,11 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/light"
+	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
+	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -31,11 +36,6 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	abci "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/light"
-	rpcclient "github.com/tendermint/tendermint/rpc/client"
-	coretypes "github.com/tendermint/tendermint/rpc/core/types"
-	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -383,7 +383,7 @@ func (cc *CosmosProvider) waitForBlockInclusion(
 	}
 }
 
-// mkTxResult decodes a tendermint transaction into an SDK TxResponse.
+// mkTxResult decodes a comet transaction into an SDK TxResponse.
 func (cc *CosmosProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse, error) {
 	txbz, err := cc.Codec.TxConfig.TxDecoder()(resTx.Tx)
 	if err != nil {
@@ -630,7 +630,7 @@ func (cc *CosmosProvider) PacketCommitment(
 	key := host.PacketCommitmentKey(msgTransfer.SourcePort, msgTransfer.SourceChannel, msgTransfer.Sequence)
 	commitment, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet commitment: %w", err)
+		return provider.PacketProof{}, fmt.Errorf("error querying comet proof for packet commitment: %w", err)
 	}
 	// check if packet commitment exists
 	if len(commitment) == 0 {
@@ -669,7 +669,7 @@ func (cc *CosmosProvider) PacketAcknowledgement(
 	key := host.PacketAcknowledgementKey(msgRecvPacket.DestPort, msgRecvPacket.DestChannel, msgRecvPacket.Sequence)
 	ack, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet acknowledgement: %w", err)
+		return provider.PacketProof{}, fmt.Errorf("error querying comet proof for packet acknowledgement: %w", err)
 	}
 	if len(ack) == 0 {
 		return provider.PacketProof{}, chantypes.ErrInvalidAcknowledgement
@@ -707,7 +707,7 @@ func (cc *CosmosProvider) PacketReceipt(
 	key := host.PacketReceiptKey(msgTransfer.DestPort, msgTransfer.DestChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
+		return provider.PacketProof{}, fmt.Errorf("error querying comet proof for packet receipt: %w", err)
 	}
 
 	return provider.PacketProof{
@@ -727,7 +727,7 @@ func (cc *CosmosProvider) NextSeqRecv(
 	key := host.NextSequenceRecvKey(msgTransfer.DestPort, msgTransfer.DestChannel)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for next sequence receive: %w", err)
+		return provider.PacketProof{}, fmt.Errorf("error querying comet proof for next sequence receive: %w", err)
 	}
 
 	return provider.PacketProof{

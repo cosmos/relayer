@@ -27,15 +27,15 @@ func ClientsMatch(ctx context.Context, src, dst ChainProvider, existingClient cl
 	switch ec := existingClientState.(type) {
 	case *tmclient.ClientState:
 		nc := newClient.(*tmclient.ClientState)
-		return tendermintMatcher(ctx, src, dst, existingClient.ClientId, ec, nc)
+		return cometMatcher(ctx, src, dst, existingClient.ClientId, ec, nc)
 	}
 
 	return "", nil
 }
 
-// tendermintMatcher determines if there is an existing light client on the src chain, tracking the dst chain,
+// cometMatcher determines if there is an existing light client on the src chain, tracking the dst chain,
 // with a state which matches a proposed new client state constructed from the dst chain.
-func tendermintMatcher(ctx context.Context, src, dst ChainProvider, existingClientID string, existingClient, newClient ibcexported.ClientState) (string, error) {
+func cometMatcher(ctx context.Context, src, dst ChainProvider, existingClientID string, existingClient, newClient ibcexported.ClientState) (string, error) {
 	newClientState, ok := newClient.(*tmclient.ClientState)
 	if !ok {
 		return "", fmt.Errorf("got type(%T) expected type(*tmclient.ClientState)", newClient)
