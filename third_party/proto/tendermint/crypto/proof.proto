@@ -3,7 +3,7 @@ syntax = "proto3";
 // buf:lint:ignore PACKAGE_VERSION_SUFFIX
 package tendermint.crypto;
 
-option go_package = "github.com/cometbft/cometbft/proto/tendermint/crypto";
+option go_package = "github.com/cometbft/cometbft/proto/cometbft/crypto";
 
 import "gogoproto/gogo.proto";
 

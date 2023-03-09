@@ -22,6 +22,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/spf13/cobra"
@@ -30,6 +31,7 @@ import (
 
 const (
 	flagCoinType           = "coin-type"
+	flagAlgo               = "signing-algorithm"
 	defaultCoinType uint32 = sdk.CoinType
 )
 
@@ -75,7 +77,9 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 				return errKeyExists(keyName)
 			}
 
-			coinType, err := cmd.Flags().GetInt32(flagCoinType)
+			cmdFlags := cmd.Flags()
+
+			coinType, err := cmdFlags.GetInt32(flagCoinType)
 			if err != nil {
 				return err
 			}
@@ -88,7 +92,20 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 				}
 			}
 
-			ko, err := chain.ChainProvider.AddKey(keyName, uint32(coinType))
+			algo, err := cmdFlags.GetString(flagAlgo)
+			if err != nil {
+				return err
+			}
+
+			if algo == "" {
+				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
+					algo = ccp.PCfg.SigningAlgorithm
+				} else {
+					algo = string(hd.Secp256k1Type)
+				}
+			}
+
+			ko, err := chain.ChainProvider.AddKey(keyName, uint32(coinType), algo)
 			if err != nil {
 				return fmt.Errorf("failed to add key: %w", err)
 			}
@@ -103,6 +120,7 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 		},
 	}
 	cmd.Flags().Int32(flagCoinType, -1, "coin type number for HD derivation")
+	cmd.Flags().String(flagAlgo, "", "signing algorithm for key (secp256k1, sr25519)")
 
 	return cmd
 }
@@ -129,7 +147,9 @@ $ %s k r cosmoshub faucet-key "[mnemonic-words]"`, appName, appName)),
 				return errKeyExists(keyName)
 			}
 
-			coinType, err := cmd.Flags().GetInt32(flagCoinType)
+			cmdFlags := cmd.Flags()
+
+			coinType, err := cmdFlags.GetInt32(flagCoinType)
 			if err != nil {
 				return err
 			}
@@ -142,7 +162,20 @@ $ %s k r cosmoshub faucet-key "[mnemonic-words]"`, appName, appName)),
 				}
 			}
 
-			address, err := chain.ChainProvider.RestoreKey(keyName, args[2], uint32(coinType))
+			algo, err := cmdFlags.GetString(flagAlgo)
+			if err != nil {
+				return err
+			}
+
+			if algo == "" {
+				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
+					algo = ccp.PCfg.SigningAlgorithm
+				} else {
+					algo = string(hd.Secp256k1Type)
+				}
+			}
+
+			address, err := chain.ChainProvider.RestoreKey(keyName, args[2], uint32(coinType), algo)
 			if err != nil {
 				return err
 			}
@@ -152,6 +185,7 @@ $ %s k r cosmoshub faucet-key "[mnemonic-words]"`, appName, appName)),
 		},
 	}
 	cmd.Flags().Int32(flagCoinType, -1, "coin type number for HD derivation")
+	cmd.Flags().String(flagAlgo, "", "signing algorithm for key (secp256k1, sr25519)")
 
 	return cmd
 }

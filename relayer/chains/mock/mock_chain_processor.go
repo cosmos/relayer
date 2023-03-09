@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -49,7 +50,7 @@ func NewMockChainProcessor(ctx context.Context, log *zap.Logger, chainID string,
 	}
 	chainProvider, _ := chainProviderCfg.NewProvider(zap.NewNop(), "/tmp", true, "mock-chain-name-"+chainID)
 	_ = chainProvider.Init(ctx)
-	_, _ = chainProvider.AddKey(chainProvider.Key(), 118)
+	_, _ = chainProvider.AddKey(chainProvider.Key(), 118, string(hd.Secp256k1Type))
 	return &MockChainProcessor{
 		log:             log,
 		chainID:         chainID,
