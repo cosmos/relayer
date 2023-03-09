@@ -4,7 +4,7 @@ package stride.interchainquery.v1;
 
 import "gogoproto/gogo.proto";
 import "cosmos_proto/cosmos.proto";
-import "cometbft/crypto/proof.proto";
+import "tendermint/crypto/proof.proto";
 
 // NOTE: copied into this repository from
 // "github.com/Stride-Labs/stride/v5/x/interchainquery/types"
@@ -19,7 +19,7 @@ message MsgSubmitQueryResponse {
   string chain_id = 1 [ (gogoproto.moretags) = "yaml:\"chain_id\"" ];
   string query_id = 2 [ (gogoproto.moretags) = "yaml:\"query_id\"" ];
   bytes result = 3 [ (gogoproto.moretags) = "yaml:\"result\"" ];
-  cometbft.crypto.ProofOps proof_ops = 4
+  tendermint.crypto.ProofOps proof_ops = 4
       [ (gogoproto.moretags) = "yaml:\"proof_ops\"" ];
   int64 height = 5 [ (gogoproto.moretags) = "yaml:\"height\"" ];
   string from_address = 6 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
