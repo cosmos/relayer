@@ -163,7 +163,7 @@ func (cc *CosmosProvider) TxServiceBroadcast(ctx context.Context, req *tx.Broadc
 	if cc.PCfg.BlockTimeout != "" {
 		blockTimeout, err = time.ParseDuration(cc.PCfg.BlockTimeout)
 		if err != nil {
-			// Did you call Validate() method on ChainClientConfig struct
+			// Did you call Validate() method on CosmosProviderConfig struct
 			// before coming here?
 			return nil, err
 		}
