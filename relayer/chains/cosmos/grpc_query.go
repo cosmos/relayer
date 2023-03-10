@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"sync"
+	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	gogogrpc "github.com/cosmos/gogoproto/grpc"
@@ -151,9 +152,22 @@ func (cc *CosmosProvider) TxServiceBroadcast(ctx context.Context, req *tx.Broadc
 		return nil, status.Error(codes.InvalidArgument, "invalid empty tx")
 	}
 
-	var rlyResp *provider.RelayerTxResponse
-	var callbackErr error
-	var wg sync.WaitGroup
+	var (
+		blockTimeout = defaultBroadcastWaitTimeout
+		err          error
+		rlyResp      *provider.RelayerTxResponse
+		callbackErr  error
+		wg           sync.WaitGroup
+	)
+
+	if cc.PCfg.BlockTimeout != "" {
+		blockTimeout, err = time.ParseDuration(cc.PCfg.BlockTimeout)
+		if err != nil {
+			// Did you call Validate() method on ChainClientConfig struct
+			// before coming here?
+			return nil, err
+		}
+	}
 
 	callback := func(rtr *provider.RelayerTxResponse, err error) {
 		rlyResp = rtr
@@ -163,7 +177,7 @@ func (cc *CosmosProvider) TxServiceBroadcast(ctx context.Context, req *tx.Broadc
 
 	wg.Add(1)
 
-	if err := cc.broadcastTx(ctx, req.TxBytes, nil, nil, ctx, defaultBroadcastWaitTimeout, callback); err != nil {
+	if err := cc.broadcastTx(ctx, req.TxBytes, nil, nil, ctx, blockTimeout, callback); err != nil {
 		return nil, err
 	}
 

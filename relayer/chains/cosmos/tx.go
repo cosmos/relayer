@@ -81,9 +81,11 @@ func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerM
 // of that transaction will be logged. A boolean indicating if a transaction was successfully
 // sent and executed successfully is returned.
 func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
-	var rlyResp *provider.RelayerTxResponse
-	var callbackErr error
-	var wg sync.WaitGroup
+	var (
+		rlyResp     *provider.RelayerTxResponse
+		callbackErr error
+		wg          sync.WaitGroup
+	)
 
 	callback := func(rtr *provider.RelayerTxResponse, err error) {
 		rlyResp = rtr
