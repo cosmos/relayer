@@ -188,8 +188,10 @@ func (cc *CosmosProvider) broadcastTx(
 	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
 ) error {
 	res, err := cc.RPCClient.BroadcastTxSync(ctx, tx)
-	if err != nil {
-		if res == nil {
+	isErr := err != nil
+	isFailed := res != nil && res.Code != 0
+	if isErr || isFailed {
+		if isErr && res == nil {
 			// There are some cases where BroadcastTxSync will return an error but the associated
 			// ResultBroadcastTx will be nil.
 			return err
@@ -199,6 +201,12 @@ func (cc *CosmosProvider) broadcastTx(
 			Codespace: res.Codespace,
 			Code:      res.Code,
 			Data:      res.Data.String(),
+		}
+		if isFailed {
+			err = cc.sdkError(res.Codespace, res.Code)
+			if err == nil {
+				err = fmt.Errorf("transaction failed to execute")
+			}
 		}
 		cc.LogFailedTx(rlyResp, err, msgs)
 		return err
