@@ -15,13 +15,12 @@ for dir in $proto_dirs; do
   done
 done
 
-buf generate --template proto/buf.gen.gogo.yaml buf.build/penumbra-zone/penumbra
+buf generate --template proto/buf.gen.penumbra.yaml buf.build/penumbra-zone/penumbra
 
 # move proto files to the right places
+
+ls -R
 #
 # Note: Proto files are suffixed with the current binary version.
 cp -r github.com/cosmos/relayer/v2/* ./
 rm -rf github.com
-
-cp -r penumbra/* relayer/chains/penumbra/
-rm -rf penumbra
