@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/cometbft/cometbft/proto/tendermint/crypto"
+	"github.com/cometbft/cometbft/types"
+	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
@@ -14,6 +16,7 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	"github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -67,6 +70,7 @@ type ClientState struct {
 	ConsensusHeight clienttypes.Height
 	TrustingPeriod  time.Duration
 	ConsensusTime   time.Time
+	Header          []byte
 }
 
 // ClientTrustedState holds the current state of a client from the perspective of both involved chains,
@@ -233,7 +237,9 @@ type ChainProvider interface {
 	MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (RelayerMessage, error)
 
 	MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (RelayerMessage, error)
-	// MsgSubmitMisbehavior(/*TODO*/)
+
+	MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (RelayerMessage, error)
+
 	// [End] Client IBC message assembly functions
 
 	// ValidatePacket makes sure packet is valid to be relayed.
@@ -397,6 +403,7 @@ type ChainProvider interface {
 	TrustingPeriod(ctx context.Context) (time.Duration, error)
 	WaitForNBlocks(ctx context.Context, n int64) error
 	Sprint(toPrint proto.Message) (string, error)
+	Codec() codec.BinaryCodec
 }
 
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?
@@ -409,6 +416,8 @@ type QueryProvider interface {
 
 	// QueryIBCHeader returns the IBC compatible block header at a specific height.
 	QueryIBCHeader(ctx context.Context, h int64) (IBCHeader, error)
+
+	QueryHeaderAtHeight(ctx context.Context, h int64) (ibcexported.ClientMessage, error)
 
 	// query packet info for sequence
 	QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (PacketInfo, error)
@@ -513,4 +522,46 @@ func (t *TimeoutOnCloseError) Error() string {
 
 func NewTimeoutOnCloseError(msg string) *TimeoutOnCloseError {
 	return &TimeoutOnCloseError{msg}
+}
+
+type TendermintIBCHeader struct {
+	SignedHeader      *types.SignedHeader
+	ValidatorSet      *types.ValidatorSet
+	TrustedValidators *types.ValidatorSet
+	TrustedHeight     clienttypes.Height
+}
+
+func (h TendermintIBCHeader) Height() uint64 {
+	return uint64(h.SignedHeader.Height)
+}
+
+func (h TendermintIBCHeader) ConsensusState() ibcexported.ConsensusState {
+	return &tendermint.ConsensusState{
+		Timestamp:          h.SignedHeader.Time,
+		Root:               commitmenttypes.NewMerkleRoot(h.SignedHeader.AppHash),
+		NextValidatorsHash: h.SignedHeader.NextValidatorsHash,
+	}
+}
+
+func (h TendermintIBCHeader) NextValidatorsHash() []byte {
+	return h.SignedHeader.NextValidatorsHash
+}
+
+func (h TendermintIBCHeader) TMHeader() (*tendermint.Header, error) {
+	valSet, err := h.ValidatorSet.ToProto()
+	if err != nil {
+		return nil, err
+	}
+
+	trustedVals, err := h.TrustedValidators.ToProto()
+	if err != nil {
+		return nil, err
+	}
+
+	return &tendermint.Header{
+		SignedHeader:      h.SignedHeader.ToProto(),
+		ValidatorSet:      valSet,
+		TrustedHeight:     h.TrustedHeight,
+		TrustedValidators: trustedVals,
+	}, nil
 }

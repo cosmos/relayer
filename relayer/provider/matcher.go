@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/cosmos/cosmos-sdk/codec"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
@@ -31,6 +32,41 @@ func ClientsMatch(ctx context.Context, src, dst ChainProvider, existingClient cl
 	}
 
 	return "", nil
+}
+
+// CheckForMisbehaviour checks that a proposed header, for updating a light client, contains a consensus state that matches
+// the trusted consensus state from the counterparty for the same block height. If the consensus states for the proposed
+// header and the trusted header match then both returned values will be nil.
+func CheckForMisbehaviour(
+	ctx context.Context,
+	cdc codec.BinaryCodec,
+	counterparty ChainProvider,
+	clientID string,
+	proposedHeader []byte,
+	cachedHeader IBCHeader,
+) (ibcexported.ClientMessage, error) {
+	var (
+		misbehavior ibcexported.ClientMessage
+		err         error
+	)
+
+	clientMsg, err := clienttypes.UnmarshalClientMessage(cdc, proposedHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	switch header := clientMsg.(type) {
+	case *tmclient.Header:
+		misbehavior, err = checkTendermintMisbehaviour(ctx, clientID, header, cachedHeader, counterparty)
+		if err != nil {
+			return nil, err
+		}
+		if misbehavior == nil && err == nil {
+			return nil, nil
+		}
+	}
+
+	return misbehavior, nil
 }
 
 // cometMatcher determines if there is an existing light client on the src chain, tracking the dst chain,
@@ -117,4 +153,48 @@ func isMatchingTendermintClient(a, b tmclient.ClientState) bool {
 // identical. They are assumed to be IBC tendermint light clients.
 func isMatchingTendermintConsensusState(a, b *tmclient.ConsensusState) bool {
 	return reflect.DeepEqual(*a, *b)
+}
+
+// checkTendermintMisbehaviour checks that a proposed consensus state, used to update a tendermint light client,
+// matches the trusted consensus state from the counterparty chain. If there is no cached trusted header then
+// it will be queried from the counterparty. If the consensus states for the proposed header and the trusted header
+// match then both returned values will be nil.
+func checkTendermintMisbehaviour(
+	ctx context.Context,
+	clientID string,
+	proposedHeader *tmclient.Header,
+	cachedHeader IBCHeader,
+	counterparty ChainProvider,
+) (ibcexported.ClientMessage, error) {
+	var (
+		trustedHeader *tmclient.Header
+		err           error
+		ok            bool
+	)
+
+	if cachedHeader == nil {
+		header, err := counterparty.QueryHeaderAtHeight(ctx, proposedHeader.Header.Height)
+		if err != nil {
+			return nil, err
+		}
+
+		trustedHeader, ok = header.(*tmclient.Header)
+		if !ok {
+			return nil, fmt.Errorf("failed to check for misbehaviour, expected %T, got %T", (*tmclient.Header)(nil), header)
+		}
+	} else {
+		trustedHeader, err = cachedHeader.(TendermintIBCHeader).TMHeader()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if isMatchingTendermintConsensusState(proposedHeader.ConsensusState(), trustedHeader.ConsensusState()) {
+		return nil, nil
+	}
+
+	trustedHeader.TrustedValidators = proposedHeader.TrustedValidators
+	trustedHeader.TrustedHeight = proposedHeader.TrustedHeight
+
+	return tmclient.NewMisbehaviour(clientID, proposedHeader, trustedHeader), nil
 }

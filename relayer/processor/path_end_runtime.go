@@ -290,6 +290,40 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 	return false
 }
 
+// checkForMisbehaviour is called for each attempt to update the light client on this path end. The proposed header will
+// be compared against the cached trusted header for the same block height to determine if there is a deviation in the
+// consensus states, if there is no cached trusted header then it will be queried from the counterparty further down in
+// the call stack. If a deviation is found a MsgSubmitMisbehaviour will be composed and broadcasted to freeze the
+// light client. If misbehaviour is detected true will be returned and the pathEndRuntime should terminate.
+// If no misbehaviour is detected false will be returned along with a nil error.
+func (pathEnd *pathEndRuntime) checkForMisbehaviour(
+	ctx context.Context,
+	state provider.ClientState,
+	counterparty *pathEndRuntime,
+) (bool, error) {
+	cachedHeader := counterparty.ibcHeaderCache[state.ConsensusHeight.RevisionHeight]
+
+	misbehaviour, err := provider.CheckForMisbehaviour(ctx, pathEnd.chainProvider.Codec(), counterparty.chainProvider, pathEnd.info.ClientID, state.Header, cachedHeader)
+	if err != nil {
+		return false, err
+	}
+	if misbehaviour == nil && err == nil {
+		return false, nil
+	}
+
+	msgMisbehaviour, err := pathEnd.chainProvider.MsgSubmitMisbehaviour(pathEnd.info.ClientID, misbehaviour)
+	if err != nil {
+		return true, err
+	}
+
+	_, _, err = pathEnd.chainProvider.SendMessage(ctx, msgMisbehaviour, "")
+	if err != nil {
+		return true, err
+	}
+
+	return true, nil
+}
+
 func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, counterpartyChainID string, counterpartyInSync bool, messageLifecycle MessageLifecycle, counterParty *pathEndRuntime) {
 	pathEnd.lastClientUpdateHeightMu.Lock()
 	pathEnd.latestBlock = d.LatestBlock
@@ -298,6 +332,16 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	pathEnd.inSync = d.InSync
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
+
+	terminate, err := pathEnd.checkForMisbehaviour(ctx, pathEnd.clientState, counterParty)
+	if err != nil {
+		pathEnd.log.Error(
+			"Failed to check for misbehaviour",
+			zap.String("client_id", pathEnd.info.ClientID),
+			zap.Error(err),
+		)
+	}
+
 	if d.ClientState.ConsensusHeight != pathEnd.clientState.ConsensusHeight {
 		pathEnd.clientState = d.ClientState
 		ibcHeader, ok := counterParty.ibcHeaderCache[d.ClientState.ConsensusHeight.RevisionHeight]
@@ -308,7 +352,7 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 
 	pathEnd.handleCallbacks(d.IBCMessagesCache)
 
-	if pathEnd.shouldTerminate(d.IBCMessagesCache, messageLifecycle) {
+	if pathEnd.shouldTerminate(d.IBCMessagesCache, messageLifecycle) || terminate {
 		cancel()
 		return
 	}

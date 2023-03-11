@@ -262,7 +262,7 @@ func (cc *CosmosProvider) QueryTendermintProof(ctx context.Context, height int64
 		return nil, nil, clienttypes.Height{}, err
 	}
 
-	cdc := codec.NewProtoCodec(cc.Codec.InterfaceRegistry)
+	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
 
 	proofBz, err := cdc.Marshal(&merkleProof)
 	if err != nil {
@@ -287,7 +287,7 @@ func (cc *CosmosProvider) QueryClientStateResponse(ctx context.Context, height i
 		return nil, sdkerrors.Wrap(clienttypes.ErrClientNotFound, srcClientId)
 	}
 
-	cdc := codec.NewProtoCodec(cc.Codec.InterfaceRegistry)
+	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
 
 	clientState, err := clienttypes.UnmarshalClientState(cdc, value)
 	if err != nil {
@@ -336,7 +336,7 @@ func (cc *CosmosProvider) QueryClientConsensusState(ctx context.Context, chainHe
 		return nil, sdkerrors.Wrap(clienttypes.ErrConsensusStateNotFound, clientid)
 	}
 
-	cdc := codec.NewProtoCodec(cc.Codec.InterfaceRegistry)
+	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
 
 	cs, err := clienttypes.UnmarshalConsensusState(cdc, value)
 	if err != nil {
@@ -373,7 +373,7 @@ func (cc *CosmosProvider) QueryUpgradeProof(ctx context.Context, key []byte, hei
 		return nil, clienttypes.Height{}, err
 	}
 
-	proof, err := cc.Codec.Marshaler.Marshal(&merkleProof)
+	proof, err := cc.Cdc.Marshaler.Marshal(&merkleProof)
 	if err != nil {
 		return nil, clienttypes.Height{}, err
 	}
@@ -533,7 +533,7 @@ func (cc *CosmosProvider) queryConnectionABCI(ctx context.Context, height int64,
 		return nil, sdkerrors.Wrap(conntypes.ErrConnectionNotFound, connectionID)
 	}
 
-	cdc := codec.NewProtoCodec(cc.Codec.InterfaceRegistry)
+	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
 
 	var connection conntypes.ConnectionEnd
 	if err := cdc.Unmarshal(value, &connection); err != nil {
@@ -679,7 +679,7 @@ func (cc *CosmosProvider) queryChannelABCI(ctx context.Context, height int64, po
 		return nil, sdkerrors.Wrapf(chantypes.ErrChannelNotFound, "portID (%s), channelID (%s)", portID, channelID)
 	}
 
-	cdc := codec.NewProtoCodec(cc.Codec.InterfaceRegistry)
+	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
 
 	var channel chantypes.Channel
 	if err := cdc.Unmarshal(value, &channel); err != nil {
@@ -1037,36 +1037,22 @@ func (cc *CosmosProvider) QueryStatus(ctx context.Context) (*coretypes.ResultSta
 	return status, nil
 }
 
-// QueryHeaderAtHeight returns the header at a given height
+// QueryHeaderAtHeight returns the block header at a given height.
 func (cc *CosmosProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.ClientMessage, error) {
-	var (
-		page    = 1
-		perPage = 100000
-	)
-	if height <= 0 {
-		return nil, fmt.Errorf("must pass in valid height, %d not valid", height)
-	}
-
-	res, err := cc.RPCClient.Commit(ctx, &height)
+	block, err := cc.LightProvider.LightBlock(ctx, height)
 	if err != nil {
 		return nil, err
 	}
 
-	val, err := cc.RPCClient.Validators(ctx, &height, &page, &perPage)
-	if err != nil {
-		return nil, err
-	}
-
-	protoVal, err := tmtypes.NewValidatorSet(val.Validators).ToProto()
+	valSet, err := tmtypes.NewValidatorSet(block.ValidatorSet.Validators).ToProto()
 	if err != nil {
 		return nil, err
 	}
 
 	return &tmclient.Header{
-		// NOTE: This is not a SignedHeader
-		// We are missing a light.Commit type here
-		SignedHeader: res.SignedHeader.ToProto(),
-		ValidatorSet: protoVal,
+		SignedHeader: block.SignedHeader.ToProto(),
+		ValidatorSet: valSet,
+		// TrustedHeight and TrustedValidators will be initialized at the call site during misbehaviour checks
 	}, nil
 }
 
@@ -1140,7 +1126,7 @@ func (cc *CosmosProvider) QueryConsensusStateABCI(ctx context.Context, clientID 
 	}
 
 	// TODO do we really want to create a new codec? ChainClient exposes proto.Marshaler
-	cdc := codec.NewProtoCodec(cc.Codec.InterfaceRegistry)
+	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
 
 	cs, err := clienttypes.UnmarshalConsensusState(cdc, value)
 	if err != nil {
