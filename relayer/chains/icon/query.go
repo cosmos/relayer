@@ -9,11 +9,11 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
-	committypes "github.com/cosmos/ibc-go/modules/core/23-commitment/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	committypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	//change this to icon types after original repo merge
 )
 
@@ -241,7 +241,6 @@ func (icp *IconProvider) GenerateConnHandshakeProof(ctx context.Context, height 
 	}
 
 	return clientState, clientStateRes.Proof, consensusStateRes.Proof, connectionStateRes.Proof, connectionStateRes.ProofHeight, nil
-	return
 }
 
 // ics 04 - channel

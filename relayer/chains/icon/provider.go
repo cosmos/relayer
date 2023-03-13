@@ -3,12 +3,15 @@ package icon
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/goloop/common/wallet"
+	"github.com/icon-project/goloop/module"
+	"github.com/icon-project/ibc-relayer/relayer/processor"
+	"github.com/icon-project/ibc-relayer/relayer/provider"
 	"go.uber.org/zap"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -31,8 +34,10 @@ type IconProviderConfig struct {
 	ChainID           string `json:"chain-id" yaml:"chain-id"`
 	RPCAddr           string `json:"rpc-addr" yaml:"rpc-addr"`
 	Timeout           string `json:"timeout" yaml:"timeout"`
-	IbcHostAddress    string `json:"ibc_host_address,omitempty"`
-	IbcHandlerAddress string `json:"ibc_handler_address,omitempty"`
+	Keystore          string `json:"keystore" yaml:"keystore"`
+	Password          string `json:"password" yaml:"password"`
+	IbcHostAddress    string `json:"ibc_host_address"`
+	IbcHandlerAddress string `json:"ibc_handler_address"`
 }
 
 func (pp IconProviderConfig) Validate() error {
@@ -44,14 +49,31 @@ func (pp IconProviderConfig) Validate() error {
 
 // NewProvider should provide a new Icon provider
 func (pp IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
+
+	pp.ChainName = chainName
+	if _, err := os.Stat(pp.Keystore); err != nil {
+		return nil, err
+	}
+
 	if err := pp.Validate(); err != nil {
 		return nil, err
 	}
 
+	ksByte, err := os.ReadFile(pp.Keystore)
+	if err != nil {
+		return nil, err
+	}
+
+	wallet, err := wallet.NewFromKeyStore(ksByte, []byte(pp.Password))
+	if err != nil {
+		return nil, err
+	}
+
 	return &IconProvider{
-		log:    log, //.With(zap.String("sys", "chain_client")),
+		log:    log.With(zap.String("sys", "chain_client")),
 		client: NewClient(pp.getRPCAddr(), log),
 		PCfg:   pp,
+		wallet: wallet,
 	}, nil
 }
 
@@ -64,6 +86,7 @@ type IconProvider struct {
 	PCfg    IconProviderConfig
 	txMu    sync.Mutex
 	client  *Client
+	wallet  module.Wallet
 	metrics *processor.PrometheusMetrics
 	codec   codec.ProtoCodecMarshaler
 }
@@ -80,6 +103,10 @@ func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
 }
 
 //ChainProvider Methods
+
+func (icp *IconProvider) AddWallet(wallet module.Wallet) {
+	icp.wallet = wallet
+}
 
 func (icp *IconProvider) Init(ctx context.Context) error {
 	return nil
