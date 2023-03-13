@@ -169,18 +169,22 @@ func checkTendermintMisbehaviour(
 	var (
 		trustedHeader *tmclient.Header
 		err           error
-		ok            bool
 	)
 
 	if cachedHeader == nil {
-		header, err := counterparty.QueryHeaderAtHeight(ctx, proposedHeader.Header.Height)
+		header, err := counterparty.QueryIBCHeader(ctx, proposedHeader.Header.Height)
 		if err != nil {
 			return nil, err
 		}
 
-		trustedHeader, ok = header.(*tmclient.Header)
+		tmHeader, ok := header.(TendermintIBCHeader)
 		if !ok {
-			return nil, fmt.Errorf("failed to check for misbehaviour, expected %T, got %T", (*tmclient.Header)(nil), header)
+			return nil, fmt.Errorf("failed to check for misbehaviour, expected %T, got %T", (*TendermintIBCHeader)(nil), header)
+		}
+
+		trustedHeader, err = tmHeader.TMHeader()
+		if err != nil {
+			return nil, err
 		}
 	} else {
 		trustedHeader, err = cachedHeader.(TendermintIBCHeader).TMHeader()
@@ -193,6 +197,12 @@ func checkTendermintMisbehaviour(
 		return nil, nil
 	}
 
+	// When we queried the light block in QueryIBCHeader we did not have the TrustedHeight or TrustedValidators,
+	// it is the relayer's responsibility to inject these trusted fields i.e. we need a height < the proposed headers height.
+	// The TrustedHeight is the height of a stored ConsensusState on the client that will be used to verify the new untrusted header.
+	// The Trusted ConsensusState must be within the unbonding period of current time in order to correctly verify,
+	// and the TrustedValidators must hash to TrustedConsensusState.NextValidatorsHash since that is the last trusted
+	// validator set at the TrustedHeight.
 	trustedHeader.TrustedValidators = proposedHeader.TrustedValidators
 	trustedHeader.TrustedHeight = proposedHeader.TrustedHeight
 

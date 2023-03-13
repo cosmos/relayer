@@ -20,6 +20,7 @@ type pathEndRuntime struct {
 	info PathEnd
 
 	chainProvider provider.ChainProvider
+	cdc           codec
 
 	// cached data
 	latestBlock          provider.LatestBlock
@@ -60,6 +61,7 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetr
 			zap.String("chain_id", pathEnd.ChainID),
 			zap.String("client_id", pathEnd.ClientID),
 		),
+		cdc:                  makeCodec(),
 		info:                 pathEnd,
 		incomingCacheData:    make(chan ChainProcessorCacheData, 100),
 		connectionStateCache: make(ConnectionStateCache),
@@ -303,7 +305,7 @@ func (pathEnd *pathEndRuntime) checkForMisbehaviour(
 ) (bool, error) {
 	cachedHeader := counterparty.ibcHeaderCache[state.ConsensusHeight.RevisionHeight]
 
-	misbehaviour, err := provider.CheckForMisbehaviour(ctx, pathEnd.chainProvider.Codec(), counterparty.chainProvider, pathEnd.info.ClientID, state.Header, cachedHeader)
+	misbehaviour, err := provider.CheckForMisbehaviour(ctx, pathEnd.cdc.Marshaler, counterparty.chainProvider, pathEnd.info.ClientID, state.Header, cachedHeader)
 	if err != nil {
 		return false, err
 	}

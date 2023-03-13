@@ -43,9 +43,10 @@ func TestScenarioMisbehaviourDetection(t *testing.T) {
 	t.Parallel()
 
 	numVals := 1
+	numFullNodes := 0
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
-		{Name: "gaia", Version: "v9.0.0-rc1", NumValidators: &numVals, ChainConfig: ibc.ChainConfig{ChainID: "chain-a", GasPrices: "0.0uatom"}},
-		{Name: "gaia", Version: "v9.0.0-rc1", NumValidators: &numVals, ChainConfig: ibc.ChainConfig{ChainID: "chain-b", GasPrices: "0.0uatom"}}},
+		{Name: "gaia", Version: "v9.0.0-rc1", NumValidators: &numVals, NumFullNodes: &numFullNodes, ChainConfig: ibc.ChainConfig{ChainID: "chain-a", GasPrices: "0.0uatom"}},
+		{Name: "gaia", Version: "v9.0.0-rc1", NumValidators: &numVals, NumFullNodes: &numFullNodes, ChainConfig: ibc.ChainConfig{ChainID: "chain-b", GasPrices: "0.0uatom"}}},
 	)
 
 	chains, err := cf.Chains(t.Name())
@@ -114,15 +115,9 @@ func TestScenarioMisbehaviourDetection(t *testing.T) {
 	// query tm client state on chainA
 	const clientID = "07-tendermint-0"
 
-	cmd := []string{
-		chainA.Config().Bin, "q", "ibc", "client", "state", clientID,
-		"--node", chainA.GetRPCAddress(),
-		"--home", chainA.HomeDir(),
-		"--chain-id", chainA.Config().ChainID,
-		"--output", "json",
-	}
+	cmd := []string{"ibc", "client", "state", clientID}
 
-	stdout, stderr, err := chainA.Exec(ctx, cmd, nil)
+	stdout, stderr, err := chainA.Validators[0].ExecQuery(ctx, cmd...)
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -188,7 +183,7 @@ func TestScenarioMisbehaviourDetection(t *testing.T) {
 	require.NoError(t, err)
 
 	// query tm client state on chainA to assert it is now frozen
-	stdout, stderr, err = chainA.Exec(ctx, cmd, nil)
+	stdout, stderr, err = chainA.Validators[0].ExecQuery(ctx, cmd...)
 	require.NoError(t, err)
 	require.Empty(t, stderr)
 
@@ -220,10 +215,10 @@ func queryHeaderAtHeight(ctx context.Context, t *testing.T, height int64, chain 
 		perPage = 100000
 	)
 
-	res, err := chain.FullNodes[0].Client.Commit(ctx, &height)
+	res, err := chain.Validators[0].Client.Commit(ctx, &height)
 	require.NoError(t, err)
 
-	val, err := chain.FullNodes[0].Client.Validators(ctx, &height, &page, &perPage)
+	val, err := chain.Validators[0].Client.Validators(ctx, &height, &page, &perPage)
 	require.NoError(t, err)
 
 	protoVal, err := comettypes.NewValidatorSet(val.Validators).ToProto()

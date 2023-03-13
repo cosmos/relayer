@@ -7,7 +7,6 @@ import (
 
 	"github.com/cometbft/cometbft/proto/tendermint/crypto"
 	"github.com/cometbft/cometbft/types"
-	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
@@ -403,7 +402,6 @@ type ChainProvider interface {
 	TrustingPeriod(ctx context.Context) (time.Duration, error)
 	WaitForNBlocks(ctx context.Context, n int64) error
 	Sprint(toPrint proto.Message) (string, error)
-	Codec() codec.BinaryCodec
 }
 
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?
@@ -416,8 +414,6 @@ type QueryProvider interface {
 
 	// QueryIBCHeader returns the IBC compatible block header at a specific height.
 	QueryIBCHeader(ctx context.Context, h int64) (IBCHeader, error)
-
-	QueryHeaderAtHeight(ctx context.Context, h int64) (ibcexported.ClientMessage, error)
 
 	// query packet info for sequence
 	QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (PacketInfo, error)

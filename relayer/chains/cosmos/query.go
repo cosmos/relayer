@@ -1037,25 +1037,6 @@ func (cc *CosmosProvider) QueryStatus(ctx context.Context) (*coretypes.ResultSta
 	return status, nil
 }
 
-// QueryHeaderAtHeight returns the block header at a given height.
-func (cc *CosmosProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.ClientMessage, error) {
-	block, err := cc.LightProvider.LightBlock(ctx, height)
-	if err != nil {
-		return nil, err
-	}
-
-	valSet, err := tmtypes.NewValidatorSet(block.ValidatorSet.Validators).ToProto()
-	if err != nil {
-		return nil, err
-	}
-
-	return &tmclient.Header{
-		SignedHeader: block.SignedHeader.ToProto(),
-		ValidatorSet: valSet,
-		// TrustedHeight and TrustedValidators will be initialized at the call site during misbehaviour checks
-	}, nil
-}
-
 // QueryDenomTrace takes a denom from IBC and queries the information about it
 func (cc *CosmosProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
 	transfers, err := transfertypes.NewQueryClient(cc).DenomTrace(ctx,
