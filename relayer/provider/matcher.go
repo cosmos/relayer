@@ -6,11 +6,20 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/codec"
+	sdkcodec "github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/codec/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 )
+
+var tendermintClientCodec = tmClientCodec()
+
+func tmClientCodec() *sdkcodec.ProtoCodec {
+	interfaceRegistry := types.NewInterfaceRegistry()
+	tmclient.RegisterInterfaces(interfaceRegistry)
+	return sdkcodec.NewProtoCodec(interfaceRegistry)
+}
 
 // ClientsMatch will check the type of an existing light client on the src chain, tracking the dst chain, and run
 // an appropriate matcher function to determine if the existing client's state matches a proposed new client
@@ -39,7 +48,6 @@ func ClientsMatch(ctx context.Context, src, dst ChainProvider, existingClient cl
 // header and the trusted header match then both returned values will be nil.
 func CheckForMisbehaviour(
 	ctx context.Context,
-	cdc codec.BinaryCodec,
 	counterparty ChainProvider,
 	clientID string,
 	proposedHeader []byte,
@@ -50,7 +58,7 @@ func CheckForMisbehaviour(
 		err         error
 	)
 
-	clientMsg, err := clienttypes.UnmarshalClientMessage(cdc, proposedHeader)
+	clientMsg, err := clienttypes.UnmarshalClientMessage(tendermintClientCodec, proposedHeader)
 	if err != nil {
 		return nil, err
 	}

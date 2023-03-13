@@ -2,6 +2,7 @@ package interchaintest_test
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -25,7 +26,6 @@ import (
 	ibcmocks "github.com/cosmos/ibc-go/v7/testing/mock"
 	"github.com/cosmos/ibc-go/v7/testing/simapp"
 	relayertest "github.com/cosmos/relayer/v2/interchaintest"
-	"github.com/dvsekhvalnov/jose2go/base64url"
 	"github.com/strangelove-ventures/interchaintest/v7"
 	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v7/ibc"
@@ -140,7 +140,7 @@ func TestScenarioMisbehaviourDetection(t *testing.T) {
 	err = json.Unmarshal(keyBz, &pvk)
 	require.NoError(t, err)
 
-	decodedKeyBz, err := base64url.Decode(pvk.PrivKey.Value)
+	decodedKeyBz, err := base64.StdEncoding.DecodeString(pvk.PrivKey.Value)
 	require.NoError(t, err)
 
 	privKey := &sdked25519.PrivKey{
