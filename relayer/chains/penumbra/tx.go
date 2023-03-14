@@ -420,7 +420,7 @@ func (cc *PenumbraProvider) MsgCreateClient(clientState ibcexported.ClientState,
 	return NewPenumbraMessage(msg), nil
 }
 
-func (cc *PenumbraProvider) SubmitMisbehavior( /*TBD*/) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) SubmitMisbehavior( /*TBD*/ ) (provider.RelayerMessage, error) {
 	return nil, nil
 }
 
@@ -852,6 +852,20 @@ func (cc *PenumbraProvider) MsgUpgradeClient(srcClientId string, consRes *client
 	return cosmos.NewCosmosMessage(&clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
 		ConsensusState: consRes.ConsensusState, ProofUpgradeClient: consRes.GetProof(),
 		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}), nil
+}
+
+func (cc *PenumbraProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
+
+	msg, err := clienttypes.NewMsgSubmitMisbehaviour(clientID, misbehaviour, signer)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewPenumbraMessage(msg), nil
 }
 
 // mustGetHeight takes the height inteface and returns the actual height
@@ -2096,13 +2110,13 @@ func (cc *PenumbraProvider) sdkError(codespace string, code uint32) error {
 // The wait will end after either the asyncTimeout has run out or the asyncCtx exits.
 // If there is no error broadcasting, the asyncCallback will be called with success/failure of the wait for block inclusion.
 func (cc *PenumbraProvider) broadcastTx(
-	ctx context.Context,            // context for tx broadcast
-	tx []byte,                      // raw tx to be broadcasted
+	ctx context.Context, // context for tx broadcast
+	tx []byte, // raw tx to be broadcasted
 	msgs []provider.RelayerMessage, // used for logging only
-	fees sdk.Coins,                 // used for metrics
+	fees sdk.Coins, // used for metrics
 
-	asyncCtx context.Context,                               // context for async wait for block inclusion after successful tx broadcast
-	asyncTimeout time.Duration,                             // timeout for waiting for block inclusion
+	asyncCtx context.Context, // context for async wait for block inclusion after successful tx broadcast
+	asyncTimeout time.Duration, // timeout for waiting for block inclusion
 	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
 ) error {
 	res, err := cc.RPCClient.BroadcastTxSync(ctx, tx)
